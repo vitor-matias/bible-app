@@ -1,4 +1,4 @@
   <header class="header" [books]="books" (submitData)="onHeaderSubmit($event)"></header>
   <div class="chapterBlock" *ngIf="chapter">
-    <verse *ngFor="let verse of chapter.verses" [data]="verse"></verse>
+    <verse class="verse" *ngFor="let verse of chapter.verses" [data]="verse"></verse>
   </div>
