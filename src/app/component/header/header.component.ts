@@ -32,6 +32,11 @@ export class HeaderComponent implements OnChanges {
       this.book = this.books[0]
       this.chapter = 1
       this.numbers = this.getNumbers(this.book.chapterCount)
+      window.scroll({
+        top: 0,
+        left: 0,
+        behavior: 'smooth'
+      });
       this.submit()
     }
   }
@@ -40,10 +45,20 @@ export class HeaderComponent implements OnChanges {
     this.chapter = 1
     this.submit()
     this.numbers = this.getNumbers(book.chapterCount)
+    window.scroll({
+      top: 0,
+      left: 0,
+      behavior: 'smooth'
+    });
   }
 
   onChapterChange(chapterNumber: Chapter['number']): void {
     this.chapter = chapterNumber
     this.submit()
+    window.scroll({
+      top: 0,
+      left: 0,
+      behavior: 'smooth'
+    });
   }
 }
