@@ -65,6 +65,10 @@
               "buildTarget": "bible-app:build:development"
             }
           },
+          "options": {
+            "proxyConfig": "proxy.conf.js",
+            "port": 4200
+          },
           "defaultConfiguration": "development"
         },
         "extract-i18n": {

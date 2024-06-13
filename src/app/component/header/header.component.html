@@ -1,0 +1,10 @@
+<div class="header-container">
+        <select type="text" [(ngModel)]="book" placeholder="Livro" (ngModelChange)="onBookChange($event)">
+            <option [ngValue]="b" *ngFor="let b of books">{{b.name}}</option>
+        </select>
+        <select type="text" [(ngModel)]="chapter" placeholder="Capitulo" (ngModelChange)="onChapterChange($event)">
+            <option [ngValue]="i" *ngFor="let i of numbers">
+                {{i}}
+            </option>
+        </select>
+</div>

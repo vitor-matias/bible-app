@@ -1,0 +1,7 @@
+<span class="verseNumber">{{data.number}}</span>
+<span class="verseText" *ngFor="let text of data.text">
+    <span *ngIf="text.type === 'text'">{{text.text}}</span>
+    <span *ngIf="text.type=== 'quote'"><blockquote>{{text.text}}<p></blockquote></span>
+    <span *ngIf="text.type=== 'paragraph'"><p></span>
+    <span class="section" *ngIf="text.type === 'section'"><p>{{text.text}}</span>
+</span>

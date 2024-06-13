@@ -1,0 +1,20 @@
+.verseNumber {
+    color: darkred;
+    font-size: 0.8em;
+    vertical-align: top;
+    text-align: right;
+    padding-left: 0.1em;
+}
+
+.section {
+    color: darkred;
+    font-weight: bold;
+}
+
+.verseText {
+    white-space: break-spaces;
+}
+
+.text-block {
+    display: inline-block;
+  }

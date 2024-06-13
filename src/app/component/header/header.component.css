@@ -1,0 +1,40 @@
+.header-container {
+  display: flex;
+  /* Use Flexbox */
+  justify-content: space-between;
+  /* Space elements evenly */
+  align-items: center;
+  /* Center align vertically */
+  /* Add some padding */
+  position: fixed;
+  top: 0; /* Stick it to the top */
+  left: 0; /* Align it to the left */
+  width: 100%; /* Take full width of the viewport */
+  background-color: #543D27; /* Optional: Add background color */
+  height: 55px;
+  overflow: hidden;
+}
+
+
+.header-container input {
+  font-size: 1em;
+  /* Adjust font size */
+  text-align: center;
+  /* Center align text in input */
+  border: none;
+  /* Remove border */
+  border-bottom: 1px solid #ccc;
+  /* Add bottom border */
+  outline: none;
+  /* Remove outline */
+  padding: 5px;
+  margin-left: 10px;
+  /* Add padding */
+  max-width: 100px;
+}
+
+.header-container button {
+  font-size: 1em;
+  cursor: pointer;
+  margin-right: 10px;
+}

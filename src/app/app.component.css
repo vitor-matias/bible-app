@@ -1,0 +1,38 @@
+.flex-container {
+    display: flex;
+    align-items: flex-start;
+    /* Align items to the top */
+}
+
+.chapterBlock {
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+}
+
+.header {
+    height: 50px;
+}
+
+@media (min-width: 480px) {
+    div {
+        -webkit-columns: 2;
+        -moz-columns: 2;
+        columns: 2;
+    }
+}
+
+@media (min-width: 768px) {
+    div {
+        -webkit-columns: 3;
+        -moz-columns: 3;
+        columns: 3;
+    }
+}
+@media (min-width: 1020px) {
+    div {
+        -webkit-columns: 4;
+        -moz-columns: 4;
+        columns: 4;
+    }
+}
