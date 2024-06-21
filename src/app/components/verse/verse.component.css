@@ -1,9 +1,8 @@
 .verseNumber {
     color: darkred;
-    font-size: small;
+    font-size: 65%;
     vertical-align: top;
     text-align: right;
-    padding-left: 0.1em;
 }
 
 .section {
@@ -12,7 +11,7 @@
 }
 
 .verseText {
-    white-space: break-spaces;
+    font-size: 105%;
 }
 
 .text-block {
