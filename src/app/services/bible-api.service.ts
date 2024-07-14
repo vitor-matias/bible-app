@@ -19,4 +19,8 @@ export class BibleApiService {
     return this.http.get(`${this.api}/${book}/${chapter}`) as Observable<Chapter>;
   }
 
+  getBook(book: string): Observable<Book> {
+    return this.http.get(`${this.api}/${book}`) as Observable<Book>;
+  }
+
 }

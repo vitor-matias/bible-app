@@ -17,3 +17,17 @@
 .text-block {
     display: inline-block;
   }
+
+.indent {
+    margin-left: 0; /* Adjust the indentation as needed */
+}
+
+.chapterNumber {
+    float: left; /* Makes the chapter number float to the left */
+    font-size: 333%; /* Adjust the font size as needed */
+    line-height: 1; /* Adjusted for better alignment, might need tweaking */
+
+    /*margin-right: 10px;  Adds space to the right of the chapter number */
+    /* margin-bottom: 10px; Adds space below the chapter number */
+    color: dimgray
+}

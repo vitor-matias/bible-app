@@ -12,15 +12,13 @@ import { FormsModule } from '@angular/forms';
 export class HeaderComponent implements OnChanges {
 
   book: Book = { chapterCount: 0, id: '', name: '', shortName: '' }
-  chapter: number = 1
-  numbers: number[] = []
 
   @Input() books!: Book[]
 
-  @Output() submitData = new EventEmitter<{ book: string; chapter: number }>()
+  @Output() submitData = new EventEmitter<{ book: Book['id'] }>()
 
   submit() {
-    this.submitData.emit({ book: this.book.id, chapter: this.chapter })
+    this.submitData.emit({ book: this.book.id })
   }
 
   getNumbers(count: number): number[] {
@@ -30,8 +28,6 @@ export class HeaderComponent implements OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['books']) {
       this.book = this.books[0]
-      this.chapter = 1
-      this.numbers = this.getNumbers(this.book.chapterCount)
       window.scroll({
         top: 0,
         left: 0,
@@ -42,9 +38,7 @@ export class HeaderComponent implements OnChanges {
   }
 
   onBookChange(book: Book): void {
-    this.chapter = 1
     this.submit()
-    this.numbers = this.getNumbers(book.chapterCount)
     window.scroll({
       top: 0,
       left: 0,
@@ -52,13 +46,4 @@ export class HeaderComponent implements OnChanges {
     });
   }
 
-  onChapterChange(chapterNumber: Chapter['number']): void {
-    this.chapter = chapterNumber
-    this.submit()
-    window.scroll({
-      top: 0,
-      left: 0,
-      behavior: 'smooth'
-    });
-  }
 }

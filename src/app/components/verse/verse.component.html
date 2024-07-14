@@ -1,7 +1,13 @@
-<span class="verseNumber">{{data.number}}</span>
-<span class="verseText" *ngFor="let text of data.text">
+<div *ngIf="data.number === 0" class="chapterNumber">{{data.chapterNumber}}</div>
+<span *ngIf="data.number > 0" class="verseNumber">{{data.number}}</span>
+<span class="verseText" *ngFor="let text of data.text; let i = index; let isFirst = first">
     <span *ngIf="text.type === 'text'">{{text.text}}</span>
-    <span *ngIf="text.type=== 'quote'"><blockquote>{{text.text}}<p></blockquote></span>
-    <span *ngIf="text.type=== 'paragraph'"><p></span>
-    <span class="section" *ngIf="text.type === 'section'"><p>{{text.text}}</span>
+    <span class="quote" *ngIf="text.type === 'quote'"><br><span [ngClass]="{'indent': text.type === 'quote' && !isFirst}">{{text.text}}</span></span>
+    <span *ngIf="text.type === 'paragraph' && data.number > 0 && 
+    (
+        (data.text[i-1]?.type !== 'section' && data.text[i-1]?.type !== 'references' && data.text[i-1]?.type !== 'paragraph')
+    || data.bookId === 'psa')"><br>{{text.text}}</span>
+    <span class="section" *ngIf="text.type === 'section' && data.number > 0"><br>{{text.text}} — </span>
+    <span class="section" *ngIf="text.type === 'section' && data.number === 0">{{text.text}} — </span>
+
 </span>

@@ -1,4 +1,4 @@
-.chapterBlock {
+.bookBlock {
     text-align: justify;
     text-justify: inter-word;
     hyphens: auto;
@@ -12,13 +12,23 @@
 }
 
 @media (min-width: 480px) {
-    .chapterBlock {
+    .bookBlock {
         max-width: 75%;
     }
 }
 
 @media (min-width: 768px) {
-    .chapterBlock {
+    .bookBlock {
         max-width: 50%;
     }
+}
+
+.chapterNumber {
+    float: left; /* Makes the chapter number float to the left */
+    font-size: 333%; /* Adjust the font size as needed */
+    line-height: 1; /* Adjusted for better alignment, might need tweaking */
+
+    /*margin-right: 10px;  Adds space to the right of the chapter number */
+    /* margin-bottom: 10px; Adds space below the chapter number */
+    color: dimgray
 }
