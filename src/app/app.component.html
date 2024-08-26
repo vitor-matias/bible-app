@@ -1,8 +1,22 @@
-  <header class="header" [books]="books" (submitData)="onHeaderSubmit($event)"></header>
-  <div class="bookBlock" *ngIf="book">
-    <div class="chapterBlock" *ngFor="let chapter of book.chapters" id="{{chapter.number}}">
-          <verse class="verse" *ngFor="let verse of chapter.verses" [data]="verse"></verse>
-          <br>
-          <br>
+<mat-drawer-container class="bookSelectorContainer" #container>
+
+  <mat-drawer *ngIf="books" class="bookSelector" mode="over" position="end" #drawer closed>
+    <book-selector [books]="books" (submitData)="onBookSubmit($event)"></book-selector>
+  </mat-drawer>
+  <mat-drawer-content *ngIf="book">
+
+    <div>
+      <header class="header" [book]="book" (openBookSelector)="openDrawer($event)"></header>
     </div>
-  </div>
+
+    <div style="margin: 8px 8px 8px 8px;">
+      <div class="bookBlock">
+        <div class="chapterBlock" *ngIf="chapter">
+          <verse class="verse" *ngFor="let verse of chapter.verses" [data]="verse"></verse>
+        </div>
+      </div>
+    </div>
+    <chapter-pagination class="pagination" [chapter]="chapterNumber" [totalChapters]="book.chapterCount" (chapterEmiter)="getChapter(book.id,$event.chapter)">
+    </chapter-pagination>
+  </mat-drawer-content>
+</mat-drawer-container>

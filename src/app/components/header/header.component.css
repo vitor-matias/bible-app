@@ -1,7 +1,7 @@
-.header-container {
+.mat-toolbar {
   display: flex;
   /* Use Flexbox */
-  justify-content: space-between;
+  justify-content: center;
   /* Space elements evenly */
   align-items: center;
   /* Center align vertically */
@@ -11,26 +11,19 @@
   left: 0; /* Align it to the left */
   width: 100%; /* Take full width of the viewport */
   background-color: #543D27; /* Optional: Add background color */
-  height: 55px;
   overflow: hidden;
+  height: inherit;
 }
 
-
-.header-container select {
-  font-size: medium;
-  /* Adjust font size */
-  text-align: center;
-  /* Center align text in input */
-  border: none;
-  /* Remove border */
-  border-bottom: 1px solid #ccc;
-  /* Add bottom border */
-  outline: none;
-  /* Remove outline */
-  padding: 5px;
-  margin-left: 10px;
-  margin-right: 10px;
-
-  /* Add pa375pxdding */
-  max-width: 75%;
+span {
+  color: antiquewhite;
+  display: flex;
+  align-items: center; /* Center vertically */
+  justify-content: center; /* Center horizontally */
+  font-family: sans-serif;
 }
+
+div {
+  height: 55px;
+}
+
