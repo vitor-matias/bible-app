@@ -3,5 +3,13 @@
         "formatter": {
             "semicolons": "asNeeded"
         }
+    },
+    "formatter": {
+        "indentStyle": "space"
+    },
+    "files": {
+        "ignore": [
+            "./node_modules/**"
+        ]
     }
 }

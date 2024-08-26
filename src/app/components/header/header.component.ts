@@ -5,23 +5,23 @@ import { MatToolbarModule } from "@angular/material/toolbar" // Import MatToolba
 import { BookSelectorComponent } from "../book-selector/book-selector.component"
 
 @Component({
-	selector: "header",
-	standalone: true,
-	imports: [
-		CommonModule,
-		MatToolbarModule,
-		MatSidenavModule,
-		BookSelectorComponent,
-	],
-	templateUrl: "./header.component.html",
-	styleUrls: ["./header.component.css"],
+  selector: "header",
+  standalone: true,
+  imports: [
+    CommonModule,
+    MatToolbarModule,
+    MatSidenavModule,
+    BookSelectorComponent,
+  ],
+  templateUrl: "./header.component.html",
+  styleUrls: ["./header.component.css"],
 })
 export class HeaderComponent {
-	@Input() book!: Book
+  @Input() book!: Book
 
-	@Output() openBookSelector = new EventEmitter<{ open: boolean }>()
+  @Output() openBookSelector = new EventEmitter<{ open: boolean }>()
 
-	showBookSelector() {
-		this.openBookSelector.emit({ open: true })
-	}
+  showBookSelector() {
+    this.openBookSelector.emit({ open: true })
+  }
 }

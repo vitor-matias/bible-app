@@ -4,24 +4,24 @@ import { Injectable } from "@angular/core"
 import type { Observable } from "rxjs"
 
 @Injectable({
-	providedIn: "root",
+  providedIn: "root",
 })
 export class BibleApiService {
-	api = "v1"
+  api = "v1"
 
-	constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {}
 
-	getAvailableBooks(): Observable<Book[]> {
-		return this.http.get(`${this.api}/books`) as Observable<Book[]>
-	}
+  getAvailableBooks(): Observable<Book[]> {
+    return this.http.get(`${this.api}/books`) as Observable<Book[]>
+  }
 
-	getChapter(book: string, chapter: number): Observable<Chapter> {
-		return this.http.get(
-			`${this.api}/${book}/${chapter}`,
-		) as Observable<Chapter>
-	}
+  getChapter(book: string, chapter: number): Observable<Chapter> {
+    return this.http.get(
+      `${this.api}/${book}/${chapter}`,
+    ) as Observable<Chapter>
+  }
 
-	getBook(book: string): Observable<Book> {
-		return this.http.get(`${this.api}/${book}`) as Observable<Book>
-	}
+  getBook(book: string): Observable<Book> {
+    return this.http.get(`${this.api}/${book}`) as Observable<Book>
+  }
 }
