@@ -1,13 +1,53 @@
-<div *ngIf="data.number === 0" class="chapterNumber">{{data.chapterNumber}}</div>
-<span *ngIf="data.number > 0" class="verseNumber">{{data.number}}</span>
-<span class="verseText" *ngFor="let text of data.text; let i = index; let isFirst = first">
-    <span *ngIf="text.type === 'text'">{{text.text}}</span>
-    <span class="quote" *ngIf="text.type === 'quote'"><br><span [ngClass]="{'indent': text.type === 'quote' && !isFirst}">{{text.text}}</span></span>
-    <span *ngIf="text.type === 'paragraph' && data.number > 0 && 
-    (
-        (data.text[i-1]?.type !== 'section' && data.text[i-1]?.type !== 'references' && data.text[i-1]?.type !== 'paragraph')
-    || data.bookId === 'psa')"><br>{{text.text}}</span>
-    <span class="section" *ngIf="text.type === 'section' && data.number > 0"><br>{{text.text}} — </span>
-    <span class="section" *ngIf="text.type === 'section' && data.number === 0">{{text.text}} — </span>
+<ng-container *ngIf="data">
+    <span *ngIf="data.number > 0" class="verseNumber">{{data.verseLabel}}</span>
 
-</span>
+    <ng-container *ngFor="let text of data.text; let i = index; let isFirst = first; let isLast = last">
+
+        <div *ngIf="shouldDisplayChapterNumber(data, text, i, isLast)" class="chapterNumber">{{data.chapterNumber}}
+        </div>
+
+        <span class="verseText">
+            <!-- If the previous node was a quote node and the current one is not, do a line break 
+            <span *ngIf="text.type !== 'quote' && !isFirst && data.text[i-1].type === 'quote'"><br></span>-->
+
+
+            <span *ngIf="text.type === 'text'"
+                [ngClass]="{'section': !isFirst && data.text[i-1].type === 'section'}">{{text.text}}</span>
+
+            <div *ngIf="text.type === 'paragraph' && !hasSection(data.text) && data.verseLabel !== 'front' ">
+            </div>
+
+            <div *ngIf="isLast && text.type === 'quote'">
+            </div>
+
+            <span *ngIf="text.type === 'paragraph' && !isFirst && isLast && !hasSection(data.text)" class="indent">
+            </span>
+
+
+            <span class="quote" *ngIf="text.type === 'quote'" >
+                <div></div>
+            <span [ngClass]="{'indent': !isFirst}">{{text.text}}</span>
+            </span>
+
+            <span *ngIf="text.type === 'paragraph' && data.number > 0 && 
+    (
+        (data.text[i-1]?.type !== 'section' && data.text[i-1]?.type !== 'references' && (data.text[i-1]?.type !== 'paragraph' || (data.text[i-1]?.type === 'paragraph' && text.text.length > 2)))
+    || data.bookId === 'psa')">{{text.text}}</span>
+
+
+            <span class="section" 
+                *ngIf="text.type === 'section' && !isFirst && text.tag === 's2' && chapterNumberIndex !== i && data.text[i-1]?.type !== 'section'"><br></span>
+
+            <span class="section" [ngClass]="{'center': !isLast && data.text[data.text.length - 1].type === 'quote'}"
+            *ngIf="text.type === 'section' && text.tag === 's2'">{{text.text}}</span>
+
+            <span class="section"
+                *ngIf="data.verseLabel === 'front' && isLast && hasSection(data.text) && data.text[data.text.length -1].type !== 'quote'"> — </span>
+            <span class="section"
+                *ngIf="data.verseLabel !== 'front' && text.type === 'section' && text.tag === 's2' && !isLast && data.text[i + 1].type !== 'quote'"> — </span>
+
+            <h3 style="text-align: center;" *ngIf="text.type === 'section' && text.tag === 's1'">{{text.text}}</h3>
+
+        </span>
+    </ng-container>
+</ng-container>

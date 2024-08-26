@@ -1,16 +1,16 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed } from "@angular/core/testing"
 
-import { BibleApiService } from './bible-api.service';
+import { BibleApiService } from "./bible-api.service"
 
-describe('BibleApiService', () => {
-  let service: BibleApiService;
+describe("BibleApiService", () => {
+  let service: BibleApiService
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
-    service = TestBed.inject(BibleApiService);
-  });
+    TestBed.configureTestingModule({})
+    service = TestBed.inject(BibleApiService)
+  })
 
-  it('should be created', () => {
-    expect(service).toBeTruthy();
-  });
-});
+  it("should be created", () => {
+    expect(service).toBeTruthy()
+  })
+})

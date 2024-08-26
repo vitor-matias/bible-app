@@ -1,5 +1,4 @@
-<div class="header-container">
-        <select type="text" [(ngModel)]="book" placeholder="Livro" (ngModelChange)="onBookChange($event)">
-            <option [ngValue]="b" *ngFor="let b of books">{{b.name}}</option>
-        </select>
-</div>
+<div><mat-toolbar (click)="showBookSelector()" onKeyPress="" onKeyDown="" onKeyUp="">
+    <span>{{book.name}}</span>
+</mat-toolbar>
+</div> 

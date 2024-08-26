@@ -1,49 +1,27 @@
-import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { CommonModule } from "@angular/common"
+import { Component, EventEmitter, Input, Output } from "@angular/core"
+import { MatSidenavModule } from "@angular/material/sidenav"
+import { MatToolbarModule } from "@angular/material/toolbar" // Import MatToolbarModule from the correct module
+import { BookSelectorComponent } from "../book-selector/book-selector.component"
 
 @Component({
-  selector: 'header',
+  selector: "header",
   standalone: true,
-  imports: [CommonModule, FormsModule],
-  templateUrl: './header.component.html',
-  styleUrls: ['./header.component.css']
+  imports: [
+    CommonModule,
+    MatToolbarModule,
+    MatSidenavModule,
+    BookSelectorComponent,
+  ],
+  templateUrl: "./header.component.html",
+  styleUrls: ["./header.component.css"],
 })
-export class HeaderComponent implements OnChanges {
+export class HeaderComponent {
+  @Input() book!: Book
 
-  book: Book = { chapterCount: 0, id: '', name: '', shortName: '' }
+  @Output() openBookSelector = new EventEmitter<{ open: boolean }>()
 
-  @Input() books!: Book[]
-
-  @Output() submitData = new EventEmitter<{ book: Book['id'] }>()
-
-  submit() {
-    this.submitData.emit({ book: this.book.id })
+  showBookSelector() {
+    this.openBookSelector.emit({ open: true })
   }
-
-  getNumbers(count: number): number[] {
-    return Array.from({ length: count }, (v, k) => k + 1);
-  }
-
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['books']) {
-      this.book = this.books[0]
-      window.scroll({
-        top: 0,
-        left: 0,
-        behavior: 'smooth'
-      });
-      this.submit()
-    }
-  }
-
-  onBookChange(book: Book): void {
-    this.submit()
-    window.scroll({
-      top: 0,
-      left: 0,
-      behavior: 'smooth'
-    });
-  }
-
 }
