@@ -20,6 +20,7 @@ import {
 } from "@angular/material/sidenav"
 import { RouterOutlet } from "@angular/router"
 import { NgbPaginationModule } from "@ng-bootstrap/ng-bootstrap"
+import { AppModule } from "./app-module/app.module"
 import { BookSelectorComponent } from "./components/book-selector/book-selector.component"
 import { HeaderComponent } from "./components/header/header.component"
 import { ChapterPagination } from "./components/pagination/chapter-pagination"
@@ -42,6 +43,7 @@ import { BibleApiService } from "./services/bible-api.service"
     NgbPaginationModule,
     MatBottomSheetModule,
     ChapterPagination,
+    AppModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -68,7 +70,6 @@ export class AppComponent {
 
   ngOnInit(): void {
     this.getBooks()
-    this.getChapter("gen", 1)
 
     //setTimeout(() => this.openBottomSheet(), 7000)
   }
@@ -100,7 +101,16 @@ export class AppComponent {
     this.apiService.getAvailableBooks().subscribe({
       next: (res) => {
         this.books = res
-        this.book = this.books.find((book) => book.id === "gen") || ({} as Book)
+
+        const storedBook = localStorage.getItem("book") || "gen"
+        const storedChapter = localStorage.getItem("chapter") || "1"
+
+        if (storedBook && storedChapter) {
+          this.book =
+            this.books.find((book) => book.id === storedBook) || ({} as Book)
+          this.chapterNumber = Number.parseInt(storedChapter, 10)
+          this.getChapter(storedBook, this.chapterNumber)
+        }
       },
       error: (err) => console.error(err),
     })
@@ -113,6 +123,9 @@ export class AppComponent {
         this.chapter = res
         this.cdr.detectChanges()
         this.scrollToTop()
+
+        localStorage.setItem("book", this.book.id)
+        localStorage.setItem("chapter", this.chapterNumber.toString())
       },
       error: (err) => console.error(err),
     })

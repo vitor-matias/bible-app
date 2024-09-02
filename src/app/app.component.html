@@ -11,8 +11,8 @@
 
     <div style="margin: 8px 8px 8px 8px;">
       <div class="bookBlock">
-        <div class="chapterBlock" *ngIf="chapter">
-          <verse class="verse" *ngFor="let verse of chapter.verses" [data]="verse"></verse>
+        <div pinch-to-zoom class="chapterBlock" *ngIf="chapter">
+          <verse  class="verse" *ngFor="let verse of chapter.verses" [data]="verse"></verse>
         </div>
       </div>
     </div>
