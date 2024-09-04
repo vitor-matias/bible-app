@@ -3,6 +3,7 @@ import { Directive, ElementRef, HostListener, Renderer2 } from "@angular/core"
 import Hammer from "hammerjs" // Import the 'Hammer' class from 'hammerjs' library
 
 @Directive({
+  standalone: true,
   selector: "[pinch-to-zoom]",
 })
 export class PinchToZoomDirective {

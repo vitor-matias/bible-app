@@ -1,50 +1,35 @@
-import { CommonModule } from "@angular/common"
+import { animate, state, style, transition, trigger } from "@angular/animations"
 // biome-ignore lint/style/useImportType: <explanation>
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
+  HostListener,
   ViewChild,
   afterRender,
   inject,
 } from "@angular/core"
-import {
-  MatBottomSheet,
-  MatBottomSheetModule,
-  MatBottomSheetRef,
-} from "@angular/material/bottom-sheet"
-import {
-  type MatDrawer,
-  type MatDrawerContainer,
-  MatSidenavModule,
-} from "@angular/material/sidenav"
-import { RouterOutlet } from "@angular/router"
-import { NgbPaginationModule } from "@ng-bootstrap/ng-bootstrap"
-import { AppModule } from "./app-module/app.module"
-import { BookSelectorComponent } from "./components/book-selector/book-selector.component"
-import { HeaderComponent } from "./components/header/header.component"
-import { ChapterPagination } from "./components/pagination/chapter-pagination"
-import { VerseComponent } from "./components/verse/verse.component"
+
+import type { MatDrawer, MatDrawerContainer } from "@angular/material/sidenav"
+
 // biome-ignore lint/style/useImportType: <explanation>
 import { BibleApiService } from "./services/bible-api.service"
 
+const slideInLeft = [
+  style({ transform: "translateX(100%)" }),
+  animate("3009ms ease-out", style({ transform: "translateX(0%)" })),
+]
+
+const slideInRight = [
+  style({ transform: "translateX(-100%)" }),
+  animate("3000ms ease-out", style({ transform: "translateX(0%)" })),
+]
+
 @Component({
   selector: "app-root",
-  standalone: true,
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
-  imports: [
-    RouterOutlet,
-    CommonModule,
-    VerseComponent,
-    HeaderComponent,
-    BookSelectorComponent,
-    MatSidenavModule,
-    NgbPaginationModule,
-    MatBottomSheetModule,
-    ChapterPagination,
-    AppModule,
-  ],
+
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppComponent {
@@ -62,6 +47,7 @@ export class AppComponent {
   books!: Book[]
   chapterNumber = 1
   chapter!: Chapter
+  scrolled!: boolean
 
   constructor(
     private apiService: BibleApiService,
@@ -72,6 +58,14 @@ export class AppComponent {
     this.getBooks()
 
     //setTimeout(() => this.openBottomSheet(), 7000)
+  }
+
+  goToNextChapter(): void {
+    this.getChapter(this.book.id, this.chapterNumber + 1)
+  }
+
+  goToPreviousChapter(): void {
+    this.getChapter(this.book.id, this.chapterNumber - 1)
   }
 
   openBottomSheet(): void {
@@ -121,7 +115,9 @@ export class AppComponent {
     this.apiService.getChapter(book, chapter).subscribe({
       next: (res) => {
         this.chapter = res
+
         this.cdr.detectChanges()
+
         this.scrollToTop()
 
         localStorage.setItem("book", this.book.id)
@@ -139,5 +135,20 @@ export class AppComponent {
 
   openDrawer(event: { open: boolean }) {
     this.drawer.open()
+  }
+
+  @HostListener("scroll", ["$event"])
+  onWindowScroll($event: Event) {
+    const position = ($event.currentTarget as Element)?.scrollTop
+    if (
+      position >= 128 &&
+      // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+      ($event.currentTarget as any)?.scrollTopMax - 168 > position
+    ) {
+      this.scrolled = true
+    } else {
+      this.scrolled = false
+    }
+    this.cdr.detectChanges() // Manually trigger change detection
   }
 }

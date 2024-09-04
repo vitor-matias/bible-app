@@ -51,8 +51,7 @@ h1, h2, h3, h4, h5, h6 {
     height: 100%;
 }
 
-.pagination {
-    bottom: 0; /* Stick it to the bottom */
-    left: 0; /* Align it to the left */
-    width: 100%; /* Take full width of the viewport */
+.center {
+    margin: 0 auto;
+    display: table;
 }

@@ -8,6 +8,7 @@ import {
   Output,
   ViewChild,
 } from "@angular/core"
+import { MatToolbarModule } from "@angular/material/toolbar"
 import { NgbPaginationModule } from "@ng-bootstrap/ng-bootstrap"
 
 const FILTER_PAG_REGEX = /[^0-9]/g
@@ -15,7 +16,7 @@ const FILTER_PAG_REGEX = /[^0-9]/g
 @Component({
   selector: "chapter-pagination",
   standalone: true,
-  imports: [CommonModule, NgbPaginationModule],
+  imports: [CommonModule, MatToolbarModule, NgbPaginationModule],
   templateUrl: "./chapter-pagination.html",
   styleUrl: "./chapter-pagination.css",
   changeDetection: ChangeDetectionStrategy.OnPush,

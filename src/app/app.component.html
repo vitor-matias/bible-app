@@ -3,20 +3,30 @@
   <mat-drawer *ngIf="books" class="bookSelector" mode="over" position="end" #drawer closed>
     <book-selector [books]="books" (submitData)="onBookSubmit($event)"></book-selector>
   </mat-drawer>
-  <mat-drawer-content *ngIf="book">
+  <mat-drawer-content (scroll)="onWindowScroll($event)" *ngIf="book">
 
     <div>
-      <header class="header" [book]="book" (openBookSelector)="openDrawer($event)"></header>
+      <header [book]="book" [chapterNumber]="chapterNumber" (openBookSelector)="openDrawer($event)"></header>
     </div>
 
-    <div style="margin: 8px 8px 8px 8px;">
+    <div (swipeleft)="goToNextChapter()" (swipeRight)="goToPreviousChapter()" style="margin: 8px 8px 8px 8px;">
       <div class="bookBlock">
         <div pinch-to-zoom class="chapterBlock" *ngIf="chapter">
-          <verse  class="verse" *ngFor="let verse of chapter.verses" [data]="verse"></verse>
+          <verse class="verse" *ngFor="let verse of chapter.verses" [data]="verse"></verse>
+          <br><br>
+            <span class="center">© DIFUSORA BÍBLICA</span>
+          <span>
+            Reservados todos os direitos. É proibida a reprodução, total ou parcial, do texto, sem autorização, por
+            escrito, da Editora.</span>
         </div>
       </div>
     </div>
-    <chapter-pagination class="pagination" [chapter]="chapterNumber" [totalChapters]="book.chapterCount" (chapterEmiter)="getChapter(book.id,$event.chapter)">
-    </chapter-pagination>
+
+
+    <div [hidden]="scrolled">
+      <chapter-pagination [chapter]="chapterNumber" [totalChapters]="book.chapterCount"
+        (chapterEmiter)="getChapter(book.id,$event.chapter)">
+      </chapter-pagination>
+    </div>
   </mat-drawer-content>
 </mat-drawer-container>

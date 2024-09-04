@@ -1,4 +1,7 @@
-<div><mat-toolbar (click)="showBookSelector()" onKeyPress="" onKeyDown="" onKeyUp="">
-    <span>{{book.name}}</span>
+<div><mat-toolbar>
+    <span *ngIf="!mobile" class="bookTitle">{{book.name}}</span>
+    <span *ngIf="mobile" class="bookTitle">{{book.shortName + " " + chapterNumber}}</span>
+
+    <button class="bookSelectorButton" (click)="showBookSelector()" mat-flat-button>Α | Ω</button>
 </mat-toolbar>
 </div> 
