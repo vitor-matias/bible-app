@@ -1,10 +1,40 @@
-.pagination{
-
+.mat-toolbar{
   bottom: 0; /* Stick it to the top */
   left: 0; /* Align it to the left */
   width: 100%; /* Take full width of the viewport */
+
+  display: flex;
+  /* Use Flexbox */
+  justify-content: center;
+  /* Space elements evenly */
+  align-items: center;
+  /* Center align vertically */
+  /* Add some padding */
+  position: fixed;
+  left: 0; /* Align it to the left */
+  background-color: white; /* Optional: Add background color */
+  overflow: hidden;
+
 }
 
 input{
-  width: 3.3rem;
+  width: 3.2rem;
+  height: 42px;
 } 
+
+ngb-pagination ::ng-deep ul { margin-bottom: 0px; }
+
+
+div {
+  height: 45px;
+}
+
+.pagination {
+  display: flex;
+  align-items: center; /* Center vertically */
+  justify-content: center; /* Center horizontally */
+  font-family: sans-serif;
+  overflow: hidden;
+  flex-grow: 1;
+  font-size: medium;
+}

@@ -1,12 +1,13 @@
 <!-- <ngb-pagination class="d-flex justify-content-center pagination" [rotate]="true" [collectionSize]="totalChapters" [(page)]="chapter"
 [pageSize]="1" [maxSize]="3" (pageChange)="emitChapter()"/> -->
+<div><mat-toolbar>
 
-<ngb-pagination class="d-flex justify-content-center pagination" [pageSize]="1" [collectionSize]="totalChapters"
+<ngb-pagination class="d-flex justify-content-bottom pagination" [pageSize]="1" [collectionSize]="totalChapters" size="sm"
     [(page)]="chapter" [boundaryLinks]="true" (pageChange)="emitChapter()">
     <ng-template ngbPaginationPages let-page let-pages="pages">
         @if (pages.length > 0) {
         <li class="ngb-custom-pages-item">
-            <div class="mb-3 d-flex flex-nowrap px-2">
+            <div class=" d-flex flex-nowrap px-2">
                 <label id="paginationInputLabel" for="paginationInput" class="col-form-label me-2 ms-1">Capítulo</label>
                 <input #i type="text" inputmode="numeric" pattern="[0-9]*" class="form-control custom-pages-input"
                     id="paginationInput" [value]="page" (keyup.enter)="selectPage(i.value)" (blur)="selectPage(i.value)"
@@ -18,3 +19,4 @@
         }
     </ng-template>
 </ngb-pagination>
+</mat-toolbar></div>

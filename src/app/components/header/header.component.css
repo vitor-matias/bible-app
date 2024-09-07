@@ -15,15 +15,41 @@
   height: inherit;
 }
 
-span {
+.bookTitle {
   color: antiquewhite;
   display: flex;
   align-items: center; /* Center vertically */
   justify-content: center; /* Center horizontally */
   font-family: sans-serif;
+  overflow: hidden;
+  flex-grow: 1;
 }
 
 div {
   height: 55px;
 }
 
+.bookSelectorButton:not(disabled) {
+  position: fixed;
+  right: 8px;
+  background-color: antiquewhite;
+  color: #543D27;
+  width: 18px;
+  font-size: large;
+
+}
+
+.bookSelectorButton:hover {
+  background-color: lightgray;
+}
+
+@media (max-width: 480px) {
+
+  div{
+    height: 45px;
+  
+  }
+  .bookSelectorButton:not(disabled){
+    height: 30px;
+  }
+}

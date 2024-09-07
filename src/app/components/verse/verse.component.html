@@ -46,7 +46,7 @@
             <span class="section"
                 *ngIf="data.verseLabel !== 'front' && text.type === 'section' && text.tag === 's2' && !isLast && data.text[i + 1].type !== 'quote'"> — </span>
 
-            <h3 style="text-align: center;" *ngIf="text.type === 'section' && text.tag === 's1'">{{text.text}}</h3>
+            <h3 style="text-align: center;" *ngIf="text.type === 'section' && (text.tag === 's1' || text.tag === 'ms')">{{text.text}}</h3>
 
         </span>
     </ng-container>
