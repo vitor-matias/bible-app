@@ -1,5 +1,11 @@
 import { CommonModule } from "@angular/common"
-import { Component, EventEmitter, Input, type OnInit, Output } from "@angular/core"
+import {
+  Component,
+  EventEmitter,
+  Input,
+  type OnInit,
+  Output,
+} from "@angular/core"
 import { MatButtonModule } from "@angular/material/button"
 import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar" // Import MatToolbarModule from the correct module
