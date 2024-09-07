@@ -137,18 +137,16 @@ export class AppComponent {
     this.drawer.open()
   }
 
-  @HostListener("scroll", ["$event"])
-  onWindowScroll($event: Event) {
-    const position = ($event.currentTarget as Element)?.scrollTop
-    if (
-      position >= 128 &&
-      // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-      ($event.currentTarget as any)?.scrollTopMax - 168 > position
-    ) {
-      this.scrolled = true
-    } else {
-      this.scrolled = false
-    }
-    this.cdr.detectChanges() // Manually trigger change detection
+  @HostListener("window:scroll", ["$event"])
+  onWindowScroll(event: Event): void {
+    const position = (event.target as HTMLElement).scrollTop
+    const scrollHeight = (event.target as HTMLElement).scrollHeight
+    const offsetHeight = (event.target as HTMLElement).offsetHeight
+
+    this.scrolled =
+      position >= (this.scrolled ? 128 : 168) &&
+      scrollHeight - offsetHeight - (this.scrolled ? 128 : 168) > position
+
+    this.cdr.detectChanges()
   }
 }
