@@ -29,9 +29,16 @@ import { PinchToZoomDirective } from "./directives/pinch-to-zoom.directive"
 
 export class MyHammerConfig extends HammerGestureConfig {
   override overrides = {
-    swipe: { direction: Hammer.DIRECTION_HORIZONTAL },
+    swipe: {
+      enable: this.isTouchDevice(),
+      direction: Hammer.DIRECTION_HORIZONTAL,
+    },
     pinch: { enable: false },
     rotate: { enable: false },
+  }
+
+  private isTouchDevice(): boolean {
+    return "ontouchstart" in window || navigator.maxTouchPoints > 0
   }
 }
 

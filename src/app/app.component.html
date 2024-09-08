@@ -19,15 +19,13 @@
             Reservados todos os direitos. É proibida a reprodução, total ou parcial, do texto, sem autorização, por
             escrito, da Editora.</span>
         </div>
-        <div *ngIf="scrolled" style="height: 45px;"></div>
+        <div *ngIf="scrolled" style="height: 64px;"></div>
       </div>
     </div>
 
 
-    <div *ngIf="!scrolled">
-      <chapter-pagination  [chapter]="chapterNumber" [totalChapters]="book.chapterCount"
+      <chapter-pagination *ngIf="!scrolled" [chapter]="chapterNumber" [totalChapters]="book.chapterCount"
         (chapterEmiter)="getChapter(book.id,$event.chapter)">
       </chapter-pagination>
-    </div>
   </mat-drawer-content>
 </mat-drawer-container>
