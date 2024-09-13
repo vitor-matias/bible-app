@@ -20,7 +20,8 @@ import { RouterOutlet, provideRouter } from "@angular/router"
 import { provideServiceWorker } from "@angular/service-worker"
 import { NgbPaginationModule } from "@ng-bootstrap/ng-bootstrap"
 import { AppComponent } from "./app.component"
-import { routes } from "./app.routes"
+import { AppRoutingModule, routes } from "./app.routes"
+import { AboutComponent } from "./components/about/about.component"
 import { BookSelectorComponent } from "./components/book-selector/book-selector.component"
 import { HeaderComponent } from "./components/header/header.component"
 import { ChapterPagination } from "./components/pagination/chapter-pagination"
@@ -57,6 +58,8 @@ export class MyHammerConfig extends HammerGestureConfig {
     ChapterPagination,
     HammerModule,
     PinchToZoomDirective,
+    AboutComponent,
+    AppRoutingModule,
   ],
   exports: [],
   providers: [

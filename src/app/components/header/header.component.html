@@ -1,6 +1,6 @@
 <div><mat-toolbar>
     <span *ngIf="!mobile" class="bookTitle">{{book.name}}</span>
-    <span *ngIf="mobile" class="bookTitle">{{book.shortName + " " + chapterNumber}}</span>
+    <span *ngIf="mobile" class="bookTitle">{{book.shortName + " " + (book.chapterCount > 1 ? chapterNumber : "")}}</span>
 
     <button class="bookSelectorButton" (click)="showBookSelector()" mat-flat-button>Α | Ω</button>
 </mat-toolbar>

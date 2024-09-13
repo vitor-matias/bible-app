@@ -180,6 +180,10 @@ export class BookSelectorComponent {
       name: "Apocalipse",
       books: ["rev"],
     },
+    {
+      name: "Sobre a Biblia",
+      books: ["about"],
+    },
   ]
 
   @Input()

@@ -13,6 +13,8 @@ import {
 import type { MatDrawer, MatDrawerContainer } from "@angular/material/sidenav"
 
 // biome-ignore lint/style/useImportType: <explanation>
+import { Router, RoutesRecognized } from "@angular/router"
+// biome-ignore lint/style/useImportType: <explanation>
 import { BibleApiService } from "./services/bible-api.service"
 
 const slideInLeft = [
@@ -33,8 +35,6 @@ const slideInRight = [
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppComponent {
-  title = "bible-app"
-
   @ViewChild("drawer")
   drawer!: MatDrawer
 
@@ -48,13 +48,25 @@ export class AppComponent {
   chapterNumber = 1
   chapter!: Chapter
   scrolled!: boolean
+  bookParam: string | null = null
+  chapterParam: string | null = null
 
   constructor(
     private apiService: BibleApiService,
     private cdr: ChangeDetectorRef,
+    private router: Router,
   ) {}
 
   ngOnInit(): void {
+    this.router.events.subscribe((routes) => {
+      if (routes instanceof RoutesRecognized) {
+        // biome-ignore lint/complexity/useLiteralKeys: <explanation>
+        this.bookParam = routes.state.root.firstChild?.params["book"]
+        // biome-ignore lint/complexity/useLiteralKeys: <explanation>
+        this.chapterParam = routes.state.root.firstChild?.params["chapter"]
+      }
+    })
+
     this.getBooks()
 
     //setTimeout(() => this.openBottomSheet(), 7000)
@@ -72,14 +84,28 @@ export class AppComponent {
     //this._bottomSheet.open(ChapterPagination)
   }
 
+  getAboutBook(): Book {
+    return {
+      id: "about",
+      abrv: "Sobre",
+      shortName: "Sobre a Bíblia",
+      name: "Sobre a Bíblia dos Capuchinhos",
+      chapterCount: 1,
+    }
+  }
+
   onBookSubmit(event: { bookId: string }) {
     this.chapterNumber = 1
-    this.book =
-      this.books.find((book) => book.id === event.bookId) || ({} as Book)
+    this.book = this.findBook(event.bookId)
 
     this.getChapter(event.bookId, this.chapterNumber)
 
     this.drawer.close()
+    this.router.navigate([this.book.id, this.chapterNumber])
+  }
+
+  findBook(bookId: Book["id"]): Book {
+    return this.books.find((book) => book.id === bookId) || this.getAboutBook()
   }
 
   getBook(book: string) {
@@ -95,9 +121,12 @@ export class AppComponent {
     this.apiService.getAvailableBooks().subscribe({
       next: (res) => {
         this.books = res
+        this.books.push(this.getAboutBook())
 
-        const storedBook = localStorage.getItem("book") || "gen"
-        const storedChapter = localStorage.getItem("chapter") || "1"
+        const storedBook =
+          this.bookParam || localStorage.getItem("book") || "about"
+        const storedChapter =
+          this.chapterParam || localStorage.getItem("chapter") || "1"
 
         if (storedBook && storedChapter) {
           this.book =
@@ -112,6 +141,8 @@ export class AppComponent {
 
   getChapter(book: Book["id"], chapter: Chapter["number"]) {
     this.chapterNumber = chapter
+    this.router.navigate([this.book.id, this.chapterNumber])
+
     this.apiService.getChapter(book, chapter).subscribe({
       next: (res) => {
         this.chapter = res

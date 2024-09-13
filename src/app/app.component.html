@@ -9,12 +9,13 @@
       <header [book]="book" [chapterNumber]="chapterNumber" (openBookSelector)="openDrawer($event)"></header>
     </div>
 
-    <div (swipeleft)="goToNextChapter()" (swipeRight)="goToPreviousChapter()" style="margin: 8px 8px 8px 8px;">
-      <div class="bookBlock">
+    <div (swipeleft)="goToNextChapter()" (swipeRight)="goToPreviousChapter()" style="margin: 8px 8px 0px 8px;">
+      <div class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}">
         <div pinch-to-zoom class="chapterBlock" *ngIf="chapter">
-          <verse class="verse" *ngFor="let verse of chapter.verses" [data]="verse"></verse>
+            <verse class="verse" *ngFor="let verse of chapter.verses" [data]="verse"></verse>
+            <about *ngIf="book.id==='about'"></about>
           <br><br>
-            <span class="center">© DIFUSORA BÍBLICA</span>
+          <span class="center"><b>© DIFUSORA BÍBLICA</b></span>
           <span class="center">
             Reservados todos os direitos. É proibida a reprodução, total ou parcial, do texto, sem autorização, por
             escrito, da Editora.</span>
@@ -24,8 +25,8 @@
     </div>
 
 
-      <chapter-pagination *ngIf="!scrolled" [chapter]="chapterNumber" [totalChapters]="book.chapterCount"
-        (chapterEmiter)="getChapter(book.id,$event.chapter)">
-      </chapter-pagination>
+    <chapter-pagination *ngIf="!scrolled && book.chapterCount > 1" [chapter]="chapterNumber" [totalChapters]="book.chapterCount"
+      (chapterEmiter)="getChapter(book.id,$event.chapter)">
+    </chapter-pagination>
   </mat-drawer-content>
 </mat-drawer-container>

@@ -14,12 +14,6 @@ describe("AppComponent", () => {
     expect(app).toBeTruthy()
   })
 
-  it(`should have the 'bible-app' title`, () => {
-    const fixture = TestBed.createComponent(AppComponent)
-    const app = fixture.componentInstance
-    expect(app.title).toEqual("bible-app")
-  })
-
   it("should render title", () => {
     const fixture = TestBed.createComponent(AppComponent)
     fixture.detectChanges()
