@@ -26,6 +26,7 @@ p {
 
 .column {
     flex: 1;
+    font-size: 120%;
 }
 
 /* Media query for desktop: 2 columns */
@@ -40,3 +41,4 @@ p {
         flex: 0 0 calc(50% - 12px); /* Adjust width to account for the gap */
     }
 }
+

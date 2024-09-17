@@ -10,8 +10,20 @@
     font-weight: bold;
 }
 
+.s1Section{
+    text-align: center;
+    font-size: 130%;
+    margin: auto;
+}
+
 .verseText {
-    font-size: 105%;
+    font-size: 120%;
+}
+
+h1, h2, h3{
+    font-size: 125%;
+    text-align: center;
+
 }
 
 .text-block {
@@ -24,7 +36,7 @@
 
 .chapterNumber {
     float: left; /* Makes the chapter number float to the left */
-    font-size: 333%; /* Adjust the font size as needed */
+    font-size: 380%; /* Adjust the font size as needed */
     line-height: 1; /* Adjusted for better alignment, might need tweaking */
 
     /*margin-right: 10px;  Adds space to the right of the chapter number */

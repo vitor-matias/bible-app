@@ -8,7 +8,6 @@
     <div>
       <header [book]="book" [chapterNumber]="chapterNumber" (openBookSelector)="openDrawer($event)"></header>
     </div>
-
     <div (swipeleft)="goToNextChapter()" (swipeRight)="goToPreviousChapter()" style="margin: 8px 8px 0px 8px;">
       <div class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}">
         <div pinch-to-zoom class="chapterBlock" *ngIf="chapter">
@@ -26,7 +25,7 @@
 
 
     <chapter-pagination *ngIf="!scrolled && book.chapterCount > 1" [chapter]="chapterNumber" [totalChapters]="book.chapterCount"
-      (chapterEmiter)="getChapter(book.id,$event.chapter)">
+      (chapterEmiter)="goToChapter($event.chapter)">
     </chapter-pagination>
   </mat-drawer-content>
 </mat-drawer-container>

@@ -138,7 +138,6 @@ export class BookSelectorComponent {
         "hab",
         "zep",
         "hag",
-        "mal",
         "zec",
         "mal",
       ],

@@ -60,10 +60,16 @@ export class AppComponent {
   ngOnInit(): void {
     this.router.events.subscribe((routes) => {
       if (routes instanceof RoutesRecognized) {
-        // biome-ignore lint/complexity/useLiteralKeys: <explanation>
-        this.bookParam = routes.state.root.firstChild?.params["book"]
-        // biome-ignore lint/complexity/useLiteralKeys: <explanation>
-        this.chapterParam = routes.state.root.firstChild?.params["chapter"]
+        if (this.books) {
+          // biome-ignore lint/complexity/useLiteralKeys: <explanation>
+          this.bookParam = routes.state.root.firstChild?.params["book"]
+          // biome-ignore lint/complexity/useLiteralKeys: <explanation>
+          this.chapterParam = routes.state.root.firstChild?.params["chapter"]
+          if (this.bookParam && this.chapterParam) {
+            this.book = this.findBook(this.bookParam)
+            this.getChapter(Number(this.chapterParam))
+          }
+        }
       }
     })
 
@@ -73,11 +79,15 @@ export class AppComponent {
   }
 
   goToNextChapter(): void {
-    this.getChapter(this.book.id, this.chapterNumber + 1)
+    this.router.navigate([this.getUrlAbrv(this.book), this.chapterNumber + 1])
   }
 
   goToPreviousChapter(): void {
-    this.getChapter(this.book.id, this.chapterNumber - 1)
+    this.router.navigate([this.getUrlAbrv(this.book), this.chapterNumber - 1])
+  }
+
+  goToChapter(newChapterNumber: Chapter["number"]): void {
+    this.router.navigate([this.getUrlAbrv(this.book), newChapterNumber])
   }
 
   openBottomSheet(): void {
@@ -95,17 +105,27 @@ export class AppComponent {
   }
 
   onBookSubmit(event: { bookId: string }) {
-    this.chapterNumber = 1
     this.book = this.findBook(event.bookId)
 
-    this.getChapter(event.bookId, this.chapterNumber)
+    this.goToChapter(1)
 
     this.drawer.close()
-    this.router.navigate([this.book.id, this.chapterNumber])
   }
 
-  findBook(bookId: Book["id"]): Book {
-    return this.books.find((book) => book.id === bookId) || this.getAboutBook()
+  findBookById(bookId: Book["id"]): Book | undefined {
+    return this.books.find((book) => book.id === bookId)
+  }
+
+  findBookByUrlAbrv(bookAbrv: Book["abrv"]): Book | undefined {
+    return this.books.find((book) => this.getUrlAbrv(book) === bookAbrv)
+  }
+
+  findBook(bookId: Book["id"] | Book["abrv"]): Book {
+    return (
+      this.findBookById(bookId) ||
+      this.findBookByUrlAbrv(bookId) ||
+      this.getAboutBook()
+    )
   }
 
   getBook(book: string) {
@@ -123,29 +143,37 @@ export class AppComponent {
         this.books = res
         this.books.push(this.getAboutBook())
 
+        this.bookParam =
+          this.router.routerState.snapshot.root.firstChild?.params[
+            // biome-ignore lint/complexity/useLiteralKeys: <explanation>
+            "book"
+          ]?.toLowerCase()
+        this.chapterParam =
+          // biome-ignore lint/complexity/useLiteralKeys: <explanation>
+          this.router.routerState.snapshot.root.firstChild?.params["chapter"]
+
         const storedBook =
           this.bookParam || localStorage.getItem("book") || "about"
         const storedChapter =
           this.chapterParam || localStorage.getItem("chapter") || "1"
 
         if (storedBook && storedChapter) {
-          this.book =
-            this.books.find((book) => book.id === storedBook) || ({} as Book)
+          this.book = this.findBook(storedBook)
+
           this.chapterNumber = Number.parseInt(storedChapter, 10)
-          this.getChapter(storedBook, this.chapterNumber)
+          this.getChapter(this.chapterNumber)
         }
       },
       error: (err) => console.error(err),
     })
   }
 
-  getChapter(book: Book["id"], chapter: Chapter["number"]) {
-    this.chapterNumber = chapter
-    this.router.navigate([this.book.id, this.chapterNumber])
-
-    this.apiService.getChapter(book, chapter).subscribe({
+  getChapter(chapter: Chapter["number"]) {
+    this.apiService.getChapter(this.book.id, chapter).subscribe({
       next: (res) => {
         this.chapter = res
+        this.chapterNumber = chapter
+        this.router.navigate([this.getUrlAbrv(this.book), this.chapterNumber])
 
         this.cdr.detectChanges()
 
@@ -154,7 +182,20 @@ export class AppComponent {
         localStorage.setItem("book", this.book.id)
         localStorage.setItem("chapter", this.chapterNumber.toString())
       },
-      error: (err) => console.error(err),
+      error: (err) => {
+        if (this.book.id === "about") {
+          this.chapter = { bookId: "about", number: 1 }
+          this.chapterNumber = chapter
+          this.router.navigate([this.getUrlAbrv(this.book), this.chapterNumber])
+          this.cdr.detectChanges()
+
+          this.scrollToTop()
+
+          localStorage.setItem("book", this.book.id)
+          localStorage.setItem("chapter", this.chapterNumber.toString())
+        }
+        console.error(err)
+      },
     })
   }
 
@@ -179,5 +220,19 @@ export class AppComponent {
       scrollHeight - offsetHeight - (this.scrolled ? 128 : 168) > position
 
     this.cdr.detectChanges()
+  }
+
+  @HostListener("window:keydown", ["$event"])
+  onArrowPress(event: KeyboardEvent): void {
+    if (event.key === "ArrowLeft") {
+      this.goToPreviousChapter()
+    }
+    if (event.key === "ArrowRight") {
+      this.goToNextChapter()
+    }
+  }
+
+  getUrlAbrv(book: Book): string {
+    return book.abrv.replace(/\s/g, "").toLowerCase()
   }
 }

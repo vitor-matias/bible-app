@@ -1,5 +1,11 @@
 // biome-ignore lint/style/useImportType: <explanation>
-import { Directive, ElementRef, HostListener, Renderer2 } from "@angular/core"
+import {
+  Directive,
+  ElementRef,
+  HostListener,
+  Renderer2,
+  RendererStyleFlags2,
+} from "@angular/core"
 import Hammer from "hammerjs" // Import the 'Hammer' class from 'hammerjs' library
 
 @Directive({
@@ -52,5 +58,10 @@ export class PinchToZoomDirective {
       "font-size",
       `${newFontSize}%`,
     )
+
+    const headings = this.el.nativeElement.querySelectorAll("h1, h2, h3")
+    for (const heading of headings) {
+      this.renderer.setStyle(heading, "font-size", `${newFontSize + 5}%`)
+    }
   }
 }
