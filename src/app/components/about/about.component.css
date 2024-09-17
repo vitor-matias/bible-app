@@ -29,6 +29,10 @@ p {
     font-size: 120%;
 }
 
+.url{
+    word-break: break-all
+}
+
 /* Media query for desktop: 2 columns */
 @media (min-width: 768px) {
     .container {
