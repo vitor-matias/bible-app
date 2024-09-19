@@ -10,10 +10,11 @@
         {
             "src": "imgs/screenshot_desktop.jpeg",
             "type": "image/jpeg",
-            "sizes": "1920x1080"
+            "sizes": "1920x1080",
+            "form_factor": "wide"
         },
         {
-            "src": "img/screenshot_mobile.jpeg",
+            "src": "imgs/screenshot_mobile.jpeg",
             "type": "image/jpeg",
             "sizes": "458x990"
         }
