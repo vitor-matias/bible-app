@@ -67,6 +67,7 @@ export class AppComponent {
           this.chapterParam = routes.state.root.firstChild?.params["chapter"]
           if (this.bookParam && this.chapterParam) {
             this.book = this.findBook(this.bookParam)
+            this.chapterNumber = Number(this.chapterParam)
             this.getChapter(Number(this.chapterParam))
           }
         }
