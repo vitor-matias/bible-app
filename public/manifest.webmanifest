@@ -21,6 +21,12 @@
   ],
   "icons": [
     {
+      "src": "icons/monochrome_icon_x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable monochrome"
+    },
+    {
       "src": "icons/maskable_icon_x48.png",
       "sizes": "48x48",
       "type": "image/png",
@@ -61,12 +67,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
-    },
-    {
-      "src": "icons/monochrome_icon_x500.png",
-      "sizes": "500x500",
-      "type": "image/png",
-      "purpose": "monochrome"
     }
   ],
   "display_override": [
