@@ -55,10 +55,15 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "icons/512X512_REDONDO.png",
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
   "display_override": [
-    "window-controls-overlay",
+    "window-controls-overlay", 
     "standalone",
     "browser"
   ]
