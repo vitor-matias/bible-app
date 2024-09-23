@@ -58,6 +58,7 @@
     },
     {
       "src": "icons/512X512_REDONDO.png",
+      "size": "512x512",
       "type": "image/png",
       "purpose": "any"
     }
