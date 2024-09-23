@@ -61,10 +61,16 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "icons/monochrome_icon_x500.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "monochrome"
     }
   ],
   "display_override": [
-    "window-controls-overlay", 
+    "window-controls-overlay", monochrome_icon_x500.png
     "standalone",
     "browser"
   ]
