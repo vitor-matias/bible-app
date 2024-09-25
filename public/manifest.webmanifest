@@ -5,27 +5,23 @@
   "background_color": "#fafafa",
   "display": "standalone",
   "scope": "./",
+  "id": "/",
+  "description": "Entre a vida donde brotou e a escrita em que foi fixada, passando pela tradição oral, a Bíblia foi vestindo as formas de expressão e comunicação das várias épocas e gerações. A Difusora Bíblica foi fundada em 1955, tendo como principal objetivo «difundir e dar a conhecer a Palavra de Deus». A sua primeira edição completa da Bíblia Sagrada data de 1965.\nAs novas tecnologias abriram potencialidades quase ilimitadas para levarmos a Boa Nova até aos confins da terra, no seguimento do mandato de Jesus. Assim, em 2007, o texto da Bíblia Sagrada foi disponibilizado gratuitamente na internet, e, em 2011, em aplicações para telemóvel.\nAgora, em aplicação própria, o texto da Sagrada Escritura que aqui se apresenta, é o da 1ª edição segundo o Acordo Ortográfico de 1990, que data de junho de 2015.\nA Difusora Bíblica é uma Editora da Província Portuguesa dos Capuchinhos, e constitui, com o apostolado bíblico, uma das expressões mais visíveis dos Franciscanos Capuchinhos em Portugal.",
   "start_url": "./",
   "screenshots": [
-        {
-            "src": "imgs/screenshot_desktop.jpeg",
-            "type": "image/jpeg",
-            "sizes": "2120x1193",
-            "form_factor": "wide"
-        },
-        {
-            "src": "imgs/screenshot_mobile.jpeg",
-            "type": "image/jpeg",
-            "sizes": "458x990"
-        }
+    {
+      "src": "imgs/screenshot_desktop.jpeg",
+      "type": "image/jpeg",
+      "sizes": "2120x1193",
+      "form_factor": "wide"
+    },
+    {
+      "src": "imgs/screenshot_mobile.jpeg",
+      "type": "image/jpeg",
+      "sizes": "458x990"
+    }
   ],
   "icons": [
-    {
-      "src": "icons/monochrome_icon_x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "monochrome"
-    },
     {
       "src": "icons/maskable_icon_x48.png",
       "sizes": "48x48",
@@ -61,6 +57,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "icons/monochrome_icon_x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "monochrome"
     },
     {
       "src": "icons/512X512_REDONDO.png",
