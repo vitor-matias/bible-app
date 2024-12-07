@@ -25,7 +25,7 @@
                    <span #paragraph [ngClass]="{'indent': !checkIfIsTouchingChapterNumber(paragraph)}">{{text.text}}</span>
                 </span>
 
-                <span *ngIf="text.type === 'paragraph' && data.number > 0 && 
+                <span *ngIf="text.type === 'paragraph' && data.number > 0 && !(!isFirst && isLast && chapterNumberIndex !== i) &&
     (
         (data.text[i-1]?.type !== 'section' && data.text[i-1]?.type !== 'references' && (data.text[i-1]?.type !== 'paragraph' || (data.text[i-1]?.type === 'paragraph' && text.text.length > 2)))
     || data.bookId === 'psa')">{{text.text}}</span>

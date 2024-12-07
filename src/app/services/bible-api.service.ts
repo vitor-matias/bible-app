@@ -1,7 +1,14 @@
 // biome-ignore lint/style/useImportType: <explanation>
 import { HttpClient } from "@angular/common/http"
 import { Injectable } from "@angular/core"
-import { catchError, finalize, from, of, switchMap, type Observable } from "rxjs"
+import {
+  type Observable,
+  catchError,
+  finalize,
+  from,
+  of,
+  switchMap,
+} from "rxjs"
 
 @Injectable({
   providedIn: "root",

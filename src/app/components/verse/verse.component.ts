@@ -24,8 +24,6 @@ export class VerseComponent {
   @Input()
   data!: Verse
 
-
-
   constructor(private cdr: ChangeDetectorRef) {}
 
   shouldDisplayChapterNumber(
