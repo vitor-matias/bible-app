@@ -22,7 +22,7 @@ export class PinchToZoomDirective {
   ) {
     // Get the initial font size
     const computedStyle = getComputedStyle(this.el.nativeElement)
-    this.baseFontSize = Number.parseFloat(computedStyle.fontSize) || 105 // Default to 16px if no font size is set
+    this.baseFontSize = Number.parseFloat(computedStyle.fontSize) || 75 // Default to 16px if no font size is set
 
     const storedSize = localStorage.getItem(`fontSize${el.nativeElement.name}`)
 

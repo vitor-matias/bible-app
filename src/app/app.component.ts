@@ -6,8 +6,7 @@ import {
   Component,
   HostListener,
   ViewChild,
-  afterRender,
-  inject,
+  
 } from "@angular/core"
 
 import type { MatDrawer, MatDrawerContainer } from "@angular/material/sidenav"
@@ -35,8 +34,11 @@ const slideInRight = [
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppComponent {
-  @ViewChild("drawer")
-  drawer!: MatDrawer
+  @ViewChild("bookDrawer")
+  bookDrawer!: MatDrawer
+
+  @ViewChild("chapterDrawer")
+  chapterDrawer!: MatDrawer
 
   @ViewChild("container")
   container!: MatDrawerContainer
@@ -110,7 +112,13 @@ export class AppComponent {
 
     this.goToChapter(1)
 
-    this.drawer.close()
+    this.bookDrawer.close()
+  }
+
+  onChapterSubmit(event: { chapterNumber: number }) {
+    this.goToChapter(event.chapterNumber)
+
+    this.chapterDrawer.close()
   }
 
   findBookById(bookId: Book["id"]): Book | undefined {
@@ -206,8 +214,14 @@ export class AppComponent {
     }, 0)
   }
 
-  openDrawer(event: { open: boolean }) {
-    this.drawer.open()
+  openBookDrawer(event: { open: boolean }) {
+    this.chapterDrawer.close()
+    this.bookDrawer.toggle()
+  }
+
+  openChapterDrawer(event: { open: boolean }) {
+    this.bookDrawer.close()
+    this.chapterDrawer.toggle()
   }
 
   @HostListener("window:scroll", ["$event"])

@@ -1,0 +1,15 @@
+.chapterSelectorButton:not(disabled) {
+    background-color: white;
+    color: black;
+    font-size: large;
+    margin-left: 8px;  /* Add some spacing between buttons */
+  }
+  
+  .chapterSelectorButton:hover {
+    background-color: lightgray;
+  }
+
+  button.highlight {
+    background-color: #e0f7fa;
+    /* any extra styling you like */
+  }

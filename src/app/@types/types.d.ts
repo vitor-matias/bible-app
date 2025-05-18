@@ -59,8 +59,8 @@ type Chapter = {
   number: number
   introduction?: string
   verses?: Verse[]
+  title?: string
 }
-
 type Verse = {
   bookId: Book["id"]
   chapterNumber: Chapter["number"]

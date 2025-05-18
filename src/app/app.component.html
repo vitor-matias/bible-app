@@ -1,12 +1,17 @@
 <mat-drawer-container class="bookSelectorContainer" #container>
 
-  <mat-drawer *ngIf="books" class="bookSelector" mode="over" position="end" #drawer closed>
+  <mat-drawer *ngIf="books" class="bookSelector" mode="over" position="start" #bookDrawer closed>
     <book-selector [books]="books" (submitData)="onBookSubmit($event)"></book-selector>
   </mat-drawer>
+
+  <mat-drawer *ngIf="chapter" class="chapterSelector" mode="over" position="start" #chapterDrawer closed>
+    <chapter-selector [chapters]="book.chapters || []" [selectedChapter]="chapterNumber" (submitData)="onChapterSubmit($event)"></chapter-selector>
+  </mat-drawer>
+
   <mat-drawer-content (scroll)="onWindowScroll($event)" *ngIf="book">
 
     <div>
-      <header [book]="book" [chapterNumber]="chapterNumber" (openBookSelector)="openDrawer($event)"></header>
+      <header [book]="book" [chapterNumber]="chapterNumber" (openBookSelector)="openBookDrawer($event)" (openChapterSelector)="openChapterDrawer($event)"></header>
     </div>
     <div (swipeleft)="goToNextChapter()" (swipeRight)="goToPreviousChapter()" style="margin: 8px 8px 0px 8px;">
       <div class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}">
@@ -23,9 +28,17 @@
       </div>
     </div>
 
+        <!-- Floating navigation buttons -->
+        <button *ngIf="book.id !== 'about' && chapter.number > 1" class="floating-nav-button prev-chapter" 
+        mat-mini-fab aria-label="Previous chapter"
+        (click)="goToPreviousChapter()">
+  <mat-icon>chevron_left</mat-icon>
+</button>
+<button *ngIf="book.id !== 'about' && chapter.number < book.chapterCount" class="floating-nav-button next-chapter" 
+        mat-mini-fab aria-label="Next chapter"
+        (click)="goToNextChapter()">
+  <mat-icon>chevron_right</mat-icon>
+</button>
 
-    <chapter-pagination *ngIf="!scrolled && book.chapterCount > 1" [chapter]="chapterNumber" [totalChapters]="book.chapterCount"
-      (chapterEmiter)="goToChapter($event.chapter)">
-    </chapter-pagination>
   </mat-drawer-content>
 </mat-drawer-container>

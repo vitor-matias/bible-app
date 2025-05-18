@@ -27,6 +27,9 @@ import { HeaderComponent } from "./components/header/header.component"
 import { ChapterPagination } from "./components/pagination/chapter-pagination"
 import { VerseComponent } from "./components/verse/verse.component"
 import { PinchToZoomDirective } from "./directives/pinch-to-zoom.directive"
+import { ChapterSelectorComponent } from "./components/chapter-selector/chapter-selector.component"
+import { MatIconModule } from "@angular/material/icon"
+import { MatButtonModule } from "@angular/material/button"
 
 export class MyHammerConfig extends HammerGestureConfig {
   override overrides = {
@@ -60,6 +63,9 @@ export class MyHammerConfig extends HammerGestureConfig {
     PinchToZoomDirective,
     AboutComponent,
     AppRoutingModule,
+    ChapterSelectorComponent,
+    MatIconModule,
+    MatButtonModule,
   ],
   exports: [],
   providers: [

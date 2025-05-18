@@ -1,7 +1,29 @@
 <div><mat-toolbar>
-    <span *ngIf="!mobile" class="bookTitle">{{book.name}}</span>
-    <span *ngIf="mobile" class="bookTitle">{{book.shortName + " " + (book.chapterCount > 1 ? chapterNumber : "")}}</span>
+    <div class="header-content">
 
-    <button class="bookSelectorButton" (click)="showBookSelector()" mat-flat-button>Α | Ω</button>
+        <mat-button-toggle-group multiple class="bookSelectorButton">
+            <mat-button-toggle
+              #bookToggle
+              mat-flat-button
+              class="bookSelectorButtonContent"
+              (click)="showBookSelector(); bookToggle.checked = false">
+              {{ mobile ? book.shortName : book.name }}
+            </mat-button-toggle>
+    
+            <mat-button-toggle
+              *ngIf="book.id !== 'about'"
+              #chapterToggle
+              mat-flat-button
+              class="bookSelectorButtonContent"
+              (click)="showChapterSelector(); chapterToggle.checked = false">
+              {{ book.chapterCount > 1 ? chapterNumber : '' }}
+            </mat-button-toggle>
+        </mat-button-toggle-group>
+
+    
+    <button *ngIf="book.id !== 'about'" class="bookSelectorButton searchButton" (click)="showSearchDrawer()" mat-flat-button>
+        <mat-icon style="color: #543D27;" aria-label="Search">search</mat-icon>
+    </button>
+</div>
 </mat-toolbar>
 </div> 

@@ -10,35 +10,57 @@ h1, h2, h3, h4, h5, h6 {
     text-justify: inter-word;
     hyphens: auto;
     display: block;
-    margin-left: auto;
-    margin-right: auto;
-    font-size: 120%;
+    margin: 15px;
+    font-size: 105%;
+
 }
 .chapterBlock{
     touch-action: pan-y !important;
 }
 
-@media (min-width: 480px) {
+@media (max-width: 768px) {
     .bookBlock {
         max-width: 90%;
     }
     .bookSelector {
         width: 100%;
     }
+
+
+    .prev-chapter{
+        top: 96%;
+    }
+
+    .next-chapter{
+        top: 96%;
+    }
+
 }
 
 @media (min-width: 768px) {
     .bookBlock {
         max-width: 55%;
+        margin-left: auto;
+        margin-right: auto;   
     }
     .bookBlock.largeBook{
         max-width: 80%;
     }
 
-
     .bookSelector {
         width: 515px;
     }
+
+
+    .prev-chapter{
+        top: 50%;
+    }
+
+    .next-chapter{
+        top: 50%;
+    }
+
+
 }
 
 .chapterNumber {
@@ -60,3 +82,27 @@ h1, h2, h3, h4, h5, h6 {
     margin: 0 auto;
     display: table;
 }
+
+
+.floating-nav-button {
+    position: fixed;
+    z-index: 100;
+    opacity: 0.6;
+    transition: opacity 0.3s;
+    color: #543D27;
+    background-color: antiquewhite;
+  }
+  
+  .floating-nav-button:hover {
+    opacity: 1;
+  }
+  
+  .prev-chapter {
+    left: 16px;
+    transform: translateY(-50%);
+  }
+  
+  .next-chapter {
+    right: 16px;
+    transform: translateY(-50%);
+  }
