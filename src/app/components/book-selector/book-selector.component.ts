@@ -24,17 +24,16 @@ interface ExampleFlatNode {
 }
 
 @Component({
-  selector: "book-selector",
-  standalone: true,
-  imports: [
-    CommonModule,
-    MatListModule,
-    MatTreeModule,
-    MatIconModule,
-    MatButtonModule,
-  ],
-  templateUrl: "./book-selector.component.html",
-  styleUrl: "./book-selector.component.css",
+    selector: "book-selector",
+    imports: [
+        CommonModule,
+        MatListModule,
+        MatTreeModule,
+        MatIconModule,
+        MatButtonModule,
+    ],
+    templateUrl: "./book-selector.component.html",
+    styleUrl: "./book-selector.component.css"
 })
 export class BookSelectorComponent {
   private _transformer = (node: BookNode | string, level: number) => {

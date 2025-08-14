@@ -9,12 +9,11 @@ import {
 import { VerseSectionComponent } from "../verse-section/verse-section.component"
 
 @Component({
-  selector: "verse",
-  standalone: true,
-  imports: [CommonModule, VerseSectionComponent],
-  templateUrl: "./verse.component.html",
-  styleUrl: "./verse.component.css",
-  changeDetection: ChangeDetectionStrategy.OnPush,
+    selector: "verse",
+    imports: [CommonModule, VerseSectionComponent],
+    templateUrl: "./verse.component.html",
+    styleUrl: "./verse.component.css",
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class VerseComponent {
   isChapterNumberDisplayed = false

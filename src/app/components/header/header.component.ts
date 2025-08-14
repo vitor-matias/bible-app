@@ -13,18 +13,17 @@ import { MatToolbarModule } from "@angular/material/toolbar" // Import MatToolba
 import { MatIconModule } from "@angular/material/icon"
 
 @Component({
-  selector: "header",
-  standalone: true,
-  imports: [
-    CommonModule,
-    MatToolbarModule,
-    MatSidenavModule,
-    MatButtonModule,
-    MatIconModule,
-    MatButtonToggleModule,
-  ],
-  templateUrl: "./header.component.html",
-  styleUrls: ["./header.component.css"],
+    selector: "header",
+    imports: [
+        CommonModule,
+        MatToolbarModule,
+        MatSidenavModule,
+        MatButtonModule,
+        MatIconModule,
+        MatButtonToggleModule,
+    ],
+    templateUrl: "./header.component.html",
+    styleUrls: ["./header.component.css"]
 })
 export class HeaderComponent implements OnInit {
   @Input() book!: Book

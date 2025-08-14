@@ -11,17 +11,16 @@ import {
 } from "@angular/material/tree"
 
 @Component({
-  selector: "chapter-selector",
-  standalone: true,
-  imports: [
-    CommonModule,
-    MatListModule,
-    MatTreeModule,
-    MatIconModule,
-    MatButtonModule,
-  ],
-  templateUrl: "./chapter-selector.component.html",
-  styleUrl: "./chapter-selector.component.css",
+    selector: "chapter-selector",
+    imports: [
+        CommonModule,
+        MatListModule,
+        MatTreeModule,
+        MatIconModule,
+        MatButtonModule,
+    ],
+    templateUrl: "./chapter-selector.component.html",
+    styleUrl: "./chapter-selector.component.css"
 })
 export class ChapterSelectorComponent {
   @Input()
