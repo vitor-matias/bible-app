@@ -28,7 +28,7 @@
         <!-- Complex Paragraph Logic -->
         <ng-container *ngIf="text.type === 'paragraph'">
           <!-- First Case: Last paragraph with specific conditions -->
-          <span *ngIf="!isFirst && isLast && chapterNumberIndex !== i">
+          <span *ngIf="!isFirst && isLast && chapterNumberIndex !== i && !shouldShowParagraph(data, text, i)">
             <div></div>
             <span #paragraph [ngClass]="{'indent': !checkIfIsTouchingChapterNumber(paragraph)}">
               {{ text.text }}
@@ -36,7 +36,7 @@
           </span>
 
           <!-- Second Case: Regular paragraph with complex conditions -->
-          <span *ngIf="shouldShowParagraph(data, text, i)">
+          <span #paragraph *ngIf="shouldShowParagraph(data, text, i)" [ngClass]="{'indent': !checkIfIsTouchingChapterNumber(paragraph)}">
             {{ text.text }}
           </span>
         </ng-container>
