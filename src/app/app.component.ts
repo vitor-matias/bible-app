@@ -4,7 +4,7 @@ import { CommonModule } from "@angular/common"
 
 import { Router, RouterOutlet } from "@angular/router"
 
-import { BibleApiService } from "./services/bible-api.service"
+import { SwUpdate } from "@angular/service-worker"
 
 @Component({
   selector: "app-root",
@@ -14,4 +14,16 @@ import { BibleApiService } from "./services/bible-api.service"
   standalone: true,
   imports: [CommonModule, RouterOutlet],
 })
-export class AppComponent {}
+export class AppComponent {
+  constructor(private swUpdate: SwUpdate) {
+    if (this.swUpdate.isEnabled) {
+      this.swUpdate.versionUpdates.subscribe(event => {
+        if (event.type === 'VERSION_READY') {
+          this.swUpdate.activateUpdate().then(() => {
+            window.location.reload();
+          });
+        }
+      });
+    }
+  }
+}
