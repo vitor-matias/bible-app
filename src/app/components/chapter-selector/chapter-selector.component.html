@@ -3,7 +3,7 @@
 
   <ng-container *ngFor="let chapter of chapters">
     <mat-list-item>
-      <button class="chapterSelectorButton" mat-button (click)="submit(chapter.number)"
+      <button class="chapterSelectorButton" mat-flat-button (click)="submit(chapter.number)"
         [ngClass]="{ 'highlight': chapter.number === selectedChapter }">
         {{ chapter.number + " - " + chapter.title }}
       </button>

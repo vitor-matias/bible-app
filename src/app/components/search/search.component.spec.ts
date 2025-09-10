@@ -1,17 +1,17 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 
-import { VerseSectionComponent } from "./verse-section.component"
+import { SearchComponent } from "./search.component"
 
-describe("VerseSectionComponent", () => {
-  let component: VerseSectionComponent
-  let fixture: ComponentFixture<VerseSectionComponent>
+describe("SearchComponent", () => {
+  let component: SearchComponent
+  let fixture: ComponentFixture<SearchComponent>
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [VerseSectionComponent],
+      imports: [SearchComponent],
     }).compileComponents()
 
-    fixture = TestBed.createComponent(VerseSectionComponent)
+    fixture = TestBed.createComponent(SearchComponent)
     component = fixture.componentInstance
     fixture.detectChanges()
   })

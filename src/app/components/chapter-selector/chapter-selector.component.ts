@@ -11,16 +11,16 @@ import {
 } from "@angular/material/tree"
 
 @Component({
-    selector: "chapter-selector",
-    imports: [
-        CommonModule,
-        MatListModule,
-        MatTreeModule,
-        MatIconModule,
-        MatButtonModule,
-    ],
-    templateUrl: "./chapter-selector.component.html",
-    styleUrl: "./chapter-selector.component.css"
+  selector: "chapter-selector",
+  imports: [
+    CommonModule,
+    MatListModule,
+    MatTreeModule,
+    MatIconModule,
+    MatButtonModule,
+  ],
+  templateUrl: "./chapter-selector.component.html",
+  styleUrl: "./chapter-selector.component.css",
 })
 export class ChapterSelectorComponent {
   @Input()
@@ -29,9 +29,12 @@ export class ChapterSelectorComponent {
   @Input()
   selectedChapter: Chapter["number"] = 1
 
-  @Output() submitData = new EventEmitter<{ chapterNumber: Chapter["number"] }>()
+  @Output() submitData = new EventEmitter<{
+    chapterNumber: Chapter["number"]
+  }>()
 
   submit(id: Chapter["number"]) {
+    this.selectedChapter = id
     this.submitData.emit({ chapterNumber: id })
   }
 

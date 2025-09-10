@@ -97,3 +97,10 @@ type References = {
   type: "references"
   text: string
 }
+
+type VersePage = {
+  verses: Verse[]
+  total: number
+  currentPage: number
+  totalPages: number
+}

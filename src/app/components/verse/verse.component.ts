@@ -9,11 +9,11 @@ import {
 import { VerseSectionComponent } from "../verse-section/verse-section.component"
 
 @Component({
-    selector: "verse",
-    imports: [CommonModule, VerseSectionComponent],
-    templateUrl: "./verse.component.html",
-    styleUrl: "./verse.component.css",
-    changeDetection: ChangeDetectionStrategy.OnPush
+  selector: "verse",
+  imports: [CommonModule, VerseSectionComponent],
+  templateUrl: "./verse.component.html",
+  styleUrl: "./verse.component.css",
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class VerseComponent {
   isChapterNumberDisplayed = false
@@ -22,8 +22,6 @@ export class VerseComponent {
 
   @Input()
   data!: Verse
-
-
 
   constructor(private cdr: ChangeDetectorRef) {}
 
@@ -89,5 +87,16 @@ export class VerseComponent {
     const rect2 = element.getBoundingClientRect()
 
     return rect1.bottom >= rect2.top && rect1.top <= rect2.bottom
+  }
+
+  shouldShowParagraph(data: Verse, text: Paragraph, i: number): boolean {
+    return (
+      data.number > 0 &&
+      ((data.text[i - 1]?.type !== "section" &&
+        data.text[i - 1]?.type !== "references" &&
+        (data.text[i - 1]?.type !== "paragraph" ||
+          (data.text[i - 1]?.type === "paragraph" && text.text.length > 2))) ||
+        data.bookId === "psa")
+    )
   }
 }

@@ -9,19 +9,19 @@
               (click)="showBookSelector(); bookToggle.checked = false">
               {{ mobile ? book.shortName : book.name }}
             </mat-button-toggle>
-    
+            
+            @if(book.id !== 'about'){
             <mat-button-toggle
-              *ngIf="book.id !== 'about'"
               #chapterToggle
               mat-flat-button
               class="bookSelectorButtonContent"
               (click)="showChapterSelector(); chapterToggle.checked = false">
               {{ book.chapterCount > 1 ? chapterNumber : '' }}
             </mat-button-toggle>
+          }
         </mat-button-toggle-group>
-
     
-    <button *ngIf="book.id !== 'about'" class="bookSelectorButton searchButton" (click)="showSearchDrawer()" mat-flat-button>
+    <button routerLink="/search" *ngIf="book.id !== 'about'" class="bookSelectorButton searchButton" mat-flat-button>
         <mat-icon style="color: #543D27;" aria-label="Search">search</mat-icon>
     </button>
 </div>

@@ -1,0 +1,25 @@
+<div unifiedGestures class="search-container" #container>
+  <search-bar (searchValue)="onSearchSubmit($event)"></search-bar>
+  @if(searchResults.length > 0){
+  <div  class="results-section" #resultsContainer>
+    <h5 class="results-header">{{ totalResults }} resultados</h5>
+    <ul class="results-list">
+      @for (result of searchResults; track $index) {
+      <li class="result-item" [routerLink]="['/', result.bookId, result.chapterNumber]" [queryParams]="{ verse: result.number }">
+        <div class="result-card">
+          <strong class="verse-ref">{{ findBookById(result.bookId)?.shortName }} {{ result.chapterNumber }}, {{ result.number }}</strong>
+          <p class="verse-text">{{ getVerseText(result) }}</p>
+        </div>
+      </li>
+      }
+    @if(searchResults.length < totalResults) {
+    <!-- Sentinel element for infinite scroll -->
+    <li #sentinel class="sentinel"></li>
+  }
+    </ul>
+    @if(isLoading) {
+      <p class="loading">A carregar mais resultados...</p>
+    }
+  </div>
+}
+</div>

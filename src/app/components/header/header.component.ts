@@ -8,22 +8,24 @@ import {
 } from "@angular/core"
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
+import { MatIconModule } from "@angular/material/icon"
 import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar" // Import MatToolbarModule from the correct module
-import { MatIconModule } from "@angular/material/icon"
+import { type Router, RouterModule } from "@angular/router"
 
 @Component({
-    selector: "header",
-    imports: [
-        CommonModule,
-        MatToolbarModule,
-        MatSidenavModule,
-        MatButtonModule,
-        MatIconModule,
-        MatButtonToggleModule,
-    ],
-    templateUrl: "./header.component.html",
-    styleUrls: ["./header.component.css"]
+  selector: "header",
+  imports: [
+    CommonModule,
+    MatToolbarModule,
+    MatSidenavModule,
+    MatButtonModule,
+    MatIconModule,
+    MatButtonToggleModule,
+    RouterModule,
+  ],
+  templateUrl: "./header.component.html",
+  styleUrls: ["./header.component.css"],
 })
 export class HeaderComponent implements OnInit {
   @Input() book!: Book
@@ -33,6 +35,8 @@ export class HeaderComponent implements OnInit {
   @Output() openChapterSelector = new EventEmitter<{ open: boolean }>()
 
   mobile = false
+
+  constructor() {}
 
   ngOnInit(): void {
     if (window.screen.width <= 480) {
@@ -48,6 +52,4 @@ export class HeaderComponent implements OnInit {
   showChapterSelector() {
     this.openChapterSelector.emit({ open: true })
   }
-
-  showSearchDrawer() {}
 }

@@ -14,11 +14,11 @@ import { NgbPaginationModule } from "@ng-bootstrap/ng-bootstrap"
 const FILTER_PAG_REGEX = /[^0-9]/g
 
 @Component({
-    selector: "chapter-pagination",
-    imports: [CommonModule, MatToolbarModule, NgbPaginationModule],
-    templateUrl: "./chapter-pagination.html",
-    styleUrl: "./chapter-pagination.css",
-    changeDetection: ChangeDetectionStrategy.OnPush
+  selector: "chapter-pagination",
+  imports: [CommonModule, MatToolbarModule, NgbPaginationModule],
+  templateUrl: "./chapter-pagination.html",
+  styleUrl: "./chapter-pagination.css",
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ChapterPagination {
   @ViewChild("i")

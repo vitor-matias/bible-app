@@ -6,10 +6,10 @@
   }
   
   .chapterSelectorButton:hover {
-    background-color: lightgray;
+    background-color: antiquewhite;
   }
 
   button.highlight {
-    background-color: #e0f7fa;
+    background-color: antiquewhite;
     /* any extra styling you like */
   }

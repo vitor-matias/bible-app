@@ -1,7 +1,14 @@
 // biome-ignore lint/style/useImportType: <explanation>
 import { HttpClient } from "@angular/common/http"
 import { Injectable } from "@angular/core"
-import { catchError, finalize, from, of, switchMap, type Observable } from "rxjs"
+import {
+  type Observable,
+  catchError,
+  finalize,
+  from,
+  of,
+  switchMap,
+} from "rxjs"
 
 @Injectable({
   providedIn: "root",
@@ -10,10 +17,14 @@ export class BibleApiService {
   api = "v1"
   private chapterPromise: Promise<Observable<Chapter>> | null = null
 
+  books: Book[] = []
+
   constructor(private http: HttpClient) {}
 
   getAvailableBooks(): Observable<Book[]> {
-    return this.http.get(`${this.api}/books`) as Observable<Book[]>
+    return this.books.length
+      ? of(this.books)
+      : (this.http.get(`${this.api}/books`) as Observable<Book[]>)
   }
 
   getChapter(book: string, chapter: number): Observable<Chapter> {
@@ -47,5 +58,11 @@ export class BibleApiService {
 
   getBook(book: string): Observable<Book> {
     return this.http.get(`${this.api}/${book}`) as Observable<Book>
+  }
+
+  search(query: string, page = 1, limit = 25): Observable<VersePage> {
+    return this.http.get(
+      `${this.api}/search?text=${encodeURIComponent(query)}&page=${page}&limit=${limit}`,
+    ) as Observable<VersePage>
   }
 }
