@@ -123,7 +123,10 @@ export class BibleReaderComponent {
         this.book = this.findBook(storedBook)
 
         this.chapterNumber = Number.parseInt(storedChapter, 10)
-        this.router.navigate([this.getUrlAbrv(this.book), this.chapterNumber, verseParam ? { verse: verseParam } : {}], { replaceUrl: true })
+        this.router.navigate(
+          [this.getUrlAbrv(this.book), this.chapterNumber],
+          { queryParams: verseParam ? { verse: verseParam } : {}, replaceUrl: true }
+        )
         this.getChapter(this.chapterNumber, verseParam)
 
       }
