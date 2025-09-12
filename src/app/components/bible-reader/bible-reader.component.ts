@@ -141,7 +141,7 @@ export class BibleReaderComponent {
           : undefined
 
         //if it is the same book and same chapter do nothing
-        if (this.book.id === bookParam && this.chapterNumber === chapterParam)
+        if (this.getUrlAbrv(this.book) === bookParam && this.chapterNumber === chapterParam)
           return
 
         this.book = this.findBook(bookParam)
