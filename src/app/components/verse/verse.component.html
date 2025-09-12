@@ -17,9 +17,11 @@
       <ng-container *ngIf="!isInSection(data.text, i)">
         
         <!-- Regular Text -->
-        <span *ngIf="text.type === 'text'">
+        @if(text.type === 'text'){
+        <span [ngClass]="{'allCaps': text.allCaps}">
           {{ text.text }}
         </span>
+      }
 
         <!-- Paragraph Breaks -->
         <div *ngIf="text.type === 'paragraph' && data.verseLabel !== 'front'"></div>

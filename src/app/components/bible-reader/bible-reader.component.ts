@@ -29,7 +29,6 @@ import { AboutComponent } from "../about/about.component"
 import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"
 import { HeaderComponent } from "../header/header.component"
-import { SearchComponent } from "../search/search.component"
 import { VerseComponent } from "../verse/verse.component"
 
 // biome-ignore lint/style/useImportType: <explanation>
@@ -242,6 +241,9 @@ export class BibleReaderComponent {
 
           localStorage.setItem("book", this.book.id)
           localStorage.setItem("chapter", this.chapterNumber.toString())
+        }
+        else{
+          this.router.navigate(["/", this.getUrlAbrv(this.book), 1])
         }
         console.error(err)
       },

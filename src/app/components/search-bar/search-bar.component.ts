@@ -46,6 +46,6 @@ export class SearchBarComponent{
 
   emitSearch() {
     this.searchValue.emit(this.query)
+    
   }
-
 }

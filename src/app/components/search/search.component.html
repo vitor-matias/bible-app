@@ -2,7 +2,6 @@
   <search-bar (searchValue)="onSearchSubmit($event)"></search-bar>
   @if(searchResults.length > 0){
   <div  class="results-section" #resultsContainer>
-    <h5 class="results-header">{{ totalResults }} resultados</h5>
     <ul class="results-list">
       @for (result of searchResults; track $index) {
       <li class="result-item" [routerLink]="['/', result.bookId, result.chapterNumber]" [queryParams]="{ verse: result.number }">

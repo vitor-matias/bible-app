@@ -65,4 +65,10 @@ export class BibleApiService {
       `${this.api}/search?text=${encodeURIComponent(query)}&page=${page}&limit=${limit}`,
     ) as Observable<VersePage>
   }
+
+  getVerse(book: string, chapter: number, verse: number): Observable<Verse> {
+    return this.http.get(
+      `${this.api}/${book}/${chapter}/${verse}`,
+    ) as Observable<Verse>
+  }
 }

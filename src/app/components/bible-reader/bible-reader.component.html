@@ -16,7 +16,9 @@
     <div unifiedGestures (swipeLeft)="goToNextChapter()" (swipeRight)="goToPreviousChapter()" style="margin: 8px 8px 0px 8px;">
       <div class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}">
         <div pinch-to-zoom class="chapterBlock" *ngIf="chapter">
+          @if(book.id !== 'about'){
             <verse [id]="verse.number" class="verse" *ngFor="let verse of chapter.verses" [data]="verse"></verse>
+          }
             <about *ngIf="book.id==='about'"></about>
           <br><br>
           <span class="center"><b>© DIFUSORA BÍBLICA</b></span>

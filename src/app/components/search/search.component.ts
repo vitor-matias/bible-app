@@ -4,18 +4,21 @@ import {
   type ElementRef,
   OnDestroy,
   ViewChild,
+  ViewContainerRef,
 } from "@angular/core"
-import { type Router, RouterModule } from "@angular/router"
+import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
+import { Router, RouterModule } from "@angular/router"
 import { BibleApiService } from "../../services/bible-api.service"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
+import { BibleReferenceService } from "../../services/bible-reference.service"
 
 @Component({
   selector: "app-search",
   templateUrl: "./search.component.html",
   styleUrl: "./search.component.css",
   standalone: true,
-  imports: [SearchBarComponent, RouterModule, UnifiedGesturesDirective],
+  imports: [SearchBarComponent, RouterModule, UnifiedGesturesDirective, MatSnackBarModule],
 })
 export class SearchComponent {
   searchResults: Verse[] = []
@@ -35,7 +38,11 @@ export class SearchComponent {
 
   constructor(
     private apiService: BibleApiService,
+    private referenceService: BibleReferenceService,
+    private snackBar: MatSnackBar,
+    private router: Router,
     private cdr: ChangeDetectorRef,
+    private viewContainerRef: ViewContainerRef
   ) {}
 
   ngOnInit(): void {
@@ -103,12 +110,58 @@ export class SearchComponent {
 
   onSearchSubmit(text: string) {
     this.searchTerm = text
+    const references = this.referenceService.extract(text)
+
+    if (references.length > 0) {
+      const ref = references[0]
+      const book = this.findBook(ref.book)
+      if(book){
+        this.apiService.getVerse(book.id, ref.chapter, ref.verses ? (ref.verses[0].type === "single" ? ref.verses[0].verse : ref.verses[0].start) : 1).subscribe({
+          next: (verse) => {
+            this.router.navigate(["/", book.id, ref.chapter ? ref.chapter : 1], ref.verses ? {
+              queryParams: {
+                verse: ref.verses[0].type === "single" ? ref.verses[0].verse : ref.verses[0].start,
+              },
+            } : {})
+          },
+          error: (err) => {
+             console.error(err)
+           if (err && (err.status === 404 || err.status === 400)) {
+              this.snackBar.open("Capitulo ou versiculo não existe", "Fechar", {
+               duration: 3000,
+              })
+            } else {
+              this.snackBar.open("Error loading verse", "OK", { duration: 3000 })
+            }
+            
+          }
+        })
+      return;
+      }
+    }
+
     this.isLoading = true
     this.apiService.search(text, 1).subscribe((results) => {
       this.searchResults = results.verses
       this.totalResults = results.total
       this.currentPage = 1
       this.isLoading = false
+      this.cdr.detectChanges()
+
+      if(results.total === 0){
+        this.snackBar.open("Nenhum resultado encontrado", "Fechar", {
+          duration: 3000,
+        })
+      }
+      else{
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur()
+        }
+        this.snackBar.open(`Encontrados ${results.total} resultados`, "Fechar", {
+          duration: 3000,
+        })
+      }
+
       this.cdr.detectChanges()
       this.attachObserverToSentinel() // Attach observer after new search
       this.scrollToTop()
@@ -118,17 +171,47 @@ export class SearchComponent {
   getVerseText(verse: Verse) {
     let result = ""
     for (const line of verse.text) {
+      if(line.type !== "text" && line.type !== "paragraph"){
+        continue
+      }
       result += `${line.text} `
     }
     return result
   }
 
-  findBook(bookId: Book["id"] | Book["abrv"]): Book {
-    return this.findBookById(bookId) || this.books[0]
-  }
-
   findBookById(bookId: Book["id"]): Book | undefined {
     return this.books.find((book) => book.id === bookId)
+  }
+
+  findBookByUrlAbrv(bookAbrv: Book["abrv"]): Book | undefined {
+    return this.books.find((book) => this.getUrlAbrv(book) === bookAbrv)
+  }
+
+  findBookByName(bookName: string): Book | undefined {
+    const lowerName = bookName
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]/g, "")
+    return this.books.find(
+      (book) =>
+        book.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s]/g, "") === lowerName ||
+        book.shortName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s]/g, "") === lowerName,
+    )
+  }
+
+  getUrlAbrv(book: Book): string {
+    return book.abrv.replace(/\s/g, "").toLowerCase()
+  }
+
+  findBook(bookId: Book["id"] | Book["abrv"] | Book["name"]): Book | null {
+    const bookIdLower = bookId.toLowerCase()
+    return (
+      this.findBookById(bookIdLower) ||
+      this.findBookByUrlAbrv(bookIdLower) ||
+      this.findBookByName(bookIdLower) ||
+      null
+    )
   }
 
   @ViewChild("container", { static: false }) resultsContainer!: Element
