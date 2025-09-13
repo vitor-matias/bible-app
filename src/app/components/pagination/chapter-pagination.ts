@@ -15,7 +15,6 @@ const FILTER_PAG_REGEX = /[^0-9]/g
 
 @Component({
   selector: "chapter-pagination",
-  standalone: true,
   imports: [CommonModule, MatToolbarModule, NgbPaginationModule],
   templateUrl: "./chapter-pagination.html",
   styleUrl: "./chapter-pagination.css",

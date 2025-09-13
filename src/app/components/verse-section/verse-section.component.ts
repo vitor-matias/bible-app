@@ -3,7 +3,6 @@ import { Component, Input } from "@angular/core"
 
 @Component({
   selector: "verse-section",
-  standalone: true,
   imports: [CommonModule],
   templateUrl: "./verse-section.component.html",
   styleUrl: "./verse-section.component.css",

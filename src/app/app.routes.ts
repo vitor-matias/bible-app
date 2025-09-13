@@ -1,12 +1,12 @@
 import { NgModule } from "@angular/core"
 import { RouterModule, type Routes } from "@angular/router"
-import { AppComponent } from "./app.component"
+import { BibleReaderComponent } from "./components/bible-reader/bible-reader.component"
+import { SearchComponent } from "./components/search/search.component"
 
 export const routes: Routes = [
-  { path: ":book/:chapter", component: AppComponent },
-  { path: ":book/:chapter/:verse", component: AppComponent },
-
-  // Other routes
+  { path: "search", component: SearchComponent },
+  { path: ":book/:chapter", component: BibleReaderComponent },
+  { path: "**", component: BibleReaderComponent },
 ]
 
 @NgModule({

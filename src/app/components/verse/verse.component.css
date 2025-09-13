@@ -54,3 +54,7 @@ h1, h2, h3{
     -webkit-user-select: text !important;
     -ms-user-select: text !important;
   }
+
+  .allCaps {
+    font-variant: small-caps;
+  }

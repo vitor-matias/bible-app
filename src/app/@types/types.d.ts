@@ -59,8 +59,8 @@ type Chapter = {
   number: number
   introduction?: string
   verses?: Verse[]
+  title?: string
 }
-
 type Verse = {
   bookId: Book["id"]
   chapterNumber: Chapter["number"]
@@ -80,6 +80,7 @@ type Section = {
 type _Text = {
   type: "text"
   text: string
+  allCaps?: boolean
 }
 
 type Paragraph = {
@@ -96,4 +97,11 @@ type Quote = {
 type References = {
   type: "references"
   text: string
+}
+
+type VersePage = {
+  verses: Verse[]
+  total: number
+  currentPage: number
+  totalPages: number
 }

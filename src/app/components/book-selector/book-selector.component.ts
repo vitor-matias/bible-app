@@ -25,7 +25,6 @@ interface ExampleFlatNode {
 
 @Component({
   selector: "book-selector",
-  standalone: true,
   imports: [
     CommonModule,
     MatListModule,
