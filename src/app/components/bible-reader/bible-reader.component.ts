@@ -169,9 +169,7 @@ export class BibleReaderComponent {
   }
 
   onBookSubmit(event: { bookId: string }) {
-    this.book = this.findBook(event.bookId)
-
-    this.goToChapter(1)
+    this.router.navigate(["/", this.getUrlAbrv(this.book), 1])
 
     this.bookDrawer.close()
   }
