@@ -160,7 +160,6 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     }
   }
 
-
   private onTouchCancel(e: TouchEvent) {
     // Clear all touches on cancel
     this.touches = {}

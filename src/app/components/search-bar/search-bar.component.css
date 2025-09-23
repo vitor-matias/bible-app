@@ -6,7 +6,7 @@
   top: 0;
   left: 0;
   width: 100%;
-  background-color: #543D27;
+  background-color: #543d27;
   overflow: hidden;
   height: inherit;
 }
@@ -22,7 +22,7 @@ div {
   height: 56px;
 }
 
-mat-icon{
+mat-icon {
   padding: 0px;
 }
 
@@ -35,7 +35,7 @@ mat-icon{
 .searchButton {
   /* Remove position: fixed and right: 8px */
   background-color: antiquewhite;
-  color: #543D27;
+  color: #543d27;
   width: 36px;
   font-size: large;
   margin-left: 8px;
@@ -47,7 +47,7 @@ mat-icon{
   position: fixed;
   left: 8px;
   background-color: antiquewhite;
-  color: #543D27;
+  color: #543d27;
   width: 18px;
   font-size: large;
   margin-left: auto;
@@ -55,7 +55,7 @@ mat-icon{
   padding-right: 0px;
 }
 
-.button.mdc-button{
+.button.mdc-button {
   min-width: 48px;
 }
 
@@ -86,6 +86,7 @@ mat-icon{
   font-size: large;
 }
 
-html, body {
-  overscroll-behavior: none;  /* Prevents overscrolling on mobile */
+html,
+body {
+  overscroll-behavior: none; /* Prevents overscrolling on mobile */
 }

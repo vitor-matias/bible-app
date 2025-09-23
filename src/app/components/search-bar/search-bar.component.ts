@@ -1,5 +1,12 @@
 import { CommonModule, Location } from "@angular/common"
-import { Component, EventEmitter, Output, ElementRef, ViewChild, AfterViewInit } from "@angular/core"
+import {
+  AfterViewInit,
+  Component,
+  type ElementRef,
+  EventEmitter,
+  Output,
+  ViewChild,
+} from "@angular/core"
 import { FormsModule } from "@angular/forms"
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
@@ -25,10 +32,11 @@ import { MatToolbarModule } from "@angular/material/toolbar"
   templateUrl: "./search-bar.component.html",
   styleUrls: ["./search-bar.component.css"],
 })
-export class SearchBarComponent{
+export class SearchBarComponent {
   @Output() searchValue = new EventEmitter<string>()
 
-  @ViewChild('searchInput', { static: false }) searchInput!: ElementRef<HTMLInputElement>;
+  @ViewChild("searchInput", { static: false })
+  searchInput!: ElementRef<HTMLInputElement>
 
   query = ""
 
@@ -36,7 +44,7 @@ export class SearchBarComponent{
 
   ngAfterViewInit(): void {
     if (this.searchInput) {
-      this.searchInput.nativeElement.focus();
+      this.searchInput.nativeElement.focus()
     }
   }
 
@@ -46,6 +54,5 @@ export class SearchBarComponent{
 
   emitSearch() {
     this.searchValue.emit(this.query)
-    
   }
 }

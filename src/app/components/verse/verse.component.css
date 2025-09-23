@@ -1,60 +1,67 @@
 .verseNumber {
-    color: darkred;
-    font-size: 65%;
-    vertical-align: top;
-    text-align: right;
+  color: darkred;
+  font-size: 65%;
+  vertical-align: top;
+  text-align: right;
 }
 
 .section {
-    color: darkred;
-    font-weight: bold;
+  color: darkred;
+  font-weight: bold;
 }
 
-.s1Section{
-    text-align: center;
-    font-size: 130%;
-    margin: auto;
+.s1Section {
+  text-align: center;
+  font-size: 130%;
+  margin: auto;
 }
 
 .verseText {
-    font-size: 120%;
+  font-size: 120%;
 }
 
-h1, h2, h3{
-    font-size: 125%;
-    text-align: center;
-
+h1,
+h2,
+h3 {
+  font-size: 125%;
+  text-align: center;
 }
 
 .text-block {
-    display: inline-block;
-  }
+  display: inline-block;
+}
 
 .indent {
-    margin-left: 1em; /* Adjust the indentation as needed */
+  margin-left: 1em; /* Adjust the indentation as needed */
 }
 
 .chapterNumber {
-    float: left; /* Makes the chapter number float to the left */
-    font-size: 380%; /* Adjust the font size as needed */
-    line-height: 1; /* Adjusted for better alignment, might need tweaking */
+  float: left; /* Makes the chapter number float to the left */
+  font-size: 380%; /* Adjust the font size as needed */
+  line-height: 1; /* Adjusted for better alignment, might need tweaking */
 
-    /*margin-right: 10px;  Adds space to the right of the chapter number */
-    /* margin-bottom: 10px; Adds space below the chapter number */
-    color: dimgray
+  /*margin-right: 10px;  Adds space to the right of the chapter number */
+  /* margin-bottom: 10px; Adds space below the chapter number */
+  color: dimgray;
 }
 
 .center {
-    margin: 0 auto;
-    display: table;
+  margin: 0 auto;
+  display: table;
 }
 
 * {
-    user-select: text !important;
-    -webkit-user-select: text !important;
-    -ms-user-select: text !important;
-  }
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -ms-user-select: text !important;
+}
 
-  .allCaps {
-    font-variant: small-caps;
-  }
+.allCaps {
+  font-variant: small-caps;
+}
+
+.references {
+  font-size: 85%;
+  color: black;
+  font-weight: normal;
+}

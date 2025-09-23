@@ -4,7 +4,7 @@
   <div  class="results-section" #resultsContainer>
     <ul class="results-list">
       @for (result of searchResults; track $index) {
-      <li class="result-item" [routerLink]="['/', result.bookId, result.chapterNumber]" [queryParams]="{ verse: result.number }">
+      <li class="result-item" [routerLink]="['/', result.bookId, result.chapterNumber]" [queryParams]="{ verseStart: result.number }">
         <div class="result-card">
           <strong class="verse-ref">{{ findBookById(result.bookId)?.shortName }} {{ result.chapterNumber }}, {{ result.number }}</strong>
           <p class="verse-text">{{ getVerseText(result) }}</p>

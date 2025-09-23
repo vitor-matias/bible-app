@@ -1,19 +1,19 @@
 .chapterSelectorButton:not(disabled) {
-    background-color: white;
-    color: black;
-    font-size: large;
-    margin-left: 8px;  /* Add some spacing between buttons */
-  }
-  
-  .chapterSelectorButton:hover {
-    background-color: antiquewhite;
-  }
+  background-color: white;
+  color: black;
+  font-size: large;
+  margin-left: 8px; /* Add some spacing between buttons */
+}
 
-  button.highlight {
-    background-color: antiquewhite;
-    /* any extra styling you like */
-  }
+.chapterSelectorButton:hover {
+  background-color: antiquewhite;
+}
 
-  .chapterSelectorContainer {
-    background-color: white;
-  }
+button.highlight {
+  background-color: antiquewhite;
+  /* any extra styling you like */
+}
+
+.chapterSelectorContainer {
+  background-color: white;
+}

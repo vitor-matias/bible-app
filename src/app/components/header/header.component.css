@@ -6,7 +6,7 @@
   top: 0;
   left: 0;
   width: 100%;
-  background-color: #543D27;
+  background-color: #543d27;
   overflow: hidden;
   height: inherit;
 }
@@ -38,8 +38,8 @@ div {
   font-size: large;
 }
 
-.bookSelectorButtonContent{
-  color: #543D27;
+.bookSelectorButtonContent {
+  color: #543d27;
   font-size: large;
 }
 
@@ -47,7 +47,7 @@ div {
   background-color: lightgray;
 }
 
-mat-icon{
+mat-icon {
   padding: 0px;
 }
 
@@ -60,7 +60,7 @@ mat-icon{
   position: fixed;
   right: 8px;
   background-color: antiquewhite;
-  color: #543D27;
+  color: #543d27;
   width: 18px;
   font-size: large;
   margin-left: auto;
@@ -68,6 +68,6 @@ mat-icon{
   padding-right: 0px;
 }
 
-.searchButton.mdc-button{
+.searchButton.mdc-button {
   min-width: 48px;
 }

@@ -1,8 +1,7 @@
+import { CommonModule } from "@angular/common"
 import { ChangeDetectionStrategy, Component } from "@angular/core"
 
-import { CommonModule } from "@angular/common"
-
-import { Router, RouterOutlet } from "@angular/router"
+import { RouterOutlet } from "@angular/router"
 
 import { SwUpdate } from "@angular/service-worker"
 
@@ -17,13 +16,13 @@ import { SwUpdate } from "@angular/service-worker"
 export class AppComponent {
   constructor(private swUpdate: SwUpdate) {
     if (this.swUpdate.isEnabled) {
-      this.swUpdate.versionUpdates.subscribe(event => {
-        if (event.type === 'VERSION_READY') {
+      this.swUpdate.versionUpdates.subscribe((event) => {
+        if (event.type === "VERSION_READY") {
           this.swUpdate.activateUpdate().then(() => {
-            window.location.reload();
-          });
+            window.location.reload()
+          })
         }
-      });
+      })
     }
   }
 }

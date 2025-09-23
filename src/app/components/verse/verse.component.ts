@@ -6,11 +6,17 @@ import {
   Component,
   Input,
 } from "@angular/core"
+import { RouterModule } from "@angular/router"
+import {
+  BibleReference,
+  BibleReferenceService,
+  VerseReference,
+} from "../../services/bible-reference.service"
 import { VerseSectionComponent } from "../verse-section/verse-section.component"
 
 @Component({
   selector: "verse",
-  imports: [CommonModule, VerseSectionComponent],
+  imports: [CommonModule, VerseSectionComponent, RouterModule],
   templateUrl: "./verse.component.html",
   styleUrl: "./verse.component.css",
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -23,7 +29,10 @@ export class VerseComponent {
   @Input()
   data!: Verse
 
-  constructor(private cdr: ChangeDetectorRef) {}
+  constructor(
+    private cdr: ChangeDetectorRef,
+    private bibleRef: BibleReferenceService,
+  ) {}
 
   shouldDisplayChapterNumber(
     data: Verse,
@@ -98,5 +107,36 @@ export class VerseComponent {
           (data.text[i - 1]?.type === "paragraph" && text.text.length > 2))) ||
         data.bookId === "psa")
     )
+  }
+
+  parseReferences(text: string): { parts: (string | BibleReference)[] } {
+    const refs = this.bibleRef.extract(text, this.data.bookId)
+    if (!refs.length) return { parts: [text] }
+
+    const parts: (string | BibleReference)[] = []
+    let lastIdx = 0
+    for (const ref of refs) {
+      if (ref.index > lastIdx) {
+        parts.push(text.slice(lastIdx, ref.index))
+      }
+      parts.push(ref)
+      lastIdx = ref.index + ref.match.length
+    }
+    if (lastIdx < text.length) {
+      parts.push(text.slice(lastIdx))
+    }
+    return { parts }
+  }
+
+  getVerseQueryParams(verses?: VerseReference[]) {
+    if (!verses || !verses.length) return null
+    const first = verses[0]
+    if (first.type === "single") {
+      return { verseStart: first.verse }
+    }
+    if (first.type === "range") {
+      return { verseStart: first.start, verseEnd: first.end }
+    }
+    return null
   }
 }

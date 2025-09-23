@@ -1,3 +1,4 @@
-html, body {
-  overscroll-behavior: none;  /* Prevents overscrolling on mobile */
+html,
+body {
+  overscroll-behavior: none; /* Prevents overscrolling on mobile */
 }

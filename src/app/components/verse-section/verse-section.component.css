@@ -1,25 +1,36 @@
 .section {
-    color: darkred;
-    font-weight: bold;
+  color: darkred;
+  font-weight: bold;
 }
 
-.s1Section{
-    text-align: center;
-    font-size: 130%;
-    margin: auto;
+.s1Section {
+  text-align: center;
+  font-size: 130%;
+  margin: auto;
 }
 
 .verseText {
-    font-size: 120%;
+  font-size: 120%;
 }
 
 .center {
-    margin: 0 auto;
-    display: table;
+  margin: 0 auto;
+  display: table;
 }
 
 * {
-    user-select: text !important;
-    -webkit-user-select: text !important;
-    -ms-user-select: text !important;
-  }
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -ms-user-select: text !important;
+}
+
+.references {
+  font-size: 80%;
+  color: black;
+  margin-top: 5px;
+  font-weight: normal;
+}
+
+a {
+  color: black;
+}

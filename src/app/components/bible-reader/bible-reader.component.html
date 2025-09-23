@@ -1,12 +1,19 @@
 <mat-drawer-container class="bookSelectorContainer" #container>
 
-  <mat-drawer *ngIf="books" class="bookSelector" mode="over" position="start" #bookDrawer closed>
-    <book-selector [books]="books" (submitData)="onBookSubmit($event)"></book-selector>
+  <mat-drawer *ngIf="getBooks()" class="bookSelector" mode="over" position="start" #bookDrawer closed>
+    <button matIconButton (click)="dismissBookDrawer()" class="dismiss-button" #bookDrawerCloseButton>
+      <mat-icon>menu_open</mat-icon>
+    </button>
+    <book-selector [books]="getBooks()" (submitData)="onBookSubmit($event)"></book-selector>
   </mat-drawer>
 
   <mat-drawer *ngIf="chapter" class="chapterSelector" mode="over" position="start" #chapterDrawer closed>
+    <button matIconButton (click)="dismissChapterDrawer()" class="dismiss-button" #chapterDrawerCloseButton>
+      <mat-icon>menu_open</mat-icon>
+    </button>
     <chapter-selector [chapters]="book.chapters || []" [selectedChapter]="chapterNumber" (submitData)="onChapterSubmit($event)"></chapter-selector>
   </mat-drawer>
+
 
   <mat-drawer-content *ngIf="book">
 

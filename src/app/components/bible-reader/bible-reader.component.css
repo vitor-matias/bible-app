@@ -1,120 +1,142 @@
-h1, h2, h3, h4, h5, h6 {
-    font-family: 'PT Serif', serif;
-    font-weight: bold;
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "PT Serif", serif;
+  font-weight: bold;
 }
 
 .bookBlock {
-    font-family: 'PT Serif', serif;
-    line-height: 1.6;
-    text-align: justify;
-    text-justify: inter-word;
-    hyphens: auto;
-    display: block;
-    margin: 15px;
-    font-size: 105%;
+  font-family: "PT Serif", serif;
+  line-height: 1.6;
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+  display: block;
+  margin: 15px;
+  font-size: 105%;
 }
-.chapterBlock{
-    touch-action: pan-y !important;
+.chapterBlock {
+  touch-action: pan-y !important;
 }
 
 @media (max-width: 768px) {
-    .bookBlock {
-        max-width: 90%;
-    }
-    .bookSelector {
-        width: 100%;
-    }
+  .bookBlock {
+    max-width: 90%;
+  }
+  .bookSelector {
+    width: 100%;
+  }
 
+  .prev-chapter {
+    bottom: 8px;
+  }
 
-    .prev-chapter{
-        bottom: 8px;
-    }
+  .next-chapter {
+    bottom: 8px;
+  }
 
-    .next-chapter{
-        bottom: 8px;
-    }
-
-    .search{
-        bottom: 8px;
-    }
-
+  .search {
+    bottom: 8px;
+  }
 }
 
 @media (min-width: 768px) {
-    .bookBlock {
-        max-width: 55%;
-        margin-left: auto;
-        margin-right: auto;   
-    }
-    .bookBlock.largeBook{
-        max-width: 80%;
-    }
+  .bookBlock {
+    max-width: 55%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .bookBlock.largeBook {
+    max-width: 80%;
+  }
 
-    .bookSelector {
-        width: 515px;
-    }
+  .bookSelector {
+    width: 515px;
+  }
 
+  .prev-chapter {
+    top: 50%;
+  }
 
-    .prev-chapter{
-        top: 50%;
-    }
-
-    .next-chapter{
-        top: 50%;
-    }
-
-
+  .next-chapter {
+    top: 50%;
+  }
 }
 
 .chapterNumber {
-    float: left; /* Makes the chapter number float to the left */
-    font-size: 333%; /* Adjust the font size as needed */
-    line-height: 1; /* Adjusted for better alignment, might need tweaking */
+  float: left; /* Makes the chapter number float to the left */
+  font-size: 333%; /* Adjust the font size as needed */
+  line-height: 1; /* Adjusted for better alignment, might need tweaking */
 
-    /*margin-right: 10px;  Adds space to the right of the chapter number */
-    /* margin-bottom: 10px; Adds space below the chapter number */
-    color: dimgray
+  /*margin-right: 10px;  Adds space to the right of the chapter number */
+  /* margin-bottom: 10px; Adds space below the chapter number */
+  color: dimgray;
 }
 
 .bookSelectorContainer {
-    width: 100%;
-    height: 100%;
+  width: 100%;
+  height: 100%;
 }
 
 .center {
-    margin: 0 auto;
-    display: table;
+  margin: 0 auto;
+  display: table;
 }
-
 
 .floating-nav-button {
-    position: fixed;
-    z-index: 100;
-    opacity: 0.6;
-    transition: opacity 0.3s;
-    color: #543D27;
-    background-color: antiquewhite;
-  }
-  
-  .floating-nav-button:hover {
-    opacity: 1;
-  }
-  
-  .prev-chapter {
-    left: 16px;
-    transform: translateY(-50%);
-  }
-  
-  .next-chapter {
-    right: 16px;
-    transform: translateY(-50%);
-  }
-
-.search {
-    left: 50%;
-    transform: translateX(-50%) translateY(-50%);
+  position: fixed;
+  z-index: 100;
+  opacity: 0.6;
+  transition: opacity 0.3s;
+  color: #543d27;
+  background-color: antiquewhite;
 }
 
-.mid{
-    bottom: 86px
+.floating-nav-button:hover {
+  opacity: 1;
+}
+
+.prev-chapter {
+  left: 16px;
+  transform: translateY(-50%);
+}
+
+.next-chapter {
+  right: 16px;
+  transform: translateY(-50%);
+}
+
+.search {
+  left: 50%;
+  transform: translateX(-50%) translateY(-50%);
+}
+
+.mid {
+  bottom: 86px;
+}
+
+
+.dismiss-button {
+  position: absolute;
+  top: 8px;
+  right: 4px;
+  z-index: 1000;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  background-color: transparent;
+}
+
+
+.dismiss-button .mat-icon {
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
+}
+
+mat-icon {
+  padding: 0px;
 }

@@ -1,8 +1,7 @@
 /// <reference types="@angular/localize" />
 
 import { provideHttpClient } from "@angular/common/http"
-import { provideZoneChangeDetection } from "@angular/core"
-import { isDevMode } from "@angular/core"
+import { isDevMode, provideZoneChangeDetection } from "@angular/core"
 import { bootstrapApplication } from "@angular/platform-browser"
 import { provideAnimationsAsync } from "@angular/platform-browser/animations/async"
 import { provideRouter } from "@angular/router"

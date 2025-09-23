@@ -1,14 +1,9 @@
 import { CommonModule } from "@angular/common"
 import { Component, EventEmitter, Input, Output } from "@angular/core"
-import { MatListModule } from "@angular/material/list"
-
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
-import {
-  MatTreeFlatDataSource,
-  MatTreeFlattener,
-  MatTreeModule,
-} from "@angular/material/tree"
+import { MatListModule } from "@angular/material/list"
+import { MatTreeModule } from "@angular/material/tree"
 
 @Component({
   selector: "chapter-selector",

@@ -1,8 +1,10 @@
 <ng-container *ngIf="data">
   <!-- Verse Number -->
-  <span *ngIf="data.number > 0" class="verseNumber">
+   @if(data.number > 0){
+  <span class="verseNumber">
     {{ data.number }}
   </span>
+}
 
   <!-- Text Content Loop -->
   <ng-container *ngFor="let text of data.text; let i = index; let isFirst = first; let isLast = last">
@@ -22,6 +24,25 @@
           {{ text.text }}
         </span>
       }
+        <!-- References -->
+    @if(text.type === "references"){
+      <span class="references">
+        <span>{{ " " }}</span>
+        <h3>
+        @for(part of parseReferences(text.text).parts; track $index){
+          @if(typeof part === "object" && part.book !== data.bookId){
+            <a class="references"
+              [routerLink]="['/', (part.book | lowercase ), part.chapter]"
+              [queryParams]="getVerseQueryParams(part.verses)"
+              >{{part.match}}</a
+            >
+        } @else {
+          <span class="references">{{typeof part === "object" ? part.match : part}}</span>
+        }
+      }
+        </h3>
+      </span>
+    }
 
         <!-- Paragraph Breaks -->
         <div *ngIf="text.type === 'paragraph' && data.verseLabel !== 'front'"></div>

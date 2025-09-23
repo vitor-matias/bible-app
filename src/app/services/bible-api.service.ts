@@ -2,10 +2,10 @@
 import { HttpClient } from "@angular/common/http"
 import { Injectable } from "@angular/core"
 import {
-  type Observable,
   catchError,
   finalize,
   from,
+  type Observable,
   of,
   switchMap,
 } from "rxjs"
