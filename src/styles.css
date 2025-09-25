@@ -51,3 +51,13 @@ a {
   background-color: var(--card-background) !important; /* Force apply */
   color: var(--text-color) !important; /* Force apply */
 }
+
+.mat-drawer {
+  background-color: var(--card-background) !important; /* Force apply */
+  color: var(--text-color) !important; /* Force apply */
+}
+
+.mat-tree-node, .mat-mdc-list , .mat-mdc-list-item {
+  color: var(--text-color) !important; /* Force apply */
+  background-color: var(--card-background) !important ;
+} 
