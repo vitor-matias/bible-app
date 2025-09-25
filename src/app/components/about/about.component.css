@@ -27,6 +27,7 @@ p {
 .column {
   flex: 1;
   font-size: 120%;
+  color: var(--text-color);
 }
 
 .url {
