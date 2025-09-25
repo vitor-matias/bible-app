@@ -19,10 +19,7 @@ import {
 } from "@angular/material/sidenav"
 // biome-ignore lint/style/useImportType: <explanation>
 // biome-ignore lint/style/useImportType: <explanation>
-import {
-  ActivatedRoute,
-  Router,
-} from "@angular/router"
+import { ActivatedRoute, Router } from "@angular/router"
 import { NgbPaginationModule } from "@ng-bootstrap/ng-bootstrap"
 import type { Subscription } from "rxjs"
 import { combineLatest } from "rxjs"
@@ -77,8 +74,8 @@ export class BibleReaderComponent {
   @ViewChild("container")
   container!: MatDrawerContainer
 
-  @ViewChild("bookDrawerCloseButton") bookDrawerCloseButton!: ElementRef;
-@ViewChild("chapterDrawerCloseButton") chapterDrawerCloseButton!: ElementRef;
+  @ViewChild("bookDrawerCloseButton") bookDrawerCloseButton!: ElementRef
+  @ViewChild("chapterDrawerCloseButton") chapterDrawerCloseButton!: ElementRef
 
   private routeSub: Subscription | undefined
 
@@ -99,6 +96,8 @@ export class BibleReaderComponent {
 
   ngOnInit(): void {
     this.bookService.books$.subscribe((_books) => {
+      if (_books.length === 0)
+        alert("No books available. Please check your API connection.")
       this.bookParam =
         this.router.routerState.snapshot.root.firstChild?.params[
           "book"
@@ -156,8 +155,10 @@ export class BibleReaderComponent {
 
         const tempBook = this.bookService.findBook(bookParam)
 
-        if (this.book.id === tempBook.id && this.chapterNumber === chapterParam)
+        if (this.book.id === tempBook.id && this.chapterNumber === chapterParam){
+          this.scrollToVerseElement(verseStartParam || 1, verseEndParam, highlight)
           return
+        }
 
         this.book = tempBook
         this.getChapter(chapterParam, verseStartParam, verseEndParam, highlight)
@@ -282,7 +283,7 @@ export class BibleReaderComponent {
           }
           if (highlight) {
             element.style.transition = "background-color 0.5s ease"
-            element.style.backgroundColor = "antiquewhite"
+            element.style.backgroundColor = "var(--highlight-color)";
             setTimeout(() => {
               element.style.backgroundColor = ""
             }, 2500)
@@ -292,25 +293,29 @@ export class BibleReaderComponent {
     }, 0)
   }
 
-openBookDrawer(event: { open: boolean }) {
-  this.chapterDrawer.close()
-  this.bookDrawer.toggle().finally(() => {
-      const closeButton = document.querySelector('.bookSelector .dismiss-button') as HTMLElement
+  openBookDrawer(event: { open: boolean }) {
+    this.chapterDrawer.close()
+    this.bookDrawer.toggle().finally(() => {
+      const closeButton = document.querySelector(
+        ".bookSelector .dismiss-button",
+      ) as HTMLElement
       if (closeButton) {
         closeButton.blur()
       }
-  })
-}
+    })
+  }
 
-openChapterDrawer(event: { open: boolean }) {
-  this.bookDrawer.close()
-  this.chapterDrawer.toggle().finally(() => {
-      const closeButton = document.querySelector('.chapterSelector .dismiss-button') as HTMLElement
+  openChapterDrawer(event: { open: boolean }) {
+    this.bookDrawer.close()
+    this.chapterDrawer.toggle().finally(() => {
+      const closeButton = document.querySelector(
+        ".chapterSelector .dismiss-button",
+      ) as HTMLElement
       if (closeButton) {
         closeButton.blur()
       }
-  })
-}
+    })
+  }
 
   dismissBookDrawer(): void {
     this.bookDrawer.close()

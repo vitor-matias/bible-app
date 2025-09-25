@@ -13,14 +13,6 @@
 
 // Define the theme object.
 $bible-app-theme-light: mat.define-theme((
-  color: (
-    theme-type: light,
-    primary: mat.$azure-palette,
-    tertiary: mat.$blue-palette,
-  ),
-  density: (
-    scale: 0,
-  )
 ));
 
 // Include theme styles for core and each component used in your app.
@@ -46,18 +38,3 @@ html {
 @include mat.app-background();
 @include mat.color-variants-backwards-compatibility($bible-app-theme-light);
 
-$pagination-color: #543D27;
-
-.pagination .page-item .page-link {
-    color: $pagination-color;
-}
-
-.pagination .page-item.active .page-link {
-    background-color: $pagination-color;
-    color : antiquewhite;
-    border-color: $pagination-color;
-}
-
-.pagination .page-item:hover .page-link {
-    border-color: $pagination-color;
-}

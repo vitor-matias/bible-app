@@ -1,11 +1,6 @@
 import { CommonModule } from "@angular/common"
 // biome-ignore lint/style/useImportType: <explanation>
-import {
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  Input,
-} from "@angular/core"
+import { ChangeDetectionStrategy, Component, Input } from "@angular/core"
 import { RouterModule } from "@angular/router"
 import {
   BibleReference,
@@ -13,12 +8,22 @@ import {
   VerseReference,
 } from "../../services/bible-reference.service"
 import { VerseSectionComponent } from "../verse-section/verse-section.component"
+import {
+  MatBottomSheet,
+  MatBottomSheetModule,
+} from "@angular/material/bottom-sheet"
+import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnotes-bottom-sheet.component"
 
 @Component({
   selector: "verse",
-  imports: [CommonModule, VerseSectionComponent, RouterModule],
+  imports: [
+    CommonModule,
+    VerseSectionComponent,
+    RouterModule,
+    MatBottomSheetModule,
+  ],
   templateUrl: "./verse.component.html",
-  styleUrl: "./verse.component.css",
+  styleUrls: ["./verse.component.css"],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class VerseComponent {
@@ -30,8 +35,8 @@ export class VerseComponent {
   data!: Verse
 
   constructor(
-    private cdr: ChangeDetectorRef,
     private bibleRef: BibleReferenceService,
+    private bottomSheet: MatBottomSheet,
   ) {}
 
   shouldDisplayChapterNumber(
@@ -138,5 +143,17 @@ export class VerseComponent {
       return { verseStart: first.start, verseEnd: first.end }
     }
     return null
+  }
+
+  containsFootnotes(): boolean {
+    return this.data.text.some((t) => t.type === "footnote")
+  }
+
+  toggleFootnotes(): void {
+    const footnotes = this.data.text.filter((t) => t.type === "footnote")
+    if (footnotes.length === 0) return
+    this.bottomSheet.open(FootnotesBottomSheetComponent, {
+      data: { footnotes, verse: this.data },
+    })
   }
 }

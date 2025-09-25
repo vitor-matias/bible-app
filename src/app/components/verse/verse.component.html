@@ -1,11 +1,11 @@
 <ng-container *ngIf="data">
   <!-- Verse Number -->
    @if(data.number > 0){
-  <span class="verseNumber">
-    {{ data.number }}
-  </span>
+  <span class="verseNumber">{{ data.number }}</span>
+  @if(containsFootnotes()){
+    <span (click)="toggleFootnotes()" class="footnoteIndicator">&#65290;</span>
+  }
 }
-
   <!-- Text Content Loop -->
   <ng-container *ngFor="let text of data.text; let i = index; let isFirst = first; let isLast = last">
     
@@ -20,9 +20,7 @@
         
         <!-- Regular Text -->
         @if(text.type === 'text'){
-        <span [ngClass]="{'allCaps': text.allCaps}">
-          {{ text.text }}
-        </span>
+        <span [ngClass]="{'allCaps': text.allCaps}" (click)="toggleFootnotes()">{{ text.text }}</span>
       }
         <!-- References -->
     @if(text.type === "references"){

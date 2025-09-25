@@ -69,7 +69,7 @@ type Verse = {
   text: TextType[]
 }
 
-type TextType = _Text | Section | Paragraph | Quote | References
+type TextType = _Text | Section | Paragraph | Quote | References | _Footnote
 
 type Section = {
   type: "section"
@@ -97,6 +97,12 @@ type Quote = {
 type References = {
   type: "references"
   text: string
+}
+
+type _Footnote = {
+  type: "footnote"
+  text: string
+  reference: string
 }
 
 type VersePage = {

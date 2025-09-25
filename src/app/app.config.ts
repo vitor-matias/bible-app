@@ -29,9 +29,11 @@ export const appConfig: ApplicationConfig = {
     }),
     provideHttpClient(),
     provideAnimationsAsync(),
-    provideAppInitializer(() => {
-      const bookService = inject(BookService)
-      return bookService.initializeBooks()
-    }),
+    {
+      provide: APP_INITIALIZER,
+      useFactory: initializeBookService,
+      deps: [BookService],
+      multi: true,
+    },
   ],
 }

@@ -1,5 +1,5 @@
 .section {
-  color: darkred;
+  color: var(--text-secondary);
   font-weight: bold;
 }
 
@@ -26,11 +26,11 @@
 
 .references {
   font-size: 80%;
-  color: black;
+  color: --text-color;
   margin-top: 5px;
   font-weight: normal;
 }
 
 a {
-  color: black;
+  color: --text-color;
 }

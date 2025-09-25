@@ -13,7 +13,7 @@
             <a
               (click)="showReturnSnackbar()"
               [routerLink]="['/', (part.book | lowercase ), part.chapter]"
-              [queryParams]="getVerseQueryParams(part.verses)"
+              [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)"
               >{{part.match}}</a
             >
           </ng-container>

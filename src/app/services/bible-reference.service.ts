@@ -1,5 +1,7 @@
 import { Injectable } from "@angular/core"
+import { BookService } from "./book.service"
 
+// ---------------- Types (unchanged) ----------------
 export type VerseReference =
   | { type: "single"; verse: number; part?: "a" | "b" | "c" }
   | {
@@ -21,203 +23,281 @@ export type CrossChapterRange = {
 }
 
 export interface BibleReference {
-  match: string // exact text matched (tails exclude leading "; ")
-  index: number // start index in source
-  book: string // e.g., "Mt", "Jb", "Lc"
-  chapter: number // starting chapter
-  verses?: VerseReference[] // same-chapter lists/ranges
-  crossChapter?: CrossChapterRange // cross-chapter range
+  match: string
+  index: number
+  book: string
+  chapter: number
+  verses?: VerseReference[]
+  crossChapter?: CrossChapterRange
 }
 
 @Injectable({ providedIn: "root" })
 export class BibleReferenceService {
-  // --- Patterns --------------------------------------------------------------
+  private bookAlternation = ""
+  private explicitRe?: RegExp
 
-  // verse list (same chapter): 18, 18-19, 18-19.23-26, 4b, 5a-7c (comma or dot between groups)
-  private static readonly SAME_CH_VERSES =
-    String.raw`\d+(?:[a-c])?(?:[-\u2013]\d+(?:[a-c])?)?(?:\s*[,.]\s*\d+(?:[a-c])?(?:[-\u2013]\d+(?:[a-c])?)?)*`
+  // Implicit full ref (no book): same-chapter "2,4b-25" OR cross-chapter "38,1-39,30"
+  // IMPORTANT: cross-chapter branch (endCh,endV) is placed BEFORE same-chapter v2 to avoid greedy misparse.
+  private implicitFullRe =
+    /\b(?<chapter>\d+)\s*[:.,]\s*(?<v1>\d+(?:[a-c])?)(?:\s*[-\u2010-\u2015\u2212]\s*(?:(?<endCh>\d+)\s*[:.,]\s*(?<endV>\d+(?:[a-c])?)|(?<v2>\d+(?:[a-c])?)))?\b/gi
 
-  // cross-chapter block: 1-39,30 or 5a-2,52
-  private static readonly CROSS_CH_VERSES =
-    String.raw`\d+(?:[a-c])?\s*[-\u2013]\s*\d+\s*[,.:]\s*\d+(?:[a-c])?`
+  // Chapter-only AFTER a semicolon:  "... ; 104 ; ..."  (reuse last explicit/current book)
+  private tailChapterOnlyRe =
+    /\s*;\s*(?<tail>(?<chapter>\d+))(?!\s*[:.,]\d)\b/gi
 
-  private static readonly VERSES =
-    String.raw`(?:${BibleReferenceService.SAME_CH_VERSES}|${BibleReferenceService.CROSS_CH_VERSES})`
+  // Verse-only shorthand (uses current book + current chapter): "v.12" / "v.12-13" / "v.2a"
+  private verseOnlyRe =
+    /\bv\.?\s*(?<v1>\d+(?:[a-c])?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c])?))?\b/gi
 
-  // book: single word (any case) OR multi-word (each word Capitalized)
-  private static readonly BOOK_SINGLE = String.raw`[A-Za-z�-�]+\.?`
-  private static readonly BOOK_MULTI =
-    String.raw`[A-Z�-�][a-z�-�]*\.?(?:\s+[A-Z�-�][a-z�-�]*\.?)+`
-  private static readonly BOOK =
-    String.raw`(?:(?:${BibleReferenceService.BOOK_SINGLE})|(?:${BibleReferenceService.BOOK_MULTI}))`
+  constructor(private bookService: BookService) {
+    this.rebuildPattern()
+  }
 
-  // Main explicit reference: [1-3]? Book Chapter [verses?]
-  private readonly explicitRef = new RegExp(
-    String.raw`\b(?:(?<booknum>[1-3])\s*)?(?<book>${BibleReferenceService.BOOK})\s*(?<chapter>\d+)(?:\s*[:.,]\s*(?<verses>${BibleReferenceService.VERSES})\b)?`,
-    "g",
-  )
+  /** Call if your books list changes at runtime */
+  rebuildPattern(): void {
+    // 1) Abbreviations from your service (e.g., "Gn", "1Sm", "2 Sm", "Sl", ...).
+    const raw = (
+      this.bookService.getBooks()?.map((b) => (b.abrv ?? "").trim()) ?? []
+    ).filter(Boolean)
 
-  // Tail chunks after a semicolon that reuse the previous book
-  private readonly tailRef = new RegExp(
-    String.raw`\s*;\s*(?<tail>(?<chapter>\d+)(?:\s*[:.,]\s*(?<verses>${BibleReferenceService.VERSES})\b)?)`,
-    "y", // sticky: continues where we left off
-  )
+    // 2) Normalize to base names by stripping any leading 1\u20133 and optional space.
+    //    Lets the regex handle both "2Sm" and "2 Sm".
+    const base = raw
+      .map((s) => s.replace(/^[1-3]\s*/i, "")) // "1Sm" \u2192 "Sm", "2 Sm" \u2192 "Sm"
+      .map((s) => s.toLocaleLowerCase())
 
-  // Optional immediate chapter-to-chapter " - 39 " right after "Book 38"
-  private readonly nextChapterAfter = /\s*[-\u2013]\s*(?<to>\d+)\b/y
+    // 3) Dedup, escape, sort longer->shorter to avoid partial shadowing.
+    const escaped = Array.from(new Set(base))
+      .filter((s) => s.length > 0)
+      .sort((a, b) => b.length - a.length)
+      .map((s) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&"))
 
-  // Implicit (no book): Chapter + verses (uses currentBook if provided)
-  private readonly implicitRef = new RegExp(
-    String.raw`\b(?<chapter>\d+)\s*[:.,]\s*(?<verses>${BibleReferenceService.VERSES})\b`,
-    "g",
-  )
+    // 4) Optional numeric prefix (1\u20133) + optional space, then known book base.
+    //    Captures the FULL visible book (e.g., "2 Sm", "2Sm", "Sm") in the named group.
+    this.bookAlternation = `(?:(?:[1-3])\\s*)?(?:${escaped.join("|")})`
 
-  // --- Public API ------------------------------------------------------------
+    // Explicit refs support:
+    //  - same-chapter:  Book <sp> Chapter [:.,] v1 [- v2]
+    //  - cross-chapter: Book <sp> Chapter [:.,] v1 - endCh [:.,] endV
+    // Note: cross-chapter branch FIRST to handle "Jb 38,1-39,30" correctly.
+    const pattern =
+      String.raw`\b(?<book>${this.bookAlternation})\s+(?<chapter>\d+)` +
+      String.raw`(?:\s*[:.,]\s*(?<v1>\d+(?:[a-c])?)` +
+      String.raw`(?:\s*[-\u2010-\u2015\u2212]\s*(?:(?<endCh>\d+)\s*[:.,]\s*(?<endV>\d+(?:[a-c])?)|(?<v2>\d+(?:[a-c])?)))?` +
+      String.raw`)?\b`
 
-  extract(text: string, currentBook?: string): BibleReference[] {
+    this.explicitRe = new RegExp(pattern, "gi")
+  }
+
+  extract(
+    text: string,
+    currentBook?: string,
+    currentChapter?: number,
+  ): BibleReference[] {
     if (!text) return []
+    if (!this.explicitRe) this.rebuildPattern()
+
     const out: BibleReference[] = []
     const used: Array<[number, number]> = []
 
-    // 1) Explicit refs with book
-    this.explicitRef.lastIndex = 0
-    for (const m of text.matchAll(this.explicitRef)) {
+    const overlaps = (s: number, e: number) =>
+      used.some(([a, b]) => a < e && s < b)
+    const push = (ref: BibleReference) => {
+      out.push(ref)
+      used.push([ref.index, ref.index + ref.match.length])
+    }
+
+    // -------- 1) Explicit refs (book present) --------
+    const explicitAnchors: Array<{ index: number; book: string }> = []
+    this.explicitRe!.lastIndex = 0
+
+    for (const m of text.matchAll(this.explicitRe!)) {
       const gs = m.groups as
-        | { booknum?: string; book: string; chapter: string; verses?: string }
+        | {
+            book: string
+            chapter: string
+            v1?: string
+            v2?: string
+            endCh?: string
+            endV?: string
+          }
         | undefined
       if (!gs) continue
 
       const start = m.index ?? 0
-      const end = start + m[0].length
-      const book = (gs.booknum ? gs.booknum.trim() + " " : "") + gs.book.trim()
-      const chNum = Number(gs.chapter)
+      const book = gs.book.trim()
+      const startChapter = Number(gs.chapter)
 
-      const ref: BibleReference = {
-        match: m[0],
-        index: start,
-        book,
-        chapter: chNum,
-      }
-      if (gs.verses) this.fillVerses(ref, gs.verses, chNum)
-      out.push(ref)
-      used.push([start, end])
+      explicitAnchors.push({ index: start, book })
 
-      // 1.a) "Book 38-39" \u2192 add chapter 39 as a separate ref
-      this.nextChapterAfter.lastIndex = end
-      const nca = this.nextChapterAfter.exec(text)
-      if (nca?.groups?.["to"]) {
-        const toStr = nca.groups["to"]
-        const toNum = Number(toStr)
-        const s = nca.index + nca[0].lastIndexOf(toStr)
-        const e = s + toStr.length
-        out.push({ match: toStr, index: s, book, chapter: toNum })
-        used.push([s, e])
-      }
-
-      // 1.b) Semicolon tails reusing the same book
-      this.tailRef.lastIndex = end
-      while (true) {
-        const t = this.tailRef.exec(text)
-        if (!t) break
-        const tg = t.groups as {
-          tail: string
-          chapter: string
-          verses?: string
-        }
-        const inner = t[0].indexOf(tg.tail)
-        const s = t.index + inner
-        const e = s + tg.tail.length
-
-        const tref: BibleReference = {
-          match: tg.tail, // e.g. "24,9-14" (no leading "; ")
-          index: s,
+      if (gs.endCh && gs.endV && gs.v1) {
+        // Cross-chapter
+        const { num: sv, part: sp } = this.parseNumPart(gs.v1)
+        const endChapter = Number(gs.endCh)
+        const { num: ev, part: ep } = this.parseNumPart(gs.endV)
+        push({
+          match: m[0],
+          index: start,
           book,
-          chapter: Number(tg.chapter),
-        }
-        if (tg.verses) this.fillVerses(tref, tg.verses, tref.chapter)
-        out.push(tref)
-        used.push([s, e])
+          chapter: startChapter,
+          crossChapter: {
+            type: "crossChapterRange",
+            startChapter,
+            startVerse: sv,
+            startPart: sp,
+            endChapter,
+            endVerse: ev,
+            endPart: ep,
+          },
+        })
+      } else {
+        // Same-chapter (with or without verses)
+        const verses = this.buildVerses(gs.v1, gs.v2)
+        push({
+          match: m[0],
+          index: start,
+          book,
+          chapter: startChapter,
+          verses,
+        })
       }
     }
 
-    // 2) Implicit refs (no book), only if currentBook provided
-    if (currentBook) {
-      this.implicitRef.lastIndex = 0
-      for (const m of text.matchAll(this.implicitRef)) {
-        const gs = m.groups as { chapter: string; verses: string } | undefined
+    // helper: find nearest explicit book BEFORE a given index
+    const bookBefore = (i: number): string | undefined => {
+      let last: string | undefined
+      for (const a of explicitAnchors) {
+        if (a.index < i) last = a.book
+        else break
+      }
+      return last
+    }
+
+    // -------- 2) Implicit full refs: same-chapter or cross-chapter --------
+    this.implicitFullRe.lastIndex = 0
+    for (const m of text.matchAll(this.implicitFullRe)) {
+      const gs = m.groups as
+        | {
+            chapter: string
+            v1: string
+            v2?: string
+            endCh?: string
+            endV?: string
+          }
+        | undefined
+      if (!gs) continue
+
+      const s = m.index ?? 0
+      const e = s + m[0].length
+      if (overlaps(s, e)) continue
+
+      const book = bookBefore(s) ?? currentBook?.trim()
+      if (!book) continue // no context: skip
+
+      const startChapter = Number(gs.chapter)
+
+      if (gs.endCh && gs.endV) {
+        // Cross-chapter
+        const { num: sv, part: sp } = this.parseNumPart(gs.v1)
+        const endChapter = Number(gs.endCh)
+        const { num: ev, part: ep } = this.parseNumPart(gs.endV)
+        push({
+          match: m[0],
+          index: s,
+          book,
+          chapter: startChapter,
+          crossChapter: {
+            type: "crossChapterRange",
+            startChapter,
+            startVerse: sv,
+            startPart: sp,
+            endChapter,
+            endVerse: ev,
+            endPart: ep,
+          },
+        })
+      } else {
+        // Same-chapter
+        push({
+          match: m[0],
+          index: s,
+          book,
+          chapter: startChapter,
+          verses: this.buildVerses(gs.v1, gs.v2),
+        })
+      }
+    }
+
+    // -------- 3) Tail chapter-only after semicolon:  "; 104" --------
+    this.tailChapterOnlyRe.lastIndex = 0
+    for (const m of text.matchAll(this.tailChapterOnlyRe)) {
+      const gs = m.groups as { tail: string; chapter: string } | undefined
+      if (!gs) continue
+      const innerOffset = m[0].indexOf(gs.tail)
+      const s = (m.index ?? 0) + innerOffset
+      const e = s + gs.tail.length
+      if (overlaps(s, e)) continue
+
+      const book = bookBefore(s) ?? currentBook?.trim()
+      if (!book) continue // no context: skip
+
+      push({
+        match: gs.tail, // "104" (no leading "; ")
+        index: s,
+        book,
+        chapter: Number(gs.chapter),
+      })
+    }
+
+    // -------- 4) Verse-only shorthand: "v.12" / "v.12-13" --------
+    if (currentBook && currentChapter != null) {
+      this.verseOnlyRe.lastIndex = 0
+      for (const m of text.matchAll(this.verseOnlyRe)) {
+        const gs = m.groups as { v1: string; v2?: string } | undefined
         if (!gs) continue
+
         const s = m.index ?? 0
         const e = s + m[0].length
-        if (used.some(([a, b]) => a < e && s < b)) continue // skip overlaps
+        if (overlaps(s, e)) continue
 
-        const ref: BibleReference = {
+        push({
           match: m[0],
           index: s,
           book: currentBook.trim(),
-          chapter: Number(gs.chapter),
-        }
-        this.fillVerses(ref, gs.verses, ref.chapter)
-        out.push(ref)
-        used.push([s, e])
+          chapter: currentChapter,
+          verses: this.buildVerses(gs.v1, gs.v2),
+        })
       }
     }
 
     return out.sort((a, b) => a.index - b.index)
   }
 
-  // --- Helpers ---------------------------------------------------------------
+  // ---- helpers --------------------------------------------------------------
 
-  /** Populates either `verses` (same chapter) or `crossChapter` (range across chapters). */
-  private fillVerses(
-    ref: BibleReference,
-    versesStr: string,
-    startChapter: number,
-  ): void {
-    const cross =
-      /^(\d+)([a-c])?\s*[-\u2013]\s*(\d+)\s*[,.:]\s*(\d+)([a-c])?$/i.exec(
-        versesStr.trim(),
-      )
-    if (cross) {
-      ref.crossChapter = {
-        type: "crossChapterRange",
-        startChapter,
-        startVerse: Number(cross[1]),
-        startPart: (cross[2]?.toLowerCase() as "a" | "b" | "c") ?? undefined,
-        endChapter: Number(cross[3]),
-        endVerse: Number(cross[4]),
-        endPart: (cross[5]?.toLowerCase() as "a" | "b" | "c") ?? undefined,
-      }
-      return
-    }
+  private parseNumPart(s: string): { num: number; part?: "a" | "b" | "c" } {
+    const m = /^(\d+)([a-c])?$/i.exec(s.trim())
+    return m
+      ? {
+          num: Number(m[1]),
+          part: (m[2]?.toLowerCase() as "a" | "b" | "c") || undefined,
+        }
+      : { num: Number(s), part: undefined }
+  }
 
-    ref.verses = versesStr
-      .split(/\s*[,.]\s*/g) // comma or dot between groups
-      .filter(Boolean)
-      .map<VerseReference>((grp) => {
-        const [l, r] = grp.split(/[-\u2013]/).map((s) => s.trim())
-        const m1 = /^(\d+)([a-c])?$/i.exec(l)
-        const m2 = r ? /^(\d+)([a-c])?$/i.exec(r) : null
-        if (m1 && m2) {
-          const start = Number(m1[1]),
-            end = Number(m2[1])
-          const startPart = m1[2]?.toLowerCase() as "a" | "b" | "c" | undefined
-          const endPart = m2[2]?.toLowerCase() as "a" | "b" | "c" | undefined
-          return {
-            type: "range",
-            start: Math.min(start, end),
-            end: Math.max(start, end),
-            startPart,
-            endPart,
-          }
-        }
-        if (m1) {
-          return {
-            type: "single",
-            verse: Number(m1[1]),
-            part: m1[2]?.toLowerCase() as "a" | "b" | "c",
-          }
-        }
-        return { type: "single", verse: Number(l) || 0 } // fallback
-      })
+  private buildVerses(v1?: string, v2?: string): VerseReference[] | undefined {
+    if (!v1) return undefined
+    const a = this.parseNumPart(v1)
+    if (!v2) return [{ type: "single", verse: a.num, part: a.part }]
+    const b = this.parseNumPart(v2)
+    return [
+      {
+        type: "range",
+        start: Math.min(a.num, b.num),
+        end: Math.max(a.num, b.num),
+        startPart: a.part,
+        endPart: b.part,
+      },
+    ]
   }
 }

@@ -8,7 +8,7 @@ import { Router } from "@angular/router"
   selector: 'app-two-action-snack',
   imports: [    MatButtonModule],
   template: `
-    <span>{{ data.message }}</span>
+    <span class="message">{{ data.message }}</span>
     <span class="spacer"></span>
     <button mat-button (click)="goBack()">Voltar</button>
     <button mat-button (click)="dismiss()">Fechar</button>
@@ -20,7 +20,12 @@ import { Router } from "@angular/router"
       width: 100%;
     }
     .spacer { flex: 1 1 auto; }
-    .mdc-button { color: antiquewhite; }
+    .message {
+      color: antiquewhite;
+    }
+    :host ::ng-deep .mat-mdc-button .mdc-button__label {
+  color: antiquewhite;
+}
   `]
 })
 export class TwoActionSnackComponent {

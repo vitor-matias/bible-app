@@ -1,6 +1,6 @@
 import { Injectable } from "@angular/core"
 import { BehaviorSubject, firstValueFrom } from "rxjs"
-import { tap } from "rxjs/operators"
+import { filter, tap } from "rxjs/operators"
 import { BibleApiService } from "./bible-api.service"
 
 @Injectable({
@@ -8,7 +8,9 @@ import { BibleApiService } from "./bible-api.service"
 })
 export class BookService {
   private booksSubject = new BehaviorSubject<Book[]>([])
-  books$ = this.booksSubject.asObservable()
+  books$ = this.booksSubject
+    .asObservable()
+    .pipe(filter((books) => books.length > 0))
 
   constructor(private apiService: BibleApiService) {
     if (this.booksSubject.getValue().length === 0) {
@@ -19,15 +21,17 @@ export class BookService {
   /**
    * Ensures books are loaded before the app starts.
    */
-  initializeBooks(): Promise<void> {
-    return firstValueFrom(
+  async initializeBooks(): Promise<void> {
+    if (this.getBooks().length > 0) return
+
+    await firstValueFrom(
       this.apiService.getAvailableBooks().pipe(
         tap((books) => {
           books.push(this.getAboutBook())
           this.booksSubject.next(books)
         }),
       ),
-    ).then(() => {})
+    )
   }
 
   /**
@@ -41,6 +45,14 @@ export class BookService {
     return this.getBooks().find((book) => book.id === bookId)
   }
 
+  findBookByAbrv(bookAbrv: Book["abrv"]): Book | undefined {
+    return this.getBooks().find(
+      (book) =>
+        book.abrv.replace(/\s+/g, " ").trim().toLocaleLowerCase() ===
+        bookAbrv.replace(/\s+/g, " ").trim().toLocaleLowerCase(),
+    )
+  }
+
   findBookByUrlAbrv(bookAbrv: Book["abrv"]): Book | undefined {
     return this.getBooks().find((book) => this.getUrlAbrv(book) === bookAbrv)
   }
@@ -48,8 +60,9 @@ export class BookService {
   findBook(bookId: Book["id"] | Book["abrv"]): Book {
     return (
       this.findBookById(bookId) ||
+      this.findBookByAbrv(bookId) ||
       this.findBookByUrlAbrv(bookId) ||
-      this.getBooks()[0]
+      this.getAboutBook()
     )
   }
 

@@ -15,7 +15,7 @@
   </mat-drawer>
 
 
-  <mat-drawer-content *ngIf="book">
+  <mat-drawer-content style="background-color: var(--background-color)" *ngIf="book">
 
     <div>
       <header [book]="book" [chapterNumber]="chapterNumber" (openBookSelector)="openBookDrawer($event)" (openChapterSelector)="openChapterDrawer($event)"></header>

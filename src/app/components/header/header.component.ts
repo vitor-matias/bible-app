@@ -12,6 +12,7 @@ import { MatIconModule } from "@angular/material/icon"
 import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar" // Import MatToolbarModule from the correct module
 import { type Router, RouterModule } from "@angular/router"
+import { ThemeService } from "../../services/theme.service"
 
 @Component({
   selector: "header",
@@ -28,6 +29,8 @@ import { type Router, RouterModule } from "@angular/router"
   styleUrls: ["./header.component.css"],
 })
 export class HeaderComponent implements OnInit {
+
+
   @Input() book!: Book
   @Input() chapterNumber!: number
 
@@ -36,7 +39,7 @@ export class HeaderComponent implements OnInit {
 
   mobile = false
 
-  constructor() {}
+  constructor(private themeService: ThemeService) {}
 
   ngOnInit(): void {
     if (window.screen.width <= 480) {
@@ -51,5 +54,13 @@ export class HeaderComponent implements OnInit {
 
   showChapterSelector() {
     this.openChapterSelector.emit({ open: true })
+  }
+
+  isLightTheme(): boolean {
+    return localStorage.getItem("theme") === "light";
+  }
+
+  toggleTheme(): void {
+    this.themeService.toggleTheme();
   }
 }

@@ -71,3 +71,15 @@ mat-icon {
 .searchButton.mdc-button {
   min-width: 48px;
 }
+
+::ng-deep .mat-button-toggle-label-content {
+  color: #543d27;
+}
+
+.themeToggleButton {
+  position: fixed;
+  left: 8px;
+  margin-right: auto;
+  padding-left: 0px;
+  padding-right: 0px;
+}
