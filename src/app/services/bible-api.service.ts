@@ -7,6 +7,7 @@ import {
   from,
   type Observable,
   of,
+  shareReplay,
   switchMap,
 } from "rxjs"
 
@@ -17,14 +18,29 @@ export class BibleApiService {
   api = "v1"
   private chapterPromise: Promise<Observable<Chapter>> | null = null
 
-  books: Book[] = []
+  private books$: Observable<Book[]> | null = null;
+  books: Book[] = [];
 
   constructor(private http: HttpClient) {}
 
   getAvailableBooks(): Observable<Book[]> {
-    return this.books.length
-      ? of(this.books)
-      : (this.http.get(`${this.api}/books`) as Observable<Book[]>)
+    if (this.books.length) {
+      return of(this.books);
+    }
+    if (!this.books$) {
+      this.books$ = (this.http.get(`${this.api}/books`) as Observable<Book[]>).pipe(
+        shareReplay(1)
+      );
+      this.books$.subscribe({
+        next: (books) => {
+          this.books = books;
+        },
+        error: () => {
+          this.books$ = null;
+        }
+      });
+    }
+    return this.books$;
   }
 
   getChapter(book: string, chapter: number): Observable<Chapter> {
