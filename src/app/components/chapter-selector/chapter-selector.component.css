@@ -1,5 +1,5 @@
 .chapterSelectorButton:not(disabled) {
-  background-color: var(--card-color);
+  background-color: var(--card-background);
   color: var(--text-color);
   font-size: large;
   margin-left: 8px; /* Add some spacing between buttons */
