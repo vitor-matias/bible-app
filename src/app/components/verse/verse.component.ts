@@ -25,6 +25,7 @@ import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnot
   templateUrl: "./verse.component.html",
   styleUrls: ["./verse.component.css"],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: true,
 })
 export class VerseComponent {
   isChapterNumberDisplayed = false
