@@ -1,0 +1,14 @@
+[
+    {
+        "relation": [
+            "delegate_permission/common.handle_all_urls"
+        ],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "org.capuchinhos.biblia.twa",
+            "sha256_cert_fingerprints": [
+                "AD:A4:B8:4E:96:11:36:D8:6B:DA:5D:B6:04:B8:29:97:91:77:89:16:9F:B5:A1:5C:8B:A4:1C:73:85:1A:47:13"
+            ]
+        }
+    }
+]
