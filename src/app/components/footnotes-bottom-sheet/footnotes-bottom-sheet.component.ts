@@ -55,7 +55,7 @@ import { BookService } from '../../services/book.service'
     }
     .footnote-reference { 
       font-weight: bold;
-      font-size: 110%
+      font-size: 110%;
       margin-right: 8px;
     }
   `]
