@@ -1,0 +1,59 @@
+.results-section {
+  margin-top: 0px;
+}
+
+.results-header {
+  color: #333;
+  margin-bottom: 15px;
+}
+
+.results-list {
+  list-style: none;
+  padding: 0;
+}
+
+.result-item {
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.result-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  background-color: var(--card-background);
+  transition: background-color 0.3s;
+}
+
+.verse-ref {
+  display: block;
+  font-size: 1.1em;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+}
+
+.verse-text {
+  margin: 0;
+  color: var(--text-color);
+}
+
+.sentinel {
+  height: 1px;
+  visibility: hidden;
+}
+
+.loading {
+  text-align: center;
+  padding: 10px;
+  color: #666;
+}
+
+.search-container {
+  padding: 20px;
+  overflow-y: auto;
+  overscroll-behavior: none; /* Prevents rubber banding in this container */
+}
+
+::ng-deep .mat-mdc-button .mdc-button__label {
+  color: antiquewhite;
+}

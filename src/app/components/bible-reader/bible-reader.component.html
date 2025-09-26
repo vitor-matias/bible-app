@@ -1,0 +1,54 @@
+<mat-drawer-container class="bookSelectorContainer" #container>
+
+  <mat-drawer *ngIf="getBooks()" class="bookSelector" mode="over" position="start" #bookDrawer closed>
+    <button matIconButton (click)="dismissBookDrawer()" class="dismiss-button" #bookDrawerCloseButton>
+      <mat-icon>menu_open</mat-icon>
+    </button>
+    <book-selector [books]="getBooks()" (submitData)="onBookSubmit($event)"></book-selector>
+  </mat-drawer>
+
+  <mat-drawer *ngIf="chapter" class="chapterSelector" mode="over" position="start" #chapterDrawer closed>
+    <button matIconButton (click)="dismissChapterDrawer()" class="dismiss-button" #chapterDrawerCloseButton>
+      <mat-icon>menu_open</mat-icon>
+    </button>
+    <chapter-selector [chapters]="book.chapters || []" [selectedChapter]="chapterNumber" (submitData)="onChapterSubmit($event)"></chapter-selector>
+  </mat-drawer>
+
+
+  <mat-drawer-content style="background-color: var(--background-color)" *ngIf="book">
+
+    <div>
+      <header [book]="book" [chapterNumber]="chapterNumber" (openBookSelector)="openBookDrawer($event)" (openChapterSelector)="openChapterDrawer($event)"></header>
+    </div>
+    <div unifiedGestures (swipeLeft)="goToNextChapter()" (swipeRight)="goToPreviousChapter()" style="margin: 8px 8px 0px 8px;">
+      <div class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}">
+        <div pinch-to-zoom class="chapterBlock" *ngIf="chapter">
+          @if(book.id !== 'about'){
+            <verse [id]="verse.number" class="verse" *ngFor="let verse of chapter.verses" [data]="verse"></verse>
+          }
+            <about *ngIf="book.id==='about'"></about>
+          <br><br>
+          <span class="center"><b>© DIFUSORA BÍBLICA</b></span>
+          <span class="center">
+            Reservados todos os direitos. É proibida a reprodução, total ou parcial, do texto, sem autorização, por
+            escrito, da Editora.</span>
+        </div>
+        <div *ngIf="scrolled" style="height: 64px;"></div>
+      </div>
+    </div>
+@if (book.id !== 'about') {
+        <!-- Floating navigation buttons -->
+        <button *ngIf="chapter.number > 1" class="floating-nav-button prev-chapter" 
+        mat-mini-fab aria-label="Previous chapter"
+        (click)="goToPreviousChapter()">
+  <mat-icon>chevron_left</mat-icon>
+</button>
+
+<button *ngIf="  chapter.number < book.chapterCount" class="floating-nav-button next-chapter" 
+        mat-mini-fab aria-label="Next chapter"
+        (click)="goToNextChapter()">
+  <mat-icon>chevron_right</mat-icon>
+</button>
+}
+  </mat-drawer-content>
+</mat-drawer-container>

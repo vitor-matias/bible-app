@@ -1,20 +1,31 @@
 import { CommonModule } from "@angular/common"
 // biome-ignore lint/style/useImportType: <explanation>
+import { ChangeDetectionStrategy, Component, Input } from "@angular/core"
+import { RouterModule } from "@angular/router"
 import {
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  Input,
-} from "@angular/core"
+  BibleReference,
+  BibleReferenceService,
+  VerseReference,
+} from "../../services/bible-reference.service"
 import { VerseSectionComponent } from "../verse-section/verse-section.component"
+import {
+  MatBottomSheet,
+  MatBottomSheetModule,
+} from "@angular/material/bottom-sheet"
+import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnotes-bottom-sheet.component"
 
 @Component({
   selector: "verse",
-  standalone: true,
-  imports: [CommonModule, VerseSectionComponent],
+  imports: [
+    CommonModule,
+    VerseSectionComponent,
+    RouterModule,
+    MatBottomSheetModule,
+  ],
   templateUrl: "./verse.component.html",
-  styleUrl: "./verse.component.css",
+  styleUrls: ["./verse.component.css"],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: true,
 })
 export class VerseComponent {
   isChapterNumberDisplayed = false
@@ -24,7 +35,10 @@ export class VerseComponent {
   @Input()
   data!: Verse
 
-  constructor(private cdr: ChangeDetectorRef) {}
+  constructor(
+    private bibleRef: BibleReferenceService,
+    private bottomSheet: MatBottomSheet,
+  ) {}
 
   shouldDisplayChapterNumber(
     data: Verse,
@@ -88,5 +102,59 @@ export class VerseComponent {
     const rect2 = element.getBoundingClientRect()
 
     return rect1.bottom >= rect2.top && rect1.top <= rect2.bottom
+  }
+
+  shouldShowParagraph(data: Verse, text: Paragraph, i: number): boolean {
+    return (
+      data.number > 0 &&
+      ((data.text[i - 1]?.type !== "section" &&
+        data.text[i - 1]?.type !== "references" &&
+        (data.text[i - 1]?.type !== "paragraph" ||
+          (data.text[i - 1]?.type === "paragraph" && text.text.length > 2))) ||
+        data.bookId === "psa")
+    )
+  }
+
+  parseReferences(text: string): { parts: (string | BibleReference)[] } {
+    const refs = this.bibleRef.extract(text, this.data.bookId)
+    if (!refs.length) return { parts: [text] }
+
+    const parts: (string | BibleReference)[] = []
+    let lastIdx = 0
+    for (const ref of refs) {
+      if (ref.index > lastIdx) {
+        parts.push(text.slice(lastIdx, ref.index))
+      }
+      parts.push(ref)
+      lastIdx = ref.index + ref.match.length
+    }
+    if (lastIdx < text.length) {
+      parts.push(text.slice(lastIdx))
+    }
+    return { parts }
+  }
+
+  getVerseQueryParams(verses?: VerseReference[]) {
+    if (!verses || !verses.length) return null
+    const first = verses[0]
+    if (first.type === "single") {
+      return { verseStart: first.verse }
+    }
+    if (first.type === "range") {
+      return { verseStart: first.start, verseEnd: first.end }
+    }
+    return null
+  }
+
+  containsFootnotes(): boolean {
+    return this.data.text.some((t) => t.type === "footnote")
+  }
+
+  toggleFootnotes(): void {
+    const footnotes = this.data.text.filter((t) => t.type === "footnote")
+    if (footnotes.length === 0) return
+    this.bottomSheet.open(FootnotesBottomSheetComponent, {
+      data: { footnotes, verse: this.data },
+    })
   }
 }

@@ -1,16 +1,15 @@
+import { FlatTreeControl } from "@angular/cdk/tree"
 import { CommonModule } from "@angular/common"
 import { Component, EventEmitter, Input, Output } from "@angular/core"
-import { MatListModule } from "@angular/material/list"
 
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
+import { MatListModule } from "@angular/material/list"
 import {
   MatTreeFlatDataSource,
   MatTreeFlattener,
   MatTreeModule,
 } from "@angular/material/tree"
-
-import { FlatTreeControl } from "@angular/cdk/tree"
 
 interface BookNode {
   name: string
@@ -25,7 +24,6 @@ interface ExampleFlatNode {
 
 @Component({
   selector: "book-selector",
-  standalone: true,
   imports: [
     CommonModule,
     MatListModule,

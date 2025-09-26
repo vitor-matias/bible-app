@@ -1,0 +1,19 @@
+.chapterSelectorButton:not(disabled) {
+  background-color: var(--card-background);
+  color: var(--text-color);
+  font-size: large;
+  margin-left: 8px; /* Add some spacing between buttons */
+}
+
+.chapterSelectorButton:hover {
+  background-color: var(--highlight-color);
+}
+
+button.highlight {
+  background-color: var(--highlight-color);
+  /* any extra styling you like */
+}
+
+.chapterSelectorContainer {
+  background-color: var(--card-background);
+}

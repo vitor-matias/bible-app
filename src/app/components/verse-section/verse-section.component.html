@@ -5,6 +5,23 @@
 
             <span class="section" *ngIf="text.type === 'text' || text.type === 'section'">{{text.text}}</span>
 
+    @if(text.type === "references"){
+      <span class="references">
+        <span>{{ " " }}</span>
+        @for(part of parseReferences(text.text).parts; track $index){
+          <ng-container *ngIf="typeof part === 'object'; else plainText">
+            <a
+              (click)="showReturnSnackbar()"
+              [routerLink]="['/', (part.book | lowercase ), part.chapter]"
+              [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)"
+              >{{part.match}}</a
+            >
+          </ng-container>
+          <ng-template #plainText>{{part}}</ng-template>
+        }
+      </span>
+    }
+
             <span class="section"
                 *ngIf="data.verseLabel === 'front' && isLast && data.text[data.text.length -1].type !== 'quote'"> —
             </span>

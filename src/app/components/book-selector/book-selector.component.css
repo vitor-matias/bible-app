@@ -1,32 +1,37 @@
 .bible-books-container {
-    display: flex;
-    justify-content: space-around;
-    padding: 8px;
-  }
-  
-mat-tree-node, h3 {
+  display: flex;
+  justify-content: space-around;
+  padding: 8px;
+  width: 95%;
+}
+
+mat-tree-node,
+h3 {
   font-family: sans-serif;
   cursor: default;
   hyphens: auto;
   font-size: 90%;
 }
 
-  .column {
-    flex: 1;
-    margin: 0 2px;
-  }
+h4{
+  font-size: 125%;
+}
 
-  
-  ul {
-    list-style-type: none;
-    padding: 0;
-  }
-  
-  li {
-    margin: 5px 0;
-  }
-  
-  .book-group{
-    font-weight: bold;
-    text-transform: uppercase;
-  }
+.column {
+  flex: 1;
+  margin: 0 2px;
+}
+
+ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+li {
+  margin: 5px 0;
+}
+
+.book-group {
+  font-weight: bold;
+  text-transform: uppercase;
+}

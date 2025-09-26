@@ -1,7 +1,36 @@
-<div><mat-toolbar>
-    <span *ngIf="!mobile" class="bookTitle">{{book.name}}</span>
-    <span *ngIf="mobile" class="bookTitle">{{book.shortName + " " + (book.chapterCount > 1 ? chapterNumber : "")}}</span>
+<div>
+  <mat-toolbar>
+    <div class="header-content">
+      <button class="themeToggleButton"
+        mat-icon-button 
+        (click)="toggleTheme()" 
+        [attr.aria-label]="'Toggle ' + (isLightTheme() ? 'light' : 'dark') + ' theme'">
+        <mat-icon style="color: antiquewhite;">{{ isLightTheme() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+      </button>
 
-    <button class="bookSelectorButton" (click)="showBookSelector()" mat-flat-button>Α | Ω</button>
-</mat-toolbar>
-</div> 
+      <mat-button-toggle-group multiple class="bookSelectorButton">
+        <mat-button-toggle
+          #bookToggle
+          mat-flat-button
+          class="bookSelectorButtonContent"
+          (click)="showBookSelector(); bookToggle.checked = false">
+          {{ mobile ? book.shortName : book.name }}
+        </mat-button-toggle>
+        
+        @if(book.id !== 'about'){
+        <mat-button-toggle
+          #chapterToggle
+          mat-flat-button
+          class="bookSelectorButtonContent"
+          (click)="showChapterSelector(); chapterToggle.checked = false">
+          {{ chapterNumber }}
+        </mat-button-toggle>
+        }
+      </mat-button-toggle-group>
+
+      <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button>
+        <mat-icon style="color: #543D27;" aria-label="Search">search</mat-icon>
+      </button>
+    </div>
+  </mat-toolbar>
+</div>

@@ -1,46 +1,91 @@
 <ng-container *ngIf="data">
-    <span *ngIf="data.number > 0" class="verseNumber">{{data.verseLabel}}</span>
+  <!-- Verse Number -->
+   @if(data.number > 0){
+  <span class="verseNumber">{{ data.number }}</span>
+  @if(containsFootnotes()){
+    <span (click)="toggleFootnotes()" class="footnoteIndicator">&#65290;</span>
+  }
+}
+  <!-- Text Content Loop -->
+  <ng-container *ngFor="let text of data.text; let i = index; let isFirst = first; let isLast = last">
+    
+    <!-- Chapter Number Display -->
+    <div *ngIf="shouldDisplayChapterNumber(data, text, i, isLast)" class="chapterNumber">
+      {{ data.chapterNumber }}
+    </div>
 
-    <ng-container *ngFor="let text of data.text; let i = index; let isFirst = first; let isLast = last">
+    <!-- Main Verse Text Content -->
+    <span class="verseText">
+      <ng-container *ngIf="!isInSection(data.text, i)">
+        
+        <!-- Regular Text -->
+        @if(text.type === 'text'){
+        <span [ngClass]="{'allCaps': text.allCaps}" (click)="toggleFootnotes()">{{ text.text }}</span>
+      }
+        <!-- References -->
+    @if(text.type === "references"){
+      <span class="references">
+        <span>{{ " " }}</span>
+        <h3>
+        @for(part of parseReferences(text.text).parts; track $index){
+          @if(typeof part === "object" && part.book !== data.bookId){
+            <a class="references"
+              [routerLink]="['/', (part.book | lowercase ), part.chapter]"
+              [queryParams]="getVerseQueryParams(part.verses)"
+              >{{part.match}}</a
+            >
+        } @else {
+          <span class="references">{{typeof part === "object" ? part.match : part}}</span>
+        }
+      }
+        </h3>
+      </span>
+    }
 
-        <div *ngIf="shouldDisplayChapterNumber(data, text, i, isLast)" class="chapterNumber">{{data.chapterNumber}}
-        </div>
+        <!-- Paragraph Breaks -->
+        <div *ngIf="text.type === 'paragraph' && data.verseLabel !== 'front'"></div>
+        <div *ngIf="isLast && text.type === 'quote'"></div>
 
-        <span class="verseText" >
-            <!-- If the previous node was a quote node and the current one is not, do a line break 
-            <span *ngIf="text.type !== 'quote' && !isFirst && data.text[i-1].type === 'quote'"><br></span>-->
-            <ng-container *ngIf="!isInSection(data.text, i)">
-
-                <span *ngIf="text.type === 'text'">{{text.text}}</span>
-
-                <div *ngIf="text.type === 'paragraph' && data.verseLabel !== 'front' ">
-                </div>
-
-                <div *ngIf="isLast && text.type === 'quote'">
-                </div>
-
-                <span *ngIf="text.type === 'paragraph' && !isFirst && isLast && chapterNumberIndex !== i"
-                   >
-                   <div></div>
-                   <span #paragraph [ngClass]="{'indent': !checkIfIsTouchingChapterNumber(paragraph)}">{{text.text}}</span>
-                </span>
-
-                <span *ngIf="text.type === 'paragraph' && data.number > 0 && !(!isFirst && isLast && chapterNumberIndex !== i) &&
-    (
-        (data.text[i-1]?.type !== 'section' && data.text[i-1]?.type !== 'references' && (data.text[i-1]?.type !== 'paragraph' || (data.text[i-1]?.type === 'paragraph' && text.text.length > 2)))
-    || data.bookId === 'psa')">{{text.text}}</span>
-
-                <p *ngIf="text.type === 'section' && (text.tag === 's1' || text.tag === 'ms')">
-                <h3 *ngIf="text.type === 'section' && (text.tag === 's1' || text.tag === 'ms')">{{text.text}}</h3>
-
-                <verse-section *ngIf="text.type === 'section' && text.tag=== 's2'" [data]="getDataForSection(i)"
-                    [changeLine]="chapterNumberIndex !== i && data.text[i-1].type !== 'section'"></verse-section>
-
-            </ng-container>
-            <span class="quote" *ngIf="text.type === 'quote'">
-                <div></div>
-                <span #quote  [ngClass]="{'indent': !checkIfIsTouchingChapterNumber(quote)}">{{text.text}}</span>
+        <!-- Complex Paragraph Logic -->
+        <ng-container *ngIf="text.type === 'paragraph'">
+          <!-- First Case: Last paragraph with specific conditions -->
+          <span *ngIf="!isFirst && isLast && chapterNumberIndex !== i && !shouldShowParagraph(data, text, i)">
+            <div></div>
+            <span #paragraph [ngClass]="{'indent': !checkIfIsTouchingChapterNumber(paragraph)}">
+              {{ text.text }}
             </span>
+          </span>
+
+          <!-- Second Case: Regular paragraph with complex conditions -->
+          <span #paragraph *ngIf="shouldShowParagraph(data, text, i)" [ngClass]="{'indent': !checkIfIsTouchingChapterNumber(paragraph)}">
+            {{ text.text }}
+          </span>
+        </ng-container>
+
+        <!-- Section Headers -->
+        <ng-container *ngIf="text.type === 'section'">
+          <!-- Main Section (s1 or ms) -->
+          <ng-container *ngIf="text.tag === 's1' || text.tag === 'ms'">
+            <p></p>
+            <h3>{{ text.text }}</h3>
+          </ng-container>
+
+          <!-- Sub Section (s2) -->
+          <verse-section 
+            *ngIf="text.tag === 's2'" 
+            [data]="getDataForSection(i)"
+            [changeLine]="chapterNumberIndex !== i && data.text[i-1].type !== 'section'">
+          </verse-section>
+        </ng-container>
+
+      </ng-container>
+      <!-- Quote Text -->
+      <span *ngIf="text.type === 'quote'" class="quote">
+        <div></div>
+        <span #quote [ngClass]="{'indent': !checkIfIsTouchingChapterNumber(quote)}">
+          {{ text.text }}
         </span>
-    </ng-container>
+      </span>
+    </span>
+  </ng-container>
 </ng-container>

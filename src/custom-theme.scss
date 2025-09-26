@@ -8,18 +8,11 @@
 // Include the common styles for Angular Material. We include this here so that you only
 // have to load a single css file for Angular Material in your app.
 // Be sure that you only ever include this mixin once!
-@include mat.core();
+@include mat.elevation-classes();
+@include mat.app-background();
 
 // Define the theme object.
 $bible-app-theme-light: mat.define-theme((
-  color: (
-    theme-type: light,
-    primary: mat.$azure-palette,
-    tertiary: mat.$blue-palette,
-  ),
-  density: (
-    scale: 0,
-  )
 ));
 
 // Include theme styles for core and each component used in your app.
@@ -41,21 +34,7 @@ html {
   height: 100%;
 }
 
-@include mat.core();
+@include mat.elevation-classes();
+@include mat.app-background();
 @include mat.color-variants-backwards-compatibility($bible-app-theme-light);
 
-$pagination-color: #543D27;
-
-.pagination .page-item .page-link {
-    color: $pagination-color;
-}
-
-.pagination .page-item.active .page-link {
-    background-color: $pagination-color;
-    color : antiquewhite;
-    border-color: $pagination-color;
-}
-
-.pagination .page-item:hover .page-link {
-    border-color: $pagination-color;
-}
