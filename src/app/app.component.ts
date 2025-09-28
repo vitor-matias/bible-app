@@ -1,7 +1,7 @@
 import { CommonModule } from "@angular/common"
 import { ChangeDetectionStrategy, Component } from "@angular/core"
 
-import { RouterOutlet } from "@angular/router"
+import { NavigationEnd, Router, RouterOutlet } from "@angular/router"
 
 import { SwUpdate } from "@angular/service-worker"
 
@@ -14,7 +14,16 @@ import { SwUpdate } from "@angular/service-worker"
   imports: [CommonModule, RouterOutlet],
 })
 export class AppComponent {
-  constructor(private swUpdate: SwUpdate) {
+  constructor(
+    private swUpdate: SwUpdate,
+    router: Router,
+  ) {
+    router.events.subscribe((event) => {
+      if (event instanceof NavigationEnd) {
+        // @ts-ignore
+        if (window.umami) window.umami.trackView()
+      }
+    })
     if (this.swUpdate.isEnabled) {
       this.swUpdate.versionUpdates.subscribe((event) => {
         if (event.type === "VERSION_READY") {
