@@ -4,6 +4,7 @@ html,
 body {
   height: 100%;
   margin: 0;
+  background: var(--cap-brown);
 }
 
 /* Light theme variables */
@@ -67,13 +68,12 @@ a {
   background-color: var(--card-background) !important ;
 } 
 
-mat-toolbar, .mat-toolbar, .app-toolbar {
-  background-color: var(--cap-brown) !important;
-  color: #fff;
-  box-shadow: none !important;
-  border-top: 0 !important;
-  /* Disable MDC/Material elevation overlays that slightly tint surfaces */
-  --mdc-elevation-level: 0;
-  --mat-toolbar-container-background-color: var(--cap-brown);
-  --mat-elevation-overlay-opacity: 0;
+
+#statusbar-cover{
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: calc(env(safe-area-inset-top, 0px) + 3px); /* safe area + a bit more */
+  background: var(--cap-brown);
+  z-index: 2147483647;         /* above everything */
+  pointer-events: none;
 }
