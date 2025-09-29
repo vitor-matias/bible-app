@@ -30,6 +30,8 @@ export class ThemeService {
     this.isDarkTheme.next(newTheme)
     this.applyTheme(newTheme)
     localStorage.setItem("theme", newTheme ? "dark" : "light")
+    // @ts-ignore
+    window.umami.trackEvent("THEME CHANGE", newTheme ? "dark" : "light")
   }
 
   private applyTheme(isDark: boolean): void {

@@ -1,3 +1,5 @@
+<header [book]="book" [chapterNumber]="chapterNumber" (openBookSelector)="openBookDrawer($event)" (openChapterSelector)="openChapterDrawer($event)"></header>
+
 <mat-drawer-container class="bookSelectorContainer" #container>
 
   <mat-drawer *ngIf="getBooks()" class="bookSelector" mode="over" position="start" #bookDrawer closed>
@@ -14,10 +16,8 @@
     <chapter-selector [chapters]="book.chapters || []" [selectedChapter]="chapterNumber" (submitData)="onChapterSubmit($event)"></chapter-selector>
   </mat-drawer>
 
-
   <mat-drawer-content style="background-color: var(--background-color)" *ngIf="book">
     <div unifiedGestures (swipeLeft)="goToNextChapter()" (swipeRight)="goToPreviousChapter()" style="margin: 8px 8px 0px 8px;">
-      <header [book]="book" [chapterNumber]="chapterNumber" (openBookSelector)="openBookDrawer($event)" (openChapterSelector)="openChapterDrawer($event)"></header>
       <div class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}">
         <div pinch-to-zoom class="chapterBlock" *ngIf="chapter">
           @if(book.id !== 'about'){
