@@ -33,7 +33,7 @@ export class ThemeService {
     // @ts-ignore
     if (window.umami) {
       // @ts-ignore
-      window.umami.track("THEME CHANGE", { theme: newTheme ? "dark" : "light" })
+      window.umami.track(`theme-${newTheme ? "dark" : "light"}`)
     }
   }
 
