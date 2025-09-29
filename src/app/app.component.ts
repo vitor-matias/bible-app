@@ -34,4 +34,16 @@ export class AppComponent {
       })
     }
   }
+
+  ngOnInit(): void {
+    //when app suspends and resumes (mobile) there were some layout issues with the top bar
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        // App resumed - force layout recalculation
+        setTimeout(() => {
+          window.dispatchEvent(new Event("resize"))
+        }, 10)
+      }
+    })
+  }
 }
