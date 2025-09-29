@@ -12,15 +12,29 @@
         <mat-button-toggle
           #bookToggle
           mat-flat-button
+          matTooltip="Escolher livro"
           class="bookSelectorButtonContent"
-          (click)="showBookSelector(); bookToggle.checked = false">
-          {{ mobile ? book.shortName : book.name }}
+          (click)="showBookSelector(); bookToggle.checked = false"
+          aria-live="polite">
+          
+          @if (book.id === 'about') {
+            <span class="cycle-wrapper">
+              <span class="cycle-text" [class.active]="bookLabelMode === 'title'">
+                {{ mobile ? book.shortName : book.name }}
+              </span>
+              <span class="cycle-text" [class.active]="bookLabelMode === 'prompt'">
+                Escolher Livro
+              </span>
+            </span>
+          } @else {
+            {{ mobile ? book.shortName : book.name }}
+          }
         </mat-button-toggle>
         
         @if(book.id !== 'about'){
         <mat-button-toggle
           #chapterToggle
-          mat-flat-button
+          mat-flat-button matTooltip="Escolher capítulo"
           class="bookSelectorButtonContent"
           (click)="showChapterSelector(); chapterToggle.checked = false">
           {{ chapterNumber }}

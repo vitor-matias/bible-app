@@ -89,3 +89,99 @@ mat-icon {
   padding-left: 0px;
   padding-right: 0px;
 }
+
+.cycle-wrapper {
+  position: relative;
+  display: inline-block;
+  min-width: 110px; /* keep width stable */
+  perspective: 800px;
+}
+
+.cycle-text {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: rotateX(70deg) scale(.85) translateY(6px);
+  filter: blur(4px);
+  pointer-events: none;
+  font-weight: 500;
+  color: #543d27;
+}
+
+.cycle-text.active {
+  position: relative;
+  animation: labelIn .75s cubic-bezier(.22,.9,.3,1) forwards;
+}
+
+.cycle-text:not(.active) {
+  animation: labelOut .6s cubic-bezier(.55,.06,.68,.19) forwards;
+}
+
+@keyframes labelIn {
+  0% {
+    opacity: 0;
+    transform: rotateX(70deg) scale(.85) translateY(6px);
+    filter: blur(4px);
+  }
+  45% {
+    opacity: 1;
+    transform: rotateX(-8deg) scale(1.04) translateY(0);
+    filter: blur(0);
+  }
+  70% {
+    transform: rotateX(4deg) scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: rotateX(0deg) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes labelOut {
+  0% {
+    opacity: 1;
+    transform: rotateX(0deg) scale(1);
+    filter: blur(0);
+  }
+  30% {
+    opacity: .4;
+    transform: rotateX(-35deg) scale(.9) translateY(-4px);
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 0;
+    transform: rotateX(70deg) scale(.8) translateY(8px);
+    filter: blur(5px);
+  }
+}
+
+/* Optional subtle glow flash when the prompt shows */
+.cycle-text.active:nth-child(2) {
+  background: linear-gradient(90deg,#ffda9e11,#ffda9e55,#ffda9e11);
+  background-size: 220% 100%;
+  animation:
+    labelIn .75s cubic-bezier(.22,.9,.3,1) forwards,
+    sheen 1.4s ease .1s;
+  padding: 0 2px;
+  border-radius: 3px;
+}
+
+@keyframes sheen {
+  0% { background-position: 200% 0; }
+  100% { background-position: -20% 0; }
+}
+
+/* Reduce motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .cycle-text,
+  .cycle-text.active,
+  .cycle-text:not(.active) {
+    animation: none !important;
+    opacity: 1 !important;
+    position: static;
+    transform: none !important;
+    filter: none !important;
+  }
+  .cycle-wrapper { perspective: none; }
+}
