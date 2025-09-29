@@ -9,6 +9,7 @@
   background-color: #543d27;
   overflow: hidden;
   height: inherit;
+  z-index: 1000;
 }
 
 .header-content {
@@ -38,13 +39,18 @@ div {
   font-size: large;
 }
 
+.mat-button-toggle-checked .mat-button-toggle-focus-overlay {
+  border-bottom: 0;
+  background-color: antiquewhite;
+}
+
 .bookSelectorButtonContent {
   color: #543d27;
   font-size: large;
 }
 
 .bookSelectorButton:hover {
-  background-color: lightgray;
+  background-color: antiquewhite;
 }
 
 mat-icon {
