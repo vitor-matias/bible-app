@@ -149,3 +149,7 @@ mat-icon {
   margin: 0;
   width: 100%;
 }
+
+.reader-header {
+  top: 0;
+}

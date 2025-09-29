@@ -34,4 +34,21 @@ export class AppComponent {
       })
     }
   }
+
+  ngOnInit() {
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        // tiny repaint to eliminate 1px seam on some devices
+        requestAnimationFrame(() => {
+          document.documentElement.style.transform = "translateZ(0)"
+          // clear it on the next frame
+          requestAnimationFrame(() => {
+            document.documentElement.style.transform = ""
+            // ensure scroll is at top if your app is top-anchored
+            window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
+          })
+        })
+      }
+    })
+  }
 }

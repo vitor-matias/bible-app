@@ -1,5 +1,5 @@
 <div class="text-container" unifiedGestures (swipeLeft)="goToNextChapter()" (swipeRight)="goToPreviousChapter()" *ngIf="book">
-<header [book]="book" [chapterNumber]="chapterNumber" (openBookSelector)="openBookDrawer($event)" (openChapterSelector)="openChapterDrawer($event)"></header>
+<header class="reader-header" [book]="book" [chapterNumber]="chapterNumber" (openBookSelector)="openBookDrawer($event)" (openChapterSelector)="openChapterDrawer($event)"></header>
 
 <mat-drawer-container class="bookSelectorContainer" #container>
 
