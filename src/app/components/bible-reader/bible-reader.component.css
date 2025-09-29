@@ -78,7 +78,7 @@ h6 {
 
 .bookSelectorContainer {
   width: 100%;
-  height: 100%;
+  height: calc(100vh - 56px); /* Full height minus header */
   overscroll-behavior: none; /* Prevents rubber banding in this container */
 }
 
@@ -141,4 +141,11 @@ h6 {
 
 mat-icon {
   padding: 0px;
+}
+
+.container{
+  overflow-y: auto;
+  overscroll-behavior: none; /* Prevents rubber banding in this container */
+  margin: 0;
+  width: 100%;
 }

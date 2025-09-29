@@ -68,9 +68,6 @@ export class BibleReaderComponent {
   @ViewChild("bookDrawer")
   bookDrawer!: MatDrawer
 
-  @ViewChild("chapterDrawer")
-  chapterDrawer!: MatDrawer
-
   @ViewChild("container")
   container!: MatDrawerContainer
 
@@ -85,6 +82,7 @@ export class BibleReaderComponent {
   scrolled!: boolean
   bookParam: string | null = null
   chapterParam: string | null = null
+  showBooks = true
 
   constructor(
     private apiService: BibleApiService,
@@ -155,8 +153,15 @@ export class BibleReaderComponent {
 
         const tempBook = this.bookService.findBook(bookParam)
 
-        if (this.book.id === tempBook.id && this.chapterNumber === chapterParam){
-          this.scrollToVerseElement(verseStartParam || 1, verseEndParam, highlight)
+        if (
+          this.book.id === tempBook.id &&
+          this.chapterNumber === chapterParam
+        ) {
+          this.scrollToVerseElement(
+            verseStartParam || 1,
+            verseEndParam,
+            highlight,
+          )
           return
         }
 
@@ -201,7 +206,7 @@ export class BibleReaderComponent {
   onChapterSubmit(event: { chapterNumber: number }) {
     this.goToChapter(event.chapterNumber)
 
-    this.chapterDrawer.close()
+    this.bookDrawer.close()
   }
 
   getBook(book: string) {
@@ -283,7 +288,7 @@ export class BibleReaderComponent {
           }
           if (highlight) {
             element.style.transition = "background-color 0.5s ease"
-            element.style.backgroundColor = "var(--highlight-color)";
+            element.style.backgroundColor = "var(--highlight-color)"
             setTimeout(() => {
               element.style.backgroundColor = ""
             }, 2500)
@@ -294,35 +299,57 @@ export class BibleReaderComponent {
   }
 
   openBookDrawer(event: { open: boolean }) {
-    this.chapterDrawer.close()
-    this.bookDrawer.toggle().finally(() => {
-      const closeButton = document.querySelector(
-        ".bookSelector .dismiss-button",
-      ) as HTMLElement
-      if (closeButton) {
-        closeButton.blur()
-      }
-    })
+    if (this.showBooks) {
+      this.bookDrawer.toggle().finally(() => {
+        const closeButton = document.querySelector(
+          ".bookSelector .dismiss-button",
+        ) as HTMLElement
+        if (closeButton) {
+          closeButton.blur()
+        }
+      })
+    } else {
+      this.bookDrawer.close().finally(() => {
+        this.showBooks = true
+        this.bookDrawer.toggle().finally(() => {
+          const closeButton = document.querySelector(
+            ".bookSelector .dismiss-button",
+          ) as HTMLElement
+          if (closeButton) {
+            closeButton.blur()
+          }
+        })
+      })
+    }
   }
 
   openChapterDrawer(event: { open: boolean }) {
-    this.bookDrawer.close()
-    this.chapterDrawer.toggle().finally(() => {
-      const closeButton = document.querySelector(
-        ".chapterSelector .dismiss-button",
-      ) as HTMLElement
-      if (closeButton) {
-        closeButton.blur()
-      }
-    })
+    if (!this.showBooks) {
+      this.bookDrawer.toggle().finally(() => {
+        const closeButton = document.querySelector(
+          ".bookSelector .dismiss-button",
+        ) as HTMLElement
+        if (closeButton) {
+          closeButton.blur()
+        }
+      })
+    } else {
+      this.bookDrawer.close().finally(() => {
+        this.showBooks = false
+        this.bookDrawer.toggle().finally(() => {
+          const closeButton = document.querySelector(
+            ".bookSelector .dismiss-button",
+          ) as HTMLElement
+          if (closeButton) {
+            closeButton.blur()
+          }
+        })
+      })
+    }
   }
 
   dismissBookDrawer(): void {
     this.bookDrawer.close()
-  }
-
-  dismissChapterDrawer(): void {
-    this.chapterDrawer.close()
   }
 
   @HostListener("window:keydown", ["$event"])
