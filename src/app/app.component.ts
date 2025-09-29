@@ -42,7 +42,7 @@ export class AppComponent {
         // App resumed - force layout recalculation
         setTimeout(() => {
           window.dispatchEvent(new Event("resize"))
-        }, 10)
+        }, 100)
       }
     })
   }
