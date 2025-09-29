@@ -1,5 +1,9 @@
 import { CommonModule } from "@angular/common"
-import { ChangeDetectionStrategy, Component } from "@angular/core"
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+} from "@angular/core"
 
 import { NavigationEnd, Router, RouterOutlet } from "@angular/router"
 
@@ -17,6 +21,7 @@ export class AppComponent {
   constructor(
     private swUpdate: SwUpdate,
     router: Router,
+    private cdr: ChangeDetectorRef,
   ) {
     router.events.subscribe((event) => {
       if (event instanceof NavigationEnd) {
@@ -36,19 +41,31 @@ export class AppComponent {
   }
 
   ngOnInit() {
-    document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) {
-        // tiny repaint to eliminate 1px seam on some devices
-        requestAnimationFrame(() => {
-          document.documentElement.style.transform = "translateZ(0)"
-          // clear it on the next frame
-          requestAnimationFrame(() => {
-            document.documentElement.style.transform = ""
-            // ensure scroll is at top if your app is top-anchored
-            window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
-          })
-        })
+    const repaintStatusBar = () => {
+      console.log("Repaint status bar")
+      const metas = Array.from(
+        document.querySelectorAll('meta[name="theme-color"]'),
+      ) as HTMLMetaElement[]
+      if (!metas.length) return
+
+      for (const m of metas) {
+        const orig = m.getAttribute("content") || "#543D27"
+        // Flip to a near-identical color for a frame, then back
+        m.setAttribute("content", "#543D28")
+        requestAnimationFrame(() => m.setAttribute("content", orig))
       }
+
+      // Hard reflow + compositor nudge (covers rare cases)
+      const el = document.documentElement
+      el.style.transform = "translateZ(0)"
+      // force layout
+      void el.offsetHeight
+      el.style.transform = ""
+    }
+
+    window.addEventListener("focus", repaintStatusBar)
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) repaintStatusBar()
     })
   }
 }
