@@ -4,7 +4,6 @@ html,
 body {
   height: 100%;
   margin: 0;
-  background: #543D27;
 }
 
 /* Light theme variables */
@@ -68,24 +67,13 @@ a {
   background-color: var(--card-background) !important ;
 } 
 
-body::before {
-  content: "";
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: var(--cap-brown);
-  z-index: 2147483647; 
-  pointer-events: none;
-}
-
-@supports (height: env(safe-area-inset-top)) {
-  body::before {
-    height: calc(env(safe-area-inset-top) + 1px);
-  }
-}
-
-mat-toolbar {
+mat-toolbar, .mat-toolbar, .app-toolbar {
+  background-color: var(--cap-brown) !important;
+  color: #fff;
+  box-shadow: none !important;
   border-top: 0 !important;
-  box-shadow: none; /* or only bottom shadow */
-  margin-top: 0 !important;
+  /* Disable MDC/Material elevation overlays that slightly tint surfaces */
+  --mdc-elevation-level: 0;
+  --mat-toolbar-container-background-color: var(--cap-brown);
+  --mat-elevation-overlay-opacity: 0;
 }

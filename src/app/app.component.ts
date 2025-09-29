@@ -1,9 +1,5 @@
 import { CommonModule } from "@angular/common"
-import {
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-} from "@angular/core"
+import { ChangeDetectionStrategy, Component } from "@angular/core"
 
 import { NavigationEnd, Router, RouterOutlet } from "@angular/router"
 
@@ -21,7 +17,6 @@ export class AppComponent {
   constructor(
     private swUpdate: SwUpdate,
     router: Router,
-    private cdr: ChangeDetectorRef,
   ) {
     router.events.subscribe((event) => {
       if (event instanceof NavigationEnd) {
