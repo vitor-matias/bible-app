@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common"
-import { ChangeDetectionStrategy, Component } from "@angular/core"
+import { ChangeDetectionStrategy, Component, NgZone } from "@angular/core"
 
 import { NavigationEnd, Router, RouterOutlet } from "@angular/router"
 
@@ -17,6 +17,7 @@ export class AppComponent {
   constructor(
     private swUpdate: SwUpdate,
     router: Router,
+    private ngZone: NgZone,
   ) {
     router.events.subscribe((event) => {
       if (event instanceof NavigationEnd) {
@@ -33,5 +34,27 @@ export class AppComponent {
         }
       })
     }
+  }
+
+  ngOnInit() {
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        // App resumed
+        console.log("App resumed, triggering resize")
+        this.ngZone.run(() => {
+          // Force Angular change detection and DOM reflow
+          window.dispatchEvent(new Event("resize"))
+          // Or manually reflow: document.body.offsetHeight; // Triggers layout
+        })
+      }
+    })
+
+    // Also handle page show (for iOS suspend/resume)
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) {
+        // From bfcache/suspend
+        this.ngZone.run(() => window.dispatchEvent(new Event("resize")))
+      }
+    })
   }
 }
