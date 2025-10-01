@@ -19,12 +19,6 @@ export class AppComponent {
     router: Router,
     private ngZone: NgZone,
   ) {
-    router.events.subscribe((event) => {
-      if (event instanceof NavigationEnd) {
-        // @ts-ignore
-        if (window.umami) window.umami.trackView()
-      }
-    })
     if (this.swUpdate.isEnabled) {
       this.swUpdate.versionUpdates.subscribe((event) => {
         if (event.type === "VERSION_READY") {

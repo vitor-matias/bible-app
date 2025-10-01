@@ -65,7 +65,13 @@ export class FootnotesBottomSheetComponent {
     private bottomSheetRef: MatBottomSheetRef<FootnotesBottomSheetComponent>,
     @Inject(MAT_BOTTOM_SHEET_DATA) public data: { footnotes: any[], verse: any },
     private bibleRef: BibleReferenceService, private bookService: BookService,
-  ) {}
+  ) {
+    // @ts-ignore
+    if(window.umami) {
+      // @ts-ignore
+      window.umami.track('footnotes_opened', { book: data.verse.bookId, chapter: data.verse.chapterNumber, verse: data.verse.verseNumber });
+    }
+  }
 
   parseReferences(text: string): { parts: (string | BibleReference)[] } {
     const refs = this.bibleRef.extract(text, this.data.verse.bookId, this.data.verse.chapterNumber)
