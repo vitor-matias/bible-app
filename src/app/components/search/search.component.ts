@@ -1,19 +1,16 @@
 import {
- ChangeDetectorRef,
+  ChangeDetectorRef,
   Component,
   type ElementRef,
   ViewChild,
-   ViewContainerRef,
+  ViewContainerRef,
 } from "@angular/core"
-import {
-   MatSnackBar,
-  MatSnackBarModule,
-} from "@angular/material/snack-bar"
-import {  Router, RouterModule } from "@angular/router"
+import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
+import { Router, RouterModule } from "@angular/router"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
-import  { BibleApiService } from "../../services/bible-api.service"
-import  { BibleReferenceService } from "../../services/bible-reference.service"
-import  { BookService } from "../../services/book.service"
+import { BibleApiService } from "../../services/bible-api.service"
+import { BibleReferenceService } from "../../services/bible-reference.service"
+import { BookService } from "../../services/book.service"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
 @Component({
@@ -192,6 +189,14 @@ export class SearchComponent {
       this.cdr.detectChanges()
       this.attachObserverToSentinel() // Attach observer after new search
       this.scrollToTop()
+
+      // @ts-ignore
+      if (window.umami) {
+        // @ts-ignore
+        window.umami.track("search", {
+          text,
+        })
+      }
     })
   }
 
