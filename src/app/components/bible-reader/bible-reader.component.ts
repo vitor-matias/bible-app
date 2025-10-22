@@ -20,7 +20,6 @@ import {
 // biome-ignore lint/style/useImportType: <explanation>
 // biome-ignore lint/style/useImportType: <explanation>
 import { ActivatedRoute, Router } from "@angular/router"
-import { NgbPaginationModule } from "@ng-bootstrap/ng-bootstrap"
 import type { Subscription } from "rxjs"
 import { combineLatest } from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
@@ -32,16 +31,6 @@ import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"
 import { HeaderComponent } from "../header/header.component"
 import { VerseComponent } from "../verse/verse.component"
-
-const slideInLeft = [
-  style({ transform: "translateX(100%)" }),
-  animate("3009ms ease-out", style({ transform: "translateX(0%)" })),
-]
-
-const slideInRight = [
-  style({ transform: "translateX(-100%)" }),
-  animate("3000ms ease-out", style({ transform: "translateX(0%)" })),
-]
 
 @Component({
   selector: "bible-reader",
@@ -55,7 +44,6 @@ const slideInRight = [
     HeaderComponent,
     BookSelectorComponent,
     MatSidenavModule,
-    NgbPaginationModule,
     MatBottomSheetModule,
     AboutComponent,
     ChapterSelectorComponent,

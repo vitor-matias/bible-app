@@ -1,7 +1,7 @@
 import { CommonModule } from "@angular/common"
 import { ChangeDetectionStrategy, Component, NgZone } from "@angular/core"
 
-import { NavigationEnd, Router, RouterOutlet } from "@angular/router"
+import { RouterOutlet } from "@angular/router"
 
 import { SwUpdate } from "@angular/service-worker"
 
@@ -16,7 +16,6 @@ import { SwUpdate } from "@angular/service-worker"
 export class AppComponent {
   constructor(
     private swUpdate: SwUpdate,
-    router: Router,
     private ngZone: NgZone,
   ) {
     if (this.swUpdate.isEnabled) {
