@@ -1,52 +1,63 @@
-<div class="text-container" unifiedGestures (swipeLeft)="goToNextChapter()" (swipeRight)="goToPreviousChapter()" *ngIf="book">
-<header class="reader-header" [book]="book" [chapterNumber]="chapterNumber" (openBookSelector)="openBookDrawer($event)" (openChapterSelector)="openChapterDrawer($event)"></header>
-
-<mat-drawer-container class="bookSelectorContainer" #container>
-
-  <mat-drawer *ngIf="getBooks()" class="bookSelector" mode="over" position="start" #bookDrawer closed>
-    <button matIconButton (click)="dismissBookDrawer()" class="dismiss-button" #bookDrawerCloseButton>
-      <mat-icon>menu_open</mat-icon>
-    </button>
-    @if(showBooks){
-    <book-selector [books]="getBooks()" (submitData)="onBookSubmit($event)"></book-selector>
-    }
-    @else{
-    <chapter-selector [chapters]="book.chapters || []" [selectedChapter]="chapterNumber" (submitData)="onChapterSubmit($event)"></chapter-selector>
-    }
-  </mat-drawer>
-
-
-  <mat-drawer-content style="background-color: var(--background-color)">
-    <div style="margin: 8px 8px 0px 8px;">
-      <div class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}">
-        <div pinch-to-zoom class="chapterBlock" *ngIf="chapter">
-          @if(book.id !== 'about'){
-            <verse [id]="verse.number" class="verse" *ngFor="let verse of chapter.verses" [data]="verse"></verse>
+@if (book) {
+  <div class="text-container" unifiedGestures (swipeLeft)="goToNextChapter()" (swipeRight)="goToPreviousChapter()">
+    <header class="reader-header" [book]="book" [chapterNumber]="chapterNumber" (openBookSelector)="openBookDrawer($event)" (openChapterSelector)="openChapterDrawer($event)"></header>
+    <mat-drawer-container class="bookSelectorContainer" #container>
+      @if (getBooks()) {
+        <mat-drawer class="bookSelector" mode="over" position="start" #bookDrawer closed>
+          <button matIconButton (click)="dismissBookDrawer()" class="dismiss-button" #bookDrawerCloseButton>
+            <mat-icon>menu_open</mat-icon>
+          </button>
+          @if(showBooks){
+            <book-selector [books]="getBooks()" (submitData)="onBookSubmit($event)"></book-selector>
           }
-            <about *ngIf="book.id==='about'"></about>
-          <br><br>
-          <span class="center"><b>© DIFUSORA BÍBLICA</b></span>
-          <span class="center">
-            Reservados todos os direitos. É proibida a reprodução, total ou parcial, do texto, sem autorização, por
-            escrito, da Editora.</span>
+          @else{
+          <chapter-selector [chapters]="book.chapters || []" [selectedChapter]="chapterNumber" (submitData)="onChapterSubmit($event)"></chapter-selector>
+        }
+      </mat-drawer>
+    }
+    <mat-drawer-content style="background-color: var(--background-color)">
+      <div style="margin: 8px 8px 0px 8px;">
+        <div class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}">
+          @if (chapter) {
+            <div pinch-to-zoom class="chapterBlock">
+              @if(book.id !== 'about'){
+                @for (verse of chapter.verses; track verse) {
+                  <verse [id]="verse.number" class="verse" [data]="verse"></verse>
+                }
+              }
+              @if (book.id==='about') {
+                <about></about>
+              }
+              <br><br>
+              <span class="center"><b>© DIFUSORA BÍBLICA</b></span>
+              <span class="center">
+                Reservados todos os direitos. É proibida a reprodução, total ou parcial, do texto, sem autorização, por
+              escrito, da Editora.</span>
+            </div>
+          }
+          @if (scrolled) {
+            <div style="height: 64px;"></div>
+          }
         </div>
-        <div *ngIf="scrolled" style="height: 64px;"></div>
       </div>
-    </div>
-@if (book.id !== 'about') {
+      @if (book.id !== 'about') {
         <!-- Floating navigation buttons -->
-        <button *ngIf="chapter.number > 1" class="floating-nav-button prev-chapter" 
-        mat-mini-fab aria-label="Previous chapter"
-        (click)="goToPreviousChapter()">
-  <mat-icon>chevron_left</mat-icon>
-</button>
-
-<button *ngIf="  chapter.number < book.chapterCount" class="floating-nav-button next-chapter" 
-        mat-mini-fab aria-label="Next chapter"
-        (click)="goToNextChapter()">
-  <mat-icon>chevron_right</mat-icon>
-</button>
-}
-  </mat-drawer-content>
-</mat-drawer-container>
+        @if (chapter.number > 1) {
+          <button class="floating-nav-button prev-chapter"
+            mat-mini-fab aria-label="Previous chapter"
+            (click)="goToPreviousChapter()">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+        }
+        @if (  chapter.number < book.chapterCount) {
+          <button class="floating-nav-button next-chapter"
+            mat-mini-fab aria-label="Next chapter"
+            (click)="goToNextChapter()">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        }
+      }
+    </mat-drawer-content>
+  </mat-drawer-container>
 </div>
+}

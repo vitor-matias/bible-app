@@ -1,5 +1,5 @@
 import { Component, Inject } from '@angular/core'
-import { CommonModule } from '@angular/common'
+
 import { MatBottomSheetRef, MAT_BOTTOM_SHEET_DATA } from '@angular/material/bottom-sheet'
 import { MatButtonModule } from '@angular/material/button'
 import { MatIconModule } from '@angular/material/icon'
@@ -11,26 +11,29 @@ import { BookService } from '../../services/book.service'
 @Component({
   selector: 'footnotes-bottom-sheet',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatIconModule, UnifiedGesturesDirective, RouterModule],
+  imports: [MatButtonModule, MatIconModule, UnifiedGesturesDirective, RouterModule],
   template: `
     <div unifiedGestures class="footnotes-container">
       <div class="footnotes-list">
-        <div *ngFor="let footnote of data.footnotes" class="footnote-item">
-          <span class="footnote-reference">{{ footnote.reference }} </span>
-        @for(part of parseReferences(footnote.text).parts; track $index){
-          <ng-container *ngIf="typeof part === 'object'; else plainText">
-            <a (click)="close()"
-              [routerLink]="['/', getAbrv(part.book), part.chapter]"
-              [queryParams]="getVerseQueryParams(part.verses)"
-              >{{part.match}}</a
-            >
-          </ng-container>
-          <ng-template #plainText>{{part}}</ng-template>
-        }
+        @for (footnote of data.footnotes; track footnote) {
+          <div class="footnote-item">
+            <span class="footnote-reference">{{ footnote.reference }} </span>
+            @for(part of parseReferences(footnote.text).parts; track $index){
+              @if (typeof part === 'object') {
+                <a (click)="close()"
+                  [routerLink]="['/', getAbrv(part.book), part.chapter]"
+                  [queryParams]="getVerseQueryParams(part.verses)"
+                  >{{part.match}}</a
+                  >
+                } @else {
+                  {{part}}
+                }
+              }
+            </div>
+          }
         </div>
       </div>
-    </div>
-  `,
+    `,
   styles: [`
     .footnotes-container {
       font-family: "PT Serif", serif;

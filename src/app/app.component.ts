@@ -1,4 +1,4 @@
-import { CommonModule } from "@angular/common"
+
 import { ChangeDetectionStrategy, Component, NgZone } from "@angular/core"
 
 import { RouterOutlet } from "@angular/router"
@@ -11,7 +11,7 @@ import { SwUpdate } from "@angular/service-worker"
   styleUrl: "./app.component.css",
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
-  imports: [CommonModule, RouterOutlet],
+  imports: [RouterOutlet],
 })
 export class AppComponent {
   constructor(

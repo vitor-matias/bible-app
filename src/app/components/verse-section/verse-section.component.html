@@ -1,30 +1,35 @@
 <span class="section" [ngClass]="{'center':data.text[data.text.length - 1].type === 'quote'}">
-    <ng-container *ngFor="let text of data.text; let i = index; let isFirst = first; let isLast = last">
-        
-            <span *ngIf="changeLine && isFirst"><p></span>
-
-            <span class="section" *ngIf="text.type === 'text' || text.type === 'section'">{{text.text}}</span>
-
+  @for (text of data.text; track text; let i = $index; let isFirst = $first; let isLast = $last) {
+    @if (changeLine && isFirst) {
+      <span><p></span>
+    }
+    @if (text.type === 'text' || text.type === 'section') {
+      <span class="section">{{text.text}}</span>
+    }
     @if(text.type === "references"){
       <span class="references">
         <span>{{ " " }}</span>
         @for(part of parseReferences(text.text).parts; track $index){
-          <ng-container *ngIf="typeof part === 'object'; else plainText">
+          @if (typeof part === 'object') {
             <a
               (click)="showReturnSnackbar()"
               [routerLink]="['/', (part.book | lowercase ), part.chapter]"
               [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)"
               >{{part.match}}</a
-            >
-          </ng-container>
-          <ng-template #plainText>{{part}}</ng-template>
-        }
-      </span>
+              >
+            } @else {
+              {{part}}
+            }
+          }
+        </span>
+      }
+      @if (data.verseLabel === 'front' && isLast && data.text[data.text.length -1].type !== 'quote') {
+        <span class="section"
+          > —
+        </span>
+      }
+      @if (data.verseLabel !== 'front' && isLast && text.type !== 'quote') {
+        <span class="section"> — </span>
+      }
     }
-
-            <span class="section"
-                *ngIf="data.verseLabel === 'front' && isLast && data.text[data.text.length -1].type !== 'quote'"> —
-            </span>
-            <span class="section" *ngIf="data.verseLabel !== 'front' && isLast && text.type !== 'quote'"> — </span>
-        </ng-container>
-</span>
+  </span>

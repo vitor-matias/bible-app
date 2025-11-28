@@ -1,4 +1,4 @@
-import { CommonModule } from "@angular/common"
+
 import {
   ChangeDetectorRef,
   Component,
@@ -20,15 +20,14 @@ import { ThemeService } from "../../services/theme.service"
 @Component({
   selector: "header",
   imports: [
-    CommonModule,
     MatToolbarModule,
     MatSidenavModule,
     MatButtonModule,
     MatIconModule,
     MatButtonToggleModule,
     RouterModule,
-    MatTooltipModule,
-  ],
+    MatTooltipModule
+],
   templateUrl: "./header.component.html",
   styleUrls: ["./header.component.css"],
 })
