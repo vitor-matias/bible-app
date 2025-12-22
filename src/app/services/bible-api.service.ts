@@ -76,9 +76,9 @@ export class BibleApiService {
     return this.http.get(`${this.api}/${book}`) as Observable<Book>
   }
 
-  search(query: string, page = 1, limit = 25): Observable<VersePage> {
+  search(query: string, page = 1, limit = 50): Observable<VersePage> {
     return this.http.get(
-      `${this.api}/search?text=${encodeURIComponent(query)}&page=${page}&limit=${limit}`,
+      `${this.api}/search?text=${encodeURIComponent(query)}&page=${page}&limit=${limit}&semantic=true`,
     ) as Observable<VersePage>
   }
 
