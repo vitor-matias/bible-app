@@ -1,12 +1,12 @@
 import { Component, Inject } from '@angular/core'
 
-import { MatBottomSheetRef, MAT_BOTTOM_SHEET_DATA } from '@angular/material/bottom-sheet'
+import { MAT_BOTTOM_SHEET_DATA, type MatBottomSheetRef } from '@angular/material/bottom-sheet'
 import { MatButtonModule } from '@angular/material/button'
 import { MatIconModule } from '@angular/material/icon'
-import { UnifiedGesturesDirective } from '../../directives/unified-gesture.directive'
-import { BibleReference, BibleReferenceService, VerseReference } from '../../services/bible-reference.service'
 import { RouterModule } from '@angular/router'
-import { BookService } from '../../services/book.service'
+import { UnifiedGesturesDirective } from '../../directives/unified-gesture.directive'
+import type { BibleReference, BibleReferenceService, VerseReference } from '../../services/bible-reference.service'
+import type { BookService } from '../../services/book.service'
 
 @Component({
   selector: 'footnotes-bottom-sheet',
@@ -69,9 +69,9 @@ export class FootnotesBottomSheetComponent {
     @Inject(MAT_BOTTOM_SHEET_DATA) public data: { footnotes: any[], verse: any },
     private bibleRef: BibleReferenceService, private bookService: BookService,
   ) {
-    // @ts-ignore
+    // @ts-expect-error
     if(window.umami) {
-      // @ts-ignore
+      // @ts-expect-error
       window.umami.track('footnotes_opened', { book: data.verse.bookId, chapter: data.verse.chapterNumber, verse: data.verse.verseNumber });
     }
   }

@@ -1,9 +1,8 @@
-
-import { ChangeDetectionStrategy, Component, NgZone } from "@angular/core"
+import { ChangeDetectionStrategy, Component, type NgZone } from "@angular/core"
 
 import { RouterOutlet } from "@angular/router"
 
-import { SwUpdate } from "@angular/service-worker"
+import type { SwUpdate } from "@angular/service-worker"
 
 @Component({
   selector: "app-root",

@@ -24,12 +24,7 @@ interface ExampleFlatNode {
 
 @Component({
   selector: "book-selector",
-  imports: [
-    MatListModule,
-    MatTreeModule,
-    MatIconModule,
-    MatButtonModule
-],
+  imports: [MatListModule, MatTreeModule, MatIconModule, MatButtonModule],
   templateUrl: "./book-selector.component.html",
   styleUrl: "./book-selector.component.css",
 })
