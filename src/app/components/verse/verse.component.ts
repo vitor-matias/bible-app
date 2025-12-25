@@ -1,6 +1,6 @@
 import { CommonModule } from "@angular/common"
 // biome-ignore lint/style/useImportType: <explanation>
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy, OnInit } from "@angular/core"
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Input, OnDestroy, OnInit } from "@angular/core"
 import { RouterModule } from "@angular/router"
 import {
   BibleReference,
@@ -54,6 +54,7 @@ export class VerseComponent implements OnInit, OnDestroy {
     private bibleRef: BibleReferenceService,
     private bottomSheet: MatBottomSheet,
     private cdr: ChangeDetectorRef,
+    private elementRef: ElementRef,
   ) {}
 
   ngOnInit(): void {
@@ -160,8 +161,8 @@ export class VerseComponent implements OnInit, OnDestroy {
       return
     }
 
-    // Check if selection is within this verse component
-    const verseElement = document.querySelector('verse')
+    // Check if selection is within this verse component instance
+    const verseElement = this.elementRef.nativeElement
     if (!verseElement || !verseElement.contains(range.commonAncestorContainer)) {
       this.hideShareButton()
       return
