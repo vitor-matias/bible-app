@@ -78,7 +78,9 @@ export class VerseComponent implements OnInit, OnDestroy {
     
     if (isTouch) {
       const touchEvent = event as TouchEvent
-      if (touchEvent.touches.length === 0) return
+      // For touchstart, touches should always have at least one touch
+      // But we'll add a safety check anyway
+      if (!touchEvent.touches || touchEvent.touches.length === 0) return
       const touch = touchEvent.touches[0]
       this.gestureStartX = touch.clientX
       this.gestureStartY = touch.clientY
@@ -103,7 +105,9 @@ export class VerseComponent implements OnInit, OnDestroy {
 
     if (isTouch) {
       const touchEvent = event as TouchEvent
-      if (touchEvent.touches.length === 0) return
+      // For touchmove, touches should always have at least one touch
+      // But we'll add a safety check anyway
+      if (!touchEvent.touches || touchEvent.touches.length === 0) return
       const touch = touchEvent.touches[0]
       currentX = touch.clientX
       currentY = touch.clientY
@@ -169,11 +173,11 @@ export class VerseComponent implements OnInit, OnDestroy {
     // Check if selection is within this verse component instance
     // Handle both Element and Text nodes for commonAncestorContainer
     const verseElement = this.elementRef.nativeElement
-    let containerNode = range.commonAncestorContainer
+    let containerNode: Node | null = range.commonAncestorContainer
     
     // If it's a text node, use its parent element
     if (containerNode.nodeType === Node.TEXT_NODE) {
-      containerNode = containerNode.parentElement as Node
+      containerNode = containerNode.parentElement
     }
     
     if (!verseElement || !containerNode || !verseElement.contains(containerNode)) {
@@ -213,7 +217,7 @@ export class VerseComponent implements OnInit, OnDestroy {
         return
       } catch (err) {
         // User cancelled or error, fall through to clipboard
-        if ((err as Error).name !== 'AbortError') {
+        if (err instanceof Error && err.name !== 'AbortError') {
           console.error('Share failed:', err)
         }
       }
