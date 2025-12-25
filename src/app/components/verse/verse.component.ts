@@ -343,8 +343,26 @@ export class VerseComponent implements OnInit, OnDestroy {
     if (isWithinVerse) {
       // Position the share button near the selection
       const rect = range.getBoundingClientRect()
-      this.shareButtonX = rect.right + 10
-      this.shareButtonY = rect.top - 5
+      // Add boundary checks to keep button within viewport
+      const buttonWidth = 80 // Approximate button width
+      const buttonHeight = 40 // Approximate button height
+      let x = rect.right + 10
+      let y = rect.top - 5
+
+      // Keep within horizontal bounds
+      if (x + buttonWidth > window.innerWidth) {
+        x = window.innerWidth - buttonWidth - 10
+      }
+      // Keep within vertical bounds
+      if (y < 10) {
+        y = 10
+      }
+      if (y + buttonHeight > window.innerHeight) {
+        y = window.innerHeight - buttonHeight - 10
+      }
+
+      this.shareButtonX = x
+      this.shareButtonY = y
       this.showShareButton = true
       this.cdr.markForCheck()
     } else {
@@ -371,29 +389,32 @@ export class VerseComponent implements OnInit, OnDestroy {
           text: textWithReference,
         })
       } catch (err) {
-        // User cancelled or error occurred
-        console.log("Share cancelled or failed", err)
+        // User cancelled or error occurred - silently ignore
       }
     } else {
       // Fallback to clipboard
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(textWithReference)
+          // TODO: Replace alert with MatSnackBar for better UX
           alert("Copied to clipboard!")
         } else {
-          // Fallback to execCommand
+          // Last resort fallback using deprecated method for older browsers
           const textArea = document.createElement("textarea")
           textArea.value = textWithReference
           textArea.style.position = "fixed"
           textArea.style.left = "-999999px"
           document.body.appendChild(textArea)
           textArea.select()
-          document.execCommand("copy")
+          const success = document.execCommand("copy")
           document.body.removeChild(textArea)
-          alert("Copied to clipboard!")
+          if (success) {
+            // TODO: Replace alert with MatSnackBar for better UX
+            alert("Copied to clipboard!")
+          }
         }
       } catch (err) {
-        console.error("Failed to copy to clipboard", err)
+        // TODO: Replace alert with MatSnackBar for better UX
         alert("Failed to copy text")
       }
     }

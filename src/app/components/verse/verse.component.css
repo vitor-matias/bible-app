@@ -79,6 +79,8 @@ h3 {
 
 .share-button {
   position: fixed;
+  /* High z-index to ensure button floats above verse content */
+  /* TODO: Consider defining z-index values in CSS custom properties for consistent layering */
   z-index: 1000;
   padding: 8px 16px;
   background-color: #007bff;
