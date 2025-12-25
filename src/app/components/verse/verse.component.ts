@@ -236,7 +236,7 @@ export class VerseComponent implements OnInit, OnDestroy {
 
     // Fallback to clipboard
     try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
+      if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text)
       } else {
         // Legacy fallback for older browsers
