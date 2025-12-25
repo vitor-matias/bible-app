@@ -5,6 +5,33 @@
   text-align: right;
 }
 
+.verse-content {
+  display: inline;
+  cursor: text;
+}
+
+.share-button {
+  position: fixed;
+  z-index: 1000;
+  padding: 8px 16px;
+  background-color: var(--primary-color, #1976d2);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transform: translateX(-50%);
+}
+
+.share-button:hover {
+  background-color: var(--primary-color-dark, #1565c0);
+}
+
+.share-button:active {
+  transform: translateX(-50%) scale(0.95);
+}
+
 .section {
   color: var(--text-secondary);
   font-weight: bold;
