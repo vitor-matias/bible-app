@@ -212,7 +212,7 @@ export class VerseComponent implements OnInit, OnDestroy {
     // Start long-press timer
     this.longPressTimer = window.setTimeout(() => {
       this.isLongPress = true
-      this.longPressTimer = null
+      this.clearLongPressTimer()
     }, this.LONG_PRESS_DURATION)
   }
 
@@ -257,7 +257,7 @@ export class VerseComponent implements OnInit, OnDestroy {
     // Start long-press timer
     this.longPressTimer = window.setTimeout(() => {
       this.isLongPress = true
-      this.longPressTimer = null
+      this.clearLongPressTimer()
     }, this.LONG_PRESS_DURATION)
   }
 
@@ -394,7 +394,7 @@ export class VerseComponent implements OnInit, OnDestroy {
     } else {
       // Fallback to clipboard
       try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
+        if (navigator.clipboard) {
           await navigator.clipboard.writeText(textWithReference)
           // TODO: Replace alert with MatSnackBar for better UX
           alert("Copied to clipboard!")
