@@ -38,7 +38,8 @@ export class VerseComponent implements OnInit, OnDestroy {
   // Gesture handling properties
   private readonly LONG_PRESS_MS = 500
   private readonly MOVE_THRESHOLD_PX = 10
-  private longPressTimer: any = null
+  private readonly SYNTHETIC_CLICK_THRESHOLD_MS = 500
+  private longPressTimer: number | null = null
   private gestureStartX = 0
   private gestureStartY = 0
   private isLongPress = false
@@ -76,7 +77,9 @@ export class VerseComponent implements OnInit, OnDestroy {
     const isTouch = event.type.startsWith('touch')
     
     if (isTouch) {
-      const touch = (event as TouchEvent).touches[0]
+      const touchEvent = event as TouchEvent
+      if (touchEvent.touches.length === 0) return
+      const touch = touchEvent.touches[0]
       this.gestureStartX = touch.clientX
       this.gestureStartY = touch.clientY
       this.lastTouchTime = Date.now()
@@ -88,7 +91,7 @@ export class VerseComponent implements OnInit, OnDestroy {
     this.isLongPress = false
     this.clearLongPressTimer()
     
-    this.longPressTimer = setTimeout(() => {
+    this.longPressTimer = window.setTimeout(() => {
       this.isLongPress = true
     }, this.LONG_PRESS_MS)
   }
@@ -99,7 +102,9 @@ export class VerseComponent implements OnInit, OnDestroy {
     let currentY: number
 
     if (isTouch) {
-      const touch = (event as TouchEvent).touches[0]
+      const touchEvent = event as TouchEvent
+      if (touchEvent.touches.length === 0) return
+      const touch = touchEvent.touches[0]
       currentX = touch.clientX
       currentY = touch.clientY
     } else {
@@ -133,7 +138,7 @@ export class VerseComponent implements OnInit, OnDestroy {
   onClick(event: MouseEvent): void {
     // Suppress synthetic click after touch
     const timeSinceTouch = Date.now() - this.lastTouchTime
-    if (timeSinceTouch < 500) {
+    if (timeSinceTouch < this.SYNTHETIC_CLICK_THRESHOLD_MS) {
       event.preventDefault()
       event.stopPropagation()
       return
@@ -141,8 +146,8 @@ export class VerseComponent implements OnInit, OnDestroy {
   }
 
   private clearLongPressTimer(): void {
-    if (this.longPressTimer) {
-      clearTimeout(this.longPressTimer)
+    if (this.longPressTimer !== null) {
+      window.clearTimeout(this.longPressTimer)
       this.longPressTimer = null
     }
   }
@@ -162,8 +167,16 @@ export class VerseComponent implements OnInit, OnDestroy {
     }
 
     // Check if selection is within this verse component instance
+    // Handle both Element and Text nodes for commonAncestorContainer
     const verseElement = this.elementRef.nativeElement
-    if (!verseElement || !verseElement.contains(range.commonAncestorContainer)) {
+    let containerNode = range.commonAncestorContainer
+    
+    // If it's a text node, use its parent element
+    if (containerNode.nodeType === Node.TEXT_NODE) {
+      containerNode = containerNode.parentElement as Node
+    }
+    
+    if (!verseElement || !containerNode || !verseElement.contains(containerNode)) {
       this.hideShareButton()
       return
     }
