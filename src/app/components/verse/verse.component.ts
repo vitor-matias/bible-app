@@ -74,6 +74,12 @@ export class VerseComponent implements OnInit, OnDestroy {
 
   // Gesture handling methods
   onGestureStart(event: TouchEvent | MouseEvent): void {
+    // Don't interfere with link clicks
+    const target = event.target as HTMLElement
+    if (target.tagName === 'A' || target.closest('a')) {
+      return
+    }
+
     const isTouch = event.type.startsWith('touch')
     
     if (isTouch) {
@@ -178,9 +184,14 @@ export class VerseComponent implements OnInit, OnDestroy {
     // If it's a text node, use its parent element
     if (containerNode.nodeType === Node.TEXT_NODE) {
       containerNode = containerNode.parentElement
+      // Null check after assignment
+      if (!containerNode) {
+        this.hideShareButton()
+        return
+      }
     }
     
-    if (!verseElement || !containerNode || !verseElement.contains(containerNode)) {
+    if (!verseElement || !verseElement.contains(containerNode)) {
       this.hideShareButton()
       return
     }
@@ -216,9 +227,9 @@ export class VerseComponent implements OnInit, OnDestroy {
         })
         return
       } catch (err) {
-        // User cancelled or error, fall through to clipboard
+        // User cancelled the share dialog
         if (err instanceof Error && err.name !== 'AbortError') {
-          console.error('Share failed:', err)
+          console.error('Web Share API failed:', err.message || err)
         }
       }
     }
@@ -228,7 +239,7 @@ export class VerseComponent implements OnInit, OnDestroy {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text)
       } else {
-        // Legacy fallback
+        // Legacy fallback for older browsers
         const textarea = document.createElement('textarea')
         textarea.value = text
         textarea.style.position = 'fixed'
@@ -241,7 +252,7 @@ export class VerseComponent implements OnInit, OnDestroy {
       // Minimal feedback - could add a toast notification here
       console.log('Text copied to clipboard')
     } catch (err) {
-      console.error('Copy failed:', err)
+      console.error('Failed to copy text to clipboard:', err instanceof Error ? err.message : err)
     }
   }
 
