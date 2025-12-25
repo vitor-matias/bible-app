@@ -1,12 +1,11 @@
-
 import {
-  ChangeDetectorRef,
+  type ChangeDetectorRef,
   Component,
   EventEmitter,
   Input,
   type OnInit,
   Output,
-  SimpleChanges,
+  type SimpleChanges,
 } from "@angular/core"
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
@@ -15,7 +14,7 @@ import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { type Router, RouterModule } from "@angular/router"
-import { ThemeService } from "../../services/theme.service"
+import type { ThemeService } from "../../services/theme.service"
 
 @Component({
   selector: "header",
@@ -26,8 +25,8 @@ import { ThemeService } from "../../services/theme.service"
     MatIconModule,
     MatButtonToggleModule,
     RouterModule,
-    MatTooltipModule
-],
+    MatTooltipModule,
+  ],
   templateUrl: "./header.component.html",
   styleUrls: ["./header.component.css"],
 })

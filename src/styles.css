@@ -14,15 +14,14 @@ body {
   --card-background: #f5f5f5;
   --border-color: #e0e0e0;
   --highlight-color: antiquewhite;
-  --cap-brown: #543D27;
-  
+  --cap-brown: #543d27;
 }
 
 /* Dark theme variables */
 .dark-theme {
   --background-color: #121212;
   --text-color: #ffffff;
-  --text-secondary: #DC143C;
+  --text-secondary: #dc143c;
   --card-background: #1e1e1e;
   --border-color: #333333;
   --highlight-color: darkgrey;
@@ -32,7 +31,9 @@ body {
 body {
   background-color: var(--background-color);
   color: var(--text-color);
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
@@ -40,7 +41,13 @@ body {
 }
 
 /* Update existing styles to use variables */
-h1, h2, h3, h4, h5, h6, span {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+span {
   color: var(--text-color);
 }
 
@@ -62,8 +69,9 @@ a {
   color: var(--text-color) !important; /* Force apply */
 }
 
-.mat-tree-node, .mat-mdc-list , .mat-mdc-list-item {
+.mat-tree-node,
+.mat-mdc-list,
+.mat-mdc-list-item {
   color: var(--text-color) !important; /* Force apply */
-  background-color: var(--card-background) !important ;
-} 
-
+  background-color: var(--card-background) !important;
+}
