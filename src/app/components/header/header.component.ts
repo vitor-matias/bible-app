@@ -37,7 +37,7 @@ export class HeaderComponent implements OnInit {
 
   bookLabelMode: "title" | "prompt" = "title"
   private labelInterval?: number
-  canShare = true
+  canShare = false
 
   @Output() openBookSelector = new EventEmitter<{ open: boolean }>()
   @Output() openChapterSelector = new EventEmitter<{ open: boolean }>()
@@ -54,8 +54,8 @@ export class HeaderComponent implements OnInit {
       // 768px portrait
       this.mobile = true
     }
-    //this.canShare =
-      //typeof navigator !== "undefined" && typeof navigator.share === "function"
+    this.canShare =
+      typeof navigator !== "undefined" && typeof navigator.share === "function"
   }
 
   ngOnChanges(changes: SimpleChanges): void {
