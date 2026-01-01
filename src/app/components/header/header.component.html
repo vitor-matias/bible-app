@@ -42,6 +42,17 @@
         }
       </mat-button-toggle-group>
 
+      @if (canShare) {
+        <button
+          class="bookSelectorButton shareButton"
+          mat-flat-button
+          matTooltip="Partilhar"
+          (click)="sharePassage()"
+          aria-label="Partilhar">
+          <mat-icon style="color: #543D27;">share</mat-icon>
+        </button>
+      }
+
       <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button>
         <mat-icon style="color: #543D27;" aria-label="Search">search</mat-icon>
       </button>

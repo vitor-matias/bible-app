@@ -37,6 +37,7 @@ export class HeaderComponent implements OnInit {
 
   bookLabelMode: "title" | "prompt" = "title"
   private labelInterval?: number
+  canShare = true
 
   @Output() openBookSelector = new EventEmitter<{ open: boolean }>()
   @Output() openChapterSelector = new EventEmitter<{ open: boolean }>()
@@ -53,6 +54,8 @@ export class HeaderComponent implements OnInit {
       // 768px portrait
       this.mobile = true
     }
+    //this.canShare =
+      //typeof navigator !== "undefined" && typeof navigator.share === "function"
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -83,6 +86,32 @@ export class HeaderComponent implements OnInit {
 
   toggleTheme(): void {
     this.themeService.toggleTheme()
+  }
+
+  async sharePassage(): Promise<void> {
+    if (!this.canShare) {
+      return
+    }
+
+    const isAbout = this.book?.id === "about"
+    const title = "Biblia Sagrada"
+    const text = isAbout
+      ? "Leia a Biblia nesta app."
+      : `Ler ${this.book?.name} ${this.chapterNumber}.`
+    const url = typeof window !== "undefined" ? window.location.href : ""
+
+    try {
+      await navigator.share({ title, text, url }).then(() => {
+        // Shared successfully
+        // @ts-ignore
+        if(window.umami) {
+          // @ts-ignore
+          window.umami.track('share', { book: this.book?.id, chapter: this.chapterNumber });
+        }
+      })
+    } catch {
+      // User canceled or share failed; no UI feedback needed.
+    }
   }
 
   private startLabelCycle(): void {
