@@ -15,6 +15,7 @@ body {
   --border-color: #e0e0e0;
   --highlight-color: antiquewhite;
   --cap-brown: #543D27;
+  --mat-menu-item-label-text-size: 15px;
   --mat-menu-container-color: var(--card-background);
   --mat-menu-item-label-text-color: var(--text-color);
   --mat-menu-item-icon-color: var(--text-color);
