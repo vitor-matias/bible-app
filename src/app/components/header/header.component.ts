@@ -11,6 +11,7 @@ import {
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
 import { MatIconModule } from "@angular/material/icon"
+import { MatMenuModule } from "@angular/material/menu"
 import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
@@ -25,13 +26,18 @@ import { ThemeService } from "../../services/theme.service"
     MatButtonModule,
     MatIconModule,
     MatButtonToggleModule,
+    MatMenuModule,
     RouterModule,
-    MatTooltipModule
-],
+    MatTooltipModule,
+  ],
   templateUrl: "./header.component.html",
   styleUrls: ["./header.component.css"],
 })
 export class HeaderComponent implements OnInit {
+  private readonly MIN_FONT_SIZE = 70
+  private readonly MAX_FONT_SIZE = 180
+  private readonly FONT_STEP = 5
+
   @Input() book!: Book
   @Input() chapterNumber!: number
 
@@ -88,6 +94,14 @@ export class HeaderComponent implements OnInit {
     this.themeService.toggleTheme()
   }
 
+  increaseFontSize(): void {
+    this.adjustFontSize(this.FONT_STEP)
+  }
+
+  decreaseFontSize(): void {
+    this.adjustFontSize(-this.FONT_STEP)
+  }
+
   async sharePassage(): Promise<void> {
     if (!this.canShare) {
       return
@@ -129,5 +143,36 @@ export class HeaderComponent implements OnInit {
       this.labelInterval = undefined
     }
     this.bookLabelMode = "title"
+  }
+
+  private adjustFontSize(delta: number): void {
+    if (typeof document === "undefined") {
+      return
+    }
+
+    const container = document.querySelector<HTMLElement>(".text-container")
+    if (!container) {
+      return
+    }
+
+    const storageKey = `fontSize${container.getAttribute("name") || "default"}`
+    const storedSize = localStorage.getItem(storageKey)
+    const parsedSize = storedSize ? Number(storedSize) : Number.NaN
+    const currentSize = Number.isFinite(parsedSize) ? parsedSize : 105
+    const nextSize = Math.max(
+      this.MIN_FONT_SIZE,
+      Math.min(this.MAX_FONT_SIZE, currentSize + delta),
+    )
+
+    this.applyFontSize(container, nextSize)
+    localStorage.setItem(storageKey, nextSize.toString())
+  }
+
+  private applyFontSize(container: HTMLElement, fontSize: number): void {
+    container.style.fontSize = `${fontSize}%`
+    const headings = container.querySelectorAll<HTMLElement>("h1, h2, h3")
+    for (const heading of headings) {
+      heading.style.fontSize = `${fontSize + 5}%`
+    }
   }
 }

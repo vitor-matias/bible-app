@@ -78,32 +78,24 @@ mat-icon {
   min-width: 48px;
 }
 
-.shareButton {
-  position: fixed;
-  right: 64px;
-  background-color: antiquewhite;
-  color: #543d27;
-  width: 18px;
-  font-size: large;
-  margin-left: auto;
-  padding-left: 0px;
-  padding-right: 0px;
-}
-
-.shareButton.mdc-button {
-  min-width: 48px;
-}
-
 ::ng-deep .mat-button-toggle-label-content {
   color: #543d27;
 }
 
-.themeToggleButton {
+.menuButton {
   position: fixed;
   left: 8px;
+  background-color: antiquewhite;
+  color: #543d27;
+  width: 18px;
+  font-size: large;
   margin-right: auto;
   padding-left: 0px;
   padding-right: 0px;
+}
+
+.menuButton.mat-mdc-icon-button {
+  min-width: 48px;
 }
 
 .cycle-wrapper {

@@ -15,6 +15,11 @@ body {
   --border-color: #e0e0e0;
   --highlight-color: antiquewhite;
   --cap-brown: #543D27;
+  --mat-menu-container-color: var(--card-background);
+  --mat-menu-item-label-text-color: var(--text-color);
+  --mat-menu-item-icon-color: var(--text-color);
+  --mat-menu-item-hover-state-layer-color: color-mix(in srgb, var(--text-color) 12%, transparent);
+  --mat-menu-item-focus-state-layer-color: color-mix(in srgb, var(--text-color) 18%, transparent);
   
 }
 
@@ -26,6 +31,11 @@ body {
   --card-background: #1e1e1e;
   --border-color: #333333;
   --highlight-color: darkgrey;
+  --mat-menu-container-color: var(--card-background);
+  --mat-menu-item-label-text-color: var(--text-color);
+  --mat-menu-item-icon-color: var(--text-color);
+  --mat-menu-item-hover-state-layer-color: color-mix(in srgb, var(--text-color) 12%, transparent);
+  --mat-menu-item-focus-state-layer-color: color-mix(in srgb, var(--text-color) 18%, transparent);
 }
 
 /* Apply variables to body */
@@ -66,4 +76,3 @@ a {
   color: var(--text-color) !important; /* Force apply */
   background-color: var(--card-background) !important ;
 } 
-

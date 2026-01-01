@@ -1,12 +1,33 @@
 <div>
   <mat-toolbar>
     <div class="header-content">
-      <button class="themeToggleButton"
-        mat-icon-button 
-        (click)="toggleTheme()" 
-        [attr.aria-label]="'Toggle ' + (isLightTheme() ? 'light' : 'dark') + ' theme'">
-        <mat-icon style="color: antiquewhite;">{{ isLightTheme() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+      <button
+        class="menuButton"
+        mat-icon-button
+        [matMenuTriggerFor]="headerMenu"
+        aria-label="Menu">
+        <mat-icon>menu</mat-icon>
       </button>
+      <mat-menu #headerMenu="matMenu">
+        <button mat-menu-item (click)="$event.stopPropagation(); toggleTheme()">
+          <mat-icon>{{ isLightTheme() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+          <span>Alternar tema claro/escuro</span>
+        </button>
+        <button mat-menu-item (click)="$event.stopPropagation(); decreaseFontSize()">
+          <mat-icon>zoom_out</mat-icon>
+          <span>Diminuir tamanho da letra</span>
+        </button>
+        <button mat-menu-item (click)="$event.stopPropagation(); increaseFontSize()">
+          <mat-icon>zoom_in</mat-icon>
+          <span>Aumentar tamanho da letra</span>
+        </button>
+        @if (canShare) {
+          <button mat-menu-item (click)="$event.stopPropagation(); sharePassage()">
+            <mat-icon>share</mat-icon>
+            <span>Partilhar</span>
+          </button>
+        }
+      </mat-menu>
 
       <mat-button-toggle-group multiple class="bookSelectorButton">
         <mat-button-toggle
@@ -41,17 +62,6 @@
         </mat-button-toggle>
         }
       </mat-button-toggle-group>
-
-      @if (canShare) {
-        <button
-          class="bookSelectorButton shareButton"
-          mat-flat-button
-          matTooltip="Partilhar"
-          (click)="sharePassage()"
-          aria-label="Partilhar">
-          <mat-icon style="color: #543D27;">share</mat-icon>
-        </button>
-      }
 
       <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button>
         <mat-icon style="color: #543D27;" aria-label="Search">search</mat-icon>
