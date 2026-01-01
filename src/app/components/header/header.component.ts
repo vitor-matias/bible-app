@@ -101,7 +101,7 @@ export class HeaderComponent implements OnInit {
     const url = typeof window !== "undefined" ? window.location.href : ""
 
     try {
-      await navigator.share({ title, text, url }).then(() => {
+      await navigator.share({ title, text, url }).finally(() => {
         // Shared successfully
         // @ts-ignore
         if(window.umami) {
