@@ -8,7 +8,9 @@
   width: 100%;
   background-color: #543d27;
   overflow: hidden;
-  height: inherit;
+  padding-top: env(safe-area-inset-top);
+  height: calc(56px + env(safe-area-inset-top));
+  box-sizing: border-box;
   z-index: 1000;
 }
 
