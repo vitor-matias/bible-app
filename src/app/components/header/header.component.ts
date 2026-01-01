@@ -101,14 +101,16 @@ export class HeaderComponent implements OnInit {
     const url = typeof window !== "undefined" ? window.location.href : ""
 
     try {
-      await navigator.share({ title, text, url }).finally(() => {
-        // Shared successfully
+      // Track the intent before the share sheet can background the page.
+      // @ts-ignore
+      if (window.umami) {
         // @ts-ignore
-        if(window.umami) {
-          // @ts-ignore
-          window.umami.track('share', { book: this.book?.id, chapter: this.chapterNumber });
-        }
-      })
+        window.umami.track("share", {
+          book: this.book?.id,
+          chapter: this.chapterNumber,
+        })
+      }
+      await navigator.share({ title, text, url })
     } catch {
       // User canceled or share failed; no UI feedback needed.
     }
