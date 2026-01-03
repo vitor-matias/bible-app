@@ -5,24 +5,25 @@
         class="menuButton"
         mat-icon-button
         [matMenuTriggerFor]="headerMenu"
+        #menuTrigger="matMenuTrigger"
         aria-label="Menu">
         <mat-icon>menu</mat-icon>
       </button>
       <mat-menu #headerMenu="matMenu">
-        <button mat-menu-item (click)="$event.stopPropagation(); toggleTheme()">
+        <button mat-menu-item (click)="onToggleTheme($event)">
           <mat-icon>{{ isLightTheme() ? 'light_mode' : 'dark_mode' }}</mat-icon>
           <span>Alternar tema claro/escuro</span>
         </button>
-        <button mat-menu-item (click)="$event.stopPropagation(); decreaseFontSize()">
+        <button mat-menu-item (click)="onDecreaseFontSize($event)">
           <mat-icon>zoom_out</mat-icon>
           <span>Diminuir tamanho da letra</span>
         </button>
-        <button mat-menu-item (click)="$event.stopPropagation(); increaseFontSize()">
+        <button mat-menu-item (click)="onIncreaseFontSize($event)">
           <mat-icon>zoom_in</mat-icon>
           <span>Aumentar tamanho da letra</span>
         </button>
         @if (canShare) {
-          <button mat-menu-item (click)="$event.stopPropagation(); sharePassage()">
+          <button mat-menu-item (click)="onShare(menuTrigger, $event)">
             <mat-icon>share</mat-icon>
             <span>Partilhar</span>
           </button>
@@ -36,6 +37,7 @@
           matTooltip="Escolher livro"
           class="bookSelectorButtonContent"
           (click)="showBookSelector(); bookToggle.checked = false"
+          (keydown.enter)="showBookSelector(); bookToggle.checked = false"
           aria-live="polite">
           
           @if (book.id === 'about') {

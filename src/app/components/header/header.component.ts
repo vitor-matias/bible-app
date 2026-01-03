@@ -4,6 +4,8 @@ import {
   Component,
   EventEmitter,
   Input,
+  OnChanges,
+  OnDestroy,
   type OnInit,
   Output,
   SimpleChanges,
@@ -11,14 +13,15 @@ import {
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
 import { MatIconModule } from "@angular/material/icon"
-import { MatMenuModule } from "@angular/material/menu"
+import { MatMenuModule, MatMenuTrigger } from "@angular/material/menu"
 import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
-import { type Router, RouterModule } from "@angular/router"
+import { RouterModule } from "@angular/router"
 import { ThemeService } from "../../services/theme.service"
 
 @Component({
+  standalone: true,
   selector: "header",
   imports: [
     MatToolbarModule,
@@ -33,7 +36,7 @@ import { ThemeService } from "../../services/theme.service"
   templateUrl: "./header.component.html",
   styleUrls: ["./header.component.css"],
 })
-export class HeaderComponent implements OnInit {
+export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly MIN_FONT_SIZE = 70
   private readonly MAX_FONT_SIZE = 180
   private readonly FONT_STEP = 5
@@ -51,8 +54,8 @@ export class HeaderComponent implements OnInit {
   mobile = false
 
   constructor(
-    private themeService: ThemeService,
-    private cdr: ChangeDetectorRef,
+    private readonly themeService: ThemeService,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -94,12 +97,33 @@ export class HeaderComponent implements OnInit {
     this.themeService.toggleTheme()
   }
 
+  onToggleTheme(event?: Event): void {
+    event?.stopPropagation()
+    this.toggleTheme()
+  }
+
   increaseFontSize(): void {
     this.adjustFontSize(this.FONT_STEP)
   }
 
+  onIncreaseFontSize(event?: Event): void {
+    event?.stopPropagation()
+    this.increaseFontSize()
+  }
+
   decreaseFontSize(): void {
     this.adjustFontSize(-this.FONT_STEP)
+  }
+
+  onDecreaseFontSize(event?: Event): void {
+    event?.stopPropagation()
+    this.decreaseFontSize()
+  }
+
+  async onShare(trigger: MatMenuTrigger, event?: Event): Promise<void> {
+    event?.stopPropagation()
+    trigger.closeMenu()
+    await this.sharePassage()
   }
 
   async sharePassage(): Promise<void> {
@@ -112,15 +136,15 @@ export class HeaderComponent implements OnInit {
     const text = isAbout
       ? "Leia a Biblia nesta app."
       : `Ler ${this.book?.name} ${this.chapterNumber}.`
-    const url = typeof window !== "undefined" ? window.location.href : ""
+    const url = globalThis.window === undefined ? "" : globalThis.location.href
 
     try {
       await navigator.share({ title, text, url }).finally(() => {
         // Shared successfully
         // @ts-ignore
-        if(window.umami) {
+        if(globalThis.umami) {
           // @ts-ignore
-          window.umami.track('share', { book: this.book?.id, chapter: this.chapterNumber });
+          globalThis.umami.track('share', { book: this.book?.id, chapter: this.chapterNumber });
         }
       })
     } catch {
