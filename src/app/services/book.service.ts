@@ -57,11 +57,32 @@ export class BookService {
     return this.getBooks().find((book) => this.getUrlAbrv(book) === bookAbrv)
   }
 
-  findBook(bookId: Book["id"] | Book["abrv"]): Book {
+  findBookByName(bookName: Book["shortName"]): Book | undefined {
+    const normalize = (value: string) =>
+      value
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLocaleLowerCase()
+    const normalizeVariants = (value: string) => {
+      const base = normalize(value)
+      const singular = base.length > 1 && base.endsWith("s") ? base.slice(0, -1) : ""
+      return [base, singular].filter(Boolean)
+    }
+    const needle = new Set(normalizeVariants(bookName))
+    return this.getBooks().find(
+      (book) =>
+        normalizeVariants(book.shortName).some((variant) => needle.has(variant)),
+    )
+  }
+
+  findBook(bookId: Book["id"] | Book["abrv"] | Book["shortName"]): Book {
     return (
       this.findBookById(bookId) ||
       this.findBookByAbrv(bookId) ||
       this.findBookByUrlAbrv(bookId) ||
+      this.findBookByName(bookId) ||
       this.getAboutBook()
     )
   }

@@ -50,19 +50,39 @@ export class BibleReferenceService {
     /\bv\.?\s*(?<v1>\d+(?:[a-c])?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c])?))?\b/gi
 
   constructor(private bookService: BookService) {
-    this.rebuildPattern()
+    this.bookService.books$.subscribe(() => {
+      this.rebuildPattern()
+    })
   }
 
   /** Call if your books list changes at runtime */
-  rebuildPattern(): void {
-    // 1) Abbreviations from your service (e.g., "Gn", "1Sm", "2 Sm", "Sl", ...).
+    rebuildPattern(): void {
+    const stripDiacritics = (value: string) =>
+      value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+
+    // 1) Abbreviations + short names from your service (e.g., "Gn", "Gênesis").
     const raw = (
-      this.bookService.getBooks()?.map((b) => (b.abrv ?? "").trim()) ?? []
+      this.bookService
+        .getBooks()
+        ?.flatMap((b) => [b.abrv, b.shortName].map((s) => (s ?? "").trim())) ??
+      []
     ).filter(Boolean)
 
     // 2) Normalize to base names by stripping any leading 1\u20133 and optional space.
     //    Lets the regex handle both "2Sm" and "2 Sm".
     const base = raw
+      .flatMap((s) => {
+        const stripped = stripDiacritics(s)
+        const singular =
+          s.length > 1 && s.toLocaleLowerCase().endsWith("s")
+            ? s.slice(0, -1)
+            : ""
+        const singularStripped =
+          stripped.length > 1 && stripped.toLocaleLowerCase().endsWith("s")
+            ? stripped.slice(0, -1)
+            : ""
+        return [s, stripped, singular, singularStripped].filter(Boolean)
+      })
       .map((s) => s.replace(/^[1-3]\s*/i, "")) // "1Sm" \u2192 "Sm", "2 Sm" \u2192 "Sm"
       .map((s) => s.toLocaleLowerCase())
 

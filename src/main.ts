@@ -10,6 +10,11 @@ import { provideServiceWorker } from "@angular/service-worker"
 import { AppComponent } from "./app/app.component"
 import { routes } from "./app/app.routes"
 
+const savedTheme = localStorage.getItem("theme")
+const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+const isDark = savedTheme ? savedTheme === "dark" : prefersDark
+document.documentElement.classList.toggle("dark-theme", isDark)
+
 bootstrapApplication(AppComponent, {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
