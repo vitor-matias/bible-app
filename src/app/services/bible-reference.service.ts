@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core"
+import { DestroyRef, Injectable, inject } from "@angular/core"
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { BookService } from "./book.service"
 
@@ -34,6 +34,7 @@ export interface BibleReference {
 
 @Injectable({ providedIn: "root" })
 export class BibleReferenceService {
+  private readonly destroyRef = inject(DestroyRef)
   private bookAlternation = ""
   private explicitRe?: RegExp
 
@@ -51,9 +52,11 @@ export class BibleReferenceService {
     /\bv\.?\s*(?<v1>\d+(?:[a-c])?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c])?))?\b/gi
 
   constructor(private bookService: BookService) {
-    this.bookService.books$.pipe(takeUntilDestroyed()).subscribe(() => {
-      this.rebuildPattern()
-    })
+    this.bookService.books$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.rebuildPattern()
+      })
   }
 
   /** Call if your books list changes at runtime */
