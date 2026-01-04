@@ -1,0 +1,34 @@
+<div unifiedGestures class="footnotes-container">
+  @if (data.notes?.length) {
+    <div class="footnotes-list">
+      <div class="notes-header">Notas</div>
+      @for (note of data.notes; track note) {
+        <div class="footnote-item">
+          <div class="footnote-reference">
+            {{ formatNoteRange(note) }}
+          </div>
+          <div class="note-text">{{ note.note }}</div>
+        </div>
+      }
+    </div>
+    <mat-divider></mat-divider>
+  }
+  <div class="footnotes-list">
+    @for (footnote of data.footnotes; track footnote) {
+      <div class="footnote-item">
+        <span class="footnote-reference">{{ footnote.reference }} </span>
+        @for(part of parseReferences(footnote.text).parts; track $index){
+          @if (typeof part === 'object') {
+            <a (click)="close()"
+              [routerLink]="['/', getAbrv(part.book), part.chapter]"
+              [queryParams]="getVerseQueryParams(part.verses)"
+              >{{part.match}}</a
+              >
+            } @else {
+              {{part}}
+            }
+          }
+        </div>
+      }
+    </div>
+</div>

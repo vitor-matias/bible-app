@@ -19,7 +19,7 @@
       @if (!isInSection(data.text, i)) {
         <!-- Regular Text -->
         @if(text.type === 'text'){
-          <span [ngClass]="{'allCaps': text.allCaps}" (click)="toggleFootnotes()">{{ text.text }}</span>
+          <span class="highlightable" [ngClass]="{'allCaps': text.allCaps}" (click)="toggleFootnotes()">{{ text.text }}</span>
         }
         <!-- References -->
         @if(text.type === "references"){
@@ -28,13 +28,13 @@
             <h3>
               @for(part of parseReferences(text.text).parts; track $index){
                 @if(typeof part === "object" && part.book !== data.bookId){
-                  <a class="references"
+                  <a class="references highlightable"
                     [routerLink]="['/', (part.book | lowercase ), part.chapter]"
                     [queryParams]="getVerseQueryParams(part.verses)"
                     >{{part.match}}</a
                     >
                   } @else {
-                    <span class="references">{{typeof part === "object" ? part.match : part}}</span>
+                    <span class="references highlightable">{{typeof part === "object" ? part.match : part}}</span>
                   }
                 }
               </h3>
@@ -53,14 +53,14 @@
             @if (!isFirst && isLast && chapterNumberIndex !== i && !shouldShowParagraph(data, text, i)) {
               <span>
                 <div></div>
-                <span #paragraph [ngClass]="{'indent': !checkIfIsTouchingChapterNumber(paragraph)}">
+                <span #paragraph class="highlightable" [ngClass]="{'indent': !checkIfIsTouchingChapterNumber(paragraph)}">
                   {{ text.text }}
                 </span>
               </span>
             }
             <!-- Second Case: Regular paragraph with complex conditions -->
             @if (shouldShowParagraph(data, text, i)) {
-              <span #paragraph [ngClass]="{'indent': !checkIfIsTouchingChapterNumber(paragraph)}">
+              <span #paragraph class="highlightable" [ngClass]="{'indent': !checkIfIsTouchingChapterNumber(paragraph)}">
                 {{ text.text }}
               </span>
             }
@@ -70,7 +70,7 @@
             <!-- Main Section (s1 or ms) -->
             @if (text.tag === 's1' || text.tag === 'ms') {
               <p></p>
-              <h3>{{ text.text }}</h3>
+              <h3 class="highlightable">{{ text.text }}</h3>
             }
             <!-- Sub Section (s2) -->
             @if (text.tag === 's2') {
@@ -85,7 +85,7 @@
         @if (text.type === 'quote') {
           <span class="quote">
             <div></div>
-            <span #quote [ngClass]="{'indent': !checkIfIsTouchingChapterNumber(quote)}">
+            <span #quote class="highlightable" [ngClass]="{'indent': !checkIfIsTouchingChapterNumber(quote)}">
               {{ text.text }}
             </span>
           </span>

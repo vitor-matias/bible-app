@@ -7,11 +7,14 @@ import {
   Component,
   ElementRef,
   HostListener,
+  OnInit,
   ViewChild,
 } from "@angular/core"
 import { MatBottomSheetModule } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
+import { MatDialog, MatDialogModule } from "@angular/material/dialog"
+import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
 import {
   type MatDrawer,
   type MatDrawerContainer,
@@ -30,6 +33,7 @@ import { AboutComponent } from "../about/about.component"
 import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"
 import { HeaderComponent } from "../header/header.component"
+import { NoteDialogComponent } from "../note-dialog/note-dialog.component"
 import { VerseComponent } from "../verse/verse.component"
 
 @Component({
@@ -49,10 +53,15 @@ import { VerseComponent } from "../verse/verse.component"
     ChapterSelectorComponent,
     MatIconModule,
     MatButtonModule,
+    MatDialogModule,
+    MatSnackBarModule,
     UnifiedGesturesDirective,
   ],
 })
-export class BibleReaderComponent {
+export class BibleReaderComponent implements OnInit {
+  private readonly highlightsStorageKey = "bibleHighlights"
+  private readonly notesStorageKey = "bibleNotes"
+
   @ViewChild("bookDrawer")
   bookDrawer!: MatDrawer
 
@@ -61,6 +70,7 @@ export class BibleReaderComponent {
 
   @ViewChild("bookDrawerCloseButton") bookDrawerCloseButton!: ElementRef
   @ViewChild("chapterDrawerCloseButton") chapterDrawerCloseButton!: ElementRef
+  @ViewChild("readerContent") readerContent!: ElementRef<HTMLElement>
 
   private routeSub: Subscription | undefined
 
@@ -71,16 +81,29 @@ export class BibleReaderComponent {
   bookParam: string | null = null
   chapterParam: string | null = null
   showBooks = true
+  selectionMenuVisible = false
+  selectionMenuPosition = { x: 0, y: 0 }
+  selectionMenuPlacement: "top" | "bottom" = "top"
+  selectedText = ""
+  selectedVerseRange: { start: number; end: number } | null = null
+  selectedVerseIds: number[] = []
+  selectionHasHighlight = false
+  shareAvailable = false
+  private selectionRange: Range | null = null
+  private selectionUpdateId: number | undefined
 
   constructor(
-    private apiService: BibleApiService,
-    private bookService: BookService,
-    private cdr: ChangeDetectorRef,
-    private router: Router,
-    private route: ActivatedRoute,
+    private readonly apiService: BibleApiService,
+    private readonly bookService: BookService,
+    private readonly cdr: ChangeDetectorRef,
+    private readonly router: Router,
+    private readonly route: ActivatedRoute,
+    private readonly dialog: MatDialog,
+    private readonly snackBar: MatSnackBar,
   ) {}
 
   ngOnInit(): void {
+    this.shareAvailable = typeof navigator !== "undefined" && "share" in navigator
     this.bookService.books$.subscribe((_books) => {
       if (_books.length === 0)
         alert("No books available. Please check your API connection.")
@@ -218,11 +241,12 @@ export class BibleReaderComponent {
         this.chapterNumber = chapter
 
         this.cdr.detectChanges()
+        this.applyStoredHighlights()
 
-        if (!verseStart) {
-          this.scrollToTop()
-        } else {
+        if (verseStart) {
           this.scrollToVerseElement(verseStart, verseEnd, highlight)
+        } else {
+          this.scrollToTop()
         }
 
         localStorage.setItem("book", this.book.id)
@@ -234,6 +258,7 @@ export class BibleReaderComponent {
           this.chapterNumber = chapter
 
           this.cdr.detectChanges()
+          this.applyStoredHighlights()
           if (!verseStart) {
             this.scrollToTop()
           } else {
@@ -312,16 +337,7 @@ export class BibleReaderComponent {
   }
 
   openChapterDrawer(event: { open: boolean }) {
-    if (!this.showBooks) {
-      this.bookDrawer.toggle().finally(() => {
-        const closeButton = document.querySelector(
-          ".bookSelector .dismiss-button",
-        ) as HTMLElement
-        if (closeButton) {
-          closeButton.blur()
-        }
-      })
-    } else {
+    if (this.showBooks) {
       this.bookDrawer.close().finally(() => {
         this.showBooks = false
         this.bookDrawer.toggle().finally(() => {
@@ -332,6 +348,15 @@ export class BibleReaderComponent {
             closeButton.blur()
           }
         })
+      })
+    } else {
+      this.bookDrawer.toggle().finally(() => {
+        const closeButton = document.querySelector(
+          ".bookSelector .dismiss-button",
+        ) as HTMLElement
+        if (closeButton) {
+          closeButton.blur()
+        }
       })
     }
   }
@@ -348,6 +373,403 @@ export class BibleReaderComponent {
     if (event.key === "ArrowRight") {
       this.goToNextChapter()
     }
+  }
+
+  @HostListener("document:selectionchange")
+  onSelectionChange(): void {
+    this.scheduleSelectionUpdate()
+  }
+
+  @HostListener("document:mouseup")
+  @HostListener("document:touchend")
+  onSelectionEnd(): void {
+    this.scheduleSelectionUpdate()
+  }
+
+  scheduleSelectionUpdate(): void {
+    if (this.selectionUpdateId) {
+      globalThis.clearTimeout(this.selectionUpdateId)
+    }
+    this.selectionUpdateId = window.setTimeout(() => {
+      this.updateSelectionMenu()
+    }, 0)
+  }
+
+  updateSelectionMenu(): void {
+    const selection = globalThis.getSelection()
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+      this.dismissSelectionMenu()
+      return
+    }
+
+    const range = selection.getRangeAt(0)
+    if (
+      !this.readerContent?.nativeElement.contains(
+        range.commonAncestorContainer,
+      )
+    ) {
+      this.dismissSelectionMenu()
+      return
+    }
+
+    const text = selection.toString().trim()
+    if (!text) {
+      this.dismissSelectionMenu()
+      return
+    }
+
+    const rect = range.getBoundingClientRect()
+    if (!rect || (rect.width === 0 && rect.height === 0)) {
+      this.dismissSelectionMenu()
+      return
+    }
+
+    const verseIds = this.getSelectedVerseIds(range)
+    if (!verseIds.length) {
+      this.dismissSelectionMenu()
+      return
+    }
+
+    this.selectedText = text
+    this.selectedVerseIds = verseIds
+    this.selectedVerseRange = this.getVerseRangeFromIds(verseIds)
+    this.selectionHasHighlight = this.idsHaveHighlight(verseIds)
+    this.selectionRange = range.cloneRange()
+    this.selectionMenuPlacement = rect.top < 56 ? "bottom" : "top"
+    this.selectionMenuPosition = {
+      x: rect.left + rect.width / 2,
+      y: this.selectionMenuPlacement === "top" ? rect.top - 8 : rect.bottom + 8,
+    }
+    this.selectionMenuVisible = true
+  }
+
+  dismissSelectionMenu(): void {
+    this.selectionMenuVisible = false
+    this.selectedVerseRange = null
+    this.selectedVerseIds = []
+    this.selectionHasHighlight = false
+    this.selectionRange = null
+  }
+
+  private getSelectedVerseText(): string {
+    if (!this.chapter?.verses?.length || !this.selectedVerseIds.length) {
+      return ""
+    }
+    const versesByNumber = new Map(
+      this.chapter.verses.map((verse) => [verse.number, verse]),
+    )
+    const orderedIds = [...this.selectedVerseIds].sort((a, b) => a - b)
+    const verseTexts = orderedIds
+      .map((id) => versesByNumber.get(id))
+      .filter((verse): verse is Verse => Boolean(verse))
+      .map((verse) => this.formatVerseText(verse))
+      .filter(Boolean)
+
+    return verseTexts.join(" ").trim()
+  }
+
+  private formatVerseText(verse: Verse): string {
+    const text = verse.text
+      .filter((item) => item.type !== "footnote")
+      .map((item) => item.text)
+      .join("")
+      .replace(/\s+/g, " ")
+      .trim()
+
+    if (!text) return ""
+    return text
+  }
+
+  copySelection(): void {
+    const text = this.selectedText.trim()
+    if (!text) return
+
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text)
+    } 
+    this.snackBar.open("Texto copiado.", undefined, { duration: 2000 })
+    this.dismissSelectionMenu()
+  }
+
+  highlightSelection(): void {
+    const highlights = this.getStoredHighlights()
+    const bookHighlights = highlights[this.book.id] || {}
+    const chapterKey = this.chapterNumber.toString()
+    const verseSet = new Set<number>(bookHighlights[chapterKey] || [])
+
+    for (const verse of this.selectedVerseIds) {
+      verseSet.add(verse)
+    }
+
+    bookHighlights[chapterKey] = Array.from(verseSet)
+    highlights[this.book.id] = bookHighlights
+    this.saveStoredHighlights(highlights)
+    this.applyHighlightIds(this.selectedVerseIds)
+    //this.dismissSelectionMenu()
+  }
+
+  removeHighlightSelection(): void {
+    const highlights = this.getStoredHighlights()
+    const bookHighlights = highlights[this.book.id] || {}
+    const chapterKey = this.chapterNumber.toString()
+    const verseSet = new Set<number>(bookHighlights[chapterKey] || [])
+
+    for (const verse of this.selectedVerseIds) {
+      verseSet.delete(verse)
+    }
+
+    bookHighlights[chapterKey] = Array.from(verseSet)
+    highlights[this.book.id] = bookHighlights
+    this.saveStoredHighlights(highlights)
+    this.removeHighlightIds(this.selectedVerseIds)
+    //this.dismissSelectionMenu()
+  }
+
+  addNote(): void {
+    const selectionText = this.selectedText.trim()
+    if (!selectionText) return
+
+    const range = this.selectedVerseRange
+    if (!range && !this.selectedVerseIds.length) return
+
+    const fullText = this.getSelectedVerseText() || selectionText
+    const dialogRef = this.dialog.open(NoteDialogComponent, {
+      data: { text: fullText },
+    })
+
+    dialogRef.afterClosed().subscribe((note?: string) => {
+      if (!note) return
+
+      const notes = this.getStoredNotes()
+      notes.push({
+        id: this.createNoteId(),
+        bookId: this.book.id,
+        chapterNumber: this.chapterNumber,
+        verseStart: range?.start ?? this.selectedVerseIds[0],
+        verseEnd:
+          range?.end ?? this.selectedVerseIds[this.selectedVerseIds.length - 1],
+        text: fullText,
+        note,
+        createdAt: Date.now(),
+      })
+      this.saveStoredNotes(notes)
+      globalThis.dispatchEvent(new Event("notesChanged"))
+      this.snackBar.open("Nota salva.", undefined, { duration: 2000 })
+      this.dismissSelectionMenu()
+    })
+  }
+
+  async shareSelection(): Promise<void> {
+    const text = this.selectedText.trim()
+    if (!text) return
+
+    const referenceUrl = this.buildReferenceUrl()
+
+    try {
+      if (
+        "share" in navigator &&
+        (!("canShare" in navigator) ||
+          navigator.canShare({ text, url: referenceUrl }))
+      ) {
+        await navigator.share({ text, url: referenceUrl })
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(`${text}\n${referenceUrl}`)
+        this.snackBar.open("Texto copiado.", undefined, { duration: 2000 })
+      } 
+      this.dismissSelectionMenu()
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  private buildReferenceUrl(): string {
+    const abrv = this.bookService.getUrlAbrv(this.book)
+    const url = new URL(
+      `/${abrv}/${this.chapterNumber}`,
+      globalThis.location.origin,
+    )
+    const range = this.selectedVerseRange
+    if (range) {
+      url.searchParams.set("verseStart", range.start.toString())
+      if (range.end > range.start) {
+        url.searchParams.set("verseEnd", range.end.toString())
+      }
+      return url.toString()
+    }
+    if (this.selectedVerseIds.length) {
+      const start = Math.min(...this.selectedVerseIds)
+      const end = Math.max(...this.selectedVerseIds)
+      url.searchParams.set("verseStart", start.toString())
+      if (end > start) {
+        url.searchParams.set("verseEnd", end.toString())
+      }
+    }
+    return url.toString()
+  }
+
+  private getSelectedVerseIds(range: Range): number[] {
+    const verseElements = this.getVerseElements()
+    if (!verseElements.length) return []
+
+    const startVerse = this.getVerseElementFromNode(range.startContainer)
+    const endVerse = this.getVerseElementFromNode(range.endContainer)
+    
+    const rangeIds = this.getVerseIdsByBoundaryElements(verseElements, startVerse, endVerse)
+    if (rangeIds.length) return rangeIds
+
+    const intersectionIds = this.getVerseIdsByIntersection(verseElements, range)
+    if (intersectionIds.length) return intersectionIds
+
+    return this.getFallbackVerseId(startVerse, endVerse)
+  }
+
+  private getVerseIdsByBoundaryElements(
+    verseElements: HTMLElement[],
+    startVerse: HTMLElement | null,
+    endVerse: HTMLElement | null,
+  ): number[] {
+    if (!startVerse || !endVerse) return []
+
+    const startIndex = verseElements.indexOf(startVerse)
+    const endIndex = verseElements.indexOf(endVerse)
+    if (startIndex === -1 || endIndex === -1) return []
+
+    const from = Math.min(startIndex, endIndex)
+    const to = Math.max(startIndex, endIndex)
+    return verseElements
+      .slice(from, to + 1)
+      .map((element) => this.getVerseId(element))
+      .filter((value) => Number.isFinite(value))
+  }
+
+  private getVerseIdsByIntersection(verseElements: HTMLElement[], range: Range): number[] {
+    const hits: number[] = []
+    for (const verseElement of verseElements) {
+      try {
+        if (range.intersectsNode(verseElement)) {
+          const id = this.getVerseId(verseElement)
+          if (Number.isFinite(id)) {
+            hits.push(id)
+          }
+        }
+      } catch {
+        // Some browsers throw on intersectsNode for certain nodes.
+      }
+    }
+    return hits
+  }
+
+  private getFallbackVerseId(startVerse: HTMLElement | null, endVerse: HTMLElement | null): number[] {
+    const fallback = startVerse || endVerse
+    if (fallback) {
+      const id = this.getVerseId(fallback)
+      if (Number.isFinite(id)) return [id]
+    }
+    return []
+  }
+
+  private getVerseId(element: HTMLElement): number {
+    const id = element.getAttribute("id")
+    return Number.parseInt(id || "", 10)
+  }
+
+  private getVerseElementFromNode(node: Node | null): HTMLElement | null {
+    if (!node) return null
+    const element = node instanceof HTMLElement ? node : node.parentElement
+    return element?.closest("verse") as HTMLElement | null
+  }
+
+  private getVerseRangeFromIds(
+    ids: number[],
+  ): { start: number; end: number } | null {
+    if (!ids.length) return null
+    return { start: Math.min(...ids), end: Math.max(...ids) }
+  }
+
+  private getVerseElements(): HTMLElement[] {
+    if (!this.readerContent?.nativeElement) return []
+    return Array.from(
+      this.readerContent.nativeElement.querySelectorAll("verse[id]"),
+    )
+  }
+
+  private applyStoredHighlights(): void {
+    setTimeout(() => {
+      const highlights = this.getStoredHighlights()
+      const chapterKey = this.chapterNumber.toString()
+      const verses = highlights[this.book.id]?.[chapterKey] || []
+      for (const verse of verses) {
+        const element = document.getElementById(`${verse}`)
+        if (element) {
+          element.classList.add("highlighted")
+        }
+      }
+    }, 0)
+  }
+
+  private applyHighlightIds(ids: number[]): void {
+    for (const verse of ids) {
+      const element = document.getElementById(`${verse}`)
+      if (element) {
+        element.classList.add("highlighted")
+      }
+    }
+    this.selectionHasHighlight = true
+    this.cdr.markForCheck()
+  }
+
+  private removeHighlightIds(ids: number[]): void {
+    for (const verse of ids) {
+      const element = document.getElementById(`${verse}`)
+      if (element) {
+        element.classList.remove("highlighted")
+      }
+    }
+    this.selectionHasHighlight = false
+    this.cdr.markForCheck()
+  }
+
+  private idsHaveHighlight(ids: number[]): boolean {
+    const highlights = this.getStoredHighlights()
+    const chapterKey = this.chapterNumber.toString()
+    const verses = highlights[this.book.id]?.[chapterKey] || []
+    const verseSet = new Set<number>(verses)
+    return ids.some((id) => verseSet.has(id))
+  }
+
+  private getStoredHighlights(): Record<string, Record<string, number[]>> {
+    try {
+      const raw = localStorage.getItem(this.highlightsStorageKey)
+      return raw ? JSON.parse(raw) : {}
+    } catch {
+      return {}
+    }
+  }
+
+  private saveStoredHighlights(
+    data: Record<string, Record<string, number[]>>,
+  ): void {
+    localStorage.setItem(this.highlightsStorageKey, JSON.stringify(data))
+  }
+
+  private getStoredNotes(): StoredNote[] {
+    try {
+      const raw = localStorage.getItem(this.notesStorageKey)
+      return raw ? JSON.parse(raw) : []
+    } catch {
+      return []
+    }
+  }
+
+  private saveStoredNotes(data: StoredNote[]): void {
+    localStorage.setItem(this.notesStorageKey, JSON.stringify(data))
+  }
+
+  private createNoteId(): string {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      return crypto.randomUUID()
+    }
+    return `note_${Date.now()}_${Math.random().toString(16).slice(2)}`
   }
 
   getBooks() {

@@ -1,0 +1,63 @@
+.footnotes-container {
+  font-family: "PT Serif", serif;
+  text-align: justify;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footnote-item {
+  margin-bottom: 12px;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.footnote-text {
+  font-size: 100%;
+  line-height: 1.4;
+}
+
+.footnote-reference {
+  font-weight: bold;
+  font-size: 110%;
+  margin-right: 8px;
+}
+
+.notes-list {
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(84, 61, 39, 0.15);
+}
+
+.notes-header {
+  font-weight: bold;
+  font-size: 110%;
+  margin-bottom: 8px;
+}
+
+.note-item {
+  margin-bottom: 12px;
+  padding: 8px;
+  border-radius: 4px;
+  background-color: rgba(84, 61, 39, 0.05);
+}
+
+.note-meta {
+  font-size: 85%;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.note-text {
+  font-size: 100%;
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.note-selection {
+  font-size: 90%;
+  color: var(--text-secondary);
+}

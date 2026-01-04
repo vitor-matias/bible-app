@@ -111,3 +111,14 @@ type VersePage = {
   currentPage: number
   totalPages: number
 }
+
+type StoredNote = {
+  id: string
+  bookId: string
+  chapterNumber: number
+  verseStart: number
+  verseEnd: number
+  text: string
+  note: string
+  createdAt: number
+}

@@ -6,6 +6,7 @@ import { MatListModule } from "@angular/material/list"
 import { MatTreeModule } from "@angular/material/tree"
 
 @Component({
+  standalone: true,
   selector: "chapter-selector",
   imports: [
     CommonModule,
