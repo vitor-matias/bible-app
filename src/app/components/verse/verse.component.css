@@ -3,6 +3,11 @@
   font-size: 65%;
   vertical-align: top;
   text-align: right;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -ms-user-select: none !important;
+  position: relative;
+  z-index: 2;
 }
 
 .section {
@@ -43,6 +48,11 @@ h3 {
   /*margin-right: 10px;  Adds space to the right of the chapter number */
   /* margin-bottom: 10px; Adds space below the chapter number */
   color: dimgray;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -ms-user-select: none !important;
+  position: relative;
+  z-index: 2;
 }
 
 .center {
@@ -69,4 +79,19 @@ h3 {
 .footnoteIndicator {
   vertical-align: top;
   font-size: 65%;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+:host(.highlighted) .highlightable {
+  background-color: var(--highlight-color);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+:host(.highlighted) ::ng-deep .highlightable {
+  background-color: var(--highlight-color);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }

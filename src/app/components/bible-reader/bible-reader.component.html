@@ -15,11 +15,13 @@
         }
       </mat-drawer>
     }
-    <mat-drawer-content style="background-color: var(--background-color)">
+    <mat-drawer-content
+      style="background-color: var(--background-color)"
+      (scroll)="dismissSelectionMenu()">
       <div style="margin: 8px 8px 0px 8px;">
         <div class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}">
           @if (chapter) {
-            <div pinch-to-zoom class="chapterBlock">
+            <div pinch-to-zoom class="chapterBlock" #readerContent>
               @if(book.id !== 'about'){
                 @for (verse of chapter.verses; track verse) {
                   <verse [id]="verse.number" class="verse" [data]="verse"></verse>
@@ -40,6 +42,37 @@
           }
         </div>
       </div>
+      @if (selectionMenuVisible) {
+        <div
+          class="selection-menu"
+          [class.bottom]="selectionMenuPlacement === 'bottom'"
+          [style.left.px]="selectionMenuPosition.x"
+          [style.top.px]="selectionMenuPosition.y">
+          <button type="button" class="selection-menu-button" (click)="copySelection()">
+            Copiar
+          </button>
+          <span class="selection-menu-divider"></span>
+          @if (selectionHasHighlight) {
+            <button type="button" class="selection-menu-button" (click)="removeHighlightSelection()">
+              Remover realce
+            </button>
+          } @else {
+            <button type="button" class="selection-menu-button" (click)="highlightSelection()">
+              Realçar
+            </button>
+          }
+          <span class="selection-menu-divider"></span>
+          <button type="button" class="selection-menu-button" (click)="addNote()">
+            Nota
+          </button>
+          @if (shareAvailable) {
+            <span class="selection-menu-divider"></span>
+            <button type="button" class="selection-menu-button" (click)="shareSelection()">
+              Partilhar
+            </button>
+          }
+        </div>
+      }
       @if (book.id !== 'about') {
         <!-- Floating navigation buttons -->
         @if (chapter.number > 1) {

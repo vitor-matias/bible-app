@@ -1,5 +1,5 @@
 
-import { ChangeDetectionStrategy, Component, NgZone } from "@angular/core"
+import { ChangeDetectionStrategy, Component, NgZone, OnInit } from "@angular/core"
 
 import { RouterOutlet } from "@angular/router"
 
@@ -13,16 +13,16 @@ import { SwUpdate } from "@angular/service-worker"
   standalone: true,
   imports: [RouterOutlet],
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   constructor(
-    private swUpdate: SwUpdate,
-    private ngZone: NgZone,
+    private readonly swUpdate: SwUpdate,
+    private readonly ngZone: NgZone,
   ) {
     if (this.swUpdate.isEnabled) {
       this.swUpdate.versionUpdates.subscribe((event) => {
         if (event.type === "VERSION_READY") {
           this.swUpdate.activateUpdate().then(() => {
-            window.location.reload()
+            globalThis.location.reload()
           })
         }
       })
@@ -36,7 +36,7 @@ export class AppComponent {
         console.log("App resumed, triggering resize")
         this.ngZone.run(() => {
           // Force Angular change detection and DOM reflow
-          window.dispatchEvent(new Event("resize"))
+          globalThis.dispatchEvent(new Event("resize"))
           // Or manually reflow: document.body.offsetHeight; // Triggers layout
         })
       }
@@ -46,7 +46,7 @@ export class AppComponent {
     window.addEventListener("pageshow", (event) => {
       if (event.persisted) {
         // From bfcache/suspend
-        this.ngZone.run(() => window.dispatchEvent(new Event("resize")))
+        this.ngZone.run(() => globalThis.dispatchEvent(new Event("resize")))
       }
     })
   }

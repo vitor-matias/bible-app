@@ -74,6 +74,9 @@ h6 {
   /*margin-right: 10px;  Adds space to the right of the chapter number */
   /* margin-bottom: 10px; Adds space below the chapter number */
   color: dimgray;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -ms-user-select: none !important;
 }
 
 .bookSelectorContainer {
@@ -152,4 +155,44 @@ mat-icon {
 
 .reader-header {
   top: 0;
+}
+
+.selection-menu {
+  position: fixed;
+  z-index: 200;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background-color: #f4ecd9;
+  border: 1px solid rgba(84, 61, 39, 0.2);
+  color: #543d27;
+  font-family: sans-serif;
+  transform: translate(-50%, -100%);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.selection-menu.bottom {
+  transform: translate(-50%, 0%);
+}
+
+.selection-menu-button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.selection-menu-button:active {
+  transform: scale(0.98);
+}
+
+.selection-menu-divider {
+  width: 1px;
+  height: 16px;
+  background-color: rgba(84, 61, 39, 0.25);
 }

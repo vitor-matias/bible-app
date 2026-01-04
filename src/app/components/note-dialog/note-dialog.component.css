@@ -1,0 +1,30 @@
+.selection-preview {
+  font-size: 1rem;
+  color: color-mix(in srgb, var(--text-color) 70%, var(--cap-brown) 30%);
+  margin: 0 0 12px;
+  user-select: none;
+}
+
+.mat-mdc-dialog-title {
+  color: var(--text-color);
+  font-size: 1.1rem;
+  user-select: none;
+}
+
+.mat-mdc-dialog-content {
+  font-size: 1rem;
+}
+
+.mat-mdc-dialog-actions {
+  font-size: 1rem;
+}
+
+.note-field {
+  width: 100%;
+}
+
+.note-field textarea {
+  color: var(--text-color);
+  caret-color: var(--text-color);
+  font-size: 1rem;
+}

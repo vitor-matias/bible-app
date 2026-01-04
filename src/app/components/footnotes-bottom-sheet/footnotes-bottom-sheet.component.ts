@@ -7,72 +7,27 @@ import { UnifiedGesturesDirective } from '../../directives/unified-gesture.direc
 import { BibleReference, BibleReferenceService, VerseReference } from '../../services/bible-reference.service'
 import { RouterModule } from '@angular/router'
 import { BookService } from '../../services/book.service'
+import { MatDividerModule } from '@angular/material/divider'
 
 @Component({
   selector: 'footnotes-bottom-sheet',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, UnifiedGesturesDirective, RouterModule],
-  template: `
-    <div unifiedGestures class="footnotes-container">
-      <div class="footnotes-list">
-        @for (footnote of data.footnotes; track footnote) {
-          <div class="footnote-item">
-            <span class="footnote-reference">{{ footnote.reference }} </span>
-            @for(part of parseReferences(footnote.text).parts; track $index){
-              @if (typeof part === 'object') {
-                <a (click)="close()"
-                  [routerLink]="['/', getAbrv(part.book), part.chapter]"
-                  [queryParams]="getVerseQueryParams(part.verses)"
-                  >{{part.match}}</a
-                  >
-                } @else {
-                  {{part}}
-                }
-              }
-            </div>
-          }
-        </div>
-      </div>
-    `,
-  styles: [`
-    .footnotes-container {
-      font-family: "PT Serif", serif;
-        text-align: justify;
-
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .footnote-item {
-      margin-bottom: 12px;
-      padding: 8px;
-      border-radius: 4px;
-    }
-    .footnote-text {
-      font-size: 100%;
-      line-height: 1.4;
-      
-    }
-    .footnote-reference { 
-      font-weight: bold;
-      font-size: 110%;
-      margin-right: 8px;
-    }
-  `]
+  imports: [MatButtonModule, MatIconModule, UnifiedGesturesDirective, RouterModule, MatDividerModule],
+  templateUrl: './footnotes-bottom-sheet.component.html',
+  styleUrl: './footnotes-bottom-sheet.component.css',
 })
 export class FootnotesBottomSheetComponent {
   constructor(
-    private bottomSheetRef: MatBottomSheetRef<FootnotesBottomSheetComponent>,
-    @Inject(MAT_BOTTOM_SHEET_DATA) public data: { footnotes: any[], verse: any },
-    private bibleRef: BibleReferenceService, private bookService: BookService,
+    private readonly bottomSheetRef: MatBottomSheetRef<FootnotesBottomSheetComponent>,
+    @Inject(MAT_BOTTOM_SHEET_DATA)
+    public data: { footnotes: any[], notes?: StoredNote[], verse: any },
+    private readonly bibleRef: BibleReferenceService,
+    private readonly bookService: BookService,
   ) {
     // @ts-ignore
-    if(window.umami) {
+    if(globalThis.umami) {
       // @ts-ignore
-      window.umami.track('footnotes_opened', { book: data.verse.bookId, chapter: data.verse.chapterNumber, verse: data.verse.verseNumber });
+      globalThis.umami.track('footnotes_opened', { book: data.verse.bookId, chapter: data.verse.chapterNumber, verse: data.verse.verseNumber });
     }
   }
 
@@ -96,7 +51,7 @@ export class FootnotesBottomSheetComponent {
   }
 
     getVerseQueryParams(verses?: VerseReference[]) {
-      if (!verses || !verses.length) return null
+      if (!verses?.length) return null
       const first = verses[0]
       if (first.type === "single") {
         return { verseStart: first.verse }
@@ -114,6 +69,13 @@ export class FootnotesBottomSheetComponent {
 
     close(): void {
       this.bottomSheetRef.dismiss()
+    }
+
+    formatNoteRange(note: StoredNote): string {
+      if (note.verseStart === note.verseEnd) {
+        return `${note.verseStart}.`
+      }
+      return `${note.verseStart}-${note.verseEnd}.`
     }
 
 }

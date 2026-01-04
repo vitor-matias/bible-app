@@ -4,7 +4,7 @@
       <span><p></span>
     }
     @if (text.type === 'text' || text.type === 'section') {
-      <span class="section">{{text.text}}</span>
+      <span class="section highlightable">{{text.text}}</span>
     }
     @if(text.type === "references"){
       <span class="references">
@@ -12,24 +12,25 @@
         @for(part of parseReferences(text.text).parts; track $index){
           @if (typeof part === 'object') {
             <a
+              class="highlightable"
               (click)="showReturnSnackbar()"
               [routerLink]="['/', (part.book | lowercase ), part.chapter]"
               [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)"
               >{{part.match}}</a
               >
             } @else {
-              {{part}}
+              <span class="highlightable">{{part}}</span>
             }
           }
         </span>
       }
       @if (data.verseLabel === 'front' && isLast && data.text[data.text.length -1].type !== 'quote') {
-        <span class="section"
+        <span class="section highlightable"
           > —
         </span>
       }
       @if (data.verseLabel !== 'front' && isLast && text.type !== 'quote') {
-        <span class="section"> — </span>
+        <span class="section highlightable"> — </span>
       }
     }
   </span>

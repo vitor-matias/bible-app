@@ -1,6 +1,12 @@
 import { CommonModule } from "@angular/common"
 // biome-ignore lint/style/useImportType: <explanation>
-import { ChangeDetectionStrategy, Component, Input } from "@angular/core"
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  HostListener,
+  Input,
+} from "@angular/core"
 import { RouterModule } from "@angular/router"
 import {
   BibleReference,
@@ -28,8 +34,8 @@ import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnot
   standalone: true,
 })
 export class VerseComponent {
-  isChapterNumberDisplayed = false
-  chapterNumberIndex = 0
+  private readonly notesStorageKey = "bibleNotes"
+  chapterNumberIndex = -1
   skip = false
 
   @Input()
@@ -38,6 +44,7 @@ export class VerseComponent {
   constructor(
     private bibleRef: BibleReferenceService,
     private bottomSheet: MatBottomSheet,
+    private cdr: ChangeDetectorRef,
   ) {}
 
   shouldDisplayChapterNumber(
@@ -46,16 +53,24 @@ export class VerseComponent {
     index: number,
     isLast: boolean,
   ): boolean {
-    if (
-      !this.isChapterNumberDisplayed &&
-      data.number === 0 &&
-      ((text.type === "section" && text.tag === "s2") ||
-        (!this.hasSection(data.text) && isLast))
-    ) {
-      this.isChapterNumberDisplayed = true
+    if (data.number !== 0) return false
+
+    if (text.type === "section" && text.tag === "s2") {
+      const hasPreviousSection = data.text
+        .slice(0, index)
+        .some((item) => item.type === "section" && item.tag === "s2")
+      if (!hasPreviousSection) {
+        this.chapterNumberIndex = index
+        return true
+      }
+      return false
+    }
+
+    if (!this.hasSection(data.text) && isLast) {
       this.chapterNumberIndex = index
       return true
     }
+
     return false
   }
 
@@ -147,14 +162,52 @@ export class VerseComponent {
   }
 
   containsFootnotes(): boolean {
-    return this.data.text.some((t) => t.type === "footnote")
+    if (this.data.text.some((t) => t.type === "footnote")) return true
+    return this.getNotesForVerse().length > 0
   }
 
   toggleFootnotes(): void {
+    const selection = window.getSelection()
+    if (selection && !selection.isCollapsed) return
+
     const footnotes = this.data.text.filter((t) => t.type === "footnote")
-    if (footnotes.length === 0) return
+    const notes = this.getNotesForVerse()
+    if (footnotes.length === 0 && notes.length === 0) return
     this.bottomSheet.open(FootnotesBottomSheetComponent, {
-      data: { footnotes, verse: this.data },
+      data: { footnotes, notes, verse: this.data },
     })
   }
+
+  @HostListener("window:notesChanged")
+  onNotesChanged(): void {
+    this.cdr.markForCheck()
+  }
+
+  private getNotesForVerse(): StoredNote[] {
+    try {
+      const raw = localStorage.getItem(this.notesStorageKey)
+      const notes = raw ? (JSON.parse(raw) as StoredNote[]) : []
+      return notes.filter((note) => {
+        return (
+          note.bookId === this.data.bookId &&
+          note.chapterNumber === this.data.chapterNumber &&
+          this.data.number >= note.verseStart &&
+          this.data.number <= note.verseEnd
+        )
+      })
+    } catch {
+      return []
+    }
+  }
+}
+
+type StoredNote = {
+  id: string
+  bookId: string
+  chapterNumber: number
+  verseStart: number
+  verseEnd: number
+  text: string
+  note: string
+  createdAt: number
 }
