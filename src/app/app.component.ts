@@ -1,9 +1,8 @@
-
 import { ChangeDetectionStrategy, Component } from "@angular/core"
 
 import { RouterOutlet } from "@angular/router"
 
-import { SwUpdate } from "@angular/service-worker"
+import type { SwUpdate } from "@angular/service-worker"
 
 @Component({
   selector: "app-root",
@@ -14,9 +13,7 @@ import { SwUpdate } from "@angular/service-worker"
   imports: [RouterOutlet],
 })
 export class AppComponent {
-  constructor(
-    private swUpdate: SwUpdate,
-  ) {
+  constructor(private swUpdate: SwUpdate) {
     if (this.swUpdate.isEnabled) {
       this.swUpdate.versionUpdates.subscribe((event) => {
         if (event.type === "VERSION_READY") {

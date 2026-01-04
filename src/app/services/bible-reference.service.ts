@@ -1,4 +1,5 @@
 import { Injectable } from "@angular/core"
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { BookService } from "./book.service"
 
 // ---------------- Types (unchanged) ----------------
@@ -50,13 +51,13 @@ export class BibleReferenceService {
     /\bv\.?\s*(?<v1>\d+(?:[a-c])?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c])?))?\b/gi
 
   constructor(private bookService: BookService) {
-    this.bookService.books$.subscribe(() => {
+    this.bookService.books$.pipe(takeUntilDestroyed()).subscribe(() => {
       this.rebuildPattern()
     })
   }
 
   /** Call if your books list changes at runtime */
-    rebuildPattern(): void {
+  rebuildPattern(): void {
     const stripDiacritics = (value: string) =>
       value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
 

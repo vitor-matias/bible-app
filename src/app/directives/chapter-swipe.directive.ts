@@ -1,6 +1,6 @@
 import {
   Directive,
-  ElementRef,
+  type ElementRef,
   EventEmitter,
   type OnDestroy,
   type OnInit,
