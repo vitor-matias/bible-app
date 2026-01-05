@@ -37,6 +37,9 @@ export class BibleApiService {
     if (this.books.length) {
       return of(this.books);
     }
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return of(cachedBooks)
+    }
     if (!this.books$) {
       this.books$ = (this.http.get(`${this.api}/books`) as Observable<Book[]>).pipe(
         shareReplay(1)

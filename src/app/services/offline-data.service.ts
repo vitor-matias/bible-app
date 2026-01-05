@@ -8,7 +8,9 @@ import { BibleApiService } from "./bible-api.service"
 export class OfflineDataService {
   private cacheFlagKey = "booksCacheReady"
   private cacheDataKey = "booksCacheData"
+  private cacheVersionKey = "booksCacheVersion"
   private cachedBooks: Book[] | null = null
+  private cachedVersion: string | null = null
 
   constructor(private bibleApiService: BibleApiService) {}
 
@@ -42,6 +44,7 @@ export class OfflineDataService {
     try {
       localStorage.setItem(this.cacheDataKey, JSON.stringify(this.cachedBooks))
       localStorage.setItem(this.cacheFlagKey, "true")
+      localStorage.setItem(this.cacheVersionKey, this.computeVersion(this.cachedBooks))
     } catch (error) {
       console.error("Failed to persist cached books", error)
     }
@@ -55,6 +58,7 @@ export class OfflineDataService {
     try {
       const parsed = JSON.parse(raw) as Book[]
       this.cachedBooks = parsed
+      this.cachedVersion = localStorage.getItem(this.cacheVersionKey)
       return parsed
     } catch (error) {
       console.error("Failed to parse cached books", error)
@@ -103,6 +107,24 @@ export class OfflineDataService {
       byId.set(book.id, { ...current, ...book, chapters })
     }
     return Array.from(byId.values())
+  }
+
+  private computeVersion(books: Book[]): string {
+    // Simple hash-like version using counts; robust enough to detect changes
+    const totalChapters = books.reduce(
+      (acc, book) => acc + (book.chapters?.length || 0),
+      0,
+    )
+    const totalVerses = books.reduce(
+      (acc, book) =>
+        acc +
+        (book.chapters?.reduce(
+          (cAcc, chapter) => cAcc + (chapter.verses?.length || 0),
+          0,
+        ) || 0),
+      0,
+    )
+    return `${books.length}:${totalChapters}:${totalVerses}`
   }
 
   private trackUmamiInstallEvent(source: "install" | "standalone") {
