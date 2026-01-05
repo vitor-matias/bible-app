@@ -26,5 +26,18 @@
         ]
       }
     }
+  ],
+  "dataGroups": [
+    {
+      "name": "bible-api",
+      "urls": [
+        "/v1/books?withChapters=true"
+      ],
+      "cacheConfig": {
+        "strategy": "performance",
+        "maxSize": 1,
+        "maxAge": "90d"
+      }
+    }
   ]
 }

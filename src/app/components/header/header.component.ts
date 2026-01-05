@@ -52,6 +52,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Output() openChapterSelector = new EventEmitter<{ open: boolean }>()
 
   mobile = false
+  isOffline = typeof navigator !== "undefined" ? !navigator.onLine : false
 
   constructor(
     private readonly themeService: ThemeService,
@@ -65,6 +66,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
     this.canShare =
       typeof navigator !== "undefined" && typeof navigator.share === "function"
+    if (typeof window !== "undefined") {
+      window.addEventListener("online", this.updateOnlineStatus)
+      window.addEventListener("offline", this.updateOnlineStatus)
+    }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -79,6 +84,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopLabelCycle()
+    if (typeof window !== "undefined") {
+      window.removeEventListener("online", this.updateOnlineStatus)
+      window.removeEventListener("offline", this.updateOnlineStatus)
+    }
   }
 
   showBookSelector() {
@@ -198,5 +207,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     for (const heading of headings) {
       heading.style.fontSize = `${fontSize + 5}%`
     }
+  }
+
+  private updateOnlineStatus = () => {
+    this.isOffline = typeof navigator !== "undefined" ? !navigator.onLine : false
+    this.cdr.detectChanges()
   }
 }

@@ -9,7 +9,9 @@ import {
   of,
   shareReplay,
   switchMap,
+  throwError,
 } from "rxjs"
+import { OfflineDataService } from "./offline-data.service"
 
 @Injectable({
   providedIn: "root",
@@ -21,9 +23,17 @@ export class BibleApiService {
   private books$: Observable<Book[]> | null = null;
   books: Book[] = [];
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private offlineDataService: OfflineDataService,
+  ) {}
 
   getAvailableBooks(): Observable<Book[]> {
+    const cachedBooks = this.offlineDataService.getCachedBooks()
+    if (cachedBooks.length) {
+      this.books = cachedBooks;
+      return of(cachedBooks);
+    }
     if (this.books.length) {
       return of(this.books);
     }
@@ -34,6 +44,7 @@ export class BibleApiService {
       this.books$.subscribe({
         next: (books) => {
           this.books = books;
+          this.offlineDataService.setCachedBooks(books)
         },
         error: () => {
           this.books$ = null;
@@ -44,6 +55,15 @@ export class BibleApiService {
   }
 
   getChapter(book: string, chapter: number): Observable<Chapter> {
+    const cached = this.offlineDataService.getCachedChapter(book, chapter)
+    if (cached) {
+      return of(cached)
+    }
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return throwError(() => new Error("Offline - chapter not cached"))
+    }
+
     if (this.chapterPromise) {
       return from(this.chapterPromise).pipe(switchMap((obs) => obs))
     }
@@ -73,6 +93,13 @@ export class BibleApiService {
   }
 
   getBook(book: string): Observable<Book> {
+    const cached = this.offlineDataService.getCachedBook(book)
+    if (cached) {
+      return of(cached)
+    }
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return throwError(() => new Error("Offline - book not cached"))
+    }
     return this.http.get(`${this.api}/${book}`) as Observable<Book>
   }
 
@@ -83,8 +110,21 @@ export class BibleApiService {
   }
 
   getVerse(book: string, chapter: number, verse: number): Observable<Verse> {
+    const cached = this.offlineDataService.getCachedVerse(book, chapter, verse)
+    if (cached) {
+      return of(cached)
+    }
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return throwError(() => new Error("Offline - verse not cached"))
+    }
     return this.http.get(
       `${this.api}/${book}/${chapter}/${verse}`,
     ) as Observable<Verse>
+  }
+
+  getAllBooksAndChapters(): Observable<Book[]> {
+    return this.http.get(
+      `${this.api}/books?withChapters=true`,
+    ) as Observable<Book[]>
   }
 }
