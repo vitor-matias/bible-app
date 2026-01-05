@@ -27,7 +27,9 @@ export class OfflineDataService {
 
     const isAlreadyCached = localStorage.getItem(this.cacheFlagKey) === "true"
     const isExpired = this.isCacheExpired()
-    if (isAlreadyCached && !isExpired) {alert("Already cached"); return }
+    if (isAlreadyCached && !isExpired) {
+      return
+    }
     if (isExpired && typeof navigator !== "undefined" && !navigator.onLine) {
       // Keep using stale cache until we can refresh online
       return
