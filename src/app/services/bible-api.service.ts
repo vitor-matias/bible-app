@@ -68,7 +68,7 @@ export class BibleApiService {
 
   getChapter(book: string, chapter: number): Observable<Chapter> {
     const cached = this.getOfflineDataService().getCachedChapter(book, chapter)
-    if (cached) {
+    if (cached?.verses && cached.verses.length > 0) {
       return of(cached)
     }
 

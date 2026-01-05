@@ -65,8 +65,8 @@ describe("BibleReferenceService", () => {
     expect(r.verses).toEqual([{ type: "range", start: 3, end: 12 }])
   })
 
-  it('matches multi-word books "Song of Songs 2:1"', () => {
-    const input = "Loved Song of Songs 2:1 today."
+  it('matches multi-word books "Song of Songs 2,1"', () => {
+    const input = "Loved Song of Songs 2,1 today."
     const out = service.extract(input)
     expect(out.length).toBe(1)
     const r = out[0]
