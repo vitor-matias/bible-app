@@ -9,9 +9,10 @@ import { firstValueFrom } from "rxjs"
 export class OfflineDataService {
   private cacheFlagKey = "booksCacheReady"
   private cacheDataKey = "booksCacheData"
-  private cacheVersionKey = "booksCacheVersion"
+  private cacheTimestampKey = "booksCacheTimestamp"
+  private cacheMaxAgeMs = 1000 * 60 * 60 * 24 // 24 hours
   private cachedBooks: Book[] | null = null
-  private cachedVersion: string | null = null
+  private cachedTimestamp: number | null = null
   private apiBase = "v1"
   private cacheLoadPromise: Promise<void> | null = null
 
@@ -27,7 +28,12 @@ export class OfflineDataService {
     if (typeof window === "undefined") return
 
     const isAlreadyCached = localStorage.getItem(this.cacheFlagKey) === "true"
-    if (isAlreadyCached) return
+    const isExpired = this.isCacheExpired()
+    if (isAlreadyCached && !isExpired) return
+    if (isExpired && typeof navigator !== "undefined" && !navigator.onLine) {
+      // Keep using stale cache until we can refresh online
+      return
+    }
 
     try {
       const books = await firstValueFrom(
@@ -49,7 +55,7 @@ export class OfflineDataService {
     })
     try {
       localStorage.setItem(this.cacheFlagKey, "true")
-      localStorage.setItem(this.cacheVersionKey, this.computeVersion(this.cachedBooks))
+      localStorage.setItem(this.cacheTimestampKey, Date.now().toString())
     } catch (error) {
       console.error("Failed to persist cache metadata", error)
     }
@@ -59,7 +65,8 @@ export class OfflineDataService {
     this.ensureCacheLoaded()
     if (this.cachedBooks) return this.cachedBooks
     if (typeof localStorage === "undefined") return []
-    this.cachedVersion = localStorage.getItem(this.cacheVersionKey)
+    const ts = localStorage.getItem(this.cacheTimestampKey)
+    this.cachedTimestamp = ts ? Number.parseInt(ts, 10) : null
     return []
   }
 
@@ -131,7 +138,8 @@ export class OfflineDataService {
         const records = request.result as Book[]
         if (records?.length) {
           this.cachedBooks = records
-          this.cachedVersion = localStorage.getItem(this.cacheVersionKey)
+          const ts = localStorage.getItem(this.cacheTimestampKey)
+          this.cachedTimestamp = ts ? Number.parseInt(ts, 10) : null
         }
         resolve()
       }
@@ -190,22 +198,13 @@ export class OfflineDataService {
     })
   }
 
-  private computeVersion(books: Book[]): string {
-    // Simple hash-like version using counts; robust enough to detect changes
-    const totalChapters = books.reduce(
-      (acc, book) => acc + (book.chapters?.length || 0),
-      0,
-    )
-    const totalVerses = books.reduce(
-      (acc, book) =>
-        acc +
-        (book.chapters?.reduce(
-          (cAcc, chapter) => cAcc + (chapter.verses?.length || 0),
-          0,
-        ) || 0),
-      0,
-    )
-    return `${books.length}:${totalChapters}:${totalVerses}`
+  private isCacheExpired(): boolean {
+    if (typeof localStorage === "undefined") return false
+    const ts = localStorage.getItem(this.cacheTimestampKey)
+    if (!ts) return false
+    const timestamp = Number.parseInt(ts, 10)
+    if (!Number.isFinite(timestamp)) return false
+    return Date.now() - timestamp > this.cacheMaxAgeMs
   }
 
   private trackUmamiInstallEvent(source: "install" | "standalone") {
