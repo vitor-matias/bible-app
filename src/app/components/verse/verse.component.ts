@@ -1,6 +1,6 @@
 import { CommonModule } from "@angular/common"
 // biome-ignore lint/style/useImportType: <explanation>
-import { ChangeDetectionStrategy, Component, Input } from "@angular/core"
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Input, OnDestroy, OnInit } from "@angular/core"
 import { RouterModule } from "@angular/router"
 import {
   BibleReference,
@@ -27,7 +27,7 @@ import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnot
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
 })
-export class VerseComponent {
+export class VerseComponent implements OnInit, OnDestroy {
   isChapterNumberDisplayed = false
   chapterNumberIndex = 0
   skip = false
@@ -35,10 +35,226 @@ export class VerseComponent {
   @Input()
   data!: Verse
 
+  // Gesture handling properties
+  private readonly LONG_PRESS_MS = 500
+  private readonly MOVE_THRESHOLD_PX = 10
+  private readonly SYNTHETIC_CLICK_THRESHOLD_MS = 500
+  private longPressTimer: number | null = null
+  private gestureStartX = 0
+  private gestureStartY = 0
+  private isLongPress = false
+  private lastTouchTime = 0
+
+  // Selection and share properties
+  showShareButton = false
+  shareButtonX = 0
+  shareButtonY = 0
+  private selectionChangeListener: (() => void) | null = null
+
   constructor(
     private bibleRef: BibleReferenceService,
     private bottomSheet: MatBottomSheet,
+    private cdr: ChangeDetectorRef,
+    private elementRef: ElementRef,
   ) {}
+
+  ngOnInit(): void {
+    // Listen to selection changes
+    this.selectionChangeListener = () => this.onSelectionChange()
+    document.addEventListener('selectionchange', this.selectionChangeListener)
+  }
+
+  ngOnDestroy(): void {
+    // Clean up listeners
+    if (this.selectionChangeListener) {
+      document.removeEventListener('selectionchange', this.selectionChangeListener)
+    }
+    this.clearLongPressTimer()
+  }
+
+  // Gesture handling methods
+  onGestureStart(event: TouchEvent | MouseEvent): void {
+    // Don't interfere with link clicks
+    const target = event.target as HTMLElement
+    if (target.tagName === 'A' || target.closest('a')) {
+      return
+    }
+
+    const isTouch = event.type.startsWith('touch')
+    
+    if (isTouch) {
+      const touchEvent = event as TouchEvent
+      // For touchstart, touches should always have at least one touch
+      // But we'll add a safety check anyway
+      if (!touchEvent.touches || touchEvent.touches.length === 0) return
+      const touch = touchEvent.touches[0]
+      this.gestureStartX = touch.clientX
+      this.gestureStartY = touch.clientY
+      this.lastTouchTime = Date.now()
+    } else {
+      this.gestureStartX = (event as MouseEvent).clientX
+      this.gestureStartY = (event as MouseEvent).clientY
+    }
+
+    this.isLongPress = false
+    this.clearLongPressTimer()
+    
+    this.longPressTimer = window.setTimeout(() => {
+      this.isLongPress = true
+    }, this.LONG_PRESS_MS)
+  }
+
+  onGestureMove(event: TouchEvent | MouseEvent): void {
+    const isTouch = event.type.startsWith('touch')
+    let currentX: number
+    let currentY: number
+
+    if (isTouch) {
+      const touchEvent = event as TouchEvent
+      // For touchmove, touches should always have at least one touch
+      // But we'll add a safety check anyway
+      if (!touchEvent.touches || touchEvent.touches.length === 0) return
+      const touch = touchEvent.touches[0]
+      currentX = touch.clientX
+      currentY = touch.clientY
+    } else {
+      currentX = (event as MouseEvent).clientX
+      currentY = (event as MouseEvent).clientY
+    }
+
+    const deltaX = Math.abs(currentX - this.gestureStartX)
+    const deltaY = Math.abs(currentY - this.gestureStartY)
+
+    if (deltaX > this.MOVE_THRESHOLD_PX || deltaY > this.MOVE_THRESHOLD_PX) {
+      this.clearLongPressTimer()
+    }
+  }
+
+  onGestureEnd(event: TouchEvent | MouseEvent): void {
+    const wasLongPress = this.isLongPress
+    this.clearLongPressTimer()
+
+    // For touch events, prevent synthetic click if it was a tap
+    if (event.type.startsWith('touch') && !wasLongPress) {
+      // Will be a tap, footnotes will open
+    }
+
+    // Open footnotes on short tap (not long press)
+    if (!wasLongPress && this.containsFootnotes()) {
+      this.toggleFootnotes()
+    }
+  }
+
+  onClick(event: MouseEvent): void {
+    // Suppress synthetic click after touch
+    const timeSinceTouch = Date.now() - this.lastTouchTime
+    if (timeSinceTouch < this.SYNTHETIC_CLICK_THRESHOLD_MS) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+  }
+
+  private clearLongPressTimer(): void {
+    if (this.longPressTimer !== null) {
+      window.clearTimeout(this.longPressTimer)
+      this.longPressTimer = null
+    }
+  }
+
+  // Selection handling methods
+  private onSelectionChange(): void {
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) {
+      this.hideShareButton()
+      return
+    }
+
+    const range = selection.getRangeAt(0)
+    if (range.collapsed) {
+      this.hideShareButton()
+      return
+    }
+
+    // Check if selection is within this verse component instance
+    // Handle both Element and Text nodes for commonAncestorContainer
+    const verseElement = this.elementRef.nativeElement
+    let containerNode: Node | null = range.commonAncestorContainer
+    
+    // If it's a text node, use its parent element
+    if (containerNode.nodeType === Node.TEXT_NODE) {
+      containerNode = containerNode.parentElement
+      // Null check after assignment
+      if (!containerNode) {
+        this.hideShareButton()
+        return
+      }
+    }
+    
+    if (!verseElement || !verseElement.contains(containerNode)) {
+      this.hideShareButton()
+      return
+    }
+
+    // Position share button near the selection
+    const rect = range.getBoundingClientRect()
+    this.shareButtonX = rect.left + (rect.width / 2)
+    this.shareButtonY = rect.top - 40 // Above the selection
+    this.showShareButton = true
+    this.cdr.markForCheck()
+  }
+
+  private hideShareButton(): void {
+    if (this.showShareButton) {
+      this.showShareButton = false
+      this.cdr.markForCheck()
+    }
+  }
+
+  async shareSelection(): Promise<void> {
+    const selection = window.getSelection()
+    if (!selection) return
+
+    const text = selection.toString().trim()
+    if (!text) return
+
+    // Try Web Share API first
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          text: text,
+          title: 'Bible Verse',
+        })
+        return
+      } catch (err) {
+        // User cancelled the share dialog
+        if (err instanceof Error && err.name !== 'AbortError') {
+          console.error('Web Share API failed:', err.message || err)
+        }
+      }
+    }
+
+    // Fallback to clipboard
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        // Legacy fallback for older browsers
+        const textarea = document.createElement('textarea')
+        textarea.value = text
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+      }
+      // Minimal feedback - could add a toast notification here
+      console.log('Text copied to clipboard')
+    } catch (err) {
+      console.error('Failed to copy text to clipboard:', err instanceof Error ? err.message : err)
+    }
+  }
 
   shouldDisplayChapterNumber(
     data: Verse,
