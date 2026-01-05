@@ -8,11 +8,9 @@ import { firstValueFrom } from "rxjs"
 })
 export class OfflineDataService {
   private cacheFlagKey = "booksCacheReady"
-  private cacheDataKey = "booksCacheData"
   private cacheTimestampKey = "booksCacheTimestamp"
   private cacheMaxAgeMs = 1000 * 60 * 60 * 24 // 24 hours
   private cachedBooks: Book[] | null = null
-  private cachedTimestamp: number | null = null
   private apiBase = "v1"
   private cacheLoadPromise: Promise<void> | null = null
 
@@ -29,7 +27,7 @@ export class OfflineDataService {
 
     const isAlreadyCached = localStorage.getItem(this.cacheFlagKey) === "true"
     const isExpired = this.isCacheExpired()
-    if (isAlreadyCached && !isExpired) return
+    if (isAlreadyCached && !isExpired) {alert("Already cached"); return }
     if (isExpired && typeof navigator !== "undefined" && !navigator.onLine) {
       // Keep using stale cache until we can refresh online
       return
@@ -54,7 +52,6 @@ export class OfflineDataService {
       console.error("Failed to persist cached books to IndexedDB", error)
     })
     try {
-      localStorage.setItem(this.cacheFlagKey, "true")
       localStorage.setItem(this.cacheTimestampKey, Date.now().toString())
     } catch (error) {
       console.error("Failed to persist cache metadata", error)
@@ -65,8 +62,6 @@ export class OfflineDataService {
     this.ensureCacheLoaded()
     if (this.cachedBooks) return this.cachedBooks
     if (typeof localStorage === "undefined") return []
-    const ts = localStorage.getItem(this.cacheTimestampKey)
-    this.cachedTimestamp = ts ? Number.parseInt(ts, 10) : null
     return []
   }
 
@@ -104,9 +99,9 @@ export class OfflineDataService {
       }
       const chapters =
         book.chapters?.length || current.chapters?.length
-          ? (book.chapters && book.chapters.length > 0
+          ? ((book.chapters && book.chapters.length > 0
               ? book.chapters
-              : current.chapters) ?? []
+              : current.chapters) ?? [])
           : undefined
       byId.set(book.id, { ...current, ...book, chapters })
     }
@@ -116,11 +111,13 @@ export class OfflineDataService {
   private ensureCacheLoaded(): Promise<void> {
     if (this.cachedBooks) return Promise.resolve()
     if (!this.cacheLoadPromise) {
-      this.cacheLoadPromise = this.loadBooksFromIndexedDb().catch((error) => {
-        console.error("Failed to load cached books from IndexedDB", error)
-      }).then(() => {
-        this.cacheLoadPromise = null
-      })
+      this.cacheLoadPromise = this.loadBooksFromIndexedDb()
+        .catch((error) => {
+          console.error("Failed to load cached books from IndexedDB", error)
+        })
+        .then(() => {
+          this.cacheLoadPromise = null
+        })
     }
     return this.cacheLoadPromise || Promise.resolve()
   }
@@ -138,8 +135,6 @@ export class OfflineDataService {
         const records = request.result as Book[]
         if (records?.length) {
           this.cachedBooks = records
-          const ts = localStorage.getItem(this.cacheTimestampKey)
-          this.cachedTimestamp = ts ? Number.parseInt(ts, 10) : null
         }
         resolve()
       }
@@ -166,9 +161,9 @@ export class OfflineDataService {
       const onComplete = () => {
         pending -= 1
         if (pending === 0) {
-          const version = this.computeVersion(books)
           try {
-            localStorage.setItem(this.cacheVersionKey, version)
+            localStorage.setItem(this.cacheTimestampKey, Date.now().toString())
+            localStorage.setItem(this.cacheFlagKey, "true")
           } catch (error) {
             console.error("Failed to persist cache version", error)
           }

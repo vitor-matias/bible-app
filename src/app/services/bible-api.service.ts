@@ -56,7 +56,7 @@ export class BibleApiService {
       this.books$.subscribe({
         next: (books) => {
           this.books = books;
-          this.getOfflineDataService().setCachedBooks(books)
+          //this.getOfflineDataService().setCachedBooks(books)
         },
         error: () => {
           this.books$ = null;
