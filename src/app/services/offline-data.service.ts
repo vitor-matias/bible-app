@@ -13,6 +13,7 @@ export class OfflineDataService {
   private cachedBooks: Book[] | null = null
   private cachedVersion: string | null = null
   private apiBase = "v1"
+  private cacheLoadPromise: Promise<void> | null = null
 
   constructor(private http: HttpClient) {}
 
@@ -43,29 +44,23 @@ export class OfflineDataService {
   setCachedBooks(books: Book[]) {
     if (typeof localStorage === "undefined") return
     this.cachedBooks = this.mergeCachedBooks(this.getCachedBooks(), books)
+    this.saveBooksToIndexedDb(this.cachedBooks).catch((error) => {
+      console.error("Failed to persist cached books to IndexedDB", error)
+    })
     try {
-      localStorage.setItem(this.cacheDataKey, JSON.stringify(this.cachedBooks))
       localStorage.setItem(this.cacheFlagKey, "true")
       localStorage.setItem(this.cacheVersionKey, this.computeVersion(this.cachedBooks))
     } catch (error) {
-      console.error("Failed to persist cached books", error)
+      console.error("Failed to persist cache metadata", error)
     }
   }
 
   getCachedBooks(): Book[] {
+    this.ensureCacheLoaded()
     if (this.cachedBooks) return this.cachedBooks
     if (typeof localStorage === "undefined") return []
-    const raw = localStorage.getItem(this.cacheDataKey)
-    if (!raw) return []
-    try {
-      const parsed = JSON.parse(raw) as Book[]
-      this.cachedBooks = parsed
-      this.cachedVersion = localStorage.getItem(this.cacheVersionKey)
-      return parsed
-    } catch (error) {
-      console.error("Failed to parse cached books", error)
-      return []
-    }
+    this.cachedVersion = localStorage.getItem(this.cacheVersionKey)
+    return []
   }
 
   getCachedBook(bookId: Book["id"]): Book | undefined {
@@ -109,6 +104,69 @@ export class OfflineDataService {
       byId.set(book.id, { ...current, ...book, chapters })
     }
     return Array.from(byId.values())
+  }
+
+  private ensureCacheLoaded(): Promise<void> {
+    if (this.cachedBooks) return Promise.resolve()
+    if (!this.cacheLoadPromise) {
+      this.cacheLoadPromise = this.loadBooksFromIndexedDb().catch((error) => {
+        console.error("Failed to load cached books from IndexedDB", error)
+      }).then(() => {
+        this.cacheLoadPromise = null
+      })
+    }
+    return this.cacheLoadPromise || Promise.resolve()
+  }
+
+  private async loadBooksFromIndexedDb(): Promise<void> {
+    if (typeof indexedDB === "undefined") return
+    const db = await this.openDatabase()
+    if (!db) return
+
+    await new Promise<void>((resolve) => {
+      const transaction = db.transaction("books", "readonly")
+      const store = transaction.objectStore("books")
+      const request = store.get("all")
+
+      request.onsuccess = () => {
+        const record = request.result as { key: string; data: Book[]; version?: string } | undefined
+        if (record?.data?.length) {
+          this.cachedBooks = record.data
+          this.cachedVersion = record.version || null
+        }
+        resolve()
+      }
+      request.onerror = () => resolve()
+    })
+  }
+
+  private async saveBooksToIndexedDb(books: Book[]): Promise<void> {
+    if (typeof indexedDB === "undefined") return
+    const db = await this.openDatabase()
+    if (!db) return
+
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction("books", "readwrite")
+      const store = transaction.objectStore("books")
+      const version = this.computeVersion(books)
+      const request = store.put({ key: "all", data: books, version })
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  private openDatabase(): Promise<IDBDatabase | null> {
+    return new Promise((resolve) => {
+      const request = indexedDB.open("offline-bible", 1)
+      request.onupgradeneeded = () => {
+        const db = request.result
+        if (!db.objectStoreNames.contains("books")) {
+          db.createObjectStore("books", { keyPath: "key" })
+        }
+      }
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => resolve(null)
+    })
   }
 
   private computeVersion(books: Book[]): string {
