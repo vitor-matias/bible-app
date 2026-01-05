@@ -1,6 +1,6 @@
 // biome-ignore lint/style/useImportType: <explanation>
 import { HttpClient } from "@angular/common/http"
-import { Injectable } from "@angular/core"
+import { Injectable, Injector } from "@angular/core"
 import {
   catchError,
   finalize,
@@ -25,11 +25,20 @@ export class BibleApiService {
 
   constructor(
     private http: HttpClient,
-    private offlineDataService: OfflineDataService,
+    private injector: Injector,
   ) {}
 
+  private offlineDataService: OfflineDataService | null = null
+
+  private getOfflineDataService(): OfflineDataService {
+    if (!this.offlineDataService) {
+      this.offlineDataService = this.injector.get(OfflineDataService)
+    }
+    return this.offlineDataService
+  }
+
   getAvailableBooks(): Observable<Book[]> {
-    const cachedBooks = this.offlineDataService.getCachedBooks()
+    const cachedBooks = this.getOfflineDataService().getCachedBooks()
     if (cachedBooks.length) {
       this.books = cachedBooks;
       return of(cachedBooks);
@@ -47,7 +56,7 @@ export class BibleApiService {
       this.books$.subscribe({
         next: (books) => {
           this.books = books;
-          this.offlineDataService.setCachedBooks(books)
+          this.getOfflineDataService().setCachedBooks(books)
         },
         error: () => {
           this.books$ = null;
@@ -58,7 +67,7 @@ export class BibleApiService {
   }
 
   getChapter(book: string, chapter: number): Observable<Chapter> {
-    const cached = this.offlineDataService.getCachedChapter(book, chapter)
+    const cached = this.getOfflineDataService().getCachedChapter(book, chapter)
     if (cached) {
       return of(cached)
     }
@@ -96,7 +105,7 @@ export class BibleApiService {
   }
 
   getBook(book: string): Observable<Book> {
-    const cached = this.offlineDataService.getCachedBook(book)
+    const cached = this.getOfflineDataService().getCachedBook(book)
     if (cached) {
       return of(cached)
     }
@@ -113,7 +122,7 @@ export class BibleApiService {
   }
 
   getVerse(book: string, chapter: number, verse: number): Observable<Verse> {
-    const cached = this.offlineDataService.getCachedVerse(book, chapter, verse)
+    const cached = this.getOfflineDataService().getCachedVerse(book, chapter, verse)
     if (cached) {
       return of(cached)
     }

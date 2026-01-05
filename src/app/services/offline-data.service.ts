@@ -1,6 +1,7 @@
+// biome-ignore lint/style/useImportType: <explanation>
+import { HttpClient } from "@angular/common/http"
 import { Injectable } from "@angular/core"
 import { firstValueFrom } from "rxjs"
-import { BibleApiService } from "./bible-api.service"
 
 @Injectable({
   providedIn: "root",
@@ -11,8 +12,9 @@ export class OfflineDataService {
   private cacheVersionKey = "booksCacheVersion"
   private cachedBooks: Book[] | null = null
   private cachedVersion: string | null = null
+  private apiBase = "v1"
 
-  constructor(private bibleApiService: BibleApiService) {}
+  constructor(private http: HttpClient) {}
 
   /**
    * Fetches all books and chapters so they are stored by the Service Worker
@@ -28,7 +30,7 @@ export class OfflineDataService {
 
     try {
       const books = await firstValueFrom(
-        this.bibleApiService.getAllBooksAndChapters(),
+        this.http.get<Book[]>(`${this.apiBase}/books?withChapters=true`),
       )
       this.setCachedBooks(books)
       localStorage.setItem(this.cacheFlagKey, "true")
