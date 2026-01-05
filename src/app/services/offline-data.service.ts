@@ -126,13 +126,12 @@ export class OfflineDataService {
     await new Promise<void>((resolve) => {
       const transaction = db.transaction("books", "readonly")
       const store = transaction.objectStore("books")
-      const request = store.get("all")
-
+      const request = store.getAll()
       request.onsuccess = () => {
-        const record = request.result as { key: string; data: Book[]; version?: string } | undefined
-        if (record?.data?.length) {
-          this.cachedBooks = record.data
-          this.cachedVersion = record.version || null
+        const records = request.result as Book[]
+        if (records?.length) {
+          this.cachedBooks = records
+          this.cachedVersion = localStorage.getItem(this.cacheVersionKey)
         }
         resolve()
       }
@@ -148,10 +147,32 @@ export class OfflineDataService {
     await new Promise<void>((resolve, reject) => {
       const transaction = db.transaction("books", "readwrite")
       const store = transaction.objectStore("books")
-      const version = this.computeVersion(books)
-      const request = store.put({ key: "all", data: books, version })
-      request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
+      store.clear()
+
+      let pending = books.length
+      if (pending === 0) {
+        resolve()
+        return
+      }
+
+      const onComplete = () => {
+        pending -= 1
+        if (pending === 0) {
+          const version = this.computeVersion(books)
+          try {
+            localStorage.setItem(this.cacheVersionKey, version)
+          } catch (error) {
+            console.error("Failed to persist cache version", error)
+          }
+          resolve()
+        }
+      }
+
+      for (const book of books) {
+        const request = store.put(book)
+        request.onsuccess = onComplete
+        request.onerror = () => reject(request.error)
+      }
     })
   }
 
@@ -161,7 +182,7 @@ export class OfflineDataService {
       request.onupgradeneeded = () => {
         const db = request.result
         if (!db.objectStoreNames.contains("books")) {
-          db.createObjectStore("books", { keyPath: "key" })
+          db.createObjectStore("books", { keyPath: "id" })
         }
       }
       request.onsuccess = () => resolve(request.result)
