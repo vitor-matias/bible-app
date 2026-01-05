@@ -46,7 +46,6 @@ export class SearchComponent {
     private snackBar: MatSnackBar,
     private router: Router,
     private cdr: ChangeDetectorRef,
-    private viewContainerRef: ViewContainerRef,
   ) {}
 
   ngAfterViewInit(): void {

@@ -1,5 +1,5 @@
 
-import { ChangeDetectionStrategy, Component, NgZone } from "@angular/core"
+import { ChangeDetectionStrategy, Component } from "@angular/core"
 
 import { RouterOutlet } from "@angular/router"
 
@@ -16,7 +16,6 @@ import { SwUpdate } from "@angular/service-worker"
 export class AppComponent {
   constructor(
     private swUpdate: SwUpdate,
-    private ngZone: NgZone,
   ) {
     if (this.swUpdate.isEnabled) {
       this.swUpdate.versionUpdates.subscribe((event) => {
@@ -27,27 +26,5 @@ export class AppComponent {
         }
       })
     }
-  }
-
-  ngOnInit() {
-    document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) {
-        // App resumed
-        console.log("App resumed, triggering resize")
-        this.ngZone.run(() => {
-          // Force Angular change detection and DOM reflow
-          window.dispatchEvent(new Event("resize"))
-          // Or manually reflow: document.body.offsetHeight; // Triggers layout
-        })
-      }
-    })
-
-    // Also handle page show (for iOS suspend/resume)
-    window.addEventListener("pageshow", (event) => {
-      if (event.persisted) {
-        // From bfcache/suspend
-        this.ngZone.run(() => window.dispatchEvent(new Event("resize")))
-      }
-    })
   }
 }
