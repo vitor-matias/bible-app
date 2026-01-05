@@ -25,7 +25,7 @@ import { combineLatest } from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 // biome-ignore lint/style/useImportType: <explanation>
 import { BibleApiService } from "../../services/bible-api.service"
-import { BookService } from "../../services/book.service"
+import type { BookService } from "../../services/book.service"
 import { AboutComponent } from "../about/about.component"
 import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"

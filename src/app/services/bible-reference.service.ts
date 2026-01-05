@@ -56,7 +56,7 @@ export class BibleReferenceService {
   }
 
   /** Call if your books list changes at runtime */
-    rebuildPattern(): void {
+  rebuildPattern(): void {
     const stripDiacritics = (value: string) =>
       value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
 
@@ -70,17 +70,22 @@ export class BibleReferenceService {
 
     // 2) Normalize to base names by stripping any leading 1\u20133 and optional space.
     //    Lets the regex handle both "2Sm" and "2 Sm".
+    // Helper to generate singular form only for likely plurals (vowel + 's')
+    const tryGetSingular = (word: string): string => {
+      const lower = word.toLocaleLowerCase()
+      // Only generate singular if word ends with vowel + 's' (common Portuguese plural pattern)
+      // This avoids breaking proper nouns like "Jesus", "Matheus", etc.
+      if (word.length > 2 && /[aeiouãõ]s$/i.test(lower)) {
+        return word.slice(0, -1)
+      }
+      return ""
+    }
+
     const base = raw
       .flatMap((s) => {
         const stripped = stripDiacritics(s)
-        const singular =
-          s.length > 1 && s.toLocaleLowerCase().endsWith("s")
-            ? s.slice(0, -1)
-            : ""
-        const singularStripped =
-          stripped.length > 1 && stripped.toLocaleLowerCase().endsWith("s")
-            ? stripped.slice(0, -1)
-            : ""
+        const singular = tryGetSingular(s)
+        const singularStripped = tryGetSingular(stripped)
         return [s, stripped, singular, singularStripped].filter(Boolean)
       })
       .map((s) => s.replace(/^[1-3]\s*/i, "")) // "1Sm" \u2192 "Sm", "2 Sm" \u2192 "Sm"

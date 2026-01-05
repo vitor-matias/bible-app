@@ -67,13 +67,15 @@ export class BookService {
         .toLocaleLowerCase()
     const normalizeVariants = (value: string) => {
       const base = normalize(value)
-      const singular = base.length > 1 && base.endsWith("s") ? base.slice(0, -1) : ""
+      // Only generate singular if word ends with vowel + 's' (common Portuguese plural pattern)
+      // This avoids breaking proper nouns like "Jesus", "Matheus", etc.
+      const singular =
+        base.length > 2 && /[aeiouãõ]s$/.test(base) ? base.slice(0, -1) : ""
       return [base, singular].filter(Boolean)
     }
     const needle = new Set(normalizeVariants(bookName))
-    return this.getBooks().find(
-      (book) =>
-        normalizeVariants(book.shortName).some((variant) => needle.has(variant)),
+    return this.getBooks().find((book) =>
+      normalizeVariants(book.shortName).some((variant) => needle.has(variant)),
     )
   }
 
