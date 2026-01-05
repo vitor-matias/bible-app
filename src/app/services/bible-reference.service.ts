@@ -56,7 +56,7 @@ export class BibleReferenceService {
   }
 
   /** Call if your books list changes at runtime */
-    rebuildPattern(): void {
+  rebuildPattern(): void {
     const stripDiacritics = (value: string) =>
       value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
 
