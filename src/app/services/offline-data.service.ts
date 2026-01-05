@@ -42,10 +42,6 @@ export class OfflineDataService {
   }
 
   setCachedBooks(books: Book[]) {
-    const version = this.computeVersion(books)
-    if(version.split(":").some(part => Number.isNaN(Number(part)) || Number(part) <= 0)) {
-      return
-    }
     if (typeof localStorage === "undefined") return
     this.cachedBooks = this.mergeCachedBooks(this.getCachedBooks(), books)
     this.saveBooksToIndexedDb(this.cachedBooks).catch((error) => {
@@ -53,7 +49,7 @@ export class OfflineDataService {
     })
     try {
       localStorage.setItem(this.cacheFlagKey, "true")
-      localStorage.setItem(this.cacheVersionKey, version)
+      localStorage.setItem(this.cacheVersionKey, this.computeVersion(this.cachedBooks))
     } catch (error) {
       console.error("Failed to persist cache metadata", error)
     }
