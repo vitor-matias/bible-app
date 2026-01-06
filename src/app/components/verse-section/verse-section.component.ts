@@ -1,17 +1,17 @@
 import { CommonModule } from "@angular/common"
 import { Component, Input } from "@angular/core"
 import {
-  MatSnackBar,
+  type MatSnackBar,
   MatSnackBarModule,
 } from "@angular/material/snack-bar"
-import { Router, RouterModule } from "@angular/router"
-import {
+import { type Router, RouterModule } from "@angular/router"
+import type {
   BibleReference,
   BibleReferenceService,
   CrossChapterRange,
   VerseReference,
 } from "../../services/bible-reference.service"
-import { BookService } from "../../services/book.service"
+import type { BookService } from "../../services/book.service"
 import { TwoActionSnackComponent } from "../two-action-snackbar/two-action-snackbar.component"
 
 @Component({
@@ -53,8 +53,11 @@ export class VerseSectionComponent {
     return { parts }
   }
 
-  getVerseQueryParams(verses?: VerseReference[], crossChapter?: CrossChapterRange) {
-    if(crossChapter){
+  getVerseQueryParams(
+    verses?: VerseReference[],
+    crossChapter?: CrossChapterRange,
+  ) {
+    if (crossChapter) {
       return { verseStart: crossChapter.startVerse }
     }
 
