@@ -39,24 +39,27 @@ export class OfflineDataService {
       const books = await firstValueFrom(
         this.http.get<Book[]>(`${this.apiBase}/books?withChapters=true`),
       )
-      this.setCachedBooks(books)
-      localStorage.setItem(this.cacheFlagKey, "true")
+      await this.setCachedBooks(books)
       this.trackUmamiInstallEvent(source)
     } catch (error) {
       console.error("Failed to preload books for offline use", error)
     }
   }
 
-  setCachedBooks(books: Book[]) {
-    if (typeof localStorage === "undefined") return
+  async setCachedBooks(books: Book[]): Promise<void> {
     this.cachedBooks = this.mergeCachedBooks(this.getCachedBooks(), books)
-    this.saveBooksToIndexedDb(this.cachedBooks).catch((error) => {
-      console.error("Failed to persist cached books to IndexedDB", error)
-    })
+
+    if (typeof localStorage === "undefined") {
+      // In non-browser environments, skip persistence and metadata.
+      return
+    }
+
     try {
+      await this.saveBooksToIndexedDb(this.cachedBooks)
       localStorage.setItem(this.cacheTimestampKey, Date.now().toString())
+      localStorage.setItem(this.cacheFlagKey, "true")
     } catch (error) {
-      console.error("Failed to persist cache metadata", error)
+      console.error("Failed to persist cached books or metadata", error)
     }
   }
 
