@@ -29,13 +29,24 @@
   ],
   "dataGroups": [
     {
-      "name": "bible-api",
+      "name": "bible-search",
       "urls": [
-        "/v1/books?withChapters=true"
+        "/v1/search**"
       ],
       "cacheConfig": {
         "strategy": "performance",
-        "maxSize": 1,
+        "maxSize": 20,
+        "maxAge": "7d"
+      }
+    },
+    {
+      "name": "bible-content",
+      "urls": [
+        "/v1/**"
+      ],
+      "cacheConfig": {
+        "strategy": "performance",
+        "maxSize": 200,
         "maxAge": "90d"
       }
     }
