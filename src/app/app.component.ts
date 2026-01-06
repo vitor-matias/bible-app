@@ -20,7 +20,10 @@ import { OfflineDataService } from "./services/offline-data.service"
   imports: [RouterOutlet],
 })
 export class AppComponent implements OnInit, OnDestroy {
+  private installEventFired = false
+
   private readonly installListener = () => {
+    this.installEventFired = true
     this.offlineDataService.preloadAllBooksAndChapters("install")
   }
 
@@ -43,7 +46,8 @@ export class AppComponent implements OnInit, OnDestroy {
     if (typeof window === "undefined") return
 
     window.addEventListener("appinstalled", this.installListener)
-    if (this.isStandaloneMode()) {
+    // Only preload from standalone check if install event hasn't fired
+    if (this.isStandaloneMode() && !this.installEventFired) {
       this.offlineDataService.preloadAllBooksAndChapters("standalone")
     }
   }

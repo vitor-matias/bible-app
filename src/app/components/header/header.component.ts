@@ -1,24 +1,23 @@
-
 import {
-  ChangeDetectorRef,
+  type ChangeDetectorRef,
   Component,
   EventEmitter,
   Input,
-  OnChanges,
-  OnDestroy,
+  type OnChanges,
+  type OnDestroy,
   type OnInit,
   Output,
-  SimpleChanges,
+  type SimpleChanges,
 } from "@angular/core"
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
 import { MatIconModule } from "@angular/material/icon"
-import { MatMenuModule, MatMenuTrigger } from "@angular/material/menu"
+import { MatMenuModule, type MatMenuTrigger } from "@angular/material/menu"
 import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { RouterModule } from "@angular/router"
-import { ThemeService } from "../../services/theme.service"
+import type { ThemeService } from "../../services/theme.service"
 
 @Component({
   standalone: true,
@@ -150,10 +149,13 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     try {
       await navigator.share({ title, text, url }).finally(() => {
         // Shared successfully
-        // @ts-ignore
-        if(globalThis.umami) {
-          // @ts-ignore
-          globalThis.umami.track('share', { book: this.book?.id, chapter: this.chapterNumber });
+        // @ts-expect-error
+        if (globalThis.umami) {
+          // @ts-expect-error
+          globalThis.umami.track("share", {
+            book: this.book?.id,
+            chapter: this.chapterNumber,
+          })
         }
       })
     } catch {
@@ -210,7 +212,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private updateOnlineStatus = () => {
-    this.isOffline = typeof navigator !== "undefined" ? !navigator.onLine : false
+    this.isOffline =
+      typeof navigator !== "undefined" ? !navigator.onLine : false
     this.cdr.detectChanges()
   }
 }

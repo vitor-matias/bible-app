@@ -1,4 +1,4 @@
-import { Location } from "@angular/common";
+import type { Location } from "@angular/common"
 import {
   AfterViewInit,
   Component,
@@ -26,8 +26,8 @@ import { MatToolbarModule } from "@angular/material/toolbar"
     MatButtonToggleModule,
     MatFormFieldModule,
     FormsModule,
-    MatInputModule
-],
+    MatInputModule,
+  ],
   templateUrl: "./search-bar.component.html",
   styleUrls: ["./search-bar.component.css"],
 })
