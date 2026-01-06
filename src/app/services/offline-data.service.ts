@@ -166,12 +166,6 @@ export class OfflineDataService {
       const onComplete = () => {
         pending -= 1
         if (pending === 0) {
-          try {
-            localStorage.setItem(this.cacheTimestampKey, Date.now().toString())
-            localStorage.setItem(this.cacheFlagKey, "true")
-          } catch (error) {
-            console.error("Failed to persist cache version", error)
-          }
           resolve()
         }
       }
