@@ -9,7 +9,7 @@ import { firstValueFrom } from "rxjs"
 export class OfflineDataService {
   private cacheFlagKey = "booksCacheReady"
   private cacheTimestampKey = "booksCacheTimestamp"
-  private cacheMaxAgeMs = 1000 * 60 * 60 * 24 // 24 hours
+  private cacheMaxAgeMs = 1000 * 60 * 60 * 24 * 90 // 90 days
   private cachedBooks: Book[] | null = null
   private apiBase = "v1"
   private cacheLoadPromise: Promise<void> | null = null
