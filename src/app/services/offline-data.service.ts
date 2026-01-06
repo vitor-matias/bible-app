@@ -155,25 +155,13 @@ export class OfflineDataService {
     await new Promise<void>((resolve, reject) => {
       const transaction = db.transaction("books", "readwrite")
       const store = transaction.objectStore("books")
+      transaction.oncomplete = () => resolve()
+      transaction.onerror = () => reject(transaction.error)
+      transaction.onabort = () => reject(transaction.error)
+
       store.clear()
-
-      let pending = books.length
-      if (pending === 0) {
-        resolve()
-        return
-      }
-
-      const onComplete = () => {
-        pending -= 1
-        if (pending === 0) {
-          resolve()
-        }
-      }
-
       for (const book of books) {
-        const request = store.put(book)
-        request.onsuccess = onComplete
-        request.onerror = () => reject(request.error)
+        store.put(book)
       }
     })
   }
