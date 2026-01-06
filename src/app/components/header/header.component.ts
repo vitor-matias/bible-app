@@ -1,5 +1,5 @@
 import {
-  type ChangeDetectorRef,
+  ChangeDetectorRef,
   Component,
   EventEmitter,
   Input,
@@ -17,7 +17,7 @@ import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { RouterModule } from "@angular/router"
-import type { ThemeService } from "../../services/theme.service"
+import { ThemeService } from "../../services/theme.service"
 
 @Component({
   standalone: true,

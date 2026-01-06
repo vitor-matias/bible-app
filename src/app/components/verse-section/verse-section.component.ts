@@ -1,21 +1,22 @@
 import { CommonModule } from "@angular/common"
 import { Component, Input } from "@angular/core"
 import {
-  type MatSnackBar,
+  MatSnackBar,
   MatSnackBarModule,
 } from "@angular/material/snack-bar"
-import { type Router, RouterModule } from "@angular/router"
-import type {
+import { Router, RouterModule } from "@angular/router"
+import {
   BibleReference,
   BibleReferenceService,
   CrossChapterRange,
   VerseReference,
 } from "../../services/bible-reference.service"
-import type { BookService } from "../../services/book.service"
+import { BookService } from "../../services/book.service"
 import { TwoActionSnackComponent } from "../two-action-snackbar/two-action-snackbar.component"
 
 @Component({
   selector: "verse-section",
+  standalone: true,
   imports: [CommonModule, RouterModule, MatSnackBarModule],
   templateUrl: "./verse-section.component.html",
   styleUrl: "./verse-section.component.css",

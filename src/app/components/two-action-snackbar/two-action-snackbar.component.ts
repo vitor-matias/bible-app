@@ -1,7 +1,7 @@
 import { Component, Inject } from "@angular/core";
 import { MatButtonModule } from "@angular/material/button"
-import { MAT_SNACK_BAR_DATA, type MatSnackBarRef } from '@angular/material/snack-bar';
-import type { Router } from "@angular/router"
+import { MAT_SNACK_BAR_DATA, MatSnackBarRef } from '@angular/material/snack-bar';
+import { Router } from "@angular/router"
 
 
 @Component({

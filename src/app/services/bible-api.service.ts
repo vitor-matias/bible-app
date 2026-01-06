@@ -1,6 +1,6 @@
 // biome-ignore lint/style/useImportType: <explanation>
 import { HttpClient } from "@angular/common/http"
-import { Injectable, type Injector } from "@angular/core"
+import { Injectable, Injector } from "@angular/core"
 import {
   catchError,
   finalize,

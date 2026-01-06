@@ -1,8 +1,7 @@
-import type { Location } from "@angular/common"
+import { Location } from "@angular/common"
 import {
-  AfterViewInit,
   Component,
-  type ElementRef,
+  ElementRef,
   EventEmitter,
   Output,
   ViewChild,
