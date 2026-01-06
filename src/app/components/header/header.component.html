@@ -69,7 +69,7 @@
         routerLink="/search"
         class="bookSelectorButton searchButton"
         mat-flat-button
-        [disabled]="isOffline"
+        [hidden]="isOffline"
         [matTooltip]="isOffline ? 'Pesquisa indisponível sem ligação à internet' : 'Pesquisar'"
         [attr.aria-label]="isOffline ? 'Pesquisa indisponível sem ligação à internet' : 'Pesquisar'">
         <mat-icon style="color: #543D27;" aria-label="Search">search</mat-icon>
