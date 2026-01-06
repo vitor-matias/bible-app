@@ -2,8 +2,6 @@ import {
   ChangeDetectorRef,
   Component,
   type ElementRef,
-  OnDestroy,
-  OnInit,
   ViewChild,
   ViewContainerRef,
 } from "@angular/core"
@@ -27,7 +25,7 @@ import { SearchBarComponent } from "../search-bar/search-bar.component"
     MatSnackBarModule,
   ],
 })
-export class SearchComponent implements OnInit, OnDestroy {
+export class SearchComponent {
   searchResults: Verse[] = []
 
   searchTerm = ""
@@ -37,7 +35,6 @@ export class SearchComponent implements OnInit, OnDestroy {
   totalResults = 0
   isLoading = false
   private observer: IntersectionObserver | null = null
-  isOffline = typeof navigator !== "undefined" ? !navigator.onLine : false
 
   @ViewChild("sentinel", { static: false }) sentinel!: ElementRef
   private lastSentinel: Element | null = null
@@ -50,13 +47,6 @@ export class SearchComponent implements OnInit, OnDestroy {
     private router: Router,
     private cdr: ChangeDetectorRef,
   ) {}
-
-  ngOnInit(): void {
-    if (typeof window !== "undefined") {
-      window.addEventListener("online", this.updateOnlineStatus)
-      window.addEventListener("offline", this.updateOnlineStatus)
-    }
-  }
 
   ngAfterViewInit(): void {
     this.attachObserverToSentinel()
@@ -72,10 +62,6 @@ export class SearchComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.observer) {
       this.observer.disconnect()
-    }
-    if (typeof window !== "undefined") {
-      window.removeEventListener("online", this.updateOnlineStatus)
-      window.removeEventListener("offline", this.updateOnlineStatus)
     }
   }
 
@@ -98,7 +84,7 @@ export class SearchComponent implements OnInit, OnDestroy {
   }
 
   private async loadMoreResults() {
-    if (this.isOffline || this.isLoading || this.searchResults.length >= this.totalResults) return
+    if (this.isLoading || this.searchResults.length >= this.totalResults) return
 
     this.isLoading = true
     try {
@@ -175,13 +161,6 @@ export class SearchComponent implements OnInit, OnDestroy {
     }
 
     this.isLoading = true
-    if (this.isOffline) {
-      this.isLoading = false
-      this.snackBar.open("Pesquisa indisponível offline", "Fechar", {
-        duration: 3000,
-      })
-      return
-    }
     this.apiService.search(text, 1).subscribe((results) => {
       this.searchResults = results.verses
       this.totalResults = results.total
@@ -241,10 +220,5 @@ export class SearchComponent implements OnInit, OnDestroy {
 
   findBookById(bookId: string): Book | undefined {
     return this.bookService.findBook(bookId)
-  }
-
-  private updateOnlineStatus = () => {
-    this.isOffline = typeof navigator !== "undefined" ? !navigator.onLine : false
-    this.cdr.detectChanges()
   }
 }
