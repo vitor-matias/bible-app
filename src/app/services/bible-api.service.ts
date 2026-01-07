@@ -47,7 +47,9 @@ export class BibleApiService {
       return of(this.books)
     }
     if (typeof navigator !== "undefined" && !navigator.onLine) {
-      return of(cachedBooks)
+      return cachedBooks.length
+        ? of(cachedBooks)
+        : throwError(() => new Error("Offline and no cached books available"))
     }
     if (!this.books$) {
       this.books$ = (
