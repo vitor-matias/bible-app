@@ -38,9 +38,9 @@ export class BibleApiService {
       return of(this.books)
     }
     if (typeof navigator !== "undefined" && !navigator.onLine) {
-      return cachedBooks.length
-        ? of(cachedBooks)
-        : throwError(() => new Error("Offline and no cached books available"))
+      return throwError(
+        () => new Error("Offline and no cached books available")
+      )
     }
     if (!this.books$) {
       this.books$ = (
@@ -130,9 +130,4 @@ export class BibleApiService {
     ) as Observable<Verse>
   }
 
-  getAllBooksAndChapters(): Observable<Book[]> {
-    return this.http.get(`${this.api}/books?withChapters=true`) as Observable<
-      Book[]
-    >
-  }
 }
