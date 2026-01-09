@@ -7,6 +7,9 @@ describe("OfflineDataService", () => {
   let httpMock: HttpTestingController
   let mockLocalStorage: any
 
+  const THIRTY_DAYS_MS = 1000 * 60 * 60 * 24 * 30
+  const NINETY_ONE_DAYS_MS = 1000 * 60 * 60 * 24 * 91
+
   const mockBooks: Book[] = [
     {
       id: "gen",
@@ -174,8 +177,7 @@ describe("OfflineDataService", () => {
 
     it("should preload books if cache is expired and online", async () => {
       // 91 days ago
-      const ninetyOneDaysAgo = 1000 * 60 * 60 * 24 * 91;
-      const oldTimestamp = Date.now() - ninetyOneDaysAgo;
+      const oldTimestamp = Date.now() - NINETY_ONE_DAYS_MS;
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = oldTimestamp.toString()
 
@@ -193,8 +195,7 @@ describe("OfflineDataService", () => {
 
     it("should keep stale cache when offline and expired", async () => {
       // 91 days ago
-      const ninetyOneDaysAgo = 1000 * 60 * 60 * 24 * 91;
-      const oldTimestamp = Date.now() - ninetyOneDaysAgo;
+      const oldTimestamp = Date.now() - NINETY_ONE_DAYS_MS;
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = oldTimestamp.toString()
 
@@ -522,8 +523,7 @@ describe("OfflineDataService", () => {
   describe("cache expiry", () => {
     it("should consider cache expired after 90 days", async () => {
       // 91 days ago
-      const ninetyOneDaysAgo = 1000 * 60 * 60 * 24 * 91;
-      const oldTimestamp = Date.now() - ninetyOneDaysAgo;
+      const oldTimestamp = Date.now() - NINETY_ONE_DAYS_MS;
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = oldTimestamp.toString()
 
@@ -539,8 +539,7 @@ describe("OfflineDataService", () => {
 
     it("should consider cache valid within 90 days", async () => {
       // 30 days ago
-      const thirtyDaysAgo = 1000 * 60 * 60 * 24 * 30;
-      const recentTimestamp = Date.now() - thirtyDaysAgo;
+      const recentTimestamp = Date.now() - THIRTY_DAYS_MS;
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = recentTimestamp.toString()
 
