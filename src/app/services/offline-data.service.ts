@@ -1,4 +1,4 @@
-// biome-ignore lint/style/useImportType: <explanation>
+// biome-ignore lint/style/useImportType: Angular DI requires a value import for HttpClient so it can be used as a runtime injection token
 import { HttpClient } from "@angular/common/http"
 import { Injectable } from "@angular/core"
 import { firstValueFrom } from "rxjs"
