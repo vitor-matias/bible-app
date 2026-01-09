@@ -65,15 +65,16 @@
         }
       </mat-button-toggle-group>
 
-      <button
-        routerLink="/search"
-        class="bookSelectorButton searchButton"
-        mat-flat-button
-        [hidden]="isOffline"
-        [matTooltip]="isOffline ? 'Pesquisa indisponível sem ligação à internet' : 'Pesquisar'"
-        [attr.aria-label]="isOffline ? 'Pesquisa indisponível sem ligação à internet' : 'Pesquisar'">
-        <mat-icon style="color: #543D27;" aria-label="Search">search</mat-icon>
-      </button>
+      @if (!isOffline) {
+        <button
+          routerLink="/search"
+          class="bookSelectorButton searchButton"
+          mat-flat-button
+          matTooltip="Pesquisar"
+          aria-label="Pesquisar">
+          <mat-icon style="color: #543D27;" aria-label="Search">search</mat-icon>
+        </button>
+      }
     </div>
   </mat-toolbar>
 </div>
