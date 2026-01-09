@@ -47,8 +47,28 @@ export class OfflineDataService {
   }
 
   async setCachedBooks(books: Book[]): Promise<void> {
-    this.cachedBooks = this.mergeCachedBooks(this.getCachedBooks(), books)
+    // Ensure any in-progress cache load from IndexedDB has completed
+    // before we merge in the new books.
+    if (this.cacheLoadPromise) {
+      try {
+        await this.cacheLoadPromise
+      } catch (error) {
+        console.error("Failed to load existing cached books before merge", error)
+      }
+    } else {
+      // Kick off a load if it has not been started yet.
+      this.ensureCacheLoaded()
+      if (this.cacheLoadPromise) {
+        try {
+          await this.cacheLoadPromise
+        } catch (error) {
+          console.error("Failed to load existing cached books before merge", error)
+        }
+      }
+    }
 
+    const existingBooks = this.cachedBooks ?? []
+    this.cachedBooks = this.mergeCachedBooks(existingBooks, books)
     if (typeof localStorage === "undefined") {
       // In non-browser environments, skip persistence and metadata.
       return
