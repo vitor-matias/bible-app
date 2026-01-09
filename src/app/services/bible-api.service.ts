@@ -130,9 +130,4 @@ export class BibleApiService {
     ) as Observable<Verse>
   }
 
-  getAllBooksAndChapters(): Observable<Book[]> {
-    return this.http.get(`${this.api}/books?withChapters=true`) as Observable<
-      Book[]
-    >
-  }
 }
