@@ -5,12 +5,9 @@ import {
   OnDestroy,
   OnInit,
 } from "@angular/core"
-import { DomSanitizer } from "@angular/platform-browser"
-
 import { RouterOutlet } from "@angular/router"
 
 import { SwUpdate } from "@angular/service-worker"
-import { MatIconRegistry } from "@angular/material/icon"
 import { OfflineDataService } from "./services/offline-data.service"
 
 @Component({
@@ -32,10 +29,7 @@ export class AppComponent implements OnInit, OnDestroy {
   constructor(
     private swUpdate: SwUpdate,
     private offlineDataService: OfflineDataService,
-    private iconRegistry: MatIconRegistry,
-    private sanitizer: DomSanitizer,
   ) {
-    this.registerIcons()
     if (this.swUpdate.isEnabled) {
       this.swUpdate.versionUpdates.subscribe((event) => {
         if (event.type === "VERSION_READY") {
@@ -69,28 +63,5 @@ export class AppComponent implements OnInit, OnDestroy {
       // @ts-expect-error iOS standalone mode
       window.navigator.standalone === true
     )
-  }
-
-  private registerIcons(): void {
-    const icons = [
-      "arrow_back",
-      "chevron_left",
-      "chevron_right",
-      "dark_mode",
-      "expand_more",
-      "light_mode",
-      "menu",
-      "menu_open",
-      "search",
-      "share",
-      "zoom_in",
-      "zoom_out",
-    ]
-    for (const icon of icons) {
-      this.iconRegistry.addSvgIcon(
-        icon,
-        this.sanitizer.bypassSecurityTrustResourceUrl(`icons/ui/${icon}.svg`),
-      )
-    }
   }
 }

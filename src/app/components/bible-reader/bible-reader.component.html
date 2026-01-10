@@ -5,7 +5,7 @@
       @if (getBooks()) {
         <mat-drawer class="bookSelector" mode="over" position="start" #bookDrawer closed>
           <button matIconButton (click)="dismissBookDrawer()" class="dismiss-button" #bookDrawerCloseButton>
-            <mat-icon svgIcon="menu_open"></mat-icon>
+            <mat-icon>menu_open</mat-icon>
           </button>
           @if(showBooks){
             <book-selector [books]="getBooks()" (submitData)="onBookSubmit($event)"></book-selector>
@@ -46,14 +46,14 @@
           <button class="floating-nav-button prev-chapter"
             mat-mini-fab aria-label="Previous chapter"
             (click)="goToPreviousChapter()">
-            <mat-icon svgIcon="chevron_left"></mat-icon>
+            <mat-icon>chevron_left</mat-icon>
           </button>
         }
         @if (  chapter.number < book.chapterCount) {
           <button class="floating-nav-button next-chapter"
             mat-mini-fab aria-label="Next chapter"
             (click)="goToNextChapter()">
-            <mat-icon svgIcon="chevron_right"></mat-icon>
+            <mat-icon>chevron_right</mat-icon>
           </button>
         }
       }

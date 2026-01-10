@@ -7,24 +7,24 @@
         [matMenuTriggerFor]="headerMenu"
         #menuTrigger="matMenuTrigger"
         aria-label="Menu">
-        <mat-icon svgIcon="menu"></mat-icon>
+        <mat-icon>menu</mat-icon>
       </button>
       <mat-menu #headerMenu="matMenu">
         <button mat-menu-item (click)="onToggleTheme($event)">
-          <mat-icon [svgIcon]="isLightTheme() ? 'light_mode' : 'dark_mode'"></mat-icon>
+          <mat-icon>{{ isLightTheme() ? 'light_mode' : 'dark_mode' }}</mat-icon>
           <span>Alternar tema claro/escuro</span>
         </button>
         <button mat-menu-item (click)="onDecreaseFontSize($event)">
-          <mat-icon svgIcon="zoom_out"></mat-icon>
+          <mat-icon>zoom_out</mat-icon>
           <span>Diminuir tamanho da letra</span>
         </button>
         <button mat-menu-item (click)="onIncreaseFontSize($event)">
-          <mat-icon svgIcon="zoom_in"></mat-icon>
+          <mat-icon>zoom_in</mat-icon>
           <span>Aumentar tamanho da letra</span>
         </button>
         @if (canShare) {
           <button mat-menu-item (click)="onShare(menuTrigger, $event)">
-            <mat-icon svgIcon="share"></mat-icon>
+            <mat-icon>share</mat-icon>
             <span>Partilhar</span>
           </button>
         }
@@ -72,7 +72,7 @@
           mat-flat-button
           matTooltip="Pesquisar"
           aria-label="Pesquisar">
-          <mat-icon style="color: #543D27;" aria-label="Search" svgIcon="search"></mat-icon>
+          <mat-icon style="color: #543D27;" aria-label="Search">search</mat-icon>
         </button>
       }
     </div>
