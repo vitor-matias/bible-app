@@ -29,82 +29,93 @@ export class BibleApiService {
   ) {}
 
   getAvailableBooks(): Observable<Book[]> {
-    const cachedBooks = this.offlineDataService.getCachedBooks()
-    if (cachedBooks.length) {
-      this.books = cachedBooks
-      return of(cachedBooks)
-    }
-    if (this.books.length) {
-      return of(this.books)
-    }
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      return throwError(
-        () => new Error("Offline and no cached books available")
-      )
-    }
-    if (!this.books$) {
-      this.books$ = (
-        this.http.get(`${this.api}/books`) as Observable<Book[]>
-      ).pipe(shareReplay(1))
-      this.books$.subscribe({
-        next: (books) => {
-          this.books = books
-        },
-        error: () => {
-          this.books$ = null
-        },
-      })
-    }
-    return this.books$
+    return from(this.offlineDataService.getCachedBooksAsync()).pipe(
+      switchMap((cachedBooks) => {
+        if (cachedBooks.length) {
+          this.books = cachedBooks
+          return of(cachedBooks)
+        }
+        if (this.books.length) {
+          return of(this.books)
+        }
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          return throwError(
+            () => new Error("Offline and no cached books available"),
+          )
+        }
+        if (!this.books$) {
+          this.books$ = (
+            this.http.get(`${this.api}/books`) as Observable<Book[]>
+          ).pipe(shareReplay(1))
+          this.books$.subscribe({
+            next: (books) => {
+              this.books = books
+            },
+            error: () => {
+              this.books$ = null
+            },
+          })
+        }
+        return this.books$
+      }),
+    )
   }
 
   getChapter(book: string, chapter: number): Observable<Chapter> {
-    const cached = this.offlineDataService.getCachedChapter(book, chapter)
-    if (cached) {
-      return of(cached)
-    }
+    return from(
+      this.offlineDataService.getCachedChapterAsync(book, chapter),
+    ).pipe(
+      switchMap((cached) => {
+        if (cached) {
+          return of(cached)
+        }
 
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      return throwError(() => new Error("Offline - chapter not cached"))
-    }
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          return throwError(() => new Error("Offline - chapter not cached"))
+        }
 
-    if (this.chapterPromise) {
-      return from(this.chapterPromise).pipe(switchMap((obs) => obs))
-    }
+        if (this.chapterPromise) {
+          return from(this.chapterPromise).pipe(switchMap((obs) => obs))
+        }
 
-    this.chapterPromise = new Promise((resolve, reject) => {
-      const observable = this.http.get(
-        `${this.api}/${book}/${chapter}`,
-      ) as Observable<Chapter>
-      observable
-        .pipe(
-          catchError((error) => {
-            this.chapterPromise = null
-            reject(error)
-            throw error
-          }),
-          finalize(() => {
-            this.chapterPromise = null
-          }),
-        )
-        .subscribe({
-          next: (data) => resolve(of(data)),
-          error: (err) => reject(err),
+        this.chapterPromise = new Promise((resolve, reject) => {
+          const observable = this.http.get(
+            `${this.api}/${book}/${chapter}`,
+          ) as Observable<Chapter>
+          observable
+            .pipe(
+              catchError((error) => {
+                this.chapterPromise = null
+                reject(error)
+                throw error
+              }),
+              finalize(() => {
+                this.chapterPromise = null
+              }),
+            )
+            .subscribe({
+              next: (data) => resolve(of(data)),
+              error: (err) => reject(err),
+            })
         })
-    })
 
-    return from(this.chapterPromise).pipe(switchMap((obs) => obs))
+        return from(this.chapterPromise).pipe(switchMap((obs) => obs))
+      }),
+    )
   }
 
   getBook(book: string): Observable<Book> {
-    const cached = this.offlineDataService.getCachedBook(book)
-    if (cached) {
-      return of(cached)
-    }
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      return throwError(() => new Error("Offline - book not cached"))
-    }
-    return this.http.get(`${this.api}/${book}`) as Observable<Book>
+    return from(this.offlineDataService.getCachedBookAsync(book)).pipe(
+      switchMap((cached) => {
+        if (cached) {
+          return of(cached)
+        }
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          return throwError(() => new Error("Offline - book not cached"))
+        }
+        return this.http.get(`${this.api}/${book}`) as Observable<Book>
+      }),
+    )
   }
 
   search(query: string, page = 1, limit = 50): Observable<VersePage> {
@@ -114,20 +125,21 @@ export class BibleApiService {
   }
 
   getVerse(book: string, chapter: number, verse: number): Observable<Verse> {
-    const cached = this.offlineDataService.getCachedVerse(
-      book,
-      chapter,
-      verse,
+    return from(
+      this.offlineDataService.getCachedVerseAsync(book, chapter, verse),
+    ).pipe(
+      switchMap((cached) => {
+        if (cached) {
+          return of(cached)
+        }
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          return throwError(() => new Error("Offline - verse not cached"))
+        }
+        return this.http.get(
+          `${this.api}/${book}/${chapter}/${verse}`,
+        ) as Observable<Verse>
+      }),
     )
-    if (cached) {
-      return of(cached)
-    }
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      return throwError(() => new Error("Offline - verse not cached"))
-    }
-    return this.http.get(
-      `${this.api}/${book}/${chapter}/${verse}`,
-    ) as Observable<Verse>
   }
 
 }
