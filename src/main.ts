@@ -15,7 +15,8 @@ export function initializeTheme(): void {
     return
   }
 
-  const savedTheme = typeof localStorage !== "undefined" ? localStorage.getItem("theme") : null
+  const savedTheme =
+    typeof localStorage !== "undefined" ? localStorage.getItem("theme") : null
   const prefersDark =
     typeof window.matchMedia === "function"
       ? window.matchMedia("(prefers-color-scheme: dark)").matches

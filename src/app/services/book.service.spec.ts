@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing"
-import { BibleApiService } from "./bible-api.service"
 import { of } from "rxjs"
+import { BibleApiService } from "./bible-api.service"
 
 import { BookService } from "./book.service"
 
@@ -73,7 +73,9 @@ describe("BookService", () => {
       ],
     })
     service = TestBed.inject(BookService)
-    apiService = TestBed.inject(BibleApiService) as jasmine.SpyObj<BibleApiService>
+    apiService = TestBed.inject(
+      BibleApiService,
+    ) as jasmine.SpyObj<BibleApiService>
   })
 
   it("should be created", () => {
