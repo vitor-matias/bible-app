@@ -12,9 +12,10 @@
       <mat-tree-node class="book-group" *matTreeNodeDef="let node;when: hasChild" matTreeNodePadding matTreeNodeToggle
         [cdkTreeNodeTypeaheadLabel]="node.name">
         <button mat-icon-button matTreeNodeToggle [attr.aria-label]="'Toggle ' + node.name">
-          <mat-icon class="mat-icon-rtl-mirror">
-            {{otTreeControl.isExpanded(node) ? 'expand_more' : 'chevron_right'}}
-          </mat-icon>
+          <mat-icon
+            class="mat-icon-rtl-mirror"
+            [svgIcon]="otTreeControl.isExpanded(node) ? 'expand_more' : 'chevron_right'"
+          ></mat-icon>
         </button>
         {{node.name}}
       </mat-tree-node>
@@ -34,9 +35,10 @@
       <mat-tree-node class="book-group" *matTreeNodeDef="let node;when: hasChild" matTreeNodePadding matTreeNodeToggle
         [cdkTreeNodeTypeaheadLabel]="node.name">
         <button mat-icon-button matTreeNodeToggle [attr.aria-label]="'Toggle ' + node.name">
-          <mat-icon class="mat-icon-rtl-mirror">
-            {{ntTreeControl.isExpanded(node) ? 'expand_more' : 'chevron_right'}}
-          </mat-icon>
+          <mat-icon
+            class="mat-icon-rtl-mirror"
+            [svgIcon]="ntTreeControl.isExpanded(node) ? 'expand_more' : 'chevron_right'"
+          ></mat-icon>
         </button>
         {{node.name}}
       </mat-tree-node>
