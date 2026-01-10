@@ -237,11 +237,11 @@ export class OfflineDataService {
   }
 
   private trackUmamiInstallEvent(source: "install" | "standalone") {
-    if (source !== "install") return
+    
     // @ts-expect-error: `umami` is injected on `window` by the Umami analytics script at runtime
     const umami = typeof window !== "undefined" ? window.umami : undefined
     if (umami?.track) {
-      umami.track("pwa_books_cached_after_install")
+      umami.track("pwa_books_cached", { source })
     }
   }
 }
