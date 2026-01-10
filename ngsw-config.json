@@ -29,6 +29,18 @@
   ],
   "dataGroups": [
     {
+      "name": "material-icons-fonts",
+      "urls": [
+        "https://fonts.googleapis.com/icon?family=Material+Icons",
+        "https://fonts.gstatic.com/s/materialicons/**"
+      ],
+      "cacheConfig": {
+        "strategy": "performance",
+        "maxSize": 10,
+        "maxAge": "365d"
+      }
+    },
+    {
       "name": "bible-search",
       "urls": [
         "/v1/search**"

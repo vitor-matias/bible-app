@@ -5,7 +5,6 @@ import {
   OnDestroy,
   OnInit,
 } from "@angular/core"
-
 import { RouterOutlet } from "@angular/router"
 
 import { SwUpdate } from "@angular/service-worker"
