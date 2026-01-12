@@ -36,4 +36,8 @@ export class ChapterSelectorComponent {
   onKeyPress(event: KeyboardEvent, id: Chapter["number"]): void {
     this.submit(id)
   }
+
+  getChapterDisplay(chapter: Chapter): string {
+    return chapter.number + (chapter.title ? ` - ${chapter.title}` : "")
+  }
 }
