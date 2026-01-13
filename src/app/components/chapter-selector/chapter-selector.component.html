@@ -1,16 +1,12 @@
 <div class="chapterSelectorContainer">
   <mat-list>
-
     @for (chapter of chapters; track chapter) {
       <mat-list-item>
         <button class="chapterSelectorButton" mat-flat-button (click)="submit(chapter.number)"
           [ngClass]="{ 'highlight': chapter.number === selectedChapter }">
-          {{ chapter.number + " - " + chapter.title }}
+          {{ getChapterDisplay(chapter) }}
         </button>
       </mat-list-item>
     }
-
-
   </mat-list>
-
 </div>

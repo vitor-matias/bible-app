@@ -1,11 +1,13 @@
 import {
   ChangeDetectorRef,
   Component,
-  type ElementRef,
+  ElementRef,
   ViewChild,
-  ViewContainerRef,
 } from "@angular/core"
-import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
+import {
+  MatSnackBar,
+  MatSnackBarModule,
+} from "@angular/material/snack-bar"
 import { Router, RouterModule } from "@angular/router"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { BibleApiService } from "../../services/bible-api.service"
@@ -189,9 +191,9 @@ export class SearchComponent {
       this.attachObserverToSentinel() // Attach observer after new search
       this.scrollToTop()
 
-      // @ts-ignore
+      // @ts-expect-error
       if (window.umami) {
-        // @ts-ignore
+        // @ts-expect-error
         window.umami.track("search", {
           text,
         })
