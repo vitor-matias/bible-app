@@ -1,5 +1,6 @@
 .results-section {
   margin-top: 0px;
+  padding: 20px;
   flex: 1;
   overflow-y: auto;
   overscroll-behavior: none; /* Prevents rubber banding in this container */
@@ -53,7 +54,7 @@
 }
 
 .search-container {
-  padding: 20px;
+  padding: 0;
   display: flex;
   flex-direction: column;
   height: calc(100vh - 56px);
