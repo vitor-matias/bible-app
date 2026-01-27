@@ -72,7 +72,7 @@ export class BibleReaderComponent implements OnDestroy {
   autoScrollEnabled = false
   autoScrollLinesPerSecond = 1
   readonly MIN_AUTO_SCROLL_LPS = 0.25
-  readonly MAX_AUTO_SCROLL_LPS = 3
+  readonly MAX_AUTO_SCROLL_LPS = 4
   private readonly AUTO_SCROLL_STEP = 0.25
   showAutoScrollControls = true
   private autoScrollFrame?: number
@@ -184,6 +184,7 @@ export class BibleReaderComponent implements OnDestroy {
 
   goToNextChapter(): void {
     if (this.book.chapterCount >= this.chapterNumber + 1) {
+      this.stopAutoScroll()
       this.router.navigate([
         this.bookService.getUrlAbrv(this.book),
         this.chapterNumber + 1,
@@ -193,6 +194,7 @@ export class BibleReaderComponent implements OnDestroy {
 
   goToPreviousChapter(): void {
     if (this.chapterNumber > 1) {
+      this.stopAutoScroll
       this.router.navigate([
         this.bookService.getUrlAbrv(this.book),
         this.chapterNumber - 1,
@@ -201,6 +203,7 @@ export class BibleReaderComponent implements OnDestroy {
   }
 
   goToChapter(newChapterNumber: Chapter["number"]): void {
+    this.stopAutoScroll()
     this.router.navigate([
       this.bookService.getUrlAbrv(this.book),
       newChapterNumber,
@@ -369,16 +372,15 @@ export class BibleReaderComponent implements OnDestroy {
       "autoScrollControlsVisible",
       this.showAutoScrollControls.toString(),
     )
+    this.stopAutoScroll()
   }
 
   toggleAutoScroll(): void {
     if (!this.autoScrollEnabled) {
-      this.autoScrollEnabled = true
       this.startAutoScroll()
       return
     }
 
-    this.autoScrollEnabled = false
     this.stopAutoScroll()
   }
 
@@ -411,17 +413,20 @@ export class BibleReaderComponent implements OnDestroy {
 
     this.lastAutoScrollTimestamp = undefined
     this.accumulatedScrollDelta = 0
+    this.autoScrollEnabled = true
     this.autoScrollFrame = window.requestAnimationFrame((timestamp) => {
       this.stepAutoScroll(timestamp)
     })
   }
 
   private stopAutoScroll(): void {
+    this.autoScrollEnabled = false
     if (this.autoScrollFrame) {
       window.cancelAnimationFrame(this.autoScrollFrame)
       this.autoScrollFrame = undefined
     }
     this.lastAutoScrollTimestamp = undefined
+    this.cdr.markForCheck()
   }
 
   private stepAutoScroll(timestamp: number): void {
@@ -460,8 +465,7 @@ export class BibleReaderComponent implements OnDestroy {
 
     this.lastAutoScrollTimestamp = timestamp
 
-    if (content.scrollTop >= content.scrollHeight - content.clientHeight) {
-      this.autoScrollEnabled = false
+    if (content.scrollTop + 5 >= content.scrollHeight - content.clientHeight) {
       this.stopAutoScroll()
       return
     }
