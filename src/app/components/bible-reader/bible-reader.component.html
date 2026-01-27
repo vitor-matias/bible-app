@@ -70,15 +70,15 @@
           <button
             mat-icon-button
             aria-label="Diminuir velocidade de leitura automática"
-            [disabled]="autoScrollSpeed <= 6"
+            [disabled]="autoScrollLinesPerSecond <= MIN_AUTO_SCROLL_LPS"
             (click)="decreaseAutoScrollSpeed()">
             <mat-icon>remove</mat-icon>
           </button>
-          <span>{{ autoScrollSpeed }} px/s</span>
+          <span>{{ autoScrollLinesPerSecond }} linhas/s</span>
           <button
             mat-icon-button
             aria-label="Aumentar velocidade de leitura automática"
-            [disabled]="autoScrollSpeed >= 48"
+            [disabled]="autoScrollLinesPerSecond >= MAX_AUTO_SCROLL_LPS"
             (click)="increaseAutoScrollSpeed()">
             <mat-icon>add</mat-icon>
           </button>
