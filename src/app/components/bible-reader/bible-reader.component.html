@@ -61,7 +61,7 @@
           <button
             class="position-relative floating-nav-button auto-scroll-toggle"
             mat-mini-fab
-            aria-label="Ativar deslocamento automático"
+            [attr.aria-label]="autoScrollEnabled ? 'Pausar deslocamento automático' : 'Ativar deslocamento automático'"
             [attr.aria-pressed]="autoScrollEnabled"
             (click)="toggleAutoScroll()">
             <mat-icon>{{ autoScrollEnabled ? 'pause' : 'play_arrow' }}</mat-icon>
