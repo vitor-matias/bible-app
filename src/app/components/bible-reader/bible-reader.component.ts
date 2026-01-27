@@ -78,6 +78,8 @@ export class BibleReaderComponent implements OnDestroy {
   private autoScrollFrame?: number
   private lastAutoScrollTimestamp?: number
   private accumulatedScrollDelta = 0
+  private cachedLineHeight?: number
+  private resizeObserver?: ResizeObserver
 
   constructor(
     private apiService: BibleApiService,
@@ -180,6 +182,7 @@ export class BibleReaderComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.stopAutoScroll()
+    this.cleanupResizeObserver()
   }
 
   goToNextChapter(): void {
@@ -413,6 +416,7 @@ export class BibleReaderComponent implements OnDestroy {
 
     this.lastAutoScrollTimestamp = undefined
     this.accumulatedScrollDelta = 0
+    this.initializeCachedLineHeight()
     this.autoScrollEnabled = true
     this.autoScrollFrame = window.requestAnimationFrame((timestamp) => {
       this.stepAutoScroll(timestamp)
@@ -426,6 +430,8 @@ export class BibleReaderComponent implements OnDestroy {
       this.autoScrollFrame = undefined
     }
     this.lastAutoScrollTimestamp = undefined
+    this.cleanupResizeObserver()
+    this.cachedLineHeight = undefined
     this.cdr.markForCheck()
   }
 
@@ -445,7 +451,7 @@ export class BibleReaderComponent implements OnDestroy {
       0.1,
       (timestamp - this.lastAutoScrollTimestamp) / 1000,
     )
-    const lineHeight = this.getLineHeight()
+    const lineHeight = this.cachedLineHeight ?? this.getLineHeight()
     const scrollDelta =
       lineHeight * this.autoScrollLinesPerSecond * deltaSeconds
 
@@ -492,6 +498,36 @@ export class BibleReaderComponent implements OnDestroy {
     }
 
     return fontSize
+  }
+
+  private initializeCachedLineHeight(): void {
+    const container = document.querySelector<HTMLElement>(".bookBlock")
+    if (!container) {
+      this.cachedLineHeight = 24
+      return
+    }
+
+    // Calculate and cache the initial line height
+    this.cachedLineHeight = this.getLineHeight()
+
+    // Set up ResizeObserver to detect font size changes
+    this.cleanupResizeObserver()
+    this.resizeObserver = new ResizeObserver(() => {
+      // Recalculate line height when the container size changes (which may indicate font size change)
+      const newLineHeight = this.getLineHeight()
+      if (newLineHeight !== this.cachedLineHeight) {
+        this.cachedLineHeight = newLineHeight
+      }
+    })
+
+    this.resizeObserver.observe(container)
+  }
+
+  private cleanupResizeObserver(): void {
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect()
+      this.resizeObserver = undefined
+    }
   }
 
   @HostListener("window:keydown", ["$event"])
