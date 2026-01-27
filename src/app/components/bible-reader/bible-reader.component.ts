@@ -78,6 +78,8 @@ export class BibleReaderComponent implements OnDestroy {
   private autoScrollFrame?: number
   private lastAutoScrollTimestamp?: number
   private accumulatedScrollDelta = 0
+  private cachedLineHeight = 24
+  private lineHeightObserver?: ResizeObserver
 
   constructor(
     private apiService: BibleApiService,
@@ -180,6 +182,7 @@ export class BibleReaderComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.stopAutoScroll()
+    this.cleanupLineHeightObserver()
   }
 
   goToNextChapter(): void {
@@ -414,6 +417,7 @@ export class BibleReaderComponent implements OnDestroy {
     this.lastAutoScrollTimestamp = undefined
     this.accumulatedScrollDelta = 0
     this.autoScrollEnabled = true
+    this.setupLineHeightObserver()
     this.autoScrollFrame = window.requestAnimationFrame((timestamp) => {
       this.stepAutoScroll(timestamp)
     })
@@ -426,6 +430,7 @@ export class BibleReaderComponent implements OnDestroy {
       this.autoScrollFrame = undefined
     }
     this.lastAutoScrollTimestamp = undefined
+    this.cleanupLineHeightObserver()
     this.cdr.markForCheck()
   }
 
@@ -445,7 +450,7 @@ export class BibleReaderComponent implements OnDestroy {
       0.1,
       (timestamp - this.lastAutoScrollTimestamp) / 1000,
     )
-    const lineHeight = this.getLineHeight()
+    const lineHeight = this.cachedLineHeight
     const scrollDelta =
       lineHeight * this.autoScrollLinesPerSecond * deltaSeconds
 
@@ -492,6 +497,33 @@ export class BibleReaderComponent implements OnDestroy {
     }
 
     return fontSize
+  }
+
+  private setupLineHeightObserver(): void {
+    this.cleanupLineHeightObserver()
+
+    const container = document.querySelector<HTMLElement>(".bookBlock")
+    if (!container) {
+      this.cachedLineHeight = 24
+      return
+    }
+
+    // Initialize cached line height
+    this.cachedLineHeight = this.getLineHeight()
+
+    // Create ResizeObserver to detect font size changes
+    this.lineHeightObserver = new ResizeObserver(() => {
+      this.cachedLineHeight = this.getLineHeight()
+    })
+
+    this.lineHeightObserver.observe(container)
+  }
+
+  private cleanupLineHeightObserver(): void {
+    if (this.lineHeightObserver) {
+      this.lineHeightObserver.disconnect()
+      this.lineHeightObserver = undefined
+    }
   }
 
   @HostListener("window:keydown", ["$event"])

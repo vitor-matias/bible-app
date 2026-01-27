@@ -1,5 +1,8 @@
+import {
+  HttpClientTestingModule,
+  HttpTestingController,
+} from "@angular/common/http/testing"
 import { TestBed } from "@angular/core/testing"
-import { HttpClientTestingModule, HttpTestingController } from "@angular/common/http/testing"
 import { OfflineDataService } from "./offline-data.service"
 
 describe("OfflineDataService", () => {
@@ -72,7 +75,9 @@ describe("OfflineDataService", () => {
       onerror: null as any,
       onabort: null as any,
       error: null,
-      objectStore: jasmine.createSpy("objectStore").and.returnValue(mockObjectStore),
+      objectStore: jasmine
+        .createSpy("objectStore")
+        .and.returnValue(mockObjectStore),
     }
 
     const mockDB = {
@@ -115,22 +120,30 @@ describe("OfflineDataService", () => {
       getItem: jasmine.createSpy("getItem").and.callFake((key: string) => {
         return mockLocalStorage._storage[key] || null
       }),
-      setItem: jasmine.createSpy("setItem").and.callFake((key: string, value: string) => {
-        mockLocalStorage._storage[key] = value
-      }),
-      removeItem: jasmine.createSpy("removeItem").and.callFake((key: string) => {
-        delete mockLocalStorage._storage[key]
-      }),
+      setItem: jasmine
+        .createSpy("setItem")
+        .and.callFake((key: string, value: string) => {
+          mockLocalStorage._storage[key] = value
+        }),
+      removeItem: jasmine
+        .createSpy("removeItem")
+        .and.callFake((key: string) => {
+          delete mockLocalStorage._storage[key]
+        }),
       clear: jasmine.createSpy("clear").and.callFake(() => {
         mockLocalStorage._storage = {}
       }),
       key: jasmine.createSpy("key"),
       length: 0,
     }
-    spyOnProperty(window, "localStorage", "get").and.returnValue(mockLocalStorage)
+    spyOnProperty(window, "localStorage", "get").and.returnValue(
+      mockLocalStorage,
+    )
 
     // Mock IndexedDB
-    spyOnProperty(window, "indexedDB", "get").and.returnValue(createMockIndexedDB() as any)
+    spyOnProperty(window, "indexedDB", "get").and.returnValue(
+      createMockIndexedDB() as any,
+    )
 
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
@@ -168,7 +181,10 @@ describe("OfflineDataService", () => {
 
       await promise
 
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith("booksCacheReady", "true")
+      expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+        "booksCacheReady",
+        "true",
+      )
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
         "booksCacheTimestamp",
         jasmine.any(String),
@@ -177,7 +193,7 @@ describe("OfflineDataService", () => {
 
     it("should preload books if cache is expired and online", async () => {
       // 91 days ago
-      const oldTimestamp = Date.now() - NINETY_ONE_DAYS_MS;
+      const oldTimestamp = Date.now() - NINETY_ONE_DAYS_MS
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = oldTimestamp.toString()
 
@@ -190,12 +206,15 @@ describe("OfflineDataService", () => {
 
       await promise
 
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith("booksCacheTimestamp", jasmine.any(String))
+      expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+        "booksCacheTimestamp",
+        jasmine.any(String),
+      )
     })
 
     it("should keep stale cache when offline and expired", async () => {
       // 91 days ago
-      const oldTimestamp = Date.now() - NINETY_ONE_DAYS_MS;
+      const oldTimestamp = Date.now() - NINETY_ONE_DAYS_MS
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = oldTimestamp.toString()
 
@@ -233,7 +252,9 @@ describe("OfflineDataService", () => {
 
       await promise
 
-      expect(mockUmami.track).toHaveBeenCalledWith("pwa_books_cached_after_install")
+      expect(mockUmami.track).toHaveBeenCalledWith(
+        "pwa_books_cached_after_install",
+      )
 
       delete (window as any).umami
     })
@@ -291,7 +312,10 @@ describe("OfflineDataService", () => {
         "booksCacheTimestamp",
         jasmine.any(String),
       )
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith("booksCacheReady", "true")
+      expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+        "booksCacheReady",
+        "true",
+      )
     })
 
     it("should return empty array when no books are cached", () => {
@@ -523,7 +547,7 @@ describe("OfflineDataService", () => {
   describe("cache expiry", () => {
     it("should consider cache expired after 90 days", async () => {
       // 91 days ago
-      const oldTimestamp = Date.now() - NINETY_ONE_DAYS_MS;
+      const oldTimestamp = Date.now() - NINETY_ONE_DAYS_MS
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = oldTimestamp.toString()
 
@@ -539,9 +563,10 @@ describe("OfflineDataService", () => {
 
     it("should consider cache valid within 90 days", async () => {
       // 30 days ago
-      const recentTimestamp = Date.now() - THIRTY_DAYS_MS;
+      const recentTimestamp = Date.now() - THIRTY_DAYS_MS
       mockLocalStorage._storage["booksCacheReady"] = "true"
-      mockLocalStorage._storage["booksCacheTimestamp"] = recentTimestamp.toString()
+      mockLocalStorage._storage["booksCacheTimestamp"] =
+        recentTimestamp.toString()
 
       await service.preloadAllBooksAndChapters()
 

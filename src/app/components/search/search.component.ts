@@ -1,18 +1,18 @@
 import {
-  ChangeDetectorRef,
+  type ChangeDetectorRef,
   Component,
-  ElementRef,
+  type ElementRef,
   ViewChild,
 } from "@angular/core"
 import {
-  MatSnackBar,
+  type MatSnackBar,
   MatSnackBarModule,
 } from "@angular/material/snack-bar"
-import { Router, RouterModule } from "@angular/router"
+import { type Router, RouterModule } from "@angular/router"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
-import { BibleApiService } from "../../services/bible-api.service"
-import { BibleReferenceService } from "../../services/bible-reference.service"
-import { BookService } from "../../services/book.service"
+import type { BibleApiService } from "../../services/bible-api.service"
+import type { BibleReferenceService } from "../../services/bible-reference.service"
+import type { BookService } from "../../services/book.service"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
 @Component({

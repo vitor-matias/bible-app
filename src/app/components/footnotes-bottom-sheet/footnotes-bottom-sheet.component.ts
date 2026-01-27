@@ -1,12 +1,12 @@
 import { Component, Inject } from '@angular/core'
 
-import { MAT_BOTTOM_SHEET_DATA, MatBottomSheetRef } from '@angular/material/bottom-sheet'
+import { MAT_BOTTOM_SHEET_DATA, type MatBottomSheetRef } from '@angular/material/bottom-sheet'
 import { MatButtonModule } from '@angular/material/button'
 import { MatIconModule } from '@angular/material/icon'
 import { RouterModule } from '@angular/router'
 import { UnifiedGesturesDirective } from '../../directives/unified-gesture.directive'
-import { BibleReference, BibleReferenceService, VerseReference } from '../../services/bible-reference.service'
-import { BookService } from '../../services/book.service'
+import type { BibleReference, BibleReferenceService, VerseReference } from '../../services/bible-reference.service'
+import type { BookService } from '../../services/book.service'
 
 @Component({
   selector: 'footnotes-bottom-sheet',
