@@ -58,8 +58,8 @@
       
       @if (showAutoScrollControls) {
         <div class="auto-scroll-controls">
-          <button style="position: relative;"
-            class="floating-nav-button auto-scroll-toggle"
+          <button
+            class="position-relative floating-nav-button auto-scroll-toggle"
             mat-mini-fab
             aria-label="Ativar deslocamento automático"
             [attr.aria-pressed]="autoScrollEnabled"
@@ -74,7 +74,7 @@
               (click)="decreaseAutoScrollSpeed()">
               <mat-icon>remove</mat-icon>
             </button>
-            <span>{{ autoScrollLinesPerSecond }} linhas/s</span>
+            <span>{{ autoScrollLinesPerSecond }} ln/s</span>
             <button
               mat-icon-button
               aria-label="Aumentar velocidade do deslocamento automático"

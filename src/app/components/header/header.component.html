@@ -22,7 +22,7 @@
           <mat-icon>zoom_in</mat-icon>
           <span>Aumentar tamanho da letra</span>
         </button>
-        <button mat-menu-item (click)="onToggleAutoScrollControls($event)">
+        <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)">
           <mat-icon>auto_mode</mat-icon>
           <span>
             {{ autoScrollControlsVisible

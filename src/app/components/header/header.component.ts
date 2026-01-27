@@ -18,6 +18,7 @@ import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { RouterModule } from "@angular/router"
 import { ThemeService } from "../../services/theme.service"
+import { trigger } from "@angular/animations"
 
 @Component({
   standalone: true,
@@ -99,9 +100,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.openChapterSelector.emit({ open: true })
   }
 
-  onToggleAutoScrollControls(event?: Event): void {
+  onToggleAutoScrollControls(trigger: MatMenuTrigger, event?: Event): void {
     event?.stopPropagation()
     this.toggleAutoScrollControls.emit()
+    trigger.closeMenu()
+
   }
 
   isLightTheme(): boolean {

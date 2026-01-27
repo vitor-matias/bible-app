@@ -45,6 +45,8 @@ h6 {
   .auto-scroll-controls {
     left: 50%;
     bottom: 8px;
+    transform: translateX(-50%);
+
   }
 }
 
@@ -68,6 +70,10 @@ h6 {
 
   .next-chapter {
     top: 50%;
+  }
+
+  .auto-scroll-controls {
+    right: 16px;
   }
 }
 
@@ -101,19 +107,19 @@ h6 {
   background-color: antiquewhite;
 }
 
-.floating-nav-button:hover {
-  opacity: 1;
+@media (hover: hover) {
+  .floating-nav-button:hover {
+    opacity: 1;
+  }
 }
 
 .auto-scroll-controls {
   position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
   bottom: 24px;
   z-index: 100;
   display: flex;
   align-items: center;
-  opacity: 0.85;
+  opacity: 0.75;
 }
 
 .auto-scroll-speed {
@@ -123,9 +129,12 @@ h6 {
   padding: 4px 8px;
   border-radius: 999px;
   background-color: var(--card-background);
-  color: #543d27;
   font-size: 12px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.auto-scroll-speed .mat-icon{
+  color: var(--text-color);
 }
 
 .auto-scroll-speed span {
