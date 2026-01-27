@@ -18,7 +18,6 @@ import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { RouterModule } from "@angular/router"
 import { ThemeService } from "../../services/theme.service"
-import { trigger } from "@angular/animations"
 
 @Component({
   standalone: true,
