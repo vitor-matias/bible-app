@@ -1,14 +1,13 @@
-
 import {
   ChangeDetectionStrategy,
   Component,
-  OnDestroy,
-  OnInit,
+  type OnDestroy,
+  type OnInit,
 } from "@angular/core"
 import { RouterOutlet } from "@angular/router"
 
-import { SwUpdate } from "@angular/service-worker"
-import { OfflineDataService } from "./services/offline-data.service"
+import type { SwUpdate } from "@angular/service-worker"
+import type { OfflineDataService } from "./services/offline-data.service"
 
 @Component({
   selector: "app-root",

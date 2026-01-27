@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core"
 import { BehaviorSubject, firstValueFrom } from "rxjs"
 import { filter, tap } from "rxjs/operators"
-import { BibleApiService } from "./bible-api.service"
+import type { BibleApiService } from "./bible-api.service"
 
 @Injectable({
   providedIn: "root",

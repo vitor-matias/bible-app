@@ -1,5 +1,5 @@
 import { Injectable } from "@angular/core"
-import { BookService } from "./book.service"
+import type { BookService } from "./book.service"
 
 // ---------------- Types (unchanged) ----------------
 export type VerseReference =
