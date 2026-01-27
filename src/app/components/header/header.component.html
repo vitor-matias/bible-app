@@ -22,6 +22,14 @@
           <mat-icon>zoom_in</mat-icon>
           <span>Aumentar tamanho da letra</span>
         </button>
+        <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)">
+          <mat-icon>auto_mode</mat-icon>
+          <span>
+            {{ autoScrollControlsVisible
+              ? 'Esconder controlos de deslocamento automático'
+              : 'Mostrar controlos de deslocamento automático' }}
+          </span>
+        </button>
         @if (canShare) {
           <button mat-menu-item (click)="onShare(menuTrigger, $event)">
             <mat-icon>share</mat-icon>
@@ -65,9 +73,16 @@
         }
       </mat-button-toggle-group>
 
-      <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button>
-        <mat-icon style="color: #543D27;" aria-label="Search">search</mat-icon>
-      </button>
+      @if (!isOffline) {
+        <button
+          routerLink="/search"
+          class="bookSelectorButton searchButton"
+          mat-flat-button
+          matTooltip="Pesquisar"
+          aria-label="Pesquisar">
+          <mat-icon style="color: #543D27;" aria-label="Search">search</mat-icon>
+        </button>
+      }
     </div>
   </mat-toolbar>
 </div>

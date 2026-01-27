@@ -1,19 +1,18 @@
-
 import {
   ChangeDetectorRef,
   Component,
   EventEmitter,
   Input,
-  OnChanges,
-  OnDestroy,
+  type OnChanges,
+  type OnDestroy,
   type OnInit,
   Output,
-  SimpleChanges,
+  type SimpleChanges,
 } from "@angular/core"
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
 import { MatIconModule } from "@angular/material/icon"
-import { MatMenuModule, MatMenuTrigger } from "@angular/material/menu"
+import { MatMenuModule, type MatMenuTrigger } from "@angular/material/menu"
 import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
@@ -43,6 +42,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   @Input() book!: Book
   @Input() chapterNumber!: number
+  @Input() autoScrollControlsVisible = false
 
   bookLabelMode: "title" | "prompt" = "title"
   private labelInterval?: number
@@ -50,8 +50,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   @Output() openBookSelector = new EventEmitter<{ open: boolean }>()
   @Output() openChapterSelector = new EventEmitter<{ open: boolean }>()
+  @Output() toggleAutoScrollControls = new EventEmitter<void>()
 
   mobile = false
+  isOffline = typeof navigator !== "undefined" ? !navigator.onLine : false
 
   constructor(
     private readonly themeService: ThemeService,
@@ -65,6 +67,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
     this.canShare =
       typeof navigator !== "undefined" && typeof navigator.share === "function"
+    if (typeof window !== "undefined") {
+      window.addEventListener("online", this.updateOnlineStatus)
+      window.addEventListener("offline", this.updateOnlineStatus)
+    }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -79,6 +85,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopLabelCycle()
+    if (typeof window !== "undefined") {
+      window.removeEventListener("online", this.updateOnlineStatus)
+      window.removeEventListener("offline", this.updateOnlineStatus)
+    }
   }
 
   showBookSelector() {
@@ -87,6 +97,12 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   showChapterSelector() {
     this.openChapterSelector.emit({ open: true })
+  }
+
+  onToggleAutoScrollControls(trigger: MatMenuTrigger, event?: Event): void {
+    event?.stopPropagation()
+    this.toggleAutoScrollControls.emit()
+    trigger.closeMenu()
   }
 
   isLightTheme(): boolean {
@@ -141,10 +157,13 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     try {
       await navigator.share({ title, text, url }).finally(() => {
         // Shared successfully
-        // @ts-ignore
-        if(globalThis.umami) {
-          // @ts-ignore
-          globalThis.umami.track('share', { book: this.book?.id, chapter: this.chapterNumber });
+        // @ts-expect-error
+        if (globalThis.umami) {
+          // @ts-expect-error
+          globalThis.umami.track("share", {
+            book: this.book?.id,
+            chapter: this.chapterNumber,
+          })
         }
       })
     } catch {
@@ -198,5 +217,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     for (const heading of headings) {
       heading.style.fontSize = `${fontSize + 5}%`
     }
+  }
+
+  private updateOnlineStatus = () => {
+    this.isOffline =
+      typeof navigator !== "undefined" ? !navigator.onLine : false
+    this.cdr.detectChanges()
   }
 }

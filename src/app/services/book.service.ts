@@ -67,13 +67,13 @@ export class BookService {
         .toLocaleLowerCase()
     const normalizeVariants = (value: string) => {
       const base = normalize(value)
-      const singular = base.length > 1 && base.endsWith("s") ? base.slice(0, -1) : ""
+      const singular =
+        base.length > 1 && base.endsWith("s") ? base.slice(0, -1) : ""
       return [base, singular].filter(Boolean)
     }
     const needle = new Set(normalizeVariants(bookName))
-    return this.getBooks().find(
-      (book) =>
-        normalizeVariants(book.shortName).some((variant) => needle.has(variant)),
+    return this.getBooks().find((book) =>
+      normalizeVariants(book.shortName).some((variant) => needle.has(variant)),
     )
   }
 

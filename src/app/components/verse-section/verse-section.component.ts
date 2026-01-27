@@ -16,6 +16,7 @@ import { TwoActionSnackComponent } from "../two-action-snackbar/two-action-snack
 
 @Component({
   selector: "verse-section",
+  standalone: true,
   imports: [CommonModule, RouterModule, MatSnackBarModule],
   templateUrl: "./verse-section.component.html",
   styleUrl: "./verse-section.component.css",
@@ -53,8 +54,11 @@ export class VerseSectionComponent {
     return { parts }
   }
 
-  getVerseQueryParams(verses?: VerseReference[], crossChapter?: CrossChapterRange) {
-    if(crossChapter){
+  getVerseQueryParams(
+    verses?: VerseReference[],
+    crossChapter?: CrossChapterRange,
+  ) {
+    if (crossChapter) {
       return { verseStart: crossChapter.startVerse }
     }
 
