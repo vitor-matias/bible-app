@@ -194,7 +194,7 @@ export class BibleReaderComponent implements OnDestroy {
 
   goToPreviousChapter(): void {
     if (this.chapterNumber > 1) {
-      this.stopAutoScroll
+      this.stopAutoScroll()
       this.router.navigate([
         this.bookService.getUrlAbrv(this.book),
         this.chapterNumber - 1,
