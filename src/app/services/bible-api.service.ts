@@ -25,7 +25,7 @@ export class BibleApiService {
 
   constructor(
     private http: HttpClient,
-    private offlineDataService: OfflineDataService
+    private offlineDataService: OfflineDataService,
   ) {}
 
   getAvailableBooks(): Observable<Book[]> {
@@ -141,5 +141,4 @@ export class BibleApiService {
       }),
     )
   }
-
 }

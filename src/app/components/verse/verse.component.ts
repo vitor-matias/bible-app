@@ -20,7 +20,7 @@ import { VerseSectionComponent } from "../verse-section/verse-section.component"
     CommonModule,
     RouterModule,
     MatBottomSheetModule,
-    VerseSectionComponent
+    VerseSectionComponent,
   ],
   templateUrl: "./verse.component.html",
   styleUrls: ["./verse.component.css"],

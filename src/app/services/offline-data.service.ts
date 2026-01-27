@@ -53,7 +53,10 @@ export class OfflineDataService {
       try {
         await this.cacheLoadPromise
       } catch (error) {
-        console.error("Failed to load existing cached books before merge", error)
+        console.error(
+          "Failed to load existing cached books before merge",
+          error,
+        )
       }
     } else {
       // Kick off a load if it has not been started yet.
@@ -62,7 +65,10 @@ export class OfflineDataService {
         try {
           await this.cacheLoadPromise
         } catch (error) {
-          console.error("Failed to load existing cached books before merge", error)
+          console.error(
+            "Failed to load existing cached books before merge",
+            error,
+          )
         }
       }
     }
@@ -237,7 +243,6 @@ export class OfflineDataService {
   }
 
   private trackUmamiInstallEvent(source: "install" | "standalone") {
-    
     // @ts-expect-error: `umami` is injected on `window` by the Umami analytics script at runtime
     const umami = typeof window !== "undefined" ? window.umami : undefined
     if (umami?.track) {

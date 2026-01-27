@@ -22,6 +22,14 @@
           <mat-icon>zoom_in</mat-icon>
           <span>Aumentar tamanho da letra</span>
         </button>
+        <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)">
+          <mat-icon>auto_mode</mat-icon>
+          <span>
+            {{ autoScrollControlsVisible
+              ? 'Esconder controlos de deslocamento automático'
+              : 'Mostrar controlos de deslocamento automático' }}
+          </span>
+        </button>
         @if (canShare) {
           <button mat-menu-item (click)="onShare(menuTrigger, $event)">
             <mat-icon>share</mat-icon>

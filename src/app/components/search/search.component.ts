@@ -1,7 +1,7 @@
 import {
   ChangeDetectorRef,
   Component,
-  ElementRef,
+  type ElementRef,
   ViewChild,
 } from "@angular/core"
 import {

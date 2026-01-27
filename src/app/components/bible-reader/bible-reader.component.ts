@@ -7,6 +7,7 @@ import {
   Component,
   ElementRef,
   HostListener,
+  OnDestroy,
   ViewChild,
 } from "@angular/core"
 import { MatBottomSheetModule } from "@angular/material/bottom-sheet"
@@ -49,7 +50,7 @@ import { VerseComponent } from "../verse/verse.component"
     UnifiedGesturesDirective,
   ],
 })
-export class BibleReaderComponent {
+export class BibleReaderComponent implements OnDestroy {
   @ViewChild("bookDrawer")
   bookDrawer!: MatDrawer
 
@@ -68,6 +69,17 @@ export class BibleReaderComponent {
   bookParam: string | null = null
   chapterParam: string | null = null
   showBooks = true
+  autoScrollEnabled = false
+  autoScrollLinesPerSecond = 1
+  readonly MIN_AUTO_SCROLL_LPS = 0.25
+  readonly MAX_AUTO_SCROLL_LPS = 4
+  private readonly AUTO_SCROLL_STEP = 0.25
+  showAutoScrollControls = true
+  private autoScrollFrame?: number
+  private lastAutoScrollTimestamp?: number
+  private accumulatedScrollDelta = 0
+  private cachedLineHeight = 24
+  private lineHeightObserver?: ResizeObserver
 
   constructor(
     private apiService: BibleApiService,
@@ -78,6 +90,18 @@ export class BibleReaderComponent {
   ) {}
 
   ngOnInit(): void {
+    const storedSpeed = localStorage.getItem("autoScrollLinesPerSecond")
+    const parsedSpeed = storedSpeed ? Number.parseFloat(storedSpeed) : 0
+    if (Number.isFinite(parsedSpeed) && parsedSpeed > 0) {
+      this.autoScrollLinesPerSecond = Math.min(
+        this.MAX_AUTO_SCROLL_LPS,
+        Math.max(this.MIN_AUTO_SCROLL_LPS, parsedSpeed),
+      )
+    }
+    const storedControls = localStorage.getItem("autoScrollControlsVisible")
+    if (storedControls !== null) {
+      this.showAutoScrollControls = storedControls === "true"
+    }
     this.bookService.books$.subscribe((_books) => {
       if (_books.length === 0)
         alert("No books available. Please check your API connection.")
@@ -156,8 +180,14 @@ export class BibleReaderComponent {
     })
   }
 
+  ngOnDestroy(): void {
+    this.stopAutoScroll()
+    this.cleanupLineHeightObserver()
+  }
+
   goToNextChapter(): void {
     if (this.book.chapterCount >= this.chapterNumber + 1) {
+      this.stopAutoScroll()
       this.router.navigate([
         this.bookService.getUrlAbrv(this.book),
         this.chapterNumber + 1,
@@ -167,6 +197,7 @@ export class BibleReaderComponent {
 
   goToPreviousChapter(): void {
     if (this.chapterNumber > 1) {
+      this.stopAutoScroll()
       this.router.navigate([
         this.bookService.getUrlAbrv(this.book),
         this.chapterNumber - 1,
@@ -175,6 +206,7 @@ export class BibleReaderComponent {
   }
 
   goToChapter(newChapterNumber: Chapter["number"]): void {
+    this.stopAutoScroll()
     this.router.navigate([
       this.bookService.getUrlAbrv(this.book),
       newChapterNumber,
@@ -335,6 +367,167 @@ export class BibleReaderComponent {
 
   dismissBookDrawer(): void {
     this.bookDrawer.close()
+  }
+
+  toggleAutoScrollControlsVisibility(): void {
+    this.showAutoScrollControls = !this.showAutoScrollControls
+    localStorage.setItem(
+      "autoScrollControlsVisible",
+      this.showAutoScrollControls.toString(),
+    )
+    this.stopAutoScroll()
+  }
+
+  toggleAutoScroll(): void {
+    if (!this.autoScrollEnabled) {
+      this.startAutoScroll()
+      return
+    }
+
+    this.stopAutoScroll()
+  }
+
+  increaseAutoScrollSpeed(): void {
+    this.updateAutoScrollSpeed(this.AUTO_SCROLL_STEP)
+  }
+
+  decreaseAutoScrollSpeed(): void {
+    this.updateAutoScrollSpeed(-this.AUTO_SCROLL_STEP)
+  }
+
+  private updateAutoScrollSpeed(delta: number): void {
+    const nextSpeed = Math.min(
+      this.MAX_AUTO_SCROLL_LPS,
+      Math.max(this.MIN_AUTO_SCROLL_LPS, this.autoScrollLinesPerSecond + delta),
+    )
+    this.autoScrollLinesPerSecond = Number(nextSpeed.toFixed(2))
+    localStorage.setItem(
+      "autoScrollLinesPerSecond",
+      this.autoScrollLinesPerSecond.toString(),
+    )
+  }
+
+  private startAutoScroll(): void {
+    this.stopAutoScroll()
+    if (!this.container?._content) {
+      this.autoScrollEnabled = false
+      return
+    }
+
+    this.lastAutoScrollTimestamp = undefined
+    this.accumulatedScrollDelta = 0
+    this.autoScrollEnabled = true
+    this.setupLineHeightObserver()
+    this.autoScrollFrame = window.requestAnimationFrame((timestamp) => {
+      this.stepAutoScroll(timestamp)
+    })
+  }
+
+  private stopAutoScroll(): void {
+    this.autoScrollEnabled = false
+    if (this.autoScrollFrame) {
+      window.cancelAnimationFrame(this.autoScrollFrame)
+      this.autoScrollFrame = undefined
+    }
+    this.lastAutoScrollTimestamp = undefined
+    this.cleanupLineHeightObserver()
+    try {
+      this.cdr.markForCheck()
+    } catch {
+      // Safely ignore errors if change detection cannot be triggered (e.g., component destroyed)
+    }
+  }
+
+  private stepAutoScroll(timestamp: number): void {
+    const content = this.container?._content?.getElementRef().nativeElement
+    if (!content) {
+      this.autoScrollEnabled = false
+      this.stopAutoScroll()
+      return
+    }
+
+    if (this.lastAutoScrollTimestamp === undefined) {
+      this.lastAutoScrollTimestamp = timestamp
+    }
+
+    const deltaSeconds = Math.min(
+      0.1,
+      (timestamp - this.lastAutoScrollTimestamp) / 1000,
+    )
+    const lineHeight = this.cachedLineHeight
+    const scrollDelta =
+      lineHeight * this.autoScrollLinesPerSecond * deltaSeconds
+
+    // Accumulate scroll delta to avoid micro-scrolls at very slow speeds
+    this.accumulatedScrollDelta += scrollDelta
+
+    // Only apply scroll when accumulated delta is at least 0.5px to prevent jank
+    if (Math.abs(this.accumulatedScrollDelta) >= 0.5) {
+      const nextTop = Math.min(
+        content.scrollHeight - content.clientHeight,
+        content.scrollTop + this.accumulatedScrollDelta,
+      )
+
+      content.scrollTop = nextTop
+      this.accumulatedScrollDelta = 0
+    }
+
+    this.lastAutoScrollTimestamp = timestamp
+
+    if (content.scrollTop + 5 >= content.scrollHeight - content.clientHeight) {
+      this.stopAutoScroll()
+      return
+    }
+
+    if (this.autoScrollEnabled) {
+      this.autoScrollFrame = window.requestAnimationFrame((nextTimestamp) => {
+        this.stepAutoScroll(nextTimestamp)
+      })
+    }
+  }
+
+  private getLineHeight(): number {
+    const container = document.querySelector<HTMLElement>(".bookBlock")
+    if (!container) {
+      return 24
+    }
+
+    const computed = window.getComputedStyle(container)
+    const fontSize = Number.parseFloat(computed.fontSize || "16")
+    const lineHeightValue = computed.lineHeight
+    const lineHeight = Number.parseFloat(lineHeightValue)
+    if (Number.isFinite(lineHeight)) {
+      return lineHeight
+    }
+
+    return fontSize
+  }
+
+  private setupLineHeightObserver(): void {
+    this.cleanupLineHeightObserver()
+
+    const container = document.querySelector<HTMLElement>(".bookBlock")
+    if (!container) {
+      this.cachedLineHeight = 24
+      return
+    }
+
+    // Initialize cached line height
+    this.cachedLineHeight = this.getLineHeight()
+
+    // Create ResizeObserver to detect font size changes
+    this.lineHeightObserver = new ResizeObserver(() => {
+      this.cachedLineHeight = this.getLineHeight()
+    })
+
+    this.lineHeightObserver.observe(container)
+  }
+
+  private cleanupLineHeightObserver(): void {
+    if (this.lineHeightObserver) {
+      this.lineHeightObserver.disconnect()
+      this.lineHeightObserver = undefined
+    }
   }
 
   @HostListener("window:keydown", ["$event"])

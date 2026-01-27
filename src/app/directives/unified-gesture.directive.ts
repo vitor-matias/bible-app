@@ -2,8 +2,8 @@ import {
   Directive,
   ElementRef,
   EventEmitter,
-  OnDestroy,
-  OnInit,
+  type OnDestroy,
+  type OnInit,
   Output,
   Renderer2,
 } from "@angular/core"

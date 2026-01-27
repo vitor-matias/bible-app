@@ -42,6 +42,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   @Input() book!: Book
   @Input() chapterNumber!: number
+  @Input() autoScrollControlsVisible = false
 
   bookLabelMode: "title" | "prompt" = "title"
   private labelInterval?: number
@@ -49,6 +50,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   @Output() openBookSelector = new EventEmitter<{ open: boolean }>()
   @Output() openChapterSelector = new EventEmitter<{ open: boolean }>()
+  @Output() toggleAutoScrollControls = new EventEmitter<void>()
 
   mobile = false
   isOffline = typeof navigator !== "undefined" ? !navigator.onLine : false
@@ -95,6 +97,12 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   showChapterSelector() {
     this.openChapterSelector.emit({ open: true })
+  }
+
+  onToggleAutoScrollControls(trigger: MatMenuTrigger, event?: Event): void {
+    event?.stopPropagation()
+    this.toggleAutoScrollControls.emit()
+    trigger.closeMenu()
   }
 
   isLightTheme(): boolean {
