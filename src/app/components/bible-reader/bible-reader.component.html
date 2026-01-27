@@ -1,6 +1,12 @@
 @if (book) {
   <div class="text-container" unifiedGestures (swipeLeft)="goToNextChapter()" (swipeRight)="goToPreviousChapter()">
-    <header class="reader-header" [book]="book" [chapterNumber]="chapterNumber" (openBookSelector)="openBookDrawer($event)" (openChapterSelector)="openChapterDrawer($event)"></header>
+    <header class="reader-header"
+      [book]="book"
+      [chapterNumber]="chapterNumber"
+      [autoScrollControlsVisible]="showAutoScrollControls"
+      (openBookSelector)="openBookDrawer($event)"
+      (openChapterSelector)="openChapterDrawer($event)"
+      (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"></header>
     <mat-drawer-container class="bookSelectorContainer" #container>
       @if (getBooks()) {
         <mat-drawer class="bookSelector" mode="over" position="start" #bookDrawer closed>
@@ -57,33 +63,35 @@
           </button>
         }
       }
-      <div class="auto-scroll-controls">
-        <button
-          class="floating-nav-button auto-scroll-toggle"
-          mat-mini-fab
-          aria-label="Ativar leitura automática"
-          [attr.aria-pressed]="autoScrollEnabled"
-          (click)="toggleAutoScroll()">
-          <mat-icon>{{ autoScrollEnabled ? 'pause' : 'play_arrow' }}</mat-icon>
-        </button>
-        <div class="auto-scroll-speed">
+      @if (showAutoScrollControls) {
+        <div class="auto-scroll-controls">
           <button
-            mat-icon-button
-            aria-label="Diminuir velocidade de leitura automática"
-            [disabled]="autoScrollLinesPerSecond <= MIN_AUTO_SCROLL_LPS"
-            (click)="decreaseAutoScrollSpeed()">
-            <mat-icon>remove</mat-icon>
+            class="floating-nav-button auto-scroll-toggle"
+            mat-mini-fab
+            aria-label="Ativar leitura automática"
+            [attr.aria-pressed]="autoScrollEnabled"
+            (click)="toggleAutoScroll()">
+            <mat-icon>{{ autoScrollEnabled ? 'pause' : 'play_arrow' }}</mat-icon>
           </button>
-          <span>{{ autoScrollLinesPerSecond }} linhas/s</span>
-          <button
-            mat-icon-button
-            aria-label="Aumentar velocidade de leitura automática"
-            [disabled]="autoScrollLinesPerSecond >= MAX_AUTO_SCROLL_LPS"
-            (click)="increaseAutoScrollSpeed()">
-            <mat-icon>add</mat-icon>
-          </button>
+          <div class="auto-scroll-speed">
+            <button
+              mat-icon-button
+              aria-label="Diminuir velocidade de leitura automática"
+              [disabled]="autoScrollLinesPerSecond <= MIN_AUTO_SCROLL_LPS"
+              (click)="decreaseAutoScrollSpeed()">
+              <mat-icon>remove</mat-icon>
+            </button>
+            <span>{{ autoScrollLinesPerSecond }} linhas/s</span>
+            <button
+              mat-icon-button
+              aria-label="Aumentar velocidade de leitura automática"
+              [disabled]="autoScrollLinesPerSecond >= MAX_AUTO_SCROLL_LPS"
+              (click)="increaseAutoScrollSpeed()">
+              <mat-icon>add</mat-icon>
+            </button>
+          </div>
         </div>
-      </div>
+      }
     </mat-drawer-content>
   </mat-drawer-container>
 </div>

@@ -74,6 +74,7 @@ export class BibleReaderComponent implements OnDestroy {
   readonly MIN_AUTO_SCROLL_LPS = 0.4
   readonly MAX_AUTO_SCROLL_LPS = 3
   private readonly AUTO_SCROLL_STEP = 0.2
+  showAutoScrollControls = true
   private autoScrollFrame?: number
   private lastAutoScrollTimestamp?: number
   private cachedLineHeight?: number
@@ -94,6 +95,10 @@ export class BibleReaderComponent implements OnDestroy {
         this.MAX_AUTO_SCROLL_LPS,
         Math.max(this.MIN_AUTO_SCROLL_LPS, parsedSpeed),
       )
+    }
+    const storedControls = localStorage.getItem("autoScrollControlsVisible")
+    if (storedControls !== null) {
+      this.showAutoScrollControls = storedControls === "true"
     }
     this.bookService.books$.subscribe((_books) => {
       if (_books.length === 0)
@@ -356,6 +361,14 @@ export class BibleReaderComponent implements OnDestroy {
 
   dismissBookDrawer(): void {
     this.bookDrawer.close()
+  }
+
+  toggleAutoScrollControlsVisibility(): void {
+    this.showAutoScrollControls = !this.showAutoScrollControls
+    localStorage.setItem(
+      "autoScrollControlsVisible",
+      this.showAutoScrollControls.toString(),
+    )
   }
 
   toggleAutoScroll(): void {
