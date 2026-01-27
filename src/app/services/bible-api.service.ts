@@ -11,7 +11,7 @@ import {
   switchMap,
   throwError,
 } from "rxjs"
-import type { OfflineDataService } from "./offline-data.service"
+import { OfflineDataService } from "./offline-data.service"
 
 @Injectable({
   providedIn: "root",

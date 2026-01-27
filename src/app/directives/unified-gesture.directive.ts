@@ -1,11 +1,11 @@
 import {
   Directive,
-  type ElementRef,
+  ElementRef,
   EventEmitter,
   type OnDestroy,
   type OnInit,
   Output,
-  type Renderer2,
+  Renderer2,
 } from "@angular/core"
 
 @Directive({
