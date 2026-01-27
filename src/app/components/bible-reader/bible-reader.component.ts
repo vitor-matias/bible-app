@@ -80,6 +80,7 @@ export class BibleReaderComponent implements OnDestroy {
   private accumulatedScrollDelta = 0
   private cachedLineHeight = 24
   private lineHeightObserver?: ResizeObserver
+  private wakeLockSentinel?: WakeLockSentinel
 
   constructor(
     private apiService: BibleApiService,
@@ -183,6 +184,7 @@ export class BibleReaderComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.stopAutoScroll()
     this.cleanupLineHeightObserver()
+    this.releaseWakeLock()
   }
 
   goToNextChapter(): void {
@@ -417,6 +419,7 @@ export class BibleReaderComponent implements OnDestroy {
     this.lastAutoScrollTimestamp = undefined
     this.accumulatedScrollDelta = 0
     this.autoScrollEnabled = true
+    void this.requestWakeLock()
     this.setupLineHeightObserver()
     this.autoScrollFrame = window.requestAnimationFrame((timestamp) => {
       this.stepAutoScroll(timestamp)
@@ -431,6 +434,7 @@ export class BibleReaderComponent implements OnDestroy {
     }
     this.lastAutoScrollTimestamp = undefined
     this.cleanupLineHeightObserver()
+    void this.releaseWakeLock()
     try {
       this.cdr.markForCheck()
     } catch {
@@ -527,6 +531,49 @@ export class BibleReaderComponent implements OnDestroy {
     if (this.lineHeightObserver) {
       this.lineHeightObserver.disconnect()
       this.lineHeightObserver = undefined
+    }
+  }
+
+  private async requestWakeLock(): Promise<void> {
+    if (!("wakeLock" in navigator)) {
+      return
+    }
+
+    try {
+      const sentinel = await navigator.wakeLock.request("screen")
+      this.wakeLockSentinel = sentinel
+      sentinel.addEventListener("release", () => {
+        if (this.wakeLockSentinel === sentinel) {
+          this.wakeLockSentinel = undefined
+        }
+      })
+    } catch (error) {
+      console.warn("Unable to acquire wake lock during auto-scroll.", error)
+    }
+  }
+
+  private async releaseWakeLock(): Promise<void> {
+    if (!this.wakeLockSentinel) {
+      return
+    }
+
+    try {
+      await this.wakeLockSentinel.release()
+    } catch (error) {
+      console.warn("Unable to release wake lock.", error)
+    } finally {
+      this.wakeLockSentinel = undefined
+    }
+  }
+
+  @HostListener("document:visibilitychange")
+  async onVisibilityChange(): Promise<void> {
+    if (!this.autoScrollEnabled) {
+      return
+    }
+
+    if (document.visibilityState === "visible") {
+      await this.requestWakeLock()
     }
   }
 
