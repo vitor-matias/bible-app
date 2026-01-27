@@ -74,7 +74,7 @@ export class BibleReaderComponent implements OnDestroy {
   readonly MIN_AUTO_SCROLL_LPS = 0.25
   readonly MAX_AUTO_SCROLL_LPS = 4
   private readonly AUTO_SCROLL_STEP = 0.25
-  showAutoScrollControls = true
+  showAutoScrollControls = false
   private autoScrollFrame?: number
   private lastAutoScrollTimestamp?: number
   private accumulatedScrollDelta = 0
