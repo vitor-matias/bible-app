@@ -60,7 +60,7 @@ export class KeepAwakeService implements OnDestroy {
         }
       })
     } catch (error) {
-      console.warn("Unable to acquire wake lock during auto-scroll.", error)
+      console.warn("Unable to acquire wake lock.", error)
     }
   }
 
