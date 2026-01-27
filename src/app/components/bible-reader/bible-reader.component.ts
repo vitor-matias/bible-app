@@ -24,6 +24,7 @@ import { combineLatest } from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BookService } from "../../services/book.service"
+import { KeepAwakeService } from "../../services/keep-awake.service"
 import { AboutComponent } from "../about/about.component"
 import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"
@@ -80,15 +81,12 @@ export class BibleReaderComponent implements OnDestroy {
   private accumulatedScrollDelta = 0
   private cachedLineHeight = 24
   private lineHeightObserver?: ResizeObserver
-  private wakeLockSentinel?: WakeLockSentinel
-  private keepAwakeAudioContext?: AudioContext
-  private keepAwakeAudioSource?: OscillatorNode
-  private keepAwakeAudioGain?: GainNode
 
   constructor(
     private apiService: BibleApiService,
     private bookService: BookService,
     private cdr: ChangeDetectorRef,
+    private keepAwakeService: KeepAwakeService,
     private router: Router,
     private route: ActivatedRoute,
   ) {}
@@ -187,7 +185,6 @@ export class BibleReaderComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.stopAutoScroll()
     this.cleanupLineHeightObserver()
-    this.releaseWakeLock()
   }
 
   goToNextChapter(): void {
@@ -422,7 +419,7 @@ export class BibleReaderComponent implements OnDestroy {
     this.lastAutoScrollTimestamp = undefined
     this.accumulatedScrollDelta = 0
     this.autoScrollEnabled = true
-    void this.requestWakeLock()
+    this.keepAwakeService.start()
     this.setupLineHeightObserver()
     this.autoScrollFrame = window.requestAnimationFrame((timestamp) => {
       this.stepAutoScroll(timestamp)
@@ -437,7 +434,7 @@ export class BibleReaderComponent implements OnDestroy {
     }
     this.lastAutoScrollTimestamp = undefined
     this.cleanupLineHeightObserver()
-    void this.releaseWakeLock()
+    this.keepAwakeService.stop()
     try {
       this.cdr.markForCheck()
     } catch {
@@ -534,110 +531,6 @@ export class BibleReaderComponent implements OnDestroy {
     if (this.lineHeightObserver) {
       this.lineHeightObserver.disconnect()
       this.lineHeightObserver = undefined
-    }
-  }
-
-  private async requestWakeLock(): Promise<void> {
-    if (!("wakeLock" in navigator)) {
-      this.startAudioKeepAwake()
-      return
-    }
-
-    try {
-      if (this.wakeLockSentinel) {
-        return
-      }
-      const sentinel = await navigator.wakeLock.request("screen")
-      this.wakeLockSentinel = sentinel
-      sentinel.addEventListener("release", () => {
-        if (this.wakeLockSentinel === sentinel) {
-          this.wakeLockSentinel = undefined
-        }
-      })
-    } catch (error) {
-      console.warn("Unable to acquire wake lock during auto-scroll.", error)
-      this.startAudioKeepAwake()
-    }
-  }
-
-  private async releaseWakeLock(): Promise<void> {
-    this.stopAudioKeepAwake()
-    if (!this.wakeLockSentinel) {
-      return
-    }
-
-    try {
-      await this.wakeLockSentinel.release()
-    } catch (error) {
-      console.warn("Unable to release wake lock.", error)
-    } finally {
-      this.wakeLockSentinel = undefined
-    }
-  }
-
-  private startAudioKeepAwake(): void {
-    if (this.keepAwakeAudioContext) {
-      void this.keepAwakeAudioContext.resume()
-      return
-    }
-
-    try {
-      const AudioContextConstructor =
-        window.AudioContext ||
-        (
-          window as typeof window & {
-            webkitAudioContext?: typeof AudioContext
-          }
-        ).webkitAudioContext
-      if (!AudioContextConstructor) {
-        return
-      }
-
-      const context = new AudioContextConstructor()
-      const oscillator = context.createOscillator()
-      const gain = context.createGain()
-      gain.gain.value = 0.0001
-
-      oscillator.connect(gain)
-      gain.connect(context.destination)
-      oscillator.start()
-
-      this.keepAwakeAudioContext = context
-      this.keepAwakeAudioSource = oscillator
-      this.keepAwakeAudioGain = gain
-    } catch (error) {
-      console.warn("Unable to start audio keep-awake fallback.", error)
-    }
-  }
-
-  private stopAudioKeepAwake(): void {
-    if (this.keepAwakeAudioSource) {
-      try {
-        this.keepAwakeAudioSource.stop()
-      } catch {
-        // ignore
-      }
-      this.keepAwakeAudioSource.disconnect()
-      this.keepAwakeAudioSource = undefined
-    }
-    if (this.keepAwakeAudioGain) {
-      this.keepAwakeAudioGain.disconnect()
-      this.keepAwakeAudioGain = undefined
-    }
-    if (this.keepAwakeAudioContext) {
-      void this.keepAwakeAudioContext.close()
-      this.keepAwakeAudioContext = undefined
-    }
-  }
-
-  @HostListener("document:visibilitychange")
-  async onVisibilityChange(): Promise<void> {
-    if (!this.autoScrollEnabled) {
-      return
-    }
-
-    if (document.visibilityState === "visible") {
-      await this.requestWakeLock()
     }
   }
 
