@@ -103,7 +103,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     event?.stopPropagation()
     this.toggleAutoScrollControls.emit()
     trigger.closeMenu()
-
   }
 
   isLightTheme(): boolean {
