@@ -7,6 +7,7 @@ import {
   Component,
   ElementRef,
   HostListener,
+  OnDestroy,
   ViewChild,
 } from "@angular/core"
 import { MatBottomSheetModule } from "@angular/material/bottom-sheet"
@@ -49,7 +50,7 @@ import { VerseComponent } from "../verse/verse.component"
     UnifiedGesturesDirective,
   ],
 })
-export class BibleReaderComponent {
+export class BibleReaderComponent implements OnDestroy {
   @ViewChild("bookDrawer")
   bookDrawer!: MatDrawer
 
@@ -68,6 +69,12 @@ export class BibleReaderComponent {
   bookParam: string | null = null
   chapterParam: string | null = null
   showBooks = true
+  autoScrollEnabled = false
+  autoScrollSpeed = 18
+  private autoScrollInterval?: number
+  private readonly MIN_AUTO_SCROLL_SPEED = 6
+  private readonly MAX_AUTO_SCROLL_SPEED = 48
+  private readonly AUTO_SCROLL_STEP = 3
 
   constructor(
     private apiService: BibleApiService,
@@ -78,6 +85,14 @@ export class BibleReaderComponent {
   ) {}
 
   ngOnInit(): void {
+    const storedSpeed = localStorage.getItem("autoScrollSpeed")
+    const parsedSpeed = storedSpeed ? Number.parseInt(storedSpeed, 10) : 0
+    if (Number.isFinite(parsedSpeed) && parsedSpeed > 0) {
+      this.autoScrollSpeed = Math.min(
+        this.MAX_AUTO_SCROLL_SPEED,
+        Math.max(this.MIN_AUTO_SCROLL_SPEED, parsedSpeed),
+      )
+    }
     this.bookService.books$.subscribe((_books) => {
       if (_books.length === 0)
         alert("No books available. Please check your API connection.")
@@ -154,6 +169,10 @@ export class BibleReaderComponent {
         this.getChapter(chapterParam, verseStartParam, verseEndParam, highlight)
       })
     })
+  }
+
+  ngOnDestroy(): void {
+    this.stopAutoScroll()
   }
 
   goToNextChapter(): void {
@@ -335,6 +354,65 @@ export class BibleReaderComponent {
 
   dismissBookDrawer(): void {
     this.bookDrawer.close()
+  }
+
+  toggleAutoScroll(): void {
+    if (!this.autoScrollEnabled) {
+      this.autoScrollEnabled = true
+      this.startAutoScroll()
+      return
+    }
+
+    this.autoScrollEnabled = false
+    this.stopAutoScroll()
+  }
+
+  increaseAutoScrollSpeed(): void {
+    this.updateAutoScrollSpeed(this.AUTO_SCROLL_STEP)
+  }
+
+  decreaseAutoScrollSpeed(): void {
+    this.updateAutoScrollSpeed(-this.AUTO_SCROLL_STEP)
+  }
+
+  private updateAutoScrollSpeed(delta: number): void {
+    const nextSpeed = Math.min(
+      this.MAX_AUTO_SCROLL_SPEED,
+      Math.max(this.MIN_AUTO_SCROLL_SPEED, this.autoScrollSpeed + delta),
+    )
+    this.autoScrollSpeed = nextSpeed
+    localStorage.setItem("autoScrollSpeed", nextSpeed.toString())
+  }
+
+  private startAutoScroll(): void {
+    this.stopAutoScroll()
+    if (!this.container?._content) {
+      this.autoScrollEnabled = false
+      return
+    }
+
+    this.autoScrollInterval = window.setInterval(() => {
+      const content = this.container._content.getElementRef().nativeElement
+      const maxScrollTop = content.scrollHeight - content.clientHeight
+      const nextTop = Math.min(
+        maxScrollTop,
+        content.scrollTop + this.autoScrollSpeed / 10,
+      )
+
+      content.scrollTo({ top: nextTop })
+
+      if (nextTop >= maxScrollTop) {
+        this.autoScrollEnabled = false
+        this.stopAutoScroll()
+      }
+    }, 100)
+  }
+
+  private stopAutoScroll(): void {
+    if (this.autoScrollInterval) {
+      window.clearInterval(this.autoScrollInterval)
+      this.autoScrollInterval = undefined
+    }
   }
 
   @HostListener("window:keydown", ["$event"])

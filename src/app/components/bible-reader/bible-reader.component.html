@@ -57,6 +57,33 @@
           </button>
         }
       }
+      <div class="auto-scroll-controls">
+        <button
+          class="floating-nav-button auto-scroll-toggle"
+          mat-mini-fab
+          aria-label="Ativar leitura automática"
+          [attr.aria-pressed]="autoScrollEnabled"
+          (click)="toggleAutoScroll()">
+          <mat-icon>{{ autoScrollEnabled ? 'pause' : 'play_arrow' }}</mat-icon>
+        </button>
+        <div class="auto-scroll-speed">
+          <button
+            mat-icon-button
+            aria-label="Diminuir velocidade de leitura automática"
+            [disabled]="autoScrollSpeed <= 6"
+            (click)="decreaseAutoScrollSpeed()">
+            <mat-icon>remove</mat-icon>
+          </button>
+          <span>{{ autoScrollSpeed }} px/s</span>
+          <button
+            mat-icon-button
+            aria-label="Aumentar velocidade de leitura automática"
+            [disabled]="autoScrollSpeed >= 48"
+            (click)="increaseAutoScrollSpeed()">
+            <mat-icon>add</mat-icon>
+          </button>
+        </div>
+      </div>
     </mat-drawer-content>
   </mat-drawer-container>
 </div>
