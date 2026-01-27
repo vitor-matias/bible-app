@@ -70,14 +70,14 @@ export class BibleReaderComponent implements OnDestroy {
   chapterParam: string | null = null
   showBooks = true
   autoScrollEnabled = false
-  autoScrollLinesPerSecond = 0.8
-  readonly MIN_AUTO_SCROLL_LPS = 0.4
+  autoScrollLinesPerSecond = 1
+  readonly MIN_AUTO_SCROLL_LPS = 0.25
   readonly MAX_AUTO_SCROLL_LPS = 3
-  private readonly AUTO_SCROLL_STEP = 0.2
+  private readonly AUTO_SCROLL_STEP = 0.25
   showAutoScrollControls = true
   private autoScrollFrame?: number
   private lastAutoScrollTimestamp?: number
-  private cachedLineHeight?: number
+  private accumulatedScrollDelta = 0
 
   constructor(
     private apiService: BibleApiService,
@@ -409,8 +409,8 @@ export class BibleReaderComponent implements OnDestroy {
       return
     }
 
-    this.cachedLineHeight = this.getLineHeight()
     this.lastAutoScrollTimestamp = undefined
+    this.accumulatedScrollDelta = 0
     this.autoScrollFrame = window.requestAnimationFrame((timestamp) => {
       this.stepAutoScroll(timestamp)
     })
@@ -440,16 +440,27 @@ export class BibleReaderComponent implements OnDestroy {
       0.1,
       (timestamp - this.lastAutoScrollTimestamp) / 1000,
     )
-    const lineHeight = this.cachedLineHeight || this.getLineHeight()
-    const nextTop = Math.min(
-      content.scrollHeight - content.clientHeight,
-      content.scrollTop + lineHeight * this.autoScrollLinesPerSecond * deltaSeconds,
-    )
+    const lineHeight = this.getLineHeight()
+    const scrollDelta =
+      lineHeight * this.autoScrollLinesPerSecond * deltaSeconds
 
-    content.scrollTo({ top: nextTop })
+    // Accumulate scroll delta to avoid micro-scrolls at very slow speeds
+    this.accumulatedScrollDelta += scrollDelta
+
+    // Only apply scroll when accumulated delta is at least 0.5px to prevent jank
+    if (Math.abs(this.accumulatedScrollDelta) >= 0.5) {
+      const nextTop = Math.min(
+        content.scrollHeight - content.clientHeight,
+        content.scrollTop + this.accumulatedScrollDelta,
+      )
+
+      content.scrollTop = nextTop
+      this.accumulatedScrollDelta = 0
+    }
+
     this.lastAutoScrollTimestamp = timestamp
 
-    if (nextTop >= content.scrollHeight - content.clientHeight) {
+    if (content.scrollTop >= content.scrollHeight - content.clientHeight) {
       this.autoScrollEnabled = false
       this.stopAutoScroll()
       return
@@ -476,7 +487,7 @@ export class BibleReaderComponent implements OnDestroy {
       return lineHeight
     }
 
-    return fontSize * 1.6
+    return fontSize
   }
 
   @HostListener("window:keydown", ["$event"])

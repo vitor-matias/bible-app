@@ -42,7 +42,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   @Input() book!: Book
   @Input() chapterNumber!: number
-  @Input() autoScrollControlsVisible = true
+  @Input() autoScrollControlsVisible = false
 
   bookLabelMode: "title" | "prompt" = "title"
   private labelInterval?: number

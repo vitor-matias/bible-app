@@ -55,20 +55,13 @@
             <mat-icon>chevron_left</mat-icon>
           </button>
         }
-        @if (  chapter.number < book.chapterCount) {
-          <button class="floating-nav-button next-chapter"
-            mat-mini-fab aria-label="Next chapter"
-            (click)="goToNextChapter()">
-            <mat-icon>chevron_right</mat-icon>
-          </button>
-        }
-      }
+      
       @if (showAutoScrollControls) {
         <div class="auto-scroll-controls">
-          <button
+          <button style="position: relative;"
             class="floating-nav-button auto-scroll-toggle"
             mat-mini-fab
-            aria-label="Ativar leitura automática"
+            aria-label="Ativar deslocamento automático"
             [attr.aria-pressed]="autoScrollEnabled"
             (click)="toggleAutoScroll()">
             <mat-icon>{{ autoScrollEnabled ? 'pause' : 'play_arrow' }}</mat-icon>
@@ -76,7 +69,7 @@
           <div class="auto-scroll-speed">
             <button
               mat-icon-button
-              aria-label="Diminuir velocidade de leitura automática"
+              aria-label="Diminuir velocidade do deslocamento automático"
               [disabled]="autoScrollLinesPerSecond <= MIN_AUTO_SCROLL_LPS"
               (click)="decreaseAutoScrollSpeed()">
               <mat-icon>remove</mat-icon>
@@ -84,13 +77,21 @@
             <span>{{ autoScrollLinesPerSecond }} linhas/s</span>
             <button
               mat-icon-button
-              aria-label="Aumentar velocidade de leitura automática"
+              aria-label="Aumentar velocidade do deslocamento automático"
               [disabled]="autoScrollLinesPerSecond >= MAX_AUTO_SCROLL_LPS"
               (click)="increaseAutoScrollSpeed()">
               <mat-icon>add</mat-icon>
             </button>
           </div>
         </div>
+      }
+      @if (  chapter.number < book.chapterCount) {
+          <button class="floating-nav-button next-chapter"
+            mat-mini-fab aria-label="Next chapter"
+            (click)="goToNextChapter()">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        }
       }
     </mat-drawer-content>
   </mat-drawer-container>

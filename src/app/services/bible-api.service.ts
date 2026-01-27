@@ -120,7 +120,7 @@ export class BibleApiService {
 
   search(query: string, page = 1, limit = 50): Observable<VersePage> {
     return this.http.get(
-      `${this.api}/search?text=${encodeURIComponent(query)}&page=${page}&limit=${limit}&semantic=true`,
+      `${this.api}/search?text=${encodeURIComponent(query)}&page=${page}&limit=${limit}&semantic=false`,
     ) as Observable<VersePage>
   }
 

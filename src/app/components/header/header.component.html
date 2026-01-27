@@ -23,11 +23,11 @@
           <span>Aumentar tamanho da letra</span>
         </button>
         <button mat-menu-item (click)="onToggleAutoScrollControls($event)">
-          <mat-icon>slow_motion_video</mat-icon>
+          <mat-icon>auto_mode</mat-icon>
           <span>
             {{ autoScrollControlsVisible
-              ? 'Ocultar controles de leitura automática'
-              : 'Mostrar controles de leitura automática' }}
+              ? 'Esconder controlos de deslocamento automático'
+              : 'Mostrar controlos de deslocamento automático' }}
           </span>
         </button>
         @if (canShare) {
