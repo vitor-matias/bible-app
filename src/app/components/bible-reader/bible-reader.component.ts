@@ -431,7 +431,11 @@ export class BibleReaderComponent implements OnDestroy {
     }
     this.lastAutoScrollTimestamp = undefined
     this.cleanupLineHeightObserver()
-    this.cdr.markForCheck()
+    try {
+      this.cdr.markForCheck()
+    } catch {
+      // Safely ignore errors if change detection cannot be triggered (e.g., component destroyed)
+    }
   }
 
   private stepAutoScroll(timestamp: number): void {
