@@ -13,9 +13,18 @@ type AutoScrollConfig = {
 export class AutoScrollService implements OnDestroy {
   autoScrollEnabled = false
   autoScrollLinesPerSecond = 1
-  readonly MIN_AUTO_SCROLL_LPS = 0.25
+  readonly MIN_AUTO_SCROLL_LPS = 1 / 6
   readonly MAX_AUTO_SCROLL_LPS = 4
   readonly AUTO_SCROLL_STEP = 0.25
+  private readonly FRACTIONAL_SPEED_STEPS = [
+    { value: 1 / 6, label: "1/6" },
+    { value: 1 / 5, label: "1/5" },
+    { value: 1 / 4, label: "1/4" },
+    { value: 1 / 3, label: "1/3" },
+    { value: 1 / 2, label: "1/2" },
+    { value: 2 / 3, label: "2/3" },
+  ]
+  private readonly FRACTIONAL_EPSILON = 0.002
 
   private autoScrollFrame?: number
   private lastAutoScrollTimestamp?: number
@@ -37,14 +46,64 @@ export class AutoScrollService implements OnDestroy {
       this.MAX_AUTO_SCROLL_LPS,
       Math.max(this.MIN_AUTO_SCROLL_LPS, value),
     )
-    this.autoScrollLinesPerSecond = Number(nextSpeed.toFixed(2))
+    this.autoScrollLinesPerSecond = Number(nextSpeed.toFixed(4))
     return this.autoScrollLinesPerSecond
   }
 
   updateAutoScrollSpeed(delta: number): number {
-    return this.setAutoScrollLinesPerSecond(
-      this.autoScrollLinesPerSecond + delta,
+    const direction = Math.sign(delta)
+    if (direction === 0) {
+      return this.autoScrollLinesPerSecond
+    }
+    const nextSpeed = this.getNextSpeed(
+      this.autoScrollLinesPerSecond,
+      direction,
     )
+    return this.setAutoScrollLinesPerSecond(nextSpeed)
+  }
+
+  getAutoScrollSpeedLabel(value: number): string {
+    const fractionalLabel = this.getFractionalLabel(value)
+    if (fractionalLabel) {
+      return fractionalLabel
+    }
+    const rounded = Number(value.toFixed(2))
+    return Number.isInteger(rounded) ? rounded.toString() : rounded.toString()
+  }
+
+  private getFractionalLabel(value: number): string | null {
+    if (value >= 1) {
+      return null
+    }
+    const match = this.FRACTIONAL_SPEED_STEPS.find(
+      (step) => Math.abs(step.value - value) <= this.FRACTIONAL_EPSILON,
+    )
+    return match?.label ?? null
+  }
+
+  private getNextSpeed(current: number, direction: number): number {
+    if (direction > 0) {
+      if (current < 1) {
+        const nextFraction = this.FRACTIONAL_SPEED_STEPS.find(
+          (step) => step.value - current > this.FRACTIONAL_EPSILON,
+        )
+        if (nextFraction) {
+          return nextFraction.value
+        }
+        return 1
+      }
+      return current + this.AUTO_SCROLL_STEP
+    }
+
+    if (current <= 1) {
+      const reversed = [...this.FRACTIONAL_SPEED_STEPS].reverse()
+      const prevFraction = reversed.find(
+        (step) => current - step.value > this.FRACTIONAL_EPSILON,
+      )
+      return prevFraction?.value ?? this.FRACTIONAL_SPEED_STEPS[0].value
+    }
+
+    return current - this.AUTO_SCROLL_STEP
   }
 
   start({ scrollElement, lineHeightElement, onStop }: AutoScrollConfig): void {
