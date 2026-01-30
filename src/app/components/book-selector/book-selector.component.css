@@ -11,6 +11,8 @@ h3 {
   cursor: default;
   hyphens: auto;
   font-size: 90%;
+  min-height: 48px;
+  /* Ensure enough height for buttons */
 }
 
 h4 {
@@ -34,4 +36,24 @@ li {
 .book-group {
   font-weight: bold;
   text-transform: uppercase;
+}
+
+.bookSelectorButton:not(disabled) {
+  background-color: var(--card-background);
+  color: var(--text-color);
+  font-size: large;
+  width: 100%;
+  /* Make button fill the node area */
+  justify-content: flex-start;
+  /* Align text to left */
+  text-align: left;
+}
+
+.bookSelectorButton:hover {
+  background-color: var(--highlight-color);
+}
+
+button.highlight {
+  background-color: var(--highlight-color);
+  /* any extra styling you like */
 }

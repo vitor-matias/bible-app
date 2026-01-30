@@ -18,6 +18,7 @@ import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { RouterModule } from "@angular/router"
 import { ThemeService } from "../../services/theme.service"
+import { PreferencesService } from "../../services/preferences.service"
 
 @Component({
   standalone: true,
@@ -36,10 +37,6 @@ import { ThemeService } from "../../services/theme.service"
   styleUrls: ["./header.component.css"],
 })
 export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
-  private readonly MIN_FONT_SIZE = 70
-  private readonly MAX_FONT_SIZE = 180
-  private readonly FONT_STEP = 5
-
   @Input() book!: Book
   @Input() chapterNumber!: number
   @Input() autoScrollControlsVisible = false
@@ -57,8 +54,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   constructor(
     private readonly themeService: ThemeService,
+    private readonly preferencesService: PreferencesService,
     private readonly cdr: ChangeDetectorRef,
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     if (window.screen.width <= 480) {
@@ -106,7 +104,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   isLightTheme(): boolean {
-    return localStorage.getItem("theme") === "light"
+    return this.preferencesService.getTheme() === "light"
   }
 
   toggleTheme(): void {
@@ -118,8 +116,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.toggleTheme()
   }
 
+  @Output() increaseFontSizeEvent = new EventEmitter<void>()
+  @Output() decreaseFontSizeEvent = new EventEmitter<void>()
+
   increaseFontSize(): void {
-    this.adjustFontSize(this.FONT_STEP)
+    this.increaseFontSizeEvent.emit()
   }
 
   onIncreaseFontSize(event?: Event): void {
@@ -128,7 +129,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   decreaseFontSize(): void {
-    this.adjustFontSize(-this.FONT_STEP)
+    this.decreaseFontSizeEvent.emit()
   }
 
   onDecreaseFontSize(event?: Event): void {
@@ -188,36 +189,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.bookLabelMode = "title"
   }
 
-  private adjustFontSize(delta: number): void {
-    if (typeof document === "undefined") {
-      return
-    }
 
-    const container = document.querySelector<HTMLElement>(".text-container")
-    if (!container) {
-      return
-    }
-
-    const storageKey = `fontSize${container.getAttribute("name") || "default"}`
-    const storedSize = localStorage.getItem(storageKey)
-    const parsedSize = storedSize ? Number(storedSize) : Number.NaN
-    const currentSize = Number.isFinite(parsedSize) ? parsedSize : 105
-    const nextSize = Math.max(
-      this.MIN_FONT_SIZE,
-      Math.min(this.MAX_FONT_SIZE, currentSize + delta),
-    )
-
-    this.applyFontSize(container, nextSize)
-    localStorage.setItem(storageKey, nextSize.toString())
-  }
-
-  private applyFontSize(container: HTMLElement, fontSize: number): void {
-    container.style.fontSize = `${fontSize}%`
-    const headings = container.querySelectorAll<HTMLElement>("h1, h2, h3")
-    for (const heading of headings) {
-      heading.style.fontSize = `${fontSize + 5}%`
-    }
-  }
 
   private updateOnlineStatus = () => {
     this.isOffline =

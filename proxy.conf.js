@@ -4,5 +4,6 @@ module.exports = [
       context: ['/v1/**'],
       target: defaultTarget,
       changeOrigin: true,
+      secure: false,
    }
 ];

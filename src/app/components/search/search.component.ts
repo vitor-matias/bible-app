@@ -48,7 +48,7 @@ export class SearchComponent {
     private snackBar: MatSnackBar,
     private router: Router,
     private cdr: ChangeDetectorRef,
-  ) {}
+  ) { }
 
   ngAfterViewInit(): void {
     this.attachObserverToSentinel()
@@ -131,13 +131,13 @@ export class SearchComponent {
                 ["/", book.id, ref.chapter ? ref.chapter : 1],
                 ref.verses
                   ? {
-                      queryParams: {
-                        verse:
-                          ref.verses[0].type === "single"
-                            ? ref.verses[0].verse
-                            : ref.verses[0].start,
-                      },
-                    }
+                    queryParams: {
+                      verse:
+                        ref.verses[0].type === "single"
+                          ? ref.verses[0].verse
+                          : ref.verses[0].start,
+                    },
+                  }
                   : {},
               )
             },
@@ -212,11 +212,13 @@ export class SearchComponent {
     return result
   }
 
-  @ViewChild("container", { static: false }) resultsContainer!: Element
+  @ViewChild("resultsContainer", { static: false }) resultsContainer!: ElementRef
 
   scrollToTop() {
     setTimeout(() => {
-      window.scrollTo({ top: 0, behavior: "smooth" })
+      if (this.resultsContainer?.nativeElement) {
+        this.resultsContainer.nativeElement.scrollTo({ top: 0, behavior: "smooth" })
+      }
     }, 100)
   }
 

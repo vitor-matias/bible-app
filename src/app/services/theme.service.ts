@@ -1,5 +1,6 @@
 import { Injectable } from "@angular/core"
 import { BehaviorSubject } from "rxjs"
+import { PreferencesService } from "./preferences.service"
 
 @Injectable({
   providedIn: "root",
@@ -7,9 +8,9 @@ import { BehaviorSubject } from "rxjs"
 export class ThemeService {
   private isDarkTheme = new BehaviorSubject<boolean>(false)
 
-  constructor() {
+  constructor(private preferencesService: PreferencesService) {
     // Check localStorage for saved theme preference
-    const savedTheme = localStorage.getItem("theme")
+    const savedTheme = this.preferencesService.getTheme()
     const prefersDark = window.matchMedia(
       "(prefers-color-scheme: dark)",
     ).matches
@@ -29,7 +30,7 @@ export class ThemeService {
     const newTheme = !this.isDarkTheme.value
     this.isDarkTheme.next(newTheme)
     this.applyTheme(newTheme)
-    localStorage.setItem("theme", newTheme ? "dark" : "light")
+    this.preferencesService.setTheme(newTheme ? "dark" : "light")
     // @ts-expect-error
     if (window.umami) {
       // @ts-expect-error

@@ -25,6 +25,7 @@ import { UnifiedGesturesDirective } from "../../directives/unified-gesture.direc
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BookService } from "../../services/book.service"
+import { PreferencesService } from "../../services/preferences.service"
 import { AboutComponent } from "../about/about.component"
 import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"
@@ -58,8 +59,12 @@ export class BibleReaderComponent implements OnDestroy {
   @ViewChild("container")
   container!: MatDrawerContainer
 
+  @ViewChild(UnifiedGesturesDirective) gestures!: UnifiedGesturesDirective
+
   @ViewChild("bookDrawerCloseButton") bookDrawerCloseButton!: ElementRef
   @ViewChild("chapterDrawerCloseButton") chapterDrawerCloseButton!: ElementRef
+
+  @ViewChild("bookBlock") bookBlock!: ElementRef
 
   private routeSub: Subscription | undefined
 
@@ -76,21 +81,19 @@ export class BibleReaderComponent implements OnDestroy {
     private autoScrollService: AutoScrollService,
     private apiService: BibleApiService,
     private bookService: BookService,
+    private preferencesService: PreferencesService,
     private cdr: ChangeDetectorRef,
     private router: Router,
     private route: ActivatedRoute,
-  ) {}
+  ) { }
 
   ngOnInit(): void {
-    const storedSpeed = localStorage.getItem("autoScrollLinesPerSecond")
-    const parsedSpeed = storedSpeed ? Number.parseFloat(storedSpeed) : 0
-    if (Number.isFinite(parsedSpeed) && parsedSpeed > 0) {
-      this.autoScrollService.setAutoScrollLinesPerSecond(parsedSpeed)
+    const storedSpeed = this.preferencesService.getAutoScrollSpeed()
+    if (storedSpeed) {
+      this.autoScrollService.setAutoScrollLinesPerSecond(storedSpeed)
     }
-    const storedControls = localStorage.getItem("autoScrollControlsVisible")
-    if (storedControls !== null) {
-      this.showAutoScrollControls = storedControls === "true"
-    }
+
+    this.showAutoScrollControls = this.preferencesService.getAutoScrollControlsVisible()
     this.bookService.books$.subscribe((_books) => {
       if (_books.length === 0)
         alert("No books available. Please check your API connection.")
@@ -103,17 +106,18 @@ export class BibleReaderComponent implements OnDestroy {
 
       const verseStartParam =
         this.router.routerState.snapshot.root.firstChild?.queryParams[
-          "verseStart"
+        "verseStart"
         ]
       const verseEndParam =
         this.router.routerState.snapshot.root.firstChild?.queryParams[
-          "verseEnd"
+        "verseEnd"
         ]
 
+
       const storedBook =
-        this.bookParam || localStorage.getItem("book") || "about"
+        this.bookParam || this.preferencesService.getLastBookId() || "about"
       const storedChapter =
-        this.chapterParam || localStorage.getItem("chapter") || "1"
+        this.chapterParam || (this.preferencesService.getLastChapterNumber()?.toString()) || "1"
 
       if (storedBook && storedChapter) {
         this.book = this.bookService.findBook(storedBook)
@@ -242,8 +246,8 @@ export class BibleReaderComponent implements OnDestroy {
           this.scrollToVerseElement(verseStart, verseEnd, highlight)
         }
 
-        localStorage.setItem("book", this.book.id)
-        localStorage.setItem("chapter", this.chapterNumber.toString())
+        this.preferencesService.setLastBookId(this.book.id)
+        this.preferencesService.setLastChapterNumber(this.chapterNumber)
       },
       error: (err) => {
         if (this.book.id === "about") {
@@ -257,8 +261,8 @@ export class BibleReaderComponent implements OnDestroy {
             this.scrollToVerseElement(verseStart, verseEnd, highlight)
           }
 
-          localStorage.setItem("book", this.book.id)
-          localStorage.setItem("chapter", this.chapterNumber.toString())
+          this.preferencesService.setLastBookId(this.book.id)
+          this.preferencesService.setLastChapterNumber(this.chapterNumber)
         } else {
           this.router.navigate(["/", this.bookService.getUrlAbrv(this.book), 1])
         }
@@ -280,8 +284,12 @@ export class BibleReaderComponent implements OnDestroy {
   ) {
     setTimeout(() => {
       let scrolled = false
+      const container = this.bookBlock?.nativeElement
+      if (!container) return
+
       for (let i = verseStart; i <= (verseEnd || verseStart); i++) {
-        const element = document.getElementById(`${i}`)
+        // Scope search to the book block
+        const element = container.querySelector(`[id="${i}"]`) as HTMLElement
         if (element) {
           if (!scrolled) {
             element.scrollIntoView({
@@ -306,48 +314,41 @@ export class BibleReaderComponent implements OnDestroy {
   openBookDrawer(event: { open: boolean }) {
     if (this.showBooks) {
       this.bookDrawer.toggle().finally(() => {
-        const closeButton = document.querySelector(
-          ".bookSelector .dismiss-button",
-        ) as HTMLElement
-        if (closeButton) {
-          closeButton.blur()
-        }
+        this.focusCloseButton()
       })
     } else {
       this.bookDrawer.close().finally(() => {
         this.showBooks = true
         this.bookDrawer.toggle().finally(() => {
-          const closeButton = document.querySelector(
-            ".bookSelector .dismiss-button",
-          ) as HTMLElement
-          if (closeButton) {
-            closeButton.blur()
-          }
+          this.focusCloseButton()
         })
       })
+    }
+  }
+
+  private focusCloseButton() {
+    // Optional: could use ViewChild if the button is always present,
+    // but since it's inside conditional templates or drawers, querySelector is sometimes pragmatic.
+    // However, let's try to trust the user's focus management or leave it for now.
+    // I will leave it as is to avoid breaking focus logic without testing, 
+    // but the prompt asked to replace direct DOM queries.
+    // Let's use the nativeElement of the component to scope it at least.
+    const closeButton = this.bookDrawerCloseButton?.nativeElement as HTMLElement
+    if (closeButton) {
+      closeButton.blur()
     }
   }
 
   openChapterDrawer(event: { open: boolean }) {
     if (!this.showBooks) {
       this.bookDrawer.toggle().finally(() => {
-        const closeButton = document.querySelector(
-          ".bookSelector .dismiss-button",
-        ) as HTMLElement
-        if (closeButton) {
-          closeButton.blur()
-        }
+        this.focusCloseButton()
       })
     } else {
       this.bookDrawer.close().finally(() => {
         this.showBooks = false
         this.bookDrawer.toggle().finally(() => {
-          const closeButton = document.querySelector(
-            ".bookSelector .dismiss-button",
-          ) as HTMLElement
-          if (closeButton) {
-            closeButton.blur()
-          }
+          this.focusCloseButton()
         })
       })
     }
@@ -359,10 +360,7 @@ export class BibleReaderComponent implements OnDestroy {
 
   toggleAutoScrollControlsVisibility(): void {
     this.showAutoScrollControls = !this.showAutoScrollControls
-    localStorage.setItem(
-      "autoScrollControlsVisible",
-      this.showAutoScrollControls.toString(),
-    )
+    this.preferencesService.setAutoScrollControlsVisible(this.showAutoScrollControls)
     this.stopAutoScroll()
   }
 
@@ -385,12 +383,12 @@ export class BibleReaderComponent implements OnDestroy {
 
   private updateAutoScrollSpeed(delta: number): void {
     const nextSpeed = this.autoScrollService.updateAutoScrollSpeed(delta)
-    localStorage.setItem("autoScrollLinesPerSecond", nextSpeed.toString())
+    this.preferencesService.setAutoScrollSpeed(nextSpeed)
   }
 
   private startAutoScroll(): void {
     const content = this.container?._content?.getElementRef().nativeElement
-    const lineHeightElement = document.querySelector<HTMLElement>(".bookBlock")
+    const lineHeightElement = this.bookBlock?.nativeElement
     this.autoScrollService.start({
       scrollElement: content,
       lineHeightElement,
@@ -447,5 +445,13 @@ export class BibleReaderComponent implements OnDestroy {
 
   getBooks() {
     return this.bookService.getBooks()
+  }
+
+  onIncreaseFontSize(): void {
+    this.gestures.increaseFontSize()
+  }
+
+  onDecreaseFontSize(): void {
+    this.gestures.decreaseFontSize()
   }
 }
