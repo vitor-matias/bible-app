@@ -23,6 +23,7 @@ export class AutoScrollService implements OnDestroy {
     { value: 1 / 3, label: "1/3" },
     { value: 1 / 2, label: "1/2" },
     { value: 2 / 3, label: "2/3" },
+    { value: 3 / 4, label: "3/4" },
   ]
   private readonly FRACTIONAL_EPSILON = 0.002
 
@@ -35,7 +36,7 @@ export class AutoScrollService implements OnDestroy {
   private lineHeightElement?: HTMLElement
   private onStop?: () => void
 
-  constructor(private keepAwakeService: KeepAwakeService) {}
+  constructor(private keepAwakeService: KeepAwakeService) { }
 
   ngOnDestroy(): void {
     this.stop()

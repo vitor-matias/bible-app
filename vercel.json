@@ -1,0 +1,8 @@
+{
+    "rewrites": [
+        {
+            "source": "/v1/:path*",
+            "destination": "https://biblia.capuchinhos.org/v1/:path*"
+        }
+    ]
+}
