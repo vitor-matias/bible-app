@@ -1,8 +1,8 @@
-let defaultTarget = 'http://localhost:3000/';
+let defaultTarget = 'https://biblia.capuchinhos.org/';
 module.exports = [
-{
-   context: ['/v1/**'],
-   target: defaultTarget,
-   changeOrigin: true,
-}
+   {
+      context: ['/v1/**'],
+      target: defaultTarget,
+      changeOrigin: true,
+   }
 ];

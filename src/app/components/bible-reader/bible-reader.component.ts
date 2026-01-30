@@ -421,6 +421,12 @@ export class BibleReaderComponent implements OnDestroy {
     return this.autoScrollService.autoScrollLinesPerSecond
   }
 
+  get autoScrollSpeedLabel(): string {
+    return this.autoScrollService.getAutoScrollSpeedLabel(
+      this.autoScrollLinesPerSecond,
+    )
+  }
+
   get MIN_AUTO_SCROLL_LPS(): number {
     return this.autoScrollService.MIN_AUTO_SCROLL_LPS
   }
