@@ -3,7 +3,6 @@ import {
   Component,
   type ElementRef,
   ViewChild,
-  ViewContainerRef,
 } from "@angular/core"
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
 import { Router, RouterModule } from "@angular/router"
@@ -189,9 +188,9 @@ export class SearchComponent {
       this.attachObserverToSentinel() // Attach observer after new search
       this.scrollToTop()
 
-      // @ts-ignore
+      // @ts-expect-error
       if (window.umami) {
-        // @ts-ignore
+        // @ts-expect-error
         window.umami.track("search", {
           text,
         })
@@ -210,11 +209,17 @@ export class SearchComponent {
     return result
   }
 
-  @ViewChild("container", { static: false }) resultsContainer!: Element
+  @ViewChild("resultsContainer", { static: false })
+  resultsContainer!: ElementRef
 
   scrollToTop() {
     setTimeout(() => {
-      window.scrollTo({ top: 0, behavior: "smooth" })
+      if (this.resultsContainer?.nativeElement) {
+        this.resultsContainer.nativeElement.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        })
+      }
     }, 100)
   }
 

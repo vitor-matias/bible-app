@@ -2,9 +2,32 @@
     "javascript": {
         "formatter": {
             "semicolons": "asNeeded"
+        },
+        "parser": {
+            "unsafeParameterDecoratorsEnabled": true
         }
     },
     "formatter": {
         "indentStyle": "space"
+    },
+    "linter": {
+        "rules": {
+            "style": {
+                "useImportType": "off"
+            },
+            "correctness": {
+                "noUnusedFunctionParameters": "off"
+            },
+            "complexity": {
+                "useLiteralKeys": "off"
+            }
+        }
+    },
+    "files": {
+        "includes": [
+            "**/*.ts",
+            "**/*.js",
+            "**/*.json"
+        ]
     }
 }

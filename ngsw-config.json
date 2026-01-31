@@ -26,5 +26,41 @@
         ]
       }
     }
+  ],
+  "dataGroups": [
+    {
+      "name": "material-icons-fonts",
+      "urls": [
+        "https://fonts.googleapis.com/icon?family=Material+Icons",
+        "https://fonts.gstatic.com/s/materialicons/**"
+      ],
+      "cacheConfig": {
+        "strategy": "performance",
+        "maxSize": 10,
+        "maxAge": "30d"
+      }
+    },
+    {
+      "name": "bible-search",
+      "urls": [
+        "/v1/search**"
+      ],
+      "cacheConfig": {
+        "strategy": "performance",
+        "maxSize": 20,
+        "maxAge": "7d"
+      }
+    },
+    {
+      "name": "bible-content",
+      "urls": [
+        "/v1/**"
+      ],
+      "cacheConfig": {
+        "strategy": "performance",
+        "maxSize": 3000,
+        "maxAge": "7d"
+      }
+    }
   ]
 }

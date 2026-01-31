@@ -1,23 +1,23 @@
-
 import {
   ChangeDetectorRef,
   Component,
   EventEmitter,
   Input,
-  OnChanges,
-  OnDestroy,
+  type OnChanges,
+  type OnDestroy,
   type OnInit,
   Output,
-  SimpleChanges,
+  type SimpleChanges,
 } from "@angular/core"
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
 import { MatIconModule } from "@angular/material/icon"
-import { MatMenuModule, MatMenuTrigger } from "@angular/material/menu"
+import { MatMenuModule, type MatMenuTrigger } from "@angular/material/menu"
 import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { RouterModule } from "@angular/router"
+import { PreferencesService } from "../../services/preferences.service"
 import { ThemeService } from "../../services/theme.service"
 
 @Component({
@@ -37,12 +37,9 @@ import { ThemeService } from "../../services/theme.service"
   styleUrls: ["./header.component.css"],
 })
 export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
-  private readonly MIN_FONT_SIZE = 70
-  private readonly MAX_FONT_SIZE = 180
-  private readonly FONT_STEP = 5
-
   @Input() book!: Book
   @Input() chapterNumber!: number
+  @Input() autoScrollControlsVisible = false
 
   bookLabelMode: "title" | "prompt" = "title"
   private labelInterval?: number
@@ -50,11 +47,14 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   @Output() openBookSelector = new EventEmitter<{ open: boolean }>()
   @Output() openChapterSelector = new EventEmitter<{ open: boolean }>()
+  @Output() toggleAutoScrollControls = new EventEmitter<void>()
 
   mobile = false
+  isOffline = typeof navigator !== "undefined" ? !navigator.onLine : false
 
   constructor(
     private readonly themeService: ThemeService,
+    private readonly preferencesService: PreferencesService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
@@ -65,6 +65,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
     this.canShare =
       typeof navigator !== "undefined" && typeof navigator.share === "function"
+    if (typeof window !== "undefined") {
+      window.addEventListener("online", this.updateOnlineStatus)
+      window.addEventListener("offline", this.updateOnlineStatus)
+    }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -79,6 +83,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopLabelCycle()
+    if (typeof window !== "undefined") {
+      window.removeEventListener("online", this.updateOnlineStatus)
+      window.removeEventListener("offline", this.updateOnlineStatus)
+    }
   }
 
   showBookSelector() {
@@ -89,8 +97,14 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.openChapterSelector.emit({ open: true })
   }
 
+  onToggleAutoScrollControls(trigger: MatMenuTrigger, event?: Event): void {
+    event?.stopPropagation()
+    this.toggleAutoScrollControls.emit()
+    trigger.closeMenu()
+  }
+
   isLightTheme(): boolean {
-    return localStorage.getItem("theme") === "light"
+    return this.preferencesService.getTheme() === "light"
   }
 
   toggleTheme(): void {
@@ -102,8 +116,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.toggleTheme()
   }
 
+  @Output() increaseFontSizeEvent = new EventEmitter<void>()
+  @Output() decreaseFontSizeEvent = new EventEmitter<void>()
+
   increaseFontSize(): void {
-    this.adjustFontSize(this.FONT_STEP)
+    this.increaseFontSizeEvent.emit()
   }
 
   onIncreaseFontSize(event?: Event): void {
@@ -112,7 +129,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   decreaseFontSize(): void {
-    this.adjustFontSize(-this.FONT_STEP)
+    this.decreaseFontSizeEvent.emit()
   }
 
   onDecreaseFontSize(event?: Event): void {
@@ -141,10 +158,13 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     try {
       await navigator.share({ title, text, url }).finally(() => {
         // Shared successfully
-        // @ts-ignore
-        if(globalThis.umami) {
-          // @ts-ignore
-          globalThis.umami.track('share', { book: this.book?.id, chapter: this.chapterNumber });
+        // @ts-expect-error
+        if (globalThis.umami) {
+          // @ts-expect-error
+          globalThis.umami.track("share", {
+            book: this.book?.id,
+            chapter: this.chapterNumber,
+          })
         }
       })
     } catch {
@@ -169,34 +189,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.bookLabelMode = "title"
   }
 
-  private adjustFontSize(delta: number): void {
-    if (typeof document === "undefined") {
-      return
-    }
-
-    const container = document.querySelector<HTMLElement>(".text-container")
-    if (!container) {
-      return
-    }
-
-    const storageKey = `fontSize${container.getAttribute("name") || "default"}`
-    const storedSize = localStorage.getItem(storageKey)
-    const parsedSize = storedSize ? Number(storedSize) : Number.NaN
-    const currentSize = Number.isFinite(parsedSize) ? parsedSize : 105
-    const nextSize = Math.max(
-      this.MIN_FONT_SIZE,
-      Math.min(this.MAX_FONT_SIZE, currentSize + delta),
-    )
-
-    this.applyFontSize(container, nextSize)
-    localStorage.setItem(storageKey, nextSize.toString())
-  }
-
-  private applyFontSize(container: HTMLElement, fontSize: number): void {
-    container.style.fontSize = `${fontSize}%`
-    const headings = container.querySelectorAll<HTMLElement>("h1, h2, h3")
-    for (const heading of headings) {
-      heading.style.fontSize = `${fontSize + 5}%`
-    }
+  private updateOnlineStatus = () => {
+    this.isOffline =
+      typeof navigator !== "undefined" ? !navigator.onLine : false
+    this.cdr.detectChanges()
   }
 }

@@ -1,5 +1,10 @@
 .results-section {
   margin-top: 0px;
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: none; /* Prevents rubber banding in this container */
+  -webkit-overflow-scrolling: touch;
 }
 
 .results-header {
@@ -49,9 +54,13 @@
 }
 
 .search-container {
-  padding: 20px;
-  overflow-y: auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 56px);
+  overflow: hidden;
   overscroll-behavior: none; /* Prevents rubber banding in this container */
+  touch-action: pan-y;
 }
 
 ::ng-deep .mat-mdc-button .mdc-button__label {

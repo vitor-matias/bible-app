@@ -1,5 +1,6 @@
-<div unifiedGestures class="search-container" #container>
   <search-bar (searchValue)="onSearchSubmit($event)"></search-bar>
+  <div unifiedGestures class="search-container" #container>
+
   @if(searchResults.length > 0){
   <div  class="results-section" #resultsContainer>
     <ul class="results-list">

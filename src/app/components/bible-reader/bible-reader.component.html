@@ -1,62 +1,84 @@
 @if (book) {
-  <div class="text-container" unifiedGestures (swipeLeft)="goToNextChapter()" (swipeRight)="goToPreviousChapter()">
-    <header class="reader-header" [book]="book" [chapterNumber]="chapterNumber" (openBookSelector)="openBookDrawer($event)" (openChapterSelector)="openChapterDrawer($event)"></header>
-    <mat-drawer-container class="bookSelectorContainer" #container>
-      @if (getBooks()) {
-        <mat-drawer class="bookSelector" mode="over" position="start" #bookDrawer closed>
-          <button matIconButton (click)="dismissBookDrawer()" class="dismiss-button" #bookDrawerCloseButton>
-            <mat-icon>menu_open</mat-icon>
-          </button>
-          @if(showBooks){
-            <book-selector [books]="getBooks()" (submitData)="onBookSubmit($event)"></book-selector>
-          }
-          @else{
-          <chapter-selector [chapters]="book.chapters || []" [selectedChapter]="chapterNumber" (submitData)="onChapterSubmit($event)"></chapter-selector>
-        }
-      </mat-drawer>
+<div class="text-container" unifiedGestures (swipeLeft)="goToNextChapter()" (swipeRight)="goToPreviousChapter()">
+  <header class="reader-header" [book]="book" [chapterNumber]="chapterNumber"
+    [autoScrollControlsVisible]="showAutoScrollControls" (openBookSelector)="openBookDrawer($event)"
+    (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
+    (increaseFontSizeEvent)="onIncreaseFontSize()" (decreaseFontSizeEvent)="onDecreaseFontSize()"></header>
+  <mat-drawer-container class="bookSelectorContainer" #container>
+    @if (getBooks()) {
+    <mat-drawer class="bookSelector" mode="over" position="start" #bookDrawer closed>
+      <button matIconButton (click)="dismissBookDrawer()" class="dismiss-button" #bookDrawerCloseButton>
+        <mat-icon>menu_open</mat-icon>
+      </button>
+      @if(showBooks){
+      <book-selector [books]="getBooks()" (submitData)="onBookSubmit($event)"
+        [selectedBookId]="book.id"></book-selector>
+      }
+      @else{
+      <chapter-selector [chapters]="book.chapters || []" [selectedChapter]="chapterNumber"
+        (submitData)="onChapterSubmit($event)"></chapter-selector>
+      }
+    </mat-drawer>
     }
     <mat-drawer-content style="background-color: var(--background-color)">
       <div style="margin: 8px 8px 0px 8px;">
-        <div class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}">
+        <div #bookBlock class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}">
           @if (chapter) {
-            <div pinch-to-zoom class="chapterBlock">
-              @if(book.id !== 'about'){
-                @for (verse of chapter.verses; track verse) {
-                  <verse [id]="verse.number" class="verse" [data]="verse"></verse>
-                }
-              }
-              @if (book.id==='about') {
-                <about></about>
-              }
-              <br><br>
-              <span class="center"><b>© DIFUSORA BÍBLICA</b></span>
-              <span class="center">
-                Reservados todos os direitos. É proibida a reprodução, total ou parcial, do texto, sem autorização, por
+          <div pinch-to-zoom class="chapterBlock">
+            @if(book.id !== 'about'){
+            @for (verse of chapter.verses; track verse) {
+            <verse [id]="verse.number" class="verse" [data]="verse"></verse>
+            }
+            }
+            @if (book.id==='about') {
+            <about></about>
+            }
+            <br><br>
+            <span class="center"><b>© DIFUSORA BÍBLICA</b></span>
+            <span class="center">
+              Reservados todos os direitos. É proibida a reprodução, total ou parcial, do texto, sem autorização, por
               escrito, da Editora.</span>
-            </div>
+          </div>
           }
           @if (scrolled) {
-            <div style="height: 64px;"></div>
+          <div style="height: 64px;"></div>
           }
         </div>
       </div>
       @if (book.id !== 'about') {
-        <!-- Floating navigation buttons -->
-        @if (chapter.number > 1) {
-          <button class="floating-nav-button prev-chapter"
-            mat-mini-fab aria-label="Previous chapter"
-            (click)="goToPreviousChapter()">
-            <mat-icon>chevron_left</mat-icon>
-          </button>
-        }
-        @if (  chapter.number < book.chapterCount) {
-          <button class="floating-nav-button next-chapter"
-            mat-mini-fab aria-label="Next chapter"
-            (click)="goToNextChapter()">
-            <mat-icon>chevron_right</mat-icon>
-          </button>
-        }
+      <!-- Floating navigation buttons -->
+      @if (chapter.number > 1) {
+      <button class="floating-nav-button prev-chapter" mat-mini-fab aria-label="Previous chapter"
+        (click)="goToPreviousChapter()">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
       }
+      @if (showAutoScrollControls) {
+      <div class="auto-scroll-controls">
+        <button class="position-relative floating-nav-button auto-scroll-toggle" mat-mini-fab
+          [attr.aria-label]="autoScrollEnabled ? 'Pausar deslocamento automático' : 'Ativar deslocamento automático'"
+          [attr.aria-pressed]="autoScrollEnabled" (click)="toggleAutoScroll()">
+          <mat-icon>{{ autoScrollEnabled ? 'pause' : 'play_arrow' }}</mat-icon>
+        </button>
+        <div class="auto-scroll-speed">
+          <button mat-icon-button aria-label="Diminuir velocidade do deslocamento automático"
+            [disabled]="autoScrollLinesPerSecond <= MIN_AUTO_SCROLL_LPS" (click)="decreaseAutoScrollSpeed()">
+            <mat-icon>remove</mat-icon>
+          </button>
+          <span>{{ autoScrollSpeedLabel }} ln/s</span>
+          <button mat-icon-button aria-label="Aumentar velocidade do deslocamento automático"
+            [disabled]="autoScrollLinesPerSecond >= MAX_AUTO_SCROLL_LPS" (click)="increaseAutoScrollSpeed()">
+            <mat-icon>add</mat-icon>
+          </button>
+        </div>
+      </div>
+      }
+      @if (chapter.number < book.chapterCount) { <button class="floating-nav-button next-chapter" mat-mini-fab
+        aria-label="Next chapter" (click)="goToNextChapter()">
+        <mat-icon>chevron_right</mat-icon>
+        </button>
+        }
+        }
     </mat-drawer-content>
   </mat-drawer-container>
 </div>

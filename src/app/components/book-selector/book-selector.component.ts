@@ -1,6 +1,15 @@
 import { FlatTreeControl } from "@angular/cdk/tree"
 
-import { Component, EventEmitter, Input, Output } from "@angular/core"
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  EventEmitter,
+  Input,
+  OnChanges,
+  Output,
+  SimpleChanges,
+} from "@angular/core"
 
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
@@ -24,16 +33,11 @@ interface ExampleFlatNode {
 
 @Component({
   selector: "book-selector",
-  imports: [
-    MatListModule,
-    MatTreeModule,
-    MatIconModule,
-    MatButtonModule
-],
+  imports: [MatListModule, MatTreeModule, MatIconModule, MatButtonModule],
   templateUrl: "./book-selector.component.html",
   styleUrl: "./book-selector.component.css",
 })
-export class BookSelectorComponent {
+export class BookSelectorComponent implements AfterViewInit, OnChanges {
   private _transformer = (node: BookNode | string, level: number) => {
     return {
       expandable:
@@ -76,7 +80,7 @@ export class BookSelectorComponent {
     this.ntTreeFlattener,
   )
 
-  constructor() {
+  constructor(private elementRef: ElementRef) {
     this.otDataSource.data = this.oldTestament
     this.ntDataSource.data = this.newTestament
 
@@ -185,6 +189,9 @@ export class BookSelectorComponent {
   @Input()
   books: Book[] = []
 
+  @Input()
+  selectedBookId: string | undefined
+
   @Output() submitData = new EventEmitter<{ bookId: Book["id"] }>()
 
   getBook(bookId: string): Book | undefined {
@@ -197,5 +204,29 @@ export class BookSelectorComponent {
 
   onKeyPress(event: KeyboardEvent, id: Book["id"]): void {
     this.submit(id)
+  }
+
+  ngAfterViewInit(): void {
+    this.scrollToSelectedBook()
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes["selectedBookId"] && !changes["selectedBookId"].firstChange) {
+      // Delay slightly to allow DOM to update if needed (though book list is likely static)
+      setTimeout(() => this.scrollToSelectedBook(), 100)
+    }
+  }
+
+  private scrollToSelectedBook(): void {
+    if (!this.selectedBookId) return
+
+    // Find element with data-book-id
+    const element = this.elementRef.nativeElement.querySelector(
+      `[data-book-id="${this.selectedBookId}"]`,
+    )
+
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
   }
 }

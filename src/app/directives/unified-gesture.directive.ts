@@ -7,10 +7,12 @@ import {
   Output,
   Renderer2,
 } from "@angular/core"
+import { PreferencesService } from "../services/preferences.service"
 
 @Directive({
   selector: "[unifiedGestures]",
   standalone: true,
+  exportAs: "unifiedGestures",
 })
 export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   @Output() swipeLeft = new EventEmitter<void>()
@@ -19,6 +21,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
 
   private baseFontSize: number
   private currentFontSize: number
+  private readonly FONT_STEP = 5
 
   // Touch tracking variables
   private touches: { [key: number]: Touch } = {}
@@ -43,16 +46,16 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   constructor(
     private el: ElementRef,
     private renderer: Renderer2,
+    private preferencesService: PreferencesService,
   ) {
     // Get the initial font size
     const computedStyle = getComputedStyle(this.el.nativeElement)
     this.baseFontSize = Number.parseFloat(computedStyle.fontSize) || 105
 
     // Load stored font size
-    const storedSize = localStorage.getItem(
-      `fontSize${this.el.nativeElement.name || "default"}`,
-    )
-    this.currentFontSize = storedSize ? Number(storedSize) : this.baseFontSize
+    const context = this.el.nativeElement.name || "default"
+    const storedSize = this.preferencesService.getFontSize(context)
+    this.currentFontSize = storedSize ? storedSize : this.baseFontSize
 
     if (storedSize) {
       this.setFontSize(this.currentFontSize)
@@ -206,16 +209,34 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     this.lastScale = this.currentFontSize / this.baseFontSize
 
     // Store the new font size
-    localStorage.setItem(
-      `fontSize${this.el.nativeElement.name || "default"}`,
-      this.currentFontSize.toString(),
-    )
+    const context = this.el.nativeElement.name || "default"
+    this.preferencesService.setFontSize(this.currentFontSize, context)
   }
 
   private getDistance(touch1: Touch, touch2: Touch): number {
     const dx = touch1.clientX - touch2.clientX
     const dy = touch1.clientY - touch2.clientY
     return Math.sqrt(dx * dx + dy * dy)
+  }
+
+  public increaseFontSize(): void {
+    this.adjustFontSize(this.FONT_STEP)
+  }
+
+  public decreaseFontSize(): void {
+    this.adjustFontSize(-this.FONT_STEP)
+  }
+
+  private adjustFontSize(delta: number): void {
+    const nextSize = Math.max(
+      this.MIN_FONT_SIZE,
+      Math.min(this.MAX_FONT_SIZE, this.currentFontSize + delta),
+    )
+    this.setFontSize(nextSize)
+    this.currentFontSize = nextSize
+
+    const context = this.el.nativeElement.name || "default"
+    this.preferencesService.setFontSize(this.currentFontSize, context)
   }
 
   private setFontSize(fontSize: number) {

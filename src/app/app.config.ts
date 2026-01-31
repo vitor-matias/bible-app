@@ -2,9 +2,6 @@ import { provideHttpClient } from "@angular/common/http"
 import {
   APP_INITIALIZER,
   type ApplicationConfig,
-  inject,
-  isDevMode,
-  provideAppInitializer,
   provideZoneChangeDetection,
 } from "@angular/core"
 import { provideAnimationsAsync } from "@angular/platform-browser/animations/async"

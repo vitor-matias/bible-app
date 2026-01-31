@@ -39,7 +39,7 @@ export class BibleReferenceService {
   // Implicit full ref (no book): same-chapter "2,4b-25" OR cross-chapter "38,1-39,30"
   // IMPORTANT: cross-chapter branch (endCh,endV) is placed BEFORE same-chapter v2 to avoid greedy misparse.
   private implicitFullRe =
-    /\b(?<chapter>\d+)\s*[:.,]\s*(?<v1>\d+(?:[a-c])?)(?:\s*[-\u2010-\u2015\u2212]\s*(?:(?<endCh>\d+)\s*[:.,]\s*(?<endV>\d+(?:[a-c])?)|(?<v2>\d+(?:[a-c])?)))?\b/gi
+    /\b(?<chapter>\d+)\s*(?:[:.]|,(?!\s))\s*(?<v1>\d+(?:[a-c])?)(?:\s*[-\u2010-\u2015\u2212]\s*(?:(?<endCh>\d+)\s*(?:[:.]|,(?!\s))\s*(?<endV>\d+(?:[a-c])?)|(?<v2>\d+(?:[a-c])?)))?\b/gi
 
   // Chapter-only AFTER a semicolon:  "... ; 104 ; ..."  (reuse last explicit/current book)
   private tailChapterOnlyRe =
@@ -102,8 +102,8 @@ export class BibleReferenceService {
     // Note: cross-chapter branch FIRST to handle "Jb 38,1-39,30" correctly.
     const pattern =
       String.raw`\b(?<book>${this.bookAlternation})\s+(?<chapter>\d+)` +
-      String.raw`(?:\s*[:.,]\s*(?<v1>\d+(?:[a-c])?)` +
-      String.raw`(?:\s*[-\u2010-\u2015\u2212]\s*(?:(?<endCh>\d+)\s*[:.,]\s*(?<endV>\d+(?:[a-c])?)|(?<v2>\d+(?:[a-c])?)))?` +
+      String.raw`(?:\s*(?:[:.]|,(?!\s))\s*(?<v1>\d+(?:[a-c])?)` +
+      String.raw`(?:\s*[-\u2010-\u2015\u2212]\s*(?:(?<endCh>\d+)\s*(?:[:.]|,(?!\s))\s*(?<endV>\d+(?:[a-c])?)|(?<v2>\d+(?:[a-c])?)))?` +
       String.raw`)?\b`
 
     this.explicitRe = new RegExp(pattern, "gi")
@@ -129,9 +129,13 @@ export class BibleReferenceService {
 
     // -------- 1) Explicit refs (book present) --------
     const explicitAnchors: Array<{ index: number; book: string }> = []
-    this.explicitRe!.lastIndex = 0
+    if (!this.explicitRe) this.rebuildPattern()
+    // rebuildPattern guarantees explicitRe is set, but to be safe and satisfy linter:
+    const explicitRe = this.explicitRe
+    if (!explicitRe) return []
+    explicitRe.lastIndex = 0
 
-    for (const m of text.matchAll(this.explicitRe!)) {
+    for (const m of text.matchAll(explicitRe)) {
       const gs = m.groups as
         | {
             book: string
@@ -151,7 +155,7 @@ export class BibleReferenceService {
       explicitAnchors.push({ index: start, book })
 
       if (gs.endCh && gs.endV && gs.v1) {
-        // Cross-chapter
+        // Cross-chapter ... (unchanged)
         const { num: sv, part: sp } = this.parseNumPart(gs.v1)
         const endChapter = Number(gs.endCh)
         const { num: ev, part: ep } = this.parseNumPart(gs.endV)
@@ -172,13 +176,37 @@ export class BibleReferenceService {
         })
       } else {
         // Same-chapter (with or without verses)
-        const verses = this.buildVerses(gs.v1, gs.v2)
+        const verses = this.buildVerses(gs.v1, gs.v2) || []
+        let matchStr = m[0]
+        let currentIdx = start + matchStr.length
+
+        // Look for comma-separated additions: ", 12" or ", 12-14"
+        const commaRe =
+          /^\s*,\s*(?<v1>\d+(?:[a-c])?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c])?))?/
+
+        while (true) {
+          const tail = text.slice(currentIdx)
+          const cm = commaRe.exec(tail)
+          if (!cm) break
+
+          if (!cm?.groups) break
+
+          const nextVerses = this.buildVerses(cm.groups["v1"], cm.groups["v2"])
+          if (nextVerses) {
+            verses.push(...nextVerses)
+            matchStr += cm[0]
+            currentIdx += cm[0].length
+          } else {
+            break
+          }
+        }
+
         push({
-          match: m[0],
+          match: matchStr,
           index: start,
           book,
           chapter: startChapter,
-          verses,
+          verses: verses.length ? verses : undefined,
         })
       }
     }
@@ -300,24 +328,30 @@ export class BibleReferenceService {
     return m
       ? {
           num: Number(m[1]),
-          part: (m[2]?.toLowerCase() as "a" | "b" | "c") || undefined,
+          ...(m[2] ? { part: m[2].toLowerCase() as "a" | "b" | "c" } : {}),
         }
-      : { num: Number(s), part: undefined }
+      : { num: Number(s) }
   }
 
   private buildVerses(v1?: string, v2?: string): VerseReference[] | undefined {
     if (!v1) return undefined
     const a = this.parseNumPart(v1)
-    if (!v2) return [{ type: "single", verse: a.num, part: a.part }]
+    if (!v2) {
+      return [
+        { type: "single", verse: a.num, ...(a.part ? { part: a.part } : {}) },
+      ]
+    }
     const b = this.parseNumPart(v2)
-    return [
-      {
-        type: "range",
-        start: Math.min(a.num, b.num),
-        end: Math.max(a.num, b.num),
-        startPart: a.part,
-        endPart: b.part,
-      },
-    ]
+
+    const range: Extract<VerseReference, { type: "range" }> = {
+      type: "range",
+      start: Math.min(a.num, b.num),
+      end: Math.max(a.num, b.num),
+    }
+
+    if (a.part) range.startPart = a.part
+    if (b.part) range.endPart = b.part
+
+    return [range]
   }
 }

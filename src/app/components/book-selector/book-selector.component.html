@@ -4,9 +4,11 @@
 
     <mat-tree [dataSource]="otDataSource" [treeControl]="otTreeControl">
       <!-- This is the tree node template for leaf nodes -->
-      <mat-tree-node *matTreeNodeDef="let node" matTreeNodePadding (click)="submit(node.name)">
-        <!-- use a disabled button to provide padding for tree leaf -->
-        {{getBook(node.name)?.shortName}}
+      <mat-tree-node *matTreeNodeDef="let node" matTreeNodePadding>
+        <button mat-flat-button class="bookSelectorButton" (click)="submit(node.name)" [attr.data-book-id]="node.name"
+          [class.highlight]="node.name === selectedBookId">
+          {{getBook(node.name)?.shortName}}
+        </button>
       </mat-tree-node>
       <!-- This is the tree node template for expandable nodes -->
       <mat-tree-node class="book-group" *matTreeNodeDef="let node;when: hasChild" matTreeNodePadding matTreeNodeToggle
@@ -26,9 +28,11 @@
 
     <mat-tree [dataSource]="ntDataSource" [treeControl]="ntTreeControl">
       <!-- This is the tree node template for leaf nodes -->
-      <mat-tree-node *matTreeNodeDef="let node" matTreeNodePadding (click)="submit(node.name)">
-        <!-- use a disabled button to provide padding for tree leaf -->
-        {{getBook(node.name)?.shortName}}
+      <mat-tree-node *matTreeNodeDef="let node" matTreeNodePadding>
+        <button mat-flat-button class="bookSelectorButton" (click)="submit(node.name)" [attr.data-book-id]="node.name"
+          [class.highlight]="node.name === selectedBookId">
+          {{getBook(node.name)?.shortName}}
+        </button>
       </mat-tree-node>
       <!-- This is the tree node template for expandable nodes -->
       <mat-tree-node class="book-group" *matTreeNodeDef="let node;when: hasChild" matTreeNodePadding matTreeNodeToggle

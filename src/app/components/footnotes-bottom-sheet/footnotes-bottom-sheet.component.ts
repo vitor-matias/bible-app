@@ -1,17 +1,29 @@
-import { Component, Inject } from '@angular/core'
+import { Component, Inject } from "@angular/core"
 
-import { MatBottomSheetRef, MAT_BOTTOM_SHEET_DATA } from '@angular/material/bottom-sheet'
-import { MatButtonModule } from '@angular/material/button'
-import { MatIconModule } from '@angular/material/icon'
-import { UnifiedGesturesDirective } from '../../directives/unified-gesture.directive'
-import { BibleReference, BibleReferenceService, VerseReference } from '../../services/bible-reference.service'
-import { RouterModule } from '@angular/router'
-import { BookService } from '../../services/book.service'
+import {
+  MAT_BOTTOM_SHEET_DATA,
+  MatBottomSheetRef,
+} from "@angular/material/bottom-sheet"
+import { MatButtonModule } from "@angular/material/button"
+import { MatIconModule } from "@angular/material/icon"
+import { RouterModule } from "@angular/router"
+import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
+import {
+  BibleReference,
+  BibleReferenceService,
+  VerseReference,
+} from "../../services/bible-reference.service"
+import { BookService } from "../../services/book.service"
 
 @Component({
-  selector: 'footnotes-bottom-sheet',
+  selector: "footnotes-bottom-sheet",
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, UnifiedGesturesDirective, RouterModule],
+  imports: [
+    MatButtonModule,
+    MatIconModule,
+    UnifiedGesturesDirective,
+    RouterModule,
+  ],
   template: `
     <div unifiedGestures class="footnotes-container">
       <div class="footnotes-list">
@@ -34,7 +46,8 @@ import { BookService } from '../../services/book.service'
         </div>
       </div>
     `,
-  styles: [`
+  styles: [
+    `
     .footnotes-container {
       font-family: "PT Serif", serif;
         text-align: justify;
@@ -61,23 +74,35 @@ import { BookService } from '../../services/book.service'
       font-size: 110%;
       margin-right: 8px;
     }
-  `]
+  `,
+  ],
 })
 export class FootnotesBottomSheetComponent {
   constructor(
     private bottomSheetRef: MatBottomSheetRef<FootnotesBottomSheetComponent>,
-    @Inject(MAT_BOTTOM_SHEET_DATA) public data: { footnotes: any[], verse: any },
-    private bibleRef: BibleReferenceService, private bookService: BookService,
+    @Inject(MAT_BOTTOM_SHEET_DATA)
+    // biome-ignore lint/suspicious/noExplicitAny: Data structure from bottom sheet is dynamic and loose typed
+    public data: { footnotes: any[]; verse: any },
+    private bibleRef: BibleReferenceService,
+    private bookService: BookService,
   ) {
-    // @ts-ignore
-    if(window.umami) {
-      // @ts-ignore
-      window.umami.track('footnotes_opened', { book: data.verse.bookId, chapter: data.verse.chapterNumber, verse: data.verse.verseNumber });
+    // @ts-expect-error
+    if (window.umami) {
+      // @ts-expect-error
+      window.umami.track("footnotes_opened", {
+        book: data.verse.bookId,
+        chapter: data.verse.chapterNumber,
+        verse: data.verse.verseNumber,
+      })
     }
   }
 
   parseReferences(text: string): { parts: (string | BibleReference)[] } {
-    const refs = this.bibleRef.extract(text, this.data.verse.bookId, this.data.verse.chapterNumber)
+    const refs = this.bibleRef.extract(
+      text,
+      this.data.verse.bookId,
+      this.data.verse.chapterNumber,
+    )
     if (!refs.length) return { parts: [text] }
 
     const parts: (string | BibleReference)[] = []
@@ -95,25 +120,24 @@ export class FootnotesBottomSheetComponent {
     return { parts }
   }
 
-    getVerseQueryParams(verses?: VerseReference[]) {
-      if (!verses || !verses.length) return null
-      const first = verses[0]
-      if (first.type === "single") {
-        return { verseStart: first.verse }
-      }
-      if (first.type === "range") {
-        return { verseStart: first.start, verseEnd: first.end }
-      }
-      return null
+  getVerseQueryParams(verses?: VerseReference[]) {
+    if (!verses || !verses.length) return null
+    const first = verses[0]
+    if (first.type === "single") {
+      return { verseStart: first.verse }
     }
-
-    getAbrv(bookId: string): string {
-      const book = this.bookService.findBook(bookId)
-      return this.bookService.getUrlAbrv(book)
+    if (first.type === "range") {
+      return { verseStart: first.start, verseEnd: first.end }
     }
+    return null
+  }
 
-    close(): void {
-      this.bottomSheetRef.dismiss()
-    }
+  getAbrv(bookId: string): string {
+    const book = this.bookService.findBook(bookId)
+    return this.bookService.getUrlAbrv(book)
+  }
 
+  close(): void {
+    this.bottomSheetRef.dismiss()
+  }
 }

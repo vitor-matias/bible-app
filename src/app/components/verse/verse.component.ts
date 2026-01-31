@@ -1,26 +1,25 @@
 import { CommonModule } from "@angular/common"
-// biome-ignore lint/style/useImportType: <explanation>
 import { ChangeDetectionStrategy, Component, Input } from "@angular/core"
+import {
+  MatBottomSheet,
+  MatBottomSheetModule,
+} from "@angular/material/bottom-sheet"
 import { RouterModule } from "@angular/router"
 import {
   BibleReference,
   BibleReferenceService,
   VerseReference,
 } from "../../services/bible-reference.service"
-import { VerseSectionComponent } from "../verse-section/verse-section.component"
-import {
-  MatBottomSheet,
-  MatBottomSheetModule,
-} from "@angular/material/bottom-sheet"
 import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnotes-bottom-sheet.component"
+import { VerseSectionComponent } from "../verse-section/verse-section.component"
 
 @Component({
   selector: "verse",
   imports: [
     CommonModule,
-    VerseSectionComponent,
     RouterModule,
     MatBottomSheetModule,
+    VerseSectionComponent,
   ],
   templateUrl: "./verse.component.html",
   styleUrls: ["./verse.component.css"],
