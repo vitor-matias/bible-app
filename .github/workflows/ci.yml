@@ -29,7 +29,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - name: Run Tests (Headless)
-        run: npx ng test --watch=false --browsers=ChromeHeadless
+        run: npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox
 
   build:
     runs-on: ubuntu-latest
