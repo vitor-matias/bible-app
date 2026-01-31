@@ -2,14 +2,36 @@ import { TestBed } from "@angular/core/testing"
 import {
   BibleReference,
   BibleReferenceService,
+  CrossChapterRange,
   type VerseReference,
 } from "./bible-reference.service"
+import { BookService } from "./book.service"
 
 describe("BibleReferenceService", () => {
   let service: BibleReferenceService
 
   beforeEach(() => {
-    TestBed.configureTestingModule({})
+    const mockBookService = {
+      books$: { subscribe: (fn: any) => fn() }, // Immediate subscription
+      getBooks: () => [
+        { abrv: "Gn", shortName: "Genesis", name: "Genesis", id: "gen" },
+        { abrv: "Ex", shortName: "Exodus", name: "Exodus", id: "exo" },
+        { abrv: "Mt", shortName: "Mateus", name: "Mateus", id: "mat" },
+        { abrv: "Jo", shortName: "John", name: "John", id: "joh" },
+        { abrv: "1Jo", shortName: "1 John", name: "1 John", id: "1jo" },
+        {
+          abrv: "Ct",
+          shortName: "Song of Songs",
+          name: "Song of Songs",
+          id: "sng",
+        },
+        { abrv: "Ap", shortName: "Apoc", name: "Apocalipse", id: "rev" },
+      ],
+    }
+
+    TestBed.configureTestingModule({
+      providers: [{ provide: BookService, useValue: mockBookService }],
+    })
     service = TestBed.inject(BibleReferenceService)
   })
 
@@ -17,19 +39,19 @@ describe("BibleReferenceService", () => {
     expect(service).toBeTruthy()
   })
 
-  it('extracts a simple reference "John 3:16"', () => {
-    const input = "Famous verse: John 3:16."
+  it('extracts a simple reference "John 3,16"', () => {
+    const input = "Famous verse: John 3,16."
     const out = service.extract(input)
     expect(out.length).toBe(1)
     const r = out[0]
     expect(r.book).toBe("John")
     expect(r.chapter).toBe(3)
     expect(r.verses).toEqual([{ type: "single", verse: 16 } as VerseReference])
-    expect(r.match).toBe("John 3:16")
+    expect(r.match).toBe("John 3,16")
   })
 
-  it('handles book number prefixes "1 John 4:7\u20138, 12"', () => {
-    const input = "Read 1 John 4:7\u20138, 12 together."
+  it('handles book number prefixes "1 John 4,7\u20138, 12"', () => {
+    const input = "Read 1 John 4,7\u20138, 12 together."
     const out = service.extract(input)
     expect(out.length).toBe(1)
     const r = out[0]
@@ -41,16 +63,20 @@ describe("BibleReferenceService", () => {
     ] as VerseReference[])
   })
 
-  it('supports hyphen range and comma list "Genesis 1:1-3; 2,4"', () => {
-    const input = "Genesis 1:1-3; 2,4"
+  it('supports hyphen range and comma list "Genesis 1,1-3;2,4"', () => {
+    const input = "Genesis 1,1-3; 2,4"
     const out = service.extract(input)
-    expect(out.length).toBe(1)
+    expect(out.length).toBe(2)
     const r = out[0]
     expect(r.book).toBe("Genesis")
     expect(r.chapter).toBe(1)
     expect(r.verses).toEqual([
       { type: "range", start: 1, end: 3 },
-      { type: "single", verse: 2 },
+    ] as VerseReference[])
+    const r2 = out[1]
+    expect(r2.book).toBe("Genesis")
+    expect(r2.chapter).toBe(2)
+    expect(r2.verses).toEqual([
       { type: "single", verse: 4 },
     ] as VerseReference[])
   })
@@ -65,8 +91,8 @@ describe("BibleReferenceService", () => {
     expect(r.verses).toEqual([{ type: "range", start: 3, end: 12 }])
   })
 
-  it('matches multi-word books "Song of Songs 2:1"', () => {
-    const input = "Loved Song of Songs 2:1 today."
+  it('matches multi-word books "Song of Songs 2,1"', () => {
+    const input = "Loved Song of Songs 2,1 today."
     const out = service.extract(input)
     expect(out.length).toBe(1)
     const r = out[0]
@@ -83,7 +109,7 @@ describe("BibleReferenceService", () => {
 
   it("handles multiple references in one string", () => {
     const input =
-      "Refs: John 3:16; 1 John 4:7\u20138, 12; Apoc 21:1 and Genesis 1:1-3."
+      "Refs: John 3,16; 1 John 4,7\u20138, 12; Apoc 21,1 and Genesis 1,1-3."
     const out = service.extract(input)
     expect(out.length).toBe(4)
     expect(out.map((r) => r.book)).toEqual([
@@ -95,15 +121,32 @@ describe("BibleReferenceService", () => {
   })
 
   it('normalizes reversed ranges (e.g., "10-7")', () => {
-    const input = "John 3:10-7"
+    const input = "John 3,10-7"
     const out = service.extract(input)
     expect(out.length).toBe(1)
     expect(out[0].verses).toEqual([{ type: "range", start: 7, end: 10 }])
   })
 
   it("includes index of the match", () => {
-    const input = "abc John 3:16 def"
+    const input = "abc John 3,16 def"
     const out = service.extract(input)
     expect(out[0].index).toBe(4) // 'J' starts at index 4
+  })
+
+  it("handles cross-chapter ranges", () => {
+    const input = "Gn 38,1-39,30"
+    const out = service.extract(input)
+    expect(out.length).toBe(1)
+    expect(out[0].book).toBe("Gn")
+    expect(out[0].chapter).toBe(38)
+    expect(out[0].crossChapter).toEqual({
+      type: "crossChapterRange",
+      startChapter: 38,
+      startVerse: 1,
+      endChapter: 39,
+      endVerse: 30,
+      startPart: undefined,
+      endPart: undefined,
+    })
   })
 })

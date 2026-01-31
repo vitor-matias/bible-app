@@ -13,6 +13,13 @@ describe("VerseSectionComponent", () => {
 
     fixture = TestBed.createComponent(VerseSectionComponent)
     component = fixture.componentInstance
+    component.data = {
+      text: [{ type: "text", text: "In the beginning..." }],
+      number: 1,
+      verseLabel: "1",
+      bookId: "gen",
+      chapterNumber: 1,
+    }
     fixture.detectChanges()
   })
 

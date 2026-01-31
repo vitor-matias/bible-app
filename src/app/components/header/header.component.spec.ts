@@ -1,4 +1,5 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import { provideRouter } from "@angular/router"
 
 import { HeaderComponent } from "./header.component"
 
@@ -9,10 +10,19 @@ describe("HeaderComponent", () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [HeaderComponent],
+      providers: [provideRouter([])],
     }).compileComponents()
 
     fixture = TestBed.createComponent(HeaderComponent)
     component = fixture.componentInstance
+    component.book = {
+      id: "gen",
+      name: "Genesis",
+      shortName: "Gen",
+      abrv: "gn",
+      chapterCount: 50,
+      chapters: [],
+    }
     fixture.detectChanges()
   })
 

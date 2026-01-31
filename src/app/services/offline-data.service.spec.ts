@@ -170,6 +170,7 @@ describe("OfflineDataService", () => {
       await service.preloadAllBooksAndChapters()
 
       httpMock.expectNone("v1/books?withChapters=true")
+      expect(true).toBe(true) // Silence 'no expectations' warning
     })
 
     it("should preload books if cache flag is not set", async () => {
@@ -223,6 +224,7 @@ describe("OfflineDataService", () => {
       await service.preloadAllBooksAndChapters()
 
       httpMock.expectNone("v1/books?withChapters=true")
+      expect(true).toBe(true)
     })
 
     it("should handle preload errors gracefully", async () => {
@@ -252,9 +254,9 @@ describe("OfflineDataService", () => {
 
       await promise
 
-      expect(mockUmami.track).toHaveBeenCalledWith(
-        "pwa_books_cached_after_install",
-      )
+      expect(mockUmami.track).toHaveBeenCalledWith("pwa_books_cached", {
+        source: "install",
+      })
 
       delete (window as any).umami
     })
@@ -270,9 +272,9 @@ describe("OfflineDataService", () => {
 
       await promise
 
-      expect(mockUmami.track).not.toHaveBeenCalled()
-
-      delete (window as any).umami
+      expect(mockUmami.track).toHaveBeenCalledWith("pwa_books_cached", {
+        source: "standalone",
+      })
     })
   })
 
@@ -559,6 +561,7 @@ describe("OfflineDataService", () => {
       req.flush(mockBooks)
 
       await promise
+      expect(true).toBe(true)
     })
 
     it("should consider cache valid within 90 days", async () => {
@@ -571,6 +574,7 @@ describe("OfflineDataService", () => {
       await service.preloadAllBooksAndChapters()
 
       httpMock.expectNone("v1/books?withChapters=true")
+      expect(true).toBe(true)
     })
 
     it("should not consider cache expired if timestamp is not a valid number", async () => {
@@ -580,6 +584,7 @@ describe("OfflineDataService", () => {
       await service.preloadAllBooksAndChapters()
 
       httpMock.expectNone("v1/books?withChapters=true")
+      expect(true).toBe(true)
     })
 
     it("should not consider cache expired if no timestamp exists", async () => {
@@ -588,6 +593,7 @@ describe("OfflineDataService", () => {
       await service.preloadAllBooksAndChapters()
 
       httpMock.expectNone("v1/books?withChapters=true")
+      expect(true).toBe(true)
     })
   })
 
