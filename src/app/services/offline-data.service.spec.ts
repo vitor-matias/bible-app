@@ -239,10 +239,8 @@ describe("OfflineDataService", () => {
     })
 
     it("should keep stale cache when offline and expired", async () => {
-      // 91 days ago
       const oldTimestamp = Date.now() - NINETY_ONE_DAYS_MS
       mockLocalStorage._storage["booksCacheReady"] = "true"
-      // biome-ignore lint/complexity/useLiteralKeys: Index signature access
       mockLocalStorage._storage["booksCacheTimestamp"] = oldTimestamp.toString()
 
       spyOnProperty(navigator, "onLine", "get").and.returnValue(false)

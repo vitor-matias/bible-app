@@ -17,6 +17,9 @@
             },
             "correctness": {
                 "noUnusedFunctionParameters": "off"
+            },
+            "complexity": {
+                "useLiteralKeys": "off"
             }
         }
     },
