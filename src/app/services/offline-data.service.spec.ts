@@ -8,7 +8,17 @@ import { OfflineDataService } from "./offline-data.service"
 describe("OfflineDataService", () => {
   let service: OfflineDataService
   let httpMock: HttpTestingController
-  let mockLocalStorage: any
+  let mockLocalStorage: {
+    _storage: Record<string, string>
+    getItem: jasmine.Spy
+    setItem: jasmine.Spy
+    removeItem: jasmine.Spy
+    clear: jasmine.Spy
+    key: jasmine.Spy
+    length: number
+    // biome-ignore lint/suspicious/noExplicitAny: Mock local storage needs dynamic access
+    [key: string]: any
+  }
 
   const THIRTY_DAYS_MS = 1000 * 60 * 60 * 24 * 30
   const NINETY_ONE_DAYS_MS = 1000 * 60 * 60 * 24 * 91
@@ -56,9 +66,13 @@ describe("OfflineDataService", () => {
         storedBooks = []
       }),
       getAll: jasmine.createSpy("getAll").and.callFake(() => {
-        const request = {
-          onsuccess: null as any,
-          onerror: null as any,
+        const request: {
+          onsuccess: (() => void) | null
+          onerror: (() => void) | null
+          result: Book[]
+        } = {
+          onsuccess: null,
+          onerror: null,
           result: storedBooks,
         }
         setTimeout(() => {
@@ -70,10 +84,16 @@ describe("OfflineDataService", () => {
       }),
     }
 
-    const mockTransaction = {
-      oncomplete: null as any,
-      onerror: null as any,
-      onabort: null as any,
+    const mockTransaction: {
+      oncomplete: (() => void) | null
+      onerror: (() => void) | null
+      onabort: (() => void) | null
+      error: DOMException | null
+      objectStore: jasmine.Spy
+    } = {
+      oncomplete: null,
+      onerror: null,
+      onabort: null,
       error: null,
       objectStore: jasmine
         .createSpy("objectStore")
@@ -97,10 +117,15 @@ describe("OfflineDataService", () => {
 
     return {
       open: jasmine.createSpy("open").and.callFake(() => {
-        const request = {
-          onsuccess: null as any,
-          onerror: null as any,
-          onupgradeneeded: null as any,
+        const request: {
+          onsuccess: (() => void) | null
+          onerror: (() => void) | null
+          onupgradeneeded: (() => void) | null
+          result: typeof mockDB
+        } = {
+          onsuccess: null,
+          onerror: null,
+          onupgradeneeded: null,
           result: mockDB,
         }
         setTimeout(() => {
@@ -142,7 +167,7 @@ describe("OfflineDataService", () => {
 
     // Mock IndexedDB
     spyOnProperty(window, "indexedDB", "get").and.returnValue(
-      createMockIndexedDB() as any,
+      createMockIndexedDB() as unknown as IDBFactory,
     )
 
     TestBed.configureTestingModule({
@@ -217,6 +242,7 @@ describe("OfflineDataService", () => {
       // 91 days ago
       const oldTimestamp = Date.now() - NINETY_ONE_DAYS_MS
       mockLocalStorage._storage["booksCacheReady"] = "true"
+      // biome-ignore lint/complexity/useLiteralKeys: Index signature access
       mockLocalStorage._storage["booksCacheTimestamp"] = oldTimestamp.toString()
 
       spyOnProperty(navigator, "onLine", "get").and.returnValue(false)
@@ -245,7 +271,7 @@ describe("OfflineDataService", () => {
 
     it("should track umami event when source is install", async () => {
       const mockUmami = { track: jasmine.createSpy("track") }
-      ;(window as any).umami = mockUmami
+      ;(window as unknown as { umami: typeof mockUmami }).umami = mockUmami
 
       const promise = service.preloadAllBooksAndChapters("install")
 
@@ -258,12 +284,12 @@ describe("OfflineDataService", () => {
         source: "install",
       })
 
-      delete (window as any).umami
+      delete (window as unknown as { umami: unknown }).umami
     })
 
     it("should not track umami event when source is standalone", async () => {
       const mockUmami = { track: jasmine.createSpy("track") }
-      ;(window as any).umami = mockUmami
+      ;(window as unknown as { umami: typeof mockUmami }).umami = mockUmami
 
       const promise = service.preloadAllBooksAndChapters("standalone")
 
@@ -601,7 +627,9 @@ describe("OfflineDataService", () => {
     it("should open IndexedDB database with correct name and version", async () => {
       await service.setCachedBooks(mockBooks)
 
-      const indexedDB = (window as any).indexedDB
+      const indexedDB = (
+        window as unknown as { indexedDB: { open: jasmine.Spy } }
+      ).indexedDB
       expect(indexedDB.open).toHaveBeenCalledWith("offline-bible", 1)
     })
   })

@@ -6,7 +6,6 @@ import { BookService } from "./book.service"
 
 describe("BookService", () => {
   let service: BookService
-  let apiService: jasmine.SpyObj<BibleApiService>
 
   const mockBooks: Book[] = [
     {
@@ -73,9 +72,7 @@ describe("BookService", () => {
       ],
     })
     service = TestBed.inject(BookService)
-    apiService = TestBed.inject(
-      BibleApiService,
-    ) as jasmine.SpyObj<BibleApiService>
+    TestBed.inject(BibleApiService)
   })
 
   it("should be created", () => {

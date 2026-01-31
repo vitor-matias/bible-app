@@ -129,9 +129,13 @@ export class BibleReferenceService {
 
     // -------- 1) Explicit refs (book present) --------
     const explicitAnchors: Array<{ index: number; book: string }> = []
-    this.explicitRe!.lastIndex = 0
+    if (!this.explicitRe) this.rebuildPattern()
+    // rebuildPattern guarantees explicitRe is set, but to be safe and satisfy linter:
+    const explicitRe = this.explicitRe
+    if (!explicitRe) return []
+    explicitRe.lastIndex = 0
 
-    for (const m of text.matchAll(this.explicitRe!)) {
+    for (const m of text.matchAll(explicitRe)) {
       const gs = m.groups as
         | {
             book: string
@@ -185,10 +189,9 @@ export class BibleReferenceService {
           const cm = commaRe.exec(tail)
           if (!cm) break
 
-          const nextVerses = this.buildVerses(
-            cm.groups!["v1"],
-            cm.groups!["v2"],
-          )
+          if (!cm?.groups) break
+
+          const nextVerses = this.buildVerses(cm.groups["v1"], cm.groups["v2"])
           if (nextVerses) {
             verses.push(...nextVerses)
             matchStr += cm[0]

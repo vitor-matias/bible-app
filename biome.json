@@ -2,6 +2,9 @@
     "javascript": {
         "formatter": {
             "semicolons": "asNeeded"
+        },
+        "parser": {
+            "unsafeParameterDecoratorsEnabled": true
         }
     },
     "formatter": {
@@ -11,7 +14,17 @@
         "rules": {
             "style": {
                 "useImportType": "off"
+            },
+            "correctness": {
+                "noUnusedFunctionParameters": "off"
             }
         }
+    },
+    "files": {
+        "includes": [
+            "**/*.ts",
+            "**/*.js",
+            "**/*.json"
+        ]
     }
 }

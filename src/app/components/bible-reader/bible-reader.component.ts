@@ -1,6 +1,4 @@
-import { animate, state, style, transition, trigger } from "@angular/animations"
 import { CommonModule } from "@angular/common"
-// biome-ignore lint/style/useImportType: <explanation>
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -19,7 +17,6 @@ import {
   MatSidenavModule,
 } from "@angular/material/sidenav"
 import { ActivatedRoute, Router } from "@angular/router"
-import type { Subscription } from "rxjs"
 import { combineLatest } from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AutoScrollService } from "../../services/auto-scroll.service"
@@ -65,8 +62,6 @@ export class BibleReaderComponent implements OnDestroy {
   @ViewChild("chapterDrawerCloseButton") chapterDrawerCloseButton!: ElementRef
 
   @ViewChild("bookBlock") bookBlock!: ElementRef
-
-  private routeSub: Subscription | undefined
 
   book!: Book
   chapterNumber = 1
@@ -137,41 +132,45 @@ export class BibleReaderComponent implements OnDestroy {
         this.getChapter(this.chapterNumber, verseStartParam, verseEndParam)
       }
 
-      this.routeSub = combineLatest([
-        this.route.paramMap,
-        this.route.queryParamMap,
-      ]).subscribe(([params, queryParams]) => {
-        const bookParam = params.get("book") || "about"
-        const chapterParam = Number.parseInt(params.get("chapter") || "1", 10)
-        const verseStartParam = queryParams.get("verseStart")
-          ? Number.parseInt(queryParams.get("verseStart") || "1", 10)
-          : undefined
-        const verseEndParam = queryParams.get("verseEnd")
-          ? Number.parseInt(queryParams.get("verseEnd") || "1", 10)
-          : undefined
+      combineLatest([this.route.paramMap, this.route.queryParamMap]).subscribe(
+        ([params, queryParams]) => {
+          const bookParam = params.get("book") || "about"
+          const chapterParam = Number.parseInt(params.get("chapter") || "1", 10)
+          const verseStartParam = queryParams.get("verseStart")
+            ? Number.parseInt(queryParams.get("verseStart") || "1", 10)
+            : undefined
+          const verseEndParam = queryParams.get("verseEnd")
+            ? Number.parseInt(queryParams.get("verseEnd") || "1", 10)
+            : undefined
 
-        const highlight =
-          queryParams.get("highlight") === null
-            ? true
-            : queryParams.get("highlight") === "true"
+          const highlight =
+            queryParams.get("highlight") === null
+              ? true
+              : queryParams.get("highlight") === "true"
 
-        const tempBook = this.bookService.findBook(bookParam)
+          const tempBook = this.bookService.findBook(bookParam)
 
-        if (
-          this.book.id === tempBook.id &&
-          this.chapterNumber === chapterParam
-        ) {
-          this.scrollToVerseElement(
-            verseStartParam || 1,
+          if (
+            this.book.id === tempBook.id &&
+            this.chapterNumber === chapterParam
+          ) {
+            this.scrollToVerseElement(
+              verseStartParam || 1,
+              verseEndParam,
+              highlight,
+            )
+            return
+          }
+
+          this.book = tempBook
+          this.getChapter(
+            chapterParam,
+            verseStartParam,
             verseEndParam,
             highlight,
           )
-          return
-        }
-
-        this.book = tempBook
-        this.getChapter(chapterParam, verseStartParam, verseEndParam, highlight)
-      })
+        },
+      )
     })
   }
 

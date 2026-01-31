@@ -1,4 +1,3 @@
-// biome-ignore lint/style/useImportType: <explanation>
 import { HttpClient } from "@angular/common/http"
 import { Injectable } from "@angular/core"
 import {

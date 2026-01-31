@@ -1,4 +1,3 @@
-// biome-ignore lint/style/useImportType: HttpClient must be imported as a value for Angular DI in constructor
 import { HttpClient } from "@angular/common/http"
 import { Injectable } from "@angular/core"
 import { firstValueFrom } from "rxjs"

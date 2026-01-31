@@ -1,5 +1,4 @@
 import { CommonModule } from "@angular/common"
-// biome-ignore lint/style/useImportType: <explanation>
 import { ChangeDetectionStrategy, Component, Input } from "@angular/core"
 import {
   MatBottomSheet,

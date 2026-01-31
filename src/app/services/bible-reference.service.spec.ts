@@ -1,8 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 import {
-  BibleReference,
   BibleReferenceService,
-  CrossChapterRange,
   type VerseReference,
 } from "./bible-reference.service"
 import { BookService } from "./book.service"
@@ -12,7 +10,7 @@ describe("BibleReferenceService", () => {
 
   beforeEach(() => {
     const mockBookService = {
-      books$: { subscribe: (fn: any) => fn() }, // Immediate subscription
+      books$: { subscribe: (fn: () => void) => fn() }, // Immediate subscription
       getBooks: () => [
         { abrv: "Gn", shortName: "Genesis", name: "Genesis", id: "gen" },
         { abrv: "Ex", shortName: "Exodus", name: "Exodus", id: "exo" },
