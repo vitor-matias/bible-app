@@ -5,7 +5,10 @@ import { AppComponent } from "./app.component"
 describe("AppComponent", () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [AppComponent, ServiceWorkerModule.register("", { enabled: false })],
+      imports: [
+        AppComponent,
+        ServiceWorkerModule.register("", { enabled: false }),
+      ],
     }).compileComponents()
   })
 

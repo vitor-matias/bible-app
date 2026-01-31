@@ -17,8 +17,8 @@ import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { RouterModule } from "@angular/router"
-import { ThemeService } from "../../services/theme.service"
 import { PreferencesService } from "../../services/preferences.service"
+import { ThemeService } from "../../services/theme.service"
 
 @Component({
   standalone: true,
@@ -56,7 +56,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     private readonly themeService: ThemeService,
     private readonly preferencesService: PreferencesService,
     private readonly cdr: ChangeDetectorRef,
-  ) { }
+  ) {}
 
   ngOnInit(): void {
     if (window.screen.width <= 480) {
@@ -188,8 +188,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
     this.bookLabelMode = "title"
   }
-
-
 
   private updateOnlineStatus = () => {
     this.isOffline =

@@ -85,7 +85,7 @@ export class BibleReaderComponent implements OnDestroy {
     private cdr: ChangeDetectorRef,
     private router: Router,
     private route: ActivatedRoute,
-  ) { }
+  ) {}
 
   ngOnInit(): void {
     const storedSpeed = this.preferencesService.getAutoScrollSpeed()
@@ -93,7 +93,8 @@ export class BibleReaderComponent implements OnDestroy {
       this.autoScrollService.setAutoScrollLinesPerSecond(storedSpeed)
     }
 
-    this.showAutoScrollControls = this.preferencesService.getAutoScrollControlsVisible()
+    this.showAutoScrollControls =
+      this.preferencesService.getAutoScrollControlsVisible()
     this.bookService.books$.subscribe((_books) => {
       if (_books.length === 0)
         alert("No books available. Please check your API connection.")
@@ -106,18 +107,19 @@ export class BibleReaderComponent implements OnDestroy {
 
       const verseStartParam =
         this.router.routerState.snapshot.root.firstChild?.queryParams[
-        "verseStart"
+          "verseStart"
         ]
       const verseEndParam =
         this.router.routerState.snapshot.root.firstChild?.queryParams[
-        "verseEnd"
+          "verseEnd"
         ]
-
 
       const storedBook =
         this.bookParam || this.preferencesService.getLastBookId() || "about"
       const storedChapter =
-        this.chapterParam || (this.preferencesService.getLastChapterNumber()?.toString()) || "1"
+        this.chapterParam ||
+        this.preferencesService.getLastChapterNumber()?.toString() ||
+        "1"
 
       if (storedBook && storedChapter) {
         this.book = this.bookService.findBook(storedBook)
@@ -330,7 +332,7 @@ export class BibleReaderComponent implements OnDestroy {
     // Optional: could use ViewChild if the button is always present,
     // but since it's inside conditional templates or drawers, querySelector is sometimes pragmatic.
     // However, let's try to trust the user's focus management or leave it for now.
-    // I will leave it as is to avoid breaking focus logic without testing, 
+    // I will leave it as is to avoid breaking focus logic without testing,
     // but the prompt asked to replace direct DOM queries.
     // Let's use the nativeElement of the component to scope it at least.
     const closeButton = this.bookDrawerCloseButton?.nativeElement as HTMLElement
@@ -360,7 +362,9 @@ export class BibleReaderComponent implements OnDestroy {
 
   toggleAutoScrollControlsVisibility(): void {
     this.showAutoScrollControls = !this.showAutoScrollControls
-    this.preferencesService.setAutoScrollControlsVisible(this.showAutoScrollControls)
+    this.preferencesService.setAutoScrollControlsVisible(
+      this.showAutoScrollControls,
+    )
     this.stopAutoScroll()
   }
 

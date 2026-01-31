@@ -36,7 +36,7 @@ export class AutoScrollService implements OnDestroy {
   private lineHeightElement?: HTMLElement
   private onStop?: () => void
 
-  constructor(private keepAwakeService: KeepAwakeService) { }
+  constructor(private keepAwakeService: KeepAwakeService) {}
 
   ngOnDestroy(): void {
     this.stop()

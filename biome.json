@@ -6,5 +6,12 @@
     },
     "formatter": {
         "indentStyle": "space"
+    },
+    "linter": {
+        "rules": {
+            "style": {
+                "useImportType": "off"
+            }
+        }
     }
 }

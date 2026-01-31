@@ -1,9 +1,6 @@
 import { CommonModule } from "@angular/common"
 import { Component, Input } from "@angular/core"
-import {
-  MatSnackBar,
-  MatSnackBarModule,
-} from "@angular/material/snack-bar"
+import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
 import { Router, RouterModule } from "@angular/router"
 import {
   BibleReference,

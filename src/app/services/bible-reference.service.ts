@@ -177,14 +177,18 @@ export class BibleReferenceService {
         let currentIdx = start + matchStr.length
 
         // Look for comma-separated additions: ", 12" or ", 12-14"
-        const commaRe = /^\s*,\s*(?<v1>\d+(?:[a-c])?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c])?))?/
-        
+        const commaRe =
+          /^\s*,\s*(?<v1>\d+(?:[a-c])?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c])?))?/
+
         while (true) {
           const tail = text.slice(currentIdx)
           const cm = commaRe.exec(tail)
           if (!cm) break
 
-          const nextVerses = this.buildVerses(cm.groups!['v1'], cm.groups!['v2'])
+          const nextVerses = this.buildVerses(
+            cm.groups!["v1"],
+            cm.groups!["v2"],
+          )
           if (nextVerses) {
             verses.push(...nextVerses)
             matchStr += cm[0]
@@ -330,7 +334,9 @@ export class BibleReferenceService {
     if (!v1) return undefined
     const a = this.parseNumPart(v1)
     if (!v2) {
-      return [{ type: "single", verse: a.num, ...(a.part ? { part: a.part } : {}) }]
+      return [
+        { type: "single", verse: a.num, ...(a.part ? { part: a.part } : {}) },
+      ]
     }
     const b = this.parseNumPart(v2)
 

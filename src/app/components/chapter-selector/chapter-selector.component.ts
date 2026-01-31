@@ -37,7 +37,7 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
     chapterNumber: Chapter["number"]
   }>()
 
-  constructor(private elementRef: ElementRef) { }
+  constructor(private elementRef: ElementRef) {}
 
   submit(id: Chapter["number"]) {
     this.selectedChapter = id
