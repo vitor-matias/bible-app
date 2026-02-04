@@ -8,7 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "test:coverage": "ng test --watch=false --code-coverage",
-    "biome": "npx @biomejs/biome check --write ./src"
+    "biome": "npx @biomejs/biome check --write --unsafe ./src"
   },
   "private": true,
   "dependencies": {

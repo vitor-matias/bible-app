@@ -9,20 +9,20 @@ import {
   Output,
   type SimpleChanges,
 } from "@angular/core"
+import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
+import { MatDividerModule } from "@angular/material/divider"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenuModule, type MatMenuTrigger } from "@angular/material/menu"
 import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { RouterModule } from "@angular/router"
-import { MatDividerModule } from "@angular/material/divider"
-import { MatBottomSheet } from "@angular/material/bottom-sheet"
-import { PreferencesService } from "../../services/preferences.service"
 import { BookmarkService } from "../../services/bookmark.service"
-import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
+import { PreferencesService } from "../../services/preferences.service"
 import { ThemeService } from "../../services/theme.service"
+import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 
 @Component({
   standalone: true,
@@ -60,11 +60,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   constructor(
     private readonly themeService: ThemeService,
-    private readonly preferencesService: PreferencesService,
+    readonly _preferencesService: PreferencesService,
     private readonly bookmarkService: BookmarkService,
     private readonly bottomSheet: MatBottomSheet,
     private readonly cdr: ChangeDetectorRef,
-  ) { }
+  ) {}
 
   ngOnInit(): void {
     if (window.screen.width <= 480) {
@@ -94,7 +94,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   private updateBookmarkState() {
     if (this.book && this.chapterNumber) {
-      this.currentBookmark = this.bookmarkService.getBookmark(this.book.id, this.chapterNumber)
+      this.currentBookmark = this.bookmarkService.getBookmark(
+        this.book.id,
+        this.chapterNumber,
+      )
     }
   }
 
@@ -107,7 +110,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       if (result === "remove") {
         this.bookmarkService.removeBookmark(this.book.id, this.chapterNumber)
       } else if (result) {
-        this.bookmarkService.addBookmark(this.book.id, this.chapterNumber, result)
+        this.bookmarkService.addBookmark(
+          this.book.id,
+          this.chapterNumber,
+          result,
+        )
       }
       this.updateBookmarkState()
       this.cdr.detectChanges()

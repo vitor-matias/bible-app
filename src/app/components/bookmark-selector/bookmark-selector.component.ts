@@ -1,15 +1,14 @@
 import { CommonModule } from "@angular/common"
-import { Component, Inject } from "@angular/core"
-import { MatButtonModule } from "@angular/material/button"
+import { Component, Inject, OnInit } from "@angular/core"
 import {
   MAT_BOTTOM_SHEET_DATA,
   MatBottomSheetRef,
 } from "@angular/material/bottom-sheet"
+import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
-import { BookmarkService } from "../../services/bookmark.service"
-import { BookService } from "../../services/book.service"
 import { Router } from "@angular/router"
-import { OnInit } from "@angular/core"
+import { BookService } from "../../services/book.service"
+import { BookmarkService } from "../../services/bookmark.service"
 
 interface RibbonState {
   name: string
@@ -41,11 +40,12 @@ export class BookmarkSelectorComponent implements OnInit {
 
   constructor(
     private bottomSheetRef: MatBottomSheetRef<BookmarkSelectorComponent>,
-    @Inject(MAT_BOTTOM_SHEET_DATA) public data: { bookId: string; chapter: number },
+    @Inject(MAT_BOTTOM_SHEET_DATA)
+    public data: { bookId: string; chapter: number },
     private bookmarkService: BookmarkService,
     private bookService: BookService,
     private router: Router,
-  ) { }
+  ) {}
 
   isDeleteMode = false
 
@@ -59,17 +59,19 @@ export class BookmarkSelectorComponent implements OnInit {
 
   updateRibbons() {
     const allBookmarks = this.bookmarkService.getBookmarks()
-    this.ribbons = this.colors.map(c => {
-      const bookmark = allBookmarks.find(b => b.color === c.value)
-      let currentRef = undefined
+    this.ribbons = this.colors.map((c) => {
+      const bookmark = allBookmarks.find((b) => b.color === c.value)
+      let currentRef: string | undefined
       if (bookmark) {
         const book = this.bookService.findBook(bookmark.bookId)
-        currentRef = book ? `${book.abrv} ${bookmark.chapter}` : `${bookmark.bookId} ${bookmark.chapter}`
+        currentRef = book
+          ? `${book.abrv} ${bookmark.chapter}`
+          : `${bookmark.bookId} ${bookmark.chapter}`
       }
       return {
         ...c,
         bookmark,
-        currentRef
+        currentRef,
       }
     })
   }
@@ -77,7 +79,10 @@ export class BookmarkSelectorComponent implements OnInit {
   handleRibbonClick(ribbon: RibbonState): void {
     if (this.isDeleteMode) {
       if (ribbon.bookmark) {
-        this.bookmarkService.removeBookmark(ribbon.bookmark.bookId, ribbon.bookmark.chapter)
+        this.bookmarkService.removeBookmark(
+          ribbon.bookmark.bookId,
+          ribbon.bookmark.chapter,
+        )
         // Refresh ribbons to show it's gone
         this.updateRibbons()
       }
@@ -95,18 +100,28 @@ export class BookmarkSelectorComponent implements OnInit {
     if (ribbon.bookmark) {
       const book = this.bookService.findBook(ribbon.bookmark.bookId)
       if (book) {
-        this.router.navigate([this.bookService.getUrlAbrv(book), ribbon.bookmark.chapter])
+        this.router.navigate([
+          this.bookService.getUrlAbrv(book),
+          ribbon.bookmark.chapter,
+        ])
         this.bottomSheetRef.dismiss()
       }
       return
     }
 
     // 3. If empty -> Assign to current
-    this.bookmarkService.addBookmark(this.data.bookId, this.data.chapter, ribbon.value)
+    this.bookmarkService.addBookmark(
+      this.data.bookId,
+      this.data.chapter,
+      ribbon.value,
+    )
     this.updateRibbons()
   }
 
   isCurrentLocation(ribbon: RibbonState): boolean {
-    return ribbon.bookmark?.bookId === this.data.bookId && ribbon.bookmark?.chapter === this.data.chapter
+    return (
+      ribbon.bookmark?.bookId === this.data.bookId &&
+      ribbon.bookmark?.chapter === this.data.chapter
+    )
   }
 }

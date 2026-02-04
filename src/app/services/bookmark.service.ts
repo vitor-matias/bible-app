@@ -62,8 +62,8 @@ export class BookmarkService {
 
     if (existingIndex > -1) {
       // Update existing bookmark (e.g. changing color, though color is unique now, so this path is technically assigning a new unique color to an existing location)
-       updatedBookmarks = [...bookmarksWithoutConflict]
-       updatedBookmarks[existingIndex] = newBookmark
+      updatedBookmarks = [...bookmarksWithoutConflict]
+      updatedBookmarks[existingIndex] = newBookmark
     } else {
       // Add new bookmark
       updatedBookmarks = [...bookmarksWithoutConflict, newBookmark]

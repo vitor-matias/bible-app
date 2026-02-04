@@ -13,9 +13,9 @@ import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { MatListModule } from "@angular/material/list"
 import { MatTreeModule } from "@angular/material/tree"
-import { BookmarkService } from "../../services/bookmark.service"
-import { map } from "rxjs/operators"
 import { Observable } from "rxjs"
+import { map } from "rxjs/operators"
+import { BookmarkService } from "../../services/bookmark.service"
 
 @Component({
   selector: "chapter-selector",
@@ -48,7 +48,7 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
   constructor(
     private elementRef: ElementRef,
     private bookmarkService: BookmarkService,
-  ) { }
+  ) {}
 
   submit(id: Chapter["number"]) {
     this.selectedChapter = id
@@ -60,7 +60,7 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
   }
 
   getChapterDisplay(chapter: Chapter): string {
-    return (chapter.title ? ` - ${chapter.title}` : "")
+    return chapter.title ? ` - ${chapter.title}` : ""
   }
 
   ngAfterViewInit(): void {
@@ -72,15 +72,17 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
       setTimeout(() => this.scrollToSelectedChapter(), 100)
     }
     if (changes["bookId"] && this.bookId) {
-      this.bookmarks$ = this.bookmarkService.getBookmarksForBook(this.bookId).pipe(
-        map((bookmarks) => {
-          const map = new Map<number, string>()
-          bookmarks.forEach((b) => {
-            map.set(b.chapter, b.color)
-          })
-          return map
-        }),
-      )
+      this.bookmarks$ = this.bookmarkService
+        .getBookmarksForBook(this.bookId)
+        .pipe(
+          map((bookmarks) => {
+            const map = new Map<number, string>()
+            bookmarks.forEach((b) => {
+              map.set(b.chapter, b.color)
+            })
+            return map
+          }),
+        )
     }
   }
 

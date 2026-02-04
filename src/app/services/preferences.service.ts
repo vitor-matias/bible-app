@@ -16,7 +16,9 @@ export class PreferencesService {
 
   getTheme(): "light" | "dark" | "system" | null {
     const stored = localStorage.getItem(this.KEYS.THEME)
-    return stored === "light" || stored === "dark" || stored === "system" ? stored : null
+    return stored === "light" || stored === "dark" || stored === "system"
+      ? stored
+      : null
   }
 
   setTheme(theme: "light" | "dark" | "system"): void {
