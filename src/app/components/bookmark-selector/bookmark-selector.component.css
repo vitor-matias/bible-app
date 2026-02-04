@@ -10,6 +10,11 @@
   justify-content: space-between;
   align-items: center;
   padding: 0 16px;
+  color: var(--text-color);
+}
+
+.header-row button {
+  color: var(--text-color);
 }
 
 h3 {
