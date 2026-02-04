@@ -87,7 +87,7 @@ export class BookmarkSelectorComponent implements OnInit {
     // 1. If assigned to current chapter -> Remove (Toggle Off)
     if (this.isCurrentLocation(ribbon)) {
       this.bookmarkService.removeBookmark(this.data.bookId, this.data.chapter)
-      this.bottomSheetRef.dismiss()
+      this.updateRibbons()
       return
     }
 
@@ -103,7 +103,7 @@ export class BookmarkSelectorComponent implements OnInit {
 
     // 3. If empty -> Assign to current
     this.bookmarkService.addBookmark(this.data.bookId, this.data.chapter, ribbon.value)
-    this.bottomSheetRef.dismiss()
+    this.updateRibbons()
   }
 
   isCurrentLocation(ribbon: RibbonState): boolean {
