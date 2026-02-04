@@ -2,43 +2,64 @@ import { Injectable } from "@angular/core"
 import { BehaviorSubject } from "rxjs"
 import { PreferencesService } from "./preferences.service"
 
+export type ThemeMode = "light" | "dark" | "system"
+
 @Injectable({
   providedIn: "root",
 })
 export class ThemeService {
-  private isDarkTheme = new BehaviorSubject<boolean>(false)
+  private themeMode = new BehaviorSubject<ThemeMode>("system")
+  private nightModeQuery = window.matchMedia("(prefers-color-scheme: dark)")
 
   constructor(private preferencesService: PreferencesService) {
     // Check localStorage for saved theme preference
     const savedTheme = this.preferencesService.getTheme()
-    const prefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)",
-    ).matches
 
     if (savedTheme) {
-      this.isDarkTheme.next(savedTheme === "dark")
+      this.themeMode.next(savedTheme)
     } else {
-      this.isDarkTheme.next(prefersDark)
+      this.themeMode.next("system")
     }
 
-    this.applyTheme(this.isDarkTheme.value)
+    this.applyTheme(this.themeMode.value)
+
+    // Watch for system theme changes
+    this.nightModeQuery.addEventListener("change", (e) => {
+      if (this.themeMode.value === "system") {
+        this.applyTheme("system")
+      }
+    })
   }
 
-  isDarkTheme$ = this.isDarkTheme.asObservable()
+  themeMode$ = this.themeMode.asObservable()
+
+  get currentMode(): ThemeMode {
+    return this.themeMode.value
+  }
 
   toggleTheme(): void {
-    const newTheme = !this.isDarkTheme.value
-    this.isDarkTheme.next(newTheme)
-    this.applyTheme(newTheme)
-    this.preferencesService.setTheme(newTheme ? "dark" : "light")
+    const modes: ThemeMode[] = ["light", "dark", "system"]
+    const currentIndex = modes.indexOf(this.themeMode.value)
+    const nextMode = modes[(currentIndex + 1) % modes.length]
+
+    this.themeMode.next(nextMode)
+    this.applyTheme(nextMode)
+    this.preferencesService.setTheme(nextMode)
+
     // @ts-expect-error
     if (window.umami) {
       // @ts-expect-error
-      window.umami.track(`theme-${newTheme ? "dark" : "light"}`)
+      window.umami.track(`theme-${nextMode}`)
     }
   }
 
-  private applyTheme(isDark: boolean): void {
+  private applyTheme(mode: ThemeMode): void {
+    let isDark = false
+    if (mode === "system") {
+      isDark = this.nightModeQuery.matches
+    } else {
+      isDark = mode === "dark"
+    }
     document.documentElement.classList.toggle("dark-theme", isDark)
   }
 }

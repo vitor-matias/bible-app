@@ -2,7 +2,9 @@
   background-color: var(--card-background);
   color: var(--text-color);
   font-size: large;
-  margin-left: 8px; /* Add some spacing between buttons */
+  margin-left: 8px;
+  position: relative;
+  /* Add some spacing between buttons */
 }
 
 .chapterSelectorButton:hover {
@@ -12,6 +14,33 @@
 button.highlight {
   background-color: var(--highlight-color);
   /* any extra styling you like */
+}
+
+.number-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  /* Fixed width for consistency */
+  height: 32px;
+  vertical-align: middle;
+}
+
+.bookmark-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  height: 46px;
+  width: 46px;
+  font-size: 46px;
+  z-index: 0;
+}
+
+.bookmarked {
+  position: relative;
+  z-index: 1;
 }
 
 .chapterSelectorContainer {

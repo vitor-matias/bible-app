@@ -1,87 +1,77 @@
 <div>
   <mat-toolbar>
     <div class="header-content">
-      <button
-        class="menuButton"
-        mat-icon-button
-        [matMenuTriggerFor]="headerMenu"
-        #menuTrigger="matMenuTrigger"
+      <button class="menuButton" mat-icon-button [matMenuTriggerFor]="headerMenu" #menuTrigger="matMenuTrigger"
         aria-label="Menu">
         <mat-icon>menu</mat-icon>
       </button>
       <mat-menu #headerMenu="matMenu">
-        <button mat-menu-item (click)="onToggleTheme($event)">
-          <mat-icon>{{ isLightTheme() ? 'light_mode' : 'dark_mode' }}</mat-icon>
-          <span>Alternar tema claro/escuro</span>
-        </button>
-        <button mat-menu-item (click)="onDecreaseFontSize($event)">
-          <mat-icon>zoom_out</mat-icon>
-          <span>Diminuir tamanho da letra</span>
-        </button>
-        <button mat-menu-item (click)="onIncreaseFontSize($event)">
-          <mat-icon>zoom_in</mat-icon>
-          <span>Aumentar tamanho da letra</span>
+        <div class="menu-controls" (click)="$event.stopPropagation()">
+          <button mat-icon-button (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()">
+            <mat-icon>{{ getThemeIcon() }}</mat-icon>
+          </button>
+          <button mat-icon-button (click)="onDecreaseFontSize()" matTooltip="Diminuir texto">
+            <mat-icon>text_decrease</mat-icon>
+          </button>
+          <button mat-icon-button (click)="onIncreaseFontSize()" matTooltip="Aumentar texto">
+            <mat-icon>text_increase</mat-icon>
+          </button>
+        </div>
+        <mat-divider></mat-divider>
+        <button mat-menu-item (click)="onToggleBookmarkFromMenu(menuTrigger)">
+          <mat-icon>bookmarks</mat-icon>
+          <span>Marcadores</span>
         </button>
         <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)">
           <mat-icon>auto_mode</mat-icon>
           <span>
             {{ autoScrollControlsVisible
-              ? 'Esconder controlos de deslocamento automático'
-              : 'Mostrar controlos de deslocamento automático' }}
+            ? 'Esconder controlos de deslocamento automático'
+            : 'Mostrar controlos de deslocamento automático' }}
           </span>
         </button>
         @if (canShare) {
-          <button mat-menu-item (click)="onShare(menuTrigger, $event)">
-            <mat-icon>share</mat-icon>
-            <span>Partilhar</span>
-          </button>
+        <button mat-menu-item (click)="onShare(menuTrigger, $event)">
+          <mat-icon>share</mat-icon>
+          <span>Partilhar</span>
+        </button>
         }
       </mat-menu>
 
       <mat-button-toggle-group multiple class="bookSelectorButton">
-        <mat-button-toggle
-          #bookToggle
-          mat-flat-button
-          matTooltip="Escolher livro"
-          class="bookSelectorButtonContent"
+        <mat-button-toggle #bookToggle mat-flat-button matTooltip="Escolher livro" class="bookSelectorButtonContent"
           (click)="showBookSelector(); bookToggle.checked = false"
-          (keydown.enter)="showBookSelector(); bookToggle.checked = false"
-          aria-live="polite">
-          
+          (keydown.enter)="showBookSelector(); bookToggle.checked = false" aria-live="polite">
+
           @if (book.id === 'about') {
-            <span class="cycle-wrapper">
-              <span class="cycle-text" [class.active]="bookLabelMode === 'title'">
-                {{ mobile ? book.shortName : book.name }}
-              </span>
-              <span class="cycle-text" [class.active]="bookLabelMode === 'prompt'">
-                Escolher Livro
-              </span>
+          <span class="cycle-wrapper">
+            <span class="cycle-text" [class.active]="bookLabelMode === 'title'">
+              {{ mobile ? book.shortName : book.name }}
             </span>
+            <span class="cycle-text" [class.active]="bookLabelMode === 'prompt'">
+              Escolher Livro
+            </span>
+          </span>
           } @else {
-            {{ mobile ? book.shortName : book.name }}
+          {{ mobile ? book.shortName : book.name }}
           }
         </mat-button-toggle>
-        
+
         @if(book.id !== 'about'){
-        <mat-button-toggle
-          #chapterToggle
-          mat-flat-button matTooltip="Escolher capítulo"
-          class="bookSelectorButtonContent"
-          (click)="showChapterSelector(); chapterToggle.checked = false">
+        <mat-button-toggle #chapterToggle mat-flat-button matTooltip="Escolher capítulo"
+          class="bookSelectorButtonContent" (click)="showChapterSelector(); chapterToggle.checked = false">
           {{ chapterNumber }}
         </mat-button-toggle>
         }
       </mat-button-toggle-group>
 
+
+
       @if (!isOffline) {
-        <button
-          routerLink="/search"
-          class="bookSelectorButton searchButton"
-          mat-flat-button
-          matTooltip="Pesquisar"
-          aria-label="Pesquisar">
-          <mat-icon style="color: #543D27;" aria-label="Search">search</mat-icon>
-        </button>
+      <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button matTooltip="Pesquisar"
+        aria-label="Pesquisar">
+        <mat-icon style="color: #543D27;" aria-label="Search">search</mat-icon>
+      </button>
       }
     </div>
   </mat-toolbar>

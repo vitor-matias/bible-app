@@ -76,6 +76,10 @@ mat-icon {
   padding-right: 0px;
 }
 
+.bookmarkButton {
+  right: 64px; /* Space for search button */
+}
+
 .searchButton.mdc-button {
   min-width: 48px;
 }
@@ -200,4 +204,20 @@ mat-icon {
   .cycle-wrapper {
     perspective: none;
   }
+}
+
+.menu-controls {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 16px;
+  min-width: 240px;
+}
+
+.menu-controls button {
+  transform: scale(1.2);
+  color: inherit;
+}
+
+.menu-controls mat-icon {
+  color: inherit;
 }

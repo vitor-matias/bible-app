@@ -15,7 +15,7 @@
         [selectedBookId]="book.id"></book-selector>
       }
       @else{
-      <chapter-selector [chapters]="book.chapters || []" [selectedChapter]="chapterNumber"
+      <chapter-selector [chapters]="book.chapters || []" [selectedChapter]="chapterNumber" [bookId]="book.id"
         (submitData)="onChapterSubmit($event)"></chapter-selector>
       }
     </mat-drawer>

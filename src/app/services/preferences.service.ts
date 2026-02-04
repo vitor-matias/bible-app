@@ -11,14 +11,15 @@ export class PreferencesService {
     CHAPTER_NUMBER: "chapter",
     THEME: "theme",
     FONT_SIZE_PREFIX: "fontSize",
+    BOOKMARKS: "bookmarks",
   }
 
-  getTheme(): "light" | "dark" | null {
+  getTheme(): "light" | "dark" | "system" | null {
     const stored = localStorage.getItem(this.KEYS.THEME)
-    return stored === "light" || stored === "dark" ? stored : null
+    return stored === "light" || stored === "dark" || stored === "system" ? stored : null
   }
 
-  setTheme(theme: "light" | "dark"): void {
+  setTheme(theme: "light" | "dark" | "system"): void {
     localStorage.setItem(this.KEYS.THEME, theme)
   }
 
@@ -71,5 +72,14 @@ export class PreferencesService {
 
   setLastChapterNumber(chapter: number): void {
     localStorage.setItem(this.KEYS.CHAPTER_NUMBER, chapter.toString())
+  }
+
+  getBookmarks(): Bookmark[] {
+    const stored = localStorage.getItem(this.KEYS.BOOKMARKS)
+    return stored ? JSON.parse(stored) : []
+  }
+
+  setBookmarks(bookmarks: Bookmark[]): void {
+    localStorage.setItem(this.KEYS.BOOKMARKS, JSON.stringify(bookmarks))
   }
 }

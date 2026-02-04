@@ -17,7 +17,11 @@ import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { RouterModule } from "@angular/router"
+import { MatDividerModule } from "@angular/material/divider"
+import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { PreferencesService } from "../../services/preferences.service"
+import { BookmarkService } from "../../services/bookmark.service"
+import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 import { ThemeService } from "../../services/theme.service"
 
 @Component({
@@ -32,6 +36,7 @@ import { ThemeService } from "../../services/theme.service"
     MatMenuModule,
     RouterModule,
     MatTooltipModule,
+    MatDividerModule,
   ],
   templateUrl: "./header.component.html",
   styleUrls: ["./header.component.css"],
@@ -44,6 +49,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   bookLabelMode: "title" | "prompt" = "title"
   private labelInterval?: number
   canShare = false
+  currentBookmark: Bookmark | undefined
 
   @Output() openBookSelector = new EventEmitter<{ open: boolean }>()
   @Output() openChapterSelector = new EventEmitter<{ open: boolean }>()
@@ -55,8 +61,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   constructor(
     private readonly themeService: ThemeService,
     private readonly preferencesService: PreferencesService,
+    private readonly bookmarkService: BookmarkService,
+    private readonly bottomSheet: MatBottomSheet,
     private readonly cdr: ChangeDetectorRef,
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     if (window.screen.width <= 480) {
@@ -72,6 +80,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes["book"] || changes["chapterNumber"]) {
+      this.updateBookmarkState()
+    }
     if (changes["book"]) {
       if (this.book?.id === "about") {
         this.startLabelCycle()
@@ -79,6 +90,33 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.stopLabelCycle()
       }
     }
+  }
+
+  private updateBookmarkState() {
+    if (this.book && this.chapterNumber) {
+      this.currentBookmark = this.bookmarkService.getBookmark(this.book.id, this.chapterNumber)
+    }
+  }
+
+  openBookmarkSelector() {
+    const sheet = this.bottomSheet.open(BookmarkSelectorComponent, {
+      data: { bookId: this.book.id, chapter: this.chapterNumber },
+    })
+
+    sheet.afterDismissed().subscribe((result) => {
+      if (result === "remove") {
+        this.bookmarkService.removeBookmark(this.book.id, this.chapterNumber)
+      } else if (result) {
+        this.bookmarkService.addBookmark(this.book.id, this.chapterNumber, result)
+      }
+      this.updateBookmarkState()
+      this.cdr.detectChanges()
+    })
+  }
+
+  onToggleBookmarkFromMenu(trigger: MatMenuTrigger) {
+    trigger.closeMenu()
+    this.openBookmarkSelector()
   }
 
   ngOnDestroy(): void {
@@ -103,8 +141,20 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     trigger.closeMenu()
   }
 
+  getThemeIcon(): string {
+    const mode = this.themeService.currentMode
+    if (mode === "system") return "brightness_auto"
+    return mode === "light" ? "light_mode" : "dark_mode"
+  }
+
+  getThemeTooltip(): string {
+    const mode = this.themeService.currentMode
+    if (mode === "system") return "Tema do Sistema"
+    return mode === "light" ? "Modo Claro" : "Modo Escuro"
+  }
+
   isLightTheme(): boolean {
-    return this.preferencesService.getTheme() === "light"
+    return this.themeService.currentMode === "light"
   }
 
   toggleTheme(): void {

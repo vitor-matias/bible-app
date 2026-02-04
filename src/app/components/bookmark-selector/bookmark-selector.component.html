@@ -1,0 +1,23 @@
+<div class="bookmark-selector-container">
+  <div class="header-row">
+    <h3>Marcadores</h3>
+    <button mat-icon-button (click)="toggleDeleteMode()" [class.delete-active]="isDeleteMode">
+      <mat-icon>delete</mat-icon>
+    </button>
+  </div>
+
+  <div class="colors-grid">
+    @for (ribbon of ribbons; track ribbon.value) {
+    <div class="ribbon-item">
+      <button class="color-button" [style.background-color]="ribbon.value" [class.selected]="isCurrentLocation(ribbon)"
+        (click)="handleRibbonClick(ribbon)" [attr.aria-label]="ribbon.name">
+        @if (ribbon.currentRef) {
+        <span class="ribbon-text">{{ ribbon.currentRef }}</span>
+        } @else {
+        <mat-icon class="add-icon">add</mat-icon>
+        }
+      </button>
+    </div>
+    }
+  </div>
+</div>
