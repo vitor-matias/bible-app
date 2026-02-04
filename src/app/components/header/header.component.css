@@ -76,10 +76,6 @@ mat-icon {
   padding-right: 0px;
 }
 
-.bookmarkButton {
-  right: 64px; /* Space for search button */
-}
-
 .searchButton.mdc-button {
   min-width: 48px;
 }
