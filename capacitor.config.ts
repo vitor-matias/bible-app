@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/core';
 
 const config: CapacitorConfig = {
-  appId: 'pt.vitormatias.biblia',
-  appName: 'Bible App',
+  appId: 'org.capuchinhos.biblia',
+  appName: 'Bíblia dos Capuchinhos',
   webDir: 'dist/bible-app/browser',
 };
 
