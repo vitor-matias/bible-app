@@ -78,7 +78,16 @@ export class PreferencesService {
 
   getBookmarks(): Bookmark[] {
     const stored = localStorage.getItem(this.KEYS.BOOKMARKS)
-    return stored ? JSON.parse(stored) : []
+    if (!stored) {
+      return []
+    }
+
+    try {
+      const parsed = JSON.parse(stored)
+      return Array.isArray(parsed) ? (parsed as Bookmark[]) : []
+    } catch {
+      return []
+    }
   }
 
   setBookmarks(bookmarks: Bookmark[]): void {
