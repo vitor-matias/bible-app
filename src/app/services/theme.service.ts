@@ -24,7 +24,7 @@ export class ThemeService {
     this.applyTheme(this.themeMode.value)
 
     // Watch for system theme changes
-    this.nightModeQuery.addEventListener("change", (e) => {
+    this.nightModeQuery.addEventListener("change", () => {
       if (this.themeMode.value === "system") {
         this.applyTheme("system")
       }
