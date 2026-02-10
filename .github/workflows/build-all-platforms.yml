@@ -69,6 +69,43 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: Decode Keystore
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: |
+          set -e
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release-key.jks
+
+      - name: Create keystore.properties
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: |
+          set -e
+          cat > android/keystore.properties << EOF
+          storeFile=release-key.jks
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
+
+      - name: Configure Gradle signing
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: |
+          set -e
+          # Inject signing config into app/build.gradle
+          sed -i '/android {/a \
+              signingConfigs {\
+                  release {\
+                      def keystorePropertiesFile = rootProject.file("keystore.properties")\
+                      def keystoreProperties = new Properties()\
+                      keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\
+                      storeFile file(keystoreProperties["storeFile"])\
+                      storePassword keystoreProperties["storePassword"]\
+                      keyAlias keystoreProperties["keyAlias"]\
+                      keyPassword keystoreProperties["keyPassword"]\
+                  }\
+              }' android/app/build.gradle
+          # Update release buildType to use signing config
+          sed -i 's/buildTypes {/buildTypes {\n        release {\n            signingConfig signingConfigs.release\n        }/' android/app/build.gradle
+
       - name: Build Android APK
         run: |
           set -e
@@ -128,7 +165,64 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Build iOS app
+      - name: Install Apple Certificate and Provisioning Profile
+        if: ${{ secrets.IOS_CERTIFICATE_BASE64 != '' }}
+        run: |
+          set -e
+          # Create temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          echo "${{ secrets.IOS_CERTIFICATE_BASE64 }}" | base64 -d > $CERTIFICATE_PATH
+          security import $CERTIFICATE_PATH -P "${{ secrets.IOS_CERTIFICATE_PASSWORD }}" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # Install provisioning profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+
+      - name: Build iOS app (Signed)
+        if: ${{ secrets.IOS_CERTIFICATE_BASE64 != '' }}
+        run: |
+          set -e
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath ./build/iOS.xcarchive \
+            archive
+
+      - name: Export signed IPA
+        if: ${{ secrets.IOS_CERTIFICATE_BASE64 != '' }}
+        run: |
+          set -e
+          cd ios/App
+          cat > ExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store</string>
+              <key>teamID</key>
+              <string>${{ secrets.IOS_TEAM_ID }}</string>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath ./build/iOS.xcarchive \
+            -exportPath ./build/output \
+            -exportOptionsPlist ExportOptions.plist
+
+      - name: Build iOS app (Unsigned)
+        if: ${{ secrets.IOS_CERTIFICATE_BASE64 == '' }}
         run: |
           set -e
           cd ios/App
@@ -142,11 +236,13 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Upload iOS archive
+      - name: Upload iOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-app
-          path: ios/App/build/iOS.xcarchive
+          path: |
+            ios/App/build/output/*.ipa
+            ios/App/build/iOS.xcarchive
           retention-days: 30
 
       - name: Build macOS app
@@ -169,3 +265,11 @@ jobs:
           name: macos-app
           path: ios/App/build/macOS.xcarchive
           retention-days: 30
+
+      - name: Clean up keychain
+        if: always()
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          if [ -f "$KEYCHAIN_PATH" ]; then
+            security delete-keychain $KEYCHAIN_PATH
+          fi
