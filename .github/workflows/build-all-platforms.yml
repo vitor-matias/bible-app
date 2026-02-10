@@ -62,11 +62,13 @@ jobs:
 
       - name: Setup Capacitor Android
         run: |
+          set -e
           npx cap add android
           npx cap sync android
 
       - name: Build Android APK
         run: |
+          set -e
           cd android
           ./gradlew assembleRelease
 
@@ -79,6 +81,7 @@ jobs:
 
       - name: Build Android AAB
         run: |
+          set -e
           cd android
           ./gradlew bundleRelease
 
@@ -113,6 +116,7 @@ jobs:
 
       - name: Setup Capacitor iOS
         run: |
+          set -e
           npx cap add ios
           npx cap sync ios
 
@@ -123,6 +127,7 @@ jobs:
 
       - name: Build iOS app
         run: |
+          set -e
           cd ios/App
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
@@ -143,6 +148,7 @@ jobs:
 
       - name: Build macOS app
         run: |
+          set -e
           cd ios/App
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
