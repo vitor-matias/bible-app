@@ -188,6 +188,8 @@ jobs:
           npx cap sync ios
           echo "Listing ios/App contents:"
           ls -R ios/App
+          echo "Listing available destinations:"
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -showdestinations
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -282,8 +284,7 @@ jobs:
           xcodebuild -project App.xcodeproj \
             -scheme App \
             -configuration Release \
-            -destination 'generic/platform=macOS' \
-            SUPPORTS_MACCATALYST=YES \
+            -destination 'platform=macOS,arch=arm64,variant=Designed for [iPad,iPhone]' \
             -archivePath ./build/macOS.xcarchive \
             archive \
             CODE_SIGN_IDENTITY="" \
