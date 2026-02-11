@@ -282,7 +282,8 @@ jobs:
           xcodebuild -project App.xcodeproj \
             -scheme App \
             -configuration Release \
-            -destination 'generic/platform=macOS,variant=Mac Catalyst' \
+            -destination 'generic/platform=macOS' \
+            SUPPORTS_MACCATALYST=YES \
             -archivePath ./build/macOS.xcarchive \
             archive \
             CODE_SIGN_IDENTITY="" \
