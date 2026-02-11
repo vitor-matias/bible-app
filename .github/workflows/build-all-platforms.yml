@@ -38,6 +38,8 @@ jobs:
   build-android:
     needs: build-web
     runs-on: ubuntu-latest
+    env:
+      HAS_ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -70,13 +72,13 @@ jobs:
           npx cap sync android
 
       - name: Decode Keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
         run: |
           set -e
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release-key.jks
 
       - name: Create keystore.properties
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
         run: |
           set -e
           cat > android/keystore.properties << EOF
@@ -87,7 +89,7 @@ jobs:
           EOF
 
       - name: Configure Gradle signing
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
         run: |
           set -e
           # Inject signing config into app/build.gradle
@@ -135,6 +137,8 @@ jobs:
   build-ios-macos:
     needs: build-web
     runs-on: macos-latest
+    env:
+      HAS_IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -166,7 +170,7 @@ jobs:
           xcode-version: latest-stable
 
       - name: Install Apple Certificate and Provisioning Profile
-        if: ${{ secrets.IOS_CERTIFICATE_BASE64 != '' }}
+        if: ${{ env.HAS_IOS_CERTIFICATE != '' }}
         run: |
           set -e
           # Create temporary keychain
@@ -188,7 +192,7 @@ jobs:
           echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
 
       - name: Build iOS app (Signed)
-        if: ${{ secrets.IOS_CERTIFICATE_BASE64 != '' }}
+        if: ${{ env.HAS_IOS_CERTIFICATE != '' }}
         run: |
           set -e
           cd ios/App
@@ -200,7 +204,7 @@ jobs:
             archive
 
       - name: Export signed IPA
-        if: ${{ secrets.IOS_CERTIFICATE_BASE64 != '' }}
+        if: ${{ env.HAS_IOS_CERTIFICATE != '' }}
         run: |
           set -e
           cd ios/App
@@ -222,7 +226,8 @@ jobs:
             -exportOptionsPlist ExportOptions.plist
 
       - name: Build iOS app (Unsigned)
-        if: ${{ secrets.IOS_CERTIFICATE_BASE64 == '' }}
+        if: ${{ env.HAS_IOS_CERTIFICATE == '' }}
+
         run: |
           set -e
           cd ios/App
