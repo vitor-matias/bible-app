@@ -284,7 +284,7 @@ jobs:
           xcodebuild -project App.xcodeproj \
             -scheme App \
             -configuration Release \
-            -destination 'platform=macOS,arch=arm64,variant=Designed for [iPad\,iPhone]' \
+            -destination 'generic/platform=macOS' \
             -archivePath ./build/macOS.xcarchive \
             archive \
             CODE_SIGN_IDENTITY="" \
