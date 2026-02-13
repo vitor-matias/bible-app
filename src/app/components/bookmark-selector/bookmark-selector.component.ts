@@ -89,7 +89,7 @@ export class BookmarkSelectorComponent implements OnInit {
       return
     }
 
-    // If already assigned elsewhere -> Navigate
+    // 1. If already assigned elsewhere -> Navigate
     if (ribbon.bookmark) {
       const book = this.bookService.findBook(ribbon.bookmark.bookId)
       if (book) {
@@ -102,12 +102,19 @@ export class BookmarkSelectorComponent implements OnInit {
       return
     }
 
-    // If empty -> Assign to current
+    // 2. If empty -> Assign to current
     this.bookmarkService.addBookmark(
       this.data.bookId,
       this.data.chapter,
       ribbon.value,
     )
     this.updateRibbons()
+  }
+
+  isCurrentLocation(ribbon: RibbonState): boolean {
+    return (
+      ribbon.bookmark?.bookId === this.data.bookId &&
+      ribbon.bookmark?.chapter === this.data.chapter
+    )
   }
 }
