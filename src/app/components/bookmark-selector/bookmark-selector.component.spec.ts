@@ -121,7 +121,7 @@ describe("BookmarkSelectorComponent", () => {
     expect(bookmarkServiceSpy.getBookmarks).toHaveBeenCalled() // via updateRibbons
   })
 
-  it("should remove bookmark when clicking ribbon assigned to current location", () => {
+  it("should NOT remove bookmark when clicking ribbon assigned to current location", () => {
     // Modify mock for this test
     bookmarkServiceSpy.getBookmarks.and.returnValue([
       { bookId: "GEN", chapter: 1, color: "#F44336", timestamp: 123 },
@@ -134,8 +134,8 @@ describe("BookmarkSelectorComponent", () => {
       component.handleRibbonClick(redRibbon)
     }
 
-    expect(bookmarkServiceSpy.removeBookmark).toHaveBeenCalledWith("GEN", 1)
-    expect(bottomSheetRefSpy.dismiss).not.toHaveBeenCalled()
+    expect(bookmarkServiceSpy.removeBookmark).not.toHaveBeenCalled()
+    expect(bottomSheetRefSpy.dismiss).toHaveBeenCalled()
   })
 
   it("should delete bookmark when in delete mode", () => {

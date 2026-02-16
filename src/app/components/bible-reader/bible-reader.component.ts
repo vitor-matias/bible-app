@@ -169,6 +169,7 @@ export class BibleReaderComponent implements OnDestroy {
             verseEndParam,
             highlight,
           )
+          this.bookDrawer?.close()
         },
       )
     })
