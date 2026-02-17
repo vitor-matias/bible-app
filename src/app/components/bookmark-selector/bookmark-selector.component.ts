@@ -79,12 +79,12 @@ export class BookmarkSelectorComponent implements OnInit {
   handleRibbonClick(ribbon: RibbonState): void {
     if (this.isDeleteMode) {
       if (ribbon.bookmark) {
-        this.bookmarkService.removeBookmark(
-          ribbon.bookmark.bookId,
-          ribbon.bookmark.chapter,
-        )
-        // Refresh ribbons to show it's gone
-        this.updateRibbons()
+        this.bookmarkService
+          .removeBookmark(ribbon.bookmark.bookId, ribbon.bookmark.chapter)
+          .finally(() => {
+            // Refresh ribbons to show it's gone
+            this.updateRibbons()
+          })
       }
       return
     }
@@ -103,12 +103,11 @@ export class BookmarkSelectorComponent implements OnInit {
     }
 
     // 2. If empty -> Assign to current
-    this.bookmarkService.addBookmark(
-      this.data.bookId,
-      this.data.chapter,
-      ribbon.value,
-    )
-    this.updateRibbons()
+    this.bookmarkService
+      .addBookmark(this.data.bookId, this.data.chapter, ribbon.value)
+      .finally(() => {
+        this.updateRibbons()
+      })
   }
 
   isCurrentLocation(ribbon: RibbonState): boolean {

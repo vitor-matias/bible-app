@@ -1,6 +1,7 @@
 import { HttpClient } from "@angular/common/http"
 import { Injectable } from "@angular/core"
 import { firstValueFrom } from "rxjs"
+import { DatabaseService } from "./database.service"
 
 @Injectable({
   providedIn: "root",
@@ -13,7 +14,10 @@ export class OfflineDataService {
   private apiBase = "v1"
   private cacheLoadPromise: Promise<void> | null = null
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private databaseService: DatabaseService,
+  ) {}
 
   /**
    * Fetches all books and chapters so they are stored by the Service Worker
@@ -180,56 +184,15 @@ export class OfflineDataService {
   }
 
   private async loadBooksFromIndexedDb(): Promise<void> {
-    if (typeof indexedDB === "undefined") return
-    const db = await this.openDatabase()
-    if (!db) return
-
-    await new Promise<void>((resolve) => {
-      const transaction = db.transaction("books", "readonly")
-      const store = transaction.objectStore("books")
-      const request = store.getAll()
-      request.onsuccess = () => {
-        const records = request.result as Book[]
-        if (records?.length) {
-          this.cachedBooks = records
-        }
-        resolve()
-      }
-      request.onerror = () => resolve()
-    })
+    const records = await this.databaseService.getAll<Book>("books")
+    if (records?.length) {
+      this.cachedBooks = records
+    }
   }
 
   private async saveBooksToIndexedDb(books: Book[]): Promise<void> {
-    if (typeof indexedDB === "undefined") return
-    const db = await this.openDatabase()
-    if (!db) return
-
-    await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction("books", "readwrite")
-      const store = transaction.objectStore("books")
-      transaction.oncomplete = () => resolve()
-      transaction.onerror = () => reject(transaction.error)
-      transaction.onabort = () => reject(transaction.error)
-
-      store.clear()
-      for (const book of books) {
-        store.put(book)
-      }
-    })
-  }
-
-  private openDatabase(): Promise<IDBDatabase | null> {
-    return new Promise((resolve) => {
-      const request = indexedDB.open("offline-bible", 1)
-      request.onupgradeneeded = () => {
-        const db = request.result
-        if (!db.objectStoreNames.contains("books")) {
-          db.createObjectStore("books", { keyPath: "id" })
-        }
-      }
-      request.onsuccess = () => resolve(request.result)
-      request.onerror = () => resolve(null)
-    })
+    await this.databaseService.clear("books")
+    await this.databaseService.putAll("books", books)
   }
 
   private isCacheExpired(): boolean {

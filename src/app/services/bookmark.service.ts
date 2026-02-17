@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core"
 import { BehaviorSubject, type Observable } from "rxjs"
 import { map } from "rxjs/operators"
-import { PreferencesService } from "./preferences.service"
+import { DatabaseService } from "./database.service"
 
 @Injectable({
   providedIn: "root",
@@ -10,12 +10,16 @@ export class BookmarkService {
   private bookmarksSubject = new BehaviorSubject<Bookmark[]>([])
   bookmarks$ = this.bookmarksSubject.asObservable()
 
-  constructor(private preferencesService: PreferencesService) {
-    this.loadBookmarks()
+  constructor(private databaseService: DatabaseService) {
+    this.init()
   }
 
-  private loadBookmarks() {
-    const bookmarks = this.preferencesService.getBookmarks()
+  private async init() {
+    await this.loadBookmarks()
+  }
+
+  private async loadBookmarks() {
+    const bookmarks = await this.databaseService.getAll<Bookmark>("bookmarks")
     this.bookmarksSubject.next(bookmarks)
   }
 
@@ -39,7 +43,11 @@ export class BookmarkService {
     return !!this.getBookmark(bookId, chapter)
   }
 
-  addBookmark(bookId: string, chapter: number, color: string): void {
+  async addBookmark(
+    bookId: string,
+    chapter: number,
+    color: string,
+  ): Promise<void> {
     const currentBookmarks = this.bookmarksSubject.value
     // Filter out any existing bookmark with the same color
     const bookmarksWithoutConflict = currentBookmarks.filter(
@@ -69,19 +77,20 @@ export class BookmarkService {
       updatedBookmarks = [...bookmarksWithoutConflict, newBookmark]
     }
 
-    this.saveBookmarks(updatedBookmarks)
+    await this.saveBookmarks(updatedBookmarks)
   }
 
-  removeBookmark(bookId: string, chapter: number): void {
+  async removeBookmark(bookId: string, chapter: number): Promise<void> {
     const currentBookmarks = this.bookmarksSubject.value
     const updatedBookmarks = currentBookmarks.filter(
       (b) => !(b.bookId === bookId && b.chapter === chapter),
     )
-    this.saveBookmarks(updatedBookmarks)
+    await this.saveBookmarks(updatedBookmarks)
   }
 
-  private saveBookmarks(bookmarks: Bookmark[]) {
-    this.preferencesService.setBookmarks(bookmarks)
+  private async saveBookmarks(bookmarks: Bookmark[]) {
+    await this.databaseService.clear("bookmarks")
+    await this.databaseService.putAll("bookmarks", bookmarks)
     this.bookmarksSubject.next(bookmarks)
   }
 }
