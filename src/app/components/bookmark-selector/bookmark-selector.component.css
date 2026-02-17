@@ -23,7 +23,7 @@ h3 {
 }
 
 .delete-active {
-  color: #f44336 !important;
+  color: red !important;
   background-color: rgba(244, 67, 54, 0.1);
 }
 

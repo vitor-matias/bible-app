@@ -26,14 +26,14 @@ interface RibbonState {
 })
 export class BookmarkSelectorComponent implements OnInit {
   colors = [
-    { name: "Red", value: "#F44336" },
-    { name: "Orange", value: "#FF9800" },
-    { name: "Teal", value: "#009688" },
-    { name: "Green", value: "#4CAF50" },
-    { name: "Blue", value: "#2196F3" },
-    { name: "Indigo", value: "#3F51B5" },
-    { name: "Violet", value: "#9C27B0" },
-    { name: "Grey", value: "#9E9E9E" },
+    { name: "Red", value: "red" },
+    { name: "Orange", value: "orange" },
+    { name: "Teal", value: "teal" },
+    { name: "Green", value: "green" },
+    { name: "Blue", value: "blue" },
+    { name: "Indigo", value: "indigo" },
+    { name: "Violet", value: "violet" },
+    { name: "Grey", value: "grey" },
   ]
 
   ribbons: RibbonState[] = []
