@@ -7,13 +7,13 @@
       </button>
       <mat-menu #headerMenu="matMenu">
         <div class="menu-controls" (click)="$event.stopPropagation()">
-          <button mat-icon-button (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()">
+          <button mat-icon-button (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" [attr.aria-label]="getThemeTooltip()">
             <mat-icon>{{ getThemeIcon() }}</mat-icon>
           </button>
-          <button mat-icon-button (click)="onDecreaseFontSize()" matTooltip="Diminuir texto">
+          <button mat-icon-button (click)="onDecreaseFontSize()" matTooltip="Diminuir texto" aria-label="Diminuir texto">
             <mat-icon>text_decrease</mat-icon>
           </button>
-          <button mat-icon-button (click)="onIncreaseFontSize()" matTooltip="Aumentar texto">
+          <button mat-icon-button (click)="onIncreaseFontSize()" matTooltip="Aumentar texto" aria-label="Aumentar texto">
             <mat-icon>text_increase</mat-icon>
           </button>
         </div>
