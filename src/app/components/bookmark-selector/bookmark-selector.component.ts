@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common"
-import { Component, DestroyRef, Inject, OnInit, inject } from "@angular/core"
+import { Component, DestroyRef, Inject, inject, OnInit } from "@angular/core"
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import {
   MAT_BOTTOM_SHEET_DATA,
@@ -9,7 +9,7 @@ import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { Router } from "@angular/router"
 import { BookService } from "../../services/book.service"
-import { Bookmark, BookmarkService } from "../../services/bookmark.service"
+import { BookmarkService } from "../../services/bookmark.service"
 
 interface RibbonState {
   name: string

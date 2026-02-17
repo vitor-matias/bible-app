@@ -36,6 +36,7 @@ button.highlight {
   width: 46px;
   font-size: 46px;
   z-index: 0;
+  font-variation-settings: 'FILL' 1;
 }
 
 .bookmarked {

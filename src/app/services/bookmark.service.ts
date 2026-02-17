@@ -1,10 +1,3 @@
-export interface Bookmark {
-  bookId: string
-  chapter: number
-  color: string
-  timestamp: number
-}
-
 import { Injectable } from "@angular/core"
 import { BehaviorSubject, type Observable } from "rxjs"
 import { map } from "rxjs/operators"

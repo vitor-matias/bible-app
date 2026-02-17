@@ -1,6 +1,5 @@
 import { CommonModule } from "@angular/common"
 import { ComponentFixture, TestBed } from "@angular/core/testing"
-import { BehaviorSubject } from "rxjs"
 import {
   MAT_BOTTOM_SHEET_DATA,
   MatBottomSheetRef,
@@ -8,6 +7,7 @@ import {
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { Router } from "@angular/router"
+import { BehaviorSubject } from "rxjs"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { BookmarkSelectorComponent } from "./bookmark-selector.component"

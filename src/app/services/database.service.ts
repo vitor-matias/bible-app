@@ -9,8 +9,6 @@ export class DatabaseService {
   private db: IDBDatabase | null = null
   private dbPromise: Promise<IDBDatabase | null> | null = null
 
-  constructor() {}
-
   private async getDB(): Promise<IDBDatabase | null> {
     if (this.db) return this.db
     if (this.dbPromise) return this.dbPromise

@@ -13,7 +13,7 @@ import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { MatListModule } from "@angular/material/list"
 import { MatTreeModule } from "@angular/material/tree"
-import { Observable, of } from "rxjs"
+import { of } from "rxjs"
 import { map } from "rxjs/operators"
 import { BookmarkService } from "../../services/bookmark.service"
 
