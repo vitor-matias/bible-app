@@ -9,7 +9,7 @@
   <div class="colors-grid">
     @for (ribbon of ribbons; track ribbon.value) {
     <div class="ribbon-item">
-      <button class="color-button" [style.background-color]="ribbon.value" [class.selected]="isCurrentLocation(ribbon)"
+      <button class="color-button" [style.background-color]="ribbon.value"
         (click)="handleRibbonClick(ribbon)" [attr.aria-label]="ribbon.name">
         @if (ribbon.currentRef) {
         <span class="ribbon-text">{{ ribbon.currentRef }}</span>
