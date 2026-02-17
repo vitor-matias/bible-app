@@ -65,7 +65,7 @@ export class BibleApiService {
       this.offlineDataService.getCachedChapterAsync(book, chapter),
     ).pipe(
       switchMap((cached) => {
-        if (cached) {
+        if (cached?.verses && cached.verses.length > 0) {
           return of(cached)
         }
 
@@ -128,7 +128,7 @@ export class BibleApiService {
       this.offlineDataService.getCachedVerseAsync(book, chapter, verse),
     ).pipe(
       switchMap((cached) => {
-        if (cached) {
+        if (cached?.text && cached?.text?.length > 0) {
           return of(cached)
         }
         if (typeof navigator !== "undefined" && !navigator.onLine) {

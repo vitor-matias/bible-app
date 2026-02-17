@@ -1,0 +1,307 @@
+name: Build All Platforms
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_android:
+        description: 'Build Android'
+        required: true
+        type: boolean
+        default: true
+      build_ios:
+        description: 'Build iOS'
+        required: true
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      build_android:
+        required: false
+        type: boolean
+        default: true
+      build_ios:
+        required: false
+        type: boolean
+        default: true
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '25'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Angular PWA
+        run: npm run build
+
+      - name: Upload web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: dist/
+          retention-days: 1
+
+  build-android:
+    needs: build-web
+    if: ${{ github.event_name == 'push' || inputs.build_android }}
+    runs-on: ubuntu-latest
+    env:
+      HAS_ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '25'
+          cache: 'npm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download web build
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: dist/
+
+      - name: Setup Capacitor Android
+        run: |
+          set -e
+          npx cap add android
+          npx cap sync android
+
+      - name: Decode Keystore
+        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
+        run: |
+          set -e
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release-key.jks
+
+      - name: Create keystore.properties
+        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
+        run: |
+          set -e
+          cat > android/keystore.properties << EOF
+          storeFile=release-key.jks
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
+
+      - name: Configure Gradle signing
+        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
+        run: |
+          set -e
+          # Inject signing config into app/build.gradle
+          sed -i '/android {/a \
+              signingConfigs {\
+                  release {\
+                      def keystorePropertiesFile = rootProject.file("keystore.properties")\
+                      def keystoreProperties = new Properties()\
+                      keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\
+                      storeFile file(keystoreProperties["storeFile"])\
+                      storePassword keystoreProperties["storePassword"]\
+                      keyAlias keystoreProperties["keyAlias"]\
+                      keyPassword keystoreProperties["keyPassword"]\
+                  }\
+              }' android/app/build.gradle
+          # Update release buildType to use signing config
+          sed -i 's/buildTypes {/buildTypes {\n        release {\n            signingConfig signingConfigs.release\n        }/' android/app/build.gradle
+
+      - name: Build Android APK
+        run: |
+          set -e
+          cd android
+          ./gradlew assembleRelease
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          retention-days: 30
+
+      - name: Build Android AAB
+        run: |
+          set -e
+          cd android
+          ./gradlew bundleRelease
+
+      - name: Upload Android AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: android/app/build/outputs/bundle/release/*.aab
+          retention-days: 30
+
+  build-ios-macos:
+    needs: build-web
+    if: ${{ github.event_name == 'push' || inputs.build_ios }}
+    runs-on: macos-latest
+    env:
+      HAS_IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '25'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download web build
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: dist/
+
+      - name: Setup Capacitor iOS
+        run: |
+          set -e
+          npx cap add ios
+          npx cap sync ios
+          echo "Listing ios/App contents:"
+          ls -R ios/App
+          echo "Listing available destinations:"
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -showdestinations
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install Apple Certificate and Provisioning Profile
+        if: ${{ env.HAS_IOS_CERTIFICATE != '' }}
+        run: |
+          set -e
+          # Create temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          echo "${{ secrets.IOS_CERTIFICATE_BASE64 }}" | base64 -d > $CERTIFICATE_PATH
+          security import $CERTIFICATE_PATH -P "${{ secrets.IOS_CERTIFICATE_PASSWORD }}" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # Install provisioning profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+
+      - name: Build iOS app (Signed)
+        if: ${{ env.HAS_IOS_CERTIFICATE != '' }}
+        run: |
+          set -e
+          cd ios/App
+          xcodebuild -project App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath ./build/iOS.xcarchive \
+            archive
+
+      - name: Export signed IPA
+        if: ${{ env.HAS_IOS_CERTIFICATE != '' }}
+        run: |
+          set -e
+          cd ios/App
+          cat > ExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store</string>
+              <key>teamID</key>
+              <string>${{ secrets.IOS_TEAM_ID }}</string>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath ./build/iOS.xcarchive \
+            -exportPath ./build/output \
+            -exportOptionsPlist ExportOptions.plist
+
+      - name: Build iOS app (Unsigned)
+        if: ${{ env.HAS_IOS_CERTIFICATE == '' }}
+
+        run: |
+          set -e
+          cd ios/App
+          xcodebuild -project App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS Simulator' \
+            -archivePath ./build/iOS.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-app
+          path: |
+            ios/App/build/output/*.ipa
+            ios/App/build/iOS.xcarchive
+          retention-days: 30
+
+      - name: Build macOS app
+        run: |
+          set -e
+          cd ios/App
+          xcodebuild -project App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -archivePath ./build/macOS.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Upload macOS archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: ios/App/build/macOS.xcarchive
+          retention-days: 30
+
+      - name: Clean up keychain
+        if: always()
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          if [ -f "$KEYCHAIN_PATH" ]; then
+            security delete-keychain $KEYCHAIN_PATH
+          fi
