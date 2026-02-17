@@ -1,5 +1,6 @@
 import { CommonModule } from "@angular/common"
 import { ComponentFixture, TestBed } from "@angular/core/testing"
+import { BehaviorSubject } from "rxjs"
 import {
   MAT_BOTTOM_SHEET_DATA,
   MatBottomSheetRef,
@@ -20,6 +21,7 @@ describe("BookmarkSelectorComponent", () => {
     MatBottomSheetRef<BookmarkSelectorComponent>
   >
   let routerSpy: jasmine.SpyObj<Router>
+  let bookmarksSubject: BehaviorSubject<Bookmark[]>
 
   const mockData = { bookId: "GEN", chapter: 1 }
   const mockBookmarks: Bookmark[] = [
@@ -28,7 +30,6 @@ describe("BookmarkSelectorComponent", () => {
 
   beforeEach(async () => {
     const bookmarkSpy = jasmine.createSpyObj("BookmarkService", [
-      "getBookmarks",
       "addBookmark",
       "removeBookmark",
     ])
@@ -39,7 +40,11 @@ describe("BookmarkSelectorComponent", () => {
     const sheetSpy = jasmine.createSpyObj("MatBottomSheetRef", ["dismiss"])
     const rSpy = jasmine.createSpyObj("Router", ["navigate"])
 
-    bookmarkSpy.getBookmarks.and.returnValue(mockBookmarks)
+    bookmarksSubject = new BehaviorSubject<Bookmark[]>(mockBookmarks)
+    void Object.defineProperty(bookmarkSpy, "bookmarks$", {
+      get: () => bookmarksSubject.asObservable(),
+    })
+
     bookmarkSpy.addBookmark.and.returnValue(Promise.resolve())
     bookmarkSpy.removeBookmark.and.returnValue(Promise.resolve())
     bookSpy.findBook.and.returnValue({ abrv: "Mc", shortName: "Marcos" })
@@ -114,21 +119,16 @@ describe("BookmarkSelectorComponent", () => {
       component.handleRibbonClick(redRibbon)
     }
 
-    expect(bookmarkServiceSpy.addBookmark).toHaveBeenCalledWith(
-      "GEN",
-      1,
-      "red",
-    )
+    expect(bookmarkServiceSpy.addBookmark).toHaveBeenCalledWith("GEN", 1, "red")
     expect(bottomSheetRefSpy.dismiss).not.toHaveBeenCalled()
-    expect(bookmarkServiceSpy.getBookmarks).toHaveBeenCalled() // via updateRibbons
   })
 
   it("should NOT remove bookmark when clicking ribbon assigned to current location", () => {
     // Modify mock for this test
-    bookmarkServiceSpy.getBookmarks.and.returnValue([
+    bookmarksSubject.next([
       { bookId: "GEN", chapter: 1, color: "red", timestamp: 123 },
     ])
-    component.updateRibbons()
+    fixture.detectChanges()
 
     const redRibbon = component.ribbons.find((r) => r.value === "red")
     expect(redRibbon).toBeTruthy()
@@ -149,6 +149,5 @@ describe("BookmarkSelectorComponent", () => {
     }
 
     expect(bookmarkServiceSpy.removeBookmark).toHaveBeenCalledWith("MRK", 2)
-    expect(bookmarkServiceSpy.getBookmarks).toHaveBeenCalled() // Should refresh
   })
 })

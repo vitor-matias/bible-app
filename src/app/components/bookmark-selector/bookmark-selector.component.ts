@@ -1,5 +1,6 @@
 import { CommonModule } from "@angular/common"
-import { Component, Inject, OnInit } from "@angular/core"
+import { Component, DestroyRef, Inject, OnInit, inject } from "@angular/core"
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import {
   MAT_BOTTOM_SHEET_DATA,
   MatBottomSheetRef,
@@ -8,7 +9,7 @@ import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { Router } from "@angular/router"
 import { BookService } from "../../services/book.service"
-import { BookmarkService } from "../../services/bookmark.service"
+import { Bookmark, BookmarkService } from "../../services/bookmark.service"
 
 interface RibbonState {
   name: string
@@ -38,6 +39,8 @@ export class BookmarkSelectorComponent implements OnInit {
 
   ribbons: RibbonState[] = []
 
+  private destroyRef = inject(DestroyRef)
+
   constructor(
     private bottomSheetRef: MatBottomSheetRef<BookmarkSelectorComponent>,
     @Inject(MAT_BOTTOM_SHEET_DATA)
@@ -54,11 +57,14 @@ export class BookmarkSelectorComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.updateRibbons()
+    this.bookmarkService.bookmarks$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((bookmarks) => {
+        this.updateRibbons(bookmarks)
+      })
   }
 
-  updateRibbons() {
-    const allBookmarks = this.bookmarkService.getBookmarks()
+  updateRibbons(allBookmarks: Bookmark[]) {
     this.ribbons = this.colors.map((c) => {
       const bookmark = allBookmarks.find((b) => b.color === c.value)
       let currentRef: string | undefined
@@ -79,12 +85,10 @@ export class BookmarkSelectorComponent implements OnInit {
   handleRibbonClick(ribbon: RibbonState): void {
     if (this.isDeleteMode) {
       if (ribbon.bookmark) {
-        this.bookmarkService
-          .removeBookmark(ribbon.bookmark.bookId, ribbon.bookmark.chapter)
-          .finally(() => {
-            // Refresh ribbons to show it's gone
-            this.updateRibbons()
-          })
+        this.bookmarkService.removeBookmark(
+          ribbon.bookmark.bookId,
+          ribbon.bookmark.chapter,
+        )
       }
       return
     }
@@ -103,11 +107,11 @@ export class BookmarkSelectorComponent implements OnInit {
     }
 
     // 2. If empty -> Assign to current
-    this.bookmarkService
-      .addBookmark(this.data.bookId, this.data.chapter, ribbon.value)
-      .finally(() => {
-        this.updateRibbons()
-      })
+    this.bookmarkService.addBookmark(
+      this.data.bookId,
+      this.data.chapter,
+      ribbon.value,
+    )
   }
 
   isCurrentLocation(ribbon: RibbonState): boolean {
