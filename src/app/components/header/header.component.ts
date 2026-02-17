@@ -20,7 +20,6 @@ import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { RouterModule } from "@angular/router"
 import { BookmarkService } from "../../services/bookmark.service"
-import { PreferencesService } from "../../services/preferences.service"
 import { ThemeService } from "../../services/theme.service"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 
@@ -60,7 +59,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   constructor(
     private readonly themeService: ThemeService,
-    readonly _preferencesService: PreferencesService,
     private readonly bookmarkService: BookmarkService,
     private readonly bottomSheet: MatBottomSheet,
     private readonly cdr: ChangeDetectorRef,
@@ -102,6 +100,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   openBookmarkSelector() {
+    if (!this.book || !this.chapterNumber) {
+      return
+    }
+
     const sheet = this.bottomSheet.open(BookmarkSelectorComponent, {
       data: { bookId: this.book.id, chapter: this.chapterNumber },
     })
