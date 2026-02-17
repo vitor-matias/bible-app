@@ -1,57 +1,64 @@
 import { TestBed } from "@angular/core/testing"
 import { BookmarkService } from "./bookmark.service"
-import { PreferencesService } from "./preferences.service"
+import { DatabaseService } from "./database.service"
 
 describe("BookmarkService", () => {
   let service: BookmarkService
-  let preferencesServiceSpy: jasmine.SpyObj<PreferencesService>
+  let databaseService: jasmine.SpyObj<DatabaseService>
 
   const mockBookmarks: Bookmark[] = [
     { bookId: "GEN", chapter: 1, color: "#F44336", timestamp: 123 },
     { bookId: "MRK", chapter: 2, color: "#2196F3", timestamp: 456 },
   ]
 
-  beforeEach(() => {
-    const spy = jasmine.createSpyObj("PreferencesService", [
-      "getBookmarks",
-      "setBookmarks",
+  beforeEach(async () => {
+    const spy = jasmine.createSpyObj("DatabaseService", [
+      "getAll",
+      "putAll",
+      "delete",
+      "clear",
     ])
-    spy.getBookmarks.and.returnValue(mockBookmarks)
+    spy.getAll.and.returnValue(Promise.resolve(mockBookmarks))
+    spy.putAll.and.returnValue(Promise.resolve())
+    spy.delete.and.returnValue(Promise.resolve())
+    spy.clear.and.returnValue(Promise.resolve())
 
     TestBed.configureTestingModule({
-      providers: [
-        BookmarkService,
-        { provide: PreferencesService, useValue: spy },
-      ],
+      providers: [BookmarkService, { provide: DatabaseService, useValue: spy }],
     })
     service = TestBed.inject(BookmarkService)
-    preferencesServiceSpy = TestBed.inject(
-      PreferencesService,
-    ) as jasmine.SpyObj<PreferencesService>
+    databaseService = TestBed.inject(
+      DatabaseService,
+    ) as jasmine.SpyObj<DatabaseService>
+
+    // Wait for initialization to complete
+    await new Promise((resolve) => setTimeout(resolve, 10))
   })
 
   it("should be created", () => {
     expect(service).toBeTruthy()
   })
 
-  it("should load bookmarks on initialization", () => {
+  it("should load bookmarks on initialization", async () => {
+    // Wait for initialization
+    await new Promise((resolve) => setTimeout(resolve, 10))
     expect(service.getBookmarks()).toEqual(mockBookmarks)
-    expect(preferencesServiceSpy.getBookmarks).toHaveBeenCalled()
+    expect(databaseService.getAll).toHaveBeenCalledWith("bookmarks")
   })
 
-  it("should add a bookmark and handle color uniqueness", () => {
+  it("should add a bookmark and handle color uniqueness", async () => {
     // Adding a new bookmark with a new color
-    service.addBookmark("JHN", 3, "#4CAF50")
+    await service.addBookmark("JHN", 3, "#4CAF50")
 
     const bookmarks = service.getBookmarks()
     expect(bookmarks.length).toBe(3)
     expect(bookmarks.find((b) => b.bookId === "JHN")).toBeTruthy()
-    expect(preferencesServiceSpy.setBookmarks).toHaveBeenCalled()
+    expect(databaseService.putAll).toHaveBeenCalledWith("bookmarks", bookmarks)
   })
 
-  it("should replace an existing bookmark if color is the same", () => {
+  it("should replace an existing bookmark if color is the same", async () => {
     // Red color is already in GEN 1. Assigning Red to JHN 3 should remove it from GEN 1.
-    service.addBookmark("JHN", 3, "#F44336")
+    await service.addBookmark("JHN", 3, "#F44336")
 
     const bookmarks = service.getBookmarks()
     expect(bookmarks.length).toBe(2)
@@ -61,15 +68,13 @@ describe("BookmarkService", () => {
     ).toBeTruthy()
   })
 
-  it("should remove a bookmark", () => {
-    service.removeBookmark("GEN", 1)
+  it("should remove a bookmark", async () => {
+    await service.removeBookmark("GEN", 1)
 
     const bookmarks = service.getBookmarks()
     expect(bookmarks.length).toBe(1)
     expect(bookmarks.find((b) => b.bookId === "GEN")).toBeFalsy()
-    expect(preferencesServiceSpy.setBookmarks).toHaveBeenCalledWith(
-      jasmine.arrayContaining([jasmine.objectContaining({ bookId: "MRK" })]),
-    )
+    expect(databaseService.putAll).toHaveBeenCalledWith("bookmarks", bookmarks)
   })
 
   it("should filter bookmarks for a specific book", (done) => {

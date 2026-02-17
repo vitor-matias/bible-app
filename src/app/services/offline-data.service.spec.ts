@@ -4,6 +4,7 @@ import {
 } from "@angular/common/http/testing"
 import { TestBed } from "@angular/core/testing"
 import { OfflineDataService } from "./offline-data.service"
+import { DatabaseService } from "./database.service"
 
 describe("OfflineDataService", () => {
   let service: OfflineDataService
@@ -55,88 +56,7 @@ describe("OfflineDataService", () => {
     },
   ]
 
-  function createMockIndexedDB() {
-    let storedBooks: Book[] = []
-
-    const mockObjectStore = {
-      put: jasmine.createSpy("put").and.callFake((book: Book) => {
-        storedBooks.push(book)
-      }),
-      clear: jasmine.createSpy("clear").and.callFake(() => {
-        storedBooks = []
-      }),
-      getAll: jasmine.createSpy("getAll").and.callFake(() => {
-        const request: {
-          onsuccess: (() => void) | null
-          onerror: (() => void) | null
-          result: Book[]
-        } = {
-          onsuccess: null,
-          onerror: null,
-          result: storedBooks,
-        }
-        setTimeout(() => {
-          if (request.onsuccess) {
-            request.onsuccess()
-          }
-        }, 0)
-        return request
-      }),
-    }
-
-    const mockTransaction: {
-      oncomplete: (() => void) | null
-      onerror: (() => void) | null
-      onabort: (() => void) | null
-      error: DOMException | null
-      objectStore: jasmine.Spy
-    } = {
-      oncomplete: null,
-      onerror: null,
-      onabort: null,
-      error: null,
-      objectStore: jasmine
-        .createSpy("objectStore")
-        .and.returnValue(mockObjectStore),
-    }
-
-    const mockDB = {
-      transaction: jasmine.createSpy("transaction").and.callFake(() => {
-        setTimeout(() => {
-          if (mockTransaction.oncomplete) {
-            mockTransaction.oncomplete()
-          }
-        }, 0)
-        return mockTransaction
-      }),
-      objectStoreNames: {
-        contains: jasmine.createSpy("contains").and.returnValue(true),
-      },
-      createObjectStore: jasmine.createSpy("createObjectStore"),
-    }
-
-    return {
-      open: jasmine.createSpy("open").and.callFake(() => {
-        const request: {
-          onsuccess: (() => void) | null
-          onerror: (() => void) | null
-          onupgradeneeded: (() => void) | null
-          result: typeof mockDB
-        } = {
-          onsuccess: null,
-          onerror: null,
-          onupgradeneeded: null,
-          result: mockDB,
-        }
-        setTimeout(() => {
-          if (request.onsuccess) {
-            request.onsuccess()
-          }
-        }, 0)
-        return request
-      }),
-    }
-  }
+  let databaseService: jasmine.SpyObj<DatabaseService>
 
   beforeEach(() => {
     // Mock localStorage
@@ -165,16 +85,27 @@ describe("OfflineDataService", () => {
       mockLocalStorage,
     )
 
-    // Mock IndexedDB
-    spyOnProperty(window, "indexedDB", "get").and.returnValue(
-      createMockIndexedDB() as unknown as IDBFactory,
-    )
+    // Mock DatabaseService
+    const spy = jasmine.createSpyObj("DatabaseService", [
+      "getAll",
+      "putAll",
+      "clear",
+    ])
+    spy.getAll.and.returnValue(Promise.resolve([]))
+    spy.putAll.and.returnValue(Promise.resolve())
+    spy.clear.and.returnValue(Promise.resolve())
 
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
-      providers: [OfflineDataService],
+      providers: [
+        OfflineDataService,
+        { provide: DatabaseService, useValue: spy },
+      ],
     })
     service = TestBed.inject(OfflineDataService)
+    databaseService = TestBed.inject(
+      DatabaseService,
+    ) as jasmine.SpyObj<DatabaseService>
     httpMock = TestBed.inject(HttpTestingController)
   })
 
@@ -621,14 +552,15 @@ describe("OfflineDataService", () => {
     })
   })
 
-  describe("IndexedDB operations", () => {
-    it("should open IndexedDB database with correct name and version", async () => {
+  describe("Database operations", () => {
+    it("should clear and save books to DatabaseService", async () => {
       await service.setCachedBooks(mockBooks)
 
-      const indexedDB = (
-        window as unknown as { indexedDB: { open: jasmine.Spy } }
-      ).indexedDB
-      expect(indexedDB.open).toHaveBeenCalledWith("offline-bible", 1)
+      expect(databaseService.clear).toHaveBeenCalledWith("books")
+      expect(databaseService.putAll).toHaveBeenCalledWith(
+        "books",
+        jasmine.any(Array),
+      )
     })
   })
 })

@@ -23,7 +23,7 @@ describe("BookmarkSelectorComponent", () => {
 
   const mockData = { bookId: "GEN", chapter: 1 }
   const mockBookmarks: Bookmark[] = [
-    { bookId: "MRK", chapter: 2, color: "#2196F3", timestamp: 456 },
+    { bookId: "MRK", chapter: 2, color: "blue", timestamp: 456 },
   ]
 
   beforeEach(async () => {
@@ -40,6 +40,8 @@ describe("BookmarkSelectorComponent", () => {
     const rSpy = jasmine.createSpyObj("Router", ["navigate"])
 
     bookmarkSpy.getBookmarks.and.returnValue(mockBookmarks)
+    bookmarkSpy.addBookmark.and.returnValue(Promise.resolve())
+    bookmarkSpy.removeBookmark.and.returnValue(Promise.resolve())
     bookSpy.findBook.and.returnValue({ abrv: "Mc", shortName: "Marcos" })
     bookSpy.getUrlAbrv.and.returnValue("mrk")
 
@@ -79,11 +81,11 @@ describe("BookmarkSelectorComponent", () => {
 
   it("should initialize ribbons based on current bookmarks", () => {
     expect(component.ribbons.length).toBe(component.colors.length)
-    const blueRibbon = component.ribbons.find((r) => r.value === "#2196F3")
+    const blueRibbon = component.ribbons.find((r) => r.value === "blue")
     expect(blueRibbon?.currentRef).toBe("Mc 2")
     expect(blueRibbon?.bookmark).toBeTruthy()
 
-    const redRibbon = component.ribbons.find((r) => r.value === "#F44336")
+    const redRibbon = component.ribbons.find((r) => r.value === "red")
     expect(redRibbon?.currentRef).toBeUndefined()
     expect(redRibbon?.bookmark).toBeUndefined()
   })
@@ -95,7 +97,7 @@ describe("BookmarkSelectorComponent", () => {
   })
 
   it("should navigate when clicking a ribbon assigned elsewhere", () => {
-    const blueRibbon = component.ribbons.find((r) => r.value === "#2196F3")
+    const blueRibbon = component.ribbons.find((r) => r.value === "blue")
     expect(blueRibbon).toBeTruthy()
     if (blueRibbon) {
       component.handleRibbonClick(blueRibbon)
@@ -106,7 +108,7 @@ describe("BookmarkSelectorComponent", () => {
   })
 
   it("should add bookmark when clicking an empty ribbon", () => {
-    const redRibbon = component.ribbons.find((r) => r.value === "#F44336")
+    const redRibbon = component.ribbons.find((r) => r.value === "red")
     expect(redRibbon).toBeTruthy()
     if (redRibbon) {
       component.handleRibbonClick(redRibbon)
@@ -115,7 +117,7 @@ describe("BookmarkSelectorComponent", () => {
     expect(bookmarkServiceSpy.addBookmark).toHaveBeenCalledWith(
       "GEN",
       1,
-      "#F44336",
+      "red",
     )
     expect(bottomSheetRefSpy.dismiss).not.toHaveBeenCalled()
     expect(bookmarkServiceSpy.getBookmarks).toHaveBeenCalled() // via updateRibbons
@@ -124,11 +126,11 @@ describe("BookmarkSelectorComponent", () => {
   it("should NOT remove bookmark when clicking ribbon assigned to current location", () => {
     // Modify mock for this test
     bookmarkServiceSpy.getBookmarks.and.returnValue([
-      { bookId: "GEN", chapter: 1, color: "#F44336", timestamp: 123 },
+      { bookId: "GEN", chapter: 1, color: "red", timestamp: 123 },
     ])
     component.updateRibbons()
 
-    const redRibbon = component.ribbons.find((r) => r.value === "#F44336")
+    const redRibbon = component.ribbons.find((r) => r.value === "red")
     expect(redRibbon).toBeTruthy()
     if (redRibbon) {
       component.handleRibbonClick(redRibbon)
@@ -140,7 +142,7 @@ describe("BookmarkSelectorComponent", () => {
 
   it("should delete bookmark when in delete mode", () => {
     component.toggleDeleteMode()
-    const blueRibbon = component.ribbons.find((r) => r.value === "#2196F3")
+    const blueRibbon = component.ribbons.find((r) => r.value === "blue")
     expect(blueRibbon).toBeTruthy()
     if (blueRibbon) {
       component.handleRibbonClick(blueRibbon)
