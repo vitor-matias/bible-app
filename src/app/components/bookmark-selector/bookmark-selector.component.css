@@ -68,6 +68,7 @@ h3 {
   line-height: 1.1;
   padding: 4px;
   text-shadow: 1px 1px 1px black;
+  white-space: nowrap;
 }
 
 .add-icon {
