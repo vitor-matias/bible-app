@@ -44,6 +44,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Input() book!: Book
   @Input() chapterNumber!: number
   @Input() autoScrollControlsVisible = false
+  @Input() viewMode: "scrolling" | "paged" = "scrolling"
 
   bookLabelMode: "title" | "prompt" = "title"
   private labelInterval?: number
@@ -53,6 +54,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Output() openBookSelector = new EventEmitter<{ open: boolean }>()
   @Output() openChapterSelector = new EventEmitter<{ open: boolean }>()
   @Output() toggleAutoScrollControls = new EventEmitter<void>()
+  @Output() toggleViewMode = new EventEmitter<void>()
 
   mobile = false
   isOffline = typeof navigator !== "undefined" ? !navigator.onLine : false
@@ -148,6 +150,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     event?.stopPropagation()
     this.toggleAutoScrollControls.emit()
     trigger.closeMenu()
+  }
+
+  onToggleViewMode(event?: Event): void {
+    event?.stopPropagation()
+    this.toggleViewMode.emit()
   }
 
   getThemeIcon(): string {

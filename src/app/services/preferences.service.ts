@@ -11,6 +11,7 @@ export class PreferencesService {
     CHAPTER_NUMBER: "chapter",
     THEME: "theme",
     FONT_SIZE_PREFIX: "fontSize",
+    VIEW_MODE: "viewMode",
   }
 
   getTheme(): "light" | "dark" | "system" | null {
@@ -73,5 +74,14 @@ export class PreferencesService {
 
   setLastChapterNumber(chapter: number): void {
     localStorage.setItem(this.KEYS.CHAPTER_NUMBER, chapter.toString())
+  }
+
+  getViewMode(): "scrolling" | "paged" {
+    const stored = localStorage.getItem(this.KEYS.VIEW_MODE)
+    return stored === "paged" ? "paged" : "scrolling"
+  }
+
+  setViewMode(mode: "scrolling" | "paged"): void {
+    localStorage.setItem(this.KEYS.VIEW_MODE, mode)
   }
 }

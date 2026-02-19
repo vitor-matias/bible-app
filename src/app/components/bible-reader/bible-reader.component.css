@@ -190,6 +190,70 @@ mat-icon {
   width: 100%;
 }
 
-.reader-header {
-  top: 0;
+
+/* Paged View Styles */
+
+.paged-view-container {
+  overflow-y: hidden;
+  overflow-x: hidden; /* Hide scrollbar but allow nav */
+  height: calc(100vh - 64px - 16px); /* Viewport - Header - Margins */
+  width: 85%; /* Narrower container to create side margins */
+  margin: 0 auto !important; /* Center the container */
+}
+
+.paged-view {
+  height: 100%;
+  column-fill: auto;
+  column-gap: 32px;
+  width: 100%;
+  
+  /* Reset standard constraints */
+  max-width: unset !important;
+  margin: 0 !important;
+  display: block;
+}
+
+/* Mobile - 1 Page */
+@media (max-width: 768px) {
+  .paged-view {
+    column-count: 1;
+    /* Formula for stable paging: Gap = 2 * Padding */
+    column-gap: 10vw;
+    padding: 0 5vw;
+    width: 100%;
+    margin: 0 !important;
+    height: 95%;
+  }
+}
+
+/* Desktop - 2 Pages */
+@media (min-width: 768px) {
+  .paged-view {
+    column-count: 2;
+    column-fill: auto;
+    column-gap: 6vw; /* Moderate gap */
+    padding: 0;
+    height: 95%;
+    width: 100%;
+    margin: 0 !important;
+    orphans: 1;
+    widows: 1;
+  }
+}
+
+.copyright-footer {
+  width: 100%;
+  padding: 16px 0;
+  text-align: justify;
+  font-size: 0.8em;
+  color: dimgray;
+}
+
+.fixed-footer {
+  position: fixed;
+  bottom: 6px;
+  left: 0;
+  background-color: var(--background-color); /* Match background */
+  z-index: 1000; /* Ensure it's on top */
+  opacity: 0.8;
 }

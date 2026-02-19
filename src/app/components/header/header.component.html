@@ -30,6 +30,12 @@
             : 'Mostrar controlos de deslocamento automático' }}
           </span>
         </button>
+        <button mat-menu-item (click)="onToggleViewMode($event)">
+          <mat-icon>{{ viewMode === 'scrolling' ? 'auto_stories' : 'view_stream' }}</mat-icon>
+          <span>
+            {{ viewMode === 'scrolling' ? 'Mudar para Modo de Páginas' : 'Mudar para Modo de Scroll' }}
+          </span>
+        </button>
         @if (canShare) {
         <button mat-menu-item (click)="onShare(menuTrigger, $event)">
           <mat-icon>share</mat-icon>

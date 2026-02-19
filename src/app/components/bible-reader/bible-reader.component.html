@@ -1,8 +1,9 @@
 @if (book) {
-<div class="text-container" unifiedGestures (swipeLeft)="goToNextChapter()" (swipeRight)="goToPreviousChapter()">
-  <header class="reader-header" [book]="book" [chapterNumber]="chapterNumber"
+<div class="text-container" unifiedGestures (swipeLeft)="onSwipeLeft()" (swipeRight)="onSwipeRight()">
+  <header class="reader-header" [book]="book" [chapterNumber]="chapterNumber" [viewMode]="viewMode"
     [autoScrollControlsVisible]="showAutoScrollControls" (openBookSelector)="openBookDrawer($event)"
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
+    (toggleViewMode)="onToggleViewMode()"
     (increaseFontSizeEvent)="onIncreaseFontSize()" (decreaseFontSizeEvent)="onDecreaseFontSize()"></header>
   <mat-drawer-container class="bookSelectorContainer" #container>
     @if (getBooks()) {
@@ -21,8 +22,8 @@
     </mat-drawer>
     }
     <mat-drawer-content style="background-color: var(--background-color)">
-      <div style="margin: 8px 8px 0px 8px;">
-        <div #bookBlock class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}">
+      <div #bookContainer style="margin: 8px 8px 0px 8px;" [class.paged-view-container]="viewMode === 'paged'">
+        <div #bookBlock class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}" [class.paged-view]="viewMode === 'paged'">
           @if (chapter) {
           <div pinch-to-zoom class="chapterBlock">
             @if(book.id !== 'about'){
@@ -33,23 +34,24 @@
             @if (book.id==='about') {
             <about></about>
             }
-            <br><br>
-            <span class="center"><b>© DIFUSORA BÍBLICA</b></span>
-            <span class="center">
-              Reservados todos os direitos. É proibida a reprodução, total ou parcial, do texto, sem autorização, por
-              escrito, da Editora.</span>
           </div>
           }
-          @if (scrolled) {
-          <div style="height: 64px;"></div>
-          }
+
+
+      @if (book.id !== 'about' && chapter) {
+        <div class="copyright-footer" [class.fixed-footer]="viewMode === 'paged'">
+          <span class="center"><b>© DIFUSORA BÍBLICA</b></span>
+          <span class="center">
+            Reservados todos os direitos. É proibida a reprodução, total ou parcial, do texto, sem autorização, por
+            escrito, da Editora.</span>
         </div>
-      </div>
+      }
+
       @if (book.id !== 'about') {
       <!-- Floating navigation buttons -->
-      @if (chapter.number > 1) {
-      <button class="floating-nav-button prev-chapter" mat-mini-fab aria-label="Previous chapter"
-        (click)="goToPreviousChapter()">
+      @if (chapter.number > 1 || viewMode === 'paged') {
+      <button class="floating-nav-button prev-chapter" mat-mini-fab aria-label="Previous"
+        (click)="viewMode === 'paged' ? prevPage() : goToPreviousChapter()">
         <mat-icon>chevron_left</mat-icon>
       </button>
       }
@@ -73,12 +75,14 @@
         </div>
       </div>
       }
-      @if (chapter.number < book.chapterCount) { <button class="floating-nav-button next-chapter" mat-mini-fab
-        aria-label="Next chapter" (click)="goToNextChapter()">
+      @if (chapter.number < book.chapterCount || viewMode === 'paged') { <button class="floating-nav-button next-chapter" mat-mini-fab
+        aria-label="Next" (click)="viewMode === 'paged' ? nextPage() : goToNextChapter()">
         <mat-icon>chevron_right</mat-icon>
         </button>
         }
         }
+        </div>
+      </div>
     </mat-drawer-content>
   </mat-drawer-container>
 </div>

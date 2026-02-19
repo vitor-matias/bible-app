@@ -60,17 +60,19 @@ export class BibleReaderComponent implements OnDestroy {
 
   @ViewChild("bookDrawerCloseButton") bookDrawerCloseButton!: ElementRef
   @ViewChild("chapterDrawerCloseButton") chapterDrawerCloseButton!: ElementRef
+  @ViewChild("bookContainer") bookContainer!: ElementRef
 
   @ViewChild("bookBlock") bookBlock!: ElementRef
 
   book!: Book
   chapterNumber = 1
   chapter!: Chapter
-  scrolled!: boolean
+
   bookParam: string | null = null
   chapterParam: string | null = null
   showBooks = true
   showAutoScrollControls = false
+  viewMode: "scrolling" | "paged" = "scrolling"
 
   constructor(
     private autoScrollService: AutoScrollService,
@@ -87,6 +89,8 @@ export class BibleReaderComponent implements OnDestroy {
     if (storedSpeed) {
       this.autoScrollService.setAutoScrollLinesPerSecond(storedSpeed)
     }
+
+    this.viewMode = this.preferencesService.getViewMode()
 
     this.showAutoScrollControls =
       this.preferencesService.getAutoScrollControlsVisible()
@@ -177,6 +181,112 @@ export class BibleReaderComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.stopAutoScroll()
+  }
+
+  /**
+   * Calculates the width of a single "scroll page" (which might contain multiple columns).
+   * In 2-column mode, a scroll page is the width of the container + the column gap.
+   */
+  private getScrollPageWidth(container: HTMLElement): number {
+    const rawWidth = container.clientWidth
+    // In paged mode, the scroll snap interval needs to account for the column gap
+    // which is part of the scrollable geometry in multi-column layouts.
+    // However, clientWidth usually includes padding but not the gap between columns *across* the scroll.
+
+    // A more robust way for CSS columns is to just use clientWidth,
+    // but if we are losing alignment, it might be due to fractional pixels or gap handling.
+    // Let's stick to clientWidth + gap adjustment if needed,
+    // or just rely on the fact that 1 scroll page = 1 container width.
+
+    // If the CSS is consistent (width 100% of container), clientWidth should be correct.
+    // The issue "misaligned on multiple turns" suggests a cumulative error.
+    // This often happens if the gap is not included in the "page" width perception of the browser,
+    // OR if the browser rounds fractional pixels differently than we do.
+
+    // Let's try to infer it from scrollWidth if possible, or stick to clientWidth but allow self-correction.
+    // For now, let's assume clientWidth is the source of truth, but we round it to avoid sub-pixel issues.
+    return Math.round(rawWidth)
+  }
+
+  nextPage(): void {
+    if (this.viewMode !== "paged") return
+    const block = this.bookBlock?.nativeElement
+    const container = this.bookContainer?.nativeElement
+    if (!container) return
+
+    // Use a slightly more robust width calculation combined with column gap
+    // Actually, for CSS columns, the scroll amount IS the clientWidth + gap...
+    // Wait, no. The gap is internal to the columns.
+    // The browser scrolls by 'column-width + gap'.
+    // If we have 2 columns fitting exactly in clientWidth, then 1 "page turn" is exactly clientWidth + gap.
+    // WAIT. If we have 2 columns *visible*, the next 2 columns start at `scrollLeft = clientWidth + gap`?
+    // CSS Multi-column specification says: "Content in the normal flow that extends into column gaps is clipped".
+    // Usually, horizontal scrolling in paged media advances by `column-width + column-gap`.
+
+    // If we simply check the gap from CSS:
+    const style = window.getComputedStyle(block)
+    const gap = parseFloat(style.columnGap) || 0
+    // If we are strictly paging, the advance width is the container width + the gap.
+    const advanceWidth = block.clientWidth + gap
+
+    const scrollLeft = container.scrollLeft
+    const scrollWidth = container.scrollWidth
+    const maxScroll = scrollWidth - container.clientWidth
+
+    // If we are close to the end, go to next chapter
+    if (scrollLeft >= maxScroll - 5) {
+      // Increased tolerance
+      this.goToNextChapter()
+    } else {
+      // Snap to the next "slot"
+      alert(scrollLeft)
+      alert(advanceWidth)
+      const currentPageIndex = Math.round(scrollLeft / advanceWidth)
+      const nextScrollLeft = (currentPageIndex + 1) * advanceWidth
+
+      alert(currentPageIndex)
+      alert(nextScrollLeft)
+
+      container.scrollTo({ left: nextScrollLeft, behavior: "smooth" })
+    }
+  }
+
+  prevPage(): void {
+    if (this.viewMode !== "paged") return
+    const container = this.bookContainer?.nativeElement
+    if (!container) return
+
+    const style = window.getComputedStyle(container)
+    const gap = parseFloat(style.columnGap) || 0
+    const advanceWidth = container.clientWidth + gap
+
+    const scrollLeft = container.scrollLeft
+
+    // Snap to previous "slot"
+    const currentPageIndex = Math.round(scrollLeft / advanceWidth)
+
+    if (currentPageIndex <= 0) {
+      this.goToPreviousChapter()
+    } else {
+      const prevScrollLeft = (currentPageIndex - 1) * advanceWidth
+      container.scrollTo({ left: prevScrollLeft, behavior: "smooth" })
+    }
+  }
+
+  onSwipeLeft(): void {
+    if (this.viewMode === "paged") {
+      this.nextPage()
+    } else {
+      this.goToNextChapter()
+    }
+  }
+
+  onSwipeRight(): void {
+    if (this.viewMode === "paged") {
+      this.prevPage()
+    } else {
+      this.goToPreviousChapter()
+    }
   }
 
   goToNextChapter(): void {
@@ -366,6 +476,28 @@ export class BibleReaderComponent implements OnDestroy {
       this.showAutoScrollControls,
     )
     this.stopAutoScroll()
+  }
+
+  onToggleViewMode(): void {
+    this.viewMode = this.viewMode === "scrolling" ? "paged" : "scrolling"
+    this.preferencesService.setViewMode(this.viewMode)
+    this.cdr.markForCheck()
+    // Reset scroll when switching to paged? Or keep position?
+    // Paged View relies on overflow-x scroll or just columns.
+    // If we switch to paged, we might start at page 1 (scrollLeft 0).
+    if (this.viewMode === "paged") {
+      this.stopAutoScroll()
+      // Wait for render
+      setTimeout(() => {
+        // Maybe scroll to start? Or try to map current scroll position to page?
+        // Mapping is hard. Let's start at beginning or keep as is.
+        // CSS columns usually start at top left.
+        const container = this.bookContainer?.nativeElement
+        if (container) {
+          container.scrollLeft = 0
+        }
+      })
+    }
   }
 
   toggleAutoScroll(): void {
