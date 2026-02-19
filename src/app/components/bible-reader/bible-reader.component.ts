@@ -183,31 +183,6 @@ export class BibleReaderComponent implements OnDestroy {
     this.stopAutoScroll()
   }
 
-  /**
-   * Calculates the width of a single "scroll page" (which might contain multiple columns).
-   * In 2-column mode, a scroll page is the width of the container + the column gap.
-   */
-  private getScrollPageWidth(container: HTMLElement): number {
-    const rawWidth = container.clientWidth
-    // In paged mode, the scroll snap interval needs to account for the column gap
-    // which is part of the scrollable geometry in multi-column layouts.
-    // However, clientWidth usually includes padding but not the gap between columns *across* the scroll.
-
-    // A more robust way for CSS columns is to just use clientWidth,
-    // but if we are losing alignment, it might be due to fractional pixels or gap handling.
-    // Let's stick to clientWidth + gap adjustment if needed,
-    // or just rely on the fact that 1 scroll page = 1 container width.
-
-    // If the CSS is consistent (width 100% of container), clientWidth should be correct.
-    // The issue "misaligned on multiple turns" suggests a cumulative error.
-    // This often happens if the gap is not included in the "page" width perception of the browser,
-    // OR if the browser rounds fractional pixels differently than we do.
-
-    // Let's try to infer it from scrollWidth if possible, or stick to clientWidth but allow self-correction.
-    // For now, let's assume clientWidth is the source of truth, but we round it to avoid sub-pixel issues.
-    return Math.round(rawWidth)
-  }
-
   nextPage(): void {
     if (this.viewMode !== "paged") return
     const block = this.bookBlock?.nativeElement
@@ -256,7 +231,10 @@ export class BibleReaderComponent implements OnDestroy {
     const container = this.bookContainer?.nativeElement
     if (!container) return
 
-    const style = window.getComputedStyle(container)
+    const block = this.bookBlock?.nativeElement
+    if (!block) return
+
+    const style = window.getComputedStyle(block)
     const gap = parseFloat(style.columnGap) || 0
     const advanceWidth = container.clientWidth + gap
 
@@ -271,6 +249,32 @@ export class BibleReaderComponent implements OnDestroy {
       const prevScrollLeft = (currentPageIndex - 1) * advanceWidth
       container.scrollTo({ left: prevScrollLeft, behavior: "smooth" })
     }
+  }
+
+  private resizeTimeout: any
+
+  @HostListener("window:resize")
+  onWindowResize(): void {
+    if (this.viewMode === "paged") {
+      clearTimeout(this.resizeTimeout)
+      this.resizeTimeout = setTimeout(() => {
+        this.snapToNearestPage()
+      }, 150)
+    }
+  }
+
+  private snapToNearestPage(): void {
+    const container = this.bookContainer?.nativeElement
+    const block = this.bookBlock?.nativeElement
+    if (!container || !block) return
+
+    const style = window.getComputedStyle(block)
+    const gap = parseFloat(style.columnGap) || 0
+    const advanceWidth = container.clientWidth + gap
+    const scrollLeft = container.scrollLeft
+
+    const pageIndex = Math.round(scrollLeft / advanceWidth)
+    container.scrollTo({ left: pageIndex * advanceWidth, behavior: "smooth" })
   }
 
   onSwipeLeft(): void {
@@ -572,10 +576,10 @@ export class BibleReaderComponent implements OnDestroy {
   @HostListener("window:keydown", ["$event"])
   onArrowPress(event: KeyboardEvent): void {
     if (event.key === "ArrowLeft") {
-      this.goToPreviousChapter()
+      this.viewMode === "paged" ? this.prevPage() : this.goToPreviousChapter()
     }
     if (event.key === "ArrowRight") {
-      this.goToNextChapter()
+      this.viewMode === "paged" ? this.nextPage() : this.goToNextChapter()
     }
   }
 
