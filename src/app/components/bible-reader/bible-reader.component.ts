@@ -187,40 +187,29 @@ export class BibleReaderComponent implements OnDestroy {
     if (this.viewMode !== "paged") return
     const block = this.bookBlock?.nativeElement
     const container = this.bookContainer?.nativeElement
-    if (!container) return
+    if (!container || !block) return
 
-    // Use a slightly more robust width calculation combined with column gap
-    // Actually, for CSS columns, the scroll amount IS the clientWidth + gap...
-    // Wait, no. The gap is internal to the columns.
-    // The browser scrolls by 'column-width + gap'.
-    // If we have 2 columns fitting exactly in clientWidth, then 1 "page turn" is exactly clientWidth + gap.
-    // WAIT. If we have 2 columns *visible*, the next 2 columns start at `scrollLeft = clientWidth + gap`?
-    // CSS Multi-column specification says: "Content in the normal flow that extends into column gaps is clipped".
-    // Usually, horizontal scrolling in paged media advances by `column-width + column-gap`.
-
-    // If we simply check the gap from CSS:
     const style = window.getComputedStyle(block)
     const gap = parseFloat(style.columnGap) || 0
-    // If we are strictly paging, the advance width is the container width + the gap.
-    const advanceWidth = block.clientWidth + gap
+    const paddingLeft = parseFloat(style.paddingLeft) || 0
+    const paddingRight = parseFloat(style.paddingRight) || 0
+
+    // Gap only matters when more than 1 column is shown
+    const advanceWidth = block.clientWidth - (paddingLeft + paddingRight) + gap
 
     const scrollLeft = container.scrollLeft
     const scrollWidth = container.scrollWidth
     const maxScroll = scrollWidth - container.clientWidth
 
-    // If we are close to the end, go to next chapter
-    if (scrollLeft >= maxScroll - 5) {
-      // Increased tolerance
-      this.goToNextChapter()
+    // If we are close to the end (or no scrollable area), go to next chapter
+    if (maxScroll <= 0 || scrollLeft >= maxScroll - 5) {
+      if (this.chapterNumber < this.book.chapterCount) {
+        this.goToNextChapter()
+      }
     } else {
       // Snap to the next "slot"
-      alert(scrollLeft)
-      alert(advanceWidth)
       const currentPageIndex = Math.round(scrollLeft / advanceWidth)
       const nextScrollLeft = (currentPageIndex + 1) * advanceWidth
-
-      alert(currentPageIndex)
-      alert(nextScrollLeft)
 
       container.scrollTo({ left: nextScrollLeft, behavior: "smooth" })
     }
@@ -228,25 +217,30 @@ export class BibleReaderComponent implements OnDestroy {
 
   prevPage(): void {
     if (this.viewMode !== "paged") return
-    const container = this.bookContainer?.nativeElement
-    if (!container) return
-
     const block = this.bookBlock?.nativeElement
-    if (!block) return
+    const container = this.bookContainer?.nativeElement
+    if (!container || !block) return
 
     const style = window.getComputedStyle(block)
     const gap = parseFloat(style.columnGap) || 0
-    const advanceWidth = container.clientWidth + gap
+    const paddingLeft = parseFloat(style.paddingLeft) || 0
+    const paddingRight = parseFloat(style.paddingRight) || 0
+
+    // Gap only matters when more than 1 column is shown
+    const advanceWidth = block.clientWidth - (paddingLeft + paddingRight) + gap
 
     const scrollLeft = container.scrollLeft
 
-    // Snap to previous "slot"
-    const currentPageIndex = Math.round(scrollLeft / advanceWidth)
-
-    if (currentPageIndex <= 0) {
-      this.goToPreviousChapter()
+    // If we are close to the start, go to previous chapter
+    if (scrollLeft <= 5) {
+      if (this.chapterNumber > 1) {
+        this.goToPreviousChapter()
+      }
     } else {
-      const prevScrollLeft = (currentPageIndex - 1) * advanceWidth
+      // Snap to the previous "slot", clamped to 0
+      const currentPageIndex = Math.round(scrollLeft / advanceWidth)
+      const prevScrollLeft = Math.max(0, (currentPageIndex - 1) * advanceWidth)
+
       container.scrollTo({ left: prevScrollLeft, behavior: "smooth" })
     }
   }
@@ -270,7 +264,10 @@ export class BibleReaderComponent implements OnDestroy {
 
     const style = window.getComputedStyle(block)
     const gap = parseFloat(style.columnGap) || 0
-    const advanceWidth = container.clientWidth + gap
+    const paddingLeft = parseFloat(style.paddingLeft) || 0
+    const paddingRight = parseFloat(style.paddingRight) || 0
+    const advanceWidth = block.clientWidth - (paddingLeft + paddingRight) + gap
+
     const scrollLeft = container.scrollLeft
 
     const pageIndex = Math.round(scrollLeft / advanceWidth)
@@ -390,6 +387,12 @@ export class BibleReaderComponent implements OnDestroy {
   scrollToTop() {
     setTimeout(() => {
       this.container._content.scrollTo({ top: 0, behavior: "smooth" })
+      if (this.viewMode === "paged") {
+        const container = this.bookContainer?.nativeElement
+        if (container) {
+          container.scrollLeft = 0
+        }
+      }
     }, 0)
   }
 

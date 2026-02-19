@@ -182,6 +182,16 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.toggleTheme()
   }
 
+  getViewModeIcon(): string {
+    return this.viewMode === "scrolling" ? "swipe_vertical" : "auto_stories"
+  }
+
+  getViewModeTooltip(): string {
+    return this.viewMode === "scrolling"
+      ? "Modo de Deslocamento (clique para mudar para páginas)"
+      : "Modo de Páginas (clique para mudar para deslocamento)"
+  }
+
   @Output() increaseFontSizeEvent = new EventEmitter<void>()
   @Output() decreaseFontSizeEvent = new EventEmitter<void>()
 

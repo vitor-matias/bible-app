@@ -16,6 +16,9 @@
           <button mat-icon-button (click)="onIncreaseFontSize()" matTooltip="Aumentar texto" aria-label="Aumentar texto">
             <mat-icon>text_increase</mat-icon>
           </button>
+          <button mat-icon-button (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" [attr.aria-label]="getViewModeTooltip()">
+            <mat-icon>{{ getViewModeIcon() }}</mat-icon>
+          </button>
         </div>
         <mat-divider></mat-divider>
         <button mat-menu-item (click)="onToggleBookmarkFromMenu(menuTrigger)">
@@ -28,12 +31,6 @@
             {{ autoScrollControlsVisible
             ? 'Esconder controlos de deslocamento automático'
             : 'Mostrar controlos de deslocamento automático' }}
-          </span>
-        </button>
-        <button mat-menu-item (click)="onToggleViewMode($event)">
-          <mat-icon>{{ viewMode === 'scrolling' ? 'auto_stories' : 'view_stream' }}</mat-icon>
-          <span>
-            {{ viewMode === 'scrolling' ? 'Mudar para Modo de Páginas' : 'Mudar para Modo de Scroll' }}
           </span>
         </button>
         @if (canShare) {
