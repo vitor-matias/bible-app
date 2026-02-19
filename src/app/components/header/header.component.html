@@ -22,7 +22,7 @@
           <mat-icon>bookmarks</mat-icon>
           <span>Marcadores</span>
         </button>
-        <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)">
+        <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode === 'paged'">
           <mat-icon>auto_mode</mat-icon>
           <span>
             {{ autoScrollControlsVisible

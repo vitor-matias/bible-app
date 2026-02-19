@@ -491,6 +491,8 @@ export class BibleReaderComponent implements OnDestroy {
     // If we switch to paged, we might start at page 1 (scrollLeft 0).
     if (this.viewMode === "paged") {
       this.stopAutoScroll()
+      this.showAutoScrollControls = false
+      this.preferencesService.setAutoScrollControlsVisible(false)
       // Wait for render
       setTimeout(() => {
         // Maybe scroll to start? Or try to map current scroll position to page?
