@@ -42,7 +42,7 @@ export class BookService {
   }
 
   findBookById(bookId: Book["id"]): Book | undefined {
-    return this.getBooks().find((book) => book.id === bookId)
+    return this.getBooks().find((book) => book.id.toUpperCase() === bookId.toUpperCase())
   }
 
   findBookByAbrv(bookAbrv: Book["abrv"]): Book | undefined {
