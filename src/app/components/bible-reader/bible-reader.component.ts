@@ -505,7 +505,7 @@ export class BibleReaderComponent implements OnDestroy {
         if (container) {
           container.scrollLeft = 0
         }
-      })
+      }, 0)
     }
   }
 
