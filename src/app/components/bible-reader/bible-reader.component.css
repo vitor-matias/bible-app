@@ -99,7 +99,7 @@ h6 {
 
 .floating-nav-button {
   position: fixed;
-  z-index: 1100;
+  z-index: 99;
   opacity: 0.6;
   transition: opacity 0.3s;
   color: #543d27;
@@ -199,6 +199,42 @@ h6 {
   height: calc(100vh - 64px - 16px); /* Viewport - Header - Margins */
   width: 95%; /* Narrower container to create side margins */
   margin: 0 auto !important; /* Center the container */
+}
+
+@keyframes slideInFromRight {
+  0% { transform: translateX(60px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideInFromLeft {
+  0% { transform: translateX(-60px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOutToLeft {
+  0% { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(-60px); opacity: 0; }
+}
+
+@keyframes slideOutToRight {
+  0% { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(60px); opacity: 0; }
+}
+
+.slide-in-right {
+  animation: slideInFromRight 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.slide-in-left {
+  animation: slideInFromLeft 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.slide-out-left {
+  animation: slideOutToLeft 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.slide-out-right {
+  animation: slideOutToRight 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .paged-view {

@@ -22,7 +22,7 @@
     </mat-drawer>
     }
     <mat-drawer-content style="background-color: var(--background-color)">
-      <div #bookContainer style="margin: 8px 8px 0px 8px;" [class.paged-view-container]="viewMode === 'paged'">
+      <div #bookContainer style="margin: 8px 8px 0px 8px;" [class.paged-view-container]="viewMode === 'paged'" (scroll)="onPagedScroll()">
         <div #bookBlock class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}" [class.paged-view]="viewMode === 'paged'">
           @if (chapter) {
           <div pinch-to-zoom class="chapterBlock">
@@ -49,7 +49,7 @@
 
       @if (book.id !== 'about') {
       <!-- Floating navigation buttons -->
-      @if (chapter.number > 1 || viewMode === 'paged') {
+      @if (chapter.number > 1 || (viewMode === 'paged' && !isFirstPage)) {
       <button class="floating-nav-button prev-chapter" mat-mini-fab aria-label="Previous"
         (click)="viewMode === 'paged' ? prevPage() : goToPreviousChapter()">
         <mat-icon>chevron_left</mat-icon>
@@ -75,7 +75,7 @@
         </div>
       </div>
       }
-      @if (chapter.number < book.chapterCount || viewMode === 'paged') { <button class="floating-nav-button next-chapter" mat-mini-fab
+      @if (chapter.number < book.chapterCount || (viewMode === 'paged' && !isLastPage)) { <button class="floating-nav-button next-chapter" mat-mini-fab
         aria-label="Next" (click)="viewMode === 'paged' ? nextPage() : goToNextChapter()">
         <mat-icon>chevron_right</mat-icon>
         </button>
