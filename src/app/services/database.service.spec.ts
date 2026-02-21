@@ -3,11 +3,31 @@ import { DatabaseService } from "./database.service"
 
 describe("DatabaseService", () => {
   let service: DatabaseService
-  let mockIndexedDB: any
-  let mockIDBDatabase: any
-  let mockIDBTransaction: any
-  let mockIDBObjectStore: any
-  let mockIDBRequest: any
+  let mockIndexedDB: { open: jasmine.Spy }
+  let mockIDBDatabase: {
+    transaction: jasmine.Spy
+    objectStoreNames: { contains: jasmine.Spy }
+    createObjectStore: jasmine.Spy
+  }
+  let mockIDBTransaction: {
+    objectStore: jasmine.Spy
+    oncomplete: () => void
+    onerror: () => void
+    error: Error | null
+  }
+  let mockIDBObjectStore: {
+    getAll: jasmine.Spy
+    put: jasmine.Spy
+    delete: jasmine.Spy
+    clear: jasmine.Spy
+  }
+  let mockIDBRequest: {
+    result: unknown
+    onupgradeneeded: (event: unknown) => void
+    onsuccess: () => void
+    onerror: (event?: unknown) => void
+    error: Error | null
+  }
 
   beforeEach(() => {
     // Reset mocks for each test
@@ -22,8 +42,8 @@ describe("DatabaseService", () => {
       objectStore: jasmine
         .createSpy("objectStore")
         .and.returnValue(mockIDBObjectStore),
-      oncomplete: null, // To be assigned by service
-      onerror: null, // To be assigned by service
+      oncomplete: null as unknown as () => void, // To be assigned by service
+      onerror: null as unknown as () => void, // To be assigned by service
       error: null,
     }
 
@@ -40,9 +60,9 @@ describe("DatabaseService", () => {
 
     mockIDBRequest = {
       result: mockIDBDatabase,
-      onupgradeneeded: null,
-      onsuccess: null,
-      onerror: null,
+      onupgradeneeded: null as unknown as (event: unknown) => void,
+      onsuccess: null as unknown as () => void,
+      onerror: null as unknown as (event?: unknown) => void,
       error: null,
     }
 
@@ -52,9 +72,11 @@ describe("DatabaseService", () => {
 
     // Mock global indexedDB
     try {
-      spyOnProperty(window, "indexedDB", "get").and.returnValue(mockIndexedDB)
-    } catch (e) {
-      ;(window as any).indexedDB = mockIndexedDB
+      spyOnProperty(window, "indexedDB", "get").and.returnValue(
+        mockIndexedDB as unknown as IDBFactory,
+      )
+    } catch (_e) {
+      ;(window as unknown as { indexedDB: unknown }).indexedDB = mockIndexedDB
     }
 
     TestBed.configureTestingModule({})
@@ -70,8 +92,8 @@ describe("DatabaseService", () => {
       const mockItems = [{ id: 1, name: "Item 1" }]
       const mockGetAllRequest = {
         result: mockItems,
-        onsuccess: null as any,
-        onerror: null as any,
+        onsuccess: null as unknown as () => void,
+        onerror: null as unknown as () => void,
       }
       mockIDBObjectStore.getAll.and.returnValue(mockGetAllRequest)
 
@@ -101,7 +123,7 @@ describe("DatabaseService", () => {
     })
 
     it("should return empty array if database fails to open", async () => {
-      mockIDBRequest.onerror = null // Prepare
+      mockIDBRequest.onerror = null as unknown as (event?: unknown) => void // Prepare
 
       const promise = service.getAll("testStore")
 
@@ -121,8 +143,8 @@ describe("DatabaseService", () => {
     it("should reject if transaction/request fails", async () => {
       const mockGetAllRequest = {
         result: null,
-        onsuccess: null,
-        onerror: null as any,
+        onsuccess: null as unknown as () => void,
+        onerror: null as unknown as () => void,
         error: new Error("GetAll failed"),
       }
       mockIDBObjectStore.getAll.and.returnValue(mockGetAllRequest)
@@ -284,10 +306,10 @@ describe("DatabaseService", () => {
   describe("IndexedDB Unavailable", () => {
     it("should return null DB if indexedDB is undefined", async () => {
       const propDesc = Object.getOwnPropertyDescriptor(window, "indexedDB")
-      if (propDesc && propDesc.get) {
+      if (propDesc?.get) {
         ;(propDesc.get as jasmine.Spy).and.returnValue(undefined)
       } else {
-        ;(window as any).indexedDB = undefined
+        ;(window as unknown as { indexedDB: undefined }).indexedDB = undefined
       }
 
       const promise = service.getAll("books")
