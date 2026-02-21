@@ -245,7 +245,7 @@ export class BibleReaderComponent implements OnDestroy {
     }
   }
 
-  private resizeTimeout: any
+  private resizeTimeout?: number
 
   @HostListener("window:resize")
   onWindowResize(): void {
