@@ -60,17 +60,41 @@ export class BibleReaderComponent implements OnDestroy {
 
   @ViewChild("bookDrawerCloseButton") bookDrawerCloseButton!: ElementRef
   @ViewChild("chapterDrawerCloseButton") chapterDrawerCloseButton!: ElementRef
+  @ViewChild("bookContainer") bookContainer!: ElementRef
 
   @ViewChild("bookBlock") bookBlock!: ElementRef
 
   book!: Book
   chapterNumber = 1
   chapter!: Chapter
-  scrolled!: boolean
+
   bookParam: string | null = null
   chapterParam: string | null = null
   showBooks = true
   showAutoScrollControls = false
+  viewMode: "scrolling" | "paged" = "scrolling"
+
+  isNavigatingForwards = false
+  isNavigatingBackwards = false
+  isFirstPage = true
+  isLastPage = false
+
+  onPagedScroll(): void {
+    if (this.viewMode !== "paged") return
+    const container = this.bookContainer?.nativeElement
+    if (!container) return
+
+    const prevFirst = this.isFirstPage
+    const prevLast = this.isLastPage
+
+    this.isFirstPage = container.scrollLeft <= 5
+    const maxScroll = container.scrollWidth - container.clientWidth
+    this.isLastPage = maxScroll <= 0 || container.scrollLeft >= maxScroll - 5
+
+    if (this.isFirstPage !== prevFirst || this.isLastPage !== prevLast) {
+      this.cdr.markForCheck()
+    }
+  }
 
   constructor(
     private autoScrollService: AutoScrollService,
@@ -87,6 +111,8 @@ export class BibleReaderComponent implements OnDestroy {
     if (storedSpeed) {
       this.autoScrollService.setAutoScrollLinesPerSecond(storedSpeed)
     }
+
+    this.viewMode = this.preferencesService.getViewMode()
 
     this.showAutoScrollControls =
       this.preferencesService.getAutoScrollControlsVisible()
@@ -179,9 +205,119 @@ export class BibleReaderComponent implements OnDestroy {
     this.stopAutoScroll()
   }
 
+  nextPage(): void {
+    if (this.viewMode !== "paged") return
+    const block = this.bookBlock?.nativeElement
+    const container = this.bookContainer?.nativeElement
+    if (!container || !block) return
+
+    const style = window.getComputedStyle(block)
+    const gap = parseFloat(style.columnGap) || 0
+    const paddingLeft = parseFloat(style.paddingLeft) || 0
+    const paddingRight = parseFloat(style.paddingRight) || 0
+
+    // Gap only matters when more than 1 column is shown
+    const advanceWidth = block.clientWidth - (paddingLeft + paddingRight) + gap
+
+    const scrollLeft = container.scrollLeft
+    const scrollWidth = container.scrollWidth
+    const maxScroll = scrollWidth - container.clientWidth
+
+    // If we are close to the end (or no scrollable area), go to next chapter
+    if (maxScroll <= 0 || scrollLeft >= maxScroll - 5) {
+      if (this.chapterNumber < this.book.chapterCount) {
+        this.goToNextChapter()
+      }
+    } else {
+      // Snap to the next "slot"
+      const currentPageIndex = Math.round(scrollLeft / advanceWidth)
+      const nextScrollLeft = (currentPageIndex + 1) * advanceWidth
+
+      container.scrollTo({ left: nextScrollLeft, behavior: "smooth" })
+    }
+  }
+
+  prevPage(): void {
+    if (this.viewMode !== "paged") return
+    const block = this.bookBlock?.nativeElement
+    const container = this.bookContainer?.nativeElement
+    if (!container || !block) return
+
+    const style = window.getComputedStyle(block)
+    const gap = parseFloat(style.columnGap) || 0
+    const paddingLeft = parseFloat(style.paddingLeft) || 0
+    const paddingRight = parseFloat(style.paddingRight) || 0
+
+    // Gap only matters when more than 1 column is shown
+    const advanceWidth = block.clientWidth - (paddingLeft + paddingRight) + gap
+
+    const scrollLeft = container.scrollLeft
+
+    // If we are close to the start, go to previous chapter
+    if (scrollLeft <= 5) {
+      if (this.chapterNumber > 1) {
+        this.goToPreviousChapter()
+      }
+    } else {
+      // Snap to the previous "slot", clamped to 0
+      const currentPageIndex = Math.round(scrollLeft / advanceWidth)
+      const prevScrollLeft = Math.max(0, (currentPageIndex - 1) * advanceWidth)
+
+      container.scrollTo({ left: prevScrollLeft, behavior: "smooth" })
+    }
+  }
+
+  private resizeTimeout?: number
+
+  @HostListener("window:resize")
+  onWindowResize(): void {
+    if (this.viewMode === "paged") {
+      clearTimeout(this.resizeTimeout)
+      this.resizeTimeout = window.setTimeout(() => {
+        this.snapToNearestPage()
+        this.onPagedScroll()
+      }, 150)
+    }
+  }
+
+  private snapToNearestPage(): void {
+    const container = this.bookContainer?.nativeElement
+    const block = this.bookBlock?.nativeElement
+    if (!container || !block) return
+
+    const style = window.getComputedStyle(block)
+    const gap = parseFloat(style.columnGap) || 0
+    const paddingLeft = parseFloat(style.paddingLeft) || 0
+    const paddingRight = parseFloat(style.paddingRight) || 0
+    const advanceWidth = block.clientWidth - (paddingLeft + paddingRight) + gap
+
+    const scrollLeft = container.scrollLeft
+
+    const pageIndex = Math.round(scrollLeft / advanceWidth)
+    container.scrollTo({ left: pageIndex * advanceWidth, behavior: "smooth" })
+  }
+
+  onSwipeLeft(): void {
+    if (this.viewMode === "paged") {
+      this.nextPage()
+    } else {
+      this.goToNextChapter()
+    }
+  }
+
+  onSwipeRight(): void {
+    if (this.viewMode === "paged") {
+      this.prevPage()
+    } else {
+      this.goToPreviousChapter()
+    }
+  }
+
   goToNextChapter(): void {
     if (this.book.chapterCount >= this.chapterNumber + 1) {
       this.stopAutoScroll()
+      this.isNavigatingForwards = true
+
       this.router.navigate([
         this.bookService.getUrlAbrv(this.book),
         this.chapterNumber + 1,
@@ -192,6 +328,8 @@ export class BibleReaderComponent implements OnDestroy {
   goToPreviousChapter(): void {
     if (this.chapterNumber > 1) {
       this.stopAutoScroll()
+      this.isNavigatingBackwards = true
+
       this.router.navigate([
         this.bookService.getUrlAbrv(this.book),
         this.chapterNumber - 1,
@@ -237,52 +375,188 @@ export class BibleReaderComponent implements OnDestroy {
   ) {
     this.apiService.getChapter(this.book.id, chapter).subscribe({
       next: (res) => {
-        this.chapter = res
-        this.chapterNumber = chapter
+        const finalize = () => {
+          if (this.bookContainer?.nativeElement) {
+            // Hide BEFORE change detection paints the new chapter
+            this.bookContainer.nativeElement.style.transition = "none"
+            this.bookContainer.nativeElement.style.opacity = "0"
+          }
 
-        this.cdr.detectChanges()
-
-        if (!verseStart) {
-          this.scrollToTop()
-        } else {
-          this.scrollToVerseElement(verseStart, verseEnd, highlight)
-        }
-
-        this.preferencesService.setLastBookId(this.book.id)
-        this.preferencesService.setLastChapterNumber(this.chapterNumber)
-      },
-      error: (err) => {
-        if (this.book.id === "about") {
-          this.chapter = { bookId: "about", number: 1 }
+          this.chapter = res
           this.chapterNumber = chapter
 
           this.cdr.detectChanges()
+
+          const startAtBottom = this.isNavigatingBackwards
+          this.isNavigatingBackwards = false
+          this.isNavigatingForwards = false
+
           if (!verseStart) {
-            this.scrollToTop()
+            this.scrollToTop(startAtBottom)
           } else {
             this.scrollToVerseElement(verseStart, verseEnd, highlight)
           }
 
           this.preferencesService.setLastBookId(this.book.id)
           this.preferencesService.setLastChapterNumber(this.chapterNumber)
-        } else {
-          this.router.navigate(["/", this.bookService.getUrlAbrv(this.book), 1])
         }
-        console.error(err)
+
+        const container = this.bookContainer?.nativeElement
+        if (
+          container &&
+          (this.isNavigatingBackwards || this.isNavigatingForwards)
+        ) {
+          this.triggerSlideOutAnimation(
+            container,
+            this.isNavigatingBackwards,
+          ).then(() => finalize())
+        } else {
+          finalize()
+        }
+      },
+      error: (err) => {
+        const finalizeError = () => {
+          if (this.bookContainer?.nativeElement) {
+            this.bookContainer.nativeElement.style.transition = "none"
+            this.bookContainer.nativeElement.style.opacity = "0"
+          }
+
+          if (this.book.id === "about") {
+            this.chapter = { bookId: "about", number: 1 }
+            this.chapterNumber = chapter
+
+            this.cdr.detectChanges()
+
+            const startAtBottom = this.isNavigatingBackwards
+            this.isNavigatingBackwards = false
+            this.isNavigatingForwards = false
+
+            if (!verseStart) {
+              this.scrollToTop(startAtBottom)
+            } else {
+              this.scrollToVerseElement(verseStart, verseEnd, highlight)
+            }
+
+            this.preferencesService.setLastBookId(this.book.id)
+            this.preferencesService.setLastChapterNumber(this.chapterNumber)
+          } else {
+            this.router.navigate([
+              "/",
+              this.bookService.getUrlAbrv(this.book),
+              1,
+            ])
+          }
+          console.error(err)
+        }
+
+        const container = this.bookContainer?.nativeElement
+        if (
+          container &&
+          (this.isNavigatingBackwards || this.isNavigatingForwards)
+        ) {
+          this.triggerSlideOutAnimation(
+            container,
+            this.isNavigatingBackwards,
+          ).then(() => finalizeError())
+        } else {
+          finalizeError()
+        }
       },
     })
   }
 
-  scrollToTop() {
+  scrollToTop(startAtBottom = false) {
     setTimeout(() => {
       this.container._content.scrollTo({ top: 0, behavior: "smooth" })
+      const container = this.bookContainer?.nativeElement
+      if (container) {
+        if (this.viewMode === "paged" && startAtBottom) {
+          // Layout using CSS columns often takes more than a single event loop tick
+          // to calculate the final scrollWidth.
+          // We'll give it a slightly longer timeout and use a requestAnimationFrame chain.
+          setTimeout(() => {
+            requestAnimationFrame(() => {
+              const maxScroll = container.scrollWidth - container.clientWidth
+              container.scrollLeft = maxScroll > 0 ? maxScroll : 0
+              this.onPagedScroll()
+              this.triggerSlideAnimation(container, true)
+            })
+          }, 100)
+        } else {
+          setTimeout(() => {
+            requestAnimationFrame(() => {
+              if (this.viewMode === "paged") {
+                container.scrollLeft = 0
+                this.onPagedScroll()
+              }
+              this.triggerSlideAnimation(container, startAtBottom)
+            })
+          }, 0)
+        }
+      }
     }, 0)
+  }
+
+  private triggerSlideAnimation(container: HTMLElement, isBackward: boolean) {
+    container.style.transition = ""
+    container.style.opacity = ""
+
+    const animationClass = isBackward ? "slide-in-left" : "slide-in-right"
+
+    // Trigger reflow to restart animation reliably
+    container.classList.remove(
+      "slide-in-left",
+      "slide-in-right",
+      "slide-out-left",
+      "slide-out-right",
+    )
+    void container.offsetWidth
+
+    container.classList.add(animationClass)
+
+    setTimeout(() => {
+      container.classList.remove(animationClass)
+    }, 600)
+  }
+
+  private triggerSlideOutAnimation(
+    container: HTMLElement,
+    isBackward: boolean,
+  ): Promise<void> {
+    return new Promise((resolve) => {
+      const animationClass = isBackward ? "slide-out-right" : "slide-out-left"
+
+      container.classList.remove(
+        "slide-in-left",
+        "slide-in-right",
+        "slide-out-left",
+        "slide-out-right",
+      )
+      void container.offsetWidth
+
+      container.classList.add(animationClass)
+
+      const onEnd = () => {
+        container.removeEventListener("animationend", onEnd)
+        container.classList.remove(animationClass)
+        resolve()
+      }
+      container.addEventListener("animationend", onEnd, { once: true })
+
+      // Safety fallback in case animationend never fires
+      setTimeout(() => {
+        container.removeEventListener("animationend", onEnd)
+        container.classList.remove(animationClass)
+        resolve()
+      }, 600)
+    })
   }
 
   scrollToVerseElement(
     verseStart: number,
     verseEnd?: number,
     highlight = true,
+    startAtBottom = false,
   ) {
     setTimeout(() => {
       let scrolled = false
@@ -310,7 +584,12 @@ export class BibleReaderComponent implements OnDestroy {
           }
         }
       }
-    }, 0)
+
+      const bookContainer = this.bookContainer?.nativeElement
+      if (bookContainer) {
+        this.triggerSlideAnimation(bookContainer, startAtBottom)
+      }
+    }, 100)
   }
 
   openBookDrawer(event: { open: boolean }) {
@@ -366,6 +645,31 @@ export class BibleReaderComponent implements OnDestroy {
       this.showAutoScrollControls,
     )
     this.stopAutoScroll()
+  }
+
+  onToggleViewMode(): void {
+    this.viewMode = this.viewMode === "scrolling" ? "paged" : "scrolling"
+    this.preferencesService.setViewMode(this.viewMode)
+    this.cdr.markForCheck()
+    // Reset scroll when switching to paged? Or keep position?
+    // Paged View relies on overflow-x scroll or just columns.
+    // If we switch to paged, we might start at page 1 (scrollLeft 0).
+    if (this.viewMode === "paged") {
+      this.stopAutoScroll()
+      this.showAutoScrollControls = false
+      this.preferencesService.setAutoScrollControlsVisible(false)
+      // Wait for render
+      setTimeout(() => {
+        // Maybe scroll to start? Or try to map current scroll position to page?
+        // Mapping is hard. Let's start at beginning or keep as is.
+        // CSS columns usually start at top left.
+        const container = this.bookContainer?.nativeElement
+        if (container) {
+          container.scrollLeft = 0
+        }
+        this.onPagedScroll()
+      }, 0)
+    }
   }
 
   toggleAutoScroll(): void {
@@ -440,10 +744,10 @@ export class BibleReaderComponent implements OnDestroy {
   @HostListener("window:keydown", ["$event"])
   onArrowPress(event: KeyboardEvent): void {
     if (event.key === "ArrowLeft") {
-      this.goToPreviousChapter()
+      this.viewMode === "paged" ? this.prevPage() : this.goToPreviousChapter()
     }
     if (event.key === "ArrowRight") {
-      this.goToNextChapter()
+      this.viewMode === "paged" ? this.nextPage() : this.goToNextChapter()
     }
   }
 

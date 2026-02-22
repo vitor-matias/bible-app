@@ -99,7 +99,7 @@ h6 {
 
 .floating-nav-button {
   position: fixed;
-  z-index: 100;
+  z-index: 99;
   opacity: 0.6;
   transition: opacity 0.3s;
   color: #543d27;
@@ -179,7 +179,7 @@ h6 {
   background-color: var(--card-background);
 }
 
-mat-icon {
+.mat-icon {
   padding: 0px;
 }
 
@@ -190,6 +190,121 @@ mat-icon {
   width: 100%;
 }
 
-.reader-header {
-  top: 0;
+
+/* Paged View Styles */
+
+.paged-view-container {
+  overflow-y: hidden;
+  overflow-x: hidden; /* Hide scrollbar but allow nav */
+  height: calc(100vh - 64px - 16px); /* Viewport - Header - Margins */
+  width: 95%; /* Narrower container to create side margins */
+  margin: 0 auto !important; /* Center the container */
+}
+
+@keyframes slideInFromRight {
+  0% { transform: translateX(60px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideInFromLeft {
+  0% { transform: translateX(-60px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOutToLeft {
+  0% { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(-60px); opacity: 0; }
+}
+
+@keyframes slideOutToRight {
+  0% { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(60px); opacity: 0; }
+}
+
+.slide-in-right {
+  animation: slideInFromRight 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.slide-in-left {
+  animation: slideInFromLeft 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.slide-out-left {
+  animation: slideOutToLeft 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.slide-out-right {
+  animation: slideOutToRight 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.paged-view {
+  height: 100%;
+  column-fill: auto;
+  column-gap: 32px;
+  width: 100%;
+  
+  /* Reset standard constraints */
+    display: block;
+}
+
+/* Mobile - 1 Page */
+@media (max-width: 768px) {
+  .paged-view {
+    column-width: 80vw; /* Use column-width to allow multiple columns (pages) */
+    column-count: auto;
+    /* Formula for stable paging: Gap = 2 * Padding */
+    column-gap: 4vw; /* 2 * 2vw = 4vw */
+    padding: 0 2vw 48px 2vw;
+    width: 100%;
+    margin: 0 !important;
+    height: 95%;
+    max-width: 100%;
+  }
+}
+
+/* Desktop - 2 Pages */
+@media (min-width: 768px) {
+  .paged-view-container {
+    width: 60%;
+    max-width: 60%;
+  }
+
+  .paged-view {
+    column-count: 2;
+    column-width: auto;
+    column-fill: auto;
+    column-gap: 6vw; /* Moderate gap */
+    padding: 6px;
+    height: 95%;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto !important;
+    orphans: 1;
+    widows: 1;
+  }
+}
+
+.copyright-footer {
+  font-family: "PT Serif", serif;
+  width: 95%;
+  margin: 0 auto;
+  padding: 8px 0;
+  text-align: center;
+  font-size: 1em;
+  color: dimgray;
+}
+
+.copyright-details {
+  font-size: 0.8em;
+  display: block;
+}
+
+.fixed-footer {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  opacity: 0.9;
+  padding: 8px 0;
 }
