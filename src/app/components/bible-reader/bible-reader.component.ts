@@ -406,8 +406,10 @@ export class BibleReaderComponent implements OnDestroy {
           container &&
           (this.isNavigatingBackwards || this.isNavigatingForwards)
         ) {
-          this.triggerSlideOutAnimation(container, this.isNavigatingBackwards)
-          setTimeout(finalize, 500)
+          this.triggerSlideOutAnimation(
+            container,
+            this.isNavigatingBackwards,
+          ).then(() => finalize())
         } else {
           finalize()
         }
@@ -452,8 +454,10 @@ export class BibleReaderComponent implements OnDestroy {
           container &&
           (this.isNavigatingBackwards || this.isNavigatingForwards)
         ) {
-          this.triggerSlideOutAnimation(container, this.isNavigatingBackwards)
-          setTimeout(finalizeError, 500)
+          this.triggerSlideOutAnimation(
+            container,
+            this.isNavigatingBackwards,
+          ).then(() => finalizeError())
         } else {
           finalizeError()
         }
@@ -485,7 +489,7 @@ export class BibleReaderComponent implements OnDestroy {
                 container.scrollLeft = 0
                 this.onPagedScroll()
               }
-              this.triggerSlideAnimation(container, false)
+              this.triggerSlideAnimation(container, startAtBottom)
             })
           }, 0)
         }
@@ -518,22 +522,34 @@ export class BibleReaderComponent implements OnDestroy {
   private triggerSlideOutAnimation(
     container: HTMLElement,
     isBackward: boolean,
-  ) {
-    const animationClass = isBackward ? "slide-out-right" : "slide-out-left"
+  ): Promise<void> {
+    return new Promise((resolve) => {
+      const animationClass = isBackward ? "slide-out-right" : "slide-out-left"
 
-    container.classList.remove(
-      "slide-in-left",
-      "slide-in-right",
-      "slide-out-left",
-      "slide-out-right",
-    )
-    void container.offsetWidth
+      container.classList.remove(
+        "slide-in-left",
+        "slide-in-right",
+        "slide-out-left",
+        "slide-out-right",
+      )
+      void container.offsetWidth
 
-    container.classList.add(animationClass)
+      container.classList.add(animationClass)
 
-    setTimeout(() => {
-      container.classList.remove(animationClass)
-    }, 500)
+      const onEnd = () => {
+        container.removeEventListener("animationend", onEnd)
+        container.classList.remove(animationClass)
+        resolve()
+      }
+      container.addEventListener("animationend", onEnd, { once: true })
+
+      // Safety fallback in case animationend never fires
+      setTimeout(() => {
+        container.removeEventListener("animationend", onEnd)
+        container.classList.remove(animationClass)
+        resolve()
+      }, 600)
+    })
   }
 
   scrollToVerseElement(
