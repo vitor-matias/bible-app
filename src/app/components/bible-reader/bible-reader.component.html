@@ -64,7 +64,7 @@
       }
       @if (showAutoScrollControls && container && bookBlock) {
         <app-auto-scroll-controls 
-          [scrollElement]="container._content?.getElementRef()?.nativeElement" 
+          [scrollElement]="container._content.getElementRef().nativeElement" 
           [lineHeightElement]="bookBlock">
         </app-auto-scroll-controls>
       }
