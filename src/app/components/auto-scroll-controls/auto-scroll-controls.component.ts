@@ -1,3 +1,4 @@
+import { CommonModule } from "@angular/common"
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -5,11 +6,10 @@ import {
   Input,
   OnDestroy,
 } from "@angular/core"
-import { AutoScrollService } from "../../services/auto-scroll.service"
-import { PreferencesService } from "../../services/preferences.service"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
-import { CommonModule } from "@angular/common"
+import { AutoScrollService } from "../../services/auto-scroll.service"
+import { PreferencesService } from "../../services/preferences.service"
 
 @Component({
   selector: "app-auto-scroll-controls",

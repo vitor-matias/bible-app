@@ -18,21 +18,21 @@ import {
 } from "@angular/material/sidenav"
 import { ActivatedRoute, Router } from "@angular/router"
 import { combineLatest } from "rxjs"
+import {
+  PagedNavigationDirective,
+  PageState,
+} from "../../directives/paged-navigation/paged-navigation.directive"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BookService } from "../../services/book.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { AboutComponent } from "../about/about.component"
+import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
 import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"
 import { HeaderComponent } from "../header/header.component"
 import { VerseComponent } from "../verse/verse.component"
-import {
-  PagedNavigationDirective,
-  PageState,
-} from "../../directives/paged-navigation/paged-navigation.directive"
-import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
 
 @Component({
   selector: "bible-reader",
@@ -206,8 +206,6 @@ export class BibleReaderComponent implements OnDestroy {
   ngOnDestroy(): void {
     // AutoScrollService handles its own cleanup now if we stop it, or the component stopping it
   }
-
-  private resizeTimeout?: number
 
   onSwipeLeft(): void {
     if (this.viewMode === "paged") {
