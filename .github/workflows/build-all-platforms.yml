@@ -193,6 +193,11 @@ jobs:
           name: web-build
           path: dist/
 
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
       - name: Setup Capacitor iOS
         run: |
           set -e
@@ -201,12 +206,7 @@ jobs:
           echo "Listing ios/App contents:"
           ls -R ios/App
           echo "Listing available destinations:"
-          xcodebuild -project ios/App/App.xcodeproj -scheme App -showdestinations
-
-      - name: Setup Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -showdestinations || true
 
       - name: Install Apple Certificate and Provisioning Profile
         if: ${{ env.HAS_IOS_CERTIFICATE != '' }}
@@ -273,7 +273,7 @@ jobs:
           xcodebuild -project App.xcodeproj \
             -scheme App \
             -configuration Release \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
             -archivePath ./build/iOS.xcarchive \
             archive \
             CODE_SIGN_IDENTITY="" \
