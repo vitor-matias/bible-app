@@ -28,6 +28,11 @@ import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"
 import { HeaderComponent } from "../header/header.component"
 import { VerseComponent } from "../verse/verse.component"
+import {
+  PagedNavigationDirective,
+  PageState,
+} from "../../directives/paged-navigation/paged-navigation.directive"
+import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
 
 @Component({
   selector: "bible-reader",
@@ -47,6 +52,8 @@ import { VerseComponent } from "../verse/verse.component"
     MatIconModule,
     MatButtonModule,
     UnifiedGesturesDirective,
+    PagedNavigationDirective,
+    AutoScrollControlsComponent,
   ],
 })
 export class BibleReaderComponent implements OnDestroy {
@@ -57,6 +64,7 @@ export class BibleReaderComponent implements OnDestroy {
   container!: MatDrawerContainer
 
   @ViewChild(UnifiedGesturesDirective) gestures!: UnifiedGesturesDirective
+  @ViewChild(PagedNavigationDirective) pagedNav?: PagedNavigationDirective
 
   @ViewChild("bookDrawerCloseButton") bookDrawerCloseButton!: ElementRef
   @ViewChild("chapterDrawerCloseButton") chapterDrawerCloseButton!: ElementRef
@@ -79,19 +87,13 @@ export class BibleReaderComponent implements OnDestroy {
   isFirstPage = true
   isLastPage = false
 
-  onPagedScroll(): void {
-    if (this.viewMode !== "paged") return
-    const container = this.bookContainer?.nativeElement
-    if (!container) return
-
-    const prevFirst = this.isFirstPage
-    const prevLast = this.isLastPage
-
-    this.isFirstPage = container.scrollLeft <= 5
-    const maxScroll = container.scrollWidth - container.clientWidth
-    this.isLastPage = maxScroll <= 0 || container.scrollLeft >= maxScroll - 5
-
-    if (this.isFirstPage !== prevFirst || this.isLastPage !== prevLast) {
+  onPageStateChange(state: PageState): void {
+    if (
+      this.isFirstPage !== state.isFirstPage ||
+      this.isLastPage !== state.isLastPage
+    ) {
+      this.isFirstPage = state.isFirstPage
+      this.isLastPage = state.isLastPage
       this.cdr.markForCheck()
     }
   }
@@ -202,104 +204,14 @@ export class BibleReaderComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.stopAutoScroll()
-  }
-
-  nextPage(): void {
-    if (this.viewMode !== "paged") return
-    const block = this.bookBlock?.nativeElement
-    const container = this.bookContainer?.nativeElement
-    if (!container || !block) return
-
-    const style = window.getComputedStyle(block)
-    const gap = parseFloat(style.columnGap) || 0
-    const paddingLeft = parseFloat(style.paddingLeft) || 0
-    const paddingRight = parseFloat(style.paddingRight) || 0
-
-    // Gap only matters when more than 1 column is shown
-    const advanceWidth = block.clientWidth - (paddingLeft + paddingRight) + gap
-
-    const scrollLeft = container.scrollLeft
-    const scrollWidth = container.scrollWidth
-    const maxScroll = scrollWidth - container.clientWidth
-
-    // If we are close to the end (or no scrollable area), go to next chapter
-    if (maxScroll <= 0 || scrollLeft >= maxScroll - 5) {
-      if (this.chapterNumber < this.book.chapterCount) {
-        this.goToNextChapter()
-      }
-    } else {
-      // Snap to the next "slot"
-      const currentPageIndex = Math.round(scrollLeft / advanceWidth)
-      const nextScrollLeft = (currentPageIndex + 1) * advanceWidth
-
-      container.scrollTo({ left: nextScrollLeft, behavior: "smooth" })
-    }
-  }
-
-  prevPage(): void {
-    if (this.viewMode !== "paged") return
-    const block = this.bookBlock?.nativeElement
-    const container = this.bookContainer?.nativeElement
-    if (!container || !block) return
-
-    const style = window.getComputedStyle(block)
-    const gap = parseFloat(style.columnGap) || 0
-    const paddingLeft = parseFloat(style.paddingLeft) || 0
-    const paddingRight = parseFloat(style.paddingRight) || 0
-
-    // Gap only matters when more than 1 column is shown
-    const advanceWidth = block.clientWidth - (paddingLeft + paddingRight) + gap
-
-    const scrollLeft = container.scrollLeft
-
-    // If we are close to the start, go to previous chapter
-    if (scrollLeft <= 5) {
-      if (this.chapterNumber > 1) {
-        this.goToPreviousChapter()
-      }
-    } else {
-      // Snap to the previous "slot", clamped to 0
-      const currentPageIndex = Math.round(scrollLeft / advanceWidth)
-      const prevScrollLeft = Math.max(0, (currentPageIndex - 1) * advanceWidth)
-
-      container.scrollTo({ left: prevScrollLeft, behavior: "smooth" })
-    }
+    // AutoScrollService handles its own cleanup now if we stop it, or the component stopping it
   }
 
   private resizeTimeout?: number
 
-  @HostListener("window:resize")
-  onWindowResize(): void {
-    if (this.viewMode === "paged") {
-      clearTimeout(this.resizeTimeout)
-      this.resizeTimeout = window.setTimeout(() => {
-        this.snapToNearestPage()
-        this.onPagedScroll()
-      }, 150)
-    }
-  }
-
-  private snapToNearestPage(): void {
-    const container = this.bookContainer?.nativeElement
-    const block = this.bookBlock?.nativeElement
-    if (!container || !block) return
-
-    const style = window.getComputedStyle(block)
-    const gap = parseFloat(style.columnGap) || 0
-    const paddingLeft = parseFloat(style.paddingLeft) || 0
-    const paddingRight = parseFloat(style.paddingRight) || 0
-    const advanceWidth = block.clientWidth - (paddingLeft + paddingRight) + gap
-
-    const scrollLeft = container.scrollLeft
-
-    const pageIndex = Math.round(scrollLeft / advanceWidth)
-    container.scrollTo({ left: pageIndex * advanceWidth, behavior: "smooth" })
-  }
-
   onSwipeLeft(): void {
     if (this.viewMode === "paged") {
-      this.nextPage()
+      this.pagedNav?.nextPage()
     } else {
       this.goToNextChapter()
     }
@@ -307,7 +219,7 @@ export class BibleReaderComponent implements OnDestroy {
 
   onSwipeRight(): void {
     if (this.viewMode === "paged") {
-      this.prevPage()
+      this.pagedNav?.prevPage()
     } else {
       this.goToPreviousChapter()
     }
@@ -315,7 +227,6 @@ export class BibleReaderComponent implements OnDestroy {
 
   goToNextChapter(): void {
     if (this.book.chapterCount >= this.chapterNumber + 1) {
-      this.stopAutoScroll()
       this.isNavigatingForwards = true
 
       this.router.navigate([
@@ -327,7 +238,6 @@ export class BibleReaderComponent implements OnDestroy {
 
   goToPreviousChapter(): void {
     if (this.chapterNumber > 1) {
-      this.stopAutoScroll()
       this.isNavigatingBackwards = true
 
       this.router.navigate([
@@ -338,7 +248,6 @@ export class BibleReaderComponent implements OnDestroy {
   }
 
   goToChapter(newChapterNumber: Chapter["number"]): void {
-    this.stopAutoScroll()
     this.router.navigate([
       this.bookService.getUrlAbrv(this.book),
       newChapterNumber,
@@ -478,7 +387,6 @@ export class BibleReaderComponent implements OnDestroy {
             requestAnimationFrame(() => {
               const maxScroll = container.scrollWidth - container.clientWidth
               container.scrollLeft = maxScroll > 0 ? maxScroll : 0
-              this.onPagedScroll()
               this.triggerSlideAnimation(container, true)
             })
           }, 100)
@@ -487,7 +395,6 @@ export class BibleReaderComponent implements OnDestroy {
             requestAnimationFrame(() => {
               if (this.viewMode === "paged") {
                 container.scrollLeft = 0
-                this.onPagedScroll()
               }
               this.triggerSlideAnimation(container, startAtBottom)
             })
@@ -644,7 +551,6 @@ export class BibleReaderComponent implements OnDestroy {
     this.preferencesService.setAutoScrollControlsVisible(
       this.showAutoScrollControls,
     )
-    this.stopAutoScroll()
   }
 
   onToggleViewMode(): void {
@@ -655,99 +561,29 @@ export class BibleReaderComponent implements OnDestroy {
     // Paged View relies on overflow-x scroll or just columns.
     // If we switch to paged, we might start at page 1 (scrollLeft 0).
     if (this.viewMode === "paged") {
-      this.stopAutoScroll()
       this.showAutoScrollControls = false
       this.preferencesService.setAutoScrollControlsVisible(false)
       // Wait for render
       setTimeout(() => {
-        // Maybe scroll to start? Or try to map current scroll position to page?
-        // Mapping is hard. Let's start at beginning or keep as is.
-        // CSS columns usually start at top left.
         const container = this.bookContainer?.nativeElement
         if (container) {
           container.scrollLeft = 0
         }
-        this.onPagedScroll()
       }, 0)
     }
-  }
-
-  toggleAutoScroll(): void {
-    if (!this.autoScrollEnabled) {
-      this.startAutoScroll()
-      return
-    }
-
-    this.stopAutoScroll()
-  }
-
-  increaseAutoScrollSpeed(): void {
-    this.updateAutoScrollSpeed(this.autoScrollService.AUTO_SCROLL_STEP)
-  }
-
-  decreaseAutoScrollSpeed(): void {
-    this.updateAutoScrollSpeed(-this.autoScrollService.AUTO_SCROLL_STEP)
-  }
-
-  private updateAutoScrollSpeed(delta: number): void {
-    const nextSpeed = this.autoScrollService.updateAutoScrollSpeed(delta)
-    this.preferencesService.setAutoScrollSpeed(nextSpeed)
-  }
-
-  private startAutoScroll(): void {
-    const content = this.container?._content?.getElementRef().nativeElement
-    const lineHeightElement = this.bookBlock?.nativeElement
-    this.autoScrollService.start({
-      scrollElement: content,
-      lineHeightElement,
-      onStop: () => {
-        this.safeMarkForCheck()
-      },
-    })
-  }
-
-  private stopAutoScroll(): void {
-    this.autoScrollService.stop()
-    this.safeMarkForCheck()
-  }
-
-  private safeMarkForCheck(): void {
-    try {
-      this.cdr.markForCheck()
-    } catch {
-      // Safely ignore errors if change detection cannot be triggered (e.g., component destroyed)
-    }
-  }
-
-  get autoScrollEnabled(): boolean {
-    return this.autoScrollService.autoScrollEnabled
-  }
-
-  get autoScrollLinesPerSecond(): number {
-    return this.autoScrollService.autoScrollLinesPerSecond
-  }
-
-  get autoScrollSpeedLabel(): string {
-    return this.autoScrollService.getAutoScrollSpeedLabel(
-      this.autoScrollLinesPerSecond,
-    )
-  }
-
-  get MIN_AUTO_SCROLL_LPS(): number {
-    return this.autoScrollService.MIN_AUTO_SCROLL_LPS
-  }
-
-  get MAX_AUTO_SCROLL_LPS(): number {
-    return this.autoScrollService.MAX_AUTO_SCROLL_LPS
   }
 
   @HostListener("window:keydown", ["$event"])
   onArrowPress(event: KeyboardEvent): void {
     if (event.key === "ArrowLeft") {
-      this.viewMode === "paged" ? this.prevPage() : this.goToPreviousChapter()
+      this.viewMode === "paged"
+        ? this.pagedNav?.prevPage()
+        : this.goToPreviousChapter()
     }
     if (event.key === "ArrowRight") {
-      this.viewMode === "paged" ? this.nextPage() : this.goToNextChapter()
+      this.viewMode === "paged"
+        ? this.pagedNav?.nextPage()
+        : this.goToNextChapter()
     }
   }
 

@@ -1,0 +1,51 @@
+.auto-scroll-controls {
+  position: absolute;
+  top: 10px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 10;
+  gap: 16px;
+}
+
+.auto-scroll-speed {
+  display: flex;
+  align-items: center;
+  background-color: var(--card-bg, #fff);
+  border-radius: 20px;
+  padding: 0 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transform: scale(0.9);
+}
+
+.auto-scroll-speed span {
+  font-size: 14px;
+  min-width: 50px;
+  text-align: center;
+  font-weight: 500;
+  color: var(--text-color, #333);
+}
+
+.floating-nav-button {
+  background-color: var(--primary-color) !important;
+  color: white !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.floating-nav-button.auto-scroll-toggle {
+  background-color: var(--background-highlight-color) !important;
+  color: var(--primary-color) !important;
+}
+
+.floating-nav-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+.floating-nav-button:active {
+  transform: scale(0.95);
+}

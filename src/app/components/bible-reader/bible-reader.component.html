@@ -22,7 +22,13 @@
     </mat-drawer>
     }
     <mat-drawer-content style="background-color: var(--background-color)">
-      <div #bookContainer style="margin: 8px 8px 0px 8px;" [class.paged-view-container]="viewMode === 'paged'" (scroll)="onPagedScroll()">
+      <div #bookContainer style="margin: 8px 8px 0px 8px;" 
+           [class.paged-view-container]="viewMode === 'paged'" 
+           [appPagedNavigation]="bookBlock" 
+           [viewMode]="viewMode" 
+           (nextChapter)="goToNextChapter()" 
+           (prevChapter)="goToPreviousChapter()" 
+           (pageStateChange)="onPageStateChange($event)">
         <div #bookBlock class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}" [class.paged-view]="viewMode === 'paged'">
           @if (chapter) {
           <div pinch-to-zoom class="chapterBlock">
@@ -52,32 +58,18 @@
       <!-- Floating navigation buttons -->
       @if (chapter.number > 1 || (viewMode === 'paged' && !isFirstPage)) {
       <button class="floating-nav-button prev-chapter" mat-mini-fab aria-label="Previous"
-        (click)="viewMode === 'paged' ? prevPage() : goToPreviousChapter()">
+        (click)="viewMode === 'paged' ? pagedNav?.prevPage() : goToPreviousChapter()">
         <mat-icon>chevron_left</mat-icon>
       </button>
       }
-      @if (showAutoScrollControls) {
-      <div class="auto-scroll-controls">
-        <button class="position-relative floating-nav-button auto-scroll-toggle" mat-mini-fab
-          [attr.aria-label]="autoScrollEnabled ? 'Pausar deslocamento automático' : 'Ativar deslocamento automático'"
-          [attr.aria-pressed]="autoScrollEnabled" (click)="toggleAutoScroll()">
-          <mat-icon>{{ autoScrollEnabled ? 'pause' : 'play_arrow' }}</mat-icon>
-        </button>
-        <div class="auto-scroll-speed">
-          <button mat-icon-button aria-label="Diminuir velocidade do deslocamento automático"
-            [disabled]="autoScrollLinesPerSecond <= MIN_AUTO_SCROLL_LPS" (click)="decreaseAutoScrollSpeed()">
-            <mat-icon>remove</mat-icon>
-          </button>
-          <span>{{ autoScrollSpeedLabel }} ln/s</span>
-          <button mat-icon-button aria-label="Aumentar velocidade do deslocamento automático"
-            [disabled]="autoScrollLinesPerSecond >= MAX_AUTO_SCROLL_LPS" (click)="increaseAutoScrollSpeed()">
-            <mat-icon>add</mat-icon>
-          </button>
-        </div>
-      </div>
+      @if (showAutoScrollControls && container && bookBlock) {
+        <app-auto-scroll-controls 
+          [scrollElement]="container._content?.getElementRef()?.nativeElement" 
+          [lineHeightElement]="bookBlock">
+        </app-auto-scroll-controls>
       }
       @if (chapter.number < book.chapterCount || (viewMode === 'paged' && !isLastPage)) { <button class="floating-nav-button next-chapter" mat-mini-fab
-        aria-label="Next" (click)="viewMode === 'paged' ? nextPage() : goToNextChapter()">
+        aria-label="Next" (click)="viewMode === 'paged' ? pagedNav?.nextPage() : goToNextChapter()">
         <mat-icon>chevron_right</mat-icon>
         </button>
         }
