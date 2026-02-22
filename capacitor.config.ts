@@ -15,6 +15,10 @@ const config: CapacitorConfig = {
       style: "DARK",
     },
   },
+  android: {
+    allowMixedContent: true,
+    useHybridComposition: true,
+  },
 }
 
 export default config
