@@ -134,26 +134,38 @@ jobs:
         run: |
           set -e
           cd android
-          ./gradlew assembleRelease
+          if [ -n "${HAS_ANDROID_KEYSTORE}" ]; then
+            echo "Building Release APK..."
+            ./gradlew assembleRelease
+          else
+            echo "Building Debug APK (no keystore provided)..."
+            ./gradlew assembleDebug
+          fi
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: android/app/build/outputs/apk/release/*.apk
+          path: android/app/build/outputs/apk/**/*.apk
           retention-days: 30
 
       - name: Build Android AAB
         run: |
           set -e
           cd android
-          ./gradlew bundleRelease
+          if [ -n "${HAS_ANDROID_KEYSTORE}" ]; then
+            echo "Building Release AAB..."
+            ./gradlew bundleRelease
+          else
+            echo "Building Debug AAB (no keystore provided)..."
+            ./gradlew bundleDebug
+          fi
 
       - name: Upload Android AAB
         uses: actions/upload-artifact@v4
         with:
           name: android-aab
-          path: android/app/build/outputs/bundle/release/*.aab
+          path: android/app/build/outputs/bundle/**/*.aab
           retention-days: 30
 
   build-ios-macos:
