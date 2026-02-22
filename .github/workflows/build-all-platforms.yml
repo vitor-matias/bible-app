@@ -92,6 +92,7 @@ jobs:
           set -e
           npx cap add android
           npx cap sync android
+          npx @capacitor/assets generate --android
 
       - name: Decode Keystore
         if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
@@ -203,6 +204,7 @@ jobs:
           set -e
           npx cap add ios
           npx cap sync ios
+          npx @capacitor/assets generate --ios
           echo "Listing ios/App contents:"
           ls -R ios/App
           echo "Listing available destinations:"
