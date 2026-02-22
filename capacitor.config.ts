@@ -7,6 +7,13 @@ const config: CapacitorConfig = {
   server: {
     url: "https://biblia.capuchinhos.org",
     cleartext: true,
+    androidScheme: "https",
+  },
+  plugins: {
+    StatusBar: {
+      overlaysWebView: true,
+      style: "DARK",
+    },
   },
 }
 

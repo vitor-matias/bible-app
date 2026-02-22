@@ -57,7 +57,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 56px);
+  height: calc(100vh - 56px - env(safe-area-inset-top));
   overflow: hidden;
   overscroll-behavior: none; /* Prevents rubber banding in this container */
   touch-action: pan-y;

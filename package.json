@@ -29,6 +29,7 @@
     "@capacitor/android": "^8.0.2",
     "@capacitor/core": "^8.0.2",
     "@capacitor/ios": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.1",
     "@popperjs/core": "^2.11.8",
     "bootstrap": "^5.3.8",
     "rxjs": "~7.8.2",
