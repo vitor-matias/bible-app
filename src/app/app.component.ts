@@ -5,6 +5,8 @@ import {
   type OnInit,
 } from "@angular/core"
 import { RouterOutlet } from "@angular/router"
+import { injectSpeedInsights } from '@vercel/speed-insights';
+
 
 import { SwUpdate } from "@angular/service-worker"
 import { OfflineDataService } from "./services/offline-data.service"
@@ -29,6 +31,8 @@ export class AppComponent implements OnInit, OnDestroy {
     private swUpdate: SwUpdate,
     private offlineDataService: OfflineDataService,
   ) {
+    injectSpeedInsights()
+
     if (this.swUpdate.isEnabled) {
       this.swUpdate.versionUpdates.subscribe((event) => {
         if (event.type === "VERSION_READY") {
