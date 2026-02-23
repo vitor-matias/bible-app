@@ -298,11 +298,9 @@ h6 {
     column-width: auto;
     column-fill: auto;
     column-gap: 6vw; /* Moderate gap */
-    padding: 6px;
     height: calc(100% - 50px); /* Reserve space for copyright footer */
     width: 100%;
     max-width: 100%;
-    margin: 0 auto !important;
     orphans: 1;
     widows: 1;
   }
