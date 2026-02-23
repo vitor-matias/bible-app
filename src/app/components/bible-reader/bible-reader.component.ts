@@ -14,6 +14,7 @@ import { MatIconModule } from "@angular/material/icon"
 import {
   type MatDrawer,
   type MatDrawerContainer,
+  MatDrawerContent,
   MatSidenavModule,
 } from "@angular/material/sidenav"
 import { ActivatedRoute, Router } from "@angular/router"
@@ -63,6 +64,8 @@ export class BibleReaderComponent implements OnDestroy {
   @ViewChild("container")
   container!: MatDrawerContainer
 
+  @ViewChild(MatDrawerContent, { read: ElementRef }) drawerContent!: ElementRef<HTMLElement>
+
   @ViewChild(UnifiedGesturesDirective) gestures!: UnifiedGesturesDirective
   @ViewChild(PagedNavigationDirective) pagedNav?: PagedNavigationDirective
 
@@ -106,7 +109,7 @@ export class BibleReaderComponent implements OnDestroy {
     private cdr: ChangeDetectorRef,
     private router: Router,
     private route: ActivatedRoute,
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     const storedSpeed = this.preferencesService.getAutoScrollSpeed()
@@ -130,11 +133,11 @@ export class BibleReaderComponent implements OnDestroy {
 
       const verseStartParam =
         this.router.routerState.snapshot.root.firstChild?.queryParams[
-          "verseStart"
+        "verseStart"
         ]
       const verseEndParam =
         this.router.routerState.snapshot.root.firstChild?.queryParams[
-          "verseEnd"
+        "verseEnd"
         ]
 
       const storedBook =
@@ -374,7 +377,10 @@ export class BibleReaderComponent implements OnDestroy {
 
   scrollToTop(startAtBottom = false) {
     setTimeout(() => {
-      this.container._content.scrollTo({ top: 0, behavior: "smooth" })
+      const scrollEl = this.drawerContent?.nativeElement;
+      if (scrollEl) {
+        scrollEl.scrollTo({ top: 0, behavior: "smooth" })
+      }
       const container = this.bookContainer?.nativeElement
       if (container) {
         if (this.viewMode === "paged" && startAtBottom) {

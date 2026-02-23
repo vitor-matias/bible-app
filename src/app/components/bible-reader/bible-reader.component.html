@@ -3,8 +3,8 @@
   <header class="reader-header" [book]="book" [chapterNumber]="chapterNumber" [viewMode]="viewMode"
     [autoScrollControlsVisible]="showAutoScrollControls" (openBookSelector)="openBookDrawer($event)"
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
-    (toggleViewMode)="onToggleViewMode()"
-    (increaseFontSizeEvent)="onIncreaseFontSize()" (decreaseFontSizeEvent)="onDecreaseFontSize()"></header>
+    (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize()"
+    (decreaseFontSizeEvent)="onDecreaseFontSize()"></header>
   <mat-drawer-container class="bookSelectorContainer" #container>
     @if (getBooks()) {
     <mat-drawer class="bookSelector" mode="over" position="start" #bookDrawer closed>
@@ -22,14 +22,11 @@
     </mat-drawer>
     }
     <mat-drawer-content style="background-color: var(--background-color)">
-      <div #bookContainer
-           [class.paged-view-container]="viewMode === 'paged'" 
-           [appPagedNavigation]="bookBlock" 
-           [viewMode]="viewMode" 
-           (nextChapter)="goToNextChapter()" 
-           (prevChapter)="goToPreviousChapter()" 
-           (pageStateChange)="onPageStateChange($event)">
-        <div #bookBlock class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}" [class.paged-view]="viewMode === 'paged'">
+      <div #bookContainer [class.paged-view-container]="viewMode === 'paged'" [appPagedNavigation]="bookBlock"
+        [viewMode]="viewMode" (nextChapter)="goToNextChapter()" (prevChapter)="goToPreviousChapter()"
+        (pageStateChange)="onPageStateChange($event)">
+        <div #bookBlock class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}"
+          [class.paged-view]="viewMode === 'paged'">
           @if (chapter) {
           <div pinch-to-zoom class="chapterBlock">
             @if(book.id !== 'about'){
@@ -46,15 +43,15 @@
       </div>
 
       @if (book.id !== 'about' && chapter) {
-        <div class="copyright-footer" [class.fixed-footer]="viewMode === 'paged'">
-          <span class="center"><b>© DIFUSORA BÍBLICA</b></span>
-          <span class="center copyright-details">
-            Reservados todos os direitos. É proibida a reprodução, total ou parcial, do texto, sem autorização, por
-            escrito, da Editora.</span>
-        </div>
+      <div class="copyright-footer" [class.fixed-footer]="viewMode === 'paged'">
+        <span class="center"><b>© DIFUSORA BÍBLICA</b></span>
+        <span class="center copyright-details">
+          Reservados todos os direitos. É proibida a reprodução, total ou parcial, do texto, sem autorização, por
+          escrito, da Editora.</span>
+      </div>
       }
 
-      @if (book.id !== 'about') {
+      @if (book.id !== 'about' && chapter) {
       <!-- Floating navigation buttons -->
       @if (chapter.number > 1 || (viewMode === 'paged' && !isFirstPage)) {
       <button class="floating-nav-button prev-chapter" mat-mini-fab aria-label="Previous"
@@ -62,14 +59,13 @@
         <mat-icon>chevron_left</mat-icon>
       </button>
       }
-      @if (showAutoScrollControls && container && bookBlock) {
-        <app-auto-scroll-controls 
-          [scrollElement]="container._content.getElementRef().nativeElement" 
-          [lineHeightElement]="bookBlock">
-        </app-auto-scroll-controls>
+      @if (showAutoScrollControls && drawerContent && bookBlock) {
+      <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock">
+      </app-auto-scroll-controls>
       }
-      @if (chapter.number < book.chapterCount || (viewMode === 'paged' && !isLastPage)) { <button class="floating-nav-button next-chapter" mat-mini-fab
-        aria-label="Next" (click)="viewMode === 'paged' ? pagedNav?.nextPage() : goToNextChapter()">
+      @if (chapter.number < book.chapterCount || (viewMode==='paged' && !isLastPage)) { <button
+        class="floating-nav-button next-chapter" mat-mini-fab aria-label="Next"
+        (click)="viewMode === 'paged' ? pagedNav?.nextPage() : goToNextChapter()">
         <mat-icon>chevron_right</mat-icon>
         </button>
         }
