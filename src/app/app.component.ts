@@ -6,6 +6,7 @@ import {
 } from "@angular/core"
 import { RouterOutlet } from "@angular/router"
 import { SwUpdate } from "@angular/service-worker"
+import { Capacitor } from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
 import { OfflineDataService } from "./services/offline-data.service"
 
@@ -62,7 +63,8 @@ export class AppComponent implements OnInit, OnDestroy {
     return (
       window.matchMedia("(display-mode: standalone)").matches ||
       // @ts-expect-error iOS standalone mode
-      window.navigator.standalone === true
+      window.navigator.standalone === true ||
+      Capacitor.isNativePlatform()
     )
   }
 }
