@@ -31,15 +31,15 @@ h6 {
   }
 
   .prev-chapter {
-    bottom: 8px;
+    bottom: 52px;
   }
 
   .next-chapter {
-    bottom: 8px;
+    bottom: 52px;
   }
 
   .search {
-    bottom: 8px;
+    bottom: 52px;
   }
 
   .auto-scroll-controls {
@@ -88,8 +88,11 @@ h6 {
 
 .bookSelectorContainer {
   width: 100%;
-  height: calc(100vh - 56px); /* Full height minus header */
+  height: calc(100vh - 56px); /* Fallback */
+  height: calc(100dvh - 56px); /* Dynamic viewport: Full height minus header */
   overscroll-behavior: none; /* Prevents rubber banding in this container */
+  background-color: var(--background-color);
+  color: var(--text-color);
 }
 
 .center {
@@ -196,7 +199,8 @@ h6 {
 .paged-view-container {
   overflow-y: hidden;
   overflow-x: hidden; /* Hide scrollbar but allow nav */
-  height: calc(100vh - 64px - 16px); /* Viewport - Header - Margins */
+  height: calc(100vh - 64px - 16px); /* Fallback */
+  height: calc(100dvh - 64px - 16px); /* Dynamic viewport - Header - Margins */
   width: 95%; /* Narrower container to create side margins */
   margin: 0 auto !important; /* Center the container */
 }
@@ -257,7 +261,7 @@ h6 {
     padding: 0 2vw 2vw 2vw;
     width: 100%;
     margin: 0 !important;
-    height: 95%;
+    height: calc(100% - 50px); /* Reserve space for copyright footer */
     max-width: 100%;
   }
 }
@@ -275,7 +279,7 @@ h6 {
     column-fill: auto;
     column-gap: 4vw; /* Moderate gap */
     padding: 6px;
-    height: 95%;
+    height: calc(100% - 50px); /* Reserve space for copyright footer */
     width: 100%;
     max-width: 100%;
     margin: 0 auto !important;
@@ -297,7 +301,7 @@ h6 {
     column-fill: auto;
     column-gap: 6vw; /* Moderate gap */
     padding: 6px;
-    height: 95%;
+    height: calc(100% - 50px); /* Reserve space for copyright footer */
     width: 100%;
     max-width: 100%;
     margin: 0 auto !important;
@@ -328,4 +332,5 @@ h6 {
   transform: translateX(-50%);
   opacity: 0.9;
   padding: 8px 0;
+  width: 100%;
 }
