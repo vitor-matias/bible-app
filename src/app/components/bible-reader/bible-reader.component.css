@@ -23,9 +23,6 @@ h6 {
 }
 
 @media (max-width: 768px) {
-  .bookBlock {
-    max-width: 90%;
-  }
   .bookSelector {
     width: 100%;
   }
@@ -88,8 +85,8 @@ h6 {
 
 .bookSelectorContainer {
   width: 100%;
-  height: calc(100vh - 56px); /* Fallback */
-  height: calc(100dvh - 56px); /* Dynamic viewport: Full height minus header */
+  height: calc(100vh - (56px + env(safe-area-inset-top))); /* Fallback */
+  height: calc(100dvh - (56px + env(safe-area-inset-top))); /* Dynamic viewport */
   overscroll-behavior: none; /* Prevents rubber banding in this container */
   background-color: var(--background-color);
   color: var(--text-color);
@@ -197,10 +194,11 @@ h6 {
 .paged-view-container {
   overflow-y: hidden;
   overflow-x: hidden; /* Hide scrollbar but allow nav */
-  height: calc(100vh - 64px - 16px); /* Fallback */
-  height: calc(100dvh - 64px - 16px); /* Dynamic viewport - Header - Margins */
+  height: calc(100vh - (56px + env(safe-area-inset-top))); /* Fallback */
+  height: calc(100dvh - (56px + env(safe-area-inset-top))); /* Dynamic viewport - Header - Margins */
   width: 95%; /* Narrower container to create side margins */
-  margin: 0 auto !important; /* Center the container */
+  margin: 0 auto; /* Center the container */
+  margin-top: 15px;
 }
 
 @keyframes slideInFromRight {
@@ -259,7 +257,7 @@ h6 {
     padding: 0 2vw 2vw 2vw;
     width: 100%;
     margin: 0 !important;
-    height: calc(100% - 50px); /* Reserve space for copyright footer */
+    height: calc(100% - 78px); /* Reserve space for copyright footer */
     max-width: 100%;
   }
 }

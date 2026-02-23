@@ -32,8 +32,8 @@
   flex-grow: 1;
 }
 
-div {
-  height: 56px;
+.header-placeholder {
+  height: calc(56px + env(safe-area-inset-top));
 }
 
 .bookSelectorButton:not(disabled) {
