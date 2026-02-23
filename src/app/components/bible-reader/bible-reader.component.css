@@ -262,8 +262,30 @@ h6 {
   }
 }
 
+/* Tablet - 2 Pages */
+@media (min-width: 768px) and (max-width: 1400px) {
+  .paged-view-container {
+    width: 85%;
+    max-width: 85%;
+  }
+
+  .paged-view {
+    column-count: 2;
+    column-width: auto;
+    column-fill: auto;
+    column-gap: 4vw; /* Moderate gap */
+    padding: 6px;
+    height: 95%;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto !important;
+    orphans: 1;
+    widows: 1;
+  }
+}
+
 /* Desktop - 2 Pages */
-@media (min-width: 768px) {
+@media (min-width: 1400px) {
   .paged-view-container {
     width: 60%;
     max-width: 60%;
