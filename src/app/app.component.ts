@@ -5,10 +5,8 @@ import {
   type OnInit,
 } from "@angular/core"
 import { RouterOutlet } from "@angular/router"
-import { injectSpeedInsights } from '@vercel/speed-insights';
-
-
 import { SwUpdate } from "@angular/service-worker"
+import { injectSpeedInsights } from "@vercel/speed-insights"
 import { OfflineDataService } from "./services/offline-data.service"
 
 @Component({
