@@ -35,6 +35,10 @@ h3 {
   margin-left: 1em; /* Adjust the indentation as needed */
 }
 
+.indent2 {
+  margin-left: 3.5em; /* Adjust the indentation as needed */
+}
+
 .chapterNumber {
   float: left; /* Makes the chapter number float to the left */
   font-size: 380%; /* Adjust the font size as needed */

@@ -85,7 +85,7 @@
         @if (text.type === 'quote') {
           <span class="quote">
             <div></div>
-            <span #quote [ngClass]="{'indent': !checkIfIsTouchingChapterNumber(quote)}">
+            <span #quote [ngClass]="{'indent': !checkIfIsTouchingChapterNumber(quote) || text.identLevel === 1, 'indent2': text.identLevel === 2}">
               {{ text.text }}
             </span>
           </span>
