@@ -1,10 +1,10 @@
-import { type ComponentFixture, TestBed } from "@angular/core/testing"
-import { provideRouter } from "@angular/router"
 import { SimpleChange } from "@angular/core"
+import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import {
   MatBottomSheet,
   MatBottomSheetModule,
 } from "@angular/material/bottom-sheet"
+import { provideRouter } from "@angular/router"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { VerseComponent } from "./verse.component"
 
@@ -31,7 +31,7 @@ describe("VerseComponent", () => {
   let component: VerseComponent
   let fixture: ComponentFixture<VerseComponent>
   let mockBibleRef: jasmine.SpyObj<BibleReferenceService>
-  let mockBottomSheet: jasmine.SpyObj<MatBottomSheet>
+  let mockBottomSheet: MatBottomSheet
 
   beforeEach(async () => {
     mockBibleRef = jasmine.createSpyObj("BibleReferenceService", ["extract"])
@@ -49,7 +49,8 @@ describe("VerseComponent", () => {
 
     fixture = TestBed.createComponent(VerseComponent)
     component = fixture.componentInstance
-    mockBottomSheet = (component as any).bottomSheet
+    mockBottomSheet = (component as unknown as { bottomSheet: MatBottomSheet })
+      .bottomSheet
     spyOn(mockBottomSheet, "open")
   })
 

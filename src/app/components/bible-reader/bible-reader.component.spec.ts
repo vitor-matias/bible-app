@@ -29,6 +29,8 @@ describe("BibleReaderComponent", () => {
   })
 
   it("should not call getBooks() method in template (method should not exist)", () => {
-    expect((component as any).getBooks).toBeUndefined()
+    expect(
+      (component as unknown as Record<string, unknown>)["getBooks"],
+    ).toBeUndefined()
   })
 })

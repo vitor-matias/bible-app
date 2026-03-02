@@ -1,7 +1,7 @@
-import { type ComponentFixture, TestBed } from "@angular/core/testing"
-import { provideRouter } from "@angular/router"
 import { SimpleChange } from "@angular/core"
+import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
+import { provideRouter } from "@angular/router"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { VerseSectionComponent } from "./verse-section.component"
@@ -29,7 +29,7 @@ describe("VerseSectionComponent", () => {
   let component: VerseSectionComponent
   let fixture: ComponentFixture<VerseSectionComponent>
   let mockBibleRef: jasmine.SpyObj<BibleReferenceService>
-  let mockSnackBar: jasmine.SpyObj<MatSnackBar>
+  let mockSnackBar: MatSnackBar
   let mockBookService: jasmine.SpyObj<BookService>
 
   beforeEach(async () => {
@@ -62,7 +62,7 @@ describe("VerseSectionComponent", () => {
 
     fixture = TestBed.createComponent(VerseSectionComponent)
     component = fixture.componentInstance
-    mockSnackBar = (component as any).snackBar
+    mockSnackBar = (component as unknown as { snackBar: MatSnackBar }).snackBar
     spyOn(mockSnackBar, "openFromComponent")
   })
 
@@ -87,7 +87,7 @@ describe("VerseSectionComponent", () => {
       )
 
       expect(component.parsedReferences.has(1)).toBe(true)
-      expect(component.parsedReferences.get(1)!.length).toBeGreaterThan(0)
+      expect(component.parsedReferences.get(1)?.length).toBeGreaterThan(0)
     })
 
     it("should not create entries for non-reference text types", () => {
@@ -145,7 +145,8 @@ describe("VerseSectionComponent", () => {
 
       component.showReturnSnackbar()
 
-      const callArgs = mockSnackBar.openFromComponent.calls.mostRecent().args[1]
+      const spy = mockSnackBar.openFromComponent as jasmine.Spy
+      const callArgs = spy.calls.mostRecent().args[1]
       expect((callArgs?.data as { message: string }).message).toContain(",1")
     })
   })
