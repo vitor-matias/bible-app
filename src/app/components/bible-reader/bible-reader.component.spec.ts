@@ -22,4 +22,13 @@ describe("BibleReaderComponent", () => {
   it("should create", () => {
     expect(component).toBeTruthy()
   })
+
+  it("should initialize books as empty array", () => {
+    expect(component.books).toBeDefined()
+    expect(Array.isArray(component.books)).toBe(true)
+  })
+
+  it("should not call getBooks() method in template (method should not exist)", () => {
+    expect((component as any).getBooks).toBeUndefined()
+  })
 })

@@ -1,15 +1,14 @@
 import { CommonModule } from "@angular/common"
-import { Component, Input } from "@angular/core"
+import { Component, Input, OnChanges, SimpleChanges } from "@angular/core"
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
 import { Router, RouterModule } from "@angular/router"
 import {
-  BibleReference,
+  type BibleReference,
   BibleReferenceService,
-  CrossChapterRange,
-  VerseReference,
 } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { TwoActionSnackComponent } from "../two-action-snackbar/two-action-snackbar.component"
+import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 
 @Component({
   selector: "verse-section",
@@ -18,12 +17,18 @@ import { TwoActionSnackComponent } from "../two-action-snackbar/two-action-snack
   templateUrl: "./verse-section.component.html",
   styleUrl: "./verse-section.component.css",
 })
-export class VerseSectionComponent {
+export class VerseSectionComponent implements OnChanges {
   @Input()
   data!: Verse
 
   @Input()
   changeLine!: boolean
+
+  @Input()
+  nextIsQuote = false
+
+  /** Pre-computed parsed references keyed by text index */
+  parsedReferences: Map<number, (string | BibleReference)[]> = new Map()
 
   constructor(
     private bibleRef: BibleReferenceService,
@@ -32,43 +37,24 @@ export class VerseSectionComponent {
     private router: Router,
   ) {}
 
-  parseReferences(text: string): { parts: (string | BibleReference)[] } {
-    const refs = this.bibleRef.extract(text, this.data.bookId)
-    if (!refs.length) return { parts: [text] }
+  ngOnChanges(_changes: SimpleChanges): void {
+    if (this.data) {
+      this.parsedReferences = this.computeParsedReferences()
+    }
+  }
 
-    const parts: (string | BibleReference)[] = []
-    let lastIdx = 0
-    for (const ref of refs) {
-      if (ref.index > lastIdx) {
-        parts.push(text.slice(lastIdx, ref.index))
+  private computeParsedReferences(): Map<number, (string | BibleReference)[]> {
+    const map = new Map<number, (string | BibleReference)[]>()
+    for (let i = 0; i < this.data.text.length; i++) {
+      const t = this.data.text[i]
+      if (t.type === "references") {
+        map.set(i, parseReferences(this.bibleRef, t.text, this.data.bookId))
       }
-      parts.push(ref)
-      lastIdx = ref.index + ref.match.length
     }
-    if (lastIdx < text.length) {
-      parts.push(text.slice(lastIdx))
-    }
-    return { parts }
+    return map
   }
 
-  getVerseQueryParams(
-    verses?: VerseReference[],
-    crossChapter?: CrossChapterRange,
-  ) {
-    if (crossChapter) {
-      return { verseStart: crossChapter.startVerse }
-    }
-
-    if (!verses || !verses.length) return null
-    const first = verses[0]
-    if (first.type === "single") {
-      return { verseStart: first.verse }
-    }
-    if (first.type === "range") {
-      return { verseStart: first.start, verseEnd: first.end }
-    }
-    return null
-  }
+  getVerseQueryParams = getVerseQueryParams
 
   showReturnSnackbar() {
     const currentLocation = {

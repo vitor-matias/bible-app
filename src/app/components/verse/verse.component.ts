@@ -1,17 +1,27 @@
 import { CommonModule } from "@angular/common"
-import { ChangeDetectionStrategy, Component, Input } from "@angular/core"
+import {
+  AfterViewChecked,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  Input,
+  OnChanges,
+  QueryList,
+  SimpleChanges,
+  ViewChildren,
+} from "@angular/core"
 import {
   MatBottomSheet,
   MatBottomSheetModule,
 } from "@angular/material/bottom-sheet"
 import { RouterModule } from "@angular/router"
 import {
-  BibleReference,
+  type BibleReference,
   BibleReferenceService,
-  VerseReference,
 } from "../../services/bible-reference.service"
 import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnotes-bottom-sheet.component"
 import { VerseSectionComponent } from "../verse-section/verse-section.component"
+import { getVerseQueryParams, parseReferences } from "./verse.utils"
 
 @Component({
   selector: "verse",
@@ -26,40 +36,117 @@ import { VerseSectionComponent } from "../verse-section/verse-section.component"
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
 })
-export class VerseComponent {
-  isChapterNumberDisplayed = false
-  chapterNumberIndex = 0
-  skip = false
+export class VerseComponent implements OnChanges, AfterViewChecked {
+  /** Pre-computed index where the chapter number should be displayed, or -1 */
+  chapterNumberDisplayIndex = -1
+
+  /** Pre-computed: does this verse have footnotes? */
+  hasFootnotes = false
+
+  /** Pre-computed parsed references keyed by text index */
+  parsedReferences: Map<number, (string | BibleReference)[]> = new Map()
 
   @Input()
   data!: Verse
+
+  @Input()
+  nextVerseStartsWithQuote = false
+
+  @ViewChildren("indentable")
+  indentableElements!: QueryList<ElementRef<HTMLElement>>
 
   constructor(
     private bibleRef: BibleReferenceService,
     private bottomSheet: MatBottomSheet,
   ) {}
 
-  shouldDisplayChapterNumber(
-    data: Verse,
-    text: TextType,
-    index: number,
-    isLast: boolean,
-  ): boolean {
-    if (
-      !this.isChapterNumberDisplayed &&
-      data.number === 0 &&
-      ((text.type === "section" && text.tag === "s2") ||
-        (!this.hasSection(data.text) && isLast))
-    ) {
-      this.isChapterNumberDisplayed = true
-      this.chapterNumberIndex = index
-      return true
+  ngOnChanges(_changes: SimpleChanges): void {
+    if (this.data) {
+      this.chapterNumberDisplayIndex = this.computeChapterNumberIndex()
+      this.hasFootnotes = this.data.text.some((t) => t.type === "footnote")
+      this.parsedReferences = this.computeParsedReferences()
     }
-    return false
   }
 
-  hasSection(data: TextType[]): boolean {
-    return data.some((text) => text.type === "section" && text.tag === "s2")
+  ngAfterViewChecked(): void {
+    if (!this.indentableElements) return
+    const chapterNumberEl = (
+      this.indentableElements.first?.nativeElement?.closest("verse") ?? document
+    ).querySelector(".chapterNumber") as HTMLElement | null
+
+    this.indentableElements.forEach((el) => {
+      const element = el.nativeElement
+      if (!chapterNumberEl) {
+        element.classList.add("indent")
+        return
+      }
+
+      const chapterRect = chapterNumberEl.getBoundingClientRect()
+      const elRect = element.getBoundingClientRect()
+      const isTouching =
+        chapterRect.bottom >= elRect.top && chapterRect.top <= elRect.bottom
+
+      if (isTouching) {
+        element.classList.remove("indent")
+      } else {
+        element.classList.add("indent")
+      }
+    })
+  }
+
+  getFirstTextType(): string | undefined {
+    return this.data.text.find(
+      (t) => t.type !== "footnote" && t.type !== "references",
+    )?.type
+  }
+
+  isFirstDisplayableElement(index: number): boolean {
+    const firstIdx = this.data.text.findIndex(
+      (t) => t.type !== "footnote" && t.type !== "references",
+    )
+    return index === firstIdx
+  }
+
+  checkNextIsQuote(i: number): boolean {
+    const sectionText = this.getDataForSection(i).text
+    const lastElementIndex = i + sectionText.length - 1
+
+    if (lastElementIndex + 1 < this.data.text.length) {
+      const nextDisplayableIdx = this.data.text.findIndex(
+        (t, idx) =>
+          idx > lastElementIndex &&
+          t.type !== "footnote" &&
+          t.type !== "references",
+      )
+
+      if (nextDisplayableIdx !== -1) {
+        return this.data.text[nextDisplayableIdx].type === "quote"
+      }
+    }
+
+    return this.nextVerseStartsWithQuote
+  }
+
+  private computeChapterNumberIndex(): number {
+    if (this.data.number !== 0) return -1
+
+    const hasS2 = this.data.text.some(
+      (text) => text.type === "section" && text.tag === "s2",
+    )
+
+    for (let i = 0; i < this.data.text.length; i++) {
+      const text = this.data.text[i]
+      const isLast = i === this.data.text.length - 1
+
+      if (
+        (text.type === "section" && text.tag === "s2") ||
+        (!hasS2 && isLast)
+      ) {
+        return i
+      }
+    }
+
+    return -1
   }
 
   isInSection(data: TextType[], position: number): boolean {
@@ -83,24 +170,16 @@ export class VerseComponent {
     const sectionText = []
 
     for (let index = 0; index < afterText.length; index++) {
-      if (afterText[index].type === "paragraph") {
+      if (
+        afterText[index].type === "paragraph" ||
+        (afterText[index].type === "quote" && index > 0)
+      ) {
         break
       }
       sectionText.push(afterText[index])
     }
 
     return { ...this.data, text: sectionText }
-  }
-
-  checkIfIsTouchingChapterNumber(element: HTMLSpanElement): boolean {
-    const chapterNumberElement = document.querySelector(
-      ".chapterNumber",
-    ) as HTMLDivElement
-    if (!element || !chapterNumberElement) return false
-    const rect1 = chapterNumberElement.getBoundingClientRect()
-    const rect2 = element.getBoundingClientRect()
-
-    return rect1.bottom >= rect2.top && rect1.top <= rect2.bottom
   }
 
   shouldShowParagraph(data: Verse, text: Paragraph, i: number): boolean {
@@ -114,40 +193,18 @@ export class VerseComponent {
     )
   }
 
-  parseReferences(text: string): { parts: (string | BibleReference)[] } {
-    const refs = this.bibleRef.extract(text, this.data.bookId)
-    if (!refs.length) return { parts: [text] }
-
-    const parts: (string | BibleReference)[] = []
-    let lastIdx = 0
-    for (const ref of refs) {
-      if (ref.index > lastIdx) {
-        parts.push(text.slice(lastIdx, ref.index))
+  private computeParsedReferences(): Map<number, (string | BibleReference)[]> {
+    const map = new Map<number, (string | BibleReference)[]>()
+    for (let i = 0; i < this.data.text.length; i++) {
+      const t = this.data.text[i]
+      if (t.type === "references") {
+        map.set(i, parseReferences(this.bibleRef, t.text, this.data.bookId))
       }
-      parts.push(ref)
-      lastIdx = ref.index + ref.match.length
     }
-    if (lastIdx < text.length) {
-      parts.push(text.slice(lastIdx))
-    }
-    return { parts }
+    return map
   }
 
-  getVerseQueryParams(verses?: VerseReference[]) {
-    if (!verses || !verses.length) return null
-    const first = verses[0]
-    if (first.type === "single") {
-      return { verseStart: first.verse }
-    }
-    if (first.type === "range") {
-      return { verseStart: first.start, verseEnd: first.end }
-    }
-    return null
-  }
-
-  containsFootnotes(): boolean {
-    return this.data.text.some((t) => t.type === "footnote")
-  }
+  getVerseQueryParams = getVerseQueryParams
 
   toggleFootnotes(): void {
     const footnotes = this.data.text.filter((t) => t.type === "footnote")

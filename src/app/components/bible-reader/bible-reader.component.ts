@@ -77,6 +77,7 @@ export class BibleReaderComponent implements OnDestroy {
   @ViewChild("bookBlock") bookBlock!: ElementRef
 
   book!: Book
+  books: Book[] = []
   chapterNumber = 1
   chapter!: Chapter
 
@@ -123,6 +124,7 @@ export class BibleReaderComponent implements OnDestroy {
     this.showAutoScrollControls =
       this.preferencesService.getAutoScrollControlsVisible()
     this.bookService.books$.subscribe((_books) => {
+      this.books = _books
       if (_books.length === 0)
         alert("No books available. Please check your API connection.")
       this.bookParam =
@@ -592,15 +594,26 @@ export class BibleReaderComponent implements OnDestroy {
     }
   }
 
-  getBooks() {
-    return this.bookService.getBooks()
-  }
-
   onIncreaseFontSize(): void {
     this.gestures.increaseFontSize()
   }
 
   onDecreaseFontSize(): void {
     this.gestures.decreaseFontSize()
+  }
+
+  checkIfNextVerseStartsWithQuote(index: number): boolean {
+    if (!this.chapter || !this.chapter.verses) return false
+    const nextVerse = this.chapter.verses[index + 1]
+    if (!nextVerse || !nextVerse.text || nextVerse.text.length === 0)
+      return false
+
+    const firstDisplayableIdx = nextVerse.text.findIndex(
+      (t) => t.type !== "footnote" && t.type !== "references",
+    )
+
+    if (firstDisplayableIdx === -1) return false
+
+    return nextVerse.text[firstDisplayableIdx].type === "quote"
   }
 }

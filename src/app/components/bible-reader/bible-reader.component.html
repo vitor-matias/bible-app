@@ -6,13 +6,13 @@
     (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize()"
     (decreaseFontSizeEvent)="onDecreaseFontSize()"></header>
   <mat-drawer-container class="bookSelectorContainer" #container>
-    @if (getBooks()) {
+    @if (books.length) {
     <mat-drawer class="bookSelector" mode="over" position="start" #bookDrawer closed>
       <button matIconButton (click)="dismissBookDrawer()" class="dismiss-button" #bookDrawerCloseButton>
         <mat-icon>menu_open</mat-icon>
       </button>
       @if(showBooks){
-      <book-selector [books]="getBooks()" (submitData)="onBookSubmit($event)"
+      <book-selector [books]="books" (submitData)="onBookSubmit($event)"
         [selectedBookId]="book.id"></book-selector>
       }
       @else{
@@ -30,8 +30,8 @@
           @if (chapter) {
           <div pinch-to-zoom class="chapterBlock">
             @if(book.id !== 'about'){
-            @for (verse of chapter.verses; track verse) {
-            <verse [id]="verse.number" class="verse" [data]="verse"></verse>
+            @for (verse of chapter.verses; track verse; let i = $index) {
+            <verse [id]="verse.number" class="verse" [data]="verse" [nextVerseStartsWithQuote]="checkIfNextVerseStartsWithQuote(i)"></verse>
             }
             }
             @if (book.id==='about') {

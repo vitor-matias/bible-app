@@ -20,11 +20,13 @@
   font-size: 120%;
 }
 
-h1,
-h2,
 h3 {
   font-size: 125%;
   text-align: center;
+}
+
+.references-block {
+  display: inline;
 }
 
 .text-block {
@@ -36,7 +38,7 @@ h3 {
 }
 
 .indent2 {
-  margin-left: 3.5em; /* Adjust the indentation as needed */
+  margin-left: 2em; /* Adjust the indentation as needed */
 }
 
 .chapterNumber {
@@ -73,4 +75,18 @@ h3 {
 .footnoteIndicator {
   vertical-align: top;
   font-size: 65%;
+}
+
+.quoteLineWrapper {
+  position: relative;
+  display: inline-block;
+  padding-left: 1em;
+  text-indent: -1em;
+}
+
+.quoteVerseNumber {
+  position: absolute;
+  right: 100%;
+  white-space: nowrap;
+  margin-right: 2px;
 }
