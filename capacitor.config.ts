@@ -6,7 +6,6 @@ const config: CapacitorConfig = {
   webDir: "dist/bible-app/browser",
   server: {
     url: "https://bible-app-ten-psi.vercel.app/",
-    cleartext: true,
     androidScheme: "https",
   },
   plugins: {
@@ -16,7 +15,6 @@ const config: CapacitorConfig = {
     },
   },
   android: {
-    allowMixedContent: true,
     useHybridComposition: true,
   },
 }
