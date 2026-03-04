@@ -193,12 +193,18 @@ h6 {
 
 .paged-view-container {
   overflow-y: hidden;
-  overflow-x: hidden; /* Hide scrollbar but allow nav */
+  overflow-x: auto; /* Allow nav across browsers without clipping */
+  scrollbar-width: none; /* Firefox */
   height: calc(100vh - (56px + env(safe-area-inset-top)) - 15px); /* Fallback */
   height: calc(100dvh - (56px + env(safe-area-inset-top)) - 15px); /* Dynamic viewport - Header - Margins */
   width: 95%; /* Narrower container to create side margins */
   margin: 0 auto; /* Center the container */
   margin-top: 15px;
+}
+
+/* Chrome, Safari, Edge */
+.paged-view-container::-webkit-scrollbar {
+  display: none; 
 }
 
 @keyframes slideInFromRight {
@@ -275,7 +281,7 @@ h6 {
     column-fill: auto;
     column-gap: 4vw; /* Moderate gap */
     padding: 6px;
-    height: calc(100% - 50px); /* Reserve space for copyright footer */
+    height: calc(100% - 62px); /* Reserve space for copyright footer */
     width: 100%;
     max-width: 100%;
     margin: 0 auto !important;
@@ -296,7 +302,7 @@ h6 {
     column-width: auto;
     column-fill: auto;
     column-gap: 6vw; /* Moderate gap */
-    height: calc(100% - 50px); /* Reserve space for copyright footer */
+    height: calc(100% - 62px); /* Reserve space for copyright footer */
     width: 100%;
     max-width: 100%;
     orphans: 1;
