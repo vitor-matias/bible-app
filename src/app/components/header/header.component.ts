@@ -1,6 +1,8 @@
 import {
   ChangeDetectorRef,
   Component,
+  DestroyRef,
+  inject,
   EventEmitter,
   Input,
   type OnChanges,
@@ -9,6 +11,7 @@ import {
   Output,
   type SimpleChanges,
 } from "@angular/core"
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
@@ -59,6 +62,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   mobile = false
   isOffline = typeof navigator !== "undefined" ? !navigator.onLine : false
 
+  private readonly destroyRef = inject(DestroyRef)
+
   constructor(
     private readonly themeService: ThemeService,
     private readonly bookmarkService: BookmarkService,
@@ -77,6 +82,13 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       window.addEventListener("online", this.updateOnlineStatus)
       window.addEventListener("offline", this.updateOnlineStatus)
     }
+
+    this.bookmarkService.bookmarks$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.updateBookmarkState()
+        this.cdr.detectChanges()
+      })
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -106,22 +118,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       return
     }
 
-    const sheet = this.bottomSheet.open(BookmarkSelectorComponent, {
+    this.bottomSheet.open(BookmarkSelectorComponent, {
       data: { bookId: this.book.id, chapter: this.chapterNumber },
-    })
-
-    sheet.afterDismissed().subscribe((result) => {
-      if (result === "remove") {
-        this.bookmarkService.removeBookmark(this.book.id, this.chapterNumber)
-      } else if (result) {
-        this.bookmarkService.addBookmark(
-          this.book.id,
-          this.chapterNumber,
-          result,
-        )
-      }
-      this.updateBookmarkState()
-      this.cdr.detectChanges()
     })
   }
 

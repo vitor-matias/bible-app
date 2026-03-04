@@ -14,6 +14,10 @@ import {
   MatBottomSheet,
   MatBottomSheetModule,
 } from "@angular/material/bottom-sheet"
+import {
+  OnDestroy,
+  AfterViewInit,
+} from "@angular/core"
 import { RouterModule } from "@angular/router"
 import {
   type BibleReference,
@@ -36,12 +40,15 @@ import { getVerseQueryParams, parseReferences } from "./verse.utils"
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
 })
-export class VerseComponent implements OnChanges, AfterViewChecked {
+export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   /** Pre-computed index where the chapter number should be displayed, or -1 */
   chapterNumberDisplayIndex = -1
 
   /** Pre-computed: does this verse have footnotes? */
   hasFootnotes = false
+
+  private resizeObserver: ResizeObserver | null = null;
+  private resizeObserverTimeout: any = null;
 
   /** Pre-computed parsed references keyed by text index */
   parsedReferences: Map<number, (string | BibleReference)[]> = new Map()
@@ -68,11 +75,71 @@ export class VerseComponent implements OnChanges, AfterViewChecked {
     }
   }
 
-  ngAfterViewChecked(): void {
+  ngAfterViewInit(): void {
+    if (typeof window !== 'undefined' && 'ResizeObserver' in window) {
+      this.setupResizeObserver();
+      
+      this.indentableElements.changes.subscribe(() => {
+        this.updateIndentableElements();
+      });
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
+    if (this.resizeObserverTimeout) {
+      clearTimeout(this.resizeObserverTimeout);
+    }
+  }
+
+  private setupResizeObserver(): void {
+    this.resizeObserver = new ResizeObserver(() => {
+      // Debounce the calculation slightly to avoid excessive layout thrashing
+      if (this.resizeObserverTimeout) {
+        clearTimeout(this.resizeObserverTimeout);
+      }
+      this.resizeObserverTimeout = setTimeout(() => {
+        this.updateIndentation();
+      }, 50);
+    });
+    
+    this.updateIndentableElements();
+  }
+
+  private updateIndentableElements(): void {
+    if (!this.resizeObserver) return;
+    
+    this.resizeObserver.disconnect();
+    
+    // Always observe the chapter number if it exists
+    const chapterNumberEl = this.getChapterNumberEl();
+    if (chapterNumberEl) {
+       this.resizeObserver.observe(chapterNumberEl);
+    }
+    
+    // Observe indentable elements
+    this.indentableElements.forEach(el => {
+      if (el.nativeElement) {
+        this.resizeObserver?.observe(el.nativeElement);
+      }
+    });
+
+    this.updateIndentation();
+  }
+
+  private getChapterNumberEl(): HTMLElement | null {
+     if (!this.indentableElements || this.indentableElements.length === 0) return null;
+     return (this.indentableElements.first.nativeElement.closest("verse") ?? document)
+        .querySelector(".chapterNumber") as HTMLElement | null;
+  }
+
+  private updateIndentation(): void {
     if (!this.indentableElements) return
-    const chapterNumberEl = (
-      this.indentableElements.first?.nativeElement?.closest("verse") ?? document
-    ).querySelector(".chapterNumber") as HTMLElement | null
+    
+    const chapterNumberEl = this.getChapterNumberEl();
 
     this.indentableElements.forEach((el) => {
       const element = el.nativeElement
@@ -81,6 +148,9 @@ export class VerseComponent implements OnChanges, AfterViewChecked {
         return
       }
 
+      // We still need to do getBoundingClientRect here, but because it's in a ResizeObserver
+      // microtask/timeout and NOT in ngAfterViewChecked, it doesn't cause synchronous 
+      // layout thrashing during the Angular digest cycle.
       const chapterRect = chapterNumberEl.getBoundingClientRect()
       const elRect = element.getBoundingClientRect()
       const isTouching =
