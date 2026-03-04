@@ -37,11 +37,13 @@ export class DatabaseService {
 
       request.onsuccess = () => {
         this.db = request.result
+        this.dbPromise = null
         resolve(this.db)
       }
 
       request.onerror = (event) => {
         console.error("IndexedDB error:", request.error)
+        this.dbPromise = null
         resolve(null)
       }
     })
@@ -139,6 +141,31 @@ export class DatabaseService {
 
         transaction.oncomplete = () => resolve()
         transaction.onerror = () => reject(transaction.error)
+      } catch (error) {
+        reject(error)
+      }
+    })
+  }
+
+  async clearAndPutAll<T>(storeName: string, items: T[]): Promise<void> {
+    const db = await this.getDB()
+    if (!db) return
+
+    return new Promise((resolve, reject) => {
+      try {
+        const transaction = db.transaction(storeName, "readwrite")
+        const store = transaction.objectStore(storeName)
+
+        transaction.oncomplete = () => resolve()
+        transaction.onerror = () => reject(transaction.error)
+
+        // Clear existing data
+        store.clear()
+
+        // Put new data
+        for (const item of items) {
+          store.put(item)
+        }
       } catch (error) {
         reject(error)
       }

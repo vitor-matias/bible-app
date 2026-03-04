@@ -19,8 +19,13 @@ export class BookmarkService {
   }
 
   private async loadBookmarks() {
-    const bookmarks = await this.databaseService.getAll<Bookmark>("bookmarks")
-    this.bookmarksSubject.next(bookmarks)
+    try {
+      const bookmarks = await this.databaseService.getAll<Bookmark>("bookmarks")
+      this.bookmarksSubject.next(bookmarks || [])
+    } catch (error) {
+      console.error("Failed to load bookmarks from database:", error)
+      this.bookmarksSubject.next([])
+    }
   }
 
   getBookmarks(): Bookmark[] {
@@ -89,8 +94,13 @@ export class BookmarkService {
   }
 
   private async saveBookmarks(bookmarks: Bookmark[]) {
-    await this.databaseService.clear("bookmarks")
-    await this.databaseService.putAll("bookmarks", bookmarks)
-    this.bookmarksSubject.next(bookmarks)
+    try {
+      await this.databaseService.clearAndPutAll("bookmarks", bookmarks)
+      this.bookmarksSubject.next(bookmarks)
+    } catch (error) {
+       console.error("Failed to save bookmarks to database:", error)
+       // State rollback or user notification could go here if needed,
+       // but logging is better than crashing.
+    }
   }
 }

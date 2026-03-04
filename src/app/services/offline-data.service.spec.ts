@@ -88,12 +88,10 @@ describe("OfflineDataService", () => {
     // Mock DatabaseService
     const spy = jasmine.createSpyObj("DatabaseService", [
       "getAll",
-      "putAll",
-      "clear",
+      "clearAndPutAll",
     ])
     spy.getAll.and.returnValue(Promise.resolve([]))
-    spy.putAll.and.returnValue(Promise.resolve())
-    spy.clear.and.returnValue(Promise.resolve())
+    spy.clearAndPutAll.and.returnValue(Promise.resolve())
 
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
@@ -553,11 +551,10 @@ describe("OfflineDataService", () => {
   })
 
   describe("Database operations", () => {
-    it("should clear and save books to DatabaseService", async () => {
+    it("should clear and save books to DatabaseService using clearAndPutAll", async () => {
       await service.setCachedBooks(mockBooks)
 
-      expect(databaseService.clear).toHaveBeenCalledWith("books")
-      expect(databaseService.putAll).toHaveBeenCalledWith(
+      expect(databaseService.clearAndPutAll).toHaveBeenCalledWith(
         "books",
         jasmine.any(Array),
       )

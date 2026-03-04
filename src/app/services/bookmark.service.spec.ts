@@ -14,12 +14,12 @@ describe("BookmarkService", () => {
   beforeEach(async () => {
     const spy = jasmine.createSpyObj("DatabaseService", [
       "getAll",
-      "putAll",
+      "clearAndPutAll",
       "delete",
       "clear",
     ])
     spy.getAll.and.returnValue(Promise.resolve(mockBookmarks))
-    spy.putAll.and.returnValue(Promise.resolve())
+    spy.clearAndPutAll.and.returnValue(Promise.resolve())
     spy.delete.and.returnValue(Promise.resolve())
     spy.clear.and.returnValue(Promise.resolve())
 
@@ -53,7 +53,7 @@ describe("BookmarkService", () => {
     const bookmarks = service.getBookmarks()
     expect(bookmarks.length).toBe(3)
     expect(bookmarks.find((b) => b.bookId === "JHN")).toBeTruthy()
-    expect(databaseService.putAll).toHaveBeenCalledWith("bookmarks", bookmarks)
+    expect(databaseService.clearAndPutAll).toHaveBeenCalledWith("bookmarks", bookmarks)
   })
 
   it("should replace an existing bookmark if color is the same", async () => {
@@ -74,7 +74,7 @@ describe("BookmarkService", () => {
     const bookmarks = service.getBookmarks()
     expect(bookmarks.length).toBe(1)
     expect(bookmarks.find((b) => b.bookId === "GEN")).toBeFalsy()
-    expect(databaseService.putAll).toHaveBeenCalledWith("bookmarks", bookmarks)
+    expect(databaseService.clearAndPutAll).toHaveBeenCalledWith("bookmarks", bookmarks)
   })
 
   it("should filter bookmarks for a specific book", (done) => {

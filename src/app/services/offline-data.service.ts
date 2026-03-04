@@ -191,8 +191,7 @@ export class OfflineDataService {
   }
 
   private async saveBooksToIndexedDb(books: Book[]): Promise<void> {
-    await this.databaseService.clear("books")
-    await this.databaseService.putAll("books", books)
+    await this.databaseService.clearAndPutAll("books", books)
   }
 
   private isCacheExpired(): boolean {
