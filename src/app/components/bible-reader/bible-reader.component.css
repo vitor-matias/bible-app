@@ -315,13 +315,13 @@ h6 {
 }
 
 .copyright-details {
-  font-size: 13px;
+  font-size: 14px;
   display: block;
 }
 
 .fixed-footer {
   position: fixed;
-  bottom: 0;
+  bottom: 4px;
   left: 50%;
   transform: translateX(-50%);
   opacity: 0.9;

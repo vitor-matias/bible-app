@@ -43,15 +43,10 @@
   }
 }
 
-.floating-nav-button.auto-scroll-toggle {
-  background-color: var(--background-highlight-color) !important;
-  color: var(--primary-color) !important;
-}
-
 @media (max-width: 768px) {
   .auto-scroll-controls {
     left: 50%;
-    bottom: 8px;
+    bottom: 16px;
     transform: translateX(-50%);
   }
 }
