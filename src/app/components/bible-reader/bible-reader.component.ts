@@ -18,7 +18,8 @@ import {
   MatSidenavModule,
 } from "@angular/material/sidenav"
 import { ActivatedRoute, Router } from "@angular/router"
-import { combineLatest } from "rxjs"
+import { combineLatest, Subject } from "rxjs"
+import { switchMap, takeUntil } from "rxjs/operators"
 import {
   PagedNavigationDirective,
   PageState,
@@ -58,6 +59,8 @@ import { VerseComponent } from "../verse/verse.component"
   ],
 })
 export class BibleReaderComponent implements OnDestroy {
+  private destroy$ = new Subject<void>()
+
   @ViewChild("bookDrawer")
   bookDrawer!: MatDrawer
 
@@ -123,93 +126,89 @@ export class BibleReaderComponent implements OnDestroy {
 
     this.showAutoScrollControls =
       this.preferencesService.getAutoScrollControlsVisible()
-    this.bookService.books$.subscribe((_books) => {
-      this.books = _books
-      if (_books.length === 0)
-        alert("No books available. Please check your API connection.")
-      this.bookParam =
-        this.router.routerState.snapshot.root.firstChild?.params[
-          "book"
-        ]?.toLowerCase()
-      this.chapterParam =
-        this.router.routerState.snapshot.root.firstChild?.params["chapter"]
+    this.bookService.books$
+      .pipe(
+        takeUntil(this.destroy$),
+        switchMap((_books) => {
+          this.books = _books
+          if (_books.length === 0)
+            alert("No books available. Please check your API connection.")
+          this.bookParam =
+            this.router.routerState.snapshot.root.firstChild?.params[
+              "book"
+            ]?.toLowerCase()
+          this.chapterParam =
+            this.router.routerState.snapshot.root.firstChild?.params["chapter"]
 
-      const verseStartParam =
-        this.router.routerState.snapshot.root.firstChild?.queryParams[
-          "verseStart"
-        ]
-      const verseEndParam =
-        this.router.routerState.snapshot.root.firstChild?.queryParams[
-          "verseEnd"
-        ]
+          const verseStartParam =
+            this.router.routerState.snapshot.root.firstChild?.queryParams[
+              "verseStart"
+            ]
+          const verseEndParam =
+            this.router.routerState.snapshot.root.firstChild?.queryParams[
+              "verseEnd"
+            ]
 
-      const storedBook =
-        this.bookParam || this.preferencesService.getLastBookId() || "about"
-      const storedChapter =
-        this.chapterParam ||
-        this.preferencesService.getLastChapterNumber()?.toString() ||
-        "1"
+          const storedBook =
+            this.bookParam || this.preferencesService.getLastBookId() || "about"
+          const storedChapter =
+            this.chapterParam ||
+            this.preferencesService.getLastChapterNumber()?.toString() ||
+            "1"
 
-      if (storedBook && storedChapter) {
-        this.book = this.bookService.findBook(storedBook)
+          if (storedBook && storedChapter) {
+            this.book = this.bookService.findBook(storedBook)
 
-        this.chapterNumber = Number.parseInt(storedChapter, 10)
-        this.router.navigate(
-          [this.bookService.getUrlAbrv(this.book), this.chapterNumber],
-          {
-            queryParams: verseStartParam
-              ? { verseStart: verseStartParam, verseEnd: verseEndParam }
-              : {},
-            replaceUrl: true,
-          },
-        )
-        this.getChapter(this.chapterNumber, verseStartParam, verseEndParam)
-      }
-
-      combineLatest([this.route.paramMap, this.route.queryParamMap]).subscribe(
-        ([params, queryParams]) => {
-          const bookParam = params.get("book") || "about"
-          const chapterParam = Number.parseInt(params.get("chapter") || "1", 10)
-          const verseStartParam = queryParams.get("verseStart")
-            ? Number.parseInt(queryParams.get("verseStart") || "1", 10)
-            : undefined
-          const verseEndParam = queryParams.get("verseEnd")
-            ? Number.parseInt(queryParams.get("verseEnd") || "1", 10)
-            : undefined
-
-          const highlight =
-            queryParams.get("highlight") === null
-              ? true
-              : queryParams.get("highlight") === "true"
-
-          const tempBook = this.bookService.findBook(bookParam)
-
-          if (
-            this.book.id === tempBook.id &&
-            this.chapterNumber === chapterParam
-          ) {
-            this.scrollToVerseElement(
-              verseStartParam || 1,
-              verseEndParam,
-              highlight,
+            this.chapterNumber = Number.parseInt(storedChapter, 10)
+            this.router.navigate(
+              [this.bookService.getUrlAbrv(this.book), this.chapterNumber],
+              {
+                queryParams: verseStartParam
+                  ? { verseStart: verseStartParam, verseEnd: verseEndParam }
+                  : {},
+                replaceUrl: true,
+              },
             )
-            return
+            this.getChapter(this.chapterNumber, verseStartParam, verseEndParam)
           }
 
-          this.book = tempBook
-          this.getChapter(
-            chapterParam,
-            verseStartParam,
-            verseEndParam,
-            highlight,
-          )
-          this.bookDrawer?.close()
-        },
+          return combineLatest([this.route.paramMap, this.route.queryParamMap])
+        })
       )
-    })
+      .subscribe(([params, queryParams]) => {
+        const bookParam = params.get("book") || "about"
+        const chapterParam = Number.parseInt(params.get("chapter") || "1", 10)
+        const verseStartParam = queryParams.get("verseStart")
+          ? Number.parseInt(queryParams.get("verseStart") || "1", 10)
+          : undefined
+        const verseEndParam = queryParams.get("verseEnd")
+          ? Number.parseInt(queryParams.get("verseEnd") || "1", 10)
+          : undefined
+
+        const highlight =
+          queryParams.get("highlight") === null
+            ? true
+            : queryParams.get("highlight") === "true"
+
+        const tempBook = this.bookService.findBook(bookParam)
+
+        if (
+          this.book.id === tempBook.id &&
+          this.chapterNumber === chapterParam
+        ) {
+          this.scrollToVerseElement(verseStartParam || 1, verseEndParam, highlight)
+          return
+        }
+
+        this.book = tempBook
+        this.getChapter(chapterParam, verseStartParam, verseEndParam, highlight)
+        this.bookDrawer?.close()
+      })
   }
 
   ngOnDestroy(): void {
+    this.destroy$.next()
+    this.destroy$.complete()
     // AutoScrollService handles its own cleanup now if we stop it, or the component stopping it
   }
 

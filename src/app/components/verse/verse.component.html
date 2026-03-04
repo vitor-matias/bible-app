@@ -53,14 +53,14 @@
             @if (!isFirst && isLast && chapterNumberDisplayIndex !== i && !shouldShowParagraph(data, text, i)) {
               <span>
                 <div></div>
-                <span #indentable [class.indent]="indentStates[0]">
+                <span #indentable [attr.data-index]="i" [class.indent]="indentStates[i] !== false">
                   {{ text.text }}
                 </span>
               </span>
             }
             <!-- Second Case: Regular paragraph with complex conditions -->
             @if (shouldShowParagraph(data, text, i)) {
-              <span #indentable [class.indent]="indentStates[0]">
+              <span #indentable [attr.data-index]="i" [class.indent]="indentStates[i] !== false">
                 {{ text.text }}
               </span>
             }
@@ -86,7 +86,7 @@
         @if (text.type === 'quote') {
           <span class="quote">
             <div></div>
-            <span #indentable [ngClass]="{'indent': indentStates[0], 'indent2': text.identLevel === 2}" class="quoteLineWrapper">
+            <span #indentable [attr.data-index]="i" [ngClass]="{'indent': indentStates[i] !== false, 'indent2': text.identLevel === 2}" class="quoteLineWrapper">
               @if(isFirstDisplayableElement(i) && data.number > 0) {
                 <span class="quoteVerseNumber">
                   <span class="verseNumber">{{ data.number }}</span>

@@ -67,9 +67,9 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   private indentableSubscription: Subscription | undefined
 
-  // Track the indentation state of each #indentable element by index
+  // Track the indentation state of each #indentable element by data-index
   // so the template can bind to this state rather than us directly mutating the DOM
-  indentStates: boolean[] = []
+  indentStates: Record<number, boolean> = {}
 
   constructor(
     private bibleRef: BibleReferenceService,
@@ -135,8 +135,8 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       this.resizeObserver.observe(chapterNumberEl)
     }
 
-    // Initialize indent states array to true for all indentables
-    this.indentStates = new Array(this.indentableElements.length).fill(true)
+    // Initialize indent states record to true
+    this.indentStates = {}
 
     // Observe indentable elements
     this.indentableElements.forEach((el) => {
@@ -157,13 +157,17 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
     const chapterNumberEl = this.getChapterNumberEl()
 
-    // Create a new array to trigger change detection if bindings update
-    const newIndentStates = new Array(this.indentableElements.length).fill(true)
+    const newIndentStates: Record<number, boolean> = {}
 
-    this.indentableElements.forEach((el, index) => {
+    this.indentableElements.forEach((el) => {
       const element = el.nativeElement
+      const dataIndexStr = element.getAttribute("data-index")
+      if (dataIndexStr === null) return
+
+      const i = parseInt(dataIndexStr, 10)
+
       if (!chapterNumberEl) {
-        newIndentStates[index] = true
+        newIndentStates[i] = true
         return
       }
 
@@ -175,13 +179,16 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       const isTouching =
         chapterRect.bottom >= elRect.top && chapterRect.top <= elRect.bottom
 
-      newIndentStates[index] = !isTouching
+      newIndentStates[i] = !isTouching
     })
 
     // Only update if changes occurred to avoid unnecessary CD triggers
-    const hasChanges = newIndentStates.some(
-      (state, i) => state !== this.indentStates[i],
-    )
+    const hasChanges =
+      Object.keys(newIndentStates).length !==
+        Object.keys(this.indentStates).length ||
+      Object.keys(newIndentStates).some(
+        (key) => newIndentStates[Number(key)] !== this.indentStates[Number(key)],
+      )
     if (hasChanges) {
       this.indentStates = newIndentStates
       this.cdr.detectChanges()
