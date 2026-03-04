@@ -298,6 +298,13 @@ export class BibleReaderComponent implements OnDestroy {
             this.bookContainer.nativeElement.style.opacity = "0"
           }
 
+          // Temporarily hide overflow on the scroll container to prevent
+          // a scrollbar flash while the new content is being laid out
+          const scrollEl = this.drawerContent?.nativeElement
+          if (scrollEl) {
+            scrollEl.style.overflow = "hidden"
+          }
+
           this.chapter = res
           this.chapterNumber = chapter
 
@@ -335,6 +342,12 @@ export class BibleReaderComponent implements OnDestroy {
           if (this.bookContainer?.nativeElement) {
             this.bookContainer.nativeElement.style.transition = "none"
             this.bookContainer.nativeElement.style.opacity = "0"
+          }
+
+          // Temporarily hide overflow to prevent scrollbar flash
+          const scrollEl = this.drawerContent?.nativeElement
+          if (scrollEl) {
+            scrollEl.style.overflow = "hidden"
           }
 
           if (this.book.id === "about") {
@@ -417,6 +430,12 @@ export class BibleReaderComponent implements OnDestroy {
   private triggerSlideAnimation(container: HTMLElement, isBackward: boolean) {
     container.style.transition = ""
     container.style.opacity = ""
+
+    // Restore overflow on the scroll container now that content is positioned
+    const scrollEl = this.drawerContent?.nativeElement
+    if (scrollEl) {
+      scrollEl.style.overflow = ""
+    }
 
     const animationClass = isBackward ? "slide-in-left" : "slide-in-right"
 
