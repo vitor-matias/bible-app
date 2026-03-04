@@ -10,7 +10,7 @@
   @for (text of data.text; track $index; let i = $index; let isFirst = $first; let isLast = $last) {
     <!-- Chapter Number Display -->
     @if (chapterNumberDisplayIndex === i) {
-      <div class="chapterNumber">
+      <div #chapterNumber class="chapterNumber">
         {{ data.chapterNumber }}
       </div>
     }

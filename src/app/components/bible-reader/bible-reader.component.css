@@ -193,7 +193,7 @@ h6 {
 
 .paged-view-container {
   overflow-y: hidden;
-  overflow-x: auto; /* Allow nav across browsers without clipping */
+  overflow-x: hidden; /* Hide overflow instead of auto to prevent momentary scrollbars during animation */
   scrollbar-width: none; /* Firefox */
   height: calc(100vh - (56px + env(safe-area-inset-top)) - 15px); /* Fallback */
   height: calc(100dvh - (56px + env(safe-area-inset-top)) - 15px); /* Dynamic viewport - Header - Margins */
@@ -204,7 +204,9 @@ h6 {
 
 /* Chrome, Safari, Edge */
 .paged-view-container::-webkit-scrollbar {
-  display: none; 
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 @keyframes slideInFromRight {

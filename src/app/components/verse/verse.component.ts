@@ -9,7 +9,9 @@ import {
   OnDestroy,
   QueryList,
   SimpleChanges,
+  ViewChild,
   ViewChildren,
+  ChangeDetectorRef,
 } from "@angular/core"
 import {
   MatBottomSheet,
@@ -60,6 +62,9 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   @ViewChildren("indentable")
   indentableElements!: QueryList<ElementRef<HTMLElement>>
 
+  @ViewChild("chapterNumber")
+  chapterNumberRef?: ElementRef<HTMLElement>
+
   private indentableSubscription: Subscription | undefined
 
   // Track the indentation state of each #indentable element by index
@@ -69,6 +74,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   constructor(
     private bibleRef: BibleReferenceService,
     private bottomSheet: MatBottomSheet,
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnChanges(_changes: SimpleChanges): void {
@@ -143,11 +149,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   private getChapterNumberEl(): HTMLElement | null {
-    if (!this.indentableElements || this.indentableElements.length === 0)
-      return null
-    return (
-      this.indentableElements.first.nativeElement.closest("verse") ?? document
-    ).querySelector(".chapterNumber") as HTMLElement | null
+    return this.chapterNumberRef?.nativeElement || null
   }
 
   private updateIndentation(): void {
@@ -182,10 +184,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     )
     if (hasChanges) {
       this.indentStates = newIndentStates
-      // Since ResizeObserver runs outside Angular's lifecycle, and this component is OnPush,
-      // we should ideally manually trigger change detection here, but since the template
-      // directly reads this array for ngClass, it will be picked up on the next cycle,
-      // or we could inject ChangeDetectorRef and call detectChanges() if it lags.
+      this.cdr.detectChanges()
     }
   }
 
