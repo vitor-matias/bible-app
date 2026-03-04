@@ -98,9 +98,9 @@ export class BookmarkService {
       await this.databaseService.clearAndPutAll("bookmarks", bookmarks)
       this.bookmarksSubject.next(bookmarks)
     } catch (error) {
-       console.error("Failed to save bookmarks to database:", error)
-       // State rollback or user notification could go here if needed,
-       // but logging is better than crashing.
+      console.error("Failed to save bookmarks to database:", error)
+      // State rollback or user notification could go here if needed,
+      // but logging is better than crashing.
     }
   }
 }

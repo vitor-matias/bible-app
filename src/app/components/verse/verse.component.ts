@@ -60,11 +60,11 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   @ViewChildren("indentable")
   indentableElements!: QueryList<ElementRef<HTMLElement>>
 
-  private indentableSubscription: Subscription | undefined;
+  private indentableSubscription: Subscription | undefined
 
   // Track the indentation state of each #indentable element by index
   // so the template can bind to this state rather than us directly mutating the DOM
-  indentStates: boolean[] = [];
+  indentStates: boolean[] = []
 
   constructor(
     private bibleRef: BibleReferenceService,
@@ -83,9 +83,11 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (typeof window !== "undefined" && "ResizeObserver" in window) {
       this.setupResizeObserver()
 
-      this.indentableSubscription = this.indentableElements.changes.subscribe(() => {
-        this.updateIndentableElements()
-      })
+      this.indentableSubscription = this.indentableElements.changes.subscribe(
+        () => {
+          this.updateIndentableElements()
+        },
+      )
     }
   }
 
@@ -152,7 +154,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (!this.indentableElements) return
 
     const chapterNumberEl = this.getChapterNumberEl()
-    
+
     // Create a new array to trigger change detection if bindings update
     const newIndentStates = new Array(this.indentableElements.length).fill(true)
 
@@ -173,15 +175,17 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
       newIndentStates[index] = !isTouching
     })
-    
+
     // Only update if changes occurred to avoid unnecessary CD triggers
-    const hasChanges = newIndentStates.some((state, i) => state !== this.indentStates[i])
+    const hasChanges = newIndentStates.some(
+      (state, i) => state !== this.indentStates[i],
+    )
     if (hasChanges) {
-       this.indentStates = newIndentStates
-       // Since ResizeObserver runs outside Angular's lifecycle, and this component is OnPush,
-       // we should ideally manually trigger change detection here, but since the template
-       // directly reads this array for ngClass, it will be picked up on the next cycle,
-       // or we could inject ChangeDetectorRef and call detectChanges() if it lags.
+      this.indentStates = newIndentStates
+      // Since ResizeObserver runs outside Angular's lifecycle, and this component is OnPush,
+      // we should ideally manually trigger change detection here, but since the template
+      // directly reads this array for ngClass, it will be picked up on the next cycle,
+      // or we could inject ChangeDetectorRef and call detectChanges() if it lags.
     }
   }
 

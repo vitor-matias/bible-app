@@ -53,7 +53,10 @@ describe("BookmarkService", () => {
     const bookmarks = service.getBookmarks()
     expect(bookmarks.length).toBe(3)
     expect(bookmarks.find((b) => b.bookId === "JHN")).toBeTruthy()
-    expect(databaseService.clearAndPutAll).toHaveBeenCalledWith("bookmarks", bookmarks)
+    expect(databaseService.clearAndPutAll).toHaveBeenCalledWith(
+      "bookmarks",
+      bookmarks,
+    )
   })
 
   it("should replace an existing bookmark if color is the same", async () => {
@@ -74,7 +77,10 @@ describe("BookmarkService", () => {
     const bookmarks = service.getBookmarks()
     expect(bookmarks.length).toBe(1)
     expect(bookmarks.find((b) => b.bookId === "GEN")).toBeFalsy()
-    expect(databaseService.clearAndPutAll).toHaveBeenCalledWith("bookmarks", bookmarks)
+    expect(databaseService.clearAndPutAll).toHaveBeenCalledWith(
+      "bookmarks",
+      bookmarks,
+    )
   })
 
   it("should filter bookmarks for a specific book", (done) => {
