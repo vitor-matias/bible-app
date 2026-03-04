@@ -81,6 +81,9 @@ jobs:
         run: npm ci
 
       - name: Create empty web directory for Capacitor
+        # The native app is a PWA wrapper: capacitor.config.ts sets server.url to the hosted
+        # Vercel deployment, so no bundled web assets are needed. An empty webDir is required
+        # only to satisfy Capacitor's directory validation during `cap sync`.
         run: mkdir -p dist/bible-app/browser
 
       - name: Setup Capacitor Android
@@ -184,6 +187,9 @@ jobs:
         run: npm ci
 
       - name: Create empty web directory for Capacitor
+        # The native app is a PWA wrapper: capacitor.config.ts sets server.url to the hosted
+        # Vercel deployment, so no bundled web assets are needed. An empty webDir is required
+        # only to satisfy Capacitor's directory validation during `cap sync`.
         run: mkdir -p dist/bible-app/browser
 
       - name: Setup Xcode
