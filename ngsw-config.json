@@ -31,7 +31,7 @@
     {
       "name": "material-symbols-fonts",
       "urls": [
-        "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined**",
+        "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@**",
         "https://fonts.gstatic.com/s/materialsymbolsoutlined/**"
       ],
       "cacheConfig": {
