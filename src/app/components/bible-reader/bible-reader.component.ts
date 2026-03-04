@@ -298,13 +298,6 @@ export class BibleReaderComponent implements OnDestroy {
             this.bookContainer.nativeElement.style.opacity = "0"
           }
 
-          // Temporarily hide overflow on the scroll container to prevent
-          // a scrollbar flash while the new content is being laid out
-          const scrollEl = this.drawerContent?.nativeElement
-          if (scrollEl) {
-            scrollEl.style.overflow = "hidden"
-          }
-
           this.chapter = res
           this.chapterNumber = chapter
 
@@ -342,12 +335,6 @@ export class BibleReaderComponent implements OnDestroy {
           if (this.bookContainer?.nativeElement) {
             this.bookContainer.nativeElement.style.transition = "none"
             this.bookContainer.nativeElement.style.opacity = "0"
-          }
-
-          // Temporarily hide overflow to prevent scrollbar flash
-          const scrollEl = this.drawerContent?.nativeElement
-          if (scrollEl) {
-            scrollEl.style.overflow = "hidden"
           }
 
           if (this.book.id === "about") {
