@@ -2,6 +2,7 @@ import { CommonModule } from "@angular/common"
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   ElementRef,
   Input,
@@ -11,7 +12,6 @@ import {
   SimpleChanges,
   ViewChild,
   ViewChildren,
-  ChangeDetectorRef,
 } from "@angular/core"
 import {
   MatBottomSheet,
