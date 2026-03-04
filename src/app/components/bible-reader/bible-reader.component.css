@@ -181,6 +181,11 @@ h6 {
   padding: 0px;
 }
 
+/* Prevent horizontal scrollbar flash during slide animations (translateX) */
+::ng-deep .mat-drawer-content {
+  overflow-x: hidden !important;
+}
+
 .container {
   overflow-y: auto;
   overscroll-behavior: none; /* Prevents rubber banding in this container */
