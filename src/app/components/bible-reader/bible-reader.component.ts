@@ -173,7 +173,7 @@ export class BibleReaderComponent implements OnDestroy {
           }
 
           return combineLatest([this.route.paramMap, this.route.queryParamMap])
-        })
+        }),
       )
       .subscribe(([params, queryParams]) => {
         const bookParam = params.get("book") || "about"
@@ -196,7 +196,11 @@ export class BibleReaderComponent implements OnDestroy {
           this.book.id === tempBook.id &&
           this.chapterNumber === chapterParam
         ) {
-          this.scrollToVerseElement(verseStartParam || 1, verseEndParam, highlight)
+          this.scrollToVerseElement(
+            verseStartParam || 1,
+            verseEndParam,
+            highlight,
+          )
           return
         }
 

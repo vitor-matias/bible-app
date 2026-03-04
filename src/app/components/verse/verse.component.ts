@@ -187,7 +187,8 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       Object.keys(newIndentStates).length !==
         Object.keys(this.indentStates).length ||
       Object.keys(newIndentStates).some(
-        (key) => newIndentStates[Number(key)] !== this.indentStates[Number(key)],
+        (key) =>
+          newIndentStates[Number(key)] !== this.indentStates[Number(key)],
       )
     if (hasChanges) {
       this.indentStates = newIndentStates
