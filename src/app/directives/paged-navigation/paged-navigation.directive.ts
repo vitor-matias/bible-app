@@ -4,6 +4,7 @@ import {
   EventEmitter,
   HostListener,
   Input,
+  OnDestroy,
   Output,
 } from "@angular/core"
 
@@ -16,7 +17,7 @@ export interface PageState {
   selector: "[appPagedNavigation]",
   standalone: true,
 })
-export class PagedNavigationDirective {
+export class PagedNavigationDirective implements OnDestroy {
   @Input("appPagedNavigation") bookBlock?: HTMLElement
   @Input() viewMode: "scrolling" | "paged" = "scrolling"
 
@@ -30,6 +31,10 @@ export class PagedNavigationDirective {
 
   private get container(): HTMLElement {
     return this.containerRef.nativeElement
+  }
+
+  ngOnDestroy(): void {
+    clearTimeout(this.resizeTimeout)
   }
 
   @HostListener("scroll")

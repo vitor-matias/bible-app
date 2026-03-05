@@ -131,8 +131,6 @@ export class BibleReaderComponent implements OnDestroy {
         takeUntil(this.destroy$),
         switchMap((_books) => {
           this.books = _books
-          if (_books.length === 0)
-            alert("No books available. Please check your API connection.")
           this.bookParam =
             this.router.routerState.snapshot.root.firstChild?.params[
               "book"
@@ -234,6 +232,7 @@ export class BibleReaderComponent implements OnDestroy {
 
   goToNextChapter(): void {
     if (this.book.chapterCount >= this.chapterNumber + 1) {
+      this.autoScrollService.stop()
       this.isNavigatingForwards = true
 
       this.router.navigate([
@@ -245,6 +244,7 @@ export class BibleReaderComponent implements OnDestroy {
 
   goToPreviousChapter(): void {
     if (this.chapterNumber > 1) {
+      this.autoScrollService.stop()
       this.isNavigatingBackwards = true
 
       this.router.navigate([
@@ -255,6 +255,7 @@ export class BibleReaderComponent implements OnDestroy {
   }
 
   goToChapter(newChapterNumber: Chapter["number"]): void {
+    this.autoScrollService.stop()
     this.router.navigate([
       this.bookService.getUrlAbrv(this.book),
       newChapterNumber,
