@@ -8,13 +8,13 @@ import {
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
 import { ActivatedRoute, Router } from "@angular/router"
 import { BehaviorSubject, of, throwError } from "rxjs"
+import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { BibleReaderComponent } from "./bible-reader.component"
-import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
 
 describe("BibleReaderComponent", () => {
   let component: BibleReaderComponent
@@ -274,7 +274,9 @@ describe("BibleReaderComponent", () => {
 
     it("onSwipeLeft should go to next page if paged mode", () => {
       component.viewMode = "paged"
-      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", ["nextPage"]) as unknown as PagedNavigationDirective
+      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", [
+        "nextPage",
+      ]) as unknown as PagedNavigationDirective
       component.onSwipeLeft()
       expect(component.pagedNav?.nextPage).toHaveBeenCalled()
     })
@@ -288,7 +290,9 @@ describe("BibleReaderComponent", () => {
 
     it("onSwipeRight should go to prev page if paged mode", () => {
       component.viewMode = "paged"
-      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", ["prevPage"]) as unknown as PagedNavigationDirective
+      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", [
+        "prevPage",
+      ]) as unknown as PagedNavigationDirective
       component.onSwipeRight()
       expect(component.pagedNav?.prevPage).toHaveBeenCalled()
     })

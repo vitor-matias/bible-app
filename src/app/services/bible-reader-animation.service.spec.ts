@@ -77,7 +77,9 @@ describe("BibleReaderAnimationService", () => {
       let sl = 0
       Object.defineProperty(containerRow, "scrollLeft", {
         get: () => sl,
-        set: (v) => { sl = v }
+        set: (v) => {
+          sl = v
+        },
       })
       spyOn(service, "triggerSlideAnimation")
 
