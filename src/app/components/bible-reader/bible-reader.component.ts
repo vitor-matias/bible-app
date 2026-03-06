@@ -27,6 +27,7 @@ import {
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BibleApiService } from "../../services/bible-api.service"
+import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { AboutComponent } from "../about/about.component"
@@ -114,6 +115,7 @@ export class BibleReaderComponent implements OnDestroy {
     private cdr: ChangeDetectorRef,
     private router: Router,
     private route: ActivatedRoute,
+    private animationService: BibleReaderAnimationService,
   ) {}
 
   ngOnInit(): void {
@@ -194,7 +196,9 @@ export class BibleReaderComponent implements OnDestroy {
           this.book.id === tempBook.id &&
           this.chapterNumber === chapterParam
         ) {
-          this.scrollToVerseElement(
+          this.animationService.scrollToVerseElement(
+            this.bookBlock?.nativeElement,
+            this.bookContainer?.nativeElement,
             verseStartParam || 1,
             verseEndParam,
             highlight,
@@ -309,9 +313,20 @@ export class BibleReaderComponent implements OnDestroy {
           this.isNavigatingForwards = false
 
           if (!verseStart) {
-            this.scrollToTop(startAtBottom)
+            this.animationService.scrollToTop(
+              this.drawerContent?.nativeElement,
+              this.bookContainer?.nativeElement,
+              this.viewMode,
+              startAtBottom,
+            )
           } else {
-            this.scrollToVerseElement(verseStart, verseEnd, highlight)
+            this.animationService.scrollToVerseElement(
+              this.bookBlock?.nativeElement,
+              this.bookContainer?.nativeElement,
+              verseStart,
+              verseEnd,
+              highlight,
+            )
           }
 
           this.preferencesService.setLastBookId(this.book.id)
@@ -323,10 +338,9 @@ export class BibleReaderComponent implements OnDestroy {
           container &&
           (this.isNavigatingBackwards || this.isNavigatingForwards)
         ) {
-          this.triggerSlideOutAnimation(
-            container,
-            this.isNavigatingBackwards,
-          ).then(() => finalize())
+          this.animationService
+            .triggerSlideOutAnimation(container, this.isNavigatingBackwards)
+            .then(() => finalize())
         } else {
           finalize()
         }
@@ -349,9 +363,20 @@ export class BibleReaderComponent implements OnDestroy {
             this.isNavigatingForwards = false
 
             if (!verseStart) {
-              this.scrollToTop(startAtBottom)
+              this.animationService.scrollToTop(
+                this.drawerContent?.nativeElement,
+                this.bookContainer?.nativeElement,
+                this.viewMode,
+                startAtBottom,
+              )
             } else {
-              this.scrollToVerseElement(verseStart, verseEnd, highlight)
+              this.animationService.scrollToVerseElement(
+                this.bookBlock?.nativeElement,
+                this.bookContainer?.nativeElement,
+                verseStart,
+                verseEnd,
+                highlight,
+              )
             }
 
             this.preferencesService.setLastBookId(this.book.id)
@@ -371,149 +396,14 @@ export class BibleReaderComponent implements OnDestroy {
           container &&
           (this.isNavigatingBackwards || this.isNavigatingForwards)
         ) {
-          this.triggerSlideOutAnimation(
-            container,
-            this.isNavigatingBackwards,
-          ).then(() => finalizeError())
+          this.animationService
+            .triggerSlideOutAnimation(container, this.isNavigatingBackwards)
+            .then(() => finalizeError())
         } else {
           finalizeError()
         }
       },
     })
-  }
-
-  scrollToTop(startAtBottom = false) {
-    setTimeout(() => {
-      const scrollEl = this.drawerContent?.nativeElement
-      if (scrollEl) {
-        scrollEl.scrollTo({ top: 0, behavior: "smooth" })
-      }
-      const container = this.bookContainer?.nativeElement
-      if (container) {
-        if (this.viewMode === "paged" && startAtBottom) {
-          // Layout using CSS columns often takes more than a single event loop tick
-          // to calculate the final scrollWidth.
-          // We'll give it a slightly longer timeout and use a requestAnimationFrame chain.
-          setTimeout(() => {
-            requestAnimationFrame(() => {
-              const maxScroll = container.scrollWidth - container.clientWidth
-              container.scrollLeft = maxScroll > 0 ? maxScroll : 0
-              this.triggerSlideAnimation(container, true)
-            })
-          }, 100)
-        } else {
-          setTimeout(() => {
-            requestAnimationFrame(() => {
-              if (this.viewMode === "paged") {
-                container.scrollLeft = 0
-              }
-              this.triggerSlideAnimation(container, startAtBottom)
-            })
-          }, 0)
-        }
-      }
-    }, 0)
-  }
-
-  private triggerSlideAnimation(container: HTMLElement, isBackward: boolean) {
-    container.style.transition = ""
-    container.style.opacity = ""
-
-    // Restore overflow on the scroll container now that content is positioned
-    const scrollEl = this.drawerContent?.nativeElement
-    if (scrollEl) {
-      scrollEl.style.overflow = ""
-    }
-
-    const animationClass = isBackward ? "slide-in-left" : "slide-in-right"
-
-    // Trigger reflow to restart animation reliably
-    container.classList.remove(
-      "slide-in-left",
-      "slide-in-right",
-      "slide-out-left",
-      "slide-out-right",
-    )
-    void container.offsetWidth
-
-    container.classList.add(animationClass)
-
-    setTimeout(() => {
-      container.classList.remove(animationClass)
-    }, 600)
-  }
-
-  private triggerSlideOutAnimation(
-    container: HTMLElement,
-    isBackward: boolean,
-  ): Promise<void> {
-    return new Promise((resolve) => {
-      const animationClass = isBackward ? "slide-out-right" : "slide-out-left"
-
-      container.classList.remove(
-        "slide-in-left",
-        "slide-in-right",
-        "slide-out-left",
-        "slide-out-right",
-      )
-      void container.offsetWidth
-
-      container.classList.add(animationClass)
-
-      const onEnd = () => {
-        container.removeEventListener("animationend", onEnd)
-        container.classList.remove(animationClass)
-        resolve()
-      }
-      container.addEventListener("animationend", onEnd, { once: true })
-
-      // Safety fallback in case animationend never fires
-      setTimeout(() => {
-        container.removeEventListener("animationend", onEnd)
-        container.classList.remove(animationClass)
-        resolve()
-      }, 600)
-    })
-  }
-
-  scrollToVerseElement(
-    verseStart: number,
-    verseEnd?: number,
-    highlight = true,
-    startAtBottom = false,
-  ) {
-    setTimeout(() => {
-      let scrolled = false
-      const container = this.bookBlock?.nativeElement
-      if (!container) return
-
-      for (let i = verseStart; i <= (verseEnd || verseStart); i++) {
-        // Scope search to the book block
-        const element = container.querySelector(`[id="${i}"]`) as HTMLElement
-        if (element) {
-          if (!scrolled) {
-            element.scrollIntoView({
-              behavior: "smooth",
-              block: "center",
-              inline: "nearest",
-            })
-            scrolled = true
-          }
-          if (highlight) {
-            element.style.transition = "background-color 0.5s ease"
-            element.style.backgroundColor = "var(--highlight-color)"
-            setTimeout(() => {
-              element.style.backgroundColor = ""
-            }, 2500)
-          }
-        }
-      }
-
-      const bookContainer = this.bookContainer?.nativeElement
-      if (bookContainer) {
-        this.triggerSlideAnimation(bookContainer, startAtBottom)
-      }
-    }, 100)
   }
 
   openBookDrawer(event: { open: boolean }) {

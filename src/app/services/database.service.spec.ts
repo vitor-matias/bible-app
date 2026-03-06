@@ -8,6 +8,8 @@ describe("DatabaseService", () => {
     transaction: jasmine.Spy
     objectStoreNames: { contains: jasmine.Spy }
     createObjectStore: jasmine.Spy
+    onversionchange: (() => void) | null
+    close: jasmine.Spy | (() => void)
   }
   let mockIDBTransaction: {
     objectStore: jasmine.Spy
@@ -26,6 +28,7 @@ describe("DatabaseService", () => {
     onupgradeneeded: (event: unknown) => void
     onsuccess: () => void
     onerror: (event?: unknown) => void
+    onblocked: () => void
     error: Error | null
   }
 
@@ -56,6 +59,8 @@ describe("DatabaseService", () => {
         contains: jasmine.createSpy("contains").and.returnValue(false),
       },
       createObjectStore: jasmine.createSpy("createObjectStore"),
+      onversionchange: null,
+      close: jasmine.createSpy("close"),
     }
 
     mockIDBRequest = {
@@ -63,6 +68,7 @@ describe("DatabaseService", () => {
       onupgradeneeded: null as unknown as (event: unknown) => void,
       onsuccess: null as unknown as () => void,
       onerror: null as unknown as (event?: unknown) => void,
+      onblocked: null as unknown as () => void,
       error: null,
     }
 
@@ -300,6 +306,50 @@ describe("DatabaseService", () => {
       mockIDBRequest.onupgradeneeded({})
 
       expect(mockIDBDatabase.createObjectStore).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("onblocked handler", () => {
+    it("should warn when upgrade is blocked", async () => {
+      spyOn(console, "warn")
+
+      service.getAll("books")
+
+      expect(mockIDBRequest.onblocked).toBeDefined()
+      mockIDBRequest.onblocked()
+
+      expect(console.warn).toHaveBeenCalledWith(
+        "IndexedDB upgrade blocked. Close other tabs to continue.",
+      )
+    })
+  })
+
+  describe("onversionchange handler", () => {
+    it("should assign onversionchange on successful open", async () => {
+      const promise = service.getAll("books")
+      mockIDBRequest.onsuccess()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(mockIDBDatabase.onversionchange).toBeDefined()
+
+      await promise.catch(() => {})
+    })
+
+    it("should close db and null reference when onversionchange fires", async () => {
+      const closeSpy = jasmine.createSpy("close")
+      mockIDBDatabase.close = closeSpy
+
+      const promise = service.getAll("books")
+      mockIDBRequest.onsuccess()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      // Trigger version change
+      expect(mockIDBDatabase.onversionchange).toBeDefined()
+      mockIDBDatabase.onversionchange?.()
+
+      expect(closeSpy).toHaveBeenCalled()
+
+      await promise.catch(() => {})
     })
   })
 

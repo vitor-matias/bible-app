@@ -69,7 +69,7 @@ export class BookmarkSelectorComponent implements OnInit {
       const bookmark = allBookmarks.find((b) => b.color === c.value)
       let currentRef: string | undefined
       if (bookmark) {
-        const book = this.bookService.findBook(bookmark.bookId)
+        const book = this.bookService.findBookById(bookmark.bookId)
         currentRef = book
           ? `${book.abrv} ${bookmark.chapter}`
           : `${bookmark.bookId} ${bookmark.chapter}`
@@ -95,13 +95,17 @@ export class BookmarkSelectorComponent implements OnInit {
 
     // 1. If already assigned elsewhere -> Navigate
     if (ribbon.bookmark) {
-      const book = this.bookService.findBook(ribbon.bookmark.bookId)
+      const book = this.bookService.findBookById(ribbon.bookmark.bookId)
       if (book) {
         this.router.navigate([
           this.bookService.getUrlAbrv(book),
           ribbon.bookmark.chapter,
         ])
         this.bottomSheetRef.dismiss()
+      } else {
+        console.warn(
+          `Bookmark references unknown book: ${ribbon.bookmark.bookId}`,
+        )
       }
       return
     }

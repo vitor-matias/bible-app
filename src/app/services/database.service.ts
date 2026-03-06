@@ -35,8 +35,16 @@ export class DatabaseService {
         }
       }
 
+      request.onblocked = () => {
+        console.warn("IndexedDB upgrade blocked. Close other tabs to continue.")
+      }
+
       request.onsuccess = () => {
         this.db = request.result
+        this.db.onversionchange = () => {
+          this.db?.close()
+          this.db = null
+        }
         this.dbPromise = null
         resolve(this.db)
       }

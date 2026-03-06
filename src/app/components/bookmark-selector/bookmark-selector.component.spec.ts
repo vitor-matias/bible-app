@@ -34,7 +34,7 @@ describe("BookmarkSelectorComponent", () => {
       "removeBookmark",
     ])
     const bookSpy = jasmine.createSpyObj("BookService", [
-      "findBook",
+      "findBookById",
       "getUrlAbrv",
     ])
     const sheetSpy = jasmine.createSpyObj("MatBottomSheetRef", ["dismiss"])
@@ -47,7 +47,7 @@ describe("BookmarkSelectorComponent", () => {
 
     bookmarkSpy.addBookmark.and.returnValue(Promise.resolve())
     bookmarkSpy.removeBookmark.and.returnValue(Promise.resolve())
-    bookSpy.findBook.and.returnValue({ abrv: "Mc", shortName: "Marcos" })
+    bookSpy.findBookById.and.returnValue({ abrv: "Mc", shortName: "Marcos" })
     bookSpy.getUrlAbrv.and.returnValue("mrk")
 
     await TestBed.configureTestingModule({
@@ -149,5 +149,29 @@ describe("BookmarkSelectorComponent", () => {
     }
 
     expect(bookmarkServiceSpy.removeBookmark).toHaveBeenCalledWith("MRK", 2)
+  })
+
+  it("should warn and not navigate when bookmark references unknown book", () => {
+    const bookServiceSpy = TestBed.inject(
+      BookService,
+    ) as jasmine.SpyObj<BookService>
+    bookServiceSpy.findBookById.and.returnValue(undefined)
+    bookmarksSubject.next([
+      { bookId: "UNKNOWN", chapter: 1, color: "blue", timestamp: 789 },
+    ])
+    fixture.detectChanges()
+
+    spyOn(console, "warn")
+    const blueRibbon = component.ribbons.find((r) => r.value === "blue")
+    expect(blueRibbon).toBeTruthy()
+    if (blueRibbon) {
+      component.handleRibbonClick(blueRibbon)
+    }
+
+    expect(routerSpy.navigate).not.toHaveBeenCalled()
+    expect(bottomSheetRefSpy.dismiss).not.toHaveBeenCalled()
+    expect(console.warn).toHaveBeenCalledWith(
+      "Bookmark references unknown book: UNKNOWN",
+    )
   })
 })

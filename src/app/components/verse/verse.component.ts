@@ -135,7 +135,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       this.resizeObserver.observe(chapterNumberEl)
     }
 
-    // Initialize indent states record to true
+    // Reset indent states – entries are computed by updateIndentation()
     this.indentStates = {}
 
     // Observe indentable elements

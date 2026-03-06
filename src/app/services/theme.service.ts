@@ -24,11 +24,16 @@ export class ThemeService {
     this.applyTheme(this.themeMode.value)
 
     // Watch for system theme changes
-    this.nightModeQuery.addEventListener("change", () => {
+    const handler = () => {
       if (this.themeMode.value === "system") {
         this.applyTheme("system")
       }
-    })
+    }
+    if (this.nightModeQuery.addEventListener) {
+      this.nightModeQuery.addEventListener("change", handler)
+    } else {
+      this.nightModeQuery.addListener(handler)
+    }
   }
 
   themeMode$ = this.themeMode.asObservable()
