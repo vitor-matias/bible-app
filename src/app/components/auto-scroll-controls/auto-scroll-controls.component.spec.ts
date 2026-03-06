@@ -128,7 +128,7 @@ describe("AutoScrollControlsComponent", () => {
       expect(stopCallback).toBeDefined()
 
       // Should not throw when called
-      expect(() => stopCallback!()).not.toThrow()
+      expect(() => stopCallback?.()).not.toThrow()
     })
   })
 

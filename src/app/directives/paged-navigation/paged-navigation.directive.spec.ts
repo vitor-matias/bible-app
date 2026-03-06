@@ -160,7 +160,7 @@ describe("PagedNavigationDirective", () => {
         columnGap: "10px",
         paddingLeft: "5px",
         paddingRight: "5px",
-      } as any)
+      } as unknown as CSSStyleDeclaration)
 
       // advanceWidth = 100 - (5+5) + 10 = 100
       // current page = 0 / 100 = 0
@@ -216,7 +216,7 @@ describe("PagedNavigationDirective", () => {
         columnGap: "10px",
         paddingLeft: "5px",
         paddingRight: "5px",
-      } as any)
+      } as unknown as CSSStyleDeclaration)
 
       // advanceWidth = 100. current page = 1. prev = 0
 
@@ -252,7 +252,7 @@ describe("PagedNavigationDirective", () => {
         columnGap: "10px",
         paddingLeft: "5px",
         paddingRight: "5px",
-      } as any)
+      } as unknown as CSSStyleDeclaration)
 
       // advance width = 100. pageIndex = round(120/100) = 1. left = 100
 
@@ -302,7 +302,7 @@ describe("PagedNavigationDirective", () => {
         columnGap: "", // falsy numeric parsing
         paddingLeft: "invalid",
         paddingRight: "",
-      } as any)
+      } as unknown as CSSStyleDeclaration)
 
       // advance = 200 - (0+0) + 0 = 200
       spyOnProperty(container, "scrollLeft").and.returnValue(0)

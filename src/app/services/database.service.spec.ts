@@ -326,18 +326,33 @@ describe("DatabaseService", () => {
 
   describe("onversionchange handler", () => {
     it("should assign onversionchange on successful open", async () => {
+      const mockGetAllRequest = {
+        result: [],
+        onsuccess: null as unknown as () => void,
+        onerror: null as unknown as () => void,
+      }
+      mockIDBObjectStore.getAll.and.returnValue(mockGetAllRequest)
       const promise = service.getAll("books")
       mockIDBRequest.onsuccess()
       await new Promise((resolve) => setTimeout(resolve, 0))
 
       expect(mockIDBDatabase.onversionchange).toBeDefined()
 
-      await promise.catch(() => {})
+      if (mockGetAllRequest.onsuccess) {
+        mockGetAllRequest.onsuccess()
+      }
+      await promise
     })
 
     it("should close db and null reference when onversionchange fires", async () => {
       const closeSpy = jasmine.createSpy("close")
       mockIDBDatabase.close = closeSpy
+      const mockGetAllRequest = {
+        result: [],
+        onsuccess: null as unknown as () => void,
+        onerror: null as unknown as () => void,
+      }
+      mockIDBObjectStore.getAll.and.returnValue(mockGetAllRequest)
 
       const promise = service.getAll("books")
       mockIDBRequest.onsuccess()
@@ -349,7 +364,10 @@ describe("DatabaseService", () => {
 
       expect(closeSpy).toHaveBeenCalled()
 
-      await promise.catch(() => {})
+      if (mockGetAllRequest.onsuccess) {
+        mockGetAllRequest.onsuccess()
+      }
+      await promise
     })
   })
 

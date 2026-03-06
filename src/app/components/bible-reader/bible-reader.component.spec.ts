@@ -14,6 +14,7 @@ import { BibleReaderAnimationService } from "../../services/bible-reader-animati
 import { BookService } from "../../services/book.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { BibleReaderComponent } from "./bible-reader.component"
+import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
 
 describe("BibleReaderComponent", () => {
   let component: BibleReaderComponent
@@ -271,11 +272,25 @@ describe("BibleReaderComponent", () => {
       expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 2])
     })
 
+    it("onSwipeLeft should go to next page if paged mode", () => {
+      component.viewMode = "paged"
+      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", ["nextPage"]) as unknown as PagedNavigationDirective
+      component.onSwipeLeft()
+      expect(component.pagedNav?.nextPage).toHaveBeenCalled()
+    })
+
     it("onSwipeRight should go to prev chapter if scrolling mode", () => {
       component.chapterNumber = 2
       component.viewMode = "scrolling"
       component.onSwipeRight()
       expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 1])
+    })
+
+    it("onSwipeRight should go to prev page if paged mode", () => {
+      component.viewMode = "paged"
+      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", ["prevPage"]) as unknown as PagedNavigationDirective
+      component.onSwipeRight()
+      expect(component.pagedNav?.prevPage).toHaveBeenCalled()
     })
 
     it("onArrowPress should handle arrow directions", () => {
@@ -318,6 +333,14 @@ describe("BibleReaderComponent", () => {
       expect(component.bookDrawer.close).toHaveBeenCalled()
       expect(component.showBooks).toBeFalse()
       expect(component.bookDrawer.toggle).toHaveBeenCalled()
+    }))
+
+    it("openChapterDrawer should just toggle drawer when showBooks is false", fakeAsync(() => {
+      component.showBooks = false
+      component.openChapterDrawer({ open: true })
+      tick()
+      expect(component.bookDrawer.toggle).toHaveBeenCalled()
+      expect(component.bookDrawer.close).not.toHaveBeenCalled()
     }))
 
     it("onBookSubmit should navigate to book and close drawer", () => {
@@ -409,6 +432,7 @@ describe("BibleReaderComponent", () => {
     }))
 
     it("should finalize and fallback to 'about' book on error", fakeAsync(() => {
+      spyOn(console, "error")
       apiServiceSpy.getChapter.and.returnValue(
         throwError(() => new Error("Not found")),
       )
@@ -446,6 +470,7 @@ describe("BibleReaderComponent", () => {
     }))
 
     it("should trigger slide out animation in error fallback if navigating", fakeAsync(() => {
+      spyOn(console, "error")
       component.isNavigatingForwards = true
       component.bookContainer = {
         nativeElement: document.createElement("div"),
@@ -462,6 +487,7 @@ describe("BibleReaderComponent", () => {
     }))
 
     it("should navigate to first chapter on error if book is not 'about'", fakeAsync(() => {
+      spyOn(console, "error")
       apiServiceSpy.getChapter.and.returnValue(
         throwError(() => new Error("Not found")),
       )
@@ -476,6 +502,7 @@ describe("BibleReaderComponent", () => {
     }))
 
     it("should call scrollToVerseElement in error handler if verseStart provided and book is about", fakeAsync(() => {
+      spyOn(console, "error")
       apiServiceSpy.getChapter.and.returnValue(
         throwError(() => new Error("Not found")),
       )

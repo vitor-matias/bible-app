@@ -15,10 +15,12 @@ describe("BibleReaderAnimationService", () => {
 
   // Helper to mock requestAnimationFrame
   beforeEach(() => {
-    spyOn(window, "requestAnimationFrame").and.callFake((cb: FrameRequestCallback) => {
-      cb(0)
-      return 0
-    })
+    spyOn(window, "requestAnimationFrame").and.callFake(
+      (cb: FrameRequestCallback) => {
+        cb(0)
+        return 0
+      },
+    )
   })
 
   describe("scrollToTop", () => {
@@ -58,16 +60,25 @@ describe("BibleReaderAnimationService", () => {
       tick(0)
       // inner setTimeout
       tick(0)
-      
+
       expect(containerRow.scrollLeft).toBe(0)
-      expect(service.triggerSlideAnimation).toHaveBeenCalledWith(drawerContentRow, containerRow, false)
+      expect(service.triggerSlideAnimation).toHaveBeenCalledWith(
+        drawerContentRow,
+        containerRow,
+        false,
+      )
     }))
 
     it("should scroll to end in paged viewMode and startAtBottom true", fakeAsync(() => {
       const drawerContentRow = document.createElement("div")
       const containerRow = document.createElement("div")
-      Object.defineProperty(containerRow, 'scrollWidth', { value: 500 })
-      Object.defineProperty(containerRow, 'clientWidth', { value: 100 })
+      Object.defineProperty(containerRow, "scrollWidth", { value: 500 })
+      Object.defineProperty(containerRow, "clientWidth", { value: 100 })
+      let sl = 0
+      Object.defineProperty(containerRow, "scrollLeft", {
+        get: () => sl,
+        set: (v) => { sl = v }
+      })
       spyOn(service, "triggerSlideAnimation")
 
       service.scrollToTop(drawerContentRow, containerRow, "paged", true)
@@ -75,23 +86,27 @@ describe("BibleReaderAnimationService", () => {
       tick(0)
       // inner setTimeout of 100ms
       tick(100)
-      
+
       expect(containerRow.scrollLeft).toBe(400)
-      expect(service.triggerSlideAnimation).toHaveBeenCalledWith(drawerContentRow, containerRow, true)
+      expect(service.triggerSlideAnimation).toHaveBeenCalledWith(
+        drawerContentRow,
+        containerRow,
+        true,
+      )
     }))
 
     it("should scroll to 0 if maxScroll is negative in paged viewMode startAtBottom true", fakeAsync(() => {
       const drawerContentRow = document.createElement("div")
       const containerRow = document.createElement("div")
-      Object.defineProperty(containerRow, 'scrollWidth', { value: 100 })
-      Object.defineProperty(containerRow, 'clientWidth', { value: 500 })
+      Object.defineProperty(containerRow, "scrollWidth", { value: 100 })
+      Object.defineProperty(containerRow, "clientWidth", { value: 500 })
       spyOn(service, "triggerSlideAnimation")
 
       service.scrollToTop(drawerContentRow, containerRow, "paged", true)
 
       tick(0)
       tick(100)
-      
+
       expect(containerRow.scrollLeft).toBe(0)
     }))
   })
@@ -148,14 +163,14 @@ describe("BibleReaderAnimationService", () => {
 
     it("should resolve via fallback timeout if animationend does not fire", fakeAsync(() => {
       const containerRow = document.createElement("div")
-      
+
       let resolved = false
       service.triggerSlideOutAnimation(containerRow, false).then(() => {
         resolved = true
       })
 
       expect(containerRow.classList.contains("slide-out-left")).toBeTrue()
-      
+
       // wait for 600ms fallback timeout
       tick(600)
 
@@ -211,12 +226,23 @@ describe("BibleReaderAnimationService", () => {
       spyOn(verse1, "scrollIntoView")
       spyOn(service, "triggerSlideAnimation")
 
-      service.scrollToVerseElement(bookBlock, bookContainer, 1, undefined, false, true)
+      service.scrollToVerseElement(
+        bookBlock,
+        bookContainer,
+        1,
+        undefined,
+        false,
+        true,
+      )
       tick(100)
 
       expect(verse1.scrollIntoView).toHaveBeenCalled()
       expect(verse1.style.backgroundColor).not.toBe("var(--highlight-color)")
-      expect(service.triggerSlideAnimation).toHaveBeenCalledWith(undefined, bookContainer, true)
+      expect(service.triggerSlideAnimation).toHaveBeenCalledWith(
+        undefined,
+        bookContainer,
+        true,
+      )
     }))
   })
 })

@@ -136,7 +136,9 @@ describe("FootnotesBottomSheetComponent", () => {
 
   describe("getAbrv", () => {
     it("should fetch book abbreviation correctly", () => {
-      const mockBook = { abrv: "Gn" } as any
+      const mockBook = { abrv: "Gn" } as unknown as ReturnType<
+        BookService["findBook"]
+      >
       bookServiceSpy.findBook.and.returnValue(mockBook)
       bookServiceSpy.getUrlAbrv.and.returnValue("gn")
 
