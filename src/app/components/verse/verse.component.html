@@ -2,7 +2,7 @@
   <!-- Verse Number -->
   @if(data.number > 0 && getFirstTextType() !== 'quote'){
     @if(data.number > 1) {
-      &nbsp;
+      {{ " " }}
     }
     <span class="verseNumber">{{ data.number }}</span>
     @if(hasFootnotes){
