@@ -294,14 +294,15 @@ h6 {
     margin: 0 auto !important;
     orphans: 1;
     widows: 1;
+    padding: 0 24px;
   }
 }
 
 /* Desktop - 2 Pages */
 @media (min-width: 1400px) {
   .paged-view-container {
-    width: 60%;
-    max-width: 60%;
+    width: 65%;
+    max-width: 65%;
   }
 
   .paged-view {
@@ -309,6 +310,7 @@ h6 {
     column-width: auto;
     column-fill: auto;
     column-gap: 6vw; /* Moderate gap */
+    padding: 0 24px;
     height: calc(100% - 62px); /* Reserve space for copyright footer */
     width: 100%;
     max-width: 100%;
