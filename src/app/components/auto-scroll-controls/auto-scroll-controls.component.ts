@@ -52,6 +52,15 @@ export class AutoScrollControlsComponent implements OnDestroy {
   private updateAutoScrollSpeed(delta: number): void {
     const nextSpeed = this.autoScrollService.updateAutoScrollSpeed(delta)
     this.preferencesService.setAutoScrollSpeed(nextSpeed)
+
+    // @ts-expect-error
+    if (globalThis.umami) {
+      // @ts-expect-error
+      globalThis.umami.track("autoscroll_speed", {
+        speed: nextSpeed,
+      })
+    }
+
     this.cdr.markForCheck()
   }
 
@@ -65,11 +74,29 @@ export class AutoScrollControlsComponent implements OnDestroy {
         this.safeMarkForCheck()
       },
     })
+
+    // @ts-expect-error
+    if (globalThis.umami) {
+      // @ts-expect-error
+      globalThis.umami.track("autoscroll_status", {
+        enabled: true,
+      })
+    }
+
     this.safeMarkForCheck()
   }
 
   private stopAutoScroll(): void {
     this.autoScrollService.stop()
+
+    // @ts-expect-error
+    if (globalThis.umami) {
+      // @ts-expect-error
+      globalThis.umami.track("autoscroll_status", {
+        enabled: false,
+      })
+    }
+
     this.safeMarkForCheck()
   }
 

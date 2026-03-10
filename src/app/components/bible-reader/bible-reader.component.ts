@@ -463,6 +463,17 @@ export class BibleReaderComponent implements OnDestroy {
   onToggleViewMode(): void {
     this.viewMode = this.viewMode === "scrolling" ? "paged" : "scrolling"
     this.preferencesService.setViewMode(this.viewMode)
+
+    // @ts-expect-error
+    if (globalThis.umami) {
+      // @ts-expect-error
+      globalThis.umami.track("view_mode_toggle", {
+        mode: this.viewMode,
+        book: this.book?.id,
+        chapter: this.chapterNumber,
+      })
+    }
+
     this.cdr.markForCheck()
     // Reset scroll when switching to paged? Or keep position?
     // Paged View relies on overflow-x scroll or just columns.
