@@ -36,17 +36,22 @@ h3 {
 }
 
 .indent {
-  margin-left: 1em; /* Adjust the indentation as needed */
+  margin-left: 1em;
+  /* Adjust the indentation as needed */
 }
 
 .indent2 {
-  margin-left: 2.5em; /* Adjust the indentation as needed */
+  margin-left: 2.5em;
+  /* Adjust the indentation as needed */
 }
 
 .chapterNumber {
-  float: left; /* Makes the chapter number float to the left */
-  font-size: 380%; /* Adjust the font size as needed */
-  line-height: 1; /* Adjusted for better alignment, might need tweaking */
+  float: left;
+  /* Makes the chapter number float to the left */
+  font-size: 315%;
+  /* Adjust the font size as needed */
+  line-height: 1;
+  /* Adjusted for better alignment, might need tweaking */
 
   /*margin-right: 10px;  Adds space to the right of the chapter number */
   /* margin-bottom: 10px; Adds space below the chapter number */
@@ -81,9 +86,12 @@ h3 {
 
 .quoteLineWrapper {
   position: relative;
-  display: inline-block; /* Using flow-root to respect floated chapter numbers while maintaining block behavior */
-  padding-left: 1em; /* Induction for wrapped lines + space for verse number */
-  text-indent: -1em; /* Pull first line back, leaving space for verse number */
+  display: inline-block;
+  /* Using flow-root to respect floated chapter numbers while maintaining block behavior */
+  padding-left: 1em;
+  /* Induction for wrapped lines + space for verse number */
+  text-indent: -1em;
+  /* Pull first line back, leaving space for verse number */
 }
 
 .quoteVerseNumber {
