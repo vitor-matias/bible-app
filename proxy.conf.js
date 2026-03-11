@@ -1,4 +1,4 @@
-let defaultTarget = 'https://biblia.capuchinhos.org/';
+let defaultTarget = 'http://localhost:3000';
 module.exports = [
    {
       context: ['/v1/**'],

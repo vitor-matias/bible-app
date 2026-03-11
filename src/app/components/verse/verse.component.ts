@@ -182,7 +182,8 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       const elRect = element.getBoundingClientRect()
       // Use a small vertical buffer to avoid issues with display: block and line heights
       const isTouching =
-        chapterRect.bottom > elRect.top + 2 && chapterRect.top < elRect.bottom - 2
+        chapterRect.bottom > elRect.top + 2 &&
+        chapterRect.top < elRect.bottom - 2
 
       newIndentStates[i] = !isTouching
     })
