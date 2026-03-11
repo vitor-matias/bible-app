@@ -9,101 +9,114 @@
       <span (click)="toggleFootnotes()" class="footnoteIndicator">&#65290;</span>
     }
   }
-  <!-- Text Content Loop -->
-  @for (text of data.text; track $index; let i = $index; let isFirst = $first; let isLast = $last) {
+
+  <ng-template #elementContent let-text let-i="i" let-isFirst="isFirst" let-isLast="isLast" let-isQuote="isQuote">
     <!-- Chapter Number Display -->
     @if (chapterNumberDisplayIndex === i) {
       <div #chapterNumber class="chapterNumber">
         {{ data.chapterNumber }}
       </div>
     }
-    <!-- Main Verse Text Content -->
-    <span class="verseText">
-      @if (!isInSection(data.text, i)) {
-        <!-- Regular Text -->
-        @if(text.type === 'text'){
-          <span [ngClass]="{'allCaps': text.allCaps}" (click)="hasFootnotes ? toggleFootnotes() : null">{{ text.text }}</span>
-        }
-        <!-- References -->
-        @if(text.type === "references"){
-          <span class="references">
-            <span>{{ " " }}</span>
-            <span class="references-block">
-              @for(part of parsedReferences.get(i); track $index){
-                @if(typeof part === "object" && part.book !== data.bookId){
-                  <a class="references"
-                    [routerLink]="['/', (part.book | lowercase ), part.chapter]"
-                    [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)"
-                    >{{part.match}}</a
-                    >
-                  } @else {
-                    <span class="references">{{typeof part === "object" ? part.match : part}}</span>
-                  }
-                }
-              </span>
-            </span>
-          }
-          <!-- Paragraph Breaks -->
-          @if (text.type === 'paragraph' && data.verseLabel !== 'front') {
-            <div></div>
-          }
-          @if (isLast && text.type === 'quote') {
-            <div></div>
-          }
-          <!-- Complex Paragraph Logic -->
-          @if (text.type === 'paragraph') {
-            <!-- First Case: Last paragraph with specific conditions -->
-            @if (!isFirst && isLast && chapterNumberDisplayIndex !== i && !shouldShowParagraph(data, text, i)) {
-              <span>
-                <div></div>
-                <span #indentable [attr.data-index]="i" [class.indent]="indentStates[i] !== false">
-                  {{ text.text }}
-                </span>
-              </span>
+
+    <!-- Regular Text and Quote Text Content -->
+    @if (!isInSection(data.text, i) || isQuote) {
+      @if (text.type === 'text' || text.type === 'quote') {
+        @if (text.type === 'quote' && isFirstDisplayableElement(i) && data.number > 0) {
+          <span class="quoteVerseNumber">
+            <span class="verseNumber">{{ data.number }}</span>
+            @if(hasFootnotes){
+              <span (click)="toggleFootnotes()" class="footnoteIndicator">&#65290;</span>
+            } @else {
+              <span class="footnoteIndicator" style="visibility: hidden">&#65290;</span>
             }
-            <!-- Second Case: Regular paragraph with complex conditions -->
-            @if (shouldShowParagraph(data, text, i)) {
+          </span>
+        }
+        <span [ngClass]="{'allCaps': text.allCaps}" (click)="hasFootnotes ? toggleFootnotes() : null">{{ text.text }}</span>
+      }
+
+      <!-- References -->
+      @if(text.type === "references"){
+        <span class="references">
+          <span>{{ " " }}</span>
+          <span class="references-block">
+            @for(part of parsedReferences.get(i); track $index){
+              @if(typeof part === "object" && part.book !== data.bookId){
+                <a class="references"
+                  [routerLink]="['/', (part.book | lowercase ), part.chapter]"
+                  [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)"
+                  >{{part.match}}</a
+                  >
+                } @else {
+                  <span class="references">{{typeof part === "object" ? part.match : part}}</span>
+                }
+              }
+            </span>
+          </span>
+        }
+
+        <!-- Paragraph Breaks -->
+        @if (text.type === 'paragraph' && data.verseLabel !== 'front') {
+          <div></div>
+        }
+        @if (isLast && text.type === 'quote') {
+          <div></div>
+        }
+
+        <!-- Complex Paragraph Logic -->
+        @if (text.type === 'paragraph') {
+          @if (!isFirst && isLast && chapterNumberDisplayIndex !== i && !shouldShowParagraph(data, text, i)) {
+            <span>
+              <div></div>
               <span #indentable [attr.data-index]="i" [class.indent]="indentStates[i] !== false">
                 {{ text.text }}
               </span>
-            }
+            </span>
           }
-          <!-- Section Headers -->
-          @if (text.type === 'section') {
-            <!-- Main Section (s1 or ms) -->
-            @if (text.tag === 's1' || text.tag === 'ms') {
-              <p></p>
-              <h3>{{ text.text }}</h3>
-            }
-            <!-- Sub Section (s2) -->
-            @if (text.tag === 's2') {
-              <verse-section
-                [data]="getDataForSection(i)"
-                [nextIsQuote]="checkNextIsQuote(i)"
-                [changeLine]="chapterNumberDisplayIndex !== i && data.text[i-1]?.type !== 'section'">
-              </verse-section>
-            }
+          @if (shouldShowParagraph(data, text, i)) {
+            <span #indentable [attr.data-index]="i" [class.indent]="indentStates[i] !== false">
+              {{ text.text }}
+            </span>
           }
         }
-        <!-- Quote Text -->
-        @if (text.type === 'quote') {
-          <span class="quote">
-            <div></div>
-            <span #indentable [attr.data-index]="i" [ngClass]="{'indent': indentStates[i] !== false, 'indent2': text.identLevel === 2}" class="quoteLineWrapper">
-              @if(isFirstDisplayableElement(i) && data.number > 0) {
-                <span class="quoteVerseNumber">
-                  <span class="verseNumber">{{ data.number }}</span>
-                  @if(hasFootnotes){
-                    <span (click)="toggleFootnotes()" class="footnoteIndicator">&#65290;</span>
-                  } @else {
-                    <span class="footnoteIndicator" style="visibility: hidden">&#65290;</span>
-                  }
-                </span>
-              }
-              <span (click)="hasFootnotes ? toggleFootnotes() : null">{{ text.text }}</span>
-            </span>{{ " " }}
-          </span>
+
+        <!-- Section Headers -->
+        @if (text.type === 'section') {
+          @if (text.tag === 's1' || text.tag === 'ms') {
+            <p></p>
+            <h3>{{ text.text }}</h3>
+          }
+          @if (text.tag === 's2') {
+            <verse-section
+              [data]="getDataForSection(i)"
+              [nextIsQuote]="checkNextIsQuote(i)"
+              [changeLine]="chapterNumberDisplayIndex !== i && data.text[i-1]?.type !== 'section'">
+            </verse-section>
+          }
         }
+    }
+  </ng-template>
+
+  <!-- Text Content Loop -->
+  @for (group of displayGroups; track $index; let groupIndex = $index; let isFirstGroup = $first; let isLastGroup = $last) {
+    @if (group.type === 'normal') {
+      @for (element of group.elements; track element.originalIndex) {
+        <span class="verseText">
+          <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === data.text.length - 1, isQuote: false }"></ng-container>
+        </span>
+      }
+    } @else {
+      @let firstElement = group.elements[0];
+      @let firstText = firstElement.data;
+      <span class="verseText">
+        <span class="quote">
+          <div></div>
+          <span #indentable [attr.data-index]="firstElement.originalIndex" [ngClass]="{'indent': indentStates[firstElement.originalIndex] !== false, 'indent2': getQuoteIdentLevel(firstText) === 2}" class="quoteLineWrapper">
+            @for (element of group.elements; track element.originalIndex) {
+              <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === data.text.length - 1, isQuote: element.data.type === 'quote' }"></ng-container>
+            }
+          </span>{{ " " }}
+        </span>
       </span>
     }
+  }
   }

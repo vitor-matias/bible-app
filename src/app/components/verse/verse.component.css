@@ -81,7 +81,9 @@ h3 {
 
 .quoteLineWrapper {
   position: relative;
-  display: inline-block;
+  display: inline-block; /* Using flow-root to respect floated chapter numbers while maintaining block behavior */
+  padding-left: 1em; /* Induction for wrapped lines + space for verse number */
+  text-indent: -1em; /* Pull first line back, leaving space for verse number */
 }
 
 .quoteVerseNumber {

@@ -47,6 +47,9 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   /** Pre-computed: does this verse have footnotes? */
   hasFootnotes = false
 
+  /** Groups for rendering - quotes and their continuations */
+  displayGroups: DisplayGroup[] = []
+
   private resizeObserver: ResizeObserver | null = null
   private resizeObserverTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -82,6 +85,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       this.chapterNumberDisplayIndex = this.computeChapterNumberIndex()
       this.hasFootnotes = this.data.text.some((t) => t.type === "footnote")
       this.parsedReferences = this.computeParsedReferences()
+      this.displayGroups = this.computeDisplayGroups()
     }
   }
 
@@ -176,8 +180,9 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       // layout thrashing during the Angular digest cycle.
       const chapterRect = chapterNumberEl.getBoundingClientRect()
       const elRect = element.getBoundingClientRect()
+      // Use a small vertical buffer to avoid issues with display: block and line heights
       const isTouching =
-        chapterRect.bottom >= elRect.top && chapterRect.top <= elRect.bottom
+        chapterRect.bottom > elRect.top + 2 && chapterRect.top < elRect.bottom - 2
 
       newIndentStates[i] = !isTouching
     })
@@ -308,6 +313,10 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   getVerseQueryParams = getVerseQueryParams
 
+  getQuoteIdentLevel(text: TextType): number {
+    return text.type === "quote" ? text.identLevel : 0
+  }
+
   toggleFootnotes(): void {
     const footnotes = this.data.text.filter((t) => t.type === "footnote")
     if (footnotes.length === 0) return
@@ -315,4 +324,52 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       data: { footnotes, verse: this.data },
     })
   }
+
+  private computeDisplayGroups(): DisplayGroup[] {
+    const groups: DisplayGroup[] = []
+    let currentGroup: DisplayGroup | null = null
+
+    this.data.text.forEach((text, originalIndex) => {
+      // Elements that should be considered continuation if they follow a quote
+      const isContinuationType =
+        text.type === "text" ||
+        text.type === "references" ||
+        text.type === "footnote"
+
+      if (text.type === "quote") {
+        // Start a new quote group
+        currentGroup = {
+          type: "quote",
+          elements: [{ data: text, originalIndex }],
+        }
+        groups.push(currentGroup)
+      } else if (currentGroup?.type === "quote" && isContinuationType) {
+        // Continue existing quote group
+        currentGroup.elements.push({ data: text, originalIndex })
+      } else {
+        // Start or continue a normal group
+        if (!currentGroup || currentGroup.type !== "normal") {
+          currentGroup = {
+            type: "normal",
+            elements: [{ data: text, originalIndex }],
+          }
+          groups.push(currentGroup)
+        } else {
+          currentGroup.elements.push({ data: text, originalIndex })
+        }
+      }
+    })
+
+    return groups
+  }
+}
+
+interface DisplayElement {
+  data: TextType
+  originalIndex: number
+}
+
+interface DisplayGroup {
+  type: "normal" | "quote"
+  elements: DisplayElement[]
 }
