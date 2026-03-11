@@ -22,7 +22,7 @@ describe("OfflineDataService", () => {
   }
 
   const THIRTY_DAYS_MS = 1000 * 60 * 60 * 24 * 30
-  const NINETY_ONE_DAYS_MS = 1000 * 60 * 60 * 24 * 91
+  const FORTY_ONE_DAYS_MS = 1000 * 60 * 60 * 24 * 41
 
   const mockBooks: Book[] = [
     {
@@ -147,8 +147,8 @@ describe("OfflineDataService", () => {
     })
 
     it("should preload books if cache is expired and online", async () => {
-      // 91 days ago
-      const oldTimestamp = Date.now() - NINETY_ONE_DAYS_MS
+      // 41 days ago
+      const oldTimestamp = Date.now() - FORTY_ONE_DAYS_MS
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = oldTimestamp.toString()
 
@@ -168,7 +168,7 @@ describe("OfflineDataService", () => {
     })
 
     it("should keep stale cache when offline and expired", async () => {
-      const oldTimestamp = Date.now() - NINETY_ONE_DAYS_MS
+      const oldTimestamp = Date.now() - FORTY_ONE_DAYS_MS
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = oldTimestamp.toString()
 
@@ -500,9 +500,9 @@ describe("OfflineDataService", () => {
   })
 
   describe("cache expiry", () => {
-    it("should consider cache expired after 90 days", async () => {
-      // 91 days ago
-      const oldTimestamp = Date.now() - NINETY_ONE_DAYS_MS
+    it("should consider cache expired after 40 days", async () => {
+      // 41 days ago
+      const oldTimestamp = Date.now() - FORTY_ONE_DAYS_MS
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = oldTimestamp.toString()
 
@@ -517,7 +517,7 @@ describe("OfflineDataService", () => {
       expect(true).toBe(true)
     })
 
-    it("should consider cache valid within 90 days", async () => {
+    it("should consider cache valid within 40 days", async () => {
       // 30 days ago
       const recentTimestamp = Date.now() - THIRTY_DAYS_MS
       mockLocalStorage._storage["booksCacheReady"] = "true"
