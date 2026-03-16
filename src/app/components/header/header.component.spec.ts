@@ -16,6 +16,7 @@ describe("HeaderComponent", () => {
   let networkServiceSpy: jasmine.SpyObj<NetworkService>
   let isOfflineSubject: BehaviorSubject<boolean>
   let mockSharePlugin: jasmine.SpyObj<typeof Share>
+  let originalShare: typeof navigator.share
 
   beforeEach(async () => {
     routerSpy = jasmine.createSpyObj("Router", ["navigate"])
@@ -25,6 +26,7 @@ describe("HeaderComponent", () => {
       isOffline: false,
     })
     mockSharePlugin = jasmine.createSpyObj("Share", ["share"])
+    originalShare = navigator.share
 
     await TestBed.configureTestingModule({
       imports: [HeaderComponent, CommonModule],
@@ -48,6 +50,19 @@ describe("HeaderComponent", () => {
     fixture.detectChanges()
   })
 
+  afterEach(() => {
+    if (originalShare === undefined) {
+      // @ts-expect-error
+      delete navigator.share
+    } else {
+      Object.defineProperty(navigator, "share", {
+        value: originalShare,
+        configurable: true,
+        writable: true,
+      })
+    }
+  })
+
   it("should create", () => {
     expect(component).toBeTruthy()
   })
@@ -63,14 +78,14 @@ describe("HeaderComponent", () => {
     spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
     mockSharePlugin.share.and.resolveTo()
 
-    if (typeof navigator.share === "function") {
-      spyOn(navigator, "share").and.resolveTo()
-    } else {
+    if (!navigator.share) {
       Object.defineProperty(navigator, "share", {
-        value: jasmine.createSpy("share").and.resolveTo(),
+        value: () => Promise.resolve(),
         configurable: true,
+        writable: true,
       })
     }
+    spyOn(navigator, "share").and.resolveTo()
 
     component.chapterNumber = 1
     component.ngOnInit() // Re-init to pickup the new native platform check
@@ -91,14 +106,15 @@ describe("HeaderComponent", () => {
     spyOn(Capacitor, "isNativePlatform").and.returnValue(false)
 
     const shareSpy = jasmine.createSpy("share").and.resolveTo()
-    if (typeof navigator.share === "function") {
-      spyOn(navigator, "share").and.callFake(shareSpy)
-    } else {
+
+    if (!navigator.share) {
       Object.defineProperty(navigator, "share", {
-        value: shareSpy,
+        value: () => Promise.resolve(),
         configurable: true,
+        writable: true,
       })
     }
+    spyOn(navigator, "share").and.callFake(shareSpy)
 
     mockSharePlugin.share.and.resolveTo() // Should not be called
 

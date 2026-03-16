@@ -32,19 +32,20 @@ describe("NetworkService", () => {
       "getStatus",
     ])
     mockNetworkPlugin.addListener.and.callFake(
-      // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
-      (eventName: string, callback: any) => {
+      (eventName: string, callback: (status: ConnectionStatus) => void) => {
         if (eventName === "networkStatusChange") {
           capturedCallback = callback
           return Promise.resolve(mockNetworkListener)
         }
-        return Promise.resolve({ remove: () => Promise.resolve() } as any)
+        return Promise.resolve({
+          remove: () => Promise.resolve(),
+        } as PluginListenerHandle)
       },
     )
     mockNetworkPlugin.getStatus.and.callFake(() => Promise.resolve(mockStatus))
 
     // Directly instantiate the service without TestBed to avoid complex Angular 18+ environment issues
-    service = new NetworkService(ngZoneMock as any, mockNetworkPlugin as any)
+    service = new NetworkService(ngZoneMock, mockNetworkPlugin)
 
     // Flush microtasks to ensure initial getStatus resolves
     await Promise.resolve()
@@ -65,9 +66,8 @@ describe("NetworkService", () => {
 
     // Instantiate new service - it will use the mocked Network plugin
     const newService = new NetworkService(
-      ngZoneMock as unknown as NgZone,
-      // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
-      mockNetworkPlugin as any,
+      ngZoneMock as NgZone,
+      mockNetworkPlugin,
     )
 
     // Wait for constructor's init

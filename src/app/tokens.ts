@@ -13,7 +13,6 @@ export const APP_PLUGIN = new InjectionToken<typeof App>(
           if (prop === "ngOnDestroy" && !(prop in target)) {
             return () => {}
           }
-          // biome-ignore lint/suspicious/noExplicitAny: Capacitor proxy needs dynamic access
           return Reflect.get(target, prop, receiver)
         },
       }),
@@ -30,7 +29,6 @@ export const NETWORK_PLUGIN = new InjectionToken<typeof Network>(
           if (prop === "ngOnDestroy" && !(prop in target)) {
             return () => {}
           }
-          // biome-ignore lint/suspicious/noExplicitAny: Capacitor proxy needs dynamic access
           return Reflect.get(target, prop, receiver)
         },
       }),
@@ -47,7 +45,6 @@ export const SHARE_PLUGIN = new InjectionToken<typeof Share>(
           if (prop === "ngOnDestroy" && !(prop in target)) {
             return () => {}
           }
-          // biome-ignore lint/suspicious/noExplicitAny: Capacitor proxy needs dynamic access
           return Reflect.get(target, prop, receiver)
         },
       }),
