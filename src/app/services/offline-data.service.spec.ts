@@ -4,10 +4,12 @@ import {
 } from "@angular/common/http/testing"
 import { TestBed } from "@angular/core/testing"
 import { DatabaseService } from "./database.service"
+import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
 
 describe("OfflineDataService", () => {
   let service: OfflineDataService
+  let networkService: jasmine.SpyObj<NetworkService>
   let httpMock: HttpTestingController
   let mockLocalStorage: {
     _storage: Record<string, string>
@@ -93,17 +95,26 @@ describe("OfflineDataService", () => {
     spy.getAll.and.returnValue(Promise.resolve([]))
     spy.clearAndPutAll.and.returnValue(Promise.resolve())
 
+    // Mock NetworkService
+    const networkSpy = jasmine.createSpyObj("NetworkService", [], {
+      isOffline: false,
+    })
+    
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       providers: [
         OfflineDataService,
         { provide: DatabaseService, useValue: spy },
+        { provide: NetworkService, useValue: networkSpy },
       ],
     })
     service = TestBed.inject(OfflineDataService)
     databaseService = TestBed.inject(
       DatabaseService,
     ) as jasmine.SpyObj<DatabaseService>
+    networkService = TestBed.inject(
+      NetworkService,
+    ) as jasmine.SpyObj<NetworkService>
     httpMock = TestBed.inject(HttpTestingController)
   })
 
@@ -172,7 +183,8 @@ describe("OfflineDataService", () => {
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = oldTimestamp.toString()
 
-      spyOnProperty(navigator, "onLine", "get").and.returnValue(false)
+      const isOfflineSpy = Object.getOwnPropertyDescriptor(networkService, "isOffline")?.get as jasmine.Spy
+      isOfflineSpy.and.returnValue(true)
 
       await service.preloadAllBooksAndChapters()
 

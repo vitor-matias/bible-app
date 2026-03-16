@@ -2,6 +2,7 @@ import { HttpClient } from "@angular/common/http"
 import { Injectable } from "@angular/core"
 import { firstValueFrom } from "rxjs"
 import { DatabaseService } from "./database.service"
+import { NetworkService } from "./network.service"
 
 @Injectable({
   providedIn: "root",
@@ -17,6 +18,7 @@ export class OfflineDataService {
   constructor(
     private http: HttpClient,
     private databaseService: DatabaseService,
+    private networkService: NetworkService,
   ) {}
 
   /**
@@ -33,7 +35,7 @@ export class OfflineDataService {
     if (isAlreadyCached && !isExpired) {
       return
     }
-    if (isExpired && typeof navigator !== "undefined" && !navigator.onLine) {
+    if (isExpired && this.networkService.isOffline) {
       // Keep using stale cache until we can refresh online
       return
     }

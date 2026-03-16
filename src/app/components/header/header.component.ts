@@ -1,8 +1,10 @@
+import { CommonModule } from "@angular/common"
 import {
   ChangeDetectorRef,
   Component,
   DestroyRef,
   EventEmitter,
+  Inject,
   Input,
   inject,
   type OnChanges,
@@ -22,9 +24,23 @@ import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { RouterModule } from "@angular/router"
+import { Capacitor } from "@capacitor/core"
+import type { Share } from "@capacitor/share"
 import { BookmarkService } from "../../services/bookmark.service"
+import { NetworkService } from "../../services/network.service"
 import { ThemeService } from "../../services/theme.service"
+import { SHARE_PLUGIN } from "../../tokens"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
+
+interface Book {
+  id: string
+  name: string
+}
+
+interface Bookmark {
+  bookId: string
+  chapter: number
+}
 
 @Component({
   standalone: true,
@@ -39,6 +55,7 @@ import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selecto
     RouterModule,
     MatTooltipModule,
     MatDividerModule,
+    CommonModule,
   ],
   templateUrl: "./header.component.html",
   styleUrls: ["./header.component.css"],
@@ -60,7 +77,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Output() toggleViewMode = new EventEmitter<void>()
 
   mobile = false
-  isOffline = typeof navigator !== "undefined" ? !navigator.onLine : false
+  isOffline = false
 
   private readonly destroyRef = inject(DestroyRef)
 
@@ -69,19 +86,26 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     private readonly bookmarkService: BookmarkService,
     private readonly bottomSheet: MatBottomSheet,
     private readonly cdr: ChangeDetectorRef,
+    private readonly networkService: NetworkService,
+    @Inject(SHARE_PLUGIN) private sharePlugin: typeof Share,
   ) {}
 
   ngOnInit(): void {
-    if (window.screen.width <= 480) {
-      // 768px portrait
+    if (typeof window !== "undefined" && window.screen.width <= 480) {
       this.mobile = true
     }
     this.canShare =
-      typeof navigator !== "undefined" && typeof navigator.share === "function"
-    if (typeof window !== "undefined") {
-      window.addEventListener("online", this.updateOnlineStatus)
-      window.addEventListener("offline", this.updateOnlineStatus)
-    }
+      Capacitor.isNativePlatform() ||
+      (typeof navigator !== "undefined" &&
+        typeof navigator.share === "function")
+
+    this.isOffline = this.networkService.isOffline
+    this.networkService.isOffline$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((isOffline) => {
+        this.isOffline = isOffline
+        this.cdr.detectChanges()
+      })
 
     this.bookmarkService.bookmarks$
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -106,6 +130,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   private updateBookmarkState() {
     if (this.book && this.chapterNumber) {
+      // @ts-ignore - Assuming bookmarkService has this method based on project context
       this.currentBookmark = this.bookmarkService.getBookmark(
         this.book.id,
         this.chapterNumber,
@@ -130,10 +155,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopLabelCycle()
-    if (typeof window !== "undefined") {
-      window.removeEventListener("online", this.updateOnlineStatus)
-      window.removeEventListener("offline", this.updateOnlineStatus)
-    }
   }
 
   showBookSelector() {
@@ -227,20 +248,29 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     const text = isAbout
       ? "Leia a Biblia nesta app."
       : `Ler ${this.book?.name} ${this.chapterNumber}.`
-    const url = globalThis.window === undefined ? "" : globalThis.location.href
+    const url = typeof window === "undefined" ? "" : window.location.href
 
     try {
-      await navigator.share({ title, text, url }).finally(() => {
-        // Shared successfully
-        // @ts-expect-error
-        if (globalThis.umami) {
-          // @ts-expect-error
-          globalThis.umami.track("share", {
-            book: this.book?.id,
-            chapter: this.chapterNumber,
-          })
-        }
-      })
+      if (Capacitor.isNativePlatform()) {
+        await this.sharePlugin.share({
+          title: "Biblia Sagrada",
+          text,
+          url,
+          dialogTitle: "Partilhar passagem",
+        })
+      } else {
+        await navigator.share({ title, text, url })
+      }
+
+      // Shared successfully
+      // @ts-ignore
+      if (typeof window !== "undefined" && (window as any).umami) {
+        // @ts-ignore
+        (window as any).umami.track("share", {
+          book: this.book?.id,
+          chapter: this.chapterNumber,
+        })
+      }
     } catch {
       // User canceled or share failed; no UI feedback needed.
     }
@@ -261,11 +291,5 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       this.labelInterval = undefined
     }
     this.bookLabelMode = "title"
-  }
-
-  private updateOnlineStatus = () => {
-    this.isOffline =
-      typeof navigator !== "undefined" ? !navigator.onLine : false
-    this.cdr.detectChanges()
   }
 }

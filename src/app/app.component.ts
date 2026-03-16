@@ -1,46 +1,42 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  Inject,
+  NgZone,
   type OnDestroy,
   type OnInit,
 } from "@angular/core"
-import { RouterOutlet } from "@angular/router"
-import { SwUpdate } from "@angular/service-worker"
+import { Router, RouterOutlet } from "@angular/router"
+import { App } from "@capacitor/app"
 import { Capacitor } from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
 import { OfflineDataService } from "./services/offline-data.service"
+import { ThemeService } from "./services/theme.service"
+import { APP_PLUGIN } from "./tokens"
 
 @Component({
   selector: "app-root",
-  templateUrl: "./app.component.html",
+  templateUrl: "app.component.html",
   styleUrl: "./app.component.css",
-  changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
   imports: [RouterOutlet],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppComponent implements OnInit, OnDestroy {
   private installEventFired = false
 
   private readonly installListener = () => {
     this.installEventFired = true
-    this.offlineDataService.preloadAllBooksAndChapters("install")
   }
 
   constructor(
-    private swUpdate: SwUpdate,
     private offlineDataService: OfflineDataService,
+    private router: Router,
+    private ngZone: NgZone,
+    private themeService: ThemeService,
+    @Inject(APP_PLUGIN) private appPlugin: typeof App,
   ) {
     injectSpeedInsights()
-
-    if (this.swUpdate.isEnabled) {
-      this.swUpdate.versionUpdates.subscribe((event) => {
-        if (event.type === "VERSION_READY") {
-          this.swUpdate.activateUpdate().then(() => {
-            window.location.reload()
-          })
-        }
-      })
-    }
   }
 
   ngOnInit(): void {
@@ -51,6 +47,26 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.isStandaloneMode() && !this.installEventFired) {
       this.offlineDataService.preloadAllBooksAndChapters("standalone")
     }
+
+    this.setupAppLinks()
+  }
+
+  private setupAppLinks(): void {
+    if (!Capacitor.isNativePlatform()) return
+
+    this.appPlugin.addListener("appUrlOpen", (event) => {
+      this.ngZone.run(() => {
+        const domain = "biblia.capuchinhos.org"
+        const fallbackDomain = "bible-app-ten-psi.vercel.app"
+
+        const url = new URL(event.url)
+
+        if (url.hostname === domain || url.hostname === fallbackDomain) {
+          // Route inside the angular space using path
+          this.router.navigateByUrl(url.pathname + url.search + url.hash)
+        }
+      })
+    })
   }
 
   ngOnDestroy(): void {

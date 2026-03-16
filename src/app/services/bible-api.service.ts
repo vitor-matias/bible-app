@@ -10,6 +10,7 @@ import {
   switchMap,
   throwError,
 } from "rxjs"
+import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
 
 @Injectable({
@@ -25,6 +26,7 @@ export class BibleApiService {
   constructor(
     private http: HttpClient,
     private offlineDataService: OfflineDataService,
+    private networkService: NetworkService,
   ) {}
 
   getAvailableBooks(): Observable<Book[]> {
@@ -37,7 +39,7 @@ export class BibleApiService {
         if (this.books.length) {
           return of(this.books)
         }
-        if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (this.networkService.isOffline) {
           return throwError(
             () => new Error("Offline and no cached books available"),
           )
@@ -69,7 +71,7 @@ export class BibleApiService {
           return of(cached)
         }
 
-        if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (this.networkService.isOffline) {
           return throwError(() => new Error("Offline - chapter not cached"))
         }
 
@@ -109,7 +111,7 @@ export class BibleApiService {
         if (cached) {
           return of(cached)
         }
-        if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (this.networkService.isOffline) {
           return throwError(() => new Error("Offline - book not cached"))
         }
         return this.http.get(`${this.api}/${book}`) as Observable<Book>
@@ -131,7 +133,7 @@ export class BibleApiService {
         if (cached?.text && cached?.text?.length > 0) {
           return of(cached)
         }
-        if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (this.networkService.isOffline) {
           return throwError(() => new Error("Offline - verse not cached"))
         }
         return this.http.get(
