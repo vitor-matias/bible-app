@@ -53,7 +53,7 @@ h3 {
   line-height: 1;
   /* Adjusted for better alignment, might need tweaking */
 
-  /*margin-right: 10px;  Adds space to the right of the chapter number */
+  margin-right: 8px;  /* Adds space to the right of the chapter number */
   /* margin-bottom: 10px; Adds space below the chapter number */
   color: dimgray;
 }

@@ -53,9 +53,7 @@ export class AutoScrollControlsComponent implements OnDestroy {
     const nextSpeed = this.autoScrollService.updateAutoScrollSpeed(delta)
     this.preferencesService.setAutoScrollSpeed(nextSpeed)
 
-    // @ts-expect-error
     if (globalThis.umami) {
-      // @ts-expect-error
       globalThis.umami.track("autoscroll_speed", {
         speed: nextSpeed,
       })
@@ -75,9 +73,7 @@ export class AutoScrollControlsComponent implements OnDestroy {
       },
     })
 
-    // @ts-expect-error
     if (globalThis.umami) {
-      // @ts-expect-error
       globalThis.umami.track("autoscroll_status", {
         enabled: true,
       })
@@ -89,9 +85,7 @@ export class AutoScrollControlsComponent implements OnDestroy {
   private stopAutoScroll(): void {
     this.autoScrollService.stop()
 
-    // @ts-expect-error
     if (globalThis.umami) {
-      // @ts-expect-error
       globalThis.umami.track("autoscroll_status", {
         enabled: false,
       })

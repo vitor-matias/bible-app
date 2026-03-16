@@ -51,9 +51,7 @@ export class ThemeService {
     this.applyTheme(nextMode)
     this.preferencesService.setTheme(nextMode)
 
-    // @ts-expect-error
     if (window.umami) {
-      // @ts-expect-error
       window.umami.track(`theme-${nextMode}`)
     }
   }

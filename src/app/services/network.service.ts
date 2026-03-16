@@ -1,10 +1,6 @@
-import { Injectable, NgZone, Inject } from "@angular/core"
+import { Inject, Injectable, NgZone } from "@angular/core"
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core"
-import {
-  Network,
-  type ConnectionStatus,
-  type NetworkPlugin,
-} from "@capacitor/network"
+import { type ConnectionStatus, type NetworkPlugin } from "@capacitor/network"
 import { BehaviorSubject, type Observable } from "rxjs"
 import { NETWORK_PLUGIN } from "../tokens"
 

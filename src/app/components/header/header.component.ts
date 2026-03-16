@@ -32,16 +32,6 @@ import { ThemeService } from "../../services/theme.service"
 import { SHARE_PLUGIN } from "../../tokens"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 
-interface Book {
-  id: string
-  name: string
-}
-
-interface Bookmark {
-  bookId: string
-  chapter: number
-}
-
 @Component({
   standalone: true,
   selector: "header",
@@ -130,7 +120,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   private updateBookmarkState() {
     if (this.book && this.chapterNumber) {
-      // @ts-ignore - Assuming bookmarkService has this method based on project context
       this.currentBookmark = this.bookmarkService.getBookmark(
         this.book.id,
         this.chapterNumber,
@@ -263,10 +252,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       }
 
       // Shared successfully
-      // @ts-ignore
-      if (typeof window !== "undefined" && (window as any).umami) {
-        // @ts-ignore
-        (window as any).umami.track("share", {
+
+      if (typeof window !== "undefined" && window.umami) {
+        window.umami.track("share", {
           book: this.book?.id,
           chapter: this.chapterNumber,
         })

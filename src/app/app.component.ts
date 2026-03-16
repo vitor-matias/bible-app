@@ -33,7 +33,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private offlineDataService: OfflineDataService,
     private router: Router,
     private ngZone: NgZone,
-    private themeService: ThemeService,
+    _themeService: ThemeService,
     @Inject(APP_PLUGIN) private appPlugin: typeof App,
   ) {
     injectSpeedInsights()

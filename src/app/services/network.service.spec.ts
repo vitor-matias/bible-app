@@ -10,7 +10,7 @@ describe("NetworkService", () => {
   let mockNetworkListener: jasmine.SpyObj<PluginListenerHandle>
   let capturedCallback: ((status: ConnectionStatus) => void) | undefined
   // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
-  let mockNetworkPlugin: any
+  let mockNetworkPlugin: jasmine.SpyObj<any>
 
   beforeEach(async () => {
     mockStatus = {
@@ -18,20 +18,29 @@ describe("NetworkService", () => {
       connectionType: "wifi",
     }
     capturedCallback = undefined
-    mockNetworkListener = jasmine.createSpyObj("PluginListenerHandle", ["remove"])
+    mockNetworkListener = jasmine.createSpyObj("PluginListenerHandle", [
+      "remove",
+    ])
     mockNetworkListener.remove.and.resolveTo()
 
     ngZoneMock = jasmine.createSpyObj("NgZone", ["run"])
+    // biome-ignore lint/complexity/noBannedTypes: Mocking NgZone
     ngZoneMock.run.and.callFake((fn: Function) => fn())
 
-    mockNetworkPlugin = jasmine.createSpyObj("Network", ["addListener", "getStatus"])
-    mockNetworkPlugin.addListener.and.callFake((eventName: string, callback: any) => {
-      if (eventName === "networkStatusChange") {
-        capturedCallback = callback
-        return Promise.resolve(mockNetworkListener)
-      }
-      return Promise.resolve({ remove: () => Promise.resolve() } as any)
-    })
+    mockNetworkPlugin = jasmine.createSpyObj("Network", [
+      "addListener",
+      "getStatus",
+    ])
+    mockNetworkPlugin.addListener.and.callFake(
+      // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
+      (eventName: string, callback: any) => {
+        if (eventName === "networkStatusChange") {
+          capturedCallback = callback
+          return Promise.resolve(mockNetworkListener)
+        }
+        return Promise.resolve({ remove: () => Promise.resolve() } as any)
+      },
+    )
     mockNetworkPlugin.getStatus.and.callFake(() => Promise.resolve(mockStatus))
 
     // Directly instantiate the service without TestBed to avoid complex Angular 18+ environment issues
@@ -55,8 +64,12 @@ describe("NetworkService", () => {
     mockStatus.connectionType = "none"
 
     // Instantiate new service - it will use the mocked Network plugin
-    const newService = new NetworkService(ngZoneMock as any, mockNetworkPlugin as any)
-    
+    const newService = new NetworkService(
+      ngZoneMock as unknown as NgZone,
+      // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
+      mockNetworkPlugin as any,
+    )
+
     // Wait for constructor's init
     await Promise.resolve()
     await Promise.resolve()
@@ -65,8 +78,10 @@ describe("NetworkService", () => {
   })
 
   it("should update offline state via network listener", () => {
-    expect(capturedCallback).toBeDefined("networkStatusChange listener should be registered")
-    
+    expect(capturedCallback).toBeDefined(
+      "networkStatusChange listener should be registered",
+    )
+
     if (capturedCallback) {
       capturedCallback({ connected: false, connectionType: "none" })
       expect(service.isOffline).toBeTrue()

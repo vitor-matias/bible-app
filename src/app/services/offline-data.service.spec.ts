@@ -99,7 +99,7 @@ describe("OfflineDataService", () => {
     const networkSpy = jasmine.createSpyObj("NetworkService", [], {
       isOffline: false,
     })
-    
+
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       providers: [
@@ -183,7 +183,10 @@ describe("OfflineDataService", () => {
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = oldTimestamp.toString()
 
-      const isOfflineSpy = Object.getOwnPropertyDescriptor(networkService, "isOffline")?.get as jasmine.Spy
+      const isOfflineSpy = Object.getOwnPropertyDescriptor(
+        networkService,
+        "isOffline",
+      )?.get as jasmine.Spy
       isOfflineSpy.and.returnValue(true)
 
       await service.preloadAllBooksAndChapters()

@@ -188,9 +188,7 @@ export class SearchComponent {
       this.attachObserverToSentinel() // Attach observer after new search
       this.scrollToTop()
 
-      // @ts-expect-error
       if (window.umami) {
-        // @ts-expect-error
         window.umami.track("search", {
           text,
         })

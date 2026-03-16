@@ -50,7 +50,9 @@ export class DatabaseService {
       }
 
       request.onerror = (event) => {
-        console.error("IndexedDB error:", request.error)
+        if (request.error) {
+          console.error("IndexedDB error:", request.error)
+        }
         this.dbPromise = null
         resolve(null)
       }

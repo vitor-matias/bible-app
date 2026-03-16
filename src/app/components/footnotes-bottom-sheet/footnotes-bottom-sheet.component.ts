@@ -86,9 +86,7 @@ export class FootnotesBottomSheetComponent {
     private bibleRef: BibleReferenceService,
     private bookService: BookService,
   ) {
-    // @ts-expect-error
     if (window.umami) {
-      // @ts-expect-error
       window.umami.track("footnotes_opened", {
         book: data.verse.bookId,
         chapter: data.verse.chapterNumber,

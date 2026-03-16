@@ -1,20 +1,21 @@
 import { CommonModule } from "@angular/common"
 import { ChangeDetectorRef } from "@angular/core"
-import { TestBed } from "@angular/core/testing"
+import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
+import type { Share } from "@capacitor/share"
 import { BehaviorSubject } from "rxjs"
-import { SHARE_PLUGIN } from "../../tokens"
 import { NetworkService } from "../../services/network.service"
+import { SHARE_PLUGIN } from "../../tokens"
 import { HeaderComponent } from "./header.component"
 
 describe("HeaderComponent", () => {
   let component: HeaderComponent
-  let fixture: any
+  let fixture: ComponentFixture<HeaderComponent>
   let routerSpy: jasmine.SpyObj<Router>
   let networkServiceSpy: jasmine.SpyObj<NetworkService>
   let isOfflineSubject: BehaviorSubject<boolean>
-  let mockSharePlugin: any
+  let mockSharePlugin: jasmine.SpyObj<typeof Share>
 
   beforeEach(async () => {
     routerSpy = jasmine.createSpyObj("Router", ["navigate"])
@@ -37,7 +38,13 @@ describe("HeaderComponent", () => {
 
     fixture = TestBed.createComponent(HeaderComponent)
     component = fixture.componentInstance
-    component.book = { id: "gen", name: "Genesis" }
+    component.book = {
+      id: "gen",
+      name: "Genesis",
+      shortName: "",
+      abrv: "",
+      chapterCount: 50,
+    }
     fixture.detectChanges()
   })
 
@@ -55,9 +62,14 @@ describe("HeaderComponent", () => {
   it("should share using Capacitor Share on native platforms", async () => {
     spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
     mockSharePlugin.share.and.resolveTo()
-    
-    if (typeof navigator.share !== "undefined") {
-      spyOnProperty(navigator, "share", "get").and.returnValue(undefined as any)
+
+    if (typeof navigator.share === "function") {
+      spyOn(navigator, "share").and.resolveTo()
+    } else {
+      Object.defineProperty(navigator, "share", {
+        value: jasmine.createSpy("share").and.resolveTo(),
+        configurable: true,
+      })
     }
 
     component.chapterNumber = 1
@@ -77,17 +89,17 @@ describe("HeaderComponent", () => {
 
   it("should share using navigator.share on web platforms", async () => {
     spyOn(Capacitor, "isNativePlatform").and.returnValue(false)
-    
+
     const shareSpy = jasmine.createSpy("share").and.resolveTo()
-    if (typeof navigator.share === "undefined") {
-      Object.defineProperty(navigator, "share", {
-        get: () => shareSpy,
-        configurable: true
-      });
+    if (typeof navigator.share === "function") {
+      spyOn(navigator, "share").and.callFake(shareSpy)
     } else {
-      spyOnProperty(navigator, "share", "get").and.returnValue(shareSpy)
+      Object.defineProperty(navigator, "share", {
+        value: shareSpy,
+        configurable: true,
+      })
     }
-    
+
     mockSharePlugin.share.and.resolveTo() // Should not be called
 
     component.chapterNumber = 1

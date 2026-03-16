@@ -10,7 +10,8 @@ import { APP_PLUGIN } from "./tokens"
 describe("AppComponent", () => {
   let routerSpy: jasmine.SpyObj<Router>
   let ngZone: NgZone
-  let mockAppPlugin: any
+  // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
+  let mockAppPlugin: jasmine.SpyObj<any>
 
   beforeEach(async () => {
     routerSpy = jasmine.createSpyObj("Router", ["navigateByUrl"])
@@ -42,7 +43,7 @@ describe("AppComponent", () => {
   it("should setup app links listener on native platform", () => {
     mockAppPlugin.addListener.and.resolveTo({
       remove: async () => {},
-    } as any)
+    } as unknown as PluginListenerHandle)
 
     const fixture = TestBed.createComponent(AppComponent)
     fixture.detectChanges() // triggers ngOnInit
@@ -64,7 +65,8 @@ describe("AppComponent", () => {
       }
       return Promise.resolve({
         remove: async () => {},
-      } as PluginListenerHandle)
+      } as unknown as PluginListenerHandle)
+      // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
     }) as any)
 
     const fixture = TestBed.createComponent(AppComponent)
@@ -94,7 +96,8 @@ describe("AppComponent", () => {
       }
       return Promise.resolve({
         remove: async () => {},
-      } as PluginListenerHandle)
+      } as unknown as PluginListenerHandle)
+      // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
     }) as any)
 
     const fixture = TestBed.createComponent(AppComponent)
