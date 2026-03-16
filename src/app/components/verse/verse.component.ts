@@ -78,7 +78,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     private bibleRef: BibleReferenceService,
     private bottomSheet: MatBottomSheet,
     private cdr: ChangeDetectorRef,
-  ) {}
+  ) { }
 
   ngOnChanges(_changes: SimpleChanges): void {
     if (this.data) {
@@ -191,7 +191,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     // Only update if changes occurred to avoid unnecessary CD triggers
     const hasChanges =
       Object.keys(newIndentStates).length !==
-        Object.keys(this.indentStates).length ||
+      Object.keys(this.indentStates).length ||
       Object.keys(newIndentStates).some(
         (key) =>
           newIndentStates[Number(key)] !== this.indentStates[Number(key)],
@@ -233,6 +233,25 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     }
 
     return this.nextVerseStartsWithQuote
+  }
+
+  checkNextIsParagraph(i: number): boolean {
+    const sectionText = this.getDataForSection(i).text
+    const lastElementIndex = i + sectionText.length - 1
+
+    if (lastElementIndex + 1 < this.data.text.length) {
+      const nextDisplayableIdx = this.data.text.findIndex(
+        (t, idx) =>
+          idx > lastElementIndex &&
+          t.type !== "footnote" &&
+          t.type !== "references",
+      )
+
+      if (nextDisplayableIdx !== -1) {
+        return this.data.text[nextDisplayableIdx].type === "paragraph"
+      }
+    }
+    return false
   }
 
   private computeChapterNumberIndex(): number {

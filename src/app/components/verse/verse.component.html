@@ -89,6 +89,7 @@
             <verse-section
               [data]="getDataForSection(i)"
               [nextIsQuote]="checkNextIsQuote(i)"
+              [nextIsParagraph]="checkNextIsParagraph(i)"
               [changeLine]="chapterNumberDisplayIndex !== i && data.text[i-1]?.type !== 'section'">
             </verse-section>
           }

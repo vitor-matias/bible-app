@@ -1,4 +1,4 @@
-<span class="section" [ngClass]="{'center':data.text[data.text.length - 1].type === 'quote' || nextIsQuote}">
+<span class="section" [ngClass]="{'center':data.text[data.text.length - 1].type === 'quote' || nextIsQuote || nextIsParagraph}">
   @for (text of data.text; track $index; let i = $index; let isFirst = $first; let isLast = $last) {
     @if (changeLine && isFirst) {
       <div class="line-break"></div>
@@ -7,6 +7,9 @@
       <span class="section">{{text.text}}</span>
     }
     @if(text.type === "references"){
+      @if (data.text[data.text.length - 1].type === 'quote' || nextIsQuote || nextIsParagraph) {
+        <div class="line-break"></div>
+      }
       <span class="references">
         <span>{{ " " }}</span>
         @for(part of parsedReferences.get(i); track $index){
@@ -23,12 +26,12 @@
           }
         </span>
       }
-      @if (data.verseLabel === 'front' && isLast && data.text[data.text.length -1].type !== 'quote' && !nextIsQuote) {
+      @if (data.verseLabel === 'front' && isLast && data.text[data.text.length -1].type !== 'quote' && !nextIsQuote && !nextIsParagraph) {
         <span class="section"
           > —
         </span>
       }
-      @if (data.verseLabel !== 'front' && isLast && text.type !== 'quote' && !nextIsQuote) {
+      @if (data.verseLabel !== 'front' && isLast && text.type !== 'quote' && !nextIsQuote && !nextIsParagraph) {
         <span class="section"> — </span>
       }
     }

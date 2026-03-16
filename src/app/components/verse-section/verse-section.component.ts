@@ -27,6 +27,9 @@ export class VerseSectionComponent implements OnChanges {
   @Input()
   nextIsQuote = false
 
+  @Input()
+  nextIsParagraph = false
+
   /** Pre-computed parsed references keyed by text index */
   parsedReferences: Map<number, (string | BibleReference)[]> = new Map()
 
