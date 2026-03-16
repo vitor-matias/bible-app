@@ -78,7 +78,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     private bibleRef: BibleReferenceService,
     private bottomSheet: MatBottomSheet,
     private cdr: ChangeDetectorRef,
-  ) { }
+  ) {}
 
   ngOnChanges(_changes: SimpleChanges): void {
     if (this.data) {
@@ -191,7 +191,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     // Only update if changes occurred to avoid unnecessary CD triggers
     const hasChanges =
       Object.keys(newIndentStates).length !==
-      Object.keys(this.indentStates).length ||
+        Object.keys(this.indentStates).length ||
       Object.keys(newIndentStates).some(
         (key) =>
           newIndentStates[Number(key)] !== this.indentStates[Number(key)],
