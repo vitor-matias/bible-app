@@ -196,13 +196,15 @@ export class BibleReaderComponent implements OnDestroy {
           this.book.id === tempBook.id &&
           this.chapterNumber === chapterParam
         ) {
-          this.animationService.scrollToVerseElement(
-            this.bookBlock?.nativeElement,
-            this.bookContainer?.nativeElement,
-            verseStartParam || 1,
-            verseEndParam,
-            highlight,
-          )
+          if (verseStartParam !== undefined) {
+            this.animationService.scrollToVerseElement(
+              this.bookBlock?.nativeElement,
+              this.bookContainer?.nativeElement,
+              verseStartParam,
+              verseEndParam,
+              highlight,
+            )
+          }
           return
         }
 
