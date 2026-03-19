@@ -318,6 +318,7 @@ export class BibleReaderComponent implements OnDestroy {
               this.bookContainer?.nativeElement,
               this.viewMode,
               startAtBottom,
+              () => this.pagedNav?.ensureAlignedScrollWidth(),
             )
           } else {
             this.animationService.scrollToVerseElement(
@@ -368,6 +369,7 @@ export class BibleReaderComponent implements OnDestroy {
                 this.bookContainer?.nativeElement,
                 this.viewMode,
                 startAtBottom,
+                () => this.pagedNav?.ensureAlignedScrollWidth(),
               )
             } else {
               this.animationService.scrollToVerseElement(

@@ -206,6 +206,7 @@ h6 {
 /* Paged View Styles */
 
 .paged-view-container {
+  position: relative;
   overflow-y: hidden;
   overflow-x: hidden;
   /* Hide overflow instead of auto to prevent momentary scrollbars during animation */
@@ -310,7 +311,7 @@ h6 {
     /* Use column-width to allow multiple columns (pages) */
     column-count: auto;
     /* Formula for stable paging: Gap = 2 * Padding */
-    column-gap: 4.5vw;
+    column-gap: 4vw;
     /* 2 * 2vw = 4vw */
     padding: 0 2vw 2vw 2vw;
     width: 100%;
@@ -332,9 +333,9 @@ h6 {
     column-count: 2;
     column-width: auto;
     column-fill: auto;
+    /* Formula for stable paging: Gap = 2 * Padding */
     column-gap: 4vw;
-    /* Moderate gap */
-    padding: 6px;
+    padding: 0 2vw;
     height: calc(100% - 62px);
     /* Reserve space for copyright footer */
     width: 100%;
@@ -342,7 +343,6 @@ h6 {
     margin: 0 auto !important;
     orphans: 1;
     widows: 1;
-    padding: 0 24px;
   }
 }
 
@@ -357,9 +357,9 @@ h6 {
     column-count: 2;
     column-width: auto;
     column-fill: auto;
+    /* Formula for stable paging: Gap = 2 * Padding */
     column-gap: 6vw;
-    /* Moderate gap */
-    padding: 0 24px;
+    padding: 0 3vw;
     height: calc(100% - 62px);
     /* Reserve space for copyright footer */
     width: 100%;
@@ -373,7 +373,7 @@ h6 {
   font-family: "PT Serif", serif;
   width: 95%;
   margin: 0 auto;
-  padding: 8px 0 16px 0;
+  padding: 8px 0 8px 0;
   text-align: center;
   font-size: 18px;
   color: dimgray;
@@ -390,6 +390,6 @@ h6 {
   left: 50%;
   transform: translateX(-50%);
   opacity: 0.9;
-  padding: 8px 0 16px 0;
+  padding: 8px 0 8px 0;
   width: 100%;
 }

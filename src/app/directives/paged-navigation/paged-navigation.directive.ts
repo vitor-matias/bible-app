@@ -18,14 +18,24 @@ export interface PageState {
   standalone: true,
 })
 export class PagedNavigationDirective implements OnDestroy {
-  @Input("appPagedNavigation") bookBlock?: HTMLElement
+  @Input("appPagedNavigation") set bookBlock(value: HTMLElement | undefined) {
+    this._bookBlock = value
+    this.observeContentChanges()
+  }
+  get bookBlock(): HTMLElement | undefined {
+    return this._bookBlock
+  }
   @Input() viewMode: "scrolling" | "paged" = "scrolling"
 
   @Output() nextChapter = new EventEmitter<void>()
   @Output() prevChapter = new EventEmitter<void>()
   @Output() pageStateChange = new EventEmitter<PageState>()
 
+  private _bookBlock?: HTMLElement
   private resizeTimeout?: number
+  private alignmentTimeout?: number
+  private mutationObserver?: MutationObserver
+  private spacer?: HTMLElement
 
   constructor(private containerRef: ElementRef<HTMLElement>) {}
 
@@ -35,6 +45,9 @@ export class PagedNavigationDirective implements OnDestroy {
 
   ngOnDestroy(): void {
     clearTimeout(this.resizeTimeout)
+    clearTimeout(this.alignmentTimeout)
+    this.mutationObserver?.disconnect()
+    this.spacer?.remove()
   }
 
   @HostListener("scroll")
@@ -54,6 +67,7 @@ export class PagedNavigationDirective implements OnDestroy {
     if (this.viewMode === "paged") {
       clearTimeout(this.resizeTimeout)
       this.resizeTimeout = window.setTimeout(() => {
+        this.ensureAlignedScrollWidth()
         this.snapToNearestPage()
         this.onScroll()
       }, 150)
@@ -116,5 +130,56 @@ export class PagedNavigationDirective implements OnDestroy {
     const paddingLeft = parseFloat(style.paddingLeft) || 0
     const paddingRight = parseFloat(style.paddingRight) || 0
     return block.clientWidth - (paddingLeft + paddingRight) + gap
+  }
+
+  /**
+   * With a 2-column layout and an odd total number of columns,
+   * maxScroll is not a multiple of advanceWidth, causing the last
+   * page to be off-center. This method adds a spacer element to
+   * extend the scrollable area to the next aligned boundary.
+   */
+  ensureAlignedScrollWidth(): void {
+    this.spacer?.remove()
+    this.spacer = undefined
+
+    const block = this._bookBlock
+    if (!this.container || !block || this.viewMode !== "paged") return
+
+    const advanceWidth = this.getAdvanceWidth(block)
+    if (advanceWidth <= 0) return
+
+    const scrollWidth = this.container.scrollWidth
+    const clientWidth = this.container.clientWidth
+    const maxScroll = scrollWidth - clientWidth
+
+    if (maxScroll <= 0) return
+
+    const remainder = maxScroll % advanceWidth
+    if (remainder > 1 && advanceWidth - remainder > 1) {
+      const extra = advanceWidth - remainder
+      const spacer = document.createElement("div")
+      spacer.style.position = "absolute"
+      spacer.style.top = "0"
+      spacer.style.left = `${scrollWidth + extra - 1}px`
+      spacer.style.width = "1px"
+      spacer.style.height = "1px"
+      spacer.style.pointerEvents = "none"
+      this.container.appendChild(spacer)
+      this.spacer = spacer
+    }
+  }
+
+  private observeContentChanges(): void {
+    this.mutationObserver?.disconnect()
+    const block = this._bookBlock
+    if (!block) return
+
+    this.mutationObserver = new MutationObserver(() => {
+      clearTimeout(this.alignmentTimeout)
+      this.alignmentTimeout = window.setTimeout(() => {
+        requestAnimationFrame(() => this.ensureAlignedScrollWidth())
+      }, 150)
+    })
+    this.mutationObserver.observe(block, { childList: true, subtree: true })
   }
 }
