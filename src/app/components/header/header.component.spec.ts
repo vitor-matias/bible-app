@@ -28,12 +28,16 @@ describe("HeaderComponent", () => {
     mockSharePlugin = jasmine.createSpyObj("Share", ["share"])
     originalShare = navigator.share
 
+    const cdrSpy = jasmine.createSpyObj<ChangeDetectorRef>("ChangeDetectorRef", [
+      "detectChanges",
+    ])
+
     await TestBed.configureTestingModule({
       imports: [HeaderComponent, CommonModule],
       providers: [
         { provide: Router, useValue: routerSpy },
         { provide: NetworkService, useValue: networkServiceSpy },
-        { provide: ChangeDetectorRef, useValue: {} },
+        { provide: ChangeDetectorRef, useValue: cdrSpy },
         { provide: SHARE_PLUGIN, useValue: mockSharePlugin },
       ],
     }).compileComponents()
