@@ -4,8 +4,10 @@ import {
   EventEmitter,
   HostListener,
   Input,
+  OnChanges,
   OnDestroy,
   Output,
+  SimpleChanges,
 } from "@angular/core"
 
 export interface PageState {
@@ -17,7 +19,7 @@ export interface PageState {
   selector: "[appPagedNavigation]",
   standalone: true,
 })
-export class PagedNavigationDirective implements OnDestroy {
+export class PagedNavigationDirective implements OnChanges, OnDestroy {
   @Input("appPagedNavigation") set bookBlock(value: HTMLElement | undefined) {
     this._bookBlock = value
     this.observeContentChanges()
@@ -41,6 +43,19 @@ export class PagedNavigationDirective implements OnDestroy {
 
   private get container(): HTMLElement {
     return this.containerRef.nativeElement
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes["viewMode"]) {
+      if (this.viewMode === "paged") {
+        this.ensureAlignedScrollWidth()
+        this.snapToNearestPage()
+      } else {
+        this.spacer?.remove()
+        this.spacer = undefined
+      }
+      this.onScroll()
+    }
   }
 
   ngOnDestroy(): void {
@@ -87,7 +102,7 @@ export class PagedNavigationDirective implements OnDestroy {
     if (maxScroll <= 0 || scrollLeft >= maxScroll - 5) {
       this.nextChapter.emit()
     } else {
-      const currentPageIndex = Math.round(scrollLeft / advanceWidth)
+      const currentPageIndex = Math.floor(scrollLeft / advanceWidth + 0.1)
       const nextScrollLeft = (currentPageIndex + 1) * advanceWidth
       this.container.scrollTo({ left: nextScrollLeft, behavior: "smooth" })
     }
@@ -104,20 +119,21 @@ export class PagedNavigationDirective implements OnDestroy {
     if (scrollLeft <= 5) {
       this.prevChapter.emit()
     } else {
-      const currentPageIndex = Math.round(scrollLeft / advanceWidth)
+      const currentPageIndex = Math.floor(scrollLeft / advanceWidth + 0.1)
       const prevScrollLeft = Math.max(0, (currentPageIndex - 1) * advanceWidth)
       this.container.scrollTo({ left: prevScrollLeft, behavior: "smooth" })
     }
   }
 
   private snapToNearestPage(): void {
+    if (this.viewMode !== "paged") return
     const block = this.bookBlock
     if (!this.container || !block) return
 
     const advanceWidth = this.getAdvanceWidth(block)
     const scrollLeft = this.container.scrollLeft
 
-    const pageIndex = Math.round(scrollLeft / advanceWidth)
+    const pageIndex = Math.floor(scrollLeft / advanceWidth + 0.1)
     this.container.scrollTo({
       left: pageIndex * advanceWidth,
       behavior: "smooth",

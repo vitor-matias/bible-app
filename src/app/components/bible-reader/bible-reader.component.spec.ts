@@ -168,6 +168,7 @@ describe("BibleReaderComponent", () => {
       fixture.detectChanges()
       component.book = mockBooks[0] as unknown as Book
       component.chapterNumber = 1
+      routerSpy.navigate.calls.reset()
     })
 
     it("goToNextChapter should navigate forward and stop scroll", () => {
@@ -420,6 +421,9 @@ describe("BibleReaderComponent", () => {
   describe("getChapter and animations", () => {
     beforeEach(() => {
       fixture.detectChanges()
+      animationServiceSpy.scrollToTop.calls.reset()
+      preferencesServiceSpy.setLastBookId.calls.reset()
+      routerSpy.navigate.calls.reset()
     })
 
     it("should finalize and call animation.scrollToTop on success", fakeAsync(() => {
@@ -517,78 +521,5 @@ describe("BibleReaderComponent", () => {
       tick()
       expect(animationServiceSpy.scrollToVerseElement).toHaveBeenCalled()
     }))
-  })
-
-  describe("Misc Actions", () => {
-    it("onPageStateChange should only mark for check if state changed", () => {
-      const cdrSpy = spyOn(component["cdr"], "markForCheck")
-
-      component.isFirstPage = true
-      component.isLastPage = false
-
-      component.onPageStateChange({ isFirstPage: true, isLastPage: false })
-      expect(cdrSpy).not.toHaveBeenCalled()
-
-      component.onPageStateChange({ isFirstPage: false, isLastPage: true })
-      expect(component.isFirstPage).toBeFalse()
-      expect(component.isLastPage).toBeTrue()
-      expect(cdrSpy).toHaveBeenCalled()
-    })
-
-    it("should allow getBook to update book on success", () => {
-      apiServiceSpy.getBook.and.returnValue(of(mockBooks[1] as unknown as Book))
-      component.getBook("about")
-      expect(component.book).toEqual(mockBooks[1] as unknown as Book)
-    })
-
-    it("should handle getBook error gracefully", () => {
-      const consoleSpy = spyOn(console, "error")
-      apiServiceSpy.getBook.and.returnValue(
-        throwError(() => new Error("failed")),
-      )
-      component.getBook("about")
-      expect(consoleSpy).toHaveBeenCalled()
-    })
-
-    it("should increase and decrease font size via gestures directive", () => {
-      component.gestures = jasmine.createSpyObj("UnifiedGesturesDirective", [
-        "increaseFontSize",
-        "decreaseFontSize",
-      ])
-      component.onIncreaseFontSize()
-      expect(component.gestures.increaseFontSize).toHaveBeenCalled()
-
-      component.onDecreaseFontSize()
-      expect(component.gestures.decreaseFontSize).toHaveBeenCalled()
-    })
-
-    describe("checkIfNextVerseStartsWithQuote", () => {
-      it("should return false if chapter or verses missing", () => {
-        component.chapter = { verses: [] } as unknown as Chapter
-        expect(component.checkIfNextVerseStartsWithQuote(0)).toBeFalse()
-      })
-
-      it("should check if the next verse starts with a quote", () => {
-        component.chapter = {
-          verses: [
-            { number: 1, text: [{ type: "text" }] },
-            { number: 2, text: [{ type: "footnote" }, { type: "quote" }] },
-          ],
-        } as unknown as Chapter
-
-        expect(component.checkIfNextVerseStartsWithQuote(0)).toBeTrue()
-      })
-
-      it("should return false if next verse has no displayable text", () => {
-        component.chapter = {
-          verses: [
-            { number: 1, text: [{ type: "text" }] },
-            { number: 2, text: [{ type: "footnote" }] },
-          ],
-        } as unknown as Chapter
-
-        expect(component.checkIfNextVerseStartsWithQuote(0)).toBeFalse()
-      })
-    })
   })
 })

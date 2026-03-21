@@ -190,9 +190,6 @@ h6 {
 }
 
 /* Prevent horizontal scrollbar flash during slide animations (translateX) */
-::ng-deep .mat-drawer-content {
-  overflow-x: hidden !important;
-}
 
 .container {
   overflow-y: auto;
@@ -230,7 +227,7 @@ h6 {
   height: 0;
 }
 
-@keyframes slideInFromRight {
+@keyframes slide-in-from-right {
   0% {
     transform: translateX(60px);
     opacity: 0;
@@ -242,7 +239,7 @@ h6 {
   }
 }
 
-@keyframes slideInFromLeft {
+@keyframes slide-in-from-left {
   0% {
     transform: translateX(-60px);
     opacity: 0;
@@ -254,7 +251,7 @@ h6 {
   }
 }
 
-@keyframes slideOutToLeft {
+@keyframes slide-out-to-left {
   0% {
     transform: translateX(0);
     opacity: 1;
@@ -266,7 +263,7 @@ h6 {
   }
 }
 
-@keyframes slideOutToRight {
+@keyframes slide-out-to-right {
   0% {
     transform: translateX(0);
     opacity: 1;
@@ -279,19 +276,19 @@ h6 {
 }
 
 .slide-in-right {
-  animation: slideInFromRight 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation: slide-in-from-right 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
 .slide-in-left {
-  animation: slideInFromLeft 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation: slide-in-from-left 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
 .slide-out-left {
-  animation: slideOutToLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: slide-out-to-left 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .slide-out-right {
-  animation: slideOutToRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: slide-out-to-right 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .paged-view {

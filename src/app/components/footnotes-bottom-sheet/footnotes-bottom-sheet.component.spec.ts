@@ -65,15 +65,17 @@ describe("FootnotesBottomSheetComponent", () => {
     const umamiSpy = jasmine.createSpyObj("umami", ["track"])
     ;(window as unknown as { umami: unknown }).umami = umamiSpy
 
-    TestBed.createComponent(FootnotesBottomSheetComponent)
+    try {
+      TestBed.createComponent(FootnotesBottomSheetComponent)
 
-    expect(umamiSpy.track).toHaveBeenCalledWith("footnotes_opened", {
-      book: "JHN",
-      chapter: 3,
-      verse: 16,
-    })
-
-    delete (window as unknown as { umami?: unknown }).umami
+      expect(umamiSpy.track).toHaveBeenCalledWith("footnotes_opened", {
+        book: "JHN",
+        chapter: 3,
+        verse: 16,
+      })
+    } finally {
+      delete (window as unknown as { umami?: unknown }).umami
+    }
   })
 
   describe("parseReferences", () => {

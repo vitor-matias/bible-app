@@ -24,17 +24,25 @@ export class NetworkService {
   }
 
   private async initNetworkListener() {
-    const status = await this.networkPlugin.getStatus()
-    this.updateStatus(status)
+    try {
+      const status = await this.networkPlugin.getStatus()
+      this.updateStatus(status)
+    } catch {
+      this.updateStatus({ connected: true, connectionType: "unknown" })
+    }
 
-    this.networkListener = this.networkPlugin.addListener(
-      "networkStatusChange",
-      (status: ConnectionStatus) => {
-        this.ngZone.run(() => {
-          this.updateStatus(status)
-        })
-      },
-    )
+    try {
+      this.networkListener = this.networkPlugin.addListener(
+        "networkStatusChange",
+        (status: ConnectionStatus) => {
+          this.ngZone.run(() => {
+            this.updateStatus(status)
+          })
+        },
+      )
+    } catch {
+      // safe fallback
+    }
   }
 
   private updateStatus(status: ConnectionStatus) {

@@ -13,7 +13,7 @@ export class DatabaseService {
     if (this.db) return this.db
     if (this.dbPromise) return this.dbPromise
 
-    this.dbPromise = new Promise((resolve) => {
+    this.dbPromise = new Promise((resolve, reject) => {
       if (typeof indexedDB === "undefined") {
         resolve(null)
         return
@@ -37,6 +37,7 @@ export class DatabaseService {
 
       request.onblocked = () => {
         console.warn("IndexedDB upgrade blocked. Close other tabs to continue.")
+        reject(new Error("IndexedDB upgrade blocked"))
       }
 
       request.onsuccess = () => {
@@ -54,7 +55,7 @@ export class DatabaseService {
           console.error("IndexedDB error:", request.error)
         }
         this.dbPromise = null
-        resolve(null)
+        reject(request.error || new Error("Unknown IndexedDB error"))
       }
     })
 
@@ -62,7 +63,13 @@ export class DatabaseService {
   }
 
   async getAll<T>(storeName: string): Promise<T[]> {
-    const db = await this.getDB()
+    let db: IDBDatabase | null
+    try {
+      db = await this.getDB()
+    } catch (e) {
+      console.error(e)
+      return []
+    }
     if (!db) return []
 
     return new Promise((resolve, reject) => {

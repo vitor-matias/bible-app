@@ -8,8 +8,10 @@ import {
 } from "@angular/core"
 import { Router, RouterOutlet } from "@angular/router"
 import { App } from "@capacitor/app"
+import type { PluginListenerHandle } from "@capacitor/core"
 import { Capacitor } from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
+import { appConfig } from "./config"
 import { OfflineDataService } from "./services/offline-data.service"
 import { ThemeService } from "./services/theme.service"
 import { APP_PLUGIN } from "./tokens"
@@ -24,6 +26,7 @@ import { APP_PLUGIN } from "./tokens"
 })
 export class AppComponent implements OnInit, OnDestroy {
   private installEventFired = false
+  private appUrlOpenHandle?: PluginListenerHandle
 
   private readonly installListener = () => {
     this.installEventFired = true
@@ -54,24 +57,36 @@ export class AppComponent implements OnInit, OnDestroy {
   private setupAppLinks(): void {
     if (!Capacitor.isNativePlatform()) return
 
-    this.appPlugin.addListener("appUrlOpen", (event) => {
-      this.ngZone.run(() => {
-        const domain = "biblia.capuchinhos.org"
-        const fallbackDomain = "bible-app-ten-psi.vercel.app"
+    this.appPlugin
+      .addListener("appUrlOpen", (event) => {
+        this.ngZone.run(() => {
+          try {
+            const url = new URL(event.url)
 
-        const url = new URL(event.url)
-
-        if (url.hostname === domain || url.hostname === fallbackDomain) {
-          // Route inside the angular space using path
-          this.router.navigateByUrl(url.pathname + url.search + url.hash)
-        }
+            if (
+              url.hostname === appConfig.domain ||
+              url.hostname === appConfig.fallbackDomain
+            ) {
+              // Route inside the angular space using path
+              this.router.navigateByUrl(url.pathname + url.search + url.hash)
+            }
+          } catch {
+            console.warn("Invalid app URL:", event.url)
+          }
+        })
       })
-    })
+      .then((handle) => {
+        this.appUrlOpenHandle = handle
+      })
   }
 
-  ngOnDestroy(): void {
-    if (typeof window === "undefined") return
-    window.removeEventListener("appinstalled", this.installListener)
+  async ngOnDestroy(): Promise<void> {
+    if (typeof window !== "undefined") {
+      window.removeEventListener("appinstalled", this.installListener)
+    }
+    if (this.appUrlOpenHandle) {
+      await this.appUrlOpenHandle.remove()
+    }
   }
 
   private isStandaloneMode(): boolean {

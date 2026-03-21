@@ -7,16 +7,16 @@
       </button>
       <mat-menu #headerMenu="matMenu">
         <div class="menu-controls" (click)="$event.stopPropagation()">
-          <button mat-icon-button (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" [attr.aria-label]="getThemeTooltip()">
+          <button type="button" mat-icon-button (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" [attr.aria-label]="getThemeTooltip()">
             <mat-icon>{{ getThemeIcon() }}</mat-icon>
           </button>
-          <button mat-icon-button (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" [attr.aria-label]="getViewModeTooltip()">
+          <button type="button" mat-icon-button (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" [attr.aria-label]="getViewModeTooltip()">
             <mat-icon>{{ getViewModeIcon() }}</mat-icon>
           </button>
-          <button mat-icon-button (click)="onDecreaseFontSize()" matTooltip="Diminuir texto" aria-label="Diminuir texto">
+          <button type="button" mat-icon-button (click)="onDecreaseFontSize()" matTooltip="Diminuir texto" aria-label="Diminuir texto">
             <mat-icon>text_decrease</mat-icon>
           </button>
-          <button mat-icon-button (click)="onIncreaseFontSize()" matTooltip="Aumentar texto" aria-label="Aumentar texto">
+          <button type="button" mat-icon-button (click)="onIncreaseFontSize()" matTooltip="Aumentar texto" aria-label="Aumentar texto">
             <mat-icon>text_increase</mat-icon>
           </button>
         </div>
@@ -73,7 +73,7 @@
       @if (!isOffline) {
       <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button matTooltip="Pesquisar"
         aria-label="Pesquisar">
-        <mat-icon style="color: #543D27;" aria-label="Search">search</mat-icon>
+        <mat-icon class="search-icon" aria-label="Search">search</mat-icon>
       </button>
       }
     </div>

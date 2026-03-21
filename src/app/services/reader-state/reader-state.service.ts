@@ -41,7 +41,7 @@ export class ReaderStateService {
   }
 
   // Setters
-  setBook(book: Book) {
+  setBook(book: Book | null) {
     this.bookSubject.next(book)
   }
 
@@ -49,7 +49,7 @@ export class ReaderStateService {
     this.chapterNumberSubject.next(num)
   }
 
-  setChapter(chapter: Chapter) {
+  setChapter(chapter: Chapter | null) {
     this.chapterSubject.next(chapter)
   }
 

@@ -9,6 +9,7 @@ import { DatabaseService } from "./database.service"
 export class BookmarkService {
   private bookmarksSubject = new BehaviorSubject<Bookmark[]>([])
   bookmarks$ = this.bookmarksSubject.asObservable()
+  private updatePromise: Promise<void> = Promise.resolve()
 
   constructor(private databaseService: DatabaseService) {
     this.init()
@@ -29,7 +30,7 @@ export class BookmarkService {
   }
 
   getBookmarks(): Bookmark[] {
-    return this.bookmarksSubject.value
+    return [...this.bookmarksSubject.value]
   }
 
   getBookmarksForBook(bookId: string): Observable<Bookmark[]> {
@@ -53,44 +54,50 @@ export class BookmarkService {
     chapter: number,
     color: string,
   ): Promise<void> {
-    const currentBookmarks = this.bookmarksSubject.value
-    // Filter out any existing bookmark with the same color
-    const bookmarksWithoutConflict = currentBookmarks.filter(
-      (b) => b.color !== color,
-    )
+    this.updatePromise = this.updatePromise.then(async () => {
+      const currentBookmarks = this.bookmarksSubject.value
+      // Filter out any existing bookmark with the same color
+      const bookmarksWithoutConflict = currentBookmarks.filter(
+        (b) => b.color !== color,
+      )
 
-    // Check if we are updating an existing bookmark (same location)
-    const existingIndex = bookmarksWithoutConflict.findIndex(
-      (b) => b.bookId === bookId && b.chapter === chapter,
-    )
+      // Check if we are updating an existing bookmark (same location)
+      const existingIndex = bookmarksWithoutConflict.findIndex(
+        (b) => b.bookId === bookId && b.chapter === chapter,
+      )
 
-    const newBookmark: Bookmark = {
-      bookId,
-      chapter,
-      color,
-      timestamp: Date.now(),
-    }
+      const newBookmark: Bookmark = {
+        bookId,
+        chapter,
+        color,
+        timestamp: Date.now(),
+      }
 
-    let updatedBookmarks: Bookmark[]
+      let updatedBookmarks: Bookmark[]
 
-    if (existingIndex > -1) {
-      // Update existing bookmark (e.g. changing color, though color is unique now, so this path is technically assigning a new unique color to an existing location)
-      updatedBookmarks = [...bookmarksWithoutConflict]
-      updatedBookmarks[existingIndex] = newBookmark
-    } else {
-      // Add new bookmark
-      updatedBookmarks = [...bookmarksWithoutConflict, newBookmark]
-    }
+      if (existingIndex > -1) {
+        // Update existing bookmark (e.g. changing color, though color is unique now, so this path is technically assigning a new unique color to an existing location)
+        updatedBookmarks = [...bookmarksWithoutConflict]
+        updatedBookmarks[existingIndex] = newBookmark
+      } else {
+        // Add new bookmark
+        updatedBookmarks = [...bookmarksWithoutConflict, newBookmark]
+      }
 
-    await this.saveBookmarks(updatedBookmarks)
+      await this.saveBookmarks(updatedBookmarks)
+    })
+    return this.updatePromise
   }
 
   async removeBookmark(bookId: string, chapter: number): Promise<void> {
-    const currentBookmarks = this.bookmarksSubject.value
-    const updatedBookmarks = currentBookmarks.filter(
-      (b) => !(b.bookId === bookId && b.chapter === chapter),
-    )
-    await this.saveBookmarks(updatedBookmarks)
+    this.updatePromise = this.updatePromise.then(async () => {
+      const currentBookmarks = this.bookmarksSubject.value
+      const updatedBookmarks = currentBookmarks.filter(
+        (b) => !(b.bookId === bookId && b.chapter === chapter),
+      )
+      await this.saveBookmarks(updatedBookmarks)
+    })
+    return this.updatePromise
   }
 
   private async saveBookmarks(bookmarks: Bookmark[]) {

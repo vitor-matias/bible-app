@@ -7,20 +7,18 @@ describe("BibleReaderAnimationService", () => {
   beforeEach(() => {
     TestBed.configureTestingModule({})
     service = TestBed.inject(BibleReaderAnimationService)
-  })
 
-  it("should be created", () => {
-    expect(service).toBeTruthy()
-  })
-
-  // Helper to mock requestAnimationFrame
-  beforeEach(() => {
+    // Helper to mock requestAnimationFrame
     spyOn(window, "requestAnimationFrame").and.callFake(
       (cb: FrameRequestCallback) => {
         cb(0)
         return 0
       },
     )
+  })
+
+  it("should be created", () => {
+    expect(service).toBeTruthy()
   })
 
   describe("scrollToTop", () => {

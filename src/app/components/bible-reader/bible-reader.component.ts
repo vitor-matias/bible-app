@@ -140,14 +140,8 @@ export class BibleReaderComponent implements OnDestroy {
           this.chapterParam =
             this.router.routerState.snapshot.root.firstChild?.params["chapter"]
 
-          const verseStartParam =
-            this.router.routerState.snapshot.root.firstChild?.queryParams[
-              "verseStart"
-            ]
-          const verseEndParam =
-            this.router.routerState.snapshot.root.firstChild?.queryParams[
-              "verseEnd"
-            ]
+          const queryParams =
+            this.router.routerState.snapshot.root.firstChild?.queryParams || {}
 
           const storedBook =
             this.bookParam || this.preferencesService.getLastBookId() || "about"
@@ -160,16 +154,26 @@ export class BibleReaderComponent implements OnDestroy {
             this.book = this.bookService.findBook(storedBook)
 
             this.chapterNumber = Number.parseInt(storedChapter, 10)
+
+            const parsedVerseStart = queryParams["verseStart"]
+              ? Number.parseInt(queryParams["verseStart"], 10)
+              : undefined
+            const parsedVerseEnd = queryParams["verseEnd"]
+              ? Number.parseInt(queryParams["verseEnd"], 10)
+              : undefined
+
             this.router.navigate(
               [this.bookService.getUrlAbrv(this.book), this.chapterNumber],
               {
-                queryParams: verseStartParam
-                  ? { verseStart: verseStartParam, verseEnd: verseEndParam }
-                  : {},
+                queryParams: Object.keys(queryParams).length ? queryParams : {},
                 replaceUrl: true,
               },
             )
-            this.getChapter(this.chapterNumber, verseStartParam, verseEndParam)
+            this.getChapter(
+              this.chapterNumber,
+              parsedVerseStart,
+              parsedVerseEnd,
+            )
           }
 
           return combineLatest([this.route.paramMap, this.route.queryParamMap])
@@ -481,6 +485,7 @@ export class BibleReaderComponent implements OnDestroy {
     // Paged View relies on overflow-x scroll or just columns.
     // If we switch to paged, we might start at page 1 (scrollLeft 0).
     if (this.viewMode === "paged") {
+      this.autoScrollService.stop()
       this.showAutoScrollControls = false
       this.preferencesService.setAutoScrollControlsVisible(false)
       // Wait for render

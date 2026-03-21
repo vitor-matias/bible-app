@@ -1,6 +1,6 @@
 /* You can add global styles to this file, and also import other style files */
 .material-symbols-outlined, .material-icons {
-  font-family: 'Material Symbols Outlined';
+  font-family: 'Material Symbols Outlined', sans-serif;
   font-weight: normal;
   font-style: normal;
   font-size: 24px;
@@ -13,8 +13,8 @@
   direction: ltr;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  font-feature-settings: 'liga';
+  text-rendering: optimizelegibility;
+  font-variant-ligatures: common-ligatures;
   font-variation-settings:
     "FILL" 0,
     "wght" 400,
@@ -129,4 +129,8 @@ a {
 .mat-mdc-list-item {
   color: var(--text-color) !important; /* Force apply */
   background-color: var(--card-background) !important;
+}
+
+bible-reader .mat-drawer-content {
+  overflow-x: hidden !important;
 }

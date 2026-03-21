@@ -5,7 +5,9 @@ const config: CapacitorConfig = {
   appName: "Bíblia dos Capuchinhos",
   webDir: "dist/bible-app/browser",
   server: {
-    url: "https://bible-app-ten-psi.vercel.app/",
+    ...(process.env['CAPACITOR_SERVER_URL'] || process.env['NODE_ENV'] === "production"
+      ? { url: process.env['CAPACITOR_SERVER_URL'] || "https://bible-app-ten-psi.vercel.app/" }
+      : {}),
     androidScheme: "https",
   },
   plugins: {

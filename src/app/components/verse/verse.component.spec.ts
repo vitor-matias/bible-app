@@ -37,8 +37,6 @@ describe("VerseComponent", () => {
     mockBibleRef = jasmine.createSpyObj("BibleReferenceService", ["extract"])
     mockBibleRef.extract.and.returnValue([])
 
-    mockBottomSheet = jasmine.createSpyObj("MatBottomSheet", ["open"])
-
     await TestBed.configureTestingModule({
       imports: [VerseComponent, MatBottomSheetModule],
       providers: [

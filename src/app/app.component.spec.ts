@@ -72,6 +72,11 @@ describe("AppComponent", () => {
     const fixture = TestBed.createComponent(AppComponent)
     fixture.detectChanges()
 
+    expect(mockAppPlugin.addListener).toHaveBeenCalledWith(
+      "appUrlOpen",
+      jasmine.any(Function),
+    )
+
     const mockEvent: URLOpenListenerEvent = {
       url: "https://biblia.capuchinhos.org/book/gn/1?query=test#hash",
     }
@@ -102,6 +107,11 @@ describe("AppComponent", () => {
 
     const fixture = TestBed.createComponent(AppComponent)
     fixture.detectChanges()
+
+    expect(mockAppPlugin.addListener).toHaveBeenCalledWith(
+      "appUrlOpen",
+      jasmine.any(Function),
+    )
 
     const mockEvent: URLOpenListenerEvent = {
       url: "https://other-domain.dev/book/gn/1",

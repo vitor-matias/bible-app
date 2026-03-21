@@ -76,10 +76,15 @@ describe("ChapterSelectorComponent", () => {
     const icon = (fixture.nativeElement as HTMLElement).querySelector(
       ".bookmark-icon",
     ) as HTMLElement
-    const styleAttr = icon.getAttribute("style")
+    const styleAttr = icon.getAttribute("style") || ""
     expect(styleAttr).toBeTruthy()
     // Different environments might serialize style values differently (hex vs rgb).
     // As long as the style attribute contains our color property, the binding is working.
-    expect(styleAttr).toContain("color")
+    const expectedHex = "#f44336"
+    const expectedRgb = "rgb(244, 67, 54)"
+    const hasColor =
+      styleAttr.toLowerCase().includes(expectedHex) ||
+      styleAttr.includes(expectedRgb)
+    expect(hasColor).toBeTrue()
   })
 })

@@ -60,6 +60,9 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   data!: Verse
 
   @Input()
+  chapterNumber?: number
+
+  @Input()
   nextVerseStartsWithQuote = false
 
   @ViewChildren("indentable")

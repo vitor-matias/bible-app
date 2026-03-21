@@ -4,6 +4,10 @@ import { Injectable } from "@angular/core"
   providedIn: "root",
 })
 export class BibleReaderAnimationService {
+  private highlightTimeouts = new Map<
+    HTMLElement,
+    ReturnType<typeof setTimeout>
+  >()
   scrollToTop(
     drawerContent: HTMLElement | undefined,
     container: HTMLElement | undefined,
@@ -139,9 +143,16 @@ export class BibleReaderAnimationService {
           if (highlight) {
             element.style.transition = "background-color 0.5s ease"
             element.style.backgroundColor = "var(--highlight-color)"
-            setTimeout(() => {
+
+            if (this.highlightTimeouts.has(element)) {
+              clearTimeout(this.highlightTimeouts.get(element))
+            }
+
+            const timeoutId = setTimeout(() => {
               element.style.backgroundColor = ""
+              this.highlightTimeouts.delete(element)
             }, 2500)
+            this.highlightTimeouts.set(element, timeoutId)
           }
         }
       }

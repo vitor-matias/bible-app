@@ -18,7 +18,7 @@ describe("BookmarkService", () => {
       "delete",
       "clear",
     ])
-    spy.getAll.and.returnValue(Promise.resolve(mockBookmarks))
+    spy.getAll.and.returnValue(Promise.resolve([...mockBookmarks]))
     spy.clearAndPutAll.and.returnValue(Promise.resolve())
     spy.delete.and.returnValue(Promise.resolve())
     spy.clear.and.returnValue(Promise.resolve())

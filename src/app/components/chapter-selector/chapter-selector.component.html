@@ -3,7 +3,7 @@
     <mat-list>
       @for (chapter of chapters; track chapter) {
       <mat-list-item>
-        <button class="chapterSelectorButton" mat-flat-button (click)="submit(chapter.number)"
+        <button type="button" class="chapterSelectorButton" mat-flat-button (click)="submit(chapter.number)"
           [ngClass]="{ 'highlight': chapter.number === selectedChapter }">
           <span class="number-wrapper">
             @if(bookmarksMap.has(chapter.number)){

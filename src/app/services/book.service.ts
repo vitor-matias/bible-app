@@ -75,7 +75,11 @@ export class BookService {
     }
     const needle = new Set(normalizeVariants(bookName))
     return this.getBooks().find((book) =>
-      normalizeVariants(book.shortName).some((variant) => needle.has(variant)),
+      book?.shortName
+        ? normalizeVariants(book.shortName).some((variant) =>
+            needle.has(variant),
+          )
+        : false,
     )
   }
 

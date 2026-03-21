@@ -80,6 +80,10 @@ mat-icon {
   min-width: 48px;
 }
 
+.search-icon {
+  color: var(--cap-brown, #543d27);
+}
+
 ::ng-deep .mat-button-toggle-label-content {
   color: #543d27;
 }
