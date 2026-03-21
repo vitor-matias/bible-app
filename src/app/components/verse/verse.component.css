@@ -100,3 +100,20 @@ h3 {
   white-space: nowrap;
   margin-right: 2px;
 }
+
+.interactive {
+  cursor: pointer;
+  outline: none;
+  transition: text-decoration 0.2s, background-color 0.2s;
+}
+
+.interactive:hover,
+.interactive:focus-visible {
+  text-decoration: underline;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+:host-context(.dark-theme) .interactive:hover,
+:host-context(.dark-theme) .interactive:focus-visible {
+  background-color: rgba(255, 255, 255, 0.1);
+}

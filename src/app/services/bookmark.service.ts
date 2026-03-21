@@ -10,9 +10,10 @@ export class BookmarkService {
   private bookmarksSubject = new BehaviorSubject<Bookmark[]>([])
   bookmarks$ = this.bookmarksSubject.asObservable()
   private updatePromise: Promise<void> = Promise.resolve()
+  initialized: Promise<void>
 
   constructor(private databaseService: DatabaseService) {
-    this.init()
+    this.initialized = this.init()
   }
 
   private async init() {
@@ -40,9 +41,10 @@ export class BookmarkService {
   }
 
   getBookmark(bookId: string, chapter: number): Bookmark | undefined {
-    return this.bookmarksSubject.value.find(
+    const found = this.bookmarksSubject.value.find(
       (b) => b.bookId === bookId && b.chapter === chapter,
     )
+    return found ? { ...found } : undefined
   }
 
   isBookmarked(bookId: string, chapter: number): boolean {
@@ -106,8 +108,7 @@ export class BookmarkService {
       this.bookmarksSubject.next(bookmarks)
     } catch (error) {
       console.error("Failed to save bookmarks to database:", error)
-      // State rollback or user notification could go here if needed,
-      // but logging is better than crashing.
+      throw error
     }
   }
 }

@@ -1,4 +1,4 @@
-import type { CapacitorConfig } from "@capacitor/core"
+import type { CapacitorConfig } from "@capacitor/cli"
 
 const config: CapacitorConfig = {
   appId: "org.capuchinhos.biblia",
@@ -16,9 +16,7 @@ const config: CapacitorConfig = {
       style: "DARK",
     },
   },
-  android: {
-    useHybridComposition: true,
-  },
+  android: {},
 }
 
 export default config

@@ -9,7 +9,7 @@
       [disabled]="autoScrollLinesPerSecond <= MIN_AUTO_SCROLL_LPS" (click)="decreaseAutoScrollSpeed()">
       <mat-icon>remove</mat-icon>
     </button>
-    <span>{{ autoScrollSpeedLabel }} ln/s</span>
+    <span aria-live="polite">{{ autoScrollSpeedLabel }} ln/s</span>
     <button type="button" mat-icon-button aria-label="Aumentar velocidade do deslocamento automático"
       [disabled]="autoScrollLinesPerSecond >= MAX_AUTO_SCROLL_LPS" (click)="increaseAutoScrollSpeed()">
       <mat-icon>add</mat-icon>

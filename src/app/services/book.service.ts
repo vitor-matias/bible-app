@@ -42,6 +42,7 @@ export class BookService {
   }
 
   findBookById(bookId: Book["id"]): Book | undefined {
+    if (bookId == null) return undefined
     return this.getBooks().find(
       (book) => book.id.toUpperCase() === bookId.toUpperCase(),
     )

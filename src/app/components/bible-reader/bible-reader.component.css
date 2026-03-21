@@ -64,10 +64,12 @@ h6 {
 
   .prev-chapter {
     top: 50%;
+    transform: translateY(-50%);
   }
 
   .next-chapter {
     top: 50%;
+    transform: translateY(-50%);
   }
 
   .auto-scroll-controls {

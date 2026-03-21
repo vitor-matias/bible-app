@@ -46,8 +46,8 @@ export class DatabaseService {
           this.db?.close()
           this.db = null
         }
-        this.dbPromise = null
         resolve(this.db)
+        this.dbPromise = null
       }
 
       request.onerror = (event) => {
@@ -181,7 +181,11 @@ export class DatabaseService {
 
         // Put new data
         for (const item of items) {
-          store.put(item)
+          const putRequest = store.put(item)
+          putRequest.onerror = () => {
+            transaction.abort()
+            reject(putRequest.error)
+          }
         }
       } catch (error) {
         reject(error)

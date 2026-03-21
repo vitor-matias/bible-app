@@ -18,7 +18,9 @@ describe("BookmarkService", () => {
       "delete",
       "clear",
     ])
-    spy.getAll.and.returnValue(Promise.resolve([...mockBookmarks]))
+    spy.getAll.and.callFake(() =>
+      Promise.resolve(JSON.parse(JSON.stringify(mockBookmarks))),
+    )
     spy.clearAndPutAll.and.returnValue(Promise.resolve())
     spy.delete.and.returnValue(Promise.resolve())
     spy.clear.and.returnValue(Promise.resolve())
@@ -32,7 +34,7 @@ describe("BookmarkService", () => {
     ) as jasmine.SpyObj<DatabaseService>
 
     // Wait for initialization to complete
-    await new Promise((resolve) => setTimeout(resolve, 10))
+    await service.initialized
   })
 
   it("should be created", () => {
@@ -40,8 +42,6 @@ describe("BookmarkService", () => {
   })
 
   it("should load bookmarks on initialization", async () => {
-    // Wait for initialization
-    await new Promise((resolve) => setTimeout(resolve, 10))
     expect(service.getBookmarks()).toEqual(mockBookmarks)
     expect(databaseService.getAll).toHaveBeenCalledWith("bookmarks")
   })

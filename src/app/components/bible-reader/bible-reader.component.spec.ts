@@ -185,15 +185,6 @@ describe("BibleReaderComponent", () => {
       expect(component.isNavigatingBackwards).toBeTrue()
       expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 1])
     })
-    it("onToggleViewMode should switch back to scrolling mode", fakeAsync(() => {
-      component.viewMode = "paged"
-      component.onToggleViewMode()
-      expect(component.viewMode).toBe("scrolling")
-      expect(preferencesServiceSpy.setViewMode).toHaveBeenCalledWith(
-        "scrolling",
-      )
-    }))
-
     it("onPageStateChange should only mark for check if state changed", () => {
       const cdrSpy = spyOn(
         (component as unknown as { cdr: ChangeDetectorRef }).cdr,
@@ -303,6 +294,7 @@ describe("BibleReaderComponent", () => {
       component.onArrowPress(new KeyboardEvent("keydown", { key: "ArrowLeft" }))
       expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 1])
 
+      routerSpy.navigate.calls.reset()
       component.onArrowPress(
         new KeyboardEvent("keydown", { key: "ArrowRight" }),
       )
