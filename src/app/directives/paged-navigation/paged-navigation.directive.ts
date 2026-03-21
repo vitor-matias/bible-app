@@ -102,7 +102,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     if (maxScroll <= 0 || scrollLeft >= maxScroll - 5) {
       this.nextChapter.emit()
     } else {
-      const currentPageIndex = Math.floor(scrollLeft / advanceWidth + 0.1)
+      const currentPageIndex = Math.round(scrollLeft / advanceWidth)
       const nextScrollLeft = (currentPageIndex + 1) * advanceWidth
       this.container.scrollTo({ left: nextScrollLeft, behavior: "smooth" })
     }
@@ -119,7 +119,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     if (scrollLeft <= 5) {
       this.prevChapter.emit()
     } else {
-      const currentPageIndex = Math.floor(scrollLeft / advanceWidth + 0.1)
+      const currentPageIndex = Math.round(scrollLeft / advanceWidth)
       const prevScrollLeft = Math.max(0, (currentPageIndex - 1) * advanceWidth)
       this.container.scrollTo({ left: prevScrollLeft, behavior: "smooth" })
     }
@@ -133,7 +133,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     const advanceWidth = this.getAdvanceWidth(block)
     const scrollLeft = this.container.scrollLeft
 
-    const pageIndex = Math.floor(scrollLeft / advanceWidth + 0.1)
+    const pageIndex = Math.round(scrollLeft / advanceWidth)
     this.container.scrollTo({
       left: pageIndex * advanceWidth,
       behavior: "smooth",
