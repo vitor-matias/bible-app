@@ -27,9 +27,13 @@ export class BibleReaderAnimationService {
           // We'll give it a slightly longer timeout and use a requestAnimationFrame chain.
           setTimeout(() => {
             requestAnimationFrame(() => {
-              beforeScroll?.()
-              const maxScroll = container.scrollWidth - container.clientWidth
-              container.scrollLeft = maxScroll > 0 ? maxScroll : 0
+              if (beforeScroll) {
+                beforeScroll()
+              } else {
+                const maxScroll =
+                  container.scrollWidth - container.clientWidth
+                container.scrollLeft = maxScroll > 0 ? maxScroll : 0
+              }
               this.triggerSlideAnimation(drawerContent, container, true)
             })
           }, 100)

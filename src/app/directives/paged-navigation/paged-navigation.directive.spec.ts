@@ -240,6 +240,27 @@ describe("PagedNavigationDirective", () => {
     })
   })
 
+  describe("scrollToEnd", () => {
+    it("should ensure aligned scroll width and set scrollLeft to the max scroll", () => {
+      // Mock sizes
+      spyOnProperty(container, "scrollWidth").and.returnValue(300)
+      spyOnProperty(container, "clientWidth").and.returnValue(100)
+
+      const scrollLeftSetter = jasmine.createSpy("scrollLeftSetter")
+      spyOnProperty(container, "scrollLeft", "set").and.callFake(
+        scrollLeftSetter,
+      )
+
+      spyOn(hostComponent.directive, "ensureAlignedScrollWidth").and.callThrough()
+
+      hostComponent.directive.scrollToEnd()
+
+      expect(hostComponent.directive.ensureAlignedScrollWidth).toHaveBeenCalled()
+      // Max scroll is 300 - 100 = 200
+      expect(scrollLeftSetter).toHaveBeenCalledWith(200)
+    })
+  })
+
   describe("window resize", () => {
     it("should snap to nearest page after debounce", fakeAsync(() => {
       spyOnProperty(container, "scrollLeft").and.returnValue(120) // partway

@@ -38,6 +38,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   private alignmentTimeout?: number
   private mutationObserver?: MutationObserver
   private spacer?: HTMLElement
+  private _stayAtEnd = false
 
   constructor(private containerRef: ElementRef<HTMLElement>) {}
 
@@ -94,6 +95,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     const block = this.bookBlock
     if (!this.container || !block) return
 
+    this._stayAtEnd = false
     const advanceWidth = this.getAdvanceWidth(block)
     const scrollLeft = this.container.scrollLeft
     const scrollWidth = this.container.scrollWidth
@@ -113,6 +115,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     const block = this.bookBlock
     if (!this.container || !block) return
 
+    this._stayAtEnd = false
     const advanceWidth = this.getAdvanceWidth(block)
     const scrollLeft = this.container.scrollLeft
 
@@ -123,6 +126,20 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
       const prevScrollLeft = Math.max(0, (currentPageIndex - 1) * advanceWidth)
       this.container.scrollTo({ left: prevScrollLeft, behavior: "smooth" })
     }
+  }
+
+  scrollToEnd(): void {
+    this._stayAtEnd = true
+    this.snapToEnd()
+  }
+
+  private snapToEnd(): void {
+    this.ensureAlignedScrollWidth()
+    const block = this.bookBlock
+    if (!this.container || !block) return
+
+    const maxScroll = this.container.scrollWidth - this.container.clientWidth
+    this.container.scrollLeft = maxScroll > 0 ? maxScroll : 0
   }
 
   private snapToNearestPage(): void {
@@ -193,7 +210,13 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     this.mutationObserver = new MutationObserver(() => {
       clearTimeout(this.alignmentTimeout)
       this.alignmentTimeout = window.setTimeout(() => {
-        requestAnimationFrame(() => this.ensureAlignedScrollWidth())
+        requestAnimationFrame(() => {
+          if (this._stayAtEnd) {
+            this.snapToEnd()
+          } else {
+            this.ensureAlignedScrollWidth()
+          }
+        })
       }, 150)
     })
     this.mutationObserver.observe(block, { childList: true, subtree: true })
