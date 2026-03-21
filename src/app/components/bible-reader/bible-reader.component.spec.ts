@@ -442,16 +442,21 @@ describe("BibleReaderComponent", () => {
     it("should call scrollToEnd when navigating backwards in paged mode", fakeAsync(() => {
       component.viewMode = "paged"
       component.isNavigatingBackwards = true
-      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", ["scrollToEnd", "ensureAlignedScrollWidth"]) as unknown as PagedNavigationDirective
+      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", [
+        "scrollToEnd",
+        "ensureAlignedScrollWidth",
+      ]) as unknown as PagedNavigationDirective
 
       apiServiceSpy.getChapter.and.returnValue(
         of(mockChapter as unknown as Chapter),
       )
 
       let capturedCallback: (() => void) | undefined
-      animationServiceSpy.scrollToTop.and.callFake((content, container, mode, startAtBottom, cb) => {
-        capturedCallback = cb
-      })
+      animationServiceSpy.scrollToTop.and.callFake(
+        (content, container, mode, startAtBottom, cb) => {
+          capturedCallback = cb
+        },
+      )
 
       component.getChapter(1)
       tick()
@@ -460,22 +465,29 @@ describe("BibleReaderComponent", () => {
       expect(capturedCallback).toBeDefined()
       if (capturedCallback) capturedCallback()
       expect(component.pagedNav?.scrollToEnd).toHaveBeenCalled()
-      expect(component.pagedNav?.ensureAlignedScrollWidth).not.toHaveBeenCalled()
+      expect(
+        component.pagedNav?.ensureAlignedScrollWidth,
+      ).not.toHaveBeenCalled()
     }))
 
     it("should call ensureAlignedScrollWidth when navigating forwards in paged mode", fakeAsync(() => {
       component.viewMode = "paged"
       component.isNavigatingForwards = true
-      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", ["scrollToEnd", "ensureAlignedScrollWidth"]) as unknown as PagedNavigationDirective
+      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", [
+        "scrollToEnd",
+        "ensureAlignedScrollWidth",
+      ]) as unknown as PagedNavigationDirective
 
       apiServiceSpy.getChapter.and.returnValue(
         of(mockChapter as unknown as Chapter),
       )
 
       let capturedCallback: (() => void) | undefined
-      animationServiceSpy.scrollToTop.and.callFake((content, container, mode, startAtBottom, cb) => {
-        capturedCallback = cb
-      })
+      animationServiceSpy.scrollToTop.and.callFake(
+        (content, container, mode, startAtBottom, cb) => {
+          capturedCallback = cb
+        },
+      )
 
       component.getChapter(2)
       tick()

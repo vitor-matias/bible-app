@@ -378,8 +378,8 @@ export class BibleReaderComponent implements OnDestroy {
                 this.viewMode,
                 startAtBottom,
                 startAtBottom
-                ? () => this.pagedNav?.scrollToEnd()
-                : () => this.pagedNav?.ensureAlignedScrollWidth(),
+                  ? () => this.pagedNav?.scrollToEnd()
+                  : () => this.pagedNav?.ensureAlignedScrollWidth(),
               )
             } else {
               this.animationService.scrollToVerseElement(

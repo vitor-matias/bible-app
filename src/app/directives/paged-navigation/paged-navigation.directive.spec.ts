@@ -251,11 +251,16 @@ describe("PagedNavigationDirective", () => {
         scrollLeftSetter,
       )
 
-      spyOn(hostComponent.directive, "ensureAlignedScrollWidth").and.callThrough()
+      spyOn(
+        hostComponent.directive,
+        "ensureAlignedScrollWidth",
+      ).and.callThrough()
 
       hostComponent.directive.scrollToEnd()
 
-      expect(hostComponent.directive.ensureAlignedScrollWidth).toHaveBeenCalled()
+      expect(
+        hostComponent.directive.ensureAlignedScrollWidth,
+      ).toHaveBeenCalled()
       // Max scroll is 300 - 100 = 200
       expect(scrollLeftSetter).toHaveBeenCalledWith(200)
     })
