@@ -56,17 +56,17 @@
 
         <!-- Paragraph Breaks -->
         @if (text.type === 'paragraph' && data.verseLabel !== 'front') {
-          <div></div>
+          <br>
         }
         @if (isLast && text.type === 'quote') {
-          <div></div>
+          <br>
         }
 
         <!-- Complex Paragraph Logic -->
         @if (text.type === 'paragraph') {
           @if (!isFirst && isLast && chapterNumberDisplayIndex !== i && !shouldShowParagraph(data, text, i)) {
             <span>
-              <div></div>
+              <br>
               <span #indentable [attr.data-index]="i" [class.indent]="indentStates[i] !== false">
                 {{ text.text }}
               </span>
@@ -110,7 +110,7 @@
       @let firstText = firstElement.data;
       <span class="verseText">
         <span class="quote">
-          <div></div>
+          <br>
           <span #indentable [attr.data-index]="firstElement.originalIndex" [ngClass]="{'indent': indentStates[firstElement.originalIndex] !== false, 'indent2': getQuoteIdentLevel(firstText) === 2}" class="quoteLineWrapper">
             @for (element of group.elements; track element.originalIndex) {
               <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === data.text.length - 1, isQuote: element.data.type === 'quote' }"></ng-container>
