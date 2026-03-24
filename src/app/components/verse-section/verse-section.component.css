@@ -35,7 +35,3 @@
 a {
   color: var(--text-color);
 }
-
-.line-break {
-  display: block;
-}

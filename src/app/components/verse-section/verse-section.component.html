@@ -1,14 +1,14 @@
 <span class="section" [ngClass]="{'center':data.text[data.text.length - 1].type === 'quote' || nextIsQuote}">
   @for (text of data.text; track $index; let i = $index; let isFirst = $first; let isLast = $last) {
     @if (changeLine && isFirst) {
-      <div class="line-break"></div>
+      <br>
     }
     @if (text.type === 'text' || text.type === 'section') {
       <span class="section">{{text.text}}</span>
     }
     @if(text.type === "references"){
       @if (data.text[data.text.length - 1].type === 'quote' || nextIsQuote) {
-        <div class="line-break"></div>
+        <br>
       }
       <span class="references">
         <span>{{ " " }}</span>

@@ -55,7 +55,7 @@
         }
 
         <!-- Paragraph Breaks -->
-        @if (text.type === 'paragraph' && data.verseLabel !== 'front') {
+        @if (text.type === 'paragraph' && data.verseLabel !== 'front' && !isFirst) {
           <br>
         }
         @if (isLast && text.type === 'quote') {
@@ -82,7 +82,7 @@
         <!-- Section Headers -->
         @if (text.type === 'section') {
           @if (text.tag === 's1' || text.tag === 'ms') {
-            <p></p>
+            <br>
             <h3>{{ text.text }}</h3>
           }
           @if (text.tag === 's2') {
