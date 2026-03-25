@@ -15,6 +15,9 @@ const config: CapacitorConfig = {
       overlaysWebView: true,
       style: "DARK",
     },
+    CapacitorHttp: {
+      enabled: true,
+    },
   },
   android: {},
 }

@@ -82,7 +82,9 @@
         <!-- Section Headers -->
         @if (text.type === 'section') {
           @if (text.tag === 's1' || text.tag === 'ms') {
-            <br>
+            @if(!isFirst){
+              <br>
+            }
             <h3>{{ text.text }}</h3>
           }
           @if (text.tag === 's2') {
@@ -90,7 +92,7 @@
               [data]="getDataForSection(i)"
               [nextIsQuote]="checkNextIsQuote(i)"
               [nextIsParagraph]="checkNextIsParagraph(i)"
-              [changeLine]="chapterNumberDisplayIndex !== i && data.text[i-1]?.type !== 'section'">
+              [changeLine]="chapterNumberDisplayIndex !== i && data.text[i-1]?.type !== 'section' && data.text[i-1]?.type !== 'references'">
             </verse-section>
           }
         }

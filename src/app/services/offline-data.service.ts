@@ -1,6 +1,7 @@
 import { HttpClient } from "@angular/common/http"
 import { Injectable } from "@angular/core"
 import { firstValueFrom } from "rxjs"
+import { apiBaseUrl } from "../config"
 import { DatabaseService } from "./database.service"
 import { NetworkService } from "./network.service"
 
@@ -12,7 +13,7 @@ export class OfflineDataService {
   private cacheTimestampKey = "booksCacheTimestamp"
   private cacheMaxAgeMs = 1000 * 60 * 60 * 24 * 40 // 40 days
   private cachedBooks: Book[] | null = null
-  private apiBase = "v1"
+  private apiBase = apiBaseUrl
   private cacheLoadPromise: Promise<void> | null = null
 
   constructor(

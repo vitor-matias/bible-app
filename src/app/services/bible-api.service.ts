@@ -10,6 +10,7 @@ import {
   switchMap,
   throwError,
 } from "rxjs"
+import { apiBaseUrl } from "../config"
 import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
 
@@ -17,7 +18,7 @@ import { OfflineDataService } from "./offline-data.service"
   providedIn: "root",
 })
 export class BibleApiService {
-  api = "v1"
+  api = apiBaseUrl
   private chapterPromise: Promise<Observable<Chapter>> | null = null
 
   private books$: Observable<Book[]> | null = null
