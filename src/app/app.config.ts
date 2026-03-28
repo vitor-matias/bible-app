@@ -4,6 +4,7 @@ import {
   type ApplicationConfig,
   provideZoneChangeDetection,
 } from "@angular/core"
+import { MAT_ICON_DEFAULT_OPTIONS } from "@angular/material/icon"
 import { provideAnimationsAsync } from "@angular/platform-browser/animations/async"
 import { provideRouter } from "@angular/router"
 import { provideServiceWorker } from "@angular/service-worker"
@@ -26,6 +27,10 @@ export const appConfig: ApplicationConfig = {
     }),
     provideHttpClient(),
     provideAnimationsAsync(),
+    {
+      provide: MAT_ICON_DEFAULT_OPTIONS,
+      useValue: { fontSet: "material-symbols-outlined" },
+    },
     {
       provide: APP_INITIALIZER,
       useFactory: initializeBookService,

@@ -1,24 +1,36 @@
+import { CommonModule } from "@angular/common"
 import {
   ChangeDetectorRef,
   Component,
+  DestroyRef,
   EventEmitter,
+  Inject,
   Input,
+  inject,
   type OnChanges,
   type OnDestroy,
   type OnInit,
   Output,
   type SimpleChanges,
 } from "@angular/core"
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
+import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
+import { MatDividerModule } from "@angular/material/divider"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenuModule, type MatMenuTrigger } from "@angular/material/menu"
 import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { RouterModule } from "@angular/router"
-import { PreferencesService } from "../../services/preferences.service"
+import { Capacitor } from "@capacitor/core"
+import type { Share } from "@capacitor/share"
+import { BookmarkService } from "../../services/bookmark.service"
+import { NetworkService } from "../../services/network.service"
 import { ThemeService } from "../../services/theme.service"
+import { SHARE_PLUGIN } from "../../tokens"
+import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 
 @Component({
   standalone: true,
@@ -32,6 +44,8 @@ import { ThemeService } from "../../services/theme.service"
     MatMenuModule,
     RouterModule,
     MatTooltipModule,
+    MatDividerModule,
+    CommonModule,
   ],
   templateUrl: "./header.component.html",
   styleUrls: ["./header.component.css"],
@@ -40,38 +54,61 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Input() book!: Book
   @Input() chapterNumber!: number
   @Input() autoScrollControlsVisible = false
+  @Input() viewMode: "scrolling" | "paged" = "scrolling"
 
   bookLabelMode: "title" | "prompt" = "title"
   private labelInterval?: number
   canShare = false
+  currentBookmark: Bookmark | undefined
 
   @Output() openBookSelector = new EventEmitter<{ open: boolean }>()
   @Output() openChapterSelector = new EventEmitter<{ open: boolean }>()
   @Output() toggleAutoScrollControls = new EventEmitter<void>()
+  @Output() toggleViewMode = new EventEmitter<void>()
 
   mobile = false
-  isOffline = typeof navigator !== "undefined" ? !navigator.onLine : false
+  isOffline = false
+
+  private readonly destroyRef = inject(DestroyRef)
 
   constructor(
     private readonly themeService: ThemeService,
-    private readonly preferencesService: PreferencesService,
+    private readonly bookmarkService: BookmarkService,
+    private readonly bottomSheet: MatBottomSheet,
     private readonly cdr: ChangeDetectorRef,
+    private readonly networkService: NetworkService,
+    @Inject(SHARE_PLUGIN) private sharePlugin: typeof Share,
   ) {}
 
   ngOnInit(): void {
-    if (window.screen.width <= 480) {
-      // 768px portrait
+    if (typeof window !== "undefined" && window.screen.width <= 480) {
       this.mobile = true
     }
     this.canShare =
-      typeof navigator !== "undefined" && typeof navigator.share === "function"
-    if (typeof window !== "undefined") {
-      window.addEventListener("online", this.updateOnlineStatus)
-      window.addEventListener("offline", this.updateOnlineStatus)
-    }
+      Capacitor.isNativePlatform() ||
+      (typeof navigator !== "undefined" &&
+        typeof navigator.share === "function")
+
+    this.isOffline = this.networkService.isOffline
+    this.networkService.isOffline$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((isOffline) => {
+        this.isOffline = isOffline
+        this.cdr.detectChanges()
+      })
+
+    this.bookmarkService.bookmarks$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.updateBookmarkState()
+        this.cdr.detectChanges()
+      })
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes["book"] || changes["chapterNumber"]) {
+      this.updateBookmarkState()
+    }
     if (changes["book"]) {
       if (this.book?.id === "about") {
         this.startLabelCycle()
@@ -81,12 +118,32 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
+  private updateBookmarkState() {
+    if (this.book && this.chapterNumber) {
+      this.currentBookmark = this.bookmarkService.getBookmark(
+        this.book.id,
+        this.chapterNumber,
+      )
+    }
+  }
+
+  openBookmarkSelector() {
+    if (!this.book || !this.chapterNumber) {
+      return
+    }
+
+    this.bottomSheet.open(BookmarkSelectorComponent, {
+      data: { bookId: this.book.id, chapter: this.chapterNumber },
+    })
+  }
+
+  onToggleBookmarkFromMenu(trigger: MatMenuTrigger) {
+    trigger.closeMenu()
+    this.openBookmarkSelector()
+  }
+
   ngOnDestroy(): void {
     this.stopLabelCycle()
-    if (typeof window !== "undefined") {
-      window.removeEventListener("online", this.updateOnlineStatus)
-      window.removeEventListener("offline", this.updateOnlineStatus)
-    }
   }
 
   showBookSelector() {
@@ -103,8 +160,25 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     trigger.closeMenu()
   }
 
+  onToggleViewMode(event?: Event): void {
+    event?.stopPropagation()
+    this.toggleViewMode.emit()
+  }
+
+  getThemeIcon(): string {
+    const mode = this.themeService.currentMode
+    if (mode === "system") return "brightness_auto"
+    return mode === "light" ? "light_mode" : "dark_mode"
+  }
+
+  getThemeTooltip(): string {
+    const mode = this.themeService.currentMode
+    if (mode === "system") return "Tema do Sistema"
+    return mode === "light" ? "Modo Claro" : "Modo Escuro"
+  }
+
   isLightTheme(): boolean {
-    return this.preferencesService.getTheme() === "light"
+    return this.themeService.currentMode === "light"
   }
 
   toggleTheme(): void {
@@ -114,6 +188,16 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   onToggleTheme(event?: Event): void {
     event?.stopPropagation()
     this.toggleTheme()
+  }
+
+  getViewModeIcon(): string {
+    return this.viewMode === "scrolling" ? "swipe_vertical" : "auto_stories"
+  }
+
+  getViewModeTooltip(): string {
+    return this.viewMode === "scrolling"
+      ? "Modo de Deslocamento (clique para mudar para páginas)"
+      : "Modo de Páginas (clique para mudar para deslocamento)"
   }
 
   @Output() increaseFontSizeEvent = new EventEmitter<void>()
@@ -153,20 +237,28 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     const text = isAbout
       ? "Leia a Biblia nesta app."
       : `Ler ${this.book?.name} ${this.chapterNumber}.`
-    const url = globalThis.window === undefined ? "" : globalThis.location.href
+    const url = typeof window === "undefined" ? "" : window.location.href
 
     try {
-      await navigator.share({ title, text, url }).finally(() => {
-        // Shared successfully
-        // @ts-expect-error
-        if (globalThis.umami) {
-          // @ts-expect-error
-          globalThis.umami.track("share", {
-            book: this.book?.id,
-            chapter: this.chapterNumber,
-          })
-        }
-      })
+      if (Capacitor.isNativePlatform()) {
+        await this.sharePlugin.share({
+          title: "Biblia Sagrada",
+          text,
+          url,
+          dialogTitle: "Partilhar passagem",
+        })
+      } else {
+        await navigator.share({ title, text, url })
+      }
+
+      // Shared successfully
+
+      if (typeof window !== "undefined" && window.umami) {
+        window.umami.track("share", {
+          book: this.book?.id,
+          chapter: this.chapterNumber,
+        })
+      }
     } catch {
       // User canceled or share failed; no UI feedback needed.
     }
@@ -187,11 +279,5 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       this.labelInterval = undefined
     }
     this.bookLabelMode = "title"
-  }
-
-  private updateOnlineStatus = () => {
-    this.isOffline =
-      typeof navigator !== "undefined" ? !navigator.onLine : false
-    this.cdr.detectChanges()
   }
 }

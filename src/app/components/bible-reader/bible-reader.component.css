@@ -18,28 +18,26 @@ h6 {
   margin: 15px;
   font-size: 105%;
 }
+
 .chapterBlock {
   touch-action: pan-y !important;
 }
 
 @media (max-width: 768px) {
-  .bookBlock {
-    max-width: 90%;
-  }
   .bookSelector {
     width: 100%;
   }
 
   .prev-chapter {
-    bottom: 8px;
+    bottom: 52px;
   }
 
   .next-chapter {
-    bottom: 8px;
+    bottom: 52px;
   }
 
   .search {
-    bottom: 8px;
+    bottom: 52px;
   }
 
   .auto-scroll-controls {
@@ -55,6 +53,7 @@ h6 {
     margin-left: auto;
     margin-right: auto;
   }
+
   .bookBlock.largeBook {
     max-width: 80%;
   }
@@ -65,10 +64,12 @@ h6 {
 
   .prev-chapter {
     top: 50%;
+    transform: translateY(-50%);
   }
 
   .next-chapter {
     top: 50%;
+    transform: translateY(-50%);
   }
 
   .auto-scroll-controls {
@@ -77,9 +78,12 @@ h6 {
 }
 
 .chapterNumber {
-  float: left; /* Makes the chapter number float to the left */
-  font-size: 333%; /* Adjust the font size as needed */
-  line-height: 1; /* Adjusted for better alignment, might need tweaking */
+  float: left;
+  /* Makes the chapter number float to the left */
+  font-size: 333%;
+  /* Adjust the font size as needed */
+  line-height: 1;
+  /* Adjusted for better alignment, might need tweaking */
 
   /*margin-right: 10px;  Adds space to the right of the chapter number */
   /* margin-bottom: 10px; Adds space below the chapter number */
@@ -88,8 +92,14 @@ h6 {
 
 .bookSelectorContainer {
   width: 100%;
-  height: calc(100vh - 56px); /* Full height minus header */
-  overscroll-behavior: none; /* Prevents rubber banding in this container */
+  height: calc(100vh - (56px + env(safe-area-inset-top)));
+  /* Fallback */
+  height: calc(100dvh - (56px + env(safe-area-inset-top)));
+  /* Dynamic viewport */
+  overscroll-behavior: none;
+  /* Prevents rubber banding in this container */
+  background-color: var(--background-color);
+  color: var(--text-color);
 }
 
 .center {
@@ -99,7 +109,7 @@ h6 {
 
 .floating-nav-button {
   position: fixed;
-  z-index: 100;
+  z-index: 99;
   opacity: 0.6;
   transition: opacity 0.3s;
   color: #543d27;
@@ -144,12 +154,10 @@ h6 {
 
 .prev-chapter {
   left: 16px;
-  transform: translateY(-50%);
 }
 
 .next-chapter {
   right: 16px;
-  transform: translateY(-50%);
 }
 
 .search {
@@ -179,17 +187,208 @@ h6 {
   background-color: var(--card-background);
 }
 
-mat-icon {
+.mat-icon {
   padding: 0px;
 }
 
+/* Prevent horizontal scrollbar flash during slide animations (translateX) */
+
 .container {
   overflow-y: auto;
-  overscroll-behavior: none; /* Prevents rubber banding in this container */
+  overscroll-behavior: none;
+  /* Prevents rubber banding in this container */
   margin: 0;
   width: 100%;
 }
 
-.reader-header {
-  top: 0;
+
+/* Paged View Styles */
+
+.paged-view-container {
+  position: relative;
+  overflow-y: hidden;
+  overflow-x: hidden;
+  /* Hide overflow instead of auto to prevent momentary scrollbars during animation */
+  scrollbar-width: none;
+  /* Firefox */
+  height: calc(100vh - (56px + env(safe-area-inset-top)) - 15px);
+  /* Fallback */
+  height: calc(100dvh - (56px + env(safe-area-inset-top)) - 15px);
+  /* Dynamic viewport - Header - Margins */
+  width: 95%;
+  /* Narrower container to create side margins */
+  margin: 0 auto;
+  /* Center the container */
+  margin-top: 15px;
+}
+
+/* Chrome, Safari, Edge */
+.paged-view-container::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+@keyframes slide-in-from-right {
+  0% {
+    transform: translateX(60px);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-from-left {
+  0% {
+    transform: translateX(-60px);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-out-to-left {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(-60px);
+    opacity: 0;
+  }
+}
+
+@keyframes slide-out-to-right {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(60px);
+    opacity: 0;
+  }
+}
+
+.slide-in-right {
+  animation: slide-in-from-right 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.slide-in-left {
+  animation: slide-in-from-left 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.slide-out-left {
+  animation: slide-out-to-left 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.slide-out-right {
+  animation: slide-out-to-right 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.paged-view {
+  height: 100%;
+  column-fill: auto;
+  column-gap: 32px;
+  width: 100%;
+
+  /* Reset standard constraints */
+  display: block;
+}
+
+/* Mobile - 1 Page */
+@media (max-width: 768px) {
+  .paged-view {
+    column-width: 80vw;
+    /* Use column-width to allow multiple columns (pages) */
+    column-count: auto;
+    /* Formula for stable paging: Gap = 2 * Padding */
+    column-gap: 4vw;
+    /* 2 * 2vw = 4vw */
+    padding: 0 2vw 2vw 2vw;
+    width: 100%;
+    margin: 0 !important;
+    height: calc(100% - 78px);
+    /* Reserve space for copyright footer */
+    max-width: 100%;
+  }
+}
+
+/* Tablet - 2 Pages */
+@media (min-width: 768px) and (max-width: 1400px) {
+  .paged-view-container {
+    width: 85%;
+    max-width: 85%;
+  }
+
+  .paged-view {
+    column-count: 2;
+    column-width: auto;
+    column-fill: auto;
+    /* Formula for stable paging: Gap = 2 * Padding */
+    column-gap: 4vw;
+    padding: 0 2vw;
+    height: calc(100% - 62px);
+    /* Reserve space for copyright footer */
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto !important;
+    orphans: 1;
+    widows: 1;
+  }
+}
+
+/* Desktop - 2 Pages */
+@media (min-width: 1400px) {
+  .paged-view-container {
+    width: 65%;
+    max-width: 65%;
+  }
+
+  .paged-view {
+    column-count: 2;
+    column-width: auto;
+    column-fill: auto;
+    /* Formula for stable paging: Gap = 2 * Padding */
+    column-gap: 6vw;
+    padding: 0 3vw;
+    height: calc(100% - 62px);
+    /* Reserve space for copyright footer */
+    width: 100%;
+    max-width: 100%;
+    orphans: 1;
+    widows: 1;
+  }
+}
+
+.copyright-footer {
+  font-family: "PT Serif", serif;
+  width: 95%;
+  margin: 0 auto;
+  padding: 8px 0 8px 0;
+  text-align: center;
+  font-size: 18px;
+  color: dimgray;
+}
+
+.copyright-details {
+  font-size: 13px;
+  display: block;
+}
+
+.fixed-footer {
+  position: fixed;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0.9;
+  padding: 8px 0 8px 0;
+  width: 100%;
 }

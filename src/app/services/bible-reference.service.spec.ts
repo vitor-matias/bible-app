@@ -147,4 +147,121 @@ describe("BibleReferenceService", () => {
       endPart: undefined,
     })
   })
+
+  it('extracts verse parts like "John 3,16a"', () => {
+    const input = "John 3,16a"
+    const out = service.extract(input)
+    expect(out.length).toBe(1)
+    expect(out[0].verses).toEqual([
+      { type: "single", verse: 16, part: "a" } as VerseReference,
+    ])
+  })
+
+  it('extracts range with verse parts like "John 3,16a-17b"', () => {
+    const input = "John 3,16a-17b"
+    const out = service.extract(input)
+    expect(out.length).toBe(1)
+    expect(out[0].verses).toEqual([
+      {
+        type: "range",
+        start: 16,
+        end: 17,
+        startPart: "a",
+        endPart: "b",
+      } as VerseReference,
+    ])
+  })
+
+  it('extracts verse lists "John 3,16, 18-20"', () => {
+    const input = "John 3,16, 18-20"
+    const out = service.extract(input)
+    expect(out.length).toBe(1)
+    expect(out[0].verses).toEqual([
+      { type: "single", verse: 16 },
+      { type: "range", start: 18, end: 20 },
+    ])
+  })
+
+  it('extracts implicit references with context "John 3,16-17; 4,1-5"', () => {
+    const input = "John 3,16-17; 4,1-5"
+    const out = service.extract(input)
+    expect(out.length).toBe(2)
+    expect(out[0].chapter).toBe(3)
+    expect(out[1].chapter).toBe(4)
+    expect(out[1].book).toBe("John")
+    expect(out[1].verses).toEqual([
+      { type: "range", start: 1, end: 5 } as VerseReference,
+    ])
+  })
+
+  it('extracts tail chapter only "; 12"', () => {
+    const input = "John 3,16; 12"
+    const out = service.extract(input)
+    expect(out.length).toBe(2)
+    expect(out[1].chapter).toBe(12)
+    expect(out[1].book).toBe("John")
+  })
+
+  it('extracts verse-only shorthand "v. 12" with current context', () => {
+    const input = "Read v. 12 and v. 14-15"
+    const out = service.extract(input, "John", 3)
+    expect(out.length).toBe(2)
+    expect(out[0].book).toBe("John")
+    expect(out[0].chapter).toBe(3)
+    expect(out[0].verses).toEqual([
+      { type: "single", verse: 12 } as VerseReference,
+    ])
+    expect(out[1].verses).toEqual([
+      { type: "range", start: 14, end: 15 } as VerseReference,
+    ])
+  })
+
+  it("extracts implicit cross-chapter", () => {
+    const input = "Gn 38,1-39,30 and 40,1-41,30"
+    const out = service.extract(input)
+    expect(out.length).toBe(2)
+    expect(out[1].book).toBe("Gn")
+    expect(out[1].crossChapter).toEqual({
+      type: "crossChapterRange",
+      startChapter: 40,
+      startVerse: 1,
+      endChapter: 41,
+      endVerse: 30,
+      startPart: undefined,
+      endPart: undefined,
+    })
+  })
+
+  it("extracts cross-chapter ranges with verse parts", () => {
+    const input = "Gn 38,1a-39,30b"
+    const out = service.extract(input)
+    expect(out.length).toBe(1)
+    expect(out[0].book).toBe("Gn")
+    expect(out[0].chapter).toBe(38)
+    expect(out[0].crossChapter).toEqual({
+      type: "crossChapterRange",
+      startChapter: 38,
+      startVerse: 1,
+      startPart: "a",
+      endChapter: 39,
+      endVerse: 30,
+      endPart: "b",
+    })
+  })
+
+  it("extracts reference using book id (like gen)", () => {
+    const input = "Read gen 1,1 and exo 2,2"
+    const out = service.extract(input)
+    expect(out.length).toBe(2)
+    expect(out[0].book.toLowerCase()).toBe("gen")
+    expect(out[0].chapter).toBe(1)
+    expect(out[0].verses).toEqual([
+      { type: "single", verse: 1 } as VerseReference,
+    ])
+    expect(out[1].book.toLowerCase()).toBe("exo")
+    expect(out[1].chapter).toBe(2)
+    expect(out[1].verses).toEqual([
+      { type: "single", verse: 2 } as VerseReference,
+    ])
+  })
 })

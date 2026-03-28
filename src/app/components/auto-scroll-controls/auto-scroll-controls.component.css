@@ -1,0 +1,58 @@
+.auto-scroll-controls {
+  position: fixed;
+  bottom: 24px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  opacity: 0.75;
+}
+
+.auto-scroll-speed {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background-color: var(--card-background);
+  font-size: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.auto-scroll-speed .mat-icon {
+  color: var(--text-color);
+}
+
+.auto-scroll-speed span {
+  min-width: 60px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.floating-nav-button {
+  position: fixed;
+  z-index: 100;
+  opacity: 0.6;
+  transition: opacity 0.3s;
+  color: #543d27;
+  background-color: antiquewhite;
+}
+
+@media (hover: hover) {
+  .floating-nav-button:hover {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .auto-scroll-controls {
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+  }
+}
+
+@media (min-width: 768px) {
+  .auto-scroll-controls {
+    right: 16px;
+  }
+}

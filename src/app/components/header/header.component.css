@@ -32,8 +32,8 @@
   flex-grow: 1;
 }
 
-div {
-  height: 56px;
+.header-placeholder {
+  height: calc(56px + env(safe-area-inset-top));
 }
 
 .bookSelectorButton:not(disabled) {
@@ -78,6 +78,10 @@ mat-icon {
 
 .searchButton.mdc-button {
   min-width: 48px;
+}
+
+.search-icon {
+  color: var(--cap-brown, #543d27);
 }
 
 ::ng-deep .mat-button-toggle-label-content {
@@ -200,4 +204,20 @@ mat-icon {
   .cycle-wrapper {
     perspective: none;
   }
+}
+
+.menu-controls {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 16px;
+  min-width: 240px;
+}
+
+.menu-controls button {
+  transform: scale(1.2);
+  color: inherit;
+}
+
+.menu-controls mat-icon {
+  color: inherit;
 }

@@ -11,8 +11,9 @@ h3 {
   cursor: default;
   hyphens: auto;
   font-size: 90%;
+  height: auto !important;
   min-height: 48px;
-  /* Ensure enough height for buttons */
+  padding: 4px 0;
 }
 
 h4 {
@@ -43,6 +44,11 @@ li {
   color: var(--text-color);
   font-size: large;
   width: 100%;
+  height: auto !important;
+  min-height: 48px;
+  white-space: normal;
+  line-height: 1.2;
+  padding: 8px 12px !important;
   /* Make button fill the node area */
   justify-content: flex-start;
   /* Align text to left */

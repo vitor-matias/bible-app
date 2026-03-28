@@ -24,7 +24,7 @@ module.exports = (config) => {
     coverageReporter: {
       dir: require("node:path").join(__dirname, "./coverage/bible-app"),
       subdir: ".",
-      reporters: [{ type: "html" }, { type: "text-summary" }],
+      reporters: [{ type: "html" }, { type: "text" }],
     },
     reporters: ["progress", "kjhtml"],
     browsers: ["ChromeHeadlessNoSandbox"],

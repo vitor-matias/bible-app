@@ -42,7 +42,10 @@ export class BookService {
   }
 
   findBookById(bookId: Book["id"]): Book | undefined {
-    return this.getBooks().find((book) => book.id === bookId)
+    if (bookId == null) return undefined
+    return this.getBooks().find(
+      (book) => book.id.toUpperCase() === bookId.toUpperCase(),
+    )
   }
 
   findBookByAbrv(bookAbrv: Book["abrv"]): Book | undefined {
@@ -73,7 +76,11 @@ export class BookService {
     }
     const needle = new Set(normalizeVariants(bookName))
     return this.getBooks().find((book) =>
-      normalizeVariants(book.shortName).some((variant) => needle.has(variant)),
+      book?.shortName
+        ? normalizeVariants(book.shortName).some((variant) =>
+            needle.has(variant),
+          )
+        : false,
     )
   }
 

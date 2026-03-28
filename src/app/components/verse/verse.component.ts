@@ -1,17 +1,31 @@
 import { CommonModule } from "@angular/common"
-import { ChangeDetectionStrategy, Component, Input } from "@angular/core"
+import {
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  Input,
+  OnChanges,
+  OnDestroy,
+  QueryList,
+  SimpleChanges,
+  ViewChild,
+  ViewChildren,
+} from "@angular/core"
 import {
   MatBottomSheet,
   MatBottomSheetModule,
 } from "@angular/material/bottom-sheet"
 import { RouterModule } from "@angular/router"
+import { Subscription } from "rxjs"
 import {
-  BibleReference,
+  type BibleReference,
   BibleReferenceService,
-  VerseReference,
 } from "../../services/bible-reference.service"
 import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnotes-bottom-sheet.component"
 import { VerseSectionComponent } from "../verse-section/verse-section.component"
+import { getVerseQueryParams, parseReferences } from "./verse.utils"
 
 @Component({
   selector: "verse",
@@ -26,40 +40,243 @@ import { VerseSectionComponent } from "../verse-section/verse-section.component"
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
 })
-export class VerseComponent {
-  isChapterNumberDisplayed = false
-  chapterNumberIndex = 0
-  skip = false
+export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
+  /** Pre-computed index where the chapter number should be displayed, or -1 */
+  chapterNumberDisplayIndex = -1
+
+  /** Pre-computed: does this verse have footnotes? */
+  hasFootnotes = false
+
+  /** Groups for rendering - quotes and their continuations */
+  displayGroups: DisplayGroup[] = []
+
+  private resizeObserver: ResizeObserver | null = null
+  private resizeObserverTimeout: ReturnType<typeof setTimeout> | null = null
+
+  /** Pre-computed parsed references keyed by text index */
+  parsedReferences: Map<number, (string | BibleReference)[]> = new Map()
 
   @Input()
   data!: Verse
 
+  @Input()
+  chapterNumber?: number
+
+  @Input()
+  nextVerseStartsWithQuote = false
+
+  @ViewChildren("indentable")
+  indentableElements!: QueryList<ElementRef<HTMLElement>>
+
+  @ViewChild("chapterNumber")
+  chapterNumberRef?: ElementRef<HTMLElement>
+
+  private indentableSubscription: Subscription | undefined
+
+  // Track the indentation state of each #indentable element by data-index
+  // so the template can bind to this state rather than us directly mutating the DOM
+  indentStates: Record<number, boolean> = {}
+
   constructor(
     private bibleRef: BibleReferenceService,
     private bottomSheet: MatBottomSheet,
+    private cdr: ChangeDetectorRef,
   ) {}
 
-  shouldDisplayChapterNumber(
-    data: Verse,
-    text: TextType,
-    index: number,
-    isLast: boolean,
-  ): boolean {
-    if (
-      !this.isChapterNumberDisplayed &&
-      data.number === 0 &&
-      ((text.type === "section" && text.tag === "s2") ||
-        (!this.hasSection(data.text) && isLast))
-    ) {
-      this.isChapterNumberDisplayed = true
-      this.chapterNumberIndex = index
-      return true
+  ngOnChanges(_changes: SimpleChanges): void {
+    if (this.data) {
+      this.chapterNumberDisplayIndex = this.computeChapterNumberIndex()
+      this.hasFootnotes = this.data.text.some((t) => t.type === "footnote")
+      this.parsedReferences = this.computeParsedReferences()
+      this.displayGroups = this.computeDisplayGroups()
+    }
+  }
+
+  ngAfterViewInit(): void {
+    if (typeof window !== "undefined" && "ResizeObserver" in window) {
+      this.setupResizeObserver()
+
+      this.indentableSubscription = this.indentableElements.changes.subscribe(
+        () => {
+          this.updateIndentableElements()
+        },
+      )
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.indentableSubscription) {
+      this.indentableSubscription.unsubscribe()
+    }
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect()
+      this.resizeObserver = null
+    }
+    if (this.resizeObserverTimeout) {
+      clearTimeout(this.resizeObserverTimeout)
+    }
+  }
+
+  private setupResizeObserver(): void {
+    this.resizeObserver = new ResizeObserver(() => {
+      // Debounce the calculation slightly to avoid excessive layout thrashing
+      if (this.resizeObserverTimeout) {
+        clearTimeout(this.resizeObserverTimeout)
+      }
+      this.resizeObserverTimeout = setTimeout(() => {
+        this.updateIndentation()
+      }, 50)
+    })
+
+    this.updateIndentableElements()
+  }
+
+  private updateIndentableElements(): void {
+    if (!this.resizeObserver) return
+
+    this.resizeObserver.disconnect()
+
+    // Always observe the chapter number if it exists
+    const chapterNumberEl = this.getChapterNumberEl()
+    if (chapterNumberEl) {
+      this.resizeObserver.observe(chapterNumberEl)
+    }
+
+    // Reset indent states – entries are computed by updateIndentation()
+    this.indentStates = {}
+
+    // Observe indentable elements
+    this.indentableElements.forEach((el) => {
+      if (el.nativeElement) {
+        this.resizeObserver?.observe(el.nativeElement)
+      }
+    })
+
+    this.updateIndentation()
+  }
+
+  private getChapterNumberEl(): HTMLElement | null {
+    return this.chapterNumberRef?.nativeElement || null
+  }
+
+  private updateIndentation(): void {
+    if (!this.indentableElements) return
+
+    const chapterNumberEl = this.getChapterNumberEl()
+
+    const newIndentStates: Record<number, boolean> = {}
+
+    this.indentableElements.forEach((el) => {
+      const element = el.nativeElement
+      const dataIndexStr = element.getAttribute("data-index")
+      if (dataIndexStr === null) return
+
+      const i = parseInt(dataIndexStr, 10)
+
+      if (!chapterNumberEl) {
+        newIndentStates[i] = true
+        return
+      }
+
+      // We still need to do getBoundingClientRect here, but because it's in a ResizeObserver
+      // microtask/timeout and NOT in ngAfterViewChecked, it doesn't cause synchronous
+      // layout thrashing during the Angular digest cycle.
+      const chapterRect = chapterNumberEl.getBoundingClientRect()
+      const elRect = element.getBoundingClientRect()
+      // Use a small vertical buffer to avoid issues with display: block and line heights
+      const isTouching =
+        chapterRect.bottom > elRect.top + 2 &&
+        chapterRect.top < elRect.bottom - 2
+
+      newIndentStates[i] = !isTouching
+    })
+
+    // Only update if changes occurred to avoid unnecessary CD triggers
+    const hasChanges =
+      Object.keys(newIndentStates).length !==
+        Object.keys(this.indentStates).length ||
+      Object.keys(newIndentStates).some(
+        (key) =>
+          newIndentStates[Number(key)] !== this.indentStates[Number(key)],
+      )
+    if (hasChanges) {
+      this.indentStates = newIndentStates
+      this.cdr.detectChanges()
+    }
+  }
+
+  getFirstTextType(): string | undefined {
+    return this.data.text.find(
+      (t) => t.type !== "footnote" && t.type !== "references",
+    )?.type
+  }
+
+  isFirstDisplayableElement(index: number): boolean {
+    const firstIdx = this.data.text.findIndex(
+      (t) => t.type !== "footnote" && t.type !== "references",
+    )
+    return index === firstIdx
+  }
+
+  checkNextIsQuote(i: number): boolean {
+    const sectionText = this.getDataForSection(i).text
+    const lastElementIndex = i + sectionText.length - 1
+
+    if (lastElementIndex + 1 < this.data.text.length) {
+      const nextDisplayableIdx = this.data.text.findIndex(
+        (t, idx) =>
+          idx > lastElementIndex &&
+          t.type !== "footnote" &&
+          t.type !== "references",
+      )
+
+      if (nextDisplayableIdx !== -1) {
+        return this.data.text[nextDisplayableIdx].type === "quote"
+      }
+    }
+
+    return this.nextVerseStartsWithQuote
+  }
+
+  checkNextIsParagraph(i: number): boolean {
+    const sectionText = this.getDataForSection(i).text
+    const lastElementIndex = i + sectionText.length - 1
+
+    if (lastElementIndex + 1 < this.data.text.length) {
+      const nextDisplayableIdx = this.data.text.findIndex(
+        (t, idx) =>
+          idx > lastElementIndex &&
+          t.type !== "footnote" &&
+          t.type !== "references",
+      )
+
+      if (nextDisplayableIdx !== -1) {
+        return this.data.text[nextDisplayableIdx].type === "paragraph"
+      }
     }
     return false
   }
 
-  hasSection(data: TextType[]): boolean {
-    return data.some((text) => text.type === "section" && text.tag === "s2")
+  private computeChapterNumberIndex(): number {
+    if (this.data.number !== 0) return -1
+
+    const hasS2 = this.data.text.some(
+      (text) => text.type === "section" && text.tag === "s2",
+    )
+
+    for (let i = 0; i < this.data.text.length; i++) {
+      const text = this.data.text[i]
+      const isLast = i === this.data.text.length - 1
+
+      if (
+        (text.type === "section" && text.tag === "s2") ||
+        (!hasS2 && isLast)
+      ) {
+        return i
+      }
+    }
+
+    return -1
   }
 
   isInSection(data: TextType[], position: number): boolean {
@@ -83,24 +300,16 @@ export class VerseComponent {
     const sectionText = []
 
     for (let index = 0; index < afterText.length; index++) {
-      if (afterText[index].type === "paragraph") {
+      if (
+        afterText[index].type === "paragraph" ||
+        (afterText[index].type === "quote" && index > 0)
+      ) {
         break
       }
       sectionText.push(afterText[index])
     }
 
     return { ...this.data, text: sectionText }
-  }
-
-  checkIfIsTouchingChapterNumber(element: HTMLSpanElement): boolean {
-    const chapterNumberElement = document.querySelector(
-      ".chapterNumber",
-    ) as HTMLDivElement
-    if (!element || !chapterNumberElement) return false
-    const rect1 = chapterNumberElement.getBoundingClientRect()
-    const rect2 = element.getBoundingClientRect()
-
-    return rect1.bottom >= rect2.top && rect1.top <= rect2.bottom
   }
 
   shouldShowParagraph(data: Verse, text: Paragraph, i: number): boolean {
@@ -114,39 +323,21 @@ export class VerseComponent {
     )
   }
 
-  parseReferences(text: string): { parts: (string | BibleReference)[] } {
-    const refs = this.bibleRef.extract(text, this.data.bookId)
-    if (!refs.length) return { parts: [text] }
-
-    const parts: (string | BibleReference)[] = []
-    let lastIdx = 0
-    for (const ref of refs) {
-      if (ref.index > lastIdx) {
-        parts.push(text.slice(lastIdx, ref.index))
+  private computeParsedReferences(): Map<number, (string | BibleReference)[]> {
+    const map = new Map<number, (string | BibleReference)[]>()
+    for (let i = 0; i < this.data.text.length; i++) {
+      const t = this.data.text[i]
+      if (t.type === "references") {
+        map.set(i, parseReferences(this.bibleRef, t.text, this.data.bookId))
       }
-      parts.push(ref)
-      lastIdx = ref.index + ref.match.length
     }
-    if (lastIdx < text.length) {
-      parts.push(text.slice(lastIdx))
-    }
-    return { parts }
+    return map
   }
 
-  getVerseQueryParams(verses?: VerseReference[]) {
-    if (!verses || !verses.length) return null
-    const first = verses[0]
-    if (first.type === "single") {
-      return { verseStart: first.verse }
-    }
-    if (first.type === "range") {
-      return { verseStart: first.start, verseEnd: first.end }
-    }
-    return null
-  }
+  getVerseQueryParams = getVerseQueryParams
 
-  containsFootnotes(): boolean {
-    return this.data.text.some((t) => t.type === "footnote")
+  getQuoteIdentLevel(text: TextType): number {
+    return text.type === "quote" ? text.identLevel : 0
   }
 
   toggleFootnotes(): void {
@@ -156,4 +347,52 @@ export class VerseComponent {
       data: { footnotes, verse: this.data },
     })
   }
+
+  private computeDisplayGroups(): DisplayGroup[] {
+    const groups: DisplayGroup[] = []
+    let currentGroup: DisplayGroup | null = null
+
+    this.data.text.forEach((text, originalIndex) => {
+      // Elements that should be considered continuation if they follow a quote
+      const isContinuationType =
+        text.type === "text" ||
+        text.type === "references" ||
+        text.type === "footnote"
+
+      if (text.type === "quote") {
+        // Start a new quote group
+        currentGroup = {
+          type: "quote",
+          elements: [{ data: text, originalIndex }],
+        }
+        groups.push(currentGroup)
+      } else if (currentGroup?.type === "quote" && isContinuationType) {
+        // Continue existing quote group
+        currentGroup.elements.push({ data: text, originalIndex })
+      } else {
+        // Start or continue a normal group
+        if (!currentGroup || currentGroup.type !== "normal") {
+          currentGroup = {
+            type: "normal",
+            elements: [{ data: text, originalIndex }],
+          }
+          groups.push(currentGroup)
+        } else {
+          currentGroup.elements.push({ data: text, originalIndex })
+        }
+      }
+    })
+
+    return groups
+  }
+}
+
+interface DisplayElement {
+  data: TextType
+  originalIndex: number
+}
+
+interface DisplayGroup {
+  type: "normal" | "quote"
+  elements: DisplayElement[]
 }

@@ -60,12 +60,13 @@ export class BibleReferenceService {
     const stripDiacritics = (value: string) =>
       value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
 
-    // 1) Abbreviations + short names from your service (e.g., "Gn", "Gênesis").
+    // 1) Abbreviations, short names, ids, and full names from your service (e.g., "Gn", "Gênesis", "gen").
     const raw = (
       this.bookService
         .getBooks()
-        ?.flatMap((b) => [b.abrv, b.shortName].map((s) => (s ?? "").trim())) ??
-      []
+        ?.flatMap((b) =>
+          [b.abrv, b.shortName, b.name, b.id].map((s) => (s ?? "").trim()),
+        ) ?? []
     ).filter(Boolean)
 
     // 2) Normalize to base names by stripping any leading 1\u20133 and optional space.

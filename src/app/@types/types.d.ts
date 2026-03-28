@@ -111,3 +111,10 @@ type VersePage = {
   currentPage: number
   totalPages: number
 }
+
+type Bookmark = {
+  bookId: Book["id"]
+  chapter: Chapter["number"]
+  color: string
+  timestamp: number
+}

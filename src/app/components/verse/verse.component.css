@@ -20,11 +20,20 @@
   font-size: 120%;
 }
 
-h1,
-h2,
 h3 {
   font-size: 125%;
   text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+h3:not(:first-child) {
+  margin-top: .5rem;
+}
+
+.references-block {
+  display: block;
+  text-align: center;
+  font-size: 125%;
 }
 
 .text-block {
@@ -32,15 +41,24 @@ h3 {
 }
 
 .indent {
-  margin-left: 1em; /* Adjust the indentation as needed */
+  margin-left: 1em;
+  /* Adjust the indentation as needed */
+}
+
+.indent2 {
+  margin-left: 2.5em;
+  /* Adjust the indentation as needed */
 }
 
 .chapterNumber {
-  float: left; /* Makes the chapter number float to the left */
-  font-size: 380%; /* Adjust the font size as needed */
-  line-height: 1; /* Adjusted for better alignment, might need tweaking */
+  float: left;
+  /* Makes the chapter number float to the left */
+  font-size: 315%;
+  /* Adjust the font size as needed */
+  line-height: 1;
+  /* Adjusted for better alignment, might need tweaking */
 
-  /*margin-right: 10px;  Adds space to the right of the chapter number */
+  margin-right: 8px;  /* Adds space to the right of the chapter number */
   /* margin-bottom: 10px; Adds space below the chapter number */
   color: dimgray;
 }
@@ -69,4 +87,26 @@ h3 {
 .footnoteIndicator {
   vertical-align: top;
   font-size: 65%;
+}
+
+.quoteLineWrapper {
+  position: relative;
+  display: inline-block;
+  /* Using flow-root to respect floated chapter numbers while maintaining block behavior */
+  padding-left: 1em;
+  /* Induction for wrapped lines + space for verse number */
+  text-indent: -1em;
+  /* Pull first line back, leaving space for verse number */
+}
+
+.quoteVerseNumber {
+  position: absolute;
+  right: 100%;
+  white-space: nowrap;
+  margin-right: 2px;
+}
+
+.interactive {
+  cursor: pointer;
+  outline: none;
 }

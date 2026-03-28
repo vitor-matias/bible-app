@@ -1,12 +1,20 @@
 <div class="chapterSelectorContainer">
-  <mat-list>
-    @for (chapter of chapters; track chapter) {
+  @if (bookmarks$ | async; as bookmarksMap) {
+    <mat-list>
+      @for (chapter of chapters; track chapter) {
       <mat-list-item>
-        <button class="chapterSelectorButton" mat-flat-button (click)="submit(chapter.number)"
+        <button type="button" class="chapterSelectorButton" mat-flat-button (click)="submit(chapter.number)"
           [ngClass]="{ 'highlight': chapter.number === selectedChapter }">
-          {{ getChapterDisplay(chapter) }}
+          <span class="number-wrapper">
+            @if(bookmarksMap.has(chapter.number)){
+            <mat-icon [style.color]="bookmarksMap.get(chapter.number)" class="bookmark-icon">bookmark</mat-icon>
+            }
+            <span [ngClass]="{ 'bookmarked': bookmarksMap.has(chapter.number) }">{{ chapter.number }}</span>
+          </span>
+          <span>{{getChapterDisplay(chapter)}}</span>
         </button>
       </mat-list-item>
-    }
-  </mat-list>
+      }
+    </mat-list>
+  }
 </div>

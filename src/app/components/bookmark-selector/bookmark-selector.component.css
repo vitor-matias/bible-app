@@ -1,0 +1,78 @@
+.bookmark-selector-container {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+  color: var(--text-color);
+}
+
+.header-row button {
+  color: var(--text-color);
+}
+
+h3 {
+  margin: 0;
+  color: var(--text-color);
+}
+
+.delete-active {
+  color: red !important;
+  background-color: rgba(244, 67, 54, 0.1);
+}
+
+.colors-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  justify-items: center;
+}
+
+.ribbon-item {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.color-button {
+  width: 56px;
+  height: 80px;
+  border-radius: 4px 4px 0 0;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  position: relative;
+  overflow: hidden;
+  clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 50% 85%, 0% 100%);
+  padding-bottom: 12px;
+}
+
+.color-button:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.ribbon-text {
+  color: antiquewhite;
+  text-align: center;
+  line-height: 1.1;
+  padding: 4px;
+  text-shadow: 1px 1px 1px black;
+  white-space: nowrap;
+}
+
+.add-icon {
+  color: antiquewhite;
+  font-size: 24px;
+  text-shadow: 1px 1px 1px black;
+}

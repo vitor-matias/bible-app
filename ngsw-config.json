@@ -29,10 +29,10 @@
   ],
   "dataGroups": [
     {
-      "name": "material-icons-fonts",
+      "name": "material-symbols-fonts",
       "urls": [
-        "https://fonts.googleapis.com/icon?family=Material+Icons",
-        "https://fonts.gstatic.com/s/materialicons/**"
+        "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@**",
+        "https://fonts.gstatic.com/s/materialsymbolsoutlined/**"
       ],
       "cacheConfig": {
         "strategy": "performance",

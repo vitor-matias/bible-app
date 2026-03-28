@@ -1,6 +1,9 @@
 import { HttpClient } from "@angular/common/http"
 import { Injectable } from "@angular/core"
 import { firstValueFrom } from "rxjs"
+import { apiBaseUrl } from "../config"
+import { DatabaseService } from "./database.service"
+import { NetworkService } from "./network.service"
 
 @Injectable({
   providedIn: "root",
@@ -8,12 +11,16 @@ import { firstValueFrom } from "rxjs"
 export class OfflineDataService {
   private cacheFlagKey = "booksCacheReady"
   private cacheTimestampKey = "booksCacheTimestamp"
-  private cacheMaxAgeMs = 1000 * 60 * 60 * 24 * 90 // 90 days
+  private cacheMaxAgeMs = 1000 * 60 * 60 * 24 * 40 // 40 days
   private cachedBooks: Book[] | null = null
-  private apiBase = "v1"
+  private apiBase = apiBaseUrl
   private cacheLoadPromise: Promise<void> | null = null
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private databaseService: DatabaseService,
+    private networkService: NetworkService,
+  ) {}
 
   /**
    * Fetches all books and chapters so they are stored by the Service Worker
@@ -29,7 +36,7 @@ export class OfflineDataService {
     if (isAlreadyCached && !isExpired) {
       return
     }
-    if (isExpired && typeof navigator !== "undefined" && !navigator.onLine) {
+    if (isExpired && this.networkService.isOffline) {
       // Keep using stale cache until we can refresh online
       return
     }
@@ -180,56 +187,14 @@ export class OfflineDataService {
   }
 
   private async loadBooksFromIndexedDb(): Promise<void> {
-    if (typeof indexedDB === "undefined") return
-    const db = await this.openDatabase()
-    if (!db) return
-
-    await new Promise<void>((resolve) => {
-      const transaction = db.transaction("books", "readonly")
-      const store = transaction.objectStore("books")
-      const request = store.getAll()
-      request.onsuccess = () => {
-        const records = request.result as Book[]
-        if (records?.length) {
-          this.cachedBooks = records
-        }
-        resolve()
-      }
-      request.onerror = () => resolve()
-    })
+    const records = await this.databaseService.getAll<Book>("books")
+    if (records?.length) {
+      this.cachedBooks = records
+    }
   }
 
   private async saveBooksToIndexedDb(books: Book[]): Promise<void> {
-    if (typeof indexedDB === "undefined") return
-    const db = await this.openDatabase()
-    if (!db) return
-
-    await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction("books", "readwrite")
-      const store = transaction.objectStore("books")
-      transaction.oncomplete = () => resolve()
-      transaction.onerror = () => reject(transaction.error)
-      transaction.onabort = () => reject(transaction.error)
-
-      store.clear()
-      for (const book of books) {
-        store.put(book)
-      }
-    })
-  }
-
-  private openDatabase(): Promise<IDBDatabase | null> {
-    return new Promise((resolve) => {
-      const request = indexedDB.open("offline-bible", 1)
-      request.onupgradeneeded = () => {
-        const db = request.result
-        if (!db.objectStoreNames.contains("books")) {
-          db.createObjectStore("books", { keyPath: "id" })
-        }
-      }
-      request.onsuccess = () => resolve(request.result)
-      request.onerror = () => resolve(null)
-    })
+    await this.databaseService.clearAndPutAll("books", books)
   }
 
   private isCacheExpired(): boolean {
@@ -242,7 +207,6 @@ export class OfflineDataService {
   }
 
   private trackUmamiInstallEvent(source: "install" | "standalone") {
-    // @ts-expect-error: `umami` is injected on `window` by the Umami analytics script at runtime
     const umami = typeof window !== "undefined" ? window.umami : undefined
     if (umami?.track) {
       umami.track("pwa_books_cached", { source })
