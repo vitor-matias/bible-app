@@ -52,7 +52,8 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     const computedStyle = getComputedStyle(this.el.nativeElement)
     this.baseFontSize = Number.parseFloat(computedStyle.fontSize) || 105
 
-    // Load stored font size
+    // Persist font size per named container so the reader and search views can
+    // remember independent zoom levels.
     const context = this.el.nativeElement.name || "default"
     const storedSize = this.preferencesService.getFontSize(context)
     this.currentFontSize = storedSize ? storedSize : this.baseFontSize
@@ -65,7 +66,8 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   ngOnInit() {
     const element = this.el.nativeElement
 
-    // Allow pan-x for horizontal scrolling, but disable pinch-zoom
+    // Let the element keep its own scroll behavior while we take ownership of
+    // custom swipe and pinch gestures.
     element.style.touchAction = "pan-y pinch-zoom"
 
     element.addEventListener("touchstart", this.onTouchStart.bind(this), {
@@ -128,8 +130,8 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
       const deltaY = Math.abs(e.touches[0].clientY - this.swipeStartY)
       const deltaX = Math.abs(e.touches[0].clientX - this.swipeStartX)
 
-      // If there's significant horizontal movement and minimal vertical movement,
-      // this might be a swipe - prevent default to avoid interfering with the gesture
+      // Once the gesture looks like a horizontal swipe, suppress the browser's
+      // native handling so the chapter/page navigation wins consistently.
       if (deltaX > 30 && deltaY < this.SWIPE_MAX_VERTICAL_DISTANCE) {
         e.preventDefault()
       } else if (deltaY > this.SWIPE_MAX_VERTICAL_DISTANCE) {
@@ -192,7 +194,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     const currentDistance = this.getDistance(e.touches[0], e.touches[1])
     const scale = (currentDistance / this.initialDistance) * this.initialScale
 
-    // Clamp the scale to reasonable limits
+    // Clamp the gesture so a wild pinch never leaves the text unreadably tiny or huge.
     const clampedScale = Math.max(0.5, Math.min(scale, 3))
 
     const newFontSize = this.baseFontSize * clampedScale
@@ -242,6 +244,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   private setFontSize(fontSize: number) {
     this.renderer.setStyle(this.el.nativeElement, "font-size", `${fontSize}%`)
 
+    // Headings need a parallel bump so their visual hierarchy survives reader zooming.
     const headings = this.el.nativeElement.querySelectorAll("h1, h2, h3")
     for (const heading of headings) {
       this.renderer.setStyle(heading, "font-size", `${fontSize + 5}%`)

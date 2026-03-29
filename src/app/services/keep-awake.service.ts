@@ -12,6 +12,8 @@ export class KeepAwakeService implements OnDestroy {
     }
 
     if (document.visibilityState === "visible") {
+      // Wake locks can be dropped when the tab backgrounds, so reacquire on return
+      // only when the feature is still logically active.
       void this.requestWakeLock()
     }
   }
@@ -49,6 +51,7 @@ export class KeepAwakeService implements OnDestroy {
     }
 
     try {
+      // Reuse the current sentinel instead of stacking duplicate wake lock requests.
       if (this.wakeLockSentinel) {
         return
       }

@@ -124,6 +124,8 @@ export class BibleReferenceService {
     const overlaps = (s: number, e: number) =>
       used.some(([a, b]) => a < e && s < b)
     const push = (ref: BibleReference) => {
+      // Track occupied spans so looser fallback patterns do not duplicate a
+      // reference that was already matched by a more explicit rule.
       out.push(ref)
       used.push([ref.index, ref.index + ref.match.length])
     }
@@ -240,6 +242,8 @@ export class BibleReferenceService {
       const e = s + m[0].length
       if (overlaps(s, e)) continue
 
+      // Reuse the nearest explicit book in the same sentence before falling back
+      // to the reader's current book context.
       const book = bookBefore(s) ?? currentBook?.trim()
       if (!book) continue // no context: skip
 
@@ -344,6 +348,8 @@ export class BibleReferenceService {
     }
     const b = this.parseNumPart(v2)
 
+    // Normalize reversed user input such as "20-18" into an increasing range
+    // so downstream consumers can treat every range uniformly.
     const range: Extract<VerseReference, { type: "range" }> = {
       type: "range",
       start: Math.min(a.num, b.num),
