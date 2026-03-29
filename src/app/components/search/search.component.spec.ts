@@ -1,7 +1,7 @@
 import { ChangeDetectorRef } from "@angular/core"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { Router } from "@angular/router"
-import { of } from "rxjs"
+import { Observable, of } from "rxjs"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
@@ -97,7 +97,12 @@ describe("SearchComponent", () => {
       } as Verse,
     ]
     apiService.search.and.returnValue(
-      of({ verses: [nextVerse], total: 2 } as VersePage),
+      of({
+        verses: [nextVerse],
+        total: 2,
+        currentPage: 2,
+        totalPages: 2,
+      } as VersePage),
     )
 
     await component["loadMoreResults"]()
@@ -109,5 +114,99 @@ describe("SearchComponent", () => {
     ])
     expect(component.currentPage).toBe(2)
     expect(component.isLoading).toBeFalse()
+  })
+
+  it("should show a snackbar when a direct reference is invalid", async () => {
+    referenceService.extract.and.returnValue([
+      {
+        match: "John 99:1",
+        index: 0,
+        book: "John",
+        chapter: 99,
+        verses: [{ type: "single", verse: 1 }],
+      },
+    ])
+    bookService.findBook.and.returnValue({
+      id: "jhn",
+      abrv: "Jo",
+      shortName: "Joao",
+      name: "Evangelho segundo Joao",
+      chapterCount: 21,
+    })
+    apiService.getVerse.and.returnValue(
+      new Observable((subscriber) => {
+        subscriber.error({ status: 404 })
+      }),
+    )
+
+    await component.onSearchSubmit("John 99:1")
+
+    expect(snackBar.open).toHaveBeenCalledWith(
+      "Capitulo ou versiculo não existe",
+      "Fechar",
+      { duration: 3000 },
+    )
+    expect(router.navigate).not.toHaveBeenCalled()
+  })
+
+  it("should populate search results and announce the count", async () => {
+    const scrollToTopSpy = spyOn(component, "scrollToTop")
+    referenceService.extract.and.returnValue([])
+    apiService.search.and.returnValue(
+      of({
+        verses: [
+          {
+            bookId: "gen",
+            chapterNumber: 1,
+            number: 1,
+            verseLabel: "1",
+            text: [{ type: "text", text: "First verse" }],
+          },
+        ],
+        total: 1,
+        currentPage: 1,
+        totalPages: 1,
+      } as VersePage),
+    )
+
+    await component.onSearchSubmit("beginning")
+
+    expect(component.searchResults.length).toBe(1)
+    expect(component.currentPage).toBe(1)
+    expect(snackBar.open).toHaveBeenCalledWith(
+      "Encontrados 1 resultados",
+      "Fechar",
+      { duration: 3000 },
+    )
+    expect(scrollToTopSpy).toHaveBeenCalled()
+  })
+
+  it("should announce when no search results are found", async () => {
+    const scrollToTopSpy = spyOn(component, "scrollToTop")
+    referenceService.extract.and.returnValue([])
+    apiService.search.and.returnValue(
+      of({ verses: [], total: 0, currentPage: 1, totalPages: 0 } as VersePage),
+    )
+
+    await component.onSearchSubmit("missing")
+
+    expect(component.searchResults).toEqual([])
+    expect(snackBar.open).toHaveBeenCalledWith(
+      "Nenhum resultado encontrado",
+      "Fechar",
+      { duration: 3000 },
+    )
+    expect(scrollToTopSpy).toHaveBeenCalled()
+  })
+
+  it("should disconnect the observer on destroy", () => {
+    const observer = jasmine.createSpyObj("IntersectionObserver", [
+      "disconnect",
+    ])
+    component["observer"] = observer
+
+    component.ngOnDestroy()
+
+    expect(observer.disconnect).toHaveBeenCalled()
   })
 })

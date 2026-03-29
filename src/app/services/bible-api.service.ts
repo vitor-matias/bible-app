@@ -20,8 +20,11 @@ import { OfflineDataService } from "./offline-data.service"
 })
 export class BibleApiService {
   api = apiBaseUrl
+  // Track in-flight chapter requests by book+chapter so concurrent navigation
+  // shares the same fetch without leaking the result across different chapters.
   private readonly chapterRequests = new Map<string, Observable<Chapter>>()
 
+  // Keep a shared books request alive long enough for all early subscribers to reuse it.
   private booksRequest$: Observable<Book[]> | null = null
   books: Book[] = []
 
@@ -47,6 +50,7 @@ export class BibleApiService {
           )
         }
         if (!this.booksRequest$) {
+          // shareReplay(1) deduplicates the initial books fetch during app bootstrap.
           this.booksRequest$ = (
             this.http.get(`${this.api}/books`) as Observable<Book[]>
           ).pipe(
@@ -84,6 +88,8 @@ export class BibleApiService {
           return existingRequest
         }
 
+        // Cache the observable itself so repeated requests for the same chapter
+        // share one HTTP call and still complete independently from other chapters.
         const request = (
           this.http.get(`${this.api}/${book}/${chapter}`) as Observable<Chapter>
         ).pipe(

@@ -108,6 +108,8 @@ export class SearchComponent {
     const references = this.referenceService.extract(text)
 
     if (references.length > 0) {
+      // A well-formed Bible reference should jump straight into the reader instead
+      // of going through the broader full-text search results flow.
       const ref = references[0]
       const book = ref.book ? this.bookService.findBook(ref.book) : null
       if (book) {
@@ -138,6 +140,7 @@ export class SearchComponent {
           )
         } catch (err) {
           console.error(err)
+          // HttpErrorResponse is not guaranteed here, so narrow the shape safely.
           const status =
             typeof err === "object" &&
             err !== null &&
@@ -183,7 +186,9 @@ export class SearchComponent {
         )
       }
 
-      this.attachObserverToSentinel() // Attach observer after new search
+      // The sentinel node is recreated when results change, so rebind the observer
+      // after each fresh search result set.
+      this.attachObserverToSentinel()
       this.scrollToTop()
 
       if (typeof window !== "undefined" && window.umami) {
