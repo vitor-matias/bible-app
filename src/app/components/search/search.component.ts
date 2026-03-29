@@ -113,30 +113,18 @@ export class SearchComponent {
       const ref = references[0]
       const book = ref.book ? this.bookService.findBook(ref.book) : null
       if (book) {
+        const verseStart = ref.verses
+          ? ref.verses[0].type === "single"
+            ? ref.verses[0].verse
+            : ref.verses[0].start
+          : 1
         try {
           await firstValueFrom(
-            this.apiService.getVerse(
-              book.id,
-              ref.chapter,
-              ref.verses
-                ? ref.verses[0].type === "single"
-                  ? ref.verses[0].verse
-                  : ref.verses[0].start
-                : 1,
-            ),
+            this.apiService.getVerse(book.id, ref.chapter, verseStart),
           )
           await this.router.navigate(
             ["/", book.id, ref.chapter ? ref.chapter : 1],
-            ref.verses
-              ? {
-                  queryParams: {
-                    verseStart:
-                      ref.verses[0].type === "single"
-                        ? ref.verses[0].verse
-                        : ref.verses[0].start,
-                  },
-                }
-              : {},
+            ref.verses ? { queryParams: { verseStart } } : {},
           )
         } catch (err) {
           console.error(err)

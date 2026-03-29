@@ -15,6 +15,28 @@ describe("SearchComponent", () => {
   let snackBar: jasmine.SpyObj<MatSnackBar>
   let router: jasmine.SpyObj<Router>
   let cdr: Pick<ChangeDetectorRef, "detectChanges">
+  let observerCallback: IntersectionObserverCallback | null
+  let originalIntersectionObserver: typeof IntersectionObserver | undefined
+
+  class MockIntersectionObserver implements IntersectionObserver {
+    root: Element | Document | null = null
+    rootMargin = ""
+    thresholds = [1]
+
+    constructor(callback: IntersectionObserverCallback) {
+      observerCallback = callback
+    }
+
+    observe(_target: Element): void {}
+
+    unobserve(_target: Element): void {}
+
+    disconnect(): void {}
+
+    takeRecords(): IntersectionObserverEntry[] {
+      return []
+    }
+  }
 
   beforeEach(() => {
     apiService = jasmine.createSpyObj("BibleApiService", ["getVerse", "search"])
@@ -26,6 +48,11 @@ describe("SearchComponent", () => {
     router = jasmine.createSpyObj("Router", ["navigate"])
     router.navigate.and.resolveTo(true)
     cdr = { detectChanges: jasmine.createSpy("detectChanges") }
+    observerCallback = null
+    originalIntersectionObserver = globalThis.IntersectionObserver
+
+    globalThis.IntersectionObserver =
+      MockIntersectionObserver as typeof IntersectionObserver
 
     component = new SearchComponent(
       apiService,
@@ -35,6 +62,16 @@ describe("SearchComponent", () => {
       router,
       cdr as ChangeDetectorRef,
     )
+  })
+
+  afterEach(() => {
+    if (originalIntersectionObserver) {
+      globalThis.IntersectionObserver = originalIntersectionObserver
+      return
+    }
+
+    delete (globalThis as { IntersectionObserver?: typeof IntersectionObserver })
+      .IntersectionObserver
   })
 
   it("should create", () => {
@@ -105,7 +142,17 @@ describe("SearchComponent", () => {
       } as VersePage),
     )
 
-    await component["loadMoreResults"]()
+    component.sentinel = {
+      nativeElement: document.createElement("div"),
+    } as SearchComponent["sentinel"]
+    component.ngAfterViewInit()
+
+    observerCallback?.(
+      [{ isIntersecting: true } as IntersectionObserverEntry],
+      {} as IntersectionObserver,
+    )
+    await Promise.resolve()
+    await Promise.resolve()
 
     expect(apiService.search).toHaveBeenCalledWith("beginning", 2)
     expect(component.searchResults).toEqual([

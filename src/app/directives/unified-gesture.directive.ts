@@ -42,6 +42,10 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   private readonly SWIPE_MAX_VERTICAL_DISTANCE = 100
   private readonly MIN_FONT_SIZE = 70
   private readonly MAX_FONT_SIZE = 180
+  private readonly boundTouchStart = this.onTouchStart.bind(this)
+  private readonly boundTouchMove = this.onTouchMove.bind(this)
+  private readonly boundTouchEnd = this.onTouchEnd.bind(this)
+  private readonly boundTouchCancel = this.onTouchCancel.bind(this)
 
   constructor(
     private el: ElementRef,
@@ -70,26 +74,26 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     // custom swipe and pinch gestures.
     element.style.touchAction = "pan-y pinch-zoom"
 
-    element.addEventListener("touchstart", this.onTouchStart.bind(this), {
+    element.addEventListener("touchstart", this.boundTouchStart, {
       passive: false,
     })
-    element.addEventListener("touchmove", this.onTouchMove.bind(this), {
+    element.addEventListener("touchmove", this.boundTouchMove, {
       passive: false,
     })
-    element.addEventListener("touchend", this.onTouchEnd.bind(this), {
+    element.addEventListener("touchend", this.boundTouchEnd, {
       passive: false,
     })
-    element.addEventListener("touchcancel", this.onTouchCancel.bind(this), {
+    element.addEventListener("touchcancel", this.boundTouchCancel, {
       passive: false,
     })
   }
 
   ngOnDestroy() {
     const element = this.el.nativeElement
-    element.removeEventListener("touchstart", this.onTouchStart)
-    element.removeEventListener("touchmove", this.onTouchMove)
-    element.removeEventListener("touchend", this.onTouchEnd)
-    element.removeEventListener("touchcancel", this.onTouchCancel)
+    element.removeEventListener("touchstart", this.boundTouchStart)
+    element.removeEventListener("touchmove", this.boundTouchMove)
+    element.removeEventListener("touchend", this.boundTouchEnd)
+    element.removeEventListener("touchcancel", this.boundTouchCancel)
   }
 
   private onTouchStart(e: TouchEvent) {

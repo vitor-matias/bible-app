@@ -19,6 +19,17 @@ describe("TwoActionSnackComponent", () => {
 
     expect(returnUrl).toHaveBeenCalled()
     expect(snackBarRefSpy.dismiss).toHaveBeenCalled()
+    expect(
+      (
+        returnUrl.calls.mostRecent() as unknown as { invocationOrder: number }
+      ).invocationOrder,
+    ).toBeLessThan(
+      (
+        snackBarRefSpy.dismiss.calls.mostRecent() as unknown as {
+          invocationOrder: number
+        }
+      ).invocationOrder,
+    )
   })
 
   it("should dismiss even when no return callback is provided", () => {

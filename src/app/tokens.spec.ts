@@ -15,6 +15,7 @@ describe("plugin tokens", () => {
     }
 
     expect(typeof plugin.ngOnDestroy).toBe("function")
+    expect(() => plugin.ngOnDestroy?.()).not.toThrow()
     expect(plugin.addListener).toBe(App.addListener)
   })
 
@@ -24,6 +25,7 @@ describe("plugin tokens", () => {
     }
 
     expect(typeof plugin.ngOnDestroy).toBe("function")
+    expect(() => plugin.ngOnDestroy?.()).not.toThrow()
     expect(plugin.addListener).toBe(Network.addListener)
   })
 
@@ -33,6 +35,7 @@ describe("plugin tokens", () => {
     }
 
     expect(typeof plugin.ngOnDestroy).toBe("function")
+    expect(() => plugin.ngOnDestroy?.()).not.toThrow()
     expect(typeof plugin.share).toBe("function")
   })
 })
