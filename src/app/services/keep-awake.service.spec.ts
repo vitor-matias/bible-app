@@ -118,6 +118,8 @@ describe("KeepAwakeService", () => {
       value: "visible",
       configurable: true,
     })
+    // Clear the private sentinel to mimic a released wake lock before the
+    // visibilitychange handler tries to reacquire it.
     ;(service as unknown as Record<string, WakeLockSentinel | undefined>)[
       "wakeLockSentinel"
     ] = undefined

@@ -107,6 +107,8 @@ describe("AutoScrollService", () => {
     })
 
     service.start({ scrollElement })
+    // Drive the timer step directly so the test can deterministically simulate
+    // requestAnimationFrame progress without waiting on browser scheduling.
     ;(service as unknown as Record<string, (timestamp: number) => void>)[
       "stepAutoScroll"
     ](1000)
