@@ -7,12 +7,15 @@ describe("AutoScrollService", () => {
   let requestAnimationFrameSpy: jasmine.Spy
   let cancelAnimationFrameSpy: jasmine.Spy
   let resizeObserverCallback: ResizeObserverCallback | undefined
+  let originalResizeObserver: typeof ResizeObserver | undefined
 
   beforeEach(() => {
     keepAwakeServiceSpy = jasmine.createSpyObj("KeepAwakeService", [
       "start",
       "stop",
     ])
+    originalResizeObserver = globalThis.ResizeObserver
+    resizeObserverCallback = undefined
     requestAnimationFrameSpy = spyOn(
       window,
       "requestAnimationFrame",
@@ -35,6 +38,15 @@ describe("AutoScrollService", () => {
     } as unknown as typeof ResizeObserver
 
     service = new AutoScrollService(keepAwakeServiceSpy)
+  })
+
+  afterEach(() => {
+    if (originalResizeObserver) {
+      globalThis.ResizeObserver = originalResizeObserver
+    } else {
+      delete (globalThis as { ResizeObserver?: typeof ResizeObserver })
+        .ResizeObserver
+    }
   })
 
   it("should clamp auto scroll speed to the supported range", () => {
@@ -112,7 +124,12 @@ describe("AutoScrollService", () => {
     } as CSSStyleDeclaration)
 
     service.start({ scrollElement, lineHeightElement })
-    resizeObserverCallback?.([], {} as ResizeObserver)
+    const callback = resizeObserverCallback
+    expect(callback).toBeDefined()
+    if (!callback) {
+      throw new Error("ResizeObserver callback was not registered")
+    }
+    callback([], {} as ResizeObserver)
 
     expect(
       (service as unknown as Record<string, number>)["cachedLineHeight"],

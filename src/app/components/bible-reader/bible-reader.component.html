@@ -1,5 +1,5 @@
 @if (book) {
-<div class="text-container" unifiedGestures (swipeLeft)="onSwipeLeft()" (swipeRight)="onSwipeRight()">
+<div class="text-container" unifiedGestures fontSizeContext="reader" (swipeLeft)="onSwipeLeft()" (swipeRight)="onSwipeRight()">
   <header class="reader-header" [book]="book" [chapterNumber]="chapterNumber" [viewMode]="viewMode"
     [autoScrollControlsVisible]="showAutoScrollControls" (openBookSelector)="openBookDrawer($event)"
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"

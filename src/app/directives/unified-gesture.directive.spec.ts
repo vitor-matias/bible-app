@@ -10,7 +10,6 @@ describe("UnifiedGesturesDirective", () => {
 
   beforeEach(() => {
     element = document.createElement("div")
-    element.name = "reader"
     element.innerHTML = "<h1>Heading</h1>"
     Object.defineProperty(element, "style", {
       value: document.createElement("div").style,
@@ -32,6 +31,7 @@ describe("UnifiedGesturesDirective", () => {
       rendererSpy,
       preferencesServiceSpy,
     )
+    directive.fontSizeContext = "reader"
   })
 
   it("should register and remove the same touch listeners", () => {
@@ -49,9 +49,14 @@ describe("UnifiedGesturesDirective", () => {
 
     expect(addEventListenerSpy.calls.count()).toBe(4)
     expect(removeEventListenerSpy.calls.count()).toBe(4)
-    expect(removeEventListenerSpy.calls.argsFor(0)[1]).toBe(
-      addEventListenerSpy.calls.argsFor(0)[1],
-    )
+    for (let index = 0; index < 4; index++) {
+      expect(removeEventListenerSpy.calls.argsFor(index)[0]).toBe(
+        addEventListenerSpy.calls.argsFor(index)[0],
+      )
+      expect(removeEventListenerSpy.calls.argsFor(index)[1]).toBe(
+        addEventListenerSpy.calls.argsFor(index)[1],
+      )
+    }
   })
 
   it("should emit swipeLeft for a fast left swipe", () => {
@@ -116,14 +121,23 @@ describe("UnifiedGesturesDirective", () => {
     directive.increaseFontSize()
     directive.decreaseFontSize()
 
-    expect(preferencesServiceSpy.setFontSize).toHaveBeenCalledWith(
+    expect(preferencesServiceSpy.setFontSize.calls.argsFor(0)).toEqual([
       105,
       "reader",
-    )
-    expect(rendererSpy.setStyle).toHaveBeenCalledWith(
+    ])
+    expect(preferencesServiceSpy.setFontSize.calls.argsFor(1)).toEqual([
+      100,
+      "reader",
+    ])
+    expect(rendererSpy.setStyle.calls.argsFor(0)).toEqual([
       element,
       "font-size",
       "105%",
-    )
+    ])
+    expect(rendererSpy.setStyle.calls.argsFor(2)).toEqual([
+      element,
+      "font-size",
+      "100%",
+    ])
   })
 })

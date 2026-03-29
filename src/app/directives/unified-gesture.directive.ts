@@ -2,6 +2,7 @@ import {
   Directive,
   ElementRef,
   EventEmitter,
+  Input,
   type OnDestroy,
   type OnInit,
   Output,
@@ -46,6 +47,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   private readonly boundTouchMove = this.onTouchMove.bind(this)
   private readonly boundTouchEnd = this.onTouchEnd.bind(this)
   private readonly boundTouchCancel = this.onTouchCancel.bind(this)
+  @Input() fontSizeContext?: string
 
   constructor(
     private el: ElementRef,
@@ -55,20 +57,19 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     // Get the initial font size
     const computedStyle = getComputedStyle(this.el.nativeElement)
     this.baseFontSize = Number.parseFloat(computedStyle.fontSize) || 105
-
-    // Persist font size per named container so the reader and search views can
-    // remember independent zoom levels.
-    const context = this.el.nativeElement.name || "default"
-    const storedSize = this.preferencesService.getFontSize(context)
-    this.currentFontSize = storedSize ? storedSize : this.baseFontSize
-
-    if (storedSize) {
-      this.setFontSize(this.currentFontSize)
-    }
+    this.currentFontSize = this.baseFontSize
   }
 
   ngOnInit() {
     const element = this.el.nativeElement
+    const storedSize = this.preferencesService.getFontSize(
+      this.getFontSizeContext(),
+    )
+
+    if (storedSize) {
+      this.currentFontSize = storedSize
+      this.setFontSize(this.currentFontSize)
+    }
 
     // Let the element keep its own scroll behavior while we take ownership of
     // custom swipe and pinch gestures.
@@ -196,7 +197,10 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
 
   private handlePinchMove(e: TouchEvent) {
     const currentDistance = this.getDistance(e.touches[0], e.touches[1])
-    const scale = (currentDistance / this.initialDistance) * this.initialScale
+    const scale =
+      Number.isFinite(this.initialDistance) && this.initialDistance > 1e-6
+        ? (currentDistance / this.initialDistance) * this.initialScale
+        : this.initialScale
 
     // Clamp the gesture so a wild pinch never leaves the text unreadably tiny or huge.
     const clampedScale = Math.max(0.5, Math.min(scale, 3))
@@ -215,8 +219,10 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     this.lastScale = this.currentFontSize / this.baseFontSize
 
     // Store the new font size
-    const context = this.el.nativeElement.name || "default"
-    this.preferencesService.setFontSize(this.currentFontSize, context)
+    this.preferencesService.setFontSize(
+      this.currentFontSize,
+      this.getFontSizeContext(),
+    )
   }
 
   private getDistance(touch1: Touch, touch2: Touch): number {
@@ -241,8 +247,10 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     this.setFontSize(nextSize)
     this.currentFontSize = nextSize
 
-    const context = this.el.nativeElement.name || "default"
-    this.preferencesService.setFontSize(this.currentFontSize, context)
+    this.preferencesService.setFontSize(
+      this.currentFontSize,
+      this.getFontSizeContext(),
+    )
   }
 
   private setFontSize(fontSize: number) {
@@ -253,5 +261,16 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     for (const heading of headings) {
       this.renderer.setStyle(heading, "font-size", `${fontSize + 5}%`)
     }
+  }
+
+  private getFontSizeContext(): string {
+    if (this.fontSizeContext) {
+      return this.fontSizeContext
+    }
+
+    console.warn(
+      "UnifiedGesturesDirective is missing fontSizeContext; falling back to default.",
+    )
+    return "default"
   }
 }

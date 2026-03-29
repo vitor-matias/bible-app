@@ -5,9 +5,13 @@ describe("KeepAwakeService", () => {
   let addEventListenerSpy: jasmine.Spy
   let removeEventListenerSpy: jasmine.Spy
   let originalWakeLock: Navigator["wakeLock"]
+  let hadOwnVisibilityState: boolean
+  let originalVisibilityState: DocumentVisibilityState
 
   beforeEach(() => {
     originalWakeLock = navigator.wakeLock
+    hadOwnVisibilityState = Object.hasOwn(document, "visibilityState")
+    originalVisibilityState = document.visibilityState
     addEventListenerSpy = spyOn(document, "addEventListener").and.callThrough()
     removeEventListenerSpy = spyOn(
       document,
@@ -23,6 +27,15 @@ describe("KeepAwakeService", () => {
         value: originalWakeLock,
         configurable: true,
       })
+    }
+
+    if (hadOwnVisibilityState) {
+      Object.defineProperty(document, "visibilityState", {
+        value: originalVisibilityState,
+        configurable: true,
+      })
+    } else {
+      Reflect.deleteProperty(document, "visibilityState")
     }
   })
 

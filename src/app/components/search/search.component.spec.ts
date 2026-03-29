@@ -1,4 +1,5 @@
 import { ChangeDetectorRef } from "@angular/core"
+import { fakeAsync, flushMicrotasks } from "@angular/core/testing"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { Router } from "@angular/router"
 import { Observable, of } from "rxjs"
@@ -67,12 +68,11 @@ describe("SearchComponent", () => {
   afterEach(() => {
     if (originalIntersectionObserver) {
       globalThis.IntersectionObserver = originalIntersectionObserver
-      return
+    } else {
+      delete (
+        globalThis as { IntersectionObserver?: typeof IntersectionObserver }
+      ).IntersectionObserver
     }
-
-    delete (
-      globalThis as { IntersectionObserver?: typeof IntersectionObserver }
-    ).IntersectionObserver
   })
 
   it("should create", () => {
@@ -113,7 +113,7 @@ describe("SearchComponent", () => {
     })
   })
 
-  it("should keep loadMoreResults locked until the next page arrives", async () => {
+  it("should keep loadMoreResults locked until the next page arrives", fakeAsync(() => {
     const nextVerse = {
       bookId: "gen",
       chapterNumber: 1,
@@ -148,12 +148,16 @@ describe("SearchComponent", () => {
     } as SearchComponent["sentinel"]
     component.ngAfterViewInit()
 
-    observerCallback?.(
+    const callback = observerCallback
+    expect(callback).toBeDefined()
+    if (!callback) {
+      throw new Error("IntersectionObserver callback was not registered")
+    }
+    callback(
       [{ isIntersecting: true } as IntersectionObserverEntry],
       {} as IntersectionObserver,
     )
-    await Promise.resolve()
-    await Promise.resolve()
+    flushMicrotasks()
 
     expect(apiService.search).toHaveBeenCalledWith("beginning", 2)
     expect(component.searchResults).toEqual([
@@ -162,7 +166,7 @@ describe("SearchComponent", () => {
     ])
     expect(component.currentPage).toBe(2)
     expect(component.isLoading).toBeFalse()
-  })
+  }))
 
   it("should show a snackbar when a direct reference is invalid", async () => {
     referenceService.extract.and.returnValue([
@@ -222,7 +226,7 @@ describe("SearchComponent", () => {
     expect(component.searchResults.length).toBe(1)
     expect(component.currentPage).toBe(1)
     expect(snackBar.open).toHaveBeenCalledWith(
-      "Encontrados 1 resultados",
+      "Encontrado 1 resultado",
       "Fechar",
       { duration: 3000 },
     )

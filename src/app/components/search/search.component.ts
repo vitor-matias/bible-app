@@ -156,6 +156,10 @@ export class SearchComponent {
       this.searchResults = results.verses
       this.totalResults = results.total
       this.currentPage = 1
+      const resultsMessage =
+        results.total === 1
+          ? "Encontrado 1 resultado"
+          : `Encontrados ${results.total} resultados`
 
       if (results.total === 0) {
         this.snackBar.open("Nenhum resultado encontrado", "Fechar", {
@@ -165,13 +169,9 @@ export class SearchComponent {
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur()
         }
-        this.snackBar.open(
-          `Encontrados ${results.total} resultados`,
-          "Fechar",
-          {
-            duration: 3000,
-          },
-        )
+        this.snackBar.open(resultsMessage, "Fechar", {
+          duration: 3000,
+        })
       }
 
       // The sentinel node is recreated when results change, so rebind the observer
