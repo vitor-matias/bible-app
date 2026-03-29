@@ -70,8 +70,9 @@ describe("SearchComponent", () => {
       return
     }
 
-    delete (globalThis as { IntersectionObserver?: typeof IntersectionObserver })
-      .IntersectionObserver
+    delete (
+      globalThis as { IntersectionObserver?: typeof IntersectionObserver }
+    ).IntersectionObserver
   })
 
   it("should create", () => {

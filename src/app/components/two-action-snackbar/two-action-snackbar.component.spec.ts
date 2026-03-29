@@ -20,9 +20,8 @@ describe("TwoActionSnackComponent", () => {
     expect(returnUrl).toHaveBeenCalled()
     expect(snackBarRefSpy.dismiss).toHaveBeenCalled()
     expect(
-      (
-        returnUrl.calls.mostRecent() as unknown as { invocationOrder: number }
-      ).invocationOrder,
+      (returnUrl.calls.mostRecent() as unknown as { invocationOrder: number })
+        .invocationOrder,
     ).toBeLessThan(
       (
         snackBarRefSpy.dismiss.calls.mostRecent() as unknown as {
