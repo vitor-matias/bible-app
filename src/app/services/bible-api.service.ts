@@ -8,6 +8,7 @@ import {
   of,
   shareReplay,
   switchMap,
+  tap,
   throwError,
 } from "rxjs"
 import { apiBaseUrl } from "../config"
@@ -19,9 +20,9 @@ import { OfflineDataService } from "./offline-data.service"
 })
 export class BibleApiService {
   api = apiBaseUrl
-  private chapterPromise: Promise<Observable<Chapter>> | null = null
+  private readonly chapterRequests = new Map<string, Observable<Chapter>>()
 
-  private books$: Observable<Book[]> | null = null
+  private booksRequest$: Observable<Book[]> | null = null
   books: Book[] = []
 
   constructor(
@@ -45,20 +46,21 @@ export class BibleApiService {
             () => new Error("Offline and no cached books available"),
           )
         }
-        if (!this.books$) {
-          this.books$ = (
+        if (!this.booksRequest$) {
+          this.booksRequest$ = (
             this.http.get(`${this.api}/books`) as Observable<Book[]>
-          ).pipe(shareReplay(1))
-          this.books$.subscribe({
-            next: (books) => {
+          ).pipe(
+            tap((books) => {
               this.books = books
-            },
-            error: () => {
-              this.books$ = null
-            },
-          })
+            }),
+            catchError((error) => {
+              this.booksRequest$ = null
+              return throwError(() => error)
+            }),
+            shareReplay(1),
+          )
         }
-        return this.books$
+        return this.booksRequest$
       }),
     )
   }
@@ -76,32 +78,23 @@ export class BibleApiService {
           return throwError(() => new Error("Offline - chapter not cached"))
         }
 
-        if (this.chapterPromise) {
-          return from(this.chapterPromise).pipe(switchMap((obs) => obs))
+        const requestKey = `${book}:${chapter}`
+        const existingRequest = this.chapterRequests.get(requestKey)
+        if (existingRequest) {
+          return existingRequest
         }
 
-        this.chapterPromise = new Promise((resolve, reject) => {
-          const observable = this.http.get(
-            `${this.api}/${book}/${chapter}`,
-          ) as Observable<Chapter>
-          observable
-            .pipe(
-              catchError((error) => {
-                this.chapterPromise = null
-                reject(error)
-                throw error
-              }),
-              finalize(() => {
-                this.chapterPromise = null
-              }),
-            )
-            .subscribe({
-              next: (data) => resolve(of(data)),
-              error: (err) => reject(err),
-            })
-        })
+        const request = (
+          this.http.get(`${this.api}/${book}/${chapter}`) as Observable<Chapter>
+        ).pipe(
+          finalize(() => {
+            this.chapterRequests.delete(requestKey)
+          }),
+          shareReplay({ bufferSize: 1, refCount: true }),
+        )
 
-        return from(this.chapterPromise).pipe(switchMap((obs) => obs))
+        this.chapterRequests.set(requestKey, request)
+        return request
       }),
     )
   }

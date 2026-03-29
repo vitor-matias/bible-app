@@ -6,6 +6,7 @@ import {
 } from "@angular/core"
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
 import { Router, RouterModule } from "@angular/router"
+import { firstValueFrom } from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
@@ -87,24 +88,22 @@ export class SearchComponent {
 
     this.isLoading = true
     try {
-      this.apiService
-        .search(this.searchTerm, this.currentPage + 1)
-        .subscribe((results) => {
-          this.searchResults.push(...results.verses)
-          this.totalResults = results.total
-          this.currentPage++
-          this.cdr.detectChanges()
-          this.isLoading = false
-          this.attachObserverToSentinel() // Re-attach observer after loading more results
-        })
+      const results = await firstValueFrom(
+        this.apiService.search(this.searchTerm, this.currentPage + 1),
+      )
+      this.searchResults.push(...results.verses)
+      this.totalResults = results.total
+      this.currentPage++
+      this.attachObserverToSentinel() // Re-attach observer after loading more results
     } catch (error) {
       console.error("Error loading more results:", error)
     } finally {
       this.isLoading = false
+      this.cdr.detectChanges()
     }
   }
 
-  onSearchSubmit(text: string) {
+  async onSearchSubmit(text: string): Promise<void> {
     this.searchTerm = text
     const references = this.referenceService.extract(text)
 
@@ -112,60 +111,60 @@ export class SearchComponent {
       const ref = references[0]
       const book = ref.book ? this.bookService.findBook(ref.book) : null
       if (book) {
-        this.apiService
-          .getVerse(
-            book.id,
-            ref.chapter,
-            ref.verses
-              ? ref.verses[0].type === "single"
-                ? ref.verses[0].verse
-                : ref.verses[0].start
-              : 1,
+        try {
+          await firstValueFrom(
+            this.apiService.getVerse(
+              book.id,
+              ref.chapter,
+              ref.verses
+                ? ref.verses[0].type === "single"
+                  ? ref.verses[0].verse
+                  : ref.verses[0].start
+                : 1,
+            ),
           )
-          .subscribe({
-            next: (verse) => {
-              this.router.navigate(
-                ["/", book.id, ref.chapter ? ref.chapter : 1],
-                ref.verses
-                  ? {
-                      queryParams: {
-                        verse:
-                          ref.verses[0].type === "single"
-                            ? ref.verses[0].verse
-                            : ref.verses[0].start,
-                      },
-                    }
-                  : {},
-              )
-            },
-            error: (err) => {
-              console.error(err)
-              if (err && (err.status === 404 || err.status === 400)) {
-                this.snackBar.open(
-                  "Capitulo ou versiculo não existe",
-                  "Fechar",
-                  {
-                    duration: 3000,
+          await this.router.navigate(
+            ["/", book.id, ref.chapter ? ref.chapter : 1],
+            ref.verses
+              ? {
+                  queryParams: {
+                    verseStart:
+                      ref.verses[0].type === "single"
+                        ? ref.verses[0].verse
+                        : ref.verses[0].start,
                   },
-                )
-              } else {
-                this.snackBar.open("Error loading verse", "OK", {
-                  duration: 3000,
-                })
-              }
-            },
-          })
+                }
+              : {},
+          )
+        } catch (err) {
+          console.error(err)
+          const status =
+            typeof err === "object" &&
+            err !== null &&
+            "status" in err &&
+            typeof err.status === "number"
+              ? err.status
+              : undefined
+          if (status === 404 || status === 400) {
+            this.snackBar.open("Capitulo ou versiculo não existe", "Fechar", {
+              duration: 3000,
+            })
+          } else {
+            this.snackBar.open("Error loading verse", "OK", {
+              duration: 3000,
+            })
+          }
+        }
         return
       }
     }
 
     this.isLoading = true
-    this.apiService.search(text, 1).subscribe((results) => {
+    try {
+      const results = await firstValueFrom(this.apiService.search(text, 1))
       this.searchResults = results.verses
       this.totalResults = results.total
       this.currentPage = 1
-      this.isLoading = false
-      this.cdr.detectChanges()
 
       if (results.total === 0) {
         this.snackBar.open("Nenhum resultado encontrado", "Fechar", {
@@ -184,16 +183,23 @@ export class SearchComponent {
         )
       }
 
-      this.cdr.detectChanges()
       this.attachObserverToSentinel() // Attach observer after new search
       this.scrollToTop()
 
-      if (window.umami) {
+      if (typeof window !== "undefined" && window.umami) {
         window.umami.track("search", {
           text,
         })
       }
-    })
+    } catch (error) {
+      console.error("Error loading search results:", error)
+      this.snackBar.open("Error loading search results", "OK", {
+        duration: 3000,
+      })
+    } finally {
+      this.isLoading = false
+      this.cdr.detectChanges()
+    }
   }
 
   getVerseText(verse: Verse) {
