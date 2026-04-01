@@ -28,11 +28,13 @@ on:
       - 'v*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-android:
     if: ${{ github.event_name == 'push' || inputs.build_android }}
+    outputs:
+      apk_signed: ${{ steps.check-signing.outputs.apk_signed }}
     runs-on: ubuntu-latest
     env:
       HAS_ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -119,6 +121,15 @@ jobs:
           else
             echo "Building Debug APK (no keystore provided)..."
             ./gradlew assembleDebug
+          fi
+
+      - name: Set signing output
+        id: check-signing
+        run: |
+          if [ -n "${HAS_ANDROID_KEYSTORE}" ]; then
+            echo "apk_signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "apk_signed=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Upload Android APK
@@ -279,3 +290,32 @@ jobs:
           if [ -f "$KEYCHAIN_PATH" ]; then
             security delete-keychain $KEYCHAIN_PATH
           fi
+
+  create-release:
+    name: Create GitHub Release
+    needs: build-android
+    # Only run on version tag pushes where the APK was properly signed
+    if: |
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      needs.build-android.outputs.apk_signed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Android APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: release-assets
+
+      - name: List downloaded assets
+        run: find release-assets -type f
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Release ${{ github.ref_name }}"
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          files: release-assets/**/*.apk
