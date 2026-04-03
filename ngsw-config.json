@@ -57,9 +57,10 @@
         "/v1/**"
       ],
       "cacheConfig": {
-        "strategy": "performance",
-        "maxSize": 3000,
-        "maxAge": "7d"
+        "strategy": "freshness",
+        "maxSize": 5000,
+        "maxAge": "40d",
+        "timeout": "3s"
       }
     }
   ]

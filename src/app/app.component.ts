@@ -51,6 +51,7 @@ export class AppComponent implements OnInit, OnDestroy {
       this.offlineDataService.preloadAllBooksAndChapters("standalone")
     }
 
+    this.handleShareTarget()
     this.setupAppLinks()
   }
 
@@ -78,6 +79,43 @@ export class AppComponent implements OnInit, OnDestroy {
       .then((handle) => {
         this.appUrlOpenHandle = handle
       })
+  }
+
+  /**
+   * Handles incoming share-target launches (Web Share Target API, GET action).
+   * When another app shares a URL or text into this PWA, the OS opens it at
+   * `/?url=<shared-url>&text=<shared-text>&title=<shared-title>`.
+   * - If the shared URL has a recognisable path on our domain, navigate there.
+   * - Otherwise fall back to opening the search screen with the text/URL.
+   */
+  private handleShareTarget(): void {
+    const params = new URLSearchParams(window.location.search)
+    const sharedUrl = params.get("url")
+    const sharedText = params.get("text")
+
+    if (!sharedUrl && !sharedText) return
+
+    // Try to navigate directly if the shared URL is an internal link.
+    if (sharedUrl) {
+      try {
+        const url = new URL(sharedUrl)
+        if (
+          url.hostname === appConfig.domain ||
+          url.hostname === appConfig.fallbackDomain
+        ) {
+          this.router.navigateByUrl(url.pathname + url.search + url.hash)
+          return
+        }
+      } catch {
+        // Not a valid URL — fall through to search.
+      }
+    }
+
+    // Fall back: open search with the shared text or URL as the query.
+    const query = sharedText ?? sharedUrl ?? ""
+    if (query) {
+      this.router.navigate(["/search"], { queryParams: { q: query } })
+    }
   }
 
   async ngOnDestroy(): Promise<void> {
