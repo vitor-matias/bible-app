@@ -28,10 +28,11 @@ describe("NetworkService", () => {
     // biome-ignore lint/complexity/noBannedTypes: Mocking NgZone
     ngZoneMock.run.and.callFake((fn: Function) => fn())
 
-    // biome-ignore lint/suspicious/noExplicitAny: Mocking Injector
     injectorMock = jasmine.createSpyObj<Injector>("Injector", ["get"])
     injectorMock.get.and.returnValue({
-      preloadAllBooksAndChapters: jasmine.createSpy("preloadAllBooksAndChapters").and.resolveTo(),
+      preloadAllBooksAndChapters: jasmine
+        .createSpy("preloadAllBooksAndChapters")
+        .and.resolveTo(),
     })
 
     mockNetworkPlugin = jasmine.createSpyObj("Network", [
