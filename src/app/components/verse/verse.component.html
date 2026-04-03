@@ -32,6 +32,10 @@
           </span>
         }
         <span tabindex="0" role="button" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="hasFootnotes" (click)="hasFootnotes ? toggleFootnotes() : null" (keydown.enter)="hasFootnotes ? toggleFootnotes() : null">{{ text.text }}</span>
+        @if(text.type === 'text' && (checkNextIsQuote(i) )){
+          <br>
+        }
+          
       }
 
       <!-- References -->
@@ -84,6 +88,10 @@
           @if (text.tag === 's1' || text.tag === 'ms') {
             @if(!isFirst){
               <br>
+              <!-- if previous is text, add another br; safari shananigans -->
+              @if(data.text[i-1]?.type === 'text'){
+                <br>
+              }
             }
             <h3>{{ text.text }}</h3>
           }
