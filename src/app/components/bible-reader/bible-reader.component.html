@@ -1,6 +1,6 @@
 @if (book) {
 <div class="text-container" unifiedGestures fontSizeContext="reader" (swipeLeft)="onSwipeLeft()" (swipeRight)="onSwipeRight()">
-  <header class="reader-header" [book]="book" [chapterNumber]="chapterNumber" [viewMode]="viewMode"
+  <header class="reader-header" [book]="book" [chapterNumber]="chapterNumber" [viewMode]="effectiveViewMode"
     [autoScrollControlsVisible]="showAutoScrollControls" (openBookSelector)="openBookDrawer($event)"
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
     (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize()"
@@ -22,11 +22,11 @@
     </mat-drawer>
     }
     <mat-drawer-content style="background-color: var(--background-color)">
-      <div #bookContainer [class.paged-view-container]="viewMode === 'paged'" [appPagedNavigation]="bookBlock"
-        [viewMode]="viewMode" (nextChapter)="goToNextChapter()" (prevChapter)="goToPreviousChapter()"
+      <div #bookContainer [class.paged-view-container]="effectiveViewMode === 'paged'" [appPagedNavigation]="bookBlock"
+        [viewMode]="effectiveViewMode" (nextChapter)="goToNextChapter()" (prevChapter)="goToPreviousChapter()"
         (pageStateChange)="onPageStateChange($event)">
         <div #bookBlock class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}"
-          [class.paged-view]="viewMode === 'paged'">
+          [class.paged-view]="effectiveViewMode === 'paged'">
           @if (chapter) {
           <div pinch-to-zoom class="chapterBlock">
             @if(book.id !== 'about'){
@@ -43,7 +43,7 @@
       </div>
 
       @if (book.id !== 'about' && chapter) {
-      <div class="copyright-footer" [class.fixed-footer]="viewMode === 'paged'">
+      <div class="copyright-footer" [class.fixed-footer]="effectiveViewMode === 'paged'">
         <span class="center"><b>© DIFUSORA BÍBLICA</b></span>
         <span class="center copyright-details">
           Reservados todos os direitos. É proibida a reprodução, total ou parcial, do texto, sem autorização, por
@@ -53,9 +53,9 @@
 
       @if (book.id !== 'about' && chapter) {
       <!-- Floating navigation buttons -->
-      @if (chapter.number > 1 || (viewMode === 'paged' && !isFirstPage)) {
+      @if (chapter.number > 1 || (effectiveViewMode === 'paged' && !isFirstPage)) {
       <button type="button" class="floating-nav-button prev-chapter" mat-mini-fab aria-label="Previous"
-        (click)="viewMode === 'paged' ? pagedNav?.prevPage() : goToPreviousChapter()">
+        (click)="effectiveViewMode === 'paged' ? pagedNav?.prevPage() : goToPreviousChapter()">
         <mat-icon>chevron_left</mat-icon>
       </button>
       }
@@ -63,9 +63,9 @@
       <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock">
       </app-auto-scroll-controls>
       }
-      @if (chapter.number < book.chapterCount || (viewMode==='paged' && !isLastPage)) { <button
+      @if (chapter.number < book.chapterCount || (effectiveViewMode==='paged' && !isLastPage)) { <button
         type="button" class="floating-nav-button next-chapter" mat-mini-fab aria-label="Next"
-        (click)="viewMode === 'paged' ? pagedNav?.nextPage() : goToNextChapter()">
+        (click)="effectiveViewMode === 'paged' ? pagedNav?.nextPage() : goToNextChapter()">
         <mat-icon>chevron_right</mat-icon>
         </button>
         }
