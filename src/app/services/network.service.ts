@@ -55,10 +55,15 @@ export class NetworkService {
     // the Bible content cache if it has expired.
     if (wasOffline && nowOnline) {
       // Lazy-inject to avoid a circular dependency at construction time.
-      import("./offline-data.service").then(({ OfflineDataService }) => {
-        const svc = this.injector.get(OfflineDataService)
-        svc.preloadAllBooksAndChapters("standalone")
-      })
+      void (async () => {
+        try {
+          const { OfflineDataService } = await import("./offline-data.service")
+          const svc = this.injector.get(OfflineDataService)
+          await svc.preloadAllBooksAndChapters("standalone")
+        } catch (error) {
+          console.error("Failed to preload offline Bible content after reconnect", error)
+        }
+      })()
     }
   }
 
