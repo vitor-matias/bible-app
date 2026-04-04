@@ -61,7 +61,10 @@ export class NetworkService {
           const svc = this.injector.get(OfflineDataService)
           await svc.preloadAllBooksAndChapters("standalone")
         } catch (error) {
-          console.error("Failed to preload offline Bible content after reconnect", error)
+          console.error(
+            "Failed to preload offline Bible content after reconnect",
+            error,
+          )
         }
       })()
     }
