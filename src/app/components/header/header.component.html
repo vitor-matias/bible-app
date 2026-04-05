@@ -65,7 +65,7 @@
         @if(book.id !== 'about'){
         <mat-button-toggle #chapterToggle mat-flat-button matTooltip="Escolher capítulo"
           class="bookSelectorButtonContent" (click)="showChapterSelector(); chapterToggle.checked = false">
-          {{ chapterNumber }}
+          {{ chapterNumber === 0 ? 'Intro' : chapterNumber }}
         </mat-button-toggle>
         }
       </mat-button-toggle-group>

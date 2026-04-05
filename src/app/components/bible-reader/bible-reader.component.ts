@@ -32,6 +32,7 @@ import { BookService } from "../../services/book.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
+import { BookIntroComponent } from "../book-intro/book-intro.component"
 import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"
 import { HeaderComponent } from "../header/header.component"
@@ -57,6 +58,7 @@ import { VerseComponent } from "../verse/verse.component"
     UnifiedGesturesDirective,
     PagedNavigationDirective,
     AutoScrollControlsComponent,
+    BookIntroComponent,
   ],
 })
 export class BibleReaderComponent implements OnDestroy {
@@ -100,6 +102,27 @@ export class BibleReaderComponent implements OnDestroy {
 
   get effectiveViewMode(): "scrolling" | "paged" {
     return this.book?.id === "about" ? "scrolling" : this.viewMode
+  }
+
+  get hasIntro(): boolean {
+    return !!this.book?.introduction && this.book.introduction.length > 0
+  }
+
+  get isIntroChapter(): boolean {
+    return this.chapterNumber === 0 && this.hasIntro
+  }
+
+  get chaptersWithIntro(): Chapter[] {
+    const chapters = this.book?.chapters || []
+    if (this.hasIntro) {
+      const introChapter: Chapter = {
+        bookId: this.book.id,
+        number: 0,
+        title: "Introdução",
+      }
+      return [introChapter, ...chapters]
+    }
+    return chapters
   }
 
   onPageStateChange(state: PageState): void {
@@ -261,8 +284,12 @@ export class BibleReaderComponent implements OnDestroy {
     }
   }
 
+  private get minChapter(): number {
+    return this.hasIntro ? 0 : 1
+  }
+
   goToPreviousChapter(): void {
-    if (this.chapterNumber > 1) {
+    if (this.chapterNumber > this.minChapter) {
       this.autoScrollService.stop()
       this.isNavigatingBackwards = true
 
@@ -283,7 +310,9 @@ export class BibleReaderComponent implements OnDestroy {
 
   onBookSubmit(event: { bookId: string }) {
     const book = this.bookService.findBook(event.bookId)
-    this.router.navigate(["/", this.bookService.getUrlAbrv(book), 1])
+    const startChapter =
+      book.introduction && book.introduction.length > 0 ? 0 : 1
+    this.router.navigate(["/", this.bookService.getUrlAbrv(book), startChapter])
 
     this.bookDrawer.close()
   }
@@ -309,6 +338,42 @@ export class BibleReaderComponent implements OnDestroy {
     verseEnd?: Verse["number"],
     highlight = true,
   ) {
+    // Chapter 0 = book introduction – no API call needed
+    if (chapter === 0 && this.hasIntro) {
+      const syntheticChapter: Chapter = {
+        bookId: this.book.id,
+        number: 0,
+        title: "Introdução",
+      }
+
+      if (this.bookContainer?.nativeElement) {
+        this.bookContainer.nativeElement.style.transition = "none"
+        this.bookContainer.nativeElement.style.opacity = "0"
+      }
+
+      this.chapter = syntheticChapter
+      this.chapterNumber = 0
+      this.cdr.detectChanges()
+
+      const startAtBottom = this.isNavigatingBackwards
+      this.isNavigatingBackwards = false
+      this.isNavigatingForwards = false
+
+      this.animationService.scrollToTop(
+        this.drawerContent?.nativeElement,
+        this.bookContainer?.nativeElement,
+        this.effectiveViewMode,
+        startAtBottom,
+        startAtBottom
+          ? () => this.pagedNav?.scrollToEnd()
+          : () => this.pagedNav?.ensureAlignedScrollWidth(),
+      )
+
+      this.preferencesService.setLastBookId(this.book.id)
+      this.preferencesService.setLastChapterNumber(this.chapterNumber)
+      return
+    }
+
     this.chapterSubscription?.unsubscribe()
     this.chapterSubscription = this.apiService
       .getChapter(this.book.id, chapter)
