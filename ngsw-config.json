@@ -29,14 +29,14 @@
   ],
   "dataGroups": [
     {
-      "name": "material-symbols-fonts",
+      "name": "google-fonts",
       "urls": [
-        "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@**",
-        "https://fonts.gstatic.com/s/materialsymbolsoutlined/**"
+        "https://fonts.googleapis.com/css2?**",
+        "https://fonts.gstatic.com/**"
       ],
       "cacheConfig": {
         "strategy": "performance",
-        "maxSize": 10,
+        "maxSize": 20,
         "maxAge": "30d"
       }
     },
@@ -57,9 +57,10 @@
         "/v1/**"
       ],
       "cacheConfig": {
-        "strategy": "performance",
-        "maxSize": 3000,
-        "maxAge": "7d"
+        "strategy": "freshness",
+        "maxSize": 5000,
+        "maxAge": "40d",
+        "timeout": "3s"
       }
     }
   ]

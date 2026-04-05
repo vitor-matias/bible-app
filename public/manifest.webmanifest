@@ -71,6 +71,21 @@
       "purpose": "any"
     }
   ],
+  "orientation": "portrait",
+  "lang": "pt",
+  "categories": ["books", "education", "religion"],
+  "share_target": {
+    "action": "/",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "url_handlers": [
+    { "origin": "https://biblia.capuchinhos.org" }
+  ],
   "display_override": [
     "window-controls-overlay",
     "standalone",

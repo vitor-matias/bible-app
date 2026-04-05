@@ -13,6 +13,20 @@ on:
         required: true
         type: boolean
         default: true
+      create_release:
+        description: 'Create a GitHub Release'
+        required: false
+        type: boolean
+        default: false
+      bump:
+        description: 'Version component to bump (patch / minor / major)'
+        required: false
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
   workflow_call:
     inputs:
       build_android:
@@ -23,16 +37,26 @@ on:
         required: false
         type: boolean
         default: true
+      create_release:
+        required: false
+        type: boolean
+        default: false
+      bump:
+        required: false
+        type: string
+        default: patch
   push:
     tags:
       - 'v*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-android:
     if: ${{ github.event_name == 'push' || inputs.build_android }}
+    outputs:
+      apk_signed: ${{ steps.check-signing.outputs.apk_signed }}
     runs-on: ubuntu-latest
     env:
       HAS_ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -119,6 +143,15 @@ jobs:
           else
             echo "Building Debug APK (no keystore provided)..."
             ./gradlew assembleDebug
+          fi
+
+      - name: Set signing output
+        id: check-signing
+        run: |
+          if [ -n "${HAS_ANDROID_KEYSTORE}" ]; then
+            echo "apk_signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "apk_signed=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Upload Android APK
@@ -279,3 +312,92 @@ jobs:
           if [ -f "$KEYCHAIN_PATH" ]; then
             security delete-keychain $KEYCHAIN_PATH
           fi
+
+  create-tag:
+    name: Create Git Tag
+    # Only run on manual dispatch when create_release is true
+    if: |
+      github.event_name == 'workflow_dispatch' &&
+      inputs.create_release == true
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.tag.outputs.tag_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate next version and push tag
+        id: tag
+        run: |
+          set -e
+
+          # Find the latest semver tag (vX.Y.Z); fall back to v0.0.0 if none exists
+          LATEST=$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          LATEST=${LATEST:-v0.0.0}
+          echo "Latest tag: $LATEST"
+
+          # Strip the leading 'v'
+          VERSION=${LATEST#v}
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          PATCH=$(echo "$VERSION" | cut -d. -f3)
+
+          BUMP="${{ inputs.bump }}"
+          case "$BUMP" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            *)     PATCH=$((PATCH + 1)) ;;
+          esac
+
+          TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "New tag: $TAG"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          echo "tag_name=$TAG" >> "$GITHUB_OUTPUT"
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-android, create-tag]
+    # Run on version tag pushes OR on manual dispatch when create_release is enabled
+    if: |
+      always() &&
+      needs.build-android.result == 'success' &&
+      needs.build-android.outputs.apk_signed == 'true' &&
+      (
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+        (github.event_name == 'workflow_dispatch' && inputs.create_release == true && needs.create-tag.result == 'success')
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Android APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: release-assets
+
+      - name: List downloaded assets
+        run: find release-assets -type f
+
+      - name: Resolve tag name
+        id: resolve-tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag_name=${{ needs.create-tag.outputs.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.resolve-tag.outputs.tag_name }}
+          name: "Release ${{ steps.resolve-tag.outputs.tag_name }}"
+          draft: false
+          prerelease: ${{ contains(steps.resolve-tag.outputs.tag_name, '-') }}
+          generate_release_notes: true
+          files: release-assets/**/*.apk

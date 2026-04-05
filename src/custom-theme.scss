@@ -3,8 +3,6 @@
 // For more information: https://material.angular.io/guide/theming
 @use '@angular/material' as mat;
 
-// Plus imports for other components in your app.
-
 // Include the common styles for Angular Material. We include this here so that you only
 // have to load a single css file for Angular Material in your app.
 // Be sure that you only ever include this mixin once!
@@ -20,21 +18,9 @@ $bible-app-theme-light: mat.define-theme((
 // that you are using.
 :root {
   @include mat.all-component-themes($bible-app-theme-light);
+  @include mat.color-variants-backwards-compatibility($bible-app-theme-light);
 }
-
-// Comment out the line below if you want to use the pre-defined typography utility classes.
-// For more information: https://material.angular.io/guide/typography#using-typography-styles-in-your-application.
-// @include mat.typography-hierarchy($bible-app-theme);
-
-// Comment out the line below if you want to use the deprecated `color` inputs.
-// @include mat.color-variants-backwards-compatibility($bible-app-theme);
-
 
 html {
   height: 100%;
 }
-
-@include mat.elevation-classes();
-@include mat.app-background();
-@include mat.color-variants-backwards-compatibility($bible-app-theme-light);
-

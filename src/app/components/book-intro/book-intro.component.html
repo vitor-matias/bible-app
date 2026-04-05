@@ -1,0 +1,63 @@
+<div class="intro-container">
+  @for (item of displayElements; track $index) {
+    @if (item.kind === 'runIn') {
+      <!-- Run-in section: bold header inline with paragraph body -->
+      <p class="intro-paragraph">
+        <span class="intro-section-inline">{{ item.section.text }}</span>
+        {{ '\u00A0\u00A0' }}{{ item.paragraph.text }}
+      </p>
+    } @else {
+      @switch (item.element.type) {
+        @case ('introTitle') {
+          @switch (item.element.level) {
+            @case (1) {
+              <h1 class="intro-title intro-title-1">{{ item.element.text }}</h1>
+            }
+            @case (2) {
+              <h2 class="intro-title intro-title-2">{{ item.element.text }}</h2>
+            }
+            @default {
+              <h3 class="intro-title intro-title-3">{{ item.element.text }}</h3>
+            }
+          }
+        }
+        @case ('introParagraph') {
+          <p class="intro-paragraph">{{ item.element.text }}</p>
+        }
+        @case ('introSection') {
+          <!-- Standalone section (no paragraph follows) -->
+          <p class="intro-paragraph">
+            <span class="intro-section-inline">{{ item.element.text }}</span>
+          </p>
+        }
+        @case ('introOutline') {
+          <p class="intro-outline">{{ item.element.text }}</p>
+        }
+        @case ('introTable') {
+          <table class="intro-table">
+            @for (row of item.element.rows; track $index) {
+              <tr>
+                @for (cell of row; track $index) {
+                  <td>{{ cell }}</td>
+                }
+              </tr>
+            }
+          </table>
+        }
+        @case ('introListItem') {
+          <p class="intro-list-item">{{ item.element.text }}</p>
+        }
+        @case ('introMajorSection') {
+          <p class="intro-paragraph">
+            <span class="intro-section-inline">{{ item.element.text }}</span>
+          </p>
+        }
+        @case ('introSidebar') {
+          <aside class="intro-sidebar">
+            <book-intro [introduction]="item.element.content"></book-intro>
+          </aside>
+        }
+      }
+    }
+  }
+</div>

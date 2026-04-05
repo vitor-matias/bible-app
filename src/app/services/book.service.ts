@@ -27,8 +27,9 @@ export class BookService {
     await firstValueFrom(
       this.apiService.getAvailableBooks().pipe(
         tap((books) => {
-          books.push(this.getAboutBook())
-          this.booksSubject.next(books)
+          // Clone before appending the synthetic About entry so we do not mutate
+          // the shared API/cache array returned by BibleApiService.
+          this.booksSubject.next([...books, this.getAboutBook()])
         }),
       ),
     )
@@ -85,6 +86,8 @@ export class BookService {
   }
 
   findBook(bookId: Book["id"] | Book["abrv"] | Book["shortName"]): Book {
+    // Resolve the most specific identifiers first, then fall back to the About page
+    // so the reader always has a safe destination.
     return (
       this.findBookById(bookId) ||
       this.findBookByAbrv(bookId) ||

@@ -6,6 +6,7 @@ import { BookService } from "./book.service"
 
 describe("BookService", () => {
   let service: BookService
+  let apiBooks: Book[]
 
   const mockBooks: Book[] = [
     {
@@ -60,10 +61,11 @@ describe("BookService", () => {
   ]
 
   beforeEach(() => {
+    apiBooks = mockBooks.map((book) => ({ ...book }))
     const apiServiceSpy = jasmine.createSpyObj("BibleApiService", [
       "getAvailableBooks",
     ])
-    apiServiceSpy.getAvailableBooks.and.returnValue(of(mockBooks))
+    apiServiceSpy.getAvailableBooks.and.returnValue(of(apiBooks))
 
     TestBed.configureTestingModule({
       providers: [
@@ -77,6 +79,51 @@ describe("BookService", () => {
 
   it("should be created", () => {
     expect(service).toBeTruthy()
+  })
+
+  it("should add the about book without mutating the API result", async () => {
+    await service.initializeBooks()
+
+    expect(apiBooks.some((book) => book.id === "about")).toBeFalse()
+    expect(service.getBooks().some((book) => book.id === "about")).toBeTrue()
+  })
+
+  it("should find a book by id case-insensitively", async () => {
+    await service.initializeBooks()
+
+    expect(service.findBookById("GEN")?.id).toBe("gen")
+  })
+
+  it("should find a book by abbreviation", async () => {
+    await service.initializeBooks()
+
+    expect(service.findBookByAbrv("gn")?.id).toBe("gen")
+  })
+
+  it("should find a book by url abbreviation", async () => {
+    await service.initializeBooks()
+
+    expect(service.findBookByUrlAbrv("jb")?.id).toBe("job")
+  })
+
+  it("should fall back to the about book when no match exists", async () => {
+    await service.initializeBooks()
+
+    expect(service.findBook("missing").id).toBe("about")
+  })
+
+  it("should normalize url abbreviations by removing spaces", async () => {
+    await service.initializeBooks()
+
+    expect(
+      service.getUrlAbrv({
+        id: "1sm",
+        name: "Primeiro Samuel",
+        shortName: "1 Samuel",
+        abrv: "1 Sm",
+        chapterCount: 31,
+      }),
+    ).toBe("1sm")
   })
 
   describe("findBookByName", () => {

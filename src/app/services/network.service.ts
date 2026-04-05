@@ -1,4 +1,4 @@
-import { Inject, Injectable, NgZone } from "@angular/core"
+import { Inject, Injectable, Injector, NgZone } from "@angular/core"
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core"
 import { type ConnectionStatus, type NetworkPlugin } from "@capacitor/network"
 import { BehaviorSubject, type Observable } from "rxjs"
@@ -14,6 +14,7 @@ export class NetworkService {
 
   constructor(
     private ngZone: NgZone,
+    private injector: Injector,
     @Inject(NETWORK_PLUGIN) private networkPlugin: NetworkPlugin,
   ) {
     this.initNetworkListener()
@@ -46,7 +47,27 @@ export class NetworkService {
   }
 
   private updateStatus(status: ConnectionStatus) {
-    this.isOfflineSubject.next(!status.connected)
+    const wasOffline = this.isOfflineSubject.value
+    const nowOnline = status.connected
+    this.isOfflineSubject.next(!nowOnline)
+
+    // When we transition from offline → online, opportunistically refresh
+    // the Bible content cache if it has expired.
+    if (wasOffline && nowOnline) {
+      // Lazy-inject to avoid a circular dependency at construction time.
+      void (async () => {
+        try {
+          const { OfflineDataService } = await import("./offline-data.service")
+          const svc = this.injector.get(OfflineDataService)
+          await svc.preloadAllBooksAndChapters("standalone")
+        } catch (error) {
+          console.error(
+            "Failed to preload offline Bible content after reconnect",
+            error,
+          )
+        }
+      })()
+    }
   }
 
   async ngOnDestroy(): Promise<void> {
