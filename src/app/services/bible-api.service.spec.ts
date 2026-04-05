@@ -5,24 +5,30 @@ import {
 import { TestBed } from "@angular/core/testing"
 import { firstValueFrom } from "rxjs"
 import { BibleApiService } from "./bible-api.service"
+import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
 
 describe("BibleApiService", () => {
   let service: BibleApiService
   let httpMock: HttpTestingController
   let offlineDataServiceSpy: jasmine.SpyObj<OfflineDataService>
+  let networkServiceStub: { isOffline: boolean }
 
   beforeEach(() => {
     const spy = jasmine.createSpyObj("OfflineDataService", [
       "getCachedChapterAsync",
       "getCachedBooksAsync",
+      "getCachedBookAsync",
+      "getCachedVerseAsync",
     ])
+    networkServiceStub = { isOffline: false }
 
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       providers: [
         BibleApiService,
         { provide: OfflineDataService, useValue: spy },
+        { provide: NetworkService, useValue: networkServiceStub },
       ],
     })
 
@@ -136,6 +142,183 @@ describe("BibleApiService", () => {
 
       const result = await chapterPromise
       expect(result).toEqual(mockChapter)
+    })
+
+    it("should share a single request for the same chapter", async () => {
+      offlineDataServiceSpy.getCachedChapterAsync.and.returnValue(
+        Promise.resolve(undefined),
+      )
+
+      const firstChapterPromise = firstValueFrom(service.getChapter(book, 1))
+      const secondChapterPromise = firstValueFrom(service.getChapter(book, 1))
+
+      await Promise.resolve()
+      await Promise.resolve()
+
+      const req = httpMock.expectOne(`v1/${book}/1`)
+      req.flush(mockChapter)
+
+      expect(await firstChapterPromise).toEqual(mockChapter)
+      expect(await secondChapterPromise).toEqual(mockChapter)
+    })
+
+    it("should keep concurrent chapter requests isolated by book and chapter", async () => {
+      const otherChapter = {
+        bookId: "exo",
+        number: 2,
+        verses: [
+          {
+            bookId: "exo",
+            chapterNumber: 2,
+            number: 1,
+            verseLabel: "1",
+            text: [{ type: "text", text: "Now these are the names..." }],
+          },
+        ],
+      } as Chapter
+
+      offlineDataServiceSpy.getCachedChapterAsync.and.returnValue(
+        Promise.resolve(undefined),
+      )
+
+      const firstChapterPromise = firstValueFrom(service.getChapter(book, 1))
+      const secondChapterPromise = firstValueFrom(service.getChapter("exo", 2))
+
+      await Promise.resolve()
+      await Promise.resolve()
+
+      const firstReq = httpMock.expectOne(`v1/${book}/1`)
+      const secondReq = httpMock.expectOne("v1/exo/2")
+
+      secondReq.flush(otherChapter)
+      firstReq.flush(mockChapter)
+
+      expect(await firstChapterPromise).toEqual(mockChapter)
+      expect(await secondChapterPromise).toEqual(otherChapter)
+    })
+  })
+
+  describe("getAvailableBooks", () => {
+    it("should return cached books before using the network", async () => {
+      const cachedBooks = [
+        {
+          id: "gen",
+          name: "Genesis",
+          shortName: "Genesis",
+          abrv: "Gn",
+          chapterCount: 50,
+        },
+      ] as Book[]
+      offlineDataServiceSpy.getCachedBooksAsync.and.returnValue(
+        Promise.resolve(cachedBooks),
+      )
+
+      const result = await firstValueFrom(service.getAvailableBooks())
+
+      expect(result).toEqual(cachedBooks)
+      httpMock.expectNone("v1/books")
+    })
+
+    it("should throw when offline and no cached books exist", async () => {
+      offlineDataServiceSpy.getCachedBooksAsync.and.returnValue(
+        Promise.resolve([]),
+      )
+      networkServiceStub.isOffline = true
+
+      await expectAsync(
+        firstValueFrom(service.getAvailableBooks()),
+      ).toBeRejectedWithError("Offline and no cached books available")
+      httpMock.expectNone("v1/books")
+    })
+
+    it("should fetch books from the server and cache them in memory", async () => {
+      const remoteBooks = [
+        {
+          id: "exo",
+          name: "Exodus",
+          shortName: "Exodus",
+          abrv: "Ex",
+          chapterCount: 40,
+        },
+      ] as Book[]
+      offlineDataServiceSpy.getCachedBooksAsync.and.returnValue(
+        Promise.resolve([]),
+      )
+
+      const booksPromise = firstValueFrom(service.getAvailableBooks())
+
+      await Promise.resolve()
+      await Promise.resolve()
+
+      const req = httpMock.expectOne("v1/books")
+      req.flush(remoteBooks)
+
+      expect(await booksPromise).toEqual(remoteBooks)
+      expect(service.books).toEqual(remoteBooks)
+    })
+  })
+
+  describe("getBook", () => {
+    it("should return a cached book when available", async () => {
+      const cachedBook = {
+        id: "gen",
+        name: "Genesis",
+        shortName: "Genesis",
+        abrv: "Gn",
+        chapterCount: 50,
+      } as Book
+      offlineDataServiceSpy.getCachedBookAsync.and.returnValue(
+        Promise.resolve(cachedBook),
+      )
+
+      const result = await firstValueFrom(service.getBook("gen"))
+
+      expect(result).toEqual(cachedBook)
+      httpMock.expectNone("v1/gen")
+    })
+
+    it("should throw when offline and the book is not cached", async () => {
+      offlineDataServiceSpy.getCachedBookAsync.and.returnValue(
+        Promise.resolve(undefined),
+      )
+      networkServiceStub.isOffline = true
+
+      await expectAsync(
+        firstValueFrom(service.getBook("gen")),
+      ).toBeRejectedWithError("Offline - book not cached")
+      httpMock.expectNone("v1/gen")
+    })
+  })
+
+  describe("getVerse", () => {
+    it("should return a cached verse when available", async () => {
+      const cachedVerse = {
+        bookId: "gen",
+        chapterNumber: 1,
+        number: 1,
+        verseLabel: "1",
+        text: [{ type: "text", text: "In the beginning..." }],
+      } as Verse
+      offlineDataServiceSpy.getCachedVerseAsync.and.returnValue(
+        Promise.resolve(cachedVerse),
+      )
+
+      const result = await firstValueFrom(service.getVerse("gen", 1, 1))
+
+      expect(result).toEqual(cachedVerse)
+      httpMock.expectNone("v1/gen/1/1")
+    })
+
+    it("should throw when offline and the verse is not cached", async () => {
+      offlineDataServiceSpy.getCachedVerseAsync.and.returnValue(
+        Promise.resolve(undefined),
+      )
+      networkServiceStub.isOffline = true
+
+      await expectAsync(
+        firstValueFrom(service.getVerse("gen", 1, 1)),
+      ).toBeRejectedWithError("Offline - verse not cached")
+      httpMock.expectNone("v1/gen/1/1")
     })
   })
 })

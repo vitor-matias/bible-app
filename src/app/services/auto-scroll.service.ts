@@ -57,6 +57,8 @@ export class AutoScrollService implements OnDestroy {
     if (direction === 0) {
       return this.autoScrollLinesPerSecond
     }
+    // Speeds below 1 line/sec snap through the curated fractional presets so the
+    // UI exposes readable labels such as 1/2 or 3/4 instead of awkward decimals.
     const nextSpeed = this.getNextSpeed(
       this.autoScrollLinesPerSecond,
       direction,
@@ -109,6 +111,8 @@ export class AutoScrollService implements OnDestroy {
   }
 
   start({ scrollElement, lineHeightElement, onStop }: AutoScrollConfig): void {
+    // Restart from a clean state so switching chapters or containers never keeps
+    // an old frame loop or observer alive.
     this.stop()
     this.scrollElement = scrollElement ?? undefined
     this.lineHeightElement = lineHeightElement ?? undefined
@@ -164,7 +168,8 @@ export class AutoScrollService implements OnDestroy {
     const scrollDelta =
       lineHeight * this.autoScrollLinesPerSecond * deltaSeconds
 
-    // Accumulate scroll delta to avoid micro-scrolls at very slow speeds
+    // Accumulate sub-pixel movement so very slow speeds still advance smoothly
+    // without asking the browser to repaint on every tiny fraction.
     this.accumulatedScrollDelta += scrollDelta
 
     // Only apply scroll when accumulated delta is at least 0.5px to prevent jank
@@ -206,6 +211,8 @@ export class AutoScrollService implements OnDestroy {
       return lineHeight
     }
 
+    // "normal" line-height is not numeric, so fall back to the computed font size
+    // as a reasonable approximation for scroll pacing.
     return fontSize
   }
 

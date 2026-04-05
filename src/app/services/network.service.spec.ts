@@ -1,4 +1,4 @@
-import { NgZone } from "@angular/core"
+import { Injector, NgZone } from "@angular/core"
 import type { PluginListenerHandle } from "@capacitor/core"
 import type { ConnectionStatus } from "@capacitor/network"
 import { NetworkService } from "./network.service"
@@ -6,6 +6,7 @@ import { NetworkService } from "./network.service"
 describe("NetworkService", () => {
   let service: NetworkService
   let ngZoneMock: jasmine.SpyObj<NgZone>
+  let injectorMock: jasmine.SpyObj<Injector>
   let mockStatus: ConnectionStatus
   let mockNetworkListener: jasmine.SpyObj<PluginListenerHandle>
   let capturedCallback: ((status: ConnectionStatus) => void) | undefined
@@ -27,6 +28,13 @@ describe("NetworkService", () => {
     // biome-ignore lint/complexity/noBannedTypes: Mocking NgZone
     ngZoneMock.run.and.callFake((fn: Function) => fn())
 
+    injectorMock = jasmine.createSpyObj<Injector>("Injector", ["get"])
+    injectorMock.get.and.returnValue({
+      preloadAllBooksAndChapters: jasmine
+        .createSpy("preloadAllBooksAndChapters")
+        .and.resolveTo(),
+    })
+
     mockNetworkPlugin = jasmine.createSpyObj("Network", [
       "addListener",
       "getStatus",
@@ -45,7 +53,7 @@ describe("NetworkService", () => {
     mockNetworkPlugin.getStatus.and.callFake(() => Promise.resolve(mockStatus))
 
     // Directly instantiate the service without TestBed to avoid complex Angular 18+ environment issues
-    service = new NetworkService(ngZoneMock, mockNetworkPlugin)
+    service = new NetworkService(ngZoneMock, injectorMock, mockNetworkPlugin)
 
     // Flush microtasks to ensure initial getStatus resolves
     await Promise.resolve()
@@ -67,6 +75,7 @@ describe("NetworkService", () => {
     // Instantiate new service - it will use the mocked Network plugin
     const newService = new NetworkService(
       ngZoneMock as NgZone,
+      injectorMock,
       mockNetworkPlugin,
     )
 

@@ -37,7 +37,8 @@ export class OfflineDataService {
       return
     }
     if (isExpired && this.networkService.isOffline) {
-      // Keep using stale cache until we can refresh online
+      // Prefer stale data over wiping out offline reading when the refresh window
+      // expires but the device has no connection.
       return
     }
 
@@ -161,6 +162,8 @@ export class OfflineDataService {
         byId.set(book.id, book)
         continue
       }
+      // Keep whichever side has the fuller chapter payload so a shallow refresh
+      // does not accidentally discard chapters already cached locally.
       const chapters =
         book.chapters?.length || current.chapters?.length
           ? ((book.chapters && book.chapters.length > 0
@@ -175,6 +178,7 @@ export class OfflineDataService {
   private ensureCacheLoaded(): Promise<void> {
     if (this.cachedBooks) return Promise.resolve()
     if (!this.cacheLoadPromise) {
+      // Share one IndexedDB read across concurrent callers during startup.
       this.cacheLoadPromise = this.loadBooksFromIndexedDb()
         .catch((error) => {
           console.error("Failed to load cached books from IndexedDB", error)

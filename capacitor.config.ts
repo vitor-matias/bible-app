@@ -2,11 +2,11 @@ import type { CapacitorConfig } from "@capacitor/cli"
 
 const config: CapacitorConfig = {
   appId: "org.capuchinhos.biblia",
-  appName: "Bíblia dos Capuchinhos",
+  appName: "Bíblia Sagrada",
   webDir: "dist/bible-app/browser",
   server: {
     ...(process.env['CAPACITOR_SERVER_URL'] || process.env['NODE_ENV'] === "production"
-      ? { url: process.env['CAPACITOR_SERVER_URL'] || "https://bible-app-ten-psi.vercel.app/" }
+      ? { url: process.env['CAPACITOR_SERVER_URL'] || "https://biblia.capuchinhos.org" }
       : {}),
     androidScheme: "https",
   },

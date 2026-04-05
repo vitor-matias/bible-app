@@ -98,6 +98,10 @@ export class BibleReaderComponent implements OnDestroy {
   isFirstPage = true
   isLastPage = false
 
+  get effectiveViewMode(): "scrolling" | "paged" {
+    return this.book?.id === "about" ? "scrolling" : this.viewMode
+  }
+
   onPageStateChange(state: PageState): void {
     if (
       this.isFirstPage !== state.isFirstPage ||
@@ -230,7 +234,7 @@ export class BibleReaderComponent implements OnDestroy {
   }
 
   onSwipeLeft(): void {
-    if (this.viewMode === "paged") {
+    if (this.effectiveViewMode === "paged") {
       this.pagedNav?.nextPage()
     } else {
       this.goToNextChapter()
@@ -238,7 +242,7 @@ export class BibleReaderComponent implements OnDestroy {
   }
 
   onSwipeRight(): void {
-    if (this.viewMode === "paged") {
+    if (this.effectiveViewMode === "paged") {
       this.pagedNav?.prevPage()
     } else {
       this.goToPreviousChapter()
@@ -330,7 +334,7 @@ export class BibleReaderComponent implements OnDestroy {
               this.animationService.scrollToTop(
                 this.drawerContent?.nativeElement,
                 this.bookContainer?.nativeElement,
-                this.viewMode,
+                this.effectiveViewMode,
                 startAtBottom,
                 startAtBottom
                   ? () => this.pagedNav?.scrollToEnd()
@@ -383,7 +387,7 @@ export class BibleReaderComponent implements OnDestroy {
                 this.animationService.scrollToTop(
                   this.drawerContent?.nativeElement,
                   this.bookContainer?.nativeElement,
-                  this.viewMode,
+                  this.effectiveViewMode,
                   startAtBottom,
                   startAtBottom
                     ? () => this.pagedNav?.scrollToEnd()
@@ -513,12 +517,12 @@ export class BibleReaderComponent implements OnDestroy {
   @HostListener("window:keydown", ["$event"])
   onArrowPress(event: KeyboardEvent): void {
     if (event.key === "ArrowLeft") {
-      this.viewMode === "paged"
+      this.effectiveViewMode === "paged"
         ? this.pagedNav?.prevPage()
         : this.goToPreviousChapter()
     }
     if (event.key === "ArrowRight") {
-      this.viewMode === "paged"
+      this.effectiveViewMode === "paged"
         ? this.pagedNav?.nextPage()
         : this.goToNextChapter()
     }

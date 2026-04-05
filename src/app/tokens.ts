@@ -6,6 +6,8 @@ import { Share } from "@capacitor/share"
 function createNoopNgOnDestroyProxy<T extends object>(plugin: T): T {
   return new Proxy(plugin, {
     get(target, prop, receiver) {
+      // Angular may try to call ngOnDestroy on injected values during teardown.
+      // Capacitor plugins do not implement it, so expose a harmless noop.
       if (prop === "ngOnDestroy" && !(prop in target)) {
         return () => {}
       }

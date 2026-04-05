@@ -2,6 +2,7 @@ import {
   Directive,
   ElementRef,
   EventEmitter,
+  Input,
   type OnDestroy,
   type OnInit,
   Output,
@@ -42,6 +43,11 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   private readonly SWIPE_MAX_VERTICAL_DISTANCE = 100
   private readonly MIN_FONT_SIZE = 70
   private readonly MAX_FONT_SIZE = 180
+  private readonly boundTouchStart = this.onTouchStart.bind(this)
+  private readonly boundTouchMove = this.onTouchMove.bind(this)
+  private readonly boundTouchEnd = this.onTouchEnd.bind(this)
+  private readonly boundTouchCancel = this.onTouchCancel.bind(this)
+  @Input() fontSizeContext?: string
 
   constructor(
     private el: ElementRef,
@@ -51,43 +57,44 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     // Get the initial font size
     const computedStyle = getComputedStyle(this.el.nativeElement)
     this.baseFontSize = Number.parseFloat(computedStyle.fontSize) || 105
-
-    // Load stored font size
-    const context = this.el.nativeElement.name || "default"
-    const storedSize = this.preferencesService.getFontSize(context)
-    this.currentFontSize = storedSize ? storedSize : this.baseFontSize
-
-    if (storedSize) {
-      this.setFontSize(this.currentFontSize)
-    }
+    this.currentFontSize = this.baseFontSize
   }
 
   ngOnInit() {
     const element = this.el.nativeElement
+    const storedSize = this.preferencesService.getFontSize(
+      this.getFontSizeContext(),
+    )
 
-    // Allow pan-x for horizontal scrolling, but disable pinch-zoom
+    if (storedSize) {
+      this.currentFontSize = storedSize
+      this.setFontSize(this.currentFontSize)
+    }
+
+    // Let the element keep its own scroll behavior while we take ownership of
+    // custom swipe and pinch gestures.
     element.style.touchAction = "pan-y pinch-zoom"
 
-    element.addEventListener("touchstart", this.onTouchStart.bind(this), {
+    element.addEventListener("touchstart", this.boundTouchStart, {
       passive: false,
     })
-    element.addEventListener("touchmove", this.onTouchMove.bind(this), {
+    element.addEventListener("touchmove", this.boundTouchMove, {
       passive: false,
     })
-    element.addEventListener("touchend", this.onTouchEnd.bind(this), {
+    element.addEventListener("touchend", this.boundTouchEnd, {
       passive: false,
     })
-    element.addEventListener("touchcancel", this.onTouchCancel.bind(this), {
+    element.addEventListener("touchcancel", this.boundTouchCancel, {
       passive: false,
     })
   }
 
   ngOnDestroy() {
     const element = this.el.nativeElement
-    element.removeEventListener("touchstart", this.onTouchStart)
-    element.removeEventListener("touchmove", this.onTouchMove)
-    element.removeEventListener("touchend", this.onTouchEnd)
-    element.removeEventListener("touchcancel", this.onTouchCancel)
+    element.removeEventListener("touchstart", this.boundTouchStart)
+    element.removeEventListener("touchmove", this.boundTouchMove)
+    element.removeEventListener("touchend", this.boundTouchEnd)
+    element.removeEventListener("touchcancel", this.boundTouchCancel)
   }
 
   private onTouchStart(e: TouchEvent) {
@@ -128,8 +135,8 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
       const deltaY = Math.abs(e.touches[0].clientY - this.swipeStartY)
       const deltaX = Math.abs(e.touches[0].clientX - this.swipeStartX)
 
-      // If there's significant horizontal movement and minimal vertical movement,
-      // this might be a swipe - prevent default to avoid interfering with the gesture
+      // Once the gesture looks like a horizontal swipe, suppress the browser's
+      // native handling so the chapter/page navigation wins consistently.
       if (deltaX > 30 && deltaY < this.SWIPE_MAX_VERTICAL_DISTANCE) {
         e.preventDefault()
       } else if (deltaY > this.SWIPE_MAX_VERTICAL_DISTANCE) {
@@ -190,9 +197,12 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
 
   private handlePinchMove(e: TouchEvent) {
     const currentDistance = this.getDistance(e.touches[0], e.touches[1])
-    const scale = (currentDistance / this.initialDistance) * this.initialScale
+    const scale =
+      Number.isFinite(this.initialDistance) && this.initialDistance > 1e-6
+        ? (currentDistance / this.initialDistance) * this.initialScale
+        : this.initialScale
 
-    // Clamp the scale to reasonable limits
+    // Clamp the gesture so a wild pinch never leaves the text unreadably tiny or huge.
     const clampedScale = Math.max(0.5, Math.min(scale, 3))
 
     const newFontSize = this.baseFontSize * clampedScale
@@ -209,8 +219,10 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     this.lastScale = this.currentFontSize / this.baseFontSize
 
     // Store the new font size
-    const context = this.el.nativeElement.name || "default"
-    this.preferencesService.setFontSize(this.currentFontSize, context)
+    this.preferencesService.setFontSize(
+      this.currentFontSize,
+      this.getFontSizeContext(),
+    )
   }
 
   private getDistance(touch1: Touch, touch2: Touch): number {
@@ -235,16 +247,30 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     this.setFontSize(nextSize)
     this.currentFontSize = nextSize
 
-    const context = this.el.nativeElement.name || "default"
-    this.preferencesService.setFontSize(this.currentFontSize, context)
+    this.preferencesService.setFontSize(
+      this.currentFontSize,
+      this.getFontSizeContext(),
+    )
   }
 
   private setFontSize(fontSize: number) {
     this.renderer.setStyle(this.el.nativeElement, "font-size", `${fontSize}%`)
 
+    // Headings need a parallel bump so their visual hierarchy survives reader zooming.
     const headings = this.el.nativeElement.querySelectorAll("h1, h2, h3")
     for (const heading of headings) {
       this.renderer.setStyle(heading, "font-size", `${fontSize + 5}%`)
     }
+  }
+
+  private getFontSizeContext(): string {
+    if (this.fontSizeContext) {
+      return this.fontSizeContext
+    }
+
+    console.warn(
+      "UnifiedGesturesDirective is missing fontSizeContext; falling back to default.",
+    )
+    return "default"
   }
 }
