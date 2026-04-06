@@ -93,13 +93,20 @@ export class ReportProblemComponent {
     // Simulate network delay
     await new Promise((resolve) => setTimeout(resolve, 500))
 
-    if (typeof window !== "undefined" && window.umami) {
+    if (typeof window === "undefined" || !window.umami) {
+      throw new Error("Analytics transport not available")
+    }
+
+    try {
       window.umami.track("report_problem", {
         book: this.data.book.id,
         chapter: this.data.chapter,
         topic,
         detailsLength: details ? details.length : 0,
       })
+    } catch (error) {
+      console.error("Umami tracking failed:", error)
+      throw error
     }
   }
 

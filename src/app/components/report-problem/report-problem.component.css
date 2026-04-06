@@ -25,12 +25,3 @@
   color: var(--card-background) !important;
 }
 
-/* Fallback to ensure input text is legible if material ignores the tokens */
-::ng-deep .mdc-text-field__input, 
-::ng-deep .mat-mdc-select-value-text {
-  color: var(--text-color) !important;
-}
-
-::ng-deep .mdc-text-field--filled:not(.mdc-text-field--disabled) {
-  background-color: var(--card-background) !important;
-}

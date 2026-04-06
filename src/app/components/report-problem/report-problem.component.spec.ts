@@ -21,6 +21,7 @@ describe("ReportProblemComponent", () => {
   let component: ReportProblemComponent
   let fixture: ComponentFixture<ReportProblemComponent>
   let mockDialogRef: jasmine.SpyObj<MatDialogRef<ReportProblemComponent>>
+  let originalUmami: typeof umami
 
   const mockDialogData = { book: { id: "gen", name: "Gênesis" }, chapter: 1 }
 
@@ -48,8 +49,13 @@ describe("ReportProblemComponent", () => {
     component = fixture.componentInstance
     fixture.detectChanges()
 
-    // Reset umami mock on window
+    // Save original umami and mock it
+    originalUmami = window.umami
     window.umami = { track: jasmine.createSpy("track") }
+  })
+
+  afterEach(() => {
+    window.umami = originalUmami
   })
 
   it("should create", () => {
