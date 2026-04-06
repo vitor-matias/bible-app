@@ -47,7 +47,7 @@ describe("ReportProblemComponent", () => {
     fixture.detectChanges()
 
     // Reset umami mock on window
-    ;(window as any).umami = { track: jasmine.createSpy("track") }
+    window.umami = { track: jasmine.createSpy("track") }
   })
 
   it("should create", () => {
@@ -90,7 +90,7 @@ describe("ReportProblemComponent", () => {
     component.reportForm.get("topic")?.setValue("")
     component.onSubmit()
 
-    expect((window as any).umami.track).not.toHaveBeenCalled()
+    expect(window.umami?.track).not.toHaveBeenCalled()
     expect(mockDialogRef.close).not.toHaveBeenCalled()
   })
 
@@ -99,7 +99,7 @@ describe("ReportProblemComponent", () => {
     component.reportForm.get("details")?.setValue("bold text missing")
     component.onSubmit()
 
-    expect((window as any).umami.track).toHaveBeenCalledWith("report_problem", {
+    expect(window.umami?.track).toHaveBeenCalledWith("report_problem", {
       book: "gen",
       chapter: 1,
       topic: "formatting",
