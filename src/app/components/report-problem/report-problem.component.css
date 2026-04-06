@@ -14,24 +14,15 @@
   color: var(--text-color);
 }
 
-::ng-deep .submit-btn {
+.submit-btn {
   background-color: var(--highlight-color) !important;
   color: #121212 !important;
   font-weight: 500;
 }
 
-::ng-deep .submit-btn:disabled {
+.submit-btn:disabled {
   background-color: var(--border-color) !important;
   color: var(--card-background) !important;
-}
-
-/* Force dropdowns to the dark background so white text is legible */
-::ng-deep .mat-mdc-select-panel {
-  background-color: var(--card-background) !important;
-}
-
-::ng-deep .mat-mdc-option {
-  color: var(--text-color) !important;
 }
 
 /* Fallback to ensure input text is legible if material ignores the tokens */

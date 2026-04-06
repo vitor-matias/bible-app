@@ -107,7 +107,7 @@ body {
     transparent
   );
 
-  --mat-form-field-focus-color: var(--text-color);
+  --mat-form-field-focus-color: antiquewhite;
   --mdc-filled-text-field-container-color: var(--card-background);
   --mdc-filled-text-field-input-text-color: var(--text-color);
   --mdc-filled-text-field-label-text-color: var(--text-color);
@@ -121,8 +121,9 @@ body {
   --mat-form-field-hint-text-color: color-mix(in srgb, var(--text-color) 60%, transparent);
 
   --mdc-dialog-container-color: var(--card-background);
-  --mdc-dialog-subhead-color: var(--text-color);
+  --mdc-dialog-subhead-color: antiquewhite;
   --mdc-dialog-supporting-text-color: var(--text-color);
+  --mat-dialog-title-text-color: antiquewhite;
 
   --mdc-filled-button-container-color: var(--cap-brown);
   --mdc-filled-button-label-text-color: antiquewhite;
@@ -131,11 +132,22 @@ body {
   --mdc-text-button-label-text-color: var(--text-color);
 }
 
+/* Force dialog title specifically to antiquewhite in dark mode using exact target class */
+.dark-theme .mat-mdc-dialog-title {
+  color: var(--text-color) !important;
+}
+
+/* Force hint text specifically for dark mode */
+.dark-theme mat-hint,
+.dark-theme .mdc-text-field-helper-text {
+  color: var(--mat-form-field-hint-text-color) !important;
+}
+
 /* Apply variables to body */
 body {
   background-color: var(--background-color);
   color: var(--text-color);
-  font-family: 'Roboto', "Helvetica Neue", sans-serif;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
   transition:
     background-color 0.3s ease,
     color 0.3s ease;
@@ -197,21 +209,25 @@ bible-reader .mat-drawer-content {
   overflow-x: hidden !important;
 }
 
-/* Force M3 to respect our focus colors despite deep variable scoping */
-.mdc-text-field--focused:not(.mdc-text-field--disabled) .mdc-line-ripple::before,
-.mdc-text-field--focused:not(.mdc-text-field--disabled) .mdc-line-ripple::after {
-  border-bottom-color: var(--mat-form-field-focus-color) !important;
+/* Apply focus color via supported Material theming tokens on the host elements */
+/* Using body selector to ensure CSS custom property specificity overrides Material's dynamically injected styles */
+body .mat-mdc-form-field {
+  --mdc-filled-text-field-focus-active-indicator-color: var(--mat-form-field-focus-color);
+  --mdc-filled-text-field-focus-label-text-color: var(--mat-form-field-focus-color);
+  --mdc-filled-text-field-caret-color: var(--mat-form-field-focus-color);
+  --mdc-outlined-text-field-focus-outline-color: var(--mat-form-field-focus-color);
+  --mdc-outlined-text-field-focus-label-text-color: var(--mat-form-field-focus-color);
 }
 
-.mdc-text-field--focused:not(.mdc-text-field--disabled) .mdc-floating-label,
-.mdc-text-field--focused:not(.mdc-text-field--disabled) .mdc-floating-label--float-above {
-  color: var(--mat-form-field-focus-color) !important;
+/* Global select panel styles */
+.app-report-select-panel {
+  background-color: var(--card-background);
 }
 
-.mdc-text-field--focused .mdc-text-field__input {
-  caret-color: var(--mat-form-field-focus-color) !important;
+.app-report-select-panel .mat-mdc-option {
+  color: var(--text-color);
 }
 
-.mat-mdc-select-panel .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) .mdc-list-item__primary-text {
-  color: var(--mat-form-field-focus-color) !important;
+.mat-mdc-select-panel {
+  --mat-option-selected-state-label-text-color: var(--mat-form-field-focus-color);
 }

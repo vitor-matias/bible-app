@@ -39,21 +39,19 @@ mat-icon {
   background-color: antiquewhite;
 }
 
-.searchButton {
+.actionButton {
   background-color: antiquewhite;
   color: #543d27;
   min-width: 48px;
   height: 36px;
   padding: 0;
+}
+
+.searchButton {
   margin-left: 8px;
 }
 
 .backButton {
-  background-color: antiquewhite;
-  color: #543d27;
-  min-width: 48px;
-  height: 36px;
-  padding: 0;
   margin-right: 8px;
 }
 

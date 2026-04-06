@@ -61,24 +61,45 @@ export class ReportProblemComponent {
     private snackBar: MatSnackBar,
   ) {}
 
-  onSubmit() {
+  async onSubmit() {
     if (this.reportForm.valid) {
-      const { topic, details } = this.reportForm.value
+      try {
+        await this.sendReport(this.reportForm.value)
 
-      if (typeof window !== "undefined" && window.umami) {
-        window.umami.track("report_problem", {
-          book: this.data.book.id,
-          chapter: this.data.chapter,
-          topic,
-          details,
+        this.snackBar.open("O problema foi reportado. Obrigado!", "Fechar", {
+          duration: 3000,
         })
+
+        this.dialogRef.close(true)
+      } catch (error) {
+        console.error("Failed to submit report:", error)
+        this.snackBar.open(
+          "Erro ao enviar o relatório. Tente novamente.",
+          "Fechar",
+          {
+            duration: 4000,
+          },
+        )
       }
+    }
+  }
 
-      this.snackBar.open("O problema foi reportado. Obrigado!", "Fechar", {
-        duration: 3000,
+  private async sendReport(formValue: {
+    topic?: string | null
+    details?: string | null
+  }): Promise<void> {
+    const { topic, details } = formValue
+
+    // Simulate network delay
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    if (typeof window !== "undefined" && window.umami) {
+      window.umami.track("report_problem", {
+        book: this.data.book.id,
+        chapter: this.data.chapter,
+        topic,
+        detailsLength: details ? details.length : 0,
       })
-
-      this.dialogRef.close(true)
     }
   }
 

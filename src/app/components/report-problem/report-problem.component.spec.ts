@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from "@angular/core/testing"
+import { ComponentFixture, TestBed, fakeAsync, tick } from "@angular/core/testing"
 import { ReactiveFormsModule } from "@angular/forms"
 import {
   MAT_DIALOG_DATA,
@@ -17,10 +17,7 @@ describe("ReportProblemComponent", () => {
   let fixture: ComponentFixture<ReportProblemComponent>
   let mockDialogRef: jasmine.SpyObj<MatDialogRef<ReportProblemComponent>>
 
-  const mockDialogData = {
-    bookId: "gen",
-    chapter: 1,
-  }
+  const mockDialogData = { book: { id: "gen", name: "Gênesis" }, chapter: 1 }
 
   beforeEach(async () => {
     mockDialogRef = jasmine.createSpyObj("MatDialogRef", ["close"])
@@ -94,17 +91,19 @@ describe("ReportProblemComponent", () => {
     expect(mockDialogRef.close).not.toHaveBeenCalled()
   })
 
-  it("should track event and close dialog if form is valid on submit", () => {
+  it("should track event and close dialog if form is valid on submit", fakeAsync(() => {
     component.reportForm.get("topic")?.setValue("formatting")
     component.reportForm.get("details")?.setValue("bold text missing")
     component.onSubmit()
+
+    tick(600)
 
     expect(window.umami?.track).toHaveBeenCalledWith("report_problem", {
       book: "gen",
       chapter: 1,
       topic: "formatting",
-      details: "bold text missing",
+      detailsLength: 17,
     })
     expect(mockDialogRef.close).toHaveBeenCalledWith(true)
-  })
+  }))
 })

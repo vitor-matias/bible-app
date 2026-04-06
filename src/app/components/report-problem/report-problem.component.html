@@ -9,7 +9,7 @@
   <form [formGroup]="reportForm" class="report-form" (ngSubmit)="onSubmit()">
     <mat-form-field appearance="fill" class="full-width">
       <mat-label>Tipo de Problema</mat-label>
-      <mat-select formControlName="topic">
+      <mat-select formControlName="topic" panelClass="app-report-select-panel">
         @for (topic of topics; track topic.value) {
           <mat-option [value]="topic.value">{{ topic.label }}</mat-option>
         }
@@ -21,7 +21,7 @@
 
     <mat-form-field appearance="fill" class="full-width">
       <mat-label>Detalhes</mat-label>
-      <textarea matInput formControlName="details" rows="4" 
+      <textarea matInput formControlName="details" rows="4" maxlength="500"
                 placeholder="Descreva o problema (ex: falta uma vírgula após a palavra 'Deus')..."></textarea>
       <mat-hint align="end">{{ reportForm.get('details')?.value?.length || 0 }} / 500</mat-hint>
       @if (reportForm.get('details')?.hasError('required')) {
@@ -35,6 +35,6 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button mat-button (click)="onCancel()">Cancelar</button>
-  <button mat-flat-button class="submit-btn" [disabled]="!reportForm.valid" (click)="onSubmit()">Enviar</button>
+  <button type="button" mat-button (click)="onCancel()">Cancelar</button>
+  <button type="button" mat-flat-button class="submit-btn" [disabled]="!reportForm.valid" (click)="onSubmit()">Enviar</button>
 </mat-dialog-actions>
