@@ -17,6 +17,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
+import { MatDialog } from "@angular/material/dialog"
 import { MatDividerModule } from "@angular/material/divider"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenuModule, type MatMenuTrigger } from "@angular/material/menu"
@@ -31,6 +32,7 @@ import { NetworkService } from "../../services/network.service"
 import { ThemeService } from "../../services/theme.service"
 import { SHARE_PLUGIN } from "../../tokens"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
+import { ReportProblemComponent } from "../report-problem/report-problem.component"
 
 @Component({
   standalone: true,
@@ -75,6 +77,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     private readonly themeService: ThemeService,
     private readonly bookmarkService: BookmarkService,
     private readonly bottomSheet: MatBottomSheet,
+    private readonly dialog: MatDialog,
     private readonly cdr: ChangeDetectorRef,
     private readonly networkService: NetworkService,
     @Inject(SHARE_PLUGIN) private sharePlugin: typeof Share,
@@ -140,6 +143,19 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   onToggleBookmarkFromMenu(trigger: MatMenuTrigger) {
     trigger.closeMenu()
     this.openBookmarkSelector()
+  }
+
+  onReportProblem(trigger: MatMenuTrigger) {
+    trigger.closeMenu()
+    if (!this.book || !this.chapterNumber) {
+      return
+    }
+
+    this.dialog.open(ReportProblemComponent, {
+      data: { book: this.book, chapter: this.chapterNumber },
+      width: "90%",
+      maxWidth: "500px",
+    })
   }
 
   ngOnDestroy(): void {

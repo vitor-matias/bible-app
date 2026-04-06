@@ -1,4 +1,4 @@
-<div>
+<div class="toolbar-placeholder">
   <mat-toolbar>
     <div class="content">
       <button mat-flat-button aria-label="back" class="button backButton" (click)="goBack()">
@@ -8,7 +8,7 @@
         id="search"
         type="search"
         placeholder="Procurar na Bíblia"
-        class="mat-raised-button search-input"
+        class="search-input"
         [(ngModel)]="query"
         (keydown.enter)="emitSearch()"
       />
