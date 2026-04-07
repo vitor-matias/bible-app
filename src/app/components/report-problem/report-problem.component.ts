@@ -80,9 +80,13 @@ export class ReportProblemComponent {
       this.dialogRef.close(true)
     } catch (error) {
       console.error("Failed to submit report:", error)
-      this.snackBar.open("Erro ao enviar o relatório. Tente novamente.", "Fechar", {
-        duration: 4000,
-      })
+      this.snackBar.open(
+        "Erro ao enviar o relatório. Tente novamente.",
+        "Fechar",
+        {
+          duration: 4000,
+        },
+      )
     } finally {
       this.isSending = false
     }
