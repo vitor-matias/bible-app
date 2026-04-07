@@ -232,6 +232,9 @@ describe("BibleReaderComponent", () => {
 
     describe("checkIfNextVerseStartsWithQuote", () => {
       it("should return false if chapter or verses missing", () => {
+        component.chapter = undefined as unknown as Chapter
+        expect(component.checkIfNextVerseStartsWithQuote(0)).toBeFalse()
+
         component.chapter = { verses: [] } as unknown as Chapter
         expect(component.checkIfNextVerseStartsWithQuote(0)).toBeFalse()
       })

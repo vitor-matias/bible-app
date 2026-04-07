@@ -102,7 +102,7 @@ export class ReportProblemComponent {
         book: this.data.book.id,
         chapter: this.data.chapter,
         topic,
-        detailsLength: details ? details.length : 0,
+        detailsLength: details?.length ?? 0,
       })
     } catch (error) {
       console.error("Umami tracking failed:", error)

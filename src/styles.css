@@ -108,12 +108,45 @@ body {
   );
 
   --mat-form-field-focus-color: antiquewhite;
+  --mat-form-field-filled-container-color: color-mix(
+    in srgb,
+    var(--card-background) 82%,
+    antiquewhite
+  );
+  --mat-form-field-filled-input-text-color: var(--text-color);
+  --mat-form-field-filled-label-text-color: var(--text-color);
+  --mat-form-field-filled-input-text-placeholder-color: color-mix(
+    in srgb,
+    var(--text-color) 72%,
+    transparent
+  );
+  --mat-form-field-outlined-input-text-placeholder-color: color-mix(
+    in srgb,
+    var(--text-color) 72%,
+    transparent
+  );
+  --mat-form-field-filled-active-indicator-color: color-mix(
+    in srgb,
+    var(--text-color) 48%,
+    transparent
+  );
   --mdc-filled-text-field-container-color: var(--card-background);
   --mdc-filled-text-field-input-text-color: var(--text-color);
   --mdc-filled-text-field-label-text-color: var(--text-color);
   --mdc-filled-text-field-focus-active-indicator-color: var(--mat-form-field-focus-color);
   --mdc-filled-text-field-focus-label-text-color: var(--mat-form-field-focus-color);
   --mdc-filled-text-field-caret-color: var(--mat-form-field-focus-color);
+  --mat-select-enabled-trigger-text-color: var(--text-color);
+  --mat-select-enabled-arrow-color: color-mix(
+    in srgb,
+    var(--text-color) 72%,
+    transparent
+  );
+  --mat-select-placeholder-text-color: color-mix(
+    in srgb,
+    var(--text-color) 72%,
+    transparent
+  );
   --mat-select-trigger-text-color: var(--text-color);
   --mat-select-arrow-color: var(--text-color);
   --mat-option-label-text-color: var(--text-color);
