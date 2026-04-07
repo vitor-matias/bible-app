@@ -131,7 +131,7 @@ describe("ReportProblemComponent", () => {
       book: "gen",
       chapter: 1,
       topic: "formatting",
-      detailsLength: 17,
+      details: "bold text missing",
     })
     expect(snackBarSpy.open).toHaveBeenCalledWith(
       "O problema foi reportado. Obrigado!",

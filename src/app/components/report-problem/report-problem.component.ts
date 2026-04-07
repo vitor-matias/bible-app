@@ -39,6 +39,8 @@ export interface ReportProblemData {
   styleUrls: ["./report-problem.component.css"],
 })
 export class ReportProblemComponent {
+  isSending = false
+
   reportForm = new FormGroup({
     topic: new FormControl("", [Validators.required]),
     details: new FormControl("", [
@@ -62,25 +64,27 @@ export class ReportProblemComponent {
   ) {}
 
   async onSubmit() {
-    if (this.reportForm.valid) {
-      try {
-        await this.sendReport(this.reportForm.value)
+    if (this.isSending || this.reportForm.invalid) {
+      return
+    }
 
-        this.snackBar.open("O problema foi reportado. Obrigado!", "Fechar", {
-          duration: 3000,
-        })
+    this.isSending = true
 
-        this.dialogRef.close(true)
-      } catch (error) {
-        console.error("Failed to submit report:", error)
-        this.snackBar.open(
-          "Erro ao enviar o relatório. Tente novamente.",
-          "Fechar",
-          {
-            duration: 4000,
-          },
-        )
-      }
+    try {
+      await this.sendReport(this.reportForm.value)
+
+      this.snackBar.open("O problema foi reportado. Obrigado!", "Fechar", {
+        duration: 3000,
+      })
+
+      this.dialogRef.close(true)
+    } catch (error) {
+      console.error("Failed to submit report:", error)
+      this.snackBar.open("Erro ao enviar o relatório. Tente novamente.", "Fechar", {
+        duration: 4000,
+      })
+    } finally {
+      this.isSending = false
     }
   }
 
@@ -102,7 +106,7 @@ export class ReportProblemComponent {
         book: this.data.book.id,
         chapter: this.data.chapter,
         topic,
-        detailsLength: details?.length ?? 0,
+        details,
       })
     } catch (error) {
       console.error("Umami tracking failed:", error)

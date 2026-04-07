@@ -36,5 +36,5 @@
 
 <mat-dialog-actions align="end">
   <button type="button" mat-button (click)="onCancel()">Cancelar</button>
-  <button type="button" mat-flat-button class="submit-btn" [disabled]="!reportForm.valid" (click)="onSubmit()">Enviar</button>
+  <button type="button" mat-flat-button class="submit-btn" [disabled]="isSending || reportForm.invalid" (click)="onSubmit()">Enviar</button>
 </mat-dialog-actions>
