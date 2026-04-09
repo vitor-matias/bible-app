@@ -269,8 +269,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
       // Shared successfully
 
-      if (typeof window !== "undefined" && window.umami) {
-        window.umami.track("share", {
+      if (this.isUmamiAvailable()) {
+        window?.umami?.track("share", {
           book: this.book?.id,
           chapter: this.chapterNumber,
         })
@@ -295,5 +295,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       this.labelInterval = undefined
     }
     this.bookLabelMode = "title"
+  }
+
+  isUmamiAvailable(): boolean {
+    return typeof window !== "undefined" && typeof window.umami === "function"
   }
 }
