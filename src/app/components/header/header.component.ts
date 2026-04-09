@@ -298,6 +298,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   isUmamiAvailable(): boolean {
-    return typeof window !== "undefined" && typeof window.umami === "function"
+    return (
+      typeof window !== "undefined" &&
+      !!window.umami &&
+      typeof window.umami.track === "function"
+    )
   }
 }

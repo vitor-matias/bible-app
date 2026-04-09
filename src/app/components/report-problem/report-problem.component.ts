@@ -98,9 +98,6 @@ export class ReportProblemComponent {
   }): Promise<void> {
     const { topic, details } = formValue
 
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
     if (typeof window === "undefined" || !window.umami) {
       throw new Error("Analytics transport not available")
     }
