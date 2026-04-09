@@ -119,7 +119,7 @@ export class FootnotesBottomSheetComponent {
   }
 
   getVerseQueryParams(verses?: VerseReference[]) {
-    if (!verses || !verses.length) return null
+    if (!verses?.length) return null
     const first = verses[0]
     if (first.type === "single") {
       return { verseStart: first.verse }

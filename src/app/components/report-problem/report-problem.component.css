@@ -1,0 +1,27 @@
+.report-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.description {
+  margin-bottom: 16px;
+  color: var(--text-color);
+}
+
+.submit-btn {
+  background-color: var(--highlight-color) !important;
+  color: #121212 !important;
+  font-weight: 500;
+}
+
+.submit-btn:disabled {
+  background-color: var(--border-color) !important;
+  color: var(--card-background) !important;
+}
+

@@ -36,7 +36,7 @@ export function getVerseQueryParams(
     return { verseStart: crossChapter.startVerse }
   }
 
-  if (!verses || !verses.length) return null
+  if (!verses?.length) return null
   const first = verses[0]
   if (first.type === "single") {
     return { verseStart: first.verse }

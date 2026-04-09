@@ -537,10 +537,9 @@ export class BibleReaderComponent implements OnDestroy {
   }
 
   checkIfNextVerseStartsWithQuote(index: number): boolean {
-    if (!this.chapter || !this.chapter.verses) return false
+    if (!this.chapter?.verses) return false
     const nextVerse = this.chapter.verses[index + 1]
-    if (!nextVerse || !nextVerse.text || nextVerse.text.length === 0)
-      return false
+    if (!nextVerse?.text || nextVerse.text.length === 0) return false
 
     const firstDisplayableIdx = nextVerse.text.findIndex(
       (t) => t.type !== "footnote" && t.type !== "references",

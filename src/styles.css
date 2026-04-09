@@ -57,6 +57,32 @@ body {
     var(--text-color) 18%,
     transparent
   );
+
+  --mat-form-field-focus-color: var(--cap-brown);
+  --mdc-filled-text-field-focus-active-indicator-color: var(--mat-form-field-focus-color);
+  --mdc-filled-text-field-focus-label-text-color: var(--mat-form-field-focus-color);
+  --mdc-filled-text-field-caret-color: var(--mat-form-field-focus-color);
+  --mdc-filled-text-field-container-color: var(--card-background);
+  --mdc-filled-text-field-input-text-color: var(--text-color);
+  --mdc-filled-text-field-label-text-color: var(--text-color);
+  --mdc-outlined-text-field-focus-outline-color: var(--mat-form-field-focus-color);
+  --mdc-outlined-text-field-focus-label-text-color: var(--mat-form-field-focus-color);
+  --mat-select-focused-arrow-color: var(--mat-form-field-focus-color);
+  --mat-select-trigger-text-color: var(--text-color);
+  --mat-select-arrow-color: var(--text-color);
+  --mat-option-label-text-color: var(--text-color);
+  --mat-option-selected-state-label-text-color: var(--mat-form-field-focus-color);
+  --mat-form-field-hint-text-color: color-mix(in srgb, var(--text-color) 60%, transparent);
+
+  --mdc-dialog-container-color: var(--card-background);
+  --mdc-dialog-subhead-color: var(--text-color);
+  --mdc-dialog-supporting-text-color: var(--text-color);
+
+  --mdc-filled-button-container-color: var(--cap-brown);
+  --mdc-filled-button-label-text-color: antiquewhite;
+  --mdc-filled-button-disabled-container-color: var(--border-color);
+  --mdc-filled-button-disabled-label-text-color: var(--highlight-color);
+  --mdc-text-button-label-text-color: var(--text-color);
 }
 
 /* Dark theme variables */
@@ -80,12 +106,81 @@ body {
     var(--text-color) 18%,
     transparent
   );
+
+  --mat-form-field-focus-color: antiquewhite;
+  --mat-form-field-filled-container-color: color-mix(
+    in srgb,
+    var(--card-background) 82%,
+    antiquewhite
+  );
+  --mat-form-field-filled-input-text-color: var(--text-color);
+  --mat-form-field-filled-label-text-color: var(--text-color);
+  --mat-form-field-filled-input-text-placeholder-color: color-mix(
+    in srgb,
+    var(--text-color) 72%,
+    transparent
+  );
+  --mat-form-field-outlined-input-text-placeholder-color: color-mix(
+    in srgb,
+    var(--text-color) 72%,
+    transparent
+  );
+  --mat-form-field-filled-active-indicator-color: color-mix(
+    in srgb,
+    var(--text-color) 48%,
+    transparent
+  );
+  --mdc-filled-text-field-container-color: var(--card-background);
+  --mdc-filled-text-field-input-text-color: var(--text-color);
+  --mdc-filled-text-field-label-text-color: var(--text-color);
+  --mdc-filled-text-field-focus-active-indicator-color: var(--mat-form-field-focus-color);
+  --mdc-filled-text-field-focus-label-text-color: var(--mat-form-field-focus-color);
+  --mdc-filled-text-field-caret-color: var(--mat-form-field-focus-color);
+  --mat-select-enabled-trigger-text-color: var(--text-color);
+  --mat-select-enabled-arrow-color: color-mix(
+    in srgb,
+    var(--text-color) 72%,
+    transparent
+  );
+  --mat-select-placeholder-text-color: color-mix(
+    in srgb,
+    var(--text-color) 72%,
+    transparent
+  );
+  --mat-select-trigger-text-color: var(--text-color);
+  --mat-select-arrow-color: var(--text-color);
+  --mat-option-label-text-color: var(--text-color);
+  --mat-option-selected-state-label-text-color: var(--mat-form-field-focus-color);
+  --mat-form-field-hint-text-color: color-mix(in srgb, var(--text-color) 60%, transparent);
+
+  --mdc-dialog-container-color: var(--card-background);
+  --mdc-dialog-subhead-color: antiquewhite;
+  --mdc-dialog-supporting-text-color: var(--text-color);
+  --mat-dialog-title-text-color: antiquewhite;
+
+  --mdc-filled-button-container-color: var(--cap-brown);
+  --mdc-filled-button-label-text-color: antiquewhite;
+  --mdc-filled-button-disabled-container-color: var(--border-color);
+  --mdc-filled-button-disabled-label-text-color: var(--highlight-color);
+  --mdc-text-button-label-text-color: var(--text-color);
+}
+
+/* Force dialog title specifically to antiquewhite in dark mode using exact target class */
+.dark-theme .mat-mdc-dialog-title {
+  color: var(--text-color) !important;
+}
+
+/* Force hint text specifically for dark mode */
+.dark-theme mat-hint,
+.dark-theme .mdc-text-field-helper-text {
+  color: var(--mat-form-field-hint-text-color) !important;
 }
 
 /* Apply variables to body */
 body {
   background-color: var(--background-color);
   color: var(--text-color);
+  font-family: Roboto, "Helvetica Neue", sans-serif;
   transition:
     background-color 0.3s ease,
     color 0.3s ease;
@@ -114,7 +209,8 @@ a {
   color: var(--text-color) !important;
 }
 
-.mat-bottom-sheet-container {
+.mat-bottom-sheet-container,
+.mat-mdc-dialog-container .mdc-dialog__surface {
   background-color: var(--card-background) !important; /* Force apply */
   color: var(--text-color) !important; /* Force apply */
 }
@@ -126,11 +222,45 @@ a {
 
 .mat-tree-node,
 .mat-mdc-list,
-.mat-mdc-list-item {
+.mat-mdc-list-item,
+.mat-mdc-select-panel,
+.mat-mdc-option {
   color: var(--text-color) !important; /* Force apply */
   background-color: var(--card-background) !important;
 }
 
+.mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) .mdc-list-item__primary-text {
+  color: var(--mat-form-field-focus-color) !important;
+}
+
+.mat-pseudo-checkbox-checked.mat-pseudo-checkbox-minimal::after,
+.mat-pseudo-checkbox-checked.mat-pseudo-checkbox-full::after {
+  color: var(--mat-form-field-focus-color) !important;
+}
+
 bible-reader .mat-drawer-content {
   overflow-x: hidden !important;
+}
+
+/* Apply focus color via supported Material theming tokens on the host elements */
+/* Using body selector to ensure CSS custom property specificity overrides Material's dynamically injected styles */
+body .mat-mdc-form-field {
+  --mdc-filled-text-field-focus-active-indicator-color: var(--mat-form-field-focus-color);
+  --mdc-filled-text-field-focus-label-text-color: var(--mat-form-field-focus-color);
+  --mdc-filled-text-field-caret-color: var(--mat-form-field-focus-color);
+  --mdc-outlined-text-field-focus-outline-color: var(--mat-form-field-focus-color);
+  --mdc-outlined-text-field-focus-label-text-color: var(--mat-form-field-focus-color);
+}
+
+/* Global select panel styles */
+.app-report-select-panel {
+  background-color: var(--card-background);
+}
+
+.app-report-select-panel .mat-mdc-option {
+  color: var(--text-color);
+}
+
+.mat-mdc-select-panel {
+  --mat-option-selected-state-label-text-color: var(--mat-form-field-focus-color);
 }

@@ -1,18 +1,19 @@
-<div>
+<div class="toolbar-placeholder">
   <mat-toolbar>
     <div class="content">
-      <button mat-flat-button aria-label="back" class="button backButton" (click)="goBack()">
+      <button type="button" mat-flat-button aria-label="back" class="button actionButton backButton" (click)="goBack()">
         <mat-icon style="color: #543D27;">arrow_back</mat-icon>
       </button>
       <input #searchInput
         id="search"
         type="search"
+        aria-label="Procurar na Bíblia"
         placeholder="Procurar na Bíblia"
-        class="mat-raised-button search-input"
+        class="search-input"
         [(ngModel)]="query"
         (keydown.enter)="emitSearch()"
       />
-      <button mat-flat-button aria-label="Procurar" (click)="emitSearch()" class="button searchButton">
+      <button type="button" mat-flat-button aria-label="Procurar" (click)="emitSearch()" class="button actionButton searchButton">
         <mat-icon style="color: #543D27;">search</mat-icon>
       </button>
     </div>
