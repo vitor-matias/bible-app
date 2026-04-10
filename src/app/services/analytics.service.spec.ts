@@ -79,9 +79,11 @@ describe("AnalyticsService", () => {
 
   it("should securely swallow errors and not throw if umami.track fails", async () => {
     spyOn(console, "error")
-    globalThis.umami!.track = jasmine
-      .createSpy("track")
-      .and.throwError("Mock tracking failure")
+    if (globalThis.umami) {
+      globalThis.umami.track = jasmine
+        .createSpy("track")
+        .and.throwError("Mock tracking failure")
+    }
 
     await expectAsync(service.track("test_event")).toBeResolved()
     expect(console.error).toHaveBeenCalled()
