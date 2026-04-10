@@ -312,8 +312,9 @@ describe("DatabaseService", () => {
   describe("onblocked handler", () => {
     it("should warn when upgrade is blocked", async () => {
       spyOn(console, "warn")
+      spyOn(console, "error")
 
-      service.getAll("books")
+      const promise = service.getAll("books")
 
       expect(mockIDBRequest.onblocked).toBeDefined()
       mockIDBRequest.onblocked()
@@ -321,6 +322,10 @@ describe("DatabaseService", () => {
       expect(console.warn).toHaveBeenCalledWith(
         "IndexedDB upgrade blocked. Close other tabs to continue.",
       )
+
+      const result = await promise
+      expect(result).toEqual([])
+      expect(console.error).toHaveBeenCalled()
     })
   })
 

@@ -64,6 +64,7 @@ describe("AnalyticsService", () => {
   it("should do nothing if window.umami is undefined", async () => {
     delete globalThis.umami
     await service.track("test_event", { foo: "bar" })
-    // No error should be thrown, and execution should return early.
+
+    expect(buildVersionServiceMock.getBuildVersion).not.toHaveBeenCalled()
   })
 })

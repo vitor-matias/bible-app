@@ -45,7 +45,11 @@ describe("HeaderComponent", () => {
     bottomSheetSpy = jasmine.createSpyObj("MatBottomSheet", ["open"])
     dialogSpy = jasmine.createSpyObj("MatDialog", ["open"])
     mockSharePlugin = jasmine.createSpyObj("Share", ["share"])
-    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", [
+      "track",
+      "areAnalyticsAvailable",
+    ])
+    analyticsServiceSpy.areAnalyticsAvailable.and.returnValue(true)
     originalShare = navigator.share
 
     await TestBed.configureTestingModule({
