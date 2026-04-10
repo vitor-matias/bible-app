@@ -81,7 +81,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     private readonly dialog: MatDialog,
     private readonly cdr: ChangeDetectorRef,
     private readonly networkService: NetworkService,
-    private readonly analyticsService: AnalyticsService,
+    public readonly analyticsService: AnalyticsService,
     @Inject(SHARE_PLUGIN) private sharePlugin: typeof Share,
   ) {}
 

@@ -49,7 +49,7 @@ export class OfflineDataService {
         this.http.get<Book[]>(`${this.apiBase}/books?withChapters=true`),
       )
       await this.setCachedBooks(books)
-      this.trackUmamiInstallEvent(source)
+      this.trackBooksCachedEvent(source)
     } catch (error) {
       console.error("Failed to preload books for offline use", error)
     }

@@ -41,7 +41,7 @@
           <span>Partilhar</span>
         </button>
         }
-        @if (isUmamiAvailable()) {
+        @if (analyticsService.areAnalyticsAvailable()) {
           <button type="button" mat-menu-item (click)="onReportProblem(menuTrigger)">
             <mat-icon>report_problem</mat-icon>
             <span>Reportar Erro</span>

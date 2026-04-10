@@ -12,20 +12,27 @@ export class AnalyticsService {
     eventName: string,
     eventData: Record<string, unknown> = {},
   ): Promise<void> {
-    if (
-      typeof window === "undefined" ||
-      !window.umami ||
-      typeof window.umami.track !== "function"
-    ) {
+    if (!this.areAnalyticsAvailable()) {
       return
     }
 
     const buildVersion = await this.buildVersionService.getBuildVersion()
 
-    window.umami.track(eventName, {
-      ...eventData,
-      buildVersion,
-      platform: Capacitor.getPlatform(),
-    })
+    if (window.umami) {
+      window.umami.track(eventName, {
+        ...eventData,
+        buildVersion,
+        platform: Capacitor.getPlatform(),
+      })
+    }
+  }
+
+  areAnalyticsAvailable(): boolean {
+    return (
+      (typeof window !== "undefined" &&
+        window.umami &&
+        typeof window.umami.track === "function") ||
+      false
+    )
   }
 }
