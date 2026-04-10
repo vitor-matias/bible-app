@@ -64,6 +64,9 @@ describe("FootnotesBottomSheetComponent", () => {
   })
 
   it("should track footnotes_opened when component is initialized", () => {
+    bibleRefSpy.extract.and.returnValue([])
+    fixture.detectChanges()
+
     // Component is already created in beforeEach
     expect(analyticsServiceSpy.track).toHaveBeenCalledWith("footnotes_opened", {
       book: "JHN",

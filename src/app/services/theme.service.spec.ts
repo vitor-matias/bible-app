@@ -18,6 +18,7 @@ describe("ThemeService", () => {
     classListToggleSpy = spyOn(document.documentElement.classList, "toggle")
 
     const analyticsSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analyticsSpy.track.and.returnValue(Promise.resolve())
 
     TestBed.configureTestingModule({
       providers: [
@@ -64,32 +65,44 @@ describe("ThemeService", () => {
   it("should cycle through themes on toggleTheme", () => {
     prefsSpy.getTheme.and.returnValue("light")
     service = createService()
+    const analyticsSpy = TestBed.inject(
+      AnalyticsService,
+    ) as jasmine.SpyObj<AnalyticsService>
 
     // light -> dark
     service.toggleTheme()
     expect(service.currentMode).toBe("dark")
     expect(prefsSpy.setTheme).toHaveBeenCalledWith("dark")
+    expect(analyticsSpy.track).toHaveBeenCalledWith("theme-dark")
 
     // dark -> system
     service.toggleTheme()
     expect(service.currentMode).toBe("system")
     expect(prefsSpy.setTheme).toHaveBeenCalledWith("system")
+    expect(analyticsSpy.track).toHaveBeenCalledWith("theme-system")
 
     // system -> light
     service.toggleTheme()
     expect(service.currentMode).toBe("light")
     expect(prefsSpy.setTheme).toHaveBeenCalledWith("light")
+    expect(analyticsSpy.track).toHaveBeenCalledWith("theme-light")
   })
 
   it("should emit theme mode changes through themeMode$", () => {
     prefsSpy.getTheme.and.returnValue("light")
     service = createService()
+    const analyticsSpy = TestBed.inject(
+      AnalyticsService,
+    ) as jasmine.SpyObj<AnalyticsService>
 
     const emitted: string[] = []
     service.themeMode$.subscribe((mode) => emitted.push(mode))
 
     service.toggleTheme() // -> dark
+    expect(analyticsSpy.track).toHaveBeenCalledWith("theme-dark")
+
     service.toggleTheme() // -> system
+    expect(analyticsSpy.track).toHaveBeenCalledWith("theme-system")
 
     expect(emitted).toEqual(["light", "dark", "system"])
   })

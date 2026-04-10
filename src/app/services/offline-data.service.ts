@@ -95,6 +95,7 @@ export class OfflineDataService {
       localStorage.setItem(this.cacheFlagKey, "true")
     } catch (error) {
       console.error("Failed to persist cached books or metadata", error)
+      throw error
     }
   }
 

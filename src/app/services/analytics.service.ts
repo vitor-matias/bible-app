@@ -16,16 +16,28 @@ export class AnalyticsService {
       return
     }
 
-    const { buildVersion, buildEnvironment } =
-      await this.buildVersionService.getBuildInfo()
+    try {
+      let buildVersion: string | undefined
+      let buildEnvironment: string | undefined
 
-    if (window.umami) {
-      window.umami.track(eventName, {
-        ...eventData,
-        buildVersion,
-        buildEnvironment,
-        platform: Capacitor.getPlatform(),
-      })
+      try {
+        const info = await this.buildVersionService.getBuildInfo()
+        buildVersion = info.buildVersion
+        buildEnvironment = info.buildEnvironment
+      } catch (error) {
+        console.error("Failed to fetch build info for analytics", error)
+      }
+
+      if (window.umami) {
+        window.umami.track(eventName, {
+          ...eventData,
+          buildVersion,
+          buildEnvironment,
+          platform: Capacitor.getPlatform(),
+        })
+      }
+    } catch (error) {
+      console.error("Analytics tracking encountered an error", error)
     }
   }
 

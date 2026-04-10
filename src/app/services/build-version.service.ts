@@ -41,7 +41,8 @@ export class BuildVersionService {
     }
 
     try {
-      const response = await fetch("/build-info.json", { cache: "no-store" })
+      const url = new URL("build-info.json", document.baseURI).toString()
+      const response = await fetch(url, { cache: "no-store" })
 
       if (!response.ok) {
         return

@@ -66,6 +66,27 @@ describe("AnalyticsService", () => {
     })
   })
 
+  it("should securely swallow errors and not throw if getBuildInfo fails", async () => {
+    spyOn(console, "error")
+    buildVersionServiceMock.getBuildInfo.and.returnValue(
+      Promise.reject(new Error("Build info fetch failed")),
+    )
+
+    await expectAsync(service.track("test_event")).toBeResolved()
+    expect(console.error).toHaveBeenCalled()
+    expect(globalThis.umami?.track).toHaveBeenCalled()
+  })
+
+  it("should securely swallow errors and not throw if umami.track fails", async () => {
+    spyOn(console, "error")
+    globalThis.umami!.track = jasmine
+      .createSpy("track")
+      .and.throwError("Mock tracking failure")
+
+    await expectAsync(service.track("test_event")).toBeResolved()
+    expect(console.error).toHaveBeenCalled()
+  })
+
   it("should do nothing if window.umami is undefined", async () => {
     delete globalThis.umami
     await service.track("test_event", { foo: "bar" })
