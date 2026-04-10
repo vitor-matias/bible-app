@@ -4,6 +4,7 @@ import { MatIconModule } from "@angular/material/icon"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { AutoScrollControlsComponent } from "./auto-scroll-controls.component"
+import { AnalyticsService } from "../../services/analytics.service"
 
 describe("AutoScrollControlsComponent", () => {
   let component: AutoScrollControlsComponent
@@ -11,6 +12,7 @@ describe("AutoScrollControlsComponent", () => {
 
   let autoScrollServiceSpy: jasmine.SpyObj<AutoScrollService>
   let preferencesServiceSpy: jasmine.SpyObj<PreferencesService>
+  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
 
   beforeEach(async () => {
     autoScrollServiceSpy = jasmine.createSpyObj("AutoScrollService", [
@@ -41,12 +43,14 @@ describe("AutoScrollControlsComponent", () => {
     preferencesServiceSpy = jasmine.createSpyObj("PreferencesService", [
       "setAutoScrollSpeed",
     ])
+    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
 
     await TestBed.configureTestingModule({
       imports: [AutoScrollControlsComponent, MatButtonModule, MatIconModule],
       providers: [
         { provide: AutoScrollService, useValue: autoScrollServiceSpy },
         { provide: PreferencesService, useValue: preferencesServiceSpy },
+        { provide: AnalyticsService, useValue: analyticsServiceSpy },
       ],
     }).compileComponents()
 

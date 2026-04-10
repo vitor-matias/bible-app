@@ -11,6 +11,7 @@ import { BehaviorSubject } from "rxjs"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { BookmarkSelectorComponent } from "./bookmark-selector.component"
+import { AnalyticsService } from "../../services/analytics.service"
 
 describe("BookmarkSelectorComponent", () => {
   let component: BookmarkSelectorComponent
@@ -21,6 +22,7 @@ describe("BookmarkSelectorComponent", () => {
     MatBottomSheetRef<BookmarkSelectorComponent>
   >
   let routerSpy: jasmine.SpyObj<Router>
+  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
   let bookmarksSubject: BehaviorSubject<Bookmark[]>
 
   const mockData = { bookId: "GEN", chapter: 1 }
@@ -39,6 +41,7 @@ describe("BookmarkSelectorComponent", () => {
     ])
     const sheetSpy = jasmine.createSpyObj("MatBottomSheetRef", ["dismiss"])
     const rSpy = jasmine.createSpyObj("Router", ["navigate"])
+    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
 
     bookmarksSubject = new BehaviorSubject<Bookmark[]>(mockBookmarks)
     void Object.defineProperty(bookmarkSpy, "bookmarks$", {
@@ -63,6 +66,7 @@ describe("BookmarkSelectorComponent", () => {
         { provide: BookService, useValue: bookSpy },
         { provide: MatBottomSheetRef, useValue: sheetSpy },
         { provide: Router, useValue: rSpy },
+        { provide: AnalyticsService, useValue: analyticsServiceSpy },
       ],
     }).compileComponents()
 

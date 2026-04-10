@@ -8,6 +8,7 @@ import {
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { Router } from "@angular/router"
+import { AnalyticsService } from "../../services/analytics.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
 
@@ -48,6 +49,7 @@ export class BookmarkSelectorComponent implements OnInit {
     private bookmarkService: BookmarkService,
     private bookService: BookService,
     private router: Router,
+    private analyticsService: AnalyticsService,
   ) {}
 
   isDeleteMode = false
@@ -89,13 +91,11 @@ export class BookmarkSelectorComponent implements OnInit {
           ribbon.bookmark.bookId,
           ribbon.bookmark.chapter,
         )
-        if (globalThis.umami) {
-          globalThis.umami.track("bookmark_delete", {
-            book: ribbon.bookmark.bookId,
-            chapter: ribbon.bookmark.chapter,
-            color: ribbon.value,
-          })
-        }
+        void this.analyticsService.track("bookmark_delete", {
+          book: ribbon.bookmark.bookId,
+          chapter: ribbon.bookmark.chapter,
+          color: ribbon.value,
+        })
       }
       return
     }
@@ -104,13 +104,11 @@ export class BookmarkSelectorComponent implements OnInit {
     if (ribbon.bookmark) {
       const book = this.bookService.findBookById(ribbon.bookmark.bookId)
       if (book) {
-        if (globalThis.umami) {
-          globalThis.umami.track("bookmark_use", {
-            book: ribbon.bookmark.bookId,
-            chapter: ribbon.bookmark.chapter,
-            color: ribbon.value,
-          })
-        }
+        void this.analyticsService.track("bookmark_use", {
+          book: ribbon.bookmark.bookId,
+          chapter: ribbon.bookmark.chapter,
+          color: ribbon.value,
+        })
         this.router.navigate([
           this.bookService.getUrlAbrv(book),
           ribbon.bookmark.chapter,
@@ -130,13 +128,11 @@ export class BookmarkSelectorComponent implements OnInit {
       this.data.chapter,
       ribbon.value,
     )
-    if (globalThis.umami) {
-      globalThis.umami.track("bookmark_create", {
-        book: this.data.bookId,
-        chapter: this.data.chapter,
-        color: ribbon.value,
-      })
-    }
+    void this.analyticsService.track("bookmark_create", {
+      book: this.data.bookId,
+      chapter: this.data.chapter,
+      color: ribbon.value,
+    })
   }
 
   isCurrentLocation(ribbon: RibbonState): boolean {

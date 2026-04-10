@@ -1,6 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { PreferencesService } from "./preferences.service"
 import { ThemeService } from "./theme.service"
+import { AnalyticsService } from "./analytics.service"
 
 describe("ThemeService", () => {
   let service: ThemeService
@@ -16,10 +17,13 @@ describe("ThemeService", () => {
 
     classListToggleSpy = spyOn(document.documentElement.classList, "toggle")
 
+    const analyticsSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+
     TestBed.configureTestingModule({
       providers: [
         ThemeService,
         { provide: PreferencesService, useValue: prefsSpy },
+        { provide: AnalyticsService, useValue: analyticsSpy },
       ],
     })
   })
@@ -102,7 +106,7 @@ describe("ThemeService", () => {
 
     prefsSpy.getTheme.and.returnValue(null)
     // Need a new instance to trigger the constructor with the mocked matchMedia
-    service = new ThemeService(prefsSpy)
+    service = new ThemeService(prefsSpy, TestBed.inject(AnalyticsService))
 
     expect(mockMql.addEventListener).toHaveBeenCalledWith(
       "change",
@@ -122,7 +126,7 @@ describe("ThemeService", () => {
     )
 
     prefsSpy.getTheme.and.returnValue(null)
-    service = new ThemeService(prefsSpy)
+    service = new ThemeService(prefsSpy, TestBed.inject(AnalyticsService))
 
     expect(mockMql.addListener).toHaveBeenCalledWith(jasmine.any(Function))
   })
@@ -141,7 +145,7 @@ describe("ThemeService", () => {
     )
 
     prefsSpy.getTheme.and.returnValue("system")
-    service = new ThemeService(prefsSpy)
+    service = new ThemeService(prefsSpy, TestBed.inject(AnalyticsService))
 
     classListToggleSpy.calls.reset()
     changeHandler?.()
@@ -163,7 +167,7 @@ describe("ThemeService", () => {
     )
 
     prefsSpy.getTheme.and.returnValue("dark")
-    service = new ThemeService(prefsSpy)
+    service = new ThemeService(prefsSpy, TestBed.inject(AnalyticsService))
 
     classListToggleSpy.calls.reset()
     changeHandler?.()

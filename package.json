@@ -4,7 +4,8 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve --host 0.0.0.0",
-    "build": "ng build --configuration=production",
+    "build": "ng build --configuration=production && npm run build:post",
+    "build:post": "node scripts/write-build-info.mjs",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "test:coverage": "ng test --watch=false --code-coverage",

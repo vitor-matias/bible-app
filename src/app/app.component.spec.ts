@@ -4,6 +4,7 @@ import { Router } from "@angular/router"
 import type { URLOpenListenerEvent } from "@capacitor/app"
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core"
 import { AppComponent } from "./app.component"
+import { AnalyticsService } from "./services/analytics.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { APP_PLUGIN } from "./tokens"
 
@@ -20,12 +21,14 @@ describe("AppComponent", () => {
     const offlineDataSpy = jasmine.createSpyObj("OfflineDataService", [
       "preloadAllBooksAndChapters",
     ])
+    const analyticsSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
 
     await TestBed.configureTestingModule({
       imports: [AppComponent],
       providers: [
         { provide: Router, useValue: routerSpy },
         { provide: OfflineDataService, useValue: offlineDataSpy },
+        { provide: AnalyticsService, useValue: analyticsSpy },
         { provide: APP_PLUGIN, useValue: mockAppPlugin },
       ],
     }).compileComponents()
@@ -38,6 +41,19 @@ describe("AppComponent", () => {
     const fixture = TestBed.createComponent(AppComponent)
     const app = fixture.componentInstance
     expect(app).toBeTruthy()
+  })
+
+  it("should send app_open event on init", async () => {
+    mockAppPlugin.addListener.and.resolveTo({
+      remove: async () => {},
+    } as unknown as PluginListenerHandle)
+
+    const fixture = TestBed.createComponent(AppComponent)
+    fixture.detectChanges()
+    await fixture.whenStable()
+
+    const analyticsService = TestBed.inject(AnalyticsService)
+    expect(analyticsService.track).toHaveBeenCalledWith("app_open")
   })
 
   it("should setup app links listener on native platform", () => {

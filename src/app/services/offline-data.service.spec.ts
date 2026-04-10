@@ -6,6 +6,7 @@ import { TestBed } from "@angular/core/testing"
 import { DatabaseService } from "./database.service"
 import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
+import { AnalyticsService } from "./analytics.service"
 
 describe("OfflineDataService", () => {
   let service: OfflineDataService
@@ -100,12 +101,15 @@ describe("OfflineDataService", () => {
       isOffline: false,
     })
 
+    const analyticsSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       providers: [
         OfflineDataService,
         { provide: DatabaseService, useValue: spy },
         { provide: NetworkService, useValue: networkSpy },
+        { provide: AnalyticsService, useValue: analyticsSpy },
       ],
     })
     service = TestBed.inject(OfflineDataService)
@@ -212,8 +216,7 @@ describe("OfflineDataService", () => {
     })
 
     it("should track umami event when source is install", async () => {
-      const mockUmami = { track: jasmine.createSpy("track") }
-      ;(window as unknown as { umami: typeof mockUmami }).umami = mockUmami
+      const analyticsService = TestBed.inject(AnalyticsService)
 
       const promise = service.preloadAllBooksAndChapters("install")
 
@@ -222,16 +225,13 @@ describe("OfflineDataService", () => {
 
       await promise
 
-      expect(mockUmami.track).toHaveBeenCalledWith("pwa_books_cached", {
+      expect(analyticsService.track).toHaveBeenCalledWith("pwa_books_cached", {
         source: "install",
       })
-
-      delete (window as unknown as { umami: unknown }).umami
     })
 
     it("should not track umami event when source is standalone", async () => {
-      const mockUmami = { track: jasmine.createSpy("track") }
-      ;(window as unknown as { umami: typeof mockUmami }).umami = mockUmami
+      const analyticsService = TestBed.inject(AnalyticsService)
 
       const promise = service.preloadAllBooksAndChapters("standalone")
 
@@ -240,7 +240,7 @@ describe("OfflineDataService", () => {
 
       await promise
 
-      expect(mockUmami.track).toHaveBeenCalledWith("pwa_books_cached", {
+      expect(analyticsService.track).toHaveBeenCalledWith("pwa_books_cached", {
         source: "standalone",
       })
     })

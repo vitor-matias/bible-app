@@ -2,6 +2,7 @@ import { HttpClient } from "@angular/common/http"
 import { Injectable } from "@angular/core"
 import { firstValueFrom } from "rxjs"
 import { apiBaseUrl } from "../config"
+import { AnalyticsService } from "./analytics.service"
 import { DatabaseService } from "./database.service"
 import { NetworkService } from "./network.service"
 
@@ -20,6 +21,7 @@ export class OfflineDataService {
     private http: HttpClient,
     private databaseService: DatabaseService,
     private networkService: NetworkService,
+    private analyticsService: AnalyticsService,
   ) {}
 
   /**
@@ -211,9 +213,6 @@ export class OfflineDataService {
   }
 
   private trackUmamiInstallEvent(source: "install" | "standalone") {
-    const umami = typeof window !== "undefined" ? window.umami : undefined
-    if (umami?.track) {
-      umami.track("pwa_books_cached", { source })
-    }
+    void this.analyticsService.track("pwa_books_cached", { source })
   }
 }

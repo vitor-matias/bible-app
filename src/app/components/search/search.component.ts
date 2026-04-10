@@ -8,6 +8,7 @@ import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
 import { Router, RouterModule } from "@angular/router"
 import { firstValueFrom } from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
+import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
@@ -46,6 +47,7 @@ export class SearchComponent {
     private snackBar: MatSnackBar,
     private router: Router,
     private cdr: ChangeDetectorRef,
+    private analyticsService: AnalyticsService,
   ) {}
 
   ngAfterViewInit(): void {
@@ -179,11 +181,7 @@ export class SearchComponent {
       this.attachObserverToSentinel()
       this.scrollToTop()
 
-      if (typeof window !== "undefined" && window.umami) {
-        window.umami.track("search", {
-          text,
-        })
-      }
+      void this.analyticsService.track("search", { text })
     } catch (error) {
       console.error("Error loading search results:", error)
       this.snackBar.open("Error loading search results", "OK", {

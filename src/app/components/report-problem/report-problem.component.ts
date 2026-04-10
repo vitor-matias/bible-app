@@ -16,6 +16,7 @@ import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatInputModule } from "@angular/material/input"
 import { MatSelectModule } from "@angular/material/select"
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
+import { AnalyticsService } from "../../services/analytics.service"
 
 export interface ReportProblemData {
   book: Book
@@ -61,6 +62,7 @@ export class ReportProblemComponent {
     public dialogRef: MatDialogRef<ReportProblemComponent>,
     @Inject(MAT_DIALOG_DATA) public data: ReportProblemData,
     private snackBar: MatSnackBar,
+    private analyticsService: AnalyticsService,
   ) {}
 
   async onSubmit() {
@@ -98,19 +100,15 @@ export class ReportProblemComponent {
   }): Promise<void> {
     const { topic, details } = formValue
 
-    if (typeof window === "undefined" || !window.umami) {
-      throw new Error("Analytics transport not available")
-    }
-
     try {
-      window.umami.track("report_problem", {
+      await this.analyticsService.track("report_problem", {
         book: this.data.book.id,
         chapter: this.data.chapter,
         topic,
         details,
       })
     } catch (error) {
-      console.error("Umami tracking failed:", error)
+      console.error("Analytics tracking failed:", error)
       throw error
     }
   }

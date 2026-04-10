@@ -7,6 +7,7 @@ import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { SearchComponent } from "./search.component"
+import { AnalyticsService } from "../../services/analytics.service"
 
 describe("SearchComponent", () => {
   let component: SearchComponent
@@ -15,6 +16,7 @@ describe("SearchComponent", () => {
   let bookService: jasmine.SpyObj<BookService>
   let snackBar: jasmine.SpyObj<MatSnackBar>
   let router: jasmine.SpyObj<Router>
+  let analyticsService: jasmine.SpyObj<AnalyticsService>
   let cdr: Pick<ChangeDetectorRef, "detectChanges">
   let observerCallback: IntersectionObserverCallback | null
   let originalIntersectionObserver: typeof IntersectionObserver | undefined
@@ -48,6 +50,7 @@ describe("SearchComponent", () => {
     snackBar = jasmine.createSpyObj("MatSnackBar", ["open"])
     router = jasmine.createSpyObj("Router", ["navigate"])
     router.navigate.and.resolveTo(true)
+    analyticsService = jasmine.createSpyObj("AnalyticsService", ["track"])
     cdr = { detectChanges: jasmine.createSpy("detectChanges") }
     observerCallback = null
     originalIntersectionObserver = globalThis.IntersectionObserver
@@ -62,6 +65,7 @@ describe("SearchComponent", () => {
       snackBar,
       router,
       cdr as ChangeDetectorRef,
+      analyticsService,
     )
   })
 

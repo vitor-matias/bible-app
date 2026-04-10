@@ -12,6 +12,7 @@ import type { PluginListenerHandle } from "@capacitor/core"
 import { Capacitor } from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
 import { appConfig } from "./config"
+import { AnalyticsService } from "./services/analytics.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { ThemeService } from "./services/theme.service"
 import { APP_PLUGIN } from "./tokens"
@@ -36,6 +37,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private offlineDataService: OfflineDataService,
     private router: Router,
     private ngZone: NgZone,
+    private analyticsService: AnalyticsService,
     _themeService: ThemeService,
     @Inject(APP_PLUGIN) private appPlugin: typeof App,
   ) {
@@ -51,8 +53,13 @@ export class AppComponent implements OnInit, OnDestroy {
       this.offlineDataService.preloadAllBooksAndChapters("standalone")
     }
 
+    void this.trackAppOpenEvent()
     this.handleShareTarget()
     this.setupAppLinks()
+  }
+
+  private async trackAppOpenEvent(): Promise<void> {
+    void this.analyticsService.track("app_open")
   }
 
   private setupAppLinks(): void {

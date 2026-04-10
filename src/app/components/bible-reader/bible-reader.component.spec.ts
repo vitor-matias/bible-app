@@ -15,6 +15,7 @@ import { BibleReaderAnimationService } from "../../services/bible-reader-animati
 import { BookService } from "../../services/book.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { BibleReaderComponent } from "./bible-reader.component"
+import { AnalyticsService } from "../../services/analytics.service"
 
 describe("BibleReaderComponent", () => {
   let component: BibleReaderComponent
@@ -27,6 +28,7 @@ describe("BibleReaderComponent", () => {
   let routerSpy: jasmine.SpyObj<Router>
   let routeMock: unknown
   let animationServiceSpy: jasmine.SpyObj<BibleReaderAnimationService>
+  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
 
   const mockBooks = [
     { id: "gen", name: "Genesis", urlAbrv: "1-genesis", chapterCount: 50 },
@@ -94,6 +96,8 @@ describe("BibleReaderComponent", () => {
       Promise.resolve(),
     )
 
+    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+
     // Default returns
     preferencesServiceSpy.getAutoScrollSpeed.and.returnValue(50)
     preferencesServiceSpy.getViewMode.and.returnValue("scrolling")
@@ -114,6 +118,7 @@ describe("BibleReaderComponent", () => {
         { provide: Router, useValue: routerSpy },
         { provide: ActivatedRoute, useValue: routeMock },
         { provide: BibleReaderAnimationService, useValue: animationServiceSpy },
+        { provide: AnalyticsService, useValue: analyticsServiceSpy },
       ],
     })
       .overrideComponent(BibleReaderComponent, {

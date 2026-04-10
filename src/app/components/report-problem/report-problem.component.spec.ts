@@ -17,29 +17,21 @@ import { MatSelectModule } from "@angular/material/select"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
 import { ReportProblemComponent } from "./report-problem.component"
+import { AnalyticsService } from "../../services/analytics.service"
 
 describe("ReportProblemComponent", () => {
   let component: ReportProblemComponent
   let fixture: ComponentFixture<ReportProblemComponent>
   let mockDialogRef: jasmine.SpyObj<MatDialogRef<ReportProblemComponent>>
   let snackBarSpy: jasmine.SpyObj<MatSnackBar>
-  let originalUmami: typeof umami
+  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
 
   const mockDialogData = { book: { id: "gen", name: "Gênesis" }, chapter: 1 }
-
-  function restoreUmami(): void {
-    if (originalUmami === undefined) {
-      delete (window as typeof window & { umami?: typeof umami }).umami
-      return
-    }
-
-    window.umami = originalUmami
-  }
 
   beforeEach(async () => {
     mockDialogRef = jasmine.createSpyObj("MatDialogRef", ["close"])
     snackBarSpy = jasmine.createSpyObj("MatSnackBar", ["open"])
-    originalUmami = window.umami
+    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
 
     await TestBed.configureTestingModule({
       imports: [
@@ -58,6 +50,7 @@ describe("ReportProblemComponent", () => {
             { provide: MatDialogRef, useValue: mockDialogRef },
             { provide: MAT_DIALOG_DATA, useValue: mockDialogData },
             { provide: MatSnackBar, useValue: snackBarSpy },
+            { provide: AnalyticsService, useValue: analyticsServiceSpy },
           ],
         },
       })
@@ -66,12 +59,6 @@ describe("ReportProblemComponent", () => {
     fixture = TestBed.createComponent(ReportProblemComponent)
     component = fixture.componentInstance
     fixture.detectChanges()
-
-    window.umami = { track: jasmine.createSpy("track") }
-  })
-
-  afterEach(() => {
-    restoreUmami()
   })
 
   it("should create", () => {
@@ -114,7 +101,7 @@ describe("ReportProblemComponent", () => {
     component.reportForm.get("topic")?.setValue("")
     component.onSubmit()
 
-    expect(window.umami?.track).not.toHaveBeenCalled()
+    expect(analyticsServiceSpy.track).not.toHaveBeenCalled()
     expect(mockDialogRef.close).not.toHaveBeenCalled()
     expect(snackBarSpy.open).not.toHaveBeenCalled()
   })
@@ -127,7 +114,7 @@ describe("ReportProblemComponent", () => {
     tick(600)
     flush()
 
-    expect(window.umami?.track).toHaveBeenCalledWith("report_problem", {
+    expect(analyticsServiceSpy.track).toHaveBeenCalledWith("report_problem", {
       book: "gen",
       chapter: 1,
       topic: "formatting",
@@ -143,35 +130,14 @@ describe("ReportProblemComponent", () => {
     void submitPromise
   }))
 
-  it("should show an error snackbar and keep the dialog open when analytics transport is unavailable", fakeAsync(() => {
-    component.reportForm.get("topic")?.setValue("other")
-    component.reportForm.get("details")?.setValue("missing analytics script")
-    window.umami = undefined
 
-    spyOn(console, "error")
-
-    const submitPromise = component.onSubmit()
-    tick(600)
-    flush()
-
-    expect(snackBarSpy.open).toHaveBeenCalledWith(
-      "Erro ao enviar o relatório. Tente novamente.",
-      "Fechar",
-      { duration: 4000 },
-    )
-    expect(mockDialogRef.close).not.toHaveBeenCalled()
-
-    void submitPromise
-  }))
 
   it("should show an error snackbar when tracking throws", fakeAsync(() => {
     component.reportForm.get("topic")?.setValue("typo")
     component.reportForm.get("details")?.setValue("tracking failure")
 
     const trackingError = new Error("tracking failed")
-    window.umami = {
-      track: jasmine.createSpy("track").and.throwError(trackingError.message),
-    }
+    analyticsServiceSpy.track.and.throwError(trackingError.message)
 
     const consoleSpy = spyOn(console, "error")
 
