@@ -131,6 +131,26 @@ describe("ReportProblemComponent", () => {
   }))
 
 
+  it("should show an error snackbar and keep the dialog open when analytics transport is unavailable", fakeAsync(() => {
+    component.reportForm.get("topic")?.setValue("other")
+    component.reportForm.get("details")?.setValue("missing analytics script")
+    window.umami = undefined
+
+    spyOn(console, "error")
+
+    const submitPromise = component.onSubmit()
+    tick(600)
+    flush()
+
+    expect(snackBarSpy.open).toHaveBeenCalledWith(
+      "Erro ao enviar o relatório. Tente novamente.",
+      "Fechar",
+      { duration: 4000 },
+    )
+    expect(mockDialogRef.close).not.toHaveBeenCalled()
+
+    void submitPromise
+  }))
 
   it("should show an error snackbar when tracking throws", fakeAsync(() => {
     component.reportForm.get("topic")?.setValue("typo")
