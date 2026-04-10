@@ -9,10 +9,13 @@ describe("AnalyticsService", () => {
 
   beforeEach(() => {
     buildVersionServiceMock = jasmine.createSpyObj("BuildVersionService", [
-      "getBuildVersion",
+      "getBuildInfo",
     ])
-    buildVersionServiceMock.getBuildVersion.and.returnValue(
-      Promise.resolve("test-version"),
+    buildVersionServiceMock.getBuildInfo.and.returnValue(
+      Promise.resolve({
+        buildVersion: "test-version",
+        buildEnvironment: "test-env",
+      }),
     )
 
     TestBed.configureTestingModule({
@@ -42,10 +45,11 @@ describe("AnalyticsService", () => {
 
     await service.track("test_event", { foo: "bar" })
 
-    expect(buildVersionServiceMock.getBuildVersion).toHaveBeenCalled()
+    expect(buildVersionServiceMock.getBuildInfo).toHaveBeenCalled()
     expect(globalThis.umami?.track).toHaveBeenCalledWith("test_event", {
       foo: "bar",
       buildVersion: "test-version",
+      buildEnvironment: "test-env",
       platform: "web",
     })
   })
@@ -57,6 +61,7 @@ describe("AnalyticsService", () => {
 
     expect(globalThis.umami?.track).toHaveBeenCalledWith("test_event_2", {
       buildVersion: "test-version",
+      buildEnvironment: "test-env",
       platform: "android",
     })
   })
@@ -65,6 +70,6 @@ describe("AnalyticsService", () => {
     delete globalThis.umami
     await service.track("test_event", { foo: "bar" })
 
-    expect(buildVersionServiceMock.getBuildVersion).not.toHaveBeenCalled()
+    expect(buildVersionServiceMock.getBuildInfo).not.toHaveBeenCalled()
   })
 })

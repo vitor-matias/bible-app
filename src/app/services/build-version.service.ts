@@ -1,7 +1,8 @@
 import { Injectable } from "@angular/core"
 
 interface BuildInfo {
-  buildVersion?: unknown
+  buildVersion?: string
+  buildEnvironment?: string
 }
 
 const FALLBACK_BUILD_VERSION = "dev-local"
@@ -11,40 +12,53 @@ const FALLBACK_BUILD_VERSION = "dev-local"
 })
 export class BuildVersionService {
   private buildVersion = FALLBACK_BUILD_VERSION
-  private loadPromise?: Promise<string>
+  private buildEnvironment = "unknown"
+  private loadPromise?: Promise<void>
 
   get currentBuildVersion(): string {
     return this.buildVersion
   }
 
-  async getBuildVersion(): Promise<string> {
+  get currentBuildEnvironment(): string {
+    return this.buildEnvironment
+  }
+
+  async getBuildInfo(): Promise<BuildInfo> {
     if (!this.loadPromise) {
       this.loadPromise = this.loadBuildVersion()
     }
 
-    return this.loadPromise
+    await this.loadPromise
+    return {
+      buildVersion: this.buildVersion,
+      buildEnvironment: this.buildEnvironment,
+    }
   }
 
-  private async loadBuildVersion(): Promise<string> {
+  private async loadBuildVersion(): Promise<void> {
     if (typeof window === "undefined") {
-      return this.buildVersion
+      return
     }
 
     try {
       const response = await fetch("/build-info.json", { cache: "no-store" })
 
       if (!response.ok) {
-        return this.buildVersion
+        return
       }
 
       const data = (await response.json()) as BuildInfo
       if (typeof data.buildVersion === "string" && data.buildVersion.trim()) {
         this.buildVersion = data.buildVersion
       }
+      if (
+        typeof data.buildEnvironment === "string" &&
+        data.buildEnvironment.trim()
+      ) {
+        this.buildEnvironment = data.buildEnvironment
+      }
     } catch {
       // Use fallback when build metadata is not available.
     }
-
-    return this.buildVersion
   }
 }

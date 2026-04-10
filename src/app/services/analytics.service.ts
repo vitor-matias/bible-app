@@ -16,12 +16,14 @@ export class AnalyticsService {
       return
     }
 
-    const buildVersion = await this.buildVersionService.getBuildVersion()
+    const { buildVersion, buildEnvironment } =
+      await this.buildVersionService.getBuildInfo()
 
     if (window.umami) {
       window.umami.track(eventName, {
         ...eventData,
         buildVersion,
+        buildEnvironment,
         platform: Capacitor.getPlatform(),
       })
     }
