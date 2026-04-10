@@ -215,7 +215,7 @@ describe("OfflineDataService", () => {
       )
     })
 
-    it("should track umami event when source is install", async () => {
+    it("should call AnalyticsService.track when source is install", async () => {
       const analyticsService = TestBed.inject(AnalyticsService)
 
       const promise = service.preloadAllBooksAndChapters("install")
@@ -230,7 +230,7 @@ describe("OfflineDataService", () => {
       })
     })
 
-    it("should track umami event when source is standalone", async () => {
+    it("should call AnalyticsService.track when source is standalone", async () => {
       const analyticsService = TestBed.inject(AnalyticsService)
 
       const promise = service.preloadAllBooksAndChapters("standalone")
