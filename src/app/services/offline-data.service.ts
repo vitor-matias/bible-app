@@ -212,7 +212,7 @@ export class OfflineDataService {
     return Date.now() - timestamp > this.cacheMaxAgeMs
   }
 
-  private trackUmamiInstallEvent(source: "install" | "standalone") {
+  private trackBooksCachedEvent(source: "install" | "standalone") {
     void this.analyticsService.track("pwa_books_cached", { source })
   }
 }
