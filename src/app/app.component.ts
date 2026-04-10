@@ -58,8 +58,10 @@ export class AppComponent implements OnInit, OnDestroy {
     this.setupAppLinks()
   }
 
-  private async trackAppOpenEvent(): Promise<void> {
-    void this.analyticsService.track("app_open")
+  private trackAppOpenEvent(): void {
+    void this.analyticsService.track("app_open").catch((error) => {
+      console.error("Failed to track app_open event:", error)
+    })
   }
 
   private setupAppLinks(): void {
