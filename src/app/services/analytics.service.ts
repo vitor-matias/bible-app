@@ -12,7 +12,11 @@ export class AnalyticsService {
     eventName: string,
     eventData: Record<string, unknown> = {},
   ): Promise<void> {
-    if (typeof window === "undefined" || !window.umami) {
+    if (
+      typeof window === "undefined" ||
+      !window.umami ||
+      typeof window.umami.track !== "function"
+    ) {
       return
     }
 
