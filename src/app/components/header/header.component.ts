@@ -296,12 +296,4 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
     this.bookLabelMode = "title"
   }
-
-  isUmamiAvailable(): boolean {
-    return (
-      typeof window !== "undefined" &&
-      !!window.umami &&
-      typeof window.umami.track === "function"
-    )
-  }
 }
