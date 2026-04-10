@@ -8,10 +8,10 @@ import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { Router } from "@angular/router"
 import { BehaviorSubject } from "rxjs"
+import { AnalyticsService } from "../../services/analytics.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { BookmarkSelectorComponent } from "./bookmark-selector.component"
-import { AnalyticsService } from "../../services/analytics.service"
 
 describe("BookmarkSelectorComponent", () => {
   let component: BookmarkSelectorComponent

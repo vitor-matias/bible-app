@@ -1,7 +1,7 @@
 import { TestBed } from "@angular/core/testing"
+import { AnalyticsService } from "./analytics.service"
 import { PreferencesService } from "./preferences.service"
 import { ThemeService } from "./theme.service"
-import { AnalyticsService } from "./analytics.service"
 
 describe("ThemeService", () => {
   let service: ThemeService

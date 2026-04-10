@@ -1,10 +1,10 @@
 import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
+import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { AutoScrollControlsComponent } from "./auto-scroll-controls.component"
-import { AnalyticsService } from "../../services/analytics.service"
 
 describe("AutoScrollControlsComponent", () => {
   let component: AutoScrollControlsComponent

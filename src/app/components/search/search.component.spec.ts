@@ -3,11 +3,11 @@ import { fakeAsync, flushMicrotasks } from "@angular/core/testing"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { Router } from "@angular/router"
 import { Observable, of } from "rxjs"
+import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { SearchComponent } from "./search.component"
-import { AnalyticsService } from "../../services/analytics.service"
 
 describe("SearchComponent", () => {
   let component: SearchComponent

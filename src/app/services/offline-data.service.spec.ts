@@ -3,10 +3,10 @@ import {
   HttpTestingController,
 } from "@angular/common/http/testing"
 import { TestBed } from "@angular/core/testing"
+import { AnalyticsService } from "./analytics.service"
 import { DatabaseService } from "./database.service"
 import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
-import { AnalyticsService } from "./analytics.service"
 
 describe("OfflineDataService", () => {
   let service: OfflineDataService

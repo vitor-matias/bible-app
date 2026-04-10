@@ -4,10 +4,10 @@ import {
   MatBottomSheetRef,
 } from "@angular/material/bottom-sheet"
 import { ActivatedRoute } from "@angular/router"
+import { AnalyticsService } from "../../services/analytics.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { FootnotesBottomSheetComponent } from "./footnotes-bottom-sheet.component"
-import { AnalyticsService } from "../../services/analytics.service"
 
 describe("FootnotesBottomSheetComponent", () => {
   let component: FootnotesBottomSheetComponent

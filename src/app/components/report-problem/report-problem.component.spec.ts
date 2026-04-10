@@ -16,8 +16,8 @@ import { MatInputModule } from "@angular/material/input"
 import { MatSelectModule } from "@angular/material/select"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
-import { ReportProblemComponent } from "./report-problem.component"
 import { AnalyticsService } from "../../services/analytics.service"
+import { ReportProblemComponent } from "./report-problem.component"
 
 describe("ReportProblemComponent", () => {
   let component: ReportProblemComponent
@@ -130,11 +130,13 @@ describe("ReportProblemComponent", () => {
     void submitPromise
   }))
 
-
   it("should show an error snackbar and keep the dialog open when analytics transport is unavailable", fakeAsync(() => {
     component.reportForm.get("topic")?.setValue("other")
     component.reportForm.get("details")?.setValue("missing analytics script")
     window.umami = undefined
+    analyticsServiceSpy.track.and.returnValue(
+      Promise.reject(new Error("Analytics transport unavailable")),
+    )
 
     spyOn(console, "error")
 
