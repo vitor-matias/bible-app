@@ -100,17 +100,16 @@ export class ReportProblemComponent {
   }): Promise<void> {
     const { topic, details } = formValue
 
-    try {
-      await this.analyticsService.track("report_problem", {
-        book: this.data.book.id,
-        chapter: this.data.chapter,
-        topic,
-        details,
-      })
-    } catch (error) {
-      console.error("Analytics tracking failed:", error)
-      throw error
+    if (!this.analyticsService.areAnalyticsAvailable()) {
+      throw new Error("Analytics is unavailable")
     }
+
+    await this.analyticsService.track("report_problem", {
+      book: this.data.book.id,
+      chapter: this.data.chapter,
+      topic,
+      details,
+    })
   }
 
   onCancel() {
