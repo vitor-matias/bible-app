@@ -8,6 +8,7 @@ import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { RouterModule } from "@angular/router"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
+import { AnalyticsService } from "../../services/analytics.service"
 import {
   BibleReference,
   BibleReferenceService,
@@ -85,14 +86,13 @@ export class FootnotesBottomSheetComponent {
     public data: { footnotes: any[]; verse: any },
     private bibleRef: BibleReferenceService,
     private bookService: BookService,
+    private analyticsService: AnalyticsService,
   ) {
-    if (window.umami) {
-      window.umami.track("footnotes_opened", {
-        book: data.verse.bookId,
-        chapter: data.verse.chapterNumber,
-        verse: data.verse.verseNumber,
-      })
-    }
+    void this.analyticsService.track("footnotes_opened", {
+      book: data.verse.bookId,
+      chapter: data.verse.chapterNumber,
+      verse: data.verse.verseNumber,
+    })
   }
 
   parseReferences(text: string): { parts: (string | BibleReference)[] } {

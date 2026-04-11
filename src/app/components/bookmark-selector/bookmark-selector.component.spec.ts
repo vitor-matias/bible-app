@@ -8,6 +8,7 @@ import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { Router } from "@angular/router"
 import { BehaviorSubject } from "rxjs"
+import { AnalyticsService } from "../../services/analytics.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { BookmarkSelectorComponent } from "./bookmark-selector.component"
@@ -21,6 +22,7 @@ describe("BookmarkSelectorComponent", () => {
     MatBottomSheetRef<BookmarkSelectorComponent>
   >
   let routerSpy: jasmine.SpyObj<Router>
+  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
   let bookmarksSubject: BehaviorSubject<Bookmark[]>
 
   const mockData = { bookId: "GEN", chapter: 1 }
@@ -39,6 +41,8 @@ describe("BookmarkSelectorComponent", () => {
     ])
     const sheetSpy = jasmine.createSpyObj("MatBottomSheetRef", ["dismiss"])
     const rSpy = jasmine.createSpyObj("Router", ["navigate"])
+    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
 
     bookmarksSubject = new BehaviorSubject<Bookmark[]>(mockBookmarks)
     void Object.defineProperty(bookmarkSpy, "bookmarks$", {
@@ -63,6 +67,7 @@ describe("BookmarkSelectorComponent", () => {
         { provide: BookService, useValue: bookSpy },
         { provide: MatBottomSheetRef, useValue: sheetSpy },
         { provide: Router, useValue: rSpy },
+        { provide: AnalyticsService, useValue: analyticsServiceSpy },
       ],
     }).compileComponents()
 

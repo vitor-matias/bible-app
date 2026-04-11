@@ -129,12 +129,14 @@ describe("DatabaseService", () => {
     })
 
     it("should return empty array if database fails to open", async () => {
+      spyOn(console, "error")
       mockIDBRequest.onerror = null as unknown as (event?: unknown) => void // Prepare
 
       const promise = service.getAll("testStore")
 
       // Fail DB open
       const errorEvent = { target: { error: "DB Error" } }
+      mockIDBRequest.error = new Error("DB Error")
       // Call onerror if it was assigned
       // Note: getDB assigns onerror.
 
@@ -312,8 +314,9 @@ describe("DatabaseService", () => {
   describe("onblocked handler", () => {
     it("should warn when upgrade is blocked", async () => {
       spyOn(console, "warn")
+      spyOn(console, "error")
 
-      service.getAll("books")
+      const promise = service.getAll("books")
 
       expect(mockIDBRequest.onblocked).toBeDefined()
       mockIDBRequest.onblocked()
@@ -321,6 +324,10 @@ describe("DatabaseService", () => {
       expect(console.warn).toHaveBeenCalledWith(
         "IndexedDB upgrade blocked. Close other tabs to continue.",
       )
+
+      const result = await promise
+      expect(result).toEqual([])
+      expect(console.error).toHaveBeenCalled()
     })
   })
 

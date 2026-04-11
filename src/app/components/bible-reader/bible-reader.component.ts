@@ -25,6 +25,7 @@ import {
   PageState,
 } from "../../directives/paged-navigation/paged-navigation.directive"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
+import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
@@ -122,6 +123,7 @@ export class BibleReaderComponent implements OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private animationService: BibleReaderAnimationService,
+    private analyticsService: AnalyticsService,
   ) {}
 
   ngOnInit(): void {
@@ -489,13 +491,11 @@ export class BibleReaderComponent implements OnDestroy {
     this.viewMode = this.viewMode === "scrolling" ? "paged" : "scrolling"
     this.preferencesService.setViewMode(this.viewMode)
 
-    if (globalThis.umami) {
-      globalThis.umami.track("view_mode_toggle", {
-        mode: this.viewMode,
-        book: this.book?.id,
-        chapter: this.chapterNumber,
-      })
-    }
+    void this.analyticsService.track("view_mode_toggle", {
+      mode: this.viewMode,
+      book: this.book?.id,
+      chapter: this.chapterNumber,
+    })
 
     this.cdr.markForCheck()
     // Reset scroll when switching to paged? Or keep position?

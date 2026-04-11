@@ -27,6 +27,7 @@ import { MatTooltipModule } from "@angular/material/tooltip"
 import { RouterModule } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import type { Share } from "@capacitor/share"
+import { AnalyticsService } from "../../services/analytics.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { NetworkService } from "../../services/network.service"
 import { ThemeService } from "../../services/theme.service"
@@ -80,6 +81,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     private readonly dialog: MatDialog,
     private readonly cdr: ChangeDetectorRef,
     private readonly networkService: NetworkService,
+    public readonly analyticsService: AnalyticsService,
     @Inject(SHARE_PLUGIN) private sharePlugin: typeof Share,
   ) {}
 
@@ -269,12 +271,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
       // Shared successfully
 
-      if (this.isUmamiAvailable()) {
-        window?.umami?.track("share", {
-          book: this.book?.id,
-          chapter: this.chapterNumber,
-        })
-      }
+      void this.analyticsService.track("share", {
+        book: this.book?.id,
+        chapter: this.chapterNumber,
+      })
     } catch {
       // User canceled or share failed; no UI feedback needed.
     }
@@ -295,13 +295,5 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       this.labelInterval = undefined
     }
     this.bookLabelMode = "title"
-  }
-
-  isUmamiAvailable(): boolean {
-    return (
-      typeof window !== "undefined" &&
-      !!window.umami &&
-      typeof window.umami.track === "function"
-    )
   }
 }

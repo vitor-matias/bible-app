@@ -1,5 +1,6 @@
 import { Injectable } from "@angular/core"
 import { BehaviorSubject } from "rxjs"
+import { AnalyticsService } from "./analytics.service"
 import { PreferencesService } from "./preferences.service"
 
 export type ThemeMode = "light" | "dark" | "system"
@@ -11,7 +12,10 @@ export class ThemeService {
   private themeMode = new BehaviorSubject<ThemeMode>("system")
   private nightModeQuery = window.matchMedia("(prefers-color-scheme: dark)")
 
-  constructor(private preferencesService: PreferencesService) {
+  constructor(
+    private preferencesService: PreferencesService,
+    private analyticsService: AnalyticsService,
+  ) {
     // Check localStorage for saved theme preference
     const savedTheme = this.preferencesService.getTheme()
 
@@ -51,9 +55,7 @@ export class ThemeService {
     this.applyTheme(nextMode)
     this.preferencesService.setTheme(nextMode)
 
-    if (window.umami) {
-      window.umami.track(`theme-${nextMode}`)
-    }
+    void this.analyticsService.track(`theme-${nextMode}`)
   }
 
   private applyTheme(mode: ThemeMode): void {

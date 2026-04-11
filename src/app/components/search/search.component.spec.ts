@@ -3,6 +3,7 @@ import { fakeAsync, flushMicrotasks } from "@angular/core/testing"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { Router } from "@angular/router"
 import { Observable, of } from "rxjs"
+import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
@@ -15,6 +16,7 @@ describe("SearchComponent", () => {
   let bookService: jasmine.SpyObj<BookService>
   let snackBar: jasmine.SpyObj<MatSnackBar>
   let router: jasmine.SpyObj<Router>
+  let analyticsService: jasmine.SpyObj<AnalyticsService>
   let cdr: Pick<ChangeDetectorRef, "detectChanges">
   let observerCallback: IntersectionObserverCallback | null
   let originalIntersectionObserver: typeof IntersectionObserver | undefined
@@ -48,6 +50,8 @@ describe("SearchComponent", () => {
     snackBar = jasmine.createSpyObj("MatSnackBar", ["open"])
     router = jasmine.createSpyObj("Router", ["navigate"])
     router.navigate.and.resolveTo(true)
+    analyticsService = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analyticsService.track.and.returnValue(Promise.resolve())
     cdr = { detectChanges: jasmine.createSpy("detectChanges") }
     observerCallback = null
     originalIntersectionObserver = globalThis.IntersectionObserver
@@ -62,6 +66,7 @@ describe("SearchComponent", () => {
       snackBar,
       router,
       cdr as ChangeDetectorRef,
+      analyticsService,
     )
   })
 
@@ -191,8 +196,10 @@ describe("SearchComponent", () => {
       }),
     )
 
+    spyOn(console, "error")
     await component.onSearchSubmit("John 99:1")
 
+    expect(console.error).toHaveBeenCalled()
     expect(snackBar.open).toHaveBeenCalledWith(
       "Capitulo ou versiculo não existe",
       "Fechar",

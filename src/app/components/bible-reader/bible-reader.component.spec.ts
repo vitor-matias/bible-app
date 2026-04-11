@@ -9,6 +9,7 @@ import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
 import { ActivatedRoute, Router } from "@angular/router"
 import { BehaviorSubject, of, throwError } from "rxjs"
 import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
+import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
@@ -27,6 +28,7 @@ describe("BibleReaderComponent", () => {
   let routerSpy: jasmine.SpyObj<Router>
   let routeMock: unknown
   let animationServiceSpy: jasmine.SpyObj<BibleReaderAnimationService>
+  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
 
   const mockBooks = [
     { id: "gen", name: "Genesis", urlAbrv: "1-genesis", chapterCount: 50 },
@@ -94,6 +96,9 @@ describe("BibleReaderComponent", () => {
       Promise.resolve(),
     )
 
+    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
+
     // Default returns
     preferencesServiceSpy.getAutoScrollSpeed.and.returnValue(50)
     preferencesServiceSpy.getViewMode.and.returnValue("scrolling")
@@ -114,6 +119,7 @@ describe("BibleReaderComponent", () => {
         { provide: Router, useValue: routerSpy },
         { provide: ActivatedRoute, useValue: routeMock },
         { provide: BibleReaderAnimationService, useValue: animationServiceSpy },
+        { provide: AnalyticsService, useValue: analyticsServiceSpy },
       ],
     })
       .overrideComponent(BibleReaderComponent, {

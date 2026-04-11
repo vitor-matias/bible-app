@@ -4,6 +4,7 @@ import {
   MatBottomSheetRef,
 } from "@angular/material/bottom-sheet"
 import { ActivatedRoute } from "@angular/router"
+import { AnalyticsService } from "../../services/analytics.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { FootnotesBottomSheetComponent } from "./footnotes-bottom-sheet.component"
@@ -16,6 +17,7 @@ describe("FootnotesBottomSheetComponent", () => {
   >
   let bibleRefSpy: jasmine.SpyObj<BibleReferenceService>
   let bookServiceSpy: jasmine.SpyObj<BookService>
+  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
 
   const mockData = {
     footnotes: [
@@ -36,6 +38,8 @@ describe("FootnotesBottomSheetComponent", () => {
       "findBook",
       "getUrlAbrv",
     ])
+    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
 
     await TestBed.configureTestingModule({
       imports: [FootnotesBottomSheetComponent],
@@ -44,6 +48,7 @@ describe("FootnotesBottomSheetComponent", () => {
         { provide: MAT_BOTTOM_SHEET_DATA, useValue: mockData },
         { provide: BibleReferenceService, useValue: bibleRefSpy },
         { provide: BookService, useValue: bookServiceSpy },
+        { provide: AnalyticsService, useValue: analyticsServiceSpy },
         { provide: ActivatedRoute, useValue: {} }, // For RouterModule
       ],
     }).compileComponents()
@@ -59,23 +64,16 @@ describe("FootnotesBottomSheetComponent", () => {
     expect(component).toBeTruthy()
   })
 
-  it("should track footnotes_opened if window.umami is defined", () => {
-    // Component is already created in beforeEach without umami.
-    // We can recreate it here to test the constructor branch.
-    const umamiSpy = jasmine.createSpyObj("umami", ["track"])
-    ;(window as unknown as { umami: unknown }).umami = umamiSpy
+  it("should track footnotes_opened when component is initialized", () => {
+    bibleRefSpy.extract.and.returnValue([])
+    fixture.detectChanges()
 
-    try {
-      TestBed.createComponent(FootnotesBottomSheetComponent)
-
-      expect(umamiSpy.track).toHaveBeenCalledWith("footnotes_opened", {
-        book: "JHN",
-        chapter: 3,
-        verse: 16,
-      })
-    } finally {
-      delete (window as unknown as { umami?: unknown }).umami
-    }
+    // Component is already created in beforeEach
+    expect(analyticsServiceSpy.track).toHaveBeenCalledWith("footnotes_opened", {
+      book: "JHN",
+      chapter: 3,
+      verse: 16,
+    })
   })
 
   describe("parseReferences", () => {

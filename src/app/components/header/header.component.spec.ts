@@ -6,6 +6,7 @@ import { Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import type { Share } from "@capacitor/share"
 import { BehaviorSubject, of } from "rxjs"
+import { AnalyticsService } from "../../services/analytics.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { NetworkService } from "../../services/network.service"
 import { ThemeService } from "../../services/theme.service"
@@ -22,6 +23,7 @@ describe("HeaderComponent", () => {
   let bookmarkServiceSpy: jasmine.SpyObj<BookmarkService>
   let bottomSheetSpy: jasmine.SpyObj<MatBottomSheet>
   let dialogSpy: jasmine.SpyObj<MatDialog>
+  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
   let isOfflineSubject: BehaviorSubject<boolean>
   let mockSharePlugin: jasmine.SpyObj<typeof Share>
   let originalShare: typeof navigator.share
@@ -43,6 +45,12 @@ describe("HeaderComponent", () => {
     bottomSheetSpy = jasmine.createSpyObj("MatBottomSheet", ["open"])
     dialogSpy = jasmine.createSpyObj("MatDialog", ["open"])
     mockSharePlugin = jasmine.createSpyObj("Share", ["share"])
+    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", [
+      "track",
+      "areAnalyticsAvailable",
+    ])
+    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
+    analyticsServiceSpy.areAnalyticsAvailable.and.returnValue(true)
     originalShare = navigator.share
 
     await TestBed.configureTestingModule({
@@ -55,6 +63,7 @@ describe("HeaderComponent", () => {
         { provide: MatBottomSheet, useValue: bottomSheetSpy },
         { provide: MatDialog, useValue: dialogSpy },
         { provide: SHARE_PLUGIN, useValue: mockSharePlugin },
+        { provide: AnalyticsService, useValue: analyticsServiceSpy },
       ],
     }).compileComponents()
 
