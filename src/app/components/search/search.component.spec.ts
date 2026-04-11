@@ -51,6 +51,7 @@ describe("SearchComponent", () => {
     router = jasmine.createSpyObj("Router", ["navigate"])
     router.navigate.and.resolveTo(true)
     analyticsService = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analyticsService.track.and.returnValue(Promise.resolve())
     cdr = { detectChanges: jasmine.createSpy("detectChanges") }
     observerCallback = null
     originalIntersectionObserver = globalThis.IntersectionObserver

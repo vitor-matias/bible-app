@@ -39,6 +39,7 @@ describe("FootnotesBottomSheetComponent", () => {
       "getUrlAbrv",
     ])
     analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
 
     await TestBed.configureTestingModule({
       imports: [FootnotesBottomSheetComponent],

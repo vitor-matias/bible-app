@@ -42,6 +42,7 @@ describe("BookmarkSelectorComponent", () => {
     const sheetSpy = jasmine.createSpyObj("MatBottomSheetRef", ["dismiss"])
     const rSpy = jasmine.createSpyObj("Router", ["navigate"])
     analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
 
     bookmarksSubject = new BehaviorSubject<Bookmark[]>(mockBookmarks)
     void Object.defineProperty(bookmarkSpy, "bookmarks$", {

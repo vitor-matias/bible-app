@@ -102,6 +102,7 @@ describe("OfflineDataService", () => {
     })
 
     const analyticsSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analyticsSpy.track.and.returnValue(Promise.resolve())
 
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],

@@ -49,6 +49,7 @@ describe("HeaderComponent", () => {
       "track",
       "areAnalyticsAvailable",
     ])
+    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
     analyticsServiceSpy.areAnalyticsAvailable.and.returnValue(true)
     originalShare = navigator.share
 

@@ -97,6 +97,7 @@ describe("BibleReaderComponent", () => {
     )
 
     analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
 
     // Default returns
     preferencesServiceSpy.getAutoScrollSpeed.and.returnValue(50)

@@ -32,6 +32,7 @@ describe("ReportProblemComponent", () => {
     mockDialogRef = jasmine.createSpyObj("MatDialogRef", ["close"])
     snackBarSpy = jasmine.createSpyObj("MatSnackBar", ["open"])
     analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
 
     await TestBed.configureTestingModule({
       imports: [
@@ -59,6 +60,10 @@ describe("ReportProblemComponent", () => {
     fixture = TestBed.createComponent(ReportProblemComponent)
     component = fixture.componentInstance
     fixture.detectChanges()
+  })
+ 
+  afterEach(() => {
+    delete (window as { umami?: unknown }).umami
   })
 
   it("should create", () => {
@@ -134,8 +139,8 @@ describe("ReportProblemComponent", () => {
     component.reportForm.get("topic")?.setValue("other")
     component.reportForm.get("details")?.setValue("missing analytics script")
     window.umami = undefined
-    analyticsServiceSpy.track.and.returnValue(
-      Promise.reject(new Error("Analytics transport unavailable")),
+    analyticsServiceSpy.track.and.rejectWith(
+      new Error("Analytics transport unavailable"),
     )
 
     spyOn(console, "error")

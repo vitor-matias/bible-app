@@ -44,6 +44,7 @@ describe("AutoScrollControlsComponent", () => {
       "setAutoScrollSpeed",
     ])
     analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
 
     await TestBed.configureTestingModule({
       imports: [AutoScrollControlsComponent, MatButtonModule, MatIconModule],
