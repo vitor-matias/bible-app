@@ -22,6 +22,7 @@ describe("AppComponent", () => {
       "preloadAllBooksAndChapters",
     ])
     const analyticsSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analyticsSpy.track.and.returnValue(Promise.resolve())
 
     await TestBed.configureTestingModule({
       imports: [AppComponent],
