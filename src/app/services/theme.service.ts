@@ -55,9 +55,7 @@ export class ThemeService {
     this.applyTheme(nextMode)
     this.preferencesService.setTheme(nextMode)
 
-    this.analyticsService
-      .track(`theme-${nextMode}`)
-      .catch((error) => console.error("Failed to track theme change", error))
+    void this.analyticsService.track(`theme-${nextMode}`)
   }
 
   private applyTheme(mode: ThemeMode): void {
