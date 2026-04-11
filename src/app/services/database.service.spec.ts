@@ -129,12 +129,14 @@ describe("DatabaseService", () => {
     })
 
     it("should return empty array if database fails to open", async () => {
+      spyOn(console, "error")
       mockIDBRequest.onerror = null as unknown as (event?: unknown) => void // Prepare
 
       const promise = service.getAll("testStore")
 
       // Fail DB open
       const errorEvent = { target: { error: "DB Error" } }
+      mockIDBRequest.error = new Error("DB Error")
       // Call onerror if it was assigned
       // Note: getDB assigns onerror.
 

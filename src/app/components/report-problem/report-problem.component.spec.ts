@@ -31,8 +31,12 @@ describe("ReportProblemComponent", () => {
   beforeEach(async () => {
     mockDialogRef = jasmine.createSpyObj("MatDialogRef", ["close"])
     snackBarSpy = jasmine.createSpyObj("MatSnackBar", ["open"])
-    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", [
+      "track",
+      "areAnalyticsAvailable",
+    ])
     analyticsServiceSpy.track.and.returnValue(Promise.resolve())
+    analyticsServiceSpy.areAnalyticsAvailable.and.returnValue(true)
 
     await TestBed.configureTestingModule({
       imports: [
@@ -61,7 +65,7 @@ describe("ReportProblemComponent", () => {
     component = fixture.componentInstance
     fixture.detectChanges()
   })
- 
+
   afterEach(() => {
     delete (window as { umami?: unknown }).umami
   })

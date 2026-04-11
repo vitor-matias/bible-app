@@ -196,8 +196,10 @@ describe("SearchComponent", () => {
       }),
     )
 
+    spyOn(console, "error")
     await component.onSearchSubmit("John 99:1")
 
+    expect(console.error).toHaveBeenCalled()
     expect(snackBar.open).toHaveBeenCalledWith(
       "Capitulo ou versiculo não existe",
       "Fechar",
