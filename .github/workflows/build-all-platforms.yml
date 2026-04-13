@@ -60,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HAS_ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-      CAPACITOR_SERVER_URL: "https://bible-app-ten-psi.vercel.app/"
+      CAPACITOR_SERVER_URL: "https://biblia.capuchinhos.org/"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -185,7 +185,7 @@ jobs:
     runs-on: macos-latest
     env:
       HAS_IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
-      CAPACITOR_SERVER_URL: "https://bible-app-ten-psi.vercel.app/"
+      CAPACITOR_SERVER_URL: "https://biblia.capuchinhos.org/"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
