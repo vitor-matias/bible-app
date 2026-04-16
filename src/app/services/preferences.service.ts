@@ -12,6 +12,7 @@ export class PreferencesService {
     THEME: "theme",
     FONT_SIZE_PREFIX: "fontSize",
     VIEW_MODE: "viewMode",
+    TERMS_ACCEPTED: "termsAccepted",
   }
 
   getTheme(): "light" | "dark" | "system" | null {
@@ -83,5 +84,13 @@ export class PreferencesService {
 
   setViewMode(mode: "scrolling" | "paged"): void {
     localStorage.setItem(this.KEYS.VIEW_MODE, mode)
+  }
+
+  getTermsAccepted(): boolean {
+    return localStorage.getItem(this.KEYS.TERMS_ACCEPTED) === "true"
+  }
+
+  setTermsAccepted(): void {
+    localStorage.setItem(this.KEYS.TERMS_ACCEPTED, "true")
   }
 }

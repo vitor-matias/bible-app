@@ -11,6 +11,7 @@ import { App } from "@capacitor/app"
 import type { PluginListenerHandle } from "@capacitor/core"
 import { Capacitor } from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
+import { ConsentBannerComponent } from "./components/consent-banner/consent-banner.component"
 import { appConfig } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
 import { OfflineDataService } from "./services/offline-data.service"
@@ -22,7 +23,7 @@ import { APP_PLUGIN } from "./tokens"
   templateUrl: "app.component.html",
   styleUrl: "./app.component.css",
   standalone: true,
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, ConsentBannerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppComponent implements OnInit, OnDestroy {

@@ -1,0 +1,10 @@
+@if (visible()) {
+  <div class="consent-banner" role="dialog" aria-live="polite" aria-label="Aviso de privacidade">
+    <p class="consent-text">
+      Ao utilizar esta aplicação, aceita os nossos Termos de Utilização e a nossa Política de Privacidade.
+      Não recolhemos dados pessoais identificáveis.
+      <a href="https://www.difusorabiblica.com" target="_blank" rel="noopener noreferrer">Saber mais</a>.
+    </p>
+    <button mat-flat-button class="accept-btn" (click)="accept()">Aceitar</button>
+  </div>
+}
