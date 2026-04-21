@@ -416,7 +416,7 @@ jobs:
         run: |
           APK_PATH=$(find release-assets -type f -name "*.apk" | head -n 1)
           if [ -n "$APK_PATH" ]; then
-            zsp publish -y "$APK_PATH" -r "https://github.com/${{ github.repository }}"
+            zsp publish -q "$APK_PATH" -r "https://github.com/${{ github.repository }}"
           else
             echo "No APK found to publish."
             exit 1
