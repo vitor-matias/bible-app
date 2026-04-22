@@ -64,6 +64,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -95,6 +97,43 @@ jobs:
           npx cap add android
           npx cap sync android
           npx @capacitor/assets generate --android
+
+      - name: Set Android Version
+        run: |
+          set -e
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG_NAME="${{ github.ref_name }}"
+          else
+            LATEST=$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+            LATEST=${LATEST:-v0.0.0}
+            VERSION=${LATEST#v}
+            MAJOR=$(echo "$VERSION" | cut -d. -f1)
+            MINOR=$(echo "$VERSION" | cut -d. -f2)
+            PATCH=$(echo "$VERSION" | cut -d. -f3)
+            
+            if [[ "${{ inputs.create_release }}" == "true" ]]; then
+              BUMP="${{ inputs.bump }}"
+              case "$BUMP" in
+                major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+                minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+                *)     PATCH=$((PATCH + 1)) ;;
+              esac
+            fi
+            TAG_NAME="v${MAJOR}.${MINOR}.${PATCH}"
+          fi
+          
+          VERSION_NAME=${TAG_NAME#v}
+          MAJOR=$(echo "$VERSION_NAME" | cut -d. -f1)
+          MINOR=$(echo "$VERSION_NAME" | cut -d. -f2)
+          PATCH=$(echo "$VERSION_NAME" | cut -d. -f3)
+          # Format: 1.2.3 -> 1002003
+          VERSION_CODE=$(( MAJOR * 1000000 + MINOR * 1000 + PATCH ))
+          
+          echo "Setting versionName=$VERSION_NAME and versionCode=$VERSION_CODE"
+          
+          # Replace the default capacitor version inside android/app/build.gradle
+          sed -i "s/versionCode 1/versionCode $VERSION_CODE/g" android/app/build.gradle
+          sed -i "s/versionName \"1.0\"/versionName \"$VERSION_NAME\"/g" android/app/build.gradle
 
       - name: Decode Keystore
         if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
