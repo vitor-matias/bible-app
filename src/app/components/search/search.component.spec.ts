@@ -118,6 +118,45 @@ describe("SearchComponent", () => {
     })
   })
 
+  it("should navigate to a book directly if the search text exactly matches a book abbreviation or name", async () => {
+    const verse = {
+      bookId: "luk",
+      chapterNumber: 1,
+      number: 1,
+      verseLabel: "1",
+      text: [],
+    } as Verse
+
+    referenceService.extract.and.returnValue([])
+
+    bookService.findBook.and.callFake((text: string) => {
+      if (text === "lc") {
+        return {
+          id: "luk",
+          abrv: "Lc",
+          shortName: "Lucas",
+          name: "Evangelho de São Lucas",
+          chapterCount: 24,
+        }
+      }
+      return {
+        id: "about",
+        abrv: "Sobre",
+        shortName: "Sobre a Bíblia",
+        name: "Sobre a Bíblia",
+        chapterCount: 1,
+      }
+    })
+
+    apiService.getVerse.and.returnValue(of(verse))
+
+    await component.onSearchSubmit("lc")
+
+    expect(referenceService.extract).toHaveBeenCalledWith("lc")
+    expect(bookService.findBook).toHaveBeenCalledWith("lc")
+    expect(router.navigate).toHaveBeenCalledWith(["/", "luk", 1], {})
+  })
+
   it("should keep loadMoreResults locked until the next page arrives", fakeAsync(() => {
     const nextVerse = {
       bookId: "gen",

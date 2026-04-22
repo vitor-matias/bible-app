@@ -109,47 +109,68 @@ export class SearchComponent {
     this.searchTerm = text
     const references = this.referenceService.extract(text)
 
+    let targetBook: Book | null = null
+    let targetChapter = 1
+    let targetVerseStart: number | undefined
+
     if (references.length > 0) {
       // A well-formed Bible reference should jump straight into the reader instead
       // of going through the broader full-text search results flow.
       const ref = references[0]
-      const book = ref.book ? this.bookService.findBook(ref.book) : null
-      if (book) {
-        const verseStart = ref.verses
-          ? ref.verses[0].type === "single"
-            ? ref.verses[0].verse
-            : ref.verses[0].start
-          : 1
-        try {
-          await firstValueFrom(
-            this.apiService.getVerse(book.id, ref.chapter, verseStart),
-          )
-          await this.router.navigate(
-            ["/", book.id, ref.chapter ? ref.chapter : 1],
-            ref.verses ? { queryParams: { verseStart } } : {},
-          )
-        } catch (err) {
-          console.error(err)
-          // HttpErrorResponse is not guaranteed here, so narrow the shape safely.
-          const status =
-            typeof err === "object" &&
-            err !== null &&
-            "status" in err &&
-            typeof err.status === "number"
-              ? err.status
-              : undefined
-          if (status === 404 || status === 400) {
-            this.snackBar.open("Capitulo ou versiculo não existe", "Fechar", {
-              duration: 3000,
-            })
-          } else {
-            this.snackBar.open("Error loading verse", "OK", {
-              duration: 3000,
-            })
-          }
+      targetBook = ref.book ? this.bookService.findBook(ref.book) : null
+      if (targetBook) {
+        targetChapter = ref.chapter || 1
+        if (ref.verses && ref.verses.length > 0) {
+          targetVerseStart =
+            ref.verses[0].type === "single"
+              ? ref.verses[0].verse
+              : ref.verses[0].start
         }
-        return
       }
+    } else {
+      // Check if the search text exactly matches a book name or abbreviation
+      const book = this.bookService.findBook(text.trim())
+      if (book && book.id !== "about") {
+        targetBook = book
+      }
+    }
+
+    if (targetBook) {
+      try {
+        await firstValueFrom(
+          this.apiService.getVerse(
+            targetBook.id,
+            targetChapter,
+            targetVerseStart || 1,
+          ),
+        )
+        await this.router.navigate(
+          ["/", targetBook.id, targetChapter],
+          targetVerseStart !== undefined
+            ? { queryParams: { verseStart: targetVerseStart } }
+            : {},
+        )
+      } catch (err) {
+        console.error(err)
+        // HttpErrorResponse is not guaranteed here, so narrow the shape safely.
+        const status =
+          typeof err === "object" &&
+          err !== null &&
+          "status" in err &&
+          typeof err.status === "number"
+            ? err.status
+            : undefined
+        if (status === 404 || status === 400) {
+          this.snackBar.open("Capitulo ou versiculo não existe", "Fechar", {
+            duration: 3000,
+          })
+        } else {
+          this.snackBar.open("Error loading verse", "OK", {
+            duration: 3000,
+          })
+        }
+      }
+      return
     }
 
     this.isLoading = true
