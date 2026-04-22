@@ -39,3 +39,10 @@ export const SHARE_PLUGIN = new InjectionToken<typeof Share>(
     factory: () => createNoopNgOnDestroyProxy(Share),
   },
 )
+
+export const INTERSECTION_OBSERVER = new InjectionToken<
+  typeof IntersectionObserver
+>("Intersection Observer", {
+  providedIn: "root",
+  factory: () => globalThis.IntersectionObserver,
+})

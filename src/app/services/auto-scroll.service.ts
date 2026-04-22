@@ -7,6 +7,13 @@ type AutoScrollConfig = {
   onStop?: () => void
 }
 
+/**
+ * Manages the automatic scrolling of the Bible reader.
+ * Unlike CSS animations, this uses a high-performance `requestAnimationFrame` loop
+ * to calculate sub-pixel scrolling deltas, ensuring smooth scrolling at extremely slow speeds.
+ * It also uses a `ResizeObserver` to dynamically adjust the scroll speed based on the
+ * computed line height of the text.
+ */
 @Injectable({
   providedIn: "root",
 })
@@ -110,6 +117,10 @@ export class AutoScrollService implements OnDestroy {
     return current - this.AUTO_SCROLL_STEP
   }
 
+  /**
+   * Starts the auto-scroll loop.
+   * Restarts from a clean state so switching chapters never keeps an old frame loop alive.
+   */
   start({ scrollElement, lineHeightElement, onStop }: AutoScrollConfig): void {
     // Restart from a clean state so switching chapters or containers never keeps
     // an old frame loop or observer alive.
@@ -149,6 +160,11 @@ export class AutoScrollService implements OnDestroy {
     }
   }
 
+  /**
+   * The core animation loop.
+   * Calculates the time delta since the last frame and accumulates a fractional pixel scroll value.
+   * Only mutates the DOM (`scrollTop`) when the accumulated delta is >= 0.5px to prevent browser layout thrashing.
+   */
   private stepAutoScroll(timestamp: number): void {
     const content = this.scrollElement
     if (!content) {

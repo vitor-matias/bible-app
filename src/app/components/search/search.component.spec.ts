@@ -1,5 +1,6 @@
-import { ChangeDetectorRef } from "@angular/core"
-import { fakeAsync, flushMicrotasks } from "@angular/core/testing"
+import { HttpErrorResponse } from "@angular/common/http"
+import { ChangeDetectorRef, NgZone } from "@angular/core"
+import { fakeAsync, flushMicrotasks, tick } from "@angular/core/testing"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { Router } from "@angular/router"
 import { Observable, of } from "rxjs"
@@ -20,8 +21,9 @@ describe("SearchComponent", () => {
   let analyticsService: jasmine.SpyObj<AnalyticsService>
   let searchStateService: jasmine.SpyObj<SearchStateService>
   let cdr: Pick<ChangeDetectorRef, "detectChanges">
+  let ngZone: jasmine.SpyObj<NgZone>
+  let mockDocument: Partial<Document>
   let observerCallback: IntersectionObserverCallback | null
-  let originalIntersectionObserver: typeof IntersectionObserver | undefined
 
   class MockIntersectionObserver implements IntersectionObserver {
     root: Element | Document | null = null
@@ -61,11 +63,12 @@ describe("SearchComponent", () => {
     ])
     searchStateService.restore.and.returnValue(null)
     cdr = { detectChanges: jasmine.createSpy("detectChanges") }
+    ngZone = jasmine.createSpyObj("NgZone", ["run"])
+    ngZone.run.and.callFake(<T>(fn: (...args: unknown[]) => T): T => fn())
+    mockDocument = {
+      activeElement: document.createElement("input"),
+    }
     observerCallback = null
-    originalIntersectionObserver = globalThis.IntersectionObserver
-
-    globalThis.IntersectionObserver =
-      MockIntersectionObserver as typeof IntersectionObserver
 
     component = new SearchComponent(
       apiService,
@@ -74,19 +77,12 @@ describe("SearchComponent", () => {
       snackBar,
       router,
       cdr as ChangeDetectorRef,
+      ngZone,
       analyticsService,
       searchStateService,
+      mockDocument as Document,
+      MockIntersectionObserver as typeof IntersectionObserver,
     )
-  })
-
-  afterEach(() => {
-    if (originalIntersectionObserver) {
-      globalThis.IntersectionObserver = originalIntersectionObserver
-    } else {
-      delete (
-        globalThis as { IntersectionObserver?: typeof IntersectionObserver }
-      ).IntersectionObserver
-    }
   })
 
   it("should create", () => {
@@ -211,6 +207,7 @@ describe("SearchComponent", () => {
       {} as IntersectionObserver,
     )
     flushMicrotasks()
+    tick()
 
     expect(apiService.search).toHaveBeenCalledWith("beginning", 2)
     expect(component.searchResults).toEqual([
@@ -240,7 +237,7 @@ describe("SearchComponent", () => {
     })
     apiService.getVerse.and.returnValue(
       new Observable((subscriber) => {
-        subscriber.error({ status: 404 })
+        subscriber.error(new HttpErrorResponse({ status: 404 }))
       }),
     )
 

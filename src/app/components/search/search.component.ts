@@ -1,7 +1,11 @@
+import { DOCUMENT } from "@angular/common"
+import { HttpErrorResponse } from "@angular/common/http"
 import {
   ChangeDetectorRef,
   Component,
   type ElementRef,
+  Inject,
+  NgZone,
   ViewChild,
 } from "@angular/core"
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
@@ -13,6 +17,7 @@ import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { SearchStateService } from "../../services/search-state.service"
+import { INTERSECTION_OBSERVER } from "../../tokens"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
 @Component({
@@ -37,9 +42,9 @@ export class SearchComponent {
   totalResults = 0
   isLoading = false
   private observer: IntersectionObserver | null = null
+  private scrollTimeout?: number
 
   @ViewChild("sentinel", { static: false }) sentinel!: ElementRef
-  private lastSentinel: Element | null = null
 
   constructor(
     private apiService: BibleApiService,
@@ -47,9 +52,13 @@ export class SearchComponent {
     private bookService: BookService,
     private snackBar: MatSnackBar,
     private router: Router,
-    private cdr: ChangeDetectorRef,
+    _cdr: ChangeDetectorRef,
+    private ngZone: NgZone,
     private analyticsService: AnalyticsService,
     private searchStateService: SearchStateService,
+    @Inject(DOCUMENT) private document: Document,
+    @Inject(INTERSECTION_OBSERVER)
+    private intersectionObserver: typeof IntersectionObserver,
   ) {}
 
   ngOnInit(): void {
@@ -66,14 +75,10 @@ export class SearchComponent {
     this.attachObserverToSentinel()
   }
 
-  ngAfterViewChecked(): void {
-    // If the sentinel element has changed (e.g., after new search), re-attach observer
-    if (this.sentinel && this.sentinel.nativeElement !== this.lastSentinel) {
-      this.attachObserverToSentinel()
-    }
-  }
-
   ngOnDestroy(): void {
+    if (this.scrollTimeout) {
+      clearTimeout(this.scrollTimeout)
+    }
     if (this.observer) {
       this.observer.disconnect()
     }
@@ -91,17 +96,18 @@ export class SearchComponent {
     if (this.observer) {
       this.observer.disconnect()
     }
-    if (this.sentinel) {
-      this.observer = new IntersectionObserver(
+    if (this.sentinel && this.intersectionObserver) {
+      this.observer = new this.intersectionObserver(
         (entries) => {
           if (entries[0].isIntersecting && !this.isLoading) {
-            this.loadMoreResults()
+            this.ngZone.run(() => {
+              this.loadMoreResults()
+            })
           }
         },
         { threshold: 1.0 },
       )
       this.observer.observe(this.sentinel.nativeElement)
-      this.lastSentinel = this.sentinel.nativeElement
     }
   }
 
@@ -116,12 +122,11 @@ export class SearchComponent {
       this.searchResults.push(...results.verses)
       this.totalResults = results.total
       this.currentPage++
-      this.attachObserverToSentinel() // Re-attach observer after loading more results
+      setTimeout(() => this.attachObserverToSentinel(), 0) // Re-attach observer after loading more results
     } catch (error) {
       console.error("Error loading more results:", error)
     } finally {
       this.isLoading = false
-      this.cdr.detectChanges()
     }
   }
 
@@ -172,18 +177,16 @@ export class SearchComponent {
         )
       } catch (err) {
         console.error(err)
-        // HttpErrorResponse is not guaranteed here, so narrow the shape safely.
-        const status =
-          typeof err === "object" &&
-          err !== null &&
-          "status" in err &&
-          typeof err.status === "number"
-            ? err.status
-            : undefined
-        if (status === 404 || status === 400) {
-          this.snackBar.open("Capitulo ou versiculo não existe", "Fechar", {
-            duration: 3000,
-          })
+        if (err instanceof HttpErrorResponse) {
+          if (err.status === 404 || err.status === 400) {
+            this.snackBar.open("Capitulo ou versiculo não existe", "Fechar", {
+              duration: 3000,
+            })
+          } else {
+            this.snackBar.open("Error loading verse", "OK", {
+              duration: 3000,
+            })
+          }
         } else {
           this.snackBar.open("Error loading verse", "OK", {
             duration: 3000,
@@ -209,8 +212,8 @@ export class SearchComponent {
           duration: 3000,
         })
       } else {
-        if (document.activeElement instanceof HTMLElement) {
-          document.activeElement.blur()
+        if (this.document.activeElement instanceof HTMLElement) {
+          this.document.activeElement.blur()
         }
         this.snackBar.open(resultsMessage, "Fechar", {
           duration: 3000,
@@ -219,7 +222,7 @@ export class SearchComponent {
 
       // The sentinel node is recreated when results change, so rebind the observer
       // after each fresh search result set.
-      this.attachObserverToSentinel()
+      setTimeout(() => this.attachObserverToSentinel(), 0)
       this.scrollToTop()
 
       void this.analyticsService.track("search", { text })
@@ -230,7 +233,6 @@ export class SearchComponent {
       })
     } finally {
       this.isLoading = false
-      this.cdr.detectChanges()
     }
   }
 
@@ -249,7 +251,10 @@ export class SearchComponent {
   resultsContainer!: ElementRef
 
   scrollToTop() {
-    setTimeout(() => {
+    if (this.scrollTimeout) {
+      clearTimeout(this.scrollTimeout)
+    }
+    this.scrollTimeout = window.setTimeout(() => {
       if (this.resultsContainer?.nativeElement) {
         this.resultsContainer.nativeElement.scrollTo({
           top: 0,

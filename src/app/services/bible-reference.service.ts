@@ -1,7 +1,10 @@
 import { Injectable } from "@angular/core"
 import { BookService } from "./book.service"
 
-// ---------------- Types (unchanged) ----------------
+/**
+ * Represents a single verse or a continuous range of verses within the same chapter.
+ * A part refers to specific sentence fragments inside a verse (e.g. 1a, 1b).
+ */
 export type VerseReference =
   | { type: "single"; verse: number; part?: "a" | "b" | "c" }
   | {
@@ -12,6 +15,10 @@ export type VerseReference =
       endPart?: "a" | "b" | "c"
     }
 
+/**
+ * Represents a range of verses that spans across multiple chapters within the same book.
+ * e.g., "Genesis 1:1 - 2:3"
+ */
 export type CrossChapterRange = {
   type: "crossChapterRange"
   startChapter: number
@@ -22,6 +29,9 @@ export type CrossChapterRange = {
   endPart?: "a" | "b" | "c"
 }
 
+/**
+ * Represents a fully parsed Bible reference found within a block of text.
+ */
 export interface BibleReference {
   match: string
   index: number
@@ -36,16 +46,27 @@ export class BibleReferenceService {
   private bookAlternation = ""
   private explicitRe?: RegExp
 
-  // Implicit full ref (no book): same-chapter "2,4b-25" OR cross-chapter "38,1-39,30"
-  // IMPORTANT: cross-chapter branch (endCh,endV) is placed BEFORE same-chapter v2 to avoid greedy misparse.
+  /**
+   * Matches implicit full references (where the book is omitted, but chapter and verse are present).
+   * E.g., "2:4b-25" (same chapter) or "38:1-39:30" (cross-chapter).
+   *
+   * @note The cross-chapter branch MUST be placed before the same-chapter branch in the regex
+   * to avoid greedy misparsing (e.g., catching "38:1-39" instead of the full range).
+   */
   private implicitFullRe =
     /\b(?<chapter>\d+)\s*(?:[:.]|,(?!\s))\s*(?<v1>\d+(?:[a-c])?)(?:\s*[-\u2010-\u2015\u2212]\s*(?:(?<endCh>\d+)\s*(?:[:.]|,(?!\s))\s*(?<endV>\d+(?:[a-c])?)|(?<v2>\d+(?:[a-c])?)))?\b/gi
 
-  // Chapter-only AFTER a semicolon:  "... ; 104 ; ..."  (reuse last explicit/current book)
+  /**
+   * Matches shorthand chapter-only references that occur after a semicolon.
+   * E.g., "Psalms 103; 104" (captures the "104" and assumes the previous book context).
+   */
   private tailChapterOnlyRe =
     /\s*;\s*(?<tail>(?<chapter>\d+))(?!\s*[:.,]\d)\b/gi
 
-  // Verse-only shorthand (uses current book + current chapter): "v.12" / "v.12-13" / "v.2a"
+  /**
+   * Matches shorthand verse-only references that use a "v." prefix.
+   * E.g., "v.12", "v. 12-13", "v.2a" (assumes current book and chapter context).
+   */
   private verseOnlyRe =
     /\bv\.?\s*(?<v1>\d+(?:[a-c])?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c])?))?\b/gi
 
@@ -110,6 +131,15 @@ export class BibleReferenceService {
     this.explicitRe = new RegExp(pattern, "gi")
   }
 
+  /**
+   * Main entrypoint for reference parsing. Scans a given text string and extracts
+   * all identifiable Bible references, falling back to contextual books/chapters if shorthand is used.
+   *
+   * @param text The raw text to parse (e.g. "Read John 3:16 and v.17")
+   * @param currentBook The fallback book ID if an implicit reference is found without a preceding explicit book
+   * @param currentChapter The fallback chapter if a verse-only reference is found
+   * @returns An array of parsed `BibleReference` objects sorted by their position in the text
+   */
   extract(
     text: string,
     currentBook?: string,

@@ -138,6 +138,13 @@ export class BibleReaderComponent implements OnDestroy {
       this.preferencesService.getAutoScrollControlsVisible()
     this.showAutoScrollControls =
       this.viewMode === "scrolling" && this.autoScrollControlsPreference
+
+    /**
+     * Primary State Machine Stream:
+     * Listens to the global books payload and intercepts URL params (`book`, `chapter`, `verseStart`).
+     * It maps the active params to the loaded books and forces a redirect if the URL is missing params
+     * or uses legacy preferences. Finally, it chains into the query param map to reactively update the UI.
+     */
     this.bookService.books$
       .pipe(
         takeUntil(this.destroy$),
@@ -447,13 +454,11 @@ export class BibleReaderComponent implements OnDestroy {
     }
   }
 
+  /**
+   * Drops focus from the drawer close button after interaction.
+   * This prevents a blue focus ring from lingering on the button inside the mobile drawer UI.
+   */
   private focusCloseButton() {
-    // Optional: could use ViewChild if the button is always present,
-    // but since it's inside conditional templates or drawers, querySelector is sometimes pragmatic.
-    // However, let's try to trust the user's focus management or leave it for now.
-    // I will leave it as is to avoid breaking focus logic without testing,
-    // but the prompt asked to replace direct DOM queries.
-    // Let's use the nativeElement of the component to scope it at least.
     const closeButton = this.bookDrawerCloseButton?.nativeElement as HTMLElement
     if (closeButton) {
       closeButton.blur()
