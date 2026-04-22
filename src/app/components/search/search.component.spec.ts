@@ -7,6 +7,7 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { SearchStateService } from "../../services/search-state.service"
 import { SearchComponent } from "./search.component"
 
 describe("SearchComponent", () => {
@@ -17,6 +18,7 @@ describe("SearchComponent", () => {
   let snackBar: jasmine.SpyObj<MatSnackBar>
   let router: jasmine.SpyObj<Router>
   let analyticsService: jasmine.SpyObj<AnalyticsService>
+  let searchStateService: jasmine.SpyObj<SearchStateService>
   let cdr: Pick<ChangeDetectorRef, "detectChanges">
   let observerCallback: IntersectionObserverCallback | null
   let originalIntersectionObserver: typeof IntersectionObserver | undefined
@@ -52,6 +54,12 @@ describe("SearchComponent", () => {
     router.navigate.and.resolveTo(true)
     analyticsService = jasmine.createSpyObj("AnalyticsService", ["track"])
     analyticsService.track.and.returnValue(Promise.resolve())
+    searchStateService = jasmine.createSpyObj("SearchStateService", [
+      "save",
+      "restore",
+      "clear",
+    ])
+    searchStateService.restore.and.returnValue(null)
     cdr = { detectChanges: jasmine.createSpy("detectChanges") }
     observerCallback = null
     originalIntersectionObserver = globalThis.IntersectionObserver
@@ -67,6 +75,7 @@ describe("SearchComponent", () => {
       router,
       cdr as ChangeDetectorRef,
       analyticsService,
+      searchStateService,
     )
   })
 

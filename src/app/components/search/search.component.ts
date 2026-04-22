@@ -12,6 +12,7 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { SearchStateService } from "../../services/search-state.service"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
 @Component({
@@ -48,7 +49,18 @@ export class SearchComponent {
     private router: Router,
     private cdr: ChangeDetectorRef,
     private analyticsService: AnalyticsService,
+    private searchStateService: SearchStateService,
   ) {}
+
+  ngOnInit(): void {
+    const cached = this.searchStateService.restore()
+    if (cached) {
+      this.searchTerm = cached.searchTerm
+      this.searchResults = cached.searchResults
+      this.currentPage = cached.currentPage
+      this.totalResults = cached.totalResults
+    }
+  }
 
   ngAfterViewInit(): void {
     this.attachObserverToSentinel()
@@ -64,6 +76,14 @@ export class SearchComponent {
   ngOnDestroy(): void {
     if (this.observer) {
       this.observer.disconnect()
+    }
+    if (this.searchResults.length > 0) {
+      this.searchStateService.save({
+        searchTerm: this.searchTerm,
+        searchResults: this.searchResults,
+        currentPage: this.currentPage,
+        totalResults: this.totalResults,
+      })
     }
   }
 

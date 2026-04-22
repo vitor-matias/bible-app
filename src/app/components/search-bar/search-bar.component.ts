@@ -3,6 +3,7 @@ import {
   Component,
   type ElementRef,
   EventEmitter,
+  Input,
   Output,
   ViewChild,
 } from "@angular/core"
@@ -31,6 +32,7 @@ import { MatToolbarModule } from "@angular/material/toolbar"
   styleUrls: ["./search-bar.component.css"],
 })
 export class SearchBarComponent {
+  @Input() initialQuery = ""
   @Output() searchValue = new EventEmitter<string>()
 
   @ViewChild("searchInput", { static: false })
@@ -39,6 +41,12 @@ export class SearchBarComponent {
   query = ""
 
   constructor(private location: Location) {}
+
+  ngOnInit(): void {
+    if (this.initialQuery) {
+      this.query = this.initialQuery
+    }
+  }
 
   ngAfterViewInit(): void {
     if (this.searchInput) {

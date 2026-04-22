@@ -1,4 +1,4 @@
-  <search-bar (searchValue)="onSearchSubmit($event)"></search-bar>
+  <search-bar [initialQuery]="searchTerm" (searchValue)="onSearchSubmit($event)"></search-bar>
   <div unifiedGestures fontSizeContext="search" class="search-container" #container>
 
   @if(searchResults.length > 0){
