@@ -7,8 +7,8 @@
       </button>
       <mat-menu #headerMenu="matMenu">
         <div class="menu-controls" (click)="$event.stopPropagation()">
-          <button type="button" mat-icon-button (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" [attr.aria-label]="getThemeTooltip()">
-            <mat-icon>{{ getThemeIcon() }}</mat-icon>
+          <button type="button" mat-icon-button (click)="onToggleTheme()" [matTooltip]="themeService.getTooltip()" [attr.aria-label]="themeService.getTooltip()">
+            <mat-icon>{{ themeService.getIcon() }}</mat-icon>
           </button>
           @if (book.id !== 'about') {
           <button type="button" mat-icon-button (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" [attr.aria-label]="getViewModeTooltip()">
@@ -35,7 +35,7 @@
             : 'Mostrar controlos de deslocamento automático' }}
           </span>
         </button>
-        @if (canShare) {
+        @if (shareService.canShare) {
         <button mat-menu-item (click)="onShare(menuTrigger, $event)">
           <mat-icon>share</mat-icon>
           <span>Partilhar</span>

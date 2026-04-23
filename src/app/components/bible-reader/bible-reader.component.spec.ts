@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, ElementRef, NO_ERRORS_SCHEMA } from "@angular/core"
+import { ChangeDetectorRef, NO_ERRORS_SCHEMA } from "@angular/core"
 import {
   ComponentFixture,
   fakeAsync,
@@ -7,13 +7,14 @@ import {
 } from "@angular/core/testing"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
 import { ActivatedRoute, Router } from "@angular/router"
-import { BehaviorSubject, of, throwError } from "rxjs"
+import { BehaviorSubject, of } from "rxjs"
 import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
+import { ChapterLoaderService } from "../../services/chapter-loader.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { BibleReaderComponent } from "./bible-reader.component"
 
@@ -29,6 +30,7 @@ describe("BibleReaderComponent", () => {
   let routeMock: unknown
   let animationServiceSpy: jasmine.SpyObj<BibleReaderAnimationService>
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
+  let chapterLoaderSpy: jasmine.SpyObj<ChapterLoaderService>
 
   const mockBooks = [
     { id: "gen", name: "Genesis", urlAbrv: "1-genesis", chapterCount: 50 },
@@ -99,6 +101,25 @@ describe("BibleReaderComponent", () => {
     analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
     analyticsServiceSpy.track.and.returnValue(Promise.resolve())
 
+    // ChapterLoaderService spy — keeps navigation flags public so specs can set/read them
+    chapterLoaderSpy = jasmine.createSpyObj("ChapterLoaderService", [
+      "loadChapter",
+      "cancel",
+    ])
+    chapterLoaderSpy.isNavigatingForwards = false
+    chapterLoaderSpy.isNavigatingBackwards = false
+    // Default loadChapter implementation: immediately calls onUpdate with the mocked chapter
+    chapterLoaderSpy.loadChapter.and.callFake(
+      (
+        _book: Book,
+        chapterNumber: number,
+        _containers: unknown,
+        onUpdate: (chapter: Chapter, num: number) => void,
+      ) => {
+        onUpdate(mockChapter as unknown as Chapter, chapterNumber)
+      },
+    )
+
     // Default returns
     preferencesServiceSpy.getAutoScrollSpeed.and.returnValue(50)
     preferencesServiceSpy.getViewMode.and.returnValue("scrolling")
@@ -120,6 +141,7 @@ describe("BibleReaderComponent", () => {
         { provide: ActivatedRoute, useValue: routeMock },
         { provide: BibleReaderAnimationService, useValue: animationServiceSpy },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
+        { provide: ChapterLoaderService, useValue: chapterLoaderSpy },
       ],
     })
       .overrideComponent(BibleReaderComponent, {
@@ -132,6 +154,19 @@ describe("BibleReaderComponent", () => {
 
     fixture = TestBed.createComponent(BibleReaderComponent)
     component = fixture.componentInstance
+
+    // Set up a default bookDrawer spy so the route subscription's bookDrawer?.close()
+    // never throws "not a function" in tests that don't explicitly set the drawer.
+    component.bookDrawer = jasmine.createSpyObj("MatDrawer", [
+      "close",
+      "toggle",
+    ])
+    ;(component.bookDrawer.toggle as jasmine.Spy).and.returnValue(
+      Promise.resolve(),
+    )
+    ;(component.bookDrawer.close as jasmine.Spy).and.returnValue(
+      Promise.resolve(),
+    )
   })
 
   it("should create", () => {
@@ -152,19 +187,19 @@ describe("BibleReaderComponent", () => {
     it("should set book and navigate to stored params when URL has no clear intent initially", () => {
       fixture.detectChanges()
       expect(bookServiceSpy.findBook).toHaveBeenCalledWith("gen")
-      expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("gen", 1)
+      expect(chapterLoaderSpy.loadChapter).toHaveBeenCalled()
       expect(routerSpy.navigate).toHaveBeenCalled()
     })
 
     it("should not call getChapter if book and chapter didn't change on route update", () => {
       fixture.detectChanges() // Sets up initial sub
-      apiServiceSpy.getChapter.calls.reset()
+      chapterLoaderSpy.loadChapter.calls.reset()
 
       ;(
         routeMock as { queryParamMap: BehaviorSubject<Map<string, string>> }
       ).queryParamMap.next(new Map([["verseStart", "2"]]))
 
-      expect(apiServiceSpy.getChapter).not.toHaveBeenCalled()
+      expect(chapterLoaderSpy.loadChapter).not.toHaveBeenCalled()
       expect(animationServiceSpy.scrollToVerseElement).toHaveBeenCalled()
     })
   })
@@ -180,7 +215,7 @@ describe("BibleReaderComponent", () => {
     it("goToNextChapter should navigate forward and stop scroll", () => {
       component.goToNextChapter()
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
-      expect(component.isNavigatingForwards).toBeTrue()
+      expect(chapterLoaderSpy.isNavigatingForwards).toBeTrue()
       expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 2])
     })
 
@@ -188,9 +223,10 @@ describe("BibleReaderComponent", () => {
       component.chapterNumber = 2
       component.goToPreviousChapter()
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
-      expect(component.isNavigatingBackwards).toBeTrue()
+      expect(chapterLoaderSpy.isNavigatingBackwards).toBeTrue()
       expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 1])
     })
+
     it("onPageStateChange should only mark for check if state changed", () => {
       const cdrSpy = spyOn(
         (component as unknown as { cdr: ChangeDetectorRef }).cdr,
@@ -207,21 +243,6 @@ describe("BibleReaderComponent", () => {
       expect(component.isFirstPage).toBeFalse()
       expect(component.isLastPage).toBeTrue()
       expect(cdrSpy).toHaveBeenCalled()
-    })
-
-    it("should allow getBook to update book on success", () => {
-      apiServiceSpy.getBook.and.returnValue(of(mockBooks[1] as unknown as Book))
-      component.getBook("about")
-      expect(component.book).toEqual(mockBooks[1] as unknown as Book)
-    })
-
-    it("should handle getBook error gracefully", () => {
-      const consoleSpy = spyOn(console, "error")
-      apiServiceSpy.getBook.and.returnValue(
-        throwError(() => new Error("failed")),
-      )
-      component.getBook("about")
-      expect(consoleSpy).toHaveBeenCalled()
     })
 
     it("should increase and decrease font size via gestures directive", () => {
@@ -419,168 +440,85 @@ describe("BibleReaderComponent", () => {
     }))
   })
 
-  describe("getChapter and animations", () => {
+  describe("getChapter (via ChapterLoaderService)", () => {
     beforeEach(() => {
       fixture.detectChanges()
-      animationServiceSpy.scrollToTop.calls.reset()
-      preferencesServiceSpy.setLastBookId.calls.reset()
-      routerSpy.navigate.calls.reset()
+      chapterLoaderSpy.loadChapter.calls.reset()
     })
 
-    it("should finalize and call animation.scrollToTop on success", fakeAsync(() => {
-      apiServiceSpy.getChapter.and.returnValue(
-        of(mockChapter as unknown as Chapter),
+    it("should delegate chapter loading to ChapterLoaderService", () => {
+      // Navigate to a new book/chapter to trigger getChapter
+      ;(
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap.next(
+        new Map([
+          ["book", "exo"],
+          ["chapter", "2"],
+        ]),
       )
-      component.getChapter(1)
-      tick()
+
+      bookServiceSpy.findBook.and.returnValue({
+        id: "exo",
+        chapterCount: 40,
+        abrv: "Ex",
+        name: "Exodus",
+        shortName: "Exodus",
+      } as unknown as Book)
+      bookServiceSpy.getUrlAbrv.and.returnValue("2-exodus")
+
+      ;(
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap.next(
+        new Map([
+          ["book", "exo"],
+          ["chapter", "2"],
+        ]),
+      )
+
+      expect(chapterLoaderSpy.loadChapter).toHaveBeenCalled()
+    })
+
+    it("should update chapter and chapterNumber via onUpdate callback", () => {
+      // The spy's loadChapter immediately invokes onUpdate with mockChapter
+      ;(
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap.next(
+        new Map([
+          ["book", "exo"],
+          ["chapter", "3"],
+        ]),
+      )
+
+      bookServiceSpy.findBook.and.returnValue({
+        id: "exo",
+        chapterCount: 40,
+        abrv: "Ex",
+        name: "Exodus",
+        shortName: "Exodus",
+      } as unknown as Book)
+
+      ;(
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap.next(
+        new Map([
+          ["book", "exo"],
+          ["chapter", "3"],
+        ]),
+      )
 
       expect(component.chapter).toEqual(mockChapter as unknown as Chapter)
-      expect(component.chapterNumber).toBe(1)
-      expect(animationServiceSpy.scrollToTop).toHaveBeenCalled()
-      expect(preferencesServiceSpy.setLastBookId).toHaveBeenCalledWith("gen")
-    }))
+    })
 
-    it("should call scrollToEnd when navigating backwards in paged mode", fakeAsync(() => {
-      component.viewMode = "paged"
-      component.isNavigatingBackwards = true
-      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", [
-        "scrollToEnd",
-        "ensureAlignedScrollWidth",
-      ]) as unknown as PagedNavigationDirective
-
-      apiServiceSpy.getChapter.and.returnValue(
-        of(mockChapter as unknown as Chapter),
-      )
-
-      let capturedCallback: (() => void) | undefined
-      animationServiceSpy.scrollToTop.and.callFake(
-        (content, container, mode, startAtBottom, cb) => {
-          capturedCallback = cb
-        },
-      )
-
-      component.getChapter(1)
-      tick()
-
-      expect(animationServiceSpy.scrollToTop).toHaveBeenCalled()
-      expect(capturedCallback).toBeDefined()
-      if (capturedCallback) capturedCallback()
-      expect(component.pagedNav?.scrollToEnd).toHaveBeenCalled()
-      expect(
-        component.pagedNav?.ensureAlignedScrollWidth,
-      ).not.toHaveBeenCalled()
-    }))
-
-    it("should call ensureAlignedScrollWidth when navigating forwards in paged mode", fakeAsync(() => {
-      component.viewMode = "paged"
-      component.isNavigatingForwards = true
-      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", [
-        "scrollToEnd",
-        "ensureAlignedScrollWidth",
-      ]) as unknown as PagedNavigationDirective
-
-      apiServiceSpy.getChapter.and.returnValue(
-        of(mockChapter as unknown as Chapter),
-      )
-
-      let capturedCallback: (() => void) | undefined
-      animationServiceSpy.scrollToTop.and.callFake(
-        (content, container, mode, startAtBottom, cb) => {
-          capturedCallback = cb
-        },
-      )
-
-      component.getChapter(2)
-      tick()
-
-      expect(animationServiceSpy.scrollToTop).toHaveBeenCalled()
-      expect(capturedCallback).toBeDefined()
-      if (capturedCallback) capturedCallback()
-      expect(component.pagedNav?.ensureAlignedScrollWidth).toHaveBeenCalled()
-      expect(component.pagedNav?.scrollToEnd).not.toHaveBeenCalled()
-    }))
-
-    it("should finalize and fallback to 'about' book on error", fakeAsync(() => {
-      spyOn(console, "error")
-      apiServiceSpy.getChapter.and.returnValue(
-        throwError(() => new Error("Not found")),
-      )
-      bookServiceSpy.findBook.and.returnValue(mockBooks[1] as unknown as Book) // About book
-      component.book = mockBooks[1] as unknown as Book // Set current to about to trigger fallback
-
-      component.getChapter(1)
-      tick()
-
-      expect(component.chapter.bookId).toBe("about")
-      expect(animationServiceSpy.scrollToTop).toHaveBeenCalled()
-      expect(preferencesServiceSpy.setLastBookId).toHaveBeenCalledWith("about")
-    }))
-
-    it("should trigger slide out animation if navigating", fakeAsync(() => {
-      component.isNavigatingForwards = true
-      // Need a dummy nativeElement
-      component.bookContainer = {
-        nativeElement: document.createElement("div"),
-      } as unknown as ElementRef
-
-      component.getChapter(2)
-      tick()
-
-      expect(animationServiceSpy.triggerSlideOutAnimation).toHaveBeenCalled()
-    }))
-
-    it("should call scrollToVerseElement if verseStart provided", fakeAsync(() => {
-      apiServiceSpy.getChapter.and.returnValue(
-        of(mockChapter as unknown as Chapter),
-      )
-      component.getChapter(1, 5, 10, true)
-      tick()
-      expect(animationServiceSpy.scrollToVerseElement).toHaveBeenCalled()
-    }))
-
-    it("should trigger slide out animation in error fallback if navigating", fakeAsync(() => {
-      spyOn(console, "error")
-      component.isNavigatingForwards = true
-      component.bookContainer = {
-        nativeElement: document.createElement("div"),
-      } as unknown as ElementRef
-      apiServiceSpy.getChapter.and.returnValue(
-        throwError(() => new Error("Not found")),
-      )
-      bookServiceSpy.findBook.and.returnValue(mockBooks[1] as unknown as Book)
-      component.book = mockBooks[1] as unknown as Book
-
-      component.getChapter(2)
-      tick()
-      expect(animationServiceSpy.triggerSlideOutAnimation).toHaveBeenCalled()
-    }))
-
-    it("should navigate to first chapter on error if book is not 'about'", fakeAsync(() => {
-      spyOn(console, "error")
-      apiServiceSpy.getChapter.and.returnValue(
-        throwError(() => new Error("Not found")),
-      )
+    it("should pass navigation flags through ChapterLoaderService", () => {
       component.book = mockBooks[0] as unknown as Book
-      component.bookContainer = {
-        nativeElement: document.createElement("div"),
-      } as unknown as ElementRef
+      component.chapterNumber = 1
+      component.goToNextChapter()
+      expect(chapterLoaderSpy.isNavigatingForwards).toBeTrue()
+    })
 
-      component.getChapter(2)
-      tick()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", 1])
-    }))
-
-    it("should call scrollToVerseElement in error handler if verseStart provided and book is about", fakeAsync(() => {
-      spyOn(console, "error")
-      apiServiceSpy.getChapter.and.returnValue(
-        throwError(() => new Error("Not found")),
-      )
-      bookServiceSpy.findBook.and.returnValue(mockBooks[1] as unknown as Book)
-      component.book = mockBooks[1] as unknown as Book
-
-      component.getChapter(1, 10)
-      tick()
-      expect(animationServiceSpy.scrollToVerseElement).toHaveBeenCalled()
-    }))
+    it("should cancel the loader on destroy", () => {
+      component.ngOnDestroy()
+      expect(chapterLoaderSpy.cancel).toHaveBeenCalled()
+    })
   })
 })

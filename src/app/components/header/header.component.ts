@@ -4,7 +4,6 @@ import {
   Component,
   DestroyRef,
   EventEmitter,
-  Inject,
   Input,
   inject,
   type OnChanges,
@@ -25,13 +24,11 @@ import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { RouterModule } from "@angular/router"
-import { Capacitor } from "@capacitor/core"
-import type { Share } from "@capacitor/share"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { NetworkService } from "../../services/network.service"
+import { ShareService } from "../../services/share.service"
 import { ThemeService } from "../../services/theme.service"
-import { SHARE_PLUGIN } from "../../tokens"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 
@@ -59,40 +56,37 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Input() autoScrollControlsVisible = false
   @Input() viewMode: "scrolling" | "paged" = "scrolling"
 
-  bookLabelMode: "title" | "prompt" = "title"
-  private labelInterval?: number
-  canShare = false
-  currentBookmark: Bookmark | undefined
-
   @Output() openBookSelector = new EventEmitter<{ open: boolean }>()
   @Output() openChapterSelector = new EventEmitter<{ open: boolean }>()
   @Output() toggleAutoScrollControls = new EventEmitter<void>()
   @Output() toggleViewMode = new EventEmitter<void>()
+  @Output() increaseFontSizeEvent = new EventEmitter<void>()
+  @Output() decreaseFontSizeEvent = new EventEmitter<void>()
 
+  bookLabelMode: "title" | "prompt" = "title"
+  private labelInterval?: number
+
+  currentBookmark: Bookmark | undefined
   mobile = false
   isOffline = false
 
   private readonly destroyRef = inject(DestroyRef)
 
   constructor(
-    private readonly themeService: ThemeService,
+    readonly themeService: ThemeService,
+    readonly shareService: ShareService,
     private readonly bookmarkService: BookmarkService,
     private readonly bottomSheet: MatBottomSheet,
     private readonly dialog: MatDialog,
     private readonly cdr: ChangeDetectorRef,
     private readonly networkService: NetworkService,
     public readonly analyticsService: AnalyticsService,
-    @Inject(SHARE_PLUGIN) private sharePlugin: typeof Share,
   ) {}
 
   ngOnInit(): void {
     if (typeof window !== "undefined" && window.screen.width <= 480) {
       this.mobile = true
     }
-    this.canShare =
-      Capacitor.isNativePlatform() ||
-      (typeof navigator !== "undefined" &&
-        typeof navigator.share === "function")
 
     this.isOffline = this.networkService.isOffline
     this.networkService.isOffline$
@@ -123,7 +117,13 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  private updateBookmarkState() {
+  ngOnDestroy(): void {
+    this.stopLabelCycle()
+  }
+
+  // ── Bookmark ───────────────────────────────────────────────────────────────
+
+  private updateBookmarkState(): void {
     if (this.book && this.chapterNumber) {
       this.currentBookmark = this.bookmarkService.getBookmark(
         this.book.id,
@@ -132,27 +132,23 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  openBookmarkSelector() {
-    if (!this.book || !this.chapterNumber) {
-      return
-    }
-
+  openBookmarkSelector(): void {
+    if (!this.book || !this.chapterNumber) return
     this.bottomSheet.open(BookmarkSelectorComponent, {
       data: { bookId: this.book.id, chapter: this.chapterNumber },
     })
   }
 
-  onToggleBookmarkFromMenu(trigger: MatMenuTrigger) {
+  onToggleBookmarkFromMenu(trigger: MatMenuTrigger): void {
     trigger.closeMenu()
     this.openBookmarkSelector()
   }
 
-  onReportProblem(trigger: MatMenuTrigger) {
-    trigger.closeMenu()
-    if (!this.book || !this.chapterNumber) {
-      return
-    }
+  // ── Report problem ─────────────────────────────────────────────────────────
 
+  onReportProblem(trigger: MatMenuTrigger): void {
+    trigger.closeMenu()
+    if (!this.book || !this.chapterNumber) return
     this.dialog.open(ReportProblemComponent, {
       data: { book: this.book, chapter: this.chapterNumber },
       width: "90%",
@@ -160,17 +156,17 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     })
   }
 
-  ngOnDestroy(): void {
-    this.stopLabelCycle()
-  }
+  // ── Navigation selectors ───────────────────────────────────────────────────
 
-  showBookSelector() {
+  showBookSelector(): void {
     this.openBookSelector.emit({ open: true })
   }
 
-  showChapterSelector() {
+  showChapterSelector(): void {
     this.openChapterSelector.emit({ open: true })
   }
+
+  // ── Auto-scroll & view mode ────────────────────────────────────────────────
 
   onToggleAutoScrollControls(trigger: MatMenuTrigger, event?: Event): void {
     event?.stopPropagation()
@@ -183,31 +179,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.toggleViewMode.emit()
   }
 
-  getThemeIcon(): string {
-    const mode = this.themeService.currentMode
-    if (mode === "system") return "brightness_auto"
-    return mode === "light" ? "light_mode" : "dark_mode"
-  }
-
-  getThemeTooltip(): string {
-    const mode = this.themeService.currentMode
-    if (mode === "system") return "Tema do Sistema"
-    return mode === "light" ? "Modo Claro" : "Modo Escuro"
-  }
-
-  isLightTheme(): boolean {
-    return this.themeService.currentMode === "light"
-  }
-
-  toggleTheme(): void {
-    this.themeService.toggleTheme()
-  }
-
-  onToggleTheme(event?: Event): void {
-    event?.stopPropagation()
-    this.toggleTheme()
-  }
-
   getViewModeIcon(): string {
     return this.viewMode === "scrolling" ? "swipe_vertical" : "auto_stories"
   }
@@ -218,67 +189,34 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       : "Modo de Páginas (clique para mudar para deslocamento)"
   }
 
-  @Output() increaseFontSizeEvent = new EventEmitter<void>()
-  @Output() decreaseFontSizeEvent = new EventEmitter<void>()
+  // ── Theme ──────────────────────────────────────────────────────────────────
 
-  increaseFontSize(): void {
-    this.increaseFontSizeEvent.emit()
+  onToggleTheme(event?: Event): void {
+    event?.stopPropagation()
+    this.themeService.toggleTheme()
   }
+
+  // ── Font size ──────────────────────────────────────────────────────────────
 
   onIncreaseFontSize(event?: Event): void {
     event?.stopPropagation()
-    this.increaseFontSize()
-  }
-
-  decreaseFontSize(): void {
-    this.decreaseFontSizeEvent.emit()
+    this.increaseFontSizeEvent.emit()
   }
 
   onDecreaseFontSize(event?: Event): void {
     event?.stopPropagation()
-    this.decreaseFontSize()
+    this.decreaseFontSizeEvent.emit()
   }
+
+  // ── Share ──────────────────────────────────────────────────────────────────
 
   async onShare(trigger: MatMenuTrigger, event?: Event): Promise<void> {
     event?.stopPropagation()
     trigger.closeMenu()
-    await this.sharePassage()
+    await this.shareService.share(this.book, this.chapterNumber)
   }
 
-  async sharePassage(): Promise<void> {
-    if (!this.canShare) {
-      return
-    }
-
-    const isAbout = this.book?.id === "about"
-    const title = "Biblia Sagrada"
-    const text = isAbout
-      ? "Leia a Biblia nesta app."
-      : `Ler ${this.book?.name} ${this.chapterNumber}.`
-    const url = typeof window === "undefined" ? "" : window.location.href
-
-    try {
-      if (Capacitor.isNativePlatform()) {
-        await this.sharePlugin.share({
-          title: "Biblia Sagrada",
-          text,
-          url,
-          dialogTitle: "Partilhar passagem",
-        })
-      } else {
-        await navigator.share({ title, text, url })
-      }
-
-      // Shared successfully
-
-      void this.analyticsService.track("share", {
-        book: this.book?.id,
-        chapter: this.chapterNumber,
-      })
-    } catch {
-      // User canceled or share failed; no UI feedback needed.
-    }
-  }
+  // ── Label cycle (About page) ───────────────────────────────────────────────
 
   private startLabelCycle(): void {
     this.stopLabelCycle()
