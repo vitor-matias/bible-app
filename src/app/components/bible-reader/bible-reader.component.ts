@@ -18,7 +18,7 @@ import {
   MatSidenavModule,
 } from "@angular/material/sidenav"
 import { ActivatedRoute, Router } from "@angular/router"
-import { combineLatest, Subject, Subscription } from "rxjs"
+import { combineLatest, Subject } from "rxjs"
 import { switchMap, takeUntil } from "rxjs/operators"
 import {
   PagedNavigationDirective,
@@ -27,9 +27,12 @@ import {
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
-import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
+import {
+  ChapterContainers,
+  ChapterLoaderService,
+} from "../../services/chapter-loader.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
@@ -59,27 +62,20 @@ import { VerseComponent } from "../verse/verse.component"
     PagedNavigationDirective,
     AutoScrollControlsComponent,
   ],
+  providers: [ChapterLoaderService],
 })
 export class BibleReaderComponent implements OnDestroy {
   private destroy$ = new Subject<void>()
-  private chapterSubscription?: Subscription
 
-  @ViewChild("bookDrawer")
-  bookDrawer!: MatDrawer
-
-  @ViewChild("container")
-  container!: MatDrawerContainer
-
+  @ViewChild("bookDrawer") bookDrawer!: MatDrawer
+  @ViewChild("container") container!: MatDrawerContainer
   @ViewChild(MatDrawerContent, { read: ElementRef })
   drawerContent!: ElementRef<HTMLElement>
-
   @ViewChild(UnifiedGesturesDirective) gestures!: UnifiedGesturesDirective
   @ViewChild(PagedNavigationDirective) pagedNav?: PagedNavigationDirective
-
   @ViewChild("bookDrawerCloseButton") bookDrawerCloseButton!: ElementRef
   @ViewChild("chapterDrawerCloseButton") chapterDrawerCloseButton!: ElementRef
   @ViewChild("bookContainer") bookContainer!: ElementRef
-
   @ViewChild("bookBlock") bookBlock!: ElementRef
 
   book!: Book
@@ -87,15 +83,11 @@ export class BibleReaderComponent implements OnDestroy {
   chapterNumber = 1
   chapter!: Chapter
 
-  bookParam: string | null = null
-  chapterParam: string | null = null
   showBooks = true
   showAutoScrollControls = false
   private autoScrollControlsPreference = false
   viewMode: "scrolling" | "paged" = "scrolling"
 
-  isNavigatingForwards = false
-  isNavigatingBackwards = false
   isFirstPage = true
   isLastPage = false
 
@@ -116,7 +108,6 @@ export class BibleReaderComponent implements OnDestroy {
 
   constructor(
     private autoScrollService: AutoScrollService,
-    private apiService: BibleApiService,
     private bookService: BookService,
     private preferencesService: PreferencesService,
     private cdr: ChangeDetectorRef,
@@ -124,6 +115,7 @@ export class BibleReaderComponent implements OnDestroy {
     private route: ActivatedRoute,
     private animationService: BibleReaderAnimationService,
     private analyticsService: AnalyticsService,
+    private chapterLoader: ChapterLoaderService,
   ) {}
 
   ngOnInit(): void {
@@ -133,36 +125,40 @@ export class BibleReaderComponent implements OnDestroy {
     }
 
     this.viewMode = this.preferencesService.getViewMode()
-
     this.autoScrollControlsPreference =
       this.preferencesService.getAutoScrollControlsVisible()
     this.showAutoScrollControls =
       this.viewMode === "scrolling" && this.autoScrollControlsPreference
+
+    /**
+     * Primary State Machine Stream:
+     * Listens to the global books payload and intercepts URL params (`book`, `chapter`, `verseStart`).
+     * It maps the active params to the loaded books and forces a redirect if the URL is missing params
+     * or uses legacy preferences. Finally, it chains into the query param map to reactively update the UI.
+     */
     this.bookService.books$
       .pipe(
         takeUntil(this.destroy$),
         switchMap((_books) => {
           this.books = _books
-          this.bookParam =
+          const bookParam =
             this.router.routerState.snapshot.root.firstChild?.params[
               "book"
             ]?.toLowerCase()
-          this.chapterParam =
+          const chapterParam =
             this.router.routerState.snapshot.root.firstChild?.params["chapter"]
-
           const queryParams =
             this.router.routerState.snapshot.root.firstChild?.queryParams || {}
 
           const storedBook =
-            this.bookParam || this.preferencesService.getLastBookId() || "about"
+            bookParam || this.preferencesService.getLastBookId() || "about"
           const storedChapter =
-            this.chapterParam ||
+            chapterParam ||
             this.preferencesService.getLastChapterNumber()?.toString() ||
             "1"
 
           if (storedBook && storedChapter) {
             this.book = this.bookService.findBook(storedBook)
-
             this.chapterNumber = Number.parseInt(storedChapter, 10)
 
             const parsedVerseStart = queryParams["verseStart"]
@@ -198,7 +194,6 @@ export class BibleReaderComponent implements OnDestroy {
         const verseEndParam = queryParams.get("verseEnd")
           ? Number.parseInt(queryParams.get("verseEnd") || "1", 10)
           : undefined
-
         const highlight =
           queryParams.get("highlight") === null
             ? true
@@ -224,38 +219,34 @@ export class BibleReaderComponent implements OnDestroy {
 
         this.book = tempBook
         this.getChapter(chapterParam, verseStartParam, verseEndParam, highlight)
-        this.bookDrawer?.close()
+        this.bookDrawer?.close?.()
       })
   }
 
   ngOnDestroy(): void {
     this.destroy$.next()
     this.destroy$.complete()
-    this.chapterSubscription?.unsubscribe()
-    // AutoScrollService handles its own cleanup now if we stop it, or the component stopping it
+    this.chapterLoader.cancel()
   }
 
+  // ── Navigation ─────────────────────────────────────────────────────────────
+
   onSwipeLeft(): void {
-    if (this.effectiveViewMode === "paged") {
-      this.pagedNav?.nextPage()
-    } else {
-      this.goToNextChapter()
-    }
+    this.effectiveViewMode === "paged"
+      ? this.pagedNav?.nextPage()
+      : this.goToNextChapter()
   }
 
   onSwipeRight(): void {
-    if (this.effectiveViewMode === "paged") {
-      this.pagedNav?.prevPage()
-    } else {
-      this.goToPreviousChapter()
-    }
+    this.effectiveViewMode === "paged"
+      ? this.pagedNav?.prevPage()
+      : this.goToPreviousChapter()
   }
 
   goToNextChapter(): void {
     if (this.book.chapterCount >= this.chapterNumber + 1) {
       this.autoScrollService.stop()
-      this.isNavigatingForwards = true
-
+      this.chapterLoader.isNavigatingForwards = true
       this.router.navigate([
         this.bookService.getUrlAbrv(this.book),
         this.chapterNumber + 1,
@@ -266,8 +257,7 @@ export class BibleReaderComponent implements OnDestroy {
   goToPreviousChapter(): void {
     if (this.chapterNumber > 1) {
       this.autoScrollService.stop()
-      this.isNavigatingBackwards = true
-
+      this.chapterLoader.isNavigatingBackwards = true
       this.router.navigate([
         this.bookService.getUrlAbrv(this.book),
         this.chapterNumber - 1,
@@ -283,239 +273,26 @@ export class BibleReaderComponent implements OnDestroy {
     ])
   }
 
-  onBookSubmit(event: { bookId: string }) {
-    const book = this.bookService.findBook(event.bookId)
-    this.router.navigate(["/", this.bookService.getUrlAbrv(book), 1])
-
-    this.bookDrawer.close()
-  }
-
-  onChapterSubmit(event: { chapterNumber: number }) {
-    this.goToChapter(event.chapterNumber)
-
-    this.bookDrawer.close()
-  }
-
-  getBook(book: string) {
-    this.apiService.getBook(book).subscribe({
-      next: (res) => {
-        this.book = res
-      },
-      error: (err) => console.error(err),
-    })
-  }
-
-  getChapter(
-    chapter: Chapter["number"],
-    verseStart?: Verse["number"],
-    verseEnd?: Verse["number"],
-    highlight = true,
-  ) {
-    this.chapterSubscription?.unsubscribe()
-    this.chapterSubscription = this.apiService
-      .getChapter(this.book.id, chapter)
-      .subscribe({
-        next: (res) => {
-          const finalize = () => {
-            if (this.bookContainer?.nativeElement) {
-              // Hide BEFORE change detection paints the new chapter
-              this.bookContainer.nativeElement.style.transition = "none"
-              this.bookContainer.nativeElement.style.opacity = "0"
-            }
-
-            this.chapter = res
-            this.chapterNumber = chapter
-
-            this.cdr.detectChanges()
-
-            const startAtBottom = this.isNavigatingBackwards
-            this.isNavigatingBackwards = false
-            this.isNavigatingForwards = false
-
-            if (!verseStart) {
-              this.animationService.scrollToTop(
-                this.drawerContent?.nativeElement,
-                this.bookContainer?.nativeElement,
-                this.effectiveViewMode,
-                startAtBottom,
-                startAtBottom
-                  ? () => this.pagedNav?.scrollToEnd()
-                  : () => this.pagedNav?.ensureAlignedScrollWidth(),
-              )
-            } else {
-              this.animationService.scrollToVerseElement(
-                this.bookBlock?.nativeElement,
-                this.bookContainer?.nativeElement,
-                verseStart,
-                verseEnd,
-                highlight,
-              )
-            }
-
-            this.preferencesService.setLastBookId(this.book.id)
-            this.preferencesService.setLastChapterNumber(this.chapterNumber)
-          }
-
-          const container = this.bookContainer?.nativeElement
-          if (
-            container &&
-            (this.isNavigatingBackwards || this.isNavigatingForwards)
-          ) {
-            this.animationService
-              .triggerSlideOutAnimation(container, this.isNavigatingBackwards)
-              .then(() => finalize())
-          } else {
-            finalize()
-          }
-        },
-        error: (err) => {
-          const finalizeError = () => {
-            if (this.bookContainer?.nativeElement) {
-              this.bookContainer.nativeElement.style.transition = "none"
-              this.bookContainer.nativeElement.style.opacity = "0"
-            }
-
-            if (this.book.id === "about") {
-              this.chapter = { bookId: "about", number: 1 }
-              this.chapterNumber = chapter
-
-              this.cdr.detectChanges()
-
-              const startAtBottom = this.isNavigatingBackwards
-              this.isNavigatingBackwards = false
-              this.isNavigatingForwards = false
-
-              if (!verseStart) {
-                this.animationService.scrollToTop(
-                  this.drawerContent?.nativeElement,
-                  this.bookContainer?.nativeElement,
-                  this.effectiveViewMode,
-                  startAtBottom,
-                  startAtBottom
-                    ? () => this.pagedNav?.scrollToEnd()
-                    : () => this.pagedNav?.ensureAlignedScrollWidth(),
-                )
-              } else {
-                this.animationService.scrollToVerseElement(
-                  this.bookBlock?.nativeElement,
-                  this.bookContainer?.nativeElement,
-                  verseStart,
-                  verseEnd,
-                  highlight,
-                )
-              }
-
-              this.preferencesService.setLastBookId(this.book.id)
-              this.preferencesService.setLastChapterNumber(this.chapterNumber)
-            } else {
-              this.router.navigate([
-                "/",
-                this.bookService.getUrlAbrv(this.book),
-                1,
-              ])
-            }
-            console.error(err)
-          }
-
-          const container = this.bookContainer?.nativeElement
-          if (
-            container &&
-            (this.isNavigatingBackwards || this.isNavigatingForwards)
-          ) {
-            this.animationService
-              .triggerSlideOutAnimation(container, this.isNavigatingBackwards)
-              .then(() => finalizeError())
-          } else {
-            finalizeError()
-          }
-        },
-      })
-  }
-
-  openBookDrawer(event: { open: boolean }) {
-    if (this.showBooks) {
-      this.bookDrawer.toggle().finally(() => {
-        this.focusCloseButton()
-      })
-    } else {
-      this.bookDrawer.close().finally(() => {
-        this.showBooks = true
-        this.bookDrawer.toggle().finally(() => {
-          this.focusCloseButton()
-        })
-      })
-    }
-  }
-
-  private focusCloseButton() {
-    // Optional: could use ViewChild if the button is always present,
-    // but since it's inside conditional templates or drawers, querySelector is sometimes pragmatic.
-    // However, let's try to trust the user's focus management or leave it for now.
-    // I will leave it as is to avoid breaking focus logic without testing,
-    // but the prompt asked to replace direct DOM queries.
-    // Let's use the nativeElement of the component to scope it at least.
-    const closeButton = this.bookDrawerCloseButton?.nativeElement as HTMLElement
-    if (closeButton) {
-      closeButton.blur()
-    }
-  }
-
-  openChapterDrawer(event: { open: boolean }) {
-    if (!this.showBooks) {
-      this.bookDrawer.toggle().finally(() => {
-        this.focusCloseButton()
-      })
-    } else {
-      this.bookDrawer.close().finally(() => {
-        this.showBooks = false
-        this.bookDrawer.toggle().finally(() => {
-          this.focusCloseButton()
-        })
-      })
-    }
-  }
-
-  dismissBookDrawer(): void {
-    this.bookDrawer.close()
-  }
-
-  toggleAutoScrollControlsVisibility(): void {
-    this.showAutoScrollControls = !this.showAutoScrollControls
-    this.autoScrollControlsPreference = this.showAutoScrollControls
-    this.preferencesService.setAutoScrollControlsVisible(
-      this.showAutoScrollControls,
-    )
-  }
-
-  onToggleViewMode(): void {
-    this.viewMode = this.viewMode === "scrolling" ? "paged" : "scrolling"
-    this.preferencesService.setViewMode(this.viewMode)
-
-    void this.analyticsService.track("view_mode_toggle", {
-      mode: this.viewMode,
-      book: this.book?.id,
-      chapter: this.chapterNumber,
-    })
-
-    this.cdr.markForCheck()
-    // Reset scroll when switching to paged? Or keep position?
-    // Paged View relies on overflow-x scroll or just columns.
-    // If we switch to paged, we might start at page 1 (scrollLeft 0).
-    if (this.viewMode === "paged") {
-      this.autoScrollService.stop()
-      this.showAutoScrollControls = false
-      // Wait for render
-      setTimeout(() => {
-        const container = this.bookContainer?.nativeElement
-        if (container) {
-          container.scrollLeft = 0
-        }
-      }, 0)
-    }
-  }
-
   @HostListener("window:keydown", ["$event"])
   onArrowPress(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement | null
+    const targetTag = target?.tagName
+    const isEditingTarget =
+      targetTag === "INPUT" ||
+      targetTag === "TEXTAREA" ||
+      targetTag === "SELECT" ||
+      target?.isContentEditable
+
+    if (
+      isEditingTarget ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey ||
+      event.shiftKey
+    ) {
+      return
+    }
+
     if (event.key === "ArrowLeft") {
       this.effectiveViewMode === "paged"
         ? this.pagedNav?.prevPage()
@@ -528,6 +305,88 @@ export class BibleReaderComponent implements OnDestroy {
     }
   }
 
+  // ── Drawer management ──────────────────────────────────────────────────────
+
+  onBookSubmit(event: { bookId: string }) {
+    const book = this.bookService.findBook(event.bookId)
+    this.router.navigate(["/", this.bookService.getUrlAbrv(book), 1])
+    this.bookDrawer.close()
+  }
+
+  onChapterSubmit(event: { chapterNumber: number }) {
+    this.goToChapter(event.chapterNumber)
+    this.bookDrawer.close()
+  }
+
+  openBookDrawer(_event: { open: boolean }) {
+    if (this.showBooks) {
+      this.bookDrawer.toggle().finally(() => this.blurCloseButton())
+    } else {
+      this.bookDrawer.close().finally(() => {
+        this.showBooks = true
+        this.bookDrawer.toggle().finally(() => this.blurCloseButton())
+      })
+    }
+  }
+
+  openChapterDrawer(_event: { open: boolean }) {
+    if (!this.showBooks) {
+      this.bookDrawer.toggle().finally(() => this.blurCloseButton())
+    } else {
+      this.bookDrawer.close().finally(() => {
+        this.showBooks = false
+        this.bookDrawer.toggle().finally(() => this.blurCloseButton())
+      })
+    }
+  }
+
+  dismissBookDrawer(): void {
+    this.bookDrawer.close()
+  }
+
+  /**
+   * Removes focus from the close button to prevent a lingering focus ring
+   * on the mobile drawer UI after interaction.
+   */
+  private blurCloseButton(): void {
+    const btn = this.bookDrawerCloseButton?.nativeElement as HTMLElement
+    btn?.blur()
+  }
+
+  // ── View mode & auto-scroll ────────────────────────────────────────────────
+
+  onToggleViewMode(): void {
+    this.viewMode = this.viewMode === "scrolling" ? "paged" : "scrolling"
+    this.preferencesService.setViewMode(this.viewMode)
+
+    void this.analyticsService.track("view_mode_toggle", {
+      mode: this.viewMode,
+      book: this.book?.id,
+      chapter: this.chapterNumber,
+    })
+
+    this.cdr.markForCheck()
+
+    if (this.viewMode === "paged") {
+      this.autoScrollService.stop()
+      this.showAutoScrollControls = false
+      setTimeout(() => {
+        const container = this.bookContainer?.nativeElement
+        if (container) container.scrollLeft = 0
+      }, 0)
+    }
+  }
+
+  toggleAutoScrollControlsVisibility(): void {
+    this.showAutoScrollControls = !this.showAutoScrollControls
+    this.autoScrollControlsPreference = this.showAutoScrollControls
+    this.preferencesService.setAutoScrollControlsVisible(
+      this.showAutoScrollControls,
+    )
+  }
+
+  // ── Font size ──────────────────────────────────────────────────────────────
+
   onIncreaseFontSize(): void {
     this.gestures.increaseFontSize()
   }
@@ -535,6 +394,8 @@ export class BibleReaderComponent implements OnDestroy {
   onDecreaseFontSize(): void {
     this.gestures.decreaseFontSize()
   }
+
+  // ── Verse helpers ──────────────────────────────────────────────────────────
 
   checkIfNextVerseStartsWithQuote(index: number): boolean {
     if (!this.chapter?.verses) return false
@@ -544,9 +405,36 @@ export class BibleReaderComponent implements OnDestroy {
     const firstDisplayableIdx = nextVerse.text.findIndex(
       (t) => t.type !== "footnote" && t.type !== "references",
     )
-
     if (firstDisplayableIdx === -1) return false
-
     return nextVerse.text[firstDisplayableIdx].type === "quote"
+  }
+
+  // ── Private ────────────────────────────────────────────────────────────────
+
+  private getChapter(
+    chapter: Chapter["number"],
+    verseStart?: Verse["number"],
+    verseEnd?: Verse["number"],
+    highlight = true,
+  ): void {
+    const containers: ChapterContainers = {
+      bookBlock: this.bookBlock?.nativeElement ?? undefined,
+      bookContainer: this.bookContainer?.nativeElement ?? undefined,
+      drawerContent: this.drawerContent?.nativeElement ?? undefined,
+      effectiveViewMode: this.effectiveViewMode,
+      pagedNav: this.pagedNav,
+    }
+
+    this.chapterLoader.loadChapter(
+      this.book,
+      chapter,
+      containers,
+      (loadedChapter, loadedChapterNumber) => {
+        this.chapter = loadedChapter
+        this.chapterNumber = loadedChapterNumber
+        this.cdr.detectChanges()
+      },
+      { verseStart, verseEnd, highlight },
+    )
   }
 }

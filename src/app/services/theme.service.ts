@@ -46,6 +46,18 @@ export class ThemeService {
     return this.themeMode.value
   }
 
+  /** Material icon name for the current theme mode. */
+  getIcon(): string {
+    if (this.currentMode === "system") return "brightness_auto"
+    return this.currentMode === "light" ? "light_mode" : "dark_mode"
+  }
+
+  /** Human-readable tooltip label for the current theme mode (PT). */
+  getTooltip(): string {
+    if (this.currentMode === "system") return "Tema do Sistema"
+    return this.currentMode === "light" ? "Modo Claro" : "Modo Escuro"
+  }
+
   toggleTheme(): void {
     const modes: ThemeMode[] = ["light", "dark", "system"]
     const currentIndex = modes.indexOf(this.themeMode.value)
