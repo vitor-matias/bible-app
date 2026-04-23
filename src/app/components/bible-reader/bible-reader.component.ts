@@ -62,6 +62,7 @@ import { VerseComponent } from "../verse/verse.component"
     PagedNavigationDirective,
     AutoScrollControlsComponent,
   ],
+  providers: [ChapterLoaderService],
 })
 export class BibleReaderComponent implements OnDestroy {
   private destroy$ = new Subject<void>()
@@ -274,6 +275,24 @@ export class BibleReaderComponent implements OnDestroy {
 
   @HostListener("window:keydown", ["$event"])
   onArrowPress(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement | null
+    const targetTag = target?.tagName
+    const isEditingTarget =
+      targetTag === "INPUT" ||
+      targetTag === "TEXTAREA" ||
+      targetTag === "SELECT" ||
+      target?.isContentEditable
+
+    if (
+      isEditingTarget ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey ||
+      event.shiftKey
+    ) {
+      return
+    }
+
     if (event.key === "ArrowLeft") {
       this.effectiveViewMode === "paged"
         ? this.pagedNav?.prevPage()

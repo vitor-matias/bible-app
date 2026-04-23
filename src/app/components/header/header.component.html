@@ -7,8 +7,8 @@
       </button>
       <mat-menu #headerMenu="matMenu">
         <div class="menu-controls" (click)="$event.stopPropagation()">
-          <button type="button" mat-icon-button (click)="onToggleTheme()" [matTooltip]="themeService.getTooltip()" [attr.aria-label]="themeService.getTooltip()">
-            <mat-icon>{{ themeService.getIcon() }}</mat-icon>
+          <button type="button" mat-icon-button (click)="onToggleTheme()" [matTooltip]="themeTooltip()" [attr.aria-label]="themeTooltip()">
+            <mat-icon>{{ themeIcon() }}</mat-icon>
           </button>
           @if (book.id !== 'about') {
           <button type="button" mat-icon-button (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" [attr.aria-label]="getViewModeTooltip()">

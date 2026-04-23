@@ -254,5 +254,29 @@ describe("ChapterLoaderService", () => {
 
       expect(updateSpy).not.toHaveBeenCalled()
     }))
+
+    it("should ignore pending animation callbacks after cancellation", fakeAsync(() => {
+      let resolveAnimation!: () => void
+      apiSpy.getChapter.and.returnValue(of(mockChapter))
+      animSpy.triggerSlideOutAnimation.and.returnValue(
+        new Promise<void>((resolve) => {
+          resolveAnimation = resolve
+        }),
+      )
+      const updateSpy = jasmine.createSpy("onUpdate")
+
+      service.isNavigatingForwards = true
+      service.loadChapter(mockBook, 1, mockContainers, updateSpy)
+      tick()
+
+      service.cancel()
+      resolveAnimation()
+      tick()
+
+      expect(updateSpy).not.toHaveBeenCalled()
+      expect(animSpy.scrollToTop).not.toHaveBeenCalled()
+      expect(prefSpy.setLastBookId).not.toHaveBeenCalled()
+      expect(prefSpy.setLastChapterNumber).not.toHaveBeenCalled()
+    }))
   })
 })

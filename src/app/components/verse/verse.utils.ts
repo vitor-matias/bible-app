@@ -152,10 +152,28 @@ export function shouldShowParagraph(
     verse.number > 0 &&
     ((verse.text[i - 1]?.type !== "section" &&
       verse.text[i - 1]?.type !== "references" &&
-      (verse.text[i - 1]?.type !== "paragraph" ||
-        (verse.text[i - 1]?.type === "paragraph" && text.text.length > 2))) ||
+      (verse.text[i - 1]?.type !== "paragraph" || text.text.length > 2)) ||
       verse.bookId === "psa")
   )
+}
+
+function getNextDisplayableType(
+  verse: Verse,
+  sectionIndex: number,
+): TextType["type"] | undefined {
+  const sectionText = getDataForSection(verse, sectionIndex).text
+  const lastElementIndex = sectionIndex + sectionText.length - 1
+
+  if (lastElementIndex + 1 >= verse.text.length) {
+    return undefined
+  }
+
+  return verse.text.find(
+    (text, index) =>
+      index > lastElementIndex &&
+      text.type !== "footnote" &&
+      text.type !== "references",
+  )?.type
 }
 
 /**
@@ -167,23 +185,9 @@ export function checkNextIsQuote(
   i: number,
   nextVerseStartsWithQuote: boolean,
 ): boolean {
-  const sectionText = getDataForSection(verse, i).text
-  const lastElementIndex = i + sectionText.length - 1
-
-  if (lastElementIndex + 1 < verse.text.length) {
-    const nextDisplayableIdx = verse.text.findIndex(
-      (t, idx) =>
-        idx > lastElementIndex &&
-        t.type !== "footnote" &&
-        t.type !== "references",
-    )
-
-    if (nextDisplayableIdx !== -1) {
-      return verse.text[nextDisplayableIdx].type === "quote"
-    }
-  }
-
-  return nextVerseStartsWithQuote
+  return (
+    getNextDisplayableType(verse, i) === "quote" || nextVerseStartsWithQuote
+  )
 }
 
 /**
@@ -191,22 +195,7 @@ export function checkNextIsQuote(
  * paragraph marker.
  */
 export function checkNextIsParagraph(verse: Verse, i: number): boolean {
-  const sectionText = getDataForSection(verse, i).text
-  const lastElementIndex = i + sectionText.length - 1
-
-  if (lastElementIndex + 1 < verse.text.length) {
-    const nextDisplayableIdx = verse.text.findIndex(
-      (t, idx) =>
-        idx > lastElementIndex &&
-        t.type !== "footnote" &&
-        t.type !== "references",
-    )
-
-    if (nextDisplayableIdx !== -1) {
-      return verse.text[nextDisplayableIdx].type === "paragraph"
-    }
-  }
-  return false
+  return getNextDisplayableType(verse, i) === "paragraph"
 }
 
 /** Returns true if the element at `position` lives inside an s2 section. */

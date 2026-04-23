@@ -10,16 +10,17 @@ import { AnalyticsService } from "./analytics.service"
  */
 @Injectable({ providedIn: "root" })
 export class ShareService {
-  readonly canShare: boolean
-
   constructor(
     @Inject(SHARE_PLUGIN) private sharePlugin: typeof Share,
     private analyticsService: AnalyticsService,
-  ) {
-    this.canShare =
+  ) {}
+
+  get canShare(): boolean {
+    return (
       Capacitor.isNativePlatform() ||
       (typeof navigator !== "undefined" &&
         typeof navigator.share === "function")
+    )
   }
 
   async share(book: Book, chapterNumber: number): Promise<void> {
@@ -35,7 +36,7 @@ export class ShareService {
     try {
       if (Capacitor.isNativePlatform()) {
         await this.sharePlugin.share({
-          title: "Biblia Sagrada",
+          title,
           text,
           url,
           dialogTitle: "Partilhar passagem",
@@ -48,8 +49,31 @@ export class ShareService {
         book: book?.id,
         chapter: chapterNumber,
       })
-    } catch {
-      // User cancelled or share failed — no UI feedback needed.
+    } catch (err) {
+      if (this.isUserCancelled(err)) {
+        return
+      }
+
+      void this.analyticsService.track("share_error", {
+        book: book?.id,
+        chapter: chapterNumber,
+        error: err instanceof Error ? err.message : String(err),
+      })
     }
+  }
+
+  private isUserCancelled(err: unknown): boolean {
+    if (!(err instanceof Error)) {
+      return false
+    }
+
+    const message = err.message.toLowerCase()
+    return (
+      err.name === "AbortError" ||
+      err.name === "NotAllowedError" ||
+      message.includes("abort") ||
+      message.includes("cancel") ||
+      message.includes("not allowed")
+    )
   }
 }

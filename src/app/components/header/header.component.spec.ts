@@ -3,15 +3,12 @@ import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
 import { Router } from "@angular/router"
-import { Capacitor } from "@capacitor/core"
-import type { Share } from "@capacitor/share"
 import { BehaviorSubject, of } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { NetworkService } from "../../services/network.service"
 import { ShareService } from "../../services/share.service"
 import { ThemeService } from "../../services/theme.service"
-import { SHARE_PLUGIN } from "../../tokens"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { HeaderComponent } from "./header.component"
 
@@ -27,22 +24,24 @@ describe("HeaderComponent", () => {
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
   let shareServiceSpy: jasmine.SpyObj<ShareService>
   let isOfflineSubject: BehaviorSubject<boolean>
-  let mockSharePlugin: jasmine.SpyObj<typeof Share>
+  let themeModeSubject: BehaviorSubject<"light" | "dark" | "system">
+  let canShare: boolean
 
   beforeEach(async () => {
     routerSpy = jasmine.createSpyObj("Router", ["navigate"])
     isOfflineSubject = new BehaviorSubject<boolean>(false)
+    themeModeSubject = new BehaviorSubject<"light" | "dark" | "system">(
+      "system",
+    )
+    canShare = true
     networkServiceSpy = jasmine.createSpyObj("NetworkService", [], {
       isOffline$: isOfflineSubject.asObservable(),
       isOffline: false,
     })
-    themeServiceSpy = jasmine.createSpyObj(
-      "ThemeService",
-      ["toggleTheme", "getIcon", "getTooltip"],
-      { currentMode: "system" },
-    )
-    themeServiceSpy.getIcon.and.returnValue("brightness_auto")
-    themeServiceSpy.getTooltip.and.returnValue("Tema do Sistema")
+    themeServiceSpy = jasmine.createSpyObj("ThemeService", ["toggleTheme"], {
+      currentMode: "system",
+      themeMode$: themeModeSubject.asObservable(),
+    })
 
     bookmarkServiceSpy = jasmine.createSpyObj("BookmarkService", [
       "getBookmark",
@@ -50,7 +49,6 @@ describe("HeaderComponent", () => {
     bookmarkServiceSpy.bookmarks$ = of([])
     bottomSheetSpy = jasmine.createSpyObj("MatBottomSheet", ["open"])
     dialogSpy = jasmine.createSpyObj("MatDialog", ["open"])
-    mockSharePlugin = jasmine.createSpyObj("Share", ["share"])
     analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", [
       "track",
       "areAnalyticsAvailable",
@@ -58,8 +56,10 @@ describe("HeaderComponent", () => {
     analyticsServiceSpy.track.and.returnValue(Promise.resolve())
     analyticsServiceSpy.areAnalyticsAvailable.and.returnValue(true)
 
-    shareServiceSpy = jasmine.createSpyObj("ShareService", ["share"], {
-      canShare: true,
+    shareServiceSpy = jasmine.createSpyObj("ShareService", ["share"])
+    Object.defineProperty(shareServiceSpy, "canShare", {
+      configurable: true,
+      get: () => canShare,
     })
     shareServiceSpy.share.and.returnValue(Promise.resolve())
 
@@ -72,7 +72,6 @@ describe("HeaderComponent", () => {
         { provide: BookmarkService, useValue: bookmarkServiceSpy },
         { provide: MatBottomSheet, useValue: bottomSheetSpy },
         { provide: MatDialog, useValue: dialogSpy },
-        { provide: SHARE_PLUGIN, useValue: mockSharePlugin },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
         { provide: ShareService, useValue: shareServiceSpy },
       ],
@@ -125,30 +124,27 @@ describe("HeaderComponent", () => {
     expect(dialogSpy.open).not.toHaveBeenCalled()
   })
 
-  it("should share using Capacitor Share on native platforms", async () => {
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
-    mockSharePlugin.share.and.resolveTo()
-
+  it("should delegate sharing to ShareService with the current chapter", async () => {
     component.chapterNumber = 1
     const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
 
     await component.onShare(trigger)
 
+    expect(trigger.closeMenu).toHaveBeenCalled()
     expect(shareServiceSpy.share).toHaveBeenCalledWith(component.book, 1)
   })
 
-  it("should share using navigator.share on web platforms", async () => {
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(false)
+  it("should show the share menu item when sharing is available", () => {
+    canShare = true
+    fixture.detectChanges()
 
-    component.chapterNumber = 1
-    const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
-
-    await component.onShare(trigger)
-
-    expect(shareServiceSpy.share).toHaveBeenCalledWith(component.book, 1)
-  })
-
-  it("should report canShare via ShareService", () => {
     expect(component.shareService.canShare).toBeTrue()
+  })
+
+  it("should hide the share menu item when sharing is unavailable", () => {
+    canShare = false
+    fixture.detectChanges()
+
+    expect(component.shareService.canShare).toBeFalse()
   })
 })

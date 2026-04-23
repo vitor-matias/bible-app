@@ -1,11 +1,13 @@
 import { DOCUMENT } from "@angular/common"
 import { HttpErrorResponse } from "@angular/common/http"
 import {
-  ChangeDetectorRef,
+  AfterViewInit,
   Component,
   type ElementRef,
   Inject,
   NgZone,
+  OnDestroy,
+  OnInit,
   ViewChild,
 } from "@angular/core"
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
@@ -32,7 +34,7 @@ import { SearchBarComponent } from "../search-bar/search-bar.component"
     MatSnackBarModule,
   ],
 })
-export class SearchComponent {
+export class SearchComponent implements OnInit, AfterViewInit, OnDestroy {
   searchResults: Verse[] = []
 
   searchTerm = ""
@@ -53,7 +55,6 @@ export class SearchComponent {
     private bookService: BookService,
     private snackBar: MatSnackBar,
     private router: Router,
-    _cdr: ChangeDetectorRef,
     private ngZone: NgZone,
     private analyticsService: AnalyticsService,
     private searchStateService: SearchStateService,

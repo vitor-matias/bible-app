@@ -1,6 +1,5 @@
 import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
-import type { Share } from "@capacitor/share"
 import { SHARE_PLUGIN } from "../tokens"
 import { AnalyticsService } from "./analytics.service"
 import { ShareService } from "./share.service"
@@ -105,8 +104,12 @@ describe("ShareService", () => {
     })
 
     it("should not execute if canShare is false", async () => {
-      // Force it to false via spy (even though it's readonly, we bypass for test)
-      Object.defineProperty(service, "canShare", { value: false })
+      ;(Capacitor.isNativePlatform as jasmine.Spy).and.returnValue(false)
+      Object.defineProperty(navigator, "share", {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      })
 
       await service.share(mockBook, 1)
 
@@ -141,7 +144,9 @@ describe("ShareService", () => {
     })
 
     it("should use navigator.share on web platforms", async () => {
-      // Reset the Capacitor spy to false to trigger web fallback
+      // Because canShare is a dynamic getter we can drive web behaviour
+      // by resetting the Capacitor spy and patching navigator.share directly,
+      // then re-injecting the service so the getter sees the updated platform.
       ;(Capacitor.isNativePlatform as jasmine.Spy).and.returnValue(false)
 
       const navShareSpy = jasmine
@@ -153,12 +158,9 @@ describe("ShareService", () => {
         writable: true,
       })
 
-      // We have to recreate the service so the constructor picks up the web platform correctly
-      service = new ShareService(
-        mockSharePlugin as unknown as typeof Share,
-        analyticsServiceSpy,
-      )
-
+      // service is already injected from beforeEach; since canShare is a getter
+      // that calls Capacitor.isNativePlatform() each time, the spy above is
+      // enough — no need to recreate the service.
       await service.share(mockBook, 5)
 
       expect(navShareSpy).toHaveBeenCalledWith({
@@ -173,15 +175,26 @@ describe("ShareService", () => {
       })
     })
 
-    it("should swallow errors when sharing fails or is cancelled", async () => {
-      mockSharePlugin.share.and.returnValue(Promise.reject("User cancelled"))
-      const consoleErrorSpy = spyOn(console, "error")
+    it("should ignore user-cancelled share attempts", async () => {
+      const cancelError = new Error("User cancelled")
+      cancelError.name = "AbortError"
+      mockSharePlugin.share.and.returnValue(Promise.reject(cancelError))
 
       await expectAsync(service.share(mockBook, 1)).toBeResolved()
 
-      // Tracking should not happen if share threw an error
       expect(analyticsServiceSpy.track).not.toHaveBeenCalled()
-      expect(consoleErrorSpy).not.toHaveBeenCalled() // Ensures it failed silently
+    })
+
+    it("should track unexpected share failures", async () => {
+      mockSharePlugin.share.and.returnValue(Promise.reject(new Error("boom")))
+
+      await expectAsync(service.share(mockBook, 1)).toBeResolved()
+
+      expect(analyticsServiceSpy.track).toHaveBeenCalledWith("share_error", {
+        book: "gen",
+        chapter: 1,
+        error: "boom",
+      })
     })
   })
 })

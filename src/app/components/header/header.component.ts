@@ -2,6 +2,7 @@ import { CommonModule } from "@angular/common"
 import {
   ChangeDetectorRef,
   Component,
+  computed,
   DestroyRef,
   EventEmitter,
   Input,
@@ -10,9 +11,10 @@ import {
   type OnDestroy,
   type OnInit,
   Output,
+  type Signal,
   type SimpleChanges,
 } from "@angular/core"
-import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
+import { takeUntilDestroyed, toSignal } from "@angular/core/rxjs-interop"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
@@ -28,7 +30,7 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { NetworkService } from "../../services/network.service"
 import { ShareService } from "../../services/share.service"
-import { ThemeService } from "../../services/theme.service"
+import { type ThemeMode, ThemeService } from "../../services/theme.service"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 
@@ -71,6 +73,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   isOffline = false
 
   private readonly destroyRef = inject(DestroyRef)
+  private readonly themeMode: Signal<ThemeMode>
+  readonly themeTooltip: Signal<string>
+  readonly themeIcon: Signal<string>
 
   constructor(
     readonly themeService: ThemeService,
@@ -81,7 +86,31 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     private readonly cdr: ChangeDetectorRef,
     private readonly networkService: NetworkService,
     public readonly analyticsService: AnalyticsService,
-  ) {}
+  ) {
+    this.themeMode = toSignal(this.themeService.themeMode$, {
+      initialValue: this.themeService.currentMode,
+    })
+    this.themeTooltip = computed(() => {
+      switch (this.themeMode()) {
+        case "light":
+          return "Modo Claro"
+        case "dark":
+          return "Modo Escuro"
+        default:
+          return "Tema do Sistema"
+      }
+    })
+    this.themeIcon = computed(() => {
+      switch (this.themeMode()) {
+        case "light":
+          return "light_mode"
+        case "dark":
+          return "dark_mode"
+        default:
+          return "brightness_auto"
+      }
+    })
+  }
 
   ngOnInit(): void {
     if (typeof window !== "undefined" && window.screen.width <= 480) {

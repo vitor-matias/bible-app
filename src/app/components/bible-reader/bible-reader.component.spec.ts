@@ -148,6 +148,9 @@ describe("BibleReaderComponent", () => {
         set: {
           schemas: [NO_ERRORS_SCHEMA],
           imports: [], // Override standalone imports to avoid child dependency issues
+          providers: [
+            { provide: ChapterLoaderService, useValue: chapterLoaderSpy },
+          ],
         },
       })
       .compileComponents()
@@ -329,6 +332,27 @@ describe("BibleReaderComponent", () => {
         new KeyboardEvent("keydown", { key: "ArrowRight" }),
       )
       expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 3])
+    })
+
+    it("onArrowPress should ignore arrow keys while editing text", () => {
+      component.chapterNumber = 2
+      const event = new KeyboardEvent("keydown", { key: "ArrowLeft" })
+      Object.defineProperty(event, "target", {
+        value: document.createElement("input"),
+      })
+
+      component.onArrowPress(event)
+
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
+    })
+
+    it("onArrowPress should ignore arrow keys when modifiers are pressed", () => {
+      component.chapterNumber = 2
+      component.onArrowPress(
+        new KeyboardEvent("keydown", { key: "ArrowRight", ctrlKey: true }),
+      )
+
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
     })
   })
 

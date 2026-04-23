@@ -38,6 +38,7 @@ export class ChapterLoaderService {
   isNavigatingBackwards = false
 
   private activeSubscription?: Subscription
+  private loadToken = 0
 
   constructor(
     private apiService: BibleApiService,
@@ -60,96 +61,122 @@ export class ChapterLoaderService {
     opts: ChapterLoadOptions = {},
   ): void {
     const { verseStart, verseEnd, highlight = true } = opts
+    const token = ++this.loadToken
 
     this.activeSubscription?.unsubscribe()
     this.activeSubscription = this.apiService
       .getChapter(book.id, chapterNumber)
       .subscribe({
         next: (res) => {
-          const finalize = () => {
-            if (containers.bookContainer) {
-              containers.bookContainer.style.transition = "none"
-              containers.bookContainer.style.opacity = "0"
-            }
-
-            onUpdate(res, chapterNumber)
-
-            const startAtBottom = this.isNavigatingBackwards
-            this.isNavigatingBackwards = false
-            this.isNavigatingForwards = false
-
-            this._scroll(
+          this.dispatchWithAnimation(containers.bookContainer, token, () => {
+            this.runFinalize(
+              token,
+              book,
+              chapterNumber,
+              res,
               containers,
-              startAtBottom,
+              onUpdate,
               verseStart,
               verseEnd,
               highlight,
             )
-            this.preferencesService.setLastBookId(book.id)
-            this.preferencesService.setLastChapterNumber(chapterNumber)
-          }
-
-          const container = containers.bookContainer
-          if (
-            container &&
-            (this.isNavigatingBackwards || this.isNavigatingForwards)
-          ) {
-            this.animationService
-              .triggerSlideOutAnimation(container, this.isNavigatingBackwards)
-              .then(() => finalize())
-          } else {
-            finalize()
-          }
+          })
         },
 
         error: (err) => {
-          const finalizeError = () => {
-            if (containers.bookContainer) {
-              containers.bookContainer.style.transition = "none"
-              containers.bookContainer.style.opacity = "0"
+          this.dispatchWithAnimation(containers.bookContainer, token, () => {
+            if (token !== this.loadToken) {
+              return
             }
 
             if (book.id === "about") {
-              onUpdate({ bookId: "about", number: 1 } as Chapter, chapterNumber)
-
-              const startAtBottom = this.isNavigatingBackwards
-              this.isNavigatingBackwards = false
-              this.isNavigatingForwards = false
-
-              this._scroll(
+              this.runFinalize(
+                token,
+                book,
+                chapterNumber,
+                { bookId: "about", number: 1 } as Chapter,
                 containers,
-                startAtBottom,
+                onUpdate,
                 verseStart,
                 verseEnd,
                 highlight,
               )
-              this.preferencesService.setLastBookId(book.id)
-              this.preferencesService.setLastChapterNumber(chapterNumber)
             } else {
+              this.resetNavigationState()
               this.router.navigate(["/", this.bookService.getUrlAbrv(book), 1])
             }
-            console.error(err)
-          }
 
-          const container = containers.bookContainer
-          if (
-            container &&
-            (this.isNavigatingBackwards || this.isNavigatingForwards)
-          ) {
-            this.animationService
-              .triggerSlideOutAnimation(container, this.isNavigatingBackwards)
-              .then(() => finalizeError())
-          } else {
-            finalizeError()
-          }
+            console.error(err)
+          })
         },
       })
   }
 
   /** Cancel any in-flight chapter load (call from ngOnDestroy). */
   cancel(): void {
+    this.loadToken++
     this.activeSubscription?.unsubscribe()
     this.activeSubscription = undefined
+    this.resetNavigationState()
+  }
+
+  private runFinalize(
+    token: number,
+    book: Book,
+    chapterNumber: number,
+    chapter: Chapter,
+    containers: ChapterContainers,
+    onUpdate: (chapter: Chapter, chapterNumber: number) => void,
+    verseStart?: number,
+    verseEnd?: number,
+    highlight = true,
+  ): void {
+    if (token !== this.loadToken) {
+      return
+    }
+
+    if (containers.bookContainer) {
+      containers.bookContainer.style.transition = "none"
+      containers.bookContainer.style.opacity = "0"
+    }
+
+    onUpdate(chapter, chapterNumber)
+
+    const startAtBottom = this.isNavigatingBackwards
+    this.resetNavigationState()
+
+    this._scroll(containers, startAtBottom, verseStart, verseEnd, highlight)
+    this.preferencesService.setLastBookId(book.id)
+    this.preferencesService.setLastChapterNumber(chapterNumber)
+  }
+
+  private dispatchWithAnimation(
+    container: HTMLElement | undefined,
+    token: number,
+    callback: () => void,
+  ): void {
+    if (
+      container &&
+      (this.isNavigatingBackwards || this.isNavigatingForwards)
+    ) {
+      const navigatingBackwards = this.isNavigatingBackwards
+      this.animationService
+        .triggerSlideOutAnimation(container, navigatingBackwards)
+        .then(() => {
+          if (token !== this.loadToken) {
+            return
+          }
+          callback()
+        })
+      return
+    }
+
+    callback()
+  }
+
+  private resetNavigationState(): void {
+    this.isNavigatingBackwards = false
+    this.isNavigatingForwards = false
   }
 
   private _scroll(

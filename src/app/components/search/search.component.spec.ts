@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from "@angular/common/http"
-import { ChangeDetectorRef, NgZone } from "@angular/core"
+import { NgZone } from "@angular/core"
 import { fakeAsync, flushMicrotasks, tick } from "@angular/core/testing"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { Router } from "@angular/router"
@@ -20,7 +20,6 @@ describe("SearchComponent", () => {
   let router: jasmine.SpyObj<Router>
   let analyticsService: jasmine.SpyObj<AnalyticsService>
   let searchStateService: jasmine.SpyObj<SearchStateService>
-  let cdr: Pick<ChangeDetectorRef, "detectChanges">
   let ngZone: jasmine.SpyObj<NgZone>
   let mockDocument: Partial<Document>
   let observerCallback: IntersectionObserverCallback | null
@@ -62,7 +61,6 @@ describe("SearchComponent", () => {
       "clear",
     ])
     searchStateService.restore.and.returnValue(null)
-    cdr = { detectChanges: jasmine.createSpy("detectChanges") }
     ngZone = jasmine.createSpyObj("NgZone", ["run"])
     ngZone.run.and.callFake(<T>(fn: (...args: unknown[]) => T): T => fn())
     mockDocument = {
@@ -76,7 +74,6 @@ describe("SearchComponent", () => {
       bookService,
       snackBar,
       router,
-      cdr as ChangeDetectorRef,
       ngZone,
       analyticsService,
       searchStateService,
