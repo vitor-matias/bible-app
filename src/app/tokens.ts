@@ -44,5 +44,13 @@ export const INTERSECTION_OBSERVER = new InjectionToken<
   typeof IntersectionObserver
 >("Intersection Observer", {
   providedIn: "root",
-  factory: () => globalThis.IntersectionObserver,
+  factory: () => {
+    if (!globalThis.IntersectionObserver) {
+      throw new Error(
+        "IntersectionObserver is not available in this environment. " +
+          "This token requires a browser runtime with IntersectionObserver support.",
+      )
+    }
+    return globalThis.IntersectionObserver
+  },
 })

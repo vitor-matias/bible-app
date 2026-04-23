@@ -16,7 +16,8 @@ export class SearchStateService {
   }
 
   restore(): SearchState | null {
-    return this.cachedState
+    if (!this.cachedState) return null
+    return { ...this.cachedState, searchResults: [...this.cachedState.searchResults] }
   }
 
   clear(): void {

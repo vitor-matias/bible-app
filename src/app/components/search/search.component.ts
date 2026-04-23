@@ -43,6 +43,7 @@ export class SearchComponent {
   isLoading = false
   private observer: IntersectionObserver | null = null
   private scrollTimeout?: number
+  private observerReattachTimeout?: number
 
   @ViewChild("sentinel", { static: false }) sentinel!: ElementRef
 
@@ -78,18 +79,31 @@ export class SearchComponent {
   ngOnDestroy(): void {
     if (this.scrollTimeout) {
       clearTimeout(this.scrollTimeout)
+      this.scrollTimeout = undefined
+    }
+    if (this.observerReattachTimeout) {
+      clearTimeout(this.observerReattachTimeout)
+      this.observerReattachTimeout = undefined
     }
     if (this.observer) {
       this.observer.disconnect()
     }
-    if (this.searchResults.length > 0) {
-      this.searchStateService.save({
-        searchTerm: this.searchTerm,
-        searchResults: this.searchResults,
-        currentPage: this.currentPage,
-        totalResults: this.totalResults,
-      })
+    this.searchStateService.save({
+      searchTerm: this.searchTerm,
+      searchResults: this.searchResults,
+      currentPage: this.currentPage,
+      totalResults: this.totalResults,
+    })
+  }
+
+  private scheduleObserverReattach(): void {
+    if (this.observerReattachTimeout) {
+      clearTimeout(this.observerReattachTimeout)
     }
+    this.observerReattachTimeout = window.setTimeout(() => {
+      this.attachObserverToSentinel()
+      this.observerReattachTimeout = undefined
+    }, 0)
   }
 
   private attachObserverToSentinel() {
@@ -122,7 +136,7 @@ export class SearchComponent {
       this.searchResults.push(...results.verses)
       this.totalResults = results.total
       this.currentPage++
-      setTimeout(() => this.attachObserverToSentinel(), 0) // Re-attach observer after loading more results
+      this.scheduleObserverReattach() // Re-attach observer after loading more results
     } catch (error) {
       console.error("Error loading more results:", error)
     } finally {
@@ -131,7 +145,6 @@ export class SearchComponent {
   }
 
   async onSearchSubmit(text: string): Promise<void> {
-    this.searchTerm = text
     const references = this.referenceService.extract(text)
 
     let targetBook: Book | null = null
@@ -196,6 +209,7 @@ export class SearchComponent {
       return
     }
 
+    this.searchTerm = text
     this.isLoading = true
     try {
       const results = await firstValueFrom(this.apiService.search(text, 1))
@@ -222,7 +236,7 @@ export class SearchComponent {
 
       // The sentinel node is recreated when results change, so rebind the observer
       // after each fresh search result set.
-      setTimeout(() => this.attachObserverToSentinel(), 0)
+      this.scheduleObserverReattach()
       this.scrollToTop()
 
       void this.analyticsService.track("search", { text })

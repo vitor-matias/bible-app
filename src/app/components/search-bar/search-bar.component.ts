@@ -4,7 +4,10 @@ import {
   type ElementRef,
   EventEmitter,
   Input,
+  OnChanges,
+  OnInit,
   Output,
+  SimpleChanges,
   ViewChild,
 } from "@angular/core"
 import { FormsModule } from "@angular/forms"
@@ -31,7 +34,7 @@ import { MatToolbarModule } from "@angular/material/toolbar"
   templateUrl: "./search-bar.component.html",
   styleUrls: ["./search-bar.component.css"],
 })
-export class SearchBarComponent {
+export class SearchBarComponent implements OnInit, OnChanges {
   @Input() initialQuery = ""
   @Output() searchValue = new EventEmitter<string>()
 
@@ -44,6 +47,12 @@ export class SearchBarComponent {
 
   ngOnInit(): void {
     if (this.initialQuery) {
+      this.query = this.initialQuery
+    }
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['initialQuery'] && this.initialQuery) {
       this.query = this.initialQuery
     }
   }
