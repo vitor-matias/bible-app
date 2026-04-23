@@ -52,7 +52,7 @@ export class SearchBarComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['initialQuery'] && this.initialQuery) {
+    if (changes["initialQuery"] && this.initialQuery) {
       this.query = this.initialQuery
     }
   }
