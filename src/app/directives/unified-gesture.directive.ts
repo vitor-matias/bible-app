@@ -54,10 +54,8 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     private renderer: Renderer2,
     private preferencesService: PreferencesService,
   ) {
-    // Get the initial font size
-    const computedStyle = getComputedStyle(this.el.nativeElement)
-    this.baseFontSize = Number.parseFloat(computedStyle.fontSize) || 105
-    this.currentFontSize = this.baseFontSize
+    this.baseFontSize = 100
+    this.currentFontSize = 105
   }
 
   ngOnInit() {
@@ -68,8 +66,12 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
 
     if (storedSize) {
       this.currentFontSize = storedSize
-      this.setFontSize(this.currentFontSize)
+    } else {
+      this.currentFontSize = 105
     }
+
+    this.setFontSize(this.currentFontSize)
+    this.lastScale = this.currentFontSize / this.baseFontSize
 
     // Let the element keep its own scroll behavior while we take ownership of
     // custom swipe and pinch gestures.

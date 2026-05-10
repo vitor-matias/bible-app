@@ -122,22 +122,22 @@ describe("UnifiedGesturesDirective", () => {
     directive.decreaseFontSize()
 
     expect(preferencesServiceSpy.setFontSize.calls.argsFor(0)).toEqual([
-      105,
+      110,
       "reader",
     ])
     expect(preferencesServiceSpy.setFontSize.calls.argsFor(1)).toEqual([
-      100,
+      105,
       "reader",
     ])
     expect(rendererSpy.setStyle.calls.argsFor(0)).toEqual([
       element,
       "font-size",
-      "105%",
+      "110%",
     ])
     expect(rendererSpy.setStyle.calls.argsFor(2)).toEqual([
       element,
       "font-size",
-      "100%",
+      "105%",
     ])
   })
 })
