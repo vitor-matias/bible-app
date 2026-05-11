@@ -95,12 +95,12 @@ describe("UnifiedGesturesDirective", () => {
       directive.ngOnInit()
       expect(rendererSpy.setStyle).not.toHaveBeenCalled()
 
-      // increasing size starts from default -> 110
+      // increasing size starts from default -> 105
       directive.increaseFontSize()
       expect(rendererSpy.setStyle).toHaveBeenCalledWith(
         element,
         "font-size",
-        "110%",
+        "105%",
       )
     })
 
@@ -125,7 +125,7 @@ describe("UnifiedGesturesDirective", () => {
       expect(rendererSpy.setStyle).toHaveBeenCalledWith(
         element,
         "font-size",
-        "110%",
+        "105%",
       )
     })
   })
@@ -193,22 +193,22 @@ describe("UnifiedGesturesDirective", () => {
     directive.decreaseFontSize()
 
     expect(preferencesServiceSpy.setFontSize.calls.argsFor(0)).toEqual([
-      110,
+      105,
       "reader",
     ])
     expect(preferencesServiceSpy.setFontSize.calls.argsFor(1)).toEqual([
-      105,
+      100,
       "reader",
     ])
     expect(rendererSpy.setStyle.calls.argsFor(0)).toEqual([
       element,
       "font-size",
-      "110%",
+      "105%",
     ])
     expect(rendererSpy.setStyle.calls.argsFor(2)).toEqual([
       element,
       "font-size",
-      "105%",
+      "100%",
     ])
   })
 })

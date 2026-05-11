@@ -54,7 +54,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     private renderer: Renderer2,
     private preferencesService: PreferencesService,
   ) {
-    this.currentFontSize = this.BASE_FONT_SIZE + 5
+    this.currentFontSize = this.BASE_FONT_SIZE
   }
 
   ngOnInit() {
@@ -81,7 +81,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     if (hasValidSize) {
       this.setFontSize(this.currentFontSize)
     } else {
-      this.currentFontSize = this.BASE_FONT_SIZE + 5
+      this.currentFontSize = this.BASE_FONT_SIZE
     }
 
     this.lastScale = this.currentFontSize / this.BASE_FONT_SIZE
