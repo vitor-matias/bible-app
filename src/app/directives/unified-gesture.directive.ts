@@ -261,6 +261,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     )
     this.setFontSize(nextSize)
     this.currentFontSize = nextSize
+    this.lastScale = this.currentFontSize / this.BASE_FONT_SIZE
 
     this.preferencesService.setFontSize(
       this.currentFontSize,
