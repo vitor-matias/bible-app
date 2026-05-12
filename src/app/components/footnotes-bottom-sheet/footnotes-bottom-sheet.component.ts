@@ -26,7 +26,7 @@ import { BookService } from "../../services/book.service"
     RouterModule,
   ],
   template: `
-    <div unifiedGestures fontSizeContext="footnotes" class="footnotes-container">
+    <div unifiedGestures fontSizeContext="reader" class="footnotes-container">
       <div class="footnotes-list">
         @for (footnote of data.footnotes; track footnote) {
           <div class="footnote-item">
