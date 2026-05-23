@@ -1,5 +1,6 @@
-import { ChangeDetectorRef } from "@angular/core"
-import { fakeAsync, flushMicrotasks } from "@angular/core/testing"
+import { HttpErrorResponse } from "@angular/common/http"
+import { NgZone } from "@angular/core"
+import { fakeAsync, flushMicrotasks, tick } from "@angular/core/testing"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { Router } from "@angular/router"
 import { Observable, of } from "rxjs"
@@ -7,6 +8,7 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { SearchStateService } from "../../services/search-state.service"
 import { SearchComponent } from "./search.component"
 
 describe("SearchComponent", () => {
@@ -17,9 +19,10 @@ describe("SearchComponent", () => {
   let snackBar: jasmine.SpyObj<MatSnackBar>
   let router: jasmine.SpyObj<Router>
   let analyticsService: jasmine.SpyObj<AnalyticsService>
-  let cdr: Pick<ChangeDetectorRef, "detectChanges">
+  let searchStateService: jasmine.SpyObj<SearchStateService>
+  let ngZone: jasmine.SpyObj<NgZone>
+  let mockDocument: Partial<Document>
   let observerCallback: IntersectionObserverCallback | null
-  let originalIntersectionObserver: typeof IntersectionObserver | undefined
 
   class MockIntersectionObserver implements IntersectionObserver {
     root: Element | Document | null = null
@@ -52,12 +55,18 @@ describe("SearchComponent", () => {
     router.navigate.and.resolveTo(true)
     analyticsService = jasmine.createSpyObj("AnalyticsService", ["track"])
     analyticsService.track.and.returnValue(Promise.resolve())
-    cdr = { detectChanges: jasmine.createSpy("detectChanges") }
+    searchStateService = jasmine.createSpyObj("SearchStateService", [
+      "save",
+      "restore",
+      "clear",
+    ])
+    searchStateService.restore.and.returnValue(null)
+    ngZone = jasmine.createSpyObj("NgZone", ["run"])
+    ngZone.run.and.callFake(<T>(fn: (...args: unknown[]) => T): T => fn())
+    mockDocument = {
+      activeElement: document.createElement("input"),
+    }
     observerCallback = null
-    originalIntersectionObserver = globalThis.IntersectionObserver
-
-    globalThis.IntersectionObserver =
-      MockIntersectionObserver as typeof IntersectionObserver
 
     component = new SearchComponent(
       apiService,
@@ -65,19 +74,12 @@ describe("SearchComponent", () => {
       bookService,
       snackBar,
       router,
-      cdr as ChangeDetectorRef,
+      ngZone,
       analyticsService,
+      searchStateService,
+      mockDocument as Document,
+      MockIntersectionObserver as typeof IntersectionObserver,
     )
-  })
-
-  afterEach(() => {
-    if (originalIntersectionObserver) {
-      globalThis.IntersectionObserver = originalIntersectionObserver
-    } else {
-      delete (
-        globalThis as { IntersectionObserver?: typeof IntersectionObserver }
-      ).IntersectionObserver
-    }
   })
 
   it("should create", () => {
@@ -202,6 +204,7 @@ describe("SearchComponent", () => {
       {} as IntersectionObserver,
     )
     flushMicrotasks()
+    tick()
 
     expect(apiService.search).toHaveBeenCalledWith("beginning", 2)
     expect(component.searchResults).toEqual([
@@ -231,7 +234,7 @@ describe("SearchComponent", () => {
     })
     apiService.getVerse.and.returnValue(
       new Observable((subscriber) => {
-        subscriber.error({ status: 404 })
+        subscriber.error(new HttpErrorResponse({ status: 404 }))
       }),
     )
 

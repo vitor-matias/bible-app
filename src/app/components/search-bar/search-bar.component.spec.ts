@@ -12,10 +12,20 @@ describe("SearchBarComponent", () => {
 
     fixture = TestBed.createComponent(SearchBarComponent)
     component = fixture.componentInstance
-    fixture.detectChanges()
   })
 
   it("should create", () => {
+    fixture.detectChanges()
+
     expect(component).toBeTruthy()
+  })
+
+  it("should apply the initial query even when it is an empty string", () => {
+    component.initialQuery = ""
+    component.query = "existing value"
+
+    component.ngOnInit()
+
+    expect(component.query).toBe("")
   })
 })

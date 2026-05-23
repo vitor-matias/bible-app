@@ -3,14 +3,12 @@ import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
 import { Router } from "@angular/router"
-import { Capacitor } from "@capacitor/core"
-import type { Share } from "@capacitor/share"
 import { BehaviorSubject, of } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { NetworkService } from "../../services/network.service"
+import { ShareService } from "../../services/share.service"
 import { ThemeService } from "../../services/theme.service"
-import { SHARE_PLUGIN } from "../../tokens"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { HeaderComponent } from "./header.component"
 
@@ -24,34 +22,46 @@ describe("HeaderComponent", () => {
   let bottomSheetSpy: jasmine.SpyObj<MatBottomSheet>
   let dialogSpy: jasmine.SpyObj<MatDialog>
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
+  let shareServiceSpy: jasmine.SpyObj<ShareService>
   let isOfflineSubject: BehaviorSubject<boolean>
-  let mockSharePlugin: jasmine.SpyObj<typeof Share>
-  let originalShare: typeof navigator.share
+  let themeModeSubject: BehaviorSubject<"light" | "dark" | "system">
+  let canShare: boolean
 
   beforeEach(async () => {
     routerSpy = jasmine.createSpyObj("Router", ["navigate"])
     isOfflineSubject = new BehaviorSubject<boolean>(false)
+    themeModeSubject = new BehaviorSubject<"light" | "dark" | "system">(
+      "system",
+    )
+    canShare = true
     networkServiceSpy = jasmine.createSpyObj("NetworkService", [], {
       isOffline$: isOfflineSubject.asObservable(),
       isOffline: false,
     })
     themeServiceSpy = jasmine.createSpyObj("ThemeService", ["toggleTheme"], {
       currentMode: "system",
+      themeMode$: themeModeSubject.asObservable(),
     })
+
     bookmarkServiceSpy = jasmine.createSpyObj("BookmarkService", [
       "getBookmark",
     ])
     bookmarkServiceSpy.bookmarks$ = of([])
     bottomSheetSpy = jasmine.createSpyObj("MatBottomSheet", ["open"])
     dialogSpy = jasmine.createSpyObj("MatDialog", ["open"])
-    mockSharePlugin = jasmine.createSpyObj("Share", ["share"])
     analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", [
       "track",
       "areAnalyticsAvailable",
     ])
     analyticsServiceSpy.track.and.returnValue(Promise.resolve())
     analyticsServiceSpy.areAnalyticsAvailable.and.returnValue(true)
-    originalShare = navigator.share
+
+    shareServiceSpy = jasmine.createSpyObj("ShareService", ["share"])
+    Object.defineProperty(shareServiceSpy, "canShare", {
+      configurable: true,
+      get: () => canShare,
+    })
+    shareServiceSpy.share.and.returnValue(Promise.resolve())
 
     await TestBed.configureTestingModule({
       imports: [HeaderComponent, CommonModule],
@@ -62,8 +72,8 @@ describe("HeaderComponent", () => {
         { provide: BookmarkService, useValue: bookmarkServiceSpy },
         { provide: MatBottomSheet, useValue: bottomSheetSpy },
         { provide: MatDialog, useValue: dialogSpy },
-        { provide: SHARE_PLUGIN, useValue: mockSharePlugin },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
+        { provide: ShareService, useValue: shareServiceSpy },
       ],
     }).compileComponents()
 
@@ -77,19 +87,6 @@ describe("HeaderComponent", () => {
       chapterCount: 50,
     }
     fixture.detectChanges()
-  })
-
-  afterEach(() => {
-    if (originalShare === undefined) {
-      // @ts-expect-error
-      delete navigator.share
-    } else {
-      Object.defineProperty(navigator, "share", {
-        value: originalShare,
-        configurable: true,
-        writable: true,
-      })
-    }
   })
 
   it("should create", () => {
@@ -127,57 +124,27 @@ describe("HeaderComponent", () => {
     expect(dialogSpy.open).not.toHaveBeenCalled()
   })
 
-  it("should share using Capacitor Share on native platforms", async () => {
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
-    mockSharePlugin.share.and.resolveTo()
-
-    if (!navigator.share) {
-      Object.defineProperty(navigator, "share", {
-        value: () => Promise.resolve(),
-        configurable: true,
-        writable: true,
-      })
-    }
-    spyOn(navigator, "share").and.resolveTo()
-
+  it("should delegate sharing to ShareService with the current chapter", async () => {
     component.chapterNumber = 1
-    component.ngOnInit() // Re-init to pickup the new native platform check
+    const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
 
-    expect(component.canShare).toBeTrue()
+    await component.onShare(trigger)
 
-    await component.sharePassage()
-
-    expect(mockSharePlugin.share).toHaveBeenCalledWith({
-      title: "Biblia Sagrada",
-      text: jasmine.any(String),
-      url: jasmine.any(String),
-      dialogTitle: "Partilhar passagem",
-    })
+    expect(trigger.closeMenu).toHaveBeenCalled()
+    expect(shareServiceSpy.share).toHaveBeenCalledWith(component.book, 1)
   })
 
-  it("should share using navigator.share on web platforms", async () => {
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(false)
+  it("should show the share menu item when sharing is available", () => {
+    canShare = true
+    fixture.detectChanges()
 
-    const shareSpy = jasmine.createSpy("share").and.resolveTo()
+    expect(component.shareService.canShare).toBeTrue()
+  })
 
-    if (!navigator.share) {
-      Object.defineProperty(navigator, "share", {
-        value: () => Promise.resolve(),
-        configurable: true,
-        writable: true,
-      })
-    }
-    spyOn(navigator, "share").and.callFake(shareSpy)
+  it("should hide the share menu item when sharing is unavailable", () => {
+    canShare = false
+    fixture.detectChanges()
 
-    mockSharePlugin.share.and.resolveTo() // Should not be called
-
-    component.chapterNumber = 1
-    component.ngOnInit() // Re-init to pickup the web platform
-    expect(component.canShare).toBeTrue()
-
-    await component.sharePassage()
-
-    expect(shareSpy).toHaveBeenCalled()
-    expect(mockSharePlugin.share).not.toHaveBeenCalled()
+    expect(component.shareService.canShare).toBeFalse()
   })
 })

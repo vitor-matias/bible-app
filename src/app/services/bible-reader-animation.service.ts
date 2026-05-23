@@ -8,6 +8,11 @@ export class BibleReaderAnimationService {
     HTMLElement,
     ReturnType<typeof setTimeout>
   >()
+  /**
+   * Scrolls the drawer content to the top and orchestrates the transition animations for chapters.
+   * Uses `requestAnimationFrame` to ensure the browser has painted the new DOM nodes before
+   * calculating layout metrics like `scrollWidth` or applying sliding animations.
+   */
   scrollToTop(
     drawerContent: HTMLElement | undefined,
     container: HTMLElement | undefined,
@@ -15,46 +20,44 @@ export class BibleReaderAnimationService {
     startAtBottom = false,
     beforeScroll?: () => void,
   ): void {
-    setTimeout(() => {
-      if (drawerContent) {
-        drawerContent.scrollTo({ top: 0, behavior: "smooth" })
-      }
+    if (drawerContent) {
+      // Small timeout to decouple from synchronous change detection
+      setTimeout(
+        () => drawerContent.scrollTo({ top: 0, behavior: "smooth" }),
+        0,
+      )
+    }
 
-      if (container) {
-        if (viewMode === "paged" && startAtBottom) {
-          // Layout using CSS columns often takes more than a single event loop tick
-          // to calculate the final scrollWidth.
-          // We'll give it a slightly longer timeout and use a requestAnimationFrame chain.
-          setTimeout(() => {
-            requestAnimationFrame(() => {
-              if (beforeScroll) {
-                beforeScroll()
-              } else {
-                const maxScroll = container.scrollWidth - container.clientWidth
-                container.scrollLeft = maxScroll > 0 ? maxScroll : 0
-              }
-              this.triggerSlideAnimation(drawerContent, container, true)
-            })
-          }, 100)
-        } else {
-          setTimeout(() => {
-            requestAnimationFrame(() => {
-              beforeScroll?.()
-              if (viewMode === "paged") {
-                container.scrollLeft = 0
-              }
-              this.triggerSlideAnimation(
-                drawerContent,
-                container,
-                startAtBottom,
-              )
-            })
-          }, 0)
+    if (!container) return
+
+    // Defer execution until the browser has painted the new chapter layout
+    requestAnimationFrame(() => {
+      if (viewMode === "paged" && startAtBottom) {
+        // Layout using CSS columns sometimes takes more than a single event loop tick
+        // to calculate the final scrollWidth. Give it a tiny delay to reflow.
+        setTimeout(() => {
+          if (beforeScroll) {
+            beforeScroll()
+          } else {
+            const maxScroll = container.scrollWidth - container.clientWidth
+            container.scrollLeft = maxScroll > 0 ? maxScroll : 0
+          }
+          this.triggerSlideAnimation(drawerContent, container, true)
+        }, 50)
+      } else {
+        beforeScroll?.()
+        if (viewMode === "paged") {
+          container.scrollLeft = 0
         }
+        this.triggerSlideAnimation(drawerContent, container, startAtBottom)
       }
-    }, 0)
+    })
   }
 
+  /**
+   * Resets and triggers the CSS slide-in animation for chapter navigation.
+   * Uses CSS classes and forces a browser reflow to restart the animation if needed.
+   */
   triggerSlideAnimation(
     drawerContent: HTMLElement | undefined,
     container: HTMLElement,
@@ -86,6 +89,10 @@ export class BibleReaderAnimationService {
     }, 600)
   }
 
+  /**
+   * Triggers the CSS slide-out animation, returning a Promise that resolves when
+   * the animation completes (or falls back safely after a timeout).
+   */
   triggerSlideOutAnimation(
     container: HTMLElement,
     isBackward: boolean,
@@ -119,6 +126,10 @@ export class BibleReaderAnimationService {
     })
   }
 
+  /**
+   * Smoothly scrolls to a specific verse within the chapter and briefly highlights it.
+   * Tracks and clears ongoing highlight timeouts to prevent UI glitches if scrolling rapidly.
+   */
   scrollToVerseElement(
     bookBlock: HTMLElement | undefined,
     bookContainer: HTMLElement | undefined,
