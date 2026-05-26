@@ -29,15 +29,15 @@ h6 {
   }
 
   .prev-chapter {
-    bottom: 52px;
+    bottom: calc(52px + env(safe-area-inset-bottom));
   }
 
   .next-chapter {
-    bottom: 52px;
+    bottom: calc(52px + env(safe-area-inset-bottom));
   }
 
   .search {
-    bottom: 52px;
+    bottom: calc(52px + env(safe-area-inset-bottom));
   }
 
 }
@@ -79,7 +79,7 @@ h6 {
 
   /*margin-right: 10px;  Adds space to the right of the chapter number */
   /* margin-bottom: 10px; Adds space below the chapter number */
-  color: dimgray;
+  color: var(--text-secondary);
 }
 
 .bookSelectorContainer {

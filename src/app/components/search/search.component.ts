@@ -4,6 +4,7 @@ import {
   type ElementRef,
   ViewChild,
 } from "@angular/core"
+import { MatIconModule } from "@angular/material/icon"
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
 import { Router, RouterModule } from "@angular/router"
 import { firstValueFrom } from "rxjs"
@@ -24,12 +25,14 @@ import { SearchBarComponent } from "../search-bar/search-bar.component"
     RouterModule,
     UnifiedGesturesDirective,
     MatSnackBarModule,
+    MatIconModule,
   ],
 })
 export class SearchComponent {
   searchResults: Verse[] = []
 
   searchTerm = ""
+  hasSearched = false
 
   currentPage = 1
 
@@ -173,6 +176,7 @@ export class SearchComponent {
       return
     }
 
+    this.hasSearched = true
     this.isLoading = true
     try {
       const results = await firstValueFrom(this.apiService.search(text, 1))
@@ -241,5 +245,27 @@ export class SearchComponent {
 
   findBookById(bookId: string): Book | undefined {
     return this.bookService.findBook(bookId)
+  }
+
+  getHighlightedSegments(verseText: string, term: string): Array<{text: string, highlight: boolean}> {
+    if (!term.trim()) {
+      return [{ text: verseText, highlight: false }]
+    }
+    const segments: Array<{text: string, highlight: boolean}> = []
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const regex = new RegExp(escaped, 'gi')
+    let lastIndex = 0
+    let match: RegExpExecArray | null
+    while ((match = regex.exec(verseText)) !== null) {
+      if (match.index > lastIndex) {
+        segments.push({ text: verseText.slice(lastIndex, match.index), highlight: false })
+      }
+      segments.push({ text: match[0], highlight: true })
+      lastIndex = regex.lastIndex
+    }
+    if (lastIndex < verseText.length) {
+      segments.push({ text: verseText.slice(lastIndex), highlight: false })
+    }
+    return segments.length > 0 ? segments : [{ text: verseText, highlight: false }]
   }
 }

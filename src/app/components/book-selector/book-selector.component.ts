@@ -186,6 +186,39 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
     },
   ]
 
+  filterQuery = ''
+
+  filterBooks(query: string): void {
+    this.filterQuery = query
+    const q = query.toLowerCase().trim()
+    if (!q) {
+      this.otDataSource.data = this.oldTestament
+      this.ntDataSource.data = this.newTestament
+      this.otTreeControl.expandAll()
+      this.ntTreeControl.expandAll()
+      return
+    }
+
+    const filterGroup = (groups: typeof this.oldTestament): typeof this.oldTestament =>
+      groups
+        .map(group => ({
+          ...group,
+          books: (group.books as string[]).filter(bookId => {
+            const book = this.getBook(bookId)
+            return book && (
+              book.shortName.toLowerCase().includes(q) ||
+              book.name.toLowerCase().includes(q)
+            )
+          }),
+        }))
+        .filter(group => group.books.length > 0)
+
+    this.otDataSource.data = filterGroup(this.oldTestament)
+    this.ntDataSource.data = filterGroup(this.newTestament)
+    this.otTreeControl.expandAll()
+    this.ntTreeControl.expandAll()
+  }
+
   @Input()
   books: Book[] = []
 
