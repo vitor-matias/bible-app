@@ -15,6 +15,9 @@ import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
+type HighlightSegment = { text: string; highlight: boolean }
+type DisplayVerse = Verse & { highlightedSegments: HighlightSegment[] }
+
 @Component({
   selector: "app-search",
   templateUrl: "./search.component.html",
@@ -29,7 +32,7 @@ import { SearchBarComponent } from "../search-bar/search-bar.component"
   ],
 })
 export class SearchComponent {
-  searchResults: Verse[] = []
+  searchResults: DisplayVerse[] = []
 
   searchTerm = ""
   hasSearched = false
@@ -96,7 +99,9 @@ export class SearchComponent {
       const results = await firstValueFrom(
         this.apiService.search(this.searchTerm, this.currentPage + 1),
       )
-      this.searchResults.push(...results.verses)
+      this.searchResults.push(
+        ...results.verses.map((v) => this.toDisplayVerse(v)),
+      )
       this.totalResults = results.total
       this.currentPage++
       this.attachObserverToSentinel() // Re-attach observer after loading more results
@@ -180,7 +185,7 @@ export class SearchComponent {
     this.isLoading = true
     try {
       const results = await firstValueFrom(this.apiService.search(text, 1))
-      this.searchResults = results.verses
+      this.searchResults = results.verses.map((v) => this.toDisplayVerse(v))
       this.totalResults = results.total
       this.currentPage = 1
       const resultsMessage =
@@ -218,6 +223,17 @@ export class SearchComponent {
     }
   }
 
+  private toDisplayVerse(verse: Verse): DisplayVerse {
+    const verseText = this.getVerseText(verse)
+    return {
+      ...verse,
+      highlightedSegments: this.getHighlightedSegments(
+        verseText,
+        this.searchTerm,
+      ),
+    }
+  }
+
   getVerseText(verse: Verse) {
     let result = ""
     for (const line of verse.text) {
@@ -247,25 +263,34 @@ export class SearchComponent {
     return this.bookService.findBook(bookId)
   }
 
-  getHighlightedSegments(verseText: string, term: string): Array<{text: string, highlight: boolean}> {
+  getHighlightedSegments(
+    verseText: string,
+    term: string,
+  ): Array<{ text: string; highlight: boolean }> {
     if (!term.trim()) {
       return [{ text: verseText, highlight: false }]
     }
-    const segments: Array<{text: string, highlight: boolean}> = []
-    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const regex = new RegExp(escaped, 'gi')
+    const segments: Array<{ text: string; highlight: boolean }> = []
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    const regex = new RegExp(escaped, "gi")
     let lastIndex = 0
-    let match: RegExpExecArray | null
-    while ((match = regex.exec(verseText)) !== null) {
+    let match = regex.exec(verseText)
+    while (match !== null) {
       if (match.index > lastIndex) {
-        segments.push({ text: verseText.slice(lastIndex, match.index), highlight: false })
+        segments.push({
+          text: verseText.slice(lastIndex, match.index),
+          highlight: false,
+        })
       }
       segments.push({ text: match[0], highlight: true })
       lastIndex = regex.lastIndex
+      match = regex.exec(verseText)
     }
     if (lastIndex < verseText.length) {
       segments.push({ text: verseText.slice(lastIndex), highlight: false })
     }
-    return segments.length > 0 ? segments : [{ text: verseText, highlight: false }]
+    return segments.length > 0
+      ? segments
+      : [{ text: verseText, highlight: false }]
   }
 }

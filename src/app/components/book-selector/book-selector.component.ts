@@ -186,7 +186,7 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
     },
   ]
 
-  filterQuery = ''
+  filterQuery = ""
 
   filterBooks(query: string): void {
     this.filterQuery = query
@@ -199,19 +199,22 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
       return
     }
 
-    const filterGroup = (groups: typeof this.oldTestament): typeof this.oldTestament =>
+    const filterGroup = (
+      groups: typeof this.oldTestament,
+    ): typeof this.oldTestament =>
       groups
-        .map(group => ({
+        .map((group) => ({
           ...group,
-          books: (group.books as string[]).filter(bookId => {
+          books: (group.books as string[]).filter((bookId) => {
             const book = this.getBook(bookId)
-            return book && (
-              book.shortName.toLowerCase().includes(q) ||
-              book.name.toLowerCase().includes(q)
+            return (
+              book &&
+              (book.shortName.toLowerCase().includes(q) ||
+                book.name.toLowerCase().includes(q))
             )
           }),
         }))
-        .filter(group => group.books.length > 0)
+        .filter((group) => group.books.length > 0)
 
     this.otDataSource.data = filterGroup(this.oldTestament)
     this.ntDataSource.data = filterGroup(this.newTestament)
