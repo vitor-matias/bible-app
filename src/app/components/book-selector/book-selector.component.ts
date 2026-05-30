@@ -186,6 +186,42 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
     },
   ]
 
+  filterQuery = ""
+
+  filterBooks(query: string): void {
+    this.filterQuery = query
+    const q = this.normalizeSearchValue(query)
+    if (!q) {
+      this.otDataSource.data = this.oldTestament
+      this.ntDataSource.data = this.newTestament
+      this.otTreeControl.expandAll()
+      this.ntTreeControl.expandAll()
+      return
+    }
+
+    const filterGroup = (
+      groups: typeof this.oldTestament,
+    ): typeof this.oldTestament =>
+      groups
+        .map((group) => ({
+          ...group,
+          books: (group.books as string[]).filter((bookId) => {
+            const book = this.getBook(bookId)
+            return (
+              book &&
+              (this.normalizeSearchValue(book.shortName).includes(q) ||
+                this.normalizeSearchValue(book.name).includes(q))
+            )
+          }),
+        }))
+        .filter((group) => group.books.length > 0)
+
+    this.otDataSource.data = filterGroup(this.oldTestament)
+    this.ntDataSource.data = filterGroup(this.newTestament)
+    this.otTreeControl.expandAll()
+    this.ntTreeControl.expandAll()
+  }
+
   @Input()
   books: Book[] = []
 
@@ -204,6 +240,15 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   onKeyPress(event: KeyboardEvent, id: Book["id"]): void {
     this.submit(id)
+  }
+
+  private normalizeSearchValue(value: string): string {
+    return value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLocaleLowerCase()
   }
 
   ngAfterViewInit(): void {

@@ -202,7 +202,7 @@ span {
 }
 
 .chapterNumber {
-  color: var(--text-secondary);
+  color: dimgray;
 }
 
 a {
@@ -240,6 +240,10 @@ a {
 
 bible-reader .mat-drawer-content {
   overflow-x: hidden !important;
+}
+
+.bookSelector .mat-drawer-inner-container {
+  scrollbar-gutter: stable;
 }
 
 /* Apply focus color via supported Material theming tokens on the host elements */

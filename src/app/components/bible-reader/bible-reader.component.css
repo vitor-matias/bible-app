@@ -26,18 +26,19 @@ h6 {
 @media (max-width: 768px) {
   .bookSelector {
     width: 100%;
+    scrollbar-gutter: stable;
   }
 
   .prev-chapter {
-    bottom: 52px;
+    bottom: calc(52px + env(safe-area-inset-bottom));
   }
 
   .next-chapter {
-    bottom: 52px;
+    bottom: calc(52px + env(safe-area-inset-bottom));
   }
 
   .search {
-    bottom: 52px;
+    bottom: calc(52px + env(safe-area-inset-bottom));
   }
 
 }
@@ -55,6 +56,7 @@ h6 {
 
   .bookSelector {
     width: 515px;
+    scrollbar-gutter: stable;
   }
 
   .prev-chapter {
@@ -81,6 +83,7 @@ h6 {
   /* margin-bottom: 10px; Adds space below the chapter number */
   color: dimgray;
 }
+
 
 .bookSelectorContainer {
   width: 100%;
@@ -135,8 +138,8 @@ h6 {
 
 .dismiss-button {
   position: absolute;
-  top: 8px;
-  right: 4px;
+  top: 4px;
+  right: 8px;
   z-index: 1000;
   width: 48px;
   height: 48px;

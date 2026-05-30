@@ -2,7 +2,7 @@
   <mat-toolbar>
     <div class="content">
       <button type="button" mat-flat-button aria-label="back" class="button actionButton backButton" (click)="goBack()">
-        <mat-icon style="color: #543D27;">arrow_back</mat-icon>
+        <mat-icon>arrow_back</mat-icon>
       </button>
       <input #searchInput
         id="search"
@@ -14,7 +14,7 @@
         (keydown.enter)="emitSearch()"
       />
       <button type="button" mat-flat-button aria-label="Procurar" (click)="emitSearch()" class="button actionButton searchButton">
-        <mat-icon style="color: #543D27;">search</mat-icon>
+        <mat-icon>search</mat-icon>
       </button>
     </div>
   </mat-toolbar>

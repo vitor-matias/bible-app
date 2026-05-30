@@ -67,6 +67,7 @@ type Verse = {
   number: number
   verseLabel: string
   text: TextType[]
+  highlightedSegments?: HighlightSegment[]
 }
 
 type TextType = _Text | Section | Paragraph | Quote | References | _Footnote
@@ -118,3 +119,5 @@ type Bookmark = {
   color: string
   timestamp: number
 }
+
+type HighlightSegment = { text: string; highlight: boolean }
