@@ -221,3 +221,18 @@ mat-icon {
 .menu-controls mat-icon {
   color: inherit;
 }
+
+::ng-deep .mat-mdc-menu-content .privacy-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+::ng-deep .mat-mdc-menu-content .open-in-new-icon {
+  margin-left: 12px;
+  font-size: 16px !important;
+  width: 16px !important;
+  height: 16px !important;
+  opacity: 0.6;
+}
