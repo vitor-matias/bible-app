@@ -3,12 +3,12 @@
   position: sticky;
   top: 0;
   background-color: var(--card-background);
-  z-index: 1;
+  z-index: 100;
   border-bottom: 1px solid var(--border-color);
 }
 
 .book-filter-input {
-  width: 100%;
+  width: calc(100% - 32px);
   height: 36px;
   border: 1px solid var(--border-color);
   border-radius: 18px;
@@ -28,7 +28,7 @@
   display: flex;
   justify-content: space-around;
   padding: 8px;
-  width: 95%;
+  width: 100%;
 }
 
 mat-tree-node,
