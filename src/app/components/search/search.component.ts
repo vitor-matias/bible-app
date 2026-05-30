@@ -1,7 +1,10 @@
 import {
+  afterNextRender,
   ChangeDetectorRef,
   Component,
   type ElementRef,
+  Injector,
+  inject,
   ViewChild,
 } from "@angular/core"
 import { MatIconModule } from "@angular/material/icon"
@@ -42,6 +45,8 @@ export class SearchComponent {
 
   @ViewChild("sentinel", { static: false }) sentinel!: ElementRef
   private lastSentinel: Element | null = null
+
+  private injector = inject(Injector)
 
   constructor(
     private apiService: BibleApiService,
@@ -246,14 +251,17 @@ export class SearchComponent {
   resultsContainer!: ElementRef
 
   scrollToTop() {
-    setTimeout(() => {
-      if (this.resultsContainer?.nativeElement) {
-        this.resultsContainer.nativeElement.scrollTo({
-          top: 0,
-          behavior: "smooth",
-        })
-      }
-    }, 100)
+    afterNextRender(
+      () => {
+        if (this.resultsContainer?.nativeElement) {
+          this.resultsContainer.nativeElement.scrollTo({
+            top: 0,
+            behavior: "smooth",
+          })
+        }
+      },
+      { injector: this.injector },
+    )
   }
 
   findBookById(bookId: string): Book | undefined {

@@ -1,10 +1,13 @@
 import { CommonModule } from "@angular/common"
 import {
   AfterViewInit,
+  afterNextRender,
   Component,
   ElementRef,
   EventEmitter,
+  Injector,
   Input,
+  inject,
   OnChanges,
   Output,
   SimpleChanges,
@@ -45,6 +48,8 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
 
   bookmarks$ = of(new Map<number, string>()) // map chapter -> color
 
+  private injector = inject(Injector)
+
   constructor(
     private elementRef: ElementRef,
     private bookmarkService: BookmarkService,
@@ -69,7 +74,10 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["selectedChapter"] && !changes["selectedChapter"].firstChange) {
-      setTimeout(() => this.scrollToSelectedChapter(), 100)
+      // Scroll once the changed chapter list has actually been rendered.
+      afterNextRender(() => this.scrollToSelectedChapter(), {
+        injector: this.injector,
+      })
     }
     if (changes["bookId"] && this.bookId) {
       this.bookmarks$ = this.bookmarkService

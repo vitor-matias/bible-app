@@ -82,8 +82,7 @@ export class FootnotesBottomSheetComponent {
   constructor(
     private bottomSheetRef: MatBottomSheetRef<FootnotesBottomSheetComponent>,
     @Inject(MAT_BOTTOM_SHEET_DATA)
-    // biome-ignore lint/suspicious/noExplicitAny: Data structure from bottom sheet is dynamic and loose typed
-    public data: { footnotes: any[]; verse: any },
+    public data: { footnotes: _Footnote[]; verse: Verse },
     private bibleRef: BibleReferenceService,
     private bookService: BookService,
     private analyticsService: AnalyticsService,
@@ -91,7 +90,7 @@ export class FootnotesBottomSheetComponent {
     void this.analyticsService.track("footnotes_opened", {
       book: data.verse.bookId,
       chapter: data.verse.chapterNumber,
-      verse: data.verse.verseNumber,
+      verse: data.verse.number,
     })
   }
 
