@@ -19,4 +19,25 @@ describe("BookSelectorComponent", () => {
   it("should create", () => {
     expect(component).toBeTruthy()
   })
+
+  it("filters books with accent-insensitive short names", () => {
+    component.books = [
+      {
+        id: "gen",
+        name: "Livro do Génesis",
+        shortName: "Gênesis",
+        abrv: "Gn",
+        chapterCount: 50,
+      },
+    ]
+
+    component.filterBooks("genesis")
+
+    expect(component.otDataSource.data).toEqual([
+      {
+        name: "Pentateuco",
+        books: ["gen"],
+      },
+    ])
+  })
 })

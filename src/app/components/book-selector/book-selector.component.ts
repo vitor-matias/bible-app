@@ -190,7 +190,7 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   filterBooks(query: string): void {
     this.filterQuery = query
-    const q = query.toLowerCase().trim()
+    const q = this.normalizeSearchValue(query)
     if (!q) {
       this.otDataSource.data = this.oldTestament
       this.ntDataSource.data = this.newTestament
@@ -209,8 +209,8 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
             const book = this.getBook(bookId)
             return (
               book &&
-              (book.shortName.toLowerCase().includes(q) ||
-                book.name.toLowerCase().includes(q))
+              (this.normalizeSearchValue(book.shortName).includes(q) ||
+                this.normalizeSearchValue(book.name).includes(q))
             )
           }),
         }))
@@ -240,6 +240,15 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   onKeyPress(event: KeyboardEvent, id: Book["id"]): void {
     this.submit(id)
+  }
+
+  private normalizeSearchValue(value: string): string {
+    return value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLocaleLowerCase()
   }
 
   ngAfterViewInit(): void {
