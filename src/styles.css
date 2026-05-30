@@ -242,6 +242,10 @@ bible-reader .mat-drawer-content {
   overflow-x: hidden !important;
 }
 
+.bookSelector .mat-drawer-inner-container {
+  scrollbar-gutter: stable;
+}
+
 /* Apply focus color via supported Material theming tokens on the host elements */
 /* Using body selector to ensure CSS custom property specificity overrides Material's dynamically injected styles */
 body .mat-mdc-form-field {

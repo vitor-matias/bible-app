@@ -8,7 +8,7 @@
 }
 
 .book-filter-input {
-  width: calc(100% - 32px);
+  width: calc(100% - 24px);
   height: 36px;
   border: 1px solid var(--border-color);
   border-radius: 18px;
