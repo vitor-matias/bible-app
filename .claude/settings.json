@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/verify.sh\"",
+            "asyncRewake": true,
+            "timeout": 180,
+            "statusMessage": "Verifying lint + types + tests…",
+            "rewakeSummary": "Pre-stop verification failed",
+            "rewakeMessage": "Lint/typecheck/tests failed for your src/ changes. Fix them, then finish:"
+          }
+        ]
+      }
+    ]
+  }
+}
