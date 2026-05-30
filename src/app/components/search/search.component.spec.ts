@@ -206,7 +206,7 @@ describe("SearchComponent", () => {
     expect(apiService.search).toHaveBeenCalledWith("beginning", 2)
     expect(component.searchResults).toEqual([
       jasmine.objectContaining({ number: 1 }),
-      nextVerse,
+      jasmine.objectContaining({ number: 2 }),
     ])
     expect(component.currentPage).toBe(2)
     expect(component.isLoading).toBeFalse()

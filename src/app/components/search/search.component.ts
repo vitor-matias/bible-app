@@ -15,8 +15,7 @@ import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
-type HighlightSegment = { text: string; highlight: boolean }
-type DisplayVerse = Verse & { highlightedSegments: HighlightSegment[] }
+
 
 @Component({
   selector: "app-search",
@@ -32,7 +31,7 @@ type DisplayVerse = Verse & { highlightedSegments: HighlightSegment[] }
   ],
 })
 export class SearchComponent {
-  searchResults: DisplayVerse[] = []
+  searchResults: Verse[] = []
 
   searchTerm = ""
   hasSearched = false
@@ -223,7 +222,7 @@ export class SearchComponent {
     }
   }
 
-  private toDisplayVerse(verse: Verse): DisplayVerse {
+  private toDisplayVerse(verse: Verse): Verse {
     const verseText = this.getVerseText(verse)
     return {
       ...verse,
