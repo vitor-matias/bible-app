@@ -15,8 +15,6 @@ import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
-
-
 @Component({
   selector: "app-search",
   templateUrl: "./search.component.html",
