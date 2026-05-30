@@ -4,7 +4,6 @@ import {
   Component,
   type ElementRef,
   Injector,
-  inject,
   ViewChild,
 } from "@angular/core"
 import { MatIconModule } from "@angular/material/icon"
@@ -46,8 +45,6 @@ export class SearchComponent {
   @ViewChild("sentinel", { static: false }) sentinel!: ElementRef
   private lastSentinel: Element | null = null
 
-  private injector = inject(Injector)
-
   constructor(
     private apiService: BibleApiService,
     private referenceService: BibleReferenceService,
@@ -56,6 +53,7 @@ export class SearchComponent {
     private router: Router,
     private cdr: ChangeDetectorRef,
     private analyticsService: AnalyticsService,
+    private injector: Injector,
   ) {}
 
   ngAfterViewInit(): void {

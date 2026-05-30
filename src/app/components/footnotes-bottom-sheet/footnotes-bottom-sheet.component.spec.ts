@@ -27,7 +27,7 @@ describe("FootnotesBottomSheetComponent", () => {
     verse: {
       bookId: "JHN",
       chapterNumber: 3,
-      verseNumber: 16,
+      number: 16,
     },
   }
 

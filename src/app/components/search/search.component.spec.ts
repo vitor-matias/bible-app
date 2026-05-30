@@ -1,5 +1,5 @@
-import { ChangeDetectorRef } from "@angular/core"
-import { fakeAsync, flushMicrotasks } from "@angular/core/testing"
+import { ChangeDetectorRef, Injector } from "@angular/core"
+import { fakeAsync, flushMicrotasks, TestBed } from "@angular/core/testing"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { Router } from "@angular/router"
 import { Observable, of } from "rxjs"
@@ -67,6 +67,7 @@ describe("SearchComponent", () => {
       router,
       cdr as ChangeDetectorRef,
       analyticsService,
+      TestBed.inject(Injector),
     )
   })
 

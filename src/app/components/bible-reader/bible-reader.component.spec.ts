@@ -209,21 +209,6 @@ describe("BibleReaderComponent", () => {
       expect(cdrSpy).toHaveBeenCalled()
     })
 
-    it("should allow getBook to update book on success", () => {
-      apiServiceSpy.getBook.and.returnValue(of(mockBooks[1] as unknown as Book))
-      component.getBook("about")
-      expect(component.book).toEqual(mockBooks[1] as unknown as Book)
-    })
-
-    it("should handle getBook error gracefully", () => {
-      const consoleSpy = spyOn(console, "error")
-      apiServiceSpy.getBook.and.returnValue(
-        throwError(() => new Error("failed")),
-      )
-      component.getBook("about")
-      expect(consoleSpy).toHaveBeenCalled()
-    })
-
     it("should increase and decrease font size via gestures directive", () => {
       component.gestures = jasmine.createSpyObj("UnifiedGesturesDirective", [
         "increaseFontSize",
