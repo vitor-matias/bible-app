@@ -25,7 +25,7 @@ Angular Material, and a thin REST backend.
 
 | Area            | Choice |
 |-----------------|--------|
-| Framework       | Angular 21 (standalone components, `OnPush`) |
+| Framework       | Angular 22 (standalone components, `OnPush`) |
 | UI              | Angular Material + Bootstrap 5 |
 | Reactivity      | RxJS 7 |
 | Native shell    | Capacitor 8 (iOS / Android) |
