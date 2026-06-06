@@ -322,6 +322,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           ),
         error: (err) =>
           this.finalizeChapterTransition(() => {
+            this.isNavigatingBackwards = false
+            this.isNavigatingForwards = false
             if (this.book.id === "about") {
               this.applyChapter(
                 { bookId: "about", number: 1 },
