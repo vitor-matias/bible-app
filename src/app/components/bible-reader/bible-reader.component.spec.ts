@@ -555,6 +555,38 @@ describe("BibleReaderComponent", () => {
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", 1])
     }))
 
+    it("should not navigate or reset container when offline (navigator.onLine false)", fakeAsync(() => {
+      spyOn(console, "error")
+      spyOnProperty(navigator, "onLine").and.returnValue(false)
+      apiServiceSpy.getChapter.and.returnValue(
+        throwError(() => new Error("Network error")),
+      )
+      component.book = mockBooks[0] as unknown as Book
+      const el = document.createElement("div")
+      component.bookContainer = { nativeElement: el } as unknown as ElementRef
+
+      component.getChapter(2)
+      tick()
+
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
+      expect(el.style.opacity).not.toBe("0")
+    }))
+
+    it("should not navigate or reset container when error status is 0 (offline/network failure)", fakeAsync(() => {
+      spyOn(console, "error")
+      const networkErr = { status: 0 }
+      apiServiceSpy.getChapter.and.returnValue(throwError(() => networkErr))
+      component.book = mockBooks[0] as unknown as Book
+      const el = document.createElement("div")
+      component.bookContainer = { nativeElement: el } as unknown as ElementRef
+
+      component.getChapter(2)
+      tick()
+
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
+      expect(el.style.opacity).not.toBe("0")
+    }))
+
     it("should call scrollToVerseElement in error handler if verseStart provided and book is about", fakeAsync(() => {
       spyOn(console, "error")
       apiServiceSpy.getChapter.and.returnValue(
