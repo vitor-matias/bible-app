@@ -29,6 +29,7 @@ describe("SearchComponent", () => {
   class MockIntersectionObserver implements IntersectionObserver {
     root: Element | Document | null = null
     rootMargin = ""
+    scrollMargin = ""
     thresholds = [1]
 
     constructor(callback: IntersectionObserverCallback) {
