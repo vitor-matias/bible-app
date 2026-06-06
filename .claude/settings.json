@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/verify.sh\"",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/verify.sh\"",
             "asyncRewake": true,
             "timeout": 180,
             "statusMessage": "Verifying lint + types + tests…",

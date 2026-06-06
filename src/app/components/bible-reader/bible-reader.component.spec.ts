@@ -14,6 +14,7 @@ import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
+import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { BibleReaderComponent } from "./bible-reader.component"
 
@@ -29,6 +30,7 @@ describe("BibleReaderComponent", () => {
   let routeMock: unknown
   let animationServiceSpy: jasmine.SpyObj<BibleReaderAnimationService>
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
+  let networkServiceSpy: jasmine.SpyObj<NetworkService>
 
   const mockBooks = [
     { id: "gen", name: "Genesis", urlAbrv: "1-genesis", chapterCount: 50 },
@@ -98,6 +100,10 @@ describe("BibleReaderComponent", () => {
 
     analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
     analyticsServiceSpy.track.and.returnValue(Promise.resolve())
+    networkServiceSpy = jasmine.createSpyObj("NetworkService", [
+      "ngOnDestroy",
+    ]) as jasmine.SpyObj<NetworkService>
+    ;(networkServiceSpy as unknown as { isOffline: boolean }).isOffline = false
 
     // Default returns
     preferencesServiceSpy.getAutoScrollSpeed.and.returnValue(50)
@@ -120,6 +126,7 @@ describe("BibleReaderComponent", () => {
         { provide: ActivatedRoute, useValue: routeMock },
         { provide: BibleReaderAnimationService, useValue: animationServiceSpy },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
+        { provide: NetworkService, useValue: networkServiceSpy },
       ],
     })
       .overrideComponent(BibleReaderComponent, {
@@ -555,27 +562,12 @@ describe("BibleReaderComponent", () => {
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", 1])
     }))
 
-    it("should not navigate or reset container when offline (navigator.onLine false)", fakeAsync(() => {
+    it("should not navigate or reset container when NetworkService reports offline", fakeAsync(() => {
       spyOn(console, "error")
-      spyOnProperty(navigator, "onLine").and.returnValue(false)
+      ;(networkServiceSpy as unknown as { isOffline: boolean }).isOffline = true
       apiServiceSpy.getChapter.and.returnValue(
         throwError(() => new Error("Network error")),
       )
-      component.book = mockBooks[0] as unknown as Book
-      const el = document.createElement("div")
-      component.bookContainer = { nativeElement: el } as unknown as ElementRef
-
-      component.getChapter(2)
-      tick()
-
-      expect(routerSpy.navigate).not.toHaveBeenCalled()
-      expect(el.style.opacity).not.toBe("0")
-    }))
-
-    it("should not navigate or reset container when error status is 0 (offline/network failure)", fakeAsync(() => {
-      spyOn(console, "error")
-      const networkErr = { status: 0 }
-      apiServiceSpy.getChapter.and.returnValue(throwError(() => networkErr))
       component.book = mockBooks[0] as unknown as Book
       const el = document.createElement("div")
       component.bookContainer = { nativeElement: el } as unknown as ElementRef

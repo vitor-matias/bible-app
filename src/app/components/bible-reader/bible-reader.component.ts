@@ -330,7 +330,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
                 verseEnd,
                 highlight,
               )
-            } else if (!navigator.onLine || err?.status === 0) {
+            } else if (this.networkService.isOffline) {
               this.notifyChapterLoadFailed()
             } else {
               this.resetContainerForRepaint()
