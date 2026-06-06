@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Angular 21 (standalone, `OnPush`) Bible reader, packaged for web + mobile via Capacitor.
+Angular 22 (standalone, `OnPush`) Bible reader, packaged for web + mobile via Capacitor.
 Lint/format is **Biome** (`npm run biome` to fix, `npx @biomejs/biome check ./src` to check).
 Typecheck with `npx tsc -p tsconfig.app.json --noEmit`. Tests via Karma (`npm test`).
 
