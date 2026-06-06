@@ -4,7 +4,7 @@ An offline-first Bible reader for the Portuguese Capuchin friars
 ([biblia.capuchinhos.org](https://biblia.capuchinhos.org/)), shipped as a
 Progressive Web App and as native iOS/Android apps via Capacitor.
 
-Built with Angular 21 (standalone, zoneless-friendly, `OnPush` throughout),
+Built with Angular 22 (standalone, zoneless-friendly, `OnPush` throughout),
 Angular Material, and a thin REST backend.
 
 ## Features
