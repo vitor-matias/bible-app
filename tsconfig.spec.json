@@ -10,9 +10,11 @@
   "angularCompilerOptions": {
     "extendedDiagnostics": {
       "checks": {
-        "nullishCoalescingNotNullable": "suppress",
-        "optionalChainNotNullable": "suppress"
+        "nullishCoalescingNotNullable": "warning",
+        "optionalChainNotNullable": "warning"
       }
+    }
+  }
     }
   }
 }
