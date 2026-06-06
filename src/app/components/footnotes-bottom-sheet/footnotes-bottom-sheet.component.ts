@@ -37,8 +37,7 @@ import { BookService } from "../../services/book.service"
             (click)="close()"
             [routerLink]="['/', getAbrv(part.book), part.chapter]"
             [queryParams]="getVerseQueryParams(part.verses)"
-            >{{ part.match }}</a
-          >
+          >{{ part.match }}</a>
           } @else {
           {{ part }}
           } }
