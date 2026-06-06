@@ -1,5 +1,6 @@
 import { Location } from "@angular/common"
 import {
+  ChangeDetectionStrategy,
   Component,
   type ElementRef,
   EventEmitter,
@@ -28,6 +29,7 @@ import { MatToolbarModule } from "@angular/material/toolbar"
     MatInputModule,
   ],
   templateUrl: "./search-bar.component.html",
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ["./search-bar.component.css"],
 })
 export class SearchBarComponent {

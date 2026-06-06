@@ -3,6 +3,7 @@ import { FlatTreeControl } from "@angular/cdk/tree"
 import {
   AfterViewInit,
   afterNextRender,
+  ChangeDetectionStrategy,
   Component,
   ElementRef,
   EventEmitter,
@@ -38,6 +39,7 @@ interface ExampleFlatNode {
   selector: "book-selector",
   imports: [MatListModule, MatTreeModule, MatIconModule, MatButtonModule],
   templateUrl: "./book-selector.component.html",
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: "./book-selector.component.css",
 })
 export class BookSelectorComponent implements AfterViewInit, OnChanges {

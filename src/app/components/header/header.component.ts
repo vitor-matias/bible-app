@@ -1,5 +1,6 @@
 import { CommonModule } from "@angular/common"
 import {
+  ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
   DestroyRef,
@@ -51,6 +52,7 @@ import { ReportProblemComponent } from "../report-problem/report-problem.compone
     CommonModule,
   ],
   templateUrl: "./header.component.html",
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ["./header.component.css"],
 })
 export class HeaderComponent implements OnInit, OnChanges, OnDestroy {

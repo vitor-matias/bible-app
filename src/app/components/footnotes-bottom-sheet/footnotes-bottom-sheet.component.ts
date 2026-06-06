@@ -1,4 +1,4 @@
-import { Component, Inject } from "@angular/core"
+import { ChangeDetectionStrategy, Component, Inject } from "@angular/core"
 
 import {
   MAT_BOTTOM_SHEET_DATA,
@@ -29,53 +29,52 @@ import { BookService } from "../../services/book.service"
     <div unifiedGestures fontSizeContext="reader" class="footnotes-container">
       <div class="footnotes-list">
         @for (footnote of data.footnotes; track footnote) {
-          <div class="footnote-item">
-            <span class="footnote-reference">{{ footnote.reference }} </span>
-            @for(part of parseReferences(footnote.text).parts; track $index){
-              @if (typeof part === 'object') {
-                <a (click)="close()"
-                  [routerLink]="['/', getAbrv(part.book), part.chapter]"
-                  [queryParams]="getVerseQueryParams(part.verses)"
-                  >{{part.match}}</a
-                  >
-                } @else {
-                  {{part}}
-                }
-              }
-            </div>
-          }
+        <div class="footnote-item">
+          <span class="footnote-reference">{{ footnote.reference }} </span>
+          @for(part of parseReferences(footnote.text).parts; track $index){ @if
+          (typeof part === 'object') {
+          <a
+            (click)="close()"
+            [routerLink]="['/', getAbrv(part.book), part.chapter]"
+            [queryParams]="getVerseQueryParams(part.verses)"
+            >{{ part.match }}</a
+          >
+          } @else {
+          {{ part }}
+          } }
         </div>
+        }
       </div>
-    `,
+    </div>
+  `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [
     `
-    .footnotes-container {
-      font-family: "PT Serif", serif;
+      .footnotes-container {
+        font-family: 'PT Serif', serif;
         text-align: justify;
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
 
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .footnote-item {
-      margin-bottom: 12px;
-      padding: 8px;
-      border-radius: 4px;
-    }
-    .footnote-text {
-      font-size: 100%;
-      line-height: 1.4;
-      
-    }
-    .footnote-reference { 
-      font-weight: bold;
-      font-size: 110%;
-      margin-right: 8px;
-    }
-  `,
+      .footnote-item {
+        margin-bottom: 12px;
+        padding: 8px;
+        border-radius: 4px;
+      }
+      .footnote-text {
+        font-size: 100%;
+        line-height: 1.4;
+      }
+      .footnote-reference {
+        font-weight: bold;
+        font-size: 110%;
+        margin-right: 8px;
+      }
+    `,
   ],
 })
 export class FootnotesBottomSheetComponent {

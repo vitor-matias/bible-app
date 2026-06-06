@@ -2,6 +2,7 @@ import { CommonModule } from "@angular/common"
 import {
   AfterViewInit,
   afterNextRender,
+  ChangeDetectionStrategy,
   Component,
   ElementRef,
   EventEmitter,
@@ -30,6 +31,7 @@ import { BookmarkService } from "../../services/bookmark.service"
     MatButtonModule,
   ],
   templateUrl: "./chapter-selector.component.html",
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: "./chapter-selector.component.css",
 })
 export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
