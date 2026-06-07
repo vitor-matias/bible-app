@@ -568,6 +568,11 @@ describe("BibleReaderComponent", () => {
         replaceUrl: true,
       })
       expect(el.style.opacity).not.toBe("0")
+      expect(snackBarSpy.open).toHaveBeenCalledWith(
+        "Não foi possível carregar o capítulo. Tente novamente.",
+        "OK",
+        { duration: 4000 },
+      )
     }))
 
     it("should revert URL with replaceUrl and not reset container when NetworkService reports offline", fakeAsync(() => {
@@ -588,6 +593,11 @@ describe("BibleReaderComponent", () => {
         replaceUrl: true,
       })
       expect(el.style.opacity).not.toBe("0")
+      expect(snackBarSpy.open).toHaveBeenCalledWith(
+        "Sem ligação. Este capítulo ainda não está disponível offline.",
+        "OK",
+        { duration: 4000 },
+      )
     }))
 
     it("should call scrollToVerseElement in error handler if verseStart provided and book is about", fakeAsync(() => {

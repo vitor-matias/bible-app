@@ -332,16 +332,6 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
                 verseEnd,
                 highlight,
               )
-            } else if (this.networkService.isOffline) {
-              this.notifyChapterLoadFailed()
-              this.router.navigate(
-                [
-                  "/",
-                  this.bookService.getUrlAbrv(this.book),
-                  this.chapterNumber,
-                ],
-                { replaceUrl: true },
-              )
             } else {
               this.notifyChapterLoadFailed()
               this.router.navigate(
