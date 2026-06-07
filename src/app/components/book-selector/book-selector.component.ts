@@ -2,10 +2,14 @@ import { FlatTreeControl } from "@angular/cdk/tree"
 
 import {
   AfterViewInit,
+  afterNextRender,
+  ChangeDetectionStrategy,
   Component,
   ElementRef,
   EventEmitter,
+  Injector,
   Input,
+  inject,
   OnChanges,
   Output,
   SimpleChanges,
@@ -35,6 +39,7 @@ interface ExampleFlatNode {
   selector: "book-selector",
   imports: [MatListModule, MatTreeModule, MatIconModule, MatButtonModule],
   templateUrl: "./book-selector.component.html",
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./book-selector.component.css",
 })
 export class BookSelectorComponent implements AfterViewInit, OnChanges {
@@ -79,6 +84,8 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
     this.ntTreeControl,
     this.ntTreeFlattener,
   )
+
+  private injector = inject(Injector)
 
   constructor(private elementRef: ElementRef) {
     this.otDataSource.data = this.oldTestament
@@ -257,8 +264,10 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["selectedBookId"] && !changes["selectedBookId"].firstChange) {
-      // Delay slightly to allow DOM to update if needed (though book list is likely static)
-      setTimeout(() => this.scrollToSelectedBook(), 100)
+      // Scroll once the updated book list has actually been rendered.
+      afterNextRender(() => this.scrollToSelectedBook(), {
+        injector: this.injector,
+      })
     }
   }
 

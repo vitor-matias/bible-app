@@ -1,7 +1,10 @@
 import {
+  afterNextRender,
+  ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
   type ElementRef,
+  Injector,
   ViewChild,
 } from "@angular/core"
 import { MatIconModule } from "@angular/material/icon"
@@ -20,6 +23,7 @@ import { SearchBarComponent } from "../search-bar/search-bar.component"
   templateUrl: "./search.component.html",
   styleUrl: "./search.component.css",
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     SearchBarComponent,
     RouterModule,
@@ -51,6 +55,7 @@ export class SearchComponent {
     private router: Router,
     private cdr: ChangeDetectorRef,
     private analyticsService: AnalyticsService,
+    private injector: Injector,
   ) {}
 
   ngAfterViewInit(): void {
@@ -246,14 +251,17 @@ export class SearchComponent {
   resultsContainer!: ElementRef
 
   scrollToTop() {
-    setTimeout(() => {
-      if (this.resultsContainer?.nativeElement) {
-        this.resultsContainer.nativeElement.scrollTo({
-          top: 0,
-          behavior: "smooth",
-        })
-      }
-    }, 100)
+    afterNextRender(
+      () => {
+        if (this.resultsContainer?.nativeElement) {
+          this.resultsContainer.nativeElement.scrollTo({
+            top: 0,
+            behavior: "smooth",
+          })
+        }
+      },
+      { injector: this.injector },
+    )
   }
 
   findBookById(bookId: string): Book | undefined {

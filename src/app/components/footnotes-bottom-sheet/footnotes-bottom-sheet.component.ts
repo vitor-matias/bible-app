@@ -1,4 +1,4 @@
-import { Component, Inject } from "@angular/core"
+import { ChangeDetectionStrategy, Component, Inject } from "@angular/core"
 
 import {
   MAT_BOTTOM_SHEET_DATA,
@@ -29,61 +29,58 @@ import { BookService } from "../../services/book.service"
     <div unifiedGestures fontSizeContext="reader" class="footnotes-container">
       <div class="footnotes-list">
         @for (footnote of data.footnotes; track footnote) {
-          <div class="footnote-item">
-            <span class="footnote-reference">{{ footnote.reference }} </span>
-            @for(part of parseReferences(footnote.text).parts; track $index){
-              @if (typeof part === 'object') {
-                <a (click)="close()"
-                  [routerLink]="['/', getAbrv(part.book), part.chapter]"
-                  [queryParams]="getVerseQueryParams(part.verses)"
-                  >{{part.match}}</a
-                  >
-                } @else {
-                  {{part}}
-                }
-              }
-            </div>
-          }
+        <div class="footnote-item">
+          <span class="footnote-reference">{{ footnote.reference }} </span>
+          @for(part of parseReferences(footnote.text).parts; track $index){ @if
+          (typeof part === 'object') {
+          <a
+            (click)="close()"
+            [routerLink]="['/', getAbrv(part.book), part.chapter]"
+            [queryParams]="getVerseQueryParams(part.verses)"
+          >{{ part.match }}</a>
+          } @else {
+          {{ part }}
+          } }
         </div>
+        }
       </div>
-    `,
+    </div>
+  `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [
     `
-    .footnotes-container {
-      font-family: "PT Serif", serif;
+      .footnotes-container {
+        font-family: 'PT Serif', serif;
         text-align: justify;
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
 
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .footnote-item {
-      margin-bottom: 12px;
-      padding: 8px;
-      border-radius: 4px;
-    }
-    .footnote-text {
-      font-size: 100%;
-      line-height: 1.4;
-      
-    }
-    .footnote-reference { 
-      font-weight: bold;
-      font-size: 110%;
-      margin-right: 8px;
-    }
-  `,
+      .footnote-item {
+        margin-bottom: 12px;
+        padding: 8px;
+        border-radius: 4px;
+      }
+      .footnote-text {
+        font-size: 100%;
+        line-height: 1.4;
+      }
+      .footnote-reference {
+        font-weight: bold;
+        font-size: 110%;
+        margin-right: 8px;
+      }
+    `,
   ],
 })
 export class FootnotesBottomSheetComponent {
   constructor(
     private bottomSheetRef: MatBottomSheetRef<FootnotesBottomSheetComponent>,
     @Inject(MAT_BOTTOM_SHEET_DATA)
-    // biome-ignore lint/suspicious/noExplicitAny: Data structure from bottom sheet is dynamic and loose typed
-    public data: { footnotes: any[]; verse: any },
+    public data: { footnotes: _Footnote[]; verse: Verse },
     private bibleRef: BibleReferenceService,
     private bookService: BookService,
     private analyticsService: AnalyticsService,
@@ -91,7 +88,7 @@ export class FootnotesBottomSheetComponent {
     void this.analyticsService.track("footnotes_opened", {
       book: data.verse.bookId,
       chapter: data.verse.chapterNumber,
-      verse: data.verse.verseNumber,
+      verse: data.verse.number,
     })
   }
 

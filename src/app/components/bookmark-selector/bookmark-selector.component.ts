@@ -1,5 +1,12 @@
 import { CommonModule } from "@angular/common"
-import { Component, DestroyRef, Inject, inject, OnInit } from "@angular/core"
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  Inject,
+  inject,
+  OnInit,
+} from "@angular/core"
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import {
   MAT_BOTTOM_SHEET_DATA,
@@ -24,6 +31,7 @@ interface RibbonState {
   standalone: true,
   imports: [CommonModule, MatButtonModule, MatIconModule],
   templateUrl: "./bookmark-selector.component.html",
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ["./bookmark-selector.component.css"],
 })
 export class BookmarkSelectorComponent implements OnInit {

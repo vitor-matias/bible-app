@@ -1,5 +1,11 @@
 import { CommonModule } from "@angular/common"
-import { Component, Input, OnChanges, SimpleChanges } from "@angular/core"
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Input,
+  OnChanges,
+  SimpleChanges,
+} from "@angular/core"
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
 import { Router, RouterModule } from "@angular/router"
 import {
@@ -15,6 +21,7 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
   standalone: true,
   imports: [CommonModule, RouterModule, MatSnackBarModule],
   templateUrl: "./verse-section.component.html",
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./verse-section.component.css",
 })
 export class VerseSectionComponent implements OnChanges {

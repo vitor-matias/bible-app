@@ -1,4 +1,4 @@
-import { Component, Inject } from "@angular/core"
+import { ChangeDetectionStrategy, Component, Inject } from "@angular/core"
 import { MatButtonModule } from "@angular/material/button"
 import { MAT_SNACK_BAR_DATA, MatSnackBarRef } from "@angular/material/snack-bar"
 
@@ -11,21 +11,24 @@ import { MAT_SNACK_BAR_DATA, MatSnackBarRef } from "@angular/material/snack-bar"
     <button mat-button (click)="goBack()">Voltar</button>
     <button mat-button (click)="dismiss()">Fechar</button>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [
     `
-    :host {
-      display: flex;
-      align-items: center;
-      width: 100%;
-    }
-    .spacer { flex: 1 1 auto; }
-    .message {
-      color: antiquewhite;
-    }
-    :host ::ng-deep .mat-mdc-button .mdc-button__label {
-  color: antiquewhite;
-}
-  `,
+      :host {
+        display: flex;
+        align-items: center;
+        width: 100%;
+      }
+      .spacer {
+        flex: 1 1 auto;
+      }
+      .message {
+        color: antiquewhite;
+      }
+      :host ::ng-deep .mat-mdc-button .mdc-button__label {
+        color: antiquewhite;
+      }
+    `,
   ],
 })
 export class TwoActionSnackComponent {

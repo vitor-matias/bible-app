@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common"
-import { Component, Inject } from "@angular/core"
+import { ChangeDetectionStrategy, Component, Inject } from "@angular/core"
 import {
   FormControl,
   FormGroup,
@@ -37,6 +37,7 @@ export interface ReportProblemData {
     MatSnackBarModule,
   ],
   templateUrl: "./report-problem.component.html",
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ["./report-problem.component.css"],
 })
 export class ReportProblemComponent {

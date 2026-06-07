@@ -244,6 +244,7 @@ bible-reader .mat-drawer-content {
 
 .bookSelector .mat-drawer-inner-container {
   scrollbar-gutter: stable;
+  overscroll-behavior: none;
 }
 
 /* Apply focus color via supported Material theming tokens on the host elements */

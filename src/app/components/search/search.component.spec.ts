@@ -1,5 +1,10 @@
-import { ChangeDetectorRef } from "@angular/core"
-import { fakeAsync, flushMicrotasks } from "@angular/core/testing"
+import { NO_ERRORS_SCHEMA } from "@angular/core"
+import {
+  ComponentFixture,
+  fakeAsync,
+  flushMicrotasks,
+  TestBed,
+} from "@angular/core/testing"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { Router } from "@angular/router"
 import { Observable, of } from "rxjs"
@@ -11,19 +16,20 @@ import { SearchComponent } from "./search.component"
 
 describe("SearchComponent", () => {
   let component: SearchComponent
+  let fixture: ComponentFixture<SearchComponent>
   let apiService: jasmine.SpyObj<BibleApiService>
   let referenceService: jasmine.SpyObj<BibleReferenceService>
   let bookService: jasmine.SpyObj<BookService>
   let snackBar: jasmine.SpyObj<MatSnackBar>
   let router: jasmine.SpyObj<Router>
   let analyticsService: jasmine.SpyObj<AnalyticsService>
-  let cdr: Pick<ChangeDetectorRef, "detectChanges">
   let observerCallback: IntersectionObserverCallback | null
   let originalIntersectionObserver: typeof IntersectionObserver | undefined
 
   class MockIntersectionObserver implements IntersectionObserver {
     root: Element | Document | null = null
     rootMargin = ""
+    scrollMargin = ""
     thresholds = [1]
 
     constructor(callback: IntersectionObserverCallback) {
@@ -41,7 +47,7 @@ describe("SearchComponent", () => {
     }
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     apiService = jasmine.createSpyObj("BibleApiService", ["getVerse", "search"])
     referenceService = jasmine.createSpyObj("BibleReferenceService", [
       "extract",
@@ -52,22 +58,30 @@ describe("SearchComponent", () => {
     router.navigate.and.resolveTo(true)
     analyticsService = jasmine.createSpyObj("AnalyticsService", ["track"])
     analyticsService.track.and.returnValue(Promise.resolve())
-    cdr = { detectChanges: jasmine.createSpy("detectChanges") }
     observerCallback = null
     originalIntersectionObserver = globalThis.IntersectionObserver
 
     globalThis.IntersectionObserver =
       MockIntersectionObserver as typeof IntersectionObserver
 
-    component = new SearchComponent(
-      apiService,
-      referenceService,
-      bookService,
-      snackBar,
-      router,
-      cdr as ChangeDetectorRef,
-      analyticsService,
-    )
+    await TestBed.configureTestingModule({
+      imports: [SearchComponent],
+      providers: [
+        { provide: BibleApiService, useValue: apiService },
+        { provide: BibleReferenceService, useValue: referenceService },
+        { provide: BookService, useValue: bookService },
+        { provide: MatSnackBar, useValue: snackBar },
+        { provide: Router, useValue: router },
+        { provide: AnalyticsService, useValue: analyticsService },
+      ],
+    })
+      .overrideComponent(SearchComponent, {
+        set: { schemas: [NO_ERRORS_SCHEMA], imports: [] },
+      })
+      .compileComponents()
+
+    fixture = TestBed.createComponent(SearchComponent)
+    component = fixture.componentInstance
   })
 
   afterEach(() => {

@@ -1,10 +1,14 @@
 import { CommonModule } from "@angular/common"
 import {
   AfterViewInit,
+  afterNextRender,
+  ChangeDetectionStrategy,
   Component,
   ElementRef,
   EventEmitter,
+  Injector,
   Input,
+  inject,
   OnChanges,
   Output,
   SimpleChanges,
@@ -27,6 +31,7 @@ import { BookmarkService } from "../../services/bookmark.service"
     MatButtonModule,
   ],
   templateUrl: "./chapter-selector.component.html",
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./chapter-selector.component.css",
 })
 export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
@@ -44,6 +49,8 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
   bookId!: string
 
   bookmarks$ = of(new Map<number, string>()) // map chapter -> color
+
+  private injector = inject(Injector)
 
   constructor(
     private elementRef: ElementRef,
@@ -69,7 +76,10 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["selectedChapter"] && !changes["selectedChapter"].firstChange) {
-      setTimeout(() => this.scrollToSelectedChapter(), 100)
+      // Scroll once the changed chapter list has actually been rendered.
+      afterNextRender(() => this.scrollToSelectedChapter(), {
+        injector: this.injector,
+      })
     }
     if (changes["bookId"] && this.bookId) {
       this.bookmarks$ = this.bookmarkService

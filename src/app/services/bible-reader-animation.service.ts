@@ -161,10 +161,8 @@ export class BibleReaderAnimationService {
       }
 
       if (bookContainer) {
-        // Note: we don't have access to drawerContent here unless appended,
-        // let's assume we can optionally pass it or handle overflow elsewhere.
-        // Actually, triggerSlideAnimation just removes overflow from drawerContent if provided.
-        // Let's pass undefined here since it was using this.triggerSlideAnimation(bookContainer, startAtBottom) previously.
+        // drawerContent is not available here; triggerSlideAnimation only uses it
+        // to clear overflow, which is handled elsewhere, so pass undefined.
         this.triggerSlideAnimation(undefined, bookContainer, startAtBottom)
       }
     }, 100)
