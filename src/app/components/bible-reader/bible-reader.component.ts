@@ -343,13 +343,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
                 { replaceUrl: true },
               )
             } else {
-              this.resetContainerForRepaint()
               this.notifyChapterLoadFailed()
-              this.router.navigate([
-                "/",
-                this.bookService.getUrlAbrv(this.book),
-                1,
-              ])
+              this.router.navigate(
+                [
+                  "/",
+                  this.bookService.getUrlAbrv(this.book),
+                  this.chapterNumber,
+                ],
+                { replaceUrl: true },
+              )
             }
             console.error(err)
           }),

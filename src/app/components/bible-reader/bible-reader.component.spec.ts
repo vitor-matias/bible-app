@@ -551,19 +551,23 @@ describe("BibleReaderComponent", () => {
       expect(animationServiceSpy.triggerSlideOutAnimation).toHaveBeenCalled()
     }))
 
-    it("should navigate to first chapter on error if book is not 'about'", fakeAsync(() => {
+    it("should revert URL with replaceUrl and not reset container when online error occurs", fakeAsync(() => {
       spyOn(console, "error")
       apiServiceSpy.getChapter.and.returnValue(
         throwError(() => new Error("Not found")),
       )
       component.book = mockBooks[0] as unknown as Book
-      component.bookContainer = {
-        nativeElement: document.createElement("div"),
-      } as unknown as ElementRef
+      component.chapterNumber = 3
+      const el = document.createElement("div")
+      component.bookContainer = { nativeElement: el } as unknown as ElementRef
 
-      component.getChapter(2)
+      component.getChapter(4)
       tick()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", 1])
+
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", 3], {
+        replaceUrl: true,
+      })
+      expect(el.style.opacity).not.toBe("0")
     }))
 
     it("should revert URL with replaceUrl and not reset container when NetworkService reports offline", fakeAsync(() => {

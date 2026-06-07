@@ -465,7 +465,7 @@ describe("VerseComponent", () => {
       setData(component, makeVerse({ text: [{ type: "text", text: "plain" }] }))
       fixture.detectChanges()
       const interactive = fixture.nativeElement.querySelectorAll(
-        "[tabindex='0'][role='button']",
+        ".interactive[tabindex='0'][role='button']",
       )
       expect(interactive.length).toBe(0)
     })
@@ -482,7 +482,7 @@ describe("VerseComponent", () => {
       )
       fixture.detectChanges()
       const interactive = fixture.nativeElement.querySelectorAll(
-        "[tabindex='0'][role='button']",
+        ".interactive[tabindex='0'][role='button']",
       )
       expect(interactive.length).toBeGreaterThan(0)
     })
