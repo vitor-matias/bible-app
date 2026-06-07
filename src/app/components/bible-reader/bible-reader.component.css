@@ -27,6 +27,7 @@ h6 {
   .bookSelector {
     width: 100%;
     scrollbar-gutter: stable;
+    overscroll-behavior: none;
   }
 
   .prev-chapter {
@@ -57,6 +58,7 @@ h6 {
   .bookSelector {
     width: 515px;
     scrollbar-gutter: stable;
+    overscroll-behavior: none;
   }
 
   .prev-chapter {
