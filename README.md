@@ -83,7 +83,7 @@ different backend.
   Concurrent requests for the same chapter/books are de-duplicated via `shareReplay`.
 - **Domain types** — Bible content is modeled in
   [src/app/@types/types.d.ts](src/app/@types/types.d.ts) (`Book`, `Chapter`,
-  `Verse`, and the underlying USFM source shapes). The backend serves the parsed
+  and `Verse`). The backend serves the parsed
   JSON; the client renders it.
 - **Feature components** live under `src/app/components/`, cross-cutting logic under
   `src/app/services/`, and gesture/navigation behavior under `src/app/directives/`.

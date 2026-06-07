@@ -460,6 +460,34 @@ describe("VerseComponent", () => {
     })
   })
 
+  describe("a11y — text body tabindex and role", () => {
+    it("should not render tabindex or role on text span when verse has no footnotes", () => {
+      setData(component, makeVerse({ text: [{ type: "text", text: "plain" }] }))
+      fixture.detectChanges()
+      const interactive = fixture.nativeElement.querySelectorAll(
+        "[tabindex='0'][role='button']",
+      )
+      expect(interactive.length).toBe(0)
+    })
+
+    it("should render tabindex and role on text span when verse has footnotes", () => {
+      setData(
+        component,
+        makeVerse({
+          text: [
+            { type: "text", text: "verse text" },
+            { type: "footnote", text: "note", reference: "a" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+      const interactive = fixture.nativeElement.querySelectorAll(
+        "[tabindex='0'][role='button']",
+      )
+      expect(interactive.length).toBeGreaterThan(0)
+    })
+  })
+
   describe("toggleFootnotes", () => {
     it("should open bottom sheet when footnotes exist", () => {
       setData(

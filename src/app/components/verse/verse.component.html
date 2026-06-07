@@ -31,7 +31,7 @@
             }
           </span>
         }
-        <span tabindex="0" role="button" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="hasFootnotes" (click)="hasFootnotes ? toggleFootnotes($event) : null" (keydown.enter)="hasFootnotes ? toggleFootnotes($event) : null">{{ text.text }}</span>
+        <span [attr.tabindex]="hasFootnotes ? 0 : null" [attr.role]="hasFootnotes ? 'button' : null" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="hasFootnotes" (click)="hasFootnotes ? toggleFootnotes($event) : null" (keydown.enter)="hasFootnotes ? toggleFootnotes($event) : null">{{ text.text }}</span>
       }
 
       <!-- References -->

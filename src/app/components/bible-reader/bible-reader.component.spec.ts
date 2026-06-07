@@ -562,20 +562,23 @@ describe("BibleReaderComponent", () => {
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", 1])
     }))
 
-    it("should not navigate or reset container when NetworkService reports offline", fakeAsync(() => {
+    it("should revert URL with replaceUrl and not reset container when NetworkService reports offline", fakeAsync(() => {
       spyOn(console, "error")
       ;(networkServiceSpy as unknown as { isOffline: boolean }).isOffline = true
       apiServiceSpy.getChapter.and.returnValue(
         throwError(() => new Error("Network error")),
       )
       component.book = mockBooks[0] as unknown as Book
+      component.chapterNumber = 1
       const el = document.createElement("div")
       component.bookContainer = { nativeElement: el } as unknown as ElementRef
 
       component.getChapter(2)
       tick()
 
-      expect(routerSpy.navigate).not.toHaveBeenCalled()
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", 1], {
+        replaceUrl: true,
+      })
       expect(el.style.opacity).not.toBe("0")
     }))
 
