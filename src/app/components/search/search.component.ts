@@ -23,7 +23,7 @@ import { SearchBarComponent } from "../search-bar/search-bar.component"
   templateUrl: "./search.component.html",
   styleUrl: "./search.component.css",
   standalone: true,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     SearchBarComponent,
     RouterModule,

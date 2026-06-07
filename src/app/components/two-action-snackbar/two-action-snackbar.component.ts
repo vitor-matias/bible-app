@@ -11,7 +11,7 @@ import { MAT_SNACK_BAR_DATA, MatSnackBarRef } from "@angular/material/snack-bar"
     <button mat-button (click)="goBack()">Voltar</button>
     <button mat-button (click)="dismiss()">Fechar</button>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [
     `
       :host {

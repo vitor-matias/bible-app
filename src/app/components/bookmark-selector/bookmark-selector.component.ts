@@ -31,7 +31,7 @@ interface RibbonState {
   standalone: true,
   imports: [CommonModule, MatButtonModule, MatIconModule],
   templateUrl: "./bookmark-selector.component.html",
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ["./bookmark-selector.component.css"],
 })
 export class BookmarkSelectorComponent implements OnInit {

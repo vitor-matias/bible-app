@@ -1,4 +1,4 @@
-import { provideHttpClient, withXhr } from "@angular/common/http"
+import { provideHttpClient } from "@angular/common/http"
 import { isDevMode, provideZoneChangeDetection } from "@angular/core"
 import { bootstrapApplication } from "@angular/platform-browser"
 import { provideAnimationsAsync } from "@angular/platform-browser/animations/async"
@@ -32,7 +32,7 @@ bootstrapApplication(AppComponent, {
       enabled: !isDevMode(),
       registrationStrategy: "registerWhenStable:30000",
     }),
-    provideHttpClient(withXhr()),
+    provideHttpClient(),
     provideAnimationsAsync(),
   ],
 }).catch((err) => console.error(err))

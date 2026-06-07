@@ -31,7 +31,7 @@ import { BookmarkService } from "../../services/bookmark.service"
     MatButtonModule,
   ],
   templateUrl: "./chapter-selector.component.html",
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./chapter-selector.component.css",
 })
 export class ChapterSelectorComponent implements AfterViewInit, OnChanges {

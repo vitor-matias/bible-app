@@ -5,6 +5,7 @@ import {
   TestBed,
   tick,
 } from "@angular/core/testing"
+import { MatSnackBar } from "@angular/material/snack-bar"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
 import { ActivatedRoute, Router } from "@angular/router"
 import { BehaviorSubject, of, throwError } from "rxjs"
@@ -31,6 +32,7 @@ describe("BibleReaderComponent", () => {
   let animationServiceSpy: jasmine.SpyObj<BibleReaderAnimationService>
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
   let networkServiceSpy: jasmine.SpyObj<NetworkService>
+  let snackBarSpy: jasmine.SpyObj<MatSnackBar>
 
   const mockBooks = [
     { id: "gen", name: "Genesis", urlAbrv: "1-genesis", chapterCount: 50 },
@@ -104,6 +106,7 @@ describe("BibleReaderComponent", () => {
       "ngOnDestroy",
     ]) as jasmine.SpyObj<NetworkService>
     ;(networkServiceSpy as unknown as { isOffline: boolean }).isOffline = false
+    snackBarSpy = jasmine.createSpyObj("MatSnackBar", ["open"])
 
     // Default returns
     preferencesServiceSpy.getAutoScrollSpeed.and.returnValue(50)
@@ -127,6 +130,7 @@ describe("BibleReaderComponent", () => {
         { provide: BibleReaderAnimationService, useValue: animationServiceSpy },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
         { provide: NetworkService, useValue: networkServiceSpy },
+        { provide: MatSnackBar, useValue: snackBarSpy },
       ],
     })
       .overrideComponent(BibleReaderComponent, {

@@ -37,7 +37,7 @@ export interface ReportProblemData {
     MatSnackBarModule,
   ],
   templateUrl: "./report-problem.component.html",
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ["./report-problem.component.css"],
 })
 export class ReportProblemComponent {

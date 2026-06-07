@@ -21,7 +21,7 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
   standalone: true,
   imports: [CommonModule, RouterModule, MatSnackBarModule],
   templateUrl: "./verse-section.component.html",
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./verse-section.component.css",
 })
 export class VerseSectionComponent implements OnChanges {

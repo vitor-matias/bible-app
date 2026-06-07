@@ -29,7 +29,7 @@ import { MatToolbarModule } from "@angular/material/toolbar"
     MatInputModule,
   ],
   templateUrl: "./search-bar.component.html",
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ["./search-bar.component.css"],
 })
 export class SearchBarComponent {

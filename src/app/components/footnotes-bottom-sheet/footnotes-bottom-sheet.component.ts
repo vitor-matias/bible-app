@@ -46,7 +46,7 @@ import { BookService } from "../../services/book.service"
       </div>
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [
     `
       .footnotes-container {
