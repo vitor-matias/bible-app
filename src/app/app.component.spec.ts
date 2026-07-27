@@ -15,7 +15,7 @@ describe("AppComponent", () => {
   let mockAppPlugin: jasmine.SpyObj<any>
 
   beforeEach(async () => {
-    routerSpy = jasmine.createSpyObj("Router", ["navigateByUrl"])
+    routerSpy = jasmine.createSpyObj("Router", ["navigateByUrl", "navigate"])
     mockAppPlugin = jasmine.createSpyObj("App", ["addListener"])
 
     const offlineDataSpy = jasmine.createSpyObj("OfflineDataService", [
@@ -55,6 +55,26 @@ describe("AppComponent", () => {
 
     const analyticsService = TestBed.inject(AnalyticsService)
     expect(analyticsService.track).toHaveBeenCalledWith("app_open")
+  })
+
+  it("should route a title-only share to search with q", async () => {
+    mockAppPlugin.addListener.and.resolveTo({
+      remove: async () => {},
+    } as unknown as PluginListenerHandle)
+    const originalUrl = window.location.href
+    history.replaceState(null, "", "/?title=Salmo%2023")
+
+    try {
+      const fixture = TestBed.createComponent(AppComponent)
+      fixture.detectChanges()
+      await fixture.whenStable()
+
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/search"], {
+        queryParams: { q: "Salmo 23" },
+      })
+    } finally {
+      history.replaceState(null, "", originalUrl)
+    }
   })
 
   it("should setup app links listener on native platform", () => {
