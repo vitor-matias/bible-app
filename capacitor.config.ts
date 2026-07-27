@@ -6,9 +6,10 @@ const config: CapacitorConfig = {
   webDir: "dist/bible-app/browser",
   server: {
     ...(process.env['CAPACITOR_SERVER_URL'] || process.env['NODE_ENV'] === "production"
-      ? { url: process.env['CAPACITOR_SERVER_URL'] || "https://biblia.capuchinhos.org" }
-      : {}),
+      ? { url: process.env['CAPACITOR_SERVER_URL'] || "https://biblia.capuchinhos.org/" }
+      : { url: "http://localhost:4200" }),
     androidScheme: "https",
+    iosScheme: "https",
   },
   plugins: {
     StatusBar: {

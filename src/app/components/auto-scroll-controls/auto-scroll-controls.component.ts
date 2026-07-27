@@ -8,6 +8,7 @@ import {
 } from "@angular/core"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
+import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { PreferencesService } from "../../services/preferences.service"
 
@@ -27,6 +28,7 @@ export class AutoScrollControlsComponent implements OnDestroy {
     private autoScrollService: AutoScrollService,
     private preferencesService: PreferencesService,
     private cdr: ChangeDetectorRef,
+    private analyticsService: AnalyticsService,
   ) {}
 
   ngOnDestroy(): void {
@@ -53,11 +55,9 @@ export class AutoScrollControlsComponent implements OnDestroy {
     const nextSpeed = this.autoScrollService.updateAutoScrollSpeed(delta)
     this.preferencesService.setAutoScrollSpeed(nextSpeed)
 
-    if (globalThis.umami) {
-      globalThis.umami.track("autoscroll_speed", {
-        speed: nextSpeed,
-      })
-    }
+    void this.analyticsService.track("autoscroll_speed", {
+      speed: nextSpeed,
+    })
 
     this.cdr.markForCheck()
   }
@@ -73,11 +73,9 @@ export class AutoScrollControlsComponent implements OnDestroy {
       },
     })
 
-    if (globalThis.umami) {
-      globalThis.umami.track("autoscroll_status", {
-        enabled: true,
-      })
-    }
+    void this.analyticsService.track("autoscroll_status", {
+      enabled: true,
+    })
 
     this.safeMarkForCheck()
   }
@@ -85,11 +83,9 @@ export class AutoScrollControlsComponent implements OnDestroy {
   private stopAutoScroll(): void {
     this.autoScrollService.stop()
 
-    if (globalThis.umami) {
-      globalThis.umami.track("autoscroll_status", {
-        enabled: false,
-      })
-    }
+    void this.analyticsService.track("autoscroll_status", {
+      enabled: false,
+    })
 
     this.safeMarkForCheck()
   }

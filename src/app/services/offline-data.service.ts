@@ -2,6 +2,7 @@ import { HttpClient } from "@angular/common/http"
 import { Injectable } from "@angular/core"
 import { firstValueFrom } from "rxjs"
 import { apiBaseUrl } from "../config"
+import { AnalyticsService } from "./analytics.service"
 import { DatabaseService } from "./database.service"
 import { NetworkService } from "./network.service"
 
@@ -26,6 +27,7 @@ export class OfflineDataService {
     private http: HttpClient,
     private databaseService: DatabaseService,
     private networkService: NetworkService,
+    private analyticsService: AnalyticsService,
   ) {}
 
   /**
@@ -55,7 +57,7 @@ export class OfflineDataService {
         this.http.get<Book[]>(`${this.apiBase}/books?withChapters=true`),
       )
       await this.setCachedBooks(books)
-      this.trackUmamiInstallEvent(source)
+      this.trackBooksCachedEvent(source)
     } catch (error) {
       console.error("Failed to preload books for offline use", error)
     }
@@ -101,6 +103,7 @@ export class OfflineDataService {
       localStorage.setItem(this.cacheFlagKey, "true")
     } catch (error) {
       console.error("Failed to persist cached books or metadata", error)
+      throw error
     }
   }
 
@@ -265,10 +268,7 @@ export class OfflineDataService {
     return Date.now() - timestamp > this.cacheMaxAgeMs
   }
 
-  private trackUmamiInstallEvent(source: "install" | "standalone") {
-    const umami = typeof window !== "undefined" ? window.umami : undefined
-    if (umami?.track) {
-      umami.track("pwa_books_cached", { source })
-    }
+  private trackBooksCachedEvent(source: "install" | "standalone") {
+    void this.analyticsService.track("pwa_books_cached", { source })
   }
 }

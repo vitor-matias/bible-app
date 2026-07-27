@@ -1,3 +1,12 @@
+<div class="book-filter-container">
+  <input
+    type="search"
+    class="book-filter-input"
+    placeholder="Filtrar livros..."
+    aria-label="Filtrar livros"
+    (input)="filterBooks($any($event.target).value)"
+  />
+</div>
 <div class="bible-books-container">
   <div class="column">
     <h4>Antigo Testamento</h4>

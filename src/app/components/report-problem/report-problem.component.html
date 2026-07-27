@@ -1,0 +1,40 @@
+<h2 mat-dialog-title>Reportar Erro</h2>
+
+<mat-dialog-content>
+  <p class="description">
+    Encontrou algum problema em "{{ data.book.name }}", capítulo {{ data.chapter }}?
+    <br>Ajude-nos a melhorar.
+  </p>
+
+  <form [formGroup]="reportForm" class="report-form" (ngSubmit)="onSubmit()">
+    <mat-form-field appearance="fill" class="full-width">
+      <mat-label>Tipo de Problema</mat-label>
+      <mat-select formControlName="topic" panelClass="app-report-select-panel">
+        @for (topic of topics; track topic.value) {
+          <mat-option [value]="topic.value">{{ topic.label }}</mat-option>
+        }
+      </mat-select>
+      @if (reportForm.get('topic')?.hasError('required')) {
+        <mat-error>Por favor, selecione um tipo de problema.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="full-width">
+      <mat-label>Detalhes</mat-label>
+      <textarea matInput formControlName="details" rows="4" maxlength="500"
+                placeholder="Descreva o problema (ex: falta uma vírgula após a palavra 'Deus')..."></textarea>
+      <mat-hint align="end">{{ reportForm.get('details')?.value?.length || 0 }} / 500</mat-hint>
+      @if (reportForm.get('details')?.hasError('required')) {
+        <mat-error>Por favor, forneça alguns detalhes.</mat-error>
+      }
+      @if (reportForm.get('details')?.hasError('maxlength')) {
+        <mat-error>Os detalhes não podem exceder 500 caracteres.</mat-error>
+      }
+    </mat-form-field>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button type="button" mat-button (click)="onCancel()">Cancelar</button>
+  <button type="button" mat-flat-button class="submit-btn" [disabled]="isSending || reportForm.invalid" (click)="onSubmit()">Enviar</button>
+</mat-dialog-actions>

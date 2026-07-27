@@ -26,25 +26,22 @@ h6 {
 @media (max-width: 768px) {
   .bookSelector {
     width: 100%;
+    scrollbar-gutter: stable;
+    overscroll-behavior: none;
   }
 
   .prev-chapter {
-    bottom: 52px;
+    bottom: calc(52px + env(safe-area-inset-bottom));
   }
 
   .next-chapter {
-    bottom: 52px;
+    bottom: calc(52px + env(safe-area-inset-bottom));
   }
 
   .search {
-    bottom: 52px;
+    bottom: calc(52px + env(safe-area-inset-bottom));
   }
 
-  .auto-scroll-controls {
-    left: 50%;
-    bottom: 8px;
-    transform: translateX(-50%);
-  }
 }
 
 @media (min-width: 768px) {
@@ -60,6 +57,8 @@ h6 {
 
   .bookSelector {
     width: 515px;
+    scrollbar-gutter: stable;
+    overscroll-behavior: none;
   }
 
   .prev-chapter {
@@ -72,9 +71,6 @@ h6 {
     transform: translateY(-50%);
   }
 
-  .auto-scroll-controls {
-    right: 16px;
-  }
 }
 
 .chapterNumber {
@@ -89,6 +85,7 @@ h6 {
   /* margin-bottom: 10px; Adds space below the chapter number */
   color: dimgray;
 }
+
 
 .bookSelectorContainer {
   width: 100%;
@@ -122,35 +119,7 @@ h6 {
   }
 }
 
-.auto-scroll-controls {
-  position: fixed;
-  bottom: 24px;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  opacity: 0.75;
-}
 
-.auto-scroll-speed {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background-color: var(--card-background);
-  font-size: 12px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-}
-
-.auto-scroll-speed .mat-icon {
-  color: var(--text-color);
-}
-
-.auto-scroll-speed span {
-  min-width: 60px;
-  text-align: center;
-  font-weight: 600;
-}
 
 .prev-chapter {
   left: 16px;
@@ -171,8 +140,8 @@ h6 {
 
 .dismiss-button {
   position: absolute;
-  top: 8px;
-  right: 4px;
+  top: 4px;
+  right: 8px;
   z-index: 1000;
   width: 48px;
   height: 48px;

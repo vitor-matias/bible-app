@@ -340,11 +340,21 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     return text.type === "quote" ? text.identLevel : 0
   }
 
-  toggleFootnotes(): void {
+  toggleFootnotes(event?: Event): void {
     const footnotes = this.data.text.filter((t) => t.type === "footnote")
     if (footnotes.length === 0) return
-    this.bottomSheet.open(FootnotesBottomSheetComponent, {
+    // Capture the marker that opened the sheet so we can restore focus to it
+    // ourselves. We disable Material's automatic restoreFocus because its
+    // .focus() scrolls the marker into view, which in paged (column) mode
+    // yanks the reader back to the start of the chapter. Refocusing with
+    // preventScroll keeps a11y intact without moving the page.
+    const trigger = event?.currentTarget as HTMLElement | null
+    const ref = this.bottomSheet.open(FootnotesBottomSheetComponent, {
       data: { footnotes, verse: this.data },
+      restoreFocus: false,
+    })
+    ref.afterDismissed().subscribe(() => {
+      trigger?.focus({ preventScroll: true })
     })
   }
 
@@ -371,7 +381,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
         currentGroup.elements.push({ data: text, originalIndex })
       } else {
         // Start or continue a normal group
-        if (!currentGroup || currentGroup.type !== "normal") {
+        if (currentGroup?.type !== "normal") {
           currentGroup = {
             type: "normal",
             elements: [{ data: text, originalIndex }],

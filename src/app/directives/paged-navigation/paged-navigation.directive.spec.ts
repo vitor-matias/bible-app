@@ -1,4 +1,9 @@
-import { Component, ElementRef, ViewChild } from "@angular/core"
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  ViewChild,
+} from "@angular/core"
 import {
   ComponentFixture,
   fakeAsync,
@@ -30,6 +35,7 @@ import {
     </div>
   `,
   imports: [PagedNavigationDirective],
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
 })
 class TestHostComponent {

@@ -1,50 +1,3 @@
-declare module "usfm-js" {
-  export function toJSON(input: string): USFMBook
-}
-
-type USFMBook = {
-  code: string
-  headers: USFMHeader[]
-  chapters: {
-    [chapterNumber: string]: USFMChapter
-  }
-}
-
-type USFMHeader = {
-  tag: string
-  content?: string
-}
-
-type USFMChapter = {
-  [verseNumber: string]: USFMVerse
-  front?: USFMVerse
-}
-
-type USFMVerse = {
-  verseObjects: USFMVerseObject[]
-}
-
-type Footnote = {
-  tag: "f"
-  type: "footnote"
-  content: string
-  endTag: string
-}
-
-type Text = {
-  type: "text"
-  text: string
-}
-
-type USFMVerseObject = {
-  tag?: string
-  type: string
-  content?: string
-  endTag?: string
-  text?: string
-  nextChar?: string
-}
-
 type Book = {
   id: string
   name: string
@@ -122,6 +75,7 @@ type Verse = {
   number: number
   verseLabel: string
   text: TextType[]
+  highlightedSegments?: HighlightSegment[]
 }
 
 type TextType = _Text | Section | Paragraph | Quote | References | _Footnote
@@ -178,3 +132,5 @@ type Bookmark = {
   color: string
   timestamp: number
 }
+
+type HighlightSegment = { text: string; highlight: boolean }

@@ -5,14 +5,17 @@ import {
   TestBed,
   tick,
 } from "@angular/core/testing"
+import { MatSnackBar } from "@angular/material/snack-bar"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
 import { ActivatedRoute, Router } from "@angular/router"
 import { BehaviorSubject, of, throwError } from "rxjs"
 import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
+import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
+import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { BibleReaderComponent } from "./bible-reader.component"
 
@@ -27,6 +30,9 @@ describe("BibleReaderComponent", () => {
   let routerSpy: jasmine.SpyObj<Router>
   let routeMock: unknown
   let animationServiceSpy: jasmine.SpyObj<BibleReaderAnimationService>
+  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
+  let networkServiceSpy: jasmine.SpyObj<NetworkService>
+  let snackBarSpy: jasmine.SpyObj<MatSnackBar>
 
   const mockBooks = [
     { id: "gen", name: "Genesis", urlAbrv: "1-genesis", chapterCount: 50 },
@@ -96,6 +102,14 @@ describe("BibleReaderComponent", () => {
       Promise.resolve(),
     )
 
+    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
+    networkServiceSpy = jasmine.createSpyObj("NetworkService", [
+      "ngOnDestroy",
+    ]) as jasmine.SpyObj<NetworkService>
+    ;(networkServiceSpy as unknown as { isOffline: boolean }).isOffline = false
+    snackBarSpy = jasmine.createSpyObj("MatSnackBar", ["open"])
+
     // Default returns
     preferencesServiceSpy.getAutoScrollSpeed.and.returnValue(50)
     preferencesServiceSpy.getViewMode.and.returnValue("scrolling")
@@ -127,6 +141,9 @@ describe("BibleReaderComponent", () => {
         { provide: Router, useValue: routerSpy },
         { provide: ActivatedRoute, useValue: routeMock },
         { provide: BibleReaderAnimationService, useValue: animationServiceSpy },
+        { provide: AnalyticsService, useValue: analyticsServiceSpy },
+        { provide: NetworkService, useValue: networkServiceSpy },
+        { provide: MatSnackBar, useValue: snackBarSpy },
       ],
     })
       .overrideComponent(BibleReaderComponent, {
@@ -216,21 +233,6 @@ describe("BibleReaderComponent", () => {
       expect(cdrSpy).toHaveBeenCalled()
     })
 
-    it("should allow getBook to update book on success", () => {
-      apiServiceSpy.getBook.and.returnValue(of(mockBooks[1] as unknown as Book))
-      component.getBook("about")
-      expect(component.book).toEqual(mockBooks[1] as unknown as Book)
-    })
-
-    it("should handle getBook error gracefully", () => {
-      const consoleSpy = spyOn(console, "error")
-      apiServiceSpy.getBook.and.returnValue(
-        throwError(() => new Error("failed")),
-      )
-      component.getBook("about")
-      expect(consoleSpy).toHaveBeenCalled()
-    })
-
     it("should increase and decrease font size via gestures directive", () => {
       component.gestures = jasmine.createSpyObj("UnifiedGesturesDirective", [
         "increaseFontSize",
@@ -245,6 +247,9 @@ describe("BibleReaderComponent", () => {
 
     describe("checkIfNextVerseStartsWithQuote", () => {
       it("should return false if chapter or verses missing", () => {
+        component.chapter = undefined as unknown as Chapter
+        expect(component.checkIfNextVerseStartsWithQuote(0)).toBeFalse()
+
         component.chapter = { verses: [] } as unknown as Chapter
         expect(component.checkIfNextVerseStartsWithQuote(0)).toBeFalse()
       })
@@ -559,19 +564,52 @@ describe("BibleReaderComponent", () => {
       expect(animationServiceSpy.triggerSlideOutAnimation).toHaveBeenCalled()
     }))
 
-    it("should navigate to first chapter on error if book is not 'about'", fakeAsync(() => {
+    it("should revert URL with replaceUrl and not reset container when online error occurs", fakeAsync(() => {
       spyOn(console, "error")
       apiServiceSpy.getChapter.and.returnValue(
         throwError(() => new Error("Not found")),
       )
       component.book = mockBooks[0] as unknown as Book
-      component.bookContainer = {
-        nativeElement: document.createElement("div"),
-      } as unknown as ElementRef
+      component.chapterNumber = 3
+      const el = document.createElement("div")
+      component.bookContainer = { nativeElement: el } as unknown as ElementRef
+
+      component.getChapter(4)
+      tick()
+
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", 3], {
+        replaceUrl: true,
+      })
+      expect(el.style.opacity).not.toBe("0")
+      expect(snackBarSpy.open).toHaveBeenCalledWith(
+        "Não foi possível carregar o capítulo. Tente novamente.",
+        "OK",
+        { duration: 4000 },
+      )
+    }))
+
+    it("should revert URL with replaceUrl and not reset container when NetworkService reports offline", fakeAsync(() => {
+      spyOn(console, "error")
+      ;(networkServiceSpy as unknown as { isOffline: boolean }).isOffline = true
+      apiServiceSpy.getChapter.and.returnValue(
+        throwError(() => new Error("Network error")),
+      )
+      component.book = mockBooks[0] as unknown as Book
+      component.chapterNumber = 1
+      const el = document.createElement("div")
+      component.bookContainer = { nativeElement: el } as unknown as ElementRef
 
       component.getChapter(2)
       tick()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"], {
+        replaceUrl: true,
+      })
+      expect(el.style.opacity).not.toBe("0")
+      expect(snackBarSpy.open).toHaveBeenCalledWith(
+        "Sem ligação. Este capítulo ainda não está disponível offline.",
+        "OK",
+        { duration: 4000 },
+      )
     }))
 
     it("should call scrollToVerseElement in error handler if verseStart provided and book is about", fakeAsync(() => {

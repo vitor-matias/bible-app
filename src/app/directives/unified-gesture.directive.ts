@@ -20,7 +20,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   @Output() swipeRight = new EventEmitter<void>()
   @Output() pinchZoom = new EventEmitter<{ scale: number }>()
 
-  private baseFontSize: number
+  private readonly BASE_FONT_SIZE = 100
   private currentFontSize: number
   private readonly FONT_STEP = 5
 
@@ -54,10 +54,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     private renderer: Renderer2,
     private preferencesService: PreferencesService,
   ) {
-    // Get the initial font size
-    const computedStyle = getComputedStyle(this.el.nativeElement)
-    this.baseFontSize = Number.parseFloat(computedStyle.fontSize) || 105
-    this.currentFontSize = this.baseFontSize
+    this.currentFontSize = this.BASE_FONT_SIZE
   }
 
   ngOnInit() {
@@ -66,10 +63,28 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
       this.getFontSizeContext(),
     )
 
-    if (storedSize) {
-      this.currentFontSize = storedSize
-      this.setFontSize(this.currentFontSize)
+    let hasValidSize = false
+    if (storedSize !== null && storedSize !== undefined) {
+      const parsedSize =
+        typeof storedSize === "number"
+          ? storedSize
+          : parseFloat(String(storedSize))
+      if (Number.isFinite(parsedSize)) {
+        this.currentFontSize = Math.max(
+          this.MIN_FONT_SIZE,
+          Math.min(parsedSize, this.MAX_FONT_SIZE),
+        )
+        hasValidSize = true
+      }
     }
+
+    if (hasValidSize) {
+      this.setFontSize(this.currentFontSize)
+    } else {
+      this.currentFontSize = this.BASE_FONT_SIZE
+    }
+
+    this.lastScale = this.currentFontSize / this.BASE_FONT_SIZE
 
     // Let the element keep its own scroll behavior while we take ownership of
     // custom swipe and pinch gestures.
@@ -205,7 +220,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     // Clamp the gesture so a wild pinch never leaves the text unreadably tiny or huge.
     const clampedScale = Math.max(0.5, Math.min(scale, 3))
 
-    const newFontSize = this.baseFontSize * clampedScale
+    const newFontSize = this.BASE_FONT_SIZE * clampedScale
     const clampedFontSize = Math.max(
       this.MIN_FONT_SIZE,
       Math.min(newFontSize, this.MAX_FONT_SIZE),
@@ -216,7 +231,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   }
 
   private handlePinchEnd() {
-    this.lastScale = this.currentFontSize / this.baseFontSize
+    this.lastScale = this.currentFontSize / this.BASE_FONT_SIZE
 
     // Store the new font size
     this.preferencesService.setFontSize(
@@ -246,6 +261,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     )
     this.setFontSize(nextSize)
     this.currentFontSize = nextSize
+    this.lastScale = this.currentFontSize / this.BASE_FONT_SIZE
 
     this.preferencesService.setFontSize(
       this.currentFontSize,

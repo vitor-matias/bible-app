@@ -1,8 +1,42 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.book-filter-container {
+  padding: 8px 12px;
+  flex-shrink: 0;
+  background-color: var(--card-background);
+  z-index: 100;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.book-filter-input {
+  width: calc(100% - 48px);
+  height: 36px;
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  padding: 0 16px;
+  font-size: 14px;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.book-filter-input:focus {
+  border-color: var(--cap-brown);
+}
+
 .bible-books-container {
   display: flex;
   justify-content: space-around;
   padding: 8px;
-  width: 95%;
+  width: 100%;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 mat-tree-node,

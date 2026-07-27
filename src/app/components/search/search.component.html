@@ -1,25 +1,49 @@
   <search-bar [value]="searchTerm" (searchValue)="onSearchSubmit($event)"></search-bar>
   <div unifiedGestures fontSizeContext="search" class="search-container" #container>
 
-  @if(searchResults.length > 0){
-  <div  class="results-section" #resultsContainer>
-    <ul class="results-list">
-      @for (result of searchResults; track $index) {
-      <li class="result-item" [routerLink]="['/', result.bookId, result.chapterNumber]" [queryParams]="{ verseStart: result.number }">
-        <div class="result-card">
-          <strong class="verse-ref">{{ findBookById(result.bookId)?.shortName }} {{ result.chapterNumber }}, {{ result.number }}</strong>
-          <p class="verse-text">{{ getVerseText(result) }}</p>
-        </div>
-      </li>
+  @if (!hasSearched) {
+    <div class="empty-state">
+      <mat-icon class="empty-state-icon">search</mat-icon>
+      <p>Procure versículos, livros ou referências bíblicas</p>
+    </div>
+  } @else if (isLoading && searchResults.length === 0) {
+    <div class="empty-state">
+      <mat-icon class="empty-state-icon">hourglass_empty</mat-icon>
+      <p>A procurar...</p>
+    </div>
+  } @else if (searchResults.length === 0) {
+    <div class="empty-state">
+      <mat-icon class="empty-state-icon">search_off</mat-icon>
+      <p>Nenhum resultado para <strong>"{{ searchTerm }}"</strong></p>
+    </div>
+  } @else {
+    <div class="results-section" #resultsContainer>
+      <p class="results-count">{{ totalResults }} {{ totalResults === 1 ? 'resultado' : 'resultados' }}</p>
+      <ul class="results-list">
+        @for (result of searchResults; track $index) {
+          <li class="result-item" [routerLink]="['/', result.bookId, result.chapterNumber]" [queryParams]="{ verseStart: result.number }">
+            <div class="result-card">
+              <strong class="verse-ref">{{ findBookById(result.bookId)?.shortName }} {{ result.chapterNumber }}, {{ result.number }}</strong>
+              <p class="verse-text">
+                @for (segment of result.highlightedSegments; track $index) {
+                  @if (segment.highlight) {
+                    <mark class="search-highlight">{{ segment.text }}</mark>
+                  } @else {
+                    {{ segment.text }}
+                  }
+                }
+              </p>
+            </div>
+          </li>
+        }
+        @if (searchResults.length < totalResults) {
+          <li #sentinel class="sentinel"></li>
+        }
+      </ul>
+      @if (isLoading) {
+        <p class="loading">A carregar mais resultados...</p>
       }
-    @if(searchResults.length < totalResults) {
-    <!-- Sentinel element for infinite scroll -->
-    <li #sentinel class="sentinel"></li>
+    </div>
   }
-    </ul>
-    @if(isLoading) {
-      <p class="loading">A carregar mais resultados...</p>
-    }
-  </div>
-}
+
 </div>

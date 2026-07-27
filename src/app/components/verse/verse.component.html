@@ -6,7 +6,7 @@
     }
     <span class="verseNumber">{{ data.number }}</span>
     @if(hasFootnotes){
-      <span role="button" tabindex="0" (click)="toggleFootnotes()" (keydown.enter)="toggleFootnotes()" class="footnoteIndicator">&#65290;</span>
+      <span role="button" tabindex="0" (click)="toggleFootnotes($event)" (keydown.enter)="toggleFootnotes($event)" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)" class="footnoteIndicator">&#65290;</span>
     }
   }
 
@@ -25,17 +25,17 @@
           <span class="quoteVerseNumber">
             <span class="verseNumber">{{ data.number }}</span>
             @if(hasFootnotes){
-              <span role="button" tabindex="0" (click)="toggleFootnotes()" (keydown.enter)="toggleFootnotes()" class="footnoteIndicator">&#65290;</span>
+              <span role="button" tabindex="0" (click)="toggleFootnotes($event)" (keydown.enter)="toggleFootnotes($event)" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)" class="footnoteIndicator">&#65290;</span>
             } @else {
               <span class="footnoteIndicator" style="visibility: hidden">&#65290;</span>
             }
           </span>
         }
-        <span tabindex="0" role="button" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="hasFootnotes" (click)="hasFootnotes ? toggleFootnotes() : null" (keydown.enter)="hasFootnotes ? toggleFootnotes() : null">{{ text.text }}</span>
+        <span [attr.tabindex]="hasFootnotes ? 0 : null" [attr.role]="hasFootnotes ? 'button' : null" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="hasFootnotes" (click)="hasFootnotes ? toggleFootnotes($event) : null" (keydown.enter)="hasFootnotes ? toggleFootnotes($event) : null" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)">{{ text.text }}</span>
         @if(text.type === 'text' && (checkNextIsQuote(i) )){
           <br>
         }
-          
+
       }
 
       <!-- References -->
@@ -119,7 +119,7 @@
       @let firstElement = group.elements[0];
       @let firstText = firstElement.data;
       <span class="verseText">
-          <div></div>
+        <br>
           <span #indentable [attr.data-index]="firstElement.originalIndex" [ngClass]="{'indent': indentStates[firstElement.originalIndex] !== false, 'indent2': getQuoteIdentLevel(firstText) === 2}" class="quoteLineWrapper">
             @for (element of group.elements; track element.originalIndex) {
               <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === data.text.length - 1, isQuote: element.data.type === 'quote' }"></ng-container>

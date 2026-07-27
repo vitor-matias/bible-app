@@ -2,6 +2,7 @@
 // Custom Theming for Angular Material
 // For more information: https://material.angular.io/guide/theming
 @use '@angular/material' as mat;
+@use './theme-colors' as theme;
 
 // Include the common styles for Angular Material. We include this here so that you only
 // have to load a single css file for Angular Material in your app.
@@ -9,16 +10,32 @@
 @include mat.elevation-classes();
 @include mat.app-background();
 
-// Define the theme object.
+// Define the theme object with our custom brown palette.
 $bible-app-theme-light: mat.define-theme((
+  color: (
+    theme-type: light,
+    primary: theme.$primary-palette,
+    tertiary: theme.$tertiary-palette,
+  ),
 ));
 
 // Include theme styles for core and each component used in your app.
-// Alternatively, you can import and @include the theme mixins for each component
-// that you are using.
 :root {
   @include mat.all-component-themes($bible-app-theme-light);
   @include mat.color-variants-backwards-compatibility($bible-app-theme-light);
+
+  @include mat.form-field-overrides((
+    filled-label-text-color: var(--text-color),
+    filled-hover-label-text-color: var(--text-color),
+    filled-focus-label-text-color: var(--mat-form-field-focus-color),
+    filled-focus-active-indicator-color: var(--mat-form-field-focus-color),
+    filled-caret-color: var(--mat-form-field-focus-color),
+    
+    outlined-label-text-color: var(--text-color),
+    outlined-hover-label-text-color: var(--text-color),
+    outlined-focus-outline-color: var(--mat-form-field-focus-color),
+    outlined-focus-label-text-color: var(--mat-form-field-focus-color)
+  ));
 }
 
 html {

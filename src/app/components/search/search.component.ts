@@ -1,13 +1,18 @@
 import {
+  afterNextRender,
+  ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
   type ElementRef,
+  Injector,
   ViewChild,
 } from "@angular/core"
+import { MatIconModule } from "@angular/material/icon"
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
 import { ActivatedRoute, Router, RouterModule } from "@angular/router"
 import { firstValueFrom } from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
+import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
@@ -18,17 +23,20 @@ import { SearchBarComponent } from "../search-bar/search-bar.component"
   templateUrl: "./search.component.html",
   styleUrl: "./search.component.css",
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     SearchBarComponent,
     RouterModule,
     UnifiedGesturesDirective,
     MatSnackBarModule,
+    MatIconModule,
   ],
 })
 export class SearchComponent {
   searchResults: Verse[] = []
 
   searchTerm = ""
+  hasSearched = false
 
   currentPage = 1
 
@@ -39,16 +47,6 @@ export class SearchComponent {
   @ViewChild("sentinel", { static: false }) sentinel!: ElementRef
   private lastSentinel: Element | null = null
 
-  constructor(
-    private apiService: BibleApiService,
-    private referenceService: BibleReferenceService,
-    private bookService: BookService,
-    private snackBar: MatSnackBar,
-    private router: Router,
-    private route: ActivatedRoute,
-    private cdr: ChangeDetectorRef,
-  ) {}
-
   ngOnInit(): void {
     // Share-target launches land here as /search?q=<shared text>; run the
     // shared query right away instead of showing an empty search screen.
@@ -57,6 +55,18 @@ export class SearchComponent {
       this.onSearchSubmit(sharedQuery)
     }
   }
+
+  constructor(
+    private apiService: BibleApiService,
+    private referenceService: BibleReferenceService,
+    private bookService: BookService,
+    private snackBar: MatSnackBar,
+    private router: Router,
+    private route: ActivatedRoute,
+    private cdr: ChangeDetectorRef,
+    private analyticsService: AnalyticsService,
+    private injector: Injector,
+  ) {}
 
   ngAfterViewInit(): void {
     this.attachObserverToSentinel()
@@ -101,7 +111,9 @@ export class SearchComponent {
       const results = await firstValueFrom(
         this.apiService.search(this.searchTerm, this.currentPage + 1),
       )
-      this.searchResults.push(...results.verses)
+      this.searchResults.push(
+        ...results.verses.map((v) => this.toDisplayVerse(v)),
+      )
       this.totalResults = results.total
       this.currentPage++
       this.attachObserverToSentinel() // Re-attach observer after loading more results
@@ -117,55 +129,75 @@ export class SearchComponent {
     this.searchTerm = text
     const references = this.referenceService.extract(text)
 
+    let targetBook: Book | null = null
+    let targetChapter = 1
+    let targetVerseStart: number | undefined
+
     if (references.length > 0) {
       // A well-formed Bible reference should jump straight into the reader instead
       // of going through the broader full-text search results flow.
       const ref = references[0]
-      const book = ref.book ? this.bookService.findBook(ref.book) : null
-      if (book) {
-        const verseStart = ref.verses
-          ? ref.verses[0].type === "single"
-            ? ref.verses[0].verse
-            : ref.verses[0].start
-          : 1
-        // Resolve the chapter once so validation and navigation agree.
-        const chapter = ref.chapter ? ref.chapter : 1
-        try {
-          await firstValueFrom(
-            this.apiService.getVerse(book.id, chapter, verseStart),
-          )
-          await this.router.navigate(
-            ["/", book.id, chapter],
-            ref.verses ? { queryParams: { verseStart } } : {},
-          )
-        } catch (err) {
-          console.error(err)
-          // HttpErrorResponse is not guaranteed here, so narrow the shape safely.
-          const status =
-            typeof err === "object" &&
-            err !== null &&
-            "status" in err &&
-            typeof err.status === "number"
-              ? err.status
-              : undefined
-          if (status === 404 || status === 400) {
-            this.snackBar.open("Capitulo ou versiculo não existe", "Fechar", {
-              duration: 3000,
-            })
-          } else {
-            this.snackBar.open("Error loading verse", "OK", {
-              duration: 3000,
-            })
-          }
+      targetBook = ref.book ? this.bookService.findBook(ref.book) : null
+      if (targetBook) {
+        targetChapter = ref.chapter || 1
+        if (ref.verses && ref.verses.length > 0) {
+          targetVerseStart =
+            ref.verses[0].type === "single"
+              ? ref.verses[0].verse
+              : ref.verses[0].start
         }
-        return
+      }
+    } else {
+      // Check if the search text exactly matches a book name or abbreviation
+      const book = this.bookService.findBook(text.trim())
+      if (book && book.id !== "about") {
+        targetBook = book
       }
     }
 
+    if (targetBook) {
+      try {
+        await firstValueFrom(
+          this.apiService.getVerse(
+            targetBook.id,
+            targetChapter,
+            targetVerseStart || 1,
+          ),
+        )
+        await this.router.navigate(
+          ["/", targetBook.id, targetChapter],
+          targetVerseStart !== undefined
+            ? { queryParams: { verseStart: targetVerseStart } }
+            : {},
+        )
+      } catch (err) {
+        console.error(err)
+        // HttpErrorResponse is not guaranteed here, so narrow the shape safely.
+        const status =
+          typeof err === "object" &&
+          err !== null &&
+          "status" in err &&
+          typeof err.status === "number"
+            ? err.status
+            : undefined
+        if (status === 404 || status === 400) {
+          this.snackBar.open("Capitulo ou versiculo não existe", "Fechar", {
+            duration: 3000,
+          })
+        } else {
+          this.snackBar.open("Error loading verse", "OK", {
+            duration: 3000,
+          })
+        }
+      }
+      return
+    }
+
+    this.hasSearched = true
     this.isLoading = true
     try {
       const results = await firstValueFrom(this.apiService.search(text, 1))
-      this.searchResults = results.verses
+      this.searchResults = results.verses.map((v) => this.toDisplayVerse(v))
       this.totalResults = results.total
       this.currentPage = 1
       const resultsMessage =
@@ -191,11 +223,7 @@ export class SearchComponent {
       this.attachObserverToSentinel()
       this.scrollToTop()
 
-      if (typeof window !== "undefined" && window.umami) {
-        window.umami.track("search", {
-          text,
-        })
-      }
+      void this.analyticsService.track("search", { text })
     } catch (error) {
       console.error("Error loading search results:", error)
       this.snackBar.open("Error loading search results", "OK", {
@@ -204,6 +232,17 @@ export class SearchComponent {
     } finally {
       this.isLoading = false
       this.cdr.detectChanges()
+    }
+  }
+
+  private toDisplayVerse(verse: Verse): Verse {
+    const verseText = this.getVerseText(verse)
+    return {
+      ...verse,
+      highlightedSegments: this.getHighlightedSegments(
+        verseText,
+        this.searchTerm,
+      ),
     }
   }
 
@@ -222,17 +261,51 @@ export class SearchComponent {
   resultsContainer!: ElementRef
 
   scrollToTop() {
-    setTimeout(() => {
-      if (this.resultsContainer?.nativeElement) {
-        this.resultsContainer.nativeElement.scrollTo({
-          top: 0,
-          behavior: "smooth",
-        })
-      }
-    }, 100)
+    afterNextRender(
+      () => {
+        if (this.resultsContainer?.nativeElement) {
+          this.resultsContainer.nativeElement.scrollTo({
+            top: 0,
+            behavior: "smooth",
+          })
+        }
+      },
+      { injector: this.injector },
+    )
   }
 
   findBookById(bookId: string): Book | undefined {
     return this.bookService.findBook(bookId)
+  }
+
+  getHighlightedSegments(
+    verseText: string,
+    term: string,
+  ): Array<{ text: string; highlight: boolean }> {
+    if (!term.trim()) {
+      return [{ text: verseText, highlight: false }]
+    }
+    const segments: Array<{ text: string; highlight: boolean }> = []
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    const regex = new RegExp(escaped, "gi")
+    let lastIndex = 0
+    let match = regex.exec(verseText)
+    while (match !== null) {
+      if (match.index > lastIndex) {
+        segments.push({
+          text: verseText.slice(lastIndex, match.index),
+          highlight: false,
+        })
+      }
+      segments.push({ text: match[0], highlight: true })
+      lastIndex = regex.lastIndex
+      match = regex.exec(verseText)
+    }
+    if (lastIndex < verseText.length) {
+      segments.push({ text: verseText.slice(lastIndex), highlight: false })
+    }
+    return segments.length > 0
+      ? segments
+      : [{ text: verseText, highlight: false }]
   }
 }

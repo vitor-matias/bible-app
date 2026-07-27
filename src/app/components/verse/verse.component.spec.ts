@@ -5,6 +5,7 @@ import {
   MatBottomSheetModule,
 } from "@angular/material/bottom-sheet"
 import { provideRouter } from "@angular/router"
+import { Subject } from "rxjs"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { VerseComponent } from "./verse.component"
 
@@ -38,6 +39,7 @@ describe("VerseComponent", () => {
   let fixture: ComponentFixture<VerseComponent>
   let mockBibleRef: jasmine.SpyObj<BibleReferenceService>
   let mockBottomSheet: MatBottomSheet
+  let dismissed: Subject<void>
 
   beforeEach(async () => {
     mockBibleRef = jasmine.createSpyObj("BibleReferenceService", ["extract"])
@@ -55,7 +57,10 @@ describe("VerseComponent", () => {
     component = fixture.componentInstance
     mockBottomSheet = (component as unknown as { bottomSheet: MatBottomSheet })
       .bottomSheet
-    spyOn(mockBottomSheet, "open")
+    dismissed = new Subject<void>()
+    spyOn(mockBottomSheet, "open").and.returnValue({
+      afterDismissed: () => dismissed.asObservable(),
+    } as ReturnType<MatBottomSheet["open"]>)
   })
 
   it("should create", () => {
@@ -563,6 +568,34 @@ describe("VerseComponent", () => {
     })
   })
 
+  describe("a11y — text body tabindex and role", () => {
+    it("should not render tabindex or role on text span when verse has no footnotes", () => {
+      setData(component, makeVerse({ text: [{ type: "text", text: "plain" }] }))
+      fixture.detectChanges()
+      const interactive = fixture.nativeElement.querySelectorAll(
+        ".interactive[tabindex='0'][role='button']",
+      )
+      expect(interactive.length).toBe(0)
+    })
+
+    it("should render tabindex and role on text span when verse has footnotes", () => {
+      setData(
+        component,
+        makeVerse({
+          text: [
+            { type: "text", text: "verse text" },
+            { type: "footnote", text: "note", reference: "a" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+      const interactive = fixture.nativeElement.querySelectorAll(
+        ".interactive[tabindex='0'][role='button']",
+      )
+      expect(interactive.length).toBeGreaterThan(0)
+    })
+  })
+
   describe("toggleFootnotes", () => {
     it("should open bottom sheet when footnotes exist", () => {
       setData(
@@ -589,6 +622,34 @@ describe("VerseComponent", () => {
 
       component.toggleFootnotes()
       expect(mockBottomSheet.open).not.toHaveBeenCalled()
+    })
+
+    it("should disable restoreFocus and refocus the trigger without scrolling on dismiss", () => {
+      setData(
+        component,
+        makeVerse({
+          text: [
+            { type: "text", text: "verse" },
+            { type: "footnote", text: "note", reference: "a" },
+          ],
+        }),
+      )
+
+      const trigger = document.createElement("span")
+      const focusSpy = spyOn(trigger, "focus")
+
+      component.toggleFootnotes({ currentTarget: trigger } as unknown as Event)
+
+      // Material's own restore-focus scrolls the marker into view, which jumps
+      // the reader to the chapter start in paged mode — so we opt out of it.
+      expect(mockBottomSheet.open).toHaveBeenCalledWith(
+        jasmine.anything(),
+        jasmine.objectContaining({ restoreFocus: false }),
+      )
+      // Focus is only restored after the sheet closes, and without scrolling.
+      expect(focusSpy).not.toHaveBeenCalled()
+      dismissed.next()
+      expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true })
     })
   })
 })

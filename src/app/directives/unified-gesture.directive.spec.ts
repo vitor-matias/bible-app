@@ -59,6 +59,77 @@ describe("UnifiedGesturesDirective", () => {
     }
   })
 
+  describe("ngOnInit initialization", () => {
+    it("should set font size to valid storedSize", () => {
+      preferencesServiceSpy.getFontSize.and.returnValue(120)
+      directive.ngOnInit()
+      expect(rendererSpy.setStyle).toHaveBeenCalledWith(
+        element,
+        "font-size",
+        "120%",
+      )
+    })
+
+    it("should clamp storedSize if it is below MIN_FONT_SIZE", () => {
+      preferencesServiceSpy.getFontSize.and.returnValue(50) // MIN_FONT_SIZE is 70
+      directive.ngOnInit()
+      expect(rendererSpy.setStyle).toHaveBeenCalledWith(
+        element,
+        "font-size",
+        "70%",
+      )
+    })
+
+    it("should clamp storedSize if it is above MAX_FONT_SIZE", () => {
+      preferencesServiceSpy.getFontSize.and.returnValue(250) // MAX_FONT_SIZE is 180
+      directive.ngOnInit()
+      expect(rendererSpy.setStyle).toHaveBeenCalledWith(
+        element,
+        "font-size",
+        "180%",
+      )
+    })
+
+    it("should not call setFontSize and use default if storedSize is missing", () => {
+      preferencesServiceSpy.getFontSize.and.returnValue(null)
+      directive.ngOnInit()
+      expect(rendererSpy.setStyle).not.toHaveBeenCalled()
+
+      // increasing size starts from default -> 105
+      directive.increaseFontSize()
+      expect(rendererSpy.setStyle).toHaveBeenCalledWith(
+        element,
+        "font-size",
+        "105%",
+      )
+    })
+
+    it("should treat 0 as a valid size and clamp it to MIN_FONT_SIZE", () => {
+      preferencesServiceSpy.getFontSize.and.returnValue(0)
+      directive.ngOnInit()
+      expect(rendererSpy.setStyle).toHaveBeenCalledWith(
+        element,
+        "font-size",
+        "70%",
+      )
+    })
+
+    it("should fallback to default without calling setFontSize if storedSize is invalid string", () => {
+      preferencesServiceSpy.getFontSize.and.returnValue(
+        "invalid" as unknown as number,
+      )
+      directive.ngOnInit()
+      expect(rendererSpy.setStyle).not.toHaveBeenCalled()
+
+      directive.increaseFontSize()
+      expect(rendererSpy.setStyle).toHaveBeenCalledWith(
+        element,
+        "font-size",
+        "105%",
+      )
+    })
+  })
+
   it("should emit swipeLeft for a fast left swipe", () => {
     spyOn(Date, "now").and.returnValues(0, 100)
     const swipeLeftSpy = jasmine.createSpy("swipeLeft")

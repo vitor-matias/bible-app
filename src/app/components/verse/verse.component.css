@@ -60,7 +60,6 @@ h3:not(:first-child) {
 
   margin-right: 8px;  /* Adds space to the right of the chapter number */
   /* margin-bottom: 10px; Adds space below the chapter number */
-  color: dimgray;
 }
 
 .center {

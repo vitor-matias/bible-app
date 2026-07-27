@@ -1,5 +1,6 @@
 import { CommonModule } from "@angular/common"
 import {
+  ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
   DestroyRef,
@@ -17,6 +18,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
+import { MatDialog } from "@angular/material/dialog"
 import { MatDividerModule } from "@angular/material/divider"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenuModule, type MatMenuTrigger } from "@angular/material/menu"
@@ -26,11 +28,13 @@ import { MatTooltipModule } from "@angular/material/tooltip"
 import { RouterModule } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import type { Share } from "@capacitor/share"
+import { AnalyticsService } from "../../services/analytics.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { NetworkService } from "../../services/network.service"
 import { ThemeService } from "../../services/theme.service"
 import { SHARE_PLUGIN } from "../../tokens"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
+import { ReportProblemComponent } from "../report-problem/report-problem.component"
 
 @Component({
   standalone: true,
@@ -48,6 +52,7 @@ import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selecto
     CommonModule,
   ],
   templateUrl: "./header.component.html",
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ["./header.component.css"],
 })
 export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
@@ -75,8 +80,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     private readonly themeService: ThemeService,
     private readonly bookmarkService: BookmarkService,
     private readonly bottomSheet: MatBottomSheet,
+    private readonly dialog: MatDialog,
     private readonly cdr: ChangeDetectorRef,
     private readonly networkService: NetworkService,
+    public readonly analyticsService: AnalyticsService,
     @Inject(SHARE_PLUGIN) private sharePlugin: typeof Share,
   ) {}
 
@@ -141,6 +148,19 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   onToggleBookmarkFromMenu(trigger: MatMenuTrigger) {
     trigger.closeMenu()
     this.openBookmarkSelector()
+  }
+
+  onReportProblem(trigger: MatMenuTrigger) {
+    trigger.closeMenu()
+    if (!this.book || !this.chapterNumber) {
+      return
+    }
+
+    this.dialog.open(ReportProblemComponent, {
+      data: { book: this.book, chapter: this.chapterNumber },
+      width: "90%",
+      maxWidth: "500px",
+    })
   }
 
   ngOnDestroy(): void {
@@ -256,12 +276,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
       // Shared successfully
 
-      if (typeof window !== "undefined" && window.umami) {
-        window.umami.track("share", {
-          book: this.book?.id,
-          chapter: this.chapterNumber,
-        })
-      }
+      void this.analyticsService.track("share", {
+        book: this.book?.id,
+        chapter: this.chapterNumber,
+      })
     } catch {
       // User canceled or share failed; no UI feedback needed.
     }
