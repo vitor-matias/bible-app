@@ -23,7 +23,8 @@ type IntroDisplayElement =
 @Component({
   selector: "book-intro",
   standalone: true,
-  imports: [CommonModule],
+  // Imports itself so the recursive <book-intro> for sidebars is explicit.
+  imports: [CommonModule, BookIntroComponent],
   templateUrl: "./book-intro.component.html",
   styleUrl: "./book-intro.component.css",
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -39,9 +39,13 @@ export class OfflineDataService {
   ): Promise<void> {
     if (typeof window === "undefined") return
 
-    await this.migrateCacheIfNeeded()
+    const migrated = await this.migrateCacheIfNeeded()
 
-    const isAlreadyCached = localStorage.getItem(this.cacheFlagKey) === "true"
+    // Stale metadata cannot be trusted after a failed migration: without this
+    // gate a lingering "ready" flag would skip the refresh while reads fail
+    // closed to an empty cache.
+    const isAlreadyCached =
+      migrated && localStorage.getItem(this.cacheFlagKey) === "true"
     const isExpired = this.isCacheExpired()
     if (isAlreadyCached && !isExpired) {
       return

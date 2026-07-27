@@ -628,6 +628,23 @@ describe("OfflineDataService", () => {
       expect(mockLocalStorage._storage["booksCacheReady"]).toBeUndefined()
     })
 
+    it("should still refresh via preload when the migration clear fails", async () => {
+      spyOn(console, "error")
+      delete mockLocalStorage._storage["booksCacheSchemaVersion"]
+      // Stale metadata from the old schema claims the cache is ready.
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
+      databaseService.clear.and.returnValue(Promise.reject(new Error("boom")))
+
+      const promise = service.preloadAllBooksAndChapters()
+      await flushMicrotasks()
+
+      // The stale "ready" flag must not short-circuit the refresh.
+      const req = httpMock.expectOne("v1/books?withChapters=true")
+      req.flush(mockBooks)
+      await promise
+    })
+
     it("should not expose stale records when the migration clear fails", async () => {
       spyOn(console, "error")
       delete mockLocalStorage._storage["booksCacheSchemaVersion"]

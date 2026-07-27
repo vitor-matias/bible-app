@@ -52,7 +52,8 @@ export class SearchComponent {
     // shared query right away instead of showing an empty search screen.
     const sharedQuery = this.route.snapshot.queryParamMap.get("q")
     if (sharedQuery) {
-      this.onSearchSubmit(sharedQuery)
+      // Fire-and-forget: onSearchSubmit surfaces its own errors via snackbar.
+      void this.onSearchSubmit(sharedQuery)
     }
   }
 
