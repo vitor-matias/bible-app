@@ -122,8 +122,11 @@ export class BookService {
   ): number {
     if (segment == null || segment === "") return fallback
     if (segment === BookService.INTRO_URL_SEGMENT) return 0
+    // Only whole non-negative decimal segments are canonical chapter URLs;
+    // reject partial parses like "2junk" or "1.5".
+    if (!/^\d+$/.test(segment)) return fallback
     const parsed = Number.parseInt(segment, 10)
-    return Number.isFinite(parsed) ? parsed : fallback
+    return Number.isSafeInteger(parsed) ? parsed : fallback
   }
 
   getAboutBook(): Book {

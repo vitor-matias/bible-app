@@ -126,6 +126,28 @@ describe("BookService", () => {
     ).toBe("1sm")
   })
 
+  describe("chapter URL segments", () => {
+    it("should map the introduction to /intro and back", () => {
+      expect(service.getChapterUrlSegment(0)).toBe("intro")
+      expect(service.getChapterUrlSegment(3)).toBe("3")
+      expect(service.parseChapterUrlSegment("intro")).toBe(0)
+      // Legacy /0 URLs keep working
+      expect(service.parseChapterUrlSegment("0")).toBe(0)
+      expect(service.parseChapterUrlSegment("12")).toBe(12)
+    })
+
+    it("should fall back for missing or non-canonical segments", () => {
+      expect(service.parseChapterUrlSegment(null)).toBe(1)
+      expect(service.parseChapterUrlSegment(undefined)).toBe(1)
+      expect(service.parseChapterUrlSegment("")).toBe(1)
+      expect(service.parseChapterUrlSegment(null, 5)).toBe(5)
+      expect(service.parseChapterUrlSegment("2junk")).toBe(1)
+      expect(service.parseChapterUrlSegment("1.5")).toBe(1)
+      expect(service.parseChapterUrlSegment("-3")).toBe(1)
+      expect(service.parseChapterUrlSegment("99999999999999999999")).toBe(1)
+    })
+  })
+
   describe("findBookByName", () => {
     beforeEach(async () => {
       await service.initializeBooks()

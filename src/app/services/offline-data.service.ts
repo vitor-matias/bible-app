@@ -21,7 +21,7 @@ export class OfflineDataService {
   private cachedBooks: Book[] | null = null
   private apiBase = apiBaseUrl
   private cacheLoadPromise: Promise<void> | null = null
-  private migrationPromise: Promise<void> | null = null
+  private migrationPromise: Promise<boolean> | null = null
 
   constructor(
     private http: HttpClient,
@@ -173,29 +173,40 @@ export class OfflineDataService {
         byId.set(book.id, book)
         continue
       }
-      // Keep whichever side has the fuller chapter payload so a shallow refresh
-      // (chapter stubs without verses) does not overwrite chapters that were
-      // already cached locally with their verse content.
-      const chapterPayloadScore = (chapters?: Chapter[]) =>
-        (chapters ?? []).reduce(
-          (score, chapter) => score + (chapter.verses?.length ?? 0),
-          0,
-        )
-      const incomingScore = chapterPayloadScore(book.chapters)
-      const currentScore = chapterPayloadScore(current.chapters)
-      let chapters: Chapter[] | undefined
-      if (incomingScore !== currentScore) {
-        chapters =
-          incomingScore > currentScore ? book.chapters : current.chapters
-      } else {
-        chapters =
-          (book.chapters?.length ?? 0) >= (current.chapters?.length ?? 0)
-            ? book.chapters
-            : current.chapters
-      }
-      byId.set(book.id, { ...current, ...book, chapters })
+      byId.set(book.id, {
+        ...current,
+        ...book,
+        chapters: this.mergeChapterLists(book.chapters, current.chapters),
+      })
     }
     return Array.from(byId.values())
+  }
+
+  /**
+   * Merges chapter lists per chapter number, keeping the fuller payload for
+   * each chapter, so a partial or shallow refresh (stubs without verses) never
+   * drops verse content that is already cached for other chapters.
+   */
+  private mergeChapterLists(
+    incoming?: Chapter[],
+    current?: Chapter[],
+  ): Chapter[] | undefined {
+    if (!incoming?.length) return current?.length ? current : incoming
+    if (!current?.length) return incoming
+
+    const byNumber = new Map<number, Chapter>()
+    for (const chapter of current) {
+      byNumber.set(chapter.number, chapter)
+    }
+    for (const chapter of incoming) {
+      const cached = byNumber.get(chapter.number)
+      const incomingVerses = chapter.verses?.length ?? 0
+      const cachedVerses = cached?.verses?.length ?? 0
+      if (!cached || incomingVerses >= cachedVerses) {
+        byNumber.set(chapter.number, chapter)
+      }
+    }
+    return Array.from(byNumber.values()).sort((a, b) => a.number - b.number)
   }
 
   private ensureCacheLoaded(): Promise<void> {
@@ -204,7 +215,15 @@ export class OfflineDataService {
       // Share one IndexedDB read across concurrent callers during startup.
       // Run the schema migration first so stale-shape records never surface.
       this.cacheLoadPromise = this.migrateCacheIfNeeded()
-        .then(() => this.loadBooksFromIndexedDb())
+        .then((migrated) => {
+          if (migrated) {
+            return this.loadBooksFromIndexedDb()
+          }
+          // Fail closed: the store still holds incompatible-schema records,
+          // so treat the cache as empty rather than expose them.
+          this.cachedBooks = []
+          return undefined
+        })
         .catch((error) => {
           console.error("Failed to load cached books from IndexedDB", error)
         })
@@ -219,14 +238,16 @@ export class OfflineDataService {
    * Drops persisted books when they were written by an app version with an
    * incompatible Book shape, so callers never read records that are missing
    * newer required fields (introduction elements, normalizedText, …).
+   * Resolves to false when the stale records could not be cleared; callers
+   * must then avoid reading the store.
    */
-  private migrateCacheIfNeeded(): Promise<void> {
-    if (typeof localStorage === "undefined") return Promise.resolve()
+  private migrateCacheIfNeeded(): Promise<boolean> {
+    if (typeof localStorage === "undefined") return Promise.resolve(true)
     if (
       localStorage.getItem(this.cacheSchemaKey) ===
       this.cacheSchemaVersion.toString()
     ) {
-      return Promise.resolve()
+      return Promise.resolve(true)
     }
     if (!this.migrationPromise) {
       this.migrationPromise = (async () => {
@@ -235,12 +256,15 @@ export class OfflineDataService {
           this.cachedBooks = null
           localStorage.removeItem(this.cacheFlagKey)
           localStorage.removeItem(this.cacheTimestampKey)
+          // Only mark the schema current once the stale records are gone.
           localStorage.setItem(
             this.cacheSchemaKey,
             this.cacheSchemaVersion.toString(),
           )
+          return true
         } catch (error) {
           console.error("Failed to migrate cached books schema", error)
+          return false
         } finally {
           this.migrationPromise = null
         }

@@ -272,6 +272,68 @@ describe("OfflineDataService", () => {
   })
 
   describe("setCachedBooks and getCachedBooks", () => {
+    const verseFixture = (chapter: number, number: number): Verse => ({
+      bookId: "gen",
+      chapterNumber: chapter,
+      number,
+      verseLabel: number.toString(),
+      text: [{ type: "text", text: "v", normalizedText: "v" }],
+    })
+
+    it("should merge chapters per chapter number keeping the fuller payload", async () => {
+      const base = {
+        id: "gen",
+        name: "Genesis",
+        shortName: "Genesis",
+        abrv: "Gn",
+        chapterCount: 3,
+      }
+      await service.setCachedBooks([
+        {
+          ...base,
+          chapters: [
+            {
+              bookId: "gen",
+              number: 1,
+              verses: [verseFixture(1, 1), verseFixture(1, 2)],
+            },
+            { bookId: "gen", number: 2, verses: [verseFixture(2, 1)] },
+          ],
+        },
+      ])
+
+      // A partial refresh: chapter 1 as a stub, plus a new fuller chapter 3.
+      await service.setCachedBooks([
+        {
+          ...base,
+          chapters: [
+            { bookId: "gen", number: 1 },
+            {
+              bookId: "gen",
+              number: 3,
+              verses: [
+                verseFixture(3, 1),
+                verseFixture(3, 2),
+                verseFixture(3, 3),
+              ],
+            },
+          ],
+        },
+      ])
+
+      const merged = service.getCachedBook("gen")
+      expect(merged?.chapters?.map((c) => c.number)).toEqual([1, 2, 3])
+      expect(
+        merged?.chapters?.find((c) => c.number === 1)?.verses?.length,
+      ).toBe(2)
+      expect(
+        merged?.chapters?.find((c) => c.number === 2)?.verses?.length,
+      ).toBe(1)
+      expect(
+        merged?.chapters?.find((c) => c.number === 3)?.verses?.length,
+      ).toBe(3)
+    })
+
     it("should set and retrieve cached books", async () => {
       await service.setCachedBooks(mockBooks)
 
@@ -536,6 +598,50 @@ describe("OfflineDataService", () => {
       expect(books.length).toBe(2)
       expect(books.find((b) => b.id === "gen")).toBeDefined()
       expect(books.find((b) => b.id === "exo")).toBeDefined()
+    })
+  })
+
+  describe("cache schema migration", () => {
+    const staleBook = {
+      id: "gen",
+      name: "Genesis",
+      shortName: "Genesis",
+      abrv: "Gn",
+      chapterCount: 50,
+    } as Book
+
+    it("should clear stale records and update metadata on version mismatch", async () => {
+      delete mockLocalStorage._storage["booksCacheSchemaVersion"]
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+      databaseService.getAll.and.returnValue(Promise.resolve([staleBook]))
+      // Once cleared, the store no longer returns the stale record.
+      databaseService.clear.and.callFake(() => {
+        databaseService.getAll.and.returnValue(Promise.resolve([]))
+        return Promise.resolve()
+      })
+
+      const books = await service.getCachedBooksAsync()
+
+      expect(databaseService.clear).toHaveBeenCalledWith("books")
+      expect(books).toEqual([])
+      expect(mockLocalStorage._storage["booksCacheSchemaVersion"]).toBe("2")
+      expect(mockLocalStorage._storage["booksCacheReady"]).toBeUndefined()
+    })
+
+    it("should not expose stale records when the migration clear fails", async () => {
+      spyOn(console, "error")
+      delete mockLocalStorage._storage["booksCacheSchemaVersion"]
+      databaseService.clear.and.returnValue(Promise.reject(new Error("boom")))
+      databaseService.getAll.and.returnValue(Promise.resolve([staleBook]))
+
+      const books = await service.getCachedBooksAsync()
+
+      expect(books).toEqual([])
+      expect(databaseService.getAll).not.toHaveBeenCalled()
+      // Schema metadata is only written after a successful clear.
+      expect(
+        mockLocalStorage._storage["booksCacheSchemaVersion"],
+      ).toBeUndefined()
     })
   })
 

@@ -82,7 +82,7 @@ export class BookmarkSelectorComponent implements OnInit {
         const book = this.bookService.findBookById(bookmark.bookId)
         // Chapter 0 is the book introduction
         const chapterLabel =
-          bookmark.chapter === 0 ? "Intro" : `${bookmark.chapter}`
+          bookmark.chapter === 0 ? "Introdução" : `${bookmark.chapter}`
         currentRef = book
           ? `${book.abrv} ${chapterLabel}`
           : `${bookmark.bookId} ${chapterLabel}`

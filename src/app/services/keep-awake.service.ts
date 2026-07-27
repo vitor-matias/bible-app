@@ -60,6 +60,11 @@ export class KeepAwakeService implements OnDestroy {
     this.wakeLockRequest = (async () => {
       try {
         const sentinel = await navigator.wakeLock.request("screen")
+        if (!this.active) {
+          // stop() ran while the request was pending — don't keep the lock.
+          await sentinel.release()
+          return
+        }
         this.wakeLockSentinel = sentinel
         sentinel.addEventListener("release", () => {
           if (this.wakeLockSentinel === sentinel) {

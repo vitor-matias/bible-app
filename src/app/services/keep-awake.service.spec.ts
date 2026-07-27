@@ -97,6 +97,35 @@ describe("KeepAwakeService", () => {
     )
   })
 
+  it("should release a wake lock that resolves after stop()", async () => {
+    const sentinel = {
+      addEventListener: jasmine.createSpy("addEventListener"),
+      release: jasmine.createSpy("release").and.resolveTo(),
+    } as unknown as WakeLockSentinel
+    // Keep the request pending so stop() runs before it settles.
+    let resolveRequest!: (value: WakeLockSentinel) => void
+    const pendingRequest = new Promise<WakeLockSentinel>((resolve) => {
+      resolveRequest = resolve
+    })
+    const requestSpy = jasmine
+      .createSpy("request")
+      .and.returnValue(pendingRequest)
+    Object.defineProperty(navigator, "wakeLock", {
+      value: { request: requestSpy },
+      configurable: true,
+    })
+    service = new KeepAwakeService()
+
+    service.start()
+    service.stop()
+    resolveRequest(sentinel)
+    await pendingRequest
+    await Promise.resolve()
+
+    expect(sentinel.release).toHaveBeenCalled()
+    expect(sentinel.addEventListener).not.toHaveBeenCalled()
+  })
+
   it("should release the wake lock when stopped", async () => {
     const sentinel = {
       addEventListener: jasmine.createSpy("addEventListener"),
