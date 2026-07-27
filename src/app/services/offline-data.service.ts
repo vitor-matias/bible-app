@@ -11,10 +11,16 @@ import { NetworkService } from "./network.service"
 export class OfflineDataService {
   private cacheFlagKey = "booksCacheReady"
   private cacheTimestampKey = "booksCacheTimestamp"
+  private cacheSchemaKey = "booksCacheSchemaVersion"
+  // Bump whenever the persisted Book/Chapter/Verse shape changes incompatibly
+  // (e.g. book introductions, required normalizedText) so stale IndexedDB
+  // records from older app versions are dropped and re-cached.
+  private readonly cacheSchemaVersion = 2
   private cacheMaxAgeMs = 1000 * 60 * 60 * 24 * 40 // 40 days
   private cachedBooks: Book[] | null = null
   private apiBase = apiBaseUrl
   private cacheLoadPromise: Promise<void> | null = null
+  private migrationPromise: Promise<void> | null = null
 
   constructor(
     private http: HttpClient,
@@ -30,6 +36,8 @@ export class OfflineDataService {
     source: "install" | "standalone" = "standalone",
   ): Promise<void> {
     if (typeof window === "undefined") return
+
+    await this.migrateCacheIfNeeded()
 
     const isAlreadyCached = localStorage.getItem(this.cacheFlagKey) === "true"
     const isExpired = this.isCacheExpired()
@@ -163,13 +171,25 @@ export class OfflineDataService {
         continue
       }
       // Keep whichever side has the fuller chapter payload so a shallow refresh
-      // does not accidentally discard chapters already cached locally.
-      const chapters =
-        book.chapters?.length || current.chapters?.length
-          ? ((book.chapters && book.chapters.length > 0
-              ? book.chapters
-              : current.chapters) ?? [])
-          : undefined
+      // (chapter stubs without verses) does not overwrite chapters that were
+      // already cached locally with their verse content.
+      const chapterPayloadScore = (chapters?: Chapter[]) =>
+        (chapters ?? []).reduce(
+          (score, chapter) => score + (chapter.verses?.length ?? 0),
+          0,
+        )
+      const incomingScore = chapterPayloadScore(book.chapters)
+      const currentScore = chapterPayloadScore(current.chapters)
+      let chapters: Chapter[] | undefined
+      if (incomingScore !== currentScore) {
+        chapters =
+          incomingScore > currentScore ? book.chapters : current.chapters
+      } else {
+        chapters =
+          (book.chapters?.length ?? 0) >= (current.chapters?.length ?? 0)
+            ? book.chapters
+            : current.chapters
+      }
       byId.set(book.id, { ...current, ...book, chapters })
     }
     return Array.from(byId.values())
@@ -179,7 +199,9 @@ export class OfflineDataService {
     if (this.cachedBooks) return Promise.resolve()
     if (!this.cacheLoadPromise) {
       // Share one IndexedDB read across concurrent callers during startup.
-      this.cacheLoadPromise = this.loadBooksFromIndexedDb()
+      // Run the schema migration first so stale-shape records never surface.
+      this.cacheLoadPromise = this.migrateCacheIfNeeded()
+        .then(() => this.loadBooksFromIndexedDb())
         .catch((error) => {
           console.error("Failed to load cached books from IndexedDB", error)
         })
@@ -190,11 +212,44 @@ export class OfflineDataService {
     return this.cacheLoadPromise || Promise.resolve()
   }
 
+  /**
+   * Drops persisted books when they were written by an app version with an
+   * incompatible Book shape, so callers never read records that are missing
+   * newer required fields (introduction elements, normalizedText, …).
+   */
+  private migrateCacheIfNeeded(): Promise<void> {
+    if (typeof localStorage === "undefined") return Promise.resolve()
+    if (
+      localStorage.getItem(this.cacheSchemaKey) ===
+      this.cacheSchemaVersion.toString()
+    ) {
+      return Promise.resolve()
+    }
+    if (!this.migrationPromise) {
+      this.migrationPromise = (async () => {
+        try {
+          await this.databaseService.clear("books")
+          this.cachedBooks = null
+          localStorage.removeItem(this.cacheFlagKey)
+          localStorage.removeItem(this.cacheTimestampKey)
+          localStorage.setItem(
+            this.cacheSchemaKey,
+            this.cacheSchemaVersion.toString(),
+          )
+        } catch (error) {
+          console.error("Failed to migrate cached books schema", error)
+        } finally {
+          this.migrationPromise = null
+        }
+      })()
+    }
+    return this.migrationPromise
+  }
+
   private async loadBooksFromIndexedDb(): Promise<void> {
     const records = await this.databaseService.getAll<Book>("books")
-    if (records?.length) {
-      this.cachedBooks = records
-    }
+    // Cache the empty result too so repeat callers don't re-hit IndexedDB.
+    this.cachedBooks = records ?? []
   }
 
   private async saveBooksToIndexedDb(books: Book[]): Promise<void> {

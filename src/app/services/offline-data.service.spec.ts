@@ -43,7 +43,13 @@ describe("OfflineDataService", () => {
               chapterNumber: 1,
               number: 1,
               verseLabel: "1",
-              text: [{ type: "text", text: "In the beginning..." }],
+              text: [
+                {
+                  type: "text",
+                  text: "In the beginning...",
+                  normalizedText: "In the beginning...",
+                },
+              ],
             },
           ],
         },
@@ -59,6 +65,12 @@ describe("OfflineDataService", () => {
   ]
 
   let databaseService: jasmine.SpyObj<DatabaseService>
+
+  const flushMicrotasks = async () => {
+    for (let i = 0; i < 5; i++) {
+      await Promise.resolve()
+    }
+  }
 
   beforeEach(() => {
     // Mock localStorage
@@ -86,14 +98,18 @@ describe("OfflineDataService", () => {
     spyOnProperty(window, "localStorage", "get").and.returnValue(
       mockLocalStorage,
     )
+    // Persisted schema matches the current version, so no migration runs.
+    mockLocalStorage._storage["booksCacheSchemaVersion"] = "2"
 
     // Mock DatabaseService
     const spy = jasmine.createSpyObj("DatabaseService", [
       "getAll",
       "clearAndPutAll",
+      "clear",
     ])
     spy.getAll.and.returnValue(Promise.resolve([]))
     spy.clearAndPutAll.and.returnValue(Promise.resolve())
+    spy.clear.and.returnValue(Promise.resolve())
 
     // Mock NetworkService
     const networkSpy = jasmine.createSpyObj("NetworkService", [], {
@@ -140,6 +156,8 @@ describe("OfflineDataService", () => {
 
     it("should preload books if cache flag is not set", async () => {
       const promise = service.preloadAllBooksAndChapters()
+      // preload awaits the cache-schema check before issuing the request
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       expect(req.request.method).toBe("GET")
@@ -166,6 +184,8 @@ describe("OfflineDataService", () => {
       spyOnProperty(navigator, "onLine", "get").and.returnValue(true)
 
       const promise = service.preloadAllBooksAndChapters()
+      // preload awaits the cache-schema check before issuing the request
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       req.flush(mockBooks)
@@ -199,6 +219,8 @@ describe("OfflineDataService", () => {
       spyOn(console, "error")
 
       const promise = service.preloadAllBooksAndChapters()
+      // preload awaits the cache-schema check before issuing the request
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       req.error(new ProgressEvent("error"))
@@ -216,6 +238,7 @@ describe("OfflineDataService", () => {
       ;(window as unknown as { umami: typeof mockUmami }).umami = mockUmami
 
       const promise = service.preloadAllBooksAndChapters("install")
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       req.flush(mockBooks)
@@ -234,6 +257,7 @@ describe("OfflineDataService", () => {
       ;(window as unknown as { umami: typeof mockUmami }).umami = mockUmami
 
       const promise = service.preloadAllBooksAndChapters("standalone")
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       req.flush(mockBooks)
@@ -524,6 +548,8 @@ describe("OfflineDataService", () => {
       spyOnProperty(navigator, "onLine", "get").and.returnValue(true)
 
       const promise = service.preloadAllBooksAndChapters()
+      // preload awaits the cache-schema check before issuing the request
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       req.flush(mockBooks)

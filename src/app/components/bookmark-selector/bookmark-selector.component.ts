@@ -70,9 +70,12 @@ export class BookmarkSelectorComponent implements OnInit {
       let currentRef: string | undefined
       if (bookmark) {
         const book = this.bookService.findBookById(bookmark.bookId)
+        // Chapter 0 is the book introduction
+        const chapterLabel =
+          bookmark.chapter === 0 ? "Intro" : `${bookmark.chapter}`
         currentRef = book
-          ? `${book.abrv} ${bookmark.chapter}`
-          : `${bookmark.bookId} ${bookmark.chapter}`
+          ? `${book.abrv} ${chapterLabel}`
+          : `${bookmark.bookId} ${chapterLabel}`
       }
       return {
         ...c,
@@ -113,7 +116,7 @@ export class BookmarkSelectorComponent implements OnInit {
         }
         this.router.navigate([
           this.bookService.getUrlAbrv(book),
-          ribbon.bookmark.chapter,
+          this.bookService.getChapterUrlSegment(ribbon.bookmark.chapter),
         ])
         this.bottomSheetRef.dismiss()
       } else {

@@ -46,6 +46,8 @@ describe("BibleReaderComponent", () => {
     bookServiceSpy = jasmine.createSpyObj("BookService", [
       "findBook",
       "getUrlAbrv",
+      "getChapterUrlSegment",
+      "parseChapterUrlSegment",
     ])
     bookServiceSpy.books$ = new BehaviorSubject(
       mockBooks,
@@ -100,6 +102,17 @@ describe("BibleReaderComponent", () => {
     preferencesServiceSpy.getAutoScrollControlsVisible.and.returnValue(false)
     bookServiceSpy.findBook.and.returnValue(mockBooks[0] as unknown as Book)
     bookServiceSpy.getUrlAbrv.and.returnValue("1-genesis")
+    bookServiceSpy.getChapterUrlSegment.and.callFake((chapter: number) =>
+      chapter === 0 ? "intro" : chapter.toString(),
+    )
+    bookServiceSpy.parseChapterUrlSegment.and.callFake(
+      (segment: string | null | undefined, fallback = 1) => {
+        if (segment == null || segment === "") return fallback
+        if (segment === "intro") return 0
+        const parsed = Number.parseInt(segment, 10)
+        return Number.isFinite(parsed) ? parsed : fallback
+      },
+    )
     apiServiceSpy.getChapter.and.returnValue(
       of(mockChapter as unknown as Chapter),
     )
@@ -175,7 +188,7 @@ describe("BibleReaderComponent", () => {
       component.goToNextChapter()
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
       expect(component.isNavigatingForwards).toBeTrue()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 2])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", "2"])
     })
 
     it("goToPreviousChapter should navigate backwards and stop scroll", () => {
@@ -183,7 +196,7 @@ describe("BibleReaderComponent", () => {
       component.goToPreviousChapter()
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
       expect(component.isNavigatingBackwards).toBeTrue()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 1])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", "1"])
     })
     it("onPageStateChange should only mark for check if state changed", () => {
       const cdrSpy = spyOn(
@@ -261,7 +274,7 @@ describe("BibleReaderComponent", () => {
     it("onSwipeLeft should go to next chapter if scrolling mode", () => {
       component.viewMode = "scrolling"
       component.onSwipeLeft()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 2])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", "2"])
     })
 
     it("onSwipeLeft should go to next page if paged mode", () => {
@@ -277,7 +290,7 @@ describe("BibleReaderComponent", () => {
       component.chapterNumber = 2
       component.viewMode = "scrolling"
       component.onSwipeRight()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 1])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", "1"])
     })
 
     it("onSwipeRight should go to prev page if paged mode", () => {
@@ -292,13 +305,13 @@ describe("BibleReaderComponent", () => {
     it("onArrowPress should handle arrow directions", () => {
       component.chapterNumber = 2
       component.onArrowPress(new KeyboardEvent("keydown", { key: "ArrowLeft" }))
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 1])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", "1"])
 
       routerSpy.navigate.calls.reset()
       component.onArrowPress(
         new KeyboardEvent("keydown", { key: "ArrowRight" }),
       )
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 3])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", "3"])
     })
   })
 
@@ -342,13 +355,13 @@ describe("BibleReaderComponent", () => {
 
     it("onBookSubmit should navigate to book and close drawer", () => {
       component.onBookSubmit({ bookId: "gen" })
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", 1])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
       expect(component.bookDrawer.close).toHaveBeenCalled()
     })
 
     it("onChapterSubmit should navigate to chapter and close drawer", () => {
       component.onChapterSubmit({ chapterNumber: 5 })
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 5])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", "5"])
       expect(component.bookDrawer.close).toHaveBeenCalled()
     })
 
@@ -558,7 +571,7 @@ describe("BibleReaderComponent", () => {
 
       component.getChapter(2)
       tick()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", 1])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
     }))
 
     it("should call scrollToVerseElement in error handler if verseStart provided and book is about", fakeAsync(() => {

@@ -18,6 +18,7 @@ type IntroDisplayElement =
       section: IntroSection | IntroMajorSection
       paragraph: IntroParagraph
     }
+  | { kind: "list"; items: IntroListItem[] }
 
 @Component({
   selector: "book-intro",
@@ -56,7 +57,16 @@ export class BookIntroComponent implements OnChanges {
     while (i < elements.length) {
       const el = elements[i]
 
-      if (
+      if (el.type === "introListItem") {
+        // Group consecutive list items into one real list so screen readers
+        // announce them as a list.
+        const items: IntroListItem[] = []
+        while (i < elements.length && elements[i].type === "introListItem") {
+          items.push(elements[i] as IntroListItem)
+          i++
+        }
+        result.push({ kind: "list", items })
+      } else if (
         (el.type === "introSection" || el.type === "introMajorSection") &&
         i + 1 < elements.length &&
         elements[i + 1].type === "introParagraph"

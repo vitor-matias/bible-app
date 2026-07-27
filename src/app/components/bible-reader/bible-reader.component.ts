@@ -184,7 +184,8 @@ export class BibleReaderComponent implements OnDestroy {
           if (storedBook && storedChapter) {
             this.book = this.bookService.findBook(storedBook)
 
-            this.chapterNumber = Number.parseInt(storedChapter, 10)
+            this.chapterNumber =
+              this.bookService.parseChapterUrlSegment(storedChapter)
 
             const parsedVerseStart = queryParams["verseStart"]
               ? Number.parseInt(queryParams["verseStart"], 10)
@@ -194,7 +195,10 @@ export class BibleReaderComponent implements OnDestroy {
               : undefined
 
             this.router.navigate(
-              [this.bookService.getUrlAbrv(this.book), this.chapterNumber],
+              [
+                this.bookService.getUrlAbrv(this.book),
+                this.bookService.getChapterUrlSegment(this.chapterNumber),
+              ],
               {
                 queryParams: Object.keys(queryParams).length ? queryParams : {},
                 replaceUrl: true,
@@ -212,7 +216,9 @@ export class BibleReaderComponent implements OnDestroy {
       )
       .subscribe(([params, queryParams]) => {
         const bookParam = params.get("book") || "about"
-        const chapterParam = Number.parseInt(params.get("chapter") || "1", 10)
+        const chapterParam = this.bookService.parseChapterUrlSegment(
+          params.get("chapter"),
+        )
         const verseStartParam = queryParams.get("verseStart")
           ? Number.parseInt(queryParams.get("verseStart") || "1", 10)
           : undefined
@@ -279,7 +285,7 @@ export class BibleReaderComponent implements OnDestroy {
 
       this.router.navigate([
         this.bookService.getUrlAbrv(this.book),
-        this.chapterNumber + 1,
+        this.bookService.getChapterUrlSegment(this.chapterNumber + 1),
       ])
     }
   }
@@ -295,7 +301,7 @@ export class BibleReaderComponent implements OnDestroy {
 
       this.router.navigate([
         this.bookService.getUrlAbrv(this.book),
-        this.chapterNumber - 1,
+        this.bookService.getChapterUrlSegment(this.chapterNumber - 1),
       ])
     }
   }
@@ -304,7 +310,7 @@ export class BibleReaderComponent implements OnDestroy {
     this.autoScrollService.stop()
     this.router.navigate([
       this.bookService.getUrlAbrv(this.book),
-      newChapterNumber,
+      this.bookService.getChapterUrlSegment(newChapterNumber),
     ])
   }
 
@@ -312,7 +318,11 @@ export class BibleReaderComponent implements OnDestroy {
     const book = this.bookService.findBook(event.bookId)
     const startChapter =
       book.introduction && book.introduction.length > 0 ? 0 : 1
-    this.router.navigate(["/", this.bookService.getUrlAbrv(book), startChapter])
+    this.router.navigate([
+      "/",
+      this.bookService.getUrlAbrv(book),
+      this.bookService.getChapterUrlSegment(startChapter),
+    ])
 
     this.bookDrawer.close()
   }
@@ -338,8 +348,10 @@ export class BibleReaderComponent implements OnDestroy {
     verseEnd?: Verse["number"],
     highlight = true,
   ) {
-    // Chapter 0 = book introduction – no API call needed
+    // Chapter 0 = book introduction – no API call needed, but cancel any
+    // in-flight chapter request so it cannot overwrite the intro view.
     if (chapter === 0 && this.hasIntro) {
+      this.chapterSubscription?.unsubscribe()
       const syntheticChapter: Chapter = {
         bookId: this.book.id,
         number: 0,
@@ -474,7 +486,7 @@ export class BibleReaderComponent implements OnDestroy {
               this.router.navigate([
                 "/",
                 this.bookService.getUrlAbrv(this.book),
-                1,
+                this.bookService.getChapterUrlSegment(1),
               ])
             }
             console.error(err)

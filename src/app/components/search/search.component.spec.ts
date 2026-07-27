@@ -1,8 +1,8 @@
 import { ChangeDetectorRef } from "@angular/core"
 import { fakeAsync, flushMicrotasks } from "@angular/core/testing"
 import { MatSnackBar } from "@angular/material/snack-bar"
-import { Router } from "@angular/router"
-import { Observable, of } from "rxjs"
+import { ActivatedRoute, convertToParamMap, Router } from "@angular/router"
+import { Observable, of, Subject } from "rxjs"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
@@ -15,6 +15,7 @@ describe("SearchComponent", () => {
   let bookService: jasmine.SpyObj<BookService>
   let snackBar: jasmine.SpyObj<MatSnackBar>
   let router: jasmine.SpyObj<Router>
+  let route: ActivatedRoute
   let cdr: Pick<ChangeDetectorRef, "detectChanges">
   let observerCallback: IntersectionObserverCallback | null
   let originalIntersectionObserver: typeof IntersectionObserver | undefined
@@ -22,6 +23,7 @@ describe("SearchComponent", () => {
   class MockIntersectionObserver implements IntersectionObserver {
     root: Element | Document | null = null
     rootMargin = ""
+    scrollMargin = ""
     thresholds = [1]
 
     constructor(callback: IntersectionObserverCallback) {
@@ -48,6 +50,9 @@ describe("SearchComponent", () => {
     snackBar = jasmine.createSpyObj("MatSnackBar", ["open"])
     router = jasmine.createSpyObj("Router", ["navigate"])
     router.navigate.and.resolveTo(true)
+    route = {
+      snapshot: { queryParamMap: convertToParamMap({}) },
+    } as ActivatedRoute
     cdr = { detectChanges: jasmine.createSpy("detectChanges") }
     observerCallback = null
     originalIntersectionObserver = globalThis.IntersectionObserver
@@ -61,6 +66,7 @@ describe("SearchComponent", () => {
       bookService,
       snackBar,
       router,
+      route,
       cdr as ChangeDetectorRef,
     )
   })
@@ -119,7 +125,9 @@ describe("SearchComponent", () => {
       chapterNumber: 1,
       number: 2,
       verseLabel: "2",
-      text: [{ type: "text", text: "Second verse" }],
+      text: [
+        { type: "text", text: "Second verse", normalizedText: "Second verse" },
+      ],
     } as Verse
 
     component.searchTerm = "beginning"
@@ -131,17 +139,15 @@ describe("SearchComponent", () => {
         chapterNumber: 1,
         number: 1,
         verseLabel: "1",
-        text: [{ type: "text", text: "First verse" }],
+        text: [
+          { type: "text", text: "First verse", normalizedText: "First verse" },
+        ],
       } as Verse,
     ]
-    apiService.search.and.returnValue(
-      of({
-        verses: [nextVerse],
-        total: 2,
-        currentPage: 2,
-        totalPages: 2,
-      } as VersePage),
-    )
+    // Keep the page-2 request pending so a second trigger arrives while the
+    // first one is still in flight.
+    const pendingPage$ = new Subject<VersePage>()
+    apiService.search.and.returnValue(pendingPage$.asObservable())
 
     component.sentinel = {
       nativeElement: document.createElement("div"),
@@ -153,13 +159,31 @@ describe("SearchComponent", () => {
     if (!callback) {
       throw new Error("IntersectionObserver callback was not registered")
     }
-    callback(
-      [{ isIntersecting: true } as IntersectionObserverEntry],
-      {} as IntersectionObserver,
-    )
+    const trigger = () =>
+      callback(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        {} as IntersectionObserver,
+      )
+
+    trigger()
+    flushMicrotasks()
+    // Second intersection while the first request is still pending must not
+    // start another request.
+    trigger()
+    flushMicrotasks()
+    expect(apiService.search).toHaveBeenCalledTimes(1)
+    expect(apiService.search).toHaveBeenCalledWith("beginning", 2)
+
+    pendingPage$.next({
+      verses: [nextVerse],
+      total: 2,
+      currentPage: 2,
+      totalPages: 2,
+    } as VersePage)
+    pendingPage$.complete()
     flushMicrotasks()
 
-    expect(apiService.search).toHaveBeenCalledWith("beginning", 2)
+    expect(apiService.search).toHaveBeenCalledTimes(1)
     expect(component.searchResults).toEqual([
       jasmine.objectContaining({ number: 1 }),
       nextVerse,
@@ -167,6 +191,34 @@ describe("SearchComponent", () => {
     expect(component.currentPage).toBe(2)
     expect(component.isLoading).toBeFalse()
   }))
+
+  it("should run a shared query from the q query param on init", () => {
+    const sharedRoute = {
+      snapshot: { queryParamMap: convertToParamMap({ q: "shared text" }) },
+    } as ActivatedRoute
+    const sharedComponent = new SearchComponent(
+      apiService,
+      referenceService,
+      bookService,
+      snackBar,
+      router,
+      sharedRoute,
+      cdr as ChangeDetectorRef,
+    )
+    const submitSpy = spyOn(sharedComponent, "onSearchSubmit")
+
+    sharedComponent.ngOnInit()
+
+    expect(submitSpy).toHaveBeenCalledWith("shared text")
+  })
+
+  it("should not search on init without a q query param", () => {
+    const submitSpy = spyOn(component, "onSearchSubmit")
+
+    component.ngOnInit()
+
+    expect(submitSpy).not.toHaveBeenCalled()
+  })
 
   it("should show a snackbar when a direct reference is invalid", async () => {
     referenceService.extract.and.returnValue([
@@ -212,7 +264,13 @@ describe("SearchComponent", () => {
             chapterNumber: 1,
             number: 1,
             verseLabel: "1",
-            text: [{ type: "text", text: "First verse" }],
+            text: [
+              {
+                type: "text",
+                text: "First verse",
+                normalizedText: "First verse",
+              },
+            ],
           },
         ],
         total: 1,

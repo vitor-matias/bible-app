@@ -4,7 +4,10 @@
   font-size: large;
   margin-left: 8px;
   position: relative;
-  /* Add some spacing between buttons */
+  /* Fill the whole list row so the entire line is tappable,
+     not just the label text (important for the "Introdução" entry). */
+  width: calc(100% - 16px);
+  justify-content: flex-start;
 }
 
 .chapterSelectorButton:hover {

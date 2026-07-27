@@ -3,6 +3,7 @@ import {
   Component,
   type ElementRef,
   EventEmitter,
+  Input,
   Output,
   ViewChild,
 } from "@angular/core"
@@ -37,6 +38,12 @@ export class SearchBarComponent {
   searchInput!: ElementRef<HTMLInputElement>
 
   query = ""
+
+  /** Prefills the input (e.g. with a share-target query). */
+  @Input()
+  set value(value: string) {
+    this.query = value ?? ""
+  }
 
   constructor(private location: Location) {}
 

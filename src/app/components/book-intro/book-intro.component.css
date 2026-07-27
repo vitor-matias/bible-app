@@ -56,6 +56,10 @@
   text-align: justify;
 }
 
+.intro-outline-2 {
+  margin-left: 3em;
+}
+
 /* ── Tables ── */
 
 .intro-table {
@@ -72,8 +76,14 @@
 
 /* ── List items ── */
 
+.intro-list {
+  margin: 0.2rem 0;
+  padding-left: 1.5em;
+  list-style: none;
+}
+
 .intro-list-item {
-  margin: 0.2rem 0 0.2rem 1.5em;
+  margin: 0.2rem 0;
   position: relative;
   text-align: justify;
 }

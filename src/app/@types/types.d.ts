@@ -84,6 +84,7 @@ type IntroSection = {
 
 type IntroOutline = {
   type: "introOutline"
+  level: number
   text: string
 }
 

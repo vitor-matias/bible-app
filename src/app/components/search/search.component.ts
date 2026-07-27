@@ -5,7 +5,7 @@ import {
   ViewChild,
 } from "@angular/core"
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
-import { Router, RouterModule } from "@angular/router"
+import { ActivatedRoute, Router, RouterModule } from "@angular/router"
 import { firstValueFrom } from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { BibleApiService } from "../../services/bible-api.service"
@@ -45,8 +45,18 @@ export class SearchComponent {
     private bookService: BookService,
     private snackBar: MatSnackBar,
     private router: Router,
+    private route: ActivatedRoute,
     private cdr: ChangeDetectorRef,
   ) {}
+
+  ngOnInit(): void {
+    // Share-target launches land here as /search?q=<shared text>; run the
+    // shared query right away instead of showing an empty search screen.
+    const sharedQuery = this.route.snapshot.queryParamMap.get("q")
+    if (sharedQuery) {
+      this.onSearchSubmit(sharedQuery)
+    }
+  }
 
   ngAfterViewInit(): void {
     this.attachObserverToSentinel()
@@ -118,12 +128,14 @@ export class SearchComponent {
             ? ref.verses[0].verse
             : ref.verses[0].start
           : 1
+        // Resolve the chapter once so validation and navigation agree.
+        const chapter = ref.chapter ? ref.chapter : 1
         try {
           await firstValueFrom(
-            this.apiService.getVerse(book.id, ref.chapter, verseStart),
+            this.apiService.getVerse(book.id, chapter, verseStart),
           )
           await this.router.navigate(
-            ["/", book.id, ref.chapter ? ref.chapter : 1],
+            ["/", book.id, chapter],
             ref.verses ? { queryParams: { verseStart } } : {},
           )
         } catch (err) {

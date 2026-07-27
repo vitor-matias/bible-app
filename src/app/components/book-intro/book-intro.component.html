@@ -6,6 +6,12 @@
         <span class="intro-section-inline">{{ item.section.text }}</span>
         {{ '\u00A0\u00A0' }}{{ item.paragraph.text }}
       </p>
+    } @else if (item.kind === 'list') {
+      <ul class="intro-list">
+        @for (listItem of item.items; track $index) {
+          <li class="intro-list-item">{{ listItem.text }}</li>
+        }
+      </ul>
     } @else {
       @switch (item.element.type) {
         @case ('introTitle') {
@@ -31,7 +37,7 @@
           </p>
         }
         @case ('introOutline') {
-          <p class="intro-outline">{{ item.element.text }}</p>
+          <p class="intro-outline" [class.intro-outline-2]="item.element.level === 2">{{ item.element.text }}</p>
         }
         @case ('introTable') {
           <table class="intro-table">
@@ -43,9 +49,6 @@
               </tr>
             }
           </table>
-        }
-        @case ('introListItem') {
-          <p class="intro-list-item">{{ item.element.text }}</p>
         }
         @case ('introMajorSection') {
           <p class="intro-paragraph">
