@@ -577,7 +577,7 @@ describe("BibleReaderComponent", () => {
       component.getChapter(4)
       tick()
 
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", 3], {
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"], {
         replaceUrl: true,
       })
       expect(el.style.opacity).not.toBe("0")

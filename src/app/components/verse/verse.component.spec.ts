@@ -570,7 +570,12 @@ describe("VerseComponent", () => {
 
   describe("a11y — text body tabindex and role", () => {
     it("should not render tabindex or role on text span when verse has no footnotes", () => {
-      setData(component, makeVerse({ text: [{ type: "text", text: "plain" }] }))
+      setData(
+        component,
+        makeVerse({
+          text: [{ type: "text", text: "plain", normalizedText: "plain" }],
+        }),
+      )
       fixture.detectChanges()
       const interactive = fixture.nativeElement.querySelectorAll(
         ".interactive[tabindex='0'][role='button']",
@@ -583,7 +588,7 @@ describe("VerseComponent", () => {
         component,
         makeVerse({
           text: [
-            { type: "text", text: "verse text" },
+            { type: "text", text: "verse text", normalizedText: "verse text" },
             { type: "footnote", text: "note", reference: "a" },
           ],
         }),
@@ -629,7 +634,7 @@ describe("VerseComponent", () => {
         component,
         makeVerse({
           text: [
-            { type: "text", text: "verse" },
+            { type: "text", text: "verse", normalizedText: "verse" },
             { type: "footnote", text: "note", reference: "a" },
           ],
         }),
