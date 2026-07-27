@@ -1,7 +1,7 @@
 <div class="chapterSelectorContainer">
   @if (bookmarks$ | async; as bookmarksMap) {
     <mat-list>
-      @for (chapter of chapters; track chapter) {
+      @for (chapter of chapters; track chapter.number) {
       <mat-list-item>
         <button type="button" class="chapterSelectorButton" mat-flat-button (click)="submit(chapter.number)"
           [ngClass]="{ 'highlight': chapter.number === selectedChapter }">

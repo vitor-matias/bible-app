@@ -121,17 +121,27 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     return this.chapterNumber === 0 && this.hasIntro
   }
 
+  // Memoized per book: the template binds to this on every change detection
+  // cycle, and a fresh array/intro object each time would make Angular tear
+  // down and recreate the intro row mid-click, swallowing taps on it.
+  private chaptersWithIntroCache: { book?: Book; list: Chapter[] } = {
+    list: [],
+  }
+
   get chaptersWithIntro(): Chapter[] {
-    const chapters = this.book?.chapters || []
-    if (this.hasIntro) {
-      const introChapter: Chapter = {
-        bookId: this.book.id,
-        number: 0,
-        title: "Introdução",
+    if (this.chaptersWithIntroCache.book !== this.book) {
+      const chapters = this.book?.chapters || []
+      this.chaptersWithIntroCache = {
+        book: this.book,
+        list: this.hasIntro
+          ? [
+              { bookId: this.book.id, number: 0, title: "Introdução" },
+              ...chapters,
+            ]
+          : chapters,
       }
-      return [introChapter, ...chapters]
     }
-    return chapters
+    return this.chaptersWithIntroCache.list
   }
 
   onPageStateChange(state: PageState): void {
