@@ -2,6 +2,7 @@ import { CommonModule } from "@angular/common"
 import {
   ChangeDetectionStrategy,
   Component,
+  forwardRef,
   Input,
   type OnChanges,
 } from "@angular/core"
@@ -23,8 +24,9 @@ type IntroDisplayElement =
 @Component({
   selector: "book-intro",
   standalone: true,
-  // Imports itself so the recursive <book-intro> for sidebars is explicit.
-  imports: [CommonModule, BookIntroComponent],
+  // Imports itself (lazily, via forwardRef) so the recursive <book-intro>
+  // used for sidebars is explicit.
+  imports: [CommonModule, forwardRef(() => BookIntroComponent)],
   templateUrl: "./book-intro.component.html",
   styleUrl: "./book-intro.component.css",
   changeDetection: ChangeDetectionStrategy.OnPush,
