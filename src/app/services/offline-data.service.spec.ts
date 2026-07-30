@@ -334,6 +334,34 @@ describe("OfflineDataService", () => {
       ).toBe(3)
     })
 
+    it("should keep a chapter's introduction when a stub ties on verse count", async () => {
+      const base = {
+        id: "gen",
+        name: "Genesis",
+        shortName: "Genesis",
+        abrv: "Gn",
+        chapterCount: 1,
+      }
+      await service.setCachedBooks([
+        {
+          ...base,
+          chapters: [
+            { bookId: "gen", number: 1, introduction: "Texto introdutório" },
+          ],
+        },
+      ])
+
+      // A shallow refresh with a bare stub (same zero verse count, no intro).
+      await service.setCachedBooks([
+        { ...base, chapters: [{ bookId: "gen", number: 1 }] },
+      ])
+
+      const merged = service.getCachedBook("gen")
+      expect(merged?.chapters?.find((c) => c.number === 1)?.introduction).toBe(
+        "Texto introdutório",
+      )
+    })
+
     it("should set and retrieve cached books", async () => {
       await service.setCachedBooks(mockBooks)
 

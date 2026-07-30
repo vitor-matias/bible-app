@@ -428,6 +428,21 @@ describe("BibleReaderComponent", () => {
     }))
   })
 
+  describe("introduction route on books without intro", () => {
+    it("should normalize chapter 0 to chapter 1 without calling the API", () => {
+      component.book = mockBooks[0] as unknown as Book
+      apiServiceSpy.getChapter.calls.reset()
+      routerSpy.navigate.calls.reset()
+
+      component.getChapter(0)
+
+      expect(apiServiceSpy.getChapter).not.toHaveBeenCalled()
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", "1"], {
+        replaceUrl: true,
+      })
+    })
+  })
+
   describe("getChapter and animations", () => {
     beforeEach(() => {
       fixture.detectChanges()

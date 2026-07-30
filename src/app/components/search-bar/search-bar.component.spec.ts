@@ -1,9 +1,4 @@
-import {
-  type ComponentFixture,
-  fakeAsync,
-  TestBed,
-  tick,
-} from "@angular/core/testing"
+import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { SearchBarComponent } from "./search-bar.component"
 
 describe("SearchBarComponent", () => {
@@ -36,6 +31,10 @@ describe("SearchBarComponent", () => {
     expect(component.query).toBe("old query")
 
     component.value = null as unknown as string
+    expect(component.query).toBe("")
+
+    component.value = "another query"
+    component.value = undefined as unknown as string
     expect(component.query).toBe("")
   })
 })

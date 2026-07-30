@@ -204,10 +204,20 @@ export class OfflineDataService {
     }
     for (const chapter of incoming) {
       const cached = byNumber.get(chapter.number)
-      const incomingVerses = chapter.verses?.length ?? 0
-      const cachedVerses = cached?.verses?.length ?? 0
-      if (!cached || incomingVerses >= cachedVerses) {
+      if (!cached) {
         byNumber.set(chapter.number, chapter)
+        continue
+      }
+      const incomingVerses = chapter.verses?.length ?? 0
+      const cachedVerses = cached.verses?.length ?? 0
+      if (incomingVerses > cachedVerses) {
+        byNumber.set(chapter.number, chapter)
+      } else if (incomingVerses === cachedVerses) {
+        // On equal verse counts, a stub must not drop a cached chapter's
+        // introduction text; otherwise prefer the fresher incoming payload.
+        if (chapter.introduction || !cached.introduction) {
+          byNumber.set(chapter.number, chapter)
+        }
       }
     }
     return Array.from(byNumber.values()).sort((a, b) => a.number - b.number)

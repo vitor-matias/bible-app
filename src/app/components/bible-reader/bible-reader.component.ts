@@ -363,8 +363,22 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   ) {
     // Chapter 0 = book introduction – no API call needed, but cancel any
     // in-flight chapter request so it cannot overwrite the intro view.
-    if (chapter === 0 && this.hasIntro) {
+    if (chapter === 0) {
       this.chapterSubscription?.unsubscribe()
+
+      // /intro on a book without introduction: normalize to chapter 1
+      // instead of requesting the nonexistent chapter 0 from the API.
+      if (!this.hasIntro) {
+        void this.router.navigate(
+          [
+            this.bookService.getUrlAbrv(this.book),
+            this.bookService.getChapterUrlSegment(1),
+          ],
+          { replaceUrl: true },
+        )
+        return
+      }
+
       this.finalizeChapterTransition(() =>
         this.applyChapter(
           { bookId: this.book.id, number: 0, title: "Introdução" },
