@@ -14,7 +14,10 @@ export class BookService {
 
   constructor(private apiService: BibleApiService) {
     if (this.booksSubject.getValue().length === 0) {
-      this.initializeBooks()
+      // APP_INITIALIZER awaits initializeBooks() and reports failures; this
+      // eager kick-off must never surface an unhandled rejection — during
+      // prerendering that kills the whole worker thread and fails the build.
+      this.initializeBooks().catch(() => {})
     }
   }
 

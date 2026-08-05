@@ -6,14 +6,34 @@ import {
   from,
   type Observable,
   of,
+  retry,
   shareReplay,
   switchMap,
   tap,
   throwError,
+  timer,
 } from "rxjs"
 import { apiBaseUrl } from "../config"
 import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
+
+const IS_SERVER = typeof window === "undefined"
+
+// While prerendering, every page boots a fresh app in the same worker process;
+// module state survives between renders, so one worker fetches the book list
+// once instead of ~1200 times (which invites API rate limiting).
+let serverBooksCache: Book[] | null = null
+
+/**
+ * Transient API failures (rate limiting under prerender load) must not fail
+ * the build or ship empty pages — retry with backoff, server-side only.
+ */
+function serverRetry<T>() {
+  return retry<T>({
+    count: IS_SERVER ? 3 : 0,
+    delay: (_error, retryCount) => timer(300 * 2 ** retryCount),
+  })
+}
 
 @Injectable({
   providedIn: "root",
@@ -44,6 +64,10 @@ export class BibleApiService {
         if (this.books.length) {
           return of(this.books)
         }
+        if (IS_SERVER && serverBooksCache) {
+          this.books = serverBooksCache
+          return of(serverBooksCache)
+        }
         if (this.networkService.isOffline) {
           return throwError(
             () => new Error("Offline and no cached books available"),
@@ -54,8 +78,12 @@ export class BibleApiService {
           this.booksRequest$ = (
             this.http.get(`${this.api}/books`) as Observable<Book[]>
           ).pipe(
+            serverRetry(),
             tap((books) => {
               this.books = books
+              if (IS_SERVER) {
+                serverBooksCache = books
+              }
             }),
             catchError((error) => {
               this.booksRequest$ = null
@@ -93,6 +121,7 @@ export class BibleApiService {
         const request = (
           this.http.get(`${this.api}/${book}/${chapter}`) as Observable<Chapter>
         ).pipe(
+          serverRetry(),
           finalize(() => {
             this.chapterRequests.delete(requestKey)
           }),

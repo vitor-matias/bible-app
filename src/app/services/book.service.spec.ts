@@ -1,5 +1,5 @@
 import { TestBed } from "@angular/core/testing"
-import { of } from "rxjs"
+import { of, throwError } from "rxjs"
 import { BibleApiService } from "./bible-api.service"
 
 import { BookService } from "./book.service"
@@ -79,6 +79,28 @@ describe("BookService", () => {
 
   it("should be created", () => {
     expect(service).toBeTruthy()
+  })
+
+  it("should not surface an unhandled rejection when the eager constructor load fails", async () => {
+    // An unhandled rejection here kills prerender worker threads at build time.
+    const failingApi = jasmine.createSpyObj("BibleApiService", [
+      "getAvailableBooks",
+    ])
+    failingApi.getAvailableBooks.and.returnValue(
+      throwError(() => new Error("API unavailable")),
+    )
+
+    TestBed.resetTestingModule()
+    TestBed.configureTestingModule({
+      providers: [
+        BookService,
+        { provide: BibleApiService, useValue: failingApi },
+      ],
+    })
+    expect(() => TestBed.inject(BookService)).not.toThrow()
+    // Let the constructor's fire-and-forget promise settle; a missing .catch
+    // would trigger Jasmine's global unhandled-rejection failure here.
+    await new Promise((resolve) => setTimeout(resolve))
   })
 
   it("should add the about book without mutating the API result", async () => {
