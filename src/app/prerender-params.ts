@@ -1,5 +1,10 @@
 import { serverApiOrigin } from "./config"
 
+const FETCH_TIMEOUT_MS = 20_000
+// Psalms (150) is the largest real book; anything beyond this is bad data
+// that would otherwise explode the number of generated routes.
+const MAX_CHAPTERS_PER_BOOK = 200
+
 /**
  * Build the { book, chapter } route params for every chapter of every book,
  * fetched from the live API at build time. Mirrors BookService.getUrlAbrv
@@ -16,6 +21,9 @@ export async function fetchPrerenderChapterParams(
   try {
     const response = await fetchFn(`${serverApiOrigin}/v1/books`, {
       headers: { accept: "application/json" },
+      // A stalled request must fail into the catch/[] fallback instead of
+      // hanging the whole prerender build.
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     })
     if (!response.ok) {
       throw new Error(`GET /v1/books responded ${response.status}`)
@@ -26,19 +34,26 @@ export async function fetchPrerenderChapterParams(
     }
 
     return books
+      .map((book) => ({
+        urlAbrv:
+          typeof book?.abrv === "string"
+            ? book.abrv.replace(/\s/g, "").toLowerCase()
+            : "",
+        chapterCount: book?.chapterCount,
+      }))
       .filter(
         (book) =>
-          typeof book?.abrv === "string" &&
-          Number.isInteger(book?.chapterCount) &&
-          book.chapterCount > 0,
+          book.urlAbrv.length > 0 &&
+          Number.isInteger(book.chapterCount) &&
+          book.chapterCount > 0 &&
+          book.chapterCount <= MAX_CHAPTERS_PER_BOOK,
       )
-      .flatMap((book) => {
-        const urlAbrv = book.abrv.replace(/\s/g, "").toLowerCase()
-        return Array.from({ length: book.chapterCount }, (_, index) => ({
-          book: urlAbrv,
+      .flatMap((book) =>
+        Array.from({ length: book.chapterCount }, (_, index) => ({
+          book: book.urlAbrv,
           chapter: `${index + 1}`,
-        }))
-      })
+        })),
+      )
   } catch (error) {
     console.warn(
       `Prerender: could not fetch the book list (${

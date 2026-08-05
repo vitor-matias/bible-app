@@ -86,16 +86,14 @@ export class OfflineDataService {
 
     const existingBooks = this.cachedBooks ?? []
     this.cachedBooks = this.mergeCachedBooks(existingBooks, books)
+    // localStorage only holds cache metadata — its absence (privacy modes)
+    // must not prevent persisting the books themselves to IndexedDB.
     const storage = safeLocalStorage()
-    if (!storage) {
-      // In non-browser environments, skip persistence and metadata.
-      return
-    }
 
     try {
       await this.saveBooksToIndexedDb(this.cachedBooks)
-      storage.setItem(this.cacheTimestampKey, Date.now().toString())
-      storage.setItem(this.cacheFlagKey, "true")
+      storage?.setItem(this.cacheTimestampKey, Date.now().toString())
+      storage?.setItem(this.cacheFlagKey, "true")
     } catch (error) {
       console.error("Failed to persist cached books or metadata", error)
       throw error

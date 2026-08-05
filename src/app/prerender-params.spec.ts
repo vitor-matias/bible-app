@@ -42,11 +42,21 @@ describe("fetchPrerenderChapterParams", () => {
       { abrv: "Ex" }, // no chapterCount
       { chapterCount: 3 }, // no abrv
       { abrv: "Lv", chapterCount: 0 }, // empty book
+      { abrv: "   ", chapterCount: 2 }, // whitespace-only abbreviation
+      { abrv: "Nm", chapterCount: 10_000 }, // absurd chapter count
     ]
 
     const params = await fetchPrerenderChapterParams(fetchReturning(books))
 
     expect(params).toEqual([{ book: "gn", chapter: "1" }])
+  })
+
+  it("bounds the book-list request with an abort signal", async () => {
+    const fetchSpy = fetchReturning([]) as jasmine.Spy
+    await fetchPrerenderChapterParams(fetchSpy as unknown as typeof fetch)
+
+    const init = fetchSpy.calls.mostRecent().args[1] as RequestInit
+    expect(init.signal).toBeInstanceOf(AbortSignal)
   })
 
   it("returns an empty list instead of throwing when the API fails", async () => {

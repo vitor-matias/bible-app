@@ -4,6 +4,7 @@ import {
   catchError,
   finalize,
   from,
+  type MonoTypeOperatorFunction,
   type Observable,
   of,
   retry,
@@ -11,6 +12,7 @@ import {
   switchMap,
   tap,
   throwError,
+  timeout,
   timer,
 } from "rxjs"
 import { apiBaseUrl } from "../config"
@@ -25,14 +27,34 @@ const IS_SERVER = typeof window === "undefined"
 let serverBooksCache: Book[] | null = null
 
 /**
- * Transient API failures (rate limiting under prerender load) must not fail
- * the build or ship empty pages — retry with backoff, server-side only.
+ * Server-only request hardening for prerendering: a bounded timeout (a
+ * connection that never completes must not hang the build) plus retry with
+ * backoff (transient rate limiting must not fail the build or ship empty
+ * pages). In the browser the source observable is passed through untouched.
+ * Exported for tests via createApiResilience; production code uses the
+ * IS_SERVER-bound wrapper below.
  */
+export function createApiResilience<T>(
+  isServer: boolean,
+  timeoutMs = 20_000,
+  retryCount = 3,
+  retryBaseDelayMs = 300,
+): MonoTypeOperatorFunction<T> {
+  if (!isServer) {
+    return (source) => source
+  }
+  return (source) =>
+    source.pipe(
+      timeout(timeoutMs),
+      retry({
+        count: retryCount,
+        delay: (_error, attempt) => timer(retryBaseDelayMs * 2 ** attempt),
+      }),
+    )
+}
+
 function serverRetry<T>() {
-  return retry<T>({
-    count: IS_SERVER ? 3 : 0,
-    delay: (_error, retryCount) => timer(300 * 2 ** retryCount),
-  })
+  return createApiResilience<T>(IS_SERVER)
 }
 
 @Injectable({

@@ -5,6 +5,9 @@ import { join } from "node:path"
 const BASE_URL = "https://biblia.capuchinhos.org"
 const BOOKS_ENDPOINT = `${BASE_URL}/v1/books`
 const FETCH_TIMEOUT_MS = 20_000
+// Psalms (150) is the largest real book; anything beyond this is bad data
+// that would otherwise balloon the sitemap.
+const MAX_CHAPTERS_PER_BOOK = 200
 
 // Same rule as BookService.getUrlAbrv: abbreviation without spaces, lowercased.
 function urlAbrv(book) {
@@ -55,8 +58,10 @@ async function fetchBooks() {
   const validBooks = books.filter(
     (book) =>
       typeof book?.abrv === "string" &&
+      book.abrv.trim().length > 0 &&
       Number.isInteger(book?.chapterCount) &&
-      book.chapterCount > 0,
+      book.chapterCount > 0 &&
+      book.chapterCount <= MAX_CHAPTERS_PER_BOOK,
   )
   if (validBooks.length === 0) {
     // Never overwrite a good sitemap with a home-page-only one.
