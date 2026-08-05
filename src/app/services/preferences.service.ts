@@ -1,12 +1,13 @@
 import { Injectable } from "@angular/core"
+import { safeLocalStorage } from "../utils/web-storage"
 
 @Injectable({
   providedIn: "root",
 })
 export class PreferencesService {
-  /** localStorage is absent while server-rendering; degrade to defaults. */
+  /** localStorage is absent or non-functional while server-rendering; degrade to defaults. */
   private get storage(): Storage | null {
-    return typeof localStorage === "undefined" ? null : localStorage
+    return safeLocalStorage()
   }
 
   private readonly KEYS = {
