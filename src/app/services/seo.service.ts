@@ -36,12 +36,21 @@ export class SeoService {
       return
     }
 
+    const bookUrl = `${SEO_BASE_URL}/${this.bookService.getUrlAbrv(book)}`
     this.apply({
       title: `${book.shortName} ${chapterNumber} | ${SEO_SITE_NAME}`,
       description: this.buildChapterDescription(book, chapterNumber, chapter),
-      canonicalUrl: `${SEO_BASE_URL}/${this.bookService.getUrlAbrv(book)}/${chapterNumber}`,
+      canonicalUrl: `${bookUrl}/${chapterNumber}`,
       indexable: true,
     })
+    this.setBreadcrumbs([
+      { name: SEO_SITE_NAME, item: `${SEO_BASE_URL}/` },
+      { name: book.shortName, item: `${bookUrl}/1` },
+      {
+        name: `${book.shortName} ${chapterNumber}`,
+        item: `${bookUrl}/${chapterNumber}`,
+      },
+    ])
   }
 
   updateForAbout(): void {
@@ -51,6 +60,7 @@ export class SeoService {
       canonicalUrl: `${SEO_BASE_URL}/`,
       indexable: true,
     })
+    this.setBreadcrumbs(null)
   }
 
   /** Search results are user-specific, so keep them out of the index. */
@@ -61,6 +71,7 @@ export class SeoService {
       canonicalUrl: `${SEO_BASE_URL}/search`,
       indexable: false,
     })
+    this.setBreadcrumbs(null)
   }
 
   private apply(page: {
@@ -90,6 +101,39 @@ export class SeoService {
     }
 
     this.setCanonicalUrl(page.canonicalUrl)
+  }
+
+  /**
+   * Maintain a single BreadcrumbList JSON-LD script (Home → Book → Chapter)
+   * so chapter results are eligible for breadcrumb display in search engines.
+   */
+  private setBreadcrumbs(
+    crumbs: { name: string; item: string }[] | null,
+  ): void {
+    const id = "seo-breadcrumbs"
+    const existing = this.document.getElementById(id)
+    if (!crumbs) {
+      existing?.remove()
+      return
+    }
+
+    let script = existing as HTMLScriptElement | null
+    if (!script) {
+      script = this.document.createElement("script")
+      script.type = "application/ld+json"
+      script.id = id
+      this.document.head.appendChild(script)
+    }
+    script.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: crumbs.map((crumb, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: crumb.name,
+        item: crumb.item,
+      })),
+    })
   }
 
   private setCanonicalUrl(url: string): void {

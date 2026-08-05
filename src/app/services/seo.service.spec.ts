@@ -80,6 +80,7 @@ describe("SeoService", () => {
     )) {
       link.remove()
     }
+    doc.getElementById("seo-breadcrumbs")?.remove()
     meta.removeTag('name="robots"')
     meta.removeTag('name="description"')
     meta.removeTag('property="og:title"')
@@ -165,6 +166,50 @@ describe("SeoService", () => {
       expect(title.getTitle()).toBe(SEO_SITE_NAME)
       expect(getMetaContent('name="description"')).toBe(SEO_DEFAULT_DESCRIPTION)
       expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/`)
+    })
+  })
+
+  describe("breadcrumb JSON-LD", () => {
+    function getBreadcrumbs(): {
+      itemListElement: { position: number; name: string; item: string }[]
+    } | null {
+      const script = doc.getElementById("seo-breadcrumbs")
+      return script?.textContent ? JSON.parse(script.textContent) : null
+    }
+
+    it("injects a Home → Book → Chapter BreadcrumbList for a chapter", () => {
+      service.updateForChapter(genesis, 3)
+
+      const breadcrumbs = getBreadcrumbs()
+      expect(breadcrumbs).not.toBeNull()
+      expect(breadcrumbs?.itemListElement.length).toBe(3)
+      expect(breadcrumbs?.itemListElement[0].name).toBe(SEO_SITE_NAME)
+      expect(breadcrumbs?.itemListElement[0].item).toBe(`${SEO_BASE_URL}/`)
+      expect(breadcrumbs?.itemListElement[1].name).toBe("Génesis")
+      expect(breadcrumbs?.itemListElement[1].item).toBe(`${SEO_BASE_URL}/gn/1`)
+      expect(breadcrumbs?.itemListElement[2].name).toBe("Génesis 3")
+      expect(breadcrumbs?.itemListElement[2].item).toBe(`${SEO_BASE_URL}/gn/3`)
+      expect(breadcrumbs?.itemListElement[2].position).toBe(3)
+    })
+
+    it("replaces the breadcrumb script on navigation instead of stacking", () => {
+      service.updateForChapter(genesis, 1)
+      service.updateForChapter(genesis, 2)
+
+      expect(doc.querySelectorAll("#seo-breadcrumbs").length).toBe(1)
+      expect(getBreadcrumbs()?.itemListElement[2].item).toBe(
+        `${SEO_BASE_URL}/gn/2`,
+      )
+    })
+
+    it("removes the breadcrumb script on search and about pages", () => {
+      service.updateForChapter(genesis, 1)
+      service.updateForSearch()
+      expect(doc.getElementById("seo-breadcrumbs")).toBeNull()
+
+      service.updateForChapter(genesis, 1)
+      service.updateForChapter(aboutBook, 1)
+      expect(doc.getElementById("seo-breadcrumbs")).toBeNull()
     })
   })
 

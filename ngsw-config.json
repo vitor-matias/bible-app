@@ -29,18 +29,6 @@
   ],
   "dataGroups": [
     {
-      "name": "google-fonts",
-      "urls": [
-        "https://fonts.googleapis.com/css2?**",
-        "https://fonts.gstatic.com/**"
-      ],
-      "cacheConfig": {
-        "strategy": "performance",
-        "maxSize": 20,
-        "maxAge": "30d"
-      }
-    },
-    {
       "name": "bible-search",
       "urls": [
         "/v1/search**"

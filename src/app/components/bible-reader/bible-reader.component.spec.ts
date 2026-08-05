@@ -206,6 +206,52 @@ describe("BibleReaderComponent", () => {
       expect(component.isNavigatingBackwards).toBeTrue()
       expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 1])
     })
+
+    it("exposes router link arrays for the prev/next chapter anchors", () => {
+      component.chapterNumber = 5
+      expect(component.previousChapterLink).toEqual(["/", "1-genesis", 4])
+      expect(component.nextChapterLink).toEqual(["/", "1-genesis", 6])
+    })
+
+    it("prepareChapterNavigation stops auto-scroll and sets the slide direction", () => {
+      component.prepareChapterNavigation(true)
+      expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
+      expect(component.isNavigatingForwards).toBeTrue()
+      expect(component.isNavigatingBackwards).toBeFalse()
+
+      component.isNavigatingForwards = false
+      component.prepareChapterNavigation(false)
+      expect(component.isNavigatingBackwards).toBeTrue()
+    })
+
+    it("renders prev/next as anchors (crawlable links) in scrolling mode", () => {
+      const element = fixture.nativeElement as HTMLElement
+      // Initial chapter is 1: only the next-chapter link should exist.
+      expect(element.querySelector("a.next-chapter")).toBeTruthy()
+      expect(element.querySelector("button.next-chapter")).toBeFalsy()
+      expect(element.querySelector("a.prev-chapter")).toBeFalsy()
+
+      component.chapter = { bookId: "gen", number: 2 } as Chapter
+      component.chapterNumber = 2
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+
+      expect(element.querySelector("a.prev-chapter")).toBeTruthy()
+      expect(element.querySelector("button.prev-chapter")).toBeFalsy()
+    })
+
+    it("renders prev/next as buttons in paged mode", () => {
+      component.viewMode = "paged"
+      component.chapter = { bookId: "gen", number: 2 } as Chapter
+      component.chapterNumber = 2
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+
+      const element = fixture.nativeElement as HTMLElement
+      expect(element.querySelector("button.next-chapter")).toBeTruthy()
+      expect(element.querySelector("a.next-chapter")).toBeFalsy()
+      expect(element.querySelector("button.prev-chapter")).toBeTruthy()
+    })
     it("onPageStateChange should only mark for check if state changed", () => {
       const cdrSpy = spyOn(
         (component as unknown as { cdr: ChangeDetectorRef }).cdr,
