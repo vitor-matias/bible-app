@@ -101,6 +101,34 @@ export class BookService {
     return book.abrv.replace(/\s/g, "").toLowerCase()
   }
 
+  /** URL segment used for the book introduction pseudo-chapter. */
+  static readonly INTRO_URL_SEGMENT = "intro"
+
+  /**
+   * Maps an internal chapter number to its URL segment: the introduction
+   * (chapter 0) reads as /intro, every real chapter keeps its number.
+   */
+  getChapterUrlSegment(chapter: Chapter["number"]): string {
+    return chapter === 0 ? BookService.INTRO_URL_SEGMENT : chapter.toString()
+  }
+
+  /**
+   * Parses a chapter URL segment back to the internal chapter number.
+   * Accepts "intro" (and legacy "0") for the introduction.
+   */
+  parseChapterUrlSegment(
+    segment: string | null | undefined,
+    fallback = 1,
+  ): number {
+    if (segment == null || segment === "") return fallback
+    if (segment === BookService.INTRO_URL_SEGMENT) return 0
+    // Only whole non-negative decimal segments are canonical chapter URLs;
+    // reject partial parses like "2junk" or "1.5".
+    if (!/^\d+$/.test(segment)) return fallback
+    const parsed = Number.parseInt(segment, 10)
+    return Number.isSafeInteger(parsed) ? parsed : fallback
+  }
+
   getAboutBook(): Book {
     return {
       id: "about",

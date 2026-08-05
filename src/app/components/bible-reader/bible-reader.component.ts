@@ -39,6 +39,7 @@ import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
+import { BookIntroComponent } from "../book-intro/book-intro.component"
 import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"
 import { HeaderComponent } from "../header/header.component"
@@ -65,6 +66,7 @@ import { VerseComponent } from "../verse/verse.component"
     UnifiedGesturesDirective,
     PagedNavigationDirective,
     AutoScrollControlsComponent,
+    BookIntroComponent,
   ],
 })
 export class BibleReaderComponent implements OnInit, OnDestroy {
@@ -109,6 +111,37 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   get effectiveViewMode(): "scrolling" | "paged" {
     return this.book?.id === "about" ? "scrolling" : this.viewMode
+  }
+
+  get hasIntro(): boolean {
+    return !!this.book?.introduction && this.book.introduction.length > 0
+  }
+
+  get isIntroChapter(): boolean {
+    return this.chapterNumber === 0 && this.hasIntro
+  }
+
+  // Memoized per book: the template binds to this on every change detection
+  // cycle, and a fresh array/intro object each time would make Angular tear
+  // down and recreate the intro row mid-click, swallowing taps on it.
+  private chaptersWithIntroCache: { book?: Book; list: Chapter[] } = {
+    list: [],
+  }
+
+  get chaptersWithIntro(): Chapter[] {
+    if (this.chaptersWithIntroCache.book !== this.book) {
+      const chapters = this.book?.chapters || []
+      this.chaptersWithIntroCache = {
+        book: this.book,
+        list: this.hasIntro
+          ? [
+              { bookId: this.book.id, number: 0, title: "Introdução" },
+              ...chapters,
+            ]
+          : chapters,
+      }
+    }
+    return this.chaptersWithIntroCache.list
   }
 
   onPageStateChange(state: PageState): void {
@@ -173,7 +206,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           if (storedBook && storedChapter) {
             this.book = this.bookService.findBook(storedBook)
 
-            this.chapterNumber = Number.parseInt(storedChapter, 10)
+            this.chapterNumber =
+              this.bookService.parseChapterUrlSegment(storedChapter)
 
             const parsedVerseStart = queryParams["verseStart"]
               ? Number.parseInt(queryParams["verseStart"], 10)
@@ -183,7 +217,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
               : undefined
 
             this.router.navigate(
-              [this.bookService.getUrlAbrv(this.book), this.chapterNumber],
+              [
+                this.bookService.getUrlAbrv(this.book),
+                this.bookService.getChapterUrlSegment(this.chapterNumber),
+              ],
               {
                 queryParams: Object.keys(queryParams).length ? queryParams : {},
                 replaceUrl: true,
@@ -201,7 +238,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       )
       .subscribe(([params, queryParams]) => {
         const bookParam = params.get("book") || "about"
-        const chapterParam = Number.parseInt(params.get("chapter") || "1", 10)
+        const chapterParam = this.bookService.parseChapterUrlSegment(
+          params.get("chapter"),
+        )
         const verseStartParam = queryParams.get("verseStart")
           ? Number.parseInt(queryParams.get("verseStart") || "1", 10)
           : undefined
@@ -268,19 +307,23 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
       this.router.navigate([
         this.bookService.getUrlAbrv(this.book),
-        this.chapterNumber + 1,
+        this.bookService.getChapterUrlSegment(this.chapterNumber + 1),
       ])
     }
   }
 
+  private get minChapter(): number {
+    return this.hasIntro ? 0 : 1
+  }
+
   goToPreviousChapter(): void {
-    if (this.chapterNumber > 1) {
+    if (this.chapterNumber > this.minChapter) {
       this.autoScrollService.stop()
       this.isNavigatingBackwards = true
 
       this.router.navigate([
         this.bookService.getUrlAbrv(this.book),
-        this.chapterNumber - 1,
+        this.bookService.getChapterUrlSegment(this.chapterNumber - 1),
       ])
     }
   }
@@ -289,13 +332,19 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.autoScrollService.stop()
     this.router.navigate([
       this.bookService.getUrlAbrv(this.book),
-      newChapterNumber,
+      this.bookService.getChapterUrlSegment(newChapterNumber),
     ])
   }
 
   onBookSubmit(event: { bookId: string }) {
     const book = this.bookService.findBook(event.bookId)
-    this.router.navigate(["/", this.bookService.getUrlAbrv(book), 1])
+    const startChapter =
+      book.introduction && book.introduction.length > 0 ? 0 : 1
+    this.router.navigate([
+      "/",
+      this.bookService.getUrlAbrv(book),
+      this.bookService.getChapterUrlSegment(startChapter),
+    ])
 
     this.bookDrawer.close()
   }
@@ -312,6 +361,33 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     verseEnd?: Verse["number"],
     highlight = true,
   ) {
+    // Chapter 0 = book introduction – no API call needed, but cancel any
+    // in-flight chapter request so it cannot overwrite the intro view.
+    if (chapter === 0) {
+      this.chapterSubscription?.unsubscribe()
+
+      // /intro on a book without introduction: normalize to chapter 1
+      // instead of requesting the nonexistent chapter 0 from the API.
+      if (!this.hasIntro) {
+        void this.router.navigate(
+          [
+            this.bookService.getUrlAbrv(this.book),
+            this.bookService.getChapterUrlSegment(1),
+          ],
+          { replaceUrl: true },
+        )
+        return
+      }
+
+      this.finalizeChapterTransition(() =>
+        this.applyChapter(
+          { bookId: this.book.id, number: 0, title: "Introdução" },
+          0,
+        ),
+      )
+      return
+    }
+
     this.chapterSubscription?.unsubscribe()
     this.chapterSubscription = this.apiService
       .getChapter(this.book.id, chapter)
@@ -338,7 +414,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
                 [
                   "/",
                   this.bookService.getUrlAbrv(this.book),
-                  this.chapterNumber,
+                  this.bookService.getChapterUrlSegment(this.chapterNumber),
                 ],
                 { replaceUrl: true },
               )

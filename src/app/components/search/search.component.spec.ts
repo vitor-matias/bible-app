@@ -6,8 +6,8 @@ import {
   TestBed,
 } from "@angular/core/testing"
 import { MatSnackBar } from "@angular/material/snack-bar"
-import { Router } from "@angular/router"
-import { Observable, of } from "rxjs"
+import { ActivatedRoute, convertToParamMap, Router } from "@angular/router"
+import { Observable, of, Subject } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
@@ -23,6 +23,7 @@ describe("SearchComponent", () => {
   let snackBar: jasmine.SpyObj<MatSnackBar>
   let router: jasmine.SpyObj<Router>
   let analyticsService: jasmine.SpyObj<AnalyticsService>
+  let routeMock: ActivatedRoute
   let observerCallback: IntersectionObserverCallback | null
   let originalIntersectionObserver: typeof IntersectionObserver | undefined
 
@@ -58,6 +59,9 @@ describe("SearchComponent", () => {
     router.navigate.and.resolveTo(true)
     analyticsService = jasmine.createSpyObj("AnalyticsService", ["track"])
     analyticsService.track.and.returnValue(Promise.resolve())
+    routeMock = {
+      snapshot: { queryParamMap: convertToParamMap({}) },
+    } as ActivatedRoute
     observerCallback = null
     originalIntersectionObserver = globalThis.IntersectionObserver
 
@@ -73,6 +77,7 @@ describe("SearchComponent", () => {
         { provide: MatSnackBar, useValue: snackBar },
         { provide: Router, useValue: router },
         { provide: AnalyticsService, useValue: analyticsService },
+        { provide: ActivatedRoute, useValue: routeMock },
       ],
     })
       .overrideComponent(SearchComponent, {
@@ -96,6 +101,24 @@ describe("SearchComponent", () => {
 
   it("should create", () => {
     expect(component).toBeTruthy()
+  })
+
+  it("should run a shared query from the q query param on init", () => {
+    ;(routeMock.snapshot as { queryParamMap: unknown }).queryParamMap =
+      convertToParamMap({ q: "shared text" })
+    const submitSpy = spyOn(component, "onSearchSubmit")
+
+    component.ngOnInit()
+
+    expect(submitSpy).toHaveBeenCalledWith("shared text")
+  })
+
+  it("should not search on init without a q query param", () => {
+    const submitSpy = spyOn(component, "onSearchSubmit")
+
+    component.ngOnInit()
+
+    expect(submitSpy).not.toHaveBeenCalled()
   })
 
   it("should navigate to a direct reference using verseStart", async () => {
@@ -192,14 +215,10 @@ describe("SearchComponent", () => {
         text: [{ type: "text", text: "First verse" }],
       } as Verse,
     ]
-    apiService.search.and.returnValue(
-      of({
-        verses: [nextVerse],
-        total: 2,
-        currentPage: 2,
-        totalPages: 2,
-      } as VersePage),
-    )
+    // Keep the page-2 request pending so a second trigger arrives while the
+    // first one is still in flight.
+    const pendingPage$ = new Subject<VersePage>()
+    apiService.search.and.returnValue(pendingPage$.asObservable())
 
     component.sentinel = {
       nativeElement: document.createElement("div"),
@@ -211,13 +230,31 @@ describe("SearchComponent", () => {
     if (!callback) {
       throw new Error("IntersectionObserver callback was not registered")
     }
-    callback(
-      [{ isIntersecting: true } as IntersectionObserverEntry],
-      {} as IntersectionObserver,
-    )
+    const trigger = () =>
+      callback(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        {} as IntersectionObserver,
+      )
+
+    trigger()
+    flushMicrotasks()
+    // Second intersection while the first request is still pending must not
+    // start another request.
+    trigger()
+    flushMicrotasks()
+    expect(apiService.search).toHaveBeenCalledTimes(1)
+    expect(apiService.search).toHaveBeenCalledWith("beginning", 2)
+
+    pendingPage$.next({
+      verses: [nextVerse],
+      total: 2,
+      currentPage: 2,
+      totalPages: 2,
+    } as VersePage)
+    pendingPage$.complete()
     flushMicrotasks()
 
-    expect(apiService.search).toHaveBeenCalledWith("beginning", 2)
+    expect(apiService.search).toHaveBeenCalledTimes(1)
     expect(component.searchResults).toEqual([
       jasmine.objectContaining({ number: 1 }),
       jasmine.objectContaining({ number: 2 }),

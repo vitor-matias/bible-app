@@ -126,7 +126,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private updateBookmarkState() {
-    if (this.book && this.chapterNumber) {
+    // chapterNumber 0 is the book introduction, so check for null instead of falsiness
+    if (this.book && this.chapterNumber != null) {
       this.currentBookmark = this.bookmarkService.getBookmark(
         this.book.id,
         this.chapterNumber,
@@ -135,7 +136,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   openBookmarkSelector() {
-    if (!this.book || !this.chapterNumber) {
+    if (!this.book || this.chapterNumber == null) {
       return
     }
 
@@ -256,7 +257,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     const title = "Biblia Sagrada"
     const text = isAbout
       ? "Leia a Biblia nesta app."
-      : `Ler ${this.book?.name} ${this.chapterNumber}.`
+      : this.chapterNumber === 0
+        ? `Ler a introdução de ${this.book?.name}.`
+        : `Ler ${this.book?.name} ${this.chapterNumber}.`
     const url = typeof window === "undefined" ? "" : window.location.href
 
     try {
