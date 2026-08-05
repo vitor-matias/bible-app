@@ -52,12 +52,17 @@ async function fetchBooks() {
   if (!Array.isArray(books) || books.length === 0) {
     throw new Error(`GET ${BOOKS_ENDPOINT} returned no books`)
   }
-  return books.filter(
+  const validBooks = books.filter(
     (book) =>
       typeof book?.abrv === "string" &&
       Number.isInteger(book?.chapterCount) &&
       book.chapterCount > 0,
   )
+  if (validBooks.length === 0) {
+    // Never overwrite a good sitemap with a home-page-only one.
+    throw new Error(`GET ${BOOKS_ENDPOINT} returned no valid books`)
+  }
+  return validBooks
 }
 
 // Prefer the production build output (build:post); fall back to public/ when

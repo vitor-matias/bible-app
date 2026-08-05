@@ -1,5 +1,4 @@
 User-agent: *
 Allow: /
-Disallow: /search
 
 Sitemap: https://biblia.capuchinhos.org/sitemap.xml
