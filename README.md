@@ -63,6 +63,21 @@ has real data with no local backend. The API base URL is resolved in
 | `npm run cap:sync` | Sync web build into native projects |
 | `npm run cap:ios` / `cap:android` | Add a native platform, sync, generate icons |
 
+## Prerendering (static SSG)
+
+`npm run build` prerenders every book/chapter route to static HTML
+(`dist/bible-app/browser/<book>/<chapter>/index.html`) with the real verse
+text, per-page meta tags and JSON-LD baked in. The route list and chapter
+content come from the live API at build time (`/v1/books`), so the build
+machine needs network access to `biblia.capuchinhos.org` — without it the
+build still succeeds and every route silently falls back to the classic
+client-rendered SPA. Set `PRERENDER_API_ORIGIN=http://localhost:PORT` to
+point the prerenderer (and server-side API calls) at a stub API for testing.
+`/search`, `/` and unknown routes stay client-rendered
+(`src/app/app.routes.server.ts`); the CSR fallback is emitted as
+`index.csr.html` and copied to `index.html` in `build:post` for hosts that
+expect the classic SPA fallback name.
+
 ## Mobile (Capacitor)
 
 ```bash
