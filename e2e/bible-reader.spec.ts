@@ -198,6 +198,35 @@ test.describe("Icon font", () => {
     await expect(drawer.locator("mat-tree-node").nth(1)).toBeVisible()
     await expectIconsRendered(drawer)
   })
+
+  // chapter-selector fills the bookmark icon through the FILL axis. A static
+  // (non-variable) icon font would ignore that and quietly draw it outlined, so
+  // check the axis actually moves the glyph.
+  test("the FILL axis changes the glyph", async ({ page }) => {
+    await openReader(page)
+
+    const renderWithFill = async (fill: number) => {
+      await page.evaluate((axis) => {
+        const probe =
+          document.getElementById("fill-probe") ??
+          document.body.appendChild(
+            Object.assign(document.createElement("span"), {
+              id: "fill-probe",
+              className: "material-symbols-outlined",
+              textContent: "bookmark",
+            }),
+          )
+        probe.style.cssText =
+          "position:fixed;top:0;left:0;z-index:9999;background:#fff;color:#000"
+        probe.style.fontVariationSettings = `"FILL" ${axis}`
+      }, fill)
+      return page.locator("#fill-probe").screenshot()
+    }
+
+    const hollow = await renderWithFill(0)
+    const filled = await renderWithFill(1)
+    expect(filled.equals(hollow)).toBe(false)
+  })
 })
 
 test.describe("About page", () => {
