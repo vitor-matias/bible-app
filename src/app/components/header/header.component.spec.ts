@@ -96,6 +96,18 @@ describe("HeaderComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  it("should title the page with a single h1 naming the book and chapter", () => {
+    fixture.componentRef.setInput("chapterNumber", 3)
+    component.mobile = false
+    fixture.changeDetectorRef.markForCheck()
+    fixture.detectChanges()
+
+    const headings = fixture.nativeElement.querySelectorAll("h1")
+    expect(headings.length).toBe(1)
+    expect(headings[0].textContent).toContain("Genesis")
+    expect(headings[0].textContent).toContain("3")
+  })
+
   it("should reflect offline status from NetworkService", () => {
     isOfflineSubject.next(true)
     fixture.detectChanges()

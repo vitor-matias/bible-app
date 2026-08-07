@@ -12,6 +12,7 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { SeoService } from "../../services/seo.service"
 import { SearchComponent } from "./search.component"
 
 describe("SearchComponent", () => {
@@ -23,6 +24,7 @@ describe("SearchComponent", () => {
   let snackBar: jasmine.SpyObj<MatSnackBar>
   let router: jasmine.SpyObj<Router>
   let analyticsService: jasmine.SpyObj<AnalyticsService>
+  let seoService: jasmine.SpyObj<SeoService>
   let observerCallback: IntersectionObserverCallback | null
   let originalIntersectionObserver: typeof IntersectionObserver | undefined
 
@@ -58,6 +60,7 @@ describe("SearchComponent", () => {
     router.navigate.and.resolveTo(true)
     analyticsService = jasmine.createSpyObj("AnalyticsService", ["track"])
     analyticsService.track.and.returnValue(Promise.resolve())
+    seoService = jasmine.createSpyObj("SeoService", ["updateForSearch"])
     observerCallback = null
     originalIntersectionObserver = globalThis.IntersectionObserver
 
@@ -73,6 +76,7 @@ describe("SearchComponent", () => {
         { provide: MatSnackBar, useValue: snackBar },
         { provide: Router, useValue: router },
         { provide: AnalyticsService, useValue: analyticsService },
+        { provide: SeoService, useValue: seoService },
       ],
     })
       .overrideComponent(SearchComponent, {
@@ -96,6 +100,11 @@ describe("SearchComponent", () => {
 
   it("should create", () => {
     expect(component).toBeTruthy()
+  })
+
+  it("should mark the search page as noindex via SeoService on init", () => {
+    fixture.detectChanges()
+    expect(seoService.updateForSearch).toHaveBeenCalled()
   })
 
   it("should navigate to a direct reference using verseStart", async () => {

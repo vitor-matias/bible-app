@@ -16,6 +16,7 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { SeoService } from "../../services/seo.service"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
 @Component({
@@ -56,7 +57,12 @@ export class SearchComponent {
     private cdr: ChangeDetectorRef,
     private analyticsService: AnalyticsService,
     private injector: Injector,
+    private seoService: SeoService,
   ) {}
+
+  ngOnInit(): void {
+    this.seoService.updateForSearch()
+  }
 
   ngAfterViewInit(): void {
     this.attachObserverToSentinel()

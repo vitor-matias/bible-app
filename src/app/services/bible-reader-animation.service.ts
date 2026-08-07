@@ -8,6 +8,15 @@ export class BibleReaderAnimationService {
     HTMLElement,
     ReturnType<typeof setTimeout>
   >()
+
+  /**
+   * Scroll/animation work is meaningless while server-rendering, and the
+   * server DOM lacks scrollTo/requestAnimationFrame — skip it entirely.
+   */
+  private get isBrowser(): boolean {
+    return typeof window !== "undefined"
+  }
+
   scrollToTop(
     drawerContent: HTMLElement | undefined,
     container: HTMLElement | undefined,
@@ -15,6 +24,7 @@ export class BibleReaderAnimationService {
     startAtBottom = false,
     beforeScroll?: () => void,
   ): void {
+    if (!this.isBrowser) return
     setTimeout(() => {
       if (drawerContent) {
         drawerContent.scrollTo({ top: 0, behavior: "smooth" })
@@ -90,6 +100,7 @@ export class BibleReaderAnimationService {
     container: HTMLElement,
     isBackward: boolean,
   ): Promise<void> {
+    if (!this.isBrowser) return Promise.resolve()
     return new Promise((resolve) => {
       const animationClass = isBackward ? "slide-out-right" : "slide-out-left"
 
@@ -127,6 +138,7 @@ export class BibleReaderAnimationService {
     highlight = true,
     startAtBottom = false,
   ): void {
+    if (!this.isBrowser) return
     setTimeout(() => {
       let scrolled = false
       if (!bookBlock) return

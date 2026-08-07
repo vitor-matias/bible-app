@@ -259,7 +259,12 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   }
 
   ngAfterViewInit(): void {
-    this.scrollToSelectedBook()
+    // Deferred like the ngOnChanges path below: ngAfterViewInit also runs during
+    // prerendering, where the server DOM has no scrollIntoView. afterNextRender
+    // is browser-only, so the scroll simply doesn't happen there.
+    afterNextRender(() => this.scrollToSelectedBook(), {
+      injector: this.injector,
+    })
   }
 
   ngOnChanges(changes: SimpleChanges): void {

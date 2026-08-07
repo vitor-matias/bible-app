@@ -1,8 +1,11 @@
 // Karma configuration file
 
-process.env.CHROME_BIN = require("puppeteer").executablePath()
+// Async because puppeteer 25 made executablePath() return a promise; Karma
+// awaits an async config function, so CHROME_BIN is still set before it
+// launches the browser.
+module.exports = async (config) => {
+  process.env.CHROME_BIN = await require("puppeteer").executablePath()
 
-module.exports = (config) => {
   config.set({
     basePath: "",
     frameworks: ["jasmine"],
