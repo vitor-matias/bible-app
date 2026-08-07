@@ -20,6 +20,20 @@ describe("BookSelectorComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  // ngAfterViewInit also runs while prerendering, where the server DOM has no
+  // scrollIntoView — calling it there threw once per prerendered route.
+  it("should not scroll straight from ngAfterViewInit", () => {
+    component.selectedBookId = "gen"
+    const target = document.createElement("div")
+    target.setAttribute("data-book-id", "gen")
+    ;(fixture.nativeElement as HTMLElement).appendChild(target)
+    const scrollSpy = spyOn(Element.prototype, "scrollIntoView")
+
+    component.ngAfterViewInit()
+
+    expect(scrollSpy).not.toHaveBeenCalled()
+  })
+
   it("filters books with accent-insensitive short names", () => {
     component.books = [
       {
