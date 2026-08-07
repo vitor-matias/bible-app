@@ -160,6 +160,15 @@ describe("SeoService", () => {
       expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/gn/2`)
     })
 
+    // Spelled out rather than interpolated: every other expectation here builds
+    // its string from SEO_SITE_NAME, so they would all still pass if the site
+    // name were changed by accident.
+    it("names the site 'Bíblia Sagrada' in page titles", () => {
+      service.updateForChapter(aboutBook, 1)
+
+      expect(title.getTitle()).toBe("Bíblia Sagrada")
+    })
+
     it("uses the site defaults for the about page", () => {
       service.updateForChapter(aboutBook, 1)
 

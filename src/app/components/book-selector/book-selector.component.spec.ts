@@ -20,6 +20,16 @@ describe("BookSelectorComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  // The testament labels sit one level below the page h1 in the toolbar. As h4s
+  // they were the first headings on every page, ahead of any h1.
+  it("should label the testaments with h2 headings", () => {
+    const headings = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll("h2"),
+    ).map((heading) => heading.textContent?.trim())
+
+    expect(headings).toEqual(["Antigo Testamento", "Novo Testamento"])
+  })
+
   // ngAfterViewInit also runs while prerendering, where the server DOM has no
   // scrollIntoView — calling it there threw once per prerendered route.
   it("should not scroll straight from ngAfterViewInit", () => {
