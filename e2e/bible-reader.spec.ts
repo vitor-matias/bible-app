@@ -56,6 +56,18 @@ test.describe("Initial load", () => {
     // Header should mention John's abbreviation or name
     await expect(page.locator("mat-toolbar")).toContainText(/Jo/i)
   })
+
+  // Every chapter is a separately indexed page, so each needs its own single h1
+  // rather than one shared site-wide heading.
+  test("gives the chapter exactly one h1 naming it", async ({ page }) => {
+    await page.goto("/jo/3")
+    await page.locator("verse").first().waitFor({ timeout: 15_000 })
+
+    const heading = page.locator("h1")
+    await expect(heading).toHaveCount(1)
+    await expect(heading).toContainText(/Jo/i)
+    await expect(heading).toContainText("3")
+  })
 })
 
 test.describe("Direct URL navigation", () => {
