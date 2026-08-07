@@ -4,6 +4,11 @@ const FETCH_TIMEOUT_MS = 20_000
 // Psalms (150) is the largest real book; anything beyond this is bad data
 // that would otherwise explode the number of generated routes.
 const MAX_CHAPTERS_PER_BOOK = 200
+// The canon is 73 books. A response claiming far more is bad data, and without
+// this the per-book cap still leaves the total unbounded — enough book records
+// would exhaust build memory during route expansion, before the [] fallback
+// below could ever run.
+const MAX_BOOKS = 200
 
 /**
  * Build the { book, chapter } route params for every chapter of every book,
@@ -31,6 +36,12 @@ export async function fetchPrerenderChapterParams(
     const books = (await response.json()) as Book[]
     if (!Array.isArray(books)) {
       throw new Error("GET /v1/books did not return an array")
+    }
+
+    if (books.length > MAX_BOOKS) {
+      throw new Error(
+        `GET /v1/books returned ${books.length} books (max ${MAX_BOOKS})`,
+      )
     }
 
     return books

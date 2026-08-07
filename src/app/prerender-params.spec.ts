@@ -71,6 +71,22 @@ describe("fetchPrerenderChapterParams", () => {
     expect(console.warn).toHaveBeenCalled()
   })
 
+  // Without a cap on the book count, the per-book chapter limit still lets a
+  // large response expand into hundreds of thousands of route params and
+  // exhaust build memory before the fallback below can run.
+  it("returns an empty list when the API reports implausibly many books", async () => {
+    spyOn(console, "warn")
+    const books = Array.from({ length: 5_000 }, (_, index) => ({
+      abrv: `bk${index}`,
+      chapterCount: 200,
+    }))
+
+    await expectAsync(
+      fetchPrerenderChapterParams(fetchReturning(books)),
+    ).toBeResolvedTo([])
+    expect(console.warn).toHaveBeenCalled()
+  })
+
   it("returns an empty list on a non-OK response", async () => {
     spyOn(console, "warn")
     await expectAsync(

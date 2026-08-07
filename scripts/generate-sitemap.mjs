@@ -8,6 +8,10 @@ const FETCH_TIMEOUT_MS = 20_000
 // Psalms (150) is the largest real book; anything beyond this is bad data
 // that would otherwise balloon the sitemap.
 const MAX_CHAPTERS_PER_BOOK = 200
+// The canon is 73 books. Without a cap here the per-book limit still leaves the
+// total unbounded, so a response with enough book records could balloon the
+// sitemap instead of being rejected as the bad data it is.
+const MAX_BOOKS = 200
 
 // Same rule as BookService.getUrlAbrv: abbreviation without spaces, lowercased.
 function urlAbrv(book) {
@@ -54,6 +58,11 @@ async function fetchBooks() {
   const books = await response.json()
   if (!Array.isArray(books) || books.length === 0) {
     throw new Error(`GET ${BOOKS_ENDPOINT} returned no books`)
+  }
+  if (books.length > MAX_BOOKS) {
+    throw new Error(
+      `GET ${BOOKS_ENDPOINT} returned ${books.length} books (max ${MAX_BOOKS})`,
+    )
   }
   const validBooks = books.filter(
     (book) =>
