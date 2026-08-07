@@ -4,7 +4,7 @@ import { Meta, Title } from "@angular/platform-browser"
 import { appConfig } from "../config"
 import { BookService } from "./book.service"
 
-export const SEO_SITE_NAME = "Bíblia dos Capuchinhos"
+export const SEO_SITE_NAME = "Bíblia Sagrada"
 export const SEO_BASE_URL = `https://${appConfig.domain}`
 export const SEO_DEFAULT_DESCRIPTION =
   "A Bíblia Sagrada completa em português, da Difusora Bíblica (Franciscanos Capuchinhos). " +
