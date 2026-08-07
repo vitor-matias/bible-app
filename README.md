@@ -59,7 +59,6 @@ has real data with no local backend. The API base URL is resolved in
 | `npm run test:coverage` | Unit tests with coverage |
 | `npm run biome` | Lint + format with autofix (`--write --unsafe`) over `src` |
 | `npm run sitemap` | Generate `sitemap.xml` from the live book list (also runs in `build:post`, skipped without network) |
-| `npm run icons:subset` | Regenerate `public/fonts/material-symbols.woff2` from the icon names used in `src/` (run after adding/removing `<mat-icon>` names) |
 | `npm run cap:sync` | Sync web build into native projects |
 | `npm run cap:ios` / `cap:android` | Add a native platform, sync, generate icons |
 
