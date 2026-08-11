@@ -5,6 +5,7 @@ import { BookService } from "./book.service"
 import {
   SEO_BASE_URL,
   SEO_DEFAULT_DESCRIPTION,
+  SEO_HOME_TITLE,
   SEO_SITE_NAME,
   SeoService,
 } from "./seo.service"
@@ -161,18 +162,20 @@ describe("SeoService", () => {
     })
 
     // Spelled out rather than interpolated: every other expectation here builds
-    // its string from SEO_SITE_NAME, so they would all still pass if the site
-    // name were changed by accident.
-    it("names the site 'Bíblia Sagrada' in page titles", () => {
+    // its string from SEO_SITE_NAME/SEO_HOME_TITLE, so they would all still
+    // pass if those names were changed by accident.
+    it("titles the home page with the online-Bible keywords", () => {
       service.updateForChapter(aboutBook, 1)
 
-      expect(title.getTitle()).toBe("Bíblia Sagrada")
+      expect(title.getTitle()).toBe(
+        "Bíblia Sagrada Online — Bíblia dos Capuchinhos",
+      )
     })
 
     it("uses the site defaults for the about page", () => {
       service.updateForChapter(aboutBook, 1)
 
-      expect(title.getTitle()).toBe(SEO_SITE_NAME)
+      expect(title.getTitle()).toBe(SEO_HOME_TITLE)
       expect(getMetaContent('name="description"')).toBe(SEO_DEFAULT_DESCRIPTION)
       expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/`)
     })

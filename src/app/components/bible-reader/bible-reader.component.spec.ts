@@ -1,4 +1,9 @@
-import { ChangeDetectorRef, ElementRef, NO_ERRORS_SCHEMA } from "@angular/core"
+import {
+  ChangeDetectorRef,
+  ElementRef,
+  NO_ERRORS_SCHEMA,
+  PLATFORM_ID,
+} from "@angular/core"
 import {
   ComponentFixture,
   fakeAsync,
@@ -121,7 +126,14 @@ describe("BibleReaderComponent", () => {
       of(mockChapter as unknown as Chapter),
     )
 
-    await TestBed.configureTestingModule({
+    await setUpTestBed()
+
+    fixture = TestBed.createComponent(BibleReaderComponent)
+    component = fixture.componentInstance
+  })
+
+  function setUpTestBed(options?: { platformId?: string }): Promise<void> {
+    return TestBed.configureTestingModule({
       imports: [BibleReaderComponent, BrowserAnimationsModule],
       providers: [
         { provide: AutoScrollService, useValue: autoScrollServiceSpy },
@@ -135,6 +147,9 @@ describe("BibleReaderComponent", () => {
         { provide: NetworkService, useValue: networkServiceSpy },
         { provide: MatSnackBar, useValue: snackBarSpy },
         { provide: SeoService, useValue: seoServiceSpy },
+        ...(options?.platformId
+          ? [{ provide: PLATFORM_ID, useValue: options.platformId }]
+          : []),
       ],
     })
       .overrideComponent(BibleReaderComponent, {
@@ -144,10 +159,7 @@ describe("BibleReaderComponent", () => {
         },
       })
       .compileComponents()
-
-    fixture = TestBed.createComponent(BibleReaderComponent)
-    component = fixture.componentInstance
-  })
+  }
 
   it("should create", () => {
     expect(component).toBeTruthy()
@@ -169,6 +181,19 @@ describe("BibleReaderComponent", () => {
       expect(bookServiceSpy.findBook).toHaveBeenCalledWith("gen")
       expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("gen", 1)
       expect(routerSpy.navigate).toHaveBeenCalled()
+    })
+
+    // A router.navigate during prerendering (e.g. "/" → "/sobre/1") makes
+    // Angular emit a "Redirecting" stub instead of the page's real content,
+    // which would leave the home page with nothing for crawlers to index.
+    it("should not navigate while server-rendering, but still load the chapter", async () => {
+      TestBed.resetTestingModule()
+      await setUpTestBed({ platformId: "server" })
+      const serverFixture = TestBed.createComponent(BibleReaderComponent)
+      serverFixture.detectChanges()
+
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
+      expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("gen", 1)
     })
 
     it("should not call getChapter if book and chapter didn't change on route update", () => {

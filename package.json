@@ -12,10 +12,11 @@
     "test:coverage": "ng test --watch=false --code-coverage",
     "e2e": "playwright test",
     "biome": "npx @biomejs/biome check --write --unsafe ./src",
-    "cap:sync": "npx cap sync",
+    "cap:prune": "node scripts/prune-prerender-for-capacitor.mjs",
+    "cap:sync": "npm run cap:prune && npx cap sync",
     "cap:icons": "npx @capacitor/assets generate --assetPath assets --android --ios",
-    "cap:ios": "npx cap add ios && npx cap sync ios && npm run cap:icons",
-    "cap:android": "npx cap add android && npx cap sync android && npm run cap:icons"
+    "cap:ios": "npm run cap:prune && npx cap add ios && npx cap sync ios && npm run cap:icons",
+    "cap:android": "npm run cap:prune && npx cap add android && npx cap sync android && npm run cap:icons"
   },
   "private": true,
   "dependencies": {

@@ -5,6 +5,8 @@ import { appConfig } from "../config"
 import { BookService } from "./book.service"
 
 export const SEO_SITE_NAME = "Bíblia Sagrada"
+/** Home-page title: leads with the main query plus its strongest variants. */
+export const SEO_HOME_TITLE = "Bíblia Sagrada Online — Bíblia dos Capuchinhos"
 export const SEO_BASE_URL = `https://${appConfig.domain}`
 export const SEO_DEFAULT_DESCRIPTION =
   "A Bíblia Sagrada completa em português, da Difusora Bíblica (Franciscanos Capuchinhos). " +
@@ -55,7 +57,7 @@ export class SeoService {
 
   updateForAbout(): void {
     this.apply({
-      title: SEO_SITE_NAME,
+      title: SEO_HOME_TITLE,
       description: SEO_DEFAULT_DESCRIPTION,
       canonicalUrl: `${SEO_BASE_URL}/`,
       indexable: true,
