@@ -1,4 +1,4 @@
-import { CommonModule } from "@angular/common"
+import { CommonModule, isPlatformBrowser } from "@angular/common"
 import {
   afterNextRender,
   ChangeDetectionStrategy,
@@ -10,6 +10,7 @@ import {
   inject,
   type OnDestroy,
   type OnInit,
+  PLATFORM_ID,
   ViewChild,
 } from "@angular/core"
 import { MatBottomSheetModule } from "@angular/material/bottom-sheet"
@@ -73,6 +74,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>()
   private chapterSubscription?: Subscription
   private injector = inject(Injector)
+  private platformId = inject(PLATFORM_ID)
 
   @ViewChild("bookDrawer")
   bookDrawer!: MatDrawer
@@ -185,13 +187,20 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
               ? Number.parseInt(queryParams["verseEnd"], 10)
               : undefined
 
-            this.router.navigate(
-              [this.bookService.getUrlAbrv(this.book), this.chapterNumber],
-              {
-                queryParams: Object.keys(queryParams).length ? queryParams : {},
-                replaceUrl: true,
-              },
-            )
+            // Only normalize the URL in the browser. During prerendering this
+            // navigation (e.g. "/" → "/sobre/1") would make Angular emit a
+            // "Redirecting" stub instead of the page's real, indexable content.
+            if (isPlatformBrowser(this.platformId)) {
+              this.router.navigate(
+                [this.bookService.getUrlAbrv(this.book), this.chapterNumber],
+                {
+                  queryParams: Object.keys(queryParams).length
+                    ? queryParams
+                    : {},
+                  replaceUrl: true,
+                },
+              )
+            }
             this.getChapter(
               this.chapterNumber,
               parsedVerseStart,

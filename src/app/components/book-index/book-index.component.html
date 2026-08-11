@@ -1,0 +1,15 @@
+@if (testaments$ | async; as testaments) {
+<nav class="book-index" aria-label="Livros da Bíblia">
+  <h2>Ler a Bíblia online</h2>
+  @for (testament of testaments; track testament.name) {
+  <section>
+    <h3>{{ testament.name }}</h3>
+    <ul>
+      @for (book of testament.books; track book.name) {
+      <li><a [routerLink]="book.link">{{ book.name }}</a></li>
+      }
+    </ul>
+  </section>
+  }
+</nav>
+}
