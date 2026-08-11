@@ -107,7 +107,7 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   newTestament: CanonGroup[] = [
     ...NEW_TESTAMENT_GROUPS,
     {
-      name: "Sobre a Biblia",
+      name: "Sobre a Bíblia",
       books: ["about"],
     },
   ]
