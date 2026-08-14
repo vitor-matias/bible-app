@@ -238,8 +238,12 @@ span {
   color: dimgray;
 }
 
-a {
+a:not(.floating-nav-button) {
   color: var(--text-color) !important;
+}
+
+html.dark-theme .floating-nav-button {
+  color: #2a1a0d;
 }
 
 .mat-bottom-sheet-container,
