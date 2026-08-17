@@ -1,5 +1,9 @@
 import { fakeAsync, TestBed, tick } from "@angular/core/testing"
-import { BibleReaderAnimationService } from "./bible-reader-animation.service"
+import {
+  BibleReaderAnimationService,
+  HIGHLIGHT_CLASS,
+  HIGHLIGHT_DURATION_MS,
+} from "./bible-reader-animation.service"
 
 describe("BibleReaderAnimationService", () => {
   let service: BibleReaderAnimationService
@@ -196,10 +200,61 @@ describe("BibleReaderAnimationService", () => {
       tick(100)
 
       expect(verse1.scrollIntoView).toHaveBeenCalled()
-      expect(verse1.style.backgroundColor).toBe("var(--highlight-color)")
-
-      tick(2500)
+      expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBeTrue()
+      // The stroke is drawn by the verse component's own styles; painting the
+      // inline host from here is what used to colour whitespace and gaps.
       expect(verse1.style.backgroundColor).toBe("")
+
+      tick(HIGHLIGHT_DURATION_MS)
+      expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBeFalse()
+    }))
+
+    it("should restart the fade when the same verse is highlighted again", fakeAsync(() => {
+      const bookBlock = document.createElement("div")
+      const verse1 = document.createElement("div")
+      verse1.id = "1"
+      bookBlock.appendChild(verse1)
+      spyOn(verse1, "scrollIntoView")
+
+      service.scrollToVerseElement(bookBlock, undefined, 1, 1, true, false)
+      tick(100)
+      tick(HIGHLIGHT_DURATION_MS - 500)
+
+      service.scrollToVerseElement(bookBlock, undefined, 1, 1, true, false)
+      tick(100)
+
+      // The first timeout would have fired by now had it not been cleared.
+      tick(500)
+      expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBeTrue()
+
+      tick(HIGHLIGHT_DURATION_MS)
+      expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBeFalse()
+    }))
+
+    it("should highlight every verse of a range", fakeAsync(() => {
+      const bookBlock = document.createElement("div")
+      const verses = [1, 2, 3].map((n) => {
+        const el = document.createElement("div")
+        el.id = String(n)
+        bookBlock.appendChild(el)
+        spyOn(el, "scrollIntoView")
+        return el
+      })
+
+      service.scrollToVerseElement(bookBlock, undefined, 1, 3, true, false)
+      tick(100)
+
+      expect(
+        verses.every((el) => el.classList.contains(HIGHLIGHT_CLASS)),
+      ).toBeTrue()
+      // Only the first verse of the range is scrolled into view.
+      expect(verses[0].scrollIntoView).toHaveBeenCalled()
+      expect(verses[1].scrollIntoView).not.toHaveBeenCalled()
+
+      tick(HIGHLIGHT_DURATION_MS)
+      expect(
+        verses.some((el) => el.classList.contains(HIGHLIGHT_CLASS)),
+      ).toBeFalse()
     }))
 
     it("should do nothing if bookBlock is undefined", fakeAsync(() => {
@@ -237,7 +292,7 @@ describe("BibleReaderAnimationService", () => {
       tick(100)
 
       expect(verse1.scrollIntoView).toHaveBeenCalled()
-      expect(verse1.style.backgroundColor).not.toBe("var(--highlight-color)")
+      expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBeFalse()
       expect(service.triggerSlideAnimation).toHaveBeenCalledWith(
         undefined,
         bookContainer,
