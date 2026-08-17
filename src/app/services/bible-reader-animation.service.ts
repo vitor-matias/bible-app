@@ -1,5 +1,11 @@
 import { Injectable } from "@angular/core"
 
+/** Toggled on the <verse> host; the stroke is styled in verse.component.css. */
+export const HIGHLIGHT_CLASS = "verse-highlight"
+
+/** How long a deep-linked verse stays marked before the stroke fades out. */
+export const HIGHLIGHT_DURATION_MS = 2500
+
 @Injectable({
   providedIn: "root",
 })
@@ -156,17 +162,19 @@ export class BibleReaderAnimationService {
             scrolled = true
           }
           if (highlight) {
-            element.style.transition = "background-color 0.5s ease"
-            element.style.backgroundColor = "var(--highlight-color)"
+            // The stroke itself is styled by the verse component; painting it
+            // from here (on the inline <verse> host) would colour the empty
+            // line fragments and inter-verse spaces too.
+            element.classList.add(HIGHLIGHT_CLASS)
 
             if (this.highlightTimeouts.has(element)) {
               clearTimeout(this.highlightTimeouts.get(element))
             }
 
             const timeoutId = setTimeout(() => {
-              element.style.backgroundColor = ""
+              element.classList.remove(HIGHLIGHT_CLASS)
               this.highlightTimeouts.delete(element)
-            }, 2500)
+            }, HIGHLIGHT_DURATION_MS)
             this.highlightTimeouts.set(element, timeoutId)
           }
         }
