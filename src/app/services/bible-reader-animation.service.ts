@@ -231,14 +231,17 @@ export class BibleReaderAnimationService {
       window.addEventListener(event, takeOver, { passive: true })
     }
 
-    // Fonts are the slow half of this and can settle either side of the timer,
-    // so the guard against a reader who has taken over outlives both.
-    // Older WebViews have no FontFaceSet at all.
-    const fontsReady = "fonts" in document ? document.fonts.ready : undefined
-    let pending = fontsReady ? 2 : 1
+    // A font swap is the slow half of this and can land either side of the
+    // timer, so wait on it too — but only while one is actually pending, since
+    // an already-settled FontFaceSet resolves straight away and would re-scroll
+    // on top of the smooth scroll that just started. Older WebViews have no
+    // FontFaceSet at all.
+    const fonts = "fonts" in document ? document.fonts : undefined
+    const fontsLoading = fonts?.status === "loading" ? fonts.ready : undefined
+    let pending = fontsLoading ? 2 : 1
 
-    const realign = () => {
-      if (!takenOver) bringIntoView(element)
+    // The guard against a reader who has taken over outlives every pass.
+    const release = () => {
       pending -= 1
       if (pending > 0) return
       for (const event of events) {
@@ -246,7 +249,13 @@ export class BibleReaderAnimationService {
       }
     }
 
-    fontsReady?.then(realign)
+    const realign = () => {
+      if (!takenOver) bringIntoView(element)
+      release()
+    }
+
+    // Release on a rejected FontFaceSet as well, or the listeners never come off.
+    fontsLoading?.then(realign, release)
     setTimeout(realign, LAYOUT_SETTLE_MS)
   }
 }
