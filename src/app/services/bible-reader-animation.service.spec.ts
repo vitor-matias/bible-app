@@ -3,6 +3,7 @@ import {
   BibleReaderAnimationService,
   HIGHLIGHT_CLASS,
   HIGHLIGHT_DURATION_MS,
+  LAYOUT_SETTLE_MS,
 } from "./bible-reader-animation.service"
 
 describe("BibleReaderAnimationService", () => {
@@ -298,6 +299,64 @@ describe("BibleReaderAnimationService", () => {
         bookContainer,
         true,
       )
+
+      tick(LAYOUT_SETTLE_MS)
+    }))
+
+    it("should re-align once the layout has settled, so a verse at the end of a chapter is not left short", fakeAsync(() => {
+      const bookBlock = document.createElement("div")
+      const verse1 = document.createElement("div")
+      verse1.id = "1"
+      bookBlock.appendChild(verse1)
+      spyOn(verse1, "scrollIntoView")
+
+      service.scrollToVerseElement(bookBlock, undefined, 1, 1, false, false)
+      tick(100)
+      expect(verse1.scrollIntoView).toHaveBeenCalledTimes(1)
+
+      tick(LAYOUT_SETTLE_MS)
+      expect(verse1.scrollIntoView).toHaveBeenCalledTimes(2)
+    }))
+
+    it("should stop re-aligning once the reader scrolls for themselves", fakeAsync(() => {
+      const bookBlock = document.createElement("div")
+      const verse1 = document.createElement("div")
+      verse1.id = "1"
+      bookBlock.appendChild(verse1)
+      spyOn(verse1, "scrollIntoView")
+
+      service.scrollToVerseElement(bookBlock, undefined, 1, 1, false, false)
+      tick(100)
+      window.dispatchEvent(new Event("wheel"))
+
+      tick(LAYOUT_SETTLE_MS)
+      expect(verse1.scrollIntoView).toHaveBeenCalledTimes(1)
+    }))
+
+    it("should hand the scroll to the given strategy instead of scrollIntoView", fakeAsync(() => {
+      const bookBlock = document.createElement("div")
+      const verse1 = document.createElement("div")
+      verse1.id = "1"
+      bookBlock.appendChild(verse1)
+      spyOn(verse1, "scrollIntoView")
+      const bringIntoView = jasmine.createSpy("bringIntoView")
+
+      service.scrollToVerseElement(
+        bookBlock,
+        undefined,
+        1,
+        1,
+        false,
+        false,
+        bringIntoView,
+      )
+      tick(100)
+
+      expect(bringIntoView).toHaveBeenCalledWith(verse1)
+      expect(verse1.scrollIntoView).not.toHaveBeenCalled()
+
+      tick(LAYOUT_SETTLE_MS)
+      expect(bringIntoView).toHaveBeenCalledTimes(2)
     }))
   })
 })

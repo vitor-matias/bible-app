@@ -233,13 +233,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           this.chapterNumber === chapterParam
         ) {
           if (verseStartParam !== undefined) {
-            this.animationService.scrollToVerseElement(
-              this.bookBlock?.nativeElement,
-              this.bookContainer?.nativeElement,
-              verseStartParam,
-              verseEndParam,
-              highlight,
-            )
+            this.scrollToVerse(verseStartParam, verseEndParam, highlight)
           }
           return
         }
@@ -451,17 +445,35 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           : () => this.pagedNav?.ensureAlignedScrollWidth(),
       )
     } else {
-      this.animationService.scrollToVerseElement(
-        this.bookBlock?.nativeElement,
-        this.bookContainer?.nativeElement,
-        verseStart,
-        verseEnd,
-        highlight,
-      )
+      this.scrollToVerse(verseStart, verseEnd, highlight)
     }
 
     this.preferencesService.setLastBookId(this.book.id)
     this.preferencesService.setLastChapterNumber(this.chapterNumber)
+  }
+
+  /**
+   * Brings a deep-linked verse into view. Paged mode scrolls sideways in whole
+   * pages, so it hands the scroll to the paged navigation instead of letting
+   * the browser nudge the columns to wherever the verse happens to sit.
+   */
+  private scrollToVerse(
+    verseStart: Verse["number"],
+    verseEnd?: Verse["number"],
+    highlight = true,
+  ): void {
+    const pagedNav = this.pagedNav
+    this.animationService.scrollToVerseElement(
+      this.bookBlock?.nativeElement,
+      this.bookContainer?.nativeElement,
+      verseStart,
+      verseEnd,
+      highlight,
+      false,
+      this.effectiveViewMode === "paged" && pagedNav
+        ? (element) => pagedNav.scrollToPage(element)
+        : undefined,
+    )
   }
 
   openBookDrawer(event: { open: boolean }) {

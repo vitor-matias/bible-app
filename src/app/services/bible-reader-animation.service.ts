@@ -6,6 +6,22 @@ export const HIGHLIGHT_CLASS = "verse-highlight"
 /** How long a deep-linked verse stays marked before the stroke fades out. */
 export const HIGHLIGHT_DURATION_MS = 2500
 
+/**
+ * How long the reader keeps correcting the deep-link scroll while the chapter's
+ * layout is still settling. Long enough for the indent pass in VerseComponent
+ * and a font swap, short enough that it never fights the reader.
+ */
+export const LAYOUT_SETTLE_MS = 600
+
+/** Default for scrolling mode: centre the verse in the vertical scroller. */
+const scrollVerseIntoView = (element: HTMLElement): void => {
+  element.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+    inline: "nearest",
+  })
+}
+
 @Injectable({
   providedIn: "root",
 })
@@ -143,6 +159,11 @@ export class BibleReaderAnimationService {
     verseEnd?: number,
     highlight = true,
     startAtBottom = false,
+    /**
+     * How the verse is brought into view. Paged mode scrolls horizontally in
+     * whole-page steps, so it passes its own aligning scroll instead.
+     */
+    bringIntoView: (element: HTMLElement) => void = scrollVerseIntoView,
   ): void {
     if (!this.isBrowser) return
     setTimeout(() => {
@@ -154,11 +175,8 @@ export class BibleReaderAnimationService {
         const element = bookBlock.querySelector(`[id="${i}"]`) as HTMLElement
         if (element) {
           if (!scrolled) {
-            element.scrollIntoView({
-              behavior: "smooth",
-              block: "center",
-              inline: "nearest",
-            })
+            bringIntoView(element)
+            this.realignWhenLayoutSettles(element, bringIntoView)
             scrolled = true
           }
           if (highlight) {
@@ -186,5 +204,49 @@ export class BibleReaderAnimationService {
         this.triggerSlideAnimation(undefined, bookContainer, startAtBottom)
       }
     }, 100)
+  }
+
+  /**
+   * The chapter keeps growing after the scroll above has been computed: web
+   * fonts swap in, and every VerseComponent runs a debounced indent pass once
+   * its own layout settles. The browser scrolled as far as the height it knew
+   * about allowed, which for a verse near the end of a chapter is short of the
+   * verse itself — so bring it back into view once things have stopped moving,
+   * unless the reader has taken over in the meantime.
+   */
+  private realignWhenLayoutSettles(
+    element: HTMLElement,
+    bringIntoView: (element: HTMLElement) => void,
+  ): void {
+    let takenOver = false
+    const takeOver = () => {
+      takenOver = true
+    }
+    const events: Array<keyof WindowEventMap> = [
+      "wheel",
+      "touchmove",
+      "keydown",
+    ]
+    for (const event of events) {
+      window.addEventListener(event, takeOver, { passive: true })
+    }
+
+    // Fonts are the slow half of this and can settle either side of the timer,
+    // so the guard against a reader who has taken over outlives both.
+    // Older WebViews have no FontFaceSet at all.
+    const fontsReady = "fonts" in document ? document.fonts.ready : undefined
+    let pending = fontsReady ? 2 : 1
+
+    const realign = () => {
+      if (!takenOver) bringIntoView(element)
+      pending -= 1
+      if (pending > 0) return
+      for (const event of events) {
+        window.removeEventListener(event, takeOver)
+      }
+    }
+
+    fontsReady?.then(realign)
+    setTimeout(realign, LAYOUT_SETTLE_MS)
   }
 }
