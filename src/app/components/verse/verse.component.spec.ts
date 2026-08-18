@@ -9,6 +9,8 @@ import { Subject } from "rxjs"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { VerseComponent } from "./verse.component"
 
+const TRANSPARENT = "rgba(0, 0, 0, 0)"
+
 function makeVerse(overrides: Partial<Verse> = {}): Verse {
   return {
     bookId: "gen",
@@ -505,7 +507,7 @@ describe("VerseComponent", () => {
         ".verseRun",
       ) as HTMLElement
       expect(run.textContent).toContain("plain")
-      expect(getComputedStyle(run).backgroundSize).toBe("100% 100%")
+      expect(getComputedStyle(run).backgroundColor).not.toBe(TRANSPARENT)
     })
 
     it("should leave the run unpainted while the verse is not highlighted", () => {
@@ -515,7 +517,7 @@ describe("VerseComponent", () => {
       const run = fixture.nativeElement.querySelector(
         ".verseRun",
       ) as HTMLElement
-      expect(getComputedStyle(run).backgroundSize).toBe("0px 100%")
+      expect(getComputedStyle(run).backgroundColor).toBe(TRANSPARENT)
     })
 
     it("should never paint the inline host, whose line fragments would colour the gaps between verses", () => {
@@ -537,7 +539,7 @@ describe("VerseComponent", () => {
       const number = fixture.nativeElement.querySelector(
         ".verseNumber",
       ) as HTMLElement
-      expect(getComputedStyle(number).backgroundSize).toBe("100% 100%")
+      expect(getComputedStyle(number).backgroundColor).not.toBe(TRANSPARENT)
     })
 
     it("should wrap the space in front of a verse number in a run so the stroke does not break", () => {
@@ -551,7 +553,7 @@ describe("VerseComponent", () => {
         ".verseRun",
       ) as HTMLElement
       expect(gap.textContent).toBe(" ")
-      expect(getComputedStyle(gap).backgroundSize).toBe("100% 100%")
+      expect(getComputedStyle(gap).backgroundColor).not.toBe(TRANSPARENT)
     })
 
     it("should paint a poetry verse number once, on the wrapper rather than on both it and its digits", () => {
@@ -568,8 +570,8 @@ describe("VerseComponent", () => {
         ".quoteVerseNumber",
       ) as HTMLElement
       const digits = wrapper.querySelector(".verseNumber") as HTMLElement
-      expect(getComputedStyle(wrapper).backgroundSize).toBe("100% 100%")
-      expect(getComputedStyle(digits).backgroundSize).toBe("0px 100%")
+      expect(getComputedStyle(wrapper).backgroundColor).not.toBe(TRANSPARENT)
+      expect(getComputedStyle(digits).backgroundColor).toBe(TRANSPARENT)
     })
 
     it("should not paint the quote line wrapper, whose box extends past the end of the line", () => {
@@ -585,7 +587,7 @@ describe("VerseComponent", () => {
       const wrapper = fixture.nativeElement.querySelector(
         ".quoteLineWrapper",
       ) as HTMLElement
-      expect(getComputedStyle(wrapper).backgroundSize).toBe("auto")
+      expect(getComputedStyle(wrapper).backgroundColor).toBe(TRANSPARENT)
     })
   })
 
