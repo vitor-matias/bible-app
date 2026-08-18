@@ -154,6 +154,48 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     }
   }
 
+  /**
+   * Brings the page holding `element` into view. Paged mode moves in whole-page
+   * steps, so scrollIntoView's minimal adjustment would leave the reader on a
+   * seam between two pages with the columns cut in half.
+   */
+  scrollToPage(
+    element: HTMLElement,
+    behavior: ScrollBehavior = "smooth",
+  ): void {
+    if (this.viewMode !== "paged") return
+    const block = this.bookBlock
+    if (!this.container || !block) return
+
+    this._stayAtEnd = false
+    this.ensureAlignedScrollWidth()
+
+    const advanceWidth = this.getAdvanceWidth(block)
+    if (advanceWidth <= 0) return
+
+    // A verse is an inline box: its first fragment is where it starts, which is
+    // the page the reader asked for even when the verse runs over the break.
+    const rect = element.getClientRects()[0] ?? element.getBoundingClientRect()
+    const offset =
+      rect.left -
+      this.container.getBoundingClientRect().left +
+      this.container.scrollLeft
+
+    const pageIndex = Math.max(
+      0,
+      Math.floor((offset + SCROLL_THRESHOLD) / advanceWidth),
+    )
+    const maxScroll = Math.max(
+      0,
+      this.container.scrollWidth - this.container.clientWidth,
+    )
+
+    this.container.scrollTo({
+      left: Math.min(pageIndex * advanceWidth, maxScroll),
+      behavior,
+    })
+  }
+
   scrollToEnd(): void {
     this._stayAtEnd = true
     this.snapToEnd()

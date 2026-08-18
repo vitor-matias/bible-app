@@ -3,6 +3,7 @@ import {
   BibleReaderAnimationService,
   HIGHLIGHT_CLASS,
   HIGHLIGHT_DURATION_MS,
+  LAYOUT_SETTLE_MS,
 } from "./bible-reader-animation.service"
 
 describe("BibleReaderAnimationService", () => {
@@ -298,6 +299,70 @@ describe("BibleReaderAnimationService", () => {
         bookContainer,
         true,
       )
+
+      tick(LAYOUT_SETTLE_MS)
+    }))
+
+    it("should re-align once the layout has settled, so a verse at the end of a chapter is not left short", fakeAsync(() => {
+      const bookBlock = document.createElement("div")
+      const verse1 = document.createElement("div")
+      verse1.id = "1"
+      bookBlock.appendChild(verse1)
+      const scrollIntoView = spyOn(verse1, "scrollIntoView")
+
+      service.scrollToVerseElement(bookBlock, undefined, 1, 1, false, false)
+      tick(100)
+      // A pending font swap can add a pass of its own, so count the passes that
+      // the settle window itself is responsible for rather than the total.
+      const afterInitialScroll = scrollIntoView.calls.count()
+      expect(afterInitialScroll).toBeGreaterThan(0)
+
+      tick(LAYOUT_SETTLE_MS)
+      expect(scrollIntoView.calls.count()).toBeGreaterThan(afterInitialScroll)
+    }))
+
+    it("should stop re-aligning once the reader scrolls for themselves", fakeAsync(() => {
+      const bookBlock = document.createElement("div")
+      const verse1 = document.createElement("div")
+      verse1.id = "1"
+      bookBlock.appendChild(verse1)
+      const scrollIntoView = spyOn(verse1, "scrollIntoView")
+
+      service.scrollToVerseElement(bookBlock, undefined, 1, 1, false, false)
+      tick(100)
+      window.dispatchEvent(new Event("wheel"))
+      const afterTakeOver = scrollIntoView.calls.count()
+
+      tick(LAYOUT_SETTLE_MS)
+      expect(scrollIntoView.calls.count()).toBe(afterTakeOver)
+    }))
+
+    it("should hand the scroll to the given strategy instead of scrollIntoView", fakeAsync(() => {
+      const bookBlock = document.createElement("div")
+      const verse1 = document.createElement("div")
+      verse1.id = "1"
+      bookBlock.appendChild(verse1)
+      spyOn(verse1, "scrollIntoView")
+      const bringIntoView = jasmine.createSpy("bringIntoView")
+
+      service.scrollToVerseElement(
+        bookBlock,
+        undefined,
+        1,
+        1,
+        false,
+        false,
+        bringIntoView,
+      )
+      tick(100)
+
+      expect(bringIntoView).toHaveBeenCalledWith(verse1)
+      expect(verse1.scrollIntoView).not.toHaveBeenCalled()
+      const afterInitialScroll = bringIntoView.calls.count()
+
+      tick(LAYOUT_SETTLE_MS)
+      expect(bringIntoView.calls.count()).toBeGreaterThan(afterInitialScroll)
+      expect(verse1.scrollIntoView).not.toHaveBeenCalled()
     }))
   })
 })
