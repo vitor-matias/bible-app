@@ -69,8 +69,9 @@ has real data with no local backend. The API base URL is resolved in
 text, per-page meta tags and JSON-LD baked in. The route list and chapter
 content come from the live API at build time (`/v1/books`), so the build
 machine needs network access to `biblia.capuchinhos.org` — without it the
-build still succeeds and every route silently falls back to the classic
-client-rendered SPA. Set `PRERENDER_API_ORIGIN=http://localhost:PORT` to
+build still succeeds: `initializeBookService`, `fetchPrerenderChapterParams`
+and `generate-sitemap.mjs` each warn on the console, and every route falls
+back to the classic client-rendered SPA. Set `PRERENDER_API_ORIGIN=http://localhost:PORT` to
 point the prerenderer (and server-side API calls) at a stub API for testing.
 `/` is prerendered too — it is the URL that should rank for the site's main
 queries, so it ships the About copy and the crawlable book index as real HTML.

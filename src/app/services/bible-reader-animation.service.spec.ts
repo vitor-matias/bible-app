@@ -1,4 +1,9 @@
-import { fakeAsync, TestBed, tick } from "@angular/core/testing"
+import {
+  fakeAsync,
+  flushMicrotasks,
+  TestBed,
+  tick,
+} from "@angular/core/testing"
 import {
   BibleReaderAnimationService,
   HIGHLIGHT_CLASS,
@@ -425,6 +430,135 @@ describe("BibleReaderAnimationService", () => {
       expect(first.calls.count()).toBe(afterFirstScroll)
       expect(second.calls.mostRecent().args[0]).toBe(verses[1])
     }))
+
+    // Two deep links inside the 100ms window: the older timer used to survive,
+    // scroll to its own verse first, and then clear the field tracking the
+    // newer one, leaving that one uncancellable.
+    it("should drop a deep-link scroll that a newer one supersedes", fakeAsync(() => {
+      const bookBlock = document.createElement("div")
+      const verses = [1, 2].map((n) => {
+        const el = document.createElement("div")
+        el.id = String(n)
+        bookBlock.appendChild(el)
+        return el
+      })
+      const first = jasmine.createSpy("first")
+      const second = jasmine.createSpy("second")
+
+      service.scrollToVerseElement(
+        bookBlock,
+        undefined,
+        1,
+        1,
+        false,
+        false,
+        first,
+      )
+      // Still inside the 100ms window.
+      tick(50)
+      service.scrollToVerseElement(
+        bookBlock,
+        undefined,
+        2,
+        2,
+        false,
+        false,
+        second,
+      )
+      tick(100)
+
+      expect(first).not.toHaveBeenCalled()
+      expect(second).toHaveBeenCalledWith(verses[1])
+
+      // And the newer pass is still cancellable.
+      service.cancelPendingRealign()
+      tick(LAYOUT_SETTLE_MS)
+      expect(second.calls.count()).toBe(1)
+    }))
+
+    describe("with a font swap still pending", () => {
+      let resolveFonts: () => void
+      let originalFonts: PropertyDescriptor | undefined
+
+      beforeEach(() => {
+        originalFonts = Object.getOwnPropertyDescriptor(document, "fonts")
+        const ready = new Promise<void>((resolve) => {
+          resolveFonts = () => resolve()
+        })
+        Object.defineProperty(document, "fonts", {
+          value: { status: "loading", ready },
+          configurable: true,
+        })
+      })
+
+      afterEach(() => {
+        if (originalFonts) {
+          Object.defineProperty(document, "fonts", originalFonts)
+        } else {
+          Reflect.deleteProperty(document, "fonts")
+        }
+      })
+
+      // The correction happens on the last thing to settle, not on each: two
+      // scrolls would re-aim mid-animation for no gain.
+      it("should correct the scroll once, after the font swap lands", fakeAsync(() => {
+        const bookBlock = document.createElement("div")
+        const verse1 = document.createElement("div")
+        verse1.id = "1"
+        bookBlock.appendChild(verse1)
+        const bringIntoView = jasmine.createSpy("bringIntoView")
+
+        service.scrollToVerseElement(
+          bookBlock,
+          undefined,
+          1,
+          1,
+          false,
+          false,
+          bringIntoView,
+        )
+        tick(100)
+        expect(bringIntoView.calls.count()).toBe(1) // the initial scroll
+
+        // The settle timer alone is not enough while a font swap is in flight.
+        tick(LAYOUT_SETTLE_MS)
+        expect(bringIntoView.calls.count()).toBe(1)
+
+        resolveFonts()
+        flushMicrotasks()
+        expect(bringIntoView.calls.count()).toBe(2)
+
+        // Nothing further once both have settled.
+        tick(LAYOUT_SETTLE_MS)
+        expect(bringIntoView.calls.count()).toBe(2)
+      }))
+
+      it("should not correct the scroll before the settle timer, even if the fonts land first", fakeAsync(() => {
+        const bookBlock = document.createElement("div")
+        const verse1 = document.createElement("div")
+        verse1.id = "1"
+        bookBlock.appendChild(verse1)
+        const bringIntoView = jasmine.createSpy("bringIntoView")
+
+        service.scrollToVerseElement(
+          bookBlock,
+          undefined,
+          1,
+          1,
+          false,
+          false,
+          bringIntoView,
+        )
+        tick(100)
+
+        resolveFonts()
+        flushMicrotasks()
+        expect(bringIntoView.calls.count()).toBe(1) // still only the initial one
+
+        tick(LAYOUT_SETTLE_MS)
+        expect(bringIntoView.calls.count()).toBe(2)
+      }))
+    })
 
     it("should hand the scroll to the given strategy instead of scrollIntoView", fakeAsync(() => {
       const bookBlock = document.createElement("div")

@@ -193,6 +193,10 @@ export class BibleReaderAnimationService {
     bringIntoView: (element: HTMLElement) => void = scrollVerseIntoView,
   ): void {
     if (!this.isBrowser) return
+    // A newer deep link supersedes one still inside its 100ms window: without
+    // this the older timer stays live, scrolls to its own verse first, and then
+    // clears the field that tracks the newer one, so nothing can cancel it.
+    this.cancelPendingRealign()
     this.pendingVerseScroll = setTimeout(() => {
       this.pendingVerseScroll = undefined
       let scrolled = false
@@ -264,10 +268,10 @@ export class BibleReaderAnimationService {
     }
 
     // A font swap is the slow half of this and can land either side of the
-    // timer, so wait on it too — but only while one is actually pending, since
-    // an already-settled FontFaceSet resolves straight away and would re-scroll
-    // on top of the smooth scroll that just started. Older WebViews have no
-    // FontFaceSet at all.
+    // timer, so the pass waits on it too — but only while one is actually
+    // pending: an already-settled FontFaceSet resolves straight away and would
+    // just be a completion with nothing left to wait for. Older WebViews have
+    // no FontFaceSet at all.
     const fonts = "fonts" in document ? document.fonts : undefined
     const fontsLoading = fonts?.status === "loading" ? fonts.ready : undefined
     let pending = fontsLoading ? 2 : 1
@@ -280,23 +284,23 @@ export class BibleReaderAnimationService {
       if (this.cancelRealign === cancel) this.cancelRealign = undefined
     }
 
-    // The guard against a reader who has taken over outlives every pass.
+    /**
+     * One completion of the settle window: the timer, and the font swap when
+     * one is pending. The scroll happens on the last of them rather than on
+     * each, so the reader gets a single correction once nothing is still
+     * moving, whichever of the two lands second. `pending <= 0` means the pass
+     * already finished or was cancelled, which is what stops a font promise
+     * that resolves after teardown from scrolling.
+     */
     const release = () => {
+      if (pending <= 0) return
       pending -= 1
       if (pending > 0) return
       detach()
-    }
-
-    const realign = () => {
-      // pending hits 0 only once every pass is done or the whole thing was
-      // cancelled, so this also stops a resolved font promise from scrolling
-      // after teardown.
-      if (pending <= 0) return
       if (!takenOver) bringIntoView(element)
-      release()
     }
 
-    const settleTimeout = setTimeout(realign, LAYOUT_SETTLE_MS)
+    const settleTimeout = setTimeout(release, LAYOUT_SETTLE_MS)
 
     const cancel = () => {
       clearTimeout(settleTimeout)
@@ -304,7 +308,8 @@ export class BibleReaderAnimationService {
     }
     this.cancelRealign = cancel
 
-    // Release on a rejected FontFaceSet as well, or the listeners never come off.
-    fontsLoading?.then(realign, release)
+    // A rejected FontFaceSet counts as settled too, or the pass never completes
+    // and the listeners never come off.
+    fontsLoading?.then(release, release)
   }
 }
