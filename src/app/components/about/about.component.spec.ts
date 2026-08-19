@@ -40,15 +40,22 @@ describe("AboutComponent", () => {
     expect(component).toBeTruthy()
   })
 
-  // The About page doubles as the prerendered home page, so it must carry
-  // the crawlable book index links.
-  it("renders the book index with links into the Bible", () => {
-    const nav = (fixture.nativeElement as HTMLElement).querySelector(
-      "nav.book-index",
+  // The About page is the prerendered home page, and the toolbar picker does
+  // not take the h1 there (its label cycles to an "Escolher Livro" prompt), so
+  // the page has to carry its own.
+  it("carries the page's single h1", () => {
+    const headings = (fixture.nativeElement as HTMLElement).querySelectorAll(
+      "h1",
     )
-    expect(nav).toBeTruthy()
-    expect(nav?.querySelector('a[href="/gn/1"]')?.textContent).toContain(
-      "Génesis",
-    )
+
+    expect(headings.length).toBe(1)
+    expect(headings[0].textContent).toContain("Bíblia Sagrada dos Capuchinhos")
+  })
+
+  it("does not list the books on the About page", () => {
+    const element = fixture.nativeElement as HTMLElement
+
+    expect(element.querySelector("nav.book-index")).toBeNull()
+    expect(element.querySelector('a[href="/gn/1"]')).toBeNull()
   })
 })
