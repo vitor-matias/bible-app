@@ -337,6 +337,95 @@ describe("BibleReaderAnimationService", () => {
       expect(scrollIntoView.calls.count()).toBe(afterTakeOver)
     }))
 
+    // The pass holds the previous chapter's verse element and scroll strategy;
+    // once the reader has moved on it must not scroll the page that replaced it.
+    it("should not realign after the pending pass is cancelled", fakeAsync(() => {
+      const bookBlock = document.createElement("div")
+      const verse1 = document.createElement("div")
+      verse1.id = "1"
+      bookBlock.appendChild(verse1)
+      const bringIntoView = jasmine.createSpy("bringIntoView")
+
+      service.scrollToVerseElement(
+        bookBlock,
+        undefined,
+        1,
+        1,
+        false,
+        false,
+        bringIntoView,
+      )
+      tick(100)
+      const afterInitialScroll = bringIntoView.calls.count()
+
+      service.cancelPendingRealign()
+      tick(LAYOUT_SETTLE_MS)
+
+      expect(bringIntoView.calls.count()).toBe(afterInitialScroll)
+    }))
+
+    it("should drop a scroll that has not fired yet when cancelled", fakeAsync(() => {
+      const bookBlock = document.createElement("div")
+      const verse1 = document.createElement("div")
+      verse1.id = "1"
+      bookBlock.appendChild(verse1)
+      const bringIntoView = jasmine.createSpy("bringIntoView")
+
+      service.scrollToVerseElement(
+        bookBlock,
+        undefined,
+        1,
+        1,
+        false,
+        false,
+        bringIntoView,
+      )
+      // Cancelled inside the 100ms window, before the scroll is even attempted.
+      service.cancelPendingRealign()
+      tick(100 + LAYOUT_SETTLE_MS)
+
+      expect(bringIntoView).not.toHaveBeenCalled()
+    }))
+
+    it("should supersede an earlier pass when a new verse is scrolled to", fakeAsync(() => {
+      const bookBlock = document.createElement("div")
+      const verses = [1, 2].map((n) => {
+        const el = document.createElement("div")
+        el.id = String(n)
+        bookBlock.appendChild(el)
+        return el
+      })
+      const first = jasmine.createSpy("first")
+      const second = jasmine.createSpy("second")
+
+      service.scrollToVerseElement(
+        bookBlock,
+        undefined,
+        1,
+        1,
+        false,
+        false,
+        first,
+      )
+      tick(100)
+      const afterFirstScroll = first.calls.count()
+
+      service.scrollToVerseElement(
+        bookBlock,
+        undefined,
+        2,
+        2,
+        false,
+        false,
+        second,
+      )
+      tick(100 + LAYOUT_SETTLE_MS)
+
+      // Only the verse the reader last asked for keeps being realigned.
+      expect(first.calls.count()).toBe(afterFirstScroll)
+      expect(second.calls.mostRecent().args[0]).toBe(verses[1])
+    }))
+
     it("should hand the scroll to the given strategy instead of scrollIntoView", fakeAsync(() => {
       const bookBlock = document.createElement("div")
       const verse1 = document.createElement("div")

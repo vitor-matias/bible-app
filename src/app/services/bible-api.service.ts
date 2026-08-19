@@ -1,4 +1,4 @@
-import { HttpClient } from "@angular/common/http"
+import { HttpClient, HttpErrorResponse } from "@angular/common/http"
 import { Injectable } from "@angular/core"
 import {
   catchError,
@@ -16,15 +16,27 @@ import {
   timer,
 } from "rxjs"
 import { apiBaseUrl } from "../config"
+import { isBrowser } from "../utils/platform"
 import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
 
-const IS_SERVER = typeof window === "undefined"
+const IS_SERVER = !isBrowser()
 
 // While prerendering, every page boots a fresh app in the same worker process;
 // module state survives between renders, so one worker fetches the book list
 // once instead of ~1200 times (which invites API rate limiting).
 let serverBooksCache: Book[] | null = null
+
+/**
+ * A response the server will keep giving us: retrying it only multiplies the
+ * request count and the backoff wait. 408 and 429 are the two 4xx codes that
+ * do mean "ask again".
+ */
+function isPermanentFailure(error: unknown): boolean {
+  if (!(error instanceof HttpErrorResponse)) return false
+  const { status } = error
+  return status >= 400 && status < 500 && status !== 408 && status !== 429
+}
 
 /**
  * Server-only request hardening for prerendering: a bounded timeout (a
@@ -48,13 +60,40 @@ export function createApiResilience<T>(
       timeout(timeoutMs),
       retry({
         count: retryCount,
-        delay: (_error, attempt) => timer(retryBaseDelayMs * 2 ** attempt),
+        delay: (error, attempt) => {
+          // Rethrowing from the delay factory fails the retry immediately, so
+          // a 404 costs one request instead of four plus 4.2s of backoff.
+          if (isPermanentFailure(error)) throw error
+          return timer(retryBaseDelayMs * 2 ** attempt)
+        },
       }),
     )
 }
 
 function serverRetry<T>() {
   return createApiResilience<T>(IS_SERVER)
+}
+
+/**
+ * Keep a `/v1/books` response for the rest of the prerender build, but only if
+ * it is usable. Caching a degenerate one would make every later render in this
+ * worker resolve every book to the About page — canonical "/" and About copy on
+ * every chapter URL — instead of failing and falling back to client-side
+ * rendering. `isServer` is a parameter so tests can drive both sides.
+ */
+export function cacheServerBooks(isServer: boolean, books: Book[]): void {
+  if (isServer && Array.isArray(books) && books.length > 0) {
+    serverBooksCache = books
+  }
+}
+
+export function readServerBooksCache(isServer: boolean): Book[] | null {
+  return isServer && serverBooksCache?.length ? serverBooksCache : null
+}
+
+/** Test seam: the cache is module state that outlives a single render. */
+export function resetServerBooksCache(): void {
+  serverBooksCache = null
 }
 
 @Injectable({
@@ -86,9 +125,10 @@ export class BibleApiService {
         if (this.books.length) {
           return of(this.books)
         }
-        if (IS_SERVER && serverBooksCache) {
-          this.books = serverBooksCache
-          return of(serverBooksCache)
+        const cachedServerBooks = readServerBooksCache(IS_SERVER)
+        if (cachedServerBooks) {
+          this.books = cachedServerBooks
+          return of(cachedServerBooks)
         }
         if (this.networkService.isOffline) {
           return throwError(
@@ -103,9 +143,7 @@ export class BibleApiService {
             serverRetry(),
             tap((books) => {
               this.books = books
-              if (IS_SERVER) {
-                serverBooksCache = books
-              }
+              cacheServerBooks(IS_SERVER, books)
             }),
             catchError((error) => {
               this.booksRequest$ = null

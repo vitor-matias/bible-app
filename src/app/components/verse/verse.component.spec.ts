@@ -574,6 +574,83 @@ describe("VerseComponent", () => {
       expect(getComputedStyle(digits).backgroundColor).toBe(TRANSPARENT)
     })
 
+    function withFootnote(): HTMLElement {
+      setData(
+        component,
+        makeVerse({
+          number: 2,
+          text: [
+            { type: "text", text: "plain" },
+            { type: "footnote", text: "uma nota", reference: "a" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+      return fixture.nativeElement.querySelector(
+        ".footnoteIndicator",
+      ) as HTMLElement
+    }
+
+    it("should paint the footnote marker so it is not left out of the stroke", () => {
+      const marker = withFootnote()
+      // Read the style only after highlighting: reading it first starts the
+      // background-color transition, and the value would be its start colour.
+      highlightHost()
+
+      expect(getComputedStyle(marker).backgroundColor).not.toBe(TRANSPARENT)
+    })
+
+    // Padding does not move an inline box but does enlarge the border box the
+    // browser hit-tests, and the marker is a button: a taller one would cover
+    // the line below for the 2.5s the highlight lasts.
+    it("should not grow the footnote button's hit area while highlighted", () => {
+      const marker = withFootnote()
+      const restingPadding = getComputedStyle(marker).paddingBottom
+
+      highlightHost()
+
+      expect(getComputedStyle(marker).paddingBottom).toBe(restingPadding)
+    })
+
+    it("should wrap the space before a references block so the stroke does not break", () => {
+      setData(
+        component,
+        makeVerse({
+          text: [
+            { type: "text", text: "plain" },
+            { type: "references", text: "Jo 1,1" },
+          ],
+        }),
+      )
+      highlightHost()
+
+      const gap = fixture.nativeElement.querySelector(
+        ".references > .verseRun",
+      ) as HTMLElement
+      expect(gap.textContent).toBe(" ")
+      expect(getComputedStyle(gap).backgroundColor).not.toBe(TRANSPARENT)
+    })
+
+    it("should wrap the space after a line of poetry so the stroke does not break", () => {
+      setData(
+        component,
+        makeVerse({
+          number: 3,
+          text: [{ type: "quote", text: "a line of poetry", identLevel: 1 }],
+        }),
+      )
+      highlightHost()
+
+      const runs = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll(".verseRun"),
+      ) as HTMLElement[]
+      const trailing = runs.find((run) => run.textContent === " ")
+      expect(trailing).toBeTruthy()
+      expect(
+        getComputedStyle(trailing as HTMLElement).backgroundColor,
+      ).not.toBe(TRANSPARENT)
+    })
+
     it("should not paint the quote line wrapper, whose box extends past the end of the line", () => {
       setData(
         component,

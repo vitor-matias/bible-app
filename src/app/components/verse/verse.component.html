@@ -40,7 +40,10 @@
       <!-- References -->
       @if(text.type === "references"){
         <span class="references">
-          <span>{{ " " }}</span>
+          <!-- Part of the run for the same reason as the inter-verse gap above:
+               otherwise the highlight stroke breaks in front of every
+               references block. -->
+          <span class="verseRun">{{ " " }}</span>
           <span class="references-block">
             @for(part of parsedReferences.get(i); track $index){
               @if(typeof part === "object" && part.book !== data.bookId){
@@ -123,7 +126,7 @@
             @for (element of group.elements; track element.originalIndex) {
               <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === data.text.length - 1, isQuote: element.data.type === 'quote' }"></ng-container>
             }
-          </span>{{ " " }}
+          </span><span class="verseRun">{{ " " }}</span>
       </span>
     }
   }

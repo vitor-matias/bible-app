@@ -41,7 +41,10 @@ export class BookIndexComponent {
       groups
         .flatMap((group) => group.books)
         .map((id) => byId.get(id))
-        .filter((book): book is Book => !!book && book.id !== "about")
+        // bible-canon.ts holds the 73 canonical books only — the synthetic
+        // About entry is appended by the book selector, never by the canon — so
+        // an unknown id here just means the API did not return that book.
+        .filter((book): book is Book => !!book)
         .map((book) => ({
           name: book.name,
           link: ["/", this.bookService.getUrlAbrv(book), "1"],

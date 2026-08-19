@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  PLATFORM_ID,
   ViewChild,
 } from "@angular/core"
 import {
@@ -243,6 +244,25 @@ describe("PagedNavigationDirective", () => {
 
       expect(container.scrollTo).not.toHaveBeenCalled()
       expect(hostComponent.prevChapterCalled).toBeTrue()
+    })
+  })
+
+  // The bookBlock setter observes content changes as soon as it is bound, and
+  // the server DOM has no MutationObserver — binding it there used to throw
+  // once per prerendered route.
+  describe("server rendering", () => {
+    it("should not observe content changes and should render without throwing", async () => {
+      TestBed.resetTestingModule()
+      await TestBed.configureTestingModule({
+        imports: [TestHostComponent],
+        providers: [{ provide: PLATFORM_ID, useValue: "server" }],
+      }).compileComponents()
+
+      const observerSpy = spyOn(window, "MutationObserver").and.callThrough()
+      const serverFixture = TestBed.createComponent(TestHostComponent)
+
+      expect(() => serverFixture.detectChanges()).not.toThrow()
+      expect(observerSpy).not.toHaveBeenCalled()
     })
   })
 

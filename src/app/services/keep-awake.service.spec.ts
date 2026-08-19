@@ -1,3 +1,4 @@
+import { TestBed } from "@angular/core/testing"
 import { KeepAwakeService } from "./keep-awake.service"
 
 describe("KeepAwakeService", () => {
@@ -40,7 +41,7 @@ describe("KeepAwakeService", () => {
   })
 
   it("should register the visibilitychange listener on construction", () => {
-    service = new KeepAwakeService()
+    service = TestBed.runInInjectionContext(() => new KeepAwakeService())
 
     expect(service).toBeTruthy()
     expect(addEventListenerSpy).toHaveBeenCalledWith(
@@ -64,7 +65,7 @@ describe("KeepAwakeService", () => {
       value: { request: requestSpy },
       configurable: true,
     })
-    service = new KeepAwakeService()
+    service = TestBed.runInInjectionContext(() => new KeepAwakeService())
 
     service.start()
     await Promise.resolve()
@@ -89,7 +90,7 @@ describe("KeepAwakeService", () => {
       value: { request: requestSpy },
       configurable: true,
     })
-    service = new KeepAwakeService()
+    service = TestBed.runInInjectionContext(() => new KeepAwakeService())
 
     service.start()
     await Promise.resolve()
@@ -110,7 +111,7 @@ describe("KeepAwakeService", () => {
       value: { request: requestSpy },
       configurable: true,
     })
-    service = new KeepAwakeService()
+    service = TestBed.runInInjectionContext(() => new KeepAwakeService())
     service.start()
     await Promise.resolve()
 
@@ -130,7 +131,7 @@ describe("KeepAwakeService", () => {
   })
 
   it("should remove the visibilitychange listener on destroy", () => {
-    service = new KeepAwakeService()
+    service = TestBed.runInInjectionContext(() => new KeepAwakeService())
 
     service.ngOnDestroy()
 

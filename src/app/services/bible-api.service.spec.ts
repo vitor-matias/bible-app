@@ -1,10 +1,17 @@
+import { HttpErrorResponse } from "@angular/common/http"
 import {
   HttpClientTestingModule,
   HttpTestingController,
 } from "@angular/common/http/testing"
 import { fakeAsync, TestBed, tick } from "@angular/core/testing"
 import { firstValueFrom, Observable, of, TimeoutError } from "rxjs"
-import { BibleApiService, createApiResilience } from "./bible-api.service"
+import {
+  BibleApiService,
+  cacheServerBooks,
+  createApiResilience,
+  readServerBooksCache,
+  resetServerBooksCache,
+} from "./bible-api.service"
 import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
 
@@ -351,5 +358,77 @@ describe("BibleApiService", () => {
       expect(attempts).toBe(3)
       expect(error).toBeInstanceOf(TimeoutError)
     }))
+
+    // Retrying a 404 only multiplies the request count and the backoff wait:
+    // prerendering "/" asks for /v1/about/1, which the API never serves.
+    it("fails a permanent 4xx immediately instead of retrying it", fakeAsync(() => {
+      let attempts = 0
+      let error: unknown
+      const notFound = new Observable<never>((subscriber) => {
+        attempts++
+        subscriber.error(
+          new HttpErrorResponse({ status: 404, statusText: "Not Found" }),
+        )
+      })
+
+      notFound
+        .pipe(createApiResilience(true, 1000, 3, 100))
+        .subscribe({ error: (err: unknown) => (error = err) })
+      tick(10_000)
+
+      expect(attempts).toBe(1)
+      expect((error as HttpErrorResponse).status).toBe(404)
+    }))
+
+    it("still retries the 4xx codes that mean try again", fakeAsync(() => {
+      for (const status of [408, 429]) {
+        let attempts = 0
+        const throttled = new Observable<never>((subscriber) => {
+          attempts++
+          subscriber.error(new HttpErrorResponse({ status }))
+        })
+
+        throttled
+          .pipe(createApiResilience(true, 1000, 2, 100))
+          .subscribe({ error: () => {} })
+        tick(10_000)
+
+        expect(attempts).withContext(`status ${status}`).toBe(3)
+      }
+    }))
+  })
+
+  describe("server book list cache", () => {
+    afterEach(() => {
+      resetServerBooksCache()
+    })
+
+    // One 200-with-[] would otherwise be reused by every later render in the
+    // prerender worker, resolving every book to the About page.
+    it("does not keep a degenerate book list for the rest of the build", () => {
+      cacheServerBooks(true, [])
+      expect(readServerBooksCache(true)).toBeNull()
+
+      cacheServerBooks(true, undefined as unknown as Book[])
+      expect(readServerBooksCache(true)).toBeNull()
+    })
+
+    it("keeps a usable book list and will not let a later empty response clobber it", () => {
+      const books = [{ id: "gen" } as Book]
+
+      cacheServerBooks(true, books)
+      expect(readServerBooksCache(true)).toBe(books)
+
+      cacheServerBooks(true, [])
+      expect(readServerBooksCache(true)).toBe(books)
+    })
+
+    it("is server-only", () => {
+      cacheServerBooks(false, [{ id: "gen" } as Book])
+      expect(readServerBooksCache(true)).toBeNull()
+
+      cacheServerBooks(true, [{ id: "gen" } as Book])
+      expect(readServerBooksCache(false)).toBeNull()
+    })
   })
 })

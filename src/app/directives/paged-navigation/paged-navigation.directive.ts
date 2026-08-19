@@ -1,12 +1,15 @@
+import { isPlatformBrowser } from "@angular/common"
 import {
   Directive,
   ElementRef,
   EventEmitter,
   HostListener,
   Input,
+  inject,
   OnChanges,
   OnDestroy,
   Output,
+  PLATFORM_ID,
   Renderer2,
   SimpleChanges,
 } from "@angular/core"
@@ -53,6 +56,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   private mutationObserver?: MutationObserver
   private spacer?: HTMLElement
   private _stayAtEnd = false
+  private readonly platformId = inject(PLATFORM_ID)
 
   constructor(
     private containerRef: ElementRef<HTMLElement>,
@@ -286,7 +290,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
    */
   private observeContentChanges(): void {
     // Layout observation is browser-only; the server DOM has no observers.
-    if (typeof MutationObserver === "undefined") return
+    if (!isPlatformBrowser(this.platformId)) return
     this.mutationObserver?.disconnect()
     const block = this._bookBlock
     if (!block) return

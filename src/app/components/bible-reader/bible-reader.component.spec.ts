@@ -102,6 +102,7 @@ describe("BibleReaderComponent", () => {
       "triggerSlideAnimation",
       "triggerSlideOutAnimation",
       "scrollToVerseElement",
+      "cancelPendingRealign",
     ])
     animationServiceSpy.triggerSlideOutAnimation.and.returnValue(
       Promise.resolve(),
@@ -221,7 +222,7 @@ describe("BibleReaderComponent", () => {
       component.goToNextChapter()
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
       expect(component.isNavigatingForwards).toBeTrue()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 2])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", 2])
     })
 
     it("goToPreviousChapter should navigate backwards and stop scroll", () => {
@@ -229,14 +230,31 @@ describe("BibleReaderComponent", () => {
       component.goToPreviousChapter()
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
       expect(component.isNavigatingBackwards).toBeTrue()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 1])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", 1])
     })
 
-    it("exposes router link arrays for the prev/next chapter anchors", () => {
-      component.chapterNumber = 5
+    it("exposes router link arrays for the prev/next chapter anchors", fakeAsync(() => {
+      component.getChapter(5)
+      tick()
+
       expect(component.previousChapterLink).toEqual(["/", "1-genesis", 4])
       expect(component.nextChapterLink).toEqual(["/", "1-genesis", 6])
-    })
+    }))
+
+    // RouterLink diffs its input by reference, so a getter returning a fresh
+    // array would rebuild both hrefs on every change detection pass — one per
+    // animation frame while auto-scroll runs.
+    it("keeps the same link arrays across change detection", fakeAsync(() => {
+      component.getChapter(5)
+      tick()
+      const previous = component.previousChapterLink
+      const next = component.nextChapterLink
+
+      fixture.detectChanges()
+
+      expect(component.previousChapterLink).toBe(previous)
+      expect(component.nextChapterLink).toBe(next)
+    }))
 
     it("prepareChapterNavigation stops auto-scroll and sets the slide direction", () => {
       component.prepareChapterNavigation(true)
@@ -244,9 +262,37 @@ describe("BibleReaderComponent", () => {
       expect(component.isNavigatingForwards).toBeTrue()
       expect(component.isNavigatingBackwards).toBeFalse()
 
-      component.isNavigatingForwards = false
       component.prepareChapterNavigation(false)
       expect(component.isNavigatingBackwards).toBeTrue()
+      // The opposite direction has to be cleared, or a chapter that loads
+      // later slides the wrong way.
+      expect(component.isNavigatingForwards).toBeFalse()
+    })
+
+    // RouterLink lets the browser handle modified and non-primary clicks
+    // (new tab, new window) without navigating, so the side effects must skip
+    // them too — otherwise auto-scroll stops and a direction flag is left set
+    // in a tab that never loads another chapter.
+    it("prepareChapterNavigation ignores clicks RouterLink does not navigate on", () => {
+      const modified = [
+        new MouseEvent("click", { button: 0, metaKey: true }),
+        new MouseEvent("click", { button: 0, ctrlKey: true }),
+        new MouseEvent("click", { button: 0, shiftKey: true }),
+        new MouseEvent("click", { button: 0, altKey: true }),
+        new MouseEvent("click", { button: 1 }),
+      ]
+
+      for (const event of modified) {
+        component.prepareChapterNavigation(true, event)
+      }
+
+      expect(autoScrollServiceSpy.stop).not.toHaveBeenCalled()
+      expect(component.isNavigatingForwards).toBeFalse()
+      expect(component.isNavigatingBackwards).toBeFalse()
+
+      component.prepareChapterNavigation(true, new MouseEvent("click"))
+      expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
+      expect(component.isNavigatingForwards).toBeTrue()
     })
 
     it("renders prev/next as anchors (crawlable links) in scrolling mode", () => {
@@ -341,7 +387,7 @@ describe("BibleReaderComponent", () => {
     it("onSwipeLeft should go to next chapter if scrolling mode", () => {
       component.viewMode = "scrolling"
       component.onSwipeLeft()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 2])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", 2])
     })
 
     it("onSwipeLeft should go to next page if paged mode", () => {
@@ -357,7 +403,7 @@ describe("BibleReaderComponent", () => {
       component.chapterNumber = 2
       component.viewMode = "scrolling"
       component.onSwipeRight()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 1])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", 1])
     })
 
     it("onSwipeRight should go to prev page if paged mode", () => {
@@ -372,13 +418,13 @@ describe("BibleReaderComponent", () => {
     it("onArrowPress should handle arrow directions", () => {
       component.chapterNumber = 2
       component.onArrowPress(new KeyboardEvent("keydown", { key: "ArrowLeft" }))
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 1])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", 1])
 
       routerSpy.navigate.calls.reset()
       component.onArrowPress(
         new KeyboardEvent("keydown", { key: "ArrowRight" }),
       )
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", 3])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", 3])
     })
   })
 
@@ -510,6 +556,26 @@ describe("BibleReaderComponent", () => {
       expect(animationServiceSpy.scrollToTop).toHaveBeenCalled()
       expect(preferencesServiceSpy.setLastBookId).toHaveBeenCalledWith("gen")
     }))
+
+    // The realign pass registered by the previous chapter's deep link holds
+    // that chapter's verse element and scroll strategy; it must not survive
+    // into the chapter that replaced it.
+    it("should drop a pending scroll realign when a new chapter is applied", fakeAsync(() => {
+      animationServiceSpy.cancelPendingRealign.calls.reset()
+
+      component.getChapter(1)
+      tick()
+
+      expect(animationServiceSpy.cancelPendingRealign).toHaveBeenCalled()
+    }))
+
+    it("should drop a pending scroll realign on destroy", () => {
+      animationServiceSpy.cancelPendingRealign.calls.reset()
+
+      component.ngOnDestroy()
+
+      expect(animationServiceSpy.cancelPendingRealign).toHaveBeenCalled()
+    })
 
     it("should update SEO metadata when a chapter is applied", fakeAsync(() => {
       seoServiceSpy.updateForChapter.calls.reset()

@@ -1,4 +1,4 @@
-import { RenderMode } from "@angular/ssr"
+import { PrerenderFallback, RenderMode, type ServerRoute } from "@angular/ssr"
 import { routes } from "./app.routes"
 import { serverRoutes } from "./app.routes.server"
 import { BibleReaderComponent } from "./components/bible-reader/bible-reader.component"
@@ -17,8 +17,11 @@ describe("server routes", () => {
   it("prerenders the chapter routes", () => {
     const chapter = serverRoutes.find(
       (route) => route.path === ":book/:chapter",
-    )
+    ) as Extract<ServerRoute, { renderMode: RenderMode.Prerender }> | undefined
     expect(chapter?.renderMode).toBe(RenderMode.Prerender)
+    // Without the client fallback a build with no API data (or any book/chapter
+    // pair the prerenderer did not see) would 404 instead of booting the SPA.
+    expect(chapter?.fallback).toBe(PrerenderFallback.Client)
   })
 })
 

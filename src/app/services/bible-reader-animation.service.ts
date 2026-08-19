@@ -1,4 +1,5 @@
-import { Injectable } from "@angular/core"
+import { isPlatformBrowser } from "@angular/common"
+import { Injectable, inject, PLATFORM_ID } from "@angular/core"
 
 /** Toggled on the <verse> host; the stroke is styled in verse.component.css. */
 export const HIGHLIGHT_CLASS = "verse-highlight"
@@ -26,17 +27,43 @@ const scrollVerseIntoView = (element: HTMLElement): void => {
   providedIn: "root",
 })
 export class BibleReaderAnimationService {
+  private readonly platformId = inject(PLATFORM_ID)
+
   private highlightTimeouts = new Map<
     HTMLElement,
     ReturnType<typeof setTimeout>
   >()
 
   /**
+   * Cancels the pending realign pass registered by the last deep-link scroll.
+   * Undefined when nothing is pending.
+   */
+  private cancelRealign?: () => void
+
+  /** The not-yet-fired deep-link scroll scheduled by scrollToVerseElement. */
+  private pendingVerseScroll?: ReturnType<typeof setTimeout>
+
+  /**
    * Scroll/animation work is meaningless while server-rendering, and the
    * server DOM lacks scrollTo/requestAnimationFrame — skip it entirely.
    */
   private get isBrowser(): boolean {
-    return typeof window !== "undefined"
+    return isPlatformBrowser(this.platformId)
+  }
+
+  /**
+   * Drop any realign pass still waiting for the layout to settle. The reader
+   * calls this when the chapter is swapped or the component goes away: the
+   * pass holds the previous chapter's verse element and scroll strategy, and
+   * must not fire against the page that replaced them.
+   */
+  cancelPendingRealign(): void {
+    if (this.pendingVerseScroll !== undefined) {
+      clearTimeout(this.pendingVerseScroll)
+      this.pendingVerseScroll = undefined
+    }
+    this.cancelRealign?.()
+    this.cancelRealign = undefined
   }
 
   scrollToTop(
@@ -166,7 +193,8 @@ export class BibleReaderAnimationService {
     bringIntoView: (element: HTMLElement) => void = scrollVerseIntoView,
   ): void {
     if (!this.isBrowser) return
-    setTimeout(() => {
+    this.pendingVerseScroll = setTimeout(() => {
+      this.pendingVerseScroll = undefined
       let scrolled = false
       if (!bookBlock) return
 
@@ -218,6 +246,10 @@ export class BibleReaderAnimationService {
     element: HTMLElement,
     bringIntoView: (element: HTMLElement) => void,
   ): void {
+    // Only one verse is ever being settled onto; a newer deep link supersedes
+    // whatever the last one still had pending.
+    this.cancelPendingRealign()
+
     let takenOver = false
     const takeOver = () => {
       takenOver = true
@@ -240,22 +272,39 @@ export class BibleReaderAnimationService {
     const fontsLoading = fonts?.status === "loading" ? fonts.ready : undefined
     let pending = fontsLoading ? 2 : 1
 
+    const detach = () => {
+      pending = 0
+      for (const event of events) {
+        window.removeEventListener(event, takeOver)
+      }
+      if (this.cancelRealign === cancel) this.cancelRealign = undefined
+    }
+
     // The guard against a reader who has taken over outlives every pass.
     const release = () => {
       pending -= 1
       if (pending > 0) return
-      for (const event of events) {
-        window.removeEventListener(event, takeOver)
-      }
+      detach()
     }
 
     const realign = () => {
+      // pending hits 0 only once every pass is done or the whole thing was
+      // cancelled, so this also stops a resolved font promise from scrolling
+      // after teardown.
+      if (pending <= 0) return
       if (!takenOver) bringIntoView(element)
       release()
     }
 
+    const settleTimeout = setTimeout(realign, LAYOUT_SETTLE_MS)
+
+    const cancel = () => {
+      clearTimeout(settleTimeout)
+      detach()
+    }
+    this.cancelRealign = cancel
+
     // Release on a rejected FontFaceSet as well, or the listeners never come off.
     fontsLoading?.then(realign, release)
-    setTimeout(realign, LAYOUT_SETTLE_MS)
   }
 }

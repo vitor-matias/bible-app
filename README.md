@@ -58,7 +58,7 @@ has real data with no local backend. The API base URL is resolved in
 | `npm test` | Unit tests (Karma) |
 | `npm run test:coverage` | Unit tests with coverage |
 | `npm run biome` | Lint + format with autofix (`--write --unsafe`) over `src` |
-| `npm run sitemap` | Generate `sitemap.xml` from the live book list (also runs in `build:post`, skipped without network) |
+| `npm run sitemap` | Regenerate `sitemap.xml` from the prerendered pages in `dist` (also runs in `build:post`; needs a build first) |
 | `npm run cap:sync` | Sync web build into native projects |
 | `npm run cap:ios` / `cap:android` | Add a native platform, sync, generate icons |
 
@@ -72,10 +72,25 @@ machine needs network access to `biblia.capuchinhos.org` — without it the
 build still succeeds and every route silently falls back to the classic
 client-rendered SPA. Set `PRERENDER_API_ORIGIN=http://localhost:PORT` to
 point the prerenderer (and server-side API calls) at a stub API for testing.
-`/search`, `/` and unknown routes stay client-rendered
-(`src/app/app.routes.server.ts`); the CSR fallback is emitted as
-`index.csr.html` and copied to `index.html` in `build:post` for hosts that
-expect the classic SPA fallback name.
+`/` is prerendered too — it is the URL that should rank for the site's main
+queries, so it ships the About copy and the crawlable book index as real HTML.
+`/search` and unknown routes stay client-rendered
+(`src/app/app.routes.server.ts`). The client-rendered fallback shell is emitted
+as `index.csr.html`; `index.html` is the prerendered home page, and
+`scripts/copy-csr-index.mjs` only fills in `index.html` from the shell if a
+build ever stops prerendering `/`.
+
+`sitemap.xml` is generated in `build:post` by reading the prerendered pages
+back out of the build output, so it always lists exactly the URLs that were
+rendered. It is only ever written into `dist` — `public/sitemap.xml` is a
+checked-in home-page-only fallback that exists so `robots.txt` never points at
+a 404, and a build that prerendered nothing leaves it in place.
+
+Critical-CSS inlining is deliberately off (`optimization.styles.inlineCritical`
+in `angular.json`): with the Material theme and a fully prerendered DOM,
+essentially the whole ~143KB stylesheet was classed as critical and inlined
+into every page on top of the external stylesheet link, taking per-page HTML
+from ~166KB to ~241KB and the CSR shell from 3.3KB to 74KB.
 
 ## Mobile (Capacitor)
 
@@ -84,6 +99,12 @@ npm run build         # produces dist/bible-app/browser
 npm run cap:android   # or cap:ios — first run adds the platform
 npx cap open android  # open in Android Studio / Xcode
 ```
+
+`cap:sync`/`cap:ios`/`cap:android` first run `cap:prune`, which copies the build
+into `dist/bible-app/capacitor` (the `webDir`) without the ~1300 prerendered
+route pages — they would add tens of MB to the APK/IPA for a shell that loads
+the site remotely anyway. The copy is what gets stripped; `dist/bible-app/browser`
+stays intact, since that is what the web deploy publishes.
 
 App identity lives in [capacitor.config.ts](capacitor.config.ts)
 (`org.capuchinhos.biblia`). Set `CAPACITOR_SERVER_URL` to point a native build at a

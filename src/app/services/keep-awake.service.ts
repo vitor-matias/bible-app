@@ -1,9 +1,11 @@
-import { Injectable, OnDestroy } from "@angular/core"
+import { isPlatformBrowser } from "@angular/common"
+import { Injectable, inject, OnDestroy, PLATFORM_ID } from "@angular/core"
 
 @Injectable({
   providedIn: "root",
 })
 export class KeepAwakeService implements OnDestroy {
+  private readonly platformId = inject(PLATFORM_ID)
   private wakeLockSentinel?: WakeLockSentinel
   private active = false
   private readonly visibilityHandler = () => {
@@ -20,13 +22,13 @@ export class KeepAwakeService implements OnDestroy {
 
   constructor() {
     // document is absent while server-rendering; wake locks are browser-only.
-    if (typeof document !== "undefined") {
+    if (isPlatformBrowser(this.platformId)) {
       document.addEventListener("visibilitychange", this.visibilityHandler)
     }
   }
 
   ngOnDestroy(): void {
-    if (typeof document !== "undefined") {
+    if (isPlatformBrowser(this.platformId)) {
       document.removeEventListener("visibilitychange", this.visibilityHandler)
     }
     this.stop()

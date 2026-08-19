@@ -108,6 +108,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   isNavigatingForwards = false
   isNavigatingBackwards = false
+  previousChapterLink: (string | number)[] = []
+  nextChapterLink: (string | number)[] = []
+  private chapterLinkKey = ""
   isFirstPage = true
   isLastPage = false
 
@@ -248,28 +251,53 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.destroy$.next()
     this.destroy$.complete()
     this.chapterSubscription?.unsubscribe()
+    this.animationService.cancelPendingRealign()
     // AutoScrollService handles its own cleanup now if we stop it, or the component stopping it
-  }
-
-  get previousChapterLink(): (string | number)[] {
-    return ["/", this.bookService.getUrlAbrv(this.book), this.chapterNumber - 1]
-  }
-
-  get nextChapterLink(): (string | number)[] {
-    return ["/", this.bookService.getUrlAbrv(this.book), this.chapterNumber + 1]
   }
 
   /**
    * Side effects for the crawlable prev/next anchors: RouterLink performs the
    * navigation, this just stops auto-scroll and picks the slide direction.
+   *
+   * `event` is the anchor's own click. RouterLink declines modified and
+   * non-primary clicks so the browser can open them in a new tab or window,
+   * and the side effects have to decline the same clicks — otherwise a
+   * Cmd-click stops auto-scroll and leaves a direction flag set in a tab that
+   * never navigates and so never clears it.
    */
-  prepareChapterNavigation(forwards: boolean): void {
+  prepareChapterNavigation(forwards: boolean, event?: MouseEvent): void {
+    if (event && !this.isPlainLeftClick(event)) return
+
     this.autoScrollService.stop()
-    if (forwards) {
-      this.isNavigatingForwards = true
-    } else {
-      this.isNavigatingBackwards = true
-    }
+    this.isNavigatingForwards = forwards
+    this.isNavigatingBackwards = !forwards
+  }
+
+  private isPlainLeftClick(event: MouseEvent): boolean {
+    return (
+      event.button === 0 &&
+      !event.ctrlKey &&
+      !event.shiftKey &&
+      !event.altKey &&
+      !event.metaKey
+    )
+  }
+
+  /**
+   * Router link arrays for the prev/next anchors, rebuilt only when the book
+   * or chapter actually changes. RouterLink diffs its input by reference, so
+   * handing it a fresh array on every read would make it recompute both hrefs
+   * on every change detection pass — and auto-scroll runs one of those per
+   * animation frame.
+   */
+  private rebuildChapterLinks(): void {
+    const urlAbrv = this.bookService.getUrlAbrv(this.book)
+    const key = `${urlAbrv}/${this.chapterNumber}`
+    if (key === this.chapterLinkKey) return
+
+    this.chapterLinkKey = key
+    this.previousChapterLink = ["/", urlAbrv, this.chapterNumber - 1]
+    this.nextChapterLink = ["/", urlAbrv, this.chapterNumber + 1]
   }
 
   onSwipeLeft(): void {
@@ -290,25 +318,17 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   goToNextChapter(): void {
     if (this.book.chapterCount >= this.chapterNumber + 1) {
-      this.autoScrollService.stop()
-      this.isNavigatingForwards = true
-
-      this.router.navigate([
-        this.bookService.getUrlAbrv(this.book),
-        this.chapterNumber + 1,
-      ])
+      this.rebuildChapterLinks()
+      this.prepareChapterNavigation(true)
+      this.router.navigate(this.nextChapterLink)
     }
   }
 
   goToPreviousChapter(): void {
     if (this.chapterNumber > 1) {
-      this.autoScrollService.stop()
-      this.isNavigatingBackwards = true
-
-      this.router.navigate([
-        this.bookService.getUrlAbrv(this.book),
-        this.chapterNumber - 1,
-      ])
+      this.rebuildChapterLinks()
+      this.prepareChapterNavigation(false)
+      this.router.navigate(this.previousChapterLink)
     }
   }
 
@@ -421,6 +441,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     this.chapter = chapterData
     this.chapterNumber = chapter
+    this.rebuildChapterLinks()
+    // The chapter being replaced may still have a realign pass waiting on the
+    // layout; it holds the old verse element and must not scroll this one.
+    this.animationService.cancelPendingRealign()
 
     this.seoService.updateForChapter(
       this.book,

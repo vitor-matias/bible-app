@@ -44,6 +44,25 @@ describe("BookSelectorComponent", () => {
     expect(scrollSpy).not.toHaveBeenCalled()
   })
 
+  // The other half of the deferral: skipping the scroll on the server must not
+  // mean skipping it in the browser. Without this the spec above would pass for
+  // an implementation that never scrolls at all.
+  it("should still scroll to the selected book once a render happens", async () => {
+    // A fixture of its own: the shared one has already rendered, and
+    // afterNextRender only fires for the render that follows registration.
+    const freshFixture = TestBed.createComponent(BookSelectorComponent)
+    const target = document.createElement("div")
+    target.setAttribute("data-book-id", "gen")
+    ;(freshFixture.nativeElement as HTMLElement).appendChild(target)
+    freshFixture.componentInstance.selectedBookId = "gen"
+    const scrollSpy = spyOn(Element.prototype, "scrollIntoView")
+
+    freshFixture.detectChanges()
+    await freshFixture.whenStable()
+
+    expect(scrollSpy).toHaveBeenCalled()
+  })
+
   it("filters books with accent-insensitive short names", () => {
     component.books = [
       {
