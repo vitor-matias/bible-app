@@ -3,6 +3,18 @@
   margin-top: 32px;
 }
 
+.book-index summary {
+  cursor: pointer;
+  /* The h1 supplies the type scale; the marker sits on the same line as it. */
+  list-style-position: outside;
+}
+
+.book-index summary h1 {
+  display: inline-block;
+  margin: 0;
+  vertical-align: middle;
+}
+
 .book-index ul {
   list-style: none;
   margin: 0 0 16px;

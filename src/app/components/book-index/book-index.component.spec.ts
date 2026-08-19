@@ -71,6 +71,30 @@ describe("BookIndexComponent", () => {
     expect(links().length).toBe(0)
   })
 
+  // Collapsed rather than hidden: a reader can open it, which is what makes
+  // these links legitimately crawlable. Links kept in the DOM but hidden from
+  // readers are a spam signal and carry little weight.
+  it("starts collapsed but keeps every link in the markup", () => {
+    booksSubject.next(books)
+    fixture.detectChanges()
+
+    const element = fixture.nativeElement as HTMLElement
+    const details = element.querySelector("details") as HTMLDetailsElement
+    expect(details).toBeTruthy()
+    expect(details.open).toBeFalse()
+    expect(links().length).toBe(3)
+  })
+
+  it("keeps the page heading visible in the summary", () => {
+    booksSubject.next(books)
+    fixture.detectChanges()
+
+    const element = fixture.nativeElement as HTMLElement
+    expect(element.querySelector("summary h1")?.textContent).toContain(
+      "Ler a Bíblia online",
+    )
+  })
+
   it("links every known book to its first chapter using the full name", () => {
     booksSubject.next(books)
     fixture.detectChanges()
