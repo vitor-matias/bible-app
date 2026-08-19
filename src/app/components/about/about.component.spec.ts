@@ -40,16 +40,12 @@ describe("AboutComponent", () => {
     expect(component).toBeTruthy()
   })
 
-  // The About page is the prerendered home page, and the toolbar picker does
-  // not take the h1 there (its label cycles to an "Escolher Livro" prompt), so
-  // the page has to carry its own.
-  it("carries the page's single h1", () => {
-    const headings = (fixture.nativeElement as HTMLElement).querySelectorAll(
-      "h1",
-    )
+  // The page is prose only: the toolbar title supplies the heading, and the
+  // book list was deliberately removed from here.
+  it("adds no heading of its own", () => {
+    const element = fixture.nativeElement as HTMLElement
 
-    expect(headings.length).toBe(1)
-    expect(headings[0].textContent).toContain("Bíblia Sagrada dos Capuchinhos")
+    expect(element.querySelectorAll("h1, h2, h3, h4, h5, h6").length).toBe(0)
   })
 
   it("does not list the books on the About page", () => {
