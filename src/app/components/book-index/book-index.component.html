@@ -1,9 +1,12 @@
 @if (testaments$ | async; as testaments) {
 <nav class="book-index" aria-label="Livros da Bíblia">
-  <h2>Ler a Bíblia online</h2>
+  <!-- The home page's h1: the toolbar picker carries it on chapter pages, but
+       here its label cycles to an "Escolher Livro" prompt that no page text
+       repeats, so the heading belongs to the index instead. -->
+  <h1>Ler a Bíblia online</h1>
   @for (testament of testaments; track testament.name) {
   <section>
-    <h3>{{ testament.name }}</h3>
+    <h2>{{ testament.name }}</h2>
     <ul>
       @for (book of testament.books; track book.name) {
       <li><a [routerLink]="book.link">{{ book.name }}</a></li>

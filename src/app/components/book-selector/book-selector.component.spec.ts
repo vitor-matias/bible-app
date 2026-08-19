@@ -20,14 +20,32 @@ describe("BookSelectorComponent", () => {
     expect(component).toBeTruthy()
   })
 
-  // The testament labels sit one level below the page h1 in the toolbar. As h4s
-  // they were the first headings on every page, ahead of any h1.
-  it("should label the testaments with h2 headings", () => {
-    const headings = Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll("h2"),
-    ).map((heading) => heading.textContent?.trim())
+  // The drawer is a closed navigational control, not page content: as headings
+  // these duplicated the book index's testament headings on the home page, and
+  // before that (as h4s) they were the first headings on every page, ahead of
+  // any h1.
+  it("should label the testaments without using headings", () => {
+    const element = fixture.nativeElement as HTMLElement
 
-    expect(headings).toEqual(["Antigo Testamento", "Novo Testamento"])
+    expect(element.querySelectorAll("h1, h2, h4, h5, h6").length).toBe(0)
+    expect(
+      Array.from(element.querySelectorAll(".testament-label")).map((label) =>
+        label.textContent?.trim(),
+      ),
+    ).toEqual(["Antigo Testamento", "Novo Testamento"])
+  })
+
+  it("should still announce each testament as a labelled group", () => {
+    const groups = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('[role="group"]'),
+    )
+
+    expect(
+      groups.map((group) => {
+        const id = group.getAttribute("aria-labelledby")
+        return group.querySelector(`#${id}`)?.textContent?.trim()
+      }),
+    ).toEqual(["Antigo Testamento", "Novo Testamento"])
   })
 
   // ngAfterViewInit also runs while prerendering, where the server DOM has no

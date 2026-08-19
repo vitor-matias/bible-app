@@ -101,14 +101,18 @@ describe("BookIndexComponent", () => {
     fixture.detectChanges()
 
     const element = fixture.nativeElement as HTMLElement
-    // h2 (not h1): the page h1 belongs to the reader header.
-    expect(element.querySelector("h1")).toBeNull()
-    expect(element.querySelector("h2")?.textContent).toContain(
+    // The index carries the home page's h1: the toolbar picker only takes it on
+    // chapter pages, where its label is the book and chapter rather than a
+    // cycling "Escolher Livro" prompt.
+    expect(element.querySelectorAll("h1").length).toBe(1)
+    expect(element.querySelector("h1")?.textContent).toContain(
       "Ler a Bíblia online",
     )
-    const testamentHeadings = Array.from(element.querySelectorAll("h3")).map(
+    const testamentHeadings = Array.from(element.querySelectorAll("h2")).map(
       (heading) => heading.textContent?.trim(),
     )
     expect(testamentHeadings).toEqual(["Antigo Testamento", "Novo Testamento"])
+    // Nothing below h2: deeper levels would skip a rank.
+    expect(element.querySelectorAll("h3, h4, h5, h6").length).toBe(0)
   })
 })

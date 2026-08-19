@@ -109,6 +109,29 @@ describe("HeaderComponent", () => {
     expect(headings[0].textContent).toContain("3")
   })
 
+  // On the home page the picker's label crossfades to an "Escolher Livro"
+  // prompt, and both spans stay in the DOM for the animation — so the heading
+  // text would carry words no page content repeats. The book index takes the
+  // h1 there instead.
+  it("should not take the h1 on the home page", () => {
+    // setInput rather than a plain assignment: it marks the OnPush view dirty
+    // and runs ngOnChanges, which is what starts the label cycle.
+    fixture.componentRef.setInput("book", {
+      id: "about",
+      name: "Sobre a Bíblia dos Capuchinhos",
+      shortName: "Sobre a Bíblia",
+      abrv: "Sobre",
+      chapterCount: 1,
+    })
+    fixture.detectChanges()
+
+    const element = fixture.nativeElement as HTMLElement
+    expect(element.querySelectorAll("h1").length).toBe(0)
+    // The picker itself is still there, prompt and all.
+    expect(element.querySelector(".page-heading")).toBeTruthy()
+    expect(element.textContent).toContain("Escolher Livro")
+  })
+
   it("should reflect offline status from NetworkService", () => {
     isOfflineSubject.next(true)
     fixture.detectChanges()

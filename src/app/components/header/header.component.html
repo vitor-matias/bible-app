@@ -56,10 +56,24 @@
         </a>
       </mat-menu>
 
-      <!-- The book/chapter label is this page's heading as well as its picker, so
-           it carries the h1. Controls inside a heading are valid HTML, and the
-           alternative (a hidden h1) would give crawlers text no reader sees. -->
+      <!-- On a chapter page the book/chapter label is the page's heading as well
+           as its picker, so it carries the h1: controls inside a heading are
+           valid HTML, and a hidden h1 would give crawlers text no reader sees.
+           On the home page it does not. There the label crossfades to an
+           "Escolher Livro" prompt, and both spans have to stay in the DOM for
+           the animation, so the heading would read "<title> Escolher Livro" —
+           words no page text repeats. The book index carries the h1 instead. -->
+      @if (book.id === 'about') {
+      <div class="page-heading">
+        <ng-container *ngTemplateOutlet="bookPicker"></ng-container>
+      </div>
+      } @else {
       <h1 class="page-heading">
+        <ng-container *ngTemplateOutlet="bookPicker"></ng-container>
+      </h1>
+      }
+
+      <ng-template #bookPicker>
       <mat-button-toggle-group multiple class="bookSelectorButton">
         <mat-button-toggle #bookToggle mat-flat-button matTooltip="Escolher livro" class="bookSelectorButtonContent"
           (click)="showBookSelector(); bookToggle.checked = false"
@@ -86,7 +100,7 @@
         </mat-button-toggle>
         }
       </mat-button-toggle-group>
-      </h1>
+      </ng-template>
 
       @if (!isOffline) {
       <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button matTooltip="Pesquisar"

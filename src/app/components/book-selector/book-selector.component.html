@@ -8,8 +8,12 @@
   />
 </div>
 <div class="bible-books-container">
-  <div class="column">
-    <h2>Antigo Testamento</h2>
+  <!-- Labelled group rather than a heading: the drawer is a closed
+       navigational control, and as headings these duplicated the book
+       index's own testament headings on the home page. The group keeps
+       the grouping announced to screen readers. -->
+  <div class="column" role="group" aria-labelledby="otTestamentLabel">
+    <p class="testament-label" id="otTestamentLabel">Antigo Testamento</p>
 
     <mat-tree [dataSource]="otDataSource" [treeControl]="otTreeControl">
       <!-- This is the tree node template for leaf nodes -->
@@ -32,8 +36,12 @@
     </mat-tree>
 
   </div>
-  <div class="column">
-    <h2>Novo Testamento</h2>
+  <!-- Labelled group rather than a heading: the drawer is a closed
+       navigational control, and as headings these duplicated the book
+       index's own testament headings on the home page. The group keeps
+       the grouping announced to screen readers. -->
+  <div class="column" role="group" aria-labelledby="ntTestamentLabel">
+    <p class="testament-label" id="ntTestamentLabel">Novo Testamento</p>
 
     <mat-tree [dataSource]="ntDataSource" [treeControl]="ntTreeControl">
       <!-- This is the tree node template for leaf nodes -->
