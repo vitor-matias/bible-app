@@ -33,6 +33,19 @@ describe("SearchBarComponent", () => {
     expect(contentStyle.paddingRight).toBe("8px")
   })
 
+  // Same reason: the header's buttons take Material's default 40px, and at
+  // 36px these read as a different, shorter control on an otherwise identical
+  // toolbar. The input matches so the row reads as one.
+  it("sizes its controls like the reader header's buttons", () => {
+    const element = fixture.nativeElement as HTMLElement
+    const heights = [".backButton", ".searchButton", ".search-input"].map(
+      (selector) =>
+        getComputedStyle(element.querySelector(selector) as HTMLElement).height,
+    )
+
+    expect(heights).toEqual(["40px", "40px", "40px"])
+  })
+
   it("should create", () => {
     expect(component).toBeTruthy()
   })
