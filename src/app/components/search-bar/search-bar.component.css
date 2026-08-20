@@ -14,6 +14,12 @@
   background-color: #543d27;
   overflow: hidden;
   padding-top: env(safe-area-inset-top, 0px);
+  /* Material insets a toolbar by 16px, which stacked on .content's own 8px and
+     left these buttons 24px in while the reader header pins its buttons 8px
+     from the edge. .content supplies the whole inset instead, so both toolbars
+     line up. */
+  padding-left: 0;
+  padding-right: 0;
   height: calc(56px + env(safe-area-inset-top, 0px));
   box-sizing: border-box;
 }
