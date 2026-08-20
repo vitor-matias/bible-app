@@ -39,7 +39,18 @@
   overscroll-behavior: contain;
 }
 
-mat-tree-node,
+mat-tree-node {
+  font-family: sans-serif;
+  cursor: default;
+  hyphens: auto;
+  font-size: 90%;
+  /* Material fixes tree nodes at 48px; book names wrap to two lines, so the
+     node has to grow instead of letting them spill out of it. */
+  height: auto !important;
+  min-height: 48px;
+  padding: 4px 0;
+}
+
 .testament-label {
   font-size: 125%;
   font-weight: bold;

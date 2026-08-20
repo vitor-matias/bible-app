@@ -35,6 +35,23 @@ describe("BookSelectorComponent", () => {
     ).toEqual(["Antigo Testamento", "Novo Testamento"])
   })
 
+  // The testament label and the tree nodes once shared a grouped selector with
+  // the (unused) h3. Editing one must not drag the other along: styling nodes
+  // like labels collapses their fixed 48px box and the book names spill out.
+  it("should not style the tree nodes like the testament labels", () => {
+    const element = fixture.nativeElement as HTMLElement
+    const node = element.querySelector("mat-tree-node") as HTMLElement
+    const label = element.querySelector(".testament-label") as HTMLElement
+    expect(node).toBeTruthy()
+
+    const nodeStyle = getComputedStyle(node)
+    expect(nodeStyle.fontSize).not.toBe(getComputedStyle(label).fontSize)
+    // Material pins nodes to 48px; the override lets a wrapped name grow the
+    // node rather than overflow it.
+    expect(nodeStyle.minHeight).toBe("48px")
+    expect(nodeStyle.marginTop).toBe("0px")
+  })
+
   it("should still announce each testament as a labelled group", () => {
     const groups = Array.from(
       (fixture.nativeElement as HTMLElement).querySelectorAll('[role="group"]'),
