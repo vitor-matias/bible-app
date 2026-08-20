@@ -27,7 +27,7 @@ describe("BookSelectorComponent", () => {
   it("should label the testaments without using headings", () => {
     const element = fixture.nativeElement as HTMLElement
 
-    expect(element.querySelectorAll("h1, h2, h4, h5, h6").length).toBe(0)
+    expect(element.querySelectorAll("h1, h2, h3, h4, h5, h6").length).toBe(0)
     expect(
       Array.from(element.querySelectorAll(".testament-label")).map((label) =>
         label.textContent?.trim(),

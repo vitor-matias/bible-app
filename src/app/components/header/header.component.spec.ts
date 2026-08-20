@@ -267,6 +267,48 @@ describe("HeaderComponent", () => {
       discardPeriodicTasks()
     }))
 
+    // The visible label alternates, so the heading's own text cannot be relied
+    // on to name the page; the accessible name has to stay put or the only
+    // heading on the page ends up announcing the picker instead.
+    it("keeps the heading naming the page across a label swap", fakeAsync(() => {
+      fixture.componentRef.setInput("book", aboutBook)
+      fixture.detectChanges()
+
+      const heading = (fixture.nativeElement as HTMLElement).querySelector(
+        "h1",
+      ) as HTMLElement
+      expect(heading.getAttribute("aria-label")).toBe(
+        "Sobre a Bíblia dos Capuchinhos",
+      )
+
+      tick(3500)
+      tick(300)
+      fixture.detectChanges()
+
+      expect(heading.textContent).toContain("Escolher Livro")
+      expect(heading.getAttribute("aria-label")).toBe(
+        "Sobre a Bíblia dos Capuchinhos",
+      )
+
+      component.ngOnDestroy()
+      discardPeriodicTasks()
+    }))
+
+    // The label swap is decorative; announcing each one is noise.
+    it("does not announce the label swap", () => {
+      fixture.componentRef.setInput("book", aboutBook)
+      fixture.detectChanges()
+
+      const element = fixture.nativeElement as HTMLElement
+      expect(element.querySelector("[aria-live]")).toBeNull()
+      // MatButtonToggle forwards aria-label onto its internal button.
+      expect(
+        element
+          .querySelector("mat-button-toggle button[aria-label]")
+          ?.getAttribute("aria-label"),
+      ).toBe("Escolher livro")
+    })
+
     it("fades the label out before swapping its text", fakeAsync(() => {
       fixture.componentRef.setInput("book", aboutBook)
       fixture.detectChanges()

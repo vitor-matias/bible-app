@@ -58,16 +58,20 @@
 
       <!-- The book/chapter label is this page's heading as well as its picker,
            so it carries the h1: controls inside a heading are valid HTML, and a
-           hidden h1 would give crawlers text no reader sees. On the home page
-           the label also crossfades to an "Escolher Livro" prompt, and both
-           spans have to stay in the DOM for the animation, so the heading there
-           reads "<title> Escolher Livro". That is the cost of the toolbar being
-           the only visible title the page has. -->
-      <h1 class="page-heading">
+           hidden h1 would give crawlers text no reader sees.
+           On the home page its visible label alternates with an "Escolher
+           Livro" prompt, which would leave the only heading naming the picker
+           rather than the page, so aria-label pins the accessible name to the
+           title. Assistive tech reads that, not whichever label is mid-cycle. -->
+      <h1 class="page-heading" [attr.aria-label]="headingLabel">
       <mat-button-toggle-group multiple class="bookSelectorButton">
+        <!-- Named for what it does, so the name is stable while the visible
+             label cycles. aria-live would otherwise announce every swap of what
+             is decorative chrome. -->
         <mat-button-toggle #bookToggle mat-flat-button matTooltip="Escolher livro" class="bookSelectorButtonContent"
+          aria-label="Escolher livro"
           (click)="showBookSelector(); bookToggle.checked = false"
-          (keydown.enter)="showBookSelector(); bookToggle.checked = false" aria-live="polite">
+          (keydown.enter)="showBookSelector(); bookToggle.checked = false">
 
           @if (book.id === 'about') {
           <!-- One element whose text is swapped behind a fade, rather than two

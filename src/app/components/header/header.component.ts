@@ -71,6 +71,18 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   bookLabelMode: "title" | "prompt" = "title"
   /** True for the fade-out half of a label swap. */
   labelFading = false
+
+  /**
+   * Accessible name for the page heading. The visible label doubles as the
+   * book picker and, on the home page, alternates with a prompt — this keeps
+   * the heading naming the page whatever it currently shows.
+   */
+  get headingLabel(): string {
+    if (!this.book) return ""
+    return this.book.id === "about"
+      ? this.book.name
+      : `${this.book.name} ${this.chapterNumber}`
+  }
   private labelInterval?: number
   private labelSwapTimeout?: number
   canShare = false
