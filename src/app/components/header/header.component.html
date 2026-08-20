@@ -70,13 +70,16 @@
           (keydown.enter)="showBookSelector(); bookToggle.checked = false" aria-live="polite">
 
           @if (book.id === 'about') {
+          <!-- One element whose text is swapped behind a fade, rather than two
+               stacked ones crossfading: both had to stay in the DOM for that,
+               which put "Escolher Livro" inside the page's h1 alongside the
+               title. Only the label currently on screen exists here. -->
           <span class="cycle-wrapper">
-            <span class="cycle-text" [class.active]="bookLabelMode === 'title'">
-              {{ mobile ? book.shortName : book.name }}
-            </span>
-            <span class="cycle-text" [class.active]="bookLabelMode === 'prompt'">
-              Escolher Livro
-            </span>
+            <span class="cycle-text" [class.faded]="labelFading">{{
+              bookLabelMode === 'title'
+                ? (mobile ? book.shortName : book.name)
+                : 'Escolher Livro'
+            }}</span>
           </span>
           } @else {
           {{ mobile ? book.shortName : book.name }}

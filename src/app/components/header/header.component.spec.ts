@@ -1,6 +1,12 @@
 import { CommonModule } from "@angular/common"
 import { PLATFORM_ID, SimpleChange } from "@angular/core"
-import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import {
+  type ComponentFixture,
+  discardPeriodicTasks,
+  fakeAsync,
+  TestBed,
+  tick,
+} from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
 import { Router } from "@angular/router"
@@ -223,6 +229,83 @@ describe("HeaderComponent", () => {
       abrv: "Sobre",
       chapterCount: 1,
     }
+
+    // The audit's complaint: with two stacked labels crossfading, both stayed
+    // in the DOM, so the page h1 read "<title> Escolher Livro" — words no page
+    // text repeats.
+    it("keeps only the label on screen inside the heading", fakeAsync(() => {
+      fixture.componentRef.setInput("book", aboutBook)
+      fixture.detectChanges()
+
+      const heading = (fixture.nativeElement as HTMLElement).querySelector(
+        "h1",
+      ) as HTMLElement
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelectorAll(".cycle-text")
+          .length,
+      ).toBe(1)
+      expect(heading.textContent).toContain("Sobre a Bíblia dos Capuchinhos")
+      expect(heading.textContent).not.toContain("Escolher Livro")
+
+      // Halfway through a swap the old text is fading but still the only one.
+      tick(3500)
+      fixture.detectChanges()
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelectorAll(".cycle-text")
+          .length,
+      ).toBe(1)
+
+      // Once swapped, the prompt has replaced the title rather than joined it.
+      tick(300)
+      fixture.detectChanges()
+      expect(heading.textContent).toContain("Escolher Livro")
+      expect(heading.textContent).not.toContain(
+        "Sobre a Bíblia dos Capuchinhos",
+      )
+
+      component.ngOnDestroy()
+      discardPeriodicTasks()
+    }))
+
+    it("fades the label out before swapping its text", fakeAsync(() => {
+      fixture.componentRef.setInput("book", aboutBook)
+      fixture.detectChanges()
+
+      const label = () =>
+        (fixture.nativeElement as HTMLElement).querySelector(
+          ".cycle-text",
+        ) as HTMLElement
+
+      expect(label().classList.contains("faded")).toBeFalse()
+
+      tick(3500)
+      fixture.detectChanges()
+      // Fading out, text not yet changed.
+      expect(label().classList.contains("faded")).toBeTrue()
+      expect(label().textContent).toContain("Sobre a Bíblia dos Capuchinhos")
+
+      tick(300)
+      fixture.detectChanges()
+      expect(label().classList.contains("faded")).toBeFalse()
+
+      component.ngOnDestroy()
+      discardPeriodicTasks()
+    }))
+
+    it("drops a half-finished swap when the cycle stops", fakeAsync(() => {
+      fixture.componentRef.setInput("book", aboutBook)
+      fixture.detectChanges()
+
+      tick(3500) // mid-swap: faded out, waiting to change text
+      component.ngOnDestroy()
+
+      // The pending swap must not fire against a torn-down component.
+      tick(300)
+      expect(component.labelFading).toBeFalse()
+      expect(component.bookLabelMode).toBe("title")
+
+      discardPeriodicTasks()
+    }))
 
     it("cycles the about label in the browser", () => {
       const setIntervalSpy = spyOn(window, "setInterval").and.callThrough()
