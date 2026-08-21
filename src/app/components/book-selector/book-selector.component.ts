@@ -121,10 +121,14 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
         : group,
     )
 
-    const leadingAvailable = available(leading)
-    return leadingAvailable.length
-      ? [{ name: "Introduções", books: leadingAvailable }, ...groupsWithIntros]
-      : groupsWithIntros
+    // Top-level entries rather than a wrapper group: a node with no children
+    // renders through the leaf template, so naming it after the slug gives a
+    // plain, clickable row beside the group headings.
+    const leadingEntries = available(leading).map((slug) => ({
+      name: slug,
+      books: [] as string[],
+    }))
+    return [...leadingEntries, ...groupsWithIntros]
   }
 
   /** Rebuilds both trees; intros arrive after the books, so this re-runs. */

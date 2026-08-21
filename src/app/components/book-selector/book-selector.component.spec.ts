@@ -90,7 +90,7 @@ describe("BookSelectorComponent", () => {
 
     // No synthetic intro books loaded: nothing blank may be listed.
     const groups = component.otDataSource.data as CanonGroup[]
-    expect(groups.some((group) => group.name === "Introduções")).toBeFalse()
+    expect(groups.some((group) => group.name === "geral")).toBeFalse()
     const pentateuco = groups.find((group) => group.name === "Pentateuco")
     expect(pentateuco?.books).not.toContain("pentateuco")
   })
