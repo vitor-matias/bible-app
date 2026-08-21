@@ -254,9 +254,12 @@ export class OfflineDataService {
    * must then avoid reading the store.
    */
   private migrateCacheIfNeeded(): Promise<boolean> {
-    if (typeof localStorage === "undefined") return Promise.resolve(true)
+    // safeLocalStorage(), not `typeof localStorage`: prerendering workers run
+    // on Node versions that define a localStorage global whose methods throw.
+    const storage = safeLocalStorage()
+    if (!storage) return Promise.resolve(true)
     if (
-      localStorage.getItem(this.cacheSchemaKey) ===
+      storage.getItem(this.cacheSchemaKey) ===
       this.cacheSchemaVersion.toString()
     ) {
       return Promise.resolve(true)
@@ -266,10 +269,10 @@ export class OfflineDataService {
         try {
           await this.databaseService.clear("books")
           this.cachedBooks = null
-          localStorage.removeItem(this.cacheFlagKey)
-          localStorage.removeItem(this.cacheTimestampKey)
+          storage.removeItem(this.cacheFlagKey)
+          storage.removeItem(this.cacheTimestampKey)
           // Only mark the schema current once the stale records are gone.
-          localStorage.setItem(
+          storage.setItem(
             this.cacheSchemaKey,
             this.cacheSchemaVersion.toString(),
           )

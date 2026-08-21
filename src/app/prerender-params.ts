@@ -54,24 +54,26 @@ export async function fetchPrerenderChapterParams(
         hasIntroduction:
           Array.isArray(book?.introduction) && book.introduction.length > 0,
       }))
-      .filter(
-        (book) =>
-          book.urlAbrv.length > 0 &&
+      .filter((book) => book.urlAbrv.length > 0)
+      .flatMap((book) => {
+        // An introduction is worth indexing on its own: it lives at
+        // /:book/intro and does not depend on the chapter count being sane.
+        const introRoutes = book.hasIntroduction
+          ? [{ book: book.urlAbrv, chapter: "intro" }]
+          : []
+        const hasUsableChapterCount =
           Number.isInteger(book.chapterCount) &&
           book.chapterCount > 0 &&
-          book.chapterCount <= MAX_CHAPTERS_PER_BOOK,
-      )
-      .flatMap((book) => [
-        // Book introductions are long-form editorial content worth indexing,
-        // and they live at /:book/intro rather than a numbered chapter.
-        ...(book.hasIntroduction
-          ? [{ book: book.urlAbrv, chapter: "intro" }]
-          : []),
-        ...Array.from({ length: book.chapterCount }, (_, index) => ({
-          book: book.urlAbrv,
-          chapter: `${index + 1}`,
-        })),
-      ])
+          book.chapterCount <= MAX_CHAPTERS_PER_BOOK
+        if (!hasUsableChapterCount) return introRoutes
+        return [
+          ...introRoutes,
+          ...Array.from({ length: book.chapterCount }, (_, index) => ({
+            book: book.urlAbrv,
+            chapter: `${index + 1}`,
+          })),
+        ]
+      })
   } catch (error) {
     console.warn(
       `Prerender: could not fetch the book list (${

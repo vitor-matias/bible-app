@@ -66,6 +66,23 @@ describe("fetchPrerenderChapterParams", () => {
     ])
   })
 
+  it("keeps the intro route when the chapter count is unusable", async () => {
+    const books = [
+      {
+        id: "GN",
+        name: "Génesis",
+        shortName: "Génesis",
+        abrv: "Gn",
+        chapterCount: 0,
+        introduction: [{ type: "introParagraph", text: "Texto" }],
+      },
+    ]
+
+    const params = await fetchPrerenderChapterParams(fetchReturning(books))
+
+    expect(params).toEqual([{ book: "gn", chapter: "intro" }])
+  })
+
   it("skips malformed book entries", async () => {
     const books = [
       { abrv: "Gn", chapterCount: 1 },
