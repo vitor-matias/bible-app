@@ -6,8 +6,13 @@ import {
   TestBed,
 } from "@angular/core/testing"
 import { MatSnackBar } from "@angular/material/snack-bar"
-import { ActivatedRoute, convertToParamMap, Router } from "@angular/router"
-import { Observable, of, Subject } from "rxjs"
+import {
+  ActivatedRoute,
+  convertToParamMap,
+  type ParamMap,
+  Router,
+} from "@angular/router"
+import { BehaviorSubject, Observable, of, Subject } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
@@ -25,6 +30,7 @@ describe("SearchComponent", () => {
   let router: jasmine.SpyObj<Router>
   let analyticsService: jasmine.SpyObj<AnalyticsService>
   let routeMock: ActivatedRoute
+  let queryParamMapSubject: BehaviorSubject<ParamMap>
   let seoService: jasmine.SpyObj<SeoService>
   let observerCallback: IntersectionObserverCallback | null
   let originalIntersectionObserver: typeof IntersectionObserver | undefined
@@ -61,8 +67,10 @@ describe("SearchComponent", () => {
     router.navigate.and.resolveTo(true)
     analyticsService = jasmine.createSpyObj("AnalyticsService", ["track"])
     analyticsService.track.and.returnValue(Promise.resolve())
+    queryParamMapSubject = new BehaviorSubject(convertToParamMap({}))
     routeMock = {
       snapshot: { queryParamMap: convertToParamMap({}) },
+      queryParamMap: queryParamMapSubject.asObservable(),
     } as ActivatedRoute
     seoService = jasmine.createSpyObj("SeoService", ["updateForSearch"])
     observerCallback = null
@@ -108,13 +116,33 @@ describe("SearchComponent", () => {
   })
 
   it("should run a shared query from the q query param on init", () => {
-    ;(routeMock.snapshot as { queryParamMap: unknown }).queryParamMap =
-      convertToParamMap({ q: "shared text" })
+    queryParamMapSubject.next(convertToParamMap({ q: "shared text" }))
     const submitSpy = spyOn(component, "onSearchSubmit")
 
     component.ngOnInit()
 
     expect(submitSpy).toHaveBeenCalledWith("shared text")
+  })
+
+  it("should run a second shared query without re-creating the component", () => {
+    const submitSpy = spyOn(component, "onSearchSubmit")
+    component.ngOnInit()
+
+    queryParamMapSubject.next(convertToParamMap({ q: "first" }))
+    queryParamMapSubject.next(convertToParamMap({ q: "second" }))
+
+    expect(submitSpy).toHaveBeenCalledWith("first")
+    expect(submitSpy).toHaveBeenCalledWith("second")
+  })
+
+  it("should not re-run the same shared query on an unrelated emission", () => {
+    const submitSpy = spyOn(component, "onSearchSubmit")
+    component.ngOnInit()
+
+    queryParamMapSubject.next(convertToParamMap({ q: "same" }))
+    queryParamMapSubject.next(convertToParamMap({ q: "same" }))
+
+    expect(submitSpy).toHaveBeenCalledTimes(1)
   })
 
   it("should not search on init without a q query param", () => {

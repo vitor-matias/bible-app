@@ -10,7 +10,7 @@ import {
 import { MatIconModule } from "@angular/material/icon"
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
 import { ActivatedRoute, Router, RouterModule } from "@angular/router"
-import { firstValueFrom } from "rxjs"
+import { firstValueFrom, type Subscription } from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
@@ -47,6 +47,9 @@ export class SearchComponent {
 
   @ViewChild("sentinel", { static: false }) sentinel!: ElementRef
   private lastSentinel: Element | null = null
+  private queryParamSubscription?: Subscription
+  /** Guards against re-running the same shared query on unrelated emissions. */
+  private lastSharedQuery: string | null = null
 
   constructor(
     private apiService: BibleApiService,
@@ -64,13 +67,18 @@ export class SearchComponent {
   ngOnInit(): void {
     this.seoService.updateForSearch()
 
-    // Share-target launches land here as /search?q=<shared text>; run the
-    // shared query right away instead of showing an empty search screen.
-    const sharedQuery = this.route.snapshot.queryParamMap.get("q")
-    if (sharedQuery) {
-      // Fire-and-forget: onSearchSubmit surfaces its own errors via snackbar.
-      void this.onSearchSubmit(sharedQuery)
-    }
+    // Share-target launches land here as /search?q=<shared text>. Subscribe
+    // rather than read the snapshot once: Angular reuses this component when
+    // navigating between /search URLs, so a second share would be ignored.
+    this.queryParamSubscription = this.route.queryParamMap.subscribe(
+      (params) => {
+        const sharedQuery = params.get("q")
+        if (!sharedQuery || sharedQuery === this.lastSharedQuery) return
+        this.lastSharedQuery = sharedQuery
+        // Fire-and-forget: onSearchSubmit surfaces its own errors via snackbar.
+        void this.onSearchSubmit(sharedQuery)
+      },
+    )
   }
 
   ngAfterViewInit(): void {
@@ -85,6 +93,7 @@ export class SearchComponent {
   }
 
   ngOnDestroy(): void {
+    this.queryParamSubscription?.unsubscribe()
     if (this.observer) {
       this.observer.disconnect()
     }

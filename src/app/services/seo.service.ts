@@ -50,14 +50,26 @@ export class SeoService {
       canonicalUrl: `${bookUrl}/${segment}`,
       indexable: true,
     })
-    this.setBreadcrumbs([
+    // Books that open on an introduction should have the book-level crumb
+    // point there, not at a chapter the reader never passed through.
+    const bookEntrySegment = this.bookService.getChapterUrlSegment(
+      book.introduction?.length ? 0 : 1,
+    )
+    const crumbs = [
       { name: SEO_SITE_NAME, item: `${SEO_BASE_URL}/` },
-      { name: book.shortName, item: `${bookUrl}/1` },
+      { name: book.shortName, item: `${bookUrl}/${bookEntrySegment}` },
       {
         name: `${book.shortName} ${label}`,
         item: `${bookUrl}/${segment}`,
       },
-    ])
+    ]
+    // On the page that is itself the book's entry point (an introduction),
+    // the book crumb and the leaf are the same URL — emit it once.
+    this.setBreadcrumbs(
+      crumbs.filter(
+        (crumb, index) => index === 0 || crumb.item !== crumbs[index - 1].item,
+      ),
+    )
   }
 
   updateForAbout(): void {
@@ -160,7 +172,12 @@ export class SeoService {
     chapterNumber: Chapter["number"],
     chapter?: Chapter,
   ): string {
-    const excerpt = this.buildExcerpt(chapter)
+    // The synthetic intro chapter carries no verses, so fall back to the
+    // introduction's own prose instead of a description shared by every book.
+    const excerpt =
+      chapterNumber === 0
+        ? this.buildExcerpt(chapter) || this.buildIntroExcerpt(book)
+        : this.buildExcerpt(chapter)
     if (!excerpt) {
       return this.truncate(
         chapterNumber === 0
@@ -173,6 +190,15 @@ export class SeoService {
         ? `${book.shortName} — Introdução: ${excerpt}`
         : `${book.shortName} ${chapterNumber}: ${excerpt}`,
     )
+  }
+
+  /** First prose of a book introduction, used as its meta description. */
+  private buildIntroExcerpt(book: Book): string {
+    const paragraph = book.introduction?.find(
+      (element): element is IntroParagraph =>
+        element.type === "introParagraph" && !!element.text.trim(),
+    )
+    return paragraph ? paragraph.text.replace(/\s+/g, " ").trim() : ""
   }
 
   private buildExcerpt(chapter?: Chapter): string {

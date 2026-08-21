@@ -196,29 +196,35 @@ export class OfflineDataService {
     if (!incoming?.length) return current?.length ? current : incoming
     if (!current?.length) return incoming
 
-    const byNumber = new Map<number, Chapter>()
+    const cachedByNumber = new Map<number, Chapter>()
     for (const chapter of current) {
-      byNumber.set(chapter.number, chapter)
+      cachedByNumber.set(chapter.number, chapter)
     }
-    for (const chapter of incoming) {
-      const cached = byNumber.get(chapter.number)
-      if (!cached) {
-        byNumber.set(chapter.number, chapter)
-        continue
+
+    const merged: Chapter[] = incoming.map((chapter) => {
+      const cached = cachedByNumber.get(chapter.number)
+      if (!cached) return chapter
+
+      // Field-level merge: the fresh payload wins, except where it is a stub
+      // that would drop richer content already cached for this chapter.
+      const result: Chapter = { ...cached, ...chapter }
+      if ((cached.verses?.length ?? 0) > (chapter.verses?.length ?? 0)) {
+        result.verses = cached.verses
       }
-      const incomingVerses = chapter.verses?.length ?? 0
-      const cachedVerses = cached.verses?.length ?? 0
-      if (incomingVerses > cachedVerses) {
-        byNumber.set(chapter.number, chapter)
-      } else if (incomingVerses === cachedVerses) {
-        // On equal verse counts, a stub must not drop a cached chapter's
-        // introduction text; otherwise prefer the fresher incoming payload.
-        if (chapter.introduction || !cached.introduction) {
-          byNumber.set(chapter.number, chapter)
-        }
+      if (!chapter.introduction && cached.introduction) {
+        result.introduction = cached.introduction
       }
+      return result
+    })
+
+    const seen = new Set(incoming.map((chapter) => chapter.number))
+    for (const chapter of current) {
+      if (!seen.has(chapter.number)) merged.push(chapter)
     }
-    return Array.from(byNumber.values()).sort((a, b) => a.number - b.number)
+    // Chapter numbers are inherently ordered and the selector renders this
+    // list as-is, so keep it ascending: a partial refresh would otherwise
+    // leave cached-only chapters stranded at the end (1, 3, 2).
+    return merged.sort((a, b) => a.number - b.number)
   }
 
   private ensureCacheLoaded(): Promise<void> {
@@ -232,8 +238,8 @@ export class OfflineDataService {
             return this.loadBooksFromIndexedDb()
           }
           // Fail closed: the store still holds incompatible-schema records,
-          // so treat the cache as empty rather than expose them.
-          this.cachedBooks = []
+          // so expose nothing. cachedBooks stays null so the next caller
+          // retries the migration instead of latching an empty cache.
           return undefined
         })
         .catch((error) => {

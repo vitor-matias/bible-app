@@ -5,6 +5,7 @@ import {
   forwardRef,
   Input,
   type OnChanges,
+  type SimpleChanges,
 } from "@angular/core"
 
 /**
@@ -35,14 +36,15 @@ export class BookIntroComponent implements OnChanges {
   @Input()
   introduction: IntroElement[] = []
 
-  @Input()
-  bookName = ""
-
   /** Pre-processed display list that merges section + following paragraph. */
   displayElements: IntroDisplayElement[] = []
 
-  ngOnChanges(): void {
-    this.displayElements = this.buildDisplayElements(this.introduction)
+  ngOnChanges(changes: SimpleChanges): void {
+    // Only the introduction affects the output, so don't re-walk the whole
+    // element tree (and its sidebars) for unrelated input changes.
+    if (changes["introduction"]) {
+      this.displayElements = this.buildDisplayElements(this.introduction)
+    }
   }
 
   /**

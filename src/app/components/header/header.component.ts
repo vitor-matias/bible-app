@@ -5,6 +5,7 @@ import {
   Component,
   DestroyRef,
   EventEmitter,
+  HostListener,
   Inject,
   Input,
   inject,
@@ -90,9 +91,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    if (typeof window !== "undefined" && window.screen.width <= 480) {
-      this.mobile = true
-    }
+    this.updateMobile()
     this.canShare =
       Capacitor.isNativePlatform() ||
       (typeof navigator !== "undefined" &&
@@ -112,6 +111,21 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.updateBookmarkState()
         this.cdr.detectChanges()
       })
+  }
+
+  /**
+   * Width of the window, not of the physical screen: a narrow desktop window
+   * needs the compact labels just as much as a phone does. Recomputed on
+   * resize so rotating or resizing takes effect immediately.
+   */
+  @HostListener("window:resize")
+  updateMobile(): void {
+    if (typeof window === "undefined") return
+    const isMobile = window.innerWidth <= 480
+    if (isMobile !== this.mobile) {
+      this.mobile = isMobile
+      this.cdr.markForCheck()
+    }
   }
 
   ngOnChanges(changes: SimpleChanges): void {

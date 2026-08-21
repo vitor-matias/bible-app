@@ -128,15 +128,28 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   // Memoized per book: the template binds to this on every change detection
   // cycle, and a fresh array/intro object each time would make Angular tear
   // down and recreate the intro row mid-click, swallowing taps on it.
-  private chaptersWithIntroCache: { book?: Book; list: Chapter[] } = {
-    list: [],
-  }
+  private chaptersWithIntroCache: {
+    book?: Book
+    chapters?: Chapter[]
+    introduction?: IntroElement[]
+    list: Chapter[]
+  } = { list: [] }
 
   get chaptersWithIntro(): Chapter[] {
-    if (this.chaptersWithIntroCache.book !== this.book) {
+    const cache = this.chaptersWithIntroCache
+    // Track the chapters/introduction references too: a Book object whose
+    // fields are filled in place keeps the same identity, and comparing only
+    // the book would then serve a stale list.
+    if (
+      cache.book !== this.book ||
+      cache.chapters !== this.book?.chapters ||
+      cache.introduction !== this.book?.introduction
+    ) {
       const chapters = this.book?.chapters || []
       this.chaptersWithIntroCache = {
         book: this.book,
+        chapters: this.book?.chapters,
+        introduction: this.book?.introduction,
         list: this.hasIntro
           ? [
               { bookId: this.book.id, number: 0, title: "Introdução" },
@@ -296,20 +309,33 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // AutoScrollService handles its own cleanup now if we stop it, or the component stopping it
   }
 
-  get previousChapterLink(): (string | number)[] {
-    return [
-      "/",
+  /**
+   * The single place chapter URLs are built, so the crawlable anchors and the
+   * swipe/keyboard navigation can never drift apart.
+   */
+  private chapterCommands(
+    chapter: Chapter["number"],
+    absolute = false,
+  ): (string | number)[] {
+    const commands = [
       this.bookService.getUrlAbrv(this.book),
-      this.bookService.getChapterUrlSegment(this.chapterNumber - 1),
+      this.bookService.getChapterUrlSegment(this.clampChapter(chapter)),
     ]
+    return absolute ? ["/", ...commands] : commands
+  }
+
+  /** Keeps a target chapter inside the book, so no link can point at /-1. */
+  private clampChapter(chapter: Chapter["number"]): Chapter["number"] {
+    const highest = this.book?.chapterCount ?? this.minChapter
+    return Math.min(Math.max(chapter, this.minChapter), highest)
+  }
+
+  get previousChapterLink(): (string | number)[] {
+    return this.chapterCommands(this.chapterNumber - 1, true)
   }
 
   get nextChapterLink(): (string | number)[] {
-    return [
-      "/",
-      this.bookService.getUrlAbrv(this.book),
-      this.bookService.getChapterUrlSegment(this.chapterNumber + 1),
-    ]
+    return this.chapterCommands(this.chapterNumber + 1, true)
   }
 
   /**
@@ -317,6 +343,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
    * navigation, this just stops auto-scroll and picks the slide direction.
    */
   prepareChapterNavigation(forwards: boolean): void {
+    const target = forwards ? this.chapterNumber + 1 : this.chapterNumber - 1
+    // The anchors bypass goToNextChapter/goToPreviousChapter, so repeat their
+    // bounds check here rather than trusting the template guard alone.
+    if (target !== this.clampChapter(target)) return
+
     this.autoScrollService.stop()
     if (forwards) {
       this.isNavigatingForwards = true
@@ -346,10 +377,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.autoScrollService.stop()
       this.isNavigatingForwards = true
 
-      this.router.navigate([
-        this.bookService.getUrlAbrv(this.book),
-        this.bookService.getChapterUrlSegment(this.chapterNumber + 1),
-      ])
+      this.router.navigate(this.chapterCommands(this.chapterNumber + 1))
     }
   }
 
@@ -362,19 +390,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.autoScrollService.stop()
       this.isNavigatingBackwards = true
 
-      this.router.navigate([
-        this.bookService.getUrlAbrv(this.book),
-        this.bookService.getChapterUrlSegment(this.chapterNumber - 1),
-      ])
+      this.router.navigate(this.chapterCommands(this.chapterNumber - 1))
     }
   }
 
   goToChapter(newChapterNumber: Chapter["number"]): void {
     this.autoScrollService.stop()
-    this.router.navigate([
-      this.bookService.getUrlAbrv(this.book),
-      this.bookService.getChapterUrlSegment(newChapterNumber),
-    ])
+    this.router.navigate(this.chapterCommands(newChapterNumber))
   }
 
   onBookSubmit(event: { bookId: string }) {
@@ -410,13 +432,16 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       // /intro on a book without introduction: normalize to chapter 1
       // instead of requesting the nonexistent chapter 0 from the API.
       if (!this.hasIntro) {
-        void this.router.navigate(
-          [
-            this.bookService.getUrlAbrv(this.book),
-            this.bookService.getChapterUrlSegment(1),
-          ],
-          { replaceUrl: true },
-        )
+        // Move the state off chapter 0 too: otherwise a later failed load
+        // would revert the URL to /intro, which this book does not have.
+        this.chapterNumber = 1
+        // Browser-only, like the other normalizing navigate: during
+        // prerendering this would emit a "Redirecting" stub instead of content.
+        if (isPlatformBrowser(this.platformId)) {
+          void this.router.navigate(this.chapterCommands(1), {
+            replaceUrl: true,
+          })
+        }
         return
       }
 

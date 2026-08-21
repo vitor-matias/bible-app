@@ -131,6 +131,32 @@ describe("SeoService", () => {
       expect(getMetaContent('name="description"')).not.toContain("capítulo 0")
     })
 
+    it("describes an introduction with its own prose and one book crumb", () => {
+      const withIntro = {
+        ...genesis,
+        introduction: [
+          { type: "introParagraph", text: "O Pentateuco abre a Bíblia." },
+        ],
+      } as Book
+
+      service.updateForChapter(withIntro, 0)
+
+      expect(getMetaContent('name="description"')).toContain(
+        "O Pentateuco abre a Bíblia.",
+      )
+      expect(getMetaContent('name="description"')).not.toContain("capítulo 0")
+
+      // The book crumb is the intro itself here, so it must not be repeated.
+      const script = document.querySelector(
+        'script[type="application/ld+json"]',
+      )
+      const items =
+        JSON.parse(script?.textContent ?? "{}").itemListElement ?? []
+      const urls = items.map((i: { item: string }) => i.item)
+      expect(urls).toEqual([...new Set(urls)])
+      expect(urls).toContain(`${SEO_BASE_URL}/gn/intro`)
+    })
+
     it("builds the description from verse text, skipping footnotes and references", () => {
       service.updateForChapter(
         genesis,

@@ -31,7 +31,7 @@
           <div pinch-to-zoom class="chapterBlock">
             @if(book.id !== 'about'){
             @if (isIntroChapter) {
-            <book-intro [introduction]="book.introduction || []" [bookName]="book.name"></book-intro>
+            <book-intro [introduction]="book.introduction || []"></book-intro>
             } @else {
             @for (verse of chapter.verses; track verse; let i = $index) {
             <verse [id]="verse.number" class="verse" [data]="verse" [nextVerseStartsWithQuote]="checkIfNextVerseStartsWithQuote(i)"></verse>

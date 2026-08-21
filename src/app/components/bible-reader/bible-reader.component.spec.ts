@@ -261,7 +261,47 @@ describe("BibleReaderComponent", () => {
       expect(component.previousChapterLink).toEqual(["/", "1-genesis", "intro"])
     })
 
+    it("clamps the prev/next links at the book boundaries", () => {
+      // First chapter of a book without an introduction: must not offer /0
+      // or /intro, which this book does not have.
+      component.chapterNumber = 1
+      expect(component.previousChapterLink).toEqual(["/", "1-genesis", "1"])
+
+      // Last chapter: must not point past the end of the book.
+      component.chapterNumber = 50
+      expect(component.nextChapterLink).toEqual(["/", "1-genesis", "50"])
+    })
+
+    it("never links below the introduction on an intro book", () => {
+      component.book = {
+        ...(mockBooks[0] as unknown as Book),
+        introduction: [{ type: "introParagraph", text: "intro" }],
+      }
+      component.chapterNumber = 0
+
+      // /-1 must never be produced from the introduction.
+      expect(component.previousChapterLink).toEqual(["/", "1-genesis", "intro"])
+    })
+
+    it("does not arm a slide transition past the book boundaries", () => {
+      component.chapterNumber = 1
+      component.isNavigatingBackwards = false
+      autoScrollServiceSpy.stop.calls.reset()
+
+      component.prepareChapterNavigation(false)
+
+      expect(component.isNavigatingBackwards).toBeFalse()
+      expect(autoScrollServiceSpy.stop).not.toHaveBeenCalled()
+
+      component.chapterNumber = 50
+      component.prepareChapterNavigation(true)
+
+      expect(component.isNavigatingForwards).toBeFalse()
+    })
+
     it("prepareChapterNavigation stops auto-scroll and sets the slide direction", () => {
+      // Mid-book, so both directions stay inside the book's bounds.
+      component.chapterNumber = 5
       component.prepareChapterNavigation(true)
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
       expect(component.isNavigatingForwards).toBeTrue()
