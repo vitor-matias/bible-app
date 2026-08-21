@@ -22,11 +22,6 @@ import { OfflineDataService } from "./offline-data.service"
 
 const IS_SERVER = !isBrowser()
 
-// While prerendering, every page boots a fresh app in the same worker process;
-// module state survives between renders, so one worker fetches the book list
-// once instead of ~1200 times (which invites API rate limiting).
-let serverBooksCache: Book[] | null = null
-
 /**
  * A response the server will keep giving us: retrying it only multiplies the
  * request count and the backoff wait. 408 and 429 are the two 4xx codes that
@@ -75,26 +70,33 @@ function serverRetry<T>() {
 }
 
 /**
- * Keep a `/v1/books` response for the rest of the prerender build, but only if
- * it is usable. Caching a degenerate one would make every later render in this
- * worker resolve every book to the About page — canonical "/" and About copy on
- * every chapter URL — instead of failing and falling back to client-side
- * rendering. `isServer` is a parameter so tests can drive both sides.
+ * While prerendering, every page boots a fresh app in the same worker process;
+ * this cache survives between renders, so one worker fetches the book list once
+ * instead of ~1200 times (which invites API rate limiting).
+ *
+ * It only ever keeps a usable response. Caching a degenerate one would make
+ * every later render in this worker resolve every book to the About page —
+ * canonical "/" and About copy on every chapter URL — instead of failing and
+ * falling back to client-side rendering.
+ *
+ * A factory rather than module-level functions taking `isServer`: production
+ * binds it once, below, and tests exercise the server behaviour by building
+ * their own instance instead of resetting shared module state.
  */
-export function cacheServerBooks(isServer: boolean, books: Book[]): void {
-  if (isServer && Array.isArray(books) && books.length > 0) {
-    serverBooksCache = books
+export function createServerBooksCache(isServer: boolean): {
+  read(): Book[] | null
+  write(books: Book[]): void
+} {
+  let cached: Book[] | null = null
+  return {
+    read: () => (isServer && cached?.length ? cached : null),
+    write: (books) => {
+      if (isServer && Array.isArray(books) && books.length > 0) cached = books
+    },
   }
 }
 
-export function readServerBooksCache(isServer: boolean): Book[] | null {
-  return isServer && serverBooksCache?.length ? serverBooksCache : null
-}
-
-/** Test seam: the cache is module state that outlives a single render. */
-export function resetServerBooksCache(): void {
-  serverBooksCache = null
-}
+const serverBooksCache = createServerBooksCache(IS_SERVER)
 
 @Injectable({
   providedIn: "root",
@@ -125,7 +127,7 @@ export class BibleApiService {
         if (this.books.length) {
           return of(this.books)
         }
-        const cachedServerBooks = readServerBooksCache(IS_SERVER)
+        const cachedServerBooks = serverBooksCache.read()
         if (cachedServerBooks) {
           this.books = cachedServerBooks
           return of(cachedServerBooks)
@@ -143,7 +145,7 @@ export class BibleApiService {
             serverRetry(),
             tap((books) => {
               this.books = books
-              cacheServerBooks(IS_SERVER, books)
+              serverBooksCache.write(books)
             }),
             catchError((error) => {
               this.booksRequest$ = null

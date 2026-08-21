@@ -81,8 +81,7 @@ through the home page. `/search` and unknown routes stay client-rendered
 (`src/app/app.routes.server.ts`). The client-rendered fallback shell is emitted
 as `index.csr.html`; `index.html` is the prerendered home page, so `vercel.json`
 rewrites everything the build output does not contain to `index.csr.html`
-rather than serving the home page for it, and `scripts/copy-csr-index.mjs` only
-fills in `index.html` from the shell if a build ever stops prerendering `/`.
+rather than serving the home page for it.
 
 `sitemap.xml` is generated in `build:post` by reading the prerendered pages
 back out of the build output, so it always lists exactly the URLs that were
