@@ -29,6 +29,7 @@ import {
     >
       <div
         #block
+        [class.paged-view]="viewMode === 'paged'"
         style="width: 300px; column-gap: 10px; padding-left: 5px; padding-right: 5px;"
       >
         Content
@@ -85,6 +86,36 @@ describe("PagedNavigationDirective", () => {
 
   it("should create", () => {
     expect(hostComponent.directive).toBeTruthy()
+  })
+
+  describe("switching into paged mode", () => {
+    it("measures after the class that creates the columns is applied", fakeAsync(() => {
+      // Angular writes the column class on the inner block *after* this
+      // directive's ngOnChanges, so a synchronous measurement sees a
+      // single-column block, reports "last page" and leaves the reader without
+      // a next-page control — the whole introduction stuck on page one.
+      hostComponent.viewMode = "scrolling"
+      fixture.detectChanges()
+      tick(16)
+      // Seed the state the stale measurement would leave behind.
+      hostComponent.pageState = { isFirstPage: true, isLastPage: true }
+
+      const block = hostComponent.block.nativeElement
+      spyOnProperty(container, "scrollLeft").and.returnValue(0)
+      spyOnProperty(container, "clientWidth").and.returnValue(400)
+      spyOnProperty(container, "scrollWidth").and.callFake(() =>
+        block.classList.contains("paged-view") ? 1200 : 400,
+      )
+
+      hostComponent.viewMode = "paged"
+      fixture.detectChanges()
+      tick(16)
+
+      expect(hostComponent.pageState).toEqual({
+        isFirstPage: true,
+        isLastPage: false,
+      })
+    }))
   })
 
   describe("late-arriving content", () => {
