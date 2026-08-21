@@ -347,6 +347,30 @@ describe("BibleApiService", () => {
     })
   })
 
+  describe("introductions", () => {
+    it("requests the listing and one body through the resilience wrapper", (done) => {
+      // The wrapper is a pass-through in the browser; on the server it adds
+      // the timeout and backoff that keep a prerender build from shipping
+      // pages with no introductions after one transient failure.
+      const intros = [{ slug: "pentateuco", name: "PENTATEUCO" }]
+      service.getIntros().subscribe((result) => {
+        expect(result).toEqual(intros as IntroSummary[])
+
+        service.getIntro("pentateuco").subscribe((intro) => {
+          expect(intro.slug).toBe("pentateuco")
+          done()
+        })
+        httpMock.expectOne("v1/intros/pentateuco").flush({
+          slug: "pentateuco",
+          name: "PENTATEUCO",
+          introduction: [],
+        })
+      })
+
+      httpMock.expectOne("v1/intros").flush(intros)
+    })
+  })
+
   describe("createApiResilience", () => {
     it("passes the source through untouched in the browser", () => {
       let value: number | undefined

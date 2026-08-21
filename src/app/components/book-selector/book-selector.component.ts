@@ -161,22 +161,27 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
       return
     }
 
+    const matchesBook = (bookId: string): boolean => {
+      const book = this.getBook(bookId)
+      return (
+        !!book &&
+        (this.normalizeSearchValue(book.shortName).includes(q) ||
+          this.normalizeSearchValue(book.name).includes(q))
+      )
+    }
+
     const filterGroup = (
       groups: typeof this.oldTestament,
     ): typeof this.oldTestament =>
       groups
         .map((group) => ({
           ...group,
-          books: (group.books as string[]).filter((bookId) => {
-            const book = this.getBook(bookId)
-            return (
-              book &&
-              (this.normalizeSearchValue(book.shortName).includes(q) ||
-                this.normalizeSearchValue(book.name).includes(q))
-            )
-          }),
+          books: (group.books as string[]).filter(matchesBook),
         }))
-        .filter((group) => group.books.length > 0)
+        // An introduction that belongs to no group is a childless entry named
+        // after its own slug, so it is kept by its own name rather than by
+        // children it will never have.
+        .filter((group) => group.books.length > 0 || matchesBook(group.name))
 
     // Filter the same groups the picker shows, so introductions are findable
     // by name too.

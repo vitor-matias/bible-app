@@ -55,6 +55,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   private alignmentTimeout?: number
   private mutationObserver?: MutationObserver
   private spacer?: HTMLElement
+  private layoutFrame?: number
   private _stayAtEnd = false
   private readonly platformId = inject(PLATFORM_ID)
 
@@ -68,20 +69,39 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes["viewMode"]) {
-      if (this.viewMode === "paged") {
-        this.ensureAlignedScrollWidth()
-        this.snapToNearestPage()
-      } else {
-        this.removeSpacer()
-      }
+    if (!changes["viewMode"]) return
+
+    if (this.viewMode !== "paged") {
+      this.removeSpacer()
       this.onScroll()
+      return
     }
+
+    // The columns come from a class Angular writes on the inner block *after*
+    // this hook runs, so measuring now sees a single-column block: scrollWidth
+    // equals clientWidth, which reads as "last page" and hides the next-page
+    // control. Measure once that layout is actually in the DOM.
+    this.afterLayout(() => {
+      this.ensureAlignedScrollWidth()
+      this.snapToNearestPage()
+      this.onScroll()
+    })
+  }
+
+  /** Runs `fn` after Angular has written the pending DOM changes. */
+  private afterLayout(fn: () => void): void {
+    if (!isPlatformBrowser(this.platformId)) return
+    if (this.layoutFrame !== undefined) cancelAnimationFrame(this.layoutFrame)
+    this.layoutFrame = requestAnimationFrame(() => {
+      this.layoutFrame = undefined
+      fn()
+    })
   }
 
   ngOnDestroy(): void {
     clearTimeout(this.resizeTimeout)
     clearTimeout(this.alignmentTimeout)
+    if (this.layoutFrame !== undefined) cancelAnimationFrame(this.layoutFrame)
     this.mutationObserver?.disconnect()
     this.removeSpacer()
   }

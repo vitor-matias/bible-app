@@ -67,4 +67,19 @@ describe("PreferencesService", () => {
     service.setViewMode("paged")
     expect(service.getViewMode()).toBe("paged")
   })
+
+  it("probes localStorage once instead of on every access", () => {
+    // safeLocalStorage() probes with a real write; applyChapter and the
+    // header read preferences on every chapter change and render pass.
+    service.getTheme()
+    const setItem = spyOn(Storage.prototype, "setItem").and.callThrough()
+
+    service.getTheme()
+    service.getViewMode()
+    service.setLastChapterNumber(3)
+
+    // Exactly the one real write, with no probe writes around it.
+    expect(setItem).toHaveBeenCalledTimes(1)
+    expect(setItem).toHaveBeenCalledWith("chapter", "3")
+  })
 })

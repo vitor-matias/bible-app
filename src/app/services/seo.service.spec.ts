@@ -250,6 +250,23 @@ describe("SeoService", () => {
       expect(breadcrumbs?.itemListElement[2].position).toBe(3)
     })
 
+    it("escapes < so a name cannot close the script element", () => {
+      // The payload is baked into prerendered HTML: a name carrying
+      // "</script>" would end the JSON-LD block and inject markup.
+      service.updateForChapter(
+        { ...genesis, shortName: "Génesis</script><img>" } as Book,
+        3,
+      )
+
+      const raw = doc.getElementById("seo-breadcrumbs")?.textContent ?? ""
+      expect(raw).not.toContain("</script>")
+      expect(raw).toContain("\\u003c/script")
+      // Still valid JSON-LD carrying the original name.
+      expect(getBreadcrumbs()?.itemListElement[1].name).toBe(
+        "Génesis</script><img>",
+      )
+    })
+
     it("replaces the breadcrumb script on navigation instead of stacking", () => {
       service.updateForChapter(genesis, 1)
       service.updateForChapter(genesis, 2)

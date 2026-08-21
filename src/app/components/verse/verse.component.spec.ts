@@ -879,4 +879,22 @@ describe("VerseComponent", () => {
       expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true })
     })
   })
+
+  describe("nextIsQuoteStates", () => {
+    it("precomputes the flag the template used to call per change detection", () => {
+      component.data = {
+        number: 1,
+        bookId: "gen",
+        text: [
+          { type: "text", text: "Disse:" },
+          { type: "quote", text: "«Faça-se a luz.»" },
+        ],
+      } as unknown as Verse
+      component.ngOnChanges({})
+
+      expect(component.nextIsQuoteStates[0]).toBeTrue()
+      expect(component.nextIsQuoteStates[0]).toBe(component.checkNextIsQuote(0))
+      expect(component.nextIsQuoteStates[1]).toBe(component.checkNextIsQuote(1))
+    })
+  })
 })

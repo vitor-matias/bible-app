@@ -113,6 +113,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   previousChapterLink: (string | number)[] = []
   nextChapterLink: (string | number)[] = []
   private chapterLinkKey = ""
+  /** The chapter last asked for, which an async load must still match. */
+  private pendingChapter?: Chapter["number"]
+  private initialNavigationDone = false
   isFirstPage = true
   isLastPage = false
 
@@ -227,7 +230,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
             this.preferencesService.getLastChapterNumber()?.toString() ||
             "1"
 
-          if (storedBook && storedChapter) {
+          // Only on the first emission: loading an introduction body pushes a
+          // new book list, and re-running the restore would navigate and load
+          // the very chapter already on screen a second time.
+          if (!this.initialNavigationDone && storedBook && storedChapter) {
+            this.initialNavigationDone = true
             this.book = this.bookService.findBook(storedBook)
 
             this.chapterNumber =
@@ -453,6 +460,24 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     verseEnd?: Verse["number"],
     highlight = true,
   ) {
+    this.pendingChapter = chapter
+
+    // The About page is local content with no chapter behind it: asking the
+    // API only earns a 404 that falls through to this very same render.
+    if (this.book.id === "about") {
+      this.chapterSubscription?.unsubscribe()
+      this.finalizeChapterTransition(() =>
+        this.applyChapter(
+          { bookId: "about", number: 1 },
+          chapter,
+          verseStart,
+          verseEnd,
+          highlight,
+        ),
+      )
+      return
+    }
+
     // Chapter 0 = book introduction – no API call needed, but cancel any
     // in-flight chapter request so it cannot overwrite the intro view.
     if (chapter === 0) {
@@ -468,8 +493,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         this.bookService
           .loadGroupIntroBody(this.book)
           .then((book) => {
-            // Ignore a response that arrives after the reader moved on.
-            if (this.book.id !== book.id) return
+            // Ignore a response that arrives after the reader moved on — to
+            // another book, or to a chapter of this one.
+            if (this.book.id !== book.id || this.pendingChapter !== 0) return
             this.book = book
             this.finalizeChapterTransition(() =>
               this.applyChapter(
@@ -498,6 +524,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
             replaceUrl: true,
           })
         }
+        // Load it here: the navigation above lands on a route event that the
+        // subscriber discards as already-current, so nothing else would.
+        this.getChapter(1, verseStart, verseEnd, highlight)
         return
       }
 

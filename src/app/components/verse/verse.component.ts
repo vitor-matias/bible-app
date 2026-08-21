@@ -56,6 +56,14 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   /** Pre-computed parsed references keyed by text index */
   parsedReferences: Map<number, (string | BibleReference)[]> = new Map()
 
+  /**
+   * Pre-computed "the element after this section is a quote" flag by text
+   * index. The template asks for it twice per section, and change detection
+   * runs once per animation frame while auto-scrolling, so it is computed with
+   * the rest of the derived state instead of on every pass.
+   */
+  nextIsQuoteStates: Record<number, boolean> = {}
+
   @Input()
   data!: Verse
 
@@ -89,6 +97,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       this.hasFootnotes = this.data.text.some((t) => t.type === "footnote")
       this.parsedReferences = this.computeParsedReferences()
       this.displayGroups = this.computeDisplayGroups()
+      this.nextIsQuoteStates = this.computeNextIsQuoteStates()
     }
   }
 
@@ -216,6 +225,14 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       (t) => t.type !== "footnote" && t.type !== "references",
     )
     return index === firstIdx
+  }
+
+  private computeNextIsQuoteStates(): Record<number, boolean> {
+    const states: Record<number, boolean> = {}
+    this.data.text.forEach((_, index) => {
+      states[index] = this.checkNextIsQuote(index)
+    })
+    return states
   }
 
   checkNextIsQuote(i: number): boolean {

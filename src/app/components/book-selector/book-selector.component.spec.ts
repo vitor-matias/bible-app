@@ -171,4 +171,35 @@ describe("BookSelectorComponent", () => {
       },
     ])
   })
+
+  it("keeps the introductions that belong to no group in a filtered list", () => {
+    // The whole-Bible and New Testament introductions are childless entries,
+    // so a filter that only keeps groups with matching children erases them.
+    component.books = [
+      {
+        id: "geral",
+        name: "Introdução Geral",
+        shortName: "Introdução Geral",
+        abrv: "geral",
+        chapterCount: 0,
+        introSlug: "geral",
+      },
+      {
+        id: "novotestamento",
+        name: "Novo Testamento",
+        shortName: "Novo Testamento",
+        abrv: "novotestamento",
+        chapterCount: 0,
+        introSlug: "novotestamento",
+      },
+    ] as unknown as Book[]
+
+    component.filterBooks("geral")
+    expect(component.otDataSource.data).toEqual([{ name: "geral", books: [] }])
+
+    component.filterBooks("novo testamento")
+    expect(component.ntDataSource.data).toEqual([
+      { name: "novotestamento", books: [] },
+    ])
+  })
 })

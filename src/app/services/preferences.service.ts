@@ -5,9 +5,18 @@ import { safeLocalStorage } from "../utils/web-storage"
   providedIn: "root",
 })
 export class PreferencesService {
+  private storageRef: Storage | null = null
+
   /** localStorage is absent or non-functional while server-rendering; degrade to defaults. */
   private get storage(): Storage | null {
-    return safeLocalStorage()
+    // The probe behind safeLocalStorage() costs a real write, and every
+    // preference read and write goes through here — resolve it once. A failed
+    // probe is deliberately not cached, so storage that only becomes usable
+    // later (quota freed, permission granted) is still picked up.
+    if (!this.storageRef) {
+      this.storageRef = safeLocalStorage()
+    }
+    return this.storageRef
   }
 
   private readonly KEYS = {
