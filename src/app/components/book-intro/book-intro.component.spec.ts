@@ -37,6 +37,19 @@ describe("BookIntroComponent", () => {
     ).toContain("AUTOR")
   })
 
+  it("should render the top-level intro title as h2, leaving h1 to the page", () => {
+    setIntroduction([
+      { type: "introTitle", level: 1, text: "EVANGELHO SEGUNDO SÃO JOÃO" },
+      { type: "introTitle", level: 2, text: "Subtítulo" },
+    ])
+
+    expect(fixture.nativeElement.querySelectorAll("h1").length).toBe(0)
+    expect(
+      fixture.nativeElement.querySelector("h2.intro-title-1").textContent,
+    ).toContain("EVANGELHO SEGUNDO SÃO JOÃO")
+    expect(fixture.nativeElement.querySelector("h3.intro-title-2")).toBeTruthy()
+  })
+
   it("should group consecutive list items into one list", () => {
     setIntroduction([
       { type: "introListItem", text: "primeiro" },

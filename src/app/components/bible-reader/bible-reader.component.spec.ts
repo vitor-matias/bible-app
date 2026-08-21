@@ -1,4 +1,9 @@
-import { ChangeDetectorRef, ElementRef, NO_ERRORS_SCHEMA } from "@angular/core"
+import {
+  ChangeDetectorRef,
+  ElementRef,
+  NO_ERRORS_SCHEMA,
+  PLATFORM_ID,
+} from "@angular/core"
 import {
   ComponentFixture,
   fakeAsync,
@@ -17,6 +22,7 @@ import { BibleReaderAnimationService } from "../../services/bible-reader-animati
 import { BookService } from "../../services/book.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
+import { SeoService } from "../../services/seo.service"
 import { BibleReaderComponent } from "./bible-reader.component"
 
 describe("BibleReaderComponent", () => {
@@ -33,6 +39,7 @@ describe("BibleReaderComponent", () => {
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
   let networkServiceSpy: jasmine.SpyObj<NetworkService>
   let snackBarSpy: jasmine.SpyObj<MatSnackBar>
+  let seoServiceSpy: jasmine.SpyObj<SeoService>
 
   const mockBooks = [
     { id: "gen", name: "Genesis", urlAbrv: "1-genesis", chapterCount: 50 },
@@ -109,6 +116,7 @@ describe("BibleReaderComponent", () => {
     ]) as jasmine.SpyObj<NetworkService>
     ;(networkServiceSpy as unknown as { isOffline: boolean }).isOffline = false
     snackBarSpy = jasmine.createSpyObj("MatSnackBar", ["open"])
+    seoServiceSpy = jasmine.createSpyObj("SeoService", ["updateForChapter"])
 
     // Default returns
     preferencesServiceSpy.getAutoScrollSpeed.and.returnValue(50)
@@ -131,7 +139,14 @@ describe("BibleReaderComponent", () => {
       of(mockChapter as unknown as Chapter),
     )
 
-    await TestBed.configureTestingModule({
+    await setUpTestBed()
+
+    fixture = TestBed.createComponent(BibleReaderComponent)
+    component = fixture.componentInstance
+  })
+
+  function setUpTestBed(options?: { platformId?: string }): Promise<void> {
+    return TestBed.configureTestingModule({
       imports: [BibleReaderComponent, BrowserAnimationsModule],
       providers: [
         { provide: AutoScrollService, useValue: autoScrollServiceSpy },
@@ -144,6 +159,10 @@ describe("BibleReaderComponent", () => {
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
         { provide: NetworkService, useValue: networkServiceSpy },
         { provide: MatSnackBar, useValue: snackBarSpy },
+        { provide: SeoService, useValue: seoServiceSpy },
+        ...(options?.platformId
+          ? [{ provide: PLATFORM_ID, useValue: options.platformId }]
+          : []),
       ],
     })
       .overrideComponent(BibleReaderComponent, {
@@ -153,10 +172,7 @@ describe("BibleReaderComponent", () => {
         },
       })
       .compileComponents()
-
-    fixture = TestBed.createComponent(BibleReaderComponent)
-    component = fixture.componentInstance
-  })
+  }
 
   it("should create", () => {
     expect(component).toBeTruthy()
@@ -178,6 +194,19 @@ describe("BibleReaderComponent", () => {
       expect(bookServiceSpy.findBook).toHaveBeenCalledWith("gen")
       expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("gen", 1)
       expect(routerSpy.navigate).toHaveBeenCalled()
+    })
+
+    // A router.navigate during prerendering (e.g. "/" → "/sobre/1") makes
+    // Angular emit a "Redirecting" stub instead of the page's real content,
+    // which would leave the home page with nothing for crawlers to index.
+    it("should not navigate while server-rendering, but still load the chapter", async () => {
+      TestBed.resetTestingModule()
+      await setUpTestBed({ platformId: "server" })
+      const serverFixture = TestBed.createComponent(BibleReaderComponent)
+      serverFixture.detectChanges()
+
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
+      expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("gen", 1)
     })
 
     it("should not call getChapter if book and chapter didn't change on route update", () => {
@@ -214,6 +243,62 @@ describe("BibleReaderComponent", () => {
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
       expect(component.isNavigatingBackwards).toBeTrue()
       expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", "1"])
+    })
+
+    it("exposes router link arrays for the prev/next chapter anchors", () => {
+      component.chapterNumber = 5
+      expect(component.previousChapterLink).toEqual(["/", "1-genesis", "4"])
+      expect(component.nextChapterLink).toEqual(["/", "1-genesis", "6"])
+    })
+
+    it("uses the intro segment when the previous chapter is the introduction", () => {
+      component.book = {
+        ...(mockBooks[0] as unknown as Book),
+        introduction: [{ type: "introParagraph", text: "intro" }],
+      }
+      component.chapterNumber = 1
+
+      expect(component.previousChapterLink).toEqual(["/", "1-genesis", "intro"])
+    })
+
+    it("prepareChapterNavigation stops auto-scroll and sets the slide direction", () => {
+      component.prepareChapterNavigation(true)
+      expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
+      expect(component.isNavigatingForwards).toBeTrue()
+      expect(component.isNavigatingBackwards).toBeFalse()
+
+      component.isNavigatingForwards = false
+      component.prepareChapterNavigation(false)
+      expect(component.isNavigatingBackwards).toBeTrue()
+    })
+
+    it("renders prev/next as anchors (crawlable links) in scrolling mode", () => {
+      const element = fixture.nativeElement as HTMLElement
+      // Initial chapter is 1: only the next-chapter link should exist.
+      expect(element.querySelector("a.next-chapter")).toBeTruthy()
+      expect(element.querySelector("button.next-chapter")).toBeFalsy()
+      expect(element.querySelector("a.prev-chapter")).toBeFalsy()
+
+      component.chapter = { bookId: "gen", number: 2 } as Chapter
+      component.chapterNumber = 2
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+
+      expect(element.querySelector("a.prev-chapter")).toBeTruthy()
+      expect(element.querySelector("button.prev-chapter")).toBeFalsy()
+    })
+
+    it("renders prev/next as buttons in paged mode", () => {
+      component.viewMode = "paged"
+      component.chapter = { bookId: "gen", number: 2 } as Chapter
+      component.chapterNumber = 2
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+
+      const element = fixture.nativeElement as HTMLElement
+      expect(element.querySelector("button.next-chapter")).toBeTruthy()
+      expect(element.querySelector("a.next-chapter")).toBeFalsy()
+      expect(element.querySelector("button.prev-chapter")).toBeTruthy()
     })
     it("onPageStateChange should only mark for check if state changed", () => {
       const cdrSpy = spyOn(
@@ -462,6 +547,22 @@ describe("BibleReaderComponent", () => {
       expect(component.chapterNumber).toBe(1)
       expect(animationServiceSpy.scrollToTop).toHaveBeenCalled()
       expect(preferencesServiceSpy.setLastBookId).toHaveBeenCalledWith("gen")
+    }))
+
+    it("should update SEO metadata when a chapter is applied", fakeAsync(() => {
+      seoServiceSpy.updateForChapter.calls.reset()
+      apiServiceSpy.getChapter.and.returnValue(
+        of(mockChapter as unknown as Chapter),
+      )
+
+      component.getChapter(1)
+      tick()
+
+      expect(seoServiceSpy.updateForChapter).toHaveBeenCalledWith(
+        component.book,
+        1,
+        mockChapter as unknown as Chapter,
+      )
     }))
 
     it("should call scrollToEnd when navigating backwards in paged mode", fakeAsync(() => {

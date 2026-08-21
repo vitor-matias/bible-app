@@ -22,6 +22,16 @@
   width: 100%;
 }
 
+/* The h1 exists for semantics only — it wraps the book/chapter picker without
+   contributing a box of its own, so the toolbar lays out exactly as before. */
+.page-heading {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin: 0;
+  font: inherit;
+}
+
 .bookTitle {
   color: antiquewhite;
   display: flex;

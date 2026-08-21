@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/@angular/service-worker/config/schema.json",
-  "index": "/index.html",
+  "index": "/index.csr.html",
   "assetGroups": [
     {
       "name": "app",
@@ -9,7 +9,7 @@
       "resources": {
         "files": [
           "/favicon.ico",
-          "/index.html",
+          "/index.csr.html",
           "/manifest.webmanifest",
           "/*.css",
           "/*.js"
@@ -28,18 +28,6 @@
     }
   ],
   "dataGroups": [
-    {
-      "name": "google-fonts",
-      "urls": [
-        "https://fonts.googleapis.com/css2?**",
-        "https://fonts.gstatic.com/**"
-      ],
-      "cacheConfig": {
-        "strategy": "performance",
-        "maxSize": 20,
-        "maxAge": "30d"
-      }
-    },
     {
       "name": "bible-search",
       "urls": [

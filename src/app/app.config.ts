@@ -14,7 +14,20 @@ import { BookService } from "./services/book.service"
 export function initializeBookService(
   bookService: BookService,
 ): () => Promise<void> {
-  return () => bookService.initializeBooks()
+  return () =>
+    bookService.initializeBooks().catch((error: unknown) => {
+      // While server-rendering (prerender/route extraction), an unreachable
+      // API must not fail the whole build — affected pages just fall back to
+      // client-side rendering. In the browser, keep failing loudly.
+      if (typeof window === "undefined") {
+        console.warn(
+          "Book list unavailable during server rendering; continuing without it.",
+          error instanceof Error ? error.message : error,
+        )
+        return
+      }
+      throw error
+    })
 }
 
 export const appConfig: ApplicationConfig = {

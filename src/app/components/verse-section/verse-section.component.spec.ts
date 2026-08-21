@@ -164,7 +164,7 @@ describe("VerseSectionComponent", () => {
 
       const spy = mockSnackBar.openFromComponent as jasmine.Spy
       const callArgs = spy.calls.mostRecent().args[1]
-      expect((callArgs?.data as { message: string }).message).toContain(",1")
+      expect((callArgs.data as { message: string }).message).toContain(",1")
     })
   })
 

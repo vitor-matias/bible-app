@@ -1,4 +1,5 @@
 import { CommonModule } from "@angular/common"
+import { PLATFORM_ID, SimpleChange } from "@angular/core"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
@@ -96,6 +97,18 @@ describe("HeaderComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  it("should title the page with a single h1 naming the book and chapter", () => {
+    fixture.componentRef.setInput("chapterNumber", 3)
+    component.mobile = false
+    fixture.changeDetectorRef.markForCheck()
+    fixture.detectChanges()
+
+    const headings = fixture.nativeElement.querySelectorAll("h1")
+    expect(headings.length).toBe(1)
+    expect(headings[0].textContent).toContain("Genesis")
+    expect(headings[0].textContent).toContain("3")
+  })
+
   it("should reflect offline status from NetworkService", () => {
     isOfflineSubject.next(true)
     fixture.detectChanges()
@@ -179,5 +192,58 @@ describe("HeaderComponent", () => {
 
     expect(shareSpy).toHaveBeenCalled()
     expect(mockSharePlugin.share).not.toHaveBeenCalled()
+  })
+
+  describe("about label cycle", () => {
+    const aboutBook: Book = {
+      id: "about",
+      name: "Sobre a Bíblia dos Capuchinhos",
+      shortName: "Sobre a Bíblia",
+      abrv: "Sobre",
+      chapterCount: 1,
+    }
+
+    it("cycles the about label in the browser", () => {
+      const setIntervalSpy = spyOn(window, "setInterval").and.callThrough()
+
+      component.book = aboutBook
+      component.ngOnChanges({
+        book: new SimpleChange(undefined, aboutBook, false),
+      })
+
+      expect(setIntervalSpy).toHaveBeenCalled()
+      component.ngOnDestroy()
+    })
+
+    // window does not exist during prerendering; scheduling the cycle there
+    // crashed every server render of "/" (the about/home page).
+    it("does not schedule the label cycle while server-rendering", async () => {
+      TestBed.resetTestingModule()
+      await TestBed.configureTestingModule({
+        imports: [HeaderComponent, CommonModule],
+        providers: [
+          { provide: Router, useValue: routerSpy },
+          { provide: NetworkService, useValue: networkServiceSpy },
+          { provide: ThemeService, useValue: themeServiceSpy },
+          { provide: BookmarkService, useValue: bookmarkServiceSpy },
+          { provide: MatBottomSheet, useValue: bottomSheetSpy },
+          { provide: MatDialog, useValue: dialogSpy },
+          { provide: SHARE_PLUGIN, useValue: mockSharePlugin },
+          { provide: AnalyticsService, useValue: analyticsServiceSpy },
+          { provide: PLATFORM_ID, useValue: "server" },
+        ],
+      }).compileComponents()
+      const serverComponent = TestBed.createComponent(HeaderComponent)
+        .componentInstance as HeaderComponent
+
+      const setIntervalSpy = spyOn(window, "setInterval").and.callThrough()
+
+      serverComponent.book = aboutBook
+      serverComponent.ngOnChanges({
+        book: new SimpleChange(undefined, aboutBook, true),
+      })
+
+      expect(setIntervalSpy).not.toHaveBeenCalled()
+    })
   })
 })

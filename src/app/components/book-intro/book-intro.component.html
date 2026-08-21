@@ -17,10 +17,11 @@
         @case ('introTitle') {
           @switch (item.element.level) {
             @case (1) {
-              <h1 class="intro-title intro-title-1">{{ item.element.text }}</h1>
+              <!-- h2, not h1: the toolbar already carries the page's single h1. -->
+              <h2 class="intro-title intro-title-1">{{ item.element.text }}</h2>
             }
             @case (2) {
-              <h2 class="intro-title intro-title-2">{{ item.element.text }}</h2>
+              <h3 class="intro-title intro-title-2">{{ item.element.text }}</h3>
             }
             @default {
               <h3 class="intro-title intro-title-3">{{ item.element.text }}</h3>

@@ -20,11 +20,16 @@ export class KeepAwakeService implements OnDestroy {
   }
 
   constructor() {
-    document.addEventListener("visibilitychange", this.visibilityHandler)
+    // document is absent while server-rendering; wake locks are browser-only.
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", this.visibilityHandler)
+    }
   }
 
   ngOnDestroy(): void {
-    document.removeEventListener("visibilitychange", this.visibilityHandler)
+    if (typeof document !== "undefined") {
+      document.removeEventListener("visibilitychange", this.visibilityHandler)
+    }
     this.stop()
   }
 

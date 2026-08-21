@@ -1,5 +1,11 @@
 import { Injectable } from "@angular/core"
 
+/** Toggled on the <verse> host; the stroke is styled in verse.component.css. */
+export const HIGHLIGHT_CLASS = "verse-highlight"
+
+/** How long a deep-linked verse stays marked before the stroke fades out. */
+export const HIGHLIGHT_DURATION_MS = 2500
+
 @Injectable({
   providedIn: "root",
 })
@@ -8,6 +14,15 @@ export class BibleReaderAnimationService {
     HTMLElement,
     ReturnType<typeof setTimeout>
   >()
+
+  /**
+   * Scroll/animation work is meaningless while server-rendering, and the
+   * server DOM lacks scrollTo/requestAnimationFrame — skip it entirely.
+   */
+  private get isBrowser(): boolean {
+    return typeof window !== "undefined"
+  }
+
   scrollToTop(
     drawerContent: HTMLElement | undefined,
     container: HTMLElement | undefined,
@@ -15,6 +30,7 @@ export class BibleReaderAnimationService {
     startAtBottom = false,
     beforeScroll?: () => void,
   ): void {
+    if (!this.isBrowser) return
     setTimeout(() => {
       if (drawerContent) {
         drawerContent.scrollTo({ top: 0, behavior: "smooth" })
@@ -90,6 +106,7 @@ export class BibleReaderAnimationService {
     container: HTMLElement,
     isBackward: boolean,
   ): Promise<void> {
+    if (!this.isBrowser) return Promise.resolve()
     return new Promise((resolve) => {
       const animationClass = isBackward ? "slide-out-right" : "slide-out-left"
 
@@ -127,6 +144,7 @@ export class BibleReaderAnimationService {
     highlight = true,
     startAtBottom = false,
   ): void {
+    if (!this.isBrowser) return
     setTimeout(() => {
       let scrolled = false
       if (!bookBlock) return
@@ -144,17 +162,19 @@ export class BibleReaderAnimationService {
             scrolled = true
           }
           if (highlight) {
-            element.style.transition = "background-color 0.5s ease"
-            element.style.backgroundColor = "var(--highlight-color)"
+            // The stroke itself is styled by the verse component; painting it
+            // from here (on the inline <verse> host) would colour the empty
+            // line fragments and inter-verse spaces too.
+            element.classList.add(HIGHLIGHT_CLASS)
 
             if (this.highlightTimeouts.has(element)) {
               clearTimeout(this.highlightTimeouts.get(element))
             }
 
             const timeoutId = setTimeout(() => {
-              element.style.backgroundColor = ""
+              element.classList.remove(HIGHLIGHT_CLASS)
               this.highlightTimeouts.delete(element)
-            }, 2500)
+            }, HIGHLIGHT_DURATION_MS)
             this.highlightTimeouts.set(element, timeoutId)
           }
         }

@@ -1,4 +1,4 @@
-import { CommonModule } from "@angular/common"
+import { CommonModule, isPlatformBrowser } from "@angular/common"
 import {
   afterNextRender,
   ChangeDetectionStrategy,
@@ -10,6 +10,7 @@ import {
   inject,
   type OnDestroy,
   type OnInit,
+  PLATFORM_ID,
   ViewChild,
 } from "@angular/core"
 import { MatBottomSheetModule } from "@angular/material/bottom-sheet"
@@ -22,7 +23,7 @@ import {
   MatSidenavModule,
 } from "@angular/material/sidenav"
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
-import { ActivatedRoute, Router } from "@angular/router"
+import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { combineLatest, Subject, Subscription } from "rxjs"
 import { switchMap, takeUntil } from "rxjs/operators"
 import {
@@ -37,6 +38,7 @@ import { BibleReaderAnimationService } from "../../services/bible-reader-animati
 import { BookService } from "../../services/book.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
+import { SeoService } from "../../services/seo.service"
 import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
 import { BookIntroComponent } from "../book-intro/book-intro.component"
@@ -67,12 +69,14 @@ import { VerseComponent } from "../verse/verse.component"
     PagedNavigationDirective,
     AutoScrollControlsComponent,
     BookIntroComponent,
+    RouterLink,
   ],
 })
 export class BibleReaderComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>()
   private chapterSubscription?: Subscription
   private injector = inject(Injector)
+  private platformId = inject(PLATFORM_ID)
 
   @ViewChild("bookDrawer")
   bookDrawer!: MatDrawer
@@ -167,6 +171,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     private analyticsService: AnalyticsService,
     private networkService: NetworkService,
     private snackBar: MatSnackBar,
+    private seoService: SeoService,
   ) {}
 
   ngOnInit(): void {
@@ -216,16 +221,23 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
               ? Number.parseInt(queryParams["verseEnd"], 10)
               : undefined
 
-            this.router.navigate(
-              [
-                this.bookService.getUrlAbrv(this.book),
-                this.bookService.getChapterUrlSegment(this.chapterNumber),
-              ],
-              {
-                queryParams: Object.keys(queryParams).length ? queryParams : {},
-                replaceUrl: true,
-              },
-            )
+            // Only normalize the URL in the browser. During prerendering this
+            // navigation (e.g. "/" → "/sobre/1") would make Angular emit a
+            // "Redirecting" stub instead of the page's real, indexable content.
+            if (isPlatformBrowser(this.platformId)) {
+              this.router.navigate(
+                [
+                  this.bookService.getUrlAbrv(this.book),
+                  this.bookService.getChapterUrlSegment(this.chapterNumber),
+                ],
+                {
+                  queryParams: Object.keys(queryParams).length
+                    ? queryParams
+                    : {},
+                  replaceUrl: true,
+                },
+              )
+            }
             this.getChapter(
               this.chapterNumber,
               parsedVerseStart,
@@ -282,6 +294,35 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.destroy$.complete()
     this.chapterSubscription?.unsubscribe()
     // AutoScrollService handles its own cleanup now if we stop it, or the component stopping it
+  }
+
+  get previousChapterLink(): (string | number)[] {
+    return [
+      "/",
+      this.bookService.getUrlAbrv(this.book),
+      this.bookService.getChapterUrlSegment(this.chapterNumber - 1),
+    ]
+  }
+
+  get nextChapterLink(): (string | number)[] {
+    return [
+      "/",
+      this.bookService.getUrlAbrv(this.book),
+      this.bookService.getChapterUrlSegment(this.chapterNumber + 1),
+    ]
+  }
+
+  /**
+   * Side effects for the crawlable prev/next anchors: RouterLink performs the
+   * navigation, this just stops auto-scroll and picks the slide direction.
+   */
+  prepareChapterNavigation(forwards: boolean): void {
+    this.autoScrollService.stop()
+    if (forwards) {
+      this.isNavigatingForwards = true
+    } else {
+      this.isNavigatingBackwards = true
+    }
   }
 
   onSwipeLeft(): void {
@@ -470,6 +511,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     this.chapter = chapterData
     this.chapterNumber = chapter
+
+    this.seoService.updateForChapter(
+      this.book,
+      this.chapterNumber,
+      this.chapter,
+    )
 
     this.cdr.detectChanges()
 

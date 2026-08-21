@@ -10,7 +10,12 @@ export type ThemeMode = "light" | "dark" | "system"
 })
 export class ThemeService {
   private themeMode = new BehaviorSubject<ThemeMode>("system")
-  private nightModeQuery = window.matchMedia("(prefers-color-scheme: dark)")
+  // window/document are absent while server-rendering; the server output
+  // stays on the default (light) theme and the browser applies the real one.
+  private nightModeQuery =
+    typeof window === "undefined"
+      ? null
+      : window.matchMedia("(prefers-color-scheme: dark)")
 
   constructor(
     private preferencesService: PreferencesService,
@@ -33,7 +38,9 @@ export class ThemeService {
         this.applyTheme("system")
       }
     }
-    if (this.nightModeQuery.addEventListener) {
+    if (!this.nightModeQuery) {
+      // Server rendering: nothing to watch.
+    } else if (this.nightModeQuery.addEventListener) {
       this.nightModeQuery.addEventListener("change", handler)
     } else {
       this.nightModeQuery.addListener(handler)
@@ -59,9 +66,10 @@ export class ThemeService {
   }
 
   private applyTheme(mode: ThemeMode): void {
+    if (typeof document === "undefined") return
     let isDark = false
     if (mode === "system") {
-      isDark = this.nightModeQuery.matches
+      isDark = this.nightModeQuery?.matches ?? false
     } else {
       isDark = mode === "dark"
     }

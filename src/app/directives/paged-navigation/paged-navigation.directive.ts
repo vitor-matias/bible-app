@@ -243,6 +243,8 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
    * Automatically recalculates aligning boundaries to prevent clipping text.
    */
   private observeContentChanges(): void {
+    // Layout observation is browser-only; the server DOM has no observers.
+    if (typeof MutationObserver === "undefined") return
     this.mutationObserver?.disconnect()
     const block = this._bookBlock
     if (!block) return

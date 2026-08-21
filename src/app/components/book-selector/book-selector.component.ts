@@ -1,5 +1,4 @@
 import { FlatTreeControl } from "@angular/cdk/tree"
-
 import {
   AfterViewInit,
   afterNextRender,
@@ -14,7 +13,6 @@ import {
   Output,
   SimpleChanges,
 } from "@angular/core"
-
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { MatListModule } from "@angular/material/list"
@@ -23,6 +21,11 @@ import {
   MatTreeFlattener,
   MatTreeModule,
 } from "@angular/material/tree"
+import {
+  type CanonGroup,
+  NEW_TESTAMENT_GROUPS,
+  OLD_TESTAMENT_GROUPS,
+} from "../../bible-canon"
 
 interface BookNode {
   name: string
@@ -97,98 +100,14 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   hasChild = (_: number, node: ExampleFlatNode) => node.expandable
 
-  oldTestament = [
-    {
-      name: "Pentateuco",
-      books: ["gen", "exo", "lev", "num", "deu"],
-    },
-    {
-      name: "Livros Históricos",
-      books: [
-        "jos",
-        "jdg",
-        "rut",
-        "1sa",
-        "2sa",
-        "1ki",
-        "2ki",
-        "1ch",
-        "2ch",
-        "ezr",
-        "neh",
-        "tob",
-        "jdt",
-        "est",
-        "1ma",
-        "2ma",
-      ],
-    },
-    {
-      name: "Livros Sapienciais",
-      books: ["job", "psa", "pro", "ecc", "sng", "wis", "sir"],
-    },
-    {
-      name: "Livros Proféticos",
-      books: [
-        "isa",
-        "jer",
-        "lam",
-        "bar",
-        "ezk",
-        "dan",
-        "hos",
-        "jol",
-        "amo",
-        "oba",
-        "jon",
-        "mic",
-        "nam",
-        "hab",
-        "zep",
-        "hag",
-        "zec",
-        "mal",
-      ],
-    },
-  ]
+  oldTestament: CanonGroup[] = OLD_TESTAMENT_GROUPS
 
-  newTestament = [
+  // The picker also offers the synthetic About page, which is not part of the
+  // shared canon (the crawlable book index must not link to it).
+  newTestament: CanonGroup[] = [
+    ...NEW_TESTAMENT_GROUPS,
     {
-      name: "Evangelhos e Atos",
-      books: ["mat", "mrk", "luk", "jhn", "act"],
-    },
-    {
-      name: "Cartas de São Paulo",
-      books: [
-        "rom",
-        "1co",
-        "2co",
-        "gal",
-        "eph",
-        "php",
-        "col",
-        "1th",
-        "2th",
-        "1ti",
-        "2ti",
-        "tit",
-        "phm",
-      ],
-    },
-    {
-      name: "Carta aos Hebreus",
-      books: ["heb"],
-    },
-    {
-      name: "Cartas Católicas",
-      books: ["jas", "1pe", "2pe", "1jn", "2jn", "3jn", "jud"],
-    },
-    {
-      name: "Apocalipse",
-      books: ["rev"],
-    },
-    {
-      name: "Sobre a Biblia",
+      name: "Sobre a Bíblia",
       books: ["about"],
     },
   ]
@@ -259,7 +178,12 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   }
 
   ngAfterViewInit(): void {
-    this.scrollToSelectedBook()
+    // Deferred like the ngOnChanges path below: ngAfterViewInit also runs during
+    // prerendering, where the server DOM has no scrollIntoView. afterNextRender
+    // is browser-only, so the scroll simply doesn't happen there.
+    afterNextRender(() => this.scrollToSelectedBook(), {
+      injector: this.injector,
+    })
   }
 
   ngOnChanges(changes: SimpleChanges): void {

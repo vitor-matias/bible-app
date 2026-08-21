@@ -1,7 +1,41 @@
-import { expect, test } from "@playwright/test"
+import { expect, type Locator, type Page, test } from "@playwright/test"
 
 // The app proxies /v1 to https://biblia.capuchinhos.org — tests run against
 // the live dev server and the real API.
+
+// Icons are ligatures in the Material Symbols font, so an icon the font doesn't
+// carry doesn't fail loudly — it renders its own name as words. A ligature
+// collapses to roughly one em; spelled-out letters run many times wider.
+// mat-icon is a fixed 24px box that clips the overflow, so the giveaway is
+// scrollWidth, not the element's own width.
+function iconsRenderedAsText(scope: Locator): Promise<string[]> {
+  return scope.locator("mat-icon").evaluateAll((icons) =>
+    icons
+      .filter((icon) => icon.textContent?.trim() && icon.checkVisibility())
+      .filter((icon) => {
+        const { fontSize } = getComputedStyle(icon)
+        return icon.scrollWidth > Number.parseFloat(fontSize) * 1.6
+      })
+      .map((icon) => icon.textContent?.trim() ?? ""),
+  )
+}
+
+// The icon font is a few megabytes, so poll rather than measure once: names
+// still spelled out after the font has had time to arrive are genuinely absent
+// from it.
+async function expectIconsRendered(scope: Locator) {
+  await expect
+    .poll(() => iconsRenderedAsText(scope), { timeout: 20_000 })
+    .toEqual([])
+}
+
+async function openReader(page: Page) {
+  await page.goto("/jo/1")
+  await page.locator("verse").first().waitFor({ timeout: 15_000 })
+  await page.evaluate(() =>
+    document.fonts.load('24px "Material Symbols Outlined"'),
+  )
+}
 
 test.describe("Initial load", () => {
   test("redirects to a book/chapter URL", async ({ page }) => {
@@ -21,6 +55,18 @@ test.describe("Initial load", () => {
     await expect(page.locator(".bookSelectorButton").first()).toBeVisible()
     // Header should mention John's abbreviation or name
     await expect(page.locator("mat-toolbar")).toContainText(/Jo/i)
+  })
+
+  // Every chapter is a separately indexed page, so each needs its own single h1
+  // rather than one shared site-wide heading.
+  test("gives the chapter exactly one h1 naming it", async ({ page }) => {
+    await page.goto("/jo/3")
+    await page.locator("verse").first().waitFor({ timeout: 15_000 })
+
+    const heading = page.locator("h1")
+    await expect(heading).toHaveCount(1)
+    await expect(heading).toContainText(/Jo/i)
+    await expect(heading).toContainText("3")
   })
 })
 
@@ -129,6 +175,69 @@ test.describe("Search", () => {
     // Should navigate away from /search to a book/chapter
     await expect(page).toHaveURL(/\/[a-z0-9-]+\/\d+/, { timeout: 10_000 })
     await expect(page.locator("verse").first()).toBeVisible({ timeout: 15_000 })
+  })
+})
+
+test.describe("Icon font", () => {
+  test("toolbar icons render as glyphs", async ({ page }) => {
+    await openReader(page)
+    await expectIconsRendered(page.locator("mat-toolbar"))
+  })
+
+  test("header menu icons render as glyphs", async ({ page }) => {
+    await openReader(page)
+
+    await page.locator(".menuButton").click()
+    const menu = page.locator(".cdk-overlay-container")
+    await expect(menu.locator("mat-icon").first()).toBeVisible({
+      timeout: 5_000,
+    })
+    await expectIconsRendered(menu)
+  })
+
+  test("book selector icons render as glyphs, expanded and collapsed", async ({
+    page,
+  }) => {
+    await openReader(page)
+
+    await page.locator(".bookSelectorButton mat-button-toggle").first().click()
+    const drawer = page.locator("mat-drawer")
+    await expect(drawer).toBeVisible({ timeout: 5_000 })
+    // Collapsed groups show one toggle icon, expanded groups the other.
+    await expectIconsRendered(drawer)
+
+    await drawer.locator(".book-group").first().click()
+    await expect(drawer.locator("mat-tree-node").nth(1)).toBeVisible()
+    await expectIconsRendered(drawer)
+  })
+
+  // chapter-selector fills the bookmark icon through the FILL axis. A static
+  // (non-variable) icon font would ignore that and quietly draw it outlined, so
+  // check the axis actually moves the glyph.
+  test("the FILL axis changes the glyph", async ({ page }) => {
+    await openReader(page)
+
+    const renderWithFill = async (fill: number) => {
+      await page.evaluate((axis) => {
+        const probe =
+          document.getElementById("fill-probe") ??
+          document.body.appendChild(
+            Object.assign(document.createElement("span"), {
+              id: "fill-probe",
+              className: "material-symbols-outlined",
+              textContent: "bookmark",
+            }),
+          )
+        probe.style.cssText =
+          "position:fixed;top:0;left:0;z-index:9999;background:#fff;color:#000"
+        probe.style.fontVariationSettings = `"FILL" ${axis}`
+      }, fill)
+      return page.locator("#fill-probe").screenshot()
+    }
+
+    const hollow = await renderWithFill(0)
+    const filled = await renderWithFill(1)
+    expect(filled.equals(hollow)).toBe(false)
   })
 })
 

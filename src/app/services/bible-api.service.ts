@@ -4,16 +4,58 @@ import {
   catchError,
   finalize,
   from,
+  type MonoTypeOperatorFunction,
   type Observable,
   of,
+  retry,
   shareReplay,
   switchMap,
   tap,
   throwError,
+  timeout,
+  timer,
 } from "rxjs"
 import { apiBaseUrl } from "../config"
 import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
+
+const IS_SERVER = typeof window === "undefined"
+
+// While prerendering, every page boots a fresh app in the same worker process;
+// module state survives between renders, so one worker fetches the book list
+// once instead of ~1200 times (which invites API rate limiting).
+let serverBooksCache: Book[] | null = null
+
+/**
+ * Server-only request hardening for prerendering: a bounded timeout (a
+ * connection that never completes must not hang the build) plus retry with
+ * backoff (transient rate limiting must not fail the build or ship empty
+ * pages). In the browser the source observable is passed through untouched.
+ * Exported for tests via createApiResilience; production code uses the
+ * IS_SERVER-bound wrapper below.
+ */
+export function createApiResilience<T>(
+  isServer: boolean,
+  timeoutMs = 20_000,
+  retryCount = 3,
+  retryBaseDelayMs = 300,
+): MonoTypeOperatorFunction<T> {
+  if (!isServer) {
+    return (source) => source
+  }
+  return (source) =>
+    source.pipe(
+      timeout(timeoutMs),
+      retry({
+        count: retryCount,
+        delay: (_error, attempt) => timer(retryBaseDelayMs * 2 ** attempt),
+      }),
+    )
+}
+
+function serverRetry<T>() {
+  return createApiResilience<T>(IS_SERVER)
+}
 
 @Injectable({
   providedIn: "root",
@@ -44,6 +86,10 @@ export class BibleApiService {
         if (this.books.length) {
           return of(this.books)
         }
+        if (IS_SERVER && serverBooksCache) {
+          this.books = serverBooksCache
+          return of(serverBooksCache)
+        }
         if (this.networkService.isOffline) {
           return throwError(
             () => new Error("Offline and no cached books available"),
@@ -54,8 +100,12 @@ export class BibleApiService {
           this.booksRequest$ = (
             this.http.get(`${this.api}/books`) as Observable<Book[]>
           ).pipe(
+            serverRetry(),
             tap((books) => {
               this.books = books
+              if (IS_SERVER) {
+                serverBooksCache = books
+              }
             }),
             catchError((error) => {
               this.booksRequest$ = null
@@ -93,6 +143,7 @@ export class BibleApiService {
         const request = (
           this.http.get(`${this.api}/${book}/${chapter}`) as Observable<Chapter>
         ).pipe(
+          serverRetry(),
           finalize(() => {
             this.chapterRequests.delete(requestKey)
           }),

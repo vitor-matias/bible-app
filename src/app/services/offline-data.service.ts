@@ -2,6 +2,7 @@ import { HttpClient } from "@angular/common/http"
 import { Injectable } from "@angular/core"
 import { firstValueFrom } from "rxjs"
 import { apiBaseUrl } from "../config"
+import { safeLocalStorage } from "../utils/web-storage"
 import { AnalyticsService } from "./analytics.service"
 import { DatabaseService } from "./database.service"
 import { NetworkService } from "./network.service"
@@ -45,7 +46,7 @@ export class OfflineDataService {
     // gate a lingering "ready" flag would skip the refresh while reads fail
     // closed to an empty cache.
     const isAlreadyCached =
-      migrated && localStorage.getItem(this.cacheFlagKey) === "true"
+      migrated && safeLocalStorage()?.getItem(this.cacheFlagKey) === "true"
     const isExpired = this.isCacheExpired()
     if (isAlreadyCached && !isExpired) {
       return
@@ -96,15 +97,14 @@ export class OfflineDataService {
 
     const existingBooks = this.cachedBooks ?? []
     this.cachedBooks = this.mergeCachedBooks(existingBooks, books)
-    if (typeof localStorage === "undefined") {
-      // In non-browser environments, skip persistence and metadata.
-      return
-    }
+    // localStorage only holds cache metadata — its absence (privacy modes)
+    // must not prevent persisting the books themselves to IndexedDB.
+    const storage = safeLocalStorage()
 
     try {
       await this.saveBooksToIndexedDb(this.cachedBooks)
-      localStorage.setItem(this.cacheTimestampKey, Date.now().toString())
-      localStorage.setItem(this.cacheFlagKey, "true")
+      storage?.setItem(this.cacheTimestampKey, Date.now().toString())
+      storage?.setItem(this.cacheFlagKey, "true")
     } catch (error) {
       console.error("Failed to persist cached books or metadata", error)
       throw error
@@ -113,9 +113,7 @@ export class OfflineDataService {
 
   getCachedBooks(): Book[] {
     this.ensureCacheLoaded()
-    if (this.cachedBooks) return this.cachedBooks
-    if (typeof localStorage === "undefined") return []
-    return []
+    return this.cachedBooks ?? []
   }
 
   async getCachedBooksAsync(): Promise<Book[]> {
@@ -298,8 +296,7 @@ export class OfflineDataService {
   }
 
   private isCacheExpired(): boolean {
-    if (typeof localStorage === "undefined") return false
-    const ts = localStorage.getItem(this.cacheTimestampKey)
+    const ts = safeLocalStorage()?.getItem(this.cacheTimestampKey)
     if (!ts) return false
     const timestamp = Number.parseInt(ts, 10)
     if (!Number.isFinite(timestamp)) return false

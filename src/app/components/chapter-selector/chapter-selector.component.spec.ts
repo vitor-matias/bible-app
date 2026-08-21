@@ -54,6 +54,21 @@ describe("ChapterSelectorComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  // ngAfterViewInit also runs while prerendering, where the server DOM has no
+  // scrollIntoView — calling it there threw once per prerendered route.
+  it("should not scroll straight from ngAfterViewInit", () => {
+    component.selectedChapter = 1
+    fixture.detectChanges()
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector(".highlight"),
+    ).toBeTruthy()
+    const scrollSpy = spyOn(Element.prototype, "scrollIntoView")
+
+    component.ngAfterViewInit()
+
+    expect(scrollSpy).not.toHaveBeenCalled()
+  })
+
   it("should render bookmark icon for bookmarked chapters", () => {
     const compiled = fixture.nativeElement as HTMLElement
     const icons = compiled.querySelectorAll(".bookmark-icon")

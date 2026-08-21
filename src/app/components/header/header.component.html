@@ -56,6 +56,10 @@
         </a>
       </mat-menu>
 
+      <!-- The book/chapter label is this page's heading as well as its picker, so
+           it carries the h1. Controls inside a heading are valid HTML, and the
+           alternative (a hidden h1) would give crawlers text no reader sees. -->
+      <h1 class="page-heading">
       <mat-button-toggle-group multiple class="bookSelectorButton">
         <mat-button-toggle #bookToggle mat-flat-button matTooltip="Escolher livro" class="bookSelectorButtonContent"
           (click)="showBookSelector(); bookToggle.checked = false"
@@ -82,8 +86,7 @@
         </mat-button-toggle>
         }
       </mat-button-toggle-group>
-
-
+      </h1>
 
       @if (!isOffline) {
       <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button matTooltip="Pesquisar"

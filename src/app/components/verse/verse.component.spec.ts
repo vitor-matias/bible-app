@@ -601,6 +601,142 @@ describe("VerseComponent", () => {
     })
   })
 
+  describe("deep-link highlight", () => {
+    /** Mirrors what BibleReaderAnimationService puts on the <verse> host. */
+    function highlightHost(): HTMLElement {
+      const host = fixture.nativeElement as HTMLElement
+      host.classList.add("verse-highlight")
+      fixture.detectChanges()
+      return host
+    }
+
+    it("should mark the text run so the stroke can be painted on it", () => {
+      setData(
+        component,
+        makeVerse({
+          text: [{ type: "text", text: "plain", normalizedText: "plain" }],
+        }),
+      )
+      highlightHost()
+
+      const run = fixture.nativeElement.querySelector(
+        ".verseRun",
+      ) as HTMLElement
+      expect(run.textContent).toContain("plain")
+      expect(getComputedStyle(run).backgroundSize).toBe("100% 100%")
+    })
+
+    it("should leave the run unpainted while the verse is not highlighted", () => {
+      setData(
+        component,
+        makeVerse({
+          text: [{ type: "text", text: "plain", normalizedText: "plain" }],
+        }),
+      )
+      fixture.detectChanges()
+
+      const run = fixture.nativeElement.querySelector(
+        ".verseRun",
+      ) as HTMLElement
+      expect(getComputedStyle(run).backgroundSize).toBe("0px 100%")
+    })
+
+    it("should never paint the inline host, whose line fragments would colour the gaps between verses", () => {
+      setData(
+        component,
+        makeVerse({
+          text: [{ type: "text", text: "plain", normalizedText: "plain" }],
+        }),
+      )
+      const host = highlightHost()
+
+      const style = getComputedStyle(host)
+      expect(style.backgroundImage).toBe("none")
+      expect(style.backgroundColor).toBe("rgba(0, 0, 0, 0)")
+    })
+
+    it("should paint the verse number so it is not left out of the stroke", () => {
+      setData(
+        component,
+        makeVerse({
+          number: 2,
+          text: [{ type: "text", text: "plain", normalizedText: "plain" }],
+        }),
+      )
+      highlightHost()
+
+      const number = fixture.nativeElement.querySelector(
+        ".verseNumber",
+      ) as HTMLElement
+      expect(getComputedStyle(number).backgroundSize).toBe("100% 100%")
+    })
+
+    it("should wrap the space in front of a verse number in a run so the stroke does not break", () => {
+      setData(
+        component,
+        makeVerse({
+          number: 2,
+          text: [{ type: "text", text: "plain", normalizedText: "plain" }],
+        }),
+      )
+      highlightHost()
+
+      const gap = fixture.nativeElement.querySelector(
+        ".verseRun",
+      ) as HTMLElement
+      expect(gap.textContent).toBe(" ")
+      expect(getComputedStyle(gap).backgroundSize).toBe("100% 100%")
+    })
+
+    it("should paint a poetry verse number once, on the wrapper rather than on both it and its digits", () => {
+      setData(
+        component,
+        makeVerse({
+          number: 3,
+          text: [
+            {
+              type: "quote",
+              text: "a line of poetry",
+              normalizedText: "a line of poetry",
+              identLevel: 1,
+            },
+          ],
+        }),
+      )
+      highlightHost()
+
+      const wrapper = fixture.nativeElement.querySelector(
+        ".quoteVerseNumber",
+      ) as HTMLElement
+      const digits = wrapper.querySelector(".verseNumber") as HTMLElement
+      expect(getComputedStyle(wrapper).backgroundSize).toBe("100% 100%")
+      expect(getComputedStyle(digits).backgroundSize).toBe("0px 100%")
+    })
+
+    it("should not paint the quote line wrapper, whose box extends past the end of the line", () => {
+      setData(
+        component,
+        makeVerse({
+          number: 3,
+          text: [
+            {
+              type: "quote",
+              text: "a line of poetry",
+              normalizedText: "a line of poetry",
+              identLevel: 1,
+            },
+          ],
+        }),
+      )
+      highlightHost()
+
+      const wrapper = fixture.nativeElement.querySelector(
+        ".quoteLineWrapper",
+      ) as HTMLElement
+      expect(getComputedStyle(wrapper).backgroundSize).toBe("auto")
+    })
+  })
+
   describe("toggleFootnotes", () => {
     it("should open bottom sheet when footnotes exist", () => {
       setData(

@@ -2,9 +2,9 @@ import {
   HttpClientTestingModule,
   HttpTestingController,
 } from "@angular/common/http/testing"
-import { TestBed } from "@angular/core/testing"
-import { firstValueFrom } from "rxjs"
-import { BibleApiService } from "./bible-api.service"
+import { fakeAsync, TestBed, tick } from "@angular/core/testing"
+import { firstValueFrom, Observable, of, TimeoutError } from "rxjs"
+import { BibleApiService, createApiResilience } from "./bible-api.service"
 import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
 
@@ -338,5 +338,36 @@ describe("BibleApiService", () => {
       ).toBeRejectedWithError("Offline - verse not cached")
       httpMock.expectNone("v1/gen/1/1")
     })
+  })
+
+  describe("createApiResilience", () => {
+    it("passes the source through untouched in the browser", () => {
+      let value: number | undefined
+      of(42)
+        .pipe(createApiResilience<number>(false))
+        .subscribe((v) => {
+          value = v
+        })
+      expect(value).toBe(42)
+    })
+
+    it("times out and retries a request that never completes on the server", fakeAsync(() => {
+      let error: unknown
+      let attempts = 0
+      // A request that accepts the connection but never responds.
+      const hangingRequest = new Observable<never>(() => {
+        attempts++
+      })
+
+      hangingRequest
+        .pipe(createApiResilience(true, 1000, 2, 100))
+        .subscribe({ error: (err: unknown) => (error = err) })
+
+      // Initial attempt + 2 retries, with 200ms and 400ms backoff between.
+      tick(1000 + 200 + 1000 + 400 + 1000)
+
+      expect(attempts).toBe(3)
+      expect(error).toBeInstanceOf(TimeoutError)
+    }))
   })
 })

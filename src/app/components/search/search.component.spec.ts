@@ -12,6 +12,7 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { SeoService } from "../../services/seo.service"
 import { SearchComponent } from "./search.component"
 
 describe("SearchComponent", () => {
@@ -24,6 +25,7 @@ describe("SearchComponent", () => {
   let router: jasmine.SpyObj<Router>
   let analyticsService: jasmine.SpyObj<AnalyticsService>
   let routeMock: ActivatedRoute
+  let seoService: jasmine.SpyObj<SeoService>
   let observerCallback: IntersectionObserverCallback | null
   let originalIntersectionObserver: typeof IntersectionObserver | undefined
 
@@ -62,6 +64,7 @@ describe("SearchComponent", () => {
     routeMock = {
       snapshot: { queryParamMap: convertToParamMap({}) },
     } as ActivatedRoute
+    seoService = jasmine.createSpyObj("SeoService", ["updateForSearch"])
     observerCallback = null
     originalIntersectionObserver = globalThis.IntersectionObserver
 
@@ -78,6 +81,7 @@ describe("SearchComponent", () => {
         { provide: Router, useValue: router },
         { provide: AnalyticsService, useValue: analyticsService },
         { provide: ActivatedRoute, useValue: routeMock },
+        { provide: SeoService, useValue: seoService },
       ],
     })
       .overrideComponent(SearchComponent, {
@@ -119,6 +123,11 @@ describe("SearchComponent", () => {
     component.ngOnInit()
 
     expect(submitSpy).not.toHaveBeenCalled()
+  })
+
+  it("should mark the search page as noindex via SeoService on init", () => {
+    fixture.detectChanges()
+    expect(seoService.updateForSearch).toHaveBeenCalled()
   })
 
   it("should navigate to a direct reference using verseStart", async () => {

@@ -16,6 +16,7 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { SeoService } from "../../services/seo.service"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
 @Component({
@@ -47,16 +48,6 @@ export class SearchComponent {
   @ViewChild("sentinel", { static: false }) sentinel!: ElementRef
   private lastSentinel: Element | null = null
 
-  ngOnInit(): void {
-    // Share-target launches land here as /search?q=<shared text>; run the
-    // shared query right away instead of showing an empty search screen.
-    const sharedQuery = this.route.snapshot.queryParamMap.get("q")
-    if (sharedQuery) {
-      // Fire-and-forget: onSearchSubmit surfaces its own errors via snackbar.
-      void this.onSearchSubmit(sharedQuery)
-    }
-  }
-
   constructor(
     private apiService: BibleApiService,
     private referenceService: BibleReferenceService,
@@ -67,7 +58,20 @@ export class SearchComponent {
     private cdr: ChangeDetectorRef,
     private analyticsService: AnalyticsService,
     private injector: Injector,
+    private seoService: SeoService,
   ) {}
+
+  ngOnInit(): void {
+    this.seoService.updateForSearch()
+
+    // Share-target launches land here as /search?q=<shared text>; run the
+    // shared query right away instead of showing an empty search screen.
+    const sharedQuery = this.route.snapshot.queryParamMap.get("q")
+    if (sharedQuery) {
+      // Fire-and-forget: onSearchSubmit surfaces its own errors via snackbar.
+      void this.onSearchSubmit(sharedQuery)
+    }
+  }
 
   ngAfterViewInit(): void {
     this.attachObserverToSentinel()

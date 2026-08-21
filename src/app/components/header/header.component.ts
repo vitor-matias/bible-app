@@ -1,4 +1,4 @@
-import { CommonModule } from "@angular/common"
+import { CommonModule, isPlatformBrowser } from "@angular/common"
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -12,6 +12,7 @@ import {
   type OnDestroy,
   type OnInit,
   Output,
+  PLATFORM_ID,
   type SimpleChanges,
 } from "@angular/core"
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
@@ -75,6 +76,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   isOffline = false
 
   private readonly destroyRef = inject(DestroyRef)
+  private readonly platformId = inject(PLATFORM_ID)
 
   constructor(
     private readonly themeService: ThemeService,
@@ -288,6 +290,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private startLabelCycle(): void {
     this.stopLabelCycle()
     this.bookLabelMode = "title"
+    // The cycling label is browser-only chrome: while prerendering the home
+    // page (about book) there is no window, and window.setInterval here
+    // crashed every server render of "/".
+    if (!isPlatformBrowser(this.platformId)) return
     this.labelInterval = window.setInterval(() => {
       this.bookLabelMode = this.bookLabelMode === "title" ? "prompt" : "title"
       this.cdr.detectChanges()

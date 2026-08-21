@@ -1,4 +1,37 @@
 /* You can add global styles to this file, and also import other style files */
+
+/* Fonts ship from npm — no fonts.googleapis.com round-trip. Material Symbols
+   carries every icon rather than a hand-built subset: subsetting dropped icons
+   silently, and a missing ligature renders as the icon's name in text. The
+   font-400 build pins the weight axis (477 kB, against 3.9 MB for the full
+   variable font) and keeps FILL variable, which chapter-selector relies on. */
+@import "@fontsource/roboto/300.css";
+@import "@fontsource/roboto/400.css";
+@import "@fontsource/roboto/500.css";
+@import "@fontsource/pt-serif/400.css";
+@import "@fontsource/pt-serif/400-italic.css";
+@import "@fontsource/pt-serif/700.css";
+@import "@fontsource/pt-serif/700-italic.css";
+@import "@material-symbols/font-400/outlined.css";
+
+/* outlined.css only styles .material-symbols-outlined, but Angular Material tags
+   rendered icons with its default `material-icons` fontSet class, so both names
+   have to resolve to the Symbols font — otherwise every icon falls back to a
+   system font and renders its ligature name as words. */
+/* For headings that structure the page for assistive tech where the design has
+   no visible title. Never use this to feed crawlers text a reader can't see. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 .material-symbols-outlined, .material-icons {
   font-family: 'Material Symbols Outlined', sans-serif;
   font-weight: normal;
@@ -42,6 +75,10 @@ body {
   --card-background: #f5f5f5;
   --border-color: #e0e0e0;
   --highlight-color: antiquewhite;
+  /* Marker drawn over a deep-linked verse. Kept separate from
+     --highlight-color (a solid surface colour used by buttons and lists)
+     because it is painted over body text and has to stay readable. */
+  --verse-highlight-color: rgba(238, 176, 46, 0.42);
   --cap-brown: #543d27;
   --mat-menu-item-label-text-size: 15px;
   --mat-menu-container-color: var(--card-background);
@@ -93,6 +130,9 @@ body {
   --card-background: #1e1e1e;
   --border-color: #333333;
   --highlight-color: darkgrey;
+  /* Same hue as the light theme, lighter touch: white text has to stay
+     readable on top of it. */
+  --verse-highlight-color: rgba(238, 176, 46, 0.3);
   --mat-menu-container-color: var(--card-background);
   --mat-menu-item-label-text-color: var(--text-color);
   --mat-menu-item-icon-color: var(--text-color);
@@ -205,8 +245,12 @@ span {
   color: dimgray;
 }
 
-a {
+a:not(.floating-nav-button) {
   color: var(--text-color) !important;
+}
+
+html.dark-theme .floating-nav-button {
+  color: #2a1a0d;
 }
 
 .mat-bottom-sheet-container,

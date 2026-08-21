@@ -50,8 +50,12 @@ h3 {
   padding: 4px 0;
 }
 
-h4 {
+h2 {
   font-size: 125%;
+  /* These were h4s before they became h2s (the page h1 is the toolbar title, so
+     testament names sit a level below it). Keep the old margin so the drawer
+     spacing is unchanged. */
+  margin: 1.33em 0;
 }
 
 .column {
