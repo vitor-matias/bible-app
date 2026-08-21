@@ -94,7 +94,9 @@ describe("BookSelectorComponent", () => {
     freshFixture.detectChanges()
     await freshFixture.whenStable()
 
-    expect(scrollSpy).toHaveBeenCalled()
+    // Exactly once: ngAfterViewInit and ngOnChanges each schedule a deferred
+    // scroll, and scheduling both would scroll twice per open.
+    expect(scrollSpy).toHaveBeenCalledTimes(1)
   })
 
   it("filters books with accent-insensitive short names", () => {

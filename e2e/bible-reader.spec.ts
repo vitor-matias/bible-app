@@ -116,6 +116,33 @@ test.describe("Book selector drawer", () => {
     await expect(drawer.locator("mat-tree-node, mat-list-item").first()).toBeVisible()
   })
 
+  // bible-canon.ts lists the books by id and BookSelectorComponent.getBook
+  // matches them exactly against the live book list. An id that does not
+  // resolve renders an empty button instead of failing, so the only place the
+  // canon can be checked against real data is here.
+  test("every book in the canon resolves to a name", async ({ page }) => {
+    await page.goto("/jo/1")
+    await page.locator("verse").first().waitFor({ timeout: 15_000 })
+
+    await page.locator(".bookSelectorButton mat-button-toggle").first().click()
+    const drawer = page.locator("mat-drawer")
+    await expect(drawer).toBeVisible({ timeout: 5_000 })
+
+    // 73 canonical books plus the synthetic About entry the picker appends.
+    const books = drawer.locator(
+      "mat-tree-node:not(.book-group) .bookSelectorButton",
+    )
+    await expect.poll(() => books.count(), { timeout: 15_000 }).toBe(74)
+
+    const unresolved = await books.evaluateAll((nodes) =>
+      nodes
+        .map((node, index) => ({ index, text: node.textContent?.trim() ?? "" }))
+        .filter((entry) => entry.text.length === 0)
+        .map((entry) => entry.index),
+    )
+    expect(unresolved).toEqual([])
+  })
+
   test("closes the drawer with the dismiss button", async ({ page }) => {
     await page.goto("/jo/1")
     await page.locator("verse").first().waitFor({ timeout: 15_000 })

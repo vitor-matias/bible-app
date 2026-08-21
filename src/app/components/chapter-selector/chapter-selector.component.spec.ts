@@ -92,7 +92,9 @@ describe("ChapterSelectorComponent", () => {
     expect(
       (freshFixture.nativeElement as HTMLElement).querySelector(".highlight"),
     ).toBeTruthy()
-    expect(scrollSpy).toHaveBeenCalled()
+    // Exactly once: ngAfterViewInit and ngOnChanges each schedule a deferred
+    // scroll, and scheduling both would scroll twice per open.
+    expect(scrollSpy).toHaveBeenCalledTimes(1)
   })
 
   it("should render bookmark icon for bookmarked chapters", () => {

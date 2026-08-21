@@ -592,5 +592,23 @@ describe("OfflineDataService", () => {
         jasmine.any(Array),
       )
     })
+
+    // localStorage holds only the cache metadata. It used to be checked first
+    // and its absence returned early, so a privacy mode that makes Storage
+    // non-functional cost the reader the offline books as well as the metadata.
+    it("should still persist the books when localStorage is unusable", async () => {
+      // What a privacy mode leaves behind: an object that is not a working
+      // Storage, which safeLocalStorage() reports as unusable.
+      const unusable = mockLocalStorage as unknown as Record<string, unknown>
+      unusable["getItem"] = undefined
+      unusable["setItem"] = undefined
+
+      await service.setCachedBooks(mockBooks)
+
+      expect(databaseService.clearAndPutAll).toHaveBeenCalledWith(
+        "books",
+        jasmine.any(Array),
+      )
+    })
   })
 })
