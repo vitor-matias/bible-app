@@ -2,6 +2,10 @@
   padding: 0.5rem 0;
   line-height: 1.6;
   color: var(--text-color);
+  /* Match the scripture body text (.verseText is 120% of the same parent), so
+     the reader's font-size control moves both together and an introduction is
+     not set smaller than the chapter it introduces. */
+  font-size: 120%;
 }
 
 /* In the multi-column (paged) layout only the first column carries the leading
