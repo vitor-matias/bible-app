@@ -198,24 +198,16 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   @Output() submitData = new EventEmitter<{ bookId: Book["id"] }>()
 
-  /** Slugs of introductions that sit inside a canon group. */
-  private static readonly GROUP_INTRO_SLUGS = new Set(
-    [...OLD_TESTAMENT_GROUPS, ...NEW_TESTAMENT_GROUPS]
-      .map((group) => group.introSlug)
-      .filter((slug): slug is string => !!slug),
-  )
-
   /**
-   * Label for one entry. A group's own introduction reads just "Introdução" —
-   * the group heading right above it already supplies the context, and the
-   * full name is kept on the book for the toolbar and page title.
+   * Label for one entry. Every introduction reads just "Introdução": the
+   * heading right above it — the testament or the group — already supplies the
+   * context, so repeating it would say the same thing twice. The full name
+   * stays on the book itself, for the toolbar and the page title.
    */
   entryLabel(bookId: string): string {
     const book = this.getBook(bookId)
     if (!book) return ""
-    return BookSelectorComponent.GROUP_INTRO_SLUGS.has(bookId)
-      ? "Introdução"
-      : book.shortName
+    return book.introSlug ? "Introdução" : book.shortName
   }
 
   getBook(bookId: string): Book | undefined {
