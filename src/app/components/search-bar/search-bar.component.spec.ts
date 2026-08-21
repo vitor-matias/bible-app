@@ -15,6 +15,37 @@ describe("SearchBarComponent", () => {
     fixture.detectChanges()
   })
 
+  // The reader header pins its buttons 8px from the viewport edge. This toolbar
+  // lays its buttons out in flow instead, so Material's own 16px toolbar inset
+  // stacked on .content's 8px and left them 24px in — visibly out of line with
+  // every other page.
+  it("insets its buttons like the reader header, not 16px further in", () => {
+    const element = fixture.nativeElement as HTMLElement
+    const toolbar = element.querySelector("mat-toolbar") as HTMLElement
+    const content = element.querySelector(".content") as HTMLElement
+
+    const toolbarStyle = getComputedStyle(toolbar)
+    expect(toolbarStyle.paddingLeft).toBe("0px")
+    expect(toolbarStyle.paddingRight).toBe("0px")
+
+    const contentStyle = getComputedStyle(content)
+    expect(contentStyle.paddingLeft).toBe("8px")
+    expect(contentStyle.paddingRight).toBe("8px")
+  })
+
+  // Same reason: the header's buttons take Material's default 40px, and at
+  // 36px these read as a different, shorter control on an otherwise identical
+  // toolbar. The input matches so the row reads as one.
+  it("sizes its controls like the reader header's buttons", () => {
+    const element = fixture.nativeElement as HTMLElement
+    const heights = [".backButton", ".searchButton", ".search-input"].map(
+      (selector) =>
+        getComputedStyle(element.querySelector(selector) as HTMLElement).height,
+    )
+
+    expect(heights).toEqual(["40px", "40px", "40px"])
+  })
+
   it("should create", () => {
     expect(component).toBeTruthy()
   })

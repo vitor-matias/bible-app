@@ -1,6 +1,6 @@
 import { Injectable } from "@angular/core"
 import { BehaviorSubject, firstValueFrom } from "rxjs"
-import { filter, tap } from "rxjs/operators"
+import { filter } from "rxjs/operators"
 import { SHARED_BOOK_INTROS } from "../bible-canon"
 import { BibleApiService } from "./bible-api.service"
 

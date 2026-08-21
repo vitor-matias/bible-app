@@ -1,6 +1,12 @@
 import { CommonModule } from "@angular/common"
 import { ChangeDetectorRef, PLATFORM_ID, SimpleChange } from "@angular/core"
-import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import {
+  type ComponentFixture,
+  discardPeriodicTasks,
+  fakeAsync,
+  TestBed,
+  tick,
+} from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
 import { Router } from "@angular/router"
@@ -132,6 +138,27 @@ describe("HeaderComponent", () => {
     expect(chipLabel()).toBe("Introdução")
   })
 
+  // The About page has no heading of its own, so the toolbar title is the only
+  // one the home page has.
+  it("should title the home page too", () => {
+    // setInput rather than a plain assignment: it marks the OnPush view dirty
+    // and runs ngOnChanges, which is what starts the label cycle.
+    fixture.componentRef.setInput("book", {
+      id: "about",
+      name: "Sobre a Bíblia dos Capuchinhos",
+      shortName: "Sobre a Bíblia",
+      abrv: "Sobre",
+      chapterCount: 1,
+    })
+    fixture.detectChanges()
+
+    const headings = (fixture.nativeElement as HTMLElement).querySelectorAll(
+      "h1",
+    )
+    expect(headings.length).toBe(1)
+    expect(headings[0].textContent).toContain("Sobre a Bíblia dos Capuchinhos")
+  })
+
   it("should reflect offline status from NetworkService", () => {
     isOfflineSubject.next(true)
     fixture.detectChanges()
@@ -225,6 +252,136 @@ describe("HeaderComponent", () => {
       abrv: "Sobre",
       chapterCount: 1,
     }
+
+    // The audit's complaint: with two stacked labels crossfading, both stayed
+    // in the DOM, so the page h1 read "<title> Escolher Livro" — words no page
+    // text repeats.
+    it("keeps only the label on screen inside the heading", fakeAsync(() => {
+      fixture.componentRef.setInput("book", aboutBook)
+      fixture.detectChanges()
+
+      const heading = (fixture.nativeElement as HTMLElement).querySelector(
+        "h1",
+      ) as HTMLElement
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelectorAll(".cycle-text")
+          .length,
+      ).toBe(1)
+      expect(heading.textContent).toContain("Sobre a Bíblia dos Capuchinhos")
+      expect(heading.textContent).not.toContain("Escolher Livro")
+
+      // Halfway through a swap the old text is fading but still the only one.
+      tick(3500)
+      fixture.detectChanges()
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelectorAll(".cycle-text")
+          .length,
+      ).toBe(1)
+
+      // Once swapped, the prompt has replaced the title rather than joined it.
+      tick(300)
+      fixture.detectChanges()
+      expect(heading.textContent).toContain("Escolher Livro")
+      expect(heading.textContent).not.toContain(
+        "Sobre a Bíblia dos Capuchinhos",
+      )
+
+      component.ngOnDestroy()
+      discardPeriodicTasks()
+    }))
+
+    // The visible label alternates, so the heading's own text cannot be relied
+    // on to name the page; the accessible name has to stay put or the only
+    // heading on the page ends up announcing the picker instead.
+    it("keeps the heading naming the page across a label swap", fakeAsync(() => {
+      fixture.componentRef.setInput("book", aboutBook)
+      fixture.detectChanges()
+
+      const heading = (fixture.nativeElement as HTMLElement).querySelector(
+        "h1",
+      ) as HTMLElement
+      expect(heading.getAttribute("aria-label")).toBe(
+        "Sobre a Bíblia dos Capuchinhos",
+      )
+
+      tick(3500)
+      tick(300)
+      fixture.detectChanges()
+
+      expect(heading.textContent).toContain("Escolher Livro")
+      expect(heading.getAttribute("aria-label")).toBe(
+        "Sobre a Bíblia dos Capuchinhos",
+      )
+
+      component.ngOnDestroy()
+      discardPeriodicTasks()
+    }))
+
+    // The label swap is decorative; announcing each one is noise.
+    it("does not announce the label swap", () => {
+      fixture.componentRef.setInput("book", aboutBook)
+      fixture.detectChanges()
+
+      const element = fixture.nativeElement as HTMLElement
+      expect(element.querySelector("[aria-live]")).toBeNull()
+    })
+
+    // WCAG 2.5.3: naming the button after the action would drop the book name
+    // — the visible label — out of the accessible name entirely.
+    it("names the book picker after its visible label", () => {
+      component.mobile = false
+      fixture.changeDetectorRef.markForCheck()
+      fixture.detectChanges()
+
+      const element = fixture.nativeElement as HTMLElement
+      // MatButtonToggle forwards aria-label onto its internal button.
+      expect(
+        element.querySelector("mat-button-toggle button[aria-label]"),
+      ).toBeNull()
+      expect(element.querySelector("mat-button-toggle")?.textContent).toContain(
+        "Genesis",
+      )
+    })
+
+    it("fades the label out before swapping its text", fakeAsync(() => {
+      fixture.componentRef.setInput("book", aboutBook)
+      fixture.detectChanges()
+
+      const label = () =>
+        (fixture.nativeElement as HTMLElement).querySelector(
+          ".cycle-text",
+        ) as HTMLElement
+
+      expect(label().classList.contains("faded")).toBeFalse()
+
+      tick(3500)
+      fixture.detectChanges()
+      // Fading out, text not yet changed.
+      expect(label().classList.contains("faded")).toBeTrue()
+      expect(label().textContent).toContain("Sobre a Bíblia dos Capuchinhos")
+
+      tick(300)
+      fixture.detectChanges()
+      expect(label().classList.contains("faded")).toBeFalse()
+
+      component.ngOnDestroy()
+      discardPeriodicTasks()
+    }))
+
+    it("drops a half-finished swap when the cycle stops", fakeAsync(() => {
+      fixture.componentRef.setInput("book", aboutBook)
+      fixture.detectChanges()
+
+      tick(3500) // mid-swap: faded out, waiting to change text
+      component.ngOnDestroy()
+
+      // The pending swap must not fire against a torn-down component.
+      tick(300)
+      expect(component.labelFading).toBeFalse()
+      expect(component.bookLabelMode).toBe("title")
+
+      discardPeriodicTasks()
+    }))
 
     it("cycles the about label in the browser", () => {
       const setIntervalSpy = spyOn(window, "setInterval").and.callThrough()

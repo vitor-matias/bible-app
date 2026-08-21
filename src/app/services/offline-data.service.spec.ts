@@ -159,6 +159,23 @@ describe("OfflineDataService", () => {
       expect(true).toBe(true) // Silence 'no expectations' warning
     })
 
+    // Storage the browser refuses to hand over (cookies blocked) means the
+    // flag can never be written, so trusting it alone would re-download the
+    // whole Bible on every single launch.
+    it("should skip preload without storage when IndexedDB already has books", async () => {
+      const localStorageSpy = Object.getOwnPropertyDescriptor(
+        window,
+        "localStorage",
+      )?.get as jasmine.Spy
+      localStorageSpy.and.throwError("denied")
+      databaseService.getAll.and.returnValue(Promise.resolve(mockBooks))
+
+      await service.preloadAllBooksAndChapters()
+
+      httpMock.expectNone("v1/books?withChapters=true")
+      expect(databaseService.getAll).toHaveBeenCalledWith("books")
+    })
+
     it("should preload books if cache flag is not set", async () => {
       const promise = service.preloadAllBooksAndChapters()
       // preload awaits the cache-schema check before issuing the request

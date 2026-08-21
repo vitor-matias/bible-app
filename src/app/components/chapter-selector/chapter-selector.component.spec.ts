@@ -88,6 +88,32 @@ describe("ChapterSelectorComponent", () => {
     expect(rows[1].querySelector(".number-wrapper")).toBeTruthy()
   })
 
+  // The other half of the deferral: skipping the scroll on the server must not
+  // mean skipping it in the browser. Without this the spec above would pass for
+  // an implementation that never scrolls at all.
+  it("should still scroll to the selected chapter once a render happens", async () => {
+    // A fixture of its own: the shared one has already rendered, and
+    // afterNextRender only fires for the render that follows registration.
+    const freshFixture = TestBed.createComponent(ChapterSelectorComponent)
+    freshFixture.componentInstance.chapters = [
+      { bookId: "GEN", number: 1, title: "Creation" },
+    ]
+    freshFixture.componentInstance.bookId = "GEN"
+    freshFixture.componentInstance.selectedChapter = 1
+    freshFixture.componentInstance.ngOnChanges({
+      bookId: new SimpleChange(null, "GEN", true),
+    })
+    const scrollSpy = spyOn(Element.prototype, "scrollIntoView")
+
+    freshFixture.detectChanges()
+    await freshFixture.whenStable()
+
+    expect(
+      (freshFixture.nativeElement as HTMLElement).querySelector(".highlight"),
+    ).toBeTruthy()
+    expect(scrollSpy).toHaveBeenCalled()
+  })
+
   it("should render bookmark icon for bookmarked chapters", () => {
     const compiled = fixture.nativeElement as HTMLElement
     const icons = compiled.querySelectorAll(".bookmark-icon")

@@ -61,7 +61,7 @@
       @if (chapter.number > (hasIntro ? 0 : 1) || (effectiveViewMode === 'paged' && !isFirstPage)) {
       @if (effectiveViewMode === 'scrolling') {
       <a class="floating-nav-button prev-chapter" mat-mini-fab aria-label="Capítulo anterior"
-        [routerLink]="previousChapterLink" (click)="prepareChapterNavigation(false)">
+        [routerLink]="previousChapterLink" (click)="prepareChapterNavigation(false, $event)">
         <mat-icon>chevron_left</mat-icon>
       </a>
       } @else {
@@ -78,7 +78,7 @@
       @if (chapter.number < book.chapterCount || (effectiveViewMode==='paged' && !isLastPage)) {
       @if (effectiveViewMode === 'scrolling') {
       <a class="floating-nav-button next-chapter" mat-mini-fab aria-label="Capítulo seguinte"
-        [routerLink]="nextChapterLink" (click)="prepareChapterNavigation(true)">
+        [routerLink]="nextChapterLink" (click)="prepareChapterNavigation(true, $event)">
         <mat-icon>chevron_right</mat-icon>
       </a>
       } @else {

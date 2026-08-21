@@ -1,39 +1,57 @@
-import { copyFileSync, existsSync, readdirSync, rmSync, statSync } from "node:fs"
+import {
+  copyFileSync,
+  cpSync,
+  existsSync,
+  readdirSync,
+  rmSync,
+} from "node:fs"
 import { join } from "node:path"
+import { listPrerenderedPages } from "./prerendered-pages.mjs"
 
 // The native app loads the site remotely (capacitor.config.ts server.url) and
 // boots the SPA shell locally at best — the ~1300 prerendered route pages are
-// dead weight that would add tens of MB to the APK/IPA. Strip them from the
-// webDir before `cap sync` so the bundled copy is always the lean CSR build.
-const webDir = "dist/bible-app/browser"
+// dead weight that would add tens of MB to the APK/IPA.
+//
+// The lean copy is built in its own directory (capacitor.config.ts points
+// webDir here) rather than by stripping browserDir in place: browserDir is what
+// the web deploy publishes, so pruning it would silently ship a site with no
+// prerendered HTML and no error to show for it.
+const browserDir = "dist/bible-app/browser"
+const webDir = "dist/bible-app/capacitor"
 
-if (!existsSync(webDir)) {
-  console.log(`Nothing to prune: ${webDir} does not exist.`)
-  process.exit(0)
+if (!existsSync(browserDir)) {
+  // Failing here rather than exiting 0: webDir is this script's own output, so
+  // carrying on leaves `npx cap sync` to fail on a missing webDir with no clue
+  // that the build is what is missing.
+  console.error(
+    `Cannot prune: ${browserDir} does not exist. Run "npm run build" first.`,
+  )
+  process.exit(1)
 }
 
-let prunedRoutes = 0
+rmSync(webDir, { recursive: true, force: true })
+cpSync(browserDir, webDir, { recursive: true })
 
-function pruneDir(dir) {
-  for (const entry of readdirSync(dir)) {
-    const path = join(dir, entry)
-    if (statSync(path).isDirectory()) {
-      pruneDir(path)
-      if (readdirSync(path).length === 0) {
-        rmSync(path, { recursive: true })
-      }
-    } else if (entry === "index.html" && dir !== webDir) {
-      // Only prerendered routes produce nested index.html files; static
-      // assets from public/ never do.
-      rmSync(path)
-      prunedRoutes++
-    }
+let prunedRoutes = 0
+for (const page of listPrerenderedPages(webDir)) {
+  rmSync(page.file)
+  prunedRoutes++
+}
+
+// Drop the directories the deleted pages leave behind, deepest first so a
+// parent that only held prerendered children goes too.
+function pruneEmptyDirs(dir) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) pruneEmptyDirs(join(dir, entry.name))
+  }
+  if (dir !== webDir && readdirSync(dir).length === 0) {
+    rmSync(dir, { recursive: true })
   }
 }
 
-pruneDir(webDir)
+pruneEmptyDirs(webDir)
 
-// The root index.html may be the prerendered home page; the bundled app
+// The root index.html may have been the prerendered home page; the bundled app
 // should ship the plain CSR shell instead.
 const csrIndex = join(webDir, "index.csr.html")
 if (existsSync(csrIndex)) {
@@ -41,5 +59,5 @@ if (existsSync(csrIndex)) {
 }
 
 console.log(
-  `Pruned ${prunedRoutes} prerendered route page(s); root index.html reset to the CSR shell.`,
+  `Pruned ${prunedRoutes} prerendered route page(s) from ${webDir}; root index.html reset to the CSR shell.`,
 )

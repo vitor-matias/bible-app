@@ -10,6 +10,7 @@ import { provideRouter } from "@angular/router"
 import { provideServiceWorker } from "@angular/service-worker"
 import { routes } from "./app.routes"
 import { BookService } from "./services/book.service"
+import { isBrowser } from "./utils/platform"
 
 export function initializeBookService(
   bookService: BookService,
@@ -19,7 +20,7 @@ export function initializeBookService(
       // While server-rendering (prerender/route extraction), an unreachable
       // API must not fail the whole build — affected pages just fall back to
       // client-side rendering. In the browser, keep failing loudly.
-      if (typeof window === "undefined") {
+      if (!isBrowser()) {
         console.warn(
           "Book list unavailable during server rendering; continuing without it.",
           error instanceof Error ? error.message : error,

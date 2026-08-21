@@ -41,12 +41,20 @@ export class OfflineDataService {
     if (typeof window === "undefined") return
 
     const migrated = await this.migrateCacheIfNeeded()
+    const storage = safeLocalStorage()
 
     // Stale metadata cannot be trusted after a failed migration: without this
     // gate a lingering "ready" flag would skip the refresh while reads fail
-    // closed to an empty cache.
+    // closed to an empty cache. Without localStorage the flag can never be
+    // written either, so asking for it would answer "not cached" on every
+    // launch and re-download the whole Bible each time. IndexedDB holds the
+    // books themselves and is the same question one layer down, so fall back
+    // to that.
     const isAlreadyCached =
-      migrated && safeLocalStorage()?.getItem(this.cacheFlagKey) === "true"
+      migrated &&
+      (storage
+        ? storage.getItem(this.cacheFlagKey) === "true"
+        : (await this.getCachedBooksAsync()).length > 0)
     const isExpired = this.isCacheExpired()
     if (isAlreadyCached && !isExpired) {
       return

@@ -1,4 +1,5 @@
-import { Injectable } from "@angular/core"
+import { isPlatformBrowser } from "@angular/common"
+import { Injectable, inject, PLATFORM_ID } from "@angular/core"
 import { BehaviorSubject } from "rxjs"
 import { AnalyticsService } from "./analytics.service"
 import { PreferencesService } from "./preferences.service"
@@ -9,13 +10,13 @@ export type ThemeMode = "light" | "dark" | "system"
   providedIn: "root",
 })
 export class ThemeService {
+  private readonly platformId = inject(PLATFORM_ID)
   private themeMode = new BehaviorSubject<ThemeMode>("system")
   // window/document are absent while server-rendering; the server output
   // stays on the default (light) theme and the browser applies the real one.
-  private nightModeQuery =
-    typeof window === "undefined"
-      ? null
-      : window.matchMedia("(prefers-color-scheme: dark)")
+  private nightModeQuery = !isPlatformBrowser(this.platformId)
+    ? null
+    : window.matchMedia("(prefers-color-scheme: dark)")
 
   constructor(
     private preferencesService: PreferencesService,
@@ -66,7 +67,7 @@ export class ThemeService {
   }
 
   private applyTheme(mode: ThemeMode): void {
-    if (typeof document === "undefined") return
+    if (!isPlatformBrowser(this.platformId)) return
     let isDark = false
     if (mode === "system") {
       isDark = this.nightModeQuery?.matches ?? false

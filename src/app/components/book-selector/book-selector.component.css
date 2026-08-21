@@ -39,22 +39,23 @@
   overscroll-behavior: contain;
 }
 
-mat-tree-node,
-h3 {
+mat-tree-node {
   font-family: sans-serif;
   cursor: default;
   hyphens: auto;
   font-size: 90%;
+  /* Material fixes tree nodes at 48px; book names wrap to two lines, so the
+     node has to grow instead of letting them spill out of it. */
   height: auto !important;
   min-height: 48px;
   padding: 4px 0;
 }
 
-h2 {
+.testament-label {
   font-size: 125%;
-  /* These were h4s before they became h2s (the page h1 is the toolbar title, so
-     testament names sit a level below it). Keep the old margin so the drawer
-     spacing is unchanged. */
+  font-weight: bold;
+  /* Spelled out rather than left to the h4 defaults, which the Material
+     typography reset overrides. */
   margin: 1.33em 0;
 }
 

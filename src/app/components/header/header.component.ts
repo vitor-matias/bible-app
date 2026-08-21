@@ -35,8 +35,14 @@ import { BookmarkService } from "../../services/bookmark.service"
 import { NetworkService } from "../../services/network.service"
 import { ThemeService } from "../../services/theme.service"
 import { SHARE_PLUGIN } from "../../tokens"
+
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
+
+/** How long each label stays on screen before the next swap. */
+const LABEL_HOLD_MS = 3500
+/** Fade-out half of a swap; must match the transition in the component CSS. */
+const LABEL_FADE_MS = 300
 
 @Component({
   standalone: true,
@@ -64,7 +70,22 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Input() viewMode: "scrolling" | "paged" = "scrolling"
 
   bookLabelMode: "title" | "prompt" = "title"
+  /** True for the fade-out half of a label swap. */
+  labelFading = false
+
+  /**
+   * Accessible name for the page heading. The visible label doubles as the
+   * book picker and, on the home page, alternates with a prompt — this keeps
+   * the heading naming the page whatever it currently shows.
+   */
+  get headingLabel(): string {
+    if (!this.book) return ""
+    return this.book.id === "about"
+      ? this.book.name
+      : `${this.book.name} ${this.chapterNumber}`
+  }
   private labelInterval?: number
+  private labelSwapTimeout?: number
   canShare = false
   currentBookmark: Bookmark | undefined
 
@@ -309,9 +330,20 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     // crashed every server render of "/".
     if (!isPlatformBrowser(this.platformId)) return
     this.labelInterval = window.setInterval(() => {
-      this.bookLabelMode = this.bookLabelMode === "title" ? "prompt" : "title"
+      // Two phases against the one element on screen: fade it out, swap the
+      // text while nothing is visible, then let it fade back in. The old
+      // crossfade needed a second element for this, and that second label
+      // counted as part of the page's h1.
+      this.labelFading = true
       this.cdr.detectChanges()
-    }, 3500)
+
+      this.labelSwapTimeout = window.setTimeout(() => {
+        this.bookLabelMode = this.bookLabelMode === "title" ? "prompt" : "title"
+        this.labelFading = false
+        this.labelSwapTimeout = undefined
+        this.cdr.detectChanges()
+      }, LABEL_FADE_MS)
+    }, LABEL_HOLD_MS)
   }
 
   private stopLabelCycle(): void {
@@ -319,6 +351,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       clearInterval(this.labelInterval)
       this.labelInterval = undefined
     }
+    if (this.labelSwapTimeout) {
+      clearTimeout(this.labelSwapTimeout)
+      this.labelSwapTimeout = undefined
+    }
     this.bookLabelMode = "title"
+    this.labelFading = false
   }
 }

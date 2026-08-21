@@ -2,12 +2,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  PLATFORM_ID,
   ViewChild,
 } from "@angular/core"
 import {
   ComponentFixture,
   fakeAsync,
-  flushMicrotasks,
   TestBed,
   tick,
 } from "@angular/core/testing"
@@ -276,6 +276,102 @@ describe("PagedNavigationDirective", () => {
 
       expect(container.scrollTo).not.toHaveBeenCalled()
       expect(hostComponent.prevChapterCalled).toBeTrue()
+    })
+  })
+
+  // The bookBlock setter observes content changes as soon as it is bound, and
+  // the server DOM has no MutationObserver — binding it there used to throw
+  // once per prerendered route.
+  describe("server rendering", () => {
+    it("should not observe content changes and should render without throwing", async () => {
+      TestBed.resetTestingModule()
+      await TestBed.configureTestingModule({
+        imports: [TestHostComponent],
+        providers: [{ provide: PLATFORM_ID, useValue: "server" }],
+      }).compileComponents()
+
+      const observerSpy = spyOn(window, "MutationObserver").and.callThrough()
+      const serverFixture = TestBed.createComponent(TestHostComponent)
+
+      expect(() => serverFixture.detectChanges()).not.toThrow()
+      expect(observerSpy).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("scrollToPage", () => {
+    /** Puts the directive on a 100px page grid, as the nextPage specs do. */
+    function stubPageGrid(): void {
+      spyOnProperty(container, "scrollWidth").and.returnValue(500)
+      spyOnProperty(container, "clientWidth").and.returnValue(100)
+      spyOnProperty(
+        hostComponent.block.nativeElement,
+        "clientWidth",
+      ).and.returnValue(100)
+      spyOn(window, "getComputedStyle").and.returnValue({
+        columnGap: "10px",
+        paddingLeft: "5px",
+        paddingRight: "5px",
+      } as unknown as CSSStyleDeclaration)
+    }
+
+    /** An element whose first fragment sits `left` px into the scroller. */
+    function elementAt(left: number): HTMLElement {
+      const element = document.createElement("span")
+      const rect = { left, right: left, top: 0, bottom: 0 } as DOMRect
+      spyOn(element, "getClientRects").and.returnValue([
+        rect,
+      ] as unknown as DOMRectList)
+      return element
+    }
+
+    it("should scroll to the start of the page holding the element, not to the element itself", () => {
+      stubPageGrid()
+      spyOnProperty(container, "scrollLeft").and.returnValue(0)
+
+      // The verse starts 250px in, which is a third of the way into page 2.
+      hostComponent.directive.scrollToPage(elementAt(250))
+
+      // @ts-expect-error TS complains about 1 argument for scrollTo overload
+      expect(container.scrollTo).toHaveBeenCalledWith({
+        left: 200,
+        behavior: "smooth",
+      })
+    })
+
+    it("should measure from the content, not the viewport, when already scrolled", () => {
+      stubPageGrid()
+      spyOnProperty(container, "scrollLeft").and.returnValue(300)
+
+      // 120px along the viewport with 300 already scrolled away is page 4.
+      hostComponent.directive.scrollToPage(elementAt(120))
+
+      // @ts-expect-error TS complains about 1 argument for scrollTo overload
+      expect(container.scrollTo).toHaveBeenCalledWith({
+        left: 400,
+        behavior: "smooth",
+      })
+    })
+
+    it("should not scroll past the end of the content", () => {
+      stubPageGrid()
+      spyOnProperty(container, "scrollLeft").and.returnValue(0)
+
+      hostComponent.directive.scrollToPage(elementAt(4000))
+
+      // @ts-expect-error TS complains about 1 argument for scrollTo overload
+      expect(container.scrollTo).toHaveBeenCalledWith({
+        left: 400,
+        behavior: "smooth",
+      })
+    })
+
+    it("should do nothing in scrolling mode", () => {
+      hostComponent.viewMode = "scrolling"
+      fixture.detectChanges()
+
+      hostComponent.directive.scrollToPage(elementAt(250))
+
+      expect(container.scrollTo).not.toHaveBeenCalled()
     })
   })
 

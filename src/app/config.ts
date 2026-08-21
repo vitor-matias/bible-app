@@ -1,4 +1,5 @@
 import { Capacitor } from "@capacitor/core"
+import { isBrowser } from "./utils/platform"
 
 export const appConfig = {
   domain: "biblia.capuchinhos.org",
@@ -15,6 +16,6 @@ export const serverApiOrigin =
 
 export const apiBaseUrl = Capacitor.isNativePlatform()
   ? `https://${appConfig.domain}/v1`
-  : typeof window === "undefined"
+  : !isBrowser()
     ? `${serverApiOrigin}/v1`
     : "v1"

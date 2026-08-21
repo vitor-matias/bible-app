@@ -40,15 +40,18 @@ describe("AboutComponent", () => {
     expect(component).toBeTruthy()
   })
 
-  // The About page doubles as the prerendered home page, so it must carry
-  // the crawlable book index links.
-  it("renders the book index with links into the Bible", () => {
-    const nav = (fixture.nativeElement as HTMLElement).querySelector(
-      "nav.book-index",
-    )
-    expect(nav).toBeTruthy()
-    expect(nav?.querySelector('a[href="/gn/1"]')?.textContent).toContain(
-      "Génesis",
-    )
+  // The page is prose only: the toolbar title supplies the heading, and the
+  // book list was deliberately removed from here.
+  it("adds no heading of its own", () => {
+    const element = fixture.nativeElement as HTMLElement
+
+    expect(element.querySelectorAll("h1, h2, h3, h4, h5, h6").length).toBe(0)
+  })
+
+  it("does not list the books on the About page", () => {
+    const element = fixture.nativeElement as HTMLElement
+
+    expect(element.querySelector("nav.book-index")).toBeNull()
+    expect(element.querySelector('a[href="/gn/1"]')).toBeNull()
   })
 })

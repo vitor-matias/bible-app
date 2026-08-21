@@ -119,7 +119,9 @@ describe("ThemeService", () => {
 
     prefsSpy.getTheme.and.returnValue(null)
     // Need a new instance to trigger the constructor with the mocked matchMedia
-    service = new ThemeService(prefsSpy, TestBed.inject(AnalyticsService))
+    service = TestBed.runInInjectionContext(
+      () => new ThemeService(prefsSpy, TestBed.inject(AnalyticsService)),
+    )
 
     expect(mockMql.addEventListener).toHaveBeenCalledWith(
       "change",
@@ -139,7 +141,9 @@ describe("ThemeService", () => {
     )
 
     prefsSpy.getTheme.and.returnValue(null)
-    service = new ThemeService(prefsSpy, TestBed.inject(AnalyticsService))
+    service = TestBed.runInInjectionContext(
+      () => new ThemeService(prefsSpy, TestBed.inject(AnalyticsService)),
+    )
 
     expect(mockMql.addListener).toHaveBeenCalledWith(jasmine.any(Function))
   })
@@ -158,7 +162,9 @@ describe("ThemeService", () => {
     )
 
     prefsSpy.getTheme.and.returnValue("system")
-    service = new ThemeService(prefsSpy, TestBed.inject(AnalyticsService))
+    service = TestBed.runInInjectionContext(
+      () => new ThemeService(prefsSpy, TestBed.inject(AnalyticsService)),
+    )
 
     classListToggleSpy.calls.reset()
     changeHandler?.()
@@ -180,7 +186,9 @@ describe("ThemeService", () => {
     )
 
     prefsSpy.getTheme.and.returnValue("dark")
-    service = new ThemeService(prefsSpy, TestBed.inject(AnalyticsService))
+    service = TestBed.runInInjectionContext(
+      () => new ThemeService(prefsSpy, TestBed.inject(AnalyticsService)),
+    )
 
     classListToggleSpy.calls.reset()
     changeHandler?.()
