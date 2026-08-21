@@ -64,8 +64,11 @@ describe("BookService", () => {
     apiBooks = mockBooks.map((book) => ({ ...book }))
     const apiServiceSpy = jasmine.createSpyObj("BibleApiService", [
       "getAvailableBooks",
+      "getIntros",
+      "getIntro",
     ])
     apiServiceSpy.getAvailableBooks.and.returnValue(of(apiBooks))
+    apiServiceSpy.getIntros.and.returnValue(of([]))
 
     TestBed.configureTestingModule({
       providers: [
@@ -77,6 +80,65 @@ describe("BookService", () => {
     TestBed.inject(BibleApiService)
   })
 
+  describe("standalone introductions", () => {
+    const introApi = (intros: IntroSummary[], body?: GroupIntro) => {
+      const spy = jasmine.createSpyObj("BibleApiService", [
+        "getAvailableBooks",
+        "getIntros",
+        "getIntro",
+      ])
+      spy.getAvailableBooks.and.returnValue(of(apiBooks))
+      spy.getIntros.and.returnValue(of(intros))
+      spy.getIntro.and.returnValue(body ? of(body) : of())
+      TestBed.resetTestingModule()
+      TestBed.configureTestingModule({
+        providers: [BookService, { provide: BibleApiService, useValue: spy }],
+      })
+      return TestBed.inject(BookService)
+    }
+
+    it("exposes each introduction as a findable book", async () => {
+      const svc = introApi([
+        { slug: "pentateuco", name: "INTRODUÇÃO AO PENTATEUCO" },
+      ])
+      await svc.initializeBooks()
+
+      const intro = svc.findBook("pentateuco")
+      expect(intro.id).toBe("pentateuco")
+      expect(intro.introSlug).toBe("pentateuco")
+      // Upper-case USFM headers become a readable title.
+      expect(intro.name).toBe("Introdução ao Pentateuco")
+      // No chapters: the introduction is the only thing to read.
+      expect(intro.chapterCount).toBe(0)
+    })
+
+    it("keeps working when the API serves no introductions", async () => {
+      const svc = introApi([])
+      await svc.initializeBooks()
+
+      expect(svc.getBooks().some((book) => book.introSlug)).toBeFalse()
+      expect(svc.findBook("gen").id).toBe("gen")
+    })
+
+    it("caches a fetched introduction body on its book", async () => {
+      const svc = introApi(
+        [{ slug: "pentateuco", name: "INTRODUÇÃO AO PENTATEUCO" }],
+        {
+          slug: "pentateuco",
+          name: "INTRODUÇÃO AO PENTATEUCO",
+          introduction: [{ type: "introParagraph", text: "Cinco rolos." }],
+        },
+      )
+      await svc.initializeBooks()
+
+      const loaded = await svc.loadGroupIntroBody(svc.findBook("pentateuco"))
+
+      expect(loaded.introduction?.length).toBe(1)
+      // Stored back on the list, so the reader finds it next time.
+      expect(svc.findBook("pentateuco").introduction?.length).toBe(1)
+    })
+  })
+
   it("should be created", () => {
     expect(service).toBeTruthy()
   })
@@ -85,10 +147,12 @@ describe("BookService", () => {
     // An unhandled rejection here kills prerender worker threads at build time.
     const failingApi = jasmine.createSpyObj("BibleApiService", [
       "getAvailableBooks",
+      "getIntros",
     ])
     failingApi.getAvailableBooks.and.returnValue(
       throwError(() => new Error("API unavailable")),
     )
+    failingApi.getIntros.and.returnValue(of([]))
 
     TestBed.resetTestingModule()
     TestBed.configureTestingModule({

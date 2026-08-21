@@ -42,10 +42,14 @@ export class SeoService {
     // Chapter 0 is the book introduction: it lives at /:book/intro and reads
     // as "Introdução", never as "capítulo 0".
     const isIntro = chapterNumber === 0
+    // A standalone introduction is already named "Introdução ao …", so it
+    // titles itself instead of gaining a second "Introdução".
+    const standalone = !!book.introSlug
     const label = isIntro ? "Introdução" : `${chapterNumber}`
+    const pageName = standalone ? book.name : `${book.shortName} ${label}`
     const segment = this.bookService.getChapterUrlSegment(chapterNumber)
     this.apply({
-      title: `${book.shortName} ${label} | ${SEO_SITE_NAME}`,
+      title: `${pageName} | ${SEO_SITE_NAME}`,
       description: this.buildChapterDescription(book, chapterNumber, chapter),
       canonicalUrl: `${bookUrl}/${segment}`,
       indexable: true,
@@ -59,7 +63,7 @@ export class SeoService {
       { name: SEO_SITE_NAME, item: `${SEO_BASE_URL}/` },
       { name: book.shortName, item: `${bookUrl}/${bookEntrySegment}` },
       {
-        name: `${book.shortName} ${label}`,
+        name: pageName,
         item: `${bookUrl}/${segment}`,
       },
     ]

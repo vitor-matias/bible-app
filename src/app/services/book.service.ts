@@ -8,6 +8,9 @@ import { BibleApiService } from "./bible-api.service"
 })
 export class BookService {
   private booksSubject = new BehaviorSubject<Book[]>([])
+  private groupIntrosSubject = new BehaviorSubject<IntroSummary[]>([])
+  /** Standalone introductions, in API order. */
+  groupIntros$ = this.groupIntrosSubject.asObservable()
   books$ = this.booksSubject
     .asObservable()
     .pipe(filter((books) => books.length > 0))
@@ -27,15 +30,86 @@ export class BookService {
   async initializeBooks(): Promise<void> {
     if (this.getBooks().length > 0) return
 
-    await firstValueFrom(
-      this.apiService.getAvailableBooks().pipe(
-        tap((books) => {
-          // Clone before appending the synthetic About entry so we do not mutate
-          // the shared API/cache array returned by BibleApiService.
-          this.booksSubject.next([...books, this.getAboutBook()])
-        }),
+    // Fetch both before emitting: a reader resolving /pentateuco/intro from
+    // the URL must find that book on the very first emission, otherwise a
+    // deep link or refresh falls back to the About page.
+    const [books, intros] = await Promise.all([
+      firstValueFrom(this.apiService.getAvailableBooks()),
+      // Standalone introductions are optional: an API without them (or being
+      // offline) just means no introduction entries.
+      firstValueFrom(this.apiService.getIntros()).catch(
+        () => [] as IntroSummary[],
       ),
+    ])
+
+    const introList = Array.isArray(intros) ? intros : []
+    this.groupIntrosSubject.next(introList)
+    // Clone before appending the synthetic entries so we do not mutate the
+    // shared API/cache array returned by BibleApiService.
+    this.booksSubject.next([
+      ...books,
+      this.getAboutBook(),
+      ...introList.map((intro) => this.toIntroBook(intro)),
+    ])
+  }
+
+  /** Fetches an introduction body and caches it on its synthetic book. */
+  async loadGroupIntroBody(book: Book): Promise<Book> {
+    if (!book.introSlug || book.introduction?.length) return book
+    const intro = await firstValueFrom(this.apiService.getIntro(book.introSlug))
+    // Replace the entry rather than mutating it, so change detection and the
+    // reader's memoised chapter list both notice.
+    const loaded: Book = { ...book, introduction: intro.introduction ?? [] }
+    this.booksSubject.next(
+      this.getBooks().map((entry) => (entry.id === book.id ? loaded : entry)),
     )
+    return loaded
+  }
+
+  private toIntroBook(intro: IntroSummary): Book {
+    const name = this.formatIntroName(intro.name)
+    return {
+      id: intro.slug,
+      name,
+      shortName: name,
+      abrv: intro.slug,
+      // No chapters: the introduction is the only thing to read.
+      chapterCount: 0,
+      introduction: [],
+      introSlug: intro.slug,
+    }
+  }
+
+  // Portuguese particles stay lower-case in a title, except as the first word.
+  private static readonly TITLE_PARTICLES = new Set([
+    "a",
+    "ao",
+    "aos",
+    "as",
+    "da",
+    "das",
+    "de",
+    "do",
+    "dos",
+    "e",
+    "em",
+    "o",
+    "os",
+  ])
+
+  /** The USFM headers are upper-case; show them as a normal title. */
+  private formatIntroName(name: string): string {
+    const trimmed = name.trim()
+    if (trimmed !== trimmed.toUpperCase()) return trimmed
+    return trimmed
+      .toLocaleLowerCase("pt")
+      .split(/\s+/)
+      .map((word, index) =>
+        index > 0 && BookService.TITLE_PARTICLES.has(word)
+          ? word
+          : word.charAt(0).toLocaleUpperCase("pt") + word.slice(1),
+      )
+      .join(" ")
   }
 
   /**

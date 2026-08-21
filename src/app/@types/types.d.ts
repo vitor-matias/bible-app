@@ -6,7 +6,19 @@ type Book = {
   chapterCount: number
   introduction?: IntroElement[]
   chapters?: Chapter[]
+  /** Set on the synthetic books that stand in for a standalone introduction. */
+  introSlug?: string
 }
+
+/** A standalone introduction (whole Bible, a testament, a group of books). */
+type GroupIntro = {
+  slug: string
+  name: string
+  introduction: IntroElement[]
+}
+
+/** Entry in the /v1/intros listing: no body, just enough to link to it. */
+type IntroSummary = Pick<GroupIntro, "slug" | "name">
 
 type IntroElement =
   | IntroTitle

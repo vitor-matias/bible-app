@@ -402,11 +402,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   onBookSubmit(event: { bookId: string }) {
     const book = this.bookService.findBook(event.bookId)
     // Picking a book opens chapter 1: the introduction is reachable from the
-    // chapter list, but readers expect the text itself by default.
+    // chapter list, but readers expect the text itself by default. A
+    // standalone introduction has no chapters, so it opens on itself.
     this.router.navigate([
       "/",
       this.bookService.getUrlAbrv(book),
-      this.bookService.getChapterUrlSegment(1),
+      this.bookService.getChapterUrlSegment(book.introSlug ? 0 : 1),
     ])
 
     this.bookDrawer.close()
@@ -428,6 +429,29 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // in-flight chapter request so it cannot overwrite the intro view.
     if (chapter === 0) {
       this.chapterSubscription?.unsubscribe()
+
+      // A standalone introduction (whole Bible, testament, group of books)
+      // ships without its body: fetch it, then render as usual.
+      if (!this.hasIntro && this.book.introSlug) {
+        this.bookService
+          .loadGroupIntroBody(this.book)
+          .then((book) => {
+            // Ignore a response that arrives after the reader moved on.
+            if (this.book.id !== book.id) return
+            this.book = book
+            this.finalizeChapterTransition(() =>
+              this.applyChapter(
+                { bookId: this.book.id, number: 0, title: "Introdução" },
+                0,
+              ),
+            )
+          })
+          .catch((error) => {
+            this.notifyChapterLoadFailed()
+            console.error(error)
+          })
+        return
+      }
 
       // /intro on a book without introduction: normalize to chapter 1
       // instead of requesting the nonexistent chapter 0 from the API.

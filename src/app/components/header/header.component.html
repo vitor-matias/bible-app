@@ -79,7 +79,8 @@
           }
         </mat-button-toggle>
 
-        @if(book.id !== 'about'){
+        <!-- Standalone introductions have no chapters to pick. -->
+        @if(book.id !== 'about' && !book.introSlug){
         <mat-button-toggle #chapterToggle mat-flat-button matTooltip="Escolher capítulo"
           class="bookSelectorButtonContent" (click)="showChapterSelector(); chapterToggle.checked = false">
           {{ chapterNumber === 0 ? (mobile ? 'Intro' : 'Introdução') : chapterNumber }}

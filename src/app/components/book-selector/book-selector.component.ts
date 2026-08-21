@@ -30,6 +30,8 @@ import {
 interface BookNode {
   name: string
   books?: BookNode[] | string[]
+  /** Present on canon groups that have a standalone introduction. */
+  introSlug?: string
 }
 
 interface ExampleFlatNode {
@@ -91,16 +93,49 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   private injector = inject(Injector)
 
   constructor(private elementRef: ElementRef) {
-    this.otDataSource.data = this.oldTestament
-    this.ntDataSource.data = this.newTestament
-
-    this.otTreeControl.expandAll()
-    this.ntTreeControl.expandAll()
+    this.buildTrees()
   }
 
   hasChild = (_: number, node: ExampleFlatNode) => node.expandable
 
   oldTestament: CanonGroup[] = OLD_TESTAMENT_GROUPS
+
+  /**
+   * The picker's own view of the canon: each group led by its standalone
+   * introduction, plus a group heading each column for the introductions that
+   * belong to no group (the whole Bible, the New Testament).
+   *
+   * Introductions are synthetic books keyed by their slug, so they need no
+   * special template — they render and navigate like any other entry. Entries
+   * whose introduction has not loaded (or that the API does not serve) are
+   * dropped, so nothing renders blank. Built here rather than in bible-canon
+   * so the crawlable book index keeps listing books only.
+   */
+  private withIntros(groups: CanonGroup[], leading: string[]): CanonGroup[] {
+    const available = (slugs: string[]) =>
+      slugs.filter((slug) => this.getBook(slug))
+
+    const groupsWithIntros = groups.map((group) =>
+      group.introSlug && available([group.introSlug]).length
+        ? { ...group, books: [group.introSlug, ...group.books] }
+        : group,
+    )
+
+    const leadingAvailable = available(leading)
+    return leadingAvailable.length
+      ? [{ name: "Introduções", books: leadingAvailable }, ...groupsWithIntros]
+      : groupsWithIntros
+  }
+
+  /** Rebuilds both trees; intros arrive after the books, so this re-runs. */
+  private buildTrees(): void {
+    this.otDataSource.data = this.withIntros(this.oldTestament, ["geral"])
+    this.ntDataSource.data = this.withIntros(this.newTestament, [
+      "novotestamento",
+    ])
+    this.otTreeControl.expandAll()
+    this.ntTreeControl.expandAll()
+  }
 
   // The picker also offers the synthetic About page, which is not part of the
   // shared canon (the crawlable book index must not link to it).
@@ -118,10 +153,7 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
     this.filterQuery = query
     const q = this.normalizeSearchValue(query)
     if (!q) {
-      this.otDataSource.data = this.oldTestament
-      this.ntDataSource.data = this.newTestament
-      this.otTreeControl.expandAll()
-      this.ntTreeControl.expandAll()
+      this.buildTrees()
       return
     }
 
@@ -142,8 +174,14 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
         }))
         .filter((group) => group.books.length > 0)
 
-    this.otDataSource.data = filterGroup(this.oldTestament)
-    this.ntDataSource.data = filterGroup(this.newTestament)
+    // Filter the same groups the picker shows, so introductions are findable
+    // by name too.
+    this.otDataSource.data = filterGroup(
+      this.withIntros(this.oldTestament, ["geral"]),
+    )
+    this.ntDataSource.data = filterGroup(
+      this.withIntros(this.newTestament, ["novotestamento"]),
+    )
     this.otTreeControl.expandAll()
     this.ntTreeControl.expandAll()
   }
@@ -155,6 +193,26 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   selectedBookId: string | undefined
 
   @Output() submitData = new EventEmitter<{ bookId: Book["id"] }>()
+
+  /** Slugs of introductions that sit inside a canon group. */
+  private static readonly GROUP_INTRO_SLUGS = new Set(
+    [...OLD_TESTAMENT_GROUPS, ...NEW_TESTAMENT_GROUPS]
+      .map((group) => group.introSlug)
+      .filter((slug): slug is string => !!slug),
+  )
+
+  /**
+   * Label for one entry. A group's own introduction reads just "Introdução" —
+   * the group heading right above it already supplies the context, and the
+   * full name is kept on the book for the toolbar and page title.
+   */
+  entryLabel(bookId: string): string {
+    const book = this.getBook(bookId)
+    if (!book) return ""
+    return BookSelectorComponent.GROUP_INTRO_SLUGS.has(bookId)
+      ? "Introdução"
+      : book.shortName
+  }
 
   getBook(bookId: string): Book | undefined {
     return this.books.find((book) => book.id === bookId)
@@ -187,6 +245,9 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes["books"] && !this.filterQuery) {
+      this.buildTrees()
+    }
     if (changes["selectedBookId"] && !changes["selectedBookId"].firstChange) {
       // Scroll once the updated book list has actually been rendered.
       afterNextRender(() => this.scrollToSelectedBook(), {
