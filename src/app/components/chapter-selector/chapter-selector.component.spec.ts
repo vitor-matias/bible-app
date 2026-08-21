@@ -69,6 +69,25 @@ describe("ChapterSelectorComponent", () => {
     expect(scrollSpy).not.toHaveBeenCalled()
   })
 
+  it("should omit the number slot for the introduction row", () => {
+    // setInput (not a plain assignment): the component is OnPush, so a direct
+    // property write would not mark it dirty and the old rows would render.
+    fixture.componentRef.setInput("chapters", [
+      { bookId: "GEN", number: 0, title: "Introdução" },
+      { bookId: "GEN", number: 1, title: "Creation" },
+    ])
+    fixture.detectChanges()
+
+    const rows = fixture.nativeElement.querySelectorAll(
+      ".chapterSelectorButton",
+    )
+    // The intro has no number, so the fixed-width slot must not pad its label.
+    expect(rows[0].querySelector(".number-wrapper")).toBeNull()
+    expect(rows[0].textContent.trim()).toBe("Introdução")
+    // Numbered chapters keep the slot so their numbers stay in one column.
+    expect(rows[1].querySelector(".number-wrapper")).toBeTruthy()
+  })
+
   it("should render bookmark icon for bookmarked chapters", () => {
     const compiled = fixture.nativeElement as HTMLElement
     const icons = compiled.querySelectorAll(".bookmark-icon")

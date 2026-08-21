@@ -5,13 +5,18 @@
       <mat-list-item>
         <button type="button" class="chapterSelectorButton" mat-flat-button (click)="submit(chapter.number)"
           [ngClass]="{ 'highlight': chapter.number === selectedChapter }">
+          <!-- The introduction has no number: skip the fixed-width slot so its
+               label is not padded out to the left (the slot still renders when
+               the intro itself is bookmarked, to keep the ribbon visible). -->
+          @if (getChapterLabel(chapter) || bookmarksMap.has(chapter.number)) {
           <span class="number-wrapper">
             @if(bookmarksMap.has(chapter.number)){
             <mat-icon [style.color]="bookmarksMap.get(chapter.number)" class="bookmark-icon">bookmark</mat-icon>
             }
             <span [ngClass]="{ 'bookmarked': bookmarksMap.has(chapter.number) }">{{ getChapterLabel(chapter) }}</span>
           </span>
-          <span>{{getChapterDisplay(chapter)}}</span>
+          }
+          <span class="chapter-title">{{getChapterDisplay(chapter)}}</span>
         </button>
       </mat-list-item>
       }
