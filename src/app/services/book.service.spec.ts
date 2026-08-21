@@ -58,14 +58,24 @@ describe("BookService", () => {
       abrv: "Jb",
       chapterCount: 42,
     },
+    {
+      id: "1sa",
+      name: "Primeiro Livro de Samuel",
+      shortName: "1 Samuel",
+      abrv: "1 Sm",
+      chapterCount: 31,
+    },
   ]
 
   beforeEach(() => {
     apiBooks = mockBooks.map((book) => ({ ...book }))
     const apiServiceSpy = jasmine.createSpyObj("BibleApiService", [
       "getAvailableBooks",
+      "getIntros",
+      "getIntro",
     ])
     apiServiceSpy.getAvailableBooks.and.returnValue(of(apiBooks))
+    apiServiceSpy.getIntros.and.returnValue(of([]))
 
     TestBed.configureTestingModule({
       providers: [
@@ -77,6 +87,84 @@ describe("BookService", () => {
     TestBed.inject(BibleApiService)
   })
 
+  describe("standalone introductions", () => {
+    const introApi = (intros: IntroSummary[], body?: GroupIntro) => {
+      const spy = jasmine.createSpyObj("BibleApiService", [
+        "getAvailableBooks",
+        "getIntros",
+        "getIntro",
+      ])
+      spy.getAvailableBooks.and.returnValue(of(apiBooks))
+      spy.getIntros.and.returnValue(of(intros))
+      spy.getIntro.and.returnValue(body ? of(body) : of())
+      TestBed.resetTestingModule()
+      TestBed.configureTestingModule({
+        providers: [BookService, { provide: BibleApiService, useValue: spy }],
+      })
+      return TestBed.inject(BookService)
+    }
+
+    it("exposes each introduction as a findable book", async () => {
+      const svc = introApi([
+        { slug: "pentateuco", name: "INTRODUÇÃO AO PENTATEUCO" },
+      ])
+      await svc.initializeBooks()
+
+      const intro = svc.findBook("pentateuco")
+      expect(intro.id).toBe("pentateuco")
+      expect(intro.introSlug).toBe("pentateuco")
+      // Upper-case USFM headers become a readable title.
+      expect(intro.name).toBe("Introdução ao Pentateuco")
+      // No chapters: the introduction is the only thing to read.
+      expect(intro.chapterCount).toBe(0)
+    })
+
+    it("points books with a shared introduction at it", async () => {
+      const svc = introApi([{ slug: "samuel", name: "LIVROS DE SAMUEL" }])
+      await svc.initializeBooks()
+
+      // 1/2 Samuel carry no introduction of their own; the edition writes one
+      // for both, so both must read from it.
+      const first = svc.getBooks().find((book) => book.id === "1sa")
+      expect(first?.sharedIntroSlug).toBe("samuel")
+      expect(BookService.introSlugFor(first)).toBe("samuel")
+    })
+
+    it("does not claim a shared introduction the API does not serve", async () => {
+      const svc = introApi([])
+      await svc.initializeBooks()
+
+      const first = svc.getBooks().find((book) => book.id === "1sa")
+      expect(first?.sharedIntroSlug).toBeUndefined()
+    })
+
+    it("keeps working when the API serves no introductions", async () => {
+      const svc = introApi([])
+      await svc.initializeBooks()
+
+      expect(svc.getBooks().some((book) => book.introSlug)).toBeFalse()
+      expect(svc.findBook("gen").id).toBe("gen")
+    })
+
+    it("caches a fetched introduction body on its book", async () => {
+      const svc = introApi(
+        [{ slug: "pentateuco", name: "INTRODUÇÃO AO PENTATEUCO" }],
+        {
+          slug: "pentateuco",
+          name: "INTRODUÇÃO AO PENTATEUCO",
+          introduction: [{ type: "introParagraph", text: "Cinco rolos." }],
+        },
+      )
+      await svc.initializeBooks()
+
+      const loaded = await svc.loadGroupIntroBody(svc.findBook("pentateuco"))
+
+      expect(loaded.introduction?.length).toBe(1)
+      // Stored back on the list, so the reader finds it next time.
+      expect(svc.findBook("pentateuco").introduction?.length).toBe(1)
+    })
+  })
+
   it("should be created", () => {
     expect(service).toBeTruthy()
   })
@@ -85,10 +173,12 @@ describe("BookService", () => {
     // An unhandled rejection here kills prerender worker threads at build time.
     const failingApi = jasmine.createSpyObj("BibleApiService", [
       "getAvailableBooks",
+      "getIntros",
     ])
     failingApi.getAvailableBooks.and.returnValue(
       throwError(() => new Error("API unavailable")),
     )
+    failingApi.getIntros.and.returnValue(of([]))
 
     TestBed.resetTestingModule()
     TestBed.configureTestingModule({
@@ -146,6 +236,28 @@ describe("BookService", () => {
         chapterCount: 31,
       }),
     ).toBe("1sm")
+  })
+
+  describe("chapter URL segments", () => {
+    it("should map the introduction to /intro and back", () => {
+      expect(service.getChapterUrlSegment(0)).toBe("intro")
+      expect(service.getChapterUrlSegment(3)).toBe("3")
+      expect(service.parseChapterUrlSegment("intro")).toBe(0)
+      // Legacy /0 URLs keep working
+      expect(service.parseChapterUrlSegment("0")).toBe(0)
+      expect(service.parseChapterUrlSegment("12")).toBe(12)
+    })
+
+    it("should fall back for missing or non-canonical segments", () => {
+      expect(service.parseChapterUrlSegment(null)).toBe(1)
+      expect(service.parseChapterUrlSegment(undefined)).toBe(1)
+      expect(service.parseChapterUrlSegment("")).toBe(1)
+      expect(service.parseChapterUrlSegment(null, 5)).toBe(5)
+      expect(service.parseChapterUrlSegment("2junk")).toBe(1)
+      expect(service.parseChapterUrlSegment("1.5")).toBe(1)
+      expect(service.parseChapterUrlSegment("-3")).toBe(1)
+      expect(service.parseChapterUrlSegment("99999999999999999999")).toBe(1)
+    })
   })
 
   describe("findBookByName", () => {

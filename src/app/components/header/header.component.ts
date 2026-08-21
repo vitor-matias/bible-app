@@ -5,6 +5,7 @@ import {
   Component,
   DestroyRef,
   EventEmitter,
+  HostListener,
   Inject,
   Input,
   inject,
@@ -90,9 +91,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    if (typeof window !== "undefined" && window.screen.width <= 480) {
-      this.mobile = true
-    }
+    this.updateMobile()
     this.canShare =
       Capacitor.isNativePlatform() ||
       (typeof navigator !== "undefined" &&
@@ -114,6 +113,21 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       })
   }
 
+  /**
+   * Width of the window, not of the physical screen: a narrow desktop window
+   * needs the compact labels just as much as a phone does. Recomputed on
+   * resize so rotating or resizing takes effect immediately.
+   */
+  @HostListener("window:resize")
+  updateMobile(): void {
+    if (typeof window === "undefined") return
+    const isMobile = window.innerWidth <= 480
+    if (isMobile !== this.mobile) {
+      this.mobile = isMobile
+      this.cdr.markForCheck()
+    }
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["book"] || changes["chapterNumber"]) {
       this.updateBookmarkState()
@@ -128,7 +142,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private updateBookmarkState() {
-    if (this.book && this.chapterNumber) {
+    // chapterNumber 0 is the book introduction, so check for null instead of falsiness
+    if (this.book && this.chapterNumber != null) {
       this.currentBookmark = this.bookmarkService.getBookmark(
         this.book.id,
         this.chapterNumber,
@@ -137,7 +152,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   openBookmarkSelector() {
-    if (!this.book || !this.chapterNumber) {
+    if (!this.book || this.chapterNumber == null) {
       return
     }
 
@@ -258,7 +273,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     const title = "Biblia Sagrada"
     const text = isAbout
       ? "Leia a Biblia nesta app."
-      : `Ler ${this.book?.name} ${this.chapterNumber}.`
+      : this.chapterNumber === 0
+        ? `Ler a introdução de ${this.book?.name}.`
+        : `Ler ${this.book?.name} ${this.chapterNumber}.`
     const url = typeof window === "undefined" ? "" : window.location.href
 
     try {

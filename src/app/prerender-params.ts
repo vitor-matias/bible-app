@@ -1,3 +1,4 @@
+import { SHARED_BOOK_INTROS } from "./bible-canon"
 import { serverApiOrigin } from "./config"
 
 const FETCH_TIMEOUT_MS = 20_000
@@ -51,20 +52,33 @@ export async function fetchPrerenderChapterParams(
             ? book.abrv.replace(/\s/g, "").toLowerCase()
             : "",
         chapterCount: book?.chapterCount,
+        // Either its own introduction, or the shared one the edition writes
+        // for its cluster of books (Samuel, Reis, …) — both render at
+        // /:book/intro.
+        hasIntroduction:
+          (Array.isArray(book?.introduction) && book.introduction.length > 0) ||
+          !!SHARED_BOOK_INTROS[book?.id],
       }))
-      .filter(
-        (book) =>
-          book.urlAbrv.length > 0 &&
+      .filter((book) => book.urlAbrv.length > 0)
+      .flatMap((book) => {
+        // An introduction is worth indexing on its own: it lives at
+        // /:book/intro and does not depend on the chapter count being sane.
+        const introRoutes = book.hasIntroduction
+          ? [{ book: book.urlAbrv, chapter: "intro" }]
+          : []
+        const hasUsableChapterCount =
           Number.isInteger(book.chapterCount) &&
           book.chapterCount > 0 &&
-          book.chapterCount <= MAX_CHAPTERS_PER_BOOK,
-      )
-      .flatMap((book) =>
-        Array.from({ length: book.chapterCount }, (_, index) => ({
-          book: book.urlAbrv,
-          chapter: `${index + 1}`,
-        })),
-      )
+          book.chapterCount <= MAX_CHAPTERS_PER_BOOK
+        if (!hasUsableChapterCount) return introRoutes
+        return [
+          ...introRoutes,
+          ...Array.from({ length: book.chapterCount }, (_, index) => ({
+            book: book.urlAbrv,
+            chapter: `${index + 1}`,
+          })),
+        ]
+      })
   } catch (error) {
     console.warn(
       `Prerender: could not fetch the book list (${

@@ -157,6 +157,21 @@ describe("BibleReferenceService", () => {
     ])
   })
 
+  it('normalizes reversed ranges keeping parts with their verse, "John 3,20b-18a"', () => {
+    const input = "John 3,20b-18a"
+    const out = service.extract(input)
+    expect(out.length).toBe(1)
+    expect(out[0].verses).toEqual([
+      {
+        type: "range",
+        start: 18,
+        end: 20,
+        startPart: "a",
+        endPart: "b",
+      } as VerseReference,
+    ])
+  })
+
   it('extracts range with verse parts like "John 3,16a-17b"', () => {
     const input = "John 3,16a-17b"
     const out = service.extract(input)

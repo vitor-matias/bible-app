@@ -99,8 +99,9 @@ export class AppComponent implements OnInit, OnDestroy {
     const params = new URLSearchParams(window.location.search)
     const sharedUrl = params.get("url")
     const sharedText = params.get("text")
+    const sharedTitle = params.get("title")
 
-    if (!sharedUrl && !sharedText) return
+    if (!sharedUrl && !sharedText && !sharedTitle) return
 
     // Try to navigate directly if the shared URL is an internal link.
     if (sharedUrl) {
@@ -118,8 +119,8 @@ export class AppComponent implements OnInit, OnDestroy {
       }
     }
 
-    // Fall back: open search with the shared text or URL as the query.
-    const query = sharedText ?? sharedUrl ?? ""
+    // Fall back: open search with the shared text, URL or title as the query.
+    const query = sharedText ?? sharedUrl ?? sharedTitle ?? ""
     if (query) {
       this.router.navigate(["/search"], { queryParams: { q: query } })
     }

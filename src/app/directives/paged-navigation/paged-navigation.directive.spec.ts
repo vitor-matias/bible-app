@@ -7,6 +7,7 @@ import {
 import {
   ComponentFixture,
   fakeAsync,
+  flushMicrotasks,
   TestBed,
   tick,
 } from "@angular/core/testing"
@@ -86,6 +87,29 @@ describe("PagedNavigationDirective", () => {
     expect(hostComponent.directive).toBeTruthy()
   })
 
+  describe("late-arriving content", () => {
+    it("re-emits the page state when the block grows", () => {
+      // Content measured while still one page wide reports "last page"; a
+      // lazily loaded introduction then leaves the reader with no next
+      // control and overflow-x hidden, i.e. stuck on page one.
+      hostComponent.pageState = { isFirstPage: true, isLastPage: true }
+
+      spyOnProperty(container, "scrollLeft").and.returnValue(0)
+      spyOnProperty(container, "scrollWidth").and.returnValue(1200)
+      spyOnProperty(container, "clientWidth").and.returnValue(400)
+
+      // The directive observes the block for content changes.
+      // Every layout change (the MutationObserver on late content, a chapter
+      // transition) funnels through this call.
+      hostComponent.directive.ensureAlignedScrollWidth()
+
+      expect(hostComponent.pageState).toEqual({
+        isFirstPage: true,
+        isLastPage: false,
+      })
+    })
+  })
+
   describe("onScroll", () => {
     it("should emit page state", () => {
       // Mock scroll state
@@ -115,6 +139,9 @@ describe("PagedNavigationDirective", () => {
 
     it("should do nothing in scrolling mode", () => {
       hostComponent.viewMode = "scrolling"
+      // Angular TestBed does not re-run host bindings for plain property
+      // mutations, so mirror the input on the directive directly.
+      hostComponent.directive.viewMode = "scrolling"
       fixture.detectChanges()
 
       hostComponent.pageState = undefined
@@ -137,6 +164,9 @@ describe("PagedNavigationDirective", () => {
   describe("nextPage", () => {
     it("should do nothing in scrolling mode", () => {
       hostComponent.viewMode = "scrolling"
+      // Angular TestBed does not re-run host bindings for plain property
+      // mutations, so mirror the input on the directive directly.
+      hostComponent.directive.viewMode = "scrolling"
       fixture.detectChanges()
 
       hostComponent.directive.nextPage()
@@ -197,6 +227,9 @@ describe("PagedNavigationDirective", () => {
   describe("prevPage", () => {
     it("should do nothing in scrolling mode", () => {
       hostComponent.viewMode = "scrolling"
+      // Angular TestBed does not re-run host bindings for plain property
+      // mutations, so mirror the input on the directive directly.
+      hostComponent.directive.viewMode = "scrolling"
       fixture.detectChanges()
 
       hostComponent.directive.prevPage()
@@ -308,6 +341,9 @@ describe("PagedNavigationDirective", () => {
         return 1
       }) as unknown as typeof setTimeout)
       hostComponent.viewMode = "scrolling"
+      // Angular TestBed does not re-run host bindings for plain property
+      // mutations, so mirror the input on the directive directly.
+      hostComponent.directive.viewMode = "scrolling"
       fixture.detectChanges()
 
       window.dispatchEvent(new Event("resize"))

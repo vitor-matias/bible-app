@@ -44,7 +44,13 @@ describe("OfflineDataService", () => {
               chapterNumber: 1,
               number: 1,
               verseLabel: "1",
-              text: [{ type: "text", text: "In the beginning..." }],
+              text: [
+                {
+                  type: "text",
+                  text: "In the beginning...",
+                  normalizedText: "In the beginning...",
+                },
+              ],
             },
           ],
         },
@@ -60,6 +66,12 @@ describe("OfflineDataService", () => {
   ]
 
   let databaseService: jasmine.SpyObj<DatabaseService>
+
+  const flushMicrotasks = async () => {
+    for (let i = 0; i < 5; i++) {
+      await Promise.resolve()
+    }
+  }
 
   beforeEach(() => {
     // Mock localStorage
@@ -87,14 +99,18 @@ describe("OfflineDataService", () => {
     spyOnProperty(window, "localStorage", "get").and.returnValue(
       mockLocalStorage,
     )
+    // Persisted schema matches the current version, so no migration runs.
+    mockLocalStorage._storage["booksCacheSchemaVersion"] = "2"
 
     // Mock DatabaseService
     const spy = jasmine.createSpyObj("DatabaseService", [
       "getAll",
       "clearAndPutAll",
+      "clear",
     ])
     spy.getAll.and.returnValue(Promise.resolve([]))
     spy.clearAndPutAll.and.returnValue(Promise.resolve())
+    spy.clear.and.returnValue(Promise.resolve())
 
     // Mock NetworkService
     const networkSpy = jasmine.createSpyObj("NetworkService", [], {
@@ -145,6 +161,8 @@ describe("OfflineDataService", () => {
 
     it("should preload books if cache flag is not set", async () => {
       const promise = service.preloadAllBooksAndChapters()
+      // preload awaits the cache-schema check before issuing the request
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       expect(req.request.method).toBe("GET")
@@ -171,6 +189,8 @@ describe("OfflineDataService", () => {
       spyOnProperty(navigator, "onLine", "get").and.returnValue(true)
 
       const promise = service.preloadAllBooksAndChapters()
+      // preload awaits the cache-schema check before issuing the request
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       req.flush(mockBooks)
@@ -204,6 +224,8 @@ describe("OfflineDataService", () => {
       spyOn(console, "error")
 
       const promise = service.preloadAllBooksAndChapters()
+      // preload awaits the cache-schema check before issuing the request
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       req.error(new ProgressEvent("error"))
@@ -220,6 +242,7 @@ describe("OfflineDataService", () => {
       const analyticsService = TestBed.inject(AnalyticsService)
 
       const promise = service.preloadAllBooksAndChapters("install")
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       req.flush(mockBooks)
@@ -235,6 +258,7 @@ describe("OfflineDataService", () => {
       const analyticsService = TestBed.inject(AnalyticsService)
 
       const promise = service.preloadAllBooksAndChapters("standalone")
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       req.flush(mockBooks)
@@ -248,6 +272,96 @@ describe("OfflineDataService", () => {
   })
 
   describe("setCachedBooks and getCachedBooks", () => {
+    const verseFixture = (chapter: number, number: number): Verse => ({
+      bookId: "gen",
+      chapterNumber: chapter,
+      number,
+      verseLabel: number.toString(),
+      text: [{ type: "text", text: "v", normalizedText: "v" }],
+    })
+
+    it("should merge chapters per chapter number keeping the fuller payload", async () => {
+      const base = {
+        id: "gen",
+        name: "Genesis",
+        shortName: "Genesis",
+        abrv: "Gn",
+        chapterCount: 3,
+      }
+      await service.setCachedBooks([
+        {
+          ...base,
+          chapters: [
+            {
+              bookId: "gen",
+              number: 1,
+              verses: [verseFixture(1, 1), verseFixture(1, 2)],
+            },
+            { bookId: "gen", number: 2, verses: [verseFixture(2, 1)] },
+          ],
+        },
+      ])
+
+      // A partial refresh: chapter 1 as a stub, plus a new fuller chapter 3.
+      await service.setCachedBooks([
+        {
+          ...base,
+          chapters: [
+            { bookId: "gen", number: 1 },
+            {
+              bookId: "gen",
+              number: 3,
+              verses: [
+                verseFixture(3, 1),
+                verseFixture(3, 2),
+                verseFixture(3, 3),
+              ],
+            },
+          ],
+        },
+      ])
+
+      const merged = service.getCachedBook("gen")
+      expect(merged?.chapters?.map((c) => c.number)).toEqual([1, 2, 3])
+      expect(
+        merged?.chapters?.find((c) => c.number === 1)?.verses?.length,
+      ).toBe(2)
+      expect(
+        merged?.chapters?.find((c) => c.number === 2)?.verses?.length,
+      ).toBe(1)
+      expect(
+        merged?.chapters?.find((c) => c.number === 3)?.verses?.length,
+      ).toBe(3)
+    })
+
+    it("should keep a chapter's introduction when a stub ties on verse count", async () => {
+      const base = {
+        id: "gen",
+        name: "Genesis",
+        shortName: "Genesis",
+        abrv: "Gn",
+        chapterCount: 1,
+      }
+      await service.setCachedBooks([
+        {
+          ...base,
+          chapters: [
+            { bookId: "gen", number: 1, introduction: "Texto introdutório" },
+          ],
+        },
+      ])
+
+      // A shallow refresh with a bare stub (same zero verse count, no intro).
+      await service.setCachedBooks([
+        { ...base, chapters: [{ bookId: "gen", number: 1 }] },
+      ])
+
+      const merged = service.getCachedBook("gen")
+      expect(merged?.chapters?.find((c) => c.number === 1)?.introduction).toBe(
+        "Texto introdutório",
+      )
+    })
+
     it("should set and retrieve cached books", async () => {
       await service.setCachedBooks(mockBooks)
 
@@ -515,6 +629,67 @@ describe("OfflineDataService", () => {
     })
   })
 
+  describe("cache schema migration", () => {
+    const staleBook = {
+      id: "gen",
+      name: "Genesis",
+      shortName: "Genesis",
+      abrv: "Gn",
+      chapterCount: 50,
+    } as Book
+
+    it("should clear stale records and update metadata on version mismatch", async () => {
+      delete mockLocalStorage._storage["booksCacheSchemaVersion"]
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+      databaseService.getAll.and.returnValue(Promise.resolve([staleBook]))
+      // Once cleared, the store no longer returns the stale record.
+      databaseService.clear.and.callFake(() => {
+        databaseService.getAll.and.returnValue(Promise.resolve([]))
+        return Promise.resolve()
+      })
+
+      const books = await service.getCachedBooksAsync()
+
+      expect(databaseService.clear).toHaveBeenCalledWith("books")
+      expect(books).toEqual([])
+      expect(mockLocalStorage._storage["booksCacheSchemaVersion"]).toBe("2")
+      expect(mockLocalStorage._storage["booksCacheReady"]).toBeUndefined()
+    })
+
+    it("should still refresh via preload when the migration clear fails", async () => {
+      spyOn(console, "error")
+      delete mockLocalStorage._storage["booksCacheSchemaVersion"]
+      // Stale metadata from the old schema claims the cache is ready.
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
+      databaseService.clear.and.returnValue(Promise.reject(new Error("boom")))
+
+      const promise = service.preloadAllBooksAndChapters()
+      await flushMicrotasks()
+
+      // The stale "ready" flag must not short-circuit the refresh.
+      const req = httpMock.expectOne("v1/books?withChapters=true")
+      req.flush(mockBooks)
+      await promise
+    })
+
+    it("should not expose stale records when the migration clear fails", async () => {
+      spyOn(console, "error")
+      delete mockLocalStorage._storage["booksCacheSchemaVersion"]
+      databaseService.clear.and.returnValue(Promise.reject(new Error("boom")))
+      databaseService.getAll.and.returnValue(Promise.resolve([staleBook]))
+
+      const books = await service.getCachedBooksAsync()
+
+      expect(books).toEqual([])
+      expect(databaseService.getAll).not.toHaveBeenCalled()
+      // Schema metadata is only written after a successful clear.
+      expect(
+        mockLocalStorage._storage["booksCacheSchemaVersion"],
+      ).toBeUndefined()
+    })
+  })
+
   describe("cache expiry", () => {
     it("should consider cache expired after 40 days", async () => {
       // 41 days ago
@@ -525,6 +700,8 @@ describe("OfflineDataService", () => {
       spyOnProperty(navigator, "onLine", "get").and.returnValue(true)
 
       const promise = service.preloadAllBooksAndChapters()
+      // preload awaits the cache-schema check before issuing the request
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       req.flush(mockBooks)
