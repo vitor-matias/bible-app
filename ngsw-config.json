@@ -30,6 +30,7 @@
   "dataGroups": [
     {
       "name": "bible-search",
+      "version": 2,
       "urls": [
         "/v1/search**"
       ],
@@ -41,6 +42,7 @@
     },
     {
       "name": "bible-content",
+      "version": 2,
       "urls": [
         "/v1/**"
       ],
