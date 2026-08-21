@@ -7,6 +7,7 @@ import {
 import {
   ComponentFixture,
   fakeAsync,
+  flushMicrotasks,
   TestBed,
   tick,
 } from "@angular/core/testing"
@@ -84,6 +85,29 @@ describe("PagedNavigationDirective", () => {
 
   it("should create", () => {
     expect(hostComponent.directive).toBeTruthy()
+  })
+
+  describe("late-arriving content", () => {
+    it("re-emits the page state when the block grows", () => {
+      // Content measured while still one page wide reports "last page"; a
+      // lazily loaded introduction then leaves the reader with no next
+      // control and overflow-x hidden, i.e. stuck on page one.
+      hostComponent.pageState = { isFirstPage: true, isLastPage: true }
+
+      spyOnProperty(container, "scrollLeft").and.returnValue(0)
+      spyOnProperty(container, "scrollWidth").and.returnValue(1200)
+      spyOnProperty(container, "clientWidth").and.returnValue(400)
+
+      // The directive observes the block for content changes.
+      // Every layout change (the MutationObserver on late content, a chapter
+      // transition) funnels through this call.
+      hostComponent.directive.ensureAlignedScrollWidth()
+
+      expect(hostComponent.pageState).toEqual({
+        isFirstPage: true,
+        isLastPage: false,
+      })
+    })
   })
 
   describe("onScroll", () => {

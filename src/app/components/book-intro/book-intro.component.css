@@ -4,6 +4,18 @@
   color: var(--text-color);
 }
 
+/* In the multi-column (paged) layout only the first column carries the leading
+   padding and the first element's top margin, which pushes its text down while
+   every other column starts flush at the top. Drop both so all columns share
+   one baseline; the toolbar already provides the space above. */
+.intro-container:first-child {
+  padding-top: 0;
+}
+
+.intro-container > :first-child {
+  margin-top: 0;
+}
+
 /* ── Titles ── */
 
 .intro-title {
