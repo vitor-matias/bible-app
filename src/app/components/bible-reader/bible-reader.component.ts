@@ -405,6 +405,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   /** Hide the container BEFORE change detection paints the new chapter. */
   private resetContainerForRepaint(): void {
+    // Browser-only: the animation service clears this again from
+    // triggerSlideAnimation, which is itself browser-only, so hiding the
+    // container while server-rendering would bake opacity: 0 into the
+    // prerendered HTML with nothing left to undo it.
+    if (!isPlatformBrowser(this.platformId)) return
     const el = this.bookContainer?.nativeElement
     if (el) {
       el.style.transition = "none"

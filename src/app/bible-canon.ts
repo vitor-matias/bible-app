@@ -1,7 +1,8 @@
 /**
  * Canonical grouping of the 73 books (Difusora Bíblica canon) by testament,
  * keyed by book id. Kept out of the book selector so the canon is stated once,
- * independently of the picker UI that renders it.
+ * independently of the picker UI that renders it — today the picker is the
+ * only consumer.
  */
 export interface CanonGroup {
   name: string

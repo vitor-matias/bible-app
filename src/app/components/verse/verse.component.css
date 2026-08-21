@@ -150,14 +150,16 @@ h3:not(:first-child) {
    floating above the stroke; padding-block is relative to their own font-size,
    hence the much larger value needed to reach the text's band.
 
-   The footnote marker sits the same way but is deliberately left out: padding
-   does not move an inline box, but it does enlarge the border box, and that is
-   what the browser hit-tests. Growing it by ~1.45em of a 65% font would put an
-   invisible ~1 line tall target over the text below for as long as the
-   highlight lasts, swallowing taps meant for that line. The marker still gets
-   the background above, just at its own height. */
+   That padding does not move an inline box, but it does enlarge the border
+   box, and that is what the browser hit-tests: it leaves an invisible ~1 line
+   tall target over the text below for as long as the highlight lasts. The
+   number is not interactive, so pointer-events takes it back out of hit
+   testing and taps land on the line they look like they are on. The footnote
+   marker IS interactive, so it cannot do the same and is left unpadded — it
+   still gets the background above, just at its own height. */
 :host(.verse-highlight) .verseNumber {
   padding-block: 0.05em 1.45em;
+  pointer-events: none;
 }
 
 /* In poetry the number hangs off the left of its line (position: absolute).

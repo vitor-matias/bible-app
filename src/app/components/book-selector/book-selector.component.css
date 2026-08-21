@@ -54,8 +54,8 @@ mat-tree-node {
 .testament-label {
   font-size: 125%;
   font-weight: bold;
-  /* These were headings once; keep the heading margin so the drawer spacing is
-     unchanged now that they are plain labels. */
+  /* Spelled out rather than left to the h4 defaults, which the Material
+     typography reset overrides. */
   margin: 1.33em 0;
 }
 

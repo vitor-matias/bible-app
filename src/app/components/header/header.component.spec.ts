@@ -301,12 +301,23 @@ describe("HeaderComponent", () => {
 
       const element = fixture.nativeElement as HTMLElement
       expect(element.querySelector("[aria-live]")).toBeNull()
+    })
+
+    // WCAG 2.5.3: naming the button after the action would drop the book name
+    // — the visible label — out of the accessible name entirely.
+    it("names the book picker after its visible label", () => {
+      component.mobile = false
+      fixture.changeDetectorRef.markForCheck()
+      fixture.detectChanges()
+
+      const element = fixture.nativeElement as HTMLElement
       // MatButtonToggle forwards aria-label onto its internal button.
       expect(
-        element
-          .querySelector("mat-button-toggle button[aria-label]")
-          ?.getAttribute("aria-label"),
-      ).toBe("Escolher livro")
+        element.querySelector("mat-button-toggle button[aria-label]"),
+      ).toBeNull()
+      expect(element.querySelector("mat-button-toggle")?.textContent).toContain(
+        "Genesis",
+      )
     })
 
     it("fades the label out before swapping its text", fakeAsync(() => {

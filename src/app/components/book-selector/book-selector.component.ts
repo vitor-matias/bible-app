@@ -102,8 +102,8 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   oldTestament: CanonGroup[] = OLD_TESTAMENT_GROUPS
 
-  // The picker also offers the synthetic About page, which is not part of the
-  // shared canon (the crawlable book index must not link to it).
+  // The picker also offers the synthetic About page, which is deliberately not
+  // part of the shared canon in bible-canon.ts.
   newTestament: CanonGroup[] = [
     ...NEW_TESTAMENT_GROUPS,
     {

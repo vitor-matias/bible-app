@@ -20,16 +20,15 @@ describe("BookSelectorComponent", () => {
     expect(component).toBeTruthy()
   })
 
-  // The drawer is a closed navigational control, not page content: as headings
-  // these duplicated the book index's testament headings on the home page, and
-  // before that (as h4s) they were the first headings on every page, ahead of
-  // any h1.
-  it("should label the testaments without using headings", () => {
+  // Nothing else on the page lists the testaments, so these are the drawer's
+  // only heading structure. h2 because the toolbar h1 comes first in the DOM —
+  // the h4s these once were skipped two levels.
+  it("should label the testaments with headings that continue the outline", () => {
     const element = fixture.nativeElement as HTMLElement
 
-    expect(element.querySelectorAll("h1, h2, h3, h4, h5, h6").length).toBe(0)
+    expect(element.querySelectorAll("h1, h3, h4, h5, h6").length).toBe(0)
     expect(
-      Array.from(element.querySelectorAll(".testament-label")).map((label) =>
+      Array.from(element.querySelectorAll("h2.testament-label")).map((label) =>
         label.textContent?.trim(),
       ),
     ).toEqual(["Antigo Testamento", "Novo Testamento"])

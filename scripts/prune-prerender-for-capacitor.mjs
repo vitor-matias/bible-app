@@ -20,8 +20,13 @@ const browserDir = "dist/bible-app/browser"
 const webDir = "dist/bible-app/capacitor"
 
 if (!existsSync(browserDir)) {
-  console.log(`Nothing to prune: ${browserDir} does not exist.`)
-  process.exit(0)
+  // Failing here rather than exiting 0: webDir is this script's own output, so
+  // carrying on leaves `npx cap sync` to fail on a missing webDir with no clue
+  // that the build is what is missing.
+  console.error(
+    `Cannot prune: ${browserDir} does not exist. Run "npm run build" first.`,
+  )
+  process.exit(1)
 }
 
 rmSync(webDir, { recursive: true, force: true })

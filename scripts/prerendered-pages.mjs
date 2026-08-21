@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs"
+import { closeSync, openSync, readdirSync, readSync, statSync } from "node:fs"
 import { join, relative, sep } from "node:path"
 
 // Angular stamps every server-rendered document with ng-server-context; a
@@ -8,11 +8,23 @@ import { join, relative, sep } from "node:path"
 // that every nested index.html is one.
 const SERVER_CONTEXT_MARKER = "ng-server-context"
 
+// The marker is an attribute on <html>, so only the opening bytes decide it.
+// Whole pages run ~166KB and there are ~1300 of them, which is ~215MB to
+// decode per pass — twice per release, once here and once for the Capacitor
+// prune — for an answer that is settled in the first line.
+const HEAD_BYTES = 4096
+
 function isPrerendered(file) {
+  let descriptor
   try {
-    return readFileSync(file, "utf8").includes(SERVER_CONTEXT_MARKER)
+    descriptor = openSync(file, "r")
+    const head = Buffer.alloc(HEAD_BYTES)
+    const read = readSync(descriptor, head, 0, HEAD_BYTES, 0)
+    return head.subarray(0, read).includes(SERVER_CONTEXT_MARKER)
   } catch {
     return false
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor)
   }
 }
 

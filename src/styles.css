@@ -14,10 +14,6 @@
 @import "@fontsource/pt-serif/700-italic.css";
 @import "@material-symbols/font-400/outlined.css";
 
-/* outlined.css only styles .material-symbols-outlined, but Angular Material tags
-   rendered icons with its default `material-icons` fontSet class, so both names
-   have to resolve to the Symbols font — otherwise every icon falls back to a
-   system font and renders its ligature name as words. */
 /* For headings that structure the page for assistive tech where the design has
    no visible title. Never use this to feed crawlers text a reader can't see. */
 .visually-hidden {
@@ -32,6 +28,10 @@
   border: 0;
 }
 
+/* outlined.css only styles .material-symbols-outlined, but Angular Material tags
+   rendered icons with its default `material-icons` fontSet class, so both names
+   have to resolve to the Symbols font — otherwise every icon falls back to a
+   system font and renders its ligature name as words. */
 .material-symbols-outlined, .material-icons {
   font-family: 'Material Symbols Outlined', sans-serif;
   font-weight: normal;
@@ -249,7 +249,11 @@ a:not(.floating-nav-button) {
   color: var(--text-color) !important;
 }
 
-html.dark-theme .floating-nav-button {
+/* Anchors only: this exists solely to give the two chapter links a colour now
+   that the rule above no longer forces one on them. The <button> variants of
+   .floating-nav-button (paged mode, auto-scroll controls) keep the
+   --cap-brown their own components set — this must not reach them. */
+html.dark-theme a.floating-nav-button {
   color: #2a1a0d;
 }
 

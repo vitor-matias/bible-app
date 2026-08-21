@@ -197,6 +197,22 @@ describe("BibleReaderComponent", () => {
       expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("gen", 1)
     })
 
+    // resetContainerForRepaint hides the container for the swap animation and
+    // only the browser-only animation service puts it back, so hiding it while
+    // server-rendering bakes opacity: 0 into the prerendered HTML with nothing
+    // left to undo it — every crawler would see the chapter as hidden text.
+    it("should not hide the chapter container while server-rendering", async () => {
+      TestBed.resetTestingModule()
+      await setUpTestBed({ platformId: "server" })
+      const serverFixture = TestBed.createComponent(BibleReaderComponent)
+      serverFixture.detectChanges()
+
+      const container = serverFixture.componentInstance.bookContainer
+        ?.nativeElement as HTMLElement
+      expect(container).toBeTruthy()
+      expect(container.style.opacity).not.toBe("0")
+    })
+
     it("should not call getChapter if book and chapter didn't change on route update", () => {
       fixture.detectChanges() // Sets up initial sub
       apiServiceSpy.getChapter.calls.reset()

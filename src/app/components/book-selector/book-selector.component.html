@@ -8,12 +8,13 @@
   />
 </div>
 <div class="bible-books-container">
-  <!-- Labelled group rather than a heading: the drawer is a closed
-       navigational control, and as headings these duplicated the book
-       index's own testament headings on the home page. The group keeps
-       the grouping announced to screen readers. -->
+  <!-- A real heading: nothing else on the page lists the testaments, so this
+       is the only structure screen-reader users have for navigating the
+       drawer. h2 rather than the h4 these once were — the toolbar h1 precedes
+       them in the DOM, so this continues the outline instead of skipping two
+       levels. role="group" additionally ties the tree to it. -->
   <div class="column" role="group" aria-labelledby="otTestamentLabel">
-    <p class="testament-label" id="otTestamentLabel">Antigo Testamento</p>
+    <h2 class="testament-label" id="otTestamentLabel">Antigo Testamento</h2>
 
     <mat-tree [dataSource]="otDataSource" [treeControl]="otTreeControl">
       <!-- This is the tree node template for leaf nodes -->
@@ -36,12 +37,13 @@
     </mat-tree>
 
   </div>
-  <!-- Labelled group rather than a heading: the drawer is a closed
-       navigational control, and as headings these duplicated the book
-       index's own testament headings on the home page. The group keeps
-       the grouping announced to screen readers. -->
+  <!-- A real heading: nothing else on the page lists the testaments, so this
+       is the only structure screen-reader users have for navigating the
+       drawer. h2 rather than the h4 these once were — the toolbar h1 precedes
+       them in the DOM, so this continues the outline instead of skipping two
+       levels. role="group" additionally ties the tree to it. -->
   <div class="column" role="group" aria-labelledby="ntTestamentLabel">
-    <p class="testament-label" id="ntTestamentLabel">Novo Testamento</p>
+    <h2 class="testament-label" id="ntTestamentLabel">Novo Testamento</h2>
 
     <mat-tree [dataSource]="ntDataSource" [treeControl]="ntTreeControl">
       <!-- This is the tree node template for leaf nodes -->

@@ -65,11 +65,13 @@
            title. Assistive tech reads that, not whichever label is mid-cycle. -->
       <h1 class="page-heading" [attr.aria-label]="headingLabel">
       <mat-button-toggle-group multiple class="bookSelectorButton">
-        <!-- Named for what it does, so the name is stable while the visible
-             label cycles. aria-live would otherwise announce every swap of what
-             is decorative chrome. -->
+        <!-- Named by its own visible text (the book name), so the accessible
+             name always contains the visible label. An aria-label naming the
+             action instead would hide which book this is from screen readers
+             and leave voice control with nothing to match; the tooltip already
+             says what the button does, and the h1 above pins the heading name.
+             No aria-live: the swap below is decorative chrome. -->
         <mat-button-toggle #bookToggle mat-flat-button matTooltip="Escolher livro" class="bookSelectorButtonContent"
-          aria-label="Escolher livro"
           (click)="showBookSelector(); bookToggle.checked = false"
           (keydown.enter)="showBookSelector(); bookToggle.checked = false">
 

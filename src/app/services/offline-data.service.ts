@@ -34,8 +34,14 @@ export class OfflineDataService {
   ): Promise<void> {
     if (typeof window === "undefined") return
 
-    const isAlreadyCached =
-      safeLocalStorage()?.getItem(this.cacheFlagKey) === "true"
+    const storage = safeLocalStorage()
+    // Without localStorage the flag can never be written, so asking for it
+    // would answer "not cached" on every launch and re-download the whole
+    // Bible each time. IndexedDB holds the books themselves and is the same
+    // question one layer down, so fall back to that.
+    const isAlreadyCached = storage
+      ? storage.getItem(this.cacheFlagKey) === "true"
+      : (await this.getCachedBooksAsync()).length > 0
     const isExpired = this.isCacheExpired()
     if (isAlreadyCached && !isExpired) {
       return

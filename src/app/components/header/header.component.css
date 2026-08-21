@@ -142,6 +142,13 @@ mat-icon {
   .cycle-text {
     transition: none;
   }
+  /* With no transition there is no fade to hide behind, so honouring .faded
+     would blank the label outright for the fade window — a flash every few
+     seconds. Keep it on screen and let the text swap in place. */
+  .cycle-text.faded {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .menu-controls {

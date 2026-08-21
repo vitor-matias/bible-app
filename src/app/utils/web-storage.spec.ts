@@ -19,6 +19,25 @@ describe("web-storage", () => {
       ).toBeNull()
     })
 
+    // Present-but-unwritable is the case callers cannot defend against on
+    // their own: every `safeLocalStorage()?.setItem(...)` would throw.
+    it("returns null when writing throws (quota, storage disabled)", () => {
+      expect(
+        pickUsableStorage({
+          getItem: () => null,
+          setItem: () => {
+            throw new Error("QuotaExceededError")
+          },
+          removeItem: () => {},
+        } as unknown as Storage),
+      ).toBeNull()
+    })
+
+    it("cleans up after its write probe", () => {
+      pickUsableStorage(window.localStorage)
+      expect(window.localStorage.getItem("__bibleAppStorageProbe__")).toBeNull()
+    })
+
     it("returns null when property access throws (privacy modes)", () => {
       const throwing = new Proxy({} as Storage, {
         get() {
