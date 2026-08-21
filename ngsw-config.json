@@ -30,7 +30,6 @@
   "dataGroups": [
     {
       "name": "bible-search",
-      "version": 2,
       "urls": [
         "/v1/search**"
       ],
@@ -41,8 +40,19 @@
       }
     },
     {
-      "name": "bible-content",
+      "name": "bible-books",
       "version": 2,
+      "urls": [
+        "/v1/books**"
+      ],
+      "cacheConfig": {
+        "strategy": "performance",
+        "maxSize": 5,
+        "maxAge": "40d"
+      }
+    },
+    {
+      "name": "bible-content",
       "urls": [
         "/v1/**"
       ],
