@@ -21,8 +21,8 @@ const MAX_BOOKS = 200
  * without network access still succeed — chapter pages then fall back to
  * client-side rendering, exactly like before prerendering existed.
  */
-export async function fetchPrerenderChapterParams(
-  fetchFn: typeof fetch = fetch,
+async function fetchBookParams(
+  fetchFn: typeof fetch,
 ): Promise<{ book: string; chapter: string }[]> {
   try {
     const response = await fetchFn(`${serverApiOrigin}/v1/books`, {
@@ -87,4 +87,63 @@ export async function fetchPrerenderChapterParams(
     )
     return []
   }
+}
+
+/**
+ * Standalone introductions — the whole Bible, a testament, a group of books —
+ * are pages in their own right at /:slug/intro, and they come from a different
+ * endpoint than the books, so they need their own pass. An unreachable
+ * endpoint just means no introduction routes, like the book list above.
+ */
+async function fetchIntroParams(
+  fetchFn: typeof fetch,
+): Promise<{ book: string; chapter: string }[]> {
+  try {
+    const response = await fetchFn(`${serverApiOrigin}/v1/intros`, {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    })
+    if (!response.ok) {
+      throw new Error(`GET /v1/intros responded ${response.status}`)
+    }
+    const intros = (await response.json()) as IntroSummary[]
+    if (!Array.isArray(intros)) {
+      throw new Error("GET /v1/intros did not return an array")
+    }
+    // Same bound as the book list: a response far larger than the canon is
+    // bad data, not a reason to expand thousands of routes.
+    if (intros.length > MAX_BOOKS) {
+      throw new Error(
+        `GET /v1/intros returned ${intros.length} introductions (max ${MAX_BOOKS})`,
+      )
+    }
+
+    return intros
+      .map((intro) =>
+        typeof intro?.slug === "string" ? intro.slug.trim() : "",
+      )
+      .filter((slug) => slug.length > 0)
+      .map((slug) => ({ book: slug, chapter: "intro" }))
+  } catch (error) {
+    console.warn(
+      `Prerender: could not fetch the standalone introductions (${
+        error instanceof Error ? error.message : error
+      }); those pages will fall back to client-side rendering.`,
+    )
+    return []
+  }
+}
+
+/**
+ * Every route worth prerendering: a page per chapter, plus the introduction
+ * pages — both the ones written for a single book and the standalone ones.
+ */
+export async function fetchPrerenderChapterParams(
+  fetchFn: typeof fetch = fetch,
+): Promise<{ book: string; chapter: string }[]> {
+  const [books, intros] = await Promise.all([
+    fetchBookParams(fetchFn),
+    fetchIntroParams(fetchFn),
+  ])
+  return [...books, ...intros]
 }

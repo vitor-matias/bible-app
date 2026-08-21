@@ -61,6 +61,7 @@ describe("BibleReaderComponent", () => {
       "getUrlAbrv",
       "getChapterUrlSegment",
       "parseChapterUrlSegment",
+      "loadGroupIntroBody",
     ])
     bookServiceSpy.books$ = new BehaviorSubject(
       mockBooks,
@@ -407,6 +408,37 @@ describe("BibleReaderComponent", () => {
       expect(element.querySelector("a.next-chapter")).toBeFalsy()
       expect(element.querySelector("button.prev-chapter")).toBeTruthy()
     })
+
+    // A standalone introduction (a testament, a group of books) has no
+    // chapters to page on to, so the page state is the only thing that can
+    // reveal its next-page control.
+    it("renders the next-page button on a standalone introduction", () => {
+      component.book = {
+        id: "pentateuco",
+        name: "Introdução ao Pentateuco",
+        chapterCount: 0,
+        introSlug: "pentateuco",
+        introduction: [{ type: "introParagraph", text: "..." }],
+      } as unknown as Book
+      component.viewMode = "paged"
+      component.chapter = { bookId: "pentateuco", number: 0 } as Chapter
+      component.chapterNumber = 0
+      component.onPageStateChange({ isFirstPage: true, isLastPage: false })
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+
+      const element = fixture.nativeElement as HTMLElement
+      expect(element.querySelector("button.next-chapter")).toBeTruthy()
+      // Page one of the introduction: nothing to go back to.
+      expect(element.querySelector("button.prev-chapter")).toBeFalsy()
+
+      component.onPageStateChange({ isFirstPage: false, isLastPage: true })
+      fixture.detectChanges()
+
+      expect(element.querySelector("button.prev-chapter")).toBeTruthy()
+      expect(element.querySelector("button.next-chapter")).toBeFalsy()
+    })
+
     it("onPageStateChange should only mark for check if state changed", () => {
       const cdrSpy = spyOn(
         (component as unknown as { cdr: ChangeDetectorRef }).cdr,
@@ -632,17 +664,79 @@ describe("BibleReaderComponent", () => {
   })
 
   describe("introduction route on books without intro", () => {
-    it("should normalize chapter 0 to chapter 1 without calling the API", () => {
+    it("should normalize chapter 0 to chapter 1 and load it", () => {
       component.book = mockBooks[0] as unknown as Book
       apiServiceSpy.getChapter.calls.reset()
       routerSpy.navigate.calls.reset()
 
       component.getChapter(0)
 
-      expect(apiServiceSpy.getChapter).not.toHaveBeenCalled()
       expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", "1"], {
         replaceUrl: true,
       })
+      // The route event that navigation raises is discarded as
+      // already-current, so this branch has to load the chapter itself —
+      // otherwise the reader is left with an empty body.
+      expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("gen", 1)
+    })
+
+    it("does not reload the chapter when the book list is re-emitted", () => {
+      // loadGroupIntroBody pushes a new book list once an introduction
+      // arrives; re-running the startup block would navigate and apply the
+      // chapter already on screen a second time.
+      fixture.detectChanges()
+      apiServiceSpy.getChapter.calls.reset()
+      routerSpy.navigate.calls.reset()
+
+      ;(bookServiceSpy.books$ as unknown as BehaviorSubject<Book[]>).next([
+        ...(mockBooks as unknown as Book[]),
+      ])
+
+      expect(apiServiceSpy.getChapter).not.toHaveBeenCalled()
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
+    })
+
+    it("keeps a late introduction body off the chapter the reader moved to", () => {
+      // 1 Samuel reads a shared introduction, so /1sm/intro fetches the body;
+      // picking a chapter before it lands must win.
+      const samuel = {
+        id: "1sa",
+        name: "1 Samuel",
+        shortName: "1 Samuel",
+        abrv: "1 Sm",
+        chapterCount: 31,
+        sharedIntroSlug: "samuel",
+        introduction: [],
+      } as unknown as Book
+      component.book = samuel
+      let resolveIntro: (book: Book) => void = () => {}
+      bookServiceSpy.loadGroupIntroBody.and.returnValue(
+        new Promise<Book>((resolve) => {
+          resolveIntro = resolve
+        }),
+      )
+
+      component.getChapter(0)
+      component.getChapter(5)
+
+      resolveIntro({
+        ...samuel,
+        introduction: [{ type: "introParagraph", text: "Texto" }],
+      } as unknown as Book)
+
+      return Promise.resolve().then(() => {
+        expect(component.chapterNumber).toBe(5)
+      })
+    })
+
+    it("renders the About page without asking the API for it", () => {
+      component.book = mockBooks[1] as unknown as Book
+      apiServiceSpy.getChapter.calls.reset()
+
+      component.getChapter(1)
+
+      expect(apiServiceSpy.getChapter).not.toHaveBeenCalled()
+      expect(component.chapter?.bookId).toBe("about")
     })
   })
 

@@ -1,6 +1,20 @@
 import { fetchPrerenderChapterParams } from "./prerender-params"
 
 describe("fetchPrerenderChapterParams", () => {
+  /** Answers each endpoint with its own payload, like the real API. */
+  function fetchByUrl(bodies: Record<string, unknown>): typeof fetch {
+    return jasmine.createSpy("fetch").and.callFake((url: string) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve(
+            url.endsWith("/v1/intros") ? bodies["intros"] : bodies["books"],
+          ),
+      } as Response),
+    ) as unknown as typeof fetch
+  }
+
   function fetchReturning(body: unknown, ok = true): typeof fetch {
     return jasmine.createSpy("fetch").and.resolveTo({
       ok,
@@ -160,5 +174,58 @@ describe("fetchPrerenderChapterParams", () => {
     await expectAsync(
       fetchPrerenderChapterParams(fetchReturning(null, false)),
     ).toBeResolvedTo([])
+  })
+
+  it("prerenders a page for every standalone introduction", async () => {
+    // These live at /:slug/intro and come from /v1/intros, not /v1/books, so
+    // without their own pass they ship as an empty shell to crawlers.
+    const params = await fetchPrerenderChapterParams(
+      fetchByUrl({
+        books: [
+          {
+            id: "GN",
+            name: "Génesis",
+            shortName: "Génesis",
+            abrv: "Gn",
+            chapterCount: 1,
+          },
+        ],
+        intros: [
+          { slug: "pentateuco", name: "INTRODUÇÃO AO PENTATEUCO" },
+          { slug: "novotestamento", name: "NOVO TESTAMENTO" },
+        ],
+      }),
+    )
+
+    expect(params).toEqual([
+      { book: "gn", chapter: "1" },
+      { book: "pentateuco", chapter: "intro" },
+      { book: "novotestamento", chapter: "intro" },
+    ])
+  })
+
+  it("still returns the chapter routes when the intro listing fails", async () => {
+    const fetchFn = jasmine.createSpy("fetch").and.callFake((url: string) =>
+      url.endsWith("/v1/intros")
+        ? Promise.reject(new Error("boom"))
+        : Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve([
+                {
+                  id: "GN",
+                  name: "Génesis",
+                  shortName: "Génesis",
+                  abrv: "Gn",
+                  chapterCount: 1,
+                },
+              ]),
+          } as Response),
+    ) as unknown as typeof fetch
+
+    const params = await fetchPrerenderChapterParams(fetchFn)
+
+    expect(params).toEqual([{ book: "gn", chapter: "1" }])
   })
 })

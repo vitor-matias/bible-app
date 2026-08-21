@@ -147,6 +147,8 @@ export class SeoService {
       script.id = id
       this.document.head.appendChild(script)
     }
+    // "<" escaped so a name containing "</script>" cannot close this element
+    // in the prerendered HTML; \u003c is still the same string to a JSON parser.
     script.textContent = JSON.stringify({
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
@@ -156,7 +158,7 @@ export class SeoService {
         name: crumb.name,
         item: crumb.item,
       })),
-    })
+    }).replace(/</g, "\\u003c")
   }
 
   private setCanonicalUrl(url: string): void {

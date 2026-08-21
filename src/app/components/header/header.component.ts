@@ -80,8 +80,13 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
    */
   get headingLabel(): string {
     if (!this.book) return ""
-    return this.book.id === "about"
-      ? this.book.name
+    if (this.book.id === "about") return this.book.name
+    // Chapter 0 is the introduction, and a standalone one is already named
+    // after itself — same rules the visible label follows, so the heading
+    // never announces "0" for a page that shows "Introdução".
+    if (this.book.introSlug) return this.book.name
+    return this.chapterNumber === 0
+      ? `${this.book.name} Introdução`
       : `${this.book.name} ${this.chapterNumber}`
   }
   private labelInterval?: number

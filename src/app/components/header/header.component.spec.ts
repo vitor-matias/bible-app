@@ -426,4 +426,34 @@ describe("HeaderComponent", () => {
       expect(setIntervalSpy).not.toHaveBeenCalled()
     })
   })
+
+  describe("headingLabel", () => {
+    it("names an introduction instead of announcing chapter 0", () => {
+      // The visible label reads "Introdução"; the h1's accessible name must
+      // not read "0" to screen-reader and voice-control users.
+      component.book = {
+        id: "gen",
+        name: "Livro do Génesis",
+        shortName: "Génesis",
+      } as Book
+      component.chapterNumber = 0
+
+      expect(component.headingLabel).toBe("Livro do Génesis Introdução")
+
+      component.chapterNumber = 3
+      expect(component.headingLabel).toBe("Livro do Génesis 3")
+    })
+
+    it("lets a standalone introduction name itself", () => {
+      component.book = {
+        id: "pentateuco",
+        name: "Introdução ao Pentateuco",
+        shortName: "Introdução ao Pentateuco",
+        introSlug: "pentateuco",
+      } as Book
+      component.chapterNumber = 0
+
+      expect(component.headingLabel).toBe("Introdução ao Pentateuco")
+    })
+  })
 })

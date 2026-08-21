@@ -1,9 +1,15 @@
-import { existsSync, writeFileSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { listPrerenderedPages } from "./prerendered-pages.mjs"
 
-// Mirrors appConfig.domain in src/app/config.ts (and the host in robots.txt).
-const BASE_URL = "https://biblia.capuchinhos.org"
+// Read from src/app/config.ts rather than restated here, so the app's
+// canonical URLs and the sitemap can never name different hosts.
+const configSource = readFileSync("src/app/config.ts", "utf8")
+const domain = /domain:\s*"([^"]+)"/.exec(configSource)?.[1]
+if (!domain) {
+  throw new Error("Could not read appConfig.domain from src/app/config.ts")
+}
+const BASE_URL = `https://${domain}`
 
 // The sitemap lists what the build actually produced rather than re-deriving
 // it from the API: prerender-params.ts has already fetched the book list,

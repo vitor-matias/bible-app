@@ -53,13 +53,15 @@
     },
     {
       "name": "bible-content",
+      "version": 2,
       "urls": [
         "/v1/**"
       ],
       "cacheConfig": {
-        "strategy": "performance",
+        "strategy": "freshness",
         "maxSize": 5000,
-        "maxAge": "40d"
+        "maxAge": "40d",
+        "timeout": "3s"
       }
     }
   ]
