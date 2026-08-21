@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common"
-import { PLATFORM_ID, SimpleChange } from "@angular/core"
+import { ChangeDetectorRef, PLATFORM_ID, SimpleChange } from "@angular/core"
 import {
   type ComponentFixture,
   discardPeriodicTasks,
@@ -113,6 +113,29 @@ describe("HeaderComponent", () => {
     expect(headings.length).toBe(1)
     expect(headings[0].textContent).toContain("Genesis")
     expect(headings[0].textContent).toContain("3")
+  })
+
+  const chipLabel = (): string =>
+    fixture.nativeElement
+      .querySelectorAll("mat-button-toggle")[1]
+      .textContent.trim()
+
+  const renderWithMobile = (mobile: boolean): void => {
+    component.mobile = mobile
+    // The component is OnPush, so a plain property change needs its own
+    // change detector marked, not the fixture host's.
+    ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+    fixture.detectChanges()
+  }
+
+  it("should abbreviate the introduction chip on small screens", () => {
+    fixture.componentRef.setInput("chapterNumber", 0)
+
+    renderWithMobile(true)
+    expect(chipLabel()).toBe("Intro")
+
+    renderWithMobile(false)
+    expect(chipLabel()).toBe("Introdução")
   })
 
   // The About page has no heading of its own, so the toolbar title is the only

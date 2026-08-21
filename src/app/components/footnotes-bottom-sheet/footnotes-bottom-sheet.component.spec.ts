@@ -3,7 +3,9 @@ import {
   MAT_BOTTOM_SHEET_DATA,
   MatBottomSheetRef,
 } from "@angular/material/bottom-sheet"
+import { By } from "@angular/platform-browser"
 import { ActivatedRoute } from "@angular/router"
+import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
@@ -62,6 +64,19 @@ describe("FootnotesBottomSheetComponent", () => {
     bibleRefSpy.extract.and.returnValue([])
     fixture.detectChanges()
     expect(component).toBeTruthy()
+  })
+
+  it("should bind the footnotes font-size context to the gestures directive", () => {
+    bibleRefSpy.extract.and.returnValue([])
+    fixture.detectChanges()
+
+    const gestures = fixture.debugElement.query(
+      By.directive(UnifiedGesturesDirective),
+    )
+    expect(gestures).toBeTruthy()
+    expect(
+      gestures.injector.get(UnifiedGesturesDirective).fontSizeContext,
+    ).toBe("footnotes")
   })
 
   it("should track footnotes_opened when component is initialized", () => {

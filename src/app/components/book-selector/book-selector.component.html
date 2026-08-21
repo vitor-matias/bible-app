@@ -21,7 +21,7 @@
       <mat-tree-node *matTreeNodeDef="let node" matTreeNodePadding>
         <button mat-flat-button class="bookSelectorButton" (click)="submit(node.name)" [attr.data-book-id]="node.name"
           [class.highlight]="node.name === selectedBookId">
-          {{getBook(node.name)?.shortName}}
+          {{entryLabel(node.name)}}
         </button>
       </mat-tree-node>
       <!-- This is the tree node template for expandable nodes -->
@@ -50,7 +50,7 @@
       <mat-tree-node *matTreeNodeDef="let node" matTreeNodePadding>
         <button mat-flat-button class="bookSelectorButton" (click)="submit(node.name)" [attr.data-book-id]="node.name"
           [class.highlight]="node.name === selectedBookId">
-          {{getBook(node.name)?.shortName}}
+          {{entryLabel(node.name)}}
         </button>
       </mat-tree-node>
       <!-- This is the tree node template for expandable nodes -->

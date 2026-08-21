@@ -35,6 +35,9 @@
           </span>
         }
         <span class="verseRun" [attr.tabindex]="hasFootnotes ? 0 : null" [attr.role]="hasFootnotes ? 'button' : null" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="hasFootnotes" (click)="hasFootnotes ? toggleFootnotes($event) : null" (keydown.enter)="hasFootnotes ? toggleFootnotes($event) : null" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)">{{ text.text }}</span>
+        @if(text.type === 'text' && (checkNextIsQuote(i) )){
+          <br>
+        }
       }
 
       <!-- References -->

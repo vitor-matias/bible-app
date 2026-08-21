@@ -36,6 +36,74 @@ describe("fetchPrerenderChapterParams", () => {
     ])
   })
 
+  it("prerenders the intro route for books that have an introduction", async () => {
+    const books = [
+      {
+        id: "GN",
+        name: "Génesis",
+        shortName: "Génesis",
+        abrv: "Gn",
+        chapterCount: 2,
+        introduction: [{ type: "introParagraph", text: "Texto" }],
+      },
+      {
+        id: "PHM",
+        name: "Filémon",
+        shortName: "Filémon",
+        abrv: "Fm",
+        chapterCount: 1,
+        introduction: [],
+      },
+    ]
+
+    const params = await fetchPrerenderChapterParams(fetchReturning(books))
+
+    expect(params).toEqual([
+      { book: "gn", chapter: "intro" },
+      { book: "gn", chapter: "1" },
+      { book: "gn", chapter: "2" },
+      { book: "fm", chapter: "1" },
+    ])
+  })
+
+  it("prerenders an intro route for books covered by a shared introduction", async () => {
+    const books = [
+      {
+        id: "1sa",
+        name: "Primeiro Livro de Samuel",
+        shortName: "1 Samuel",
+        abrv: "1 Sm",
+        chapterCount: 1,
+      },
+    ]
+
+    const params = await fetchPrerenderChapterParams(fetchReturning(books))
+
+    // 1 Samuel carries no introduction of its own, but the edition's
+    // "Livros de Samuel" introduction is shown at /1sm/intro.
+    expect(params).toEqual([
+      { book: "1sm", chapter: "intro" },
+      { book: "1sm", chapter: "1" },
+    ])
+  })
+
+  it("keeps the intro route when the chapter count is unusable", async () => {
+    const books = [
+      {
+        id: "GN",
+        name: "Génesis",
+        shortName: "Génesis",
+        abrv: "Gn",
+        chapterCount: 0,
+        introduction: [{ type: "introParagraph", text: "Texto" }],
+      },
+    ]
+
+    const params = await fetchPrerenderChapterParams(fetchReturning(books))
+
+    expect(params).toEqual([{ book: "gn", chapter: "intro" }])
+  })
+
   it("skips malformed book entries", async () => {
     const books = [
       { abrv: "Gn", chapterCount: 1 },

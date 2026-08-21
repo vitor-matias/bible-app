@@ -2,7 +2,7 @@ import { TestBed } from "@angular/core/testing"
 import { KeepAwakeService } from "./keep-awake.service"
 
 describe("KeepAwakeService", () => {
-  let service: KeepAwakeService
+  let service: KeepAwakeService | undefined
   let addEventListenerSpy: jasmine.Spy
   let removeEventListenerSpy: jasmine.Spy
   let originalWakeLock: Navigator["wakeLock"]
@@ -21,6 +21,11 @@ describe("KeepAwakeService", () => {
   })
 
   afterEach(() => {
+    // Tear the instance down so its visibilitychange listener does not leak
+    // into later specs and make the suite order-dependent.
+    service?.ngOnDestroy()
+    service = undefined
+
     if (originalWakeLock === undefined) {
       Reflect.deleteProperty(navigator, "wakeLock")
     } else {
@@ -51,26 +56,39 @@ describe("KeepAwakeService", () => {
   })
 
   it("should request a wake lock only once while active", async () => {
-    const releaseListenerSpy = jasmine.createSpy("releaseListener")
     const sentinel = {
-      addEventListener: jasmine
-        .createSpy("addEventListener")
-        .and.callFake((_event: string, handler: EventListener) => {
-          releaseListenerSpy.and.callFake(() => handler(new Event("release")))
-        }),
+      addEventListener: jasmine.createSpy("addEventListener"),
       release: jasmine.createSpy("release").and.resolveTo(),
     } as unknown as WakeLockSentinel
-    const requestSpy = jasmine.createSpy("request").and.resolveTo(sentinel)
+    // Keep the first request pending so the duplicate calls below race it.
+    let resolveRequest!: (value: WakeLockSentinel) => void
+    const pendingRequest = new Promise<WakeLockSentinel>((resolve) => {
+      resolveRequest = resolve
+    })
+    const requestSpy = jasmine
+      .createSpy("request")
+      .and.returnValue(pendingRequest)
     Object.defineProperty(navigator, "wakeLock", {
       value: { request: requestSpy },
+      configurable: true,
+    })
+    Object.defineProperty(document, "visibilityState", {
+      value: "visible",
       configurable: true,
     })
     service = TestBed.runInInjectionContext(() => new KeepAwakeService())
 
     service.start()
-    await Promise.resolve()
-    await Promise.resolve()
+    // Second start and a visibility re-fire while the first request is still
+    // in flight must not stack another wake lock request.
     service.start()
+    document.dispatchEvent(new Event("visibilitychange"))
+    await Promise.resolve()
+
+    expect(requestSpy).toHaveBeenCalledTimes(1)
+
+    resolveRequest(sentinel)
+    await pendingRequest
     await Promise.resolve()
 
     expect(requestSpy).toHaveBeenCalledTimes(1)
@@ -78,6 +96,35 @@ describe("KeepAwakeService", () => {
       "release",
       jasmine.any(Function),
     )
+  })
+
+  it("should release a wake lock that resolves after stop()", async () => {
+    const sentinel = {
+      addEventListener: jasmine.createSpy("addEventListener"),
+      release: jasmine.createSpy("release").and.resolveTo(),
+    } as unknown as WakeLockSentinel
+    // Keep the request pending so stop() runs before it settles.
+    let resolveRequest!: (value: WakeLockSentinel) => void
+    const pendingRequest = new Promise<WakeLockSentinel>((resolve) => {
+      resolveRequest = resolve
+    })
+    const requestSpy = jasmine
+      .createSpy("request")
+      .and.returnValue(pendingRequest)
+    Object.defineProperty(navigator, "wakeLock", {
+      value: { request: requestSpy },
+      configurable: true,
+    })
+    service = TestBed.runInInjectionContext(() => new KeepAwakeService())
+
+    service.start()
+    service.stop()
+    resolveRequest(sentinel)
+    await pendingRequest
+    await Promise.resolve()
+
+    expect(sentinel.release).toHaveBeenCalled()
+    expect(sentinel.addEventListener).not.toHaveBeenCalled()
   })
 
   it("should release the wake lock when stopped", async () => {

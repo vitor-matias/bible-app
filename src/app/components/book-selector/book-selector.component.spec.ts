@@ -1,4 +1,6 @@
+import { SimpleChange } from "@angular/core"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import type { CanonGroup } from "../../bible-canon"
 
 import { BookSelectorComponent } from "./book-selector.component"
 
@@ -78,6 +80,55 @@ describe("BookSelectorComponent", () => {
     expect(scrollSpy).not.toHaveBeenCalled()
   })
 
+  it("lists a group's introduction before its books", () => {
+    component.books = [
+      {
+        id: "pentateuco",
+        name: "Introdução Ao Pentateuco",
+        shortName: "Introdução Ao Pentateuco",
+        abrv: "pentateuco",
+        chapterCount: 0,
+        introduction: [],
+        introSlug: "pentateuco",
+      },
+      {
+        id: "gen",
+        name: "Livro do Génesis",
+        shortName: "Génesis",
+        abrv: "Gn",
+        chapterCount: 50,
+      },
+    ]
+    component.ngOnChanges({
+      books: new SimpleChange(undefined, component.books, true),
+    })
+
+    const groups = component.otDataSource.data as CanonGroup[]
+    const pentateuco = groups.find((group) => group.name === "Pentateuco")
+    expect(pentateuco?.books[0]).toBe("pentateuco")
+  })
+
+  it("omits introduction entries the API did not provide", () => {
+    component.books = [
+      {
+        id: "gen",
+        name: "Livro do Génesis",
+        shortName: "Génesis",
+        abrv: "Gn",
+        chapterCount: 50,
+      },
+    ]
+    component.ngOnChanges({
+      books: new SimpleChange(undefined, component.books, true),
+    })
+
+    // No synthetic intro books loaded: nothing blank may be listed.
+    const groups = component.otDataSource.data as CanonGroup[]
+    expect(groups.some((group) => group.name === "geral")).toBeFalse()
+    const pentateuco = groups.find((group) => group.name === "Pentateuco")
+    expect(pentateuco?.books).not.toContain("pentateuco")
+  })
+
   // The other half of the deferral: skipping the scroll on the server must not
   // mean skipping it in the browser. Without this the spec above would pass for
   // an implementation that never scrolls at all.
@@ -115,6 +166,7 @@ describe("BookSelectorComponent", () => {
     expect(component.otDataSource.data).toEqual([
       {
         name: "Pentateuco",
+        introSlug: "pentateuco",
         books: ["gen"],
       },
     ])

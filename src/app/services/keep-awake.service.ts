@@ -7,6 +7,7 @@ import { Injectable, inject, OnDestroy, PLATFORM_ID } from "@angular/core"
 export class KeepAwakeService implements OnDestroy {
   private readonly platformId = inject(PLATFORM_ID)
   private wakeLockSentinel?: WakeLockSentinel
+  private wakeLockRequest?: Promise<void>
   private active = false
   private readonly visibilityHandler = () => {
     if (!this.active) {
@@ -57,21 +58,34 @@ export class KeepAwakeService implements OnDestroy {
       return
     }
 
-    try {
-      // Reuse the current sentinel instead of stacking duplicate wake lock requests.
-      if (this.wakeLockSentinel) {
-        return
-      }
-      const sentinel = await navigator.wakeLock.request("screen")
-      this.wakeLockSentinel = sentinel
-      sentinel.addEventListener("release", () => {
-        if (this.wakeLockSentinel === sentinel) {
-          this.wakeLockSentinel = undefined
-        }
-      })
-    } catch (error) {
-      console.warn("Unable to acquire wake lock.", error)
+    // Reuse the current sentinel or the in-flight request instead of stacking
+    // duplicate wake lock requests while one is still pending.
+    if (this.wakeLockSentinel || this.wakeLockRequest) {
+      return this.wakeLockRequest
     }
+
+    this.wakeLockRequest = (async () => {
+      try {
+        const sentinel = await navigator.wakeLock.request("screen")
+        if (!this.active) {
+          // stop() ran while the request was pending — don't keep the lock.
+          await sentinel.release()
+          return
+        }
+        this.wakeLockSentinel = sentinel
+        sentinel.addEventListener("release", () => {
+          if (this.wakeLockSentinel === sentinel) {
+            this.wakeLockSentinel = undefined
+          }
+        })
+      } catch (error) {
+        console.warn("Unable to acquire wake lock.", error)
+      } finally {
+        this.wakeLockRequest = undefined
+      }
+    })()
+
+    return this.wakeLockRequest
   }
 
   private async releaseWakeLock(): Promise<void> {

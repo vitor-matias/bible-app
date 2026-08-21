@@ -208,6 +208,18 @@ export class BibleApiService {
     )
   }
 
+  /** Listing of the standalone introductions (whole Bible, testaments, groups). */
+  getIntros(): Observable<IntroSummary[]> {
+    return this.http.get(`${this.api}/intros`) as Observable<IntroSummary[]>
+  }
+
+  /** One standalone introduction, including its body. */
+  getIntro(slug: string): Observable<GroupIntro> {
+    return this.http.get(
+      `${this.api}/intros/${encodeURIComponent(slug)}`,
+    ) as Observable<GroupIntro>
+  }
+
   search(query: string, page = 1, limit = 50): Observable<VersePage> {
     return this.http.get(
       `${this.api}/search?text=${encodeURIComponent(query)}&page=${page}&limit=${limit}&semantic=true`,

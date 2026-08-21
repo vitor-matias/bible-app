@@ -248,6 +248,15 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
    * extend the scrollable area to the next aligned boundary.
    */
   ensureAlignedScrollWidth(): void {
+    this.alignScrollWidth()
+    // Content that arrives after the first measurement (a lazily loaded
+    // introduction, late fonts) changes how many pages there are. Without this
+    // the stale "last page" state hides the next control, and with overflow-x
+    // hidden the reader is then stuck on the first page.
+    this.onScroll()
+  }
+
+  private alignScrollWidth(): void {
     this.removeSpacer()
 
     const block = this._bookBlock

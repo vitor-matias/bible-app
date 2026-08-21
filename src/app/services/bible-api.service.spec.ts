@@ -69,7 +69,13 @@ describe("BibleApiService", () => {
           chapterNumber: chapterNum,
           number: 1,
           verseLabel: "1",
-          text: [{ type: "text", text: "In the beginning..." }],
+          text: [
+            {
+              type: "text",
+              text: "In the beginning...",
+              normalizedText: "In the beginning...",
+            },
+          ],
         },
       ],
     } as Chapter
@@ -179,7 +185,13 @@ describe("BibleApiService", () => {
             chapterNumber: 2,
             number: 1,
             verseLabel: "1",
-            text: [{ type: "text", text: "Now these are the names..." }],
+            text: [
+              {
+                type: "text",
+                text: "Now these are the names...",
+                normalizedText: "Now these are the names...",
+              },
+            ],
           },
         ],
       } as Chapter
@@ -304,7 +316,13 @@ describe("BibleApiService", () => {
         chapterNumber: 1,
         number: 1,
         verseLabel: "1",
-        text: [{ type: "text", text: "In the beginning..." }],
+        text: [
+          {
+            type: "text",
+            text: "In the beginning...",
+            normalizedText: "In the beginning...",
+          },
+        ],
       } as Verse
       offlineDataServiceSpy.getCachedVerseAsync.and.returnValue(
         Promise.resolve(cachedVerse),
