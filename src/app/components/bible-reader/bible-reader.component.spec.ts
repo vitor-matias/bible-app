@@ -449,6 +449,17 @@ describe("BibleReaderComponent", () => {
       expect(component.bookDrawer.close).toHaveBeenCalled()
     })
 
+    it("onBookSubmit opens chapter 1 even when the book has an introduction", () => {
+      bookServiceSpy.findBook.and.returnValue({
+        ...(mockBooks[0] as unknown as Book),
+        introduction: [{ type: "introParagraph", text: "intro" }],
+      })
+
+      component.onBookSubmit({ bookId: "gen" })
+
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
+    })
+
     it("onChapterSubmit should navigate to chapter and close drawer", () => {
       component.onChapterSubmit({ chapterNumber: 5 })
       expect(routerSpy.navigate).toHaveBeenCalledWith(["1-genesis", "5"])

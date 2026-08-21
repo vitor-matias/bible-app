@@ -379,12 +379,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   onBookSubmit(event: { bookId: string }) {
     const book = this.bookService.findBook(event.bookId)
-    const startChapter =
-      book.introduction && book.introduction.length > 0 ? 0 : 1
+    // Picking a book opens chapter 1: the introduction is reachable from the
+    // chapter list, but readers expect the text itself by default.
     this.router.navigate([
       "/",
       this.bookService.getUrlAbrv(book),
-      this.bookService.getChapterUrlSegment(startChapter),
+      this.bookService.getChapterUrlSegment(1),
     ])
 
     this.bookDrawer.close()
