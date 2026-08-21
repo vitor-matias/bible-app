@@ -117,8 +117,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     return this.book?.id === "about" ? "scrolling" : this.viewMode
   }
 
+  /** Whether this book has an introduction to read, loaded or not yet fetched. */
   get hasIntro(): boolean {
-    return !!this.book?.introduction && this.book.introduction.length > 0
+    return (
+      !!this.book?.introduction?.length || !!BookService.introSlugFor(this.book)
+    )
   }
 
   get isIntroChapter(): boolean {
@@ -430,9 +433,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     if (chapter === 0) {
       this.chapterSubscription?.unsubscribe()
 
-      // A standalone introduction (whole Bible, testament, group of books)
-      // ships without its body: fetch it, then render as usual.
-      if (!this.hasIntro && this.book.introSlug) {
+      // A standalone introduction — the whole Bible, a testament, a group, or
+      // one shared by a cluster of books — ships without its body: fetch it,
+      // then render as usual.
+      if (
+        !this.book.introduction?.length &&
+        BookService.introSlugFor(this.book)
+      ) {
         this.bookService
           .loadGroupIntroBody(this.book)
           .then((book) => {
@@ -455,7 +462,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
       // /intro on a book without introduction: normalize to chapter 1
       // instead of requesting the nonexistent chapter 0 from the API.
-      if (!this.hasIntro) {
+      if (!this.book.introduction?.length) {
         // Move the state off chapter 0 too: otherwise a later failed load
         // would revert the URL to /intro, which this book does not have.
         this.chapterNumber = 1

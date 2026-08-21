@@ -8,6 +8,11 @@ type Book = {
   chapters?: Chapter[]
   /** Set on the synthetic books that stand in for a standalone introduction. */
   introSlug?: string
+  /**
+   * Set on a real book whose introduction is written for a cluster of books
+   * (Samuel, Reis, …) and therefore lives in a standalone introduction.
+   */
+  sharedIntroSlug?: string
 }
 
 /** A standalone introduction (whole Bible, a testament, a group of books). */

@@ -58,6 +58,13 @@ describe("BookService", () => {
       abrv: "Jb",
       chapterCount: 42,
     },
+    {
+      id: "1sa",
+      name: "Primeiro Livro de Samuel",
+      shortName: "1 Samuel",
+      abrv: "1 Sm",
+      chapterCount: 31,
+    },
   ]
 
   beforeEach(() => {
@@ -110,6 +117,25 @@ describe("BookService", () => {
       expect(intro.name).toBe("Introdução ao Pentateuco")
       // No chapters: the introduction is the only thing to read.
       expect(intro.chapterCount).toBe(0)
+    })
+
+    it("points books with a shared introduction at it", async () => {
+      const svc = introApi([{ slug: "samuel", name: "LIVROS DE SAMUEL" }])
+      await svc.initializeBooks()
+
+      // 1/2 Samuel carry no introduction of their own; the edition writes one
+      // for both, so both must read from it.
+      const first = svc.getBooks().find((book) => book.id === "1sa")
+      expect(first?.sharedIntroSlug).toBe("samuel")
+      expect(BookService.introSlugFor(first)).toBe("samuel")
+    })
+
+    it("does not claim a shared introduction the API does not serve", async () => {
+      const svc = introApi([])
+      await svc.initializeBooks()
+
+      const first = svc.getBooks().find((book) => book.id === "1sa")
+      expect(first?.sharedIntroSlug).toBeUndefined()
     })
 
     it("keeps working when the API serves no introductions", async () => {

@@ -66,6 +66,27 @@ describe("fetchPrerenderChapterParams", () => {
     ])
   })
 
+  it("prerenders an intro route for books covered by a shared introduction", async () => {
+    const books = [
+      {
+        id: "1sa",
+        name: "Primeiro Livro de Samuel",
+        shortName: "1 Samuel",
+        abrv: "1 Sm",
+        chapterCount: 1,
+      },
+    ]
+
+    const params = await fetchPrerenderChapterParams(fetchReturning(books))
+
+    // 1 Samuel carries no introduction of its own, but the edition's
+    // "Livros de Samuel" introduction is shown at /1sm/intro.
+    expect(params).toEqual([
+      { book: "1sm", chapter: "intro" },
+      { book: "1sm", chapter: "1" },
+    ])
+  })
+
   it("keeps the intro route when the chapter count is unusable", async () => {
     const books = [
       {

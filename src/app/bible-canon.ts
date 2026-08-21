@@ -11,6 +11,24 @@ export interface CanonGroup {
   introSlug?: string
 }
 
+/**
+ * Books whose introduction is written once for a cluster of books rather than
+ * per book: the edition introduces "Livros de Samuel" once, covering both.
+ * Keyed by book id, valued by the slug of that shared introduction.
+ */
+export const SHARED_BOOK_INTROS: Readonly<Record<string, string>> = {
+  "1sa": "samuel",
+  "2sa": "samuel",
+  "1ki": "reis",
+  "2ki": "reis",
+  "1ch": "cronicas",
+  "2ch": "cronicas",
+  ezr: "esdrasneemias",
+  neh: "esdrasneemias",
+  "2jn": "joao",
+  "3jn": "joao",
+}
+
 export const OLD_TESTAMENT_GROUPS: CanonGroup[] = [
   {
     name: "Pentateuco",

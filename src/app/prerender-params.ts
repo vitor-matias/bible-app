@@ -1,3 +1,4 @@
+import { SHARED_BOOK_INTROS } from "./bible-canon"
 import { serverApiOrigin } from "./config"
 
 const FETCH_TIMEOUT_MS = 20_000
@@ -51,8 +52,12 @@ export async function fetchPrerenderChapterParams(
             ? book.abrv.replace(/\s/g, "").toLowerCase()
             : "",
         chapterCount: book?.chapterCount,
+        // Either its own introduction, or the shared one the edition writes
+        // for its cluster of books (Samuel, Reis, …) — both render at
+        // /:book/intro.
         hasIntroduction:
-          Array.isArray(book?.introduction) && book.introduction.length > 0,
+          (Array.isArray(book?.introduction) && book.introduction.length > 0) ||
+          !!SHARED_BOOK_INTROS[book?.id],
       }))
       .filter((book) => book.urlAbrv.length > 0)
       .flatMap((book) => {

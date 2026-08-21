@@ -1,6 +1,7 @@
 import { Injectable } from "@angular/core"
 import { BehaviorSubject, firstValueFrom } from "rxjs"
 import { filter, tap } from "rxjs/operators"
+import { SHARED_BOOK_INTROS } from "../bible-canon"
 import { BibleApiService } from "./bible-api.service"
 
 @Injectable({
@@ -46,8 +47,9 @@ export class BookService {
     this.groupIntrosSubject.next(introList)
     // Clone before appending the synthetic entries so we do not mutate the
     // shared API/cache array returned by BibleApiService.
+    const introSlugs = new Set(introList.map((intro) => intro.slug))
     this.booksSubject.next([
-      ...books,
+      ...books.map((book) => this.withSharedIntro(book, introSlugs)),
       this.getAboutBook(),
       ...introList.map((intro) => this.toIntroBook(intro)),
     ])
@@ -55,8 +57,9 @@ export class BookService {
 
   /** Fetches an introduction body and caches it on its synthetic book. */
   async loadGroupIntroBody(book: Book): Promise<Book> {
-    if (!book.introSlug || book.introduction?.length) return book
-    const intro = await firstValueFrom(this.apiService.getIntro(book.introSlug))
+    const slug = BookService.introSlugFor(book)
+    if (!slug || book.introduction?.length) return book
+    const intro = await firstValueFrom(this.apiService.getIntro(slug))
     // Replace the entry rather than mutating it, so change detection and the
     // reader's memoised chapter list both notice.
     const loaded: Book = { ...book, introduction: intro.introduction ?? [] }
@@ -64,6 +67,23 @@ export class BookService {
       this.getBooks().map((entry) => (entry.id === book.id ? loaded : entry)),
     )
     return loaded
+  }
+
+  /**
+   * Points a book at the shared introduction that covers it, when the edition
+   * writes one introduction for a cluster of books instead of one per book.
+   */
+  private withSharedIntro(book: Book, available: Set<string>): Book {
+    if (book.introduction?.length) return book
+    const slug = SHARED_BOOK_INTROS[book.id]
+    return slug && available.has(slug)
+      ? { ...book, sharedIntroSlug: slug }
+      : book
+  }
+
+  /** The standalone introduction a book reads from, if any. */
+  static introSlugFor(book: Book | undefined): string | undefined {
+    return book?.introSlug ?? book?.sharedIntroSlug
   }
 
   private toIntroBook(intro: IntroSummary): Book {
