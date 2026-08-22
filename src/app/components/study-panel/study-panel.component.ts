@@ -109,6 +109,13 @@ export class StudyPanelComponent implements OnChanges {
    * panel as a new event, and it carries which tab that click asked for.
    */
   @Input() selection: VerseSelection | null = null
+  /**
+   * The verse at the top of the reading column. The panel follows it so the
+   * apparatus on screen belongs to the passage on screen, without treating
+   * scrolling past a verse as choosing it — an explicit selection always
+   * wins over where the reader happens to have scrolled.
+   */
+  @Input() visibleVerse?: Verse["number"]
   /** Folded away to a strip, leaving the reading column the width. */
   @Input() collapsed = false
 
@@ -182,7 +189,13 @@ export class StudyPanelComponent implements OnChanges {
       const requested = this.selection?.panel
       if (requested) this.activeTab = requested
       this.loadNoteDraft()
-      this.scrollSelectionIntoView()
+      // Choosing a verse is a deliberate jump, so the panel glides to it.
+      this.scrollActiveIntoView("smooth")
+    }
+    if (changes["visibleVerse"] && !this.selection) {
+      // Following the reader's own scrolling: matching it frame for frame
+      // rather than animating behind it, which would never catch up.
+      this.scrollActiveIntoView("auto")
     }
   }
 
@@ -233,16 +246,21 @@ export class StudyPanelComponent implements OnChanges {
     if (target) this.persistNote(target, this.noteDraft)
   }
 
-  /** True for the entries belonging to the verse the reader has selected. */
+  /** The verse the panel is following: the chosen one, else the one on screen. */
+  get activeVerse(): Verse["number"] | undefined {
+    return this.selectedVerse?.number ?? this.visibleVerse
+  }
+
+  /** True for the entries belonging to the verse the panel is following. */
   isCurrent(verseNumber: Verse["number"]): boolean {
-    return this.selectedVerse?.number === verseNumber
+    return this.activeVerse === verseNumber
   }
 
   /** True while the reader is anywhere inside the passage this group covers. */
   isCurrentGroup(group: ReferenceGroup): boolean {
-    const selected = this.selectedVerse?.number
-    if (selected === undefined) return false
-    return selected >= group.verseNumber && selected <= group.lastVerse
+    const active = this.activeVerse
+    if (active === undefined) return false
+    return active >= group.verseNumber && active <= group.lastVerse
   }
 
   verseLabel(verseNumber: Verse["number"]): string {
@@ -303,14 +321,15 @@ export class StudyPanelComponent implements OnChanges {
   }
 
   /**
-   * Brings the selected verse's entries into view, so picking a verse in a
-   * long chapter does not leave the reader hunting down the column for it.
+   * Brings the followed verse's entries into view, so neither picking a verse
+   * nor scrolling past one leaves the reader hunting down the column for it.
    * The panel scrolls, not the page: scrollIntoView would drag the text
    * column along with it.
    */
-  private scrollSelectionIntoView(): void {
-    const verse = this.selectedVerse
-    if (!verse || typeof requestAnimationFrame === "undefined") return
+  private scrollActiveIntoView(behavior: ScrollBehavior): void {
+    const active = this.activeVerse
+    if (active === undefined || typeof requestAnimationFrame === "undefined")
+      return
     // References are keyed by the verse that carries them, which for a verse
     // in the middle of a passage is an earlier one — scroll to the group
     // covering the reader, not to a verse the panel never lists.
@@ -320,7 +339,9 @@ export class StudyPanelComponent implements OnChanges {
     const anchor =
       this.activeTab === "references" && covering
         ? covering.verseNumber
-        : verse.number
+        : this.nearestAnchorAt(active)
+    if (anchor === undefined) return
+
     requestAnimationFrame(() => {
       const element: HTMLElement | null = this.host.nativeElement.querySelector(
         `[data-verse="${anchor}"]`,
@@ -329,9 +350,31 @@ export class StudyPanelComponent implements OnChanges {
       if (!element || !body) return
       body.scrollTo({
         top: element.offsetTop - body.offsetTop - 12,
-        behavior: "smooth",
+        behavior,
       })
     })
+  }
+
+  /**
+   * The entry to scroll to when nothing sits on this exact verse: the last
+   * one at or before it, so the list follows the reader down rather than
+   * jumping only on the verses that happen to carry a note.
+   */
+  private nearestAnchorAt(
+    verseNumber: Verse["number"],
+  ): Verse["number"] | undefined {
+    const anchors = Array.from(
+      this.host.nativeElement.querySelectorAll<HTMLElement>("[data-verse]"),
+    )
+      .map((element) => Number(element.dataset["verse"]))
+      .filter((number) => Number.isFinite(number))
+    if (!anchors.length) return undefined
+
+    let best: number | undefined
+    for (const candidate of anchors) {
+      if (candidate <= verseNumber) best = candidate
+    }
+    return best ?? anchors[0]
   }
 
   private watchChapterNotes(): void {

@@ -21,7 +21,7 @@
     <!-- #studyScroll and #bookContainer stand in for the drawer content and
          its animated child, so chapter transitions and deep-linked verse
          scrolling work here without knowing which layout is on screen. -->
-    <div class="study-column" #studyScroll>
+    <div class="study-column" #studyScroll (scroll)="onStudyScroll()">
       <!-- The same paged navigation the reading layout uses, so the two
            columns page horizontally and stay a viewport tall instead of
            becoming two very long columns to scroll down and back up. -->
@@ -63,7 +63,8 @@
     </div>
 
     <study-panel class="study-aside" [book]="book" [chapter]="chapter" [selection]="selection"
-      [collapsed]="studyPanelCollapsed" (toggleCollapsed)="toggleStudyPanel()"></study-panel>
+      [visibleVerse]="visibleVerse" [collapsed]="studyPanelCollapsed"
+      (toggleCollapsed)="toggleStudyPanel()"></study-panel>
 
     <!-- Spans all three columns: the notice covers the edition, not the
          reading column, so it runs the width of the page. -->

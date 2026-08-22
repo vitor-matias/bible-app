@@ -170,17 +170,24 @@
   text-decoration: underline;
 }
 
+/* Set like the chapter it is quoting: same face, same measure-filling
+   justification and hyphenation, so a parallel reads as scripture rather
+   than as a caption about scripture. */
 .reference-text {
   margin: 6px 0 0;
   font-size: 16px;
-  line-height: 1.55;
+  line-height: 1.6;
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
 }
 
+/* The reader's own verse-number treatment, at the same proportions. */
 .reference-verse-number {
   color: var(--text-secondary);
   font-size: 65%;
   vertical-align: top;
-  margin-right: 2px;
+  margin-right: 1px;
 }
 
 /* The way on to the rest of a passage the panel only opened. */
@@ -215,6 +222,7 @@
 .footnote-text {
   font-size: 15px;
   line-height: 1.5;
+  hyphens: auto;
 }
 
 .footnote-text a,

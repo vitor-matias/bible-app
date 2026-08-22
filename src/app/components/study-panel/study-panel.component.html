@@ -38,12 +38,16 @@
           <a class="reference-label" [routerLink]="reference.link" [queryParams]="reference.queryParams">
             {{ reference.label }}
           </a>
-          @for (verse of reference.verses; track verse.number) {
+          <!-- One block, not a paragraph per verse: a cited passage reads
+               the way the chapter does, with the verses running on and their
+               numbers set into the text. -->
+          @if (reference.verses.length) {
           <p class="reference-text">
-            @if (reference.verses.length > 1) {
-            <span class="reference-verse-number">{{ verse.number }}</span>
+            @for (verse of reference.verses; track verse.number; let first = $first) {
+            @if (!first) {<span>{{ " " }}</span>}
+            @if (reference.verses.length > 1) {<span
+              class="reference-verse-number">{{ verse.number }}</span>}{{ verse.text }}
             }
-            {{ verse.text }}
           </p>
           }
           @if (reference.truncated) {

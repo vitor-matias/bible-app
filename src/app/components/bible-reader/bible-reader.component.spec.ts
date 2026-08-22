@@ -800,6 +800,58 @@ describe("BibleReaderComponent", () => {
       expect(component.selection).not.toBeNull()
     })
 
+    it("follows the reading position as the column scrolls", fakeAsync(() => {
+      studyMode.activate()
+      // A column whose top is at 0, with three verses laid out down it: the
+      // first has scrolled past, the second is the one being read.
+      const verse = (id: string, bottom: number) =>
+        ({
+          id,
+          getBoundingClientRect: () => ({ bottom }) as DOMRect,
+        }) as HTMLElement
+      component.studyScroll = {
+        nativeElement: {
+          getBoundingClientRect: () => ({ top: 0 }) as DOMRect,
+          querySelectorAll: () => [
+            verse("1", -40),
+            verse("2", 120),
+            verse("3", 400),
+          ],
+        },
+      } as unknown as ElementRef<HTMLElement>
+
+      component.onStudyScroll()
+      tick(16)
+
+      expect(component.visibleVerse).toBe(2)
+    }))
+
+    it("does not follow the scroll outside study mode", fakeAsync(() => {
+      component.studyScroll = {
+        nativeElement: {
+          getBoundingClientRect: () => ({ top: 0 }) as DOMRect,
+          querySelectorAll: () => [],
+        },
+      } as unknown as ElementRef<HTMLElement>
+
+      component.onStudyScroll()
+      tick(16)
+
+      expect(component.visibleVerse).toBeUndefined()
+    }))
+
+    it("forgets the reading position when the chapter changes", () => {
+      studyMode.activate()
+      component.visibleVerse = 39
+
+      apiServiceSpy.getChapter.and.returnValue(
+        of({ bookId: "gen", number: 2, verses: [] } as unknown as Chapter),
+      )
+      component.getChapter(2)
+
+      expect(component.visibleVerse).toBeUndefined()
+    })
+
     it("drops the selection when study mode goes away", () => {
       studyMode.activate()
       component.onVerseSelected({ verse: { number: 39 } as Verse })

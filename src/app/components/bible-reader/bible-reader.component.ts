@@ -135,6 +135,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   selection: VerseSelection | null = null
   /** Verses of this chapter whose poetry is quoted from somewhere else. */
   private quotationVerses = new Set<Verse["number"]>()
+  /** The verse at the top of the reading column, as the reader scrolls. */
+  visibleVerse?: Verse["number"]
+  private visibleVerseFrame?: number
   /** Study mode's side columns, each folded away or not. Remembered. */
   studySidebarCollapsed = false
   studyPanelCollapsed = false
@@ -385,6 +388,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next()
     this.destroy$.complete()
+    if (this.visibleVerseFrame !== undefined) {
+      cancelAnimationFrame(this.visibleVerseFrame)
+    }
     this.chapterSubscription?.unsubscribe()
     this.animationService.cancelPendingRealign()
     // AutoScrollService handles its own cleanup now if we stop it, or the component stopping it
@@ -704,6 +710,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // The previous chapter's verse is gone; a deep link naming one picks it up
     // again below, so the panel follows a cross-reference to its landing verse.
     this.selection = null
+    this.visibleVerse = undefined
     this.rebuildChapterLinks()
     // The chapter being replaced may still have a realign pass waiting on the
     // layout; it holds the old verse element and must not scroll this one.
@@ -874,6 +881,44 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     if (this.studyPanelCollapsed) {
       this.setStudyPanelCollapsed(false)
     }
+    this.cdr.markForCheck()
+  }
+
+  /**
+   * Keeps the study panel on the passage the reader is actually looking at.
+   *
+   * Throttled to one measurement per frame: the scroll fires far more often
+   * than the answer changes, and the answer only costs a scan of the verses
+   * already on screen. Paged mode never reaches this — that column does not
+   * scroll vertically.
+   */
+  onStudyScroll(): void {
+    if (!this.studyModeActive || this.visibleVerseFrame !== undefined) return
+    this.visibleVerseFrame = requestAnimationFrame(() => {
+      this.visibleVerseFrame = undefined
+      this.updateVisibleVerse()
+    })
+  }
+
+  private updateVisibleVerse(): void {
+    const host = this.studyScroll?.nativeElement
+    if (!host) return
+    const top = host.getBoundingClientRect().top
+
+    let first: Verse["number"] | undefined
+    for (const element of host.querySelectorAll<HTMLElement>("verse")) {
+      // The first verse whose text has not yet passed above the fold. A
+      // little tolerance so a verse only just clipped at the top still
+      // counts as the one being read.
+      if (element.getBoundingClientRect().bottom >= top + 8) {
+        const number = Number(element.id)
+        if (Number.isFinite(number)) first = number
+        break
+      }
+    }
+
+    if (first === this.visibleVerse) return
+    this.visibleVerse = first
     this.cdr.markForCheck()
   }
 

@@ -81,6 +81,7 @@ describe("StudyPanelComponent", () => {
     book?: Book
     chapter?: Chapter | null
     selection?: VerseSelection | null
+    visibleVerse?: Verse["number"]
   }): void {
     // setInput, not a hand-written ngOnChanges: it runs the same input
     // pipeline Angular does and marks this OnPush view dirty, so assertions
@@ -416,6 +417,56 @@ describe("StudyPanelComponent", () => {
         },
       })
       expect(component.isCurrentGroup(group)).toBeFalse()
+    })
+
+    it("follows the verse on screen while nothing is selected", () => {
+      bibleRef.extract.and.callFake((text: string) =>
+        text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
+      )
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 22,
+          verses: [
+            verse(34, [references("Mc 12,28-34"), plain("Constando-lhes")]),
+            verse(39, [plain("O segundo é semelhante")]),
+          ],
+        },
+      })
+
+      setInputs({ visibleVerse: 39 })
+
+      expect(component.activeVerse).toBe(39)
+      expect(component.isCurrentGroup(component.referenceGroups[0])).toBeTrue()
+    })
+
+    it("lets a chosen verse outrank the one on screen", () => {
+      bibleRef.extract.and.returnValue([])
+      const chosen = verse(12, [plain("escolhido")])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [chosen] },
+        selection: { verse: chosen },
+        visibleVerse: 39,
+      })
+
+      expect(component.activeVerse).toBe(12)
+    })
+
+    it("goes back to following the screen once the verse is let go", () => {
+      bibleRef.extract.and.returnValue([])
+      const chosen = verse(12, [plain("escolhido")])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [chosen] },
+        selection: { verse: chosen },
+        visibleVerse: 39,
+      })
+
+      setInputs({ selection: null })
+
+      expect(component.activeVerse).toBe(39)
     })
 
     it("marks the selected verse's group as the current one", () => {
