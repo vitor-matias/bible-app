@@ -50,6 +50,12 @@ export class SearchComponent {
   private queryParamSubscription?: Subscription
   /** Guards against re-running the same shared query on unrelated emissions. */
   private lastSharedQuery: string | null = null
+  /**
+   * Bumped on every submit. A share target can deliver two queries back to
+   * back, and the slower request must not overwrite the newer one's results,
+   * clear its loading state, or navigate away from it.
+   */
+  private searchGeneration = 0
 
   constructor(
     private apiService: BibleApiService,
@@ -140,6 +146,8 @@ export class SearchComponent {
   }
 
   async onSearchSubmit(text: string): Promise<void> {
+    const generation = ++this.searchGeneration
+    const isStale = () => generation !== this.searchGeneration
     this.searchTerm = text
     const references = this.referenceService.extract(text)
 
@@ -178,6 +186,7 @@ export class SearchComponent {
             targetVerseStart || 1,
           ),
         )
+        if (isStale()) return
         await this.router.navigate(
           ["/", targetBook.id, targetChapter],
           targetVerseStart !== undefined
@@ -185,6 +194,7 @@ export class SearchComponent {
             : {},
         )
       } catch (err) {
+        if (isStale()) return
         console.error(err)
         // HttpErrorResponse is not guaranteed here, so narrow the shape safely.
         const status =
@@ -211,6 +221,7 @@ export class SearchComponent {
     this.isLoading = true
     try {
       const results = await firstValueFrom(this.apiService.search(text, 1))
+      if (isStale()) return
       this.searchResults = results.verses.map((v) => this.toDisplayVerse(v))
       this.totalResults = results.total
       this.currentPage = 1
@@ -239,13 +250,18 @@ export class SearchComponent {
 
       void this.analyticsService.track("search", { text })
     } catch (error) {
+      if (isStale()) return
       console.error("Error loading search results:", error)
       this.snackBar.open("Error loading search results", "OK", {
         duration: 3000,
       })
     } finally {
-      this.isLoading = false
-      this.cdr.detectChanges()
+      // `return` inside the try still runs this, so a superseded search would
+      // otherwise clear the loading state of the one that replaced it.
+      if (!isStale()) {
+        this.isLoading = false
+        this.cdr.detectChanges()
+      }
     }
   }
 

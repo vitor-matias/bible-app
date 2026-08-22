@@ -202,4 +202,45 @@ describe("BookSelectorComponent", () => {
       { name: "novotestamento", books: [] },
     ])
   })
+
+  // With a filter applied, ngOnChanges dropped a new book list on the floor
+  // and the tree kept showing results built from the previous one.
+  it("re-applies the active filter when the book list changes", () => {
+    component.books = [
+      {
+        id: "gen",
+        name: "Livro do Génesis",
+        shortName: "Génesis",
+        abrv: "Gn",
+        chapterCount: 50,
+      },
+    ] as Book[]
+    component.ngOnChanges({
+      books: new SimpleChange(undefined, component.books, true),
+    })
+    component.filterBooks("livro")
+    expect(component.otDataSource.data).toEqual([
+      { name: "Pentateuco", introSlug: "pentateuco", books: ["gen"] },
+    ])
+
+    // Same filter, new list: Exodus matches "livro" too and must appear.
+    const previous = component.books
+    component.books = [
+      ...previous,
+      {
+        id: "exo",
+        name: "Livro do Êxodo",
+        shortName: "Êxodo",
+        abrv: "Ex",
+        chapterCount: 40,
+      },
+    ] as Book[]
+    component.ngOnChanges({
+      books: new SimpleChange(previous, component.books, false),
+    })
+
+    expect(component.otDataSource.data).toEqual([
+      { name: "Pentateuco", introSlug: "pentateuco", books: ["gen", "exo"] },
+    ])
+  })
 })

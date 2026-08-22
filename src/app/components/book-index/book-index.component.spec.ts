@@ -35,6 +35,9 @@ describe("BookIndexComponent", () => {
   ]
 
   async function setup(available: Book[] = books): Promise<void> {
+    // The blanket beforeEach already built a module; a test that wants a
+    // different book list has to start from a clean one.
+    TestBed.resetTestingModule()
     seoSpy = jasmine.createSpyObj<SeoService>("SeoService", [
       "updateForBookIndex",
     ])
@@ -143,6 +146,17 @@ describe("BookIndexComponent", () => {
   })
 
   it("offers a way back to the home page", () => {
+    expect(hrefs()).toContain("/")
+  })
+
+  // books$ only emits once BookService has books, but a build whose API call
+  // failed still renders the page — it must come up empty rather than throw.
+  it("renders no book links when the API returned nothing", async () => {
+    await setup([])
+
+    expect(hrefs().filter((href) => /\/\d+$/.test(href))).toEqual([])
+    expect(element.querySelectorAll("li").length).toBe(0)
+    // The chrome is still there, so the reader is not stranded.
     expect(hrefs()).toContain("/")
   })
 })

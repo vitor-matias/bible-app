@@ -12,7 +12,7 @@ import {
   type ParamMap,
   Router,
 } from "@angular/router"
-import { BehaviorSubject, Observable, of, Subject } from "rxjs"
+import { BehaviorSubject, from, Observable, of, Subject } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
@@ -394,5 +394,49 @@ describe("SearchComponent", () => {
     component.ngOnDestroy()
 
     expect(observer.disconnect).toHaveBeenCalled()
+  })
+
+  // A share target can deliver two queries back to back. If A resolves after
+  // B, A used to overwrite B's results and clear B's loading state.
+  it("should ignore a superseded search that resolves last", async () => {
+    referenceService.extract.and.returnValue([])
+    bookService.findBook.and.returnValue({ id: "about" } as Book)
+
+    const verseFor = (text: string) =>
+      ({
+        bookId: "gen",
+        chapterNumber: 1,
+        number: 1,
+        verseLabel: "1",
+        text: [{ type: "text", text }],
+      }) as Verse
+
+    const page = (verses: Verse[], total: number): VersePage => ({
+      verses,
+      total,
+      currentPage: 1,
+      totalPages: 1,
+    })
+
+    let resolveA: (value: VersePage) => void = () => {}
+    const slowA = new Promise<VersePage>((resolve) => {
+      resolveA = resolve
+    })
+
+    apiService.search.and.callFake((text: string) =>
+      text === "A" ? from(slowA) : of(page([verseFor("B result")], 1)),
+    )
+
+    const first = component.onSearchSubmit("A")
+    await component.onSearchSubmit("B")
+
+    expect(component.searchResults[0].text?.[0].text).toBe("B result")
+
+    resolveA(page([verseFor("A result")], 99))
+    await first
+
+    expect(component.searchResults[0].text?.[0].text).toBe("B result")
+    expect(component.totalResults).toBe(1)
+    expect(component.isLoading).toBeFalse()
   })
 })

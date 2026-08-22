@@ -180,6 +180,20 @@ describe("HeaderComponent", () => {
     })
   })
 
+  // Chapter 0 is the introduction; a falsy check used to swallow it.
+  it("should open the report problem dialog for an introduction", () => {
+    const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
+    component.chapterNumber = 0
+
+    component.onReportProblem(trigger)
+
+    expect(dialogSpy.open).toHaveBeenCalledWith(ReportProblemComponent, {
+      data: { book: component.book, chapter: 0 },
+      width: "90%",
+      maxWidth: "500px",
+    })
+  })
+
   it("should not open the report problem dialog when chapter context is missing", () => {
     const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
 

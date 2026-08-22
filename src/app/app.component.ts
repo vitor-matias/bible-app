@@ -120,7 +120,12 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     // Fall back: open search with the shared text, URL or title as the query.
-    const query = sharedText ?? sharedUrl ?? sharedTitle ?? ""
+    // First non-empty, not first non-null: a share sheet that sends
+    // "?text=&title=Salmo 23" gives an empty string, and ?? would keep it.
+    const query =
+      [sharedText, sharedUrl, sharedTitle].find(
+        (value) => !!value && value.trim().length > 0,
+      ) ?? ""
     if (query) {
       this.router.navigate(["/search"], { queryParams: { q: query } })
     }

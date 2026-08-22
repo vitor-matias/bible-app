@@ -246,8 +246,13 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes["books"] && !this.filterQuery) {
-      this.buildTrees()
+    if (changes["books"]) {
+      // Re-run the active filter rather than only rebuilding when there is
+      // none: with a filter applied, a new book list was being ignored and the
+      // tree kept showing results built from the previous one.
+      // filterBooks("") falls through to buildTrees(), so the unfiltered case
+      // is unchanged.
+      this.filterBooks(this.filterQuery)
     }
     if (changes["selectedBookId"] && !changes["selectedBookId"].firstChange) {
       // Scroll once the updated book list has actually been rendered.

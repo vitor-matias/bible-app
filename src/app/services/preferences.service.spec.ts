@@ -1,3 +1,4 @@
+import { TestBed } from "@angular/core/testing"
 import { PreferencesService } from "./preferences.service"
 
 describe("PreferencesService", () => {
@@ -5,7 +6,9 @@ describe("PreferencesService", () => {
 
   beforeEach(() => {
     localStorage.clear()
-    service = new PreferencesService()
+    TestBed.resetTestingModule()
+    TestBed.configureTestingModule({ providers: [PreferencesService] })
+    service = TestBed.inject(PreferencesService)
   })
 
   it("should store and read the theme", () => {

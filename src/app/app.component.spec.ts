@@ -77,6 +77,28 @@ describe("AppComponent", () => {
     }
   })
 
+  // A share sheet that sends every field emits "" for the empty ones, and ??
+  // treats "" as a value — the share then went nowhere.
+  it("should route a share with empty text and url to search with the title", async () => {
+    mockAppPlugin.addListener.and.resolveTo({
+      remove: async () => {},
+    } as unknown as PluginListenerHandle)
+    const originalUrl = window.location.href
+    history.replaceState(null, "", "/?text=&url=&title=Salmo%2023")
+
+    try {
+      const fixture = TestBed.createComponent(AppComponent)
+      fixture.detectChanges()
+      await fixture.whenStable()
+
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/search"], {
+        queryParams: { q: "Salmo 23" },
+      })
+    } finally {
+      history.replaceState(null, "", originalUrl)
+    }
+  })
+
   it("should setup app links listener on native platform", () => {
     mockAppPlugin.addListener.and.resolveTo({
       remove: async () => {},

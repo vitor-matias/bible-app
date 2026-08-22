@@ -35,7 +35,47 @@ describe("web-storage", () => {
 
     it("cleans up after its write probe", () => {
       pickUsableStorage(window.localStorage)
-      expect(window.localStorage.getItem("__bibleAppStorageProbe__")).toBeNull()
+      const leftovers = Object.keys(window.localStorage).filter((key) =>
+        key.startsWith("__bibleAppStorageProbe__"),
+      )
+      expect(leftovers).toEqual([])
+    })
+
+    // A write-only probe passes here, and every preference the app saves is
+    // then silently discarded.
+    it("returns null when writes are silently dropped", () => {
+      expect(
+        pickUsableStorage({
+          getItem: () => null,
+          setItem: () => {},
+          removeItem: () => {},
+        } as unknown as Storage),
+      ).toBeNull()
+    })
+
+    it("returns null when reading back throws", () => {
+      expect(
+        pickUsableStorage({
+          getItem: () => {
+            throw new Error("denied")
+          },
+          setItem: () => {},
+          removeItem: () => {},
+        } as unknown as Storage),
+      ).toBeNull()
+    })
+
+    // A fixed probe key would overwrite whatever the origin already had there.
+    it("leaves an existing value under the legacy probe key alone", () => {
+      window.localStorage.setItem("__bibleAppStorageProbe__", "keep me")
+      try {
+        expect(pickUsableStorage(window.localStorage)).toBe(window.localStorage)
+        expect(window.localStorage.getItem("__bibleAppStorageProbe__")).toBe(
+          "keep me",
+        )
+      } finally {
+        window.localStorage.removeItem("__bibleAppStorageProbe__")
+      }
     })
 
     it("returns null when property access throws (privacy modes)", () => {

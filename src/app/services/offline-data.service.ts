@@ -111,6 +111,11 @@ export class OfflineDataService {
 
     try {
       await this.saveBooksToIndexedDb(this.cachedBooks)
+      // clearAndPutAll has just replaced the store with current-shape records,
+      // so the schema is current whether or not the earlier migration managed
+      // to clear it. Without this a failed migration leaves the key stale and
+      // the next launch wipes these records and re-downloads the Bible.
+      storage?.setItem(this.cacheSchemaKey, this.cacheSchemaVersion.toString())
       storage?.setItem(this.cacheTimestampKey, Date.now().toString())
       storage?.setItem(this.cacheFlagKey, "true")
     } catch (error) {
@@ -183,11 +188,19 @@ export class OfflineDataService {
         byId.set(book.id, book)
         continue
       }
-      byId.set(book.id, {
+      const merged: Book = {
         ...current,
         ...book,
         chapters: this.mergeChapterLists(book.chapters, current.chapters),
-      })
+      }
+      // Same protection mergeChapterLists gives a chapter introduction: a
+      // shallow payload can carry introduction: [], which the spread would
+      // write over an already-loaded body. BookService.toIntroBook() produces
+      // exactly that shape, so an empty array is not a hypothetical.
+      if (!book.introduction?.length && current.introduction?.length) {
+        merged.introduction = current.introduction
+      }
+      byId.set(book.id, merged)
     }
     return Array.from(byId.values())
   }

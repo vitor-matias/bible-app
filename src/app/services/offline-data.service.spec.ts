@@ -501,6 +501,40 @@ describe("OfflineDataService", () => {
   })
 
   describe("mergeCachedBooks", () => {
+    // mergeChapterLists already protects a chapter introduction; the book-level
+    // spread did not, so a refresh carrying introduction: [] blanked a body
+    // that loadGroupIntroBody() had filled.
+    it("should keep a cached book introduction when the refresh omits it", async () => {
+      const loaded = [
+        {
+          id: "pentateuco",
+          name: "Pentateuco",
+          shortName: "Pentateuco",
+          abrv: "pentateuco",
+          chapterCount: 0,
+          introduction: [{ type: "introParagraph", text: "A Lei." }],
+        },
+      ] as unknown as Book[]
+      const shallow = [
+        {
+          id: "pentateuco",
+          name: "Pentateuco",
+          shortName: "Pentateuco",
+          abrv: "pentateuco",
+          chapterCount: 0,
+          introduction: [],
+        },
+      ] as unknown as Book[]
+
+      await service.setCachedBooks(loaded)
+      await service.setCachedBooks(shallow)
+
+      const merged = service
+        .getCachedBooks()
+        .find((book) => book.id === "pentateuco")
+      expect(merged?.introduction?.length).toBe(1)
+    })
+
     it("should merge books by id, preferring incoming data", async () => {
       const existing: Book[] = [
         {
@@ -654,6 +688,20 @@ describe("OfflineDataService", () => {
       abrv: "Gn",
       chapterCount: 50,
     } as Book
+
+    // A failed clear left the key stale, so the next launch wiped the
+    // just-written current-shape records and re-downloaded the whole Bible.
+    it("should mark the schema current after a successful cache write", async () => {
+      delete mockLocalStorage._storage["booksCacheSchemaVersion"]
+      databaseService.clear.and.returnValue(
+        Promise.reject(new Error("clear failed")),
+      )
+
+      await service.setCachedBooks([staleBook])
+
+      expect(databaseService.clearAndPutAll).toHaveBeenCalled()
+      expect(mockLocalStorage._storage["booksCacheSchemaVersion"]).toBe("2")
+    })
 
     it("should clear stale records and update metadata on version mismatch", async () => {
       delete mockLocalStorage._storage["booksCacheSchemaVersion"]

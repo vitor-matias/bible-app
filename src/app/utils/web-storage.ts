@@ -1,12 +1,16 @@
-const PROBE_KEY = "__bibleAppStorageProbe__"
+let probeCounter = 0
 
 /**
  * Returns a Storage candidate only when it is actually usable.
  * Existence is not usability: a browser can expose a localStorage whose reads
  * work but whose writes throw (exhausted quota, storage disabled by policy),
  * and property access alone can throw where a privacy mode blocks the object
- * outright. So this probes with a real write it cleans up again, and callers
- * get null rather than an object that throws on the next `setItem`.
+ * outright. So this probes with a real write it reads back and cleans up, and
+ * callers get null rather than an object that throws on the next `setItem`.
+ *
+ * The read-back matters: a storage that silently drops writes (some privacy
+ * modes do exactly that) passes a write-only probe and then loses every
+ * preference the app saves.
  */
 export function pickUsableStorage(
   candidate: Storage | undefined,
@@ -20,9 +24,13 @@ export function pickUsableStorage(
     ) {
       return null
     }
-    candidate.setItem(PROBE_KEY, PROBE_KEY)
-    candidate.removeItem(PROBE_KEY)
-    return candidate
+    // Unique per call so the probe can never overwrite a value the page
+    // already holds under a fixed key.
+    const probeKey = `__bibleAppStorageProbe__${(probeCounter += 1)}`
+    candidate.setItem(probeKey, probeKey)
+    const readBack = candidate.getItem(probeKey)
+    candidate.removeItem(probeKey)
+    return readBack === probeKey ? candidate : null
   } catch {
     // Some privacy modes throw on any Storage access.
     return null

@@ -121,7 +121,11 @@ describe("NetworkService", () => {
 
     // The reconnect hook lazy-imports OfflineDataService before resolving it,
     // so poll until the dynamic import settles.
-    for (let i = 0; i < 20 && injectorMock.get.calls.count() === 0; i++) {
+    // The reconnect hook lazy-imports OfflineDataService; on a cold run that
+    // import can outlast a fixed 200ms budget, and the test then fails on the
+    // injector expectation rather than on the thing it covers.
+    const deadline = Date.now() + 2000
+    while (injectorMock.get.calls.count() === 0 && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 10))
     }
 

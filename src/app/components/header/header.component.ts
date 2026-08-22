@@ -194,7 +194,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   onReportProblem(trigger: MatMenuTrigger) {
     trigger.closeMenu()
-    if (!this.book || !this.chapterNumber) {
+    // != null, not falsy: chapter 0 is the introduction, and a reader looking
+    // at one must still be able to report a problem with it.
+    if (!this.book || this.chapterNumber == null) {
       return
     }
 

@@ -252,6 +252,32 @@ describe("SeoService", () => {
       expect(breadcrumbs?.itemListElement[2].position).toBe(3)
     })
 
+    // A standalone introduction has no chapters, and its body is empty until
+    // loadGroupIntroBody() fills it. Keying the book crumb off the body alone
+    // emitted /pentateuco/1 — a URL with no page — into the JSON-LD.
+    it("points a standalone introduction's book crumb at /intro, not /1", () => {
+      const standalone = {
+        id: "pentateuco",
+        name: "Introdução ao Pentateuco",
+        shortName: "Introdução ao Pentateuco",
+        abrv: "pentateuco",
+        chapterCount: 0,
+        introduction: [],
+        introSlug: "pentateuco",
+      } as unknown as Book
+      bookServiceSpy.getUrlAbrv.and.returnValue("pentateuco")
+
+      service.updateForChapter(standalone, 0)
+
+      const items = getBreadcrumbs()?.itemListElement ?? []
+      expect(items.map((crumb) => crumb.item)).not.toContain(
+        `${SEO_BASE_URL}/pentateuco/1`,
+      )
+      expect(items[items.length - 1].item).toBe(
+        `${SEO_BASE_URL}/pentateuco/intro`,
+      )
+    })
+
     it("escapes < so a name cannot close the script element", () => {
       // The payload is baked into prerendered HTML: a name carrying
       // "</script>" would end the JSON-LD block and inject markup.

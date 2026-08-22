@@ -37,6 +37,46 @@ describe("BookIntroComponent", () => {
     ).toContain("AUTOR")
   })
 
+  it("should render a row per entry and a cell per value in a table", () => {
+    setIntroduction([
+      {
+        type: "introTable",
+        rows: [
+          ["1—11", "Origens"],
+          ["12—50", "Patriarcas"],
+        ],
+      },
+    ] as IntroElement[])
+
+    const rows = fixture.nativeElement.querySelectorAll("table.intro-table tr")
+    expect(rows.length).toBe(2)
+    expect(rows[0].querySelectorAll("td").length).toBe(2)
+    expect(rows[0].querySelectorAll("td")[0].textContent).toContain("1—11")
+    expect(rows[1].querySelectorAll("td")[1].textContent).toContain(
+      "Patriarcas",
+    )
+  })
+
+  // The sidebar renders <book-intro> again; without the reset its own
+  // .intro-container compounds 120% to 144%.
+  it("should not compound the container font size inside a sidebar", () => {
+    setIntroduction([
+      {
+        type: "introSidebar",
+        content: [{ type: "introParagraph", text: "Nota lateral." }],
+      },
+    ] as IntroElement[])
+
+    const nested = fixture.nativeElement.querySelector(
+      ".intro-sidebar .intro-container",
+    )
+    expect(nested).toBeTruthy()
+    expect(getComputedStyle(nested).fontSize).toBe(
+      getComputedStyle(fixture.nativeElement.querySelector(".intro-container"))
+        .fontSize,
+    )
+  })
+
   it("should render the top-level intro title as h2, leaving h1 to the page", () => {
     setIntroduction([
       { type: "introTitle", level: 1, text: "EVANGELHO SEGUNDO SÃO JOÃO" },

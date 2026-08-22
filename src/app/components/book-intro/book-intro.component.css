@@ -12,6 +12,14 @@
    padding and the first element's top margin, which pushes its text down while
    every other column starts flush at the top. Drop both so all columns share
    one baseline; the toolbar already provides the space above. */
+/* A sidebar renders <book-intro> again, and the nested instance carries the
+   same emulated-encapsulation attribute as this one — so its .intro-container
+   matches the 120% above and compounds to 144%, leaving an aside set larger
+   than the introduction containing it. */
+.intro-sidebar .intro-container {
+  font-size: 100%;
+}
+
 .intro-container:first-child {
   padding-top: 0;
 }

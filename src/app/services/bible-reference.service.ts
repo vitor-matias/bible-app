@@ -351,8 +351,12 @@ export class BibleReferenceService {
     // Normalize reversed user input such as "20b-18a" into an increasing range
     // so downstream consumers can treat every range uniformly. The part
     // suffixes travel with their verse number when the bounds swap.
-    const startRef = a.num <= b.num ? a : b
-    const endRef = a.num <= b.num ? b : a
+    // Compare the suffix when both bounds land on the same verse, so "20b-20a"
+    // normalises like "20a-20b" instead of staying descending.
+    const isReversed =
+      a.num > b.num || (a.num === b.num && (a.part ?? "") > (b.part ?? ""))
+    const startRef = isReversed ? b : a
+    const endRef = isReversed ? a : b
 
     const range: Extract<VerseReference, { type: "range" }> = {
       type: "range",

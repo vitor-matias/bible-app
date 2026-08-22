@@ -190,5 +190,5 @@
 
 .group > h3 a:hover,
 .group > h3 a:focus-visible {
-  border-bottom-color: currentColor;
+  border-bottom-color: currentcolor;
 }

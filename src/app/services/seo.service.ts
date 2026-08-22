@@ -59,9 +59,12 @@ export class SeoService {
       indexable: true,
     })
     // Books that open on an introduction should have the book-level crumb
-    // point there, not at a chapter the reader never passed through.
+    // point there, not at a chapter the reader never passed through. A
+    // standalone introduction has no chapters at all, and its body is empty
+    // until loadGroupIntroBody() fills it — keying off the body alone would
+    // emit /pentateuco/1, a URL that has no page, into the BreadcrumbList.
     const bookEntrySegment = this.bookService.getChapterUrlSegment(
-      book.introduction?.length ? 0 : 1,
+      standalone || book.introduction?.length ? 0 : 1,
     )
     const crumbs = [
       { name: SEO_SITE_NAME, item: `${SEO_BASE_URL}/` },
