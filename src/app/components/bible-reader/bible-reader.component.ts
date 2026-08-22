@@ -856,12 +856,30 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   onVerseSelected(selection: VerseSelection): void {
+    // Clicking the verse already selected clears it — the same gesture that
+    // chose it lets go of it, which is what the verse number's aria-pressed
+    // has been promising. A click that asks for a particular tab is not a
+    // second thought about the verse, so it selects rather than toggles.
+    if (
+      !selection.panel &&
+      this.selection?.verse.number === selection.verse.number
+    ) {
+      this.clearSelection()
+      return
+    }
+
     this.selection = selection
     // Picking a verse is asking what the edition says about it, so a folded
     // panel unfolds rather than swallowing the answer.
     if (this.studyPanelCollapsed) {
       this.setStudyPanelCollapsed(false)
     }
+    this.cdr.markForCheck()
+  }
+
+  clearSelection(): void {
+    if (!this.selection) return
+    this.selection = null
     this.cdr.markForCheck()
   }
 
@@ -903,6 +921,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // had a text field: an arrow key inside either is the reader moving the
     // caret, not asking for the next chapter.
     if (BibleReaderComponent.isTextEntry(event.target)) return
+    // Escape lets go of the selected verse, the way it dismisses anything
+    // else the reader has opened.
+    if (event.key === "Escape" && this.selection) {
+      this.clearSelection()
+      return
+    }
     if (event.key === "ArrowLeft") {
       this.effectiveViewMode === "paged"
         ? this.pagedNav?.prevPage()

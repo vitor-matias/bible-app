@@ -748,6 +748,58 @@ describe("BibleReaderComponent", () => {
       expect(component.selection?.verse).toBe(verse)
     })
 
+    it("lets go of the verse when it is clicked a second time", () => {
+      studyMode.activate()
+      const verse = { number: 39 } as Verse
+
+      component.onVerseSelected({ verse })
+      component.onVerseSelected({ verse })
+
+      expect(component.selection).toBeNull()
+    })
+
+    it("keeps the verse when the second click asks for a tab", () => {
+      studyMode.activate()
+      const verse = { number: 39 } as Verse
+
+      component.onVerseSelected({ verse })
+      component.onVerseSelected({ verse, panel: "footnotes" })
+
+      expect(component.selection?.panel).toBe("footnotes")
+    })
+
+    it("selects a different verse rather than letting go", () => {
+      studyMode.activate()
+      component.onVerseSelected({ verse: { number: 39 } as Verse })
+
+      component.onVerseSelected({ verse: { number: 40 } as Verse })
+
+      expect(component.selection?.verse.number).toBe(40)
+    })
+
+    it("lets go of the verse on Escape", () => {
+      studyMode.activate()
+      component.onVerseSelected({ verse: { number: 39 } as Verse })
+
+      const event = new KeyboardEvent("keydown", { key: "Escape" })
+      Object.defineProperty(event, "target", { value: document.body })
+      component.onArrowPress(event)
+
+      expect(component.selection).toBeNull()
+    })
+
+    it("leaves Escape alone while the reader is typing a note", () => {
+      studyMode.activate()
+      component.onVerseSelected({ verse: { number: 39 } as Verse })
+
+      const textarea = document.createElement("textarea")
+      const event = new KeyboardEvent("keydown", { key: "Escape" })
+      Object.defineProperty(event, "target", { value: textarea })
+      component.onArrowPress(event)
+
+      expect(component.selection).not.toBeNull()
+    })
+
     it("drops the selection when study mode goes away", () => {
       studyMode.activate()
       component.onVerseSelected({ verse: { number: 39 } as Verse })

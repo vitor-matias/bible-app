@@ -358,6 +358,66 @@ describe("StudyPanelComponent", () => {
       expect(api.getChapter).not.toHaveBeenCalled()
     })
 
+    it("keeps the passage's references marked for every verse in it", () => {
+      bibleRef.extract.and.callFake((text: string) =>
+        text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
+      )
+      const chapter: Chapter = {
+        bookId: "mat",
+        number: 22,
+        verses: [
+          // The heading and the references sit on the verse that opens the
+          // passage; the rest of it carries neither.
+          verse(34, [
+            {
+              type: "section",
+              tag: "s1",
+              text: "O mandamento do amor",
+              normalizedText: "",
+            },
+            references("Mc 12,28-34"),
+            plain("Constando-lhes"),
+          ]),
+          verse(39, [plain("O segundo é semelhante")]),
+          verse(40, [plain("Destes dois mandamentos")]),
+          verse(41, [
+            {
+              type: "section",
+              tag: "s1",
+              text: "O Messias",
+              normalizedText: "",
+            },
+            plain("Estando os fariseus reunidos"),
+          ]),
+        ],
+      }
+      setInputs({ book: BOOK, chapter })
+
+      const group = component.referenceGroups[0]
+      expect(group.lastVerse).toBe(40)
+
+      // The verse carrying them, a verse in the middle, and the last verse
+      // of the passage all keep the group marked.
+      for (const number of [34, 39, 40]) {
+        setInputs({
+          selection: {
+            verse: chapter.verses?.find((v) => v.number === number) as Verse,
+          },
+        })
+        expect(component.isCurrentGroup(group))
+          .withContext(`verse ${number}`)
+          .toBeTrue()
+      }
+
+      // The next passage is not this one.
+      setInputs({
+        selection: {
+          verse: chapter.verses?.find((v) => v.number === 41) as Verse,
+        },
+      })
+      expect(component.isCurrentGroup(group)).toBeFalse()
+    })
+
     it("marks the selected verse's group as the current one", () => {
       bibleRef.extract.and.returnValue([reference("mrk", 12, 31)])
       const target = verse(39, [references("Mc 12,31")])

@@ -26,7 +26,7 @@
     <p class="panel-caption">Passagens em paralelo</p>
     @for (group of referenceGroups; track group.verseNumber) {
     <!-- data-verse is how selecting a verse finds its entries to scroll to. -->
-    <section class="reference-group" [class.current]="isCurrent(group.verseNumber)"
+    <section class="reference-group" [class.current]="isCurrentGroup(group)"
       [attr.data-verse]="group.verseNumber">
       <h3 class="group-label">Em paralelo com {{ group.label }}</h3>
       <ul class="reference-list">

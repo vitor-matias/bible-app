@@ -63,6 +63,12 @@ type ReferenceGroup = {
   verseNumber: Verse["number"]
   label: string
   entries: ReferenceEntry[]
+  /**
+   * The last verse of the passage these references cover. The edition prints
+   * them once, on one verse, but they describe the whole passage — so the
+   * group stays marked for any verse in it, not only the one carrying them.
+   */
+  lastVerse: Verse["number"]
 }
 
 /** A footnote plus the verse it hangs off, for the chapter-wide listing. */
@@ -232,6 +238,13 @@ export class StudyPanelComponent implements OnChanges {
     return this.selectedVerse?.number === verseNumber
   }
 
+  /** True while the reader is anywhere inside the passage this group covers. */
+  isCurrentGroup(group: ReferenceGroup): boolean {
+    const selected = this.selectedVerse?.number
+    if (selected === undefined) return false
+    return selected >= group.verseNumber && selected <= group.lastVerse
+  }
+
   verseLabel(verseNumber: Verse["number"]): string {
     // Verse 0 is the chapter's front matter, where this edition prints the
     // parallels for a passage that opens the chapter. They belong to its
@@ -298,9 +311,19 @@ export class StudyPanelComponent implements OnChanges {
   private scrollSelectionIntoView(): void {
     const verse = this.selectedVerse
     if (!verse || typeof requestAnimationFrame === "undefined") return
+    // References are keyed by the verse that carries them, which for a verse
+    // in the middle of a passage is an earlier one — scroll to the group
+    // covering the reader, not to a verse the panel never lists.
+    const covering = this.referenceGroups.find((group) =>
+      this.isCurrentGroup(group),
+    )
+    const anchor =
+      this.activeTab === "references" && covering
+        ? covering.verseNumber
+        : verse.number
     requestAnimationFrame(() => {
       const element: HTMLElement | null = this.host.nativeElement.querySelector(
-        `[data-verse="${verse.number}"]`,
+        `[data-verse="${anchor}"]`,
       )
       const body = element?.closest(".tab-body") as HTMLElement | null
       if (!element || !body) return
@@ -344,14 +367,26 @@ export class StudyPanelComponent implements OnChanges {
     this.referenceGroups = []
     if (!this.chapter) return
 
+    const verses = this.chapter.verses ?? []
+    // Where each passage ends: the verse before the next heading, since a
+    // heading is what starts the next passage.
+    const sectionStarts = verses
+      .filter((verse) => verse.text.some((part) => part.type === "section"))
+      .map((verse) => verse.number)
+    const lastVerseNumber = verses.length
+      ? Math.max(...verses.map((verse) => verse.number))
+      : 0
+
     const groups: ReferenceGroup[] = []
-    for (const verse of this.chapter.verses ?? []) {
+    for (const verse of verses) {
       const entries = this.entriesFor(verse)
       if (!entries.length) continue
+      const nextStart = sectionStarts.find((start) => start > verse.number)
       groups.push({
         verseNumber: verse.number,
         label: this.verseLabel(verse.number),
         entries,
+        lastVerse: nextStart === undefined ? lastVerseNumber : nextStart - 1,
       })
     }
 
