@@ -12,6 +12,10 @@ export const SEO_DEFAULT_DESCRIPTION =
   "A Bíblia Sagrada completa em português, da Difusora Bíblica (Franciscanos Capuchinhos). " +
   "Leitura online e offline, gratuita, com pesquisa e marcadores."
 
+/** Route and heading of the crawlable book index. */
+export const SEO_BOOK_INDEX_PATH = "/livros"
+export const SEO_BOOK_INDEX_NAME = "Livros da Bíblia"
+
 /** Google truncates snippets around this length, so excerpts stop here. */
 const MAX_DESCRIPTION_LENGTH = 158
 
@@ -84,6 +88,29 @@ export class SeoService {
       indexable: true,
     })
     this.setBreadcrumbs(null)
+  }
+
+  /**
+   * Head for the book index at /livros. It gets breadcrumbs of its own so the
+   * hub reads as a level between the home page and a book, rather than as a
+   * page hanging off nothing.
+   */
+  updateForBookIndex(): void {
+    this.apply({
+      title: `${SEO_BOOK_INDEX_NAME} | ${SEO_SITE_NAME}`,
+      description:
+        "Índice dos 73 livros da Bíblia Sagrada em português, da Difusora " +
+        "Bíblica (Franciscanos Capuchinhos). Abra qualquer livro e capítulo.",
+      canonicalUrl: `${SEO_BASE_URL}${SEO_BOOK_INDEX_PATH}`,
+      indexable: true,
+    })
+    this.setBreadcrumbs([
+      { name: SEO_SITE_NAME, item: `${SEO_BASE_URL}/` },
+      {
+        name: SEO_BOOK_INDEX_NAME,
+        item: `${SEO_BASE_URL}${SEO_BOOK_INDEX_PATH}`,
+      },
+    ])
   }
 
   /** Search results are user-specific, so keep them out of the index. */

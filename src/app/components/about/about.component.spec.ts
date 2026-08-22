@@ -54,4 +54,16 @@ describe("AboutComponent", () => {
     expect(element.querySelector("nav.book-index")).toBeNull()
     expect(element.querySelector('a[href="/gn/1"]')).toBeNull()
   })
+
+  // The list is not here, but the link to it is: /livros only passes weight to
+  // the books if something links to /livros in the first place.
+  it("links to the book index", () => {
+    const element = fixture.nativeElement as HTMLElement
+    const link = element.querySelector<HTMLAnchorElement>('a[href="/livros"]')
+
+    expect(link).not.toBeNull()
+    expect(link?.textContent?.trim()).toBe(
+      "Ler a Bíblia online: todos os livros",
+    )
+  })
 })

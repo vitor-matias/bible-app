@@ -9,6 +9,13 @@ describe("server routes", () => {
     expect(home?.renderMode).toBe(RenderMode.Prerender)
   })
 
+  // The hub only passes link weight if crawlers see the anchors in the HTML,
+  // which a client-rendered route would not give them.
+  it("prerenders the book index at /livros", () => {
+    const index = serverRoutes.find((route) => route.path === "livros")
+    expect(index?.renderMode).toBe(RenderMode.Prerender)
+  })
+
   it("keeps search client-rendered", () => {
     const search = serverRoutes.find((route) => route.path === "search")
     expect(search?.renderMode).toBe(RenderMode.Client)
@@ -32,5 +39,18 @@ describe("client routes", () => {
     const home = routes.find((route) => route.path === "")
     expect(home?.component).toBe(BibleReaderComponent)
     expect(home?.pathMatch).toBe("full")
+  })
+
+  // Declared before ":book/:chapter" so the two-segment book route can never
+  // shadow it, and lazily so the hub does not weigh on the reader's bundle.
+  it("resolves /livros ahead of the book routes", () => {
+    const paths = routes.map((route) => route.path)
+    expect(paths).toContain("livros")
+    expect(paths.indexOf("livros")).toBeLessThan(
+      paths.indexOf(":book/:chapter"),
+    )
+    expect(
+      routes.find((route) => route.path === "livros")?.loadComponent,
+    ).toBeDefined()
   })
 })

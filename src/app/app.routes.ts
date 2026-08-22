@@ -12,6 +12,13 @@ export const routes: Routes = [
         (m) => m.SearchComponent,
       ),
   },
+  {
+    path: "livros",
+    loadComponent: () =>
+      import("./components/book-index/book-index.component").then(
+        (m) => m.BookIndexComponent,
+      ),
+  },
   { path: ":book/:chapter", component: BibleReaderComponent },
   { path: "**", component: BibleReaderComponent },
 ]

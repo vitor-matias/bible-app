@@ -4,6 +4,8 @@ import { Meta, Title } from "@angular/platform-browser"
 import { BookService } from "./book.service"
 import {
   SEO_BASE_URL,
+  SEO_BOOK_INDEX_NAME,
+  SEO_BOOK_INDEX_PATH,
   SEO_DEFAULT_DESCRIPTION,
   SEO_HOME_TITLE,
   SEO_SITE_NAME,
@@ -285,6 +287,41 @@ describe("SeoService", () => {
       service.updateForChapter(genesis, 1)
       service.updateForChapter(aboutBook, 1)
       expect(doc.getElementById("seo-breadcrumbs")).toBeNull()
+    })
+  })
+
+  describe("updateForBookIndex", () => {
+    it("sets an indexable head at the /livros canonical URL", () => {
+      // Arrive from search so the noindex tag is actually there to be cleared,
+      // rather than asserting the absence of a tag nothing ever set.
+      service.updateForSearch()
+      service.updateForBookIndex()
+
+      expect(title.getTitle()).toBe(`${SEO_BOOK_INDEX_NAME} | ${SEO_SITE_NAME}`)
+      expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}${SEO_BOOK_INDEX_PATH}`)
+      expect(meta.getTag('name="robots"')).toBeNull()
+      expect(getMetaContent('property="og:url"')).toBe(
+        `${SEO_BASE_URL}${SEO_BOOK_INDEX_PATH}`,
+      )
+    })
+
+    // The hub sits between the home page and a book, so it needs crumbs of its
+    // own rather than the chapter crumbs left over from the previous page.
+    it("injects a Home → Livros BreadcrumbList", () => {
+      service.updateForChapter(genesis, 3)
+      service.updateForBookIndex()
+
+      const script = doc.getElementById("seo-breadcrumbs")
+      const breadcrumbs = script?.textContent
+        ? (JSON.parse(script.textContent) as {
+            itemListElement: { position: number; name: string; item: string }[]
+          })
+        : null
+      expect(breadcrumbs?.itemListElement.length).toBe(2)
+      expect(breadcrumbs?.itemListElement[1].name).toBe(SEO_BOOK_INDEX_NAME)
+      expect(breadcrumbs?.itemListElement[1].item).toBe(
+        `${SEO_BASE_URL}${SEO_BOOK_INDEX_PATH}`,
+      )
     })
   })
 
