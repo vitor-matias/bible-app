@@ -1,8 +1,10 @@
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   EventEmitter,
   Input,
+  inject,
   type OnChanges,
   Output,
   type SimpleChanges,
@@ -55,6 +57,8 @@ export class StudySidebarComponent implements OnChanges {
   }>()
   @Output() toggleCollapsed = new EventEmitter<void>()
 
+  private readonly cdr = inject(ChangeDetectorRef)
+
   groups: SidebarGroup[] = []
   /** Name of the one expanded group, or "" when the reader closed them all. */
   expandedGroup = ""
@@ -81,6 +85,10 @@ export class StudySidebarComponent implements OnChanges {
 
   toggleGroup(group: SidebarGroup): void {
     this.expandedGroup = this.isExpanded(group) ? "" : group.name
+    // Rendered here for the same reason the study panel's tabs are: opening
+    // a group is the whole interaction, with nothing following it to flush a
+    // coalesced change detection pass.
+    this.cdr.detectChanges()
   }
 
   onBookClick(book: Book): void {

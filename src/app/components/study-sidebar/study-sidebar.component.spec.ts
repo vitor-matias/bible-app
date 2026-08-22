@@ -80,6 +80,22 @@ describe("StudySidebarComponent", () => {
     expect(component.isExpanded(group)).toBeFalse()
   })
 
+  it("renders a group opening without waiting for another pass", () => {
+    setInputs({ books: BOOKS, book: BOOKS[0] })
+
+    // No detectChanges() after the click, as above.
+    const gospels = Array.from(
+      fixture.nativeElement.querySelectorAll(".group-toggle"),
+    ).find((button) =>
+      (button as HTMLElement).textContent?.includes("Evangelhos"),
+    ) as HTMLElement
+    gospels.dispatchEvent(new MouseEvent("click"))
+
+    expect(
+      fixture.nativeElement.querySelectorAll(".book-row").length,
+    ).toBeGreaterThan(0)
+  })
+
   it("keeps a collapsed group collapsed when only the book list changes", () => {
     // An introduction loading pushes a new book list; the reader has not
     // moved, so nothing should reopen.

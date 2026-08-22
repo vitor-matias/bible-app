@@ -200,7 +200,15 @@ export class StudyPanelComponent implements OnChanges {
   }
 
   selectTab(tab: PanelTab): void {
+    if (tab === this.activeTab) return
     this.activeTab = tab
+    // Rendered here rather than left to the next change detection pass.
+    // Angular coalesces those onto an animation frame, and a plain button is
+    // the whole interaction — nothing else follows it to flush the queue, so
+    // the strip could sit on the old tab until an unrelated event (hovering
+    // a toolbar button, say) happened to trigger a pass. Every other control
+    // in this app is a Material one, which renders itself and hides that.
+    this.cdr.detectChanges()
   }
 
   /**

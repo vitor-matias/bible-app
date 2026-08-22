@@ -514,6 +514,26 @@ describe("StudyPanelComponent", () => {
       expect(component.activeTab).toBe("footnotes")
     })
 
+    it("renders the newly chosen tab without waiting for another pass", () => {
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [] },
+      })
+
+      // No detectChanges() after the click: switching tabs has to paint on
+      // its own, since nothing else follows the click to flush a pass.
+      fixture.nativeElement
+        .querySelectorAll(".tab")[1]
+        .dispatchEvent(new MouseEvent("click"))
+
+      expect(
+        fixture.nativeElement.querySelector(".tab.active").textContent.trim(),
+      ).toBe("Notas de rodapé")
+      expect(fixture.nativeElement.querySelector(".tab-body").id).toBe(
+        "study-tabpanel-footnotes",
+      )
+    })
+
     it("leaves the reader on the tab they were reading otherwise", () => {
       component.selectTab("notes")
       const target = verse(2, [])
