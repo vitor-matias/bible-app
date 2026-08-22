@@ -68,6 +68,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Input() chapterNumber!: number
   @Input() autoScrollControlsVisible = false
   @Input() viewMode: "scrolling" | "paged" = "scrolling"
+  /** Whether the window is wide enough to offer study mode at all. */
+  @Input() studyModeAvailable = false
+  @Input() studyMode = false
 
   bookLabelMode: "title" | "prompt" = "title"
   /** True for the fade-out half of a label swap. */
@@ -98,6 +101,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Output() openChapterSelector = new EventEmitter<{ open: boolean }>()
   @Output() toggleAutoScrollControls = new EventEmitter<void>()
   @Output() toggleViewMode = new EventEmitter<void>()
+  @Output() toggleStudyMode = new EventEmitter<void>()
 
   mobile = false
   isOffline = false
@@ -228,6 +232,12 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   onToggleViewMode(event?: Event): void {
     event?.stopPropagation()
     this.toggleViewMode.emit()
+  }
+
+  onToggleStudyMode(trigger: MatMenuTrigger, event?: Event): void {
+    event?.stopPropagation()
+    this.toggleStudyMode.emit()
+    trigger.closeMenu()
   }
 
   getThemeIcon(): string {

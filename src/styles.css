@@ -80,6 +80,18 @@ body {
      because it is painted over body text and has to stay readable. */
   --verse-highlight-color: rgba(238, 176, 46, 0.42);
   --cap-brown: #543d27;
+  /* Study mode's own surfaces. The reading column keeps --background-color:
+     only the two columns flanking it are tinted, so the page reads as text
+     with apparatus beside it rather than as three equal panes. The tint is
+     the brand brown at low strength, so both themes stay one family. */
+  --study-surface: color-mix(in srgb, var(--cap-brown) 5%, var(--background-color));
+  --study-rule: color-mix(in srgb, var(--cap-brown) 18%, transparent);
+  --study-muted: color-mix(in srgb, var(--text-color) 55%, transparent);
+  /* The verse the study panel is showing. Quieter than
+     --verse-highlight-color: this one stays on screen for as long as the
+     reader studies the verse instead of fading after arriving at it. */
+  --study-selection-color: color-mix(in srgb, var(--cap-brown) 12%, transparent);
+  --study-selection-border: color-mix(in srgb, var(--cap-brown) 45%, transparent);
   --mat-menu-item-label-text-size: 15px;
   --mat-menu-container-color: var(--card-background);
   --mat-menu-item-label-text-color: var(--text-color);
@@ -133,6 +145,14 @@ body {
   /* Same hue as the light theme, lighter touch: white text has to stay
      readable on top of it. */
   --verse-highlight-color: rgba(238, 176, 46, 0.3);
+  /* --cap-brown is too dark to tint a dark surface with, so the study
+     columns lift away from the page with light instead, and the selection
+     borrows the same warm hue the highlight uses. */
+  --study-surface: #1a1a1a;
+  --study-rule: rgba(255, 255, 255, 0.14);
+  --study-muted: color-mix(in srgb, var(--text-color) 60%, transparent);
+  --study-selection-color: rgba(238, 176, 46, 0.16);
+  --study-selection-border: rgba(238, 176, 46, 0.5);
   --mat-menu-container-color: var(--card-background);
   --mat-menu-item-label-text-color: var(--text-color);
   --mat-menu-item-icon-color: var(--text-color);

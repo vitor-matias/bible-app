@@ -5,9 +5,12 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
+  EventEmitter,
+  HostListener,
   Input,
   OnChanges,
   OnDestroy,
+  Output,
   QueryList,
   SimpleChanges,
   ViewChild,
@@ -39,6 +42,10 @@ import { getVerseQueryParams, parseReferences } from "./verse.utils"
   styleUrls: ["./verse.component.css"],
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
+  host: {
+    "[class.verse-selected]": "selected",
+    "[class.verse-quotation]": "isQuotation",
+  },
 })
 export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   /** Pre-computed index where the chapter number should be displayed, or -1 */
@@ -46,6 +53,17 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   /** Pre-computed: does this verse have footnotes? */
   hasFootnotes = false
+
+  /**
+   * Whether this verse's poetry is a passage being quoted, rather than the
+   * verse form the book is written in.
+   *
+   * Decided by the reader, not here: a quotation runs across verses, and its
+   * later verses look exactly like a psalm from inside a single verse. See
+   * BibleReaderComponent.markQuotationVerses.
+   */
+  @Input()
+  isQuotation = false
 
   /** Groups for rendering - quotes and their continuations */
   displayGroups: DisplayGroup[] = []
@@ -64,6 +82,18 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
    */
   nextIsQuoteStates: Record<number, boolean> = {}
 
+  /**
+   * Whether a line break belongs after this element because the next thing to
+   * render is a line of poetry.
+   *
+   * Distinct from nextIsQuoteStates, which answers the same question for a
+   * whole section run: every element of that run shares its answer, so a run
+   * of prose before a quote used to be broken after each of its elements
+   * rather than only at its end — that is what put "SENHOR" on a line of its
+   * own in the psalms, split from the line it belongs to.
+   */
+  breakBeforeQuoteStates: Record<number, boolean> = {}
+
   @Input()
   data!: Verse
 
@@ -72,6 +102,21 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   @Input()
   nextVerseStartsWithQuote = false
+
+  /**
+   * Study mode turns the verse into the study panel's selector: a click picks
+   * the verse instead of opening the footnotes sheet, which in that layout is
+   * a column already on screen.
+   */
+  @Input()
+  studyMode = false
+
+  /** True while this verse is the one the study panel is showing. */
+  @Input()
+  selected = false
+
+  @Output()
+  verseSelected = new EventEmitter<VerseSelection>()
 
   @ViewChildren("indentable")
   indentableElements!: QueryList<ElementRef<HTMLElement>>
@@ -98,6 +143,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       this.parsedReferences = this.computeParsedReferences()
       this.displayGroups = this.computeDisplayGroups()
       this.nextIsQuoteStates = this.computeNextIsQuoteStates()
+      this.breakBeforeQuoteStates = this.computeBreakBeforeQuoteStates()
     }
   }
 
@@ -235,6 +281,29 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     return states
   }
 
+  private computeBreakBeforeQuoteStates(): Record<number, boolean> {
+    const states: Record<number, boolean> = {}
+    this.data.text.forEach((_, index) => {
+      states[index] = this.isFollowedByQuote(index)
+    })
+    return states
+  }
+
+  /**
+   * Whether the next element that actually renders is a quote. Footnotes and
+   * references print elsewhere in the line, and blank elements print nothing
+   * at all, so neither ends a line.
+   */
+  private isFollowedByQuote(index: number): boolean {
+    for (let i = index + 1; i < this.data.text.length; i++) {
+      const next = this.data.text[i]
+      if (next.type === "footnote" || next.type === "references") continue
+      if (VerseComponent.isBlank(next)) continue
+      return next.type === "quote"
+    }
+    return this.nextVerseStartsWithQuote
+  }
+
   checkNextIsQuote(i: number): boolean {
     const sectionText = this.getDataForSection(i).text
     const lastElementIndex = i + sectionText.length - 1
@@ -357,6 +426,54 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     return text.type === "quote" ? text.identLevel : 0
   }
 
+  /**
+   * Anywhere in the verse selects it, so the reader can aim at the words they
+   * are reading rather than at a control. References inside the verse stay
+   * links: they navigate, and selecting the verse they are leaving would be
+   * beside the point.
+   */
+  @HostListener("click", ["$event"])
+  onHostClick(event: Event): void {
+    if (!this.studyMode || !this.isSelectable) return
+    const target = event.target as HTMLElement | null
+    if (target?.closest("a")) return
+    this.emitSelection()
+  }
+
+  /** A run only carries a handler when the verse has footnotes to open. */
+  onRunClick(event: Event): void {
+    // Study mode has no bottom sheet: the host listener above takes the click.
+    if (this.studyMode) return
+    this.toggleFootnotes(event)
+  }
+
+  onFootnoteMarkerClick(event: Event): void {
+    if (!this.studyMode) {
+      this.toggleFootnotes(event)
+      return
+    }
+    // Stop the host listener from following with a plain selection, which
+    // would land the reader on the references tab they did not ask for.
+    event.stopPropagation()
+    this.emitSelection("footnotes")
+  }
+
+  onVerseNumberKeydown(event: Event): void {
+    if (!this.studyMode || !this.isSelectable) return
+    event.preventDefault()
+    this.emitSelection()
+  }
+
+  /** Verse 0 is the chapter's front matter: there is no verse to point at. */
+  get isSelectable(): boolean {
+    return this.studyMode && this.data?.number > 0
+  }
+
+  private emitSelection(panel?: VerseSelection["panel"]): void {
+    if (!this.isSelectable) return
+    this.verseSelected.emit({ verse: this.data, panel })
+  }
+
   toggleFootnotes(event?: Event): void {
     const footnotes = this.data.text.filter((t) => t.type === "footnote")
     if (footnotes.length === 0) return
@@ -375,11 +492,30 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     })
   }
 
+  /**
+   * An element that carries no words and no structure. The USFM the edition
+   * is built from leaves empty text and poetry elements behind, and each one
+   * rendered a stray blank line in the middle of a verse — visible in the
+   * psalms, where a run of poetry could be split in two by a gap that is in
+   * no printed edition.
+   *
+   * A paragraph element is never blank in this sense, however empty its text:
+   * the element IS the paragraph break, and dropping the empty ones ran the
+   * new paragraph on into the end of the previous one.
+   */
+  static isBlank(text: TextType): boolean {
+    return (
+      (text.type === "quote" || text.type === "text") && text.text.trim() === ""
+    )
+  }
+
   private computeDisplayGroups(): DisplayGroup[] {
     const groups: DisplayGroup[] = []
     let currentGroup: DisplayGroup | null = null
 
     this.data.text.forEach((text, originalIndex) => {
+      if (VerseComponent.isBlank(text)) return
+
       // Elements that should be considered continuation if they follow a quote
       const isContinuationType =
         text.type === "text" ||

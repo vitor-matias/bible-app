@@ -1,0 +1,56 @@
+<nav class="study-sidebar" [class.collapsed]="collapsed" aria-label="Livros e capítulos">
+  <!-- Always rendered, so a folded rail keeps something to unfold it by. -->
+  <button type="button" class="collapse-toggle" (click)="toggleCollapsed.emit()"
+    [attr.aria-expanded]="!collapsed"
+    [attr.aria-label]="collapsed ? 'Mostrar livros e capítulos' : 'Esconder livros e capítulos'"
+    [matTooltip]="collapsed ? 'Mostrar livros e capítulos' : 'Esconder livros e capítulos'">
+    <mat-icon>{{ collapsed ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+  </button>
+
+  @if (!collapsed) {
+  <section class="sidebar-section books">
+    <h2 class="sidebar-heading">Livros</h2>
+    <ul class="group-list">
+      @for (group of groups; track group.name) {
+      <li class="group">
+        <button type="button" class="group-toggle" [class.open]="isExpanded(group)"
+          [attr.aria-expanded]="isExpanded(group)" (click)="toggleGroup(group)">
+          <span class="group-name">{{ group.name }}</span>
+          <span class="group-chevron" aria-hidden="true">{{ isExpanded(group) ? '−' : '+' }}</span>
+        </button>
+        @if (isExpanded(group)) {
+        <ul class="book-list">
+          @for (entry of group.books; track entry.id) {
+          <li>
+            <button type="button" class="book-row" [class.current]="entry.id === book?.id"
+              [attr.aria-current]="entry.id === book?.id ? 'page' : null" (click)="onBookClick(entry)">
+              <span class="book-name">{{ entry.shortName }}</span>
+              <!-- The chapter count is data, not a label: it is what tells a
+                   reader scanning the rail how long a book is. -->
+              <span class="book-count" aria-hidden="true">{{ entry.chapterCount }}</span>
+            </button>
+          </li>
+          }
+        </ul>
+        }
+      </li>
+      }
+    </ul>
+  </section>
+
+  @if (chapters.length) {
+  <section class="sidebar-section chapters">
+    <h2 class="sidebar-heading">Capítulos</h2>
+    <div class="chapter-grid">
+      @for (chapter of chapters; track chapter.number) {
+      <button type="button" class="chapter-cell" [class.current]="chapter.number === selectedChapter"
+        [class.intro]="chapter.number === 0" [attr.aria-current]="chapter.number === selectedChapter ? 'page' : null"
+        [attr.aria-label]="chapterAriaLabel(chapter)" (click)="onChapterClick(chapter)">
+        {{ chapterLabel(chapter) }}
+      </button>
+      }
+    </div>
+  </section>
+  }
+  }
+</nav>

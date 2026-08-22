@@ -1,0 +1,304 @@
+.study-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  font-family: "PT Serif", serif;
+}
+
+.study-panel.collapsed {
+  overflow: hidden;
+  align-items: center;
+}
+
+/* Sits above the tabs and stays put when the body scrolls, so folding the
+   panel back open never means scrolling to the top first. */
+.collapse-toggle {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  align-self: flex-start;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 8px 8px 0;
+  border: 0;
+  border-radius: 6px;
+  background-color: var(--study-surface);
+  color: var(--study-muted);
+  cursor: pointer;
+}
+
+.study-panel.collapsed .collapse-toggle {
+  align-self: center;
+  margin-inline: 0;
+}
+
+.collapse-toggle mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+@media (hover: hover) {
+  .collapse-toggle:hover {
+    color: var(--text-color);
+    background-color: color-mix(in srgb, var(--cap-brown) 12%, transparent);
+  }
+}
+
+.collapse-toggle:focus-visible {
+  outline: 2px solid var(--cap-brown);
+  outline-offset: 2px;
+}
+
+.tab-strip {
+  display: flex;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 4px 16px 0;
+  border-bottom: 1px solid var(--study-rule);
+}
+
+.tab {
+  padding: 8px 6px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: none;
+  color: var(--study-muted);
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tab.active {
+  color: var(--text-color);
+  border-bottom-color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--cap-brown);
+  outline-offset: -2px;
+}
+
+.tab-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px 16px 32px;
+}
+
+.panel-caption {
+  margin: 0 0 14px;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--study-muted);
+}
+
+.panel-empty {
+  margin: 8px 0 0;
+  color: var(--study-muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.panel-empty.small {
+  font-size: 13px;
+}
+
+.reference-list,
+.footnote-list,
+.note-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Groups are the chapter's passages; the rule between them is what keeps a
+   long list readable as a sequence of passages rather than a wall of refs. */
+.reference-group + .reference-group {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--study-rule);
+}
+
+/* Marks the entries belonging to the selected verse, using the same tint the
+   verse itself carries in the text, so the two read as one selection. */
+.reference-group.current,
+.footnote.current,
+.saved-note.current {
+  background-color: var(--study-selection-color);
+  box-shadow: -10px 0 0 var(--study-selection-color), 10px 0 0 var(--study-selection-color);
+  border-radius: 2px;
+}
+
+.group-label {
+  margin: 0 0 10px;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--study-muted);
+}
+
+.reference + .reference {
+  margin-top: 14px;
+}
+
+.reference-label {
+  display: block;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.reference-label:hover,
+.reference-label:focus-visible {
+  text-decoration: underline;
+}
+
+.reference-text {
+  margin: 6px 0 0;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.reference-verse-number {
+  color: var(--text-secondary);
+  font-size: 65%;
+  vertical-align: top;
+  margin-right: 2px;
+}
+
+/* The way on to the rest of a passage the panel only opened. */
+.reference-more {
+  display: inline-block;
+  margin-top: 6px;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.reference-text.unavailable {
+  color: var(--study-muted);
+  font-size: 14px;
+}
+
+.footnote {
+  display: block;
+  padding: 6px 0;
+}
+
+.footnote + .footnote {
+  margin-top: 8px;
+}
+
+.footnote-reference {
+  margin-right: 8px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.footnote-text {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.footnote-text a,
+.note-body a {
+  color: var(--text-secondary);
+}
+
+/* A dashed box, not a filled field: the note is the reader's own mark on the
+   page rather than a form the app is asking them to fill in. */
+.notes-caption {
+  margin-top: 28px;
+}
+
+.note-box {
+  margin-top: 28px;
+  padding: 14px;
+  border: 1px dashed var(--study-rule);
+  border-radius: 8px;
+}
+
+.note-label {
+  display: block;
+  margin-bottom: 8px;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 12px;
+  color: var(--study-muted);
+}
+
+.note-input {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  resize: vertical;
+  color: var(--text-color);
+  font-family: "PT Serif", serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.note-input::placeholder {
+  color: var(--study-muted);
+}
+
+.note-input:focus {
+  outline: none;
+}
+
+.note-box:focus-within {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--cap-brown) 40%, transparent);
+}
+
+.note-list {
+  margin-top: 12px;
+}
+
+.saved-note {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--study-rule);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.note-ref {
+  flex: 0 0 auto;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding-top: 2px;
+}
+
+:host-context(.dark-theme) .tab:focus-visible {
+  outline-color: antiquewhite;
+}
+
+:host-context(.dark-theme) .note-box:focus-within {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+:host-context(.dark-theme) .collapse-toggle:focus-visible {
+  outline-color: antiquewhite;
+}

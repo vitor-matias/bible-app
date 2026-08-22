@@ -27,6 +27,14 @@
           <mat-icon>bookmarks</mat-icon>
           <span>Marcadores</span>
         </button>
+        <!-- Only where the layout fits (see StudyModeService): on a narrow
+             window the item would promise a mode the reader cannot get. -->
+        @if (studyModeAvailable) {
+        <button mat-menu-item (click)="onToggleStudyMode(menuTrigger, $event)">
+          <mat-icon>view_sidebar</mat-icon>
+          <span>{{ studyMode ? 'Voltar ao modo de leitura' : 'Modo de estudo' }}</span>
+        </button>
+        }
         <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode === 'paged'">
           <mat-icon>auto_mode</mat-icon>
           <span>

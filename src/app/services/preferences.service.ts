@@ -27,6 +27,9 @@ export class PreferencesService {
     THEME: "theme",
     FONT_SIZE_PREFIX: "fontSize",
     VIEW_MODE: "viewMode",
+    STUDY_MODE: "studyMode",
+    STUDY_SIDEBAR_COLLAPSED: "studySidebarCollapsed",
+    STUDY_PANEL_COLLAPSED: "studyPanelCollapsed",
   }
 
   getTheme(): "light" | "dark" | "system" | null {
@@ -98,5 +101,42 @@ export class PreferencesService {
 
   setViewMode(mode: "scrolling" | "paged"): void {
     this.storage?.setItem(this.KEYS.VIEW_MODE, mode)
+  }
+
+  /**
+   * Whether the reader opens in study mode. Off by default: the layout only
+   * exists on wide viewports, so a reader who has never asked for it gets the
+   * one-column reader everywhere.
+   */
+  getStudyMode(): boolean {
+    return this.storage?.getItem(this.KEYS.STUDY_MODE) === "true"
+  }
+
+  setStudyMode(enabled: boolean): void {
+    this.storage?.setItem(this.KEYS.STUDY_MODE, enabled.toString())
+  }
+
+  /**
+   * Whether each of study mode's side columns is folded away. Remembered
+   * separately from study mode itself: a reader who wants the text wide keeps
+   * it wide across chapters and sessions.
+   */
+  getStudySidebarCollapsed(): boolean {
+    return this.storage?.getItem(this.KEYS.STUDY_SIDEBAR_COLLAPSED) === "true"
+  }
+
+  setStudySidebarCollapsed(collapsed: boolean): void {
+    this.storage?.setItem(
+      this.KEYS.STUDY_SIDEBAR_COLLAPSED,
+      collapsed.toString(),
+    )
+  }
+
+  getStudyPanelCollapsed(): boolean {
+    return this.storage?.getItem(this.KEYS.STUDY_PANEL_COLLAPSED) === "true"
+  }
+
+  setStudyPanelCollapsed(collapsed: boolean): void {
+    this.storage?.setItem(this.KEYS.STUDY_PANEL_COLLAPSED, collapsed.toString())
   }
 }

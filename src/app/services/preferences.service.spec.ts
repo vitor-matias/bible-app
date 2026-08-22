@@ -11,6 +11,18 @@ describe("PreferencesService", () => {
     service = TestBed.inject(PreferencesService)
   })
 
+  it("should default study mode off until the reader asks for it", () => {
+    expect(service.getStudyMode()).toBeFalse()
+  })
+
+  it("should store and read the study mode preference", () => {
+    service.setStudyMode(true)
+    expect(service.getStudyMode()).toBeTrue()
+
+    service.setStudyMode(false)
+    expect(service.getStudyMode()).toBeFalse()
+  })
+
   it("should store and read the theme", () => {
     service.setTheme("dark")
 

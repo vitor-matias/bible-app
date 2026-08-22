@@ -880,6 +880,234 @@ describe("VerseComponent", () => {
     })
   })
 
+  describe("study mode", () => {
+    function studyVerse(number = 39): Verse {
+      return makeVerse({
+        number,
+        text: [
+          { type: "text", text: "O segundo é semelhante", normalizedText: "" },
+          { type: "footnote", reference: "22, 39", text: "uma nota" },
+        ],
+      })
+    }
+
+    it("emits the verse instead of opening the footnotes sheet", () => {
+      component.studyMode = true
+      setData(component, studyVerse())
+      fixture.detectChanges()
+      const selected: VerseSelection[] = []
+      component.verseSelected.subscribe((event) => selected.push(event))
+
+      fixture.nativeElement
+        .querySelector(".verseRun.interactive")
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }))
+
+      expect(selected.length).toBe(1)
+      expect(selected[0].verse.number).toBe(39)
+      expect(selected[0].panel).toBeUndefined()
+      expect(mockBottomSheet.open).not.toHaveBeenCalled()
+    })
+
+    it("asks for the footnotes when the marker is the thing clicked", () => {
+      component.studyMode = true
+      setData(component, studyVerse())
+      fixture.detectChanges()
+      const selected: VerseSelection[] = []
+      component.verseSelected.subscribe((event) => selected.push(event))
+
+      fixture.nativeElement
+        .querySelector(".footnoteIndicator")
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }))
+
+      // One event, not two: the marker stops the click reaching the host,
+      // which would otherwise follow with a plain selection.
+      expect(selected.length).toBe(1)
+      expect(selected[0].panel).toBe("footnotes")
+      expect(mockBottomSheet.open).not.toHaveBeenCalled()
+    })
+
+    it("still opens the footnotes sheet outside study mode", () => {
+      setData(component, studyVerse())
+      fixture.detectChanges()
+      const selected: VerseSelection[] = []
+      component.verseSelected.subscribe((event) => selected.push(event))
+
+      // .interactive is the run that carries the footnote handler; the first
+      // .verseRun in the DOM is the blank gap span before the verse number.
+      fixture.nativeElement
+        .querySelector(".verseRun.interactive")
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }))
+
+      expect(mockBottomSheet.open).toHaveBeenCalled()
+      expect(selected).toEqual([])
+    })
+
+    it("leaves references inside the verse to navigate", () => {
+      component.studyMode = true
+      setData(component, studyVerse())
+      fixture.detectChanges()
+      const selected: VerseSelection[] = []
+      component.verseSelected.subscribe((event) => selected.push(event))
+
+      const anchor = document.createElement("a")
+      fixture.nativeElement.appendChild(anchor)
+      anchor.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+
+      expect(selected).toEqual([])
+    })
+
+    it("does not select the front matter, which is no verse", () => {
+      component.studyMode = true
+      setData(component, makeVerse({ number: 0, verseLabel: "front" }))
+      fixture.detectChanges()
+      const selected: VerseSelection[] = []
+      component.verseSelected.subscribe((event) => selected.push(event))
+
+      component.onHostClick(new MouseEvent("click"))
+
+      expect(component.isSelectable).toBeFalse()
+      expect(selected).toEqual([])
+    })
+
+    it("makes the verse number a keyboard handle for the selection", () => {
+      component.studyMode = true
+      component.selected = true
+      setData(component, studyVerse())
+      fixture.detectChanges()
+      const selected: VerseSelection[] = []
+      component.verseSelected.subscribe((event) => selected.push(event))
+
+      const number = fixture.nativeElement.querySelector(".verseNumber")
+      expect(number.getAttribute("role")).toBe("button")
+      expect(number.getAttribute("tabindex")).toBe("0")
+      expect(number.getAttribute("aria-pressed")).toBe("true")
+      expect(number.getAttribute("aria-label")).toBe("Versículo 39")
+
+      number.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+      )
+      expect(selected.length).toBe(1)
+    })
+
+    it("leaves the verse number inert outside study mode", () => {
+      setData(component, studyVerse())
+      fixture.detectChanges()
+
+      const number = fixture.nativeElement.querySelector(".verseNumber")
+      expect(number.getAttribute("role")).toBeNull()
+      expect(number.getAttribute("tabindex")).toBeNull()
+    })
+
+    it("carries the selection as a host class", () => {
+      component.studyMode = true
+      component.selected = true
+      setData(component, studyVerse())
+      fixture.detectChanges()
+
+      expect((fixture.nativeElement as HTMLElement).classList).toContain(
+        "verse-selected",
+      )
+    })
+  })
+
+  describe("blank elements in the source text", () => {
+    /**
+     * Psalm 1,2 as the API serves it: a run of prose inside a poetry group,
+     * with an empty text element the USFM left behind, then the next line.
+     */
+    function psalmVerse(): Verse {
+      return makeVerse({
+        number: 2,
+        text: [
+          { type: "quote", text: "\u200b", normalizedText: "" },
+          {
+            type: "text",
+            text: "antes põe o seu enlevo na lei do ",
+            normalizedText: "",
+          },
+          { type: "text", text: "Senhor", normalizedText: "", allCaps: true },
+          { type: "text", text: "", normalizedText: "" },
+          {
+            type: "quote",
+            text: "e nela medita dia e noite.",
+            normalizedText: "",
+          },
+        ] as TextType[],
+      })
+    }
+
+    it("drops an empty element instead of printing a blank line for it", () => {
+      setData(component, psalmVerse())
+
+      const rendered = component.displayGroups.flatMap((group) =>
+        group.elements.map((element) => element.originalIndex),
+      )
+      expect(rendered).not.toContain(3)
+      expect(rendered).toContain(4)
+    })
+
+    it("keeps a prose run on one line, breaking only before the poetry", () => {
+      setData(component, psalmVerse())
+
+      // "antes põe o seu enlevo na lei do" is followed by "Senhor", not by a
+      // line of poetry, so no break belongs after it...
+      expect(component.breakBeforeQuoteStates[1]).toBeFalse()
+      // ...while "Senhor" is the last thing before the next line, and the
+      // empty element between them does not count as content.
+      expect(component.breakBeforeQuoteStates[2]).toBeTrue()
+    })
+
+    it("renders that verse as a single line of prose", () => {
+      setData(component, psalmVerse())
+      fixture.detectChanges()
+
+      const wrapper = fixture.nativeElement.querySelector(".quoteLineWrapper")
+      expect(wrapper.querySelectorAll("br").length).toBe(1)
+      expect(wrapper.textContent.replace(/\s+/g, " ")).toContain(
+        "antes põe o seu enlevo na lei do Senhor",
+      )
+    })
+
+    it("keeps an empty paragraph element, which is the paragraph break", () => {
+      // Psalm 1,3 ends on one: its text is just a newline, but dropping it
+      // ran the next paragraph on into the end of this verse.
+      setData(
+        component,
+        makeVerse({
+          number: 3,
+          text: [
+            {
+              type: "quote",
+              text: "em tudo o que faz é bem sucedido.",
+              normalizedText: "",
+            },
+            { type: "paragraph", text: "\n", normalizedText: "" },
+          ] as TextType[],
+        }),
+      )
+
+      const rendered = component.displayGroups.flatMap((group) =>
+        group.elements.map((element) => element.originalIndex),
+      )
+      expect(rendered).toContain(1)
+    })
+
+    it("still breaks before a quote that follows prose directly", () => {
+      setData(
+        component,
+        makeVerse({
+          number: 1,
+          text: [
+            { type: "text", text: "Jesus disse-lhe:", normalizedText: "" },
+            { type: "quote", text: "Amarás ao Senhor,", normalizedText: "" },
+          ] as TextType[],
+        }),
+      )
+
+      expect(component.breakBeforeQuoteStates[0]).toBeTrue()
+    })
+  })
+
   describe("nextIsQuoteStates", () => {
     it("precomputes the flag the template used to call per change detection", () => {
       component.data = {

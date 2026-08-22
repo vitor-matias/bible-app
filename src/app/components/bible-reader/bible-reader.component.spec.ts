@@ -23,7 +23,30 @@ import { BookService } from "../../services/book.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
+import { StudyModeService } from "../../services/study-mode.service"
 import { BibleReaderComponent } from "./bible-reader.component"
+
+/**
+ * Study mode measures the real window, which the runner cannot resize, so the
+ * reader's tests drive it through this stand-in instead.
+ */
+class FakeStudyModeService {
+  readonly availableSubject = new BehaviorSubject(false)
+  readonly activeSubject = new BehaviorSubject(false)
+  readonly available$ = this.availableSubject.asObservable()
+  readonly active$ = this.activeSubject.asObservable()
+  isEnabled = false
+  toggle = jasmine.createSpy("toggle").and.callFake(() => {
+    this.isEnabled = !this.isEnabled
+    this.activeSubject.next(this.isEnabled && this.availableSubject.value)
+  })
+
+  activate(): void {
+    this.availableSubject.next(true)
+    this.isEnabled = true
+    this.activeSubject.next(true)
+  }
+}
 
 describe("BibleReaderComponent", () => {
   let component: BibleReaderComponent
@@ -40,6 +63,7 @@ describe("BibleReaderComponent", () => {
   let networkServiceSpy: jasmine.SpyObj<NetworkService>
   let snackBarSpy: jasmine.SpyObj<MatSnackBar>
   let seoServiceSpy: jasmine.SpyObj<SeoService>
+  let studyMode: FakeStudyModeService
 
   const mockBooks = [
     { id: "gen", name: "Genesis", urlAbrv: "1-genesis", chapterCount: 50 },
@@ -76,7 +100,16 @@ describe("BibleReaderComponent", () => {
       "setLastBookId",
       "getLastChapterNumber",
       "setLastChapterNumber",
+      "getStudyMode",
+      "setStudyMode",
+      "getStudySidebarCollapsed",
+      "setStudySidebarCollapsed",
+      "getStudyPanelCollapsed",
+      "setStudyPanelCollapsed",
     ])
+    preferencesServiceSpy.getStudyMode.and.returnValue(false)
+    preferencesServiceSpy.getStudySidebarCollapsed.and.returnValue(false)
+    preferencesServiceSpy.getStudyPanelCollapsed.and.returnValue(false)
 
     routerSpy = jasmine.createSpyObj("Router", ["navigate"])
     ;(routerSpy as unknown as { routerState: unknown }).routerState = {
@@ -141,6 +174,8 @@ describe("BibleReaderComponent", () => {
       of(mockChapter as unknown as Chapter),
     )
 
+    studyMode = new FakeStudyModeService()
+
     await setUpTestBed()
 
     fixture = TestBed.createComponent(BibleReaderComponent)
@@ -162,6 +197,7 @@ describe("BibleReaderComponent", () => {
         { provide: NetworkService, useValue: networkServiceSpy },
         { provide: MatSnackBar, useValue: snackBarSpy },
         { provide: SeoService, useValue: seoServiceSpy },
+        { provide: StudyModeService, useValue: studyMode },
         ...(options?.platformId
           ? [{ provide: PLATFORM_ID, useValue: options.platformId }]
           : []),
@@ -469,6 +505,29 @@ describe("BibleReaderComponent", () => {
       expect(component.gestures.decreaseFontSize).toHaveBeenCalled()
     })
 
+    describe("arrow keys inside a text field", () => {
+      it("leaves the caret alone instead of changing chapter", () => {
+        const input = document.createElement("input")
+        document.body.appendChild(input)
+        const event = new KeyboardEvent("keydown", { key: "ArrowRight" })
+        Object.defineProperty(event, "target", { value: input })
+
+        component.onArrowPress(event)
+
+        expect(routerSpy.navigate).not.toHaveBeenCalled()
+        input.remove()
+      })
+
+      it("still changes chapter from anywhere else on the page", () => {
+        const event = new KeyboardEvent("keydown", { key: "ArrowRight" })
+        Object.defineProperty(event, "target", { value: document.body })
+
+        component.onArrowPress(event)
+
+        expect(routerSpy.navigate).toHaveBeenCalled()
+      })
+    })
+
     describe("checkIfNextVerseStartsWithQuote", () => {
       it("should return false if chapter or verses missing", () => {
         component.chapter = undefined as unknown as Chapter
@@ -541,6 +600,261 @@ describe("BibleReaderComponent", () => {
         new KeyboardEvent("keydown", { key: "ArrowRight" }),
       )
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
+    })
+  })
+
+  describe("quoted passages vs. books written in verse", () => {
+    function quote(text: string): TextType {
+      return { type: "quote", text, normalizedText: text } as TextType
+    }
+    function prose(text: string): TextType {
+      return { type: "text", text, normalizedText: text } as TextType
+    }
+    function heading(text: string): TextType {
+      return {
+        type: "section",
+        tag: "s1",
+        text,
+        normalizedText: text,
+      } as TextType
+    }
+    function verse(number: number, text: TextType[]): Verse {
+      return {
+        bookId: "gen",
+        chapterNumber: 1,
+        number,
+        verseLabel: `${number}`,
+        text,
+      }
+    }
+
+    function load(verses: Verse[]): void {
+      apiServiceSpy.getChapter.and.returnValue(
+        of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
+      )
+      fixture.detectChanges()
+      component.getChapter(1)
+    }
+
+    it("marks poetry that prose introduces", () => {
+      const verses = [
+        verse(37, [prose("Jesus disse-lhe:"), quote("Amarás ao Senhor,")]),
+      ]
+      load(verses)
+
+      expect(component.isQuotationVerse(verses[0])).toBeTrue()
+    })
+
+    it("carries the mark through the rest of the quoted passage", () => {
+      // "…dizendo:" ends one verse and the quotation runs into the next,
+      // which therefore opens on poetry and looks like a psalm on its own.
+      const verses = [
+        verse(43, [
+          prose("Como é, então, que David lhe chama Senhor, dizendo:"),
+        ]),
+        verse(44, [quote("Disse o Senhor ao meu Senhor:")]),
+        verse(45, [prose("Ora, se David lhe chama Senhor…")]),
+      ]
+      load(verses)
+
+      expect(component.isQuotationVerse(verses[1])).toBeTrue()
+      expect(component.isQuotationVerse(verses[2])).toBeFalse()
+    })
+
+    it("leaves a book written in verse unmarked", () => {
+      // A psalm: every verse opens on poetry, prose and all.
+      const verses = [
+        verse(1, [
+          quote("\u200b"),
+          prose("Feliz o homem"),
+          quote("nem se detém"),
+        ]),
+        verse(2, [
+          quote("\u200b"),
+          prose("antes põe o seu enlevo"),
+          quote("e nela medita"),
+        ]),
+      ]
+      load(verses)
+
+      expect(component.isQuotationVerse(verses[0])).toBeFalse()
+      expect(component.isQuotationVerse(verses[1])).toBeFalse()
+    })
+
+    it("does not read a section heading as prose introducing a quotation", () => {
+      // The chapter's front matter is nothing but a heading; counting it as
+      // prose made every psalm under a title read as a quotation.
+      const verses = [
+        verse(0, [heading("OS DOIS CAMINHOS")]),
+        verse(1, [
+          quote("\u200b"),
+          prose("Feliz o homem"),
+          quote("nem se detém"),
+        ]),
+      ]
+      load(verses)
+
+      expect(component.isQuotationVerse(verses[1])).toBeFalse()
+    })
+  })
+
+  describe("study mode", () => {
+    beforeEach(() => {
+      fixture.detectChanges()
+    })
+
+    it("passes the service's availability on to the header", () => {
+      studyMode.availableSubject.next(true)
+      expect(component.studyModeAvailable).toBeTrue()
+    })
+
+    it("turns on when the service says it is active", () => {
+      studyMode.activate()
+      expect(component.studyModeActive).toBeTrue()
+    })
+
+    it("keeps the About page out of it, having no verses to study", () => {
+      studyMode.activate()
+      component.book = { id: "about" } as Book
+
+      expect(component.studyModeActive).toBeFalse()
+    })
+
+    it("reads in one column, whatever the paged preference says", () => {
+      component.viewMode = "paged"
+      expect(component.effectiveViewMode).toBe("paged")
+
+      studyMode.activate()
+      expect(component.effectiveViewMode).toBe("scrolling")
+    })
+
+    it("asks the service to toggle, and reports it", () => {
+      studyMode.availableSubject.next(true)
+      component.onToggleStudyMode()
+
+      expect(studyMode.toggle).toHaveBeenCalled()
+      expect(analyticsServiceSpy.track).toHaveBeenCalledWith(
+        "study_mode_toggle",
+        jasmine.objectContaining({ enabled: true }),
+      )
+    })
+
+    it("keeps the verse the reader selected", () => {
+      studyMode.activate()
+      const verse = { number: 39 } as Verse
+
+      component.onVerseSelected({ verse })
+
+      expect(component.selection?.verse).toBe(verse)
+    })
+
+    it("drops the selection when study mode goes away", () => {
+      studyMode.activate()
+      component.onVerseSelected({ verse: { number: 39 } as Verse })
+
+      studyMode.activeSubject.next(false)
+
+      expect(component.selection).toBeNull()
+    })
+
+    it("drops the selection when the chapter changes under it", () => {
+      studyMode.activate()
+      component.onVerseSelected({ verse: { number: 39 } as Verse })
+
+      apiServiceSpy.getChapter.and.returnValue(
+        of({ bookId: "gen", number: 2, verses: [] } as unknown as Chapter),
+      )
+      component.getChapter(2)
+
+      expect(component.selection).toBeNull()
+    })
+
+    it("restores the folded state of each side column", () => {
+      preferencesServiceSpy.getStudySidebarCollapsed.and.returnValue(true)
+      preferencesServiceSpy.getStudyPanelCollapsed.and.returnValue(false)
+
+      const secondFixture = TestBed.createComponent(BibleReaderComponent)
+      secondFixture.detectChanges()
+
+      expect(secondFixture.componentInstance.studySidebarCollapsed).toBeTrue()
+      expect(secondFixture.componentInstance.studyPanelCollapsed).toBeFalse()
+    })
+
+    it("remembers a side column the reader folds away", () => {
+      component.toggleStudySidebar()
+
+      expect(component.studySidebarCollapsed).toBeTrue()
+      expect(
+        preferencesServiceSpy.setStudySidebarCollapsed,
+      ).toHaveBeenCalledWith(true)
+    })
+
+    it("unfolds the panel when a verse is picked, so the answer is visible", () => {
+      studyMode.activate()
+      component.toggleStudyPanel()
+      expect(component.studyPanelCollapsed).toBeTrue()
+
+      component.onVerseSelected({ verse: { number: 39 } as Verse })
+
+      expect(component.studyPanelCollapsed).toBeFalse()
+      expect(preferencesServiceSpy.setStudyPanelCollapsed).toHaveBeenCalledWith(
+        false,
+      )
+    })
+
+    it("reads in one column while both side columns are open", () => {
+      studyMode.activate()
+
+      expect(component.studyPaged).toBeFalse()
+      expect(component.effectiveViewMode).toBe("scrolling")
+    })
+
+    it("pages in two columns once a side column is folded away", () => {
+      studyMode.activate()
+      component.toggleStudySidebar()
+
+      expect(component.studyPaged).toBeTrue()
+      // The app's own paged mode, not a second kind of column layout: the
+      // paged navigation directive reads this.
+      expect(component.effectiveViewMode).toBe("paged")
+    })
+
+    it("goes back to one column when the rail comes back", () => {
+      studyMode.activate()
+      component.toggleStudySidebar()
+      component.toggleStudySidebar()
+
+      expect(component.studyPaged).toBeFalse()
+      expect(component.effectiveViewMode).toBe("scrolling")
+    })
+
+    it("does not page outside study mode just because a rail is folded", () => {
+      component.toggleStudySidebar()
+
+      expect(component.studyPaged).toBeFalse()
+    })
+
+    it("selects the verse a deep link points at", () => {
+      studyMode.activate()
+      const verses = [{ number: 1 } as Verse, { number: 39 } as Verse]
+      apiServiceSpy.getChapter.and.returnValue(
+        of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
+      )
+
+      component.getChapter(1, 39)
+
+      expect(component.selection?.verse.number).toBe(39)
+    })
+
+    it("does not select a deep-linked verse outside study mode", () => {
+      const verses = [{ number: 39 } as Verse]
+      apiServiceSpy.getChapter.and.returnValue(
+        of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
+      )
+
+      component.getChapter(1, 39)
+
+      expect(component.selection).toBeNull()
     })
   })
 

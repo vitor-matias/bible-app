@@ -183,3 +183,68 @@ h3:not(:first-child) {
     transition: none;
   }
 }
+
+/*
+ * Study-mode selection: the verse the side panel is currently showing.
+ *
+ * Painted on the runs rather than on the host for the same reason the
+ * deep-link highlight above is — the host is an inline box that also covers
+ * the empty line fragments between verses. The tint is quieter than the
+ * deep-link highlight because it persists for as long as the reader studies
+ * the verse, rather than fading after arriving at it, and the underline is
+ * what actually marks the selection: it follows the text line by line instead
+ * of drawing one block across the column.
+ */
+:host(.verse-selected) .verseRun,
+:host(.verse-selected) .verseNumber,
+:host(.verse-selected) .footnoteIndicator,
+:host(.verse-selected) .quoteVerseNumber {
+  background-color: var(--study-selection-color);
+}
+
+:host(.verse-selected) .verseRun {
+  padding-block: 0.1em;
+  box-shadow: inset 0 -1px 0 var(--study-selection-border);
+}
+
+/* Same reasoning as the deep-link highlight: the number is set at 65% and
+   hangs from the top of the line, so it needs its own padding to reach the
+   text's band, and that enlarged border box has to leave hit testing — except
+   in study mode it IS the keyboard handle for selecting the verse, so only
+   the non-interactive case gives up its pointer events. */
+:host(.verse-selected) .verseNumber:not([role="button"]) {
+  padding-block: 0.05em 1.45em;
+  pointer-events: none;
+}
+
+.verseNumber[role="button"] {
+  cursor: pointer;
+}
+
+.verseNumber[role="button"]:focus-visible {
+  outline: 2px solid var(--text-secondary);
+  outline-offset: 2px;
+}
+
+/*
+ * Poetry.
+ *
+ * A quote line is preceded by two forced breaks: the prose before it emits
+ * one when a quote follows, and each quote line carries its own. Two breaks
+ * in a row read as a blank paragraph dropped into the middle of the verse —
+ * no printed edition sets it that way. Hiding the prose's leaves exactly one,
+ * which is the quote's, so the poetry still starts on its own line.
+ *
+ * The break is only ever emitted in front of a quote (see
+ * breakBeforeQuoteStates), so hiding it costs nothing anywhere else.
+ */
+.verseText > br:last-child {
+  display: none;
+}
+
+/* Only a passage being quoted inside prose is set in italic. A book written
+   in verse — the psalms above all — is not quoting anyone, and italicising it
+   would put a whole book in italics. */
+:host(.verse-quotation) .quoteLineWrapper {
+  font-style: italic;
+}

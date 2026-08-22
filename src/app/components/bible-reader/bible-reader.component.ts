@@ -39,12 +39,15 @@ import { BookService } from "../../services/book.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
+import { StudyModeService } from "../../services/study-mode.service"
 import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
 import { BookIntroComponent } from "../book-intro/book-intro.component"
 import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"
 import { HeaderComponent } from "../header/header.component"
+import { StudyPanelComponent } from "../study-panel/study-panel.component"
+import { StudySidebarComponent } from "../study-sidebar/study-sidebar.component"
 import { VerseComponent } from "../verse/verse.component"
 
 @Component({
@@ -70,6 +73,8 @@ import { VerseComponent } from "../verse/verse.component"
     AutoScrollControlsComponent,
     BookIntroComponent,
     RouterLink,
+    StudySidebarComponent,
+    StudyPanelComponent,
   ],
 })
 export class BibleReaderComponent implements OnInit, OnDestroy {
@@ -96,6 +101,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   @ViewChild("bookBlock") bookBlock!: ElementRef
 
+  /** Study mode's scrolling column, in place of the drawer content. */
+  @ViewChild("studyScroll") studyScroll?: ElementRef<HTMLElement>
+
   book!: Book
   books: Book[] = []
   chapterNumber = 1
@@ -119,8 +127,53 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   isFirstPage = true
   isLastPage = false
 
+  /** The reader asked for study mode and the window is wide enough for it. */
+  studyMode = false
+  /** The window is wide enough, whether or not the reader wants it. */
+  studyModeAvailable = false
+  /** The verse the study panel is showing, and which tab asked for it. */
+  selection: VerseSelection | null = null
+  /** Verses of this chapter whose poetry is quoted from somewhere else. */
+  private quotationVerses = new Set<Verse["number"]>()
+  /** Study mode's side columns, each folded away or not. Remembered. */
+  studySidebarCollapsed = false
+  studyPanelCollapsed = false
+
   get effectiveViewMode(): "scrolling" | "paged" {
+    // With both side columns open the reading column is one column of
+    // continuous text. Folding one away gives it room for two, and those two
+    // are the app's own paged columns rather than a second kind of column
+    // layout that happens to look similar.
+    if (this.studyModeActive) return this.studyPaged ? "paged" : "scrolling"
     return this.book?.id === "about" ? "scrolling" : this.viewMode
+  }
+
+  /**
+   * Whether the reading column is set as two paged columns. Offered exactly
+   * when a side column is folded away: with both open there is no room for a
+   * second column that is still comfortable to read.
+   */
+  get studyPaged(): boolean {
+    return (
+      this.studyModeActive &&
+      (this.studySidebarCollapsed || this.studyPanelCollapsed)
+    )
+  }
+
+  /**
+   * Whether the three-column layout is actually on screen. The About page is
+   * the app's own copy rather than scripture, so it has no verses to select,
+   * no references to show, and stays in the plain reader.
+   */
+  get studyModeActive(): boolean {
+    return this.studyMode && this.book?.id !== "about"
+  }
+
+  /** The element study mode scrolls, standing in for the drawer content. */
+  private get scrollHost(): HTMLElement | undefined {
+    return this.studyModeActive
+      ? this.studyScroll?.nativeElement
+      : this.drawerContent?.nativeElement
   }
 
   /** Whether this book has an introduction to read, loaded or not yet fetched. */
@@ -194,6 +247,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     private networkService: NetworkService,
     private snackBar: MatSnackBar,
     private seoService: SeoService,
+    private studyModeService: StudyModeService,
   ) {}
 
   ngOnInit(): void {
@@ -203,6 +257,25 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     }
 
     this.viewMode = this.preferencesService.getViewMode()
+
+    this.studyModeService.available$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((available) => {
+        this.studyModeAvailable = available
+        this.cdr.markForCheck()
+      })
+    this.studyModeService.active$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((active) => {
+        this.studyMode = active
+        // A selection means nothing outside the panel showing it.
+        if (!active) this.selection = null
+        this.cdr.markForCheck()
+      })
+
+    this.studySidebarCollapsed =
+      this.preferencesService.getStudySidebarCollapsed()
+    this.studyPanelCollapsed = this.preferencesService.getStudyPanelCollapsed()
 
     this.autoScrollControlsPreference =
       this.preferencesService.getAutoScrollControlsVisible()
@@ -445,13 +518,14 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.bookService.getChapterUrlSegment(book.introSlug ? 0 : 1),
     ])
 
-    this.bookDrawer.close()
+    // Study mode has no drawer: the sidebar it navigates from is permanent.
+    this.bookDrawer?.close()
   }
 
   onChapterSubmit(event: { chapterNumber: number }) {
     this.goToChapter(event.chapterNumber)
 
-    this.bookDrawer.close()
+    this.bookDrawer?.close()
   }
 
   getChapter(
@@ -626,6 +700,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     this.chapter = chapterData
     this.chapterNumber = chapter
+    this.markQuotationVerses()
+    // The previous chapter's verse is gone; a deep link naming one picks it up
+    // again below, so the panel follows a cross-reference to its landing verse.
+    this.selection = null
     this.rebuildChapterLinks()
     // The chapter being replaced may still have a realign pass waiting on the
     // layout; it holds the old verse element and must not scroll this one.
@@ -645,7 +723,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     if (!verseStart) {
       this.animationService.scrollToTop(
-        this.drawerContent?.nativeElement,
+        this.scrollHost,
         this.bookContainer?.nativeElement,
         this.effectiveViewMode,
         startAtBottom,
@@ -655,6 +733,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       )
     } else {
       this.scrollToVerse(verseStart, verseEnd, highlight)
+      this.selectVerseNumber(verseStart)
     }
 
     this.preferencesService.setLastBookId(this.book.id)
@@ -764,8 +843,63 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     }
   }
 
+  onToggleStudyMode(): void {
+    this.studyModeService.toggle()
+
+    void this.analyticsService.track("study_mode_toggle", {
+      enabled: this.studyModeService.isEnabled,
+      book: this.book?.id,
+      chapter: this.chapterNumber,
+    })
+
+    this.cdr.markForCheck()
+  }
+
+  onVerseSelected(selection: VerseSelection): void {
+    this.selection = selection
+    // Picking a verse is asking what the edition says about it, so a folded
+    // panel unfolds rather than swallowing the answer.
+    if (this.studyPanelCollapsed) {
+      this.setStudyPanelCollapsed(false)
+    }
+    this.cdr.markForCheck()
+  }
+
+  toggleStudySidebar(): void {
+    this.setStudySidebarCollapsed(!this.studySidebarCollapsed)
+  }
+
+  toggleStudyPanel(): void {
+    this.setStudyPanelCollapsed(!this.studyPanelCollapsed)
+  }
+
+  private setStudySidebarCollapsed(collapsed: boolean): void {
+    this.studySidebarCollapsed = collapsed
+    this.preferencesService.setStudySidebarCollapsed(collapsed)
+    this.cdr.markForCheck()
+  }
+
+  private setStudyPanelCollapsed(collapsed: boolean): void {
+    this.studyPanelCollapsed = collapsed
+    this.preferencesService.setStudyPanelCollapsed(collapsed)
+    this.cdr.markForCheck()
+  }
+
+  /** Points the study panel at a verse the reader arrived on via a link. */
+  private selectVerseNumber(verseNumber: Verse["number"]): void {
+    if (!this.studyModeActive) return
+    const verse = this.chapter?.verses?.find(
+      (candidate) => candidate.number === verseNumber,
+    )
+    this.selection = verse ? { verse } : null
+  }
+
   @HostListener("window:keydown", ["$event"])
   onArrowPress(event: KeyboardEvent): void {
+    // Study mode puts a note box on the page, and the book filter has always
+    // had a text field: an arrow key inside either is the reader moving the
+    // caret, not asking for the next chapter.
+    if (BibleReaderComponent.isTextEntry(event.target)) return
     if (event.key === "ArrowLeft") {
       this.effectiveViewMode === "paged"
         ? this.pagedNav?.prevPage()
@@ -784,6 +918,62 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   onDecreaseFontSize(): void {
     this.gestures.decreaseFontSize()
+  }
+
+  private static isTextEntry(target: EventTarget | null): boolean {
+    const element = target as HTMLElement | null
+    if (!element?.tagName) return false
+    const tag = element.tagName.toLowerCase()
+    return tag === "input" || tag === "textarea" || element.isContentEditable
+  }
+
+  /**
+   * Which verses of this chapter carry a passage being quoted, as opposed to
+   * the verse form a poetic book is written in. Both are the same `quote`
+   * elements in the data, so the difference is read from the chapter:
+   *
+   * - A verse whose prose leads into poetry opens a quotation — whether the
+   *   poetry starts in that verse ("Jesus disse-lhe:" then the Shema) or in
+   *   the next one ("…dizendo:" at the end of a verse).
+   * - A verse that opens straight on poetry continues whatever the verse
+   *   before it was doing. That is what keeps a quotation spanning several
+   *   verses in one style, instead of italicising only its first verse, and
+   *   what leaves the psalms — poetry from their first verse — upright.
+   */
+  private markQuotationVerses(): void {
+    const verses = this.chapter?.verses ?? []
+    const marked = new Set<Verse["number"]>()
+    let inQuotation = false
+
+    verses.forEach((verse, index) => {
+      // A verse arriving without its text — a partial response, a cached
+      // stub — simply has no poetry to classify.
+      const parts = verse.text ?? []
+      // Section headings are skipped along with the apparatus: a heading is
+      // not narrative introducing a quotation. Counting it as prose made the
+      // chapter's front matter — which is nothing but a heading — look like
+      // the opening of a quotation, and every psalm inherited it.
+      const first = parts.find(
+        (part) =>
+          part.type !== "footnote" &&
+          part.type !== "references" &&
+          part.type !== "section" &&
+          !VerseComponent.isBlank(part),
+      )
+      const hasQuote = parts.some((part) => part.type === "quote")
+
+      if (first && first.type !== "quote") {
+        // Prose leads this verse: it introduces a quotation, or it ends one.
+        inQuotation = hasQuote || this.checkIfNextVerseStartsWithQuote(index)
+      }
+      if (inQuotation && hasQuote) marked.add(verse.number)
+    })
+
+    this.quotationVerses = marked
+  }
+
+  isQuotationVerse(verse: Verse): boolean {
+    return this.quotationVerses.has(verse.number)
   }
 
   checkIfNextVerseStartsWithQuote(index: number): boolean {
