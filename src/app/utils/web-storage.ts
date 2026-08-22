@@ -26,7 +26,8 @@ export function pickUsableStorage(
     }
     // Unique per call so the probe can never overwrite a value the page
     // already holds under a fixed key.
-    const probeKey = `__bibleAppStorageProbe__${(probeCounter += 1)}`
+    probeCounter += 1
+    const probeKey = `__bibleAppStorageProbe__${probeCounter}`
     candidate.setItem(probeKey, probeKey)
     const readBack = candidate.getItem(probeKey)
     candidate.removeItem(probeKey)
