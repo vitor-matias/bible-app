@@ -7,10 +7,8 @@ import { fakeAsync, TestBed, tick } from "@angular/core/testing"
 import { firstValueFrom, Observable, of, TimeoutError } from "rxjs"
 import {
   BibleApiService,
-  cacheServerBooks,
   createApiResilience,
-  readServerBooksCache,
-  resetServerBooksCache,
+  createServerBooksCache,
 } from "./bible-api.service"
 import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
@@ -441,36 +439,44 @@ describe("BibleApiService", () => {
   })
 
   describe("server book list cache", () => {
-    afterEach(() => {
-      resetServerBooksCache()
-    })
-
     // One 200-with-[] would otherwise be reused by every later render in the
     // prerender worker, resolving every book to the About page.
     it("does not keep a degenerate book list for the rest of the build", () => {
-      cacheServerBooks(true, [])
-      expect(readServerBooksCache(true)).toBeNull()
+      const cache = createServerBooksCache(true)
 
-      cacheServerBooks(true, undefined as unknown as Book[])
-      expect(readServerBooksCache(true)).toBeNull()
+      cache.write([])
+      expect(cache.read()).toBeNull()
+
+      cache.write(undefined as unknown as Book[])
+      expect(cache.read()).toBeNull()
     })
 
     it("keeps a usable book list and will not let a later empty response clobber it", () => {
+      const cache = createServerBooksCache(true)
       const books = [{ id: "gen" } as Book]
 
-      cacheServerBooks(true, books)
-      expect(readServerBooksCache(true)).toBe(books)
+      cache.write(books)
+      expect(cache.read()).toBe(books)
 
-      cacheServerBooks(true, [])
-      expect(readServerBooksCache(true)).toBe(books)
+      cache.write([])
+      expect(cache.read()).toBe(books)
     })
 
+    // Binding isServer at construction is what makes this unmixable: a browser
+    // cache can neither be written to nor read from, whatever the call site.
     it("is server-only", () => {
-      cacheServerBooks(false, [{ id: "gen" } as Book])
-      expect(readServerBooksCache(true)).toBeNull()
+      const cache = createServerBooksCache(false)
 
-      cacheServerBooks(true, [{ id: "gen" } as Book])
-      expect(readServerBooksCache(false)).toBeNull()
+      cache.write([{ id: "gen" } as Book])
+      expect(cache.read()).toBeNull()
+    })
+
+    it("does not share state between instances", () => {
+      const first = createServerBooksCache(true)
+      const second = createServerBooksCache(true)
+
+      first.write([{ id: "gen" } as Book])
+      expect(second.read()).toBeNull()
     })
   })
 })
