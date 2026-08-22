@@ -28,8 +28,10 @@
           <span>Marcadores</span>
         </button>
         <!-- Only where the layout fits (see StudyModeService): on a narrow
-             window the item would promise a mode the reader cannot get. -->
-        @if (studyModeAvailable) {
+             window the item would promise a mode the reader cannot get. The
+             About page is excluded for the same reason — it is the app's own
+             copy, and the reader keeps it in the plain layout. -->
+        @if (studyModeAvailable && book.id !== 'about') {
         <button mat-menu-item (click)="onToggleStudyMode(menuTrigger, $event)">
           <mat-icon>view_sidebar</mat-icon>
           <span>{{ studyMode ? 'Voltar ao modo de leitura' : 'Modo de estudo' }}</span>

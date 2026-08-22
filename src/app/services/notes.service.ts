@@ -40,14 +40,6 @@ export class NotesService {
     return this.storageRef
   }
 
-  static keyFor(
-    bookId: Book["id"],
-    chapter: Chapter["number"],
-    verse: Verse["number"],
-  ): string {
-    return `${bookId}:${chapter}:${verse}`
-  }
-
   getNote(
     bookId: Book["id"],
     chapter: Chapter["number"],
@@ -95,15 +87,10 @@ export class NotesService {
       text: trimmed,
       updatedAt: Date.now(),
     }
-    const rest = this.notesSubject.value.filter(
-      (existing) =>
-        !(
-          existing.bookId === bookId &&
-          existing.chapter === chapter &&
-          existing.verse === verse
-        ),
-    )
-    this.commit([...rest, note])
+    this.commit((notes) => [
+      ...notes.filter((existing) => !NotesService.isAt(existing, note)),
+      note,
+    ])
   }
 
   deleteNote(
@@ -111,22 +98,38 @@ export class NotesService {
     chapter: Chapter["number"],
     verse: Verse["number"],
   ): void {
-    const remaining = this.notesSubject.value.filter(
-      (note) =>
-        !(
-          note.bookId === bookId &&
-          note.chapter === chapter &&
-          note.verse === verse
-        ),
+    const target = { bookId, chapter, verse }
+    if (
+      !this.notesSubject.value.some((note) => NotesService.isAt(note, target))
     )
-    if (remaining.length === this.notesSubject.value.length) return
-    this.commit(remaining)
+      return
+    this.commit((notes) =>
+      notes.filter((note) => !NotesService.isAt(note, target)),
+    )
   }
 
-  private commit(notes: VerseNote[]): void {
-    this.notesSubject.next(notes)
+  private static isAt(
+    note: VerseNote,
+    target: Pick<VerseNote, "bookId" | "chapter" | "verse">,
+  ): boolean {
+    return (
+      note.bookId === target.bookId &&
+      note.chapter === target.chapter &&
+      note.verse === target.verse
+    )
+  }
+
+  /**
+   * Applies a change on top of what storage holds right now, not on top of
+   * what this tab last read. Two tabs open on the same chapter would
+   * otherwise each write their whole in-memory list back, and the slower one
+   * would silently drop the other's notes.
+   */
+  private commit(change: (notes: VerseNote[]) => VerseNote[]): void {
+    const next = change(this.read())
+    this.notesSubject.next(next)
     try {
-      this.storage?.setItem(STORAGE_KEY, JSON.stringify(notes))
+      this.storage?.setItem(STORAGE_KEY, JSON.stringify(next))
     } catch {
       // Quota exhausted mid-session: the note stays in memory for this
       // session rather than taking the reader's study session down with it.
@@ -153,6 +156,7 @@ export class NotesService {
       typeof note.bookId === "string" &&
       typeof note.chapter === "number" &&
       typeof note.verse === "number" &&
+      typeof note.updatedAt === "number" &&
       typeof note.text === "string" &&
       note.text.length > 0
     )

@@ -66,6 +66,8 @@ describe("NotesService", () => {
     service.saveNote("mrk", 22, 39, "outro livro")
 
     expect(service.getNote("mat", 22, 39)?.text).toBe("aqui")
+    expect(service.getNote("mat", 22, 40)?.text).toBe("vizinho")
+    expect(service.getNote("mat", 23, 39)?.text).toBe("outro capítulo")
     expect(service.getNote("mrk", 22, 39)?.text).toBe("outro livro")
   })
 
@@ -118,11 +120,40 @@ describe("NotesService", () => {
         { bookId: "mat", chapter: 22 },
         "lixo",
         { bookId: "mat", chapter: 22, verse: 40, text: "", updatedAt: 1 },
+        { bookId: "mat", chapter: 22, verse: 41, text: "sem data" },
       ]),
     )
 
     const service = makeService()
     expect(service.getNote("mat", 22, 39)?.text).toBe("boa")
     expect(service.getNote("mat", 22, 40)).toBeUndefined()
+    // No updatedAt: the entry would read back as a note with an undefined
+    // timestamp, so it is not one.
+    expect(service.getNote("mat", 22, 41)).toBeUndefined()
+  })
+
+  it("keeps notes another tab wrote while this one was open", () => {
+    const service = makeService()
+    service.saveNote("mat", 22, 39, "desta janela")
+
+    // A second tab, sharing the same storage, adds its own note.
+    const fromOtherTab = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]")
+    fromOtherTab.push({
+      bookId: "mat",
+      chapter: 22,
+      verse: 12,
+      text: "da outra janela",
+      updatedAt: 2,
+    })
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(fromOtherTab))
+
+    service.saveNote("mat", 22, 40, "mais uma")
+
+    const stored: VerseNote[] = JSON.parse(
+      localStorage.getItem(STORAGE_KEY) ?? "[]",
+    )
+    expect(stored.map((note) => note.verse).sort((a, b) => a - b)).toEqual([
+      12, 39, 40,
+    ])
   })
 })

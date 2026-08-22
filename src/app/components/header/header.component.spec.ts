@@ -258,6 +258,73 @@ describe("HeaderComponent", () => {
     expect(mockSharePlugin.share).not.toHaveBeenCalled()
   })
 
+  describe("study mode menu item", () => {
+    /** Opens the overflow menu and returns its item labels. */
+    function menuLabels(): string[] {
+      const trigger = fixture.nativeElement.querySelector(".menuButton")
+      trigger.click()
+      fixture.detectChanges()
+      return Array.from(
+        document.querySelectorAll(".mat-mdc-menu-content [mat-menu-item] span"),
+      ).map((span) => (span.textContent ?? "").trim())
+    }
+
+    it("is offered on a book, once the window is wide enough", () => {
+      component.studyModeAvailable = true
+      fixture.detectChanges()
+
+      expect(menuLabels()).toContain("Modo de estudo")
+    })
+
+    it("is not offered on a window too narrow to show it", () => {
+      component.studyModeAvailable = false
+      fixture.detectChanges()
+
+      expect(menuLabels()).not.toContain("Modo de estudo")
+    })
+
+    it("is not offered on the About page, which has no study layout", () => {
+      component.studyModeAvailable = true
+      component.book = {
+        id: "about",
+        name: "Sobre",
+        shortName: "Sobre",
+        abrv: "Sobre",
+        chapterCount: 1,
+      }
+      fixture.detectChanges()
+
+      expect(menuLabels()).not.toContain("Modo de estudo")
+    })
+
+    it("offers the way back once study mode is on", () => {
+      component.studyModeAvailable = true
+      component.studyMode = true
+      fixture.detectChanges()
+
+      expect(menuLabels()).toContain("Voltar ao modo de leitura")
+    })
+
+    it("emits when the item is used", () => {
+      component.studyModeAvailable = true
+      fixture.detectChanges()
+      let asked = 0
+      component.toggleStudyMode.subscribe(() => asked++)
+
+      const trigger = fixture.nativeElement.querySelector(".menuButton")
+      trigger.click()
+      fixture.detectChanges()
+      const item = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          ".mat-mdc-menu-content [mat-menu-item]",
+        ),
+      ).find((button) => button.textContent?.includes("Modo de estudo"))
+      item?.click()
+
+      expect(asked).toBe(1)
+    })
+  })
+
   describe("about label cycle", () => {
     const aboutBook: Book = {
       id: "about",

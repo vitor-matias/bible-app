@@ -892,6 +892,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       (candidate) => candidate.number === verseNumber,
     )
     this.selection = verse ? { verse } : null
+    // applyChapter has already run its detectChanges() by the time this is
+    // reached, so without marking the view the panel keeps the old verse.
+    this.cdr.markForCheck()
   }
 
   @HostListener("window:keydown", ["$event"])

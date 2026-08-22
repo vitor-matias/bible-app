@@ -126,16 +126,22 @@ export class StudyPanelComponent implements OnChanges {
   private readonly notesService = inject(NotesService)
   private readonly cdr = inject(ChangeDetectorRef)
   private readonly destroyRef = inject(DestroyRef)
-  private readonly host = inject(ElementRef<HTMLElement>)
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef)
 
   private referenceRequests: Subscription[] = []
   private notesSubscription?: Subscription
-  private readonly noteInput = new Subject<string>()
+  /**
+   * Queued note saves carry the verse they were typed for. The reader can
+   * select another verse inside the debounce window, and resolving the
+   * target when the save fires would file the note under whichever verse
+   * happened to be selected by then.
+   */
+  private readonly noteInput = new Subject<{ target: Verse; text: string }>()
 
   constructor() {
     this.noteInput
       .pipe(debounceTime(NOTE_SAVE_DEBOUNCE_MS), takeUntilDestroyed())
-      .subscribe((text) => this.persistNote(text))
+      .subscribe(({ target, text }) => this.persistNote(target, text))
     // Registered once, not per chapter: onDestroy callbacks accumulate, and
     // the reader changes chapter far more often than it destroys the panel.
     this.destroyRef.onDestroy(() => {
@@ -178,14 +184,47 @@ export class StudyPanelComponent implements OnChanges {
     this.activeTab = tab
   }
 
+  /**
+   * The keyboard half of the tablist contract: the strip is one tab stop
+   * (roving tabindex), and the arrows move between tabs within it. Without
+   * this a keyboard reader can reach the tabs but never leave the first one.
+   */
+  onTabKeydown(event: KeyboardEvent, index: number): void {
+    const last = this.tabs.length - 1
+    let next: number
+    switch (event.key) {
+      case "ArrowRight":
+        next = index === last ? 0 : index + 1
+        break
+      case "ArrowLeft":
+        next = index === 0 ? last : index - 1
+        break
+      case "Home":
+        next = 0
+        break
+      case "End":
+        next = last
+        break
+      default:
+        return
+    }
+    event.preventDefault()
+    this.selectTab(this.tabs[next].id)
+    // Selection follows focus, so the newly selected tab has to take it.
+    const strip = this.host.nativeElement.querySelectorAll<HTMLElement>(".tab")
+    strip[next]?.focus()
+  }
+
   onNoteInput(value: string): void {
     this.noteDraft = value
-    this.noteInput.next(value)
+    const target = this.selectedVerse
+    if (target) this.noteInput.next({ target, text: value })
   }
 
   /** Leaving the box saves immediately rather than waiting out the debounce. */
   onNoteBlur(): void {
-    this.persistNote(this.noteDraft)
+    const target = this.selectedVerse
+    if (target) this.persistNote(target, this.noteDraft)
   }
 
   /** True for the entries belonging to the verse the reader has selected. */
@@ -229,9 +268,8 @@ export class StudyPanelComponent implements OnChanges {
     return typeof part === "object"
   }
 
-  private persistNote(text: string): void {
-    const verse = this.selectedVerse
-    if (!verse || !this.book) return
+  private persistNote(verse: Verse, text: string): void {
+    if (!this.book) return
     this.notesService.saveNote(
       this.book.id,
       verse.chapterNumber,

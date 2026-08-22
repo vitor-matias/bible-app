@@ -52,14 +52,23 @@ export class StudyModeService {
     if (!isPlatformBrowser(this.platformId)) return
 
     this.enabledSubject.next(this.preferences.getStudyMode())
+
+    // A media query rather than a resize listener: this only has to fire when
+    // the threshold is crossed, not on every pixel of a window drag.
+    this.widthQuery =
+      typeof window.matchMedia === "function"
+        ? window.matchMedia(`(min-width: ${STUDY_MODE_MIN_WIDTH}px)`)
+        : undefined
     this.refreshAvailability()
 
-    const onResize = () => this.refreshAvailability()
-    window.addEventListener("resize", onResize)
+    const onChange = () => this.refreshAvailability()
+    this.widthQuery?.addEventListener("change", onChange)
     this.destroyRef.onDestroy(() => {
-      window.removeEventListener("resize", onResize)
+      this.widthQuery?.removeEventListener("change", onChange)
     })
   }
+
+  private widthQuery?: MediaQueryList
 
   get isAvailable(): boolean {
     return this.availableSubject.value
@@ -73,10 +82,14 @@ export class StudyModeService {
     return this.isAvailable && this.isEnabled
   }
 
-  /** Re-measures the window. Called on resize, and by tests. */
+  /** Re-measures the window. Called when the query flips, and by tests. */
   refreshAvailability(): void {
     if (!isPlatformBrowser(this.platformId)) return
-    this.availableSubject.next(window.innerWidth >= STUDY_MODE_MIN_WIDTH)
+    this.availableSubject.next(
+      // matchMedia is absent in some test and embedded environments; the
+      // width is the same answer, just re-read on demand.
+      this.widthQuery?.matches ?? window.innerWidth >= STUDY_MODE_MIN_WIDTH,
+    )
   }
 
   setEnabled(enabled: boolean): void {

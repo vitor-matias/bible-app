@@ -1,4 +1,3 @@
-import { SimpleChange } from "@angular/core"
 import {
   type ComponentFixture,
   fakeAsync,
@@ -83,13 +82,12 @@ describe("StudyPanelComponent", () => {
     chapter?: Chapter | null
     selection?: VerseSelection | null
   }): void {
-    const changes: Record<string, SimpleChange> = {}
+    // setInput, not a hand-written ngOnChanges: it runs the same input
+    // pipeline Angular does and marks this OnPush view dirty, so assertions
+    // made after a second call read fresh markup rather than stale.
     for (const [key, value] of Object.entries(next)) {
-      const previous = (component as unknown as Record<string, unknown>)[key]
-      ;(component as unknown as Record<string, unknown>)[key] = value
-      changes[key] = new SimpleChange(previous, value, previous === undefined)
+      fixture.componentRef.setInput(key, value)
     }
-    component.ngOnChanges(changes)
     fixture.detectChanges()
   }
 
@@ -424,8 +422,6 @@ describe("StudyPanelComponent", () => {
         book: BOOK,
         chapter: { bookId: "mat", number: 22, verses: [] },
       })
-      // setInput, not a plain assignment: it marks this OnPush view dirty the
-      // way a real binding does.
       fixture.componentRef.setInput("collapsed", true)
       fixture.detectChanges()
 

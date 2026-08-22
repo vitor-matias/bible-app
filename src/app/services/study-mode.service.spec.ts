@@ -10,7 +10,8 @@ function configure(
 ): {
   service: StudyModeService
   preferences: jasmine.SpyObj<PreferencesService>
-  width: jasmine.Spy
+  /** Flips the viewport across the threshold, as the media query would. */
+  setWide: (wide: boolean) => void
 } {
   const preferences = jasmine.createSpyObj<PreferencesService>(
     "PreferencesService",
@@ -26,16 +27,26 @@ function configure(
     ],
   })
 
-  // The service measures the real window, which the test runner cannot
-  // resize; report the width under test instead.
-  const widthSpy = spyOnProperty(window, "innerWidth", "get").and.returnValue(
-    width,
-  )
-  return {
-    service: TestBed.inject(StudyModeService),
-    preferences,
-    width: widthSpy,
+  // The service asks a media query, which reports the real runner window;
+  // stand in for it so the test controls which side of the threshold we are
+  // on, and can flip it the way a resized window would.
+  const listeners: (() => void)[] = []
+  const query = {
+    matches: width >= STUDY_MODE_MIN_WIDTH,
+    addEventListener: (_: string, handler: () => void) =>
+      listeners.push(handler),
+    removeEventListener: () => {},
   }
+  spyOn(window, "matchMedia").and.returnValue(
+    query as unknown as MediaQueryList,
+  )
+
+  const service = TestBed.inject(StudyModeService)
+  const setWide = (wide: boolean) => {
+    query.matches = wide
+    for (const handler of listeners) handler()
+  }
+  return { service, preferences, setWide }
 }
 
 describe("StudyModeService", () => {
@@ -90,17 +101,25 @@ describe("StudyModeService", () => {
     expect(seen).toEqual([false, true, false])
   })
 
-  it("re-measures the window on resize", () => {
-    const { service, width } = configure(800, true)
+  it("re-measures when the viewport crosses the threshold", () => {
+    const { service, setWide } = configure(800, true)
     expect(service.isAvailable).toBeFalse()
 
-    // Widen the window the service sees, then let its own resize listener
-    // pick the change up.
-    width.and.returnValue(1400)
-    window.dispatchEvent(new Event("resize"))
+    setWide(true)
 
     expect(service.isAvailable).toBeTrue()
     expect(service.isActive).toBeTrue()
+  })
+
+  it("gives study mode up again when the window narrows", () => {
+    const { service, setWide } = configure(1400, true)
+    expect(service.isActive).toBeTrue()
+
+    setWide(false)
+
+    expect(service.isActive).toBeFalse()
+    // The preference outlives the window it could not be shown in.
+    expect(service.isEnabled).toBeTrue()
   })
 
   it("stays unavailable while server-rendering, with no window to measure", () => {

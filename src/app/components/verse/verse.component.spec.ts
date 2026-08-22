@@ -926,6 +926,27 @@ describe("VerseComponent", () => {
       expect(mockBottomSheet.open).not.toHaveBeenCalled()
     })
 
+    it("opens the footnotes sheet from a verse that cannot be selected", () => {
+      // Verse 0 carries the chapter's front matter, footnotes included.
+      component.studyMode = true
+      setData(
+        component,
+        makeVerse({
+          number: 0,
+          verseLabel: "front",
+          text: [
+            { type: "text", text: "Título", normalizedText: "" },
+            { type: "footnote", reference: "22, 1", text: "uma nota" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+
+      component.onFootnoteMarkerClick(new MouseEvent("click"))
+
+      expect(mockBottomSheet.open).toHaveBeenCalled()
+    })
+
     it("still opens the footnotes sheet outside study mode", () => {
       setData(component, studyVerse())
       fixture.detectChanges()
@@ -998,6 +1019,25 @@ describe("VerseComponent", () => {
       expect(number.getAttribute("tabindex")).toBeNull()
     })
 
+    it("carries the quotation verdict as a host class", () => {
+      component.isQuotation = true
+      setData(component, studyVerse())
+      fixture.detectChanges()
+
+      expect((fixture.nativeElement as HTMLElement).classList).toContain(
+        "verse-quotation",
+      )
+    })
+
+    it("leaves a verse unmarked when it is not a quotation", () => {
+      setData(component, studyVerse())
+      fixture.detectChanges()
+
+      expect((fixture.nativeElement as HTMLElement).classList).not.toContain(
+        "verse-quotation",
+      )
+    })
+
     it("carries the selection as a host class", () => {
       component.studyMode = true
       component.selected = true
@@ -1011,6 +1051,29 @@ describe("VerseComponent", () => {
   })
 
   describe("blank elements in the source text", () => {
+    /**
+     * A blank line is two forced breaks with nothing rendered between them.
+     * Counting <br> elements would just track the markup; this tracks what
+     * the reader sees.
+     */
+    function hasBlankLine(host: HTMLElement): boolean {
+      const breaks = Array.from(host.querySelectorAll("br"))
+      return breaks.some((br) => {
+        let node = br.nextSibling
+        while (node) {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const element = node as HTMLElement
+            if (element.tagName === "BR") return true
+            if (element.textContent?.trim()) return false
+          } else if (node.nodeType === Node.TEXT_NODE) {
+            if (node.textContent?.trim()) return false
+          }
+          node = node.nextSibling
+        }
+        return false
+      })
+    }
+
     /**
      * Psalm 1,2 as the API serves it: a run of prose inside a poetry group,
      * with an empty text element the USFM left behind, then the next line.
@@ -1048,13 +1111,14 @@ describe("VerseComponent", () => {
 
     it("keeps a prose run on one line, breaking only before the poetry", () => {
       setData(component, psalmVerse())
+      fixture.detectChanges()
 
-      // "antes põe o seu enlevo na lei do" is followed by "Senhor", not by a
-      // line of poetry, so no break belongs after it...
-      expect(component.breakBeforeQuoteStates[1]).toBeFalse()
-      // ...while "Senhor" is the last thing before the next line, and the
-      // empty element between them does not count as content.
-      expect(component.breakBeforeQuoteStates[2]).toBeTrue()
+      // Every quote group brings its own break, so the prose needs none of
+      // its own: "antes põe o seu enlevo na lei do" and "Senhor" stay on one
+      // line, with nothing breaking between them.
+      const wrapper = fixture.nativeElement.querySelector(".quoteLineWrapper")
+      expect(wrapper.querySelectorAll("br").length).toBe(0)
+      expect(hasBlankLine(fixture.nativeElement)).toBeFalse()
     })
 
     it("renders that verse as a single line of prose", () => {
@@ -1062,7 +1126,7 @@ describe("VerseComponent", () => {
       fixture.detectChanges()
 
       const wrapper = fixture.nativeElement.querySelector(".quoteLineWrapper")
-      expect(wrapper.querySelectorAll("br").length).toBe(1)
+      expect(wrapper.querySelectorAll("br").length).toBe(0)
       expect(wrapper.textContent.replace(/\s+/g, " ")).toContain(
         "antes põe o seu enlevo na lei do Senhor",
       )
@@ -1092,7 +1156,7 @@ describe("VerseComponent", () => {
       expect(rendered).toContain(1)
     })
 
-    it("still breaks before a quote that follows prose directly", () => {
+    it("still starts poetry on its own line after prose", () => {
       setData(
         component,
         makeVerse({
@@ -1103,8 +1167,11 @@ describe("VerseComponent", () => {
           ] as TextType[],
         }),
       )
+      fixture.detectChanges()
 
-      expect(component.breakBeforeQuoteStates[0]).toBeTrue()
+      // The quote group brings the break itself, so the poetry starts on a
+      // new line with no blank one in front of it.
+      expect(hasBlankLine(fixture.nativeElement)).toBeFalse()
     })
   })
 

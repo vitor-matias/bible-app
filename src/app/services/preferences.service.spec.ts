@@ -23,6 +23,24 @@ describe("PreferencesService", () => {
     expect(service.getStudyMode()).toBeFalse()
   })
 
+  it("should default both study side columns to open", () => {
+    expect(service.getStudySidebarCollapsed()).toBeFalse()
+    expect(service.getStudyPanelCollapsed()).toBeFalse()
+  })
+
+  it("should store each study side column's folded state separately", () => {
+    service.setStudySidebarCollapsed(true)
+
+    expect(service.getStudySidebarCollapsed()).toBeTrue()
+    expect(service.getStudyPanelCollapsed()).toBeFalse()
+
+    service.setStudyPanelCollapsed(true)
+    service.setStudySidebarCollapsed(false)
+
+    expect(service.getStudySidebarCollapsed()).toBeFalse()
+    expect(service.getStudyPanelCollapsed()).toBeTrue()
+  })
+
   it("should store and read the theme", () => {
     service.setTheme("dark")
 

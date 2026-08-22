@@ -82,18 +82,6 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
    */
   nextIsQuoteStates: Record<number, boolean> = {}
 
-  /**
-   * Whether a line break belongs after this element because the next thing to
-   * render is a line of poetry.
-   *
-   * Distinct from nextIsQuoteStates, which answers the same question for a
-   * whole section run: every element of that run shares its answer, so a run
-   * of prose before a quote used to be broken after each of its elements
-   * rather than only at its end — that is what put "SENHOR" on a line of its
-   * own in the psalms, split from the line it belongs to.
-   */
-  breakBeforeQuoteStates: Record<number, boolean> = {}
-
   @Input()
   data!: Verse
 
@@ -143,7 +131,6 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       this.parsedReferences = this.computeParsedReferences()
       this.displayGroups = this.computeDisplayGroups()
       this.nextIsQuoteStates = this.computeNextIsQuoteStates()
-      this.breakBeforeQuoteStates = this.computeBreakBeforeQuoteStates()
     }
   }
 
@@ -281,29 +268,6 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     return states
   }
 
-  private computeBreakBeforeQuoteStates(): Record<number, boolean> {
-    const states: Record<number, boolean> = {}
-    this.data.text.forEach((_, index) => {
-      states[index] = this.isFollowedByQuote(index)
-    })
-    return states
-  }
-
-  /**
-   * Whether the next element that actually renders is a quote. Footnotes and
-   * references print elsewhere in the line, and blank elements print nothing
-   * at all, so neither ends a line.
-   */
-  private isFollowedByQuote(index: number): boolean {
-    for (let i = index + 1; i < this.data.text.length; i++) {
-      const next = this.data.text[i]
-      if (next.type === "footnote" || next.type === "references") continue
-      if (VerseComponent.isBlank(next)) continue
-      return next.type === "quote"
-    }
-    return this.nextVerseStartsWithQuote
-  }
-
   checkNextIsQuote(i: number): boolean {
     const sectionText = this.getDataForSection(i).text
     const lastElementIndex = i + sectionText.length - 1
@@ -414,7 +378,15 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     for (let i = 0; i < this.data.text.length; i++) {
       const t = this.data.text[i]
       if (t.type === "references") {
-        map.set(i, parseReferences(this.bibleRef, t.text, this.data.bookId))
+        map.set(
+          i,
+          parseReferences(
+            this.bibleRef,
+            t.text,
+            this.data.bookId,
+            this.data.chapterNumber,
+          ),
+        )
       }
     }
     return map
@@ -448,7 +420,10 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   onFootnoteMarkerClick(event: Event): void {
-    if (!this.studyMode) {
+    // Verse 0 carries the chapter's front matter, footnotes included, and
+    // cannot be selected — so in study mode too the marker opens the sheet
+    // rather than doing nothing at all.
+    if (!this.studyMode || !this.isSelectable) {
       this.toggleFootnotes(event)
       return
     }

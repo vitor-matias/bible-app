@@ -63,14 +63,15 @@ export class StudySidebarComponent implements OnChanges {
     if (changes["books"]) {
       this.groups = this.buildGroups()
     }
-    if (changes["books"] || changes["book"]) {
-      // Follow the reader: navigating to another group (from a reference, the
-      // search page, a deep link) opens the group they landed in. A group the
-      // reader collapsed by hand stays collapsed until they move books.
+    // Follow the reader: navigating to another group (from a reference, the
+    // search page, a deep link) opens the group they landed in. A group the
+    // reader collapsed by hand stays collapsed until they move books — which
+    // is why only a real change of book re-expands. The book list changes on
+    // its own when an introduction loads, and that must not reopen anything.
+    const bookChange = changes["book"]
+    if (bookChange && bookChange.previousValue?.id !== this.book?.id) {
       const owning = this.groupOf(this.book?.id)
-      if (owning && changes["book"]?.previousValue?.id !== this.book?.id) {
-        this.expandedGroup = owning
-      }
+      if (owning) this.expandedGroup = owning
     }
   }
 

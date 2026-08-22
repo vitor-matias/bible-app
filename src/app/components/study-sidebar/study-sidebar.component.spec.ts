@@ -1,4 +1,3 @@
-import { SimpleChange } from "@angular/core"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { StudySidebarComponent } from "./study-sidebar.component"
 
@@ -30,13 +29,12 @@ describe("StudySidebarComponent", () => {
     chapters?: Chapter[]
     selectedChapter?: number
   }): void {
-    const changes: Record<string, SimpleChange> = {}
+    // setInput, not a hand-written ngOnChanges: it runs the same input
+    // pipeline Angular does and marks this OnPush view dirty, so assertions
+    // made after a second call read fresh markup rather than stale.
     for (const [key, value] of Object.entries(next)) {
-      const previous = (component as unknown as Record<string, unknown>)[key]
-      ;(component as unknown as Record<string, unknown>)[key] = value
-      changes[key] = new SimpleChange(previous, value, previous === undefined)
+      fixture.componentRef.setInput(key, value)
     }
-    component.ngOnChanges(changes)
     fixture.detectChanges()
   }
 
@@ -78,6 +76,19 @@ describe("StudySidebarComponent", () => {
     if (!group) throw new Error("expected the gospels group")
 
     component.toggleGroup(group)
+
+    expect(component.isExpanded(group)).toBeFalse()
+  })
+
+  it("keeps a collapsed group collapsed when only the book list changes", () => {
+    // An introduction loading pushes a new book list; the reader has not
+    // moved, so nothing should reopen.
+    setInputs({ books: BOOKS, book: BOOKS[1] })
+    const group = component.groups.find((g) => g.name === "Evangelhos e Atos")
+    if (!group) throw new Error("expected the gospels group")
+    component.toggleGroup(group)
+
+    setInputs({ books: [...BOOKS] })
 
     expect(component.isExpanded(group)).toBeFalse()
   })
@@ -167,8 +178,6 @@ describe("StudySidebarComponent", () => {
 
   it("keeps only the unfold button when it is folded away", () => {
     setInputs({ books: BOOKS, book: BOOKS[1] })
-    // setInput, not a plain assignment: it marks this OnPush view dirty the
-    // way a real binding does.
     fixture.componentRef.setInput("collapsed", true)
     fixture.detectChanges()
 

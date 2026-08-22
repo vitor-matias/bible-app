@@ -8,10 +8,11 @@
 
   @if (!collapsed) {
   <div class="tab-strip" role="tablist" aria-label="Aparato de estudo">
-    @for (tab of tabs; track tab.id) {
+    @for (tab of tabs; track tab.id; let i = $index) {
     <button type="button" class="tab" role="tab" [id]="'study-tab-' + tab.id" [class.active]="activeTab === tab.id"
       [attr.aria-selected]="activeTab === tab.id" [attr.tabindex]="activeTab === tab.id ? 0 : -1"
-      [attr.aria-controls]="'study-tabpanel-' + tab.id" (click)="selectTab(tab.id)">
+      [attr.aria-controls]="'study-tabpanel-' + tab.id" (click)="selectTab(tab.id)"
+      (keydown)="onTabKeydown($event, i)">
       {{ tab.label }}
     </button>
     }

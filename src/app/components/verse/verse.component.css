@@ -226,22 +226,6 @@ h3:not(:first-child) {
   outline-offset: 2px;
 }
 
-/*
- * Poetry.
- *
- * A quote line is preceded by two forced breaks: the prose before it emits
- * one when a quote follows, and each quote line carries its own. Two breaks
- * in a row read as a blank paragraph dropped into the middle of the verse —
- * no printed edition sets it that way. Hiding the prose's leaves exactly one,
- * which is the quote's, so the poetry still starts on its own line.
- *
- * The break is only ever emitted in front of a quote (see
- * breakBeforeQuoteStates), so hiding it costs nothing anywhere else.
- */
-.verseText > br:last-child {
-  display: none;
-}
-
 /* Only a passage being quoted inside prose is set in italic. A book written
    in verse — the psalms above all — is not quoting anyone, and italicising it
    would put a whole book in italics. */
