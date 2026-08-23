@@ -419,7 +419,7 @@ describe("StudyPanelComponent", () => {
       expect(component.isCurrentGroup(group)).toBeFalse()
     })
 
-    it("follows the verse on screen while nothing is selected", () => {
+    it("follows the verse on screen without marking it", () => {
       bibleRef.extract.and.callFake((text: string) =>
         text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
       )
@@ -436,9 +436,62 @@ describe("StudyPanelComponent", () => {
       })
 
       setInputs({ visibleVerse: 39 })
+      fixture.detectChanges()
 
+      // The panel follows the reader down the chapter...
       expect(component.activeVerse).toBe(39)
+      // ...but scrolling past a verse is not choosing it, so nothing is
+      // marked until the reader actually picks one.
+      expect(component.isCurrentGroup(component.referenceGroups[0])).toBeFalse()
+      expect(
+        fixture.nativeElement.querySelector(".reference-group.current"),
+      ).toBeNull()
+    })
+
+    it("marks the passage once the reader picks a verse in it", () => {
+      bibleRef.extract.and.callFake((text: string) =>
+        text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
+      )
+      const chapter: Chapter = {
+        bookId: "mat",
+        number: 22,
+        verses: [
+          verse(34, [references("Mc 12,28-34"), plain("Constando-lhes")]),
+          verse(39, [plain("O segundo é semelhante")]),
+        ],
+      }
+      setInputs({ book: BOOK, chapter, visibleVerse: 39 })
+
+      setInputs({
+        selection: { verse: chapter.verses?.[1] as Verse },
+      })
+      fixture.detectChanges()
+
       expect(component.isCurrentGroup(component.referenceGroups[0])).toBeTrue()
+      expect(
+        fixture.nativeElement.querySelector(".reference-group.current"),
+      ).toBeTruthy()
+    })
+
+    it("stops marking when the reader lets the verse go", () => {
+      bibleRef.extract.and.callFake((text: string) =>
+        text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
+      )
+      const chapter: Chapter = {
+        bookId: "mat",
+        number: 22,
+        verses: [verse(34, [references("Mc 12,28-34"), plain("Constando")])],
+      }
+      setInputs({
+        book: BOOK,
+        chapter,
+        selection: { verse: chapter.verses?.[0] as Verse },
+      })
+      expect(component.isCurrentGroup(component.referenceGroups[0])).toBeTrue()
+
+      setInputs({ selection: null, visibleVerse: 34 })
+
+      expect(component.isCurrentGroup(component.referenceGroups[0])).toBeFalse()
     })
 
     it("lets a chosen verse outrank the one on screen", () => {

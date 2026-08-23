@@ -260,16 +260,31 @@ export class StudyPanelComponent implements OnChanges {
     return this.selectedVerse?.number ?? this.visibleVerse
   }
 
-  /** True for the entries belonging to the verse the panel is following. */
+  /**
+   * Marking answers "is this the verse you chose", not "is this what happens
+   * to be on screen". Scrolling still carries the panel along to the right
+   * passage, but it marks nothing: a mark that moved by itself as the page
+   * went past would be reporting the scroll position rather than a choice.
+   */
   isCurrent(verseNumber: Verse["number"]): boolean {
-    return this.activeVerse === verseNumber
+    return this.selectedVerse?.number === verseNumber
   }
 
-  /** True while the reader is anywhere inside the passage this group covers. */
+  /** True for the passage holding the verse the reader chose. */
   isCurrentGroup(group: ReferenceGroup): boolean {
-    const active = this.activeVerse
-    if (active === undefined) return false
-    return active >= group.verseNumber && active <= group.lastVerse
+    const selected = this.selectedVerse?.number
+    if (selected === undefined) return false
+    return this.groupCovering(selected) === group
+  }
+
+  /** The passage a verse falls in, whether the reader chose it or scrolled to it. */
+  private groupCovering(
+    verseNumber: Verse["number"],
+  ): ReferenceGroup | undefined {
+    return this.referenceGroups.find(
+      (group) =>
+        verseNumber >= group.verseNumber && verseNumber <= group.lastVerse,
+    )
   }
 
   verseLabel(verseNumber: Verse["number"]): string {
@@ -341,10 +356,10 @@ export class StudyPanelComponent implements OnChanges {
       return
     // References are keyed by the verse that carries them, which for a verse
     // in the middle of a passage is an earlier one — scroll to the group
-    // covering the reader, not to a verse the panel never lists.
-    const covering = this.referenceGroups.find((group) =>
-      this.isCurrentGroup(group),
-    )
+    // covering the reader, not to a verse the panel never lists. Follows the
+    // scroll as well as a selection, which is why it asks groupCovering
+    // rather than what is marked.
+    const covering = this.groupCovering(active)
     const anchor =
       this.activeTab === "references" && covering
         ? covering.verseNumber
