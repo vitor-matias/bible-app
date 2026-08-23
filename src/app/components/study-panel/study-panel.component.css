@@ -130,14 +130,34 @@
   border-top: 1px solid var(--study-rule);
 }
 
-/* Marks the entries belonging to the selected verse, using the same tint the
-   verse itself carries in the text, so the two read as one selection. */
+/* Marks the entries belonging to the verse the panel is following, using the
+   same tint the verse itself carries in the text, so the two read as one
+   selection. It fades rather than snapping: while the reader scrolls, the
+   mark moves from passage to passage on its own, and a hard switch reads as
+   a flicker. */
+.reference-group,
+.footnote,
+.saved-note {
+  background-color: transparent;
+  border-radius: 2px;
+  transition:
+    background-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
 .reference-group.current,
 .footnote.current,
 .saved-note.current {
   background-color: var(--study-selection-color);
   box-shadow: -10px 0 0 var(--study-selection-color), 10px 0 0 var(--study-selection-color);
-  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reference-group,
+  .footnote,
+  .saved-note {
+    transition: none;
+  }
 }
 
 .group-label {

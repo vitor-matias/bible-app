@@ -141,6 +141,8 @@ export class StudyPanelComponent implements OnChanges {
   private readonly destroyRef = inject(DestroyRef)
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef)
 
+  /** The entry the panel last scrolled to, so it does not scroll there again. */
+  private scrolledAnchor?: Verse["number"]
   private referenceRequests: Subscription[] = []
   private notesSubscription?: Subscription
   /**
@@ -189,19 +191,18 @@ export class StudyPanelComponent implements OnChanges {
       const requested = this.selection?.panel
       if (requested) this.activeTab = requested
       this.loadNoteDraft()
-      // Choosing a verse is a deliberate jump, so the panel glides to it.
-      this.scrollActiveIntoView("smooth")
+      this.scrollActiveIntoView()
     }
     if (changes["visibleVerse"] && !this.selection) {
-      // Following the reader's own scrolling: matching it frame for frame
-      // rather than animating behind it, which would never catch up.
-      this.scrollActiveIntoView("auto")
+      this.scrollActiveIntoView()
     }
   }
 
   selectTab(tab: PanelTab): void {
     if (tab === this.activeTab) return
     this.activeTab = tab
+    // The new tab has its own list, which has never been placed.
+    this.scrolledAnchor = undefined
     // Rendered here rather than left to the next change detection pass.
     // Angular coalesces those onto an animation frame, and a plain button is
     // the whole interaction — nothing else follows it to flush the queue, so
@@ -334,7 +335,7 @@ export class StudyPanelComponent implements OnChanges {
    * The panel scrolls, not the page: scrollIntoView would drag the text
    * column along with it.
    */
-  private scrollActiveIntoView(behavior: ScrollBehavior): void {
+  private scrollActiveIntoView(): void {
     const active = this.activeVerse
     if (active === undefined || typeof requestAnimationFrame === "undefined")
       return
@@ -349,6 +350,12 @@ export class StudyPanelComponent implements OnChanges {
         ? covering.verseNumber
         : this.nearestAnchorAt(active)
     if (anchor === undefined) return
+    // Every verse scrolled past reports a change, but most of them sit in the
+    // passage already on screen. Scrolling only when the entry actually
+    // changes is what keeps this from re-issuing a scroll on every verse and
+    // stuttering the panel.
+    if (anchor === this.scrolledAnchor) return
+    this.scrolledAnchor = anchor
 
     requestAnimationFrame(() => {
       const element: HTMLElement | null = this.host.nativeElement.querySelector(
@@ -358,9 +365,23 @@ export class StudyPanelComponent implements OnChanges {
       if (!element || !body) return
       body.scrollTo({
         top: element.offsetTop - body.offsetTop - 12,
-        behavior,
+        // Glides, rather than teleporting between passages. There is nothing
+        // to keep up with: the target only moves when the reader crosses from
+        // one passage into the next, not with every verse.
+        behavior: StudyPanelComponent.prefersReducedMotion()
+          ? "auto"
+          : "smooth",
       })
     })
+  }
+
+  /** Readers who ask for less motion get the jump, not the glide. */
+  private static prefersReducedMotion(): boolean {
+    return (
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
   }
 
   /**
@@ -416,6 +437,7 @@ export class StudyPanelComponent implements OnChanges {
   private buildReferences(): void {
     this.cancelReferenceRequests()
     this.referenceGroups = []
+    this.scrolledAnchor = undefined
     if (!this.chapter) return
 
     const verses = this.chapter.verses ?? []
