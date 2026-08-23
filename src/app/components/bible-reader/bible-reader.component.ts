@@ -38,6 +38,10 @@ import { BibleReaderAnimationService } from "../../services/bible-reader-animati
 import { BookService } from "../../services/book.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
+import {
+  ReadingTrailService,
+  type TrailEntry,
+} from "../../services/reading-trail.service"
 import { SeoService } from "../../services/seo.service"
 import { StudyModeService } from "../../services/study-mode.service"
 import { AboutComponent } from "../about/about.component"
@@ -48,6 +52,7 @@ import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.c
 import { HeaderComponent } from "../header/header.component"
 import { StudyPanelComponent } from "../study-panel/study-panel.component"
 import { StudySidebarComponent } from "../study-sidebar/study-sidebar.component"
+import { StudyTrailComponent } from "../study-trail/study-trail.component"
 import { VerseComponent } from "../verse/verse.component"
 
 @Component({
@@ -75,6 +80,7 @@ import { VerseComponent } from "../verse/verse.component"
     RouterLink,
     StudySidebarComponent,
     StudyPanelComponent,
+    StudyTrailComponent,
   ],
 })
 export class BibleReaderComponent implements OnInit, OnDestroy {
@@ -112,8 +118,21 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   bookParam: string | null = null
   chapterParam: string | null = null
   showBooks = true
-  showAutoScrollControls = false
   private autoScrollControlsPreference = false
+
+  /**
+   * Derived rather than tracked: the controls belong on screen when the
+   * reader has asked for them and the text actually scrolls. Keeping it as a
+   * field meant setting it wherever either of those could change — and study
+   * mode added two more such places, since it scrolls even when the stored
+   * view mode says paged, and pages when a side column is folded away.
+   */
+  get showAutoScrollControls(): boolean {
+    return (
+      this.autoScrollControlsPreference &&
+      this.effectiveViewMode === "scrolling"
+    )
+  }
   viewMode: "scrolling" | "paged" = "scrolling"
 
   isNavigatingForwards = false
@@ -135,6 +154,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   selection: VerseSelection | null = null
   /** Verses of this chapter whose poetry is quoted from somewhere else. */
   private quotationVerses = new Set<Verse["number"]>()
+  /** Where the reader has been this session, most recent last. */
+  trail: TrailEntry[] = []
   /** The verse at the top of the reading column, as the reader scrolls. */
   visibleVerse?: Verse["number"]
   private visibleVerseFrame?: number
@@ -251,6 +272,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     private snackBar: MatSnackBar,
     private seoService: SeoService,
     private studyModeService: StudyModeService,
+    private readingTrail: ReadingTrailService,
   ) {}
 
   ngOnInit(): void {
@@ -260,6 +282,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     }
 
     this.viewMode = this.preferencesService.getViewMode()
+
+    this.readingTrail.entries$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((entries) => {
+        this.trail = entries
+        this.cdr.markForCheck()
+      })
 
     this.studyModeService.available$
       .pipe(takeUntil(this.destroy$))
@@ -282,8 +311,6 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     this.autoScrollControlsPreference =
       this.preferencesService.getAutoScrollControlsVisible()
-    this.showAutoScrollControls =
-      this.viewMode === "scrolling" && this.autoScrollControlsPreference
     this.bookService.books$
       .pipe(
         takeUntil(this.destroy$),
@@ -743,6 +770,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.selectVerseNumber(verseStart)
     }
 
+    this.recordTrail(verseStart)
+
     this.preferencesService.setLastBookId(this.book.id)
     this.preferencesService.setLastChapterNumber(this.chapterNumber)
   }
@@ -813,11 +842,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   toggleAutoScrollControlsVisibility(): void {
-    this.showAutoScrollControls = !this.showAutoScrollControls
-    this.autoScrollControlsPreference = this.showAutoScrollControls
+    this.autoScrollControlsPreference = !this.autoScrollControlsPreference
     this.preferencesService.setAutoScrollControlsVisible(
-      this.showAutoScrollControls,
+      this.autoScrollControlsPreference,
     )
+    this.cdr.markForCheck()
   }
 
   onToggleViewMode(): void {
@@ -836,7 +865,6 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // If we switch to paged, we might start at page 1 (scrollLeft 0).
     if (this.viewMode === "paged") {
       this.autoScrollService.stop()
-      this.showAutoScrollControls = false
       // Reset to the first page once the paged layout has been rendered.
       afterNextRender(
         () => {
@@ -946,6 +974,27 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.studyPanelCollapsed = collapsed
     this.preferencesService.setStudyPanelCollapsed(collapsed)
     this.cdr.markForCheck()
+  }
+
+  /**
+   * Notes where the reader has arrived, so the trail can lead back. The About
+   * page is the app's own copy rather than somewhere in the text, so it is
+   * not a place the trail leads back to.
+   */
+  private recordTrail(verseStart?: Verse["number"]): void {
+    if (!this.book || this.book.id === "about") return
+
+    const urlAbrv = this.bookService.getUrlAbrv(this.book)
+    const segment = this.bookService.getChapterUrlSegment(this.chapterNumber)
+    this.readingTrail.visit({
+      key: `${this.book.id}:${this.chapterNumber}`,
+      label:
+        this.chapterNumber === 0
+          ? `${this.book.shortName} · Intro`
+          : `${this.book.shortName} ${this.chapterNumber}`,
+      link: ["/", urlAbrv, segment],
+      queryParams: verseStart ? { verseStart } : null,
+    })
   }
 
   /** Points the study panel at a verse the reader arrived on via a link. */

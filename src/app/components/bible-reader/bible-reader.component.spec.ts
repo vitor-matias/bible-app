@@ -22,6 +22,7 @@ import { BibleReaderAnimationService } from "../../services/bible-reader-animati
 import { BookService } from "../../services/book.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
+import { ReadingTrailService } from "../../services/reading-trail.service"
 import { SeoService } from "../../services/seo.service"
 import { StudyModeService } from "../../services/study-mode.service"
 import { BibleReaderComponent } from "./bible-reader.component"
@@ -698,6 +699,50 @@ describe("BibleReaderComponent", () => {
     })
   })
 
+  describe("reading trail", () => {
+    beforeEach(() => {
+      fixture.detectChanges()
+      // Booting the reader already records where it opened; each test below
+      // is about what happens next.
+      TestBed.inject(ReadingTrailService).clear()
+    })
+
+    it("records the chapter the reader lands on", () => {
+      bookServiceSpy.getUrlAbrv.and.returnValue("gn")
+      bookServiceSpy.getChapterUrlSegment.and.returnValue("1")
+
+      apiServiceSpy.getChapter.and.returnValue(
+        of({ bookId: "gen", number: 1, verses: [] } as unknown as Chapter),
+      )
+      component.getChapter(1)
+
+      expect(component.trail.map((entry) => entry.key)).toEqual(["gen:1"])
+    })
+
+    it("keeps the About page off the trail", () => {
+      component.book = { id: "about", shortName: "Sobre" } as Book
+      component.getChapter(1)
+
+      expect(component.trail).toEqual([])
+    })
+
+    it("names a book's introduction rather than numbering it", () => {
+      bookServiceSpy.getUrlAbrv.and.returnValue("gn")
+      bookServiceSpy.getChapterUrlSegment.and.returnValue("intro")
+      component.book = {
+        id: "gen",
+        shortName: "Génesis",
+        introduction: [{ type: "introParagraph", text: "x" }],
+      } as Book
+
+      component.getChapter(0)
+
+      expect(component.trail.map((entry) => entry.label)).toEqual([
+        "Génesis · Intro",
+      ])
+    })
+  })
+
   describe("study mode", () => {
     beforeEach(() => {
       fixture.detectChanges()
@@ -906,6 +951,33 @@ describe("BibleReaderComponent", () => {
       )
     })
 
+    it("offers auto-scroll while the study column scrolls", () => {
+      studyMode.activate()
+      component.toggleAutoScrollControlsVisibility()
+
+      expect(component.showAutoScrollControls).toBeTrue()
+    })
+
+    it("withdraws auto-scroll once the study column pages instead", () => {
+      studyMode.activate()
+      component.toggleAutoScrollControlsVisibility()
+
+      component.toggleStudySidebar()
+
+      expect(component.studyPaged).toBeTrue()
+      expect(component.showAutoScrollControls).toBeFalse()
+    })
+
+    it("offers auto-scroll in study mode even when the stored view mode is paged", () => {
+      component.viewMode = "paged"
+      studyMode.activate()
+      component.toggleAutoScrollControlsVisibility()
+
+      // Study mode with both columns open scrolls, whatever the reading
+      // layout's own preference says.
+      expect(component.showAutoScrollControls).toBeTrue()
+    })
+
     it("reads in one column while both side columns are open", () => {
       studyMode.activate()
 
@@ -1055,7 +1127,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("toggleAutoScrollControlsVisibility should toggle and save state", () => {
-      component.showAutoScrollControls = false
+      expect(component.showAutoScrollControls).toBeFalse()
       component.toggleAutoScrollControlsVisibility()
       expect(component.showAutoScrollControls).toBeTrue()
       expect(

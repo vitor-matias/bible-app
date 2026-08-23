@@ -14,6 +14,10 @@
        reading layout below is what every other screen gets. -->
   <div class="study-layout" [class.rail-collapsed]="studySidebarCollapsed"
     [class.panel-collapsed]="studyPanelCollapsed" [class.study-paged]="studyPaged">
+    <!-- The way back through this session's reading, above all three columns
+         because it belongs to none of them. -->
+    <study-trail class="study-trail-bar" [entries]="trail"></study-trail>
+
     <study-sidebar class="study-rail" [books]="books" [book]="book" [chapters]="chaptersWithIntro"
       [selectedChapter]="chapterNumber" [collapsed]="studySidebarCollapsed" (selectBook)="onBookSubmit($event)"
       (selectChapter)="onChapterSubmit($event)" (toggleCollapsed)="toggleStudySidebar()"></study-sidebar>
@@ -43,6 +47,14 @@
           }
         </div>
       </div>
+
+      <!-- studyScroll and bookBlock here are the template references above,
+           which are already elements — unlike the reading layout's
+           drawerContent, which is a ViewChild. -->
+      @if (showAutoScrollControls && studyScroll && bookBlock) {
+      <app-auto-scroll-controls [scrollElement]="studyScroll" [lineHeightElement]="bookBlock">
+      </app-auto-scroll-controls>
+      }
 
       @if (studyPaged && chapter) {
       <!-- Page controls, not chapter links: in paged mode the directive turns

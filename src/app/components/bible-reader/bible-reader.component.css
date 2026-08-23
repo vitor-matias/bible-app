@@ -385,8 +385,10 @@ h6 {
     var(--study-rail-width)
     minmax(0, 1fr)
     var(--study-panel-width);
-  /* Second row is the copyright notice, which spans the three columns. */
-  grid-template-rows: minmax(0, 1fr) auto;
+  /* The trail bar and the copyright notice bracket the three columns, each
+     spanning all of them. Both size to their content, so the columns take
+     whatever is left rather than the layout doing height arithmetic. */
+  grid-template-rows: auto minmax(0, 1fr) auto;
   height: calc(100vh - 56px - env(safe-area-inset-top));
   height: calc(100dvh - 56px - env(safe-area-inset-top));
   overflow: hidden;
@@ -491,11 +493,19 @@ h6 {
   right: 4px;
 }
 
+.study-trail-bar {
+  grid-column: 1 / -1;
+  min-width: 0;
+  background-color: var(--study-surface);
+  border-bottom: 1px solid var(--study-rule);
+}
+
 /* One line under the whole layout, not under the reading column: it is the
    edition's notice, and the columns above scroll independently of it. */
 .study-footer {
   grid-column: 1 / -1;
   padding: 10px 24px;
+  text-align: center;
   border-top: 1px solid var(--study-rule);
   background-color: var(--study-surface);
   font-family: "PT Serif", serif;

@@ -1,0 +1,17 @@
+@if (hasTrail) {
+<nav class="study-trail" aria-label="Por onde passou">
+  <ol class="trail-list">
+    @for (entry of entries; track entry.key; let last = $last) {
+    <li class="trail-item">
+      @if (last) {
+      <!-- Where the reader is: named, but not a link back to itself. -->
+      <span class="trail-current" aria-current="page">{{ entry.label }}</span>
+      } @else {
+      <a class="trail-link" [routerLink]="entry.link" [queryParams]="entry.queryParams ?? null">{{ entry.label }}</a>
+      <span class="trail-separator" aria-hidden="true">›</span>
+      }
+    </li>
+    }
+  </ol>
+</nav>
+}
