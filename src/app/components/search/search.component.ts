@@ -126,11 +126,18 @@ export class SearchComponent {
   private async loadMoreResults() {
     if (this.isLoading || this.searchResults.length >= this.totalResults) return
 
+    // The same guard the submit path uses, for the same reason: a page of
+    // results for the query being scrolled must not append itself to whatever
+    // query replaced it while the request was in flight.
+    const generation = this.searchGeneration
+    const isStale = () => generation !== this.searchGeneration
+
     this.isLoading = true
     try {
       const results = await firstValueFrom(
         this.apiService.search(this.searchTerm, this.currentPage + 1),
       )
+      if (isStale()) return
       this.searchResults.push(
         ...results.verses.map((v) => this.toDisplayVerse(v)),
       )
@@ -138,10 +145,15 @@ export class SearchComponent {
       this.currentPage++
       this.attachObserverToSentinel() // Re-attach observer after loading more results
     } catch (error) {
+      if (isStale()) return
       console.error("Error loading more results:", error)
     } finally {
-      this.isLoading = false
-      this.cdr.detectChanges()
+      // `return` inside the try still runs this, so a superseded page would
+      // otherwise clear the loading state of the search that replaced it.
+      if (!isStale()) {
+        this.isLoading = false
+        this.cdr.detectChanges()
+      }
     }
   }
 

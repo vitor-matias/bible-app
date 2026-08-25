@@ -2,6 +2,42 @@ import { pickUsableStorage, safeLocalStorage } from "./web-storage"
 
 describe("web-storage", () => {
   describe("pickUsableStorage", () => {
+    it("takes the probe back out when the read-back throws", () => {
+      const removed: string[] = []
+      const written: string[] = []
+      const candidate = {
+        setItem: (key: string) => {
+          written.push(key)
+        },
+        getItem: () => {
+          throw new Error("read blocked mid-probe")
+        },
+        removeItem: (key: string) => {
+          removed.push(key)
+        },
+      } as unknown as Storage
+
+      expect(pickUsableStorage(candidate)).toBeNull()
+      // The probe key is unique per call, so leaving it behind would pile up
+      // junk in a storage that fails partway through.
+      expect(removed).toEqual(written)
+      expect(removed.length).toBe(1)
+    })
+
+    it("still reports unusable when the cleanup itself throws", () => {
+      const candidate = {
+        setItem: () => {},
+        getItem: () => {
+          throw new Error("read blocked mid-probe")
+        },
+        removeItem: () => {
+          throw new Error("cleanup blocked too")
+        },
+      } as unknown as Storage
+
+      expect(pickUsableStorage(candidate)).toBeNull()
+    })
+
     it("returns null for a missing candidate", () => {
       expect(pickUsableStorage(undefined)).toBeNull()
     })

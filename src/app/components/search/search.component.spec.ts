@@ -231,6 +231,80 @@ describe("SearchComponent", () => {
     expect(router.navigate).toHaveBeenCalledWith(["/", "luk", 1], {})
   })
 
+  it("should discard a page that arrives after a newer search took over", fakeAsync(() => {
+    // Pagination for query A is in flight when query B is submitted. A's page
+    // must not append itself to B's results, nor clear B's loading state.
+    component.searchTerm = "beginning"
+    component.currentPage = 1
+    component.totalResults = 2
+    component.searchResults = [
+      {
+        bookId: "gen",
+        chapterNumber: 1,
+        number: 1,
+        verseLabel: "1",
+        text: [{ type: "text", text: "First verse" }],
+      } as Verse,
+    ]
+
+    const pendingPage$ = new Subject<VersePage>()
+    apiService.search.and.returnValue(pendingPage$.asObservable())
+
+    component.sentinel = {
+      nativeElement: document.createElement("div"),
+    } as SearchComponent["sentinel"]
+    component.ngAfterViewInit()
+
+    const callback = observerCallback
+    if (!callback) {
+      throw new Error("IntersectionObserver callback was not registered")
+    }
+    callback(
+      [{ isIntersecting: true } as IntersectionObserverEntry],
+      {} as IntersectionObserver,
+    )
+    flushMicrotasks()
+    expect(apiService.search).toHaveBeenCalledWith("beginning", 2)
+
+    // A newer search takes over while A's page is still pending.
+    const newerSearch$ = new Subject<VersePage>()
+    apiService.search.and.returnValue(newerSearch$.asObservable())
+    referenceService.extract.and.returnValue([])
+    void component.onSearchSubmit("light")
+    flushMicrotasks()
+    const resultsUnderNewSearch = component.searchResults.length
+
+    // Now A's page finally arrives.
+    pendingPage$.next({
+      verses: [
+        {
+          bookId: "gen",
+          chapterNumber: 1,
+          number: 2,
+          verseLabel: "2",
+          text: [{ type: "text", text: "Stale second verse" }],
+        } as Verse,
+      ],
+      total: 2,
+      currentPage: 2,
+      totalPages: 1,
+    })
+    pendingPage$.complete()
+    flushMicrotasks()
+
+    expect(component.searchResults.length).toBe(resultsUnderNewSearch)
+    expect(
+      component.searchResults.some((verse) =>
+        verse.text.some((part) => part.text === "Stale second verse"),
+      ),
+    ).toBeFalse()
+    // The newer search is still loading; the stale page must not say otherwise.
+    expect(component.isLoading).toBeTrue()
+
+    newerSearch$.complete()
+    flushMicrotasks()
+  }))
+
   it("should keep loadMoreResults locked until the next page arrives", fakeAsync(() => {
     const nextVerse = {
       bookId: "gen",

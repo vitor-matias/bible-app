@@ -29,9 +29,16 @@ export function pickUsableStorage(
     probeCounter += 1
     const probeKey = `__bibleAppStorageProbe__${probeCounter}`
     candidate.setItem(probeKey, probeKey)
-    const readBack = candidate.getItem(probeKey)
-    candidate.removeItem(probeKey)
-    return readBack === probeKey ? candidate : null
+    try {
+      const readBack = candidate.getItem(probeKey)
+      return readBack === probeKey ? candidate : null
+    } finally {
+      // Once the probe is written it has to come back out, including when the
+      // read-back throws. Probe keys are unique per call, so leaving them
+      // behind would accumulate junk in a storage that fails mid-probe. A
+      // throw from here lands in the outer catch, like any other failure.
+      candidate.removeItem(probeKey)
+    }
   } catch {
     // Some privacy modes throw on any Storage access.
     return null
