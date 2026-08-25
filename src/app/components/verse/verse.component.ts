@@ -375,11 +375,30 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     })
   }
 
+  /**
+   * An element that carries no words and no structure. The USFM the edition
+   * is built from leaves empty text and poetry elements behind, and each one
+   * rendered a stray blank line in the middle of a verse — visible in the
+   * psalms, where a run of poetry could be split in two by a gap that is in
+   * no printed edition.
+   *
+   * A paragraph element is never blank in this sense, however empty its text:
+   * the element IS the paragraph break, and dropping the empty ones ran the
+   * new paragraph on into the end of the previous one.
+   */
+  private static isBlank(text: TextType): boolean {
+    return (
+      (text.type === "quote" || text.type === "text") && text.text.trim() === ""
+    )
+  }
+
   private computeDisplayGroups(): DisplayGroup[] {
     const groups: DisplayGroup[] = []
     let currentGroup: DisplayGroup | null = null
 
     this.data.text.forEach((text, originalIndex) => {
+      if (VerseComponent.isBlank(text)) return
+
       // Elements that should be considered continuation if they follow a quote
       const isContinuationType =
         text.type === "text" ||

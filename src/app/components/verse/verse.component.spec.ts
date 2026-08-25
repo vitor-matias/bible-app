@@ -880,6 +880,134 @@ describe("VerseComponent", () => {
     })
   })
 
+  describe("blank elements in the source text", () => {
+    /**
+     * A blank line is two forced breaks with nothing rendered between them.
+     * Counting <br> elements would just track the markup; this tracks what
+     * the reader sees.
+     */
+    function hasBlankLine(host: HTMLElement): boolean {
+      const breaks = Array.from(host.querySelectorAll("br"))
+      return breaks.some((br) => {
+        let node = br.nextSibling
+        while (node) {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const element = node as HTMLElement
+            if (element.tagName === "BR") return true
+            if (element.textContent?.trim()) return false
+          } else if (node.nodeType === Node.TEXT_NODE) {
+            if (node.textContent?.trim()) return false
+          }
+          node = node.nextSibling
+        }
+        return false
+      })
+    }
+
+    /**
+     * Psalm 1,2 as the API serves it: a run of prose inside a poetry group,
+     * with an empty text element the USFM left behind, then the next line.
+     */
+    function psalmVerse(): Verse {
+      return makeVerse({
+        number: 2,
+        text: [
+          { type: "quote", text: "\u200b", normalizedText: "" },
+          {
+            type: "text",
+            text: "antes põe o seu enlevo na lei do ",
+            normalizedText: "",
+          },
+          { type: "text", text: "Senhor", normalizedText: "", allCaps: true },
+          { type: "text", text: "", normalizedText: "" },
+          {
+            type: "quote",
+            text: "e nela medita dia e noite.",
+            normalizedText: "",
+          },
+        ] as TextType[],
+      })
+    }
+
+    it("drops an empty element instead of printing a blank line for it", () => {
+      setData(component, psalmVerse())
+
+      const rendered = component.displayGroups.flatMap((group) =>
+        group.elements.map((element) => element.originalIndex),
+      )
+      expect(rendered).not.toContain(3)
+      expect(rendered).toContain(4)
+    })
+
+    it("keeps a prose run on one line, breaking only before the poetry", () => {
+      setData(component, psalmVerse())
+      fixture.detectChanges()
+
+      // Every quote group brings its own break, so the prose needs none of
+      // its own: "antes põe o seu enlevo na lei do" and "Senhor" stay on one
+      // line, with nothing breaking between them.
+      const wrapper = fixture.nativeElement.querySelector(".quoteLineWrapper")
+      expect(wrapper.querySelectorAll("br").length).toBe(0)
+      expect(hasBlankLine(fixture.nativeElement)).toBeFalse()
+    })
+
+    it("renders that verse as a single line of prose", () => {
+      setData(component, psalmVerse())
+      fixture.detectChanges()
+
+      const wrapper = fixture.nativeElement.querySelector(".quoteLineWrapper")
+      expect(wrapper.textContent.replace(/\s+/g, " ")).toContain(
+        "antes põe o seu enlevo na lei do Senhor",
+      )
+    })
+
+    it("keeps an empty paragraph element, which is the paragraph break", () => {
+      // Psalm 1,3 ends on one: its text is just a newline, but dropping it
+      // ran the next paragraph on into the end of this verse.
+      setData(
+        component,
+        makeVerse({
+          number: 3,
+          text: [
+            {
+              type: "quote",
+              text: "em tudo o que faz é bem sucedido.",
+              normalizedText: "",
+            },
+            { type: "paragraph", text: "\n", normalizedText: "" },
+          ] as TextType[],
+        }),
+      )
+
+      const rendered = component.displayGroups.flatMap((group) =>
+        group.elements.map((element) => element.originalIndex),
+      )
+      expect(rendered).toContain(1)
+    })
+
+    it("still starts poetry on its own line after prose", () => {
+      setData(
+        component,
+        makeVerse({
+          number: 1,
+          text: [
+            { type: "text", text: "Jesus disse-lhe:", normalizedText: "" },
+            {
+              type: "quote",
+              text: "Amarás ao Senhor,",
+              normalizedText: "",
+            },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+
+      // The quote group brings the break itself, so the poetry starts on a
+      // new line with no blank one in front of it.
+      expect(hasBlankLine(fixture.nativeElement)).toBeFalse()
+    })
+  })
+
   describe("nextIsQuoteStates", () => {
     it("precomputes the flag the template used to call per change detection", () => {
       component.data = {
