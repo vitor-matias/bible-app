@@ -23,12 +23,11 @@
   @case ('references') {
   <div class="tab-body" role="tabpanel" id="study-tabpanel-references" aria-labelledby="study-tab-references">
     @if (referenceGroups.length) {
-    <p class="panel-caption">Passagens em paralelo</p>
     @for (group of referenceGroups; track group.verseNumber) {
     <!-- data-verse is how selecting a verse finds its entries to scroll to. -->
     <section class="reference-group" [class.current]="isCurrentGroup(group)"
       [attr.data-verse]="group.verseNumber">
-      <h3 class="group-label">Em paralelo com {{ group.label }}</h3>
+      <h3 class="group-label">Referências Cruzadas: {{ group.label }}</h3>
       <ul class="reference-list">
         @for (reference of group.entries; track reference.key) {
         <li class="reference">
@@ -63,7 +62,7 @@
     </section>
     }
     } @else {
-    <p class="panel-empty">Este capítulo não tem passagens em paralelo indicadas.</p>
+    <p class="panel-empty">Este capítulo não tem referências cruzadas.</p>
     }
 
     <!-- The note box lives here as well as in its own tab: a thought about a
