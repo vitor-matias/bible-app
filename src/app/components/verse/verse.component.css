@@ -195,26 +195,10 @@ h3:not(:first-child) {
  * what actually marks the selection: it follows the text line by line instead
  * of drawing one block across the column.
  */
-:host(.verse-selected) .verseRun,
-:host(.verse-selected) .verseNumber,
-:host(.verse-selected) .footnoteIndicator,
-:host(.verse-selected) .quoteVerseNumber {
+:host(.verse-selected) .verseRun:not(.verseGap) {
   background-color: var(--study-selection-color);
-}
-
-:host(.verse-selected) .verseRun {
   padding-block: 0.1em;
   box-shadow: inset 0 -1px 0 var(--study-selection-border);
-}
-
-/* Same reasoning as the deep-link highlight: the number is set at 65% and
-   hangs from the top of the line, so it needs its own padding to reach the
-   text's band, and that enlarged border box has to leave hit testing — except
-   in study mode it IS the keyboard handle for selecting the verse, so only
-   the non-interactive case gives up its pointer events. */
-:host(.verse-selected) .verseNumber:not([role="button"]) {
-  padding-block: 0.05em 1.45em;
-  pointer-events: none;
 }
 
 .verseNumber[role="button"] {
@@ -242,14 +226,8 @@ h3:not(:first-child) {
  * marked verses stays a page of text, and so a marked verse that is also
  * selected still reads as selected.
  */
-:host(.verse-marked) .verseRun,
-:host(.verse-marked) .verseNumber,
-:host(.verse-marked) .footnoteIndicator,
-:host(.verse-marked) .quoteVerseNumber {
+:host(.verse-marked) .verseRun:not(.verseGap) {
   background-color: var(--verse-mark-color);
-}
-
-:host(.verse-marked) .verseRun {
   padding-block: 0.1em;
 }
 
@@ -267,4 +245,21 @@ h3:not(:first-child) {
 
 :host([data-highlight="pink"]) {
   --verse-mark-color: rgba(214, 112, 152, 0.32);
+}
+
+/*
+ * Verse numbers and footnote markers are apparatus, not words.
+ *
+ * They are left out of a selection so dragging across a passage yields the
+ * text a reader means to quote, with no numbers scattered through it, and out
+ * of the reader's own marks so a highlight covers the words rather than
+ * bracketing them with a tinted number. The spaces between verses stay
+ * selectable — they are what keeps the words apart when copied — but are not
+ * painted, so a mark ends with the sentence rather than trailing past it.
+ */
+.verseNumber,
+.footnoteIndicator,
+.quoteVerseNumber {
+  -webkit-user-select: none;
+  user-select: none;
 }

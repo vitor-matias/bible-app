@@ -98,7 +98,7 @@ export class SelectionActionsComponent {
 
     const range = selection.getRangeAt(0)
     const verses = SelectionActionsComponent.versesIn(range)
-    const text = selection.toString().trim()
+    const text = SelectionActionsComponent.textFrom(range)
     if (!verses.length || !text) {
       this.hide()
       return
@@ -123,6 +123,39 @@ export class SelectionActionsComponent {
     this.selectedText = ""
     this.copied = false
     this.cdr.detectChanges()
+  }
+
+  /**
+   * The words in a range, as a reader would quote them.
+   *
+   * Built from the range's own contents rather than from
+   * `Selection.toString()`, which carries the verse numbers along: they are
+   * marked unselectable, but that only governs what a drag can take, not what
+   * a range reports. Line breaks in poetry are kept — a psalm quoted as one
+   * long line is not the psalm — while the spaces that separate verses on
+   * screen are collapsed, so nothing trails off the end.
+   */
+  private static textFrom(range: Range): string {
+    const fragment = range.cloneContents()
+    for (const apparatus of Array.from(
+      fragment.querySelectorAll(
+        ".verseNumber, .footnoteIndicator, .quoteVerseNumber",
+      ),
+    )) {
+      apparatus.remove()
+    }
+
+    const read = (node: Node): string => {
+      if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? ""
+      if (node.nodeName === "BR") return "\n"
+      return Array.from(node.childNodes).map(read).join("")
+    }
+
+    return read(fragment)
+      .replace(/[^\S\n]+/g, " ")
+      .replace(/ ?\n ?/g, "\n")
+      .replace(/\n{2,}/g, "\n")
+      .trim()
   }
 
   /** The verse numbers a range touches, read off the elements it crosses. */

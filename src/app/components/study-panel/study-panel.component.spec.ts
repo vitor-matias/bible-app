@@ -637,6 +637,43 @@ describe("StudyPanelComponent", () => {
     })
   })
 
+  describe("following the reader without lurching", () => {
+    // A 400px-tall panel, entries 60px tall, 16px margin.
+    const view = 400
+    const height = 60
+
+    it("stays put when the entry is already comfortably in view", () => {
+      expect(
+        StudyPanelComponent.scrollTargetFor(0, view, 100, height),
+      ).toBeNull()
+    })
+
+    it("moves the least it can when the entry is just below the fold", () => {
+      // Bottom at 420 in a 400 view: lift it by 36 (20 past the edge, plus
+      // the margin), not all the way to the top.
+      expect(StudyPanelComponent.scrollTargetFor(0, view, 360, height)).toBe(36)
+    })
+
+    it("brings an entry above the fold back to the top edge", () => {
+      expect(StudyPanelComponent.scrollTargetFor(500, view, 300, height)).toBe(
+        284,
+      )
+    })
+
+    it("top-aligns an entry too tall to fit", () => {
+      expect(StudyPanelComponent.scrollTargetFor(0, view, 500, 800)).toBe(484)
+    })
+
+    it("never scrolls above the top of the panel", () => {
+      expect(StudyPanelComponent.scrollTargetFor(50, view, 4, height)).toBe(0)
+    })
+
+    it("counts the margin as out of view, so nothing sits on the edge", () => {
+      // Flush with the top edge: technically visible, but hard against it.
+      expect(StudyPanelComponent.scrollTargetFor(0, view, 4, height)).toBe(0)
+    })
+  })
+
   describe("marking and copying a verse", () => {
     function selectVerse(): Verse {
       const target = verse(37, [plain("Amarás ao Senhor")])

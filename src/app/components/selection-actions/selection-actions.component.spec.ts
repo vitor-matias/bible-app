@@ -129,6 +129,41 @@ describe("SelectionActionsComponent", () => {
     expect(component.position).toBeNull()
   })
 
+  it("copies the words without the verse numbers", async () => {
+    // A verse as the reader renders it: number, marker, then the words.
+    // Built inside the block the fixture already put on the page, since the
+    // component reads the first .bookBlock it finds.
+    host.innerHTML = ""
+    const verse = document.createElement("verse")
+    verse.id = "37"
+    verse.innerHTML =
+      '<span class="verseNumber">37</span>' +
+      '<span class="footnoteIndicator">*</span>' +
+      '<span class="verseRun">Jesus disse-lhe:</span>' +
+      "<br>" +
+      '<span class="verseRun">Amarás ao Senhor,</span>' +
+      '<span class="verseRun verseGap"> </span>'
+    host.appendChild(verse)
+
+    const written: string[] = []
+    spyOn(navigator.clipboard, "writeText").and.callFake((text: string) => {
+      written.push(text)
+      return Promise.resolve()
+    })
+
+    const range = document.createRange()
+    range.selectNodeContents(verse)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+    component["sync"]()
+
+    await component.copy()
+
+    expect(written[0]).toBe(
+      "Jesus disse-lhe:\nAmarás ao Senhor, (Mateus 22,37)",
+    )
+  })
+
   it("copies the selected words with their reference", async () => {
     const written: string[] = []
     spyOn(navigator.clipboard, "writeText").and.callFake((text: string) => {

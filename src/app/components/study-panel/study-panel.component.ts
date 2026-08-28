@@ -97,6 +97,17 @@ const NOTE_SEARCH_DEBOUNCE_MS = 200
 /** How long the copy button confirms itself before going back to normal. */
 const COPIED_FEEDBACK_MS = 1600
 
+/** Breathing room kept between a followed entry and the panel's edges. */
+const SCROLL_MARGIN = 16
+
+/**
+ * How the follow-along scroll is paced. Time per pixel travelled, bounded at
+ * both ends: short moves must not crawl, long ones must not blur past.
+ */
+const SCROLL_MS_PER_PIXEL = 0.7
+const MIN_SCROLL_MS = 260
+const MAX_SCROLL_MS = 700
+
 /**
  * Study mode's right-hand apparatus: what the edition says about the chapter
  * in front of the reader.
@@ -171,6 +182,7 @@ export class StudyPanelComponent implements OnChanges {
 
   /** The entry the panel last scrolled to, so it does not scroll there again. */
   private scrolledAnchor?: Verse["number"]
+  private scrollFrame?: number
   private referenceRequests: Subscription[] = []
   private notesSubscription?: Subscription
   /**
@@ -197,6 +209,7 @@ export class StudyPanelComponent implements OnChanges {
     this.destroyRef.onDestroy(() => {
       this.notesSubscription?.unsubscribe()
       this.noteSearchSubscription?.unsubscribe()
+      if (this.scrollFrame !== undefined) cancelAnimationFrame(this.scrollFrame)
       if (this.copiedTimer) clearTimeout(this.copiedTimer)
       this.cancelReferenceRequests()
     })
@@ -533,16 +546,91 @@ export class StudyPanelComponent implements OnChanges {
       )
       const body = element?.closest(".tab-body") as HTMLElement | null
       if (!element || !body) return
-      body.scrollTo({
-        top: element.offsetTop - body.offsetTop - 12,
-        // Glides, rather than teleporting between passages. There is nothing
-        // to keep up with: the target only moves when the reader crosses from
-        // one passage into the next, not with every verse.
-        behavior: StudyPanelComponent.prefersReducedMotion()
-          ? "auto"
-          : "smooth",
-      })
+
+      const target = StudyPanelComponent.scrollTargetFor(
+        body.scrollTop,
+        body.clientHeight,
+        element.offsetTop - body.offsetTop,
+        element.offsetHeight,
+      )
+      // Already on screen: the reader can see the passage's references, so
+      // moving them would be motion for its own sake.
+      if (target === null) return
+      this.glideTo(body, target)
     })
+  }
+
+  /**
+   * Where the panel should scroll to bring an entry into view, or null when
+   * it is already there.
+   *
+   * Only moves when it has to, and only as far as it has to. Re-anchoring
+   * every entry to the top meant the panel lurched at each passage boundary
+   * even when the next passage was already a line below the last.
+   */
+  static scrollTargetFor(
+    viewTop: number,
+    viewHeight: number,
+    elementTop: number,
+    elementHeight: number,
+    margin = SCROLL_MARGIN,
+  ): number | null {
+    const viewBottom = viewTop + viewHeight
+    const elementBottom = elementTop + elementHeight
+
+    if (
+      elementTop >= viewTop + margin &&
+      elementBottom <= viewBottom - margin
+    ) {
+      return null
+    }
+    // Above the fold, or taller than the space left: bring its top to just
+    // inside the top edge. Below it: lift it just inside the bottom edge, so
+    // the panel travels the shortest distance that shows the entry.
+    if (
+      elementTop < viewTop + margin ||
+      elementHeight > viewHeight - margin * 2
+    ) {
+      return Math.max(0, elementTop - margin)
+    }
+    return elementBottom - viewHeight + margin
+  }
+
+  /**
+   * Scrolls the panel by hand rather than through `behavior: "smooth"`, whose
+   * pace the browser chooses: a long jump between distant passages arrived
+   * too fast to follow. Here the duration grows with the distance, within
+   * bounds, so a short move stays brisk and a long one stays readable.
+   */
+  private glideTo(body: HTMLElement, target: number): void {
+    if (this.scrollFrame !== undefined) cancelAnimationFrame(this.scrollFrame)
+
+    const from = body.scrollTop
+    const distance = target - from
+    if (Math.abs(distance) < 2) return
+    if (StudyPanelComponent.prefersReducedMotion()) {
+      body.scrollTop = target
+      return
+    }
+
+    const duration = Math.min(
+      MAX_SCROLL_MS,
+      Math.max(MIN_SCROLL_MS, Math.abs(distance) * SCROLL_MS_PER_PIXEL),
+    )
+    const started = performance.now()
+    const step = (now: number) => {
+      const elapsed = Math.min(1, (now - started) / duration)
+      // Ease out: quick to set off, unhurried as it settles, which is what
+      // reads as following the reader rather than racing them.
+      const eased = 1 - (1 - elapsed) ** 3
+      body.scrollTop = from + distance * eased
+      if (elapsed < 1) {
+        this.scrollFrame = requestAnimationFrame(step)
+      } else {
+        this.scrollFrame = undefined
+      }
+    }
+    this.scrollFrame = requestAnimationFrame(step)
   }
 
   /** Readers who ask for less motion get the jump, not the glide. */
