@@ -232,3 +232,39 @@ h3:not(:first-child) {
 :host(.verse-quotation) .quoteLineWrapper {
   font-style: italic;
 }
+
+/*
+ * A reader's own mark on the text.
+ *
+ * Painted on the runs, like the deep-link highlight and the study selection,
+ * for the same reason: the host is an inline box that also covers the empty
+ * line fragments between verses. Kept lighter than the selection so a page of
+ * marked verses stays a page of text, and so a marked verse that is also
+ * selected still reads as selected.
+ */
+:host(.verse-marked) .verseRun,
+:host(.verse-marked) .verseNumber,
+:host(.verse-marked) .footnoteIndicator,
+:host(.verse-marked) .quoteVerseNumber {
+  background-color: var(--verse-mark-color);
+}
+
+:host(.verse-marked) .verseRun {
+  padding-block: 0.1em;
+}
+
+:host([data-highlight="yellow"]) {
+  --verse-mark-color: rgba(238, 191, 46, 0.34);
+}
+
+:host([data-highlight="green"]) {
+  --verse-mark-color: rgba(104, 173, 96, 0.32);
+}
+
+:host([data-highlight="blue"]) {
+  --verse-mark-color: rgba(94, 152, 204, 0.32);
+}
+
+:host([data-highlight="pink"]) {
+  --verse-mark-color: rgba(214, 112, 152, 0.32);
+}

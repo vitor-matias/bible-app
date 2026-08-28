@@ -53,6 +53,35 @@ export class NotesService {
     )
   }
 
+  /**
+   * Notes whose text matches, newest first, across every book. The reader's
+   * own notes become a commentary they wrote, and a commentary you cannot
+   * look things up in is a commentary you do not consult.
+   */
+  search(query: string): Observable<VerseNote[]> {
+    const needle = NotesService.normalize(query)
+    return this.notes$.pipe(
+      map((notes) =>
+        needle
+          ? notes
+              .filter((note) =>
+                NotesService.normalize(note.text).includes(needle),
+              )
+              .sort((a, b) => b.updatedAt - a.updatedAt)
+          : [],
+      ),
+    )
+  }
+
+  /** Accent- and case-insensitive, so "coracao" finds "coração". */
+  private static normalize(value: string): string {
+    return value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLocaleLowerCase()
+  }
+
   /** Every note in one chapter, in verse order. */
   notesForChapter(
     bookId: Book["id"],

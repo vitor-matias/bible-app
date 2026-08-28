@@ -330,3 +330,120 @@
 :host-context(.dark-theme) .collapse-toggle:focus-visible {
   outline-color: antiquewhite;
 }
+
+/* A quiet action, not a button competing with the text beside it. */
+.verse-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 20px;
+  padding: 6px 10px;
+  border: 1px solid var(--study-rule);
+  border-radius: 6px;
+  background: none;
+  color: var(--study-muted);
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.verse-action mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+@media (hover: hover) {
+  .verse-action:hover {
+    color: var(--text-color);
+    background-color: color-mix(in srgb, var(--cap-brown) 10%, transparent);
+  }
+}
+
+.verse-action:focus-visible {
+  outline: 2px solid var(--cap-brown);
+  outline-offset: 2px;
+}
+
+.note-search {
+  margin-bottom: 4px;
+}
+
+.note-search-input {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--study-rule);
+  border-radius: 6px;
+  background: none;
+  color: var(--text-color);
+  font-family: "PT Serif", serif;
+  font-size: 15px;
+}
+
+.note-search-input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--cap-brown) 40%, transparent);
+}
+
+/* A result names the verse it belongs to, and opens it. */
+a.note-ref {
+  text-decoration: none;
+}
+
+a.note-ref:hover,
+a.note-ref:focus-visible {
+  text-decoration: underline;
+}
+
+:host-context(.dark-theme) .verse-action:focus-visible {
+  outline-color: antiquewhite;
+}
+
+:host-context(.dark-theme) .note-search-input:focus {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* The colours the reader can mark a verse with. Swatches rather than a menu:
+   there are four, and the choice is the colour itself. */
+.mark-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.mark-swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--study-rule);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.mark-swatch[data-color="yellow"] { background-color: rgba(238, 191, 46, 0.7); }
+.mark-swatch[data-color="green"] { background-color: rgba(104, 173, 96, 0.7); }
+.mark-swatch[data-color="blue"] { background-color: rgba(94, 152, 204, 0.7); }
+.mark-swatch[data-color="pink"] { background-color: rgba(214, 112, 152, 0.7); }
+
+/* The one already on the verse, so pressing it again to remove it reads as
+   undoing rather than as picking the same colour twice. */
+.mark-swatch.chosen {
+  border-color: var(--text-color);
+  border-width: 2px;
+}
+
+.mark-swatch:focus-visible {
+  outline: 2px solid var(--cap-brown);
+  outline-offset: 2px;
+}
+
+:host-context(.dark-theme) .mark-swatch:focus-visible {
+  outline-color: antiquewhite;
+}
+
+.incoming {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--study-rule);
+}

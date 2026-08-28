@@ -65,6 +65,56 @@
     <p class="panel-empty">Este capítulo não tem referências cruzadas.</p>
     }
 
+    <!-- The other direction: what cites this verse. The edition prints only
+         the outgoing side, so this is built from the offline text. -->
+    @if (selectedVerse) {
+    <section class="incoming">
+      <h3 class="group-label">Citado em</h3>
+      @switch (incomingState) {
+      @case ('ready') {
+      @if (incoming.length) {
+      <ul class="reference-list">
+        @for (entry of incoming; track entry.key) {
+        <li class="reference">
+          <a class="reference-label" [routerLink]="entry.link" [queryParams]="entry.queryParams">{{ entry.label }}</a>
+        </li>
+        }
+      </ul>
+      } @else {
+      <p class="panel-empty small">Nenhuma passagem cita este versículo.</p>
+      }
+      }
+      @case ('building') {
+      <p class="panel-empty small">A procurar…</p>
+      }
+      @case ('unavailable') {
+      <p class="panel-empty small">Precisa do texto offline. Instale a app para o descarregar.</p>
+      }
+      @default {
+      <button type="button" class="verse-action" (click)="showIncoming()">
+        <mat-icon>search</mat-icon>
+        Ver quem cita este versículo
+      </button>
+      }
+      }
+    </section>
+    }
+
+    @if (selectedVerse) {
+    <div class="mark-row" role="group" aria-label="Marcar o versículo">
+      @for (color of highlightColors; track color) {
+      <button type="button" class="mark-swatch" [attr.data-color]="color"
+        [class.chosen]="selectedHighlight === color" [attr.aria-pressed]="selectedHighlight === color"
+        [attr.aria-label]="'Marcar ' + selectedVerseLabel" (click)="toggleHighlight(color)"></button>
+      }
+    </div>
+
+    <button type="button" class="verse-action" (click)="copySelectedVerse()">
+      <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
+      {{ copied ? 'Copiado' : 'Copiar ' + selectedVerseLabel }}
+    </button>
+    }
+
     <!-- The note box lives here as well as in its own tab: a thought about a
          verse arrives while reading its parallels, not after switching tabs. -->
     @if (selectedVerse) {
@@ -115,7 +165,32 @@
     <p class="panel-empty">Escolha um versículo para escrever uma nota.</p>
     }
 
-    @if (chapterNotes.length) {
+    <div class="note-search">
+      <label class="note-label" for="study-note-search">Procurar nas minhas notas</label>
+      <input id="study-note-search" class="note-search-input" type="search"
+        placeholder="Escrever para procurar…" [value]="noteQuery"
+        (input)="onNoteQuery($any($event.target).value)" />
+    </div>
+
+    @if (noteQuery.trim()) {
+    @if (noteMatches.length) {
+    <p class="panel-caption notes-caption">
+      {{ noteMatches.length === 1 ? '1 nota encontrada' : noteMatches.length + ' notas encontradas' }}
+    </p>
+    <ul class="note-list">
+      @for (note of noteMatches; track note.bookId + ':' + note.chapter + ':' + note.verse) {
+      <li class="saved-note">
+        <a class="note-ref" [routerLink]="noteLink(note)" [queryParams]="noteQueryParams(note)">
+          {{ noteReference(note) }}
+        </a>
+        <span class="note-body">{{ note.text }}</span>
+      </li>
+      }
+    </ul>
+    } @else {
+    <p class="panel-empty small">Nenhuma nota corresponde.</p>
+    }
+    } @else if (chapterNotes.length) {
     <p class="panel-caption notes-caption">Neste capítulo</p>
     <ul class="note-list">
       @for (note of chapterNotes; track note.verse) {

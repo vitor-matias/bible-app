@@ -12,7 +12,9 @@ import {
   BibleReferenceService,
 } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { HighlightService } from "../../services/highlight.service"
 import { NotesService } from "../../services/notes.service"
+import { ReverseReferencesService } from "../../services/reverse-references.service"
 import { StudyPanelComponent } from "./study-panel.component"
 
 const BOOK: Book = {
@@ -94,6 +96,7 @@ describe("StudyPanelComponent", () => {
 
   beforeEach(async () => {
     localStorage.removeItem("verseNotes")
+    localStorage.removeItem("verseHighlights")
 
     api = jasmine.createSpyObj<BibleApiService>("BibleApiService", [
       "getChapter",
@@ -134,6 +137,7 @@ describe("StudyPanelComponent", () => {
 
   afterEach(() => {
     localStorage.removeItem("verseNotes")
+    localStorage.removeItem("verseHighlights")
   })
 
   describe("references", () => {
@@ -633,6 +637,97 @@ describe("StudyPanelComponent", () => {
     })
   })
 
+  describe("marking and copying a verse", () => {
+    function selectVerse(): Verse {
+      const target = verse(37, [plain("Amarás ao Senhor")])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+      return target
+    }
+
+    it("marks the selected verse with the colour chosen", () => {
+      selectVerse()
+
+      component.toggleHighlight("green")
+
+      expect(TestBed.inject(HighlightService).colorFor("mat", 22, 37)).toBe(
+        "green",
+      )
+      expect(component.selectedHighlight).toBe("green")
+    })
+
+    it("takes the mark off when the same colour is chosen again", () => {
+      selectVerse()
+
+      component.toggleHighlight("green")
+      component.toggleHighlight("green")
+
+      expect(component.selectedHighlight).toBeUndefined()
+    })
+
+    it("copies the verse with its reference", async () => {
+      const written: string[] = []
+      spyOn(navigator.clipboard, "writeText").and.callFake((text: string) => {
+        written.push(text)
+        return Promise.resolve()
+      })
+      selectVerse()
+
+      await component.copySelectedVerse()
+
+      expect(written).toEqual(["Amarás ao Senhor (Mateus 22,37)"])
+      expect(component.copied).toBeTrue()
+    })
+
+    it("says nothing when the clipboard refuses", async () => {
+      spyOn(navigator.clipboard, "writeText").and.rejectWith(
+        new Error("denied"),
+      )
+      selectVerse()
+
+      await component.copySelectedVerse()
+
+      // The verse is still on screen to select by hand; an error thrown over
+      // the text would help nobody.
+      expect(component.copied).toBeFalse()
+    })
+  })
+
+  describe("what cites this verse", () => {
+    it("offers to look rather than indexing the corpus unasked", () => {
+      const reverse = TestBed.inject(ReverseReferencesService)
+      const build = spyOn(reverse, "ensureIndex").and.resolveTo()
+      const target = verse(37, [plain("Amarás ao Senhor")])
+
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+
+      expect(build).not.toHaveBeenCalled()
+      expect(component.incomingState).toBe("idle")
+    })
+
+    it("builds the index only when the reader asks", async () => {
+      const reverse = TestBed.inject(ReverseReferencesService)
+      const build = spyOn(reverse, "ensureIndex").and.resolveTo()
+      const target = verse(37, [plain("Amarás ao Senhor")])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+
+      await component.showIncoming()
+
+      expect(build).toHaveBeenCalled()
+    })
+  })
+
   describe("notes", () => {
     it("loads the note already written for the selected verse", () => {
       notes.saveNote("mat", 22, 39, "escrita antes")
@@ -687,6 +782,37 @@ describe("StudyPanelComponent", () => {
       setInputs({ selection: null })
 
       expect(component.noteDraft).toBe("")
+    })
+
+    it("finds a note by its words, across books", (done) => {
+      notes.saveNote("mat", 22, 39, "sobre o amor ao próximo")
+      notes.saveNote("psa", 1, 2, "a lei do Senhor")
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [] },
+      })
+
+      component.onNoteQuery("lei")
+      setTimeout(() => {
+        expect(component.noteMatches.map((note) => note.bookId)).toEqual([
+          "psa",
+        ])
+        done()
+      }, 260)
+    })
+
+    it("ignores accents and case when searching", (done) => {
+      notes.saveNote("mat", 22, 39, "sobre o coração")
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [] },
+      })
+
+      component.onNoteQuery("CORACAO")
+      setTimeout(() => {
+        expect(component.noteMatches.length).toBe(1)
+        done()
+      }, 260)
     })
 
     it("lists the chapter's other notes", () => {

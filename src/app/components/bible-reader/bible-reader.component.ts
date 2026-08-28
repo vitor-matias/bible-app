@@ -36,6 +36,10 @@ import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
+import {
+  type HighlightColor,
+  HighlightService,
+} from "../../services/highlight.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import {
@@ -156,6 +160,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private quotationVerses = new Set<Verse["number"]>()
   /** Where the reader has been this session, most recent last. */
   trail: TrailEntry[] = []
+  /** The reader's marks in this chapter, by verse number. */
+  private chapterHighlights = new Map<Verse["number"], HighlightColor>()
+  private highlightSubscription?: Subscription
   /** The verse at the top of the reading column, as the reader scrolls. */
   visibleVerse?: Verse["number"]
   private visibleVerseFrame?: number
@@ -263,6 +270,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     private seoService: SeoService,
     private studyModeService: StudyModeService,
     private readingTrail: ReadingTrailService,
+    private highlightService: HighlightService,
   ) {}
 
   ngOnInit(): void {
@@ -724,6 +732,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.chapter = chapterData
     this.chapterNumber = chapter
     this.markQuotationVerses()
+    this.watchChapterHighlights()
     // The previous chapter's verse is gone; a deep link naming one picks it up
     // again below, so the panel follows a cross-reference to its landing verse.
     this.selection = null
@@ -1081,6 +1090,27 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     })
 
     this.quotationVerses = marked
+  }
+
+  highlightFor(verse: Verse): HighlightColor | undefined {
+    return this.chapterHighlights.get(verse.number)
+  }
+
+  /**
+   * Follows the marks for the chapter on screen. Re-subscribed per chapter
+   * rather than filtering the whole set on every change detection pass, which
+   * auto-scroll runs once an animation frame.
+   */
+  private watchChapterHighlights(): void {
+    this.highlightSubscription?.unsubscribe()
+    if (!this.book) return
+    this.highlightSubscription = this.highlightService
+      .forChapter(this.book.id, this.chapterNumber)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((marks) => {
+        this.chapterHighlights = marks
+        this.cdr.markForCheck()
+      })
   }
 
   isQuotationVerse(verse: Verse): boolean {

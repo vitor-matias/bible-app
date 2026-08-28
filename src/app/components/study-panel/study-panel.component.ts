@@ -23,7 +23,17 @@ import {
   BibleReferenceService,
 } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import {
+  HIGHLIGHT_COLORS,
+  type HighlightColor,
+  HighlightService,
+} from "../../services/highlight.service"
 import { NotesService, type VerseNote } from "../../services/notes.service"
+import {
+  type IncomingReference,
+  type IndexState,
+  ReverseReferencesService,
+} from "../../services/reverse-references.service"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 
 export type PanelTab = "references" | "footnotes" | "notes"
@@ -81,6 +91,12 @@ type FootnoteEntry = {
 /** How long the note box waits after the last keystroke before saving. */
 const NOTE_SAVE_DEBOUNCE_MS = 500
 
+/** The same, for the note search — short enough to feel like it types. */
+const NOTE_SEARCH_DEBOUNCE_MS = 200
+
+/** How long the copy button confirms itself before going back to normal. */
+const COPIED_FEEDBACK_MS = 1600
+
 /**
  * Study mode's right-hand apparatus: what the edition says about the chapter
  * in front of the reader.
@@ -125,7 +141,17 @@ export class StudyPanelComponent implements OnChanges {
   referenceGroups: ReferenceGroup[] = []
   footnotes: FootnoteEntry[] = []
   chapterNotes: VerseNote[] = []
+  noteMatches: VerseNote[] = []
+  noteQuery = ""
   noteDraft = ""
+  /** Set for a moment after a copy, so the button can say it worked. */
+  copied = false
+  readonly highlightColors = HIGHLIGHT_COLORS
+  /** Passages that cite the selected verse, once the reader asks for them. */
+  incoming: IncomingReference[] = []
+  incomingState: IndexState = "idle"
+  /** The colour on the selected verse, if the reader has marked it. */
+  selectedHighlight?: HighlightColor
 
   readonly tabs: { id: PanelTab; label: string }[] = [
     { id: "references", label: "Referências" },
@@ -137,6 +163,8 @@ export class StudyPanelComponent implements OnChanges {
   private readonly api = inject(BibleApiService)
   private readonly bookService = inject(BookService)
   private readonly notesService = inject(NotesService)
+  private readonly highlights = inject(HighlightService)
+  private readonly reverseRefs = inject(ReverseReferencesService)
   private readonly cdr = inject(ChangeDetectorRef)
   private readonly destroyRef = inject(DestroyRef)
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef)
@@ -152,6 +180,9 @@ export class StudyPanelComponent implements OnChanges {
    * happened to be selected by then.
    */
   private readonly noteInput = new Subject<{ target: Verse; text: string }>()
+  private readonly noteSearch = new Subject<string>()
+  private noteSearchSubscription?: Subscription
+  private copiedTimer?: ReturnType<typeof setTimeout>
 
   constructor() {
     this.noteInput
@@ -159,8 +190,14 @@ export class StudyPanelComponent implements OnChanges {
       .subscribe(({ target, text }) => this.persistNote(target, text))
     // Registered once, not per chapter: onDestroy callbacks accumulate, and
     // the reader changes chapter far more often than it destroys the panel.
+    this.noteSearch
+      .pipe(debounceTime(NOTE_SEARCH_DEBOUNCE_MS), takeUntilDestroyed())
+      .subscribe((query) => this.runNoteSearch(query))
+
     this.destroyRef.onDestroy(() => {
       this.notesSubscription?.unsubscribe()
+      this.noteSearchSubscription?.unsubscribe()
+      if (this.copiedTimer) clearTimeout(this.copiedTimer)
       this.cancelReferenceRequests()
     })
   }
@@ -191,6 +228,8 @@ export class StudyPanelComponent implements OnChanges {
       const requested = this.selection?.panel
       if (requested) this.activeTab = requested
       this.loadNoteDraft()
+      this.loadSelectedHighlight()
+      this.loadIncoming()
       this.scrollActiveIntoView()
     }
     if (changes["visibleVerse"] && !this.selection) {
@@ -321,6 +360,122 @@ export class StudyPanelComponent implements OnChanges {
 
   isReference(part: string | BibleReference): part is BibleReference {
     return typeof part === "object"
+  }
+
+  /**
+   * Builds the reverse index and shows what cites this verse. Asked for
+   * explicitly: the answer needs the whole corpus, and a reader who has not
+   * downloaded it should not have a Bible fetched under them for a panel
+   * section they did not open.
+   */
+  async showIncoming(): Promise<void> {
+    this.incomingState = "building"
+    this.cdr.detectChanges()
+    await this.reverseRefs.ensureIndex()
+    this.incomingState = this.reverseRefs.state
+    this.loadIncoming()
+    this.cdr.detectChanges()
+  }
+
+  private loadIncoming(): void {
+    const verse = this.selectedVerse
+    this.incomingState = this.reverseRefs.state
+    this.incoming =
+      verse && this.book && this.reverseRefs.state === "ready"
+        ? this.reverseRefs.incomingFor(
+            this.book.id,
+            verse.chapterNumber,
+            verse.number,
+          )
+        : []
+  }
+
+  /** Marks the selected verse, or takes the mark off if it is the same one. */
+  toggleHighlight(color: HighlightColor): void {
+    const verse = this.selectedVerse
+    if (!verse || !this.book) return
+    this.highlights.toggle(
+      this.book.id,
+      verse.chapterNumber,
+      verse.number,
+      color,
+    )
+    this.loadSelectedHighlight()
+    this.cdr.detectChanges()
+  }
+
+  private loadSelectedHighlight(): void {
+    const verse = this.selectedVerse
+    this.selectedHighlight =
+      verse && this.book
+        ? this.highlights.colorFor(
+            this.book.id,
+            verse.chapterNumber,
+            verse.number,
+          )
+        : undefined
+  }
+
+  onNoteQuery(query: string): void {
+    this.noteQuery = query
+    this.noteSearch.next(query)
+  }
+
+  private runNoteSearch(query: string): void {
+    this.noteSearchSubscription?.unsubscribe()
+    this.noteSearchSubscription = this.notesService
+      .search(query)
+      .subscribe((matches) => {
+        this.noteMatches = matches
+        this.cdr.markForCheck()
+      })
+  }
+
+  /** Where a note's own verse lives, so a search result can be opened. */
+  noteLink(note: VerseNote): (string | number)[] {
+    const book = this.bookService.findBook(note.bookId)
+    return [
+      "/",
+      this.bookService.getUrlAbrv(book),
+      this.bookService.getChapterUrlSegment(note.chapter),
+    ]
+  }
+
+  noteQueryParams(note: VerseNote): Record<string, number> {
+    return { verseStart: note.verse }
+  }
+
+  /** "Mateus 22,37" — how a note in another book is named in the results. */
+  noteReference(note: VerseNote): string {
+    const book = this.bookService.findBook(note.bookId)
+    return `${book.shortName} ${note.chapter},${note.verse}`
+  }
+
+  /**
+   * Puts the verse on the clipboard the way it would be quoted: the words,
+   * then the reference. Study means quoting, and retyping a reference by hand
+   * is where the wrong one comes from.
+   */
+  async copySelectedVerse(): Promise<void> {
+    const verse = this.selectedVerse
+    if (!verse || !this.book) return
+
+    const text = StudyPanelComponent.plainText(verse)
+    const reference = `${this.book.shortName} ${this.selectedVerseLabel}`
+    try {
+      await navigator.clipboard.writeText(`${text} (${reference})`)
+      this.copied = true
+      this.cdr.markForCheck()
+      if (this.copiedTimer) clearTimeout(this.copiedTimer)
+      this.copiedTimer = setTimeout(() => {
+        this.copied = false
+        this.cdr.markForCheck()
+      }, COPIED_FEEDBACK_MS)
+    } catch {
+      // Clipboard permission refused, or no clipboard at all: the verse is
+      // still on screen to select by hand, so say nothing rather than throw
+      // an error message over the text.
+    }
   }
 
   private persistNote(verse: Verse, text: string): void {

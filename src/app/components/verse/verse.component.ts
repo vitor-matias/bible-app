@@ -26,6 +26,7 @@ import {
   type BibleReference,
   BibleReferenceService,
 } from "../../services/bible-reference.service"
+import type { HighlightColor } from "../../services/highlight.service"
 import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnotes-bottom-sheet.component"
 import { VerseSectionComponent } from "../verse-section/verse-section.component"
 import { getVerseQueryParams, parseReferences } from "./verse.utils"
@@ -45,6 +46,8 @@ import { getVerseQueryParams, parseReferences } from "./verse.utils"
   host: {
     "[class.verse-selected]": "selected",
     "[class.verse-quotation]": "isQuotation",
+    "[class.verse-marked]": "highlight",
+    "[attr.data-highlight]": "highlight ?? null",
   },
 })
 export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
@@ -102,6 +105,14 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   /** True while this verse is the one the study panel is showing. */
   @Input()
   selected = false
+
+  /**
+   * The colour the reader has marked this verse with, if any. Rendered
+   * everywhere, not only in study mode: marks are made there, but they are
+   * part of the text from then on.
+   */
+  @Input()
+  highlight?: HighlightColor
 
   @Output()
   verseSelected = new EventEmitter<VerseSelection>()

@@ -35,7 +35,8 @@
           @for (verse of chapter.verses; track verse; let i = $index) {
           <verse [id]="verse.number" class="verse" [data]="verse"
             [nextVerseStartsWithQuote]="checkIfNextVerseStartsWithQuote(i)" [isQuotation]="isQuotationVerse(verse)"
-            [studyMode]="true" [selected]="selection?.verse?.number === verse.number"
+            [highlight]="highlightFor(verse)" [studyMode]="true"
+            [selected]="selection?.verse?.number === verse.number"
             (verseSelected)="onVerseSelected($event)"></verse>
           }
           }
@@ -93,7 +94,7 @@
             <book-intro [introduction]="book.introduction || []"></book-intro>
             } @else {
             @for (verse of chapter.verses; track verse; let i = $index) {
-            <verse [id]="verse.number" class="verse" [data]="verse" [nextVerseStartsWithQuote]="checkIfNextVerseStartsWithQuote(i)" [isQuotation]="isQuotationVerse(verse)"></verse>
+            <verse [id]="verse.number" class="verse" [data]="verse" [nextVerseStartsWithQuote]="checkIfNextVerseStartsWithQuote(i)" [isQuotation]="isQuotationVerse(verse)" [highlight]="highlightFor(verse)"></verse>
             }
             }
             }
