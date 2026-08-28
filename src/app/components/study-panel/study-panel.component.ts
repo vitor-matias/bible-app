@@ -55,6 +55,8 @@ type ReferenceEntry = {
   verses: PreviewVerse[]
   /** Whether the passage runs on past the verses quoted here. */
   truncated?: boolean
+  /** Whether it runs on past the chapter it starts in, as "1,5-2,52" does. */
+  runsOn?: boolean
   failed?: boolean
 }
 
@@ -69,6 +71,8 @@ export type ParallelRequest = {
   chapterNumber: Chapter["number"]
   verseStart?: Verse["number"]
   verseEnd?: Verse["number"]
+  /** Cited to the end of the chapter and beyond, as "Lucas 1,5-2,52" is. */
+  runsOn?: boolean
   link: (string | number)[]
   queryParams: Record<string, number> | null
 }
@@ -583,6 +587,7 @@ export class StudyPanelComponent implements OnChanges {
       chapterNumber: reference.chapterNumber,
       verseStart: reference.verseStart,
       verseEnd: reference.verseEnd,
+      runsOn: reference.runsOn,
       link: reference.link,
       queryParams: reference.queryParams,
     })
@@ -848,12 +853,25 @@ export class StudyPanelComponent implements OnChanges {
     // Collected by the verse each passage *starts* at, which is not the verse
     // its references are printed on: a heading and the references under it
     // arrive in the payload of the verse before the one they introduce.
-    const byStart = new Map<Verse["number"], ReferenceEntry[]>()
+    // A division's own references are kept apart from the first passage's,
+    // which start at the same verse, by carrying the division's range as
+    // their label — see divisionLabel.
+    const byStart = new Map<
+      string,
+      {
+        verseNumber: Verse["number"]
+        label?: string
+        entries: ReferenceEntry[]
+      }
+    >()
     const seen = new Set<string>()
     verses.forEach((verse, index) => {
       // The passage a heading in this verse has opened, if one has.
       let opened: Verse["number"] | undefined
       let words = false
+      // The last heading seen, to tell the two things this edition prints in
+      // the same shape apart. See afterMajorHeading below.
+      let previousSection: string | undefined
       for (const part of verse.text ?? []) {
         if (part.type === "section") {
           // A heading after the verse's own words opens the next verse; one
@@ -862,12 +880,16 @@ export class StudyPanelComponent implements OnChanges {
             ? StudyPanelComponent.nextVerseNumber(verses, index, lastVerse)
             : Math.max(verse.number, 1)
           words = false
+          previousSection = part.tag
           continue
         }
         if (part.type !== "references") {
           if (part.type !== "footnote" && part.text.trim()) words = true
           continue
         }
+        const underMajorHeading =
+          StudyPanelComponent.afterMajorHeading(previousSection)
+        previousSection = undefined
 
         // Under a heading the references belong to the passage it opens;
         // before one, to the passage this verse is already inside.
@@ -875,36 +897,63 @@ export class StudyPanelComponent implements OnChanges {
           opened ??
           StudyPanelComponent.sectionStartAt(sectionStarts, verse.number)
 
-        for (const reference of this.bibleRef.extract(
+        const extracted = this.bibleRef.extract(
           part.text,
           verse.bookId,
           verse.chapterNumber,
-        )) {
+        )
+        // The extent of the division this block belongs to, once its opening
+        // range has named it.
+        let division: string | undefined
+        for (const [position, reference] of extracted.entries()) {
           const entry = this.toEntry(reference)
+          // A block under a major heading opens with the range that heading
+          // covers, and may go on to a passage worth reading beside it:
+          // Matthew's "(1,1-2,23; ver Lc 1,5-2,52)" is this division's own
+          // extent and then the parallel gospel. The extent is not a
+          // reference — it is what the references after it are references
+          // *for*, so it becomes their heading in the panel.
+          if (
+            underMajorHeading &&
+            position === 0 &&
+            entry.bookId === verse.bookId
+          ) {
+            division = StudyPanelComponent.divisionLabel(reference)
+            continue
+          }
+          const groupKey = division ? `${startsAt}|${division}` : `${startsAt}`
           // The same passage can be cited twice (two references blocks either
           // side of a quote); list it once.
-          const key = `${startsAt}:${entry.key}`
+          const key = `${groupKey}:${entry.key}`
           if (seen.has(key)) continue
           seen.add(key)
-          const entries = byStart.get(startsAt)
-          if (entries) {
-            entries.push(entry)
+          const group = byStart.get(groupKey)
+          if (group) {
+            group.entries.push(entry)
           } else {
-            byStart.set(startsAt, [entry])
+            byStart.set(groupKey, {
+              verseNumber: startsAt,
+              label: division,
+              entries: [entry],
+            })
           }
         }
       }
     })
 
-    const groups: ReferenceGroup[] = Array.from(byStart.entries())
-      .sort(([a], [b]) => a - b)
-      .map(([startsAt, entries]) => {
-        const nextStart = sectionStarts.find((start) => start > startsAt)
+    const groups: ReferenceGroup[] = Array.from(byStart.values())
+      .sort((a, b) => a.verseNumber - b.verseNumber)
+      .map((group) => {
+        const nextStart = sectionStarts.find(
+          (start) => start > group.verseNumber,
+        )
         const endsAt = nextStart === undefined ? lastVerse : nextStart - 1
         return {
-          verseNumber: startsAt,
-          label: this.passageLabel(startsAt, endsAt),
-          entries,
+          verseNumber: group.verseNumber,
+          // A division names its own extent; a passage is named by where it
+          // runs from and to.
+          label: group.label ?? this.passageLabel(group.verseNumber, endsAt),
+          entries: group.entries,
           lastVerse: endsAt,
         }
       })
@@ -998,6 +1047,26 @@ export class StudyPanelComponent implements OnChanges {
       }
     }
 
+    // A range that runs out of its chapter names where it ends as well as
+    // where it starts: "Lucas 1,5-2,52", not "Lucas 1,5".
+    const cross = reference.crossChapter
+    if (cross) {
+      const ends = `${cross.startChapter},${cross.startVerse}-${cross.endChapter},${cross.endVerse}`
+      return {
+        verses: [],
+        key: `${target.id}:${ends}`,
+        label: `${target.shortName} ${ends}`,
+        bookId: target.id,
+        chapterNumber: cross.startChapter,
+        verseStart: cross.startVerse,
+        // It is cited to the end of this chapter and into the next, so the
+        // preview quotes its opening the way any long passage's is quoted.
+        runsOn: true,
+        link: ["/", this.bookService.getUrlAbrv(target), cross.startChapter],
+        queryParams: params,
+      }
+    }
+
     const verseLabel = params?.verseEnd
       ? `${params.verseStart}-${params.verseEnd}`
       : params?.verseStart
@@ -1083,11 +1152,14 @@ export class StudyPanelComponent implements OnChanges {
         ? // A whole chapter: its opening verses stand for it, the same way
           // the opening of a long range does.
           verses
-        : // A reference with no end verse cites a single verse.
+        : // A reference with no end verse cites a single verse, unless it
+          // runs out of the chapter, in which case the rest of the chapter is
+          // cited and then some.
           verses.filter(
             (verse) =>
               verse.number >= start &&
-              verse.number <= (entry.verseEnd ?? start),
+              (entry.runsOn === true ||
+                verse.number <= (entry.verseEnd ?? start)),
           )
     if (!wanted.length) {
       entry.failed = true
@@ -1110,7 +1182,7 @@ export class StudyPanelComponent implements OnChanges {
       breakBefore:
         index > 0 && (preview.poetry || quoted[index - 1].poetry === true),
     }))
-    entry.truncated = wanted.length > MAX_QUOTED_VERSES
+    entry.truncated = entry.runsOn === true || wanted.length > MAX_QUOTED_VERSES
   }
 
   /**
@@ -1120,8 +1192,14 @@ export class StudyPanelComponent implements OnChanges {
    * The parts arrive with their own spacing, so they are concatenated rather
    * than trimmed and rejoined — trimming each and putting a space between
    * them is what produced "o Senhor !" where the edition prints "o SENHOR!".
-   * A quote element opens a new line; the zero-width space that opens poetry
-   * is dropped, being a format character rather than a word.
+   * The zero-width space that opens poetry is dropped, being a format
+   * character rather than a word.
+   *
+   * A quote or a paragraph opens a new line, as it does in the chapter: this
+   * edition sets the scripture a verse quotes on its own line, and run
+   * together it reads as "disse Deus alguma vez:Tu és meu Filho". Empty parts
+   * are dropped before they can break anything — the paragraph that closes a
+   * verse carries a newline and nothing else.
    */
   private static previewLines(verse: Verse): PreviewVerse["lines"] {
     const lines: PreviewVerse["lines"] = []
@@ -1136,11 +1214,11 @@ export class StudyPanelComponent implements OnChanges {
         continue
       }
       const text = part.text.replace(/[\u200b-\u200d\ufeff]/g, "")
-      if (part.type === "quote" && line.length) {
+      if (!text.trim()) continue
+      if (part.type !== "text" && line.length) {
         lines.push(line)
         line = []
       }
-      if (!text.trim()) continue
       line.push({
         text,
         allCaps: part.type === "text" && part.allCaps === true,
@@ -1155,6 +1233,45 @@ export class StudyPanelComponent implements OnChanges {
     const last = lastLine?.[lastLine.length - 1]
     if (last) last.text = last.text.replace(/\s+$/, "")
     return lines
+  }
+
+  /**
+   * Whether a references block sits directly under a major heading.
+   *
+   * This edition heads a division with its title and the range it covers —
+   * "PRÓLOGO", then "(1,1-4)" — and heads a passage inside it with a title and
+   * the places the passage points at — "Criação do mundo", then "(2,4b-25; Jb
+   * 38-39; ...)". Both arrive as a references element in the same verse, so
+   * the heading each follows is what separates a division's own extent from a
+   * list of cross references. Major headings are \ms in the USFM this edition
+   * is built from; passages are \s1 and \s2.
+   *
+   * It only says which block to read carefully: a division's range can be
+   * followed by real references in the same parentheses. See buildReferences.
+   */
+  private static afterMajorHeading(tag: string | undefined): boolean {
+    return tag?.startsWith("ms") === true
+  }
+
+  /**
+   * How a division's own range is printed — "1,1-2,23" — with no book named,
+   * it being the book the reader is in.
+   */
+  private static divisionLabel(reference: BibleReference): string {
+    const cross = reference.crossChapter
+    if (cross) {
+      return `${cross.startChapter},${cross.startVerse}-${cross.endChapter},${cross.endVerse}`
+    }
+    if (reference.endChapter) {
+      return `${reference.chapter}-${reference.endChapter}`
+    }
+    const params = getVerseQueryParams(reference.verses, undefined)
+    if (params?.verseEnd) {
+      return `${reference.chapter},${params.verseStart}-${params.verseEnd}`
+    }
+    return params?.verseStart
+      ? `${reference.chapter},${params.verseStart}`
+      : `${reference.chapter}`
   }
 
   /** The readable words of a verse, for copying rather than for setting. */

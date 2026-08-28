@@ -50,6 +50,11 @@ function heading(text: string): Section {
   return { type: "section", tag: "s1", text, normalizedText: text }
 }
 
+/** The title of a division — "PRÓLOGO" — rather than of a passage. */
+function majorHeading(text: string): Section {
+  return { type: "section", tag: "ms", text, normalizedText: text }
+}
+
 function references(text: string): References {
   return { type: "references", text, normalizedText: text }
 }
@@ -60,6 +65,10 @@ function footnote(reference: string, text: string): _Footnote {
 
 function plain(text: string): _Text {
   return { type: "text", text, normalizedText: text }
+}
+
+function paragraph(text: string): Paragraph {
+  return { type: "paragraph", text, normalizedText: text }
 }
 
 function reference(
@@ -177,6 +186,163 @@ describe("StudyPanelComponent", () => {
       expect(component.referenceGroups[0].entries[0].label).toBe(
         "Marcos 12,28-34",
       )
+    })
+
+    it("passes over the range a division prints under its own title", () => {
+      // Hebrews 1 opens "PRÓLOGO (1,1-4)" and then "Deus falou-nos por seu
+      // Filho": the first parenthesis is the extent of the division, not a
+      // passage the text points at. Both arrive as references elements.
+      bibleRef.extract.and.callFake((text: string) =>
+        text === "(1,1-4)"
+          ? [reference("heb", 1, 1, 4)]
+          : text === "(Gn 46,1-27)"
+            ? [reference("gen", 46, 1, 27)]
+            : [],
+      )
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "heb",
+          number: 1,
+          verses: [
+            verse(0, [
+              majorHeading("PRÓLOGO"),
+              references("(1,1-4)"),
+              heading("Deus falou-nos por seu Filho"),
+              references("(Gn 46,1-27)"),
+            ]),
+            verse(1, [plain("Muitas vezes e de muitos modos")]),
+          ],
+        },
+      })
+
+      const entries = component.referenceGroups.flatMap(
+        (group) => group.entries,
+      )
+      // One entry, and it is the passage the second block names.
+      expect(entries.length).toBe(1)
+      expect(entries[0].chapterNumber).toBe(46)
+    })
+
+    it("names both ends of a reference that runs out of its chapter", () => {
+      bibleRef.extract.and.returnValue([
+        {
+          match: "Mc 1,5-2,52",
+          index: 0,
+          book: "mrk",
+          chapter: 1,
+          crossChapter: {
+            type: "crossChapterRange",
+            startChapter: 1,
+            startVerse: 5,
+            endChapter: 2,
+            endVerse: 52,
+          },
+        },
+      ] as ReturnType<BibleReferenceService["extract"]>)
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 1,
+          verses: [verse(1, [plain("Genealogia"), references("Mc 1,5-2,52")])],
+        },
+      })
+
+      expect(component.referenceGroups[0].entries[0].label).toBe(
+        "Marcos 1,5-2,52",
+      )
+    })
+
+    it("quotes the opening of a reference that runs out of its chapter", () => {
+      bibleRef.extract.and.returnValue([
+        {
+          match: "Mc 1,5-2,52",
+          index: 0,
+          book: "mrk",
+          chapter: 1,
+          crossChapter: {
+            type: "crossChapterRange",
+            startChapter: 1,
+            startVerse: 5,
+            endChapter: 2,
+            endVerse: 52,
+          },
+        },
+      ] as ReturnType<BibleReferenceService["extract"]>)
+      api.getChapter.and.returnValue(
+        of({
+          bookId: "mrk",
+          number: 1,
+          verses: [4, 5, 6, 7, 8].map((number) => ({
+            bookId: "mrk",
+            chapterNumber: 1,
+            number,
+            verseLabel: String(number),
+            text: [plain(`verso ${number}`)],
+          })),
+        }),
+      )
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 1,
+          verses: [verse(1, [plain("Genealogia"), references("Mc 1,5-2,52")])],
+        },
+      })
+
+      const entry = component.referenceGroups[0].entries[0]
+      // Its opening verses, like any long passage — not the single verse it
+      // starts on — and the way on to the rest of it.
+      expect(entry.verses.map((quoted) => quoted.number)).toEqual([5, 6, 7])
+      expect(entry.truncated).toBeTrue()
+    })
+
+    it("keeps the references printed after that range", () => {
+      // Matthew heads its first division "(1,1-2,23; ver Lc 1,5-2,52)": the
+      // division's own extent, and then the gospel to read beside it. Only
+      // the extent is the heading's own.
+      bibleRef.extract.and.returnValue([
+        {
+          match: "1,1-2,23",
+          index: 0,
+          book: "mat",
+          chapter: 1,
+          crossChapter: {
+            type: "crossChapterRange",
+            startChapter: 1,
+            startVerse: 1,
+            endChapter: 2,
+            endVerse: 23,
+          },
+        },
+        reference("mrk", 1, 5, 52),
+      ] as ReturnType<BibleReferenceService["extract"]>)
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 1,
+          verses: [
+            verse(0, [
+              majorHeading("I. EVANGELHO DA INFÂNCIA DE JESUS"),
+              references("(1,1-2,23; ver Mc 1,5-2,52)"),
+            ]),
+            verse(1, [plain("Genealogia de Jesus Cristo")]),
+          ],
+        },
+      })
+
+      const entries = component.referenceGroups.flatMap(
+        (group) => group.entries,
+      )
+      expect(entries.length).toBe(1)
+      expect(entries[0].bookId).toBe("mrk")
+      // And it is headed by the division's own range, not by the passage that
+      // happens to start on the same verse: the parallel gospel is a parallel
+      // to the whole of "I. EVANGELHO DA INFÂNCIA DE JESUS".
+      expect(component.referenceGroups[0].label).toBe("1,1-2,23")
     })
 
     it("ends a passage where the next heading begins", () => {
@@ -526,6 +692,54 @@ describe("StudyPanelComponent", () => {
       )
       expect(preview.lines[0].some((run) => run.allCaps)).toBeTrue()
       expect(preview.lines[1][0].text).toBe("Estás revestido de esplendor")
+    })
+
+    it("breaks where the edition does, on a paragraph as well as a quote", () => {
+      // Hebrews 1,5 is a line of prose and then the scripture it quotes, set
+      // by this edition as a paragraph. Run together it reads "disse Deus
+      // alguma vez:Tu és meu Filho".
+      bibleRef.extract.and.returnValue([
+        { match: "Hb 1,5", index: 0, book: "heb", chapter: 1 },
+      ] as ReturnType<BibleReferenceService["extract"]>)
+      api.getChapter.and.returnValue(
+        of({
+          bookId: "heb",
+          number: 1,
+          verses: [
+            {
+              bookId: "heb",
+              chapterNumber: 1,
+              number: 5,
+              verseLabel: "5",
+              text: [
+                footnote("a", "uma nota"),
+                plain("Com efeito, a qual dos anjos disse Deus alguma vez:"),
+                paragraph("Tu és meu Filho, Eu hoje te gerei?"),
+                // The paragraph that closes a verse carries a newline and
+                // nothing else, and must not leave an empty line behind.
+                paragraph("\n"),
+              ] as TextType[],
+            },
+          ],
+        }),
+      )
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 22,
+          verses: [verse(34, [references("Hb 1,5")])],
+        },
+      })
+
+      const [preview] = component.referenceGroups[0].entries[0].verses
+      expect(preview.lines.length).toBe(2)
+      expect(preview.lines[0].map((run) => run.text).join("")).toBe(
+        "Com efeito, a qual dos anjos disse Deus alguma vez:",
+      )
+      expect(preview.lines[1][0].text).toBe(
+        "Tu és meu Filho, Eu hoje te gerei?",
+      )
     })
 
     it("gives each verse of a quoted psalm its own line", () => {

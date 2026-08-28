@@ -107,10 +107,13 @@ describe("BibleReaderComponent", () => {
       "setStudySidebarCollapsed",
       "getStudyPanelCollapsed",
       "setStudyPanelCollapsed",
+      "getStudyColumnWidths",
+      "setStudyColumnWidths",
     ])
     preferencesServiceSpy.getStudyMode.and.returnValue(false)
     preferencesServiceSpy.getStudySidebarCollapsed.and.returnValue(false)
     preferencesServiceSpy.getStudyPanelCollapsed.and.returnValue(false)
+    preferencesServiceSpy.getStudyColumnWidths.and.returnValue({})
 
     routerSpy = jasmine.createSpyObj("Router", ["navigate"])
     ;(routerSpy as unknown as { routerState: unknown }).routerState = {
@@ -757,6 +760,90 @@ describe("BibleReaderComponent", () => {
       expect(component.trail.map((entry) => entry.label)).toEqual([
         "Génesis · Intro",
       ])
+    })
+  })
+
+  describe("dragging the columns to size", () => {
+    function press(key: string): KeyboardEvent {
+      return new KeyboardEvent("keydown", { key })
+    }
+
+    beforeEach(() => {
+      fixture.detectChanges()
+      studyMode.activate()
+    })
+
+    it("writes the widths as the properties the layout reads", () => {
+      component.columnWidths = { rail: 300, panel: 420, split: 60 }
+
+      expect(component.columnStyle).toEqual({
+        "--study-rail-width": "300px",
+        "--study-panel-width": "420px",
+        "--study-split": "60%",
+      })
+    })
+
+    it("leaves untouched dividers to the layout's own widths", () => {
+      component.columnWidths = { rail: 300 }
+
+      expect(component.columnStyle).toEqual({ "--study-rail-width": "300px" })
+    })
+
+    it("gives the space back when the column is folded away", () => {
+      component.columnWidths = { rail: 400, panel: 500 }
+      component.studySidebarCollapsed = true
+
+      // The width is the reader's, and it is kept for when they unfold it —
+      // but a folded column is a strip, and an inline width would hold the
+      // space open against the layout.
+      expect(component.columnStyle["--study-rail-width"]).toBeUndefined()
+      expect(component.columnStyle["--study-panel-width"]).toBe("500px")
+
+      component.studySidebarCollapsed = false
+      expect(component.columnStyle["--study-rail-width"]).toBe("400px")
+    })
+
+    it("moves a divider with the arrow keys, and remembers where", () => {
+      component.columnWidths = { rail: 300 }
+
+      component.onResizeKey("rail", press("ArrowRight"))
+
+      expect(component.columnWidths.rail).toBe(316)
+      expect(preferencesServiceSpy.setStudyColumnWidths).toHaveBeenCalledWith({
+        rail: 316,
+      })
+    })
+
+    it("keeps a column within what it can usefully be", () => {
+      component.columnWidths = { rail: 170 }
+
+      component.onResizeKey("rail", press("ArrowLeft"))
+
+      expect(component.columnWidths.rail).toBe(160)
+    })
+
+    it("ignores keys that are not a divider's", () => {
+      component.columnWidths = { rail: 300 }
+
+      component.onResizeKey("rail", press("ArrowUp"))
+
+      expect(component.columnWidths.rail).toBe(300)
+    })
+
+    it("hands one divider back to the layout without disturbing the others", () => {
+      component.columnWidths = { rail: 300, panel: 420 }
+
+      component.resetDivider("rail")
+
+      expect(component.columnWidths.rail).toBeUndefined()
+      expect(component.columnWidths.panel).toBe(420)
+      expect(preferencesServiceSpy.setStudyColumnWidths).toHaveBeenCalledWith({
+        panel: 420,
+      })
+    })
+
+    it("opens where the reader last left the dividers", () => {
+      expect(preferencesServiceSpy.getStudyColumnWidths).toHaveBeenCalled()
     })
   })
 

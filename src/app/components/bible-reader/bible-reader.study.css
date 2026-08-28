@@ -73,11 +73,25 @@
 }
 
 /* The two side columns: the same surface, divided from the text by a rule on
-   whichever side faces it. */
+   whichever side faces it.
+
+   Every column names its own cell. The dividers name theirs too, and a grid
+   places what is named before it flows the rest — so left to auto-placement
+   the rail would be pushed into the reading column's cell by the divider
+   sitting in its own. */
 .study-rail,
 .study-aside {
+  grid-row: 1;
   min-height: 0;
   background-color: var(--study-surface);
+}
+
+.study-rail {
+  grid-column: 1;
+}
+
+.study-aside {
+  grid-column: 3;
 }
 
 .study-rail {
@@ -88,6 +102,11 @@
   border-left: 1px solid var(--study-rule);
 }
 
+.study-column {
+  grid-row: 1;
+  grid-column: 2;
+}
+
 /* The chapter, and beside it whatever the reader has opened next to it. Each
    scrolls on its own: following a parallel must not move the chapter. */
 .study-column {
@@ -95,6 +114,78 @@
   min-height: 0;
   overflow: hidden;
   background-color: var(--background-color);
+}
+
+/* ---------------------------------------------------------------------------
+   Dividers
+   ---------------------------------------------------------------------------
+   A column boundary the reader can take hold of. Each sits in the cell of the
+   column it belongs to, pulled half its width past the edge so it straddles
+   the rule it is moving, and overlapping rather than occupying space of its
+   own — the chrome row above lays itself out on the same widths, and a
+   divider that took a column of the grid would push the two out of step.
+   Invisible until wanted: this is a page of scripture, not a control panel. */
+.study-resizer {
+  z-index: 2;
+  width: 9px;
+  cursor: col-resize;
+}
+
+.study-resizer::after {
+  content: "";
+  display: block;
+  height: 100%;
+  margin: 0 auto;
+  width: 3px;
+  background-color: transparent;
+  transition: background-color 0.15s ease;
+}
+
+.study-resizer:hover::after,
+.study-resizer:focus-visible::after {
+  background-color: color-mix(in srgb, var(--cap-brown) 45%, transparent);
+}
+
+.study-resizer:focus-visible {
+  outline: none;
+}
+
+:host-context(.dark-theme) .study-resizer:hover::after,
+:host-context(.dark-theme) .study-resizer:focus-visible::after {
+  background-color: rgba(255, 255, 255, 0.35);
+}
+
+.rail-divider {
+  grid-row: 1;
+  grid-column: 1;
+  justify-self: end;
+  margin-right: -5px;
+}
+
+.panel-divider {
+  grid-row: 1;
+  grid-column: 3;
+  justify-self: start;
+  margin-left: -5px;
+}
+
+/* A flex item between the two panes, so it needs no offsetting of its own. */
+.split-divider {
+  flex: 0 0 9px;
+  margin: 0 -4px;
+}
+
+/* A folded column is governed by its unfold button, not by dragging. */
+.rail-collapsed .rail-divider,
+.panel-collapsed .panel-divider {
+  display: none;
+}
+
+/* While a divider is moving, the whole page is a drag: the pointer keeps the
+   resize cursor wherever it strays, and nothing selects text under it. */
+.text-container.resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 /* The chapter and its parallel share the column between them. */
@@ -111,6 +202,11 @@
   overscroll-behavior: contain;
 }
 
+/* Once there are two panes the split is the reader's, defaulting to halves. */
+.study-column:has(.study-parallel) .study-pane {
+  flex: 0 0 var(--study-split, 50%);
+}
+
 .study-column-inner {
   flex: 1 0 auto;
 }
@@ -119,14 +215,20 @@
   border-left: 1px solid var(--study-rule);
 }
 
-/* Named and closable, and the name is the way to read it in full. */
+/* Named and closable, and the name is the way to read it in full.
+
+   Built to the panel's own head next door — a 32px control with 4px of margin
+   over a 1px rule — so the close here and the fold arrow there sit on one
+   line, and the two rules under them read as one line across the page. Its
+   height comes from the button, not from padding, for the same reason. */
 .parallel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   flex: 0 0 auto;
-  padding: 6px 12px 6px 20px;
+  /* Left padding matches the text's below, so the title heads its column. */
+  padding: 0 4px 0 28px;
   border-bottom: 1px solid var(--study-rule);
 }
 
@@ -134,9 +236,11 @@
    this pane's own is here. */
 .parallel-close {
   flex: 0 0 auto;
-  width: 24px;
-  height: 24px;
-  font-size: 17px;
+  width: 32px;
+  height: 32px;
+  margin: 4px 0;
+  border-radius: 6px;
+  font-size: 18px;
 }
 
 /* position: relative so a verse's offsetTop is measured against this pane,

@@ -1,7 +1,8 @@
 @if (book) {
-<div class="text-container" unifiedGestures fontSizeContext="reader" (swipeLeft)="onSwipeLeft()"
+<div class="text-container" #textContainer unifiedGestures fontSizeContext="reader" (swipeLeft)="onSwipeLeft()"
   (swipeRight)="onSwipeRight()" [class.study-active]="studyModeActive"
-  [class.rail-collapsed]="studySidebarCollapsed" [class.panel-collapsed]="studyPanelCollapsed">
+  [class.rail-collapsed]="studySidebarCollapsed" [class.panel-collapsed]="studyPanelCollapsed"
+  [class.resizing]="resizing" [style]="columnStyle">
   <header class="reader-header" [book]="book" [chapterNumber]="chapterNumber" [viewMode]="effectiveViewMode"
     [autoScrollControlsVisible]="showAutoScrollControls" (openBookSelector)="openBookDrawer($event)"
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
@@ -29,11 +30,19 @@
       [selectedChapter]="chapterNumber" [collapsed]="studySidebarCollapsed" (selectBook)="onBookSubmit($event)"
       (selectChapter)="onChapterSubmit($event)" (toggleCollapsed)="toggleStudySidebar()"></study-sidebar>
 
+    <!-- Dividers: drag them, or focus one and use the arrows. Home hands the
+         column back to the width the layout chose for it. -->
+    <div class="study-resizer rail-divider" role="separator" aria-orientation="vertical" tabindex="0"
+      [attr.aria-label]="'Largura da lista de livros'" (pointerdown)="startResize('rail', $event)"
+      (pointermove)="onResizeMove($event)" (pointerup)="onResizeEnd($event)"
+      (pointercancel)="onResizeEnd($event)" (keydown)="onResizeKey('rail', $event)"
+      (dblclick)="resetDivider('rail')"></div>
+
     <!-- The chapter, and beside it whatever the reader has opened next to it.
          #studyScroll and #bookContainer stand in for the drawer content and
          its animated child, so chapter transitions and deep-linked verse
          scrolling work here without knowing which layout is on screen. -->
-    <div class="study-column">
+    <div class="study-column" #studyColumn>
       <div class="study-pane" #studyScroll (scroll)="onStudyScroll()">
         <div class="study-column-inner" #bookContainer>
           <div class="bookBlock study-text" #bookBlock>
@@ -66,6 +75,11 @@
            the reason to look one up is to have both texts at once. It scrolls on
            its own, so following the parallel never moves the chapter. -->
       @if (parallel) {
+      <div class="study-resizer split-divider" role="separator" aria-orientation="vertical" tabindex="0"
+        aria-label="Largura da passagem ao lado" (pointerdown)="startResize('split', $event)"
+        (pointermove)="onResizeMove($event)" (pointerup)="onResizeEnd($event)"
+        (pointercancel)="onResizeEnd($event)" (keydown)="onResizeKey('split', $event)"
+        (dblclick)="resetDivider('split')"></div>
       <aside class="study-parallel" [attr.aria-label]="'Passagem ao lado: ' + parallel.label">
         <div class="parallel-head">
           <a class="study-label parallel-title" [routerLink]="parallel.link" [queryParams]="parallel.queryParams"
@@ -93,6 +107,14 @@
       </aside>
       }
     </div>
+
+    <!-- Dividers: drag them, or focus one and use the arrows. Home hands the
+         column back to the width the layout chose for it. -->
+    <div class="study-resizer panel-divider" role="separator" aria-orientation="vertical" tabindex="0"
+      [attr.aria-label]="'Largura do aparato'" (pointerdown)="startResize('panel', $event)"
+      (pointermove)="onResizeMove($event)" (pointerup)="onResizeEnd($event)"
+      (pointercancel)="onResizeEnd($event)" (keydown)="onResizeKey('panel', $event)"
+      (dblclick)="resetDivider('panel')"></div>
 
     <study-panel class="study-aside" [book]="book" [chapter]="chapter" [selection]="selection"
       [visibleVerse]="visibleVerse" [collapsed]="studyPanelCollapsed"

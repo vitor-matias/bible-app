@@ -30,6 +30,7 @@ export class PreferencesService {
     STUDY_MODE: "studyMode",
     STUDY_SIDEBAR_COLLAPSED: "studySidebarCollapsed",
     STUDY_PANEL_COLLAPSED: "studyPanelCollapsed",
+    STUDY_COLUMN_WIDTHS: "studyColumnWidths",
   }
 
   getTheme(): "light" | "dark" | "system" | null {
@@ -139,4 +140,44 @@ export class PreferencesService {
   setStudyPanelCollapsed(collapsed: boolean): void {
     this.storage?.setItem(this.KEYS.STUDY_PANEL_COLLAPSED, collapsed.toString())
   }
+
+  /**
+   * The widths the reader has dragged study mode's columns to, in pixels, and
+   * the share of the reading column its own text keeps when a passage is open
+   * beside it. Kept together under one key: they are one arrangement of one
+   * page, and a reader who moves one usually moves the next.
+   *
+   * Anything missing means the reader has not moved that divider, and the
+   * layout's own clamped width applies.
+   */
+  getStudyColumnWidths(): StudyColumnWidths {
+    const stored = this.storage?.getItem(this.KEYS.STUDY_COLUMN_WIDTHS)
+    if (!stored) return {}
+    try {
+      const parsed: unknown = JSON.parse(stored)
+      if (!parsed || typeof parsed !== "object") return {}
+      const widths = parsed as Record<string, unknown>
+      const read = (key: string): number | undefined => {
+        const value = widths[key]
+        return typeof value === "number" && Number.isFinite(value)
+          ? value
+          : undefined
+      }
+      return { rail: read("rail"), panel: read("panel"), split: read("split") }
+    } catch {
+      // Written by an older version, or by hand: fall back to the defaults.
+      return {}
+    }
+  }
+
+  setStudyColumnWidths(widths: StudyColumnWidths): void {
+    this.storage?.setItem(this.KEYS.STUDY_COLUMN_WIDTHS, JSON.stringify(widths))
+  }
+}
+
+/** Pixels for the side columns, and a percentage for the reading split. */
+export type StudyColumnWidths = {
+  rail?: number
+  panel?: number
+  split?: number
 }
