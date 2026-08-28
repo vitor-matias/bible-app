@@ -258,6 +258,8 @@
         <a class="reference-label" [routerLink]="result.link" [queryParams]="result.queryParams">
           {{ result.reference }}
         </a>
+        <!-- One line on purpose: a break between these blocks would put a
+             space either side of every match. -->
         <p class="reference-text">@for (segment of result.segments; track $index) {@if (segment.highlight) {<mark>{{ segment.text }}</mark>} @else {{{ segment.text }}}}</p>
       </li>
       }

@@ -73,16 +73,11 @@ h6 {
 
 }
 
+/* The drop capital the chapter opens with: the text wraps around it. */
 .chapterNumber {
   float: left;
-  /* Makes the chapter number float to the left */
   font-size: 333%;
-  /* Adjust the font size as needed */
   line-height: 1;
-  /* Adjusted for better alignment, might need tweaking */
-
-  /*margin-right: 10px;  Adds space to the right of the chapter number */
-  /* margin-bottom: 10px; Adds space below the chapter number */
   color: dimgray;
 }
 
@@ -127,15 +122,6 @@ h6 {
 
 .next-chapter {
   right: 16px;
-}
-
-.search {
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.mid {
-  bottom: 86px;
 }
 
 .dismiss-button {
@@ -360,198 +346,4 @@ h6 {
   opacity: 0.9;
   padding: 8px 0 8px 0;
   width: 100%;
-}
-/* ---------------------------------------------------------------------------
-   Study mode
-   ---------------------------------------------------------------------------
-   Three columns under the toolbar: the rail and the panel are fixed widths so
-   the reading column keeps the same measure whatever the window does, and only
-   the two of them share what is left over at very wide sizes. Each column
-   scrolls on its own — a reader following a cross reference down the panel
-   must not drag the text out from under it.
-   Only ever rendered above STUDY_MODE_MIN_WIDTH (see StudyModeService), so
-   this needs no breakpoints of its own. */
-/* The rail and the panel take a share of the window rather than a fixed
-   width, so the reading column between them keeps a comfortable measure
-   without a wide band of empty page either side of the text. Both are
-   clamped: below their minimum the panel stops being readable, above their
-   maximum they start competing with the text for attention. Folding one
-   away leaves the strip its unfold button lives on.
-
-   They live here, above the layout, because the chrome row lays itself out on
-   the same three columns and is not inside it — and they are given in vw
-   rather than %, so the header can use them in its own grid and get the same
-   widths the layout does rather than a share of its own box. */
-.text-container {
-  --study-rail-width: clamp(220px, 20vw, 300px);
-  --study-panel-width: clamp(320px, 28vw, 460px);
-}
-
-/* A parallel puts a second measure inside the reading column, so the columns
-   either side give up what they can spare. Ordered before the folded widths
-   below, which have the same weight and must still win. */
-.text-container:has(.study-parallel) {
-  --study-rail-width: clamp(180px, 14vw, 220px);
-  --study-panel-width: clamp(280px, 22vw, 340px);
-}
-
-/* Folding a side column away hands the reading column more room, so the
-   measure grows with it — the text keeps flowing the same way, there is just
-   more of it on a line. It stays capped: past this a line gets long enough
-   that the eye loses its place returning to the left margin. */
-.text-container.rail-collapsed {
-  --study-rail-width: 48px;
-  --study-measure: 980px;
-}
-
-.text-container.panel-collapsed {
-  --study-panel-width: 48px;
-  --study-measure: 980px;
-}
-
-/* One screenful, split between the chrome row and the columns under it: study
-   mode is a workspace whose columns scroll on their own, so the page itself
-   never does. The chrome takes the height it needs and the layout takes the
-   rest — no arithmetic against a toolbar height that the chrome no longer
-   has. */
-.text-container.study-active {
-  display: flex;
-  flex-direction: column;
-  height: calc(100vh - env(safe-area-inset-top));
-  height: calc(100dvh - env(safe-area-inset-top));
-  overflow: hidden;
-}
-
-.study-layout {
-  flex: 1 1 auto;
-  display: grid;
-  grid-template-columns:
-    var(--study-rail-width)
-    minmax(0, 1fr)
-    var(--study-panel-width);
-  /* The copyright notice sits under all three columns and sizes to its
-     content, so the columns take whatever is left. */
-  grid-template-rows: minmax(0, 1fr) auto;
-  min-height: 0;
-  overflow: hidden;
-}
-
-/* The two side columns: the same surface, divided from the text by a rule on
-   whichever side faces it. */
-.study-rail,
-.study-aside {
-  min-height: 0;
-  background-color: var(--study-surface);
-}
-
-.study-rail {
-  border-right: 1px solid var(--study-rule);
-}
-
-.study-aside {
-  border-left: 1px solid var(--study-rule);
-}
-
-/* The chapter, and beside it whatever the reader has opened next to it. Each
-   scrolls on its own: following a parallel must not move the chapter. */
-.study-column {
-  display: flex;
-  min-height: 0;
-  overflow: hidden;
-  background-color: var(--background-color);
-}
-
-/* The chapter and its parallel share the column between them. */
-.study-pane,
-.study-parallel {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 0;
-  min-width: 0;
-}
-
-.study-pane {
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.study-column-inner {
-  flex: 1 0 auto;
-}
-
-.study-parallel {
-  border-left: 1px solid var(--study-rule);
-}
-
-/* Named and closable, and the name is the way to read it in full. */
-.parallel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex: 0 0 auto;
-  padding: 6px 12px 6px 20px;
-  border-bottom: 1px solid var(--study-rule);
-}
-
-/* Dressed by .study-label and .study-quiet-button in styles.css; only what is
-   this pane's own is here. */
-.parallel-close {
-  flex: 0 0 auto;
-  width: 24px;
-  height: 24px;
-  font-size: 17px;
-}
-
-/* position: relative so a verse's offsetTop is measured against this pane,
-   which is what opens the parallel on the verses cited. */
-.parallel-body {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.parallel-body .bookBlock.parallel-text {
-  margin: 24px auto;
-  padding: 0 20px;
-}
-
-/* Ragged right once the column is split: justification needs a measure, and
-   at half a column it opens rivers and hyphenates every other line. */
-.study-column:has(.study-parallel) .bookBlock {
-  text-align: left;
-  hyphens: manual;
-}
-
-/* Set by .study-note in styles.css. */
-.parallel-message {
-  margin: 24px 20px;
-}
-
-/* The measure, not the column: comfortable line length for continuous
-   reading, centred in whatever width the grid hands it.
-   Capped in px rather than em on purpose — an em cap shrinks with the
-   reader's font size, so making the text smaller used to shrink the column
-   with it and leave the page half empty. In px the column keeps its width
-   and smaller text simply fits more words on a line. */
-.study-pane .bookBlock.study-text {
-  max-width: min(100%, var(--study-measure, 780px));
-  margin: 32px auto 24px;
-  padding: 0 28px;
-}
-
-/* One line under the whole layout, not under the reading column: it is the
-   edition's notice, and the columns above scroll independently of it. */
-.study-footer {
-  grid-column: 1 / -1;
-  padding: 10px 24px;
-  text-align: center;
-  border-top: 1px solid var(--study-rule);
-  background-color: var(--study-surface);
-  font-family: "PT Serif", serif;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: var(--study-muted);
 }

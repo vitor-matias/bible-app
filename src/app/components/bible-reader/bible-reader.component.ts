@@ -69,7 +69,11 @@ const PARALLEL_TOP_MARGIN = 12
 @Component({
   selector: "bible-reader",
   templateUrl: "./bible-reader.component.html",
-  styleUrl: "./bible-reader.component.css",
+  // Two stylesheets because the component draws two layouts: the reading one
+  // every screen gets, and study mode's three columns. They share no rules,
+  // and kept in one file they were a single sheet the build's per-stylesheet
+  // budget could no longer hold.
+  styleUrls: ["./bible-reader.component.css", "./bible-reader.study.css"],
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
   imports: [
