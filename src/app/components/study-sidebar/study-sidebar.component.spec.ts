@@ -96,6 +96,89 @@ describe("StudySidebarComponent", () => {
     ).toBeGreaterThan(0)
   })
 
+  describe("filtering", () => {
+    it("flattens the canon to the books that match", () => {
+      setInputs({ books: BOOKS, book: BOOKS[1] })
+
+      component.onFilter("mar")
+      fixture.detectChanges()
+
+      // The group headings step aside: a reader typing a name wants the book.
+      expect(fixture.nativeElement.querySelector(".group-toggle")).toBeNull()
+      const rows = Array.from(
+        fixture.nativeElement.querySelectorAll(".book-row"),
+      ).map((row) =>
+        (row as HTMLElement).querySelector(".book-name")?.textContent?.trim(),
+      )
+      expect(rows).toEqual(["Marcos"])
+    })
+
+    it("ignores accents and case", () => {
+      setInputs({ books: BOOKS, book: BOOKS[1] })
+
+      component.onFilter("GENESIS")
+
+      expect(component.matches.map((book) => book.id)).toEqual(["gen"])
+    })
+
+    it("matches the long name as well as the short one", () => {
+      setInputs({ books: BOOKS, book: BOOKS[1] })
+
+      component.onFilter("mrk")
+
+      expect(component.matches.map((book) => book.id)).toEqual(["mrk"])
+    })
+
+    it("says so when nothing matches", () => {
+      setInputs({ books: BOOKS, book: BOOKS[1] })
+
+      component.onFilter("zzz")
+      fixture.detectChanges()
+
+      expect(component.matches).toEqual([])
+      expect(
+        fixture.nativeElement.querySelector(".filter-empty").textContent,
+      ).toContain("Nenhum livro")
+    })
+
+    it("gives the groups back when the filter is cleared", () => {
+      setInputs({ books: BOOKS, book: BOOKS[1] })
+      component.onFilter("mar")
+
+      component.clearFilter()
+      fixture.detectChanges()
+
+      expect(component.filtering).toBeFalse()
+      expect(fixture.nativeElement.querySelector(".group-toggle")).toBeTruthy()
+    })
+
+    it("re-runs itself against a new book list", () => {
+      setInputs({ books: BOOKS, book: BOOKS[1] })
+      component.onFilter("mar")
+      expect(component.matches.length).toBe(1)
+
+      // An introduction loading pushes a new list; the filter must be applied
+      // to it rather than leaving stale matches on screen.
+      setInputs({ books: [...BOOKS] })
+
+      expect(component.matches.map((book) => book.id)).toEqual(["mrk"])
+    })
+
+    it("opens the book a reader picks from the matches", () => {
+      setInputs({ books: BOOKS, book: BOOKS[0] })
+      component.onFilter("mar")
+      fixture.detectChanges()
+      const picked: string[] = []
+      component.selectBook.subscribe((event) => picked.push(event.bookId))
+
+      fixture.nativeElement
+        .querySelector(".book-row")
+        .dispatchEvent(new MouseEvent("click"))
+
+      expect(picked).toEqual(["mrk"])
+    })
+  })
+
   it("keeps a collapsed group collapsed when only the book list changes", () => {
     // An introduction loading pushes a new book list; the reader has not
     // moved, so nothing should reopen.

@@ -10,6 +10,29 @@
   @if (!collapsed) {
   <section class="sidebar-section books">
     <h2 class="sidebar-heading">Livros</h2>
+
+    <div class="book-filter">
+      <input class="book-filter-input" type="search" [value]="filter" placeholder="Filtrar livros…"
+        aria-label="Filtrar livros" (input)="onFilter($any($event.target).value)" />
+    </div>
+
+    @if (filtering) {
+    @if (matches.length) {
+    <ul class="book-list">
+      @for (entry of matches; track entry.id) {
+      <li>
+        <button type="button" class="book-row" [class.current]="entry.id === book?.id"
+          [attr.aria-current]="entry.id === book?.id ? 'page' : null" (click)="onBookClick(entry)">
+          <span class="book-name">{{ entry.shortName }}</span>
+          <span class="book-count" aria-hidden="true">{{ entry.chapterCount }}</span>
+        </button>
+      </li>
+      }
+    </ul>
+    } @else {
+    <p class="filter-empty">Nenhum livro corresponde.</p>
+    }
+    } @else {
     <ul class="group-list">
       @for (group of groups; track group.name) {
       <li class="group">
@@ -36,6 +59,7 @@
       </li>
       }
     </ul>
+    }
   </section>
 
   @if (chapters.length) {

@@ -60,12 +60,19 @@ export class StudySidebarComponent implements OnChanges {
   private readonly cdr = inject(ChangeDetectorRef)
 
   groups: SidebarGroup[] = []
+  /** What the reader has typed into the filter, if anything. */
+  filter = ""
+  /** Books matching the filter, flattened out of their groups. */
+  matches: Book[] = []
   /** Name of the one expanded group, or "" when the reader closed them all. */
   expandedGroup = ""
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["books"]) {
       this.groups = this.buildGroups()
+      // An introduction loading pushes a new book list; a filter already
+      // typed must be re-run against it rather than showing the old matches.
+      if (this.filtering) this.onFilter(this.filter)
     }
     // Follow the reader: navigating to another group (from a reference, the
     // search page, a deep link) opens the group they landed in. A group the
@@ -77,6 +84,44 @@ export class StudySidebarComponent implements OnChanges {
       const owning = this.groupOf(this.book?.id)
       if (owning) this.expandedGroup = owning
     }
+  }
+
+  get filtering(): boolean {
+    return this.filter.trim().length > 0
+  }
+
+  /**
+   * Filtering flattens the canon: a reader typing a name wants that book,
+   * not the group it happens to belong to, and having to notice which group
+   * a match sits in would put the structure back in the way.
+   */
+  onFilter(query: string): void {
+    this.filter = query
+    const needle = StudySidebarComponent.normalize(query)
+    this.matches = needle
+      ? this.groups
+          .flatMap((group) => group.books)
+          .filter(
+            (book) =>
+              StudySidebarComponent.normalize(book.shortName).includes(
+                needle,
+              ) || StudySidebarComponent.normalize(book.name).includes(needle),
+          )
+      : []
+    this.cdr.detectChanges()
+  }
+
+  clearFilter(): void {
+    this.onFilter("")
+  }
+
+  /** Accent- and case-insensitive, so "genesis" finds "Génesis". */
+  private static normalize(value: string): string {
+    return value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLocaleLowerCase()
   }
 
   isExpanded(group: SidebarGroup): boolean {
