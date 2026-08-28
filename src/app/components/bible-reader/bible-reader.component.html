@@ -33,7 +33,9 @@
     <!-- Dividers: drag them, or focus one and use the arrows. Home hands the
          column back to the width the layout chose for it. -->
     <div class="study-resizer rail-divider" role="separator" aria-orientation="vertical" tabindex="0"
-      [attr.aria-label]="'Largura da lista de livros'" (pointerdown)="startResize('rail', $event)"
+      [attr.aria-label]="'Largura da lista de livros'" [attr.aria-valuenow]="dividerValues.rail"
+      [attr.aria-valuemin]="dividerLimits.rail.min" [attr.aria-valuemax]="dividerLimits.rail.max"
+      (focus)="onDividerFocus()" (pointerdown)="startResize('rail', $event)"
       (pointermove)="onResizeMove($event)" (pointerup)="onResizeEnd($event)"
       (pointercancel)="onResizeEnd($event)" (keydown)="onResizeKey('rail', $event)"
       (dblclick)="resetDivider('rail')"></div>
@@ -76,7 +78,9 @@
            its own, so following the parallel never moves the chapter. -->
       @if (parallel) {
       <div class="study-resizer split-divider" role="separator" aria-orientation="vertical" tabindex="0"
-        aria-label="Largura da passagem ao lado" (pointerdown)="startResize('split', $event)"
+        aria-label="Largura da passagem ao lado" [attr.aria-valuenow]="dividerValues.split"
+        [attr.aria-valuemin]="dividerLimits.split.min" [attr.aria-valuemax]="dividerLimits.split.max"
+        (focus)="onDividerFocus()" (pointerdown)="startResize('split', $event)"
         (pointermove)="onResizeMove($event)" (pointerup)="onResizeEnd($event)"
         (pointercancel)="onResizeEnd($event)" (keydown)="onResizeKey('split', $event)"
         (dblclick)="resetDivider('split')"></div>
@@ -111,7 +115,9 @@
     <!-- Dividers: drag them, or focus one and use the arrows. Home hands the
          column back to the width the layout chose for it. -->
     <div class="study-resizer panel-divider" role="separator" aria-orientation="vertical" tabindex="0"
-      [attr.aria-label]="'Largura do aparato'" (pointerdown)="startResize('panel', $event)"
+      [attr.aria-label]="'Largura do aparato'" [attr.aria-valuenow]="dividerValues.panel"
+      [attr.aria-valuemin]="dividerLimits.panel.min" [attr.aria-valuemax]="dividerLimits.panel.max"
+      (focus)="onDividerFocus()" (pointerdown)="startResize('panel', $event)"
       (pointermove)="onResizeMove($event)" (pointerup)="onResizeEnd($event)"
       (pointercancel)="onResizeEnd($event)" (keydown)="onResizeKey('panel', $event)"
       (dblclick)="resetDivider('panel')"></div>

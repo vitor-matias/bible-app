@@ -161,7 +161,7 @@ export class SelectionActionsComponent {
 
   /** The verse numbers a range touches, read off the elements it crosses. */
   private static versesIn(range: Range): Verse["number"][] {
-    const root = document.querySelector(".bookBlock")
+    const root = SelectionActionsComponent.blockFor(range)
     if (!root) return []
     return (
       Array.from(root.querySelectorAll("verse"))
@@ -169,6 +169,22 @@ export class SelectionActionsComponent {
         .map((element) => Number(element.id))
         // Verse 0 is the chapter's front matter, not a verse to mark.
         .filter((number) => Number.isFinite(number) && number > 0)
+    )
+  }
+
+  /**
+   * The reading block the selection is in.
+   *
+   * Study mode renders two — the chapter and whatever is open beside it — so
+   * the first block on the page is not necessarily the one being read from.
+   * Taking it would leave a selection in the parallel crossing no verses at
+   * all, and the bar would hide instead of offering to mark or copy it.
+   */
+  private static blockFor(range: Range): Element | null {
+    const node = range.startContainer
+    const element = node instanceof Element ? node : node.parentElement
+    return (
+      element?.closest(".bookBlock") ?? document.querySelector(".bookBlock")
     )
   }
 

@@ -35,10 +35,13 @@ export function highlightSegments(
   text: string,
   term: string,
 ): HighlightSegment[] {
-  if (!term.trim()) return [{ text, highlight: false }]
+  // Matched on the trimmed term: a reader who types " Jesus " means the word,
+  // and the spaces they typed either side of it are not part of it.
+  const needle = term.trim()
+  if (!needle) return [{ text, highlight: false }]
 
   const segments: HighlightSegment[] = []
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
   const regex = new RegExp(escaped, "gi")
   let lastIndex = 0
   let match = regex.exec(text)

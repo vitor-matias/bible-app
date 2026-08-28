@@ -149,6 +149,10 @@ export class StudySidebarComponent implements OnChanges {
    * the heading above it already names what it introduces, and repeating that
    * would say the same thing twice. The wider ones keep their own names,
    * having no heading to lean on.
+   *
+   * Only inside the canon groups: a filtered list is a flat list of matches
+   * with no headings over it, so there the entry's own name is what tells one
+   * introduction from another.
    */
   entryLabel(entry: Book): string {
     return entry.introSlug ? "Introdução" : entry.shortName

@@ -789,6 +789,52 @@ describe("BibleReaderComponent", () => {
       expect(component.columnStyle).toEqual({ "--study-rail-width": "300px" })
     })
 
+    it("follows the pointer, and keeps where it was let go", () => {
+      studyMode.activate()
+      fixture.detectChanges()
+      const divider = fixture.nativeElement.querySelector(
+        ".rail-divider",
+      ) as HTMLElement
+      // Pointer capture needs a live pointer, which a dispatched event is not.
+      divider.setPointerCapture = () => {}
+      const drag = (type: string, clientX: number) =>
+        divider.dispatchEvent(
+          new PointerEvent(type, { bubbles: true, clientX, pointerId: 1 }),
+        )
+
+      component.columnWidths = { rail: 300 }
+      drag("pointerdown", 300)
+      drag("pointermove", 340)
+      drag("pointerup", 340)
+
+      expect(component.columnWidths.rail).toBe(340)
+      expect(component.resizing).toBeNull()
+      expect(preferencesServiceSpy.setStudyColumnWidths).toHaveBeenCalledWith({
+        rail: 340,
+      })
+    })
+
+    it("widens the panel as the pointer moves the other way", () => {
+      studyMode.activate()
+      fixture.detectChanges()
+      const divider = fixture.nativeElement.querySelector(
+        ".panel-divider",
+      ) as HTMLElement
+      divider.setPointerCapture = () => {}
+      const drag = (type: string, clientX: number) =>
+        divider.dispatchEvent(
+          new PointerEvent(type, { bubbles: true, clientX, pointerId: 1 }),
+        )
+
+      component.columnWidths = { panel: 400 }
+      drag("pointerdown", 1000)
+      // The panel is on the right, so it grows as the pointer moves left.
+      drag("pointermove", 940)
+      drag("pointerup", 940)
+
+      expect(component.columnWidths.panel).toBe(460)
+    })
+
     it("gives the space back when the column is folded away", () => {
       component.columnWidths = { rail: 400, panel: 500 }
       component.studySidebarCollapsed = true

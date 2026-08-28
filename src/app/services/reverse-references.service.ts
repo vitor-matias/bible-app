@@ -129,36 +129,91 @@ export class ReverseReferencesService {
     // a citation of that is a parse artefact, not a passage.
     if (target.id === "about") return
 
-    const params = getVerseQueryParams(reference.verses, reference.crossChapter)
-    const fromVerse = params?.verseStart ?? 1
-    const toVerse = params?.verseEnd ?? fromVerse
-
     const source = `${book.id}:${chapter.number}:${verse.number}`
-    const targetKey = `${target.id}:${reference.chapter}`
-    const key = `${source}->${targetKey}:${fromVerse}-${toVerse}`
-    // The same passage cites the same target once, however many references
-    // blocks it prints either side of a quote.
-    if (seen.has(key)) return
-    seen.add(key)
 
-    const entry: IncomingReference = {
-      key,
-      label: `${book.shortName} ${chapter.number},${verse.number}`,
-      link: [
-        "/",
-        this.bookService.getUrlAbrv(book),
-        this.bookService.getChapterUrlSegment(chapter.number),
-      ],
-      queryParams: { verseStart: verse.number },
-      fromVerse,
-      toVerse,
-    }
+    // A citation covers what it names, which is not always verses in one
+    // chapter: "Mc 12" is a whole chapter, "Jb 38-39" a run of them, and
+    // "Lc 1,5-2,52" runs out of the chapter it starts in. Indexed span by
+    // span, so the citation is found from whichever verse the reader picks.
+    for (const span of ReverseReferencesService.spansFor(reference)) {
+      const targetKey = `${target.id}:${span.chapter}`
+      const key = `${source}->${targetKey}:${span.from}-${span.to}`
+      // The same passage cites the same target once, however many references
+      // blocks it prints either side of a quote.
+      if (seen.has(key)) continue
+      seen.add(key)
 
-    const existing = index.get(targetKey)
-    if (existing) {
-      existing.push(entry)
-    } else {
-      index.set(targetKey, [entry])
+      const entry: IncomingReference = {
+        key,
+        label: `${book.shortName} ${chapter.number},${verse.number}`,
+        link: [
+          "/",
+          this.bookService.getUrlAbrv(book),
+          this.bookService.getChapterUrlSegment(chapter.number),
+        ],
+        queryParams: { verseStart: verse.number },
+        fromVerse: span.from,
+        toVerse: span.to,
+      }
+
+      const existing = index.get(targetKey)
+      if (existing) {
+        existing.push(entry)
+      } else {
+        index.set(targetKey, [entry])
+      }
     }
   }
+
+  /**
+   * The chapters a reference covers, and how much of each.
+   *
+   * A reference that names no verse covers its chapter entire; a run of whole
+   * chapters covers each of them; a range that crosses a chapter boundary
+   * covers the rest of the one it opens, all of any in between, and the start
+   * of the one it closes in.
+   */
+  private static spansFor(
+    reference: BibleReference,
+  ): { chapter: Chapter["number"]; from: number; to: number }[] {
+    const spans: { chapter: Chapter["number"]; from: number; to: number }[] = []
+    const cross = reference.crossChapter
+    if (cross) {
+      const last = Math.min(cross.endChapter, cross.startChapter + MAX_SPAN)
+      for (let chapter = cross.startChapter; chapter <= last; chapter++) {
+        spans.push({
+          chapter,
+          from: chapter === cross.startChapter ? cross.startVerse : 1,
+          to: chapter === cross.endChapter ? cross.endVerse : WHOLE_CHAPTER,
+        })
+      }
+      return spans
+    }
+
+    if (reference.endChapter && reference.endChapter > reference.chapter) {
+      const last = Math.min(reference.endChapter, reference.chapter + MAX_SPAN)
+      for (let chapter = reference.chapter; chapter <= last; chapter++) {
+        spans.push({ chapter, from: 1, to: WHOLE_CHAPTER })
+      }
+      return spans
+    }
+
+    const params = getVerseQueryParams(reference.verses, undefined)
+    if (!params) {
+      return [{ chapter: reference.chapter, from: 1, to: WHOLE_CHAPTER }]
+    }
+    return [
+      {
+        chapter: reference.chapter,
+        from: params.verseStart,
+        to: params.verseEnd ?? params.verseStart,
+      },
+    ]
+  }
 }
+
+/** Stands for "to the end of the chapter", whatever its last verse is. */
+const WHOLE_CHAPTER = Number.MAX_SAFE_INTEGER
+
+/** A guard against a mis-parsed range indexing the whole Bible. */
+const MAX_SPAN = 150

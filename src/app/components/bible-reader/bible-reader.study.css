@@ -141,18 +141,26 @@
   transition: background-color 0.15s ease;
 }
 
-.study-resizer:hover::after,
-.study-resizer:focus-visible::after {
+.study-resizer:hover::after {
   background-color: color-mix(in srgb, var(--cap-brown) 45%, transparent);
+}
+
+/* Opaque under focus, where the hover wash reads at 2.3:1 against the rail —
+   a keyboard reader has to be able to see which divider they are on. */
+.study-resizer:focus-visible::after {
+  background-color: var(--cap-brown);
 }
 
 .study-resizer:focus-visible {
   outline: none;
 }
 
-:host-context(.dark-theme) .study-resizer:hover::after,
-:host-context(.dark-theme) .study-resizer:focus-visible::after {
+:host-context(.dark-theme) .study-resizer:hover::after {
   background-color: rgba(255, 255, 255, 0.35);
+}
+
+:host-context(.dark-theme) .study-resizer:focus-visible::after {
+  background-color: antiquewhite;
 }
 
 .rail-divider {

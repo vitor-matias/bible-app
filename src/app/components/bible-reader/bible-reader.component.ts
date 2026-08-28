@@ -175,6 +175,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   /** Where the reader has dragged the dividers, if anywhere. */
   columnWidths: StudyColumnWidths = {}
+  /**
+   * Where each divider stands, for the separators to announce. Measured when
+   * one takes focus rather than on every pass: a divider left alone still has
+   * a width, and reading it off the layout costs a reflow that change
+   * detection runs often enough to feel.
+   */
+  dividerValues: Record<StudyDivider, number> = { rail: 0, panel: 0, split: 50 }
+  /** What a divider may be moved between, for the same announcement. */
+  readonly dividerLimits = COLUMN_LIMITS
   /** Set while a divider is under the pointer, to keep the drag cursor. */
   resizing: StudyDivider | null = null
   private dragFrom?: { pointerId: number; x: number; value: number }
@@ -1330,6 +1339,16 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     return style
   }
 
+  /** Reads every divider off the layout, so each can announce where it is. */
+  onDividerFocus(): void {
+    this.dividerValues = {
+      rail: Math.round(this.dividerValue("rail")),
+      panel: Math.round(this.dividerValue("panel")),
+      split: Math.round(this.dividerValue("split")),
+    }
+    this.cdr.detectChanges()
+  }
+
   /** Where a divider currently stands, whether the reader put it there or not. */
   private dividerValue(divider: StudyDivider): number {
     const stored = this.columnWidths[divider]
@@ -1463,6 +1482,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // both end up in this one place, and a column may only be so wide.
     const rounded = Math.round(this.clamp(divider, value) * 10) / 10
     this.columnWidths = { ...this.columnWidths, [divider]: rounded }
+    this.dividerValues = {
+      ...this.dividerValues,
+      [divider]: Math.round(rounded),
+    }
     this.paint(divider, rounded)
     this.preferencesService.setStudyColumnWidths(this.columnWidths)
     this.cdr.detectChanges()

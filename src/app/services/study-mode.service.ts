@@ -62,9 +62,21 @@ export class StudyModeService {
     this.refreshAvailability()
 
     const onChange = () => this.refreshAvailability()
-    this.widthQuery?.addEventListener("change", onChange)
+    if (this.widthQuery) {
+      this.widthQuery.addEventListener("change", onChange)
+      this.destroyRef.onDestroy(() => {
+        this.widthQuery?.removeEventListener("change", onChange)
+      })
+      return
+    }
+
+    // Without matchMedia the resize event is the only way to hear that the
+    // threshold has been crossed. Noisier, but the alternative is a reader
+    // whose window is wide enough being told study mode is unavailable until
+    // they reload.
+    window.addEventListener("resize", onChange)
     this.destroyRef.onDestroy(() => {
-      this.widthQuery?.removeEventListener("change", onChange)
+      window.removeEventListener("resize", onChange)
     })
   }
 

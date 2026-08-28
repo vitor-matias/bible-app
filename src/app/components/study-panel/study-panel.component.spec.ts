@@ -16,6 +16,7 @@ import { HighlightService } from "../../services/highlight.service"
 import { NotesService } from "../../services/notes.service"
 import { ReverseReferencesService } from "../../services/reverse-references.service"
 import {
+  NOTE_SEARCH_DEBOUNCE_MS,
   type ParallelRequest,
   StudyPanelComponent,
 } from "./study-panel.component"
@@ -1383,7 +1384,9 @@ describe("StudyPanelComponent", () => {
       expect(component.noteDraft).toBe("")
     })
 
-    it("finds a note by its words, across books", (done) => {
+    // Driven by tick rather than by a real 260ms wait: the debounce is 200ms,
+    // and a loaded machine can run the subscriber after the assertion.
+    it("finds a note by its words, across books", fakeAsync(() => {
       notes.saveNote("mat", 22, 39, "sobre o amor ao próximo")
       notes.saveNote("psa", 1, 2, "a lei do Senhor")
       setInputs({
@@ -1392,15 +1395,12 @@ describe("StudyPanelComponent", () => {
       })
 
       component.onNoteQuery("lei")
-      setTimeout(() => {
-        expect(component.noteMatches.map((note) => note.bookId)).toEqual([
-          "psa",
-        ])
-        done()
-      }, 260)
-    })
+      tick(NOTE_SEARCH_DEBOUNCE_MS)
 
-    it("ignores accents and case when searching", (done) => {
+      expect(component.noteMatches.map((note) => note.bookId)).toEqual(["psa"])
+    }))
+
+    it("ignores accents and case when searching", fakeAsync(() => {
       notes.saveNote("mat", 22, 39, "sobre o coração")
       setInputs({
         book: BOOK,
@@ -1408,11 +1408,10 @@ describe("StudyPanelComponent", () => {
       })
 
       component.onNoteQuery("CORACAO")
-      setTimeout(() => {
-        expect(component.noteMatches.length).toBe(1)
-        done()
-      }, 260)
-    })
+      tick(NOTE_SEARCH_DEBOUNCE_MS)
+
+      expect(component.noteMatches.length).toBe(1)
+    }))
 
     it("lists the chapter's other notes", () => {
       notes.saveNote("mat", 22, 12, "doze")

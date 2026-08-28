@@ -122,6 +122,43 @@ describe("StudyModeService", () => {
     expect(service.isEnabled).toBeTrue()
   })
 
+  it("keeps up with the window where there is no matchMedia to ask", () => {
+    // Some embedded browsers have no matchMedia. The service falls back to
+    // the window's own width, and to the resize event to hear it change.
+    TestBed.configureTestingModule({
+      providers: [
+        StudyModeService,
+        {
+          provide: PreferencesService,
+          useValue: jasmine.createSpyObj<PreferencesService>(
+            "PreferencesService",
+            {
+              getStudyMode: true,
+              setStudyMode: undefined,
+            },
+          ),
+        },
+        { provide: PLATFORM_ID, useValue: "browser" },
+      ],
+    })
+    spyOn(window, "matchMedia" as never).and.returnValue(
+      undefined as unknown as never,
+    )
+    const widths = [800, 1400]
+    spyOnProperty(window, "innerWidth", "get").and.callFake(
+      () => widths[0] as number,
+    )
+
+    const service = TestBed.inject(StudyModeService)
+    expect(service.isAvailable).toBeFalse()
+
+    widths[0] = widths[1]
+    window.dispatchEvent(new Event("resize"))
+
+    expect(service.isAvailable).toBeTrue()
+    expect(service.isActive).toBeTrue()
+  })
+
   it("stays unavailable while server-rendering, with no window to measure", () => {
     const { service, preferences } = configure(1400, true, "server")
     expect(service.isAvailable).toBeFalse()

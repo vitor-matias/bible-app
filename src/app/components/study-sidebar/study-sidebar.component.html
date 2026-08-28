@@ -29,7 +29,9 @@
       <li>
         <button type="button" class="book-row" [class.current]="entry.id === book?.id"
           [attr.aria-current]="entry.id === book?.id ? 'page' : null" (click)="onBookClick(entry)">
-          <span class="book-name">{{ entryLabel(entry) }}</span>
+          <!-- Its own name, not entryLabel: a filtered list has no headings
+               above it, so three rows reading "Introdução" would name nothing. -->
+          <span class="book-name">{{ entry.shortName }}</span>
           <span class="book-count" aria-hidden="true">{{ chapterCountFor(entry) }}</span>
         </button>
       </li>

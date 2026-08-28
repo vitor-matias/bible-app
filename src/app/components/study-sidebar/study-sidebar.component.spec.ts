@@ -264,13 +264,30 @@ describe("StudySidebarComponent", () => {
     it("re-runs itself against a new book list", () => {
       setInputs({ books: BOOKS, book: BOOKS[1] })
       component.onFilter("mar")
-      expect(component.matches.length).toBe(1)
+      expect(component.matches.map((book) => book.id)).toEqual(["mrk"])
 
       // An introduction loading pushes a new list; the filter must be applied
-      // to it rather than leaving stale matches on screen.
-      setInputs({ books: [...BOOKS] })
+      // to it rather than leaving stale matches on screen. The new list has
+      // no match, so a filter left un-run would show Marcos against a list it
+      // is not in.
+      setInputs({ books: BOOKS.filter((book) => book.id !== "mrk") })
 
-      expect(component.matches.map((book) => book.id)).toEqual(["mrk"])
+      expect(component.matches).toEqual([])
+    })
+
+    it("names each introduction in the matches, having no heading to lean on", () => {
+      setInputs({ books: BOOKS_WITH_INTROS, book: BOOKS[0] })
+
+      component.onFilter("introdu")
+      fixture.detectChanges()
+
+      const names = Array.from(
+        fixture.nativeElement.querySelectorAll(".book-row .book-name"),
+      ).map((name) => (name as HTMLElement).textContent?.trim())
+      // Not two rows both reading "Introdução": in a flat list of matches the
+      // entry's own name is all there is to tell them apart.
+      expect(names).toContain("Introdução Geral")
+      expect(new Set(names).size).toBe(names.length)
     })
 
     it("opens the book a reader picks from the matches", () => {

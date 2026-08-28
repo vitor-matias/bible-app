@@ -138,7 +138,7 @@ type FootnoteEntry = {
 const NOTE_SAVE_DEBOUNCE_MS = 500
 
 /** The same, for the note search — short enough to feel like it types. */
-const NOTE_SEARCH_DEBOUNCE_MS = 200
+export const NOTE_SEARCH_DEBOUNCE_MS = 200
 
 /** How long the copy button confirms itself before going back to normal. */
 const COPIED_FEEDBACK_MS = 1600

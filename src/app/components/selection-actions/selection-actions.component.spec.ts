@@ -129,6 +129,21 @@ describe("SelectionActionsComponent", () => {
     expect(component.position).toBeNull()
   })
 
+  it("reads the verses of the block the selection is in", () => {
+    // Study mode renders the chapter and a passage beside it, so there are
+    // two blocks on the page. A selection in the second one used to cross no
+    // verses at all, and the bar hid rather than offering to mark it.
+    const parallel = renderVerses([12, 13])
+    parallel.querySelectorAll("verse").forEach((verse, index) => {
+      verse.id = String([12, 13][index])
+    })
+
+    selectVerses(parallel, 12, 13)
+
+    expect(component.position).not.toBeNull()
+    expect(component["verses"]).toEqual([12, 13])
+  })
+
   it("copies the words without the verse numbers", async () => {
     // A verse as the reader renders it: number, marker, then the words.
     // Built inside the block the fixture already put on the page, since the

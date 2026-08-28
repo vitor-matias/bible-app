@@ -121,6 +121,58 @@ describe("ReverseReferencesService", () => {
     expect(service.incomingFor("mrk", 12, 35)).toEqual([])
   })
 
+  it("matches any verse of a chapter cited whole", async () => {
+    // "Mc 12" names no verse: it cites the chapter, so it is an answer to
+    // whichever verse of that chapter the reader has chosen.
+    bibleRefWith([{ book: "mrk", chapter: 12, verses: [] }])
+
+    await service.ensureIndex()
+
+    expect(service.incomingFor("mrk", 12, 1).length).toBe(1)
+    expect(service.incomingFor("mrk", 12, 31).length).toBe(1)
+    expect(service.incomingFor("mrk", 12, 44).length).toBe(1)
+    // Still only that chapter.
+    expect(service.incomingFor("mrk", 13, 1)).toEqual([])
+  })
+
+  it("matches every chapter of a run cited whole", async () => {
+    bibleRefWith([{ book: "mrk", chapter: 12, endChapter: 14, verses: [] }])
+
+    await service.ensureIndex()
+
+    expect(service.incomingFor("mrk", 12, 20).length).toBe(1)
+    expect(service.incomingFor("mrk", 13, 5).length).toBe(1)
+    expect(service.incomingFor("mrk", 14, 72).length).toBe(1)
+    expect(service.incomingFor("mrk", 15, 1)).toEqual([])
+  })
+
+  it("matches either side of a range that leaves its chapter", async () => {
+    bibleRefWith([
+      {
+        book: "mrk",
+        chapter: 12,
+        verses: [],
+        crossChapter: {
+          type: "crossChapterRange",
+          startChapter: 12,
+          startVerse: 28,
+          endChapter: 13,
+          endVerse: 10,
+        },
+      },
+    ])
+
+    await service.ensureIndex()
+
+    // From where it opens to the end of that chapter, and into the next as
+    // far as it names.
+    expect(service.incomingFor("mrk", 12, 28).length).toBe(1)
+    expect(service.incomingFor("mrk", 12, 44).length).toBe(1)
+    expect(service.incomingFor("mrk", 13, 10).length).toBe(1)
+    expect(service.incomingFor("mrk", 12, 27)).toEqual([])
+    expect(service.incomingFor("mrk", 13, 11)).toEqual([])
+  })
+
   it("does not list a citation of an unresolvable book", async () => {
     bibleRefWith([{ book: "nonsense", chapter: 1, verses: [] }])
 
