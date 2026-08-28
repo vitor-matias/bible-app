@@ -51,6 +51,18 @@ describe("StudyTrailComponent", () => {
     expect(current.getAttribute("aria-current")).toBe("page")
   })
 
+  it("offers a way to start the trail again", () => {
+    setEntries([entry("Mateus 22"), entry("Lucas 14")])
+    let asked = 0
+    component.clearTrail.subscribe(() => asked++)
+
+    fixture.nativeElement
+      .querySelector(".trail-clear")
+      .dispatchEvent(new MouseEvent("click"))
+
+    expect(asked).toBe(1)
+  })
+
   it("carries each step's verse through to its link", () => {
     setEntries([
       { ...entry("Mateus 22"), queryParams: { verseStart: 39 } },

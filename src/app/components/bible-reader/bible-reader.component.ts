@@ -998,6 +998,17 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     })
   }
 
+  /**
+   * Starts the trail again from the chapter on screen, rather than emptying
+   * it: where the reader is standing is the one place the way back must
+   * still lead.
+   */
+  resetTrail(): void {
+    this.readingTrail.clear()
+    this.recordTrail()
+    this.cdr.markForCheck()
+  }
+
   /** Points the study panel at a verse the reader arrived on via a link. */
   private selectVerseNumber(verseNumber: Verse["number"]): void {
     if (!this.studyModeActive) return

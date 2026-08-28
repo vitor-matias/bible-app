@@ -43,6 +43,10 @@ function verse(number: number, text: TextType[]): Verse {
   }
 }
 
+function heading(text: string): Section {
+  return { type: "section", tag: "s1", text, normalizedText: text }
+}
+
 function references(text: string): References {
   return { type: "references", text, normalizedText: text }
 }
@@ -141,7 +145,7 @@ describe("StudyPanelComponent", () => {
   })
 
   describe("references", () => {
-    it("lists every reference in the chapter, grouped by the verse printing it", () => {
+    it("groups references under the passage they open, not the verse before it", () => {
       bibleRef.extract.and.callFake((text: string) =>
         text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
       )
@@ -151,33 +155,77 @@ describe("StudyPanelComponent", () => {
           bookId: "mat",
           number: 22,
           verses: [
-            verse(34, [references("Mc 12,28-34"), plain("Constando-lhes")]),
+            // The heading and its references arrive in verse 33's payload,
+            // but they introduce the passage beginning at verse 34.
+            verse(33, [
+              plain("E a multidão, ouvindo-o"),
+              heading("O mandamento do amor"),
+              references("Mc 12,28-34"),
+            ]),
+            verse(34, [plain("Constando-lhes")]),
             verse(39, [plain("O segundo é semelhante")]),
           ],
         },
       })
 
       expect(component.referenceGroups.length).toBe(1)
-      expect(component.referenceGroups[0].label).toBe("22,34")
+      expect(component.referenceGroups[0].verseNumber).toBe(34)
+      expect(component.referenceGroups[0].label).toBe("22,34-39")
       expect(component.referenceGroups[0].entries[0].label).toBe(
         "Marcos 12,28-34",
       )
     })
 
-    it("labels the chapter's opening parallels with verse one, not zero", () => {
+    it("ends a passage where the next heading begins", () => {
+      bibleRef.extract.and.callFake((text: string) =>
+        text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
+      )
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 22,
+          verses: [
+            verse(33, [
+              plain("E a multidão"),
+              heading("O mandamento do amor"),
+              references("Mc 12,28-34"),
+            ]),
+            verse(34, [plain("Constando-lhes")]),
+            verse(40, [plain("Destes dois"), heading("O Messias")]),
+            verse(41, [plain("Estando os fariseus")]),
+          ],
+        },
+      })
+
+      expect(component.referenceGroups[0].label).toBe("22,34-40")
+      expect(component.referenceGroups[0].lastVerse).toBe(40)
+    })
+
+    it("names the passage a chapter's opening parallels cover", () => {
       bibleRef.extract.and.returnValue([reference("luk", 14, 15, 24)])
       setInputs({
         book: BOOK,
         chapter: {
           bookId: "mat",
           number: 22,
-          // Verse 0 is the front matter this edition prints them on.
-          verses: [verse(0, [references("Lc 14,15-24")])],
+          verses: [
+            // Verse 0 is the front matter: the heading and the references
+            // under it arrive here, ahead of the verse they introduce.
+            verse(0, [
+              heading("Parábola do grande banquete"),
+              references("Lc 14,15-24"),
+            ]),
+            verse(1, [plain("Tendo Jesus recomeçado")]),
+            verse(2, [plain("O Reino do Céu")]),
+          ],
         },
       })
 
-      // The heading and its parallels cover the chapter, not its first verse.
-      expect(component.referenceGroups[0].label).toBe("Capítulo 22")
+      // They belong to the passage that heading opens, which runs from the
+      // first verse to the end of the chapter — not to verse 0.
+      expect(component.referenceGroups[0].verseNumber).toBe(1)
+      expect(component.referenceGroups[0].label).toBe("22,1-2")
     })
 
     it("shows a reference once even when the verse prints it twice", () => {

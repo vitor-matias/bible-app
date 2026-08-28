@@ -13,5 +13,10 @@
     </li>
     }
   </ol>
+
+  <!-- Starts the trail again from where the reader is standing, for when the
+       way back has become a record of somewhere they are no longer going. -->
+  <button type="button" class="trail-clear" (click)="clearTrail.emit()"
+    aria-label="Limpar o percurso" title="Limpar o percurso">×</button>
 </nav>
 }

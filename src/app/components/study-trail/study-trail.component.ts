@@ -1,4 +1,10 @@
-import { ChangeDetectionStrategy, Component, Input } from "@angular/core"
+import {
+  ChangeDetectionStrategy,
+  Component,
+  EventEmitter,
+  Input,
+  Output,
+} from "@angular/core"
 import { RouterModule } from "@angular/router"
 import type { TrailEntry } from "../../services/reading-trail.service"
 
@@ -18,6 +24,7 @@ import type { TrailEntry } from "../../services/reading-trail.service"
 })
 export class StudyTrailComponent {
   @Input() entries: TrailEntry[] = []
+  @Output() clearTrail = new EventEmitter<void>()
 
   get hasTrail(): boolean {
     return this.entries.length > 1

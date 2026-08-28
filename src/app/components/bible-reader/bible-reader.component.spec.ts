@@ -719,6 +719,23 @@ describe("BibleReaderComponent", () => {
       expect(component.trail.map((entry) => entry.key)).toEqual(["gen:1"])
     })
 
+    it("restarts the trail from where the reader is standing", () => {
+      bookServiceSpy.getUrlAbrv.and.returnValue("gn")
+      bookServiceSpy.getChapterUrlSegment.and.returnValue("3")
+      apiServiceSpy.getChapter.and.returnValue(
+        of({ bookId: "gen", number: 3, verses: [] } as unknown as Chapter),
+      )
+      component.getChapter(1)
+      component.getChapter(3)
+      expect(component.trail.length).toBeGreaterThan(1)
+
+      component.resetTrail()
+
+      // Not emptied: the chapter on screen is the one place the way back
+      // must still lead.
+      expect(component.trail.map((entry) => entry.key)).toEqual(["gen:3"])
+    })
+
     it("keeps the About page off the trail", () => {
       component.book = { id: "about", shortName: "Sobre" } as Book
       component.getChapter(1)

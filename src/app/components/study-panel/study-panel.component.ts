@@ -695,52 +695,147 @@ export class StudyPanelComponent implements OnChanges {
     if (!this.chapter) return
 
     const verses = this.chapter.verses ?? []
-    // Where each passage ends: the verse before the next heading, since a
-    // heading is what starts the next passage.
-    const sectionStarts = verses
-      .filter((verse) => verse.text.some((part) => part.type === "section"))
-      .map((verse) => verse.number)
-    const lastVerseNumber = verses.length
-      ? Math.max(...verses.map((verse) => verse.number))
-      : 0
+    const lastVerse = verses.reduce(
+      (highest, verse) => Math.max(highest, verse.number),
+      0,
+    )
+    const sectionStarts = this.sectionStartsIn(verses)
 
-    const groups: ReferenceGroup[] = []
-    for (const verse of verses) {
-      const entries = this.entriesFor(verse)
-      if (!entries.length) continue
-      const nextStart = sectionStarts.find((start) => start > verse.number)
-      groups.push({
-        verseNumber: verse.number,
-        label: this.verseLabel(verse.number),
-        entries,
-        lastVerse: nextStart === undefined ? lastVerseNumber : nextStart - 1,
+    // Collected by the verse each passage *starts* at, which is not the verse
+    // its references are printed on: a heading and the references under it
+    // arrive in the payload of the verse before the one they introduce.
+    const byStart = new Map<Verse["number"], ReferenceEntry[]>()
+    const seen = new Set<string>()
+    verses.forEach((verse, index) => {
+      // The passage a heading in this verse has opened, if one has.
+      let opened: Verse["number"] | undefined
+      let words = false
+      for (const part of verse.text ?? []) {
+        if (part.type === "section") {
+          // A heading after the verse's own words opens the next verse; one
+          // at the head of the payload opens this verse.
+          opened = words
+            ? StudyPanelComponent.nextVerseNumber(verses, index, lastVerse)
+            : Math.max(verse.number, 1)
+          words = false
+          continue
+        }
+        if (part.type !== "references") {
+          if (part.type !== "footnote" && part.text.trim()) words = true
+          continue
+        }
+
+        // Under a heading the references belong to the passage it opens;
+        // before one, to the passage this verse is already inside.
+        const startsAt =
+          opened ??
+          StudyPanelComponent.sectionStartAt(sectionStarts, verse.number)
+
+        for (const reference of this.bibleRef.extract(
+          part.text,
+          verse.bookId,
+          verse.chapterNumber,
+        )) {
+          const entry = this.toEntry(reference)
+          // The same passage can be cited twice (two references blocks either
+          // side of a quote); list it once.
+          const key = `${startsAt}:${entry.key}`
+          if (seen.has(key)) continue
+          seen.add(key)
+          const entries = byStart.get(startsAt)
+          if (entries) {
+            entries.push(entry)
+          } else {
+            byStart.set(startsAt, [entry])
+          }
+        }
+      }
+    })
+
+    const groups: ReferenceGroup[] = Array.from(byStart.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([startsAt, entries]) => {
+        const nextStart = sectionStarts.find((start) => start > startsAt)
+        const endsAt = nextStart === undefined ? lastVerse : nextStart - 1
+        return {
+          verseNumber: startsAt,
+          label: this.passageLabel(startsAt, endsAt),
+          entries,
+          lastVerse: endsAt,
+        }
       })
-    }
 
     this.referenceGroups = groups
     this.fetchReferenceTexts(groups)
   }
 
-  /** Cross references printed on one verse, each passage listed once. */
-  private entriesFor(verse: Verse): ReferenceEntry[] {
-    const seen = new Set<string>()
-    const entries: ReferenceEntry[] = []
-    for (const part of verse.text) {
-      if (part.type !== "references") continue
-      for (const reference of this.bibleRef.extract(
-        part.text,
-        verse.bookId,
-        verse.chapterNumber,
-      )) {
-        const entry = this.toEntry(reference)
-        // The same passage can be cited twice on one verse (two references
-        // blocks either side of a quote); list it once.
-        if (seen.has(entry.key)) continue
-        seen.add(entry.key)
-        entries.push(entry)
+  /**
+   * The verses that open a passage.
+   *
+   * A heading arrives inside the payload of whichever verse precedes it, so
+   * where it opens depends on what came before it in that verse: after the
+   * verse's own words it introduces the *next* verse, while at the head of
+   * the payload — the chapter's front matter, or a heading that falls
+   * immediately before a verse's words — it introduces that verse.
+   */
+  private sectionStartsIn(verses: Verse[]): Verse["number"][] {
+    const lastVerse = verses.reduce(
+      (highest, verse) => Math.max(highest, verse.number),
+      0,
+    )
+    const starts = new Set<Verse["number"]>()
+    verses.forEach((verse, index) => {
+      let words = false
+      for (const part of verse.text ?? []) {
+        if (part.type === "section") {
+          starts.add(
+            words
+              ? StudyPanelComponent.nextVerseNumber(verses, index, lastVerse)
+              : Math.max(verse.number, 1),
+          )
+          words = false
+          continue
+        }
+        if (part.type === "footnote" || part.type === "references") continue
+        if (part.text.trim()) words = true
       }
+    })
+    return Array.from(starts).sort((a, b) => a - b)
+  }
+
+  /** The passage a verse sits in: the last heading at or before it. */
+  private static sectionStartAt(
+    sectionStarts: Verse["number"][],
+    verseNumber: Verse["number"],
+  ): Verse["number"] {
+    let start = 1
+    for (const candidate of sectionStarts) {
+      if (candidate <= Math.max(verseNumber, 1)) start = candidate
     }
-    return entries
+    return start
+  }
+
+  /** The next verse with a number of its own, or the chapter's last. */
+  private static nextVerseNumber(
+    verses: Verse[],
+    index: number,
+    fallback: Verse["number"],
+  ): Verse["number"] {
+    for (let i = index + 1; i < verses.length; i++) {
+      if (verses[i].number > 0) return verses[i].number
+    }
+    return fallback
+  }
+
+  /** "1,8-22" — the passage a group of references covers. */
+  private passageLabel(
+    startsAt: Verse["number"],
+    endsAt: Verse["number"],
+  ): string {
+    const chapter = this.chapter?.number ?? ""
+    return endsAt > startsAt
+      ? `${chapter},${startsAt}-${endsAt}`
+      : `${chapter},${startsAt}`
   }
 
   private toEntry(reference: BibleReference): ReferenceEntry {

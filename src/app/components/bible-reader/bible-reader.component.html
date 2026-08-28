@@ -20,7 +20,7 @@
     [class.panel-collapsed]="studyPanelCollapsed">
     <!-- The way back through this session's reading, above all three columns
          because it belongs to none of them. -->
-    <study-trail class="study-trail-bar" [entries]="trail"></study-trail>
+    <study-trail class="study-trail-bar" [entries]="trail" (clearTrail)="resetTrail()"></study-trail>
 
     <study-sidebar class="study-rail" [books]="books" [book]="book" [chapters]="chaptersWithIntro"
       [selectedChapter]="chapterNumber" [collapsed]="studySidebarCollapsed" (selectBook)="onBookSubmit($event)"
