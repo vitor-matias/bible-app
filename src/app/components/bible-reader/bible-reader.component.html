@@ -1,11 +1,19 @@
 @if (book) {
-<div class="text-container" unifiedGestures fontSizeContext="reader" (swipeLeft)="onSwipeLeft()" (swipeRight)="onSwipeRight()">
+<div class="text-container" unifiedGestures fontSizeContext="reader" (swipeLeft)="onSwipeLeft()"
+  (swipeRight)="onSwipeRight()" [class.study-active]="studyModeActive"
+  [class.rail-collapsed]="studySidebarCollapsed" [class.panel-collapsed]="studyPanelCollapsed">
   <header class="reader-header" [book]="book" [chapterNumber]="chapterNumber" [viewMode]="effectiveViewMode"
     [autoScrollControlsVisible]="showAutoScrollControls" (openBookSelector)="openBookDrawer($event)"
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
     (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize()"
     (decreaseFontSizeEvent)="onDecreaseFontSize()" [studyMode]="studyModeActive"
-    [studyModeAvailable]="studyModeAvailable" (toggleStudyMode)="onToggleStudyMode()"></header>
+    [studyModeAvailable]="studyModeAvailable" (toggleStudyMode)="onToggleStudyMode()">
+    <!-- The way back through this session's reading. In study mode the header
+         is the one row of chrome there is, so the trail shares it rather than
+         taking a second one; it also carries the page's heading, which the
+         toolbar's book/chapter chip carries everywhere else. -->
+    <study-trail [entries]="trail" (clearTrail)="resetTrail()"></study-trail>
+  </header>
   <!-- Outside both layouts, because selecting text means the same thing in
        each: it is fixed-positioned against the selection, not the column. -->
   <selection-actions [book]="book" [chapter]="chapter"></selection-actions>
@@ -16,12 +24,7 @@
        notes — moves out of bottom sheets into a column beside the text. Only
        ever rendered on a viewport wide enough to hold three columns; the
        reading layout below is what every other screen gets. -->
-  <div class="study-layout" [class.rail-collapsed]="studySidebarCollapsed"
-    [class.panel-collapsed]="studyPanelCollapsed">
-    <!-- The way back through this session's reading, above all three columns
-         because it belongs to none of them. -->
-    <study-trail class="study-trail-bar" [entries]="trail" (clearTrail)="resetTrail()"></study-trail>
-
+  <div class="study-layout">
     <study-sidebar class="study-rail" [books]="books" [book]="book" [chapters]="chaptersWithIntro"
       [selectedChapter]="chapterNumber" [collapsed]="studySidebarCollapsed" (selectBook)="onBookSubmit($event)"
       (selectChapter)="onChapterSubmit($event)" (toggleCollapsed)="toggleStudySidebar()"></study-sidebar>

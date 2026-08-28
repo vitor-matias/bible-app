@@ -70,8 +70,14 @@
   background-color: color-mix(in srgb, var(--cap-brown) 10%, transparent);
 }
 
+/* The page's heading, set to the size of the row it shares rather than to a
+   heading's default: it names where the reader is, quietly, the way the
+   toolbar's chip did. */
 .trail-current {
+  margin: 0;
   padding: 2px 6px;
+  font: inherit;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-color);
 }

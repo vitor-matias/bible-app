@@ -43,8 +43,10 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  /* Pushed to the far end of the head row, after the tabs. */
-  margin: 4px 8px 4px auto;
+  /* On the panel's inner edge, against the reading column — mirroring the
+     rail's control on its own inner edge, so the two face each other across
+     the text rather than sitting at opposite ends of the window. */
+  margin: 4px 4px 4px 8px;
   border: 0;
   border-radius: 6px;
   background-color: var(--study-surface);
@@ -65,7 +67,7 @@
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 4px 8px 0 16px;
+  padding: 4px 16px 0 8px;
 }
 
 .tab {
@@ -361,6 +363,14 @@
 .note-search-input:focus {
   outline: none;
   border-color: color-mix(in srgb, var(--cap-brown) 40%, transparent);
+}
+
+/* Where the reader's words landed, in the same tint a deep link uses to say
+   "this is the verse you asked for". */
+.reference-text mark {
+  background-color: var(--verse-highlight-color);
+  color: inherit;
+  border-radius: 2px;
 }
 
 /* A result names the verse it belongs to, and opens it. */

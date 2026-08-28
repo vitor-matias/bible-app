@@ -24,6 +24,7 @@ describe("BibleReferenceService", () => {
           id: "sng",
         },
         { abrv: "Ap", shortName: "Apoc", name: "Apocalipse", id: "rev" },
+        { abrv: "Jb", shortName: "Job", name: "Job", id: "job" },
       ],
     }
 
@@ -31,6 +32,59 @@ describe("BibleReferenceService", () => {
       providers: [{ provide: BookService, useValue: mockBookService }],
     })
     service = TestBed.inject(BibleReferenceService)
+  })
+
+  describe("whole-chapter ranges", () => {
+    it("reads a run of chapters with no verse named", () => {
+      const [ref] = service.extract("Jb 38 -39", "gen", 1)
+
+      expect(ref.chapter).toBe(38)
+      expect(ref.endChapter).toBe(39)
+      expect(ref.verses).toBeUndefined()
+      expect(ref.match).toBe("Jb 38 -39")
+    })
+
+    it("reads one without the spaces around the dash", () => {
+      const [ref] = service.extract("Jb 38-39", "gen", 1)
+
+      expect(ref.chapter).toBe(38)
+      expect(ref.endChapter).toBe(39)
+    })
+
+    it("leaves a verse range alone", () => {
+      const [ref] = service.extract("Gn 46,1-27", "gen", 1)
+
+      expect(ref.endChapter).toBeUndefined()
+      expect(ref.verses).toEqual([{ type: "range", start: 1, end: 27 }])
+    })
+
+    it("leaves a cross-chapter verse range alone", () => {
+      const [ref] = service.extract("Jb 38,1-39,30", "gen", 1)
+
+      expect(ref.endChapter).toBeUndefined()
+      expect(ref.crossChapter).toEqual({
+        type: "crossChapterRange",
+        startChapter: 38,
+        startVerse: 1,
+        startPart: undefined,
+        endChapter: 39,
+        endVerse: 30,
+        endPart: undefined,
+      })
+    })
+
+    it("reads a chapter range beside its neighbours in a references block", () => {
+      // Genesis 1's own references block, in the shape the edition prints it.
+      const refs = service.extract("2,4b-25 ; Jb 38 -39; Jo 1,1-3", "gen", 1)
+
+      const job = refs.find((ref) => /Jb/.test(ref.match))
+      expect(job?.chapter).toBe(38)
+      expect(job?.endChapter).toBe(39)
+      // The neighbours parse as they did before.
+      expect(refs.some((ref) => ref.chapter === 2)).toBeTrue()
+      const john = refs.find((ref) => /Jo /.test(ref.match))
+      expect(john?.verses).toEqual([{ type: "range", start: 1, end: 3 }])
+    })
   })
 
   it("should be created", () => {

@@ -1,70 +1,108 @@
+<!-- The menu and the search action are the same controls in both chromes, so
+     they are written once here and instantiated by whichever chrome is on
+     screen. Their template refs are local to each instantiation, which is what
+     lets the menu items keep closing the trigger that opened them. -->
+<ng-template #chromeMenu>
+  <button class="menuButton" mat-icon-button [matMenuTriggerFor]="headerMenu" #menuTrigger="matMenuTrigger"
+    aria-label="Menu">
+    <mat-icon>menu</mat-icon>
+  </button>
+  <mat-menu #headerMenu="matMenu">
+    <div class="menu-controls" (click)="$event.stopPropagation()">
+      <button type="button" mat-icon-button (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" [attr.aria-label]="getThemeTooltip()">
+        <mat-icon>{{ getThemeIcon() }}</mat-icon>
+      </button>
+      @if (book.id !== 'about') {
+      <button type="button" mat-icon-button (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" [attr.aria-label]="getViewModeTooltip()">
+        <mat-icon>{{ getViewModeIcon() }}</mat-icon>
+      </button>
+      }
+      <button type="button" mat-icon-button (click)="onDecreaseFontSize()" matTooltip="Diminuir texto" aria-label="Diminuir texto">
+        <mat-icon>text_decrease</mat-icon>
+      </button>
+      <button type="button" mat-icon-button (click)="onIncreaseFontSize()" matTooltip="Aumentar texto" aria-label="Aumentar texto">
+        <mat-icon>text_increase</mat-icon>
+      </button>
+    </div>
+    <mat-divider></mat-divider>
+    <button mat-menu-item (click)="onToggleBookmarkFromMenu(menuTrigger)">
+      <mat-icon>bookmarks</mat-icon>
+      <span>Marcadores</span>
+    </button>
+    <!-- Only where the layout fits (see StudyModeService): on a narrow
+         window the item would promise a mode the reader cannot get. The
+         About page is excluded for the same reason — it is the app's own
+         copy, and the reader keeps it in the plain layout. -->
+    @if (studyModeAvailable && book.id !== 'about') {
+    <button mat-menu-item (click)="onToggleStudyMode(menuTrigger, $event)">
+      <mat-icon>view_sidebar</mat-icon>
+      <span>{{ studyMode ? 'Voltar ao modo de leitura' : 'Modo de estudo' }}</span>
+    </button>
+    }
+    <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode === 'paged'">
+      <mat-icon>auto_mode</mat-icon>
+      <span>
+        {{ autoScrollControlsVisible
+        ? 'Esconder controlos de deslocamento automático'
+        : 'Mostrar controlos de deslocamento automático' }}
+      </span>
+    </button>
+    @if (canShare) {
+    <button mat-menu-item (click)="onShare(menuTrigger, $event)">
+      <mat-icon>share</mat-icon>
+      <span>Partilhar</span>
+    </button>
+    }
+    @if (analyticsService.areAnalyticsAvailable()) {
+      <button type="button" mat-menu-item (click)="onReportProblem(menuTrigger)">
+        <mat-icon>report_problem</mat-icon>
+        <span>Reportar Erro</span>
+      </button>
+    }
+    <a mat-menu-item href="https://www.capuchinhos.org/politica-de-privacidade" target="_blank" rel="noopener noreferrer">
+      <mat-icon>privacy_tip</mat-icon>
+      <span class="privacy-label">
+        Política de Privacidade
+        <mat-icon class="open-in-new-icon">open_in_new</mat-icon>
+      </span>
+    </a>
+  </mat-menu>
+</ng-template>
+
+<ng-template #chromeSearch>
+  @if (!isOffline) {
+  <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button matTooltip="Pesquisar"
+    aria-label="Pesquisar">
+    <mat-icon class="search-icon" aria-label="Search">search</mat-icon>
+  </button>
+  }
+</ng-template>
+
+@if (studyMode) {
+<!-- Study mode's chrome. The rail below is the book and chapter picker that
+     the toolbar's chip used to open, so a toolbar here would be a second one
+     over the top of it; what the chip cannot be replaced by — the menu, search
+     and the name of where the reader is — shares a single row with the trail.
+     Laid out on the same three columns as the text below, so each control sits
+     over the column it belongs to instead of over the middle of the window. -->
+<div class="study-chrome">
+  <div class="chrome-lead">
+    <ng-container *ngTemplateOutlet="chromeMenu"></ng-container>
+  </div>
+  <!-- Where the reader is, and the way back: see StudyTrailComponent, which
+       the reader projects in here. It carries this page's heading, and starts
+       at the reading column's own left edge. -->
+  <div class="chrome-middle">
+    <ng-content></ng-content>
+  </div>
+  <div class="chrome-tail"></div>
+</div>
+
+} @else {
 <div class="header-placeholder">
   <mat-toolbar>
     <div class="header-content">
-      <button class="menuButton" mat-icon-button [matMenuTriggerFor]="headerMenu" #menuTrigger="matMenuTrigger"
-        aria-label="Menu">
-        <mat-icon>menu</mat-icon>
-      </button>
-      <mat-menu #headerMenu="matMenu">
-        <div class="menu-controls" (click)="$event.stopPropagation()">
-          <button type="button" mat-icon-button (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" [attr.aria-label]="getThemeTooltip()">
-            <mat-icon>{{ getThemeIcon() }}</mat-icon>
-          </button>
-          @if (book.id !== 'about') {
-          <button type="button" mat-icon-button (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" [attr.aria-label]="getViewModeTooltip()">
-            <mat-icon>{{ getViewModeIcon() }}</mat-icon>
-          </button>
-          }
-          <button type="button" mat-icon-button (click)="onDecreaseFontSize()" matTooltip="Diminuir texto" aria-label="Diminuir texto">
-            <mat-icon>text_decrease</mat-icon>
-          </button>
-          <button type="button" mat-icon-button (click)="onIncreaseFontSize()" matTooltip="Aumentar texto" aria-label="Aumentar texto">
-            <mat-icon>text_increase</mat-icon>
-          </button>
-        </div>
-        <mat-divider></mat-divider>
-        <button mat-menu-item (click)="onToggleBookmarkFromMenu(menuTrigger)">
-          <mat-icon>bookmarks</mat-icon>
-          <span>Marcadores</span>
-        </button>
-        <!-- Only where the layout fits (see StudyModeService): on a narrow
-             window the item would promise a mode the reader cannot get. The
-             About page is excluded for the same reason — it is the app's own
-             copy, and the reader keeps it in the plain layout. -->
-        @if (studyModeAvailable && book.id !== 'about') {
-        <button mat-menu-item (click)="onToggleStudyMode(menuTrigger, $event)">
-          <mat-icon>view_sidebar</mat-icon>
-          <span>{{ studyMode ? 'Voltar ao modo de leitura' : 'Modo de estudo' }}</span>
-        </button>
-        }
-        <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode === 'paged'">
-          <mat-icon>auto_mode</mat-icon>
-          <span>
-            {{ autoScrollControlsVisible
-            ? 'Esconder controlos de deslocamento automático'
-            : 'Mostrar controlos de deslocamento automático' }}
-          </span>
-        </button>
-        @if (canShare) {
-        <button mat-menu-item (click)="onShare(menuTrigger, $event)">
-          <mat-icon>share</mat-icon>
-          <span>Partilhar</span>
-        </button>
-        }
-        @if (analyticsService.areAnalyticsAvailable()) {
-          <button type="button" mat-menu-item (click)="onReportProblem(menuTrigger)">
-            <mat-icon>report_problem</mat-icon>
-            <span>Reportar Erro</span>
-          </button>
-        }
-        <a mat-menu-item href="https://www.capuchinhos.org/politica-de-privacidade" target="_blank" rel="noopener noreferrer">
-          <mat-icon>privacy_tip</mat-icon>
-          <span class="privacy-label">
-            Política de Privacidade
-            <mat-icon class="open-in-new-icon">open_in_new</mat-icon>
-          </span>
-        </a>
-      </mat-menu>
+      <ng-container *ngTemplateOutlet="chromeMenu"></ng-container>
 
       <!-- The book/chapter label is this page's heading as well as its picker,
            so it carries the h1: controls inside a heading are valid HTML, and a
@@ -112,12 +150,8 @@
       </mat-button-toggle-group>
       </h1>
 
-      @if (!isOffline) {
-      <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button matTooltip="Pesquisar"
-        aria-label="Pesquisar">
-        <mat-icon class="search-icon" aria-label="Search">search</mat-icon>
-      </button>
-      }
+      <ng-container *ngTemplateOutlet="chromeSearch"></ng-container>
     </div>
   </mat-toolbar>
 </div>
+}

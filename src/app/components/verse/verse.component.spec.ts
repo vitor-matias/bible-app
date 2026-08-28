@@ -605,92 +605,26 @@ describe("VerseComponent", () => {
 
   describe("deep-link highlight", () => {
     /** Mirrors what BibleReaderAnimationService puts on the <verse> host. */
-    function highlightHost(): HTMLElement {
+    function highlightHost(continues = false): HTMLElement {
       const host = fixture.nativeElement as HTMLElement
       host.classList.add("verse-highlight")
+      // Every verse of a range but the first: see HIGHLIGHT_CONTINUES_CLASS.
+      host.classList.toggle("highlight-continues", continues)
       fixture.detectChanges()
       return host
     }
 
-    it("should mark the text run so the stroke can be painted on it", () => {
+    function plainVerse(number = 1): void {
       setData(
         component,
         makeVerse({
+          number,
           text: [{ type: "text", text: "plain", normalizedText: "plain" }],
         }),
       )
-      highlightHost()
+    }
 
-      const run = fixture.nativeElement.querySelector(
-        ".verseRun",
-      ) as HTMLElement
-      expect(run.textContent).toContain("plain")
-      expect(getComputedStyle(run).backgroundColor).not.toBe(TRANSPARENT)
-    })
-
-    it("should leave the run unpainted while the verse is not highlighted", () => {
-      setData(
-        component,
-        makeVerse({
-          text: [{ type: "text", text: "plain", normalizedText: "plain" }],
-        }),
-      )
-      fixture.detectChanges()
-
-      const run = fixture.nativeElement.querySelector(
-        ".verseRun",
-      ) as HTMLElement
-      expect(getComputedStyle(run).backgroundColor).toBe(TRANSPARENT)
-    })
-
-    it("should never paint the inline host, whose line fragments would colour the gaps between verses", () => {
-      setData(
-        component,
-        makeVerse({
-          text: [{ type: "text", text: "plain", normalizedText: "plain" }],
-        }),
-      )
-      const host = highlightHost()
-
-      const style = getComputedStyle(host)
-      expect(style.backgroundImage).toBe("none")
-      expect(style.backgroundColor).toBe("rgba(0, 0, 0, 0)")
-    })
-
-    it("should paint the verse number so it is not left out of the stroke", () => {
-      setData(
-        component,
-        makeVerse({
-          number: 2,
-          text: [{ type: "text", text: "plain", normalizedText: "plain" }],
-        }),
-      )
-      highlightHost()
-
-      const number = fixture.nativeElement.querySelector(
-        ".verseNumber",
-      ) as HTMLElement
-      expect(getComputedStyle(number).backgroundColor).not.toBe(TRANSPARENT)
-    })
-
-    it("should wrap the space in front of a verse number in a run so the stroke does not break", () => {
-      setData(
-        component,
-        makeVerse({
-          number: 2,
-          text: [{ type: "text", text: "plain", normalizedText: "plain" }],
-        }),
-      )
-      highlightHost()
-
-      const gap = fixture.nativeElement.querySelector(
-        ".verseRun",
-      ) as HTMLElement
-      expect(gap.textContent).toBe(" ")
-      expect(getComputedStyle(gap).backgroundColor).not.toBe(TRANSPARENT)
-    })
-
-    it("should paint a poetry verse number once, on the wrapper rather than on both it and its digits", () => {
+    function poetryVerse(): void {
       setData(
         component,
         makeVerse({
@@ -705,15 +639,7 @@ describe("VerseComponent", () => {
           ],
         }),
       )
-      highlightHost()
-
-      const wrapper = fixture.nativeElement.querySelector(
-        ".quoteVerseNumber",
-      ) as HTMLElement
-      const digits = wrapper.querySelector(".verseNumber") as HTMLElement
-      expect(getComputedStyle(wrapper).backgroundColor).not.toBe(TRANSPARENT)
-      expect(getComputedStyle(digits).backgroundColor).toBe(TRANSPARENT)
-    })
+    }
 
     function withFootnote(): HTMLElement {
       setData(
@@ -732,13 +658,110 @@ describe("VerseComponent", () => {
       ) as HTMLElement
     }
 
-    it("should paint the footnote marker so it is not left out of the stroke", () => {
+    /** The runs holding words, as opposed to the spaces between them. */
+    function wordRun(): HTMLElement {
+      return fixture.nativeElement.querySelector(
+        ".verseRun:not(.verseGap)",
+      ) as HTMLElement
+    }
+
+    it("should mark the text run so the stroke can be painted on it", () => {
+      plainVerse()
+      highlightHost()
+
+      const run = wordRun()
+      expect(run.textContent).toContain("plain")
+      expect(getComputedStyle(run).backgroundColor).not.toBe(TRANSPARENT)
+    })
+
+    it("should leave the run unpainted while the verse is not highlighted", () => {
+      plainVerse()
+      fixture.detectChanges()
+
+      expect(getComputedStyle(wordRun()).backgroundColor).toBe(TRANSPARENT)
+    })
+
+    it("should never paint the inline host, whose line fragments would colour the gaps between verses", () => {
+      plainVerse()
+      const host = highlightHost()
+
+      const style = getComputedStyle(host)
+      expect(style.backgroundImage).toBe("none")
+      expect(style.backgroundColor).toBe("rgba(0, 0, 0, 0)")
+    })
+
+    // The same rule the reader's own marks follow: apparatus is not words, so
+    // a deep link paints what it was asked for and nothing around it.
+    it("should leave the verse number out of the stroke it opens", () => {
+      plainVerse(2)
+      highlightHost()
+
+      const number = fixture.nativeElement.querySelector(
+        ".verseNumber",
+      ) as HTMLElement
+      expect(getComputedStyle(number).backgroundColor).toBe(TRANSPARENT)
+    })
+
+    it("should leave the footnote marker out of the stroke it opens", () => {
       const marker = withFootnote()
       // Read the style only after highlighting: reading it first starts the
       // background-color transition, and the value would be its start colour.
       highlightHost()
 
-      expect(getComputedStyle(marker).backgroundColor).not.toBe(TRANSPARENT)
+      expect(getComputedStyle(marker).backgroundColor).toBe(TRANSPARENT)
+    })
+
+    it("should stop at the last word rather than trailing into the space after it", () => {
+      plainVerse(2)
+      highlightHost()
+
+      const gap = fixture.nativeElement.querySelector(
+        ".verseGap",
+      ) as HTMLElement
+      expect(gap.textContent).toBe(" ")
+      expect(getComputedStyle(gap).backgroundColor).toBe(TRANSPARENT)
+    })
+
+    // Mid-range those same spaces and numbers are inside the stroke rather
+    // than at its edge, so a highlighted passage shows no hole at each verse.
+    it("should paint the gap and the number of a verse the stroke runs into", () => {
+      plainVerse(2)
+      highlightHost(true)
+
+      const gap = fixture.nativeElement.querySelector(
+        ".verseGap",
+      ) as HTMLElement
+      const number = fixture.nativeElement.querySelector(
+        ".verseNumber",
+      ) as HTMLElement
+      expect(getComputedStyle(gap).backgroundColor).not.toBe(TRANSPARENT)
+      expect(getComputedStyle(number).backgroundColor).not.toBe(TRANSPARENT)
+    })
+
+    it("should leave a poetry verse number out of the stroke it opens", () => {
+      poetryVerse()
+      highlightHost()
+
+      const wrapper = fixture.nativeElement.querySelector(
+        ".quoteVerseNumber",
+      ) as HTMLElement
+      expect(getComputedStyle(wrapper).backgroundColor).toBe(TRANSPARENT)
+    })
+
+    it("should paint a poetry verse number the stroke runs into, once", () => {
+      poetryVerse()
+      // Read no style before highlighting: that starts the background-color
+      // transition, and the value read back would be its start colour.
+      highlightHost(true)
+
+      const wrapper = fixture.nativeElement.querySelector(
+        ".quoteVerseNumber",
+      ) as HTMLElement
+      const digits = wrapper.querySelector(".verseNumber") as HTMLElement
+      expect(getComputedStyle(wrapper).backgroundColor).not.toBe(TRANSPARENT)
+      // Once, on the wrapper: the tint is translucent, and laying it down
+      // twice would show the number as a darker tile.
+      expect(getComputedStyle(digits).backgroundColor).toBe(TRANSPARENT)
     })
 
     // Padding does not move an inline box but does enlarge the border box the
@@ -753,7 +776,7 @@ describe("VerseComponent", () => {
       expect(getComputedStyle(marker).paddingBottom).toBe(restingPadding)
     })
 
-    it("should wrap the space before a references block so the stroke does not break", () => {
+    it("should paint a references block, which is text the verse carries", () => {
       setData(
         component,
         makeVerse({
@@ -765,60 +788,60 @@ describe("VerseComponent", () => {
       )
       highlightHost()
 
-      const gap = fixture.nativeElement.querySelector(
-        ".references > .verseRun",
+      const reference = fixture.nativeElement.querySelector(
+        ".references-block .verseRun",
       ) as HTMLElement
-      expect(gap.textContent).toBe(" ")
-      expect(getComputedStyle(gap).backgroundColor).not.toBe(TRANSPARENT)
-    })
-
-    it("should wrap the space after a line of poetry so the stroke does not break", () => {
-      setData(
-        component,
-        makeVerse({
-          number: 3,
-          text: [
-            {
-              type: "quote",
-              text: "a line of poetry",
-              normalizedText: "a line of poetry",
-              identLevel: 1,
-            },
-          ],
-        }),
-      )
-      highlightHost()
-
-      const runs = Array.from(
-        (fixture.nativeElement as HTMLElement).querySelectorAll(".verseRun"),
-      ) as HTMLElement[]
-      const trailing = runs.find((run) => run.textContent === " ")
-      expect(trailing).toBeTruthy()
-      expect(
-        getComputedStyle(trailing as HTMLElement).backgroundColor,
-      ).not.toBe(TRANSPARENT)
+      expect(getComputedStyle(reference).backgroundColor).not.toBe(TRANSPARENT)
     })
 
     it("should not paint the quote line wrapper, whose box extends past the end of the line", () => {
-      setData(
-        component,
-        makeVerse({
-          number: 3,
-          text: [
-            {
-              type: "quote",
-              text: "a line of poetry",
-              normalizedText: "a line of poetry",
-              identLevel: 1,
-            },
-          ],
-        }),
-      )
+      poetryVerse()
       highlightHost()
 
       const wrapper = fixture.nativeElement.querySelector(
         ".quoteLineWrapper",
       ) as HTMLElement
+      expect(getComputedStyle(wrapper).backgroundColor).toBe(TRANSPARENT)
+    })
+  })
+
+  describe("the reader's own mark", () => {
+    function markedPoetry(continues: boolean): HTMLElement {
+      setData(
+        component,
+        makeVerse({
+          number: 3,
+          text: [
+            {
+              type: "quote",
+              text: "a line of poetry",
+              normalizedText: "a line of poetry",
+              identLevel: 1,
+            },
+          ],
+        }),
+      )
+      fixture.componentRef.setInput("highlight", "yellow")
+      fixture.componentRef.setInput("markContinues", continues)
+      fixture.detectChanges()
+      return fixture.nativeElement.querySelector(
+        ".quoteVerseNumber",
+      ) as HTMLElement
+    }
+
+    it("paints a poetry verse number the mark runs into, once", () => {
+      const wrapper = markedPoetry(true)
+
+      const digits = wrapper.querySelector(".verseNumber") as HTMLElement
+      expect(getComputedStyle(wrapper).backgroundColor).not.toBe(TRANSPARENT)
+      // The tint is translucent: painted on both, the number reads as a
+      // darker tile than the words it belongs to.
+      expect(getComputedStyle(digits).backgroundColor).toBe(TRANSPARENT)
+    })
+
+    it("leaves a poetry verse number out of the mark it opens", () => {
+      const wrapper = markedPoetry(false)
+
       expect(getComputedStyle(wrapper).backgroundColor).toBe(TRANSPARENT)
     })
   })

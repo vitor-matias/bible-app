@@ -26,10 +26,22 @@ describe("StudyTrailComponent", () => {
     component = fixture.componentInstance
   })
 
-  it("stays out of the way until there is somewhere to go back to", () => {
+  it("names where the reader is before there is any way back", () => {
     setEntries([entry("Mateus 22")])
 
     expect(component.hasTrail).toBeFalse()
+    // The heading is the point of the row even with nowhere to go back to;
+    // what it has nothing to offer yet is a way to clear the trail.
+    const current = fixture.nativeElement.querySelector(".trail-current")
+    expect(current.tagName).toBe("H1")
+    expect(current.textContent.trim()).toBe("Mateus 22")
+    expect(fixture.nativeElement.querySelector(".trail-link")).toBeNull()
+    expect(fixture.nativeElement.querySelector(".trail-clear")).toBeNull()
+  })
+
+  it("shows nothing at all before the reader has arrived anywhere", () => {
+    setEntries([])
+
     expect(fixture.nativeElement.querySelector(".study-trail")).toBeNull()
   })
 
@@ -61,6 +73,29 @@ describe("StudyTrailComponent", () => {
       .dispatchEvent(new MouseEvent("click"))
 
     expect(asked).toBe(1)
+  })
+
+  it("scrolls forward to the step the reader is on", () => {
+    setEntries([entry("Mateus 22"), entry("Lucas 14")])
+    const list = fixture.nativeElement.querySelector(".trail-list")
+    const scrollTo = spyOn(list, "scrollTo")
+
+    setEntries([entry("Mateus 22"), entry("Lucas 14"), entry("Marcos 12")])
+
+    expect(scrollTo).toHaveBeenCalled()
+    const [options] = scrollTo.calls.mostRecent().args as [ScrollToOptions]
+    expect(options.left).toBe(list.scrollWidth)
+  })
+
+  it("leaves the list alone where the DOM cannot scroll", () => {
+    setEntries([entry("Mateus 22")])
+    const list = fixture.nativeElement.querySelector(".trail-list")
+    // The app is prerendered against domino, which has no Element.scrollTo.
+    ;(list as { scrollTo?: unknown }).scrollTo = undefined
+
+    expect(() =>
+      setEntries([entry("Mateus 22"), entry("Lucas 14")]),
+    ).not.toThrow()
   })
 
   it("carries each step's verse through to its link", () => {

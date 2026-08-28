@@ -3,6 +3,13 @@
        own, and stays outside the tablist, which may only contain tabs. It is
        always rendered, so a folded panel keeps something to unfold it by. -->
   <div class="panel-head">
+    <button type="button" class="collapse-toggle" (click)="toggleCollapsed.emit()"
+      [attr.aria-expanded]="!collapsed"
+      [attr.aria-label]="collapsed ? 'Mostrar referências e notas' : 'Esconder referências e notas'"
+      [matTooltip]="collapsed ? 'Mostrar referências e notas' : 'Esconder referências e notas'">
+      <mat-icon>{{ collapsed ? 'chevron_left' : 'chevron_right' }}</mat-icon>
+    </button>
+
     @if (!collapsed) {
     <div class="tab-strip" role="tablist" aria-label="Aparato de estudo">
     @for (tab of tabs; track tab.id; let i = $index) {
@@ -15,13 +22,6 @@
     }
     </div>
     }
-
-    <button type="button" class="collapse-toggle" (click)="toggleCollapsed.emit()"
-      [attr.aria-expanded]="!collapsed"
-      [attr.aria-label]="collapsed ? 'Mostrar referências e notas' : 'Esconder referências e notas'"
-      [matTooltip]="collapsed ? 'Mostrar referências e notas' : 'Esconder referências e notas'">
-      <mat-icon>{{ collapsed ? 'chevron_left' : 'chevron_right' }}</mat-icon>
-    </button>
   </div>
 
   @if (!collapsed) {
@@ -213,6 +213,53 @@
     </ul>
     } @else if (selectedVerse) {
     <p class="panel-empty small">As notas ficam neste dispositivo. Não são enviadas para lado nenhum.</p>
+    }
+  </div>
+  }
+
+  @case ('search') {
+  <div class="tab-body" role="tabpanel" id="study-tabpanel-search" aria-labelledby="study-tab-search">
+    <!-- Enter rather than as-you-type: this search goes to the server. -->
+    <div class="note-search">
+      <label class="note-label" for="study-search">Procurar na Bíblia</label>
+      <input id="study-search" class="note-search-input" type="search"
+        placeholder="Escrever e premir Enter…" [value]="searchQuery"
+        (keydown.enter)="onSearchSubmit($any($event.target).value)" />
+    </div>
+
+    @if (offline) {
+    <p class="panel-empty small">A pesquisa precisa de ligação à internet.</p>
+    } @else {
+    @switch (searchState) {
+    @case ('searching') {
+    <p class="panel-empty small">A procurar…</p>
+    }
+    @case ('failed') {
+    <p class="panel-empty small">Não foi possível procurar agora.</p>
+    }
+    @case ('done') {
+    @if (searchResults.length) {
+    <p class="panel-caption notes-caption">{{ searchSummary }}</p>
+    <!-- Set like the cross references above: a result is a passage, named and
+         then quoted, not a row in a table of them. -->
+    <ul class="reference-list">
+      @for (result of searchResults; track result.key) {
+      <li class="reference">
+        <a class="reference-label" [routerLink]="result.link" [queryParams]="result.queryParams">
+          {{ result.reference }}
+        </a>
+        <p class="reference-text">@for (segment of result.segments; track $index) {@if (segment.highlight) {<mark>{{ segment.text }}</mark>} @else {{{ segment.text }}}}</p>
+      </li>
+      }
+    </ul>
+    } @else {
+    <p class="panel-empty small">Nada encontrado para «{{ searchQuery }}».</p>
+    }
+    }
+    @default {
+    <p class="panel-empty small">Um versículo, um livro ou uma referência.</p>
+    }
+    }
     }
   </div>
   }

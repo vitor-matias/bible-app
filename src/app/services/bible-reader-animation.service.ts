@@ -4,6 +4,13 @@ import { Injectable, inject, PLATFORM_ID } from "@angular/core"
 /** Toggled on the <verse> host; the stroke is styled in verse.component.css. */
 export const HIGHLIGHT_CLASS = "verse-highlight"
 
+/**
+ * Marks a verse whose predecessor is highlighted too. The stroke stops at a
+ * verse's last word, so a range would otherwise break at every verse number;
+ * this tells the verse to paint the gap and the number it opens with.
+ */
+export const HIGHLIGHT_CONTINUES_CLASS = "highlight-continues"
+
 /** How long a deep-linked verse stays marked before the stroke fades out. */
 export const HIGHLIGHT_DURATION_MS = 2500
 
@@ -216,6 +223,8 @@ export class BibleReaderAnimationService {
             // from here (on the inline <verse> host) would colour the empty
             // line fragments and inter-verse spaces too.
             element.classList.add(HIGHLIGHT_CLASS)
+            // Every verse of the range but the first opens inside the stroke.
+            element.classList.toggle(HIGHLIGHT_CONTINUES_CLASS, i > verseStart)
 
             if (this.highlightTimeouts.has(element)) {
               clearTimeout(this.highlightTimeouts.get(element))
@@ -223,6 +232,7 @@ export class BibleReaderAnimationService {
 
             const timeoutId = setTimeout(() => {
               element.classList.remove(HIGHLIGHT_CLASS)
+              element.classList.remove(HIGHLIGHT_CONTINUES_CLASS)
               this.highlightTimeouts.delete(element)
             }, HIGHLIGHT_DURATION_MS)
             this.highlightTimeouts.set(element, timeoutId)

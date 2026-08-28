@@ -29,6 +29,12 @@ export interface BibleReference {
   chapter: number
   verses?: VerseReference[]
   crossChapter?: CrossChapterRange
+  /**
+   * The last chapter of a run of whole chapters — "Jb 38-39". Distinct from
+   * crossChapter, which runs between two *verses* in different chapters; here
+   * no verse is named on either end.
+   */
+  endChapter?: number
 }
 
 @Injectable({ providedIn: "root" })
@@ -105,6 +111,10 @@ export class BibleReferenceService {
       String.raw`\b(?<book>${this.bookAlternation})\s+(?<chapter>\d+)` +
       String.raw`(?:\s*(?:[:.]|,(?!\s))\s*(?<v1>\d+(?:[a-c])?)` +
       String.raw`(?:\s*[-\u2010-\u2015\u2212]\s*(?:(?<endCh>\d+)\s*(?:[:.]|,(?!\s))\s*(?<endV>\d+(?:[a-c])?)|(?<v2>\d+(?:[a-c])?)))?` +
+      // Whole chapters, no verse named on either side: "Jb 38-39". Only when
+      // no verse follows the second number, so "Jb 38,1-39,30" still parses
+      // as the verse range it is, through the branch above.
+      String.raw`|\s*[-\u2010-\u2015\u2212]\s*(?<endChapterOnly>\d+)(?!\s*(?:[:.]|,(?!\s))\s*\d)` +
       String.raw`)?\b`
 
     this.explicitRe = new RegExp(pattern, "gi")
@@ -147,6 +157,7 @@ export class BibleReferenceService {
             v2?: string
             endCh?: string
             endV?: string
+            endChapterOnly?: string
           }
         | undefined
       if (!gs) continue
@@ -157,7 +168,17 @@ export class BibleReferenceService {
 
       explicitAnchors.push({ index: start, book })
 
-      if (gs.endCh && gs.endV && gs.v1) {
+      if (gs.endChapterOnly) {
+        // A run of whole chapters: no verse is named, so the reference points
+        // at the first of them and says how far it runs.
+        push({
+          match: m[0],
+          index: start,
+          book,
+          chapter: startChapter,
+          endChapter: Number(gs.endChapterOnly),
+        })
+      } else if (gs.endCh && gs.endV && gs.v1) {
         // Cross-chapter ... (unchanged)
         const { num: sv, part: sp } = this.parseNumPart(gs.v1)
         const endChapter = Number(gs.endCh)

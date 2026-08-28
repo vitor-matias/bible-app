@@ -9,7 +9,7 @@ import {
 } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
-import { Router } from "@angular/router"
+import { ActivatedRoute, Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import type { Share } from "@capacitor/share"
 import { BehaviorSubject, of } from "rxjs"
@@ -64,6 +64,9 @@ describe("HeaderComponent", () => {
       imports: [HeaderComponent, CommonModule],
       providers: [
         { provide: Router, useValue: routerSpy },
+        // The search action is a routerLink, and RouterLink asks for the route
+        // it is written on even when the link is absolute.
+        { provide: ActivatedRoute, useValue: { snapshot: {} } },
         { provide: NetworkService, useValue: networkServiceSpy },
         { provide: ThemeService, useValue: themeServiceSpy },
         { provide: BookmarkService, useValue: bookmarkServiceSpy },
@@ -298,8 +301,8 @@ describe("HeaderComponent", () => {
     })
 
     it("offers the way back once study mode is on", () => {
-      component.studyModeAvailable = true
-      component.studyMode = true
+      fixture.componentRef.setInput("studyModeAvailable", true)
+      fixture.componentRef.setInput("studyMode", true)
       fixture.detectChanges()
 
       expect(menuLabels()).toContain("Voltar ao modo de leitura")
@@ -322,6 +325,56 @@ describe("HeaderComponent", () => {
       item?.click()
 
       expect(asked).toBe(1)
+    })
+  })
+
+  describe("study mode chrome", () => {
+    beforeEach(() => {
+      fixture.componentRef.setInput("studyModeAvailable", true)
+      fixture.componentRef.setInput("studyMode", true)
+      fixture.detectChanges()
+    })
+
+    it("drops the toolbar and the book/chapter chip", () => {
+      // The rail in study mode is the picker the chip used to open, so a
+      // toolbar carrying a second one would sit on top of it.
+      expect(fixture.nativeElement.querySelector("mat-toolbar")).toBeNull()
+      expect(
+        fixture.nativeElement.querySelector(".header-placeholder"),
+      ).toBeNull()
+      expect(
+        fixture.nativeElement.querySelector("mat-button-toggle-group"),
+      ).toBeNull()
+    })
+
+    it("keeps the menu and drops the search button", () => {
+      // Search is a tab in the study panel, beside the rest of the apparatus,
+      // so the menu is the only control this row still carries.
+      expect(
+        fixture.nativeElement.querySelector(".study-chrome"),
+      ).not.toBeNull()
+      expect(
+        fixture.nativeElement.querySelector(".chrome-lead .menuButton"),
+      ).not.toBeNull()
+      expect(fixture.nativeElement.querySelector(".searchButton")).toBeNull()
+    })
+
+    it("leaves the page's heading to the trail projected into it", () => {
+      // Exactly one h1 per page: without the chip there is no heading here,
+      // and the trail beside it names where the reader is.
+      expect(fixture.nativeElement.querySelectorAll("h1").length).toBe(0)
+    })
+
+    it("puts the toolbar back on leaving study mode", () => {
+      fixture.componentRef.setInput("studyMode", false)
+      fixture.detectChanges()
+
+      expect(fixture.nativeElement.querySelector(".study-chrome")).toBeNull()
+      expect(fixture.nativeElement.querySelector("mat-toolbar")).not.toBeNull()
+      expect(
+        fixture.nativeElement.querySelector(".searchButton"),
+      ).not.toBeNull()
+      expect(fixture.nativeElement.querySelectorAll("h1").length).toBe(1)
     })
   })
 

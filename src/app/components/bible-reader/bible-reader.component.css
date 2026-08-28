@@ -371,35 +371,55 @@ h6 {
    must not drag the text out from under it.
    Only ever rendered above STUDY_MODE_MIN_WIDTH (see StudyModeService), so
    this needs no breakpoints of its own. */
+/* The rail and the panel take a share of the window rather than a fixed
+   width, so the reading column between them keeps a comfortable measure
+   without a wide band of empty page either side of the text. Both are
+   clamped: below their minimum the panel stops being readable, above their
+   maximum they start competing with the text for attention. Folding one
+   away leaves the strip its unfold button lives on.
+
+   They live here, above the layout, because the chrome row lays itself out on
+   the same three columns and is not inside it — and they are given in vw
+   rather than %, so the header can use them in its own grid and get the same
+   widths the layout does rather than a share of its own box. */
+.text-container {
+  --study-rail-width: clamp(220px, 20vw, 300px);
+  --study-panel-width: clamp(320px, 28vw, 460px);
+}
+
+.text-container.rail-collapsed {
+  --study-rail-width: 48px;
+}
+
+.text-container.panel-collapsed {
+  --study-panel-width: 48px;
+}
+
+/* One screenful, split between the chrome row and the columns under it: study
+   mode is a workspace whose columns scroll on their own, so the page itself
+   never does. The chrome takes the height it needs and the layout takes the
+   rest — no arithmetic against a toolbar height that the chrome no longer
+   has. */
+.text-container.study-active {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - env(safe-area-inset-top));
+  height: calc(100dvh - env(safe-area-inset-top));
+  overflow: hidden;
+}
+
 .study-layout {
+  flex: 1 1 auto;
   display: grid;
-  /* The rail and the panel take a share of the window rather than a fixed
-     width, so the reading column between them keeps a comfortable measure
-     without a wide band of empty page either side of the text. Both are
-     clamped: below their minimum the panel stops being readable, above their
-     maximum they start competing with the text for attention. Folding one
-     away leaves the strip its unfold button lives on. */
-  --study-rail-width: clamp(220px, 20%, 300px);
-  --study-panel-width: clamp(320px, 28%, 460px);
   grid-template-columns:
     var(--study-rail-width)
     minmax(0, 1fr)
     var(--study-panel-width);
-  /* The trail bar and the copyright notice bracket the three columns, each
-     spanning all of them. Both size to their content, so the columns take
-     whatever is left rather than the layout doing height arithmetic. */
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  height: calc(100vh - 56px - env(safe-area-inset-top));
-  height: calc(100dvh - 56px - env(safe-area-inset-top));
+  /* The copyright notice sits under all three columns and sizes to its
+     content, so the columns take whatever is left. */
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
   overflow: hidden;
-}
-
-.study-layout.rail-collapsed {
-  --study-rail-width: 48px;
-}
-
-.study-layout.panel-collapsed {
-  --study-panel-width: 48px;
 }
 
 .study-rail {
@@ -443,16 +463,9 @@ h6 {
    measure grows with it — the text keeps flowing the same way, there is just
    more of it on a line. It stays capped: past this a line gets long enough
    that the eye loses its place returning to the left margin. */
-.study-layout.rail-collapsed .study-column .bookBlock.study-text,
-.study-layout.panel-collapsed .study-column .bookBlock.study-text {
+.rail-collapsed .study-column .bookBlock.study-text,
+.panel-collapsed .study-column .bookBlock.study-text {
   max-width: min(100%, 980px);
-}
-
-.study-trail-bar {
-  grid-column: 1 / -1;
-  min-width: 0;
-  background-color: var(--study-surface);
-  border-bottom: 1px solid var(--study-rule);
 }
 
 /* One line under the whole layout, not under the reading column: it is the

@@ -28,16 +28,17 @@ import {
   type HighlightColor,
   HighlightService,
 } from "../../services/highlight.service"
+import { NetworkService } from "../../services/network.service"
 import { NotesService, type VerseNote } from "../../services/notes.service"
 import {
   type IncomingReference,
   type IndexState,
   ReverseReferencesService,
 } from "../../services/reverse-references.service"
-import { formatPassage } from "../../utils/text"
+import { formatPassage, highlightSegments } from "../../utils/text"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 
-export type PanelTab = "references" | "footnotes" | "notes"
+export type PanelTab = "references" | "footnotes" | "notes" | "search"
 
 /** A cross reference as the panel shows it: where it points, and what it says. */
 type ReferenceEntry = {
@@ -56,6 +57,18 @@ type ReferenceEntry = {
   truncated?: boolean
   failed?: boolean
 }
+
+/** A verse the search turned up, as the panel lists it. */
+type SearchResult = {
+  key: string
+  reference: string
+  link: (string | number)[]
+  queryParams: Record<string, number>
+  segments: HighlightSegment[]
+}
+
+/** How far a panel-width list of results is worth going. */
+const SEARCH_RESULT_LIMIT = 30
 
 /**
  * How many verses of a cited passage the panel quotes. Enough to recognise
@@ -169,6 +182,12 @@ export class StudyPanelComponent implements OnChanges {
   noteMatches: VerseNote[] = []
   noteQuery = ""
   noteDraft = ""
+  searchQuery = ""
+  searchResults: SearchResult[] = []
+  searchState: "idle" | "searching" | "done" | "failed" = "idle"
+  searchTotal = 0
+  /** The search is the API's, so it is the one thing here that needs the net. */
+  offline = false
   /** Set for a moment after a copy, so the button can say it worked. */
   copied = false
   readonly highlightColors = HIGHLIGHT_COLORS
@@ -182,6 +201,7 @@ export class StudyPanelComponent implements OnChanges {
     { id: "references", label: "Referências" },
     { id: "footnotes", label: "Notas de rodapé" },
     { id: "notes", label: "As minhas notas" },
+    { id: "search", label: "Pesquisar" },
   ]
 
   private readonly bibleRef = inject(BibleReferenceService)
@@ -190,6 +210,7 @@ export class StudyPanelComponent implements OnChanges {
   private readonly notesService = inject(NotesService)
   private readonly highlights = inject(HighlightService)
   private readonly reverseRefs = inject(ReverseReferencesService)
+  private readonly network = inject(NetworkService)
   private readonly cdr = inject(ChangeDetectorRef)
   private readonly destroyRef = inject(DestroyRef)
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef)
@@ -208,6 +229,7 @@ export class StudyPanelComponent implements OnChanges {
   private readonly noteInput = new Subject<{ target: Verse; text: string }>()
   private readonly noteSearch = new Subject<string>()
   private noteSearchSubscription?: Subscription
+  private searchSubscription?: Subscription
   private copiedTimer?: ReturnType<typeof setTimeout>
 
   constructor() {
@@ -220,9 +242,16 @@ export class StudyPanelComponent implements OnChanges {
       .pipe(debounceTime(NOTE_SEARCH_DEBOUNCE_MS), takeUntilDestroyed())
       .subscribe((query) => this.runNoteSearch(query))
 
+    this.offline = this.network.isOffline
+    this.network.isOffline$.pipe(takeUntilDestroyed()).subscribe((offline) => {
+      this.offline = offline
+      this.cdr.markForCheck()
+    })
+
     this.destroyRef.onDestroy(() => {
       this.notesSubscription?.unsubscribe()
       this.noteSearchSubscription?.unsubscribe()
+      this.searchSubscription?.unsubscribe()
       if (this.scrollFrame !== undefined) cancelAnimationFrame(this.scrollFrame)
       if (this.copiedTimer) clearTimeout(this.copiedTimer)
       this.cancelReferenceRequests()
@@ -456,6 +485,72 @@ export class StudyPanelComponent implements OnChanges {
         this.noteMatches = matches
         this.cdr.markForCheck()
       })
+  }
+
+  /**
+   * Runs the reader's search, on Enter rather than as they type: this one goes
+   * to the server, and a semantic search of the whole Bible is not something
+   * to fire off once per keystroke.
+   */
+  onSearchSubmit(text: string): void {
+    const query = text.trim()
+    this.searchQuery = query
+    this.searchSubscription?.unsubscribe()
+    if (!query) {
+      this.searchResults = []
+      this.searchTotal = 0
+      this.searchState = "idle"
+      return
+    }
+
+    this.searchState = "searching"
+    this.searchResults = []
+    this.cdr.markForCheck()
+    this.searchSubscription = this.api
+      .search(query, 1, SEARCH_RESULT_LIMIT)
+      .subscribe({
+        next: (page) => {
+          this.searchTotal = page.total
+          this.searchResults = page.verses.map((verse) =>
+            this.toSearchResult(verse, query),
+          )
+          this.searchState = "done"
+          this.cdr.markForCheck()
+        },
+        error: () => {
+          this.searchResults = []
+          this.searchTotal = 0
+          this.searchState = "failed"
+          this.cdr.markForCheck()
+        },
+      })
+  }
+
+  /**
+   * What the search found, and how much of it is on screen: the panel lists a
+   * page of results, and a bare total would promise a list that is not there.
+   */
+  get searchSummary(): string {
+    const shown = this.searchResults.length
+    if (this.searchTotal > shown) {
+      return `Primeiros ${shown} de ${this.searchTotal} resultados`
+    }
+    return shown === 1 ? "1 resultado" : `${shown} resultados`
+  }
+
+  private toSearchResult(verse: Verse, query: string): SearchResult {
+    const book = this.bookService.findBook(verse.bookId)
+    return {
+      key: `${verse.bookId}:${verse.chapterNumber}:${verse.number}`,
+      reference: `${book.shortName} ${verse.chapterNumber},${verse.number}`,
+      link: [
+        "/",
+        this.bookService.getUrlAbrv(book),
+        this.bookService.getChapterUrlSegment(verse.chapterNumber),
+      ],
+      queryParams: { verseStart: verse.number },
+      segments: highlightSegments(StudyPanelComponent.plainText(verse), query),
+    }
   }
 
   /** Where a note's own verse lives, so a search result can be opened. */
@@ -855,6 +950,19 @@ export class StudyPanelComponent implements OnChanges {
   private toEntry(reference: BibleReference): ReferenceEntry {
     const target = this.bookService.findBook(reference.book)
     const params = getVerseQueryParams(reference.verses, reference.crossChapter)
+    // A run of whole chapters names both ends; anything else names verses.
+    if (reference.endChapter) {
+      return {
+        verses: [],
+        key: `${target.id}:${reference.chapter}-${reference.endChapter}`,
+        label: `${target.shortName} ${reference.chapter}-${reference.endChapter}`,
+        bookId: target.id,
+        chapterNumber: reference.chapter,
+        link: ["/", this.bookService.getUrlAbrv(target), reference.chapter],
+        queryParams: null,
+      }
+    }
+
     const verseLabel = params?.verseEnd
       ? `${params.verseStart}-${params.verseEnd}`
       : params?.verseStart

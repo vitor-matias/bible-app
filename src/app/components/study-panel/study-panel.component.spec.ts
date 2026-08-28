@@ -579,6 +579,49 @@ describe("StudyPanelComponent", () => {
       expect(verses.every((v) => !v.breakBefore)).toBeTrue()
     })
 
+    it("names both ends of a run of whole chapters", () => {
+      bibleRef.extract.and.returnValue([
+        {
+          match: "Jb 38-39",
+          index: 0,
+          book: "job",
+          chapter: 38,
+          endChapter: 39,
+        },
+      ] as ReturnType<BibleReferenceService["extract"]>)
+      api.getChapter.and.returnValue(
+        of({
+          bookId: "job",
+          number: 38,
+          verses: [
+            {
+              bookId: "job",
+              chapterNumber: 38,
+              number: 1,
+              verseLabel: "1",
+              text: [plain("Então, do seio da tempestade")],
+            },
+          ],
+        }),
+      )
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 22,
+          verses: [verse(34, [references("Jb 38-39")])],
+        },
+      })
+
+      const entry = component.referenceGroups[0].entries[0]
+      // Job, not the About page: the book has to resolve for this to mean
+      // anything, and the label says how far the run goes.
+      expect(entry.label).toBe("Mateus 38-39")
+      expect(entry.queryParams).toBeNull()
+      // Its opening verses stand for it, as for any chapter cited whole.
+      expect(entry.verses.length).toBe(1)
+    })
+
     it("keeps a reference as a link when its text cannot be fetched", () => {
       bibleRef.extract.and.returnValue([reference("mrk", 12, 31)])
       api.getChapter.and.returnValue(throwError(() => new Error("offline")))

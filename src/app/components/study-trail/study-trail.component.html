@@ -1,11 +1,13 @@
-@if (hasTrail) {
+@if (entries.length) {
 <nav class="study-trail" aria-label="Por onde passou">
-  <ol class="trail-list">
+  <ol class="trail-list" #list>
     @for (entry of entries; track entry.key; let last = $last) {
     <li class="trail-item">
       @if (last) {
-      <!-- Where the reader is: named, but not a link back to itself. -->
-      <span class="trail-current" aria-current="page">{{ entry.label }}</span>
+      <!-- Where the reader is: named, but not a link back to itself. It is
+           also this page's heading — in study mode there is no toolbar chip to
+           carry one, and this is the visible text that names the page. -->
+      <h1 class="trail-current" aria-current="page">{{ entry.label }}</h1>
       } @else {
       <a class="trail-link" [routerLink]="entry.link" [queryParams]="entry.queryParams ?? null">{{ entry.label }}</a>
       <span class="trail-separator" aria-hidden="true">›</span>
@@ -15,8 +17,11 @@
   </ol>
 
   <!-- Starts the trail again from where the reader is standing, for when the
-       way back has become a record of somewhere they are no longer going. -->
+       way back has become a record of somewhere they are no longer going.
+       Nothing to clear until there is a way back. -->
+  @if (hasTrail) {
   <button type="button" class="trail-clear" (click)="clearTrail.emit()"
     aria-label="Limpar o percurso" title="Limpar o percurso">×</button>
+  }
 </nav>
 }
