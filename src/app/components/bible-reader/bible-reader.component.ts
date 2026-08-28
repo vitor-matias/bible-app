@@ -54,6 +54,7 @@ import { BookIntroComponent } from "../book-intro/book-intro.component"
 import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"
 import { HeaderComponent } from "../header/header.component"
+import { SelectionActionsComponent } from "../selection-actions/selection-actions.component"
 import { StudyPanelComponent } from "../study-panel/study-panel.component"
 import { StudySidebarComponent } from "../study-sidebar/study-sidebar.component"
 import { StudyTrailComponent } from "../study-trail/study-trail.component"
@@ -85,6 +86,7 @@ import { VerseComponent } from "../verse/verse.component"
     StudySidebarComponent,
     StudyPanelComponent,
     StudyTrailComponent,
+    SelectionActionsComponent,
   ],
 })
 export class BibleReaderComponent implements OnInit, OnDestroy {

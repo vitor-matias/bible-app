@@ -1,0 +1,19 @@
+@if (position) {
+<!-- mousedown is stopped so pressing a button does not collapse the very
+     selection the button is about to act on. -->
+<div class="selection-bar" role="toolbar" aria-label="Ações sobre a seleção"
+  [style.top.px]="position.top" [style.left.px]="position.left"
+  (mousedown)="$event.preventDefault()">
+  @for (color of colors; track color) {
+  <button type="button" class="mark-swatch" [attr.data-color]="color"
+    [attr.aria-label]="'Marcar ' + reference" (click)="mark(color)"></button>
+  }
+  <button type="button" class="bar-action" aria-label="Retirar a marca" (click)="clearMarks()">
+    <mat-icon>format_color_reset</mat-icon>
+  </button>
+  <span class="bar-divider" aria-hidden="true"></span>
+  <button type="button" class="bar-action" [attr.aria-label]="'Copiar ' + reference" (click)="copy()">
+    <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
+  </button>
+</div>
+}

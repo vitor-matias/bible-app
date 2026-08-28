@@ -1,0 +1,71 @@
+/* Fixed, because it points at a selection that lives in viewport
+   coordinates; it is repositioned as the page scrolls under it. */
+.selection-bar {
+  position: fixed;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--study-rule);
+  border-radius: 8px;
+  background-color: var(--card-background);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+
+.mark-swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--study-rule);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.mark-swatch[data-color="yellow"] { background-color: rgba(238, 191, 46, 0.7); }
+.mark-swatch[data-color="green"] { background-color: rgba(104, 173, 96, 0.7); }
+.mark-swatch[data-color="blue"] { background-color: rgba(94, 152, 204, 0.7); }
+.mark-swatch[data-color="pink"] { background-color: rgba(214, 112, 152, 0.7); }
+
+.bar-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-color);
+  cursor: pointer;
+}
+
+.bar-action mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.bar-divider {
+  width: 1px;
+  height: 18px;
+  background-color: var(--study-rule);
+}
+
+@media (hover: hover) {
+  .bar-action:hover {
+    background-color: color-mix(in srgb, var(--text-color) 10%, transparent);
+  }
+}
+
+.mark-swatch:focus-visible,
+.bar-action:focus-visible {
+  outline: 2px solid var(--cap-brown);
+  outline-offset: 2px;
+}
+
+:host-context(.dark-theme) .mark-swatch:focus-visible,
+:host-context(.dark-theme) .bar-action:focus-visible {
+  outline-color: antiquewhite;
+}

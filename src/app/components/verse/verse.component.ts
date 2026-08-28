@@ -420,13 +420,28 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (!this.studyMode || !this.isSelectable) return
     const target = event.target as HTMLElement | null
     if (target?.closest("a")) return
+    // Releasing a drag over the text fires a click too. The reader was
+    // selecting words, not choosing the verse.
+    if (VerseComponent.hasTextSelection()) return
     this.emitSelection()
+  }
+
+  /** Whether the reader currently has words selected anywhere on the page. */
+  private static hasTextSelection(): boolean {
+    if (typeof document === "undefined") return false
+    const selection = document.getSelection()
+    return (
+      !!selection && !selection.isCollapsed && !!selection.toString().trim()
+    )
   }
 
   /** A run only carries a handler when the verse has footnotes to open. */
   onRunClick(event: Event): void {
     // Study mode has no bottom sheet: the host listener above takes the click.
     if (this.studyMode) return
+    // As above: finishing a selection over a footnoted verse used to throw
+    // the footnotes sheet over the words the reader had just selected.
+    if (VerseComponent.hasTextSelection()) return
     this.toggleFootnotes(event)
   }
 

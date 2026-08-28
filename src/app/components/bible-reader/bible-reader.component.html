@@ -6,6 +6,10 @@
     (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize()"
     (decreaseFontSizeEvent)="onDecreaseFontSize()" [studyMode]="studyModeActive"
     [studyModeAvailable]="studyModeAvailable" (toggleStudyMode)="onToggleStudyMode()"></header>
+  <!-- Outside both layouts, because selecting text means the same thing in
+       each: it is fixed-positioned against the selection, not the column. -->
+  <selection-actions [book]="book" [chapter]="chapter"></selection-actions>
+
   @if (studyModeActive) {
   <!-- Study mode: the book/chapter drawer becomes a permanent rail, and the
        edition's apparatus — cross references, footnotes, the reader's own
