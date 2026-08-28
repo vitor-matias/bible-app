@@ -1,4 +1,13 @@
 @if (data) {
+  <!-- The number, written once: prose sets it inline and poetry hangs it off
+       the left of the line, but it is the same control in both, and six
+       bindings kept in step by hand is how the two drift apart. -->
+  <ng-template #verseNumber><span class="verseNumber" [attr.role]="isSelectable ? 'button' : null"
+      [attr.tabindex]="isSelectable ? 0 : null"
+      [attr.aria-pressed]="isSelectable ? selected : null"
+      [attr.aria-label]="isSelectable ? 'Versículo ' + data.number : null"
+      (keydown.enter)="onVerseNumberKeydown($event)"
+      (keydown.space)="onVerseNumberKeydown($event)">{{ data.number }}</span></ng-template>
   <!-- Verse Number -->
   @if(data.number > 0 && getFirstTextType() !== 'quote'){
     @if(data.number > 1) {
@@ -7,12 +16,7 @@
            same size as the text it separates. -->
       <span class="verseText verseRun verseGap">{{ " " }}</span>
     }
-    <span class="verseNumber" [attr.role]="isSelectable ? 'button' : null"
-      [attr.tabindex]="isSelectable ? 0 : null"
-      [attr.aria-pressed]="isSelectable ? selected : null"
-      [attr.aria-label]="isSelectable ? 'Versículo ' + data.number : null"
-      (keydown.enter)="onVerseNumberKeydown($event)"
-      (keydown.space)="onVerseNumberKeydown($event)">{{ data.number }}</span>
+    <ng-container *ngTemplateOutlet="verseNumber"></ng-container>
     @if(hasFootnotes){
       <span role="button" tabindex="0" (click)="onFootnoteMarkerClick($event)" (keydown.enter)="onFootnoteMarkerClick($event)" (keydown.space)="$event.preventDefault(); onFootnoteMarkerClick($event)" class="footnoteIndicator">&#65290;</span>
     }
@@ -31,12 +35,7 @@
       @if (text.type === 'text' || text.type === 'quote') {
         @if (text.type === 'quote' && isFirstDisplayableElement(i) && data.number > 0) {
           <span class="quoteVerseNumber">
-            <span class="verseNumber" [attr.role]="isSelectable ? 'button' : null"
-              [attr.tabindex]="isSelectable ? 0 : null"
-              [attr.aria-pressed]="isSelectable ? selected : null"
-              [attr.aria-label]="isSelectable ? 'Versículo ' + data.number : null"
-              (keydown.enter)="onVerseNumberKeydown($event)"
-              (keydown.space)="onVerseNumberKeydown($event)">{{ data.number }}</span>
+            <ng-container *ngTemplateOutlet="verseNumber"></ng-container>
             @if(hasFootnotes){
               <span role="button" tabindex="0" (click)="onFootnoteMarkerClick($event)" (keydown.enter)="onFootnoteMarkerClick($event)" (keydown.space)="$event.preventDefault(); onFootnoteMarkerClick($event)" class="footnoteIndicator">&#65290;</span>
             } @else {
