@@ -213,12 +213,23 @@
   margin-right: 1px;
 }
 
-/* The way on to the rest of a passage the panel only opened. */
+/* The ways on to a passage: open it beside the chapter, or read it instead. */
+.reference-actions {
+  display: flex;
+  gap: 14px;
+  margin: 6px 0 0;
+}
+
 .reference-more {
-  display: inline-block;
-  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  /* No `font: inherit` here: that shorthand would undo the sans-serif these
+     labels share at the top of this file and set the button in the reading
+     face. Only the size the button does not inherit is restated. */
   font-size: 12px;
   color: var(--text-secondary);
+  cursor: pointer;
 }
 
 .reference-text.unavailable {

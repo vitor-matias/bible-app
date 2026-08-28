@@ -391,3 +391,61 @@ body .mat-mdc-form-field {
 ::selection {
   background-color: var(--text-selection-color);
 }
+
+/* ---------------------------------------------------------------------------
+   Study mode's shared chrome
+   ---------------------------------------------------------------------------
+   The rail, the reading column and the panel are separate components that all
+   dress their controls the same way: a quiet button that only shows itself
+   under the pointer, and a small upper-case label naming a passage. Kept here
+   in one copy — three private copies of the same hover wash is how they drift
+   apart, and it is what pushed a component stylesheet past what the build
+   allows. */
+.study-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.study-label:hover,
+.study-label:focus-visible {
+  text-decoration: underline;
+}
+
+/* A quiet aside in a study column — "loading", "nothing here", "no
+   connection" — set apart from the scripture around it by being sans-serif
+   and grey rather than by shouting. */
+.study-note {
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 13px;
+  color: var(--study-muted);
+}
+
+.study-quiet-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--study-muted);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.study-quiet-button:hover,
+.study-quiet-button:focus-visible {
+  color: var(--text-color);
+  background-color: color-mix(in srgb, var(--cap-brown) 10%, transparent);
+}
+
+.dark-theme .study-quiet-button:hover,
+.dark-theme .study-quiet-button:focus-visible {
+  background-color: rgba(255, 255, 255, 0.1);
+}

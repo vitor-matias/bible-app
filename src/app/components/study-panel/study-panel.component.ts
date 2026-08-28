@@ -58,6 +58,21 @@ type ReferenceEntry = {
   failed?: boolean
 }
 
+/**
+ * A passage the reader has asked to read beside the chapter, rather than
+ * instead of it. Only what the reading column needs to fetch and name it.
+ */
+export type ParallelRequest = {
+  key: string
+  label: string
+  bookId: Book["id"]
+  chapterNumber: Chapter["number"]
+  verseStart?: Verse["number"]
+  verseEnd?: Verse["number"]
+  link: (string | number)[]
+  queryParams: Record<string, number> | null
+}
+
 /** A verse the search turned up, as the panel lists it. */
 type SearchResult = {
   key: string
@@ -174,6 +189,8 @@ export class StudyPanelComponent implements OnChanges {
   @Input() collapsed = false
 
   @Output() toggleCollapsed = new EventEmitter<void>()
+  /** A cross reference the reader wants open beside the chapter. */
+  @Output() openBeside = new EventEmitter<ParallelRequest>()
 
   activeTab: PanelTab = "references"
   referenceGroups: ReferenceGroup[] = []
@@ -551,6 +568,24 @@ export class StudyPanelComponent implements OnChanges {
       queryParams: { verseStart: verse.number },
       segments: highlightSegments(StudyPanelComponent.plainText(verse), query),
     }
+  }
+
+  /**
+   * Asks for a reference to be opened beside the chapter. Only what names and
+   * locates the passage is passed on: the preview the panel holds is three
+   * verses, and the column beside the text shows the whole chapter.
+   */
+  onOpenBeside(reference: ReferenceEntry): void {
+    this.openBeside.emit({
+      key: reference.key,
+      label: reference.label,
+      bookId: reference.bookId,
+      chapterNumber: reference.chapterNumber,
+      verseStart: reference.verseStart,
+      verseEnd: reference.verseEnd,
+      link: reference.link,
+      queryParams: reference.queryParams,
+    })
   }
 
   /** Where a note's own verse lives, so a search result can be opened. */

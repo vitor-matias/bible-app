@@ -55,10 +55,16 @@ import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"
 import { HeaderComponent } from "../header/header.component"
 import { SelectionActionsComponent } from "../selection-actions/selection-actions.component"
-import { StudyPanelComponent } from "../study-panel/study-panel.component"
+import {
+  type ParallelRequest,
+  StudyPanelComponent,
+} from "../study-panel/study-panel.component"
 import { StudySidebarComponent } from "../study-sidebar/study-sidebar.component"
 import { StudyTrailComponent } from "../study-trail/study-trail.component"
 import { VerseComponent } from "../verse/verse.component"
+
+/** Breathing room above the cited verses when a parallel opens on them. */
+const PARALLEL_TOP_MARGIN = 12
 
 @Component({
   selector: "bible-reader",
@@ -115,6 +121,23 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   /** Study mode's scrolling column, in place of the drawer content. */
   @ViewChild("studyScroll") studyScroll?: ElementRef<HTMLElement>
+
+  /** The column a cross reference is read in, beside the chapter. */
+  @ViewChild("parallelScroll") parallelScroll?: ElementRef<HTMLElement>
+
+  /**
+   * The cross reference open beside the chapter, if any. Its chapter arrives
+   * after the passage is named, so the column can say it is loading.
+   */
+  parallel: (ParallelRequest & { chapter?: Chapter; failed?: boolean }) | null =
+    null
+  private parallelSubscription?: Subscription
+  /**
+   * Set while the panel is folded to make room for a parallel rather than by
+   * the reader. Folded on loan: it is not written to their preferences, and it
+   * is given back when the parallel closes.
+   */
+  private panelFoldedForParallel = false
 
   book!: Book
   books: Book[] = []
@@ -419,6 +442,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       cancelAnimationFrame(this.visibleVerseFrame)
     }
     this.chapterSubscription?.unsubscribe()
+    this.parallelSubscription?.unsubscribe()
     this.animationService.cancelPendingRealign()
     // AutoScrollService handles its own cleanup now if we stop it, or the component stopping it
   }
@@ -733,6 +757,17 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     this.chapter = chapterData
     this.chapterNumber = chapter
+    // Following a parallel into the reading column leaves the same chapter
+    // open twice; the copy beside it has nothing left to compare.
+    if (
+      this.parallel &&
+      this.parallel.bookId === chapterData.bookId &&
+      this.parallel.chapterNumber === chapter
+    ) {
+      // Not closeParallel: applyChapter paints once, at the end, with the rest
+      // of the new chapter's state in place.
+      this.clearParallel()
+    }
     this.markQuotationVerses()
     this.watchChapterHighlights()
     // The previous chapter's verse is gone; a deep link naming one picks it up
@@ -972,6 +1007,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   private setStudyPanelCollapsed(collapsed: boolean): void {
+    // Whatever the parallel borrowed, the reader has now decided for
+    // themselves; the fold is theirs from here.
+    this.panelFoldedForParallel = false
     this.studyPanelCollapsed = collapsed
     this.preferencesService.setStudyPanelCollapsed(collapsed)
     this.cdr.markForCheck()
@@ -1147,16 +1185,115 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   checkIfNextVerseStartsWithQuote(index: number): boolean {
-    if (!this.chapter?.verses) return false
-    const nextVerse = this.chapter.verses[index + 1]
-    if (!nextVerse?.text || nextVerse.text.length === 0) return false
+    return BibleReaderComponent.startsWithQuote(this.chapter?.verses, index + 1)
+  }
 
-    const firstDisplayableIdx = nextVerse.text.findIndex(
+  /** The same question, asked of the passage open beside the chapter. */
+  parallelNextStartsWithQuote(index: number): boolean {
+    return BibleReaderComponent.startsWithQuote(
+      this.parallel?.chapter?.verses,
+      index + 1,
+    )
+  }
+
+  private static startsWithQuote(
+    verses: Verse[] | undefined,
+    index: number,
+  ): boolean {
+    const verse = verses?.[index]
+    if (!verse?.text || verse.text.length === 0) return false
+
+    const firstDisplayableIdx = verse.text.findIndex(
       (t) => t.type !== "footnote" && t.type !== "references",
     )
 
     if (firstDisplayableIdx === -1) return false
 
-    return nextVerse.text[firstDisplayableIdx].type === "quote"
+    return verse.text[firstDisplayableIdx].type === "quote"
+  }
+
+  /**
+   * Opens a cross reference beside the chapter instead of in place of it.
+   *
+   * The whole chapter is fetched, not the verses named: a parallel read
+   * without its context is the same three verses the panel already quotes.
+   */
+  onOpenBeside(request: ParallelRequest): void {
+    this.parallelSubscription?.unsubscribe()
+    this.parallel = request
+    // The panel is the column whose work the parallel has just taken over, and
+    // two texts read side by side need the width more than a list of
+    // references does. It folds to its strip and comes back on closing.
+    if (!this.studyPanelCollapsed) {
+      this.studyPanelCollapsed = true
+      this.panelFoldedForParallel = true
+    }
+    // detectChanges, not markForCheck: the panel's own controls are plain
+    // buttons, and with change detection coalesced onto an animation frame a
+    // marked view can sit unrendered until something unrelated triggers a
+    // pass. Same reason the panel's tab strip renders itself.
+    this.cdr.detectChanges()
+
+    this.parallelSubscription = this.apiService
+      .getChapter(request.bookId, request.chapterNumber)
+      .subscribe({
+        next: (chapter) => this.settleParallel(request, { chapter }),
+        error: () => this.settleParallel(request, { failed: true }),
+      })
+  }
+
+  /** Applies a fetch's outcome, unless the reader has moved on since. */
+  private settleParallel(
+    request: ParallelRequest,
+    outcome: { chapter?: Chapter; failed?: boolean },
+  ): void {
+    if (this.parallel?.key !== request.key) return
+    this.parallel = { ...this.parallel, ...outcome }
+    this.cdr.detectChanges()
+    if (outcome.chapter) this.scrollParallelToCitation()
+  }
+
+  closeParallel(): void {
+    this.clearParallel()
+    this.cdr.detectChanges()
+  }
+
+  /** Drops the parallel without rendering: for callers that paint anyway. */
+  private clearParallel(): void {
+    this.parallelSubscription?.unsubscribe()
+    this.parallel = null
+    if (this.panelFoldedForParallel) {
+      this.studyPanelCollapsed = false
+      this.panelFoldedForParallel = false
+    }
+  }
+
+  /** True while this verse is one of those the reference actually names. */
+  isCitedVerse(verse: Verse): boolean {
+    const start = this.parallel?.verseStart
+    if (start === undefined) return false
+    const end = this.parallel?.verseEnd ?? start
+    return verse.number >= start && verse.number <= end
+  }
+
+  /**
+   * Opens the parallel at the verses cited rather than at the top of the
+   * chapter: the reference names a passage, and the chapter around it is
+   * context for it.
+   */
+  private scrollParallelToCitation(): void {
+    const start = this.parallel?.verseStart
+    if (start === undefined) return
+    afterNextRender(
+      () => {
+        const pane = this.parallelScroll?.nativeElement
+        const target = pane?.querySelector<HTMLElement>(
+          `[id="parallel-${start}"]`,
+        )
+        if (!pane || !target) return
+        pane.scrollTop = Math.max(0, target.offsetTop - PARALLEL_TOP_MARGIN)
+      },
+      { injector: this.injector },
+    )
   }
 }

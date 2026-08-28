@@ -32,7 +32,8 @@
     <!-- #studyScroll and #bookContainer stand in for the drawer content and
          its animated child, so chapter transitions and deep-linked verse
          scrolling work here without knowing which layout is on screen. -->
-    <div class="study-column" #studyScroll (scroll)="onStudyScroll()">
+    <div class="study-column">
+    <div class="study-pane" #studyScroll (scroll)="onStudyScroll()">
       <div class="study-column-inner" #bookContainer>
         <div class="bookBlock study-text" #bookBlock>
           @if (chapter) {
@@ -60,9 +61,41 @@
       }
     </div>
 
+    <!-- A cross reference read beside the chapter rather than instead of it:
+         the reason to look one up is to have both texts at once. It scrolls on
+         its own, so following the parallel never moves the chapter. -->
+    @if (parallel) {
+    <aside class="study-parallel" [attr.aria-label]="'Passagem ao lado: ' + parallel.label">
+      <div class="parallel-head">
+        <a class="study-label parallel-title" [routerLink]="parallel.link" [queryParams]="parallel.queryParams"
+          title="Ler esta passagem na coluna principal">{{ parallel.label }}</a>
+        <button type="button" class="study-quiet-button parallel-close" (click)="closeParallel()" aria-label="Fechar a passagem ao lado"
+          title="Fechar a passagem ao lado">×</button>
+      </div>
+      <div class="parallel-body" #parallelScroll>
+        @if (parallel.chapter) {
+        <div class="bookBlock study-text parallel-text">
+          @for (verse of parallel.chapter.verses; track verse; let i = $index) {
+          <!-- No verseSelected binding: the panel follows the chapter being
+               read, not the one being compared with it. -->
+          <verse [id]="'parallel-' + verse.number" class="verse" [data]="verse"
+            [nextVerseStartsWithQuote]="parallelNextStartsWithQuote(i)" [studyMode]="true"
+            [selected]="isCitedVerse(verse)"></verse>
+          }
+        </div>
+        } @else if (parallel.failed) {
+        <p class="study-note parallel-message">Não foi possível carregar esta passagem.</p>
+        } @else {
+        <p class="study-note parallel-message">A carregar…</p>
+        }
+      </div>
+    </aside>
+    }
+    </div>
+
     <study-panel class="study-aside" [book]="book" [chapter]="chapter" [selection]="selection"
       [visibleVerse]="visibleVerse" [collapsed]="studyPanelCollapsed"
-      (toggleCollapsed)="toggleStudyPanel()"></study-panel>
+      (toggleCollapsed)="toggleStudyPanel()" (openBeside)="onOpenBeside($event)"></study-panel>
 
     <!-- Spans all three columns: the notice covers the edition, not the
          reading column, so it runs the width of the page. -->

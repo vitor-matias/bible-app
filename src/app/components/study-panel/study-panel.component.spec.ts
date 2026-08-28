@@ -15,7 +15,10 @@ import { BookService } from "../../services/book.service"
 import { HighlightService } from "../../services/highlight.service"
 import { NotesService } from "../../services/notes.service"
 import { ReverseReferencesService } from "../../services/reverse-references.service"
-import { StudyPanelComponent } from "./study-panel.component"
+import {
+  type ParallelRequest,
+  StudyPanelComponent,
+} from "./study-panel.component"
 
 const BOOK: Book = {
   id: "mat",
@@ -321,7 +324,9 @@ describe("StudyPanelComponent", () => {
       const entry = component.referenceGroups[0].entries[0]
       expect(entry.verses.length).toBe(2)
       expect(entry.truncated).toBeFalsy()
-      expect(fixture.nativeElement.querySelector(".reference-more")).toBeNull()
+      // The link on to the rest of the passage, specifically: the button that
+      // opens it beside the chapter is offered on every reference.
+      expect(fixture.nativeElement.querySelector("a.reference-more")).toBeNull()
     })
 
     it("links the passage even when its text cannot be fetched", () => {
@@ -829,6 +834,59 @@ describe("StudyPanelComponent", () => {
       expect(
         fixture.nativeElement.querySelector(".reference-group.current"),
       ).toBeTruthy()
+    })
+  })
+
+  describe("opening a reference beside the chapter", () => {
+    function openFirstReference(): ParallelRequest[] {
+      bibleRef.extract.and.callFake((text: string) =>
+        text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
+      )
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 22,
+          verses: [
+            verse(33, [plain("E a multidão"), references("Mc 12,28-34")]),
+            verse(34, [plain("Constando-lhes")]),
+          ],
+        },
+      })
+
+      const asked: ParallelRequest[] = []
+      component.openBeside.subscribe((request) => asked.push(request))
+      const button = fixture.nativeElement.querySelector(
+        "button.reference-more",
+      ) as HTMLButtonElement
+      button.click()
+      return asked
+    }
+
+    it("asks for the passage the reference names", () => {
+      const asked = openFirstReference()
+
+      expect(asked.length).toBe(1)
+      expect(asked[0]).toEqual(
+        jasmine.objectContaining({
+          label: "Marcos 12,28-34",
+          bookId: "mrk",
+          chapterNumber: 12,
+          verseStart: 28,
+          verseEnd: 34,
+        }),
+      )
+    })
+
+    it("offers it on every reference, not only the ones cut short", () => {
+      // The preview here is the whole passage, so there is no "read it all"
+      // link — the parallel is still the point of looking the reference up.
+      const asked = openFirstReference()
+
+      expect(asked.length).toBe(1)
+      expect(
+        fixture.nativeElement.querySelectorAll("button.reference-more").length,
+      ).toBe(1)
     })
   })
 

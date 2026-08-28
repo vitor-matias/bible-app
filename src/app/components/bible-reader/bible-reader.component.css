@@ -387,12 +387,26 @@ h6 {
   --study-panel-width: clamp(320px, 28vw, 460px);
 }
 
+/* A parallel puts a second measure inside the reading column, so the columns
+   either side give up what they can spare. Ordered before the folded widths
+   below, which have the same weight and must still win. */
+.text-container:has(.study-parallel) {
+  --study-rail-width: clamp(180px, 14vw, 220px);
+  --study-panel-width: clamp(280px, 22vw, 340px);
+}
+
+/* Folding a side column away hands the reading column more room, so the
+   measure grows with it — the text keeps flowing the same way, there is just
+   more of it on a line. It stays capped: past this a line gets long enough
+   that the eye loses its place returning to the left margin. */
 .text-container.rail-collapsed {
   --study-rail-width: 48px;
+  --study-measure: 980px;
 }
 
 .text-container.panel-collapsed {
   --study-panel-width: 48px;
+  --study-measure: 980px;
 }
 
 /* One screenful, split between the chrome row and the columns under it: study
@@ -422,29 +436,98 @@ h6 {
   overflow: hidden;
 }
 
-.study-rail {
+/* The two side columns: the same surface, divided from the text by a rule on
+   whichever side faces it. */
+.study-rail,
+.study-aside {
   min-height: 0;
   background-color: var(--study-surface);
+}
+
+.study-rail {
   border-right: 1px solid var(--study-rule);
 }
 
 .study-aside {
-  min-height: 0;
-  background-color: var(--study-surface);
   border-left: 1px solid var(--study-rule);
 }
 
+/* The chapter, and beside it whatever the reader has opened next to it. Each
+   scrolls on its own: following a parallel must not move the chapter. */
 .study-column {
   display: flex;
-  flex-direction: column;
   min-height: 0;
+  overflow: hidden;
+  background-color: var(--background-color);
+}
+
+/* The chapter and its parallel share the column between them. */
+.study-pane,
+.study-parallel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.study-pane {
   overflow-y: auto;
   overscroll-behavior: contain;
-  background-color: var(--background-color);
 }
 
 .study-column-inner {
   flex: 1 0 auto;
+}
+
+.study-parallel {
+  border-left: 1px solid var(--study-rule);
+}
+
+/* Named and closable, and the name is the way to read it in full. */
+.parallel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 6px 12px 6px 20px;
+  border-bottom: 1px solid var(--study-rule);
+}
+
+/* Dressed by .study-label and .study-quiet-button in styles.css; only what is
+   this pane's own is here. */
+.parallel-close {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  font-size: 17px;
+}
+
+/* position: relative so a verse's offsetTop is measured against this pane,
+   which is what opens the parallel on the verses cited. */
+.parallel-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.parallel-body .bookBlock.parallel-text {
+  margin: 24px auto;
+  padding: 0 20px;
+}
+
+/* Ragged right once the column is split: justification needs a measure, and
+   at half a column it opens rivers and hyphenates every other line. */
+.study-column:has(.study-parallel) .bookBlock {
+  text-align: left;
+  hyphens: manual;
+}
+
+/* Set by .study-note in styles.css. */
+.parallel-message {
+  margin: 24px 20px;
 }
 
 /* The measure, not the column: comfortable line length for continuous
@@ -453,19 +536,10 @@ h6 {
    reader's font size, so making the text smaller used to shrink the column
    with it and leave the page half empty. In px the column keeps its width
    and smaller text simply fits more words on a line. */
-.study-column .bookBlock.study-text {
-  max-width: min(100%, 780px);
+.study-pane .bookBlock.study-text {
+  max-width: min(100%, var(--study-measure, 780px));
   margin: 32px auto 24px;
   padding: 0 28px;
-}
-
-/* Folding a side column away hands the reading column more room, so the
-   measure grows with it — the text keeps flowing the same way, there is just
-   more of it on a line. It stays capped: past this a line gets long enough
-   that the eye loses its place returning to the left margin. */
-.rail-collapsed .study-column .bookBlock.study-text,
-.panel-collapsed .study-column .bookBlock.study-text {
-  max-width: min(100%, 980px);
 }
 
 /* One line under the whole layout, not under the reading column: it is the

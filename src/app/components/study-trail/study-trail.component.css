@@ -12,25 +12,12 @@
   display: none;
 }
 
+/* Dressed by .study-quiet-button in styles.css. */
 .trail-clear {
   flex: 0 0 auto;
   width: 22px;
   height: 22px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  color: var(--study-muted);
-  font: inherit;
   font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.trail-clear:hover,
-.trail-clear:focus-visible {
-  color: var(--text-color);
-  background-color: color-mix(in srgb, var(--cap-brown) 10%, transparent);
 }
 
 .trail-list {

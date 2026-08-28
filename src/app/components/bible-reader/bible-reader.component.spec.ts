@@ -13,7 +13,7 @@ import {
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
 import { ActivatedRoute, Router } from "@angular/router"
-import { BehaviorSubject, of, throwError } from "rxjs"
+import { BehaviorSubject, of, Subject, throwError } from "rxjs"
 import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
@@ -757,6 +757,180 @@ describe("BibleReaderComponent", () => {
       expect(component.trail.map((entry) => entry.label)).toEqual([
         "Génesis · Intro",
       ])
+    })
+  })
+
+  describe("a passage open beside the chapter", () => {
+    const request = {
+      key: "job:38",
+      label: "Job 38,4-6",
+      bookId: "job",
+      chapterNumber: 38,
+      verseStart: 4,
+      verseEnd: 6,
+      link: ["/", "jb", 38],
+      queryParams: { verseStart: 4 },
+    }
+    const jobChapter = { bookId: "job", number: 38, verses: [] }
+
+    beforeEach(() => {
+      fixture.detectChanges()
+      studyMode.activate()
+    })
+
+    it("fetches the whole chapter, not only the verses named", () => {
+      apiServiceSpy.getChapter.and.returnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+
+      component.onOpenBeside(request)
+
+      expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("job", 38)
+      expect(component.parallel?.chapter).toBe(jobChapter as unknown as Chapter)
+    })
+
+    it("names the passage before its text arrives", () => {
+      const pending = new Subject<Chapter>()
+      apiServiceSpy.getChapter.and.returnValue(pending)
+
+      component.onOpenBeside(request)
+
+      expect(component.parallel?.label).toBe("Job 38,4-6")
+      expect(component.parallel?.chapter).toBeUndefined()
+      expect(component.parallel?.failed).toBeFalsy()
+
+      pending.next(jobChapter as unknown as Chapter)
+      expect(component.parallel?.chapter).toBeTruthy()
+    })
+
+    it("says when a passage could not be fetched", () => {
+      apiServiceSpy.getChapter.and.returnValue(
+        throwError(() => new Error("offline")),
+      )
+
+      component.onOpenBeside(request)
+
+      expect(component.parallel?.failed).toBeTrue()
+      expect(component.parallel?.chapter).toBeUndefined()
+    })
+
+    it("marks the verses the reference names, and no others", () => {
+      apiServiceSpy.getChapter.and.returnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+      component.onOpenBeside(request)
+
+      expect(component.isCitedVerse({ number: 3 } as Verse)).toBeFalse()
+      expect(component.isCitedVerse({ number: 4 } as Verse)).toBeTrue()
+      expect(component.isCitedVerse({ number: 6 } as Verse)).toBeTrue()
+      expect(component.isCitedVerse({ number: 7 } as Verse)).toBeFalse()
+    })
+
+    it("marks a single named verse", () => {
+      apiServiceSpy.getChapter.and.returnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+      component.onOpenBeside({ ...request, verseStart: 4, verseEnd: undefined })
+
+      expect(component.isCitedVerse({ number: 4 } as Verse)).toBeTrue()
+      expect(component.isCitedVerse({ number: 5 } as Verse)).toBeFalse()
+    })
+
+    it("marks nothing where the reference names a whole chapter", () => {
+      apiServiceSpy.getChapter.and.returnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+      component.onOpenBeside({
+        ...request,
+        verseStart: undefined,
+        verseEnd: undefined,
+      })
+
+      expect(component.isCitedVerse({ number: 1 } as Verse)).toBeFalse()
+    })
+
+    it("folds the panel away to make room, and gives it back", () => {
+      apiServiceSpy.getChapter.and.returnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+      preferencesServiceSpy.setStudyPanelCollapsed.calls.reset()
+
+      component.onOpenBeside(request)
+      expect(component.studyPanelCollapsed).toBeTrue()
+      // Borrowed, not chosen: the reader's own preference is untouched.
+      expect(
+        preferencesServiceSpy.setStudyPanelCollapsed,
+      ).not.toHaveBeenCalled()
+
+      component.closeParallel()
+      expect(component.studyPanelCollapsed).toBeFalse()
+    })
+
+    it("leaves a panel the reader folded folded", () => {
+      apiServiceSpy.getChapter.and.returnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+      component.toggleStudyPanel()
+      expect(component.studyPanelCollapsed).toBeTrue()
+
+      component.onOpenBeside(request)
+      component.closeParallel()
+
+      expect(component.studyPanelCollapsed).toBeTrue()
+    })
+
+    it("does not unfold a panel the reader opened while comparing", () => {
+      apiServiceSpy.getChapter.and.returnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+      component.onOpenBeside(request)
+      component.toggleStudyPanel()
+      expect(component.studyPanelCollapsed).toBeFalse()
+
+      component.closeParallel()
+
+      expect(component.studyPanelCollapsed).toBeFalse()
+    })
+
+    it("closes when asked", () => {
+      apiServiceSpy.getChapter.and.returnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+      component.onOpenBeside(request)
+
+      component.closeParallel()
+
+      expect(component.parallel).toBeNull()
+    })
+
+    it("closes itself once the chapter it holds is the one being read", () => {
+      apiServiceSpy.getChapter.and.returnValue(
+        of(mockChapter as unknown as Chapter),
+      )
+      // The parallel is Genesis 1, and so is the chapter about to be applied:
+      // the same text twice is not a parallel.
+      component.onOpenBeside({
+        ...request,
+        key: "gen:1",
+        bookId: "gen",
+        chapterNumber: 1,
+      })
+      expect(component.parallel).not.toBeNull()
+
+      component.getChapter(1)
+
+      expect(component.parallel).toBeNull()
+    })
+
+    it("stays open on a chapter it is not a copy of", () => {
+      apiServiceSpy.getChapter.and.returnValue(
+        of(mockChapter as unknown as Chapter),
+      )
+      component.onOpenBeside(request)
+
+      component.getChapter(1)
+
+      expect(component.parallel?.label).toBe("Job 38,4-6")
     })
   })
 

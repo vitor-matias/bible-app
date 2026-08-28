@@ -60,13 +60,23 @@
             }
           </p>
           }
-          @if (reference.truncated) {
-          <a class="reference-more" [routerLink]="reference.link" [queryParams]="reference.queryParams">
-            Ler a passagem inteira
-          </a>
-          } @else if (reference.failed) {
+          @if (reference.failed) {
           <p class="reference-text unavailable">Texto indisponível sem ligação.</p>
           }
+          <!-- Two ways on to the passage: read it instead of this chapter, or
+               beside it. A parallel is the reason to look a reference up at
+               all, so it is offered on every one of them, not only the ones
+               whose preview runs out. -->
+          <p class="reference-actions">
+            <button type="button" class="reference-more" (click)="onOpenBeside(reference)">
+              Abrir ao lado
+            </button>
+            @if (reference.truncated) {
+            <a class="reference-more" [routerLink]="reference.link" [queryParams]="reference.queryParams">
+              Ler a passagem inteira
+            </a>
+            }
+          </p>
         </li>
         }
       </ul>
