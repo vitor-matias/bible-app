@@ -90,6 +90,14 @@ body {
   /* The verse the study panel is showing. Quieter than
      --verse-highlight-color: this one stays on screen for as long as the
      reader studies the verse instead of fading after arriving at it. */
+  /* The four colours a reader can mark a verse with, held as channels so one
+     hue serves both the swatch and the lighter wash laid over the words.
+     Shared by the verse, the study panel and the selection bar, which is why
+     they live here rather than in any one of them. */
+  --mark-yellow: 238 191 46;
+  --mark-green: 104 173 96;
+  --mark-blue: 94 152 204;
+  --mark-pink: 214 112 152;
   --study-selection-color: color-mix(in srgb, var(--cap-brown) 12%, transparent);
   --study-selection-border: color-mix(in srgb, var(--cap-brown) 45%, transparent);
   --mat-menu-item-label-text-size: 15px;
@@ -336,4 +344,37 @@ body .mat-mdc-form-field {
 
 .mat-mdc-select-panel {
   --mat-option-selected-state-label-text-color: var(--mat-form-field-focus-color);
+}
+
+/* The colour swatches, shared by the study panel and the selection bar.
+   A control used by two components belongs with the tokens it is built from,
+   not duplicated inside each of them. */
+.mark-swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--study-rule);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.mark-swatch[data-color="yellow"] { background-color: rgb(var(--mark-yellow) / 0.7); }
+.mark-swatch[data-color="green"] { background-color: rgb(var(--mark-green) / 0.7); }
+.mark-swatch[data-color="blue"] { background-color: rgb(var(--mark-blue) / 0.7); }
+.mark-swatch[data-color="pink"] { background-color: rgb(var(--mark-pink) / 0.7); }
+
+/* The colour already on the verse, so pressing it again to remove it reads as
+   undoing rather than as picking the same colour twice. */
+.mark-swatch.chosen {
+  border-color: var(--text-color);
+  border-width: 2px;
+}
+
+.mark-swatch:focus-visible {
+  outline: 2px solid var(--cap-brown);
+  outline-offset: 2px;
+}
+
+.dark-theme .mark-swatch:focus-visible {
+  outline-color: antiquewhite;
 }

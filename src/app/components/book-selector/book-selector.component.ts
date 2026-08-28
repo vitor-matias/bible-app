@@ -26,6 +26,7 @@ import {
   NEW_TESTAMENT_GROUPS,
   OLD_TESTAMENT_GROUPS,
 } from "../../bible-canon"
+import { normalizeForSearch } from "../../utils/text"
 
 interface BookNode {
   name: string
@@ -155,7 +156,7 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   filterBooks(query: string): void {
     this.filterQuery = query
-    const q = this.normalizeSearchValue(query)
+    const q = normalizeForSearch(query)
     if (!q) {
       this.buildTrees()
       return
@@ -165,8 +166,8 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
       const book = this.getBook(bookId)
       return (
         !!book &&
-        (this.normalizeSearchValue(book.shortName).includes(q) ||
-          this.normalizeSearchValue(book.name).includes(q))
+        (normalizeForSearch(book.shortName).includes(q) ||
+          normalizeForSearch(book.name).includes(q))
       )
     }
 
@@ -225,15 +226,6 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   onKeyPress(event: KeyboardEvent, id: Book["id"]): void {
     this.submit(id)
-  }
-
-  private normalizeSearchValue(value: string): string {
-    return value
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .toLocaleLowerCase()
   }
 
   ngAfterViewInit(): void {

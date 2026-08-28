@@ -16,6 +16,7 @@ import {
   NEW_TESTAMENT_GROUPS,
   OLD_TESTAMENT_GROUPS,
 } from "../../bible-canon"
+import { normalizeForSearch } from "../../utils/text"
 
 /** One canon group as the sidebar shows it: only the books actually served. */
 type SidebarGroup = {
@@ -97,15 +98,14 @@ export class StudySidebarComponent implements OnChanges {
    */
   onFilter(query: string): void {
     this.filter = query
-    const needle = StudySidebarComponent.normalize(query)
+    const needle = normalizeForSearch(query)
     this.matches = needle
       ? this.groups
           .flatMap((group) => group.books)
           .filter(
             (book) =>
-              StudySidebarComponent.normalize(book.shortName).includes(
-                needle,
-              ) || StudySidebarComponent.normalize(book.name).includes(needle),
+              normalizeForSearch(book.shortName).includes(needle) ||
+              normalizeForSearch(book.name).includes(needle),
           )
       : []
     this.cdr.detectChanges()
@@ -113,15 +113,6 @@ export class StudySidebarComponent implements OnChanges {
 
   clearFilter(): void {
     this.onFilter("")
-  }
-
-  /** Accent- and case-insensitive, so "genesis" finds "Génesis". */
-  private static normalize(value: string): string {
-    return value
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .trim()
-      .toLocaleLowerCase()
   }
 
   isExpanded(group: SidebarGroup): boolean {

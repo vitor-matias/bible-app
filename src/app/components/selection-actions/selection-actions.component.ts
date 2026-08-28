@@ -14,6 +14,7 @@ import {
   type HighlightColor,
   HighlightService,
 } from "../../services/highlight.service"
+import { formatPassage } from "../../utils/text"
 
 /** Where the bar sits, in viewport coordinates. */
 type BarPosition = { top: number; left: number }
@@ -225,7 +226,7 @@ export class SelectionActionsComponent {
       : ""
     try {
       await navigator.clipboard.writeText(
-        reference ? `${this.selectedText} (${reference})` : this.selectedText,
+        formatPassage(this.selectedText, reference),
       )
       this.copied = true
       this.cdr.detectChanges()

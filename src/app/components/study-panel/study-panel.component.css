@@ -6,6 +6,18 @@
   font-family: "PT Serif", serif;
 }
 
+/* Labels, tabs and counts are chrome, not scripture: one declaration for all
+   of them rather than the same stack repeated on each. */
+.tab,
+.panel-caption,
+.group-label,
+.reference-label,
+.reference-more,
+.note-label,
+.note-ref {
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
 .study-panel.collapsed {
   overflow: hidden;
   align-items: center;
@@ -43,18 +55,6 @@
   height: 20px;
 }
 
-@media (hover: hover) {
-  .collapse-toggle:hover {
-    color: var(--text-color);
-    background-color: color-mix(in srgb, var(--cap-brown) 12%, transparent);
-  }
-}
-
-.collapse-toggle:focus-visible {
-  outline: 2px solid var(--cap-brown);
-  outline-offset: 2px;
-}
-
 .tab-strip {
   display: flex;
   gap: 4px;
@@ -70,7 +70,6 @@
   margin-bottom: -1px;
   background: none;
   color: var(--study-muted);
-  font-family: Roboto, "Helvetica Neue", sans-serif;
   font-size: 13px;
   cursor: pointer;
 }
@@ -79,11 +78,6 @@
   color: var(--text-color);
   border-bottom-color: var(--text-secondary);
   font-weight: 600;
-}
-
-.tab:focus-visible {
-  outline: 2px solid var(--cap-brown);
-  outline-offset: -2px;
 }
 
 .tab-body {
@@ -96,7 +90,6 @@
 
 .panel-caption {
   margin: 0 0 14px;
-  font-family: Roboto, "Helvetica Neue", sans-serif;
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -162,7 +155,6 @@
 
 .group-label {
   margin: 0 0 10px;
-  font-family: Roboto, "Helvetica Neue", sans-serif;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -176,7 +168,6 @@
 
 .reference-label {
   display: block;
-  font-family: Roboto, "Helvetica Neue", sans-serif;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -214,7 +205,6 @@
 .reference-more {
   display: inline-block;
   margin-top: 6px;
-  font-family: Roboto, "Helvetica Neue", sans-serif;
   font-size: 12px;
   color: var(--text-secondary);
 }
@@ -266,7 +256,6 @@
 .note-label {
   display: block;
   margin-bottom: 8px;
-  font-family: Roboto, "Helvetica Neue", sans-serif;
   font-size: 12px;
   color: var(--study-muted);
 }
@@ -312,23 +301,14 @@
 
 .note-ref {
   flex: 0 0 auto;
-  font-family: Roboto, "Helvetica Neue", sans-serif;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
   padding-top: 2px;
 }
 
-:host-context(.dark-theme) .tab:focus-visible {
-  outline-color: antiquewhite;
-}
-
 :host-context(.dark-theme) .note-box:focus-within {
   border-color: rgba(255, 255, 255, 0.4);
-}
-
-:host-context(.dark-theme) .collapse-toggle:focus-visible {
-  outline-color: antiquewhite;
 }
 
 /* A quiet action, not a button competing with the text beside it. */
@@ -342,7 +322,6 @@
   border-radius: 6px;
   background: none;
   color: var(--study-muted);
-  font-family: Roboto, "Helvetica Neue", sans-serif;
   font-size: 12px;
   cursor: pointer;
 }
@@ -351,18 +330,6 @@
   font-size: 16px;
   width: 16px;
   height: 16px;
-}
-
-@media (hover: hover) {
-  .verse-action:hover {
-    color: var(--text-color);
-    background-color: color-mix(in srgb, var(--cap-brown) 10%, transparent);
-  }
-}
-
-.verse-action:focus-visible {
-  outline: 2px solid var(--cap-brown);
-  outline-offset: 2px;
 }
 
 .note-search {
@@ -396,10 +363,6 @@ a.note-ref:focus-visible {
   text-decoration: underline;
 }
 
-:host-context(.dark-theme) .verse-action:focus-visible {
-  outline-color: antiquewhite;
-}
-
 :host-context(.dark-theme) .note-search-input:focus {
   border-color: rgba(255, 255, 255, 0.4);
 }
@@ -412,38 +375,37 @@ a.note-ref:focus-visible {
   margin-top: 24px;
 }
 
-.mark-swatch {
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 1px solid var(--study-rule);
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-.mark-swatch[data-color="yellow"] { background-color: rgba(238, 191, 46, 0.7); }
-.mark-swatch[data-color="green"] { background-color: rgba(104, 173, 96, 0.7); }
-.mark-swatch[data-color="blue"] { background-color: rgba(94, 152, 204, 0.7); }
-.mark-swatch[data-color="pink"] { background-color: rgba(214, 112, 152, 0.7); }
-
-/* The one already on the verse, so pressing it again to remove it reads as
-   undoing rather than as picking the same colour twice. */
-.mark-swatch.chosen {
-  border-color: var(--text-color);
-  border-width: 2px;
-}
-
-.mark-swatch:focus-visible {
-  outline: 2px solid var(--cap-brown);
-  outline-offset: 2px;
-}
-
-:host-context(.dark-theme) .mark-swatch:focus-visible {
-  outline-color: antiquewhite;
-}
 
 .incoming {
   margin-top: 24px;
   padding-top: 20px;
   border-top: 1px solid var(--study-rule);
+}
+
+/* One focus ring and one hover wash for every control in the panel. They were
+   restated per control as each was added, which is how this stylesheet grew
+   past the size the build allows a component. */
+.collapse-toggle:focus-visible,
+.verse-action:focus-visible,
+.tab:focus-visible {
+  outline: 2px solid var(--cap-brown);
+  outline-offset: 2px;
+}
+
+.tab:focus-visible {
+  outline-offset: -2px;
+}
+
+:host-context(.dark-theme) .collapse-toggle:focus-visible,
+:host-context(.dark-theme) .verse-action:focus-visible,
+:host-context(.dark-theme) .tab:focus-visible {
+  outline-color: antiquewhite;
+}
+
+@media (hover: hover) {
+  .collapse-toggle:hover,
+  .verse-action:hover {
+    color: var(--text-color);
+    background-color: color-mix(in srgb, var(--cap-brown) 11%, transparent);
+  }
 }

@@ -34,6 +34,7 @@ import {
   type IndexState,
   ReverseReferencesService,
 } from "../../services/reverse-references.service"
+import { formatPassage } from "../../utils/text"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 
 export type PanelTab = "references" | "footnotes" | "notes"
@@ -476,7 +477,7 @@ export class StudyPanelComponent implements OnChanges {
     const text = StudyPanelComponent.plainText(verse)
     const reference = `${this.book.shortName} ${this.selectedVerseLabel}`
     try {
-      await navigator.clipboard.writeText(`${text} (${reference})`)
+      await navigator.clipboard.writeText(formatPassage(text, reference))
       this.copied = true
       this.cdr.markForCheck()
       if (this.copiedTimer) clearTimeout(this.copiedTimer)

@@ -13,20 +13,6 @@
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
 }
 
-.mark-swatch {
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: 1px solid var(--study-rule);
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-.mark-swatch[data-color="yellow"] { background-color: rgba(238, 191, 46, 0.7); }
-.mark-swatch[data-color="green"] { background-color: rgba(104, 173, 96, 0.7); }
-.mark-swatch[data-color="blue"] { background-color: rgba(94, 152, 204, 0.7); }
-.mark-swatch[data-color="pink"] { background-color: rgba(214, 112, 152, 0.7); }
-
 .bar-action {
   display: flex;
   align-items: center;
@@ -59,13 +45,11 @@
   }
 }
 
-.mark-swatch:focus-visible,
 .bar-action:focus-visible {
   outline: 2px solid var(--cap-brown);
   outline-offset: 2px;
 }
 
-:host-context(.dark-theme) .mark-swatch:focus-visible,
 :host-context(.dark-theme) .bar-action:focus-visible {
   outline-color: antiquewhite;
 }

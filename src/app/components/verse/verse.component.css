@@ -231,21 +231,10 @@ h3:not(:first-child) {
   padding-block: 0.1em;
 }
 
-:host([data-highlight="yellow"]) {
-  --verse-mark-color: rgba(238, 191, 46, 0.34);
-}
-
-:host([data-highlight="green"]) {
-  --verse-mark-color: rgba(104, 173, 96, 0.32);
-}
-
-:host([data-highlight="blue"]) {
-  --verse-mark-color: rgba(94, 152, 204, 0.32);
-}
-
-:host([data-highlight="pink"]) {
-  --verse-mark-color: rgba(214, 112, 152, 0.32);
-}
+:host([data-highlight="yellow"]) { --verse-mark-color: rgb(var(--mark-yellow) / 0.34); }
+:host([data-highlight="green"]) { --verse-mark-color: rgb(var(--mark-green) / 0.32); }
+:host([data-highlight="blue"]) { --verse-mark-color: rgb(var(--mark-blue) / 0.32); }
+:host([data-highlight="pink"]) { --verse-mark-color: rgb(var(--mark-pink) / 0.32); }
 
 /*
  * Verse numbers and footnote markers are apparatus, not words.
