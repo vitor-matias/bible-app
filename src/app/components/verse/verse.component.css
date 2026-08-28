@@ -231,6 +231,16 @@ h3:not(:first-child) {
   padding-block: 0.1em;
 }
 
+/* Mid-run, the number and the space before it are inside the mark rather
+   than at its edge, so they are painted too: without this a passage marked
+   across several verses shows a hole at each verse number. */
+:host(.verse-marked.mark-continues) .verseGap,
+:host(.verse-marked.mark-continues) .verseNumber,
+:host(.verse-marked.mark-continues) .footnoteIndicator,
+:host(.verse-marked.mark-continues) .quoteVerseNumber {
+  background-color: var(--verse-mark-color);
+}
+
 :host([data-highlight="yellow"]) { --verse-mark-color: rgb(var(--mark-yellow) / 0.34); }
 :host([data-highlight="green"]) { --verse-mark-color: rgb(var(--mark-green) / 0.32); }
 :host([data-highlight="blue"]) { --verse-mark-color: rgb(var(--mark-blue) / 0.32); }

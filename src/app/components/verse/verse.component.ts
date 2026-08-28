@@ -47,6 +47,7 @@ import { getVerseQueryParams, parseReferences } from "./verse.utils"
     "[class.verse-selected]": "selected",
     "[class.verse-quotation]": "isQuotation",
     "[class.verse-marked]": "highlight",
+    "[class.mark-continues]": "highlight && markContinues",
     "[attr.data-highlight]": "highlight ?? null",
   },
 })
@@ -113,6 +114,10 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
    */
   @Input()
   highlight?: HighlightColor
+
+  /** True when the verse before this one carries the same mark. */
+  @Input()
+  markContinues = false
 
   @Output()
   verseSelected = new EventEmitter<VerseSelection>()

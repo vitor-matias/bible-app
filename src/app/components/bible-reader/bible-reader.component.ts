@@ -1099,6 +1099,22 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Whether the verse before this one carries the same mark, which is what
+   * tells a verse to paint the number and the space in front of it.
+   *
+   * A mark stops at the words at either end of a run — no tinted number
+   * hanging off the front, no colour trailing past the last full stop — but
+   * inside a run those same gaps have to be filled, or a passage marked
+   * across several verses reads as several marks with holes between them.
+   */
+  marksContinue(verse: Verse, index: number): boolean {
+    const color = this.chapterHighlights.get(verse.number)
+    if (!color) return false
+    const previous = this.chapter?.verses?.[index - 1]
+    return !!previous && this.chapterHighlights.get(previous.number) === color
+  }
+
+  /**
    * Follows the marks for the chapter on screen. Re-subscribed per chapter
    * rather than filtering the whole set on every change detection pass, which
    * auto-scroll runs once an animation frame.

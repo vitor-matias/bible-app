@@ -61,6 +61,11 @@ export class StudySidebarComponent implements OnChanges {
   private readonly cdr = inject(ChangeDetectorRef)
 
   groups: SidebarGroup[] = []
+  /**
+   * Introductions belonging to no single group — the whole Bible, a testament
+   * — which have nowhere else to appear.
+   */
+  standaloneIntros: Book[] = []
   /** What the reader has typed into the filter, if anything. */
   filter = ""
   /** Books matching the filter, flattened out of their groups. */
@@ -127,6 +132,21 @@ export class StudySidebarComponent implements OnChanges {
     this.cdr.detectChanges()
   }
 
+  /**
+   * What a row says. An introduction inside a group reads just "Introdução":
+   * the heading above it already names what it introduces, and repeating that
+   * would say the same thing twice. The wider ones keep their own names,
+   * having no heading to lean on.
+   */
+  entryLabel(entry: Book): string {
+    return entry.introSlug ? "Introdução" : entry.shortName
+  }
+
+  /** An introduction has no chapters to count. */
+  chapterCountFor(entry: Book): string {
+    return entry.introSlug ? "" : String(entry.chapterCount)
+  }
+
   onBookClick(book: Book): void {
     this.selectBook.emit({ bookId: book.id })
   }
@@ -152,9 +172,13 @@ export class StudySidebarComponent implements OnChanges {
   }
 
   /**
-   * The canon, filtered down to the books this edition actually serves.
-   * Standalone introductions are left out: they are reachable from each
-   * book's own chapter list, and listing them here would double every group.
+   * The canon, filtered down to the books this edition actually serves, each
+   * group led by its own introduction.
+   *
+   * The introductions have to be listed: only a book's *shared* introduction
+   * is reachable from its chapter list, so leaving them out put the ones
+   * written for a group, a testament or the whole Bible out of reach in study
+   * mode entirely.
    */
   private buildGroups(): SidebarGroup[] {
     const byId = new Map(this.books.map((book) => [book.id, book]))
@@ -162,13 +186,35 @@ export class StudySidebarComponent implements OnChanges {
       ...OLD_TESTAMENT_GROUPS,
       ...NEW_TESTAMENT_GROUPS,
     ]
-    return canon
-      .map((group) => ({
-        name: group.name,
-        books: group.books
+
+    const grouped = canon
+      .map((group) => {
+        const intro = group.introSlug ? byId.get(group.introSlug) : undefined
+        const books = group.books
           .map((id) => byId.get(id))
-          .filter((book): book is Book => !!book),
-      }))
+          .filter((book): book is Book => !!book)
+        return {
+          name: group.name,
+          books: intro ? [intro, ...books] : books,
+        }
+      })
       .filter((group) => group.books.length > 0)
+
+    // What is left introduces something wider than any one group: the whole
+    // Bible, a testament. An introduction written for a cluster of books
+    // (Samuel, Reis, …) is already reachable from each of their chapter
+    // lists, so listing it here would say it twice.
+    const claimed = new Set<string>()
+    for (const group of canon) {
+      if (group.introSlug) claimed.add(group.introSlug)
+    }
+    for (const book of this.books) {
+      if (book.sharedIntroSlug) claimed.add(book.sharedIntroSlug)
+    }
+    this.standaloneIntros = this.books.filter(
+      (book) => book.introSlug && !claimed.has(book.introSlug),
+    )
+
+    return grouped
   }
 }

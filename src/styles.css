@@ -98,6 +98,10 @@ body {
   --mark-green: 104 173 96;
   --mark-blue: 94 152 204;
   --mark-pink: 214 112 152;
+  /* Dragging across the text is a real gesture here — it raises the mark and
+     copy actions — so the selection is the edition's own warm tone rather
+     than whatever grey the browser falls back to. */
+  --text-selection-color: color-mix(in srgb, var(--cap-brown) 22%, transparent);
   --study-selection-color: color-mix(in srgb, var(--cap-brown) 12%, transparent);
   --study-selection-border: color-mix(in srgb, var(--cap-brown) 45%, transparent);
   --mat-menu-item-label-text-size: 15px;
@@ -159,6 +163,7 @@ body {
   --study-surface: #1a1a1a;
   --study-rule: rgba(255, 255, 255, 0.14);
   --study-muted: color-mix(in srgb, var(--text-color) 60%, transparent);
+  --text-selection-color: rgba(238, 176, 46, 0.3);
   --study-selection-color: rgba(238, 176, 46, 0.16);
   --study-selection-border: rgba(238, 176, 46, 0.5);
   --mat-menu-container-color: var(--card-background);
@@ -377,4 +382,12 @@ body .mat-mdc-form-field {
 
 .dark-theme .mark-swatch:focus-visible {
   outline-color: antiquewhite;
+}
+
+/* Left to the browser this was grey — and grey only while the window had
+   focus elsewhere, which made selecting text look like something had gone
+   wrong. The text colour is left alone so contrast stays predictable in both
+   themes. */
+::selection {
+  background-color: var(--text-selection-color);
 }

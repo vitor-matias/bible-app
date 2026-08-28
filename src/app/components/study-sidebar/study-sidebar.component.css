@@ -15,13 +15,29 @@
   align-items: center;
 }
 
-/* Sits above the sections and stays put when they scroll away, so folding the
-   rail back open never means scrolling to the top first. */
-.collapse-toggle {
+/* Heading and fold control on one line. Sticky, so folding the rail back open
+   never means scrolling to the top first. */
+.rail-head {
   position: sticky;
   top: 0;
   z-index: 1;
-  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 2px;
+  background-color: var(--study-surface);
+}
+
+.study-sidebar.collapsed .rail-head {
+  justify-content: center;
+}
+
+.rail-title {
+  margin-bottom: 0;
+}
+
+.collapse-toggle {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
@@ -34,10 +50,6 @@
   background-color: var(--study-surface);
   color: var(--study-muted);
   cursor: pointer;
-}
-
-.study-sidebar.collapsed .collapse-toggle {
-  align-self: center;
 }
 
 .collapse-toggle mat-icon {
@@ -131,6 +143,12 @@
 
 .book-list {
   margin-bottom: 6px;
+}
+
+.intro-list {
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--study-rule);
 }
 
 .book-row {

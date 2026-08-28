@@ -23,30 +23,33 @@
   align-items: center;
 }
 
-/* Sits above the tabs and stays put when the body scrolls, so folding the
-   panel back open never means scrolling to the top first. */
-.collapse-toggle {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  align-self: flex-start;
+/* Tabs and fold control on one line, the border running under both. */
+.panel-head {
+  display: flex;
+  align-items: stretch;
   flex: 0 0 auto;
+  border-bottom: 1px solid var(--study-rule);
+}
+
+.study-panel.collapsed .panel-head {
+  justify-content: center;
+}
+
+.collapse-toggle {
+  flex: 0 0 auto;
+  align-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
-  margin: 8px 8px 0;
+  /* Pushed to the far end of the head row, after the tabs. */
+  margin: 4px 8px 4px auto;
   border: 0;
   border-radius: 6px;
   background-color: var(--study-surface);
   color: var(--study-muted);
   cursor: pointer;
-}
-
-.study-panel.collapsed .collapse-toggle {
-  align-self: center;
-  margin-inline: 0;
 }
 
 .collapse-toggle mat-icon {
@@ -58,9 +61,11 @@
 .tab-strip {
   display: flex;
   gap: 4px;
-  flex: 0 0 auto;
-  padding: 4px 16px 0;
-  border-bottom: 1px solid var(--study-rule);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 4px 8px 0 16px;
 }
 
 .tab {

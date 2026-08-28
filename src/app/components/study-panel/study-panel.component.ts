@@ -85,7 +85,6 @@ type ReferenceGroup = {
 /** A footnote plus the verse it hangs off, for the chapter-wide listing. */
 type FootnoteEntry = {
   verseNumber: Verse["number"]
-  label: string
   footnote: _Footnote
 }
 
@@ -341,12 +340,12 @@ export class StudyPanelComponent implements OnChanges {
   }
 
   verseLabel(verseNumber: Verse["number"]): string {
+    const chapter = this.chapter?.number ?? ""
     // Verse 0 is the chapter's front matter, where this edition prints the
-    // parallels for a passage that opens the chapter. They belong to its
-    // first verse as far as a reader is concerned, and "22,0" is not a
-    // reference anyone writes.
-    const number = verseNumber > 0 ? verseNumber : 1
-    return `${this.chapter?.number ?? ""},${number}`
+    // heading and the parallels for the passage that opens the chapter.
+    // Those cover the chapter, not its first verse — and "1,0" is not a
+    // reference anyone writes — so they are named by the chapter alone.
+    return verseNumber > 0 ? `${chapter},${verseNumber}` : `Capítulo ${chapter}`
   }
 
   noteLabel(note: VerseNote): string {
@@ -684,11 +683,7 @@ export class StudyPanelComponent implements OnChanges {
     this.footnotes = (this.chapter?.verses ?? []).flatMap((verse) =>
       verse.text
         .filter((part): part is _Footnote => part.type === "footnote")
-        .map((footnote) => ({
-          verseNumber: verse.number,
-          label: this.verseLabel(verse.number),
-          footnote,
-        })),
+        .map((footnote) => ({ verseNumber: verse.number, footnote })),
     )
   }
 

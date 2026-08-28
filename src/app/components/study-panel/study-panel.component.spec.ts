@@ -176,7 +176,8 @@ describe("StudyPanelComponent", () => {
         },
       })
 
-      expect(component.referenceGroups[0].label).toBe("22,1")
+      // The heading and its parallels cover the chapter, not its first verse.
+      expect(component.referenceGroups[0].label).toBe("Capítulo 22")
     })
 
     it("shows a reference once even when the verse prints it twice", () => {
@@ -554,9 +555,8 @@ describe("StudyPanelComponent", () => {
         selection: { verse: target },
       })
 
-      expect(component.footnotes.map((entry) => entry.label)).toEqual([
-        "22,2",
-        "22,11",
+      expect(component.footnotes.map((entry) => entry.verseNumber)).toEqual([
+        2, 11,
       ])
     })
 

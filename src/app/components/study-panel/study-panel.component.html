@@ -1,13 +1,10 @@
 <aside class="study-panel" [class.collapsed]="collapsed" aria-label="Aparato de estudo">
-  <!-- Always rendered, so a folded panel keeps something to unfold it by. -->
-  <button type="button" class="collapse-toggle" (click)="toggleCollapsed.emit()" [attr.aria-expanded]="!collapsed"
-    [attr.aria-label]="collapsed ? 'Mostrar referências e notas' : 'Esconder referências e notas'"
-    [matTooltip]="collapsed ? 'Mostrar referências e notas' : 'Esconder referências e notas'">
-    <mat-icon>{{ collapsed ? 'chevron_left' : 'chevron_right' }}</mat-icon>
-  </button>
-
-  @if (!collapsed) {
-  <div class="tab-strip" role="tablist" aria-label="Aparato de estudo">
+  <!-- The fold control shares the tabs' line rather than taking one of its
+       own, and stays outside the tablist, which may only contain tabs. It is
+       always rendered, so a folded panel keeps something to unfold it by. -->
+  <div class="panel-head">
+    @if (!collapsed) {
+    <div class="tab-strip" role="tablist" aria-label="Aparato de estudo">
     @for (tab of tabs; track tab.id; let i = $index) {
     <button type="button" class="tab" role="tab" [id]="'study-tab-' + tab.id" [class.active]="activeTab === tab.id"
       [attr.aria-selected]="activeTab === tab.id" [attr.tabindex]="activeTab === tab.id ? 0 : -1"
@@ -16,8 +13,18 @@
       {{ tab.label }}
     </button>
     }
+    </div>
+    }
+
+    <button type="button" class="collapse-toggle" (click)="toggleCollapsed.emit()"
+      [attr.aria-expanded]="!collapsed"
+      [attr.aria-label]="collapsed ? 'Mostrar referências e notas' : 'Esconder referências e notas'"
+      [matTooltip]="collapsed ? 'Mostrar referências e notas' : 'Esconder referências e notas'">
+      <mat-icon>{{ collapsed ? 'chevron_left' : 'chevron_right' }}</mat-icon>
+    </button>
   </div>
 
+  @if (!collapsed) {
   @switch (activeTab) {
 
   @case ('references') {

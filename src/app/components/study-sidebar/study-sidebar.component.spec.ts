@@ -19,6 +19,22 @@ const BOOKS: Book[] = [
   makeBook("mrk", { shortName: "Marcos", chapterCount: 16 }),
 ]
 
+/** The synthetic books a standalone introduction is served as. */
+function makeIntro(slug: string, name: string): Book {
+  return makeBook(slug, {
+    name,
+    shortName: name,
+    chapterCount: 0,
+    introSlug: slug,
+  })
+}
+
+const BOOKS_WITH_INTROS: Book[] = [
+  ...BOOKS,
+  makeIntro("pentateuco", "Pentateuco"),
+  makeIntro("geral", "Introdução Geral"),
+]
+
 describe("StudySidebarComponent", () => {
   let component: StudySidebarComponent
   let fixture: ComponentFixture<StudySidebarComponent>
@@ -94,6 +110,78 @@ describe("StudySidebarComponent", () => {
     expect(
       fixture.nativeElement.querySelectorAll(".book-row").length,
     ).toBeGreaterThan(0)
+  })
+
+  describe("introductions", () => {
+    it("leads a group with the introduction written for it", () => {
+      setInputs({ books: BOOKS_WITH_INTROS, book: BOOKS[0] })
+
+      const pentateuch = component.groups.find((g) => g.name === "Pentateuco")
+      expect(pentateuch?.books[0].id).toBe("pentateuco")
+    })
+
+    it("names it for its heading rather than repeating the group", () => {
+      setInputs({ books: BOOKS_WITH_INTROS, book: BOOKS[0] })
+      fixture.detectChanges()
+
+      // Scoped to the groups: the standalone introductions above them keep
+      // their own names, which is the point of the distinction.
+      const rows = Array.from(
+        fixture.nativeElement.querySelectorAll(".group-list .book-name"),
+      ).map((row) => (row as HTMLElement).textContent?.trim())
+      expect(rows[0]).toBe("Introdução")
+      expect(rows).toContain("Génesis")
+    })
+
+    it("shows no chapter count for something with no chapters", () => {
+      setInputs({ books: BOOKS_WITH_INTROS, book: BOOKS[0] })
+      fixture.detectChanges()
+
+      const first = fixture.nativeElement.querySelector(".group-list .book-row")
+      expect(first.querySelector(".book-count").textContent.trim()).toBe("")
+    })
+
+    it("leaves a shared introduction to the books that already reach it", () => {
+      // Samuel's introduction covers 1 and 2 Samuel, and shows as "Intro" in
+      // each of their chapter lists; repeating it at the top would say it
+      // twice.
+      const shared = makeIntro("samuel", "Livros de Samuel")
+      const withShared = [
+        ...BOOKS_WITH_INTROS,
+        shared,
+        makeBook("1sa", { shortName: "1 Samuel", sharedIntroSlug: "samuel" }),
+      ]
+      setInputs({ books: withShared, book: BOOKS[0] })
+
+      expect(component.standaloneIntros.map((b) => b.id)).toEqual(["geral"])
+    })
+
+    it("lists an introduction belonging to no group on its own", () => {
+      setInputs({ books: BOOKS_WITH_INTROS, book: BOOKS[0] })
+      fixture.detectChanges()
+
+      // Without this it would appear nowhere: only a book's *shared*
+      // introduction is reachable from its chapter list.
+      expect(component.standaloneIntros.map((b) => b.id)).toEqual(["geral"])
+      expect(
+        fixture.nativeElement
+          .querySelector(".intro-list .book-name")
+          .textContent.trim(),
+      ).toBe("Introdução Geral")
+    })
+
+    it("opens an introduction when it is picked", () => {
+      setInputs({ books: BOOKS_WITH_INTROS, book: BOOKS[0] })
+      fixture.detectChanges()
+      const picked: string[] = []
+      component.selectBook.subscribe((event) => picked.push(event.bookId))
+
+      fixture.nativeElement
+        .querySelector(".intro-list .book-row")
+        .dispatchEvent(new MouseEvent("click"))
+
+      expect(picked).toEqual(["geral"])
+    })
   })
 
   describe("filtering", () => {
