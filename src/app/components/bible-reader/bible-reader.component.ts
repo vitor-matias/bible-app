@@ -164,24 +164,14 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   studyPanelCollapsed = false
 
   get effectiveViewMode(): "scrolling" | "paged" {
-    // With both side columns open the reading column is one column of
-    // continuous text. Folding one away gives it room for two, and those two
-    // are the app's own paged columns rather than a second kind of column
-    // layout that happens to look similar.
-    if (this.studyModeActive) return this.studyPaged ? "paged" : "scrolling"
+    // Study mode always scrolls, whatever the reading layout's own preference
+    // says. Its apparatus is tied to where the reader is in the text — the
+    // panel follows the scroll position, and auto-scroll runs down it — and
+    // paging severs both: a paged column does not scroll, so the panel would
+    // stop following in the very mode that shows the most text. Folding a
+    // side column widens the measure instead.
+    if (this.studyModeActive) return "scrolling"
     return this.book?.id === "about" ? "scrolling" : this.viewMode
-  }
-
-  /**
-   * Whether the reading column is set as two paged columns. Offered exactly
-   * when a side column is folded away: with both open there is no room for a
-   * second column that is still comfortable to read.
-   */
-  get studyPaged(): boolean {
-    return (
-      this.studyModeActive &&
-      (this.studySidebarCollapsed || this.studyPanelCollapsed)
-    )
   }
 
   /**

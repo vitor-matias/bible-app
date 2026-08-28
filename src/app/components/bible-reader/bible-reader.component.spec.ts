@@ -958,14 +958,15 @@ describe("BibleReaderComponent", () => {
       expect(component.showAutoScrollControls).toBeTrue()
     })
 
-    it("withdraws auto-scroll once the study column pages instead", () => {
+    it("keeps auto-scroll when a side column is folded away", () => {
       studyMode.activate()
       component.toggleAutoScrollControlsVisibility()
 
       component.toggleStudySidebar()
 
-      expect(component.studyPaged).toBeTrue()
-      expect(component.showAutoScrollControls).toBeFalse()
+      // Folding a rail widens the measure; it does not change how the text is
+      // read, so nothing that depends on scrolling is withdrawn.
+      expect(component.showAutoScrollControls).toBeTrue()
     })
 
     it("offers auto-scroll in study mode even when the stored view mode is paged", () => {
@@ -978,36 +979,26 @@ describe("BibleReaderComponent", () => {
       expect(component.showAutoScrollControls).toBeTrue()
     })
 
-    it("reads in one column while both side columns are open", () => {
+    it("scrolls, whatever the reading layout's own view mode says", () => {
+      component.viewMode = "paged"
       studyMode.activate()
 
-      expect(component.studyPaged).toBeFalse()
       expect(component.effectiveViewMode).toBe("scrolling")
     })
 
-    it("pages in two columns once a side column is folded away", () => {
+    it("still scrolls with a side column folded away", () => {
       studyMode.activate()
       component.toggleStudySidebar()
 
-      expect(component.studyPaged).toBeTrue()
-      // The app's own paged mode, not a second kind of column layout: the
-      // paged navigation directive reads this.
+      // The apparatus is tied to the scroll position — the panel follows it
+      // and auto-scroll runs down it — so study mode never pages.
+      expect(component.effectiveViewMode).toBe("scrolling")
+    })
+
+    it("leaves the reading layout's paged mode alone", () => {
+      component.viewMode = "paged"
+
       expect(component.effectiveViewMode).toBe("paged")
-    })
-
-    it("goes back to one column when the rail comes back", () => {
-      studyMode.activate()
-      component.toggleStudySidebar()
-      component.toggleStudySidebar()
-
-      expect(component.studyPaged).toBeFalse()
-      expect(component.effectiveViewMode).toBe("scrolling")
-    })
-
-    it("does not page outside study mode just because a rail is folded", () => {
-      component.toggleStudySidebar()
-
-      expect(component.studyPaged).toBeFalse()
     })
 
     it("selects the verse a deep link points at", () => {

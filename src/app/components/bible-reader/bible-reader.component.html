@@ -13,7 +13,7 @@
        ever rendered on a viewport wide enough to hold three columns; the
        reading layout below is what every other screen gets. -->
   <div class="study-layout" [class.rail-collapsed]="studySidebarCollapsed"
-    [class.panel-collapsed]="studyPanelCollapsed" [class.study-paged]="studyPaged">
+    [class.panel-collapsed]="studyPanelCollapsed">
     <!-- The way back through this session's reading, above all three columns
          because it belongs to none of them. -->
     <study-trail class="study-trail-bar" [entries]="trail"></study-trail>
@@ -26,13 +26,8 @@
          its animated child, so chapter transitions and deep-linked verse
          scrolling work here without knowing which layout is on screen. -->
     <div class="study-column" #studyScroll (scroll)="onStudyScroll()">
-      <!-- The same paged navigation the reading layout uses, so the two
-           columns page horizontally and stay a viewport tall instead of
-           becoming two very long columns to scroll down and back up. -->
-      <div class="study-column-inner" #bookContainer [class.paged-view-container]="studyPaged"
-        [appPagedNavigation]="bookBlock" [viewMode]="effectiveViewMode" (nextChapter)="goToNextChapter()"
-        (prevChapter)="goToPreviousChapter()" (pageStateChange)="onPageStateChange($event)">
-        <div class="bookBlock study-text" #bookBlock [class.paged-view]="studyPaged">
+      <div class="study-column-inner" #bookContainer>
+        <div class="bookBlock study-text" #bookBlock>
           @if (chapter) {
           @if (isIntroChapter) {
           <book-intro [introduction]="book.introduction || []"></book-intro>
@@ -54,23 +49,6 @@
       @if (showAutoScrollControls && studyScroll && bookBlock) {
       <app-auto-scroll-controls [scrollElement]="studyScroll" [lineHeightElement]="bookBlock">
       </app-auto-scroll-controls>
-      }
-
-      @if (studyPaged && chapter) {
-      <!-- Page controls, not chapter links: in paged mode the directive turns
-           the page and only asks for the next chapter at the end of this one. -->
-      @if (!isFirstPage) {
-      <button type="button" class="floating-nav-button study-prev-page" mat-mini-fab aria-label="Página anterior"
-        (click)="pagedNav?.prevPage()">
-        <mat-icon>chevron_left</mat-icon>
-      </button>
-      }
-      @if (!isLastPage) {
-      <button type="button" class="floating-nav-button study-next-page" mat-mini-fab aria-label="Página seguinte"
-        (click)="pagedNav?.nextPage()">
-        <mat-icon>chevron_right</mat-icon>
-      </button>
-      }
       }
     </div>
 

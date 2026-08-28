@@ -439,58 +439,13 @@ h6 {
   padding: 0 28px;
 }
 
-/* Folding a side column away hands the text room for two columns, and those
-   are the app's paged columns — same directive, same horizontal paging — so
-   the two layouts do not each have their own idea of what a column is.
-   These override the reading layout's .paged-view rules, which size
-   themselves against the viewport; here the grid cell is the page. */
-.study-layout.study-paged .study-column {
-  overflow: hidden;
-}
-
-.study-layout.study-paged .study-column-inner.paged-view-container {
-  height: 100%;
-  width: 100%;
-  max-width: 100%;
-  margin: 0;
-}
-
-.study-layout.study-paged .study-column .bookBlock.study-text.paged-view {
-  height: 100%;
-  width: 100%;
-  max-width: 100%;
-  margin: 0 !important;
-  column-count: 2;
-  column-width: auto;
-  column-fill: auto;
-  /* The reading layout's note holds here too: gap = 2 × padding is what keeps
-     each page advancing by exactly one column width. */
-  column-gap: 48px;
-  padding: 24px 24px 0;
-  orphans: 1;
-  widows: 1;
-}
-
-/* The page controls sit against the reading column's own edges rather than
-   the viewport's, so they do not drift over the rail or the panel. */
-.study-column {
-  position: relative;
-}
-
-.study-prev-page,
-.study-next-page {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 2;
-}
-
-.study-prev-page {
-  left: 4px;
-}
-
-.study-next-page {
-  right: 4px;
+/* Folding a side column away hands the reading column more room, so the
+   measure grows with it — the text keeps flowing the same way, there is just
+   more of it on a line. It stays capped: past this a line gets long enough
+   that the eye loses its place returning to the left margin. */
+.study-layout.rail-collapsed .study-column .bookBlock.study-text,
+.study-layout.panel-collapsed .study-column .bookBlock.study-text {
+  max-width: min(100%, 980px);
 }
 
 .study-trail-bar {
