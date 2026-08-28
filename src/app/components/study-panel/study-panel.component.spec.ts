@@ -376,8 +376,207 @@ describe("StudyPanelComponent", () => {
       })
 
       expect(component.referenceGroups[0].entries[0].verses).toEqual([
-        { number: 31, text: "Não há mandamento maior do que estes." },
+        {
+          number: 31,
+          lines: [
+            [{ text: "Não há mandamento maior do que estes.", allCaps: false }],
+          ],
+          breakBefore: false,
+        },
       ])
+    })
+
+    it("quotes the opening of a chapter cited whole", () => {
+      // "Jb 38" names a chapter, not a verse in it.
+      bibleRef.extract.and.returnValue([
+        { match: "Jb 38", index: 0, book: "job", chapter: 38 },
+      ] as ReturnType<BibleReferenceService["extract"]>)
+      api.getChapter.and.returnValue(
+        of({
+          bookId: "job",
+          number: 38,
+          verses: [
+            // The front matter carries the heading, not words to quote.
+            {
+              bookId: "job",
+              chapterNumber: 38,
+              number: 0,
+              verseLabel: "front",
+              text: [plain("Discurso do Senhor")],
+            },
+            ...[1, 2, 3, 4].map((number) => ({
+              bookId: "job",
+              chapterNumber: 38,
+              number,
+              verseLabel: String(number),
+              text: [plain(`verso ${number}`)],
+            })),
+          ],
+        }),
+      )
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 22,
+          verses: [verse(34, [references("Jb 38")])],
+        },
+      })
+
+      const entry = component.referenceGroups[0].entries[0]
+      expect(entry.verses.map((v) => v.number)).toEqual([1, 2, 3])
+      expect(entry.truncated).toBeTrue()
+    })
+
+    it("does not open a quoted psalm on an invisible character", () => {
+      bibleRef.extract.and.returnValue([
+        { match: "Sl 8", index: 0, book: "psa", chapter: 8 },
+      ] as ReturnType<BibleReferenceService["extract"]>)
+      api.getChapter.and.returnValue(
+        of({
+          bookId: "psa",
+          number: 8,
+          verses: [
+            {
+              bookId: "psa",
+              chapterNumber: 8,
+              number: 1,
+              verseLabel: "1",
+              // Poetry opens on a zero-width space, which trim() keeps.
+              text: [
+                { type: "quote", text: "\u200b", normalizedText: "" },
+                plain("Ao diretor do coro."),
+              ] as TextType[],
+            },
+          ],
+        }),
+      )
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 22,
+          verses: [verse(34, [references("Sl 8")])],
+        },
+      })
+
+      expect(component.referenceGroups[0].entries[0].verses[0].lines).toEqual([
+        [{ text: "Ao diretor do coro.", allCaps: false }],
+      ])
+    })
+
+    it("sets a quoted psalm in its own lines, with the divine name in caps", () => {
+      bibleRef.extract.and.returnValue([
+        { match: "Sl 104", index: 0, book: "psa", chapter: 104 },
+      ] as ReturnType<BibleReferenceService["extract"]>)
+      api.getChapter.and.returnValue(
+        of({
+          bookId: "psa",
+          number: 104,
+          verses: [
+            {
+              bookId: "psa",
+              chapterNumber: 104,
+              number: 1,
+              verseLabel: "1",
+              text: [
+                { type: "quote", text: "\u200b", normalizedText: "" },
+                {
+                  type: "text",
+                  text: "Bendiz, ó minha alma, o ",
+                  normalizedText: "",
+                },
+                {
+                  type: "text",
+                  text: "Senhor",
+                  normalizedText: "",
+                  allCaps: true,
+                },
+                { type: "text", text: "!", normalizedText: "" },
+                {
+                  type: "quote",
+                  text: "Estás revestido de esplendor",
+                  normalizedText: "",
+                },
+              ] as TextType[],
+            },
+          ],
+        }),
+      )
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 22,
+          verses: [verse(34, [references("Sl 104")])],
+        },
+      })
+
+      const [preview] = component.referenceGroups[0].entries[0].verses
+      // Two lines, not one paragraph — and the spacing the edition prints,
+      // rather than "o Senhor !" from trimming each run and rejoining.
+      expect(preview.lines.length).toBe(2)
+      expect(preview.lines[0].map((run) => run.text).join("")).toBe(
+        "Bendiz, ó minha alma, o Senhor!",
+      )
+      expect(preview.lines[0].some((run) => run.allCaps)).toBeTrue()
+      expect(preview.lines[1][0].text).toBe("Estás revestido de esplendor")
+    })
+
+    it("gives each verse of a quoted psalm its own line", () => {
+      bibleRef.extract.and.returnValue([
+        { match: "Sl 104", index: 0, book: "psa", chapter: 104 },
+      ] as ReturnType<BibleReferenceService["extract"]>)
+      const poetry = (number: number) => ({
+        bookId: "psa",
+        chapterNumber: 104,
+        number,
+        verseLabel: String(number),
+        text: [
+          { type: "quote", text: `linha ${number}`, normalizedText: "" },
+        ] as TextType[],
+      })
+      api.getChapter.and.returnValue(
+        of({ bookId: "psa", number: 104, verses: [poetry(1), poetry(2)] }),
+      )
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 22,
+          verses: [verse(34, [references("Sl 104")])],
+        },
+      })
+
+      const [first, second] = component.referenceGroups[0].entries[0].verses
+      expect(first.breakBefore).toBeFalse()
+      // Otherwise verse 2's number runs straight into the end of verse 1.
+      expect(second.breakBefore).toBeTrue()
+    })
+
+    it("lets prose verses run on, as the chapter does", () => {
+      bibleRef.extract.and.returnValue([reference("mrk", 12, 30, 31)])
+      const prose = (number: number) => ({
+        bookId: "mrk",
+        chapterNumber: 12,
+        number,
+        verseLabel: String(number),
+        text: [plain(`verso ${number}`)],
+      })
+      api.getChapter.and.returnValue(
+        of({ bookId: "mrk", number: 12, verses: [prose(30), prose(31)] }),
+      )
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 22,
+          verses: [verse(34, [references("Mc 12,30-31")])],
+        },
+      })
+
+      const verses = component.referenceGroups[0].entries[0].verses
+      expect(verses.every((v) => !v.breakBefore)).toBeTrue()
     })
 
     it("keeps a reference as a link when its text cannot be fetched", () => {

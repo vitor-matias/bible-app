@@ -127,7 +127,7 @@ describe("StudySidebarComponent", () => {
       // Scoped to the groups: the standalone introductions above them keep
       // their own names, which is the point of the distinction.
       const rows = Array.from(
-        fixture.nativeElement.querySelectorAll(".group-list .book-name"),
+        fixture.nativeElement.querySelectorAll(".group .book-name"),
       ).map((row) => (row as HTMLElement).textContent?.trim())
       expect(rows[0]).toBe("Introdução")
       expect(rows).toContain("Génesis")
@@ -137,37 +137,50 @@ describe("StudySidebarComponent", () => {
       setInputs({ books: BOOKS_WITH_INTROS, book: BOOKS[0] })
       fixture.detectChanges()
 
-      const first = fixture.nativeElement.querySelector(".group-list .book-row")
+      const first = fixture.nativeElement.querySelector(".group .book-row")
       expect(first.querySelector(".book-count").textContent.trim()).toBe("")
     })
 
     it("leaves a shared introduction to the books that already reach it", () => {
       // Samuel's introduction covers 1 and 2 Samuel, and shows as "Intro" in
-      // each of their chapter lists; repeating it at the top would say it
-      // twice.
-      const shared = makeIntro("samuel", "Livros de Samuel")
+      // each of their chapter lists; listing it again would say it twice.
       const withShared = [
         ...BOOKS_WITH_INTROS,
-        shared,
+        makeIntro("samuel", "Livros de Samuel"),
         makeBook("1sa", { shortName: "1 Samuel", sharedIntroSlug: "samuel" }),
       ]
       setInputs({ books: withShared, book: BOOKS[0] })
 
-      expect(component.standaloneIntros.map((b) => b.id)).toEqual(["geral"])
+      const standalone = component.sections
+        .filter((section) => section.kind === "intro")
+        .map((section) => (section.kind === "intro" ? section.book.id : ""))
+      expect(standalone).toEqual(["geral"])
     })
 
-    it("lists an introduction belonging to no group on its own", () => {
+    it("leads the canon with the introduction to the whole Bible", () => {
       setInputs({ books: BOOKS_WITH_INTROS, book: BOOKS[0] })
-      fixture.detectChanges()
 
-      // Without this it would appear nowhere: only a book's *shared*
-      // introduction is reachable from its chapter list.
-      expect(component.standaloneIntros.map((b) => b.id)).toEqual(["geral"])
-      expect(
-        fixture.nativeElement
-          .querySelector(".intro-list .book-name")
-          .textContent.trim(),
-      ).toBe("Introdução Geral")
+      // First in the rail, ahead of the Old Testament it introduces — where
+      // the drawer's picker puts it too.
+      const first = component.sections[0]
+      expect(first.kind).toBe("intro")
+      expect(first.kind === "intro" && first.book.id).toBe("geral")
+    })
+
+    it("leads the New Testament with its own introduction", () => {
+      const withNt = [
+        ...BOOKS_WITH_INTROS,
+        makeIntro("novotestamento", "Novo Testamento"),
+      ]
+      setInputs({ books: withNt, book: BOOKS[0] })
+
+      const order = component.sections.map((section) =>
+        section.kind === "intro" ? section.book.id : section.group.name,
+      )
+      const nt = order.indexOf("novotestamento")
+      // After an Old Testament group, and immediately before the gospels.
+      expect(order.indexOf("Pentateuco")).toBeLessThan(nt)
+      expect(order[nt + 1]).toBe("Evangelhos e Atos")
     })
 
     it("opens an introduction when it is picked", () => {
@@ -177,10 +190,18 @@ describe("StudySidebarComponent", () => {
       component.selectBook.subscribe((event) => picked.push(event.bookId))
 
       fixture.nativeElement
-        .querySelector(".intro-list .book-row")
+        .querySelector(".standalone-intro .book-row")
         .dispatchEvent(new MouseEvent("click"))
 
       expect(picked).toEqual(["geral"])
+    })
+
+    it("finds an introduction through the filter", () => {
+      setInputs({ books: BOOKS_WITH_INTROS, book: BOOKS[0] })
+
+      component.onFilter("geral")
+
+      expect(component.matches.map((entry) => entry.id)).toEqual(["geral"])
     })
   })
 

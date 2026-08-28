@@ -51,7 +51,7 @@ type ReferenceEntry = {
   link: (string | number)[]
   queryParams: Record<string, number> | null
   /** The opening verses of the passage, once fetched. */
-  verses: { number: Verse["number"]; text: string }[]
+  verses: PreviewVerse[]
   /** Whether the passage runs on past the verses quoted here. */
   truncated?: boolean
   failed?: boolean
@@ -80,6 +80,20 @@ type ReferenceGroup = {
    * group stays marked for any verse in it, not only the one carrying them.
    */
   lastVerse: Verse["number"]
+}
+
+/**
+ * A quoted verse as the panel sets it: lines of runs, rather than one string.
+ *
+ * A psalm quoted as a paragraph is not the psalm — the lines are part of what
+ * it says — and the divine name is set in small capitals, which a flattened
+ * string cannot carry either.
+ */
+type PreviewVerse = {
+  number: Verse["number"]
+  lines: { text: string; allCaps: boolean }[][]
+  /** Whether this verse opens a line of its own, as poetry does. */
+  breakBefore: boolean
 }
 
 /** A footnote plus the verse it hangs off, for the chapter-wide listing. */
@@ -877,7 +891,9 @@ export class StudyPanelComponent implements OnChanges {
     const byChapter = new Map<string, ReferenceEntry[]>()
     for (const group of groups) {
       for (const entry of group.entries) {
-        if (!entry.verseStart) continue
+        // Entries with no verse cite a whole chapter, and are fetched too:
+        // the chapter is what they point at, and its opening verses are what
+        // tell the reader whether it is the passage they had in mind.
         const key = `${entry.bookId}:${entry.chapterNumber}`
         const pending = byChapter.get(key)
         if (pending) {
@@ -916,35 +932,93 @@ export class StudyPanelComponent implements OnChanges {
 
   /** Quotes the passage's opening verses onto the entry. */
   private static fill(entry: ReferenceEntry, chapter: Chapter): void {
+    // Verse 0 is the chapter's front matter, not a verse to quote.
+    const verses = (chapter.verses ?? []).filter((verse) => verse.number > 0)
     const start = entry.verseStart
-    if (!start) return
-    // A reference with no end verse cites a single verse.
-    const end = entry.verseEnd ?? start
-    const wanted = (chapter.verses ?? []).filter(
-      (verse) => verse.number >= start && verse.number <= end,
-    )
+    const wanted =
+      start === undefined
+        ? // A whole chapter: its opening verses stand for it, the same way
+          // the opening of a long range does.
+          verses
+        : // A reference with no end verse cites a single verse.
+          verses.filter(
+            (verse) =>
+              verse.number >= start &&
+              verse.number <= (entry.verseEnd ?? start),
+          )
     if (!wanted.length) {
       entry.failed = true
       return
     }
-    entry.verses = wanted.slice(0, MAX_QUOTED_VERSES).map((verse) => ({
-      number: verse.number,
-      text: StudyPanelComponent.plainText(verse),
+    const quoted = wanted
+      .slice(0, MAX_QUOTED_VERSES)
+      .map((verse) => ({
+        number: verse.number,
+        lines: StudyPanelComponent.previewLines(verse),
+        poetry: (verse.text ?? []).some((part) => part.type === "quote"),
+      }))
+      .filter((preview) => preview.lines.length > 0)
+
+    // Prose verses run on, as they do in the chapter; a verse set as poetry
+    // takes its own line, and so does the one after it.
+    entry.verses = quoted.map((preview, index) => ({
+      number: preview.number,
+      lines: preview.lines,
+      breakBefore:
+        index > 0 && (preview.poetry || quoted[index - 1].poetry === true),
     }))
     entry.truncated = wanted.length > MAX_QUOTED_VERSES
   }
 
-  /** The readable words of a verse, without its apparatus or headings. */
+  /**
+   * A verse as the panel quotes it: the lines it is set in, each a run of
+   * words carrying whether it is small-capped.
+   *
+   * The parts arrive with their own spacing, so they are concatenated rather
+   * than trimmed and rejoined — trimming each and putting a space between
+   * them is what produced "o Senhor !" where the edition prints "o SENHOR!".
+   * A quote element opens a new line; the zero-width space that opens poetry
+   * is dropped, being a format character rather than a word.
+   */
+  private static previewLines(verse: Verse): PreviewVerse["lines"] {
+    const lines: PreviewVerse["lines"] = []
+    let line: PreviewVerse["lines"][number] = []
+
+    for (const part of verse.text ?? []) {
+      if (
+        part.type !== "text" &&
+        part.type !== "quote" &&
+        part.type !== "paragraph"
+      ) {
+        continue
+      }
+      const text = part.text.replace(/[\u200b-\u200d\ufeff]/g, "")
+      if (part.type === "quote" && line.length) {
+        lines.push(line)
+        line = []
+      }
+      if (!text.trim()) continue
+      line.push({
+        text,
+        allCaps: part.type === "text" && part.allCaps === true,
+      })
+    }
+    if (line.length) lines.push(line)
+
+    // Trim the ends of the quotation without touching the spacing inside it.
+    const first = lines[0]?.[0]
+    if (first) first.text = first.text.replace(/^\s+/, "")
+    const lastLine = lines[lines.length - 1]
+    const last = lastLine?.[lastLine.length - 1]
+    if (last) last.text = last.text.replace(/\s+$/, "")
+    return lines
+  }
+
+  /** The readable words of a verse, for copying rather than for setting. */
   private static plainText(verse: Verse): string {
-    return (verse.text ?? [])
-      .filter(
-        (part) =>
-          part.type === "text" ||
-          part.type === "quote" ||
-          part.type === "paragraph",
-      )
-      .map((part) => part.text.trim())
-      .filter(Boolean)
-      .join(" ")
+    return StudyPanelComponent.previewLines(verse)
+      .map((line) => line.map((run) => run.text).join(""))
+      .join("\n")
+      .trim()
   }
 }

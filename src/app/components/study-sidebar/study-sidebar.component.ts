@@ -14,7 +14,9 @@ import { MatTooltipModule } from "@angular/material/tooltip"
 import {
   type CanonGroup,
   NEW_TESTAMENT_GROUPS,
+  NEW_TESTAMENT_INTRO,
   OLD_TESTAMENT_GROUPS,
+  WHOLE_BIBLE_INTRO,
 } from "../../bible-canon"
 import { normalizeForSearch } from "../../utils/text"
 
@@ -23,6 +25,14 @@ type SidebarGroup = {
   name: string
   books: Book[]
 }
+
+/**
+ * A row of the rail: either a group to open, or an introduction that leads a
+ * testament and so stands on its own between the groups.
+ */
+type RailSection =
+  | { kind: "group"; group: SidebarGroup }
+  | { kind: "intro"; book: Book }
 
 /**
  * Study mode's permanent left rail: the books around the one being read, and
@@ -61,11 +71,8 @@ export class StudySidebarComponent implements OnChanges {
   private readonly cdr = inject(ChangeDetectorRef)
 
   groups: SidebarGroup[] = []
-  /**
-   * Introductions belonging to no single group — the whole Bible, a testament
-   * — which have nowhere else to appear.
-   */
-  standaloneIntros: Book[] = []
+  /** The rail in order: groups, with the wider introductions among them. */
+  sections: RailSection[] = []
   /** What the reader has typed into the filter, if anything. */
   filter = ""
   /** Books matching the filter, flattened out of their groups. */
@@ -96,6 +103,13 @@ export class StudySidebarComponent implements OnChanges {
     return this.filter.trim().length > 0
   }
 
+  /** Everything the rail can open, introductions included. */
+  private get reachableBooks(): Book[] {
+    return this.sections.flatMap((section) =>
+      section.kind === "group" ? section.group.books : [section.book],
+    )
+  }
+
   /**
    * Filtering flattens the canon: a reader typing a name wants that book,
    * not the group it happens to belong to, and having to notice which group
@@ -105,13 +119,11 @@ export class StudySidebarComponent implements OnChanges {
     this.filter = query
     const needle = normalizeForSearch(query)
     this.matches = needle
-      ? this.groups
-          .flatMap((group) => group.books)
-          .filter(
-            (book) =>
-              normalizeForSearch(book.shortName).includes(needle) ||
-              normalizeForSearch(book.name).includes(needle),
-          )
+      ? this.reachableBooks.filter(
+          (book) =>
+            normalizeForSearch(book.shortName).includes(needle) ||
+            normalizeForSearch(book.name).includes(needle),
+        )
       : []
     this.cdr.detectChanges()
   }
@@ -182,39 +194,39 @@ export class StudySidebarComponent implements OnChanges {
    */
   private buildGroups(): SidebarGroup[] {
     const byId = new Map(this.books.map((book) => [book.id, book]))
-    const canon: CanonGroup[] = [
-      ...OLD_TESTAMENT_GROUPS,
-      ...NEW_TESTAMENT_GROUPS,
+
+    const build = (canon: CanonGroup[]): SidebarGroup[] =>
+      canon
+        .map((group) => {
+          const intro = group.introSlug ? byId.get(group.introSlug) : undefined
+          const books = group.books
+            .map((id) => byId.get(id))
+            .filter((book): book is Book => !!book)
+          return {
+            name: group.name,
+            books: intro ? [intro, ...books] : books,
+          }
+        })
+        .filter((group) => group.books.length > 0)
+
+    const oldTestament = build(OLD_TESTAMENT_GROUPS)
+    const newTestament = build(NEW_TESTAMENT_GROUPS)
+
+    // The two wider introductions take their place in the canon rather than
+    // being gathered at the top: the whole Bible's leads everything, the New
+    // Testament's leads the New Testament — where the drawer's picker puts
+    // them, and where a reader looks for them.
+    const asSection = (slug: string): RailSection[] => {
+      const book = byId.get(slug)
+      return book ? [{ kind: "intro" as const, book }] : []
+    }
+    this.sections = [
+      ...asSection(WHOLE_BIBLE_INTRO),
+      ...oldTestament.map((group) => ({ kind: "group" as const, group })),
+      ...asSection(NEW_TESTAMENT_INTRO),
+      ...newTestament.map((group) => ({ kind: "group" as const, group })),
     ]
 
-    const grouped = canon
-      .map((group) => {
-        const intro = group.introSlug ? byId.get(group.introSlug) : undefined
-        const books = group.books
-          .map((id) => byId.get(id))
-          .filter((book): book is Book => !!book)
-        return {
-          name: group.name,
-          books: intro ? [intro, ...books] : books,
-        }
-      })
-      .filter((group) => group.books.length > 0)
-
-    // What is left introduces something wider than any one group: the whole
-    // Bible, a testament. An introduction written for a cluster of books
-    // (Samuel, Reis, …) is already reachable from each of their chapter
-    // lists, so listing it here would say it twice.
-    const claimed = new Set<string>()
-    for (const group of canon) {
-      if (group.introSlug) claimed.add(group.introSlug)
-    }
-    for (const book of this.books) {
-      if (book.sharedIntroSlug) claimed.add(book.sharedIntroSlug)
-    }
-    this.standaloneIntros = this.books.filter(
-      (book) => book.introSlug && !claimed.has(book.introSlug),
-    )
-
-    return grouped
+    return [...oldTestament, ...newTestament]
   }
 }

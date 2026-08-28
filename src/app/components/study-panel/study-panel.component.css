@@ -198,6 +198,11 @@
   hyphens: auto;
 }
 
+/* The divine name, as the edition sets it. */
+.reference-text .allCaps {
+  font-variant: small-caps;
+}
+
 /* The reader's own verse-number treatment, at the same proportions. */
 .reference-verse-number {
   color: var(--text-secondary);

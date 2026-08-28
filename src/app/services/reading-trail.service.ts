@@ -19,10 +19,11 @@ const MAX_ENTRIES = 20
 /**
  * Where the reader has been, in the order they went.
  *
- * A trail, not a history: returning to somewhere already on it retraces to
- * that point and drops what came after, the way a breadcrumb does. That is
- * what keeps following a chain of references — and then stepping back up it —
- * from growing an ever longer list of the same few chapters.
+ * A record of the way taken, not the shortest path to here: coming back to
+ * somewhere already on it adds a further step rather than rewinding to the
+ * earlier one, so following a reference from Matthew to Luke and back leaves
+ * all three behind it. Only re-reading the chapter already open is folded
+ * into the step it repeats.
  *
  * Kept in memory rather than in storage: it describes this session's reading,
  * and a trail restored days later would be a list of places the reader no
@@ -39,13 +40,12 @@ export class ReadingTrailService {
 
   visit(entry: TrailEntry): void {
     const trail = this.subject.value
-    const seen = trail.findIndex((existing) => existing.key === entry.key)
+    const last = trail[trail.length - 1]
 
-    // Somewhere already on the trail: cut back to it. This covers both
-    // stepping back up the trail and re-reading the chapter already open,
-    // whose entry is replaced so a deep link's verse stays current.
-    if (seen >= 0) {
-      this.subject.next([...trail.slice(0, seen), entry])
+    // The chapter already open, revisited: the same step, not a new one. Its
+    // entry is replaced so a deep link's verse stays current.
+    if (last?.key === entry.key) {
+      this.subject.next([...trail.slice(0, -1), entry])
       return
     }
 

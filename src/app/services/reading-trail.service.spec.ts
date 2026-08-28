@@ -34,15 +34,30 @@ describe("ReadingTrailService", () => {
     ])
   })
 
-  it("retraces to a place already on the trail instead of repeating it", () => {
+  it("keeps the way taken when the reader comes back to where they began", () => {
     service.visit(entry("mat", 22))
     service.visit(entry("luk", 14))
     service.visit(entry("mrk", 12))
 
     service.visit(entry("mat", 22))
 
-    // Stepping back drops what came after, the way a breadcrumb does.
-    expect(service.entries.map((e) => e.key)).toEqual(["mat:22"])
+    // A record of where the reader passed, not the shortest path to here:
+    // going back to Matthew leaves Luke and Mark behind it.
+    expect(service.entries.map((e) => e.key)).toEqual([
+      "mat:22",
+      "luk:14",
+      "mrk:12",
+      "mat:22",
+    ])
+  })
+
+  it("folds a re-read of the chapter already open into that same step", () => {
+    service.visit(entry("mat", 22))
+    service.visit(entry("luk", 14))
+
+    service.visit(entry("luk", 14))
+
+    expect(service.entries.map((e) => e.key)).toEqual(["mat:22", "luk:14"])
   })
 
   it("does not grow when the same chapter is re-read", () => {
@@ -52,7 +67,7 @@ describe("ReadingTrailService", () => {
     expect(service.entries.length).toBe(1)
   })
 
-  it("keeps the newest details when re-visiting the current place", () => {
+  it("keeps the newest details when re-reading the current place", () => {
     service.visit(entry("mat", 22))
     service.visit({ ...entry("mat", 22), queryParams: { verseStart: 39 } })
 

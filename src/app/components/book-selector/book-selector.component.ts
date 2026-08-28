@@ -24,7 +24,9 @@ import {
 import {
   type CanonGroup,
   NEW_TESTAMENT_GROUPS,
+  NEW_TESTAMENT_INTRO,
   OLD_TESTAMENT_GROUPS,
+  WHOLE_BIBLE_INTRO,
 } from "../../bible-canon"
 import { normalizeForSearch } from "../../utils/text"
 
@@ -134,9 +136,11 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   /** Rebuilds both trees; intros arrive after the books, so this re-runs. */
   private buildTrees(): void {
-    this.otDataSource.data = this.withIntros(this.oldTestament, ["geral"])
+    this.otDataSource.data = this.withIntros(this.oldTestament, [
+      WHOLE_BIBLE_INTRO,
+    ])
     this.ntDataSource.data = this.withIntros(this.newTestament, [
-      "novotestamento",
+      NEW_TESTAMENT_INTRO,
     ])
     this.otTreeControl.expandAll()
     this.ntTreeControl.expandAll()
@@ -187,10 +191,10 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
     // Filter the same groups the picker shows, so introductions are findable
     // by name too.
     this.otDataSource.data = filterGroup(
-      this.withIntros(this.oldTestament, ["geral"]),
+      this.withIntros(this.oldTestament, [WHOLE_BIBLE_INTRO]),
     )
     this.ntDataSource.data = filterGroup(
-      this.withIntros(this.newTestament, ["novotestamento"]),
+      this.withIntros(this.newTestament, [NEW_TESTAMENT_INTRO]),
     )
     this.otTreeControl.expandAll()
     this.ntTreeControl.expandAll()

@@ -22,21 +22,6 @@
         aria-label="Filtrar livros" (input)="onFilter($any($event.target).value)" />
     </div>
 
-    @if (!filtering && standaloneIntros.length) {
-    <!-- Introductions to the whole Bible and to each testament: they belong
-         to no group, so they would otherwise appear nowhere. -->
-    <ul class="book-list intro-list">
-      @for (entry of standaloneIntros; track entry.id) {
-      <li>
-        <button type="button" class="book-row" [class.current]="entry.id === book?.id"
-          [attr.aria-current]="entry.id === book?.id ? 'page' : null" (click)="onBookClick(entry)">
-          <span class="book-name">{{ entry.shortName }}</span>
-        </button>
-      </li>
-      }
-    </ul>
-    }
-
     @if (filtering) {
     @if (matches.length) {
     <ul class="book-list">
@@ -55,7 +40,18 @@
     }
     } @else {
     <ul class="group-list">
-      @for (group of groups; track group.name) {
+      @for (section of sections; track section.kind === 'group' ? section.group.name : section.book.id) {
+      @if (section.kind === 'intro') {
+      <!-- An introduction to a testament, or to the whole Bible: it leads
+           what it introduces rather than sitting in a block of its own. -->
+      <li class="standalone-intro">
+        <button type="button" class="book-row" [class.current]="section.book.id === book?.id"
+          [attr.aria-current]="section.book.id === book?.id ? 'page' : null" (click)="onBookClick(section.book)">
+          <span class="book-name">{{ section.book.shortName }}</span>
+        </button>
+      </li>
+      } @else {
+      @let group = section.group;
       <li class="group">
         <button type="button" class="group-toggle" [class.open]="isExpanded(group)"
           [attr.aria-expanded]="isExpanded(group)" (click)="toggleGroup(group)">
@@ -78,6 +74,7 @@
         </ul>
         }
       </li>
+      }
       }
     </ul>
     }

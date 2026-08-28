@@ -44,15 +44,19 @@
           <a class="reference-label" [routerLink]="reference.link" [queryParams]="reference.queryParams">
             {{ reference.label }}
           </a>
-          <!-- One block, not a paragraph per verse: a cited passage reads
-               the way the chapter does, with the verses running on and their
-               numbers set into the text. -->
+          <!-- Set the way the chapter is: verses running on, their numbers in
+               the text, poetry on its own lines and the divine name in small
+               capitals. A psalm quoted as a paragraph is not the psalm. -->
           @if (reference.verses.length) {
           <p class="reference-text">
-            @for (verse of reference.verses; track verse.number; let first = $first) {
-            @if (!first) {<span>{{ " " }}</span>}
-            @if (reference.verses.length > 1) {<span
-              class="reference-verse-number">{{ verse.number }}</span>}{{ verse.text }}
+            @for (verse of reference.verses; track verse.number; let firstVerse = $first) {
+            @for (line of verse.lines; track $index; let firstLine = $first) {
+            @if (!firstLine || (firstLine && verse.breakBefore)) {<br>}
+            @if (firstLine && reference.verses.length > 1) {<span
+              class="reference-verse-number">{{ verse.number }}</span>}@if (firstLine && !firstVerse &&
+            reference.verses.length === 1) {<span>{{ " " }}</span>}
+            @for (run of line; track $index) {<span [class.allCaps]="run.allCaps">{{ run.text }}</span>}
+            }
             }
           </p>
           }

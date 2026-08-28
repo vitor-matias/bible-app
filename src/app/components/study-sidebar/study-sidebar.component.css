@@ -145,10 +145,9 @@
   margin-bottom: 6px;
 }
 
-.intro-list {
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--study-rule);
+/* Sits at the level of the group headings it leads, not indented under one. */
+.standalone-intro .book-row {
+  padding-left: 8px;
 }
 
 .book-row {
