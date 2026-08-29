@@ -738,7 +738,7 @@ describe("VerseComponent", () => {
       expect(getComputedStyle(number).backgroundColor).not.toBe(TRANSPARENT)
     })
 
-    it("should leave a poetry verse number out of the stroke it opens", () => {
+    it("should leave a poetry verse number out of the stroke, either end", () => {
       poetryVerse()
       highlightHost()
 
@@ -748,7 +748,7 @@ describe("VerseComponent", () => {
       expect(getComputedStyle(wrapper).backgroundColor).toBe(TRANSPARENT)
     })
 
-    it("should paint a poetry verse number the stroke runs into, once", () => {
+    it("should leave it out mid-stroke too, where it hangs in the margin", () => {
       poetryVerse()
       // Read no style before highlighting: that starts the background-color
       // transition, and the value read back would be its start colour.
@@ -758,10 +758,12 @@ describe("VerseComponent", () => {
         ".quoteVerseNumber",
       ) as HTMLElement
       const digits = wrapper.querySelector(".verseNumber") as HTMLElement
-      expect(getComputedStyle(wrapper).backgroundColor).not.toBe(TRANSPARENT)
-      // Once, on the wrapper: the tint is translucent, and laying it down
-      // twice would show the number as a darker tile.
+      const marker = wrapper.querySelector(".footnoteIndicator") as HTMLElement
+      // Poetry hangs its number and footnote marker off the left of the line
+      // rather than setting them in it, so leaving them out tears no hole.
+      expect(getComputedStyle(wrapper).backgroundColor).toBe(TRANSPARENT)
       expect(getComputedStyle(digits).backgroundColor).toBe(TRANSPARENT)
+      expect(getComputedStyle(marker).backgroundColor).toBe(TRANSPARENT)
     })
 
     // Padding does not move an inline box but does enlarge the border box the
@@ -829,17 +831,20 @@ describe("VerseComponent", () => {
       ) as HTMLElement
     }
 
-    it("paints a poetry verse number the mark runs into, once", () => {
+    it("leaves the poetry number and its footnote marker out of the mark", () => {
+      // They hang off the left of the line rather than sitting in it, so a
+      // mark covering them would tint the margin without joining anything up.
+      // The words are what the reader marked.
       const wrapper = markedPoetry(true)
 
       const digits = wrapper.querySelector(".verseNumber") as HTMLElement
-      expect(getComputedStyle(wrapper).backgroundColor).not.toBe(TRANSPARENT)
-      // The tint is translucent: painted on both, the number reads as a
-      // darker tile than the words it belongs to.
+      const marker = wrapper.querySelector(".footnoteIndicator") as HTMLElement
+      expect(getComputedStyle(wrapper).backgroundColor).toBe(TRANSPARENT)
       expect(getComputedStyle(digits).backgroundColor).toBe(TRANSPARENT)
+      expect(getComputedStyle(marker).backgroundColor).toBe(TRANSPARENT)
     })
 
-    it("leaves a poetry verse number out of the mark it opens", () => {
+    it("leaves it out at the start of a mark as well", () => {
       const wrapper = markedPoetry(false)
 
       expect(getComputedStyle(wrapper).backgroundColor).toBe(TRANSPARENT)

@@ -148,8 +148,7 @@ h3:not(:first-child) {
    does not show a hole at every verse number. */
 :host(.verse-highlight.highlight-continues) .verseGap,
 :host(.verse-highlight.highlight-continues) .verseNumber,
-:host(.verse-highlight.highlight-continues) .footnoteIndicator,
-:host(.verse-highlight.highlight-continues) .quoteVerseNumber {
+:host(.verse-highlight.highlight-continues) .footnoteIndicator {
   background-color: var(--verse-highlight-color);
 }
 
@@ -214,19 +213,20 @@ h3:not(:first-child) {
    across several verses shows a hole at each verse number. */
 :host(.verse-marked.mark-continues) .verseGap,
 :host(.verse-marked.mark-continues) .verseNumber,
-:host(.verse-marked.mark-continues) .footnoteIndicator,
-:host(.verse-marked.mark-continues) .quoteVerseNumber {
+:host(.verse-marked.mark-continues) .footnoteIndicator {
   background-color: var(--verse-mark-color);
 }
 
-/* In poetry the number hangs off the left of its line (position: absolute), so
-   the tint goes on the wrapper, which is already the height of the line. Its
-   children stop painting there: both tints are translucent, and laying one
-   down twice shows the number as a darker tile than the words beside it. */
-:host(.verse-highlight.highlight-continues) .quoteVerseNumber .verseNumber,
-:host(.verse-highlight.highlight-continues) .quoteVerseNumber .footnoteIndicator,
-:host(.verse-marked.mark-continues) .quoteVerseNumber .verseNumber,
-:host(.verse-marked.mark-continues) .quoteVerseNumber .footnoteIndicator {
+/* Poetry is the exception to the rule above. Its number and footnote marker
+   hang off the left of the line (position: absolute) rather than sitting in
+   it, so leaving them out tears no hole in the mark — it leaves the margin
+   clean, and the mark covers the words it was made on and nothing else. */
+:host(.verse-marked) .quoteVerseNumber,
+:host(.verse-marked) .quoteVerseNumber .verseNumber,
+:host(.verse-marked) .quoteVerseNumber .footnoteIndicator,
+:host(.verse-highlight) .quoteVerseNumber,
+:host(.verse-highlight) .quoteVerseNumber .verseNumber,
+:host(.verse-highlight) .quoteVerseNumber .footnoteIndicator {
   background-color: transparent;
 }
 
