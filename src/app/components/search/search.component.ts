@@ -17,6 +17,7 @@ import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { SeoService } from "../../services/seo.service"
+import { highlightSegments } from "../../utils/text"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
 @Component({
@@ -320,34 +321,7 @@ export class SearchComponent {
     return this.bookService.findBook(bookId)
   }
 
-  getHighlightedSegments(
-    verseText: string,
-    term: string,
-  ): Array<{ text: string; highlight: boolean }> {
-    if (!term.trim()) {
-      return [{ text: verseText, highlight: false }]
-    }
-    const segments: Array<{ text: string; highlight: boolean }> = []
-    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-    const regex = new RegExp(escaped, "gi")
-    let lastIndex = 0
-    let match = regex.exec(verseText)
-    while (match !== null) {
-      if (match.index > lastIndex) {
-        segments.push({
-          text: verseText.slice(lastIndex, match.index),
-          highlight: false,
-        })
-      }
-      segments.push({ text: match[0], highlight: true })
-      lastIndex = regex.lastIndex
-      match = regex.exec(verseText)
-    }
-    if (lastIndex < verseText.length) {
-      segments.push({ text: verseText.slice(lastIndex), highlight: false })
-    }
-    return segments.length > 0
-      ? segments
-      : [{ text: verseText, highlight: false }]
+  getHighlightedSegments(verseText: string, term: string): HighlightSegment[] {
+    return highlightSegments(verseText, term)
   }
 }

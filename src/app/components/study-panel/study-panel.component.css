@@ -1,0 +1,442 @@
+.study-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  font-family: "PT Serif", serif;
+}
+
+/* Labels, tabs and counts are chrome, not scripture: one declaration for all
+   of them rather than the same stack repeated on each. */
+.tab,
+.panel-caption,
+.group-label,
+.reference-label,
+.reference-more,
+.note-label,
+.note-ref {
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+.study-panel.collapsed {
+  overflow: hidden;
+  align-items: center;
+}
+
+/* Tabs and fold control on one line, the border running under both. */
+.panel-head {
+  display: flex;
+  align-items: stretch;
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--study-rule);
+}
+
+.study-panel.collapsed .panel-head {
+  justify-content: center;
+}
+
+.collapse-toggle {
+  flex: 0 0 auto;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  /* On the panel's inner edge, against the reading column — mirroring the
+     rail's control on its own inner edge, so the two face each other across
+     the text rather than sitting at opposite ends of the window. */
+  margin: 4px 4px 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background-color: var(--study-surface);
+  color: var(--study-muted);
+  cursor: pointer;
+}
+
+.collapse-toggle mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.tab-strip {
+  display: flex;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 4px 16px 0 8px;
+}
+
+.tab {
+  padding: 8px 6px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: none;
+  color: var(--study-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tab.active {
+  color: var(--text-color);
+  border-bottom-color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.tab-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px 16px 32px;
+}
+
+.panel-caption {
+  margin: 0 0 14px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--study-muted);
+}
+
+.panel-empty {
+  margin: 8px 0 0;
+  color: var(--study-muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.panel-empty.small {
+  font-size: 13px;
+}
+
+.reference-list,
+.footnote-list,
+.note-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Groups are the chapter's passages; the rule between them is what keeps a
+   long list readable as a sequence of passages rather than a wall of refs. */
+.reference-group + .reference-group {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--study-rule);
+}
+
+/* Marks the entries belonging to the verse the panel is following, using the
+   same tint the verse itself carries in the text, so the two read as one
+   selection. It fades rather than snapping: while the reader scrolls, the
+   mark moves from passage to passage on its own, and a hard switch reads as
+   a flicker. */
+.reference-group,
+.footnote,
+.saved-note {
+  background-color: transparent;
+  border-radius: 2px;
+  transition:
+    background-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+.reference-group.current,
+.footnote.current,
+.saved-note.current {
+  background-color: var(--study-selection-color);
+  box-shadow: -10px 0 0 var(--study-selection-color), 10px 0 0 var(--study-selection-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reference-group,
+  .footnote,
+  .saved-note {
+    transition: none;
+  }
+}
+
+.group-label {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--study-muted);
+}
+
+.reference + .reference {
+  margin-top: 14px;
+}
+
+.reference-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.reference-label:hover,
+.reference-label:focus-visible {
+  text-decoration: underline;
+}
+
+/* Set like the chapter it is quoting: same face, same measure-filling
+   justification and hyphenation, so a parallel reads as scripture rather
+   than as a caption about scripture. */
+.reference-text {
+  margin: 6px 0 0;
+  font-size: 16px;
+  line-height: 1.6;
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+}
+
+/* The divine name, as the edition sets it. */
+.reference-text .allCaps {
+  font-variant: small-caps;
+}
+
+/* The reader's own verse-number treatment, at the same proportions. */
+.reference-verse-number {
+  color: var(--text-secondary);
+  font-size: 65%;
+  vertical-align: top;
+  margin-right: 1px;
+}
+
+/* The ways on to a passage: open it beside the chapter, or read it instead. */
+.reference-actions {
+  display: flex;
+  gap: 14px;
+  margin: 6px 0 0;
+}
+
+.reference-more {
+  padding: 0;
+  border: 0;
+  background: none;
+  /* No `font: inherit` here: that shorthand would undo the sans-serif these
+     labels share at the top of this file and set the button in the reading
+     face. Only the size the button does not inherit is restated. */
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.reference-text.unavailable {
+  color: var(--study-muted);
+  font-size: 14px;
+}
+
+.footnote {
+  display: block;
+  padding: 6px 0;
+}
+
+.footnote + .footnote {
+  margin-top: 8px;
+}
+
+.footnote-reference {
+  margin-right: 8px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.footnote-text {
+  font-size: 15px;
+  line-height: 1.5;
+  hyphens: auto;
+}
+
+.footnote-text a,
+.note-body a {
+  color: var(--text-secondary);
+}
+
+/* A dashed box, not a filled field: the note is the reader's own mark on the
+   page rather than a form the app is asking them to fill in. */
+.notes-caption {
+  margin-top: 28px;
+}
+
+.note-box {
+  margin-top: 28px;
+  padding: 14px;
+  border: 1px dashed var(--study-rule);
+  border-radius: 8px;
+}
+
+.note-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--study-muted);
+}
+
+.note-input {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  resize: vertical;
+  color: var(--text-color);
+  font-family: "PT Serif", serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.note-input::placeholder {
+  color: var(--study-muted);
+}
+
+.note-input:focus {
+  outline: none;
+}
+
+.note-box:focus-within {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--cap-brown) 40%, transparent);
+}
+
+.note-list {
+  margin-top: 12px;
+}
+
+.saved-note {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--study-rule);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.note-ref {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding-top: 2px;
+}
+
+:host-context(.dark-theme) .note-box:focus-within {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* A quiet action, not a button competing with the text beside it. */
+.verse-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 20px;
+  padding: 6px 10px;
+  border: 1px solid var(--study-rule);
+  border-radius: 6px;
+  background: none;
+  color: var(--study-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.verse-action mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.note-search {
+  margin-bottom: 4px;
+}
+
+.note-search-input {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--study-rule);
+  border-radius: 6px;
+  background: none;
+  color: var(--text-color);
+  font-family: "PT Serif", serif;
+  font-size: 15px;
+}
+
+.note-search-input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--cap-brown) 40%, transparent);
+}
+
+/* Where the reader's words landed, in the same tint a deep link uses to say
+   "this is the verse you asked for". */
+.reference-text mark {
+  background-color: var(--verse-highlight-color);
+  color: inherit;
+  border-radius: 2px;
+}
+
+/* A result names the verse it belongs to, and opens it. */
+a.note-ref {
+  text-decoration: none;
+}
+
+a.note-ref:hover,
+a.note-ref:focus-visible {
+  text-decoration: underline;
+}
+
+:host-context(.dark-theme) .note-search-input:focus {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* The colours the reader can mark a verse with. Swatches rather than a menu:
+   there are four, and the choice is the colour itself. */
+.mark-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+
+.incoming {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--study-rule);
+}
+
+/* One focus ring and one hover wash for every control in the panel. They were
+   restated per control as each was added, which is how this stylesheet grew
+   past the size the build allows a component. */
+.collapse-toggle:focus-visible,
+.verse-action:focus-visible,
+.tab:focus-visible {
+  outline: 2px solid var(--cap-brown);
+  outline-offset: 2px;
+}
+
+.tab:focus-visible {
+  outline-offset: -2px;
+}
+
+:host-context(.dark-theme) .collapse-toggle:focus-visible,
+:host-context(.dark-theme) .verse-action:focus-visible,
+:host-context(.dark-theme) .tab:focus-visible {
+  outline-color: antiquewhite;
+}
+
+@media (hover: hover) {
+  .collapse-toggle:hover,
+  .verse-action:hover {
+    color: var(--text-color);
+    background-color: color-mix(in srgb, var(--cap-brown) 11%, transparent);
+  }
+}

@@ -5,9 +5,12 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
+  EventEmitter,
+  HostListener,
   Input,
   OnChanges,
   OnDestroy,
+  Output,
   QueryList,
   SimpleChanges,
   ViewChild,
@@ -23,6 +26,7 @@ import {
   type BibleReference,
   BibleReferenceService,
 } from "../../services/bible-reference.service"
+import type { HighlightColor } from "../../services/highlight.service"
 import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnotes-bottom-sheet.component"
 import { VerseSectionComponent } from "../verse-section/verse-section.component"
 import { getVerseQueryParams, parseReferences } from "./verse.utils"
@@ -39,6 +43,13 @@ import { getVerseQueryParams, parseReferences } from "./verse.utils"
   styleUrls: ["./verse.component.css"],
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
+  host: {
+    "[class.verse-selected]": "selected",
+    "[class.verse-quotation]": "isQuotation",
+    "[class.verse-marked]": "highlight",
+    "[class.mark-continues]": "highlight && markContinues",
+    "[attr.data-highlight]": "highlight ?? null",
+  },
 })
 export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   /** Pre-computed index where the chapter number should be displayed, or -1 */
@@ -46,6 +57,17 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   /** Pre-computed: does this verse have footnotes? */
   hasFootnotes = false
+
+  /**
+   * Whether this verse's poetry is a passage being quoted, rather than the
+   * verse form the book is written in.
+   *
+   * Decided by the reader, not here: a quotation runs across verses, and its
+   * later verses look exactly like a psalm from inside a single verse. See
+   * BibleReaderComponent.markQuotationVerses.
+   */
+  @Input()
+  isQuotation = false
 
   /** Groups for rendering - quotes and their continuations */
   displayGroups: DisplayGroup[] = []
@@ -72,6 +94,33 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   @Input()
   nextVerseStartsWithQuote = false
+
+  /**
+   * Study mode turns the verse into the study panel's selector: a click picks
+   * the verse instead of opening the footnotes sheet, which in that layout is
+   * a column already on screen.
+   */
+  @Input()
+  studyMode = false
+
+  /** True while this verse is the one the study panel is showing. */
+  @Input()
+  selected = false
+
+  /**
+   * The colour the reader has marked this verse with, if any. Rendered
+   * everywhere, not only in study mode: marks are made there, but they are
+   * part of the text from then on.
+   */
+  @Input()
+  highlight?: HighlightColor
+
+  /** True when the verse before this one carries the same mark. */
+  @Input()
+  markContinues = false
+
+  @Output()
+  verseSelected = new EventEmitter<VerseSelection>()
 
   @ViewChildren("indentable")
   indentableElements!: QueryList<ElementRef<HTMLElement>>
@@ -345,7 +394,15 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     for (let i = 0; i < this.data.text.length; i++) {
       const t = this.data.text[i]
       if (t.type === "references") {
-        map.set(i, parseReferences(this.bibleRef, t.text, this.data.bookId))
+        map.set(
+          i,
+          parseReferences(
+            this.bibleRef,
+            t.text,
+            this.data.bookId,
+            this.data.chapterNumber,
+          ),
+        )
       }
     }
     return map
@@ -355,6 +412,72 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   getQuoteIdentLevel(text: TextType): number {
     return text.type === "quote" ? text.identLevel : 0
+  }
+
+  /**
+   * Anywhere in the verse selects it, so the reader can aim at the words they
+   * are reading rather than at a control. References inside the verse stay
+   * links: they navigate, and selecting the verse they are leaving would be
+   * beside the point.
+   */
+  @HostListener("click", ["$event"])
+  onHostClick(event: Event): void {
+    if (!this.studyMode || !this.isSelectable) return
+    const target = event.target as HTMLElement | null
+    if (target?.closest("a")) return
+    // Releasing a drag over the text fires a click too. The reader was
+    // selecting words, not choosing the verse.
+    if (VerseComponent.hasTextSelection()) return
+    this.emitSelection()
+  }
+
+  /** Whether the reader currently has words selected anywhere on the page. */
+  private static hasTextSelection(): boolean {
+    if (typeof document === "undefined") return false
+    const selection = document.getSelection()
+    return (
+      !!selection && !selection.isCollapsed && !!selection.toString().trim()
+    )
+  }
+
+  /** A run only carries a handler when the verse has footnotes to open. */
+  onRunClick(event: Event): void {
+    // Study mode has no bottom sheet: the host listener above takes the click.
+    if (this.studyMode) return
+    // As above: finishing a selection over a footnoted verse used to throw
+    // the footnotes sheet over the words the reader had just selected.
+    if (VerseComponent.hasTextSelection()) return
+    this.toggleFootnotes(event)
+  }
+
+  onFootnoteMarkerClick(event: Event): void {
+    // Verse 0 carries the chapter's front matter, footnotes included, and
+    // cannot be selected — so in study mode too the marker opens the sheet
+    // rather than doing nothing at all.
+    if (!this.studyMode || !this.isSelectable) {
+      this.toggleFootnotes(event)
+      return
+    }
+    // Stop the host listener from following with a plain selection, which
+    // would land the reader on the references tab they did not ask for.
+    event.stopPropagation()
+    this.emitSelection("footnotes")
+  }
+
+  onVerseNumberKeydown(event: Event): void {
+    if (!this.studyMode || !this.isSelectable) return
+    event.preventDefault()
+    this.emitSelection()
+  }
+
+  /** Verse 0 is the chapter's front matter: there is no verse to point at. */
+  get isSelectable(): boolean {
+    return this.studyMode && this.data?.number > 0
+  }
+
+  private emitSelection(panel?: VerseSelection["panel"]): void {
+    if (!this.isSelectable) return
+    this.verseSelected.emit({ verse: this.data, panel })
   }
 
   toggleFootnotes(event?: Event): void {
@@ -386,7 +509,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
    * the element IS the paragraph break, and dropping the empty ones ran the
    * new paragraph on into the end of the previous one.
    */
-  private static isBlank(text: TextType): boolean {
+  static isBlank(text: TextType): boolean {
     return (
       (text.type === "quote" || text.type === "text") && text.text.trim() === ""
     )

@@ -29,6 +29,14 @@ export const SHARED_BOOK_INTROS: Readonly<Record<string, string>> = {
   "3jn": "joao",
 }
 
+/**
+ * Introductions that lead a testament rather than a group: one for the whole
+ * Bible, one for the New Testament. Named here so the drawer's picker and the
+ * study rail place them the same way.
+ */
+export const WHOLE_BIBLE_INTRO = "geral"
+export const NEW_TESTAMENT_INTRO = "novotestamento"
+
 export const OLD_TESTAMENT_GROUPS: CanonGroup[] = [
   {
     name: "Pentateuco",

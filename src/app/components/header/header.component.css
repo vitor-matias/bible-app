@@ -181,3 +181,68 @@ mat-icon {
   height: 16px !important;
   opacity: 0.6;
 }
+
+/* ---------------------------------------------------------------------------
+   Study mode's chrome
+   ---------------------------------------------------------------------------
+   One row instead of a toolbar over a trail bar. It is laid out on the same
+   three columns as the layout below (the widths come from the reader, on an
+   ancestor of this component), so the menu sits over the rail and search over
+   the panel, and the row between them belongs to the text. Nothing is centred
+   on the window here — in study mode the reading column is not in the middle
+   of it, and a control centred on the window sits off the text it names. */
+.study-chrome {
+  display: grid;
+  grid-template-columns:
+    var(--study-rail-width)
+    minmax(0, 1fr)
+    var(--study-panel-width);
+  align-items: center;
+  background-color: var(--study-surface);
+  border-bottom: 1px solid var(--study-rule);
+}
+
+/* The menu sits over the rail, and the empty cell on the right holds the
+   middle over the reading column as the rail and the panel are folded. */
+.chrome-lead {
+  display: flex;
+  padding-left: 4px;
+}
+
+.chrome-middle,
+.chrome-tail {
+  min-width: 0;
+}
+
+/* A page's control rather than an app bar's: no fixed corner placement of its
+   own and no filled background, which only ever made it stand out against the
+   toolbar's brown. Round, at the icon button's own size — the toolbar stretched
+   it to a 48px-wide oval to line its three controls up along the bar, and on
+   its own that reads as a shape rather than as an icon. */
+.study-chrome .menuButton.mat-mdc-icon-button {
+  /* Relative, not static: the toolbar's copy is fixed, and the ripple inside
+     it is absolutely positioned against whatever the button gives it. Left
+     static, the ripple takes the page as its containing block and a hover
+     draws a circle the width of the window across the text. */
+  position: relative;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  /* Material's own padding, not none: the icon is centred by it, and zeroing
+     it left the glyph sitting 2px above the middle of the hover circle. */
+  padding: 8px;
+  border-radius: 50%;
+  background: none;
+  color: var(--study-muted);
+}
+
+@media (hover: hover) {
+  .study-chrome .menuButton:hover {
+    color: var(--text-color);
+    background-color: color-mix(in srgb, var(--cap-brown) 11%, transparent);
+  }
+}
+
+:host-context(.dark-theme) .study-chrome .menuButton:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}

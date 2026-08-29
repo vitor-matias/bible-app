@@ -1,0 +1,100 @@
+<nav class="study-sidebar" [class.collapsed]="collapsed" aria-label="Livros e capítulos">
+  <!-- The fold control shares the heading's line rather than taking one of
+       its own. It is always rendered, so a folded rail keeps something to
+       unfold it by. -->
+  <div class="rail-head">
+    @if (!collapsed) {
+    <h2 class="sidebar-heading rail-title">Livros</h2>
+    }
+    <button type="button" class="collapse-toggle" (click)="toggleCollapsed.emit()"
+      [attr.aria-expanded]="!collapsed"
+      [attr.aria-label]="collapsed ? 'Mostrar livros e capítulos' : 'Esconder livros e capítulos'"
+      [matTooltip]="collapsed ? 'Mostrar livros e capítulos' : 'Esconder livros e capítulos'">
+      <mat-icon>{{ collapsed ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+    </button>
+  </div>
+
+  @if (!collapsed) {
+  <section class="sidebar-section books">
+
+    <div class="book-filter">
+      <input class="book-filter-input" type="search" [value]="filter" placeholder="Filtrar livros…"
+        aria-label="Filtrar livros" (input)="onFilter($any($event.target).value)" />
+    </div>
+
+    @if (filtering) {
+    @if (matches.length) {
+    <ul class="book-list">
+      @for (entry of matches; track entry.id) {
+      <li>
+        <button type="button" class="book-row" [class.current]="entry.id === book?.id"
+          [attr.aria-current]="entry.id === book?.id ? 'page' : null" (click)="onBookClick(entry)">
+          <!-- Its own name, not entryLabel: a filtered list has no headings
+               above it, so three rows reading "Introdução" would name nothing. -->
+          <span class="book-name">{{ entry.shortName }}</span>
+          <span class="book-count" aria-hidden="true">{{ chapterCountFor(entry) }}</span>
+        </button>
+      </li>
+      }
+    </ul>
+    } @else {
+    <p class="filter-empty">Nenhum livro corresponde.</p>
+    }
+    } @else {
+    <ul class="group-list">
+      @for (section of sections; track section.kind === 'group' ? section.group.name : section.book.id) {
+      @if (section.kind === 'intro') {
+      <!-- An introduction to a testament, or to the whole Bible: it leads
+           what it introduces rather than sitting in a block of its own. -->
+      <li class="standalone-intro">
+        <button type="button" class="book-row" [class.current]="section.book.id === book?.id"
+          [attr.aria-current]="section.book.id === book?.id ? 'page' : null" (click)="onBookClick(section.book)">
+          <span class="book-name">{{ section.book.shortName }}</span>
+        </button>
+      </li>
+      } @else {
+      @let group = section.group;
+      <li class="group">
+        <button type="button" class="group-toggle" [class.open]="isExpanded(group)"
+          [attr.aria-expanded]="isExpanded(group)" (click)="toggleGroup(group)">
+          <span class="group-name">{{ group.name }}</span>
+          <span class="group-chevron" aria-hidden="true">{{ isExpanded(group) ? '−' : '+' }}</span>
+        </button>
+        @if (isExpanded(group)) {
+        <ul class="book-list">
+          @for (entry of group.books; track entry.id) {
+          <li>
+            <button type="button" class="book-row" [class.current]="entry.id === book?.id"
+              [attr.aria-current]="entry.id === book?.id ? 'page' : null" (click)="onBookClick(entry)">
+              <span class="book-name">{{ entryLabel(entry) }}</span>
+              <!-- The chapter count is data, not a label: it is what tells a
+                   reader scanning the rail how long a book is. -->
+              <span class="book-count" aria-hidden="true">{{ chapterCountFor(entry) }}</span>
+            </button>
+          </li>
+          }
+        </ul>
+        }
+      </li>
+      }
+      }
+    </ul>
+    }
+  </section>
+
+  @if (chapters.length) {
+  <section class="sidebar-section chapters">
+    <h2 class="sidebar-heading">Capítulos</h2>
+    <div class="chapter-grid">
+      @for (chapter of chapters; track chapter.number) {
+      <button type="button" class="chapter-cell" [class.current]="chapter.number === selectedChapter"
+        [class.intro]="chapter.number === 0" [attr.aria-current]="chapter.number === selectedChapter ? 'page' : null"
+        [attr.aria-label]="chapterAriaLabel(chapter)" (click)="onChapterClick(chapter)">
+        {{ chapterLabel(chapter) }}
+      </button>
+      }
+    </div>
+  </section>
+  }
+  }
+</nav>

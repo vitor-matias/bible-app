@@ -151,3 +151,13 @@ type Bookmark = {
 }
 
 type HighlightSegment = { text: string; highlight: boolean }
+
+/**
+ * A verse picked in study mode, plus which side of the study panel the click
+ * asked for: the footnote marker opens the footnotes, anything else leaves
+ * whichever tab the reader was already on.
+ */
+type VerseSelection = {
+  verse: Verse
+  panel?: "references" | "footnotes" | "notes"
+}

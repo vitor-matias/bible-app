@@ -1,0 +1,260 @@
+.study-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* No padding at the top: the sticky heading below carries it instead, so
+     that band belongs to the heading's background rather than being a gap the
+     list scrolls through above it. */
+  padding: 0 14px 32px;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+.study-sidebar.collapsed {
+  padding-inline: 0;
+  overflow: hidden;
+  align-items: center;
+}
+
+/* Heading and fold control on one line. Sticky, so folding the rail back open
+   never means scrolling to the top first. */
+.rail-head {
+  position: sticky;
+  top: 0;
+  padding-top: 8px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 2px;
+  background-color: var(--study-surface);
+}
+
+.study-sidebar.collapsed .rail-head {
+  justify-content: center;
+}
+
+.rail-title {
+  margin-bottom: 0;
+}
+
+.collapse-toggle {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 4px;
+  border: 0;
+  border-radius: 6px;
+  background-color: var(--study-surface);
+  color: var(--study-muted);
+  cursor: pointer;
+}
+
+.collapse-toggle mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.sidebar-section + .sidebar-section {
+  margin-top: 28px;
+}
+
+/* Small caps set wide: these label the rail without competing with the book
+   names under them, which are what the reader is actually aiming at. */
+.sidebar-heading {
+  margin: 0 0 10px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--study-muted);
+}
+
+.book-filter {
+  margin: 0 6px 10px;
+}
+
+.book-filter-input {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--study-rule);
+  border-radius: 6px;
+  background: none;
+  color: var(--text-color);
+  font: inherit;
+  font-size: 13px;
+}
+
+.book-filter-input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--cap-brown) 40%, transparent);
+}
+
+.filter-empty {
+  margin: 8px 6px;
+  font-size: 13px;
+  color: var(--study-muted);
+}
+
+.group-list,
+.book-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.group-toggle,
+.book-row,
+.chapter-cell {
+  font: inherit;
+  color: var(--text-color);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.group-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: 6px;
+  text-align: left;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--study-muted);
+}
+
+.group-toggle.open {
+  color: var(--text-color);
+}
+
+.group-chevron {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.book-list {
+  margin-bottom: 6px;
+}
+
+/* Sits at the level of the group headings it leads, not indented under one. */
+.standalone-intro .book-row {
+  padding-left: 8px;
+}
+
+.book-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 12px;
+  border-radius: 6px;
+  text-align: left;
+  font-size: 16px;
+}
+
+.book-count {
+  font-size: 12px;
+  color: var(--study-muted);
+}
+
+.book-row.current {
+  background-color: color-mix(in srgb, var(--cap-brown) 12%, transparent);
+  font-weight: 700;
+}
+
+.chapter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 6px;
+}
+
+.chapter-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 4px;
+  border-radius: 6px;
+  background-color: color-mix(in srgb, var(--cap-brown) 7%, transparent);
+  font-size: 13px;
+}
+
+/* The introduction has a word instead of a number, so it takes two cells
+   rather than being squeezed into one or stretching the whole row. */
+.chapter-cell.intro {
+  grid-column: span 2;
+}
+
+.chapter-cell.current {
+  background-color: var(--cap-brown);
+  color: antiquewhite;
+  font-weight: 700;
+}
+
+@media (hover: hover) {
+  .collapse-toggle:hover {
+    color: var(--text-color);
+    background-color: color-mix(in srgb, var(--cap-brown) 12%, transparent);
+  }
+
+  .group-toggle:hover,
+  .book-row:hover {
+    background-color: color-mix(in srgb, var(--cap-brown) 8%, transparent);
+  }
+
+  .chapter-cell:hover:not(.current) {
+    background-color: color-mix(in srgb, var(--cap-brown) 18%, transparent);
+  }
+}
+
+.collapse-toggle:focus-visible,
+.group-toggle:focus-visible,
+.book-row:focus-visible,
+.chapter-cell:focus-visible {
+  outline: 2px solid var(--cap-brown);
+  outline-offset: 2px;
+}
+
+/* The dark theme's --cap-brown mixes are nearly invisible against #1a1a1a, so
+   the same states are drawn with light instead of with the brand brown. */
+:host-context(.dark-theme) .book-row.current,
+:host-context(.dark-theme) .chapter-cell {
+  background-color: rgba(255, 255, 255, 0.07);
+}
+
+:host-context(.dark-theme) .chapter-cell.current {
+  background-color: antiquewhite;
+  color: #1a1a1a;
+}
+
+:host-context(.dark-theme) .group-toggle:focus-visible,
+:host-context(.dark-theme) .book-row:focus-visible,
+:host-context(.dark-theme) .chapter-cell:focus-visible {
+  outline-color: antiquewhite;
+}
+
+@media (hover: hover) {
+  :host-context(.dark-theme) .group-toggle:hover,
+  :host-context(.dark-theme) .book-row:hover,
+  :host-context(.dark-theme) .chapter-cell:hover:not(.current) {
+    background-color: rgba(255, 255, 255, 0.12);
+  }
+}
+
+:host-context(.dark-theme) .book-filter-input:focus {
+  border-color: rgba(255, 255, 255, 0.4);
+}
