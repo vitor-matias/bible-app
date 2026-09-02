@@ -27,6 +27,7 @@ export class PreferencesService {
     THEME: "theme",
     FONT_SIZE_PREFIX: "fontSize",
     VIEW_MODE: "viewMode",
+    ONBOARDING_SEEN: "onboardingSeen",
   }
 
   getTheme(): "light" | "dark" | "system" | null {
@@ -98,5 +99,13 @@ export class PreferencesService {
 
   setViewMode(mode: "scrolling" | "paged"): void {
     this.storage?.setItem(this.KEYS.VIEW_MODE, mode)
+  }
+
+  getOnboardingSeen(): boolean {
+    return this.storage?.getItem(this.KEYS.ONBOARDING_SEEN) === "true"
+  }
+
+  setOnboardingSeen(seen: boolean): void {
+    this.storage?.setItem(this.KEYS.ONBOARDING_SEEN, seen.toString())
   }
 }

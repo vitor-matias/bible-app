@@ -20,6 +20,10 @@ Angular Material, and a thin REST backend.
 - **Cross-reference linking** — references inside verses and footnotes (e.g.
   `Gn 1,1`, `Jb 38,1-39,30`, `v.12`) are parsed and turned into navigable links.
 - **Bookmarks, footnotes, dark mode**, PWA install, and share support.
+- **Onboarding wizard** — a first-launch tour of the reader that ends with
+  platform-specific install instructions (Android, iOS, desktop) and a one-tap
+  install button where the browser offers one. Reopen it any time from the menu
+  ("Como usar a app").
 
 ## Tech stack
 
