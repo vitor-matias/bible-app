@@ -73,6 +73,9 @@ describe("OnboardingService", () => {
           "?url=https%3A%2F%2Fbiblia.capuchinhos.org%2Fjo%2F3",
         ),
       ).toBeFalse()
+      // A share sheet that only sends a title (no url/text) is still a share,
+      // matching AppComponent.handleShareTarget's three-field detection.
+      expect(service.showOnFirstLaunch("?title=Salmo%2023")).toBeFalse()
       tick(FIRST_LAUNCH_DELAY_MS)
 
       expect(dialogSpy.open).not.toHaveBeenCalled()

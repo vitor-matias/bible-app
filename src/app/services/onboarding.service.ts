@@ -80,8 +80,10 @@ export class OnboardingService {
   }
 
   private isShareTargetLaunch(search: string): boolean {
+    // Matches AppComponent.handleShareTarget's three share-target fields —
+    // a title-only share (e.g. "?title=Salmo 23") is still a share.
     const params = new URLSearchParams(search)
-    return params.has("url") || params.has("text")
+    return params.has("url") || params.has("text") || params.has("title")
   }
 }
 
