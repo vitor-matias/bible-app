@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page, test } from "@playwright/test"
+import { expect, type Locator, type Page, test as base } from "@playwright/test"
 
 // The app proxies /v1 to https://biblia.capuchinhos.org — tests run against
 // the live dev server and the real API.
@@ -38,10 +38,21 @@ async function openReader(page: Page) {
 }
 
 // Every test starts with a fresh browser context, which the app treats as a
-// first launch and greets with the onboarding wizard. Mark it as seen so the
-// dialog does not cover the reader; the "Onboarding" suite opts back in.
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem("onboardingSeen", "true"))
+// first launch and greets with the onboarding wizard. By default mark it as
+// seen before the app boots so the dialog does not cover the reader; a test
+// that wants the first-visit experience opts out with
+// `test.use({ skipOnboarding: false })`. One init script keeps this
+// deterministic: Playwright does not define the order of several init scripts.
+const test = base.extend<{ skipOnboarding: boolean }>({
+  skipOnboarding: [true, { option: true }],
+  page: async ({ page, skipOnboarding }, use) => {
+    if (skipOnboarding) {
+      await page.addInitScript(() =>
+        localStorage.setItem("onboardingSeen", "true"),
+      )
+    }
+    await use(page)
+  },
 })
 
 test.describe("Initial load", () => {
@@ -350,25 +361,27 @@ test.describe("Keyboard accessibility", () => {
 })
 
 test.describe("Onboarding", () => {
-  test("greets a first-time visitor and remembers being dismissed", async ({
-    page,
-  }) => {
-    // Init scripts run in order, so this undoes the global opt-out.
-    await page.addInitScript(() => localStorage.removeItem("onboardingSeen"))
-    await page.goto("/jo/1")
+  test.describe("first visit", () => {
+    test.use({ skipOnboarding: false })
 
-    const wizard = page.locator("onboarding")
-    await expect(wizard).toBeVisible({ timeout: 15_000 })
-    await expect(wizard).toContainText("Bem-vindo")
+    test("greets a first-time visitor and remembers being dismissed", async ({
+      page,
+    }) => {
+      await page.goto("/jo/1")
 
-    await wizard.getByRole("button", { name: "Seguinte" }).click()
-    await expect(wizard).toContainText("Passo 2")
+      const wizard = page.locator("onboarding")
+      await expect(wizard).toBeVisible({ timeout: 15_000 })
+      await expect(wizard).toContainText("Bem-vindo")
 
-    await wizard.getByRole("button", { name: "Fechar" }).click()
-    await expect(wizard).toHaveCount(0)
-    expect(
-      await page.evaluate(() => localStorage.getItem("onboardingSeen")),
-    ).toBe("true")
+      await wizard.getByRole("button", { name: "Seguinte" }).click()
+      await expect(wizard).toContainText("Navegar na Bíblia")
+
+      await wizard.getByRole("button", { name: "Fechar" }).click()
+      await expect(wizard).toHaveCount(0)
+      expect(
+        await page.evaluate(() => localStorage.getItem("onboardingSeen")),
+      ).toBe("true")
+    })
   })
 
   test("can be reopened from the header menu and ends on install instructions", async ({

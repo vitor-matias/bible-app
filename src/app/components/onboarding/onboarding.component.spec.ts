@@ -107,9 +107,7 @@ describe("OnboardingComponent", () => {
     create()
 
     expect(title()).toContain("Bem-vindo")
-    expect(textOf(".step-count")).toContain(
-      `Passo 1 de ${ONBOARDING_STEPS.length}`,
-    )
+    expect(element.querySelector(".step-count")).toBeNull()
     expect(element.querySelectorAll(".dot").length).toBe(
       ONBOARDING_STEPS.length,
     )
@@ -286,6 +284,18 @@ describe("OnboardingComponent", () => {
     expect(textOf(".guide")).toContain("barra do Safari")
   })
 
+  it("says which browser the Android guide assumes when browsed from another device", () => {
+    pwa.platform = "desktop"
+    pwa.browser = "safari"
+    create()
+    goToInstallStep()
+
+    platformButton("Android").click()
+
+    expect(textOf(".guide")).toContain("Chrome")
+    expect(textOf(".note")).toContain("Samsung Internet")
+  })
+
   it("offers the one-tap install only for the device in hand", () => {
     pwa.canPromptInstall = true
     create()
@@ -373,12 +383,19 @@ describe("getInstallGuide", () => {
       "Firefox",
     )
     expect(getInstallGuide("android", "edge").steps[0].text).toContain("Edge")
-    expect(getInstallGuide("android", "chrome").steps[1].text).toContain(
-      "Instalar aplicação",
-    )
-    expect(getInstallGuide("android", null)).toBe(
-      getInstallGuide("android", "chrome"),
-    )
+    const chrome = getInstallGuide("android", "chrome")
+    expect(chrome.steps[0].text).toContain("Chrome")
+    expect(chrome.steps[1].text).toContain("Instalar aplicação")
+    expect(chrome.note).toBeUndefined()
+  })
+
+  it("says which browser the Android steps assume when the browser is unknown", () => {
+    for (const browser of [null, "other"] as const) {
+      const guide = getInstallGuide("android", browser)
+      expect(guide.steps).toBe(getInstallGuide("android", "chrome").steps)
+      expect(guide.note).toContain("Chrome")
+      expect(guide.note).toContain("Samsung Internet")
+    }
   })
 
   it("points non-Safari iOS browsers at the share menu with a Safari fallback", () => {

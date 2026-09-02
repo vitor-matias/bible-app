@@ -45,7 +45,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     image: "icons/512X512_REDONDO.png",
     title: "Bem-vindo à Bíblia Sagrada",
     intro:
-      "A Bíblia Sagrada,traduzida pela Difusora Bíblica, sempre consigo: no telemóvel, no tablet e no computador, mesmo sem ligação à internet.",
+      "A Bíblia Sagrada, traduzida pela Difusora Bíblica, sempre consigo: no telemóvel, no tablet e no computador, mesmo sem ligação à internet.",
     features: [
       {
         icon: "cloud_off",

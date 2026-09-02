@@ -107,6 +107,17 @@ describe("PwaInstallService", () => {
       expect(service.isInstalled).toBeTrue()
     })
 
+    it("stops listening once destroyed", () => {
+      service = TestBed.inject(PwaInstallService)
+
+      service.ngOnDestroy()
+      window.dispatchEvent(createInstallPromptEvent("accepted"))
+      window.dispatchEvent(new Event("appinstalled"))
+
+      expect(service.canPromptInstall).toBeFalse()
+      expect(service.isInstalled).toBeFalse()
+    })
+
     it("becomes installed when the browser fires appinstalled", () => {
       service = TestBed.inject(PwaInstallService)
       const seen: boolean[] = []
