@@ -43,13 +43,13 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     id: "welcome",
     icon: "menu_book",
     image: "icons/512X512_REDONDO.png",
-    title: "Bem-vindo à Bíblia dos Capuchinhos",
+    title: "Bem-vindo à Bíblia Sagrada",
     intro:
-      "A Bíblia Sagrada da Difusora Bíblica, sempre consigo: no telemóvel, no tablet e no computador, mesmo sem ligação à internet.",
+      "A Bíblia Sagrada,traduzida pela Difusora Bíblica, sempre consigo: no telemóvel, no tablet e no computador, mesmo sem ligação à internet.",
     features: [
       {
         icon: "cloud_off",
-        text: "Os capítulos que lê ficam guardados no dispositivo e podem ser lidos sem ligação.",
+        text: "Ao instalar, os capítulos ficam guardados no dispositivo e podem ser lidos sem ligação.",
       },
       {
         icon: "history",
@@ -153,7 +153,7 @@ const ANDROID_CHROME: InstallGuide = {
   steps: [
     {
       icon: "more_vert",
-      text: "Toque no menu ⋮ do navegador, no canto superior direito.",
+      text: "Toque no menu ⋮ do Chrome, no canto superior direito.",
     },
     {
       icon: "install_mobile",
@@ -161,7 +161,12 @@ const ANDROID_CHROME: InstallGuide = {
     },
     CONFIRM_MOBILE,
   ],
-  note: "No Samsung Internet, Firefox ou Edge, procure «Instalar» ou «Adicionar página a» no menu do navegador.",
+}
+
+/** Unknown or less common Android browser: say which browser the steps assume. */
+const ANDROID_GENERIC: InstallGuide = {
+  steps: ANDROID_CHROME.steps,
+  note: "Estes passos são do Chrome, o navegador habitual no Android. No Samsung Internet, Firefox ou Edge, procure «Instalar» ou «Adicionar página a» no menu do navegador.",
 }
 
 const ANDROID_FIREFOX: InstallGuide = {
@@ -275,9 +280,10 @@ export function getInstallGuide(
 ): InstallGuide {
   switch (platform) {
     case "android":
+      if (browser === "chrome") return ANDROID_CHROME
       if (browser === "firefox") return ANDROID_FIREFOX
       if (browser === "edge") return ANDROID_EDGE
-      return ANDROID_CHROME
+      return ANDROID_GENERIC
     case "ios":
       return browser === null || browser === "safari" ? IOS_SAFARI : IOS_OTHER
     default:
