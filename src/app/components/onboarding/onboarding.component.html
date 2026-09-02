@@ -50,7 +50,12 @@
         @for (guideStep of guide.steps; track guideStep.text) {
         <li>
           <mat-icon aria-hidden="true">{{ guideStep.icon }}</mat-icon>
-          <span>{{ guideStep.text }}</span>
+          <span>
+            @if (guideStep.label) {
+            <b>{{ guideStep.label }}:</b>
+            }
+            {{ guideStep.text }}
+          </span>
         </li>
         }
       </ol>

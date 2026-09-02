@@ -265,8 +265,9 @@ describe("OnboardingComponent", () => {
       "true",
     )
     expect(textOf(".guide")).toContain("barra de endereço")
-    expect(textOf(".note")).toContain("Safari")
-    expect(textOf(".note")).toContain("Firefox")
+    for (const browser of ["Chrome:", "Edge:", "Safari", "Firefox:"]) {
+      expect(textOf(".guide")).toContain(browser)
+    }
 
     platformButton("iPhone / iPad").click()
     expect(textOf(".guide")).toContain("barra do Safari")
@@ -334,23 +335,24 @@ describe("OnboardingComponent", () => {
 })
 
 describe("getInstallGuide", () => {
-  it("tailors desktop instructions to the browser", () => {
-    const stepsText = (guide: ReturnType<typeof getInstallGuide>) =>
-      guide.steps.map((step) => step.text).join(" ")
+  it("lists every desktop browser, with the detected one first", () => {
+    const labels = (browser: InstallBrowser | null) =>
+      getInstallGuide("desktop", browser).steps.map((step) => step.label)
 
-    expect(stepsText(getInstallGuide("desktop", "chrome"))).toContain(
-      "Transmitir, guardar e partilhar",
-    )
-    expect(stepsText(getInstallGuide("desktop", "edge"))).toContain(
-      "Aplicações",
-    )
-    expect(stepsText(getInstallGuide("desktop", "safari"))).toContain(
-      "Adicionar à Dock",
-    )
-    expect(stepsText(getInstallGuide("desktop", "firefox"))).toContain(
-      "não suporta",
-    )
-    expect(getInstallGuide("desktop", null).note).toContain("Firefox")
+    expect(labels("safari")).toEqual([
+      "Safari (macOS 14 ou superior)",
+      "Chrome",
+      "Edge",
+      "Firefox",
+      undefined,
+    ])
+    expect(labels("firefox")[0]).toBe("Firefox")
+    expect(labels(null)[0]).toBe("Chrome")
+    expect(labels("other")[0]).toBe("Chrome")
+
+    const steps = getInstallGuide("desktop", "chrome").steps
+    expect(steps[0].text).toContain("Transmitir, guardar e partilhar")
+    expect(steps.at(-1)?.text).toContain("Confirme")
   })
 
   it("tailors Android instructions to the browser", () => {

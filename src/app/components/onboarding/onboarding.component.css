@@ -52,7 +52,9 @@
 
 .title {
   margin: 0 0 8px;
-  font: 700 22px/1.25 "PT Serif", serif;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
   color: var(--text-color);
 }
 

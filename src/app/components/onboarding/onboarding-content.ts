@@ -19,6 +19,8 @@ export interface OnboardingStep {
 export interface InstallGuideStep {
   icon: string
   text: string
+  /** Browser the step applies to, when a guide covers several. */
+  label?: string
 }
 
 export interface InstallGuide {
@@ -144,11 +146,6 @@ const CONFIRM_MOBILE: InstallGuideStep = {
   text: "Confirme em «Instalar». O ícone da Bíblia aparece no ecrã principal.",
 }
 
-const CONFIRM_DESKTOP: InstallGuideStep = {
-  icon: "check_circle",
-  text: "Confirme em «Instalar». A Bíblia passa a abrir numa janela própria, como qualquer outra aplicação.",
-}
-
 const ANDROID_CHROME: InstallGuide = {
   steps: [
     {
@@ -216,64 +213,52 @@ const IOS_OTHER: InstallGuide = {
   note: "Se não encontrar a opção, abra biblia.capuchinhos.org no Safari e siga os mesmos passos.",
 }
 
-const DESKTOP_CHROME: InstallGuide = {
-  steps: [
-    {
-      icon: "install_desktop",
-      text: "Clique no ícone de instalação, no lado direito da barra de endereço.",
-    },
-    {
-      icon: "more_vert",
-      text: "Ou abra o menu ⋮ → «Transmitir, guardar e partilhar» → «Instalar página como aplicação…».",
-    },
-    CONFIRM_DESKTOP,
-  ],
+type DesktopBrowser = Exclude<InstallBrowser, "other">
+
+const DESKTOP_BROWSER_ORDER: readonly DesktopBrowser[] = [
+  "chrome",
+  "edge",
+  "safari",
+  "firefox",
+]
+
+const DESKTOP_BROWSER_STEPS: Record<DesktopBrowser, InstallGuideStep> = {
+  chrome: {
+    label: "Chrome",
+    icon: "install_desktop",
+    text: "Clique no ícone de instalação, no lado direito da barra de endereço, ou abra o menu ⋮ → «Transmitir, guardar e partilhar» → «Instalar página como aplicação…».",
+  },
+  edge: {
+    label: "Edge",
+    icon: "install_desktop",
+    text: "Clique no ícone de instalação na barra de endereço, ou abra o menu ⋯ → «Aplicações» → «Instalar este site como uma aplicação».",
+  },
+  safari: {
+    label: "Safari (macOS 14 ou superior)",
+    icon: "ios_share",
+    text: "Clique no botão Partilhar (ou no menu Ficheiro) e escolha «Adicionar à Dock».",
+  },
+  firefox: {
+    label: "Firefox",
+    icon: "info",
+    text: "Não suporta a instalação de aplicações web. Instale a partir do Chrome, Edge ou Safari, ou continue a ler no Firefox, incluindo sem ligação.",
+  },
 }
 
-const DESKTOP_GENERIC: InstallGuide = {
-  steps: DESKTOP_CHROME.steps,
-  note: "No Safari (macOS): menu Ficheiro → «Adicionar à Dock». O Firefox não suporta a instalação de aplicações web.",
+const CONFIRM_DESKTOP: InstallGuideStep = {
+  icon: "check_circle",
+  text: "Confirme em «Instalar» (ou «Adicionar»). A Bíblia passa a abrir numa janela própria, como qualquer outra aplicação.",
 }
 
-const DESKTOP_EDGE: InstallGuide = {
-  steps: [
-    {
-      icon: "install_desktop",
-      text: "Clique no ícone de instalação, no lado direito da barra de endereço.",
-    },
-    {
-      icon: "more_horiz",
-      text: "Ou abra o menu ⋯ → «Aplicações» → «Instalar este site como uma aplicação».",
-    },
-    CONFIRM_DESKTOP,
-  ],
-}
-
-const DESKTOP_SAFARI: InstallGuide = {
-  steps: [
-    {
-      icon: "ios_share",
-      text: "Clique no botão Partilhar do Safari (ou no menu Ficheiro) e escolha «Adicionar à Dock».",
-    },
-    {
-      icon: "check_circle",
-      text: "Confirme em «Adicionar». A Bíblia fica na Dock e no Launchpad.",
-    },
-  ],
-  note: "Requer macOS Sonoma (14) ou superior.",
-}
-
-const DESKTOP_FIREFOX: InstallGuide = {
-  steps: [
-    {
-      icon: "info",
-      text: "O Firefox não suporta a instalação de aplicações web no computador.",
-    },
-    {
-      icon: "open_in_browser",
-      text: "Pode continuar a ler no Firefox, incluindo sem ligação, ou instalar a aplicação a partir do Chrome, Edge ou Safari.",
-    },
-  ],
+/** Desktop users often have several browsers, so list them all, theirs first. */
+function desktopGuide(browser: InstallBrowser | null): InstallGuide {
+  const detected = DESKTOP_BROWSER_ORDER.find((b) => b === browser)
+  const order = detected
+    ? [detected, ...DESKTOP_BROWSER_ORDER.filter((b) => b !== detected)]
+    : DESKTOP_BROWSER_ORDER
+  return {
+    steps: [...order.map((b) => DESKTOP_BROWSER_STEPS[b]), CONFIRM_DESKTOP],
+  }
 }
 
 /**
@@ -293,10 +278,6 @@ export function getInstallGuide(
     case "ios":
       return browser === null || browser === "safari" ? IOS_SAFARI : IOS_OTHER
     default:
-      if (browser === "chrome") return DESKTOP_CHROME
-      if (browser === "edge") return DESKTOP_EDGE
-      if (browser === "safari") return DESKTOP_SAFARI
-      if (browser === "firefox") return DESKTOP_FIREFOX
-      return DESKTOP_GENERIC
+      return desktopGuide(browser)
   }
 }
