@@ -178,6 +178,7 @@
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -187,28 +188,42 @@
 
 .dots {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
+/* A 24x24 hit area (WCAG 2.2 target size) around a 10px visual dot: the
+   button itself is the target, an ::before pseudo-element the small disc. */
 .dot {
-  width: 10px;
-  height: 10px;
+  position: relative;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.dot::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: var(--border-color);
-  cursor: pointer;
+  transform: translate(-50%, -50%);
   transition:
     background 0.2s,
     transform 0.2s;
 }
 
-.dot.active {
+.dot.active::before {
   background: var(--cap-brown);
-  transform: scale(1.25);
+  transform: translate(-50%, -50%) scale(1.25);
 }
 
-:host-context(.dark-theme) .dot.active {
+:host-context(.dark-theme) .dot.active::before {
   background: antiquewhite;
 }
 
@@ -241,7 +256,7 @@
   .body {
     animation: none;
   }
-  .dot {
+  .dot::before {
     transition: none;
   }
 }

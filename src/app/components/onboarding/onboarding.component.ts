@@ -3,6 +3,7 @@ import {
   ChangeDetectorRef,
   Component,
   DestroyRef,
+  ElementRef,
   HostListener,
   inject,
 } from "@angular/core"
@@ -59,6 +60,7 @@ export class OnboardingComponent {
 
   private readonly detectedBrowser: InstallBrowser
   private readonly destroyRef = inject(DestroyRef)
+  private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef)
 
   constructor(
     private readonly dialogRef: MatDialogRef<
@@ -119,6 +121,13 @@ export class OnboardingComponent {
     this.index = index
     // Plain buttons (step dots) don't repaint on their own under coalesced CD.
     this.cdr.detectChanges()
+    // Focus otherwise stays on the nav button while the title and body swap
+    // underneath it, so screen readers never hear the new step. The heading
+    // is a fresh element each time (the @if block re-creates it), so it has
+    // to be re-queried rather than cached in a ViewChild.
+    this.elementRef.nativeElement
+      .querySelector<HTMLElement>("#onboarding-title")
+      ?.focus()
   }
 
   skip(): void {
@@ -149,9 +158,12 @@ export class OnboardingComponent {
 
     this.installing = false
     this.installOutcome = outcome
+    // AnalyticsService.track sets its own `platform` (Capacitor.getPlatform(),
+    // "web" for any browser) from the spread event data, so the detected
+    // install platform needs a distinct key to survive.
     void this.analyticsService.track("pwa_install_prompt", {
       outcome,
-      platform: this.detectedPlatform,
+      installPlatform: this.detectedPlatform,
     })
     this.cdr.markForCheck()
   }
@@ -164,13 +176,16 @@ export class OnboardingComponent {
   onKeydown(event: KeyboardEvent): void {
     if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return
 
-    // Leave arrow keys to the platform switcher when it has focus.
+    // The reader behind the dialog turns chapters on the same keys.
+    event.stopPropagation()
+
+    // Leave arrow keys to the platform switcher when it has focus — these are
+    // plain buttons with no arrow-key behavior of their own, so only the
+    // reader's window handler needs stopping, not the switcher's own default.
     const target = event.target as HTMLElement | null
     if (target?.closest?.(".platforms")) return
 
-    // The reader behind the dialog turns chapters on the same keys.
     event.preventDefault()
-    event.stopPropagation()
 
     if (event.key === "ArrowRight") {
       this.next()

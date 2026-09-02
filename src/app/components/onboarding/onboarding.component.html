@@ -12,7 +12,7 @@
 @for (s of steps; track s.id; let i = $index) {
   @if (i === index) {
   <section class="body">
-    <h2 id="onboarding-title" class="title">{{ s.title }}</h2>
+    <h2 id="onboarding-title" class="title" tabindex="-1">{{ s.title }}</h2>
     <p class="intro">{{ s.intro }}</p>
 
     @if (s.features.length) {

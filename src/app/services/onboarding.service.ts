@@ -36,7 +36,12 @@ export class OnboardingService {
     if (this.preferencesService.getOnboardingSeen()) return false
     if (this.isShareTargetLaunch(search)) return false
 
-    setTimeout(() => this.open("first_launch"), FIRST_LAUNCH_DELAY_MS)
+    setTimeout(() => {
+      // Re-check: the menu can open and close the wizard (marking it seen)
+      // during this delay, and a stale timer must not undo that.
+      if (this.preferencesService.getOnboardingSeen()) return
+      this.open("first_launch")
+    }, FIRST_LAUNCH_DELAY_MS)
     return true
   }
 

@@ -196,7 +196,7 @@ describe("OnboardingComponent", () => {
       expect(component.index).toBe(0)
     })
 
-    it("leaves the arrow keys to the platform switcher when it has focus", () => {
+    it("leaves the arrow keys to the platform switcher when it has focus, but still keeps them from the reader", () => {
       create()
       goToInstallStep()
       const installIndex = component.index
@@ -205,6 +205,16 @@ describe("OnboardingComponent", () => {
 
       expect(component.index).toBe(installIndex)
       expect(event.defaultPrevented).toBeFalse()
+      expect(windowListener).not.toHaveBeenCalled()
+    })
+
+    it("moves focus to the new step's heading so screen readers announce it", () => {
+      create()
+
+      press(document.body, "ArrowRight")
+
+      expect(document.activeElement?.id).toBe("onboarding-title")
+      expect(document.activeElement?.textContent).toContain("Navegar")
     })
   })
 
@@ -334,7 +344,7 @@ describe("OnboardingComponent", () => {
     expect(pwa.promptInstall).toHaveBeenCalled()
     expect(analyticsSpy.track).toHaveBeenCalledWith("pwa_install_prompt", {
       outcome: "accepted",
-      platform: "android",
+      installPlatform: "android",
     })
     expect(textOf(".install-done")).toContain("foi instalada")
     expect(button("Instalar agora")).toBeUndefined()

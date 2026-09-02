@@ -66,6 +66,22 @@ describe("OnboardingService", () => {
       expect(dialogSpy.open).not.toHaveBeenCalled()
     }))
 
+    it("does not reopen once the timer fires after the wizard was already seen", fakeAsync(() => {
+      expect(service.showOnFirstLaunch("")).toBeTrue()
+
+      // The user opens the wizard from the menu and dismisses it before the
+      // first-launch timer fires, which marks it seen — the stale timer must
+      // not undo that and reopen it a moment later.
+      service.open("menu")
+      preferencesSpy.getOnboardingSeen.and.returnValue(true)
+      afterClosed$.next(undefined)
+      dialogSpy.open.calls.reset()
+
+      tick(FIRST_LAUNCH_DELAY_MS)
+
+      expect(dialogSpy.open).not.toHaveBeenCalled()
+    }))
+
     it("does not get in the way of a share-target launch", fakeAsync(() => {
       expect(service.showOnFirstLaunch("?text=Jo%203,16")).toBeFalse()
       expect(

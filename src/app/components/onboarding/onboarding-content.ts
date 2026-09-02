@@ -49,7 +49,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     features: [
       {
         icon: "cloud_off",
-        text: "Ao instalar, os capítulos ficam guardados no dispositivo e podem ser lidos sem ligação.",
+        text: "Depois de instalar, abra a app uma vez com ligação: os capítulos ficam guardados no dispositivo e pode voltar a lê-los sem ligação.",
       },
       {
         icon: "history",
