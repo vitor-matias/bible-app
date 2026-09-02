@@ -46,11 +46,13 @@ export class OfflineDataService {
 
     // Stale metadata cannot be trusted after a failed migration: without this
     // gate a lingering "ready" flag would skip the refresh while reads fail
-    // closed to an empty cache. Without localStorage the flag can never be
-    // written either, so asking for it would answer "not cached" on every
-    // launch and re-download the whole Bible each time. IndexedDB holds the
-    // books themselves and is the same question one layer down, so fall back
-    // to that.
+    // closed to an empty cache. Without localStorage the flags can never be
+    // written either, so fall back to IndexedDB — the books themselves are
+    // the same question one layer down. That fallback must tell real books
+    // and synthetic group-intro records apart: a store holding regular books
+    // but no introSlug records means introductions were never cached, not
+    // that both are ready.
+    const fallbackBooks = storage ? null : await this.getCachedBooksAsync()
     // Books and introductions are gated independently: a launch where books
     // cached fine but /intros had a transient failure must only retry the
     // (small) introductions fetch, never force a redownload of the entire
@@ -59,12 +61,12 @@ export class OfflineDataService {
       migrated &&
       (storage
         ? storage.getItem(this.cacheFlagKey) === "true"
-        : (await this.getCachedBooksAsync()).length > 0)
+        : (fallbackBooks ?? []).some((book) => !book.introSlug))
     const introsAlreadyCached =
       migrated &&
       (storage
         ? storage.getItem(this.groupIntrosCacheFlagKey) === "true"
-        : (await this.getCachedBooksAsync()).length > 0)
+        : (fallbackBooks ?? []).some((book) => !!book.introSlug))
     const isExpired = this.isCacheExpired()
     if (booksAlreadyCached && introsAlreadyCached && !isExpired) {
       return
@@ -134,7 +136,11 @@ export class OfflineDataService {
           introSlug: intro.slug,
           introduction: intro.introduction,
         }))
-        await this.setCachedBooks(introBooks)
+        // markBooksReady: false — this write carries only synthetic intro
+        // records, never real books, so it must not flip booksCacheReady or
+        // the shared timestamp. Doing so would tell the next launch the
+        // (possibly never-fetched) books are cached and fresh.
+        await this.setCachedBooks(introBooks, { markBooksReady: false })
       }
 
       const failedCount = results.length - fulfilled.length
@@ -155,7 +161,10 @@ export class OfflineDataService {
     }
   }
 
-  async setCachedBooks(books: Book[]): Promise<void> {
+  async setCachedBooks(
+    books: Book[],
+    { markBooksReady = true }: { markBooksReady?: boolean } = {},
+  ): Promise<void> {
     // Ensure any in-progress cache load from IndexedDB has completed
     // before we merge in the new books.
     if (this.cacheLoadPromise) {
@@ -195,8 +204,13 @@ export class OfflineDataService {
       // to clear it. Without this a failed migration leaves the key stale and
       // the next launch wipes these records and re-downloads the Bible.
       storage?.setItem(this.cacheSchemaKey, this.cacheSchemaVersion.toString())
-      storage?.setItem(this.cacheTimestampKey, Date.now().toString())
-      storage?.setItem(this.cacheFlagKey, "true")
+      // An intro-only write (markBooksReady: false) must not claim the books
+      // are cached and fresh — that flag and timestamp belong exclusively to
+      // a successful /books write.
+      if (markBooksReady) {
+        storage?.setItem(this.cacheTimestampKey, Date.now().toString())
+        storage?.setItem(this.cacheFlagKey, "true")
+      }
     } catch (error) {
       console.error("Failed to persist cached books or metadata", error)
       throw error

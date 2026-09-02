@@ -188,15 +188,49 @@ describe("OfflineDataService", () => {
     })
 
     // Storage the browser refuses to hand over (cookies blocked) means the
-    // flag can never be written, so trusting it alone would re-download the
-    // whole Bible on every single launch.
-    it("should skip preload without storage when IndexedDB already has books", async () => {
+    // flags can never be written, so trusting them alone would re-download
+    // the whole Bible on every single launch.
+    it("should skip books but still fetch introductions without storage when IndexedDB has only regular books", async () => {
       const localStorageSpy = Object.getOwnPropertyDescriptor(
         window,
         "localStorage",
       )?.get as jasmine.Spy
       localStorageSpy.and.throwError("denied")
+      // mockBooks are regular books — none carry introSlug, so the
+      // no-storage fallback must recognize introductions were never cached
+      // and fetch them, instead of treating "any book exists" as proof both
+      // books and introductions are ready.
       databaseService.getAll.and.returnValue(Promise.resolve(mockBooks))
+
+      const promise = service.preloadAllBooksAndChapters()
+      await flushIntros()
+
+      await promise
+
+      httpMock.expectNone("v1/books?withChapters=true")
+      expect(databaseService.getAll).toHaveBeenCalledWith("books")
+    })
+
+    it("should skip both books and introductions without storage when IndexedDB already has each", async () => {
+      const localStorageSpy = Object.getOwnPropertyDescriptor(
+        window,
+        "localStorage",
+      )?.get as jasmine.Spy
+      localStorageSpy.and.throwError("denied")
+      databaseService.getAll.and.returnValue(
+        Promise.resolve([
+          ...mockBooks,
+          {
+            id: "pentateuco",
+            name: "Pentateuco",
+            shortName: "Pentateuco",
+            abrv: "pentateuco",
+            chapterCount: 0,
+            introSlug: "pentateuco",
+            introduction: [],
+          },
+        ]),
+      )
 
       await service.preloadAllBooksAndChapters()
 
@@ -300,6 +334,33 @@ describe("OfflineDataService", () => {
       expect(service.getCachedBook("gen")).toBeUndefined()
       // ...but the introduction, an unrelated resource, is cached anyway.
       expect(service.getCachedBook("pentateuco")?.introSlug).toBe("pentateuco")
+    })
+
+    it("retries /books on the next preload after a books failure followed by a successful intros-only write", async () => {
+      spyOn(console, "error")
+
+      // First launch: books fails, intros succeeds.
+      const firstPromise = service.preloadAllBooksAndChapters()
+      await flushMicrotasks()
+      httpMock
+        .expectOne("v1/books?withChapters=true")
+        .error(new ProgressEvent("error"))
+      await flushIntros()
+      await firstPromise
+
+      // The intros-only write must not have claimed the books are cached —
+      // otherwise this second launch would wrongly skip /books entirely.
+      expect(mockLocalStorage._storage["booksCacheReady"]).toBeUndefined()
+
+      // Second launch: /intros is already cached and fresh, so only /books
+      // should be requested this time.
+      const secondPromise = service.preloadAllBooksAndChapters()
+      await flushMicrotasks()
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await secondPromise
+
+      httpMock.expectNone("v1/intros")
+      expect(service.getCachedBook("gen")?.name).toBe("Genesis")
     })
 
     it("should call AnalyticsService.track when source is install", async () => {
