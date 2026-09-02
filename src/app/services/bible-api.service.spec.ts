@@ -25,6 +25,8 @@ describe("BibleApiService", () => {
       "getCachedBooksAsync",
       "getCachedBookAsync",
       "getCachedVerseAsync",
+      "getCachedGroupIntroSummariesAsync",
+      "getCachedGroupIntroAsync",
     ])
     networkServiceStub = { isOffline: false }
 
@@ -248,6 +250,57 @@ describe("BibleApiService", () => {
       httpMock.expectNone("v1/books")
     })
 
+    it("should exclude cached group-intro pseudo-books from the available books", async () => {
+      const realBook = {
+        id: "gen",
+        name: "Genesis",
+        shortName: "Genesis",
+        abrv: "Gn",
+        chapterCount: 50,
+      } as Book
+      const introBook = {
+        id: "pentateuco",
+        name: "Pentateuco",
+        shortName: "Pentateuco",
+        abrv: "pentateuco",
+        chapterCount: 0,
+        introSlug: "pentateuco",
+        introduction: [],
+      } as Book
+      offlineDataServiceSpy.getCachedBooksAsync.and.returnValue(
+        Promise.resolve([realBook, introBook]),
+      )
+
+      const result = await firstValueFrom(service.getAvailableBooks())
+
+      // BookService builds its own synthetic entry for every standalone
+      // introduction from getIntros() — leaking the cached pseudo-book
+      // through here would duplicate it.
+      expect(result).toEqual([realBook])
+      httpMock.expectNone("v1/books")
+    })
+
+    it("should throw when offline and only group-intro pseudo-books are cached", async () => {
+      const introBook = {
+        id: "pentateuco",
+        name: "Pentateuco",
+        shortName: "Pentateuco",
+        abrv: "pentateuco",
+        chapterCount: 0,
+        introSlug: "pentateuco",
+        introduction: [],
+      } as Book
+      offlineDataServiceSpy.getCachedBooksAsync.and.returnValue(
+        Promise.resolve([introBook]),
+      )
+      networkServiceStub.isOffline = true
+
+      await expectAsync(
+        firstValueFrom(service.getAvailableBooks()),
+      ).toBeRejectedWithError("Offline and no cached books available")
+      httpMock.expectNone("v1/books")
+    })
+
     it("should fetch books from the server and cache them in memory", async () => {
       const remoteBooks = [
         {
@@ -346,26 +399,85 @@ describe("BibleApiService", () => {
   })
 
   describe("introductions", () => {
-    it("requests the listing and one body through the resilience wrapper", (done) => {
+    beforeEach(() => {
+      offlineDataServiceSpy.getCachedGroupIntroSummariesAsync.and.returnValue(
+        Promise.resolve([]),
+      )
+      offlineDataServiceSpy.getCachedGroupIntroAsync.and.returnValue(
+        Promise.resolve(undefined),
+      )
+    })
+
+    it("requests the listing and one body through the resilience wrapper", async () => {
       // The wrapper is a pass-through in the browser; on the server it adds
       // the timeout and backoff that keep a prerender build from shipping
-      // pages with no introductions after one transient failure.
+      // pages with no introductions after one transient failure. The cache
+      // check ahead of the request is itself async, so the request only
+      // appears after a microtask tick.
       const intros = [{ slug: "pentateuco", name: "PENTATEUCO" }]
-      service.getIntros().subscribe((result) => {
-        expect(result).toEqual(intros as IntroSummary[])
-
-        service.getIntro("pentateuco").subscribe((intro) => {
-          expect(intro.slug).toBe("pentateuco")
-          done()
-        })
-        httpMock.expectOne("v1/intros/pentateuco").flush({
-          slug: "pentateuco",
-          name: "PENTATEUCO",
-          introduction: [],
-        })
-      })
+      const introsPromise = firstValueFrom(service.getIntros())
+      await Promise.resolve()
+      await Promise.resolve()
 
       httpMock.expectOne("v1/intros").flush(intros)
+      expect(await introsPromise).toEqual(intros as IntroSummary[])
+
+      const introPromise = firstValueFrom(service.getIntro("pentateuco"))
+      await Promise.resolve()
+      await Promise.resolve()
+
+      httpMock.expectOne("v1/intros/pentateuco").flush({
+        slug: "pentateuco",
+        name: "PENTATEUCO",
+        introduction: [],
+      })
+      expect((await introPromise).slug).toBe("pentateuco")
+    })
+
+    it("returns the cached listing without hitting the network", async () => {
+      const cachedIntros = [{ slug: "pentateuco", name: "Pentateuco" }]
+      offlineDataServiceSpy.getCachedGroupIntroSummariesAsync.and.returnValue(
+        Promise.resolve(cachedIntros),
+      )
+
+      const result = await firstValueFrom(service.getIntros())
+
+      expect(result).toEqual(cachedIntros)
+      httpMock.expectNone("v1/intros")
+    })
+
+    it("throws when offline and the listing is not cached", async () => {
+      networkServiceStub.isOffline = true
+
+      await expectAsync(
+        firstValueFrom(service.getIntros()),
+      ).toBeRejectedWithError("Offline and no cached introductions available")
+      httpMock.expectNone("v1/intros")
+    })
+
+    it("returns the cached body without hitting the network", async () => {
+      const cachedIntro: GroupIntro = {
+        slug: "pentateuco",
+        name: "Pentateuco",
+        introduction: [{ type: "introTitle", level: 1, text: "Pentateuco" }],
+      }
+      offlineDataServiceSpy.getCachedGroupIntroAsync.and.returnValue(
+        Promise.resolve(cachedIntro),
+      )
+
+      const result = await firstValueFrom(service.getIntro("pentateuco"))
+
+      expect(result).toEqual(cachedIntro)
+      httpMock.expectNone("v1/intros/pentateuco")
+    })
+
+    it("throws when offline and the body is not cached", async () => {
+      networkServiceStub.isOffline = true
+
+      await expectAsync(
+        firstValueFrom(service.getIntro("pentateuco")),
+      ).toBeRejectedWithError("Offline - introduction not cached")
+      httpMock.expectNone("v1/intros/pentateuco")
     })
   })
 
