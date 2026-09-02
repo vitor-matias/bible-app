@@ -229,6 +229,29 @@ test.describe("Icon font", () => {
     await expectIconsRendered(menu)
   })
 
+  test("onboarding icons render as glyphs on every step", async ({ page }) => {
+    // Opened from the menu rather than via first launch, so this does not
+    // race the global beforeEach's addInitScript.
+    await openReader(page)
+    await page.locator(".menuButton").click()
+    await page.getByRole("menuitem", { name: "Como usar a app" }).click()
+
+    const wizard = page.locator("onboarding")
+    await expect(wizard).toBeVisible()
+
+    const dots = wizard.locator(".dot")
+    const count = await dots.count()
+    for (let i = 0; i < count; i++) {
+      await dots.nth(i).click()
+      await expectIconsRendered(wizard)
+    }
+    // The platform switcher swaps in the install-guide icons.
+    for (const label of ["Android", "iPhone / iPad", "Computador"]) {
+      await wizard.locator(".platforms button", { hasText: label }).click()
+      await expectIconsRendered(wizard)
+    }
+  })
+
   test("book selector icons render as glyphs, expanded and collapsed", async ({
     page,
   }) => {
@@ -369,3 +392,4 @@ test.describe("Onboarding", () => {
     await expect(wizard).toHaveCount(0)
   })
 })
+
