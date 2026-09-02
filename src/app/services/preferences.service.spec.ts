@@ -1,3 +1,4 @@
+import { TestBed } from "@angular/core/testing"
 import { PreferencesService } from "./preferences.service"
 
 describe("PreferencesService", () => {
@@ -5,7 +6,9 @@ describe("PreferencesService", () => {
 
   beforeEach(() => {
     localStorage.clear()
-    service = new PreferencesService()
+    TestBed.resetTestingModule()
+    TestBed.configureTestingModule({ providers: [PreferencesService] })
+    service = TestBed.inject(PreferencesService)
   })
 
   it("should store and read the theme", () => {
@@ -47,6 +50,18 @@ describe("PreferencesService", () => {
     expect(service.getAutoScrollControlsVisible()).toBeTrue()
   })
 
+  it("should treat the onboarding wizard as unseen by default", () => {
+    expect(service.getOnboardingSeen()).toBeFalse()
+  })
+
+  it("should remember that the onboarding wizard was seen", () => {
+    service.setOnboardingSeen(true)
+    expect(service.getOnboardingSeen()).toBeTrue()
+
+    service.setOnboardingSeen(false)
+    expect(service.getOnboardingSeen()).toBeFalse()
+  })
+
   it("should store and read the last location", () => {
     service.setLastBookId("gen")
     service.setLastChapterNumber(3)
@@ -66,5 +81,20 @@ describe("PreferencesService", () => {
 
     service.setViewMode("paged")
     expect(service.getViewMode()).toBe("paged")
+  })
+
+  it("probes localStorage once instead of on every access", () => {
+    // safeLocalStorage() probes with a real write; applyChapter and the
+    // header read preferences on every chapter change and render pass.
+    service.getTheme()
+    const setItem = spyOn(Storage.prototype, "setItem").and.callThrough()
+
+    service.getTheme()
+    service.getViewMode()
+    service.setLastChapterNumber(3)
+
+    // Exactly the one real write, with no probe writes around it.
+    expect(setItem).toHaveBeenCalledTimes(1)
+    expect(setItem).toHaveBeenCalledWith("chapter", "3")
   })
 })

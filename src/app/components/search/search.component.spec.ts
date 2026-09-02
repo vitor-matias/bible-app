@@ -6,12 +6,18 @@ import {
   TestBed,
 } from "@angular/core/testing"
 import { MatSnackBar } from "@angular/material/snack-bar"
-import { Router } from "@angular/router"
-import { Observable, of } from "rxjs"
+import {
+  ActivatedRoute,
+  convertToParamMap,
+  type ParamMap,
+  Router,
+} from "@angular/router"
+import { BehaviorSubject, from, Observable, of, Subject } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { SeoService } from "../../services/seo.service"
 import { SearchComponent } from "./search.component"
 
 describe("SearchComponent", () => {
@@ -23,6 +29,9 @@ describe("SearchComponent", () => {
   let snackBar: jasmine.SpyObj<MatSnackBar>
   let router: jasmine.SpyObj<Router>
   let analyticsService: jasmine.SpyObj<AnalyticsService>
+  let routeMock: ActivatedRoute
+  let queryParamMapSubject: BehaviorSubject<ParamMap>
+  let seoService: jasmine.SpyObj<SeoService>
   let observerCallback: IntersectionObserverCallback | null
   let originalIntersectionObserver: typeof IntersectionObserver | undefined
 
@@ -58,6 +67,12 @@ describe("SearchComponent", () => {
     router.navigate.and.resolveTo(true)
     analyticsService = jasmine.createSpyObj("AnalyticsService", ["track"])
     analyticsService.track.and.returnValue(Promise.resolve())
+    queryParamMapSubject = new BehaviorSubject(convertToParamMap({}))
+    routeMock = {
+      snapshot: { queryParamMap: convertToParamMap({}) },
+      queryParamMap: queryParamMapSubject.asObservable(),
+    } as ActivatedRoute
+    seoService = jasmine.createSpyObj("SeoService", ["updateForSearch"])
     observerCallback = null
     originalIntersectionObserver = globalThis.IntersectionObserver
 
@@ -73,6 +88,8 @@ describe("SearchComponent", () => {
         { provide: MatSnackBar, useValue: snackBar },
         { provide: Router, useValue: router },
         { provide: AnalyticsService, useValue: analyticsService },
+        { provide: ActivatedRoute, useValue: routeMock },
+        { provide: SeoService, useValue: seoService },
       ],
     })
       .overrideComponent(SearchComponent, {
@@ -96,6 +113,49 @@ describe("SearchComponent", () => {
 
   it("should create", () => {
     expect(component).toBeTruthy()
+  })
+
+  it("should run a shared query from the q query param on init", () => {
+    queryParamMapSubject.next(convertToParamMap({ q: "shared text" }))
+    const submitSpy = spyOn(component, "onSearchSubmit")
+
+    component.ngOnInit()
+
+    expect(submitSpy).toHaveBeenCalledWith("shared text")
+  })
+
+  it("should run a second shared query without re-creating the component", () => {
+    const submitSpy = spyOn(component, "onSearchSubmit")
+    component.ngOnInit()
+
+    queryParamMapSubject.next(convertToParamMap({ q: "first" }))
+    queryParamMapSubject.next(convertToParamMap({ q: "second" }))
+
+    expect(submitSpy).toHaveBeenCalledWith("first")
+    expect(submitSpy).toHaveBeenCalledWith("second")
+  })
+
+  it("should not re-run the same shared query on an unrelated emission", () => {
+    const submitSpy = spyOn(component, "onSearchSubmit")
+    component.ngOnInit()
+
+    queryParamMapSubject.next(convertToParamMap({ q: "same" }))
+    queryParamMapSubject.next(convertToParamMap({ q: "same" }))
+
+    expect(submitSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it("should not search on init without a q query param", () => {
+    const submitSpy = spyOn(component, "onSearchSubmit")
+
+    component.ngOnInit()
+
+    expect(submitSpy).not.toHaveBeenCalled()
+  })
+
+  it("should mark the search page as noindex via SeoService on init", () => {
+    fixture.detectChanges()
+    expect(seoService.updateForSearch).toHaveBeenCalled()
   })
 
   it("should navigate to a direct reference using verseStart", async () => {
@@ -171,6 +231,80 @@ describe("SearchComponent", () => {
     expect(router.navigate).toHaveBeenCalledWith(["/", "luk", 1], {})
   })
 
+  it("should discard a page that arrives after a newer search took over", fakeAsync(() => {
+    // Pagination for query A is in flight when query B is submitted. A's page
+    // must not append itself to B's results, nor clear B's loading state.
+    component.searchTerm = "beginning"
+    component.currentPage = 1
+    component.totalResults = 2
+    component.searchResults = [
+      {
+        bookId: "gen",
+        chapterNumber: 1,
+        number: 1,
+        verseLabel: "1",
+        text: [{ type: "text", text: "First verse" }],
+      } as Verse,
+    ]
+
+    const pendingPage$ = new Subject<VersePage>()
+    apiService.search.and.returnValue(pendingPage$.asObservable())
+
+    component.sentinel = {
+      nativeElement: document.createElement("div"),
+    } as SearchComponent["sentinel"]
+    component.ngAfterViewInit()
+
+    const callback = observerCallback
+    if (!callback) {
+      throw new Error("IntersectionObserver callback was not registered")
+    }
+    callback(
+      [{ isIntersecting: true } as IntersectionObserverEntry],
+      {} as IntersectionObserver,
+    )
+    flushMicrotasks()
+    expect(apiService.search).toHaveBeenCalledWith("beginning", 2)
+
+    // A newer search takes over while A's page is still pending.
+    const newerSearch$ = new Subject<VersePage>()
+    apiService.search.and.returnValue(newerSearch$.asObservable())
+    referenceService.extract.and.returnValue([])
+    void component.onSearchSubmit("light")
+    flushMicrotasks()
+    const resultsUnderNewSearch = component.searchResults.length
+
+    // Now A's page finally arrives.
+    pendingPage$.next({
+      verses: [
+        {
+          bookId: "gen",
+          chapterNumber: 1,
+          number: 2,
+          verseLabel: "2",
+          text: [{ type: "text", text: "Stale second verse" }],
+        } as Verse,
+      ],
+      total: 2,
+      currentPage: 2,
+      totalPages: 1,
+    })
+    pendingPage$.complete()
+    flushMicrotasks()
+
+    expect(component.searchResults.length).toBe(resultsUnderNewSearch)
+    expect(
+      component.searchResults.some((verse) =>
+        verse.text.some((part) => part.text === "Stale second verse"),
+      ),
+    ).toBeFalse()
+    // The newer search is still loading; the stale page must not say otherwise.
+    expect(component.isLoading).toBeTrue()
+
+    newerSearch$.complete()
+    flushMicrotasks()
+  }))
+
   it("should keep loadMoreResults locked until the next page arrives", fakeAsync(() => {
     const nextVerse = {
       bookId: "gen",
@@ -192,14 +326,10 @@ describe("SearchComponent", () => {
         text: [{ type: "text", text: "First verse" }],
       } as Verse,
     ]
-    apiService.search.and.returnValue(
-      of({
-        verses: [nextVerse],
-        total: 2,
-        currentPage: 2,
-        totalPages: 2,
-      } as VersePage),
-    )
+    // Keep the page-2 request pending so a second trigger arrives while the
+    // first one is still in flight.
+    const pendingPage$ = new Subject<VersePage>()
+    apiService.search.and.returnValue(pendingPage$.asObservable())
 
     component.sentinel = {
       nativeElement: document.createElement("div"),
@@ -211,13 +341,31 @@ describe("SearchComponent", () => {
     if (!callback) {
       throw new Error("IntersectionObserver callback was not registered")
     }
-    callback(
-      [{ isIntersecting: true } as IntersectionObserverEntry],
-      {} as IntersectionObserver,
-    )
+    const trigger = () =>
+      callback(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        {} as IntersectionObserver,
+      )
+
+    trigger()
+    flushMicrotasks()
+    // Second intersection while the first request is still pending must not
+    // start another request.
+    trigger()
+    flushMicrotasks()
+    expect(apiService.search).toHaveBeenCalledTimes(1)
+    expect(apiService.search).toHaveBeenCalledWith("beginning", 2)
+
+    pendingPage$.next({
+      verses: [nextVerse],
+      total: 2,
+      currentPage: 2,
+      totalPages: 2,
+    } as VersePage)
+    pendingPage$.complete()
     flushMicrotasks()
 
-    expect(apiService.search).toHaveBeenCalledWith("beginning", 2)
+    expect(apiService.search).toHaveBeenCalledTimes(1)
     expect(component.searchResults).toEqual([
       jasmine.objectContaining({ number: 1 }),
       jasmine.objectContaining({ number: 2 }),
@@ -320,5 +468,49 @@ describe("SearchComponent", () => {
     component.ngOnDestroy()
 
     expect(observer.disconnect).toHaveBeenCalled()
+  })
+
+  // A share target can deliver two queries back to back. If A resolves after
+  // B, A used to overwrite B's results and clear B's loading state.
+  it("should ignore a superseded search that resolves last", async () => {
+    referenceService.extract.and.returnValue([])
+    bookService.findBook.and.returnValue({ id: "about" } as Book)
+
+    const verseFor = (text: string) =>
+      ({
+        bookId: "gen",
+        chapterNumber: 1,
+        number: 1,
+        verseLabel: "1",
+        text: [{ type: "text", text }],
+      }) as Verse
+
+    const page = (verses: Verse[], total: number): VersePage => ({
+      verses,
+      total,
+      currentPage: 1,
+      totalPages: 1,
+    })
+
+    let resolveA: (value: VersePage) => void = () => {}
+    const slowA = new Promise<VersePage>((resolve) => {
+      resolveA = resolve
+    })
+
+    apiService.search.and.callFake((text: string) =>
+      text === "A" ? from(slowA) : of(page([verseFor("B result")], 1)),
+    )
+
+    const first = component.onSearchSubmit("A")
+    await component.onSearchSubmit("B")
+
+    expect(component.searchResults[0].text?.[0].text).toBe("B result")
+
+    resolveA(page([verseFor("A result")], 99))
+    await first
+
+    expect(component.searchResults[0].text?.[0].text).toBe("B result")
+    expect(component.totalResults).toBe(1)
+    expect(component.isLoading).toBeFalse()
   })
 })

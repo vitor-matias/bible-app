@@ -109,8 +109,8 @@ h6 {
   z-index: 99;
   opacity: 0.6;
   transition: opacity 0.3s;
-  color: #543d27;
-  background-color: antiquewhite;
+  color: var(--cap-brown);
+  background-color: var(--highlight-color);
 }
 
 @media (hover: hover) {

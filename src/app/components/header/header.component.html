@@ -47,6 +47,10 @@
             <span>Reportar Erro</span>
           </button>
         }
+        <button type="button" mat-menu-item (click)="onOpenHelp(menuTrigger)">
+          <mat-icon>help</mat-icon>
+          <span>Como usar a app</span>
+        </button>
         <a mat-menu-item href="https://www.capuchinhos.org/politica-de-privacidade" target="_blank" rel="noopener noreferrer">
           <mat-icon>privacy_tip</mat-icon>
           <span class="privacy-label">
@@ -56,34 +60,51 @@
         </a>
       </mat-menu>
 
+      <!-- The book/chapter label is this page's heading as well as its picker,
+           so it carries the h1: controls inside a heading are valid HTML, and a
+           hidden h1 would give crawlers text no reader sees.
+           On the home page its visible label alternates with an "Escolher
+           Livro" prompt, which would leave the only heading naming the picker
+           rather than the page, so aria-label pins the accessible name to the
+           title. Assistive tech reads that, not whichever label is mid-cycle. -->
+      <h1 class="page-heading" [attr.aria-label]="headingLabel">
       <mat-button-toggle-group multiple class="bookSelectorButton">
+        <!-- Named by its own visible text (the book name), so the accessible
+             name always contains the visible label. An aria-label naming the
+             action instead would hide which book this is from screen readers
+             and leave voice control with nothing to match; the tooltip already
+             says what the button does, and the h1 above pins the heading name.
+             No aria-live: the swap below is decorative chrome. -->
         <mat-button-toggle #bookToggle mat-flat-button matTooltip="Escolher livro" class="bookSelectorButtonContent"
           (click)="showBookSelector(); bookToggle.checked = false"
-          (keydown.enter)="showBookSelector(); bookToggle.checked = false" aria-live="polite">
+          (keydown.enter)="showBookSelector(); bookToggle.checked = false">
 
           @if (book.id === 'about') {
+          <!-- One element whose text is swapped behind a fade, rather than two
+               stacked ones crossfading: both had to stay in the DOM for that,
+               which put "Escolher Livro" inside the page's h1 alongside the
+               title. Only the label currently on screen exists here. -->
           <span class="cycle-wrapper">
-            <span class="cycle-text" [class.active]="bookLabelMode === 'title'">
-              {{ mobile ? book.shortName : book.name }}
-            </span>
-            <span class="cycle-text" [class.active]="bookLabelMode === 'prompt'">
-              Escolher Livro
-            </span>
+            <span class="cycle-text" [class.faded]="labelFading">{{
+              bookLabelMode === 'title'
+                ? (mobile ? book.shortName : book.name)
+                : 'Escolher Livro'
+            }}</span>
           </span>
           } @else {
           {{ mobile ? book.shortName : book.name }}
           }
         </mat-button-toggle>
 
-        @if(book.id !== 'about'){
+        <!-- Standalone introductions have no chapters to pick. -->
+        @if(book.id !== 'about' && !book.introSlug){
         <mat-button-toggle #chapterToggle mat-flat-button matTooltip="Escolher capítulo"
           class="bookSelectorButtonContent" (click)="showChapterSelector(); chapterToggle.checked = false">
-          {{ chapterNumber }}
+          {{ chapterNumber === 0 ? (mobile ? 'Intro' : 'Introdução') : chapterNumber }}
         </mat-button-toggle>
         }
       </mat-button-toggle-group>
-
-
+      </h1>
 
       @if (!isOffline) {
       <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button matTooltip="Pesquisar"

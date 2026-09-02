@@ -1,0 +1,194 @@
+/* The page is the crawlable twin of the drawer's book selector, so it borrows
+   that component's visual language rather than inventing one: sans-serif
+   labels, card-coloured entries, testament columns. The toolbar follows the
+   reader header and the search bar — cap-brown bar, antiquewhite controls. */
+
+/* Sticky rather than fixed: it keeps the header in flow, so the page needs no
+   spacer element to reserve its height. */
+.toolbar-wrapper {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+:host .index-toolbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  background-color: var(--cap-brown);
+  overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: 0;
+  padding-right: 0;
+  height: calc(56px + env(safe-area-inset-top, 0px));
+  box-sizing: border-box;
+}
+
+.content {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 8px;
+  box-sizing: border-box;
+  height: 56px;
+}
+
+/* Every other page puts an antiquewhite centrepiece on the brown bar — the
+   reader its book/chapter pill, the search page its input. This is the same
+   silhouette for a page whose title is not a control: the pill shape and
+   colours of .bookSelectorButton, without the button affordances. */
+.toolbar-title {
+  /* Same typography as the reader's book/chapter pill: Material's own stack at
+     18px/500, not a bare sans-serif — the two sit on the same bar and any
+     difference reads as a mistake. */
+  font-family: Roboto, sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 40px;
+  background-color: antiquewhite;
+  color: var(--cap-brown);
+  margin: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  border-radius: 9999px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.actionButton {
+  background-color: antiquewhite;
+  color: var(--cap-brown);
+  min-width: 48px;
+  /* Same 40px as the reader header and the search bar. */
+  height: 40px;
+  padding: 0;
+}
+
+.actionButton mat-icon {
+  color: var(--cap-brown);
+}
+
+/* Material insets an icon by -8px/+8px to leave room for a button label. These
+   buttons are icon-only, so that offset just pushes the glyph off centre. */
+.mat-mdc-unelevated-button > .mat-icon {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* Material drives a flat button's fill from --mdc-filled-button-container-color,
+   which styles.css points at cap-brown; a plain background-color on .actionButton
+   loses to it. The search bar wins the same fight with this selector. */
+.button:not([disabled]) {
+  background-color: antiquewhite;
+  font-size: large;
+}
+
+.backButton {
+  margin-right: 8px;
+}
+
+.searchButton {
+  margin-left: 8px;
+}
+
+.book-index-container {
+  font-family: sans-serif;
+  color: var(--text-color);
+  padding: 8px 12px 3rem;
+  box-sizing: border-box;
+}
+
+.book-index-container .intro-text {
+  margin: 1rem 0;
+  font-size: 90%;
+  color: color-mix(in srgb, var(--text-color) 70%, transparent);
+}
+
+/* Testaments side by side on wide screens, exactly as the drawer lays them
+   out; stacked below that. */
+.testaments {
+  display: flex;
+  justify-content: space-around;
+  gap: 0 8px;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .testaments {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+}
+
+.testament {
+  flex: 1;
+  margin: 0 2px;
+  min-width: 0;
+}
+
+.testament > h2 {
+  font-size: 125%;
+  font-weight: bold;
+  margin: 1.33em 0;
+}
+
+/* Group headings read as the drawer's expandable nodes do. */
+.group > h3 {
+  font-size: 90%;
+  font-weight: bold;
+  text-transform: uppercase;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.group ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.group li {
+  margin: 5px 0;
+}
+
+/* Entries match .bookSelectorButton in the drawer: a full-width card, left
+   aligned, 48px tall, highlighting on hover. */
+.group li a {
+  display: flex;
+  align-items: center;
+  background-color: var(--card-background);
+  color: var(--text-color);
+  font-size: large;
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border-radius: 4px;
+  text-decoration: none;
+  line-height: 1.2;
+  hyphens: auto;
+}
+
+.group li a:hover,
+.group li a:focus-visible {
+  background-color: var(--highlight-color);
+}
+
+/* The group heading doubles as a link to that group's introduction; keep it
+   looking like the heading it is, underlined only on interaction. */
+.group > h3 a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.group > h3 a:hover,
+.group > h3 a:focus-visible {
+  border-bottom-color: currentcolor;
+}

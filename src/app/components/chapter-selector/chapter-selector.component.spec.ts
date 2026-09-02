@@ -54,6 +54,68 @@ describe("ChapterSelectorComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  // ngAfterViewInit also runs while prerendering, where the server DOM has no
+  // scrollIntoView — calling it there threw once per prerendered route.
+  it("should not scroll straight from ngAfterViewInit", () => {
+    component.selectedChapter = 1
+    fixture.detectChanges()
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector(".highlight"),
+    ).toBeTruthy()
+    const scrollSpy = spyOn(Element.prototype, "scrollIntoView")
+
+    component.ngAfterViewInit()
+
+    expect(scrollSpy).not.toHaveBeenCalled()
+  })
+
+  it("should omit the number slot for the introduction row", () => {
+    // setInput (not a plain assignment): the component is OnPush, so a direct
+    // property write would not mark it dirty and the old rows would render.
+    fixture.componentRef.setInput("chapters", [
+      { bookId: "GEN", number: 0, title: "Introdução" },
+      { bookId: "GEN", number: 1, title: "Creation" },
+    ])
+    fixture.detectChanges()
+
+    const rows = fixture.nativeElement.querySelectorAll(
+      ".chapterSelectorButton",
+    )
+    // The intro has no number, so the fixed-width slot must not pad its label.
+    expect(rows[0].querySelector(".number-wrapper")).toBeNull()
+    expect(rows[0].textContent.trim()).toBe("Introdução")
+    // Numbered chapters keep the slot so their numbers stay in one column.
+    expect(rows[1].querySelector(".number-wrapper")).toBeTruthy()
+  })
+
+  // The other half of the deferral: skipping the scroll on the server must not
+  // mean skipping it in the browser. Without this the spec above would pass for
+  // an implementation that never scrolls at all.
+  it("should still scroll to the selected chapter once a render happens", async () => {
+    // A fixture of its own: the shared one has already rendered, and
+    // afterNextRender only fires for the render that follows registration.
+    const freshFixture = TestBed.createComponent(ChapterSelectorComponent)
+    freshFixture.componentInstance.chapters = [
+      { bookId: "GEN", number: 1, title: "Creation" },
+    ]
+    freshFixture.componentInstance.bookId = "GEN"
+    freshFixture.componentInstance.selectedChapter = 1
+    freshFixture.componentInstance.ngOnChanges({
+      bookId: new SimpleChange(null, "GEN", true),
+    })
+    const scrollSpy = spyOn(Element.prototype, "scrollIntoView")
+
+    freshFixture.detectChanges()
+    await freshFixture.whenStable()
+
+    expect(
+      (freshFixture.nativeElement as HTMLElement).querySelector(".highlight"),
+    ).toBeTruthy()
+    // Exactly once: ngAfterViewInit and ngOnChanges each schedule a deferred
+    // scroll, and scheduling both would scroll twice per open.
+    expect(scrollSpy).toHaveBeenCalledTimes(1)
+  })
+
   it("should render bookmark icon for bookmarked chapters", () => {
     const compiled = fixture.nativeElement as HTMLElement
     const icons = compiled.querySelectorAll(".bookmark-icon")

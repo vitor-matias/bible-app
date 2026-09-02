@@ -2,7 +2,10 @@
   <!-- Verse Number -->
   @if(data.number > 0 && getFirstTextType() !== 'quote'){
     @if(data.number > 1) {
-      {{ " " }}
+      <!-- The gap between two verses is part of the run so the highlight stroke
+           does not break in front of every verse number; .verseText keeps it the
+           same size as the text it separates. -->
+      <span class="verseText verseRun">{{ " " }}</span>
     }
     <span class="verseNumber">{{ data.number }}</span>
     @if(hasFootnotes){
@@ -31,23 +34,26 @@
             }
           </span>
         }
-        <span [attr.tabindex]="hasFootnotes ? 0 : null" [attr.role]="hasFootnotes ? 'button' : null" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="hasFootnotes" (click)="hasFootnotes ? toggleFootnotes($event) : null" (keydown.enter)="hasFootnotes ? toggleFootnotes($event) : null" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)">{{ text.text }}</span>
+        <span class="verseRun" [attr.tabindex]="hasFootnotes ? 0 : null" [attr.role]="hasFootnotes ? 'button' : null" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="hasFootnotes" (click)="hasFootnotes ? toggleFootnotes($event) : null" (keydown.enter)="hasFootnotes ? toggleFootnotes($event) : null" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)">{{ text.text }}</span>
       }
 
       <!-- References -->
       @if(text.type === "references"){
         <span class="references">
-          <span>{{ " " }}</span>
+          <!-- Part of the run for the same reason as the inter-verse gap above:
+               otherwise the highlight stroke breaks in front of every
+               references block. -->
+          <span class="verseRun">{{ " " }}</span>
           <span class="references-block">
             @for(part of parsedReferences.get(i); track $index){
               @if(typeof part === "object" && part.book !== data.bookId){
-                <a class="references"
+                <a class="references verseRun"
                   [routerLink]="['/', (part.book | lowercase ), part.chapter]"
                   [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)"
                   >{{part.match}}</a
                   >
                 } @else {
-                  <span class="references">{{typeof part === "object" ? part.match : part}}</span>
+                  <span class="references verseRun">{{typeof part === "object" ? part.match : part}}</span>
                 }
               }
             </span>
@@ -67,13 +73,13 @@
           @if (!isFirst && isLast && chapterNumberDisplayIndex !== i && !shouldShowParagraph(data, text, i)) {
             <span>
               <br>
-              <span #indentable [attr.data-index]="i" [class.indent]="indentStates[i] !== false">
+              <span #indentable class="verseRun" [attr.data-index]="i" [class.indent]="indentStates[i] !== false">
                 {{ text.text }}
               </span>
             </span>
           }
           @if (shouldShowParagraph(data, text, i)) {
-            <span #indentable [attr.data-index]="i" [class.indent]="indentStates[i] !== false">
+            <span #indentable class="verseRun" [attr.data-index]="i" [class.indent]="indentStates[i] !== false">
               {{ text.text }}
             </span>
           }
@@ -94,7 +100,7 @@
           @if (text.tag === 's2') {
             <verse-section
               [data]="getDataForSection(i)"
-              [nextIsQuote]="checkNextIsQuote(i)"
+              [nextIsQuote]="nextIsQuoteStates[i]"
               [nextIsParagraph]="checkNextIsParagraph(i)"
               [changeLine]="chapterNumberDisplayIndex !== i && data.text[i-1]?.type !== 'section' && data.text[i-1]?.type !== 'references'">
             </verse-section>
@@ -120,7 +126,7 @@
             @for (element of group.elements; track element.originalIndex) {
               <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === data.text.length - 1, isQuote: element.data.type === 'quote' }"></ng-container>
             }
-          </span>{{ " " }}
+          </span><span class="verseRun">{{ " " }}</span>
       </span>
     }
   }

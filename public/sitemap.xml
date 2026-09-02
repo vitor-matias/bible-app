@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fallback sitemap so robots.txt never points at a 404. Copied into the build
+     output like any other public/ asset, then overwritten there (never here) by
+     scripts/generate-sitemap.mjs whenever the build prerendered any pages. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://biblia.capuchinhos.org/</loc></url>
+</urlset>

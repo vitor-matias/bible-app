@@ -1,12 +1,15 @@
+import { isPlatformBrowser } from "@angular/common"
 import {
   Directive,
   ElementRef,
   EventEmitter,
   HostListener,
   Input,
+  inject,
   OnChanges,
   OnDestroy,
   Output,
+  PLATFORM_ID,
   Renderer2,
   SimpleChanges,
 } from "@angular/core"
@@ -52,7 +55,9 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   private alignmentTimeout?: number
   private mutationObserver?: MutationObserver
   private spacer?: HTMLElement
+  private layoutFrame?: number
   private _stayAtEnd = false
+  private readonly platformId = inject(PLATFORM_ID)
 
   constructor(
     private containerRef: ElementRef<HTMLElement>,
@@ -64,20 +69,39 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes["viewMode"]) {
-      if (this.viewMode === "paged") {
-        this.ensureAlignedScrollWidth()
-        this.snapToNearestPage()
-      } else {
-        this.removeSpacer()
-      }
+    if (!changes["viewMode"]) return
+
+    if (this.viewMode !== "paged") {
+      this.removeSpacer()
       this.onScroll()
+      return
     }
+
+    // The columns come from a class Angular writes on the inner block *after*
+    // this hook runs, so measuring now sees a single-column block: scrollWidth
+    // equals clientWidth, which reads as "last page" and hides the next-page
+    // control. Measure once that layout is actually in the DOM.
+    this.afterLayout(() => {
+      this.ensureAlignedScrollWidth()
+      this.snapToNearestPage()
+      this.onScroll()
+    })
+  }
+
+  /** Runs `fn` after Angular has written the pending DOM changes. */
+  private afterLayout(fn: () => void): void {
+    if (!isPlatformBrowser(this.platformId)) return
+    if (this.layoutFrame !== undefined) cancelAnimationFrame(this.layoutFrame)
+    this.layoutFrame = requestAnimationFrame(() => {
+      this.layoutFrame = undefined
+      fn()
+    })
   }
 
   ngOnDestroy(): void {
     clearTimeout(this.resizeTimeout)
     clearTimeout(this.alignmentTimeout)
+    if (this.layoutFrame !== undefined) cancelAnimationFrame(this.layoutFrame)
     this.mutationObserver?.disconnect()
     this.removeSpacer()
   }
@@ -154,6 +178,48 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     }
   }
 
+  /**
+   * Brings the page holding `element` into view. Paged mode moves in whole-page
+   * steps, so scrollIntoView's minimal adjustment would leave the reader on a
+   * seam between two pages with the columns cut in half.
+   */
+  scrollToPage(
+    element: HTMLElement,
+    behavior: ScrollBehavior = "smooth",
+  ): void {
+    if (this.viewMode !== "paged") return
+    const block = this.bookBlock
+    if (!this.container || !block) return
+
+    this._stayAtEnd = false
+    this.ensureAlignedScrollWidth()
+
+    const advanceWidth = this.getAdvanceWidth(block)
+    if (advanceWidth <= 0) return
+
+    // A verse is an inline box: its first fragment is where it starts, which is
+    // the page the reader asked for even when the verse runs over the break.
+    const rect = element.getClientRects()[0] ?? element.getBoundingClientRect()
+    const offset =
+      rect.left -
+      this.container.getBoundingClientRect().left +
+      this.container.scrollLeft
+
+    const pageIndex = Math.max(
+      0,
+      Math.floor((offset + SCROLL_THRESHOLD) / advanceWidth),
+    )
+    const maxScroll = Math.max(
+      0,
+      this.container.scrollWidth - this.container.clientWidth,
+    )
+
+    this.container.scrollTo({
+      left: Math.min(pageIndex * advanceWidth, maxScroll),
+      behavior,
+    })
+  }
+
   scrollToEnd(): void {
     this._stayAtEnd = true
     this.snapToEnd()
@@ -202,6 +268,15 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
    * extend the scrollable area to the next aligned boundary.
    */
   ensureAlignedScrollWidth(): void {
+    this.alignScrollWidth()
+    // Content that arrives after the first measurement (a lazily loaded
+    // introduction, late fonts) changes how many pages there are. Without this
+    // the stale "last page" state hides the next control, and with overflow-x
+    // hidden the reader is then stuck on the first page.
+    this.onScroll()
+  }
+
+  private alignScrollWidth(): void {
     this.removeSpacer()
 
     const block = this._bookBlock
@@ -243,6 +318,8 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
    * Automatically recalculates aligning boundaries to prevent clipping text.
    */
   private observeContentChanges(): void {
+    // Layout observation is browser-only; the server DOM has no observers.
+    if (!isPlatformBrowser(this.platformId)) return
     this.mutationObserver?.disconnect()
     const block = this._bookBlock
     if (!block) return

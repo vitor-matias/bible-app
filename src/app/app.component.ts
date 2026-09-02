@@ -14,6 +14,8 @@ import { injectSpeedInsights } from "@vercel/speed-insights"
 import { appConfig } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
 import { OfflineDataService } from "./services/offline-data.service"
+import { OnboardingService } from "./services/onboarding.service"
+import { PwaInstallService } from "./services/pwa-install.service"
 import { ThemeService } from "./services/theme.service"
 import { APP_PLUGIN } from "./tokens"
 
@@ -38,7 +40,10 @@ export class AppComponent implements OnInit, OnDestroy {
     private router: Router,
     private ngZone: NgZone,
     private analyticsService: AnalyticsService,
+    private onboardingService: OnboardingService,
     _themeService: ThemeService,
+    // Injected early so it captures `beforeinstallprompt`, which fires once.
+    _pwaInstallService: PwaInstallService,
     @Inject(APP_PLUGIN) private appPlugin: typeof App,
   ) {
     injectSpeedInsights()
@@ -56,6 +61,7 @@ export class AppComponent implements OnInit, OnDestroy {
     void this.trackAppOpenEvent()
     this.handleShareTarget()
     this.setupAppLinks()
+    this.onboardingService.showOnFirstLaunch()
   }
 
   private trackAppOpenEvent(): void {
@@ -99,8 +105,9 @@ export class AppComponent implements OnInit, OnDestroy {
     const params = new URLSearchParams(window.location.search)
     const sharedUrl = params.get("url")
     const sharedText = params.get("text")
+    const sharedTitle = params.get("title")
 
-    if (!sharedUrl && !sharedText) return
+    if (!sharedUrl && !sharedText && !sharedTitle) return
 
     // Try to navigate directly if the shared URL is an internal link.
     if (sharedUrl) {
@@ -118,8 +125,13 @@ export class AppComponent implements OnInit, OnDestroy {
       }
     }
 
-    // Fall back: open search with the shared text or URL as the query.
-    const query = sharedText ?? sharedUrl ?? ""
+    // Fall back: open search with the shared text, URL or title as the query.
+    // First non-empty, not first non-null: a share sheet that sends
+    // "?text=&title=Salmo 23" gives an empty string, and ?? would keep it.
+    const query =
+      [sharedText, sharedUrl, sharedTitle].find(
+        (value) => !!value && value.trim().length > 0,
+      ) ?? ""
     if (query) {
       this.router.navigate(["/search"], { queryParams: { q: query } })
     }

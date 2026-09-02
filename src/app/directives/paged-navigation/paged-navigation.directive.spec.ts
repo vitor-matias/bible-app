@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  PLATFORM_ID,
   ViewChild,
 } from "@angular/core"
 import {
@@ -28,6 +29,7 @@ import {
     >
       <div
         #block
+        [class.paged-view]="viewMode === 'paged'"
         style="width: 300px; column-gap: 10px; padding-left: 5px; padding-right: 5px;"
       >
         Content
@@ -84,6 +86,59 @@ describe("PagedNavigationDirective", () => {
 
   it("should create", () => {
     expect(hostComponent.directive).toBeTruthy()
+  })
+
+  describe("switching into paged mode", () => {
+    it("measures after the class that creates the columns is applied", fakeAsync(() => {
+      // Angular writes the column class on the inner block *after* this
+      // directive's ngOnChanges, so a synchronous measurement sees a
+      // single-column block, reports "last page" and leaves the reader without
+      // a next-page control — the whole introduction stuck on page one.
+      hostComponent.viewMode = "scrolling"
+      fixture.detectChanges()
+      tick(16)
+      // Seed the state the stale measurement would leave behind.
+      hostComponent.pageState = { isFirstPage: true, isLastPage: true }
+
+      const block = hostComponent.block.nativeElement
+      spyOnProperty(container, "scrollLeft").and.returnValue(0)
+      spyOnProperty(container, "clientWidth").and.returnValue(400)
+      spyOnProperty(container, "scrollWidth").and.callFake(() =>
+        block.classList.contains("paged-view") ? 1200 : 400,
+      )
+
+      hostComponent.viewMode = "paged"
+      fixture.detectChanges()
+      tick(16)
+
+      expect(hostComponent.pageState).toEqual({
+        isFirstPage: true,
+        isLastPage: false,
+      })
+    }))
+  })
+
+  describe("late-arriving content", () => {
+    it("re-emits the page state when the block grows", () => {
+      // Content measured while still one page wide reports "last page"; a
+      // lazily loaded introduction then leaves the reader with no next
+      // control and overflow-x hidden, i.e. stuck on page one.
+      hostComponent.pageState = { isFirstPage: true, isLastPage: true }
+
+      spyOnProperty(container, "scrollLeft").and.returnValue(0)
+      spyOnProperty(container, "scrollWidth").and.returnValue(1200)
+      spyOnProperty(container, "clientWidth").and.returnValue(400)
+
+      // The directive observes the block for content changes.
+      // Every layout change (the MutationObserver on late content, a chapter
+      // transition) funnels through this call.
+      hostComponent.directive.ensureAlignedScrollWidth()
+
+      expect(hostComponent.pageState).toEqual({
+        isFirstPage: true,
+        isLastPage: false,
+      })
+    })
   })
 
   describe("onScroll", () => {
@@ -243,6 +298,102 @@ describe("PagedNavigationDirective", () => {
 
       expect(container.scrollTo).not.toHaveBeenCalled()
       expect(hostComponent.prevChapterCalled).toBeTrue()
+    })
+  })
+
+  // The bookBlock setter observes content changes as soon as it is bound, and
+  // the server DOM has no MutationObserver — binding it there used to throw
+  // once per prerendered route.
+  describe("server rendering", () => {
+    it("should not observe content changes and should render without throwing", async () => {
+      TestBed.resetTestingModule()
+      await TestBed.configureTestingModule({
+        imports: [TestHostComponent],
+        providers: [{ provide: PLATFORM_ID, useValue: "server" }],
+      }).compileComponents()
+
+      const observerSpy = spyOn(window, "MutationObserver").and.callThrough()
+      const serverFixture = TestBed.createComponent(TestHostComponent)
+
+      expect(() => serverFixture.detectChanges()).not.toThrow()
+      expect(observerSpy).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("scrollToPage", () => {
+    /** Puts the directive on a 100px page grid, as the nextPage specs do. */
+    function stubPageGrid(): void {
+      spyOnProperty(container, "scrollWidth").and.returnValue(500)
+      spyOnProperty(container, "clientWidth").and.returnValue(100)
+      spyOnProperty(
+        hostComponent.block.nativeElement,
+        "clientWidth",
+      ).and.returnValue(100)
+      spyOn(window, "getComputedStyle").and.returnValue({
+        columnGap: "10px",
+        paddingLeft: "5px",
+        paddingRight: "5px",
+      } as unknown as CSSStyleDeclaration)
+    }
+
+    /** An element whose first fragment sits `left` px into the scroller. */
+    function elementAt(left: number): HTMLElement {
+      const element = document.createElement("span")
+      const rect = { left, right: left, top: 0, bottom: 0 } as DOMRect
+      spyOn(element, "getClientRects").and.returnValue([
+        rect,
+      ] as unknown as DOMRectList)
+      return element
+    }
+
+    it("should scroll to the start of the page holding the element, not to the element itself", () => {
+      stubPageGrid()
+      spyOnProperty(container, "scrollLeft").and.returnValue(0)
+
+      // The verse starts 250px in, which is a third of the way into page 2.
+      hostComponent.directive.scrollToPage(elementAt(250))
+
+      // @ts-expect-error TS complains about 1 argument for scrollTo overload
+      expect(container.scrollTo).toHaveBeenCalledWith({
+        left: 200,
+        behavior: "smooth",
+      })
+    })
+
+    it("should measure from the content, not the viewport, when already scrolled", () => {
+      stubPageGrid()
+      spyOnProperty(container, "scrollLeft").and.returnValue(300)
+
+      // 120px along the viewport with 300 already scrolled away is page 4.
+      hostComponent.directive.scrollToPage(elementAt(120))
+
+      // @ts-expect-error TS complains about 1 argument for scrollTo overload
+      expect(container.scrollTo).toHaveBeenCalledWith({
+        left: 400,
+        behavior: "smooth",
+      })
+    })
+
+    it("should not scroll past the end of the content", () => {
+      stubPageGrid()
+      spyOnProperty(container, "scrollLeft").and.returnValue(0)
+
+      hostComponent.directive.scrollToPage(elementAt(4000))
+
+      // @ts-expect-error TS complains about 1 argument for scrollTo overload
+      expect(container.scrollTo).toHaveBeenCalledWith({
+        left: 400,
+        behavior: "smooth",
+      })
+    })
+
+    it("should do nothing in scrolling mode", () => {
+      hostComponent.viewMode = "scrolling"
+      fixture.detectChanges()
+
+      hostComponent.directive.scrollToPage(elementAt(250))
+
+      expect(container.scrollTo).not.toHaveBeenCalled()
     })
   })
 
