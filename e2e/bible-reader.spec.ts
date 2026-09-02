@@ -37,6 +37,13 @@ async function openReader(page: Page) {
   )
 }
 
+// Every test starts with a fresh browser context, which the app treats as a
+// first launch and greets with the onboarding wizard. Mark it as seen so the
+// dialog does not cover the reader; the "Onboarding" suite opts back in.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("onboardingSeen", "true"))
+})
+
 test.describe("Initial load", () => {
   test("redirects to a book/chapter URL", async ({ page }) => {
     await page.goto("/")
@@ -316,5 +323,49 @@ test.describe("Keyboard accessibility", () => {
     await expect(page.locator("footnotes-bottom-sheet")).toBeVisible({
       timeout: 5_000,
     })
+  })
+})
+
+test.describe("Onboarding", () => {
+  test("greets a first-time visitor and remembers being dismissed", async ({
+    page,
+  }) => {
+    // Init scripts run in order, so this undoes the global opt-out.
+    await page.addInitScript(() => localStorage.removeItem("onboardingSeen"))
+    await page.goto("/jo/1")
+
+    const wizard = page.locator("onboarding")
+    await expect(wizard).toBeVisible({ timeout: 15_000 })
+    await expect(wizard).toContainText("Bem-vindo")
+
+    await wizard.getByRole("button", { name: "Seguinte" }).click()
+    await expect(wizard).toContainText("Passo 2")
+
+    await wizard.getByRole("button", { name: "Fechar" }).click()
+    await expect(wizard).toHaveCount(0)
+    expect(
+      await page.evaluate(() => localStorage.getItem("onboardingSeen")),
+    ).toBe("true")
+  })
+
+  test("can be reopened from the header menu and ends on install instructions", async ({
+    page,
+  }) => {
+    await page.goto("/jo/1")
+    await page.locator("verse").first().waitFor({ timeout: 15_000 })
+
+    await page.locator(".menuButton").click()
+    await page.getByRole("menuitem", { name: "Como usar a app" }).click()
+
+    const wizard = page.locator("onboarding")
+    await expect(wizard).toBeVisible({ timeout: 5_000 })
+
+    // Jump to the last step via its dot.
+    await wizard.locator(".dot").last().click()
+    await expect(wizard).toContainText("Instalar a aplicação")
+    await expect(wizard.locator(".platforms button")).toHaveCount(3)
+
+    await wizard.getByRole("button", { name: "Começar a ler" }).click()
+    await expect(wizard).toHaveCount(0)
   })
 })

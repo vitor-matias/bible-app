@@ -16,6 +16,7 @@ import { BehaviorSubject, of } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { NetworkService } from "../../services/network.service"
+import { OnboardingService } from "../../services/onboarding.service"
 import { ThemeService } from "../../services/theme.service"
 import { SHARE_PLUGIN } from "../../tokens"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
@@ -31,6 +32,7 @@ describe("HeaderComponent", () => {
   let bottomSheetSpy: jasmine.SpyObj<MatBottomSheet>
   let dialogSpy: jasmine.SpyObj<MatDialog>
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
+  let onboardingServiceSpy: jasmine.SpyObj<OnboardingService>
   let isOfflineSubject: BehaviorSubject<boolean>
   let mockSharePlugin: jasmine.SpyObj<typeof Share>
   let originalShare: typeof navigator.share
@@ -58,6 +60,7 @@ describe("HeaderComponent", () => {
     ])
     analyticsServiceSpy.track.and.returnValue(Promise.resolve())
     analyticsServiceSpy.areAnalyticsAvailable.and.returnValue(true)
+    onboardingServiceSpy = jasmine.createSpyObj("OnboardingService", ["open"])
     originalShare = navigator.share
 
     await TestBed.configureTestingModule({
@@ -71,6 +74,7 @@ describe("HeaderComponent", () => {
         { provide: MatDialog, useValue: dialogSpy },
         { provide: SHARE_PLUGIN, useValue: mockSharePlugin },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
+        { provide: OnboardingService, useValue: onboardingServiceSpy },
       ],
     }).compileComponents()
 
@@ -202,6 +206,15 @@ describe("HeaderComponent", () => {
 
     expect(trigger.closeMenu).toHaveBeenCalled()
     expect(dialogSpy.open).not.toHaveBeenCalled()
+  })
+
+  it("should open the onboarding wizard from the menu", () => {
+    const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
+
+    component.onOpenHelp(trigger)
+
+    expect(trigger.closeMenu).toHaveBeenCalled()
+    expect(onboardingServiceSpy.open).toHaveBeenCalledWith("menu")
   })
 
   it("should share using Capacitor Share on native platforms", async () => {

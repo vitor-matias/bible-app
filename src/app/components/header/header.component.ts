@@ -33,6 +33,7 @@ import type { Share } from "@capacitor/share"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { NetworkService } from "../../services/network.service"
+import { OnboardingService } from "../../services/onboarding.service"
 import { ThemeService } from "../../services/theme.service"
 import { SHARE_PLUGIN } from "../../tokens"
 
@@ -113,6 +114,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     private readonly cdr: ChangeDetectorRef,
     private readonly networkService: NetworkService,
     public readonly analyticsService: AnalyticsService,
+    private readonly onboardingService: OnboardingService,
     @Inject(SHARE_PLUGIN) private sharePlugin: typeof Share,
   ) {}
 
@@ -205,6 +207,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       width: "90%",
       maxWidth: "500px",
     })
+  }
+
+  onOpenHelp(trigger: MatMenuTrigger) {
+    trigger.closeMenu()
+    this.onboardingService.open("menu")
   }
 
   ngOnDestroy(): void {

@@ -6,6 +6,7 @@ import { Capacitor, type PluginListenerHandle } from "@capacitor/core"
 import { AppComponent } from "./app.component"
 import { AnalyticsService } from "./services/analytics.service"
 import { OfflineDataService } from "./services/offline-data.service"
+import { OnboardingService } from "./services/onboarding.service"
 import { APP_PLUGIN } from "./tokens"
 
 describe("AppComponent", () => {
@@ -13,6 +14,7 @@ describe("AppComponent", () => {
   let ngZone: NgZone
   // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
   let mockAppPlugin: jasmine.SpyObj<any>
+  let onboardingSpy: jasmine.SpyObj<OnboardingService>
 
   beforeEach(async () => {
     routerSpy = jasmine.createSpyObj("Router", ["navigateByUrl", "navigate"])
@@ -23,6 +25,9 @@ describe("AppComponent", () => {
     ])
     const analyticsSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
     analyticsSpy.track.and.returnValue(Promise.resolve())
+    onboardingSpy = jasmine.createSpyObj("OnboardingService", [
+      "showOnFirstLaunch",
+    ])
 
     await TestBed.configureTestingModule({
       imports: [AppComponent],
@@ -31,6 +36,7 @@ describe("AppComponent", () => {
         { provide: OfflineDataService, useValue: offlineDataSpy },
         { provide: AnalyticsService, useValue: analyticsSpy },
         { provide: APP_PLUGIN, useValue: mockAppPlugin },
+        { provide: OnboardingService, useValue: onboardingSpy },
       ],
     }).compileComponents()
 
@@ -97,6 +103,17 @@ describe("AppComponent", () => {
     } finally {
       history.replaceState(null, "", originalUrl)
     }
+  })
+
+  it("should offer the onboarding wizard on first launch", () => {
+    mockAppPlugin.addListener.and.resolveTo({
+      remove: async () => {},
+    } as unknown as PluginListenerHandle)
+
+    const fixture = TestBed.createComponent(AppComponent)
+    fixture.detectChanges()
+
+    expect(onboardingSpy.showOnFirstLaunch).toHaveBeenCalled()
   })
 
   it("should setup app links listener on native platform", () => {

@@ -1,0 +1,85 @@
+<div class="hero">
+  <mat-icon class="hero-icon" aria-hidden="true">{{ step.icon }}</mat-icon>
+  <span class="step-count" aria-live="polite">Passo {{ index + 1 }} de {{ steps.length }}</span>
+  <button type="button" mat-icon-button class="close" aria-label="Fechar" (click)="skip()">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+@for (s of steps; track s.id; let i = $index) {
+  @if (i === index) {
+  <section class="body">
+    <h2 id="onboarding-title" class="title">{{ s.title }}</h2>
+    <p class="intro">{{ s.intro }}</p>
+
+    @if (s.features.length) {
+    <ul class="features">
+      @for (feature of s.features; track feature.text) {
+      <li>
+        <mat-icon aria-hidden="true">{{ feature.icon }}</mat-icon>
+        <span>{{ feature.text }}</span>
+      </li>
+      }
+    </ul>
+    }
+
+    @if (s.id === installStepId) {
+    <div class="platforms" role="group" aria-label="Dispositivo">
+      @for (option of platforms; track option.id) {
+      <button type="button" [attr.aria-pressed]="option.id === platform" (click)="selectPlatform(option.id)">
+        <mat-icon aria-hidden="true">{{ option.icon }}</mat-icon>
+        <span>{{ option.label }}</span>
+      </button>
+      }
+    </div>
+
+    @if (installOutcome === 'accepted') {
+    <p class="install-done">
+      <mat-icon aria-hidden="true">check_circle</mat-icon>
+      <span>A aplicação foi instalada. Procure o ícone «Bíblia Sagrada» no seu dispositivo.</span>
+    </p>
+    } @else {
+      @if (canPromptInstall) {
+      <button type="button" mat-flat-button class="install-now" [disabled]="installing" (click)="installNow()">
+        <mat-icon>download</mat-icon>
+        Instalar agora
+      </button>
+      <p class="hint">Ou siga estes passos:</p>
+      }
+      <ol class="guide">
+        @for (guideStep of guide.steps; track guideStep.text) {
+        <li>
+          <mat-icon aria-hidden="true">{{ guideStep.icon }}</mat-icon>
+          <span>{{ guideStep.text }}</span>
+        </li>
+        }
+      </ol>
+      @if (guide.note) {
+      <p class="note">{{ guide.note }}</p>
+      }
+    }
+    }
+  </section>
+  }
+}
+
+<footer class="actions">
+  <div class="dots" role="group" aria-label="Passos">
+    @for (s of steps; track s.id; let i = $index) {
+    <button type="button" class="dot" [class.active]="i === index" [attr.aria-current]="i === index ? 'step' : null"
+      [attr.aria-label]="'Ir para o passo ' + (i + 1)" (click)="goTo(i)"></button>
+    }
+  </div>
+  <div class="buttons">
+    @if (isFirst) {
+    <button type="button" mat-button (click)="skip()">Saltar</button>
+    } @else {
+    <button type="button" mat-button (click)="back()">Anterior</button>
+    }
+    @if (isLast) {
+    <button type="button" mat-flat-button (click)="finish()">Começar a ler</button>
+    } @else {
+    <button type="button" mat-flat-button (click)="next()">Seguinte</button>
+    }
+  </div>
+</footer>
