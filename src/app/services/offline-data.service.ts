@@ -51,18 +51,22 @@ export class OfflineDataService {
     // launch and re-download the whole Bible each time. IndexedDB holds the
     // books themselves and is the same question one layer down, so fall back
     // to that.
-    // The intros flag is checked separately from the books flag: a launch
-    // where books cached fine but /intros had a transient failure must keep
-    // retrying the introductions on every later launch instead of going
-    // quiet for the rest of the 40-day window just because books succeeded.
-    const isAlreadyCached =
+    // Books and introductions are gated independently: a launch where books
+    // cached fine but /intros had a transient failure must only retry the
+    // (small) introductions fetch, never force a redownload of the entire
+    // multi-megabyte books payload just because the flags aren't both set.
+    const booksAlreadyCached =
       migrated &&
       (storage
-        ? storage.getItem(this.cacheFlagKey) === "true" &&
-          storage.getItem(this.groupIntrosCacheFlagKey) === "true"
+        ? storage.getItem(this.cacheFlagKey) === "true"
+        : (await this.getCachedBooksAsync()).length > 0)
+    const introsAlreadyCached =
+      migrated &&
+      (storage
+        ? storage.getItem(this.groupIntrosCacheFlagKey) === "true"
         : (await this.getCachedBooksAsync()).length > 0)
     const isExpired = this.isCacheExpired()
-    if (isAlreadyCached && !isExpired) {
+    if (booksAlreadyCached && introsAlreadyCached && !isExpired) {
       return
     }
     if (isExpired && this.networkService.isOffline) {
@@ -71,21 +75,26 @@ export class OfflineDataService {
       return
     }
 
-    try {
-      const books = await firstValueFrom(
-        this.http.get<Book[]>(`${this.apiBase}/books?withChapters=true`),
-      )
-      await this.setCachedBooks(books)
-      this.trackBooksCachedEvent(source)
-      // Standalone introductions are optional and fetched separately from
-      // the books above, but a /*/intro page the user never visited while
-      // online must still work offline — so cache them on the same refresh
-      // cycle. preloadGroupIntros fails closed on its own (logs, does not
-      // throw), so a bad /intros response never masks a successful books
-      // preload as failed.
+    if (!booksAlreadyCached || isExpired) {
+      try {
+        const books = await firstValueFrom(
+          this.http.get<Book[]>(`${this.apiBase}/books?withChapters=true`),
+        )
+        await this.setCachedBooks(books)
+        this.trackBooksCachedEvent(source)
+      } catch (error) {
+        console.error("Failed to preload books for offline use", error)
+      }
+    }
+
+    // Standalone introductions are optional and fetched separately from the
+    // books above, but a /*/intro page the user never visited while online
+    // must still work offline — so cache them on the same refresh cycle,
+    // independently of whether the books fetch above succeeded.
+    // preloadGroupIntros fails closed on its own (logs, does not throw), so
+    // a bad /intros response never masks a successful books preload.
+    if (!introsAlreadyCached || isExpired) {
       await this.preloadGroupIntros()
-    } catch (error) {
-      console.error("Failed to preload books for offline use", error)
     }
   }
 

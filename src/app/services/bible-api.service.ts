@@ -120,9 +120,14 @@ export class BibleApiService {
   getAvailableBooks(): Observable<Book[]> {
     return from(this.offlineDataService.getCachedBooksAsync()).pipe(
       switchMap((cachedBooks) => {
-        if (cachedBooks.length) {
-          this.books = cachedBooks
-          return of(cachedBooks)
+        // Group-intro pseudo-books (introSlug set) are cache bookkeeping for
+        // offline getIntro() lookups, not real navigable books — BookService
+        // builds its own synthetic entries from getIntros(), so leaking
+        // these through here would duplicate every standalone introduction.
+        const realBooks = cachedBooks.filter((book) => !book.introSlug)
+        if (realBooks.length) {
+          this.books = realBooks
+          return of(realBooks)
         }
         if (this.books.length) {
           return of(this.books)

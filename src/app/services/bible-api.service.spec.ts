@@ -250,6 +250,57 @@ describe("BibleApiService", () => {
       httpMock.expectNone("v1/books")
     })
 
+    it("should exclude cached group-intro pseudo-books from the available books", async () => {
+      const realBook = {
+        id: "gen",
+        name: "Genesis",
+        shortName: "Genesis",
+        abrv: "Gn",
+        chapterCount: 50,
+      } as Book
+      const introBook = {
+        id: "pentateuco",
+        name: "Pentateuco",
+        shortName: "Pentateuco",
+        abrv: "pentateuco",
+        chapterCount: 0,
+        introSlug: "pentateuco",
+        introduction: [],
+      } as Book
+      offlineDataServiceSpy.getCachedBooksAsync.and.returnValue(
+        Promise.resolve([realBook, introBook]),
+      )
+
+      const result = await firstValueFrom(service.getAvailableBooks())
+
+      // BookService builds its own synthetic entry for every standalone
+      // introduction from getIntros() — leaking the cached pseudo-book
+      // through here would duplicate it.
+      expect(result).toEqual([realBook])
+      httpMock.expectNone("v1/books")
+    })
+
+    it("should throw when offline and only group-intro pseudo-books are cached", async () => {
+      const introBook = {
+        id: "pentateuco",
+        name: "Pentateuco",
+        shortName: "Pentateuco",
+        abrv: "pentateuco",
+        chapterCount: 0,
+        introSlug: "pentateuco",
+        introduction: [],
+      } as Book
+      offlineDataServiceSpy.getCachedBooksAsync.and.returnValue(
+        Promise.resolve([introBook]),
+      )
+      networkServiceStub.isOffline = true
+
+      await expectAsync(
+        firstValueFrom(service.getAvailableBooks()),
+      ).toBeRejectedWithError("Offline and no cached books available")
+      httpMock.expectNone("v1/books")
+    })
+
     it("should fetch books from the server and cache them in memory", async () => {
       const remoteBooks = [
         {

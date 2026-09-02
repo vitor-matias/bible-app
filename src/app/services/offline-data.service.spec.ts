@@ -170,20 +170,20 @@ describe("OfflineDataService", () => {
       httpMock.expectNone("v1/intros")
     })
 
-    it("should still fetch when books are cached but introductions never finished caching", async () => {
+    it("retries only the introductions, not the whole books payload, when books are cached but introductions never finished caching", async () => {
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
       // groupIntrosCacheReady deliberately left unset, as if a previous
       // launch cached the books but /intros failed partway through.
 
       const promise = service.preloadAllBooksAndChapters()
-      await flushMicrotasks()
-
-      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
       await flushIntros()
 
       await promise
 
+      // The multi-megabyte books payload must not be re-downloaded just
+      // because the (much smaller) introductions never finished caching.
+      httpMock.expectNone("v1/books?withChapters=true")
       expect(mockLocalStorage._storage["groupIntrosCacheReady"]).toBe("true")
     })
 
@@ -268,7 +268,7 @@ describe("OfflineDataService", () => {
       httpMock.expectNone("v1/intros")
     })
 
-    it("should handle preload errors gracefully and never request intros", async () => {
+    it("should handle preload errors gracefully and still cache introductions independently", async () => {
       spyOn(console, "error")
 
       const promise = service.preloadAllBooksAndChapters()
@@ -277,6 +277,18 @@ describe("OfflineDataService", () => {
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       req.error(new ProgressEvent("error"))
+      // A books failure must not block the (independent) introductions
+      // fetch — the two are unrelated resources on the same refresh cycle.
+      await flushMacrotask()
+      httpMock
+        .expectOne("v1/intros")
+        .flush([{ slug: "pentateuco", name: "PENTATEUCO" }])
+      await flushMacrotask()
+      httpMock.expectOne("v1/intros/pentateuco").flush({
+        slug: "pentateuco",
+        name: "PENTATEUCO",
+        introduction: [{ type: "introTitle", level: 1, text: "Pentateuco" }],
+      })
 
       await promise
 
@@ -284,9 +296,10 @@ describe("OfflineDataService", () => {
         "Failed to preload books for offline use",
         jasmine.any(Object),
       )
-      // A books failure skips the introductions fetch entirely — no point
-      // asking for intros when there is nothing to attach them to yet.
-      httpMock.expectNone("v1/intros")
+      // The books fetch failing left nothing cached for "gen"...
+      expect(service.getCachedBook("gen")).toBeUndefined()
+      // ...but the introduction, an unrelated resource, is cached anyway.
+      expect(service.getCachedBook("pentateuco")?.introSlug).toBe("pentateuco")
     })
 
     it("should call AnalyticsService.track when source is install", async () => {
