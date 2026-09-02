@@ -212,18 +212,40 @@ export class BibleApiService {
 
   /** Listing of the standalone introductions (whole Bible, testaments, groups). */
   getIntros(): Observable<IntroSummary[]> {
-    return (
-      this.http.get(`${this.api}/intros`) as Observable<IntroSummary[]>
-    ).pipe(serverRetry())
+    return from(
+      this.offlineDataService.getCachedGroupIntroSummariesAsync(),
+    ).pipe(
+      switchMap((cached) => {
+        if (cached.length) return of(cached)
+        if (this.networkService.isOffline) {
+          return throwError(
+            () => new Error("Offline and no cached introductions available"),
+          )
+        }
+        return (
+          this.http.get(`${this.api}/intros`) as Observable<IntroSummary[]>
+        ).pipe(serverRetry())
+      }),
+    )
   }
 
   /** One standalone introduction, including its body. */
   getIntro(slug: string): Observable<GroupIntro> {
-    return (
-      this.http.get(
-        `${this.api}/intros/${encodeURIComponent(slug)}`,
-      ) as Observable<GroupIntro>
-    ).pipe(serverRetry())
+    return from(this.offlineDataService.getCachedGroupIntroAsync(slug)).pipe(
+      switchMap((cached) => {
+        if (cached) return of(cached)
+        if (this.networkService.isOffline) {
+          return throwError(
+            () => new Error("Offline - introduction not cached"),
+          )
+        }
+        return (
+          this.http.get(
+            `${this.api}/intros/${encodeURIComponent(slug)}`,
+          ) as Observable<GroupIntro>
+        ).pipe(serverRetry())
+      }),
+    )
   }
 
   search(query: string, page = 1, limit = 50): Observable<VersePage> {

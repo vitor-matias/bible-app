@@ -12,6 +12,7 @@ import { NetworkService } from "./network.service"
 })
 export class OfflineDataService {
   private cacheFlagKey = "booksCacheReady"
+  private groupIntrosCacheFlagKey = "groupIntrosCacheReady"
   private cacheTimestampKey = "booksCacheTimestamp"
   private cacheSchemaKey = "booksCacheSchemaVersion"
   // Bump whenever the persisted Book/Chapter/Verse shape changes incompatibly
@@ -50,10 +51,15 @@ export class OfflineDataService {
     // launch and re-download the whole Bible each time. IndexedDB holds the
     // books themselves and is the same question one layer down, so fall back
     // to that.
+    // The intros flag is checked separately from the books flag: a launch
+    // where books cached fine but /intros had a transient failure must keep
+    // retrying the introductions on every later launch instead of going
+    // quiet for the rest of the 40-day window just because books succeeded.
     const isAlreadyCached =
       migrated &&
       (storage
-        ? storage.getItem(this.cacheFlagKey) === "true"
+        ? storage.getItem(this.cacheFlagKey) === "true" &&
+          storage.getItem(this.groupIntrosCacheFlagKey) === "true"
         : (await this.getCachedBooksAsync()).length > 0)
     const isExpired = this.isCacheExpired()
     if (isAlreadyCached && !isExpired) {
@@ -71,8 +77,72 @@ export class OfflineDataService {
       )
       await this.setCachedBooks(books)
       this.trackBooksCachedEvent(source)
+      // Standalone introductions are optional and fetched separately from
+      // the books above, but a /*/intro page the user never visited while
+      // online must still work offline — so cache them on the same refresh
+      // cycle. preloadGroupIntros fails closed on its own (logs, does not
+      // throw), so a bad /intros response never masks a successful books
+      // preload as failed.
+      await this.preloadGroupIntros()
     } catch (error) {
       console.error("Failed to preload books for offline use", error)
+    }
+  }
+
+  /**
+   * Fetches every standalone introduction (whole Bible, testaments, groups
+   * of books) and persists them as synthetic book records — id = slug, same
+   * shape BookService.toIntroBook() builds — so a /*\/intro page the user
+   * never visited while online still renders offline.
+   */
+  private async preloadGroupIntros(): Promise<void> {
+    try {
+      const summaries = await firstValueFrom(
+        this.http.get<IntroSummary[]>(`${this.apiBase}/intros`),
+      )
+      // allSettled, not all: one slug failing (a transient error, a bad
+      // record) must not throw away the other sixteen that fetched fine.
+      const results = await Promise.allSettled(
+        summaries.map((summary) =>
+          firstValueFrom(
+            this.http.get<GroupIntro>(
+              `${this.apiBase}/intros/${encodeURIComponent(summary.slug)}`,
+            ),
+          ),
+        ),
+      )
+      const fulfilled = results.filter(
+        (result): result is PromiseFulfilledResult<GroupIntro> =>
+          result.status === "fulfilled",
+      )
+      if (fulfilled.length) {
+        const introBooks: Book[] = fulfilled.map(({ value: intro }) => ({
+          id: intro.slug,
+          name: intro.name,
+          shortName: intro.name,
+          abrv: intro.slug,
+          chapterCount: 0,
+          introSlug: intro.slug,
+          introduction: intro.introduction,
+        }))
+        await this.setCachedBooks(introBooks)
+      }
+
+      const failedCount = results.length - fulfilled.length
+      if (failedCount > 0) {
+        console.error(
+          `Failed to preload ${failedCount} of ${results.length} standalone introductions for offline use`,
+        )
+      } else {
+        // Every introduction is cached — safe to skip the refetch until the
+        // shared 40-day expiry (or a schema migration) clears this flag.
+        safeLocalStorage()?.setItem(this.groupIntrosCacheFlagKey, "true")
+      }
+    } catch (error) {
+      console.error(
+        "Failed to preload group introductions for offline use",
+        error,
+      )
     }
   }
 
@@ -141,6 +211,27 @@ export class OfflineDataService {
   async getCachedBookAsync(bookId: Book["id"]): Promise<Book | undefined> {
     const books = await this.getCachedBooksAsync()
     return books.find((book) => book.id === bookId)
+  }
+
+  /** Cached listing of the standalone introductions, if any were preloaded. */
+  async getCachedGroupIntroSummariesAsync(): Promise<IntroSummary[]> {
+    const books = await this.getCachedBooksAsync()
+    return books
+      .filter((book) => !!book.introSlug)
+      .map((book) => ({ slug: book.introSlug as string, name: book.name }))
+  }
+
+  /** Cached body of one standalone introduction, if it was preloaded. */
+  async getCachedGroupIntroAsync(
+    slug: string,
+  ): Promise<GroupIntro | undefined> {
+    const book = await this.getCachedBookAsync(slug)
+    if (!book?.introSlug) return undefined
+    return {
+      slug: book.introSlug,
+      name: book.name,
+      introduction: book.introduction ?? [],
+    }
   }
 
   getCachedChapter(
@@ -297,6 +388,7 @@ export class OfflineDataService {
           await this.databaseService.clear("books")
           this.cachedBooks = null
           storage.removeItem(this.cacheFlagKey)
+          storage.removeItem(this.groupIntrosCacheFlagKey)
           storage.removeItem(this.cacheTimestampKey)
           // Only mark the schema current once the stale records are gone.
           storage.setItem(

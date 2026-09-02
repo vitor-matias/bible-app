@@ -57,6 +57,21 @@ describe("AppComponent", () => {
     expect(analyticsService.track).toHaveBeenCalledWith("app_open")
   })
 
+  it("should preload books for offline use on init", async () => {
+    mockAppPlugin.addListener.and.resolveTo({
+      remove: async () => {},
+    } as unknown as PluginListenerHandle)
+
+    const fixture = TestBed.createComponent(AppComponent)
+    fixture.detectChanges()
+    await fixture.whenStable()
+
+    const offlineDataService = TestBed.inject(OfflineDataService)
+    expect(offlineDataService.preloadAllBooksAndChapters).toHaveBeenCalledWith(
+      "standalone",
+    )
+  })
+
   it("should route a title-only share to search with q", async () => {
     mockAppPlugin.addListener.and.resolveTo({
       remove: async () => {},
