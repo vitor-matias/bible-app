@@ -11,6 +11,8 @@ export interface OnboardingFeature {
 export interface OnboardingStep {
   id: string
   icon: string
+  /** Shown in the hero instead of the icon, e.g. the app logo on the welcome step. */
+  image?: string
   title: string
   intro: string
   features: readonly OnboardingFeature[]
@@ -40,6 +42,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
   {
     id: "welcome",
     icon: "menu_book",
+    image: "icons/512X512_REDONDO.png",
     title: "Bem-vindo à Bíblia dos Capuchinhos",
     intro:
       "A Bíblia Sagrada da Difusora Bíblica, sempre consigo: no telemóvel, no tablet e no computador, mesmo sem ligação à internet.",

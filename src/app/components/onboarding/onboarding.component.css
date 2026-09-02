@@ -23,6 +23,13 @@
   font-variation-settings: "FILL" 1, "wght" 300, "opsz" 48;
 }
 
+.hero-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
 .step-count {
   font-size: 12px;
   letter-spacing: 0.08em;

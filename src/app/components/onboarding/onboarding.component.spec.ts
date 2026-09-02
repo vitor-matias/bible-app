@@ -90,6 +90,19 @@ describe("OnboardingComponent", () => {
     fixture.detectChanges()
   }
 
+  it("shows the app logo on the welcome step and an icon afterwards", () => {
+    create()
+
+    const logo = element.querySelector<HTMLImageElement>(".hero-logo")
+    expect(logo?.getAttribute("src")).toBe("icons/512X512_REDONDO.png")
+    expect(element.querySelector(".hero-icon")).toBeNull()
+
+    component.next()
+
+    expect(element.querySelector(".hero-logo")).toBeNull()
+    expect(textOf(".hero-icon")).toContain("explore")
+  })
+
   it("starts on the welcome step with one dot per step", () => {
     create()
 
