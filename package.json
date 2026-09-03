@@ -65,7 +65,7 @@
     "typescript": "~6.0.3"
   },
   "overrides": {
-    "@xmldom/xmldom": "^0.8.13",
+    "@xmldom/xmldom": "^0.8.15",
     "tar": "^7.5.11",
     "minimatch": "^3.1.5"
   }
