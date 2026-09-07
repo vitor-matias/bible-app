@@ -44,7 +44,13 @@ describe("OfflineDataService", () => {
               chapterNumber: 1,
               number: 1,
               verseLabel: "1",
-              text: [{ type: "text", text: "In the beginning..." }],
+              text: [
+                {
+                  type: "text",
+                  text: "In the beginning...",
+                  normalizedText: "In the beginning...",
+                },
+              ],
             },
           ],
         },
@@ -60,6 +66,22 @@ describe("OfflineDataService", () => {
   ]
 
   let databaseService: jasmine.SpyObj<DatabaseService>
+
+  const flushMicrotasks = async () => {
+    for (let i = 0; i < 5; i++) {
+      await Promise.resolve()
+    }
+  }
+
+  const flushMacrotask = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+  // The intros request is only issued after setCachedBooks(books) settles,
+  // a deeper chain than a plain flushMicrotasks() reliably covers — a
+  // macrotask flush drains everything in between instead of counting hops.
+  const flushIntros = async (summaries: IntroSummary[] = []) => {
+    await flushMacrotask()
+    httpMock.expectOne("v1/intros").flush(summaries)
+  }
 
   beforeEach(() => {
     // Mock localStorage
@@ -87,14 +109,18 @@ describe("OfflineDataService", () => {
     spyOnProperty(window, "localStorage", "get").and.returnValue(
       mockLocalStorage,
     )
+    // Persisted schema matches the current version, so no migration runs.
+    mockLocalStorage._storage["booksCacheSchemaVersion"] = "2"
 
     // Mock DatabaseService
     const spy = jasmine.createSpyObj("DatabaseService", [
       "getAll",
       "clearAndPutAll",
+      "clear",
     ])
     spy.getAll.and.returnValue(Promise.resolve([]))
     spy.clearAndPutAll.and.returnValue(Promise.resolve())
+    spy.clear.and.returnValue(Promise.resolve())
 
     // Mock NetworkService
     const networkSpy = jasmine.createSpyObj("NetworkService", [], {
@@ -135,20 +161,93 @@ describe("OfflineDataService", () => {
   describe("preloadAllBooksAndChapters", () => {
     it("should skip preload if cache is already valid", async () => {
       mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
 
       await service.preloadAllBooksAndChapters()
 
       httpMock.expectNone("v1/books?withChapters=true")
-      expect(true).toBe(true) // Silence 'no expectations' warning
+      httpMock.expectNone("v1/intros")
+    })
+
+    it("retries only the introductions, not the whole books payload, when books are cached but introductions never finished caching", async () => {
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
+      // groupIntrosCacheReady deliberately left unset, as if a previous
+      // launch cached the books but /intros failed partway through.
+
+      const promise = service.preloadAllBooksAndChapters()
+      await flushIntros()
+
+      await promise
+
+      // The multi-megabyte books payload must not be re-downloaded just
+      // because the (much smaller) introductions never finished caching.
+      httpMock.expectNone("v1/books?withChapters=true")
+      expect(mockLocalStorage._storage["groupIntrosCacheReady"]).toBe("true")
+    })
+
+    // Storage the browser refuses to hand over (cookies blocked) means the
+    // flags can never be written, so trusting them alone would re-download
+    // the whole Bible on every single launch.
+    it("should skip books but still fetch introductions without storage when IndexedDB has only regular books", async () => {
+      const localStorageSpy = Object.getOwnPropertyDescriptor(
+        window,
+        "localStorage",
+      )?.get as jasmine.Spy
+      localStorageSpy.and.throwError("denied")
+      // mockBooks are regular books — none carry introSlug, so the
+      // no-storage fallback must recognize introductions were never cached
+      // and fetch them, instead of treating "any book exists" as proof both
+      // books and introductions are ready.
+      databaseService.getAll.and.returnValue(Promise.resolve(mockBooks))
+
+      const promise = service.preloadAllBooksAndChapters()
+      await flushIntros()
+
+      await promise
+
+      httpMock.expectNone("v1/books?withChapters=true")
+      expect(databaseService.getAll).toHaveBeenCalledWith("books")
+    })
+
+    it("should skip both books and introductions without storage when IndexedDB already has each", async () => {
+      const localStorageSpy = Object.getOwnPropertyDescriptor(
+        window,
+        "localStorage",
+      )?.get as jasmine.Spy
+      localStorageSpy.and.throwError("denied")
+      databaseService.getAll.and.returnValue(
+        Promise.resolve([
+          ...mockBooks,
+          {
+            id: "pentateuco",
+            name: "Pentateuco",
+            shortName: "Pentateuco",
+            abrv: "pentateuco",
+            chapterCount: 0,
+            introSlug: "pentateuco",
+            introduction: [],
+          },
+        ]),
+      )
+
+      await service.preloadAllBooksAndChapters()
+
+      httpMock.expectNone("v1/books?withChapters=true")
+      httpMock.expectNone("v1/intros")
+      expect(databaseService.getAll).toHaveBeenCalledWith("books")
     })
 
     it("should preload books if cache flag is not set", async () => {
       const promise = service.preloadAllBooksAndChapters()
+      // preload awaits the cache-schema check before issuing the request
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       expect(req.request.method).toBe("GET")
       req.flush(mockBooks)
+      await flushIntros()
 
       await promise
 
@@ -171,9 +270,12 @@ describe("OfflineDataService", () => {
       spyOnProperty(navigator, "onLine", "get").and.returnValue(true)
 
       const promise = service.preloadAllBooksAndChapters()
+      // preload awaits the cache-schema check before issuing the request
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       req.flush(mockBooks)
+      await flushIntros()
 
       await promise
 
@@ -197,16 +299,30 @@ describe("OfflineDataService", () => {
       await service.preloadAllBooksAndChapters()
 
       httpMock.expectNone("v1/books?withChapters=true")
-      expect(true).toBe(true)
+      httpMock.expectNone("v1/intros")
     })
 
-    it("should handle preload errors gracefully", async () => {
+    it("should handle preload errors gracefully and still cache introductions independently", async () => {
       spyOn(console, "error")
 
       const promise = service.preloadAllBooksAndChapters()
+      // preload awaits the cache-schema check before issuing the request
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       req.error(new ProgressEvent("error"))
+      // A books failure must not block the (independent) introductions
+      // fetch — the two are unrelated resources on the same refresh cycle.
+      await flushMacrotask()
+      httpMock
+        .expectOne("v1/intros")
+        .flush([{ slug: "pentateuco", name: "PENTATEUCO" }])
+      await flushMacrotask()
+      httpMock.expectOne("v1/intros/pentateuco").flush({
+        slug: "pentateuco",
+        name: "PENTATEUCO",
+        introduction: [{ type: "introTitle", level: 1, text: "Pentateuco" }],
+      })
 
       await promise
 
@@ -214,15 +330,48 @@ describe("OfflineDataService", () => {
         "Failed to preload books for offline use",
         jasmine.any(Object),
       )
+      // The books fetch failing left nothing cached for "gen"...
+      expect(service.getCachedBook("gen")).toBeUndefined()
+      // ...but the introduction, an unrelated resource, is cached anyway.
+      expect(service.getCachedBook("pentateuco")?.introSlug).toBe("pentateuco")
+    })
+
+    it("retries /books on the next preload after a books failure followed by a successful intros-only write", async () => {
+      spyOn(console, "error")
+
+      // First launch: books fails, intros succeeds.
+      const firstPromise = service.preloadAllBooksAndChapters()
+      await flushMicrotasks()
+      httpMock
+        .expectOne("v1/books?withChapters=true")
+        .error(new ProgressEvent("error"))
+      await flushIntros()
+      await firstPromise
+
+      // The intros-only write must not have claimed the books are cached —
+      // otherwise this second launch would wrongly skip /books entirely.
+      expect(mockLocalStorage._storage["booksCacheReady"]).toBeUndefined()
+
+      // Second launch: /intros is already cached and fresh, so only /books
+      // should be requested this time.
+      const secondPromise = service.preloadAllBooksAndChapters()
+      await flushMicrotasks()
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await secondPromise
+
+      httpMock.expectNone("v1/intros")
+      expect(service.getCachedBook("gen")?.name).toBe("Genesis")
     })
 
     it("should call AnalyticsService.track when source is install", async () => {
       const analyticsService = TestBed.inject(AnalyticsService)
 
       const promise = service.preloadAllBooksAndChapters("install")
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       req.flush(mockBooks)
+      await flushIntros()
 
       await promise
 
@@ -235,9 +384,11 @@ describe("OfflineDataService", () => {
       const analyticsService = TestBed.inject(AnalyticsService)
 
       const promise = service.preloadAllBooksAndChapters("standalone")
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       req.flush(mockBooks)
+      await flushIntros()
 
       await promise
 
@@ -245,9 +396,248 @@ describe("OfflineDataService", () => {
         source: "standalone",
       })
     })
+
+    describe("standalone introductions", () => {
+      const introSummaries: IntroSummary[] = [
+        { slug: "pentateuco", name: "PENTATEUCO" },
+        { slug: "historicos", name: "LIVROS HISTORICOS" },
+      ]
+      const introBodies: GroupIntro[] = [
+        {
+          slug: "pentateuco",
+          name: "PENTATEUCO",
+          introduction: [{ type: "introTitle", level: 1, text: "Pentateuco" }],
+        },
+        {
+          slug: "historicos",
+          name: "LIVROS HISTORICOS",
+          introduction: [{ type: "introTitle", level: 1, text: "Historicos" }],
+        },
+      ]
+
+      it("caches every standalone introduction alongside the books", async () => {
+        const promise = service.preloadAllBooksAndChapters()
+        await flushMicrotasks()
+
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushMacrotask()
+
+        httpMock.expectOne("v1/intros").flush(introSummaries)
+        await flushMacrotask()
+
+        httpMock.expectOne("v1/intros/pentateuco").flush(introBodies[0])
+        httpMock.expectOne("v1/intros/historicos").flush(introBodies[1])
+
+        await promise
+
+        const pentateuco = service.getCachedBook("pentateuco")
+        expect(pentateuco?.introSlug).toBe("pentateuco")
+        expect(pentateuco?.introduction).toEqual(introBodies[0].introduction)
+        const historicos = service.getCachedBook("historicos")
+        expect(historicos?.introduction).toEqual(introBodies[1].introduction)
+        // The regular books are still cached too — one preload, everything.
+        expect(service.getCachedBook("gen")?.name).toBe("Genesis")
+        // Every introduction succeeded, so the next launch can skip refetching.
+        expect(mockLocalStorage._storage["groupIntrosCacheReady"]).toBe("true")
+      })
+
+      it("keeps the introductions that succeeded when one body request fails", async () => {
+        spyOn(console, "error")
+
+        const promise = service.preloadAllBooksAndChapters()
+        await flushMicrotasks()
+
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushMacrotask()
+
+        httpMock.expectOne("v1/intros").flush(introSummaries)
+        await flushMacrotask()
+
+        httpMock.expectOne("v1/intros/pentateuco").flush(introBodies[0])
+        httpMock
+          .expectOne("v1/intros/historicos")
+          .error(new ProgressEvent("error"))
+
+        await promise
+
+        // The one that fetched fine is cached...
+        expect(service.getCachedBook("pentateuco")?.introduction).toEqual(
+          introBodies[0].introduction,
+        )
+        // ...the one that failed is not...
+        expect(service.getCachedBook("historicos")).toBeUndefined()
+        expect(console.error).toHaveBeenCalledWith(
+          "Failed to preload 1 of 2 standalone introductions for offline use",
+        )
+        // ...and the flag stays unset so the next launch retries the miss
+        // instead of going quiet for 40 days with an incomplete cache.
+        expect(
+          mockLocalStorage._storage["groupIntrosCacheReady"],
+        ).toBeUndefined()
+      })
+
+      it("does not fail the whole preload when the introductions request fails", async () => {
+        spyOn(console, "error")
+
+        const promise = service.preloadAllBooksAndChapters()
+        await flushMicrotasks()
+
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushMacrotask()
+
+        httpMock.expectOne("v1/intros").error(new ProgressEvent("error"))
+
+        await promise
+
+        expect(console.error).toHaveBeenCalledWith(
+          "Failed to preload group introductions for offline use",
+          jasmine.any(Object),
+        )
+        expect(console.error).not.toHaveBeenCalledWith(
+          "Failed to preload books for offline use",
+          jasmine.any(Object),
+        )
+        // The books themselves are still cached despite the intros failure.
+        expect(service.getCachedBook("gen")?.name).toBe("Genesis")
+        expect(
+          mockLocalStorage._storage["groupIntrosCacheReady"],
+        ).toBeUndefined()
+      })
+    })
+  })
+
+  describe("group intro accessors", () => {
+    beforeEach(async () => {
+      await service.setCachedBooks([
+        ...mockBooks,
+        {
+          id: "pentateuco",
+          name: "Pentateuco",
+          shortName: "Pentateuco",
+          abrv: "pentateuco",
+          chapterCount: 0,
+          introSlug: "pentateuco",
+          introduction: [{ type: "introTitle", level: 1, text: "Pentateuco" }],
+        },
+      ])
+    })
+
+    it("should list only the synthetic group-intro books as summaries", async () => {
+      const summaries = await service.getCachedGroupIntroSummariesAsync()
+      expect(summaries).toEqual([{ slug: "pentateuco", name: "Pentateuco" }])
+    })
+
+    it("should return the cached body for a known slug", async () => {
+      const intro = await service.getCachedGroupIntroAsync("pentateuco")
+      expect(intro).toEqual({
+        slug: "pentateuco",
+        name: "Pentateuco",
+        introduction: [{ type: "introTitle", level: 1, text: "Pentateuco" }],
+      })
+    })
+
+    it("should return undefined for a slug that was never cached", async () => {
+      const intro = await service.getCachedGroupIntroAsync("nonexistent")
+      expect(intro).toBeUndefined()
+    })
+
+    it("should return undefined for a real book id that is not a group intro", async () => {
+      const intro = await service.getCachedGroupIntroAsync("gen")
+      expect(intro).toBeUndefined()
+    })
   })
 
   describe("setCachedBooks and getCachedBooks", () => {
+    const verseFixture = (chapter: number, number: number): Verse => ({
+      bookId: "gen",
+      chapterNumber: chapter,
+      number,
+      verseLabel: number.toString(),
+      text: [{ type: "text", text: "v", normalizedText: "v" }],
+    })
+
+    it("should merge chapters per chapter number keeping the fuller payload", async () => {
+      const base = {
+        id: "gen",
+        name: "Genesis",
+        shortName: "Genesis",
+        abrv: "Gn",
+        chapterCount: 3,
+      }
+      await service.setCachedBooks([
+        {
+          ...base,
+          chapters: [
+            {
+              bookId: "gen",
+              number: 1,
+              verses: [verseFixture(1, 1), verseFixture(1, 2)],
+            },
+            { bookId: "gen", number: 2, verses: [verseFixture(2, 1)] },
+          ],
+        },
+      ])
+
+      // A partial refresh: chapter 1 as a stub, plus a new fuller chapter 3.
+      await service.setCachedBooks([
+        {
+          ...base,
+          chapters: [
+            { bookId: "gen", number: 1 },
+            {
+              bookId: "gen",
+              number: 3,
+              verses: [
+                verseFixture(3, 1),
+                verseFixture(3, 2),
+                verseFixture(3, 3),
+              ],
+            },
+          ],
+        },
+      ])
+
+      const merged = service.getCachedBook("gen")
+      expect(merged?.chapters?.map((c) => c.number)).toEqual([1, 2, 3])
+      expect(
+        merged?.chapters?.find((c) => c.number === 1)?.verses?.length,
+      ).toBe(2)
+      expect(
+        merged?.chapters?.find((c) => c.number === 2)?.verses?.length,
+      ).toBe(1)
+      expect(
+        merged?.chapters?.find((c) => c.number === 3)?.verses?.length,
+      ).toBe(3)
+    })
+
+    it("should keep a chapter's introduction when a stub ties on verse count", async () => {
+      const base = {
+        id: "gen",
+        name: "Genesis",
+        shortName: "Genesis",
+        abrv: "Gn",
+        chapterCount: 1,
+      }
+      await service.setCachedBooks([
+        {
+          ...base,
+          chapters: [
+            { bookId: "gen", number: 1, introduction: "Texto introdutório" },
+          ],
+        },
+      ])
+
+      // A shallow refresh with a bare stub (same zero verse count, no intro).
+      await service.setCachedBooks([
+        { ...base, chapters: [{ bookId: "gen", number: 1 }] },
+      ])
+
+      const merged = service.getCachedBook("gen")
+      expect(merged?.chapters?.find((c) => c.number === 1)?.introduction).toBe(
+        "Texto introdutório",
+      )
+    })
+
     it("should set and retrieve cached books", async () => {
       await service.setCachedBooks(mockBooks)
 
@@ -370,6 +760,40 @@ describe("OfflineDataService", () => {
   })
 
   describe("mergeCachedBooks", () => {
+    // mergeChapterLists already protects a chapter introduction; the book-level
+    // spread did not, so a refresh carrying introduction: [] blanked a body
+    // that loadGroupIntroBody() had filled.
+    it("should keep a cached book introduction when the refresh omits it", async () => {
+      const loaded = [
+        {
+          id: "pentateuco",
+          name: "Pentateuco",
+          shortName: "Pentateuco",
+          abrv: "pentateuco",
+          chapterCount: 0,
+          introduction: [{ type: "introParagraph", text: "A Lei." }],
+        },
+      ] as unknown as Book[]
+      const shallow = [
+        {
+          id: "pentateuco",
+          name: "Pentateuco",
+          shortName: "Pentateuco",
+          abrv: "pentateuco",
+          chapterCount: 0,
+          introduction: [],
+        },
+      ] as unknown as Book[]
+
+      await service.setCachedBooks(loaded)
+      await service.setCachedBooks(shallow)
+
+      const merged = service
+        .getCachedBooks()
+        .find((book) => book.id === "pentateuco")
+      expect(merged?.introduction?.length).toBe(1)
+    })
+
     it("should merge books by id, preferring incoming data", async () => {
       const existing: Book[] = [
         {
@@ -515,6 +939,86 @@ describe("OfflineDataService", () => {
     })
   })
 
+  describe("cache schema migration", () => {
+    const staleBook = {
+      id: "gen",
+      name: "Genesis",
+      shortName: "Genesis",
+      abrv: "Gn",
+      chapterCount: 50,
+    } as Book
+
+    // A failed clear left the key stale, so the next launch wiped the
+    // just-written current-shape records and re-downloaded the whole Bible.
+    it("should mark the schema current after a successful cache write", async () => {
+      delete mockLocalStorage._storage["booksCacheSchemaVersion"]
+      databaseService.clear.and.returnValue(
+        Promise.reject(new Error("clear failed")),
+      )
+
+      await service.setCachedBooks([staleBook])
+
+      expect(databaseService.clearAndPutAll).toHaveBeenCalled()
+      expect(mockLocalStorage._storage["booksCacheSchemaVersion"]).toBe("2")
+    })
+
+    it("should clear stale records and update metadata on version mismatch", async () => {
+      delete mockLocalStorage._storage["booksCacheSchemaVersion"]
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      databaseService.getAll.and.returnValue(Promise.resolve([staleBook]))
+      // Once cleared, the store no longer returns the stale record.
+      databaseService.clear.and.callFake(() => {
+        databaseService.getAll.and.returnValue(Promise.resolve([]))
+        return Promise.resolve()
+      })
+
+      const books = await service.getCachedBooksAsync()
+
+      expect(databaseService.clear).toHaveBeenCalledWith("books")
+      expect(books).toEqual([])
+      expect(mockLocalStorage._storage["booksCacheSchemaVersion"]).toBe("2")
+      expect(mockLocalStorage._storage["booksCacheReady"]).toBeUndefined()
+      // The intros flag rides the same migration reset as the books flag —
+      // a schema bump must force both back onto the refresh path.
+      expect(mockLocalStorage._storage["groupIntrosCacheReady"]).toBeUndefined()
+    })
+
+    it("should still refresh via preload when the migration clear fails", async () => {
+      spyOn(console, "error")
+      delete mockLocalStorage._storage["booksCacheSchemaVersion"]
+      // Stale metadata from the old schema claims the cache is ready.
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
+      databaseService.clear.and.returnValue(Promise.reject(new Error("boom")))
+
+      const promise = service.preloadAllBooksAndChapters()
+      await flushMicrotasks()
+
+      // The stale "ready" flag must not short-circuit the refresh.
+      const req = httpMock.expectOne("v1/books?withChapters=true")
+      req.flush(mockBooks)
+      await flushIntros()
+      await promise
+    })
+
+    it("should not expose stale records when the migration clear fails", async () => {
+      spyOn(console, "error")
+      delete mockLocalStorage._storage["booksCacheSchemaVersion"]
+      databaseService.clear.and.returnValue(Promise.reject(new Error("boom")))
+      databaseService.getAll.and.returnValue(Promise.resolve([staleBook]))
+
+      const books = await service.getCachedBooksAsync()
+
+      expect(books).toEqual([])
+      expect(databaseService.getAll).not.toHaveBeenCalled()
+      // Schema metadata is only written after a successful clear.
+      expect(
+        mockLocalStorage._storage["booksCacheSchemaVersion"],
+      ).toBeUndefined()
+    })
+  })
+
   describe("cache expiry", () => {
     it("should consider cache expired after 40 days", async () => {
       // 41 days ago
@@ -525,9 +1029,12 @@ describe("OfflineDataService", () => {
       spyOnProperty(navigator, "onLine", "get").and.returnValue(true)
 
       const promise = service.preloadAllBooksAndChapters()
+      // preload awaits the cache-schema check before issuing the request
+      await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
       req.flush(mockBooks)
+      await flushIntros()
 
       await promise
       expect(true).toBe(true)
@@ -537,37 +1044,58 @@ describe("OfflineDataService", () => {
       // 30 days ago
       const recentTimestamp = Date.now() - THIRTY_DAYS_MS
       mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] =
         recentTimestamp.toString()
 
       await service.preloadAllBooksAndChapters()
 
       httpMock.expectNone("v1/books?withChapters=true")
-      expect(true).toBe(true)
+      httpMock.expectNone("v1/intros")
     })
 
     it("should not consider cache expired if timestamp is not a valid number", async () => {
       mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = "invalid"
 
       await service.preloadAllBooksAndChapters()
 
       httpMock.expectNone("v1/books?withChapters=true")
-      expect(true).toBe(true)
+      httpMock.expectNone("v1/intros")
     })
 
     it("should not consider cache expired if no timestamp exists", async () => {
       mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
 
       await service.preloadAllBooksAndChapters()
 
       httpMock.expectNone("v1/books?withChapters=true")
-      expect(true).toBe(true)
+      httpMock.expectNone("v1/intros")
     })
   })
 
   describe("Database operations", () => {
     it("should clear and save books to DatabaseService using clearAndPutAll", async () => {
+      await service.setCachedBooks(mockBooks)
+
+      expect(databaseService.clearAndPutAll).toHaveBeenCalledWith(
+        "books",
+        jasmine.any(Array),
+      )
+    })
+
+    // localStorage holds only the cache metadata. It used to be checked first
+    // and its absence returned early, so a privacy mode that makes Storage
+    // non-functional cost the reader the offline books as well as the metadata.
+    it("should still persist the books when localStorage is unusable", async () => {
+      // What a privacy mode leaves behind: an object that is not a working
+      // Storage, which safeLocalStorage() reports as unusable.
+      const unusable = mockLocalStorage as unknown as Record<string, unknown>
+      unusable["getItem"] = undefined
+      unusable["setItem"] = undefined
+
       await service.setCachedBooks(mockBooks)
 
       expect(databaseService.clearAndPutAll).toHaveBeenCalledWith(

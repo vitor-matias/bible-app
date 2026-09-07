@@ -20,6 +20,10 @@ Angular Material, and a thin REST backend.
 - **Cross-reference linking** — references inside verses and footnotes (e.g.
   `Gn 1,1`, `Jb 38,1-39,30`, `v.12`) are parsed and turned into navigable links.
 - **Bookmarks, footnotes, dark mode**, PWA install, and share support.
+- **Onboarding wizard** — a first-launch tour of the reader that ends with
+  platform-specific install instructions (Android, iOS, desktop) and a one-tap
+  install button where the browser offers one. Reopen it any time from the menu
+  ("Como usar a app").
 
 ## Tech stack
 
@@ -58,8 +62,42 @@ has real data with no local backend. The API base URL is resolved in
 | `npm test` | Unit tests (Karma) |
 | `npm run test:coverage` | Unit tests with coverage |
 | `npm run biome` | Lint + format with autofix (`--write --unsafe`) over `src` |
+| `npm run sitemap` | Regenerate `sitemap.xml` from the prerendered pages in `dist` (also runs in `build:post`; needs a build first) |
 | `npm run cap:sync` | Sync web build into native projects |
 | `npm run cap:ios` / `cap:android` | Add a native platform, sync, generate icons |
+
+## Prerendering (static SSG)
+
+`npm run build` prerenders every book/chapter route to static HTML
+(`dist/bible-app/browser/<book>/<chapter>/index.html`) with the real verse
+text, per-page meta tags and JSON-LD baked in. The route list and chapter
+content come from the live API at build time (`/v1/books`), so the build
+machine needs network access to `biblia.capuchinhos.org` — without it the
+build still succeeds: `initializeBookService`, `fetchPrerenderChapterParams`
+and `generate-sitemap.mjs` each warn on the console, and every route falls
+back to the classic client-rendered SPA. Set `PRERENDER_API_ORIGIN=http://localhost:PORT` to
+point the prerenderer (and server-side API calls) at a stub API for testing.
+`/` is prerendered too — it is the URL that should rank for the site's main
+queries, so it ships the About copy as real HTML. It does **not** yet link to
+any chapter: the book picker renders buttons, not anchors, so crawlers reach
+the chapter URLs through `sitemap.xml` and the prev/next chapter links, not
+through the home page. `/search` and unknown routes stay client-rendered
+(`src/app/app.routes.server.ts`). The client-rendered fallback shell is emitted
+as `index.csr.html`; `index.html` is the prerendered home page, so `vercel.json`
+rewrites everything the build output does not contain to `index.csr.html`
+rather than serving the home page for it.
+
+`sitemap.xml` is generated in `build:post` by reading the prerendered pages
+back out of the build output, so it always lists exactly the URLs that were
+rendered. It is only ever written into `dist` — `public/sitemap.xml` is a
+checked-in home-page-only fallback that exists so `robots.txt` never points at
+a 404, and a build that prerendered nothing leaves it in place.
+
+Critical-CSS inlining is deliberately off (`optimization.styles.inlineCritical`
+in `angular.json`): with the Material theme and a fully prerendered DOM,
+essentially the whole ~143KB stylesheet was classed as critical and inlined
+into every page on top of the external stylesheet link, taking per-page HTML
+from ~166KB to ~241KB and the CSR shell from 3.3KB to 74KB.
 
 ## Mobile (Capacitor)
 
@@ -68,6 +106,12 @@ npm run build         # produces dist/bible-app/browser
 npm run cap:android   # or cap:ios — first run adds the platform
 npx cap open android  # open in Android Studio / Xcode
 ```
+
+`cap:sync`/`cap:ios`/`cap:android` first run `cap:prune`, which copies the build
+into `dist/bible-app/capacitor` (the `webDir`) without the ~1300 prerendered
+route pages — they would add tens of MB to the APK/IPA for a shell that loads
+the site remotely anyway. The copy is what gets stripped; `dist/bible-app/browser`
+stays intact, since that is what the web deploy publishes.
 
 App identity lives in [capacitor.config.ts](capacitor.config.ts)
 (`org.capuchinhos.biblia`). Set `CAPACITOR_SERVER_URL` to point a native build at a

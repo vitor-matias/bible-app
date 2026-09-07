@@ -9,13 +9,14 @@ import {
 } from "@angular/core"
 import { MatIconModule } from "@angular/material/icon"
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
-import { Router, RouterModule } from "@angular/router"
-import { firstValueFrom } from "rxjs"
+import { ActivatedRoute, Router, RouterModule } from "@angular/router"
+import { firstValueFrom, type Subscription } from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { SeoService } from "../../services/seo.service"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
 @Component({
@@ -46,6 +47,15 @@ export class SearchComponent {
 
   @ViewChild("sentinel", { static: false }) sentinel!: ElementRef
   private lastSentinel: Element | null = null
+  private queryParamSubscription?: Subscription
+  /** Guards against re-running the same shared query on unrelated emissions. */
+  private lastSharedQuery: string | null = null
+  /**
+   * Bumped on every submit. A share target can deliver two queries back to
+   * back, and the slower request must not overwrite the newer one's results,
+   * clear its loading state, or navigate away from it.
+   */
+  private searchGeneration = 0
 
   constructor(
     private apiService: BibleApiService,
@@ -53,10 +63,29 @@ export class SearchComponent {
     private bookService: BookService,
     private snackBar: MatSnackBar,
     private router: Router,
+    private route: ActivatedRoute,
     private cdr: ChangeDetectorRef,
     private analyticsService: AnalyticsService,
     private injector: Injector,
+    private seoService: SeoService,
   ) {}
+
+  ngOnInit(): void {
+    this.seoService.updateForSearch()
+
+    // Share-target launches land here as /search?q=<shared text>. Subscribe
+    // rather than read the snapshot once: Angular reuses this component when
+    // navigating between /search URLs, so a second share would be ignored.
+    this.queryParamSubscription = this.route.queryParamMap.subscribe(
+      (params) => {
+        const sharedQuery = params.get("q")
+        if (!sharedQuery || sharedQuery === this.lastSharedQuery) return
+        this.lastSharedQuery = sharedQuery
+        // Fire-and-forget: onSearchSubmit surfaces its own errors via snackbar.
+        void this.onSearchSubmit(sharedQuery)
+      },
+    )
+  }
 
   ngAfterViewInit(): void {
     this.attachObserverToSentinel()
@@ -70,6 +99,7 @@ export class SearchComponent {
   }
 
   ngOnDestroy(): void {
+    this.queryParamSubscription?.unsubscribe()
     if (this.observer) {
       this.observer.disconnect()
     }
@@ -96,11 +126,18 @@ export class SearchComponent {
   private async loadMoreResults() {
     if (this.isLoading || this.searchResults.length >= this.totalResults) return
 
+    // The same guard the submit path uses, for the same reason: a page of
+    // results for the query being scrolled must not append itself to whatever
+    // query replaced it while the request was in flight.
+    const generation = this.searchGeneration
+    const isStale = () => generation !== this.searchGeneration
+
     this.isLoading = true
     try {
       const results = await firstValueFrom(
         this.apiService.search(this.searchTerm, this.currentPage + 1),
       )
+      if (isStale()) return
       this.searchResults.push(
         ...results.verses.map((v) => this.toDisplayVerse(v)),
       )
@@ -108,14 +145,21 @@ export class SearchComponent {
       this.currentPage++
       this.attachObserverToSentinel() // Re-attach observer after loading more results
     } catch (error) {
+      if (isStale()) return
       console.error("Error loading more results:", error)
     } finally {
-      this.isLoading = false
-      this.cdr.detectChanges()
+      // `return` inside the try still runs this, so a superseded page would
+      // otherwise clear the loading state of the search that replaced it.
+      if (!isStale()) {
+        this.isLoading = false
+        this.cdr.detectChanges()
+      }
     }
   }
 
   async onSearchSubmit(text: string): Promise<void> {
+    const generation = ++this.searchGeneration
+    const isStale = () => generation !== this.searchGeneration
     this.searchTerm = text
     const references = this.referenceService.extract(text)
 
@@ -154,6 +198,7 @@ export class SearchComponent {
             targetVerseStart || 1,
           ),
         )
+        if (isStale()) return
         await this.router.navigate(
           ["/", targetBook.id, targetChapter],
           targetVerseStart !== undefined
@@ -161,6 +206,7 @@ export class SearchComponent {
             : {},
         )
       } catch (err) {
+        if (isStale()) return
         console.error(err)
         // HttpErrorResponse is not guaranteed here, so narrow the shape safely.
         const status =
@@ -187,6 +233,7 @@ export class SearchComponent {
     this.isLoading = true
     try {
       const results = await firstValueFrom(this.apiService.search(text, 1))
+      if (isStale()) return
       this.searchResults = results.verses.map((v) => this.toDisplayVerse(v))
       this.totalResults = results.total
       this.currentPage = 1
@@ -215,13 +262,18 @@ export class SearchComponent {
 
       void this.analyticsService.track("search", { text })
     } catch (error) {
+      if (isStale()) return
       console.error("Error loading search results:", error)
       this.snackBar.open("Error loading search results", "OK", {
         duration: 3000,
       })
     } finally {
-      this.isLoading = false
-      this.cdr.detectChanges()
+      // `return` inside the try still runs this, so a superseded search would
+      // otherwise clear the loading state of the one that replaced it.
+      if (!isStale()) {
+        this.isLoading = false
+        this.cdr.detectChanges()
+      }
     }
   }
 

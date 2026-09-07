@@ -1,7 +1,59 @@
-import { expect, test } from "@playwright/test"
+import { expect, type Locator, type Page, test as base } from "@playwright/test"
 
 // The app proxies /v1 to https://biblia.capuchinhos.org — tests run against
 // the live dev server and the real API.
+
+// Icons are ligatures in the Material Symbols font, so an icon the font doesn't
+// carry doesn't fail loudly — it renders its own name as words. A ligature
+// collapses to roughly one em; spelled-out letters run many times wider.
+// mat-icon is a fixed 24px box that clips the overflow, so the giveaway is
+// scrollWidth, not the element's own width.
+function iconsRenderedAsText(scope: Locator): Promise<string[]> {
+  return scope.locator("mat-icon").evaluateAll((icons) =>
+    icons
+      .filter((icon) => icon.textContent?.trim() && icon.checkVisibility())
+      .filter((icon) => {
+        const { fontSize } = getComputedStyle(icon)
+        return icon.scrollWidth > Number.parseFloat(fontSize) * 1.6
+      })
+      .map((icon) => icon.textContent?.trim() ?? ""),
+  )
+}
+
+// The icon font is a few megabytes, so poll rather than measure once: names
+// still spelled out after the font has had time to arrive are genuinely absent
+// from it.
+async function expectIconsRendered(scope: Locator) {
+  await expect
+    .poll(() => iconsRenderedAsText(scope), { timeout: 20_000 })
+    .toEqual([])
+}
+
+async function openReader(page: Page) {
+  await page.goto("/jo/1")
+  await page.locator("verse").first().waitFor({ timeout: 15_000 })
+  await page.evaluate(() =>
+    document.fonts.load('24px "Material Symbols Outlined"'),
+  )
+}
+
+// Every test starts with a fresh browser context, which the app treats as a
+// first launch and greets with the onboarding wizard. By default mark it as
+// seen before the app boots so the dialog does not cover the reader; a test
+// that wants the first-visit experience opts out with
+// `test.use({ skipOnboarding: false })`. One init script keeps this
+// deterministic: Playwright does not define the order of several init scripts.
+const test = base.extend<{ skipOnboarding: boolean }>({
+  skipOnboarding: [true, { option: true }],
+  page: async ({ page, skipOnboarding }, use) => {
+    if (skipOnboarding) {
+      await page.addInitScript(() =>
+        localStorage.setItem("onboardingSeen", "true"),
+      )
+    }
+    await use(page)
+  },
+})
 
 test.describe("Initial load", () => {
   test("redirects to a book/chapter URL", async ({ page }) => {
@@ -21,6 +73,18 @@ test.describe("Initial load", () => {
     await expect(page.locator(".bookSelectorButton").first()).toBeVisible()
     // Header should mention John's abbreviation or name
     await expect(page.locator("mat-toolbar")).toContainText(/Jo/i)
+  })
+
+  // Every chapter is a separately indexed page, so each needs its own single h1
+  // rather than one shared site-wide heading.
+  test("gives the chapter exactly one h1 naming it", async ({ page }) => {
+    await page.goto("/jo/3")
+    await page.locator("verse").first().waitFor({ timeout: 15_000 })
+
+    const heading = page.locator("h1")
+    await expect(heading).toHaveCount(1)
+    await expect(heading).toContainText(/Jo/i)
+    await expect(heading).toContainText("3")
   })
 })
 
@@ -68,6 +132,33 @@ test.describe("Book selector drawer", () => {
     await expect(drawer).toBeVisible({ timeout: 5_000 })
     // Book selector should list at least one entry
     await expect(drawer.locator("mat-tree-node, mat-list-item").first()).toBeVisible()
+  })
+
+  // bible-canon.ts lists the books by id and BookSelectorComponent.getBook
+  // matches them exactly against the live book list. An id that does not
+  // resolve renders an empty button instead of failing, so the only place the
+  // canon can be checked against real data is here.
+  test("every book in the canon resolves to a name", async ({ page }) => {
+    await page.goto("/jo/1")
+    await page.locator("verse").first().waitFor({ timeout: 15_000 })
+
+    await page.locator(".bookSelectorButton mat-button-toggle").first().click()
+    const drawer = page.locator("mat-drawer")
+    await expect(drawer).toBeVisible({ timeout: 5_000 })
+
+    // 73 canonical books plus the synthetic About entry the picker appends.
+    const books = drawer.locator(
+      "mat-tree-node:not(.book-group) .bookSelectorButton",
+    )
+    await expect.poll(() => books.count(), { timeout: 15_000 }).toBe(74)
+
+    const unresolved = await books.evaluateAll((nodes) =>
+      nodes
+        .map((node, index) => ({ index, text: node.textContent?.trim() ?? "" }))
+        .filter((entry) => entry.text.length === 0)
+        .map((entry) => entry.index),
+    )
+    expect(unresolved).toEqual([])
   })
 
   test("closes the drawer with the dismiss button", async ({ page }) => {
@@ -132,6 +223,92 @@ test.describe("Search", () => {
   })
 })
 
+test.describe("Icon font", () => {
+  test("toolbar icons render as glyphs", async ({ page }) => {
+    await openReader(page)
+    await expectIconsRendered(page.locator("mat-toolbar"))
+  })
+
+  test("header menu icons render as glyphs", async ({ page }) => {
+    await openReader(page)
+
+    await page.locator(".menuButton").click()
+    const menu = page.locator(".cdk-overlay-container")
+    await expect(menu.locator("mat-icon").first()).toBeVisible({
+      timeout: 5_000,
+    })
+    await expectIconsRendered(menu)
+  })
+
+  test("onboarding icons render as glyphs on every step", async ({ page }) => {
+    // Opened from the menu rather than via first launch, so this does not
+    // race the global beforeEach's addInitScript.
+    await openReader(page)
+    await page.locator(".menuButton").click()
+    await page.getByRole("menuitem", { name: "Como usar a app" }).click()
+
+    const wizard = page.locator("onboarding")
+    await expect(wizard).toBeVisible()
+
+    const dots = wizard.locator(".dot")
+    const count = await dots.count()
+    for (let i = 0; i < count; i++) {
+      await dots.nth(i).click()
+      await expectIconsRendered(wizard)
+    }
+    // The platform switcher swaps in the install-guide icons.
+    for (const label of ["Android", "iPhone / iPad", "Computador"]) {
+      await wizard.locator(".platforms button", { hasText: label }).click()
+      await expectIconsRendered(wizard)
+    }
+  })
+
+  test("book selector icons render as glyphs, expanded and collapsed", async ({
+    page,
+  }) => {
+    await openReader(page)
+
+    await page.locator(".bookSelectorButton mat-button-toggle").first().click()
+    const drawer = page.locator("mat-drawer")
+    await expect(drawer).toBeVisible({ timeout: 5_000 })
+    // Collapsed groups show one toggle icon, expanded groups the other.
+    await expectIconsRendered(drawer)
+
+    await drawer.locator(".book-group").first().click()
+    await expect(drawer.locator("mat-tree-node").nth(1)).toBeVisible()
+    await expectIconsRendered(drawer)
+  })
+
+  // chapter-selector fills the bookmark icon through the FILL axis. A static
+  // (non-variable) icon font would ignore that and quietly draw it outlined, so
+  // check the axis actually moves the glyph.
+  test("the FILL axis changes the glyph", async ({ page }) => {
+    await openReader(page)
+
+    const renderWithFill = async (fill: number) => {
+      await page.evaluate((axis) => {
+        const probe =
+          document.getElementById("fill-probe") ??
+          document.body.appendChild(
+            Object.assign(document.createElement("span"), {
+              id: "fill-probe",
+              className: "material-symbols-outlined",
+              textContent: "bookmark",
+            }),
+          )
+        probe.style.cssText =
+          "position:fixed;top:0;left:0;z-index:9999;background:#fff;color:#000"
+        probe.style.fontVariationSettings = `"FILL" ${axis}`
+      }, fill)
+      return page.locator("#fill-probe").screenshot()
+    }
+
+    const hollow = await renderWithFill(0)
+    const filled = await renderWithFill(1)
+    expect(filled.equals(hollow)).toBe(false)
+  })
+})
+
 test.describe("About page", () => {
   test("loads the about page at /about/1", async ({ page }) => {
     await page.goto("/about/1")
@@ -182,3 +359,50 @@ test.describe("Keyboard accessibility", () => {
     })
   })
 })
+
+test.describe("Onboarding", () => {
+  test.describe("first visit", () => {
+    test.use({ skipOnboarding: false })
+
+    test("greets a first-time visitor and remembers being dismissed", async ({
+      page,
+    }) => {
+      await page.goto("/jo/1")
+
+      const wizard = page.locator("onboarding")
+      await expect(wizard).toBeVisible({ timeout: 15_000 })
+      await expect(wizard).toContainText("Bem-vindo")
+
+      await wizard.getByRole("button", { name: "Seguinte" }).click()
+      await expect(wizard).toContainText("Navegar na Bíblia")
+
+      await wizard.getByRole("button", { name: "Fechar" }).click()
+      await expect(wizard).toHaveCount(0)
+      expect(
+        await page.evaluate(() => localStorage.getItem("onboardingSeen")),
+      ).toBe("true")
+    })
+  })
+
+  test("can be reopened from the header menu and ends on install instructions", async ({
+    page,
+  }) => {
+    await page.goto("/jo/1")
+    await page.locator("verse").first().waitFor({ timeout: 15_000 })
+
+    await page.locator(".menuButton").click()
+    await page.getByRole("menuitem", { name: "Como usar a app" }).click()
+
+    const wizard = page.locator("onboarding")
+    await expect(wizard).toBeVisible({ timeout: 5_000 })
+
+    // Jump to the last step via its dot.
+    await wizard.locator(".dot").last().click()
+    await expect(wizard).toContainText("Instalar a aplicação")
+    await expect(wizard.locator(".platforms button")).toHaveCount(3)
+
+    await wizard.getByRole("button", { name: "Começar a ler" }).click()
+    await expect(wizard).toHaveCount(0)
+  })
+})
+

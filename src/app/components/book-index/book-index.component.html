@@ -1,0 +1,48 @@
+<div class="toolbar-wrapper">
+  <mat-toolbar class="index-toolbar">
+    <div class="content">
+      <a mat-flat-button routerLink="/" aria-label="Voltar" class="button actionButton backButton">
+        <mat-icon>arrow_back</mat-icon>
+      </a>
+      <!-- The toolbar title is the page heading, as it is on the reader: one
+           heading per page, and it is the title a reader actually sees. -->
+      <h1 class="toolbar-title">Livros da Bíblia</h1>
+      <a mat-flat-button routerLink="/search" aria-label="Pesquisar" class="button actionButton searchButton">
+        <mat-icon>search</mat-icon>
+      </a>
+    </div>
+  </mat-toolbar>
+</div>
+
+<div class="book-index-container">
+  <p class="intro-text">
+    Os 73 livros da Bíblia Sagrada na tradução da Difusora Bíblica. Escolha um
+    livro para o ler desde o primeiro capítulo.
+  </p>
+
+  @if (testaments$ | async; as testaments) {
+  <div class="testaments">
+    @for (testament of testaments; track testament.name) {
+    <section class="testament" role="group" [attr.aria-label]="testament.name">
+      <h2>{{ testament.name }}</h2>
+      @for (group of testament.groups; track group.name) {
+      <section class="group">
+        <h3>
+          @if (group.introLink) {
+          <a [routerLink]="group.introLink">{{ group.name }}</a>
+          } @else {
+          {{ group.name }}
+          }
+        </h3>
+        <ul>
+          @for (book of group.books; track book.name) {
+          <li><a [routerLink]="book.link">{{ book.name }}</a></li>
+          }
+        </ul>
+      </section>
+      }
+    </section>
+    }
+  </div>
+  }
+</div>

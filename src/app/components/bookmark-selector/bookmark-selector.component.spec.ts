@@ -38,6 +38,7 @@ describe("BookmarkSelectorComponent", () => {
     const bookSpy = jasmine.createSpyObj("BookService", [
       "findBookById",
       "getUrlAbrv",
+      "getChapterUrlSegment",
     ])
     const sheetSpy = jasmine.createSpyObj("MatBottomSheetRef", ["dismiss"])
     const rSpy = jasmine.createSpyObj("Router", ["navigate"])
@@ -53,6 +54,9 @@ describe("BookmarkSelectorComponent", () => {
     bookmarkSpy.removeBookmark.and.returnValue(Promise.resolve())
     bookSpy.findBookById.and.returnValue({ abrv: "Mc", shortName: "Marcos" })
     bookSpy.getUrlAbrv.and.returnValue("mrk")
+    bookSpy.getChapterUrlSegment.and.callFake((chapter: number) =>
+      chapter === 0 ? "intro" : chapter.toString(),
+    )
 
     await TestBed.configureTestingModule({
       imports: [
@@ -113,7 +117,7 @@ describe("BookmarkSelectorComponent", () => {
       component.handleRibbonClick(blueRibbon)
     }
 
-    expect(routerSpy.navigate).toHaveBeenCalledWith(["mrk", 2])
+    expect(routerSpy.navigate).toHaveBeenCalledWith(["mrk", "2"])
     expect(bottomSheetRefSpy.dismiss).toHaveBeenCalled()
   })
 

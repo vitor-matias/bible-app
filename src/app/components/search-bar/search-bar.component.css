@@ -14,6 +14,12 @@
   background-color: #543d27;
   overflow: hidden;
   padding-top: env(safe-area-inset-top, 0px);
+  /* Material insets a toolbar by 16px, which stacked on .content's own 8px and
+     left these buttons 24px in while the reader header pins its buttons 8px
+     from the edge. .content supplies the whole inset instead, so both toolbars
+     line up. */
+  padding-left: 0;
+  padding-right: 0;
   height: calc(56px + env(safe-area-inset-top, 0px));
   box-sizing: border-box;
 }
@@ -44,7 +50,9 @@ mat-icon {
   background-color: antiquewhite;
   color: #543d27;
   min-width: 48px;
-  height: 36px;
+  /* Matches the reader header's buttons, which take Material's default 40px;
+     at 36px these sat visibly shorter than the ones on every other page. */
+  height: 40px;
   padding: 0;
 }
 
@@ -62,7 +70,8 @@ mat-icon {
 
 .search-input {
   flex: 1;
-  height: 36px;
+  /* Same height as the buttons either side of it, so the row reads as one. */
+  height: 40px;
   border: none;
   border-radius: 4px;
   padding: 0 16px;
