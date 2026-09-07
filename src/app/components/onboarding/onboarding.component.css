@@ -42,10 +42,20 @@
 
 .body {
   flex: 1;
-  min-height: 0;
+  /* Steps differ in length, and without a floor the dialog resized on every
+     step — moving the footer buttons out from under the pointer mid-click.
+     This holds the short steps at the height of the tallest non-install one;
+     the install step is longer still and scrolls inside itself. */
+  min-height: 300px;
   overflow-y: auto;
   padding: 20px 24px 8px;
   animation: fade-in 0.35s ease;
+}
+
+@media (max-height: 600px) {
+  .body {
+    min-height: 0;
+  }
 }
 
 .title {
@@ -126,8 +136,8 @@
 }
 
 .platforms button[aria-pressed="true"] {
-  background: var(--cap-brown);
-  color: antiquewhite;
+  background: antiquewhite;
+  color: #543d27;
 }
 
 .platforms button[aria-pressed="true"] span {
@@ -141,15 +151,21 @@
   color: inherit;
 }
 
-/* Material drives a flat button's fill from its own generated theme tokens
-   (a lighter, less saturated brown than --cap-brown) rather than the
-   :root override in styles.css — the same fight book-index.component.css
-   documents for .actionButton. !important wins it, matching the brown/
-   antiquewhite pairing already used for the selected platform pill above. */
+/* Antiquewhite fill with brown text (not the reverse) is what every real
+   button in the app uses: the header's book/chapter pill and search button,
+   book-index's actionButton. Bars and hero surfaces go the other way.
+
+   The fill only. The label is an inner .mdc-button__label that does not
+   inherit the button's colour, and neither a `color` here nor a Material
+   token set here reaches it: the span is Material's, so it carries no
+   _ngcontent attribute, and a custom property declared under view
+   encapsulation is namespaced before Material's own var() sees it. Both
+   were tried. Its colour lives in styles.css, scoped to the dialog's
+   panelClass, next to the rule for the text buttons. */
 .install-now,
 .buttons [mat-flat-button] {
-  background-color: var(--cap-brown) !important;
-  color: antiquewhite !important;
+  background-color: antiquewhite !important;
+  color: #543d27 !important;
 }
 
 .install-now {
@@ -158,8 +174,9 @@
 }
 
 .install-now[disabled] {
-  background-color: var(--border-color) !important;
-  color: var(--card-background) !important;
+  background-color: antiquewhite !important;
+  color: #543d27 !important;
+  opacity: 0.5;
 }
 
 .hint,
