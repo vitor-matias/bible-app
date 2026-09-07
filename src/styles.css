@@ -69,6 +69,16 @@ body {
 
 /* Light theme variables */
 :root {
+  /* Tells the browser this page fully handles both schemes itself (the
+     .dark-theme class below, toggled by ThemeService — not a bare
+     prefers-color-scheme query) so it doesn't algorithmically "improve"
+     colors on top of ours. Without this, Android's per-app dark theme has
+     been seen repainting one part of an already-dark element (e.g. a
+     button's text but not its background) into something unreadable,
+     differently depending on the exact markup, while leaving untouched
+     elements fine — a moving target no amount of button-level color
+     tweaking fixes, because the browser keeps overriding it. */
+  color-scheme: light;
   --background-color: #ffffff;
   --text-color: #000000;
   --text-secondary: darkred;
@@ -124,6 +134,7 @@ body {
 
 /* Dark theme variables */
 .dark-theme {
+  color-scheme: dark;
   --background-color: #121212;
   --text-color: #ffffff;
   --text-secondary: #dc143c;
