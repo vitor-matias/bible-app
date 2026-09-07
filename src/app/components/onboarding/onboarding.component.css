@@ -126,8 +126,8 @@
 }
 
 .platforms button[aria-pressed="true"] {
-  background: var(--cap-brown);
-  color: antiquewhite;
+  background: antiquewhite;
+  color: var(--cap-brown);
 }
 
 .platforms button[aria-pressed="true"] span {
@@ -144,12 +144,17 @@
 /* Material drives a flat button's fill from its own generated theme tokens
    (a lighter, less saturated brown than --cap-brown) rather than the
    :root override in styles.css — the same fight book-index.component.css
-   documents for .actionButton. !important wins it, matching the brown/
-   antiquewhite pairing already used for the selected platform pill above. */
+   documents for .actionButton. !important wins it. Antiquewhite-on-cap-brown
+   (not the reverse) matches every real button elsewhere in the app — the
+   header's book/chapter pill and search button, book-index's actionButton —
+   as opposed to a bar/hero surface, which goes the other way. A dark button
+   fill with light text is also the pairing Android's per-app dark theme
+   forcibly recolours worst: it left the button brown but turned the label
+   black, unreadable, while it left this lighter pairing alone. */
 .install-now,
 .buttons [mat-flat-button] {
-  background-color: var(--cap-brown) !important;
-  color: antiquewhite !important;
+  background-color: antiquewhite !important;
+  color: var(--cap-brown) !important;
 }
 
 .install-now {
@@ -158,8 +163,9 @@
 }
 
 .install-now[disabled] {
-  background-color: var(--border-color) !important;
-  color: var(--card-background) !important;
+  background-color: antiquewhite !important;
+  color: var(--cap-brown) !important;
+  opacity: 0.5;
 }
 
 .hint,
