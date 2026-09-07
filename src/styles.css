@@ -288,6 +288,21 @@ html.dark-theme a.floating-nav-button {
   color: #543d27 !important;
 }
 
+/* "Saltar"/"Anterior" are text buttons drawn straight on the dialog surface
+   rather than on a pill, so they follow the surface instead of the fixed
+   pairing above: brown on the light surface, cream on the dark one. Material
+   left them on its own untinted default, which read as plain white in dark
+   mode and had nothing to do with the app's palette. */
+.onboarding-dialog .mat-mdc-button,
+.onboarding-dialog .mat-mdc-button .mdc-button__label {
+  color: #543d27 !important;
+}
+
+html.dark-theme .onboarding-dialog .mat-mdc-button,
+html.dark-theme .onboarding-dialog .mat-mdc-button .mdc-button__label {
+  color: antiquewhite !important;
+}
+
 .mat-bottom-sheet-container,
 .mat-mdc-dialog-container .mdc-dialog__surface {
   background-color: var(--card-background) !important; /* Force apply */
