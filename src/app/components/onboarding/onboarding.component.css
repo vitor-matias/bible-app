@@ -155,20 +155,15 @@
    button in the app uses: the header's book/chapter pill and search button,
    book-index's actionButton. Bars and hero surfaces go the other way.
 
-   The label colour has to go through Material's own token, not `color` on
-   the button. Material renders the text in an inner .mdc-button__label and
-   colours *that* span from --mdc-filled-button-label-text-color, which
-   styles.css sets globally to antiquewhite; a `color` on the button is
-   simply inherited past. That is how this shipped unreadable twice —
-   antiquewhite-on-antiquewhite — while the button element itself measured
-   correctly brown. The label span belongs to Material, not this template,
-   so it carries no _ngcontent attribute and cannot be selected from here
-   anyway: setting the tokens is both the supported API and the only route
-   that reaches it. */
+   The fill only. The label is an inner .mdc-button__label that does not
+   inherit the button's colour, and neither a `color` here nor a Material
+   token set here reaches it: the span is Material's, so it carries no
+   _ngcontent attribute, and a custom property declared under view
+   encapsulation is namespaced before Material's own var() sees it. Both
+   were tried. Its colour lives in styles.css, scoped to the dialog's
+   panelClass, next to the rule for the text buttons. */
 .install-now,
 .buttons [mat-flat-button] {
-  --mdc-filled-button-container-color: antiquewhite;
-  --mdc-filled-button-label-text-color: #543d27;
   background-color: antiquewhite !important;
   color: #543d27 !important;
 }
@@ -179,8 +174,6 @@
 }
 
 .install-now[disabled] {
-  --mdc-filled-button-disabled-container-color: antiquewhite;
-  --mdc-filled-button-disabled-label-text-color: #543d27;
   background-color: antiquewhite !important;
   color: #543d27 !important;
   opacity: 0.5;
