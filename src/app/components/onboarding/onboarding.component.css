@@ -42,10 +42,20 @@
 
 .body {
   flex: 1;
-  min-height: 0;
+  /* Steps differ in length, and without a floor the dialog resized on every
+     step — moving the footer buttons out from under the pointer mid-click.
+     This holds the short steps at the height of the tallest non-install one;
+     the install step is longer still and scrolls inside itself. */
+  min-height: 300px;
   overflow-y: auto;
   padding: 20px 24px 8px;
   animation: fade-in 0.35s ease;
+}
+
+@media (max-height: 600px) {
+  .body {
+    min-height: 0;
+  }
 }
 
 .title {
@@ -127,7 +137,7 @@
 
 .platforms button[aria-pressed="true"] {
   background: antiquewhite;
-  color: var(--cap-brown);
+  color: #543d27;
 }
 
 .platforms button[aria-pressed="true"] span {
@@ -141,20 +151,26 @@
   color: inherit;
 }
 
-/* Material drives a flat button's fill from its own generated theme tokens
-   (a lighter, less saturated brown than --cap-brown) rather than the
-   :root override in styles.css — the same fight book-index.component.css
-   documents for .actionButton. !important wins it. Antiquewhite-on-cap-brown
-   (not the reverse) matches every real button elsewhere in the app — the
-   header's book/chapter pill and search button, book-index's actionButton —
-   as opposed to a bar/hero surface, which goes the other way. A dark button
-   fill with light text is also the pairing Android's per-app dark theme
-   forcibly recolours worst: it left the button brown but turned the label
-   black, unreadable, while it left this lighter pairing alone. */
+/* Antiquewhite fill with brown text (not the reverse) is what every real
+   button in the app uses: the header's book/chapter pill and search button,
+   book-index's actionButton. Bars and hero surfaces go the other way.
+
+   The label colour has to go through Material's own token, not `color` on
+   the button. Material renders the text in an inner .mdc-button__label and
+   colours *that* span from --mdc-filled-button-label-text-color, which
+   styles.css sets globally to antiquewhite; a `color` on the button is
+   simply inherited past. That is how this shipped unreadable twice —
+   antiquewhite-on-antiquewhite — while the button element itself measured
+   correctly brown. The label span belongs to Material, not this template,
+   so it carries no _ngcontent attribute and cannot be selected from here
+   anyway: setting the tokens is both the supported API and the only route
+   that reaches it. */
 .install-now,
 .buttons [mat-flat-button] {
+  --mdc-filled-button-container-color: antiquewhite;
+  --mdc-filled-button-label-text-color: #543d27;
   background-color: antiquewhite !important;
-  color: var(--cap-brown) !important;
+  color: #543d27 !important;
 }
 
 .install-now {
@@ -163,8 +179,10 @@
 }
 
 .install-now[disabled] {
+  --mdc-filled-button-disabled-container-color: antiquewhite;
+  --mdc-filled-button-disabled-label-text-color: #543d27;
   background-color: antiquewhite !important;
-  color: var(--cap-brown) !important;
+  color: #543d27 !important;
   opacity: 0.5;
 }
 

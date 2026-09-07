@@ -268,6 +268,26 @@ html.dark-theme a.floating-nav-button {
   color: #2a1a0d;
 }
 
+/* The onboarding wizard's filled buttons, hardcoded to the antiquewhite/brown
+   pill the header uses.
+
+   This has to target the inner .mdc-button__label, and it has to live here
+   rather than in the component's stylesheet. Material renders the text in
+   that span, and the span does not inherit the button's colour — setting the
+   button to red leaves the label white — so colouring the button, which is
+   all a component stylesheet can do, never reaches the text. That is how
+   this shipped unreadable twice, antiquewhite-on-antiquewhite, while the
+   button element itself measured correctly brown. The span is Material's,
+   not this template's, so it carries no _ngcontent attribute and a scoped
+   stylesheet cannot select it at all.
+
+   Only the filled buttons: "Saltar"/"Anterior" are text buttons sitting on
+   the dark dialog surface and have to stay light. */
+.onboarding-dialog .mat-mdc-unelevated-button,
+.onboarding-dialog .mat-mdc-unelevated-button .mdc-button__label {
+  color: #543d27 !important;
+}
+
 .mat-bottom-sheet-container,
 .mat-mdc-dialog-container .mdc-dialog__surface {
   background-color: var(--card-background) !important; /* Force apply */
