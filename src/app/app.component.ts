@@ -18,6 +18,8 @@ import { OnboardingService } from "./services/onboarding.service"
 import { PwaInstallService } from "./services/pwa-install.service"
 import { ThemeService } from "./services/theme.service"
 import { APP_PLUGIN } from "./tokens"
+import { isBrowser } from "./utils/platform"
+import { isVercelHost } from "./utils/speed-insights"
 
 @Component({
   selector: "app-root",
@@ -46,7 +48,9 @@ export class AppComponent implements OnInit, OnDestroy {
     _pwaInstallService: PwaInstallService,
     @Inject(APP_PLUGIN) private appPlugin: typeof App,
   ) {
-    injectSpeedInsights()
+    if (isBrowser() && isVercelHost(window.location.hostname)) {
+      injectSpeedInsights()
+    }
   }
 
   ngOnInit(): void {

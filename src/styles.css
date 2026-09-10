@@ -1,17 +1,28 @@
 /* You can add global styles to this file, and also import other style files */
 
-/* Fonts ship from npm — no fonts.googleapis.com round-trip. Material Symbols
-   carries every icon rather than a hand-built subset: subsetting dropped icons
-   silently, and a missing ligature renders as the icon's name in text. The
-   font-400 build pins the weight axis (477 kB, against 3.9 MB for the full
-   variable font) and keeps FILL variable, which chapter-selector relies on. */
-@import "@fontsource/roboto/300.css";
-@import "@fontsource/roboto/400.css";
-@import "@fontsource/roboto/500.css";
-@import "@fontsource/pt-serif/400.css";
-@import "@fontsource/pt-serif/400-italic.css";
-@import "@fontsource/pt-serif/700.css";
-@import "@fontsource/pt-serif/700-italic.css";
+/* Fonts ship from npm — no fonts.googleapis.com round-trip. Only the latin and
+   latin-ext subsets are declared: the text is Portuguese, and the cyrillic,
+   greek, vietnamese, math and symbols @font-face rules the full 400.css files
+   pull in were dead weight in the render-blocking stylesheet (44 rules down
+   to 20). Material Symbols carries every icon rather than a hand-built subset:
+   subsetting dropped icons silently, and a missing ligature renders as the
+   icon's name in text. The font-400 build pins the weight axis (477 kB,
+   against 3.9 MB for the full variable font) and keeps FILL variable, which
+   chapter-selector relies on. */
+@import "@fontsource/roboto/latin-300.css";
+@import "@fontsource/roboto/latin-ext-300.css";
+@import "@fontsource/roboto/latin-400.css";
+@import "@fontsource/roboto/latin-ext-400.css";
+@import "@fontsource/roboto/latin-500.css";
+@import "@fontsource/roboto/latin-ext-500.css";
+@import "@fontsource/pt-serif/latin-400.css";
+@import "@fontsource/pt-serif/latin-ext-400.css";
+@import "@fontsource/pt-serif/latin-400-italic.css";
+@import "@fontsource/pt-serif/latin-ext-400-italic.css";
+@import "@fontsource/pt-serif/latin-700.css";
+@import "@fontsource/pt-serif/latin-ext-700.css";
+@import "@fontsource/pt-serif/latin-700-italic.css";
+@import "@fontsource/pt-serif/latin-ext-700-italic.css";
 @import "@material-symbols/font-400/outlined.css";
 
 /* For headings that structure the page for assistive tech where the design has
