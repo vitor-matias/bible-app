@@ -93,11 +93,19 @@ rendered. It is only ever written into `dist` — `public/sitemap.xml` is a
 checked-in home-page-only fallback that exists so `robots.txt` never points at
 a 404, and a build that prerendered nothing leaves it in place.
 
-Critical-CSS inlining is deliberately off (`optimization.styles.inlineCritical`
-in `angular.json`): with the Material theme and a fully prerendered DOM,
-essentially the whole ~143KB stylesheet was classed as critical and inlined
-into every page on top of the external stylesheet link, taking per-page HTML
-from ~166KB to ~241KB and the CSR shell from 3.3KB to 74KB.
+Critical-CSS inlining is on (`optimization.styles.inlineCritical` in
+`angular.json`) even though, with the Material theme and a fully prerendered
+DOM, most of the stylesheet is classed as critical and each page grows by
+roughly 10KB gzipped. It buys the first paint: when the external stylesheet
+arrives after the HTML has been received — always the case in production, the
+CSS needs its own round trip — Chrome held the first frame for about a second
+(measured with Lighthouse: first contentful paint ~1.3s versus ~0.3s with the
+CSS inlined). The external stylesheet is still linked, but non-blocking.
+
+Client hydration is enabled (`provideClientHydration` in `app.config.ts`),
+so the prerendered DOM is reused rather than discarded at bootstrap, without
+the HTTP transfer cache: it would embed the ~190KB `/v1/books` response in
+every prerendered page.
 
 ## Mobile (Capacitor)
 

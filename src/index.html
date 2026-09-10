@@ -4,8 +4,10 @@
   <meta charset="utf-8">
   <title>Bíblia Sagrada Online — Bíblia dos Capuchinhos</title>
   <base href="/">
-  <meta name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <!-- Zoom stays enabled (WCAG 1.4.4). The reader still owns pinch gestures
+       inside the text: .chapterBlock sets touch-action: pan-y, so the browser
+       does not zoom there and the pinch-to-zoom directive resizes the text. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description"
       content="A Bíblia Sagrada completa em português, da Difusora Bíblica (Franciscanos Capuchinhos). Leitura online e offline, gratuita, com pesquisa e marcadores.">
   <meta property="og:type" content="website">
@@ -50,15 +52,21 @@
        anonymous-CORS preconnect would warm a socket it cannot reuse. -->
   <link rel="preconnect" href="https://umami.dojo.pt">
   <script defer src="https://umami.dojo.pt/script.js" data-website-id="5f2a57be-86a2-4608-8fc5-667a9c24689c"></script>
-  <!-- Google tag (gtag.js) -->
-  <link rel="preconnect" href="https://www.googletagmanager.com">
-  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18415019347"></script>
+  <!-- Google tag (gtag.js). The queue is set up right away so no call is
+       lost, but the ~160 KB tag itself only loads after the page's load event:
+       on a slow connection it otherwise competes with the stylesheet, fonts
+       and app bundle that the first paint waits on. -->
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag() { dataLayer.push(arguments); }
     gtag('js', new Date());
-
     gtag('config', 'AW-18415019347');
+    window.addEventListener('load', function () {
+      var tag = document.createElement('script');
+      tag.async = true;
+      tag.src = 'https://www.googletagmanager.com/gtag/js?id=AW-18415019347';
+      document.head.appendChild(tag);
+    });
   </script>
 </head>
 <body class="mat-typography">

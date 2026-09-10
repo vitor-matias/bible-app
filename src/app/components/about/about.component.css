@@ -1,8 +1,12 @@
 img {
+  /* width/height attributes give the aspect ratio; auto lets the max-*
+     constraints scale the image without distorting it. */
+  width: auto;
+  height: auto;
   max-width: 100%;
+  max-height: 100%;
   margin: auto;
   display: block;
-  max-height: 100%;
 }
 
 p {
