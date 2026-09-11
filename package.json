@@ -53,7 +53,7 @@
     "@playwright/test": "^1.60.0",
     "@types/jasmine": "~6.0.0",
     "@types/node": "^25.5.2",
-    "baseline-browser-mapping": "^2.10.15",
+    "baseline-browser-mapping": "^2.11.22",
     "istanbul-lib-instrument": "^6.0.3",
     "jasmine-core": "~6.1.0",
     "karma": "~6.4.4",
