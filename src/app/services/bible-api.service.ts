@@ -61,15 +61,17 @@ function serverRetry<T>() {
 }
 
 /**
- * Survives between prerenders in one worker, so the book list is fetched once
+ * Survives between prerenders in one worker, so a listing is fetched once
  * instead of ~1200 times. Never caches an empty response: every later render
  * would resolve every book to the About page instead of failing.
  */
-export function createServerBooksCache(isServer: boolean): {
-  read(): Book[] | null
-  write(books: Book[]): void
+export function createServerBooksCache<T = Book>(
+  isServer: boolean,
+): {
+  read(): T[] | null
+  write(books: T[]): void
 } {
-  let cached: Book[] | null = null
+  let cached: T[] | null = null
   return {
     read: () => (isServer && cached?.length ? cached : null),
     write: (books) => {
@@ -79,6 +81,7 @@ export function createServerBooksCache(isServer: boolean): {
 }
 
 const serverBooksCache = createServerBooksCache(IS_SERVER)
+const serverIntrosCache = createServerBooksCache<IntroSummary>(IS_SERVER)
 
 @Injectable({
   providedIn: "root",
@@ -214,10 +217,13 @@ export class BibleApiService {
                   new Error("Offline and no cached introductions available"),
               )
         }
+        const cachedServerIntros = serverIntrosCache.read()
+        if (cachedServerIntros) return of(cachedServerIntros)
         return (
           this.http.get(`${this.api}/intros`) as Observable<IntroSummary[]>
         ).pipe(
           serverRetry(),
+          tap((intros) => serverIntrosCache.write(intros)),
           catchError((error) =>
             cached.length ? of(cached) : throwError(() => error),
           ),

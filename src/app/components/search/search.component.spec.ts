@@ -152,6 +152,37 @@ describe("SearchComponent", () => {
     expect(submitSpy).toHaveBeenCalledTimes(1)
   })
 
+  it("should re-run a shared query that went away and came back", () => {
+    const submitSpy = spyOn(component, "onSearchSubmit")
+    component.ngOnInit()
+
+    queryParamMapSubject.next(convertToParamMap({ q: "same" }))
+    queryParamMapSubject.next(convertToParamMap({}))
+    queryParamMapSubject.next(convertToParamMap({ q: "same" }))
+
+    expect(submitSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it("should open a standalone introduction at /intro without probing a verse", async () => {
+    referenceService.extract.and.returnValue([])
+    bookService.findBook.and.returnValue({
+      id: "pentateuco",
+      abrv: "pentateuco",
+      shortName: "Introdução ao Pentateuco",
+      name: "Introdução ao Pentateuco",
+      chapterCount: 0,
+      introSlug: "pentateuco",
+    })
+
+    await component.onSearchSubmit("Introdução ao Pentateuco")
+
+    expect(apiService.getVerse).not.toHaveBeenCalled()
+    expect(router.navigate).toHaveBeenCalledWith(
+      ["/", "pentateuco", "intro"],
+      {},
+    )
+  })
+
   it("should not search on init without a q query param", () => {
     const submitSpy = spyOn(component, "onSearchSubmit")
 
