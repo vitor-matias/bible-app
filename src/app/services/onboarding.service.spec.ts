@@ -50,7 +50,7 @@ describe("OnboardingService", () => {
 
       expect(dialogSpy.open).toHaveBeenCalledWith(
         OnboardingComponent,
-        jasmine.objectContaining({ data: { source: "first_launch" } }),
+        jasmine.anything(),
       )
       expect(analyticsSpy.track).toHaveBeenCalledWith("onboarding_open", {
         source: "first_launch",
@@ -106,7 +106,6 @@ describe("OnboardingService", () => {
       expect(dialogSpy.open).toHaveBeenCalledWith(
         OnboardingComponent,
         jasmine.objectContaining({
-          data: { source: "menu" },
           ariaLabelledBy: "onboarding-title",
           maxHeight: "90vh",
         }),

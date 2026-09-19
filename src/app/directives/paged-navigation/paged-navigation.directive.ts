@@ -77,10 +77,8 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
       return
     }
 
-    // The columns come from a class Angular writes on the inner block *after*
-    // this hook runs, so measuring now sees a single-column block: scrollWidth
-    // equals clientWidth, which reads as "last page" and hides the next-page
-    // control. Measure once that layout is actually in the DOM.
+    // Angular writes the column class on the inner block after this hook, so
+    // measuring now would see a single column and read as "last page".
     this.afterLayout(() => {
       this.ensureAlignedScrollWidth()
       this.snapToNearestPage()
@@ -178,11 +176,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     }
   }
 
-  /**
-   * Brings the page holding `element` into view. Paged mode moves in whole-page
-   * steps, so scrollIntoView's minimal adjustment would leave the reader on a
-   * seam between two pages with the columns cut in half.
-   */
+  /** Page-aligned: scrollIntoView would stop on a seam between two pages. */
   scrollToPage(
     element: HTMLElement,
     behavior: ScrollBehavior = "smooth",
@@ -197,8 +191,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     const advanceWidth = this.getAdvanceWidth(block)
     if (advanceWidth <= 0) return
 
-    // A verse is an inline box: its first fragment is where it starts, which is
-    // the page the reader asked for even when the verse runs over the break.
+    // A verse is an inline box: its first fragment is the page it starts on.
     const rect = element.getClientRects()[0] ?? element.getBoundingClientRect()
     const offset =
       rect.left -
@@ -269,10 +262,8 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
    */
   ensureAlignedScrollWidth(): void {
     this.alignScrollWidth()
-    // Content that arrives after the first measurement (a lazily loaded
-    // introduction, late fonts) changes how many pages there are. Without this
-    // the stale "last page" state hides the next control, and with overflow-x
-    // hidden the reader is then stuck on the first page.
+    // Late content (lazy introduction, fonts) changes the page count; a stale
+    // "last page" state would hide the next control.
     this.onScroll()
   }
 
@@ -318,7 +309,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
    * Automatically recalculates aligning boundaries to prevent clipping text.
    */
   private observeContentChanges(): void {
-    // Layout observation is browser-only; the server DOM has no observers.
+    // The server DOM has no observers.
     if (!isPlatformBrowser(this.platformId)) return
     this.mutationObserver?.disconnect()
     const block = this._bookBlock

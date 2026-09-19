@@ -44,8 +44,7 @@ mat-tree-node {
   cursor: default;
   hyphens: auto;
   font-size: 90%;
-  /* Material fixes tree nodes at 48px; book names wrap to two lines, so the
-     node has to grow instead of letting them spill out of it. */
+  /* Material fixes nodes at 48px; wrapped book names need them to grow. */
   height: auto !important;
   min-height: 48px;
   padding: 4px 0;
@@ -54,8 +53,7 @@ mat-tree-node {
 .testament-label {
   font-size: 125%;
   font-weight: bold;
-  /* Spelled out rather than left to the h4 defaults, which the Material
-     typography reset overrides. */
+  /* The Material typography reset overrides heading default margins. */
   margin: 1.33em 0;
 }
 

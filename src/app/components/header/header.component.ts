@@ -74,17 +74,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /** True for the fade-out half of a label swap. */
   labelFading = false
 
-  /**
-   * Accessible name for the page heading. The visible label doubles as the
-   * book picker and, on the home page, alternates with a prompt — this keeps
-   * the heading naming the page whatever it currently shows.
-   */
+  /** Accessible name for the h1, whose visible label cycles on the home page. */
   get headingLabel(): string {
     if (!this.book) return ""
     if (this.book.id === "about") return this.book.name
-    // Chapter 0 is the introduction, and a standalone one is already named
-    // after itself — same rules the visible label follows, so the heading
-    // never announces "0" for a page that shows "Introdução".
+    // A standalone introduction is already named after itself.
     if (this.book.introSlug) return this.book.name
     return this.chapterNumber === 0
       ? `${this.book.name} Introdução`
@@ -141,11 +135,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       })
   }
 
-  /**
-   * Width of the window, not of the physical screen: a narrow desktop window
-   * needs the compact labels just as much as a phone does. Recomputed on
-   * resize so rotating or resizing takes effect immediately.
-   */
+  /** Window width, not screen width: a narrow desktop window counts too. */
   @HostListener("window:resize")
   updateMobile(): void {
     if (typeof window === "undefined") return
@@ -170,7 +160,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private updateBookmarkState() {
-    // chapterNumber 0 is the book introduction, so check for null instead of falsiness
+    // != null, not truthy: chapter 0 is the book introduction.
     if (this.book && this.chapterNumber != null) {
       this.currentBookmark = this.bookmarkService.getBookmark(
         this.book.id,
@@ -196,8 +186,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   onReportProblem(trigger: MatMenuTrigger) {
     trigger.closeMenu()
-    // != null, not falsy: chapter 0 is the introduction, and a reader looking
-    // at one must still be able to report a problem with it.
     if (!this.book || this.chapterNumber == null) {
       return
     }
@@ -339,15 +327,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private startLabelCycle(): void {
     this.stopLabelCycle()
     this.bookLabelMode = "title"
-    // The cycling label is browser-only chrome: while prerendering the home
-    // page (about book) there is no window, and window.setInterval here
-    // crashed every server render of "/".
+    // Browser-only: there is no window while prerendering the home page.
     if (!isPlatformBrowser(this.platformId)) return
     this.labelInterval = window.setInterval(() => {
-      // Two phases against the one element on screen: fade it out, swap the
-      // text while nothing is visible, then let it fade back in. The old
-      // crossfade needed a second element for this, and that second label
-      // counted as part of the page's h1.
+      // Fade out, swap the text while it is invisible, then fade back in.
       this.labelFading = true
       this.cdr.detectChanges()
 

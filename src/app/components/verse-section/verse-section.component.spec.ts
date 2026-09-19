@@ -16,7 +16,6 @@ function makeVerse(overrides: Partial<Verse> = {}): Verse {
       {
         type: "text",
         text: "In the beginning...",
-        normalizedText: "In the beginning...",
       },
     ],
     ...overrides,
@@ -86,8 +85,8 @@ describe("VerseSectionComponent", () => {
         component,
         makeVerse({
           text: [
-            { type: "text", text: "verse", normalizedText: "verse" },
-            { type: "references", text: "Gn 1,1", normalizedText: "Gn 1,1" },
+            { type: "text", text: "verse" },
+            { type: "references", text: "Gn 1,1" },
           ],
         }),
       )
@@ -102,12 +101,11 @@ describe("VerseSectionComponent", () => {
         component,
         makeVerse({
           text: [
-            { type: "text", text: "plain", normalizedText: "plain" },
+            { type: "text", text: "plain" },
             {
               type: "section",
               tag: "s2",
               text: "title",
-              normalizedText: "title",
             },
           ],
         }),
@@ -121,9 +119,7 @@ describe("VerseSectionComponent", () => {
       setData(
         component,
         makeVerse({
-          text: [
-            { type: "references", text: "Gn 1,1", normalizedText: "Gn 1,1" },
-          ],
+          text: [{ type: "references", text: "Gn 1,1" }],
         }),
       )
 
@@ -133,7 +129,7 @@ describe("VerseSectionComponent", () => {
       setData(
         component,
         makeVerse({
-          text: [{ type: "text", text: "no refs", normalizedText: "no refs" }],
+          text: [{ type: "text", text: "no refs" }],
         }),
       )
 

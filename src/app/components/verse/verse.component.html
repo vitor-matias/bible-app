@@ -2,9 +2,8 @@
   <!-- Verse Number -->
   @if(data.number > 0 && getFirstTextType() !== 'quote'){
     @if(data.number > 1) {
-      <!-- The gap between two verses is part of the run so the highlight stroke
-           does not break in front of every verse number; .verseText keeps it the
-           same size as the text it separates. -->
+      <!-- Part of the run so the highlight stroke does not break before the
+           verse number; .verseText keeps it the size of the text. -->
       <span class="verseText verseRun">{{ " " }}</span>
     }
     <span class="verseNumber">{{ data.number }}</span>
@@ -40,9 +39,7 @@
       <!-- References -->
       @if(text.type === "references"){
         <span class="references">
-          <!-- Part of the run for the same reason as the inter-verse gap above:
-               otherwise the highlight stroke breaks in front of every
-               references block. -->
+          <!-- Part of the run, like the inter-verse gap above. -->
           <span class="verseRun">{{ " " }}</span>
           <span class="references-block">
             @for(part of parsedReferences.get(i); track $index){
@@ -100,7 +97,7 @@
           @if (text.tag === 's2') {
             <verse-section
               [data]="getDataForSection(i)"
-              [nextIsQuote]="nextIsQuoteStates[i]"
+              [nextIsQuote]="checkNextIsQuote(i)"
               [nextIsParagraph]="checkNextIsParagraph(i)"
               [changeLine]="chapterNumberDisplayIndex !== i && data.text[i-1]?.type !== 'section' && data.text[i-1]?.type !== 'references'">
             </verse-section>

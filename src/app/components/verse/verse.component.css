@@ -110,22 +110,10 @@ h3:not(:first-child) {
   outline: none;
 }
 
-/*
- * Deep-link / search highlight: a marker stroke over the verse.
- *
- * It is painted on the text runs themselves, never on the <verse> host or on
- * the boxes that lay the verse out. The host is an inline box, so a background
- * on it also covers the empty line fragments left behind by <br> and the spaces
- * that separate verses (stray blocks of colour) while never reaching the poetry
- * verse numbers, which hang outside the line box via position: absolute; and
- * .quoteLineWrapper is an inline-block, so painting it fills the whole
- * rectangle including the empty space after a short line of poetry.
- *
- * Every run fades on the same clock, so a highlighted range of verses reads as
- * one mark rather than as a handful of separate ones. Vertical padding thickens
- * the stroke without touching layout — only horizontal padding advances inline
- * boxes, so nothing reflows when the highlight comes and goes.
- */
+/* Deep-link / search highlight, painted on the text runs. The inline <verse>
+   host would also colour empty <br> line fragments and inter-verse spaces, and
+   .quoteLineWrapper (inline-block) the empty space after a short poetry line.
+   padding-block thickens the stroke without reflowing anything. */
 .verseRun,
 .verseNumber,
 .footnoteIndicator,
@@ -145,26 +133,17 @@ h3:not(:first-child) {
   padding-block: 0.1em;
 }
 
-/* Verse numbers are set at 65% and hang from the top of the line
-   (vertical-align: top), so an even padding would leave them as short tiles
-   floating above the stroke; padding-block is relative to their own font-size,
-   hence the much larger value needed to reach the text's band.
-
-   That padding does not move an inline box, but it does enlarge the border
-   box, and that is what the browser hit-tests: it leaves an invisible ~1 line
-   tall target over the text below for as long as the highlight lasts. The
-   number is not interactive, so pointer-events takes it back out of hit
-   testing and taps land on the line they look like they are on. The footnote
-   marker IS interactive, so it cannot do the same and is left unpadded — it
-   still gets the background above, just at its own height. */
+/* Numbers are 65% size and top-aligned, so they need a much larger bottom
+   padding to reach the text's band. That enlarges their hit-test box over the
+   line below, hence pointer-events: none. The footnote marker is interactive,
+   so it is left unpadded instead. */
 :host(.verse-highlight) .verseNumber {
   padding-block: 0.05em 1.45em;
   pointer-events: none;
 }
 
-/* In poetry the number hangs off the left of its line (position: absolute).
-   The stroke goes on the wrapper, which is already the height of the line, and
-   its children stop painting so the translucent colour is not laid down twice. */
+/* Poetry: the stroke goes on the wrapper, already the height of the line; its
+   children stop painting so the translucent colour is not laid down twice. */
 :host(.verse-highlight) .quoteVerseNumber {
   background-color: var(--verse-highlight-color);
 }

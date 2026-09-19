@@ -1,10 +1,8 @@
 /* You can add global styles to this file, and also import other style files */
 
-/* Fonts ship from npm — no fonts.googleapis.com round-trip. Material Symbols
-   carries every icon rather than a hand-built subset: subsetting dropped icons
-   silently, and a missing ligature renders as the icon's name in text. The
-   font-400 build pins the weight axis (477 kB, against 3.9 MB for the full
-   variable font) and keeps FILL variable, which chapter-selector relies on. */
+/* Self-hosted fonts. Material Symbols is the full icon set, not a subset: a
+   missing ligature renders as the icon's name. font-400 pins the weight axis
+   but keeps FILL variable, which chapter-selector relies on. */
 @import "@fontsource/roboto/300.css";
 @import "@fontsource/roboto/400.css";
 @import "@fontsource/roboto/500.css";
@@ -14,8 +12,7 @@
 @import "@fontsource/pt-serif/700-italic.css";
 @import "@material-symbols/font-400/outlined.css";
 
-/* For headings that structure the page for assistive tech where the design has
-   no visible title. Never use this to feed crawlers text a reader can't see. */
+/* For assistive-tech headings only; never to feed crawlers hidden text. */
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -28,10 +25,8 @@
   border: 0;
 }
 
-/* outlined.css only styles .material-symbols-outlined, but Angular Material tags
-   rendered icons with its default `material-icons` fontSet class, so both names
-   have to resolve to the Symbols font — otherwise every icon falls back to a
-   system font and renders its ligature name as words. */
+/* outlined.css only styles .material-symbols-outlined, but Angular Material
+   tags icons with `material-icons`; both must resolve to the Symbols font. */
 .material-symbols-outlined, .material-icons {
   font-family: 'Material Symbols Outlined', sans-serif;
   font-weight: normal;
@@ -69,15 +64,8 @@ body {
 
 /* Light theme variables */
 :root {
-  /* Tells the browser this page fully handles both schemes itself (the
-     .dark-theme class below, toggled by ThemeService — not a bare
-     prefers-color-scheme query) so it doesn't algorithmically "improve"
-     colors on top of ours. Without this, Android's per-app dark theme has
-     been seen repainting one part of an already-dark element (e.g. a
-     button's text but not its background) into something unreadable,
-     differently depending on the exact markup, while leaving untouched
-     elements fine — a moving target no amount of button-level color
-     tweaking fixes, because the browser keeps overriding it. */
+  /* Declares that the page handles both schemes itself (.dark-theme below),
+     so Android's forced dark theme doesn't repaint colours on top of ours. */
   color-scheme: light;
   --background-color: #ffffff;
   --text-color: #000000;
@@ -85,9 +73,7 @@ body {
   --card-background: #f5f5f5;
   --border-color: #e0e0e0;
   --highlight-color: antiquewhite;
-  /* Marker drawn over a deep-linked verse. Kept separate from
-     --highlight-color (a solid surface colour used by buttons and lists)
-     because it is painted over body text and has to stay readable. */
+  /* Painted over body text, so translucent, unlike --highlight-color. */
   --verse-highlight-color: rgba(238, 176, 46, 0.42);
   --cap-brown: #543d27;
   --mat-menu-item-label-text-size: 15px;
@@ -141,8 +127,6 @@ body {
   --card-background: #1e1e1e;
   --border-color: #333333;
   --highlight-color: darkgrey;
-  /* Same hue as the light theme, lighter touch: white text has to stay
-     readable on top of it. */
   --verse-highlight-color: rgba(238, 176, 46, 0.3);
   --mat-menu-container-color: var(--card-background);
   --mat-menu-item-label-text-color: var(--text-color);
@@ -260,39 +244,17 @@ a:not(.floating-nav-button) {
   color: var(--text-color) !important;
 }
 
-/* Anchors only: this exists solely to give the two chapter links a colour now
-   that the rule above no longer forces one on them. The <button> variants of
-   .floating-nav-button (paged mode, auto-scroll controls) keep the
-   --cap-brown their own components set — this must not reach them. */
+/* Anchors only: the <button> variants of .floating-nav-button keep the
+   colour their own components set. */
 html.dark-theme a.floating-nav-button {
   color: #2a1a0d;
 }
 
-/* The onboarding wizard's filled buttons, hardcoded to the antiquewhite/brown
-   pill the header uses.
-
-   This has to target the inner .mdc-button__label, and it has to live here
-   rather than in the component's stylesheet. Material renders the text in
-   that span, and the span does not inherit the button's colour — setting the
-   button to red leaves the label white — so colouring the button, which is
-   all a component stylesheet can do, never reaches the text. That is how
-   this shipped unreadable twice, antiquewhite-on-antiquewhite, while the
-   button element itself measured correctly brown. The span is Material's,
-   not this template's, so it carries no _ngcontent attribute and a scoped
-   stylesheet cannot select it at all.
-
-   Only the filled buttons: "Saltar"/"Anterior" are text buttons sitting on
-   the dark dialog surface and have to stay light. */
+/* Onboarding button text. Material's inner .mdc-button__label doesn't inherit
+   the button's colour and a scoped component stylesheet cannot reach it.
+   Text buttons sit on the dialog surface, hence the dark override below. */
 .onboarding-dialog .mat-mdc-unelevated-button,
-.onboarding-dialog .mat-mdc-unelevated-button .mdc-button__label {
-  color: #543d27 !important;
-}
-
-/* "Saltar"/"Anterior" are text buttons drawn straight on the dialog surface
-   rather than on a pill, so they follow the surface instead of the fixed
-   pairing above: brown on the light surface, cream on the dark one. Material
-   left them on its own untinted default, which read as plain white in dark
-   mode and had nothing to do with the app's palette. */
+.onboarding-dialog .mat-mdc-unelevated-button .mdc-button__label,
 .onboarding-dialog .mat-mdc-button,
 .onboarding-dialog .mat-mdc-button .mdc-button__label {
   color: #543d27 !important;

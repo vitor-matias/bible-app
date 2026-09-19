@@ -39,12 +39,11 @@ export class ThemeService {
         this.applyTheme("system")
       }
     }
-    if (!this.nightModeQuery) {
-      // Server rendering: nothing to watch.
-    } else if (this.nightModeQuery.addEventListener) {
+    // No query while server rendering: nothing to watch.
+    if (this.nightModeQuery?.addEventListener) {
       this.nightModeQuery.addEventListener("change", handler)
     } else {
-      this.nightModeQuery.addListener(handler)
+      this.nightModeQuery?.addListener(handler)
     }
   }
 

@@ -101,8 +101,13 @@ export class PreferencesService {
     this.storage?.setItem(this.KEYS.VIEW_MODE, mode)
   }
 
+  /**
+   * Without usable storage "seen" can never be recorded, so report it as seen:
+   * missing the wizard once beats having it reopen on every launch.
+   */
   getOnboardingSeen(): boolean {
-    return this.storage?.getItem(this.KEYS.ONBOARDING_SEEN) === "true"
+    const storage = this.storage
+    return !storage || storage.getItem(this.KEYS.ONBOARDING_SEEN) === "true"
   }
 
   setOnboardingSeen(seen: boolean): void {

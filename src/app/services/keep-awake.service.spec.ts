@@ -148,6 +148,34 @@ describe("KeepAwakeService", () => {
     expect(sentinel.release).toHaveBeenCalled()
   })
 
+  it("should request a new wake lock when restarted while the old one is releasing", async () => {
+    let finishRelease: () => void = () => {}
+    const sentinel = {
+      addEventListener: jasmine.createSpy("addEventListener"),
+      release: jasmine.createSpy("release").and.returnValue(
+        new Promise<void>((resolve) => {
+          finishRelease = resolve
+        }),
+      ),
+    } as unknown as WakeLockSentinel
+    const requestSpy = jasmine.createSpy("request").and.resolveTo(sentinel)
+    Object.defineProperty(navigator, "wakeLock", {
+      value: { request: requestSpy },
+      configurable: true,
+    })
+    service = TestBed.runInInjectionContext(() => new KeepAwakeService())
+
+    service.start()
+    await Promise.resolve()
+    await Promise.resolve()
+    service.stop()
+    service.start()
+    finishRelease()
+    await Promise.resolve()
+
+    expect(requestSpy).toHaveBeenCalledTimes(2)
+  })
+
   it("should reacquire the wake lock when the document becomes visible again", async () => {
     const sentinel = {
       addEventListener: jasmine.createSpy("addEventListener"),

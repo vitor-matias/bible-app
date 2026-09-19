@@ -46,8 +46,8 @@
     }
   }
   </script>
-  <!-- No crossorigin: the script below is fetched without CORS, and an
-       anonymous-CORS preconnect would warm a socket it cannot reuse. -->
+  <!-- No crossorigin: the script is fetched without CORS, so a CORS
+       preconnect would warm a socket it cannot reuse. -->
   <link rel="preconnect" href="https://umami.dojo.pt">
   <script defer src="https://umami.dojo.pt/script.js" data-website-id="5f2a57be-86a2-4608-8fc5-667a9c24689c"></script>
   <!-- Google tag (gtag.js) -->
@@ -64,8 +64,7 @@
 <body class="mat-typography">
   <app-root></app-root>
   <noscript>
-    <!-- Not an h1: prerendered pages already carry one (the book/chapter title),
-         and this block ships in the same HTML. -->
+    <!-- Not an h1: prerendered pages already carry one. -->
     <h2>Bíblia Sagrada</h2>
     <p>A Bíblia Sagrada completa em português, da Difusora Bíblica (Franciscanos Capuchinhos),
       para ler online e offline. Ative o JavaScript para continuar a utilizar a aplicação.</p>

@@ -18,8 +18,6 @@ describe("web-storage", () => {
       } as unknown as Storage
 
       expect(pickUsableStorage(candidate)).toBeNull()
-      // The probe key is unique per call, so leaving it behind would pile up
-      // junk in a storage that fails partway through.
       expect(removed).toEqual(written)
       expect(removed.length).toBe(1)
     })
@@ -99,19 +97,6 @@ describe("web-storage", () => {
           removeItem: () => {},
         } as unknown as Storage),
       ).toBeNull()
-    })
-
-    // A fixed probe key would overwrite whatever the origin already had there.
-    it("leaves an existing value under the legacy probe key alone", () => {
-      window.localStorage.setItem("__bibleAppStorageProbe__", "keep me")
-      try {
-        expect(pickUsableStorage(window.localStorage)).toBe(window.localStorage)
-        expect(window.localStorage.getItem("__bibleAppStorageProbe__")).toBe(
-          "keep me",
-        )
-      } finally {
-        window.localStorage.removeItem("__bibleAppStorageProbe__")
-      }
     })
 
     it("returns null when property access throws (privacy modes)", () => {

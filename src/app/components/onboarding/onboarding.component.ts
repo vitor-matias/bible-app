@@ -29,10 +29,6 @@ import {
 
 export type OnboardingSource = "first_launch" | "menu"
 
-export interface OnboardingDialogData {
-  source: OnboardingSource
-}
-
 export interface OnboardingResult {
   completed: boolean
   lastStep: string
@@ -71,7 +67,6 @@ export class OnboardingComponent {
     private readonly analyticsService: AnalyticsService,
     private readonly cdr: ChangeDetectorRef,
   ) {
-    // Nothing to install once the app already runs from its own icon.
     this.steps = pwaInstallService.isInstalled
       ? ONBOARDING_STEPS.filter((step) => step.id !== INSTALL_STEP_ID)
       : ONBOARDING_STEPS
@@ -99,7 +94,7 @@ export class OnboardingComponent {
     return this.index === this.steps.length - 1
   }
 
-  /** The one-tap install button only makes sense for the device in hand. */
+  /** The native prompt only installs on the device in hand. */
   get canPromptInstall(): boolean {
     return (
       this.platform === this.detectedPlatform &&
@@ -121,10 +116,8 @@ export class OnboardingComponent {
     this.index = index
     // Plain buttons (step dots) don't repaint on their own under coalesced CD.
     this.cdr.detectChanges()
-    // Focus otherwise stays on the nav button while the title and body swap
-    // underneath it, so screen readers never hear the new step. The heading
-    // is a fresh element each time (the @if block re-creates it), so it has
-    // to be re-queried rather than cached in a ViewChild.
+    // Move focus so screen readers hear the new step. The @if re-creates the
+    // heading each time, so query it rather than cache a ViewChild.
     this.elementRef.nativeElement
       .querySelector<HTMLElement>("#onboarding-title")
       ?.focus()
@@ -141,7 +134,7 @@ export class OnboardingComponent {
   selectPlatform(platform: InstallPlatform): void {
     if (platform === this.platform) return
     this.platform = platform
-    // Browser-specific tips only apply to the device the user is holding.
+    // Browser-specific tips only apply to the detected platform.
     this.guide = getInstallGuide(
       platform,
       platform === this.detectedPlatform ? this.detectedBrowser : null,
@@ -158,9 +151,7 @@ export class OnboardingComponent {
 
     this.installing = false
     this.installOutcome = outcome
-    // AnalyticsService.track sets its own `platform` (Capacitor.getPlatform(),
-    // "web" for any browser) from the spread event data, so the detected
-    // install platform needs a distinct key to survive.
+    // AnalyticsService.track overwrites `platform`, hence the distinct key.
     void this.analyticsService.track("pwa_install_prompt", {
       outcome,
       installPlatform: this.detectedPlatform,
@@ -168,10 +159,7 @@ export class OnboardingComponent {
     this.cdr.markForCheck()
   }
 
-  /**
-   * Listens on the document because the dialog focuses its own container,
-   * which sits above this component, so key events never pass through the host.
-   */
+  /** On the document: the dialog focuses its container, above this host. */
   @HostListener("document:keydown", ["$event"])
   onKeydown(event: KeyboardEvent): void {
     if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return
@@ -179,9 +167,7 @@ export class OnboardingComponent {
     // The reader behind the dialog turns chapters on the same keys.
     event.stopPropagation()
 
-    // Leave arrow keys to the platform switcher when it has focus — these are
-    // plain buttons with no arrow-key behavior of their own, so only the
-    // reader's window handler needs stopping, not the switcher's own default.
+    // Don't turn steps while the platform switcher has focus.
     const target = event.target as HTMLElement | null
     if (target?.closest?.(".platforms")) return
 

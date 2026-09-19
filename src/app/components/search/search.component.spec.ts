@@ -12,7 +12,14 @@ import {
   type ParamMap,
   Router,
 } from "@angular/router"
-import { BehaviorSubject, from, Observable, of, Subject } from "rxjs"
+import {
+  BehaviorSubject,
+  from,
+  Observable,
+  of,
+  Subject,
+  throwError,
+} from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
@@ -408,6 +415,40 @@ describe("SearchComponent", () => {
     )
     expect(router.navigate).not.toHaveBeenCalled()
   })
+
+  it("should release the loading lock when a failed reference supersedes a text search", fakeAsync(() => {
+    // The text search goes stale the moment the reference is submitted, so its
+    // own `finally` no longer clears `isLoading`; the reference path has to.
+    const pendingSearch$ = new Subject<VersePage>()
+    apiService.search.and.returnValue(pendingSearch$.asObservable())
+    referenceService.extract.and.returnValue([])
+    void component.onSearchSubmit("light")
+    flushMicrotasks()
+    expect(component.isLoading).toBeTrue()
+
+    referenceService.extract.and.returnValue([
+      { match: "John 99:1", index: 0, book: "John", chapter: 99 },
+    ])
+    bookService.findBook.and.returnValue({
+      id: "jhn",
+      abrv: "Jo",
+      shortName: "Joao",
+      name: "Evangelho segundo Joao",
+      chapterCount: 21,
+    })
+    apiService.getVerse.and.returnValue(throwError(() => ({ status: 404 })))
+    spyOn(console, "error")
+    void component.onSearchSubmit("John 99:1")
+    flushMicrotasks()
+
+    pendingSearch$.next({ verses: [], total: 0, currentPage: 1, totalPages: 0 })
+    pendingSearch$.complete()
+    flushMicrotasks()
+
+    expect(component.isLoading).toBeFalse()
+    // Paging and highlighting still belong to the search whose results show.
+    expect(component.searchTerm).toBe("light")
+  }))
 
   it("should populate search results and announce the count", async () => {
     const scrollToTopSpy = spyOn(component, "scrollToTop")

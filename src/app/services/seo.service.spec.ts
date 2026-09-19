@@ -46,9 +46,9 @@ describe("SeoService", () => {
           number: 1,
           verseLabel: "1",
           text: [
-            { type: "text", text, normalizedText: text },
+            { type: "text", text },
             { type: "footnote", text: "nota ignorada", reference: "a" },
-            { type: "references", text: "Jo 1,1", normalizedText: "Jo 1,1" },
+            { type: "references", text: "Jo 1,1" },
           ],
         },
       ],
@@ -276,6 +276,24 @@ describe("SeoService", () => {
       expect(items[items.length - 1].item).toBe(
         `${SEO_BASE_URL}/pentateuco/intro`,
       )
+    })
+
+    // Books sharing an introduction (1–2 Samuel…) carry `sharedIntroSlug` and
+    // an empty body until /intro is visited, yet /1sm/intro is a real page.
+    it("points a shared-introduction book's crumb at /intro from a chapter", () => {
+      const samuel = {
+        ...genesis,
+        id: "1sa",
+        shortName: "1 Samuel",
+        introduction: [],
+        sharedIntroSlug: "samuel",
+      } as Book
+      bookServiceSpy.getUrlAbrv.and.returnValue("1sm")
+
+      service.updateForChapter(samuel, 5)
+
+      const items = getBreadcrumbs()?.itemListElement ?? []
+      expect(items[1].item).toBe(`${SEO_BASE_URL}/1sm/intro`)
     })
 
     it("escapes < so a name cannot close the script element", () => {

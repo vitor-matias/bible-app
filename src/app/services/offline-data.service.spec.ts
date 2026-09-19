@@ -48,7 +48,6 @@ describe("OfflineDataService", () => {
                 {
                   type: "text",
                   text: "In the beginning...",
-                  normalizedText: "In the beginning...",
                 },
               ],
             },
@@ -553,7 +552,7 @@ describe("OfflineDataService", () => {
       chapterNumber: chapter,
       number,
       verseLabel: number.toString(),
-      text: [{ type: "text", text: "v", normalizedText: "v" }],
+      text: [{ type: "text", text: "v" }],
     })
 
     it("should merge chapters per chapter number keeping the fuller payload", async () => {

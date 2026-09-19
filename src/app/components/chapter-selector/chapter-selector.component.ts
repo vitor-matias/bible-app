@@ -79,9 +79,8 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
   }
 
   ngAfterViewInit(): void {
-    // Deferred like the ngOnChanges path below: ngAfterViewInit also runs during
-    // prerendering, where the server DOM has no scrollIntoView. afterNextRender
-    // is browser-only, so the scroll simply doesn't happen there.
+    // Runs while prerendering too, where the DOM has no scrollIntoView;
+    // afterNextRender is browser-only.
     afterNextRender(() => this.scrollToSelectedChapter(), {
       injector: this.injector,
     })

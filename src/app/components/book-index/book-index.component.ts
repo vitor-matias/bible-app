@@ -36,15 +36,8 @@ interface TestamentIndex {
 }
 
 /**
- * The crawlable counterpart to the drawer's book picker: real anchors to every
- * book, grouped the way the canon groups them, on a prerendered page of its
- * own.
- *
- * It lives at /livros rather than on the About page because the point is to
- * pass internal link weight to all 73 books in one hop, and the About page is
- * prose that a wall of links does not belong on. A reader gets a table of
- * contents out of it, which is what keeps the page worth indexing on its own
- * terms rather than reading as a doorway built only for crawlers.
+ * Crawlable counterpart to the drawer's book picker: a prerendered page with
+ * real anchors to every book, grouped as the canon groups them.
  */
 @Component({
   selector: "book-index",
@@ -79,10 +72,7 @@ export class BookIndexComponent implements OnInit {
         introLink: this.introLinkFor(group, byId),
         books: group.books
           .map((id) => byId.get(id))
-          // bible-canon.ts holds the 73 canonical books only — the synthetic
-          // About and introduction entries are appended by BookService, never
-          // by the canon — so an unknown id here just means the API did not
-          // return that book.
+          // An unknown id means the API did not return that book.
           .filter((book): book is Book => !!book)
           .map((book) => ({
             name: book.name,
@@ -96,9 +86,8 @@ export class BookIndexComponent implements OnInit {
   }
 
   /**
-   * Standalone group introductions are pages in their own right, so link them
-   * too — but only once BookService has actually seen the slug, so a build
-   * without them does not emit links to pages that were never prerendered.
+   * Links a group's introduction only once BookService has loaded it, so a
+   * build without it emits no link to a page that was never prerendered.
    */
   private introLinkFor(
     group: CanonGroup,

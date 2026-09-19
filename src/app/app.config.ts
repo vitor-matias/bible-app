@@ -17,9 +17,8 @@ export function initializeBookService(
 ): () => Promise<void> {
   return () =>
     bookService.initializeBooks().catch((error: unknown) => {
-      // While server-rendering (prerender/route extraction), an unreachable
-      // API must not fail the whole build — affected pages just fall back to
-      // client-side rendering. In the browser, keep failing loudly.
+      // An unreachable API must not fail the prerender build; those pages
+      // fall back to client-side rendering.
       if (!isBrowser()) {
         console.warn(
           "Book list unavailable during server rendering; continuing without it.",

@@ -50,11 +50,7 @@ export class SearchComponent {
   private queryParamSubscription?: Subscription
   /** Guards against re-running the same shared query on unrelated emissions. */
   private lastSharedQuery: string | null = null
-  /**
-   * Bumped on every submit. A share target can deliver two queries back to
-   * back, and the slower request must not overwrite the newer one's results,
-   * clear its loading state, or navigate away from it.
-   */
+  /** Bumped on every submit so a slower, superseded request can be ignored. */
   private searchGeneration = 0
 
   constructor(
@@ -73,15 +69,13 @@ export class SearchComponent {
   ngOnInit(): void {
     this.seoService.updateForSearch()
 
-    // Share-target launches land here as /search?q=<shared text>. Subscribe
-    // rather than read the snapshot once: Angular reuses this component when
-    // navigating between /search URLs, so a second share would be ignored.
+    // Share-target launches arrive as /search?q=. Subscribe, not snapshot:
+    // Angular reuses this component between /search URLs.
     this.queryParamSubscription = this.route.queryParamMap.subscribe(
       (params) => {
         const sharedQuery = params.get("q")
         if (!sharedQuery || sharedQuery === this.lastSharedQuery) return
         this.lastSharedQuery = sharedQuery
-        // Fire-and-forget: onSearchSubmit surfaces its own errors via snackbar.
         void this.onSearchSubmit(sharedQuery)
       },
     )
@@ -126,9 +120,6 @@ export class SearchComponent {
   private async loadMoreResults() {
     if (this.isLoading || this.searchResults.length >= this.totalResults) return
 
-    // The same guard the submit path uses, for the same reason: a page of
-    // results for the query being scrolled must not append itself to whatever
-    // query replaced it while the request was in flight.
     const generation = this.searchGeneration
     const isStale = () => generation !== this.searchGeneration
 
@@ -148,8 +139,8 @@ export class SearchComponent {
       if (isStale()) return
       console.error("Error loading more results:", error)
     } finally {
-      // `return` inside the try still runs this, so a superseded page would
-      // otherwise clear the loading state of the search that replaced it.
+      // A stale `return` in the try still lands here; don't clear the newer
+      // search's loading state.
       if (!isStale()) {
         this.isLoading = false
         this.cdr.detectChanges()
@@ -160,7 +151,6 @@ export class SearchComponent {
   async onSearchSubmit(text: string): Promise<void> {
     const generation = ++this.searchGeneration
     const isStale = () => generation !== this.searchGeneration
-    this.searchTerm = text
     const references = this.referenceService.extract(text)
 
     let targetBook: Book | null = null
@@ -225,10 +215,16 @@ export class SearchComponent {
             duration: 3000,
           })
         }
+        // The superseded text search's stale `finally` skips this reset.
+        this.isLoading = false
+        this.cdr.detectChanges()
       }
       return
     }
 
+    // Set only for text searches: a failed reference lookup leaves the
+    // previous results on screen, and paging and highlighting read this.
+    this.searchTerm = text
     this.hasSearched = true
     this.isLoading = true
     try {
@@ -268,8 +264,6 @@ export class SearchComponent {
         duration: 3000,
       })
     } finally {
-      // `return` inside the try still runs this, so a superseded search would
-      // otherwise clear the loading state of the one that replaced it.
       if (!isStale()) {
         this.isLoading = false
         this.cdr.detectChanges()

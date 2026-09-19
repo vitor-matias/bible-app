@@ -25,7 +25,7 @@ import {
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
 import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { combineLatest, Subject, Subscription } from "rxjs"
-import { switchMap, takeUntil } from "rxjs/operators"
+import { switchMap, take, takeUntil } from "rxjs/operators"
 import {
   PagedNavigationDirective,
   PageState,
@@ -112,10 +112,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   isNavigatingBackwards = false
   previousChapterLink: (string | number)[] = []
   nextChapterLink: (string | number)[] = []
-  private chapterLinkKey = ""
   /** The chapter last asked for, which an async load must still match. */
   private pendingChapter?: Chapter["number"]
-  private initialNavigationDone = false
   isFirstPage = true
   isLastPage = false
 
@@ -134,9 +132,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     return this.chapterNumber === 0 && this.hasIntro
   }
 
-  // Memoized per book: the template binds to this on every change detection
-  // cycle, and a fresh array/intro object each time would make Angular tear
-  // down and recreate the intro row mid-click, swallowing taps on it.
+  // Memoized: a fresh array per change detection makes Angular recreate the
+  // intro row mid-click, swallowing taps on it.
   private chaptersWithIntroCache: {
     book?: Book
     chapters?: Chapter[]
@@ -146,9 +143,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   get chaptersWithIntro(): Chapter[] {
     const cache = this.chaptersWithIntroCache
-    // Track the chapters/introduction references too: a Book object whose
-    // fields are filled in place keeps the same identity, and comparing only
-    // the book would then serve a stale list.
+    // A Book filled in place keeps its identity, so compare its fields too.
     if (
       cache.book !== this.book ||
       cache.chapters !== this.book?.chapters ||
@@ -209,10 +204,17 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.showAutoScrollControls =
       this.viewMode === "scrolling" && this.autoScrollControlsPreference
     this.bookService.books$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((books) => {
+        this.books = books
+      })
+
+    // First book list only: loading an introduction body pushes a new list
+    // mid-navigation, and re-running this would load the chapter twice.
+    this.bookService.books$
       .pipe(
-        takeUntil(this.destroy$),
-        switchMap((_books) => {
-          this.books = _books
+        take(1),
+        switchMap(() => {
           this.bookParam =
             this.router.routerState.snapshot.root.firstChild?.params[
               "book"
@@ -230,11 +232,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
             this.preferencesService.getLastChapterNumber()?.toString() ||
             "1"
 
-          // Only on the first emission: loading an introduction body pushes a
-          // new book list, and re-running the restore would navigate and load
-          // the very chapter already on screen a second time.
-          if (!this.initialNavigationDone && storedBook && storedChapter) {
-            this.initialNavigationDone = true
+          if (storedBook && storedChapter) {
             this.book = this.bookService.findBook(storedBook)
 
             this.chapterNumber =
@@ -247,9 +245,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
               ? Number.parseInt(queryParams["verseEnd"], 10)
               : undefined
 
-            // Only normalize the URL in the browser. During prerendering this
-            // navigation (e.g. "/" → "/sobre/1") would make Angular emit a
-            // "Redirecting" stub instead of the page's real, indexable content.
+            // Browser-only: while prerendering, this navigation would make
+            // Angular emit a "Redirecting" stub instead of the page content.
             if (isPlatformBrowser(this.platformId)) {
               this.router.navigate(
                 [
@@ -273,6 +270,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
           return combineLatest([this.route.paramMap, this.route.queryParamMap])
         }),
+        takeUntil(this.destroy$),
       )
       .subscribe(([params, queryParams]) => {
         const bookParam = params.get("book") || "about"
@@ -317,10 +315,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // AutoScrollService handles its own cleanup now if we stop it, or the component stopping it
   }
 
-  /**
-   * The single place chapter URLs are built, so the crawlable anchors and the
-   * swipe/keyboard navigation can never drift apart.
-   */
+  /** The one place chapter URLs are built, for anchors and navigation alike. */
   private chapterCommands(
     chapter: Chapter["number"],
     absolute = false,
@@ -338,22 +333,14 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     return Math.min(Math.max(chapter, this.minChapter), highest)
   }
 
-  /**
-   * Side effects for the crawlable prev/next anchors: RouterLink performs the
-   * navigation, this just stops auto-scroll and picks the slide direction.
-   *
-   * `event` is the anchor's own click. RouterLink declines modified and
-   * non-primary clicks so the browser can open them in a new tab or window,
-   * and the side effects have to decline the same clicks — otherwise a
-   * Cmd-click stops auto-scroll and leaves a direction flag set in a tab that
-   * never navigates and so never clears it.
-   */
+  // Side effects for the prev/next anchors; RouterLink does the navigation.
+  // Skips the clicks RouterLink leaves to the browser: this tab never navigates
+  // then, so it would never clear the direction flag.
   prepareChapterNavigation(forwards: boolean, event?: MouseEvent): void {
     if (event && !this.isPlainLeftClick(event)) return
 
     const target = forwards ? this.chapterNumber + 1 : this.chapterNumber - 1
-    // The anchors bypass goToNextChapter/goToPreviousChapter, so repeat their
-    // bounds check here rather than trusting the template guard alone.
+    // The anchors bypass goToNextChapter/goToPreviousChapter's bounds check.
     if (target !== this.clampChapter(target)) return
 
     this.autoScrollService.stop()
@@ -371,21 +358,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     )
   }
 
-  /**
-   * Router link arrays for the prev/next anchors, rebuilt only when the book
-   * or chapter actually changes. RouterLink diffs its input by reference, so
-   * handing it a fresh array on every read would make it recompute both hrefs
-   * on every change detection pass — and auto-scroll runs one of those per
-   * animation frame.
-   */
+  /** Fields, not getters: RouterLink diffs its input by reference. */
   private rebuildChapterLinks(): void {
-    const urlAbrv = this.bookService.getUrlAbrv(this.book)
-    // minChapter is part of the key because an introduction can arrive after
-    // the chapter does, and it moves where the previous link may point.
-    const key = `${urlAbrv}/${this.chapterNumber}/${this.minChapter}`
-    if (key === this.chapterLinkKey) return
-
-    this.chapterLinkKey = key
     this.previousChapterLink = this.chapterCommands(
       this.chapterNumber - 1,
       true,
@@ -411,9 +385,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   goToNextChapter(): void {
     if (this.book.chapterCount >= this.chapterNumber + 1) {
-      this.rebuildChapterLinks()
       this.prepareChapterNavigation(true)
-      this.router.navigate(this.nextChapterLink)
+      this.router.navigate(this.chapterCommands(this.chapterNumber + 1, true))
     }
   }
 
@@ -423,9 +396,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   goToPreviousChapter(): void {
     if (this.chapterNumber > this.minChapter) {
-      this.rebuildChapterLinks()
       this.prepareChapterNavigation(false)
-      this.router.navigate(this.previousChapterLink)
+      this.router.navigate(this.chapterCommands(this.chapterNumber - 1, true))
     }
   }
 
@@ -436,9 +408,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   onBookSubmit(event: { bookId: string }) {
     const book = this.bookService.findBook(event.bookId)
-    // Picking a book opens chapter 1: the introduction is reachable from the
-    // chapter list, but readers expect the text itself by default. A
-    // standalone introduction has no chapters, so it opens on itself.
+    // Chapter 1 rather than the introduction, except for a standalone
+    // introduction, which has no chapters.
     this.router.navigate([
       "/",
       this.bookService.getUrlAbrv(book),
@@ -462,8 +433,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   ) {
     this.pendingChapter = chapter
 
-    // The About page is local content with no chapter behind it: asking the
-    // API only earns a 404 that falls through to this very same render.
+    // The About page is local content with no chapter behind it.
     if (this.book.id === "about") {
       this.chapterSubscription?.unsubscribe()
       this.finalizeChapterTransition(() =>
@@ -483,19 +453,17 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     if (chapter === 0) {
       this.chapterSubscription?.unsubscribe()
 
-      // A standalone introduction — the whole Bible, a testament, a group, or
-      // one shared by a cluster of books — ships without its body: fetch it,
-      // then render as usual.
+      // A standalone introduction ships without its body: fetch it first.
       if (
         !this.book.introduction?.length &&
         BookService.introSlugFor(this.book)
       ) {
-        this.bookService
-          .loadGroupIntroBody(this.book)
-          .then((book) => {
-            // Ignore a response that arrives after the reader moved on — to
-            // another book, or to a chapter of this one.
-            if (this.book.id !== book.id || this.pendingChapter !== 0) return
+        const requested = this.book
+        const isCurrent = () =>
+          this.book.id === requested.id && this.pendingChapter === 0
+        this.bookService.loadGroupIntroBody(requested).then(
+          (book) => {
+            if (!isCurrent()) return
             this.book = book
             this.finalizeChapterTransition(() =>
               this.applyChapter(
@@ -503,29 +471,26 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
                 0,
               ),
             )
-          })
-          .catch((error) => {
-            this.notifyChapterLoadFailed()
-            console.error(error)
-          })
+          },
+          (error) => {
+            if (isCurrent()) this.handleChapterLoadFailure(error)
+          },
+        )
         return
       }
 
-      // /intro on a book without introduction: normalize to chapter 1
-      // instead of requesting the nonexistent chapter 0 from the API.
+      // /intro on a book without introduction: normalize to chapter 1.
       if (!this.book.introduction?.length) {
-        // Move the state off chapter 0 too: otherwise a later failed load
-        // would revert the URL to /intro, which this book does not have.
+        // Otherwise a later failed load would revert the URL to /intro.
         this.chapterNumber = 1
-        // Browser-only, like the other normalizing navigate: during
-        // prerendering this would emit a "Redirecting" stub instead of content.
+        // Browser-only, like the normalizing navigate in ngOnInit.
         if (isPlatformBrowser(this.platformId)) {
           void this.router.navigate(this.chapterCommands(1), {
             replaceUrl: true,
           })
         }
-        // Load it here: the navigation above lands on a route event that the
-        // subscriber discards as already-current, so nothing else would.
+        // The route subscriber discards the navigation above as
+        // already-current, so load the chapter here.
         this.getChapter(1, verseStart, verseEnd, highlight)
         return
       }
@@ -548,31 +513,27 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
             this.applyChapter(res, chapter, verseStart, verseEnd, highlight),
           ),
         error: (err) =>
-          this.finalizeChapterTransition(() => {
-            this.isNavigatingBackwards = false
-            this.isNavigatingForwards = false
-            if (this.book.id === "about") {
-              this.applyChapter(
-                { bookId: "about", number: 1 },
-                chapter,
-                verseStart,
-                verseEnd,
-                highlight,
-              )
-            } else {
-              this.notifyChapterLoadFailed()
-              this.router.navigate(
-                [
-                  "/",
-                  this.bookService.getUrlAbrv(this.book),
-                  this.bookService.getChapterUrlSegment(this.chapterNumber),
-                ],
-                { replaceUrl: true },
-              )
-            }
-            console.error(err)
-          }),
+          this.finalizeChapterTransition(() =>
+            this.handleChapterLoadFailure(err),
+          ),
       })
+  }
+
+  // Stay on the chapter shown. A leftover slide direction would open the next
+  // load at the bottom.
+  private handleChapterLoadFailure(error: unknown): void {
+    this.isNavigatingBackwards = false
+    this.isNavigatingForwards = false
+    this.notifyChapterLoadFailed()
+    this.router.navigate(
+      [
+        "/",
+        this.bookService.getUrlAbrv(this.book),
+        this.bookService.getChapterUrlSegment(this.chapterNumber),
+      ],
+      { replaceUrl: true },
+    )
+    console.error(error)
   }
 
   /** Tell the reader why a chapter could not be shown, instead of failing silently. */
@@ -585,10 +546,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   /** Hide the container BEFORE change detection paints the new chapter. */
   private resetContainerForRepaint(): void {
-    // Browser-only: the animation service clears this again from
-    // triggerSlideAnimation, which is itself browser-only, so hiding the
-    // container while server-rendering would bake opacity: 0 into the
-    // prerendered HTML with nothing left to undo it.
+    // Browser-only: what undoes this (triggerSlideAnimation) never runs on the
+    // server, so opacity: 0 would be baked into the prerendered HTML.
     if (!isPlatformBrowser(this.platformId)) return
     const el = this.bookContainer?.nativeElement
     if (el) {
@@ -627,8 +586,6 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.chapter = chapterData
     this.chapterNumber = chapter
     this.rebuildChapterLinks()
-    // The chapter being replaced may still have a realign pass waiting on the
-    // layout; it holds the old verse element and must not scroll this one.
     this.animationService.cancelPendingRealign()
 
     this.seoService.updateForChapter(
@@ -661,11 +618,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.preferencesService.setLastChapterNumber(this.chapterNumber)
   }
 
-  /**
-   * Brings a deep-linked verse into view. Paged mode scrolls sideways in whole
-   * pages, so it hands the scroll to the paged navigation instead of letting
-   * the browser nudge the columns to wherever the verse happens to sit.
-   */
+  /** Paged mode scrolls in whole pages, so paged navigation does the scroll. */
   private scrollToVerse(
     verseStart: Verse["number"],
     verseEnd?: Verse["number"],

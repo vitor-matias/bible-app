@@ -125,9 +125,8 @@ export class AppComponent implements OnInit, OnDestroy {
       }
     }
 
-    // Fall back: open search with the shared text, URL or title as the query.
-    // First non-empty, not first non-null: a share sheet that sends
-    // "?text=&title=Salmo 23" gives an empty string, and ?? would keep it.
+    // Fall back: open search with the first non-empty of text, URL or title.
+    // Not ??: a share sheet may send an empty "?text=".
     const query =
       [sharedText, sharedUrl, sharedTitle].find(
         (value) => !!value && value.trim().length > 0,

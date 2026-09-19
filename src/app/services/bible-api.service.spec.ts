@@ -27,6 +27,7 @@ describe("BibleApiService", () => {
       "getCachedVerseAsync",
       "getCachedGroupIntroSummariesAsync",
       "getCachedGroupIntroAsync",
+      "areGroupIntrosCached",
     ])
     networkServiceStub = { isOffline: false }
 
@@ -73,7 +74,6 @@ describe("BibleApiService", () => {
             {
               type: "text",
               text: "In the beginning...",
-              normalizedText: "In the beginning...",
             },
           ],
         },
@@ -189,7 +189,6 @@ describe("BibleApiService", () => {
               {
                 type: "text",
                 text: "Now these are the names...",
-                normalizedText: "Now these are the names...",
               },
             ],
           },
@@ -371,7 +370,6 @@ describe("BibleApiService", () => {
           {
             type: "text",
             text: "In the beginning...",
-            normalizedText: "In the beginning...",
           },
         ],
       } as Verse
@@ -439,11 +437,37 @@ describe("BibleApiService", () => {
       offlineDataServiceSpy.getCachedGroupIntroSummariesAsync.and.returnValue(
         Promise.resolve(cachedIntros),
       )
+      offlineDataServiceSpy.areGroupIntrosCached.and.returnValue(true)
 
       const result = await firstValueFrom(service.getIntros())
 
       expect(result).toEqual(cachedIntros)
       httpMock.expectNone("v1/intros")
+    })
+
+    it("asks the network past a partial cache, keeping it as the fallback", async () => {
+      // One slug failing during preload leaves the cache short. Served as the
+      // listing, the missing introduction would vanish for the whole session.
+      const partial = [{ slug: "pentateuco", name: "Pentateuco" }]
+      const full = [...partial, { slug: "samuel", name: "Samuel" }]
+      offlineDataServiceSpy.getCachedGroupIntroSummariesAsync.and.returnValue(
+        Promise.resolve(partial),
+      )
+      offlineDataServiceSpy.areGroupIntrosCached.and.returnValue(false)
+
+      const online = firstValueFrom(service.getIntros())
+      await Promise.resolve()
+      await Promise.resolve()
+      httpMock.expectOne("v1/intros").flush(full)
+      expect(await online).toEqual(full)
+
+      const failing = firstValueFrom(service.getIntros())
+      await Promise.resolve()
+      await Promise.resolve()
+      httpMock
+        .expectOne("v1/intros")
+        .flush("down", { status: 400, statusText: "Bad Request" })
+      expect(await failing).toEqual(partial)
     })
 
     it("throws when offline and the listing is not cached", async () => {
