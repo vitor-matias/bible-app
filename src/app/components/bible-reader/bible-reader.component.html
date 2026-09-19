@@ -1,7 +1,9 @@
 @if (book) {
 <div class="text-container" unifiedGestures fontSizeContext="reader" (swipeLeft)="onSwipeLeft()" (swipeRight)="onSwipeRight()">
   <header class="reader-header" [book]="book" [chapterNumber]="chapterNumber" [viewMode]="effectiveViewMode"
-    [autoScrollControlsVisible]="showAutoScrollControls" (openBookSelector)="openBookDrawer($event)"
+    [autoScrollControlsVisible]="showAutoScrollControls" [cardsView]="showCards"
+    [cardsViewAvailable]="cardsViewAvailable" (toggleCardsView)="onToggleCardsView()"
+    (openBookSelector)="openBookDrawer($event)"
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
     (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize()"
     (decreaseFontSizeEvent)="onDecreaseFontSize()"></header>
@@ -21,13 +23,15 @@
       }
     </mat-drawer>
     }
-    <mat-drawer-content style="background-color: var(--background-color)">
+    <mat-drawer-content style="background-color: var(--background-color)" [class.cards-scroller]="showCards">
       <div #bookContainer [class.paged-view-container]="effectiveViewMode === 'paged'" [appPagedNavigation]="bookBlock"
         [viewMode]="effectiveViewMode" (nextChapter)="goToNextChapter()" (prevChapter)="goToPreviousChapter()"
         (pageStateChange)="onPageStateChange($event)">
         <div #bookBlock class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}"
-          [class.paged-view]="effectiveViewMode === 'paged'">
-          @if (chapter) {
+          [class.paged-view]="effectiveViewMode === 'paged'" [class.cards-view]="showCards">
+          @if (chapter && showCards) {
+          <verse-cards [chapter]="chapter"></verse-cards>
+          } @else if (chapter) {
           <div pinch-to-zoom class="chapterBlock">
             @if(book.id !== 'about'){
             @if (isIntroChapter) {
@@ -47,7 +51,8 @@
       </div>
 
       @if (book.id !== 'about' && chapter) {
-      <div class="copyright-footer" [class.fixed-footer]="effectiveViewMode === 'paged'">
+      <div class="copyright-footer" [class.fixed-footer]="effectiveViewMode === 'paged'"
+        [class.cards-footer]="showCards">
         <span class="center"><b>© DIFUSORA BÍBLICA</b></span>
         <span class="center copyright-details">
           Reservados todos os direitos. É proibida a reprodução, total ou parcial, do texto, sem autorização, por
@@ -55,7 +60,9 @@
       </div>
       }
 
-      @if (book.id !== 'about' && chapter) {
+      <!-- None of this in the card view, which shows the verse and nothing
+           else: chapters change there by swiping sideways or from the pickers. -->
+      @if (book.id !== 'about' && chapter && !showCards) {
       <!-- Floating navigation: real links in scrolling mode, for crawlers. -->
       @if (chapter.number > (hasIntro ? 0 : 1) || (effectiveViewMode === 'paged' && !isFirstPage)) {
       @if (effectiveViewMode === 'scrolling') {

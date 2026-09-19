@@ -1,0 +1,10 @@
+@for (verse of verses; track $index) {
+<!-- Labelled for assistive tech only: on screen a card is the verse and
+     nothing else. The id is what a deep link (?verseStart=16) scrolls to,
+     exactly as in the reader's other views. -->
+<article class="verse-card" [attr.aria-label]="verse.number > 0 ? 'Versículo ' + verse.number : null">
+  <div class="card-text">
+    <verse [id]="verse.number" class="verse" [data]="verse"></verse>
+  </div>
+</article>
+}

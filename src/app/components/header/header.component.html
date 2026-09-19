@@ -10,7 +10,9 @@
           <button type="button" mat-icon-button (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" [attr.aria-label]="getThemeTooltip()">
             <mat-icon>{{ getThemeIcon() }}</mat-icon>
           </button>
-          @if (book.id !== 'about') {
+          <!-- The card view replaces the scrolling/paged layout altogether, so
+               the toggle between those two has nothing to act on meanwhile. -->
+          @if (book.id !== 'about' && !cardsView) {
           <button type="button" mat-icon-button (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" [attr.aria-label]="getViewModeTooltip()">
             <mat-icon>{{ getViewModeIcon() }}</mat-icon>
           </button>
@@ -27,7 +29,7 @@
           <mat-icon>bookmarks</mat-icon>
           <span>Marcadores</span>
         </button>
-        <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode === 'paged'">
+        <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode === 'paged' || cardsView">
           <mat-icon>auto_mode</mat-icon>
           <span>
             {{ autoScrollControlsVisible
@@ -35,6 +37,17 @@
             : 'Mostrar controlos de deslocamento automático' }}
           </span>
         </button>
+        <!-- Offered by the reader only where it can show: on a phone or
+             tablet, on a chapter of verses. -->
+        @if (cardsViewAvailable) {
+        <button type="button" mat-menu-item (click)="onToggleCardsView(menuTrigger)">
+          <mat-icon>swipe_up</mat-icon>
+          <span class="experimental-label">
+            {{ cardsView ? 'Sair do BibleScroll' : 'BibleScroll' }}
+            <span class="experimental-badge">Experimental</span>
+          </span>
+        </button>
+        }
         @if (canShare) {
         <button mat-menu-item (click)="onShare(menuTrigger, $event)">
           <mat-icon>share</mat-icon>

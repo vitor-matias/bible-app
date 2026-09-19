@@ -24,6 +24,12 @@ Angular Material, and a thin REST backend.
   platform-specific install instructions (Android, iOS, desktop) and a one-tap
   install button where the browser offers one. Reopen it any time from the menu
   ("Como usar a app").
+- **BibleScroll (experimental, mobile only)** — a feed-style view of the chapter
+  being read, toggled from the menu: one verse to a full-screen card and nothing
+  else on it, one swipe up or down per verse (mandatory scroll-snapping), with a
+  scroll-driven fade between verses. It is a view of the reader, not a page of
+  its own, so the book/chapter pickers, deep links and sideways chapter swipes
+  all keep working; on a desktop the entry is absent and the preference ignored.
 
 ## Tech stack
 

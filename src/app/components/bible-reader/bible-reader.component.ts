@@ -38,7 +38,9 @@ import { BibleReaderAnimationService } from "../../services/bible-reader-animati
 import { BookService } from "../../services/book.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
+import { PwaInstallService } from "../../services/pwa-install.service"
 import { SeoService } from "../../services/seo.service"
+import { isMobileDevice } from "../../utils/mobile-device"
 import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
 import { BookIntroComponent } from "../book-intro/book-intro.component"
@@ -46,6 +48,21 @@ import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"
 import { HeaderComponent } from "../header/header.component"
 import { VerseComponent } from "../verse/verse.component"
+import { VerseCardsComponent } from "../verse-cards/verse-cards.component"
+
+/**
+ * In the card view every verse has a resting position of its own: the top of
+ * its card. Aiming a deep link there, rather than centring the verse's text,
+ * lands the scroller exactly on a snap point instead of between two — where
+ * mandatory snapping settles on whichever is nearer, which can be the next
+ * verse — and shows a verse taller than the screen from its first line.
+ */
+const scrollCardIntoView = (element: HTMLElement): void => {
+  ;(element.closest("article") ?? element).scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  })
+}
 
 @Component({
   selector: "bible-reader",
@@ -70,6 +87,7 @@ import { VerseComponent } from "../verse/verse.component"
     AutoScrollControlsComponent,
     BookIntroComponent,
     RouterLink,
+    VerseCardsComponent,
   ],
 })
 export class BibleReaderComponent implements OnInit, OnDestroy {
@@ -107,6 +125,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   showAutoScrollControls = false
   private autoScrollControlsPreference = false
   viewMode: "scrolling" | "paged" = "scrolling"
+  /** The reader turned on BibleScroll, the experimental one-verse-per-card view. */
+  cardsView = false
+  private isMobile = false
 
   isNavigatingForwards = false
   isNavigatingBackwards = false
@@ -118,7 +139,32 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   isLastPage = false
 
   get effectiveViewMode(): "scrolling" | "paged" {
-    return this.book?.id === "about" ? "scrolling" : this.viewMode
+    // The cards ride on the vertical scroller, so they displace paged columns.
+    return this.book?.id === "about" || this.showCards
+      ? "scrolling"
+      : this.viewMode
+  }
+
+  /**
+   * Where the card view can show at all: it is built around thumb-flicking a
+   * phone, and it deals out verses — which the About page and an introduction
+   * (prose, not verses) do not have.
+   */
+  get cardsViewAvailable(): boolean {
+    return (
+      this.isMobile &&
+      !!this.book &&
+      this.book.id !== "about" &&
+      !this.isIntroChapter
+    )
+  }
+
+  /**
+   * The preference survives where the view cannot show (a desktop, an
+   * introduction) and simply takes effect again where it can.
+   */
+  get showCards(): boolean {
+    return this.cardsView && this.cardsViewAvailable
   }
 
   /** Whether this book has an introduction to read, loaded or not yet fetched. */
@@ -189,6 +235,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     private networkService: NetworkService,
     private snackBar: MatSnackBar,
     private seoService: SeoService,
+    private pwaInstallService: PwaInstallService,
   ) {}
 
   ngOnInit(): void {
@@ -198,6 +245,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     }
 
     this.viewMode = this.preferencesService.getViewMode()
+    this.cardsView = this.preferencesService.getCardsView()
+    this.isMobile = isMobileDevice(this.pwaInstallService)
 
     this.autoScrollControlsPreference =
       this.preferencesService.getAutoScrollControlsVisible()
@@ -636,7 +685,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       false,
       this.effectiveViewMode === "paged" && pagedNav
         ? (element) => pagedNav.scrollToPage(element)
-        : undefined,
+        : this.showCards
+          ? scrollCardIntoView
+          : undefined,
     )
   }
 
@@ -717,6 +768,26 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         { injector: this.injector },
       )
     }
+  }
+
+  onToggleCardsView(): void {
+    this.cardsView = !this.cardsView
+    this.preferencesService.setCardsView(this.cardsView)
+
+    void this.analyticsService.track("biblescroll_toggle", {
+      enabled: this.cardsView,
+      book: this.book?.id,
+      chapter: this.chapterNumber,
+    })
+
+    // Auto-scroll would fight the snapping, one verse per swipe.
+    this.autoScrollService.stop()
+    // detectChanges rather than markForCheck: the scroller below has to be
+    // measured against the layout it is switching to.
+    this.cdr.detectChanges()
+    // Either layout starts from the top: a scroll offset means nothing once
+    // the content under it has been replaced.
+    this.drawerContent?.nativeElement.scrollTo({ top: 0 })
   }
 
   @HostListener("window:keydown", ["$event"])

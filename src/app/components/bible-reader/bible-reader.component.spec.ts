@@ -22,6 +22,10 @@ import { BibleReaderAnimationService } from "../../services/bible-reader-animati
 import { BookService } from "../../services/book.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
+import {
+  type InstallPlatform,
+  PwaInstallService,
+} from "../../services/pwa-install.service"
 import { SeoService } from "../../services/seo.service"
 import { BibleReaderComponent } from "./bible-reader.component"
 
@@ -34,6 +38,7 @@ describe("BibleReaderComponent", () => {
   let bookServiceSpy: jasmine.SpyObj<BookService>
   let preferencesServiceSpy: jasmine.SpyObj<PreferencesService>
   let routerSpy: jasmine.SpyObj<Router>
+  let platform: InstallPlatform
   let routeMock: unknown
   let animationServiceSpy: jasmine.SpyObj<BibleReaderAnimationService>
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
@@ -69,6 +74,8 @@ describe("BibleReaderComponent", () => {
     preferencesServiceSpy = jasmine.createSpyObj("PreferencesService", [
       "getAutoScrollSpeed",
       "getViewMode",
+      "getCardsView",
+      "setCardsView",
       "getAutoScrollControlsVisible",
       "setAutoScrollControlsVisible",
       "setViewMode",
@@ -123,6 +130,8 @@ describe("BibleReaderComponent", () => {
     // Default returns
     preferencesServiceSpy.getAutoScrollSpeed.and.returnValue(50)
     preferencesServiceSpy.getViewMode.and.returnValue("scrolling")
+    preferencesServiceSpy.getCardsView.and.returnValue(false)
+    platform = "desktop"
     preferencesServiceSpy.getAutoScrollControlsVisible.and.returnValue(false)
     bookServiceSpy.findBook.and.returnValue(mockBooks[0] as unknown as Book)
     bookServiceSpy.getUrlAbrv.and.returnValue("1-genesis")
@@ -162,6 +171,10 @@ describe("BibleReaderComponent", () => {
         { provide: NetworkService, useValue: networkServiceSpy },
         { provide: MatSnackBar, useValue: snackBarSpy },
         { provide: SeoService, useValue: seoServiceSpy },
+        {
+          provide: PwaInstallService,
+          useValue: { detectPlatform: () => platform },
+        },
         ...(options?.platformId
           ? [{ provide: PLATFORM_ID, useValue: options.platformId }]
           : []),
@@ -655,6 +668,193 @@ describe("BibleReaderComponent", () => {
       expect(
         preferencesServiceSpy.setAutoScrollControlsVisible,
       ).toHaveBeenCalledWith(true)
+    })
+
+    describe("card view", () => {
+      /** Boots a reader on the given platform with the preference as stored. */
+      function bootOn(target: InstallPlatform, stored: boolean): void {
+        platform = target
+        preferencesServiceSpy.getCardsView.and.returnValue(stored)
+        fixture = TestBed.createComponent(BibleReaderComponent)
+        component = fixture.componentInstance
+        fixture.detectChanges()
+      }
+
+      function cardsInDom(): boolean {
+        return !!fixture.nativeElement.querySelector("verse-cards")
+      }
+
+      it("is off by default, showing the chapter as running text", () => {
+        bootOn("android", false)
+
+        expect(component.showCards).toBeFalse()
+        expect(cardsInDom()).toBeFalse()
+        expect(
+          fixture.nativeElement.querySelector(".chapterBlock"),
+        ).toBeTruthy()
+      })
+
+      it("deals the chapter out as cards once turned on, and remembers it", () => {
+        bootOn("android", false)
+
+        component.onToggleCardsView()
+
+        // No detectChanges of the test's own: the toggle renders itself.
+        expect(preferencesServiceSpy.setCardsView).toHaveBeenCalledOnceWith(
+          true,
+        )
+        expect(cardsInDom()).toBeTrue()
+        expect(fixture.nativeElement.querySelector(".chapterBlock")).toBeNull()
+        expect(
+          fixture.nativeElement.querySelector("mat-drawer-content").classList,
+        ).toContain("cards-scroller")
+      })
+
+      it("goes back to running text when turned off", () => {
+        bootOn("android", true)
+        expect(cardsInDom()).toBeTrue()
+
+        component.onToggleCardsView()
+
+        expect(preferencesServiceSpy.setCardsView).toHaveBeenCalledOnceWith(
+          false,
+        )
+        expect(cardsInDom()).toBeFalse()
+        expect(
+          fixture.nativeElement.querySelector("mat-drawer-content").classList,
+        ).not.toContain("cards-scroller")
+      })
+
+      it("starts either layout from the top and stops auto-scroll", () => {
+        bootOn("android", false)
+        // This spec strips the reader's imports, so the MatDrawerContent view
+        // query never resolves — and re-resolves to nothing on every pass, so
+        // a plain assignment would not survive the toggle's own render. Pin
+        // the element it would have found instead.
+        const scroller: HTMLElement =
+          fixture.nativeElement.querySelector("mat-drawer-content")
+        Object.defineProperty(component, "drawerContent", {
+          get: () => new ElementRef(scroller),
+          set: () => {},
+        })
+        // Typed loosely: spyOn infers scrollTo's (x, y) overload, which would
+        // reject asserting on the options form the component actually calls.
+        const scrollTo: jasmine.Spy = spyOn(scroller, "scrollTo")
+
+        component.onToggleCardsView()
+
+        expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
+        expect(scrollTo).toHaveBeenCalledOnceWith({ top: 0 })
+      })
+
+      it("is mobile only: a stored preference does nothing on a desktop", () => {
+        bootOn("desktop", true)
+
+        expect(component.cardsViewAvailable).toBeFalse()
+        expect(component.showCards).toBeFalse()
+        expect(cardsInDom()).toBeFalse()
+      })
+
+      it("displaces paged columns, which cannot hold a vertical run of cards", () => {
+        preferencesServiceSpy.getViewMode.and.returnValue("paged")
+        bootOn("android", true)
+
+        expect(component.viewMode).toBe("paged")
+        expect(component.effectiveViewMode).toBe("scrolling")
+      })
+
+      it("drops the floating chapter arrows: a card is the verse and nothing else", () => {
+        bootOn("android", false)
+        expect(
+          fixture.nativeElement.querySelector(".floating-nav-button"),
+        ).toBeTruthy()
+
+        component.onToggleCardsView()
+
+        expect(
+          fixture.nativeElement.querySelector(".floating-nav-button"),
+        ).toBeNull()
+      })
+
+      it("hides the auto-scroll controls, which would fight the snapping", () => {
+        preferencesServiceSpy.getAutoScrollControlsVisible.and.returnValue(true)
+        bootOn("android", true)
+
+        expect(
+          fixture.nativeElement.querySelector("app-auto-scroll-controls"),
+        ).toBeNull()
+      })
+
+      it("is not offered on the About page", () => {
+        bootOn("android", true)
+        component.book = { ...component.book, id: "about" }
+
+        expect(component.cardsViewAvailable).toBeFalse()
+        expect(component.showCards).toBeFalse()
+      })
+
+      it("is not offered on an introduction, which is prose rather than verses", () => {
+        bootOn("android", true)
+        component.book = {
+          ...component.book,
+          introduction: [{ type: "introParagraph", text: "Prosa." }],
+        }
+        component.chapterNumber = 0
+
+        expect(component.cardsViewAvailable).toBeFalse()
+        expect(component.showCards).toBeFalse()
+      })
+
+      it("tells the header whether the view is on and whether to offer it", () => {
+        bootOn("android", true)
+        const header = fixture.nativeElement.querySelector("header")
+
+        expect(header.cardsView).toBeTrue()
+        expect(header.cardsViewAvailable).toBeTrue()
+      })
+
+      it("aims a deep link at the verse's card, which is where the scroller can rest", () => {
+        bootOn("android", true)
+        animationServiceSpy.scrollToVerseElement.calls.reset()
+        const card = document.createElement("article")
+        const verse = document.createElement("verse")
+        card.appendChild(verse)
+        const scrollIntoView = spyOn(card, "scrollIntoView")
+
+        component.getChapter(1, 16)
+        const bringIntoView =
+          animationServiceSpy.scrollToVerseElement.calls.mostRecent().args[6]
+        bringIntoView?.(verse)
+
+        // Centring the verse's text instead would leave the scroller between
+        // two snap points, free to settle on the next verse.
+        expect(scrollIntoView).toHaveBeenCalledOnceWith({
+          behavior: "smooth",
+          block: "start",
+        })
+      })
+
+      it("leaves deep links to the default centring outside the card view", () => {
+        bootOn("android", false)
+        animationServiceSpy.scrollToVerseElement.calls.reset()
+
+        component.getChapter(1, 16)
+
+        expect(
+          animationServiceSpy.scrollToVerseElement.calls.mostRecent().args[6],
+        ).toBeUndefined()
+      })
+
+      it("tracks the toggle", () => {
+        bootOn("android", false)
+
+        component.onToggleCardsView()
+
+        expect(analyticsServiceSpy.track).toHaveBeenCalledWith(
+          "biblescroll_toggle",
+          jasmine.objectContaining({ enabled: true }),
+        )
+      })
     })
 
     it("onToggleViewMode should toggle mode and save state", () => {

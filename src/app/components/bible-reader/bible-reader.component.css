@@ -361,3 +361,22 @@ h6 {
   padding: 8px 0 8px 0;
   width: 100%;
 }
+/* BibleScroll (experimental card view): one verse per screen. Mandatory snapping on the
+   reader's own scroller — with scroll-snap-stop on each card — is what turns
+   a swipe up into "next verse" and a swipe down into "previous verse". */
+.cards-scroller {
+  scroll-snap-type: y mandatory;
+}
+
+/* The cards pad themselves; the block's own margin would leave the first card
+   resting 15px short of its snap position. */
+.bookBlock.cards-view {
+  margin: 0;
+  max-width: 100%;
+}
+
+/* Under mandatory snapping a scroller only rests on snap points, so the
+   footer needs one of its own or it could never be scrolled to. */
+.cards-footer {
+  scroll-snap-align: end;
+}
