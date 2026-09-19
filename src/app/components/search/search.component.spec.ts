@@ -450,6 +450,30 @@ describe("SearchComponent", () => {
     expect(component.searchTerm).toBe("light")
   }))
 
+  it("should release the loading lock when the reference navigation is refused", fakeAsync(() => {
+    // router.navigate resolves false on a cancelled navigation: no throw, and
+    // the superseded text search no longer clears the flag itself.
+    const pendingSearch$ = new Subject<VersePage>()
+    apiService.search.and.returnValue(pendingSearch$.asObservable())
+    referenceService.extract.and.returnValue([])
+    void component.onSearchSubmit("light")
+    flushMicrotasks()
+
+    bookService.findBook.and.returnValue({
+      id: "jhn",
+      abrv: "Jo",
+      shortName: "Joao",
+      name: "Evangelho segundo Joao",
+      chapterCount: 21,
+    })
+    apiService.getVerse.and.returnValue(of({ text: [] } as unknown as Verse))
+    router.navigate.and.resolveTo(false)
+    void component.onSearchSubmit("Jo")
+    flushMicrotasks()
+
+    expect(component.isLoading).toBeFalse()
+  }))
+
   it("should populate search results and announce the count", async () => {
     const scrollToTopSpy = spyOn(component, "scrollToTop")
     referenceService.extract.and.returnValue([])

@@ -131,6 +131,9 @@ export class OfflineDataService {
 
       const failedCount = results.length - fulfilled.length
       if (failedCount > 0) {
+        // A flag left over from an earlier complete preload would vouch for
+        // this incomplete refresh.
+        safeLocalStorage()?.removeItem(this.groupIntrosCacheFlagKey)
         console.error(
           `Failed to preload ${failedCount} of ${results.length} standalone introductions for offline use`,
         )

@@ -1,4 +1,4 @@
-const PROBE_KEY = "__bibleAppStorageProbe__"
+let probeCounter = 0
 
 /**
  * Returns the candidate only if a probe write reads back: a Storage can exist
@@ -10,12 +10,15 @@ export function pickUsableStorage(
 ): Storage | null {
   try {
     if (!candidate) return null
-    candidate.setItem(PROBE_KEY, PROBE_KEY)
+    // Unique per call, so the probe never overwrites or removes a stored value.
+    probeCounter += 1
+    const probeKey = `__bibleAppStorageProbe__${probeCounter}`
+    candidate.setItem(probeKey, probeKey)
     try {
-      return candidate.getItem(PROBE_KEY) === PROBE_KEY ? candidate : null
+      return candidate.getItem(probeKey) === probeKey ? candidate : null
     } finally {
       // Remove the probe even when the read-back throws.
-      candidate.removeItem(PROBE_KEY)
+      candidate.removeItem(probeKey)
     }
   } catch {
     return null

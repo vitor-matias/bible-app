@@ -211,6 +211,18 @@ describe("BibleReaderComponent", () => {
       expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("gen", 1)
     })
 
+    it("should not navigate while server-rendering when the chapter fails to load", async () => {
+      TestBed.resetTestingModule()
+      await setUpTestBed({ platformId: "server" })
+      spyOn(console, "error")
+      apiServiceSpy.getChapter.and.returnValue(
+        throwError(() => new Error("API unavailable")),
+      )
+      TestBed.createComponent(BibleReaderComponent).detectChanges()
+
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
+    })
+
     // resetContainerForRepaint hides the container for the swap animation and
     // only the browser-only animation service puts it back, so hiding it while
     // server-rendering bakes opacity: 0 into the prerendered HTML with nothing

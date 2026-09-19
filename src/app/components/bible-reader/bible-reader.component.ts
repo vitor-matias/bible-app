@@ -525,14 +525,16 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.isNavigatingBackwards = false
     this.isNavigatingForwards = false
     this.notifyChapterLoadFailed()
-    this.router.navigate(
-      [
-        "/",
-        this.bookService.getUrlAbrv(this.book),
-        this.bookService.getChapterUrlSegment(this.chapterNumber),
-      ],
-      { replaceUrl: true },
-    )
+    if (isPlatformBrowser(this.platformId)) {
+      this.router.navigate(
+        [
+          "/",
+          this.bookService.getUrlAbrv(this.book),
+          this.bookService.getChapterUrlSegment(this.chapterNumber),
+        ],
+        { replaceUrl: true },
+      )
+    }
     console.error(error)
   }
 

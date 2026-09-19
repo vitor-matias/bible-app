@@ -189,12 +189,13 @@ export class SearchComponent {
           ),
         )
         if (isStale()) return
-        await this.router.navigate(
+        const navigated = await this.router.navigate(
           ["/", targetBook.id, targetChapter],
           targetVerseStart !== undefined
             ? { queryParams: { verseStart: targetVerseStart } }
             : {},
         )
+        if (navigated || isStale()) return
       } catch (err) {
         if (isStale()) return
         console.error(err)
@@ -215,10 +216,10 @@ export class SearchComponent {
             duration: 3000,
           })
         }
-        // The superseded text search's stale `finally` skips this reset.
-        this.isLoading = false
-        this.cdr.detectChanges()
       }
+      // Still here: the superseded text search's stale `finally` skips this.
+      this.isLoading = false
+      this.cdr.detectChanges()
       return
     }
 

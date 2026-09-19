@@ -99,6 +99,19 @@ describe("web-storage", () => {
       ).toBeNull()
     })
 
+    // A fixed probe key would overwrite whatever the origin already had there.
+    it("leaves an existing value under the legacy probe key alone", () => {
+      window.localStorage.setItem("__bibleAppStorageProbe__", "keep me")
+      try {
+        expect(pickUsableStorage(window.localStorage)).toBe(window.localStorage)
+        expect(window.localStorage.getItem("__bibleAppStorageProbe__")).toBe(
+          "keep me",
+        )
+      } finally {
+        window.localStorage.removeItem("__bibleAppStorageProbe__")
+      }
+    })
+
     it("returns null when property access throws (privacy modes)", () => {
       const throwing = new Proxy({} as Storage, {
         get() {
