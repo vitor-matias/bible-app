@@ -10,44 +10,39 @@ import { BibleApiService } from "./bible-api.service"
 })
 export class BookService {
   private booksSubject = new BehaviorSubject<Book[]>([])
-  private groupIntrosSubject = new BehaviorSubject<IntroSummary[]>([])
-  /** Standalone introductions, in API order. */
-  groupIntros$ = this.groupIntrosSubject.asObservable()
+  private initPromise?: Promise<void>
   books$ = this.booksSubject
     .asObservable()
     .pipe(filter((books) => books.length > 0))
 
   constructor(private apiService: BibleApiService) {
-    if (this.booksSubject.getValue().length === 0) {
-      // APP_INITIALIZER awaits initializeBooks() and reports failures; this
-      // eager kick-off must never surface an unhandled rejection — during
-      // prerendering that kills the whole worker thread and fails the build.
-      this.initializeBooks().catch(() => {})
-    }
+    // APP_INITIALIZER reports failures; an unhandled rejection here would
+    // kill the prerender worker and fail the build.
+    this.initializeBooks().catch(() => {})
   }
 
-  /**
-   * Ensures books are loaded before the app starts.
-   */
-  async initializeBooks(): Promise<void> {
-    if (this.getBooks().length > 0) return
+  /** Loads books before the app starts; concurrent callers share one load. */
+  initializeBooks(): Promise<void> {
+    if (this.getBooks().length > 0) return Promise.resolve()
+    this.initPromise ??= this.loadBooks().finally(() => {
+      this.initPromise = undefined
+    })
+    return this.initPromise
+  }
 
-    // Fetch both before emitting: a reader resolving /pentateuco/intro from
-    // the URL must find that book on the very first emission, otherwise a
-    // deep link or refresh falls back to the About page.
+  private async loadBooks(): Promise<void> {
+    // Fetch both before emitting: a deep link to /pentateuco/intro must find
+    // that book on the first emission or it falls back to the About page.
     const [books, intros] = await Promise.all([
       firstValueFrom(this.apiService.getAvailableBooks()),
-      // Standalone introductions are optional: an API without them (or being
-      // offline) just means no introduction entries.
+      // Standalone introductions are optional.
       firstValueFrom(this.apiService.getIntros()).catch(
         () => [] as IntroSummary[],
       ),
     ])
 
     const introList = Array.isArray(intros) ? intros : []
-    this.groupIntrosSubject.next(introList)
-    // Clone before appending the synthetic entries so we do not mutate the
-    // shared API/cache array returned by BibleApiService.
+    // Clone: the array from BibleApiService is shared with its cache.
     const introSlugs = new Set(introList.map((intro) => intro.slug))
     this.booksSubject.next([
       ...books.map((book) => this.withSharedIntro(book, introSlugs)),
@@ -61,8 +56,7 @@ export class BookService {
     const slug = BookService.introSlugFor(book)
     if (!slug || book.introduction?.length) return book
     const intro = await firstValueFrom(this.apiService.getIntro(slug))
-    // Replace the entry rather than mutating it, so change detection and the
-    // reader's memoised chapter list both notice.
+    // New object so change detection and the reader's memoised list notice.
     const loaded: Book = { ...book, introduction: intro.introduction ?? [] }
     this.booksSubject.next(
       this.getBooks().map((entry) => (entry.id === book.id ? loaded : entry)),
@@ -70,10 +64,7 @@ export class BookService {
     return loaded
   }
 
-  /**
-   * Points a book at the shared introduction that covers it, when the edition
-   * writes one introduction for a cluster of books instead of one per book.
-   */
+  /** Points a book at the introduction its edition shares across a cluster. */
   private withSharedIntro(book: Book, available: Set<string>): Book {
     if (book.introduction?.length) return book
     const slug = SHARED_BOOK_INTROS[book.id]
@@ -94,7 +85,6 @@ export class BookService {
       name,
       shortName: name,
       abrv: intro.slug,
-      // No chapters: the introduction is the only thing to read.
       chapterCount: 0,
       introduction: [],
       introSlug: intro.slug,
@@ -192,29 +182,21 @@ export class BookService {
     return book.abrv.replace(/\s/g, "").toLowerCase()
   }
 
-  /** URL segment used for the book introduction pseudo-chapter. */
   static readonly INTRO_URL_SEGMENT = "intro"
 
-  /**
-   * Maps an internal chapter number to its URL segment: the introduction
-   * (chapter 0) reads as /intro, every real chapter keeps its number.
-   */
+  /** Chapter 0 (the introduction) reads as /intro; others keep their number. */
   getChapterUrlSegment(chapter: Chapter["number"]): string {
     return chapter === 0 ? BookService.INTRO_URL_SEGMENT : chapter.toString()
   }
 
-  /**
-   * Parses a chapter URL segment back to the internal chapter number.
-   * Accepts "intro" (and legacy "0") for the introduction.
-   */
+  /** Accepts "intro" (and legacy "0") for the introduction. */
   parseChapterUrlSegment(
     segment: string | null | undefined,
     fallback = 1,
   ): number {
     if (segment == null || segment === "") return fallback
     if (segment === BookService.INTRO_URL_SEGMENT) return 0
-    // Only whole non-negative decimal segments are canonical chapter URLs;
-    // reject partial parses like "2junk" or "1.5".
+    // parseInt would accept partial parses like "2junk" or "1.5".
     if (!/^\d+$/.test(segment)) return fallback
     const parsed = Number.parseInt(segment, 10)
     return Number.isSafeInteger(parsed) ? parsed : fallback

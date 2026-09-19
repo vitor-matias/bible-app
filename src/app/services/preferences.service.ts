@@ -31,6 +31,7 @@ export class PreferencesService {
     STUDY_SIDEBAR_COLLAPSED: "studySidebarCollapsed",
     STUDY_PANEL_COLLAPSED: "studyPanelCollapsed",
     STUDY_COLUMN_WIDTHS: "studyColumnWidths",
+    ONBOARDING_SEEN: "onboardingSeen",
   }
 
   getTheme(): "light" | "dark" | "system" | null {
@@ -102,6 +103,19 @@ export class PreferencesService {
 
   setViewMode(mode: "scrolling" | "paged"): void {
     this.storage?.setItem(this.KEYS.VIEW_MODE, mode)
+  }
+
+  /**
+   * Without usable storage "seen" can never be recorded, so report it as seen:
+   * missing the wizard once beats having it reopen on every launch.
+   */
+  getOnboardingSeen(): boolean {
+    const storage = this.storage
+    return !storage || storage.getItem(this.KEYS.ONBOARDING_SEEN) === "true"
+  }
+
+  setOnboardingSeen(seen: boolean): void {
+    this.storage?.setItem(this.KEYS.ONBOARDING_SEEN, seen.toString())
   }
 
   /**

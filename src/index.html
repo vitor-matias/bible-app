@@ -5,7 +5,7 @@
   <title>Bíblia Sagrada Online — Bíblia dos Capuchinhos</title>
   <base href="/">
   <meta name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+      content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description"
       content="A Bíblia Sagrada completa em português, da Difusora Bíblica (Franciscanos Capuchinhos). Leitura online e offline, gratuita, com pesquisa e marcadores.">
   <meta property="og:type" content="website">
@@ -23,6 +23,7 @@
   <meta name="twitter:description"
       content="A Bíblia Sagrada completa em português, da Difusora Bíblica (Franciscanos Capuchinhos). Leitura online e offline, gratuita, com pesquisa e marcadores.">
   <meta name="twitter:image" content="https://biblia.capuchinhos.org/icons/512X512_REDONDO.png">
+  <meta name="color-scheme" content="light dark">
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#543D27">
   <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#543D27">
   <link rel="icon" type="image/x-icon" href="icons/maskable_icon_x128.png">
@@ -45,16 +46,25 @@
     }
   }
   </script>
-  <!-- No crossorigin: the script below is fetched without CORS, and an
-       anonymous-CORS preconnect would warm a socket it cannot reuse. -->
+  <!-- No crossorigin: the script is fetched without CORS, so a CORS
+       preconnect would warm a socket it cannot reuse. -->
   <link rel="preconnect" href="https://umami.dojo.pt">
   <script defer src="https://umami.dojo.pt/script.js" data-website-id="5f2a57be-86a2-4608-8fc5-667a9c24689c"></script>
+  <!-- Google tag (gtag.js) -->
+  <link rel="preconnect" href="https://www.googletagmanager.com">
+  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18415019347"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+
+    gtag('config', 'AW-18415019347');
+  </script>
 </head>
 <body class="mat-typography">
   <app-root></app-root>
   <noscript>
-    <!-- Not an h1: prerendered pages already carry one (the book/chapter title),
-         and this block ships in the same HTML. -->
+    <!-- Not an h1: prerendered pages already carry one. -->
     <h2>Bíblia Sagrada</h2>
     <p>A Bíblia Sagrada completa em português, da Difusora Bíblica (Franciscanos Capuchinhos),
       para ler online e offline. Ative o JavaScript para continuar a utilizar a aplicação.</p>

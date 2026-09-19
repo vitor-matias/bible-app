@@ -1,18 +1,12 @@
-import { CommonModule } from "@angular/common"
 import {
   ChangeDetectionStrategy,
   Component,
   forwardRef,
   Input,
   type OnChanges,
-  type SimpleChanges,
 } from "@angular/core"
 
-/**
- * A merged display element: either a standalone element or a section header
- * fused with the paragraph that follows (run-in style, matching the physical
- * edition layout).
- */
+/** "runIn" is a section header fused with the paragraph that follows it. */
 type IntroDisplayElement =
   | { kind: "standalone"; element: IntroElement }
   | {
@@ -25,9 +19,8 @@ type IntroDisplayElement =
 @Component({
   selector: "book-intro",
   standalone: true,
-  // Imports itself (lazily, via forwardRef) so the recursive <book-intro>
-  // used for sidebars is explicit.
-  imports: [CommonModule, forwardRef(() => BookIntroComponent)],
+  // forwardRef: sidebars render a nested <book-intro>.
+  imports: [forwardRef(() => BookIntroComponent)],
   templateUrl: "./book-intro.component.html",
   styleUrl: "./book-intro.component.css",
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -36,22 +29,15 @@ export class BookIntroComponent implements OnChanges {
   @Input()
   introduction: IntroElement[] = []
 
-  /** Pre-processed display list that merges section + following paragraph. */
   displayElements: IntroDisplayElement[] = []
 
-  ngOnChanges(changes: SimpleChanges): void {
-    // Only the introduction affects the output, so don't re-walk the whole
-    // element tree (and its sidebars) for unrelated input changes.
-    if (changes["introduction"]) {
-      this.displayElements = this.buildDisplayElements(this.introduction)
-    }
+  ngOnChanges(): void {
+    this.displayElements = this.buildDisplayElements(this.introduction)
   }
 
   /**
-   * Walk the flat intro array and, whenever a section/majorSection is
-   * immediately followed by a paragraph, merge them into a single "runIn"
-   * display element so the template can render the bold header inline with
-   * the paragraph body — exactly as in the printed edition.
+   * Merges each section header with the paragraph right after it, so the
+   * header renders inline with the body as in the printed edition.
    */
   private buildDisplayElements(
     elements: IntroElement[],
@@ -63,8 +49,7 @@ export class BookIntroComponent implements OnChanges {
       const el = elements[i]
 
       if (el.type === "introListItem") {
-        // Group consecutive list items into one real list so screen readers
-        // announce them as a list.
+        // One real list, so screen readers announce it as a list.
         const items: IntroListItem[] = []
         while (i < elements.length && elements[i].type === "introListItem") {
           items.push(elements[i] as IntroListItem)

@@ -48,16 +48,16 @@ function verse(number: number, text: TextType[]): Verse {
 }
 
 function heading(text: string): Section {
-  return { type: "section", tag: "s1", text, normalizedText: text }
+  return { type: "section", tag: "s1", text }
 }
 
 /** The title of a division — "PRÓLOGO" — rather than of a passage. */
 function majorHeading(text: string): Section {
-  return { type: "section", tag: "ms", text, normalizedText: text }
+  return { type: "section", tag: "ms", text }
 }
 
 function references(text: string): References {
-  return { type: "references", text, normalizedText: text }
+  return { type: "references", text }
 }
 
 function footnote(reference: string, text: string): _Footnote {
@@ -65,11 +65,11 @@ function footnote(reference: string, text: string): _Footnote {
 }
 
 function plain(text: string): _Text {
-  return { type: "text", text, normalizedText: text }
+  return { type: "text", text }
 }
 
 function paragraph(text: string): Paragraph {
-  return { type: "paragraph", text, normalizedText: text }
+  return { type: "paragraph", text }
 }
 
 function reference(
@@ -529,7 +529,6 @@ describe("StudyPanelComponent", () => {
                   type: "section",
                   tag: "s1",
                   text: "Título",
-                  normalizedText: "Título",
                 },
                 plain("Não há mandamento maior do que estes."),
                 footnote("12, 31", "uma nota"),
@@ -616,7 +615,7 @@ describe("StudyPanelComponent", () => {
               verseLabel: "1",
               // Poetry opens on a zero-width space, which trim() keeps.
               text: [
-                { type: "quote", text: "\u200b", normalizedText: "" },
+                { type: "quote", text: "\u200b" },
                 plain("Ao diretor do coro."),
               ] as TextType[],
             },
@@ -652,23 +651,20 @@ describe("StudyPanelComponent", () => {
               number: 1,
               verseLabel: "1",
               text: [
-                { type: "quote", text: "\u200b", normalizedText: "" },
+                { type: "quote", text: "\u200b" },
                 {
                   type: "text",
                   text: "Bendiz, ó minha alma, o ",
-                  normalizedText: "",
                 },
                 {
                   type: "text",
                   text: "Senhor",
-                  normalizedText: "",
                   allCaps: true,
                 },
-                { type: "text", text: "!", normalizedText: "" },
+                { type: "text", text: "!" },
                 {
                   type: "quote",
                   text: "Estás revestido de esplendor",
-                  normalizedText: "",
                 },
               ] as TextType[],
             },
@@ -752,9 +748,7 @@ describe("StudyPanelComponent", () => {
         chapterNumber: 104,
         number,
         verseLabel: String(number),
-        text: [
-          { type: "quote", text: `linha ${number}`, normalizedText: "" },
-        ] as TextType[],
+        text: [{ type: "quote", text: `linha ${number}` }] as TextType[],
       })
       api.getChapter.and.returnValue(
         of({ bookId: "psa", number: 104, verses: [poetry(1), poetry(2)] }),
@@ -889,7 +883,6 @@ describe("StudyPanelComponent", () => {
               type: "section",
               tag: "s1",
               text: "O mandamento do amor",
-              normalizedText: "",
             },
             references("Mc 12,28-34"),
             plain("Constando-lhes"),
@@ -901,7 +894,6 @@ describe("StudyPanelComponent", () => {
               type: "section",
               tag: "s1",
               text: "O Messias",
-              normalizedText: "",
             },
             plain("Estando os fariseus reunidos"),
           ]),

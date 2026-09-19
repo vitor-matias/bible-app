@@ -8,21 +8,14 @@ import {
 import { join } from "node:path"
 import { listPrerenderedPages } from "./prerendered-pages.mjs"
 
-// The native app loads the site remotely (capacitor.config.ts server.url) and
-// boots the SPA shell locally at best — the ~1300 prerendered route pages are
-// dead weight that would add tens of MB to the APK/IPA.
-//
-// The lean copy is built in its own directory (capacitor.config.ts points
-// webDir here) rather than by stripping browserDir in place: browserDir is what
-// the web deploy publishes, so pruning it would silently ship a site with no
-// prerendered HTML and no error to show for it.
+// The native app never uses the prerendered route pages, which would add tens
+// of MB to the APK/IPA. Prune a copy (capacitor.config.ts webDir), never
+// browserDir itself: that is what the web deploy publishes.
 const browserDir = "dist/bible-app/browser"
 const webDir = "dist/bible-app/capacitor"
 
 if (!existsSync(browserDir)) {
-  // Failing here rather than exiting 0: webDir is this script's own output, so
-  // carrying on leaves `npx cap sync` to fail on a missing webDir with no clue
-  // that the build is what is missing.
+  // Fail loudly, or `npx cap sync` fails later on a missing webDir.
   console.error(
     `Cannot prune: ${browserDir} does not exist. Run "npm run build" first.`,
   )
@@ -38,8 +31,7 @@ for (const page of listPrerenderedPages(webDir)) {
   prunedRoutes++
 }
 
-// Drop the directories the deleted pages leave behind, deepest first so a
-// parent that only held prerendered children goes too.
+// Deepest first, so a parent left holding only empty directories goes too.
 function pruneEmptyDirs(dir) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory()) pruneEmptyDirs(join(dir, entry.name))
@@ -51,8 +43,7 @@ function pruneEmptyDirs(dir) {
 
 pruneEmptyDirs(webDir)
 
-// The root index.html may have been the prerendered home page; the bundled app
-// should ship the plain CSR shell instead.
+// The root index.html may be the prerendered home page; ship the CSR shell.
 const csrIndex = join(webDir, "index.csr.html")
 if (existsSync(csrIndex)) {
   copyFileSync(csrIndex, join(webDir, "index.html"))

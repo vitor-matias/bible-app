@@ -21,7 +21,6 @@ function makeVerse(overrides: Partial<Verse> = {}): Verse {
       {
         type: "text",
         text: "In the beginning...",
-        normalizedText: "In the beginning...",
       },
     ],
     ...overrides,
@@ -83,14 +82,13 @@ describe("VerseComponent", () => {
         makeVerse({
           number: 0,
           text: [
-            { type: "text", text: "intro", normalizedText: "intro" },
+            { type: "text", text: "intro" },
             {
               type: "section",
               tag: "s2",
               text: "Section Title",
-              normalizedText: "Section Title",
             },
-            { type: "text", text: "more", normalizedText: "more" },
+            { type: "text", text: "more" },
           ],
         }),
       )
@@ -103,8 +101,8 @@ describe("VerseComponent", () => {
         makeVerse({
           number: 0,
           text: [
-            { type: "text", text: "intro", normalizedText: "intro" },
-            { type: "text", text: "more", normalizedText: "more" },
+            { type: "text", text: "intro" },
+            { type: "text", text: "more" },
           ],
         }),
       )
@@ -121,19 +119,16 @@ describe("VerseComponent", () => {
               type: "section",
               tag: "s1",
               text: "Main",
-              normalizedText: "Main",
             },
             {
               type: "section",
               tag: "s2",
               text: "First Sub",
-              normalizedText: "First Sub",
             },
             {
               type: "section",
               tag: "s2",
               text: "Second Sub",
-              normalizedText: "Second Sub",
             },
           ],
         }),
@@ -147,9 +142,7 @@ describe("VerseComponent", () => {
       setData(
         component,
         makeVerse({
-          text: [
-            { type: "text", text: "plain text", normalizedText: "plain text" },
-          ],
+          text: [{ type: "text", text: "plain text" }],
         }),
       )
       expect(component.hasFootnotes).toBe(false)
@@ -160,7 +153,7 @@ describe("VerseComponent", () => {
         component,
         makeVerse({
           text: [
-            { type: "text", text: "some text", normalizedText: "some text" },
+            { type: "text", text: "some text" },
             { type: "footnote", text: "note content", reference: "a" },
           ],
         }),
@@ -177,8 +170,8 @@ describe("VerseComponent", () => {
         component,
         makeVerse({
           text: [
-            { type: "text", text: "verse text", normalizedText: "verse text" },
-            { type: "references", text: "Gn 1,1", normalizedText: "Gn 1,1" },
+            { type: "text", text: "verse text" },
+            { type: "references", text: "Gn 1,1" },
           ],
         }),
       )
@@ -192,8 +185,8 @@ describe("VerseComponent", () => {
         component,
         makeVerse({
           text: [
-            { type: "text", text: "plain", normalizedText: "plain" },
-            { type: "paragraph", text: " ", normalizedText: " " },
+            { type: "text", text: "plain" },
+            { type: "paragraph", text: " " },
           ],
         }),
       )
@@ -209,11 +202,10 @@ describe("VerseComponent", () => {
         makeVerse({
           text: [
             { type: "footnote", text: "note", reference: "a" },
-            { type: "references", text: "ref", normalizedText: "ref" },
+            { type: "references", text: "ref" },
             {
               type: "quote",
               text: "quoted",
-              normalizedText: "quoted",
               identLevel: 1,
             },
           ],
@@ -228,7 +220,7 @@ describe("VerseComponent", () => {
         makeVerse({
           text: [
             { type: "footnote", text: "note", reference: "a" },
-            { type: "references", text: "ref", normalizedText: "ref" },
+            { type: "references", text: "ref" },
           ],
         }),
       )
@@ -246,7 +238,6 @@ describe("VerseComponent", () => {
             {
               type: "text",
               text: "first visible",
-              normalizedText: "first visible",
             },
           ],
         }),
@@ -259,8 +250,8 @@ describe("VerseComponent", () => {
   describe("isInSection", () => {
     it("should return true when an s2 section precedes the position", () => {
       const data: TextType[] = [
-        { type: "section", tag: "s2", text: "title", normalizedText: "title" },
-        { type: "text", text: "in section", normalizedText: "in section" },
+        { type: "section", tag: "s2", text: "title" },
+        { type: "text", text: "in section" },
       ]
       setData(component, makeVerse({ text: data }))
       expect(component.isInSection(data, 1)).toBe(true)
@@ -268,12 +259,11 @@ describe("VerseComponent", () => {
 
     it("should return false when a paragraph precedes the s2 section", () => {
       const data: TextType[] = [
-        { type: "section", tag: "s2", text: "title", normalizedText: "title" },
-        { type: "paragraph", text: " ", normalizedText: " " },
+        { type: "section", tag: "s2", text: "title" },
+        { type: "paragraph", text: " " },
         {
           type: "text",
           text: "after paragraph",
-          normalizedText: "after paragraph",
         },
       ]
       setData(component, makeVerse({ text: data }))
@@ -282,14 +272,13 @@ describe("VerseComponent", () => {
 
     it("should return false when a quote precedes the position", () => {
       const data: TextType[] = [
-        { type: "section", tag: "s2", text: "title", normalizedText: "title" },
+        { type: "section", tag: "s2", text: "title" },
         {
           type: "quote",
           text: "quoted",
-          normalizedText: "quoted",
           identLevel: 1,
         },
-        { type: "text", text: "after quote", normalizedText: "after quote" },
+        { type: "text", text: "after quote" },
       ]
       setData(component, makeVerse({ text: data }))
       expect(component.isInSection(data, 2)).toBe(false)
@@ -297,8 +286,8 @@ describe("VerseComponent", () => {
 
     it("should return false when no s2 section exists before position", () => {
       const data: TextType[] = [
-        { type: "text", text: "just text", normalizedText: "just text" },
-        { type: "text", text: "more text", normalizedText: "more text" },
+        { type: "text", text: "just text" },
+        { type: "text", text: "more text" },
       ]
       setData(component, makeVerse({ text: data }))
       expect(component.isInSection(data, 1)).toBe(false)
@@ -315,14 +304,12 @@ describe("VerseComponent", () => {
               type: "section",
               tag: "s2",
               text: "title",
-              normalizedText: "title",
             },
-            { type: "text", text: "in section", normalizedText: "in section" },
-            { type: "paragraph", text: " ", normalizedText: " " },
+            { type: "text", text: "in section" },
+            { type: "paragraph", text: " " },
             {
               type: "text",
               text: "after paragraph",
-              normalizedText: "after paragraph",
             },
           ],
         }),
@@ -343,19 +330,16 @@ describe("VerseComponent", () => {
               type: "section",
               tag: "s2",
               text: "title",
-              normalizedText: "title",
             },
-            { type: "text", text: "in section", normalizedText: "in section" },
+            { type: "text", text: "in section" },
             {
               type: "quote",
               text: "quoted",
-              normalizedText: "quoted",
               identLevel: 1,
             },
             {
               type: "text",
               text: "after quote",
-              normalizedText: "after quote",
             },
           ],
         }),
@@ -373,11 +357,10 @@ describe("VerseComponent", () => {
             {
               type: "quote",
               text: "quoted",
-              normalizedText: "quoted",
               identLevel: 1,
             },
-            { type: "text", text: "after", normalizedText: "after" },
-            { type: "paragraph", text: " ", normalizedText: " " },
+            { type: "text", text: "after" },
+            { type: "paragraph", text: " " },
           ],
         }),
       )
@@ -395,8 +378,8 @@ describe("VerseComponent", () => {
           chapterNumber: 23,
           number: 1,
           text: [
-            { type: "text", text: "line", normalizedText: "line" },
-            { type: "paragraph", text: " ", normalizedText: " " },
+            { type: "text", text: "line" },
+            { type: "paragraph", text: " " },
           ],
         }),
       )
@@ -414,12 +397,11 @@ describe("VerseComponent", () => {
         component,
         makeVerse({
           text: [
-            { type: "text", text: "first", normalizedText: "first" },
+            { type: "text", text: "first" },
             { type: "footnote", text: "note", reference: "a" },
             {
               type: "quote",
               text: "quoted",
-              normalizedText: "quoted",
               identLevel: 1,
             },
           ],
@@ -439,12 +421,11 @@ describe("VerseComponent", () => {
         component,
         makeVerse({
           text: [
-            { type: "text", text: "first", normalizedText: "first" },
-            { type: "paragraph", text: " ", normalizedText: " " },
+            { type: "text", text: "first" },
+            { type: "paragraph", text: " " },
             {
               type: "quote",
               text: "quoted",
-              normalizedText: "quoted",
               identLevel: 1,
             },
           ],
@@ -466,7 +447,6 @@ describe("VerseComponent", () => {
             {
               type: "text",
               text: "only element",
-              normalizedText: "only element",
             },
           ],
         }),
@@ -481,12 +461,11 @@ describe("VerseComponent", () => {
         component,
         makeVerse({
           text: [
-            { type: "text", text: "first", normalizedText: "first" },
-            { type: "paragraph", text: " ", normalizedText: " " },
+            { type: "text", text: "first" },
+            { type: "paragraph", text: " " },
             {
               type: "text",
               text: "not a quote",
-              normalizedText: "not a quote",
             },
           ],
         }),
@@ -502,8 +481,8 @@ describe("VerseComponent", () => {
       const data = makeVerse({
         number: 0,
         text: [
-          { type: "text", text: "intro", normalizedText: "intro" },
-          { type: "paragraph", text: " ", normalizedText: " " },
+          { type: "text", text: "intro" },
+          { type: "paragraph", text: " " },
         ],
       })
       setData(component, data)
@@ -522,9 +501,8 @@ describe("VerseComponent", () => {
             type: "section",
             tag: "s1",
             text: "title",
-            normalizedText: "title",
           },
-          { type: "paragraph", text: " ", normalizedText: " " },
+          { type: "paragraph", text: " " },
         ],
       })
       setData(component, data)
@@ -542,9 +520,8 @@ describe("VerseComponent", () => {
             type: "section",
             tag: "s1",
             text: "title",
-            normalizedText: "title",
           },
-          { type: "paragraph", text: " ", normalizedText: " " },
+          { type: "paragraph", text: " " },
         ],
       })
       setData(component, data)
@@ -558,8 +535,8 @@ describe("VerseComponent", () => {
       const data = makeVerse({
         number: 1,
         text: [
-          { type: "text", text: "before", normalizedText: "before" },
-          { type: "paragraph", text: " ", normalizedText: " " },
+          { type: "text", text: "before" },
+          { type: "paragraph", text: " " },
         ],
       })
       setData(component, data)
@@ -575,7 +552,7 @@ describe("VerseComponent", () => {
       setData(
         component,
         makeVerse({
-          text: [{ type: "text", text: "plain", normalizedText: "plain" }],
+          text: [{ type: "text", text: "plain" }],
         }),
       )
       fixture.detectChanges()
@@ -590,7 +567,7 @@ describe("VerseComponent", () => {
         component,
         makeVerse({
           text: [
-            { type: "text", text: "verse text", normalizedText: "verse text" },
+            { type: "text", text: "verse text" },
             { type: "footnote", text: "note", reference: "a" },
           ],
         }),
@@ -619,7 +596,7 @@ describe("VerseComponent", () => {
         component,
         makeVerse({
           number,
-          text: [{ type: "text", text: "plain", normalizedText: "plain" }],
+          text: [{ type: "text", text: "plain" }],
         }),
       )
     }
@@ -633,7 +610,6 @@ describe("VerseComponent", () => {
             {
               type: "quote",
               text: "a line of poetry",
-              normalizedText: "a line of poetry",
               identLevel: 1,
             },
           ],
@@ -647,7 +623,7 @@ describe("VerseComponent", () => {
         makeVerse({
           number: 2,
           text: [
-            { type: "text", text: "plain", normalizedText: "plain" },
+            { type: "text", text: "plain" },
             { type: "footnote", text: "uma nota", reference: "a" },
           ],
         }),
@@ -783,8 +759,8 @@ describe("VerseComponent", () => {
         component,
         makeVerse({
           text: [
-            { type: "text", text: "plain", normalizedText: "plain" },
-            { type: "references", text: "Jo 1,1", normalizedText: "Jo 1,1" },
+            { type: "text", text: "plain" },
+            { type: "references", text: "Jo 1,1" },
           ],
         }),
       )
@@ -817,7 +793,6 @@ describe("VerseComponent", () => {
             {
               type: "quote",
               text: "a line of poetry",
-              normalizedText: "a line of poetry",
               identLevel: 1,
             },
           ],
@@ -857,7 +832,7 @@ describe("VerseComponent", () => {
         component,
         makeVerse({
           text: [
-            { type: "text", text: "verse", normalizedText: "verse" },
+            { type: "text", text: "verse" },
             { type: "footnote", text: "note", reference: "a" },
           ],
         }),
@@ -871,7 +846,7 @@ describe("VerseComponent", () => {
       setData(
         component,
         makeVerse({
-          text: [{ type: "text", text: "verse", normalizedText: "verse" }],
+          text: [{ type: "text", text: "verse" }],
         }),
       )
 
@@ -884,7 +859,7 @@ describe("VerseComponent", () => {
         component,
         makeVerse({
           text: [
-            { type: "text", text: "verse", normalizedText: "verse" },
+            { type: "text", text: "verse" },
             { type: "footnote", text: "note", reference: "a" },
           ],
         }),
@@ -913,7 +888,7 @@ describe("VerseComponent", () => {
       return makeVerse({
         number,
         text: [
-          { type: "text", text: "O segundo é semelhante", normalizedText: "" },
+          { type: "text", text: "O segundo é semelhante" },
           { type: "footnote", reference: "22, 39", text: "uma nota" },
         ],
       })
@@ -963,7 +938,7 @@ describe("VerseComponent", () => {
           number: 0,
           verseLabel: "front",
           text: [
-            { type: "text", text: "Título", normalizedText: "" },
+            { type: "text", text: "Título" },
             { type: "footnote", reference: "22, 1", text: "uma nota" },
           ] as TextType[],
         }),
@@ -1110,18 +1085,16 @@ describe("VerseComponent", () => {
       return makeVerse({
         number: 2,
         text: [
-          { type: "quote", text: "\u200b", normalizedText: "" },
+          { type: "quote", text: "\u200b" },
           {
             type: "text",
             text: "antes põe o seu enlevo na lei do ",
-            normalizedText: "",
           },
-          { type: "text", text: "Senhor", normalizedText: "", allCaps: true },
-          { type: "text", text: "", normalizedText: "" },
+          { type: "text", text: "Senhor", allCaps: true },
+          { type: "text", text: "" },
           {
             type: "quote",
             text: "e nela medita dia e noite.",
-            normalizedText: "",
           },
         ] as TextType[],
       })
@@ -1171,9 +1144,8 @@ describe("VerseComponent", () => {
             {
               type: "quote",
               text: "em tudo o que faz é bem sucedido.",
-              normalizedText: "",
             },
-            { type: "paragraph", text: "\n", normalizedText: "" },
+            { type: "paragraph", text: "\n" },
           ] as TextType[],
         }),
       )
@@ -1190,8 +1162,11 @@ describe("VerseComponent", () => {
         makeVerse({
           number: 1,
           text: [
-            { type: "text", text: "Jesus disse-lhe:", normalizedText: "" },
-            { type: "quote", text: "Amarás ao Senhor,", normalizedText: "" },
+            { type: "text", text: "Jesus disse-lhe:" },
+            {
+              type: "quote",
+              text: "Amarás ao Senhor,",
+            },
           ] as TextType[],
         }),
       )
@@ -1200,24 +1175,6 @@ describe("VerseComponent", () => {
       // The quote group brings the break itself, so the poetry starts on a
       // new line with no blank one in front of it.
       expect(hasBlankLine(fixture.nativeElement)).toBeFalse()
-    })
-  })
-
-  describe("nextIsQuoteStates", () => {
-    it("precomputes the flag the template used to call per change detection", () => {
-      component.data = {
-        number: 1,
-        bookId: "gen",
-        text: [
-          { type: "text", text: "Disse:" },
-          { type: "quote", text: "«Faça-se a luz.»" },
-        ],
-      } as unknown as Verse
-      component.ngOnChanges({})
-
-      expect(component.nextIsQuoteStates[0]).toBeTrue()
-      expect(component.nextIsQuoteStates[0]).toBe(component.checkNextIsQuote(0))
-      expect(component.nextIsQuoteStates[1]).toBe(component.checkNextIsQuote(1))
     })
   })
 })

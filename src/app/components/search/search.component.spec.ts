@@ -12,7 +12,14 @@ import {
   type ParamMap,
   Router,
 } from "@angular/router"
-import { BehaviorSubject, from, Observable, of, Subject } from "rxjs"
+import {
+  BehaviorSubject,
+  from,
+  Observable,
+  of,
+  Subject,
+  throwError,
+} from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
@@ -145,6 +152,37 @@ describe("SearchComponent", () => {
     expect(submitSpy).toHaveBeenCalledTimes(1)
   })
 
+  it("should re-run a shared query that went away and came back", () => {
+    const submitSpy = spyOn(component, "onSearchSubmit")
+    component.ngOnInit()
+
+    queryParamMapSubject.next(convertToParamMap({ q: "same" }))
+    queryParamMapSubject.next(convertToParamMap({}))
+    queryParamMapSubject.next(convertToParamMap({ q: "same" }))
+
+    expect(submitSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it("should open a standalone introduction at /intro without probing a verse", async () => {
+    referenceService.extract.and.returnValue([])
+    bookService.findBook.and.returnValue({
+      id: "pentateuco",
+      abrv: "pentateuco",
+      shortName: "Introdução ao Pentateuco",
+      name: "Introdução ao Pentateuco",
+      chapterCount: 0,
+      introSlug: "pentateuco",
+    })
+
+    await component.onSearchSubmit("Introdução ao Pentateuco")
+
+    expect(apiService.getVerse).not.toHaveBeenCalled()
+    expect(router.navigate).toHaveBeenCalledWith(
+      ["/", "pentateuco", "intro"],
+      {},
+    )
+  })
+
   it("should not search on init without a q query param", () => {
     const submitSpy = spyOn(component, "onSearchSubmit")
 
@@ -230,6 +268,80 @@ describe("SearchComponent", () => {
     expect(bookService.findBook).toHaveBeenCalledWith("lc")
     expect(router.navigate).toHaveBeenCalledWith(["/", "luk", 1], {})
   })
+
+  it("should discard a page that arrives after a newer search took over", fakeAsync(() => {
+    // Pagination for query A is in flight when query B is submitted. A's page
+    // must not append itself to B's results, nor clear B's loading state.
+    component.searchTerm = "beginning"
+    component.currentPage = 1
+    component.totalResults = 2
+    component.searchResults = [
+      {
+        bookId: "gen",
+        chapterNumber: 1,
+        number: 1,
+        verseLabel: "1",
+        text: [{ type: "text", text: "First verse" }],
+      } as Verse,
+    ]
+
+    const pendingPage$ = new Subject<VersePage>()
+    apiService.search.and.returnValue(pendingPage$.asObservable())
+
+    component.sentinel = {
+      nativeElement: document.createElement("div"),
+    } as SearchComponent["sentinel"]
+    component.ngAfterViewInit()
+
+    const callback = observerCallback
+    if (!callback) {
+      throw new Error("IntersectionObserver callback was not registered")
+    }
+    callback(
+      [{ isIntersecting: true } as IntersectionObserverEntry],
+      {} as IntersectionObserver,
+    )
+    flushMicrotasks()
+    expect(apiService.search).toHaveBeenCalledWith("beginning", 2)
+
+    // A newer search takes over while A's page is still pending.
+    const newerSearch$ = new Subject<VersePage>()
+    apiService.search.and.returnValue(newerSearch$.asObservable())
+    referenceService.extract.and.returnValue([])
+    void component.onSearchSubmit("light")
+    flushMicrotasks()
+    const resultsUnderNewSearch = component.searchResults.length
+
+    // Now A's page finally arrives.
+    pendingPage$.next({
+      verses: [
+        {
+          bookId: "gen",
+          chapterNumber: 1,
+          number: 2,
+          verseLabel: "2",
+          text: [{ type: "text", text: "Stale second verse" }],
+        } as Verse,
+      ],
+      total: 2,
+      currentPage: 2,
+      totalPages: 1,
+    })
+    pendingPage$.complete()
+    flushMicrotasks()
+
+    expect(component.searchResults.length).toBe(resultsUnderNewSearch)
+    expect(
+      component.searchResults.some((verse) =>
+        verse.text.some((part) => part.text === "Stale second verse"),
+      ),
+    ).toBeFalse()
+    // The newer search is still loading; the stale page must not say otherwise.
+    expect(component.isLoading).toBeTrue()
+
+    newerSearch$.complete()
+    flushMicrotasks()
+  }))
 
   it("should keep loadMoreResults locked until the next page arrives", fakeAsync(() => {
     const nextVerse = {
@@ -334,6 +446,64 @@ describe("SearchComponent", () => {
     )
     expect(router.navigate).not.toHaveBeenCalled()
   })
+
+  it("should release the loading lock when a failed reference supersedes a text search", fakeAsync(() => {
+    // The text search goes stale the moment the reference is submitted, so its
+    // own `finally` no longer clears `isLoading`; the reference path has to.
+    const pendingSearch$ = new Subject<VersePage>()
+    apiService.search.and.returnValue(pendingSearch$.asObservable())
+    referenceService.extract.and.returnValue([])
+    void component.onSearchSubmit("light")
+    flushMicrotasks()
+    expect(component.isLoading).toBeTrue()
+
+    referenceService.extract.and.returnValue([
+      { match: "John 99:1", index: 0, book: "John", chapter: 99 },
+    ])
+    bookService.findBook.and.returnValue({
+      id: "jhn",
+      abrv: "Jo",
+      shortName: "Joao",
+      name: "Evangelho segundo Joao",
+      chapterCount: 21,
+    })
+    apiService.getVerse.and.returnValue(throwError(() => ({ status: 404 })))
+    spyOn(console, "error")
+    void component.onSearchSubmit("John 99:1")
+    flushMicrotasks()
+
+    pendingSearch$.next({ verses: [], total: 0, currentPage: 1, totalPages: 0 })
+    pendingSearch$.complete()
+    flushMicrotasks()
+
+    expect(component.isLoading).toBeFalse()
+    // Paging and highlighting still belong to the search whose results show.
+    expect(component.searchTerm).toBe("light")
+  }))
+
+  it("should release the loading lock when the reference navigation is refused", fakeAsync(() => {
+    // router.navigate resolves false on a cancelled navigation: no throw, and
+    // the superseded text search no longer clears the flag itself.
+    const pendingSearch$ = new Subject<VersePage>()
+    apiService.search.and.returnValue(pendingSearch$.asObservable())
+    referenceService.extract.and.returnValue([])
+    void component.onSearchSubmit("light")
+    flushMicrotasks()
+
+    bookService.findBook.and.returnValue({
+      id: "jhn",
+      abrv: "Jo",
+      shortName: "Joao",
+      name: "Evangelho segundo Joao",
+      chapterCount: 21,
+    })
+    apiService.getVerse.and.returnValue(of({ text: [] } as unknown as Verse))
+    router.navigate.and.resolveTo(false)
+    void component.onSearchSubmit("Jo")
+    flushMicrotasks()
+
+    expect(component.isLoading).toBeFalse()
+  }))
 
   it("should populate search results and announce the count", async () => {
     const scrollToTopSpy = spyOn(component, "scrollToTop")

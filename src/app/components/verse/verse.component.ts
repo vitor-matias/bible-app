@@ -78,14 +78,6 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   /** Pre-computed parsed references keyed by text index */
   parsedReferences: Map<number, (string | BibleReference)[]> = new Map()
 
-  /**
-   * Pre-computed "the element after this section is a quote" flag by text
-   * index. The template asks for it twice per section, and change detection
-   * runs once per animation frame while auto-scrolling, so it is computed with
-   * the rest of the derived state instead of on every pass.
-   */
-  nextIsQuoteStates: Record<number, boolean> = {}
-
   @Input()
   data!: Verse
 
@@ -146,7 +138,6 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       this.hasFootnotes = this.data.text.some((t) => t.type === "footnote")
       this.parsedReferences = this.computeParsedReferences()
       this.displayGroups = this.computeDisplayGroups()
-      this.nextIsQuoteStates = this.computeNextIsQuoteStates()
     }
   }
 
@@ -274,14 +265,6 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       (t) => t.type !== "footnote" && t.type !== "references",
     )
     return index === firstIdx
-  }
-
-  private computeNextIsQuoteStates(): Record<number, boolean> {
-    const states: Record<number, boolean> = {}
-    this.data.text.forEach((_, index) => {
-      states[index] = this.checkNextIsQuote(index)
-    })
-    return states
   }
 
   checkNextIsQuote(i: number): boolean {
@@ -499,15 +482,8 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   /**
-   * An element that carries no words and no structure. The USFM the edition
-   * is built from leaves empty text and poetry elements behind, and each one
-   * rendered a stray blank line in the middle of a verse — visible in the
-   * psalms, where a run of poetry could be split in two by a gap that is in
-   * no printed edition.
-   *
-   * A paragraph element is never blank in this sense, however empty its text:
-   * the element IS the paragraph break, and dropping the empty ones ran the
-   * new paragraph on into the end of the previous one.
+   * The USFM leaves empty text and poetry elements that would render as stray
+   * blank lines. An empty paragraph element is kept: it IS the paragraph break.
    */
   static isBlank(text: TextType): boolean {
     return (

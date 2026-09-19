@@ -14,6 +14,8 @@ import { injectSpeedInsights } from "@vercel/speed-insights"
 import { appConfig } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
 import { OfflineDataService } from "./services/offline-data.service"
+import { OnboardingService } from "./services/onboarding.service"
+import { PwaInstallService } from "./services/pwa-install.service"
 import { ThemeService } from "./services/theme.service"
 import { APP_PLUGIN } from "./tokens"
 
@@ -38,7 +40,10 @@ export class AppComponent implements OnInit, OnDestroy {
     private router: Router,
     private ngZone: NgZone,
     private analyticsService: AnalyticsService,
+    private onboardingService: OnboardingService,
     _themeService: ThemeService,
+    // Injected early so it captures `beforeinstallprompt`, which fires once.
+    _pwaInstallService: PwaInstallService,
     @Inject(APP_PLUGIN) private appPlugin: typeof App,
   ) {
     injectSpeedInsights()
@@ -56,6 +61,7 @@ export class AppComponent implements OnInit, OnDestroy {
     void this.trackAppOpenEvent()
     this.handleShareTarget()
     this.setupAppLinks()
+    this.onboardingService.showOnFirstLaunch()
   }
 
   private trackAppOpenEvent(): void {
@@ -119,9 +125,8 @@ export class AppComponent implements OnInit, OnDestroy {
       }
     }
 
-    // Fall back: open search with the shared text, URL or title as the query.
-    // First non-empty, not first non-null: a share sheet that sends
-    // "?text=&title=Salmo 23" gives an empty string, and ?? would keep it.
+    // Fall back: open search with the first non-empty of text, URL or title.
+    // Not ??: a share sheet may send an empty "?text=".
     const query =
       [sharedText, sharedUrl, sharedTitle].find(
         (value) => !!value && value.trim().length > 0,

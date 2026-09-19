@@ -138,6 +138,20 @@ describe("BookService", () => {
       expect(first?.sharedIntroSlug).toBeUndefined()
     })
 
+    it("shares one load between concurrent initializeBooks() callers", async () => {
+      // The constructor and APP_INITIALIZER both call it in the same tick;
+      // without sharing, /intros is fetched twice and books$ emits twice.
+      const svc = introApi([{ slug: "pentateuco", name: "PENTATEUCO" }])
+      const api = TestBed.inject(
+        BibleApiService,
+      ) as jasmine.SpyObj<BibleApiService>
+
+      await Promise.all([svc.initializeBooks(), svc.initializeBooks()])
+
+      expect(api.getIntros).toHaveBeenCalledTimes(1)
+      expect(api.getAvailableBooks).toHaveBeenCalledTimes(1)
+    })
+
     it("keeps working when the API serves no introductions", async () => {
       const svc = introApi([])
       await svc.initializeBooks()

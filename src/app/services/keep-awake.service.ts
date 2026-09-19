@@ -89,16 +89,18 @@ export class KeepAwakeService implements OnDestroy {
   }
 
   private async releaseWakeLock(): Promise<void> {
-    if (!this.wakeLockSentinel) {
+    const sentinel = this.wakeLockSentinel
+    if (!sentinel) {
       return
     }
 
+    // Forget it before awaiting: a start() landing mid-release would otherwise
+    // see a live sentinel, skip its request, and be left with no lock at all.
+    this.wakeLockSentinel = undefined
     try {
-      await this.wakeLockSentinel.release()
+      await sentinel.release()
     } catch (error) {
       console.warn("Unable to release wake lock.", error)
-    } finally {
-      this.wakeLockSentinel = undefined
     }
   }
 }

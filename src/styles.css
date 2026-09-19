@@ -1,10 +1,8 @@
 /* You can add global styles to this file, and also import other style files */
 
-/* Fonts ship from npm — no fonts.googleapis.com round-trip. Material Symbols
-   carries every icon rather than a hand-built subset: subsetting dropped icons
-   silently, and a missing ligature renders as the icon's name in text. The
-   font-400 build pins the weight axis (477 kB, against 3.9 MB for the full
-   variable font) and keeps FILL variable, which chapter-selector relies on. */
+/* Self-hosted fonts. Material Symbols is the full icon set, not a subset: a
+   missing ligature renders as the icon's name. font-400 pins the weight axis
+   but keeps FILL variable, which chapter-selector relies on. */
 @import "@fontsource/roboto/300.css";
 @import "@fontsource/roboto/400.css";
 @import "@fontsource/roboto/500.css";
@@ -14,8 +12,7 @@
 @import "@fontsource/pt-serif/700-italic.css";
 @import "@material-symbols/font-400/outlined.css";
 
-/* For headings that structure the page for assistive tech where the design has
-   no visible title. Never use this to feed crawlers text a reader can't see. */
+/* For assistive-tech headings only; never to feed crawlers hidden text. */
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -28,10 +25,8 @@
   border: 0;
 }
 
-/* outlined.css only styles .material-symbols-outlined, but Angular Material tags
-   rendered icons with its default `material-icons` fontSet class, so both names
-   have to resolve to the Symbols font — otherwise every icon falls back to a
-   system font and renders its ligature name as words. */
+/* outlined.css only styles .material-symbols-outlined, but Angular Material
+   tags icons with `material-icons`; both must resolve to the Symbols font. */
 .material-symbols-outlined, .material-icons {
   font-family: 'Material Symbols Outlined', sans-serif;
   font-weight: normal;
@@ -69,15 +64,16 @@ body {
 
 /* Light theme variables */
 :root {
+  /* Declares that the page handles both schemes itself (.dark-theme below),
+     so Android's forced dark theme doesn't repaint colours on top of ours. */
+  color-scheme: light;
   --background-color: #ffffff;
   --text-color: #000000;
   --text-secondary: darkred;
   --card-background: #f5f5f5;
   --border-color: #e0e0e0;
   --highlight-color: antiquewhite;
-  /* Marker drawn over a deep-linked verse. Kept separate from
-     --highlight-color (a solid surface colour used by buttons and lists)
-     because it is painted over body text and has to stay readable. */
+  /* Painted over body text, so translucent, unlike --highlight-color. */
   --verse-highlight-color: rgba(238, 176, 46, 0.42);
   --cap-brown: #543d27;
   /* Study mode's own surfaces. The reading column keeps --background-color:
@@ -148,14 +144,13 @@ body {
 
 /* Dark theme variables */
 .dark-theme {
+  color-scheme: dark;
   --background-color: #121212;
   --text-color: #ffffff;
   --text-secondary: #dc143c;
   --card-background: #1e1e1e;
   --border-color: #333333;
   --highlight-color: darkgrey;
-  /* Same hue as the light theme, lighter touch: white text has to stay
-     readable on top of it. */
   --verse-highlight-color: rgba(238, 176, 46, 0.3);
   /* --cap-brown is too dark to tint a dark surface with, so the study
      columns lift away from the page with light instead, and the selection
@@ -282,12 +277,25 @@ a:not(.floating-nav-button) {
   color: var(--text-color) !important;
 }
 
-/* Anchors only: this exists solely to give the two chapter links a colour now
-   that the rule above no longer forces one on them. The <button> variants of
-   .floating-nav-button (paged mode, auto-scroll controls) keep the
-   --cap-brown their own components set — this must not reach them. */
+/* Anchors only: the <button> variants of .floating-nav-button keep the
+   colour their own components set. */
 html.dark-theme a.floating-nav-button {
   color: #2a1a0d;
+}
+
+/* Onboarding button text. Material's inner .mdc-button__label doesn't inherit
+   the button's colour and a scoped component stylesheet cannot reach it.
+   Text buttons sit on the dialog surface, hence the dark override below. */
+.onboarding-dialog .mat-mdc-unelevated-button,
+.onboarding-dialog .mat-mdc-unelevated-button .mdc-button__label,
+.onboarding-dialog .mat-mdc-button,
+.onboarding-dialog .mat-mdc-button .mdc-button__label {
+  color: #543d27 !important;
+}
+
+html.dark-theme .onboarding-dialog .mat-mdc-button,
+html.dark-theme .onboarding-dialog .mat-mdc-button .mdc-button__label {
+  color: antiquewhite !important;
 }
 
 .mat-bottom-sheet-container,

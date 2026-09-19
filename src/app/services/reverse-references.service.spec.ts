@@ -29,8 +29,8 @@ function verse(number: number, references?: string): Verse {
     number,
     verseLabel: String(number),
     text: references
-      ? [{ type: "references", text: references, normalizedText: references }]
-      : [{ type: "text", text: "palavras", normalizedText: "palavras" }],
+      ? [{ type: "references", text: references }]
+      : [{ type: "text", text: "palavras" }],
   }
 }
 

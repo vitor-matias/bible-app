@@ -96,7 +96,7 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   private injector = inject(Injector)
 
   constructor(private elementRef: ElementRef) {
-    this.buildTrees()
+    this.filterBooks("")
   }
 
   hasChild = (_: number, node: ExampleFlatNode) => node.expandable
@@ -104,50 +104,25 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   oldTestament: CanonGroup[] = OLD_TESTAMENT_GROUPS
 
   /**
-   * The picker's own view of the canon: each group led by its standalone
-   * introduction, plus a group heading each column for the introductions that
-   * belong to no group (the whole Bible, the New Testament).
-   *
-   * Introductions are synthetic books keyed by their slug, so they need no
-   * special template — they render and navigate like any other entry. Entries
-   * whose introduction has not loaded (or that the API does not serve) are
-   * dropped, so nothing renders blank. Built here rather than in bible-canon
-   * so the crawlable book index keeps listing books only.
+   * Prepends each group's introduction, plus the ungrouped `leading` one.
+   * Introductions that have not loaded are dropped, so nothing renders blank.
    */
-  private withIntros(groups: CanonGroup[], leading: string[]): CanonGroup[] {
-    const available = (slugs: string[]) =>
-      slugs.filter((slug) => this.getBook(slug))
-
+  private withIntros(groups: CanonGroup[], leading: string): CanonGroup[] {
     const groupsWithIntros = groups.map((group) =>
-      group.introSlug && available([group.introSlug]).length
+      group.introSlug && this.getBook(group.introSlug)
         ? { ...group, books: [group.introSlug, ...group.books] }
         : group,
     )
 
-    // Top-level entries rather than a wrapper group: a node with no children
-    // renders through the leaf template, so naming it after the slug gives a
-    // plain, clickable row beside the group headings.
-    const leadingEntries = available(leading).map((slug) => ({
-      name: slug,
-      books: [] as string[],
-    }))
-    return [...leadingEntries, ...groupsWithIntros]
+    // A childless node renders through the leaf template, so it is named
+    // after the slug it navigates to.
+    return this.getBook(leading)
+      ? [{ name: leading, books: [] }, ...groupsWithIntros]
+      : groupsWithIntros
   }
 
-  /** Rebuilds both trees; intros arrive after the books, so this re-runs. */
-  private buildTrees(): void {
-    this.otDataSource.data = this.withIntros(this.oldTestament, [
-      WHOLE_BIBLE_INTRO,
-    ])
-    this.ntDataSource.data = this.withIntros(this.newTestament, [
-      NEW_TESTAMENT_INTRO,
-    ])
-    this.otTreeControl.expandAll()
-    this.ntTreeControl.expandAll()
-  }
-
-  // The picker also offers the synthetic About page, which is not part of the
-  // shared canon (the crawlable book index must not link to it).
+  // The About page is not in the shared canon: the crawlable book index must
+  // not link to it.
   newTestament: CanonGroup[] = [
     ...NEW_TESTAMENT_GROUPS,
     {
@@ -158,13 +133,10 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   filterQuery = ""
 
+  /** Rebuilds both trees; intros arrive after the books, so this re-runs. */
   filterBooks(query: string): void {
     this.filterQuery = query
     const q = normalizeForSearch(query)
-    if (!q) {
-      this.buildTrees()
-      return
-    }
 
     const matchesBook = (bookId: string): boolean => {
       const book = this.getBook(bookId)
@@ -175,26 +147,24 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
       )
     }
 
-    const filterGroup = (
-      groups: typeof this.oldTestament,
-    ): typeof this.oldTestament =>
-      groups
-        .map((group) => ({
-          ...group,
-          books: (group.books as string[]).filter(matchesBook),
-        }))
-        // An introduction that belongs to no group is a childless entry named
-        // after its own slug, so it is kept by its own name rather than by
-        // children it will never have.
-        .filter((group) => group.books.length > 0 || matchesBook(group.name))
+    const filterGroup = (groups: CanonGroup[]): CanonGroup[] => {
+      if (!q) return groups
+      return (
+        groups
+          .map((group) => ({
+            ...group,
+            books: (group.books as string[]).filter(matchesBook),
+          }))
+          // Ungrouped introductions are childless, so match them by name.
+          .filter((group) => group.books.length > 0 || matchesBook(group.name))
+      )
+    }
 
-    // Filter the same groups the picker shows, so introductions are findable
-    // by name too.
     this.otDataSource.data = filterGroup(
-      this.withIntros(this.oldTestament, [WHOLE_BIBLE_INTRO]),
+      this.withIntros(this.oldTestament, WHOLE_BIBLE_INTRO),
     )
     this.ntDataSource.data = filterGroup(
-      this.withIntros(this.newTestament, [NEW_TESTAMENT_INTRO]),
+      this.withIntros(this.newTestament, NEW_TESTAMENT_INTRO),
     )
     this.otTreeControl.expandAll()
     this.ntTreeControl.expandAll()
@@ -208,12 +178,7 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   @Output() submitData = new EventEmitter<{ bookId: Book["id"] }>()
 
-  /**
-   * Label for one entry. Every introduction reads just "Introdução": the
-   * heading right above it — the testament or the group — already supplies the
-   * context, so repeating it would say the same thing twice. The full name
-   * stays on the book itself, for the toolbar and the page title.
-   */
+  /** Introductions read just "Introdução": the heading above gives the context. */
   entryLabel(bookId: string): string {
     const book = this.getBook(bookId)
     if (!book) return ""
@@ -233,9 +198,8 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   }
 
   ngAfterViewInit(): void {
-    // Deferred like the ngOnChanges path below: ngAfterViewInit also runs during
-    // prerendering, where the server DOM has no scrollIntoView. afterNextRender
-    // is browser-only, so the scroll simply doesn't happen there.
+    // Runs while prerendering too, where the DOM has no scrollIntoView;
+    // afterNextRender is browser-only.
     afterNextRender(() => this.scrollToSelectedBook(), {
       injector: this.injector,
     })
@@ -243,11 +207,6 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["books"]) {
-      // Re-run the active filter rather than only rebuilding when there is
-      // none: with a filter applied, a new book list was being ignored and the
-      // tree kept showing results built from the previous one.
-      // filterBooks("") falls through to buildTrees(), so the unfiltered case
-      // is unchanged.
       this.filterBooks(this.filterQuery)
     }
     if (changes["selectedBookId"] && !changes["selectedBookId"].firstChange) {
