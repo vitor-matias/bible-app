@@ -30,7 +30,9 @@
         <div #bookBlock class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}"
           [class.paged-view]="effectiveViewMode === 'paged'" [class.cards-view]="showCards">
           @if (chapter && showCards) {
-          <verse-cards [chapter]="chapter"></verse-cards>
+          <verse-cards [chapter]="chapter" [previousChapterLabel]="previousChapterLabel"
+            [nextChapterLabel]="nextChapterLabel" [endOfBookLabel]="endOfBookLabel"
+            (reachedStart)="goToPreviousChapter()" (reachedEnd)="goToNextChapter()"></verse-cards>
           } @else if (chapter) {
           <div pinch-to-zoom class="chapterBlock">
             @if(book.id !== 'about'){
@@ -51,7 +53,9 @@
       </div>
 
       @if (book.id !== 'about' && chapter) {
-      <div class="copyright-footer" [class.fixed-footer]="effectiveViewMode === 'paged'"
+      <!-- Pinned in the card view as it is in paged mode: at the end of a
+           run of full-screen cards it would otherwise almost never be seen. -->
+      <div class="copyright-footer" [class.fixed-footer]="effectiveViewMode === 'paged' || showCards"
         [class.cards-footer]="showCards">
         <span class="center"><b>© DIFUSORA BÍBLICA</b></span>
         <span class="center copyright-details">

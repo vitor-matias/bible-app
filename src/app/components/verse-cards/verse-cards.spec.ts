@@ -1,4 +1,4 @@
-import { toVerseCards } from "./verse-cards"
+import { endOfBookLabel, toVerseCards } from "./verse-cards"
 
 const text = (value: string): TextType => ({
   type: "text",
@@ -121,7 +121,6 @@ describe("toVerseCards", () => {
     // One card still, with a break where the heading stood.
     expect(cards.length).toBe(1)
     expect(cards[0].text).toEqual([
-      footnote("nota"),
       text("Esta é a origem."),
       paragraph(),
       text("Quando o Senhor fez a Terra"),
@@ -147,7 +146,42 @@ describe("toVerseCards", () => {
     expect(cards[0].text).toEqual([text("No ano.")])
   })
 
-  it("keeps footnotes and breaks inside a verse, dropping the ones at its edges", () => {
+  it("leaves footnotes out, so the card has no marker and nothing to tap", () => {
+    const cards = toVerseCards(
+      chapter(
+        verse(
+          16,
+          footnote("Nota sobre o amor de Deus."),
+          text("Deus amou de tal modo o mundo"),
+          footnote("Outra nota."),
+          text(" que lhe deu o seu Filho."),
+        ),
+      ),
+    )
+
+    expect(cards[0].text).toEqual([
+      text("Deus amou de tal modo o mundo"),
+      text(" que lhe deu o seu Filho."),
+    ])
+  })
+
+  it("does not take a heading's references for the verse's own because a note sits between them", () => {
+    const cards = toVerseCards(
+      chapter(
+        verse(
+          2,
+          text("Veio de noite."),
+          section("A seguinte"),
+          footnote("nota"),
+          references("(Lc 6,20-26)"),
+        ),
+      ),
+    )
+
+    expect(cards[0].text).toEqual([text("Veio de noite.")])
+  })
+
+  it("keeps breaks inside a verse, dropping the ones at its edges", () => {
     const cards = toVerseCards(
       chapter(
         verse(
@@ -163,7 +197,6 @@ describe("toVerseCards", () => {
     )
 
     expect(cards[0].text).toEqual([
-      footnote("nota"),
       text("Salmo de David."),
       paragraph(),
       text("O Senhor é meu pastor."),
@@ -201,5 +234,42 @@ describe("toVerseCards", () => {
     expect(toVerseCards(chapter())).toEqual([])
     expect(toVerseCards(chapter(verse(0, section("Só título"))))).toEqual([])
     expect(toVerseCards({ bookId: "jhn", number: 3 })).toEqual([])
+  })
+})
+
+describe("endOfBookLabel", () => {
+  const named = (name: string): Book => ({
+    id: "x",
+    name,
+    shortName: name,
+    abrv: "x",
+    chapterCount: 1,
+  })
+
+  it("closes a book in the masculine", () => {
+    expect(endOfBookLabel(named("Livro do Génesis"))).toBe(
+      "Fim do Livro do Génesis",
+    )
+    expect(endOfBookLabel(named("Evangelho segundo São João"))).toBe(
+      "Fim do Evangelho segundo São João",
+    )
+    expect(endOfBookLabel(named("Segundo Livro dos Reis"))).toBe(
+      "Fim do Segundo Livro dos Reis",
+    )
+    expect(endOfBookLabel(named("Cântico dos Cânticos"))).toBe(
+      "Fim do Cântico dos Cânticos",
+    )
+  })
+
+  it("closes a letter in the feminine", () => {
+    expect(endOfBookLabel(named("Carta aos Romanos"))).toBe(
+      "Fim da Carta aos Romanos",
+    )
+    expect(endOfBookLabel(named("Primeira Carta aos Coríntios"))).toBe(
+      "Fim da Primeira Carta aos Coríntios",
+    )
+    expect(endOfBookLabel(named("Terceira Carta de João"))).toBe(
+      "Fim da Terceira Carta de João",
+    )
   })
 })

@@ -12,10 +12,34 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 32px 24px calc(32px + env(safe-area-inset-bottom, 0px));
+  /* The host says how much of the bottom is covered (the reader pins its
+     copyright footer there), so the verse is centred in what can be seen. */
+  padding: 32px 24px
+    calc(
+      32px + var(--verse-cards-bottom-inset, 0px) +
+        env(safe-area-inset-bottom, 0px)
+    );
   box-sizing: border-box;
   scroll-snap-align: start;
   scroll-snap-stop: always;
+}
+
+.stop-label {
+  margin: 0;
+  text-align: center;
+  font-size: 120%;
+  color: var(--text-secondary);
+}
+
+/* Closes the book under its last verse, in the voice of a colophon rather
+   than of the text. */
+.end-of-book {
+  width: 100%;
+  max-width: 640px;
+  margin: 2em auto 0;
+  text-align: center;
+  font-style: italic;
+  color: var(--text-secondary);
 }
 
 /* A single verse reads as a quotation, not a column of prose: justifying it

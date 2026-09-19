@@ -1,4 +1,13 @@
-@for (verse of verses; track $index) {
+<!-- The leading stop: one swipe back past the first verse lands here, and
+     landing here goes back to the chapter before. Like the closing stop below,
+     it says where it leads for the moment that chapter takes to load. -->
+@if (previousChapterLabel) {
+<div #start class="verse-card stop-card start-card">
+  <p class="stop-label">{{ previousChapterLabel }}</p>
+</div>
+}
+
+@for (verse of verses; track $index; let last = $last) {
 <!-- Labelled for assistive tech only: on screen a card is the verse and
      nothing else. The id is what a deep link (?verseStart=16) scrolls to,
      exactly as in the reader's other views. -->
@@ -6,5 +15,16 @@
   <div class="card-text">
     <verse [id]="verse.number" class="verse" [data]="verse"></verse>
   </div>
+  @if (last && endOfBookLabel) {
+  <p class="end-of-book">{{ endOfBookLabel }}</p>
+  }
 </article>
+}
+
+<!-- The closing stop: one more swipe past the last verse lands here, and
+     landing here moves on to the next chapter. -->
+@if (nextChapterLabel) {
+<div #end class="verse-card stop-card end-card">
+  <p class="stop-label">{{ nextChapterLabel }}</p>
+</div>
 }

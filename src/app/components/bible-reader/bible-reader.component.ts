@@ -48,6 +48,7 @@ import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"
 import { HeaderComponent } from "../header/header.component"
 import { VerseComponent } from "../verse/verse.component"
+import { endOfBookLabel } from "../verse-cards/verse-cards"
 import { VerseCardsComponent } from "../verse-cards/verse-cards.component"
 
 /**
@@ -56,12 +57,12 @@ import { VerseCardsComponent } from "../verse-cards/verse-cards.component"
  * lands the scroller exactly on a snap point instead of between two — where
  * mandatory snapping settles on whichever is nearer, which can be the next
  * verse — and shows a verse taller than the screen from its first line.
+ *
+ * A jump rather than the smooth scroll the running text gets: gliding there
+ * would flick through every full-screen verse on the way.
  */
 const scrollCardIntoView = (element: HTMLElement): void => {
-  ;(element.closest("article") ?? element).scrollIntoView({
-    behavior: "smooth",
-    block: "start",
-  })
+  ;(element.closest("article") ?? element).scrollIntoView({ block: "start" })
 }
 
 @Component({
@@ -157,6 +158,34 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.book.id !== "about" &&
       !this.isIntroChapter
     )
+  }
+
+  /**
+   * What lies past the last verse, for the card view's closing stop: scrolling
+   * onto it moves on to that chapter. Nothing past the last chapter of a book.
+   */
+  get nextChapterLabel(): string | undefined {
+    return this.book && this.chapterNumber < this.book.chapterCount
+      ? `${this.book.shortName} ${this.chapterNumber + 1}`
+      : undefined
+  }
+
+  /**
+   * The same, the other way: scrolling up past the first verse goes back a
+   * chapter. It stops at chapter 1 rather than running on into the
+   * introduction, which is prose and would drop the reader out of the cards.
+   */
+  get previousChapterLabel(): string | undefined {
+    return this.book && this.chapterNumber > 1
+      ? `${this.book.shortName} ${this.chapterNumber - 1}`
+      : undefined
+  }
+
+  /** Closes the book under the last verse of its last chapter. */
+  get endOfBookLabel(): string | undefined {
+    return this.book && this.chapterNumber === this.book.chapterCount
+      ? endOfBookLabel(this.book)
+      : undefined
   }
 
   /**
@@ -652,8 +681,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.isNavigatingForwards = false
 
     if (!verseStart) {
+      // The card view places itself, and keeps the scroller away from the
+      // service: its smooth scroll to the very top would run back through
+      // every card of the new chapter and come to rest on the leading stop —
+      // which asks for the chapter before this one.
+      if (this.showCards) this.restOnCard(startAtBottom ? "last" : "first")
       this.animationService.scrollToTop(
-        this.drawerContent?.nativeElement,
+        this.showCards ? undefined : this.drawerContent?.nativeElement,
         this.bookContainer?.nativeElement,
         this.effectiveViewMode,
         startAtBottom,
@@ -785,9 +819,26 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // detectChanges rather than markForCheck: the scroller below has to be
     // measured against the layout it is switching to.
     this.cdr.detectChanges()
-    // Either layout starts from the top: a scroll offset means nothing once
-    // the content under it has been replaced.
-    this.drawerContent?.nativeElement.scrollTo({ top: 0 })
+    // Either layout starts from its beginning: a scroll offset means nothing
+    // once the content under it has been replaced.
+    if (this.showCards) {
+      this.restOnCard("first")
+    } else {
+      this.drawerContent?.nativeElement.scrollTo({ top: 0 })
+    }
+  }
+
+  /**
+   * Rests the card view on the chapter's first verse — or its last, when the
+   * reader came to it backwards, so that reading on upwards is continuous.
+   * Never on scroll offset 0: from chapter 2 on that is the leading stop, and
+   * resting there goes back a chapter. Instant and synchronous on purpose: it
+   * has to be in place before the stops' observers take their first reading.
+   */
+  private restOnCard(edge: "first" | "last"): void {
+    const cards = this.bookBlock?.nativeElement.querySelectorAll("article")
+    const card = edge === "first" ? cards?.[0] : cards?.[cards.length - 1]
+    card?.scrollIntoView({ block: "start" })
   }
 
   @HostListener("window:keydown", ["$event"])

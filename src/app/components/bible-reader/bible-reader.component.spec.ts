@@ -680,6 +680,12 @@ describe("BibleReaderComponent", () => {
         fixture.detectChanges()
       }
 
+      /** The reader is OnPush: a field set from outside needs marking first. */
+      function rerender(): void {
+        ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+        fixture.detectChanges()
+      }
+
       function cardsInDom(): boolean {
         return !!fixture.nativeElement.querySelector("verse-cards")
       }
@@ -725,8 +731,22 @@ describe("BibleReaderComponent", () => {
         ).not.toContain("cards-scroller")
       })
 
-      it("starts either layout from the top and stops auto-scroll", () => {
+      it("starts the cards on the first verse, never on scroll offset 0", () => {
         bootOn("android", false)
+        const restOnCard = spyOn(
+          component as unknown as { restOnCard(edge: string): void },
+          "restOnCard",
+        )
+
+        component.onToggleCardsView()
+
+        // From chapter 2 on, offset 0 is the stop that goes back a chapter.
+        expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
+        expect(restOnCard).toHaveBeenCalledOnceWith("first")
+      })
+
+      it("starts the running text from the top when the cards are turned off", () => {
+        bootOn("android", true)
         // This spec strips the reader's imports, so the MatDrawerContent view
         // query never resolves — and re-resolves to nothing on every pass, so
         // a plain assignment would not survive the toggle's own render. Pin
@@ -743,7 +763,6 @@ describe("BibleReaderComponent", () => {
 
         component.onToggleCardsView()
 
-        expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
         expect(scrollTo).toHaveBeenCalledOnceWith({ top: 0 })
       })
 
@@ -761,6 +780,169 @@ describe("BibleReaderComponent", () => {
 
         expect(component.viewMode).toBe("paged")
         expect(component.effectiveViewMode).toBe("scrolling")
+      })
+
+      it("keeps the copyright on screen at all times, as paged mode does", () => {
+        bootOn("android", false)
+        const footer = () =>
+          fixture.nativeElement.querySelector(".copyright-footer").classList
+
+        // In running text it sits at the end of the chapter.
+        expect(footer()).not.toContain("fixed-footer")
+
+        component.onToggleCardsView()
+
+        expect(footer()).toContain("fixed-footer")
+        expect(footer()).toContain("cards-footer")
+      })
+
+      it("moves on to the next chapter when the reader scrolls past the last verse", () => {
+        bootOn("android", true)
+        component.book = { ...component.book, shortName: "Génesis" }
+        component.chapterNumber = 7
+        rerender()
+        routerSpy.navigate.calls.reset()
+        const cards = fixture.nativeElement.querySelector("verse-cards")
+
+        expect(cards.nextChapterLabel).toBe("Génesis 8")
+
+        cards.dispatchEvent(new Event("reachedEnd"))
+
+        expect(routerSpy.navigate).toHaveBeenCalledOnceWith([
+          "/",
+          "1-genesis",
+          "8",
+        ])
+      })
+
+      it("offers nothing past the last chapter of the book", () => {
+        bootOn("android", true)
+        component.chapterNumber = component.book.chapterCount
+        rerender()
+
+        expect(
+          fixture.nativeElement.querySelector("verse-cards").nextChapterLabel,
+        ).toBeUndefined()
+      })
+
+      /**
+       * Stands in for the cards the real component would render: this spec
+       * strips the reader's imports, so <verse-cards> is an empty element.
+       */
+      function seedCards(count: number): jasmine.Spy[] {
+        const host = fixture.nativeElement.querySelector("verse-cards")
+        return Array.from({ length: count }, () => {
+          const card = document.createElement("article")
+          host.appendChild(card)
+          return spyOn(card, "scrollIntoView")
+        })
+      }
+
+      it("opens a new chapter resting on its first verse", () => {
+        bootOn("android", true)
+        const [first, , last] = seedCards(3)
+        animationServiceSpy.scrollToTop.calls.reset()
+
+        component.getChapter(2)
+
+        // Instantly, with no `behavior: "smooth"`: the reader arrives from the
+        // bottom of the chapter before, a whole run of cards away.
+        expect(first).toHaveBeenCalledOnceWith({ block: "start" })
+        expect(last).not.toHaveBeenCalled()
+      })
+
+      it("keeps the scroller from the scroll-to-top, which would rest it on the leading stop", () => {
+        bootOn("android", true)
+        animationServiceSpy.scrollToTop.calls.reset()
+
+        component.getChapter(2)
+
+        // Scroll offset 0 is the stop that goes back a chapter. The slide-in
+        // the same call performs is still wanted, hence the call itself.
+        expect(animationServiceSpy.scrollToTop).toHaveBeenCalledTimes(1)
+        expect(
+          animationServiceSpy.scrollToTop.calls.mostRecent().args[0],
+        ).toBeUndefined()
+      })
+
+      it("still hands the scroller over outside the card view", () => {
+        bootOn("android", false)
+        animationServiceSpy.scrollToTop.calls.reset()
+
+        component.getChapter(2)
+
+        expect(animationServiceSpy.scrollToTop).toHaveBeenCalledTimes(1)
+      })
+
+      it("opens a chapter reached backwards on its last verse, so reading on upwards is continuous", async () => {
+        bootOn("android", true)
+        component.chapterNumber = 4
+        const [first, , last] = seedCards(3)
+
+        component.goToPreviousChapter()
+        component.getChapter(3)
+        await fixture.whenStable()
+
+        expect(last).toHaveBeenCalledOnceWith({ block: "start" })
+        expect(first).not.toHaveBeenCalled()
+      })
+
+      it("leaves a deep link into a chapter to scroll to its verse instead", () => {
+        bootOn("android", true)
+        const [first] = seedCards(3)
+        animationServiceSpy.scrollToTop.calls.reset()
+
+        component.getChapter(2, 16)
+
+        expect(first).not.toHaveBeenCalled()
+        expect(animationServiceSpy.scrollToTop).not.toHaveBeenCalled()
+      })
+
+      it("goes back a chapter when the reader scrolls up past the first verse", () => {
+        bootOn("android", true)
+        component.book = { ...component.book, shortName: "Génesis" }
+        component.chapterNumber = 7
+        rerender()
+        routerSpy.navigate.calls.reset()
+        const cards = fixture.nativeElement.querySelector("verse-cards")
+
+        expect(cards.previousChapterLabel).toBe("Génesis 6")
+
+        cards.dispatchEvent(new Event("reachedStart"))
+
+        expect(routerSpy.navigate).toHaveBeenCalledOnceWith([
+          "/",
+          "1-genesis",
+          "6",
+        ])
+      })
+
+      it("offers nothing before chapter 1, not even a book's introduction", () => {
+        bootOn("android", true)
+        component.book = {
+          ...component.book,
+          introduction: [{ type: "introParagraph", text: "Prosa." }],
+        }
+        component.chapterNumber = 1
+        rerender()
+
+        // The introduction is prose: going back into it would drop the reader
+        // out of the cards with no way to scroll back in.
+        expect(
+          fixture.nativeElement.querySelector("verse-cards")
+            .previousChapterLabel,
+        ).toBeUndefined()
+      })
+
+      it("closes the book under the last verse of its last chapter, and nowhere else", () => {
+        bootOn("android", true)
+        const cards = fixture.nativeElement.querySelector("verse-cards")
+        expect(cards.endOfBookLabel).toBeUndefined()
+
+        component.chapterNumber = component.book.chapterCount
+        rerender()
+
+        expect(cards.endOfBookLabel).toBe("Fim do Genesis")
       })
 
       it("drops the floating chapter arrows: a card is the verse and nothing else", () => {
@@ -827,11 +1009,9 @@ describe("BibleReaderComponent", () => {
         bringIntoView?.(verse)
 
         // Centring the verse's text instead would leave the scroller between
-        // two snap points, free to settle on the next verse.
-        expect(scrollIntoView).toHaveBeenCalledOnceWith({
-          behavior: "smooth",
-          block: "start",
-        })
+        // two snap points, free to settle on the next verse. And a jump, not a
+        // glide through every full-screen verse on the way.
+        expect(scrollIntoView).toHaveBeenCalledOnceWith({ block: "start" })
       })
 
       it("leaves deep links to the default centring outside the card view", () => {

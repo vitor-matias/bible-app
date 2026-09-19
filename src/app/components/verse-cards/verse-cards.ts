@@ -11,10 +11,15 @@ function isReadable(text: TextType): boolean {
 
 /**
  * Deals a chapter out one verse to a card, in order and without dropping a
- * word of Scripture — and with nothing else. The cards carry no pericope
- * headings, so those come out of the verse text together with the parallel
- * references that belong to them (the edition hangs both on the end of the
- * verse BEFORE the pericope, where they would read as part of that verse).
+ * word of Scripture — and with nothing else:
+ *
+ * - no pericope headings, which come out of the verse text together with the
+ *   parallel references that belong to them (the edition hangs both on the end
+ *   of the verse BEFORE the pericope, where they would read as part of it);
+ * - no footnotes. A footnote element is all it takes for the verse component
+ *   to draw its marker and turn the verse into a tap target for the notes
+ *   sheet, so leaving them out of the copy removes both. The notes are one tap
+ *   away in the reader's other views.
  *
  * Returns display copies; the chapter itself is left untouched.
  */
@@ -25,6 +30,9 @@ export function toVerseCards(chapter: Chapter): Verse[] {
     const text: TextType[] = []
     let afterHeading = false
     for (const element of verse.text) {
+      // Skipped before anything else so that a note sitting between a heading
+      // and its references does not make those read as the verse's own.
+      if (element.type === "footnote") continue
       if (element.type === "section") {
         afterHeading = true
       } else if (!(afterHeading && element.type === "references")) {
@@ -52,4 +60,17 @@ export function toVerseCards(chapter: Chapter): Verse[] {
     })
   }
   return cards
+}
+
+/**
+ * The line under the last verse of a book: "Fim do Livro do Génesis", "Fim da
+ * Primeira Carta aos Coríntios". The article has to agree with the name, and
+ * in this edition every feminine title is a "Carta" — the rest are a "Livro",
+ * an "Evangelho" or the "Cântico dos Cânticos".
+ */
+export function endOfBookLabel(book: Book): string {
+  const isFeminine = /^((primeira|segunda|terceira)\s+)?carta\b/i.test(
+    book.name.trim(),
+  )
+  return `Fim ${isFeminine ? "da" : "do"} ${book.name.trim()}`
 }
