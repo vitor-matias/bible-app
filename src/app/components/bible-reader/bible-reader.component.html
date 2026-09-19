@@ -56,8 +56,7 @@
       }
 
       @if (book.id !== 'about' && chapter) {
-      <!-- Floating navigation. In scrolling mode these are real links so
-           crawlers can walk from chapter to chapter without the sitemap. -->
+      <!-- Floating navigation: real links in scrolling mode, for crawlers. -->
       @if (chapter.number > (hasIntro ? 0 : 1) || (effectiveViewMode === 'paged' && !isFirstPage)) {
       @if (effectiveViewMode === 'scrolling') {
       <a class="floating-nav-button prev-chapter" mat-mini-fab aria-label="Capítulo anterior"

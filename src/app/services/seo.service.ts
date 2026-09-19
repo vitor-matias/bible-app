@@ -28,10 +28,7 @@ export class SeoService {
   private document = inject(DOCUMENT)
   private bookService = inject(BookService)
 
-  /**
-   * Reflect the currently displayed chapter in the document head so each
-   * book/chapter URL gets its own title, description and canonical URL.
-   */
+  /** Gives each book/chapter URL its own title, description and canonical. */
   updateForChapter(
     book: Book,
     chapterNumber: Chapter["number"],
@@ -43,11 +40,9 @@ export class SeoService {
     }
 
     const bookUrl = `${SEO_BASE_URL}/${this.bookService.getUrlAbrv(book)}`
-    // Chapter 0 is the book introduction: it lives at /:book/intro and reads
-    // as "Introdução", never as "capítulo 0".
+    // Chapter 0 is the book introduction, at /:book/intro.
     const isIntro = chapterNumber === 0
-    // A standalone introduction is already named "Introdução ao …", so it
-    // titles itself instead of gaining a second "Introdução".
+    // A standalone introduction is already named "Introdução ao …".
     const standalone = !!book.introSlug
     const label = isIntro ? "Introdução" : `${chapterNumber}`
     const pageName = standalone ? book.name : `${book.shortName} ${label}`
@@ -58,13 +53,11 @@ export class SeoService {
       canonicalUrl: `${bookUrl}/${segment}`,
       indexable: true,
     })
-    // Books that open on an introduction should have the book-level crumb
-    // point there, not at a chapter the reader never passed through. A
-    // standalone introduction has no chapters at all, and its body is empty
-    // until loadGroupIntroBody() fills it — keying off the body alone would
-    // emit /pentateuco/1, a URL that has no page, into the BreadcrumbList.
+    // The book crumb points at the introduction when there is one. Standalone
+    // and shared introductions have no body until loadGroupIntroBody(), so the
+    // slug counts too; otherwise this emits /pentateuco/1, which has no page.
     const bookEntrySegment = this.bookService.getChapterUrlSegment(
-      standalone || book.introduction?.length ? 0 : 1,
+      BookService.introSlugFor(book) || book.introduction?.length ? 0 : 1,
     )
     const crumbs = [
       { name: SEO_SITE_NAME, item: `${SEO_BASE_URL}/` },
@@ -74,8 +67,7 @@ export class SeoService {
         item: `${bookUrl}/${segment}`,
       },
     ]
-    // On the page that is itself the book's entry point (an introduction),
-    // the book crumb and the leaf are the same URL — emit it once.
+    // On an introduction the book crumb and the leaf are the same URL.
     this.setBreadcrumbs(
       crumbs.filter(
         (crumb, index) => index === 0 || crumb.item !== crumbs[index - 1].item,
@@ -93,11 +85,7 @@ export class SeoService {
     this.setBreadcrumbs(null)
   }
 
-  /**
-   * Head for the book index at /livros. It gets breadcrumbs of its own so the
-   * hub reads as a level between the home page and a book, rather than as a
-   * page hanging off nothing.
-   */
+  /** Head for the book index at /livros, a level between home and a book. */
   updateForBookIndex(): void {
     this.apply({
       title: `${SEO_BOOK_INDEX_NAME} | ${SEO_SITE_NAME}`,
@@ -156,10 +144,7 @@ export class SeoService {
     this.setCanonicalUrl(page.canonicalUrl)
   }
 
-  /**
-   * Maintain a single BreadcrumbList JSON-LD script (Home → Book → Chapter)
-   * so chapter results are eligible for breadcrumb display in search engines.
-   */
+  /** Maintains one BreadcrumbList JSON-LD script (Home → Book → Chapter). */
   private setBreadcrumbs(
     crumbs: { name: string; item: string }[] | null,
   ): void {
@@ -177,8 +162,8 @@ export class SeoService {
       script.id = id
       this.document.head.appendChild(script)
     }
-    // "<" escaped so a name containing "</script>" cannot close this element
-    // in the prerendered HTML; \u003c is still the same string to a JSON parser.
+    // Escape "<" so a name containing "</script>" cannot close this element
+    // in the prerendered HTML.
     script.textContent = JSON.stringify({
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
@@ -208,21 +193,20 @@ export class SeoService {
     chapterNumber: Chapter["number"],
     chapter?: Chapter,
   ): string {
-    // The synthetic intro chapter carries no verses, so fall back to the
-    // introduction's own prose instead of a description shared by every book.
+    // The intro chapter has no verses; describe it with its own prose.
+    const isIntro = chapterNumber === 0
     const excerpt =
-      chapterNumber === 0
-        ? this.buildExcerpt(chapter) || this.buildIntroExcerpt(book)
-        : this.buildExcerpt(chapter)
+      this.buildExcerpt(chapter) ||
+      (isIntro ? this.buildIntroExcerpt(book) : "")
     if (!excerpt) {
       return this.truncate(
-        chapterNumber === 0
+        isIntro
           ? `Leia a introdução a ${book.shortName} na ${SEO_SITE_NAME}. ${SEO_DEFAULT_DESCRIPTION}`
           : `Leia ${book.shortName}, capítulo ${chapterNumber}, na ${SEO_SITE_NAME}. ${SEO_DEFAULT_DESCRIPTION}`,
       )
     }
     return this.truncate(
-      chapterNumber === 0
+      isIntro
         ? `${book.shortName} — Introdução: ${excerpt}`
         : `${book.shortName} ${chapterNumber}: ${excerpt}`,
     )

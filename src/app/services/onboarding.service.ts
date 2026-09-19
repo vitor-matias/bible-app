@@ -2,7 +2,6 @@ import { Injectable } from "@angular/core"
 import { MatDialog, type MatDialogRef } from "@angular/material/dialog"
 import {
   OnboardingComponent,
-  type OnboardingDialogData,
   type OnboardingResult,
   type OnboardingSource,
 } from "../components/onboarding/onboarding.component"
@@ -27,37 +26,29 @@ export class OnboardingService {
     private readonly analyticsService: AnalyticsService,
   ) {}
 
-  /**
-   * Schedules the wizard on the very first visit. Returns whether it was
-   * scheduled. Share-target launches are left alone: the user came to read
-   * a specific passage, not to be introduced to the app.
-   */
+  /** Schedules the wizard on a first visit (never on a share-target launch). */
   showOnFirstLaunch(search: string = defaultSearch()): boolean {
     if (this.preferencesService.getOnboardingSeen()) return false
     if (this.isShareTargetLaunch(search)) return false
 
     setTimeout(() => {
-      // Re-check: the menu can open and close the wizard (marking it seen)
-      // during this delay, and a stale timer must not undo that.
+      // Re-check: the menu can open and close the wizard during the delay.
       if (this.preferencesService.getOnboardingSeen()) return
       this.open("first_launch")
     }, FIRST_LAUNCH_DELAY_MS)
     return true
   }
 
-  /** Opens the wizard, or returns the one already open. */
   open(
     source: OnboardingSource = "menu",
   ): MatDialogRef<OnboardingComponent, OnboardingResult> {
     if (this.dialogRef) return this.dialogRef
 
-    const data: OnboardingDialogData = { source }
     const ref = this.dialog.open<
       OnboardingComponent,
-      OnboardingDialogData,
+      undefined,
       OnboardingResult
     >(OnboardingComponent, {
-      data,
       panelClass: "onboarding-dialog",
       width: "min(92vw, 520px)",
       maxWidth: "92vw",
@@ -71,8 +62,7 @@ export class OnboardingService {
 
     ref.afterClosed().subscribe((result) => {
       this.dialogRef = null
-      // Any dismissal counts: nagging on every launch would be worse than
-      // a user missing the wizard once.
+      // Any dismissal counts as seen.
       this.preferencesService.setOnboardingSeen(true)
       void this.analyticsService.track("onboarding_close", {
         source,
@@ -85,8 +75,7 @@ export class OnboardingService {
   }
 
   private isShareTargetLaunch(search: string): boolean {
-    // Matches AppComponent.handleShareTarget's three share-target fields —
-    // a title-only share (e.g. "?title=Salmo 23") is still a share.
+    // The same three fields as AppComponent.handleShareTarget.
     const params = new URLSearchParams(search)
     return params.has("url") || params.has("text") || params.has("title")
   }

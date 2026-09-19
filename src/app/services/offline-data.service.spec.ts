@@ -48,7 +48,6 @@ describe("OfflineDataService", () => {
                 {
                   type: "text",
                   text: "In the beginning...",
-                  normalizedText: "In the beginning...",
                 },
               ],
             },
@@ -476,6 +475,29 @@ describe("OfflineDataService", () => {
         ).toBeUndefined()
       })
 
+      it("drops a stale ready flag when an expired refresh comes back partial", async () => {
+        spyOn(console, "error")
+        mockLocalStorage._storage["booksCacheReady"] = "true"
+        mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+        mockLocalStorage._storage["booksCacheTimestamp"] = "1"
+
+        const promise = service.preloadAllBooksAndChapters()
+        await flushMicrotasks()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushMacrotask()
+        httpMock.expectOne("v1/intros").flush(introSummaries)
+        await flushMacrotask()
+        httpMock.expectOne("v1/intros/pentateuco").flush(introBodies[0])
+        httpMock
+          .expectOne("v1/intros/historicos")
+          .error(new ProgressEvent("error"))
+        await promise
+
+        expect(
+          mockLocalStorage._storage["groupIntrosCacheReady"],
+        ).toBeUndefined()
+      })
+
       it("does not fail the whole preload when the introductions request fails", async () => {
         spyOn(console, "error")
 
@@ -553,7 +575,7 @@ describe("OfflineDataService", () => {
       chapterNumber: chapter,
       number,
       verseLabel: number.toString(),
-      text: [{ type: "text", text: "v", normalizedText: "v" }],
+      text: [{ type: "text", text: "v" }],
     })
 
     it("should merge chapters per chapter number keeping the fuller payload", async () => {

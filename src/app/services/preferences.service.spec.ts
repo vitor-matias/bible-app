@@ -62,6 +62,14 @@ describe("PreferencesService", () => {
     expect(service.getOnboardingSeen()).toBeFalse()
   })
 
+  it("should report the wizard as seen when storage cannot record it", () => {
+    // A throwing setItem fails the safeLocalStorage() probe, as blocked
+    // storage does; "unseen" would then reopen the wizard on every launch.
+    spyOn(Storage.prototype, "setItem").and.throwError("blocked")
+
+    expect(service.getOnboardingSeen()).toBeTrue()
+  })
+
   it("should store and read the last location", () => {
     service.setLastBookId("gen")
     service.setLastChapterNumber(3)

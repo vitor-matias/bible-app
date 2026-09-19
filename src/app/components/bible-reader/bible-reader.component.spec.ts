@@ -211,6 +211,18 @@ describe("BibleReaderComponent", () => {
       expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("gen", 1)
     })
 
+    it("should not navigate while server-rendering when the chapter fails to load", async () => {
+      TestBed.resetTestingModule()
+      await setUpTestBed({ platformId: "server" })
+      spyOn(console, "error")
+      apiServiceSpy.getChapter.and.returnValue(
+        throwError(() => new Error("API unavailable")),
+      )
+      TestBed.createComponent(BibleReaderComponent).detectChanges()
+
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
+    })
+
     // resetContainerForRepaint hides the container for the swap animation and
     // only the browser-only animation service puts it back, so hiding it while
     // server-rendering bakes opacity: 0 into the prerendered HTML with nothing
@@ -696,6 +708,49 @@ describe("BibleReaderComponent", () => {
       expect(routerSpy.navigate).not.toHaveBeenCalled()
     })
 
+    it("applies a lazily loaded introduction once on in-app navigation", async () => {
+      // BookService pushes a new book list as the body arrives. Routing used
+      // to re-run on that emission, while chapterNumber still named the
+      // previous chapter, and applied the introduction a second time.
+      const samuel = {
+        id: "1sa",
+        name: "1 Samuel",
+        shortName: "1 Samuel",
+        abrv: "1 Sm",
+        chapterCount: 31,
+        sharedIntroSlug: "samuel",
+        introduction: [],
+      } as unknown as Book
+      const loaded = {
+        ...samuel,
+        introduction: [{ type: "introParagraph", text: "Texto" }],
+      } as unknown as Book
+      fixture.detectChanges()
+      component.bookDrawer = jasmine.createSpyObj("MatDrawer", ["close"])
+      seoServiceSpy.updateForChapter.calls.reset()
+
+      bookServiceSpy.findBook.and.returnValue(samuel)
+      bookServiceSpy.loadGroupIntroBody.and.callFake(async () => {
+        bookServiceSpy.findBook.and.returnValue(loaded)
+        ;(bookServiceSpy.books$ as unknown as BehaviorSubject<Book[]>).next([
+          loaded,
+        ])
+        return loaded
+      })
+      ;(
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap.next(
+        new Map([
+          ["book", "1sm"],
+          ["chapter", "intro"],
+        ]),
+      )
+      await fixture.whenStable()
+
+      expect(seoServiceSpy.updateForChapter).toHaveBeenCalledTimes(1)
+      expect(component.chapterNumber).toBe(0)
+    })
+
     it("keeps a late introduction body off the chapter the reader moved to", () => {
       // 1 Samuel reads a shared introduction, so /1sm/intro fetches the body;
       // picking a chapter before it lands must win.
@@ -727,6 +782,37 @@ describe("BibleReaderComponent", () => {
       return Promise.resolve().then(() => {
         expect(component.chapterNumber).toBe(5)
       })
+    })
+
+    it("stays on the shown chapter when an introduction body fails to load", async () => {
+      // Tapping "previous" on chapter 1 of a shared-introduction book while
+      // offline: the slide direction used to stay set, so the next chapter
+      // opened at the bottom, and the URL stayed on /intro.
+      spyOn(console, "error")
+      fixture.detectChanges()
+      routerSpy.navigate.calls.reset()
+      component.book = {
+        id: "1sa",
+        name: "1 Samuel",
+        shortName: "1 Samuel",
+        abrv: "1 Sm",
+        chapterCount: 31,
+        sharedIntroSlug: "samuel",
+        introduction: [],
+      } as unknown as Book
+      component.chapterNumber = 1
+      component.isNavigatingBackwards = true
+      bookServiceSpy.loadGroupIntroBody.and.rejectWith(new Error("offline"))
+
+      component.getChapter(0)
+      await fixture.whenStable()
+
+      expect(component.isNavigatingBackwards).toBeFalse()
+      expect(snackBarSpy.open).toHaveBeenCalled()
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", jasmine.anything(), "1"],
+        { replaceUrl: true },
+      )
     })
 
     it("renders the About page without asking the API for it", () => {
@@ -857,22 +943,6 @@ describe("BibleReaderComponent", () => {
       expect(component.pagedNav?.scrollToEnd).not.toHaveBeenCalled()
     }))
 
-    it("should finalize and fallback to 'about' book on error", fakeAsync(() => {
-      spyOn(console, "error")
-      apiServiceSpy.getChapter.and.returnValue(
-        throwError(() => new Error("Not found")),
-      )
-      bookServiceSpy.findBook.and.returnValue(mockBooks[1] as unknown as Book) // About book
-      component.book = mockBooks[1] as unknown as Book // Set current to about to trigger fallback
-
-      component.getChapter(1)
-      tick()
-
-      expect(component.chapter.bookId).toBe("about")
-      expect(animationServiceSpy.scrollToTop).toHaveBeenCalled()
-      expect(preferencesServiceSpy.setLastBookId).toHaveBeenCalledWith("about")
-    }))
-
     it("should trigger slide out animation if navigating", fakeAsync(() => {
       component.isNavigatingForwards = true
       // Need a dummy nativeElement
@@ -960,11 +1030,7 @@ describe("BibleReaderComponent", () => {
       )
     }))
 
-    it("should call scrollToVerseElement in error handler if verseStart provided and book is about", fakeAsync(() => {
-      spyOn(console, "error")
-      apiServiceSpy.getChapter.and.returnValue(
-        throwError(() => new Error("Not found")),
-      )
+    it("should scroll to a requested verse on the About page", fakeAsync(() => {
       bookServiceSpy.findBook.and.returnValue(mockBooks[1] as unknown as Book)
       component.book = mockBooks[1] as unknown as Book
 

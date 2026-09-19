@@ -22,8 +22,7 @@
   width: 100%;
 }
 
-/* The h1 exists for semantics only — it wraps the book/chapter picker without
-   contributing a box of its own, so the toolbar lays out exactly as before. */
+/* The h1 is semantic only: it must not change the toolbar's layout. */
 .page-heading {
   display: flex;
   align-items: center;
@@ -130,8 +129,7 @@ mat-icon {
     transform 0.3s ease;
 }
 
-/* Held for the fade-out half of a swap; the text changes while it is set, so
-   the new label fades in rather than appearing mid-sentence. */
+/* Set for the fade-out half of a swap; the text changes while it is set. */
 .cycle-text.faded {
   opacity: 0;
   transform: translateY(4px);
@@ -142,9 +140,7 @@ mat-icon {
   .cycle-text {
     transition: none;
   }
-  /* With no transition there is no fade to hide behind, so honouring .faded
-     would blank the label outright for the fade window — a flash every few
-     seconds. Keep it on screen and let the text swap in place. */
+  /* Without a transition, .faded would blank the label for the fade window. */
   .cycle-text.faded {
     opacity: 1;
     transform: none;

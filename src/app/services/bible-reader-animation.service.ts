@@ -8,9 +8,8 @@ export const HIGHLIGHT_CLASS = "verse-highlight"
 export const HIGHLIGHT_DURATION_MS = 2500
 
 /**
- * How long the reader keeps correcting the deep-link scroll while the chapter's
- * layout is still settling. Long enough for the indent pass in VerseComponent
- * and a font swap, short enough that it never fights the reader.
+ * How long a deep-link scroll keeps being corrected while the layout settles
+ * (VerseComponent's indent pass, a font swap).
  */
 export const LAYOUT_SETTLE_MS = 600
 
@@ -34,28 +33,20 @@ export class BibleReaderAnimationService {
     ReturnType<typeof setTimeout>
   >()
 
-  /**
-   * Cancels the pending realign pass registered by the last deep-link scroll.
-   * Undefined when nothing is pending.
-   */
+  /** Cancels the pending realign pass; undefined when none is pending. */
   private cancelRealign?: () => void
 
   /** The not-yet-fired deep-link scroll scheduled by scrollToVerseElement. */
   private pendingVerseScroll?: ReturnType<typeof setTimeout>
 
-  /**
-   * Scroll/animation work is meaningless while server-rendering, and the
-   * server DOM lacks scrollTo/requestAnimationFrame — skip it entirely.
-   */
+  /** The server DOM lacks scrollTo/requestAnimationFrame. */
   private get isBrowser(): boolean {
     return isPlatformBrowser(this.platformId)
   }
 
   /**
-   * Drop any realign pass still waiting for the layout to settle. The reader
-   * calls this when the chapter is swapped or the component goes away: the
-   * pass holds the previous chapter's verse element and scroll strategy, and
-   * must not fire against the page that replaced them.
+   * Called on chapter swap and destroy: a pending pass holds the previous
+   * chapter's verse element and must not fire against its replacement.
    */
   cancelPendingRealign(): void {
     if (this.pendingVerseScroll !== undefined) {
@@ -186,16 +177,11 @@ export class BibleReaderAnimationService {
     verseEnd?: number,
     highlight = true,
     startAtBottom = false,
-    /**
-     * How the verse is brought into view. Paged mode scrolls horizontally in
-     * whole-page steps, so it passes its own aligning scroll instead.
-     */
+    /** Paged mode passes its own page-aligned scroll. */
     bringIntoView: (element: HTMLElement) => void = scrollVerseIntoView,
   ): void {
     if (!this.isBrowser) return
-    // A newer deep link supersedes one still inside its 100ms window: without
-    // this the older timer stays live, scrolls to its own verse first, and then
-    // clears the field that tracks the newer one, so nothing can cancel it.
+    // A newer deep link supersedes one still inside its 100ms window.
     this.cancelPendingRealign()
     this.pendingVerseScroll = setTimeout(() => {
       this.pendingVerseScroll = undefined
@@ -212,9 +198,6 @@ export class BibleReaderAnimationService {
             scrolled = true
           }
           if (highlight) {
-            // The stroke itself is styled by the verse component; painting it
-            // from here (on the inline <verse> host) would colour the empty
-            // line fragments and inter-verse spaces too.
             element.classList.add(HIGHLIGHT_CLASS)
 
             if (this.highlightTimeouts.has(element)) {
@@ -239,19 +222,14 @@ export class BibleReaderAnimationService {
   }
 
   /**
-   * The chapter keeps growing after the scroll above has been computed: web
-   * fonts swap in, and every VerseComponent runs a debounced indent pass once
-   * its own layout settles. The browser scrolled as far as the height it knew
-   * about allowed, which for a verse near the end of a chapter is short of the
-   * verse itself — so bring it back into view once things have stopped moving,
-   * unless the reader has taken over in the meantime.
+   * The chapter keeps growing after the first scroll (font swap, debounced
+   * verse indent passes), which leaves a verse near the end short of view.
+   * Scroll again once the layout settles, unless the reader has taken over.
    */
   private realignWhenLayoutSettles(
     element: HTMLElement,
     bringIntoView: (element: HTMLElement) => void,
   ): void {
-    // Only one verse is ever being settled onto; a newer deep link supersedes
-    // whatever the last one still had pending.
     this.cancelPendingRealign()
 
     let takenOver = false
@@ -267,11 +245,8 @@ export class BibleReaderAnimationService {
       window.addEventListener(event, takeOver, { passive: true })
     }
 
-    // A font swap is the slow half of this and can land either side of the
-    // timer, so the pass waits on it too — but only while one is actually
-    // pending: an already-settled FontFaceSet resolves straight away and would
-    // just be a completion with nothing left to wait for. Older WebViews have
-    // no FontFaceSet at all.
+    // Wait on a font swap too, but only while one is loading. Older WebViews
+    // have no FontFaceSet at all.
     const fonts = "fonts" in document ? document.fonts : undefined
     const fontsLoading = fonts?.status === "loading" ? fonts.ready : undefined
     let pending = fontsLoading ? 2 : 1
@@ -284,14 +259,8 @@ export class BibleReaderAnimationService {
       if (this.cancelRealign === cancel) this.cancelRealign = undefined
     }
 
-    /**
-     * One completion of the settle window: the timer, and the font swap when
-     * one is pending. The scroll happens on the last of them rather than on
-     * each, so the reader gets a single correction once nothing is still
-     * moving, whichever of the two lands second. `pending <= 0` means the pass
-     * already finished or was cancelled, which is what stops a font promise
-     * that resolves after teardown from scrolling.
-     */
+    // Scrolls once, on the last completion (timer, font swap). `pending <= 0`
+    // stops a font promise that resolves after teardown from scrolling.
     const release = () => {
       if (pending <= 0) return
       pending -= 1
@@ -308,8 +277,7 @@ export class BibleReaderAnimationService {
     }
     this.cancelRealign = cancel
 
-    // A rejected FontFaceSet counts as settled too, or the pass never completes
-    // and the listeners never come off.
+    // A rejected FontFaceSet counts as settled, or the listeners never come off.
     fontsLoading?.then(release, release)
   }
 }

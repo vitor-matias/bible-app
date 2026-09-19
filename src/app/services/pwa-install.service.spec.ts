@@ -120,13 +120,11 @@ describe("PwaInstallService", () => {
 
     it("becomes installed when the browser fires appinstalled", () => {
       service = TestBed.inject(PwaInstallService)
-      const seen: boolean[] = []
-      service.installed$.subscribe((value) => seen.push(value))
+      expect(service.isInstalled).toBeFalse()
 
       window.dispatchEvent(new Event("appinstalled"))
 
       expect(service.isInstalled).toBeTrue()
-      expect(seen).toEqual([false, true])
     })
   })
 

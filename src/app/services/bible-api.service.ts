@@ -22,11 +22,7 @@ import { OfflineDataService } from "./offline-data.service"
 
 const IS_SERVER = !isBrowser()
 
-/**
- * A response the server will keep giving us: retrying it only multiplies the
- * request count and the backoff wait. 408 and 429 are the two 4xx codes that
- * do mean "ask again".
- */
+/** 4xx responses that retrying cannot fix; 408 and 429 mean "ask again". */
 function isPermanentFailure(error: unknown): boolean {
   if (!(error instanceof HttpErrorResponse)) return false
   const { status } = error
@@ -34,12 +30,8 @@ function isPermanentFailure(error: unknown): boolean {
 }
 
 /**
- * Server-only request hardening for prerendering: a bounded timeout (a
- * connection that never completes must not hang the build) plus retry with
- * backoff (transient rate limiting must not fail the build or ship empty
- * pages). In the browser the source observable is passed through untouched.
- * Exported for tests via createApiResilience; production code uses the
- * IS_SERVER-bound wrapper below.
+ * Prerender-only timeout plus retry with backoff, so a hung connection or
+ * transient rate limiting cannot hang the build or ship empty pages.
  */
 export function createApiResilience<T>(
   isServer: boolean,
@@ -56,8 +48,7 @@ export function createApiResilience<T>(
       retry({
         count: retryCount,
         delay: (error, attempt) => {
-          // Rethrowing from the delay factory fails the retry immediately, so
-          // a 404 costs one request instead of four plus 4.2s of backoff.
+          // Rethrowing from the delay factory fails the retry immediately.
           if (isPermanentFailure(error)) throw error
           return timer(retryBaseDelayMs * 2 ** attempt)
         },
@@ -70,18 +61,9 @@ function serverRetry<T>() {
 }
 
 /**
- * While prerendering, every page boots a fresh app in the same worker process;
- * this cache survives between renders, so one worker fetches the book list once
- * instead of ~1200 times (which invites API rate limiting).
- *
- * It only ever keeps a usable response. Caching a degenerate one would make
- * every later render in this worker resolve every book to the About page —
- * canonical "/" and About copy on every chapter URL — instead of failing and
- * falling back to client-side rendering.
- *
- * A factory rather than module-level functions taking `isServer`: production
- * binds it once, below, and tests exercise the server behaviour by building
- * their own instance instead of resetting shared module state.
+ * Survives between prerenders in one worker, so the book list is fetched once
+ * instead of ~1200 times. Never caches an empty response: every later render
+ * would resolve every book to the About page instead of failing.
  */
 export function createServerBooksCache(isServer: boolean): {
   read(): Book[] | null
@@ -120,10 +102,8 @@ export class BibleApiService {
   getAvailableBooks(): Observable<Book[]> {
     return from(this.offlineDataService.getCachedBooksAsync()).pipe(
       switchMap((cachedBooks) => {
-        // Group-intro pseudo-books (introSlug set) are cache bookkeeping for
-        // offline getIntro() lookups, not real navigable books — BookService
-        // builds its own synthetic entries from getIntros(), so leaking
-        // these through here would duplicate every standalone introduction.
+        // Cached group-intro records (introSlug set) are not real books;
+        // BookService builds its own from getIntros(), so drop them here.
         const realBooks = cachedBooks.filter((book) => !book.introSlug)
         if (realBooks.length) {
           this.books = realBooks
@@ -221,15 +201,27 @@ export class BibleApiService {
       this.offlineDataService.getCachedGroupIntroSummariesAsync(),
     ).pipe(
       switchMap((cached) => {
-        if (cached.length) return of(cached)
+        // A partially preloaded cache is only a fallback: served as the
+        // listing it would hide the missing introductions.
+        const complete =
+          cached.length > 0 && this.offlineDataService.areGroupIntrosCached()
+        if (complete) return of(cached)
         if (this.networkService.isOffline) {
-          return throwError(
-            () => new Error("Offline and no cached introductions available"),
-          )
+          return cached.length
+            ? of(cached)
+            : throwError(
+                () =>
+                  new Error("Offline and no cached introductions available"),
+              )
         }
         return (
           this.http.get(`${this.api}/intros`) as Observable<IntroSummary[]>
-        ).pipe(serverRetry())
+        ).pipe(
+          serverRetry(),
+          catchError((error) =>
+            cached.length ? of(cached) : throwError(() => error),
+          ),
+        )
       }),
     )
   }

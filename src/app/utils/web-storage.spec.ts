@@ -18,8 +18,6 @@ describe("web-storage", () => {
       } as unknown as Storage
 
       expect(pickUsableStorage(candidate)).toBeNull()
-      // The probe key is unique per call, so leaving it behind would pile up
-      // junk in a storage that fails partway through.
       expect(removed).toEqual(written)
       expect(removed.length).toBe(1)
     })

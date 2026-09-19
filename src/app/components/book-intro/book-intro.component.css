@@ -2,24 +2,18 @@
   padding: 0.5rem 0;
   line-height: 1.6;
   color: var(--text-color);
-  /* Match the scripture body text (.verseText is 120% of the same parent), so
-     the reader's font-size control moves both together and an introduction is
-     not set smaller than the chapter it introduces. */
+  /* Same as .verseText, so the font-size control scales both together. */
   font-size: 120%;
 }
 
-/* In the multi-column (paged) layout only the first column carries the leading
-   padding and the first element's top margin, which pushes its text down while
-   every other column starts flush at the top. Drop both so all columns share
-   one baseline; the toolbar already provides the space above. */
-/* A sidebar renders <book-intro> again, and the nested instance carries the
-   same emulated-encapsulation attribute as this one — so its .intro-container
-   matches the 120% above and compounds to 144%, leaving an aside set larger
-   than the introduction containing it. */
+/* A sidebar nests another <book-intro>, whose .intro-container would
+   otherwise compound the 120% above to 144%. */
 .intro-sidebar .intro-container {
   font-size: 100%;
 }
 
+/* In the paged multi-column layout only the first column would carry this
+   leading space; drop it so all columns share one baseline. */
 .intro-container:first-child {
   padding-top: 0;
 }

@@ -48,10 +48,10 @@ describe("OnboardingService", () => {
 
       tick(FIRST_LAUNCH_DELAY_MS)
 
-      expect(dialogSpy.open).toHaveBeenCalledWith(
-        OnboardingComponent,
-        jasmine.objectContaining({ data: { source: "first_launch" } }),
-      )
+      const [component, config] = dialogSpy.open.calls.mostRecent().args
+      expect(component).toBe(OnboardingComponent)
+      // The wizard reads no dialog data; the source only feeds analytics.
+      expect(config?.data).toBeUndefined()
       expect(analyticsSpy.track).toHaveBeenCalledWith("onboarding_open", {
         source: "first_launch",
       })
@@ -106,7 +106,6 @@ describe("OnboardingService", () => {
       expect(dialogSpy.open).toHaveBeenCalledWith(
         OnboardingComponent,
         jasmine.objectContaining({
-          data: { source: "menu" },
           ariaLabelledBy: "onboarding-title",
           maxHeight: "90vh",
         }),

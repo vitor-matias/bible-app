@@ -2,8 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { listPrerenderedPages } from "./prerendered-pages.mjs"
 
-// Read from src/app/config.ts rather than restated here, so the app's
-// canonical URLs and the sitemap can never name different hosts.
+// Read from config.ts so the sitemap and the app's canonical URLs agree.
 const configSource = readFileSync("src/app/config.ts", "utf8")
 const domain = /domain:\s*"([^"]+)"/.exec(configSource)?.[1]
 if (!domain) {
@@ -11,11 +10,7 @@ if (!domain) {
 }
 const BASE_URL = `https://${domain}`
 
-// The sitemap lists what the build actually produced rather than re-deriving
-// it from the API: prerender-params.ts has already fetched the book list,
-// applied its bounds and expanded the routes, so reading the output back keeps
-// the sitemap in step with the prerendered pages instead of duplicating that
-// logic here — and honours PRERENDER_API_ORIGIN for free.
+// The sitemap lists the pages the build actually prerendered.
 const browserDir = "dist/bible-app/browser"
 const outputFile = join(browserDir, "sitemap.xml")
 
@@ -41,9 +36,8 @@ ${entries}
 }
 
 if (!existsSync(browserDir)) {
-  // Only ever written into the build output. Writing into public/ instead
-  // would replace the deliberately minimal fallback sitemap that is checked
-  // in so robots.txt never points at a 404.
+  // Never write into public/: that would replace the checked-in fallback
+  // sitemap.
   console.warn(
     `Skipped sitemap generation: ${browserDir} does not exist. Run "npm run build" first.`,
   )
@@ -53,8 +47,8 @@ if (!existsSync(browserDir)) {
     .sort()
 
   if (routes.length === 0) {
-    // A build without API access prerenders nothing; leave the checked-in
-    // fallback sitemap that Angular copied from public/ in place.
+    // A build without API access prerenders nothing; keep the fallback
+    // sitemap copied from public/.
     console.warn(
       "Skipped sitemap generation: the build contains no prerendered pages.",
     )

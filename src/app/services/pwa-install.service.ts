@@ -6,7 +6,7 @@ export type InstallPlatform = "android" | "ios" | "desktop"
 export type InstallBrowser = "chrome" | "edge" | "safari" | "firefox" | "other"
 export type InstallPromptOutcome = "accepted" | "dismissed" | "unavailable"
 
-/** The non-standard `beforeinstallprompt` event fired by Chromium browsers. */
+/** The non-standard `beforeinstallprompt` event (Chromium only). */
 export interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
   readonly userChoice: Promise<{
@@ -15,7 +15,6 @@ export interface BeforeInstallPromptEvent extends Event {
   }>
 }
 
-/** Display modes the manifest can resolve to once the PWA is installed. */
 const INSTALLED_DISPLAY_MODES = [
   "(display-mode: standalone)",
   "(display-mode: window-controls-overlay)",
@@ -31,11 +30,8 @@ function defaultMaxTouchPoints(): number {
 }
 
 /**
- * Tracks whether the app can be installed as a PWA on this device and, when the
- * browser exposes a native install prompt, holds on to it until the user asks.
- *
- * Must be instantiated early (it is injected by `AppComponent`) because
- * `beforeinstallprompt` fires only once, shortly after load.
+ * Must be instantiated early (`AppComponent` injects it): `beforeinstallprompt`
+ * fires only once, shortly after load.
  */
 @Injectable({
   providedIn: "root",
@@ -43,15 +39,12 @@ function defaultMaxTouchPoints(): number {
 export class PwaInstallService implements OnDestroy {
   private deferredPrompt: BeforeInstallPromptEvent | null = null
   private readonly canPromptSubject = new BehaviorSubject<boolean>(false)
-  private readonly installedSubject = new BehaviorSubject<boolean>(false)
 
-  /** Emits `true` while a captured native install prompt is waiting to be shown. */
   readonly canPromptInstall$ = this.canPromptSubject.asObservable()
-  /** Emits `true` once the app runs installed (standalone PWA, native shell, or just installed). */
-  readonly installed$ = this.installedSubject.asObservable()
+  isInstalled = this.isRunningInstalled()
 
   private readonly onBeforeInstallPrompt = (event: Event): void => {
-    // Stop the browser mini-infobar; the onboarding wizard offers the prompt instead.
+    // Suppress the mini-infobar; the onboarding wizard offers the prompt.
     event.preventDefault()
     this.deferredPrompt = event as BeforeInstallPromptEvent
     this.canPromptSubject.next(true)
@@ -60,11 +53,10 @@ export class PwaInstallService implements OnDestroy {
   private readonly onAppInstalled = (): void => {
     this.deferredPrompt = null
     this.canPromptSubject.next(false)
-    this.installedSubject.next(true)
+    this.isInstalled = true
   }
 
   constructor() {
-    this.installedSubject.next(this.isRunningInstalled())
     if (typeof window === "undefined") return
     window.addEventListener("beforeinstallprompt", this.onBeforeInstallPrompt)
     window.addEventListener("appinstalled", this.onAppInstalled)
@@ -79,16 +71,11 @@ export class PwaInstallService implements OnDestroy {
     window.removeEventListener("appinstalled", this.onAppInstalled)
   }
 
-  get isInstalled(): boolean {
-    return this.installedSubject.value
-  }
-
   get canPromptInstall(): boolean {
     return this.canPromptSubject.value
   }
 
-  /** True inside the Capacitor shell or when launched from an installed PWA icon. */
-  isRunningInstalled(): boolean {
+  private isRunningInstalled(): boolean {
     if (Capacitor.isNativePlatform()) return true
     if (typeof window === "undefined") return false
 
@@ -121,10 +108,7 @@ export class PwaInstallService implements OnDestroy {
     return "other"
   }
 
-  /**
-   * Shows the browser's native install dialog, if one was captured.
-   * The captured event can only be used once, so it is released either way.
-   */
+  /** The captured event is single-use, so it is released either way. */
   async promptInstall(): Promise<InstallPromptOutcome> {
     const event = this.deferredPrompt
     if (!event) return "unavailable"
@@ -136,7 +120,7 @@ export class PwaInstallService implements OnDestroy {
       await event.prompt()
       const choice = await event.userChoice
       if (choice.outcome === "accepted") {
-        this.installedSubject.next(true)
+        this.isInstalled = true
       }
       return choice.outcome
     } catch (error) {

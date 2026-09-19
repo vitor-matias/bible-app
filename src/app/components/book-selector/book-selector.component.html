@@ -8,11 +8,8 @@
   />
 </div>
 <div class="bible-books-container">
-  <!-- A real heading: nothing else on the page lists the testaments, so this
-       is the only structure screen-reader users have for navigating the
-       drawer. h2 rather than the h4 these once were — the toolbar h1 precedes
-       them in the DOM, so this continues the outline instead of skipping two
-       levels. role="group" additionally ties the tree to it. -->
+  <!-- h2: the toolbar h1 precedes these in the DOM, and they are the drawer's
+       only heading structure for screen readers. -->
   <div class="column" role="group" aria-labelledby="otTestamentLabel">
     <h2 class="testament-label" id="otTestamentLabel">Antigo Testamento</h2>
 
@@ -37,11 +34,6 @@
     </mat-tree>
 
   </div>
-  <!-- A real heading: nothing else on the page lists the testaments, so this
-       is the only structure screen-reader users have for navigating the
-       drawer. h2 rather than the h4 these once were — the toolbar h1 precedes
-       them in the DOM, so this continues the outline instead of skipping two
-       levels. role="group" additionally ties the tree to it. -->
   <div class="column" role="group" aria-labelledby="ntTestamentLabel">
     <h2 class="testament-label" id="ntTestamentLabel">Novo Testamento</h2>
 

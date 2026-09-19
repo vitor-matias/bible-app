@@ -2,22 +2,15 @@ import { SHARED_BOOK_INTROS } from "./bible-canon"
 import { serverApiOrigin } from "./config"
 
 const FETCH_TIMEOUT_MS = 20_000
-// Psalms (150) is the largest real book; anything beyond this is bad data
-// that would otherwise explode the number of generated routes.
+// Psalms (150) is the largest real book; more is bad data.
 const MAX_CHAPTERS_PER_BOOK = 200
-// The canon is 73 books, with one introduction per book or cluster. A response
-// far larger than that is bad data, and the per-book cap alone still leaves the
-// total unbounded — enough records would exhaust build memory during route
-// expansion, before the [] fallback could ever run.
+// The canon is 73 books; the per-book cap alone leaves the total unbounded, and
+// enough records would exhaust build memory before the [] fallback runs.
 const MAX_ITEMS = 200
 
 /**
- * GET a JSON array from the API that the prerenderer reads at build time.
- *
- * Returns [] instead of throwing when the endpoint is unreachable or answers
- * something unusable, so builds without network access still succeed — the
- * affected pages just fall back to client-side rendering, exactly like before
- * prerendering existed.
+ * Build-time GET of a JSON array. Returns [] instead of throwing so builds
+ * without network access succeed; those pages fall back to client rendering.
  */
 async function fetchArray<T>(
   fetchFn: typeof fetch,
@@ -27,8 +20,7 @@ async function fetchArray<T>(
   try {
     const response = await fetchFn(`${serverApiOrigin}${path}`, {
       headers: { accept: "application/json" },
-      // A stalled request must fail into the [] fallback instead of hanging
-      // the whole prerender build.
+      // A stalled request must not hang the prerender build.
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     })
     if (!response.ok) {
@@ -55,9 +47,8 @@ async function fetchArray<T>(
 }
 
 /**
- * One param set per chapter of every book, plus the introduction route for the
- * books that have one. Mirrors BookService.getUrlAbrv (abbreviation without
- * spaces, lowercased) so the generated URLs match the ones the app navigates to.
+ * One param set per chapter, plus /intro for books that have one. The URL
+ * abbreviation must mirror BookService.getUrlAbrv.
  */
 async function fetchBookParams(
   fetchFn: typeof fetch,
@@ -70,17 +61,14 @@ async function fetchBookParams(
           ? book.abrv.replace(/\s/g, "").toLowerCase()
           : "",
       chapterCount: book?.chapterCount,
-      // Either its own introduction, or the shared one the edition writes
-      // for its cluster of books (Samuel, Reis, …) — both render at
-      // /:book/intro.
+      // Own introduction, or the one shared by its cluster (Samuel, Reis, …).
       hasIntroduction:
         (Array.isArray(book?.introduction) && book.introduction.length > 0) ||
         !!SHARED_BOOK_INTROS[book?.id],
     }))
     .filter((book) => book.urlAbrv.length > 0)
     .flatMap((book) => {
-      // An introduction is worth indexing on its own: it lives at
-      // /:book/intro and does not depend on the chapter count being sane.
+      // The intro route does not depend on the chapter count being sane.
       const introRoutes = book.hasIntroduction
         ? [{ book: book.urlAbrv, chapter: "intro" }]
         : []
@@ -99,11 +87,7 @@ async function fetchBookParams(
     })
 }
 
-/**
- * Standalone introductions — the whole Bible, a testament, a group of books —
- * are pages in their own right at /:slug/intro, and they come from a different
- * endpoint than the books, so they need their own pass.
- */
+/** Standalone introductions (/:slug/intro) come from their own endpoint. */
 async function fetchIntroParams(
   fetchFn: typeof fetch,
 ): Promise<{ book: string; chapter: string }[]> {
@@ -118,10 +102,7 @@ async function fetchIntroParams(
     .map((slug) => ({ book: slug, chapter: "intro" }))
 }
 
-/**
- * Every route worth prerendering: a page per chapter, plus the introduction
- * pages — both the ones written for a single book and the standalone ones.
- */
+/** Every route to prerender: chapters, book intros and standalone intros. */
 export async function fetchPrerenderChapterParams(
   fetchFn: typeof fetch = fetch,
 ): Promise<{ book: string; chapter: string }[]> {
