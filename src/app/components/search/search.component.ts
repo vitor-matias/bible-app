@@ -74,6 +74,8 @@ export class SearchComponent {
     this.queryParamSubscription = this.route.queryParamMap.subscribe(
       (params) => {
         const sharedQuery = params.get("q")
+        // Forget the last one once `q` goes away, so sharing it again re-runs.
+        if (!sharedQuery) this.lastSharedQuery = null
         if (!sharedQuery || sharedQuery === this.lastSharedQuery) return
         this.lastSharedQuery = sharedQuery
         void this.onSearchSubmit(sharedQuery)
@@ -180,17 +182,26 @@ export class SearchComponent {
     }
 
     if (targetBook) {
+      // A standalone introduction has no chapters: nothing to probe, and its
+      // only page is /intro.
+      const isIntro = !!targetBook.introSlug
       try {
-        await firstValueFrom(
-          this.apiService.getVerse(
-            targetBook.id,
-            targetChapter,
-            targetVerseStart || 1,
-          ),
-        )
+        if (!isIntro) {
+          await firstValueFrom(
+            this.apiService.getVerse(
+              targetBook.id,
+              targetChapter,
+              targetVerseStart || 1,
+            ),
+          )
+        }
         if (isStale()) return
         const navigated = await this.router.navigate(
-          ["/", targetBook.id, targetChapter],
+          [
+            "/",
+            targetBook.id,
+            isIntro ? BookService.INTRO_URL_SEGMENT : targetChapter,
+          ],
           targetVerseStart !== undefined
             ? { queryParams: { verseStart: targetVerseStart } }
             : {},
