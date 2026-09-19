@@ -122,6 +122,45 @@ describe("StudyModeService", () => {
     expect(service.isEnabled).toBeTrue()
   })
 
+  it("works with a MediaQueryList that only has addListener", () => {
+    // Safari before 14 and the WebViews built on it. Calling addEventListener
+    // there would throw while the service is being constructed.
+    TestBed.configureTestingModule({
+      providers: [
+        StudyModeService,
+        {
+          provide: PreferencesService,
+          useValue: jasmine.createSpyObj<PreferencesService>(
+            "PreferencesService",
+            { getStudyMode: true, setStudyMode: undefined },
+          ),
+        },
+        { provide: PLATFORM_ID, useValue: "browser" },
+      ],
+    })
+    const listeners: (() => void)[] = []
+    const removed: (() => void)[] = []
+    const legacyQuery = {
+      matches: false,
+      addListener: (handler: () => void) => listeners.push(handler),
+      removeListener: (handler: () => void) => removed.push(handler),
+    }
+    spyOn(window, "matchMedia").and.returnValue(
+      legacyQuery as unknown as MediaQueryList,
+    )
+
+    const service = TestBed.inject(StudyModeService)
+    expect(service.isAvailable).toBeFalse()
+
+    legacyQuery.matches = true
+    for (const handler of listeners) handler()
+    expect(service.isAvailable).toBeTrue()
+
+    // And the listener comes off again with the service.
+    TestBed.resetTestingModule()
+    expect(removed).toEqual(listeners)
+  })
+
   it("keeps up with the window where there is no matchMedia to ask", () => {
     // Some embedded browsers have no matchMedia. The service falls back to
     // the window's own width, and to the resize event to hear it change.

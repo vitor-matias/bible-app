@@ -62,11 +62,25 @@ export class StudyModeService {
     this.refreshAvailability()
 
     const onChange = () => this.refreshAvailability()
-    if (this.widthQuery) {
-      this.widthQuery.addEventListener("change", onChange)
-      this.destroyRef.onDestroy(() => {
-        this.widthQuery?.removeEventListener("change", onChange)
-      })
+    const query = this.widthQuery
+    if (query) {
+      // Safari before 14, and the iOS WebViews built on it, give a
+      // MediaQueryList only the older addListener pair. This service is
+      // constructed on every device, not just the desktops that can show
+      // study mode, so calling addEventListener there would throw on
+      // construction and take the reader down with it. Same fallback as
+      // ThemeService.
+      if (typeof query.addEventListener === "function") {
+        query.addEventListener("change", onChange)
+        this.destroyRef.onDestroy(() => {
+          query.removeEventListener("change", onChange)
+        })
+      } else {
+        query.addListener(onChange)
+        this.destroyRef.onDestroy(() => {
+          query.removeListener(onChange)
+        })
+      }
       return
     }
 

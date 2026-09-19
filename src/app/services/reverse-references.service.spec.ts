@@ -135,6 +135,29 @@ describe("ReverseReferencesService", () => {
     expect(service.incomingFor("mrk", 13, 1)).toEqual([])
   })
 
+  it("matches every verse a citation lists, not only the first", async () => {
+    // "Mc 12,28.31-33": a single verse and then a range, in one citation. Only
+    // the first entry used to be indexed, so verse 32 found nothing.
+    bibleRefWith([
+      {
+        book: "mrk",
+        chapter: 12,
+        verses: [
+          { type: "single", verse: 28 },
+          { type: "range", start: 31, end: 33 },
+        ],
+      },
+    ])
+
+    await service.ensureIndex()
+
+    expect(service.incomingFor("mrk", 12, 28).length).toBe(1)
+    expect(service.incomingFor("mrk", 12, 32).length).toBe(1)
+    expect(service.incomingFor("mrk", 12, 33).length).toBe(1)
+    // The gap between the entries is not cited.
+    expect(service.incomingFor("mrk", 12, 30)).toEqual([])
+  })
+
   it("matches every chapter of a run cited whole", async () => {
     bibleRefWith([{ book: "mrk", chapter: 12, endChapter: 14, verses: [] }])
 

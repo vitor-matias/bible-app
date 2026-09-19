@@ -1,6 +1,5 @@
 import { Injectable, inject } from "@angular/core"
 import { BehaviorSubject, type Observable } from "rxjs"
-import { getVerseQueryParams } from "../components/verse/verse.utils"
 import {
   type BibleReference,
   BibleReferenceService,
@@ -198,17 +197,18 @@ export class ReverseReferencesService {
       return spans
     }
 
-    const params = getVerseQueryParams(reference.verses, undefined)
-    if (!params) {
+    // A list of verses in one chapter — "Mc 12,1.5-7" — covers each of them,
+    // not just the first. (getVerseQueryParams answers where to *open* a
+    // citation, which is its first verse, and says nothing of the rest.)
+    const verses = reference.verses ?? []
+    if (!verses.length) {
       return [{ chapter: reference.chapter, from: 1, to: WHOLE_CHAPTER }]
     }
-    return [
-      {
-        chapter: reference.chapter,
-        from: params.verseStart,
-        to: params.verseEnd ?? params.verseStart,
-      },
-    ]
+    return verses.map((entry) =>
+      entry.type === "range"
+        ? { chapter: reference.chapter, from: entry.start, to: entry.end }
+        : { chapter: reference.chapter, from: entry.verse, to: entry.verse },
+    )
   }
 }
 

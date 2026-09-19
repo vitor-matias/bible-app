@@ -846,6 +846,43 @@ describe("BibleReaderComponent", () => {
       expect(component.columnWidths.panel).toBe(460)
     })
 
+    it("moves the split by the share of the column the pointer crossed", () => {
+      studyMode.activate()
+      apiServiceSpy.getChapter.and.returnValue(
+        of({ bookId: "job", number: 38, verses: [] } as unknown as Chapter),
+      )
+      component.onOpenBeside({
+        key: "job:38",
+        label: "Job 38",
+        bookId: "job",
+        chapterNumber: 38,
+        link: ["/", "jb", 38],
+        queryParams: null,
+      })
+      fixture.detectChanges()
+      // A known column width, so the pixel-to-percentage conversion has
+      // something to divide by: 100px of a 1000px column is 10%.
+      const column = component.studyColumn?.nativeElement as HTMLElement
+      spyOn(column, "getBoundingClientRect").and.returnValue({
+        width: 1000,
+      } as DOMRect)
+      const divider = fixture.nativeElement.querySelector(
+        ".split-divider",
+      ) as HTMLElement
+      divider.setPointerCapture = () => {}
+      const drag = (type: string, clientX: number) =>
+        divider.dispatchEvent(
+          new PointerEvent(type, { bubbles: true, clientX, pointerId: 1 }),
+        )
+
+      component.columnWidths = { split: 50 }
+      drag("pointerdown", 500)
+      drag("pointermove", 600)
+      drag("pointerup", 600)
+
+      expect(component.columnWidths.split).toBe(60)
+    })
+
     it("gives the space back when the column is folded away", () => {
       component.columnWidths = { rail: 400, panel: 500 }
       component.studySidebarCollapsed = true
