@@ -3,23 +3,19 @@ import { endOfBookLabel, toVerseCards } from "./verse-cards"
 const text = (value: string): TextType => ({
   type: "text",
   text: value,
-  normalizedText: value,
 })
 const paragraph = (): TextType => ({
   type: "paragraph",
   text: "\n",
-  normalizedText: "\n",
 })
 const section = (value: string, tag = "s2"): TextType => ({
   type: "section",
   tag,
   text: value,
-  normalizedText: value,
 })
 const references = (value: string): TextType => ({
   type: "references",
   text: value,
-  normalizedText: value,
 })
 const footnote = (value: string): TextType => ({
   type: "footnote",
@@ -220,7 +216,6 @@ describe("toVerseCards", () => {
     const blankQuote: TextType = {
       type: "quote",
       text: String.fromCharCode(0x200b),
-      normalizedText: "",
       identLevel: 1,
     }
     const cards = toVerseCards(

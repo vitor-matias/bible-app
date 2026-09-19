@@ -47,7 +47,6 @@ describe("VerseCardsComponent", () => {
   const text = (value: string): TextType => ({
     type: "text",
     text: value,
-    normalizedText: value,
   })
 
   function verse(number: number, ...elements: TextType[]): Verse {
@@ -68,7 +67,6 @@ describe("VerseCardsComponent", () => {
         type: "section",
         tag: "s2",
         text: "Diálogo com Nicodemos",
-        normalizedText: "",
       }),
       verse(
         1,
