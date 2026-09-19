@@ -9,13 +9,20 @@ import { Subject } from "rxjs"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { VerseComponent } from "./verse.component"
 
+const TRANSPARENT = "rgba(0, 0, 0, 0)"
+
 function makeVerse(overrides: Partial<Verse> = {}): Verse {
   return {
     bookId: "gen",
     chapterNumber: 1,
     number: 1,
     verseLabel: "1",
-    text: [{ type: "text", text: "In the beginning..." }],
+    text: [
+      {
+        type: "text",
+        text: "In the beginning...",
+      },
+    ],
     ...overrides,
   }
 }
@@ -76,7 +83,11 @@ describe("VerseComponent", () => {
           number: 0,
           text: [
             { type: "text", text: "intro" },
-            { type: "section", tag: "s2", text: "Section Title" },
+            {
+              type: "section",
+              tag: "s2",
+              text: "Section Title",
+            },
             { type: "text", text: "more" },
           ],
         }),
@@ -104,9 +115,21 @@ describe("VerseComponent", () => {
         makeVerse({
           number: 0,
           text: [
-            { type: "section", tag: "s1", text: "Main" },
-            { type: "section", tag: "s2", text: "First Sub" },
-            { type: "section", tag: "s2", text: "Second Sub" },
+            {
+              type: "section",
+              tag: "s1",
+              text: "Main",
+            },
+            {
+              type: "section",
+              tag: "s2",
+              text: "First Sub",
+            },
+            {
+              type: "section",
+              tag: "s2",
+              text: "Second Sub",
+            },
           ],
         }),
       )
@@ -118,7 +141,9 @@ describe("VerseComponent", () => {
     it("should be false when no footnotes present", () => {
       setData(
         component,
-        makeVerse({ text: [{ type: "text", text: "plain text" }] }),
+        makeVerse({
+          text: [{ type: "text", text: "plain text" }],
+        }),
       )
       expect(component.hasFootnotes).toBe(false)
     })
@@ -178,7 +203,11 @@ describe("VerseComponent", () => {
           text: [
             { type: "footnote", text: "note", reference: "a" },
             { type: "references", text: "ref" },
-            { type: "quote", text: "quoted", identLevel: 1 },
+            {
+              type: "quote",
+              text: "quoted",
+              identLevel: 1,
+            },
           ],
         }),
       )
@@ -206,7 +235,10 @@ describe("VerseComponent", () => {
         makeVerse({
           text: [
             { type: "footnote", text: "note", reference: "a" },
-            { type: "text", text: "first visible" },
+            {
+              type: "text",
+              text: "first visible",
+            },
           ],
         }),
       )
@@ -229,7 +261,10 @@ describe("VerseComponent", () => {
       const data: TextType[] = [
         { type: "section", tag: "s2", text: "title" },
         { type: "paragraph", text: " " },
-        { type: "text", text: "after paragraph" },
+        {
+          type: "text",
+          text: "after paragraph",
+        },
       ]
       setData(component, makeVerse({ text: data }))
       expect(component.isInSection(data, 2)).toBe(false)
@@ -238,7 +273,11 @@ describe("VerseComponent", () => {
     it("should return false when a quote precedes the position", () => {
       const data: TextType[] = [
         { type: "section", tag: "s2", text: "title" },
-        { type: "quote", text: "quoted", identLevel: 1 },
+        {
+          type: "quote",
+          text: "quoted",
+          identLevel: 1,
+        },
         { type: "text", text: "after quote" },
       ]
       setData(component, makeVerse({ text: data }))
@@ -261,10 +300,17 @@ describe("VerseComponent", () => {
         component,
         makeVerse({
           text: [
-            { type: "section", tag: "s2", text: "title" },
+            {
+              type: "section",
+              tag: "s2",
+              text: "title",
+            },
             { type: "text", text: "in section" },
             { type: "paragraph", text: " " },
-            { type: "text", text: "after paragraph" },
+            {
+              type: "text",
+              text: "after paragraph",
+            },
           ],
         }),
       )
@@ -280,10 +326,21 @@ describe("VerseComponent", () => {
         component,
         makeVerse({
           text: [
-            { type: "section", tag: "s2", text: "title" },
+            {
+              type: "section",
+              tag: "s2",
+              text: "title",
+            },
             { type: "text", text: "in section" },
-            { type: "quote", text: "quoted", identLevel: 1 },
-            { type: "text", text: "after quote" },
+            {
+              type: "quote",
+              text: "quoted",
+              identLevel: 1,
+            },
+            {
+              type: "text",
+              text: "after quote",
+            },
           ],
         }),
       )
@@ -297,7 +354,11 @@ describe("VerseComponent", () => {
         component,
         makeVerse({
           text: [
-            { type: "quote", text: "quoted", identLevel: 1 },
+            {
+              type: "quote",
+              text: "quoted",
+              identLevel: 1,
+            },
             { type: "text", text: "after" },
             { type: "paragraph", text: " " },
           ],
@@ -338,7 +399,11 @@ describe("VerseComponent", () => {
           text: [
             { type: "text", text: "first" },
             { type: "footnote", text: "note", reference: "a" },
-            { type: "quote", text: "quoted", identLevel: 1 },
+            {
+              type: "quote",
+              text: "quoted",
+              identLevel: 1,
+            },
           ],
         }),
       )
@@ -358,7 +423,11 @@ describe("VerseComponent", () => {
           text: [
             { type: "text", text: "first" },
             { type: "paragraph", text: " " },
-            { type: "quote", text: "quoted", identLevel: 1 },
+            {
+              type: "quote",
+              text: "quoted",
+              identLevel: 1,
+            },
           ],
         }),
       )
@@ -373,7 +442,14 @@ describe("VerseComponent", () => {
     it("should fall back to nextVerseStartsWithQuote when no more elements", () => {
       setData(
         component,
-        makeVerse({ text: [{ type: "text", text: "only element" }] }),
+        makeVerse({
+          text: [
+            {
+              type: "text",
+              text: "only element",
+            },
+          ],
+        }),
       )
       component.nextVerseStartsWithQuote = true
 
@@ -387,7 +463,10 @@ describe("VerseComponent", () => {
           text: [
             { type: "text", text: "first" },
             { type: "paragraph", text: " " },
-            { type: "text", text: "not a quote" },
+            {
+              type: "text",
+              text: "not a quote",
+            },
           ],
         }),
       )
@@ -418,7 +497,11 @@ describe("VerseComponent", () => {
         bookId: "psa",
         number: 1,
         text: [
-          { type: "section", tag: "s1", text: "title" },
+          {
+            type: "section",
+            tag: "s1",
+            text: "title",
+          },
           { type: "paragraph", text: " " },
         ],
       })
@@ -433,7 +516,11 @@ describe("VerseComponent", () => {
       const data = makeVerse({
         number: 1,
         text: [
-          { type: "section", tag: "s1", text: "title" },
+          {
+            type: "section",
+            tag: "s1",
+            text: "title",
+          },
           { type: "paragraph", text: " " },
         ],
       })
@@ -462,7 +549,12 @@ describe("VerseComponent", () => {
 
   describe("a11y — text body tabindex and role", () => {
     it("should not render tabindex or role on text span when verse has no footnotes", () => {
-      setData(component, makeVerse({ text: [{ type: "text", text: "plain" }] }))
+      setData(
+        component,
+        makeVerse({
+          text: [{ type: "text", text: "plain" }],
+        }),
+      )
       fixture.detectChanges()
       const interactive = fixture.nativeElement.querySelectorAll(
         ".interactive[tabindex='0'][role='button']",
@@ -488,6 +580,223 @@ describe("VerseComponent", () => {
     })
   })
 
+  describe("deep-link highlight", () => {
+    /** Mirrors what BibleReaderAnimationService puts on the <verse> host. */
+    function highlightHost(): HTMLElement {
+      const host = fixture.nativeElement as HTMLElement
+      host.classList.add("verse-highlight")
+      fixture.detectChanges()
+      return host
+    }
+
+    it("should mark the text run so the stroke can be painted on it", () => {
+      setData(
+        component,
+        makeVerse({
+          text: [{ type: "text", text: "plain" }],
+        }),
+      )
+      highlightHost()
+
+      const run = fixture.nativeElement.querySelector(
+        ".verseRun",
+      ) as HTMLElement
+      expect(run.textContent).toContain("plain")
+      expect(getComputedStyle(run).backgroundColor).not.toBe(TRANSPARENT)
+    })
+
+    it("should leave the run unpainted while the verse is not highlighted", () => {
+      setData(
+        component,
+        makeVerse({
+          text: [{ type: "text", text: "plain" }],
+        }),
+      )
+      fixture.detectChanges()
+
+      const run = fixture.nativeElement.querySelector(
+        ".verseRun",
+      ) as HTMLElement
+      expect(getComputedStyle(run).backgroundColor).toBe(TRANSPARENT)
+    })
+
+    it("should never paint the inline host, whose line fragments would colour the gaps between verses", () => {
+      setData(
+        component,
+        makeVerse({
+          text: [{ type: "text", text: "plain" }],
+        }),
+      )
+      const host = highlightHost()
+
+      const style = getComputedStyle(host)
+      expect(style.backgroundImage).toBe("none")
+      expect(style.backgroundColor).toBe("rgba(0, 0, 0, 0)")
+    })
+
+    it("should paint the verse number so it is not left out of the stroke", () => {
+      setData(
+        component,
+        makeVerse({
+          number: 2,
+          text: [{ type: "text", text: "plain" }],
+        }),
+      )
+      highlightHost()
+
+      const number = fixture.nativeElement.querySelector(
+        ".verseNumber",
+      ) as HTMLElement
+      expect(getComputedStyle(number).backgroundColor).not.toBe(TRANSPARENT)
+    })
+
+    it("should wrap the space in front of a verse number in a run so the stroke does not break", () => {
+      setData(
+        component,
+        makeVerse({
+          number: 2,
+          text: [{ type: "text", text: "plain" }],
+        }),
+      )
+      highlightHost()
+
+      const gap = fixture.nativeElement.querySelector(
+        ".verseRun",
+      ) as HTMLElement
+      expect(gap.textContent).toBe(" ")
+      expect(getComputedStyle(gap).backgroundColor).not.toBe(TRANSPARENT)
+    })
+
+    it("should paint a poetry verse number once, on the wrapper rather than on both it and its digits", () => {
+      setData(
+        component,
+        makeVerse({
+          number: 3,
+          text: [
+            {
+              type: "quote",
+              text: "a line of poetry",
+              identLevel: 1,
+            },
+          ],
+        }),
+      )
+      highlightHost()
+
+      const wrapper = fixture.nativeElement.querySelector(
+        ".quoteVerseNumber",
+      ) as HTMLElement
+      const digits = wrapper.querySelector(".verseNumber") as HTMLElement
+      expect(getComputedStyle(wrapper).backgroundColor).not.toBe(TRANSPARENT)
+      expect(getComputedStyle(digits).backgroundColor).toBe(TRANSPARENT)
+    })
+
+    function withFootnote(): HTMLElement {
+      setData(
+        component,
+        makeVerse({
+          number: 2,
+          text: [
+            { type: "text", text: "plain" },
+            { type: "footnote", text: "uma nota", reference: "a" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+      return fixture.nativeElement.querySelector(
+        ".footnoteIndicator",
+      ) as HTMLElement
+    }
+
+    it("should paint the footnote marker so it is not left out of the stroke", () => {
+      const marker = withFootnote()
+      // Read the style only after highlighting: reading it first starts the
+      // background-color transition, and the value would be its start colour.
+      highlightHost()
+
+      expect(getComputedStyle(marker).backgroundColor).not.toBe(TRANSPARENT)
+    })
+
+    // Padding does not move an inline box but does enlarge the border box the
+    // browser hit-tests, and the marker is a button: a taller one would cover
+    // the line below for the 2.5s the highlight lasts.
+    it("should not grow the footnote button's hit area while highlighted", () => {
+      const marker = withFootnote()
+      const restingPadding = getComputedStyle(marker).paddingBottom
+
+      highlightHost()
+
+      expect(getComputedStyle(marker).paddingBottom).toBe(restingPadding)
+    })
+
+    it("should wrap the space before a references block so the stroke does not break", () => {
+      setData(
+        component,
+        makeVerse({
+          text: [
+            { type: "text", text: "plain" },
+            { type: "references", text: "Jo 1,1" },
+          ],
+        }),
+      )
+      highlightHost()
+
+      const gap = fixture.nativeElement.querySelector(
+        ".references > .verseRun",
+      ) as HTMLElement
+      expect(gap.textContent).toBe(" ")
+      expect(getComputedStyle(gap).backgroundColor).not.toBe(TRANSPARENT)
+    })
+
+    it("should wrap the space after a line of poetry so the stroke does not break", () => {
+      setData(
+        component,
+        makeVerse({
+          number: 3,
+          text: [
+            {
+              type: "quote",
+              text: "a line of poetry",
+              identLevel: 1,
+            },
+          ],
+        }),
+      )
+      highlightHost()
+
+      const runs = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll(".verseRun"),
+      ) as HTMLElement[]
+      const trailing = runs.find((run) => run.textContent === " ")
+      expect(trailing).toBeTruthy()
+      expect(
+        getComputedStyle(trailing as HTMLElement).backgroundColor,
+      ).not.toBe(TRANSPARENT)
+    })
+
+    it("should not paint the quote line wrapper, whose box extends past the end of the line", () => {
+      setData(
+        component,
+        makeVerse({
+          number: 3,
+          text: [
+            {
+              type: "quote",
+              text: "a line of poetry",
+              identLevel: 1,
+            },
+          ],
+        }),
+      )
+      highlightHost()
+
+      const wrapper = fixture.nativeElement.querySelector(
+        ".quoteLineWrapper",
+      ) as HTMLElement
+      expect(getComputedStyle(wrapper).backgroundColor).toBe(TRANSPARENT)
+    })
+  })
+
   describe("toggleFootnotes", () => {
     it("should open bottom sheet when footnotes exist", () => {
       setData(
@@ -505,7 +814,12 @@ describe("VerseComponent", () => {
     })
 
     it("should not open bottom sheet when no footnotes", () => {
-      setData(component, makeVerse({ text: [{ type: "text", text: "verse" }] }))
+      setData(
+        component,
+        makeVerse({
+          text: [{ type: "text", text: "verse" }],
+        }),
+      )
 
       component.toggleFootnotes()
       expect(mockBottomSheet.open).not.toHaveBeenCalled()
@@ -537,6 +851,130 @@ describe("VerseComponent", () => {
       expect(focusSpy).not.toHaveBeenCalled()
       dismissed.next()
       expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true })
+    })
+  })
+
+  describe("blank elements in the source text", () => {
+    /**
+     * A blank line is two forced breaks with nothing rendered between them.
+     * Counting <br> elements would just track the markup; this tracks what
+     * the reader sees.
+     */
+    function hasBlankLine(host: HTMLElement): boolean {
+      const breaks = Array.from(host.querySelectorAll("br"))
+      return breaks.some((br) => {
+        let node = br.nextSibling
+        while (node) {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const element = node as HTMLElement
+            if (element.tagName === "BR") return true
+            if (element.textContent?.trim()) return false
+          } else if (node.nodeType === Node.TEXT_NODE) {
+            if (node.textContent?.trim()) return false
+          }
+          node = node.nextSibling
+        }
+        return false
+      })
+    }
+
+    /**
+     * Psalm 1,2 as the API serves it: a run of prose inside a poetry group,
+     * with an empty text element the USFM left behind, then the next line.
+     */
+    function psalmVerse(): Verse {
+      return makeVerse({
+        number: 2,
+        text: [
+          { type: "quote", text: "\u200b" },
+          {
+            type: "text",
+            text: "antes põe o seu enlevo na lei do ",
+          },
+          { type: "text", text: "Senhor", allCaps: true },
+          { type: "text", text: "" },
+          {
+            type: "quote",
+            text: "e nela medita dia e noite.",
+          },
+        ] as TextType[],
+      })
+    }
+
+    it("drops an empty element instead of printing a blank line for it", () => {
+      setData(component, psalmVerse())
+
+      const rendered = component.displayGroups.flatMap((group) =>
+        group.elements.map((element) => element.originalIndex),
+      )
+      expect(rendered).not.toContain(3)
+      expect(rendered).toContain(4)
+    })
+
+    it("keeps a prose run on one line, breaking only before the poetry", () => {
+      setData(component, psalmVerse())
+      fixture.detectChanges()
+
+      // Every quote group brings its own break, so the prose needs none of
+      // its own: "antes põe o seu enlevo na lei do" and "Senhor" stay on one
+      // line, with nothing breaking between them.
+      const wrapper = fixture.nativeElement.querySelector(".quoteLineWrapper")
+      expect(wrapper.querySelectorAll("br").length).toBe(0)
+      expect(hasBlankLine(fixture.nativeElement)).toBeFalse()
+    })
+
+    it("renders that verse as a single line of prose", () => {
+      setData(component, psalmVerse())
+      fixture.detectChanges()
+
+      const wrapper = fixture.nativeElement.querySelector(".quoteLineWrapper")
+      expect(wrapper.textContent.replace(/\s+/g, " ")).toContain(
+        "antes põe o seu enlevo na lei do Senhor",
+      )
+    })
+
+    it("keeps an empty paragraph element, which is the paragraph break", () => {
+      // Psalm 1,3 ends on one: its text is just a newline, but dropping it
+      // ran the next paragraph on into the end of this verse.
+      setData(
+        component,
+        makeVerse({
+          number: 3,
+          text: [
+            {
+              type: "quote",
+              text: "em tudo o que faz é bem sucedido.",
+            },
+            { type: "paragraph", text: "\n" },
+          ] as TextType[],
+        }),
+      )
+
+      const rendered = component.displayGroups.flatMap((group) =>
+        group.elements.map((element) => element.originalIndex),
+      )
+      expect(rendered).toContain(1)
+    })
+
+    it("still starts poetry on its own line after prose", () => {
+      setData(
+        component,
+        makeVerse({
+          number: 1,
+          text: [
+            { type: "text", text: "Jesus disse-lhe:" },
+            {
+              type: "quote",
+              text: "Amarás ao Senhor,",
+            },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+
+      // The quote group brings the break itself, so the poetry starts on a
+      // new line with no blank one in front of it.
+      expect(hasBlankLine(fixture.nativeElement)).toBeFalse()
     })
   })
 })

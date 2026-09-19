@@ -4,7 +4,78 @@ type Book = {
   shortName: string
   abrv: string
   chapterCount: number
+  introduction?: IntroElement[]
   chapters?: Chapter[]
+  /** Set on the synthetic books that stand in for a standalone introduction. */
+  introSlug?: string
+  /**
+   * Set on a real book whose introduction is written for a cluster of books
+   * (Samuel, Reis, …) and therefore lives in a standalone introduction.
+   */
+  sharedIntroSlug?: string
+}
+
+/** A standalone introduction (whole Bible, a testament, a group of books). */
+type GroupIntro = {
+  slug: string
+  name: string
+  introduction: IntroElement[]
+}
+
+/** Entry in the /v1/intros listing: no body, just enough to link to it. */
+type IntroSummary = Pick<GroupIntro, "slug" | "name">
+
+type IntroElement =
+  | IntroTitle
+  | IntroParagraph
+  | IntroSection
+  | IntroOutline
+  | IntroTable
+  | IntroListItem
+  | IntroSidebar
+  | IntroMajorSection
+
+type IntroTitle = {
+  type: "introTitle"
+  level: number
+  text: string
+}
+
+type IntroParagraph = {
+  type: "introParagraph"
+  text: string
+}
+
+type IntroSection = {
+  type: "introSection"
+  level: number
+  text: string
+}
+
+type IntroOutline = {
+  type: "introOutline"
+  level: number
+  text: string
+}
+
+type IntroTable = {
+  type: "introTable"
+  rows: string[][]
+}
+
+type IntroListItem = {
+  type: "introListItem"
+  text: string
+}
+
+type IntroSidebar = {
+  type: "introSidebar"
+  content: IntroElement[]
+}
+
+type IntroMajorSection = {
+  type: "introMajorSection"
+  text: string
 }
 
 type Chapter = {
@@ -14,6 +85,7 @@ type Chapter = {
   verses?: Verse[]
   title?: string
 }
+
 type Verse = {
   bookId: Book["id"]
   chapterNumber: Chapter["number"]
@@ -37,6 +109,12 @@ type _Text = {
   allCaps?: boolean
 }
 
+type _Footnote = {
+  type: "footnote"
+  text: string
+  reference: string
+}
+
 type Paragraph = {
   type: "paragraph"
   text: string
@@ -51,12 +129,6 @@ type Quote = {
 type References = {
   type: "references"
   text: string
-}
-
-type _Footnote = {
-  type: "footnote"
-  text: string
-  reference: string
 }
 
 type VersePage = {

@@ -61,6 +61,16 @@ describe("BibleReferenceService", () => {
     ] as VerseReference[])
   })
 
+  // Only the verse numbers were compared, so a same-verse range kept its
+  // suffixes in the order the user typed them.
+  it('orders suffixes within one verse "Jo 3,20b-20a"', () => {
+    const out = service.extract("Jo 3,20b-20a")
+    expect(out.length).toBe(1)
+    expect(out[0].verses).toEqual([
+      { type: "range", start: 20, end: 20, startPart: "a", endPart: "b" },
+    ] as VerseReference[])
+  })
+
   it('supports hyphen range and comma list "Genesis 1,1-3;2,4"', () => {
     const input = "Genesis 1,1-3; 2,4"
     const out = service.extract(input)
@@ -154,6 +164,21 @@ describe("BibleReferenceService", () => {
     expect(out.length).toBe(1)
     expect(out[0].verses).toEqual([
       { type: "single", verse: 16, part: "a" } as VerseReference,
+    ])
+  })
+
+  it('normalizes reversed ranges keeping parts with their verse, "John 3,20b-18a"', () => {
+    const input = "John 3,20b-18a"
+    const out = service.extract(input)
+    expect(out.length).toBe(1)
+    expect(out[0].verses).toEqual([
+      {
+        type: "range",
+        start: 18,
+        end: 20,
+        startPart: "a",
+        endPart: "b",
+      } as VerseReference,
     ])
   })
 

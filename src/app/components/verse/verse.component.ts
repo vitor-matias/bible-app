@@ -358,11 +358,23 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     })
   }
 
+  /**
+   * The USFM leaves empty text and poetry elements that would render as stray
+   * blank lines. An empty paragraph element is kept: it IS the paragraph break.
+   */
+  private static isBlank(text: TextType): boolean {
+    return (
+      (text.type === "quote" || text.type === "text") && text.text.trim() === ""
+    )
+  }
+
   private computeDisplayGroups(): DisplayGroup[] {
     const groups: DisplayGroup[] = []
     let currentGroup: DisplayGroup | null = null
 
     this.data.text.forEach((text, originalIndex) => {
+      if (VerseComponent.isBlank(text)) return
+
       // Elements that should be considered continuation if they follow a quote
       const isContinuationType =
         text.type === "text" ||

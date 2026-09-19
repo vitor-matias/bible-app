@@ -10,11 +10,24 @@ import { provideRouter } from "@angular/router"
 import { provideServiceWorker } from "@angular/service-worker"
 import { routes } from "./app.routes"
 import { BookService } from "./services/book.service"
+import { isBrowser } from "./utils/platform"
 
 export function initializeBookService(
   bookService: BookService,
 ): () => Promise<void> {
-  return () => bookService.initializeBooks()
+  return () =>
+    bookService.initializeBooks().catch((error: unknown) => {
+      // An unreachable API must not fail the prerender build; those pages
+      // fall back to client-side rendering.
+      if (!isBrowser()) {
+        console.warn(
+          "Book list unavailable during server rendering; continuing without it.",
+          error instanceof Error ? error.message : error,
+        )
+        return
+      }
+      throw error
+    })
 }
 
 export const appConfig: ApplicationConfig = {

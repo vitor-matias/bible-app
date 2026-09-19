@@ -1,12 +1,15 @@
+import { isPlatformBrowser } from "@angular/common"
 import {
   Directive,
   ElementRef,
   EventEmitter,
   HostListener,
   Input,
+  inject,
   OnChanges,
   OnDestroy,
   Output,
+  PLATFORM_ID,
   Renderer2,
   SimpleChanges,
 } from "@angular/core"
@@ -52,7 +55,9 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   private alignmentTimeout?: number
   private mutationObserver?: MutationObserver
   private spacer?: HTMLElement
+  private layoutFrame?: number
   private _stayAtEnd = false
+  private readonly platformId = inject(PLATFORM_ID)
 
   constructor(
     private containerRef: ElementRef<HTMLElement>,
@@ -64,20 +69,37 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes["viewMode"]) {
-      if (this.viewMode === "paged") {
-        this.ensureAlignedScrollWidth()
-        this.snapToNearestPage()
-      } else {
-        this.removeSpacer()
-      }
+    if (!changes["viewMode"]) return
+
+    if (this.viewMode !== "paged") {
+      this.removeSpacer()
       this.onScroll()
+      return
     }
+
+    // Angular writes the column class on the inner block after this hook, so
+    // measuring now would see a single column and read as "last page".
+    this.afterLayout(() => {
+      this.ensureAlignedScrollWidth()
+      this.snapToNearestPage()
+      this.onScroll()
+    })
+  }
+
+  /** Runs `fn` after Angular has written the pending DOM changes. */
+  private afterLayout(fn: () => void): void {
+    if (!isPlatformBrowser(this.platformId)) return
+    if (this.layoutFrame !== undefined) cancelAnimationFrame(this.layoutFrame)
+    this.layoutFrame = requestAnimationFrame(() => {
+      this.layoutFrame = undefined
+      fn()
+    })
   }
 
   ngOnDestroy(): void {
     clearTimeout(this.resizeTimeout)
     clearTimeout(this.alignmentTimeout)
+    if (this.layoutFrame !== undefined) cancelAnimationFrame(this.layoutFrame)
     this.mutationObserver?.disconnect()
     this.removeSpacer()
   }
@@ -154,6 +176,43 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     }
   }
 
+  /** Page-aligned: scrollIntoView would stop on a seam between two pages. */
+  scrollToPage(
+    element: HTMLElement,
+    behavior: ScrollBehavior = "smooth",
+  ): void {
+    if (this.viewMode !== "paged") return
+    const block = this.bookBlock
+    if (!this.container || !block) return
+
+    this._stayAtEnd = false
+    this.ensureAlignedScrollWidth()
+
+    const advanceWidth = this.getAdvanceWidth(block)
+    if (advanceWidth <= 0) return
+
+    // A verse is an inline box: its first fragment is the page it starts on.
+    const rect = element.getClientRects()[0] ?? element.getBoundingClientRect()
+    const offset =
+      rect.left -
+      this.container.getBoundingClientRect().left +
+      this.container.scrollLeft
+
+    const pageIndex = Math.max(
+      0,
+      Math.floor((offset + SCROLL_THRESHOLD) / advanceWidth),
+    )
+    const maxScroll = Math.max(
+      0,
+      this.container.scrollWidth - this.container.clientWidth,
+    )
+
+    this.container.scrollTo({
+      left: Math.min(pageIndex * advanceWidth, maxScroll),
+      behavior,
+    })
+  }
+
   scrollToEnd(): void {
     this._stayAtEnd = true
     this.snapToEnd()
@@ -202,6 +261,13 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
    * extend the scrollable area to the next aligned boundary.
    */
   ensureAlignedScrollWidth(): void {
+    this.alignScrollWidth()
+    // Late content (lazy introduction, fonts) changes the page count; a stale
+    // "last page" state would hide the next control.
+    this.onScroll()
+  }
+
+  private alignScrollWidth(): void {
     this.removeSpacer()
 
     const block = this._bookBlock
@@ -243,6 +309,8 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
    * Automatically recalculates aligning boundaries to prevent clipping text.
    */
   private observeContentChanges(): void {
+    // The server DOM has no observers.
+    if (!isPlatformBrowser(this.platformId)) return
     this.mutationObserver?.disconnect()
     const block = this._bookBlock
     if (!block) return

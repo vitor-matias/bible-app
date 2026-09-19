@@ -1,0 +1,251 @@
+import { DOCUMENT } from "@angular/common"
+import { Injectable, inject } from "@angular/core"
+import { Meta, Title } from "@angular/platform-browser"
+import { appConfig } from "../config"
+import { BookService } from "./book.service"
+
+export const SEO_SITE_NAME = "Bíblia Sagrada"
+/** Home-page title: leads with the main query plus its strongest variants. */
+export const SEO_HOME_TITLE = "Bíblia Sagrada Online — Bíblia dos Capuchinhos"
+export const SEO_BASE_URL = `https://${appConfig.domain}`
+export const SEO_DEFAULT_DESCRIPTION =
+  "A Bíblia Sagrada completa em português, da Difusora Bíblica (Franciscanos Capuchinhos). " +
+  "Leitura online e offline, gratuita, com pesquisa e marcadores."
+
+/** Route and heading of the crawlable book index. */
+export const SEO_BOOK_INDEX_PATH = "/livros"
+export const SEO_BOOK_INDEX_NAME = "Livros da Bíblia"
+
+/** Google truncates snippets around this length, so excerpts stop here. */
+const MAX_DESCRIPTION_LENGTH = 158
+
+@Injectable({
+  providedIn: "root",
+})
+export class SeoService {
+  private title = inject(Title)
+  private meta = inject(Meta)
+  private document = inject(DOCUMENT)
+  private bookService = inject(BookService)
+
+  /** Gives each book/chapter URL its own title, description and canonical. */
+  updateForChapter(
+    book: Book,
+    chapterNumber: Chapter["number"],
+    chapter?: Chapter,
+  ): void {
+    if (book.id === "about") {
+      this.updateForAbout()
+      return
+    }
+
+    const bookUrl = `${SEO_BASE_URL}/${this.bookService.getUrlAbrv(book)}`
+    // Chapter 0 is the book introduction, at /:book/intro.
+    const isIntro = chapterNumber === 0
+    // A standalone introduction is already named "Introdução ao …".
+    const standalone = !!book.introSlug
+    const label = isIntro ? "Introdução" : `${chapterNumber}`
+    const pageName = standalone ? book.name : `${book.shortName} ${label}`
+    const segment = this.bookService.getChapterUrlSegment(chapterNumber)
+    this.apply({
+      title: `${pageName} | ${SEO_SITE_NAME}`,
+      description: this.buildChapterDescription(book, chapterNumber, chapter),
+      canonicalUrl: `${bookUrl}/${segment}`,
+      indexable: true,
+    })
+    // The book crumb points at the introduction when there is one. Standalone
+    // and shared introductions have no body until loadGroupIntroBody(), so the
+    // slug counts too; otherwise this emits /pentateuco/1, which has no page.
+    const bookEntrySegment = this.bookService.getChapterUrlSegment(
+      BookService.introSlugFor(book) || book.introduction?.length ? 0 : 1,
+    )
+    const crumbs = [
+      { name: SEO_SITE_NAME, item: `${SEO_BASE_URL}/` },
+      { name: book.shortName, item: `${bookUrl}/${bookEntrySegment}` },
+      {
+        name: pageName,
+        item: `${bookUrl}/${segment}`,
+      },
+    ]
+    // On an introduction the book crumb and the leaf are the same URL.
+    this.setBreadcrumbs(
+      crumbs.filter(
+        (crumb, index) => index === 0 || crumb.item !== crumbs[index - 1].item,
+      ),
+    )
+  }
+
+  updateForAbout(): void {
+    this.apply({
+      title: SEO_HOME_TITLE,
+      description: SEO_DEFAULT_DESCRIPTION,
+      canonicalUrl: `${SEO_BASE_URL}/`,
+      indexable: true,
+    })
+    this.setBreadcrumbs(null)
+  }
+
+  /** Head for the book index at /livros, a level between home and a book. */
+  updateForBookIndex(): void {
+    this.apply({
+      title: `${SEO_BOOK_INDEX_NAME} | ${SEO_SITE_NAME}`,
+      description:
+        "Índice dos 73 livros da Bíblia Sagrada em português, da Difusora " +
+        "Bíblica (Franciscanos Capuchinhos). Abra qualquer livro e capítulo.",
+      canonicalUrl: `${SEO_BASE_URL}${SEO_BOOK_INDEX_PATH}`,
+      indexable: true,
+    })
+    this.setBreadcrumbs([
+      { name: SEO_SITE_NAME, item: `${SEO_BASE_URL}/` },
+      {
+        name: SEO_BOOK_INDEX_NAME,
+        item: `${SEO_BASE_URL}${SEO_BOOK_INDEX_PATH}`,
+      },
+    ])
+  }
+
+  /** Search results are user-specific, so keep them out of the index. */
+  updateForSearch(): void {
+    this.apply({
+      title: `Pesquisar | ${SEO_SITE_NAME}`,
+      description: `Pesquise passagens, versículos e palavras na ${SEO_SITE_NAME}.`,
+      canonicalUrl: `${SEO_BASE_URL}/search`,
+      indexable: false,
+    })
+    this.setBreadcrumbs(null)
+  }
+
+  private apply(page: {
+    title: string
+    description: string
+    canonicalUrl: string
+    indexable: boolean
+  }): void {
+    this.title.setTitle(page.title)
+    this.meta.updateTag({ name: "description", content: page.description })
+    this.meta.updateTag({ property: "og:title", content: page.title })
+    this.meta.updateTag({
+      property: "og:description",
+      content: page.description,
+    })
+    this.meta.updateTag({ property: "og:url", content: page.canonicalUrl })
+    this.meta.updateTag({ name: "twitter:title", content: page.title })
+    this.meta.updateTag({
+      name: "twitter:description",
+      content: page.description,
+    })
+
+    if (page.indexable) {
+      this.meta.removeTag('name="robots"')
+    } else {
+      this.meta.updateTag({ name: "robots", content: "noindex, follow" })
+    }
+
+    this.setCanonicalUrl(page.canonicalUrl)
+  }
+
+  /** Maintains one BreadcrumbList JSON-LD script (Home → Book → Chapter). */
+  private setBreadcrumbs(
+    crumbs: { name: string; item: string }[] | null,
+  ): void {
+    const id = "seo-breadcrumbs"
+    const existing = this.document.getElementById(id)
+    if (!crumbs) {
+      existing?.remove()
+      return
+    }
+
+    let script = existing as HTMLScriptElement | null
+    if (!script) {
+      script = this.document.createElement("script")
+      script.type = "application/ld+json"
+      script.id = id
+      this.document.head.appendChild(script)
+    }
+    // Escape "<" so a name containing "</script>" cannot close this element
+    // in the prerendered HTML.
+    script.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: crumbs.map((crumb, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: crumb.name,
+        item: crumb.item,
+      })),
+    }).replace(/</g, "\\u003c")
+  }
+
+  private setCanonicalUrl(url: string): void {
+    let link = this.document.head.querySelector<HTMLLinkElement>(
+      'link[rel="canonical"]',
+    )
+    if (!link) {
+      link = this.document.createElement("link")
+      link.setAttribute("rel", "canonical")
+      this.document.head.appendChild(link)
+    }
+    link.setAttribute("href", url)
+  }
+
+  private buildChapterDescription(
+    book: Book,
+    chapterNumber: Chapter["number"],
+    chapter?: Chapter,
+  ): string {
+    // The intro chapter has no verses; describe it with its own prose.
+    const isIntro = chapterNumber === 0
+    const excerpt =
+      this.buildExcerpt(chapter) ||
+      (isIntro ? this.buildIntroExcerpt(book) : "")
+    if (!excerpt) {
+      return this.truncate(
+        isIntro
+          ? `Leia a introdução a ${book.shortName} na ${SEO_SITE_NAME}. ${SEO_DEFAULT_DESCRIPTION}`
+          : `Leia ${book.shortName}, capítulo ${chapterNumber}, na ${SEO_SITE_NAME}. ${SEO_DEFAULT_DESCRIPTION}`,
+      )
+    }
+    return this.truncate(
+      isIntro
+        ? `${book.shortName} — Introdução: ${excerpt}`
+        : `${book.shortName} ${chapterNumber}: ${excerpt}`,
+    )
+  }
+
+  /** First prose of a book introduction, used as its meta description. */
+  private buildIntroExcerpt(book: Book): string {
+    const paragraph = book.introduction?.find(
+      (element): element is IntroParagraph =>
+        element.type === "introParagraph" && !!element.text.trim(),
+    )
+    return paragraph ? paragraph.text.replace(/\s+/g, " ").trim() : ""
+  }
+
+  private buildExcerpt(chapter?: Chapter): string {
+    if (!chapter?.verses?.length) return ""
+
+    const parts: string[] = []
+    let length = 0
+    for (const verse of chapter.verses) {
+      for (const segment of verse.text ?? []) {
+        if (
+          segment.type === "text" ||
+          segment.type === "quote" ||
+          segment.type === "paragraph"
+        ) {
+          parts.push(segment.text)
+          length += segment.text.length
+        }
+      }
+      if (length >= MAX_DESCRIPTION_LENGTH) break
+    }
+    return parts.join(" ").replace(/\s+/g, " ").trim()
+  }
+
+  private truncate(value: string): string {
+    if (value.length <= MAX_DESCRIPTION_LENGTH) return value
+    const cut = value.slice(0, MAX_DESCRIPTION_LENGTH)
+    const lastSpace = cut.lastIndexOf(" ")
+    return `${cut.slice(0, lastSpace > 0 ? lastSpace : MAX_DESCRIPTION_LENGTH).trimEnd()}…`
+  }
+}

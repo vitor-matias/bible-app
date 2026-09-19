@@ -109,3 +109,56 @@ h3:not(:first-child) {
   cursor: pointer;
   outline: none;
 }
+
+/* Deep-link / search highlight, painted on the text runs. The inline <verse>
+   host would also colour empty <br> line fragments and inter-verse spaces, and
+   .quoteLineWrapper (inline-block) the empty space after a short poetry line.
+   padding-block thickens the stroke without reflowing anything. */
+.verseRun,
+.verseNumber,
+.footnoteIndicator,
+.quoteVerseNumber {
+  background-color: transparent;
+  border-radius: 0.15em;
+  transition: background-color 0.4s ease;
+}
+
+:host(.verse-highlight) .verseRun,
+:host(.verse-highlight) .verseNumber,
+:host(.verse-highlight) .footnoteIndicator {
+  background-color: var(--verse-highlight-color);
+}
+
+:host(.verse-highlight) .verseRun {
+  padding-block: 0.1em;
+}
+
+/* Numbers are 65% size and top-aligned, so they need a much larger bottom
+   padding to reach the text's band. That enlarges their hit-test box over the
+   line below, hence pointer-events: none. The footnote marker is interactive,
+   so it is left unpadded instead. */
+:host(.verse-highlight) .verseNumber {
+  padding-block: 0.05em 1.45em;
+  pointer-events: none;
+}
+
+/* Poetry: the stroke goes on the wrapper, already the height of the line; its
+   children stop painting so the translucent colour is not laid down twice. */
+:host(.verse-highlight) .quoteVerseNumber {
+  background-color: var(--verse-highlight-color);
+}
+
+:host(.verse-highlight) .quoteVerseNumber .verseNumber,
+:host(.verse-highlight) .quoteVerseNumber .footnoteIndicator {
+  background-color: transparent;
+  padding-block: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .verseRun,
+  .verseNumber,
+  .footnoteIndicator,
+  .quoteVerseNumber {
+    transition: none;
+  }
+}

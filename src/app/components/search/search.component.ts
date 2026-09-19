@@ -9,13 +9,14 @@ import {
 } from "@angular/core"
 import { MatIconModule } from "@angular/material/icon"
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
-import { Router, RouterModule } from "@angular/router"
-import { firstValueFrom } from "rxjs"
+import { ActivatedRoute, Router, RouterModule } from "@angular/router"
+import { firstValueFrom, type Subscription } from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { SeoService } from "../../services/seo.service"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
 @Component({
@@ -46,6 +47,11 @@ export class SearchComponent {
 
   @ViewChild("sentinel", { static: false }) sentinel!: ElementRef
   private lastSentinel: Element | null = null
+  private queryParamSubscription?: Subscription
+  /** Guards against re-running the same shared query on unrelated emissions. */
+  private lastSharedQuery: string | null = null
+  /** Bumped on every submit so a slower, superseded request can be ignored. */
+  private searchGeneration = 0
 
   constructor(
     private apiService: BibleApiService,
@@ -53,10 +59,29 @@ export class SearchComponent {
     private bookService: BookService,
     private snackBar: MatSnackBar,
     private router: Router,
+    private route: ActivatedRoute,
     private cdr: ChangeDetectorRef,
     private analyticsService: AnalyticsService,
     private injector: Injector,
+    private seoService: SeoService,
   ) {}
+
+  ngOnInit(): void {
+    this.seoService.updateForSearch()
+
+    // Share-target launches arrive as /search?q=. Subscribe, not snapshot:
+    // Angular reuses this component between /search URLs.
+    this.queryParamSubscription = this.route.queryParamMap.subscribe(
+      (params) => {
+        const sharedQuery = params.get("q")
+        // Forget the last one once `q` goes away, so sharing it again re-runs.
+        if (!sharedQuery) this.lastSharedQuery = null
+        if (!sharedQuery || sharedQuery === this.lastSharedQuery) return
+        this.lastSharedQuery = sharedQuery
+        void this.onSearchSubmit(sharedQuery)
+      },
+    )
+  }
 
   ngAfterViewInit(): void {
     this.attachObserverToSentinel()
@@ -70,6 +95,7 @@ export class SearchComponent {
   }
 
   ngOnDestroy(): void {
+    this.queryParamSubscription?.unsubscribe()
     if (this.observer) {
       this.observer.disconnect()
     }
@@ -96,11 +122,15 @@ export class SearchComponent {
   private async loadMoreResults() {
     if (this.isLoading || this.searchResults.length >= this.totalResults) return
 
+    const generation = this.searchGeneration
+    const isStale = () => generation !== this.searchGeneration
+
     this.isLoading = true
     try {
       const results = await firstValueFrom(
         this.apiService.search(this.searchTerm, this.currentPage + 1),
       )
+      if (isStale()) return
       this.searchResults.push(
         ...results.verses.map((v) => this.toDisplayVerse(v)),
       )
@@ -108,15 +138,21 @@ export class SearchComponent {
       this.currentPage++
       this.attachObserverToSentinel() // Re-attach observer after loading more results
     } catch (error) {
+      if (isStale()) return
       console.error("Error loading more results:", error)
     } finally {
-      this.isLoading = false
-      this.cdr.detectChanges()
+      // A stale `return` in the try still lands here; don't clear the newer
+      // search's loading state.
+      if (!isStale()) {
+        this.isLoading = false
+        this.cdr.detectChanges()
+      }
     }
   }
 
   async onSearchSubmit(text: string): Promise<void> {
-    this.searchTerm = text
+    const generation = ++this.searchGeneration
+    const isStale = () => generation !== this.searchGeneration
     const references = this.referenceService.extract(text)
 
     let targetBook: Book | null = null
@@ -146,21 +182,33 @@ export class SearchComponent {
     }
 
     if (targetBook) {
+      // A standalone introduction has no chapters: nothing to probe, and its
+      // only page is /intro.
+      const isIntro = !!targetBook.introSlug
       try {
-        await firstValueFrom(
-          this.apiService.getVerse(
+        if (!isIntro) {
+          await firstValueFrom(
+            this.apiService.getVerse(
+              targetBook.id,
+              targetChapter,
+              targetVerseStart || 1,
+            ),
+          )
+        }
+        if (isStale()) return
+        const navigated = await this.router.navigate(
+          [
+            "/",
             targetBook.id,
-            targetChapter,
-            targetVerseStart || 1,
-          ),
-        )
-        await this.router.navigate(
-          ["/", targetBook.id, targetChapter],
+            isIntro ? BookService.INTRO_URL_SEGMENT : targetChapter,
+          ],
           targetVerseStart !== undefined
             ? { queryParams: { verseStart: targetVerseStart } }
             : {},
         )
+        if (navigated || isStale()) return
       } catch (err) {
+        if (isStale()) return
         console.error(err)
         // HttpErrorResponse is not guaranteed here, so narrow the shape safely.
         const status =
@@ -180,13 +228,20 @@ export class SearchComponent {
           })
         }
       }
+      // Still here: the superseded text search's stale `finally` skips this.
+      this.isLoading = false
+      this.cdr.detectChanges()
       return
     }
 
+    // Set only for text searches: a failed reference lookup leaves the
+    // previous results on screen, and paging and highlighting read this.
+    this.searchTerm = text
     this.hasSearched = true
     this.isLoading = true
     try {
       const results = await firstValueFrom(this.apiService.search(text, 1))
+      if (isStale()) return
       this.searchResults = results.verses.map((v) => this.toDisplayVerse(v))
       this.totalResults = results.total
       this.currentPage = 1
@@ -215,13 +270,16 @@ export class SearchComponent {
 
       void this.analyticsService.track("search", { text })
     } catch (error) {
+      if (isStale()) return
       console.error("Error loading search results:", error)
       this.snackBar.open("Error loading search results", "OK", {
         duration: 3000,
       })
     } finally {
-      this.isLoading = false
-      this.cdr.detectChanges()
+      if (!isStale()) {
+        this.isLoading = false
+        this.cdr.detectChanges()
+      }
     }
   }
 

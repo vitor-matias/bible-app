@@ -12,7 +12,12 @@ function makeVerse(overrides: Partial<Verse> = {}): Verse {
     chapterNumber: 1,
     number: 1,
     verseLabel: "1",
-    text: [{ type: "text", text: "In the beginning..." }],
+    text: [
+      {
+        type: "text",
+        text: "In the beginning...",
+      },
+    ],
     ...overrides,
   }
 }
@@ -97,7 +102,11 @@ describe("VerseSectionComponent", () => {
         makeVerse({
           text: [
             { type: "text", text: "plain" },
-            { type: "section", tag: "s2", text: "title" },
+            {
+              type: "section",
+              tag: "s2",
+              text: "title",
+            },
           ],
         }),
       )
@@ -109,7 +118,9 @@ describe("VerseSectionComponent", () => {
       component.changeLine = false
       setData(
         component,
-        makeVerse({ text: [{ type: "references", text: "Gn 1,1" }] }),
+        makeVerse({
+          text: [{ type: "references", text: "Gn 1,1" }],
+        }),
       )
 
       expect(component.parsedReferences.has(0)).toBe(true)
@@ -117,7 +128,9 @@ describe("VerseSectionComponent", () => {
       // Change data
       setData(
         component,
-        makeVerse({ text: [{ type: "text", text: "no refs" }] }),
+        makeVerse({
+          text: [{ type: "text", text: "no refs" }],
+        }),
       )
 
       expect(component.parsedReferences.size).toBe(0)
@@ -147,7 +160,7 @@ describe("VerseSectionComponent", () => {
 
       const spy = mockSnackBar.openFromComponent as jasmine.Spy
       const callArgs = spy.calls.mostRecent().args[1]
-      expect((callArgs?.data as { message: string }).message).toContain(",1")
+      expect((callArgs.data as { message: string }).message).toContain(",1")
     })
   })
 

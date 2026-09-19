@@ -1,19 +1,87 @@
-import { HttpClient } from "@angular/common/http"
+import { HttpClient, HttpErrorResponse } from "@angular/common/http"
 import { Injectable } from "@angular/core"
 import {
   catchError,
   finalize,
   from,
+  type MonoTypeOperatorFunction,
   type Observable,
   of,
+  retry,
   shareReplay,
   switchMap,
   tap,
   throwError,
+  timeout,
+  timer,
 } from "rxjs"
 import { apiBaseUrl } from "../config"
+import { isBrowser } from "../utils/platform"
 import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
+
+const IS_SERVER = !isBrowser()
+
+/** 4xx responses that retrying cannot fix; 408 and 429 mean "ask again". */
+function isPermanentFailure(error: unknown): boolean {
+  if (!(error instanceof HttpErrorResponse)) return false
+  const { status } = error
+  return status >= 400 && status < 500 && status !== 408 && status !== 429
+}
+
+/**
+ * Prerender-only timeout plus retry with backoff, so a hung connection or
+ * transient rate limiting cannot hang the build or ship empty pages.
+ */
+export function createApiResilience<T>(
+  isServer: boolean,
+  timeoutMs = 20_000,
+  retryCount = 3,
+  retryBaseDelayMs = 300,
+): MonoTypeOperatorFunction<T> {
+  if (!isServer) {
+    return (source) => source
+  }
+  return (source) =>
+    source.pipe(
+      timeout(timeoutMs),
+      retry({
+        count: retryCount,
+        delay: (error, attempt) => {
+          // Rethrowing from the delay factory fails the retry immediately.
+          if (isPermanentFailure(error)) throw error
+          return timer(retryBaseDelayMs * 2 ** attempt)
+        },
+      }),
+    )
+}
+
+function serverRetry<T>() {
+  return createApiResilience<T>(IS_SERVER)
+}
+
+/**
+ * Survives between prerenders in one worker, so a listing is fetched once
+ * instead of ~1200 times. Never caches an empty response: every later render
+ * would resolve every book to the About page instead of failing.
+ */
+export function createServerBooksCache<T = Book>(
+  isServer: boolean,
+): {
+  read(): T[] | null
+  write(books: T[]): void
+} {
+  let cached: T[] | null = null
+  return {
+    read: () => (isServer && cached?.length ? cached : null),
+    write: (books) => {
+      if (isServer && Array.isArray(books) && books.length > 0) cached = books
+    },
+  }
+}
+
+const serverBooksCache = createServerBooksCache(IS_SERVER)
+const serverIntrosCache = createServerBooksCache<IntroSummary>(IS_SERVER)
 
 @Injectable({
   providedIn: "root",
@@ -37,12 +105,20 @@ export class BibleApiService {
   getAvailableBooks(): Observable<Book[]> {
     return from(this.offlineDataService.getCachedBooksAsync()).pipe(
       switchMap((cachedBooks) => {
-        if (cachedBooks.length) {
-          this.books = cachedBooks
-          return of(cachedBooks)
+        // Cached group-intro records (introSlug set) are not real books;
+        // BookService builds its own from getIntros(), so drop them here.
+        const realBooks = cachedBooks.filter((book) => !book.introSlug)
+        if (realBooks.length) {
+          this.books = realBooks
+          return of(realBooks)
         }
         if (this.books.length) {
           return of(this.books)
+        }
+        const cachedServerBooks = serverBooksCache.read()
+        if (cachedServerBooks) {
+          this.books = cachedServerBooks
+          return of(cachedServerBooks)
         }
         if (this.networkService.isOffline) {
           return throwError(
@@ -54,8 +130,10 @@ export class BibleApiService {
           this.booksRequest$ = (
             this.http.get(`${this.api}/books`) as Observable<Book[]>
           ).pipe(
+            serverRetry(),
             tap((books) => {
               this.books = books
+              serverBooksCache.write(books)
             }),
             catchError((error) => {
               this.booksRequest$ = null
@@ -93,6 +171,7 @@ export class BibleApiService {
         const request = (
           this.http.get(`${this.api}/${book}/${chapter}`) as Observable<Chapter>
         ).pipe(
+          serverRetry(),
           finalize(() => {
             this.chapterRequests.delete(requestKey)
           }),
@@ -115,6 +194,59 @@ export class BibleApiService {
           return throwError(() => new Error("Offline - book not cached"))
         }
         return this.http.get(`${this.api}/${book}`) as Observable<Book>
+      }),
+    )
+  }
+
+  /** Listing of the standalone introductions (whole Bible, testaments, groups). */
+  getIntros(): Observable<IntroSummary[]> {
+    return from(
+      this.offlineDataService.getCachedGroupIntroSummariesAsync(),
+    ).pipe(
+      switchMap((cached) => {
+        // A partially preloaded cache is only a fallback: served as the
+        // listing it would hide the missing introductions.
+        const complete =
+          cached.length > 0 && this.offlineDataService.areGroupIntrosCached()
+        if (complete) return of(cached)
+        if (this.networkService.isOffline) {
+          return cached.length
+            ? of(cached)
+            : throwError(
+                () =>
+                  new Error("Offline and no cached introductions available"),
+              )
+        }
+        const cachedServerIntros = serverIntrosCache.read()
+        if (cachedServerIntros) return of(cachedServerIntros)
+        return (
+          this.http.get(`${this.api}/intros`) as Observable<IntroSummary[]>
+        ).pipe(
+          serverRetry(),
+          tap((intros) => serverIntrosCache.write(intros)),
+          catchError((error) =>
+            cached.length ? of(cached) : throwError(() => error),
+          ),
+        )
+      }),
+    )
+  }
+
+  /** One standalone introduction, including its body. */
+  getIntro(slug: string): Observable<GroupIntro> {
+    return from(this.offlineDataService.getCachedGroupIntroAsync(slug)).pipe(
+      switchMap((cached) => {
+        if (cached) return of(cached)
+        if (this.networkService.isOffline) {
+          return throwError(
+            () => new Error("Offline - introduction not cached"),
+          )
+        }
+        return (
+          this.http.get(
+            `${this.api}/intros/${encodeURIComponent(slug)}`,
+          ) as Observable<GroupIntro>
+        ).pipe(serverRetry())
       }),
     )
   }

@@ -105,4 +105,33 @@ describe("NetworkService", () => {
     await Promise.resolve()
     expect(mockNetworkListener.remove).toHaveBeenCalled()
   })
+
+  it("should preload offline content when transitioning offline -> online", async () => {
+    const offlineDataService = injectorMock.get(
+      // biome-ignore lint/suspicious/noExplicitAny: token irrelevant for the spy
+      undefined as any,
+    ) as { preloadAllBooksAndChapters: jasmine.Spy }
+    injectorMock.get.calls.reset()
+
+    expect(capturedCallback).toBeDefined()
+    capturedCallback?.({ connected: false, connectionType: "none" })
+    expect(service.isOffline).toBeTrue()
+
+    capturedCallback?.({ connected: true, connectionType: "wifi" })
+
+    // The reconnect hook lazy-imports OfflineDataService before resolving it,
+    // so poll until the dynamic import settles.
+    // The reconnect hook lazy-imports OfflineDataService; on a cold run that
+    // import can outlast a fixed 200ms budget, and the test then fails on the
+    // injector expectation rather than on the thing it covers.
+    const deadline = Date.now() + 2000
+    while (injectorMock.get.calls.count() === 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+
+    expect(injectorMock.get).toHaveBeenCalled()
+    expect(offlineDataService.preloadAllBooksAndChapters).toHaveBeenCalledWith(
+      "standalone",
+    )
+  })
 })

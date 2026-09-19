@@ -2,6 +2,7 @@ import { HttpClient } from "@angular/common/http"
 import { Injectable } from "@angular/core"
 import { firstValueFrom } from "rxjs"
 import { apiBaseUrl } from "../config"
+import { safeLocalStorage } from "../utils/web-storage"
 import { AnalyticsService } from "./analytics.service"
 import { DatabaseService } from "./database.service"
 import { NetworkService } from "./network.service"
@@ -11,11 +12,17 @@ import { NetworkService } from "./network.service"
 })
 export class OfflineDataService {
   private cacheFlagKey = "booksCacheReady"
+  private groupIntrosCacheFlagKey = "groupIntrosCacheReady"
   private cacheTimestampKey = "booksCacheTimestamp"
+  private cacheSchemaKey = "booksCacheSchemaVersion"
+  // Bump when the persisted Book/Chapter/Verse shape changes incompatibly, so
+  // stale IndexedDB records are dropped and re-cached.
+  private readonly cacheSchemaVersion = 2
   private cacheMaxAgeMs = 1000 * 60 * 60 * 24 * 40 // 40 days
   private cachedBooks: Book[] | null = null
   private apiBase = apiBaseUrl
   private cacheLoadPromise: Promise<void> | null = null
+  private migrationPromise: Promise<boolean> | null = null
 
   constructor(
     private http: HttpClient,
@@ -33,66 +40,135 @@ export class OfflineDataService {
   ): Promise<void> {
     if (typeof window === "undefined") return
 
-    const isAlreadyCached = localStorage.getItem(this.cacheFlagKey) === "true"
+    const migrated = await this.migrateCacheIfNeeded()
+    const storage = safeLocalStorage()
+
+    // Flags are untrustworthy after a failed migration (reads fail closed).
+    // Without localStorage, infer readiness from the IndexedDB records.
+    const fallbackBooks = storage ? null : await this.getCachedBooksAsync()
+    // Gated independently so a failed /intros fetch never forces a redownload
+    // of the multi-megabyte books payload.
+    const booksAlreadyCached =
+      migrated &&
+      (storage
+        ? storage.getItem(this.cacheFlagKey) === "true"
+        : (fallbackBooks ?? []).some((book) => !book.introSlug))
+    const introsAlreadyCached =
+      migrated &&
+      (storage
+        ? this.areGroupIntrosCached()
+        : (fallbackBooks ?? []).some((book) => !!book.introSlug))
     const isExpired = this.isCacheExpired()
-    if (isAlreadyCached && !isExpired) {
+    if (booksAlreadyCached && introsAlreadyCached && !isExpired) {
       return
     }
     if (isExpired && this.networkService.isOffline) {
-      // Prefer stale data over wiping out offline reading when the refresh window
-      // expires but the device has no connection.
+      // Offline: prefer stale data over losing offline reading.
       return
     }
 
-    try {
-      const books = await firstValueFrom(
-        this.http.get<Book[]>(`${this.apiBase}/books?withChapters=true`),
-      )
-      await this.setCachedBooks(books)
-      this.trackBooksCachedEvent(source)
-    } catch (error) {
-      console.error("Failed to preload books for offline use", error)
+    if (!booksAlreadyCached || isExpired) {
+      try {
+        const books = await firstValueFrom(
+          this.http.get<Book[]>(`${this.apiBase}/books?withChapters=true`),
+        )
+        await this.setCachedBooks(books)
+        this.trackBooksCachedEvent(source)
+      } catch (error) {
+        console.error("Failed to preload books for offline use", error)
+      }
+    }
+
+    // preloadGroupIntros logs instead of throwing, so a bad /intros response
+    // never masks a successful books preload.
+    if (!introsAlreadyCached || isExpired) {
+      await this.preloadGroupIntros()
     }
   }
 
-  async setCachedBooks(books: Book[]): Promise<void> {
-    // Ensure any in-progress cache load from IndexedDB has completed
-    // before we merge in the new books.
-    if (this.cacheLoadPromise) {
-      try {
-        await this.cacheLoadPromise
-      } catch (error) {
+  /** Whether the last introductions preload cached every one of them. */
+  areGroupIntrosCached(): boolean {
+    return safeLocalStorage()?.getItem(this.groupIntrosCacheFlagKey) === "true"
+  }
+
+  /**
+   * Caches every standalone introduction as a synthetic book record (id =
+   * slug, same shape as BookService.toIntroBook()) for offline /intro pages.
+   */
+  private async preloadGroupIntros(): Promise<void> {
+    try {
+      const summaries = await firstValueFrom(
+        this.http.get<IntroSummary[]>(`${this.apiBase}/intros`),
+      )
+      // allSettled: one failing slug must not discard the rest.
+      const results = await Promise.allSettled(
+        summaries.map((summary) =>
+          firstValueFrom(
+            this.http.get<GroupIntro>(
+              `${this.apiBase}/intros/${encodeURIComponent(summary.slug)}`,
+            ),
+          ),
+        ),
+      )
+      const fulfilled = results.filter(
+        (result): result is PromiseFulfilledResult<GroupIntro> =>
+          result.status === "fulfilled",
+      )
+      if (fulfilled.length) {
+        const introBooks: Book[] = fulfilled.map(({ value: intro }) => ({
+          id: intro.slug,
+          name: intro.name,
+          shortName: intro.name,
+          abrv: intro.slug,
+          chapterCount: 0,
+          introSlug: intro.slug,
+          introduction: intro.introduction,
+        }))
+        // Intro-only write: must not mark the (possibly never-fetched) books
+        // as cached and fresh.
+        await this.setCachedBooks(introBooks, { markBooksReady: false })
+      }
+
+      const failedCount = results.length - fulfilled.length
+      if (failedCount > 0) {
+        // A flag left over from an earlier complete preload would vouch for
+        // this incomplete refresh.
+        safeLocalStorage()?.removeItem(this.groupIntrosCacheFlagKey)
         console.error(
-          "Failed to load existing cached books before merge",
-          error,
+          `Failed to preload ${failedCount} of ${results.length} standalone introductions for offline use`,
         )
+      } else {
+        safeLocalStorage()?.setItem(this.groupIntrosCacheFlagKey, "true")
       }
-    } else {
-      // Kick off a load if it has not been started yet.
-      this.ensureCacheLoaded()
-      if (this.cacheLoadPromise) {
-        try {
-          await this.cacheLoadPromise
-        } catch (error) {
-          console.error(
-            "Failed to load existing cached books before merge",
-            error,
-          )
-        }
-      }
+    } catch (error) {
+      console.error(
+        "Failed to preload group introductions for offline use",
+        error,
+      )
     }
+  }
+
+  async setCachedBooks(
+    books: Book[],
+    { markBooksReady = true }: { markBooksReady?: boolean } = {},
+  ): Promise<void> {
+    // Merge into whatever IndexedDB already holds; the load never rejects.
+    await this.ensureCacheLoaded()
 
     const existingBooks = this.cachedBooks ?? []
     this.cachedBooks = this.mergeCachedBooks(existingBooks, books)
-    if (typeof localStorage === "undefined") {
-      // In non-browser environments, skip persistence and metadata.
-      return
-    }
+    // localStorage only holds metadata; without it, still persist to IndexedDB.
+    const storage = safeLocalStorage()
 
     try {
       await this.saveBooksToIndexedDb(this.cachedBooks)
-      localStorage.setItem(this.cacheTimestampKey, Date.now().toString())
-      localStorage.setItem(this.cacheFlagKey, "true")
+      // The store now holds current-shape records even if the migration
+      // failed; a stale key would make the next launch wipe them.
+      storage?.setItem(this.cacheSchemaKey, this.cacheSchemaVersion.toString())
+      if (markBooksReady) {
+        storage?.setItem(this.cacheTimestampKey, Date.now().toString())
+        storage?.setItem(this.cacheFlagKey, "true")
+      }
     } catch (error) {
       console.error("Failed to persist cached books or metadata", error)
       throw error
@@ -101,9 +177,7 @@ export class OfflineDataService {
 
   getCachedBooks(): Book[] {
     this.ensureCacheLoaded()
-    if (this.cachedBooks) return this.cachedBooks
-    if (typeof localStorage === "undefined") return []
-    return []
+    return this.cachedBooks ?? []
   }
 
   async getCachedBooksAsync(): Promise<Book[]> {
@@ -118,6 +192,27 @@ export class OfflineDataService {
   async getCachedBookAsync(bookId: Book["id"]): Promise<Book | undefined> {
     const books = await this.getCachedBooksAsync()
     return books.find((book) => book.id === bookId)
+  }
+
+  /** Cached listing of the standalone introductions, if any were preloaded. */
+  async getCachedGroupIntroSummariesAsync(): Promise<IntroSummary[]> {
+    const books = await this.getCachedBooksAsync()
+    return books
+      .filter((book) => !!book.introSlug)
+      .map((book) => ({ slug: book.introSlug as string, name: book.name }))
+  }
+
+  /** Cached body of one standalone introduction, if it was preloaded. */
+  async getCachedGroupIntroAsync(
+    slug: string,
+  ): Promise<GroupIntro | undefined> {
+    const book = await this.getCachedBookAsync(slug)
+    if (!book?.introSlug) return undefined
+    return {
+      slug: book.introSlug,
+      name: book.name,
+      introduction: book.introduction ?? [],
+    }
   }
 
   getCachedChapter(
@@ -165,24 +260,71 @@ export class OfflineDataService {
         byId.set(book.id, book)
         continue
       }
-      // Keep whichever side has the fuller chapter payload so a shallow refresh
-      // does not accidentally discard chapters already cached locally.
-      const chapters =
-        book.chapters?.length || current.chapters?.length
-          ? ((book.chapters && book.chapters.length > 0
-              ? book.chapters
-              : current.chapters) ?? [])
-          : undefined
-      byId.set(book.id, { ...current, ...book, chapters })
+      const merged: Book = {
+        ...current,
+        ...book,
+        chapters: this.mergeChapterLists(book.chapters, current.chapters),
+      }
+      // A shallow payload (e.g. BookService.toIntroBook()) carries
+      // introduction: [], which must not overwrite an already-loaded body.
+      if (!book.introduction?.length && current.introduction?.length) {
+        merged.introduction = current.introduction
+      }
+      byId.set(book.id, merged)
     }
     return Array.from(byId.values())
+  }
+
+  /** Merges per chapter number so a shallow refresh keeps cached verses. */
+  private mergeChapterLists(
+    incoming?: Chapter[],
+    current?: Chapter[],
+  ): Chapter[] | undefined {
+    if (!incoming?.length) return current?.length ? current : incoming
+    if (!current?.length) return incoming
+
+    const cachedByNumber = new Map<number, Chapter>()
+    for (const chapter of current) {
+      cachedByNumber.set(chapter.number, chapter)
+    }
+
+    const merged: Chapter[] = incoming.map((chapter) => {
+      const cached = cachedByNumber.get(chapter.number)
+      if (!cached) return chapter
+
+      // Fresh payload wins, except where it is a stub of richer cached content.
+      const result: Chapter = { ...cached, ...chapter }
+      if ((cached.verses?.length ?? 0) > (chapter.verses?.length ?? 0)) {
+        result.verses = cached.verses
+      }
+      if (!chapter.introduction && cached.introduction) {
+        result.introduction = cached.introduction
+      }
+      return result
+    })
+
+    const seen = new Set(incoming.map((chapter) => chapter.number))
+    for (const chapter of current) {
+      if (!seen.has(chapter.number)) merged.push(chapter)
+    }
+    // The selector renders this list as-is; keep cached-only chapters in order.
+    return merged.sort((a, b) => a.number - b.number)
   }
 
   private ensureCacheLoaded(): Promise<void> {
     if (this.cachedBooks) return Promise.resolve()
     if (!this.cacheLoadPromise) {
       // Share one IndexedDB read across concurrent callers during startup.
-      this.cacheLoadPromise = this.loadBooksFromIndexedDb()
+      // Run the schema migration first so stale-shape records never surface.
+      this.cacheLoadPromise = this.migrateCacheIfNeeded()
+        .then((migrated) => {
+          if (migrated) {
+            return this.loadBooksFromIndexedDb()
+          }
+          // Fail closed on stale-schema records; cachedBooks stays null so the
+          // next caller retries the migration.
+          return undefined
+        })
         .catch((error) => {
           console.error("Failed to load cached books from IndexedDB", error)
         })
@@ -193,11 +335,49 @@ export class OfflineDataService {
     return this.cacheLoadPromise || Promise.resolve()
   }
 
+  /**
+   * Drops persisted books written with an incompatible Book shape. Resolves to
+   * false when they could not be cleared; callers must then not read the store.
+   */
+  private migrateCacheIfNeeded(): Promise<boolean> {
+    // Prerender workers' Node defines a localStorage whose methods throw.
+    const storage = safeLocalStorage()
+    if (!storage) return Promise.resolve(true)
+    if (
+      storage.getItem(this.cacheSchemaKey) ===
+      this.cacheSchemaVersion.toString()
+    ) {
+      return Promise.resolve(true)
+    }
+    if (!this.migrationPromise) {
+      this.migrationPromise = (async () => {
+        try {
+          await this.databaseService.clear("books")
+          this.cachedBooks = null
+          storage.removeItem(this.cacheFlagKey)
+          storage.removeItem(this.groupIntrosCacheFlagKey)
+          storage.removeItem(this.cacheTimestampKey)
+          // Only mark the schema current once the stale records are gone.
+          storage.setItem(
+            this.cacheSchemaKey,
+            this.cacheSchemaVersion.toString(),
+          )
+          return true
+        } catch (error) {
+          console.error("Failed to migrate cached books schema", error)
+          return false
+        } finally {
+          this.migrationPromise = null
+        }
+      })()
+    }
+    return this.migrationPromise
+  }
+
   private async loadBooksFromIndexedDb(): Promise<void> {
     const records = await this.databaseService.getAll<Book>("books")
-    if (records?.length) {
-      this.cachedBooks = records
-    }
+    // Cache the empty result too so repeat callers don't re-hit IndexedDB.
+    this.cachedBooks = records ?? []
   }
 
   private async saveBooksToIndexedDb(books: Book[]): Promise<void> {
@@ -205,8 +385,7 @@ export class OfflineDataService {
   }
 
   private isCacheExpired(): boolean {
-    if (typeof localStorage === "undefined") return false
-    const ts = localStorage.getItem(this.cacheTimestampKey)
+    const ts = safeLocalStorage()?.getItem(this.cacheTimestampKey)
     if (!ts) return false
     const timestamp = Number.parseInt(ts, 10)
     if (!Number.isFinite(timestamp)) return false

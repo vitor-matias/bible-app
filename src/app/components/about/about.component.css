@@ -46,3 +46,10 @@ p {
     flex: 0 0 calc(50% - 12px); /* Adjust width to account for the gap */
   }
 }
+
+.read-online {
+  line-height: normal;
+  margin-top: 1.5rem;
+  font-size: 120%;
+  color: var(--text-color);
+}

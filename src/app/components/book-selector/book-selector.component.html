@@ -8,15 +8,17 @@
   />
 </div>
 <div class="bible-books-container">
-  <div class="column">
-    <h4>Antigo Testamento</h4>
+  <!-- h2: the toolbar h1 precedes these in the DOM, and they are the drawer's
+       only heading structure for screen readers. -->
+  <div class="column" role="group" aria-labelledby="otTestamentLabel">
+    <h2 class="testament-label" id="otTestamentLabel">Antigo Testamento</h2>
 
     <mat-tree [dataSource]="otDataSource" [treeControl]="otTreeControl">
       <!-- This is the tree node template for leaf nodes -->
       <mat-tree-node *matTreeNodeDef="let node" matTreeNodePadding>
         <button mat-flat-button class="bookSelectorButton" (click)="submit(node.name)" [attr.data-book-id]="node.name"
           [class.highlight]="node.name === selectedBookId">
-          {{getBook(node.name)?.shortName}}
+          {{entryLabel(node.name)}}
         </button>
       </mat-tree-node>
       <!-- This is the tree node template for expandable nodes -->
@@ -32,15 +34,15 @@
     </mat-tree>
 
   </div>
-  <div class="column">
-    <h4>Novo Testamento</h4>
+  <div class="column" role="group" aria-labelledby="ntTestamentLabel">
+    <h2 class="testament-label" id="ntTestamentLabel">Novo Testamento</h2>
 
     <mat-tree [dataSource]="ntDataSource" [treeControl]="ntTreeControl">
       <!-- This is the tree node template for leaf nodes -->
       <mat-tree-node *matTreeNodeDef="let node" matTreeNodePadding>
         <button mat-flat-button class="bookSelectorButton" (click)="submit(node.name)" [attr.data-book-id]="node.name"
           [class.highlight]="node.name === selectedBookId">
-          {{getBook(node.name)?.shortName}}
+          {{entryLabel(node.name)}}
         </button>
       </mat-tree-node>
       <!-- This is the tree node template for expandable nodes -->
