@@ -1039,6 +1039,8 @@ describe("BibleReaderComponent", () => {
       ) as HTMLElement & { studyMode?: boolean; isQuotation?: boolean }
       expect(verse).toBeTruthy()
       expect(verse.studyMode).toBeFalsy()
+      // The selection bar marks and cites against this, not the chapter.
+      expect(component.parallelBook?.id).toBe(bookServiceSpy.findBook("job").id)
       // Set like the chapter beside it: a quotation is italic in both.
       expect(verse.isQuotation).toBeTrue()
     })

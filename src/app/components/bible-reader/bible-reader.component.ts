@@ -231,6 +231,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   /** Verses of this chapter whose poetry is quoted from somewhere else. */
   private quotationVerses = new Set<Verse["number"]>()
   private parallelQuotationVerses = new Set<Verse["number"]>()
+  private parallelHighlights = new Map<Verse["number"], HighlightColor>()
+  private parallelHighlightSubscription?: Subscription
+  /** The book of the passage open beside the chapter, for marks and citing. */
+  parallelBook?: Book
   /** Where the reader has been this session, most recent last. */
   trail: TrailEntry[] = []
   /** The reader's marks in this chapter, by verse number. */
@@ -1239,10 +1243,55 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
    * across several verses reads as several marks with holes between them.
    */
   marksContinue(verse: Verse, index: number): boolean {
-    const color = this.chapterHighlights.get(verse.number)
+    return BibleReaderComponent.continuesMark(
+      this.chapterHighlights,
+      this.chapter?.verses,
+      verse,
+      index,
+    )
+  }
+
+  /** The same two questions, asked of the passage open beside the chapter. */
+  parallelHighlightFor(verse: Verse): HighlightColor | undefined {
+    return this.parallelHighlights.get(verse.number)
+  }
+
+  parallelMarksContinue(verse: Verse, index: number): boolean {
+    return BibleReaderComponent.continuesMark(
+      this.parallelHighlights,
+      this.parallel?.chapter?.verses,
+      verse,
+      index,
+    )
+  }
+
+  private static continuesMark(
+    marks: Map<Verse["number"], HighlightColor>,
+    verses: Verse[] | undefined,
+    verse: Verse,
+    index: number,
+  ): boolean {
+    const color = marks.get(verse.number)
     if (!color) return false
-    const previous = this.chapter?.verses?.[index - 1]
-    return !!previous && this.chapterHighlights.get(previous.number) === color
+    const previous = verses?.[index - 1]
+    return !!previous && marks.get(previous.number) === color
+  }
+
+  /**
+   * The marks on the passage beside the chapter. The selection bar works
+   * there too, and a mark made where it could not be seen would look like a
+   * button that did nothing.
+   */
+  private watchParallelHighlights(request: ParallelRequest): void {
+    this.parallelHighlightSubscription?.unsubscribe()
+    this.parallelBook = this.bookService.findBook(request.bookId)
+    this.parallelHighlightSubscription = this.highlightService
+      .forChapter(request.bookId, request.chapterNumber)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((marks) => {
+        this.parallelHighlights = marks
+        this.cdr.markForCheck()
+      })
   }
 
   /**
@@ -1339,6 +1388,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.parallelQuotationVerses = BibleReaderComponent.quotationVersesOf(
       outcome.chapter?.verses,
     )
+    if (outcome.chapter) this.watchParallelHighlights(request)
     this.cdr.detectChanges()
     if (outcome.chapter) this.scrollParallelToCitation()
   }
@@ -1351,6 +1401,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   /** Drops the parallel without rendering: for callers that paint anyway. */
   private clearParallel(): void {
     this.parallelSubscription?.unsubscribe()
+    this.parallelHighlightSubscription?.unsubscribe()
+    this.parallelHighlights = new Map()
+    this.parallelBook = undefined
     this.parallel = null
     if (this.panelFoldedForParallel) {
       this.studyPanelCollapsed = false

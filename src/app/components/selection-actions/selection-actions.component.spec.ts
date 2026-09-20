@@ -129,28 +129,75 @@ describe("SelectionActionsComponent", () => {
     expect(component.position).toBeNull()
   })
 
-  it("leaves a selection in the passage open beside the chapter alone", () => {
-    // The parallel as the reader renders it: its own block, inside the
-    // aside, with prefixed ids. The bar marks and cites with the chapter
-    // being read, so offering itself here would mark Matthew for a selection
-    // made in Job.
-    const aside = document.createElement("aside")
-    aside.className = "study-parallel"
-    const parallel = renderVerses([37, 38])
-    parallel.querySelectorAll("verse").forEach((verse) => {
-      verse.id = `parallel-${verse.id}`
+  describe("in the passage open beside the chapter", () => {
+    const JOB = { id: "job", shortName: "Job", abrv: "Jb" } as Book
+    let aside: HTMLElement
+    let parallel: HTMLElement
+
+    /** The parallel as the reader renders it: its own block, prefixed ids. */
+    beforeEach(() => {
+      aside = document.createElement("aside")
+      aside.className = "study-parallel"
+      parallel = renderVerses([37, 38])
+      parallel.querySelectorAll("verse").forEach((verse) => {
+        verse.id = `parallel-${verse.id}`
+      })
+      aside.appendChild(parallel)
+      document.body.appendChild(aside)
     })
-    aside.appendChild(parallel)
-    document.body.appendChild(aside)
 
-    const range = document.createRange()
-    range.selectNodeContents(parallel)
-    document.getSelection()?.removeAllRanges()
-    document.getSelection()?.addRange(range)
-    component["sync"]()
+    afterEach(() => aside.remove())
 
-    expect(component.position).toBeNull()
-    aside.remove()
+    function selectParallel(): void {
+      const range = document.createRange()
+      range.selectNodeContents(parallel)
+      document.getSelection()?.removeAllRanges()
+      document.getSelection()?.addRange(range)
+      component["sync"]()
+    }
+
+    it("marks the passage, not the same verses of the chapter", () => {
+      fixture.componentRef.setInput("parallelBook", JOB)
+      fixture.componentRef.setInput("parallelChapter", {
+        bookId: "job",
+        number: 38,
+        verses: [],
+      })
+      selectParallel()
+      expect(component.reference).toBe("38,37-38")
+
+      component.mark("green")
+
+      expect(highlights.colorFor("job", 38, 37)).toBe("green")
+      // The numbers are Matthew's too; the selection was not.
+      expect(highlights.colorFor("mat", 22, 37)).toBeUndefined()
+    })
+
+    it("cites what was copied as the passage it came from", async () => {
+      fixture.componentRef.setInput("parallelBook", JOB)
+      fixture.componentRef.setInput("parallelChapter", {
+        bookId: "job",
+        number: 38,
+        verses: [],
+      })
+      const written: string[] = []
+      spyOn(navigator.clipboard, "writeText").and.callFake((text: string) => {
+        written.push(text)
+        return Promise.resolve()
+      })
+      selectParallel()
+
+      await component.copy()
+
+      expect(written[0]).toContain("(Job 38,37-38)")
+    })
+
+    it("stays away until it knows what the passage is", () => {
+      // Still loading: nothing to mark the selection against yet.
+      selectParallel()
+
+      expect(component.position).toBeNull()
+    })
   })
 
   it("does not count a verse the selection only brushes", () => {

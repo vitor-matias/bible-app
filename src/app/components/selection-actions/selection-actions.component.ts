@@ -42,6 +42,7 @@ const APPARATUS =
   ".references, h3, verse-section"
 /** The passage study mode opens beside the chapter. */
 const PARALLEL = ".study-parallel"
+const PARALLEL_ID_PREFIX = "parallel-"
 
 /**
  * Actions on whatever the reader has selected: mark it, or copy it.
@@ -64,6 +65,16 @@ const PARALLEL = ".study-parallel"
 export class SelectionActionsComponent {
   @Input() book?: Book
   @Input() chapter: Chapter | null = null
+  /** The passage study mode has open beside the chapter, if there is one. */
+  @Input() parallelBook?: Book
+  @Input() parallelChapter: Chapter | null = null
+
+  /**
+   * The book and chapter the selection was made in. Two texts can be on
+   * screen, and a selection in the second marked, and was cited as, the same
+   * verse numbers of the first.
+   */
+  private source: { book: Book; chapter: Chapter } | null = null
 
   readonly colors = HIGHLIGHT_COLORS
   position: BarPosition | null = null
@@ -115,10 +126,17 @@ export class SelectionActionsComponent {
       return
     }
 
-    const range = SelectionActionsComponent.clipToBlock(selection.getRangeAt(0))
-    const verses = range ? SelectionActionsComponent.versesIn(range) : []
+    const chosen = selection.getRangeAt(0)
+    const block = SelectionActionsComponent.blockFor(chosen)
+    const source = block ? this.sourceOf(block) : null
+    const range =
+      block && source
+        ? SelectionActionsComponent.clipToBlock(chosen, block)
+        : null
+    const verses =
+      range && block ? SelectionActionsComponent.versesIn(range, block) : []
     const text = range ? SelectionActionsComponent.textFrom(range) : ""
-    if (!range || !verses.length || !text) {
+    if (!range || !source || !verses.length || !text) {
       this.hide()
       return
     }
@@ -133,6 +151,7 @@ export class SelectionActionsComponent {
     // copied, and the timer that was going to dismiss the old one must not
     // dismiss this one instead.
     if (text !== this.selectedText) this.resetCopied()
+    this.source = source
     this.verses = verses
     this.selectedText = text
     this.position = SelectionActionsComponent.place(rect)
@@ -142,6 +161,7 @@ export class SelectionActionsComponent {
   private hide(): void {
     if (!this.position) return
     this.position = null
+    this.source = null
     this.verses = []
     this.selectedText = ""
     this.resetCopied()
@@ -190,15 +210,15 @@ export class SelectionActionsComponent {
    * the second one, so a selection that runs a character past the end of
    * verse 37 touches verse 38 without taking a word of it.
    */
-  private static versesIn(range: Range): Verse["number"][] {
-    const root = SelectionActionsComponent.blockFor(range)
-    if (!root) return []
+  private static versesIn(range: Range, block: Element): Verse["number"][] {
     return (
-      Array.from(root.querySelectorAll("verse"))
+      Array.from(block.querySelectorAll("verse"))
         .filter((element) =>
           SelectionActionsComponent.takesWordsOf(range, element),
         )
-        .map((element) => Number(element.id))
+        // The passage beside the chapter prefixes its ids, the two texts
+        // being one document: "parallel-12" is its verse 12.
+        .map((element) => Number(element.id.replace(PARALLEL_ID_PREFIX, "")))
         // Verse 0 is the chapter's front matter, not a verse to mark.
         .filter((number) => Number.isFinite(number) && number > 0)
     )
@@ -219,24 +239,31 @@ export class SelectionActionsComponent {
   }
 
   /**
-   * The chapter's reading block, when the selection is in it.
+   * The reading block a selection is in.
    *
-   * The bar marks and cites with the book and chapter being read, so the
-   * passage open beside it in study mode is not its business: a selection
-   * there would be marked, and cited, as the same verses of another book.
+   * Study mode renders two — the chapter and whatever is open beside it — so
+   * the first block on the page is not necessarily the one being read from.
    * A selection that starts outside any block — select-all — is read against
    * the chapter.
    */
   private static blockFor(range: Range): Element | null {
     const node = range.startContainer
     const element = node instanceof Element ? node : node.parentElement
-    const block = element?.closest(".bookBlock")
-    if (block) return block.closest(PARALLEL) ? null : block
     return (
+      element?.closest(".bookBlock") ??
       Array.from(document.querySelectorAll(".bookBlock")).find(
         (candidate) => !candidate.closest(PARALLEL),
-      ) ?? null
+      ) ??
+      null
     )
+  }
+
+  /** Which text a block is, so what is done to a selection lands in it. */
+  private sourceOf(block: Element): { book: Book; chapter: Chapter } | null {
+    const [book, chapter] = block.closest(PARALLEL)
+      ? [this.parallelBook, this.parallelChapter]
+      : [this.book, this.chapter]
+    return book && chapter ? { book, chapter } : null
   }
 
   /**
@@ -244,9 +271,8 @@ export class SelectionActionsComponent {
    * the last verse, or select-all, would otherwise quote the page's footer
    * and chrome along with the passage.
    */
-  private static clipToBlock(range: Range): Range | null {
-    const block = SelectionActionsComponent.blockFor(range)
-    if (!block || !range.intersectsNode(block)) return null
+  private static clipToBlock(range: Range, block: Element): Range | null {
+    if (!range.intersectsNode(block)) return null
     const clipped = range.cloneRange()
     const whole = document.createRange()
     whole.selectNodeContents(block)
@@ -275,8 +301,8 @@ export class SelectionActionsComponent {
 
   /** "22,37" or "22,37-39" — what the selection covers. */
   get reference(): string {
-    const chapter = this.chapter?.number
-    if (chapter === undefined || !this.verses.length) return ""
+    if (!this.source || !this.verses.length) return ""
+    const chapter = this.source.chapter.number
     const first = this.verses[0]
     const last = this.verses[this.verses.length - 1]
     return first === last
@@ -285,31 +311,30 @@ export class SelectionActionsComponent {
   }
 
   mark(color: HighlightColor): void {
-    if (!this.book || !this.chapter) return
+    if (!this.source) return
+    const { book, chapter } = this.source
     for (const verse of this.verses) {
       // Marking a run of verses sets them all to the chosen colour rather
       // than toggling each, which would leave the ones already marked bare.
-      if (
-        this.highlights.colorFor(this.book.id, this.chapter.number, verse) !==
-        color
-      ) {
-        this.highlights.toggle(this.book.id, this.chapter.number, verse, color)
+      if (this.highlights.colorFor(book.id, chapter.number, verse) !== color) {
+        this.highlights.toggle(book.id, chapter.number, verse, color)
       }
     }
     this.dismissSelection()
   }
 
   clearMarks(): void {
-    if (!this.book || !this.chapter) return
+    if (!this.source) return
+    const { book, chapter } = this.source
     for (const verse of this.verses) {
-      this.highlights.clear(this.book.id, this.chapter.number, verse)
+      this.highlights.clear(book.id, chapter.number, verse)
     }
     this.dismissSelection()
   }
 
   async copy(): Promise<void> {
-    const reference = this.book
-      ? `${this.book.shortName} ${this.reference}`
+    const reference = this.source
+      ? `${this.source.book.shortName} ${this.reference}`
       : ""
     try {
       await navigator.clipboard.writeText(
