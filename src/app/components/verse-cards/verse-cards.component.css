@@ -1,0 +1,91 @@
+:host {
+  display: block;
+}
+
+/* One verse fills the screen. The scroller is the reader's, which turns on
+   mandatory snapping for this view; "always" is what makes one swipe move one
+   verse, however hard the flick. A verse taller than the screen (large text)
+   still scrolls freely inside its own card. */
+.verse-card {
+  min-height: calc(100vh - 56px - env(safe-area-inset-top, 0px));
+  min-height: calc(100dvh - 56px - env(safe-area-inset-top, 0px));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* The host says how much of the bottom is covered (the reader pins its
+     copyright footer there), so the verse is centred in what can be seen. */
+  padding: 32px 24px
+    calc(
+      32px + var(--verse-cards-bottom-inset, 0px) +
+        env(safe-area-inset-bottom, 0px)
+    );
+  box-sizing: border-box;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.stop-label {
+  margin: 0;
+  text-align: center;
+  font-size: 120%;
+  color: var(--text-secondary);
+}
+
+/* Closes the book under its last verse, in the voice of a colophon rather
+   than of the text. */
+.end-of-book {
+  width: 100%;
+  max-width: 640px;
+  margin: 2em auto 0;
+  text-align: center;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+/* A single verse reads as a quotation, not a column of prose: justifying it
+   only opens rivers between the words. */
+.card-text {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: start;
+  hyphens: manual;
+}
+
+/* Each verse fades out as it is swiped away and the next fades in, driven by
+   the scroll position itself (a view timeline) rather than by script, so it
+   tracks the finger and runs off the main thread.
+
+   The ranges are halved on purpose. A verse sits in the middle of its card, so
+   it crosses the edge of the screen halfway through the card's entry or exit:
+   fading over the whole range would never take visible text below half
+   opacity. "entry"/"exit" rather than plain percentages so that a verse taller
+   than the screen stays fully opaque for as long as it covers it.
+
+   Browsers without scroll-driven animations (iOS before 26, Firefox) simply
+   keep the cards opaque. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .verse-card {
+      animation: verse-card-fade linear both;
+      animation-timeline: view();
+    }
+  }
+}
+
+@keyframes verse-card-fade {
+  entry 0%,
+  entry 50% {
+    opacity: 0;
+  }
+
+  entry 100%,
+  exit 0% {
+    opacity: 1;
+  }
+
+  exit 50%,
+  exit 100% {
+    opacity: 0;
+  }
+}
