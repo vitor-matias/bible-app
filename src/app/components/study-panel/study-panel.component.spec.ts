@@ -1375,6 +1375,48 @@ describe("StudyPanelComponent", () => {
     })
   })
 
+  describe("opened from the keyboard", () => {
+    beforeEach(() => document.body.appendChild(fixture.nativeElement))
+    afterEach(() => fixture.nativeElement.remove())
+
+    it("puts the caret in the search box, not just the tab on screen", () => {
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [] },
+      })
+
+      component.openTab("search", true)
+
+      expect(component.activeTab).toBe("search")
+      expect(document.activeElement?.id).toBe("study-search")
+    })
+
+    it("puts it in the note box of the selected verse", () => {
+      const target = verse(39, [])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+
+      component.openTab("notes", true)
+
+      expect(document.activeElement?.id).toBe("study-note-tab")
+    })
+
+    it("only shows a tab that has nowhere to type", () => {
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [] },
+      })
+      component.openTab("search")
+
+      component.openTab("footnotes", true)
+
+      expect(component.activeTab).toBe("footnotes")
+    })
+  })
+
   describe("searching for a reference", () => {
     let router: Router
 

@@ -8,7 +8,8 @@
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
     (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize()"
     (decreaseFontSizeEvent)="onDecreaseFontSize()" [studyMode]="studyModeActive"
-    [studyModeAvailable]="studyModeAvailable" (toggleStudyMode)="onToggleStudyMode()">
+    [studyModeAvailable]="studyModeAvailable" (toggleStudyMode)="onToggleStudyMode()"
+    (openShortcuts)="openShortcuts()">
     <!-- The way back through this session's reading. In study mode the header
          is the one row of chrome there is, so the trail shares it rather than
          taking a second one; it also carries the page's heading, which the

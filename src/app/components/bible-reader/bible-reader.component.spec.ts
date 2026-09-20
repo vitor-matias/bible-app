@@ -10,6 +10,7 @@ import {
   TestBed,
   tick,
 } from "@angular/core/testing"
+import { MatDialog } from "@angular/material/dialog"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
 import { ActivatedRoute, Router } from "@angular/router"
@@ -1446,6 +1447,109 @@ describe("BibleReaderComponent", () => {
       component.viewMode = "paged"
 
       expect(component.effectiveViewMode).toBe("paged")
+    })
+
+    describe("keyboard", () => {
+      const verses = [1, 2, 3].map((number) => ({ number }) as Verse)
+      const press = (key: string, init: KeyboardEventInit = {}) => {
+        const event = new KeyboardEvent("keydown", {
+          key,
+          cancelable: true,
+          ...init,
+        })
+        Object.defineProperty(event, "target", { value: document.body })
+        component.onArrowPress(event)
+        return event
+      }
+
+      beforeEach(() => {
+        studyMode.activate()
+        apiServiceSpy.getChapter.and.returnValue(
+          of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
+        )
+        component.getChapter(1)
+      })
+
+      it("steps through the verses, starting from the one being read", () => {
+        component.visibleVerse = 2
+
+        // The first press lands on the verse at the top of the column, not
+        // on verse 1, which would throw the reader back up the chapter.
+        press("j")
+        expect(component.selection?.verse.number).toBe(2)
+        press("j")
+        expect(component.selection?.verse.number).toBe(3)
+        // The last verse is where it stops.
+        press("j")
+        expect(component.selection?.verse.number).toBe(3)
+        press("k")
+        expect(component.selection?.verse.number).toBe(2)
+      })
+
+      it("takes the key, so the page does not also act on it", () => {
+        expect(press("j").defaultPrevented).toBeTrue()
+        expect(press("x").defaultPrevented).toBeFalse()
+      })
+
+      it("folds the side columns", () => {
+        press("l")
+        expect(component.studySidebarCollapsed).toBeTrue()
+        press("p")
+        expect(component.studyPanelCollapsed).toBeTrue()
+      })
+
+      it("chooses the verse being read before writing a note on it", () => {
+        component.visibleVerse = 3
+
+        press("n")
+
+        expect(component.selection?.verse.number).toBe(3)
+      })
+
+      it("leaves a text box on Escape, and keeps the verse", () => {
+        component.onVerseSelected({ verse: verses[0] })
+        const box = document.createElement("textarea")
+        document.body.appendChild(box)
+        box.focus()
+        const event = new KeyboardEvent("keydown", { key: "Escape" })
+        Object.defineProperty(event, "target", { value: box })
+
+        component.onArrowPress(event)
+
+        // "n" and "/" put the caret in a box; this is the way back out.
+        expect(document.activeElement).not.toBe(box)
+        expect(component.selection?.verse.number).toBe(1)
+        box.remove()
+      })
+
+      it("opens the list of shortcuts", () => {
+        const open = spyOn(TestBed.inject(MatDialog), "open")
+
+        press("?", { shiftKey: true })
+
+        expect(open).toHaveBeenCalled()
+      })
+
+      it("leaves the keys to a menu or dialog that is open over the page", () => {
+        const backdrop = document.createElement("div")
+        backdrop.className = "cdk-overlay-backdrop-showing"
+        document.body.appendChild(backdrop)
+        component.onVerseSelected({ verse: verses[0] })
+
+        press("j")
+        // Escape closing the menu used to let go of the verse as well.
+        press("Escape")
+
+        expect(component.selection?.verse.number).toBe(1)
+        backdrop.remove()
+      })
+
+      it("means nothing in the reading layout", () => {
+        studyMode.activeSubject.next(false)
+
+        expect(press("j").defaultPrevented).toBeFalse()
+        expect(component.selection).toBeNull()
+      })
     })
 
     it("keeps the reader's place when the layout changes under them", () => {

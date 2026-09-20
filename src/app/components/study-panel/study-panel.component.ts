@@ -386,6 +386,24 @@ export class StudyPanelComponent implements OnChanges {
   }
 
   /**
+   * For the reader's keyboard shortcuts: shows a tab and, where the tab is
+   * somewhere to type, puts the caret there — a key that opened the search
+   * and left the reader to reach for the mouse would be half a shortcut.
+   */
+  openTab(tab: PanelTab, focus = false): void {
+    this.selectTab(tab)
+    if (!focus) return
+    const field =
+      tab === "search"
+        ? "#study-search"
+        : tab === "notes"
+          ? "#study-note-tab"
+          : undefined
+    if (!field) return
+    this.host.nativeElement.querySelector<HTMLElement>(field)?.focus()
+  }
+
+  /**
    * The keyboard half of the tablist contract: the strip is one tab stop
    * (roving tabindex), and the arrows move between tabs within it. Without
    * this a keyboard reader can reach the tabs but never leave the first one.

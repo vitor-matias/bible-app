@@ -39,6 +39,14 @@
       <span>{{ studyMode ? 'Voltar ao modo de leitura' : 'Modo de estudo' }}</span>
     </button>
     }
+    <!-- Only where they work. Opened with "?" too, which a reader has to
+         have been told about to press. -->
+    @if (studyMode && studyModeAvailable && book.id !== 'about') {
+    <button mat-menu-item (click)="onOpenShortcuts(menuTrigger)">
+      <mat-icon>keyboard</mat-icon>
+      <span>Atalhos de teclado</span>
+    </button>
+    }
     <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode === 'paged'">
       <mat-icon>auto_mode</mat-icon>
       <span>

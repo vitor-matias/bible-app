@@ -100,6 +100,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Output() toggleAutoScrollControls = new EventEmitter<void>()
   @Output() toggleViewMode = new EventEmitter<void>()
   @Output() toggleStudyMode = new EventEmitter<void>()
+  @Output() openShortcuts = new EventEmitter<void>()
 
   mobile = false
   isOffline = false
@@ -232,6 +233,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   onToggleViewMode(event?: Event): void {
     event?.stopPropagation()
     this.toggleViewMode.emit()
+  }
+
+  onOpenShortcuts(trigger: MatMenuTrigger): void {
+    trigger.closeMenu()
+    this.openShortcuts.emit()
   }
 
   onToggleStudyMode(trigger: MatMenuTrigger, event?: Event): void {

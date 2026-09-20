@@ -15,6 +15,7 @@ import {
 } from "@angular/core"
 import { MatBottomSheetModule } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
+import { MatDialog } from "@angular/material/dialog"
 import { MatIconModule } from "@angular/material/icon"
 import {
   type MatDrawer,
@@ -59,9 +60,12 @@ import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.c
 import { HeaderComponent } from "../header/header.component"
 import { SelectionActionsComponent } from "../selection-actions/selection-actions.component"
 import {
+  type PanelTab,
   type ParallelRequest,
   StudyPanelComponent,
 } from "../study-panel/study-panel.component"
+import { studyShortcutFor } from "../study-shortcuts/study-shortcuts"
+import { StudyShortcutsComponent } from "../study-shortcuts/study-shortcuts.component"
 import { StudySidebarComponent } from "../study-sidebar/study-sidebar.component"
 import { StudyTrailComponent } from "../study-trail/study-trail.component"
 import { VerseComponent } from "../verse/verse.component"
@@ -149,6 +153,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   /** Study mode's scrolling column, in place of the drawer content. */
   @ViewChild("studyScroll") studyScroll?: ElementRef<HTMLElement>
+  @ViewChild(StudyPanelComponent) studyPanel?: StudyPanelComponent
 
   /** The column a cross reference is read in, beside the chapter. */
   @ViewChild("parallelScroll") parallelScroll?: ElementRef<HTMLElement>
@@ -328,6 +333,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck()
     }
   }
+
+  private readonly dialog = inject(MatDialog)
 
   constructor(
     private autoScrollService: AutoScrollService,
@@ -1117,10 +1124,25 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // Study mode puts a note box on the page, and the book filter has always
     // had a text field: an arrow key inside either is the reader moving the
     // caret, not asking for the next chapter.
-    if (BibleReaderComponent.isTextEntry(event.target)) return
+    if (BibleReaderComponent.isTextEntry(event.target)) {
+      // The keyboard's way back out of a box it was the way into: "n" and
+      // "/" put the caret in one, and without this only Tab left it. A second
+      // Escape, from the page, then lets go of the verse.
+      if (event.key === "Escape" && this.studyModeActive) {
+        ;(event.target as HTMLElement).blur()
+      }
+      return
+    }
     // A control that has its own use for the key — a column divider, the
     // panel's tab strip — has already taken it by the time it bubbles here.
     if (event.defaultPrevented) return
+    // A menu, a dialog or a sheet is open over the page, and the key is its:
+    // Escape closing the menu used to let go of the selected verse as well.
+    if (BibleReaderComponent.overlayOpen()) return
+    if (this.studyModeActive && this.onStudyShortcut(event)) {
+      event.preventDefault()
+      return
+    }
     // Escape lets go of the selected verse, the way it dismisses anything
     // else the reader has opened.
     if (event.key === "Escape" && this.selection) {
@@ -1137,6 +1159,114 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         ? this.pagedNav?.nextPage()
         : this.goToNextChapter()
     }
+  }
+
+  /** Whether Material has something open over the page, holding the keys. */
+  private static overlayOpen(): boolean {
+    return (
+      typeof document !== "undefined" &&
+      !!document.querySelector(".cdk-overlay-backdrop-showing")
+    )
+  }
+
+  /**
+   * Study mode's keys — see STUDY_SHORTCUTS, which the help lists from. True
+   * when the press was one of them.
+   *
+   * A desktop layout for close reading, used until now with a mouse alone:
+   * the arrows changed chapter and nothing else answered. Stepping through
+   * the verses is the one that matters, since a verse is what the panel is
+   * about, and the rest are the places a hand otherwise leaves the keys for.
+   */
+  private onStudyShortcut(event: KeyboardEvent): boolean {
+    const action = studyShortcutFor(event)
+    switch (action) {
+      case null:
+        return false
+      case "nextVerse":
+        this.stepVerse(1)
+        break
+      case "previousVerse":
+        this.stepVerse(-1)
+        break
+      case "note":
+        // A note is a note on a verse: with none chosen, the one being read.
+        if (!this.selection) this.stepVerse(0)
+        if (this.selection) this.showPanelTab("notes", true)
+        break
+      case "search":
+        this.showPanelTab("search", true)
+        break
+      case "tab1":
+        this.showPanelTab("references")
+        break
+      case "tab2":
+        this.showPanelTab("footnotes")
+        break
+      case "tab3":
+        this.showPanelTab("notes")
+        break
+      case "tab4":
+        this.showPanelTab("search")
+        break
+      case "toggleRail":
+        this.toggleStudySidebar()
+        break
+      case "togglePanel":
+        this.toggleStudyPanel()
+        break
+      case "help":
+        this.openShortcuts()
+        break
+    }
+    return true
+  }
+
+  /**
+   * Moves the selection a verse on or back. With nothing selected it starts
+   * from the verse at the top of the column, which is the one being read —
+   * not from verse 1, which would throw the reader back up the chapter.
+   */
+  private stepVerse(by: -1 | 0 | 1): void {
+    const verses = (this.chapter?.verses ?? []).filter(
+      (verse) => verse.number > 0,
+    )
+    if (!verses.length) return
+    const current = this.selection?.verse.number ?? this.visibleVerse
+    const at = verses.findIndex((verse) => verse.number === current)
+    // Nothing to step from: the first press lands on the verse being read,
+    // or on the first verse when that is not known either.
+    const index =
+      at === -1 || !this.selection
+        ? Math.max(at, 0)
+        : Math.min(verses.length - 1, Math.max(0, at + by))
+    const verse = verses[index]
+
+    this.selection = { verse }
+    this.cdr.detectChanges()
+    // Only as far as it takes to see it: a step within the screen moves the
+    // mark, not the text under the reader's eyes.
+    Array.from(
+      this.studyScroll?.nativeElement.querySelectorAll<HTMLElement>("verse") ??
+        [],
+    )
+      .find((element) => element.id === String(verse.number))
+      ?.scrollIntoView({ block: "nearest" })
+  }
+
+  private showPanelTab(tab: PanelTab, focus = false): void {
+    // A folded panel has no tabs to show.
+    if (this.studyPanelCollapsed) this.setStudyPanelCollapsed(false)
+    this.cdr.detectChanges()
+    this.studyPanel?.openTab(tab, focus)
+  }
+
+  openShortcuts(): void {
+    this.dialog.open(StudyShortcutsComponent, {
+      width: "560px",
+      maxWidth: "92vw",
+      autoFocus: "dialog",
+    })
   }
 
   onIncreaseFontSize(): void {

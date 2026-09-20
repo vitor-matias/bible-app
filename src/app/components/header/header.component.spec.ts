@@ -341,6 +341,37 @@ describe("HeaderComponent", () => {
     })
   })
 
+  describe("keyboard shortcuts menu item", () => {
+    const openMenu = () => {
+      fixture.nativeElement.querySelector(".menuButton").click()
+      fixture.detectChanges()
+      return Array.from(
+        document.querySelectorAll<HTMLElement>(
+          ".mat-mdc-menu-content [mat-menu-item]",
+        ),
+      ).find((button) => button.textContent?.includes("Atalhos de teclado"))
+    }
+
+    it("is offered where the shortcuts work, and asks for them", () => {
+      fixture.componentRef.setInput("studyModeAvailable", true)
+      fixture.componentRef.setInput("studyMode", true)
+      fixture.detectChanges()
+      let asked = 0
+      component.openShortcuts.subscribe(() => asked++)
+
+      openMenu()?.click()
+
+      expect(asked).toBe(1)
+    })
+
+    it("is not offered in the reading layout, where they mean nothing", () => {
+      fixture.componentRef.setInput("studyModeAvailable", true)
+      fixture.detectChanges()
+
+      expect(openMenu()).toBeUndefined()
+    })
+  })
+
   describe("focus after switching layouts from the menu", () => {
     it("goes to the menu button that replaced the one the reader used", () => {
       fixture.componentRef.setInput("studyModeAvailable", true)
