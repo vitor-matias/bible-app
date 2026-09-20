@@ -80,7 +80,10 @@ body {
      only the two columns flanking it are tinted, so the page reads as text
      with apparatus beside it rather than as three equal panes. The tint is
      the brand brown at low strength, so both themes stay one family. */
-  --study-surface: color-mix(in srgb, var(--cap-brown) 5%, var(--background-color));
+  /* Written out, like the rest below: 5% of --cap-brown into the white page.
+     Opaque on purpose — the rail's sticky head sits over its scrolling list,
+     so a translucent brown would not do as the fallback. */
+  --study-surface: #f6f5f4;
   --study-rule: rgba(84, 61, 39, 0.18);
   /* The side columns' whole type scale. They had six sizes between 11 and
      16px, a pixel apart, which read as noise rather than as hierarchy: three
@@ -92,7 +95,7 @@ body {
   --study-type-reading: 15px;
   /* 60, not 55: at 55 the chapter count on the current book's tinted row
      measured 4.4:1, a hair under what small text needs. */
-  --study-muted: color-mix(in srgb, var(--text-color) 60%, transparent);
+  --study-muted: rgba(0, 0, 0, 0.6);
   /* The edition's red, for the small text of the study columns. The same as
      everywhere else in this theme; the dark theme needs its own. */
   --study-accent-text: var(--text-secondary);
@@ -178,7 +181,7 @@ body {
      borrows the same warm hue the highlight uses. */
   --study-surface: #1a1a1a;
   --study-rule: rgba(255, 255, 255, 0.14);
-  --study-muted: color-mix(in srgb, var(--text-color) 60%, transparent);
+  --study-muted: rgba(255, 255, 255, 0.6);
   /* Crimson on the dark columns is 3.5:1 — enough for a heading in the text,
      not for a 12px link or a verse number in a quotation. Lightened until it
      clears 4.5:1 there, and used only there: the text keeps the brand red. */
