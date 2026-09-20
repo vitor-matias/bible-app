@@ -227,11 +227,18 @@ export class StudyPanelComponent implements OnChanges {
   /** The colour on the selected verse, if the reader has marked it. */
   selectedHighlight?: HighlightColor
 
-  readonly tabs: { id: PanelTab; label: string }[] = [
-    { id: "references", label: "Referências" },
-    { id: "footnotes", label: "Notas de rodapé" },
-    { id: "notes", label: "As minhas notas" },
-    { id: "search", label: "Pesquisar" },
+  /**
+   * `label` is what the strip shows and `name` what the tab is called. At the
+   * panel's default width the full names wrapped onto two lines, doubling
+   * the height of the strip for the sake of two words; the short forms fit,
+   * and each is part of its full name, so a reader who asks for the tab by
+   * what they see on screen still reaches it.
+   */
+  readonly tabs: { id: PanelTab; label: string; name: string }[] = [
+    { id: "references", label: "Referências", name: "Referências" },
+    { id: "footnotes", label: "Rodapé", name: "Notas de rodapé" },
+    { id: "notes", label: "Notas", name: "As minhas notas" },
+    { id: "search", label: "Pesquisar", name: "Pesquisar" },
   ]
 
   private readonly bibleRef = inject(BibleReferenceService)
@@ -257,6 +264,15 @@ export class StudyPanelComponent implements OnChanges {
     velocity: number
   }
   private readonly yielding = new WeakSet<HTMLElement>()
+  /**
+   * Set once the reader has scrolled the panel themselves. They are reading
+   * something there; the text moving under their other hand must not take it
+   * away from them. The mark on the current passage still follows — only the
+   * scrolling stops — and it is handed back when they pick a verse, change
+   * tab or change chapter, which are all ways of asking the panel to look
+   * somewhere new.
+   */
+  private readerHoldsPanel = false
   private referenceRequests: Subscription[] = []
   private notesSubscription?: Subscription
   /**
@@ -319,6 +335,7 @@ export class StudyPanelComponent implements OnChanges {
     // once per chapter — selecting a verse only marks entries already on
     // screen, and costs no further requests.
     if (changes["book"] || changes["chapter"]) {
+      this.readerHoldsPanel = false
       this.buildReferences()
       this.buildFootnotes()
       this.watchChapterNotes()
@@ -328,12 +345,13 @@ export class StudyPanelComponent implements OnChanges {
       // leaves the reader on the tab they were already reading.
       const requested = this.selection?.panel
       if (requested) this.activeTab = requested
+      if (this.selection) this.readerHoldsPanel = false
       this.loadNoteDraft()
       this.loadSelectedHighlight()
       this.loadIncoming()
       this.scrollActiveIntoView()
     }
-    if (changes["visibleVerse"] && !this.selection) {
+    if (changes["visibleVerse"] && !this.selection && !this.readerHoldsPanel) {
       this.scrollActiveIntoView()
     }
   }
@@ -343,6 +361,7 @@ export class StudyPanelComponent implements OnChanges {
     this.activeTab = tab
     // The new tab has its own list, which has never been placed.
     this.scrolledAnchor = undefined
+    this.readerHoldsPanel = false
     // Rendered here rather than left to the next change detection pass.
     // Angular coalesces those onto an animation frame, and a plain button is
     // the whole interaction — nothing else follows it to flush the queue, so
@@ -717,6 +736,9 @@ export class StudyPanelComponent implements OnChanges {
       )
       const body = element?.closest(".tab-body") as HTMLElement | null
       if (!element || !body) return
+      // Before deciding whether to move: the reader may take hold of a panel
+      // that has never had to glide anywhere.
+      this.yieldToReader(body)
 
       const target = StudyPanelComponent.scrollTargetFor(
         body.scrollTop,
@@ -869,7 +891,14 @@ export class StudyPanelComponent implements OnChanges {
     if (this.yielding.has(body)) return
     this.yielding.add(body)
     for (const name of TAKEOVER_EVENTS) {
-      body.addEventListener(name, () => this.stopGlide(), { passive: true })
+      body.addEventListener(
+        name,
+        () => {
+          this.stopGlide()
+          this.readerHoldsPanel = true
+        },
+        { passive: true },
+      )
     }
   }
 

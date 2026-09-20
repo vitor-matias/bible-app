@@ -71,13 +71,16 @@
 }
 
 .tab {
+  /* One line, always: a strip too narrow for its tabs scrolls sideways
+     rather than growing taller. */
+  flex: 0 0 auto;
+  white-space: nowrap;
   padding: 8px 6px 10px;
   border: 0;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   background: none;
   color: var(--study-muted);
-  font-size: 13px;
   cursor: pointer;
 }
 
@@ -97,7 +100,6 @@
 
 .panel-caption {
   margin: 0 0 14px;
-  font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--study-muted);
@@ -106,12 +108,10 @@
 .panel-empty {
   margin: 8px 0 0;
   color: var(--study-muted);
-  font-size: 15px;
   line-height: 1.5;
 }
 
 .panel-empty.small {
-  font-size: 13px;
 }
 
 .reference-list,
@@ -162,7 +162,6 @@
 
 .group-label {
   margin: 0 0 10px;
-  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -175,7 +174,6 @@
 
 .reference-label {
   display: block;
-  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -188,16 +186,16 @@
   text-decoration: underline;
 }
 
-/* Set like the chapter it is quoting: same face, same measure-filling
-   justification and hyphenation, so a parallel reads as scripture rather
-   than as a caption about scripture. */
+/* The chapter's face, but not its setting. Justified and hyphenated at the
+   chapter's own size, a quotation in a column this narrow opened rivers
+   between its words and weighed as much as the text it was there to serve —
+   the panel read as a second Bible beside the first. A step smaller and
+   ragged-right, it is scripture still, and plainly the apparatus. */
 .reference-text {
   margin: 6px 0 0;
-  font-size: 16px;
-  line-height: 1.6;
-  text-align: justify;
-  text-justify: inter-word;
-  hyphens: auto;
+  line-height: 1.55;
+  text-align: left;
+  hyphens: manual;
 }
 
 /* The divine name, as the edition sets it. */
@@ -207,7 +205,7 @@
 
 /* The reader's own verse-number treatment, at the same proportions. */
 .reference-verse-number {
-  color: var(--text-secondary);
+  color: var(--study-accent-text);
   font-size: 65%;
   vertical-align: top;
   margin-right: 1px;
@@ -227,14 +225,12 @@
   /* No `font: inherit` here: that shorthand would undo the sans-serif these
      labels share at the top of this file and set the button in the reading
      face. Only the size the button does not inherit is restated. */
-  font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--study-accent-text);
   cursor: pointer;
 }
 
 .reference-text.unavailable {
   color: var(--study-muted);
-  font-size: 14px;
 }
 
 .footnote {
@@ -253,7 +249,6 @@
 }
 
 .footnote-text {
-  font-size: 15px;
   line-height: 1.5;
   hyphens: auto;
 }
@@ -279,7 +274,6 @@
 .note-label {
   display: block;
   margin-bottom: 8px;
-  font-size: 12px;
   color: var(--study-muted);
 }
 
@@ -318,13 +312,11 @@
   gap: 10px;
   padding: 10px 0;
   border-top: 1px solid var(--study-rule);
-  font-size: 15px;
   line-height: 1.5;
 }
 
 .note-ref {
   flex: 0 0 auto;
-  font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
   padding-top: 2px;
@@ -345,7 +337,6 @@
   border-radius: 6px;
   background: none;
   color: var(--study-muted);
-  font-size: 12px;
   cursor: pointer;
 }
 
@@ -368,7 +359,9 @@
   background: none;
   color: var(--text-color);
   font-family: "PT Serif", serif;
-  font-size: 15px;
+  /* Sixteen, like the note box: below it, Safari on an iPad zooms the page
+     to the field on focus. The one size outside the columns' scale. */
+  font-size: 16px;
 }
 
 .note-search-input:focus {
@@ -419,7 +412,7 @@ a.note-ref:focus-visible {
 .collapse-toggle:focus-visible,
 .verse-action:focus-visible,
 .tab:focus-visible {
-  outline: 2px solid var(--cap-brown);
+  outline: 2px solid var(--study-focus);
   outline-offset: 2px;
 }
 
@@ -427,11 +420,6 @@ a.note-ref:focus-visible {
   outline-offset: -2px;
 }
 
-:host-context(.dark-theme) .collapse-toggle:focus-visible,
-:host-context(.dark-theme) .verse-action:focus-visible,
-:host-context(.dark-theme) .tab:focus-visible {
-  outline-color: antiquewhite;
-}
 
 @media (hover: hover) {
   .collapse-toggle:hover,
@@ -439,4 +427,31 @@ a.note-ref:focus-visible {
     color: var(--text-color);
     background-color: color-mix(in srgb, var(--cap-brown) 11%, transparent);
   }
+}
+
+/* The columns' type scale (see --study-type-* in styles.css), one rule to a
+   step rather than a declaration to a selector: said once each, the three
+   sizes are easy to see whole, and the sheet stays within what the build
+   allows a component. */
+.panel-caption,
+.group-label,
+.reference-label,
+.reference-more,
+.note-label,
+.note-ref,
+.verse-action {
+  font-size: var(--study-type-label);
+}
+
+.panel-empty,
+.reference-text,
+.footnote-text,
+.saved-note {
+  font-size: var(--study-type-reading);
+}
+
+.tab,
+.panel-empty.small,
+.reference-text.unavailable {
+  font-size: var(--study-type-ui);
 }

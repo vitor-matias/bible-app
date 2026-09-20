@@ -10,6 +10,9 @@
      list scrolls through above it. */
   padding: 0 14px 32px;
   font-family: Roboto, "Helvetica Neue", sans-serif;
+  /* The rail's own size: its controls inherit it, and only what is a label
+     or a book's name says otherwise, at the foot of this sheet. */
+  font-size: var(--study-type-ui);
 }
 
 .study-sidebar.collapsed {
@@ -70,7 +73,6 @@
    names under them, which are what the reader is actually aiming at. */
 .sidebar-heading {
   margin: 0 0 10px 6px;
-  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -90,7 +92,6 @@
   background: none;
   color: var(--text-color);
   font: inherit;
-  font-size: 13px;
 }
 
 .book-filter-input:focus {
@@ -100,7 +101,6 @@
 
 .filter-empty {
   margin: 8px 6px;
-  font-size: 13px;
   color: var(--study-muted);
 }
 
@@ -130,7 +130,6 @@
   padding: 7px 8px;
   border-radius: 6px;
   text-align: left;
-  font-size: 12px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--study-muted);
@@ -149,9 +148,22 @@
   margin-bottom: 6px;
 }
 
-/* Sits at the level of the group headings it leads, not indented under one. */
+/* Sits at the level of the group headings it leads, not indented under one.
+   Its weight and the rule above it are with the shared study chrome in
+   styles.css: this sheet is at the size the build allows. */
 .standalone-intro .book-row {
   padding-left: 8px;
+}
+
+.book-row {
+  padding-left: 8px;
+  font-weight: 600;
+}
+
+.standalone-intro:not(:first-child) {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--study-rule);
 }
 
 .book-row {
@@ -163,11 +175,9 @@
   padding: 7px 12px;
   border-radius: 6px;
   text-align: left;
-  font-size: 16px;
 }
 
 .book-count {
-  font-size: 12px;
   color: var(--study-muted);
 }
 
@@ -190,7 +200,6 @@
   padding: 0 4px;
   border-radius: 6px;
   background-color: color-mix(in srgb, var(--cap-brown) 7%, transparent);
-  font-size: 13px;
 }
 
 /* The introduction has a word instead of a number, so it takes two cells
@@ -225,7 +234,7 @@
 .group-toggle:focus-visible,
 .book-row:focus-visible,
 .chapter-cell:focus-visible {
-  outline: 2px solid var(--cap-brown);
+  outline: 2px solid var(--study-focus);
   outline-offset: 2px;
 }
 
@@ -241,12 +250,6 @@
   color: #1a1a1a;
 }
 
-:host-context(.dark-theme) .group-toggle:focus-visible,
-:host-context(.dark-theme) .book-row:focus-visible,
-:host-context(.dark-theme) .chapter-cell:focus-visible {
-  outline-color: antiquewhite;
-}
-
 @media (hover: hover) {
   :host-context(.dark-theme) .group-toggle:hover,
   :host-context(.dark-theme) .book-row:hover,
@@ -257,4 +260,18 @@
 
 :host-context(.dark-theme) .book-filter-input:focus {
   border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* The columns' type scale (see --study-type-* in styles.css), one rule to a
+   step rather than a declaration to a selector: said once each, the three
+   sizes are easy to see whole, and the sheet stays within what the build
+   allows a component. */
+.sidebar-heading,
+.group-toggle,
+.book-count {
+  font-size: var(--study-type-label);
+}
+
+.book-row {
+  font-size: var(--study-type-reading);
 }

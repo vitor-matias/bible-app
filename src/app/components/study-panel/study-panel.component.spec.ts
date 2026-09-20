@@ -1058,6 +1058,35 @@ describe("StudyPanelComponent", () => {
       expect(component.activeVerse).toBe(39)
     })
 
+    it("stops following once the reader scrolls the panel themselves", fakeAsync(() => {
+      bibleRef.extract.and.returnValue([reference("mrk", 12, 31)])
+      const first = verse(34, [references("Mc 12,28")])
+      const second = verse(39, [references("Mc 12,31")])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [first, second] },
+        visibleVerse: 34,
+      })
+      tick(50)
+      const follow = spyOn(
+        component as unknown as { scrollActiveIntoView: () => void },
+        "scrollActiveIntoView",
+      ).and.callThrough()
+
+      // They are reading something in the panel; the text scrolling on under
+      // their other hand must not take it away from them.
+      fixture.nativeElement
+        .querySelector(".tab-body")
+        .dispatchEvent(new Event("wheel"))
+      setInputs({ visibleVerse: 39 })
+      expect(follow).not.toHaveBeenCalled()
+
+      // Picking a verse is asking the panel to look somewhere: it follows.
+      setInputs({ selection: { verse: second } })
+      expect(follow).toHaveBeenCalled()
+      tick(50)
+    }))
+
     it("marks the selected verse's group as the current one", () => {
       bibleRef.extract.and.returnValue([reference("mrk", 12, 31)])
       const target = verse(39, [references("Mc 12,31")])
@@ -1167,9 +1196,11 @@ describe("StudyPanelComponent", () => {
         .querySelectorAll(".tab")[1]
         .dispatchEvent(new MouseEvent("click"))
 
-      expect(
-        fixture.nativeElement.querySelector(".tab.active").textContent.trim(),
-      ).toBe("Notas de rodapé")
+      const active = fixture.nativeElement.querySelector(".tab.active")
+      // Short on the strip, so it fits on one line; whole to a screen reader,
+      // and the one contains the other so voice control finds it either way.
+      expect(active.textContent.trim()).toBe("Rodapé")
+      expect(active.getAttribute("aria-label")).toBe("Notas de rodapé")
       expect(fixture.nativeElement.querySelector(".tab-body").id).toBe(
         "study-tabpanel-footnotes",
       )

@@ -336,7 +336,7 @@
   border-top: 1px solid var(--study-rule);
   background-color: var(--study-surface);
   font-family: "PT Serif", serif;
-  font-size: 11px;
+  font-size: var(--study-type-label);
   letter-spacing: 0.04em;
   color: var(--study-muted);
 }
