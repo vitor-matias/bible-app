@@ -2,7 +2,8 @@
 <!-- mousedown is stopped so pressing a button does not collapse the very
      selection the button is about to act on. -->
 <div class="selection-bar" role="toolbar" aria-label="Ações sobre a seleção"
-  [style.top.px]="position.top" [style.left.px]="position.left"
+  [class.below]="position.below" [style.top.px]="position.top" [style.left.px]="position.left"
+  [style.--bar-origin-x.px]="position.originX"
   (mousedown)="$event.preventDefault()">
   @for (color of colors; track color) {
   <button type="button" class="mark-swatch" [attr.data-color]="color"

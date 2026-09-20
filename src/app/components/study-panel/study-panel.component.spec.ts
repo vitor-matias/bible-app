@@ -1317,6 +1317,58 @@ describe("StudyPanelComponent", () => {
     })
   })
 
+  describe("the follow-along scroll", () => {
+    let body: HTMLElement
+
+    beforeEach(() => {
+      body = document.createElement("div")
+      body.style.cssText = "height:100px;overflow:auto"
+      const content = document.createElement("div")
+      content.style.height = "4000px"
+      body.appendChild(content)
+      document.body.appendChild(body)
+    })
+
+    afterEach(() => body.remove())
+
+    it("arrives where it was sent", fakeAsync(() => {
+      component["glideTo"](body, 600)
+      tick(2000)
+
+      expect(body.scrollTop).toBe(600)
+      expect(component["glide"]).toBeUndefined()
+    }))
+
+    it("lets go the moment the reader scrolls the panel themselves", fakeAsync(() => {
+      component["glideTo"](body, 2000)
+      tick(100)
+      const taken = body.scrollTop
+      expect(taken).toBeGreaterThan(0)
+      expect(taken).toBeLessThan(2000)
+
+      body.dispatchEvent(new Event("wheel"))
+      tick(2000)
+
+      // It used to write its own position back on every frame until it had
+      // finished, whatever the reader did in the meantime.
+      expect(body.scrollTop).toBe(taken)
+    }))
+
+    it("bends towards a new target without stopping first", fakeAsync(() => {
+      component["glideTo"](body, 2000)
+      tick(150)
+      const speed = component["glide"]?.velocity ?? 0
+      expect(speed).toBeGreaterThan(0)
+
+      // The reading position moved on: same glide, new destination.
+      component["glideTo"](body, 2400)
+
+      expect(component["glide"]?.velocity).toBe(speed)
+      tick(3000)
+      expect(body.scrollTop).toBe(2400)
+    }))
+  })
+
   describe("what cites this verse", () => {
     it("offers to look rather than indexing the corpus unasked", () => {
       const reverse = TestBed.inject(ReverseReferencesService)

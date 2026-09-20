@@ -148,11 +148,20 @@ const SCROLL_MARGIN = 16
 
 /**
  * How the follow-along scroll is paced. Time per pixel travelled, bounded at
- * both ends: short moves must not crawl, long ones must not blur past.
+ * both ends: short moves must not crawl, long ones must not blur past. It is
+ * the spring's response rather than a duration — a critically damped spring
+ * has settled, to the eye, about one response after it set off.
  */
 const SCROLL_MS_PER_PIXEL = 0.7
 const MIN_SCROLL_MS = 260
 const MAX_SCROLL_MS = 700
+/** A frame that arrives late must not fling the spring past its target. */
+const MAX_FRAME_SECONDS = 1 / 30
+/** Close enough, and slow enough, to call the glide finished (px, px/s). */
+const REST_DISTANCE = 0.5
+const REST_VELOCITY = 4
+/** What the reader does to take the panel's scroll into their own hands. */
+const TAKEOVER_EVENTS = ["wheel", "touchstart", "pointerdown", "keydown"]
 
 /**
  * Study mode's right-hand apparatus: what the edition says about the chapter
@@ -239,6 +248,15 @@ export class StudyPanelComponent implements OnChanges {
   /** The entry the panel last scrolled to, so it does not scroll there again. */
   private scrolledAnchor?: Verse["number"]
   private scrollFrame?: number
+  /** The follow-along scroll in flight: where it is, and how fast. */
+  private glide?: {
+    body: HTMLElement
+    target: number
+    response: number
+    position: number
+    velocity: number
+  }
+  private readonly yielding = new WeakSet<HTMLElement>()
   private referenceRequests: Subscription[] = []
   private notesSubscription?: Subscription
   /**
@@ -279,7 +297,7 @@ export class StudyPanelComponent implements OnChanges {
       this.notesSubscription?.unsubscribe()
       this.noteSearchSubscription?.unsubscribe()
       this.searchSubscription?.unsubscribe()
-      if (this.scrollFrame !== undefined) cancelAnimationFrame(this.scrollFrame)
+      this.stopGlide()
       if (this.copiedTimer) clearTimeout(this.copiedTimer)
       this.cancelReferenceRequests()
     })
@@ -752,38 +770,107 @@ export class StudyPanelComponent implements OnChanges {
   /**
    * Scrolls the panel by hand rather than through `behavior: "smooth"`, whose
    * pace the browser chooses: a long jump between distant passages arrived
-   * too fast to follow. Here the duration grows with the distance, within
-   * bounds, so a short move stays brisk and a long one stays readable.
+   * too fast to follow. Here the pace grows with the distance, within bounds,
+   * so a short move stays brisk and a long one stays readable.
+   *
+   * It is a critically damped spring rather than a timed curve, for the one
+   * thing a timed curve cannot do: be given a new target while it is moving.
+   * The panel follows the reading position, so its target changes every few
+   * verses while the text scrolls; an ease-out restarted on each change sets
+   * off at full speed from a standstill every time, which read as a stutter.
+   * The spring keeps the speed it has and bends towards the new target.
    */
   private glideTo(body: HTMLElement, target: number): void {
-    if (this.scrollFrame !== undefined) cancelAnimationFrame(this.scrollFrame)
-
-    const from = body.scrollTop
-    const distance = target - from
-    if (Math.abs(distance) < 2) return
     if (StudyPanelComponent.prefersReducedMotion()) {
+      this.stopGlide()
       body.scrollTop = target
       return
     }
 
-    const duration = Math.min(
-      MAX_SCROLL_MS,
-      Math.max(MIN_SCROLL_MS, Math.abs(distance) * SCROLL_MS_PER_PIXEL),
-    )
-    const started = performance.now()
+    const running = this.glide?.body === body ? this.glide : undefined
+    const position = running?.position ?? body.scrollTop
+    const distance = Math.abs(target - position)
+    if (!running && distance < 2) return
+
+    const response =
+      Math.min(
+        MAX_SCROLL_MS,
+        Math.max(MIN_SCROLL_MS, distance * SCROLL_MS_PER_PIXEL),
+      ) / 1000
+
+    if (running) {
+      // Already moving: only where it is going changes.
+      running.target = target
+      running.response = response
+      return
+    }
+
+    this.yieldToReader(body)
+    this.glide = { body, target, response, position, velocity: 0 }
+    // Timed by the frames' own clock, from the first one: measured against
+    // any other, the first step can come out negative and throw the spring.
+    let last: number | undefined
     const step = (now: number) => {
-      const elapsed = Math.min(1, (now - started) / duration)
-      // Ease out: quick to set off, unhurried as it settles, which is what
-      // reads as following the reader rather than racing them.
-      const eased = 1 - (1 - elapsed) ** 3
-      body.scrollTop = from + distance * eased
-      if (elapsed < 1) {
-        this.scrollFrame = requestAnimationFrame(step)
-      } else {
-        this.scrollFrame = undefined
+      const glide = this.glide
+      if (!glide) return
+      // The reader moved it by some means the listeners did not see — the
+      // scrollbar, a find-in-page. It is theirs; writing the spring's own
+      // position back would pull it out of their hands.
+      if (Math.abs(glide.body.scrollTop - glide.position) > 2) {
+        this.stopGlide()
+        return
       }
+
+      const dt =
+        last === undefined
+          ? 1 / 60
+          : Math.min(MAX_FRAME_SECONDS, Math.max(0, (now - last) / 1000))
+      last = now
+      // The closed form of a critically damped spring over one frame, so a
+      // slow frame costs accuracy nowhere and cannot make it overshoot.
+      const omega = (2 * Math.PI) / glide.response
+      const offset = glide.position - glide.target
+      const drift = glide.velocity + omega * offset
+      const decay = Math.exp(-omega * dt)
+      glide.position = glide.target + (offset + drift * dt) * decay
+      glide.velocity = (drift - omega * (offset + drift * dt)) * decay
+
+      const atRest =
+        Math.abs(glide.position - glide.target) < REST_DISTANCE &&
+        Math.abs(glide.velocity) < REST_VELOCITY
+      if (atRest) glide.position = glide.target
+      glide.body.scrollTop = glide.position
+      // What the element accepted, not what was asked of it: it rounds, and
+      // it stops at its ends, and the takeover check above compares to this.
+      if (atRest || Math.abs(glide.body.scrollTop - glide.position) > 1) {
+        this.stopGlide()
+        return
+      }
+      this.scrollFrame = requestAnimationFrame(step)
     }
     this.scrollFrame = requestAnimationFrame(step)
+  }
+
+  private stopGlide(): void {
+    if (this.scrollFrame !== undefined) cancelAnimationFrame(this.scrollFrame)
+    this.scrollFrame = undefined
+    this.glide = undefined
+  }
+
+  /**
+   * The glide gives way the moment the reader reaches for the panel. Without
+   * this it wrote its own position over theirs on every frame, so a wheel
+   * turn in the middle of a glide did nothing until the glide had finished.
+   *
+   * Native and passive rather than template bindings: a wheel event per
+   * frame has no business running change detection.
+   */
+  private yieldToReader(body: HTMLElement): void {
+    if (this.yielding.has(body)) return
+    this.yielding.add(body)
+    for (const name of TAKEOVER_EVENTS) {
+      body.addEventListener(name, () => this.stopGlide(), { passive: true })
+    }
   }
 
   /** Readers who ask for less motion get the jump, not the glide. */

@@ -461,3 +461,64 @@ body .mat-mdc-form-field {
 .dark-theme .study-quiet-button:focus-visible {
   background-color: rgba(255, 255, 255, 0.1);
 }
+
+/* Press feedback, for every control study mode draws itself. These are plain
+   buttons, with none of the ripple a Material one answers a press with, so
+   until now the first thing a press showed was its result — and where that
+   takes a moment (a chapter to fetch, an index to build) the control looked
+   like it had not been pressed at all. The answer comes on the way down, not
+   on release.
+
+   Small, round or square controls give under the finger; a row the width of
+   its column would look like the column flinching, so it darkens instead. */
+.study-quiet-button,
+.collapse-toggle,
+.bar-action,
+.mark-swatch,
+.chapter-cell,
+.verse-action {
+  transition: transform 100ms ease-out;
+}
+
+.study-quiet-button:active,
+.collapse-toggle:active,
+.bar-action:active,
+.mark-swatch:active,
+.chapter-cell:active,
+.verse-action:active {
+  transform: scale(0.94);
+}
+
+.tab-strip .tab:active,
+.group-toggle:active,
+.book-row:active {
+  background-color: rgba(84, 61, 39, 0.16);
+}
+
+.dark-theme .tab-strip .tab:active,
+.dark-theme .group-toggle:active,
+.dark-theme .book-row:active {
+  background-color: rgba(255, 255, 255, 0.16);
+}
+
+/* Less motion is not less feedback: the press still answers, by dimming. */
+@media (prefers-reduced-motion: reduce) {
+  .study-quiet-button,
+  .collapse-toggle,
+  .bar-action,
+  .mark-swatch,
+  .chapter-cell,
+  .verse-action {
+    transition: none;
+  }
+
+  .study-quiet-button:active,
+  .collapse-toggle:active,
+  .bar-action:active,
+  .mark-swatch:active,
+  .chapter-cell:active,
+  .verse-action:active {
+    transform: none;
+    opacity: 0.6;
+  }
+}

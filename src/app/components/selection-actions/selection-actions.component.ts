@@ -17,7 +17,14 @@ import {
 import { formatPassage } from "../../utils/text"
 
 /** Where the bar sits, in viewport coordinates. */
-type BarPosition = { top: number; left: number }
+type BarPosition = {
+  top: number
+  left: number
+  /** Set under the selection, for want of room above it. */
+  below: boolean
+  /** Where the selection's middle is, across the bar, for it to grow from. */
+  originX: number
+}
 
 /** Keeps the bar from being pushed off either edge on a narrow window. */
 const EDGE_MARGIN = 8
@@ -254,16 +261,16 @@ export class SelectionActionsComponent {
 
   /** Above the selection, nudged back on screen at the edges. */
   private static place(rect: DOMRect): BarPosition {
-    const top =
-      rect.top > BAR_HEIGHT + EDGE_MARGIN
-        ? rect.top - BAR_HEIGHT
-        : rect.bottom + EDGE_MARGIN
+    const below = rect.top <= BAR_HEIGHT + EDGE_MARGIN
+    const top = below ? rect.bottom + EDGE_MARGIN : rect.top - BAR_HEIGHT
     const wanted = rect.left + rect.width / 2 - BAR_WIDTH / 2
     const left = Math.min(
       Math.max(EDGE_MARGIN, wanted),
       window.innerWidth - BAR_WIDTH - EDGE_MARGIN,
     )
-    return { top, left }
+    const middle = rect.left + rect.width / 2
+    const originX = Math.min(BAR_WIDTH, Math.max(0, middle - left))
+    return { top, left, below, originX }
   }
 
   /** "22,37" or "22,37-39" — what the selection covers. */

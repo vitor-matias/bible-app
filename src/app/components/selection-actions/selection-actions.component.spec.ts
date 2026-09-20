@@ -263,6 +263,20 @@ describe("SelectionActionsComponent", () => {
     expect(written[0]).toContain("(Mateus 22,37)")
   })
 
+  it("grows from the side of the bar that faces the selection", () => {
+    const place = SelectionActionsComponent["place"]
+    const rect = (top: number) =>
+      ({ top, bottom: top + 20, left: 300, width: 100, height: 20 }) as DOMRect
+
+    // Room above: the bar sits over the words and grows up out of them.
+    expect(place(rect(400)).below).toBeFalse()
+    // None: it goes underneath, and has to grow downwards instead.
+    expect(place(rect(10)).below).toBeTrue()
+    // Across the bar, the origin is over the middle of the selection.
+    const placed = place(rect(400))
+    expect(placed.left + placed.originX).toBe(350)
+  })
+
   it("ignores a selection that touches no verse", () => {
     const stray = document.createElement("p")
     stray.textContent = "fora do texto"
