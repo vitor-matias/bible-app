@@ -110,6 +110,12 @@
       }
       @case ('unavailable') {
       <p class="panel-empty small">Precisa do texto offline. Instale a app para o descarregar.</p>
+      <!-- The text may still have been downloading when the reader asked:
+           without a way to ask again, this stood until the page reloaded. -->
+      <button type="button" class="verse-action" (click)="showIncoming()">
+        <mat-icon>refresh</mat-icon>
+        Procurar de novo
+      </button>
       }
       @default {
       <button type="button" class="verse-action" (click)="showIncoming()">

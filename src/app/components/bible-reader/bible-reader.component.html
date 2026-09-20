@@ -95,11 +95,14 @@
           @if (parallel.chapter) {
           <div class="bookBlock study-text">
             @for (verse of parallel.chapter.verses; track verse; let i = $index) {
-            <!-- No verseSelected binding: the panel follows the chapter being
-                 read, not the one being compared with it. -->
+            <!-- Not in study mode: the panel follows the chapter being read,
+                 not the one being compared with it, so these verses are not
+                 selectors. Set as one, their numbers were buttons that did
+                 nothing and their footnote markers opened nothing; left as
+                 the plain reader sets them, a marker opens the sheet. -->
             <verse [id]="'parallel-' + verse.number" class="verse" [data]="verse"
-              [nextVerseStartsWithQuote]="parallelNextStartsWithQuote(i)" [studyMode]="true"
-              [selected]="isCitedVerse(verse)"></verse>
+              [nextVerseStartsWithQuote]="parallelNextStartsWithQuote(i)"
+              [isQuotation]="isParallelQuotationVerse(verse)" [selected]="isCitedVerse(verse)"></verse>
             }
           </div>
           } @else if (parallel.failed) {

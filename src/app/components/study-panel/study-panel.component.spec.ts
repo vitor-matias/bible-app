@@ -158,6 +158,35 @@ describe("StudyPanelComponent", () => {
   })
 
   describe("references", () => {
+    it("does not list a citation of a book it cannot resolve", () => {
+      // findBook answers with the About page for a name it does not know —
+      // the orphaned "Rs" a mis-split "2 Rs 25" leaves behind, say.
+      const books = TestBed.inject(BookService) as jasmine.SpyObj<BookService>
+      books.findBook.and.callFake((id: string) =>
+        id === "Rs" ? ({ ...BOOK, id: "about" } as Book) : MARK,
+      )
+      bibleRef.extract.and.returnValue([
+        reference("Rs", 25, 1, 2),
+        reference("mrk", 12, 28, 34),
+      ])
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 22,
+          verses: [
+            verse(34, [plain("Texto"), references("Rs 25,1-2; Mc 12,28-34")]),
+          ],
+        },
+      })
+
+      const labels = component.referenceGroups.flatMap((group) =>
+        group.entries.map((entry) => entry.label),
+      )
+      expect(labels).toEqual(["Marcos 12,28-34"])
+      expect(api.getChapter).not.toHaveBeenCalledWith("about", 25)
+    })
+
     it("groups references under the passage they open, not the verse before it", () => {
       bibleRef.extract.and.callFake((text: string) =>
         text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
@@ -1320,6 +1349,34 @@ describe("StudyPanelComponent", () => {
     })
   })
 
+  describe("what cites this verse, without the offline text", () => {
+    it("lets the reader ask again once the text may have arrived", async () => {
+      const reverse = TestBed.inject(ReverseReferencesService)
+      const state = spyOnProperty(reverse, "state").and.returnValue(
+        "unavailable",
+      )
+      const build = spyOn(reverse, "ensureIndex").and.resolveTo()
+      const target = verse(37, [plain("Amarás ao Senhor")])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+
+      const retry = fixture.nativeElement.querySelector(
+        ".incoming .verse-action",
+      ) as HTMLButtonElement
+      expect(retry).toBeTruthy()
+
+      state.and.returnValue("ready")
+      retry.click()
+      await fixture.whenStable()
+
+      expect(build).toHaveBeenCalled()
+      expect(component.incomingState).toBe("ready")
+    })
+  })
+
   describe("notes", () => {
     it("loads the note already written for the selected verse", () => {
       notes.saveNote("mat", 22, 39, "escrita antes")
@@ -1346,6 +1403,28 @@ describe("StudyPanelComponent", () => {
 
       tick(500)
       expect(notes.getNote("mat", 22, 39)?.text).toBe("a minha nota")
+    }))
+
+    it("files a pending save under the book it was typed in", fakeAsync(() => {
+      const target = verse(39, [])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+      component.onNoteInput("sobre Mateus")
+
+      // The reader follows a reference into another book before the save.
+      const other = verse(39, [])
+      setInputs({
+        book: { ...BOOK, id: "luk" },
+        chapter: { bookId: "luk", number: 22, verses: [other] },
+        selection: null,
+      })
+      tick(500)
+
+      expect(notes.getNote("mat", 22, 39)?.text).toBe("sobre Mateus")
+      expect(notes.getNote("luk", 22, 39)).toBeUndefined()
     }))
 
     it("saves immediately when the reader leaves the box", () => {

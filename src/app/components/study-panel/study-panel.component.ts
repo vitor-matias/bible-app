@@ -242,12 +242,16 @@ export class StudyPanelComponent implements OnChanges {
   private referenceRequests: Subscription[] = []
   private notesSubscription?: Subscription
   /**
-   * Queued note saves carry the verse they were typed for. The reader can
-   * select another verse inside the debounce window, and resolving the
-   * target when the save fires would file the note under whichever verse
-   * happened to be selected by then.
+   * Queued note saves carry the book and verse they were typed for. The
+   * reader can select another verse, or follow a reference into another
+   * book, inside the debounce window, and resolving the target when the save
+   * fires would file the note under whatever happened to be open by then.
    */
-  private readonly noteInput = new Subject<{ target: Verse; text: string }>()
+  private readonly noteInput = new Subject<{
+    bookId: Book["id"]
+    target: Verse
+    text: string
+  }>()
   private readonly noteSearch = new Subject<string>()
   private noteSearchSubscription?: Subscription
   private searchSubscription?: Subscription
@@ -256,7 +260,9 @@ export class StudyPanelComponent implements OnChanges {
   constructor() {
     this.noteInput
       .pipe(debounceTime(NOTE_SAVE_DEBOUNCE_MS), takeUntilDestroyed())
-      .subscribe(({ target, text }) => this.persistNote(target, text))
+      .subscribe(({ bookId, target, text }) =>
+        this.persistNote(bookId, target, text),
+      )
     // Registered once, not per chapter: onDestroy callbacks accumulate, and
     // the reader changes chapter far more often than it destroys the panel.
     this.noteSearch
@@ -362,13 +368,17 @@ export class StudyPanelComponent implements OnChanges {
   onNoteInput(value: string): void {
     this.noteDraft = value
     const target = this.selectedVerse
-    if (target) this.noteInput.next({ target, text: value })
+    if (target && this.book) {
+      this.noteInput.next({ bookId: this.book.id, target, text: value })
+    }
   }
 
   /** Leaving the box saves immediately rather than waiting out the debounce. */
   onNoteBlur(): void {
     const target = this.selectedVerse
-    if (target) this.persistNote(target, this.noteDraft)
+    if (target && this.book) {
+      this.persistNote(this.book.id, target, this.noteDraft)
+    }
   }
 
   /** The verse the panel is following: the chosen one, else the one on screen. */
@@ -640,14 +650,8 @@ export class StudyPanelComponent implements OnChanges {
     }
   }
 
-  private persistNote(verse: Verse, text: string): void {
-    if (!this.book) return
-    this.notesService.saveNote(
-      this.book.id,
-      verse.chapterNumber,
-      verse.number,
-      text,
-    )
+  private persistNote(bookId: Book["id"], verse: Verse, text: string): void {
+    this.notesService.saveNote(bookId, verse.chapterNumber, verse.number, text)
   }
 
   private loadNoteDraft(): void {
@@ -906,6 +910,10 @@ export class StudyPanelComponent implements OnChanges {
         // range has named it.
         let division: string | undefined
         for (const [position, reference] of extracted.entries()) {
+          // findBook falls back to the About page for anything it cannot
+          // resolve; listed, that was an "About 25" entry fetching a chapter
+          // of the About page. A parse artefact is not a passage.
+          if (this.bookService.findBook(reference.book).id === "about") continue
           const entry = this.toEntry(reference)
           // A block under a major heading opens with the range that heading
           // covers, and may go on to a passage worth reading beside it:

@@ -31,6 +31,18 @@ describe("NotesService", () => {
     expect(makeService().getNote("mat", 22, 39)?.text).toBe("guardado")
   })
 
+  it("does not count saving the same text again as an edit", () => {
+    const service = makeService()
+    jasmine.clock().install()
+    jasmine.clock().mockDate(new Date(1000))
+    service.saveNote("mat", 22, 39, "igual")
+    jasmine.clock().mockDate(new Date(5000))
+    service.saveNote("mat", 22, 39, "igual ")
+    jasmine.clock().uninstall()
+
+    expect(service.getNote("mat", 22, 39)?.updatedAt).toBe(1000)
+  })
+
   it("trims what it stores", () => {
     const service = makeService()
     service.saveNote("mat", 22, 39, "   com espaços   ")

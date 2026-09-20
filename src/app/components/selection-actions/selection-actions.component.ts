@@ -26,6 +26,17 @@ const BAR_WIDTH = 210
 const BAR_HEIGHT = 44
 
 /**
+ * What the page prints around the words without being the words: numbers,
+ * footnote markers, headings, the cross references set inline. None of it
+ * belongs in a quotation, and none of it makes a verse "selected".
+ */
+const APPARATUS =
+  ".verseNumber, .footnoteIndicator, .quoteVerseNumber, .chapterNumber, " +
+  ".references, h3, verse-section"
+/** The passage study mode opens beside the chapter. */
+const PARALLEL = ".study-parallel"
+
+/**
  * Actions on whatever the reader has selected: mark it, or copy it.
  *
  * Built on the browser's own text selection rather than on tapping a verse,
@@ -97,10 +108,10 @@ export class SelectionActionsComponent {
       return
     }
 
-    const range = selection.getRangeAt(0)
-    const verses = SelectionActionsComponent.versesIn(range)
-    const text = SelectionActionsComponent.textFrom(range)
-    if (!verses.length || !text) {
+    const range = SelectionActionsComponent.clipToBlock(selection.getRangeAt(0))
+    const verses = range ? SelectionActionsComponent.versesIn(range) : []
+    const text = range ? SelectionActionsComponent.textFrom(range) : ""
+    if (!range || !verses.length || !text) {
       this.hide()
       return
     }
@@ -111,6 +122,10 @@ export class SelectionActionsComponent {
       return
     }
 
+    // A new selection made while the last one still says "copied" is not
+    // copied, and the timer that was going to dismiss the old one must not
+    // dismiss this one instead.
+    if (text !== this.selectedText) this.resetCopied()
     this.verses = verses
     this.selectedText = text
     this.position = SelectionActionsComponent.place(rect)
@@ -122,8 +137,14 @@ export class SelectionActionsComponent {
     this.position = null
     this.verses = []
     this.selectedText = ""
-    this.copied = false
+    this.resetCopied()
     this.cdr.detectChanges()
+  }
+
+  private resetCopied(): void {
+    this.copied = false
+    if (this.copiedTimer) clearTimeout(this.copiedTimer)
+    this.copiedTimer = undefined
   }
 
   /**
@@ -138,11 +159,7 @@ export class SelectionActionsComponent {
    */
   private static textFrom(range: Range): string {
     const fragment = range.cloneContents()
-    for (const apparatus of Array.from(
-      fragment.querySelectorAll(
-        ".verseNumber, .footnoteIndicator, .quoteVerseNumber",
-      ),
-    )) {
+    for (const apparatus of Array.from(fragment.querySelectorAll(APPARATUS))) {
       apparatus.remove()
     }
 
@@ -159,33 +176,80 @@ export class SelectionActionsComponent {
       .trim()
   }
 
-  /** The verse numbers a range touches, read off the elements it crosses. */
+  /**
+   * The verses a range takes words from, read off the elements it crosses.
+   *
+   * Touching a verse is not enough: the space between two verses belongs to
+   * the second one, so a selection that runs a character past the end of
+   * verse 37 touches verse 38 without taking a word of it.
+   */
   private static versesIn(range: Range): Verse["number"][] {
     const root = SelectionActionsComponent.blockFor(range)
     if (!root) return []
     return (
       Array.from(root.querySelectorAll("verse"))
-        .filter((element) => range.intersectsNode(element))
+        .filter((element) =>
+          SelectionActionsComponent.takesWordsOf(range, element),
+        )
         .map((element) => Number(element.id))
         // Verse 0 is the chapter's front matter, not a verse to mark.
         .filter((number) => Number.isFinite(number) && number > 0)
     )
   }
 
+  private static takesWordsOf(range: Range, verse: Element): boolean {
+    if (!range.intersectsNode(verse)) return false
+    const within = range.cloneRange()
+    const whole = document.createRange()
+    whole.selectNodeContents(verse)
+    if (within.compareBoundaryPoints(Range.START_TO_START, whole) < 0) {
+      within.setStart(whole.startContainer, whole.startOffset)
+    }
+    if (within.compareBoundaryPoints(Range.END_TO_END, whole) > 0) {
+      within.setEnd(whole.endContainer, whole.endOffset)
+    }
+    return SelectionActionsComponent.textFrom(within).length > 0
+  }
+
   /**
-   * The reading block the selection is in.
+   * The chapter's reading block, when the selection is in it.
    *
-   * Study mode renders two — the chapter and whatever is open beside it — so
-   * the first block on the page is not necessarily the one being read from.
-   * Taking it would leave a selection in the parallel crossing no verses at
-   * all, and the bar would hide instead of offering to mark or copy it.
+   * The bar marks and cites with the book and chapter being read, so the
+   * passage open beside it in study mode is not its business: a selection
+   * there would be marked, and cited, as the same verses of another book.
+   * A selection that starts outside any block — select-all — is read against
+   * the chapter.
    */
   private static blockFor(range: Range): Element | null {
     const node = range.startContainer
     const element = node instanceof Element ? node : node.parentElement
+    const block = element?.closest(".bookBlock")
+    if (block) return block.closest(PARALLEL) ? null : block
     return (
-      element?.closest(".bookBlock") ?? document.querySelector(".bookBlock")
+      Array.from(document.querySelectorAll(".bookBlock")).find(
+        (candidate) => !candidate.closest(PARALLEL),
+      ) ?? null
     )
+  }
+
+  /**
+   * The part of a range that lies in the reading block: a drag that runs off
+   * the last verse, or select-all, would otherwise quote the page's footer
+   * and chrome along with the passage.
+   */
+  private static clipToBlock(range: Range): Range | null {
+    const block = SelectionActionsComponent.blockFor(range)
+    if (!block || !range.intersectsNode(block)) return null
+    const clipped = range.cloneRange()
+    const whole = document.createRange()
+    whole.selectNodeContents(block)
+    if (clipped.compareBoundaryPoints(Range.START_TO_START, whole) < 0) {
+      clipped.setStart(whole.startContainer, whole.startOffset)
+    }
+    if (clipped.compareBoundaryPoints(Range.END_TO_END, whole) > 0) {
+      clipped.setEnd(whole.endContainer, whole.endOffset)
+    }
+    return clipped
   }
 
   /** Above the selection, nudged back on screen at the edges. */

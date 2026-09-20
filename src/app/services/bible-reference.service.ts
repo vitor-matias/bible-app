@@ -113,8 +113,11 @@ export class BibleReferenceService {
       String.raw`(?:\s*[-\u2010-\u2015\u2212]\s*(?:(?<endCh>\d+)\s*(?:[:.]|,(?!\s))\s*(?<endV>\d+(?:[a-c])?)|(?<v2>\d+(?:[a-c])?)))?` +
       // Whole chapters, no verse named on either side: "Jb 38-39". Only when
       // no verse follows the second number, so "Jb 38,1-39,30" still parses
-      // as the verse range it is, through the branch above.
+      // as the verse range it is, through the branch above — and only when
+      // the number is not the front of the next book, so "1 Sm 31 - 2 Sm 1"
+      // stays two references instead of "1 Sm 31-2" and an orphaned "Sm 1".
       String.raw`|\s*[-\u2010-\u2015\u2212]\s*(?<endChapterOnly>\d+)(?!\s*(?:[:.]|,(?!\s))\s*\d)` +
+      String.raw`(?!\s*(?:${this.bookAlternation})\s+\d)` +
       String.raw`)?\b`
 
     this.explicitRe = new RegExp(pattern, "gi")

@@ -230,6 +230,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   selection: VerseSelection | null = null
   /** Verses of this chapter whose poetry is quoted from somewhere else. */
   private quotationVerses = new Set<Verse["number"]>()
+  private parallelQuotationVerses = new Set<Verse["number"]>()
   /** Where the reader has been this session, most recent last. */
   trail: TrailEntry[] = []
   /** The reader's marks in this chapter, by verse number. */
@@ -473,6 +474,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         ) {
           if (verseStartParam !== undefined) {
             this.scrollToVerse(verseStartParam, verseEndParam, highlight)
+            // A reference within the chapter — the panel's "v.12" — moves
+            // the reader, so the panel has to move with them as it does
+            // when the link leads to another chapter.
+            this.selectVerseNumber(verseStartParam)
           }
           return
         }
@@ -997,12 +1002,16 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck()
   }
 
+  // The fold controls are plain buttons: nothing follows the click to flush
+  // the coalesced change detection, so these render what they changed.
   toggleStudySidebar(): void {
     this.setStudySidebarCollapsed(!this.studySidebarCollapsed)
+    this.cdr.detectChanges()
   }
 
   toggleStudyPanel(): void {
     this.setStudyPanelCollapsed(!this.studyPanelCollapsed)
+    this.cdr.detectChanges()
   }
 
   private setStudySidebarCollapsed(collapsed: boolean): void {
@@ -1049,7 +1058,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   resetTrail(): void {
     this.readingTrail.clear()
     this.recordTrail()
-    this.cdr.markForCheck()
+    // A plain button again, as with the fold controls above.
+    this.cdr.detectChanges()
   }
 
   /** Points the study panel at a verse the reader arrived on via a link. */
@@ -1070,6 +1080,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // had a text field: an arrow key inside either is the reader moving the
     // caret, not asking for the next chapter.
     if (BibleReaderComponent.isTextEntry(event.target)) return
+    // A control that has its own use for the key — a column divider, the
+    // panel's tab strip — has already taken it by the time it bubbles here.
+    if (event.defaultPrevented) return
     // Escape lets go of the selected verse, the way it dismisses anything
     // else the reader has opened.
     if (event.key === "Escape" && this.selection) {
@@ -1117,11 +1130,18 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
    *   what leaves the psalms — poetry from their first verse — upright.
    */
   private markQuotationVerses(): void {
-    const verses = this.chapter?.verses ?? []
+    this.quotationVerses = BibleReaderComponent.quotationVersesOf(
+      this.chapter?.verses,
+    )
+  }
+
+  private static quotationVersesOf(
+    verses: Verse[] | undefined,
+  ): Set<Verse["number"]> {
     const marked = new Set<Verse["number"]>()
     let inQuotation = false
 
-    verses.forEach((verse, index) => {
+    ;(verses ?? []).forEach((verse, index) => {
       // A verse arriving without its text — a partial response, a cached
       // stub — simply has no poetry to classify.
       const parts = verse.text ?? []
@@ -1140,12 +1160,35 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
       if (first && first.type !== "quote") {
         // Prose leads this verse: it introduces a quotation, or it ends one.
-        inQuotation = hasQuote || this.checkIfNextVerseStartsWithQuote(index)
+        inQuotation =
+          (hasQuote ||
+            BibleReaderComponent.startsWithQuote(verses, index + 1)) &&
+          BibleReaderComponent.introducesQuotation(parts)
       }
       if (inQuotation && hasQuote) marked.add(verse.number)
     })
 
-    this.quotationVerses = marked
+    return marked
+  }
+
+  /**
+   * Whether the prose ahead of a verse's poetry hands over to it, which this
+   * edition does with a colon: "Jesus disse-lhe:", "…dizendo:". Prose that
+   * simply stops is something else standing before verse — the superscription
+   * of a prophet ("Visão de Isaías… reis de Judá.") — and reading that as an
+   * introduction set the whole of Isaiah 1 in italics, since every verse
+   * after it opens on poetry and so continues what came before.
+   */
+  private static introducesQuotation(parts: TextType[]): boolean {
+    const firstQuote = parts.findIndex(
+      (part) => part.type === "quote" && !VerseComponent.isBlank(part),
+    )
+    const before = firstQuote === -1 ? parts : parts.slice(0, firstQuote)
+    const lead = before
+      .filter((part) => part.type === "text" || part.type === "paragraph")
+      .map((part) => part.text)
+      .join("")
+    return /:[\s\u200b"'«»“”‘’]*$/.test(lead)
   }
 
   highlightFor(verse: Verse): HighlightColor | undefined {
@@ -1187,6 +1230,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   isQuotationVerse(verse: Verse): boolean {
     return this.quotationVerses.has(verse.number)
+  }
+
+  /** The same question, asked of the passage open beside the chapter. */
+  isParallelQuotationVerse(verse: Verse): boolean {
+    return this.parallelQuotationVerses.has(verse.number)
   }
 
   checkIfNextVerseStartsWithQuote(index: number): boolean {
@@ -1254,6 +1302,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   ): void {
     if (this.parallel?.key !== request.key) return
     this.parallel = { ...this.parallel, ...outcome }
+    this.parallelQuotationVerses = BibleReaderComponent.quotationVersesOf(
+      outcome.chapter?.verses,
+    )
     this.cdr.detectChanges()
     if (outcome.chapter) this.scrollParallelToCitation()
   }

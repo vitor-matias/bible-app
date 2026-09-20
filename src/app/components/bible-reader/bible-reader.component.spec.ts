@@ -544,6 +544,20 @@ describe("BibleReaderComponent", () => {
       })
     })
 
+    it("leaves an arrow key to the control that already used it", () => {
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowRight",
+        cancelable: true,
+      })
+      Object.defineProperty(event, "target", { value: document.body })
+      // What a column divider or the panel's tab strip does with the key.
+      event.preventDefault()
+
+      component.onArrowPress(event)
+
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
+    })
+
     describe("checkIfNextVerseStartsWithQuote", () => {
       it("should return false if chapter or verses missing", () => {
         component.chapter = undefined as unknown as Chapter
@@ -674,6 +688,30 @@ describe("BibleReaderComponent", () => {
 
       expect(component.isQuotationVerse(verses[1])).toBeTrue()
       expect(component.isQuotationVerse(verses[2])).toBeFalse()
+    })
+
+    it("does not read a prophet's superscription as introducing a quotation", () => {
+      // Isaiah 1: a prose title, then a chapter of poetry. Every verse after
+      // the title opens on poetry and so continues what came before — which
+      // set all of it in italics while Isaiah 2 stayed upright.
+      const verses = [
+        verse(1, [prose("Visão de Isaías, filho de Amós, reis de Judá.")]),
+        verse(2, [quote("Ouvi, ó céus, escuta, ó terra,")]),
+        verse(3, [quote("O boi conhece o seu dono,")]),
+      ]
+      load(verses)
+
+      expect(component.isQuotationVerse(verses[1])).toBeFalse()
+      expect(component.isQuotationVerse(verses[2])).toBeFalse()
+    })
+
+    it("reads the colon through a closing quotation mark", () => {
+      const verses = [
+        verse(5, [prose("e disse: «Está escrito:» "), quote("Nem só de pão")]),
+      ]
+      load(verses)
+
+      expect(component.isQuotationVerse(verses[0])).toBeTrue()
     })
 
     it("leaves a book written in verse unmarked", () => {
@@ -968,6 +1006,41 @@ describe("BibleReaderComponent", () => {
 
       expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("job", 38)
       expect(component.parallel?.chapter).toBe(jobChapter as unknown as Chapter)
+    })
+
+    it("sets the passage as plain reading text, not as verse selectors", () => {
+      // Nothing listens for a selection made in the parallel, so a verse set
+      // as a selector there had a number that was a button doing nothing and
+      // a footnote marker that opened nothing.
+      const verses = [
+        {
+          bookId: "job",
+          chapterNumber: 38,
+          number: 4,
+          verseLabel: "4",
+          text: [
+            { type: "text", text: "Onde estavas tu:" },
+            { type: "quote", text: "quando lancei", identLevel: 1 },
+            { type: "footnote", text: "nota", reference: "38,4" },
+          ],
+        },
+      ]
+      apiServiceSpy.getChapter.and.returnValue(
+        of({ bookId: "job", number: 38, verses } as unknown as Chapter),
+      )
+
+      component.onOpenBeside(request)
+      fixture.detectChanges()
+
+      // Children are stubbed out here, so the bindings are read off the
+      // element the reader hands them to.
+      const verse = fixture.nativeElement.querySelector(
+        ".study-parallel verse",
+      ) as HTMLElement & { studyMode?: boolean; isQuotation?: boolean }
+      expect(verse).toBeTruthy()
+      expect(verse.studyMode).toBeFalsy()
+      // Set like the chapter beside it: a quotation is italic in both.
+      expect(verse.isQuotation).toBeTrue()
     })
 
     it("names the passage before its text arrives", () => {
@@ -1371,6 +1444,23 @@ describe("BibleReaderComponent", () => {
       component.viewMode = "paged"
 
       expect(component.effectiveViewMode).toBe("paged")
+    })
+
+    it("selects the verse a link within the same chapter points at", () => {
+      studyMode.activate()
+      const verses = [{ number: 1 } as Verse, { number: 12 } as Verse]
+      apiServiceSpy.getChapter.and.returnValue(
+        of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
+      )
+      component.getChapter(1, 1)
+      expect(component.selection?.verse.number).toBe(1)
+
+      // The panel's "v.12": same book, same chapter, only the verse moves.
+      ;(
+        routeMock as { queryParamMap: BehaviorSubject<Map<string, string>> }
+      ).queryParamMap.next(new Map([["verseStart", "12"]]))
+
+      expect(component.selection?.verse.number).toBe(12)
     })
 
     it("selects the verse a deep link points at", () => {

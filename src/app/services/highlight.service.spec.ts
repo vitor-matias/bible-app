@@ -127,4 +127,54 @@ describe("HighlightService", () => {
 
     expect(makeService().colorFor("mat", 22, 37)).toBeUndefined()
   })
+
+  it("keeps every mark of the session when storage refuses all writes", () => {
+    // A privacy-mode browser: the probe write throws, so there is no storage.
+    spyOn(Storage.prototype, "setItem").and.throwError("denied")
+    const service = makeService()
+
+    service.toggle("mat", 22, 37, "yellow")
+    service.toggle("mat", 22, 38, "green")
+    expect(service.colorFor("mat", 22, 37)).toBe("yellow")
+    expect(service.colorFor("mat", 22, 38)).toBe("green")
+
+    // Clearing one mark must not take the rest with it.
+    service.clear("mat", 22, 38)
+    expect(service.colorFor("mat", 22, 37)).toBe("yellow")
+  })
+
+  it("keeps a mark whose write hit the quota when the next one is made", () => {
+    const service = makeService()
+    service.toggle("mat", 22, 36, "blue")
+
+    const setItem = Storage.prototype.setItem
+    spyOn(Storage.prototype, "setItem").and.callFake(function (
+      this: Storage,
+      key: string,
+      value: string,
+    ) {
+      if (key === STORAGE_KEY) throw new Error("QuotaExceededError")
+      setItem.call(this, key, value)
+    })
+
+    service.toggle("mat", 22, 37, "yellow")
+    service.toggle("mat", 22, 38, "green")
+
+    expect(service.colorFor("mat", 22, 36)).toBe("blue")
+    expect(service.colorFor("mat", 22, 37)).toBe("yellow")
+    expect(service.colorFor("mat", 22, 38)).toBe("green")
+  })
+
+  it("follows a mark made in another tab", () => {
+    const service = makeService()
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify([
+        { bookId: "mat", chapter: 22, verse: 37, color: "pink", updatedAt: 1 },
+      ]),
+    )
+    window.dispatchEvent(new StorageEvent("storage", { key: STORAGE_KEY }))
+
+    expect(service.colorFor("mat", 22, 37)).toBe("pink")
+  })
 })

@@ -129,19 +129,86 @@ describe("SelectionActionsComponent", () => {
     expect(component.position).toBeNull()
   })
 
-  it("reads the verses of the block the selection is in", () => {
-    // Study mode renders the chapter and a passage beside it, so there are
-    // two blocks on the page. A selection in the second one used to cross no
-    // verses at all, and the bar hid rather than offering to mark it.
-    const parallel = renderVerses([12, 13])
-    parallel.querySelectorAll("verse").forEach((verse, index) => {
-      verse.id = String([12, 13][index])
+  it("leaves a selection in the passage open beside the chapter alone", () => {
+    // The parallel as the reader renders it: its own block, inside the
+    // aside, with prefixed ids. The bar marks and cites with the chapter
+    // being read, so offering itself here would mark Matthew for a selection
+    // made in Job.
+    const aside = document.createElement("aside")
+    aside.className = "study-parallel"
+    const parallel = renderVerses([37, 38])
+    parallel.querySelectorAll("verse").forEach((verse) => {
+      verse.id = `parallel-${verse.id}`
+    })
+    aside.appendChild(parallel)
+    document.body.appendChild(aside)
+
+    const range = document.createRange()
+    range.selectNodeContents(parallel)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+    component["sync"]()
+
+    expect(component.position).toBeNull()
+    aside.remove()
+  })
+
+  it("does not count a verse the selection only brushes", () => {
+    // The space between two verses belongs to the second: a drag that runs a
+    // character past the end of 37 touches 38 without taking a word of it.
+    host.innerHTML = ""
+    for (const number of [37, 38]) {
+      const verse = document.createElement("verse")
+      verse.id = String(number)
+      verse.innerHTML =
+        '<span class="verseText verseRun verseGap"> </span>' +
+        `<span class="verseNumber">${number}</span>` +
+        `<span class="verseRun">Palavras do ${number}.</span>`
+      host.appendChild(verse)
+    }
+    const next = host.querySelector('verse[id="38"]') as Element
+    const range = document.createRange()
+    range.setStart(host.querySelector('verse[id="37"]') as Node, 0)
+    range.setEnd(next.querySelector(".verseGap")?.firstChild as Node, 1)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+    component["sync"]()
+
+    expect(component["verses"]).toEqual([37])
+  })
+
+  it("keeps to the chapter when the selection runs past it", async () => {
+    const footer = document.createElement("p")
+    footer.textContent = "Direitos reservados"
+    host.after(footer)
+    const written: string[] = []
+    spyOn(navigator.clipboard, "writeText").and.callFake((text: string) => {
+      written.push(text)
+      return Promise.resolve()
     })
 
-    selectVerses(parallel, 12, 13)
+    const range = document.createRange()
+    range.setStart(host.querySelector('verse[id="39"]') as Node, 0)
+    range.setEnd(footer, footer.childNodes.length)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+    component["sync"]()
+    await component.copy()
 
-    expect(component.position).not.toBeNull()
-    expect(component["verses"]).toEqual([12, 13])
+    expect(written[0]).toBe("Palavras do versículo 39. (Mateus 22,39)")
+    footer.remove()
+  })
+
+  it("forgets it copied once something else is selected", async () => {
+    spyOn(navigator.clipboard, "writeText").and.resolveTo()
+    selectVerses(host, 37, 37)
+    await component.copy()
+    expect(component.copied).toBeTrue()
+
+    selectVerses(host, 38, 39)
+
+    expect(component.copied).toBeFalse()
+    expect(component["copiedTimer"]).toBeUndefined()
   })
 
   it("copies the words without the verse numbers", async () => {
@@ -154,7 +221,10 @@ describe("SelectionActionsComponent", () => {
     verse.innerHTML =
       '<span class="verseNumber">37</span>' +
       '<span class="footnoteIndicator">*</span>' +
+      '<div class="chapterNumber">22</div>' +
+      "<h3>O maior mandamento</h3>" +
       '<span class="verseRun">Jesus disse-lhe:</span>' +
+      '<span class="references"><span class="verseRun">Dt 6,5</span></span>' +
       "<br>" +
       '<span class="verseRun">Amarás ao Senhor,</span>' +
       '<span class="verseRun verseGap"> </span>'

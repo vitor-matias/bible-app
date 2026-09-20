@@ -81,7 +81,7 @@ body {
      with apparatus beside it rather than as three equal panes. The tint is
      the brand brown at low strength, so both themes stay one family. */
   --study-surface: color-mix(in srgb, var(--cap-brown) 5%, var(--background-color));
-  --study-rule: color-mix(in srgb, var(--cap-brown) 18%, transparent);
+  --study-rule: rgba(84, 61, 39, 0.18);
   --study-muted: color-mix(in srgb, var(--text-color) 55%, transparent);
   /* The verse the study panel is showing. Quieter than
      --verse-highlight-color: this one stays on screen for as long as the
@@ -94,12 +94,16 @@ body {
   --mark-green: 104 173 96;
   --mark-blue: 94 152 204;
   --mark-pink: 214 112 152;
+  /* --cap-brown, written out: these carry the text selection and the study
+     rules, and on a WebView without color-mix() a mixed value is no colour
+     at all — the selection that raises the mark and copy bar went unpainted.
+     The dark theme below already spells its own out the same way. */
   /* Dragging across the text is a real gesture here — it raises the mark and
      copy actions — so the selection is the edition's own warm tone rather
      than whatever grey the browser falls back to. */
-  --text-selection-color: color-mix(in srgb, var(--cap-brown) 22%, transparent);
-  --study-selection-color: color-mix(in srgb, var(--cap-brown) 12%, transparent);
-  --study-selection-border: color-mix(in srgb, var(--cap-brown) 45%, transparent);
+  --text-selection-color: rgba(84, 61, 39, 0.22);
+  --study-selection-color: rgba(84, 61, 39, 0.12);
+  --study-selection-border: rgba(84, 61, 39, 0.45);
   --mat-menu-item-label-text-size: 15px;
   --mat-menu-container-color: var(--card-background);
   --mat-menu-item-label-text-color: var(--text-color);

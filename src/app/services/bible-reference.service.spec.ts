@@ -51,6 +51,13 @@ describe("BibleReferenceService", () => {
       expect(ref.endChapter).toBe(39)
     })
 
+    it("does not take the number of the next book for a last chapter", () => {
+      const refs = service.extract("Gn 50 \u2013 1 Jo 2", "gen", 1)
+
+      expect(refs.map((ref) => ref.match)).toEqual(["Gn 50", "1 Jo 2"])
+      expect(refs[0].endChapter).toBeUndefined()
+    })
+
     it("leaves a verse range alone", () => {
       const [ref] = service.extract("Gn 46,1-27", "gen", 1)
 
