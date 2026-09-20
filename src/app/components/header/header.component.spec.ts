@@ -341,6 +341,34 @@ describe("HeaderComponent", () => {
     })
   })
 
+  describe("focus after switching layouts from the menu", () => {
+    it("goes to the menu button that replaced the one the reader used", () => {
+      fixture.componentRef.setInput("studyModeAvailable", true)
+      fixture.detectChanges()
+      // What the reader does when asked: turn study mode on.
+      component.toggleStudyMode.subscribe(() =>
+        fixture.componentRef.setInput("studyMode", true),
+      )
+      const before = fixture.nativeElement.querySelector(".menuButton")
+      before.click()
+      fixture.detectChanges()
+      Array.from(
+        document.querySelectorAll<HTMLElement>(
+          ".mat-mdc-menu-content [mat-menu-item]",
+        ),
+      )
+        .find((button) => button.textContent?.includes("Modo de estudo"))
+        ?.click()
+      fixture.detectChanges()
+
+      // The study chrome draws its own button; the old one is gone, and
+      // focus used to go with it.
+      const after = fixture.nativeElement.querySelector(".menuButton")
+      expect(after).not.toBe(before)
+      expect(document.activeElement).toBe(after)
+    })
+  })
+
   describe("study mode chrome", () => {
     beforeEach(() => {
       fixture.componentRef.setInput("studyModeAvailable", true)

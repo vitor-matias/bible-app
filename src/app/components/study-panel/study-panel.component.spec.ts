@@ -187,6 +187,26 @@ describe("StudyPanelComponent", () => {
       expect(api.getChapter).not.toHaveBeenCalledWith("about", 25)
     })
 
+    it("does not fetch a chapter again to quote from it a second time", () => {
+      bibleRef.extract.and.callFake((text: string) =>
+        text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
+      )
+      const chapter = (number: number): Chapter => ({
+        bookId: "mat",
+        number,
+        verses: [verse(1, [plain("Texto"), references("Mc 12,28-34")])],
+      })
+      setInputs({ book: BOOK, chapter: chapter(22) })
+      expect(api.getChapter).toHaveBeenCalledTimes(1)
+
+      // Another chapter citing the same one: back and forth between the two
+      // used to refetch Mark 12 every time.
+      setInputs({ chapter: chapter(23) })
+
+      expect(api.getChapter).toHaveBeenCalledTimes(1)
+      expect(component.referenceGroups[0].entries[0].verses.length).toBe(0)
+    })
+
     it("groups references under the passage they open, not the verse before it", () => {
       bibleRef.extract.and.callFake((text: string) =>
         text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],

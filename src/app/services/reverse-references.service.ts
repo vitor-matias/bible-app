@@ -1,5 +1,6 @@
 import { Injectable, inject } from "@angular/core"
 import { BehaviorSubject, type Observable } from "rxjs"
+import { placeReferences } from "../utils/chapter-references"
 import {
   type BibleReference,
   BibleReferenceService,
@@ -96,16 +97,35 @@ export class ReverseReferencesService {
 
     for (const book of books) {
       for (const chapter of book.chapters ?? []) {
-        for (const verse of chapter.verses ?? []) {
-          for (const part of verse.text ?? []) {
-            if (part.type !== "references") continue
-            for (const reference of this.bibleRef.extract(
-              part.text,
-              book.id,
-              chapter.number,
-            )) {
-              this.add(index, seen, book, chapter, verse, reference)
+        // Placed, not read off the verse that stores them: a heading's
+        // references sit in the payload of the verse before the passage, or
+        // in verse 0, and citing that gave "Mateus 5,0" and the last verse of
+        // the passage before the one doing the citing.
+        for (const placed of placeReferences(chapter.verses ?? [])) {
+          const extracted = this.bibleRef.extract(
+            placed.part.text,
+            book.id,
+            chapter.number,
+          )
+          for (const [position, reference] of extracted.entries()) {
+            // A division's heading opens with the range it covers —
+            // "(1,1-2,23; ver Lc 1,5-2,52)". That is the division's extent,
+            // not a citation: indexed, every verse of Matthew 1-2 was cited
+            // by Matthew 1 itself.
+            if (
+              placed.underMajorHeading &&
+              position === 0 &&
+              this.bookService.findBook(reference.book).id === book.id
+            ) {
+              continue
             }
+            // A heading's references speak for the passage it opens; a
+            // block in the run of a verse, for that verse.
+            const citedFrom =
+              placed.underHeading || placed.verse.number < 1
+                ? placed.startsAt
+                : placed.verse.number
+            this.add(index, seen, book, chapter, citedFrom, reference)
           }
         }
       }
@@ -120,7 +140,8 @@ export class ReverseReferencesService {
     seen: Set<string>,
     book: Book,
     chapter: Chapter,
-    verse: Verse,
+    /** The verse the citing passage starts at. */
+    citedFrom: Verse["number"],
     reference: BibleReference,
   ): void {
     const target = this.bookService.findBook(reference.book)
@@ -128,7 +149,7 @@ export class ReverseReferencesService {
     // a citation of that is a parse artefact, not a passage.
     if (target.id === "about") return
 
-    const source = `${book.id}:${chapter.number}:${verse.number}`
+    const source = `${book.id}:${chapter.number}:${citedFrom}`
 
     // A citation covers what it names, which is not always verses in one
     // chapter: "Mc 12" is a whole chapter, "Jb 38-39" a run of them, and
@@ -144,13 +165,13 @@ export class ReverseReferencesService {
 
       const entry: IncomingReference = {
         key,
-        label: `${book.shortName} ${chapter.number},${verse.number}`,
+        label: `${book.shortName} ${chapter.number},${citedFrom}`,
         link: [
           "/",
           this.bookService.getUrlAbrv(book),
           this.bookService.getChapterUrlSegment(chapter.number),
         ],
-        queryParams: { verseStart: verse.number },
+        queryParams: { verseStart: citedFrom },
         fromVerse: span.from,
         toVerse: span.to,
       }

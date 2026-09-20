@@ -31,7 +31,9 @@
   @case ('references') {
   <div class="tab-body" role="tabpanel" id="study-tabpanel-references" aria-labelledby="study-tab-references">
     @if (referenceGroups.length) {
-    @for (group of referenceGroups; track group.verseNumber) {
+    <!-- Tracked by label as well: a division and the first passage inside it
+         start at the same verse, and are two groups. -->
+    @for (group of referenceGroups; track group.verseNumber + '|' + group.label) {
     <!-- data-verse is how selecting a verse finds its entries to scroll to. -->
     <section class="reference-group" [class.current]="isCurrentGroup(group)"
       [attr.data-verse]="group.verseNumber">

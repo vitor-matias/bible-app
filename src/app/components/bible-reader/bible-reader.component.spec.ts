@@ -1446,6 +1446,51 @@ describe("BibleReaderComponent", () => {
       expect(component.effectiveViewMode).toBe("paged")
     })
 
+    it("keeps the reader's place when the layout changes under them", () => {
+      fixture.detectChanges()
+      type Internals = {
+        restoreReadingPosition: (verse: number) => void
+        scrollHost: HTMLElement | undefined
+      }
+      // The verse at the top of the reading layout's column.
+      spyOn(
+        BibleReaderComponent as unknown as {
+          firstVisibleVerseIn: () => number | undefined
+        },
+        "firstVisibleVerseIn",
+      ).and.returnValue(20)
+      const restore = spyOn(
+        component as unknown as Internals,
+        "restoreReadingPosition",
+      ).and.callThrough()
+
+      studyMode.activate()
+
+      // Switching builds a new scrolling column, which starts at its top.
+      expect(restore).toHaveBeenCalledOnceWith(20)
+    })
+
+    it("scrolls the new column to the verse that was being read", () => {
+      const host = document.createElement("div")
+      host.style.cssText = "height:100px;overflow:auto;position:relative"
+      for (const number of [1, 2, 3]) {
+        const verse = document.createElement("verse")
+        verse.id = String(number)
+        verse.style.cssText = "display:block;height:150px"
+        host.appendChild(verse)
+      }
+      document.body.appendChild(host)
+      spyOnProperty(
+        component as unknown as { scrollHost: HTMLElement },
+        "scrollHost",
+      ).and.returnValue(host)
+
+      component["restoreReadingPosition"](3)
+
+      expect(host.scrollTop).toBe(300)
+      host.remove()
+    })
+
     it("selects the verse a link within the same chapter points at", () => {
       studyMode.activate()
       const verses = [{ number: 1 } as Verse, { number: 12 } as Verse]

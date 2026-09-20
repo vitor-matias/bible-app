@@ -1,5 +1,8 @@
 import { TestBed } from "@angular/core/testing"
-import { BibleReferenceService } from "./bible-reference.service"
+import {
+  type BibleReference,
+  BibleReferenceService,
+} from "./bible-reference.service"
 import { BookService } from "./book.service"
 import { OfflineDataService } from "./offline-data.service"
 import { ReverseReferencesService } from "./reverse-references.service"
@@ -101,6 +104,74 @@ describe("ReverseReferencesService", () => {
     expect(incoming[0].label).toBe("Mateus 22,39")
     expect(incoming[0].link).toEqual(["/", "mt", "22"])
     expect(incoming[0].queryParams).toEqual({ verseStart: 39 })
+  })
+
+  it("cites from the passage a heading opens, not the verse that stores it", async () => {
+    // The heading and its references arrive in the payload of the verse
+    // before the passage: read off that verse, Mark 12,31 was cited by
+    // "Mateus 22,33" — the last verse of the passage before — or by verse 0.
+    const stored: Verse = {
+      ...verse(33),
+      text: [
+        { type: "text", text: "E a multidão, ouvindo-o" },
+        { type: "section", tag: "s1", text: "O mandamento do amor" },
+        { type: "references", text: "Mc 12,31" },
+      ],
+    }
+    configure([
+      {
+        ...MATTHEW,
+        chapters: [{ bookId: "mat", number: 22, verses: [stored, verse(34)] }],
+      } as Book,
+    ])
+    bibleRef.extract.and.returnValue([
+      {
+        book: "mrk",
+        chapter: 12,
+        verses: [{ type: "single", verse: 31 }],
+      } as BibleReference,
+    ])
+
+    await service.ensureIndex()
+
+    const [incoming] = service.incomingFor("mrk", 12, 31)
+    expect(incoming.label).toBe("Mateus 22,34")
+    expect(incoming.queryParams).toEqual({ verseStart: 34 })
+  })
+
+  it("does not index the extent a division's heading opens with", async () => {
+    // "(22,1-46; ver Mc 12,1-44)" under a major heading: the first range is
+    // what the division covers, not a citation of itself.
+    const stored: Verse = {
+      ...verse(0),
+      text: [
+        { type: "section", tag: "ms", text: "EM JERUSALÉM" },
+        { type: "references", text: "22,1-46; ver Mc 12,1-44" },
+      ],
+    }
+    configure([
+      {
+        ...MATTHEW,
+        chapters: [{ bookId: "mat", number: 22, verses: [stored, verse(1)] }],
+      } as Book,
+    ])
+    bibleRef.extract.and.returnValue([
+      {
+        book: "mat",
+        chapter: 22,
+        verses: [{ type: "range", start: 1, end: 46 }],
+      } as BibleReference,
+      {
+        book: "mrk",
+        chapter: 12,
+        verses: [{ type: "range", start: 1, end: 44 }],
+      } as BibleReference,
+    ])
+
+    await service.ensureIndex()
+
+    expect(service.incomingFor("mat", 22, 10)).toEqual([])
+    expect(service.incomingFor("mrk", 12, 10)[0].label).toBe("Mateus 22,1")
   })
 
   it("matches any verse inside a cited range", async () => {

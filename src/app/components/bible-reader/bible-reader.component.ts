@@ -367,10 +367,21 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.studyModeService.active$
       .pipe(takeUntil(this.destroy$))
       .subscribe((active) => {
+        // The two layouts scroll different elements, and switching destroys
+        // one and builds the other: left at that, turning study mode on — or
+        // dragging the window across its minimum width — dropped the reader
+        // at the top of the chapter they were halfway down.
+        const reading =
+          active !== this.studyMode && this.bookBlock
+            ? BibleReaderComponent.firstVisibleVerseIn(this.scrollHost)
+            : undefined
         this.studyMode = active
         // A selection means nothing outside the panel showing it.
         if (!active) this.selection = null
         this.cdr.markForCheck()
+        if (reading === undefined) return
+        this.cdr.detectChanges()
+        this.restoreReadingPosition(reading)
       })
 
     this.studySidebarCollapsed =
@@ -974,22 +985,45 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     })
   }
 
-  private updateVisibleVerse(): void {
-    const host = this.studyScroll?.nativeElement
-    if (!host) return
+  /** The verse at the top of a scrolling column: the one being read. */
+  private static firstVisibleVerseIn(
+    host: HTMLElement | undefined,
+  ): Verse["number"] | undefined {
+    if (!host) return undefined
     const top = host.getBoundingClientRect().top
-
-    let first: Verse["number"] | undefined
     for (const element of host.querySelectorAll<HTMLElement>("verse")) {
       // The first verse whose text has not yet passed above the fold. A
       // little tolerance so a verse only just clipped at the top still
       // counts as the one being read.
       if (element.getBoundingClientRect().bottom >= top + 8) {
         const number = Number(element.id)
-        if (Number.isFinite(number)) first = number
-        break
+        return Number.isFinite(number) ? number : undefined
       }
     }
+    return undefined
+  }
+
+  /** Puts a verse back at the top of whichever column now scrolls. */
+  private restoreReadingPosition(verseNumber: Verse["number"]): void {
+    // Paged reading has no scroll position to restore; it lays the chapter
+    // out in columns and finds its own place.
+    if (this.effectiveViewMode === "paged") return
+    const host = this.scrollHost
+    // Verse 0 and 1 are the top of the chapter, which is where a new column
+    // already stands.
+    if (!host || verseNumber <= 1) return
+    const verse = Array.from(host.querySelectorAll<HTMLElement>("verse")).find(
+      (element) => element.id === String(verseNumber),
+    )
+    if (!verse) return
+    host.scrollTop +=
+      verse.getBoundingClientRect().top - host.getBoundingClientRect().top
+  }
+
+  private updateVisibleVerse(): void {
+    const first = BibleReaderComponent.firstVisibleVerseIn(
+      this.studyScroll?.nativeElement,
+    )
 
     if (first === this.visibleVerse) return
     this.visibleVerse = first

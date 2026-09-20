@@ -16,7 +16,16 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatIconModule } from "@angular/material/icon"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { RouterModule } from "@angular/router"
-import { debounceTime, Subject, type Subscription } from "rxjs"
+import {
+  catchError,
+  debounceTime,
+  from,
+  map,
+  mergeMap,
+  of,
+  Subject,
+  type Subscription,
+} from "rxjs"
 import { BibleApiService } from "../../services/bible-api.service"
 import {
   type BibleReference,
@@ -35,6 +44,11 @@ import {
   type IndexState,
   ReverseReferencesService,
 } from "../../services/reverse-references.service"
+import {
+  lastVerseNumber,
+  placeReferences,
+  sectionStartsIn,
+} from "../../utils/chapter-references"
 import { formatPassage, highlightSegments } from "../../utils/text"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 
@@ -155,6 +169,10 @@ const SCROLL_MARGIN = 16
 const SCROLL_MS_PER_PIXEL = 0.7
 const MIN_SCROLL_MS = 260
 const MAX_SCROLL_MS = 700
+/** How many cited chapters are fetched at once, and how many are kept. */
+const REFERENCE_FETCH_CONCURRENCY = 4
+const QUOTED_CHAPTERS_KEPT = 60
+
 /** A frame that arrives late must not fling the spring past its target. */
 const MAX_FRAME_SECONDS = 1 / 30
 /** Close enough, and slow enough, to call the glide finished (px, px/s). */
@@ -264,6 +282,8 @@ export class StudyPanelComponent implements OnChanges {
     velocity: number
   }
   private readonly yielding = new WeakSet<HTMLElement>()
+  /** Chapters already fetched to quote from, most recently used last. */
+  private readonly quotedChapters = new Map<string, Chapter>()
   /**
    * Set once the reader has scrolled the panel themselves. They are reading
    * something there; the text moving under their other hand must not take it
@@ -964,15 +984,11 @@ export class StudyPanelComponent implements OnChanges {
     if (!this.chapter) return
 
     const verses = this.chapter.verses ?? []
-    const lastVerse = verses.reduce(
-      (highest, verse) => Math.max(highest, verse.number),
-      0,
-    )
-    const sectionStarts = this.sectionStartsIn(verses)
+    const lastVerse = lastVerseNumber(verses)
+    const sectionStarts = sectionStartsIn(verses)
 
     // Collected by the verse each passage *starts* at, which is not the verse
-    // its references are printed on: a heading and the references under it
-    // arrive in the payload of the verse before the one they introduce.
+    // its references are printed on — see placeReferences.
     // A division's own references are kept apart from the first passage's,
     // which start at the same verse, by carrying the division's range as
     // their label — see divisionLabel.
@@ -985,85 +1001,55 @@ export class StudyPanelComponent implements OnChanges {
       }
     >()
     const seen = new Set<string>()
-    verses.forEach((verse, index) => {
-      // The passage a heading in this verse has opened, if one has.
-      let opened: Verse["number"] | undefined
-      let words = false
-      // The last heading seen, to tell the two things this edition prints in
-      // the same shape apart. See afterMajorHeading below.
-      let previousSection: string | undefined
-      for (const part of verse.text ?? []) {
-        if (part.type === "section") {
-          // A heading after the verse's own words opens the next verse; one
-          // at the head of the payload opens this verse.
-          opened = words
-            ? StudyPanelComponent.nextVerseNumber(verses, index, lastVerse)
-            : Math.max(verse.number, 1)
-          words = false
-          previousSection = part.tag
+    for (const placed of placeReferences(verses, sectionStarts)) {
+      const { part, verse, startsAt, underMajorHeading } = placed
+
+      const extracted = this.bibleRef.extract(
+        part.text,
+        verse.bookId,
+        verse.chapterNumber,
+      )
+      // The extent of the division this block belongs to, once its opening
+      // range has named it.
+      let division: string | undefined
+      for (const [position, reference] of extracted.entries()) {
+        // findBook falls back to the About page for anything it cannot
+        // resolve; listed, that was an "About 25" entry fetching a chapter
+        // of the About page. A parse artefact is not a passage.
+        if (this.bookService.findBook(reference.book).id === "about") continue
+        const entry = this.toEntry(reference)
+        // A block under a major heading opens with the range that heading
+        // covers, and may go on to a passage worth reading beside it:
+        // Matthew's "(1,1-2,23; ver Lc 1,5-2,52)" is this division's own
+        // extent and then the parallel gospel. The extent is not a
+        // reference — it is what the references after it are references
+        // *for*, so it becomes their heading in the panel.
+        if (
+          underMajorHeading &&
+          position === 0 &&
+          entry.bookId === verse.bookId
+        ) {
+          division = StudyPanelComponent.divisionLabel(reference)
           continue
         }
-        if (part.type !== "references") {
-          if (part.type !== "footnote" && part.text.trim()) words = true
-          continue
-        }
-        const underMajorHeading =
-          StudyPanelComponent.afterMajorHeading(previousSection)
-        previousSection = undefined
-
-        // Under a heading the references belong to the passage it opens;
-        // before one, to the passage this verse is already inside.
-        const startsAt =
-          opened ??
-          StudyPanelComponent.sectionStartAt(sectionStarts, verse.number)
-
-        const extracted = this.bibleRef.extract(
-          part.text,
-          verse.bookId,
-          verse.chapterNumber,
-        )
-        // The extent of the division this block belongs to, once its opening
-        // range has named it.
-        let division: string | undefined
-        for (const [position, reference] of extracted.entries()) {
-          // findBook falls back to the About page for anything it cannot
-          // resolve; listed, that was an "About 25" entry fetching a chapter
-          // of the About page. A parse artefact is not a passage.
-          if (this.bookService.findBook(reference.book).id === "about") continue
-          const entry = this.toEntry(reference)
-          // A block under a major heading opens with the range that heading
-          // covers, and may go on to a passage worth reading beside it:
-          // Matthew's "(1,1-2,23; ver Lc 1,5-2,52)" is this division's own
-          // extent and then the parallel gospel. The extent is not a
-          // reference — it is what the references after it are references
-          // *for*, so it becomes their heading in the panel.
-          if (
-            underMajorHeading &&
-            position === 0 &&
-            entry.bookId === verse.bookId
-          ) {
-            division = StudyPanelComponent.divisionLabel(reference)
-            continue
-          }
-          const groupKey = division ? `${startsAt}|${division}` : `${startsAt}`
-          // The same passage can be cited twice (two references blocks either
-          // side of a quote); list it once.
-          const key = `${groupKey}:${entry.key}`
-          if (seen.has(key)) continue
-          seen.add(key)
-          const group = byStart.get(groupKey)
-          if (group) {
-            group.entries.push(entry)
-          } else {
-            byStart.set(groupKey, {
-              verseNumber: startsAt,
-              label: division,
-              entries: [entry],
-            })
-          }
+        const groupKey = division ? `${startsAt}|${division}` : `${startsAt}`
+        // The same passage can be cited twice (two references blocks either
+        // side of a quote); list it once.
+        const key = `${groupKey}:${entry.key}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        const group = byStart.get(groupKey)
+        if (group) {
+          group.entries.push(entry)
+        } else {
+          byStart.set(groupKey, {
+            verseNumber: startsAt,
+            label: division,
+            entries: [entry],
+          })
         }
       }
-    })
+    }
 
     const groups: ReferenceGroup[] = Array.from(byStart.values())
       .sort((a, b) => a.verseNumber - b.verseNumber)
@@ -1084,64 +1070,6 @@ export class StudyPanelComponent implements OnChanges {
 
     this.referenceGroups = groups
     this.fetchReferenceTexts(groups)
-  }
-
-  /**
-   * The verses that open a passage.
-   *
-   * A heading arrives inside the payload of whichever verse precedes it, so
-   * where it opens depends on what came before it in that verse: after the
-   * verse's own words it introduces the *next* verse, while at the head of
-   * the payload — the chapter's front matter, or a heading that falls
-   * immediately before a verse's words — it introduces that verse.
-   */
-  private sectionStartsIn(verses: Verse[]): Verse["number"][] {
-    const lastVerse = verses.reduce(
-      (highest, verse) => Math.max(highest, verse.number),
-      0,
-    )
-    const starts = new Set<Verse["number"]>()
-    verses.forEach((verse, index) => {
-      let words = false
-      for (const part of verse.text ?? []) {
-        if (part.type === "section") {
-          starts.add(
-            words
-              ? StudyPanelComponent.nextVerseNumber(verses, index, lastVerse)
-              : Math.max(verse.number, 1),
-          )
-          words = false
-          continue
-        }
-        if (part.type === "footnote" || part.type === "references") continue
-        if (part.text.trim()) words = true
-      }
-    })
-    return Array.from(starts).sort((a, b) => a - b)
-  }
-
-  /** The passage a verse sits in: the last heading at or before it. */
-  private static sectionStartAt(
-    sectionStarts: Verse["number"][],
-    verseNumber: Verse["number"],
-  ): Verse["number"] {
-    let start = 1
-    for (const candidate of sectionStarts) {
-      if (candidate <= Math.max(verseNumber, 1)) start = candidate
-    }
-    return start
-  }
-
-  /** The next verse with a number of its own, or the chapter's last. */
-  private static nextVerseNumber(
-    verses: Verse[],
-    index: number,
-    fallback: Verse["number"],
-  ): Verse["number"] {
-    for (let i = index + 1; i < verses.length; i++) {
-      if (verses[i].number > 0) return verses[i].number
-    }
-    return fallback
   }
 
   /** "1,8-22" — the passage a group of references covers. */
@@ -1219,9 +1147,10 @@ export class StudyPanelComponent implements OnChanges {
    *
    * Fetched a chapter at a time rather than a verse at a time. A chapter's
    * references cluster into far fewer chapters than verses (the synoptic
-   * parallels of one passage often share one), the chapter request is
-   * deduplicated and cached by BibleApiService, and it is the same request the
-   * reader makes anyway if they follow the link.
+   * parallels of one passage often share one), requests for the same
+   * chapter in flight are shared by BibleApiService, and it is the same
+   * request the reader makes anyway if they follow the link. What comes back
+   * is kept here, since that service keeps nothing once a request settles.
    */
   private fetchReferenceTexts(groups: ReferenceGroup[]): void {
     const byChapter = new Map<string, ReferenceEntry[]>()
@@ -1240,24 +1169,55 @@ export class StudyPanelComponent implements OnChanges {
       }
     }
 
-    for (const entries of byChapter.values()) {
-      const { bookId, chapterNumber } = entries[0]
-      this.referenceRequests.push(
-        this.api.getChapter(bookId, chapterNumber).subscribe({
-          next: (chapter) => {
-            for (const entry of entries) {
-              StudyPanelComponent.fill(entry, chapter)
-            }
-            this.cdr.markForCheck()
-          },
-          // Offline, or a reference the API cannot resolve: the entries stay
-          // links, which is still the useful half of them.
-          error: () => {
-            for (const entry of entries) entry.failed = true
-            this.cdr.markForCheck()
-          },
+    // What the panel has quoted before, it quotes again without asking: a
+    // reader going back and forth between two chapters was refetching every
+    // chapter either of them cites, each time.
+    const wanted: [string, ReferenceEntry[]][] = []
+    for (const [key, entries] of byChapter) {
+      const remembered = this.quotedChapters.get(key)
+      if (!remembered) {
+        wanted.push([key, entries])
+        continue
+      }
+      for (const entry of entries) StudyPanelComponent.fill(entry, remembered)
+    }
+
+    // A few at a time. A chapter of a gospel cites dozens of others, and all
+    // of them at once competed with the chapter the reader is waiting for.
+    this.referenceRequests.push(
+      from(wanted)
+        .pipe(
+          mergeMap(
+            ([key, entries]) =>
+              this.api
+                .getChapter(entries[0].bookId, entries[0].chapterNumber)
+                .pipe(
+                  map((chapter) => ({ key, entries, chapter })),
+                  // Offline, or a reference the API cannot resolve: the
+                  // entries stay links, which is still the useful half.
+                  catchError(() => of({ key, entries, chapter: undefined })),
+                ),
+            REFERENCE_FETCH_CONCURRENCY,
+          ),
+        )
+        .subscribe(({ key, entries, chapter }) => {
+          if (chapter) this.rememberQuoted(key, chapter)
+          for (const entry of entries) {
+            if (chapter) StudyPanelComponent.fill(entry, chapter)
+            else entry.failed = true
+          }
+          this.cdr.markForCheck()
         }),
-      )
+    )
+  }
+
+  private rememberQuoted(key: string, chapter: Chapter): void {
+    this.quotedChapters.delete(key)
+    this.quotedChapters.set(key, chapter)
+    // A Map keeps insertion order, so its first key is the one longest unused.
+    if (this.quotedChapters.size > QUOTED_CHAPTERS_KEPT) {
+      const oldest = this.quotedChapters.keys().next().value
+      if (oldest !== undefined) this.quotedChapters.delete(oldest)
     }
   }
 
@@ -1357,24 +1317,6 @@ export class StudyPanelComponent implements OnChanges {
     const last = lastLine?.[lastLine.length - 1]
     if (last) last.text = last.text.replace(/\s+$/, "")
     return lines
-  }
-
-  /**
-   * Whether a references block sits directly under a major heading.
-   *
-   * This edition heads a division with its title and the range it covers —
-   * "PRÓLOGO", then "(1,1-4)" — and heads a passage inside it with a title and
-   * the places the passage points at — "Criação do mundo", then "(2,4b-25; Jb
-   * 38-39; ...)". Both arrive as a references element in the same verse, so
-   * the heading each follows is what separates a division's own extent from a
-   * list of cross references. Major headings are \ms in the USFM this edition
-   * is built from; passages are \s1 and \s2.
-   *
-   * It only says which block to read carefully: a division's range can be
-   * followed by real references in the same parentheses. See buildReferences.
-   */
-  private static afterMajorHeading(tag: string | undefined): boolean {
-    return tag?.startsWith("ms") === true
   }
 
   /**
