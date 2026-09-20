@@ -76,6 +76,10 @@ mat-icon {
   transition: box-shadow 0.2s ease-in-out;
   min-width: 0; /* Important for flex items to be able to shrink */
   background-color: white;
+  /* The field is white in both themes (it sits on the always-brown toolbar), so
+     opt it out of .dark-theme's color-scheme: dark. Otherwise the browser draws
+     its text, caret and clear button for a dark surface: white on white. */
+  color-scheme: light;
 }
 
 .button:not([disabled]) {

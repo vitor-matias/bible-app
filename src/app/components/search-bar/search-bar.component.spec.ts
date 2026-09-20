@@ -1,6 +1,26 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { SearchBarComponent } from "./search-bar.component"
 
+/** WCAG relative luminance of a computed `rgb()`/`rgba()` colour. */
+function luminance(cssColor: string): number {
+  const [r, g, b] = (cssColor.match(/[\d.]+/g) ?? [])
+    .slice(0, 3)
+    .map((value) => {
+      const channel = Number(value) / 255
+      return channel <= 0.03928
+        ? channel / 12.92
+        : ((channel + 0.055) / 1.055) ** 2.4
+    })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const [lighter, darker] = [luminance(foreground), luminance(background)].sort(
+    (a, b) => b - a,
+  )
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
 describe("SearchBarComponent", () => {
   let component: SearchBarComponent
   let fixture: ComponentFixture<SearchBarComponent>
@@ -14,6 +34,27 @@ describe("SearchBarComponent", () => {
     component = fixture.componentInstance
     fixture.detectChanges()
   })
+
+  afterEach(() => document.documentElement.classList.remove("dark-theme"))
+
+  // The field is white in both themes, but its text colour is the browser's
+  // default, which follows the page's color-scheme. .dark-theme sets
+  // color-scheme: dark, so typed text turned white on the white field and the
+  // box looked empty.
+  for (const theme of ["light", "dark"]) {
+    it(`keeps typed text readable on its field in ${theme} mode`, () => {
+      document.documentElement.classList.toggle("dark-theme", theme === "dark")
+
+      const input = (fixture.nativeElement as HTMLElement).querySelector(
+        ".search-input",
+      ) as HTMLInputElement
+      const style = getComputedStyle(input)
+
+      expect(
+        contrastRatio(style.color, style.backgroundColor),
+      ).toBeGreaterThanOrEqual(4.5)
+    })
+  }
 
   // The reader header pins its buttons 8px from the viewport edge. This toolbar
   // lays its buttons out in flow instead, so Material's own 16px toolbar inset
