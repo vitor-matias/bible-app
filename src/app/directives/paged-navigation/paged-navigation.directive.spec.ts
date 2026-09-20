@@ -421,6 +421,51 @@ describe("PagedNavigationDirective", () => {
       // Max scroll is 300 - 100 = 200
       expect(scrollLeftSetter).toHaveBeenCalledWith(200)
     })
+
+    it("should do nothing in scrolling mode", () => {
+      hostComponent.viewMode = "scrolling"
+      fixture.detectChanges()
+      const scrollLeftSetter = jasmine.createSpy("scrollLeftSetter")
+      spyOnProperty(container, "scrollLeft", "set").and.callFake(
+        scrollLeftSetter,
+      )
+
+      hostComponent.directive.scrollToEnd()
+
+      expect(scrollLeftSetter).not.toHaveBeenCalled()
+    })
+
+    // Regression: the reader calls scrollToEnd whenever a chapter is reached
+    // backwards, in any view. Outside paged mode that armed "stay at the end"
+    // with nothing to disarm it, and the first content change after switching
+    // to paged mode threw the reader to the last page.
+    it("should not leave the reader pinned to the end once paged mode is switched on", async () => {
+      // Real timers: the directive hears of late content through a
+      // MutationObserver, which delivers on a real microtask that fakeAsync
+      // never runs.
+      const settle = () => new Promise((resolve) => setTimeout(resolve, 400))
+
+      hostComponent.viewMode = "scrolling"
+      fixture.detectChanges()
+      hostComponent.directive.scrollToEnd()
+
+      hostComponent.viewMode = "paged"
+      fixture.detectChanges()
+      await settle()
+      spyOnProperty(container, "scrollWidth").and.returnValue(300)
+      spyOnProperty(container, "clientWidth").and.returnValue(100)
+      const scrollLeftSetter = jasmine.createSpy("scrollLeftSetter")
+      spyOnProperty(container, "scrollLeft", "set").and.callFake(
+        scrollLeftSetter,
+      )
+
+      // Late content: a lazily loaded introduction, an indent pass.
+      hostComponent.block.nativeElement.appendChild(document.createElement("p"))
+      await settle()
+
+      // 200 is the end: scrollWidth 300 less clientWidth 100.
+      expect(scrollLeftSetter).not.toHaveBeenCalledWith(200)
+    })
   })
 
   describe("window resize", () => {
