@@ -838,6 +838,21 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private restOnCard(edge: "first" | "last"): void {
     const cards = this.bookBlock?.nativeElement.querySelectorAll("article")
     const card = edge === "first" ? cards?.[0] : cards?.[cards.length - 1]
+
+    // A touch fling still in flight would carry on to the offset it was
+    // heading for in the previous chapter, straight over this placement. A
+    // scroller that cannot scroll has its animations cancelled, but only if
+    // the compositor gets to see it that way — hence the two frames.
+    const scroller = this.drawerContent?.nativeElement
+    if (scroller && isPlatformBrowser(this.platformId)) {
+      scroller.style.overflowY = "hidden"
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          scroller.style.overflowY = ""
+        }),
+      )
+    }
+
     card?.scrollIntoView({ block: "start" })
   }
 

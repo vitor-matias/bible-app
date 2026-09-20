@@ -1,4 +1,10 @@
-import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import { Component } from "@angular/core"
+import {
+  type ComponentFixture,
+  fakeAsync,
+  TestBed,
+  tick,
+} from "@angular/core/testing"
 import { provideRouter } from "@angular/router"
 import { of } from "rxjs"
 import { BookService } from "../../services/book.service"
@@ -265,6 +271,164 @@ describe("VerseCardsComponent", () => {
       expect(startCard()).toBeNull()
       expect(observers[0].disconnect).toHaveBeenCalled()
     })
+  })
+
+  // Regression: on Android, reaching the end of Gn 1 went on to Gn 3. A stop is
+  // 90% on screen while the snap that brings it there is still gliding — and a
+  // touch fling is an animation towards an absolute offset. With the chapter
+  // swapped under it, it carried on to where Gn 1 had ended, which in the
+  // shorter Gn 2 is Gn 2's own closing stop.
+  describe("waiting for the scroll to come to rest", () => {
+    @Component({
+      standalone: true,
+      imports: [VerseCardsComponent],
+      template: `
+        <div class="scroller" style="overflow-y: auto; height: 300px">
+          <verse-cards
+            [chapter]="chapter"
+            previousChapterLabel="João 2"
+            nextChapterLabel="João 4"
+            (reachedStart)="reachedStart()"
+            (reachedEnd)="reachedEnd()"
+          ></verse-cards>
+        </div>
+      `,
+    })
+    class ScrollingHostComponent {
+      chapter = chapter
+      reachedStart = jasmine.createSpy("reachedStart")
+      reachedEnd = jasmine.createSpy("reachedEnd")
+    }
+
+    let host: ComponentFixture<ScrollingHostComponent>
+    let scroller: HTMLElement
+
+    function observerOf(selector: string): MockIntersectionObserver {
+      const stop = host.nativeElement.querySelector(selector)
+      const observer = observers.find(
+        (candidate) => candidate.observe.calls.mostRecent()?.args[0] === stop,
+      )
+      if (!observer) throw new Error(`Nothing watches ${selector}`)
+      return observer
+    }
+
+    /** The reader swipes past the last verse: the stop comes on screen mid-glide. */
+    function flingOntoEndStop(): void {
+      scroller.dispatchEvent(new Event("scroll"))
+      observerOf(".end-card").report(0)
+      observerOf(".end-card").report(1)
+    }
+
+    beforeEach(() => {
+      observers = []
+      host = TestBed.createComponent(ScrollingHostComponent)
+      host.detectChanges()
+      scroller = host.nativeElement.querySelector(".scroller")
+    })
+
+    it("does not ask for the next chapter while the scroll is still moving", () => {
+      flingOntoEndStop()
+
+      expect(host.componentInstance.reachedEnd).not.toHaveBeenCalled()
+    })
+
+    it("asks once the scroll has ended on the stop", () => {
+      flingOntoEndStop()
+
+      scroller.dispatchEvent(new Event("scrollend"))
+
+      expect(host.componentInstance.reachedEnd).toHaveBeenCalledTimes(1)
+      expect(host.componentInstance.reachedStart).not.toHaveBeenCalled()
+    })
+
+    it("asks only once, however the scroll goes on ending", () => {
+      flingOntoEndStop()
+
+      scroller.dispatchEvent(new Event("scrollend"))
+      scroller.dispatchEvent(new Event("scrollend"))
+
+      expect(host.componentInstance.reachedEnd).toHaveBeenCalledTimes(1)
+    })
+
+    it("forgets the arrival if the reader is off the stop again by the time the scroll ends", () => {
+      flingOntoEndStop()
+      observerOf(".end-card").report(0.3)
+
+      scroller.dispatchEvent(new Event("scrollend"))
+
+      expect(host.componentInstance.reachedEnd).not.toHaveBeenCalled()
+    })
+
+    it("asks straight away when the view is already at rest", () => {
+      // A jump (a keyboard End, a programmatic scroll) can be over before the
+      // observer reports; waiting for a scrollend then would wait for ever.
+      observerOf(".end-card").report(0)
+      observerOf(".end-card").report(1)
+
+      expect(host.componentInstance.reachedEnd).toHaveBeenCalledTimes(1)
+    })
+
+    it("holds the leading stop to the same rule", () => {
+      scroller.dispatchEvent(new Event("scroll"))
+      observerOf(".start-card").report(0)
+      observerOf(".start-card").report(1)
+      expect(host.componentInstance.reachedStart).not.toHaveBeenCalled()
+
+      scroller.dispatchEvent(new Event("scrollend"))
+
+      expect(host.componentInstance.reachedStart).toHaveBeenCalledTimes(1)
+    })
+
+    it("without a scrollend event, takes a pause in the scroll events for the end", fakeAsync(() => {
+      spyOn(
+        VerseCardsComponent.prototype as unknown as {
+          supportsScrollEnd(): boolean
+        },
+        "supportsScrollEnd",
+      ).and.returnValue(false)
+
+      flingOntoEndStop()
+      tick(100)
+      // Still gliding: every scroll event pushes the end back.
+      scroller.dispatchEvent(new Event("scroll"))
+      tick(149)
+      expect(host.componentInstance.reachedEnd).not.toHaveBeenCalled()
+
+      tick(1)
+
+      expect(host.componentInstance.reachedEnd).toHaveBeenCalledTimes(1)
+    }))
+
+    it("does not wait for ever on a scrollend that never comes", fakeAsync(() => {
+      flingOntoEndStop()
+
+      tick(999)
+      expect(host.componentInstance.reachedEnd).not.toHaveBeenCalled()
+      tick(1)
+
+      expect(host.componentInstance.reachedEnd).toHaveBeenCalledTimes(1)
+    }))
+
+    it("stops listening to the scroller when the view is left", fakeAsync(() => {
+      const removeEventListener = spyOn(
+        scroller,
+        "removeEventListener",
+      ).and.callThrough()
+      flingOntoEndStop()
+
+      host.destroy()
+      tick(1000)
+
+      expect(removeEventListener).toHaveBeenCalledWith(
+        "scroll",
+        jasmine.any(Function),
+      )
+      expect(removeEventListener).toHaveBeenCalledWith(
+        "scrollend",
+        jasmine.any(Function),
+      )
+      expect(host.componentInstance.reachedEnd).not.toHaveBeenCalled()
+    }))
   })
 
   describe("the end of the book", () => {

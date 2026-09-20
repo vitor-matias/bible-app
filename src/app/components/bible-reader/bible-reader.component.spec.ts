@@ -851,6 +851,32 @@ describe("BibleReaderComponent", () => {
         expect(last).not.toHaveBeenCalled()
       })
 
+      // Regression: on Android, reaching the end of Gn 1 went on to Gn 3. The
+      // fling that brought the reader to the end of Gn 1 was still running when
+      // Gn 2 replaced it, and carried on to the offset it had been heading for
+      // — in the shorter Gn 2, that chapter's own closing stop.
+      it("cancels a fling still in flight when it rests on a card", fakeAsync(() => {
+        bootOn("android", true)
+        const scroller: HTMLElement =
+          fixture.nativeElement.querySelector("mat-drawer-content")
+        // See "starts the running text from the top" for why this is pinned.
+        Object.defineProperty(component, "drawerContent", {
+          get: () => new ElementRef(scroller),
+          set: () => {},
+        })
+
+        component.getChapter(2)
+
+        // A scroller that cannot scroll has its animations cancelled...
+        expect(scroller.style.overflowY).toBe("hidden")
+        tick(16)
+        // ...provided the compositor gets a frame to see it that way.
+        expect(scroller.style.overflowY).toBe("hidden")
+        tick(16)
+
+        expect(scroller.style.overflowY).toBe("")
+      }))
+
       it("keeps the scroller from the scroll-to-top, which would rest it on the leading stop", () => {
         bootOn("android", true)
         animationServiceSpy.scrollToTop.calls.reset()

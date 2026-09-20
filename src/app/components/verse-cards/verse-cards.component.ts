@@ -1,7 +1,8 @@
 import {
+  type AfterViewInit,
   ChangeDetectionStrategy,
   Component,
-  type ElementRef,
+  ElementRef,
   EventEmitter,
   Input,
   type OnChanges,
@@ -19,6 +20,14 @@ import { toVerseCards } from "./verse-cards"
  * 0.999 for ever.
  */
 const STOP_REACHED_RATIO = 0.9
+
+/**
+ * Without a scrollend event, scrolling counts as over once no scroll event has
+ * come for this long. With one, the same timer is only a backstop against a
+ * scrollend that never arrives, so it waits much longer.
+ */
+const SCROLL_IDLE_MS = 150
+const SCROLL_END_BACKSTOP_MS = 1000
 
 /**
  * BibleScroll, the experimental feed-style view of a chapter: one verse to a
@@ -41,7 +50,9 @@ const STOP_REACHED_RATIO = 0.9
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [VerseComponent],
 })
-export class VerseCardsComponent implements OnChanges, OnDestroy {
+export class VerseCardsComponent
+  implements OnChanges, AfterViewInit, OnDestroy
+{
   @Input({ required: true }) chapter!: Chapter
   /** Names the chapter before this one ("João 2"); without it there is no leading stop. */
   @Input() previousChapterLabel?: string
@@ -59,6 +70,32 @@ export class VerseCardsComponent implements OnChanges, OnDestroy {
 
   private startObserver?: IntersectionObserver
   private endObserver?: IntersectionObserver
+
+  /** The host's scroller, found once the cards are in the page. */
+  private scroller?: HTMLElement
+  private isScrolling = false
+  private scrollIdleTimer?: ReturnType<typeof setTimeout>
+  /** Stops the reader has arrived on while the scroll was still moving. */
+  private arrivals = new Set<EventEmitter<void>>()
+
+  private readonly onScroll = (): void => {
+    this.isScrolling = true
+    clearTimeout(this.scrollIdleTimer)
+    this.scrollIdleTimer = setTimeout(
+      this.onScrollEnd,
+      this.supportsScrollEnd() ? SCROLL_END_BACKSTOP_MS : SCROLL_IDLE_MS,
+    )
+  }
+
+  private readonly onScrollEnd = (): void => {
+    clearTimeout(this.scrollIdleTimer)
+    this.isScrolling = false
+    const arrivals = [...this.arrivals]
+    this.arrivals.clear()
+    for (const reached of arrivals) reached.emit()
+  }
+
+  constructor(private host: ElementRef<HTMLElement>) {}
 
   // Setters because the stops come and go with their labels: the first
   // chapter of a book has no leading stop, the last no closing one.
@@ -78,9 +115,31 @@ export class VerseCardsComponent implements OnChanges, OnDestroy {
     this.verses = toVerseCards(this.chapter)
   }
 
+  ngAfterViewInit(): void {
+    if (typeof getComputedStyle === "undefined") return
+    // The scroller belongs to the host; all this needs of it is to know when
+    // it has stopped moving.
+    let ancestor = this.host.nativeElement.parentElement
+    while (ancestor && !this.scroller) {
+      const overflow = getComputedStyle(ancestor).overflowY
+      if (overflow === "auto" || overflow === "scroll") this.scroller = ancestor
+      ancestor = ancestor.parentElement
+    }
+    this.scroller?.addEventListener("scroll", this.onScroll, { passive: true })
+    this.scroller?.addEventListener("scrollend", this.onScrollEnd)
+  }
+
   ngOnDestroy(): void {
     this.startObserver?.disconnect()
     this.endObserver?.disconnect()
+    clearTimeout(this.scrollIdleTimer)
+    this.scroller?.removeEventListener("scroll", this.onScroll)
+    this.scroller?.removeEventListener("scrollend", this.onScrollEnd)
+  }
+
+  /** A method, not a constant, so a spec can play a browser without the event. */
+  protected supportsScrollEnd(): boolean {
+    return typeof window !== "undefined" && "onscrollend" in window
   }
 
   /**
@@ -98,6 +157,13 @@ export class VerseCardsComponent implements OnChanges, OnDestroy {
    * Judged by the ratio, not isIntersecting: engines disagree on whether that
    * flag is already true below the threshold, where it would fire on the
    * first sliver of the stop peeking in.
+   *
+   * And it fires only once the scroll has come to REST on the stop. A stop is
+   * 90% on screen while the snap that brings it there is still gliding, and on
+   * a phone that glide is an animation towards an absolute offset: swap the
+   * chapter under it and it carries on to where the old chapter ended, which
+   * in a shorter chapter is that chapter's own closing stop. Reaching the end
+   * of Gn 1 went on to Gn 3.
    */
   private watch(
     stop: ElementRef<HTMLElement> | undefined,
@@ -110,9 +176,14 @@ export class VerseCardsComponent implements OnChanges, OnDestroy {
         for (const entry of entries) {
           if (entry.intersectionRatio < STOP_REACHED_RATIO) {
             seenAway = true
+            this.arrivals.delete(reached)
           } else if (seenAway) {
             seenAway = false
-            reached.emit()
+            if (this.isScrolling) {
+              this.arrivals.add(reached)
+            } else {
+              reached.emit()
+            }
           }
         }
       },
