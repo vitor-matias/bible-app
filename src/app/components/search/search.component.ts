@@ -154,33 +154,12 @@ export class SearchComponent {
   async onSearchSubmit(text: string): Promise<void> {
     const generation = ++this.searchGeneration
     const isStale = () => generation !== this.searchGeneration
-    const references = this.referenceService.extract(text)
-
-    let targetBook: Book | null = null
-    let targetChapter = 1
-    let targetVerseStart: number | undefined
-
-    if (references.length > 0) {
-      // A well-formed Bible reference should jump straight into the reader instead
-      // of going through the broader full-text search results flow.
-      const ref = references[0]
-      targetBook = ref.book ? this.bookService.findBook(ref.book) : null
-      if (targetBook) {
-        targetChapter = ref.chapter || 1
-        if (ref.verses && ref.verses.length > 0) {
-          targetVerseStart =
-            ref.verses[0].type === "single"
-              ? ref.verses[0].verse
-              : ref.verses[0].start
-        }
-      }
-    } else {
-      // Check if the search text exactly matches a book name or abbreviation
-      const book = this.bookService.findBook(text.trim())
-      if (book && book.id !== "about") {
-        targetBook = book
-      }
-    }
+    // A well-formed Bible reference, or a book's name, jumps straight into
+    // the reader instead of going through the full-text search.
+    const destination = this.referenceService.destinationOf(text)
+    const targetBook = destination?.book ?? null
+    const targetChapter = destination?.chapter ?? 1
+    const targetVerseStart = destination?.verseStart
 
     if (targetBook) {
       // A standalone introduction has no chapters: nothing to probe, and its

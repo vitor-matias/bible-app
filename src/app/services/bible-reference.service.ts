@@ -37,6 +37,13 @@ export interface BibleReference {
   endChapter?: number
 }
 
+/** The place a search names, as opposed to words it asks for. */
+export type SearchDestination = {
+  book: Book
+  chapter: Chapter["number"]
+  verseStart?: Verse["number"]
+}
+
 @Injectable({ providedIn: "root" })
 export class BibleReferenceService {
   private bookAlternation = ""
@@ -121,6 +128,37 @@ export class BibleReferenceService {
       String.raw`)?\b`
 
     this.explicitRe = new RegExp(pattern, "gi")
+  }
+
+  /**
+   * Where a search should land, when what was typed names a place rather
+   * than something to look for: a reference ("Mt 22,37"), or a book by name
+   * or abbreviation. Null when it is words to search for.
+   *
+   * Here so that every search box answers the same way. The study panel's
+   * had its own, which sent "Mt 22,37" to the text search and listed verses
+   * containing "22" instead of opening Matthew 22.
+   */
+  destinationOf(text: string): SearchDestination | null {
+    const [reference] = this.extract(text)
+    if (reference) {
+      const book = this.bookService.findBook(reference.book)
+      // findBook answers with the About page for a name it does not know.
+      if (!book || book.id === "about") return null
+      const first = reference.verses?.[0]
+      return {
+        book,
+        chapter: reference.chapter || 1,
+        verseStart:
+          first === undefined
+            ? reference.crossChapter?.startVerse
+            : first.type === "single"
+              ? first.verse
+              : first.start,
+      }
+    }
+    const book = this.bookService.findBook(text.trim())
+    return !book || book.id === "about" ? null : { book, chapter: 1 }
   }
 
   extract(

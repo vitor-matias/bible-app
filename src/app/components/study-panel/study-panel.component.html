@@ -256,6 +256,9 @@
     @case ('failed') {
     <p class="panel-empty small">Não foi possível procurar agora.</p>
     }
+    @case ('missing') {
+    <p class="panel-empty small">«{{ searchQuery }}» não existe: o capítulo ou o versículo não estão nesse livro.</p>
+    }
     @case ('done') {
     @if (searchResults.length) {
     <p class="panel-caption notes-caption">{{ searchSummary }}</p>

@@ -15,7 +15,7 @@ import {
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatIconModule } from "@angular/material/icon"
 import { MatTooltipModule } from "@angular/material/tooltip"
-import { RouterModule } from "@angular/router"
+import { Router, RouterModule } from "@angular/router"
 import {
   catchError,
   debounceTime,
@@ -30,6 +30,7 @@ import { BibleApiService } from "../../services/bible-api.service"
 import {
   type BibleReference,
   BibleReferenceService,
+  type SearchDestination,
 } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import {
@@ -232,7 +233,7 @@ export class StudyPanelComponent implements OnChanges {
   noteDraft = ""
   searchQuery = ""
   searchResults: SearchResult[] = []
-  searchState: "idle" | "searching" | "done" | "failed" = "idle"
+  searchState: "idle" | "searching" | "done" | "failed" | "missing" = "idle"
   searchTotal = 0
   /** The search is the API's, so it is the one thing here that needs the net. */
   offline = false
@@ -262,6 +263,7 @@ export class StudyPanelComponent implements OnChanges {
   private readonly bibleRef = inject(BibleReferenceService)
   private readonly api = inject(BibleApiService)
   private readonly bookService = inject(BookService)
+  private readonly router = inject(Router)
   private readonly notesService = inject(NotesService)
   private readonly highlights = inject(HighlightService)
   private readonly reverseRefs = inject(ReverseReferencesService)
@@ -594,6 +596,17 @@ export class StudyPanelComponent implements OnChanges {
     this.searchState = "searching"
     this.searchResults = []
     this.cdr.markForCheck()
+
+    // A reference, or a book's name, is somewhere to go rather than words to
+    // look for — as it is in the app's other search box, and as this one's
+    // own prompt says. It used to go to the text search like anything else,
+    // so "Mt 22,37" listed verses with a 22 in them.
+    const destination = this.bibleRef.destinationOf(query)
+    if (destination) {
+      this.goTo(destination)
+      return
+    }
+
     this.searchSubscription = this.api
       .search(query, 1, SEARCH_RESULT_LIMIT)
       .subscribe({
@@ -609,6 +622,44 @@ export class StudyPanelComponent implements OnChanges {
           this.searchResults = []
           this.searchTotal = 0
           this.searchState = "failed"
+          this.cdr.markForCheck()
+        },
+      })
+  }
+
+  /**
+   * Opens the place a search named. Asked for first, the way the search page
+   * does: "Mt 40,1" reads like a reference and leads nowhere, and saying so
+   * here is kinder than sending the reader to a chapter that is not there.
+   */
+  private goTo({ book, chapter, verseStart }: SearchDestination): void {
+    // A standalone introduction has no chapters: nothing to ask for, and its
+    // only page is the introduction.
+    const isIntro = !!book.introSlug
+    const open = () => {
+      this.searchState = "idle"
+      this.cdr.markForCheck()
+      void this.router.navigate(
+        [
+          "/",
+          this.bookService.getUrlAbrv(book),
+          isIntro
+            ? BookService.INTRO_URL_SEGMENT
+            : this.bookService.getChapterUrlSegment(chapter),
+        ],
+        verseStart === undefined ? {} : { queryParams: { verseStart } },
+      )
+    }
+    if (isIntro) {
+      open()
+      return
+    }
+    this.searchSubscription = this.api
+      .getVerse(book.id, chapter, verseStart ?? 1)
+      .subscribe({
+        next: open,
+        error: () => {
+          this.searchState = "missing"
           this.cdr.markForCheck()
         },
       })

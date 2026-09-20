@@ -4,7 +4,7 @@ import {
   TestBed,
   tick,
 } from "@angular/core/testing"
-import { provideRouter } from "@angular/router"
+import { provideRouter, Router } from "@angular/router"
 import { of, throwError } from "rxjs"
 import { BibleApiService } from "../../services/bible-api.service"
 import {
@@ -117,6 +117,8 @@ describe("StudyPanelComponent", () => {
 
     api = jasmine.createSpyObj<BibleApiService>("BibleApiService", [
       "getChapter",
+      "getVerse",
+      "search",
     ])
     api.getChapter.and.returnValue(
       of({ bookId: "mrk", number: 12, verses: [] }),
@@ -124,14 +126,19 @@ describe("StudyPanelComponent", () => {
 
     bibleRef = jasmine.createSpyObj<BibleReferenceService>(
       "BibleReferenceService",
-      ["extract"],
+      ["extract", "destinationOf"],
     )
     bibleRef.extract.and.returnValue([])
+    bibleRef.destinationOf.and.returnValue(null)
 
     const bookService = jasmine.createSpyObj<BookService>("BookService", [
       "findBook",
       "getUrlAbrv",
+      "getChapterUrlSegment",
     ])
+    bookService.getChapterUrlSegment.and.callFake((chapter: number) =>
+      String(chapter),
+    )
     bookService.findBook.and.callFake((id: string) =>
       id === "mrk" || id === "Mc" ? MARK : BOOK,
     )
@@ -1365,6 +1372,56 @@ describe("StudyPanelComponent", () => {
       // The verse is still on screen to select by hand; an error thrown over
       // the text would help nobody.
       expect(component.copied).toBeFalse()
+    })
+  })
+
+  describe("searching for a reference", () => {
+    let router: Router
+
+    beforeEach(() => {
+      router = TestBed.inject(Router)
+      spyOn(router, "navigate").and.resolveTo(true)
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [] },
+      })
+    })
+
+    it("goes to the passage instead of searching for its digits", () => {
+      bibleRef.destinationOf.and.returnValue({
+        book: MARK,
+        chapter: 12,
+        verseStart: 31,
+      })
+      api.getVerse.and.returnValue(of(verse(31, [])))
+
+      component.onSearchSubmit("Mc 12,31")
+
+      expect(api.search).not.toHaveBeenCalled()
+      expect(router.navigate).toHaveBeenCalledOnceWith(["/", "mc", "12"], {
+        queryParams: { verseStart: 31 },
+      })
+    })
+
+    it("says so when the reference names a verse that is not there", () => {
+      bibleRef.destinationOf.and.returnValue({ book: MARK, chapter: 40 })
+      api.getVerse.and.returnValue(throwError(() => ({ status: 404 })))
+
+      component.onSearchSubmit("Mc 40")
+
+      expect(router.navigate).not.toHaveBeenCalled()
+      expect(component.searchState).toBe("missing")
+    })
+
+    it("still searches the text for anything else", () => {
+      api.search.and.returnValue(
+        of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+      )
+
+      component.onSearchSubmit("amarás")
+
+      expect(api.search).toHaveBeenCalled()
+      expect(router.navigate).not.toHaveBeenCalled()
     })
   })
 

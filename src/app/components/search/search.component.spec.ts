@@ -67,8 +67,18 @@ describe("SearchComponent", () => {
     apiService = jasmine.createSpyObj("BibleApiService", ["getVerse", "search"])
     referenceService = jasmine.createSpyObj("BibleReferenceService", [
       "extract",
+      "destinationOf",
     ])
     bookService = jasmine.createSpyObj("BookService", ["findBook"])
+    // The real decision, made over the two spies the specs below set up:
+    // what a query names is the service's to say, and these specs are about
+    // what the page does with the answer.
+    referenceService.destinationOf.and.callFake((text: string) =>
+      BibleReferenceService.prototype.destinationOf.call(
+        { extract: referenceService.extract, bookService },
+        text,
+      ),
+    )
     snackBar = jasmine.createSpyObj("MatSnackBar", ["open"])
     router = jasmine.createSpyObj("Router", ["navigate"])
     router.navigate.and.resolveTo(true)
