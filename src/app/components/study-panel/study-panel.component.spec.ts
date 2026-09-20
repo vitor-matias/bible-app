@@ -131,11 +131,11 @@ describe("StudyPanelComponent", () => {
     bibleRef.extract.and.returnValue([])
     bibleRef.destinationOf.and.returnValue(null)
 
-    const bookService = jasmine.createSpyObj<BookService>("BookService", [
-      "findBook",
-      "getUrlAbrv",
-      "getChapterUrlSegment",
-    ])
+    const bookService = jasmine.createSpyObj<BookService>(
+      "BookService",
+      ["findBook", "getUrlAbrv", "getChapterUrlSegment"],
+      { books$: of([BOOK, MARK]) },
+    )
     bookService.getChapterUrlSegment.and.callFake((chapter: number) =>
       String(chapter),
     )
