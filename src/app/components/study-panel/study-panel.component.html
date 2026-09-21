@@ -37,7 +37,7 @@
     <!-- data-verse is how selecting a verse finds its entries to scroll to. -->
     <section class="reference-group" [class.current]="isCurrentGroup(group)"
       [attr.data-verse]="group.verseNumber">
-      <h3 class="group-label">Referências Cruzadas: {{ group.label }}</h3>
+      <h2 class="group-label">Referências Cruzadas: {{ group.label }}</h2>
       <ul class="reference-list">
         @for (reference of group.entries; track reference.key) {
         <li class="reference">
@@ -93,7 +93,7 @@
          the outgoing side, so this is built from the offline text. -->
     @if (selectedVerse) {
     <section class="incoming">
-      <h3 class="group-label">Citado em</h3>
+      <h2 class="group-label">Citado em</h2>
       @switch (incomingState) {
       @case ('ready') {
       @if (incoming.length) {
@@ -135,7 +135,8 @@
       @for (color of highlightColors; track color) {
       <button type="button" class="mark-swatch" [attr.data-color]="color"
         [class.chosen]="selectedHighlight === color" [attr.aria-pressed]="selectedHighlight === color"
-        [attr.aria-label]="'Marcar ' + selectedVerseLabel" (click)="toggleHighlight(color)"></button>
+        [attr.aria-label]="'Marcar ' + selectedVerseLabel + ' a ' + colorNames[color]"
+        [attr.title]="colorNames[color]" (click)="toggleHighlight(color)"></button>
       }
     </div>
 
@@ -150,7 +151,7 @@
     @if (selectedVerse) {
     <div class="note-box">
       <label class="note-label" for="study-note">A minha nota em {{ selectedVerseLabel }}</label>
-      <textarea id="study-note" class="note-input" rows="3" placeholder="Escrever… fica no dispositivo, sem conta."
+      <textarea id="study-note" name="nota" autocomplete="off" class="note-input" rows="3" placeholder="Escrever… fica no dispositivo, sem conta."
         [value]="noteDraft" (input)="onNoteInput($any($event.target).value)" (blur)="onNoteBlur()"></textarea>
     </div>
     }
@@ -188,7 +189,7 @@
     @if (selectedVerse) {
     <div class="note-box">
       <label class="note-label" for="study-note-tab">A minha nota em {{ selectedVerseLabel }}</label>
-      <textarea id="study-note-tab" class="note-input" rows="4" placeholder="Escrever… fica no dispositivo, sem conta."
+      <textarea id="study-note-tab" name="nota" autocomplete="off" class="note-input" rows="4" placeholder="Escrever… fica no dispositivo, sem conta."
         [value]="noteDraft" (input)="onNoteInput($any($event.target).value)" (blur)="onNoteBlur()"></textarea>
     </div>
     } @else {
@@ -197,7 +198,8 @@
 
     <div class="note-search">
       <label class="note-label" for="study-note-search">Procurar nas minhas notas</label>
-      <input id="study-note-search" class="note-search-input" type="search"
+      <input id="study-note-search" name="procurar-notas" autocomplete="off" spellcheck="false"
+        class="note-search-input" type="search"
         placeholder="Escrever para procurar…" [value]="noteQuery"
         (input)="onNoteQuery($any($event.target).value)" />
     </div>
@@ -241,7 +243,8 @@
     <!-- Enter rather than as-you-type: this search goes to the server. -->
     <div class="note-search">
       <label class="note-label" for="study-search">Procurar na Bíblia</label>
-      <input id="study-search" class="note-search-input" type="search"
+      <input id="study-search" name="procurar" autocomplete="off" spellcheck="false"
+        class="note-search-input" type="search"
         placeholder="Escrever e premir Enter…" [value]="searchQuery"
         (keydown.enter)="onSearchSubmit($any($event.target).value)" />
     </div>

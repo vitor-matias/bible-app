@@ -340,3 +340,9 @@
   letter-spacing: 0.04em;
   color: var(--study-muted);
 }
+
+.parallel-retry {
+  margin: 0 auto;
+  padding: 6px 12px;
+  font-size: 13px;
+}

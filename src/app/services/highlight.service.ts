@@ -10,6 +10,18 @@ export type VerseHighlight = VerseRecord & {
   updatedAt: number
 }
 
+/**
+ * What each colour is called. A swatch is a button with nothing in it but its
+ * colour, so its name has to say which: four buttons all called "Marcar
+ * 22,37" told a screen reader nothing about what set them apart.
+ */
+export const HIGHLIGHT_COLOR_NAMES: Record<HighlightColor, string> = {
+  yellow: "amarelo",
+  green: "verde",
+  blue: "azul",
+  pink: "rosa",
+}
+
 export const HIGHLIGHT_COLORS: HighlightColor[] = [
   "yellow",
   "green",

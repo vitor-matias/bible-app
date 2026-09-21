@@ -18,7 +18,8 @@
   <section class="sidebar-section books">
 
     <div class="book-filter">
-      <input class="book-filter-input" type="search" [value]="filter" placeholder="Filtrar livros…"
+      <input class="book-filter-input" type="search" name="filtro-livros" autocomplete="off" spellcheck="false"
+        [value]="filter" placeholder="Filtrar livros…"
         aria-label="Filtrar livros" (input)="onFilter($any($event.target).value)" />
     </div>
 
@@ -27,13 +28,13 @@
     <ul class="book-list">
       @for (entry of matches; track entry.id) {
       <li>
-        <button type="button" class="book-row" [class.current]="entry.id === book?.id"
-          [attr.aria-current]="entry.id === book?.id ? 'page' : null" (click)="onBookClick(entry)">
+        <a class="book-row" [attr.href]="bookHref(entry)" [class.current]="entry.id === book?.id"
+          [attr.aria-current]="entry.id === book?.id ? 'page' : null" (click)="onBookClick(entry, $event)">
           <!-- Its own name, not entryLabel: a filtered list has no headings
                above it, so three rows reading "Introdução" would name nothing. -->
           <span class="book-name">{{ entry.shortName }}</span>
           <span class="book-count" aria-hidden="true">{{ chapterCountFor(entry) }}</span>
-        </button>
+        </a>
       </li>
       }
     </ul>
@@ -47,10 +48,10 @@
       <!-- An introduction to a testament, or to the whole Bible: it leads
            what it introduces rather than sitting in a block of its own. -->
       <li class="standalone-intro">
-        <button type="button" class="book-row" [class.current]="section.book.id === book?.id"
-          [attr.aria-current]="section.book.id === book?.id ? 'page' : null" (click)="onBookClick(section.book)">
+        <a class="book-row" [attr.href]="bookHref(section.book)" [class.current]="section.book.id === book?.id"
+          [attr.aria-current]="section.book.id === book?.id ? 'page' : null" (click)="onBookClick(section.book, $event)">
           <span class="book-name">{{ section.book.shortName }}</span>
-        </button>
+        </a>
       </li>
       } @else {
       @let group = section.group;
@@ -64,13 +65,13 @@
         <ul class="book-list">
           @for (entry of group.books; track entry.id) {
           <li>
-            <button type="button" class="book-row" [class.current]="entry.id === book?.id"
-              [attr.aria-current]="entry.id === book?.id ? 'page' : null" (click)="onBookClick(entry)">
+            <a class="book-row" [attr.href]="bookHref(entry)" [class.current]="entry.id === book?.id"
+              [attr.aria-current]="entry.id === book?.id ? 'page' : null" (click)="onBookClick(entry, $event)">
               <span class="book-name">{{ entryLabel(entry) }}</span>
               <!-- The chapter count is data, not a label: it is what tells a
                    reader scanning the rail how long a book is. -->
               <span class="book-count" aria-hidden="true">{{ chapterCountFor(entry) }}</span>
-            </button>
+            </a>
           </li>
           }
         </ul>
@@ -87,11 +88,11 @@
     <h2 class="sidebar-heading">Capítulos</h2>
     <div class="chapter-grid">
       @for (chapter of chapters; track chapter.number) {
-      <button type="button" class="chapter-cell" [class.current]="chapter.number === selectedChapter"
+      <a class="chapter-cell" [attr.href]="chapterHref(chapter)" [class.current]="chapter.number === selectedChapter"
         [class.intro]="chapter.number === 0" [attr.aria-current]="chapter.number === selectedChapter ? 'page' : null"
-        [attr.aria-label]="chapterAriaLabel(chapter)" (click)="onChapterClick(chapter)">
+        [attr.aria-label]="chapterAriaLabel(chapter)" (click)="onChapterClick(chapter, $event)">
         {{ chapterLabel(chapter) }}
-      </button>
+      </a>
       }
     </div>
   </section>

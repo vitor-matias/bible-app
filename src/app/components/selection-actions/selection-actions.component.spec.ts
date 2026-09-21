@@ -1,4 +1,10 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import {
+  MatSnackBar,
+  type MatSnackBarRef,
+  type TextOnlySnackBar,
+} from "@angular/material/snack-bar"
+import { Subject } from "rxjs"
 import { HighlightService } from "../../services/highlight.service"
 import { SelectionActionsComponent } from "./selection-actions.component"
 
@@ -308,6 +314,67 @@ describe("SelectionActionsComponent", () => {
 
     expect(written.length).toBe(1)
     expect(written[0]).toContain("(Mateus 22,37)")
+  })
+
+  it("names the colour on each swatch", () => {
+    selectVerses(host, 37, 37)
+
+    const names = Array.from(
+      fixture.nativeElement.querySelectorAll(".mark-swatch"),
+    ).map((swatch) => (swatch as HTMLElement).getAttribute("aria-label"))
+
+    // Four buttons all called "Marcar 22,37" told a screen reader nothing.
+    expect(names).toEqual([
+      "Marcar 22,37 a amarelo",
+      "Marcar 22,37 a verde",
+      "Marcar 22,37 a azul",
+      "Marcar 22,37 a rosa",
+    ])
+  })
+
+  it("lets the marks it took off be put back", () => {
+    highlights.toggle("mat", 22, 37, "green")
+    highlights.toggle("mat", 22, 38, "pink")
+    const undo = new Subject<void>()
+    const open = spyOn(TestBed.inject(MatSnackBar), "open").and.returnValue({
+      onAction: () => undo.asObservable(),
+    } as MatSnackBarRef<TextOnlySnackBar>)
+    selectVerses(host, 37, 39)
+
+    component.clearMarks()
+    expect(highlights.colorFor("mat", 22, 37)).toBeUndefined()
+    expect(open).toHaveBeenCalledWith(
+      "2 marcas retiradas",
+      "Anular",
+      jasmine.any(Object),
+    )
+
+    undo.next()
+    expect(highlights.colorFor("mat", 22, 37)).toBe("green")
+    expect(highlights.colorFor("mat", 22, 38)).toBe("pink")
+  })
+
+  it("offers nothing to undo when there was no mark to take off", () => {
+    const open = spyOn(TestBed.inject(MatSnackBar), "open")
+    selectVerses(host, 37, 37)
+
+    component.clearMarks()
+
+    expect(open).not.toHaveBeenCalled()
+  })
+
+  it("shows that copying failed, instead of doing nothing", async () => {
+    spyOn(navigator.clipboard, "writeText").and.rejectWith(new Error("denied"))
+    selectVerses(host, 37, 37)
+
+    await component.copy()
+
+    expect(component.copyFailed).toBeTrue()
+    expect(
+      fixture.nativeElement
+        .querySelector(".bar-action:last-child mat-icon")
+        .textContent.trim(),
+    ).toBe("error")
   })
 
   it("grows from the side of the bar that faces the selection", () => {

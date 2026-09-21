@@ -1,3 +1,4 @@
+import { LiveAnnouncer } from "@angular/cdk/a11y"
 import { isPlatformBrowser } from "@angular/common"
 import {
   ChangeDetectionStrategy,
@@ -9,7 +10,9 @@ import {
   PLATFORM_ID,
 } from "@angular/core"
 import { MatIconModule } from "@angular/material/icon"
+import { MatSnackBar } from "@angular/material/snack-bar"
 import {
+  HIGHLIGHT_COLOR_NAMES,
   HIGHLIGHT_COLORS,
   type HighlightColor,
   HighlightService,
@@ -31,6 +34,8 @@ const EDGE_MARGIN = 8
 /** Roughly the bar's own width; used only to keep it on screen. */
 const BAR_WIDTH = 210
 const BAR_HEIGHT = 44
+/** How long a destructive action can be taken back. */
+const UNDO_WINDOW_MS = 6000
 
 /**
  * What the page prints around the words without being the words: numbers,
@@ -77,16 +82,21 @@ export class SelectionActionsComponent {
   private source: { book: Book; chapter: Chapter } | null = null
 
   readonly colors = HIGHLIGHT_COLORS
+  readonly colorNames = HIGHLIGHT_COLOR_NAMES
   position: BarPosition | null = null
   /** The verses the selection touches, in order. */
   verses: Verse["number"][] = []
   copied = false
+  /** The clipboard refused: shown, since a silent failure reads as no press. */
+  copyFailed = false
 
   private selectedText = ""
   private frame?: number
   private copiedTimer?: ReturnType<typeof setTimeout>
 
   private readonly highlights = inject(HighlightService)
+  private readonly snackBar = inject(MatSnackBar)
+  private readonly announcer = inject(LiveAnnouncer)
   private readonly cdr = inject(ChangeDetectorRef)
   private readonly platformId = inject(PLATFORM_ID)
 
@@ -170,6 +180,7 @@ export class SelectionActionsComponent {
 
   private resetCopied(): void {
     this.copied = false
+    this.copyFailed = false
     if (this.copiedTimer) clearTimeout(this.copiedTimer)
     this.copiedTimer = undefined
   }
@@ -326,10 +337,36 @@ export class SelectionActionsComponent {
   clearMarks(): void {
     if (!this.source) return
     const { book, chapter } = this.source
-    for (const verse of this.verses) {
+    // What is about to go, so it can come back: one press takes the marks
+    // off a whole run of verses, and until now took them for good.
+    const taken = this.verses.flatMap((verse) => {
+      const color = this.highlights.colorFor(book.id, chapter.number, verse)
+      return color ? [{ verse, color }] : []
+    })
+    for (const { verse } of taken) {
       this.highlights.clear(book.id, chapter.number, verse)
     }
     this.dismissSelection()
+    if (!taken.length) return
+
+    this.snackBar
+      .open(
+        taken.length === 1
+          ? "Marca retirada"
+          : `${taken.length} marcas retiradas`,
+        "Anular",
+        { duration: UNDO_WINDOW_MS },
+      )
+      .onAction()
+      .subscribe(() => {
+        for (const { verse, color } of taken) {
+          if (
+            this.highlights.colorFor(book.id, chapter.number, verse) !== color
+          ) {
+            this.highlights.toggle(book.id, chapter.number, verse, color)
+          }
+        }
+      })
   }
 
   async copy(): Promise<void> {
@@ -341,14 +378,21 @@ export class SelectionActionsComponent {
         formatPassage(this.selectedText, reference),
       )
       this.copied = true
+      this.copyFailed = false
       this.cdr.detectChanges()
+      void this.announcer.announce(`${reference} copiado.`)
       if (this.copiedTimer) clearTimeout(this.copiedTimer)
       this.copiedTimer = setTimeout(() => {
         this.dismissSelection()
       }, 900)
     } catch {
       // No clipboard, or permission refused: the text is still selected, so
-      // the reader can copy it the usual way.
+      // the reader can copy it the usual way — once they know they have to.
+      // The button used to do nothing at all, which read as a button that
+      // had not been pressed.
+      this.copyFailed = true
+      this.cdr.detectChanges()
+      void this.announcer.announce("Não foi possível copiar.")
     }
   }
 

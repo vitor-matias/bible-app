@@ -138,29 +138,43 @@
 .reference-group,
 .footnote,
 .saved-note {
-  background-color: transparent;
-  border-radius: 2px;
-  transition:
-    background-color 0.35s ease,
-    box-shadow 0.35s ease;
+  position: relative;
+  isolation: isolate;
 }
 
-.reference-group.current,
-.footnote.current,
-.saved-note.current {
+/* The tint is a layer of its own, faded by opacity — which the compositor
+   does without repainting — rather than a background and a pair of shadows
+   changing colour, which repainted the group on every frame of the fade. */
+.reference-group::before,
+.footnote::before,
+.saved-note::before {
+  content: "";
+  position: absolute;
+  inset: 0 -10px;
+  z-index: -1;
+  border-radius: 2px;
   background-color: var(--study-selection-color);
-  box-shadow: -10px 0 0 var(--study-selection-color), 10px 0 0 var(--study-selection-color);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
+.reference-group.current::before,
+.footnote.current::before,
+.saved-note.current::before {
+  opacity: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .reference-group,
-  .footnote,
-  .saved-note {
+  .reference-group::before,
+  .footnote::before,
+  .saved-note::before {
     transition: none;
   }
 }
 
 .group-label {
+  text-wrap: balance;
   margin: 0 0 10px;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -298,9 +312,11 @@
   outline: none;
 }
 
+/* The box is the control the reader sees, so the ring goes round the box. */
 .note-box:focus-within {
   border-style: solid;
-  border-color: color-mix(in srgb, var(--cap-brown) 40%, transparent);
+  outline: 2px solid var(--study-focus);
+  outline-offset: 1px;
 }
 
 .note-list {
@@ -313,6 +329,9 @@
   padding: 10px 0;
   border-top: 1px solid var(--study-rule);
   line-height: 1.5;
+  /* The reader's own words, which may be a pasted address with nowhere to
+     break: it wraps rather than pushing the column wide. */
+  overflow-wrap: anywhere;
 }
 
 .note-ref {
@@ -320,10 +339,6 @@
   font-weight: 600;
   color: var(--text-secondary);
   padding-top: 2px;
-}
-
-:host-context(.dark-theme) .note-box:focus-within {
-  border-color: rgba(255, 255, 255, 0.4);
 }
 
 /* A quiet action, not a button competing with the text beside it. */
@@ -364,9 +379,9 @@
   font-size: 16px;
 }
 
-.note-search-input:focus {
-  outline: none;
-  border-color: color-mix(in srgb, var(--cap-brown) 40%, transparent);
+.note-search-input:focus-visible {
+  outline: 2px solid var(--study-focus);
+  outline-offset: 1px;
 }
 
 /* Where the reader's words landed, in the same tint a deep link uses to say
@@ -385,10 +400,6 @@ a.note-ref {
 a.note-ref:hover,
 a.note-ref:focus-visible {
   text-decoration: underline;
-}
-
-:host-context(.dark-theme) .note-search-input:focus {
-  border-color: rgba(255, 255, 255, 0.4);
 }
 
 /* The colours the reader can mark a verse with. Swatches rather than a menu:

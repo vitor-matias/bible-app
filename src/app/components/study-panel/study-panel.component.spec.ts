@@ -1,11 +1,17 @@
+import { LiveAnnouncer } from "@angular/cdk/a11y"
 import {
   type ComponentFixture,
   fakeAsync,
   TestBed,
   tick,
 } from "@angular/core/testing"
+import {
+  MatSnackBar,
+  type MatSnackBarRef,
+  type TextOnlySnackBar,
+} from "@angular/material/snack-bar"
 import { provideRouter, Router } from "@angular/router"
-import { of, throwError } from "rxjs"
+import { of, Subject, throwError } from "rxjs"
 import { BibleApiService } from "../../services/bible-api.service"
 import {
   type BibleReference,
@@ -1445,6 +1451,19 @@ describe("StudyPanelComponent", () => {
       })
     })
 
+    it("says aloud what a search found", () => {
+      const announce = spyOn(TestBed.inject(LiveAnnouncer), "announce")
+      api.search.and.returnValue(
+        of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+      )
+
+      component.onSearchSubmit("amarás")
+
+      // On screen "A procurar…" is simply replaced, which says nothing to a
+      // reader who cannot see it.
+      expect(announce).toHaveBeenCalledOnceWith("Nada encontrado para amarás.")
+    })
+
     it("says so when the reference names a verse that is not there", () => {
       bibleRef.destinationOf.and.returnValue({ book: MARK, chapter: 40 })
       api.getVerse.and.returnValue(throwError(() => ({ status: 404 })))
@@ -1628,6 +1647,47 @@ describe("StudyPanelComponent", () => {
       expect(notes.getNote("mat", 22, 39)?.text).toBe("sobre Mateus")
       expect(notes.getNote("luk", 22, 39)).toBeUndefined()
     }))
+
+    it("lets a note deleted by emptying its box be put back", () => {
+      notes.saveNote("mat", 22, 39, "para não perder")
+      const undo = new Subject<void>()
+      const open = spyOn(TestBed.inject(MatSnackBar), "open").and.returnValue({
+        onAction: () => undo.asObservable(),
+      } as MatSnackBarRef<TextOnlySnackBar>)
+      const target = verse(39, [])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+
+      // Select all, and a key: that is all deleting a note takes.
+      component.onNoteInput("")
+      component.onNoteBlur()
+      expect(notes.getNote("mat", 22, 39)).toBeUndefined()
+      expect(open).toHaveBeenCalledOnceWith(
+        "Nota apagada",
+        "Anular",
+        jasmine.any(Object),
+      )
+
+      undo.next()
+      expect(notes.getNote("mat", 22, 39)?.text).toBe("para não perder")
+      expect(component.noteDraft).toBe("para não perder")
+    })
+
+    it("names the colour on each swatch", () => {
+      const target = verse(39, [])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+
+      const first = fixture.nativeElement.querySelector(".mark-swatch")
+
+      expect(first.getAttribute("aria-label")).toBe("Marcar 22,39 a amarelo")
+    })
 
     it("saves immediately when the reader leaves the box", () => {
       const target = verse(39, [])

@@ -535,6 +535,22 @@ body .mat-mdc-form-field {
   transition: transform 100ms ease-out;
 }
 
+/* A tap on these is a tap: no waiting to see whether it is the first half of
+   a double-tap zoom, and no grey flash from the browser over controls that
+   answer a press themselves. */
+.study-quiet-button,
+.collapse-toggle,
+.bar-action,
+.mark-swatch,
+.chapter-cell,
+.verse-action,
+.tab-strip .tab,
+.group-toggle,
+.book-row {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .study-quiet-button:active,
 .collapse-toggle:active,
 .bar-action:active,

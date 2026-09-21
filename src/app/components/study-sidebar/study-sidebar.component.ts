@@ -11,6 +11,7 @@ import {
 } from "@angular/core"
 import { MatIconModule } from "@angular/material/icon"
 import { MatTooltipModule } from "@angular/material/tooltip"
+import { Router } from "@angular/router"
 import {
   type CanonGroup,
   NEW_TESTAMENT_GROUPS,
@@ -18,6 +19,7 @@ import {
   OLD_TESTAMENT_GROUPS,
   WHOLE_BIBLE_INTRO,
 } from "../../bible-canon"
+import { BookService } from "../../services/book.service"
 import { normalizeForSearch } from "../../utils/text"
 
 /** One canon group as the sidebar shows it: only the books actually served. */
@@ -69,6 +71,8 @@ export class StudySidebarComponent implements OnChanges {
   @Output() toggleCollapsed = new EventEmitter<void>()
 
   private readonly cdr = inject(ChangeDetectorRef)
+  private readonly router = inject(Router)
+  private readonly bookService = inject(BookService)
 
   groups: SidebarGroup[] = []
   /** The rail in order: groups, with the wider introductions among them. */
@@ -163,12 +167,52 @@ export class StudySidebarComponent implements OnChanges {
     return entry.introSlug ? "" : String(entry.chapterCount)
   }
 
-  onBookClick(book: Book): void {
+  /**
+   * Books and chapters are places, so they are links: a reader comparing two
+   * books opens the second in a new tab, and as buttons these gave Cmd-click
+   * and the middle button nothing to open. A plain click still goes through
+   * the reader, which has things to do on the way (stopping auto-scroll).
+   */
+  onBookClick(book: Book, event: MouseEvent): void {
+    if (StudySidebarComponent.opensElsewhere(event)) return
+    event.preventDefault()
     this.selectBook.emit({ bookId: book.id })
   }
 
-  onChapterClick(chapter: Chapter): void {
+  onChapterClick(chapter: Chapter, event: MouseEvent): void {
+    if (StudySidebarComponent.opensElsewhere(event)) return
+    event.preventDefault()
     this.selectChapter.emit({ chapterNumber: chapter.number })
+  }
+
+  /** A click the browser should have: a new tab, a new window, a download. */
+  private static opensElsewhere(event: MouseEvent): boolean {
+    return (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+  }
+
+  /** Chapter 1, except for a standalone introduction, which has none. */
+  bookHref(book: Book): string {
+    return this.hrefFor(book, book.introSlug ? 0 : 1)
+  }
+
+  chapterHref(chapter: Chapter): string | null {
+    return this.book ? this.hrefFor(this.book, chapter.number) : null
+  }
+
+  private hrefFor(book: Book, chapter: Chapter["number"]): string {
+    return this.router.serializeUrl(
+      this.router.createUrlTree([
+        "/",
+        this.bookService.getUrlAbrv(book),
+        this.bookService.getChapterUrlSegment(chapter),
+      ]),
+    )
   }
 
   /** Chapter 0 is the introduction, which has a name instead of a number. */

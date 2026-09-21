@@ -1,3 +1,4 @@
+import { LiveAnnouncer } from "@angular/cdk/a11y"
 import { CommonModule, isPlatformBrowser } from "@angular/common"
 import {
   afterNextRender,
@@ -335,6 +336,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   private readonly dialog = inject(MatDialog)
+  private readonly announcer = inject(LiveAnnouncer)
 
   constructor(
     private autoScrollService: AutoScrollService,
@@ -1520,7 +1522,21 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     )
     if (outcome.chapter) this.watchParallelHighlights(request)
     this.cdr.detectChanges()
+    // "A carregar…" gives way to the text, or to a failure, without a word
+    // to a reader who cannot see it happen.
+    void this.announcer.announce(
+      outcome.chapter
+        ? `${request.label} aberto ao lado.`
+        : `Não foi possível carregar ${request.label}.`,
+    )
     if (outcome.chapter) this.scrollParallelToCitation()
+  }
+
+  /** Asks again for a passage that failed to load. */
+  retryParallel(): void {
+    if (!this.parallel) return
+    const { chapter: _chapter, failed: _failed, ...request } = this.parallel
+    this.onOpenBeside(request)
   }
 
   closeParallel(): void {

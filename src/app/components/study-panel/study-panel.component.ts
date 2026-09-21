@@ -1,3 +1,4 @@
+import { LiveAnnouncer } from "@angular/cdk/a11y"
 import { CommonModule } from "@angular/common"
 import {
   ChangeDetectionStrategy,
@@ -14,6 +15,7 @@ import {
 } from "@angular/core"
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatIconModule } from "@angular/material/icon"
+import { MatSnackBar } from "@angular/material/snack-bar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { Router, RouterModule } from "@angular/router"
 import {
@@ -33,6 +35,7 @@ import {
 } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import {
+  HIGHLIGHT_COLOR_NAMES,
   HIGHLIGHT_COLORS,
   type HighlightColor,
   HighlightService,
@@ -165,6 +168,9 @@ const MAX_SCROLL_MS = 700
 const REFERENCE_FETCH_CONCURRENCY = 4
 const QUOTED_CHAPTERS_KEPT = 60
 
+/** How long a deleted note can be taken back. */
+const UNDO_WINDOW_MS = 6000
+
 /** A frame that arrives late must not fling the spring past its target. */
 const MAX_FRAME_SECONDS = 1 / 30
 /** Close enough, and slow enough, to call the glide finished (px, px/s). */
@@ -231,6 +237,7 @@ export class StudyPanelComponent implements OnChanges {
   /** Set for a moment after a copy, so the button can say it worked. */
   copied = false
   readonly highlightColors = HIGHLIGHT_COLORS
+  readonly colorNames = HIGHLIGHT_COLOR_NAMES
   /** Passages that cite the selected verse, once the reader asks for them. */
   incoming: IncomingReference[] = []
   incomingState: IndexState = "idle"
@@ -255,6 +262,8 @@ export class StudyPanelComponent implements OnChanges {
   private readonly api = inject(BibleApiService)
   private readonly bookService = inject(BookService)
   private readonly router = inject(Router)
+  private readonly announcer = inject(LiveAnnouncer)
+  private readonly snackBar = inject(MatSnackBar)
   private readonly searchService = inject(SearchService)
   private readonly notesService = inject(NotesService)
   private readonly highlights = inject(HighlightService)
@@ -531,6 +540,17 @@ export class StudyPanelComponent implements OnChanges {
     this.incomingState = this.reverseRefs.state
     this.loadIncoming()
     this.cdr.detectChanges()
+    // The answer replaces "A procurar…" on screen and nothing more: said
+    // aloud, or a reader who cannot see the panel never learns it arrived.
+    void this.announcer.announce(
+      this.incomingState === "unavailable"
+        ? "Precisa do texto offline."
+        : this.incoming.length === 0
+          ? "Nenhuma passagem cita este versículo."
+          : this.incoming.length === 1
+            ? "1 passagem cita este versículo."
+            : `${this.incoming.length} passagens citam este versículo.`,
+    )
   }
 
   private loadIncoming(): void {
@@ -623,10 +643,16 @@ export class StudyPanelComponent implements OnChanges {
             )
           } else if (outcome.kind === "missing") {
             this.searchState = "missing"
+            void this.announcer.announce(`${query} não existe.`)
           } else {
             this.searchTotal = outcome.total
             this.searchResults = outcome.hits
             this.searchState = "done"
+            void this.announcer.announce(
+              outcome.hits.length
+                ? this.searchSummary
+                : `Nada encontrado para ${query}.`,
+            )
           }
           this.cdr.markForCheck()
         },
@@ -634,6 +660,7 @@ export class StudyPanelComponent implements OnChanges {
           this.searchResults = []
           this.searchTotal = 0
           this.searchState = "failed"
+          void this.announcer.announce("Não foi possível procurar agora.")
           this.cdr.markForCheck()
         },
       })
@@ -705,6 +732,7 @@ export class StudyPanelComponent implements OnChanges {
       await navigator.clipboard.writeText(formatPassage(text, reference))
       this.copied = true
       this.cdr.markForCheck()
+      void this.announcer.announce(`${reference} copiado.`)
       if (this.copiedTimer) clearTimeout(this.copiedTimer)
       this.copiedTimer = setTimeout(() => {
         this.copied = false
@@ -712,13 +740,30 @@ export class StudyPanelComponent implements OnChanges {
       }, COPIED_FEEDBACK_MS)
     } catch {
       // Clipboard permission refused, or no clipboard at all: the verse is
-      // still on screen to select by hand, so say nothing rather than throw
-      // an error message over the text.
+      // still on screen to select by hand, so nothing is thrown over the
+      // text — but a reader who cannot see that the label never changed is
+      // told that it did not work.
+      void this.announcer.announce("Não foi possível copiar.")
     }
   }
 
   private persistNote(bookId: Book["id"], verse: Verse, text: string): void {
-    this.notesService.saveNote(bookId, verse.chapterNumber, verse.number, text)
+    const chapter = verse.chapterNumber
+    const before = this.notesService.getNote(bookId, chapter, verse.number)
+    this.notesService.saveNote(bookId, chapter, verse.number, text)
+    if (!before || text.trim()) return
+
+    // Emptying the box is how a note is deleted, which makes deleting one a
+    // slip of the hand away — select all, and a key. It can be taken back.
+    this.snackBar
+      .open("Nota apagada", "Anular", { duration: UNDO_WINDOW_MS })
+      .onAction()
+      .subscribe(() => {
+        this.notesService.saveNote(bookId, chapter, verse.number, before.text)
+        // Back in the box too, if the reader is still on that verse.
+        this.loadNoteDraft()
+        this.cdr.markForCheck()
+      })
   }
 
   private loadNoteDraft(): void {

@@ -109,7 +109,10 @@
             }
           </div>
           } @else if (parallel.failed) {
-          <p class="study-note parallel-message">Não foi possível carregar esta passagem.</p>
+          <!-- What went wrong, and the way on from it: the message alone left
+               closing the passage and asking for it again as the only move. -->
+          <p class="study-note parallel-message">Não foi possível carregar esta passagem. Verifique a ligação.</p>
+          <button type="button" class="study-quiet-button parallel-retry" (click)="retryParallel()">Tentar de novo</button>
           } @else {
           <p class="study-note parallel-message">A carregar…</p>
           }

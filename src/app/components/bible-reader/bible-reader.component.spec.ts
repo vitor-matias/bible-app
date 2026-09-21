@@ -1046,6 +1046,20 @@ describe("BibleReaderComponent", () => {
       expect(verse.isQuotation).toBeTrue()
     })
 
+    it("asks again for a passage that failed to load", () => {
+      apiServiceSpy.getChapter.and.returnValue(throwError(() => new Error()))
+      component.onOpenBeside(request)
+      expect(component.parallel?.failed).toBeTrue()
+
+      apiServiceSpy.getChapter.and.returnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+      component.retryParallel()
+
+      expect(component.parallel?.failed).toBeFalsy()
+      expect(component.parallel?.chapter).toBeTruthy()
+    })
+
     it("names the passage before its text arrives", () => {
       const pending = new Subject<Chapter>()
       apiServiceSpy.getChapter.and.returnValue(pending)
