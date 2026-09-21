@@ -1,0 +1,14 @@
+.git
+.github
+.claude
+.agents
+.vscode
+node_modules
+dist
+.angular
+coverage
+e2e
+generated-images
+Dockerfile
+.dockerignore
+render.yaml
