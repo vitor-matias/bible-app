@@ -1,0 +1,22 @@
+# Render Blueprint for the frontend. bible-api gets its own service (and its own
+# blueprint) in the bible-api repository.
+services:
+  - type: web
+    name: bible-app
+    runtime: docker
+    plan: 0.5c-512mb
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    # Deploy on push to the default branch, but only once the GitHub CI checks
+    # pass. A failed build (including the strict prerender) leaves the running
+    # version untouched.
+    autoDeployTrigger: checksPass
+    envVars:
+      # Where /v1/* is proxied. Set it in the dashboard. Never the site's own
+      # domain (that would proxy to itself): use http://bible-api:10000 once the
+      # API runs on Render, and a hostname that reaches the VPS directly until
+      # then. Optional: PRERENDER_API_ORIGIN picks the API the build prerenders
+      # from (it defaults to the production domain).
+      - key: API_ORIGIN
+        sync: false
