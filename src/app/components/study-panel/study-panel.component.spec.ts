@@ -1523,6 +1523,32 @@ describe("StudyPanelComponent", () => {
       expect(body.scrollTop).toBe(taken)
     }))
 
+    it("keeps following when the reader presses one of the panel's controls", fakeAsync(() => {
+      // "Abrir ao lado", "Copiar", a colour: pressing one is not scrolling the
+      // panel, and it used to freeze it on the passage it was showing.
+      const button = document.createElement("button")
+      body.appendChild(button)
+      component["glideTo"](body, 2000)
+      tick(100)
+
+      button.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+      tick(3000)
+
+      expect(component["readerHoldsPanel"]).toBeFalse()
+      expect(body.scrollTop).toBe(2000)
+    }))
+
+    it("still lets go on a press on the panel's text", fakeAsync(() => {
+      component["glideTo"](body, 2000)
+      tick(100)
+
+      body.firstElementChild?.dispatchEvent(
+        new PointerEvent("pointerdown", { bubbles: true }),
+      )
+
+      expect(component["readerHoldsPanel"]).toBeTrue()
+    }))
+
     it("bends towards a new target without stopping first", fakeAsync(() => {
       component["glideTo"](body, 2000)
       tick(150)

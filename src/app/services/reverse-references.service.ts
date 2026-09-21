@@ -61,9 +61,17 @@ export class ReverseReferencesService {
     if (this.building) return this.building
 
     this.stateSubject.next("building")
-    this.building = this.build().finally(() => {
-      this.building = undefined
-    })
+    this.building = this.build()
+      .catch(() => {
+        // A corpus that could not be read is one this cannot be built from.
+        // Saying so, rather than staying "building", keeps "Citado em" from
+        // loading for good — and, the index being unset, asking again later
+        // rebuilds it.
+        this.stateSubject.next("unavailable")
+      })
+      .finally(() => {
+        this.building = undefined
+      })
     return this.building
   }
 

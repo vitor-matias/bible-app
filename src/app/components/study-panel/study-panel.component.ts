@@ -179,6 +179,18 @@ const REST_VELOCITY = 4
 /** What the reader does to take the panel's scroll into their own hands. */
 const TAKEOVER_EVENTS = ["wheel", "touchstart", "pointerdown", "keydown"]
 
+/** Things in the panel a press activates or types into, rather than scrolls. */
+const CONTROLS =
+  "a[href], button, input, textarea, select, [contenteditable='true'], " +
+  "[contenteditable=''], [role='button'], [role='tab']"
+
+/** Whether an event began on one of the panel's controls. */
+function isControl(target: EventTarget | null, panel: Element): boolean {
+  if (!(target instanceof Element)) return false
+  const control = target.closest(CONTROLS)
+  return control !== null && control !== panel && panel.contains(control)
+}
+
 /**
  * Study mode's right-hand apparatus: what the edition says about the chapter
  * in front of the reader.
@@ -968,7 +980,12 @@ export class StudyPanelComponent implements OnChanges {
     for (const name of TAKEOVER_EVENTS) {
       body.addEventListener(
         name,
-        () => {
+        (event) => {
+          // Pressing one of the panel's own controls — "Abrir ao lado", a
+          // colour, "Copiar", the note box — is not scrolling it, and the
+          // reader who does is still reading the chapter. A wheel moves the
+          // panel whatever is under the pointer, so it always counts.
+          if (event.type !== "wheel" && isControl(event.target, body)) return
           this.stopGlide()
           this.readerHoldsPanel = true
         },

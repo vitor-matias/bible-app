@@ -64,12 +64,14 @@ export function sectionStartsIn(verses: Verse[]): Verse["number"][] {
     let words = false
     for (const part of verse.text ?? []) {
       if (part.type === "section") {
+        // `words` is left as it is: a heading stacked on another — a division
+        // title and then a passage title, as in Hebrews 1,4 — follows the
+        // verse's words just as the first one does, and opens the same verse.
         starts.add(
           words
             ? nextVerseNumber(verses, index, lastVerse)
             : Math.max(verse.number, 1),
         )
-        words = false
         continue
       }
       if (part.type === "footnote" || part.type === "references") continue
@@ -107,10 +109,11 @@ export function placeReferences(
     let previousSection: string | undefined
     for (const part of verse.text ?? []) {
       if (part.type === "section") {
+        // As in sectionStartsIn: a stacked heading opens what the one above
+        // it opened, so `words` carries on until the text itself does.
         opened = words
           ? nextVerseNumber(verses, index, lastVerse)
           : Math.max(verse.number, 1)
-        words = false
         previousSection = part.tag
         continue
       }

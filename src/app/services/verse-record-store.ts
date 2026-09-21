@@ -113,9 +113,12 @@ export abstract class VerseRecordStore<T extends VerseRecord> {
   }
 
   private read(): T[] {
-    const raw = this.storage?.getItem(this.storageKey)
-    if (!raw) return []
     try {
+      // Inside the try as well: safeLocalStorage() probes once, and a storage
+      // that passed can still refuse a later read (quota, a revoked
+      // permission, private browsing).
+      const raw = this.storage?.getItem(this.storageKey)
+      if (!raw) return []
       const parsed: unknown = JSON.parse(raw)
       if (!Array.isArray(parsed)) return []
       return parsed.filter((value): value is T => this.isRecord(value))

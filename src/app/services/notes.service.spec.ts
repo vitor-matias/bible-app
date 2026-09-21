@@ -14,6 +14,16 @@ describe("NotesService", () => {
     localStorage.removeItem(STORAGE_KEY)
   })
 
+  it("carries on when storage refuses a read after passing its probe", () => {
+    const service = makeService()
+    // The probe behind safeLocalStorage() ran when the service was made; a
+    // storage can still refuse later (quota, a revoked permission).
+    spyOn(Storage.prototype, "getItem").and.throwError("SecurityError")
+
+    expect(() => service.saveNote("mat", 22, 39, "aqui")).not.toThrow()
+    expect(service.getNote("mat", 22, 39)?.text).toBe("aqui")
+  })
+
   afterEach(() => {
     localStorage.removeItem(STORAGE_KEY)
   })

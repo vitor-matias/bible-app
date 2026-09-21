@@ -332,6 +332,40 @@ describe("SelectionActionsComponent", () => {
     ])
   })
 
+  it("forgets it copied when a verse with the same words is selected", async () => {
+    // A refrain: two verses that read the same. The old check compared only
+    // the words, so the timer meant for the first dismissed the second.
+    for (const number of [37, 38]) {
+      const verse = host.querySelector(`verse[id="${number}"]`) as HTMLElement
+      verse.textContent = "Porque o seu amor é para sempre. "
+    }
+    spyOn(navigator.clipboard, "writeText").and.resolveTo()
+    selectVerses(host, 37, 37)
+    await component.copy()
+    expect(component.copied).toBeTrue()
+
+    selectVerses(host, 38, 38)
+
+    expect(component.copied).toBeFalse()
+    expect(component["copiedTimer"]).toBeUndefined()
+  })
+
+  it("does not paint over a colour chosen after the marks came off", () => {
+    highlights.toggle("mat", 22, 37, "green")
+    const undo = new Subject<void>()
+    spyOn(TestBed.inject(MatSnackBar), "open").and.returnValue({
+      onAction: () => undo.asObservable(),
+    } as MatSnackBarRef<TextOnlySnackBar>)
+    selectVerses(host, 37, 37)
+    component.clearMarks()
+
+    // The reader marks it again, in another colour, before pressing "Anular".
+    highlights.toggle("mat", 22, 37, "pink")
+    undo.next()
+
+    expect(highlights.colorFor("mat", 22, 37)).toBe("pink")
+  })
+
   it("lets the marks it took off be put back", () => {
     highlights.toggle("mat", 22, 37, "green")
     highlights.toggle("mat", 22, 38, "pink")

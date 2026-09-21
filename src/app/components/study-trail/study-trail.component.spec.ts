@@ -45,6 +45,31 @@ describe("StudyTrailComponent", () => {
     expect(fixture.nativeElement.querySelector(".study-trail")).toBeNull()
   })
 
+  it("lists a chapter visited twice, twice", () => {
+    // The trail records the way taken: Mateus → Lucas → Mateus keeps all
+    // three steps. Tracked by key, the repeat breaks the loop's contract that
+    // every track value is unique, and Angular reports it (NG0955).
+    const warn = spyOn(console, "warn")
+    const error = spyOn(console, "error")
+
+    const mateus = entry("Mateus 22")
+    const lucas = entry("Lucas 14")
+    const marcos = entry("Marcos 12")
+    setEntries([mateus, lucas, mateus])
+    // The next step re-checks the steps already there, which is where the
+    // loop compares their track keys and finds the chapter visited twice.
+    setEntries([mateus, lucas, mateus, marcos])
+
+    const labels = Array.from(
+      fixture.nativeElement.querySelectorAll(".trail-item"),
+    ).map((item) => (item as HTMLElement).textContent?.trim().split(/\s*›/)[0])
+    expect(labels).toEqual(["Mateus 22", "Lucas 14", "Mateus 22", "Marcos 12"])
+    const complaints = [...warn.calls.allArgs(), ...error.calls.allArgs()]
+      .flat()
+      .map(String)
+    expect(complaints.some((line) => line.includes("NG0955"))).toBeFalse()
+  })
+
   it("lists the way back once the reader has travelled", () => {
     setEntries([entry("Mateus 22"), entry("Lucas 14"), entry("Marcos 12")])
 

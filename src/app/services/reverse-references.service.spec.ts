@@ -81,6 +81,28 @@ describe("ReverseReferencesService", () => {
     service = TestBed.inject(ReverseReferencesService)
   }
 
+  it("gives up loading when the corpus cannot be read", async () => {
+    configure([])
+    offline.getCachedBooksAsync.and.rejectWith(new Error("IndexedDB refused"))
+
+    // Resolves rather than rejecting: its caller awaits it and then reads
+    // the state, and a rejection there left the panel saying "A procurar…"
+    // for good.
+    await expectAsync(service.ensureIndex()).toBeResolved()
+    expect(service.state).toBe("unavailable")
+  })
+
+  it("tries again after a failed build", async () => {
+    configure([])
+    offline.getCachedBooksAsync.and.rejectWith(new Error("IndexedDB refused"))
+    await service.ensureIndex()
+
+    offline.getCachedBooksAsync.and.resolveTo([])
+    await service.ensureIndex()
+
+    expect(offline.getCachedBooksAsync).toHaveBeenCalledTimes(2)
+  })
+
   it("reports unavailable when the corpus has not been downloaded", async () => {
     configure([])
 

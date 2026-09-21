@@ -1,7 +1,10 @@
 @if (entries.length) {
 <nav class="study-trail" aria-label="Por onde passou">
   <ol class="trail-list" #list>
-    @for (entry of entries; track entry.key; let last = $last) {
+    <!-- Tracked by position, not by key: the trail records the way taken, so
+         Mateus → Lucas → Mateus holds the same chapter twice, and a track
+         expression must be unique within its loop. -->
+    @for (entry of entries; track $index; let last = $last) {
     <li class="trail-item">
       @if (last) {
       <!-- Where the reader is: named, but not a link back to itself. It is

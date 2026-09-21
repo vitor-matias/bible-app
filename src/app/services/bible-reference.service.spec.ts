@@ -385,5 +385,14 @@ describe("BibleReferenceService", () => {
     it("leaves words to the text search", () => {
       expect(service.destinationOf("amarás o teu próximo")).toBeNull()
     })
+
+    it("searches words that only mention a reference", () => {
+      // The reference is in the query, not the query: these are words to
+      // look for, and opening Matthew 22 would throw them away.
+      expect(service.destinationOf("amor em Mt 22,37")).toBeNull()
+      expect(service.destinationOf("Mt 22,37 e o amor")).toBeNull()
+      // Spaces around a reference that is the whole query are still that.
+      expect(service.destinationOf("  Mt 22,37  ")?.chapter).toBe(22)
+    })
   })
 })

@@ -91,6 +91,8 @@ export class SelectionActionsComponent {
   copyFailed = false
 
   private selectedText = ""
+  /** What makes a selection this one: see identityOf. */
+  private selectionIdentity = ""
   private frame?: number
   private copiedTimer?: ReturnType<typeof setTimeout>
 
@@ -159,8 +161,17 @@ export class SelectionActionsComponent {
 
     // A new selection made while the last one still says "copied" is not
     // copied, and the timer that was going to dismiss the old one must not
-    // dismiss this one instead.
-    if (text !== this.selectedText) this.resetCopied()
+    // dismiss this one instead. New by where it is, not only by what it says:
+    // two verses can read the same, and a refrain selected twice is two
+    // selections.
+    const identity = SelectionActionsComponent.identityOf(
+      source,
+      verses,
+      range,
+      text,
+    )
+    if (identity !== this.selectionIdentity) this.resetCopied()
+    this.selectionIdentity = identity
     this.source = source
     this.verses = verses
     this.selectedText = text
@@ -174,6 +185,7 @@ export class SelectionActionsComponent {
     this.source = null
     this.verses = []
     this.selectedText = ""
+    this.selectionIdentity = ""
     this.resetCopied()
     this.cdr.detectChanges()
   }
@@ -195,6 +207,34 @@ export class SelectionActionsComponent {
    * long line is not the psalm — while the spaces that separate verses on
    * screen are collapsed, so nothing trails off the end.
    */
+  /**
+   * The selection as a place: which chapter, which verses, and where in them
+   * it starts and ends, as well as the words. Boundary nodes are named by
+   * their position under the block, being nodes rather than text.
+   */
+  private static identityOf(
+    source: { book: Book; chapter: Chapter },
+    verses: Verse["number"][],
+    range: Range,
+    text: string,
+  ): string {
+    const path = (node: Node): string => {
+      const steps: number[] = []
+      for (let at: Node | null = node; at?.parentNode; at = at.parentNode) {
+        steps.push(Array.prototype.indexOf.call(at.parentNode.childNodes, at))
+      }
+      return steps.reverse().join(".")
+    }
+    return [
+      source.book.id,
+      source.chapter.number,
+      verses.join(","),
+      `${path(range.startContainer)}:${range.startOffset}`,
+      `${path(range.endContainer)}:${range.endOffset}`,
+      text,
+    ].join("|")
+  }
+
   private static textFrom(range: Range): string {
     const fragment = range.cloneContents()
     for (const apparatus of Array.from(fragment.querySelectorAll(APPARATUS))) {
@@ -360,8 +400,12 @@ export class SelectionActionsComponent {
       .onAction()
       .subscribe(() => {
         for (const { verse, color } of taken) {
+          // Only where the verse is still unmarked: a colour put on it since
+          // is the reader's newer choice, and undoing the removal is not a
+          // reason to paint over it.
           if (
-            this.highlights.colorFor(book.id, chapter.number, verse) !== color
+            this.highlights.colorFor(book.id, chapter.number, verse) ===
+            undefined
           ) {
             this.highlights.toggle(book.id, chapter.number, verse, color)
           }

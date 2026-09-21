@@ -140,8 +140,16 @@ export class BibleReferenceService {
    * containing "22" instead of opening Matthew 22.
    */
   destinationOf(text: string): SearchDestination | null {
-    const [reference] = this.extract(text)
-    if (reference) {
+    const query = text.trim()
+    const [reference] = this.extract(query)
+    // A place only when the reference is the whole query. extract() finds
+    // references inside any text, so "amor em Mt 22,37" would otherwise open
+    // Matthew 22 instead of searching for the words around it.
+    const whole =
+      reference !== undefined &&
+      !query.slice(0, reference.index).trim() &&
+      !query.slice(reference.index + reference.match.length).trim()
+    if (reference && whole) {
       const book = this.bookService.findBook(reference.book)
       // findBook answers with the About page for a name it does not know.
       if (!book || book.id === "about") return null
@@ -157,7 +165,8 @@ export class BibleReferenceService {
               : first.start,
       }
     }
-    const book = this.bookService.findBook(text.trim())
+    if (reference) return null
+    const book = this.bookService.findBook(query)
     return !book || book.id === "about" ? null : { book, chapter: 1 }
   }
 
