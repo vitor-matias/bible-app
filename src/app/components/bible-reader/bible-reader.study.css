@@ -129,6 +129,18 @@
   z-index: 2;
   width: 9px;
   cursor: col-resize;
+  /* The drag is the reader's from the first pixel. Left to the browser, a
+     finger on a divider pans or swipes instead: the pointer events stop
+     arriving, and the reader's swipe handler takes a quick drag for a change
+     of chapter. */
+  touch-action: none;
+}
+
+/* Nine pixels is a mouse's target, not a finger's. */
+@media (pointer: coarse) {
+  .study-resizer {
+    width: 28px;
+  }
 }
 
 .study-resizer::after {
@@ -143,6 +155,17 @@
 
 .study-resizer:hover::after {
   background-color: color-mix(in srgb, var(--cap-brown) 45%, transparent);
+}
+
+/* Held, it stays lit: the pointer leaves the handle the moment the column
+   starts moving, and a handle that vanished mid-drag gave the reader nothing
+   to say they still had hold of it. */
+.study-resizer:active::after {
+  background-color: var(--cap-brown);
+}
+
+:host-context(.dark-theme) .study-resizer:active::after {
+  background-color: antiquewhite;
 }
 
 /* Opaque under focus, where the hover wash reads at 2.3:1 against the rail —
@@ -181,6 +204,22 @@
 .split-divider {
   flex: 0 0 9px;
   margin: 0 -4px;
+}
+
+/* The wider handle a finger gets still straddles the rule it moves. */
+@media (pointer: coarse) {
+  .rail-divider {
+    margin-right: -14px;
+  }
+
+  .panel-divider {
+    margin-left: -14px;
+  }
+
+  .split-divider {
+    flex-basis: 28px;
+    margin: 0 -14px;
+  }
 }
 
 /* A folded column is governed by its unfold button, not by dragging. */
@@ -297,7 +336,13 @@
   border-top: 1px solid var(--study-rule);
   background-color: var(--study-surface);
   font-family: "PT Serif", serif;
-  font-size: 11px;
+  font-size: var(--study-type-label);
   letter-spacing: 0.04em;
   color: var(--study-muted);
+}
+
+.parallel-retry {
+  margin: 0 auto;
+  padding: 6px 12px;
+  font-size: 13px;
 }

@@ -73,6 +73,10 @@ export class NotesService extends VerseRecordStore<VerseNote> {
       this.deleteNote(bookId, chapter, verse)
       return
     }
+    // Saving what is already there — leaving the box without typing, the
+    // debounce landing after a blur — must not pass for an edit: updatedAt
+    // orders the reader's notes, newest first.
+    if (this.getNote(bookId, chapter, verse)?.text === trimmed) return
     this.put({ bookId, chapter, verse, text: trimmed, updatedAt: Date.now() })
   }
 

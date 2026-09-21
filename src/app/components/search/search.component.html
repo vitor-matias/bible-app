@@ -24,9 +24,9 @@
       <p class="results-count">{{ totalResults }} {{ totalResults === 1 ? 'resultado' : 'resultados' }}</p>
       <ul class="results-list">
         @for (result of searchResults; track $index) {
-          <li class="result-item" [routerLink]="['/', result.bookId, result.chapterNumber]" [queryParams]="{ verseStart: result.number }">
+          <li class="result-item" [routerLink]="result.link" [queryParams]="result.queryParams">
             <div class="result-card">
-              <strong class="verse-ref">{{ findBookById(result.bookId)?.shortName }} {{ result.chapterNumber }}, {{ result.number }}</strong>
+              <strong class="verse-ref">{{ result.reference }}</strong>
               <p class="verse-text">
                 @for (segment of result.highlightedSegments; track $index) {
                   @if (segment.highlight) {

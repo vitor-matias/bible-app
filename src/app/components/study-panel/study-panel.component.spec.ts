@@ -1,11 +1,17 @@
+import { LiveAnnouncer } from "@angular/cdk/a11y"
 import {
   type ComponentFixture,
   fakeAsync,
   TestBed,
   tick,
 } from "@angular/core/testing"
-import { provideRouter } from "@angular/router"
-import { of, throwError } from "rxjs"
+import {
+  MatSnackBar,
+  type MatSnackBarRef,
+  type TextOnlySnackBar,
+} from "@angular/material/snack-bar"
+import { provideRouter, Router } from "@angular/router"
+import { of, Subject, throwError } from "rxjs"
 import { BibleApiService } from "../../services/bible-api.service"
 import {
   type BibleReference,
@@ -117,6 +123,8 @@ describe("StudyPanelComponent", () => {
 
     api = jasmine.createSpyObj<BibleApiService>("BibleApiService", [
       "getChapter",
+      "getVerse",
+      "search",
     ])
     api.getChapter.and.returnValue(
       of({ bookId: "mrk", number: 12, verses: [] }),
@@ -124,14 +132,19 @@ describe("StudyPanelComponent", () => {
 
     bibleRef = jasmine.createSpyObj<BibleReferenceService>(
       "BibleReferenceService",
-      ["extract"],
+      ["extract", "destinationOf"],
     )
     bibleRef.extract.and.returnValue([])
+    bibleRef.destinationOf.and.returnValue(null)
 
-    const bookService = jasmine.createSpyObj<BookService>("BookService", [
-      "findBook",
-      "getUrlAbrv",
-    ])
+    const bookService = jasmine.createSpyObj<BookService>(
+      "BookService",
+      ["findBook", "getUrlAbrv", "getChapterUrlSegment"],
+      { books$: of([BOOK, MARK]) },
+    )
+    bookService.getChapterUrlSegment.and.callFake((chapter: number) =>
+      String(chapter),
+    )
     bookService.findBook.and.callFake((id: string) =>
       id === "mrk" || id === "Mc" ? MARK : BOOK,
     )
@@ -158,6 +171,55 @@ describe("StudyPanelComponent", () => {
   })
 
   describe("references", () => {
+    it("does not list a citation of a book it cannot resolve", () => {
+      // findBook answers with the About page for a name it does not know —
+      // the orphaned "Rs" a mis-split "2 Rs 25" leaves behind, say.
+      const books = TestBed.inject(BookService) as jasmine.SpyObj<BookService>
+      books.findBook.and.callFake((id: string) =>
+        id === "Rs" ? ({ ...BOOK, id: "about" } as Book) : MARK,
+      )
+      bibleRef.extract.and.returnValue([
+        reference("Rs", 25, 1, 2),
+        reference("mrk", 12, 28, 34),
+      ])
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 22,
+          verses: [
+            verse(34, [plain("Texto"), references("Rs 25,1-2; Mc 12,28-34")]),
+          ],
+        },
+      })
+
+      const labels = component.referenceGroups.flatMap((group) =>
+        group.entries.map((entry) => entry.label),
+      )
+      expect(labels).toEqual(["Marcos 12,28-34"])
+      expect(api.getChapter).not.toHaveBeenCalledWith("about", 25)
+    })
+
+    it("does not fetch a chapter again to quote from it a second time", () => {
+      bibleRef.extract.and.callFake((text: string) =>
+        text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
+      )
+      const chapter = (number: number): Chapter => ({
+        bookId: "mat",
+        number,
+        verses: [verse(1, [plain("Texto"), references("Mc 12,28-34")])],
+      })
+      setInputs({ book: BOOK, chapter: chapter(22) })
+      expect(api.getChapter).toHaveBeenCalledTimes(1)
+
+      // Another chapter citing the same one: back and forth between the two
+      // used to refetch Mark 12 every time.
+      setInputs({ chapter: chapter(23) })
+
+      expect(api.getChapter).toHaveBeenCalledTimes(1)
+      expect(component.referenceGroups[0].entries[0].verses.length).toBe(0)
+    })
+
     it("groups references under the passage they open, not the verse before it", () => {
       bibleRef.extract.and.callFake((text: string) =>
         text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
@@ -1029,6 +1091,35 @@ describe("StudyPanelComponent", () => {
       expect(component.activeVerse).toBe(39)
     })
 
+    it("stops following once the reader scrolls the panel themselves", fakeAsync(() => {
+      bibleRef.extract.and.returnValue([reference("mrk", 12, 31)])
+      const first = verse(34, [references("Mc 12,28")])
+      const second = verse(39, [references("Mc 12,31")])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [first, second] },
+        visibleVerse: 34,
+      })
+      tick(50)
+      const follow = spyOn(
+        component as unknown as { scrollActiveIntoView: () => void },
+        "scrollActiveIntoView",
+      ).and.callThrough()
+
+      // They are reading something in the panel; the text scrolling on under
+      // their other hand must not take it away from them.
+      fixture.nativeElement
+        .querySelector(".tab-body")
+        .dispatchEvent(new Event("wheel"))
+      setInputs({ visibleVerse: 39 })
+      expect(follow).not.toHaveBeenCalled()
+
+      // Picking a verse is asking the panel to look somewhere: it follows.
+      setInputs({ selection: { verse: second } })
+      expect(follow).toHaveBeenCalled()
+      tick(50)
+    }))
+
     it("marks the selected verse's group as the current one", () => {
       bibleRef.extract.and.returnValue([reference("mrk", 12, 31)])
       const target = verse(39, [references("Mc 12,31")])
@@ -1138,9 +1229,11 @@ describe("StudyPanelComponent", () => {
         .querySelectorAll(".tab")[1]
         .dispatchEvent(new MouseEvent("click"))
 
-      expect(
-        fixture.nativeElement.querySelector(".tab.active").textContent.trim(),
-      ).toBe("Notas de rodapé")
+      const active = fixture.nativeElement.querySelector(".tab.active")
+      // Short on the strip, so it fits on one line; whole to a screen reader,
+      // and the one contains the other so voice control finds it either way.
+      expect(active.textContent.trim()).toBe("Rodapé")
+      expect(active.getAttribute("aria-label")).toBe("Notas de rodapé")
       expect(fixture.nativeElement.querySelector(".tab-body").id).toBe(
         "study-tabpanel-footnotes",
       )
@@ -1288,6 +1381,163 @@ describe("StudyPanelComponent", () => {
     })
   })
 
+  describe("opened from the keyboard", () => {
+    beforeEach(() => document.body.appendChild(fixture.nativeElement))
+    afterEach(() => fixture.nativeElement.remove())
+
+    it("puts the caret in the search box, not just the tab on screen", () => {
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [] },
+      })
+
+      component.openTab("search", true)
+
+      expect(component.activeTab).toBe("search")
+      expect(document.activeElement?.id).toBe("study-search")
+    })
+
+    it("puts it in the note box of the selected verse", () => {
+      const target = verse(39, [])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+
+      component.openTab("notes", true)
+
+      expect(document.activeElement?.id).toBe("study-note-tab")
+    })
+
+    it("only shows a tab that has nowhere to type", () => {
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [] },
+      })
+      component.openTab("search")
+
+      component.openTab("footnotes", true)
+
+      expect(component.activeTab).toBe("footnotes")
+    })
+  })
+
+  describe("searching for a reference", () => {
+    let router: Router
+
+    beforeEach(() => {
+      router = TestBed.inject(Router)
+      spyOn(router, "navigate").and.resolveTo(true)
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [] },
+      })
+    })
+
+    it("goes to the passage instead of searching for its digits", () => {
+      bibleRef.destinationOf.and.returnValue({
+        book: MARK,
+        chapter: 12,
+        verseStart: 31,
+      })
+      api.getVerse.and.returnValue(of(verse(31, [])))
+
+      component.onSearchSubmit("Mc 12,31")
+
+      expect(api.search).not.toHaveBeenCalled()
+      expect(router.navigate).toHaveBeenCalledOnceWith(["/", "mc", "12"], {
+        queryParams: { verseStart: 31 },
+      })
+    })
+
+    it("says aloud what a search found", () => {
+      const announce = spyOn(TestBed.inject(LiveAnnouncer), "announce")
+      api.search.and.returnValue(
+        of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+      )
+
+      component.onSearchSubmit("amarás")
+
+      // On screen "A procurar…" is simply replaced, which says nothing to a
+      // reader who cannot see it.
+      expect(announce).toHaveBeenCalledOnceWith("Nada encontrado para amarás.")
+    })
+
+    it("says so when the reference names a verse that is not there", () => {
+      bibleRef.destinationOf.and.returnValue({ book: MARK, chapter: 40 })
+      api.getVerse.and.returnValue(throwError(() => ({ status: 404 })))
+
+      component.onSearchSubmit("Mc 40")
+
+      expect(router.navigate).not.toHaveBeenCalled()
+      expect(component.searchState).toBe("missing")
+    })
+
+    it("still searches the text for anything else", () => {
+      api.search.and.returnValue(
+        of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+      )
+
+      component.onSearchSubmit("amarás")
+
+      expect(api.search).toHaveBeenCalled()
+      expect(router.navigate).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("the follow-along scroll", () => {
+    let body: HTMLElement
+
+    beforeEach(() => {
+      body = document.createElement("div")
+      body.style.cssText = "height:100px;overflow:auto"
+      const content = document.createElement("div")
+      content.style.height = "4000px"
+      body.appendChild(content)
+      document.body.appendChild(body)
+    })
+
+    afterEach(() => body.remove())
+
+    it("arrives where it was sent", fakeAsync(() => {
+      component["glideTo"](body, 600)
+      tick(2000)
+
+      expect(body.scrollTop).toBe(600)
+      expect(component["glide"]).toBeUndefined()
+    }))
+
+    it("lets go the moment the reader scrolls the panel themselves", fakeAsync(() => {
+      component["glideTo"](body, 2000)
+      tick(100)
+      const taken = body.scrollTop
+      expect(taken).toBeGreaterThan(0)
+      expect(taken).toBeLessThan(2000)
+
+      body.dispatchEvent(new Event("wheel"))
+      tick(2000)
+
+      // It used to write its own position back on every frame until it had
+      // finished, whatever the reader did in the meantime.
+      expect(body.scrollTop).toBe(taken)
+    }))
+
+    it("bends towards a new target without stopping first", fakeAsync(() => {
+      component["glideTo"](body, 2000)
+      tick(150)
+      const speed = component["glide"]?.velocity ?? 0
+      expect(speed).toBeGreaterThan(0)
+
+      // The reading position moved on: same glide, new destination.
+      component["glideTo"](body, 2400)
+
+      expect(component["glide"]?.velocity).toBe(speed)
+      tick(3000)
+      expect(body.scrollTop).toBe(2400)
+    }))
+  })
+
   describe("what cites this verse", () => {
     it("offers to look rather than indexing the corpus unasked", () => {
       const reverse = TestBed.inject(ReverseReferencesService)
@@ -1320,6 +1570,34 @@ describe("StudyPanelComponent", () => {
     })
   })
 
+  describe("what cites this verse, without the offline text", () => {
+    it("lets the reader ask again once the text may have arrived", async () => {
+      const reverse = TestBed.inject(ReverseReferencesService)
+      const state = spyOnProperty(reverse, "state").and.returnValue(
+        "unavailable",
+      )
+      const build = spyOn(reverse, "ensureIndex").and.resolveTo()
+      const target = verse(37, [plain("Amarás ao Senhor")])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+
+      const retry = fixture.nativeElement.querySelector(
+        ".incoming .verse-action",
+      ) as HTMLButtonElement
+      expect(retry).toBeTruthy()
+
+      state.and.returnValue("ready")
+      retry.click()
+      await fixture.whenStable()
+
+      expect(build).toHaveBeenCalled()
+      expect(component.incomingState).toBe("ready")
+    })
+  })
+
   describe("notes", () => {
     it("loads the note already written for the selected verse", () => {
       notes.saveNote("mat", 22, 39, "escrita antes")
@@ -1347,6 +1625,69 @@ describe("StudyPanelComponent", () => {
       tick(500)
       expect(notes.getNote("mat", 22, 39)?.text).toBe("a minha nota")
     }))
+
+    it("files a pending save under the book it was typed in", fakeAsync(() => {
+      const target = verse(39, [])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+      component.onNoteInput("sobre Mateus")
+
+      // The reader follows a reference into another book before the save.
+      const other = verse(39, [])
+      setInputs({
+        book: { ...BOOK, id: "luk" },
+        chapter: { bookId: "luk", number: 22, verses: [other] },
+        selection: null,
+      })
+      tick(500)
+
+      expect(notes.getNote("mat", 22, 39)?.text).toBe("sobre Mateus")
+      expect(notes.getNote("luk", 22, 39)).toBeUndefined()
+    }))
+
+    it("lets a note deleted by emptying its box be put back", () => {
+      notes.saveNote("mat", 22, 39, "para não perder")
+      const undo = new Subject<void>()
+      const open = spyOn(TestBed.inject(MatSnackBar), "open").and.returnValue({
+        onAction: () => undo.asObservable(),
+      } as MatSnackBarRef<TextOnlySnackBar>)
+      const target = verse(39, [])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+
+      // Select all, and a key: that is all deleting a note takes.
+      component.onNoteInput("")
+      component.onNoteBlur()
+      expect(notes.getNote("mat", 22, 39)).toBeUndefined()
+      expect(open).toHaveBeenCalledOnceWith(
+        "Nota apagada",
+        "Anular",
+        jasmine.any(Object),
+      )
+
+      undo.next()
+      expect(notes.getNote("mat", 22, 39)?.text).toBe("para não perder")
+      expect(component.noteDraft).toBe("para não perder")
+    })
+
+    it("names the colour on each swatch", () => {
+      const target = verse(39, [])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+
+      const first = fixture.nativeElement.querySelector(".mark-swatch")
+
+      expect(first.getAttribute("aria-label")).toBe("Marcar 22,39 a amarelo")
+    })
 
     it("saves immediately when the reader leaves the box", () => {
       const target = verse(39, [])

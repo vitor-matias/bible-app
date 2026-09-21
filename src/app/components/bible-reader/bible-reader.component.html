@@ -8,7 +8,8 @@
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
     (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize()"
     (decreaseFontSizeEvent)="onDecreaseFontSize()" [studyMode]="studyModeActive"
-    [studyModeAvailable]="studyModeAvailable" (toggleStudyMode)="onToggleStudyMode()">
+    [studyModeAvailable]="studyModeAvailable" (toggleStudyMode)="onToggleStudyMode()"
+    (openShortcuts)="openShortcuts()">
     <!-- The way back through this session's reading. In study mode the header
          is the one row of chrome there is, so the trail shares it rather than
          taking a second one; it also carries the page's heading, which the
@@ -17,7 +18,8 @@
   </header>
   <!-- Outside both layouts, because selecting text means the same thing in
        each: it is fixed-positioned against the selection, not the column. -->
-  <selection-actions [book]="book" [chapter]="chapter"></selection-actions>
+  <selection-actions [book]="book" [chapter]="chapter" [parallelBook]="parallelBook"
+    [parallelChapter]="parallel?.chapter ?? null"></selection-actions>
 
   @if (studyModeActive) {
   <!-- Study mode: the book/chapter drawer becomes a permanent rail, and the
@@ -95,15 +97,22 @@
           @if (parallel.chapter) {
           <div class="bookBlock study-text">
             @for (verse of parallel.chapter.verses; track verse; let i = $index) {
-            <!-- No verseSelected binding: the panel follows the chapter being
-                 read, not the one being compared with it. -->
+            <!-- Not in study mode: the panel follows the chapter being read,
+                 not the one being compared with it, so these verses are not
+                 selectors. Set as one, their numbers were buttons that did
+                 nothing and their footnote markers opened nothing; left as
+                 the plain reader sets them, a marker opens the sheet. -->
             <verse [id]="'parallel-' + verse.number" class="verse" [data]="verse"
-              [nextVerseStartsWithQuote]="parallelNextStartsWithQuote(i)" [studyMode]="true"
-              [selected]="isCitedVerse(verse)"></verse>
+              [nextVerseStartsWithQuote]="parallelNextStartsWithQuote(i)"
+              [isQuotation]="isParallelQuotationVerse(verse)" [selected]="isCitedVerse(verse)"
+              [highlight]="parallelHighlightFor(verse)" [markContinues]="parallelMarksContinue(verse, i)"></verse>
             }
           </div>
           } @else if (parallel.failed) {
-          <p class="study-note parallel-message">Não foi possível carregar esta passagem.</p>
+          <!-- What went wrong, and the way on from it: the message alone left
+               closing the passage and asking for it again as the only move. -->
+          <p class="study-note parallel-message">Não foi possível carregar esta passagem. Verifique a ligação.</p>
+          <button type="button" class="study-quiet-button parallel-retry" (click)="retryParallel()">Tentar de novo</button>
           } @else {
           <p class="study-note parallel-message">A carregar…</p>
           }

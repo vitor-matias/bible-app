@@ -13,11 +13,13 @@ import { ActivatedRoute, Router, RouterModule } from "@angular/router"
 import { firstValueFrom, type Subscription } from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
-import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
-import { BookService } from "../../services/book.service"
+import {
+  type SearchHit,
+  type SearchResults,
+  SearchService,
+} from "../../services/search.service"
 import { SeoService } from "../../services/seo.service"
-import { highlightSegments } from "../../utils/text"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
 @Component({
@@ -35,7 +37,7 @@ import { SearchBarComponent } from "../search-bar/search-bar.component"
   ],
 })
 export class SearchComponent {
-  searchResults: Verse[] = []
+  searchResults: SearchHit[] = []
 
   searchTerm = ""
   hasSearched = false
@@ -55,9 +57,8 @@ export class SearchComponent {
   private searchGeneration = 0
 
   constructor(
-    private apiService: BibleApiService,
+    private searchService: SearchService,
     private referenceService: BibleReferenceService,
-    private bookService: BookService,
     private snackBar: MatSnackBar,
     private router: Router,
     private route: ActivatedRoute,
@@ -129,12 +130,10 @@ export class SearchComponent {
     this.isLoading = true
     try {
       const results = await firstValueFrom(
-        this.apiService.search(this.searchTerm, this.currentPage + 1),
+        this.searchService.page(this.searchTerm, this.currentPage + 1),
       )
       if (isStale()) return
-      this.searchResults.push(
-        ...results.verses.map((v) => this.toDisplayVerse(v)),
-      )
+      this.searchResults.push(...results.hits)
       this.totalResults = results.total
       this.currentPage++
       this.attachObserverToSentinel() // Re-attach observer after loading more results
@@ -154,156 +153,79 @@ export class SearchComponent {
   async onSearchSubmit(text: string): Promise<void> {
     const generation = ++this.searchGeneration
     const isStale = () => generation !== this.searchGeneration
-    const references = this.referenceService.extract(text)
-
-    let targetBook: Book | null = null
-    let targetChapter = 1
-    let targetVerseStart: number | undefined
-
-    if (references.length > 0) {
-      // A well-formed Bible reference should jump straight into the reader instead
-      // of going through the broader full-text search results flow.
-      const ref = references[0]
-      targetBook = ref.book ? this.bookService.findBook(ref.book) : null
-      if (targetBook) {
-        targetChapter = ref.chapter || 1
-        if (ref.verses && ref.verses.length > 0) {
-          targetVerseStart =
-            ref.verses[0].type === "single"
-              ? ref.verses[0].verse
-              : ref.verses[0].start
-        }
-      }
-    } else {
-      // Check if the search text exactly matches a book name or abbreviation
-      const book = this.bookService.findBook(text.trim())
-      if (book && book.id !== "about") {
-        targetBook = book
-      }
+    // What the text means — a place to go, or words to look for — is the
+    // search service's to say, as it is for the study panel's search tab.
+    // Known before asking, so a reference that leads nowhere leaves the
+    // results of the last text search on screen.
+    const isTextSearch = this.referenceService.destinationOf(text) === null
+    if (isTextSearch) {
+      // Paging and highlighting read this.
+      this.searchTerm = text
+      this.hasSearched = true
+      this.isLoading = true
     }
 
-    if (targetBook) {
-      // A standalone introduction has no chapters: nothing to probe, and its
-      // only page is /intro.
-      const isIntro = !!targetBook.introSlug
-      try {
-        if (!isIntro) {
-          await firstValueFrom(
-            this.apiService.getVerse(
-              targetBook.id,
-              targetChapter,
-              targetVerseStart || 1,
-            ),
-          )
-        }
-        if (isStale()) return
+    try {
+      const outcome = await firstValueFrom(this.searchService.run(text))
+      if (isStale()) return
+
+      if (outcome.kind === "destination") {
         const navigated = await this.router.navigate(
-          [
-            "/",
-            targetBook.id,
-            isIntro ? BookService.INTRO_URL_SEGMENT : targetChapter,
-          ],
-          targetVerseStart !== undefined
-            ? { queryParams: { verseStart: targetVerseStart } }
-            : {},
+          outcome.link,
+          outcome.queryParams ? { queryParams: outcome.queryParams } : {},
         )
         if (navigated || isStale()) return
-      } catch (err) {
-        if (isStale()) return
-        console.error(err)
-        // HttpErrorResponse is not guaranteed here, so narrow the shape safely.
-        const status =
-          typeof err === "object" &&
-          err !== null &&
-          "status" in err &&
-          typeof err.status === "number"
-            ? err.status
-            : undefined
-        if (status === 404 || status === 400) {
-          this.snackBar.open("Capitulo ou versiculo não existe", "Fechar", {
-            duration: 3000,
-          })
-        } else {
-          this.snackBar.open("Error loading verse", "OK", {
-            duration: 3000,
-          })
-        }
-      }
-      // Still here: the superseded text search's stale `finally` skips this.
-      this.isLoading = false
-      this.cdr.detectChanges()
-      return
-    }
-
-    // Set only for text searches: a failed reference lookup leaves the
-    // previous results on screen, and paging and highlighting read this.
-    this.searchTerm = text
-    this.hasSearched = true
-    this.isLoading = true
-    try {
-      const results = await firstValueFrom(this.apiService.search(text, 1))
-      if (isStale()) return
-      this.searchResults = results.verses.map((v) => this.toDisplayVerse(v))
-      this.totalResults = results.total
-      this.currentPage = 1
-      const resultsMessage =
-        results.total === 1
-          ? "Encontrado 1 resultado"
-          : `Encontrados ${results.total} resultados`
-
-      if (results.total === 0) {
-        this.snackBar.open("Nenhum resultado encontrado", "Fechar", {
+      } else if (outcome.kind === "missing") {
+        this.snackBar.open("Capitulo ou versiculo não existe", "Fechar", {
           duration: 3000,
         })
       } else {
-        if (document.activeElement instanceof HTMLElement) {
-          document.activeElement.blur()
-        }
-        this.snackBar.open(resultsMessage, "Fechar", {
-          duration: 3000,
-        })
+        this.showResults(outcome, text)
       }
-
-      // The sentinel node is recreated when results change, so rebind the observer
-      // after each fresh search result set.
-      this.attachObserverToSentinel()
-      this.scrollToTop()
-
-      void this.analyticsService.track("search", { text })
     } catch (error) {
       if (isStale()) return
-      console.error("Error loading search results:", error)
-      this.snackBar.open("Error loading search results", "OK", {
+      console.error(error)
+      this.snackBar.open(
+        isTextSearch ? "Error loading search results" : "Error loading verse",
+        "OK",
+        { duration: 3000 },
+      )
+    }
+    // A superseded search skips this: the loading state is the newer one's.
+    if (!isStale()) {
+      this.isLoading = false
+      this.cdr.detectChanges()
+    }
+  }
+
+  private showResults(results: SearchResults, text: string): void {
+    this.searchResults = results.hits
+    this.totalResults = results.total
+    this.currentPage = 1
+
+    if (results.total === 0) {
+      this.snackBar.open("Nenhum resultado encontrado", "Fechar", {
         duration: 3000,
       })
-    } finally {
-      if (!isStale()) {
-        this.isLoading = false
-        this.cdr.detectChanges()
+    } else {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
       }
+      this.snackBar.open(
+        results.total === 1
+          ? "Encontrado 1 resultado"
+          : `Encontrados ${results.total} resultados`,
+        "Fechar",
+        { duration: 3000 },
+      )
     }
-  }
 
-  private toDisplayVerse(verse: Verse): Verse {
-    const verseText = this.getVerseText(verse)
-    return {
-      ...verse,
-      highlightedSegments: this.getHighlightedSegments(
-        verseText,
-        this.searchTerm,
-      ),
-    }
-  }
+    // The sentinel node is recreated when results change, so rebind the
+    // observer after each fresh search result set.
+    this.attachObserverToSentinel()
+    this.scrollToTop()
 
-  getVerseText(verse: Verse) {
-    let result = ""
-    for (const line of verse.text) {
-      if (line.type !== "text" && line.type !== "paragraph") {
-        continue
-      }
-      result += `${line.text} `
-    }
-    return result
+    void this.analyticsService.track("search", { text })
   }
 
   @ViewChild("resultsContainer", { static: false })
@@ -321,13 +243,5 @@ export class SearchComponent {
       },
       { injector: this.injector },
     )
-  }
-
-  findBookById(bookId: string): Book | undefined {
-    return this.bookService.findBook(bookId)
-  }
-
-  getHighlightedSegments(verseText: string, term: string): HighlightSegment[] {
-    return highlightSegments(verseText, term)
   }
 }

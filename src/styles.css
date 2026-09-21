@@ -80,9 +80,29 @@ body {
      only the two columns flanking it are tinted, so the page reads as text
      with apparatus beside it rather than as three equal panes. The tint is
      the brand brown at low strength, so both themes stay one family. */
-  --study-surface: color-mix(in srgb, var(--cap-brown) 5%, var(--background-color));
-  --study-rule: color-mix(in srgb, var(--cap-brown) 18%, transparent);
-  --study-muted: color-mix(in srgb, var(--text-color) 55%, transparent);
+  /* Written out, like the rest below: 5% of --cap-brown into the white page.
+     Opaque on purpose — the rail's sticky head sits over its scrolling list,
+     so a translucent brown would not do as the fallback. */
+  --study-surface: #f6f5f4;
+  --study-rule: rgba(84, 61, 39, 0.18);
+  /* The side columns' whole type scale. They had six sizes between 11 and
+     16px, a pixel apart, which read as noise rather than as hierarchy: three
+     is what there is to say. A label names something, the UI size is for
+     controls and asides, and the reading size is for anything the reader
+     reads as prose — a quoted passage, a footnote, their own note. */
+  --study-type-label: 12px;
+  --study-type-ui: 13px;
+  --study-type-reading: 15px;
+  /* 60, not 55: at 55 the chapter count on the current book's tinted row
+     measured 4.4:1, a hair under what small text needs. */
+  --study-muted: rgba(0, 0, 0, 0.6);
+  /* The edition's red, for the small text of the study columns. The same as
+     everywhere else in this theme; the dark theme needs its own. */
+  --study-accent-text: var(--text-secondary);
+  /* The focus ring of study mode's own controls. A token rather than a dark
+     override per component: written out per component, one of them forgot a
+     control, whose ring stayed brown on black. */
+  --study-focus: var(--cap-brown);
   /* The verse the study panel is showing. Quieter than
      --verse-highlight-color: this one stays on screen for as long as the
      reader studies the verse instead of fading after arriving at it. */
@@ -94,12 +114,16 @@ body {
   --mark-green: 104 173 96;
   --mark-blue: 94 152 204;
   --mark-pink: 214 112 152;
+  /* --cap-brown, written out: these carry the text selection and the study
+     rules, and on a WebView without color-mix() a mixed value is no colour
+     at all — the selection that raises the mark and copy bar went unpainted.
+     The dark theme below already spells its own out the same way. */
   /* Dragging across the text is a real gesture here — it raises the mark and
      copy actions — so the selection is the edition's own warm tone rather
      than whatever grey the browser falls back to. */
-  --text-selection-color: color-mix(in srgb, var(--cap-brown) 22%, transparent);
-  --study-selection-color: color-mix(in srgb, var(--cap-brown) 12%, transparent);
-  --study-selection-border: color-mix(in srgb, var(--cap-brown) 45%, transparent);
+  --text-selection-color: rgba(84, 61, 39, 0.22);
+  --study-selection-color: rgba(84, 61, 39, 0.12);
+  --study-selection-border: rgba(84, 61, 39, 0.45);
   --mat-menu-item-label-text-size: 15px;
   --mat-menu-container-color: var(--card-background);
   --mat-menu-item-label-text-color: var(--text-color);
@@ -157,7 +181,12 @@ body {
      borrows the same warm hue the highlight uses. */
   --study-surface: #1a1a1a;
   --study-rule: rgba(255, 255, 255, 0.14);
-  --study-muted: color-mix(in srgb, var(--text-color) 60%, transparent);
+  --study-muted: rgba(255, 255, 255, 0.6);
+  /* Crimson on the dark columns is 3.5:1 — enough for a heading in the text,
+     not for a 12px link or a verse number in a quotation. Lightened until it
+     clears 4.5:1 there, and used only there: the text keeps the brand red. */
+  --study-accent-text: #f0506e;
+  --study-focus: antiquewhite;
   --text-selection-color: rgba(238, 176, 46, 0.3);
   --study-selection-color: rgba(238, 176, 46, 0.16);
   --study-selection-border: rgba(238, 176, 46, 0.5);
@@ -415,7 +444,7 @@ body .mat-mdc-form-field {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-secondary);
+  color: var(--study-accent-text);
   text-decoration: none;
 }
 
@@ -456,4 +485,111 @@ body .mat-mdc-form-field {
 .dark-theme .study-quiet-button:hover,
 .dark-theme .study-quiet-button:focus-visible {
   background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* An introduction to a testament leads a division of the canon, and has to
+   look like one. Set as just another book row it read as subordinate to the
+   small upper-case groups beneath it, which are in fact its parts: so it
+   takes the weight of a heading, and the second one opens with a rule and
+   some air, the way a new part does in a table of contents. */
+.study-sidebar .standalone-intro .book-row {
+  font-weight: 600;
+}
+
+.study-sidebar .standalone-intro:not(:first-child) {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--study-rule);
+}
+
+/* A heading's cross references, printed after it in the reading layout, are
+   the first thing the study panel lists — a few centimetres to the right, at
+   length, with the passages quoted. Printed twice they only crowd the
+   heading, so the text gives them up while the panel is there to carry them.
+   Not in the passage open beside the chapter, which the panel does not
+   cover, and not once the panel is folded away: then the heading is the only
+   place they are. Here rather than in the reader's sheet, because the
+   heading is another component's element. */
+.text-container.study-active:not(.panel-collapsed)
+  .study-pane
+  verse-section
+  .references {
+  display: none;
+}
+
+/* Press feedback, for every control study mode draws itself. These are plain
+   buttons, with none of the ripple a Material one answers a press with, so
+   until now the first thing a press showed was its result — and where that
+   takes a moment (a chapter to fetch, an index to build) the control looked
+   like it had not been pressed at all. The answer comes on the way down, not
+   on release.
+
+   Small, round or square controls give under the finger; a row the width of
+   its column would look like the column flinching, so it darkens instead. */
+.study-quiet-button,
+.collapse-toggle,
+.bar-action,
+.mark-swatch,
+.chapter-cell,
+.verse-action {
+  transition: transform 100ms ease-out;
+}
+
+/* A tap on these is a tap: no waiting to see whether it is the first half of
+   a double-tap zoom, and no grey flash from the browser over controls that
+   answer a press themselves. */
+.study-quiet-button,
+.collapse-toggle,
+.bar-action,
+.mark-swatch,
+.chapter-cell,
+.verse-action,
+.tab-strip .tab,
+.group-toggle,
+.book-row {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.study-quiet-button:active,
+.collapse-toggle:active,
+.bar-action:active,
+.mark-swatch:active,
+.chapter-cell:active,
+.verse-action:active {
+  transform: scale(0.94);
+}
+
+.tab-strip .tab:active,
+.group-toggle:active,
+.book-row:active {
+  background-color: rgba(84, 61, 39, 0.16);
+}
+
+.dark-theme .tab-strip .tab:active,
+.dark-theme .group-toggle:active,
+.dark-theme .book-row:active {
+  background-color: rgba(255, 255, 255, 0.16);
+}
+
+/* Less motion is not less feedback: the press still answers, by dimming. */
+@media (prefers-reduced-motion: reduce) {
+  .study-quiet-button,
+  .collapse-toggle,
+  .bar-action,
+  .mark-swatch,
+  .chapter-cell,
+  .verse-action {
+    transition: none;
+  }
+
+  .study-quiet-button:active,
+  .collapse-toggle:active,
+  .bar-action:active,
+  .mark-swatch:active,
+  .chapter-cell:active,
+  .verse-action:active {
+    transform: none;
+    opacity: 0.6;
+  }
 }

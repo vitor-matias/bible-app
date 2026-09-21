@@ -1,3 +1,4 @@
+import { DestroyRef, inject } from "@angular/core"
 import { BehaviorSubject, type Observable } from "rxjs"
 import { safeLocalStorage } from "../utils/web-storage"
 
@@ -28,12 +29,30 @@ export type VerseAddress = Pick<VerseRecord, "bookId" | "chapter" | "verse">
  * possibility.
  */
 export abstract class VerseRecordStore<T extends VerseRecord> {
-  private storageRef: Storage | null = null
+  private storageRef: Storage | null | undefined
+  /**
+   * Set while storage does not hold what this tab last wrote — it refused the
+   * write, or there is no storage at all. The tab's own copy is then the only
+   * complete one, and the next write has to build on it.
+   */
+  private unsaved = false
   private readonly subject = new BehaviorSubject<T[]>([])
   readonly records$: Observable<T[]> = this.subject.asObservable()
 
   protected constructor(private readonly storageKey: string) {
     this.subject.next(this.read())
+    if (typeof window !== "undefined") {
+      // Another tab wrote: follow it, so a verse annotated there does not
+      // show an empty box here for the reader to overwrite it from.
+      const onStorage = (event: StorageEvent) => {
+        if (event.key !== null && event.key !== this.storageKey) return
+        if (!this.unsaved) this.subject.next(this.read())
+      }
+      window.addEventListener("storage", onStorage)
+      inject(DestroyRef).onDestroy(() =>
+        window.removeEventListener("storage", onStorage),
+      )
+    }
   }
 
   /** Whether a stored value is one of these records, or leftover rubbish. */
@@ -73,13 +92,23 @@ export abstract class VerseRecordStore<T extends VerseRecord> {
   }
 
   private commit(change: (records: T[]) => T[]): void {
-    const next = change(this.read())
+    // Storage is the base only while it holds everything this tab wrote.
+    // Once a write has been refused it is behind, and building on it would
+    // drop the very records that were kept for the session.
+    const next = change(this.unsaved ? this.records : this.read())
     this.subject.next(next)
+    const storage = this.storage
+    if (!storage) {
+      this.unsaved = true
+      return
+    }
     try {
-      this.storage?.setItem(this.storageKey, JSON.stringify(next))
+      storage.setItem(this.storageKey, JSON.stringify(next))
+      this.unsaved = false
     } catch {
       // Quota exhausted mid-session: what the reader just wrote stays for
       // this session rather than taking the page down with it.
+      this.unsaved = true
     }
   }
 
@@ -97,7 +126,7 @@ export abstract class VerseRecordStore<T extends VerseRecord> {
 
   /** Resolved once: the probe behind safeLocalStorage() costs a real write. */
   private get storage(): Storage | null {
-    if (!this.storageRef) {
+    if (this.storageRef === undefined) {
       this.storageRef = safeLocalStorage()
     }
     return this.storageRef

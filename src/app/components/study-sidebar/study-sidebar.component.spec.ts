@@ -1,4 +1,6 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import { provideRouter } from "@angular/router"
+import { BookService } from "../../services/book.service"
 import { StudySidebarComponent } from "./study-sidebar.component"
 
 function makeBook(id: string, overrides: Partial<Book> = {}): Book {
@@ -57,6 +59,17 @@ describe("StudySidebarComponent", () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [StudySidebarComponent],
+      providers: [
+        provideRouter([]),
+        {
+          provide: BookService,
+          useValue: {
+            getUrlAbrv: (book: Book) => book.abrv.toLowerCase(),
+            getChapterUrlSegment: (chapter: number) =>
+              chapter === 0 ? "intro" : String(chapter),
+          },
+        },
+      ],
     }).compileComponents()
 
     fixture = TestBed.createComponent(StudySidebarComponent)
@@ -105,7 +118,9 @@ describe("StudySidebarComponent", () => {
     ).find((button) =>
       (button as HTMLElement).textContent?.includes("Evangelhos"),
     ) as HTMLElement
-    gospels.dispatchEvent(new MouseEvent("click"))
+    gospels.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true }),
+    )
 
     expect(
       fixture.nativeElement.querySelectorAll(".book-row").length,
@@ -191,7 +206,9 @@ describe("StudySidebarComponent", () => {
 
       fixture.nativeElement
         .querySelector(".standalone-intro .book-row")
-        .dispatchEvent(new MouseEvent("click"))
+        .dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true }),
+        )
 
       expect(picked).toEqual(["geral"])
     })
@@ -299,7 +316,9 @@ describe("StudySidebarComponent", () => {
 
       fixture.nativeElement
         .querySelector(".book-row")
-        .dispatchEvent(new MouseEvent("click"))
+        .dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true }),
+        )
 
       expect(picked).toEqual(["mrk"])
     })
@@ -349,7 +368,9 @@ describe("StudySidebarComponent", () => {
 
     fixture.nativeElement
       .querySelectorAll(".book-row")[1]
-      .dispatchEvent(new MouseEvent("click"))
+      .dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true }),
+      )
 
     expect(picked).toEqual(["mrk"])
   })
@@ -396,7 +417,9 @@ describe("StudySidebarComponent", () => {
 
     fixture.nativeElement
       .querySelectorAll(".chapter-cell")[1]
-      .dispatchEvent(new MouseEvent("click"))
+      .dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true }),
+      )
 
     expect(picked).toEqual([2])
   })
@@ -420,7 +443,9 @@ describe("StudySidebarComponent", () => {
 
     fixture.nativeElement
       .querySelector(".collapse-toggle")
-      .dispatchEvent(new MouseEvent("click"))
+      .dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true }),
+      )
 
     expect(asked).toBe(1)
   })
@@ -429,5 +454,56 @@ describe("StudySidebarComponent", () => {
     setInputs({ books: BOOKS, book: BOOKS[1], chapters: [] })
 
     expect(fixture.nativeElement.querySelector(".chapters")).toBeNull()
+  })
+
+  describe("books and chapters as links", () => {
+    beforeEach(() => {
+      fixture.componentRef.setInput("books", BOOKS)
+      fixture.componentRef.setInput("book", BOOKS[1])
+      fixture.componentRef.setInput("chapters", [
+        { bookId: "mat", number: 1 },
+        { bookId: "mat", number: 2 },
+      ])
+      fixture.detectChanges()
+    })
+
+    it("gives each a real address, so it can be opened in another tab", () => {
+      const row = fixture.nativeElement.querySelector(".book-row.current")
+      const cell = fixture.nativeElement.querySelectorAll(".chapter-cell")[1]
+
+      expect(row.tagName).toBe("A")
+      expect(row.getAttribute("href")).toBe("/mat/1")
+      expect(cell.getAttribute("href")).toBe("/mat/2")
+    })
+
+    it("leaves a Cmd or Ctrl click to the browser", () => {
+      let asked = 0
+      component.selectChapter.subscribe(() => asked++)
+      const cell = fixture.nativeElement.querySelectorAll(".chapter-cell")[1]
+      // Cancelled here only so the test page itself does not navigate.
+      cell.addEventListener("click", (event: Event) => event.preventDefault())
+
+      const click = new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        metaKey: true,
+      })
+      component.onChapterClick({ bookId: "mat", number: 2 } as Chapter, click)
+
+      // Not taken over: the browser opens the address in a new tab.
+      expect(click.defaultPrevented).toBeFalse()
+      expect(asked).toBe(0)
+    })
+
+    it("takes a plain click itself, through the reader", () => {
+      let asked = 0
+      component.selectChapter.subscribe(() => asked++)
+      const click = new MouseEvent("click", { bubbles: true, cancelable: true })
+
+      component.onChapterClick({ bookId: "mat", number: 2 } as Chapter, click)
+
+      expect(click.defaultPrevented).toBeTrue()
+      expect(asked).toBe(1)
+    })
   })
 })

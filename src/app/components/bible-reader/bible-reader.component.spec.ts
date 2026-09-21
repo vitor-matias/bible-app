@@ -10,6 +10,7 @@ import {
   TestBed,
   tick,
 } from "@angular/core/testing"
+import { MatDialog } from "@angular/material/dialog"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
 import { ActivatedRoute, Router } from "@angular/router"
@@ -544,6 +545,20 @@ describe("BibleReaderComponent", () => {
       })
     })
 
+    it("leaves an arrow key to the control that already used it", () => {
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowRight",
+        cancelable: true,
+      })
+      Object.defineProperty(event, "target", { value: document.body })
+      // What a column divider or the panel's tab strip does with the key.
+      event.preventDefault()
+
+      component.onArrowPress(event)
+
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
+    })
+
     describe("checkIfNextVerseStartsWithQuote", () => {
       it("should return false if chapter or verses missing", () => {
         component.chapter = undefined as unknown as Chapter
@@ -674,6 +689,30 @@ describe("BibleReaderComponent", () => {
 
       expect(component.isQuotationVerse(verses[1])).toBeTrue()
       expect(component.isQuotationVerse(verses[2])).toBeFalse()
+    })
+
+    it("does not read a prophet's superscription as introducing a quotation", () => {
+      // Isaiah 1: a prose title, then a chapter of poetry. Every verse after
+      // the title opens on poetry and so continues what came before — which
+      // set all of it in italics while Isaiah 2 stayed upright.
+      const verses = [
+        verse(1, [prose("Visão de Isaías, filho de Amós, reis de Judá.")]),
+        verse(2, [quote("Ouvi, ó céus, escuta, ó terra,")]),
+        verse(3, [quote("O boi conhece o seu dono,")]),
+      ]
+      load(verses)
+
+      expect(component.isQuotationVerse(verses[1])).toBeFalse()
+      expect(component.isQuotationVerse(verses[2])).toBeFalse()
+    })
+
+    it("reads the colon through a closing quotation mark", () => {
+      const verses = [
+        verse(5, [prose("e disse: «Está escrito:» "), quote("Nem só de pão")]),
+      ]
+      load(verses)
+
+      expect(component.isQuotationVerse(verses[0])).toBeTrue()
     })
 
     it("leaves a book written in verse unmarked", () => {
@@ -968,6 +1007,57 @@ describe("BibleReaderComponent", () => {
 
       expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("job", 38)
       expect(component.parallel?.chapter).toBe(jobChapter as unknown as Chapter)
+    })
+
+    it("sets the passage as plain reading text, not as verse selectors", () => {
+      // Nothing listens for a selection made in the parallel, so a verse set
+      // as a selector there had a number that was a button doing nothing and
+      // a footnote marker that opened nothing.
+      const verses = [
+        {
+          bookId: "job",
+          chapterNumber: 38,
+          number: 4,
+          verseLabel: "4",
+          text: [
+            { type: "text", text: "Onde estavas tu:" },
+            { type: "quote", text: "quando lancei", identLevel: 1 },
+            { type: "footnote", text: "nota", reference: "38,4" },
+          ],
+        },
+      ]
+      apiServiceSpy.getChapter.and.returnValue(
+        of({ bookId: "job", number: 38, verses } as unknown as Chapter),
+      )
+
+      component.onOpenBeside(request)
+      fixture.detectChanges()
+
+      // Children are stubbed out here, so the bindings are read off the
+      // element the reader hands them to.
+      const verse = fixture.nativeElement.querySelector(
+        ".study-parallel verse",
+      ) as HTMLElement & { studyMode?: boolean; isQuotation?: boolean }
+      expect(verse).toBeTruthy()
+      expect(verse.studyMode).toBeFalsy()
+      // The selection bar marks and cites against this, not the chapter.
+      expect(component.parallelBook?.id).toBe(bookServiceSpy.findBook("job").id)
+      // Set like the chapter beside it: a quotation is italic in both.
+      expect(verse.isQuotation).toBeTrue()
+    })
+
+    it("asks again for a passage that failed to load", () => {
+      apiServiceSpy.getChapter.and.returnValue(throwError(() => new Error()))
+      component.onOpenBeside(request)
+      expect(component.parallel?.failed).toBeTrue()
+
+      apiServiceSpy.getChapter.and.returnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+      component.retryParallel()
+
+      expect(component.parallel?.failed).toBeFalsy()
+      expect(component.parallel?.chapter).toBeTruthy()
     })
 
     it("names the passage before its text arrives", () => {
@@ -1371,6 +1461,171 @@ describe("BibleReaderComponent", () => {
       component.viewMode = "paged"
 
       expect(component.effectiveViewMode).toBe("paged")
+    })
+
+    describe("keyboard", () => {
+      const verses = [1, 2, 3].map((number) => ({ number }) as Verse)
+      const press = (key: string, init: KeyboardEventInit = {}) => {
+        const event = new KeyboardEvent("keydown", {
+          key,
+          cancelable: true,
+          ...init,
+        })
+        Object.defineProperty(event, "target", { value: document.body })
+        component.onArrowPress(event)
+        return event
+      }
+
+      beforeEach(() => {
+        studyMode.activate()
+        apiServiceSpy.getChapter.and.returnValue(
+          of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
+        )
+        component.getChapter(1)
+      })
+
+      it("steps through the verses, starting from the one being read", () => {
+        component.visibleVerse = 2
+
+        // The first press lands on the verse at the top of the column, not
+        // on verse 1, which would throw the reader back up the chapter.
+        press("j")
+        expect(component.selection?.verse.number).toBe(2)
+        press("j")
+        expect(component.selection?.verse.number).toBe(3)
+        // The last verse is where it stops.
+        press("j")
+        expect(component.selection?.verse.number).toBe(3)
+        press("k")
+        expect(component.selection?.verse.number).toBe(2)
+      })
+
+      it("takes the key, so the page does not also act on it", () => {
+        expect(press("j").defaultPrevented).toBeTrue()
+        expect(press("x").defaultPrevented).toBeFalse()
+      })
+
+      it("folds the side columns", () => {
+        press("l")
+        expect(component.studySidebarCollapsed).toBeTrue()
+        press("p")
+        expect(component.studyPanelCollapsed).toBeTrue()
+      })
+
+      it("chooses the verse being read before writing a note on it", () => {
+        component.visibleVerse = 3
+
+        press("n")
+
+        expect(component.selection?.verse.number).toBe(3)
+      })
+
+      it("leaves a text box on Escape, and keeps the verse", () => {
+        component.onVerseSelected({ verse: verses[0] })
+        const box = document.createElement("textarea")
+        document.body.appendChild(box)
+        box.focus()
+        const event = new KeyboardEvent("keydown", { key: "Escape" })
+        Object.defineProperty(event, "target", { value: box })
+
+        component.onArrowPress(event)
+
+        // "n" and "/" put the caret in a box; this is the way back out.
+        expect(document.activeElement).not.toBe(box)
+        expect(component.selection?.verse.number).toBe(1)
+        box.remove()
+      })
+
+      it("opens the list of shortcuts", () => {
+        const open = spyOn(TestBed.inject(MatDialog), "open")
+
+        press("?", { shiftKey: true })
+
+        expect(open).toHaveBeenCalled()
+      })
+
+      it("leaves the keys to a menu or dialog that is open over the page", () => {
+        const backdrop = document.createElement("div")
+        backdrop.className = "cdk-overlay-backdrop-showing"
+        document.body.appendChild(backdrop)
+        component.onVerseSelected({ verse: verses[0] })
+
+        press("j")
+        // Escape closing the menu used to let go of the verse as well.
+        press("Escape")
+
+        expect(component.selection?.verse.number).toBe(1)
+        backdrop.remove()
+      })
+
+      it("means nothing in the reading layout", () => {
+        studyMode.activeSubject.next(false)
+
+        expect(press("j").defaultPrevented).toBeFalse()
+        expect(component.selection).toBeNull()
+      })
+    })
+
+    it("keeps the reader's place when the layout changes under them", () => {
+      fixture.detectChanges()
+      type Internals = {
+        restoreReadingPosition: (verse: number) => void
+        scrollHost: HTMLElement | undefined
+      }
+      // The verse at the top of the reading layout's column.
+      spyOn(
+        BibleReaderComponent as unknown as {
+          firstVisibleVerseIn: () => number | undefined
+        },
+        "firstVisibleVerseIn",
+      ).and.returnValue(20)
+      const restore = spyOn(
+        component as unknown as Internals,
+        "restoreReadingPosition",
+      ).and.callThrough()
+
+      studyMode.activate()
+
+      // Switching builds a new scrolling column, which starts at its top.
+      expect(restore).toHaveBeenCalledOnceWith(20)
+    })
+
+    it("scrolls the new column to the verse that was being read", () => {
+      const host = document.createElement("div")
+      host.style.cssText = "height:100px;overflow:auto;position:relative"
+      for (const number of [1, 2, 3]) {
+        const verse = document.createElement("verse")
+        verse.id = String(number)
+        verse.style.cssText = "display:block;height:150px"
+        host.appendChild(verse)
+      }
+      document.body.appendChild(host)
+      spyOnProperty(
+        component as unknown as { scrollHost: HTMLElement },
+        "scrollHost",
+      ).and.returnValue(host)
+
+      component["restoreReadingPosition"](3)
+
+      expect(host.scrollTop).toBe(300)
+      host.remove()
+    })
+
+    it("selects the verse a link within the same chapter points at", () => {
+      studyMode.activate()
+      const verses = [{ number: 1 } as Verse, { number: 12 } as Verse]
+      apiServiceSpy.getChapter.and.returnValue(
+        of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
+      )
+      component.getChapter(1, 1)
+      expect(component.selection?.verse.number).toBe(1)
+
+      // The panel's "v.12": same book, same chapter, only the verse moves.
+      ;(
+        routeMock as { queryParamMap: BehaviorSubject<Map<string, string>> }
+      ).queryParamMap.next(new Map([["verseStart", "12"]]))
+
+      expect(component.selection?.verse.number).toBe(12)
     })
 
     it("selects the verse a deep link points at", () => {

@@ -26,6 +26,16 @@ describe("BibleReferenceService", () => {
         { abrv: "Ap", shortName: "Apoc", name: "Apocalipse", id: "rev" },
         { abrv: "Jb", shortName: "Job", name: "Job", id: "job" },
       ],
+      findBook(this: { getBooks: () => Book[] }, name: string) {
+        const wanted = name.toLocaleLowerCase()
+        return (
+          this.getBooks().find((book) =>
+            [book.id, book.abrv, book.shortName, book.name].some(
+              (known) => known.toLocaleLowerCase() === wanted,
+            ),
+          ) ?? ({ id: "about" } as Book)
+        )
+      },
     }
 
     TestBed.configureTestingModule({
@@ -49,6 +59,13 @@ describe("BibleReferenceService", () => {
 
       expect(ref.chapter).toBe(38)
       expect(ref.endChapter).toBe(39)
+    })
+
+    it("does not take the number of the next book for a last chapter", () => {
+      const refs = service.extract("Gn 50 \u2013 1 Jo 2", "gen", 1)
+
+      expect(refs.map((ref) => ref.match)).toEqual(["Gn 50", "1 Jo 2"])
+      expect(refs[0].endChapter).toBeUndefined()
     })
 
     it("leaves a verse range alone", () => {
@@ -342,5 +359,31 @@ describe("BibleReferenceService", () => {
     expect(out[1].verses).toEqual([
       { type: "single", verse: 2 } as VerseReference,
     ])
+  })
+
+  describe("where a search should land", () => {
+    it("reads a reference as somewhere to go", () => {
+      const destination = service.destinationOf("Mt 22,37")
+
+      expect(destination?.book.id).toBe("mat")
+      expect(destination?.chapter).toBe(22)
+      expect(destination?.verseStart).toBe(37)
+    })
+
+    it("opens a range at its first verse, and a chapter at its head", () => {
+      expect(service.destinationOf("Mt 22,37-40")?.verseStart).toBe(37)
+      expect(service.destinationOf("Mt 22")?.verseStart).toBeUndefined()
+    })
+
+    it("reads a book's name as the book", () => {
+      const destination = service.destinationOf(" Mateus ")
+
+      expect(destination?.book.id).toBe("mat")
+      expect(destination?.chapter).toBe(1)
+    })
+
+    it("leaves words to the text search", () => {
+      expect(service.destinationOf("amarás o teu próximo")).toBeNull()
+    })
   })
 })

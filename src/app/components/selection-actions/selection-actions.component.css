@@ -11,6 +11,35 @@
   border-radius: 8px;
   background-color: var(--card-background);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  /* It grows out of the words it acts on — from the edge that faces the
+     selection, at the point across it where the selection is — rather than
+     blinking into being in the middle of the page. Brief, and with no
+     overshoot: nothing threw it there. */
+  transform-origin: var(--bar-origin-x, 50%) 100%;
+  animation: selection-bar-arrive 140ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.selection-bar.below {
+  transform-origin: var(--bar-origin-x, 50%) 0;
+}
+
+@keyframes selection-bar-arrive {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selection-bar {
+    animation-name: selection-bar-fade;
+  }
+
+  @keyframes selection-bar-fade {
+    from {
+      opacity: 0;
+    }
+  }
 }
 
 .bar-action {

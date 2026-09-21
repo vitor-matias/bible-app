@@ -1,3 +1,4 @@
+import { LiveAnnouncer } from "@angular/cdk/a11y"
 import { CommonModule } from "@angular/common"
 import {
   ChangeDetectionStrategy,
@@ -14,9 +15,19 @@ import {
 } from "@angular/core"
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatIconModule } from "@angular/material/icon"
+import { MatSnackBar } from "@angular/material/snack-bar"
 import { MatTooltipModule } from "@angular/material/tooltip"
-import { RouterModule } from "@angular/router"
-import { debounceTime, Subject, type Subscription } from "rxjs"
+import { Router, RouterModule } from "@angular/router"
+import {
+  catchError,
+  debounceTime,
+  from,
+  map,
+  mergeMap,
+  of,
+  Subject,
+  type Subscription,
+} from "rxjs"
 import { BibleApiService } from "../../services/bible-api.service"
 import {
   type BibleReference,
@@ -24,6 +35,7 @@ import {
 } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import {
+  HIGHLIGHT_COLOR_NAMES,
   HIGHLIGHT_COLORS,
   type HighlightColor,
   HighlightService,
@@ -35,7 +47,13 @@ import {
   type IndexState,
   ReverseReferencesService,
 } from "../../services/reverse-references.service"
-import { formatPassage, highlightSegments } from "../../utils/text"
+import { type SearchHit, SearchService } from "../../services/search.service"
+import {
+  lastVerseNumber,
+  placeReferences,
+  sectionStartsIn,
+} from "../../utils/chapter-references"
+import { formatPassage } from "../../utils/text"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 
 export type PanelTab = "references" | "footnotes" | "notes" | "search"
@@ -75,15 +93,6 @@ export type ParallelRequest = {
   runsOn?: boolean
   link: (string | number)[]
   queryParams: Record<string, number> | null
-}
-
-/** A verse the search turned up, as the panel lists it. */
-type SearchResult = {
-  key: string
-  reference: string
-  link: (string | number)[]
-  queryParams: Record<string, number>
-  segments: HighlightSegment[]
 }
 
 /** How far a panel-width list of results is worth going. */
@@ -148,11 +157,27 @@ const SCROLL_MARGIN = 16
 
 /**
  * How the follow-along scroll is paced. Time per pixel travelled, bounded at
- * both ends: short moves must not crawl, long ones must not blur past.
+ * both ends: short moves must not crawl, long ones must not blur past. It is
+ * the spring's response rather than a duration — a critically damped spring
+ * has settled, to the eye, about one response after it set off.
  */
 const SCROLL_MS_PER_PIXEL = 0.7
 const MIN_SCROLL_MS = 260
 const MAX_SCROLL_MS = 700
+/** How many cited chapters are fetched at once, and how many are kept. */
+const REFERENCE_FETCH_CONCURRENCY = 4
+const QUOTED_CHAPTERS_KEPT = 60
+
+/** How long a deleted note can be taken back. */
+const UNDO_WINDOW_MS = 6000
+
+/** A frame that arrives late must not fling the spring past its target. */
+const MAX_FRAME_SECONDS = 1 / 30
+/** Close enough, and slow enough, to call the glide finished (px, px/s). */
+const REST_DISTANCE = 0.5
+const REST_VELOCITY = 4
+/** What the reader does to take the panel's scroll into their own hands. */
+const TAKEOVER_EVENTS = ["wheel", "touchstart", "pointerdown", "keydown"]
 
 /**
  * Study mode's right-hand apparatus: what the edition says about the chapter
@@ -204,30 +229,42 @@ export class StudyPanelComponent implements OnChanges {
   noteQuery = ""
   noteDraft = ""
   searchQuery = ""
-  searchResults: SearchResult[] = []
-  searchState: "idle" | "searching" | "done" | "failed" = "idle"
+  searchResults: SearchHit[] = []
+  searchState: "idle" | "searching" | "done" | "failed" | "missing" = "idle"
   searchTotal = 0
   /** The search is the API's, so it is the one thing here that needs the net. */
   offline = false
   /** Set for a moment after a copy, so the button can say it worked. */
   copied = false
   readonly highlightColors = HIGHLIGHT_COLORS
+  readonly colorNames = HIGHLIGHT_COLOR_NAMES
   /** Passages that cite the selected verse, once the reader asks for them. */
   incoming: IncomingReference[] = []
   incomingState: IndexState = "idle"
   /** The colour on the selected verse, if the reader has marked it. */
   selectedHighlight?: HighlightColor
 
-  readonly tabs: { id: PanelTab; label: string }[] = [
-    { id: "references", label: "Referências" },
-    { id: "footnotes", label: "Notas de rodapé" },
-    { id: "notes", label: "As minhas notas" },
-    { id: "search", label: "Pesquisar" },
+  /**
+   * `label` is what the strip shows and `name` what the tab is called. At the
+   * panel's default width the full names wrapped onto two lines, doubling
+   * the height of the strip for the sake of two words; the short forms fit,
+   * and each is part of its full name, so a reader who asks for the tab by
+   * what they see on screen still reaches it.
+   */
+  readonly tabs: { id: PanelTab; label: string; name: string }[] = [
+    { id: "references", label: "Referências", name: "Referências" },
+    { id: "footnotes", label: "Rodapé", name: "Notas de rodapé" },
+    { id: "notes", label: "Notas", name: "As minhas notas" },
+    { id: "search", label: "Pesquisar", name: "Pesquisar" },
   ]
 
   private readonly bibleRef = inject(BibleReferenceService)
   private readonly api = inject(BibleApiService)
   private readonly bookService = inject(BookService)
+  private readonly router = inject(Router)
+  private readonly announcer = inject(LiveAnnouncer)
+  private readonly snackBar = inject(MatSnackBar)
+  private readonly searchService = inject(SearchService)
   private readonly notesService = inject(NotesService)
   private readonly highlights = inject(HighlightService)
   private readonly reverseRefs = inject(ReverseReferencesService)
@@ -239,15 +276,39 @@ export class StudyPanelComponent implements OnChanges {
   /** The entry the panel last scrolled to, so it does not scroll there again. */
   private scrolledAnchor?: Verse["number"]
   private scrollFrame?: number
+  /** The follow-along scroll in flight: where it is, and how fast. */
+  private glide?: {
+    body: HTMLElement
+    target: number
+    response: number
+    position: number
+    velocity: number
+  }
+  private readonly yielding = new WeakSet<HTMLElement>()
+  /** Chapters already fetched to quote from, most recently used last. */
+  private readonly quotedChapters = new Map<string, Chapter>()
+  /**
+   * Set once the reader has scrolled the panel themselves. They are reading
+   * something there; the text moving under their other hand must not take it
+   * away from them. The mark on the current passage still follows — only the
+   * scrolling stops — and it is handed back when they pick a verse, change
+   * tab or change chapter, which are all ways of asking the panel to look
+   * somewhere new.
+   */
+  private readerHoldsPanel = false
   private referenceRequests: Subscription[] = []
   private notesSubscription?: Subscription
   /**
-   * Queued note saves carry the verse they were typed for. The reader can
-   * select another verse inside the debounce window, and resolving the
-   * target when the save fires would file the note under whichever verse
-   * happened to be selected by then.
+   * Queued note saves carry the book and verse they were typed for. The
+   * reader can select another verse, or follow a reference into another
+   * book, inside the debounce window, and resolving the target when the save
+   * fires would file the note under whatever happened to be open by then.
    */
-  private readonly noteInput = new Subject<{ target: Verse; text: string }>()
+  private readonly noteInput = new Subject<{
+    bookId: Book["id"]
+    target: Verse
+    text: string
+  }>()
   private readonly noteSearch = new Subject<string>()
   private noteSearchSubscription?: Subscription
   private searchSubscription?: Subscription
@@ -256,7 +317,9 @@ export class StudyPanelComponent implements OnChanges {
   constructor() {
     this.noteInput
       .pipe(debounceTime(NOTE_SAVE_DEBOUNCE_MS), takeUntilDestroyed())
-      .subscribe(({ target, text }) => this.persistNote(target, text))
+      .subscribe(({ bookId, target, text }) =>
+        this.persistNote(bookId, target, text),
+      )
     // Registered once, not per chapter: onDestroy callbacks accumulate, and
     // the reader changes chapter far more often than it destroys the panel.
     this.noteSearch
@@ -273,7 +336,7 @@ export class StudyPanelComponent implements OnChanges {
       this.notesSubscription?.unsubscribe()
       this.noteSearchSubscription?.unsubscribe()
       this.searchSubscription?.unsubscribe()
-      if (this.scrollFrame !== undefined) cancelAnimationFrame(this.scrollFrame)
+      this.stopGlide()
       if (this.copiedTimer) clearTimeout(this.copiedTimer)
       this.cancelReferenceRequests()
     })
@@ -295,6 +358,7 @@ export class StudyPanelComponent implements OnChanges {
     // once per chapter — selecting a verse only marks entries already on
     // screen, and costs no further requests.
     if (changes["book"] || changes["chapter"]) {
+      this.readerHoldsPanel = false
       this.buildReferences()
       this.buildFootnotes()
       this.watchChapterNotes()
@@ -304,12 +368,13 @@ export class StudyPanelComponent implements OnChanges {
       // leaves the reader on the tab they were already reading.
       const requested = this.selection?.panel
       if (requested) this.activeTab = requested
+      if (this.selection) this.readerHoldsPanel = false
       this.loadNoteDraft()
       this.loadSelectedHighlight()
       this.loadIncoming()
       this.scrollActiveIntoView()
     }
-    if (changes["visibleVerse"] && !this.selection) {
+    if (changes["visibleVerse"] && !this.selection && !this.readerHoldsPanel) {
       this.scrollActiveIntoView()
     }
   }
@@ -319,6 +384,7 @@ export class StudyPanelComponent implements OnChanges {
     this.activeTab = tab
     // The new tab has its own list, which has never been placed.
     this.scrolledAnchor = undefined
+    this.readerHoldsPanel = false
     // Rendered here rather than left to the next change detection pass.
     // Angular coalesces those onto an animation frame, and a plain button is
     // the whole interaction — nothing else follows it to flush the queue, so
@@ -326,6 +392,24 @@ export class StudyPanelComponent implements OnChanges {
     // a toolbar button, say) happened to trigger a pass. Every other control
     // in this app is a Material one, which renders itself and hides that.
     this.cdr.detectChanges()
+  }
+
+  /**
+   * For the reader's keyboard shortcuts: shows a tab and, where the tab is
+   * somewhere to type, puts the caret there — a key that opened the search
+   * and left the reader to reach for the mouse would be half a shortcut.
+   */
+  openTab(tab: PanelTab, focus = false): void {
+    this.selectTab(tab)
+    if (!focus) return
+    const field =
+      tab === "search"
+        ? "#study-search"
+        : tab === "notes"
+          ? "#study-note-tab"
+          : undefined
+    if (!field) return
+    this.host.nativeElement.querySelector<HTMLElement>(field)?.focus()
   }
 
   /**
@@ -362,13 +446,17 @@ export class StudyPanelComponent implements OnChanges {
   onNoteInput(value: string): void {
     this.noteDraft = value
     const target = this.selectedVerse
-    if (target) this.noteInput.next({ target, text: value })
+    if (target && this.book) {
+      this.noteInput.next({ bookId: this.book.id, target, text: value })
+    }
   }
 
   /** Leaving the box saves immediately rather than waiting out the debounce. */
   onNoteBlur(): void {
     const target = this.selectedVerse
-    if (target) this.persistNote(target, this.noteDraft)
+    if (target && this.book) {
+      this.persistNote(this.book.id, target, this.noteDraft)
+    }
   }
 
   /** The verse the panel is following: the chosen one, else the one on screen. */
@@ -452,6 +540,17 @@ export class StudyPanelComponent implements OnChanges {
     this.incomingState = this.reverseRefs.state
     this.loadIncoming()
     this.cdr.detectChanges()
+    // The answer replaces "A procurar…" on screen and nothing more: said
+    // aloud, or a reader who cannot see the panel never learns it arrived.
+    void this.announcer.announce(
+      this.incomingState === "unavailable"
+        ? "Precisa do texto offline."
+        : this.incoming.length === 0
+          ? "Nenhuma passagem cita este versículo."
+          : this.incoming.length === 1
+            ? "1 passagem cita este versículo."
+            : `${this.incoming.length} passagens citam este versículo.`,
+    )
   }
 
   private loadIncoming(): void {
@@ -527,21 +626,41 @@ export class StudyPanelComponent implements OnChanges {
     this.searchState = "searching"
     this.searchResults = []
     this.cdr.markForCheck()
-    this.searchSubscription = this.api
-      .search(query, 1, SEARCH_RESULT_LIMIT)
+
+    // A reference, or a book's name, is somewhere to go rather than words to
+    // look for. The search service says which, for this box and the search
+    // page alike: this one used to have a copy of its own, which did not
+    // know, so "Mt 22,37" listed verses with a 22 in them.
+    this.searchSubscription = this.searchService
+      .run(query, SEARCH_RESULT_LIMIT)
       .subscribe({
-        next: (page) => {
-          this.searchTotal = page.total
-          this.searchResults = page.verses.map((verse) =>
-            this.toSearchResult(verse, query),
-          )
-          this.searchState = "done"
+        next: (outcome) => {
+          if (outcome.kind === "destination") {
+            this.searchState = "idle"
+            void this.router.navigate(
+              outcome.link,
+              outcome.queryParams ? { queryParams: outcome.queryParams } : {},
+            )
+          } else if (outcome.kind === "missing") {
+            this.searchState = "missing"
+            void this.announcer.announce(`${query} não existe.`)
+          } else {
+            this.searchTotal = outcome.total
+            this.searchResults = outcome.hits
+            this.searchState = "done"
+            void this.announcer.announce(
+              outcome.hits.length
+                ? this.searchSummary
+                : `Nada encontrado para ${query}.`,
+            )
+          }
           this.cdr.markForCheck()
         },
         error: () => {
           this.searchResults = []
           this.searchTotal = 0
           this.searchState = "failed"
+          void this.announcer.announce("Não foi possível procurar agora.")
           this.cdr.markForCheck()
         },
       })
@@ -557,21 +676,6 @@ export class StudyPanelComponent implements OnChanges {
       return `Primeiros ${shown} de ${this.searchTotal} resultados`
     }
     return shown === 1 ? "1 resultado" : `${shown} resultados`
-  }
-
-  private toSearchResult(verse: Verse, query: string): SearchResult {
-    const book = this.bookService.findBook(verse.bookId)
-    return {
-      key: `${verse.bookId}:${verse.chapterNumber}:${verse.number}`,
-      reference: `${book.shortName} ${verse.chapterNumber},${verse.number}`,
-      link: [
-        "/",
-        this.bookService.getUrlAbrv(book),
-        this.bookService.getChapterUrlSegment(verse.chapterNumber),
-      ],
-      queryParams: { verseStart: verse.number },
-      segments: highlightSegments(StudyPanelComponent.plainText(verse), query),
-    }
   }
 
   /**
@@ -628,6 +732,7 @@ export class StudyPanelComponent implements OnChanges {
       await navigator.clipboard.writeText(formatPassage(text, reference))
       this.copied = true
       this.cdr.markForCheck()
+      void this.announcer.announce(`${reference} copiado.`)
       if (this.copiedTimer) clearTimeout(this.copiedTimer)
       this.copiedTimer = setTimeout(() => {
         this.copied = false
@@ -635,19 +740,30 @@ export class StudyPanelComponent implements OnChanges {
       }, COPIED_FEEDBACK_MS)
     } catch {
       // Clipboard permission refused, or no clipboard at all: the verse is
-      // still on screen to select by hand, so say nothing rather than throw
-      // an error message over the text.
+      // still on screen to select by hand, so nothing is thrown over the
+      // text — but a reader who cannot see that the label never changed is
+      // told that it did not work.
+      void this.announcer.announce("Não foi possível copiar.")
     }
   }
 
-  private persistNote(verse: Verse, text: string): void {
-    if (!this.book) return
-    this.notesService.saveNote(
-      this.book.id,
-      verse.chapterNumber,
-      verse.number,
-      text,
-    )
+  private persistNote(bookId: Book["id"], verse: Verse, text: string): void {
+    const chapter = verse.chapterNumber
+    const before = this.notesService.getNote(bookId, chapter, verse.number)
+    this.notesService.saveNote(bookId, chapter, verse.number, text)
+    if (!before || text.trim()) return
+
+    // Emptying the box is how a note is deleted, which makes deleting one a
+    // slip of the hand away — select all, and a key. It can be taken back.
+    this.snackBar
+      .open("Nota apagada", "Anular", { duration: UNDO_WINDOW_MS })
+      .onAction()
+      .subscribe(() => {
+        this.notesService.saveNote(bookId, chapter, verse.number, before.text)
+        // Back in the box too, if the reader is still on that verse.
+        this.loadNoteDraft()
+        this.cdr.markForCheck()
+      })
   }
 
   private loadNoteDraft(): void {
@@ -695,6 +811,9 @@ export class StudyPanelComponent implements OnChanges {
       )
       const body = element?.closest(".tab-body") as HTMLElement | null
       if (!element || !body) return
+      // Before deciding whether to move: the reader may take hold of a panel
+      // that has never had to glide anywhere.
+      this.yieldToReader(body)
 
       const target = StudyPanelComponent.scrollTargetFor(
         body.scrollTop,
@@ -748,38 +867,114 @@ export class StudyPanelComponent implements OnChanges {
   /**
    * Scrolls the panel by hand rather than through `behavior: "smooth"`, whose
    * pace the browser chooses: a long jump between distant passages arrived
-   * too fast to follow. Here the duration grows with the distance, within
-   * bounds, so a short move stays brisk and a long one stays readable.
+   * too fast to follow. Here the pace grows with the distance, within bounds,
+   * so a short move stays brisk and a long one stays readable.
+   *
+   * It is a critically damped spring rather than a timed curve, for the one
+   * thing a timed curve cannot do: be given a new target while it is moving.
+   * The panel follows the reading position, so its target changes every few
+   * verses while the text scrolls; an ease-out restarted on each change sets
+   * off at full speed from a standstill every time, which read as a stutter.
+   * The spring keeps the speed it has and bends towards the new target.
    */
   private glideTo(body: HTMLElement, target: number): void {
-    if (this.scrollFrame !== undefined) cancelAnimationFrame(this.scrollFrame)
-
-    const from = body.scrollTop
-    const distance = target - from
-    if (Math.abs(distance) < 2) return
     if (StudyPanelComponent.prefersReducedMotion()) {
+      this.stopGlide()
       body.scrollTop = target
       return
     }
 
-    const duration = Math.min(
-      MAX_SCROLL_MS,
-      Math.max(MIN_SCROLL_MS, Math.abs(distance) * SCROLL_MS_PER_PIXEL),
-    )
-    const started = performance.now()
+    const running = this.glide?.body === body ? this.glide : undefined
+    const position = running?.position ?? body.scrollTop
+    const distance = Math.abs(target - position)
+    if (!running && distance < 2) return
+
+    const response =
+      Math.min(
+        MAX_SCROLL_MS,
+        Math.max(MIN_SCROLL_MS, distance * SCROLL_MS_PER_PIXEL),
+      ) / 1000
+
+    if (running) {
+      // Already moving: only where it is going changes.
+      running.target = target
+      running.response = response
+      return
+    }
+
+    this.yieldToReader(body)
+    this.glide = { body, target, response, position, velocity: 0 }
+    // Timed by the frames' own clock, from the first one: measured against
+    // any other, the first step can come out negative and throw the spring.
+    let last: number | undefined
     const step = (now: number) => {
-      const elapsed = Math.min(1, (now - started) / duration)
-      // Ease out: quick to set off, unhurried as it settles, which is what
-      // reads as following the reader rather than racing them.
-      const eased = 1 - (1 - elapsed) ** 3
-      body.scrollTop = from + distance * eased
-      if (elapsed < 1) {
-        this.scrollFrame = requestAnimationFrame(step)
-      } else {
-        this.scrollFrame = undefined
+      const glide = this.glide
+      if (!glide) return
+      // The reader moved it by some means the listeners did not see — the
+      // scrollbar, a find-in-page. It is theirs; writing the spring's own
+      // position back would pull it out of their hands.
+      if (Math.abs(glide.body.scrollTop - glide.position) > 2) {
+        this.stopGlide()
+        return
       }
+
+      const dt =
+        last === undefined
+          ? 1 / 60
+          : Math.min(MAX_FRAME_SECONDS, Math.max(0, (now - last) / 1000))
+      last = now
+      // The closed form of a critically damped spring over one frame, so a
+      // slow frame costs accuracy nowhere and cannot make it overshoot.
+      const omega = (2 * Math.PI) / glide.response
+      const offset = glide.position - glide.target
+      const drift = glide.velocity + omega * offset
+      const decay = Math.exp(-omega * dt)
+      glide.position = glide.target + (offset + drift * dt) * decay
+      glide.velocity = (drift - omega * (offset + drift * dt)) * decay
+
+      const atRest =
+        Math.abs(glide.position - glide.target) < REST_DISTANCE &&
+        Math.abs(glide.velocity) < REST_VELOCITY
+      if (atRest) glide.position = glide.target
+      glide.body.scrollTop = glide.position
+      // What the element accepted, not what was asked of it: it rounds, and
+      // it stops at its ends, and the takeover check above compares to this.
+      if (atRest || Math.abs(glide.body.scrollTop - glide.position) > 1) {
+        this.stopGlide()
+        return
+      }
+      this.scrollFrame = requestAnimationFrame(step)
     }
     this.scrollFrame = requestAnimationFrame(step)
+  }
+
+  private stopGlide(): void {
+    if (this.scrollFrame !== undefined) cancelAnimationFrame(this.scrollFrame)
+    this.scrollFrame = undefined
+    this.glide = undefined
+  }
+
+  /**
+   * The glide gives way the moment the reader reaches for the panel. Without
+   * this it wrote its own position over theirs on every frame, so a wheel
+   * turn in the middle of a glide did nothing until the glide had finished.
+   *
+   * Native and passive rather than template bindings: a wheel event per
+   * frame has no business running change detection.
+   */
+  private yieldToReader(body: HTMLElement): void {
+    if (this.yielding.has(body)) return
+    this.yielding.add(body)
+    for (const name of TAKEOVER_EVENTS) {
+      body.addEventListener(
+        name,
+        () => {
+          this.stopGlide()
+          this.readerHoldsPanel = true
+        },
+        { passive: true },
+      )
+    }
   }
 
   /** Readers who ask for less motion get the jump, not the glide. */
@@ -844,15 +1039,11 @@ export class StudyPanelComponent implements OnChanges {
     if (!this.chapter) return
 
     const verses = this.chapter.verses ?? []
-    const lastVerse = verses.reduce(
-      (highest, verse) => Math.max(highest, verse.number),
-      0,
-    )
-    const sectionStarts = this.sectionStartsIn(verses)
+    const lastVerse = lastVerseNumber(verses)
+    const sectionStarts = sectionStartsIn(verses)
 
     // Collected by the verse each passage *starts* at, which is not the verse
-    // its references are printed on: a heading and the references under it
-    // arrive in the payload of the verse before the one they introduce.
+    // its references are printed on — see placeReferences.
     // A division's own references are kept apart from the first passage's,
     // which start at the same verse, by carrying the division's range as
     // their label — see divisionLabel.
@@ -865,81 +1056,55 @@ export class StudyPanelComponent implements OnChanges {
       }
     >()
     const seen = new Set<string>()
-    verses.forEach((verse, index) => {
-      // The passage a heading in this verse has opened, if one has.
-      let opened: Verse["number"] | undefined
-      let words = false
-      // The last heading seen, to tell the two things this edition prints in
-      // the same shape apart. See afterMajorHeading below.
-      let previousSection: string | undefined
-      for (const part of verse.text ?? []) {
-        if (part.type === "section") {
-          // A heading after the verse's own words opens the next verse; one
-          // at the head of the payload opens this verse.
-          opened = words
-            ? StudyPanelComponent.nextVerseNumber(verses, index, lastVerse)
-            : Math.max(verse.number, 1)
-          words = false
-          previousSection = part.tag
+    for (const placed of placeReferences(verses, sectionStarts)) {
+      const { part, verse, startsAt, underMajorHeading } = placed
+
+      const extracted = this.bibleRef.extract(
+        part.text,
+        verse.bookId,
+        verse.chapterNumber,
+      )
+      // The extent of the division this block belongs to, once its opening
+      // range has named it.
+      let division: string | undefined
+      for (const [position, reference] of extracted.entries()) {
+        // findBook falls back to the About page for anything it cannot
+        // resolve; listed, that was an "About 25" entry fetching a chapter
+        // of the About page. A parse artefact is not a passage.
+        if (this.bookService.findBook(reference.book).id === "about") continue
+        const entry = this.toEntry(reference)
+        // A block under a major heading opens with the range that heading
+        // covers, and may go on to a passage worth reading beside it:
+        // Matthew's "(1,1-2,23; ver Lc 1,5-2,52)" is this division's own
+        // extent and then the parallel gospel. The extent is not a
+        // reference — it is what the references after it are references
+        // *for*, so it becomes their heading in the panel.
+        if (
+          underMajorHeading &&
+          position === 0 &&
+          entry.bookId === verse.bookId
+        ) {
+          division = StudyPanelComponent.divisionLabel(reference)
           continue
         }
-        if (part.type !== "references") {
-          if (part.type !== "footnote" && part.text.trim()) words = true
-          continue
-        }
-        const underMajorHeading =
-          StudyPanelComponent.afterMajorHeading(previousSection)
-        previousSection = undefined
-
-        // Under a heading the references belong to the passage it opens;
-        // before one, to the passage this verse is already inside.
-        const startsAt =
-          opened ??
-          StudyPanelComponent.sectionStartAt(sectionStarts, verse.number)
-
-        const extracted = this.bibleRef.extract(
-          part.text,
-          verse.bookId,
-          verse.chapterNumber,
-        )
-        // The extent of the division this block belongs to, once its opening
-        // range has named it.
-        let division: string | undefined
-        for (const [position, reference] of extracted.entries()) {
-          const entry = this.toEntry(reference)
-          // A block under a major heading opens with the range that heading
-          // covers, and may go on to a passage worth reading beside it:
-          // Matthew's "(1,1-2,23; ver Lc 1,5-2,52)" is this division's own
-          // extent and then the parallel gospel. The extent is not a
-          // reference — it is what the references after it are references
-          // *for*, so it becomes their heading in the panel.
-          if (
-            underMajorHeading &&
-            position === 0 &&
-            entry.bookId === verse.bookId
-          ) {
-            division = StudyPanelComponent.divisionLabel(reference)
-            continue
-          }
-          const groupKey = division ? `${startsAt}|${division}` : `${startsAt}`
-          // The same passage can be cited twice (two references blocks either
-          // side of a quote); list it once.
-          const key = `${groupKey}:${entry.key}`
-          if (seen.has(key)) continue
-          seen.add(key)
-          const group = byStart.get(groupKey)
-          if (group) {
-            group.entries.push(entry)
-          } else {
-            byStart.set(groupKey, {
-              verseNumber: startsAt,
-              label: division,
-              entries: [entry],
-            })
-          }
+        const groupKey = division ? `${startsAt}|${division}` : `${startsAt}`
+        // The same passage can be cited twice (two references blocks either
+        // side of a quote); list it once.
+        const key = `${groupKey}:${entry.key}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        const group = byStart.get(groupKey)
+        if (group) {
+          group.entries.push(entry)
+        } else {
+          byStart.set(groupKey, {
+            verseNumber: startsAt,
+            label: division,
+            entries: [entry],
+          })
         }
       }
-    })
+    }
 
     const groups: ReferenceGroup[] = Array.from(byStart.values())
       .sort((a, b) => a.verseNumber - b.verseNumber)
@@ -960,64 +1125,6 @@ export class StudyPanelComponent implements OnChanges {
 
     this.referenceGroups = groups
     this.fetchReferenceTexts(groups)
-  }
-
-  /**
-   * The verses that open a passage.
-   *
-   * A heading arrives inside the payload of whichever verse precedes it, so
-   * where it opens depends on what came before it in that verse: after the
-   * verse's own words it introduces the *next* verse, while at the head of
-   * the payload — the chapter's front matter, or a heading that falls
-   * immediately before a verse's words — it introduces that verse.
-   */
-  private sectionStartsIn(verses: Verse[]): Verse["number"][] {
-    const lastVerse = verses.reduce(
-      (highest, verse) => Math.max(highest, verse.number),
-      0,
-    )
-    const starts = new Set<Verse["number"]>()
-    verses.forEach((verse, index) => {
-      let words = false
-      for (const part of verse.text ?? []) {
-        if (part.type === "section") {
-          starts.add(
-            words
-              ? StudyPanelComponent.nextVerseNumber(verses, index, lastVerse)
-              : Math.max(verse.number, 1),
-          )
-          words = false
-          continue
-        }
-        if (part.type === "footnote" || part.type === "references") continue
-        if (part.text.trim()) words = true
-      }
-    })
-    return Array.from(starts).sort((a, b) => a - b)
-  }
-
-  /** The passage a verse sits in: the last heading at or before it. */
-  private static sectionStartAt(
-    sectionStarts: Verse["number"][],
-    verseNumber: Verse["number"],
-  ): Verse["number"] {
-    let start = 1
-    for (const candidate of sectionStarts) {
-      if (candidate <= Math.max(verseNumber, 1)) start = candidate
-    }
-    return start
-  }
-
-  /** The next verse with a number of its own, or the chapter's last. */
-  private static nextVerseNumber(
-    verses: Verse[],
-    index: number,
-    fallback: Verse["number"],
-  ): Verse["number"] {
-    for (let i = index + 1; i < verses.length; i++) {
-      if (verses[i].number > 0) return verses[i].number
-    }
-    return fallback
   }
 
   /** "1,8-22" — the passage a group of references covers. */
@@ -1095,9 +1202,10 @@ export class StudyPanelComponent implements OnChanges {
    *
    * Fetched a chapter at a time rather than a verse at a time. A chapter's
    * references cluster into far fewer chapters than verses (the synoptic
-   * parallels of one passage often share one), the chapter request is
-   * deduplicated and cached by BibleApiService, and it is the same request the
-   * reader makes anyway if they follow the link.
+   * parallels of one passage often share one), requests for the same
+   * chapter in flight are shared by BibleApiService, and it is the same
+   * request the reader makes anyway if they follow the link. What comes back
+   * is kept here, since that service keeps nothing once a request settles.
    */
   private fetchReferenceTexts(groups: ReferenceGroup[]): void {
     const byChapter = new Map<string, ReferenceEntry[]>()
@@ -1116,24 +1224,55 @@ export class StudyPanelComponent implements OnChanges {
       }
     }
 
-    for (const entries of byChapter.values()) {
-      const { bookId, chapterNumber } = entries[0]
-      this.referenceRequests.push(
-        this.api.getChapter(bookId, chapterNumber).subscribe({
-          next: (chapter) => {
-            for (const entry of entries) {
-              StudyPanelComponent.fill(entry, chapter)
-            }
-            this.cdr.markForCheck()
-          },
-          // Offline, or a reference the API cannot resolve: the entries stay
-          // links, which is still the useful half of them.
-          error: () => {
-            for (const entry of entries) entry.failed = true
-            this.cdr.markForCheck()
-          },
+    // What the panel has quoted before, it quotes again without asking: a
+    // reader going back and forth between two chapters was refetching every
+    // chapter either of them cites, each time.
+    const wanted: [string, ReferenceEntry[]][] = []
+    for (const [key, entries] of byChapter) {
+      const remembered = this.quotedChapters.get(key)
+      if (!remembered) {
+        wanted.push([key, entries])
+        continue
+      }
+      for (const entry of entries) StudyPanelComponent.fill(entry, remembered)
+    }
+
+    // A few at a time. A chapter of a gospel cites dozens of others, and all
+    // of them at once competed with the chapter the reader is waiting for.
+    this.referenceRequests.push(
+      from(wanted)
+        .pipe(
+          mergeMap(
+            ([key, entries]) =>
+              this.api
+                .getChapter(entries[0].bookId, entries[0].chapterNumber)
+                .pipe(
+                  map((chapter) => ({ key, entries, chapter })),
+                  // Offline, or a reference the API cannot resolve: the
+                  // entries stay links, which is still the useful half.
+                  catchError(() => of({ key, entries, chapter: undefined })),
+                ),
+            REFERENCE_FETCH_CONCURRENCY,
+          ),
+        )
+        .subscribe(({ key, entries, chapter }) => {
+          if (chapter) this.rememberQuoted(key, chapter)
+          for (const entry of entries) {
+            if (chapter) StudyPanelComponent.fill(entry, chapter)
+            else entry.failed = true
+          }
+          this.cdr.markForCheck()
         }),
-      )
+    )
+  }
+
+  private rememberQuoted(key: string, chapter: Chapter): void {
+    this.quotedChapters.delete(key)
+    this.quotedChapters.set(key, chapter)
+    // A Map keeps insertion order, so its first key is the one longest unused.
+    if (this.quotedChapters.size > QUOTED_CHAPTERS_KEPT) {
+      const oldest = this.quotedChapters.keys().next().value
+      if (oldest !== undefined) this.quotedChapters.delete(oldest)
     }
   }
 
@@ -1233,24 +1372,6 @@ export class StudyPanelComponent implements OnChanges {
     const last = lastLine?.[lastLine.length - 1]
     if (last) last.text = last.text.replace(/\s+$/, "")
     return lines
-  }
-
-  /**
-   * Whether a references block sits directly under a major heading.
-   *
-   * This edition heads a division with its title and the range it covers —
-   * "PRÓLOGO", then "(1,1-4)" — and heads a passage inside it with a title and
-   * the places the passage points at — "Criação do mundo", then "(2,4b-25; Jb
-   * 38-39; ...)". Both arrive as a references element in the same verse, so
-   * the heading each follows is what separates a division's own extent from a
-   * list of cross references. Major headings are \ms in the USFM this edition
-   * is built from; passages are \s1 and \s2.
-   *
-   * It only says which block to read carefully: a division's range can be
-   * followed by real references in the same parentheses. See buildReferences.
-   */
-  private static afterMajorHeading(tag: string | undefined): boolean {
-    return tag?.startsWith("ms") === true
   }
 
   /**
