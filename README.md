@@ -118,6 +118,22 @@ CAPACITOR_LIVE_RELOAD_URL=http://<your-lan-ip>:4200 npx cap run android
 App identity lives in [capacitor.config.ts](capacitor.config.ts)
 (`org.capuchinhos.biblia`).
 
+### Android signing key
+
+Every Android build, whether from Google Play, a GitHub Release APK or
+Zapstore, must be signed with the **same key**. Android refuses to update an
+install from a build signed with a different key, so users would have to
+uninstall, which wipes their bookmarks. The release keystore (the
+`ANDROID_KEYSTORE_BASE64` secret) is that key; its SHA-256 fingerprint is the
+one in [`public/.well-known/assetlinks.json`](public/.well-known/assetlinks.json).
+
+- **Google Play:** when enrolling in Play App Signing, choose to upload the
+  existing key ("Export and upload a key from Java keystore") rather than
+  letting Google generate one. This choice cannot be changed later.
+- **CI:** *Build All Platforms* fails a signed release whose certificate is
+  not listed in `assetlinks.json`. If the key ever has to change on purpose,
+  add the new fingerprint there first (App Links need it anyway).
+
 ## Architecture
 
 - **Routing** ([app.routes.ts](src/app/app.routes.ts)) — `/:book/:chapter` renders

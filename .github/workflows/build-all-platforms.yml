@@ -160,6 +160,26 @@ jobs:
             ./gradlew assembleDebug
           fi
 
+      # Play installs and GitHub/Zapstore APKs can only update each other when
+      # they carry the same signing certificate, and App Links only verify for
+      # certificates listed in assetlinks.json. That file is the pinned list:
+      # fail the release rather than ship an APK signed with another key.
+      - name: Verify release signing certificate
+        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          ACTUAL=$("$APKSIGNER" verify --print-certs "$APK" \
+            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' \
+            | tr 'a-f' 'A-F' | sed 's/../&:/g; s/:$//')
+          EXPECTED=$(node -p "require('./public/.well-known/assetlinks.json').flatMap((s) => s.target.sha256_cert_fingerprints ?? []).join('\\n')")
+          echo "APK signed with: $ACTUAL"
+          if ! grep -qxF "$ACTUAL" <<< "$EXPECTED"; then
+            echo "::error::The release APK's signing certificate is not listed in public/.well-known/assetlinks.json. Existing installs could not update to it. If the key change is intended, add its fingerprint there first."
+            exit 1
+          fi
+
       - name: Set signing output
         id: check-signing
         run: |
