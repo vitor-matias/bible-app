@@ -96,13 +96,20 @@ npx cap open android  # open in Android Studio / Xcode
 
 `cap:sync`/`cap:ios`/`cap:android` first run `cap:prune`, which copies the build
 into `dist/bible-app/capacitor` (the `webDir`) without the ~1300 prerendered
-route pages — they would add tens of MB to the APK/IPA for a shell that loads
-the site remotely anyway. The copy is what gets stripped; `dist/bible-app/browser`
-stays intact, since that is what the web deploy publishes.
+route pages, which would add tens of MB to the APK/IPA. The native apps ship
+that bundle, so they start instantly and work offline; the API is called at
+`https://biblia.capuchinhos.org/v1`. The copy is what gets stripped;
+`dist/bible-app/browser` stays intact, since that is what the web deploy publishes.
+
+For live reload on a device, point the shell at your dev server:
+
+```bash
+npm start
+CAPACITOR_LIVE_RELOAD_URL=http://<your-lan-ip>:4200 npx cap run android
+```
 
 App identity lives in [capacitor.config.ts](capacitor.config.ts)
-(`org.capuchinhos.biblia`). Set `CAPACITOR_SERVER_URL` to point a native build at a
-different backend.
+(`org.capuchinhos.biblia`).
 
 ## Architecture
 

@@ -1,7 +1,12 @@
 import { NgZone } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
+import { MatBottomSheet } from "@angular/material/bottom-sheet"
+import { MatDialog, type MatDialogRef } from "@angular/material/dialog"
 import { Router } from "@angular/router"
-import type { URLOpenListenerEvent } from "@capacitor/app"
+import type {
+  BackButtonListenerEvent,
+  URLOpenListenerEvent,
+} from "@capacitor/app"
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core"
 import { AppComponent } from "./app.component"
 import { AnalyticsService } from "./services/analytics.service"
@@ -15,10 +20,20 @@ describe("AppComponent", () => {
   // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
   let mockAppPlugin: jasmine.SpyObj<any>
   let onboardingSpy: jasmine.SpyObj<OnboardingService>
+  let dialogStub: { openDialogs: MatDialogRef<unknown>[] }
+  let bottomSheetStub: {
+    _openedBottomSheetRef: unknown
+    dismiss: jasmine.Spy
+  }
 
   beforeEach(async () => {
     routerSpy = jasmine.createSpyObj("Router", ["navigateByUrl", "navigate"])
-    mockAppPlugin = jasmine.createSpyObj("App", ["addListener"])
+    mockAppPlugin = jasmine.createSpyObj("App", ["addListener", "exitApp"])
+    dialogStub = { openDialogs: [] }
+    bottomSheetStub = {
+      _openedBottomSheetRef: null,
+      dismiss: jasmine.createSpy("dismiss"),
+    }
 
     const offlineDataSpy = jasmine.createSpyObj("OfflineDataService", [
       "preloadAllBooksAndChapters",
@@ -37,6 +52,8 @@ describe("AppComponent", () => {
         { provide: AnalyticsService, useValue: analyticsSpy },
         { provide: APP_PLUGIN, useValue: mockAppPlugin },
         { provide: OnboardingService, useValue: onboardingSpy },
+        { provide: MatDialog, useValue: dialogStub },
+        { provide: MatBottomSheet, useValue: bottomSheetStub },
       ],
     }).compileComponents()
 
@@ -213,5 +230,67 @@ describe("AppComponent", () => {
     })
 
     expect(routerSpy.navigateByUrl).not.toHaveBeenCalled()
+  })
+
+  describe("Android back button", () => {
+    let backButton: (event: BackButtonListenerEvent) => void
+
+    beforeEach(() => {
+      backButton = () => fail("backButton listener was not registered")
+      mockAppPlugin.addListener.and.callFake(((
+        eventName: string,
+        callback: (event: BackButtonListenerEvent) => void,
+      ) => {
+        if (eventName === "backButton") backButton = callback
+        return Promise.resolve({
+          remove: async () => {},
+        } as unknown as PluginListenerHandle)
+        // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
+      }) as any)
+      TestBed.createComponent(AppComponent).detectChanges()
+    })
+
+    it("closes the topmost dialog first", () => {
+      const lower = jasmine.createSpyObj<MatDialogRef<unknown>>(["close"])
+      const top = jasmine.createSpyObj<MatDialogRef<unknown>>(["close"])
+      dialogStub.openDialogs = [lower, top]
+      bottomSheetStub._openedBottomSheetRef = {}
+      const historyBack = spyOn(window.history, "back")
+
+      backButton({ canGoBack: true })
+
+      expect(top.close).toHaveBeenCalled()
+      expect(lower.close).not.toHaveBeenCalled()
+      expect(bottomSheetStub.dismiss).not.toHaveBeenCalled()
+      expect(historyBack).not.toHaveBeenCalled()
+    })
+
+    it("dismisses an open bottom sheet before navigating", () => {
+      bottomSheetStub._openedBottomSheetRef = {}
+      const historyBack = spyOn(window.history, "back")
+
+      backButton({ canGoBack: true })
+
+      expect(bottomSheetStub.dismiss).toHaveBeenCalled()
+      expect(historyBack).not.toHaveBeenCalled()
+    })
+
+    it("goes back in history when it can", () => {
+      const historyBack = spyOn(window.history, "back")
+
+      backButton({ canGoBack: true })
+
+      expect(historyBack).toHaveBeenCalled()
+      expect(mockAppPlugin.exitApp).not.toHaveBeenCalled()
+    })
+
+    it("exits the app from the first screen", () => {
+      const historyBack = spyOn(window.history, "back")
+
+      backButton({ canGoBack: false })
+
+      expect(historyBack).not.toHaveBeenCalled()
+      expect(mockAppPlugin.exitApp).toHaveBeenCalled()
+    })
   })
 })

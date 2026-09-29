@@ -6,8 +6,10 @@ import {
   type OnDestroy,
   type OnInit,
 } from "@angular/core"
+import { MatBottomSheet } from "@angular/material/bottom-sheet"
+import { MatDialog } from "@angular/material/dialog"
 import { Router, RouterOutlet } from "@angular/router"
-import { App } from "@capacitor/app"
+import type { App, BackButtonListenerEvent } from "@capacitor/app"
 import type { PluginListenerHandle } from "@capacitor/core"
 import { Capacitor } from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
@@ -29,7 +31,7 @@ import { APP_PLUGIN } from "./tokens"
 })
 export class AppComponent implements OnInit, OnDestroy {
   private installEventFired = false
-  private appUrlOpenHandle?: PluginListenerHandle
+  private readonly listenerHandles: PluginListenerHandle[] = []
 
   private readonly installListener = () => {
     this.installEventFired = true
@@ -45,6 +47,8 @@ export class AppComponent implements OnInit, OnDestroy {
     // Injected early so it captures `beforeinstallprompt`, which fires once.
     _pwaInstallService: PwaInstallService,
     @Inject(APP_PLUGIN) private appPlugin: typeof App,
+    private dialog: MatDialog,
+    private bottomSheet: MatBottomSheet,
   ) {
     injectSpeedInsights()
   }
@@ -60,7 +64,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
     void this.trackAppOpenEvent()
     this.handleShareTarget()
-    this.setupAppLinks()
+    this.setupNativeListeners()
     this.onboardingService.showOnFirstLaunch()
   }
 
@@ -68,7 +72,7 @@ export class AppComponent implements OnInit, OnDestroy {
     void this.analyticsService.track("app_open")
   }
 
-  private setupAppLinks(): void {
+  private setupNativeListeners(): void {
     if (!Capacitor.isNativePlatform()) return
 
     this.appPlugin
@@ -90,8 +94,39 @@ export class AppComponent implements OnInit, OnDestroy {
         })
       })
       .then((handle) => {
-        this.appUrlOpenHandle = handle
+        this.listenerHandles.push(handle)
       })
+
+    this.appPlugin
+      .addListener("backButton", (event) => {
+        this.ngZone.run(() => this.handleBackButton(event))
+      })
+      .then((handle) => {
+        this.listenerHandles.push(handle)
+      })
+  }
+
+  /**
+   * Android's hardware back button (and back gesture). Registering a listener
+   * disables Capacitor's default, which exits the app from any screen: close
+   * the topmost overlay first, then walk back through history, and only exit
+   * from the first screen.
+   */
+  private handleBackButton({ canGoBack }: BackButtonListenerEvent): void {
+    const dialogs = this.dialog.openDialogs
+    if (dialogs.length > 0) {
+      dialogs[dialogs.length - 1].close()
+      return
+    }
+    if (this.bottomSheet._openedBottomSheetRef) {
+      this.bottomSheet.dismiss()
+      return
+    }
+    if (canGoBack) {
+      window.history.back()
+      return
+    }
+    void this.appPlugin.exitApp()
   }
 
   /**
@@ -140,9 +175,7 @@ export class AppComponent implements OnInit, OnDestroy {
     if (typeof window !== "undefined") {
       window.removeEventListener("appinstalled", this.installListener)
     }
-    if (this.appUrlOpenHandle) {
-      await this.appUrlOpenHandle.remove()
-    }
+    await Promise.all(this.listenerHandles.map((handle) => handle.remove()))
   }
 
   private isStandaloneMode(): boolean {

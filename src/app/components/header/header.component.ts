@@ -30,6 +30,7 @@ import { MatTooltipModule } from "@angular/material/tooltip"
 import { RouterModule } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import type { Share } from "@capacitor/share"
+import { shareableUrl } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { NetworkService } from "../../services/network.service"
@@ -299,7 +300,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       : this.chapterNumber === 0
         ? `Ler a introdução de ${this.book?.name}.`
         : `Ler ${this.book?.name} ${this.chapterNumber}.`
-    const url = typeof window === "undefined" ? "" : window.location.href
+    const url =
+      typeof window === "undefined" ? "" : shareableUrl(window.location)
 
     try {
       if (Capacitor.isNativePlatform()) {

@@ -245,6 +245,42 @@ describe("HeaderComponent", () => {
     })
   })
 
+  it("should share the public site URL, not the native localhost origin", async () => {
+    spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
+    mockSharePlugin.share.and.resolveTo()
+
+    component.chapterNumber = 1
+    component.ngOnInit()
+    await component.sharePassage()
+
+    const { pathname, search, hash } = window.location
+    expect(mockSharePlugin.share).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        url: `https://biblia.capuchinhos.org${pathname}${search}${hash}`,
+      }),
+    )
+  })
+
+  it("should share the page URL as is on the web", async () => {
+    spyOn(Capacitor, "isNativePlatform").and.returnValue(false)
+    if (!navigator.share) {
+      Object.defineProperty(navigator, "share", {
+        value: () => Promise.resolve(),
+        configurable: true,
+        writable: true,
+      })
+    }
+    const shareSpy = spyOn(navigator, "share").and.resolveTo()
+
+    component.chapterNumber = 1
+    component.ngOnInit()
+    await component.sharePassage()
+
+    expect(shareSpy).toHaveBeenCalledWith(
+      jasmine.objectContaining({ url: window.location.href }),
+    )
+  })
+
   it("should share using navigator.share on web platforms", async () => {
     spyOn(Capacitor, "isNativePlatform").and.returnValue(false)
 
