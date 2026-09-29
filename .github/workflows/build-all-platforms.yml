@@ -60,7 +60,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HAS_ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-      CAPACITOR_SERVER_URL: "https://biblia.capuchinhos.org/"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -82,19 +81,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # The native apps are intentional PWA wrappers: web content is served
-      # remotely via server.url in capacitor.config.ts. An empty webDir is
-      # required by Capacitor but no local assets are bundled. Keep this path
-      # in sync with `webDir` in capacitor.config.ts, or `cap sync` fails.
-      - name: Create empty web directory for Capacitor
-        run: mkdir -p dist/bible-app/capacitor
-
-      - name: Setup Capacitor Android
+      # The native apps bundle the web build: cap:prune copies
+      # dist/bible-app/browser to the webDir (dist/bible-app/capacitor) without
+      # the prerendered route pages.
+      - name: Build web app
         run: |
           set -e
-          npx cap add android
-          npx cap sync android
-          npx @capacitor/assets generate --android
+          npm run build
+          npm run cap:prune
+
+      # android/ is committed (manifest, signing, icons); sync only copies the
+      # web bundle and plugin list into it.
+      - name: Sync Capacitor Android
+        run: npx cap sync android
 
       - name: Set Android Version
         run: |
@@ -128,10 +127,9 @@ jobs:
           VERSION_CODE=$(( MAJOR * 1000000 + MINOR * 1000 + PATCH ))
           
           echo "Setting versionName=$VERSION_NAME and versionCode=$VERSION_CODE"
-          
-          # Replace the default capacitor version inside android/app/build.gradle
-          sed -i "s/versionCode 1/versionCode $VERSION_CODE/g" android/app/build.gradle
-          sed -i "s/versionName \"1.0\"/versionName \"$VERSION_NAME\"/g" android/app/build.gradle
+          # Read by android/app/build.gradle via -PversionCode / -PversionName.
+          echo "ORG_GRADLE_PROJECT_versionCode=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "ORG_GRADLE_PROJECT_versionName=$VERSION_NAME" >> "$GITHUB_ENV"
 
       - name: Decode Keystore
         if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
@@ -149,26 +147,6 @@ jobs:
           keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           EOF
-
-      - name: Configure Gradle signing
-        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
-        run: |
-          set -e
-          # Inject signing config into app/build.gradle
-          sed -i '/android {/a \
-              signingConfigs {\
-                  release {\
-                      def keystorePropertiesFile = rootProject.file("keystore.properties")\
-                      def keystoreProperties = new Properties()\
-                      keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\
-                      storeFile file(keystoreProperties["storeFile"])\
-                      storePassword keystoreProperties["storePassword"]\
-                      keyAlias keystoreProperties["keyAlias"]\
-                      keyPassword keystoreProperties["keyPassword"]\
-                  }\
-              }' android/app/build.gradle
-          # Update release buildType to use signing config
-          sed -i 's/buildTypes {/buildTypes {\n        release {\n            signingConfig signingConfigs.release\n        }/' android/app/build.gradle
 
       - name: Build Android APK
         run: |
@@ -222,7 +200,6 @@ jobs:
     runs-on: macos-latest
     env:
       HAS_IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
-      CAPACITOR_SERVER_URL: "https://biblia.capuchinhos.org/"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -236,24 +213,24 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # The native apps are intentional PWA wrappers: web content is served
-      # remotely via server.url in capacitor.config.ts. An empty webDir is
-      # required by Capacitor but no local assets are bundled. Keep this path
-      # in sync with `webDir` in capacitor.config.ts, or `cap sync` fails.
-      - name: Create empty web directory for Capacitor
-        run: mkdir -p dist/bible-app/capacitor
+      # The native apps bundle the web build: cap:prune copies
+      # dist/bible-app/browser to the webDir (dist/bible-app/capacitor) without
+      # the prerendered route pages.
+      - name: Build web app
+        run: |
+          set -e
+          npm run build
+          npm run cap:prune
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
 
-      - name: Setup Capacitor iOS
+      - name: Sync Capacitor iOS
         run: |
           set -e
-          npx cap add ios
           npx cap sync ios
-          npx @capacitor/assets generate --ios
           echo "Listing ios/App contents:"
           ls -R ios/App
           echo "Listing available destinations:"

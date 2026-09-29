@@ -63,7 +63,8 @@ has real data with no local backend. The API base URL is resolved in
 | `npm run test:coverage` | Unit tests with coverage |
 | `npm run biome` | Lint + format with autofix (`--write --unsafe`) over `src` |
 | `npm run cap:sync` | Sync web build into native projects |
-| `npm run cap:ios` / `cap:android` | Add a native platform, sync, generate icons |
+| `npm run cap:ios` / `cap:android` | Copy the web build into the native project |
+| `npm run cap:icons` | Regenerate native icons and splash from `assets/` |
 
 ## Prerendering (static SSG)
 
@@ -90,7 +91,7 @@ inlined into every page, taking per-page HTML from ~166KB to ~241KB.
 
 ```bash
 npm run build         # produces dist/bible-app/browser
-npm run cap:android   # or cap:ios — first run adds the platform
+npm run cap:android   # or cap:ios
 npx cap open android  # open in Android Studio / Xcode
 ```
 
