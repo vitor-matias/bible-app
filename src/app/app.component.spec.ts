@@ -73,6 +73,26 @@ describe("AppComponent", () => {
     expect(app).toBeTruthy()
   })
 
+  describe("Vercel Speed Insights", () => {
+    const speedInsightsScripts = () =>
+      document.head.querySelectorAll('script[src*="speed-insights"]')
+
+    beforeEach(() => {
+      for (const script of Array.from(speedInsightsScripts())) script.remove()
+    })
+
+    it("is not loaded in the native apps", () => {
+      TestBed.createComponent(AppComponent)
+      expect(speedInsightsScripts().length).toBe(0)
+    })
+
+    it("is loaded on the web", () => {
+      ;(Capacitor.isNativePlatform as jasmine.Spy).and.returnValue(false)
+      TestBed.createComponent(AppComponent)
+      expect(speedInsightsScripts().length).toBe(1)
+    })
+  })
+
   it("should set up the native shell on init", () => {
     mockAppPlugin.addListener.and.resolveTo({
       remove: async () => {},

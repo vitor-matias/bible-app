@@ -54,7 +54,9 @@ export class AppComponent implements OnInit, OnDestroy {
     private nativeShell: NativeShellService,
     private backButton: BackButtonService,
   ) {
-    injectSpeedInsights()
+    // Speed Insights is served by the Vercel deployment; the native apps load
+    // from a local origin where its script does not exist.
+    if (!Capacitor.isNativePlatform()) injectSpeedInsights()
   }
 
   ngOnInit(): void {

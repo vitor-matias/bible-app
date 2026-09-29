@@ -102,6 +102,12 @@ that bundle, so they start instantly and work offline; the API is called at
 `https://biblia.capuchinhos.org/v1`. The copy is what gets stripped;
 `dist/bible-app/browser` stays intact, since that is what the web deploy publishes.
 
+`cap:prune` also strips everything between `<!-- web-only:start -->` and
+`<!-- web-only:end -->` in `src/index.html` (the Google Ads tag), and fails if
+`googletagmanager` still appears in the native bundle: ad measurement in the
+apps would require App Tracking Transparency on iOS and a Data safety
+declaration on Google Play. Umami stays, since it carries problem reports.
+
 For live reload on a device, point the shell at your dev server:
 
 ```bash
