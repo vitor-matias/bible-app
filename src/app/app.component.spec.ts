@@ -10,6 +10,7 @@ import type {
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core"
 import { AppComponent } from "./app.component"
 import { AnalyticsService } from "./services/analytics.service"
+import { BackButtonService } from "./services/back-button.service"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
@@ -30,7 +31,7 @@ describe("AppComponent", () => {
 
   beforeEach(async () => {
     routerSpy = jasmine.createSpyObj("Router", ["navigateByUrl", "navigate"])
-    mockAppPlugin = jasmine.createSpyObj("App", ["addListener", "exitApp"])
+    mockAppPlugin = jasmine.createSpyObj("App", ["addListener", "minimizeApp"])
     dialogStub = { openDialogs: [] }
     bottomSheetStub = {
       _openedBottomSheetRef: null,
@@ -296,16 +297,28 @@ describe("AppComponent", () => {
       backButton({ canGoBack: true })
 
       expect(historyBack).toHaveBeenCalled()
-      expect(mockAppPlugin.exitApp).not.toHaveBeenCalled()
+      expect(mockAppPlugin.minimizeApp).not.toHaveBeenCalled()
     })
 
-    it("exits the app from the first screen", () => {
+    it("closes a registered panel, such as the book drawer, before going back", () => {
+      const closeDrawer = jasmine.createSpy("closeDrawer").and.returnValue(true)
+      const unregister = TestBed.inject(BackButtonService).register(closeDrawer)
+      const historyBack = spyOn(window.history, "back")
+
+      backButton({ canGoBack: true })
+
+      expect(closeDrawer).toHaveBeenCalled()
+      expect(historyBack).not.toHaveBeenCalled()
+      unregister()
+    })
+
+    it("sends the app to the background from the first screen", () => {
       const historyBack = spyOn(window.history, "back")
 
       backButton({ canGoBack: false })
 
       expect(historyBack).not.toHaveBeenCalled()
-      expect(mockAppPlugin.exitApp).toHaveBeenCalled()
+      expect(mockAppPlugin.minimizeApp).toHaveBeenCalled()
     })
   })
 })

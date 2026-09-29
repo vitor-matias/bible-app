@@ -15,6 +15,7 @@ import { Capacitor } from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
 import { appConfig } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
+import { BackButtonService } from "./services/back-button.service"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
@@ -51,6 +52,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private dialog: MatDialog,
     private bottomSheet: MatBottomSheet,
     private nativeShell: NativeShellService,
+    private backButton: BackButtonService,
   ) {
     injectSpeedInsights()
   }
@@ -112,8 +114,9 @@ export class AppComponent implements OnInit, OnDestroy {
   /**
    * Android's hardware back button (and back gesture). Registering a listener
    * disables Capacitor's default, which exits the app from any screen: close
-   * the topmost overlay first, then walk back through history, and only exit
-   * from the first screen.
+   * the topmost overlay or panel first, then go back in history, and on the
+   * first screen send the app to the background like other Android apps
+   * (exiting would make the next launch a cold start).
    */
   private handleBackButton({ canGoBack }: BackButtonListenerEvent): void {
     const dialogs = this.dialog.openDialogs
@@ -125,11 +128,12 @@ export class AppComponent implements OnInit, OnDestroy {
       this.bottomSheet.dismiss()
       return
     }
+    if (this.backButton.closeTopmost()) return
     if (canGoBack) {
       window.history.back()
       return
     }
-    void this.appPlugin.exitApp()
+    void this.appPlugin.minimizeApp()
   }
 
   /**

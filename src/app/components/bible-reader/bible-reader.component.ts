@@ -24,6 +24,7 @@ import {
 } from "@angular/material/sidenav"
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
 import { ActivatedRoute, Router, RouterLink } from "@angular/router"
+import { Capacitor } from "@capacitor/core"
 import { combineLatest, Subject, Subscription } from "rxjs"
 import { switchMap, take, takeUntil } from "rxjs/operators"
 import {
@@ -33,6 +34,7 @@ import {
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
+import { BackButtonService } from "../../services/back-button.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
@@ -79,6 +81,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private injector = inject(Injector)
   private platformId = inject(PLATFORM_ID)
   private haptics = inject(HapticsService)
+  private unregisterBackCloser = inject(BackButtonService).register(() => {
+    if (!this.bookDrawer?.opened) return false
+    this.bookDrawer.close()
+    return true
+  })
 
   @ViewChild("bookDrawer")
   bookDrawer!: MatDrawer
@@ -319,6 +326,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.unregisterBackCloser()
     this.destroy$.next()
     this.destroy$.complete()
     this.chapterSubscription?.unsubscribe()
@@ -398,7 +406,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     if (this.book.chapterCount >= this.chapterNumber + 1) {
       this.haptics.light()
       this.prepareChapterNavigation(true)
-      this.router.navigate(this.chapterCommands(this.chapterNumber + 1, true))
+      this.navigateToAdjacentChapter(this.chapterNumber + 1)
     }
   }
 
@@ -410,7 +418,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     if (this.chapterNumber > this.minChapter) {
       this.haptics.light()
       this.prepareChapterNavigation(false)
-      this.router.navigate(this.chapterCommands(this.chapterNumber - 1, true))
+      this.navigateToAdjacentChapter(this.chapterNumber - 1)
     }
   }
 
@@ -422,6 +430,21 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     } finally {
       this.retryingBooks = false
       this.cdr.markForCheck()
+    }
+  }
+
+  /**
+   * Steps to the previous or next chapter. In the native apps the step
+   * replaces the history entry, so the back button leaves the reader instead
+   * of walking back through every chapter read; on the web it adds one, as
+   * a page change does.
+   */
+  private navigateToAdjacentChapter(chapter: Chapter["number"]): void {
+    const commands = this.chapterCommands(chapter, true)
+    if (Capacitor.isNativePlatform()) {
+      this.router.navigate(commands, { replaceUrl: true })
+    } else {
+      this.router.navigate(commands)
     }
   }
 

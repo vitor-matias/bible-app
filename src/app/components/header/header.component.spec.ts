@@ -9,11 +9,14 @@ import {
 } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
+import { MatMenuTrigger } from "@angular/material/menu"
+import { By } from "@angular/platform-browser"
 import { Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import type { Share } from "@capacitor/share"
 import { BehaviorSubject, of } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
+import { BackButtonService } from "../../services/back-button.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
@@ -206,6 +209,34 @@ describe("HeaderComponent", () => {
 
     expect(trigger.closeMenu).toHaveBeenCalled()
     expect(dialogSpy.open).not.toHaveBeenCalled()
+  })
+
+  describe("Android back button", () => {
+    const menuTrigger = () =>
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+
+    it("closes the open header menu", () => {
+      const trigger = menuTrigger()
+      trigger.openMenu()
+      expect(trigger.menuOpen).toBeTrue()
+
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
+      expect(trigger.menuOpen).toBeFalse()
+    })
+
+    it("leaves the back press alone when the menu is closed", () => {
+      expect(menuTrigger().menuOpen).toBeFalse()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+    })
+
+    it("stops handling the back press once destroyed", () => {
+      menuTrigger().openMenu()
+      fixture.destroy()
+
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+    })
   })
 
   it("should open the onboarding wizard from the menu", () => {

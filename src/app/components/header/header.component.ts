@@ -14,7 +14,9 @@ import {
   type OnInit,
   Output,
   PLATFORM_ID,
+  type QueryList,
   type SimpleChanges,
+  ViewChildren,
 } from "@angular/core"
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
@@ -23,7 +25,7 @@ import { MatButtonToggleModule } from "@angular/material/button-toggle"
 import { MatDialog } from "@angular/material/dialog"
 import { MatDividerModule } from "@angular/material/divider"
 import { MatIconModule } from "@angular/material/icon"
-import { MatMenuModule, type MatMenuTrigger } from "@angular/material/menu"
+import { MatMenuModule, MatMenuTrigger } from "@angular/material/menu"
 import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
@@ -32,6 +34,7 @@ import { Capacitor } from "@capacitor/core"
 import type { Share } from "@capacitor/share"
 import { shareableUrl } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
+import { BackButtonService } from "../../services/back-button.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
@@ -100,6 +103,14 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   private readonly destroyRef = inject(DestroyRef)
   private readonly platformId = inject(PLATFORM_ID)
+  @ViewChildren(MatMenuTrigger) private menuTriggers?: QueryList<MatMenuTrigger>
+  private readonly unregisterBackCloser = inject(BackButtonService).register(
+    () => {
+      const open = this.menuTriggers?.find((trigger) => trigger.menuOpen)
+      open?.closeMenu()
+      return !!open
+    },
+  )
 
   constructor(
     private readonly themeService: ThemeService,
@@ -204,6 +215,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.unregisterBackCloser()
     this.stopLabelCycle()
   }
 
