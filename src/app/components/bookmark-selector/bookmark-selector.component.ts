@@ -18,6 +18,7 @@ import { Router } from "@angular/router"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
+import { HapticsService } from "../../services/haptics.service"
 
 interface RibbonState {
   name: string
@@ -49,6 +50,7 @@ export class BookmarkSelectorComponent implements OnInit {
   ribbons: RibbonState[] = []
 
   private destroyRef = inject(DestroyRef)
+  private haptics = inject(HapticsService)
 
   constructor(
     private bottomSheetRef: MatBottomSheetRef<BookmarkSelectorComponent>,
@@ -139,6 +141,7 @@ export class BookmarkSelectorComponent implements OnInit {
       this.data.chapter,
       ribbon.value,
     )
+    this.haptics.success()
     void this.analyticsService.track("bookmark_create", {
       book: this.data.bookId,
       chapter: this.data.chapter,

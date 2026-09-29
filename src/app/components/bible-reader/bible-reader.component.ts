@@ -36,6 +36,7 @@ import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
+import { HapticsService } from "../../services/haptics.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
@@ -77,6 +78,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private chapterSubscription?: Subscription
   private injector = inject(Injector)
   private platformId = inject(PLATFORM_ID)
+  private haptics = inject(HapticsService)
 
   @ViewChild("bookDrawer")
   bookDrawer!: MatDrawer
@@ -385,6 +387,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   goToNextChapter(): void {
     if (this.book.chapterCount >= this.chapterNumber + 1) {
+      this.haptics.light()
       this.prepareChapterNavigation(true)
       this.router.navigate(this.chapterCommands(this.chapterNumber + 1, true))
     }
@@ -396,6 +399,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   goToPreviousChapter(): void {
     if (this.chapterNumber > this.minChapter) {
+      this.haptics.light()
       this.prepareChapterNavigation(false)
       this.router.navigate(this.chapterCommands(this.chapterNumber - 1, true))
     }

@@ -10,6 +10,7 @@ import type {
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core"
 import { AppComponent } from "./app.component"
 import { AnalyticsService } from "./services/analytics.service"
+import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
 import { APP_PLUGIN } from "./tokens"
@@ -20,6 +21,7 @@ describe("AppComponent", () => {
   // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
   let mockAppPlugin: jasmine.SpyObj<any>
   let onboardingSpy: jasmine.SpyObj<OnboardingService>
+  let nativeShellSpy: jasmine.SpyObj<NativeShellService>
   let dialogStub: { openDialogs: MatDialogRef<unknown>[] }
   let bottomSheetStub: {
     _openedBottomSheetRef: unknown
@@ -44,6 +46,8 @@ describe("AppComponent", () => {
       "showOnFirstLaunch",
     ])
 
+    nativeShellSpy = jasmine.createSpyObj("NativeShellService", ["init"])
+
     await TestBed.configureTestingModule({
       imports: [AppComponent],
       providers: [
@@ -54,6 +58,7 @@ describe("AppComponent", () => {
         { provide: OnboardingService, useValue: onboardingSpy },
         { provide: MatDialog, useValue: dialogStub },
         { provide: MatBottomSheet, useValue: bottomSheetStub },
+        { provide: NativeShellService, useValue: nativeShellSpy },
       ],
     }).compileComponents()
 
@@ -65,6 +70,16 @@ describe("AppComponent", () => {
     const fixture = TestBed.createComponent(AppComponent)
     const app = fixture.componentInstance
     expect(app).toBeTruthy()
+  })
+
+  it("should set up the native shell on init", () => {
+    mockAppPlugin.addListener.and.resolveTo({
+      remove: async () => {},
+    } as unknown as PluginListenerHandle)
+
+    TestBed.createComponent(AppComponent).detectChanges()
+
+    expect(nativeShellSpy.init).toHaveBeenCalled()
   })
 
   it("should send app_open event on init", async () => {

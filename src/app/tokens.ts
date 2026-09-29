@@ -1,7 +1,9 @@
 import { InjectionToken } from "@angular/core"
 import { App } from "@capacitor/app"
+import { Haptics } from "@capacitor/haptics"
 import { Network } from "@capacitor/network"
 import { Share } from "@capacitor/share"
+import { SplashScreen } from "@capacitor/splash-screen"
 
 function createNoopNgOnDestroyProxy<T extends object>(plugin: T): T {
   return new Proxy(plugin, {
@@ -37,5 +39,21 @@ export const SHARE_PLUGIN = new InjectionToken<typeof Share>(
   {
     providedIn: "root",
     factory: () => createNoopNgOnDestroyProxy(Share),
+  },
+)
+
+export const HAPTICS_PLUGIN = new InjectionToken<typeof Haptics>(
+  "Capacitor Haptics Plugin",
+  {
+    providedIn: "root",
+    factory: () => createNoopNgOnDestroyProxy(Haptics),
+  },
+)
+
+export const SPLASH_SCREEN_PLUGIN = new InjectionToken<typeof SplashScreen>(
+  "Capacitor Splash Screen Plugin",
+  {
+    providedIn: "root",
+    factory: () => createNoopNgOnDestroyProxy(SplashScreen),
   },
 )

@@ -13,7 +13,7 @@
     "biome": "npx @biomejs/biome check --write --unsafe ./src",
     "cap:prune": "node scripts/prune-prerender-for-capacitor.mjs",
     "cap:sync": "npm run cap:prune && npx cap sync",
-    "cap:icons": "npx @capacitor/assets generate --assetPath assets --android --ios",
+    "cap:icons": "npx @capacitor/assets generate --assetPath assets --android --ios --splashBackgroundColor \"#ffffff\" --splashBackgroundColorDark \"#121212\" --iconBackgroundColor \"#ffffff\" --iconBackgroundColorDark \"#121212\"",
     "cap:ios": "npm run cap:prune && npx cap sync ios",
     "cap:android": "npm run cap:prune && npx cap sync android"
   },

@@ -20,6 +20,7 @@ import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
+import { HapticsService } from "../../services/haptics.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
@@ -34,6 +35,7 @@ describe("BibleReaderComponent", () => {
   let bookServiceSpy: jasmine.SpyObj<BookService>
   let preferencesServiceSpy: jasmine.SpyObj<PreferencesService>
   let routerSpy: jasmine.SpyObj<Router>
+  let hapticsSpy: jasmine.SpyObj<HapticsService>
   let routeMock: unknown
   let animationServiceSpy: jasmine.SpyObj<BibleReaderAnimationService>
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
@@ -148,6 +150,10 @@ describe("BibleReaderComponent", () => {
   })
 
   function setUpTestBed(options?: { platformId?: string }): Promise<void> {
+    hapticsSpy = jasmine.createSpyObj<HapticsService>("HapticsService", [
+      "light",
+      "success",
+    ])
     return TestBed.configureTestingModule({
       imports: [BibleReaderComponent, BrowserAnimationsModule],
       providers: [
@@ -162,6 +168,7 @@ describe("BibleReaderComponent", () => {
         { provide: NetworkService, useValue: networkServiceSpy },
         { provide: MatSnackBar, useValue: snackBarSpy },
         { provide: SeoService, useValue: seoServiceSpy },
+        { provide: HapticsService, useValue: hapticsSpy },
         ...(options?.platformId
           ? [{ provide: PLATFORM_ID, useValue: options.platformId }]
           : []),
@@ -273,6 +280,22 @@ describe("BibleReaderComponent", () => {
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
       expect(component.isNavigatingBackwards).toBeTrue()
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
+    })
+
+    it("gives light haptic feedback when turning to another chapter", () => {
+      component.chapterNumber = 2
+      component.goToNextChapter()
+      component.goToPreviousChapter()
+      expect(hapticsSpy.light).toHaveBeenCalledTimes(2)
+    })
+
+    it("gives no haptic feedback at either end of the book", () => {
+      component.chapterNumber = 1
+      component.goToPreviousChapter()
+      component.chapterNumber = 50
+      component.goToNextChapter()
+      expect(hapticsSpy.light).not.toHaveBeenCalled()
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
     })
 
     // The links are rebuilt when the reader lands on a chapter, so these go

@@ -15,6 +15,7 @@ import { Capacitor } from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
 import { appConfig } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
+import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
 import { PwaInstallService } from "./services/pwa-install.service"
@@ -49,6 +50,7 @@ export class AppComponent implements OnInit, OnDestroy {
     @Inject(APP_PLUGIN) private appPlugin: typeof App,
     private dialog: MatDialog,
     private bottomSheet: MatBottomSheet,
+    private nativeShell: NativeShellService,
   ) {
     injectSpeedInsights()
   }
@@ -65,6 +67,7 @@ export class AppComponent implements OnInit, OnDestroy {
     void this.trackAppOpenEvent()
     this.handleShareTarget()
     this.setupNativeListeners()
+    this.nativeShell.init()
     this.onboardingService.showOnFirstLaunch()
   }
 

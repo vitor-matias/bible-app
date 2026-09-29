@@ -17,6 +17,12 @@ const config: CapacitorConfig = {
     androidScheme: "https",
   },
   plugins: {
+    SplashScreen: {
+      // NativeShellService hides it once the first page has rendered.
+      launchAutoHide: false,
+      backgroundColor: "#ffffff",
+      showSpinner: false,
+    },
     StatusBar: {
       overlaysWebView: true,
       style: "DARK",
