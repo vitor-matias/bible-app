@@ -1,4 +1,5 @@
 import { TestBed } from "@angular/core/testing"
+import { Subject } from "rxjs"
 import { BackButtonService } from "./back-button.service"
 
 describe("BackButtonService", () => {
@@ -34,6 +35,24 @@ describe("BackButtonService", () => {
 
     expect(service.closeTopmost()).toBeTrue()
     expect(drawer).toHaveBeenCalled()
+  })
+
+  describe("closeOnBack", () => {
+    it("dismisses the sheet on back, and only until it is dismissed", () => {
+      const dismissed = new Subject<void>()
+      const ref = {
+        dismiss: jasmine.createSpy("dismiss"),
+        afterDismissed: () => dismissed.asObservable(),
+      }
+      service.closeOnBack(ref)
+
+      expect(service.closeTopmost()).toBeTrue()
+      expect(ref.dismiss).toHaveBeenCalledTimes(1)
+
+      dismissed.next()
+      expect(service.closeTopmost()).toBeFalse()
+      expect(ref.dismiss).toHaveBeenCalledTimes(1)
+    })
   })
 
   it("stops calling a closer once unregistered", () => {

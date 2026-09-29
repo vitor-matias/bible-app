@@ -14,7 +14,7 @@ import { By } from "@angular/platform-browser"
 import { Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import type { Share } from "@capacitor/share"
-import { BehaviorSubject, of } from "rxjs"
+import { BehaviorSubject, of, Subject } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookmarkService } from "../../services/bookmark.service"
@@ -33,6 +33,8 @@ describe("HeaderComponent", () => {
   let themeServiceSpy: jasmine.SpyObj<ThemeService>
   let bookmarkServiceSpy: jasmine.SpyObj<BookmarkService>
   let bottomSheetSpy: jasmine.SpyObj<MatBottomSheet>
+  let bookmarkSheetDismissed: Subject<void>
+  let bookmarkSheetRef: { dismiss: jasmine.Spy; afterDismissed: () => unknown }
   let dialogSpy: jasmine.SpyObj<MatDialog>
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
   let onboardingServiceSpy: jasmine.SpyObj<OnboardingService>
@@ -55,6 +57,14 @@ describe("HeaderComponent", () => {
     ])
     bookmarkServiceSpy.bookmarks$ = of([])
     bottomSheetSpy = jasmine.createSpyObj("MatBottomSheet", ["open"])
+    bookmarkSheetDismissed = new Subject<void>()
+    bookmarkSheetRef = {
+      dismiss: jasmine.createSpy("dismiss"),
+      afterDismissed: () => bookmarkSheetDismissed.asObservable(),
+    }
+    bottomSheetSpy.open.and.returnValue(
+      bookmarkSheetRef as unknown as ReturnType<MatBottomSheet["open"]>,
+    )
     dialogSpy = jasmine.createSpyObj("MatDialog", ["open"])
     mockSharePlugin = jasmine.createSpyObj("Share", ["share"])
     analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", [
@@ -224,6 +234,17 @@ describe("HeaderComponent", () => {
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
       expect(trigger.menuOpen).toBeFalse()
+    })
+
+    it("dismisses the bookmark sheet it opened", () => {
+      component.chapterNumber = 1
+      component.openBookmarkSelector()
+
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
+      expect(bookmarkSheetRef.dismiss).toHaveBeenCalled()
+
+      bookmarkSheetDismissed.next()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
     })
 
     it("leaves the back press alone when the menu is closed", () => {

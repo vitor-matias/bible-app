@@ -6,6 +6,7 @@ import {
   Component,
   ElementRef,
   Input,
+  inject,
   OnChanges,
   OnDestroy,
   QueryList,
@@ -19,6 +20,7 @@ import {
 } from "@angular/material/bottom-sheet"
 import { RouterModule } from "@angular/router"
 import { Subscription } from "rxjs"
+import { BackButtonService } from "../../services/back-button.service"
 import {
   type BibleReference,
   BibleReferenceService,
@@ -76,6 +78,8 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   // Track the indentation state of each #indentable element by data-index
   // so the template can bind to this state rather than us directly mutating the DOM
   indentStates: Record<number, boolean> = {}
+
+  private readonly backButton = inject(BackButtonService)
 
   constructor(
     private bibleRef: BibleReferenceService,
@@ -353,6 +357,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       data: { footnotes, verse: this.data },
       restoreFocus: false,
     })
+    this.backButton.closeOnBack(ref)
     ref.afterDismissed().subscribe(() => {
       trigger?.focus({ preventScroll: true })
     })

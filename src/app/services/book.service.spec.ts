@@ -1,3 +1,4 @@
+import { PLATFORM_ID } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, firstValueFrom, of, throwError } from "rxjs"
@@ -388,7 +389,10 @@ describe("BookService", () => {
     let isOffline$: BehaviorSubject<boolean>
     let resume: () => void
 
-    function createService(native = false): BookService {
+    function createService(
+      native = false,
+      platformId: "browser" | "server" = "browser",
+    ): BookService {
       api = jasmine.createSpyObj("BibleApiService", [
         "getAvailableBooks",
         "getIntros",
@@ -416,6 +420,7 @@ describe("BookService", () => {
           { provide: BibleApiService, useValue: api },
           { provide: NetworkService, useValue: { isOffline$ } },
           { provide: APP_PLUGIN, useValue: appPlugin },
+          { provide: PLATFORM_ID, useValue: platformId },
         ],
       })
       return TestBed.inject(BookService)
@@ -431,6 +436,13 @@ describe("BookService", () => {
       await settle(svc)
 
       expect(await firstValueFrom(svc.booksUnavailable$)).toBeTrue()
+    })
+
+    it("never reports them unavailable while prerendering", async () => {
+      const svc = createService(false, "server")
+      await settle(svc)
+
+      expect(await firstValueFrom(svc.booksUnavailable$)).toBeFalse()
     })
 
     it("recovers on a manual retry", async () => {

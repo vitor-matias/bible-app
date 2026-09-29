@@ -6,7 +6,6 @@ import {
   type OnDestroy,
   type OnInit,
 } from "@angular/core"
-import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
 import { Router, RouterOutlet } from "@angular/router"
 import type { App, BackButtonListenerEvent } from "@capacitor/app"
@@ -50,7 +49,6 @@ export class AppComponent implements OnInit, OnDestroy {
     _pwaInstallService: PwaInstallService,
     @Inject(APP_PLUGIN) private appPlugin: typeof App,
     private dialog: MatDialog,
-    private bottomSheet: MatBottomSheet,
     private nativeShell: NativeShellService,
     private backButton: BackButtonService,
   ) {
@@ -124,10 +122,6 @@ export class AppComponent implements OnInit, OnDestroy {
     const dialogs = this.dialog.openDialogs
     if (dialogs.length > 0) {
       dialogs[dialogs.length - 1].close()
-      return
-    }
-    if (this.bottomSheet._openedBottomSheetRef) {
-      this.bottomSheet.dismiss()
       return
     }
     if (this.backButton.closeTopmost()) return

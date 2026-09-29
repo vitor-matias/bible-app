@@ -1,6 +1,5 @@
 import { NgZone } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
-import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog, type MatDialogRef } from "@angular/material/dialog"
 import { Router } from "@angular/router"
 import type {
@@ -24,19 +23,11 @@ describe("AppComponent", () => {
   let onboardingSpy: jasmine.SpyObj<OnboardingService>
   let nativeShellSpy: jasmine.SpyObj<NativeShellService>
   let dialogStub: { openDialogs: MatDialogRef<unknown>[] }
-  let bottomSheetStub: {
-    _openedBottomSheetRef: unknown
-    dismiss: jasmine.Spy
-  }
 
   beforeEach(async () => {
     routerSpy = jasmine.createSpyObj("Router", ["navigateByUrl", "navigate"])
     mockAppPlugin = jasmine.createSpyObj("App", ["addListener", "minimizeApp"])
     dialogStub = { openDialogs: [] }
-    bottomSheetStub = {
-      _openedBottomSheetRef: null,
-      dismiss: jasmine.createSpy("dismiss"),
-    }
 
     const offlineDataSpy = jasmine.createSpyObj("OfflineDataService", [
       "preloadAllBooksAndChapters",
@@ -58,7 +49,6 @@ describe("AppComponent", () => {
         { provide: APP_PLUGIN, useValue: mockAppPlugin },
         { provide: OnboardingService, useValue: onboardingSpy },
         { provide: MatDialog, useValue: dialogStub },
-        { provide: MatBottomSheet, useValue: bottomSheetStub },
         { provide: NativeShellService, useValue: nativeShellSpy },
       ],
     }).compileComponents()
@@ -290,25 +280,17 @@ describe("AppComponent", () => {
       const lower = jasmine.createSpyObj<MatDialogRef<unknown>>(["close"])
       const top = jasmine.createSpyObj<MatDialogRef<unknown>>(["close"])
       dialogStub.openDialogs = [lower, top]
-      bottomSheetStub._openedBottomSheetRef = {}
+      const closePanel = jasmine.createSpy("closePanel").and.returnValue(true)
+      const unregister = TestBed.inject(BackButtonService).register(closePanel)
       const historyBack = spyOn(window.history, "back")
 
       backButton({ canGoBack: true })
 
       expect(top.close).toHaveBeenCalled()
       expect(lower.close).not.toHaveBeenCalled()
-      expect(bottomSheetStub.dismiss).not.toHaveBeenCalled()
+      expect(closePanel).not.toHaveBeenCalled()
       expect(historyBack).not.toHaveBeenCalled()
-    })
-
-    it("dismisses an open bottom sheet before navigating", () => {
-      bottomSheetStub._openedBottomSheetRef = {}
-      const historyBack = spyOn(window.history, "back")
-
-      backButton({ canGoBack: true })
-
-      expect(bottomSheetStub.dismiss).toHaveBeenCalled()
-      expect(historyBack).not.toHaveBeenCalled()
+      unregister()
     })
 
     it("goes back in history when it can", () => {

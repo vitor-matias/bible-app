@@ -104,13 +104,12 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly destroyRef = inject(DestroyRef)
   private readonly platformId = inject(PLATFORM_ID)
   @ViewChildren(MatMenuTrigger) private menuTriggers?: QueryList<MatMenuTrigger>
-  private readonly unregisterBackCloser = inject(BackButtonService).register(
-    () => {
-      const open = this.menuTriggers?.find((trigger) => trigger.menuOpen)
-      open?.closeMenu()
-      return !!open
-    },
-  )
+  private readonly backButton = inject(BackButtonService)
+  private readonly unregisterBackCloser = this.backButton.register(() => {
+    const open = this.menuTriggers?.find((trigger) => trigger.menuOpen)
+    open?.closeMenu()
+    return !!open
+  })
 
   constructor(
     private readonly themeService: ThemeService,
@@ -186,9 +185,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       return
     }
 
-    this.bottomSheet.open(BookmarkSelectorComponent, {
-      data: { bookId: this.book.id, chapter: this.chapterNumber },
-    })
+    this.backButton.closeOnBack(
+      this.bottomSheet.open(BookmarkSelectorComponent, {
+        data: { bookId: this.book.id, chapter: this.chapterNumber },
+      }),
+    )
   }
 
   onToggleBookmarkFromMenu(trigger: MatMenuTrigger) {

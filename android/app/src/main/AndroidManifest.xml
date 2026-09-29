@@ -18,6 +18,16 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- App Links: open shared https://biblia.capuchinhos.org links in
+                 the app (AppComponent routes them from appUrlOpen). Verified
+                 against /.well-known/assetlinks.json on that host. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="biblia.capuchinhos.org" />
+            </intent-filter>
         </activity>
 
         <provider

@@ -1,4 +1,5 @@
-import { Injectable, inject, NgZone } from "@angular/core"
+import { isPlatformBrowser } from "@angular/common"
+import { Injectable, inject, NgZone, PLATFORM_ID } from "@angular/core"
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, firstValueFrom } from "rxjs"
 import { filter, pairwise } from "rxjs/operators"
@@ -26,6 +27,7 @@ export class BookService {
   private readonly networkService = inject(NetworkService)
   private readonly appPlugin = inject(APP_PLUGIN)
   private readonly ngZone = inject(NgZone)
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID))
 
   constructor(private apiService: BibleApiService) {
     // APP_INITIALIZER reports failures; an unhandled rejection here would
@@ -41,7 +43,9 @@ export class BookService {
       .then(
         () => this.unavailableSubject.next(false),
         (error: unknown) => {
-          this.unavailableSubject.next(true)
+          // Never while prerendering: the empty state would be baked into
+          // every static page, which instead falls back to client rendering.
+          if (this.isBrowser) this.unavailableSubject.next(true)
           throw error
         },
       )
