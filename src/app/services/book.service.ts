@@ -1,8 +1,11 @@
-import { Injectable } from "@angular/core"
+import { Injectable, inject, NgZone } from "@angular/core"
+import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, firstValueFrom } from "rxjs"
-import { filter } from "rxjs/operators"
+import { filter, pairwise } from "rxjs/operators"
 import { SHARED_BOOK_INTROS } from "../bible-canon"
+import { APP_PLUGIN } from "../tokens"
 import { BibleApiService } from "./bible-api.service"
+import { NetworkService } from "./network.service"
 
 @Injectable({
   providedIn: "root",
@@ -13,20 +16,63 @@ export class BookService {
   books$ = this.booksSubject
     .asObservable()
     .pipe(filter((books) => books.length > 0))
+  private unavailableSubject = new BehaviorSubject(false)
+  /**
+   * True once loading the book list has failed with nothing cached, e.g. a
+   * first launch without a connection. The reader shows an empty state with
+   * a retry until a later load succeeds.
+   */
+  booksUnavailable$ = this.unavailableSubject.asObservable()
+  private readonly networkService = inject(NetworkService)
+  private readonly appPlugin = inject(APP_PLUGIN)
+  private readonly ngZone = inject(NgZone)
 
   constructor(private apiService: BibleApiService) {
     // APP_INITIALIZER reports failures; an unhandled rejection here would
     // kill the prerender worker and fail the build.
     this.initializeBooks().catch(() => {})
+    this.retryWhenLikelyToSucceed()
   }
 
   /** Loads books before the app starts; concurrent callers share one load. */
   initializeBooks(): Promise<void> {
     if (this.getBooks().length > 0) return Promise.resolve()
-    this.initPromise ??= this.loadBooks().finally(() => {
-      this.initPromise = undefined
-    })
+    this.initPromise ??= this.loadBooks()
+      .then(
+        () => this.unavailableSubject.next(false),
+        (error: unknown) => {
+          this.unavailableSubject.next(true)
+          throw error
+        },
+      )
+      .finally(() => {
+        this.initPromise = undefined
+      })
     return this.initPromise
+  }
+
+  /** Retries a failed load; failures only keep the empty state up. */
+  retryBooks(): Promise<void> {
+    return this.initializeBooks().catch(() => {})
+  }
+
+  private retryWhenLikelyToSucceed(): void {
+    const retryIfUnavailable = () => {
+      if (this.unavailableSubject.value) void this.retryBooks()
+    }
+    this.networkService.isOffline$
+      .pipe(
+        pairwise(),
+        filter(([wasOffline, isOffline]) => wasOffline && !isOffline),
+      )
+      .subscribe(retryIfUnavailable)
+    // A connection may come back while the app is in the background, when
+    // the network listener can miss the change.
+    if (Capacitor.isNativePlatform()) {
+      void this.appPlugin
+        .addListener("resume", () => this.ngZone.run(retryIfUnavailable))
+        .catch(() => {})
+    }
   }
 
   private async loadBooks(): Promise<void> {

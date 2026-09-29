@@ -13,7 +13,7 @@ import {
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
 import { ActivatedRoute, Router } from "@angular/router"
-import { BehaviorSubject, of, throwError } from "rxjs"
+import { BehaviorSubject, of, Subject, throwError } from "rxjs"
 import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
@@ -64,10 +64,13 @@ describe("BibleReaderComponent", () => {
       "getChapterUrlSegment",
       "parseChapterUrlSegment",
       "loadGroupIntroBody",
+      "retryBooks",
     ])
     bookServiceSpy.books$ = new BehaviorSubject(
       mockBooks,
     ) as unknown as BehaviorSubject<Book[]>
+    bookServiceSpy.booksUnavailable$ = of(false)
+    bookServiceSpy.retryBooks.and.resolveTo()
     preferencesServiceSpy = jasmine.createSpyObj("PreferencesService", [
       "getAutoScrollSpeed",
       "getViewMode",
@@ -256,6 +259,42 @@ describe("BibleReaderComponent", () => {
 
       expect(apiServiceSpy.getChapter).not.toHaveBeenCalled()
       expect(animationServiceSpy.scrollToVerseElement).toHaveBeenCalled()
+    })
+  })
+
+  describe("when the book list cannot be loaded", () => {
+    let unavailable$: BehaviorSubject<boolean>
+
+    beforeEach(() => {
+      // Nothing cached and the load failed: books$ never emits.
+      bookServiceSpy.books$ = new Subject<Book[]>()
+      unavailable$ = new BehaviorSubject(true)
+      bookServiceSpy.booksUnavailable$ = unavailable$
+      fixture.detectChanges()
+    })
+
+    const emptyState = (): HTMLElement | null =>
+      fixture.nativeElement.querySelector(".books-unavailable")
+
+    it("shows an empty state with a retry instead of a blank page", () => {
+      expect(component.book).toBeFalsy()
+      expect(emptyState()?.getAttribute("role")).toBe("alert")
+      expect(emptyState()?.textContent).toContain("Tentar novamente")
+    })
+
+    it("retries loading the books from the empty state", async () => {
+      emptyState()?.querySelector("button")?.click()
+      await fixture.whenStable()
+
+      expect(bookServiceSpy.retryBooks).toHaveBeenCalled()
+      expect(component.retryingBooks).toBeFalse()
+    })
+
+    it("hides the empty state once the books are available again", () => {
+      unavailable$.next(false)
+      fixture.detectChanges()
+
+      expect(emptyState()).toBeNull()
     })
   })
 

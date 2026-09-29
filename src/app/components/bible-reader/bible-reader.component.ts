@@ -100,6 +100,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   book!: Book
   books: Book[] = []
+  /** The book list could not be loaded and nothing is cached. */
+  booksUnavailable = false
+  retryingBooks = false
   chapterNumber = 1
   chapter!: Chapter
 
@@ -209,6 +212,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe((books) => {
         this.books = books
+      })
+    this.bookService.booksUnavailable$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((unavailable) => {
+        this.booksUnavailable = unavailable
+        this.cdr.markForCheck()
       })
 
     // First book list only: loading an introduction body pushes a new list
@@ -402,6 +411,17 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.haptics.light()
       this.prepareChapterNavigation(false)
       this.router.navigate(this.chapterCommands(this.chapterNumber - 1, true))
+    }
+  }
+
+  async retryBooks(): Promise<void> {
+    this.retryingBooks = true
+    this.cdr.markForCheck()
+    try {
+      await this.bookService.retryBooks()
+    } finally {
+      this.retryingBooks = false
+      this.cdr.markForCheck()
     }
   }
 

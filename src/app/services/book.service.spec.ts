@@ -1,8 +1,10 @@
 import { TestBed } from "@angular/core/testing"
-import { of, throwError } from "rxjs"
+import { Capacitor } from "@capacitor/core"
+import { BehaviorSubject, firstValueFrom, of, throwError } from "rxjs"
+import { APP_PLUGIN } from "../tokens"
 import { BibleApiService } from "./bible-api.service"
-
 import { BookService } from "./book.service"
+import { NetworkService } from "./network.service"
 
 describe("BookService", () => {
   let service: BookService
@@ -378,6 +380,106 @@ describe("BookService", () => {
       const book = service.findBookByName("mateus")
       expect(book).toBeDefined()
       expect(book?.id).toBe("mat")
+    })
+  })
+
+  describe("when the book list cannot be loaded", () => {
+    let api: jasmine.SpyObj<BibleApiService>
+    let isOffline$: BehaviorSubject<boolean>
+    let resume: () => void
+
+    function createService(native = false): BookService {
+      api = jasmine.createSpyObj("BibleApiService", [
+        "getAvailableBooks",
+        "getIntros",
+        "getIntro",
+      ])
+      // A first launch without a connection, then a working one.
+      api.getAvailableBooks.and.returnValues(
+        throwError(() => new Error("Offline and no cached books available")),
+        of(apiBooks),
+      )
+      api.getIntros.and.returnValue(of([]))
+      isOffline$ = new BehaviorSubject(true)
+      resume = () => fail("resume listener was not registered")
+      const appPlugin = {
+        addListener: (event: string, callback: () => void) => {
+          if (event === "resume") resume = callback
+          return Promise.resolve({ remove: async () => {} })
+        },
+      }
+      spyOn(Capacitor, "isNativePlatform").and.returnValue(native)
+      TestBed.resetTestingModule()
+      TestBed.configureTestingModule({
+        providers: [
+          BookService,
+          { provide: BibleApiService, useValue: api },
+          { provide: NetworkService, useValue: { isOffline$ } },
+          { provide: APP_PLUGIN, useValue: appPlugin },
+        ],
+      })
+      return TestBed.inject(BookService)
+    }
+
+    async function settle(svc: BookService): Promise<void> {
+      // The constructor's first load; its failure is swallowed.
+      await svc.retryBooks()
+    }
+
+    it("reports the books as unavailable", async () => {
+      const svc = createService()
+      await settle(svc)
+
+      expect(await firstValueFrom(svc.booksUnavailable$)).toBeTrue()
+    })
+
+    it("recovers on a manual retry", async () => {
+      const svc = createService()
+      await settle(svc)
+
+      await svc.retryBooks()
+
+      expect(await firstValueFrom(svc.booksUnavailable$)).toBeFalse()
+      expect(svc.getBooks().length).toBeGreaterThan(0)
+    })
+
+    it("retries when the connection comes back", async () => {
+      const svc = createService()
+      await settle(svc)
+      api.getAvailableBooks.calls.reset()
+
+      isOffline$.next(false)
+      // The reconnect itself starts the refetch...
+      expect(api.getAvailableBooks).toHaveBeenCalledTimes(1)
+      // ...and this joins it rather than starting another.
+      await svc.retryBooks()
+
+      expect(api.getAvailableBooks).toHaveBeenCalledTimes(1)
+      expect(await firstValueFrom(svc.booksUnavailable$)).toBeFalse()
+    })
+
+    it("retries when the native app resumes", async () => {
+      const svc = createService(true)
+      await settle(svc)
+      api.getAvailableBooks.calls.reset()
+
+      resume()
+      await firstValueFrom(svc.books$)
+
+      expect(api.getAvailableBooks).toHaveBeenCalledTimes(1)
+    })
+
+    it("does not refetch on reconnect once the books loaded", async () => {
+      const svc = createService()
+      await settle(svc)
+      await svc.retryBooks()
+      api.getAvailableBooks.calls.reset()
+
+      isOffline$.next(false)
+      isOffline$.next(true)
+      isOffline$.next(false)
+
+      expect(api.getAvailableBooks).not.toHaveBeenCalled()
     })
   })
 })

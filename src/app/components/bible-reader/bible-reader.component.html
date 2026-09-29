@@ -91,4 +91,16 @@
     </mat-drawer-content>
   </mat-drawer-container>
 </div>
+} @else if (booksUnavailable) {
+<!-- Nothing cached and the book list failed to load, typically a first
+     launch without a connection. BookService also retries on reconnect. -->
+<div class="books-unavailable" role="alert">
+  <mat-icon class="books-unavailable-icon" aria-hidden="true">cloud_off</mat-icon>
+  <h1 class="books-unavailable-title">Não foi possível carregar a Bíblia</h1>
+  <p>Verifique a ligação à internet. Na primeira utilização, a Bíblia é descarregada para depois poder ser lida sem
+    ligação.</p>
+  <button type="button" mat-flat-button (click)="retryBooks()" [disabled]="retryingBooks">
+    {{ retryingBooks ? "A tentar…" : "Tentar novamente" }}
+  </button>
+</div>
 }
