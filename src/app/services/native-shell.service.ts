@@ -45,7 +45,13 @@ export class NativeShellService {
 
   private hideSplash(): void {
     if (this.splashHidden) return
-    this.splashHidden = true
-    this.splashScreen.hide().catch(() => {})
+    // Only a successful hide counts, so the timeout fallback can retry a
+    // rejected first attempt instead of leaving the splash up.
+    this.splashScreen.hide().then(
+      () => {
+        this.splashHidden = true
+      },
+      () => {},
+    )
   }
 }

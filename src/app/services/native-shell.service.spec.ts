@@ -61,6 +61,19 @@ describe("NativeShellService", () => {
     expect(splash.hide).toHaveBeenCalledTimes(1)
   }))
 
+  it("retries from the timeout if the first hide fails", fakeAsync(() => {
+    splash.hide.and.returnValues(
+      Promise.reject(new Error("not ready")),
+      Promise.resolve(),
+    )
+    init("android")
+
+    events.next(new NavigationEnd(1, "/", "/"))
+    tick(SPLASH_MAX_MS)
+
+    expect(splash.hide).toHaveBeenCalledTimes(2)
+  }))
+
   it("does nothing on the web", fakeAsync(() => {
     init("web")
     events.next(new NavigationEnd(1, "/", "/"))
