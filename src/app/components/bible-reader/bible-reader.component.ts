@@ -434,14 +434,18 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Steps to the previous or next chapter. In the native apps the step
-   * replaces the history entry, so the back button leaves the reader instead
-   * of walking back through every chapter read; on the web it adds one, as
-   * a page change does.
+   * Whether stepping to the previous or next chapter (swipe, keys, or the
+   * prev/next anchors) replaces the history entry. In the native apps it
+   * does, so the back button leaves the reader instead of walking back
+   * through every chapter read; on the web it adds one, as a page change does.
    */
+  get replaceChapterHistory(): boolean {
+    return Capacitor.isNativePlatform()
+  }
+
   private navigateToAdjacentChapter(chapter: Chapter["number"]): void {
     const commands = this.chapterCommands(chapter, true)
-    if (Capacitor.isNativePlatform()) {
+    if (this.replaceChapterHistory) {
       this.router.navigate(commands, { replaceUrl: true })
     } else {
       this.router.navigate(commands)

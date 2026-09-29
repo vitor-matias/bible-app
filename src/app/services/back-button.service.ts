@@ -19,14 +19,16 @@ export interface DismissableRef {
   providedIn: "root",
 })
 export class BackButtonService {
-  private readonly closers: BackCloser[] = []
+  // Wrapped so each registration is its own entry, even for the same closer.
+  private readonly entries: { closer: BackCloser }[] = []
 
   /** Registers a closer; call the returned function to unregister it. */
   register(closer: BackCloser): () => void {
-    this.closers.push(closer)
+    const entry = { closer }
+    this.entries.push(entry)
     return () => {
-      const index = this.closers.indexOf(closer)
-      if (index !== -1) this.closers.splice(index, 1)
+      const index = this.entries.indexOf(entry)
+      if (index !== -1) this.entries.splice(index, 1)
     }
   }
 
@@ -44,8 +46,8 @@ export class BackButtonService {
    * to the innermost component, and stops at the first that closed a panel.
    */
   closeTopmost(): boolean {
-    for (let i = this.closers.length - 1; i >= 0; i--) {
-      if (this.closers[i]()) return true
+    for (let i = this.entries.length - 1; i >= 0; i--) {
+      if (this.entries[i].closer()) return true
     }
     return false
   }

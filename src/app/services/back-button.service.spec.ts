@@ -55,6 +55,26 @@ describe("BackButtonService", () => {
     })
   })
 
+  it("unregisters exactly the registration it came from", () => {
+    const calls: string[] = []
+    const a = () => {
+      calls.push("a")
+      return true
+    }
+    const b = () => {
+      calls.push("b")
+      return true
+    }
+    service.register(a)
+    service.register(b)
+    const unregisterLastA = service.register(a)
+
+    unregisterLastA()
+    service.closeTopmost()
+
+    expect(calls).toEqual(["b"])
+  })
+
   it("stops calling a closer once unregistered", () => {
     const closer = jasmine.createSpy("closer").and.returnValue(true)
     const unregister = service.register(closer)

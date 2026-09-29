@@ -335,6 +335,25 @@ describe("BibleReaderComponent", () => {
       ])
     })
 
+    for (const [platform, native] of [
+      ["native apps", true],
+      ["web", false],
+    ] as const) {
+      it(`sets replaceUrl=${native} on the prev/next anchors on the ${platform}`, fakeAsync(() => {
+        spyOn(Capacitor, "isNativePlatform").and.returnValue(native)
+        component.getChapter(5)
+        tick()
+        fixture.componentRef.changeDetectorRef.markForCheck()
+        fixture.detectChanges()
+
+        const anchors = Array.from(
+          fixture.nativeElement.querySelectorAll("a.floating-nav-button"),
+        ) as unknown as { replaceUrl: boolean }[]
+        expect(anchors.length).toBeGreaterThan(0)
+        for (const anchor of anchors) expect(anchor.replaceUrl).toBe(native)
+      }))
+    }
+
     it("closes the open book drawer on the Android back button", () => {
       const drawer = jasmine.createSpyObj("MatDrawer", ["close"], {
         opened: true,
