@@ -28,6 +28,15 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="biblia.capuchinhos.org" />
             </intent-filter>
+
+            <!-- Share target: list the app in other apps' share sheets for
+                 text and links, like the PWA's manifest share_target.
+                 MainActivity turns the share into a share-target URL. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <provider

@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
-import { AnalyticsService } from "./analytics.service"
+import { AnalyticsService, labelUmamiPlatform } from "./analytics.service"
 import { BuildVersionService } from "./build-version.service"
 
 describe("AnalyticsService", () => {
@@ -94,5 +94,25 @@ describe("AnalyticsService", () => {
     await service.track("test_event", { foo: "bar" })
 
     expect(buildVersionServiceMock.getBuildInfo).not.toHaveBeenCalled()
+  })
+})
+
+// The native shells serve the app from https://localhost; without this every
+// app page view was counted under that hostname.
+describe("labelUmamiPlatform", () => {
+  const payload = { hostname: "localhost", url: "/mc/7", website: "id" }
+
+  it("labels native page views with the platform", () => {
+    spyOn(Capacitor, "getPlatform").and.returnValue("android")
+    expect(labelUmamiPlatform("event", payload)).toEqual({
+      ...payload,
+      hostname: "android-app",
+      tag: "android",
+    })
+  })
+
+  it("leaves web page views untouched", () => {
+    spyOn(Capacitor, "getPlatform").and.returnValue("web")
+    expect(labelUmamiPlatform("event", payload)).toBe(payload)
   })
 })
