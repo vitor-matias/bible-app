@@ -1,5 +1,6 @@
 import { InjectionToken } from "@angular/core"
 import { App } from "@capacitor/app"
+import { SystemBars } from "@capacitor/core"
 import { Haptics } from "@capacitor/haptics"
 import { Network } from "@capacitor/network"
 import { Share } from "@capacitor/share"
@@ -55,5 +56,13 @@ export const SPLASH_SCREEN_PLUGIN = new InjectionToken<typeof SplashScreen>(
   {
     providedIn: "root",
     factory: () => createNoopNgOnDestroyProxy(SplashScreen),
+  },
+)
+
+export const SYSTEM_BARS_PLUGIN = new InjectionToken<typeof SystemBars>(
+  "Capacitor System Bars Plugin",
+  {
+    providedIn: "root",
+    factory: () => createNoopNgOnDestroyProxy(SystemBars),
   },
 )

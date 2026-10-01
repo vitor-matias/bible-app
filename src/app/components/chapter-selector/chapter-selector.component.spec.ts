@@ -149,4 +149,31 @@ describe("ChapterSelectorComponent", () => {
       styleAttr.includes(expectedRgb)
     expect(hasColor).toBeTrue()
   })
+
+  // `font-size: large` is an absolute keyword: the chapter titles ignored the
+  // font setting while everything around them scaled.
+  it("scales the chapter buttons with the inherited font size", () => {
+    const host = fixture.nativeElement as HTMLElement
+    const button = host.querySelector(".chapterSelectorButton") as HTMLElement
+
+    host.style.fontSize = "10px"
+    const small = Number.parseFloat(getComputedStyle(button).fontSize)
+    host.style.fontSize = "20px"
+    const large = Number.parseFloat(getComputedStyle(button).fontSize)
+
+    expect(large).toBeCloseTo(small * 2, 1)
+  })
+
+  // The app draws edge-to-edge: without this the last chapter sat under the
+  // Android navigation bar and could not be tapped.
+  it("pads the list past the bottom system inset", () => {
+    const host = fixture.nativeElement as HTMLElement
+    const list = host.querySelector(".chapterSelectorContainer") as HTMLElement
+
+    host.style.setProperty("--app-inset-bottom", "100px")
+    expect(getComputedStyle(list).paddingBottom).toBe("100px")
+    // No inset reported: keep a minimum gap anyway.
+    host.style.setProperty("--app-inset-bottom", "0px")
+    expect(getComputedStyle(list).paddingBottom).toBe("48px")
+  })
 })

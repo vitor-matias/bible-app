@@ -1,6 +1,6 @@
 .auto-scroll-controls {
   position: fixed;
-  bottom: 24px;
+  bottom: calc(24px + var(--app-inset-bottom));
   z-index: 100;
   display: flex;
   align-items: center;
@@ -46,7 +46,7 @@
 @media (max-width: 768px) {
   .auto-scroll-controls {
     left: 50%;
-    bottom: 16px;
+    bottom: calc(16px + var(--app-inset-bottom));
     transform: translateX(-50%);
   }
 }

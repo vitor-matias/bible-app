@@ -31,15 +31,15 @@ h6 {
   }
 
   .prev-chapter {
-    bottom: calc(52px + env(safe-area-inset-bottom));
+    bottom: calc(52px + var(--app-inset-bottom));
   }
 
   .next-chapter {
-    bottom: calc(52px + env(safe-area-inset-bottom));
+    bottom: calc(52px + var(--app-inset-bottom));
   }
 
   .search {
-    bottom: calc(52px + env(safe-area-inset-bottom));
+    bottom: calc(52px + var(--app-inset-bottom));
   }
 
 }
@@ -89,9 +89,9 @@ h6 {
 
 .bookSelectorContainer {
   width: 100%;
-  height: calc(100vh - (56px + env(safe-area-inset-top)));
+  height: calc(100vh - (56px + env(safe-area-inset-top) + var(--app-inset-bottom)));
   /* Fallback */
-  height: calc(100dvh - (56px + env(safe-area-inset-top)));
+  height: calc(100dvh - (56px + env(safe-area-inset-top) + var(--app-inset-bottom)));
   /* Dynamic viewport */
   overscroll-behavior: none;
   /* Prevents rubber banding in this container */
@@ -132,10 +132,6 @@ h6 {
 .search {
   left: 50%;
   transform: translate(-50%, -50%);
-}
-
-.mid {
-  bottom: 86px;
 }
 
 .dismiss-button {
@@ -354,7 +350,7 @@ h6 {
 
 .fixed-footer {
   position: fixed;
-  bottom: 4px;
+  bottom: calc(4px + var(--app-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   opacity: 0.9;
@@ -372,7 +368,7 @@ h6 {
   min-height: 100dvh;
   box-sizing: border-box;
   padding: calc(24px + env(safe-area-inset-top)) 24px
-    calc(24px + env(safe-area-inset-bottom));
+    calc(24px + var(--app-inset-bottom));
   text-align: center;
   color: var(--text-color);
   background-color: var(--background-color);

@@ -64,6 +64,10 @@ body {
 
 /* Light theme variables */
 :root {
+  /* Bottom system inset (Android navigation bar, iOS home indicator). The app
+     draws edge-to-edge, so anything pinned to the bottom must clear it. One
+     variable keeps every use consistent and lets specs simulate an inset. */
+  --app-inset-bottom: env(safe-area-inset-bottom, 0px);
   /* Declares that the page handles both schemes itself (.dark-theme below),
      so Android's forced dark theme doesn't repaint colours on top of ours. */
   color-scheme: light;
@@ -220,7 +224,7 @@ body {
     background-color 0.3s ease,
     color 0.3s ease;
   padding-top: 0;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: var(--app-inset-bottom);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
 }
@@ -269,6 +273,12 @@ html.dark-theme .onboarding-dialog .mat-mdc-button .mdc-button__label {
 .mat-mdc-dialog-container .mdc-dialog__surface {
   background-color: var(--card-background) !important; /* Force apply */
   color: var(--text-color) !important; /* Force apply */
+}
+
+/* Bottom sheets sit on the screen edge; keep their content clear of the
+   Android navigation bar (the app draws edge-to-edge). */
+.mat-bottom-sheet-container {
+  padding-bottom: calc(8px + var(--app-inset-bottom)) !important;
 }
 
 .mat-drawer {

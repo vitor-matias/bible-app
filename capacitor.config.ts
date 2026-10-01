@@ -23,15 +23,11 @@ const config: CapacitorConfig = {
       backgroundColor: "#ffffff",
       showSpinner: false,
     },
-    StatusBar: {
-      overlaysWebView: true,
-      style: "DARK",
-    },
-    CapacitorHttp: {
-      enabled: true,
-    },
+    // Status/navigation bar icon styles are set at runtime (AppComponent and
+    // ThemeService via SystemBars): the toolbar is always brown while the
+    // navigation bar follows the in-app theme, which one static style cannot
+    // express. The API sends CORS headers, so native HTTP patching is unneeded.
   },
-  android: {},
 }
 
 export default config
