@@ -24,8 +24,11 @@ import {
 import {
   type CanonGroup,
   NEW_TESTAMENT_GROUPS,
+  NEW_TESTAMENT_INTRO,
   OLD_TESTAMENT_GROUPS,
+  WHOLE_BIBLE_INTRO,
 } from "../../bible-canon"
+import { normalizeForSearch } from "../../utils/text"
 
 interface BookNode {
   name: string
@@ -133,14 +136,14 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   /** Rebuilds both trees; intros arrive after the books, so this re-runs. */
   filterBooks(query: string): void {
     this.filterQuery = query
-    const q = this.normalizeSearchValue(query)
+    const q = normalizeForSearch(query)
 
     const matchesBook = (bookId: string): boolean => {
       const book = this.getBook(bookId)
       return (
         !!book &&
-        (this.normalizeSearchValue(book.shortName).includes(q) ||
-          this.normalizeSearchValue(book.name).includes(q))
+        (normalizeForSearch(book.shortName).includes(q) ||
+          normalizeForSearch(book.name).includes(q))
       )
     }
 
@@ -158,10 +161,10 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
     }
 
     this.otDataSource.data = filterGroup(
-      this.withIntros(this.oldTestament, "geral"),
+      this.withIntros(this.oldTestament, WHOLE_BIBLE_INTRO),
     )
     this.ntDataSource.data = filterGroup(
-      this.withIntros(this.newTestament, "novotestamento"),
+      this.withIntros(this.newTestament, NEW_TESTAMENT_INTRO),
     )
     this.otTreeControl.expandAll()
     this.ntTreeControl.expandAll()
@@ -192,15 +195,6 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   onKeyPress(event: KeyboardEvent, id: Book["id"]): void {
     this.submit(id)
-  }
-
-  private normalizeSearchValue(value: string): string {
-    return value
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .toLocaleLowerCase()
   }
 
   ngAfterViewInit(): void {

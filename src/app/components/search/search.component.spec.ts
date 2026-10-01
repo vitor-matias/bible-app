@@ -24,6 +24,7 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import type { SearchHit } from "../../services/search.service"
 import { SeoService } from "../../services/seo.service"
 import { SearchComponent } from "./search.component"
 
@@ -67,8 +68,36 @@ describe("SearchComponent", () => {
     apiService = jasmine.createSpyObj("BibleApiService", ["getVerse", "search"])
     referenceService = jasmine.createSpyObj("BibleReferenceService", [
       "extract",
+      "destinationOf",
     ])
-    bookService = jasmine.createSpyObj("BookService", ["findBook"])
+    bookService = jasmine.createSpyObj(
+      "BookService",
+      ["findBook", "getUrlAbrv", "getChapterUrlSegment"],
+      { books$: of([]) },
+    )
+    // The real findBook always answers with a book, the About page when it
+    // knows no better; specs that care say otherwise.
+    bookService.findBook.and.returnValue({
+      id: "about",
+      abrv: "Sobre",
+      shortName: "Sobre a Bíblia",
+    } as Book)
+    // As the real service builds them: the app's canonical chapter URL.
+    bookService.getUrlAbrv.and.callFake((book: Book) =>
+      book.abrv.replace(/\s/g, "").toLowerCase(),
+    )
+    bookService.getChapterUrlSegment.and.callFake((chapter: number) =>
+      chapter === 0 ? "intro" : String(chapter),
+    )
+    // The real decision, made over the two spies the specs below set up:
+    // what a query names is the service's to say, and these specs are about
+    // what the page does with the answer.
+    referenceService.destinationOf.and.callFake((text: string) =>
+      BibleReferenceService.prototype.destinationOf.call(
+        { extract: referenceService.extract, bookService },
+        text,
+      ),
+    )
     snackBar = jasmine.createSpyObj("MatSnackBar", ["open"])
     router = jasmine.createSpyObj("Router", ["navigate"])
     router.navigate.and.resolveTo(true)
@@ -225,7 +254,9 @@ describe("SearchComponent", () => {
 
     await component.onSearchSubmit("John 3:16")
 
-    expect(router.navigate).toHaveBeenCalledWith(["/", "jhn", 3], {
+    // By the book's URL name, like every other link into the reader; this
+    // page used to be alone in linking by id.
+    expect(router.navigate).toHaveBeenCalledWith(["/", "jo", "3"], {
       queryParams: { verseStart: 16 },
     })
   })
@@ -266,7 +297,7 @@ describe("SearchComponent", () => {
 
     expect(referenceService.extract).toHaveBeenCalledWith("lc")
     expect(bookService.findBook).toHaveBeenCalledWith("lc")
-    expect(router.navigate).toHaveBeenCalledWith(["/", "luk", 1], {})
+    expect(router.navigate).toHaveBeenCalledWith(["/", "lc", "1"], {})
   })
 
   it("should discard a page that arrives after a newer search took over", fakeAsync(() => {
@@ -282,7 +313,7 @@ describe("SearchComponent", () => {
         number: 1,
         verseLabel: "1",
         text: [{ type: "text", text: "First verse" }],
-      } as Verse,
+      } as SearchHit,
     ]
 
     const pendingPage$ = new Subject<VersePage>()
@@ -362,7 +393,7 @@ describe("SearchComponent", () => {
         number: 1,
         verseLabel: "1",
         text: [{ type: "text", text: "First verse" }],
-      } as Verse,
+      } as SearchHit,
     ]
     // Keep the page-2 request pending so a second trigger arrives while the
     // first one is still in flight.
@@ -438,7 +469,9 @@ describe("SearchComponent", () => {
     spyOn(console, "error")
     await component.onSearchSubmit("John 99:1")
 
-    expect(console.error).toHaveBeenCalled()
+    // A reference to a verse that is not there is an answer, not a failure:
+    // the reader is told, and nothing is logged as having gone wrong.
+    expect(console.error).not.toHaveBeenCalled()
     expect(snackBar.open).toHaveBeenCalledWith(
       "Capitulo ou versiculo não existe",
       "Fechar",
@@ -570,7 +603,6 @@ describe("SearchComponent", () => {
   // B, A used to overwrite B's results and clear B's loading state.
   it("should ignore a superseded search that resolves last", async () => {
     referenceService.extract.and.returnValue([])
-    bookService.findBook.and.returnValue({ id: "about" } as Book)
 
     const verseFor = (text: string) =>
       ({
