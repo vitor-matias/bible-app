@@ -69,6 +69,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Input() chapterNumber!: number
   @Input() autoScrollControlsVisible = false
   @Input() viewMode: "scrolling" | "paged" = "scrolling"
+  /** BibleScroll, the experimental one-verse-per-card view, is on. */
+  @Input() cardsView = false
+  /** Whether the reader can show the card view here (mobile, a chapter of verses). */
+  @Input() cardsViewAvailable = false
 
   bookLabelMode: "title" | "prompt" = "title"
   /** True for the fade-out half of a label swap. */
@@ -93,6 +97,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Output() openChapterSelector = new EventEmitter<{ open: boolean }>()
   @Output() toggleAutoScrollControls = new EventEmitter<void>()
   @Output() toggleViewMode = new EventEmitter<void>()
+  @Output() toggleCardsView = new EventEmitter<void>()
 
   mobile = false
   isOffline = false
@@ -200,6 +205,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   onOpenHelp(trigger: MatMenuTrigger) {
     trigger.closeMenu()
     this.onboardingService.open("menu")
+  }
+
+  onToggleCardsView(trigger: MatMenuTrigger) {
+    trigger.closeMenu()
+    this.toggleCardsView.emit()
   }
 
   ngOnDestroy(): void {

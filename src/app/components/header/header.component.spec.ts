@@ -170,6 +170,104 @@ describe("HeaderComponent", () => {
     expect(component.isOffline).toBeTrue()
   })
 
+  describe("BibleScroll menu entry", () => {
+    /** Opens the menu with the inputs the reader would bind. */
+    function openMenu(inputs: {
+      available: boolean
+      on?: boolean
+    }): HTMLElement[] {
+      fixture.componentRef.setInput("cardsViewAvailable", inputs.available)
+      fixture.componentRef.setInput("cardsView", inputs.on ?? false)
+      fixture.detectChanges()
+      fixture.nativeElement.querySelector(".menuButton").click()
+      fixture.detectChanges()
+      // The menu renders into the overlay container, outside the fixture.
+      return Array.from(
+        document.querySelectorAll<HTMLElement>(".mat-mdc-menu-item"),
+      )
+    }
+
+    function cardViewItem(items: HTMLElement[]): HTMLElement | undefined {
+      return items.find((item) => item.textContent?.includes("BibleScroll"))
+    }
+
+    it("is offered where the reader can show the view, flagged as experimental", () => {
+      const item = cardViewItem(openMenu({ available: true }))
+
+      expect(item?.textContent).toContain("BibleScroll")
+      expect(item?.textContent).not.toContain("Sair")
+      expect(item?.textContent).toContain("Experimental")
+    })
+
+    it("is left out where the reader cannot show it", () => {
+      const items = openMenu({ available: false })
+
+      // The menu did open, so the entry is missing rather than not yet drawn.
+      expect(items.length).toBeGreaterThan(0)
+      expect(cardViewItem(items)).toBeUndefined()
+    })
+
+    // The feature began as a "doomscrolling mode"; it is BibleScroll now, and
+    // the old name must not resurface in front of readers.
+    it("does not call itself doomscrolling", () => {
+      const items = openMenu({ available: true })
+
+      expect(items.length).toBeGreaterThan(0)
+      for (const item of items) {
+        expect(item.textContent?.toLowerCase()).not.toContain("doomscroll")
+      }
+    })
+
+    it("offers the way out while the view is on", () => {
+      const item = cardViewItem(openMenu({ available: true, on: true }))
+
+      expect(item?.textContent).toContain("Sair do BibleScroll")
+    })
+
+    it("asks the reader to toggle the view when tapped", () => {
+      const toggled = jasmine.createSpy("toggleCardsView")
+      component.toggleCardsView.subscribe(toggled)
+
+      cardViewItem(openMenu({ available: true }))?.click()
+
+      expect(toggled).toHaveBeenCalledTimes(1)
+    })
+
+    it("closes the menu on the way out", () => {
+      const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
+
+      component.onToggleCardsView(trigger)
+
+      expect(trigger.closeMenu).toHaveBeenCalled()
+    })
+
+    it("drops the scrolling/paged toggle while the cards replace both", () => {
+      openMenu({ available: true, on: true })
+
+      const controls = document.querySelector(".menu-controls")
+      expect(controls).toBeTruthy()
+      expect(controls?.textContent).not.toContain("swipe_vertical")
+      expect(controls?.textContent).not.toContain("auto_stories")
+    })
+
+    it("keeps the scrolling/paged toggle otherwise", () => {
+      openMenu({ available: true })
+
+      expect(document.querySelector(".menu-controls")?.textContent).toContain(
+        "swipe_vertical",
+      )
+    })
+
+    it("disables the auto-scroll entry, which would fight the snapping", () => {
+      const items = openMenu({ available: true, on: true })
+      const autoScroll = items.find((item) =>
+        item.textContent?.includes("deslocamento automático"),
+      )
+
+      expect(autoScroll?.hasAttribute("disabled")).toBeTrue()
+    })
+  })
+
   it("should open the report problem dialog from the menu", () => {
     const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
     component.chapterNumber = 3

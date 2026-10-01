@@ -24,6 +24,16 @@ Angular Material, and a thin REST backend.
   platform-specific install instructions (Android, iOS, desktop) and a one-tap
   install button where the browser offers one. Reopen it any time from the menu
   ("Como usar a app").
+- **BibleScroll (experimental, mobile only)** — a feed-style view of the chapter
+  being read, toggled from the menu: one verse to a full-screen card and nothing
+  else on it (no headings, no footnotes), one swipe up or down per verse
+  (mandatory scroll-snapping), with a scroll-driven fade between verses. The
+  copyright stays pinned to the bottom. Scrolling past the last verse moves on
+  to the next chapter and scrolling up past the first goes back to the end of
+  the previous one; a book closes with "Fim do/da <nome do livro>" under its
+  last verse. It is a view of the reader, not a page of
+  its own, so the book/chapter pickers, deep links and sideways chapter swipes
+  all keep working; on a desktop the entry is absent and the preference ignored.
 
 ## Tech stack
 

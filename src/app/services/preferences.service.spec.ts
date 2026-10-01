@@ -91,6 +91,16 @@ describe("PreferencesService", () => {
     expect(service.getViewMode()).toBe("paged")
   })
 
+  it("should keep the card view off until it is turned on", () => {
+    expect(service.getCardsView()).toBeFalse()
+
+    service.setCardsView(true)
+    expect(service.getCardsView()).toBeTrue()
+
+    service.setCardsView(false)
+    expect(service.getCardsView()).toBeFalse()
+  })
+
   it("probes localStorage once instead of on every access", () => {
     // safeLocalStorage() probes with a real write; applyChapter and the
     // header read preferences on every chapter change and render pass.
