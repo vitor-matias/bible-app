@@ -12,16 +12,6 @@
 @import "@fontsource/pt-serif/700-italic.css";
 @import "@material-symbols/font-400/outlined.css";
 
-/* Window Controls Overlay (installed desktop PWA): the page extends under the
-   title bar, so toolbars must stay clear of the OS window buttons and expose a
-   drag region. Outside the overlay the env() fallbacks make both insets 0. */
-:root {
-  --wco-inset-left: env(titlebar-area-x, 0px);
-  --wco-inset-right: calc(
-    100% - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100%)
-  );
-}
-
 /* For assistive-tech headings only; never to feed crawlers hidden text. */
 .visually-hidden {
   position: absolute;

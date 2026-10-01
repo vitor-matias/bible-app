@@ -87,7 +87,6 @@
     { "origin": "https://biblia.capuchinhos.org" }
   ],
   "display_override": [
-    "window-controls-overlay",
     "standalone",
     "browser"
   ]

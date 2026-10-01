@@ -91,20 +91,3 @@ html,
 body {
   overscroll-behavior: none; /* Prevents overscrolling on mobile */
 }
-
-/* Window Controls Overlay: the toolbar is the title bar, so it is the drag
-   region; controls inside it opt out and clear the OS window buttons. */
-@media (display-mode: window-controls-overlay) {
-  .mat-toolbar {
-    -webkit-app-region: drag;
-    app-region: drag;
-    padding-left: var(--wco-inset-left);
-    padding-right: var(--wco-inset-right);
-  }
-
-  .actionButton,
-  .search-input {
-    -webkit-app-region: no-drag;
-    app-region: no-drag;
-  }
-}
