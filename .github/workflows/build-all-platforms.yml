@@ -212,9 +212,12 @@ jobs:
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
           APK=android/app/build/outputs/apk/release/app-release.apk
           OUTPUT=$("$APKSIGNER" verify --print-certs "$APK")
-          # "Signer #1 certificate SHA-256 digest: …" or, for v3 signers,
-          # "Signer (minSdkVersion=…, maxSdkVersion=…) certificate SHA-256 digest: …".
-          ACTUAL=$(sed -n 's/^Signer.* certificate SHA-256 digest: //p' <<< "$OUTPUT" \
+          # The line format varies by apksigner version and scheme:
+          # "Signer #1 certificate SHA-256 digest: …",
+          # "V2 Signer: certificate SHA-256 digest: …",
+          # "Signer (minSdkVersion=…, …) certificate SHA-256 digest: …".
+          ACTUAL=$(grep -v '^Source Stamp' <<< "$OUTPUT" \
+            | sed -n 's/^.*Signer.* certificate SHA-256 digest: //p' \
             | tr 'a-f' 'A-F' | sed 's/../&:/g; s/:$//' | sort -u)
           if [ -z "$ACTUAL" ]; then
             echo "$OUTPUT"
