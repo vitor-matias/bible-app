@@ -4,6 +4,12 @@ import { isBrowser } from "./utils/platform"
 export const appConfig = {
   domain: "biblia.capuchinhos.org",
   fallbackDomain: "bible-app-ten-psi.vercel.app",
+  /**
+   * Base URL of the self-hosted live-update server (see
+   * docs/live-updates.md). The native apps fetch
+   * `<base>/<platform>/<channel>/manifest.json`. Empty disables live updates.
+   */
+  liveUpdateBaseUrl: "",
 }
 
 /** API origin while prerendering; PRERENDER_API_ORIGIN points it at a stub. */
