@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page, test as base } from "@playwright/test"
+import { test as base, expect, type Locator, type Page } from "@playwright/test"
 
 // The app proxies /v1 to https://biblia.capuchinhos.org — tests run against
 // the live dev server and the real API.
@@ -61,9 +61,9 @@ test.describe("Initial load", () => {
     // Angular router redirects to a stored or default book/chapter
     await expect(page).toHaveURL(/\/[a-z0-9-]+\/\d+/, { timeout: 10_000 })
     // Content should load — either verses (bible book) or the about page
-    await expect(
-      page.locator("verse, about").first(),
-    ).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator("verse, about").first()).toBeVisible({
+      timeout: 15_000,
+    })
   })
 
   test("shows the header with book and chapter labels", async ({ page }) => {
@@ -131,7 +131,9 @@ test.describe("Book selector drawer", () => {
     const drawer = page.locator("mat-drawer")
     await expect(drawer).toBeVisible({ timeout: 5_000 })
     // Book selector should list at least one entry
-    await expect(drawer.locator("mat-tree-node, mat-list-item").first()).toBeVisible()
+    await expect(
+      drawer.locator("mat-tree-node, mat-list-item").first(),
+    ).toBeVisible()
   })
 
   // bible-canon.ts lists the books by id and BookSelectorComponent.getBook
@@ -175,7 +177,9 @@ test.describe("Book selector drawer", () => {
 })
 
 test.describe("Chapter selector", () => {
-  test("opens chapter list when chapter toggle is clicked", async ({ page }) => {
+  test("opens chapter list when chapter toggle is clicked", async ({
+    page,
+  }) => {
     await page.goto("/jo/1")
     await page.locator("verse").first().waitFor({ timeout: 15_000 })
 
@@ -406,3 +410,39 @@ test.describe("Onboarding", () => {
   })
 })
 
+test.describe("Link previews", () => {
+  // Messaging apps blow any image 300px or wider up into a full-width banner;
+  // a small square one is shown as a thumbnail beside the text. They only
+  // fetch it from the absolute production URL.
+  test("advertises a small square thumbnail that the app actually ships", async ({
+    page,
+  }) => {
+    await page.goto("/jo/1")
+
+    const content = (selector: string) =>
+      page.locator(selector).getAttribute("content")
+
+    const image = await content('meta[property="og:image"]')
+    expect(image).toMatch(/^https:\/\/biblia\.capuchinhos\.org\/imgs\/.+\.png$/)
+    expect(await content('meta[name="twitter:image"]')).toBe(image)
+    expect(await content('meta[name="twitter:card"]')).toBe("summary")
+
+    const size = await page.evaluate(
+      async (src) => {
+        const img = new Image()
+        img.src = src
+        await img.decode()
+        return { width: img.naturalWidth, height: img.naturalHeight }
+      },
+      new URL(image ?? "").pathname,
+    )
+
+    expect(size).toEqual({
+      width: Number(await content('meta[property="og:image:width"]')),
+      height: Number(await content('meta[property="og:image:height"]')),
+    })
+    expect(size.width).toBe(size.height)
+    expect(size.width).toBeGreaterThanOrEqual(200)
+    expect(size.width).toBeLessThan(300)
+  })
+})
