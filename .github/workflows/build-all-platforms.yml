@@ -211,15 +211,24 @@ jobs:
           set -euo pipefail
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
           APK=android/app/build/outputs/apk/release/app-release.apk
-          ACTUAL=$("$APKSIGNER" verify --print-certs "$APK" \
-            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' \
-            | tr 'a-f' 'A-F' | sed 's/../&:/g; s/:$//')
-          EXPECTED=$(node -p "require('./public/.well-known/assetlinks.json').flatMap((s) => s.target.sha256_cert_fingerprints ?? []).join('\\n')")
-          echo "APK signed with: $ACTUAL"
-          if ! grep -qxF "$ACTUAL" <<< "$EXPECTED"; then
-            echo "::error::The release APK's signing certificate is not listed in public/.well-known/assetlinks.json. Existing installs could not update to it. If the key change is intended, add its fingerprint there first."
+          OUTPUT=$("$APKSIGNER" verify --print-certs "$APK")
+          # "Signer #1 certificate SHA-256 digest: …" or, for v3 signers,
+          # "Signer (minSdkVersion=…, maxSdkVersion=…) certificate SHA-256 digest: …".
+          ACTUAL=$(sed -n 's/^Signer.* certificate SHA-256 digest: //p' <<< "$OUTPUT" \
+            | tr 'a-f' 'A-F' | sed 's/../&:/g; s/:$//' | sort -u)
+          if [ -z "$ACTUAL" ]; then
+            echo "$OUTPUT"
+            echo "::error::Could not read the release APK's signing certificate from apksigner."
             exit 1
           fi
+          EXPECTED=$(node -p "require('./public/.well-known/assetlinks.json').flatMap((s) => s.target.sha256_cert_fingerprints ?? []).join('\\n')")
+          echo "APK signed with: $ACTUAL"
+          while read -r CERT; do
+            if ! grep -qxF "$CERT" <<< "$EXPECTED"; then
+              echo "::error::The release APK's signing certificate $CERT is not listed in public/.well-known/assetlinks.json. Existing installs could not update to it. If the key change is intended, add its fingerprint there first."
+              exit 1
+            fi
+          done <<< "$ACTUAL"
 
       - name: Set signing output
         id: check-signing
@@ -366,7 +375,7 @@ jobs:
           xcodebuild -project App.xcodeproj \
             -scheme App \
             -configuration Release \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination 'generic/platform=iOS' \
             -archivePath ./build/iOS.xcarchive \
             archive \
             MARKETING_VERSION="$MARKETING_VERSION" \
