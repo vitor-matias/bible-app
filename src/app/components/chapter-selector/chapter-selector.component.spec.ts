@@ -164,16 +164,14 @@ describe("ChapterSelectorComponent", () => {
     expect(large).toBeCloseTo(small * 2, 1)
   })
 
-  // The app draws edge-to-edge: without this the last chapter sat under the
-  // Android navigation bar and could not be tapped.
-  it("pads the list past the bottom system inset", () => {
+  // The drawer runs behind the navigation bar (edge-to-edge): the last row
+  // must scroll clear of it, with no extra minimum gap (a fixed 48px left a
+  // large blank space at the end of the list).
+  it("pads the end of the list by the bottom system inset", () => {
     const host = fixture.nativeElement as HTMLElement
     const list = host.querySelector(".chapterSelectorContainer") as HTMLElement
 
     host.style.setProperty("--app-inset-bottom", "100px")
     expect(getComputedStyle(list).paddingBottom).toBe("100px")
-    // No inset reported: keep a minimum gap anyway.
-    host.style.setProperty("--app-inset-bottom", "0px")
-    expect(getComputedStyle(list).paddingBottom).toBe("48px")
   })
 })

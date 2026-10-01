@@ -680,25 +680,67 @@ describe("BibleReaderComponent", () => {
     })
   })
 
-  // The app draws edge-to-edge: a container sized to the full viewport put
-  // its last lines under the Android navigation bar.
-  it("keeps the reader above the bottom system inset", () => {
-    fixture.detectChanges()
-    const host = fixture.nativeElement as HTMLElement
-    const container = host.querySelector(
-      ".bookSelectorContainer",
-    ) as HTMLElement
-    expect(container).toBeTruthy()
-    // NO_ERRORS_SCHEMA leaves mat-drawer-container an unknown inline element,
-    // which ignores height.
-    container.style.display = "block"
+  // The app draws edge-to-edge. The reader fills the screen behind the
+  // navigation bar (shrinking it left a blank strip there); only the end of
+  // the scrolling text, the copyright footer, clears the bar.
+  describe("bottom system inset", () => {
+    function render(viewMode: "scrolling" | "paged"): HTMLElement {
+      // ngOnInit restores the saved view mode; set ours after it.
+      fixture.detectChanges()
+      component.viewMode = viewMode
+      component.chapter = { bookId: "gen", number: 2 } as Chapter
+      component.chapterNumber = 2
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+      return fixture.nativeElement as HTMLElement
+    }
 
-    host.style.setProperty("--app-inset-bottom", "0px")
-    const withoutInset = container.getBoundingClientRect().height
-    host.style.setProperty("--app-inset-bottom", "100px")
-    const withInset = container.getBoundingClientRect().height
+    function heightWithInset(element: HTMLElement, inset: string): number {
+      ;(fixture.nativeElement as HTMLElement).style.setProperty(
+        "--app-inset-bottom",
+        inset,
+      )
+      return element.getBoundingClientRect().height
+    }
 
-    expect(withoutInset - withInset).toBeCloseTo(100, 0)
+    it("lets the reader fill the screen behind the navigation bar", () => {
+      const container = render("scrolling").querySelector(
+        ".bookSelectorContainer",
+      ) as HTMLElement
+      // NO_ERRORS_SCHEMA leaves mat-drawer-container an unknown inline
+      // element, which ignores height.
+      container.style.display = "block"
+
+      expect(heightWithInset(container, "100px")).toBe(
+        heightWithInset(container, "0px"),
+      )
+    })
+
+    it("lets the end of the scrolling text clear the navigation bar", () => {
+      const footer = render("scrolling").querySelector(
+        ".copyright-footer",
+      ) as HTMLElement
+      expect(footer).toBeTruthy()
+
+      ;(fixture.nativeElement as HTMLElement).style.setProperty(
+        "--app-inset-bottom",
+        "100px",
+      )
+      expect(getComputedStyle(footer).paddingBottom).toBe("108px")
+    })
+
+    // Pages don't scroll: their text must end above the bar, where the
+    // fixed footer sits.
+    it("ends the pages above the navigation bar", () => {
+      const pages = render("paged").querySelector(
+        ".paged-view-container",
+      ) as HTMLElement
+      expect(pages).toBeTruthy()
+
+      expect(
+        heightWithInset(pages, "0px") - heightWithInset(pages, "100px"),
+      ).toBeCloseTo(100, 0)
+    })
   })
 
   describe("Drawer Actions", () => {

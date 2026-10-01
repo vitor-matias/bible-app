@@ -33,8 +33,9 @@
   display: flex;
   justify-content: space-around;
   padding: 8px;
-  /* Keep the last row clear of the Android navigation bar. */
-  padding-bottom: max(var(--app-inset-bottom), 48px);
+  /* The drawer runs behind the navigation bar (edge-to-edge): let the last
+     row scroll clear of it. */
+  padding-bottom: calc(8px + var(--app-inset-bottom));
   width: 100%;
   flex: 1;
   overflow-y: auto;
