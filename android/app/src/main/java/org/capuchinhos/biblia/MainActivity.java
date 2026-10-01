@@ -10,18 +10,26 @@ public class MainActivity extends BridgeActivity {
     /** Must match appConfig.domain, which AppComponent routes app URLs for. */
     private static final String SITE_HOST = "biblia.capuchinhos.org";
 
+    /** True while a recreated activity runs super.onCreate. */
+    private boolean restoring;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         // Only a fresh launch: a recreated activity would replay the share.
-        if (savedInstanceState == null) {
+        restoring = savedInstanceState != null;
+        if (!restoring) {
             setIntent(toShareTargetIntent(getIntent()));
         }
         super.onCreate(savedInstanceState);
+        restoring = false;
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
-        super.onNewIntent(toShareTargetIntent(intent));
+        // BridgeActivity.load() passes getIntent() here from inside onCreate.
+        // When restoring, that is the original, already handled share, so it
+        // goes through unconverted and the App plugin ignores it.
+        super.onNewIntent(restoring ? intent : toShareTargetIntent(intent));
     }
 
     /**

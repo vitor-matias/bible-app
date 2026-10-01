@@ -11,8 +11,9 @@ import {
   tick,
 } from "@angular/core/testing"
 import { MatSnackBar } from "@angular/material/snack-bar"
+import { By } from "@angular/platform-browser"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
-import { ActivatedRoute, Router } from "@angular/router"
+import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, of, Subject, throwError } from "rxjs"
 import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
@@ -154,7 +155,10 @@ describe("BibleReaderComponent", () => {
     component = fixture.componentInstance
   })
 
-  function setUpTestBed(options?: { platformId?: string }): Promise<void> {
+  function setUpTestBed(options?: {
+    platformId?: string
+    imports?: unknown[]
+  }): Promise<void> {
     hapticsSpy = jasmine.createSpyObj<HapticsService>("HapticsService", [
       "light",
       "success",
@@ -182,7 +186,8 @@ describe("BibleReaderComponent", () => {
       .overrideComponent(BibleReaderComponent, {
         set: {
           schemas: [NO_ERRORS_SCHEMA],
-          imports: [], // Override standalone imports to avoid child dependency issues
+          // Override standalone imports to avoid child dependency issues
+          imports: (options?.imports ?? []) as never[],
         },
       })
       .compileComponents()
@@ -339,19 +344,25 @@ describe("BibleReaderComponent", () => {
       ["native apps", true],
       ["web", false],
     ] as const) {
-      it(`sets replaceUrl=${native} on the prev/next anchors on the ${platform}`, fakeAsync(() => {
+      it(`sets replaceUrl=${native} on the prev/next anchors on the ${platform}`, async () => {
+        TestBed.resetTestingModule()
+        await setUpTestBed({ imports: [RouterLink] })
         spyOn(Capacitor, "isNativePlatform").and.returnValue(native)
-        component.getChapter(5)
-        tick()
-        fixture.componentRef.changeDetectorRef.markForCheck()
-        fixture.detectChanges()
+        const linkFixture = TestBed.createComponent(BibleReaderComponent)
+        linkFixture.detectChanges()
+        linkFixture.componentInstance.getChapter(5)
+        await linkFixture.whenStable()
+        linkFixture.componentRef.changeDetectorRef.markForCheck()
+        linkFixture.detectChanges()
 
-        const anchors = Array.from(
-          fixture.nativeElement.querySelectorAll("a.floating-nav-button"),
-        ) as unknown as { replaceUrl: boolean }[]
-        expect(anchors.length).toBeGreaterThan(0)
-        for (const anchor of anchors) expect(anchor.replaceUrl).toBe(native)
-      }))
+        const links = linkFixture.debugElement.queryAll(
+          By.css("a.floating-nav-button"),
+        )
+        expect(links.length).toBeGreaterThan(0)
+        for (const link of links) {
+          expect(link.injector.get(RouterLink).replaceUrl).toBe(native)
+        }
+      })
     }
 
     it("closes the open book drawer on the Android back button", () => {
