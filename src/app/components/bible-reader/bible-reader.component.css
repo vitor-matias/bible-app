@@ -134,10 +134,6 @@ h6 {
   transform: translate(-50%, -50%);
 }
 
-.mid {
-  bottom: 86px;
-}
-
 .dismiss-button {
   position: absolute;
   top: 4px;
