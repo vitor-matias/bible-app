@@ -33,9 +33,6 @@
   display: flex;
   justify-content: space-around;
   padding: 8px;
-  /* The drawer runs behind the navigation bar (edge-to-edge): let the last
-     row scroll clear of it. */
-  padding-bottom: calc(8px + var(--app-inset-bottom));
   width: 100%;
   flex: 1;
   overflow-y: auto;

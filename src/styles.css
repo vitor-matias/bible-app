@@ -224,6 +224,8 @@ body {
     background-color 0.3s ease,
     color 0.3s ease;
   padding-top: 0;
+  /* Content ends at the top of the Android navigation bar; this strip, in
+     the page background colour, is what shows through the bar. */
   padding-bottom: var(--app-inset-bottom);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);

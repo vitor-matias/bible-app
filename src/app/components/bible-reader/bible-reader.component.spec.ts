@@ -680,9 +680,8 @@ describe("BibleReaderComponent", () => {
     })
   })
 
-  // The app draws edge-to-edge. The reader fills the screen behind the
-  // navigation bar (shrinking it left a blank strip there); only the end of
-  // the scrolling text, the copyright footer, clears the bar.
+  // The app draws edge-to-edge, but nothing may sit behind the navigation
+  // bar: the reader ends at its top and the page background shows behind it.
   describe("bottom system inset", () => {
     function render(viewMode: "scrolling" | "paged"): HTMLElement {
       // ngOnInit restores the saved view mode; set ours after it.
@@ -703,7 +702,7 @@ describe("BibleReaderComponent", () => {
       return element.getBoundingClientRect().height
     }
 
-    it("lets the reader fill the screen behind the navigation bar", () => {
+    it("ends the reader at the top of the navigation bar", () => {
       const container = render("scrolling").querySelector(
         ".bookSelectorContainer",
       ) as HTMLElement
@@ -711,22 +710,9 @@ describe("BibleReaderComponent", () => {
       // element, which ignores height.
       container.style.display = "block"
 
-      expect(heightWithInset(container, "100px")).toBe(
-        heightWithInset(container, "0px"),
-      )
-    })
-
-    it("lets the end of the scrolling text clear the navigation bar", () => {
-      const footer = render("scrolling").querySelector(
-        ".copyright-footer",
-      ) as HTMLElement
-      expect(footer).toBeTruthy()
-
-      ;(fixture.nativeElement as HTMLElement).style.setProperty(
-        "--app-inset-bottom",
-        "100px",
-      )
-      expect(getComputedStyle(footer).paddingBottom).toBe("108px")
+      expect(
+        heightWithInset(container, "0px") - heightWithInset(container, "100px"),
+      ).toBeCloseTo(100, 0)
     })
 
     // Pages don't scroll: their text must end above the bar, where the

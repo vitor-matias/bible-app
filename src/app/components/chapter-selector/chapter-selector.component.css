@@ -66,8 +66,5 @@ button.highlight {
 }
 
 .chapterSelectorContainer {
-  /* The drawer runs behind the navigation bar (edge-to-edge): let the last
-     chapter scroll clear of it. */
-  padding-bottom: var(--app-inset-bottom);
   background-color: var(--card-background);
 }
