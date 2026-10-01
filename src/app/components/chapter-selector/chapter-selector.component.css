@@ -1,7 +1,7 @@
 .chapterSelectorButton:not(disabled) {
   background-color: var(--card-background);
   color: var(--text-color);
-  font-size: large;
+  font-size: 112.5%;
   margin-left: 8px;
   position: relative;
   /* Cap the row width and anchor content left, or a capped row centres and
@@ -66,5 +66,7 @@ button.highlight {
 }
 
 .chapterSelectorContainer {
+  /* Keep the last chapter clear of the Android navigation bar. */
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 48px);
   background-color: var(--card-background);
 }

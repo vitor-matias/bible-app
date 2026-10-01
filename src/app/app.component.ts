@@ -9,7 +9,12 @@ import {
 import { Router, RouterOutlet } from "@angular/router"
 import { App } from "@capacitor/app"
 import type { PluginListenerHandle } from "@capacitor/core"
-import { Capacitor } from "@capacitor/core"
+import {
+  Capacitor,
+  SystemBars,
+  SystemBarsStyle,
+  SystemBarType,
+} from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
 import { appConfig } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
@@ -61,11 +66,27 @@ export class AppComponent implements OnInit, OnDestroy {
     void this.trackAppOpenEvent()
     this.handleShareTarget()
     this.setupAppLinks()
+    this.setupStatusBar()
     this.onboardingService.showOnFirstLaunch()
   }
 
   private trackAppOpenEvent(): void {
     void this.analyticsService.track("app_open")
+  }
+
+  /**
+   * The toolbar is always brown, so the status bar icons must be light. The
+   * capacitor.config `StatusBar` block is ignored by Capacitor 8's built-in
+   * SystemBars, which otherwise follows the device theme (dark icons on a
+   * light-mode phone). The gesture/navigation bar keeps following the theme.
+   */
+  private setupStatusBar(): void {
+    if (!Capacitor.isNativePlatform()) return
+
+    SystemBars.setStyle({
+      bar: SystemBarType.StatusBar,
+      style: SystemBarsStyle.Dark,
+    }).catch(() => {})
   }
 
   private setupAppLinks(): void {

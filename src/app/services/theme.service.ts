@@ -1,5 +1,11 @@
 import { isPlatformBrowser } from "@angular/common"
 import { Injectable, inject, PLATFORM_ID } from "@angular/core"
+import {
+  Capacitor,
+  SystemBars,
+  SystemBarsStyle,
+  SystemBarType,
+} from "@capacitor/core"
 import { BehaviorSubject } from "rxjs"
 import { AnalyticsService } from "./analytics.service"
 import { PreferencesService } from "./preferences.service"
@@ -74,5 +80,20 @@ export class ThemeService {
       isDark = mode === "dark"
     }
     document.documentElement.classList.toggle("dark-theme", isDark)
+    this.applyNavigationBarStyle(isDark)
+  }
+
+  /**
+   * The Android gesture/navigation bar draws over the page, so its icons must
+   * follow the in-app theme (which can differ from the device theme). The
+   * status bar is handled separately: the toolbar is always brown.
+   */
+  private applyNavigationBarStyle(isDark: boolean): void {
+    if (!Capacitor.isNativePlatform()) return
+
+    SystemBars.setStyle({
+      bar: SystemBarType.NavigationBar,
+      style: isDark ? SystemBarsStyle.Dark : SystemBarsStyle.Light,
+    }).catch(() => {})
   }
 }

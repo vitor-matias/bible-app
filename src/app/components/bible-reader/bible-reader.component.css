@@ -89,9 +89,9 @@ h6 {
 
 .bookSelectorContainer {
   width: 100%;
-  height: calc(100vh - (56px + env(safe-area-inset-top)));
+  height: calc(100vh - (56px + env(safe-area-inset-top) + env(safe-area-inset-bottom)));
   /* Fallback */
-  height: calc(100dvh - (56px + env(safe-area-inset-top)));
+  height: calc(100dvh - (56px + env(safe-area-inset-top) + env(safe-area-inset-bottom)));
   /* Dynamic viewport */
   overscroll-behavior: none;
   /* Prevents rubber banding in this container */
