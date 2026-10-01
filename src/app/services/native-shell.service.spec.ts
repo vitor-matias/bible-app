@@ -4,24 +4,30 @@ import { NavigationEnd, Router } from "@angular/router"
 import { Capacitor, SystemBarsStyle, SystemBarType } from "@capacitor/core"
 import { Subject } from "rxjs"
 import { SPLASH_SCREEN_PLUGIN, SYSTEM_BARS_PLUGIN } from "../tokens"
+import { LiveUpdateService } from "./live-update.service"
 import { NativeShellService, SPLASH_MAX_MS } from "./native-shell.service"
 
 describe("NativeShellService", () => {
   let events: Subject<unknown>
   let splash: { hide: jasmine.Spy }
   let systemBars: { setStyle: jasmine.Spy }
+  let liveUpdate: { readyAndCheck: jasmine.Spy }
   let body: HTMLElement
 
   beforeEach(() => {
     events = new Subject()
     splash = { hide: jasmine.createSpy("hide").and.resolveTo() }
     systemBars = { setStyle: jasmine.createSpy("setStyle").and.resolveTo() }
+    liveUpdate = {
+      readyAndCheck: jasmine.createSpy("readyAndCheck").and.resolveTo(),
+    }
     body = document.createElement("body")
     TestBed.configureTestingModule({
       providers: [
         { provide: Router, useValue: { events } },
         { provide: SPLASH_SCREEN_PLUGIN, useValue: splash },
         { provide: SYSTEM_BARS_PLUGIN, useValue: systemBars },
+        { provide: LiveUpdateService, useValue: liveUpdate },
         { provide: DOCUMENT, useValue: { body } },
       ],
     })
@@ -130,4 +136,30 @@ describe("NativeShellService", () => {
     ).not.toThrow()
     await Promise.resolve()
   })
+
+  // ready() is what stops the live-update plugin rolling back: only a page
+  // that actually rendered may call it.
+  it("confirms the bundle and checks for updates after the first navigation", fakeAsync(() => {
+    init("android")
+    expect(liveUpdate.readyAndCheck).not.toHaveBeenCalled()
+
+    events.next(new NavigationEnd(1, "/", "/"))
+    events.next(new NavigationEnd(2, "/gn/1", "/gn/1"))
+    tick(SPLASH_MAX_MS)
+
+    expect(liveUpdate.readyAndCheck).toHaveBeenCalledTimes(1)
+  }))
+
+  it("lets a bundle that never navigates roll back", fakeAsync(() => {
+    init("android")
+    tick(SPLASH_MAX_MS)
+    expect(liveUpdate.readyAndCheck).not.toHaveBeenCalled()
+  }))
+
+  it("does not check for live updates on the web", fakeAsync(() => {
+    init("web")
+    events.next(new NavigationEnd(1, "/", "/"))
+    tick(SPLASH_MAX_MS)
+    expect(liveUpdate.readyAndCheck).not.toHaveBeenCalled()
+  }))
 })
