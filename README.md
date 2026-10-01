@@ -76,7 +76,9 @@ the build output lacks to it.
 The route list and content come from the live API at build time. Without
 network access the build still succeeds: it warns, and every route falls back to
 the client-rendered SPA. `PRERENDER_API_ORIGIN=http://localhost:PORT` points the
-prerenderer at a stub API.
+prerenderer at a stub API. With `PRERENDER_STRICT=true` (set by the Docker build)
+an unreachable API, a failed response or an empty book list fails the build
+instead, so a deploy can never silently ship unprerendered pages.
 
 `build:post` generates `sitemap.xml` into `dist` from the pages that were
 actually prerendered. `public/sitemap.xml` is a home-page-only fallback so
@@ -85,6 +87,30 @@ actually prerendered. `public/sitemap.xml` is a home-page-only fallback so
 Critical-CSS inlining is off (`optimization.styles.inlineCritical` in
 `angular.json`): nearly the whole ~143KB stylesheet was classed as critical and
 inlined into every page, taking per-page HTML from ~166KB to ~241KB.
+
+## Container deploy (Render)
+
+The [Dockerfile](Dockerfile) runs the production build (strict prerender) and
+serves `dist/bible-app/browser` from nginx; [render.yaml](render.yaml) is the
+Render Blueprint (auto-deploy once CI passes, health check on `/healthz`).
+
+- [nginx/default.conf.template](nginx/default.conf.template) serves prerendered
+  routes slashless from `<route>/index.html`, falls back to `index.csr.html` for
+  unknown routes, and 404s a missing file (never HTML in place of a chunk). Hashed
+  bundles are cached for a year; HTML, `ngsw.json` and the service worker are
+  revalidated on every load.
+- `/v1/*` is proxied to `API_ORIGIN`, which is required (the container refuses to
+  start without it). Never set it to the site's own domain: that proxies to
+  itself. Use `http://bible-api:10000` once the API runs on Render, and a hostname
+  that reaches the current VPS directly until then.
+- `PRERENDER_API_ORIGIN` (optional service env var, forwarded to the build)
+  picks the API the build prerenders from; it defaults to the production domain.
+- The image is ~430 MB, almost all of it the 1,400+ prerendered pages.
+
+```bash
+docker build -t bible-app .
+docker run --rm -p 8080:10000 -e API_ORIGIN=https://biblia.capuchinhos.org bible-app
+```
 
 ## Mobile (Capacitor)
 

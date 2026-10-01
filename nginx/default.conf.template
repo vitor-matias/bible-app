@@ -1,0 +1,91 @@
+# Rendered at container start by the nginx image's envsubst step. The only
+# ${...} references are API_ORIGIN, PORT and NGINX_LOCAL_RESOLVERS; every
+# $name below is nginx's own.
+
+# Resolve the API host per request instead of once at startup, so a
+# slow-to-start upstream or a changed IP cannot wedge nginx.
+resolver ${NGINX_LOCAL_RESOLVERS} valid=30s ipv6=off;
+
+server {
+  listen ${PORT};
+  server_name _;
+  root /usr/share/nginx/html;
+
+  server_tokens off;
+  absolute_redirect off;
+
+  gzip on;
+  gzip_vary on;
+  gzip_min_length 1024;
+  gzip_types text/css text/plain text/xml application/javascript application/json application/manifest+json application/xml image/svg+xml;
+
+  # Health check (Render, docker HEALTHCHECK). Static files have no other
+  # dependency, so nginx answering is the whole signal.
+  location = /healthz {
+    access_log off;
+    default_type text/plain;
+    return 200 "ok\n";
+  }
+
+  # API. Same-origin /v1 keeps CORS out of the picture and keeps the service
+  # worker's /v1 data groups (ngsw-config.json) matching. The API sets its own
+  # security headers, so none are added here.
+  location ^~ /v1/ {
+    set $api_origin "${API_ORIGIN}";
+    proxy_pass $api_origin$request_uri;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_ssl_server_name on;
+    proxy_ssl_verify on;
+    # nginx defaults to a depth of 1; Let's Encrypt's current chain (leaf, YE2,
+    # Root YE, ISRG Root X2, up to ISRG Root X1) is deeper than that.
+    proxy_ssl_verify_depth 5;
+    proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+    proxy_read_timeout 30s;
+  }
+
+  # Content-hashed build output (main-XXXXXXXX.js, chunk-XXXXXXXX.js,
+  # media/*) never changes, so it is cached for a year. Cache-Control is added
+  # without "always" on purpose: a 404 must never carry an immutable header.
+  location ~ "^/(?:[^/]+-[A-Za-z0-9]{8}\.(?:js|css)|media/.+)$" {
+    include /etc/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    try_files $uri =404;
+  }
+
+  # Must be revalidated on every load: the service worker and its manifest,
+  # build metadata, and every HTML document.
+  location ~ "^/(?:ngsw\.json|ngsw-worker\.js|safety-worker\.js|worker-basic\.min\.js|build-info\.json)$|\.html$" {
+    include /etc/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "no-cache";
+    try_files $uri =404;
+  }
+
+  # nginx's mime.types has no entry for .webmanifest, so it would be served as
+  # application/octet-stream.
+  location = /manifest.webmanifest {
+    include /etc/nginx/snippets/security-headers.conf;
+    default_type application/manifest+json;
+    add_header Cache-Control "public, max-age=3600";
+    try_files $uri =404;
+  }
+
+  # Any other path with a file extension is a real file (icons, robots.txt,
+  # sitemap.xml). A miss is a 404, never the app shell, so a stale chunk fails
+  # loudly instead of "loading" HTML as JavaScript.
+  location ~* "\.[a-z0-9]{2,12}$" {
+    include /etc/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "public, max-age=3600";
+    try_files $uri =404;
+  }
+
+  # Pages. Prerendered routes live at <route>/index.html and are served
+  # slashless; unknown routes get the client-rendered shell with a 200, because
+  # the router (not the server) decides what an unknown path means.
+  location / {
+    include /etc/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "no-cache";
+    try_files $uri $uri/index.html /index.csr.html;
+  }
+}

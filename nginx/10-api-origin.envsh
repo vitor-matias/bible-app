@@ -1,0 +1,12 @@
+#!/bin/sh
+# Sourced by the nginx image's entrypoint before the config template is rendered.
+# Fails the container fast, with a readable message, instead of letting nginx
+# die on an unknown "API_ORIGIN" variable.
+if [ -z "${API_ORIGIN:-}" ]; then
+  echo "API_ORIGIN is required, e.g. http://bible-api:10000 (no trailing slash). Refusing to start." >&2
+  exit 1
+fi
+
+# A trailing slash would turn /v1/... into //v1/... upstream.
+API_ORIGIN="${API_ORIGIN%/}"
+export API_ORIGIN
