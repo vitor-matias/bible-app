@@ -1,13 +1,8 @@
 import { isPlatformBrowser } from "@angular/common"
 import { Injectable, inject, PLATFORM_ID } from "@angular/core"
-import {
-  Capacitor,
-  SystemBars,
-  SystemBarsStyle,
-  SystemBarType,
-} from "@capacitor/core"
 import { BehaviorSubject } from "rxjs"
 import { AnalyticsService } from "./analytics.service"
+import { NativeShellService } from "./native-shell.service"
 import { PreferencesService } from "./preferences.service"
 
 export type ThemeMode = "light" | "dark" | "system"
@@ -17,6 +12,7 @@ export type ThemeMode = "light" | "dark" | "system"
 })
 export class ThemeService {
   private readonly platformId = inject(PLATFORM_ID)
+  private readonly nativeShell = inject(NativeShellService)
   private themeMode = new BehaviorSubject<ThemeMode>("system")
   // window/document are absent while server-rendering; the server output
   // stays on the default (light) theme and the browser applies the real one.
@@ -80,20 +76,6 @@ export class ThemeService {
       isDark = mode === "dark"
     }
     document.documentElement.classList.toggle("dark-theme", isDark)
-    this.applyNavigationBarStyle(isDark)
-  }
-
-  /**
-   * The Android gesture/navigation bar draws over the page, so its icons must
-   * follow the in-app theme (which can differ from the device theme). The
-   * status bar is handled separately: the toolbar is always brown.
-   */
-  private applyNavigationBarStyle(isDark: boolean): void {
-    if (!Capacitor.isNativePlatform()) return
-
-    SystemBars.setStyle({
-      bar: SystemBarType.NavigationBar,
-      style: isDark ? SystemBarsStyle.Dark : SystemBarsStyle.Light,
-    }).catch(() => {})
+    this.nativeShell.setNavigationBarTheme(isDark)
   }
 }

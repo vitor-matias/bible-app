@@ -243,4 +243,44 @@ describe("BookSelectorComponent", () => {
       { name: "Pentateuco", introSlug: "pentateuco", books: ["gen", "exo"] },
     ])
   })
+
+  // `font-size: large` is an absolute keyword: lowering the font size shrank
+  // the group labels but not the book names beside them.
+  it("scales the book buttons with the inherited font size", () => {
+    component.books = [
+      {
+        id: "gen",
+        name: "Livro do Génesis",
+        shortName: "Génesis",
+        abrv: "Gn",
+        chapterCount: 50,
+      },
+    ]
+    component.ngOnChanges({
+      books: new SimpleChange(undefined, component.books, true),
+    })
+    component.otTreeControl.expandAll()
+    fixture.detectChanges()
+
+    const host = fixture.nativeElement as HTMLElement
+    const button = host.querySelector(".bookSelectorButton") as HTMLElement
+    expect(button).toBeTruthy()
+
+    host.style.fontSize = "10px"
+    const small = Number.parseFloat(getComputedStyle(button).fontSize)
+    host.style.fontSize = "20px"
+    const large = Number.parseFloat(getComputedStyle(button).fontSize)
+
+    expect(large).toBeCloseTo(small * 2, 1)
+  })
+
+  it("pads the book list past the bottom system inset", () => {
+    const host = fixture.nativeElement as HTMLElement
+    const list = host.querySelector(".bible-books-container") as HTMLElement
+
+    host.style.setProperty("--app-inset-bottom", "100px")
+    expect(getComputedStyle(list).paddingBottom).toBe("100px")
+    host.style.setProperty("--app-inset-bottom", "0px")
+    expect(getComputedStyle(list).paddingBottom).toBe("48px")
+  })
 })

@@ -669,6 +669,27 @@ describe("BibleReaderComponent", () => {
     })
   })
 
+  // The app draws edge-to-edge: a container sized to the full viewport put
+  // its last lines under the Android navigation bar.
+  it("keeps the reader above the bottom system inset", () => {
+    fixture.detectChanges()
+    const host = fixture.nativeElement as HTMLElement
+    const container = host.querySelector(
+      ".bookSelectorContainer",
+    ) as HTMLElement
+    expect(container).toBeTruthy()
+    // NO_ERRORS_SCHEMA leaves mat-drawer-container an unknown inline element,
+    // which ignores height.
+    container.style.display = "block"
+
+    host.style.setProperty("--app-inset-bottom", "0px")
+    const withoutInset = container.getBoundingClientRect().height
+    host.style.setProperty("--app-inset-bottom", "100px")
+    const withInset = container.getBoundingClientRect().height
+
+    expect(withoutInset - withInset).toBeCloseTo(100, 0)
+  })
+
   describe("Drawer Actions", () => {
     beforeEach(() => {
       fixture.detectChanges()

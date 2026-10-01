@@ -38,7 +38,10 @@ describe("AppComponent", () => {
       "showOnFirstLaunch",
     ])
 
-    nativeShellSpy = jasmine.createSpyObj("NativeShellService", ["init"])
+    nativeShellSpy = jasmine.createSpyObj("NativeShellService", [
+      "init",
+      "setNavigationBarTheme",
+    ])
 
     await TestBed.configureTestingModule({
       imports: [AppComponent],

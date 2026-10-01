@@ -1,17 +1,19 @@
 import { DOCUMENT } from "@angular/common"
 import { Injectable, inject } from "@angular/core"
 import { NavigationEnd, Router } from "@angular/router"
-import { Capacitor } from "@capacitor/core"
+import { Capacitor, SystemBarsStyle, SystemBarType } from "@capacitor/core"
 import { filter, take } from "rxjs"
-import { SPLASH_SCREEN_PLUGIN } from "../tokens"
+import { SPLASH_SCREEN_PLUGIN, SYSTEM_BARS_PLUGIN } from "../tokens"
 
 /** Longest the splash may stay up if the first navigation never completes. */
 export const SPLASH_MAX_MS = 4000
 
 /**
  * Native-shell setup that has no web equivalent: platform classes for
- * platform-specific styling, and hiding the splash screen once the first page
- * has rendered (capacitor.config.ts sets `launchAutoHide: false`).
+ * platform-specific styling, system bar icon styles, and hiding the splash
+ * screen once the first page has rendered (capacitor.config.ts sets
+ * `launchAutoHide: false`). Keep native-only behaviour here so the rest of the
+ * app stays platform-agnostic.
  */
 @Injectable({
   providedIn: "root",
@@ -20,6 +22,7 @@ export class NativeShellService {
   private readonly document = inject(DOCUMENT)
   private readonly router = inject(Router)
   private readonly splashScreen = inject(SPLASH_SCREEN_PLUGIN)
+  private readonly systemBars = inject(SYSTEM_BARS_PLUGIN)
   private splashHidden = false
 
   init(): void {
@@ -29,6 +32,10 @@ export class NativeShellService {
       "native-app",
       `platform-${Capacitor.getPlatform()}`,
     )
+
+    // The toolbar is always brown, so the status bar icons are always light.
+    // SystemBars would otherwise follow the device theme.
+    this.setBarStyle(SystemBarType.StatusBar, SystemBarsStyle.Dark)
 
     this.router.events
       .pipe(
@@ -41,6 +48,22 @@ export class NativeShellService {
       })
     // Never strand the user behind the splash.
     setTimeout(() => this.hideSplash(), SPLASH_MAX_MS)
+  }
+
+  /**
+   * The navigation bar draws over the page (the app is edge-to-edge), so its
+   * icons follow the in-app theme, which can differ from the device theme.
+   */
+  setNavigationBarTheme(isDark: boolean): void {
+    if (!Capacitor.isNativePlatform()) return
+    this.setBarStyle(
+      SystemBarType.NavigationBar,
+      isDark ? SystemBarsStyle.Dark : SystemBarsStyle.Light,
+    )
+  }
+
+  private setBarStyle(bar: SystemBarType, style: SystemBarsStyle): void {
+    this.systemBars.setStyle({ bar, style }).catch(() => {})
   }
 
   private hideSplash(): void {
