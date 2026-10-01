@@ -172,3 +172,20 @@
 .group > h3 a:focus-visible {
   border-bottom-color: currentcolor;
 }
+
+/* Window Controls Overlay: the toolbar is the title bar, so it is the drag
+   region; controls inside it opt out and clear the OS window buttons. */
+@media (display-mode: window-controls-overlay) {
+  :host .index-toolbar {
+    -webkit-app-region: drag;
+    app-region: drag;
+    padding-left: var(--wco-inset-left);
+    padding-right: var(--wco-inset-right);
+  }
+
+  .actionButton,
+  .toolbar-title {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+}
