@@ -134,6 +134,25 @@ one in [`public/.well-known/assetlinks.json`](public/.well-known/assetlinks.json
   not listed in `assetlinks.json`. If the key ever has to change on purpose,
   add the new fingerprint there first (App Links need it anyway).
 
+### Google Play upload
+
+Releases (a `v*` tag push, or a manual *Build All Platforms* run with
+*Create a GitHub Release* ticked) also upload the signed AAB to Google Play,
+on the *internal* track by default (`play_track` input picks another).
+Test runs never upload. One-time setup:
+
+1. Create the app in Play Console (`org.capuchinhos.biblia`) and upload the
+   first AAB by hand: the API cannot create an app or its first release.
+2. In Google Cloud, create a service account and a JSON key for it.
+3. In Play Console, *Users and permissions*, invite the service account's
+   e-mail with release permissions for this app.
+4. Add the JSON key as the repository secret `PLAY_SERVICE_ACCOUNT_JSON`.
+
+Without the secret the step is skipped. While the app is still a draft in
+Play Console, releases must be uploaded as drafts: change `status:` in the
+workflow's *Upload to Google Play* step to `draft` until the first release
+is published.
+
 ## Architecture
 
 - **Routing** ([app.routes.ts](src/app/app.routes.ts)) — `/:book/:chapter` renders
