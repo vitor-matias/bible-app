@@ -1,10 +1,16 @@
 import { NgZone } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
+import { MatDialog, type MatDialogRef } from "@angular/material/dialog"
 import { Router } from "@angular/router"
-import type { URLOpenListenerEvent } from "@capacitor/app"
+import type {
+  BackButtonListenerEvent,
+  URLOpenListenerEvent,
+} from "@capacitor/app"
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core"
 import { AppComponent } from "./app.component"
 import { AnalyticsService } from "./services/analytics.service"
+import { BackButtonService } from "./services/back-button.service"
+import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
 import { APP_PLUGIN } from "./tokens"
@@ -15,10 +21,13 @@ describe("AppComponent", () => {
   // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
   let mockAppPlugin: jasmine.SpyObj<any>
   let onboardingSpy: jasmine.SpyObj<OnboardingService>
+  let nativeShellSpy: jasmine.SpyObj<NativeShellService>
+  let dialogStub: { openDialogs: MatDialogRef<unknown>[] }
 
   beforeEach(async () => {
     routerSpy = jasmine.createSpyObj("Router", ["navigateByUrl", "navigate"])
-    mockAppPlugin = jasmine.createSpyObj("App", ["addListener"])
+    mockAppPlugin = jasmine.createSpyObj("App", ["addListener", "minimizeApp"])
+    dialogStub = { openDialogs: [] }
 
     const offlineDataSpy = jasmine.createSpyObj("OfflineDataService", [
       "preloadAllBooksAndChapters",
@@ -29,6 +38,8 @@ describe("AppComponent", () => {
       "showOnFirstLaunch",
     ])
 
+    nativeShellSpy = jasmine.createSpyObj("NativeShellService", ["init"])
+
     await TestBed.configureTestingModule({
       imports: [AppComponent],
       providers: [
@@ -37,6 +48,8 @@ describe("AppComponent", () => {
         { provide: AnalyticsService, useValue: analyticsSpy },
         { provide: APP_PLUGIN, useValue: mockAppPlugin },
         { provide: OnboardingService, useValue: onboardingSpy },
+        { provide: MatDialog, useValue: dialogStub },
+        { provide: NativeShellService, useValue: nativeShellSpy },
       ],
     }).compileComponents()
 
@@ -48,6 +61,36 @@ describe("AppComponent", () => {
     const fixture = TestBed.createComponent(AppComponent)
     const app = fixture.componentInstance
     expect(app).toBeTruthy()
+  })
+
+  describe("Vercel Speed Insights", () => {
+    const speedInsightsScripts = () =>
+      document.head.querySelectorAll('script[src*="speed-insights"]')
+
+    beforeEach(() => {
+      for (const script of Array.from(speedInsightsScripts())) script.remove()
+    })
+
+    it("is not loaded in the native apps", () => {
+      TestBed.createComponent(AppComponent)
+      expect(speedInsightsScripts().length).toBe(0)
+    })
+
+    it("is loaded on the web", () => {
+      ;(Capacitor.isNativePlatform as jasmine.Spy).and.returnValue(false)
+      TestBed.createComponent(AppComponent)
+      expect(speedInsightsScripts().length).toBe(1)
+    })
+  })
+
+  it("should set up the native shell on init", () => {
+    mockAppPlugin.addListener.and.resolveTo({
+      remove: async () => {},
+    } as unknown as PluginListenerHandle)
+
+    TestBed.createComponent(AppComponent).detectChanges()
+
+    expect(nativeShellSpy.init).toHaveBeenCalled()
   })
 
   it("should send app_open event on init", async () => {
@@ -213,5 +256,71 @@ describe("AppComponent", () => {
     })
 
     expect(routerSpy.navigateByUrl).not.toHaveBeenCalled()
+  })
+
+  describe("Android back button", () => {
+    let backButton: (event: BackButtonListenerEvent) => void
+
+    beforeEach(() => {
+      backButton = () => fail("backButton listener was not registered")
+      mockAppPlugin.addListener.and.callFake(((
+        eventName: string,
+        callback: (event: BackButtonListenerEvent) => void,
+      ) => {
+        if (eventName === "backButton") backButton = callback
+        return Promise.resolve({
+          remove: async () => {},
+        } as unknown as PluginListenerHandle)
+        // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
+      }) as any)
+      TestBed.createComponent(AppComponent).detectChanges()
+    })
+
+    it("closes the topmost dialog first", () => {
+      const lower = jasmine.createSpyObj<MatDialogRef<unknown>>(["close"])
+      const top = jasmine.createSpyObj<MatDialogRef<unknown>>(["close"])
+      dialogStub.openDialogs = [lower, top]
+      const closePanel = jasmine.createSpy("closePanel").and.returnValue(true)
+      const unregister = TestBed.inject(BackButtonService).register(closePanel)
+      const historyBack = spyOn(window.history, "back")
+
+      backButton({ canGoBack: true })
+
+      expect(top.close).toHaveBeenCalled()
+      expect(lower.close).not.toHaveBeenCalled()
+      expect(closePanel).not.toHaveBeenCalled()
+      expect(historyBack).not.toHaveBeenCalled()
+      unregister()
+    })
+
+    it("goes back in history when it can", () => {
+      const historyBack = spyOn(window.history, "back")
+
+      backButton({ canGoBack: true })
+
+      expect(historyBack).toHaveBeenCalled()
+      expect(mockAppPlugin.minimizeApp).not.toHaveBeenCalled()
+    })
+
+    it("closes a registered panel, such as the book drawer, before going back", () => {
+      const closeDrawer = jasmine.createSpy("closeDrawer").and.returnValue(true)
+      const unregister = TestBed.inject(BackButtonService).register(closeDrawer)
+      const historyBack = spyOn(window.history, "back")
+
+      backButton({ canGoBack: true })
+
+      expect(closeDrawer).toHaveBeenCalled()
+      expect(historyBack).not.toHaveBeenCalled()
+      unregister()
+    })
+
+    it("sends the app to the background from the first screen", () => {
+      const historyBack = spyOn(window.history, "back")
+
+      backButton({ canGoBack: false })
+
+      expect(historyBack).not.toHaveBeenCalled()
+      expect(mockAppPlugin.minimizeApp).toHaveBeenCalled()
+    })
   })
 })

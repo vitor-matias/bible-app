@@ -9,11 +9,14 @@ import {
 } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
+import { MatMenuTrigger } from "@angular/material/menu"
+import { By } from "@angular/platform-browser"
 import { Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import type { Share } from "@capacitor/share"
-import { BehaviorSubject, of } from "rxjs"
+import { BehaviorSubject, of, Subject } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
+import { BackButtonService } from "../../services/back-button.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
@@ -30,6 +33,8 @@ describe("HeaderComponent", () => {
   let themeServiceSpy: jasmine.SpyObj<ThemeService>
   let bookmarkServiceSpy: jasmine.SpyObj<BookmarkService>
   let bottomSheetSpy: jasmine.SpyObj<MatBottomSheet>
+  let bookmarkSheetDismissed: Subject<void>
+  let bookmarkSheetRef: { dismiss: jasmine.Spy; afterDismissed: () => unknown }
   let dialogSpy: jasmine.SpyObj<MatDialog>
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
   let onboardingServiceSpy: jasmine.SpyObj<OnboardingService>
@@ -52,6 +57,14 @@ describe("HeaderComponent", () => {
     ])
     bookmarkServiceSpy.bookmarks$ = of([])
     bottomSheetSpy = jasmine.createSpyObj("MatBottomSheet", ["open"])
+    bookmarkSheetDismissed = new Subject<void>()
+    bookmarkSheetRef = {
+      dismiss: jasmine.createSpy("dismiss"),
+      afterDismissed: () => bookmarkSheetDismissed.asObservable(),
+    }
+    bottomSheetSpy.open.and.returnValue(
+      bookmarkSheetRef as unknown as ReturnType<MatBottomSheet["open"]>,
+    )
     dialogSpy = jasmine.createSpyObj("MatDialog", ["open"])
     mockSharePlugin = jasmine.createSpyObj("Share", ["share"])
     analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", [
@@ -208,6 +221,45 @@ describe("HeaderComponent", () => {
     expect(dialogSpy.open).not.toHaveBeenCalled()
   })
 
+  describe("Android back button", () => {
+    const menuTrigger = () =>
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+
+    it("closes the open header menu", () => {
+      const trigger = menuTrigger()
+      trigger.openMenu()
+      expect(trigger.menuOpen).toBeTrue()
+
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
+      expect(trigger.menuOpen).toBeFalse()
+    })
+
+    it("dismisses the bookmark sheet it opened", () => {
+      component.chapterNumber = 1
+      component.openBookmarkSelector()
+
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
+      expect(bookmarkSheetRef.dismiss).toHaveBeenCalled()
+
+      bookmarkSheetDismissed.next()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+    })
+
+    it("leaves the back press alone when the menu is closed", () => {
+      expect(menuTrigger().menuOpen).toBeFalse()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+    })
+
+    it("stops handling the back press once destroyed", () => {
+      menuTrigger().openMenu()
+      fixture.destroy()
+
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+    })
+  })
+
   it("should open the onboarding wizard from the menu", () => {
     const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
 
@@ -243,6 +295,42 @@ describe("HeaderComponent", () => {
       url: jasmine.any(String),
       dialogTitle: "Partilhar passagem",
     })
+  })
+
+  it("should share the public site URL, not the native localhost origin", async () => {
+    spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
+    mockSharePlugin.share.and.resolveTo()
+
+    component.chapterNumber = 1
+    component.ngOnInit()
+    await component.sharePassage()
+
+    const { pathname, search, hash } = window.location
+    expect(mockSharePlugin.share).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        url: `https://biblia.capuchinhos.org${pathname}${search}${hash}`,
+      }),
+    )
+  })
+
+  it("should share the page URL as is on the web", async () => {
+    spyOn(Capacitor, "isNativePlatform").and.returnValue(false)
+    if (!navigator.share) {
+      Object.defineProperty(navigator, "share", {
+        value: () => Promise.resolve(),
+        configurable: true,
+        writable: true,
+      })
+    }
+    const shareSpy = spyOn(navigator, "share").and.resolveTo()
+
+    component.chapterNumber = 1
+    component.ngOnInit()
+    await component.sharePassage()
+
+    expect(shareSpy).toHaveBeenCalledWith(
+      jasmine.objectContaining({ url: window.location.href }),
+    )
   })
 
   it("should share using navigator.share on web platforms", async () => {

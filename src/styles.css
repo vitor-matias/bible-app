@@ -325,3 +325,23 @@ body .mat-mdc-form-field {
 .mat-mdc-select-panel {
   --mat-option-selected-state-label-text-color: var(--mat-form-field-focus-color);
 }
+
+/* Native shells (NativeShellService sets these classes on <body>). */
+.native-app {
+  /* No grey flash on tap, and no link/image callout on long-press: native
+     apps have neither. Text selection stays enabled for sharing verses. */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+.platform-ios {
+  /* Defined once, with the Material font tokens, in custom-theme.scss. */
+  font-family: var(--app-ios-font);
+}
+
+/* iOS controls highlight on press rather than rippling. */
+.platform-ios .mat-ripple-element,
+.platform-ios .mat-mdc-button-ripple,
+.platform-ios .mdc-button__ripple {
+  display: none;
+}

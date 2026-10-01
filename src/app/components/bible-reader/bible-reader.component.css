@@ -361,3 +361,40 @@ h6 {
   padding: 8px 0 8px 0;
   width: 100%;
 }
+/* Shown instead of the reader when the book list cannot be loaded. There is
+   no header here, so clear the status bar / notch ourselves. */
+.books-unavailable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  padding: calc(24px + env(safe-area-inset-top)) 24px
+    calc(24px + env(safe-area-inset-bottom));
+  text-align: center;
+  color: var(--text-color);
+  background-color: var(--background-color);
+}
+
+.books-unavailable p {
+  max-width: 32em;
+  margin: 0;
+}
+
+.books-unavailable-icon {
+  width: 48px;
+  height: 48px;
+  font-size: 48px;
+  color: var(--cap-brown);
+}
+
+:host-context(.dark-theme) .books-unavailable-icon {
+  color: var(--text-color);
+}
+
+.books-unavailable-title {
+  margin: 0;
+  font-size: 1.25rem;
+}

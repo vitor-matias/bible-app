@@ -7,6 +7,7 @@ import { provideServiceWorker } from "@angular/service-worker"
 
 import { AppComponent } from "./app/app.component"
 import { routes } from "./app/app.routes"
+import { isServiceWorkerEnabled } from "./app/utils/platform"
 
 export function initializeTheme(): void {
   if (typeof window === "undefined" || typeof document === "undefined") {
@@ -29,7 +30,7 @@ bootstrapApplication(AppComponent, {
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     provideServiceWorker("ngsw-worker.js", {
-      enabled: !isDevMode(),
+      enabled: isServiceWorkerEnabled(isDevMode()),
       registrationStrategy: "registerWhenStable:30000",
     }),
     provideHttpClient(),

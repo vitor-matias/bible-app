@@ -13,13 +13,16 @@ import {
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
 import { ActivatedRoute, Router } from "@angular/router"
-import { BehaviorSubject, of, throwError } from "rxjs"
+import { Capacitor } from "@capacitor/core"
+import { BehaviorSubject, of, Subject, throwError } from "rxjs"
 import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
+import { BackButtonService } from "../../services/back-button.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
+import { HapticsService } from "../../services/haptics.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
@@ -34,6 +37,7 @@ describe("BibleReaderComponent", () => {
   let bookServiceSpy: jasmine.SpyObj<BookService>
   let preferencesServiceSpy: jasmine.SpyObj<PreferencesService>
   let routerSpy: jasmine.SpyObj<Router>
+  let hapticsSpy: jasmine.SpyObj<HapticsService>
   let routeMock: unknown
   let animationServiceSpy: jasmine.SpyObj<BibleReaderAnimationService>
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
@@ -62,10 +66,13 @@ describe("BibleReaderComponent", () => {
       "getChapterUrlSegment",
       "parseChapterUrlSegment",
       "loadGroupIntroBody",
+      "retryBooks",
     ])
     bookServiceSpy.books$ = new BehaviorSubject(
       mockBooks,
     ) as unknown as BehaviorSubject<Book[]>
+    bookServiceSpy.booksUnavailable$ = of(false)
+    bookServiceSpy.retryBooks.and.resolveTo()
     preferencesServiceSpy = jasmine.createSpyObj("PreferencesService", [
       "getAutoScrollSpeed",
       "getViewMode",
@@ -148,6 +155,10 @@ describe("BibleReaderComponent", () => {
   })
 
   function setUpTestBed(options?: { platformId?: string }): Promise<void> {
+    hapticsSpy = jasmine.createSpyObj<HapticsService>("HapticsService", [
+      "light",
+      "success",
+    ])
     return TestBed.configureTestingModule({
       imports: [BibleReaderComponent, BrowserAnimationsModule],
       providers: [
@@ -162,6 +173,7 @@ describe("BibleReaderComponent", () => {
         { provide: NetworkService, useValue: networkServiceSpy },
         { provide: MatSnackBar, useValue: snackBarSpy },
         { provide: SeoService, useValue: seoServiceSpy },
+        { provide: HapticsService, useValue: hapticsSpy },
         ...(options?.platformId
           ? [{ provide: PLATFORM_ID, useValue: options.platformId }]
           : []),
@@ -252,6 +264,42 @@ describe("BibleReaderComponent", () => {
     })
   })
 
+  describe("when the book list cannot be loaded", () => {
+    let unavailable$: BehaviorSubject<boolean>
+
+    beforeEach(() => {
+      // Nothing cached and the load failed: books$ never emits.
+      bookServiceSpy.books$ = new Subject<Book[]>()
+      unavailable$ = new BehaviorSubject(true)
+      bookServiceSpy.booksUnavailable$ = unavailable$
+      fixture.detectChanges()
+    })
+
+    const emptyState = (): HTMLElement | null =>
+      fixture.nativeElement.querySelector(".books-unavailable")
+
+    it("shows an empty state with a retry instead of a blank page", () => {
+      expect(component.book).toBeFalsy()
+      expect(emptyState()?.getAttribute("role")).toBe("alert")
+      expect(emptyState()?.textContent).toContain("Tentar novamente")
+    })
+
+    it("retries loading the books from the empty state", async () => {
+      emptyState()?.querySelector("button")?.click()
+      await fixture.whenStable()
+
+      expect(bookServiceSpy.retryBooks).toHaveBeenCalled()
+      expect(component.retryingBooks).toBeFalse()
+    })
+
+    it("hides the empty state once the books are available again", () => {
+      unavailable$.next(false)
+      fixture.detectChanges()
+
+      expect(emptyState()).toBeNull()
+    })
+  })
+
   describe("Navigation (Swipe / Arrow Keys / Methods)", () => {
     beforeEach(() => {
       fixture.detectChanges()
@@ -273,6 +321,71 @@ describe("BibleReaderComponent", () => {
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
       expect(component.isNavigatingBackwards).toBeTrue()
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
+    })
+
+    it("replaces the history entry for chapter steps in the native apps", () => {
+      spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
+      component.chapterNumber = 2
+      component.goToNextChapter()
+      component.goToPreviousChapter()
+
+      expect(routerSpy.navigate.calls.allArgs()).toEqual([
+        [["/", "1-genesis", "3"], { replaceUrl: true }],
+        [["/", "1-genesis", "1"], { replaceUrl: true }],
+      ])
+    })
+
+    for (const [platform, native] of [
+      ["native apps", true],
+      ["web", false],
+    ] as const) {
+      it(`sets replaceUrl=${native} on the prev/next anchors on the ${platform}`, fakeAsync(() => {
+        spyOn(Capacitor, "isNativePlatform").and.returnValue(native)
+        component.getChapter(5)
+        tick()
+        fixture.componentRef.changeDetectorRef.markForCheck()
+        fixture.detectChanges()
+
+        const anchors = Array.from(
+          fixture.nativeElement.querySelectorAll("a.floating-nav-button"),
+        ) as unknown as { replaceUrl: boolean }[]
+        expect(anchors.length).toBeGreaterThan(0)
+        for (const anchor of anchors) expect(anchor.replaceUrl).toBe(native)
+      }))
+    }
+
+    it("closes the open book drawer on the Android back button", () => {
+      const drawer = jasmine.createSpyObj("MatDrawer", ["close"], {
+        opened: true,
+      })
+      component.bookDrawer = drawer
+
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
+      expect(drawer.close).toHaveBeenCalled()
+    })
+
+    it("leaves the back button alone when the drawer is closed", () => {
+      component.bookDrawer = jasmine.createSpyObj("MatDrawer", ["close"], {
+        opened: false,
+      })
+
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+    })
+
+    it("gives light haptic feedback when turning to another chapter", () => {
+      component.chapterNumber = 2
+      component.goToNextChapter()
+      component.goToPreviousChapter()
+      expect(hapticsSpy.light).toHaveBeenCalledTimes(2)
+    })
+
+    it("gives no haptic feedback at either end of the book", () => {
+      component.chapterNumber = 1
+      component.goToPreviousChapter()
+      component.chapterNumber = 50
+      component.goToNextChapter()
+      expect(hapticsSpy.light).not.toHaveBeenCalled()
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
     })
 
     // The links are rebuilt when the reader lands on a chapter, so these go

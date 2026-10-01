@@ -6,8 +6,9 @@ import {
   type OnDestroy,
   type OnInit,
 } from "@angular/core"
+import { MatDialog } from "@angular/material/dialog"
 import { Router, RouterOutlet } from "@angular/router"
-import { App } from "@capacitor/app"
+import type { App, BackButtonListenerEvent } from "@capacitor/app"
 import type { PluginListenerHandle } from "@capacitor/core"
 import {
   Capacitor,
@@ -18,6 +19,8 @@ import {
 import { injectSpeedInsights } from "@vercel/speed-insights"
 import { appConfig } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
+import { BackButtonService } from "./services/back-button.service"
+import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
 import { PwaInstallService } from "./services/pwa-install.service"
@@ -34,7 +37,7 @@ import { APP_PLUGIN } from "./tokens"
 })
 export class AppComponent implements OnInit, OnDestroy {
   private installEventFired = false
-  private appUrlOpenHandle?: PluginListenerHandle
+  private readonly listenerHandles: PluginListenerHandle[] = []
 
   private readonly installListener = () => {
     this.installEventFired = true
@@ -50,8 +53,13 @@ export class AppComponent implements OnInit, OnDestroy {
     // Injected early so it captures `beforeinstallprompt`, which fires once.
     _pwaInstallService: PwaInstallService,
     @Inject(APP_PLUGIN) private appPlugin: typeof App,
+    private dialog: MatDialog,
+    private nativeShell: NativeShellService,
+    private backButton: BackButtonService,
   ) {
-    injectSpeedInsights()
+    // Speed Insights is served by the Vercel deployment; the native apps load
+    // from a local origin where its script does not exist.
+    if (!Capacitor.isNativePlatform()) injectSpeedInsights()
   }
 
   ngOnInit(): void {
@@ -65,8 +73,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
     void this.trackAppOpenEvent()
     this.handleShareTarget()
-    this.setupAppLinks()
+    this.setupNativeListeners()
     this.setupStatusBar()
+    this.nativeShell.init()
     this.onboardingService.showOnFirstLaunch()
   }
 
@@ -89,7 +98,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }).catch(() => {})
   }
 
-  private setupAppLinks(): void {
+  private setupNativeListeners(): void {
     if (!Capacitor.isNativePlatform()) return
 
     this.appPlugin
@@ -111,8 +120,37 @@ export class AppComponent implements OnInit, OnDestroy {
         })
       })
       .then((handle) => {
-        this.appUrlOpenHandle = handle
+        this.listenerHandles.push(handle)
       })
+
+    this.appPlugin
+      .addListener("backButton", (event) => {
+        this.ngZone.run(() => this.handleBackButton(event))
+      })
+      .then((handle) => {
+        this.listenerHandles.push(handle)
+      })
+  }
+
+  /**
+   * Android's hardware back button (and back gesture). Registering a listener
+   * disables Capacitor's default, which exits the app from any screen: close
+   * the topmost overlay or panel first, then go back in history, and on the
+   * first screen send the app to the background like other Android apps
+   * (exiting would make the next launch a cold start).
+   */
+  private handleBackButton({ canGoBack }: BackButtonListenerEvent): void {
+    const dialogs = this.dialog.openDialogs
+    if (dialogs.length > 0) {
+      dialogs[dialogs.length - 1].close()
+      return
+    }
+    if (this.backButton.closeTopmost()) return
+    if (canGoBack) {
+      window.history.back()
+      return
+    }
+    void this.appPlugin.minimizeApp()
   }
 
   /**
@@ -161,9 +199,7 @@ export class AppComponent implements OnInit, OnDestroy {
     if (typeof window !== "undefined") {
       window.removeEventListener("appinstalled", this.installListener)
     }
-    if (this.appUrlOpenHandle) {
-      await this.appUrlOpenHandle.remove()
-    }
+    await Promise.all(this.listenerHandles.map((handle) => handle.remove()))
   }
 
   private isStandaloneMode(): boolean {

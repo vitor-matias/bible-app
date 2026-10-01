@@ -6,6 +6,7 @@ import {
 } from "@angular/material/bottom-sheet"
 import { provideRouter } from "@angular/router"
 import { Subject } from "rxjs"
+import { BackButtonService } from "../../services/back-button.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { VerseComponent } from "./verse.component"
 
@@ -41,6 +42,7 @@ describe("VerseComponent", () => {
   let mockBibleRef: jasmine.SpyObj<BibleReferenceService>
   let mockBottomSheet: MatBottomSheet
   let dismissed: Subject<void>
+  let dismissSheet: jasmine.Spy
 
   beforeEach(async () => {
     mockBibleRef = jasmine.createSpyObj("BibleReferenceService", ["extract"])
@@ -59,9 +61,11 @@ describe("VerseComponent", () => {
     mockBottomSheet = (component as unknown as { bottomSheet: MatBottomSheet })
       .bottomSheet
     dismissed = new Subject<void>()
+    dismissSheet = jasmine.createSpy("dismiss")
     spyOn(mockBottomSheet, "open").and.returnValue({
+      dismiss: dismissSheet,
       afterDismissed: () => dismissed.asObservable(),
-    } as ReturnType<MatBottomSheet["open"]>)
+    } as unknown as ReturnType<MatBottomSheet["open"]>)
   })
 
   it("should create", () => {
@@ -811,6 +815,22 @@ describe("VerseComponent", () => {
 
       component.toggleFootnotes()
       expect(mockBottomSheet.open).toHaveBeenCalled()
+    })
+
+    it("lets the Android back button dismiss the footnotes sheet", () => {
+      setData(
+        component,
+        makeVerse({
+          text: [
+            { type: "text", text: "verse" },
+            { type: "footnote", text: "note", reference: "a" },
+          ],
+        }),
+      )
+      component.toggleFootnotes()
+
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
+      expect(dismissSheet).toHaveBeenCalled()
     })
 
     it("should not open bottom sheet when no footnotes", () => {
