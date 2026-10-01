@@ -323,4 +323,52 @@ describe("AppComponent", () => {
       expect(mockAppPlugin.minimizeApp).toHaveBeenCalled()
     })
   })
+
+  describe("shares from other apps", () => {
+    let openUrl: (url: string) => void
+
+    beforeEach(() => {
+      let capturedCallback: (event: URLOpenListenerEvent) => void = () => {}
+      mockAppPlugin.addListener.and.callFake(((
+        eventName: string,
+        callback: (event: URLOpenListenerEvent) => void,
+      ) => {
+        if (eventName === "appUrlOpen") capturedCallback = callback
+        return Promise.resolve({
+          remove: async () => {},
+        } as unknown as PluginListenerHandle)
+        // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
+      }) as any)
+      TestBed.createComponent(AppComponent).detectChanges()
+      openUrl = (url) => ngZone.run(() => capturedCallback({ url }))
+    })
+
+    // MainActivity rewrites Android share intents into this URL; routing it
+    // as a plain page left the app on the home screen.
+    it("searches for shared text delivered as an app URL", () => {
+      openUrl(
+        "https://biblia.capuchinhos.org/?text=amai-vos%20uns%20aos%20outros",
+      )
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/search"], {
+        queryParams: { q: "amai-vos uns aos outros" },
+      })
+      expect(routerSpy.navigateByUrl).not.toHaveBeenCalled()
+    })
+
+    // Android share sheets put the link inside the text, often mid-sentence.
+    it("opens a link to this site found inside shared text", () => {
+      openUrl(
+        `https://biblia.capuchinhos.org/?text=${encodeURIComponent(
+          "Lê isto: https://biblia.capuchinhos.org/mc/7.",
+        )}`,
+      )
+      expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/mc/7")
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
+    })
+
+    it("still opens plain app links on the root", () => {
+      openUrl("https://biblia.capuchinhos.org/?ref=x")
+      expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/?ref=x")
+    })
+  })
 })

@@ -83,19 +83,21 @@ export class AppComponent implements OnInit, OnDestroy {
     this.appPlugin
       .addListener("appUrlOpen", (event) => {
         this.ngZone.run(() => {
-          try {
-            const url = new URL(event.url)
-
-            if (
-              url.hostname === appConfig.domain ||
-              url.hostname === appConfig.fallbackDomain
-            ) {
-              // Route inside the angular space using path
-              this.router.navigateByUrl(url.pathname + url.search + url.hash)
-            }
-          } catch {
-            console.warn("Invalid app URL:", event.url)
+          const path = this.internalPath(event.url)
+          if (!path) {
+            console.warn("Ignoring app URL outside this site:", event.url)
+            return
           }
+          // MainActivity delivers shares from other apps as a share-target
+          // URL on the root, like the PWA's.
+          const url = new URL(event.url)
+          if (
+            url.pathname === "/" &&
+            this.routeSharedContent(url.searchParams)
+          ) {
+            return
+          }
+          this.router.navigateByUrl(path)
         })
       })
       .then((handle) => {
@@ -135,31 +137,40 @@ export class AppComponent implements OnInit, OnDestroy {
   /**
    * Handles incoming share-target launches (Web Share Target API, GET action).
    * When another app shares a URL or text into this PWA, the OS opens it at
-   * `/?url=<shared-url>&text=<shared-text>&title=<shared-title>`.
-   * - If the shared URL has a recognisable path on our domain, navigate there.
-   * - Otherwise fall back to opening the search screen with the text/URL.
+   * `/?url=<shared-url>&text=<shared-text>&title=<shared-title>`. The Android
+   * app receives the same URL through `appUrlOpen` (MainActivity rewrites
+   * share intents into it).
    */
   private handleShareTarget(): void {
-    const params = new URLSearchParams(window.location.search)
+    this.routeSharedContent(new URLSearchParams(window.location.search))
+  }
+
+  /**
+   * Routes shared content, if `params` carries any:
+   * - an internal link (the URL, or one inside the text) opens that page;
+   * - otherwise the search screen opens with the text, URL or title.
+   * Returns whether there was anything to route.
+   */
+  private routeSharedContent(params: URLSearchParams): boolean {
     const sharedUrl = params.get("url")
     const sharedText = params.get("text")
     const sharedTitle = params.get("title")
 
-    if (!sharedUrl && !sharedText && !sharedTitle) return
+    if (!sharedUrl && !sharedText && !sharedTitle) return false
 
-    // Try to navigate directly if the shared URL is an internal link.
-    if (sharedUrl) {
-      try {
-        const url = new URL(sharedUrl)
-        if (
-          url.hostname === appConfig.domain ||
-          url.hostname === appConfig.fallbackDomain
-        ) {
-          this.router.navigateByUrl(url.pathname + url.search + url.hash)
-          return
-        }
-      } catch {
-        // Not a valid URL — fall through to search.
+    // Android share sheets usually put the link inside the text.
+    const candidates = [
+      sharedUrl,
+      // Drop punctuation that ends the sentence around the link.
+      ...(sharedText?.match(/https?:\/\/\S+/g) ?? []).map((link) =>
+        link.replace(/[).,;:!?]+$/, ""),
+      ),
+    ]
+    for (const candidate of candidates) {
+      const internalPath = candidate ? this.internalPath(candidate) : null
+      if (internalPath) {
+        this.router.navigateByUrl(internalPath)
+        return true
       }
     }
 
@@ -172,6 +183,23 @@ export class AppComponent implements OnInit, OnDestroy {
     if (query) {
       this.router.navigate(["/search"], { queryParams: { q: query } })
     }
+    return true
+  }
+
+  /** The in-app path of a link to this site, or null for anything else. */
+  private internalPath(link: string): string | null {
+    try {
+      const url = new URL(link)
+      if (
+        url.hostname === appConfig.domain ||
+        url.hostname === appConfig.fallbackDomain
+      ) {
+        return url.pathname + url.search + url.hash
+      }
+    } catch {
+      // Not a valid URL.
+    }
+    return null
   }
 
   async ngOnDestroy(): Promise<void> {

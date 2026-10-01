@@ -50,3 +50,25 @@ export class AnalyticsService {
     )
   }
 }
+
+/** The Umami payload fields this app rewrites; the script sends more. */
+export interface UmamiPayload {
+  hostname?: string
+  tag?: string
+  [field: string]: unknown
+}
+
+/**
+ * Umami's `data-before-send` hook (registered in main.ts). The native shells
+ * serve the app from https://localhost, so their page views would all be
+ * counted under that hostname: label them by platform instead. Custom events
+ * also carry `platform` in their data (see AnalyticsService.track).
+ */
+export function labelUmamiPlatform(
+  _type: string,
+  payload: UmamiPayload,
+): UmamiPayload {
+  const platform = Capacitor.getPlatform()
+  if (platform === "web") return payload
+  return { ...payload, hostname: `${platform}-app`, tag: platform }
+}
