@@ -283,6 +283,12 @@ html.dark-theme .onboarding-dialog .mat-mdc-button .mdc-button__label {
   padding-bottom: calc(8px + var(--app-inset-bottom)) !important;
 }
 
+/* Snack bars (toasts) float at the bottom of the screen: lift them above the
+   Android navigation bar. Material's default margin is 8px. */
+.cdk-overlay-pane .mat-mdc-snack-bar-container {
+  margin-bottom: calc(8px + var(--app-inset-bottom));
+}
+
 .mat-drawer {
   background-color: var(--card-background) !important; /* Force apply */
   color: var(--text-color) !important; /* Force apply */
