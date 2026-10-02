@@ -96,7 +96,8 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 56px - env(safe-area-inset-top));
+  /* Ends at the top of the Android navigation bar, like the reader. */
+  height: calc(100vh - 56px - env(safe-area-inset-top) - var(--app-inset-bottom));
   overflow: hidden;
   overscroll-behavior: none; /* Prevents rubber banding in this container */
   touch-action: pan-y;
