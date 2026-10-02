@@ -55,6 +55,41 @@ describe("AboutComponent", () => {
     expect(element.querySelector('a[href="/gn/1"]')).toBeNull()
   })
 
+  // Prose lives in real paragraphs, not text nodes separated by empty <p>s.
+  it("puts each organisation's prose in non-empty paragraphs", () => {
+    const element = fixture.nativeElement as HTMLElement
+    const orgs = element.querySelectorAll<HTMLElement>("section.org")
+
+    expect(orgs.length).toBe(2)
+    for (const org of Array.from(orgs)) {
+      const paragraphs = Array.from(org.querySelectorAll("p"))
+      expect(paragraphs.length).toBeGreaterThan(0)
+      for (const p of paragraphs) {
+        expect(p.textContent?.trim()).not.toBe("")
+      }
+    }
+  })
+
+  it("opens the organisations' sites in a new tab without an opener", () => {
+    const element = fixture.nativeElement as HTMLElement
+    const links = Array.from(
+      element.querySelectorAll<HTMLAnchorElement>("a.site-link"),
+    )
+
+    expect(links.map((a) => a.href)).toEqual([
+      "https://www.difusorabiblica.com/",
+      "https://www.capuchinhos.org/",
+    ])
+    expect(links.map((a) => a.textContent?.trim())).toEqual([
+      "difusorabiblica.com",
+      "capuchinhos.org",
+    ])
+    for (const link of links) {
+      expect(link.target).toBe("_blank")
+      expect(link.relList.contains("noopener")).toBeTrue()
+    }
+  })
+
   // The list is not here, but the link to it is: /livros only passes weight to
   // the books if something links to /livros in the first place.
   it("links to the book index", () => {
