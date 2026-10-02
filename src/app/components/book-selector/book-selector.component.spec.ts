@@ -274,14 +274,14 @@ describe("BookSelectorComponent", () => {
     expect(large).toBeCloseTo(small * 2, 1)
   })
 
-  // The drawer runs behind the navigation bar (edge-to-edge): the last row
-  // must scroll clear of it, with no extra minimum gap (a fixed 48px left a
-  // large blank space at the end of the list).
-  it("pads the end of the book list by the bottom system inset", () => {
+  // The drawer sits inside the reader, which already ends above the
+  // navigation bar: padding the list for the inset again left a large blank
+  // space below the last row.
+  it("does not pad the book list for the bottom system inset", () => {
     const host = fixture.nativeElement as HTMLElement
     const list = host.querySelector(".bible-books-container") as HTMLElement
 
     host.style.setProperty("--app-inset-bottom", "100px")
-    expect(getComputedStyle(list).paddingBottom).toBe("108px")
+    expect(getComputedStyle(list).paddingBottom).toBe("8px")
   })
 })

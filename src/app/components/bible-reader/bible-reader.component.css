@@ -89,9 +89,9 @@ h6 {
 
 .bookSelectorContainer {
   width: 100%;
-  height: calc(100vh - (56px + env(safe-area-inset-top)));
+  height: calc(100vh - (56px + env(safe-area-inset-top) + var(--app-inset-bottom)));
   /* Fallback */
-  height: calc(100dvh - (56px + env(safe-area-inset-top)));
+  height: calc(100dvh - (56px + env(safe-area-inset-top) + var(--app-inset-bottom)));
   /* Dynamic viewport */
   overscroll-behavior: none;
   /* Prevents rubber banding in this container */
@@ -179,8 +179,7 @@ h6 {
   height: calc(100vh - (56px + env(safe-area-inset-top)) - 15px - var(--app-inset-bottom));
   /* Fallback */
   height: calc(100dvh - (56px + env(safe-area-inset-top)) - 15px - var(--app-inset-bottom));
-  /* Dynamic viewport - Header - Margins - bottom inset. Pages don't scroll,
-     so the text must end above the navigation bar (the footer sits there). */
+  /* Dynamic viewport - Header - Margins - Navigation bar */
   width: 95%;
   /* Narrower container to create side margins */
   margin: 0 auto;
@@ -338,9 +337,7 @@ h6 {
   font-family: "PT Serif", serif;
   width: 95%;
   margin: 0 auto;
-  /* Last thing in the scrolling view: the reader draws edge-to-edge behind
-     the navigation bar, so let the end scroll clear of it. */
-  padding: 8px 0 calc(8px + var(--app-inset-bottom)) 0;
+  padding: 8px 0 8px 0;
   text-align: center;
   font-size: 18px;
   color: dimgray;
