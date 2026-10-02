@@ -6,13 +6,16 @@ import {
   type OnDestroy,
   type OnInit,
 } from "@angular/core"
+import { MatDialog } from "@angular/material/dialog"
 import { Router, RouterOutlet } from "@angular/router"
-import { App } from "@capacitor/app"
+import type { App, BackButtonListenerEvent } from "@capacitor/app"
 import type { PluginListenerHandle } from "@capacitor/core"
 import { Capacitor } from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
 import { appConfig } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
+import { BackButtonService } from "./services/back-button.service"
+import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
 import { PwaInstallService } from "./services/pwa-install.service"
@@ -29,7 +32,7 @@ import { APP_PLUGIN } from "./tokens"
 })
 export class AppComponent implements OnInit, OnDestroy {
   private installEventFired = false
-  private appUrlOpenHandle?: PluginListenerHandle
+  private readonly listenerHandles: PluginListenerHandle[] = []
 
   private readonly installListener = () => {
     this.installEventFired = true
@@ -45,8 +48,13 @@ export class AppComponent implements OnInit, OnDestroy {
     // Injected early so it captures `beforeinstallprompt`, which fires once.
     _pwaInstallService: PwaInstallService,
     @Inject(APP_PLUGIN) private appPlugin: typeof App,
+    private dialog: MatDialog,
+    private nativeShell: NativeShellService,
+    private backButton: BackButtonService,
   ) {
-    injectSpeedInsights()
+    // Speed Insights is served by the Vercel deployment; the native apps load
+    // from a local origin where its script does not exist.
+    if (!Capacitor.isNativePlatform()) injectSpeedInsights()
   }
 
   ngOnInit(): void {
@@ -60,7 +68,8 @@ export class AppComponent implements OnInit, OnDestroy {
 
     void this.trackAppOpenEvent()
     this.handleShareTarget()
-    this.setupAppLinks()
+    this.setupNativeListeners()
+    this.nativeShell.init()
     this.onboardingService.showOnFirstLaunch()
   }
 
@@ -68,60 +77,100 @@ export class AppComponent implements OnInit, OnDestroy {
     void this.analyticsService.track("app_open")
   }
 
-  private setupAppLinks(): void {
+  private setupNativeListeners(): void {
     if (!Capacitor.isNativePlatform()) return
 
     this.appPlugin
       .addListener("appUrlOpen", (event) => {
         this.ngZone.run(() => {
-          try {
-            const url = new URL(event.url)
-
-            if (
-              url.hostname === appConfig.domain ||
-              url.hostname === appConfig.fallbackDomain
-            ) {
-              // Route inside the angular space using path
-              this.router.navigateByUrl(url.pathname + url.search + url.hash)
-            }
-          } catch {
-            console.warn("Invalid app URL:", event.url)
+          const path = this.internalPath(event.url)
+          if (!path) {
+            console.warn("Ignoring app URL outside this site:", event.url)
+            return
           }
+          // MainActivity delivers shares from other apps as a share-target
+          // URL on the root, like the PWA's.
+          const url = new URL(event.url)
+          if (
+            url.pathname === "/" &&
+            this.routeSharedContent(url.searchParams)
+          ) {
+            return
+          }
+          this.router.navigateByUrl(path)
         })
       })
       .then((handle) => {
-        this.appUrlOpenHandle = handle
+        this.listenerHandles.push(handle)
       })
+
+    this.appPlugin
+      .addListener("backButton", (event) => {
+        this.ngZone.run(() => this.handleBackButton(event))
+      })
+      .then((handle) => {
+        this.listenerHandles.push(handle)
+      })
+  }
+
+  /**
+   * Android's hardware back button (and back gesture). Registering a listener
+   * disables Capacitor's default, which exits the app from any screen: close
+   * the topmost overlay or panel first, then go back in history, and on the
+   * first screen send the app to the background like other Android apps
+   * (exiting would make the next launch a cold start).
+   */
+  private handleBackButton({ canGoBack }: BackButtonListenerEvent): void {
+    const dialogs = this.dialog.openDialogs
+    if (dialogs.length > 0) {
+      dialogs[dialogs.length - 1].close()
+      return
+    }
+    if (this.backButton.closeTopmost()) return
+    if (canGoBack) {
+      window.history.back()
+      return
+    }
+    void this.appPlugin.minimizeApp()
   }
 
   /**
    * Handles incoming share-target launches (Web Share Target API, GET action).
    * When another app shares a URL or text into this PWA, the OS opens it at
-   * `/?url=<shared-url>&text=<shared-text>&title=<shared-title>`.
-   * - If the shared URL has a recognisable path on our domain, navigate there.
-   * - Otherwise fall back to opening the search screen with the text/URL.
+   * `/?url=<shared-url>&text=<shared-text>&title=<shared-title>`. The Android
+   * app receives the same URL through `appUrlOpen` (MainActivity rewrites
+   * share intents into it).
    */
   private handleShareTarget(): void {
-    const params = new URLSearchParams(window.location.search)
+    this.routeSharedContent(new URLSearchParams(window.location.search))
+  }
+
+  /**
+   * Routes shared content, if `params` carries any:
+   * - an internal link (the URL, or one inside the text) opens that page;
+   * - otherwise the search screen opens with the text, URL or title.
+   * Returns whether there was anything to route.
+   */
+  private routeSharedContent(params: URLSearchParams): boolean {
     const sharedUrl = params.get("url")
     const sharedText = params.get("text")
     const sharedTitle = params.get("title")
 
-    if (!sharedUrl && !sharedText && !sharedTitle) return
+    if (!sharedUrl && !sharedText && !sharedTitle) return false
 
-    // Try to navigate directly if the shared URL is an internal link.
-    if (sharedUrl) {
-      try {
-        const url = new URL(sharedUrl)
-        if (
-          url.hostname === appConfig.domain ||
-          url.hostname === appConfig.fallbackDomain
-        ) {
-          this.router.navigateByUrl(url.pathname + url.search + url.hash)
-          return
-        }
-      } catch {
-        // Not a valid URL — fall through to search.
+    // Android share sheets usually put the link inside the text.
+    const candidates = [
+      sharedUrl,
+      // Drop punctuation that ends the sentence around the link.
+      ...(sharedText?.match(/https?:\/\/\S+/g) ?? []).map((link) =>
+        link.replace(/[).,;:!?]+$/, ""),
+      ),
+    ]
+    for (const candidate of candidates) {
+      const internalPath = candidate ? this.internalPath(candidate) : null
+      if (internalPath) {
+        this.router.navigateByUrl(internalPath)
+        return true
       }
     }
 
@@ -134,15 +183,30 @@ export class AppComponent implements OnInit, OnDestroy {
     if (query) {
       this.router.navigate(["/search"], { queryParams: { q: query } })
     }
+    return true
+  }
+
+  /** The in-app path of a link to this site, or null for anything else. */
+  private internalPath(link: string): string | null {
+    try {
+      const url = new URL(link)
+      if (
+        url.hostname === appConfig.domain ||
+        url.hostname === appConfig.fallbackDomain
+      ) {
+        return url.pathname + url.search + url.hash
+      }
+    } catch {
+      // Not a valid URL.
+    }
+    return null
   }
 
   async ngOnDestroy(): Promise<void> {
     if (typeof window !== "undefined") {
       window.removeEventListener("appinstalled", this.installListener)
     }
-    if (this.appUrlOpenHandle) {
-      await this.appUrlOpenHandle.remove()
-    }
+    await Promise.all(this.listenerHandles.map((handle) => handle.remove()))
   }
 
   private isStandaloneMode(): boolean {

@@ -122,6 +122,21 @@ describe("SearchComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  // The body reserves the navigation bar's strip; a full-height results list
+  // ran through it, leaving the last results under the bar.
+  it("ends the results above the bottom system inset", () => {
+    fixture.detectChanges()
+    const host = fixture.nativeElement as HTMLElement
+    const container = host.querySelector(".search-container") as HTMLElement
+
+    host.style.setProperty("--app-inset-bottom", "0px")
+    const withoutInset = container.getBoundingClientRect().height
+    host.style.setProperty("--app-inset-bottom", "100px")
+    const withInset = container.getBoundingClientRect().height
+
+    expect(withoutInset - withInset).toBeCloseTo(100, 0)
+  })
+
   it("should run a shared query from the q query param on init", () => {
     queryParamMapSubject.next(convertToParamMap({ q: "shared text" }))
     const submitSpy = spyOn(component, "onSearchSubmit")

@@ -10,7 +10,7 @@ import { provideRouter } from "@angular/router"
 import { provideServiceWorker } from "@angular/service-worker"
 import { routes } from "./app.routes"
 import { BookService } from "./services/book.service"
-import { isBrowser } from "./utils/platform"
+import { isBrowser, isServiceWorkerEnabled } from "./utils/platform"
 
 export function initializeBookService(
   bookService: BookService,
@@ -35,7 +35,7 @@ export const appConfig: ApplicationConfig = {
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     provideServiceWorker("ngsw-worker.js", {
-      enabled: true,
+      enabled: isServiceWorkerEnabled(false),
       registrationStrategy: "registerWhenStable:30000",
     }),
     provideHttpClient(),
