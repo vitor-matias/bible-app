@@ -174,9 +174,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     private func configureReader(_ state: ChromeState) {
         let enabled = !state.inert
-        let more = UIBarButtonItem(image: UIImage(systemName: "ellipsis"), menu: ReaderMenu.make(state) { [weak self] id in
-            self?.plugin.send(id)
-        })
+        let menu = ReaderMenu.make(state, deviceIsDark: { [weak self] in self?.deviceIsDark ?? false }) {
+            [weak self] id in self?.plugin.send(id)
+        }
+        let more = UIBarButtonItem(image: UIImage(systemName: "ellipsis"), menu: menu)
         more.accessibilityLabel = "Mais"
         more.isEnabled = enabled
         readerItem.rightBarButtonItem = more
@@ -515,6 +516,20 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         return button
     }
 
+    /// The device's own appearance, whatever the app's theme overrides.
+    private var deviceIsDark: Bool {
+        view.window?.windowScene?.traitCollection.userInterfaceStyle == .dark
+    }
+
+    /// Following the device, the dark toggle in the More menu must show its
+    /// change.
+    override func traitCollectionDidChange(_ previous: UITraitCollection?) {
+        super.traitCollectionDidChange(previous)
+        if state.mode == .reader, traitCollection.userInterfaceStyle != previous?.userInterfaceStyle {
+            configureReader(state)
+        }
+    }
+
     /// The in-app theme can differ from the device's; "system" follows the device.
     static func interfaceStyle(_ mode: String) -> UIUserInterfaceStyle {
         switch mode {
@@ -535,7 +550,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
 /// The reader's More menu: what the web header's Material menu holds.
 enum ReaderMenu {
-    static func make(_ state: ChromeState, send: @escaping (String) -> Void) -> UIMenu {
+    static func make(_ state: ChromeState, deviceIsDark: @escaping () -> Bool,
+                     send: @escaping (String) -> Void) -> UIMenu {
         func action(_ title: String, _ symbol: String, _ id: String, keepsOpen: Bool = false) -> UIAction {
             let action = UIAction(title: title, image: UIImage(systemName: symbol)) { _ in send(id) }
             if keepsOpen, #available(iOS 16.0, *) {
@@ -544,16 +560,15 @@ enum ReaderMenu {
             return action
         }
 
-        let themes = [("system", "Tema do sistema", "circle.lefthalf.filled"),
-                      ("light", "Modo claro", "sun.max"),
-                      ("dark", "Modo escuro", "moon")]
-        let themeChoices = themes.map { mode, title, symbol -> UIAction in
-            let choice = action(title, symbol, "theme-\(mode)")
-            choice.state = mode == state.themeMode ? .on : .off
-            return choice
+        // Dark on or off, in one tap, rather than a submenu of three themes.
+        // Landing on the device's own appearance goes back to following it.
+        let dark = state.themeMode == "dark" || (state.themeMode == "system" && deviceIsDark())
+        let theme = UIAction(title: "Modo escuro", image: UIImage(systemName: dark ? "moon.fill" : "moon")) { _ in
+            let mode = dark ? "light" : "dark"
+            send((mode == "dark") == deviceIsDark() ? "theme-system" : "theme-\(mode)")
         }
-        let themeIcon = themes.first { $0.0 == state.themeMode }?.2 ?? "circle.lefthalf.filled"
-        var quick: [UIMenuElement] = [UIMenu(title: "Tema", image: UIImage(systemName: themeIcon), children: themeChoices)]
+        theme.state = dark ? .on : .off
+        var quick: [UIMenuElement] = [theme]
         if let viewMode = state.viewMode {
             let paged = viewMode == "paged"
             quick.append(action(paged ? "Modo de páginas" : "Modo de deslocamento",
