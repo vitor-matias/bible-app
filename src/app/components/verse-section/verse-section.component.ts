@@ -77,7 +77,7 @@ export class VerseSectionComponent implements OnChanges {
       verseNumber: this.data.number > 0 ? this.data.number : 1,
     }
     const book = this.bookService.findBook(currentLocation.bookId)
-    const message = `Voltar para ${book.shortName} ${currentLocation.chapterNumber},${currentLocation.verseNumber}?`
+    const place = `${book.shortName} ${currentLocation.chapterNumber},${currentLocation.verseNumber}`
     const goBack = () =>
       this.router.navigate(
         [this.bookService.getUrlAbrv(book), currentLocation.chapterNumber],
@@ -89,13 +89,16 @@ export class VerseSectionComponent implements OnChanges {
         },
       )
 
-    // iOS: the glass toast, with the button; it stays until used or closed.
+    // iOS: the glass toast is the button, as Books' "Back to Page" is.
     if (this.nativeChrome.enabled) {
-      this.nativeChrome.toast(message, { action: "Voltar", onAction: goBack })
+      this.nativeChrome.toast(`Voltar para ${place}`, {
+        symbol: "arrow.uturn.backward",
+        onTap: goBack,
+      })
       return
     }
     this.snackBar.openFromComponent(TwoActionSnackComponent, {
-      data: { message, returnUrl: goBack },
+      data: { message: `Voltar para ${place}?`, returnUrl: goBack },
     })
   }
 }

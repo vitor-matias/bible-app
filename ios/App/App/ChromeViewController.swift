@@ -21,7 +21,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private var toastBottom: NSLayoutConstraint!
     private var keyboardVisible = false
     /// A toast held until the keyboard closes (see ToastService).
-    private var pendingToast: (message: String, action: String?)?
+    private var pendingToast: (message: String, button: Bool, symbol: String?)?
 
     private(set) var state = ChromeState()
     private var collapsed = false
@@ -172,15 +172,21 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         view.layoutIfNeeded()
     }
 
+    private lazy var moreItem: UIBarButtonItem = {
+        let item = UIBarButtonItem(image: UIImage(systemName: "ellipsis"), menu: nil)
+        item.accessibilityLabel = "Mais"
+        return item
+    }()
+
     private func configureReader(_ state: ChromeState) {
         let enabled = !state.inert
-        let menu = ReaderMenu.make(state, deviceIsDark: { [weak self] in self?.deviceIsDark ?? false }) {
-            [weak self] id in self?.plugin.send(id)
+        // The same item throughout, its menu updated: replacing the item
+        // would close the menu while a choice that keeps it open is applied.
+        moreItem.menu = ReaderMenu.make(state) { [weak self] id in self?.plugin.send(id) }
+        moreItem.isEnabled = enabled
+        if readerItem.rightBarButtonItem !== moreItem {
+            readerItem.rightBarButtonItem = moreItem
         }
-        let more = UIBarButtonItem(image: UIImage(systemName: "ellipsis"), menu: menu)
-        more.accessibilityLabel = "Mais"
-        more.isEnabled = enabled
-        readerItem.rightBarButtonItem = more
 
         if let autoScroll = state.autoScroll {
             toolbar.setItems(autoScrollItems(autoScroll, enabled: enabled), animated: false)
@@ -333,19 +339,18 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// Typing, on screen or on a hardware keyboard (which shows no keyboard).
     private var keyboardUp: Bool { keyboardVisible || searchField.isEditing }
 
-    /// With an `action`, the toast has that button, and tapping it sends
-    /// toast-action.
-    func showToast(_ message: String, afterKeyboard: Bool, action: String? = nil) {
+    /// As a `button`, the toast is one (led by `symbol`), and tapping it
+    /// sends toast-action.
+    func showToast(_ message: String, afterKeyboard: Bool, button: Bool = false, symbol: String? = nil) {
         if afterKeyboard && keyboardUp {
-            pendingToast = (message, action)
+            pendingToast = (message, button, symbol)
             toast.dismissNow()
             return
         }
         pendingToast = nil
         view.layoutIfNeeded()
-        toast.show(message, action: action) { [weak self] in
-            self?.plugin.send("toast-action")
-        }
+        let onTap: (() -> Void)? = button ? { [weak self] in self?.plugin.send("toast-action") } : nil
+        toast.show(message, symbol: symbol, onTap: onTap)
     }
 
     @objc private func keyboardWillShow() {
@@ -363,7 +368,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             guard let self, let pending = self.pendingToast, !self.keyboardUp else { return }
             self.pendingToast = nil
-            self.showToast(pending.message, afterKeyboard: false, action: pending.action)
+            self.showToast(pending.message, afterKeyboard: false, button: pending.button, symbol: pending.symbol)
         }
     }
 
@@ -516,20 +521,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         return button
     }
 
-    /// The device's own appearance, whatever the app's theme overrides.
-    private var deviceIsDark: Bool {
-        view.window?.windowScene?.traitCollection.userInterfaceStyle == .dark
-    }
-
-    /// Following the device, the dark toggle in the More menu must show its
-    /// change.
-    override func traitCollectionDidChange(_ previous: UITraitCollection?) {
-        super.traitCollectionDidChange(previous)
-        if state.mode == .reader, traitCollection.userInterfaceStyle != previous?.userInterfaceStyle {
-            configureReader(state)
-        }
-    }
-
     /// The in-app theme can differ from the device's; "system" follows the device.
     static func interfaceStyle(_ mode: String) -> UIUserInterfaceStyle {
         switch mode {
@@ -550,8 +541,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
 /// The reader's More menu: what the web header's Material menu holds.
 enum ReaderMenu {
-    static func make(_ state: ChromeState, deviceIsDark: @escaping () -> Bool,
-                     send: @escaping (String) -> Void) -> UIMenu {
+    static func make(_ state: ChromeState, send: @escaping (String) -> Void) -> UIMenu {
         func action(_ title: String, _ symbol: String, _ id: String, keepsOpen: Bool = false) -> UIAction {
             let action = UIAction(title: title, image: UIImage(systemName: symbol)) { _ in send(id) }
             if keepsOpen, #available(iOS 16.0, *) {
@@ -560,15 +550,7 @@ enum ReaderMenu {
             return action
         }
 
-        // Dark on or off, in one tap, rather than a submenu of three themes.
-        // Landing on the device's own appearance goes back to following it.
-        let dark = state.themeMode == "dark" || (state.themeMode == "system" && deviceIsDark())
-        let theme = UIAction(title: "Modo escuro", image: UIImage(systemName: dark ? "moon.fill" : "moon")) { _ in
-            let mode = dark ? "light" : "dark"
-            send((mode == "dark") == deviceIsDark() ? "theme-system" : "theme-\(mode)")
-        }
-        theme.state = dark ? .on : .off
-        var quick: [UIMenuElement] = [theme]
+        var quick: [UIMenuElement] = []
         if let viewMode = state.viewMode {
             let paged = viewMode == "paged"
             quick.append(action(paged ? "Modo de páginas" : "Modo de deslocamento",
@@ -578,8 +560,21 @@ enum ReaderMenu {
         quick.append(action("Diminuir texto", "textformat.size.smaller", "font-decrease", keepsOpen: true))
         quick.append(action("Aumentar texto", "textformat.size.larger", "font-increase", keepsOpen: true))
         let quickRow = UIMenu(title: "", options: .displayInline, children: quick)
+
+        // The theme: its three choices side by side, the current one marked,
+        // rather than a menu within the menu. Kept open, so the page changes
+        // behind it.
+        let themes = [("system", "Automático", "circle.lefthalf.filled"),
+                      ("light", "Claro", "sun.max"),
+                      ("dark", "Escuro", "moon")]
+        let themeRow = UIMenu(title: "", options: .displayInline, children: themes.map { mode, title, symbol in
+            let choice = action(title, symbol, "theme-\(mode)", keepsOpen: true)
+            choice.state = mode == state.themeMode ? .on : .off
+            return choice
+        })
         if #available(iOS 16.0, *) {
             quickRow.preferredElementSize = .small
+            themeRow.preferredElementSize = .medium
         }
 
         let autoScroll = action("Deslocamento automático", "arrow.down.circle", "auto-scroll")
@@ -597,7 +592,7 @@ enum ReaderMenu {
         items.append(action("Como usar a app", "questionmark.circle", "help"))
         items.append(action("Política de Privacidade", "hand.raised", "privacy"))
 
-        return UIMenu(children: [quickRow, UIMenu(title: "", options: .displayInline, children: items)])
+        return UIMenu(children: [quickRow, themeRow, UIMenu(title: "", options: .displayInline, children: items)])
     }
 }
 

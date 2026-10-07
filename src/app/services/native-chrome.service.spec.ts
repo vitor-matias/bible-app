@@ -254,28 +254,29 @@ describe("NativeChromeService", () => {
     })
   })
 
-  describe("a toast with a button", () => {
+  describe("a toast that is a button", () => {
     let service: NativeChromeService
     let goBack: jasmine.Spy
 
     beforeEach(() => {
       service = create("ios")
       goBack = jasmine.createSpy("goBack")
-      service.toast("Voltar para Gn 1,3?", {
-        action: "Voltar",
-        onAction: goBack,
+      service.toast("Voltar para Gn 1,3", {
+        symbol: "arrow.uturn.backward",
+        onTap: goBack,
       })
     })
 
-    it("shows the button", () => {
+    it("shows it as a button, with its symbol", () => {
       expect(plugin.showToast).toHaveBeenCalledWith({
-        message: "Voltar para Gn 1,3?",
+        message: "Voltar para Gn 1,3",
         afterKeyboard: false,
-        action: "Voltar",
+        button: true,
+        symbol: "arrow.uturn.backward",
       })
     })
 
-    it("runs the action once, when its button is tapped", () => {
+    it("runs the action once, when it is tapped", () => {
       const actions: NativeChromeAction[] = []
       service.actions$.subscribe((action) => actions.push(action))
 

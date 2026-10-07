@@ -190,7 +190,7 @@ describe("VerseSectionComponent", () => {
       spyOn(mockSnackBar, "openFromComponent")
     })
 
-    it("offers the way back on the glass toast, with its button", () => {
+    it("offers the way back as a glass toast that is a button", () => {
       const router = TestBed.inject(Router)
       const navigate = spyOn(router, "navigate").and.resolveTo(true)
       setData(component, makeVerse({ chapterNumber: 3, number: 5 }))
@@ -198,11 +198,11 @@ describe("VerseSectionComponent", () => {
       component.showReturnSnackbar()
 
       expect(mockSnackBar.openFromComponent).not.toHaveBeenCalled()
-      expect(toast).toHaveBeenCalledOnceWith("Voltar para Gn 3,5?", {
-        action: "Voltar",
-        onAction: jasmine.any(Function),
+      expect(toast).toHaveBeenCalledOnceWith("Voltar para Gn 3,5", {
+        symbol: "arrow.uturn.backward",
+        onTap: jasmine.any(Function),
       })
-      toast.calls.mostRecent().args[1].onAction()
+      toast.calls.mostRecent().args[1].onTap()
       expect(navigate).toHaveBeenCalledWith(["gn", 3], {
         queryParams: { verseStart: 5, highlight: false },
       })

@@ -147,9 +147,12 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func showToast(_ call: CAPPluginCall) {
         let message = call.getString("message", "")
         let afterKeyboard = call.getBool("afterKeyboard", false)
-        let action = call.getString("action")
+        let button = call.getBool("button", false)
+        let symbol = call.getString("symbol")
         DispatchQueue.main.async {
-            if !message.isEmpty { self.chrome?.showToast(message, afterKeyboard: afterKeyboard, action: action) }
+            if !message.isEmpty {
+                self.chrome?.showToast(message, afterKeyboard: afterKeyboard, button: button, symbol: symbol)
+            }
             call.resolve()
         }
     }

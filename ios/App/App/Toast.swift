@@ -2,15 +2,19 @@ import UIKit
 
 /// A short message in a glass capsule, floating above the bottom bar: the iOS
 /// counterpart of the web app's snackbar (toast.service.ts). A plain one fades
-/// out by itself, or when tapped. One with a button (e.g. "Voltar") stays
-/// until its button or its close button is tapped, or another toast replaces it.
+/// out by itself, or when tapped.
+///
+/// A toast can also be a button, as Books' "Back to Page" is: the whole
+/// capsule is the target, its message the label (e.g. "Voltar para João 1,18"),
+/// with a close button beside it. It stays until one of them is tapped or
+/// another toast replaces it.
 final class ToastView: UIView {
     private let label = UILabel()
-    private let actionButton = UIButton(configuration: .plain())
+    private let mainButton = UIButton(configuration: .plain())
     private let closeButton = UIButton(configuration: .plain())
     private let background: UIVisualEffectView
     private var hideWork: DispatchWorkItem?
-    private var onAction: (() -> Void)?
+    private var onTap: (() -> Void)?
     /// Trailing, top and bottom: the buttons' padding stands in for these.
     private var rowMargins: [NSLayoutConstraint] = []
 
@@ -35,17 +39,20 @@ final class ToastView: UIView {
         label.numberOfLines = 2
 
         // Padded, for a comfortable target; the row's margins allow for it.
-        let padding = NSDirectionalEdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6)
-        var action = UIButton.Configuration.plain()
-        action.baseForegroundColor = .label
-        action.contentInsets = padding
-        action.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+        let padding = NSDirectionalEdgeInsets(top: 8, leading: 6, bottom: 8, trailing: 6)
+        var main = UIButton.Configuration.plain()
+        main.baseForegroundColor = .label
+        main.contentInsets = padding
+        main.imagePadding = 8
+        main.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(textStyle: .subheadline, scale: .medium)
+        main.titleLineBreakMode = .byTruncatingTail
+        main.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
             var attributes = attributes
             attributes.font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: .systemFont(ofSize: 15, weight: .semibold))
             return attributes
         }
-        actionButton.configuration = action
-        actionButton.addTarget(self, action: #selector(actionTapped), for: .primaryActionTriggered)
+        mainButton.configuration = main
+        mainButton.addTarget(self, action: #selector(tapped), for: .primaryActionTriggered)
 
         var close = UIButton.Configuration.plain()
         close.image = UIImage(systemName: "xmark",
@@ -56,32 +63,28 @@ final class ToastView: UIView {
         closeButton.accessibilityLabel = "Fechar"
         closeButton.addTarget(self, action: #selector(dismissNow), for: .primaryActionTriggered)
 
-        let row = UIStackView(arrangedSubviews: [label, actionButton, closeButton])
+        let row = UIStackView(arrangedSubviews: [label, mainButton, closeButton])
         row.alignment = .center
         row.spacing = 4
-        row.setCustomSpacing(12, after: label)
         row.translatesAutoresizingMaskIntoConstraints = false
         background.contentView.addSubview(row)
-        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        for button in [actionButton, closeButton] {
-            button.setContentHuggingPriority(.required, for: .horizontal)
-            button.setContentCompressionResistancePriority(.required, for: .horizontal)
-        }
+        closeButton.setContentHuggingPriority(.required, for: .horizontal)
+        closeButton.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         rowMargins = [
             background.contentView.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: 20),
             row.topAnchor.constraint(equalTo: background.contentView.topAnchor, constant: 12),
             background.contentView.bottomAnchor.constraint(equalTo: row.bottomAnchor, constant: 12),
+            row.leadingAnchor.constraint(equalTo: background.contentView.leadingAnchor, constant: 20),
         ]
         NSLayoutConstraint.activate(rowMargins + [
             background.leadingAnchor.constraint(equalTo: leadingAnchor),
             background.trailingAnchor.constraint(equalTo: trailingAnchor),
             background.topAnchor.constraint(equalTo: topAnchor),
             background.bottomAnchor.constraint(equalTo: bottomAnchor),
-            row.leadingAnchor.constraint(equalTo: background.contentView.leadingAnchor, constant: 20),
         ])
-        let tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
-        addGestureRecognizer(tap)
+        // The capsule's margins count as the button too.
+        addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tapped)))
     }
 
     @available(*, unavailable)
@@ -94,24 +97,31 @@ final class ToastView: UIView {
         background.layer.cornerCurve = .continuous
     }
 
-    /// `action` names the button; `onAction` runs when it is tapped.
-    func show(_ message: String, action: String? = nil, onAction: (() -> Void)? = nil) {
+    /// With `onTap`, the toast is a button labelled `message`, led by `symbol`.
+    func show(_ message: String, symbol: String? = nil, onTap: (() -> Void)? = nil) {
         hideWork?.cancel()
         hideWork = nil
+        self.onTap = onTap
+        let button = onTap != nil
         label.text = message
-        actionButton.configuration?.title = action
-        self.onAction = action == nil ? nil : onAction
-        let actionable = action != nil
-        actionButton.isHidden = !actionable
-        closeButton.isHidden = !actionable
-        label.textAlignment = actionable ? .natural : .center
-        let trailing: CGFloat = actionable ? 14 : 20
-        let vertical: CGFloat = actionable ? 6 : 12
-        rowMargins[0].constant = trailing
-        rowMargins[1].constant = vertical
-        rowMargins[2].constant = vertical
-        // A plain toast reads as one element; with buttons, VoiceOver reaches each.
-        isAccessibilityElement = !actionable
+        label.isHidden = button
+        mainButton.configuration?.title = message
+        mainButton.configuration?.image = symbol.flatMap { UIImage(systemName: $0) }
+        mainButton.isHidden = !button
+        closeButton.isHidden = !button
+        // The glass answers the touch, as a glass button's does.
+        if #available(iOS 26.0, *) {
+            let glass = UIGlassEffect()
+            glass.isInteractive = button
+            background.effect = glass
+        }
+        // The buttons' padding stands in for the margins.
+        rowMargins[0].constant = button ? 14 : 20
+        rowMargins[1].constant = button ? 4 : 12
+        rowMargins[2].constant = button ? 4 : 12
+        rowMargins[3].constant = button ? 14 : 20
+        // Read as one element, or as its two buttons.
+        isAccessibilityElement = !button
         accessibilityLabel = message
         accessibilityTraits = .staticText
         isHidden = false
@@ -126,9 +136,8 @@ final class ToastView: UIView {
             self.alpha = 1
             self.transform = .identity
         }
-        UIAccessibility.post(notification: .announcement,
-                             argument: actionable ? "\(message) \(action ?? "")" : message)
-        guard !actionable else { return }
+        UIAccessibility.post(notification: .announcement, argument: message)
+        guard !button else { return }
 
         // Long enough to read: about a second and a half plus a word a quarter-second.
         let words = message.split(separator: " ").count
@@ -137,13 +146,9 @@ final class ToastView: UIView {
         DispatchQueue.main.asyncAfter(deadline: .now() + min(5, 1.6 + Double(words) * 0.25), execute: work)
     }
 
-    /// Tapping a plain toast puts it away; one with buttons waits for them.
+    /// A plain toast goes away; a button runs its action and goes away.
     @objc private func tapped() {
-        if onAction == nil { dismissNow() }
-    }
-
-    @objc private func actionTapped() {
-        let action = onAction
+        let action = onTap
         dismissNow()
         action?()
     }
@@ -151,7 +156,7 @@ final class ToastView: UIView {
     @objc func dismissNow() {
         hideWork?.cancel()
         hideWork = nil
-        onAction = nil
+        onTap = nil
         guard !isHidden else { return }
         UIView.animate(withDuration: 0.25, delay: 0, options: [.beginFromCurrentState]) {
             self.alpha = 0

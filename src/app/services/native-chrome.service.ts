@@ -143,11 +143,13 @@ export interface NativeToastOptions {
   /** Hold the toast until the keyboard closes, so it never covers typing. */
   afterKeyboard?: boolean
   /**
-   * A button on the toast, which then stays until the button or its close
-   * button is tapped, or another toast replaces it.
+   * Makes the whole toast a button, the message its label, with a close
+   * button beside it, as Books' "Back to Page" is. It stays until one of them
+   * is tapped or another toast replaces it.
    */
-  action?: string
-  onAction?: () => void
+  onTap?: () => void
+  /** An SF Symbol before the button's label. */
+  symbol?: string
 }
 
 /** The space the bars cover, in CSS pixels. */
@@ -166,7 +168,8 @@ export interface NativeChromePlugin {
   showToast(options: {
     message: string
     afterKeyboard: boolean
-    action?: string
+    button?: boolean
+    symbol?: string
   }): Promise<void>
   showReport(state: ReportSheetState): Promise<void>
   /** The answer to report-submit: the sheet closes, or shows `message`. */
@@ -226,7 +229,7 @@ export class NativeChromeService {
   private modalOpen = false
   private collapsed = false
   private autoScroll: AutoScrollChrome | null = null
-  /** The current toast's button. */
+  /** What tapping the current toast does, when it is a button. */
   private toastAction?: () => void
 
   /** True in the iOS app, whose shell provides the NativeChrome plugin. */
@@ -321,13 +324,13 @@ export class NativeChromeService {
   /** A glass toast above the bottom bar; see ToastService. */
   toast(message: string, options: NativeToastOptions = {}): void {
     if (!this.enabled) return
-    const { afterKeyboard = false, action, onAction } = options
-    // It replaces the toast before, and that one's button with it.
-    this.toastAction = action ? onAction : undefined
+    const { afterKeyboard = false, onTap, symbol } = options
+    // It replaces the toast before, and that one's action with it.
+    this.toastAction = onTap
     this.plugin
       .showToast(
-        action
-          ? { message, afterKeyboard, action }
+        onTap
+          ? { message, afterKeyboard, button: true, ...(symbol && { symbol }) }
           : { message, afterKeyboard },
       )
       .catch(() => {})
