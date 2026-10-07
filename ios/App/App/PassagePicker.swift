@@ -133,7 +133,8 @@ private final class BookListViewController: UICollectionViewController, UISearch
         super.viewDidLoad()
         collectionView.backgroundColor = sheetBackground
         navigationItem.rightBarButtonItem = closeButton(for: self)
-        updateModeButton()
+        navigationItem.leftBarButtonItem = modeToggle
+        modeToggle.isSelected = mode == .abbreviations
 
         let search = UISearchController(searchResultsController: nil)
         search.searchResultsUpdater = self
@@ -183,29 +184,22 @@ private final class BookListViewController: UICollectionViewController, UISearch
         show(filter: searchController.searchBar.text ?? "")
     }
 
-    /// "Mostrar livros como": names or abbreviations, a checkmark on the current one.
-    private func updateModeButton() {
-        let choices: [(Mode, String, String)] = [
-            (.names, "Nomes", "rectangle.grid.2x2"),
-            (.abbreviations, "Abreviaturas", "square.grid.3x3"),
-        ]
-        let actions = choices.map { choice, title, symbol in
-            UIAction(title: title, image: UIImage(systemName: symbol), state: choice == mode ? .on : .off) {
-                [weak self] _ in self?.setMode(choice)
-            }
-        }
-        let current = choices.first { $0.0 == mode }?.2 ?? "rectangle.grid.2x2"
-        let button = UIBarButtonItem(image: UIImage(systemName: current),
-                                     menu: UIMenu(title: "Mostrar livros como", children: actions))
-        button.accessibilityLabel = "Mostrar livros como"
-        navigationItem.leftBarButtonItem = button
-    }
+    /// Abbreviations on or off, in one tap; highlighted while on.
+    private lazy var modeToggle: UIBarButtonItem = {
+        let item = UIBarButtonItem(image: UIImage(systemName: "square.grid.3x3"), primaryAction: UIAction {
+            [weak self] _ in
+            guard let self else { return }
+            self.setMode(self.mode == .names ? .abbreviations : .names)
+        })
+        item.accessibilityLabel = "Abreviaturas"
+        return item
+    }()
 
     private func setMode(_ new: Mode) {
         guard new != mode else { return }
         mode = new
         UserDefaults.standard.set(new.rawValue, forKey: Self.modeKey)
-        updateModeButton()
+        modeToggle.isSelected = new == .abbreviations
         UIView.transition(with: collectionView, duration: 0.25, options: .transitionCrossDissolve) {
             self.collectionView.setCollectionViewLayout(Self.layout(for: new), animated: false)
             self.dataSource.applySnapshotUsingReloadData(self.dataSource.snapshot())
