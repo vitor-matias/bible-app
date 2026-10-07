@@ -21,7 +21,10 @@ import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatInputModule } from "@angular/material/input"
 import { MatSelectModule } from "@angular/material/select"
 import { MatSnackBarModule } from "@angular/material/snack-bar"
-import { AnalyticsService } from "../../services/analytics.service"
+import {
+  PROBLEM_DETAILS_MAX_LENGTH,
+  ProblemReportService,
+} from "../../services/problem-report.service"
 import { ToastService } from "../../services/toast.service"
 
 export interface ReportProblemData {
@@ -48,28 +51,22 @@ export interface ReportProblemData {
 })
 export class ReportProblemComponent {
   private readonly toast = inject(ToastService)
+  private readonly reports = inject(ProblemReportService)
   isSending = false
 
   reportForm = new FormGroup({
     topic: new FormControl("", [Validators.required]),
     details: new FormControl("", [
       Validators.required,
-      Validators.maxLength(500),
+      Validators.maxLength(PROBLEM_DETAILS_MAX_LENGTH),
     ]),
   })
 
-  topics = [
-    { value: "typo", label: "Erro Ortográfico" },
-    { value: "formatting", label: "Formatação" },
-    /*{ value: "audio", label: "Áudio" },*/
-    { value: "suggestion", label: "Sugestão" },
-    { value: "other", label: "Outro" },
-  ]
+  topics = this.reports.topics
 
   constructor(
     public dialogRef: MatDialogRef<ReportProblemComponent>,
     @Inject(MAT_DIALOG_DATA) public data: ReportProblemData,
-    private analyticsService: AnalyticsService,
   ) {}
 
   async onSubmit() {
@@ -80,7 +77,13 @@ export class ReportProblemComponent {
     this.isSending = true
 
     try {
-      await this.sendReport(this.reportForm.value)
+      const { topic, details } = this.reportForm.value
+      await this.reports.send({
+        bookId: this.data.book.id,
+        chapter: this.data.chapter,
+        topic: topic ?? "",
+        details: details ?? "",
+      })
 
       this.toast.show("O problema foi reportado. Obrigado!")
 
@@ -93,24 +96,6 @@ export class ReportProblemComponent {
     } finally {
       this.isSending = false
     }
-  }
-
-  private async sendReport(formValue: {
-    topic?: string | null
-    details?: string | null
-  }): Promise<void> {
-    const { topic, details } = formValue
-
-    if (!this.analyticsService.areAnalyticsAvailable()) {
-      throw new Error("Analytics is unavailable")
-    }
-
-    await this.analyticsService.track("report_problem", {
-      book: this.data.book.id,
-      chapter: this.data.chapter,
-      topic,
-      details,
-    })
   }
 
   onCancel() {

@@ -18,6 +18,7 @@
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		9582B6912FE9A0000072D4E8 /* NativeChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6902FE9A0000072D4E8 /* NativeChrome.swift */; };
 		9582B69D2FE9A0000072D4E8 /* Toast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B69C2FE9A0000072D4E8 /* Toast.swift */; };
+		9582B69F2FE9A0000072D4E8 /* ReportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B69E2FE9A0000072D4E8 /* ReportSheet.swift */; };
 		9582B6932FE9A0000072D4E8 /* ChromeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6922FE9A0000072D4E8 /* ChromeViewController.swift */; };
 		9582B6952FE9A0000072D4E8 /* PassagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6942FE9A0000072D4E8 /* PassagePicker.swift */; };
 		9582B6972FE9A0000072D4E8 /* OnboardingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6962FE9A0000072D4E8 /* OnboardingSheet.swift */; };
@@ -38,6 +39,7 @@
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		9582B6902FE9A0000072D4E8 /* NativeChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeChrome.swift; sourceTree = "<group>"; };
 		9582B69C2FE9A0000072D4E8 /* Toast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Toast.swift; sourceTree = "<group>"; };
+		9582B69E2FE9A0000072D4E8 /* ReportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportSheet.swift; sourceTree = "<group>"; };
 		9582B6922FE9A0000072D4E8 /* ChromeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromeViewController.swift; sourceTree = "<group>"; };
 		9582B6942FE9A0000072D4E8 /* PassagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassagePicker.swift; sourceTree = "<group>"; };
 		9582B6962FE9A0000072D4E8 /* OnboardingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSheet.swift; sourceTree = "<group>"; };
@@ -81,6 +83,7 @@
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				9582B6902FE9A0000072D4E8 /* NativeChrome.swift */,
 				9582B69C2FE9A0000072D4E8 /* Toast.swift */,
+				9582B69E2FE9A0000072D4E8 /* ReportSheet.swift */,
 				9582B69A2FE9A0000072D4E8 /* FootnotesSheet.swift */,
 				9582B6982FE9A0000072D4E8 /* BookmarksSheet.swift */,
 				9582B6962FE9A0000072D4E8 /* OnboardingSheet.swift */,
@@ -183,6 +186,7 @@
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
 				9582B6912FE9A0000072D4E8 /* NativeChrome.swift in Sources */,
 				9582B69D2FE9A0000072D4E8 /* Toast.swift in Sources */,
+				9582B69F2FE9A0000072D4E8 /* ReportSheet.swift in Sources */,
 				9582B69B2FE9A0000072D4E8 /* FootnotesSheet.swift in Sources */,
 				9582B6992FE9A0000072D4E8 /* BookmarksSheet.swift in Sources */,
 				9582B6972FE9A0000072D4E8 /* OnboardingSheet.swift in Sources */,

@@ -39,9 +39,12 @@ describe("ToastService", () => {
 
     expect(nativeChrome.toast).toHaveBeenCalledWith(
       "Encontrados 3 resultados",
-      true,
+      { afterKeyboard: true },
     )
-    expect(nativeChrome.toast).toHaveBeenCalledWith("Erro", false)
+    // The web's button label doesn't make a native one.
+    expect(nativeChrome.toast).toHaveBeenCalledWith("Erro", {
+      afterKeyboard: false,
+    })
     expect(snackBar.open).not.toHaveBeenCalled()
   })
 })

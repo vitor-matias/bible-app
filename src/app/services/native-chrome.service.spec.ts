@@ -37,8 +37,12 @@ describe("NativeChromeService", () => {
     showBookmarks: jasmine.Spy
     updateBookmarks: jasmine.Spy
     showToast: jasmine.Spy
+    showReport: jasmine.Spy
+    finishReport: jasmine.Spy
     addListener: jasmine.Spy
   }
+  /** Tests that need more of the document add it. */
+  let doc: Record<string, unknown>
   let body: HTMLElement
   let root: HTMLElement
   let overlays: HTMLElement
@@ -52,15 +56,18 @@ describe("NativeChromeService", () => {
       showBookmarks: jasmine.createSpy("showBookmarks").and.resolveTo(),
       updateBookmarks: jasmine.createSpy("updateBookmarks").and.resolveTo(),
       showToast: jasmine.createSpy("showToast").and.resolveTo(),
+      showReport: jasmine.createSpy("showReport").and.resolveTo(),
+      finishReport: jasmine.createSpy("finishReport").and.resolveTo(),
       addListener: jasmine.createSpy("addListener").and.resolveTo(),
     }
     body = document.createElement("body")
     root = document.createElement("html")
     overlays = document.createElement("div")
+    doc = { body, documentElement: root }
     TestBed.configureTestingModule({
       providers: [
         { provide: NATIVE_CHROME_PLUGIN, useValue: plugin },
-        { provide: DOCUMENT, useValue: { body, documentElement: root } },
+        { provide: DOCUMENT, useValue: doc },
         {
           provide: OverlayContainer,
           useValue: { getContainerElement: () => overlays },
@@ -235,7 +242,7 @@ describe("NativeChromeService", () => {
   it("passes toasts through, held for the keyboard or not", () => {
     const service = create("ios")
     service.toast("Copiado")
-    service.toast("Encontrados 3 resultados", true)
+    service.toast("Encontrados 3 resultados", { afterKeyboard: true })
 
     expect(plugin.showToast).toHaveBeenCalledWith({
       message: "Copiado",
@@ -244,6 +251,155 @@ describe("NativeChromeService", () => {
     expect(plugin.showToast).toHaveBeenCalledWith({
       message: "Encontrados 3 resultados",
       afterKeyboard: true,
+    })
+  })
+
+  describe("a toast with a button", () => {
+    let service: NativeChromeService
+    let goBack: jasmine.Spy
+
+    beforeEach(() => {
+      service = create("ios")
+      goBack = jasmine.createSpy("goBack")
+      service.toast("Voltar para Gn 1,3?", {
+        action: "Voltar",
+        onAction: goBack,
+      })
+    })
+
+    it("shows the button", () => {
+      expect(plugin.showToast).toHaveBeenCalledWith({
+        message: "Voltar para Gn 1,3?",
+        afterKeyboard: false,
+        action: "Voltar",
+      })
+    })
+
+    it("runs the action once, when its button is tapped", () => {
+      const actions: NativeChromeAction[] = []
+      service.actions$.subscribe((action) => actions.push(action))
+
+      listener("action")({ id: "toast-action" })
+      listener("action")({ id: "toast-action" })
+
+      expect(goBack).toHaveBeenCalledTimes(1)
+      expect(actions).toEqual([])
+    })
+
+    it("forgets the action once another toast replaces it", () => {
+      service.toast("Copiado")
+      listener("action")({ id: "toast-action" })
+
+      expect(goBack).not.toHaveBeenCalled()
+    })
+  })
+
+  it("passes the report sheet and the outcome through", () => {
+    const service = create("ios")
+    const state = {
+      message: "Encontrou algum problema?",
+      topics: [{ value: "typo", label: "Erro Ortográfico" }],
+      placeholder: "",
+      maxLength: 500,
+    }
+    service.showReport(state)
+    service.finishReport({ sent: false, message: "Tente novamente." })
+
+    expect(plugin.showReport).toHaveBeenCalledWith(state)
+    expect(plugin.finishReport).toHaveBeenCalledWith({
+      sent: false,
+      message: "Tente novamente.",
+    })
+  })
+
+  // The pages scroll in elements of their own, out of the web view's reach.
+  describe("a tap on the status bar", () => {
+    let scroller: HTMLElement
+    let line: HTMLElement
+    let reduceMotion: boolean
+    let scrollTo: jasmine.Spy
+
+    beforeEach(() => {
+      scroller = document.createElement("div")
+      scroller.style.cssText = "height: 100px; overflow-y: scroll"
+      line = document.createElement("p")
+      line.style.height = "2000px"
+      scroller.appendChild(line)
+      document.body.appendChild(scroller)
+      scroller.scrollTop = 600
+      reduceMotion = false
+      Object.assign(doc, {
+        defaultView: {
+          innerWidth: 400,
+          innerHeight: 800,
+          matchMedia: () => ({ matches: reduceMotion }),
+        },
+        scrollingElement: document.documentElement,
+        // Under the middle of the screen: a line of the text.
+        elementFromPoint: (x: number, y: number) =>
+          x === 200 && y === 400 ? line : null,
+      })
+      scrollTo = spyOn(scroller, "scrollTo")
+    })
+
+    afterEach(() => scroller.remove())
+
+    const tap = () => listener("action")({ id: "scroll-top" })
+
+    it("glides the text under the middle of the screen to the top", () => {
+      const service = create("ios")
+      const actions: NativeChromeAction[] = []
+      service.actions$.subscribe((action) => actions.push(action))
+      tap()
+
+      expect(scrollTo).toHaveBeenCalledOnceWith({
+        top: 0,
+        behavior: "smooth",
+      })
+      expect(actions).toEqual([])
+    })
+
+    it("brings the reader's bars back", () => {
+      const service = create("ios")
+      service.show(READER)
+      service.trackScroll(scroller)
+      scroller.dispatchEvent(new Event("touchmove"))
+      scroller.scrollTop = 600 + COLLAPSE_DISTANCE
+      scroller.dispatchEvent(new Event("scroll"))
+      expect(lastState().collapsed).toBeTrue()
+
+      tap()
+      expect(lastState().collapsed).toBeFalse()
+    })
+
+    it("jumps with reduced motion, and while auto-scroll plays", () => {
+      const service = create("ios")
+      reduceMotion = true
+      tap()
+      reduceMotion = false
+      service.show(READER)
+      service.setAutoScroll({
+        playing: true,
+        speedLabel: "1 ln/s",
+        canSlower: true,
+        canFaster: true,
+      })
+      tap()
+
+      expect(scrollTo).toHaveBeenCalledTimes(2)
+      for (const call of scrollTo.calls.all()) {
+        expect(call.args[0]).toEqual({ top: 0, behavior: "auto" })
+      }
+    })
+
+    it("leaves a page already at the top alone", () => {
+      create("ios")
+      scroller.scrollTop = 0
+      const pageScroll = spyOn(document.body, "scrollTo")
+      tap()
+
+      expect(scrollTo).not.toHaveBeenCalled()
+      expect(pageScroll).not.toHaveBeenCalled()
     })
   })
 

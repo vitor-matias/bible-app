@@ -23,7 +23,9 @@ export class ToastService {
 
   show(message: string, options: ToastOptions = {}): void {
     if (this.nativeChrome.enabled) {
-      this.nativeChrome.toast(message, options.afterKeyboard ?? false)
+      this.nativeChrome.toast(message, {
+        afterKeyboard: options.afterKeyboard ?? false,
+      })
       return
     }
     this.snackBar.open(message, options.action ?? "Fechar", {

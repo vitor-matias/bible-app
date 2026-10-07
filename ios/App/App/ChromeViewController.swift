@@ -1,4 +1,5 @@
 import UIKit
+import Capacitor
 
 /// Window root: the web view fills the screen and the bars float above it as
 /// siblings. Unlike a navigation controller's bars, these leave the web view's
@@ -20,7 +21,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private var toastBottom: NSLayoutConstraint!
     private var keyboardVisible = false
     /// A toast held until the keyboard closes (see ToastService).
-    private var pendingToast: String?
+    private var pendingToast: (message: String, action: String?)?
 
     private(set) var state = ChromeState()
     private var collapsed = false
@@ -69,6 +70,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
                                                name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide),
                                                name: UIResponder.keyboardWillHideNotification, object: nil)
+        // The page scrolls in an element of its own, which the web view's
+        // scroll-to-top can't reach: the web app scrolls it (scroll-top).
+        NotificationCenter.default.addObserver(self, selector: #selector(statusBarTapped),
+                                               name: .capacitorStatusBarTapped, object: nil)
 
         let safeArea = view.safeAreaLayoutGuide
         NSLayoutConstraint.activate([
@@ -327,15 +332,19 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// Typing, on screen or on a hardware keyboard (which shows no keyboard).
     private var keyboardUp: Bool { keyboardVisible || searchField.isEditing }
 
-    func showToast(_ message: String, afterKeyboard: Bool) {
+    /// With an `action`, the toast has that button, and tapping it sends
+    /// toast-action.
+    func showToast(_ message: String, afterKeyboard: Bool, action: String? = nil) {
         if afterKeyboard && keyboardUp {
-            pendingToast = message
+            pendingToast = (message, action)
             toast.dismissNow()
             return
         }
         pendingToast = nil
         view.layoutIfNeeded()
-        toast.show(message)
+        toast.show(message, action: action) { [weak self] in
+            self?.plugin.send("toast-action")
+        }
     }
 
     @objc private func keyboardWillShow() {
@@ -351,10 +360,16 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// so it settles where it stays.
     private func releasePendingToast() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-            guard let self, let message = self.pendingToast, !self.keyboardUp else { return }
+            guard let self, let pending = self.pendingToast, !self.keyboardUp else { return }
             self.pendingToast = nil
-            self.showToast(message, afterKeyboard: false)
+            self.showToast(pending.message, afterKeyboard: false, action: pending.action)
         }
+    }
+
+    @objc private func statusBarTapped() {
+        // A sheet scrolls its own list.
+        guard presentedViewController == nil, state.mode != .none else { return }
+        plugin.send("scroll-top")
     }
 
     @objc private func pageDragged(_ drag: UIPanGestureRecognizer) {
@@ -410,6 +425,23 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             controller.detents = [.medium(), .large()]
             controller.prefersGrabberVisible = true
         }
+        present(sheet, animated: true)
+    }
+
+    // MARK: - Report
+
+    private(set) weak var reportSheet: ReportController?
+
+    func presentReport(_ state: ReportSheetState) {
+        guard presentedViewController == nil else { return }
+        let report = ReportController(state: state, onSubmit: { [weak self] topic, details in
+            self?.plugin.send("report-submit", ["topic": topic, "details": details])
+        }, onClose: { [weak self] in
+            self?.plugin.send("report-closed")
+        })
+        reportSheet = report
+        let sheet = UINavigationController(rootViewController: report)
+        sheet.modalPresentationStyle = traitCollection.horizontalSizeClass == .regular ? .formSheet : .pageSheet
         present(sheet, animated: true)
     }
 

@@ -33,6 +33,11 @@ export type NativeChromeAction =
         | "report"
         | "help"
         | "privacy"
+        | "report-closed"
+        /** A tap on the status bar; handled here (scrollToTop). */
+        | "scroll-top"
+        /** A tap on the toast's button; handled here (toast). */
+        | "toast-action"
     }
   | { id: "goto"; bookId: string; chapter?: number }
   | { id: "bookmark-open" | "bookmark-set" | "bookmark-remove"; color: string }
@@ -41,6 +46,7 @@ export type NativeChromeAction =
   | { id: "footnotes-closed" }
   | { id: "search-input"; text: string }
   | { id: "search-submit"; text: string }
+  | { id: "report-submit"; topic: string; details: string }
 
 /** The reader's bars: the More menu on top; arrows, passage and search below. */
 export interface ReaderChrome {
@@ -124,6 +130,26 @@ export interface FootnotesSheetState {
   }[]
 }
 
+/** The report form. Mirrors ReportSheetState in ReportSheet.swift. */
+export interface ReportSheetState {
+  /** What is being reported on, e.g. "Encontrou algum problema em …?". */
+  message: string
+  topics: readonly { value: string; label: string }[]
+  placeholder: string
+  maxLength: number
+}
+
+export interface NativeToastOptions {
+  /** Hold the toast until the keyboard closes, so it never covers typing. */
+  afterKeyboard?: boolean
+  /**
+   * A button on the toast, which then stays until the button or its close
+   * button is tapped, or another toast replaces it.
+   */
+  action?: string
+  onAction?: () => void
+}
+
 /** The space the bars cover, in CSS pixels. */
 export interface ChromeInsets {
   top: number
@@ -137,7 +163,14 @@ export interface NativeChromePlugin {
   /** Refreshes the bookmarks sheet if it is still open. */
   updateBookmarks(state: BookmarksSheetState): Promise<void>
   showFootnotes(state: FootnotesSheetState): Promise<void>
-  showToast(options: { message: string; afterKeyboard: boolean }): Promise<void>
+  showToast(options: {
+    message: string
+    afterKeyboard: boolean
+    action?: string
+  }): Promise<void>
+  showReport(state: ReportSheetState): Promise<void>
+  /** The answer to report-submit: the sheet closes, or shows `message`. */
+  finishReport(result: { sent: boolean; message?: string }): Promise<void>
   /** Resolves once the sheet is dismissed, however that happened. */
   showOnboarding(options: {
     steps: NativeOnboardingStep[]
@@ -193,6 +226,8 @@ export class NativeChromeService {
   private modalOpen = false
   private collapsed = false
   private autoScroll: AutoScrollChrome | null = null
+  /** The current toast's button. */
+  private toastAction?: () => void
 
   /** True in the iOS app, whose shell provides the NativeChrome plugin. */
   readonly enabled =
@@ -208,7 +243,17 @@ export class NativeChromeService {
     // Layout hook: pages drop the space they keep for their web headers.
     this.document.body.classList.add("native-chrome")
     void this.plugin.addListener("action", (action) =>
-      this.ngZone.run(() => this.actionSubject.next(action)),
+      this.ngZone.run(() => {
+        if (action.id === "scroll-top") {
+          this.scrollToTop()
+        } else if (action.id === "toast-action") {
+          const run = this.toastAction
+          this.toastAction = undefined
+          run?.()
+        } else {
+          this.actionSubject.next(action)
+        }
+      }),
     )
     void this.plugin.addListener("insets", (insets) => this.applyInsets(insets))
 
@@ -274,9 +319,28 @@ export class NativeChromeService {
   }
 
   /** A glass toast above the bottom bar; see ToastService. */
-  toast(message: string, afterKeyboard = false): void {
+  toast(message: string, options: NativeToastOptions = {}): void {
     if (!this.enabled) return
-    this.plugin.showToast({ message, afterKeyboard }).catch(() => {})
+    const { afterKeyboard = false, action, onAction } = options
+    // It replaces the toast before, and that one's button with it.
+    this.toastAction = action ? onAction : undefined
+    this.plugin
+      .showToast(
+        action
+          ? { message, afterKeyboard, action }
+          : { message, afterKeyboard },
+      )
+      .catch(() => {})
+  }
+
+  showReport(state: ReportSheetState): void {
+    if (!this.enabled) return
+    this.plugin.showReport(state).catch(() => {})
+  }
+
+  finishReport(result: { sent: boolean; message?: string }): void {
+    if (!this.enabled) return
+    this.plugin.finishReport(result).catch(() => {})
   }
 
   showFootnotes(state: FootnotesSheetState): void {
@@ -339,6 +403,34 @@ export class NativeChromeService {
       element.removeEventListener("scroll", onScroll)
       for (const event of events) element.removeEventListener(event, onTouch)
       this.setCollapsed(false)
+    }
+  }
+
+  /**
+   * A tap on the status bar. iOS scrolls the web view to the top, but pages
+   * scroll in elements of their own: this scrolls the one under the middle of
+   * the screen (the reader's text, the search results) and brings the bars
+   * back, as iOS does.
+   */
+  private scrollToTop(): void {
+    const view = this.document.defaultView
+    if (!view) return
+    this.setCollapsed(false)
+    let element = this.document.elementFromPoint(
+      view.innerWidth / 2,
+      view.innerHeight / 2,
+    )
+    // The document itself is the web view's to scroll.
+    while (element && element !== this.document.scrollingElement) {
+      if (element.scrollTop > 0) {
+        // Auto-scroll moves the text every frame, which would stop a glide.
+        const jump =
+          this.autoScroll?.playing ||
+          view.matchMedia("(prefers-reduced-motion: reduce)").matches
+        element.scrollTo({ top: 0, behavior: jump ? "auto" : "smooth" })
+        return
+      }
+      element = element.parentElement
     }
   }
 

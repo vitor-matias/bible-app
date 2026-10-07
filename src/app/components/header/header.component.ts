@@ -42,6 +42,7 @@ import {
   type NativeChromeAction,
   NativeChromeService,
 } from "../../services/native-chrome.service"
+import { NativeReportService } from "../../services/native-report.service"
 import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"
@@ -141,6 +142,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly nativeChrome = inject(NativeChromeService)
   private readonly bookService = inject(BookService)
   private readonly nativeBookmarks = inject(NativeBookmarksService)
+  private readonly nativeReport = inject(NativeReportService)
   private bookmarks: Bookmark[] = []
   /** The iOS shell draws this header natively; the template renders nothing. */
   readonly native = this.nativeChrome.enabled
@@ -262,6 +264,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   openReportProblem() {
     if (!this.book || this.chapterNumber == null) {
+      return
+    }
+    if (this.native) {
+      this.nativeReport.open(this.book, this.chapterNumber)
       return
     }
 

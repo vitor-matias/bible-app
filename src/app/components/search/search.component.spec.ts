@@ -803,10 +803,9 @@ describe("SearchComponent in the iOS app", () => {
     actions.next({ id: "search-submit", text: "misericordiosos" })
     await fixture.whenStable()
 
-    expect(nativeChrome.toast).toHaveBeenCalledWith(
-      "Encontrado 1 resultado",
-      true,
-    )
+    expect(nativeChrome.toast).toHaveBeenCalledWith("Encontrado 1 resultado", {
+      afterKeyboard: true,
+    })
   })
 
   it("lists the results as an iOS grouped list, matches in bold", async () => {

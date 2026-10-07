@@ -24,6 +24,7 @@ import {
   type NativeChromeAction,
   NativeChromeService,
 } from "../../services/native-chrome.service"
+import { NativeReportService } from "../../services/native-report.service"
 import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { ThemeService } from "../../services/theme.service"
@@ -598,6 +599,7 @@ describe("HeaderComponent with the iOS native bars", () => {
   let share: jasmine.SpyObj<typeof Share>
   let isOffline: BehaviorSubject<boolean>
   let nativeBookmarks: jasmine.SpyObj<NativeBookmarksService>
+  let nativeReport: jasmine.SpyObj<NativeReportService>
 
   const genesis: Book = {
     id: "gen",
@@ -642,6 +644,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     analytics.areAnalyticsAvailable.and.returnValue(true)
     isOffline = new BehaviorSubject(false)
     nativeBookmarks = jasmine.createSpyObj("NativeBookmarksService", ["open"])
+    nativeReport = jasmine.createSpyObj("NativeReportService", ["open"])
     // The native share sheet is always available in the app.
     spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
 
@@ -650,6 +653,7 @@ describe("HeaderComponent with the iOS native bars", () => {
       providers: [
         { provide: NativeChromeService, useValue: nativeChrome },
         { provide: NativeBookmarksService, useValue: nativeBookmarks },
+        { provide: NativeReportService, useValue: nativeReport },
         { provide: BookService, useValue: { getBooks: () => [genesis] } },
         { provide: Router, useValue: router },
         { provide: ThemeService, useValue: theme },
@@ -820,17 +824,15 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(emitted).toEqual(["view", "smaller", "larger", "scroll"])
   })
 
-  it("opens the native bookmarks sheet, the problem report and help", () => {
+  it("opens the native bookmarks sheet, the native problem report and help", () => {
     actions.next({ id: "bookmarks" })
     actions.next({ id: "report" })
     actions.next({ id: "help" })
 
     expect(nativeBookmarks.open).toHaveBeenCalledWith("gen", 3)
     expect(bottomSheet.open).not.toHaveBeenCalled()
-    expect(dialog.open).toHaveBeenCalledWith(
-      ReportProblemComponent,
-      jasmine.objectContaining({ data: { book: genesis, chapter: 3 } }),
-    )
+    expect(nativeReport.open).toHaveBeenCalledWith(genesis, 3)
+    expect(dialog.open).not.toHaveBeenCalled()
     expect(onboarding.open).toHaveBeenCalledWith("menu")
   })
 

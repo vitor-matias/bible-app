@@ -108,6 +108,8 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "updateBookmarks", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showFootnotes", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showToast", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "showReport", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "finishReport", returnType: CAPPluginReturnPromise),
     ]
 
     weak var chrome: ChromeViewController?
@@ -145,8 +147,27 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func showToast(_ call: CAPPluginCall) {
         let message = call.getString("message", "")
         let afterKeyboard = call.getBool("afterKeyboard", false)
+        let action = call.getString("action")
         DispatchQueue.main.async {
-            if !message.isEmpty { self.chrome?.showToast(message, afterKeyboard: afterKeyboard) }
+            if !message.isEmpty { self.chrome?.showToast(message, afterKeyboard: afterKeyboard, action: action) }
+            call.resolve()
+        }
+    }
+
+    @objc func showReport(_ call: CAPPluginCall) {
+        let state = ReportSheetState(call)
+        DispatchQueue.main.async {
+            self.chrome?.presentReport(state)
+            call.resolve()
+        }
+    }
+
+    /// The web app's answer to report-submit: sent, or the error to show.
+    @objc func finishReport(_ call: CAPPluginCall) {
+        let sent = call.getBool("sent", false)
+        let message = call.getString("message", "")
+        DispatchQueue.main.async {
+            self.chrome?.reportSheet?.finish(sent: sent, message: message)
             call.resolve()
         }
     }
