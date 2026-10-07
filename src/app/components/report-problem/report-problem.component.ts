@@ -1,5 +1,10 @@
 import { CommonModule } from "@angular/common"
-import { ChangeDetectionStrategy, Component, Inject } from "@angular/core"
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Inject,
+  inject,
+} from "@angular/core"
 import {
   FormControl,
   FormGroup,
@@ -15,8 +20,9 @@ import {
 import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatInputModule } from "@angular/material/input"
 import { MatSelectModule } from "@angular/material/select"
-import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
+import { MatSnackBarModule } from "@angular/material/snack-bar"
 import { AnalyticsService } from "../../services/analytics.service"
+import { ToastService } from "../../services/toast.service"
 
 export interface ReportProblemData {
   book: Book
@@ -41,6 +47,7 @@ export interface ReportProblemData {
   styleUrls: ["./report-problem.component.css"],
 })
 export class ReportProblemComponent {
+  private readonly toast = inject(ToastService)
   isSending = false
 
   reportForm = new FormGroup({
@@ -62,7 +69,6 @@ export class ReportProblemComponent {
   constructor(
     public dialogRef: MatDialogRef<ReportProblemComponent>,
     @Inject(MAT_DIALOG_DATA) public data: ReportProblemData,
-    private snackBar: MatSnackBar,
     private analyticsService: AnalyticsService,
   ) {}
 
@@ -76,20 +82,14 @@ export class ReportProblemComponent {
     try {
       await this.sendReport(this.reportForm.value)
 
-      this.snackBar.open("O problema foi reportado. Obrigado!", "Fechar", {
-        duration: 3000,
-      })
+      this.toast.show("O problema foi reportado. Obrigado!")
 
       this.dialogRef.close(true)
     } catch (error) {
       console.error("Failed to submit report:", error)
-      this.snackBar.open(
-        "Erro ao enviar o relatório. Tente novamente.",
-        "Fechar",
-        {
-          duration: 4000,
-        },
-      )
+      this.toast.show("Erro ao enviar o relatório. Tente novamente.", {
+        duration: 4000,
+      })
     } finally {
       this.isSending = false
     }

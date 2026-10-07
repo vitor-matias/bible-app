@@ -5,6 +5,9 @@ App/App/public
 DerivedData
 xcuserdata
 
+# Capacitor pins capacitor-swift-pm exactly in CapApp-SPM/Package.swift
+App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+
 # Cordova plugins for Capacitor
 capacitor-cordova-ios-plugins
 

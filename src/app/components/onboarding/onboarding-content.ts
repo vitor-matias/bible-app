@@ -6,6 +6,8 @@ import type {
 export interface OnboardingFeature {
   icon: string
   text: string
+  /** The iOS app's wording, where its native bars put things elsewhere. */
+  iosText?: string
 }
 
 export interface OnboardingStep {
@@ -15,6 +17,8 @@ export interface OnboardingStep {
   image?: string
   title: string
   intro: string
+  /** The iOS app's wording, where its native bars put things elsewhere. */
+  iosIntro?: string
   features: readonly OnboardingFeature[]
 }
 
@@ -67,10 +71,14 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     title: "Navegar na Bíblia",
     intro:
       "No topo do ecrã, toque no nome do livro para escolher outro livro e no número para saltar para um capítulo.",
+    iosIntro:
+      "Na barra inferior, toque no nome do livro para escolher outro livro ou capítulo.",
     features: [
       {
         icon: "swipe",
         text: "Deslize o texto para o lado para mudar de capítulo. No computador, use as setas ← e → ou os botões nas margens.",
+        iosText:
+          "Deslize o texto para o lado, ou toque nas setas ‹ › da barra inferior, para mudar de capítulo.",
       },
       {
         icon: "link",
@@ -88,6 +96,8 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     title: "Ler à sua maneira",
     intro:
       "Abra o menu ☰ no canto superior esquerdo para ajustar a leitura ao seu gosto.",
+    iosIntro:
+      "Toque em ⋯, no canto superior direito, para ajustar a leitura ao seu gosto.",
     features: [
       {
         icon: "dark_mode",
@@ -289,4 +299,61 @@ export function getInstallGuide(
     default:
       return desktopGuide(browser)
   }
+}
+
+/** One page of the iOS app's native onboarding sheet (NativeChrome.swift). */
+export interface NativeOnboardingStep {
+  id: string
+  title: string
+  intro: string
+  /** SF Symbol for the page's hero, unless it shows the app's logo. */
+  symbol: string
+  logo: boolean
+  features: { symbol: string; text: string }[]
+}
+
+/** SF Symbols standing in for the Material icons on iOS. */
+const SF_SYMBOLS: Readonly<Record<string, string>> = {
+  menu_book: "book",
+  cloud_off: "icloud.slash",
+  history: "clock.arrow.circlepath",
+  touch_app: "hand.tap",
+  explore: "safari",
+  swipe: "hand.draw",
+  link: "link",
+  notes: "note.text",
+  tune: "slider.horizontal.3",
+  dark_mode: "circle.lefthalf.filled",
+  auto_stories: "book.pages",
+  text_increase: "textformat.size",
+  auto_mode: "arrow.down.circle",
+  search: "magnifyingglass",
+  bookmarks: "bookmark",
+  share: "square.and.arrow.up",
+}
+
+export function sfSymbol(icon: string): string {
+  return SF_SYMBOLS[icon] ?? "circle"
+}
+
+/**
+ * The steps as the iOS app shows them: in its own words, with SF Symbols, and
+ * without the install step (the app is installed by definition).
+ */
+export function nativeOnboardingSteps(
+  steps: readonly OnboardingStep[] = ONBOARDING_STEPS,
+): NativeOnboardingStep[] {
+  return steps
+    .filter((step) => step.id !== INSTALL_STEP_ID)
+    .map((step) => ({
+      id: step.id,
+      title: step.title,
+      intro: step.iosIntro ?? step.intro,
+      symbol: sfSymbol(step.icon),
+      logo: !!step.image,
+      features: step.features.map((feature) => ({
+        symbol: sfSymbol(feature.icon),
+        text: feature.iosText ?? feature.text,
+      })),
+    }))
 }

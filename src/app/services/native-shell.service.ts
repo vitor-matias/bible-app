@@ -4,6 +4,7 @@ import { NavigationEnd, Router } from "@angular/router"
 import { Capacitor, SystemBarsStyle, SystemBarType } from "@capacitor/core"
 import { filter, take } from "rxjs"
 import { SPLASH_SCREEN_PLUGIN, SYSTEM_BARS_PLUGIN } from "../tokens"
+import { NativeChromeService } from "./native-chrome.service"
 
 /** Longest the splash may stay up if the first navigation never completes. */
 export const SPLASH_MAX_MS = 4000
@@ -23,6 +24,7 @@ export class NativeShellService {
   private readonly router = inject(Router)
   private readonly splashScreen = inject(SPLASH_SCREEN_PLUGIN)
   private readonly systemBars = inject(SYSTEM_BARS_PLUGIN)
+  private readonly nativeChrome = inject(NativeChromeService)
   private splashHidden = false
 
   init(): void {
@@ -32,9 +34,11 @@ export class NativeShellService {
       "native-app",
       `platform-${Capacitor.getPlatform()}`,
     )
+    this.nativeChrome.init()
 
-    // The toolbar is always brown, so the status bar icons are always light.
-    // SystemBars would otherwise follow the device theme.
+    // The web toolbars are always brown, so the status bar icons are always
+    // light. SystemBars would otherwise follow the device theme. While the iOS
+    // native bars show, ChromeViewController.swift sets them from the theme.
     this.setBarStyle(SystemBarType.StatusBar, SystemBarsStyle.Dark)
 
     this.router.events

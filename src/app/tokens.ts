@@ -1,10 +1,11 @@
 import { InjectionToken } from "@angular/core"
 import { App } from "@capacitor/app"
-import { SystemBars } from "@capacitor/core"
+import { registerPlugin, SystemBars } from "@capacitor/core"
 import { Haptics } from "@capacitor/haptics"
 import { Network } from "@capacitor/network"
 import { Share } from "@capacitor/share"
 import { SplashScreen } from "@capacitor/splash-screen"
+import type { NativeChromePlugin } from "./services/native-chrome.service"
 
 function createNoopNgOnDestroyProxy<T extends object>(plugin: T): T {
   return new Proxy(plugin, {
@@ -64,5 +65,20 @@ export const SYSTEM_BARS_PLUGIN = new InjectionToken<typeof SystemBars>(
   {
     providedIn: "root",
     factory: () => createNoopNgOnDestroyProxy(SystemBars),
+  },
+)
+
+/**
+ * The iOS shell's native bars, defined in ios/App/App/NativeChrome.swift.
+ * Registered once, at module load, as the @capacitor packages do: prerendering
+ * creates an injector per page, and registering again warns every time.
+ */
+const NativeChrome = registerPlugin<NativeChromePlugin>("NativeChrome")
+
+export const NATIVE_CHROME_PLUGIN = new InjectionToken<NativeChromePlugin>(
+  "Native Chrome Plugin",
+  {
+    providedIn: "root",
+    factory: () => createNoopNgOnDestroyProxy(NativeChrome),
   },
 )

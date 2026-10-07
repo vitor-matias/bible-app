@@ -25,6 +25,7 @@ import {
   type BibleReference,
   BibleReferenceService,
 } from "../../services/bible-reference.service"
+import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnotes-bottom-sheet.component"
 import { VerseSectionComponent } from "../verse-section/verse-section.component"
 import { getVerseQueryParams, parseReferences } from "./verse.utils"
@@ -80,6 +81,9 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   indentStates: Record<number, boolean> = {}
 
   private readonly backButton = inject(BackButtonService)
+
+  /** The iOS app shows footnotes in a native sheet. */
+  private readonly nativeFootnotes = inject(NativeFootnotesService)
 
   constructor(
     private bibleRef: BibleReferenceService,
@@ -347,6 +351,10 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   toggleFootnotes(event?: Event): void {
     const footnotes = this.data.text.filter((t) => t.type === "footnote")
     if (footnotes.length === 0) return
+    if (this.nativeFootnotes.enabled) {
+      this.nativeFootnotes.open(footnotes, this.data)
+      return
+    }
     // Capture the marker that opened the sheet so we can restore focus to it
     // ourselves. We disable Material's automatic restoreFocus because its
     // .focus() scrolls the marker into view, which in paged (column) mode

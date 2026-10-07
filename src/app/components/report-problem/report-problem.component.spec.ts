@@ -17,6 +17,7 @@ import { MatSelectModule } from "@angular/material/select"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
 import { AnalyticsService } from "../../services/analytics.service"
+import { ToastService } from "../../services/toast.service"
 import { ReportProblemComponent } from "./report-problem.component"
 
 describe("ReportProblemComponent", () => {
@@ -55,6 +56,8 @@ describe("ReportProblemComponent", () => {
             { provide: MatDialogRef, useValue: mockDialogRef },
             { provide: MAT_DIALOG_DATA, useValue: mockDialogData },
             { provide: MatSnackBar, useValue: snackBarSpy },
+            // Root-provided, it would reach the real MatSnackBar, not this spy.
+            ToastService,
             { provide: AnalyticsService, useValue: analyticsServiceSpy },
           ],
         },

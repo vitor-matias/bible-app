@@ -1,9 +1,11 @@
+import { Location } from "@angular/common"
 import { NO_ERRORS_SCHEMA } from "@angular/core"
 import {
   ComponentFixture,
   fakeAsync,
   flushMicrotasks,
   TestBed,
+  tick,
 } from "@angular/core/testing"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import {
@@ -24,8 +26,13 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import {
+  type NativeChromeAction,
+  NativeChromeService,
+} from "../../services/native-chrome.service"
 import { SeoService } from "../../services/seo.service"
-import { SearchComponent } from "./search.component"
+import { ThemeService } from "../../services/theme.service"
+import { SearchComponent, TYPING_PAUSE_MS } from "./search.component"
 
 describe("SearchComponent", () => {
   let component: SearchComponent
@@ -135,6 +142,53 @@ describe("SearchComponent", () => {
     const withInset = container.getBoundingClientRect().height
 
     expect(withoutInset - withInset).toBeCloseTo(100, 0)
+  })
+
+  describe("searching as people type", () => {
+    beforeEach(() => {
+      referenceService.extract.and.returnValue([])
+      apiService.search.and.returnValue(
+        of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+      )
+      component.ngOnInit()
+    })
+
+    it("searches once typing pauses", fakeAsync(() => {
+      component.onTyping("pas")
+      tick(TYPING_PAUSE_MS - 1)
+      // Each keystroke restarts the wait.
+      component.onTyping("pastor")
+      tick(TYPING_PAUSE_MS - 1)
+      expect(apiService.search).not.toHaveBeenCalled()
+
+      tick(1)
+      expect(apiService.search).toHaveBeenCalledOnceWith("pastor", 1)
+    }))
+
+    it("leaves references and book names for Return", fakeAsync(() => {
+      referenceService.extract.and.returnValue([
+        { book: "jhn", chapter: 3 },
+      ] as unknown as ReturnType<BibleReferenceService["extract"]>)
+      component.onTyping("Jo 3")
+      tick(TYPING_PAUSE_MS)
+
+      expect(apiService.search).not.toHaveBeenCalled()
+      expect(router.navigate).not.toHaveBeenCalled()
+    }))
+
+    it("waits for at least two letters", fakeAsync(() => {
+      component.onTyping(" a ")
+      tick(TYPING_PAUSE_MS)
+      expect(apiService.search).not.toHaveBeenCalled()
+    }))
+
+    it("doesn't repeat a search that Return already ran", fakeAsync(() => {
+      component.onTyping("pastor ")
+      void component.onSearchSubmit("pastor")
+      tick(TYPING_PAUSE_MS)
+
+      expect(apiService.search).toHaveBeenCalledTimes(1)
+    }))
   })
 
   it("should run a shared query from the q query param on init", () => {
@@ -623,5 +677,201 @@ describe("SearchComponent", () => {
     expect(component.searchResults[0].text?.[0].text).toBe("B result")
     expect(component.totalResults).toBe(1)
     expect(component.isLoading).toBeFalse()
+  })
+})
+
+describe("SearchComponent in the iOS app", () => {
+  let fixture: ComponentFixture<SearchComponent>
+  let actions: Subject<NativeChromeAction>
+  let nativeChrome: {
+    enabled: boolean
+    actions$: Subject<NativeChromeAction>
+    show: jasmine.Spy
+    hide: jasmine.Spy
+    toast: jasmine.Spy
+  }
+  let location: jasmine.SpyObj<Location>
+  let apiService: jasmine.SpyObj<BibleApiService>
+
+  beforeEach(async () => {
+    actions = new Subject()
+    nativeChrome = {
+      enabled: true,
+      actions$: actions,
+      show: jasmine.createSpy("show"),
+      hide: jasmine.createSpy("hide"),
+      toast: jasmine.createSpy("toast"),
+    }
+    location = jasmine.createSpyObj("Location", ["back"])
+    apiService = jasmine.createSpyObj("BibleApiService", ["getVerse", "search"])
+    apiService.search.and.returnValue(
+      of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+    )
+    const referenceService = jasmine.createSpyObj("BibleReferenceService", [
+      "extract",
+    ])
+    referenceService.extract.and.returnValue([])
+    const bookService = jasmine.createSpyObj("BookService", [
+      "findBook",
+      "findBookById",
+    ])
+    bookService.findBookById.and.returnValue({ shortName: "Mateus" })
+    const analytics = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analytics.track.and.resolveTo()
+
+    await TestBed.configureTestingModule({
+      imports: [SearchComponent],
+      providers: [
+        { provide: NativeChromeService, useValue: nativeChrome },
+        { provide: Location, useValue: location },
+        { provide: ThemeService, useValue: { currentMode: "dark" } },
+        { provide: BibleApiService, useValue: apiService },
+        { provide: BibleReferenceService, useValue: referenceService },
+        { provide: BookService, useValue: bookService },
+        { provide: MatSnackBar, useValue: jasmine.createSpyObj(["open"]) },
+        { provide: Router, useValue: jasmine.createSpyObj(["navigate"]) },
+        { provide: AnalyticsService, useValue: analytics },
+        {
+          provide: ActivatedRoute,
+          useValue: { queryParamMap: of(convertToParamMap({})) },
+        },
+        {
+          provide: SeoService,
+          useValue: jasmine.createSpyObj(["updateForSearch"]),
+        },
+      ],
+    })
+      .overrideComponent(SearchComponent, {
+        set: { schemas: [NO_ERRORS_SCHEMA], imports: [] },
+      })
+      .compileComponents()
+
+    fixture = TestBed.createComponent(SearchComponent)
+    fixture.detectChanges()
+  })
+
+  it("draws no web search bar", () => {
+    expect(fixture.nativeElement.querySelector("search-bar")).toBeNull()
+  })
+
+  it("shows the native search field", () => {
+    expect(nativeChrome.show).toHaveBeenCalledWith({
+      mode: "search",
+      themeMode: "dark",
+      query: "",
+    })
+  })
+
+  it("searches what is typed in the native field, and keeps it there", async () => {
+    actions.next({ id: "search-submit", text: "pastor" })
+    await fixture.whenStable()
+
+    expect(apiService.search).toHaveBeenCalledWith("pastor", 1)
+    expect(nativeChrome.show.calls.mostRecent().args[0]).toEqual(
+      jasmine.objectContaining({ query: "pastor" }),
+    )
+  })
+
+  it("searches as people type in the native field", fakeAsync(() => {
+    actions.next({ id: "search-input", text: "pastor" })
+    tick(TYPING_PAUSE_MS)
+
+    expect(apiService.search).toHaveBeenCalledWith("pastor", 1)
+  }))
+
+  // A search that ran on a pause leaves the keyboard up: the count waits.
+  it("holds the results toast until the keyboard closes", async () => {
+    apiService.search.and.returnValue(
+      of({
+        verses: [
+          {
+            bookId: "mat",
+            chapterNumber: 5,
+            number: 7,
+            text: [{ type: "text", text: "misericordiosos" }],
+          },
+        ],
+        total: 1,
+        currentPage: 1,
+        totalPages: 1,
+      } as unknown as ReturnType<BibleApiService["search"]> extends Observable<
+        infer T
+      >
+        ? T
+        : never),
+    )
+    actions.next({ id: "search-submit", text: "misericordiosos" })
+    await fixture.whenStable()
+
+    expect(nativeChrome.toast).toHaveBeenCalledWith(
+      "Encontrado 1 resultado",
+      true,
+    )
+  })
+
+  it("lists the results as an iOS grouped list, matches in bold", async () => {
+    document.body.classList.add("native-chrome")
+    try {
+      apiService.search.and.returnValue(
+        of({
+          verses: [
+            {
+              bookId: "mat",
+              chapterNumber: 5,
+              number: 7,
+              text: [{ type: "text", text: "Felizes os misericordiosos" }],
+            },
+          ],
+          total: 1,
+          currentPage: 1,
+          totalPages: 1,
+        } as unknown as ReturnType<
+          BibleApiService["search"]
+        > extends Observable<infer T>
+          ? T
+          : never),
+      )
+      actions.next({ id: "search-submit", text: "misericordiosos" })
+      await fixture.whenStable()
+      fixture.detectChanges()
+
+      const element = fixture.nativeElement as HTMLElement
+      const card = element.querySelector(".result-card") as HTMLElement
+      const match = element.querySelector(".search-highlight") as HTMLElement
+      expect(getComputedStyle(card).borderTopWidth).toBe("0px")
+      expect(getComputedStyle(match).fontWeight).toBe("700")
+      expect(getComputedStyle(match).backgroundColor).toBe("rgba(0, 0, 0, 0)")
+    } finally {
+      document.body.classList.remove("native-chrome")
+    }
+  })
+
+  it("goes back with the native Back button", () => {
+    actions.next({ id: "back" })
+    expect(location.back).toHaveBeenCalled()
+  })
+
+  it("removes the bars when leaving", () => {
+    fixture.destroy()
+    expect(nativeChrome.hide).toHaveBeenCalled()
+  })
+
+  // The red is the scripture's (verse numbers, references), not status text's.
+  it("shows the empty state in neutral grey, not the scripture red", () => {
+    document.body.classList.add("native-chrome")
+    try {
+      const empty = (fixture.nativeElement as HTMLElement).querySelector(
+        ".empty-state",
+      ) as HTMLElement
+      const probe = document.createElement("span")
+      probe.style.color = "var(--text-secondary)"
+      document.body.appendChild(probe)
+      const red = getComputedStyle(probe).color
+      probe.remove()
+
+      expect(getComputedStyle(empty).color).not.toBe(red)
+    } finally {
+      document.body.classList.remove("native-chrome")
+    }
   })
 })

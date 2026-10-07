@@ -22,9 +22,11 @@ import {
   MatTreeModule,
 } from "@angular/material/tree"
 import {
+  ABOUT_GROUP,
   type CanonGroup,
   NEW_TESTAMENT_GROUPS,
   OLD_TESTAMENT_GROUPS,
+  withIntros,
 } from "../../bible-canon"
 
 interface BookNode {
@@ -100,33 +102,14 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   oldTestament: CanonGroup[] = OLD_TESTAMENT_GROUPS
 
-  /**
-   * Prepends each group's introduction, plus the ungrouped `leading` one.
-   * Introductions that have not loaded are dropped, so nothing renders blank.
-   */
+  /** A childless node renders through the leaf template: see withIntros. */
   private withIntros(groups: CanonGroup[], leading: string): CanonGroup[] {
-    const groupsWithIntros = groups.map((group) =>
-      group.introSlug && this.getBook(group.introSlug)
-        ? { ...group, books: [group.introSlug, ...group.books] }
-        : group,
-    )
-
-    // A childless node renders through the leaf template, so it is named
-    // after the slug it navigates to.
-    return this.getBook(leading)
-      ? [{ name: leading, books: [] }, ...groupsWithIntros]
-      : groupsWithIntros
+    return withIntros(groups, leading, (bookId) => !!this.getBook(bookId))
   }
 
   // The About page is not in the shared canon: the crawlable book index must
   // not link to it.
-  newTestament: CanonGroup[] = [
-    ...NEW_TESTAMENT_GROUPS,
-    {
-      name: "Sobre a Bíblia",
-      books: ["about"],
-    },
-  ]
+  newTestament: CanonGroup[] = [...NEW_TESTAMENT_GROUPS, ABOUT_GROUP]
 
   filterQuery = ""
 

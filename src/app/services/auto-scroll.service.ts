@@ -174,13 +174,14 @@ export class AutoScrollService implements OnDestroy {
 
     // Only apply scroll when accumulated delta is at least 0.5px to prevent jank
     if (Math.abs(this.accumulatedScrollDelta) >= 0.5) {
-      const nextTop = Math.min(
+      const previousTop = content.scrollTop
+      content.scrollTop = Math.min(
         content.scrollHeight - content.clientHeight,
-        content.scrollTop + this.accumulatedScrollDelta,
+        previousTop + this.accumulatedScrollDelta,
       )
-
-      content.scrollTop = nextTop
-      this.accumulatedScrollDelta = 0
+      // Keep what the browser didn't apply. WebKit (Safari, the iOS app) holds
+      // whole pixels only, so a dropped half pixel per frame never moved at all.
+      this.accumulatedScrollDelta -= content.scrollTop - previousTop
     }
 
     this.lastAutoScrollTimestamp = timestamp

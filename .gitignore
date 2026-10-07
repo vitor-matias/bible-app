@@ -37,6 +37,9 @@ yarn-error.log
 testem.log
 /typings
 
+# Launch video renders (/brag-slim)
+/brag-output
+
 # System files
 .DS_Store
 Thumbs.db

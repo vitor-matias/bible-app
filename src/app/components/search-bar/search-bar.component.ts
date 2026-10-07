@@ -35,6 +35,8 @@ import { MatToolbarModule } from "@angular/material/toolbar"
 })
 export class SearchBarComponent {
   @Output() searchValue = new EventEmitter<string>()
+  /** Every edit, for searching as people type. */
+  @Output() typing = new EventEmitter<string>()
 
   @ViewChild("searchInput", { static: false })
   searchInput!: ElementRef<HTMLInputElement>

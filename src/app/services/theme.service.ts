@@ -58,13 +58,15 @@ export class ThemeService {
   toggleTheme(): void {
     const modes: ThemeMode[] = ["light", "dark", "system"]
     const currentIndex = modes.indexOf(this.themeMode.value)
-    const nextMode = modes[(currentIndex + 1) % modes.length]
+    this.setTheme(modes[(currentIndex + 1) % modes.length])
+  }
 
-    this.themeMode.next(nextMode)
-    this.applyTheme(nextMode)
-    this.preferencesService.setTheme(nextMode)
+  setTheme(mode: ThemeMode): void {
+    this.themeMode.next(mode)
+    this.applyTheme(mode)
+    this.preferencesService.setTheme(mode)
 
-    void this.analyticsService.track(`theme-${nextMode}`)
+    void this.analyticsService.track(`theme-${mode}`)
   }
 
   private applyTheme(mode: ThemeMode): void {

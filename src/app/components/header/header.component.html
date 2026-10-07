@@ -1,3 +1,5 @@
+<!-- In the iOS app the shell draws this header natively (NativeChromeService). -->
+@if (!native) {
 <div class="header-placeholder">
   <mat-toolbar>
     <div class="header-content">
@@ -51,7 +53,7 @@
           <mat-icon>help</mat-icon>
           <span>Como usar a app</span>
         </button>
-        <a mat-menu-item href="https://www.capuchinhos.org/politica-de-privacidade" target="_blank" rel="noopener noreferrer">
+        <a mat-menu-item [href]="privacyPolicyUrl" target="_blank" rel="noopener noreferrer">
           <mat-icon>privacy_tip</mat-icon>
           <span class="privacy-label">
             Política de Privacidade
@@ -74,14 +76,10 @@
           <!-- One element with swapped text: a second, stacked label would put
                "Escolher Livro" inside the page's h1. -->
           <span class="cycle-wrapper">
-            <span class="cycle-text" [class.faded]="labelFading">{{
-              bookLabelMode === 'title'
-                ? (mobile ? book.shortName : book.name)
-                : 'Escolher Livro'
-            }}</span>
+            <span class="cycle-text" [class.faded]="labelFading">{{ bookLabel }}</span>
           </span>
           } @else {
-          {{ mobile ? book.shortName : book.name }}
+          {{ bookLabel }}
           }
         </mat-button-toggle>
 
@@ -89,7 +87,7 @@
         @if(book.id !== 'about' && !book.introSlug){
         <mat-button-toggle #chapterToggle mat-flat-button matTooltip="Escolher capítulo"
           class="bookSelectorButtonContent" (click)="showChapterSelector(); chapterToggle.checked = false">
-          {{ chapterNumber === 0 ? (mobile ? 'Intro' : 'Introdução') : chapterNumber }}
+          {{ chapterLabel }}
         </mat-button-toggle>
         }
       </mat-button-toggle-group>
@@ -104,3 +102,4 @@
     </div>
   </mat-toolbar>
 </div>
+}

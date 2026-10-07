@@ -22,7 +22,7 @@ import {
   MatDrawerContent,
   MatSidenavModule,
 } from "@angular/material/sidenav"
-import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
+import { MatSnackBarModule } from "@angular/material/snack-bar"
 import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { combineLatest, Subject, Subscription } from "rxjs"
@@ -39,9 +39,11 @@ import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
 import { HapticsService } from "../../services/haptics.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
+import { ToastService } from "../../services/toast.service"
 import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
 import { BookIntroComponent } from "../book-intro/book-intro.component"
@@ -81,6 +83,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private injector = inject(Injector)
   private platformId = inject(PLATFORM_ID)
   private haptics = inject(HapticsService)
+  private nativeChrome = inject(NativeChromeService)
+  private toast = inject(ToastService)
+  private stopTrackingScroll?: () => void
   private unregisterBackCloser = inject(BackButtonService).register(() => {
     if (!this.bookDrawer?.opened) return false
     this.bookDrawer.close()
@@ -93,8 +98,21 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   @ViewChild("container")
   container!: MatDrawerContainer
 
+  private drawerContentRef?: ElementRef<HTMLElement>
+
+  /** The text's scroller, which also hides the iOS bars as it scrolls. */
   @ViewChild(MatDrawerContent, { read: ElementRef })
-  drawerContent!: ElementRef<HTMLElement>
+  set drawerContent(content: ElementRef<HTMLElement> | undefined) {
+    if (content?.nativeElement === this.drawerContentRef?.nativeElement) return
+    this.drawerContentRef = content
+    this.stopTrackingScroll?.()
+    this.stopTrackingScroll = content
+      ? this.nativeChrome.trackScroll(content.nativeElement)
+      : undefined
+  }
+  get drawerContent(): ElementRef<HTMLElement> {
+    return this.drawerContentRef as ElementRef<HTMLElement>
+  }
 
   @ViewChild(UnifiedGesturesDirective) gestures!: UnifiedGesturesDirective
   @ViewChild(PagedNavigationDirective) pagedNav?: PagedNavigationDirective
@@ -199,7 +217,6 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     private animationService: BibleReaderAnimationService,
     private analyticsService: AnalyticsService,
     private networkService: NetworkService,
-    private snackBar: MatSnackBar,
     private seoService: SeoService,
   ) {}
 
@@ -331,6 +348,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.destroy$.complete()
     this.chapterSubscription?.unsubscribe()
     this.animationService.cancelPendingRealign()
+    this.stopTrackingScroll?.()
     // AutoScrollService handles its own cleanup now if we stop it, or the component stopping it
   }
 
@@ -387,6 +405,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   onSwipeLeft(): void {
+    this.stepForward()
+  }
+
+  onSwipeRight(): void {
+    this.stepBackward()
+  }
+
+  /** A page forward in paged mode, else the next chapter. */
+  stepForward(): void {
     if (this.effectiveViewMode === "paged") {
       this.pagedNav?.nextPage()
     } else {
@@ -394,12 +421,29 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     }
   }
 
-  onSwipeRight(): void {
+  stepBackward(): void {
     if (this.effectiveViewMode === "paged") {
       this.pagedNav?.prevPage()
     } else {
       this.goToPreviousChapter()
     }
+  }
+
+  /** Whether stepping back goes anywhere: the previous page, else chapter. */
+  get canGoPrevious(): boolean {
+    if (this.book?.id === "about" || !this.chapter) return false
+    return (
+      this.chapter.number > this.minChapter ||
+      (this.effectiveViewMode === "paged" && !this.isFirstPage)
+    )
+  }
+
+  get canGoNext(): boolean {
+    if (this.book?.id === "about" || !this.chapter) return false
+    return (
+      this.chapter.number < this.book.chapterCount ||
+      (this.effectiveViewMode === "paged" && !this.isLastPage)
+    )
   }
 
   goToNextChapter(): void {
@@ -458,16 +502,21 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   onBookSubmit(event: { bookId: string }) {
-    const book = this.bookService.findBook(event.bookId)
-    // Chapter 1 rather than the introduction, except for a standalone
-    // introduction, which has no chapters.
+    this.goToPassage(event)
+    this.bookDrawer.close()
+  }
+
+  /** Without a chapter: chapter 1 rather than the introduction, except for
+   *  a standalone introduction, which has no chapters. */
+  goToPassage({ bookId, chapter }: { bookId: string; chapter?: number }): void {
+    const book = this.bookService.findBook(bookId)
     this.router.navigate([
       "/",
       this.bookService.getUrlAbrv(book),
-      this.bookService.getChapterUrlSegment(book.introSlug ? 0 : 1),
+      this.bookService.getChapterUrlSegment(
+        chapter ?? (book.introSlug ? 0 : 1),
+      ),
     ])
-
-    this.bookDrawer.close()
   }
 
   onChapterSubmit(event: { chapterNumber: number }) {
@@ -594,7 +643,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     const message = this.networkService.isOffline
       ? "Sem ligação. Este capítulo ainda não está disponível offline."
       : "Não foi possível carregar o capítulo. Tente novamente."
-    this.snackBar.open(message, "OK", { duration: 4000 })
+    this.toast.show(message, { action: "OK", duration: 4000 })
   }
 
   /** Hide the container BEFORE change detection paints the new chapter. */

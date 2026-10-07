@@ -1,23 +1,40 @@
+import { Location } from "@angular/common"
 import {
   afterNextRender,
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
+  DestroyRef,
   type ElementRef,
   Injector,
+  inject,
   ViewChild,
 } from "@angular/core"
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatIconModule } from "@angular/material/icon"
-import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
+import { MatSnackBarModule } from "@angular/material/snack-bar"
 import { ActivatedRoute, Router, RouterModule } from "@angular/router"
-import { firstValueFrom, type Subscription } from "rxjs"
+import {
+  debounceTime,
+  filter,
+  firstValueFrom,
+  map,
+  Subject,
+  type Subscription,
+} from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
 import { SeoService } from "../../services/seo.service"
+import { ThemeService } from "../../services/theme.service"
+import { ToastService } from "../../services/toast.service"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
+
+/** Searching as people type waits for them to pause this long. */
+export const TYPING_PAUSE_MS = 2500
 
 @Component({
   selector: "app-search",
@@ -53,11 +70,19 @@ export class SearchComponent {
   /** Bumped on every submit so a slower, superseded request can be ignored. */
   private searchGeneration = 0
 
+  private readonly nativeChrome = inject(NativeChromeService)
+  private readonly toast = inject(ToastService)
+  private readonly themeService = inject(ThemeService)
+  private readonly location = inject(Location)
+  private readonly destroyRef = inject(DestroyRef)
+  /** The iOS app draws the search field and Back natively, not search-bar. */
+  readonly native = this.nativeChrome.enabled
+  private readonly typed = new Subject<string>()
+
   constructor(
     private apiService: BibleApiService,
     private referenceService: BibleReferenceService,
     private bookService: BookService,
-    private snackBar: MatSnackBar,
     private router: Router,
     private route: ActivatedRoute,
     private cdr: ChangeDetectorRef,
@@ -68,6 +93,32 @@ export class SearchComponent {
 
   ngOnInit(): void {
     this.seoService.updateForSearch()
+
+    this.typed
+      .pipe(
+        debounceTime(TYPING_PAUSE_MS),
+        map((text) => text.trim()),
+        filter(
+          (text) =>
+            text.length >= 2 &&
+            text !== this.searchTerm.trim() &&
+            !this.namesPassage(text),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((text) => void this.onSearchSubmit(text))
+
+    if (this.native) {
+      this.nativeChrome.actions$
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe((action) => {
+          if (action.id === "search-input") this.onTyping(action.text)
+          if (action.id === "search-submit")
+            void this.onSearchSubmit(action.text)
+          if (action.id === "back") this.location.back()
+        })
+      this.syncNativeChrome()
+    }
 
     // Share-target launches arrive as /search?q=. Subscribe, not snapshot:
     // Angular reuses this component between /search URLs.
@@ -95,10 +146,37 @@ export class SearchComponent {
   }
 
   ngOnDestroy(): void {
+    if (this.native) this.nativeChrome.hide()
     this.queryParamSubscription?.unsubscribe()
     if (this.observer) {
       this.observer.disconnect()
     }
+  }
+
+  /** Searches once typing pauses (TYPING_PAUSE_MS); Return still searches at once. */
+  onTyping(text: string): void {
+    this.typed.next(text)
+  }
+
+  /**
+   * A reference or a book name, which a search opens in the reader. Only on
+   * Return: a pause mid-reference ("Jo 3" on the way to "Jo 3,16") must not
+   * navigate away.
+   */
+  private namesPassage(text: string): boolean {
+    if (this.referenceService.extract(text).length > 0) return true
+    const book = this.bookService.findBook(text)
+    return !!book && book.id !== "about"
+  }
+
+  /** Shows the native search field, holding the current query. */
+  private syncNativeChrome(): void {
+    if (!this.native) return
+    this.nativeChrome.show({
+      mode: "search",
+      themeMode: this.themeService.currentMode,
+      query: this.searchTerm,
+    })
   }
 
   private attachObserverToSentinel() {
@@ -219,13 +297,9 @@ export class SearchComponent {
             ? err.status
             : undefined
         if (status === 404 || status === 400) {
-          this.snackBar.open("Capitulo ou versiculo não existe", "Fechar", {
-            duration: 3000,
-          })
+          this.toast.show("Capitulo ou versiculo não existe")
         } else {
-          this.snackBar.open("Error loading verse", "OK", {
-            duration: 3000,
-          })
+          this.toast.show("Error loading verse", { action: "OK" })
         }
       }
       // Still here: the superseded text search's stale `finally` skips this.
@@ -237,6 +311,7 @@ export class SearchComponent {
     // Set only for text searches: a failed reference lookup leaves the
     // previous results on screen, and paging and highlighting read this.
     this.searchTerm = text
+    this.syncNativeChrome()
     this.hasSearched = true
     this.isLoading = true
     try {
@@ -251,16 +326,14 @@ export class SearchComponent {
           : `Encontrados ${results.total} resultados`
 
       if (results.total === 0) {
-        this.snackBar.open("Nenhum resultado encontrado", "Fechar", {
-          duration: 3000,
-        })
+        this.toast.show("Nenhum resultado encontrado", { afterKeyboard: true })
       } else {
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur()
         }
-        this.snackBar.open(resultsMessage, "Fechar", {
-          duration: 3000,
-        })
+        // A search that ran on a pause leaves the keyboard up in the iOS
+        // app: the toast waits for it to close rather than cover the typing.
+        this.toast.show(resultsMessage, { afterKeyboard: true })
       }
 
       // The sentinel node is recreated when results change, so rebind the observer
@@ -272,9 +345,7 @@ export class SearchComponent {
     } catch (error) {
       if (isStale()) return
       console.error("Error loading search results:", error)
-      this.snackBar.open("Error loading search results", "OK", {
-        duration: 3000,
-      })
+      this.toast.show("Error loading search results", { action: "OK" })
     } finally {
       if (!isStale()) {
         this.isLoading = false

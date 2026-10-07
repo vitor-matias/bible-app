@@ -215,4 +215,16 @@ describe("ThemeService", () => {
     service.toggleTheme() // system -> light
     expect(nativeShellSpy.setNavigationBarTheme).toHaveBeenCalledWith(false)
   })
+
+  // The iOS native menu picks a theme directly instead of cycling.
+  it("sets, applies and saves a chosen theme", () => {
+    service = createService()
+    classListToggleSpy.calls.reset()
+
+    service.setTheme("dark")
+
+    expect(service.currentMode).toBe("dark")
+    expect(classListToggleSpy).toHaveBeenCalledWith("dark-theme", true)
+    expect(prefsSpy.setTheme).toHaveBeenCalledWith("dark")
+  })
 })

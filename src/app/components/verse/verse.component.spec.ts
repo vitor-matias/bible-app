@@ -8,6 +8,7 @@ import { provideRouter } from "@angular/router"
 import { Subject } from "rxjs"
 import { BackButtonService } from "../../services/back-button.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
+import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { VerseComponent } from "./verse.component"
 
 const TRANSPARENT = "rgba(0, 0, 0, 0)"
@@ -802,6 +803,27 @@ describe("VerseComponent", () => {
   })
 
   describe("toggleFootnotes", () => {
+    // The iOS app shows them in a native sheet instead.
+    it("opens the native sheet in the iOS app", () => {
+      const native = TestBed.inject(NativeFootnotesService)
+      spyOnProperty(native, "enabled").and.returnValue(true)
+      const open = spyOn(native, "open")
+      const footnote = {
+        type: "footnote" as const,
+        text: "note",
+        reference: "a",
+      }
+      const verse = makeVerse({
+        text: [{ type: "text", text: "verse" }, footnote],
+      })
+      setData(component, verse)
+
+      component.toggleFootnotes()
+
+      expect(open).toHaveBeenCalledWith([footnote], verse)
+      expect(mockBottomSheet.open).not.toHaveBeenCalled()
+    })
+
     it("should open bottom sheet when footnotes exist", () => {
       setData(
         component,
