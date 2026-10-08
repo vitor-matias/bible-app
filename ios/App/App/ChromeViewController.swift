@@ -507,6 +507,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             // Half height leaves the verse in view; long notes pull up to full.
             controller.detents = [.medium(), .large()]
             controller.prefersGrabberVisible = true
+            // Scrolling reads on at either height; the grabber resizes.
+            controller.prefersScrollingExpandsWhenScrolledToEdge = false
         }
         present(sheet, animated: true)
         return true

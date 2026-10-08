@@ -93,13 +93,13 @@ final class PassagePickerController: UINavigationController {
         }
 
         // Half height or full, as the footnotes: the text stays in view, and
-        // the long lists (73 books, up to 150 chapters) pull up to full
-        // height, or grow there as they scroll.
+        // the long lists (73 books, up to 150 chapters) pull up to full by
+        // the grabber; scrolling scrolls them at either height.
         modalPresentationStyle = .pageSheet
         if let sheet = sheetPresentationController {
             sheet.detents = [.medium(), .large()]
             sheet.prefersGrabberVisible = true
-            sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
         }
     }
 
