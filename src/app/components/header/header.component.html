@@ -8,25 +8,28 @@
         <mat-icon>menu</mat-icon>
       </button>
       <mat-menu #headerMenu="matMenu">
+        <!-- Menu items, so the arrow keys reach them; a click here stops short
+             of the menu panel, so the menu stays open as the text changes. -->
         <div class="menu-controls" (click)="$event.stopPropagation()">
           @if (book.id !== 'about') {
-          <button type="button" mat-icon-button (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" [attr.aria-label]="getViewModeTooltip()">
+          <button type="button" mat-menu-item class="menu-control" (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" [attr.aria-label]="getViewModeTooltip()">
             <mat-icon>{{ getViewModeIcon() }}</mat-icon>
           </button>
           }
-          <button type="button" mat-icon-button (click)="onDecreaseFontSize()" matTooltip="Diminuir texto" aria-label="Diminuir texto">
+          <button type="button" mat-menu-item class="menu-control" (click)="onDecreaseFontSize()" matTooltip="Diminuir texto" aria-label="Diminuir texto">
             <mat-icon>text_decrease</mat-icon>
           </button>
-          <button type="button" mat-icon-button (click)="onIncreaseFontSize()" matTooltip="Aumentar texto" aria-label="Aumentar texto">
+          <button type="button" mat-menu-item class="menu-control" (click)="onIncreaseFontSize()" matTooltip="Aumentar texto" aria-label="Aumentar texto">
             <mat-icon>text_increase</mat-icon>
           </button>
         </div>
-        <!-- The theme's three choices, the current one marked; choosing one
+        <!-- The theme's three choices, the current one checked; choosing one
              leaves the menu open. -->
         <div class="theme-choices" role="group" aria-label="Tema" (click)="$event.stopPropagation()">
           @for (choice of themeChoices; track choice.mode) {
-          <button type="button" class="theme-choice" [class.selected]="themeMode === choice.mode"
-            [attr.aria-pressed]="themeMode === choice.mode" (click)="onSelectTheme(choice.mode)">
+          <button type="button" mat-menu-item role="menuitemradio" class="theme-choice"
+            [class.selected]="themeMode === choice.mode" [attr.aria-checked]="themeMode === choice.mode"
+            (click)="onSelectTheme(choice.mode)">
             <mat-icon>{{ choice.icon }}</mat-icon>
             <span>{{ choice.label }}</span>
           </button>

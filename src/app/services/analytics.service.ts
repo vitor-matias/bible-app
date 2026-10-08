@@ -41,6 +41,67 @@ export class AnalyticsService {
     }
   }
 
+  /**
+   * Sends `eventName` and resolves only once the analytics server accepted
+   * it; rejects otherwise. The tracker's own `umami.track` cannot say: it
+   * swallows network errors and resolves either way. A problem report, which
+   * tells the reader it was sent, goes through here.
+   */
+  async trackDelivered(
+    eventName: string,
+    eventData: Record<string, unknown> = {},
+  ): Promise<void> {
+    const script = document.querySelector<HTMLScriptElement>(
+      "script[data-website-id]",
+    )
+    const website = script?.getAttribute("data-website-id")
+    if (!script?.src || !website) throw new Error("Analytics is unavailable")
+    // Where the tracker sends: beside its script, as it does itself.
+    const host =
+      script.getAttribute("data-host-url") ||
+      script.src.split("/").slice(0, -1).join("/")
+    const endpoint = `${host.replace(/\/$/, "")}/api/send`
+
+    const info = await this.buildVersionService
+      .getBuildInfo()
+      .catch(() => undefined)
+    let payload: UmamiPayload | null = {
+      website,
+      screen: `${window.screen.width}x${window.screen.height}`,
+      language: navigator.language,
+      title: document.title,
+      hostname: location.hostname,
+      url: location.href,
+      referrer: "",
+      name: eventName,
+      data: {
+        ...eventData,
+        buildVersion: info?.buildVersion,
+        buildEnvironment: info?.buildEnvironment,
+        platform: Capacitor.getPlatform(),
+      },
+    }
+    // The page's own data-before-send hook (labelUmamiPlatform), as the
+    // tracker applies it.
+    const hookName = script.getAttribute("data-before-send")
+    const hook = hookName
+      ? (window as unknown as Record<string, unknown>)[hookName]
+      : undefined
+    if (typeof hook === "function") {
+      payload = await hook("event", payload)
+    }
+    if (!payload) throw new Error("Analytics dropped the event")
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "event", payload }),
+    })
+    if (!response.ok) {
+      throw new Error(`Analytics responded ${response.status}`)
+    }
+  }
+
   areAnalyticsAvailable(): boolean {
     return (
       (typeof window !== "undefined" &&

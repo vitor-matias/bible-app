@@ -116,6 +116,14 @@ describe("OfflineSearchService", () => {
     expect(await found("pai nosso")).toEqual(["mat 6,9", "gen 1,31"])
   })
 
+  it("ranks the whole phrase first, one-letter words included", async () => {
+    stored = [
+      book("gen", [[verse("gen", 1, 1, "o amor de Deus é grande")]]),
+      book("1jn", [[verse("1jn", 4, 8, "porque Deus é amor.")]]),
+    ]
+    expect(await found("Deus é amor")).toEqual(["1jn 4,8", "gen 1,1"])
+  })
+
   it("finds nothing for a query without words", async () => {
     expect(await found(" ; ")).toEqual([])
   })

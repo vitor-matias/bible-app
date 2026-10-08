@@ -40,7 +40,12 @@ export class OfflineSearchService {
     if (!verses.length) return null
     const words = searchWords(query)
     if (!words.length) return []
-    const phrase = words.join(" ")
+    // The whole query ranks a verse first, one-letter words too ("Deus é
+    // amor"); the words without them decide whether it matches at all.
+    const phrase = foldText(query)
+      .split(/[^\p{L}\p{N}]+/u)
+      .filter(Boolean)
+      .join(" ")
     const together: Verse[] = []
     const apart: Verse[] = []
     for (const entry of verses) {

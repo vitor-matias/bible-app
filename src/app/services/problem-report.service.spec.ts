@@ -10,10 +10,10 @@ describe("ProblemReportService", () => {
 
   beforeEach(() => {
     analytics = jasmine.createSpyObj("AnalyticsService", [
-      "track",
+      "trackDelivered",
       "areAnalyticsAvailable",
     ])
-    analytics.track.and.resolveTo()
+    analytics.trackDelivered.and.resolveTo()
     TestBed.configureTestingModule({
       providers: [{ provide: AnalyticsService, useValue: analytics }],
     })
@@ -24,7 +24,7 @@ describe("ProblemReportService", () => {
     analytics.areAnalyticsAvailable.and.returnValue(true)
     await service.send(report)
 
-    expect(analytics.track).toHaveBeenCalledWith("report_problem", {
+    expect(analytics.trackDelivered).toHaveBeenCalledWith("report_problem", {
       book: "gen",
       chapter: 1,
       topic: "typo",
@@ -32,10 +32,19 @@ describe("ProblemReportService", () => {
     })
   })
 
+  it("fails when the report isn't delivered", async () => {
+    analytics.areAnalyticsAvailable.and.returnValue(true)
+    analytics.trackDelivered.and.rejectWith(
+      new Error("Analytics responded 500"),
+    )
+
+    await expectAsync(service.send(report)).toBeRejected()
+  })
+
   it("fails when analytics can't carry it", async () => {
     analytics.areAnalyticsAvailable.and.returnValue(false)
 
     await expectAsync(service.send(report)).toBeRejected()
-    expect(analytics.track).not.toHaveBeenCalled()
+    expect(analytics.trackDelivered).not.toHaveBeenCalled()
   })
 })

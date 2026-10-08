@@ -75,6 +75,33 @@ describe("psalm numbering", () => {
       expect(parsePsalmPair("Sl 1 (1)")?.psalm).toBe(1)
     })
 
+    // As this app shows them: "Salmo 116 (114-115)".
+    it("takes the range of a psalm the liturgy splits", () => {
+      expect(parsePsalmPair("Sl 116 (114-115)")).toEqual({
+        psalm: 116,
+        book: "Sl",
+        rest: "",
+      })
+      expect(parsePsalmPair("Sl 147 (146-147), 1-6")?.psalm).toBe(147)
+      expect(parsePsalmPair("Sl 116 (113-115)")).toBeNull()
+      expect(parsePsalmPair("Sl 116 (114-116)")).toBeNull()
+    })
+
+    // The liturgy's Psalm 115 is this edition's 116 from verse 10.
+    it("starts at the half of a psalm the pair names", () => {
+      expect(parsePsalmPair("Sl 115 (116B)")).toEqual({
+        psalm: 116,
+        book: "Sl",
+        rest: "",
+        verse: 10,
+      })
+      expect(parsePsalmPair("Sl 116 (115)")?.verse).toBe(10)
+      expect(parsePsalmPair("Sl 114 (116A)")?.verse).toBeUndefined()
+      // The liturgy's 147 is this edition's 147 from verse 12.
+      expect(parsePsalmPair("Sl 147 (147B)")?.verse).toBe(12)
+      expect(parsePsalmPair("Sl 146 (147A)")?.verse).toBeUndefined()
+    })
+
     it("ignores numbers that don't name the same psalm", () => {
       expect(parsePsalmPair("Sl 94 (97)")).toBeNull()
       expect(parsePsalmPair("Sl 94")).toBeNull()

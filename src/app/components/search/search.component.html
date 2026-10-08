@@ -37,6 +37,11 @@
       <mat-icon class="empty-state-icon">hourglass_empty</mat-icon>
       <p>A procurar…</p>
     </div>
+  } @else if (searchFailed) {
+    <div class="empty-state">
+      <mat-icon class="empty-state-icon">error</mat-icon>
+      <p>{{ searchFailedMessage }}</p>
+    </div>
   } @else if (nothingStored) {
     <div class="empty-state">
       <mat-icon class="empty-state-icon">cloud_off</mat-icon>

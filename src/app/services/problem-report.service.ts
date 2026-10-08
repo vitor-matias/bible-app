@@ -13,7 +13,9 @@ export interface ProblemReport {
 
 /**
  * Reports a problem with a chapter, from the web dialog (ReportProblemComponent)
- * or the iOS sheet (NativeReportService). A report travels as an analytics event.
+ * or the iOS sheet (NativeReportService). A report travels as an analytics
+ * event, sent so that a failed delivery rejects (trackDelivered): the reader
+ * is told it was sent only when it was.
  */
 @Injectable({
   providedIn: "root",
@@ -39,7 +41,7 @@ export class ProblemReportService {
     if (!this.analytics.areAnalyticsAvailable()) {
       throw new Error("Analytics is unavailable")
     }
-    await this.analytics.track("report_problem", {
+    await this.analytics.trackDelivered("report_problem", {
       book: bookId,
       chapter,
       topic,

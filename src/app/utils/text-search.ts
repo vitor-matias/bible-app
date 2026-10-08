@@ -14,8 +14,10 @@ export interface TextSegment {
 export function verseText(verse: Verse): string {
   const lines: string[] = [""]
   for (const part of verse.text) {
+    // A quote is a line of verse; a paragraph starts a new one and can carry
+    // text of its own, as the reader shows it.
     if (part.type === "quote" || part.type === "paragraph") {
-      lines.push(part.type === "quote" ? part.text : "")
+      lines.push(part.text)
     } else if (part.type === "text") {
       lines[lines.length - 1] += part.text
     }

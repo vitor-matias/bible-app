@@ -391,6 +391,17 @@ describe("BibleReferenceService", () => {
       ])
     })
 
+    // Before, any words after a spaced list cut it at its first range.
+    it("keeps a spaced list whole when words follow it", () => {
+      const out = service.extract("Sl 78,1-2. 3-5 neste salmo")
+      expect(out.length).toBe(1)
+      expect(out[0].match).toBe("Sl 78,1-2. 3-5")
+      expect(out[0].verses).toEqual([
+        { type: "range", start: 1, end: 2 },
+        { type: "range", start: 3, end: 5 },
+      ])
+    })
+
     it("leaves a new chapter after a dot to its own reference", () => {
       const out = service.extract("Jo 3,16.4,5")
       expect(out[0].match).toBe("Jo 3,16")

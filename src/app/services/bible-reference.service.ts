@@ -196,17 +196,18 @@ export class BibleReferenceService {
         // follows ("Jo 3,16. 2 Cor 5,17").
         const listRe =
           /^(?:\s*,\s*|\.(?<spaced>\s)?)(?<v1>\d+(?:[a-c]{1,2})?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c]{1,2})?))?(?![,:]?\d)/
+        // After a spaced dot, a number that starts a book's name and its own
+        // reference ("2 Cor 5,17") is the next reference, not more verses.
+        const nextBookRe = new RegExp(
+          String.raw`^\.\s+(?:${this.bookAlternation})\s+\d`,
+          "i",
+        )
 
         while (true) {
           const tail = text.slice(currentIdx)
           const cm = listRe.exec(tail)
           if (!cm?.groups) break
-          if (
-            cm.groups["spaced"] &&
-            /^\s+\p{L}/u.test(tail.slice(cm[0].length))
-          ) {
-            break
-          }
+          if (cm.groups["spaced"] && nextBookRe.test(tail)) break
 
           const nextVerses = this.buildVerses(cm.groups["v1"], cm.groups["v2"])
           if (nextVerses) {

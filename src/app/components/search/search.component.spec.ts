@@ -783,6 +783,22 @@ describe("SearchComponent", () => {
     })
   })
 
+  // Before, this looked like "no results", with the status stuck on "A procurar…".
+  it("says the search failed when the server fails and nothing is stored", async () => {
+    referenceService.extract.and.returnValue([])
+    apiService.search.and.returnValue(throwError(() => ({ status: 0 })))
+    offlineSearch.search.and.resolveTo(null)
+    spyOn(console, "error")
+    await component.onSearchSubmit("luz")
+    fixture.detectChanges()
+
+    const text = fixture.nativeElement.textContent as string
+    expect(component.searchFailed).toBeTrue()
+    expect(text).toContain("Não foi possível pesquisar")
+    expect(text).not.toContain("Nenhum resultado")
+    expect(component.statusMessage).toContain("Não foi possível pesquisar")
+  })
+
   // The search by meaning can fail (e.g. its index rebuilding): words still work.
   it("falls back to the stored Bible when the server can't search", async () => {
     referenceService.extract.and.returnValue([])
@@ -957,6 +973,18 @@ describe("SearchComponent", () => {
       expect(referenceService.extract).toHaveBeenCalledWith("Sl 95,1-2")
       expect(component.psalmChoice).toBeNull()
       expect(router.navigate).toHaveBeenCalledWith(["/", "psa", 95], {})
+    })
+
+    // The liturgy's Psalm 115 is the second half of this edition's 116.
+    it("opens the half of a psalm a pair names", async () => {
+      referenceService.extract.and.returnValue([
+        { match: "Sl 116", index: 0, book: "Sl", chapter: 116 },
+      ])
+      await component.onSearchSubmit("Sl 115 (116B)")
+
+      expect(router.navigate).toHaveBeenCalledWith(["/", "psa", 116], {
+        queryParams: { verseStart: 10 },
+      })
     })
 
     it("opens directly where both numberings agree", async () => {

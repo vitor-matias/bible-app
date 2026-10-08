@@ -56,6 +56,10 @@ export const SEARCH_RESULT_CAP = 100
 const NOTHING_STORED =
   "Sem ligação, e a Bíblia ainda não está guardada neste dispositivo. Abra a app uma vez com ligação para a guardar."
 
+/** The server's search failed, and no Bible is stored to search instead. */
+const SEARCH_FAILED =
+  "Não foi possível pesquisar. Verifique a ligação e tente novamente."
+
 /** Verses of a search over the stored Bible shown at a time. */
 const STORED_PAGE_SIZE = 50
 
@@ -115,6 +119,9 @@ export class SearchComponent {
   storedMatches: Verse[] | null = null
   /** Offline, and no Bible stored on the device to search instead. */
   nothingStored = false
+  /** The server's search failed, with no stored Bible to search instead. */
+  searchFailed = false
+  readonly searchFailedMessage = SEARCH_FAILED
   readonly nothingStoredMessage = NOTHING_STORED
   private observer: IntersectionObserver | null = null
 
@@ -344,6 +351,11 @@ export class SearchComponent {
       }
     }
 
+    // "Sl 115 (116B)" names the second half of this edition's 116.
+    if (pairedPsalm && pair?.verse && targetVerseStart === undefined) {
+      targetVerseStart = pair.verse
+    }
+
     if (
       targetBook?.id === PSALMS_BOOK_ID &&
       !pairedPsalm &&
@@ -418,6 +430,7 @@ export class SearchComponent {
     this.searching = true
     this.storedMatches = null
     this.nothingStored = false
+    this.searchFailed = false
     this.statusMessage = "A procurar…"
     try {
       if (this.network.isOffline) {
@@ -444,10 +457,12 @@ export class SearchComponent {
         this.showResults(text)
         return
       }
+      // Not "no results": the page says the search itself failed.
       console.error("Error loading search results:", error)
-      this.toast.show("Não foi possível pesquisar. Tente novamente.", {
-        action: "OK",
-      })
+      this.searchFailed = true
+      this.searchResults = []
+      this.totalResults = 0
+      this.statusMessage = SEARCH_FAILED
     } finally {
       if (!isStale()) {
         this.isLoading = false
@@ -626,8 +641,9 @@ export function firstLine(verse: Verse): string | undefined {
   let afterHeading: number | undefined
   for (const part of verse.text) {
     if (part.type === "paragraph") {
+      // A paragraph can carry text of its own, as the reader shows it.
       afterHeading ??= lines.length
-      lines.push([])
+      lines.push([part.text])
     } else if (part.type === "quote") {
       lines.push([part.text])
     } else if (part.type === "text") {

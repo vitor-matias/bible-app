@@ -285,14 +285,42 @@ describe("HeaderComponent", () => {
       )
     }
 
-    it("offers its three choices, the current one marked", () => {
+    it("offers its three choices, the current one checked", () => {
       const buttons = choices()
       expect(
-        buttons.map((button) => button.querySelector("span")?.textContent),
+        buttons.map((button) =>
+          button.querySelector(".mat-mdc-menu-item-text")?.textContent?.trim(),
+        ),
       ).toEqual(["Automático", "Claro", "Escuro"])
+      expect(buttons.map((button) => button.getAttribute("role"))).toEqual([
+        "menuitemradio",
+        "menuitemradio",
+        "menuitemradio",
+      ])
       expect(
-        buttons.map((button) => button.getAttribute("aria-pressed")),
+        buttons.map((button) => button.getAttribute("aria-checked")),
       ).toEqual(["true", "false", "false"])
+    })
+
+    // Plain buttons in a menu are skipped by its arrow keys.
+    it("can be reached with the menu's arrow keys", () => {
+      choices()
+      const trigger = fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+      trigger.menu?.focusFirstItem("keyboard")
+      const panel = document.querySelector(".mat-mdc-menu-panel") as HTMLElement
+      const reached: string[] = []
+      for (let press = 0; press < 6; press++) {
+        const down = new KeyboardEvent("keydown", {
+          key: "ArrowDown",
+          bubbles: true,
+        })
+        Object.defineProperty(down, "keyCode", { get: () => 40 })
+        panel.dispatchEvent(down)
+        reached.push(document.activeElement?.textContent?.trim() ?? "")
+      }
+      expect(reached.some((text) => text.includes("Escuro"))).toBeTrue()
     })
 
     it("sets the chosen one and keeps the menu open", () => {

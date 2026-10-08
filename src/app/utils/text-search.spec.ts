@@ -26,6 +26,21 @@ describe("text search", () => {
     )
   })
 
+  it("keeps the text a paragraph carries", () => {
+    expect(
+      verseText({
+        bookId: "jhn",
+        chapterNumber: 1,
+        number: 1,
+        text: [
+          { type: "text", text: "No princípio" },
+          { type: "paragraph", text: "\n" },
+          { type: "paragraph", text: "havia o Verbo" },
+        ],
+      } as Verse),
+    ).toBe("No princípio havia o Verbo")
+  })
+
   it("folds case and accents", () => {
     expect(foldText("Misericórdia, CÉU")).toBe("misericordia, ceu")
   })

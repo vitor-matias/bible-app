@@ -55,31 +55,73 @@ export function isAmbiguousPsalmNumber(psalm: number): boolean {
 }
 
 /**
- * A psalm cited with both numbers, as leaflets do ("Sl 94 (95), 1-2" or
- * "Salmo 23 (22)"): this edition's number for it, and the rest of the
- * reference (the verses). Null when the text isn't such a pair, or the two
- * numbers don't name the same psalm.
+ * A psalm cited with both numbers, as leaflets and this app do: "Sl 94 (95),
+ * 1-2", "Salmo 23 (22)", "Sl 116 (114-115)", "Sl 115 (116B)". Gives this
+ * edition's number for it, the rest of the reference (the verses), and,
+ * when the pair names part of a psalm (the liturgy's Psalm 115 is the second
+ * half of this edition's 116), the verse that part begins at. Null when the
+ * text isn't such a pair, or the two numbers don't name the same psalm.
  */
 export function parsePsalmPair(
   text: string,
-): { psalm: number; book: string; rest: string } | null {
-  const match =
-    /^\s*(?<book>[\p{L}]+\.?)\s*(?<first>\d{1,3})\s*\(\s*(?<second>\d{1,3})\s*[A-Za-z]?\s*\)\s*(?<rest>.*)$/u.exec(
-      text,
-    )
+): { psalm: number; book: string; rest: string; verse?: number } | null {
+  const number = String.raw`\d{1,3}(?:\s*-\s*\d{1,3})?\s*[A-Za-z]?`
+  const match = new RegExp(
+    String.raw`^\s*(?<book>\p{L}+\.?)\s*(?<first>${number})\s*\(\s*(?<second>${number})\s*\)\s*(?<rest>.*)$`,
+    "u",
+  ).exec(text)
   if (!match?.groups) return null
   const { book, first, second, rest } = match.groups
-  const a = Number(first)
-  const b = Number(second)
-  // Whichever of the two is this edition's number maps onto the other.
-  const psalm = namesSamePsalm(a, b) ? a : namesSamePsalm(b, a) ? b : null
-  if (psalm === null) return null
-  return { psalm, book, rest: rest.trim() }
+  const a = psalmNumbers(first)
+  const b = psalmNumbers(second)
+  // Whichever of the two is this edition's single number maps onto the other.
+  const pair = pairOf(a, b) ?? pairOf(b, a)
+  if (!pair) return null
+  return {
+    psalm: pair.psalm,
+    book,
+    rest: rest.trim(),
+    ...(pair.verse > 1 ? { verse: pair.verse } : {}),
+  }
 }
 
-/** Whether `liturgical` is the liturgical number of this edition's `psalm`. */
-function namesSamePsalm(psalm: number, liturgical: number): boolean {
-  const number = liturgicalPsalmNumber(psalm)
-  if (number === null) return psalm === liturgical
-  return number.split("-").map(Number).includes(liturgical)
+/** "114-115" or "116B": its numbers, and the letter of a psalm's half. */
+function psalmNumbers(text: string): { numbers: number[]; half?: string } {
+  const half = /[A-Za-z]$/.exec(text.trim())?.[0].toUpperCase()
+  return {
+    numbers: text.match(/\d{1,3}/g)?.map(Number) ?? [],
+    ...(half ? { half } : {}),
+  }
+}
+
+/**
+ * `own` as this edition's number and `liturgical` as the liturgy's, when they
+ * name the same psalm: the psalm, and the verse the named part begins at.
+ */
+function pairOf(
+  own: { numbers: number[]; half?: string },
+  liturgical: { numbers: number[] },
+): { psalm: number; verse: number } | null {
+  if (own.numbers.length !== 1) return null
+  const psalm = own.numbers[0]
+  const expected = liturgicalPsalmNumber(psalm)?.split("-").map(Number) ?? [
+    psalm,
+  ]
+  const given = liturgical.numbers
+  const whole = given.join("-") === expected.join("-")
+  const part = given.length === 1 && expected.includes(given[0])
+  if (!whole && !part) return null
+  // The part named: the liturgy's single number ("115"), or the half of a
+  // psalm the liturgy splits in two ("116B").
+  const named =
+    part && expected.length > 1
+      ? given[0]
+      : own.half && expected.length > 1
+        ? expected[own.half === "B" ? 1 : 0]
+        : undefined
+  const start = named !== undefined ? psalmFromLiturgical(named) : null
+  return {
+    psalm,
+    verse: start?.psalm === psalm ? start.verse : 1,
+  }
 }
