@@ -8,7 +8,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         window = UIWindow(windowScene: windowScene)
-        window?.rootViewController = CAPBridgeViewController()
+        // Hosts the web app under native bars (ChromeViewController.swift).
+        window?.rootViewController = ChromeViewController()
+        // Monochrome: checkmarks, the caret and sheet buttons in the text colour.
+        window?.tintColor = .label
         window?.makeKeyAndVisible()
 
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)

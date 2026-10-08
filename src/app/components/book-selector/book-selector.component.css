@@ -33,8 +33,6 @@
   display: flex;
   justify-content: space-around;
   padding: 8px;
-  /* Keep the last row clear of the Android navigation bar. */
-  padding-bottom: max(var(--app-inset-bottom), 48px);
   width: 100%;
   flex: 1;
   overflow-y: auto;

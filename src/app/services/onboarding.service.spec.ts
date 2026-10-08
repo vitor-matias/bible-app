@@ -6,6 +6,7 @@ import {
   type OnboardingResult,
 } from "../components/onboarding/onboarding.component"
 import { AnalyticsService } from "./analytics.service"
+import { NativeChromeService } from "./native-chrome.service"
 import { FIRST_LAUNCH_DELAY_MS, OnboardingService } from "./onboarding.service"
 import { PreferencesService } from "./preferences.service"
 
@@ -152,6 +153,74 @@ describe("OnboardingService", () => {
       service.open("menu")
 
       expect(dialogSpy.open).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  // The iOS app shows the steps as a native sheet instead of the dialog.
+  describe("in the iOS app", () => {
+    let showOnboarding: jasmine.Spy
+    let finish: (result: OnboardingResult) => void
+
+    beforeEach(() => {
+      showOnboarding = jasmine.createSpy("showOnboarding").and.callFake(
+        () =>
+          new Promise<OnboardingResult>((resolve) => {
+            finish = resolve
+          }),
+      )
+      TestBed.resetTestingModule()
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: MatDialog, useValue: dialogSpy },
+          { provide: PreferencesService, useValue: preferencesSpy },
+          { provide: AnalyticsService, useValue: analyticsSpy },
+          {
+            provide: NativeChromeService,
+            useValue: { enabled: true, showOnboarding },
+          },
+        ],
+      })
+      service = TestBed.inject(OnboardingService)
+    })
+
+    it("shows the native sheet, without the install step", () => {
+      expect(service.open("menu")).toBeNull()
+
+      expect(dialogSpy.open).not.toHaveBeenCalled()
+      const steps = showOnboarding.calls.mostRecent().args[0]
+      expect(steps.map((step: { id: string }) => step.id)).toEqual([
+        "welcome",
+        "navigate",
+        "customize",
+        "tools",
+      ])
+      expect(analyticsSpy.track).toHaveBeenCalledWith("onboarding_open", {
+        source: "menu",
+      })
+    })
+
+    it("remembers it as seen and reports how it ended", async () => {
+      service.open("first_launch")
+      finish({ completed: false, lastStep: "navigate" })
+      await Promise.resolve()
+
+      expect(preferencesSpy.setOnboardingSeen).toHaveBeenCalledWith(true)
+      expect(analyticsSpy.track).toHaveBeenCalledWith("onboarding_close", {
+        source: "first_launch",
+        completed: false,
+        lastStep: "navigate",
+      })
+    })
+
+    it("shows one sheet at a time", async () => {
+      service.open("menu")
+      service.open("menu")
+      expect(showOnboarding).toHaveBeenCalledTimes(1)
+
+      finish({ completed: true, lastStep: "tools" })
+      await Promise.resolve()
+      service.open("menu")
+      expect(showOnboarding).toHaveBeenCalledTimes(2)
     })
   })
 })

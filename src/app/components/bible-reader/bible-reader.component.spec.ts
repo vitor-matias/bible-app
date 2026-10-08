@@ -24,6 +24,7 @@ import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
 import { HapticsService } from "../../services/haptics.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
@@ -680,25 +681,53 @@ describe("BibleReaderComponent", () => {
     })
   })
 
-  // The app draws edge-to-edge: a container sized to the full viewport put
-  // its last lines under the Android navigation bar.
-  it("keeps the reader above the bottom system inset", () => {
-    fixture.detectChanges()
-    const host = fixture.nativeElement as HTMLElement
-    const container = host.querySelector(
-      ".bookSelectorContainer",
-    ) as HTMLElement
-    expect(container).toBeTruthy()
-    // NO_ERRORS_SCHEMA leaves mat-drawer-container an unknown inline element,
-    // which ignores height.
-    container.style.display = "block"
+  // The app draws edge-to-edge, but nothing may sit behind the navigation
+  // bar: the reader ends at its top and the page background shows behind it.
+  describe("bottom system inset", () => {
+    function render(viewMode: "scrolling" | "paged"): HTMLElement {
+      // ngOnInit restores the saved view mode; set ours after it.
+      fixture.detectChanges()
+      component.viewMode = viewMode
+      component.chapter = { bookId: "gen", number: 2 } as Chapter
+      component.chapterNumber = 2
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+      return fixture.nativeElement as HTMLElement
+    }
 
-    host.style.setProperty("--app-inset-bottom", "0px")
-    const withoutInset = container.getBoundingClientRect().height
-    host.style.setProperty("--app-inset-bottom", "100px")
-    const withInset = container.getBoundingClientRect().height
+    function heightWithInset(element: HTMLElement, inset: string): number {
+      ;(fixture.nativeElement as HTMLElement).style.setProperty(
+        "--app-inset-bottom",
+        inset,
+      )
+      return element.getBoundingClientRect().height
+    }
 
-    expect(withoutInset - withInset).toBeCloseTo(100, 0)
+    it("ends the reader at the top of the navigation bar", () => {
+      const container = render("scrolling").querySelector(
+        ".bookSelectorContainer",
+      ) as HTMLElement
+      // NO_ERRORS_SCHEMA leaves mat-drawer-container an unknown inline
+      // element, which ignores height.
+      container.style.display = "block"
+
+      expect(
+        heightWithInset(container, "0px") - heightWithInset(container, "100px"),
+      ).toBeCloseTo(100, 0)
+    })
+
+    // Pages don't scroll: their text must end above the bar, where the
+    // fixed footer sits.
+    it("ends the pages above the navigation bar", () => {
+      const pages = render("paged").querySelector(
+        ".paged-view-container",
+      ) as HTMLElement
+      expect(pages).toBeTruthy()
+
+      expect(
+        heightWithInset(pages, "0px") - heightWithInset(pages, "100px"),
+      ).toBeCloseTo(100, 0)
+    })
   })
 
   describe("Drawer Actions", () => {
@@ -1183,5 +1212,102 @@ describe("BibleReaderComponent", () => {
       tick()
       expect(animationServiceSpy.scrollToVerseElement).toHaveBeenCalled()
     }))
+  })
+
+  // The iOS toolbar's arrows and passage picker (HeaderComponent outputs).
+  describe("stepping and picking a passage", () => {
+    beforeEach(() => {
+      component.book = mockBooks[0] as unknown as Book
+      component.viewMode = "scrolling"
+    })
+
+    function at(chapter: number): void {
+      component.chapterNumber = chapter
+      component.chapter = { bookId: "gen", number: chapter } as Chapter
+    }
+
+    it("can step between chapters, but not past the first or last", () => {
+      at(1)
+      expect(component.canGoPrevious).toBeFalse()
+      expect(component.canGoNext).toBeTrue()
+
+      at(50)
+      expect(component.canGoPrevious).toBeTrue()
+      expect(component.canGoNext).toBeFalse()
+    })
+
+    it("can step back to the introduction", () => {
+      component.book = {
+        ...(mockBooks[0] as unknown as Book),
+        introduction: [{ type: "introParagraph", text: "intro" }],
+      }
+      at(1)
+      expect(component.canGoPrevious).toBeTrue()
+    })
+
+    it("steps through pages before chapters in paged mode", () => {
+      component.viewMode = "paged"
+      at(50)
+      component.isLastPage = false
+      expect(component.canGoNext).toBeTrue()
+
+      component.isLastPage = true
+      expect(component.canGoNext).toBeFalse()
+    })
+
+    it("has nowhere to step on the About page or before the text loads", () => {
+      at(1)
+      component.chapter = undefined as unknown as Chapter
+      expect(component.canGoNext).toBeFalse()
+
+      component.book = mockBooks[1] as unknown as Book
+      at(1)
+      expect(component.canGoPrevious).toBeFalse()
+      expect(component.canGoNext).toBeFalse()
+    })
+
+    it("steps like the swipes do", () => {
+      at(2)
+      component.stepForward()
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
+    })
+
+    it("opens the passage picked", () => {
+      component.goToPassage({ bookId: "gen", chapter: 7 })
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "7"])
+
+      component.goToPassage({ bookId: "gen", chapter: 0 })
+      expect(routerSpy.navigate).toHaveBeenCalledWith([
+        "/",
+        "1-genesis",
+        "intro",
+      ])
+    })
+
+    it("opens chapter 1 of a book picked without a chapter", () => {
+      component.goToPassage({ bookId: "gen" })
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
+    })
+  })
+
+  describe("iOS native bars", () => {
+    it("hides them as the text scrolls, until the text goes away", () => {
+      const stop = jasmine.createSpy("stop")
+      const track = spyOn(
+        TestBed.inject(NativeChromeService),
+        "trackScroll",
+      ).and.returnValue(stop)
+      const scroller = document.createElement("div")
+
+      component.drawerContent = new ElementRef(scroller)
+      expect(track).toHaveBeenCalledOnceWith(scroller)
+
+      component.drawerContent = undefined
+      expect(stop).toHaveBeenCalledTimes(1)
+
+      component.drawerContent = new ElementRef(scroller)
+      fixture.destroy()
+      expect(stop).toHaveBeenCalledTimes(2)
+    })
   })
 })

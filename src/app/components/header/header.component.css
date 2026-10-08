@@ -154,13 +154,39 @@ mat-icon {
   min-width: 240px;
 }
 
-.menu-controls button {
+/* Round icon buttons. They are menu items underneath, so the menu's arrow
+   keys reach them. */
+.menu-control.mat-mdc-menu-item {
+  flex: none;
+  justify-content: center;
+  width: 48px;
+  min-width: 0;
+  height: 48px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
   transform: scale(1.2);
+}
+
+/* An icon alone: the menu item's empty label would take the room and push
+   the icon to the side. */
+.menu-control ::ng-deep .mat-mdc-menu-item-text {
+  display: none;
+}
+
+.menu-control mat-icon {
+  margin: 0;
   color: inherit;
 }
 
-.menu-controls mat-icon {
-  color: inherit;
+/* The ribbon on the chapter being read, small after its number. */
+.chapter-ribbon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  vertical-align: -3px;
+  font-variation-settings: "FILL" 1;
 }
 
 ::ng-deep .mat-mdc-menu-content .privacy-label {

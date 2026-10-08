@@ -89,9 +89,9 @@ h6 {
 
 .bookSelectorContainer {
   width: 100%;
-  height: calc(100vh - (56px + env(safe-area-inset-top) + var(--app-inset-bottom)));
+  height: calc(100vh - (var(--app-header-height) + var(--app-inset-bottom)));
   /* Fallback */
-  height: calc(100dvh - (56px + env(safe-area-inset-top) + var(--app-inset-bottom)));
+  height: calc(100dvh - (var(--app-header-height) + var(--app-inset-bottom)));
   /* Dynamic viewport */
   overscroll-behavior: none;
   /* Prevents rubber banding in this container */
@@ -117,6 +117,11 @@ h6 {
   .floating-nav-button:hover {
     opacity: 1;
   }
+}
+
+/* iOS: the toolbar's arrows replace these (HeaderComponent, native bars). */
+:host-context(.native-chrome) .floating-nav-button {
+  display: none;
 }
 
 
@@ -176,10 +181,10 @@ h6 {
   /* Hide overflow instead of auto to prevent momentary scrollbars during animation */
   scrollbar-width: none;
   /* Firefox */
-  height: calc(100vh - (56px + env(safe-area-inset-top)) - 15px);
+  height: calc(100vh - var(--app-header-height) - var(--app-chrome-top) - 15px - var(--app-inset-bottom));
   /* Fallback */
-  height: calc(100dvh - (56px + env(safe-area-inset-top)) - 15px);
-  /* Dynamic viewport - Header - Margins */
+  height: calc(100dvh - var(--app-header-height) - var(--app-chrome-top) - 15px - var(--app-inset-bottom));
+  /* Dynamic viewport - Header - Margins - Navigation bar */
   width: 95%;
   /* Narrower container to create side margins */
   margin: 0 auto;

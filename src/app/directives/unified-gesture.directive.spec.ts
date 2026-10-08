@@ -149,6 +149,85 @@ describe("UnifiedGesturesDirective", () => {
     expect(swipeLeftSpy).toHaveBeenCalled()
   })
 
+  // A diagonal flick while scrolling used to change the chapter.
+  describe("when a swipe changes the chapter", () => {
+    type Point = [x: number, y: number]
+    const call = (handler: string, event: object) =>
+      (directive as unknown as Record<string, (e: TouchEvent) => void>)[
+        handler
+      ](event as TouchEvent)
+    const touch = ([clientX, clientY]: Point) => ({
+      identifier: 1,
+      clientX,
+      clientY,
+    })
+
+    /** A one-finger gesture through `moves`, lifted after `ms`. */
+    function gesture(moves: Point[], ms: number) {
+      spyOn(Date, "now").and.returnValues(0, ms)
+      const swiped = jasmine.createSpy("swiped")
+      directive.swipeLeft.subscribe(swiped)
+      directive.swipeRight.subscribe(swiped)
+      const preventDefault = jasmine.createSpy("preventDefault")
+      call("onTouchStart", { touches: [touch(moves[0])] })
+      for (const point of moves.slice(1, -1)) {
+        call("onTouchMove", { touches: [touch(point)], preventDefault })
+      }
+      call("onTouchEnd", { changedTouches: [touch(moves[moves.length - 1])] })
+      return { swiped, preventDefault }
+    }
+
+    it("never on a diagonal flick", () => {
+      const { swiped } = gesture(
+        [
+          [200, 300],
+          [250, 260],
+          [290, 220],
+        ],
+        100,
+      )
+      expect(swiped).not.toHaveBeenCalled()
+    })
+
+    it("never once the gesture started as a scroll", () => {
+      const { swiped } = gesture(
+        [
+          [200, 300],
+          [203, 285],
+          [400, 280],
+          [420, 280],
+        ],
+        150,
+      )
+      expect(swiped).not.toHaveBeenCalled()
+    })
+
+    it("on a slow, deliberate drag across a good part of the page", () => {
+      const { swiped, preventDefault } = gesture(
+        [
+          [window.innerWidth * 0.8, 300],
+          [window.innerWidth * 0.75, 302],
+          [window.innerWidth * 0.4, 310],
+        ],
+        1500,
+      )
+      expect(swiped).toHaveBeenCalledTimes(1)
+      expect(preventDefault).toHaveBeenCalled()
+    })
+
+    it("not on a short, slow drag", () => {
+      const { swiped } = gesture(
+        [
+          [200, 300],
+          [215, 300],
+          [270, 302],
+        ],
+        1000,
+      )
+      expect(swiped).not.toHaveBeenCalled()
+    })
+  })
+
   it("should persist font size after a pinch gesture", () => {
     const preventDefault = jasmine.createSpy("preventDefault")
 

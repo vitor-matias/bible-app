@@ -1,3 +1,5 @@
+<!-- In the iOS app the shell draws this header natively (NativeChromeService). -->
+@if (!native) {
 <div class="header-placeholder">
   <mat-toolbar>
     <div class="header-content">
@@ -6,19 +8,21 @@
         <mat-icon>menu</mat-icon>
       </button>
       <mat-menu #headerMenu="matMenu">
+        <!-- Menu items, so the arrow keys reach them; a click here stops short
+             of the menu panel, so the menu stays open as the text changes. -->
         <div class="menu-controls" (click)="$event.stopPropagation()">
-          <button type="button" mat-icon-button (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" [attr.aria-label]="getThemeTooltip()">
+          <button type="button" mat-menu-item class="menu-control" (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" matTooltipPosition="above" [attr.aria-label]="getThemeTooltip()">
             <mat-icon>{{ getThemeIcon() }}</mat-icon>
           </button>
           @if (book.id !== 'about') {
-          <button type="button" mat-icon-button (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" [attr.aria-label]="getViewModeTooltip()">
+          <button type="button" mat-menu-item class="menu-control" (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" matTooltipPosition="above" [attr.aria-label]="getViewModeTooltip()">
             <mat-icon>{{ getViewModeIcon() }}</mat-icon>
           </button>
           }
-          <button type="button" mat-icon-button (click)="onDecreaseFontSize()" matTooltip="Diminuir texto" aria-label="Diminuir texto">
+          <button type="button" mat-menu-item class="menu-control" (click)="onDecreaseFontSize()" matTooltip="Diminuir texto" matTooltipPosition="above" aria-label="Diminuir texto">
             <mat-icon>text_decrease</mat-icon>
           </button>
-          <button type="button" mat-icon-button (click)="onIncreaseFontSize()" matTooltip="Aumentar texto" aria-label="Aumentar texto">
+          <button type="button" mat-menu-item class="menu-control" (click)="onIncreaseFontSize()" matTooltip="Aumentar texto" matTooltipPosition="above" aria-label="Aumentar texto">
             <mat-icon>text_increase</mat-icon>
           </button>
         </div>
@@ -51,7 +55,7 @@
           <mat-icon>help</mat-icon>
           <span>Como usar a app</span>
         </button>
-        <a mat-menu-item href="https://www.capuchinhos.org/politica-de-privacidade" target="_blank" rel="noopener noreferrer">
+        <a mat-menu-item [href]="privacyPolicyUrl" target="_blank" rel="noopener noreferrer">
           <mat-icon>privacy_tip</mat-icon>
           <span class="privacy-label">
             Política de Privacidade
@@ -74,14 +78,10 @@
           <!-- One element with swapped text: a second, stacked label would put
                "Escolher Livro" inside the page's h1. -->
           <span class="cycle-wrapper">
-            <span class="cycle-text" [class.faded]="labelFading">{{
-              bookLabelMode === 'title'
-                ? (mobile ? book.shortName : book.name)
-                : 'Escolher Livro'
-            }}</span>
+            <span class="cycle-text" [class.faded]="labelFading">{{ bookLabel }}</span>
           </span>
           } @else {
-          {{ mobile ? book.shortName : book.name }}
+          {{ bookLabel }}
           }
         </mat-button-toggle>
 
@@ -89,18 +89,22 @@
         @if(book.id !== 'about' && !book.introSlug){
         <mat-button-toggle #chapterToggle mat-flat-button matTooltip="Escolher capítulo"
           class="bookSelectorButtonContent" (click)="showChapterSelector(); chapterToggle.checked = false">
-          {{ chapterNumber === 0 ? (mobile ? 'Intro' : 'Introdução') : chapterNumber }}
+          {{ chapterLabel }}
+          <!-- The ribbon on this chapter, as it hangs from a printed Bible. -->
+          @if (bookmarkName) {
+          <mat-icon class="chapter-ribbon" [style.color]="currentBookmark?.color" aria-hidden="true">bookmark</mat-icon>
+          <span class="visually-hidden">, marcador {{ bookmarkName.toLocaleLowerCase('pt') }}</span>
+          }
         </mat-button-toggle>
         }
       </mat-button-toggle-group>
       </h1>
 
-      @if (!isOffline) {
       <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button matTooltip="Pesquisar"
         aria-label="Pesquisar">
         <mat-icon class="search-icon" aria-label="Search">search</mat-icon>
       </button>
-      }
     </div>
   </mat-toolbar>
 </div>
+}

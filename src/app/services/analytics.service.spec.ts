@@ -95,6 +95,78 @@ describe("AnalyticsService", () => {
 
     expect(buildVersionServiceMock.getBuildInfo).not.toHaveBeenCalled()
   })
+
+  // umami.track swallows network errors and resolves either way, so a report
+  // could say "sent" when it wasn't.
+  describe("trackDelivered", () => {
+    let script: HTMLScriptElement
+    let fetchSpy: jasmine.Spy
+
+    beforeEach(() => {
+      script = document.createElement("script")
+      script.type = "text/plain" // Never run: only its attributes are read.
+      script.src = "https://umami.example.org/script.js"
+      script.setAttribute("data-website-id", "site-1")
+      script.setAttribute("data-before-send", "testBeforeSend")
+      document.head.appendChild(script)
+      ;(window as unknown as Record<string, unknown>)["testBeforeSend"] = (
+        _type: string,
+        payload: Record<string, unknown>,
+      ) => ({ ...payload, hostname: "ios-app" })
+      fetchSpy = spyOn(window, "fetch").and.resolveTo(
+        new Response("{}", { status: 200 }),
+      )
+      spyOn(Capacitor, "getPlatform").and.returnValue("ios")
+    })
+
+    afterEach(() => {
+      script.remove()
+      delete (window as unknown as Record<string, unknown>)["testBeforeSend"]
+    })
+
+    it("sends the event beside the tracker's script, through its hook", async () => {
+      await service.trackDelivered("report_problem", { topic: "typo" })
+
+      const [url, init] = fetchSpy.calls.mostRecent().args
+      expect(url).toBe("https://umami.example.org/api/send")
+      const body = JSON.parse(init.body)
+      expect(body.type).toBe("event")
+      expect(body.payload).toEqual(
+        jasmine.objectContaining({
+          website: "site-1",
+          name: "report_problem",
+          hostname: "ios-app",
+          data: jasmine.objectContaining({
+            topic: "typo",
+            buildVersion: "test-version",
+            platform: "ios",
+          }),
+        }),
+      )
+    })
+
+    it("rejects when the server refuses it", async () => {
+      fetchSpy.and.resolveTo(new Response("", { status: 500 }))
+      await expectAsync(
+        service.trackDelivered("report_problem", {}),
+      ).toBeRejected()
+    })
+
+    it("rejects when it can't reach the server", async () => {
+      fetchSpy.and.rejectWith(new TypeError("Failed to fetch"))
+      await expectAsync(
+        service.trackDelivered("report_problem", {}),
+      ).toBeRejected()
+    })
+
+    it("rejects when the tracker isn't on the page", async () => {
+      script.remove()
+      await expectAsync(
+        service.trackDelivered("report_problem", {}),
+      ).toBeRejected()
+      expect(fetchSpy).not.toHaveBeenCalled()
+    })
+  })
 })
 
 // The native shells serve the app from https://localhost; without this every

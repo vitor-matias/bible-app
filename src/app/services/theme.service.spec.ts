@@ -215,4 +215,32 @@ describe("ThemeService", () => {
     service.toggleTheme() // system -> light
     expect(nativeShellSpy.setNavigationBarTheme).toHaveBeenCalledWith(false)
   })
+
+  // The iOS native menu picks a theme directly instead of cycling.
+  it("sets, applies and saves a chosen theme", () => {
+    service = createService()
+    classListToggleSpy.calls.reset()
+
+    service.setTheme("dark")
+
+    expect(service.currentMode).toBe("dark")
+    expect(classListToggleSpy).toHaveBeenCalledWith("dark-theme", true)
+    expect(prefsSpy.setTheme).toHaveBeenCalledWith("dark")
+  })
+
+  // Re-tapping the current choice in the iOS menu's theme row.
+  it("does nothing for the theme already on", () => {
+    prefsSpy.getTheme.and.returnValue("dark")
+    service = createService()
+    const analytics = TestBed.inject(
+      AnalyticsService,
+    ) as jasmine.SpyObj<AnalyticsService>
+    classListToggleSpy.calls.reset()
+
+    service.setTheme("dark")
+
+    expect(classListToggleSpy).not.toHaveBeenCalled()
+    expect(prefsSpy.setTheme).not.toHaveBeenCalled()
+    expect(analytics.track).not.toHaveBeenCalled()
+  })
 })

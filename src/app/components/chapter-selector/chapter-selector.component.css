@@ -66,7 +66,5 @@ button.highlight {
 }
 
 .chapterSelectorContainer {
-  /* Keep the last chapter clear of the Android navigation bar. */
-  padding-bottom: max(var(--app-inset-bottom), 48px);
   background-color: var(--card-background);
 }

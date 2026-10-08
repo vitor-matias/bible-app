@@ -58,13 +58,20 @@ export class ThemeService {
   toggleTheme(): void {
     const modes: ThemeMode[] = ["light", "dark", "system"]
     const currentIndex = modes.indexOf(this.themeMode.value)
-    const nextMode = modes[(currentIndex + 1) % modes.length]
+    this.setTheme(modes[(currentIndex + 1) % modes.length])
+  }
 
-    this.themeMode.next(nextMode)
-    this.applyTheme(nextMode)
-    this.preferencesService.setTheme(nextMode)
+  /**
+   * Choosing the theme already on does nothing: not saved again, and not
+   * counted as a change.
+   */
+  setTheme(mode: ThemeMode): void {
+    if (mode === this.themeMode.value) return
+    this.themeMode.next(mode)
+    this.applyTheme(mode)
+    this.preferencesService.setTheme(mode)
 
-    void this.analyticsService.track(`theme-${nextMode}`)
+    void this.analyticsService.track(`theme-${mode}`)
   }
 
   private applyTheme(mode: ThemeMode): void {

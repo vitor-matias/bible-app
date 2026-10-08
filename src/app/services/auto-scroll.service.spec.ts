@@ -117,6 +117,36 @@ describe("AutoScrollService", () => {
     expect(keepAwakeServiceSpy.stop).toHaveBeenCalled()
   })
 
+  // Regression: WebKit keeps scrollTop in whole pixels. Applying half a pixel
+  // per frame and discarding the rest left the iOS app's text standing still.
+  it("advances where the browser only scrolls whole pixels", () => {
+    let top = 0
+    const scrollElement = document.createElement("div")
+    Object.defineProperties(scrollElement, {
+      scrollHeight: { value: 10_000, configurable: true },
+      clientHeight: { value: 500, configurable: true },
+      scrollTop: {
+        get: () => top,
+        set: (value: number) => {
+          top = Math.floor(value)
+        },
+        configurable: true,
+      },
+    })
+    service.setAutoScrollLinesPerSecond(1)
+    service.start({ scrollElement })
+    const step = (service as unknown as Record<string, (t: number) => void>)[
+      "stepAutoScroll"
+    ].bind(service)
+
+    // Two seconds at 60 frames per second, each frame a fraction of a pixel.
+    for (let frame = 0; frame <= 120; frame++) step(frame * (1000 / 60))
+
+    // One line (24px without a line-height element) per second.
+    expect(top).toBeGreaterThanOrEqual(46)
+    expect(top).toBeLessThanOrEqual(48)
+  })
+
   it("should refresh cached line height when the observer fires", () => {
     const lineHeightElement = document.createElement("div")
     const scrollElement = document.createElement("div")

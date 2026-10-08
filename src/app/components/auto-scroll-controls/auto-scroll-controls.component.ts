@@ -3,13 +3,18 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
+  DestroyRef,
   Input,
+  inject,
   OnDestroy,
+  OnInit,
 } from "@angular/core"
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
 import { PreferencesService } from "../../services/preferences.service"
 
 @Component({
@@ -20,9 +25,14 @@ import { PreferencesService } from "../../services/preferences.service"
   styleUrls: ["./auto-scroll-controls.component.css"],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AutoScrollControlsComponent implements OnDestroy {
+export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   @Input() scrollElement?: HTMLElement
   @Input() lineHeightElement?: HTMLElement
+
+  private readonly nativeChrome = inject(NativeChromeService)
+  private readonly destroyRef = inject(DestroyRef)
+  /** The iOS app shows these controls in its native toolbar instead. */
+  readonly native = this.nativeChrome.enabled
 
   constructor(
     private autoScrollService: AutoScrollService,
@@ -31,8 +41,21 @@ export class AutoScrollControlsComponent implements OnDestroy {
     private analyticsService: AnalyticsService,
   ) {}
 
+  ngOnInit(): void {
+    if (!this.native) return
+    this.nativeChrome.actions$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ id }) => {
+        if (id === "auto-scroll-toggle") this.toggleAutoScroll()
+        if (id === "auto-scroll-slower") this.decreaseAutoScrollSpeed()
+        if (id === "auto-scroll-faster") this.increaseAutoScrollSpeed()
+      })
+    this.syncNativeChrome()
+  }
+
   ngOnDestroy(): void {
     this.stopAutoScroll()
+    if (this.native) this.nativeChrome.setAutoScroll(null)
   }
 
   toggleAutoScroll(): void {
@@ -60,6 +83,7 @@ export class AutoScrollControlsComponent implements OnDestroy {
     })
 
     this.cdr.markForCheck()
+    this.syncNativeChrome()
   }
 
   private startAutoScroll(): void {
@@ -96,6 +120,18 @@ export class AutoScrollControlsComponent implements OnDestroy {
     } catch {
       // Safely ignore errors if change detection cannot be triggered (e.g., component destroyed)
     }
+    this.syncNativeChrome()
+  }
+
+  /** Sends what these controls show to the iOS toolbar. */
+  private syncNativeChrome(): void {
+    if (!this.native || this.destroyRef.destroyed) return
+    this.nativeChrome.setAutoScroll({
+      playing: this.autoScrollEnabled,
+      speedLabel: `${this.autoScrollSpeedLabel} ln/s`,
+      canSlower: this.autoScrollLinesPerSecond > this.MIN_AUTO_SCROLL_LPS,
+      canFaster: this.autoScrollLinesPerSecond < this.MAX_AUTO_SCROLL_LPS,
+    })
   }
 
   get autoScrollEnabled(): boolean {

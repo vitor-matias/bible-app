@@ -4,7 +4,8 @@
     [autoScrollControlsVisible]="showAutoScrollControls" (openBookSelector)="openBookDrawer($event)"
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
     (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize()"
-    (decreaseFontSizeEvent)="onDecreaseFontSize()"></header>
+    (decreaseFontSizeEvent)="onDecreaseFontSize()" [canGoPrevious]="canGoPrevious" [canGoNext]="canGoNext"
+    (previous)="stepBackward()" (next)="stepForward()" (selectPassage)="goToPassage($event)"></header>
   <mat-drawer-container class="bookSelectorContainer" #container>
     @if (books.length) {
     <mat-drawer class="bookSelector" mode="over" position="start" #bookDrawer closed>
@@ -57,7 +58,7 @@
 
       @if (book.id !== 'about' && chapter) {
       <!-- Floating navigation: real links in scrolling mode, for crawlers. -->
-      @if (chapter.number > (hasIntro ? 0 : 1) || (effectiveViewMode === 'paged' && !isFirstPage)) {
+      @if (canGoPrevious) {
       @if (effectiveViewMode === 'scrolling') {
       <a class="floating-nav-button prev-chapter" mat-mini-fab aria-label="Capítulo anterior"
         [routerLink]="previousChapterLink" [replaceUrl]="replaceChapterHistory" (click)="prepareChapterNavigation(false, $event)">
@@ -74,7 +75,7 @@
       <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock">
       </app-auto-scroll-controls>
       }
-      @if (chapter.number < book.chapterCount || (effectiveViewMode==='paged' && !isLastPage)) {
+      @if (canGoNext) {
       @if (effectiveViewMode === 'scrolling') {
       <a class="floating-nav-button next-chapter" mat-mini-fab aria-label="Capítulo seguinte"
         [routerLink]="nextChapterLink" [replaceUrl]="replaceChapterHistory" (click)="prepareChapterNavigation(true, $event)">

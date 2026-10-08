@@ -1,4 +1,5 @@
-import { MatSnackBarRef } from "@angular/material/snack-bar"
+import { TestBed } from "@angular/core/testing"
+import { MAT_SNACK_BAR_DATA, MatSnackBarRef } from "@angular/material/snack-bar"
 import { TwoActionSnackComponent } from "./two-action-snackbar.component"
 
 describe("TwoActionSnackComponent", () => {
@@ -50,6 +51,31 @@ describe("TwoActionSnackComponent", () => {
 
     component.dismiss()
 
+    expect(snackBarRefSpy.dismiss).toHaveBeenCalled()
+  })
+
+  // A question with Voltar and Fechar under it said the same thing twice.
+  it("is one button naming the way back, with a close button", () => {
+    const returnUrl = jasmine.createSpy("returnUrl")
+    TestBed.configureTestingModule({
+      imports: [TwoActionSnackComponent],
+      providers: [
+        {
+          provide: MAT_SNACK_BAR_DATA,
+          useValue: { message: "Voltar para Gn 3,5", returnUrl },
+        },
+        { provide: MatSnackBarRef, useValue: snackBarRefSpy },
+      ],
+    })
+    const fixture = TestBed.createComponent(TwoActionSnackComponent)
+    fixture.detectChanges()
+    const element = fixture.nativeElement as HTMLElement
+    const [goBack, close] = Array.from(element.querySelectorAll("button"))
+
+    expect(goBack.textContent).toContain("Voltar para Gn 3,5")
+    expect(close.getAttribute("aria-label")).toBe("Fechar")
+    goBack.click()
+    expect(returnUrl).toHaveBeenCalled()
     expect(snackBarRefSpy.dismiss).toHaveBeenCalled()
   })
 })

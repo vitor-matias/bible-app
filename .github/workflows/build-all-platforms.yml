@@ -151,7 +151,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HAS_ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-      HAS_PLAY_SERVICE_ACCOUNT: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
       # Read by android/app/build.gradle as -PversionCode / -PversionName.
       ORG_GRADLE_PROJECT_versionCode: ${{ needs.build-native-web.outputs.version_code }}
       ORG_GRADLE_PROJECT_versionName: ${{ needs.build-native-web.outputs.version_name }}
@@ -282,23 +281,6 @@ jobs:
           name: android-aab
           path: android/app/build/outputs/bundle/**/*.aab
           retention-days: 30
-
-      # Releases only (a v* tag push, or a manual run with create_release), so
-      # test runs never reach Play, whose version codes must keep increasing.
-      # The app must already exist in Play Console with one release uploaded
-      # by hand; the API cannot create it.
-      - name: Upload to Google Play
-        if: >-
-          env.HAS_ANDROID_KEYSTORE != '' && env.HAS_PLAY_SERVICE_ACCOUNT != '' &&
-          ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
-          inputs.create_release)
-        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: org.capuchinhos.biblia
-          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
-          track: ${{ inputs.play_track || 'internal' }}
-          status: completed
 
   build-ios-macos:
     needs: build-native-web
@@ -482,6 +464,43 @@ jobs:
           git tag "$TAG" -m "Release $TAG"
           git push origin "$TAG"
           echo "tag_name=$TAG" >> "$GITHUB_OUTPUT"
+
+  # Releases only (a v* tag push, or a manual run with create_release), so
+  # test runs never reach Play, whose version codes must keep increasing. A
+  # manual release waits for its tag, like create-release, so Play never gets
+  # a build whose tag failed to push. The app must already exist in Play
+  # Console with one release uploaded by hand; the API cannot create it.
+  upload-play:
+    name: Upload to Google Play
+    needs: [build-android, create-tag]
+    if: |
+      always() &&
+      needs.build-android.result == 'success' &&
+      needs.build-android.outputs.apk_signed == 'true' &&
+      (
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+        (github.event_name == 'workflow_dispatch' && inputs.create_release == true && needs.create-tag.result == 'success')
+      )
+    runs-on: ubuntu-latest
+    env:
+      HAS_PLAY_SERVICE_ACCOUNT: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - name: Download Android AAB artifact
+        if: ${{ env.HAS_PLAY_SERVICE_ACCOUNT != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: android-aab
+          path: aab
+
+      - name: Upload to Google Play
+        if: ${{ env.HAS_PLAY_SERVICE_ACCOUNT != '' }}
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: org.capuchinhos.biblia
+          releaseFiles: aab/**/app-release.aab
+          track: ${{ inputs.play_track || 'internal' }}
+          status: completed
 
   create-release:
     name: Create GitHub Release

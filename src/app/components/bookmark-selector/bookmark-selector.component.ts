@@ -14,18 +14,12 @@ import {
 } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
-import { Router } from "@angular/router"
-import { AnalyticsService } from "../../services/analytics.service"
-import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
-import { HapticsService } from "../../services/haptics.service"
-
-interface RibbonState {
-  name: string
-  value: string
-  currentRef?: string
-  bookmark?: Bookmark
-}
+import {
+  BookmarkRibbonsService,
+  RIBBON_COLORS,
+  type RibbonState,
+} from "../../services/bookmark-ribbons.service"
 
 @Component({
   selector: "app-bookmark-selector",
@@ -36,30 +30,18 @@ interface RibbonState {
   styleUrls: ["./bookmark-selector.component.css"],
 })
 export class BookmarkSelectorComponent implements OnInit {
-  colors = [
-    { name: "Red", value: "red" },
-    { name: "Orange", value: "orange" },
-    { name: "Teal", value: "teal" },
-    { name: "Green", value: "green" },
-    { name: "Blue", value: "blue" },
-    { name: "Indigo", value: "indigo" },
-    { name: "Violet", value: "violet" },
-    { name: "Grey", value: "grey" },
-  ]
+  colors = RIBBON_COLORS
 
   ribbons: RibbonState[] = []
 
   private destroyRef = inject(DestroyRef)
-  private haptics = inject(HapticsService)
+  private ribbonsService = inject(BookmarkRibbonsService)
 
   constructor(
     private bottomSheetRef: MatBottomSheetRef<BookmarkSelectorComponent>,
     @Inject(MAT_BOTTOM_SHEET_DATA)
     public data: { bookId: string; chapter: number },
     private bookmarkService: BookmarkService,
-    private bookService: BookService,
-    private router: Router,
-    private analyticsService: AnalyticsService,
   ) {}
 
   isDeleteMode = false
@@ -77,76 +59,27 @@ export class BookmarkSelectorComponent implements OnInit {
   }
 
   updateRibbons(allBookmarks: Bookmark[]) {
-    this.ribbons = this.colors.map((c) => {
-      const bookmark = allBookmarks.find((b) => b.color === c.value)
-      let currentRef: string | undefined
-      if (bookmark) {
-        const book = this.bookService.findBookById(bookmark.bookId)
-        // Chapter 0 is the book introduction
-        const chapterLabel =
-          bookmark.chapter === 0 ? "Introdução" : `${bookmark.chapter}`
-        currentRef = book
-          ? `${book.abrv} ${chapterLabel}`
-          : `${bookmark.bookId} ${chapterLabel}`
-      }
-      return {
-        ...c,
-        bookmark,
-        currentRef,
-      }
-    })
+    this.ribbons = this.ribbonsService.ribbons(allBookmarks)
   }
 
   handleRibbonClick(ribbon: RibbonState): void {
     if (this.isDeleteMode) {
-      if (ribbon.bookmark) {
-        this.bookmarkService.removeBookmark(
-          ribbon.bookmark.bookId,
-          ribbon.bookmark.chapter,
-        )
-        void this.analyticsService.track("bookmark_delete", {
-          book: ribbon.bookmark.bookId,
-          chapter: ribbon.bookmark.chapter,
-          color: ribbon.value,
-        })
-      }
+      this.ribbonsService.remove(ribbon)
       return
     }
 
     // 1. If already assigned elsewhere -> Navigate
     if (ribbon.bookmark) {
-      const book = this.bookService.findBookById(ribbon.bookmark.bookId)
-      if (book) {
-        void this.analyticsService.track("bookmark_use", {
-          book: ribbon.bookmark.bookId,
-          chapter: ribbon.bookmark.chapter,
-          color: ribbon.value,
-        })
-        this.router.navigate([
-          this.bookService.getUrlAbrv(book),
-          this.bookService.getChapterUrlSegment(ribbon.bookmark.chapter),
-        ])
-        this.bottomSheetRef.dismiss()
-      } else {
-        console.warn(
-          `Bookmark references unknown book: ${ribbon.bookmark.bookId}`,
-        )
-      }
+      if (this.ribbonsService.open(ribbon)) this.bottomSheetRef.dismiss()
       return
     }
 
     // 2. If empty -> Assign to current
-    this.bookmarkService.addBookmark(
+    this.ribbonsService.assign(
+      ribbon.value,
       this.data.bookId,
       this.data.chapter,
-      ribbon.value,
     )
-    this.haptics.success()
-    void this.analyticsService.track("bookmark_create", {
-      book: this.data.bookId,
-      chapter: this.data.chapter,
-      color: ribbon.value,
-    })
   }
 
   isCurrentLocation(ribbon: RibbonState): boolean {
