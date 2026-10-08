@@ -1,7 +1,6 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatMenuTrigger } from "@angular/material/menu"
 import { By } from "@angular/platform-browser"
-import { Capacitor } from "@capacitor/core"
 import type {
   AutoScrollChrome,
   ChromeInsets,
@@ -51,8 +50,7 @@ describe("ChromeBarsComponent", () => {
   let bars: WebChromeBars
   let sent: NativeChromeAction[]
 
-  function create(platform: "web" | "android" = "web"): void {
-    spyOn(Capacitor, "getPlatform").and.returnValue(platform)
+  function create(): void {
     TestBed.configureTestingModule({ imports: [ChromeBarsComponent] })
     bars = TestBed.inject(WebChromeBars)
     sent = []
@@ -244,6 +242,14 @@ describe("ChromeBarsComponent", () => {
         ])
       })
 
+      // One long bar with its controls far apart looked out of place.
+      it("is three capsules, as the iOS bar's groups", async () => {
+        await show(shown({}, { autoScroll }))
+        expect(
+          host().querySelectorAll(".auto-scroll-bar > .glass").length,
+        ).toBe(3)
+      })
+
       it("counts in the space the bars cover", async () => {
         const without = await show(shown())
         const withBar = await show(shown({}, { autoScroll }))
@@ -351,19 +357,5 @@ describe("ChromeBarsComponent", () => {
     expect(host().querySelector("h1")).toBeNull()
     click(button("Pesquisar"))
     expect(sent).toEqual([{ id: "search" }])
-  })
-
-  // Each platform keeps its own look.
-  it("looks like Angular Material on the web, like Android in the Android app", () => {
-    create("web")
-    expect(host().classList).toContain("look-web")
-    TestBed.resetTestingModule()
-    ;(Capacitor.getPlatform as jasmine.Spy).and.returnValue("android")
-    TestBed.configureTestingModule({ imports: [ChromeBarsComponent] })
-    const android = TestBed.createComponent(ChromeBarsComponent)
-    android.detectChanges()
-    expect((android.nativeElement as HTMLElement).classList).toContain(
-      "look-android",
-    )
   })
 })
