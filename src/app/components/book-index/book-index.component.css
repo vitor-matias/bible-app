@@ -173,23 +173,24 @@
   border-bottom-color: currentcolor;
 }
 
-/* iOS: the native glass bar floats over the page (NativeChromeService). The
-   page scrolls under it, and taps highlight neutrally: a sticky beige hover
-   would stay on the book just tapped. */
+/* The app's bars float over the page (NativeChromeService), which scrolls
+   under them. */
 :host-context(.native-chrome) .book-index-container {
   padding-top: calc(8px + var(--native-chrome-top, env(safe-area-inset-top)));
   padding-bottom: calc(3rem + var(--native-chrome-bottom, env(safe-area-inset-bottom)));
 }
 
-:host-context(.native-chrome) .group li a {
+/* iOS: taps highlight neutrally: a sticky beige hover would stay on the book
+   just tapped. */
+:host-context(.platform-ios) .group li a {
   border-radius: 12px;
 }
 
-:host-context(.native-chrome) .group li a:hover,
-:host-context(.native-chrome) .group li a:focus-visible {
+:host-context(.platform-ios) .group li a:hover,
+:host-context(.platform-ios) .group li a:focus-visible {
   background-color: var(--card-background);
 }
 
-:host-context(.native-chrome) .group li a:active {
+:host-context(.platform-ios) .group li a:active {
   background-color: color-mix(in srgb, var(--text-color) 10%, var(--card-background));
 }

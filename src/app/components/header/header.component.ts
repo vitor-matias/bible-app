@@ -149,8 +149,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly nativeBookmarks = inject(NativeBookmarksService)
   private readonly nativeReport = inject(NativeReportService)
   private bookmarks: Bookmark[] = []
-  /** The iOS shell draws this header natively; the template renders nothing. */
-  readonly native = this.nativeChrome.enabled
+  /**
+   * The app's bars draw this header (natively in the iOS app, in the page on
+   * Android and phones); the template renders nothing.
+   */
+  readonly bars = this.nativeChrome.bars
   private readonly platformId = inject(PLATFORM_ID)
   @ViewChildren(MatMenuTrigger) private menuTriggers?: QueryList<MatMenuTrigger>
   private readonly backButton = inject(BackButtonService)
@@ -187,7 +190,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.syncNativeChrome()
       })
 
-    if (this.native) {
+    if (this.bars) {
       this.nativeChrome.actions$
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe((action) => this.onNativeAction(action))
@@ -212,8 +215,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       this.updateBookmarkState()
     }
     if (changes["book"]) {
-      // The native bar has no room for the prompt; its button is plainly one.
-      if (this.book?.id === "about" && !this.native) {
+      // The bars have no room for the prompt; their button is plainly one.
+      if (this.book?.id === "about" && !this.bars) {
         this.startLabelCycle()
       } else {
         this.stopLabelCycle()
@@ -236,7 +239,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     if (!this.book || this.chapterNumber == null) {
       return
     }
-    if (this.native) {
+    if (this.nativeChrome.enabled) {
       this.nativeBookmarks.open(this.book.id, this.chapterNumber)
       return
     }
@@ -262,7 +265,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     if (!this.book || this.chapterNumber == null) {
       return
     }
-    if (this.native) {
+    if (this.nativeChrome.enabled) {
       this.nativeReport.open(this.book, this.chapterNumber)
       return
     }
@@ -282,7 +285,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   ngOnDestroy(): void {
     this.unregisterBackCloser()
     this.stopLabelCycle()
-    if (this.native) this.nativeChrome.hide()
+    if (this.bars) this.nativeChrome.hide()
   }
 
   showBookSelector() {
@@ -407,9 +410,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  /** Sends what this header would show to the iOS native bars. */
+  /** Sends what this header would show to the app's bars. */
   private syncNativeChrome(): void {
-    if (!this.native || !this.book) return
+    if (!this.bars || !this.book) return
     const isAbout = this.book.id === "about"
     // Standalone introductions and the About page have no chapters.
     const hasChapters = !isAbout && !this.book.introSlug

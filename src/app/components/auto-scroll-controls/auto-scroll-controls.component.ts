@@ -31,8 +31,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   private readonly nativeChrome = inject(NativeChromeService)
   private readonly destroyRef = inject(DestroyRef)
-  /** The iOS app shows these controls in its native toolbar instead. */
-  readonly native = this.nativeChrome.enabled
+  /** The app's bars show these controls instead, above their toolbar. */
+  readonly bars = this.nativeChrome.bars
 
   constructor(
     private autoScrollService: AutoScrollService,
@@ -42,7 +42,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    if (!this.native) return
+    if (!this.bars) return
     this.nativeChrome.actions$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(({ id }) => {
@@ -55,7 +55,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopAutoScroll()
-    if (this.native) this.nativeChrome.setAutoScroll(null)
+    if (this.bars) this.nativeChrome.setAutoScroll(null)
   }
 
   toggleAutoScroll(): void {
@@ -125,7 +125,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   /** Sends what these controls show to the iOS toolbar. */
   private syncNativeChrome(): void {
-    if (!this.native || this.destroyRef.destroyed) return
+    if (!this.bars || this.destroyRef.destroyed) return
     this.nativeChrome.setAutoScroll({
       playing: this.autoScrollEnabled,
       speedLabel: `${this.autoScrollSpeedLabel} ln/s`,
