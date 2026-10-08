@@ -2,13 +2,16 @@ import { AsyncPipe } from "@angular/common"
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   inject,
+  type OnDestroy,
   type OnInit,
 } from "@angular/core"
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { MatToolbarModule } from "@angular/material/toolbar"
-import { RouterLink } from "@angular/router"
+import { Router, RouterLink } from "@angular/router"
 import { map } from "rxjs/operators"
 import {
   type CanonGroup,
@@ -16,7 +19,9 @@ import {
   OLD_TESTAMENT_GROUPS,
 } from "../../bible-canon"
 import { BookService } from "../../services/book.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
 import { SeoService } from "../../services/seo.service"
+import { ThemeService } from "../../services/theme.service"
 
 interface IndexedBook {
   name: string
@@ -52,9 +57,15 @@ interface TestamentIndex {
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./book-index.component.css",
 })
-export class BookIndexComponent implements OnInit {
+export class BookIndexComponent implements OnInit, OnDestroy {
   private bookService = inject(BookService)
   private seoService = inject(SeoService)
+  private nativeChrome = inject(NativeChromeService)
+  private themeService = inject(ThemeService)
+  private router = inject(Router)
+  private destroyRef = inject(DestroyRef)
+  /** The iOS app draws this page's toolbar natively. */
+  readonly native = this.nativeChrome.enabled
 
   testaments$ = this.bookService.books$.pipe(
     map((books) => this.buildIndex(books)),
@@ -62,6 +73,26 @@ export class BookIndexComponent implements OnInit {
 
   ngOnInit(): void {
     this.seoService.updateForBookIndex()
+
+    if (this.native) {
+      this.nativeChrome.show({
+        mode: "page",
+        themeMode: this.themeService.currentMode,
+        title: "Livros da Bíblia",
+        search: true,
+      })
+      // Where the web toolbar's buttons lead.
+      this.nativeChrome.actions$
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe(({ id }) => {
+          if (id === "back") void this.router.navigate(["/"])
+          if (id === "search") void this.router.navigate(["/search"])
+        })
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.native) this.nativeChrome.hide()
   }
 
   private buildIndex(books: Book[]): TestamentIndex[] {

@@ -16,6 +16,14 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
+		9582B6912FE9A0000072D4E8 /* NativeChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6902FE9A0000072D4E8 /* NativeChrome.swift */; };
+		9582B69D2FE9A0000072D4E8 /* Toast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B69C2FE9A0000072D4E8 /* Toast.swift */; };
+		9582B69F2FE9A0000072D4E8 /* ReportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B69E2FE9A0000072D4E8 /* ReportSheet.swift */; };
+		9582B6932FE9A0000072D4E8 /* ChromeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6922FE9A0000072D4E8 /* ChromeViewController.swift */; };
+		9582B6952FE9A0000072D4E8 /* PassagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6942FE9A0000072D4E8 /* PassagePicker.swift */; };
+		9582B6972FE9A0000072D4E8 /* OnboardingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6962FE9A0000072D4E8 /* OnboardingSheet.swift */; };
+		9582B6992FE9A0000072D4E8 /* BookmarksSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6982FE9A0000072D4E8 /* BookmarksSheet.swift */; };
+		9582B69B2FE9A0000072D4E8 /* FootnotesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B69A2FE9A0000072D4E8 /* FootnotesSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +37,14 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		9582B6902FE9A0000072D4E8 /* NativeChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeChrome.swift; sourceTree = "<group>"; };
+		9582B69C2FE9A0000072D4E8 /* Toast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Toast.swift; sourceTree = "<group>"; };
+		9582B69E2FE9A0000072D4E8 /* ReportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportSheet.swift; sourceTree = "<group>"; };
+		9582B6922FE9A0000072D4E8 /* ChromeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromeViewController.swift; sourceTree = "<group>"; };
+		9582B6942FE9A0000072D4E8 /* PassagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassagePicker.swift; sourceTree = "<group>"; };
+		9582B6962FE9A0000072D4E8 /* OnboardingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSheet.swift; sourceTree = "<group>"; };
+		9582B6982FE9A0000072D4E8 /* BookmarksSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarksSheet.swift; sourceTree = "<group>"; };
+		9582B69A2FE9A0000072D4E8 /* FootnotesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootnotesSheet.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -65,6 +81,14 @@
 			isa = PBXGroup;
 			children = (
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
+				9582B6902FE9A0000072D4E8 /* NativeChrome.swift */,
+				9582B69C2FE9A0000072D4E8 /* Toast.swift */,
+				9582B69E2FE9A0000072D4E8 /* ReportSheet.swift */,
+				9582B69A2FE9A0000072D4E8 /* FootnotesSheet.swift */,
+				9582B6982FE9A0000072D4E8 /* BookmarksSheet.swift */,
+				9582B6962FE9A0000072D4E8 /* OnboardingSheet.swift */,
+				9582B6942FE9A0000072D4E8 /* PassagePicker.swift */,
+				9582B6922FE9A0000072D4E8 /* ChromeViewController.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -160,6 +184,14 @@
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
+				9582B6912FE9A0000072D4E8 /* NativeChrome.swift in Sources */,
+				9582B69D2FE9A0000072D4E8 /* Toast.swift in Sources */,
+				9582B69F2FE9A0000072D4E8 /* ReportSheet.swift in Sources */,
+				9582B69B2FE9A0000072D4E8 /* FootnotesSheet.swift in Sources */,
+				9582B6992FE9A0000072D4E8 /* BookmarksSheet.swift in Sources */,
+				9582B6972FE9A0000072D4E8 /* OnboardingSheet.swift in Sources */,
+				9582B6952FE9A0000072D4E8 /* PassagePicker.swift in Sources */,
+				9582B6932FE9A0000072D4E8 /* ChromeViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -301,6 +333,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = B7XCFG2JS8;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -323,6 +356,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = B7XCFG2JS8;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (

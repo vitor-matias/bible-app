@@ -25,3 +25,8 @@
   color: var(--card-background) !important;
 }
 
+/* iOS: no accent colour; the main button is the text colour inverted. */
+:host-context(.native-chrome) .submit-btn:not(:disabled) {
+  background-color: var(--text-color) !important;
+  color: var(--background-color) !important;
+}

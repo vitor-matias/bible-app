@@ -1,5 +1,10 @@
 import { CommonModule } from "@angular/common"
-import { ChangeDetectionStrategy, Component, Inject } from "@angular/core"
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Inject,
+  inject,
+} from "@angular/core"
 import {
   FormControl,
   FormGroup,
@@ -15,8 +20,11 @@ import {
 import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatInputModule } from "@angular/material/input"
 import { MatSelectModule } from "@angular/material/select"
-import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
-import { AnalyticsService } from "../../services/analytics.service"
+import {
+  PROBLEM_DETAILS_MAX_LENGTH,
+  ProblemReportService,
+} from "../../services/problem-report.service"
+import { ToastService } from "../../services/toast.service"
 
 export interface ReportProblemData {
   book: Book
@@ -34,36 +42,29 @@ export interface ReportProblemData {
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
-    MatSnackBarModule,
   ],
   templateUrl: "./report-problem.component.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ["./report-problem.component.css"],
 })
 export class ReportProblemComponent {
+  private readonly toast = inject(ToastService)
+  private readonly reports = inject(ProblemReportService)
   isSending = false
 
   reportForm = new FormGroup({
     topic: new FormControl("", [Validators.required]),
     details: new FormControl("", [
       Validators.required,
-      Validators.maxLength(500),
+      Validators.maxLength(PROBLEM_DETAILS_MAX_LENGTH),
     ]),
   })
 
-  topics = [
-    { value: "typo", label: "Erro Ortográfico" },
-    { value: "formatting", label: "Formatação" },
-    /*{ value: "audio", label: "Áudio" },*/
-    { value: "suggestion", label: "Sugestão" },
-    { value: "other", label: "Outro" },
-  ]
+  topics = this.reports.topics
 
   constructor(
     public dialogRef: MatDialogRef<ReportProblemComponent>,
     @Inject(MAT_DIALOG_DATA) public data: ReportProblemData,
-    private snackBar: MatSnackBar,
-    private analyticsService: AnalyticsService,
   ) {}
 
   async onSubmit() {
@@ -74,43 +75,25 @@ export class ReportProblemComponent {
     this.isSending = true
 
     try {
-      await this.sendReport(this.reportForm.value)
-
-      this.snackBar.open("O problema foi reportado. Obrigado!", "Fechar", {
-        duration: 3000,
+      const { topic, details } = this.reportForm.value
+      await this.reports.send({
+        bookId: this.data.book.id,
+        chapter: this.data.chapter,
+        topic: topic ?? "",
+        details: details ?? "",
       })
+
+      this.toast.show("O problema foi reportado. Obrigado!")
 
       this.dialogRef.close(true)
     } catch (error) {
       console.error("Failed to submit report:", error)
-      this.snackBar.open(
-        "Erro ao enviar o relatório. Tente novamente.",
-        "Fechar",
-        {
-          duration: 4000,
-        },
-      )
+      this.toast.show("Erro ao enviar o relatório. Tente novamente.", {
+        duration: 4000,
+      })
     } finally {
       this.isSending = false
     }
-  }
-
-  private async sendReport(formValue: {
-    topic?: string | null
-    details?: string | null
-  }): Promise<void> {
-    const { topic, details } = formValue
-
-    if (!this.analyticsService.areAnalyticsAvailable()) {
-      throw new Error("Analytics is unavailable")
-    }
-
-    await this.analyticsService.track("report_problem", {
-      book: this.data.book.id,
-      chapter: this.data.chapter,
-      topic,
-      details,
-    })
   }
 
   onCancel() {

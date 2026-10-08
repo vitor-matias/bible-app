@@ -1,3 +1,7 @@
+@if (native) {
+<!-- The iOS app draws the toolbar natively; the heading stays for screen readers. -->
+<h1 class="visually-hidden">Livros da Bíblia</h1>
+} @else {
 <div class="toolbar-wrapper">
   <mat-toolbar class="index-toolbar">
     <div class="content">
@@ -12,6 +16,7 @@
     </div>
   </mat-toolbar>
 </div>
+}
 
 <div class="book-index-container">
   <p class="intro-text">

@@ -1,11 +1,13 @@
-import { Injectable } from "@angular/core"
+import { Injectable, inject } from "@angular/core"
 import { MatDialog, type MatDialogRef } from "@angular/material/dialog"
 import {
   OnboardingComponent,
   type OnboardingResult,
   type OnboardingSource,
 } from "../components/onboarding/onboarding.component"
+import { nativeOnboardingSteps } from "../components/onboarding/onboarding-content"
 import { AnalyticsService } from "./analytics.service"
+import { NativeChromeService } from "./native-chrome.service"
 import { PreferencesService } from "./preferences.service"
 
 /** Let the reader paint before the wizard slides over it on a first visit. */
@@ -19,6 +21,8 @@ export class OnboardingService {
     OnboardingComponent,
     OnboardingResult
   > | null = null
+  private nativeOpen = false
+  private readonly nativeChrome = inject(NativeChromeService)
 
   constructor(
     private readonly dialog: MatDialog,
@@ -39,9 +43,14 @@ export class OnboardingService {
     return true
   }
 
+  /** The wizard's dialog; null in the iOS app, which shows a native sheet. */
   open(
     source: OnboardingSource = "menu",
-  ): MatDialogRef<OnboardingComponent, OnboardingResult> {
+  ): MatDialogRef<OnboardingComponent, OnboardingResult> | null {
+    if (this.nativeChrome.enabled) {
+      this.openNative(source)
+      return null
+    }
     if (this.dialogRef) return this.dialogRef
 
     const ref = this.dialog.open<
@@ -62,16 +71,32 @@ export class OnboardingService {
 
     ref.afterClosed().subscribe((result) => {
       this.dialogRef = null
-      // Any dismissal counts as seen.
-      this.preferencesService.setOnboardingSeen(true)
-      void this.analyticsService.track("onboarding_close", {
-        source,
-        completed: result?.completed ?? false,
-        lastStep: result?.lastStep,
-      })
+      this.closed(source, result)
     })
 
     return ref
+  }
+
+  private openNative(source: OnboardingSource): void {
+    if (this.nativeOpen) return
+    this.nativeOpen = true
+    void this.analyticsService.track("onboarding_open", { source })
+    void this.nativeChrome
+      .showOnboarding(nativeOnboardingSteps())
+      .then((result) => {
+        this.nativeOpen = false
+        this.closed(source, result)
+      })
+  }
+
+  private closed(source: OnboardingSource, result?: OnboardingResult): void {
+    // Any dismissal counts as seen.
+    this.preferencesService.setOnboardingSeen(true)
+    void this.analyticsService.track("onboarding_close", {
+      source,
+      completed: result?.completed ?? false,
+      lastStep: result?.lastStep,
+    })
   }
 
   private isShareTargetLaunch(search: string): boolean {

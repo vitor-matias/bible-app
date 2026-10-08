@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   Input,
+  inject,
   OnChanges,
   SimpleChanges,
 } from "@angular/core"
@@ -13,6 +14,7 @@ import {
   BibleReferenceService,
 } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
 import { TwoActionSnackComponent } from "../two-action-snackbar/two-action-snackbar.component"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 
@@ -36,6 +38,8 @@ export class VerseSectionComponent implements OnChanges {
 
   @Input()
   nextIsParagraph = false
+
+  private readonly nativeChrome = inject(NativeChromeService)
 
   /** Pre-computed parsed references keyed by text index */
   parsedReferences: Map<number, (string | BibleReference)[]> = new Map()
@@ -73,21 +77,29 @@ export class VerseSectionComponent implements OnChanges {
       verseNumber: this.data.number > 0 ? this.data.number : 1,
     }
     const book = this.bookService.findBook(currentLocation.bookId)
+    const place = `${book.shortName} ${currentLocation.chapterNumber},${currentLocation.verseNumber}`
+    const goBack = () =>
+      this.router.navigate(
+        [this.bookService.getUrlAbrv(book), currentLocation.chapterNumber],
+        {
+          queryParams: {
+            verseStart: currentLocation.verseNumber,
+            highlight: false,
+          },
+        },
+      )
 
+    // The way back is the button, as Books' "Back to Page" is: the iOS glass
+    // toast, or the snackbar elsewhere.
+    if (this.nativeChrome.enabled) {
+      this.nativeChrome.toast(`Voltar para ${place}`, {
+        symbol: "arrow.uturn.backward",
+        onTap: goBack,
+      })
+      return
+    }
     this.snackBar.openFromComponent(TwoActionSnackComponent, {
-      data: {
-        message: `Voltar para ${book.shortName} ${currentLocation.chapterNumber},${currentLocation.verseNumber}?`,
-        returnUrl: () =>
-          this.router.navigate(
-            [this.bookService.getUrlAbrv(book), currentLocation.chapterNumber],
-            {
-              queryParams: {
-                verseStart: currentLocation.verseNumber,
-                highlight: false,
-              },
-            },
-          ),
-      },
+      data: { message: `Voltar para ${place}`, returnUrl: goBack },
     })
   }
 }
