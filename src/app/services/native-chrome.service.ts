@@ -483,10 +483,9 @@ export class NativeChromeService {
       ? {
           ...this.requested,
           inert: this.modalOpen,
-          // Auto-scroll's pause button must stay within reach, except under
-          // a panel, which the bars would cover.
-          collapsed:
-            reader && (this.modalOpen || (this.collapsed && !this.autoScroll)),
+          // Auto-scroll's controls stay within reach while the bars hide: the
+          // shell moves them down into the toolbar's place.
+          collapsed: reader && (this.modalOpen || this.collapsed),
           autoScroll: reader ? this.autoScroll : null,
         }
       : { mode: "none" }

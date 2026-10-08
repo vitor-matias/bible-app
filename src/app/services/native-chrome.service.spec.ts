@@ -512,7 +512,9 @@ describe("NativeChromeService", () => {
       expect(collapsed()).toBeFalse()
     })
 
-    it("keeps them up while auto-scroll's controls are in the toolbar", () => {
+    // The shell keeps auto-scroll's controls in reach: above the toolbar,
+    // and in its place while the bars are hidden.
+    it("hides them while reading with auto-scroll's controls up", () => {
       const autoScroll = {
         playing: true,
         speedLabel: "1 ln/s",
@@ -520,16 +522,17 @@ describe("NativeChromeService", () => {
         canFaster: true,
       }
       service.trackScroll(scroller)
-      scrollTo(200)
-      expect(collapsed()).toBeTrue()
-
       service.setAutoScroll(autoScroll)
       expect(lastState()).toEqual(
         jasmine.objectContaining({ autoScroll, collapsed: false }),
       )
 
-      // Auto-scroll scrolls on; closing it must not hide the bars it kept up.
-      scrollTo(400)
+      scrollTo(200)
+      expect(lastState()).toEqual(
+        jasmine.objectContaining({ autoScroll, collapsed: true }),
+      )
+
+      // Closing auto-scroll brings the bars back.
       service.setAutoScroll(null)
       expect(lastState()).toEqual(
         jasmine.objectContaining({ autoScroll: null, collapsed: false }),

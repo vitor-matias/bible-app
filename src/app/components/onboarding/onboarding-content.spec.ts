@@ -30,14 +30,13 @@ describe("nativeOnboardingSteps", () => {
   })
 
   // Text, theme and page mode under AA; Marcadores a button of its own; and
-  // auto-scroll's play in the bottom bar once ⋯ turns it on.
+  // auto-scroll still turned on from ⋯.
   it("points to the buttons of the iOS app's top and bottom bars", () => {
     const feature = (id: string, icon: string) =>
       step(id)?.features.find((entry) => entry.symbol === sfSymbol(icon))?.text
     expect(feature("tools", "bookmarks")).toContain("Toque no marcador")
     const autoScroll = feature("customize", "auto_mode")
     expect(autoScroll).toContain("menu ⋯")
-    expect(autoScroll).toContain("▶")
   })
 
   // There a tap on the text shows or hides the bars; only the asterisk opens notes.

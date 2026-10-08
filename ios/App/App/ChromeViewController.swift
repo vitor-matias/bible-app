@@ -16,6 +16,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private let pageBackItem = UINavigationItem()
     private let pageItem = UINavigationItem()
     private let toolbar = UIToolbar()
+    /// Auto-scroll's controls, while ⋯ shows them: just above the toolbar, and
+    /// in its place while the bars are hidden for reading.
+    private let autoScrollBar = UIToolbar()
     private let searchField = SearchFieldView()
     private let toast = ToastView()
     private var toastBottom: NSLayoutConstraint!
@@ -38,15 +41,17 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
         topBar.delegate = self
         toolbar.delegate = self
+        autoScrollBar.delegate = self
         // Bar glyphs stay monochrome, like the rest of the native parts.
         topBar.tintColor = .label
         toolbar.tintColor = .label
+        autoScrollBar.tintColor = .label
         searchBackItem.backButtonDisplayMode = .minimal
         pageBackItem.backButtonDisplayMode = .minimal
         searchField.onSubmit = { [weak self] text in self?.plugin.send("search-submit", ["text": text]) }
         searchField.onChange = { [weak self] text in self?.plugin.send("search-input", ["text": text]) }
 
-        for bar in [topBar, toolbar, searchField] as [UIView] {
+        for bar in [topBar, autoScrollBar, toolbar, searchField] as [UIView] {
             bar.translatesAutoresizingMaskIntoConstraints = false
             bar.alpha = 0
             bar.isHidden = true
@@ -82,6 +87,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             toolbar.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
             toolbar.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor),
             toolbar.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor),
+            // In the toolbar's place; lifted above it while it shows.
+            autoScrollBar.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
+            autoScrollBar.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor),
+            autoScrollBar.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor),
             searchField.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor, constant: 16),
             searchField.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor, constant: -16),
             // Rests above the home indicator, and rides up with the keyboard.
@@ -109,7 +118,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         if next.mode != .none {
             view.window?.overrideUserInterfaceStyle = Self.interfaceStyle(next.themeMode)
         }
-        for bar in [topBar, toolbar, searchField] as [UIView] {
+        for bar in [topBar, autoScrollBar, toolbar, searchField] as [UIView] {
             bar.isUserInteractionEnabled = !next.inert
             bar.accessibilityElementsHidden = next.inert
         }
@@ -157,7 +166,14 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         setShown(topBar, next.mode != .none, animated: animated)
         setShown(toolbar, next.mode == .reader, animated: animated)
         setShown(searchField, next.mode == .search, animated: animated)
-        if collapseChanged {
+        let showAutoScroll = next.mode == .reader && next.autoScroll != nil
+        if showAutoScroll && !shownBars.contains(ObjectIdentifier(autoScrollBar)) {
+            // Fades in where it belongs, without sliding there.
+            view.layoutIfNeeded()
+            autoScrollBar.transform = autoScrollBarOffset
+        }
+        setShown(autoScrollBar, showAutoScroll, animated: animated)
+        if collapseChanged || previous.inert != next.inert {
             animateCollapse(animated: animated)
         }
 
@@ -201,6 +217,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             readerItem.rightBarButtonItems = items
         }
 
+        if let autoScroll = state.autoScroll {
+            autoScrollBar.setItems(autoScrollItems(autoScroll, enabled: enabled), animated: false)
+        }
+
         var items: [UIBarButtonItem] = []
         if state.chapterNavigation {
             let previous = barButton("chevron.backward", "Capítulo anterior", "previous")
@@ -209,31 +229,13 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             next.isEnabled = enabled && state.canGoNext
             items += [previous, next]
         }
-        // Auto-scroll, while ⋯ shows it: play beside search; playing, the
-        // speed takes the passage's and search's place, and play turns pause.
-        if let autoScroll = state.autoScroll, autoScroll.playing {
-            items += [.flexibleSpace()] + speedItems(autoScroll, enabled: enabled)
-            items += [.flexibleSpace(), playItem(autoScroll, enabled: enabled)]
-        } else {
-            items += [.flexibleSpace(), passageItem(state, enabled: enabled), .flexibleSpace()]
-            if let autoScroll = state.autoScroll {
-                items.append(playItem(autoScroll, enabled: enabled))
-            }
-            if state.search {
-                let search = barButton("magnifyingglass", "Pesquisar", "search")
-                search.isEnabled = enabled
-                items.append(separate(search))
-            }
+        items += [.flexibleSpace(), passageItem(state, enabled: enabled), .flexibleSpace()]
+        if state.search {
+            let search = barButton("magnifyingglass", "Pesquisar", "search")
+            search.isEnabled = enabled
+            items.append(search)
         }
         toolbar.setItems(items, animated: false)
-    }
-
-    /// A glass circle of its own, not a capsule shared with its neighbour.
-    private func separate(_ item: UIBarButtonItem) -> UIBarButtonItem {
-        if #available(iOS 26.0, *) {
-            item.sharesBackground = false
-        }
-        return item
     }
 
     /// "Marcos 1", which opens the passage picker.
@@ -255,8 +257,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         return UIBarButtonItem(customView: button)
     }
 
-    /// Auto-scroll's speed: slower, the speed, faster, in one capsule.
-    private func speedItems(_ state: AutoScrollState, enabled: Bool) -> [UIBarButtonItem] {
+    /// Auto-scroll's controls: close, then speed, then play or pause.
+    private func autoScrollItems(_ state: AutoScrollState, enabled: Bool) -> [UIBarButtonItem] {
+        let close = barButton("xmark", "Fechar o deslocamento automático", "auto-scroll")
         let slower = barButton("minus", "Diminuir velocidade", "auto-scroll-slower")
         slower.isEnabled = enabled && state.canSlower
         let faster = barButton("plus", "Aumentar velocidade", "auto-scroll-faster")
@@ -269,16 +272,14 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         speed.textAlignment = .center
         speed.accessibilityLabel = "Velocidade: \(state.speedLabel)"
         let speedItem = UIBarButtonItem(customView: speed)
-        return [slower, speedItem, faster]
-    }
 
-    /// Play or pause. A plain bar button: the bar stays monochrome.
-    private func playItem(_ state: AutoScrollState, enabled: Bool) -> UIBarButtonItem {
+        // A plain bar button, like close: the bar stays monochrome.
         let play = barButton(state.playing ? "pause.fill" : "play.fill",
-                             state.playing ? "Pausar" : "Iniciar o deslocamento automático",
-                             "auto-scroll-toggle")
+                             state.playing ? "Pausar" : "Iniciar", "auto-scroll-toggle")
         play.isEnabled = enabled
-        return separate(play)
+        close.isEnabled = enabled
+
+        return [close, .flexibleSpace(), slower, speedItem, faster, .flexibleSpace(), play]
     }
 
     private func barButton(_ symbol: String, _ label: String, _ action: String) -> UIBarButtonItem {
@@ -314,7 +315,15 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     private func targetAlpha(_ bar: UIView) -> CGFloat {
         guard shownBars.contains(ObjectIdentifier(bar)) else { return 0 }
+        // Auto-scroll's pause stays within reach while the bars are hidden for
+        // reading, but not over a panel, as the other bars don't.
+        if bar === autoScrollBar { return state.inert ? 0 : 1 }
         return collapsed && bar !== searchField ? 0 : 1
+    }
+
+    /// Above the toolbar while it shows; in its place while it's hidden.
+    private var autoScrollBarOffset: CGAffineTransform {
+        collapsed ? .identity : CGAffineTransform(translationX: 0, y: -toolbar.bounds.height)
     }
 
     /// Slides the reader's bars off screen. The page keeps its padding, so the
@@ -324,7 +333,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         let changes = {
             self.topBar.transform = slide ? CGAffineTransform(translationX: 0, y: -self.insets.top) : .identity
             self.toolbar.transform = slide ? CGAffineTransform(translationX: 0, y: self.insets.bottom) : .identity
-            for bar in [self.topBar, self.toolbar] { bar.alpha = self.targetAlpha(bar) }
+            self.autoScrollBar.transform = self.autoScrollBarOffset
+            for bar in [self.topBar, self.toolbar, self.autoScrollBar] { bar.alpha = self.targetAlpha(bar) }
         }
         if animated {
             UIView.animate(withDuration: 0.4, delay: 0, usingSpringWithDamping: 1, initialSpringVelocity: 0,
@@ -344,8 +354,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         case .none:
             return ChromeInsets(top: safeArea.top, bottom: safeArea.bottom)
         case .reader:
+            // Auto-scroll's controls stack above the toolbar.
+            let autoScroll = state.autoScroll != nil ? autoScrollBar.bounds.height : 0
             return ChromeInsets(top: safeArea.top + topBar.bounds.height,
-                                bottom: safeArea.bottom + toolbar.bounds.height)
+                                bottom: safeArea.bottom + toolbar.bounds.height + autoScroll)
         case .search:
             return ChromeInsets(top: safeArea.top + topBar.bounds.height,
                                 bottom: view.bounds.height - searchField.frame.minY)

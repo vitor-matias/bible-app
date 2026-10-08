@@ -117,7 +117,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
         icon: "auto_mode",
         text: "Ative o deslocamento automático para ler sem mãos, com velocidade ajustável.",
         iosText:
-          "Ative o deslocamento automático no menu ⋯ para ler sem mãos: ▶ na barra inferior inicia-o, e enquanto corre pode ajustar a velocidade.",
+          "Ative o deslocamento automático no menu ⋯ para ler sem mãos, com velocidade ajustável.",
       },
     ],
   },
