@@ -215,7 +215,10 @@ export class ChromeBarsComponent {
     })
   }
 
-  /** The search field rides above the on-screen keyboard. */
+  /**
+   * The search field rides above the on-screen keyboard. Moving it changes
+   * no size, so no ResizeObserver tells: the page learns of it here.
+   */
   private followKeyboard(): void {
     const viewport = window.visualViewport
     if (!viewport) return
@@ -227,5 +230,6 @@ export class ChromeBarsComponent {
       "--keyboard-height",
       `${keyboard}px`,
     )
+    this.measure()
   }
 }

@@ -82,7 +82,8 @@
     <button type="button" mat-icon-button class="bar-button" aria-label="Voltar" (click)="send('back')">
       <mat-icon>arrow_back</mat-icon>
     </button>
-    <h1 class="bar-title">{{ page()?.title ?? "Pesquisar" }}</h1>
+    <!-- Not a heading: the page keeps its own h1. -->
+    <div class="bar-title">{{ page()?.title ?? "Pesquisar" }}</div>
     @if (page()?.search) {
     <button type="button" mat-icon-button class="bar-button" aria-label="Pesquisar" (click)="send('search')">
       <mat-icon>search</mat-icon>
