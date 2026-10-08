@@ -272,66 +272,63 @@ describe("HeaderComponent", () => {
     })
   })
 
-  // One icon cycled through the three, hiding which was on.
+  // One button in the menu's row of icons cycles through the three themes.
   describe("the theme in the menu", () => {
-    const choices = () => {
+    const trigger = () =>
       fixture.debugElement
         .query(By.directive(MatMenuTrigger))
         .injector.get(MatMenuTrigger)
-        .openMenu()
+    const themeButton = () => {
+      trigger().openMenu()
       fixture.detectChanges()
-      return Array.from(
-        document.querySelectorAll<HTMLButtonElement>(".theme-choice"),
-      )
+      return document.querySelector<HTMLButtonElement>(
+        ".menu-controls .menu-control",
+      ) as HTMLButtonElement
     }
 
-    it("offers its three choices, the current one checked", () => {
-      const buttons = choices()
-      expect(
-        buttons.map((button) =>
-          button.querySelector(".mat-mdc-menu-item-text")?.textContent?.trim(),
-        ),
-      ).toEqual(["Automático", "Claro", "Escuro"])
-      expect(buttons.map((button) => button.getAttribute("role"))).toEqual([
-        "menuitemradio",
-        "menuitemradio",
-        "menuitemradio",
-      ])
-      expect(
-        buttons.map((button) => button.getAttribute("aria-checked")),
-      ).toEqual(["true", "false", "false"])
+    it("shows the current theme", () => {
+      const button = themeButton()
+      expect(button.querySelector("mat-icon")?.textContent?.trim()).toBe(
+        "brightness_auto",
+      )
+      expect(button.getAttribute("aria-label")).toBe("Tema do Sistema")
+    })
+
+    it("moves on to the next theme and keeps the menu open", () => {
+      const button = themeButton()
+      const currentMode = Object.getOwnPropertyDescriptor(
+        themeServiceSpy,
+        "currentMode",
+      )?.get as jasmine.Spy | undefined
+      themeServiceSpy.toggleTheme.and.callFake(() =>
+        currentMode?.and.returnValue("dark"),
+      )
+      button.click()
+
+      expect(themeServiceSpy.toggleTheme).toHaveBeenCalledTimes(1)
+      expect(trigger().menuOpen).toBeTrue()
+      expect(button.querySelector("mat-icon")?.textContent?.trim()).toBe(
+        "dark_mode",
+      )
     })
 
     // Plain buttons in a menu are skipped by its arrow keys.
     it("can be reached with the menu's arrow keys", () => {
-      choices()
-      const trigger = fixture.debugElement
-        .query(By.directive(MatMenuTrigger))
-        .injector.get(MatMenuTrigger)
-      trigger.menu?.focusFirstItem("keyboard")
+      themeButton()
+      trigger().menu?.focusFirstItem("keyboard")
+      expect(document.activeElement?.getAttribute("aria-label")).toBe(
+        "Tema do Sistema",
+      )
       const panel = document.querySelector(".mat-mdc-menu-panel") as HTMLElement
-      const reached: string[] = []
-      for (let press = 0; press < 6; press++) {
-        const down = new KeyboardEvent("keydown", {
-          key: "ArrowDown",
-          bubbles: true,
-        })
-        Object.defineProperty(down, "keyCode", { get: () => 40 })
-        panel.dispatchEvent(down)
-        reached.push(document.activeElement?.textContent?.trim() ?? "")
-      }
-      expect(reached.some((text) => text.includes("Escuro"))).toBeTrue()
-    })
-
-    it("sets the chosen one and keeps the menu open", () => {
-      choices()[2].click()
-
-      expect(themeServiceSpy.setTheme).toHaveBeenCalledWith("dark")
-      expect(
-        fixture.debugElement
-          .query(By.directive(MatMenuTrigger))
-          .injector.get(MatMenuTrigger).menuOpen,
-      ).toBeTrue()
+      const down = new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+      })
+      Object.defineProperty(down, "keyCode", { get: () => 40 })
+      panel.dispatchEvent(down)
+      expect(document.activeElement).toBe(
+        document.querySelectorAll(".menu-controls .menu-control")[1],
+      )
     })
   })
 

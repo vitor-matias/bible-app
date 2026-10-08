@@ -300,27 +300,24 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.toggleViewMode.emit()
   }
 
-  /**
-   * The theme's three choices, side by side in the menu with the current one
-   * marked: one icon that cycled through them hid which was on.
-   */
-  readonly themeChoices: readonly {
-    mode: ThemeMode
-    label: string
-    icon: string
-  }[] = [
-    { mode: "system", label: "Automático", icon: "brightness_auto" },
-    { mode: "light", label: "Claro", icon: "light_mode" },
-    { mode: "dark", label: "Escuro", icon: "dark_mode" },
-  ]
-
-  get themeMode(): ThemeMode {
-    return this.themeService.currentMode
+  getThemeIcon(): string {
+    const mode = this.themeService.currentMode
+    if (mode === "system") return "brightness_auto"
+    return mode === "light" ? "light_mode" : "dark_mode"
   }
 
-  /** The menu stays open, so the page changes theme behind it. */
-  onSelectTheme(mode: ThemeMode): void {
-    this.themeService.setTheme(mode)
+  getThemeTooltip(): string {
+    const mode = this.themeService.currentMode
+    if (mode === "system") return "Tema do Sistema"
+    return mode === "light" ? "Modo Claro" : "Modo Escuro"
+  }
+
+  /**
+   * One button cycles through the three themes. The menu stays open, so the
+   * page changes theme behind it and the icon shows the new one.
+   */
+  onToggleTheme(): void {
+    this.themeService.toggleTheme()
     this.cdr.detectChanges()
   }
 
