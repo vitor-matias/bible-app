@@ -516,7 +516,7 @@ describe("NativeChromeService", () => {
     // and in its place while the bars are hidden.
     it("hides them while reading with auto-scroll's controls up", () => {
       const autoScroll = {
-        playing: true,
+        playing: false,
         speedLabel: "1 ln/s",
         canSlower: true,
         canFaster: true,
@@ -537,6 +537,32 @@ describe("NativeChromeService", () => {
       expect(lastState()).toEqual(
         jasmine.objectContaining({ autoScroll: null, collapsed: false }),
       )
+    })
+
+    // Before, auto-scroll's own scrolling left them up the whole time.
+    it("hides them while auto-scroll plays, and brings them back on pause", () => {
+      const autoScroll = {
+        playing: false,
+        speedLabel: "1 ln/s",
+        canSlower: true,
+        canFaster: true,
+      }
+      service.trackScroll(scroller)
+      service.setAutoScroll(autoScroll)
+      expect(collapsed()).toBeFalse()
+
+      service.setAutoScroll({ ...autoScroll, playing: true })
+      expect(collapsed()).toBeTrue()
+      // A new speed while playing leaves them as they are.
+      service.setAutoScroll({
+        ...autoScroll,
+        playing: true,
+        speedLabel: "2 ln/s",
+      })
+      expect(collapsed()).toBeTrue()
+
+      service.setAutoScroll({ ...autoScroll, playing: false })
+      expect(collapsed()).toBeFalse()
     })
 
     // Opening a footnote's reference scrolls to its verse.

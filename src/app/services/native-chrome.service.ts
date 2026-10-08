@@ -309,12 +309,19 @@ export class NativeChromeService {
     })
   }
 
-  /** Shows auto-scroll's controls in the reader's toolbar; null restores it. */
+  /** Shows auto-scroll's controls above the reader's toolbar; null hides them. */
   setAutoScroll(state: AutoScrollChrome | null): void {
     if (!this.enabled) return
-    // Leaving auto-scroll leaves the bars up: its own scrolling doesn't count
-    // as reading on.
-    if (!state) this.collapsed = false
+    const wasPlaying = this.autoScroll?.playing ?? false
+    if (!state) {
+      // Leaving auto-scroll leaves the bars up: its own scrolling doesn't
+      // count as reading on.
+      this.collapsed = false
+    } else if (state.playing !== wasPlaying) {
+      // Reading hands-free, the bars make way and auto-scroll's controls
+      // take the toolbar's place; pausing brings them back.
+      this.collapsed = state.playing
+    }
     this.autoScroll = state
     this.push()
   }
