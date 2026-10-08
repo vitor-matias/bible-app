@@ -191,6 +191,10 @@ export interface NativeChromePlugin {
 /** Backdrop of an open dialog or bottom sheet (menus use a transparent one). */
 const MODAL_BACKDROP = ".cdk-overlay-dark-backdrop.cdk-overlay-backdrop-showing"
 
+/** What a tap in the text belongs to, rather than to the bars. */
+const TAP_TARGETS =
+  'a[href], button, input, select, textarea, label, [role="button"], [role="link"], [contenteditable="true"]'
+
 /** Scroll this far in one direction to hide or bring back the reader's bars. */
 export const COLLAPSE_DISTANCE = 24
 
@@ -360,7 +364,9 @@ export class NativeChromeService {
 
   /**
    * Hides the reader's bars while `element` scrolls down and brings them back
-   * when it scrolls up or reaches either end. Returns the cleanup.
+   * when it scrolls up or reaches either end. A tap on the text shows them, or
+   * hides them again, as in Photos and Books; a tap on a link, an asterisk or
+   * another control stays that control's. Returns the cleanup.
    */
   trackScroll(element: HTMLElement): () => void {
     if (!this.enabled) return () => {}
@@ -394,6 +400,18 @@ export class NativeChromeService {
         this.setCollapsed(true)
       }
     }
+    // A tap that only dismisses a text selection isn't meant for the bars.
+    let selecting = false
+    const onPointerDown = () => {
+      selecting = !(this.document.getSelection?.()?.isCollapsed ?? true)
+    }
+    const onClick = (event: MouseEvent) => {
+      const target = event.target as Element | null
+      if (event.defaultPrevented || selecting || target?.closest(TAP_TARGETS)) {
+        return
+      }
+      this.setCollapsed(!this.collapsed)
+    }
     const events = ["touchstart", "touchmove", "touchend", "wheel"]
     // Scrolling needs no change detection.
     this.ngZone.runOutsideAngular(() => {
@@ -401,10 +419,14 @@ export class NativeChromeService {
       for (const event of events) {
         element.addEventListener(event, onTouch, { passive: true })
       }
+      element.addEventListener("pointerdown", onPointerDown, { passive: true })
+      element.addEventListener("click", onClick)
     })
     return () => {
       element.removeEventListener("scroll", onScroll)
       for (const event of events) element.removeEventListener(event, onTouch)
+      element.removeEventListener("pointerdown", onPointerDown)
+      element.removeEventListener("click", onClick)
       this.setCollapsed(false)
     }
   }

@@ -6,6 +6,8 @@ import {
   withIntros,
 } from "../bible-canon"
 import { BookService } from "../services/book.service"
+import { passageSpokenLabel } from "./passage-label"
+import { liturgicalPsalmNumber, PSALMS_BOOK_ID } from "./psalms"
 
 /** Mirrors PassagePickerData in ios/App/App/PassagePicker.swift. */
 export interface PassagePickerData {
@@ -39,6 +41,10 @@ export interface PickerChapter {
   number: number
   /** Empty for the introduction. */
   label: string
+  /** A psalm's liturgical number, shown small under its own (psalms.ts). */
+  detail?: string
+  /** For VoiceOver, where "Capítulo 23" would be wrong: "Salmo 23, na liturgia 22". */
+  spoken?: string
   title?: string
   /** The bookmark ribbon's colour, if the chapter is bookmarked. */
   bookmark?: string
@@ -132,11 +138,17 @@ function chaptersOf(book: Book): Omit<PickerChapter, "bookmark">[] {
         number: index + 1,
         title: undefined,
       }))
-  const chapters = titled.map(({ number, title }) => ({
-    number,
-    label: String(number),
-    ...(title ? { title } : {}),
-  }))
+  const psalms = book.id === PSALMS_BOOK_ID
+  const chapters = titled.map(({ number, title }) => {
+    const detail = psalms ? liturgicalPsalmNumber(number) : null
+    return {
+      number,
+      label: String(number),
+      ...(detail ? { detail } : {}),
+      ...(psalms ? { spoken: passageSpokenLabel(book, number) } : {}),
+      ...(title ? { title } : {}),
+    }
+  })
   const hasIntro =
     !!book.introduction?.length || !!BookService.introSlugFor(book)
   return hasIntro

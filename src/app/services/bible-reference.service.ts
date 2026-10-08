@@ -2,6 +2,9 @@ import { Injectable } from "@angular/core"
 import { BookService } from "./book.service"
 
 // ---------------- Types (unchanged) ----------------
+/** A part of a verse: "16b" is the second. */
+export type VersePart = "a" | "b" | "c"
+
 export type VerseReference =
   | { type: "single"; verse: number; part?: "a" | "b" | "c" }
   | {
@@ -38,8 +41,10 @@ export class BibleReferenceService {
 
   // Implicit full ref (no book): same-chapter "2,4b-25" OR cross-chapter "38,1-39,30"
   // IMPORTANT: cross-chapter branch (endCh,endV) is placed BEFORE same-chapter v2 to avoid greedy misparse.
+  // Its end takes no dot: a dot after a range starts the next verses
+  // ("Gn 15,20-21.29"), not a chapter ("21.29").
   private implicitFullRe =
-    /\b(?<chapter>\d+)\s*(?:[:.]|,(?!\s))\s*(?<v1>\d+(?:[a-c])?)(?:\s*[-\u2010-\u2015\u2212]\s*(?:(?<endCh>\d+)\s*(?:[:.]|,(?!\s))\s*(?<endV>\d+(?:[a-c])?)|(?<v2>\d+(?:[a-c])?)))?\b/gi
+    /\b(?<chapter>\d+)\s*(?:[:.]|,(?!\s))\s*(?<v1>\d+(?:[a-c]{1,2})?)(?:\s*[-\u2010-\u2015\u2212]\s*(?:(?<endCh>\d+)\s*(?::|,(?!\s))\s*(?<endV>\d+(?:[a-c]{1,2})?)|(?<v2>\d+(?:[a-c]{1,2})?)))?\b/gi
 
   // Chapter-only AFTER a semicolon:  "... ; 104 ; ..."  (reuse last explicit/current book)
   private tailChapterOnlyRe =
@@ -47,7 +52,7 @@ export class BibleReferenceService {
 
   // Verse-only shorthand (uses current book + current chapter): "v.12" / "v.12-13" / "v.2a"
   private verseOnlyRe =
-    /\bv\.?\s*(?<v1>\d+(?:[a-c])?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c])?))?\b/gi
+    /\bv\.?\s*(?<v1>\d+(?:[a-c]{1,2})?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c]{1,2})?))?\b/gi
 
   constructor(private bookService: BookService) {
     this.bookService.books$.subscribe(() => {
@@ -99,12 +104,12 @@ export class BibleReferenceService {
 
     // Explicit refs support:
     //  - same-chapter:  Book <sp> Chapter [:.,] v1 [- v2]
-    //  - cross-chapter: Book <sp> Chapter [:.,] v1 - endCh [:.,] endV
+    //  - cross-chapter: Book <sp> Chapter [:.,] v1 - endCh [:,] endV
     // Note: cross-chapter branch FIRST to handle "Jb 38,1-39,30" correctly.
     const pattern =
       String.raw`\b(?<book>${this.bookAlternation})\s+(?<chapter>\d+)` +
-      String.raw`(?:\s*(?:[:.]|,(?!\s))\s*(?<v1>\d+(?:[a-c])?)` +
-      String.raw`(?:\s*[-\u2010-\u2015\u2212]\s*(?:(?<endCh>\d+)\s*(?:[:.]|,(?!\s))\s*(?<endV>\d+(?:[a-c])?)|(?<v2>\d+(?:[a-c])?)))?` +
+      String.raw`(?:\s*(?:[:.]|,(?!\s))\s*(?<v1>\d+(?:[a-c]{1,2})?)` +
+      String.raw`(?:\s*[-\u2010-\u2015\u2212]\s*(?:(?<endCh>\d+)\s*(?::|,(?!\s))\s*(?<endV>\d+(?:[a-c]{1,2})?)|(?<v2>\d+(?:[a-c]{1,2})?)))?` +
       String.raw`)?\b`
 
     this.explicitRe = new RegExp(pattern, "gi")
@@ -161,7 +166,8 @@ export class BibleReferenceService {
         // Cross-chapter ... (unchanged)
         const { num: sv, part: sp } = this.parseNumPart(gs.v1)
         const endChapter = Number(gs.endCh)
-        const { num: ev, part: ep } = this.parseNumPart(gs.endV)
+        const { num: ev, part, lastPart } = this.parseNumPart(gs.endV)
+        const ep = lastPart ?? part
         push({
           match: m[0],
           index: start,
@@ -183,16 +189,24 @@ export class BibleReferenceService {
         let matchStr = m[0]
         let currentIdx = start + matchStr.length
 
-        // Look for comma-separated additions: ", 12" or ", 12-14"
-        const commaRe =
-          /^\s*,\s*(?<v1>\d+(?:[a-c])?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c])?))?/
+        // More verses of the chapter: ", 12" or ", 12-14", and the dotted
+        // lists of the notes ("Lc 6,2.7") and of liturgical leaflets
+        // ("Sl 94,1-2.6-7.8-9", "Sl 78,1-2. 3-5"). None takes a new chapter
+        // ("Jo 3,16.4,5"), and a spaced dot not the number of a book that
+        // follows ("Jo 3,16. 2 Cor 5,17").
+        const listRe =
+          /^(?:\s*,\s*|\.(?<spaced>\s)?)(?<v1>\d+(?:[a-c]{1,2})?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c]{1,2})?))?(?![,:]?\d)/
 
         while (true) {
           const tail = text.slice(currentIdx)
-          const cm = commaRe.exec(tail)
-          if (!cm) break
-
+          const cm = listRe.exec(tail)
           if (!cm?.groups) break
+          if (
+            cm.groups["spaced"] &&
+            /^\s+\p{L}/u.test(tail.slice(cm[0].length))
+          ) {
+            break
+          }
 
           const nextVerses = this.buildVerses(cm.groups["v1"], cm.groups["v2"])
           if (nextVerses) {
@@ -253,7 +267,8 @@ export class BibleReferenceService {
         // Cross-chapter
         const { num: sv, part: sp } = this.parseNumPart(gs.v1)
         const endChapter = Number(gs.endCh)
-        const { num: ev, part: ep } = this.parseNumPart(gs.endV)
+        const { num: ev, part, lastPart } = this.parseNumPart(gs.endV)
+        const ep = lastPart ?? part
         push({
           match: m[0],
           index: s,
@@ -328,19 +343,39 @@ export class BibleReferenceService {
 
   // ---- helpers --------------------------------------------------------------
 
-  private parseNumPart(s: string): { num: number; part?: "a" | "b" | "c" } {
-    const m = /^(\d+)([a-c])?$/i.exec(s.trim())
-    return m
-      ? {
-          num: Number(m[1]),
-          ...(m[2] ? { part: m[2].toLowerCase() as "a" | "b" | "c" } : {}),
-        }
-      : { num: Number(s) }
+  /**
+   * "16" or "16b"; "16bc" (parts b to c) starts at its first part and ends at
+   * its last, `lastPart`.
+   */
+  private parseNumPart(s: string): {
+    num: number
+    part?: VersePart
+    lastPart?: VersePart
+  } {
+    const m = /^(\d+)([a-c]{1,2})?$/i.exec(s.trim())
+    if (!m) return { num: Number(s) }
+    const parts = (m[2] ?? "").toLowerCase()
+    return {
+      num: Number(m[1]),
+      ...(parts ? { part: parts[0] as VersePart } : {}),
+      ...(parts.length > 1 ? { lastPart: parts[1] as VersePart } : {}),
+    }
   }
 
   private buildVerses(v1?: string, v2?: string): VerseReference[] | undefined {
     if (!v1) return undefined
     const a = this.parseNumPart(v1)
+    if (!v2 && a.lastPart) {
+      return [
+        {
+          type: "range",
+          start: a.num,
+          startPart: a.part,
+          end: a.num,
+          endPart: a.lastPart,
+        },
+      ]
+    }
     if (!v2) {
       return [
         { type: "single", verse: a.num, ...(a.part ? { part: a.part } : {}) },
@@ -365,7 +400,8 @@ export class BibleReferenceService {
     }
 
     if (startRef.part) range.startPart = startRef.part
-    if (endRef.part) range.endPart = endRef.part
+    const endPart = endRef.lastPart ?? endRef.part
+    if (endPart) range.endPart = endPart
 
     return [range]
   }

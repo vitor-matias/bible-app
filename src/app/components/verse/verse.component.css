@@ -110,6 +110,31 @@ h3:not(:first-child) {
   outline: none;
 }
 
+/* A psalm's liturgical number, small under its own, as the edition prints it
+   in parentheses. */
+.liturgicalNumber {
+  display: block;
+  font-size: 28%;
+  line-height: 1.3;
+  text-align: center;
+}
+
+/* The iOS app: only the asterisk opens the notes (a tap on the text shows or
+   hides the bars), so it gets a finger-sized target, Apple's 44 pt minimum. */
+:host-context(.native-chrome) .footnoteIndicator {
+  position: relative;
+}
+
+:host-context(.native-chrome) .footnoteIndicator::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
 /* Deep-link / search highlight, painted on the text runs. The inline <verse>
    host would also colour empty <br> line fragments and inter-verse spaces, and
    .quoteLineWrapper (inline-block) the empty space after a short poetry line.

@@ -736,6 +736,27 @@ describe("HeaderComponent with the iOS native bars", () => {
     )
   })
 
+  // Leaflets at Mass number most psalms one lower; the edition prints both.
+  it("names a psalm with its liturgical number", () => {
+    fixture.componentRef.setInput("book", {
+      ...genesis,
+      id: "psa",
+      name: "Livro dos Salmos",
+      shortName: "Salmos",
+      abrv: "Sl",
+      chapterCount: 150,
+    })
+    fixture.componentRef.setInput("chapterNumber", 23)
+    fixture.detectChanges()
+
+    expect(lastState()).toEqual(
+      jasmine.objectContaining({
+        passageLabel: "Salmo 23 (22)",
+        passageAccessibilityLabel: "Salmo 23, na liturgia 22",
+      }),
+    )
+  })
+
   it("drops search while offline", () => {
     isOffline.next(true)
     expect(lastState()).toEqual(jasmine.objectContaining({ search: false }))

@@ -32,7 +32,47 @@ import {
 } from "../../services/native-chrome.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
-import { SearchComponent, TYPING_PAUSE_MS } from "./search.component"
+import { firstLine, SearchComponent, TYPING_PAUSE_MS } from "./search.component"
+
+// How the edition sets Psalm 23,1 and 94,1.
+describe("firstLine", () => {
+  const verse = (text: Verse["text"]) =>
+    ({ bookId: "psa", chapterNumber: 23, number: 1, text }) as Verse
+
+  it("skips a psalm's heading for the line people know", () => {
+    expect(
+      firstLine(
+        verse([
+          { type: "quote", text: "\u200b", identLevel: 1 },
+          { type: "text", text: "Salmo de David." },
+          { type: "paragraph", text: "\n" },
+          { type: "quote", text: "O ", identLevel: 1 },
+          { type: "text", text: "Senhor" },
+          { type: "text", text: " é meu pastor: nada me falta." },
+        ]),
+      ),
+    ).toBe("O Senhor é meu pastor: nada me falta.")
+  })
+
+  it("takes the first line of verse otherwise", () => {
+    expect(
+      firstLine(
+        verse([
+          { type: "quote", text: "\u200b", identLevel: 1 },
+          { type: "text", text: "Ó " },
+          { type: "text", text: "Senhor" },
+          { type: "text", text: ", Deus vingador," },
+          {
+            type: "quote",
+            text: "ó Deus vingador, manifesta-te!",
+            identLevel: 1,
+          },
+          { type: "paragraph", text: "\n" },
+        ]),
+      ),
+    ).toBe("Ó Senhor, Deus vingador,")
+  })
+})
 
 describe("SearchComponent", () => {
   let component: SearchComponent
@@ -598,11 +638,10 @@ describe("SearchComponent", () => {
 
     expect(component.searchResults.length).toBe(1)
     expect(component.currentPage).toBe(1)
-    expect(snackBar.open).toHaveBeenCalledWith(
-      "Encontrado 1 resultado",
-      "Fechar",
-      { duration: 3000 },
-    )
+    // The heading has the count; a toast over the list only hid a result.
+    expect(snackBar.open).not.toHaveBeenCalled()
+    expect(component.resultsHeading).toBe("1 resultado")
+    expect(component.statusMessage).toBe("1 resultado")
     expect(scrollToTopSpy).toHaveBeenCalled()
   })
 
@@ -616,12 +655,220 @@ describe("SearchComponent", () => {
     await component.onSearchSubmit("missing")
 
     expect(component.searchResults).toEqual([])
-    expect(snackBar.open).toHaveBeenCalledWith(
-      "Nenhum resultado encontrado",
-      "Fechar",
-      { duration: 3000 },
-    )
+    expect(snackBar.open).not.toHaveBeenCalled()
+    expect(component.statusMessage).toBe('Nenhum resultado para "missing"')
     expect(scrollToTopSpy).toHaveBeenCalled()
+  })
+
+  // The search returns the 100 verses nearest in meaning: a cap, not a count.
+  it("says when the results are the most relevant, not all", async () => {
+    referenceService.extract.and.returnValue([])
+    apiService.search.and.returnValue(
+      of({
+        verses: [],
+        total: 100,
+        currentPage: 1,
+        totalPages: 2,
+      } as VersePage),
+    )
+    await component.onSearchSubmit("luz")
+    expect(component.resultsHeading).toBe("Os 100 mais relevantes")
+
+    apiService.search.and.returnValue(
+      of({ verses: [], total: 23, currentPage: 1, totalPages: 1 } as VersePage),
+    )
+    await component.onSearchSubmit("Betel")
+    expect(component.resultsHeading).toBe("23 resultados")
+  })
+
+  describe("the results as rendered", () => {
+    const luke = { id: "luk", shortName: "Lucas", name: "Lucas" } as Book
+    const psalms = { id: "psa", shortName: "Salmos", name: "Salmos" } as Book
+
+    beforeEach(async () => {
+      referenceService.extract.and.returnValue([])
+      bookService.findBook.and.callFake(
+        (id: string) => ({ luk: luke, psa: psalms })[id] as Book,
+      )
+      apiService.search.and.returnValue(
+        of({
+          verses: [
+            {
+              bookId: "jdg",
+              chapterNumber: 1,
+              number: 26,
+              text: [
+                {
+                  type: "text",
+                  text: "pôs o nome de Luz, nome que ela conserva.",
+                },
+              ],
+            },
+            {
+              bookId: "luk",
+              chapterNumber: 2,
+              number: 32,
+              text: [{ type: "text", text: "Luz para se revelar às nações" }],
+            },
+            {
+              bookId: "psa",
+              chapterNumber: 136,
+              number: 7,
+              text: [{ type: "text", text: "Ele fez os grandes luzeiros" }],
+            },
+          ],
+          total: 3,
+          currentPage: 1,
+          totalPages: 1,
+        } as unknown as VersePage),
+      )
+      await component.onSearchSubmit("luz")
+      fixture.detectChanges()
+    })
+
+    const all = (selector: string) =>
+      Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll(selector),
+      ).map((element) => element.textContent?.trim())
+
+    // The edition splits "Senhor" into a run of its own (small capitals), and
+    // lines of verse into quotes: Daniel 3,72.
+    it("joins a verse's runs and lines as the text has them", () => {
+      expect(
+        component.getVerseText({
+          bookId: "dan",
+          chapterNumber: 3,
+          number: 72,
+          text: [
+            { type: "quote", text: "\u200b", identLevel: 1 },
+            { type: "text", text: "Luz e trevas, bendizei o " },
+            { type: "text", text: "Senhor" },
+            { type: "text", text: ":" },
+            {
+              type: "quote",
+              text: "– a Ele a glória e o louvor eternamente!",
+              identLevel: 1,
+            },
+          ],
+        } as Verse),
+      ).toBe(
+        "Luz e trevas, bendizei o Senhor: – a Ele a glória e o louvor eternamente!",
+      )
+    })
+
+    // "nome de Luz , nome": the template put a space before the comma.
+    it("keeps the punctuation after a match where the text has it", () => {
+      expect(all(".verse-text")[0]).toBe(
+        "pôs o nome de Luz, nome que ela conserva.",
+      )
+    })
+
+    it("cites the passages as the text does", () => {
+      expect(all(".verse-ref").slice(1)).toEqual([
+        "Lucas 2,32",
+        "Salmo 136 (135),7",
+      ])
+    })
+  })
+
+  // Most psalms are one lower in the liturgy: "Sl 94" from a leaflet is this
+  // edition's 95.
+  describe("a psalm number", () => {
+    const psalms = {
+      id: "psa",
+      abrv: "Sl",
+      shortName: "Salmos",
+      name: "Livro dos Salmos",
+      chapterCount: 150,
+      chapters: [
+        { bookId: "psa", number: 94, title: "SENHOR, DEUS DA JUSTIÇA" },
+        { bookId: "psa", number: 95, title: "EXORTAÇÃO AO LOUVOR DE DEUS" },
+      ],
+    } as unknown as Book
+    const verse = (chapterNumber: number, line: string) =>
+      ({
+        bookId: "psa",
+        chapterNumber,
+        number: 1,
+        text: [
+          { type: "quote", text: "\u200b" },
+          { type: "text", text: line },
+        ],
+      }) as Verse
+
+    beforeEach(() => {
+      bookService.findBook.and.returnValue(psalms)
+      apiService.getVerse.and.callFake((_book, chapter) =>
+        of(
+          chapter === 94
+            ? verse(94, "Ó Senhor, Deus vingador,")
+            : verse(95, "Vinde, exultemos de alegria no Senhor,"),
+        ),
+      )
+    })
+
+    it("offers both psalms it may mean, by how they begin", async () => {
+      referenceService.extract.and.returnValue([
+        { match: "Sl 94", index: 0, book: "Sl", chapter: 94 },
+      ])
+      await component.onSearchSubmit("Sl 94")
+      fixture.detectChanges()
+
+      expect(router.navigate).not.toHaveBeenCalled()
+      expect(component.psalmChoice).toEqual([
+        jasmine.objectContaining({
+          psalm: 94,
+          label: "Salmo 94 (93)",
+          note: "nesta Bíblia",
+          firstLine: "Ó Senhor, Deus vingador,",
+        }),
+        jasmine.objectContaining({
+          psalm: 95,
+          label: "Salmo 95 (94)",
+          note: "como na Missa",
+          firstLine: "Vinde, exultemos de alegria no Senhor,",
+        }),
+      ])
+      expect(fixture.nativeElement.textContent).toContain("Qual salmo procura?")
+    })
+
+    it("keeps the verses on both", async () => {
+      referenceService.extract.and.returnValue([
+        {
+          match: "Sl 94,6-7",
+          index: 0,
+          book: "Sl",
+          chapter: 94,
+          verses: [{ type: "range", start: 6, end: 7 }],
+        },
+      ])
+      await component.onSearchSubmit("Sl 94,6-7")
+
+      expect(component.psalmChoice?.map((option) => option.verseStart)).toEqual(
+        [6, 6],
+      )
+    })
+
+    it("opens directly when the leaflet gives both numbers", async () => {
+      referenceService.extract.and.returnValue([
+        { match: "Sl 95,1-2", index: 0, book: "Sl", chapter: 95 },
+      ])
+      await component.onSearchSubmit("Sl 94 (95), 1-2")
+
+      expect(referenceService.extract).toHaveBeenCalledWith("Sl 95,1-2")
+      expect(component.psalmChoice).toBeNull()
+      expect(router.navigate).toHaveBeenCalledWith(["/", "psa", 95], {})
+    })
+
+    it("opens directly where both numberings agree", async () => {
+      referenceService.extract.and.returnValue([
+        { match: "Sl 150", index: 0, book: "Sl", chapter: 150 },
+      ])
+      await component.onSearchSubmit("Sl 150")
+
+      expect(component.psalmChoice).toBeNull()
+      expect(router.navigate).toHaveBeenCalledWith(["/", "psa", 150], {})
+    })
   })
 
   it("should disconnect the observer on destroy", () => {
@@ -779,8 +1026,8 @@ describe("SearchComponent in the iOS app", () => {
     expect(apiService.search).toHaveBeenCalledWith("pastor", 1)
   }))
 
-  // A search that ran on a pause leaves the keyboard up: the count waits.
-  it("holds the results toast until the keyboard closes", async () => {
+  // The results heading has the count; a toast over the list hid a result.
+  it("shows no results toast", async () => {
     apiService.search.and.returnValue(
       of({
         verses: [
@@ -803,9 +1050,7 @@ describe("SearchComponent in the iOS app", () => {
     actions.next({ id: "search-submit", text: "misericordiosos" })
     await fixture.whenStable()
 
-    expect(nativeChrome.toast).toHaveBeenCalledWith("Encontrado 1 resultado", {
-      afterKeyboard: true,
-    })
+    expect(nativeChrome.toast).not.toHaveBeenCalled()
   })
 
   it("lists the results as an iOS grouped list, matches in bold", async () => {

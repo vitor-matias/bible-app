@@ -29,6 +29,15 @@ describe("nativeOnboardingSteps", () => {
     }
   })
 
+  // There a tap on the text shows or hides the bars; only the asterisk opens notes.
+  it("teaches the asterisk for notes", () => {
+    const notes = step("navigate")?.features.find((feature) =>
+      feature.text.includes("ler a nota"),
+    )
+    expect(notes?.text).toContain("asterisco ＊")
+    expect(notes?.text).not.toContain("Toque num versículo")
+  })
+
   it("shows the logo on the welcome page and symbols elsewhere", () => {
     expect(step("welcome")?.logo).toBeTrue()
     expect(step("tools")).toEqual(

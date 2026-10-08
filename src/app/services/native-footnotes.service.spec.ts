@@ -125,6 +125,18 @@ describe("NativeFootnotesService", () => {
     expect(shown().fontScale).toBe(1.25)
   })
 
+  it("titles a psalm's notes with its liturgical number too", () => {
+    TestBed.inject(BookService).findBookById = () =>
+      ({ id: "psa", shortName: "Salmos" }) as Book
+    service.open([footnote], {
+      ...verse,
+      bookId: "psa",
+      chapterNumber: 23,
+      number: 1,
+    } as Verse)
+    expect(shown().title).toBe("Salmo 23 (22),1")
+  })
+
   it("titles notes before the first verse with the chapter alone", () => {
     service.open([footnote], { ...verse, number: 0 } as Verse)
     expect(shown().title).toBe("Mateus 11")

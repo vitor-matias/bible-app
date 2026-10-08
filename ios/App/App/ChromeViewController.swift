@@ -74,6 +74,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         // scroll-to-top can't reach: the web app scrolls it (scroll-top).
         NotificationCenter.default.addObserver(self, selector: #selector(statusBarTapped),
                                                name: .capacitorStatusBarTapped, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(voiceOverChanged),
+                                               name: UIAccessibility.voiceOverStatusDidChangeNotification,
+                                               object: nil)
 
         let safeArea = view.safeAreaLayoutGuide
         NSLayoutConstraint.activate([
@@ -158,7 +161,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             pendingToast = nil
         }
 
-        let collapse = next.mode == .reader && next.collapsed
+        // VoiceOver users find the bars by swiping through the screen, not by
+        // tapping where they were: for them the bars stay.
+        let collapse = next.mode == .reader && next.collapsed && !UIAccessibility.isVoiceOverRunning
         let collapseChanged = collapse != collapsed
         collapsed = collapse
         setShown(topBar, next.mode != .none, animated: animated)
@@ -370,6 +375,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             self.pendingToast = nil
             self.showToast(pending.message, afterKeyboard: false, button: pending.button, symbol: pending.symbol)
         }
+    }
+
+    @objc private func voiceOverChanged() {
+        apply(state)
     }
 
     @objc private func statusBarTapped() {

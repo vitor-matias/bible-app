@@ -522,6 +522,55 @@ describe("NativeChromeService", () => {
       expect(collapsed()).toBeTrue()
     })
 
+    describe("a tap on the text", () => {
+      let line: HTMLElement
+      let link: HTMLAnchorElement
+      let asterisk: HTMLElement
+      let stop: () => void
+
+      beforeEach(() => {
+        const content = scroller.firstElementChild as HTMLElement
+        content.innerHTML = `
+          <p class="line">No princípio havia o Verbo</p>
+          <a href="/jhn/1">Jo 1,1</a>
+          <span role="button" class="footnoteIndicator">＊</span>`
+        line = content.querySelector(".line") as HTMLElement
+        link = content.querySelector("a") as HTMLAnchorElement
+        link.addEventListener("click", (event) => event.preventDefault())
+        asterisk = content.querySelector("[role=button]") as HTMLElement
+        stop = service.trackScroll(scroller)
+      })
+
+      it("shows the hidden bars, and a second tap hides them", () => {
+        scrollTo(200)
+        expect(collapsed()).toBeTrue()
+
+        line.click()
+        expect(collapsed()).toBeFalse()
+        line.click()
+        expect(collapsed()).toBeTrue()
+      })
+
+      it("leaves taps on links and asterisks to them", () => {
+        link.click()
+        asterisk.click()
+        expect(collapsed()).toBeFalse()
+      })
+
+      it("leaves a tap that only dismisses a selection", () => {
+        doc["getSelection"] = () => ({ isCollapsed: false })
+        line.dispatchEvent(new Event("pointerdown", { bubbles: true }))
+        line.click()
+        expect(collapsed()).toBeFalse()
+      })
+
+      it("stops once tracking stops", () => {
+        stop()
+        line.click()
+        expect(collapsed()).toBeFalse()
+      })
+    })
+
     it("never hides the search page's bars", () => {
       service.trackScroll(scroller)
       scrollTo(200)

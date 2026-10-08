@@ -5,6 +5,7 @@ import {
   getVerseQueryParams,
   parseReferences,
 } from "../components/verse/verse.utils"
+import { passageLabel } from "../utils/passage-label"
 import { AnalyticsService } from "./analytics.service"
 import { BibleReferenceService } from "./bible-reference.service"
 import { BookService } from "./book.service"
@@ -88,12 +89,19 @@ export class NativeFootnotesService {
     this.session = session
   }
 
-  /** "Mateus 11,3", or the chapter alone for notes before the first verse. */
+  /**
+   * "Mateus 11,3", "Salmo 23 (22),1", or the chapter alone for notes before
+   * the first verse.
+   */
   private title(verse: Verse): string {
-    const book = this.bookService.findBookById(verse.bookId)
-    const name = book?.shortName ?? verse.bookId
-    return verse.number > 0
-      ? `${name} ${verse.chapterNumber},${verse.number}`
-      : `${name} ${verse.chapterNumber}`
+    const book = this.bookService.findBookById(verse.bookId) ?? {
+      id: verse.bookId,
+      shortName: verse.bookId,
+    }
+    return passageLabel(
+      book,
+      verse.chapterNumber,
+      verse.number > 0 ? verse.number : undefined,
+    )
   }
 }

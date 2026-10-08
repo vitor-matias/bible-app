@@ -23,6 +23,11 @@ describe("buildPassagePicker", () => {
       ],
     }),
     book("exo"),
+    book("psa", {
+      shortName: "Salmos",
+      name: "Livro dos Salmos",
+      chapterCount: 150,
+    }),
     book("1sa", { sharedIntroSlug: "samuel" }),
     book("mat"),
     book("tit", { abrv: "Tt \ufeff" }),
@@ -84,6 +89,27 @@ describe("buildPassagePicker", () => {
       },
       { number: 2, label: "2", title: "O homem", bookmark: "blue" },
     ])
+  })
+
+  // Leaflets at Mass number most psalms one lower; the edition prints both.
+  it("gives each psalm its liturgical number, and VoiceOver its name", () => {
+    const psalms = findBook("psa")?.chapters ?? []
+    expect(psalms[22]).toEqual({
+      number: 23,
+      label: "23",
+      detail: "22",
+      spoken: "Salmo 23, na liturgia 22",
+      bookmark: undefined,
+    })
+    expect(psalms[0]).toEqual({
+      number: 1,
+      label: "1",
+      spoken: "Salmo 1",
+      bookmark: undefined,
+    })
+    expect(findBook("exo")?.chapters[0]).not.toEqual(
+      jasmine.objectContaining({ spoken: jasmine.anything() }),
+    )
   })
 
   it("numbers the chapters of books whose titles have not loaded", () => {

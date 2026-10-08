@@ -8,6 +8,10 @@ struct PassagePickerData {
         let number: Int
         /// Empty for the introduction.
         let label: String
+        /// A psalm's liturgical number, shown small under its own ("22" for 23).
+        let detail: String?
+        /// What VoiceOver says instead of "Capítulo 23": "Salmo 23, na liturgia 22".
+        let spoken: String?
         let title: String?
         /// The bookmark ribbon's colour name, if the chapter is bookmarked.
         let bookmark: String?
@@ -62,6 +66,8 @@ struct PassagePickerData {
              chapters: objects(object["chapters"]).map { chapter in
                  Chapter(number: (chapter["number"] as? NSNumber)?.intValue ?? 0,
                          label: chapter["label"] as? String ?? "",
+                         detail: chapter["detail"] as? String,
+                         spoken: chapter["spoken"] as? String,
                          title: chapter["title"] as? String,
                          bookmark: chapter["bookmark"] as? String)
              })
@@ -284,6 +290,7 @@ private final class ChapterListViewController: UICollectionViewController {
             let isIntro = chapter.label.isEmpty
             cell.configure(
                 text: isIntro ? "Introdução" : chapter.label,
+                detail: chapter.detail,
                 style: isIntro ? .body : .headline,
                 current: chapter.number == current,
                 ribbon: chapter.bookmark.flatMap(ribbonColor),
@@ -335,7 +342,7 @@ private final class ChapterListViewController: UICollectionViewController {
 
     private static func spokenLabel(for chapter: Chapter) -> String {
         guard !chapter.label.isEmpty else { return chapter.title ?? "Introdução" }
-        var label = "Capítulo \(chapter.label)"
+        var label = chapter.spoken ?? "Capítulo \(chapter.label)"
         if let title = chapter.title, !title.isEmpty { label += ", \(title)" }
         if chapter.bookmark != nil { label += ", com marcador" }
         return label
@@ -347,6 +354,8 @@ private final class ChapterListViewController: UICollectionViewController {
 /// the text colour, inverted; a bookmarked chapter shows its ribbon colour as a dot.
 private final class TileCell: UICollectionViewCell {
     private let label = UILabel()
+    /// A second, smaller line: a psalm's liturgical number.
+    private let detailLabel = UILabel()
     private let ribbon = UIView()
 
     override init(frame: CGRect) {
@@ -360,15 +369,22 @@ private final class TileCell: UICollectionViewCell {
         label.adjustsFontForContentSizeCategory = true
         label.adjustsFontSizeToFitWidth = true
         label.minimumScaleFactor = 0.65
-        label.translatesAutoresizingMaskIntoConstraints = false
+        detailLabel.textAlignment = .center
+        detailLabel.font = .preferredFont(forTextStyle: .caption2)
+        detailLabel.adjustsFontForContentSizeCategory = true
+        detailLabel.isHidden = true
+        let lines = UIStackView(arrangedSubviews: [label, detailLabel])
+        lines.axis = .vertical
+        lines.alignment = .fill
+        lines.translatesAutoresizingMaskIntoConstraints = false
         ribbon.layer.cornerRadius = 4
         ribbon.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(label)
+        contentView.addSubview(lines)
         contentView.addSubview(ribbon)
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 6),
-            label.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -6),
-            label.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            lines.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 6),
+            lines.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -6),
+            lines.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             ribbon.widthAnchor.constraint(equalToConstant: 8),
             ribbon.heightAnchor.constraint(equalToConstant: 8),
             ribbon.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6),
@@ -381,11 +397,14 @@ private final class TileCell: UICollectionViewCell {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    func configure(text: String, style: UIFont.TextStyle, current: Bool, ribbon color: UIColor? = nil,
-                   accessibilityLabel: String) {
+    func configure(text: String, detail: String? = nil, style: UIFont.TextStyle, current: Bool,
+                   ribbon color: UIColor? = nil, accessibilityLabel: String) {
         label.text = text
         label.font = .preferredFont(forTextStyle: style)
         label.textColor = current ? ChromeViewController.onSelection : .label
+        detailLabel.text = detail.map { "(\($0))" }
+        detailLabel.isHidden = detail == nil
+        detailLabel.textColor = current ? ChromeViewController.onSelection.withAlphaComponent(0.7) : .secondaryLabel
         contentView.backgroundColor = current ? ChromeViewController.selectionFill : tileBackground
         ribbon.backgroundColor = color
         ribbon.isHidden = color == nil

@@ -37,10 +37,15 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   private isSwipeGesture = false
   private isPinchGesture = false
 
-  // Thresholds
-  private readonly SWIPE_THRESHOLD = 80
-  private readonly SWIPE_MAX_TIME = 500
-  private readonly SWIPE_MAX_VERTICAL_DISTANCE = 100
+  // Swipes. A diagonal flick while scrolling used to change the chapter.
+  /** Movement before a gesture commits to an axis; a scroll stays a scroll. */
+  private readonly AXIS_LOCK_DISTANCE = 12
+  /** A deliberate drag: this share of the width, at any speed. */
+  private readonly SWIPE_MIN_SHARE = 0.35
+  /** Or a flick: this far (px), this fast (px/ms; 0.6 is 600 px/s). */
+  private readonly FLICK_MIN_DISTANCE = 60
+  private readonly FLICK_MIN_SPEED = 0.6
+  private swipeAxis: "x" | "y" | null = null
   private readonly MIN_FONT_SIZE = 70
   private readonly MAX_FONT_SIZE = 180
   private readonly boundTouchStart = this.onTouchStart.bind(this)
@@ -123,6 +128,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
       this.swipeStartX = e.touches[0].clientX
       this.swipeStartY = e.touches[0].clientY
       this.swipeStartTime = Date.now()
+      this.swipeAxis = null
       this.isSwipeGesture = true
       this.isPinchGesture = false
     } else if (e.touches.length === 2) {
@@ -146,16 +152,20 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
       e.preventDefault()
       this.handlePinchMove(e)
     } else if (this.isSwipeGesture && e.touches.length === 1) {
-      // Check if movement is still within swipe parameters
-      const deltaY = Math.abs(e.touches[0].clientY - this.swipeStartY)
       const deltaX = Math.abs(e.touches[0].clientX - this.swipeStartX)
-
-      // Once the gesture looks like a horizontal swipe, suppress the browser's
-      // native handling so the chapter/page navigation wins consistently.
-      if (deltaX > 30 && deltaY < this.SWIPE_MAX_VERTICAL_DISTANCE) {
+      const deltaY = Math.abs(e.touches[0].clientY - this.swipeStartY)
+      if (
+        this.swipeAxis === null &&
+        Math.max(deltaX, deltaY) >= this.AXIS_LOCK_DISTANCE
+      ) {
+        this.swipeAxis = isMostlyHorizontal(deltaX, deltaY) ? "x" : "y"
+      }
+      if (this.swipeAxis === "y") {
+        this.isSwipeGesture = false
+      } else if (this.swipeAxis === "x") {
+        // A sideways swipe: suppress the browser's own handling so the
+        // chapter/page navigation wins consistently.
         e.preventDefault()
-      } else if (deltaY > this.SWIPE_MAX_VERTICAL_DISTANCE) {
-        this.isSwipeGesture = false // Too much vertical movement
       }
     } else {
       // Gesture changed, reset
@@ -194,13 +204,19 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
 
   private handleSwipeEnd(touch: Touch) {
     const deltaX = touch.clientX - this.swipeStartX
-    const deltaY = touch.clientY - this.swipeStartY
-    const elapsedTime = Date.now() - this.swipeStartTime
+    const distance = Math.abs(deltaX)
+    const drift = Math.abs(touch.clientY - this.swipeStartY)
+    const elapsed = Math.max(Date.now() - this.swipeStartTime, 1)
+    const width = this.el.nativeElement.clientWidth || window.innerWidth
+    const deliberate = distance >= width * this.SWIPE_MIN_SHARE
+    const flick =
+      distance >= this.FLICK_MIN_DISTANCE &&
+      distance / elapsed >= this.FLICK_MIN_SPEED
 
     if (
-      elapsedTime < this.SWIPE_MAX_TIME &&
-      Math.abs(deltaX) > this.SWIPE_THRESHOLD &&
-      Math.abs(deltaY) < this.SWIPE_MAX_VERTICAL_DISTANCE
+      this.swipeAxis !== "y" &&
+      isMostlyHorizontal(distance, drift) &&
+      (deliberate || flick)
     ) {
       if (deltaX > 0) {
         this.swipeRight.emit()
@@ -289,4 +305,9 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     )
     return "default"
   }
+}
+
+/** Sideways enough to be a swipe: it drifts at most half as far vertically. */
+function isMostlyHorizontal(deltaX: number, deltaY: number): boolean {
+  return deltaY <= deltaX / 2
 }

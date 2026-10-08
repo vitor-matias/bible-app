@@ -26,6 +26,7 @@ import {
   BibleReferenceService,
 } from "../../services/bible-reference.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
+import { liturgicalPsalmNumber, PSALMS_BOOK_ID } from "../../utils/psalms"
 import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnotes-bottom-sheet.component"
 import { VerseSectionComponent } from "../verse-section/verse-section.component"
 import { getVerseQueryParams, parseReferences } from "./verse.utils"
@@ -49,6 +50,15 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   /** Pre-computed: does this verse have footnotes? */
   hasFootnotes = false
+
+  /**
+   * Whether tapping the verse's text opens its notes. Not in the iOS app: a tap
+   * on the text shows or hides its bars there, and the asterisk opens notes.
+   */
+  notesOnText = false
+
+  /** A psalm's liturgical number, which the edition prints in parentheses. */
+  liturgicalNumber: string | null = null
 
   /** Groups for rendering - quotes and their continuations */
   displayGroups: DisplayGroup[] = []
@@ -95,6 +105,11 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (this.data) {
       this.chapterNumberDisplayIndex = this.computeChapterNumberIndex()
       this.hasFootnotes = this.data.text.some((t) => t.type === "footnote")
+      this.notesOnText = this.hasFootnotes && !this.nativeFootnotes.enabled
+      this.liturgicalNumber =
+        this.data.bookId === PSALMS_BOOK_ID
+          ? liturgicalPsalmNumber(this.data.chapterNumber)
+          : null
       this.parsedReferences = this.computeParsedReferences()
       this.displayGroups = this.computeDisplayGroups()
     }
@@ -346,6 +361,13 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   getQuoteIdentLevel(text: TextType): number {
     return text.type === "quote" ? text.identLevel : 0
+  }
+
+  /** Space on the verse's text opens its notes, where the text does. */
+  onTextSpace(event: Event): void {
+    if (!this.notesOnText) return
+    event.preventDefault()
+    this.toggleFootnotes(event)
   }
 
   toggleFootnotes(event?: Event): void {

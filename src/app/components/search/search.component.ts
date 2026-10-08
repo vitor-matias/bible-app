@@ -31,10 +31,37 @@ import { NativeChromeService } from "../../services/native-chrome.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
+import { passageLabel } from "../../utils/passage-label"
+import {
+  isAmbiguousPsalmNumber,
+  PSALMS_BOOK_ID,
+  parsePsalmPair,
+  psalmFromLiturgical,
+} from "../../utils/psalms"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
 /** Searching as people type waits for them to pause this long. */
 export const TYPING_PAUSE_MS = 2500
+
+/**
+ * A word search returns at most this many verses, the nearest in meaning
+ * (KNN_MAX_RESULTS in the API), so its total is a cap, not a count.
+ */
+export const SEARCH_RESULT_CAP = 100
+
+/** One of the psalms a bare psalm number may mean (showPsalmChoice). */
+export interface PsalmOption {
+  psalm: number
+  /** Where to open it; none for the psalm's beginning. */
+  verseStart?: number
+  label: string
+  /** Which numbering names it so: "nesta Bíblia" or "como na Missa". */
+  note: string
+  /** How it begins, once loaded; people know a psalm by its first line. */
+  firstLine?: string
+  /** The psalm's title, until (or unless) the first line loads. */
+  title: string
+}
 
 @Component({
   selector: "app-search",
@@ -60,6 +87,15 @@ export class SearchComponent {
 
   totalResults = 0
   isLoading = false
+  /** A new word search is under way (paging more results is not). */
+  searching = false
+  /**
+   * A psalm number that names two psalms, this edition's and the liturgy's:
+   * the choice between them, instead of guessing which was meant.
+   */
+  psalmChoice: PsalmOption[] | null = null
+  /** For screen readers, which no longer get the count from a toast. */
+  statusMessage = ""
   private observer: IntersectionObserver | null = null
 
   @ViewChild("sentinel", { static: false }) sentinel!: ElementRef
@@ -228,9 +264,18 @@ export class SearchComponent {
     }
   }
 
-  async onSearchSubmit(text: string): Promise<void> {
+  async onSearchSubmit(query: string): Promise<void> {
     const generation = ++this.searchGeneration
     const isStale = () => generation !== this.searchGeneration
+    this.psalmChoice = null
+    // "Sl 94 (95), 1-2": with both numbers, a leaflet names one psalm.
+    const pair = parsePsalmPair(query)
+    const pairBook = pair ? this.bookService.findBook(pair.book) : null
+    const pairedPsalm = !!pair && pairBook?.id === PSALMS_BOOK_ID
+    const text =
+      pair && pairedPsalm && pairBook
+        ? `${pairBook.abrv} ${pair.psalm}${pair.rest.replace(/^,\s*/, ",")}`
+        : query
     const references = this.referenceService.extract(text)
 
     let targetBook: Book | null = null
@@ -257,6 +302,15 @@ export class SearchComponent {
       if (book && book.id !== "about") {
         targetBook = book
       }
+    }
+
+    if (
+      targetBook?.id === PSALMS_BOOK_ID &&
+      !pairedPsalm &&
+      isAmbiguousPsalmNumber(targetChapter)
+    ) {
+      this.showPsalmChoice(query, targetBook, targetChapter, targetVerseStart)
+      return
     }
 
     if (targetBook) {
@@ -314,26 +368,22 @@ export class SearchComponent {
     this.syncNativeChrome()
     this.hasSearched = true
     this.isLoading = true
+    this.searching = true
+    this.statusMessage = "A procurar…"
     try {
       const results = await firstValueFrom(this.apiService.search(text, 1))
       if (isStale()) return
       this.searchResults = results.verses.map((v) => this.toDisplayVerse(v))
       this.totalResults = results.total
       this.currentPage = 1
-      const resultsMessage =
-        results.total === 1
-          ? "Encontrado 1 resultado"
-          : `Encontrados ${results.total} resultados`
-
-      if (results.total === 0) {
-        this.toast.show("Nenhum resultado encontrado", { afterKeyboard: true })
-      } else {
-        if (document.activeElement instanceof HTMLElement) {
-          document.activeElement.blur()
-        }
-        // A search that ran on a pause leaves the keyboard up in the iOS
-        // app: the toast waits for it to close rather than cover the typing.
-        this.toast.show(resultsMessage, { afterKeyboard: true })
+      this.searching = false
+      // The heading has the count; a toast over the list only hid a result.
+      this.statusMessage =
+        results.total === 0
+          ? `Nenhum resultado para "${text}"`
+          : this.resultsHeading
+      if (results.total > 0 && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
       }
 
       // The sentinel node is recreated when results change, so rebind the observer
@@ -349,8 +399,82 @@ export class SearchComponent {
     } finally {
       if (!isStale()) {
         this.isLoading = false
+        this.searching = false
         this.cdr.detectChanges()
       }
+    }
+  }
+
+  /** "23 resultados", or "Os 100 mais relevantes" when the search capped it. */
+  get resultsHeading(): string {
+    if (this.searching) return "A procurar…"
+    if (this.totalResults >= SEARCH_RESULT_CAP) {
+      return `Os ${SEARCH_RESULT_CAP} mais relevantes`
+    }
+    return this.totalResults === 1
+      ? "1 resultado"
+      : `${this.totalResults} resultados`
+  }
+
+  /** "Lucas 2,32", "Salmo 23 (22),4": as the text cites passages. */
+  resultReference(result: Verse): string {
+    const book = this.findBookById(result.bookId)
+    return book
+      ? passageLabel(book, result.chapterNumber, result.number)
+      : `${result.chapterNumber},${result.number}`
+  }
+
+  /**
+   * Most psalms have a different number in the liturgy (see psalms.ts), and a
+   * number copied from a leaflet would open a different psalm here. Rather
+   * than guess, offer both, each by how it begins.
+   */
+  private showPsalmChoice(
+    query: string,
+    psalms: Book,
+    psalm: number,
+    verseStart: number | undefined,
+  ): void {
+    const liturgical = psalmFromLiturgical(psalm)
+    if (!liturgical) return
+    const option = (number: number, note: string, verse?: number) => ({
+      psalm: number,
+      ...(verse !== undefined && verse > 1 ? { verseStart: verse } : {}),
+      label: passageLabel(psalms, number),
+      note,
+      title:
+        psalms.chapters?.find((chapter) => chapter.number === number)?.title ??
+        "",
+    })
+    this.psalmChoice = [
+      option(psalm, "nesta Bíblia", verseStart),
+      option(liturgical.psalm, "como na Missa", verseStart ?? liturgical.verse),
+    ]
+    this.searchTerm = query
+    this.searchResults = []
+    this.totalResults = 0
+    this.hasSearched = true
+    this.isLoading = false
+    this.statusMessage = "Qual salmo procura?"
+    this.syncNativeChrome()
+    this.cdr.detectChanges()
+
+    const choice = this.psalmChoice
+    for (const entry of choice) {
+      firstValueFrom(
+        this.apiService.getVerse(
+          PSALMS_BOOK_ID,
+          entry.psalm,
+          entry.verseStart ?? 1,
+        ),
+      ).then(
+        (verse) => {
+          if (this.psalmChoice !== choice) return
+          entry.firstLine = firstLine(verse)
+          this.cdr.detectChanges()
+        },
+        () => {}, // Offline and not saved yet: the title stands in.
+      )
     }
   }
 
@@ -365,15 +489,25 @@ export class SearchComponent {
     }
   }
 
-  getVerseText(verse: Verse) {
-    let result = ""
-    for (const line of verse.text) {
-      if (line.type !== "text" && line.type !== "paragraph") {
-        continue
+  /**
+   * The verse as one line of text. Its runs are joined as they are: the
+   * edition splits "Senhor" into a run of its own (small capitals), so a space
+   * after each run put one before the punctuation ("o Senhor :"). Lines of
+   * verse (quotes) and paragraphs are joined with a space.
+   */
+  getVerseText(verse: Verse): string {
+    const lines: string[] = [""]
+    for (const part of verse.text) {
+      if (part.type === "quote" || part.type === "paragraph") {
+        lines.push(part.type === "quote" ? part.text : "")
+      } else if (part.type === "text") {
+        lines[lines.length - 1] += part.text
       }
-      result += `${line.text} `
     }
-    return result
+    return lines
+      .map((line) => line.replace(/\u200b/g, "").trim())
+      .filter(Boolean)
+      .join(" ")
   }
 
   @ViewChild("resultsContainer", { static: false })
@@ -427,4 +561,38 @@ export class SearchComponent {
       ? segments
       : [{ text: verseText, highlight: false }]
   }
+}
+
+/**
+ * A verse's first line of verse. Many psalms open with a heading ("Salmo de
+ * David."), set apart by a paragraph break; the line after it is the one
+ * people know.
+ */
+export function firstLine(verse: Verse): string | undefined {
+  const lines: string[][] = [[]]
+  let afterHeading: number | undefined
+  for (const part of verse.text) {
+    if (part.type === "paragraph") {
+      afterHeading ??= lines.length
+      lines.push([])
+    } else if (part.type === "quote") {
+      lines.push([part.text])
+    } else if (part.type === "text") {
+      lines[lines.length - 1].push(part.text)
+    }
+  }
+  const clean = lines
+    .map((line) =>
+      line
+        .join("")
+        .replace(/\u200b/g, "")
+        .trim(),
+    )
+    .map((line, index) => ({ line, index }))
+    .filter(({ line }) => line)
+  return (
+    clean.find(
+      ({ index }) => afterHeading !== undefined && index >= afterHeading,
+    )?.line ?? clean[0]?.line
+  )
 }

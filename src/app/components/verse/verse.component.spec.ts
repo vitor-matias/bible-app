@@ -802,6 +802,95 @@ describe("VerseComponent", () => {
     })
   })
 
+  describe("what a tap on a verse with notes opens", () => {
+    const footnote = { type: "footnote" as const, text: "note", reference: "1" }
+    const render = () => {
+      setData(
+        component,
+        makeVerse({ text: [{ type: "text", text: "No princípio" }, footnote] }),
+      )
+      fixture.detectChanges()
+    }
+    const text = () =>
+      fixture.nativeElement.querySelector(
+        ".verseRun:not(:empty)",
+      ) as HTMLElement
+    const asterisk = () =>
+      fixture.nativeElement.querySelector(".footnoteIndicator") as HTMLElement
+
+    it("opens the notes from the text on the web", () => {
+      render()
+      text().click()
+
+      expect(mockBottomSheet.open).toHaveBeenCalled()
+      expect(text().getAttribute("role")).toBe("button")
+    })
+
+    // There a tap on the text shows or hides the bars (NativeChromeService).
+    describe("in the iOS app", () => {
+      let open: jasmine.Spy
+
+      beforeEach(() => {
+        const native = TestBed.inject(NativeFootnotesService)
+        spyOnProperty(native, "enabled").and.returnValue(true)
+        open = spyOn(native, "open")
+        document.body.classList.add("native-chrome")
+        render()
+      })
+
+      afterEach(() => document.body.classList.remove("native-chrome"))
+
+      it("leaves the text alone", () => {
+        text().click()
+        text().dispatchEvent(new KeyboardEvent("keydown", { key: " " }))
+
+        expect(open).not.toHaveBeenCalled()
+        expect(text().getAttribute("role")).toBeNull()
+        expect(text().getAttribute("tabindex")).toBeNull()
+      })
+
+      it("opens them from the asterisk, a finger-sized target", () => {
+        asterisk().click()
+
+        expect(open).toHaveBeenCalledTimes(1)
+        const target = getComputedStyle(asterisk(), "::after")
+        expect(target.width).toBe("44px")
+        expect(target.height).toBe("44px")
+      })
+    })
+  })
+
+  // Leaflets at Mass number most psalms one lower; the edition prints both.
+  describe("a psalm's number", () => {
+    const opening = (bookId: string, chapterNumber: number) =>
+      makeVerse({
+        bookId,
+        chapterNumber,
+        number: 0,
+        verseLabel: "front",
+        text: [{ type: "section", tag: "s2", text: "O BOM PASTOR" }],
+      })
+    const liturgical = () =>
+      fixture.nativeElement.querySelector(".liturgicalNumber") as HTMLElement
+
+    it("carries the liturgical number under it", () => {
+      setData(component, opening("psa", 23))
+      fixture.detectChanges()
+
+      expect(liturgical().textContent?.trim()).toBe("na liturgia, (22)")
+    })
+
+    it("carries none where the numberings agree, or outside the Psalms", () => {
+      setData(component, opening("psa", 150))
+      fixture.detectChanges()
+      expect(liturgical()).toBeNull()
+
+      setData(component, opening("gen", 23))
+      fixture.detectChanges()
+      expect(liturgical()).toBeNull()
+    })
+  })
+
   describe("toggleFootnotes", () => {
     // The iOS app shows them in a native sheet instead.
     it("opens the native sheet in the iOS app", () => {

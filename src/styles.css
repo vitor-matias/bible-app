@@ -25,6 +25,13 @@
   border: 0;
 }
 
+/* The reader's running text hyphenates (.bookBlock), but titles break only
+   between words: a hyphen in a heading ("MINISTÉ-RIO") reads as a misprint. */
+.bookBlock :is(h1, h2, h3, h4, h5, h6),
+.bookBlock verse-section .section {
+  hyphens: manual;
+}
+
 /* outlined.css only styles .material-symbols-outlined, but Angular Material
    tags icons with `material-icons`; both must resolve to the Symbols font. */
 .material-symbols-outlined, .material-icons {

@@ -47,7 +47,9 @@ import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"
 import { SHARE_PLUGIN } from "../../tokens"
+import { passageLabel, passageSpokenLabel } from "../../utils/passage-label"
 import { buildPassagePicker } from "../../utils/passage-picker"
+import { PSALMS_BOOK_ID } from "../../utils/psalms"
 
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
@@ -416,10 +418,15 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     const hasChapters = !isAbout && !this.book.introSlug
     this.nativeChrome.show({
       mode: "reader",
-      passageLabel: hasChapters
-        ? `${this.bookLabel} ${this.chapterLabel}`
-        : this.bookLabel,
-      passageAccessibilityLabel: this.headingLabel,
+      passageLabel: !hasChapters
+        ? this.bookLabel
+        : this.book.id === PSALMS_BOOK_ID && this.chapterNumber > 0
+          ? passageLabel(this.book, this.chapterNumber)
+          : `${this.bookLabel} ${this.chapterLabel}`,
+      passageAccessibilityLabel:
+        hasChapters && this.chapterNumber > 0
+          ? passageSpokenLabel(this.book, this.chapterNumber)
+          : this.headingLabel,
       chapterNavigation: !isAbout,
       canGoPrevious: this.canGoPrevious,
       canGoNext: this.canGoNext,

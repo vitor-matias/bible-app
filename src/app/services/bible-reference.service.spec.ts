@@ -289,4 +289,112 @@ describe("BibleReferenceService", () => {
       { type: "single", verse: 2 } as VerseReference,
     ])
   })
+
+  // References as liturgical leaflets and the edition's own notes write them.
+  describe("verse lists and verse parts", () => {
+    beforeEach(() => {
+      TestBed.resetTestingModule()
+      TestBed.configureTestingModule({
+        providers: [
+          {
+            provide: BookService,
+            useValue: {
+              books$: { subscribe: (fn: () => void) => fn() },
+              getBooks: () => [
+                { abrv: "Sl", shortName: "Salmos", name: "Salmos", id: "psa" },
+                { abrv: "Lc", shortName: "Lucas", name: "Lucas", id: "luk" },
+                { abrv: "Est", shortName: "Ester", name: "Ester", id: "est" },
+                { abrv: "Jo", shortName: "João", name: "João", id: "jhn" },
+                {
+                  abrv: "2 Cor",
+                  shortName: "2 Coríntios",
+                  name: "2 Coríntios",
+                  id: "2co",
+                },
+              ],
+            },
+          },
+        ],
+      })
+      service = TestBed.inject(BibleReferenceService)
+    })
+
+    it('joins verse ranges with dots: "Sl 94,1-2.6-7.8-9"', () => {
+      const out = service.extract(
+        "Salmo responsorial: Sl 94,1-2.6-7.8-9 (R. 8)",
+      )
+      expect(out.length).toBe(1)
+      expect(out[0].match).toBe("Sl 94,1-2.6-7.8-9")
+      expect(out[0].verses).toEqual([
+        { type: "range", start: 1, end: 2 },
+        { type: "range", start: 6, end: 7 },
+        { type: "range", start: 8, end: 9 },
+      ])
+    })
+
+    it('takes spaced dots too: "Sl 78,1-2. 3-5. 8. 9"', () => {
+      const out = service.extract("Sl 78,1-2. 3-5. 8. 9 (R. 9b)")
+      expect(out.length).toBe(1)
+      expect(out[0].verses).toEqual([
+        { type: "range", start: 1, end: 2 },
+        { type: "range", start: 3, end: 5 },
+        { type: "single", verse: 8 },
+        { type: "single", verse: 9 },
+      ])
+    })
+
+    // Before, the tail of "Lc 1,5.8.23" became a link of its own to Lc 8,23.
+    it('keeps a dotted list in the notes as one reference: "Lc 1,5.8.23"', () => {
+      const out = service.extract("ver Lc 1,5.8.23; 2,1")
+      expect(out.map((ref) => ref.match)).toEqual(["Lc 1,5.8.23", "2,1"])
+      expect(out[0].verses).toEqual([
+        { type: "single", verse: 5 },
+        { type: "single", verse: 8 },
+        { type: "single", verse: 23 },
+      ])
+    })
+
+    it('reads two-letter verse parts: "Sl 115,12-13.15-16bc.17-18"', () => {
+      const out = service.extract("Sl 115,12-13.15-16bc.17-18")
+      expect(out.length).toBe(1)
+      expect(out[0].verses).toEqual([
+        { type: "range", start: 12, end: 13 },
+        { type: "range", start: 15, end: 16, endPart: "c" },
+        { type: "range", start: 17, end: 18 },
+      ])
+      const single = service.extract("Sl 23,6bc")[0]
+      expect(single.verses).toEqual([
+        { type: "range", start: 6, startPart: "b", end: 6, endPart: "c" },
+      ])
+    })
+
+    it('reads a lettered verse: "Est 4,17a"', () => {
+      expect(service.extract("Est 4,17a")[0].verses).toEqual([
+        { type: "single", verse: 17, part: "a" },
+      ])
+    })
+
+    it("doesn't swallow the number of the next book after a spaced dot", () => {
+      const out = service.extract("Jo 3,16. 2 Cor 5,17")
+      expect(out.map((ref) => ref.match)).toEqual(["Jo 3,16", "2 Cor 5,17"])
+      expect(out[0].verses).toEqual([{ type: "single", verse: 16 }])
+    })
+
+    // "20-21.29" read as chapter 15 verse 20 to chapter 21 verse 29.
+    it('keeps a dot after a range for verses: "Lc 15,20-21.29"', () => {
+      const out = service.extract("Lc 15,20-21.29")
+      expect(out.length).toBe(1)
+      expect(out[0].crossChapter).toBeUndefined()
+      expect(out[0].verses).toEqual([
+        { type: "range", start: 20, end: 21 },
+        { type: "single", verse: 29 },
+      ])
+    })
+
+    it("leaves a new chapter after a dot to its own reference", () => {
+      const out = service.extract("Jo 3,16.4,5")
+      expect(out[0].match).toBe("Jo 3,16")
+      expect(out[1].chapter).toBe(4)
+    })
+  })
 })

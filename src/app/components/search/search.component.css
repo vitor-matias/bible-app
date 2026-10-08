@@ -84,6 +84,19 @@
   padding: 0 4px;
 }
 
+/* The two psalms a bare number may mean: which numbering names each. */
+.psalm-choice-hint {
+  font-size: 0.85em;
+  color: var(--text-secondary);
+  margin: -8px 0 12px 0;
+  padding: 0 4px;
+}
+
+.psalm-note {
+  font-weight: normal;
+  color: var(--text-secondary);
+}
+
 .search-highlight {
   background-color: var(--highlight-color);
   color: var(--text-color);
@@ -125,7 +138,8 @@
 
 /* iOS: status text is neutral grey, as in the system's empty states; the red
    stays with the scripture (the references, like the reader's verse numbers). */
-:host-context(.native-chrome) :is(.empty-state, .loading, .results-count) {
+:host-context(.native-chrome)
+  :is(.empty-state, .loading, .results-count, .psalm-choice-hint, .psalm-note) {
   color: color-mix(in srgb, var(--text-color) 55%, transparent);
 }
 
@@ -146,7 +160,7 @@
   padding-right: 16px;
 }
 
-:host-context(.native-chrome) .results-count {
+:host-context(.native-chrome) :is(.results-count, .psalm-choice-hint) {
   font-family: var(--app-ios-font, system-ui);
   font-size: 13px;
   margin: 0 0 6px;
