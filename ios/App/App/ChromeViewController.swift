@@ -201,11 +201,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             readerItem.rightBarButtonItems = items
         }
 
-        if let autoScroll = state.autoScroll {
-            toolbar.setItems(autoScrollItems(autoScroll, enabled: enabled), animated: false)
-            return
-        }
-
         var items: [UIBarButtonItem] = []
         if state.chapterNavigation {
             let previous = barButton("chevron.backward", "Capítulo anterior", "previous")
@@ -214,13 +209,31 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             next.isEnabled = enabled && state.canGoNext
             items += [previous, next]
         }
-        items += [.flexibleSpace(), passageItem(state, enabled: enabled), .flexibleSpace()]
-        if state.search {
-            let search = barButton("magnifyingglass", "Pesquisar", "search")
-            search.isEnabled = enabled
-            items.append(search)
+        // Auto-scroll, while ⋯ shows it: play beside search; playing, the
+        // speed takes the passage's and search's place, and play turns pause.
+        if let autoScroll = state.autoScroll, autoScroll.playing {
+            items += [.flexibleSpace()] + speedItems(autoScroll, enabled: enabled)
+            items += [.flexibleSpace(), playItem(autoScroll, enabled: enabled)]
+        } else {
+            items += [.flexibleSpace(), passageItem(state, enabled: enabled), .flexibleSpace()]
+            if let autoScroll = state.autoScroll {
+                items.append(playItem(autoScroll, enabled: enabled))
+            }
+            if state.search {
+                let search = barButton("magnifyingglass", "Pesquisar", "search")
+                search.isEnabled = enabled
+                items.append(separate(search))
+            }
         }
         toolbar.setItems(items, animated: false)
+    }
+
+    /// A glass circle of its own, not a capsule shared with its neighbour.
+    private func separate(_ item: UIBarButtonItem) -> UIBarButtonItem {
+        if #available(iOS 26.0, *) {
+            item.sharesBackground = false
+        }
+        return item
     }
 
     /// "Marcos 1", which opens the passage picker.
@@ -242,10 +255,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         return UIBarButtonItem(customView: button)
     }
 
-    /// While auto-scroll's controls show, they replace the toolbar's items:
-    /// close, then speed, then play or pause.
-    private func autoScrollItems(_ state: AutoScrollState, enabled: Bool) -> [UIBarButtonItem] {
-        let close = barButton("xmark", "Fechar o deslocamento automático", "auto-scroll")
+    /// Auto-scroll's speed: slower, the speed, faster, in one capsule.
+    private func speedItems(_ state: AutoScrollState, enabled: Bool) -> [UIBarButtonItem] {
         let slower = barButton("minus", "Diminuir velocidade", "auto-scroll-slower")
         slower.isEnabled = enabled && state.canSlower
         let faster = barButton("plus", "Aumentar velocidade", "auto-scroll-faster")
@@ -258,14 +269,16 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         speed.textAlignment = .center
         speed.accessibilityLabel = "Velocidade: \(state.speedLabel)"
         let speedItem = UIBarButtonItem(customView: speed)
+        return [slower, speedItem, faster]
+    }
 
-        // A plain bar button, like close: the bar stays monochrome.
+    /// Play or pause. A plain bar button: the bar stays monochrome.
+    private func playItem(_ state: AutoScrollState, enabled: Bool) -> UIBarButtonItem {
         let play = barButton(state.playing ? "pause.fill" : "play.fill",
-                             state.playing ? "Pausar" : "Iniciar", "auto-scroll-toggle")
+                             state.playing ? "Pausar" : "Iniciar o deslocamento automático",
+                             "auto-scroll-toggle")
         play.isEnabled = enabled
-        close.isEnabled = enabled
-
-        return [close, .flexibleSpace(), slower, speedItem, faster, .flexibleSpace(), play]
+        return separate(play)
     }
 
     private func barButton(_ symbol: String, _ label: String, _ action: String) -> UIBarButtonItem {
