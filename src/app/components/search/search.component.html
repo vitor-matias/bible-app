@@ -4,15 +4,25 @@
   @if (!native) {
   <search-bar [value]="fieldValue" (searchValue)="onSearchSubmit($event)" (typing)="onTyping($event)"></search-bar>
   }
-  <div unifiedGestures fontSizeContext="search" class="search-container" #container>
+  <div unifiedGestures fontSizeContext="search" class="search-container" [class.has-suggestion]="!!passageSuggestion" #container>
+
+  <!-- A typed reference, offered at once: no wait for the search. -->
+  @if (passageSuggestion) {
+    <button type="button" class="passage-suggestion" (click)="openSuggestion()">
+      <mat-icon aria-hidden="true">menu_book</mat-icon>
+      <span class="passage-suggestion-label">{{ passageSuggestion.label }}</span>
+      <mat-icon aria-hidden="true">arrow_forward</mat-icon>
+    </button>
+  }
 
   <!-- The count and the outcome, read out once: no toast covers the list. -->
   <p class="visually-hidden" role="status">{{ statusMessage }}</p>
 
-  @if (!hasSearched) {
+  @if (!hasSearched && !pendingSearch) {
     <div class="empty-state">
       <mat-icon class="empty-state-icon">search</mat-icon>
       <p>Procure versículos, livros ou referências bíblicas</p>
+      <p class="results-hint">Por exemplo: Jo 3,16 · Salmo 23 · o bom pastor</p>
       @if (offline) {
         <p class="results-hint">Sem ligação: pode abrir referências, como Jo 3,16, e procurar palavras no texto guardado neste dispositivo.</p>
       }
@@ -32,7 +42,7 @@
         }
       </ul>
     </div>
-  } @else if (isLoading && searchResults.length === 0) {
+  } @else if ((isLoading || pendingSearch) && searchResults.length === 0) {
     <div class="empty-state">
       <mat-icon class="empty-state-icon">hourglass_empty</mat-icon>
       <p>A procurar…</p>

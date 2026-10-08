@@ -533,6 +533,17 @@ describe("BibleReaderComponent", () => {
       expect(element.querySelector("button.prev-chapter")).toBeFalsy()
     })
 
+    // Before, 40 px and 16 px from the edges, where Android's back gesture starts.
+    it("sizes the chapter arrows for a finger, clear of the screen edges", () => {
+      const next = (fixture.nativeElement as HTMLElement).querySelector(
+        "a.next-chapter",
+      ) as HTMLElement
+      const box = next.getBoundingClientRect()
+      expect(box.width).toBe(48)
+      expect(box.height).toBe(48)
+      expect(window.innerWidth - box.right).toBeGreaterThanOrEqual(24)
+    })
+
     it("renders prev/next as buttons in paged mode", () => {
       component.viewMode = "paged"
       component.chapter = { bookId: "gen", number: 2 } as Chapter

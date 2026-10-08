@@ -27,6 +27,7 @@ const READER: ReaderChrome = {
   canShare: true,
   canReport: true,
   bookmarkColor: null,
+  bookmarkName: null,
 }
 
 const SEARCH: SearchChrome = { mode: "search", themeMode: "dark", query: "" }
@@ -512,28 +513,57 @@ describe("NativeChromeService", () => {
       expect(collapsed()).toBeFalse()
     })
 
-    it("keeps them up while auto-scroll's controls are in the toolbar", () => {
+    // The shell keeps auto-scroll's controls in reach: above the toolbar,
+    // and in its place while the bars are hidden.
+    it("hides them while reading with auto-scroll's controls up", () => {
       const autoScroll = {
-        playing: true,
+        playing: false,
         speedLabel: "1 ln/s",
         canSlower: true,
         canFaster: true,
       }
       service.trackScroll(scroller)
-      scrollTo(200)
-      expect(collapsed()).toBeTrue()
-
       service.setAutoScroll(autoScroll)
       expect(lastState()).toEqual(
         jasmine.objectContaining({ autoScroll, collapsed: false }),
       )
 
-      // Auto-scroll scrolls on; closing it must not hide the bars it kept up.
-      scrollTo(400)
+      scrollTo(200)
+      expect(lastState()).toEqual(
+        jasmine.objectContaining({ autoScroll, collapsed: true }),
+      )
+
+      // Closing auto-scroll brings the bars back.
       service.setAutoScroll(null)
       expect(lastState()).toEqual(
         jasmine.objectContaining({ autoScroll: null, collapsed: false }),
       )
+    })
+
+    // Before, auto-scroll's own scrolling left them up the whole time.
+    it("hides them while auto-scroll plays, and brings them back on pause", () => {
+      const autoScroll = {
+        playing: false,
+        speedLabel: "1 ln/s",
+        canSlower: true,
+        canFaster: true,
+      }
+      service.trackScroll(scroller)
+      service.setAutoScroll(autoScroll)
+      expect(collapsed()).toBeFalse()
+
+      service.setAutoScroll({ ...autoScroll, playing: true })
+      expect(collapsed()).toBeTrue()
+      // A new speed while playing leaves them as they are.
+      service.setAutoScroll({
+        ...autoScroll,
+        playing: true,
+        speedLabel: "2 ln/s",
+      })
+      expect(collapsed()).toBeTrue()
+
+      service.setAutoScroll({ ...autoScroll, playing: false })
+      expect(collapsed()).toBeFalse()
     })
 
     // Opening a footnote's reference scrolls to its verse.

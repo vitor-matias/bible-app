@@ -42,8 +42,12 @@ import {
 import { highlightWords, verseLines, verseText } from "../../utils/text-search"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
-/** Searching as people type waits for them to pause this long. */
-export const TYPING_PAUSE_MS = 2500
+/**
+ * Searching as people type waits for them to pause this long: each search is
+ * one by meaning on the server. "A procurar…" shows meanwhile, and a typed
+ * reference is offered at once (passageSuggestion), which costs nothing.
+ */
+export const TYPING_PAUSE_MS = 1500
 
 /**
  * A word search returns at most this many verses, the nearest in meaning
@@ -69,6 +73,8 @@ interface PassageTarget {
   verseStart?: number
   /** Cited with both numbers ("Sl 94 (95)"), so not to be asked which. */
   pairedPsalm: boolean
+  /** Named by the book alone ("Lucas"), not a chapter. */
+  bookOnly?: boolean
 }
 
 /** One of the psalms a bare psalm number may mean (showPsalmChoice). */
@@ -116,6 +122,13 @@ export class SearchComponent {
   isLoading = false
   /** A new word search is under way (paging more results is not). */
   searching = false
+  /** Typed words wait for the pause before their search: "A procurar…". */
+  pendingSearch = false
+  /**
+   * What is typed names a passage: offered at once, first, as "Abrir João
+   * 3,16"; Return or a tap opens it.
+   */
+  passageSuggestion: { label: string; query: string } | null = null
   /**
    * A psalm number that names two psalms, this edition's and the liturgy's:
    * the choice between them, instead of guessing which was meant.
@@ -240,7 +253,44 @@ export class SearchComponent {
 
   /** Searches once typing pauses (TYPING_PAUSE_MS); Return still searches at once. */
   onTyping(text: string): void {
+    const query = text.trim()
+    this.passageSuggestion = query ? this.suggestPassage(query) : null
+    this.pendingSearch =
+      query.length >= 2 &&
+      !this.passageSuggestion &&
+      query !== this.searchTerm.trim()
+    this.cdr.detectChanges()
     this.typed.next(text)
+  }
+
+  /** Opens the passage offered for what is typed. */
+  openSuggestion(): void {
+    if (this.passageSuggestion) {
+      void this.onSearchSubmit(this.passageSuggestion.query)
+    }
+  }
+
+  /**
+   * "Abrir João 3,16", "Abrir Evangelho segundo São Lucas", or, for a psalm
+   * the liturgy numbers otherwise, the choice between the two.
+   */
+  private suggestPassage(
+    query: string,
+  ): { label: string; query: string } | null {
+    const { target } = this.resolvePassage(query)
+    if (!target) return null
+    const { book, chapter, verseStart } = target
+    if (book.introSlug || target.bookOnly) {
+      return { label: `Abrir ${book.name}`, query }
+    }
+    if (
+      book.id === PSALMS_BOOK_ID &&
+      !target.pairedPsalm &&
+      isAmbiguousPsalmNumber(chapter)
+    ) {
+      return { label: `Escolher o Salmo ${chapter}`, query }
+    }
+    return { label: `Abrir ${passageLabel(book, chapter, verseStart)}`, query }
   }
 
   /**
@@ -287,7 +337,7 @@ export class SearchComponent {
       // The query is a book's name or abbreviation.
       const book = this.bookService.findBook(text.trim())
       if (book && book.id !== "about") {
-        target = { book, chapter: 1, pairedPsalm }
+        target = { book, chapter: 1, pairedPsalm, bookOnly: true }
       }
     }
 
@@ -384,6 +434,7 @@ export class SearchComponent {
     const generation = ++this.searchGeneration
     const isStale = () => generation !== this.searchGeneration
     this.psalmChoice = null
+    this.pendingSearch = false
     const { text, target } = this.resolvePassage(query)
 
     if (
@@ -564,7 +615,7 @@ export class SearchComponent {
    * for the stored Bible "12 versículos com estas palavras".
    */
   get resultsHeading(): string {
-    if (this.searching) return "A procurar…"
+    if (this.searching || this.pendingSearch) return "A procurar…"
     if (this.storedMatches) {
       return this.totalResults === 1
         ? "1 versículo com estas palavras"

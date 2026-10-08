@@ -64,8 +64,10 @@ export interface ReaderChrome {
   autoScrollAvailable: boolean
   canShare: boolean
   canReport: boolean
-  /** The colour of the ribbon on this chapter, shown on the passage button. */
+  /** The colour of the ribbon on this chapter, shown on the bookmark button. */
   bookmarkColor: string | null
+  /** Its spoken name ("vermelho"), for VoiceOver. */
+  bookmarkName: string | null
 }
 
 /** The search page's bars: Back on top, the search field at the bottom. */
@@ -309,12 +311,19 @@ export class NativeChromeService {
     })
   }
 
-  /** Shows auto-scroll's controls in the reader's toolbar; null restores it. */
+  /** Shows auto-scroll's controls above the reader's toolbar; null hides them. */
   setAutoScroll(state: AutoScrollChrome | null): void {
     if (!this.enabled) return
-    // Leaving auto-scroll leaves the bars up: its own scrolling doesn't count
-    // as reading on.
-    if (!state) this.collapsed = false
+    const wasPlaying = this.autoScroll?.playing ?? false
+    if (!state) {
+      // Leaving auto-scroll leaves the bars up: its own scrolling doesn't
+      // count as reading on.
+      this.collapsed = false
+    } else if (state.playing !== wasPlaying) {
+      // Reading hands-free, the bars make way and auto-scroll's controls
+      // take the toolbar's place; pausing brings them back.
+      this.collapsed = state.playing
+    }
     this.autoScroll = state
     this.push()
   }
@@ -483,10 +492,9 @@ export class NativeChromeService {
       ? {
           ...this.requested,
           inert: this.modalOpen,
-          // Auto-scroll's pause button must stay within reach, except under
-          // a panel, which the bars would cover.
-          collapsed:
-            reader && (this.modalOpen || (this.collapsed && !this.autoScroll)),
+          // Auto-scroll's controls stay within reach while the bars hide: the
+          // shell moves them down into the toolbar's place.
+          collapsed: reader && (this.modalOpen || this.collapsed),
           autoScroll: reader ? this.autoScroll : null,
         }
       : { mode: "none" }
