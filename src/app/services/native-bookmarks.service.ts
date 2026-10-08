@@ -44,7 +44,11 @@ export class NativeBookmarksService {
           this.nativeChrome.updateBookmarks(state)
         } else {
           shown = true
-          this.nativeChrome.showBookmarks(state)
+          // Over another sheet none comes up, and no bookmarks-closed would
+          // end this.
+          void this.nativeChrome.showBookmarks(state).then((presented) => {
+            if (!presented) session.unsubscribe()
+          })
         }
       }),
     )

@@ -23,14 +23,6 @@ export class NativeReportService {
 
   open(book: Book, chapter: number): void {
     this.session?.unsubscribe()
-    this.nativeChrome.showReport({
-      message: `Encontrou algum problema em "${book.name}", capítulo ${chapter}? Ajude-nos a melhorar.`,
-      topics: this.reports.topics,
-      placeholder:
-        "Descreva o problema (ex: falta uma vírgula após a palavra 'Deus')...",
-      maxLength: PROBLEM_DETAILS_MAX_LENGTH,
-    })
-
     const session = this.nativeChrome.actions$.subscribe((action) => {
       if (action.id === "report-closed") session.unsubscribe()
       if (action.id !== "report-submit") return
@@ -56,5 +48,17 @@ export class NativeReportService {
         )
     })
     this.session = session
+    // Over another sheet none comes up, and no report-closed would end this.
+    void this.nativeChrome
+      .showReport({
+        message: `Encontrou algum problema em "${book.name}", capítulo ${chapter}? Ajude-nos a melhorar.`,
+        topics: this.reports.topics,
+        placeholder:
+          "Descreva o problema (ex: falta uma vírgula após a palavra 'Deus')...",
+        maxLength: PROBLEM_DETAILS_MAX_LENGTH,
+      })
+      .then((presented) => {
+        if (!presented) session.unsubscribe()
+      })
   }
 }

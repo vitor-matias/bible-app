@@ -213,11 +213,9 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
       distance >= this.FLICK_MIN_DISTANCE &&
       distance / elapsed >= this.FLICK_MIN_SPEED
 
-    if (
-      this.swipeAxis !== "y" &&
-      isMostlyHorizontal(distance, drift) &&
-      (deliberate || flick)
-    ) {
+    // A swipe that locked onto the vertical axis already ended in
+    // onTouchMove; this one may still have drifted.
+    if (isMostlyHorizontal(distance, drift) && (deliberate || flick)) {
       if (deltaX > 0) {
         this.swipeRight.emit()
       } else {

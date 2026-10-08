@@ -139,22 +139,23 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    /// The sheets resolve with whether they were presented: not over another
+    /// sheet, and then no closing event follows.
     @objc func showBookmarks(_ call: CAPPluginCall) {
         let state = BookmarksSheetState(call)
         DispatchQueue.main.async {
-            self.chrome?.presentBookmarks(state)
-            call.resolve()
+            let presented = self.chrome?.presentBookmarks(state) ?? false
+            call.resolve(["presented": presented])
         }
     }
 
     @objc func showToast(_ call: CAPPluginCall) {
         let message = call.getString("message", "")
-        let afterKeyboard = call.getBool("afterKeyboard", false)
         let button = call.getBool("button", false)
         let symbol = call.getString("symbol")
         DispatchQueue.main.async {
             if !message.isEmpty {
-                self.chrome?.showToast(message, afterKeyboard: afterKeyboard, button: button, symbol: symbol)
+                self.chrome?.showToast(message, button: button, symbol: symbol)
             }
             call.resolve()
         }
@@ -163,8 +164,8 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func showReport(_ call: CAPPluginCall) {
         let state = ReportSheetState(call)
         DispatchQueue.main.async {
-            self.chrome?.presentReport(state)
-            call.resolve()
+            let presented = self.chrome?.presentReport(state) ?? false
+            call.resolve(["presented": presented])
         }
     }
 
@@ -181,8 +182,8 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func showFootnotes(_ call: CAPPluginCall) {
         let state = FootnotesSheetState(call)
         DispatchQueue.main.async {
-            self.chrome?.presentFootnotes(state)
-            call.resolve()
+            let presented = self.chrome?.presentFootnotes(state) ?? false
+            call.resolve(["presented": presented])
         }
     }
 

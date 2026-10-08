@@ -6,8 +6,6 @@ export interface ToastOptions {
   /** The snackbar's button on the web; the iOS toast has none. */
   action?: string
   duration?: number
-  /** iOS: hold the toast until the keyboard closes, so it never covers typing. */
-  afterKeyboard?: boolean
 }
 
 /**
@@ -23,9 +21,7 @@ export class ToastService {
 
   show(message: string, options: ToastOptions = {}): void {
     if (this.nativeChrome.enabled) {
-      this.nativeChrome.toast(message, {
-        afterKeyboard: options.afterKeyboard ?? false,
-      })
+      this.nativeChrome.toast(message)
       return
     }
     this.snackBar.open(message, options.action ?? "Fechar", {

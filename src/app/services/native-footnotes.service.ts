@@ -74,8 +74,6 @@ export class NativeFootnotesService {
       fontScale: (this.preferences.getFontSize("footnotes") ?? 100) / 100,
       notes,
     }
-    this.nativeChrome.showFootnotes(state)
-
     const session = this.nativeChrome.actions$.subscribe((action) => {
       if (action.id === "footnotes-closed") session.unsubscribe()
       if (action.id !== "footnote-link") return
@@ -87,6 +85,11 @@ export class NativeFootnotesService {
       )
     })
     this.session = session
+    // Over another sheet none comes up, and no footnotes-closed would end
+    // this.
+    void this.nativeChrome.showFootnotes(state).then((presented) => {
+      if (!presented) session.unsubscribe()
+    })
   }
 
   /**

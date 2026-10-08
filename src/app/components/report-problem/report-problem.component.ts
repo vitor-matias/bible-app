@@ -20,7 +20,6 @@ import {
 import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatInputModule } from "@angular/material/input"
 import { MatSelectModule } from "@angular/material/select"
-import { MatSnackBarModule } from "@angular/material/snack-bar"
 import {
   PROBLEM_DETAILS_MAX_LENGTH,
   ProblemReportService,
@@ -43,7 +42,6 @@ export interface ReportProblemData {
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
-    MatSnackBarModule,
   ],
   templateUrl: "./report-problem.component.html",
   changeDetection: ChangeDetectionStrategy.OnPush,

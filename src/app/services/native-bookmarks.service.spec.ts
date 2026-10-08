@@ -37,7 +37,7 @@ describe("NativeBookmarksService", () => {
     actions = new Subject()
     nativeChrome = {
       actions$: actions,
-      showBookmarks: jasmine.createSpy("showBookmarks"),
+      showBookmarks: jasmine.createSpy("showBookmarks").and.resolveTo(true),
       updateBookmarks: jasmine.createSpy("updateBookmarks"),
     }
     ribbons = jasmine.createSpyObj("BookmarkRibbonsService", [
@@ -152,6 +152,18 @@ describe("NativeBookmarksService", () => {
   it("stops once the sheet is closed", () => {
     service.open("mat", 11)
     actions.next({ id: "bookmarks-closed" })
+    bookmarks.next([])
+    actions.next({ id: "bookmark-set", color: "blue" })
+
+    expect(nativeChrome.updateBookmarks).not.toHaveBeenCalled()
+    expect(ribbons.assign).not.toHaveBeenCalled()
+  })
+
+  // Over another sheet none comes up, and no bookmarks-closed would follow.
+  it("stops when no sheet came up", async () => {
+    nativeChrome.showBookmarks.and.resolveTo(false)
+    service.open("mat", 11)
+    await new Promise((resolve) => setTimeout(resolve))
     bookmarks.next([])
     actions.next({ id: "bookmark-set", color: "blue" })
 

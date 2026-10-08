@@ -407,5 +407,27 @@ describe("BibleReferenceService", () => {
       expect(out[0].match).toBe("Jo 3,16")
       expect(out[1].chapter).toBe(4)
     })
+
+    // Before, only the first verse of a tight comma list was linked.
+    it('keeps a tight comma list whole: "Lc 5,3,4,5"', () => {
+      const out = service.extract("Lc 5,3,4,5")
+      expect(out.length).toBe(1)
+      expect(out[0].match).toBe("Lc 5,3,4,5")
+      expect(out[0].verses).toEqual([
+        { type: "single", verse: 3 },
+        { type: "single", verse: 4 },
+        { type: "single", verse: 5 },
+      ])
+    })
+
+    // Before, "1-2" lost its "-2" when a comma followed it.
+    it('takes a range in a comma list whole: "Lc 5,3,1-2,5"', () => {
+      const out = service.extract("Lc 5,3,1-2,5")
+      expect(out[0].verses).toEqual([
+        { type: "single", verse: 3 },
+        { type: "range", start: 1, end: 2 },
+        { type: "single", verse: 5 },
+      ])
+    })
   })
 })

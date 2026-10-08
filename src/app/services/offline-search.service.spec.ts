@@ -124,6 +124,21 @@ describe("OfflineSearchService", () => {
     expect(await found("Deus é amor")).toEqual(["1jn 4,8", "gen 1,1"])
   })
 
+  // Folding the whole Bible in one go held up the page.
+  it("lets the page run while it indexes a whole Bible", async () => {
+    const verses = Array.from({ length: 5000 }, (_, index) =>
+      verse("gen", 1, index + 1, "luz"),
+    )
+    stored = [book("gen", [verses])]
+    let ran = false
+    setTimeout(() => {
+      ran = true
+    })
+
+    expect((await service.search("luz"))?.length).toBe(5000)
+    expect(ran).toBeTrue()
+  })
+
   it("finds nothing for a query without words", async () => {
     expect(await found(" ; ")).toEqual([])
   })

@@ -227,4 +227,20 @@ describe("ThemeService", () => {
     expect(classListToggleSpy).toHaveBeenCalledWith("dark-theme", true)
     expect(prefsSpy.setTheme).toHaveBeenCalledWith("dark")
   })
+
+  // Re-tapping the current choice in the iOS menu's theme row.
+  it("does nothing for the theme already on", () => {
+    prefsSpy.getTheme.and.returnValue("dark")
+    service = createService()
+    const analytics = TestBed.inject(
+      AnalyticsService,
+    ) as jasmine.SpyObj<AnalyticsService>
+    classListToggleSpy.calls.reset()
+
+    service.setTheme("dark")
+
+    expect(classListToggleSpy).not.toHaveBeenCalled()
+    expect(prefsSpy.setTheme).not.toHaveBeenCalled()
+    expect(analytics.track).not.toHaveBeenCalled()
+  })
 })

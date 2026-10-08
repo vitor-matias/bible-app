@@ -25,7 +25,7 @@ describe("NativeReportService", () => {
     actions = new Subject()
     nativeChrome = {
       actions$: actions,
-      showReport: jasmine.createSpy("showReport"),
+      showReport: jasmine.createSpy("showReport").and.resolveTo(true),
       finishReport: jasmine.createSpy("finishReport"),
     }
     reports = {
@@ -89,6 +89,17 @@ describe("NativeReportService", () => {
   it("stops listening once the sheet closes", async () => {
     service.open(genesis, 3)
     actions.next({ id: "report-closed" })
+    actions.next({ id: "report-submit", topic: "typo", details: "vírgula" })
+    await settle()
+
+    expect(reports.send).not.toHaveBeenCalled()
+  })
+
+  // Over another sheet none comes up, and no report-closed would follow.
+  it("stops listening when no sheet came up", async () => {
+    nativeChrome.showReport.and.resolveTo(false)
+    service.open(genesis, 3)
+    await settle()
     actions.next({ id: "report-submit", topic: "typo", details: "vírgula" })
     await settle()
 

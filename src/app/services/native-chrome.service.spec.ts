@@ -240,19 +240,10 @@ describe("NativeChromeService", () => {
     )
   })
 
-  it("passes toasts through, held for the keyboard or not", () => {
-    const service = create("ios")
-    service.toast("Copiado")
-    service.toast("Encontrados 3 resultados", { afterKeyboard: true })
+  it("passes toasts through", () => {
+    create("ios").toast("Copiado")
 
-    expect(plugin.showToast).toHaveBeenCalledWith({
-      message: "Copiado",
-      afterKeyboard: false,
-    })
-    expect(plugin.showToast).toHaveBeenCalledWith({
-      message: "Encontrados 3 resultados",
-      afterKeyboard: true,
-    })
+    expect(plugin.showToast).toHaveBeenCalledOnceWith({ message: "Copiado" })
   })
 
   describe("a toast that is a button", () => {
@@ -271,7 +262,6 @@ describe("NativeChromeService", () => {
     it("shows it as a button, with its symbol", () => {
       expect(plugin.showToast).toHaveBeenCalledWith({
         message: "Voltar para Gn 1,3",
-        afterKeyboard: false,
         button: true,
         symbol: "arrow.uturn.backward",
       })
@@ -403,6 +393,43 @@ describe("NativeChromeService", () => {
       expect(scrollTo).not.toHaveBeenCalled()
       expect(pageScroll).not.toHaveBeenCalled()
     })
+  })
+
+  // Over another sheet (say the onboarding) the shell shows none, and no
+  // *-closed event would ever end the page's session with it.
+  it("says whether a sheet came up", async () => {
+    const service = create("ios")
+    const state = { currentLabel: "Mateus 11", ribbons: [] }
+    plugin.showBookmarks.and.resolveTo({ presented: true })
+    expect(await service.showBookmarks(state)).toBeTrue()
+
+    plugin.showBookmarks.and.resolveTo({ presented: false })
+    expect(await service.showBookmarks(state)).toBeFalse()
+
+    plugin.showBookmarks.and.rejectWith(new Error("no chrome"))
+    expect(await service.showBookmarks(state)).toBeFalse()
+  })
+
+  // Each push has the shell rebuild its bars and menu.
+  it("sends the bars once while they stay the same", () => {
+    const service = create("ios")
+    service.show(READER)
+    service.show({ ...READER })
+    expect(plugin.setState).toHaveBeenCalledTimes(1)
+
+    service.show({ ...READER, canGoNext: !READER.canGoNext })
+    expect(plugin.setState).toHaveBeenCalledTimes(2)
+  })
+
+  it("sends them again after a push that failed", async () => {
+    const service = create("ios")
+    plugin.setState.and.rejectWith(new Error("not ready"))
+    service.show(READER)
+    await settle()
+
+    plugin.setState.and.resolveTo({ top: 116, bottom: 82 })
+    service.show(READER)
+    expect(plugin.setState).toHaveBeenCalledTimes(2)
   })
 
   it("passes the bookmarks sheet through", () => {

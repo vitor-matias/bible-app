@@ -218,6 +218,7 @@ describe("SearchComponent", () => {
       referenceService.extract.and.returnValue([
         { book: "jhn", chapter: 3 },
       ] as unknown as ReturnType<BibleReferenceService["extract"]>)
+      bookService.findBook.and.returnValue({ id: "jhn" } as Book)
       component.onTyping("Jo 3")
       tick(TYPING_PAUSE_MS)
 
@@ -238,6 +239,72 @@ describe("SearchComponent", () => {
 
       expect(apiService.search).toHaveBeenCalledTimes(1)
     }))
+
+    // Return would search the words of a reference to a book it can't find,
+    // so a pause does too: both ask the same question.
+    it("searches what Return would search", fakeAsync(() => {
+      referenceService.extract.and.returnValue([
+        { book: "Xy", chapter: 3 },
+      ] as unknown as ReturnType<BibleReferenceService["extract"]>)
+      bookService.findBook.and.returnValue(undefined as unknown as Book)
+      component.onTyping("Xy 3")
+      tick(TYPING_PAUSE_MS)
+
+      expect(apiService.search).toHaveBeenCalledOnceWith("Xy 3", 1)
+    }))
+
+    describe("with results", () => {
+      let field: HTMLInputElement
+
+      beforeEach(() => {
+        apiService.search.and.returnValue(
+          of({
+            verses: [
+              {
+                bookId: "jhn",
+                chapterNumber: 10,
+                number: 11,
+                text: [{ type: "text", text: "Eu sou o bom pastor." }],
+              } as Verse,
+            ],
+            total: 1,
+            currentPage: 1,
+            totalPages: 1,
+          }),
+        )
+        field = document.createElement("input")
+        document.body.appendChild(field)
+        field.focus()
+      })
+
+      afterEach(() => field.remove())
+
+      // Before, the pause's search closed the keyboard mid-query.
+      it("keeps the field in use", fakeAsync(() => {
+        component.onTyping("pastor")
+        tick(TYPING_PAUSE_MS)
+
+        expect(component.searchResults.length).toBe(1)
+        expect(document.activeElement).toBe(field)
+      }))
+
+      // Before, "amor " came back as "amor", and typing on gave "amorde".
+      it("leaves what is being typed as it is", fakeAsync(() => {
+        component.onTyping("pastor ")
+        tick(TYPING_PAUSE_MS)
+
+        expect(component.searchTerm).toBe("pastor")
+        expect(component.fieldValue).toBe("")
+      }))
+
+      it("closes the keyboard over the results after Return", fakeAsync(() => {
+        void component.onSearchSubmit("pastor")
+        tick()
+
+        expect(component.fieldValue).toBe("pastor")
+        expect(document.activeElement).not.toBe(field)
+      }))
+    })
   })
 
   it("should run a shared query from the q query param on init", () => {

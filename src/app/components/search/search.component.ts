@@ -12,7 +12,6 @@ import {
 } from "@angular/core"
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatIconModule } from "@angular/material/icon"
-import { MatSnackBarModule } from "@angular/material/snack-bar"
 import { ActivatedRoute, Router, RouterModule } from "@angular/router"
 import {
   debounceTime,
@@ -40,7 +39,7 @@ import {
   parsePsalmPair,
   psalmFromLiturgical,
 } from "../../utils/psalms"
-import { highlightWords, verseText } from "../../utils/text-search"
+import { highlightWords, verseLines, verseText } from "../../utils/text-search"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
 /** Searching as people type waits for them to pause this long. */
@@ -62,6 +61,15 @@ const SEARCH_FAILED =
 
 /** Verses of a search over the stored Bible shown at a time. */
 const STORED_PAGE_SIZE = 50
+
+/** What a query opens in the reader (SearchComponent.resolvePassage). */
+interface PassageTarget {
+  book: Book
+  chapter: number
+  verseStart?: number
+  /** Cited with both numbers ("Sl 94 (95)"), so not to be asked which. */
+  pairedPsalm: boolean
+}
 
 /** One of the psalms a bare psalm number may mean (showPsalmChoice). */
 export interface PsalmOption {
@@ -87,7 +95,6 @@ export interface PsalmOption {
     SearchBarComponent,
     RouterModule,
     UnifiedGesturesDirective,
-    MatSnackBarModule,
     MatIconModule,
   ],
 })
@@ -95,6 +102,12 @@ export class SearchComponent {
   searchResults: Verse[] = []
 
   searchTerm = ""
+  /**
+   * What the search field shows: set by Return and by shared queries, never
+   * by a search that ran on a typing pause, which would rewrite what is still
+   * being typed.
+   */
+  fieldValue = ""
   hasSearched = false
 
   currentPage = 1
@@ -174,11 +187,11 @@ export class SearchComponent {
           (text) =>
             text.length >= 2 &&
             text !== this.searchTerm.trim() &&
-            !this.namesPassage(text),
+            !this.resolvePassage(text).target,
         ),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe((text) => void this.onSearchSubmit(text))
+      .subscribe((text) => void this.onSearchSubmit(text, { typed: true }))
 
     if (this.native) {
       this.nativeChrome.actions$
@@ -231,14 +244,63 @@ export class SearchComponent {
   }
 
   /**
-   * A reference or a book name, which a search opens in the reader. Only on
-   * Return: a pause mid-reference ("Jo 3" on the way to "Jo 3,16") must not
-   * navigate away.
+   * The passage a query names, which a search opens in the reader: a
+   * reference ("Jo 3,16", "Sl 94 (95), 1-2") or a book's name. Null for words
+   * to search, in `text`. Return and a typing pause both ask this, so they
+   * agree; only Return opens it, as a pause mid-reference ("Jo 3" on the way
+   * to "Jo 3,16") must not navigate away.
    */
-  private namesPassage(text: string): boolean {
-    if (this.referenceService.extract(text).length > 0) return true
-    const book = this.bookService.findBook(text)
-    return !!book && book.id !== "about"
+  private resolvePassage(query: string): {
+    text: string
+    target: PassageTarget | null
+  } {
+    // "Sl 94 (95), 1-2": with both numbers, a leaflet names one psalm.
+    const pair = parsePsalmPair(query)
+    const pairBook = pair ? this.bookService.findBook(pair.book) : null
+    const pairedPsalm = !!pair && pairBook?.id === PSALMS_BOOK_ID
+    const text =
+      pair && pairedPsalm && pairBook
+        ? `${pairBook.abrv} ${pair.psalm}${pair.rest.replace(/^,\s*/, ",")}`
+        : query
+    const references = this.referenceService.extract(text)
+
+    let target: PassageTarget | null = null
+    if (references.length > 0) {
+      // A well-formed Bible reference jumps straight into the reader instead
+      // of going through the broader full-text search results flow.
+      const ref = references[0]
+      const book = ref.book ? this.bookService.findBook(ref.book) : null
+      if (book) {
+        const first = ref.verses?.[0]
+        target = {
+          book,
+          chapter: ref.chapter || 1,
+          verseStart: first
+            ? first.type === "single"
+              ? first.verse
+              : first.start
+            : undefined,
+          pairedPsalm,
+        }
+      }
+    } else {
+      // The query is a book's name or abbreviation.
+      const book = this.bookService.findBook(text.trim())
+      if (book && book.id !== "about") {
+        target = { book, chapter: 1, pairedPsalm }
+      }
+    }
+
+    // "Sl 115 (116B)" names the second half of this edition's 116.
+    if (
+      target &&
+      pairedPsalm &&
+      pair?.verse &&
+      target.verseStart === undefined
+    ) {
+      target.verseStart = pair.verse
+    }
+    return { text, target }
   }
 
   /** Shows the native search field, holding the current query. */
@@ -311,61 +373,39 @@ export class SearchComponent {
     }
   }
 
-  async onSearchSubmit(query: string): Promise<void> {
+  /**
+   * Opens the passage the query names, or searches its words. `typed`: it
+   * ran on a typing pause, while the field may still be in use.
+   */
+  async onSearchSubmit(
+    query: string,
+    { typed = false }: { typed?: boolean } = {},
+  ): Promise<void> {
     const generation = ++this.searchGeneration
     const isStale = () => generation !== this.searchGeneration
     this.psalmChoice = null
-    // "Sl 94 (95), 1-2": with both numbers, a leaflet names one psalm.
-    const pair = parsePsalmPair(query)
-    const pairBook = pair ? this.bookService.findBook(pair.book) : null
-    const pairedPsalm = !!pair && pairBook?.id === PSALMS_BOOK_ID
-    const text =
-      pair && pairedPsalm && pairBook
-        ? `${pairBook.abrv} ${pair.psalm}${pair.rest.replace(/^,\s*/, ",")}`
-        : query
-    const references = this.referenceService.extract(text)
-
-    let targetBook: Book | null = null
-    let targetChapter = 1
-    let targetVerseStart: number | undefined
-
-    if (references.length > 0) {
-      // A well-formed Bible reference should jump straight into the reader instead
-      // of going through the broader full-text search results flow.
-      const ref = references[0]
-      targetBook = ref.book ? this.bookService.findBook(ref.book) : null
-      if (targetBook) {
-        targetChapter = ref.chapter || 1
-        if (ref.verses && ref.verses.length > 0) {
-          targetVerseStart =
-            ref.verses[0].type === "single"
-              ? ref.verses[0].verse
-              : ref.verses[0].start
-        }
-      }
-    } else {
-      // Check if the search text exactly matches a book name or abbreviation
-      const book = this.bookService.findBook(text.trim())
-      if (book && book.id !== "about") {
-        targetBook = book
-      }
-    }
-
-    // "Sl 115 (116B)" names the second half of this edition's 116.
-    if (pairedPsalm && pair?.verse && targetVerseStart === undefined) {
-      targetVerseStart = pair.verse
-    }
+    const { text, target } = this.resolvePassage(query)
 
     if (
-      targetBook?.id === PSALMS_BOOK_ID &&
-      !pairedPsalm &&
-      isAmbiguousPsalmNumber(targetChapter)
+      target?.book.id === PSALMS_BOOK_ID &&
+      !target.pairedPsalm &&
+      isAmbiguousPsalmNumber(target.chapter)
     ) {
-      this.showPsalmChoice(query, targetBook, targetChapter, targetVerseStart)
+      this.showPsalmChoice(
+        query,
+        target.book,
+        target.chapter,
+        target.verseStart,
+      )
       return
     }
 
-    if (targetBook) {
+    if (target) {
+      const {
+        book: targetBook,
+        chapter: targetChapter,
+        verseStart: targetVerseStart,
+      } = target
       // A standalone introduction has no chapters: nothing to probe, and its
       // only page is /intro.
       const isIntro = !!targetBook.introSlug
@@ -424,6 +464,7 @@ export class SearchComponent {
     // Set only for text searches: a failed reference lookup leaves the
     // previous results on screen, and paging and highlighting read this.
     this.searchTerm = text
+    if (!typed) this.fieldValue = text
     this.syncNativeChrome()
     this.hasSearched = true
     this.isLoading = true
@@ -447,14 +488,14 @@ export class SearchComponent {
         this.currentPage = 1
         void this.analyticsService.track("search", { text })
       }
-      this.showResults(text)
+      this.showResults(text, typed)
     } catch (error) {
       if (isStale()) return
       // The server couldn't answer: the stored Bible still can.
       const stored = await this.searchStoredBible(text)
       if (isStale()) return
       if (stored) {
-        this.showResults(text)
+        this.showResults(text, typed)
         return
       }
       // Not "no results": the page says the search itself failed.
@@ -492,8 +533,12 @@ export class SearchComponent {
     return true
   }
 
-  /** The outcome of a word search: its count read out, the list at the top. */
-  private showResults(text: string): void {
+  /**
+   * The outcome of a word search: its count read out, the list at the top,
+   * and after Return the keyboard closed over it. A search that ran on a
+   * typing pause leaves the field in use.
+   */
+  private showResults(text: string, typed: boolean): void {
     this.searching = false
     // The heading has the count; a toast over the list only hid a result.
     this.statusMessage = this.nothingStored
@@ -502,6 +547,7 @@ export class SearchComponent {
         ? `Nenhum resultado para "${text}"`
         : this.resultsHeading
     if (
+      !typed &&
       this.totalResults > 0 &&
       document.activeElement instanceof HTMLElement
     ) {
@@ -574,6 +620,7 @@ export class SearchComponent {
       option(liturgical.psalm, "como na Missa", verseStart ?? liturgical.verse),
     ]
     this.searchTerm = query
+    this.fieldValue = query
     this.searchResults = []
     this.totalResults = 0
     this.hasSearched = true
@@ -637,31 +684,9 @@ export class SearchComponent {
  * people know.
  */
 export function firstLine(verse: Verse): string | undefined {
-  const lines: string[][] = [[]]
-  let afterHeading: number | undefined
-  for (const part of verse.text) {
-    if (part.type === "paragraph") {
-      // A paragraph can carry text of its own, as the reader shows it.
-      afterHeading ??= lines.length
-      lines.push([part.text])
-    } else if (part.type === "quote") {
-      lines.push([part.text])
-    } else if (part.type === "text") {
-      lines[lines.length - 1].push(part.text)
-    }
-  }
-  const clean = lines
-    .map((line) =>
-      line
-        .join("")
-        .replace(/\u200b/g, "")
-        .trim(),
-    )
-    .map((line, index) => ({ line, index }))
-    .filter(({ line }) => line)
-  return (
-    clean.find(
-      ({ index }) => afterHeading !== undefined && index >= afterHeading,
-    )?.line ?? clean[0]?.line
-  )
+  const lines = verseLines(verse)
+  const heading = lines.findIndex((line) => line.paragraph)
+  const from = (index: number) =>
+    lines.slice(index).find((line) => line.text)?.text
+  return (heading === -1 ? undefined : from(heading)) ?? from(0)
 }

@@ -25,7 +25,9 @@ import {
   ABOUT_GROUP,
   type CanonGroup,
   NEW_TESTAMENT_GROUPS,
+  NEW_TESTAMENT_INTRO,
   OLD_TESTAMENT_GROUPS,
+  OLD_TESTAMENT_INTRO,
   withIntros,
 } from "../../bible-canon"
 
@@ -141,10 +143,10 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
     }
 
     this.otDataSource.data = filterGroup(
-      this.withIntros(this.oldTestament, "geral"),
+      this.withIntros(this.oldTestament, OLD_TESTAMENT_INTRO),
     )
     this.ntDataSource.data = filterGroup(
-      this.withIntros(this.newTestament, "novotestamento"),
+      this.withIntros(this.newTestament, NEW_TESTAMENT_INTRO),
     )
     this.otTreeControl.expandAll()
     this.ntTreeControl.expandAll()

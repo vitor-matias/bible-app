@@ -57,7 +57,7 @@ describe("NativeFootnotesService", () => {
     nativeChrome = {
       enabled: true,
       actions$: actions,
-      showFootnotes: jasmine.createSpy("showFootnotes"),
+      showFootnotes: jasmine.createSpy("showFootnotes").and.resolveTo(true),
     }
     bibleRef = jasmine.createSpyObj("BibleReferenceService", ["extract"])
     bibleRef.extract.and.returnValue(references)
@@ -154,6 +154,16 @@ describe("NativeFootnotesService", () => {
   it("stops listening once the sheet is closed", () => {
     service.open([footnote], verse)
     actions.next({ id: "footnotes-closed" })
+    actions.next({ id: "footnote-link", index: 0 })
+
+    expect(router.navigate).not.toHaveBeenCalled()
+  })
+
+  // Over another sheet none comes up, and no footnotes-closed would follow.
+  it("stops listening when no sheet came up", async () => {
+    nativeChrome.showFootnotes.and.resolveTo(false)
+    service.open([footnote], verse)
+    await new Promise((resolve) => setTimeout(resolve))
     actions.next({ id: "footnote-link", index: 0 })
 
     expect(router.navigate).not.toHaveBeenCalled()

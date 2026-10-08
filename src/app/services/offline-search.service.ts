@@ -14,6 +14,12 @@ interface IndexedVerse {
   words: string
 }
 
+/**
+ * Verses indexed between pauses: the whole Bible is some 35,000, and folding
+ * them in one go held up the page (and the "A procurar…" it was to show).
+ */
+const INDEX_CHUNK = 2000
+
 /** The books in the edition's canonical order. */
 const CANON = [...OLD_TESTAMENT_GROUPS, ...NEW_TESTAMENT_GROUPS].flatMap(
   (group) => group.books,
@@ -31,8 +37,11 @@ const CANON = [...OLD_TESTAMENT_GROUPS, ...NEW_TESTAMENT_GROUPS].flatMap(
 })
 export class OfflineSearchService {
   private readonly offlineData = inject(OfflineDataService)
-  /** Built on the first search and kept while the stored books stay the same. */
-  private index?: { books: Book[]; verses: IndexedVerse[] }
+  /**
+   * Built on the first search and kept while the stored books stay the same;
+   * searches made while it is being built wait for the same one.
+   */
+  private index?: { books: Book[]; verses: Promise<IndexedVerse[]> }
 
   /** The matching verses, or null when no Bible is stored on the device. */
   async search(query: string): Promise<Verse[] | null> {
@@ -58,8 +67,13 @@ export class OfflineSearchService {
 
   private async indexedVerses(): Promise<IndexedVerse[]> {
     const books = await this.offlineData.getCachedBooksAsync()
-    if (this.index?.books === books) return this.index.verses
+    if (this.index?.books !== books) {
+      this.index = { books, verses: this.buildIndex(books) }
+    }
+    return this.index.verses
+  }
 
+  private async buildIndex(books: Book[]): Promise<IndexedVerse[]> {
     const position = (book: Book) => {
       const index = CANON.indexOf(book.id)
       return index === -1 ? CANON.length : index
@@ -78,10 +92,13 @@ export class OfflineSearchService {
             .filter(Boolean)
             .join(" ")
           verses.push({ verse, words: ` ${words} ` })
+          if (verses.length % INDEX_CHUNK === 0) {
+            // Lets the page render and take input before the next chunk.
+            await new Promise((resolve) => setTimeout(resolve))
+          }
         }
       }
     }
-    this.index = { books, verses }
     return verses
   }
 }

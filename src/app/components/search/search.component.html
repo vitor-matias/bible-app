@@ -2,7 +2,7 @@
        is noindex, so this is purely a landmark for screen readers. -->
   <h1 class="visually-hidden">Pesquisar</h1>
   @if (!native) {
-  <search-bar [value]="searchTerm" (searchValue)="onSearchSubmit($event)" (typing)="onTyping($event)"></search-bar>
+  <search-bar [value]="fieldValue" (searchValue)="onSearchSubmit($event)" (typing)="onTyping($event)"></search-bar>
   }
   <div unifiedGestures fontSizeContext="search" class="search-container" #container>
 

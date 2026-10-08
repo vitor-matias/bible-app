@@ -19,9 +19,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private let searchField = SearchFieldView()
     private let toast = ToastView()
     private var toastBottom: NSLayoutConstraint!
-    private var keyboardVisible = false
-    /// A toast held until the keyboard closes (see ToastService).
-    private var pendingToast: (message: String, button: Bool, symbol: String?)?
 
     private(set) var state = ChromeState()
     private var collapsed = false
@@ -48,7 +45,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         pageBackItem.backButtonDisplayMode = .minimal
         searchField.onSubmit = { [weak self] text in self?.plugin.send("search-submit", ["text": text]) }
         searchField.onChange = { [weak self] text in self?.plugin.send("search-input", ["text": text]) }
-        searchField.onEndEditing = { [weak self] in self?.releasePendingToast() }
 
         for bar in [topBar, toolbar, searchField] as [UIView] {
             bar.translatesAutoresizingMaskIntoConstraints = false
@@ -66,10 +62,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         drag.delegate = self
         bridgeController.view.addGestureRecognizer(drag)
 
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow),
-                                               name: UIResponder.keyboardWillShowNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide),
-                                               name: UIResponder.keyboardWillHideNotification, object: nil)
         // The page scrolls in an element of its own, which the web view's
         // scroll-to-top can't reach: the web app scrolls it (scroll-top).
         NotificationCenter.default.addObserver(self, selector: #selector(statusBarTapped),
@@ -155,10 +147,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         }
         if previous.mode == .search && next.mode != .search {
             searchField.endEditing(true)
-        }
-        if previous.mode != next.mode {
-            // A held toast belongs to the page that asked for it.
-            pendingToast = nil
         }
 
         // VoiceOver users find the bars by swiping through the screen, not by
@@ -362,42 +350,14 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         present(picker, animated: true)
     }
 
-    // MARK: - Toast and keyboard
-
-    /// Typing, on screen or on a hardware keyboard (which shows no keyboard).
-    private var keyboardUp: Bool { keyboardVisible || searchField.isEditing }
+    // MARK: - Toast
 
     /// As a `button`, the toast is one (led by `symbol`), and tapping it
     /// sends toast-action.
-    func showToast(_ message: String, afterKeyboard: Bool, button: Bool = false, symbol: String? = nil) {
-        if afterKeyboard && keyboardUp {
-            pendingToast = (message, button, symbol)
-            toast.dismissNow()
-            return
-        }
-        pendingToast = nil
+    func showToast(_ message: String, button: Bool = false, symbol: String? = nil) {
         view.layoutIfNeeded()
         let onTap: (() -> Void)? = button ? { [weak self] in self?.plugin.send("toast-action") } : nil
         toast.show(message, symbol: symbol, onTap: onTap)
-    }
-
-    @objc private func keyboardWillShow() {
-        keyboardVisible = true
-    }
-
-    @objc private func keyboardWillHide() {
-        keyboardVisible = false
-        releasePendingToast()
-    }
-
-    /// Shows a held toast once typing has ended, after the keyboard has gone,
-    /// so it settles where it stays.
-    private func releasePendingToast() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-            guard let self, let pending = self.pendingToast, !self.keyboardUp else { return }
-            self.pendingToast = nil
-            self.showToast(pending.message, afterKeyboard: false, button: pending.button, symbol: pending.symbol)
-        }
     }
 
     @objc private func voiceOverChanged() {
@@ -425,8 +385,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     private(set) weak var bookmarksSheet: BookmarksController?
 
-    func presentBookmarks(_ state: BookmarksSheetState) {
-        guard presentedViewController == nil else { return }
+    /// False, and nothing shown, while another sheet is up.
+    @discardableResult
+    func presentBookmarks(_ state: BookmarksSheetState) -> Bool {
+        guard presentedViewController == nil else { return false }
         let bookmarks = BookmarksController(state: state, send: { [weak self] action, color in
             self?.plugin.send(action, ["color": color])
         }, onClose: { [weak self] in
@@ -445,12 +407,15 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             controller.prefersGrabberVisible = true
         }
         present(sheet, animated: true)
+        return true
     }
 
     // MARK: - Footnotes
 
-    func presentFootnotes(_ state: FootnotesSheetState) {
-        guard presentedViewController == nil else { return }
+    /// False, and nothing shown, while another sheet is up.
+    @discardableResult
+    func presentFootnotes(_ state: FootnotesSheetState) -> Bool {
+        guard presentedViewController == nil else { return false }
         let footnotes = FootnotesController(state: state, onLink: { [weak self] index in
             self?.plugin.send("footnote-link", ["index": index])
         }, onClose: { [weak self] in
@@ -464,14 +429,17 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             controller.prefersGrabberVisible = true
         }
         present(sheet, animated: true)
+        return true
     }
 
     // MARK: - Report
 
     private(set) weak var reportSheet: ReportController?
 
-    func presentReport(_ state: ReportSheetState) {
-        guard presentedViewController == nil else { return }
+    /// False, and nothing shown, while another sheet is up.
+    @discardableResult
+    func presentReport(_ state: ReportSheetState) -> Bool {
+        guard presentedViewController == nil else { return false }
         let report = ReportController(state: state, onSubmit: { [weak self] topic, details in
             self?.plugin.send("report-submit", ["topic": topic, "details": details])
         }, onClose: { [weak self] in
@@ -481,6 +449,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         let sheet = UINavigationController(rootViewController: report)
         sheet.modalPresentationStyle = traitCollection.horizontalSizeClass == .regular ? .formSheet : .pageSheet
         present(sheet, animated: true)
+        return true
     }
 
     // MARK: - Onboarding
@@ -637,7 +606,6 @@ final class SearchFieldView: UIView, UITextFieldDelegate {
     var onSubmit: ((String) -> Void)?
     /// Every edit: the web app searches once typing pauses.
     var onChange: ((String) -> Void)?
-    var onEndEditing: (() -> Void)?
     private let field = UISearchTextField()
     private let background: UIVisualEffectView
 
@@ -692,10 +660,6 @@ final class SearchFieldView: UIView, UITextFieldDelegate {
 
     func focus() {
         field.becomeFirstResponder()
-    }
-
-    func textFieldDidEndEditing(_ textField: UITextField) {
-        onEndEditing?()
     }
 
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {

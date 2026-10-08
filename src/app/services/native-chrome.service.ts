@@ -142,8 +142,6 @@ export interface ReportSheetState {
 }
 
 export interface NativeToastOptions {
-  /** Hold the toast until the keyboard closes, so it never covers typing. */
-  afterKeyboard?: boolean
   /**
    * Makes the whole toast a button, the message its label, with a close
    * button beside it, as Books' "Back to Page" is. It stays until one of them
@@ -152,6 +150,10 @@ export interface NativeToastOptions {
   onTap?: () => void
   /** An SF Symbol before the button's label. */
   symbol?: string
+}
+
+export interface SheetPresented {
+  presented: boolean
 }
 
 /** The space the bars cover, in CSS pixels. */
@@ -163,17 +165,20 @@ export interface ChromeInsets {
 export interface NativeChromePlugin {
   setState(state: NativeChromeState): Promise<ChromeInsets>
   showPicker(data: PassagePickerData): Promise<void>
-  showBookmarks(state: BookmarksSheetState): Promise<void>
+  /**
+   * The sheets say whether they were presented: not over another sheet, and
+   * then no *-closed event follows.
+   */
+  showBookmarks(state: BookmarksSheetState): Promise<SheetPresented>
   /** Refreshes the bookmarks sheet if it is still open. */
   updateBookmarks(state: BookmarksSheetState): Promise<void>
-  showFootnotes(state: FootnotesSheetState): Promise<void>
+  showFootnotes(state: FootnotesSheetState): Promise<SheetPresented>
   showToast(options: {
     message: string
-    afterKeyboard: boolean
     button?: boolean
     symbol?: string
   }): Promise<void>
-  showReport(state: ReportSheetState): Promise<void>
+  showReport(state: ReportSheetState): Promise<SheetPresented>
   /** The answer to report-submit: the sheet closes, or shows `message`. */
   finishReport(result: { sent: boolean; message?: string }): Promise<void>
   /** Resolves once the sheet is dismissed, however that happened. */
@@ -237,6 +242,8 @@ export class NativeChromeService {
   private autoScroll: AutoScrollChrome | null = null
   /** What tapping the current toast does, when it is a button. */
   private toastAction?: () => void
+  /** The bars' state as last sent to the shell (push). */
+  private lastSent?: string
 
   /** True in the iOS app, whose shell provides the NativeChrome plugin. */
   readonly enabled =
@@ -317,9 +324,10 @@ export class NativeChromeService {
     this.plugin.showPicker(data).catch(() => {})
   }
 
-  showBookmarks(state: BookmarksSheetState): void {
-    if (!this.enabled) return
-    this.plugin.showBookmarks(state).catch(() => {})
+  /** Whether the sheet came up; it doesn't over another one. */
+  showBookmarks(state: BookmarksSheetState): Promise<boolean> {
+    if (!this.enabled) return Promise.resolve(false)
+    return presented(this.plugin.showBookmarks(state))
   }
 
   updateBookmarks(state: BookmarksSheetState): void {
@@ -330,21 +338,22 @@ export class NativeChromeService {
   /** A glass toast above the bottom bar; see ToastService. */
   toast(message: string, options: NativeToastOptions = {}): void {
     if (!this.enabled) return
-    const { afterKeyboard = false, onTap, symbol } = options
+    const { onTap, symbol } = options
     // It replaces the toast before, and that one's action with it.
     this.toastAction = onTap
     this.plugin
       .showToast(
         onTap
-          ? { message, afterKeyboard, button: true, ...(symbol && { symbol }) }
-          : { message, afterKeyboard },
+          ? { message, button: true, ...(symbol && { symbol }) }
+          : { message },
       )
       .catch(() => {})
   }
 
-  showReport(state: ReportSheetState): void {
-    if (!this.enabled) return
-    this.plugin.showReport(state).catch(() => {})
+  /** Whether the sheet came up; it doesn't over another one. */
+  showReport(state: ReportSheetState): Promise<boolean> {
+    if (!this.enabled) return Promise.resolve(false)
+    return presented(this.plugin.showReport(state))
   }
 
   finishReport(result: { sent: boolean; message?: string }): void {
@@ -352,9 +361,10 @@ export class NativeChromeService {
     this.plugin.finishReport(result).catch(() => {})
   }
 
-  showFootnotes(state: FootnotesSheetState): void {
-    if (!this.enabled) return
-    this.plugin.showFootnotes(state).catch(() => {})
+  /** Whether the sheet came up; it doesn't over another one. */
+  showFootnotes(state: FootnotesSheetState): Promise<boolean> {
+    if (!this.enabled) return Promise.resolve(false)
+    return presented(this.plugin.showFootnotes(state))
   }
 
   /** The onboarding as a native sheet; resolves when it is dismissed. */
@@ -485,9 +495,17 @@ export class NativeChromeService {
       "native-chrome-collapsed",
       state.mode === "reader" && state.collapsed,
     )
+    // Pages ask for the same bars several times as they start; each push has
+    // the shell rebuild them.
+    const sent = JSON.stringify(state)
+    if (sent === this.lastSent) return
+    this.lastSent = sent
     this.plugin.setState(state).then(
       (insets) => this.applyInsets(insets),
-      () => {},
+      () => {
+        // Not applied: the next push must not be skipped as a repeat.
+        if (this.lastSent === sent) this.lastSent = undefined
+      },
     )
   }
 
@@ -496,4 +514,12 @@ export class NativeChromeService {
     style.setProperty("--native-chrome-top", `${top}px`)
     style.setProperty("--native-chrome-bottom", `${bottom}px`)
   }
+}
+
+/** A sheet call's answer as a boolean; a failed call showed nothing. */
+function presented(call: Promise<SheetPresented>): Promise<boolean> {
+  return call.then(
+    (result) => result?.presented === true,
+    () => false,
+  )
 }

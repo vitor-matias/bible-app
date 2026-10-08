@@ -22,7 +22,6 @@ import {
   MatDrawerContent,
   MatSidenavModule,
 } from "@angular/material/sidenav"
-import { MatSnackBarModule } from "@angular/material/snack-bar"
 import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { combineLatest, Subject, Subscription } from "rxjs"
@@ -65,7 +64,6 @@ import { VerseComponent } from "../verse/verse.component"
     BookSelectorComponent,
     MatSidenavModule,
     MatBottomSheetModule,
-    MatSnackBarModule,
     AboutComponent,
     ChapterSelectorComponent,
     MatIconModule,

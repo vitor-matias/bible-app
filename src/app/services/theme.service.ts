@@ -61,7 +61,12 @@ export class ThemeService {
     this.setTheme(modes[(currentIndex + 1) % modes.length])
   }
 
+  /**
+   * Choosing the theme already on does nothing: not saved again, and not
+   * counted as a change.
+   */
   setTheme(mode: ThemeMode): void {
+    if (mode === this.themeMode.value) return
     this.themeMode.next(mode)
     this.applyTheme(mode)
     this.preferencesService.setTheme(mode)

@@ -2,7 +2,9 @@ import {
   ABOUT_GROUP,
   type CanonGroup,
   NEW_TESTAMENT_GROUPS,
+  NEW_TESTAMENT_INTRO,
   OLD_TESTAMENT_GROUPS,
+  OLD_TESTAMENT_INTRO,
   withIntros,
 } from "../bible-canon"
 import { BookService } from "../services/book.service"
@@ -103,11 +105,11 @@ export function buildPassagePicker(
 
   return {
     sections: [
-      section("Antigo Testamento", OLD_TESTAMENT_GROUPS, "geral"),
+      section("Antigo Testamento", OLD_TESTAMENT_GROUPS, OLD_TESTAMENT_INTRO),
       section(
         "Novo Testamento",
         [...NEW_TESTAMENT_GROUPS, ABOUT_GROUP],
-        "novotestamento",
+        NEW_TESTAMENT_INTRO,
       ),
     ],
     currentBookId: current.bookId,

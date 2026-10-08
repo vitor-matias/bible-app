@@ -189,13 +189,15 @@ export class BibleReferenceService {
         let matchStr = m[0]
         let currentIdx = start + matchStr.length
 
-        // More verses of the chapter: ", 12" or ", 12-14", and the dotted
-        // lists of the notes ("Lc 6,2.7") and of liturgical leaflets
-        // ("Sl 94,1-2.6-7.8-9", "Sl 78,1-2. 3-5"). None takes a new chapter
-        // ("Jo 3,16.4,5"), and a spaced dot not the number of a book that
-        // follows ("Jo 3,16. 2 Cor 5,17").
+        // More verses of the chapter: ", 12" or ", 12-14" ("Mt 5,3,4,5"),
+        // and the dotted lists of the notes ("Lc 6,2.7") and of liturgical
+        // leaflets ("Sl 94,1-2.6-7.8-9", "Sl 78,1-2. 3-5"). A range is taken
+        // whole or not at all: no backing off "1-2" to "1".
         const listRe =
-          /^(?:\s*,\s*|\.(?<spaced>\s)?)(?<v1>\d+(?:[a-c]{1,2})?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c]{1,2})?))?(?![,:]?\d)/
+          /^(?:\s*,\s*|\.(?<spaced>\s)?)(?<v1>\d+(?:[a-c]{1,2})?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c]{1,2})?)|(?!\s*[-\u2010-\u2015\u2212]))(?!\d)/
+        // After a dot, a number followed by ",5" or ":5" is a new chapter
+        // ("Jo 3,16.4,5"); after a comma it is the next verse ("Mt 5,3,4,5").
+        const newChapterRe = /^[,:]\d/
         // After a spaced dot, a number that starts a book's name and its own
         // reference ("2 Cor 5,17") is the next reference, not more verses.
         const nextBookRe = new RegExp(
@@ -208,6 +210,8 @@ export class BibleReferenceService {
           const cm = listRe.exec(tail)
           if (!cm?.groups) break
           if (cm.groups["spaced"] && nextBookRe.test(tail)) break
+          const dotted = cm[0].trimStart().startsWith(".")
+          if (dotted && newChapterRe.test(tail.slice(cm[0].length))) break
 
           const nextVerses = this.buildVerses(cm.groups["v1"], cm.groups["v2"])
           if (nextVerses) {

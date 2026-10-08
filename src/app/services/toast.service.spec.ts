@@ -34,17 +34,12 @@ describe("ToastService", () => {
 
   it("shows the native glass toast in the iOS app", () => {
     const toast = create(true)
-    toast.show("Encontrados 3 resultados", { afterKeyboard: true })
+    toast.show("Copiado")
     toast.show("Erro", { action: "OK" })
 
-    expect(nativeChrome.toast).toHaveBeenCalledWith(
-      "Encontrados 3 resultados",
-      { afterKeyboard: true },
-    )
+    expect(nativeChrome.toast).toHaveBeenCalledWith("Copiado")
     // The web's button label doesn't make a native one.
-    expect(nativeChrome.toast).toHaveBeenCalledWith("Erro", {
-      afterKeyboard: false,
-    })
+    expect(nativeChrome.toast).toHaveBeenCalledWith("Erro")
     expect(snackBar.open).not.toHaveBeenCalled()
   })
 })

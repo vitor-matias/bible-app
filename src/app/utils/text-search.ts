@@ -5,25 +5,40 @@ export interface TextSegment {
   highlight: boolean
 }
 
+/** A line of a verse (verseLines). */
+export interface VerseLine {
+  text: string
+  /** It starts a paragraph. */
+  paragraph: boolean
+}
+
 /**
- * A verse as one line of text. Its runs are joined as they are: the edition
- * splits "Senhor" into a run of its own (small capitals), so joining them with
- * spaces put one before the punctuation ("o Senhor :"). Lines of verse
- * (quotes) and paragraphs are joined with a space.
+ * A verse's lines, as the reader shows them. A quote is a line of verse; a
+ * paragraph starts a new one and can carry text of its own. Within a line the
+ * runs are joined as they are: the edition splits "Senhor" into a run of its
+ * own (small capitals), so joining them with spaces put one before the
+ * punctuation ("o Senhor :"). Lines are trimmed, without zero-width spaces,
+ * and may be empty.
  */
-export function verseText(verse: Verse): string {
-  const lines: string[] = [""]
+export function verseLines(verse: Verse): VerseLine[] {
+  const lines: VerseLine[] = [{ text: "", paragraph: false }]
   for (const part of verse.text) {
-    // A quote is a line of verse; a paragraph starts a new one and can carry
-    // text of its own, as the reader shows it.
     if (part.type === "quote" || part.type === "paragraph") {
-      lines.push(part.text)
+      lines.push({ text: part.text, paragraph: part.type === "paragraph" })
     } else if (part.type === "text") {
-      lines[lines.length - 1] += part.text
+      lines[lines.length - 1].text += part.text
     }
   }
-  return lines
-    .map((line) => line.replace(/\u200b/g, "").trim())
+  return lines.map((line) => ({
+    ...line,
+    text: line.text.replace(/\u200b/g, "").trim(),
+  }))
+}
+
+/** A verse as one line of text, its lines joined with a space. */
+export function verseText(verse: Verse): string {
+  return verseLines(verse)
+    .map((line) => line.text)
     .filter(Boolean)
     .join(" ")
 }

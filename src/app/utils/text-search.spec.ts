@@ -1,4 +1,10 @@
-import { foldText, highlightWords, searchWords, verseText } from "./text-search"
+import {
+  foldText,
+  highlightWords,
+  searchWords,
+  verseLines,
+  verseText,
+} from "./text-search"
 
 describe("text search", () => {
   // The edition splits "Senhor" into a run of its own (small capitals), and
@@ -39,6 +45,28 @@ describe("text search", () => {
         ],
       } as Verse),
     ).toBe("No princípio havia o Verbo")
+  })
+
+  // The one splitting search's text and the psalms' first lines share.
+  it("gives a verse's lines, marking where paragraphs start", () => {
+    expect(
+      verseLines({
+        bookId: "psa",
+        chapterNumber: 23,
+        number: 1,
+        text: [
+          { type: "text", text: "Salmo de David." },
+          { type: "paragraph", text: "" },
+          { type: "quote", text: "O ", identLevel: 1 },
+          { type: "text", text: "Senhor" },
+          { type: "text", text: " é o meu pastor:\u200b " },
+        ],
+      } as Verse),
+    ).toEqual([
+      { text: "Salmo de David.", paragraph: false },
+      { text: "", paragraph: true },
+      { text: "O Senhor é o meu pastor:", paragraph: false },
+    ])
   })
 
   it("folds case and accents", () => {

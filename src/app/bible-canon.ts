@@ -128,6 +128,13 @@ export const NEW_TESTAMENT_GROUPS: CanonGroup[] = [
 ]
 
 /**
+ * The introductions that open each Testament in the book pickers, before its
+ * groups: the general introduction, and the New Testament's. The API's slugs.
+ */
+export const OLD_TESTAMENT_INTRO = "geral"
+export const NEW_TESTAMENT_INTRO = "novotestamento"
+
+/**
  * The About page, listed with the New Testament in the book pickers. Not in
  * the canon groups: the crawlable book index must not link to it.
  */
