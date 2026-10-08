@@ -175,6 +175,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         if collapseChanged || previous.inert != next.inert {
             animateCollapse(animated: animated)
         }
+        // The insets depend on the collapse too (auto-scroll's stack), which
+        // no layout pass follows.
+        reportInsets()
 
         // Auto-scroll is read hands-free: the screen mustn't lock under it.
         UIApplication.shared.isIdleTimerDisabled = next.mode == .reader && next.autoScroll?.playing == true
@@ -371,8 +374,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         case .none:
             return ChromeInsets(top: safeArea.top, bottom: safeArea.bottom)
         case .reader:
-            // Auto-scroll's controls stack above the toolbar.
-            let autoScroll = state.autoScroll != nil ? autoScrollBar.bounds.height + Self.autoScrollBarGap : 0
+            // Auto-scroll's controls stack above the toolbar while the bars
+            // show; hidden for reading (or under a panel), they take its place.
+            let autoScroll = state.autoScroll != nil && !collapsed
+                ? autoScrollBar.bounds.height + Self.autoScrollBarGap : 0
             return ChromeInsets(top: safeArea.top + topBar.bounds.height,
                                 bottom: safeArea.bottom + toolbar.bounds.height + autoScroll)
         case .search:
@@ -433,8 +438,11 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// whatever is at the bottom: the toolbar, the search field.
     private func placeToast() {
         if toastShowing && shownBars.contains(ObjectIdentifier(autoScrollBar)) && !state.inert {
-            let slot = autoScrollBar.frame
-            toastBottom.constant = -(view.bounds.height - slot.midY - toast.bounds.height / 2)
+            // The bar is transformed into place, so its frame is undefined:
+            // its centre, converted, is where it shows.
+            let bounds = autoScrollBar.bounds
+            let centre = autoScrollBar.convert(CGPoint(x: bounds.midX, y: bounds.midY), to: view)
+            toastBottom.constant = -(view.bounds.height - centre.y - toast.bounds.height / 2)
         } else {
             toastBottom.constant = -(insets.bottom + 12)
         }

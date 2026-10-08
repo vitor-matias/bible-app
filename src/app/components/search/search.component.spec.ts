@@ -308,6 +308,30 @@ describe("SearchComponent", () => {
         expect(component.passageSuggestion?.label).toBe("Escolher o Salmo 94")
       })
 
+      // Before, "Escolher o Salmo 94" stayed above the two psalms it offered.
+      it("goes away once taken up", fakeAsync(() => {
+        referenceService.extract.and.returnValue([
+          { book: "Sl", chapter: 94 },
+        ] as unknown as ReturnType<BibleReferenceService["extract"]>)
+        bookService.findBook.and.returnValue({
+          id: "psa",
+          name: "Livro dos Salmos",
+          shortName: "Salmos",
+          abrv: "Sl",
+        } as Book)
+        apiService.getVerse.and.returnValue(
+          of({ text: [] } as unknown as Verse),
+        )
+        component.onTyping("Sl 94")
+        ;(host().querySelector(".passage-suggestion") as HTMLElement).click()
+        tick()
+        fixture.detectChanges()
+
+        expect(component.psalmChoice?.length).toBe(2)
+        expect(component.passageSuggestion).toBeNull()
+        expect(host().querySelector(".passage-suggestion")).toBeNull()
+      }))
+
       // Before, nothing showed for the whole pause: it read as broken.
       it("says it is searching until the search runs", fakeAsync(() => {
         component.onTyping("pastor")
