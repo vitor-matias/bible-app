@@ -13,11 +13,14 @@
     <div class="empty-state">
       <mat-icon class="empty-state-icon">search</mat-icon>
       <p>Procure versículos, livros ou referências bíblicas</p>
+      @if (offline) {
+        <p class="results-hint">Sem ligação: pode abrir referências, como Jo 3,16, e procurar palavras no texto guardado neste dispositivo.</p>
+      }
     </div>
   } @else if (psalmChoice) {
     <div class="results-section">
       <p class="results-count">Qual salmo procura?</p>
-      <p class="psalm-choice-hint">Nos livros litúrgicos, a maior parte dos salmos tem um número a menos.</p>
+      <p class="results-hint">Nos livros litúrgicos, a maior parte dos salmos tem um número a menos.</p>
       <ul class="results-list">
         @for (option of psalmChoice; track option.psalm) {
           <li class="result-item" [routerLink]="['/', 'psa', option.psalm]" [queryParams]="option.verseStart ? { verseStart: option.verseStart } : {}">
@@ -34,14 +37,27 @@
       <mat-icon class="empty-state-icon">hourglass_empty</mat-icon>
       <p>A procurar…</p>
     </div>
+  } @else if (nothingStored) {
+    <div class="empty-state">
+      <mat-icon class="empty-state-icon">cloud_off</mat-icon>
+      <p>{{ nothingStoredMessage }}</p>
+    </div>
   } @else if (searchResults.length === 0) {
     <div class="empty-state">
       <mat-icon class="empty-state-icon">search_off</mat-icon>
-      <p>Nenhum resultado para <strong>"{{ searchTerm }}"</strong></p>
+      @if (storedMatches) {
+        <p>Nenhum versículo com <strong>"{{ searchTerm }}"</strong></p>
+        <p class="results-hint">{{ storedResultsHint }}</p>
+      } @else {
+        <p>Nenhum resultado para <strong>"{{ searchTerm }}"</strong></p>
+      }
     </div>
   } @else {
     <div class="results-section" #resultsContainer>
       <p class="results-count">{{ resultsHeading }}</p>
+      @if (storedMatches) {
+        <p class="results-hint">{{ storedResultsHint }}</p>
+      }
       <ul class="results-list">
         @for (result of searchResults; track $index) {
           <li class="result-item" [routerLink]="['/', result.bookId, result.chapterNumber]" [queryParams]="{ verseStart: result.number }">

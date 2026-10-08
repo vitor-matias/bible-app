@@ -43,7 +43,6 @@ import {
   NativeChromeService,
 } from "../../services/native-chrome.service"
 import { NativeReportService } from "../../services/native-report.service"
-import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"
 import { SHARE_PLUGIN } from "../../tokens"
@@ -137,7 +136,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }>()
 
   mobile = false
-  isOffline = false
 
   private readonly destroyRef = inject(DestroyRef)
   private readonly router = inject(Router)
@@ -163,7 +161,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     private readonly bottomSheet: MatBottomSheet,
     private readonly dialog: MatDialog,
     private readonly cdr: ChangeDetectorRef,
-    private readonly networkService: NetworkService,
     public readonly analyticsService: AnalyticsService,
     private readonly onboardingService: OnboardingService,
     @Inject(SHARE_PLUGIN) private sharePlugin: typeof Share,
@@ -175,15 +172,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       Capacitor.isNativePlatform() ||
       (typeof navigator !== "undefined" &&
         typeof navigator.share === "function")
-
-    this.isOffline = this.networkService.isOffline
-    this.networkService.isOffline$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((isOffline) => {
-        this.isOffline = isOffline
-        this.cdr.detectChanges()
-        this.syncNativeChrome()
-      })
 
     this.bookmarkService.bookmarks$
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -430,7 +418,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       chapterNavigation: !isAbout,
       canGoPrevious: this.canGoPrevious,
       canGoNext: this.canGoNext,
-      search: !this.isOffline,
+      // Offline too: references open from the stored Bible, and words are
+      // searched in it (OfflineSearchService).
+      search: true,
       themeMode: this.themeService.currentMode,
       viewMode: isAbout ? null : this.viewMode,
       autoScrollVisible: this.autoScrollControlsVisible,

@@ -28,6 +28,8 @@ import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
+import { NetworkService } from "../../services/network.service"
+import { OfflineSearchService } from "../../services/offline-search.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
@@ -38,6 +40,7 @@ import {
   parsePsalmPair,
   psalmFromLiturgical,
 } from "../../utils/psalms"
+import { highlightWords, verseText } from "../../utils/text-search"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
 /** Searching as people type waits for them to pause this long. */
@@ -48,6 +51,13 @@ export const TYPING_PAUSE_MS = 2500
  * (KNN_MAX_RESULTS in the API), so its total is a cap, not a count.
  */
 export const SEARCH_RESULT_CAP = 100
+
+/** Offline, before the Bible was ever stored on the device. */
+const NOTHING_STORED =
+  "Sem ligação, e a Bíblia ainda não está guardada neste dispositivo. Abra a app uma vez com ligação para a guardar."
+
+/** Verses of a search over the stored Bible shown at a time. */
+const STORED_PAGE_SIZE = 50
 
 /** One of the psalms a bare psalm number may mean (showPsalmChoice). */
 export interface PsalmOption {
@@ -96,6 +106,16 @@ export class SearchComponent {
   psalmChoice: PsalmOption[] | null = null
   /** For screen readers, which no longer get the count from a toast. */
   statusMessage = ""
+  /** No connection: the hints say what search can still do. */
+  offline = false
+  /**
+   * The matches of a search over the Bible stored on the device, when the
+   * server's search was out of reach; the list shows them a page at a time.
+   */
+  storedMatches: Verse[] | null = null
+  /** Offline, and no Bible stored on the device to search instead. */
+  nothingStored = false
+  readonly nothingStoredMessage = NOTHING_STORED
   private observer: IntersectionObserver | null = null
 
   @ViewChild("sentinel", { static: false }) sentinel!: ElementRef
@@ -107,6 +127,8 @@ export class SearchComponent {
   private searchGeneration = 0
 
   private readonly nativeChrome = inject(NativeChromeService)
+  private readonly network = inject(NetworkService)
+  private readonly offlineSearch = inject(OfflineSearchService)
   private readonly toast = inject(ToastService)
   private readonly themeService = inject(ThemeService)
   private readonly location = inject(Location)
@@ -129,6 +151,13 @@ export class SearchComponent {
 
   ngOnInit(): void {
     this.seoService.updateForSearch()
+
+    this.network.isOffline$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((offline) => {
+        this.offline = offline
+        this.cdr.markForCheck()
+      })
 
     this.typed
       .pipe(
@@ -235,6 +264,17 @@ export class SearchComponent {
 
   private async loadMoreResults() {
     if (this.isLoading || this.searchResults.length >= this.totalResults) return
+    if (this.storedMatches) {
+      const shown = this.searchResults.length
+      this.searchResults.push(
+        ...this.storedMatches
+          .slice(shown, shown + STORED_PAGE_SIZE)
+          .map((v) => this.toDisplayVerse(v)),
+      )
+      this.attachObserverToSentinel()
+      this.cdr.detectChanges()
+      return
+    }
 
     const generation = this.searchGeneration
     const isStale = () => generation !== this.searchGeneration
@@ -351,9 +391,16 @@ export class SearchComponent {
             ? err.status
             : undefined
         if (status === 404 || status === 400) {
-          this.toast.show("Capitulo ou versiculo não existe")
+          this.toast.show("Este capítulo ou versículo não existe.")
+        } else if (this.network.isOffline) {
+          this.toast.show(
+            "Sem ligação, e este capítulo ainda não está guardado neste dispositivo.",
+            { action: "OK" },
+          )
         } else {
-          this.toast.show("Error loading verse", { action: "OK" })
+          this.toast.show("Não foi possível abrir a passagem.", {
+            action: "OK",
+          })
         }
       }
       // Still here: the superseded text search's stale `finally` skips this.
@@ -369,33 +416,38 @@ export class SearchComponent {
     this.hasSearched = true
     this.isLoading = true
     this.searching = true
+    this.storedMatches = null
+    this.nothingStored = false
     this.statusMessage = "A procurar…"
     try {
-      const results = await firstValueFrom(this.apiService.search(text, 1))
-      if (isStale()) return
-      this.searchResults = results.verses.map((v) => this.toDisplayVerse(v))
-      this.totalResults = results.total
-      this.currentPage = 1
-      this.searching = false
-      // The heading has the count; a toast over the list only hid a result.
-      this.statusMessage =
-        results.total === 0
-          ? `Nenhum resultado para "${text}"`
-          : this.resultsHeading
-      if (results.total > 0 && document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur()
+      if (this.network.isOffline) {
+        // The search by meaning runs on the server; the stored Bible can
+        // still be searched for words.
+        const stored = await this.searchStoredBible(text)
+        if (isStale()) return
+        this.nothingStored = !stored
+      } else {
+        const results = await firstValueFrom(this.apiService.search(text, 1))
+        if (isStale()) return
+        this.searchResults = results.verses.map((v) => this.toDisplayVerse(v))
+        this.totalResults = results.total
+        this.currentPage = 1
+        void this.analyticsService.track("search", { text })
       }
-
-      // The sentinel node is recreated when results change, so rebind the observer
-      // after each fresh search result set.
-      this.attachObserverToSentinel()
-      this.scrollToTop()
-
-      void this.analyticsService.track("search", { text })
+      this.showResults(text)
     } catch (error) {
       if (isStale()) return
+      // The server couldn't answer: the stored Bible still can.
+      const stored = await this.searchStoredBible(text)
+      if (isStale()) return
+      if (stored) {
+        this.showResults(text)
+        return
+      }
       console.error("Error loading search results:", error)
-      this.toast.show("Error loading search results", { action: "OK" })
+      this.toast.show("Não foi possível pesquisar. Tente novamente.", {
+        action: "OK",
+      })
     } finally {
       if (!isStale()) {
         this.isLoading = false
@@ -405,15 +457,71 @@ export class SearchComponent {
     }
   }
 
-  /** "23 resultados", or "Os 100 mais relevantes" when the search capped it. */
+  /**
+   * Searches the Bible stored on the device for the query's words. False when
+   * none is stored, as before the app has once been online.
+   */
+  private async searchStoredBible(text: string): Promise<boolean> {
+    const matches = await this.offlineSearch.search(text)
+    if (matches === null) {
+      this.searchResults = []
+      this.totalResults = 0
+      return false
+    }
+    this.storedMatches = matches
+    this.searchResults = matches
+      .slice(0, STORED_PAGE_SIZE)
+      .map((v) => this.toDisplayVerse(v))
+    this.totalResults = matches.length
+    this.currentPage = 1
+    return true
+  }
+
+  /** The outcome of a word search: its count read out, the list at the top. */
+  private showResults(text: string): void {
+    this.searching = false
+    // The heading has the count; a toast over the list only hid a result.
+    this.statusMessage = this.nothingStored
+      ? NOTHING_STORED
+      : this.totalResults === 0
+        ? `Nenhum resultado para "${text}"`
+        : this.resultsHeading
+    if (
+      this.totalResults > 0 &&
+      document.activeElement instanceof HTMLElement
+    ) {
+      document.activeElement.blur()
+    }
+    // The sentinel node is recreated when results change, so rebind the observer
+    // after each fresh search result set.
+    this.attachObserverToSentinel()
+    this.scrollToTop()
+  }
+
+  /**
+   * "23 resultados", "Os 100 mais relevantes" when the search capped it, or
+   * for the stored Bible "12 versículos com estas palavras".
+   */
   get resultsHeading(): string {
     if (this.searching) return "A procurar…"
+    if (this.storedMatches) {
+      return this.totalResults === 1
+        ? "1 versículo com estas palavras"
+        : `${this.totalResults} versículos com estas palavras`
+    }
     if (this.totalResults >= SEARCH_RESULT_CAP) {
       return `Os ${SEARCH_RESULT_CAP} mais relevantes`
     }
     return this.totalResults === 1
       ? "1 resultado"
       : `${this.totalResults} resultados`
+  }
+
+  /** Why the results are a word search, under their heading. */
+  get storedResultsHint(): string {
+    return this.offline
+      ? "Sem ligação: procura as palavras no texto guardado. A pesquisa pelo sentido volta com a ligação."
+      : "A pesquisa pelo sentido não respondeu: procura as palavras no texto guardado."
   }
 
   /** "Lucas 2,32", "Salmo 23 (22),4": as the text cites passages. */
@@ -478,36 +586,12 @@ export class SearchComponent {
     }
   }
 
+  /** The verse as one line, the query's words marked, accents aside. */
   private toDisplayVerse(verse: Verse): Verse {
-    const verseText = this.getVerseText(verse)
     return {
       ...verse,
-      highlightedSegments: this.getHighlightedSegments(
-        verseText,
-        this.searchTerm,
-      ),
+      highlightedSegments: highlightWords(verseText(verse), this.searchTerm),
     }
-  }
-
-  /**
-   * The verse as one line of text. Its runs are joined as they are: the
-   * edition splits "Senhor" into a run of its own (small capitals), so a space
-   * after each run put one before the punctuation ("o Senhor :"). Lines of
-   * verse (quotes) and paragraphs are joined with a space.
-   */
-  getVerseText(verse: Verse): string {
-    const lines: string[] = [""]
-    for (const part of verse.text) {
-      if (part.type === "quote" || part.type === "paragraph") {
-        lines.push(part.type === "quote" ? part.text : "")
-      } else if (part.type === "text") {
-        lines[lines.length - 1] += part.text
-      }
-    }
-    return lines
-      .map((line) => line.replace(/\u200b/g, "").trim())
-      .filter(Boolean)
-      .join(" ")
   }
 
   @ViewChild("resultsContainer", { static: false })
@@ -529,37 +613,6 @@ export class SearchComponent {
 
   findBookById(bookId: string): Book | undefined {
     return this.bookService.findBook(bookId)
-  }
-
-  getHighlightedSegments(
-    verseText: string,
-    term: string,
-  ): Array<{ text: string; highlight: boolean }> {
-    if (!term.trim()) {
-      return [{ text: verseText, highlight: false }]
-    }
-    const segments: Array<{ text: string; highlight: boolean }> = []
-    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-    const regex = new RegExp(escaped, "gi")
-    let lastIndex = 0
-    let match = regex.exec(verseText)
-    while (match !== null) {
-      if (match.index > lastIndex) {
-        segments.push({
-          text: verseText.slice(lastIndex, match.index),
-          highlight: false,
-        })
-      }
-      segments.push({ text: match[0], highlight: true })
-      lastIndex = regex.lastIndex
-      match = regex.exec(verseText)
-    }
-    if (lastIndex < verseText.length) {
-      segments.push({ text: verseText.slice(lastIndex), highlight: false })
-    }
-    return segments.length > 0
-      ? segments
-      : [{ text: verseText, highlight: false }]
   }
 }
 

@@ -77,6 +77,13 @@
   font-size: 1rem;
 }
 
+/* What search can still do offline, under the empty page's line. */
+.empty-state .results-hint {
+  margin: 12px 0 0;
+  font-size: 0.85em;
+  max-width: 28em;
+}
+
 .results-count {
   font-size: 0.85em;
   color: var(--text-secondary);
@@ -85,7 +92,7 @@
 }
 
 /* The two psalms a bare number may mean: which numbering names each. */
-.psalm-choice-hint {
+.results-hint {
   font-size: 0.85em;
   color: var(--text-secondary);
   margin: -8px 0 12px 0;
@@ -139,7 +146,7 @@
 /* iOS: status text is neutral grey, as in the system's empty states; the red
    stays with the scripture (the references, like the reader's verse numbers). */
 :host-context(.native-chrome)
-  :is(.empty-state, .loading, .results-count, .psalm-choice-hint, .psalm-note) {
+  :is(.empty-state, .loading, .results-count, .results-hint, .psalm-note) {
   color: color-mix(in srgb, var(--text-color) 55%, transparent);
 }
 
@@ -160,7 +167,7 @@
   padding-right: 16px;
 }
 
-:host-context(.native-chrome) :is(.results-count, .psalm-choice-hint) {
+:host-context(.native-chrome) :is(.results-count, .results-hint) {
   font-family: var(--app-ios-font, system-ui);
   font-size: 13px;
   margin: 0 0 6px;
@@ -218,4 +225,8 @@
   background-color: transparent;
   font-weight: 700;
   padding: 0;
+}
+
+:host-context(.native-chrome) .empty-state .results-hint {
+  margin: 8px 0 0;
 }

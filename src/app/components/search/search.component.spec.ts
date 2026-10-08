@@ -30,6 +30,8 @@ import {
   type NativeChromeAction,
   NativeChromeService,
 } from "../../services/native-chrome.service"
+import { NetworkService } from "../../services/network.service"
+import { OfflineSearchService } from "../../services/offline-search.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { firstLine, SearchComponent, TYPING_PAUSE_MS } from "./search.component"
@@ -86,6 +88,8 @@ describe("SearchComponent", () => {
   let routeMock: ActivatedRoute
   let queryParamMapSubject: BehaviorSubject<ParamMap>
   let seoService: jasmine.SpyObj<SeoService>
+  let network: { isOffline: boolean; isOffline$: BehaviorSubject<boolean> }
+  let offlineSearch: jasmine.SpyObj<OfflineSearchService>
   let observerCallback: IntersectionObserverCallback | null
   let originalIntersectionObserver: typeof IntersectionObserver | undefined
 
@@ -127,6 +131,9 @@ describe("SearchComponent", () => {
       queryParamMap: queryParamMapSubject.asObservable(),
     } as ActivatedRoute
     seoService = jasmine.createSpyObj("SeoService", ["updateForSearch"])
+    network = { isOffline: false, isOffline$: new BehaviorSubject(false) }
+    offlineSearch = jasmine.createSpyObj("OfflineSearchService", ["search"])
+    offlineSearch.search.and.resolveTo(null)
     observerCallback = null
     originalIntersectionObserver = globalThis.IntersectionObserver
 
@@ -144,6 +151,8 @@ describe("SearchComponent", () => {
         { provide: AnalyticsService, useValue: analyticsService },
         { provide: ActivatedRoute, useValue: routeMock },
         { provide: SeoService, useValue: seoService },
+        { provide: NetworkService, useValue: network },
+        { provide: OfflineSearchService, useValue: offlineSearch },
       ],
     })
       .overrideComponent(SearchComponent, {
@@ -549,7 +558,7 @@ describe("SearchComponent", () => {
 
     expect(console.error).toHaveBeenCalled()
     expect(snackBar.open).toHaveBeenCalledWith(
-      "Capitulo ou versiculo não existe",
+      "Este capítulo ou versículo não existe.",
       "Fechar",
       { duration: 3000 },
     )
@@ -681,6 +690,121 @@ describe("SearchComponent", () => {
     expect(component.resultsHeading).toBe("23 resultados")
   })
 
+  describe("without a connection", () => {
+    const stored = (bookId: string, number: number, text: string) =>
+      ({
+        bookId,
+        chapterNumber: 1,
+        number,
+        text: [{ type: "text", text }],
+      }) as Verse
+
+    beforeEach(() => {
+      referenceService.extract.and.returnValue([])
+      network.isOffline = true
+      network.isOffline$.next(true)
+    })
+
+    it("searches the words in the Bible stored on the device", async () => {
+      offlineSearch.search.and.resolveTo([
+        stored("gen", 3, "Deus disse: «Faça-se a luz.»"),
+        stored("jhn", 5, "A Luz brilhou nas trevas,"),
+      ])
+      await component.onSearchSubmit("luz")
+      fixture.detectChanges()
+
+      expect(apiService.search).not.toHaveBeenCalled()
+      expect(offlineSearch.search).toHaveBeenCalledWith("luz")
+      expect(component.resultsHeading).toBe("2 versículos com estas palavras")
+      expect(fixture.nativeElement.textContent).toContain(
+        "Sem ligação: procura as palavras no texto guardado.",
+      )
+      expect(component.searchResults[1].highlightedSegments).toEqual([
+        { text: "A ", highlight: false },
+        { text: "Luz", highlight: true },
+        { text: " brilhou nas trevas,", highlight: false },
+      ])
+    })
+
+    it("shows them a page at a time", async () => {
+      offlineSearch.search.and.resolveTo(
+        Array.from({ length: 120 }, (_, index) =>
+          stored("psa", index + 1, "Senhor"),
+        ),
+      )
+      await component.onSearchSubmit("Senhor")
+      expect(component.searchResults.length).toBe(50)
+      expect(component.resultsHeading).toBe("120 versículos com estas palavras")
+
+      // Scrolling to the end of the list shows the next page.
+      fixture.detectChanges()
+      expect(observerCallback).not.toBeNull()
+      observerCallback?.(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        {} as IntersectionObserver,
+      )
+      expect(component.searchResults.length).toBe(100)
+    })
+
+    it("says so when no Bible is stored yet", async () => {
+      offlineSearch.search.and.resolveTo(null)
+      await component.onSearchSubmit("luz")
+      fixture.detectChanges()
+
+      expect(component.nothingStored).toBeTrue()
+      expect(fixture.nativeElement.textContent).toContain(
+        "a Bíblia ainda não está guardada neste dispositivo",
+      )
+    })
+
+    it("tells what search can still do before searching", () => {
+      fixture.detectChanges()
+      expect(fixture.nativeElement.textContent).toContain(
+        "Sem ligação: pode abrir referências",
+      )
+    })
+
+    it("says when a passage isn't stored yet", async () => {
+      referenceService.extract.and.returnValue([
+        { match: "Jo 3,16", index: 0, book: "Jo", chapter: 3 },
+      ])
+      bookService.findBook.and.returnValue({ id: "jhn" } as Book)
+      apiService.getVerse.and.returnValue(
+        throwError(() => new Error("Offline - verse not cached")),
+      )
+      spyOn(console, "error")
+      await component.onSearchSubmit("Jo 3,16")
+
+      expect(snackBar.open).toHaveBeenCalledWith(
+        "Sem ligação, e este capítulo ainda não está guardado neste dispositivo.",
+        "OK",
+        { duration: 3000 },
+      )
+    })
+  })
+
+  // The search by meaning can fail (e.g. its index rebuilding): words still work.
+  it("falls back to the stored Bible when the server can't search", async () => {
+    referenceService.extract.and.returnValue([])
+    apiService.search.and.returnValue(throwError(() => ({ status: 503 })))
+    offlineSearch.search.and.resolveTo([
+      {
+        bookId: "jhn",
+        chapterNumber: 1,
+        number: 5,
+        text: [{ type: "text", text: "A Luz brilhou nas trevas," }],
+      } as Verse,
+    ])
+    await component.onSearchSubmit("luz")
+    fixture.detectChanges()
+
+    expect(component.resultsHeading).toBe("1 versículo com estas palavras")
+    expect(fixture.nativeElement.textContent).toContain(
+      "A pesquisa pelo sentido não respondeu",
+    )
+    expect(snackBar.open).not.toHaveBeenCalled()
+  })
+
   describe("the results as rendered", () => {
     const luke = { id: "luk", shortName: "Lucas", name: "Lucas" } as Book
     const psalms = { id: "psa", shortName: "Salmos", name: "Salmos" } as Book
@@ -730,31 +854,6 @@ describe("SearchComponent", () => {
       Array.from(
         (fixture.nativeElement as HTMLElement).querySelectorAll(selector),
       ).map((element) => element.textContent?.trim())
-
-    // The edition splits "Senhor" into a run of its own (small capitals), and
-    // lines of verse into quotes: Daniel 3,72.
-    it("joins a verse's runs and lines as the text has them", () => {
-      expect(
-        component.getVerseText({
-          bookId: "dan",
-          chapterNumber: 3,
-          number: 72,
-          text: [
-            { type: "quote", text: "\u200b", identLevel: 1 },
-            { type: "text", text: "Luz e trevas, bendizei o " },
-            { type: "text", text: "Senhor" },
-            { type: "text", text: ":" },
-            {
-              type: "quote",
-              text: "– a Ele a glória e o louvor eternamente!",
-              identLevel: 1,
-            },
-          ],
-        } as Verse),
-      ).toBe(
-        "Luz e trevas, bendizei o Senhor: – a Ele a glória e o louvor eternamente!",
-      )
-    })
 
     // "nome de Luz , nome": the template put a space before the comma.
     it("keeps the punctuation after a match where the text has it", () => {

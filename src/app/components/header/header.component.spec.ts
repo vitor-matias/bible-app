@@ -11,7 +11,7 @@ import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
 import { MatMenuTrigger } from "@angular/material/menu"
 import { By } from "@angular/platform-browser"
-import { Router } from "@angular/router"
+import { ActivatedRoute, Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import type { Share } from "@capacitor/share"
 import { BehaviorSubject, of, Subject } from "rxjs"
@@ -87,6 +87,8 @@ describe("HeaderComponent", () => {
       imports: [HeaderComponent, CommonModule],
       providers: [
         { provide: Router, useValue: routerSpy },
+        // The search button's routerLink; it's always shown now, offline too.
+        { provide: ActivatedRoute, useValue: {} },
         { provide: NetworkService, useValue: networkServiceSpy },
         { provide: ThemeService, useValue: themeServiceSpy },
         { provide: BookmarkService, useValue: bookmarkServiceSpy },
@@ -183,11 +185,12 @@ describe("HeaderComponent", () => {
     expect(headings[0].textContent).toContain("Sobre a Bíblia dos Capuchinhos")
   })
 
-  it("should reflect offline status from NetworkService", () => {
+  // References open from the stored Bible offline, and words are searched in it.
+  it("keeps the search button while offline", () => {
     isOfflineSubject.next(true)
     fixture.detectChanges()
 
-    expect(component.isOffline).toBeTrue()
+    expect(fixture.nativeElement.querySelector(".searchButton")).toBeTruthy()
   })
 
   it("should open the report problem dialog from the menu", () => {
@@ -757,9 +760,10 @@ describe("HeaderComponent with the iOS native bars", () => {
     )
   })
 
-  it("drops search while offline", () => {
+  it("keeps search while offline", () => {
     isOffline.next(true)
-    expect(lastState()).toEqual(jasmine.objectContaining({ search: false }))
+    fixture.detectChanges()
+    expect(lastState()).toEqual(jasmine.objectContaining({ search: true }))
   })
 
   it("follows the reader's view mode, auto-scroll and arrows", () => {
