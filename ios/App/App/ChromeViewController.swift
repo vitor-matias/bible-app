@@ -171,14 +171,34 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         return item
     }()
 
+    /// Marcadores, to the left of ⋯.
+    private lazy var bookmarksItem = barButton("bookmark", "Marcadores", "bookmarks")
+
+    /// Text size, theme and page or scroll, to the left of Marcadores.
+    private lazy var fontItem: UIBarButtonItem = {
+        let item = UIBarButtonItem(image: UIImage(systemName: "textformat.size"), menu: nil)
+        item.accessibilityLabel = "Texto e tema"
+        return item
+    }()
+
     private func configureReader(_ state: ChromeState) {
         let enabled = !state.inert
         // The same item throughout, its menu updated: replacing the item
         // would close the menu while a choice that keeps it open is applied.
-        moreItem.menu = ReaderMenu.make(state) { [weak self] id in self?.plugin.send(id) }
+        let send: (String) -> Void = { [weak self] id in self?.plugin.send(id) }
+        moreItem.menu = ReaderMenu.make(state, send: send)
+        fontItem.menu = ReaderMenu.font(state, send: send)
         moreItem.isEnabled = enabled
-        if readerItem.rightBarButtonItem !== moreItem {
-            readerItem.rightBarButtonItem = moreItem
+        bookmarksItem.isEnabled = enabled
+        fontItem.isEnabled = enabled
+        if readerItem.rightBarButtonItems?.first !== moreItem {
+            // Rightmost first: text size, Marcadores, then ⋯, each in a glass
+            // circle of its own rather than one shared capsule.
+            let items = [moreItem, bookmarksItem, fontItem]
+            if #available(iOS 26.0, *) {
+                for item in items { item.sharesBackground = false }
+            }
+            readerItem.rightBarButtonItems = items
         }
 
         if let autoScroll = state.autoScroll {
@@ -203,10 +223,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         toolbar.setItems(items, animated: false)
     }
 
-    /// "Marcos 1", which opens the passage picker; a chapter that carries a
-    /// ribbon shows it after the name, small and in its colour, as a ribbon
-    /// hangs from a printed Bible. The colour is the information here, the one
-    /// exception to the monochrome bars.
+    /// "Marcos 1", which opens the passage picker.
     private func passageItem(_ state: ChromeState, enabled: Bool) -> UIBarButtonItem {
         var config = UIButton.Configuration.plain()
         config.title = state.passageLabel
@@ -215,13 +232,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             var attributes = attributes
             attributes.font = UIFontMetrics(forTextStyle: .body).scaledFont(for: .systemFont(ofSize: 17, weight: .medium))
             return attributes
-        }
-        if let color = state.bookmarkColor.flatMap(ribbonColor) {
-            config.image = UIImage(systemName: "bookmark.fill")
-            config.imagePlacement = .trailing
-            config.imagePadding = 6
-            config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(textStyle: .footnote)
-                .applying(UIImage.SymbolConfiguration(paletteColors: [color]))
         }
         let button = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in
             self?.plugin.send("passage")
@@ -540,64 +550,80 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     }
 }
 
-/// The reader's More menu: what the web header's Material menu holds.
+/// The reader's two menus: the text button's and ⋯. Between them, what the
+/// web header's Material menu holds, but Marcadores, which has its own button.
 enum ReaderMenu {
-    static func make(_ state: ChromeState, send: @escaping (String) -> Void) -> UIMenu {
-        func action(_ title: String, _ symbol: String, _ id: String, keepsOpen: Bool = false) -> UIAction {
-            let action = UIAction(title: title, image: UIImage(systemName: symbol)) { _ in send(id) }
-            if keepsOpen, #available(iOS 16.0, *) {
-                action.attributes.insert(.keepsMenuPresented)
-            }
-            return action
+    private static func action(_ title: String, _ symbol: String, _ id: String, keepsOpen: Bool = false,
+                               send: @escaping (String) -> Void) -> UIAction {
+        let action = UIAction(title: title, image: UIImage(systemName: symbol)) { _ in send(id) }
+        if keepsOpen, #available(iOS 16.0, *) {
+            action.attributes.insert(.keepsMenuPresented)
         }
+        return action
+    }
 
-        var quick: [UIMenuElement] = []
-        if let viewMode = state.viewMode {
-            let paged = viewMode == "paged"
-            quick.append(action(paged ? "Modo de páginas" : "Modo de deslocamento",
-                                paged ? "book" : "arrow.up.and.down.text.horizontal", "view-mode"))
+    /// Choices side by side, rather than a menu within the menu.
+    private static func row(_ children: [UIMenuElement]) -> UIMenu {
+        let row = UIMenu(title: "", options: .displayInline, children: children)
+        if #available(iOS 16.0, *) {
+            row.preferredElementSize = .medium
         }
-        // Kept open: the text resizes behind the menu as people tap.
-        quick.append(action("Diminuir texto", "textformat.size.smaller", "font-decrease", keepsOpen: true))
-        quick.append(action("Aumentar texto", "textformat.size.larger", "font-increase", keepsOpen: true))
-        let quickRow = UIMenu(title: "", options: .displayInline, children: quick)
+        return row
+    }
 
-        // The theme: its three choices side by side, the current one marked,
-        // rather than a menu within the menu. Kept open, so the page changes
-        // behind it.
+    /// Text size, theme, and pages or scrolling. Kept open throughout: the
+    /// page changes behind it as people tap.
+    static func font(_ state: ChromeState, send: @escaping (String) -> Void) -> UIMenu {
+        let size = row([
+            action("Diminuir texto", "textformat.size.smaller", "font-decrease", keepsOpen: true, send: send),
+            action("Aumentar texto", "textformat.size.larger", "font-increase", keepsOpen: true, send: send),
+        ])
+
+        // The theme: its three choices, the current one marked.
         let themes = [("system", "Automático", "circle.lefthalf.filled"),
                       ("light", "Claro", "sun.max"),
                       ("dark", "Escuro", "moon")]
-        let themeRow = UIMenu(title: "", options: .displayInline, children: themes.map { mode, title, symbol in
-            let choice = action(title, symbol, "theme-\(mode)", keepsOpen: true)
+        let theme = row(themes.map { mode, title, symbol in
+            let choice = action(title, symbol, "theme-\(mode)", keepsOpen: true, send: send)
             choice.state = mode == state.themeMode ? .on : .off
             return choice
         })
-        if #available(iOS 16.0, *) {
-            quickRow.preferredElementSize = .small
-            themeRow.preferredElementSize = .medium
-        }
 
-        let autoScroll = action("Deslocamento automático", "arrow.down.circle", "auto-scroll")
+        var sections = [size, theme]
+        // Pages or scrolling, the current one marked; the web app toggles.
+        if let viewMode = state.viewMode {
+            let modes = [("paged", "Páginas", "book"),
+                         ("scrolling", "Deslocamento", "arrow.up.and.down.text.horizontal")]
+            sections.append(row(modes.map { mode, title, symbol in
+                let choice = UIAction(title: title, image: UIImage(systemName: symbol)) { _ in
+                    if mode != viewMode { send("view-mode") }
+                }
+                if #available(iOS 16.0, *) {
+                    choice.attributes.insert(.keepsMenuPresented)
+                }
+                choice.state = mode == viewMode ? .on : .off
+                return choice
+            }))
+        }
+        return UIMenu(children: sections)
+    }
+
+    static func make(_ state: ChromeState, send: @escaping (String) -> Void) -> UIMenu {
+        let autoScroll = action("Deslocamento automático", "arrow.down.circle", "auto-scroll", send: send)
         autoScroll.state = state.autoScrollVisible ? .on : .off
         if !state.autoScrollAvailable {
             autoScroll.attributes.insert(.disabled)
         }
-        // Marcadores first: the one place in the menu that leads into the text.
-        let bookmarks = UIMenu(title: "", options: .displayInline,
-                               children: [action("Marcadores", "bookmark", "bookmarks")])
         var items: [UIMenuElement] = [autoScroll]
         if state.canShare {
-            items.append(action("Partilhar", "square.and.arrow.up", "share"))
+            items.append(action("Partilhar", "square.and.arrow.up", "share", send: send))
         }
         if state.canReport {
-            items.append(action("Reportar erro", "exclamationmark.bubble", "report"))
+            items.append(action("Reportar erro", "exclamationmark.bubble", "report", send: send))
         }
-        items.append(action("Como usar a app", "questionmark.circle", "help"))
-        items.append(action("Política de Privacidade", "hand.raised", "privacy"))
-
-        return UIMenu(children: [bookmarks, quickRow, themeRow,
-                                 UIMenu(title: "", options: .displayInline, children: items)])
+        items.append(action("Como usar a app", "questionmark.circle", "help", send: send))
+        items.append(action("Política de Privacidade", "hand.raised", "privacy", send: send))
+        return UIMenu(children: items)
     }
 }
 
