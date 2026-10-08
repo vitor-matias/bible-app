@@ -1,5 +1,6 @@
 import { Injectable, inject } from "@angular/core"
 import { Subscription } from "rxjs"
+import { passageLabel } from "../utils/passage-label"
 import { BookService } from "./book.service"
 import { BookmarkService } from "./bookmark.service"
 import {
@@ -76,10 +77,16 @@ export class NativeBookmarksService {
     bookId: string,
     chapter: number,
   ): BookmarksSheetState {
-    const book = this.bookService.findBookById(bookId)
-    const chapterLabel = chapter === 0 ? "Introdução" : String(chapter)
+    const book = this.bookService.findBookById(bookId) ?? {
+      id: bookId,
+      shortName: bookId,
+    }
     return {
-      currentLabel: `${book?.shortName ?? bookId} ${chapterLabel}`,
+      // As the passage button names it: "Mateus 11", "Salmo 96 (95)".
+      currentLabel:
+        chapter === 0
+          ? `${book.shortName} Introdução`
+          : passageLabel(book, chapter),
       ribbons: ribbons.map((ribbon) => ({
         color: ribbon.value,
         name:

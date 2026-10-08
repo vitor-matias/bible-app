@@ -100,6 +100,13 @@ describe("NativeBookmarksService", () => {
     })
   })
 
+  it("names a psalm as the passage button does", () => {
+    TestBed.inject(BookService).findBookById = () =>
+      ({ id: "psa", shortName: "Salmos" }) as Book
+    service.open("psa", 96)
+    expect(shown().currentLabel).toBe("Salmo 96 (95)")
+  })
+
   it("names the introduction as the chapter", () => {
     service.open("mat", 0)
     expect(shown().currentLabel).toBe("Mateus Introdução")

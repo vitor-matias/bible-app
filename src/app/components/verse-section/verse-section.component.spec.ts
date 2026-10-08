@@ -147,7 +147,10 @@ describe("VerseSectionComponent", () => {
       )
 
       component.showReturnSnackbar()
-      expect(mockSnackBar.openFromComponent).toHaveBeenCalled()
+      const spy = mockSnackBar.openFromComponent as jasmine.Spy
+      expect(spy.calls.mostRecent().args[1].data.message).toBe(
+        "Voltar para Gn 3,5",
+      )
     })
 
     it("should use verse 1 when verse number is 0", () => {

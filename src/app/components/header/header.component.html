@@ -9,9 +9,6 @@
       </button>
       <mat-menu #headerMenu="matMenu">
         <div class="menu-controls" (click)="$event.stopPropagation()">
-          <button type="button" mat-icon-button (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" [attr.aria-label]="getThemeTooltip()">
-            <mat-icon>{{ getThemeIcon() }}</mat-icon>
-          </button>
           @if (book.id !== 'about') {
           <button type="button" mat-icon-button (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" [attr.aria-label]="getViewModeTooltip()">
             <mat-icon>{{ getViewModeIcon() }}</mat-icon>
@@ -23,6 +20,17 @@
           <button type="button" mat-icon-button (click)="onIncreaseFontSize()" matTooltip="Aumentar texto" aria-label="Aumentar texto">
             <mat-icon>text_increase</mat-icon>
           </button>
+        </div>
+        <!-- The theme's three choices, the current one marked; choosing one
+             leaves the menu open. -->
+        <div class="theme-choices" role="group" aria-label="Tema" (click)="$event.stopPropagation()">
+          @for (choice of themeChoices; track choice.mode) {
+          <button type="button" class="theme-choice" [class.selected]="themeMode === choice.mode"
+            [attr.aria-pressed]="themeMode === choice.mode" (click)="onSelectTheme(choice.mode)">
+            <mat-icon>{{ choice.icon }}</mat-icon>
+            <span>{{ choice.label }}</span>
+          </button>
+          }
         </div>
         <mat-divider></mat-divider>
         <button mat-menu-item (click)="onToggleBookmarkFromMenu(menuTrigger)">
@@ -88,6 +96,11 @@
         <mat-button-toggle #chapterToggle mat-flat-button matTooltip="Escolher capítulo"
           class="bookSelectorButtonContent" (click)="showChapterSelector(); chapterToggle.checked = false">
           {{ chapterLabel }}
+          <!-- The ribbon on this chapter, as it hangs from a printed Bible. -->
+          @if (bookmarkName) {
+          <mat-icon class="chapter-ribbon" [style.color]="currentBookmark?.color" aria-hidden="true">bookmark</mat-icon>
+          <span class="visually-hidden">, marcador {{ bookmarkName.toLocaleLowerCase('pt') }}</span>
+          }
         </mat-button-toggle>
         }
       </mat-button-toggle-group>

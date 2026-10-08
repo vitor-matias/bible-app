@@ -206,19 +206,42 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             next.isEnabled = enabled && state.canGoNext
             items += [previous, next]
         }
-        let passage = UIBarButtonItem(title: state.passageLabel, primaryAction: UIAction { [weak self] _ in
-            self?.plugin.send("passage")
-        })
-        passage.accessibilityLabel = state.passageAccessibilityLabel
-        passage.accessibilityHint = "Escolher livro e capítulo"
-        passage.isEnabled = enabled
-        items += [.flexibleSpace(), passage, .flexibleSpace()]
+        items += [.flexibleSpace(), passageItem(state, enabled: enabled), .flexibleSpace()]
         if state.search {
             let search = barButton("magnifyingglass", "Pesquisar", "search")
             search.isEnabled = enabled
             items.append(search)
         }
         toolbar.setItems(items, animated: false)
+    }
+
+    /// "Marcos 1", which opens the passage picker; a chapter that carries a
+    /// ribbon shows it after the name, small and in its colour, as a ribbon
+    /// hangs from a printed Bible. The colour is the information here, the one
+    /// exception to the monochrome bars.
+    private func passageItem(_ state: ChromeState, enabled: Bool) -> UIBarButtonItem {
+        var config = UIButton.Configuration.plain()
+        config.title = state.passageLabel
+        config.baseForegroundColor = .label
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+            var attributes = attributes
+            attributes.font = UIFontMetrics(forTextStyle: .body).scaledFont(for: .systemFont(ofSize: 17, weight: .medium))
+            return attributes
+        }
+        if let color = state.bookmarkColor.flatMap(ribbonColor) {
+            config.image = UIImage(systemName: "bookmark.fill")
+            config.imagePlacement = .trailing
+            config.imagePadding = 6
+            config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(textStyle: .footnote)
+                .applying(UIImage.SymbolConfiguration(paletteColors: [color]))
+        }
+        let button = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in
+            self?.plugin.send("passage")
+        })
+        button.accessibilityLabel = state.passageAccessibilityLabel
+        button.accessibilityHint = "Escolher livro e capítulo"
+        button.isEnabled = enabled
+        return UIBarButtonItem(customView: button)
     }
 
     /// While auto-scroll's controls show, they replace the toolbar's items:
@@ -591,7 +614,10 @@ enum ReaderMenu {
         if !state.autoScrollAvailable {
             autoScroll.attributes.insert(.disabled)
         }
-        var items: [UIMenuElement] = [action("Marcadores", "bookmark", "bookmarks"), autoScroll]
+        // Marcadores first: the one place in the menu that leads into the text.
+        let bookmarks = UIMenu(title: "", options: .displayInline,
+                               children: [action("Marcadores", "bookmark", "bookmarks")])
+        var items: [UIMenuElement] = [autoScroll]
         if state.canShare {
             items.append(action("Partilhar", "square.and.arrow.up", "share"))
         }
@@ -601,7 +627,8 @@ enum ReaderMenu {
         items.append(action("Como usar a app", "questionmark.circle", "help"))
         items.append(action("Política de Privacidade", "hand.raised", "privacy"))
 
-        return UIMenu(children: [quickRow, themeRow, UIMenu(title: "", options: .displayInline, children: items)])
+        return UIMenu(children: [bookmarks, quickRow, themeRow,
+                                 UIMenu(title: "", options: .displayInline, children: items)])
     }
 }
 

@@ -89,7 +89,8 @@ export class VerseSectionComponent implements OnChanges {
         },
       )
 
-    // iOS: the glass toast is the button, as Books' "Back to Page" is.
+    // The way back is the button, as Books' "Back to Page" is: the iOS glass
+    // toast, or the snackbar elsewhere.
     if (this.nativeChrome.enabled) {
       this.nativeChrome.toast(`Voltar para ${place}`, {
         symbol: "arrow.uturn.backward",
@@ -98,7 +99,7 @@ export class VerseSectionComponent implements OnChanges {
       return
     }
     this.snackBar.openFromComponent(TwoActionSnackComponent, {
-      data: { message: `Voltar para ${place}?`, returnUrl: goBack },
+      data: { message: `Voltar para ${place}`, returnUrl: goBack },
     })
   }
 }

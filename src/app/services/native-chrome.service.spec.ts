@@ -26,6 +26,7 @@ const READER: ReaderChrome = {
   autoScrollAvailable: true,
   canShare: true,
   canReport: true,
+  bookmarkColor: null,
 }
 
 const SEARCH: SearchChrome = { mode: "search", themeMode: "dark", query: "" }

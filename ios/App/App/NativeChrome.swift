@@ -48,6 +48,8 @@ struct ChromeState: Equatable {
     var autoScrollAvailable = false
     var canShare = false
     var canReport = false
+    /// The colour name of the ribbon on this chapter ("red"), if any.
+    var bookmarkColor: String?
 
     var autoScroll: AutoScrollState?
 
@@ -75,6 +77,7 @@ struct ChromeState: Equatable {
         autoScrollAvailable = call.getBool("autoScrollAvailable", false)
         canShare = call.getBool("canShare", false)
         canReport = call.getBool("canReport", false)
+        bookmarkColor = call.getString("bookmarkColor")
         query = call.getString("query", "")
         title = call.getString("title", "")
         autoScroll = call.getObject("autoScroll").map(AutoScrollState.init)

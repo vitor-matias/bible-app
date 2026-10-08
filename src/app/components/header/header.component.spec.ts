@@ -56,9 +56,11 @@ describe("HeaderComponent", () => {
       isOffline$: isOfflineSubject.asObservable(),
       isOffline: false,
     })
-    themeServiceSpy = jasmine.createSpyObj("ThemeService", ["toggleTheme"], {
-      currentMode: "system",
-    })
+    themeServiceSpy = jasmine.createSpyObj(
+      "ThemeService",
+      ["toggleTheme", "setTheme"],
+      { currentMode: "system" },
+    )
     bookmarkServiceSpy = jasmine.createSpyObj("BookmarkService", [
       "getBookmark",
     ])
@@ -268,6 +270,59 @@ describe("HeaderComponent", () => {
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
     })
+  })
+
+  // One icon cycled through the three, hiding which was on.
+  describe("the theme in the menu", () => {
+    const choices = () => {
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+      return Array.from(
+        document.querySelectorAll<HTMLButtonElement>(".theme-choice"),
+      )
+    }
+
+    it("offers its three choices, the current one marked", () => {
+      const buttons = choices()
+      expect(
+        buttons.map((button) => button.querySelector("span")?.textContent),
+      ).toEqual(["Automático", "Claro", "Escuro"])
+      expect(
+        buttons.map((button) => button.getAttribute("aria-pressed")),
+      ).toEqual(["true", "false", "false"])
+    })
+
+    it("sets the chosen one and keeps the menu open", () => {
+      choices()[2].click()
+
+      expect(themeServiceSpy.setTheme).toHaveBeenCalledWith("dark")
+      expect(
+        fixture.debugElement
+          .query(By.directive(MatMenuTrigger))
+          .injector.get(MatMenuTrigger).menuOpen,
+      ).toBeTrue()
+    })
+  })
+
+  // As a ribbon hangs from the page of a printed Bible.
+  it("shows the ribbon on the chapter being read", () => {
+    bookmarkServiceSpy.getBookmark.and.returnValue({
+      bookId: "gen",
+      chapter: 3,
+      color: "red",
+      timestamp: 1,
+    })
+    fixture.componentRef.setInput("chapterNumber", 3)
+    fixture.detectChanges()
+
+    const ribbon = fixture.nativeElement.querySelector(
+      ".chapter-ribbon",
+    ) as HTMLElement
+    expect(ribbon.style.color).toBe("red")
+    expect(ribbon.parentElement?.textContent).toContain(", marcador vermelho")
   })
 
   it("should open the onboarding wizard from the menu", () => {
@@ -704,7 +759,29 @@ describe("HeaderComponent with the iOS native bars", () => {
       autoScrollAvailable: true,
       canShare: true,
       canReport: true,
+      bookmarkColor: null,
     })
+  })
+
+  it("shows the chapter's ribbon on the passage button", () => {
+    const bookmarks = TestBed.inject(
+      BookmarkService,
+    ) as jasmine.SpyObj<BookmarkService>
+    bookmarks.getBookmark.and.returnValue({
+      bookId: "gen",
+      chapter: 4,
+      color: "red",
+      timestamp: 1,
+    })
+    fixture.componentRef.setInput("chapterNumber", 4)
+    fixture.detectChanges()
+
+    expect(lastState()).toEqual(
+      jasmine.objectContaining({
+        bookmarkColor: "red",
+        passageAccessibilityLabel: "Livro do Génesis 4, marcador vermelho",
+      }),
+    )
   })
 
   it("has no arrows, chapter or view toggle on the home page", () => {

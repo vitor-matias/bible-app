@@ -37,6 +37,7 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
+import { RIBBON_COLORS } from "../../services/bookmark-ribbons.service"
 import { NativeBookmarksService } from "../../services/native-bookmarks.service"
 import {
   type NativeChromeAction,
@@ -179,6 +180,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.bookmarks = bookmarks
         this.updateBookmarkState()
         this.cdr.detectChanges()
+        this.syncNativeChrome()
       })
 
     if (this.native) {
@@ -298,29 +300,34 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.toggleViewMode.emit()
   }
 
-  getThemeIcon(): string {
-    const mode = this.themeService.currentMode
-    if (mode === "system") return "brightness_auto"
-    return mode === "light" ? "light_mode" : "dark_mode"
+  /**
+   * The theme's three choices, side by side in the menu with the current one
+   * marked: one icon that cycled through them hid which was on.
+   */
+  readonly themeChoices: readonly {
+    mode: ThemeMode
+    label: string
+    icon: string
+  }[] = [
+    { mode: "system", label: "Automático", icon: "brightness_auto" },
+    { mode: "light", label: "Claro", icon: "light_mode" },
+    { mode: "dark", label: "Escuro", icon: "dark_mode" },
+  ]
+
+  get themeMode(): ThemeMode {
+    return this.themeService.currentMode
   }
 
-  getThemeTooltip(): string {
-    const mode = this.themeService.currentMode
-    if (mode === "system") return "Tema do Sistema"
-    return mode === "light" ? "Modo Claro" : "Modo Escuro"
+  /** The menu stays open, so the page changes theme behind it. */
+  onSelectTheme(mode: ThemeMode): void {
+    this.themeService.setTheme(mode)
+    this.cdr.detectChanges()
   }
 
-  isLightTheme(): boolean {
-    return this.themeService.currentMode === "light"
-  }
-
-  toggleTheme(): void {
-    this.themeService.toggleTheme()
-  }
-
-  onToggleTheme(event?: Event): void {
-    event?.stopPropagation()
-    this.toggleTheme()
+  /** The ribbon on the chapter being read, by its spoken name ("Vermelho"). */
+  get bookmarkName(): string | undefined {
+    const color = this.currentBookmark?.color
+    return RIBBON_COLORS.find((ribbon) => ribbon.value === color)?.spoken
   }
 
   getViewModeIcon(): string {
@@ -411,10 +418,15 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         : this.book.id === PSALMS_BOOK_ID && this.chapterNumber > 0
           ? passageLabel(this.book, this.chapterNumber)
           : `${this.bookLabel} ${this.chapterLabel}`,
-      passageAccessibilityLabel:
+      passageAccessibilityLabel: [
         hasChapters && this.chapterNumber > 0
           ? passageSpokenLabel(this.book, this.chapterNumber)
           : this.headingLabel,
+        ...(this.bookmarkName
+          ? [`marcador ${this.bookmarkName.toLocaleLowerCase("pt")}`]
+          : []),
+      ].join(", "),
+      bookmarkColor: this.currentBookmark?.color ?? null,
       chapterNavigation: !isAbout,
       canGoPrevious: this.canGoPrevious,
       canGoNext: this.canGoNext,

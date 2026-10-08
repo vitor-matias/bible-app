@@ -163,6 +163,54 @@ mat-icon {
   color: inherit;
 }
 
+/* The theme: three choices side by side, the current one on a tonal fill. */
+.theme-choices {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px 12px;
+}
+
+.theme-choice {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 4px 6px;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.theme-choice:hover {
+  background-color: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.theme-choice.selected {
+  background-color: color-mix(in srgb, currentColor 16%, transparent);
+  font-weight: 600;
+}
+
+.theme-choice:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+
+/* The ribbon on the chapter being read, small after its number. */
+.chapter-ribbon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  vertical-align: -3px;
+  font-variation-settings: "FILL" 1;
+}
+
 ::ng-deep .mat-mdc-menu-content .privacy-label {
   display: flex;
   align-items: center;
