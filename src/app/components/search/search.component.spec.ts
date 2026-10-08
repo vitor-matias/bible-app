@@ -253,6 +253,81 @@ describe("SearchComponent", () => {
       expect(apiService.search).toHaveBeenCalledOnceWith("Xy 3", 1)
     }))
 
+    // The search by meaning waits for the pause; what costs nothing doesn't.
+    describe("while the search waits for the pause", () => {
+      const john = {
+        id: "jhn",
+        name: "Evangelho segundo São João",
+        shortName: "João",
+        abrv: "Jo",
+      } as Book
+      const host = () => fixture.nativeElement as HTMLElement
+
+      it("offers a typed reference at once, and opens it", fakeAsync(() => {
+        referenceService.extract.and.returnValue([
+          { book: "Jo", chapter: 3, verses: [{ type: "single", verse: 16 }] },
+        ] as unknown as ReturnType<BibleReferenceService["extract"]>)
+        bookService.findBook.and.returnValue(john)
+        apiService.getVerse.and.returnValue(of({} as Verse))
+
+        component.onTyping("Jo 3,16")
+        const offer = host().querySelector(
+          ".passage-suggestion",
+        ) as HTMLButtonElement
+        expect(offer.textContent).toContain("Abrir João 3,16")
+        expect(component.pendingSearch).toBeFalse()
+
+        offer.click()
+        tick()
+        expect(router.navigate).toHaveBeenCalledWith(["/", "jhn", 3], {
+          queryParams: { verseStart: 16 },
+        })
+        tick(TYPING_PAUSE_MS)
+        expect(apiService.search).not.toHaveBeenCalled()
+      }))
+
+      it("offers a book by its name", () => {
+        bookService.findBook.and.returnValue(john)
+        component.onTyping("João")
+        expect(component.passageSuggestion?.label).toBe(
+          "Abrir Evangelho segundo São João",
+        )
+      })
+
+      it("offers the choice for a psalm the liturgy numbers otherwise", () => {
+        referenceService.extract.and.returnValue([
+          { book: "Sl", chapter: 94 },
+        ] as unknown as ReturnType<BibleReferenceService["extract"]>)
+        bookService.findBook.and.returnValue({
+          id: "psa",
+          name: "Livro dos Salmos",
+          shortName: "Salmos",
+          abrv: "Sl",
+        } as Book)
+        component.onTyping("Sl 94")
+        expect(component.passageSuggestion?.label).toBe("Escolher o Salmo 94")
+      })
+
+      // Before, nothing showed for the whole pause: it read as broken.
+      it("says it is searching until the search runs", fakeAsync(() => {
+        component.onTyping("pastor")
+        expect(component.passageSuggestion).toBeNull()
+        expect(host().textContent).toContain("A procurar…")
+
+        tick(TYPING_PAUSE_MS)
+        expect(apiService.search).toHaveBeenCalledOnceWith("pastor", 1)
+        expect(component.pendingSearch).toBeFalse()
+      }))
+
+      it("waits for nothing once the text is cleared", () => {
+        component.onTyping("pastor")
+        component.onTyping("")
+        expect(component.pendingSearch).toBeFalse()
+        expect(component.passageSuggestion).toBeNull()
+        expect(host().textContent).toContain("Por exemplo: Jo 3,16")
+      })
+    })
+
     describe("with results", () => {
       let field: HTMLInputElement
 

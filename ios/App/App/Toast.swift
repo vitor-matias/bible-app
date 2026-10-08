@@ -15,6 +15,8 @@ final class ToastView: UIView {
     private let background: UIVisualEffectView
     private var hideWork: DispatchWorkItem?
     private var onTap: (() -> Void)?
+    /// Called once the toast is going away (timed, closed, or tapped).
+    var onHide: (() -> Void)?
     /// Trailing, top and bottom: the buttons' padding stands in for these.
     private var rowMargins: [NSLayoutConstraint] = []
 
@@ -158,6 +160,7 @@ final class ToastView: UIView {
         hideWork = nil
         onTap = nil
         guard !isHidden else { return }
+        onHide?()
         UIView.animate(withDuration: 0.25, delay: 0, options: [.beginFromCurrentState]) {
             self.alpha = 0
         } completion: { _ in

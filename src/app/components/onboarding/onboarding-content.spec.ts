@@ -39,6 +39,14 @@ describe("nativeOnboardingSteps", () => {
     expect(autoScroll).toContain("menu ⋯")
   })
 
+  it("names the reading modes in plain words", () => {
+    const modes = step("customize")?.features.find(
+      (feature) => feature.symbol === sfSymbol("auto_stories"),
+    )?.text
+    expect(modes).toContain("texto contínuo")
+    expect(modes).toContain("página a página")
+  })
+
   // There a tap on the text shows or hides the bars; only the asterisk opens notes.
   it("teaches the asterisk for notes", () => {
     const notes = step("navigate")?.features.find((feature) =>

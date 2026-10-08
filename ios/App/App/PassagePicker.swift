@@ -92,10 +92,15 @@ final class PassagePickerController: UINavigationController {
             pushViewController(books.chapterList(for: current), animated: false)
         }
 
-        // Full height only: 73 books and up to 150 chapters are long lists, and
-        // half a screen showed a handful of rows at a time.
+        // Half height or full, as the footnotes: the text stays in view, and
+        // the long lists (73 books, up to 150 chapters) pull up to full
+        // height, or grow there as they scroll.
         modalPresentationStyle = .pageSheet
-        sheetPresentationController?.detents = [.large()]
+        if let sheet = sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+        }
     }
 
     @available(*, unavailable)

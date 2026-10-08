@@ -1,11 +1,13 @@
 import { ElementRef, Renderer2 } from "@angular/core"
 import { PreferencesService } from "../services/preferences.service"
+import type { SystemTextSizeService } from "../services/system-text-size.service"
 import { UnifiedGesturesDirective } from "./unified-gesture.directive"
 
 describe("UnifiedGesturesDirective", () => {
   let element: HTMLElement & { name?: string }
   let rendererSpy: jasmine.SpyObj<Renderer2>
   let preferencesServiceSpy: jasmine.SpyObj<PreferencesService>
+  let systemTextSize: jasmine.SpyObj<SystemTextSizeService>
   let directive: UnifiedGesturesDirective
 
   beforeEach(() => {
@@ -26,10 +28,14 @@ describe("UnifiedGesturesDirective", () => {
       fontSize: "100",
     } as CSSStyleDeclaration)
 
+    systemTextSize = jasmine.createSpyObj("SystemTextSizeService", ["percent"])
+    systemTextSize.percent.and.returnValue(null)
+
     directive = new UnifiedGesturesDirective(
       new ElementRef(element),
       rendererSpy,
       preferencesServiceSpy,
+      systemTextSize,
     )
     directive.fontSizeContext = "reader"
   })
@@ -127,6 +133,52 @@ describe("UnifiedGesturesDirective", () => {
         "font-size",
         "105%",
       )
+    })
+
+    // The iOS app, until a size is chosen in it: the iPhone's text size.
+    describe("with no size chosen in the app", () => {
+      it("starts from the system's, to the nearest step, without saving it", () => {
+        systemTextSize.percent.and.returnValue(123.5)
+        directive.ngOnInit()
+
+        expect(rendererSpy.setStyle).toHaveBeenCalledWith(
+          element,
+          "font-size",
+          "125%",
+        )
+        expect(preferencesServiceSpy.setFontSize).not.toHaveBeenCalled()
+
+        // Steps go on from there.
+        directive.increaseFontSize()
+        expect(rendererSpy.setStyle).toHaveBeenCalledWith(
+          element,
+          "font-size",
+          "130%",
+        )
+      })
+
+      it("keeps the largest system sizes within the reader's range", () => {
+        systemTextSize.percent.and.returnValue(310)
+        directive.ngOnInit()
+        expect(rendererSpy.setStyle).toHaveBeenCalledWith(
+          element,
+          "font-size",
+          "180%",
+        )
+      })
+
+      it("gives way to a size chosen in the app", () => {
+        systemTextSize.percent.and.returnValue(124)
+        preferencesServiceSpy.getFontSize.and.returnValue(90)
+        directive.ngOnInit()
+
+        expect(rendererSpy.setStyle).toHaveBeenCalledWith(
+          element,
+          "font-size",
+          "90%",
+        )
+        expect(systemTextSize.percent).not.toHaveBeenCalled()
+      })
     })
   })
 

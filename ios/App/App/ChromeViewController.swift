@@ -101,8 +101,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         reportInsets()
-        // Just above whatever is at the bottom: the toolbar, the search field.
-        toastBottom.constant = -(insets.bottom + 12)
+        placeToast()
     }
 
     // MARK: - State
@@ -177,6 +176,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             animateCollapse(animated: animated)
         }
 
+        // Auto-scroll is read hands-free: the screen mustn't lock under it.
+        UIApplication.shared.isIdleTimerDisabled = next.mode == .reader && next.autoScroll?.playing == true
+
         setNeedsStatusBarAppearanceUpdate()
         view.layoutIfNeeded()
     }
@@ -193,7 +195,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// Text size, theme and page or scroll, to the left of Marcadores.
     private lazy var fontItem: UIBarButtonItem = {
         let item = UIBarButtonItem(image: UIImage(systemName: "textformat.size"), menu: nil)
-        item.accessibilityLabel = "Texto e tema"
+        item.accessibilityLabel = "Texto e aparência"
         return item
     }()
 
@@ -213,6 +215,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         } else {
             bookmarksItem.image = UIImage(systemName: "bookmark")
         }
+        bookmarksItem.accessibilityValue = state.bookmarkName.map { "marcador \($0) neste capítulo" }
         fontItem.isEnabled = enabled
         if readerItem.rightBarButtonItems?.first !== moreItem {
             // Rightmost first: text size, Marcadores, then ⋯, each in a glass
@@ -324,7 +327,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         guard shownBars.contains(ObjectIdentifier(bar)) else { return 0 }
         // Auto-scroll's pause stays within reach while the bars are hidden for
         // reading, but not over a panel, as the other bars don't.
-        if bar === autoScrollBar { return state.inert ? 0 : 1 }
+        if bar === autoScrollBar { return state.inert || toastShowing ? 0 : 1 }
         return collapsed && bar !== searchField ? 0 : 1
     }
 
@@ -346,6 +349,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             self.toolbar.transform = slide ? CGAffineTransform(translationX: 0, y: self.insets.bottom) : .identity
             self.autoScrollBar.transform = self.autoScrollBarOffset
             for bar in [self.topBar, self.toolbar, self.autoScrollBar] { bar.alpha = self.targetAlpha(bar) }
+            // A toast in auto-scroll's slot moves with it.
+            self.placeToast()
+            self.view.layoutIfNeeded()
         }
         if animated {
             UIView.animate(withDuration: 0.4, delay: 0, usingSpringWithDamping: 1, initialSpringVelocity: 0,
@@ -398,12 +404,40 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     // MARK: - Toast
 
+    /// A toast is up: it has auto-scroll's slot, whose bar steps aside.
+    private var toastShowing = false
+
     /// As a `button`, the toast is one (led by `symbol`), and tapping it
     /// sends toast-action.
     func showToast(_ message: String, button: Bool = false, symbol: String? = nil) {
         view.layoutIfNeeded()
         let onTap: (() -> Void)? = button ? { [weak self] in self?.plugin.send("toast-action") } : nil
+        toast.onHide = { [weak self] in self?.setToastShowing(false) }
         toast.show(message, symbol: symbol, onTap: onTap)
+        toast.layoutIfNeeded()
+        setToastShowing(true)
+    }
+
+    /// One glass layer above the toolbar, not two: while a toast shows, it
+    /// takes auto-scroll's slot and auto-scroll's bar fades out of it.
+    private func setToastShowing(_ showing: Bool) {
+        toastShowing = showing
+        placeToast()
+        view.layoutIfNeeded()
+        UIView.animate(withDuration: 0.25, delay: 0, options: [.beginFromCurrentState]) {
+            self.autoScrollBar.alpha = self.targetAlpha(self.autoScrollBar)
+        }
+    }
+
+    /// Centred on auto-scroll's bar while it shows; otherwise just above
+    /// whatever is at the bottom: the toolbar, the search field.
+    private func placeToast() {
+        if toastShowing && shownBars.contains(ObjectIdentifier(autoScrollBar)) && !state.inert {
+            let slot = autoScrollBar.frame
+            toastBottom.constant = -(view.bounds.height - slot.midY - toast.bounds.height / 2)
+        } else {
+            toastBottom.constant = -(insets.bottom + 12)
+        }
     }
 
     @objc private func voiceOverChanged() {
@@ -628,8 +662,8 @@ enum ReaderMenu {
         var sections = [size, theme]
         // Pages or scrolling, the current one marked; the web app toggles.
         if let viewMode = state.viewMode {
-            let modes = [("paged", "Páginas", "book"),
-                         ("scrolling", "Deslocamento", "arrow.up.and.down.text.horizontal")]
+            let modes = [("paged", "Página a página", "book"),
+                         ("scrolling", "Texto contínuo", "arrow.up.and.down.text.horizontal")]
             sections.append(row(modes.map { mode, title, symbol in
                 let choice = UIAction(title: title, image: UIImage(systemName: symbol)) { _ in
                     if mode != viewMode { send("view-mode") }
@@ -641,7 +675,7 @@ enum ReaderMenu {
                 return choice
             }))
         }
-        return UIMenu(children: sections)
+        return UIMenu(title: "Texto e aparência", children: sections)
     }
 
     static func make(_ state: ChromeState, send: @escaping (String) -> Void) -> UIMenu {

@@ -818,6 +818,21 @@ describe("VerseComponent", () => {
     const asterisk = () =>
       fixture.nativeElement.querySelector(".footnoteIndicator") as HTMLElement
 
+    // Before, it was in the text's colour, and read as a stray mark.
+    it("shows the asterisk in the text's accent, as a link", () => {
+      render()
+      const accent = getComputedStyle(document.documentElement)
+        .getPropertyValue("--text-secondary")
+        .trim()
+      const probe = document.createElement("span")
+      probe.style.color = accent
+      document.body.appendChild(probe)
+      expect(getComputedStyle(asterisk()).color).toBe(
+        getComputedStyle(probe).color,
+      )
+      probe.remove()
+    })
+
     it("opens the notes from the text on the web", () => {
       render()
       text().click()

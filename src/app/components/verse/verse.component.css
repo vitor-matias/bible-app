@@ -83,9 +83,13 @@ h3:not(:first-child) {
   font-weight: normal;
 }
 
+/* The asterisk opens the verse's notes: in the text's accent, as a link is,
+   so it reads as something to tap rather than a stray mark. */
 .footnoteIndicator {
   vertical-align: top;
   font-size: 65%;
+  color: var(--text-secondary);
+  cursor: pointer;
 }
 
 .quoteLineWrapper {

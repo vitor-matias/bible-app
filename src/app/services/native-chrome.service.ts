@@ -64,8 +64,10 @@ export interface ReaderChrome {
   autoScrollAvailable: boolean
   canShare: boolean
   canReport: boolean
-  /** The colour of the ribbon on this chapter, shown on the passage button. */
+  /** The colour of the ribbon on this chapter, shown on the bookmark button. */
   bookmarkColor: string | null
+  /** Its spoken name ("vermelho"), for VoiceOver. */
+  bookmarkName: string | null
 }
 
 /** The search page's bars: Back on top, the search field at the bottom. */

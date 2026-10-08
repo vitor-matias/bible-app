@@ -139,8 +139,13 @@
   padding-bottom: calc(20px + var(--app-chrome-bottom));
 }
 
+/* Near the top, not mid-page: the keyboard and the field above it cover the
+   lower half while people type. */
 :host-context(.native-chrome) .empty-state {
   margin-top: var(--app-chrome-top);
+  justify-content: flex-start;
+  height: auto;
+  padding-top: 48px;
 }
 
 /* iOS: status text is neutral grey, as in the system's empty states; the red
@@ -229,4 +234,44 @@
 
 :host-context(.native-chrome) .empty-state .results-hint {
   margin: 8px 0 0;
+}
+
+/* A typed reference, offered at once above everything else. */
+.passage-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  width: calc(100% - 40px);
+  margin: 20px 20px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--card-background);
+  color: var(--text-color);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.passage-suggestion-label {
+  flex: 1;
+}
+
+/* What follows it needs no space of its own above. */
+.has-suggestion .results-section {
+  padding-top: 12px;
+}
+
+:host-context(.native-chrome) .passage-suggestion {
+  margin-top: calc(20px + var(--app-chrome-top));
+}
+
+:host-context(.native-chrome) .has-suggestion .results-section {
+  padding-top: 12px;
+}
+
+:host-context(.native-chrome) .has-suggestion .empty-state {
+  margin-top: 0;
 }

@@ -107,7 +107,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
       },
       {
         icon: "auto_stories",
-        text: "Alterne entre o deslocamento contínuo e o modo de páginas, como num livro.",
+        text: "Alterne entre o texto contínuo e a leitura página a página, como num livro.",
       },
       {
         icon: "text_increase",
