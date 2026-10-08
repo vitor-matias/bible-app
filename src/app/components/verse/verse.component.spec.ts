@@ -819,7 +819,7 @@ describe("VerseComponent", () => {
       fixture.nativeElement.querySelector(".footnoteIndicator") as HTMLElement
 
     // Before, it was in the text's colour, and read as a stray mark.
-    it("shows the asterisk in the text's accent, as a link", () => {
+    it("shows the asterisk underlined in the text's accent, as a link", () => {
       render()
       const accent = getComputedStyle(document.documentElement)
         .getPropertyValue("--text-secondary")
@@ -830,6 +830,7 @@ describe("VerseComponent", () => {
       expect(getComputedStyle(asterisk()).color).toBe(
         getComputedStyle(probe).color,
       )
+      expect(getComputedStyle(asterisk()).textDecorationLine).toBe("underline")
       probe.remove()
     })
 
