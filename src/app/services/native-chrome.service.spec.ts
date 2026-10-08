@@ -11,6 +11,7 @@ import {
   type ReaderChrome,
   type SearchChrome,
   WEB_BARS,
+  WEB_BARS_QUERY,
 } from "./native-chrome.service"
 import { WebChromeBars } from "./web-chrome-bars.service"
 
@@ -754,5 +755,42 @@ describe("NativeChromeService", () => {
           .toBe(getComputedStyle(host).getPropertyValue("--text-color").trim())
       }
     })
+  })
+})
+
+describe("WEB_BARS", () => {
+  /** A document whose window is phone-sized or not, or has no window. */
+  function wanted(
+    platform: "web" | "android",
+    view: { phone: boolean } | null,
+  ): boolean {
+    spyOn(Capacitor, "getPlatform").and.returnValue(platform)
+    const defaultView = view && {
+      matchMedia: (query: string) => ({
+        matches: query === WEB_BARS_QUERY && view.phone,
+      }),
+    }
+    // The spec default (testing-defaults.spec.ts) would answer instead.
+    TestBed.resetTestingModule()
+    TestBed.configureTestingModule({
+      providers: [{ provide: DOCUMENT, useValue: { defaultView } }],
+    })
+    return TestBed.inject(WEB_BARS)
+  }
+
+  it("draws the bars in a phone's browser", () => {
+    expect(wanted("web", { phone: true })).toBeTrue()
+  })
+
+  it("keeps the web header on wider screens", () => {
+    expect(wanted("web", { phone: false })).toBeFalse()
+  })
+
+  it("draws the bars in the Android app at any width", () => {
+    expect(wanted("android", { phone: false })).toBeTrue()
+  })
+
+  it("draws nothing while server-rendering", () => {
+    expect(wanted("web", null)).toBeFalse()
   })
 })

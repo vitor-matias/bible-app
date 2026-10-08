@@ -7,6 +7,7 @@
   --bar-height: 56px;
   --bar-gap: 12px;
   --keyboard-height: 0px;
+  --motion: 0.35s;
   --elevation: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 8px 3px rgba(0, 0, 0, 0.15);
 }
 
@@ -30,8 +31,8 @@
 .search-field {
   position: fixed;
   transition:
-    transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1),
-    opacity 0.35s ease;
+    transform var(--motion) cubic-bezier(0.2, 0.9, 0.3, 1),
+    opacity var(--motion) ease;
 }
 
 .top-bar {
@@ -53,9 +54,7 @@
 .bar-title {
   flex: 1;
   min-width: 0;
-  margin: 0;
   overflow: hidden;
-  font: inherit;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -116,6 +115,7 @@
   height: var(--bar-height);
   padding: 0 4px;
   box-sizing: border-box;
+  border-radius: calc(var(--bar-height) / 2);
 }
 
 .speed-label {
@@ -138,6 +138,7 @@
   box-sizing: border-box;
   height: var(--bar-height);
   padding: 0 4px 0 16px;
+  border-radius: calc(var(--bar-height) / 2);
 }
 
 .search-field input {
@@ -227,11 +228,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .top-bar,
-  .toolbar,
-  .auto-scroll-bar,
-  .search-field {
-    transition: none;
+  :host {
+    --motion: 0s;
   }
 }
 
@@ -241,6 +239,9 @@
 :host(.look-web) {
   --brand: #543d27;
   --brand-on: antiquewhite;
+  /* Material's own variables, so its disabled colour still wins. */
+  --mat-icon-button-icon-color: var(--brand);
+  --mat-icon-button-disabled-icon-color: color-mix(in srgb, var(--brand) 35%, transparent);
   color: var(--text-color);
 }
 
@@ -253,13 +254,6 @@
   background-color: var(--brand-on);
   color: var(--brand);
   box-shadow: var(--elevation);
-}
-
-:host(.look-web) .bar-button,
-:host(.look-web) .arrows button,
-:host(.look-web) .speed button {
-  color: var(--brand);
-  --mat-icon-button-disabled-icon-color: color-mix(in srgb, var(--brand) 35%, transparent);
 }
 
 :host(.look-web) .top-bar .bar-button {
@@ -302,11 +296,6 @@
   border-radius: 50%;
 }
 
-:host(.look-web) .auto-scroll-bar,
-:host(.look-web) .search-field {
-  border-radius: calc(var(--bar-height) / 2);
-}
-
 :host(.look-web) .search-field input::placeholder {
   color: color-mix(in srgb, var(--brand) 60%, transparent);
 }
@@ -316,7 +305,8 @@
    and the passage, and search as its FAB. Colours: the theme's M3 roles. */
 :host(.look-android) {
   --bar-height: 64px;
-  --elevation: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 8px 3px rgba(0, 0, 0, 0.15);
+  --mat-icon-button-icon-color: var(--m3-on-surface-variant);
+  --mat-icon-button-disabled-icon-color: color-mix(in srgb, var(--m3-on-surface) 38%, transparent);
   color: var(--m3-on-surface);
 }
 
@@ -324,10 +314,6 @@
   padding-left: 4px;
   padding-right: 4px;
   background-color: var(--m3-surface-container);
-}
-
-:host(.look-android) .bar-button {
-  color: var(--m3-on-surface-variant);
 }
 
 :host(.look-android) .bar-title {
@@ -352,11 +338,6 @@
 :host(.look-android) .reading-bar {
   min-width: 0;
   gap: 4px;
-}
-
-:host(.look-android) .reading-bar button {
-  color: var(--m3-on-surface-variant);
-  --mat-icon-button-disabled-icon-color: color-mix(in srgb, var(--m3-on-surface) 38%, transparent);
 }
 
 :host(.look-android) .passage {
@@ -388,17 +369,12 @@
   transform: translate(-50%, calc(var(--bar-height) + var(--bar-gap)));
 }
 
-:host(.look-android) .auto-scroll-bar button {
-  color: var(--m3-on-surface-variant);
-}
-
-:host(.look-android) .auto-scroll-bar .play {
+:host(.look-android) .play {
   background-color: var(--m3-primary-container);
   color: var(--m3-on-primary-container);
 }
 
 :host(.look-android) .search-field {
-  border-radius: calc(var(--bar-height) / 2);
   background-color: var(--m3-surface-container-high);
   color: var(--m3-on-surface);
   box-shadow: var(--elevation);

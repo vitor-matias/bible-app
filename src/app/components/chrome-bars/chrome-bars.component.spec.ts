@@ -98,6 +98,14 @@ describe("ChromeBarsComponent", () => {
       expect(button("Pesquisar")).toBeTruthy()
     })
 
+    // The bars' colours outranked Material's own for a disabled button.
+    it("dim an arrow that leads nowhere", async () => {
+      await show(shown())
+      expect(getComputedStyle(button("Capítulo anterior")).color).not.toBe(
+        getComputedStyle(button("Capítulo seguinte")).color,
+      )
+    })
+
     it("sends the taps as the iOS shell does", async () => {
       await show(shown())
       click(button("Capítulo seguinte"))
@@ -245,7 +253,19 @@ describe("ChromeBarsComponent", () => {
   })
 
   describe("the search page's", () => {
-    beforeEach(() => create())
+    /** The visible part of the window, which the keyboard shortens. */
+    let viewport: EventTarget & { height: number; offsetTop: number }
+
+    beforeEach(() => {
+      viewport = Object.assign(new EventTarget(), {
+        height: window.innerHeight,
+        offsetTop: 0,
+      })
+      spyOnProperty(window, "visualViewport").and.returnValue(
+        viewport as unknown as VisualViewport,
+      )
+      create()
+    })
 
     const field = () =>
       host().querySelector('input[type="search"]') as HTMLInputElement
@@ -267,6 +287,28 @@ describe("ChromeBarsComponent", () => {
 
       click(button("Voltar"))
       expect(sent).toEqual([{ id: "back" }])
+    })
+
+    // Results were left padded for a keyboard already put away.
+    it("tells the page the space the field covers as the keyboard comes and goes", async () => {
+      const heard: ChromeInsets[] = []
+      await bars.addListener("insets", (insets) => heard.push(insets))
+      const closed = await show({
+        mode: "search",
+        themeMode: "system",
+        query: "",
+        inert: false,
+        collapsed: false,
+        autoScroll: null,
+      })
+
+      viewport.height = window.innerHeight - 300
+      viewport.dispatchEvent(new Event("resize"))
+      expect(heard.at(-1)?.bottom).toBe(closed.bottom + 300)
+
+      viewport.height = window.innerHeight
+      viewport.dispatchEvent(new Event("resize"))
+      expect(heard.at(-1)?.bottom).toBe(closed.bottom)
     })
 
     it("sends what is typed, and searches on Return", async () => {
@@ -305,6 +347,8 @@ describe("ChromeBarsComponent", () => {
     expect(host().querySelector(".bar-title")?.textContent?.trim()).toBe(
       "Livros da Bíblia",
     )
+    // The page keeps its own h1; a second one would repeat it.
+    expect(host().querySelector("h1")).toBeNull()
     click(button("Pesquisar"))
     expect(sent).toEqual([{ id: "search" }])
   })
