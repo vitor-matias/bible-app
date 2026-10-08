@@ -1201,6 +1201,7 @@ describe("SearchComponent in the iOS app", () => {
   let actions: Subject<NativeChromeAction>
   let nativeChrome: {
     enabled: boolean
+    bars: boolean
     actions$: Subject<NativeChromeAction>
     show: jasmine.Spy
     hide: jasmine.Spy
@@ -1213,6 +1214,7 @@ describe("SearchComponent in the iOS app", () => {
     actions = new Subject()
     nativeChrome = {
       enabled: true,
+      bars: true,
       actions$: actions,
       show: jasmine.createSpy("show"),
       hide: jasmine.createSpy("hide"),
@@ -1323,7 +1325,7 @@ describe("SearchComponent in the iOS app", () => {
   })
 
   it("lists the results as an iOS grouped list, matches in bold", async () => {
-    document.body.classList.add("native-chrome")
+    document.body.classList.add("native-chrome", "platform-ios")
     try {
       apiService.search.and.returnValue(
         of({
@@ -1355,7 +1357,7 @@ describe("SearchComponent in the iOS app", () => {
       expect(getComputedStyle(match).fontWeight).toBe("700")
       expect(getComputedStyle(match).backgroundColor).toBe("rgba(0, 0, 0, 0)")
     } finally {
-      document.body.classList.remove("native-chrome")
+      document.body.classList.remove("native-chrome", "platform-ios")
     }
   })
 
@@ -1371,7 +1373,7 @@ describe("SearchComponent in the iOS app", () => {
 
   // The red is the scripture's (verse numbers, references), not status text's.
   it("shows the empty state in neutral grey, not the scripture red", () => {
-    document.body.classList.add("native-chrome")
+    document.body.classList.add("native-chrome", "platform-ios")
     try {
       const empty = (fixture.nativeElement as HTMLElement).querySelector(
         ".empty-state",
@@ -1384,7 +1386,7 @@ describe("SearchComponent in the iOS app", () => {
 
       expect(getComputedStyle(empty).color).not.toBe(red)
     } finally {
-      document.body.classList.remove("native-chrome")
+      document.body.classList.remove("native-chrome", "platform-ios")
     }
   })
 })

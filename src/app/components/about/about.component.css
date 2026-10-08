@@ -166,7 +166,7 @@
 
 /* iOS: the page's main action, as the app's main buttons are there: the text
    colour inverted, no accent (ChromeViewController.selectionFill). */
-:host-context(.native-chrome) .read-online a {
+:host-context(.platform-ios) .read-online a {
   border: none;
   background-color: var(--text-color);
   color: var(--background-color) !important;

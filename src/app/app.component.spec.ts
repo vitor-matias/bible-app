@@ -10,6 +10,7 @@ import { Capacitor, type PluginListenerHandle } from "@capacitor/core"
 import { AppComponent } from "./app.component"
 import { AnalyticsService } from "./services/analytics.service"
 import { BackButtonService } from "./services/back-button.service"
+import { NativeChromeService } from "./services/native-chrome.service"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
@@ -373,5 +374,60 @@ describe("AppComponent", () => {
       openUrl("https://biblia.capuchinhos.org/?ref=x")
       expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/?ref=x")
     })
+  })
+})
+
+// The app's bars: drawn natively in the iOS app, by the page elsewhere.
+describe("AppComponent and the app's bars", () => {
+  function render(chrome: { bars: boolean; enabled: boolean }): HTMLElement {
+    TestBed.configureTestingModule({
+      imports: [AppComponent],
+      providers: [
+        { provide: NativeChromeService, useValue: chrome },
+        {
+          provide: NativeShellService,
+          useValue: jasmine.createSpyObj("NativeShellService", [
+            "init",
+            "setNavigationBarTheme",
+          ]),
+        },
+        {
+          provide: OnboardingService,
+          useValue: jasmine.createSpyObj("OnboardingService", [
+            "showOnFirstLaunch",
+          ]),
+        },
+        {
+          provide: AnalyticsService,
+          useValue: { track: () => Promise.resolve() },
+        },
+        {
+          provide: OfflineDataService,
+          useValue: { preloadAllBooksAndChapters: () => {} },
+        },
+      ],
+    })
+    TestBed.overrideComponent(AppComponent, {
+      set: { template: "@if (webBars) { <span class='bars'></span> }" },
+    })
+    const fixture = TestBed.createComponent(AppComponent)
+    fixture.detectChanges()
+    return fixture.nativeElement as HTMLElement
+  }
+
+  it("draws them in the Android app and on phones", () => {
+    expect(
+      render({ bars: true, enabled: false }).querySelector(".bars"),
+    ).not.toBeNull()
+  })
+
+  it("leaves them to the iOS shell, and to the header on wide screens", () => {
+    expect(
+      render({ bars: true, enabled: true }).querySelector(".bars"),
+    ).toBeNull()
+    TestBed.resetTestingModule()
+    expect(
+      render({ bars: false, enabled: false }).querySelector(".bars"),
+    ).toBeNull()
   })
 })

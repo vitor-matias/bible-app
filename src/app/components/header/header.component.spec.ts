@@ -29,6 +29,7 @@ import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { ThemeService } from "../../services/theme.service"
 import { SHARE_PLUGIN } from "../../tokens"
+import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { HeaderComponent } from "./header.component"
 
@@ -681,6 +682,7 @@ describe("HeaderComponent with the iOS native bars", () => {
   let actions: Subject<NativeChromeAction>
   let nativeChrome: {
     enabled: boolean
+    bars: boolean
     actions$: Subject<NativeChromeAction>
     show: jasmine.Spy
     hide: jasmine.Spy
@@ -708,6 +710,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     actions = new Subject()
     nativeChrome = {
       enabled: true,
+      bars: true,
       actions$: actions,
       show: jasmine.createSpy("show"),
       hide: jasmine.createSpy("hide"),
@@ -975,6 +978,23 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(nativeReport.open).toHaveBeenCalledWith(genesis, 3)
     expect(dialog.open).not.toHaveBeenCalled()
     expect(onboarding.open).toHaveBeenCalledWith("menu")
+  })
+
+  // The bars of Android and phones, over the web app's own sheets.
+  it("opens the web's bookmarks and problem report with the web's bars", () => {
+    nativeChrome.enabled = false
+    actions.next({ id: "bookmarks" })
+    actions.next({ id: "report" })
+
+    const [sheet, config] = bottomSheet.open.calls.mostRecent().args
+    expect(sheet as unknown).toBe(BookmarkSelectorComponent)
+    expect(config?.data).toEqual({ bookId: "gen", chapter: 3 })
+    expect(dialog.open).toHaveBeenCalledWith(
+      ReportProblemComponent,
+      jasmine.anything(),
+    )
+    expect(nativeBookmarks.open).not.toHaveBeenCalled()
+    expect(nativeReport.open).not.toHaveBeenCalled()
   })
 
   it("shares the passage", async () => {

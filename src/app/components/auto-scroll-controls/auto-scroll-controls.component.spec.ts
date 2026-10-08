@@ -211,6 +211,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
   let actions: Subject<NativeChromeAction>
   let nativeChrome: {
     enabled: boolean
+    bars: boolean
     actions$: Subject<NativeChromeAction>
     setAutoScroll: jasmine.Spy
   }
@@ -222,6 +223,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     actions = new Subject()
     nativeChrome = {
       enabled: true,
+      bars: true,
       actions$: actions,
       setAutoScroll: jasmine.createSpy("setAutoScroll"),
     }

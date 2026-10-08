@@ -378,7 +378,7 @@ body .mat-mdc-form-field {
    web controls it still shows follow the same rule. Main buttons are the text
    colour inverted, focus marks the text colour, highlights a neutral tint.
    Redeclared here, not through --cap-brown: :root resolves these once. */
-.native-chrome {
+.native-chrome.platform-ios {
   --cap-brown: var(--text-color);
   --highlight-color: color-mix(in srgb, var(--text-color) 12%, transparent);
   --mat-form-field-focus-color: var(--text-color);
@@ -420,13 +420,13 @@ body .mat-mdc-form-field {
   --app-inset-bottom: var(--app-chrome-bottom);
 }
 
-/* The search page is a grouped list: the system's grouped colours. */
-.native-chrome app-search {
+/* The iOS search page is a grouped list: the system's grouped colours. */
+.native-chrome.platform-ios app-search {
   --background-color: #f2f2f7;
   --card-background: #ffffff;
 }
 
-html.dark-theme .native-chrome app-search {
+html.dark-theme .native-chrome.platform-ios app-search {
   --background-color: #000000;
   --card-background: #1c1c1e;
 }
@@ -488,6 +488,77 @@ html.dark-theme .native-chrome app-search {
 
 .native-chrome-collapsed bible-reader::after {
   height: env(safe-area-inset-bottom);
+}
+
+/* Android: Material 3 colour roles for the app's bars and sheets, as native
+   Android apps take them from their theme. Tones of the palettes the Material
+   theme is generated from (theme-colors.scss: primary, neutral and
+   neutral-variant), light and dark. */
+body.platform-android {
+  --m3-primary: #735941;
+  --m3-on-primary: #ffffff;
+  --m3-primary-container: #ffdcbf;
+  --m3-on-primary-container: #291805;
+  --m3-surface: #fff8f5;
+  --m3-surface-container-low: #fdf1eb;
+  --m3-surface-container: #f7ece5;
+  --m3-surface-container-high: #f1e6df;
+  --m3-surface-container-highest: #ebe0da;
+  --m3-on-surface: #201b17;
+  --m3-on-surface-variant: #4f453d;
+  --m3-outline-variant: #d2c4ba;
+}
+
+html.dark-theme body.platform-android {
+  --m3-primary: #e2c0a3;
+  --m3-on-primary: #412c17;
+  --m3-primary-container: #5a422c;
+  --m3-on-primary-container: #ffdcbf;
+  --m3-surface: #17120f;
+  --m3-surface-container-low: #201b17;
+  --m3-surface-container: #241f1b;
+  --m3-surface-container-high: #2e2925;
+  --m3-surface-container-highest: #3a342f;
+  --m3-on-surface: #ebe0da;
+  --m3-on-surface-variant: #d2c4ba;
+  --m3-outline-variant: #4f453d;
+}
+
+/* The app's bars' menus (ChromeBarsComponent): wide enough for three
+   choices side by side, labels whole. */
+.chrome-menu.mat-mdc-menu-panel {
+  min-width: min(312px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+}
+
+/* The passage picker's sheet (WebChromeBars): tall, its lists scrolling
+   inside, edge to edge. */
+.passage-picker-panel .mat-bottom-sheet-container {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: min(85vh, 760px);
+  max-height: 85vh;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Android: Material 3's sheet, with its drag handle. Through the variable the
+   app's sheets all take their background from. */
+.platform-android .passage-picker-panel {
+  --card-background: var(--m3-surface-container-low);
+}
+
+.platform-android .passage-picker-panel .mat-bottom-sheet-container::before {
+  content: "";
+  align-self: center;
+  flex: none;
+  width: 32px;
+  height: 4px;
+  margin-top: 16px;
+  border-radius: 2px;
+  background-color: var(--m3-on-surface-variant);
+  opacity: 0.4;
 }
 
 /* iOS controls highlight on press rather than rippling. */

@@ -28,7 +28,11 @@ export class NativeShellService {
   private splashHidden = false
 
   init(): void {
-    if (!Capacitor.isNativePlatform()) return
+    if (!Capacitor.isNativePlatform()) {
+      // Phone browsers have the app's bars too.
+      this.nativeChrome.init()
+      return
+    }
 
     this.document.body.classList.add(
       "native-app",
@@ -37,9 +41,12 @@ export class NativeShellService {
     this.nativeChrome.init()
 
     // The web toolbars are always brown, so the status bar icons are always
-    // light. SystemBars would otherwise follow the device theme. While the iOS
-    // native bars show, ChromeViewController.swift sets them from the theme.
-    this.setBarStyle(SystemBarType.StatusBar, SystemBarsStyle.Dark)
+    // light. SystemBars would otherwise follow the device theme. Over the
+    // app's bars, which follow the theme, they follow it too: in the iOS app
+    // ChromeViewController.swift sets them, on Android setNavigationBarTheme.
+    if (!this.nativeChrome.bars) {
+      this.setBarStyle(SystemBarType.StatusBar, SystemBarsStyle.Dark)
+    }
 
     this.router.events
       .pipe(
@@ -60,10 +67,12 @@ export class NativeShellService {
    */
   setNavigationBarTheme(isDark: boolean): void {
     if (!Capacitor.isNativePlatform()) return
-    this.setBarStyle(
-      SystemBarType.NavigationBar,
-      isDark ? SystemBarsStyle.Dark : SystemBarsStyle.Light,
-    )
+    const style = isDark ? SystemBarsStyle.Dark : SystemBarsStyle.Light
+    this.setBarStyle(SystemBarType.NavigationBar, style)
+    // Android, over the app's top bar, which follows the theme too.
+    if (this.nativeChrome.bars && Capacitor.getPlatform() === "android") {
+      this.setBarStyle(SystemBarType.StatusBar, style)
+    }
   }
 
   private setBarStyle(bar: SystemBarType, style: SystemBarsStyle): void {

@@ -1,4 +1,5 @@
 import {
+  barsOnboardingSteps,
   INSTALL_STEP_ID,
   nativeOnboardingSteps,
   ONBOARDING_STEPS,
@@ -77,5 +78,40 @@ describe("nativeOnboardingSteps", () => {
         expect(sfSymbol(icon)).withContext(icon).not.toBe("circle")
       }
     }
+  })
+})
+
+// The Android app and phones have the app's bars too, drawn by the page.
+describe("barsOnboardingSteps", () => {
+  const steps = barsOnboardingSteps()
+  const step = (id: string) => steps.find((entry) => entry.id === id)
+  const texts = steps.flatMap((entry) => [
+    entry.intro,
+    ...entry.features.map((feature) => feature.text),
+  ])
+
+  it("describes the bars, not the web header", () => {
+    expect(step("navigate")?.intro).toContain("barra inferior")
+    expect(step("customize")?.intro).toContain("botão do texto")
+    for (const text of texts) {
+      expect(text).not.toContain("☰")
+      expect(text).not.toContain("No topo do ecrã")
+    }
+  })
+
+  // Their icons are Material's, and their notes open from the verse.
+  it("leaves out what only the iOS app has", () => {
+    for (const text of texts) {
+      expect(text).not.toContain("AA")
+      expect(text).not.toContain("⋯")
+      expect(text).not.toContain("asterisco")
+    }
+    expect(texts).toContain(
+      "Toque num versículo com nota para ler a nota de rodapé.",
+    )
+  })
+
+  it("keeps the install step for phone browsers", () => {
+    expect(step(INSTALL_STEP_ID)).toBeTruthy()
   })
 })
