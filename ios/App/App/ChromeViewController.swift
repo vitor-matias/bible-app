@@ -206,6 +206,13 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         fontItem.menu = ReaderMenu.font(state, send: send)
         moreItem.isEnabled = enabled
         bookmarksItem.isEnabled = enabled
+        // The chapter's ribbon, in its colour; the bars are otherwise monochrome.
+        if let color = state.bookmarkColor.flatMap(ribbonColor) {
+            bookmarksItem.image = UIImage(systemName: "bookmark.fill")?
+                .withTintColor(color, renderingMode: .alwaysOriginal)
+        } else {
+            bookmarksItem.image = UIImage(systemName: "bookmark")
+        }
         fontItem.isEnabled = enabled
         if readerItem.rightBarButtonItems?.first !== moreItem {
             // Rightmost first: text size, Marcadores, then ⋯, each in a glass
