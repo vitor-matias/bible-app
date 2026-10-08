@@ -243,10 +243,22 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             items += [previous, next]
         }
         items += [.flexibleSpace(), passageItem(state, enabled: enabled), .flexibleSpace()]
+        if state.notes {
+            // The notes of the verses on screen (the web app picks them).
+            let notes = barButton("note.text", "Notas", "notes")
+            notes.isEnabled = enabled
+            items.append(notes)
+        }
         if state.search {
             let search = barButton("magnifyingglass", "Pesquisar", "search")
             search.isEnabled = enabled
             items.append(search)
+        }
+        // Notas and search each in a circle of their own, not one capsule.
+        if #available(iOS 26.0, *) {
+            for item in items.suffix(state.notes && state.search ? 2 : 0) {
+                item.sharesBackground = false
+            }
         }
         toolbar.setItems(items, animated: false)
     }

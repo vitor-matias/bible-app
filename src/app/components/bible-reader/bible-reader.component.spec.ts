@@ -25,6 +25,7 @@ import { BibleReaderAnimationService } from "../../services/bible-reader-animati
 import { BookService } from "../../services/book.service"
 import { HapticsService } from "../../services/haptics.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
+import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
@@ -179,6 +180,12 @@ describe("BibleReaderComponent", () => {
         { provide: MatSnackBar, useValue: snackBarSpy },
         { provide: SeoService, useValue: seoServiceSpy },
         { provide: HapticsService, useValue: hapticsSpy },
+        {
+          provide: NativeFootnotesService,
+          useValue: jasmine.createSpyObj("NativeFootnotesService", [
+            "openVerses",
+          ]),
+        },
         ...(options?.platformId
           ? [{ provide: PLATFORM_ID, useValue: options.platformId }]
           : []),
@@ -1050,6 +1057,73 @@ describe("BibleReaderComponent", () => {
       component.ngOnDestroy()
 
       expect(animationServiceSpy.cancelPendingRealign).toHaveBeenCalled()
+    })
+
+    // The iOS toolbar offers its Notas button only for chapters with notes.
+    it("knows whether the chapter has notes", fakeAsync(() => {
+      const withNote = {
+        bookId: "gen",
+        number: 1,
+        verses: [
+          {
+            bookId: "gen",
+            chapterNumber: 1,
+            number: 1,
+            text: [{ type: "footnote", text: "nota", reference: "1." }],
+          },
+        ],
+      }
+      apiServiceSpy.getChapter.and.returnValue(
+        of(withNote as unknown as Chapter),
+      )
+      component.getChapter(1)
+      tick()
+      expect(component.chapterHasNotes).toBeTrue()
+
+      apiServiceSpy.getChapter.and.returnValue(
+        of(mockChapter as unknown as Chapter),
+      )
+      component.getChapter(2)
+      tick()
+      expect(component.chapterHasNotes).toBeFalse()
+    }))
+
+    it("opens the notes of the verses on screen from the toolbar", () => {
+      const verse = (number: number) =>
+        ({
+          bookId: "gen",
+          chapterNumber: 1,
+          number,
+          text: [{ type: "footnote", text: "nota", reference: `${number}.` }],
+        }) as Verse
+      component.chapter = {
+        bookId: "gen",
+        number: 1,
+        verses: [verse(1), verse(2), verse(3)],
+      }
+      // Verse 1 on screen, verse 2 just below it, verse 3 far below.
+      const block = document.createElement("div")
+      for (const [number, top] of [
+        [1, 200],
+        [2, 300],
+        [3, 5000],
+      ]) {
+        const element = document.createElement("verse")
+        element.id = String(number)
+        element.style.cssText = `position: fixed; top: ${top}px; left: 16px; width: 300px; height: 60px; display: block`
+        block.appendChild(element)
+      }
+      document.body.appendChild(block)
+      component.bookBlock = { nativeElement: block }
+      const openVerses = TestBed.inject(NativeFootnotesService)
+        .openVerses as jasmine.Spy
+
+      component.openNotesInView()
+      block.remove()
+
+      expect(
+        openVerses.calls.mostRecent().args[0].map((v: Verse) => v.number),
+      ).toEqual([1, 2])
     })
 
     it("should update SEO metadata when a chapter is applied", fakeAsync(() => {

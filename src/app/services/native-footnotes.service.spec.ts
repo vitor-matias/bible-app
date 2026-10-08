@@ -119,6 +119,44 @@ describe("NativeFootnotesService", () => {
     })
   })
 
+  // The toolbar's Notas button: the notes of the verses on screen.
+  describe("the notes of several verses", () => {
+    const withNote = (number: number) =>
+      ({
+        bookId: "mat",
+        chapterNumber: 11,
+        number,
+        text: [
+          { type: "text", text: "…" },
+          { type: "footnote", text: "nota", reference: `${number}.` },
+        ],
+      }) as Verse
+
+    beforeEach(() => bibleRef.extract.and.returnValue([]))
+
+    it("shows them in one sheet, each under its verse", () => {
+      const plain = { ...withNote(4), text: [] } as unknown as Verse
+      service.openVerses([withNote(3), plain, withNote(5)])
+
+      expect(shown().title).toBe("Mateus 11,3-5")
+      expect(shown().notes.map((note) => note.reference)).toEqual(["3.", "5."])
+      expect(analytics.track).toHaveBeenCalledWith(
+        "footnotes_opened",
+        jasmine.objectContaining({ verse: 3, source: "notes-button" }),
+      )
+    })
+
+    it("titles a single verse as a tap on its asterisk does", () => {
+      service.openVerses([withNote(3)])
+      expect(shown().title).toBe("Mateus 11,3")
+    })
+
+    it("shows nothing for verses without notes", () => {
+      service.openVerses([{ ...withNote(3), text: [] } as unknown as Verse])
+      expect(nativeChrome.showFootnotes).not.toHaveBeenCalled()
+    })
+  })
+
   it("uses the reader's footnote text size", () => {
     fontSize = 125
     service.open([footnote], verse)

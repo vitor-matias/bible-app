@@ -39,10 +39,12 @@ import { BibleReaderAnimationService } from "../../services/bible-reader-animati
 import { BookService } from "../../services/book.service"
 import { HapticsService } from "../../services/haptics.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
+import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
 import { ToastService } from "../../services/toast.service"
+import { notesInView, type PlacedVerse } from "../../utils/notes-in-view"
 import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
 import { BookIntroComponent } from "../book-intro/book-intro.component"
@@ -82,7 +84,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private platformId = inject(PLATFORM_ID)
   private haptics = inject(HapticsService)
   private nativeChrome = inject(NativeChromeService)
+  private nativeFootnotes = inject(NativeFootnotesService)
   private toast = inject(ToastService)
+  /** Some verse of the chapter has notes (the iOS toolbar's Notas button). */
+  chapterHasNotes = false
   private stopTrackingScroll?: () => void
   private unregisterBackCloser = inject(BackButtonService).register(() => {
     if (!this.bookDrawer?.opened) return false
@@ -685,6 +690,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     this.chapter = chapterData
     this.chapterNumber = chapter
+    this.chapterHasNotes = !!chapterData.verses?.some((verse) =>
+      verse.text.some((part) => part.type === "footnote"),
+    )
     this.rebuildChapterLinks()
     this.animationService.cancelPendingRealign()
 
@@ -736,6 +744,38 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         ? (element) => pagedNav.scrollToPage(element)
         : undefined,
     )
+  }
+
+  /**
+   * The iOS toolbar's Notas button: the notes of the verses on screen, in one
+   * sheet (notesInView), as at the foot of a printed page.
+   */
+  openNotesInView(): void {
+    const block = this.bookBlock?.nativeElement as HTMLElement | undefined
+    const verses = this.chapter?.verses
+    if (!block || !verses) return
+    const byNumber = new Map(
+      verses.map((verse) => [String(verse.number), verse]),
+    )
+    const placed: PlacedVerse[] = []
+    for (const element of Array.from(
+      block.querySelectorAll<HTMLElement>("verse[id]"),
+    )) {
+      const verse = byNumber.get(element.id)
+      if (!verse) continue
+      const { top, bottom, left, right } = element.getBoundingClientRect()
+      placed.push({ verse, top, bottom, left, right })
+    }
+    // The bars cover the page's edges (--native-chrome-top/-bottom).
+    const style = getComputedStyle(document.documentElement)
+    const inset = (name: string) =>
+      Number.parseFloat(style.getPropertyValue(name)) || 0
+    const notes = notesInView(placed, {
+      top: inset("--native-chrome-top"),
+      bottom: window.innerHeight - inset("--native-chrome-bottom"),
+      width: window.innerWidth,
+    })
+    this.nativeFootnotes.openVerses(notes)
   }
 
   openBookDrawer(event: { open: boolean }) {

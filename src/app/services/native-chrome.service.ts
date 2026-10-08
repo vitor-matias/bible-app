@@ -16,6 +16,7 @@ export type NativeChromeAction =
         | "passage"
         | "previous"
         | "next"
+        | "notes"
         | "search"
         | "back"
         | "theme-system"
@@ -64,6 +65,8 @@ export interface ReaderChrome {
   autoScrollAvailable: boolean
   canShare: boolean
   canReport: boolean
+  /** The chapter has notes: the toolbar offers its Notas button. */
+  notes: boolean
   /** The colour of the ribbon on this chapter, shown on the bookmark button. */
   bookmarkColor: string | null
   /** Its spoken name ("vermelho"), for VoiceOver. */

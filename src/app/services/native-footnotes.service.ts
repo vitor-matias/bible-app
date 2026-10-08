@@ -43,34 +43,70 @@ export class NativeFootnotesService {
   }
 
   open(footnotes: _Footnote[], verse: Verse): void {
-    this.session?.unsubscribe()
     void this.analytics.track("footnotes_opened", {
       book: verse.bookId,
       chapter: verse.chapterNumber,
       verse: verse.number,
     })
+    this.present([{ footnotes, verse }], this.title(verse))
+  }
 
+  /**
+   * The notes of several verses in one sheet, in order, each under its verse
+   * number, as at the foot of a printed page: "Mateus 5,3-9".
+   */
+  openVerses(verses: Verse[]): void {
+    const entries = verses
+      .map((verse) => ({
+        verse,
+        footnotes: verse.text.filter(
+          (t): t is _Footnote => t.type === "footnote",
+        ),
+      }))
+      .filter(({ footnotes }) => footnotes.length > 0)
+    if (entries.length === 0) return
+    const first = entries[0].verse
+    const last = entries[entries.length - 1].verse
+    void this.analytics.track("footnotes_opened", {
+      book: first.bookId,
+      chapter: first.chapterNumber,
+      verse: first.number,
+      source: "notes-button",
+    })
+    this.present(
+      entries,
+      first === last ? this.title(first) : this.title(first, last),
+    )
+  }
+
+  private present(
+    entries: { footnotes: _Footnote[]; verse: Verse }[],
+    title: string,
+  ): void {
+    this.session?.unsubscribe()
     const links: FootnoteLink[] = []
-    const notes = footnotes.map((footnote) => ({
-      reference: footnote.reference,
-      parts: parseReferences(
-        this.bibleRef,
-        footnote.text,
-        verse.bookId,
-        verse.chapterNumber,
-      ).map((part) => {
-        if (typeof part === "string") return { text: part }
-        const book = this.bookService.findBook(part.book)
-        links.push({
-          commands: ["/", this.bookService.getUrlAbrv(book), part.chapter],
-          queryParams: getVerseQueryParams(part.verses, part.crossChapter),
-        })
-        return { text: part.match, link: links.length - 1 }
-      }),
-    }))
+    const notes = entries.flatMap(({ footnotes, verse }) =>
+      footnotes.map((footnote) => ({
+        reference: footnote.reference,
+        parts: parseReferences(
+          this.bibleRef,
+          footnote.text,
+          verse.bookId,
+          verse.chapterNumber,
+        ).map((part) => {
+          if (typeof part === "string") return { text: part }
+          const book = this.bookService.findBook(part.book)
+          links.push({
+            commands: ["/", this.bookService.getUrlAbrv(book), part.chapter],
+            queryParams: getVerseQueryParams(part.verses, part.crossChapter),
+          })
+          return { text: part.match, link: links.length - 1 }
+        }),
+      })),
+    )
 
     const state: FootnotesSheetState = {
-      title: this.title(verse),
+      title,
       fontScale: (this.preferences.getFontSize("footnotes") ?? 100) / 100,
       notes,
     }
@@ -93,18 +129,19 @@ export class NativeFootnotesService {
   }
 
   /**
-   * "Mateus 11,3", "Salmo 23 (22),1", or the chapter alone for notes before
-   * the first verse.
+   * "Mateus 11,3", "Mateus 5,3-9", "Salmo 23 (22),1", or the chapter alone
+   * for notes before the first verse.
    */
-  private title(verse: Verse): string {
+  private title(verse: Verse, last?: Verse): string {
     const book = this.bookService.findBookById(verse.bookId) ?? {
       id: verse.bookId,
       shortName: verse.bookId,
     }
-    return passageLabel(
-      book,
-      verse.chapterNumber,
-      verse.number > 0 ? verse.number : undefined,
-    )
+    const first = verse.number > 0 ? verse.number : undefined
+    const verses =
+      last && first !== undefined && last.number > first
+        ? `${first}-${last.number}`
+        : first
+    return passageLabel(book, verse.chapterNumber, verses)
   }
 }
