@@ -321,9 +321,13 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         return collapsed && bar !== searchField ? 0 : 1
     }
 
+    /// Space between auto-scroll's bar and the toolbar below it.
+    private static let autoScrollBarGap: CGFloat = 12
+
     /// Above the toolbar while it shows; in its place while it's hidden.
     private var autoScrollBarOffset: CGAffineTransform {
-        collapsed ? .identity : CGAffineTransform(translationX: 0, y: -toolbar.bounds.height)
+        collapsed ? .identity
+            : CGAffineTransform(translationX: 0, y: -(toolbar.bounds.height + Self.autoScrollBarGap))
     }
 
     /// Slides the reader's bars off screen. The page keeps its padding, so the
@@ -355,7 +359,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             return ChromeInsets(top: safeArea.top, bottom: safeArea.bottom)
         case .reader:
             // Auto-scroll's controls stack above the toolbar.
-            let autoScroll = state.autoScroll != nil ? autoScrollBar.bounds.height : 0
+            let autoScroll = state.autoScroll != nil ? autoScrollBar.bounds.height + Self.autoScrollBarGap : 0
             return ChromeInsets(top: safeArea.top + topBar.bounds.height,
                                 bottom: safeArea.bottom + toolbar.bounds.height + autoScroll)
         case .search:
