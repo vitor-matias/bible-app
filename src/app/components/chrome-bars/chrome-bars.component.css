@@ -1,14 +1,31 @@
-/* Layout, shared by both looks: as the iOS app's bars (ChromeViewController). */
+/* As the iOS app's bars (ChromeViewController): separate glass buttons and
+   capsules floating over the page, which shows through them. */
 :host {
   /* Above the page and its edge effects, under dialogs and sheets. */
   position: relative;
   z-index: 900;
   display: block;
-  --bar-height: 56px;
+  --bar-height: 48px;
   --bar-gap: 12px;
   --keyboard-height: 0px;
   --motion: 0.35s;
-  --elevation: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 8px 3px rgba(0, 0, 0, 0.15);
+  /* The page's own colours, frosted: light glass in the light theme, dark
+     in the dark one, a shade off the page so it reads as a surface. */
+  --glass: color-mix(in srgb, color-mix(in srgb, var(--text-color) 7%, var(--background-color)) 72%, transparent);
+  /* Material's own variables, so its disabled colour still wins. */
+  --mat-icon-button-state-layer-size: 44px;
+  --mat-icon-button-icon-color: var(--text-color);
+  --mat-icon-button-disabled-icon-color: color-mix(in srgb, var(--text-color) 30%, transparent);
+  color: var(--text-color);
+}
+
+.glass {
+  background-color: var(--glass);
+  -webkit-backdrop-filter: blur(16px) saturate(1.8);
+  backdrop-filter: blur(16px) saturate(1.8);
+  box-shadow:
+    inset 0 0 0 0.5px color-mix(in srgb, var(--text-color) 14%, transparent),
+    0 4px 16px rgb(0 0 0 / 12%);
 }
 
 .safe-area-probe {
@@ -30,6 +47,12 @@
 .auto-scroll-bar,
 .search-field {
   position: fixed;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
   transition:
     transform var(--motion) cubic-bezier(0.2, 0.9, 0.3, 1),
     opacity var(--motion) ease;
@@ -37,62 +60,71 @@
 
 .top-bar {
   top: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  box-sizing: border-box;
-  min-height: calc(var(--bar-height) + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) 12px 0;
+  min-height: calc(56px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
 }
 
-.top-spacer {
-  flex: 1;
-}
-
+.top-spacer,
 .bar-title {
   flex: 1;
+}
+
+/* Centred, as a navigation bar's title. */
+.bar-title {
   min-width: 0;
   overflow: hidden;
+  font-weight: 600;
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.toolbar {
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  box-sizing: border-box;
-  padding: 0 12px calc(12px + env(safe-area-inset-bottom));
+.bar-slot {
+  width: 44px;
+}
+
+/* As the iOS toolbar: arrows left, the passage between, search right. */
+.toolbar,
+.auto-scroll-bar {
+  justify-content: space-between;
   pointer-events: none;
 }
 
+.toolbar {
+  bottom: calc(12px + env(safe-area-inset-bottom));
+}
+
 .toolbar > *,
-.reading-bar > * {
+.auto-scroll-bar > * {
   pointer-events: auto;
 }
 
-.reading-bar,
 .arrows,
 .speed {
   display: flex;
   align-items: center;
+  height: var(--bar-height);
+  padding: 0 2px;
+  border-radius: calc(var(--bar-height) / 2);
+}
+
+.passage,
+.search-fab {
+  height: var(--bar-height);
+  border: none;
+  border-radius: calc(var(--bar-height) / 2);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
 }
 
 .passage {
   min-width: 0;
-  max-width: 100%;
+  padding: 0 20px;
   overflow: hidden;
-  border: none;
-  font: inherit;
-  font-weight: 500;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
-  cursor: pointer;
 }
 
 .search-fab {
@@ -100,22 +132,16 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  border: none;
-  cursor: pointer;
+  width: var(--bar-height);
+}
+
+.circle {
+  --mat-icon-button-state-layer-size: var(--bar-height);
 }
 
 /* Above the toolbar while it shows; in its place while it's hidden. */
 .auto-scroll-bar {
-  left: 12px;
-  right: 12px;
   bottom: calc(12px + env(safe-area-inset-bottom) + var(--bar-height) + var(--bar-gap));
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: var(--bar-height);
-  padding: 0 4px;
-  box-sizing: border-box;
-  border-radius: calc(var(--bar-height) / 2);
 }
 
 .speed-label {
@@ -123,21 +149,15 @@
   color: inherit;
   min-width: 4.5em;
   font-variant-numeric: tabular-nums;
-  font-weight: 500;
+  font-weight: 600;
   text-align: center;
 }
 
 /* Rides above the on-screen keyboard (ChromeBarsComponent.followKeyboard). */
 .search-field {
-  left: 16px;
-  right: 16px;
   bottom: calc(8px + max(var(--keyboard-height), env(safe-area-inset-bottom)));
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  box-sizing: border-box;
   height: var(--bar-height);
-  padding: 0 4px 0 16px;
+  padding: 0 2px 0 14px;
   border-radius: calc(var(--bar-height) / 2);
 }
 
@@ -150,6 +170,10 @@
   color: inherit;
   font: inherit;
   font-size: 1rem;
+}
+
+.search-field input::placeholder {
+  color: color-mix(in srgb, currentColor 55%, transparent);
 }
 
 .search-field input::-webkit-search-cancel-button {
@@ -176,7 +200,7 @@
   transform: translateY(calc(var(--bar-height) + var(--bar-gap)));
 }
 
-.bookmark mat-icon.filled {
+mat-icon.filled {
   font-variation-settings: "FILL" 1;
 }
 
@@ -231,155 +255,4 @@
   :host {
     --motion: 0s;
   }
-}
-
-/* ---- Web: Angular Material in the app's colours ----
-   Antique white on brown, as the web header's buttons and chips: mini FABs
-   and pills floating over the page, the iOS bars' places. */
-:host(.look-web) {
-  --brand: #543d27;
-  --brand-on: antiquewhite;
-  /* Material's own variables, so its disabled colour still wins. */
-  --mat-icon-button-icon-color: var(--brand);
-  --mat-icon-button-disabled-icon-color: color-mix(in srgb, var(--brand) 35%, transparent);
-  color: var(--text-color);
-}
-
-:host(.look-web) .top-bar .bar-button,
-:host(.look-web) .arrows,
-:host(.look-web) .passage,
-:host(.look-web) .search-fab,
-:host(.look-web) .auto-scroll-bar,
-:host(.look-web) .search-field {
-  background-color: var(--brand-on);
-  color: var(--brand);
-  box-shadow: var(--elevation);
-}
-
-:host(.look-web) .top-bar .bar-button {
-  --mat-icon-button-state-layer-size: 44px;
-  width: 44px;
-  height: 44px;
-  padding: 10px;
-}
-
-:host(.look-web) .bar-title {
-  font-size: 1.15rem;
-  font-weight: 500;
-}
-
-/* As the iOS toolbar: arrows left, the passage centred, search right. */
-:host(.look-web) .toolbar {
-  justify-content: space-between;
-}
-
-:host(.look-web) .reading-bar {
-  display: contents;
-}
-
-:host(.look-web) .arrows {
-  border-radius: 24px;
-  height: 48px;
-}
-
-:host(.look-web) .passage {
-  flex: 0 1 auto;
-  height: 48px;
-  padding: 0 20px;
-  border-radius: 24px;
-  font-size: 1.05rem;
-}
-
-:host(.look-web) .search-fab {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-}
-
-:host(.look-web) .search-field input::placeholder {
-  color: color-mix(in srgb, var(--brand) 60%, transparent);
-}
-
-/* ---- Android: Material 3, as native Android apps ----
-   A top app bar with its actions; below, a floating toolbar with the arrows
-   and the passage, and search as its FAB. Colours: the theme's M3 roles. */
-:host(.look-android) {
-  --bar-height: 64px;
-  --mat-icon-button-icon-color: var(--m3-on-surface-variant);
-  --mat-icon-button-disabled-icon-color: color-mix(in srgb, var(--m3-on-surface) 38%, transparent);
-  color: var(--m3-on-surface);
-}
-
-:host(.look-android) .top-bar {
-  padding-left: 4px;
-  padding-right: 4px;
-  background-color: var(--m3-surface-container);
-}
-
-:host(.look-android) .bar-title {
-  font-size: 1.375rem;
-  font-weight: 400;
-  color: var(--m3-on-surface);
-}
-
-:host(.look-android) .toolbar {
-  justify-content: center;
-}
-
-:host(.look-android) .reading-bar,
-:host(.look-android) .auto-scroll-bar {
-  height: var(--bar-height);
-  padding: 0 8px;
-  border-radius: calc(var(--bar-height) / 2);
-  background-color: var(--m3-surface-container-high);
-  box-shadow: var(--elevation);
-}
-
-:host(.look-android) .reading-bar {
-  min-width: 0;
-  gap: 4px;
-}
-
-:host(.look-android) .passage {
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 20px;
-  background: none;
-  color: var(--m3-on-surface);
-  font-size: 1rem;
-}
-
-:host(.look-android) .search-fab {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  background-color: var(--m3-primary-container);
-  color: var(--m3-on-primary-container);
-  box-shadow: var(--elevation);
-}
-
-:host(.look-android) .auto-scroll-bar {
-  left: 50%;
-  right: auto;
-  gap: 8px;
-  transform: translateX(-50%);
-}
-
-:host(.look-android) .collapsed .auto-scroll-bar {
-  transform: translate(-50%, calc(var(--bar-height) + var(--bar-gap)));
-}
-
-:host(.look-android) .play {
-  background-color: var(--m3-primary-container);
-  color: var(--m3-on-primary-container);
-}
-
-:host(.look-android) .search-field {
-  background-color: var(--m3-surface-container-high);
-  color: var(--m3-on-surface);
-  box-shadow: var(--elevation);
-}
-
-:host(.look-android) .search-field input::placeholder {
-  color: var(--m3-on-surface-variant);
 }

@@ -14,7 +14,6 @@ import { MatRippleModule } from "@angular/material/core"
 import { MatDividerModule } from "@angular/material/divider"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenuModule } from "@angular/material/menu"
-import { Capacitor } from "@capacitor/core"
 import type {
   AutoScrollChrome,
   NativeChromeAction,
@@ -55,8 +54,7 @@ const VIEW_MODES = [
  * text, bookmarks and More on top; arrows, the passage and search below;
  * auto-scroll's controls above them; the search field at the bottom. Same
  * state and the same taps (NativeChromeService), so pages need no code of
- * their own. Each platform keeps its look: Material 3 as native Android apps
- * have it, and Angular Material in the app's colours on the web.
+ * their own. The same look too: glass over the page, in its theme's colours.
  */
 @Component({
   selector: "app-chrome-bars",
@@ -71,18 +69,12 @@ const VIEW_MODES = [
   templateUrl: "./chrome-bars.component.html",
   styleUrl: "./chrome-bars.component.css",
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: {
-    "[class.look-android]": "look === 'android'",
-    "[class.look-web]": "look === 'web'",
-  },
 })
 export class ChromeBarsComponent {
   private readonly bars = inject(WebChromeBars)
   private readonly destroyRef = inject(DestroyRef)
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef)
 
-  readonly look: "android" | "web" =
-    Capacitor.getPlatform() === "android" ? "android" : "web"
   readonly themes = THEMES
   readonly viewModes = VIEW_MODES
 

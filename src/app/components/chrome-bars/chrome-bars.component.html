@@ -7,16 +7,16 @@
   <div #topBar class="top-bar">
     @if (reader(); as r) {
     <span class="top-spacer"></span>
-    <button type="button" mat-icon-button class="bar-button" [matMenuTriggerFor]="textMenu"
+    <button type="button" mat-icon-button class="bar-button glass" [matMenuTriggerFor]="textMenu"
       aria-label="Texto e aparência">
       <mat-icon>format_size</mat-icon>
     </button>
-    <button type="button" mat-icon-button class="bar-button bookmark" aria-label="Marcadores"
+    <button type="button" mat-icon-button class="bar-button glass" aria-label="Marcadores"
       [attr.aria-description]="r.bookmarkName ? 'marcador ' + r.bookmarkName + ' neste capítulo' : null"
       (click)="send('bookmarks')">
       <mat-icon [class.filled]="!!r.bookmarkColor" [style.color]="r.bookmarkColor">bookmark</mat-icon>
     </button>
-    <button type="button" mat-icon-button class="bar-button" [matMenuTriggerFor]="moreMenu" aria-label="Mais">
+    <button type="button" mat-icon-button class="bar-button glass" [matMenuTriggerFor]="moreMenu" aria-label="Mais">
       <mat-icon>more_vert</mat-icon>
     </button>
 
@@ -79,27 +79,31 @@
       </button>
     </mat-menu>
     } @else {
-    <button type="button" mat-icon-button class="bar-button" aria-label="Voltar" (click)="send('back')">
+    <button type="button" mat-icon-button class="bar-button glass" aria-label="Voltar" (click)="send('back')">
       <mat-icon>arrow_back</mat-icon>
     </button>
     <!-- Not a heading: the page keeps its own h1. -->
     <div class="bar-title">{{ page()?.title ?? "Pesquisar" }}</div>
     @if (page()?.search) {
-    <button type="button" mat-icon-button class="bar-button" aria-label="Pesquisar" (click)="send('search')">
+    <button type="button" mat-icon-button class="bar-button glass" aria-label="Pesquisar" (click)="send('search')">
       <mat-icon>search</mat-icon>
     </button>
+    } @else {
+    <!-- Keeps the title centred. -->
+    <span class="bar-slot"></span>
     }
     }
   </div>
 
   @if (reader(); as r) {
   @if (autoScroll(); as auto) {
-  <div #autoScrollBar class="bottom-bar auto-scroll-bar" role="toolbar" aria-label="Deslocamento automático">
-    <button type="button" mat-icon-button class="bar-button" aria-label="Fechar o deslocamento automático"
+  <!-- Three capsules, as the iOS bar's groups. -->
+  <div #autoScrollBar class="auto-scroll-bar" role="toolbar" aria-label="Deslocamento automático">
+    <button type="button" mat-icon-button class="glass circle" aria-label="Fechar o deslocamento automático"
       (click)="send('auto-scroll')">
       <mat-icon>close</mat-icon>
     </button>
-    <div class="speed">
+    <div class="speed glass">
       <button type="button" mat-icon-button aria-label="Diminuir velocidade" [disabled]="!auto.canSlower"
         (click)="send('auto-scroll-slower')">
         <mat-icon>remove</mat-icon>
@@ -110,34 +114,32 @@
         <mat-icon>add</mat-icon>
       </button>
     </div>
-    <button type="button" mat-icon-button class="bar-button play" [attr.aria-label]="auto.playing ? 'Pausar' : 'Iniciar'"
+    <button type="button" mat-icon-button class="glass circle" [attr.aria-label]="auto.playing ? 'Pausar' : 'Iniciar'"
       (click)="send('auto-scroll-toggle')">
-      <mat-icon>{{ auto.playing ? "pause" : "play_arrow" }}</mat-icon>
+      <mat-icon class="filled">{{ auto.playing ? "pause" : "play_arrow" }}</mat-icon>
     </button>
   </div>
   }
 
   <div #bottomBar class="toolbar" role="toolbar" aria-label="Leitura">
-    <div class="bottom-bar reading-bar">
-      @if (r.chapterNavigation) {
-      <div class="arrows">
-        <button type="button" mat-icon-button aria-label="Capítulo anterior" [disabled]="!r.canGoPrevious"
-          (click)="send('previous')">
-          <mat-icon>chevron_left</mat-icon>
-        </button>
-        <button type="button" mat-icon-button aria-label="Capítulo seguinte" [disabled]="!r.canGoNext"
-          (click)="send('next')">
-          <mat-icon>chevron_right</mat-icon>
-        </button>
-      </div>
-      }
-      <button type="button" matRipple class="passage" [attr.aria-label]="r.passageAccessibilityLabel"
-        aria-description="Escolher livro e capítulo" (click)="send('passage')">
-        {{ r.passageLabel }}
+    @if (r.chapterNavigation) {
+    <div class="arrows glass">
+      <button type="button" mat-icon-button aria-label="Capítulo anterior" [disabled]="!r.canGoPrevious"
+        (click)="send('previous')">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <button type="button" mat-icon-button aria-label="Capítulo seguinte" [disabled]="!r.canGoNext"
+        (click)="send('next')">
+        <mat-icon>chevron_right</mat-icon>
       </button>
     </div>
+    }
+    <button type="button" matRipple class="passage glass" [attr.aria-label]="r.passageAccessibilityLabel"
+      aria-description="Escolher livro e capítulo" (click)="send('passage')">
+      {{ r.passageLabel }}
+    </button>
     @if (r.search) {
-    <button type="button" matRipple class="search-fab" aria-label="Pesquisar" (click)="send('search')">
+    <button type="button" matRipple class="search-fab glass" aria-label="Pesquisar" (click)="send('search')">
       <mat-icon>search</mat-icon>
     </button>
     }
@@ -145,7 +147,7 @@
   }
 
   @if (search()) {
-  <form #bottomBar class="search-field" role="search" (submit)="onSearchSubmit($event, searchInput)">
+  <form #bottomBar class="search-field glass" role="search" (submit)="onSearchSubmit($event, searchInput)">
     <mat-icon aria-hidden="true">search</mat-icon>
     <input #searchInput type="search" aria-label="Procurar na Bíblia" placeholder="Procurar na Bíblia"
       enterkeyhint="search" autocomplete="off" (input)="onSearchInput(searchInput.value)" />
