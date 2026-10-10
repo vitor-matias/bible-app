@@ -1,0 +1,258 @@
+/* As the iOS app's bars (ChromeViewController): separate glass buttons and
+   capsules floating over the page, which shows through them. */
+:host {
+  /* Above the page and its edge effects, under dialogs and sheets. */
+  position: relative;
+  z-index: 900;
+  display: block;
+  --bar-height: 48px;
+  --bar-gap: 12px;
+  --keyboard-height: 0px;
+  --motion: 0.35s;
+  /* The page's own colours, frosted: light glass in the light theme, dark
+     in the dark one, a shade off the page so it reads as a surface. */
+  --glass: color-mix(in srgb, color-mix(in srgb, var(--text-color) 7%, var(--background-color)) 72%, transparent);
+  /* Material's own variables, so its disabled colour still wins. */
+  --mat-icon-button-state-layer-size: 44px;
+  --mat-icon-button-icon-color: var(--text-color);
+  --mat-icon-button-disabled-icon-color: color-mix(in srgb, var(--text-color) 30%, transparent);
+  color: var(--text-color);
+}
+
+.glass {
+  background-color: var(--glass);
+  -webkit-backdrop-filter: blur(16px) saturate(1.8);
+  backdrop-filter: blur(16px) saturate(1.8);
+  box-shadow:
+    inset 0 0 0 0.5px color-mix(in srgb, var(--text-color) 14%, transparent),
+    0 4px 16px rgb(0 0 0 / 12%);
+}
+
+.safe-area-probe {
+  position: fixed;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.chrome.inert {
+  pointer-events: none;
+}
+
+.top-bar,
+.toolbar,
+.auto-scroll-bar,
+.search-field {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  transition:
+    transform var(--motion) cubic-bezier(0.2, 0.9, 0.3, 1),
+    opacity var(--motion) ease;
+}
+
+.top-bar {
+  top: 0;
+  min-height: calc(56px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+}
+
+.top-spacer,
+.bar-title {
+  flex: 1;
+}
+
+/* Centred, as a navigation bar's title. */
+.bar-title {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-slot {
+  width: 44px;
+}
+
+/* As the iOS toolbar: arrows left, the passage between, search right. */
+.toolbar,
+.auto-scroll-bar {
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.toolbar {
+  bottom: calc(12px + env(safe-area-inset-bottom));
+}
+
+.toolbar > *,
+.auto-scroll-bar > * {
+  pointer-events: auto;
+}
+
+.arrows,
+.speed {
+  display: flex;
+  align-items: center;
+  height: var(--bar-height);
+  padding: 0 2px;
+  border-radius: calc(var(--bar-height) / 2);
+}
+
+.passage,
+.search-fab {
+  height: var(--bar-height);
+  border: none;
+  border-radius: calc(var(--bar-height) / 2);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.passage {
+  min-width: 0;
+  padding: 0 20px;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-fab {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--bar-height);
+}
+
+.circle {
+  --mat-icon-button-state-layer-size: var(--bar-height);
+}
+
+/* Above the toolbar while it shows; in its place while it's hidden. */
+.auto-scroll-bar {
+  bottom: calc(12px + env(safe-area-inset-bottom) + var(--bar-height) + var(--bar-gap));
+}
+
+.speed-label {
+  /* Over the global rule that colours every span with the text colour. */
+  color: inherit;
+  min-width: 4.5em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Rides above the on-screen keyboard (ChromeBarsComponent.followKeyboard). */
+.search-field {
+  bottom: calc(8px + max(var(--keyboard-height), env(safe-area-inset-bottom)));
+  height: var(--bar-height);
+  padding: 0 2px 0 14px;
+  border-radius: calc(var(--bar-height) / 2);
+}
+
+.search-field input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 1rem;
+}
+
+.search-field input::placeholder {
+  color: color-mix(in srgb, currentColor 55%, transparent);
+}
+
+.search-field input::-webkit-search-cancel-button {
+  display: none;
+}
+
+/* Hidden for reading, as the iOS bars hide. */
+.collapsed .top-bar {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.collapsed .toolbar {
+  transform: translateY(calc(100% + 16px));
+  opacity: 0;
+}
+
+.collapsed .toolbar > * {
+  pointer-events: none;
+}
+
+.collapsed .auto-scroll-bar {
+  transform: translateY(calc(var(--bar-height) + var(--bar-gap)));
+}
+
+mat-icon.filled {
+  font-variation-settings: "FILL" 1;
+}
+
+/* The text menu: rows of choices side by side, the current one marked. */
+.menu-title {
+  margin: 0;
+  padding: 8px 16px 4px;
+  font-size: 0.8rem;
+  opacity: 0.65;
+}
+
+.menu-row {
+  display: flex;
+  gap: 4px;
+  padding: 2px 8px;
+}
+
+.menu-tile.mat-mdc-menu-item {
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 64px;
+  padding: 6px 4px;
+  border-radius: 12px;
+  --mat-menu-item-label-text-size: 0.75rem;
+  --mat-menu-item-label-text-line-height: 1rem;
+}
+
+.menu-tile mat-icon {
+  margin: 0;
+}
+
+.menu-tile span {
+  color: inherit;
+}
+
+.menu-tile ::ng-deep .mat-mdc-menu-item-text {
+  flex: none;
+  max-width: 100%;
+  text-align: center;
+  white-space: normal;
+}
+
+.menu-tile.selected {
+  background-color: color-mix(in srgb, currentColor 14%, transparent);
+  --mat-menu-item-label-text-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host {
+    --motion: 0s;
+  }
+}

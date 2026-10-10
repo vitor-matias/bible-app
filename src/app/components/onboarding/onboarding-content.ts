@@ -6,7 +6,12 @@ import type {
 export interface OnboardingFeature {
   icon: string
   text: string
-  /** The iOS app's wording, where its native bars put things elsewhere. */
+  /**
+   * With the app's bars (the iOS and Android apps, phones), which put things
+   * elsewhere than the web header: their wording.
+   */
+  barsText?: string
+  /** The iOS app's own wording, where it differs from the other bars'. */
   iosText?: string
 }
 
@@ -17,7 +22,9 @@ export interface OnboardingStep {
   image?: string
   title: string
   intro: string
-  /** The iOS app's wording, where its native bars put things elsewhere. */
+  /** With the app's bars: their wording (OnboardingFeature.barsText). */
+  barsIntro?: string
+  /** The iOS app's own wording, where it differs from the other bars'. */
   iosIntro?: string
   features: readonly OnboardingFeature[]
 }
@@ -71,13 +78,13 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     title: "Navegar na Bíblia",
     intro:
       "No topo do ecrã, toque no nome do livro para escolher outro livro e no número para saltar para um capítulo.",
-    iosIntro:
+    barsIntro:
       "Na barra inferior, toque no nome do livro para escolher outro livro ou capítulo.",
     features: [
       {
         icon: "swipe",
         text: "Deslize o texto para o lado para mudar de capítulo. No computador, use as setas ← e → ou os botões nas margens.",
-        iosText:
+        barsText:
           "Deslize o texto para o lado, ou toque nas setas ‹ › da barra inferior, para mudar de capítulo.",
       },
       {
@@ -98,6 +105,8 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     title: "Ler à sua maneira",
     intro:
       "Abra o menu ☰ no canto superior esquerdo para ajustar a leitura ao seu gosto.",
+    barsIntro:
+      "Toque no botão do texto, no topo à direita, para ajustar a leitura ao seu gosto.",
     iosIntro:
       "Toque em AA, no topo à direita, para ajustar a leitura ao seu gosto.",
     features: [
@@ -116,6 +125,8 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
       {
         icon: "auto_mode",
         text: "Ative o deslocamento automático para ler sem mãos, com velocidade ajustável.",
+        barsText:
+          "Ative o deslocamento automático no menu ⋮ para ler sem mãos, com velocidade ajustável.",
         iosText:
           "Ative o deslocamento automático no menu ⋯ para ler sem mãos, com velocidade ajustável.",
       },
@@ -135,7 +146,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
       {
         icon: "bookmarks",
         text: "Guarde marcadores coloridos nos capítulos a que quer voltar.",
-        iosText:
+        barsText:
           "Toque no marcador, no topo à direita, para guardar marcadores coloridos nos capítulos a que quer voltar.",
       },
       {
@@ -343,6 +354,24 @@ export function sfSymbol(icon: string): string {
 }
 
 /**
+ * The steps in the words for the app's bars, where the page has them
+ * (NativeChromeService.bars): the Android app and phones. As they are, under
+ * the web header.
+ */
+export function barsOnboardingSteps(
+  steps: readonly OnboardingStep[] = ONBOARDING_STEPS,
+): OnboardingStep[] {
+  return steps.map((step) => ({
+    ...step,
+    intro: step.barsIntro ?? step.intro,
+    features: step.features.map((feature) => ({
+      ...feature,
+      text: feature.barsText ?? feature.text,
+    })),
+  }))
+}
+
+/**
  * The steps as the iOS app shows them: in its own words, with SF Symbols, and
  * without the install step (the app is installed by definition).
  */
@@ -354,12 +383,12 @@ export function nativeOnboardingSteps(
     .map((step) => ({
       id: step.id,
       title: step.title,
-      intro: step.iosIntro ?? step.intro,
+      intro: step.iosIntro ?? step.barsIntro ?? step.intro,
       symbol: sfSymbol(step.icon),
       logo: !!step.image,
       features: step.features.map((feature) => ({
         symbol: sfSymbol(feature.icon),
-        text: feature.iosText ?? feature.text,
+        text: feature.iosText ?? feature.barsText ?? feature.text,
       })),
     }))
 }

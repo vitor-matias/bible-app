@@ -12,6 +12,7 @@ import { MatButtonModule } from "@angular/material/button"
 import { MatDialogRef } from "@angular/material/dialog"
 import { MatIconModule } from "@angular/material/icon"
 import { AnalyticsService } from "../../services/analytics.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
 import {
   type InstallBrowser,
   type InstallPlatform,
@@ -19,6 +20,7 @@ import {
   PwaInstallService,
 } from "../../services/pwa-install.service"
 import {
+  barsOnboardingSteps,
   getInstallGuide,
   INSTALL_STEP_ID,
   type InstallGuide,
@@ -67,9 +69,13 @@ export class OnboardingComponent {
     private readonly analyticsService: AnalyticsService,
     private readonly cdr: ChangeDetectorRef,
   ) {
-    this.steps = pwaInstallService.isInstalled
-      ? ONBOARDING_STEPS.filter((step) => step.id !== INSTALL_STEP_ID)
+    // With the app's bars (Android, phones), in their words.
+    const steps = inject(NativeChromeService).bars
+      ? barsOnboardingSteps()
       : ONBOARDING_STEPS
+    this.steps = pwaInstallService.isInstalled
+      ? steps.filter((step) => step.id !== INSTALL_STEP_ID)
+      : steps
 
     this.detectedPlatform = pwaInstallService.detectPlatform()
     this.detectedBrowser = pwaInstallService.detectBrowser()

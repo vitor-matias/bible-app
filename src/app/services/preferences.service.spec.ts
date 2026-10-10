@@ -11,6 +11,15 @@ describe("PreferencesService", () => {
     service = TestBed.inject(PreferencesService)
   })
 
+  // The passage picker's Nomes/Abreviaturas, kept between openings.
+  it("remembers how the passage picker shows the books", () => {
+    expect(service.getPickerAbbreviations()).toBeFalse()
+    service.setPickerAbbreviations(true)
+    expect(service.getPickerAbbreviations()).toBeTrue()
+    service.setPickerAbbreviations(false)
+    expect(service.getPickerAbbreviations()).toBeFalse()
+  })
+
   it("should store and read the theme", () => {
     service.setTheme("dark")
 

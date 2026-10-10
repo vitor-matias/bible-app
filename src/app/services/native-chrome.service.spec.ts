@@ -10,7 +10,10 @@ import {
   NativeChromeService,
   type ReaderChrome,
   type SearchChrome,
+  WEB_BARS,
+  WEB_BARS_QUERY,
 } from "./native-chrome.service"
+import { WebChromeBars } from "./web-chrome-bars.service"
 
 const READER: ReaderChrome = {
   mode: "reader",
@@ -110,7 +113,7 @@ describe("NativeChromeService", () => {
     ["web", false],
     ["ios", false],
   ] as const) {
-    it(`does nothing on ${platform} with the plugin ${available ? "present" : "absent"}`, fakeAsync(() => {
+    it(`does nothing on ${platform} with the plugin ${available ? "present" : "absent"}, without the web's bars`, fakeAsync(() => {
       const service = create(platform, available)
       service.show(READER)
       service.hide()
@@ -126,6 +129,75 @@ describe("NativeChromeService", () => {
       expect(plugin.showPicker).not.toHaveBeenCalled()
     }))
   }
+
+  // The Android app and phone browsers: the same bars, drawn by the page.
+  describe("with the web's own bars", () => {
+    let web: {
+      setState: jasmine.Spy
+      showPicker: jasmine.Spy
+      showBookmarks: jasmine.Spy
+      showToast: jasmine.Spy
+      addListener: jasmine.Spy
+    }
+
+    beforeEach(() => {
+      web = {
+        setState: jasmine
+          .createSpy("setState")
+          .and.resolveTo({ top: 64, bottom: 88 }),
+        showPicker: jasmine.createSpy("showPicker").and.resolveTo(),
+        showBookmarks: jasmine.createSpy("showBookmarks").and.resolveTo(),
+        showToast: jasmine.createSpy("showToast").and.resolveTo(),
+        addListener: jasmine.createSpy("addListener").and.resolveTo(),
+      }
+      TestBed.overrideProvider(WEB_BARS, { useValue: true })
+      TestBed.overrideProvider(WebChromeBars, { useValue: web })
+    })
+
+    it("draws the bars in the page from the same state", async () => {
+      const service = create("android")
+      service.show(READER)
+      await settle()
+
+      expect(service.bars).toBeTrue()
+      expect(service.enabled).toBeFalse()
+      expect(body.classList).toContain("native-chrome")
+      expect(web.setState).toHaveBeenCalledWith(
+        jasmine.objectContaining({ mode: "reader", passageLabel: "Génesis 1" }),
+      )
+      expect(plugin.setState).not.toHaveBeenCalled()
+      expect(root.style.getPropertyValue("--native-chrome-top")).toBe("64px")
+    })
+
+    it("passes its taps to the page", () => {
+      const service = create("web")
+      const actions: NativeChromeAction[] = []
+      service.actions$.subscribe((action) => actions.push(action))
+      const tap = web.addListener.calls
+        .all()
+        .find(({ args }) => args[0] === "action")?.args[1]
+
+      tap({ id: "passage" })
+      expect(actions).toEqual([{ id: "passage" }])
+    })
+
+    it("opens the passage picker in the page", () => {
+      const data = { sections: [] } as unknown as PassagePickerData
+      create("web").showPicker(data)
+      expect(web.showPicker).toHaveBeenCalledOnceWith(data)
+    })
+
+    // The web app keeps its own bookmarks, notes, reports and snack bars.
+    it("leaves the iOS shell's own sheets to the web app", async () => {
+      const service = create("android")
+      expect(
+        await service.showBookmarks({ currentLabel: "", ribbons: [] }),
+      ).toBeFalse()
+      service.toast("Copiado")
+      expect(web.showBookmarks).not.toHaveBeenCalled()
+      expect(web.showToast).not.toHaveBeenCalled()
+    })
+  })
 
   it("marks the body so pages drop their web headers' space", () => {
     create("ios")
@@ -656,7 +728,7 @@ describe("NativeChromeService", () => {
     })
     afterEach(() => {
       host.remove()
-      document.body.classList.remove("native-chrome")
+      document.body.classList.remove("native-chrome", "platform-ios")
     })
 
     it("are brown on the web", () => {
@@ -665,8 +737,16 @@ describe("NativeChromeService", () => {
       )
     })
 
-    it("are the text colour in the iOS app", () => {
+    // The web bars of Android and phones keep the app's brand colours.
+    it("stay brown with the web's bars", () => {
       document.body.classList.add("native-chrome")
+      expect(getComputedStyle(host).getPropertyValue("--cap-brown")).toMatch(
+        BROWN,
+      )
+    })
+
+    it("are the text colour in the iOS app", () => {
+      document.body.classList.add("native-chrome", "platform-ios")
       for (const token of tokens) {
         const value = getComputedStyle(host).getPropertyValue(token).trim()
         expect(value).withContext(token).not.toMatch(BROWN)
@@ -675,5 +755,42 @@ describe("NativeChromeService", () => {
           .toBe(getComputedStyle(host).getPropertyValue("--text-color").trim())
       }
     })
+  })
+})
+
+describe("WEB_BARS", () => {
+  /** A document whose window is phone-sized or not, or has no window. */
+  function wanted(
+    platform: "web" | "android",
+    view: { phone: boolean } | null,
+  ): boolean {
+    spyOn(Capacitor, "getPlatform").and.returnValue(platform)
+    const defaultView = view && {
+      matchMedia: (query: string) => ({
+        matches: query === WEB_BARS_QUERY && view.phone,
+      }),
+    }
+    // The spec default (testing-defaults.spec.ts) would answer instead.
+    TestBed.resetTestingModule()
+    TestBed.configureTestingModule({
+      providers: [{ provide: DOCUMENT, useValue: { defaultView } }],
+    })
+    return TestBed.inject(WEB_BARS)
+  }
+
+  it("draws the bars in a phone's browser", () => {
+    expect(wanted("web", { phone: true })).toBeTrue()
+  })
+
+  it("keeps the web header on wider screens", () => {
+    expect(wanted("web", { phone: false })).toBeFalse()
+  })
+
+  it("draws the bars in the Android app at any width", () => {
+    expect(wanted("android", { phone: false })).toBeTrue()
+  })
+
+  it("draws nothing while server-rendering", () => {
+    expect(wanted("web", null)).toBeFalse()
   })
 })

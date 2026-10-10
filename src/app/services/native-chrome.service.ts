@@ -1,6 +1,6 @@
 import { OverlayContainer } from "@angular/cdk/overlay"
 import { DOCUMENT } from "@angular/common"
-import { Injectable, inject, NgZone } from "@angular/core"
+import { Injectable, InjectionToken, inject, NgZone } from "@angular/core"
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core"
 import { Subject } from "rxjs"
 import type { OnboardingResult } from "../components/onboarding/onboarding.component"
@@ -8,6 +8,7 @@ import type { NativeOnboardingStep } from "../components/onboarding/onboarding-c
 import { NATIVE_CHROME_PLUGIN } from "../tokens"
 import type { PassagePickerData } from "../utils/passage-picker"
 import type { ThemeMode } from "./theme.service"
+import { WebChromeBars } from "./web-chrome-bars.service"
 
 /** A tap on a native bar, its menu, the passage picker or the search field. */
 export type NativeChromeAction =
@@ -204,6 +205,22 @@ const MODAL_BACKDROP = ".cdk-overlay-dark-backdrop.cdk-overlay-backdrop-showing"
 const TAP_TARGETS =
   'a[href], button, input, select, textarea, label, [role="button"], [role="link"], [contenteditable="true"]'
 
+/**
+ * Where the web app takes the iOS app's bars: phones. Wider screens keep the
+ * web header (the width at which the reader drops its centred column).
+ */
+export const WEB_BARS_QUERY = "(max-width: 768px)"
+
+/**
+ * Whether the web app draws the app's bars (WebChromeBars): in the Android app
+ * always, in a browser on phone-sized screens; never while server-rendering.
+ * A token, so tests decide it rather than the size of their window.
+ */
+export const WEB_BARS = new InjectionToken<boolean>("Web bars", {
+  providedIn: "root",
+  factory: () => webBarsWanted(inject(DOCUMENT)),
+})
+
 /** Scroll this far in one direction to hide or bring back the reader's bars. */
 export const COLLAPSE_DISTANCE = 24
 
@@ -215,9 +232,12 @@ export const COLLAPSE_DISTANCE = 24
 export const USER_SCROLL_WINDOW_MS = 2000
 
 /**
- * The iOS app draws its bars natively, so they get the system's Liquid Glass.
- * Pages stay in charge: they send what the bars show (`show`), render no web
- * header of their own, and handle the taps from `actions$`.
+ * The app's bars, as the iOS app has them: a few buttons on top; arrows, the
+ * passage and search below; hidden while reading. The iOS app draws them
+ * natively, so they get the system's Liquid Glass; the Android app and phone
+ * browsers draw the same bars in the page (WebChromeBars). Either way pages
+ * stay in charge: they send what the bars show (`show`), render no web header
+ * of their own, and handle the taps from `actions$`.
  *
  * The bars float over the web view without changing its safe area, so the
  * page pads its scrolling content by `--native-chrome-top` and
@@ -232,7 +252,6 @@ export const USER_SCROLL_WINDOW_MS = 2000
 export class NativeChromeService {
   private readonly document = inject(DOCUMENT)
   private readonly ngZone = inject(NgZone)
-  private readonly plugin = inject(NATIVE_CHROME_PLUGIN)
   private readonly overlayContainer = inject(OverlayContainer)
   private readonly actionSubject = new Subject<NativeChromeAction>()
   private initialized = false
@@ -247,16 +266,31 @@ export class NativeChromeService {
   /** The bars' state as last sent to the shell (push). */
   private lastSent?: string
 
-  /** True in the iOS app, whose shell provides the NativeChrome plugin. */
+  /**
+   * True in the iOS app, whose shell provides the NativeChrome plugin: its
+   * bars, and its own sheets for bookmarks, notes, reports and toasts.
+   */
   readonly enabled =
     Capacitor.getPlatform() === "ios" &&
     Capacitor.isPluginAvailable("NativeChrome")
+
+  /**
+   * The bars at all: native in the iOS app, drawn by the page in the Android
+   * app and on phone-sized screens. Decided once, at start.
+   */
+  readonly bars = this.enabled || inject(WEB_BARS)
+
+  /** The bars' renderer: the iOS shell, or the page's own (WebChromeBars). */
+  private readonly plugin: NativeChromePlugin =
+    this.bars && !this.enabled
+      ? inject(WebChromeBars)
+      : inject(NATIVE_CHROME_PLUGIN)
 
   /** Taps on the native bars, delivered inside the Angular zone. */
   readonly actions$ = this.actionSubject.asObservable()
 
   init(): void {
-    if (!this.enabled || this.initialized) return
+    if (!this.bars || this.initialized) return
     this.initialized = true
     // Layout hook: pages drop the space they keep for their web headers.
     this.document.body.classList.add("native-chrome")
@@ -290,7 +324,7 @@ export class NativeChromeService {
   }
 
   show(page: PageChrome): void {
-    if (!this.enabled) return
+    if (!this.bars) return
     clearTimeout(this.pendingHide)
     this.pendingHide = undefined
     this.requested = page
@@ -302,7 +336,7 @@ export class NativeChromeService {
    * recreates the reader) doesn't flash the bars out and back in.
    */
   hide(): void {
-    if (!this.enabled) return
+    if (!this.bars) return
     clearTimeout(this.pendingHide)
     this.pendingHide = setTimeout(() => {
       this.pendingHide = undefined
@@ -313,7 +347,7 @@ export class NativeChromeService {
 
   /** Shows auto-scroll's controls above the reader's toolbar; null hides them. */
   setAutoScroll(state: AutoScrollChrome | null): void {
-    if (!this.enabled) return
+    if (!this.bars) return
     const wasPlaying = this.autoScroll?.playing ?? false
     if (!state) {
       // Leaving auto-scroll leaves the bars up: its own scrolling doesn't
@@ -329,7 +363,7 @@ export class NativeChromeService {
   }
 
   showPicker(data: PassagePickerData): void {
-    if (!this.enabled) return
+    if (!this.bars) return
     this.plugin.showPicker(data).catch(() => {})
   }
 
@@ -390,7 +424,7 @@ export class NativeChromeService {
    * another control stays that control's. Returns the cleanup.
    */
   trackScroll(element: HTMLElement): () => void {
-    if (!this.enabled) return () => {}
+    if (!this.bars) return () => {}
     let lastTop = element.scrollTop
     let anchor = lastTop
     let direction = 0
@@ -529,5 +563,15 @@ function presented(call: Promise<SheetPresented>): Promise<boolean> {
   return call.then(
     (result) => result?.presented === true,
     () => false,
+  )
+}
+
+/** WEB_BARS: the Android app, or a phone-sized browser window. */
+function webBarsWanted(document: Document): boolean {
+  const view = document.defaultView
+  if (!view?.matchMedia) return false
+  return (
+    Capacitor.getPlatform() === "android" ||
+    view.matchMedia(WEB_BARS_QUERY).matches
   )
 }
