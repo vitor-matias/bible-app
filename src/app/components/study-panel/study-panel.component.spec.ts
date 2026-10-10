@@ -22,6 +22,7 @@ import { HighlightService } from "../../services/highlight.service"
 import { NotesService } from "../../services/notes.service"
 import { ReverseReferencesService } from "../../services/reverse-references.service"
 import {
+  NOTE_SAVE_DEBOUNCE_MS,
   NOTE_SEARCH_DEBOUNCE_MS,
   type ParallelRequest,
   StudyPanelComponent,
@@ -1745,6 +1746,43 @@ describe("StudyPanelComponent", () => {
 
     // Driven by tick rather than by a real 260ms wait: the debounce is 200ms,
     // and a loaded machine can run the subscriber after the assertion.
+    it("saves what is still being typed when the panel goes", fakeAsync(() => {
+      // Leaving study mode, a window narrowed past the layout, a route
+      // change: the box is removed, which does not reliably blur it, and the
+      // waiting save used to go with it.
+      const target = verse(39, [plain("Amarás ao Senhor")])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+      component.onNoteInput("sobre o amor")
+      tick(100)
+
+      fixture.destroy()
+
+      expect(notes.getNote("mat", 22, 39)?.text).toBe("sobre o amor")
+    }))
+
+    it("saves the verse being left when the reader moves on mid-note", fakeAsync(() => {
+      // A keyboard path can change the verse with the box still focused, so
+      // no blur runs. The next keystroke replaced the waiting value, and the
+      // first verse's note was never written.
+      const first = verse(39, [plain("Amarás ao Senhor")])
+      const second = verse(40, [plain("Destes dois mandamentos")])
+      const chapter = { bookId: "mat", number: 22, verses: [first, second] }
+      setInputs({ book: BOOK, chapter, selection: { verse: first } })
+      component.onNoteInput("sobre o amor")
+      tick(100)
+
+      setInputs({ selection: { verse: second } })
+      component.onNoteInput("sobre a lei")
+      tick(NOTE_SAVE_DEBOUNCE_MS)
+
+      expect(notes.getNote("mat", 22, 39)?.text).toBe("sobre o amor")
+      expect(notes.getNote("mat", 22, 40)?.text).toBe("sobre a lei")
+    }))
+
     it("finds a note by its words, across books", fakeAsync(() => {
       notes.saveNote("mat", 22, 39, "sobre o amor ao próximo")
       notes.saveNote("psa", 1, 2, "a lei do Senhor")

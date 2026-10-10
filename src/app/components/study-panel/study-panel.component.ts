@@ -144,7 +144,7 @@ type FootnoteEntry = {
 }
 
 /** How long the note box waits after the last keystroke before saving. */
-const NOTE_SAVE_DEBOUNCE_MS = 500
+export const NOTE_SAVE_DEBOUNCE_MS = 500
 
 /** The same, for the note search — short enough to feel like it types. */
 export const NOTE_SEARCH_DEBOUNCE_MS = 200
@@ -321,6 +321,17 @@ export class StudyPanelComponent implements OnChanges {
     target: Verse
     text: string
   }>()
+  /**
+   * The last thing typed into the note box that is not saved yet.
+   *
+   * debounceTime holds only the newest value and takeUntilDestroyed drops it
+   * when the panel goes, so the queue alone loses a note in two ways: the
+   * panel is destroyed inside the window — leaving study mode, a narrower
+   * window, a route change — or the reader moves to another verse without the
+   * box blurring, and the next keystroke replaces the waiting value. Held
+   * here as well so it can be written out at both of those moments.
+   */
+  private pendingNote?: { bookId: Book["id"]; target: Verse; text: string }
   private readonly noteSearch = new Subject<string>()
   private noteSearchSubscription?: Subscription
   private searchSubscription?: Subscription
@@ -329,9 +340,9 @@ export class StudyPanelComponent implements OnChanges {
   constructor() {
     this.noteInput
       .pipe(debounceTime(NOTE_SAVE_DEBOUNCE_MS), takeUntilDestroyed())
-      .subscribe(({ bookId, target, text }) =>
-        this.persistNote(bookId, target, text),
-      )
+      // The queued value is the pending one: writing it out from there keeps
+      // the two from saving the same note twice.
+      .subscribe(() => this.flushPendingNote())
     // Registered once, not per chapter: onDestroy callbacks accumulate, and
     // the reader changes chapter far more often than it destroys the panel.
     this.noteSearch
@@ -345,6 +356,8 @@ export class StudyPanelComponent implements OnChanges {
     })
 
     this.destroyRef.onDestroy(() => {
+      // First: the rest of this tears down what would have saved it.
+      this.flushPendingNote(true)
       this.notesSubscription?.unsubscribe()
       this.noteSearchSubscription?.unsubscribe()
       this.searchSubscription?.unsubscribe()
@@ -381,6 +394,9 @@ export class StudyPanelComponent implements OnChanges {
       const requested = this.selection?.panel
       if (requested) this.activeTab = requested
       if (this.selection) this.readerHoldsPanel = false
+      // Before the box is refilled from the new verse: what was typed for the
+      // one being left is still waiting, and loadNoteDraft would write over it.
+      this.flushPendingNote()
       this.loadNoteDraft()
       this.loadSelectedHighlight()
       this.loadIncoming()
@@ -459,16 +475,44 @@ export class StudyPanelComponent implements OnChanges {
     this.noteDraft = value
     const target = this.selectedVerse
     if (target && this.book) {
+      this.pendingNote = { bookId: this.book.id, target, text: value }
       this.noteInput.next({ bookId: this.book.id, target, text: value })
     }
   }
 
   /** Leaving the box saves immediately rather than waiting out the debounce. */
   onNoteBlur(): void {
+    if (this.pendingNote) {
+      this.flushPendingNote()
+      return
+    }
     const target = this.selectedVerse
     if (target && this.book) {
       this.persistNote(this.book.id, target, this.noteDraft)
     }
+  }
+
+  /**
+   * Writes out whatever is waiting, to the verse it was typed for.
+   *
+   * Silently while the panel is being destroyed: an emptied note offers to be
+   * put back, and a snackbar whose undo would land on a panel that is gone
+   * offers nothing.
+   */
+  private flushPendingNote(silently = false): void {
+    const pending = this.pendingNote
+    if (!pending) return
+    this.pendingNote = undefined
+    if (silently) {
+      this.notesService.saveNote(
+        pending.bookId,
+        pending.target.chapterNumber,
+        pending.target.number,
+        pending.text,
+      )
+      return
+    }
+    this.persistNote(pending.bookId, pending.target, pending.text)
   }
 
   /** The verse the panel is following: the chosen one, else the one on screen. */
