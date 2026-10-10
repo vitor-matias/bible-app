@@ -96,7 +96,17 @@ describe("verse.utils", () => {
     it("should pass the bookId to the extract method", () => {
       mockBibleRef.extract.and.returnValue([])
       parseReferences(mockBibleRef, "text", "psa")
-      expect(mockBibleRef.extract).toHaveBeenCalledWith("text", "psa")
+      expect(mockBibleRef.extract).toHaveBeenCalledWith(
+        "text",
+        "psa",
+        undefined,
+      )
+    })
+
+    it("should pass the chapter on, so verse-only shorthand resolves", () => {
+      mockBibleRef.extract.and.returnValue([])
+      parseReferences(mockBibleRef, "v.12", "psa", 104)
+      expect(mockBibleRef.extract).toHaveBeenCalledWith("v.12", "psa", 104)
     })
   })
 
