@@ -63,4 +63,63 @@ describe("global styles", () => {
       expect(hyphens("verse-section .section")).toBe("manual")
     })
   })
+
+  // The text started 35 pt under the top buttons, which sit 24 pt under the
+  // status bar: the reader's 15px web margin stacked on the bar's inset. The
+  // system's own gap is its 8 pt layout margin.
+  describe("the reader's top margin in the iOS app", () => {
+    const TOP = 106
+    const BOTTOM = 83
+    let reader: HTMLElement
+
+    beforeEach(() => {
+      reader = document.createElement("bible-reader")
+      reader.innerHTML = `
+        <div class="paged-view-container"></div>
+        <div class="bookBlock"></div>`
+      document.body.appendChild(reader)
+      document.documentElement.style.setProperty(
+        "--native-chrome-top",
+        `${TOP}px`,
+      )
+      document.documentElement.style.setProperty(
+        "--native-chrome-bottom",
+        `${BOTTOM}px`,
+      )
+    })
+
+    afterEach(() => {
+      reader.remove()
+      document.body.classList.remove("native-chrome")
+      document.documentElement.style.removeProperty("--native-chrome-top")
+      document.documentElement.style.removeProperty("--native-chrome-bottom")
+    })
+
+    const styleOf = (selector: string) =>
+      getComputedStyle(reader.querySelector(selector) as HTMLElement)
+
+    it("starts scrolling text 8px under the bar", () => {
+      document.body.classList.add("native-chrome")
+
+      expect(styleOf(".bookBlock").marginTop).toBe("8px")
+    })
+
+    it("starts paged text 8px under the bar and still ends the page at the toolbar", () => {
+      document.body.classList.add("native-chrome")
+      const container = styleOf(".paged-view-container")
+
+      expect(container.marginTop).toBe("8px")
+      // Under the bar's inset: margin + page = the screen less both bars.
+      expect(
+        parseFloat(container.marginTop) + parseFloat(container.height),
+      ).toBeCloseTo(window.innerHeight - TOP - BOTTOM, 0)
+    })
+
+    it("leaves the web layout to the reader's own margins", () => {
+      // The reader's component CSS isn't loaded here, so only this override
+      // could have set a margin; without .native-chrome it must not.
+      expect(styleOf(".bookBlock").marginTop).toBe("0px")
+      expect(styleOf(".paged-view-container").marginTop).toBe("0px")
+    })
+  })
 })
