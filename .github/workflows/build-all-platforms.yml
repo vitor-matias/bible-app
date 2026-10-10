@@ -83,13 +83,11 @@ jobs:
         run: npm ci
 
       # The native apps are intentional PWA wrappers: web content is served
-      # remotely via server.url in capacitor.config.ts (Vercel-hosted PWA).
-      # An empty webDir is required by Capacitor but no local assets are bundled.
+      # remotely via server.url in capacitor.config.ts. An empty webDir is
+      # required by Capacitor but no local assets are bundled. Keep this path
+      # in sync with `webDir` in capacitor.config.ts, or `cap sync` fails.
       - name: Create empty web directory for Capacitor
-        # The native app is a PWA wrapper: capacitor.config.ts sets server.url to the hosted
-        # Vercel deployment, so no bundled web assets are needed. An empty webDir is required
-        # only to satisfy Capacitor's directory validation during `cap sync`.
-        run: mkdir -p dist/bible-app/browser
+        run: mkdir -p dist/bible-app/capacitor
 
       - name: Setup Capacitor Android
         run: |
@@ -239,13 +237,11 @@ jobs:
         run: npm ci
 
       # The native apps are intentional PWA wrappers: web content is served
-      # remotely via server.url in capacitor.config.ts (Vercel-hosted PWA).
-      # An empty webDir is required by Capacitor but no local assets are bundled.
+      # remotely via server.url in capacitor.config.ts. An empty webDir is
+      # required by Capacitor but no local assets are bundled. Keep this path
+      # in sync with `webDir` in capacitor.config.ts, or `cap sync` fails.
       - name: Create empty web directory for Capacitor
-        # The native app is a PWA wrapper: capacitor.config.ts sets server.url to the hosted
-        # Vercel deployment, so no bundled web assets are needed. An empty webDir is required
-        # only to satisfy Capacitor's directory validation during `cap sync`.
-        run: mkdir -p dist/bible-app/browser
+        run: mkdir -p dist/bible-app/capacitor
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
