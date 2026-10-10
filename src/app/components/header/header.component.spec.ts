@@ -291,7 +291,7 @@ describe("HeaderComponent", () => {
       expect(button.querySelector("mat-icon")?.textContent?.trim()).toBe(
         "brightness_auto",
       )
-      expect(button.getAttribute("aria-label")).toBe("Tema do Sistema")
+      expect(button.getAttribute("aria-label")).toBe("Tema: Automático")
     })
 
     it("moves on to the next theme and keeps the menu open", () => {
@@ -310,6 +310,18 @@ describe("HeaderComponent", () => {
       expect(button.querySelector("mat-icon")?.textContent?.trim()).toBe(
         "dark_mode",
       )
+      // It says which theme is on: the icon alone left people guessing.
+      expect(button.getAttribute("aria-label")).toBe("Tema: Escuro")
+    })
+
+    it("names the reading modes in plain words", () => {
+      themeButton()
+      const viewMode = document.querySelectorAll<HTMLButtonElement>(
+        ".menu-controls .menu-control",
+      )[1]
+      expect(viewMode.getAttribute("aria-label")).toBe(
+        "Texto contínuo (clique para mudar para página a página)",
+      )
     })
 
     // Plain buttons in a menu are skipped by its arrow keys.
@@ -317,7 +329,7 @@ describe("HeaderComponent", () => {
       themeButton()
       trigger().menu?.focusFirstItem("keyboard")
       expect(document.activeElement?.getAttribute("aria-label")).toBe(
-        "Tema do Sistema",
+        "Tema: Automático",
       )
       const panel = document.querySelector(".mat-mdc-menu-panel") as HTMLElement
       const down = new KeyboardEvent("keydown", {
@@ -785,10 +797,11 @@ describe("HeaderComponent with the iOS native bars", () => {
       canShare: true,
       canReport: true,
       bookmarkColor: null,
+      bookmarkName: null,
     })
   })
 
-  it("shows the chapter's ribbon on the passage button", () => {
+  it("shows the chapter's ribbon, by colour and by name, on the bookmark button", () => {
     const bookmarks = TestBed.inject(
       BookmarkService,
     ) as jasmine.SpyObj<BookmarkService>
@@ -804,6 +817,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(lastState()).toEqual(
       jasmine.objectContaining({
         bookmarkColor: "red",
+        bookmarkName: "vermelho",
         passageAccessibilityLabel: "Livro do Génesis 4, marcador vermelho",
       }),
     )

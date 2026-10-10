@@ -104,9 +104,13 @@ h6 {
   display: table;
 }
 
+/* 48 px, Android's minimum touch target (over the mini FAB's 40), and set in
+   from the screen's edges, where Android's back gesture starts. */
 .floating-nav-button {
   position: fixed;
   z-index: 99;
+  width: 48px;
+  height: 48px;
   opacity: 0.6;
   transition: opacity 0.3s;
   color: var(--cap-brown);
@@ -127,11 +131,11 @@ h6 {
 
 
 .prev-chapter {
-  left: 16px;
+  left: calc(24px + env(safe-area-inset-left));
 }
 
 .next-chapter {
-  right: 16px;
+  right: calc(24px + env(safe-area-inset-right));
 }
 
 .search {

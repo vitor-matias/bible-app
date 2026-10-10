@@ -9,6 +9,7 @@ import {
   Renderer2,
 } from "@angular/core"
 import { PreferencesService } from "../services/preferences.service"
+import { SystemTextSizeService } from "../services/system-text-size.service"
 
 @Directive({
   selector: "[unifiedGestures]",
@@ -58,6 +59,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     private el: ElementRef,
     private renderer: Renderer2,
     private preferencesService: PreferencesService,
+    private systemTextSize: SystemTextSizeService,
   ) {
     this.currentFontSize = this.BASE_FONT_SIZE
   }
@@ -81,6 +83,20 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
         )
         hasValidSize = true
       }
+    }
+
+    // Until a size is chosen here, the iOS app follows the iPhone's own text
+    // size, to the nearest step; it isn't saved, so it keeps following it.
+    const system = hasValidSize ? null : this.systemTextSize.percent()
+    if (system !== null) {
+      this.currentFontSize = Math.max(
+        this.MIN_FONT_SIZE,
+        Math.min(
+          Math.round(system / this.FONT_STEP) * this.FONT_STEP,
+          this.MAX_FONT_SIZE,
+        ),
+      )
+      hasValidSize = true
     }
 
     if (hasValidSize) {

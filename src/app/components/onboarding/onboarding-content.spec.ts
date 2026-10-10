@@ -17,7 +17,7 @@ describe("nativeOnboardingSteps", () => {
   // The iOS app's bars put the picker at the bottom and the menu top-right.
   it("describes the iOS app's bars, not the web header", () => {
     expect(step("navigate")?.intro).toContain("barra inferior")
-    expect(step("customize")?.intro).toContain("⋯")
+    expect(step("customize")?.intro).toContain("AA")
     const texts = steps.flatMap((entry) => [
       entry.intro,
       ...entry.features.map((feature) => feature.text),
@@ -27,6 +27,24 @@ describe("nativeOnboardingSteps", () => {
       expect(text).not.toContain("No topo do ecrã")
       expect(text).not.toContain("computador, use as setas")
     }
+  })
+
+  // Text, theme and page mode under AA; Marcadores a button of its own; and
+  // auto-scroll still turned on from ⋯.
+  it("points to the buttons of the iOS app's top and bottom bars", () => {
+    const feature = (id: string, icon: string) =>
+      step(id)?.features.find((entry) => entry.symbol === sfSymbol(icon))?.text
+    expect(feature("tools", "bookmarks")).toContain("Toque no marcador")
+    const autoScroll = feature("customize", "auto_mode")
+    expect(autoScroll).toContain("menu ⋯")
+  })
+
+  it("names the reading modes in plain words", () => {
+    const modes = step("customize")?.features.find(
+      (feature) => feature.symbol === sfSymbol("auto_stories"),
+    )?.text
+    expect(modes).toContain("texto contínuo")
+    expect(modes).toContain("página a página")
   })
 
   // There a tap on the text shows or hides the bars; only the asterisk opens notes.
@@ -45,7 +63,7 @@ describe("nativeOnboardingSteps", () => {
     )
     expect(step("tools")?.features[1]).toEqual({
       symbol: "bookmark",
-      text: "Guarde marcadores coloridos nos capítulos a que quer voltar.",
+      text: "Toque no marcador, no topo à direita, para guardar marcadores coloridos nos capítulos a que quer voltar.",
     })
   })
 

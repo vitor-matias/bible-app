@@ -308,8 +308,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   getThemeTooltip(): string {
     const mode = this.themeService.currentMode
-    if (mode === "system") return "Tema do Sistema"
-    return mode === "light" ? "Modo Claro" : "Modo Escuro"
+    // Says which theme is on: the button cycles through them.
+    if (mode === "system") return "Tema: Automático"
+    return mode === "light" ? "Tema: Claro" : "Tema: Escuro"
   }
 
   /**
@@ -333,8 +334,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   getViewModeTooltip(): string {
     return this.viewMode === "scrolling"
-      ? "Modo de Deslocamento (clique para mudar para páginas)"
-      : "Modo de Páginas (clique para mudar para deslocamento)"
+      ? "Texto contínuo (clique para mudar para página a página)"
+      : "Página a página (clique para mudar para texto contínuo)"
   }
 
   @Output() increaseFontSizeEvent = new EventEmitter<void>()
@@ -424,6 +425,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
           : []),
       ].join(", "),
       bookmarkColor: this.currentBookmark?.color ?? null,
+      bookmarkName: this.bookmarkName?.toLocaleLowerCase("pt") ?? null,
       chapterNavigation: !isAbout,
       canGoPrevious: this.canGoPrevious,
       canGoNext: this.canGoNext,
