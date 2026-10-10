@@ -865,7 +865,7 @@ describe("VerseComponent", () => {
         expect(text().getAttribute("tabindex")).toBeNull()
       })
 
-      it("opens them from the asterisk, a finger-sized target", () => {
+      it("opens them from the marker, a finger-sized target", () => {
         asterisk().click()
 
         expect(open).toHaveBeenCalledTimes(1)
@@ -873,6 +873,66 @@ describe("VerseComponent", () => {
         expect(target.width).toBe("44px")
         expect(target.height).toBe("44px")
       })
+
+      it("marks them with a labelled icon, not an asterisk", () => {
+        const marker = asterisk()
+
+        expect(marker.querySelector("svg.noteIcon")).toBeTruthy()
+        expect(marker.textContent?.trim()).toBe("")
+        expect(marker.getAttribute("aria-label")).toBe("Notas")
+        expect(marker.querySelector("svg")?.getAttribute("aria-hidden")).toBe(
+          "true",
+        )
+      })
+
+      // The asterisk wore the accent; on iOS the icon is the text's colour.
+      it("draws the icon in the text's colour", () => {
+        const icon = asterisk().querySelector("svg") as SVGElement
+        const probe = document.createElement("span")
+        probe.style.color = getComputedStyle(document.documentElement)
+          .getPropertyValue("--text-color")
+          .trim()
+        document.body.appendChild(probe)
+
+        expect(getComputedStyle(icon).color).toBe(getComputedStyle(probe).color)
+        expect(getComputedStyle(icon).stroke).toBe(getComputedStyle(icon).color)
+        probe.remove()
+      })
+
+      // The 1em asterisk was too small a thing to aim at.
+      it("draws the icon bigger than the glyph it replaced", () => {
+        const icon = asterisk().querySelector("svg") as SVGElement
+        const fontSize = parseFloat(getComputedStyle(asterisk()).fontSize)
+        const { width, height } = getComputedStyle(icon)
+
+        expect(parseFloat(width)).toBeCloseTo(fontSize * 1.2, 1)
+        expect(parseFloat(height)).toBeCloseTo(fontSize * 1.2, 1)
+      })
+
+      // Riding above its verse number looked like it belonged to the line above.
+      it("sits level with the verse number, not above it", () => {
+        const icon = asterisk().querySelector("svg") as SVGElement
+        const number = fixture.nativeElement.querySelector(
+          ".verseNumber",
+        ) as HTMLElement
+        const fontSize = parseFloat(getComputedStyle(asterisk()).fontSize)
+        const { top } = getComputedStyle(icon)
+
+        // Moved down from its natural place by a fraction of the marker's size.
+        expect(parseFloat(top)).toBeGreaterThan(0)
+        expect(parseFloat(top)).toBeLessThan(fontSize * 0.5)
+        expect(getComputedStyle(number).verticalAlign).toBe(
+          getComputedStyle(asterisk()).verticalAlign,
+        )
+      })
+    })
+
+    it("keeps the asterisk outside the iOS app", () => {
+      render()
+
+      expect(asterisk().textContent?.trim()).toBe("＊")
+      expect(asterisk().querySelector("svg")).toBeNull()
+      expect(asterisk().hasAttribute("aria-label")).toBeFalse()
     })
   })
 

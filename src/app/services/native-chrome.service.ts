@@ -386,7 +386,7 @@ export class NativeChromeService {
   /**
    * Hides the reader's bars while `element` scrolls down and brings them back
    * when it scrolls up or reaches either end. A tap on the text shows them, or
-   * hides them again, as in Photos and Books; a tap on a link, an asterisk or
+   * hides them again, as in Photos and Books; a tap on a link, a notes marker or
    * another control stays that control's. Returns the cleanup.
    */
   trackScroll(element: HTMLElement): () => void {

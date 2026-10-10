@@ -88,7 +88,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
         icon: "notes",
         text: "Toque num versículo com nota para ler a nota de rodapé.",
         iosText:
-          "Toque no asterisco ＊ junto ao número do versículo para ler a nota. Um toque no texto mostra ou esconde os botões.",
+          "Toque no ícone de notas junto ao número do versículo para ler a nota. Um toque no texto mostra ou esconde os botões.",
       },
     ],
   },

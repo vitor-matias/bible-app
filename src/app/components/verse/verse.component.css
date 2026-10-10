@@ -127,7 +127,28 @@ h3:not(:first-child) {
   text-align: center;
 }
 
-/* The iOS app: only the asterisk opens the notes (a tap on the text shows or
+/* The iOS app's marker is an icon, not the asterisk: a note with lines of text,
+   in the text's own colour (the asterisk wore the accent; the app has none on
+   iOS, and it has no text to underline). Its box is 1.2em and
+   the drawing fills most of it, so it is a visibly bigger thing to aim at than
+   the glyph it replaced (about 12 x 10 pt, against 8 x 6). It is centred on
+   the verse number's digits rather than riding above them. The offset is a
+   relative one: vertical-align had no effect on this inline SVG in WebKit.
+   Measured in the iOS simulator. */
+.noteIcon {
+  width: 1.2em;
+  height: 1.2em;
+  position: relative;
+  top: 0.22em;
+  color: var(--text-color);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The iOS app: only the marker opens the notes (a tap on the text shows or
    hides the bars), so it gets a finger-sized target, Apple's 44 pt minimum. */
 :host-context(.native-chrome) .footnoteIndicator {
   position: relative;
