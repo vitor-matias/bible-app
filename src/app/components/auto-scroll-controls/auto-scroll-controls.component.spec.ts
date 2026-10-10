@@ -1,8 +1,13 @@
 import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
+import { Subject } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
+import {
+  type NativeChromeAction,
+  NativeChromeService,
+} from "../../services/native-chrome.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { AutoScrollControlsComponent } from "./auto-scroll-controls.component"
 
@@ -198,5 +203,116 @@ describe("AutoScrollControlsComponent", () => {
         1,
       )
     })
+  })
+})
+
+describe("AutoScrollControlsComponent in the iOS app", () => {
+  let fixture: ComponentFixture<AutoScrollControlsComponent>
+  let actions: Subject<NativeChromeAction>
+  let nativeChrome: {
+    enabled: boolean
+    actions$: Subject<NativeChromeAction>
+    setAutoScroll: jasmine.Spy
+  }
+  let autoScroll: jasmine.SpyObj<AutoScrollService>
+  let playing: boolean
+  let speed: number
+
+  beforeEach(async () => {
+    actions = new Subject()
+    nativeChrome = {
+      enabled: true,
+      actions$: actions,
+      setAutoScroll: jasmine.createSpy("setAutoScroll"),
+    }
+    playing = false
+    speed = 1
+    autoScroll = jasmine.createSpyObj("AutoScrollService", [
+      "start",
+      "stop",
+      "updateAutoScrollSpeed",
+      "getAutoScrollSpeedLabel",
+    ])
+    Object.defineProperties(autoScroll, {
+      autoScrollEnabled: { get: () => playing },
+      autoScrollLinesPerSecond: { get: () => speed },
+      AUTO_SCROLL_STEP: { get: () => 0.25 },
+      MIN_AUTO_SCROLL_LPS: { get: () => 0.25 },
+      MAX_AUTO_SCROLL_LPS: { get: () => 4 },
+    })
+    autoScroll.getAutoScrollSpeedLabel.and.callFake((value) => String(value))
+    autoScroll.start.and.callFake(() => {
+      playing = true
+    })
+    autoScroll.updateAutoScrollSpeed.and.callFake((delta) => {
+      speed += delta
+      return speed
+    })
+    const analytics = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analytics.track.and.resolveTo()
+
+    await TestBed.configureTestingModule({
+      imports: [AutoScrollControlsComponent],
+      providers: [
+        { provide: NativeChromeService, useValue: nativeChrome },
+        { provide: AutoScrollService, useValue: autoScroll },
+        {
+          provide: PreferencesService,
+          useValue: jasmine.createSpyObj(["setAutoScrollSpeed"]),
+        },
+        { provide: AnalyticsService, useValue: analytics },
+      ],
+    }).compileComponents()
+
+    fixture = TestBed.createComponent(AutoScrollControlsComponent)
+    fixture.componentRef.setInput(
+      "scrollElement",
+      document.createElement("div"),
+    )
+    fixture.componentRef.setInput(
+      "lineHeightElement",
+      document.createElement("div"),
+    )
+    fixture.detectChanges()
+  })
+
+  const lastState = () => nativeChrome.setAutoScroll.calls.mostRecent().args[0]
+
+  it("draws no web controls; the toolbar shows them", () => {
+    expect(
+      fixture.nativeElement.querySelector(".auto-scroll-controls"),
+    ).toBeNull()
+    expect(lastState()).toEqual({
+      playing: false,
+      speedLabel: "1 ln/s",
+      canSlower: true,
+      canFaster: true,
+    })
+  })
+
+  it("plays and pauses from the toolbar", () => {
+    actions.next({ id: "auto-scroll-toggle" })
+    expect(autoScroll.start).toHaveBeenCalled()
+    expect(lastState()).toEqual(jasmine.objectContaining({ playing: true }))
+
+    actions.next({ id: "auto-scroll-toggle" })
+    expect(autoScroll.stop).toHaveBeenCalled()
+  })
+
+  it("changes speed from the toolbar, down to the slowest", () => {
+    actions.next({ id: "auto-scroll-faster" })
+    expect(lastState()).toEqual(
+      jasmine.objectContaining({ speedLabel: "1.25 ln/s" }),
+    )
+
+    for (let i = 0; i < 4; i++) actions.next({ id: "auto-scroll-slower" })
+    expect(lastState()).toEqual(
+      jasmine.objectContaining({ speedLabel: "0.25 ln/s", canSlower: false }),
+    )
+  })
+
+  it("gives the toolbar back when closed", () => {
+    fixture.destroy()
+    expect(lastState()).toBeNull()
   })
 })

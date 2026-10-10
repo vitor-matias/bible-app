@@ -11,10 +11,12 @@ import { BehaviorSubject } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
+import { HapticsService } from "../../services/haptics.service"
 import { BookmarkSelectorComponent } from "./bookmark-selector.component"
 
 describe("BookmarkSelectorComponent", () => {
   let component: BookmarkSelectorComponent
+  let hapticsSpy: jasmine.SpyObj<HapticsService>
   let fixture: ComponentFixture<BookmarkSelectorComponent>
   let bookmarkServiceSpy: jasmine.SpyObj<BookmarkService>
   let _bookServiceSpy: jasmine.SpyObj<BookService>
@@ -51,6 +53,10 @@ describe("BookmarkSelectorComponent", () => {
     })
 
     bookmarkSpy.addBookmark.and.returnValue(Promise.resolve())
+    hapticsSpy = jasmine.createSpyObj<HapticsService>("HapticsService", [
+      "light",
+      "success",
+    ])
     bookmarkSpy.removeBookmark.and.returnValue(Promise.resolve())
     bookSpy.findBookById.and.returnValue({ abrv: "Mc", shortName: "Marcos" })
     bookSpy.getUrlAbrv.and.returnValue("mrk")
@@ -72,6 +78,7 @@ describe("BookmarkSelectorComponent", () => {
         { provide: MatBottomSheetRef, useValue: sheetSpy },
         { provide: Router, useValue: rSpy },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
+        { provide: HapticsService, useValue: hapticsSpy },
       ],
     }).compileComponents()
 
@@ -130,6 +137,7 @@ describe("BookmarkSelectorComponent", () => {
 
     expect(bookmarkServiceSpy.addBookmark).toHaveBeenCalledWith("GEN", 1, "red")
     expect(bottomSheetRefSpy.dismiss).not.toHaveBeenCalled()
+    expect(hapticsSpy.success).toHaveBeenCalled()
   })
 
   it("should NOT remove bookmark when clicking ribbon assigned to current location", () => {

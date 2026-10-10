@@ -8,22 +8,26 @@ const config: CapacitorConfig = {
   // so the native bundle stays lean and the web build keeps its static HTML.
   webDir: "dist/bible-app/capacitor",
   server: {
-    ...(process.env['CAPACITOR_SERVER_URL'] || process.env['NODE_ENV'] === "production"
-      ? { url: process.env['CAPACITOR_SERVER_URL'] || "https://biblia.capuchinhos.org/" }
-      : { url: "http://localhost:4200" }),
+    // The app ships the bundled webDir. Only for development, point the shell
+    // at a dev server for live reload, e.g.
+    //   CAPACITOR_LIVE_RELOAD_URL=http://192.168.1.10:4200 npx cap run android
+    ...(process.env['CAPACITOR_LIVE_RELOAD_URL']
+      ? { url: process.env['CAPACITOR_LIVE_RELOAD_URL'], cleartext: true }
+      : {}),
     androidScheme: "https",
-    iosScheme: "https",
   },
   plugins: {
-    StatusBar: {
-      overlaysWebView: true,
-      style: "DARK",
+    SplashScreen: {
+      // NativeShellService hides it once the first page has rendered.
+      launchAutoHide: false,
+      backgroundColor: "#ffffff",
+      showSpinner: false,
     },
-    CapacitorHttp: {
-      enabled: true,
-    },
+    // Status/navigation bar icon styles are set at runtime (AppComponent and
+    // ThemeService via SystemBars): the toolbar is always brown while the
+    // navigation bar follows the in-app theme, which one static style cannot
+    // express. The API sends CORS headers, so native HTTP patching is unneeded.
   },
-  android: {},
 }
 
 export default config

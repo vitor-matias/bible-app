@@ -6,7 +6,9 @@ import {
 } from "@angular/material/bottom-sheet"
 import { provideRouter } from "@angular/router"
 import { Subject } from "rxjs"
+import { BackButtonService } from "../../services/back-button.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
+import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { VerseComponent } from "./verse.component"
 
 const TRANSPARENT = "rgba(0, 0, 0, 0)"
@@ -41,6 +43,7 @@ describe("VerseComponent", () => {
   let mockBibleRef: jasmine.SpyObj<BibleReferenceService>
   let mockBottomSheet: MatBottomSheet
   let dismissed: Subject<void>
+  let dismissSheet: jasmine.Spy
 
   beforeEach(async () => {
     mockBibleRef = jasmine.createSpyObj("BibleReferenceService", ["extract"])
@@ -59,9 +62,11 @@ describe("VerseComponent", () => {
     mockBottomSheet = (component as unknown as { bottomSheet: MatBottomSheet })
       .bottomSheet
     dismissed = new Subject<void>()
+    dismissSheet = jasmine.createSpy("dismiss")
     spyOn(mockBottomSheet, "open").and.returnValue({
+      dismiss: dismissSheet,
       afterDismissed: () => dismissed.asObservable(),
-    } as ReturnType<MatBottomSheet["open"]>)
+    } as unknown as ReturnType<MatBottomSheet["open"]>)
   })
 
   it("should create", () => {
@@ -797,7 +802,133 @@ describe("VerseComponent", () => {
     })
   })
 
+  describe("what a tap on a verse with notes opens", () => {
+    const footnote = { type: "footnote" as const, text: "note", reference: "1" }
+    const render = () => {
+      setData(
+        component,
+        makeVerse({ text: [{ type: "text", text: "No princípio" }, footnote] }),
+      )
+      fixture.detectChanges()
+    }
+    const text = () =>
+      fixture.nativeElement.querySelector(
+        ".verseRun:not(:empty)",
+      ) as HTMLElement
+    const asterisk = () =>
+      fixture.nativeElement.querySelector(".footnoteIndicator") as HTMLElement
+
+    // Before, it was in the text's colour, and read as a stray mark.
+    it("shows the asterisk underlined in the text's accent, as a link", () => {
+      render()
+      const accent = getComputedStyle(document.documentElement)
+        .getPropertyValue("--text-secondary")
+        .trim()
+      const probe = document.createElement("span")
+      probe.style.color = accent
+      document.body.appendChild(probe)
+      expect(getComputedStyle(asterisk()).color).toBe(
+        getComputedStyle(probe).color,
+      )
+      expect(getComputedStyle(asterisk()).textDecorationLine).toBe("underline")
+      probe.remove()
+    })
+
+    it("opens the notes from the text on the web", () => {
+      render()
+      text().click()
+
+      expect(mockBottomSheet.open).toHaveBeenCalled()
+      expect(text().getAttribute("role")).toBe("button")
+    })
+
+    // There a tap on the text shows or hides the bars (NativeChromeService).
+    describe("in the iOS app", () => {
+      let open: jasmine.Spy
+
+      beforeEach(() => {
+        const native = TestBed.inject(NativeFootnotesService)
+        spyOnProperty(native, "enabled").and.returnValue(true)
+        open = spyOn(native, "open")
+        document.body.classList.add("native-chrome")
+        render()
+      })
+
+      afterEach(() => document.body.classList.remove("native-chrome"))
+
+      it("leaves the text alone", () => {
+        text().click()
+        text().dispatchEvent(new KeyboardEvent("keydown", { key: " " }))
+
+        expect(open).not.toHaveBeenCalled()
+        expect(text().getAttribute("role")).toBeNull()
+        expect(text().getAttribute("tabindex")).toBeNull()
+      })
+
+      it("opens them from the asterisk, a finger-sized target", () => {
+        asterisk().click()
+
+        expect(open).toHaveBeenCalledTimes(1)
+        const target = getComputedStyle(asterisk(), "::after")
+        expect(target.width).toBe("44px")
+        expect(target.height).toBe("44px")
+      })
+    })
+  })
+
+  // Leaflets at Mass number most psalms one lower; the edition prints both.
+  describe("a psalm's number", () => {
+    const opening = (bookId: string, chapterNumber: number) =>
+      makeVerse({
+        bookId,
+        chapterNumber,
+        number: 0,
+        verseLabel: "front",
+        text: [{ type: "section", tag: "s2", text: "O BOM PASTOR" }],
+      })
+    const liturgical = () =>
+      fixture.nativeElement.querySelector(".liturgicalNumber") as HTMLElement
+
+    it("carries the liturgical number under it", () => {
+      setData(component, opening("psa", 23))
+      fixture.detectChanges()
+
+      expect(liturgical().textContent?.trim()).toBe("na liturgia, (22)")
+    })
+
+    it("carries none where the numberings agree, or outside the Psalms", () => {
+      setData(component, opening("psa", 150))
+      fixture.detectChanges()
+      expect(liturgical()).toBeNull()
+
+      setData(component, opening("gen", 23))
+      fixture.detectChanges()
+      expect(liturgical()).toBeNull()
+    })
+  })
+
   describe("toggleFootnotes", () => {
+    // The iOS app shows them in a native sheet instead.
+    it("opens the native sheet in the iOS app", () => {
+      const native = TestBed.inject(NativeFootnotesService)
+      spyOnProperty(native, "enabled").and.returnValue(true)
+      const open = spyOn(native, "open")
+      const footnote = {
+        type: "footnote" as const,
+        text: "note",
+        reference: "a",
+      }
+      const verse = makeVerse({
+        text: [{ type: "text", text: "verse" }, footnote],
+      })
+      setData(component, verse)
+
+      component.toggleFootnotes()
+
+      expect(open).toHaveBeenCalledWith([footnote], verse)
+      expect(mockBottomSheet.open).not.toHaveBeenCalled()
+    })
+
     it("should open bottom sheet when footnotes exist", () => {
       setData(
         component,
@@ -811,6 +942,22 @@ describe("VerseComponent", () => {
 
       component.toggleFootnotes()
       expect(mockBottomSheet.open).toHaveBeenCalled()
+    })
+
+    it("lets the Android back button dismiss the footnotes sheet", () => {
+      setData(
+        component,
+        makeVerse({
+          text: [
+            { type: "text", text: "verse" },
+            { type: "footnote", text: "note", reference: "a" },
+          ],
+        }),
+      )
+      component.toggleFootnotes()
+
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
+      expect(dismissSheet).toHaveBeenCalled()
     })
 
     it("should not open bottom sheet when no footnotes", () => {

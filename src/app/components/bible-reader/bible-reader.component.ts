@@ -22,8 +22,8 @@ import {
   MatDrawerContent,
   MatSidenavModule,
 } from "@angular/material/sidenav"
-import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
 import { ActivatedRoute, Router, RouterLink } from "@angular/router"
+import { Capacitor } from "@capacitor/core"
 import { combineLatest, Subject, Subscription } from "rxjs"
 import { switchMap, take, takeUntil } from "rxjs/operators"
 import {
@@ -33,12 +33,16 @@ import {
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
+import { BackButtonService } from "../../services/back-button.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
+import { HapticsService } from "../../services/haptics.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
+import { ToastService } from "../../services/toast.service"
 import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
 import { BookIntroComponent } from "../book-intro/book-intro.component"
@@ -60,7 +64,6 @@ import { VerseComponent } from "../verse/verse.component"
     BookSelectorComponent,
     MatSidenavModule,
     MatBottomSheetModule,
-    MatSnackBarModule,
     AboutComponent,
     ChapterSelectorComponent,
     MatIconModule,
@@ -77,6 +80,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private chapterSubscription?: Subscription
   private injector = inject(Injector)
   private platformId = inject(PLATFORM_ID)
+  private haptics = inject(HapticsService)
+  private nativeChrome = inject(NativeChromeService)
+  private toast = inject(ToastService)
+  private stopTrackingScroll?: () => void
+  private unregisterBackCloser = inject(BackButtonService).register(() => {
+    if (!this.bookDrawer?.opened) return false
+    this.bookDrawer.close()
+    return true
+  })
 
   @ViewChild("bookDrawer")
   bookDrawer!: MatDrawer
@@ -84,8 +96,21 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   @ViewChild("container")
   container!: MatDrawerContainer
 
+  private drawerContentRef?: ElementRef<HTMLElement>
+
+  /** The text's scroller, which also hides the iOS bars as it scrolls. */
   @ViewChild(MatDrawerContent, { read: ElementRef })
-  drawerContent!: ElementRef<HTMLElement>
+  set drawerContent(content: ElementRef<HTMLElement> | undefined) {
+    if (content?.nativeElement === this.drawerContentRef?.nativeElement) return
+    this.drawerContentRef = content
+    this.stopTrackingScroll?.()
+    this.stopTrackingScroll = content
+      ? this.nativeChrome.trackScroll(content.nativeElement)
+      : undefined
+  }
+  get drawerContent(): ElementRef<HTMLElement> {
+    return this.drawerContentRef as ElementRef<HTMLElement>
+  }
 
   @ViewChild(UnifiedGesturesDirective) gestures!: UnifiedGesturesDirective
   @ViewChild(PagedNavigationDirective) pagedNav?: PagedNavigationDirective
@@ -98,6 +123,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   book!: Book
   books: Book[] = []
+  /** The book list could not be loaded and nothing is cached. */
+  booksUnavailable = false
+  retryingBooks = false
   chapterNumber = 1
   chapter!: Chapter
 
@@ -187,7 +215,6 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     private animationService: BibleReaderAnimationService,
     private analyticsService: AnalyticsService,
     private networkService: NetworkService,
-    private snackBar: MatSnackBar,
     private seoService: SeoService,
   ) {}
 
@@ -207,6 +234,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe((books) => {
         this.books = books
+      })
+    this.bookService.booksUnavailable$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((unavailable) => {
+        this.booksUnavailable = unavailable
+        this.cdr.markForCheck()
       })
 
     // First book list only: loading an introduction body pushes a new list
@@ -308,10 +341,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.unregisterBackCloser()
     this.destroy$.next()
     this.destroy$.complete()
     this.chapterSubscription?.unsubscribe()
     this.animationService.cancelPendingRealign()
+    this.stopTrackingScroll?.()
     // AutoScrollService handles its own cleanup now if we stop it, or the component stopping it
   }
 
@@ -368,6 +403,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   onSwipeLeft(): void {
+    this.stepForward()
+  }
+
+  onSwipeRight(): void {
+    this.stepBackward()
+  }
+
+  /** A page forward in paged mode, else the next chapter. */
+  stepForward(): void {
     if (this.effectiveViewMode === "paged") {
       this.pagedNav?.nextPage()
     } else {
@@ -375,7 +419,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     }
   }
 
-  onSwipeRight(): void {
+  stepBackward(): void {
     if (this.effectiveViewMode === "paged") {
       this.pagedNav?.prevPage()
     } else {
@@ -383,10 +427,28 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Whether stepping back goes anywhere: the previous page, else chapter. */
+  get canGoPrevious(): boolean {
+    if (this.book?.id === "about" || !this.chapter) return false
+    return (
+      this.chapter.number > this.minChapter ||
+      (this.effectiveViewMode === "paged" && !this.isFirstPage)
+    )
+  }
+
+  get canGoNext(): boolean {
+    if (this.book?.id === "about" || !this.chapter) return false
+    return (
+      this.chapter.number < this.book.chapterCount ||
+      (this.effectiveViewMode === "paged" && !this.isLastPage)
+    )
+  }
+
   goToNextChapter(): void {
     if (this.book.chapterCount >= this.chapterNumber + 1) {
+      this.haptics.light()
       this.prepareChapterNavigation(true)
-      this.router.navigate(this.chapterCommands(this.chapterNumber + 1, true))
+      this.navigateToAdjacentChapter(this.chapterNumber + 1)
     }
   }
 
@@ -396,8 +458,39 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   goToPreviousChapter(): void {
     if (this.chapterNumber > this.minChapter) {
+      this.haptics.light()
       this.prepareChapterNavigation(false)
-      this.router.navigate(this.chapterCommands(this.chapterNumber - 1, true))
+      this.navigateToAdjacentChapter(this.chapterNumber - 1)
+    }
+  }
+
+  async retryBooks(): Promise<void> {
+    this.retryingBooks = true
+    this.cdr.markForCheck()
+    try {
+      await this.bookService.retryBooks()
+    } finally {
+      this.retryingBooks = false
+      this.cdr.markForCheck()
+    }
+  }
+
+  /**
+   * Whether stepping to the previous or next chapter (swipe, keys, or the
+   * prev/next anchors) replaces the history entry. In the native apps it
+   * does, so the back button leaves the reader instead of walking back
+   * through every chapter read; on the web it adds one, as a page change does.
+   */
+  get replaceChapterHistory(): boolean {
+    return Capacitor.isNativePlatform()
+  }
+
+  private navigateToAdjacentChapter(chapter: Chapter["number"]): void {
+    const commands = this.chapterCommands(chapter, true)
+    if (this.replaceChapterHistory) {
+      this.router.navigate(commands, { replaceUrl: true })
+    } else {
+      this.router.navigate(commands)
     }
   }
 
@@ -407,16 +500,21 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   onBookSubmit(event: { bookId: string }) {
-    const book = this.bookService.findBook(event.bookId)
-    // Chapter 1 rather than the introduction, except for a standalone
-    // introduction, which has no chapters.
+    this.goToPassage(event)
+    this.bookDrawer.close()
+  }
+
+  /** Without a chapter: chapter 1 rather than the introduction, except for
+   *  a standalone introduction, which has no chapters. */
+  goToPassage({ bookId, chapter }: { bookId: string; chapter?: number }): void {
+    const book = this.bookService.findBook(bookId)
     this.router.navigate([
       "/",
       this.bookService.getUrlAbrv(book),
-      this.bookService.getChapterUrlSegment(book.introSlug ? 0 : 1),
+      this.bookService.getChapterUrlSegment(
+        chapter ?? (book.introSlug ? 0 : 1),
+      ),
     ])
-
-    this.bookDrawer.close()
   }
 
   onChapterSubmit(event: { chapterNumber: number }) {
@@ -543,7 +641,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     const message = this.networkService.isOffline
       ? "Sem ligação. Este capítulo ainda não está disponível offline."
       : "Não foi possível carregar o capítulo. Tente novamente."
-    this.snackBar.open(message, "OK", { duration: 4000 })
+    this.toast.show(message, { action: "OK", duration: 4000 })
   }
 
   /** Hide the container BEFORE change detection paints the new chapter. */

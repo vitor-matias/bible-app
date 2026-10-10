@@ -77,11 +77,31 @@
   font-size: 1rem;
 }
 
+/* What search can still do offline, under the empty page's line. */
+.empty-state .results-hint {
+  margin: 12px 0 0;
+  font-size: 0.85em;
+  max-width: 28em;
+}
+
 .results-count {
   font-size: 0.85em;
   color: var(--text-secondary);
   margin: 0 0 12px 0;
   padding: 0 4px;
+}
+
+/* The two psalms a bare number may mean: which numbering names each. */
+.results-hint {
+  font-size: 0.85em;
+  color: var(--text-secondary);
+  margin: -8px 0 12px 0;
+  padding: 0 4px;
+}
+
+.psalm-note {
+  font-weight: normal;
+  color: var(--text-secondary);
 }
 
 .search-highlight {
@@ -96,7 +116,8 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 56px - env(safe-area-inset-top));
+  /* Ends at the top of the Android navigation bar, like the reader. */
+  height: calc(100vh - 56px - env(safe-area-inset-top) - var(--app-inset-bottom));
   overflow: hidden;
   overscroll-behavior: none; /* Prevents rubber banding in this container */
   touch-action: pan-y;
@@ -104,4 +125,153 @@
 
 ::ng-deep .mat-mdc-button .mdc-button__label {
   color: antiquewhite;
+}
+
+/* iOS: native bars float over the page (NativeChromeService), so the page
+   fills the screen and the results scroll under them. */
+:host-context(.native-chrome) .search-container {
+  height: 100vh;
+  height: 100dvh;
+}
+
+:host-context(.native-chrome) .results-section {
+  padding-top: calc(20px + var(--app-chrome-top));
+  padding-bottom: calc(20px + var(--app-chrome-bottom));
+}
+
+/* Near the top, not mid-page: the keyboard and the field above it cover the
+   lower half while people type. */
+:host-context(.native-chrome) .empty-state {
+  margin-top: var(--app-chrome-top);
+  justify-content: flex-start;
+  height: auto;
+  padding-top: 48px;
+}
+
+/* iOS: status text is neutral grey, as in the system's empty states; the red
+   stays with the scripture (the references, like the reader's verse numbers). */
+:host-context(.native-chrome)
+  :is(.empty-state, .loading, .results-count, .results-hint, .psalm-note) {
+  color: color-mix(in srgb, var(--text-color) 55%, transparent);
+}
+
+:host-context(.native-chrome) .empty-state-icon {
+  opacity: 1;
+}
+
+/* iOS: the results are content, not controls, so no glass: an inset grouped
+   list, as in the system's own search screens. One rounded group, rows split
+   by inset hairlines, the match in bold rather than a tinted box. */
+:host-context(.native-chrome) {
+  display: block;
+  background-color: var(--background-color);
+}
+
+:host-context(.native-chrome) .results-section {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+:host-context(.native-chrome) :is(.results-count, .results-hint) {
+  font-family: var(--app-ios-font, system-ui);
+  font-size: 13px;
+  margin: 0 0 6px;
+  padding: 0 16px;
+}
+
+:host-context(.native-chrome) .results-list {
+  margin: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background-color: var(--card-background);
+}
+
+:host-context(.native-chrome) .result-item {
+  position: relative;
+  margin: 0;
+}
+
+:host-context(.native-chrome) .result-item + .result-item::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  border-top: 0.5px solid color-mix(in srgb, var(--text-color) 18%, transparent);
+}
+
+:host-context(.native-chrome) .result-card {
+  border: none;
+  border-radius: 0;
+  padding: 11px 16px 12px;
+  background-color: transparent;
+  transition: none;
+}
+
+:host-context(.native-chrome) .result-item:active .result-card {
+  background-color: color-mix(in srgb, var(--text-color) 8%, transparent);
+}
+
+:host-context(.native-chrome) .verse-ref {
+  font-family: var(--app-ios-font, system-ui);
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+/* The verse itself, set as in the reader. */
+:host-context(.native-chrome) .verse-text {
+  font-family: "PT Serif", serif;
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+:host-context(.native-chrome) .search-highlight {
+  background-color: transparent;
+  font-weight: 700;
+  padding: 0;
+}
+
+:host-context(.native-chrome) .empty-state .results-hint {
+  margin: 8px 0 0;
+}
+
+/* A typed reference, offered at once above everything else. */
+.passage-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  width: calc(100% - 40px);
+  margin: 20px 20px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--card-background);
+  color: var(--text-color);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.passage-suggestion-label {
+  flex: 1;
+}
+
+/* What follows it needs no space of its own above. */
+.has-suggestion .results-section {
+  padding-top: 12px;
+}
+
+:host-context(.native-chrome) .passage-suggestion {
+  margin-top: calc(20px + var(--app-chrome-top));
+}
+
+:host-context(.native-chrome) .has-suggestion .results-section {
+  padding-top: 12px;
+}
+
+:host-context(.native-chrome) .has-suggestion .empty-state {
+  margin-top: 0;
 }

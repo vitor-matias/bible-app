@@ -4,7 +4,8 @@
     [autoScrollControlsVisible]="showAutoScrollControls" (openBookSelector)="openBookDrawer($event)"
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
     (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize()"
-    (decreaseFontSizeEvent)="onDecreaseFontSize()"></header>
+    (decreaseFontSizeEvent)="onDecreaseFontSize()" [canGoPrevious]="canGoPrevious" [canGoNext]="canGoNext"
+    (previous)="stepBackward()" (next)="stepForward()" (selectPassage)="goToPassage($event)"></header>
   <mat-drawer-container class="bookSelectorContainer" #container>
     @if (books.length) {
     <mat-drawer class="bookSelector" mode="over" position="start" #bookDrawer closed>
@@ -57,10 +58,10 @@
 
       @if (book.id !== 'about' && chapter) {
       <!-- Floating navigation: real links in scrolling mode, for crawlers. -->
-      @if (chapter.number > (hasIntro ? 0 : 1) || (effectiveViewMode === 'paged' && !isFirstPage)) {
+      @if (canGoPrevious) {
       @if (effectiveViewMode === 'scrolling') {
       <a class="floating-nav-button prev-chapter" mat-mini-fab aria-label="Capítulo anterior"
-        [routerLink]="previousChapterLink" (click)="prepareChapterNavigation(false, $event)">
+        [routerLink]="previousChapterLink" [replaceUrl]="replaceChapterHistory" (click)="prepareChapterNavigation(false, $event)">
         <mat-icon>chevron_left</mat-icon>
       </a>
       } @else {
@@ -74,10 +75,10 @@
       <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock">
       </app-auto-scroll-controls>
       }
-      @if (chapter.number < book.chapterCount || (effectiveViewMode==='paged' && !isLastPage)) {
+      @if (canGoNext) {
       @if (effectiveViewMode === 'scrolling') {
       <a class="floating-nav-button next-chapter" mat-mini-fab aria-label="Capítulo seguinte"
-        [routerLink]="nextChapterLink" (click)="prepareChapterNavigation(true, $event)">
+        [routerLink]="nextChapterLink" [replaceUrl]="replaceChapterHistory" (click)="prepareChapterNavigation(true, $event)">
         <mat-icon>chevron_right</mat-icon>
       </a>
       } @else {
@@ -90,5 +91,17 @@
       }
     </mat-drawer-content>
   </mat-drawer-container>
+</div>
+} @else if (booksUnavailable) {
+<!-- Nothing cached and the book list failed to load, typically a first
+     launch without a connection. BookService also retries on reconnect. -->
+<div class="books-unavailable" role="alert">
+  <mat-icon class="books-unavailable-icon" aria-hidden="true">cloud_off</mat-icon>
+  <h1 class="books-unavailable-title">Não foi possível carregar a Bíblia</h1>
+  <p>Verifique a ligação à internet. Na primeira utilização, a Bíblia é descarregada para depois poder ser lida sem
+    ligação.</p>
+  <button type="button" mat-flat-button (click)="retryBooks()" [disabled]="retryingBooks">
+    {{ retryingBooks ? "A tentar…" : "Tentar novamente" }}
+  </button>
 </div>
 }

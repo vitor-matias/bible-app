@@ -1,3 +1,4 @@
+@if (!native) {
 <div class="auto-scroll-controls">
   <button class="position-relative floating-nav-button auto-scroll-toggle" type="button" mat-mini-fab
     [attr.aria-label]="autoScrollEnabled ? 'Pausar deslocamento automático' : 'Ativar deslocamento automático'"
@@ -16,3 +17,4 @@
     </button>
   </div>
 </div>
+}

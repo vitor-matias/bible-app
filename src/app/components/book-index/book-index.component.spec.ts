@@ -1,10 +1,15 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
-import { provideRouter } from "@angular/router"
-import { of } from "rxjs"
+import { provideRouter, Router } from "@angular/router"
+import { of, Subject } from "rxjs"
 
 import { OLD_TESTAMENT_GROUPS } from "../../bible-canon"
 import { BookService } from "../../services/book.service"
+import {
+  type NativeChromeAction,
+  NativeChromeService,
+} from "../../services/native-chrome.service"
 import { SeoService } from "../../services/seo.service"
+import { ThemeService } from "../../services/theme.service"
 import { BookIndexComponent } from "./book-index.component"
 
 describe("BookIndexComponent", () => {
@@ -158,5 +163,75 @@ describe("BookIndexComponent", () => {
     expect(element.querySelectorAll("li").length).toBe(0)
     // The chrome is still there, so the reader is not stranded.
     expect(hrefs()).toContain("/")
+  })
+})
+
+describe("BookIndexComponent in the iOS app", () => {
+  let fixture: ComponentFixture<BookIndexComponent>
+  let actions: Subject<NativeChromeAction>
+  let nativeChrome: {
+    enabled: boolean
+    actions$: Subject<NativeChromeAction>
+    show: jasmine.Spy
+    hide: jasmine.Spy
+  }
+
+  beforeEach(async () => {
+    actions = new Subject()
+    nativeChrome = {
+      enabled: true,
+      actions$: actions,
+      show: jasmine.createSpy("show"),
+      hide: jasmine.createSpy("hide"),
+    }
+    await TestBed.configureTestingModule({
+      imports: [BookIndexComponent],
+      providers: [
+        provideRouter([]),
+        { provide: NativeChromeService, useValue: nativeChrome },
+        { provide: ThemeService, useValue: { currentMode: "dark" } },
+        {
+          provide: BookService,
+          useValue: { books$: of([]), getUrlAbrv: () => "" },
+        },
+        {
+          provide: SeoService,
+          useValue: jasmine.createSpyObj(["updateForBookIndex"]),
+        },
+      ],
+    }).compileComponents()
+    fixture = TestBed.createComponent(BookIndexComponent)
+    fixture.detectChanges()
+  })
+
+  it("shows the native bar instead of the brown web toolbar", () => {
+    const element = fixture.nativeElement as HTMLElement
+    expect(element.querySelector("mat-toolbar")).toBeNull()
+    // The heading stays, for screen readers.
+    expect(element.querySelector("h1")?.textContent).toContain(
+      "Livros da Bíblia",
+    )
+    expect(nativeChrome.show).toHaveBeenCalledWith({
+      mode: "page",
+      themeMode: "dark",
+      title: "Livros da Bíblia",
+      search: true,
+    })
+  })
+
+  it("goes where the web toolbar's buttons go", () => {
+    const navigate = spyOn(TestBed.inject(Router), "navigate").and.resolveTo(
+      true,
+    )
+    actions.next({ id: "back" })
+    actions.next({ id: "search" })
+
+    expect(navigate).toHaveBeenCalledWith(["/"])
+    expect(navigate).toHaveBeenCalledWith(["/search"])
+  })
+
+  it("removes the bar when leaving", () => {
+    fixture.destroy()
+    expect(nativeChrome.hide).toHaveBeenCalled()
   })
 })

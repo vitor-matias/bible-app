@@ -6,6 +6,7 @@ import {
   Component,
   ElementRef,
   Input,
+  inject,
   OnChanges,
   OnDestroy,
   QueryList,
@@ -19,10 +20,13 @@ import {
 } from "@angular/material/bottom-sheet"
 import { RouterModule } from "@angular/router"
 import { Subscription } from "rxjs"
+import { BackButtonService } from "../../services/back-button.service"
 import {
   type BibleReference,
   BibleReferenceService,
 } from "../../services/bible-reference.service"
+import { NativeFootnotesService } from "../../services/native-footnotes.service"
+import { liturgicalPsalmNumber, PSALMS_BOOK_ID } from "../../utils/psalms"
 import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnotes-bottom-sheet.component"
 import { VerseSectionComponent } from "../verse-section/verse-section.component"
 import { getVerseQueryParams, parseReferences } from "./verse.utils"
@@ -46,6 +50,15 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   /** Pre-computed: does this verse have footnotes? */
   hasFootnotes = false
+
+  /**
+   * Whether tapping the verse's text opens its notes. Not in the iOS app: a tap
+   * on the text shows or hides its bars there, and the asterisk opens notes.
+   */
+  notesOnText = false
+
+  /** A psalm's liturgical number, which the edition prints in parentheses. */
+  liturgicalNumber: string | null = null
 
   /** Groups for rendering - quotes and their continuations */
   displayGroups: DisplayGroup[] = []
@@ -77,6 +90,11 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   // so the template can bind to this state rather than us directly mutating the DOM
   indentStates: Record<number, boolean> = {}
 
+  private readonly backButton = inject(BackButtonService)
+
+  /** The iOS app shows footnotes in a native sheet. */
+  private readonly nativeFootnotes = inject(NativeFootnotesService)
+
   constructor(
     private bibleRef: BibleReferenceService,
     private bottomSheet: MatBottomSheet,
@@ -87,6 +105,11 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (this.data) {
       this.chapterNumberDisplayIndex = this.computeChapterNumberIndex()
       this.hasFootnotes = this.data.text.some((t) => t.type === "footnote")
+      this.notesOnText = this.hasFootnotes && !this.nativeFootnotes.enabled
+      this.liturgicalNumber =
+        this.data.bookId === PSALMS_BOOK_ID
+          ? liturgicalPsalmNumber(this.data.chapterNumber)
+          : null
       this.parsedReferences = this.computeParsedReferences()
       this.displayGroups = this.computeDisplayGroups()
     }
@@ -340,9 +363,20 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     return text.type === "quote" ? text.identLevel : 0
   }
 
+  /** Space on the verse's text opens its notes, where the text does. */
+  onTextSpace(event: Event): void {
+    if (!this.notesOnText) return
+    event.preventDefault()
+    this.toggleFootnotes(event)
+  }
+
   toggleFootnotes(event?: Event): void {
     const footnotes = this.data.text.filter((t) => t.type === "footnote")
     if (footnotes.length === 0) return
+    if (this.nativeFootnotes.enabled) {
+      this.nativeFootnotes.open(footnotes, this.data)
+      return
+    }
     // Capture the marker that opened the sheet so we can restore focus to it
     // ourselves. We disable Material's automatic restoreFocus because its
     // .focus() scrolls the marker into view, which in paged (column) mode
@@ -353,6 +387,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       data: { footnotes, verse: this.data },
       restoreFocus: false,
     })
+    this.backButton.closeOnBack(ref)
     ref.afterDismissed().subscribe(() => {
       trigger?.focus({ preventScroll: true })
     })

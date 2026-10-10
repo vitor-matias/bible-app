@@ -15,6 +15,7 @@ import {
   VerseReference,
 } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { parseReferences } from "../verse/verse.utils"
 
 @Component({
   selector: "footnotes-bottom-sheet",
@@ -93,26 +94,14 @@ export class FootnotesBottomSheetComponent {
   }
 
   parseReferences(text: string): { parts: (string | BibleReference)[] } {
-    const refs = this.bibleRef.extract(
-      text,
-      this.data.verse.bookId,
-      this.data.verse.chapterNumber,
-    )
-    if (!refs.length) return { parts: [text] }
-
-    const parts: (string | BibleReference)[] = []
-    let lastIdx = 0
-    for (const ref of refs) {
-      if (ref.index > lastIdx) {
-        parts.push(text.slice(lastIdx, ref.index))
-      }
-      parts.push(ref)
-      lastIdx = ref.index + ref.match.length
+    return {
+      parts: parseReferences(
+        this.bibleRef,
+        text,
+        this.data.verse.bookId,
+        this.data.verse.chapterNumber,
+      ),
     }
-    if (lastIdx < text.length) {
-      parts.push(text.slice(lastIdx))
-    }
-    return { parts }
   }
 
   getVerseQueryParams(verses?: VerseReference[]) {

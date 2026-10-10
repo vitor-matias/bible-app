@@ -101,4 +101,31 @@ describe("AboutComponent", () => {
       "Ler a Bíblia online: todos os livros",
     )
   })
+
+  // The iOS app has no accent colour: its main buttons are the text colour
+  // inverted, so the beige-and-brown pill would be the only brand colour left.
+  describe("in the iOS app", () => {
+    beforeEach(() => document.body.classList.add("native-chrome"))
+    afterEach(() => document.body.classList.remove("native-chrome"))
+
+    /** A theme colour as computed styles report it, in either theme. */
+    function themeColor(token: string): string {
+      const probe = document.createElement("span")
+      probe.style.color = `var(${token})`
+      document.body.appendChild(probe)
+      const color = getComputedStyle(probe).color
+      probe.remove()
+      return color
+    }
+
+    it("shows the book index link as a main button, without the brand colours", () => {
+      const link = (fixture.nativeElement as HTMLElement).querySelector(
+        ".read-online a",
+      ) as HTMLElement
+      const style = getComputedStyle(link)
+
+      expect(style.backgroundColor).toBe(themeColor("--text-color"))
+      expect(style.color).toBe(themeColor("--background-color"))
+    })
+  })
 })

@@ -126,3 +126,40 @@ export const NEW_TESTAMENT_GROUPS: CanonGroup[] = [
     books: ["rev"],
   },
 ]
+
+/**
+ * The introductions that open each Testament in the book pickers, before its
+ * groups: the general introduction, and the New Testament's. The API's slugs.
+ */
+export const OLD_TESTAMENT_INTRO = "geral"
+export const NEW_TESTAMENT_INTRO = "novotestamento"
+
+/**
+ * The About page, listed with the New Testament in the book pickers. Not in
+ * the canon groups: the crawlable book index must not link to it.
+ */
+export const ABOUT_GROUP: CanonGroup = {
+  name: "Sobre a Bíblia",
+  books: ["about"],
+}
+
+/**
+ * The book pickers' groups: each group's introduction first, plus the
+ * ungrouped `leading` one (a group with no books, named after it).
+ * Introductions that have not loaded are dropped, so nothing renders blank.
+ */
+export function withIntros(
+  groups: CanonGroup[],
+  leading: string,
+  hasBook: (bookId: string) => boolean,
+): CanonGroup[] {
+  const groupsWithIntros = groups.map((group) =>
+    group.introSlug && hasBook(group.introSlug)
+      ? { ...group, books: [group.introSlug, ...group.books] }
+      : group,
+  )
+
+  return hasBook(leading)
+    ? [{ name: leading, books: [] }, ...groupsWithIntros]
+    : groupsWithIntros
+}
