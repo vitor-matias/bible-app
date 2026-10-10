@@ -10,6 +10,11 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "org.capuchinhos.biblia"
+    buildFeatures {
+        // The live-update channel below is a resValue; AGP 9 turns these off
+        // by default.
+        resValues = true
+    }
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "org.capuchinhos.biblia"
@@ -18,6 +23,11 @@ android {
         // CI passes these from the release tag: -PversionCode=1002003 -PversionName=1.2.3
         versionCode((project.findProperty('versionCode') ?: '1') as Integer)
         versionName((project.findProperty('versionName') ?: '1.0') as String)
+        // Live-update channel: web bundles published to native-<n> only reach
+        // apps built with the same native code. Bump <n> here AND in
+        // ios/App/App/Info.plist whenever native code or plugins change
+        // (docs/live-updates.md); scripts/package-live-update.mjs checks both.
+        resValue "string", "capawesome_live_update_default_channel", "native-1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
