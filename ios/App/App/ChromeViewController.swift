@@ -354,6 +354,12 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             self.view.layoutIfNeeded()
         }
         if animated {
+            // Lay out what this state update changed first, outside the
+            // animation. The bars' items are rebuilt with every update (the
+            // speed label is a new view each time), and laid out inside the
+            // animation below they grew and slid into place, their text cut
+            // off on the way, whenever the bars hid or showed.
+            view.layoutIfNeeded()
             UIView.animate(withDuration: 0.4, delay: 0, usingSpringWithDamping: 1, initialSpringVelocity: 0,
                            options: [.beginFromCurrentState, .allowUserInteraction], animations: changes)
         } else {
