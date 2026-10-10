@@ -2,6 +2,7 @@ import { isPlatformBrowser } from "@angular/common"
 import { Injectable, inject, PLATFORM_ID } from "@angular/core"
 import { BehaviorSubject } from "rxjs"
 import { AnalyticsService } from "./analytics.service"
+import { NativeShellService } from "./native-shell.service"
 import { PreferencesService } from "./preferences.service"
 
 export type ThemeMode = "light" | "dark" | "system"
@@ -11,6 +12,7 @@ export type ThemeMode = "light" | "dark" | "system"
 })
 export class ThemeService {
   private readonly platformId = inject(PLATFORM_ID)
+  private readonly nativeShell = inject(NativeShellService)
   private themeMode = new BehaviorSubject<ThemeMode>("system")
   // window/document are absent while server-rendering; the server output
   // stays on the default (light) theme and the browser applies the real one.
@@ -56,13 +58,20 @@ export class ThemeService {
   toggleTheme(): void {
     const modes: ThemeMode[] = ["light", "dark", "system"]
     const currentIndex = modes.indexOf(this.themeMode.value)
-    const nextMode = modes[(currentIndex + 1) % modes.length]
+    this.setTheme(modes[(currentIndex + 1) % modes.length])
+  }
 
-    this.themeMode.next(nextMode)
-    this.applyTheme(nextMode)
-    this.preferencesService.setTheme(nextMode)
+  /**
+   * Choosing the theme already on does nothing: not saved again, and not
+   * counted as a change.
+   */
+  setTheme(mode: ThemeMode): void {
+    if (mode === this.themeMode.value) return
+    this.themeMode.next(mode)
+    this.applyTheme(mode)
+    this.preferencesService.setTheme(mode)
 
-    void this.analyticsService.track(`theme-${nextMode}`)
+    void this.analyticsService.track(`theme-${mode}`)
   }
 
   private applyTheme(mode: ThemeMode): void {
@@ -74,5 +83,6 @@ export class ThemeService {
       isDark = mode === "dark"
     }
     document.documentElement.classList.toggle("dark-theme", isDark)
+    this.nativeShell.setNavigationBarTheme(isDark)
   }
 }

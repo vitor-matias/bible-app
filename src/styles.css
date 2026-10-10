@@ -25,6 +25,13 @@
   border: 0;
 }
 
+/* The reader's running text hyphenates (.bookBlock), but titles break only
+   between words: a hyphen in a heading ("MINISTÉ-RIO") reads as a misprint. */
+.bookBlock :is(h1, h2, h3, h4, h5, h6),
+.bookBlock verse-section .section {
+  hyphens: manual;
+}
+
 /* outlined.css only styles .material-symbols-outlined, but Angular Material
    tags icons with `material-icons`; both must resolve to the Symbols font. */
 .material-symbols-outlined, .material-icons {
@@ -64,6 +71,15 @@ body {
 
 /* Light theme variables */
 :root {
+  /* Bottom system inset (Android navigation bar, iOS home indicator). The app
+     draws edge-to-edge, so anything pinned to the bottom must clear it. One
+     variable keeps every use consistent and lets specs simulate an inset. */
+  --app-inset-bottom: env(safe-area-inset-bottom, 0px);
+  /* Space the web header takes at the top of the reader, and the parts of
+     the reader floating native bars cover (see .native-chrome below). */
+  --app-header-height: calc(56px + env(safe-area-inset-top));
+  --app-chrome-top: 0px;
+  --app-chrome-bottom: 0px;
   /* Declares that the page handles both schemes itself (.dark-theme below),
      so Android's forced dark theme doesn't repaint colours on top of ours. */
   color-scheme: light;
@@ -220,7 +236,9 @@ body {
     background-color 0.3s ease,
     color 0.3s ease;
   padding-top: 0;
-  padding-bottom: env(safe-area-inset-bottom);
+  /* Content ends at the top of the Android navigation bar; this strip, in
+     the page background colour, is what shows through the bar. */
+  padding-bottom: var(--app-inset-bottom);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
 }
@@ -269,6 +287,23 @@ html.dark-theme .onboarding-dialog .mat-mdc-button .mdc-button__label {
 .mat-mdc-dialog-container .mdc-dialog__surface {
   background-color: var(--card-background) !important; /* Force apply */
   color: var(--text-color) !important; /* Force apply */
+}
+
+/* Bottom sheets sit on the screen edge; keep their content clear of the
+   Android navigation bar (the app draws edge-to-edge). */
+.mat-bottom-sheet-container {
+  padding-bottom: calc(8px + var(--app-inset-bottom)) !important;
+}
+
+/* Snack bars (toasts) float at the bottom of the screen: lift them above the
+   Android navigation bar. Material's default margin is 8px. */
+.cdk-overlay-pane .mat-mdc-snack-bar-container {
+  margin-bottom: calc(8px + var(--app-inset-bottom));
+}
+
+/* iOS: above the native toolbar or search field (NativeChromeService). */
+.native-chrome .cdk-overlay-pane .mat-mdc-snack-bar-container {
+  margin-bottom: calc(8px + var(--native-chrome-bottom, var(--app-inset-bottom)));
 }
 
 .mat-drawer {
@@ -324,4 +359,158 @@ body .mat-mdc-form-field {
 
 .mat-mdc-select-panel {
   --mat-option-selected-state-label-text-color: var(--mat-form-field-focus-color);
+}
+
+/* Native shells (NativeShellService sets these classes on <body>). */
+.native-app {
+  /* No grey flash on tap, and no link/image callout on long-press: native
+     apps have neither. Text selection stays enabled for sharing verses. */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+.platform-ios {
+  /* Defined once, with the Material font tokens, in custom-theme.scss. */
+  font-family: var(--app-ios-font);
+}
+
+/* The iOS app has no accent colour (ChromeViewController.selectionFill): the
+   web controls it still shows follow the same rule. Main buttons are the text
+   colour inverted, focus marks the text colour, highlights a neutral tint.
+   Redeclared here, not through --cap-brown: :root resolves these once. */
+.native-chrome {
+  --cap-brown: var(--text-color);
+  --highlight-color: color-mix(in srgb, var(--text-color) 12%, transparent);
+  --mat-form-field-focus-color: var(--text-color);
+  --mat-select-focused-arrow-color: var(--text-color);
+  --mat-option-selected-state-label-text-color: var(--text-color);
+  --mdc-filled-button-container-color: var(--text-color);
+  --mdc-filled-button-label-text-color: var(--background-color);
+  --mdc-filled-button-disabled-label-text-color: color-mix(in srgb, var(--text-color) 40%, transparent);
+  --mdc-dialog-subhead-color: var(--text-color);
+  --mat-dialog-title-text-color: var(--text-color);
+
+  /* Text fields and menus (the report dialog): grey fills like native fields,
+     instead of the theme's palette, which is generated from the brown. */
+  --mat-form-field-filled-container-color: color-mix(in srgb, var(--text-color) 7%, var(--card-background));
+  --mat-form-field-filled-active-indicator-color: color-mix(in srgb, var(--text-color) 30%, transparent);
+  --mat-form-field-filled-hover-active-indicator-color: color-mix(in srgb, var(--text-color) 55%, transparent);
+  --mat-form-field-filled-focus-active-indicator-color: var(--text-color);
+  --mat-form-field-filled-focus-label-text-color: var(--text-color);
+  --mat-form-field-filled-caret-color: var(--text-color);
+  --mat-form-field-filled-input-text-placeholder-color: color-mix(in srgb, var(--text-color) 50%, transparent);
+  --mat-form-field-outlined-focus-outline-color: var(--text-color);
+  --mat-form-field-outlined-focus-label-text-color: var(--text-color);
+  --mat-select-panel-background-color: var(--card-background);
+  --mat-option-selected-state-layer-color: color-mix(in srgb, var(--text-color) 10%, transparent);
+  --mat-option-hover-state-layer-color: color-mix(in srgb, var(--text-color) 6%, transparent);
+  --mat-option-focus-state-layer-color: color-mix(in srgb, var(--text-color) 10%, transparent);
+  --mat-snack-bar-button-color: var(--background-color);
+}
+
+/* The iOS app draws its bars natively (NativeChromeService): Liquid Glass
+   floating over the page. The pages fill the screen and pad their scrolling
+   content by the bars' size (--native-chrome-top/-bottom, set by the
+   service), so the text starts clear of the bars and scrolls under them. */
+.native-chrome bible-reader {
+  --app-header-height: 0px;
+  --app-chrome-top: var(--native-chrome-top, env(safe-area-inset-top));
+  --app-chrome-bottom: var(--native-chrome-bottom, env(safe-area-inset-bottom));
+  /* Pinned controls (auto-scroll, the paged footer) sit above the toolbar. */
+  --app-inset-bottom: var(--app-chrome-bottom);
+  /* The text's distance under the top bar: UIKit's standard layout margin. */
+  --app-reader-gap: 8px;
+}
+
+/* The search page is a grouped list: the system's grouped colours. */
+.native-chrome app-search {
+  --background-color: #f2f2f7;
+  --card-background: #ffffff;
+}
+
+html.dark-theme .native-chrome app-search {
+  --background-color: #000000;
+  --card-background: #1c1c1e;
+}
+
+.native-chrome :is(app-search, book-index) {
+  --app-chrome-top: var(--native-chrome-top, env(safe-area-inset-top));
+  --app-chrome-bottom: var(--native-chrome-bottom, env(safe-area-inset-bottom));
+}
+
+.native-chrome bible-reader .bookSelectorContainer {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.native-chrome bible-reader .mat-drawer-content {
+  padding-top: var(--app-chrome-top);
+  padding-bottom: var(--app-chrome-bottom);
+}
+
+/* The text starts one standard layout margin under the top bar, as in system
+   apps. The reader's own 15px margin was meant to clear the web header; on
+   top of the bar's inset it put the text further from the buttons than the
+   buttons are from the status bar. Scrolling reads through .bookBlock, the
+   paged view through its container, whose height takes the margin back at
+   the bottom so the page still ends at the toolbar. */
+.native-chrome bible-reader .bookBlock {
+  margin-top: var(--app-reader-gap);
+}
+
+.native-chrome bible-reader .paged-view-container {
+  margin-top: var(--app-reader-gap);
+  height: calc(100vh - var(--app-header-height) - var(--app-chrome-top) - var(--app-reader-gap) - var(--app-inset-bottom));
+  height: calc(100dvh - var(--app-header-height) - var(--app-chrome-top) - var(--app-reader-gap) - var(--app-inset-bottom));
+}
+
+/* Fades the text out under the status bar and the bars, as the system's
+   scroll edge effect does for native scroll views. Content layer, so a plain
+   blur rather than glass. */
+.native-chrome :is(bible-reader, app-search, book-index)::before,
+.native-chrome :is(bible-reader, app-search)::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  transition: height 0.3s ease;
+}
+
+.native-chrome book-index::before,
+.native-chrome :is(bible-reader, app-search)::before {
+  top: 0;
+  height: var(--app-chrome-top);
+  /* Solid behind the title and buttons, fading only below them: text that
+     shows through a bar title reads as a collision, not as depth. */
+  background: linear-gradient(var(--background-color) 70%, transparent);
+  -webkit-mask-image: linear-gradient(black 80%, transparent);
+  mask-image: linear-gradient(black 80%, transparent);
+}
+
+.native-chrome :is(bible-reader, app-search)::after {
+  bottom: 0;
+  height: var(--app-chrome-bottom);
+  background: linear-gradient(transparent, var(--background-color) 70%);
+  -webkit-mask-image: linear-gradient(transparent, black 40%);
+  mask-image: linear-gradient(transparent, black 40%);
+}
+
+/* Bars hidden while reading: only the status bar and home indicator remain. */
+.native-chrome-collapsed bible-reader::before {
+  height: env(safe-area-inset-top);
+}
+
+.native-chrome-collapsed bible-reader::after {
+  height: env(safe-area-inset-bottom);
+}
+
+/* iOS controls highlight on press rather than rippling. */
+.platform-ios .mat-ripple-element,
+.platform-ios .mat-mdc-button-ripple,
+.platform-ios .mdc-button__ripple {
+  display: none;
 }

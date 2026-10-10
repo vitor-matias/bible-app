@@ -31,15 +31,15 @@ h6 {
   }
 
   .prev-chapter {
-    bottom: calc(52px + env(safe-area-inset-bottom));
+    bottom: calc(52px + var(--app-inset-bottom));
   }
 
   .next-chapter {
-    bottom: calc(52px + env(safe-area-inset-bottom));
+    bottom: calc(52px + var(--app-inset-bottom));
   }
 
   .search {
-    bottom: calc(52px + env(safe-area-inset-bottom));
+    bottom: calc(52px + var(--app-inset-bottom));
   }
 
 }
@@ -89,9 +89,9 @@ h6 {
 
 .bookSelectorContainer {
   width: 100%;
-  height: calc(100vh - (56px + env(safe-area-inset-top)));
+  height: calc(100vh - (var(--app-header-height) + var(--app-inset-bottom)));
   /* Fallback */
-  height: calc(100dvh - (56px + env(safe-area-inset-top)));
+  height: calc(100dvh - (var(--app-header-height) + var(--app-inset-bottom)));
   /* Dynamic viewport */
   overscroll-behavior: none;
   /* Prevents rubber banding in this container */
@@ -104,9 +104,13 @@ h6 {
   display: table;
 }
 
+/* 48 px, Android's minimum touch target (over the mini FAB's 40), and set in
+   from the screen's edges, where Android's back gesture starts. */
 .floating-nav-button {
   position: fixed;
   z-index: 99;
+  width: 48px;
+  height: 48px;
   opacity: 0.6;
   transition: opacity 0.3s;
   color: var(--cap-brown);
@@ -119,23 +123,24 @@ h6 {
   }
 }
 
+/* iOS: the toolbar's arrows replace these (HeaderComponent, native bars). */
+:host-context(.native-chrome) .floating-nav-button {
+  display: none;
+}
+
 
 
 .prev-chapter {
-  left: 16px;
+  left: calc(24px + env(safe-area-inset-left));
 }
 
 .next-chapter {
-  right: 16px;
+  right: calc(24px + env(safe-area-inset-right));
 }
 
 .search {
   left: 50%;
   transform: translate(-50%, -50%);
-}
-
-.mid {
-  bottom: 86px;
 }
 
 .dismiss-button {
@@ -180,10 +185,10 @@ h6 {
   /* Hide overflow instead of auto to prevent momentary scrollbars during animation */
   scrollbar-width: none;
   /* Firefox */
-  height: calc(100vh - (56px + env(safe-area-inset-top)) - 15px);
+  height: calc(100vh - var(--app-header-height) - var(--app-chrome-top) - 15px - var(--app-inset-bottom));
   /* Fallback */
-  height: calc(100dvh - (56px + env(safe-area-inset-top)) - 15px);
-  /* Dynamic viewport - Header - Margins */
+  height: calc(100dvh - var(--app-header-height) - var(--app-chrome-top) - 15px - var(--app-inset-bottom));
+  /* Dynamic viewport - Header - Margins - Navigation bar */
   width: 95%;
   /* Narrower container to create side margins */
   margin: 0 auto;
@@ -354,10 +359,47 @@ h6 {
 
 .fixed-footer {
   position: fixed;
-  bottom: 4px;
+  bottom: calc(4px + var(--app-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   opacity: 0.9;
   padding: 8px 0 8px 0;
   width: 100%;
+}
+/* Shown instead of the reader when the book list cannot be loaded. There is
+   no header here, so clear the status bar / notch ourselves. */
+.books-unavailable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  padding: calc(24px + env(safe-area-inset-top)) 24px
+    calc(24px + var(--app-inset-bottom));
+  text-align: center;
+  color: var(--text-color);
+  background-color: var(--background-color);
+}
+
+.books-unavailable p {
+  max-width: 32em;
+  margin: 0;
+}
+
+.books-unavailable-icon {
+  width: 48px;
+  height: 48px;
+  font-size: 48px;
+  color: var(--cap-brown);
+}
+
+:host-context(.dark-theme) .books-unavailable-icon {
+  color: var(--text-color);
+}
+
+.books-unavailable-title {
+  margin: 0;
+  font-size: 1.25rem;
 }

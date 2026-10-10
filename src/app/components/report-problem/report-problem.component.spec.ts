@@ -17,6 +17,8 @@ import { MatSelectModule } from "@angular/material/select"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
 import { AnalyticsService } from "../../services/analytics.service"
+import { ProblemReportService } from "../../services/problem-report.service"
+import { ToastService } from "../../services/toast.service"
 import { ReportProblemComponent } from "./report-problem.component"
 
 describe("ReportProblemComponent", () => {
@@ -32,10 +34,10 @@ describe("ReportProblemComponent", () => {
     mockDialogRef = jasmine.createSpyObj("MatDialogRef", ["close"])
     snackBarSpy = jasmine.createSpyObj("MatSnackBar", ["open"])
     analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", [
-      "track",
+      "trackDelivered",
       "areAnalyticsAvailable",
     ])
-    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
+    analyticsServiceSpy.trackDelivered.and.returnValue(Promise.resolve())
     analyticsServiceSpy.areAnalyticsAvailable.and.returnValue(true)
 
     await TestBed.configureTestingModule({
@@ -55,6 +57,10 @@ describe("ReportProblemComponent", () => {
             { provide: MatDialogRef, useValue: mockDialogRef },
             { provide: MAT_DIALOG_DATA, useValue: mockDialogData },
             { provide: MatSnackBar, useValue: snackBarSpy },
+            // Root-provided, these would reach the real MatSnackBar and
+            // AnalyticsService, not these spies.
+            ToastService,
+            ProblemReportService,
             { provide: AnalyticsService, useValue: analyticsServiceSpy },
           ],
         },
@@ -110,7 +116,7 @@ describe("ReportProblemComponent", () => {
     component.reportForm.get("topic")?.setValue("")
     component.onSubmit()
 
-    expect(analyticsServiceSpy.track).not.toHaveBeenCalled()
+    expect(analyticsServiceSpy.trackDelivered).not.toHaveBeenCalled()
     expect(mockDialogRef.close).not.toHaveBeenCalled()
     expect(snackBarSpy.open).not.toHaveBeenCalled()
   })
@@ -123,12 +129,15 @@ describe("ReportProblemComponent", () => {
     tick(600)
     flush()
 
-    expect(analyticsServiceSpy.track).toHaveBeenCalledWith("report_problem", {
-      book: "gen",
-      chapter: 1,
-      topic: "formatting",
-      details: "bold text missing",
-    })
+    expect(analyticsServiceSpy.trackDelivered).toHaveBeenCalledWith(
+      "report_problem",
+      {
+        book: "gen",
+        chapter: 1,
+        topic: "formatting",
+        details: "bold text missing",
+      },
+    )
     expect(snackBarSpy.open).toHaveBeenCalledWith(
       "O problema foi reportado. Obrigado!",
       "Fechar",
@@ -143,7 +152,7 @@ describe("ReportProblemComponent", () => {
     component.reportForm.get("topic")?.setValue("other")
     component.reportForm.get("details")?.setValue("missing analytics script")
     window.umami = undefined
-    analyticsServiceSpy.track.and.rejectWith(
+    analyticsServiceSpy.trackDelivered.and.rejectWith(
       new Error("Analytics transport unavailable"),
     )
 
@@ -168,7 +177,7 @@ describe("ReportProblemComponent", () => {
     component.reportForm.get("details")?.setValue("tracking failure")
 
     const trackingError = new Error("tracking failed")
-    analyticsServiceSpy.track.and.throwError(trackingError.message)
+    analyticsServiceSpy.trackDelivered.and.throwError(trackingError.message)
 
     const consoleSpy = spyOn(console, "error")
 

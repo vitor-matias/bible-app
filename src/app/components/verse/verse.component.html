@@ -1,4 +1,11 @@
 @if (data) {
+  <!-- The notes marker beside a verse number: the asterisk the edition prints,
+       or in the iOS app a notes icon, which reads as something to tap. No
+       whitespace inside the blocks, or it would show as a space. -->
+  <ng-template #noteMark>
+    @if (noteIcon) {<svg class="noteIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4.5" y="2.5" width="15" height="19" rx="3.5"/><path d="M8.25 8.5h7.5M8.25 12h7.5M8.25 15.5h4.5"/></svg>} @else {&#65290;}
+  </ng-template>
+
   <!-- Verse Number -->
   @if(data.number > 0 && getFirstTextType() !== 'quote'){
     @if(data.number > 1) {
@@ -8,7 +15,7 @@
     }
     <span class="verseNumber">{{ data.number }}</span>
     @if(hasFootnotes){
-      <span role="button" tabindex="0" (click)="toggleFootnotes($event)" (keydown.enter)="toggleFootnotes($event)" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)" class="footnoteIndicator">&#65290;</span>
+      <span role="button" tabindex="0" (click)="toggleFootnotes($event)" (keydown.enter)="toggleFootnotes($event)" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)" class="footnoteIndicator" [attr.aria-label]="noteIcon ? 'Notas' : null"><ng-container *ngTemplateOutlet="noteMark"></ng-container></span>
     }
   }
 
@@ -17,6 +24,9 @@
     @if (chapterNumberDisplayIndex === i) {
       <div #chapterNumber class="chapterNumber">
         {{ data.chapterNumber }}
+        @if (liturgicalNumber) {
+          <span class="liturgicalNumber"><span class="visually-hidden">na liturgia, </span>({{ liturgicalNumber }})</span>
+        }
       </div>
     }
 
@@ -27,13 +37,13 @@
           <span class="quoteVerseNumber">
             <span class="verseNumber">{{ data.number }}</span>
             @if(hasFootnotes){
-              <span role="button" tabindex="0" (click)="toggleFootnotes($event)" (keydown.enter)="toggleFootnotes($event)" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)" class="footnoteIndicator">&#65290;</span>
+              <span role="button" tabindex="0" (click)="toggleFootnotes($event)" (keydown.enter)="toggleFootnotes($event)" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)" class="footnoteIndicator" [attr.aria-label]="noteIcon ? 'Notas' : null"><ng-container *ngTemplateOutlet="noteMark"></ng-container></span>
             } @else {
-              <span class="footnoteIndicator" style="visibility: hidden">&#65290;</span>
+              <span class="footnoteIndicator" style="visibility: hidden"><ng-container *ngTemplateOutlet="noteMark"></ng-container></span>
             }
           </span>
         }
-        <span class="verseRun" [attr.tabindex]="hasFootnotes ? 0 : null" [attr.role]="hasFootnotes ? 'button' : null" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="hasFootnotes" (click)="hasFootnotes ? toggleFootnotes($event) : null" (keydown.enter)="hasFootnotes ? toggleFootnotes($event) : null" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)">{{ text.text }}</span>
+        <span class="verseRun" [attr.tabindex]="notesOnText ? 0 : null" [attr.role]="notesOnText ? 'button' : null" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="notesOnText" (click)="notesOnText ? toggleFootnotes($event) : null" (keydown.enter)="notesOnText ? toggleFootnotes($event) : null" (keydown.space)="onTextSpace($event)">{{ text.text }}</span>
       }
 
       <!-- References -->

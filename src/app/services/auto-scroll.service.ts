@@ -27,10 +27,17 @@ export class AutoScrollService implements OnDestroy {
     { value: 4 / 5, label: "4/5" },
   ]
   private readonly FRACTIONAL_EPSILON = 0.002
+  /** Pixels the page may sit from where auto-scroll left it: rounding, not a reader. */
+  private readonly USER_SCROLL_TOLERANCE = 1
 
   private autoScrollFrame?: number
   private lastAutoScrollTimestamp?: number
   private accumulatedScrollDelta = 0
+  /**
+   * Where auto-scroll left the page. Found anywhere else on the next frame, a
+   * finger, the wheel, a key or the scrollbar moved it: the reader took over.
+   */
+  private expectedScrollTop = 0
   private cachedLineHeight = 24
   private lineHeightObserver?: ResizeObserver
   private scrollElement?: HTMLElement
@@ -124,6 +131,7 @@ export class AutoScrollService implements OnDestroy {
 
     this.lastAutoScrollTimestamp = undefined
     this.accumulatedScrollDelta = 0
+    this.expectedScrollTop = this.scrollElement.scrollTop
     this.autoScrollEnabled = true
     this.keepAwakeService.start()
     this.setupLineHeightObserver()
@@ -156,6 +164,15 @@ export class AutoScrollService implements OnDestroy {
       return
     }
 
+    // Scrolling by hand takes over: stop, and leave the page where they put it.
+    if (
+      Math.abs(content.scrollTop - this.expectedScrollTop) >
+      this.USER_SCROLL_TOLERANCE
+    ) {
+      this.stop()
+      return
+    }
+
     if (this.lastAutoScrollTimestamp === undefined) {
       this.lastAutoScrollTimestamp = timestamp
     }
@@ -174,14 +191,17 @@ export class AutoScrollService implements OnDestroy {
 
     // Only apply scroll when accumulated delta is at least 0.5px to prevent jank
     if (Math.abs(this.accumulatedScrollDelta) >= 0.5) {
-      const nextTop = Math.min(
+      const previousTop = content.scrollTop
+      content.scrollTop = Math.min(
         content.scrollHeight - content.clientHeight,
-        content.scrollTop + this.accumulatedScrollDelta,
+        previousTop + this.accumulatedScrollDelta,
       )
-
-      content.scrollTop = nextTop
-      this.accumulatedScrollDelta = 0
+      // Keep what the browser didn't apply. WebKit (Safari, the iOS app) holds
+      // whole pixels only, so a dropped half pixel per frame never moved at all.
+      this.accumulatedScrollDelta -= content.scrollTop - previousTop
     }
+    // What the browser really holds, whole pixels in WebKit, not what was asked.
+    this.expectedScrollTop = content.scrollTop
 
     this.lastAutoScrollTimestamp = timestamp
 

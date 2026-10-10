@@ -1,11 +1,13 @@
 import { ElementRef, Renderer2 } from "@angular/core"
 import { PreferencesService } from "../services/preferences.service"
+import type { SystemTextSizeService } from "../services/system-text-size.service"
 import { UnifiedGesturesDirective } from "./unified-gesture.directive"
 
 describe("UnifiedGesturesDirective", () => {
   let element: HTMLElement & { name?: string }
   let rendererSpy: jasmine.SpyObj<Renderer2>
   let preferencesServiceSpy: jasmine.SpyObj<PreferencesService>
+  let systemTextSize: jasmine.SpyObj<SystemTextSizeService>
   let directive: UnifiedGesturesDirective
 
   beforeEach(() => {
@@ -26,10 +28,14 @@ describe("UnifiedGesturesDirective", () => {
       fontSize: "100",
     } as CSSStyleDeclaration)
 
+    systemTextSize = jasmine.createSpyObj("SystemTextSizeService", ["percent"])
+    systemTextSize.percent.and.returnValue(null)
+
     directive = new UnifiedGesturesDirective(
       new ElementRef(element),
       rendererSpy,
       preferencesServiceSpy,
+      systemTextSize,
     )
     directive.fontSizeContext = "reader"
   })
@@ -128,6 +134,52 @@ describe("UnifiedGesturesDirective", () => {
         "105%",
       )
     })
+
+    // The iOS app, until a size is chosen in it: the iPhone's text size.
+    describe("with no size chosen in the app", () => {
+      it("starts from the system's, to the nearest step, without saving it", () => {
+        systemTextSize.percent.and.returnValue(123.5)
+        directive.ngOnInit()
+
+        expect(rendererSpy.setStyle).toHaveBeenCalledWith(
+          element,
+          "font-size",
+          "125%",
+        )
+        expect(preferencesServiceSpy.setFontSize).not.toHaveBeenCalled()
+
+        // Steps go on from there.
+        directive.increaseFontSize()
+        expect(rendererSpy.setStyle).toHaveBeenCalledWith(
+          element,
+          "font-size",
+          "130%",
+        )
+      })
+
+      it("keeps the largest system sizes within the reader's range", () => {
+        systemTextSize.percent.and.returnValue(310)
+        directive.ngOnInit()
+        expect(rendererSpy.setStyle).toHaveBeenCalledWith(
+          element,
+          "font-size",
+          "180%",
+        )
+      })
+
+      it("gives way to a size chosen in the app", () => {
+        systemTextSize.percent.and.returnValue(124)
+        preferencesServiceSpy.getFontSize.and.returnValue(90)
+        directive.ngOnInit()
+
+        expect(rendererSpy.setStyle).toHaveBeenCalledWith(
+          element,
+          "font-size",
+          "90%",
+        )
+        expect(systemTextSize.percent).not.toHaveBeenCalled()
+      })
+    })
   })
 
   it("should emit swipeLeft for a fast left swipe", () => {
@@ -147,6 +199,85 @@ describe("UnifiedGesturesDirective", () => {
     } as unknown as TouchEvent)
 
     expect(swipeLeftSpy).toHaveBeenCalled()
+  })
+
+  // A diagonal flick while scrolling used to change the chapter.
+  describe("when a swipe changes the chapter", () => {
+    type Point = [x: number, y: number]
+    const call = (handler: string, event: object) =>
+      (directive as unknown as Record<string, (e: TouchEvent) => void>)[
+        handler
+      ](event as TouchEvent)
+    const touch = ([clientX, clientY]: Point) => ({
+      identifier: 1,
+      clientX,
+      clientY,
+    })
+
+    /** A one-finger gesture through `moves`, lifted after `ms`. */
+    function gesture(moves: Point[], ms: number) {
+      spyOn(Date, "now").and.returnValues(0, ms)
+      const swiped = jasmine.createSpy("swiped")
+      directive.swipeLeft.subscribe(swiped)
+      directive.swipeRight.subscribe(swiped)
+      const preventDefault = jasmine.createSpy("preventDefault")
+      call("onTouchStart", { touches: [touch(moves[0])] })
+      for (const point of moves.slice(1, -1)) {
+        call("onTouchMove", { touches: [touch(point)], preventDefault })
+      }
+      call("onTouchEnd", { changedTouches: [touch(moves[moves.length - 1])] })
+      return { swiped, preventDefault }
+    }
+
+    it("never on a diagonal flick", () => {
+      const { swiped } = gesture(
+        [
+          [200, 300],
+          [250, 260],
+          [290, 220],
+        ],
+        100,
+      )
+      expect(swiped).not.toHaveBeenCalled()
+    })
+
+    it("never once the gesture started as a scroll", () => {
+      const { swiped } = gesture(
+        [
+          [200, 300],
+          [203, 285],
+          [400, 280],
+          [420, 280],
+        ],
+        150,
+      )
+      expect(swiped).not.toHaveBeenCalled()
+    })
+
+    it("on a slow, deliberate drag across a good part of the page", () => {
+      const { swiped, preventDefault } = gesture(
+        [
+          [window.innerWidth * 0.8, 300],
+          [window.innerWidth * 0.75, 302],
+          [window.innerWidth * 0.4, 310],
+        ],
+        1500,
+      )
+      expect(swiped).toHaveBeenCalledTimes(1)
+      expect(preventDefault).toHaveBeenCalled()
+    })
+
+    it("not on a short, slow drag", () => {
+      const { swiped } = gesture(
+        [
+          [200, 300],
+          [215, 300],
+          [270, 302],
+        ],
+        1000,
+      )
+      expect(swiped).not.toHaveBeenCalled()
+    })
   })
 
   it("should persist font size after a pinch gesture", () => {

@@ -27,6 +27,16 @@ on:
           - patch
           - minor
           - major
+      play_track:
+        description: 'Google Play track for a release (needs the PLAY_SERVICE_ACCOUNT_JSON secret)'
+        required: false
+        type: choice
+        default: internal
+        options:
+          - internal
+          - alpha
+          - beta
+          - production
   workflow_call:
     inputs:
       build_android:
@@ -45,6 +55,10 @@ on:
         required: false
         type: string
         default: patch
+      play_track:
+        required: false
+        type: string
+        default: internal
   push:
     tags:
       - 'v*'
@@ -53,14 +67,15 @@ permissions:
   contents: write
 
 jobs:
-  build-android:
-    if: ${{ github.event_name == 'push' || inputs.build_android }}
-    outputs:
-      apk_signed: ${{ steps.check-signing.outputs.apk_signed }}
+  # Builds the web bundle the native apps ship, and their version, once for
+  # both platform jobs. cap:prune copies dist/bible-app/browser to the webDir
+  # (dist/bible-app/capacitor) without the prerendered route pages.
+  build-native-web:
+    if: ${{ github.event_name == 'push' || inputs.build_android || inputs.build_ios }}
     runs-on: ubuntu-latest
-    env:
-      HAS_ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-      CAPACITOR_SERVER_URL: "https://biblia.capuchinhos.org/"
+    outputs:
+      version_name: ${{ steps.version.outputs.name }}
+      version_code: ${{ steps.version.outputs.code }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -73,30 +88,26 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-
       - name: Install dependencies
         run: npm ci
 
-      # The native apps are intentional PWA wrappers: web content is served
-      # remotely via server.url in capacitor.config.ts. An empty webDir is
-      # required by Capacitor but no local assets are bundled. Keep this path
-      # in sync with `webDir` in capacitor.config.ts, or `cap sync` fails.
-      - name: Create empty web directory for Capacitor
-        run: mkdir -p dist/bible-app/capacitor
-
-      - name: Setup Capacitor Android
+      - name: Build web app
         run: |
           set -e
-          npx cap add android
-          npx cap sync android
-          npx @capacitor/assets generate --android
+          npm run build
+          npm run cap:prune
 
-      - name: Set Android Version
+      - name: Upload native web bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-web
+          path: dist/bible-app/capacitor
+          retention-days: 1
+
+      # Release tag, or the next version from the latest tag. Format of the
+      # build number: 1.2.3 -> 1002003.
+      - name: Compute version
+        id: version
         run: |
           set -e
           if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == refs/tags/v* ]]; then
@@ -127,11 +138,53 @@ jobs:
           # Format: 1.2.3 -> 1002003
           VERSION_CODE=$(( MAJOR * 1000000 + MINOR * 1000 + PATCH ))
           
-          echo "Setting versionName=$VERSION_NAME and versionCode=$VERSION_CODE"
-          
-          # Replace the default capacitor version inside android/app/build.gradle
-          sed -i "s/versionCode 1/versionCode $VERSION_CODE/g" android/app/build.gradle
-          sed -i "s/versionName \"1.0\"/versionName \"$VERSION_NAME\"/g" android/app/build.gradle
+          echo "versionName=$VERSION_NAME versionCode=$VERSION_CODE"
+          echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+
+
+  build-android:
+    needs: build-native-web
+    if: ${{ github.event_name == 'push' || inputs.build_android }}
+    outputs:
+      apk_signed: ${{ steps.check-signing.outputs.apk_signed }}
+    runs-on: ubuntu-latest
+    env:
+      HAS_ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      # Read by android/app/build.gradle as -PversionCode / -PversionName.
+      ORG_GRADLE_PROJECT_versionCode: ${{ needs.build-native-web.outputs.version_code }}
+      ORG_GRADLE_PROJECT_versionName: ${{ needs.build-native-web.outputs.version_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download native web bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: native-web
+          path: dist/bible-app/capacitor
+
+      # android/ is committed (manifest, signing, icons); sync only copies the
+      # web bundle and plugin list into it.
+      - name: Sync Capacitor Android
+        run: npx cap sync android
 
       - name: Decode Keystore
         if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
@@ -150,26 +203,6 @@ jobs:
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           EOF
 
-      - name: Configure Gradle signing
-        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
-        run: |
-          set -e
-          # Inject signing config into app/build.gradle
-          sed -i '/android {/a \
-              signingConfigs {\
-                  release {\
-                      def keystorePropertiesFile = rootProject.file("keystore.properties")\
-                      def keystoreProperties = new Properties()\
-                      keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\
-                      storeFile file(keystoreProperties["storeFile"])\
-                      storePassword keystoreProperties["storePassword"]\
-                      keyAlias keystoreProperties["keyAlias"]\
-                      keyPassword keystoreProperties["keyPassword"]\
-                  }\
-              }' android/app/build.gradle
-          # Update release buildType to use signing config
-          sed -i 's/buildTypes {/buildTypes {\n        release {\n            signingConfig signingConfigs.release\n        }/' android/app/build.gradle
-
       - name: Build Android APK
         run: |
           set -e
@@ -181,6 +214,38 @@ jobs:
             echo "Building Debug APK (no keystore provided)..."
             ./gradlew assembleDebug
           fi
+
+      # Play installs and GitHub/Zapstore APKs can only update each other when
+      # they carry the same signing certificate, and App Links only verify for
+      # certificates listed in assetlinks.json. That file is the pinned list:
+      # fail the release rather than ship an APK signed with another key.
+      - name: Verify release signing certificate
+        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          OUTPUT=$("$APKSIGNER" verify --print-certs "$APK")
+          # The line format varies by apksigner version and scheme:
+          # "Signer #1 certificate SHA-256 digest: …",
+          # "V2 Signer: certificate SHA-256 digest: …",
+          # "Signer (minSdkVersion=…, …) certificate SHA-256 digest: …".
+          ACTUAL=$(grep -v '^Source Stamp' <<< "$OUTPUT" \
+            | sed -n 's/^.*Signer.* certificate SHA-256 digest: //p' \
+            | tr 'a-f' 'A-F' | sed 's/../&:/g; s/:$//' | sort -u)
+          if [ -z "$ACTUAL" ]; then
+            echo "$OUTPUT"
+            echo "::error::Could not read the release APK's signing certificate from apksigner."
+            exit 1
+          fi
+          EXPECTED=$(node -p "require('./public/.well-known/assetlinks.json').flatMap((s) => s.target.sha256_cert_fingerprints ?? []).join('\\n')")
+          echo "APK signed with: $ACTUAL"
+          while read -r CERT; do
+            if ! grep -qxF "$CERT" <<< "$EXPECTED"; then
+              echo "::error::The release APK's signing certificate $CERT is not listed in public/.well-known/assetlinks.json. Existing installs could not update to it. If the key change is intended, add its fingerprint there first."
+              exit 1
+            fi
+          done <<< "$ACTUAL"
 
       - name: Set signing output
         id: check-signing
@@ -218,11 +283,15 @@ jobs:
           retention-days: 30
 
   build-ios-macos:
+    needs: build-native-web
     if: ${{ github.event_name == 'push' || inputs.build_ios }}
     runs-on: macos-latest
     env:
       HAS_IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
-      CAPACITOR_SERVER_URL: "https://biblia.capuchinhos.org/"
+      # The committed project pins 1.0 (1); App Store Connect rejects a
+      # repeated build number, so both come from the release version.
+      MARKETING_VERSION: ${{ needs.build-native-web.outputs.version_name }}
+      CURRENT_PROJECT_VERSION: ${{ needs.build-native-web.outputs.version_code }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -236,24 +305,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # The native apps are intentional PWA wrappers: web content is served
-      # remotely via server.url in capacitor.config.ts. An empty webDir is
-      # required by Capacitor but no local assets are bundled. Keep this path
-      # in sync with `webDir` in capacitor.config.ts, or `cap sync` fails.
-      - name: Create empty web directory for Capacitor
-        run: mkdir -p dist/bible-app/capacitor
+      - name: Download native web bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: native-web
+          path: dist/bible-app/capacitor
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
 
-      - name: Setup Capacitor iOS
+      - name: Sync Capacitor iOS
         run: |
           set -e
-          npx cap add ios
           npx cap sync ios
-          npx @capacitor/assets generate --ios
           echo "Listing ios/App contents:"
           ls -R ios/App
           echo "Listing available destinations:"
@@ -291,7 +357,9 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath ./build/iOS.xcarchive \
-            archive
+            archive \
+            MARKETING_VERSION="$MARKETING_VERSION" \
+            CURRENT_PROJECT_VERSION="$CURRENT_PROJECT_VERSION"
 
       - name: Export signed IPA
         if: ${{ env.HAS_IOS_CERTIFICATE != '' }}
@@ -324,9 +392,11 @@ jobs:
           xcodebuild -project App.xcodeproj \
             -scheme App \
             -configuration Release \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination 'generic/platform=iOS' \
             -archivePath ./build/iOS.xcarchive \
             archive \
+            MARKETING_VERSION="$MARKETING_VERSION" \
+            CURRENT_PROJECT_VERSION="$CURRENT_PROJECT_VERSION" \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
@@ -394,6 +464,43 @@ jobs:
           git tag "$TAG" -m "Release $TAG"
           git push origin "$TAG"
           echo "tag_name=$TAG" >> "$GITHUB_OUTPUT"
+
+  # Releases only (a v* tag push, or a manual run with create_release), so
+  # test runs never reach Play, whose version codes must keep increasing. A
+  # manual release waits for its tag, like create-release, so Play never gets
+  # a build whose tag failed to push. The app must already exist in Play
+  # Console with one release uploaded by hand; the API cannot create it.
+  upload-play:
+    name: Upload to Google Play
+    needs: [build-android, create-tag]
+    if: |
+      always() &&
+      needs.build-android.result == 'success' &&
+      needs.build-android.outputs.apk_signed == 'true' &&
+      (
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+        (github.event_name == 'workflow_dispatch' && inputs.create_release == true && needs.create-tag.result == 'success')
+      )
+    runs-on: ubuntu-latest
+    env:
+      HAS_PLAY_SERVICE_ACCOUNT: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - name: Download Android AAB artifact
+        if: ${{ env.HAS_PLAY_SERVICE_ACCOUNT != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: android-aab
+          path: aab
+
+      - name: Upload to Google Play
+        if: ${{ env.HAS_PLAY_SERVICE_ACCOUNT != '' }}
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: org.capuchinhos.biblia
+          releaseFiles: aab/**/app-release.aab
+          track: ${{ inputs.play_track || 'internal' }}
+          status: completed
 
   create-release:
     name: Create GitHub Release
