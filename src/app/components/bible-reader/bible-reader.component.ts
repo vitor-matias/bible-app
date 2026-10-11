@@ -770,10 +770,19 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     const style = getComputedStyle(document.documentElement)
     const inset = (name: string) =>
       Number.parseFloat(style.getPropertyValue(name)) || 0
+    // Page by page, the frame is narrower than the screen and clips the pages
+    // beside it, whose edges would otherwise count as on screen.
+    const frame = (
+      this.bookContainer?.nativeElement as HTMLElement | undefined
+    )?.getBoundingClientRect()
+    const framed = !!frame && frame.width > 0
     const notes = notesInView(placed, {
       top: inset("--native-chrome-top"),
       bottom: window.innerHeight - inset("--native-chrome-bottom"),
-      width: window.innerWidth,
+      left: framed ? Math.max(0, frame.left) : 0,
+      right: framed
+        ? Math.min(window.innerWidth, frame.right)
+        : window.innerWidth,
     })
     this.nativeFootnotes.openVerses(notes)
   }

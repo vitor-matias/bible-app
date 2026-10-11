@@ -7,11 +7,15 @@ export interface PlacedVerse {
   right: number
 }
 
-/** The part of the screen the text shows in, clear of the bars. */
+/**
+ * The part of the screen the text shows in: clear of the bars, and inside the
+ * frame that, in page-by-page mode, clips the pages beside the one shown.
+ */
 export interface ViewBand {
   top: number
   bottom: number
-  width: number
+  left: number
+  right: number
 }
 
 const hasNotes = (verse: Verse) =>
@@ -27,9 +31,9 @@ const hasNotes = (verse: Verse) =>
 export function notesInView(placed: PlacedVerse[], band: ViewBand): Verse[] {
   const withNotes = placed.filter(({ verse }) => hasNotes(verse))
   const before = ({ bottom, right }: PlacedVerse) =>
-    bottom <= band.top || right <= 0
+    bottom <= band.top || right <= band.left
   const after = ({ top, left }: PlacedVerse) =>
-    top >= band.bottom || left >= band.width
+    top >= band.bottom || left >= band.right
   const onScreen = withNotes.filter((p) => !before(p) && !after(p))
   if (onScreen.length) return onScreen.map(({ verse }) => verse)
   const earlier = withNotes.filter(before)

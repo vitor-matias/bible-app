@@ -22,7 +22,7 @@ describe("notesInView", () => {
       left: 16,
       right: 386,
     }))
-  const band = { top: 120, bottom: 790, width: 402 }
+  const band = { top: 120, bottom: 790, left: 0, right: 402 }
   const numbers = (verses: Verse[]) => verses.map((v) => v.number)
 
   it("gives the notes of the verses on screen, in order", () => {
@@ -61,6 +61,22 @@ describe("notesInView", () => {
     pages[0] = { ...pages[0], top: 200, bottom: 290 }
     pages[1] = { ...pages[1], top: 200, bottom: 290 }
     expect(numbers(notesInView(pages, band))).toEqual([1])
+  })
+
+  // The frame is narrower than the screen (95%, centred), so the pages beside
+  // it end a few points inside the screen, hidden by the frame. Before, page 2
+  // of Lucas 9 opened the notes of pages 1 to 3.
+  it("leaves out the pages beside the frame, even where they reach into the screen", () => {
+    const verses = [1, 7, 14].map((n) => verse(n, true))
+    const frame = { ...band, left: 10, right: 392 }
+    const pages: PlacedVerse[] = [
+      // Page 1, scrolled one page (382) to the left: its right edge at 2.
+      { verse: verses[0], top: 200, bottom: 290, left: -364, right: 2 },
+      { verse: verses[1], top: 200, bottom: 290, left: 18, right: 384 },
+      // Page 3: its left edge at 400, still inside the 402-wide screen.
+      { verse: verses[2], top: 200, bottom: 290, left: 400, right: 766 },
+    ]
+    expect(numbers(notesInView(pages, frame))).toEqual([7])
   })
 
   // Before, nothing opened when the notes were on a later page.

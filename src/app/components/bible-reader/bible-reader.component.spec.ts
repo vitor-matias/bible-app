@@ -1126,6 +1126,50 @@ describe("BibleReaderComponent", () => {
       ).toEqual([1, 2])
     })
 
+    it("leaves out the pages beside the frame in page-by-page mode", () => {
+      const verse = (number: number) =>
+        ({
+          bookId: "luk",
+          chapterNumber: 9,
+          number,
+          text: [{ type: "footnote", text: "nota", reference: `${number}.` }],
+        }) as Verse
+      component.chapter = {
+        bookId: "luk",
+        number: 9,
+        verses: [verse(1), verse(7), verse(14)],
+      }
+      // The frame clips the pages beside it, whose edges reach into the
+      // screen: page 1 ends at 2, page 3 starts at 400.
+      const frame = document.createElement("div")
+      frame.style.cssText =
+        "position: fixed; top: 0; left: 10px; width: 382px; height: 600px"
+      const block = document.createElement("div")
+      for (const [number, left] of [
+        [1, -364],
+        [7, 18],
+        [14, 400],
+      ]) {
+        const element = document.createElement("verse")
+        element.id = String(number)
+        element.style.cssText = `position: fixed; top: 200px; left: ${left}px; width: 366px; height: 60px; display: block`
+        block.appendChild(element)
+      }
+      document.body.append(frame, block)
+      component.bookContainer = { nativeElement: frame }
+      component.bookBlock = { nativeElement: block }
+      const openVerses = TestBed.inject(NativeFootnotesService)
+        .openVerses as jasmine.Spy
+
+      component.openNotesInView()
+      frame.remove()
+      block.remove()
+
+      expect(
+        openVerses.calls.mostRecent().args[0].map((v: Verse) => v.number),
+      ).toEqual([7])
+    })
+
     it("should update SEO metadata when a chapter is applied", fakeAsync(() => {
       seoServiceSpy.updateForChapter.calls.reset()
       apiServiceSpy.getChapter.and.returnValue(
