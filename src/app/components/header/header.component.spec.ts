@@ -796,6 +796,7 @@ describe("HeaderComponent with the iOS native bars", () => {
       autoScrollAvailable: true,
       canShare: true,
       canReport: true,
+      notes: false,
       bookmarkColor: null,
       bookmarkName: null,
     })
@@ -935,6 +936,19 @@ describe("HeaderComponent with the iOS native bars", () => {
     actions.next({ id: "next" })
 
     expect(steps).toEqual(["previous", "next"])
+  })
+
+  // The toolbar's Notas button: the reader knows which verses are on screen.
+  it("offers the notes when the chapter has them, and asks the reader to open them", () => {
+    expect(lastState().notes).toBeFalse()
+    fixture.componentRef.setInput("hasNotes", true)
+    fixture.detectChanges()
+    expect(lastState().notes).toBeTrue()
+
+    let opened = 0
+    component.openNotes.subscribe(() => opened++)
+    actions.next({ id: "notes" })
+    expect(opened).toBe(1)
   })
 
   it("navigates to search", () => {

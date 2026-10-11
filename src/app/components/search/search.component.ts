@@ -435,6 +435,8 @@ export class SearchComponent {
     const isStale = () => generation !== this.searchGeneration
     this.psalmChoice = null
     this.pendingSearch = false
+    // Taken up (tapped, or Return): no second copy of it above what follows.
+    this.passageSuggestion = null
     const { text, target } = this.resolvePassage(query)
 
     if (

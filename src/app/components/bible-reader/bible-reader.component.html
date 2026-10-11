@@ -5,7 +5,8 @@
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
     (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize()"
     (decreaseFontSizeEvent)="onDecreaseFontSize()" [canGoPrevious]="canGoPrevious" [canGoNext]="canGoNext"
-    (previous)="stepBackward()" (next)="stepForward()" (selectPassage)="goToPassage($event)"></header>
+    (previous)="stepBackward()" (next)="stepForward()" (selectPassage)="goToPassage($event)"
+    [hasNotes]="chapterHasNotes" (openNotes)="openNotesInView()"></header>
   <mat-drawer-container class="bookSelectorContainer" #container>
     @if (books.length) {
     <mat-drawer class="bookSelector" mode="over" position="start" #bookDrawer closed>

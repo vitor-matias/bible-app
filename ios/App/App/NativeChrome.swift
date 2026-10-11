@@ -52,6 +52,8 @@ struct ChromeState: Equatable {
     var bookmarkColor: String?
     /// Its spoken name ("vermelho").
     var bookmarkName: String?
+    /// The chapter has notes: the toolbar offers Notas.
+    var notes = false
 
     var autoScroll: AutoScrollState?
 
@@ -81,6 +83,7 @@ struct ChromeState: Equatable {
         canReport = call.getBool("canReport", false)
         bookmarkColor = call.getString("bookmarkColor")
         bookmarkName = call.getString("bookmarkName")
+        notes = call.getBool("notes", false)
         query = call.getString("query", "")
         title = call.getString("title", "")
         autoScroll = call.getObject("autoScroll").map(AutoScrollState.init)
