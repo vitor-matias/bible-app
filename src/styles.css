@@ -418,6 +418,8 @@ body .mat-mdc-form-field {
   --app-chrome-bottom: var(--native-chrome-bottom, env(safe-area-inset-bottom));
   /* Pinned controls (auto-scroll, the paged footer) sit above the toolbar. */
   --app-inset-bottom: var(--app-chrome-bottom);
+  /* The text's distance under the top bar: UIKit's standard layout margin. */
+  --app-reader-gap: 8px;
 }
 
 /* The search page is a grouped list: the system's grouped colours. */
@@ -444,6 +446,22 @@ html.dark-theme .native-chrome app-search {
 .native-chrome bible-reader .mat-drawer-content {
   padding-top: var(--app-chrome-top);
   padding-bottom: var(--app-chrome-bottom);
+}
+
+/* The text starts one standard layout margin under the top bar, as in system
+   apps. The reader's own 15px margin was meant to clear the web header; on
+   top of the bar's inset it put the text further from the buttons than the
+   buttons are from the status bar. Scrolling reads through .bookBlock, the
+   paged view through its container, whose height takes the margin back at
+   the bottom so the page still ends at the toolbar. */
+.native-chrome bible-reader .bookBlock {
+  margin-top: var(--app-reader-gap);
+}
+
+.native-chrome bible-reader .paged-view-container {
+  margin-top: var(--app-reader-gap);
+  height: calc(100vh - var(--app-header-height) - var(--app-chrome-top) - var(--app-reader-gap) - var(--app-inset-bottom));
+  height: calc(100dvh - var(--app-header-height) - var(--app-chrome-top) - var(--app-reader-gap) - var(--app-inset-bottom));
 }
 
 /* Fades the text out under the status bar and the bars, as the system's

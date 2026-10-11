@@ -147,6 +147,80 @@ describe("AutoScrollService", () => {
     expect(top).toBeLessThanOrEqual(48)
   })
 
+  // Scrolling by hand has to take over: auto-scroll kept pulling the page out
+  // from under the reader's finger, wheel or scrollbar.
+  describe("when the reader scrolls by hand", () => {
+    let top: number
+    let onStop: jasmine.Spy
+    let step: (timestamp: number) => void
+
+    beforeEach(() => {
+      top = 0
+      onStop = jasmine.createSpy("onStop")
+      const scrollElement = document.createElement("div")
+      Object.defineProperties(scrollElement, {
+        scrollHeight: { value: 10_000, configurable: true },
+        clientHeight: { value: 500, configurable: true },
+        // Whole pixels, as WebKit holds them.
+        scrollTop: {
+          get: () => top,
+          set: (value: number) => {
+            top = Math.floor(value)
+          },
+          configurable: true,
+        },
+      })
+      service.setAutoScrollLinesPerSecond(1)
+      service.start({ scrollElement, onStop })
+      step = (service as unknown as Record<string, (t: number) => void>)[
+        "stepAutoScroll"
+      ].bind(service)
+    })
+
+    const play = (frames: number) => {
+      for (let frame = 0; frame < frames; frame++) step(frame * (1000 / 60))
+    }
+
+    it("keeps going while only auto-scroll moves the page", () => {
+      play(120)
+
+      expect(top).toBeGreaterThan(40)
+      expect(service.autoScrollEnabled).toBeTrue()
+      expect(onStop).not.toHaveBeenCalled()
+    })
+
+    it("stops, and leaves the page where they put it", () => {
+      play(60)
+      top += 300 // a finger, the wheel, a key or the scrollbar
+      const where = top
+
+      step(2000)
+
+      expect(service.autoScrollEnabled).toBeFalse()
+      expect(onStop).toHaveBeenCalledTimes(1)
+      expect(keepAwakeServiceSpy.stop).toHaveBeenCalled()
+      expect(top).toBe(where)
+    })
+
+    it("stops when they scroll back up as well", () => {
+      play(60)
+      top -= 10
+
+      step(2000)
+
+      expect(service.autoScrollEnabled).toBeFalse()
+    })
+
+    it("does not take a pixel of rounding for the reader", () => {
+      play(30)
+      top += 1
+
+      step(2000)
+
+      expect(service.autoScrollEnabled).toBeTrue()
+    })
+  })
+
   it("should refresh cached line height when the observer fires", () => {
     const lineHeightElement = document.createElement("div")
     const scrollElement = document.createElement("div")
