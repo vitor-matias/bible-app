@@ -143,6 +143,7 @@ private final class BookListViewController: UICollectionViewController, UISearch
     override func viewDidLoad() {
         super.viewDidLoad()
         collectionView.backgroundColor = sheetBackground
+        softenTopEdge(of: collectionView)
         navigationItem.rightBarButtonItem = closeButton(for: self)
         navigationItem.leftBarButtonItem = modeToggle
         modeToggle.isSelected = mode == .abbreviations
@@ -184,10 +185,17 @@ private final class BookListViewController: UICollectionViewController, UISearch
         show(filter: "")
     }
 
+    /// Once only: coming Back from another book's chapters keeps the list where it was.
+    private var scrolledToCurrent = false
+
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        guard !scrolledToCurrent else { return }
+        scrolledToCurrent = true
+        // Animated: this runs once the sheet or the Back transition has settled,
+        // so an unanimated scroll shows as a jump.
         if let current = data.currentBook, let indexPath = dataSource.indexPath(for: current) {
-            collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: false)
+            collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: true)
         }
     }
 
@@ -289,6 +297,7 @@ private final class ChapterListViewController: UICollectionViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         collectionView.backgroundColor = sheetBackground
+        softenTopEdge(of: collectionView)
         navigationItem.rightBarButtonItem = closeButton(for: self)
 
         let tile = UICollectionView.CellRegistration<TileCell, Chapter> { [current] cell, _, chapter in
@@ -320,7 +329,7 @@ private final class ChapterListViewController: UICollectionViewController {
         super.viewDidAppear(animated)
         if let current, let chapter = book.chapters.first(where: { $0.number == current }),
            let indexPath = dataSource.indexPath(for: chapter) {
-            collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: false)
+            collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: true)
         }
     }
 
@@ -456,16 +465,39 @@ private func tileLayout(minWidth: CGFloat, height: CGFloat) -> UICollectionViewL
 
 // Explicit colours: in a glass sheet the system background colours resolve to
 // clear, which left the page showing through and the text hard to read.
+// Lists and text sit on the system's plain sheet colours (white, or the
+// elevated dark grey), as in Apple's own pickers; tiles take the secondary one.
 let sheetBackground = UIColor { traits in
+    traits.userInterfaceStyle == .dark
+        ? UIColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1)
+        : UIColor.white
+}
+
+let tileBackground = UIColor { traits in
+    traits.userInterfaceStyle == .dark
+        ? UIColor(red: 0.17, green: 0.17, blue: 0.18, alpha: 1)
+        : UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1)
+}
+
+// A form keeps the grouped colours, white rows on grey, as Settings does.
+let formBackground = UIColor { traits in
     traits.userInterfaceStyle == .dark
         ? UIColor(white: 0, alpha: 1)
         : UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1)
 }
 
-let tileBackground = UIColor { traits in
+let formRowBackground = UIColor { traits in
     traits.userInterfaceStyle == .dark
         ? UIColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1)
         : UIColor.white
+}
+
+/// The content fades out under the bar, as in the system's sheets. Automatic
+/// picked the hard style here: a lighter strip with a line under the bar.
+private func softenTopEdge(of scrollView: UIScrollView) {
+    if #available(iOS 26.0, *) {
+        scrollView.topEdgeEffect.style = .soft
+    }
 }
 
 func closeButton(for controller: UIViewController) -> UIBarButtonItem {
