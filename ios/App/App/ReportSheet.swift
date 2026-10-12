@@ -271,10 +271,13 @@ final class ReportController: UITableViewController, UITextViewDelegate,
 
     // MARK: - Details
 
+    /// Counts UTF-16 units, as the web form's maxlength does (JavaScript
+    /// string length), so both cap the same text: `count` would let 500
+    /// emoji through where the web stops at 250.
     func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
         guard !sending else { return false }
         let current = textView.text as NSString
-        return current.replacingCharacters(in: range, with: text).count <= state.maxLength
+        return current.replacingCharacters(in: range, with: text).utf16.count <= state.maxLength
     }
 
     func textViewDidChange(_ textView: UITextView) {
@@ -286,7 +289,7 @@ final class ReportController: UITableViewController, UITextViewDelegate,
     /// Updated in place: reloading the section would end the typing.
     private func updateCounter() {
         var content = UIListContentConfiguration.groupedFooter()
-        content.text = "\(detailsView.text.count) / \(state.maxLength)"
+        content.text = "\(detailsView.text.utf16.count) / \(state.maxLength)"
         counter.contentConfiguration = content
     }
 }
