@@ -68,13 +68,14 @@
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.2.0",
     "puppeteer": "^25.5.0",
+    "sharp": "^0.35.3",
     "typescript": "~6.0.3"
   },
   "overrides": {
     "@xmldom/xmldom": "^0.8.15",
     "minimatch": "^3.1.5",
     "tar": "^7.5.22",
-    "sharp": "^0.35.3",
+    "sharp": "$sharp",
     "uuid": "^11.1.1",
     "@hono/node-server": "^2.0.5"
   }
