@@ -326,6 +326,22 @@ describe("SearchComponent", () => {
           expect(router.navigate).toHaveBeenCalledWith(["/", "wis", 1], {})
           expect(apiService.search).not.toHaveBeenCalled()
         }))
+
+        // Return before the pause: the pause then searched the name, which
+        // superseded the book still being looked up, and nothing opened.
+        it("opens it on Return even when the lookup outlasts the pause", fakeAsync(() => {
+          const verse = new Subject<Verse>()
+          apiService.getVerse.and.returnValue(verse)
+          component.onTyping("sabedoria")
+          void component.onSearchSubmit("sabedoria")
+          tick(TYPING_PAUSE_MS)
+          expect(apiService.search).not.toHaveBeenCalled()
+
+          verse.next({} as Verse)
+          verse.complete()
+          tick()
+          expect(router.navigate).toHaveBeenCalledWith(["/", "wis", 1], {})
+        }))
       })
 
       it("offers the choice for a psalm the liturgy numbers otherwise", () => {

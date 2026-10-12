@@ -168,7 +168,8 @@ export class SearchComponent {
   private readonly destroyRef = inject(DestroyRef)
   /** The iOS app draws the search field and Back natively, not search-bar. */
   readonly native = this.nativeChrome.enabled
-  private readonly typed = new Subject<string>()
+  /** Each keystroke, with the submit it followed (searchGeneration). */
+  private readonly typed = new Subject<{ text: string; generation: number }>()
 
   constructor(
     private apiService: BibleApiService,
@@ -195,7 +196,10 @@ export class SearchComponent {
     this.typed
       .pipe(
         debounceTime(TYPING_PAUSE_MS),
-        map((text) => text.trim()),
+        // A submit since the last keystroke (Return, a tapped offer) answered
+        // it: searching anyway would supersede a book still opening.
+        filter(({ generation }) => generation === this.searchGeneration),
+        map(({ text }) => text.trim()),
         filter((text) => this.searchesOnPause(text)),
         takeUntilDestroyed(this.destroyRef),
       )
@@ -252,7 +256,7 @@ export class SearchComponent {
     this.passageSuggestion = query ? this.suggestPassage(query) : null
     this.pendingSearch = this.searchesOnPause(query)
     this.cdr.detectChanges()
-    this.typed.next(text)
+    this.typed.next({ text, generation: this.searchGeneration })
   }
 
   /**
