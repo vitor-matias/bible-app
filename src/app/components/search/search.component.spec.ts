@@ -214,7 +214,7 @@ describe("SearchComponent", () => {
       expect(apiService.search).toHaveBeenCalledOnceWith("pastor", 1)
     }))
 
-    it("leaves references and book names for Return", fakeAsync(() => {
+    it("leaves references for Return", fakeAsync(() => {
       referenceService.extract.and.returnValue([
         { book: "jhn", chapter: 3 },
       ] as unknown as ReturnType<BibleReferenceService["extract"]>)
@@ -292,6 +292,40 @@ describe("SearchComponent", () => {
         expect(component.passageSuggestion?.label).toBe(
           "Abrir Evangelho segundo São João",
         )
+      })
+
+      // A book's name is also a word: "sabedoria" never reached the search,
+      // and Return left for the Book of Wisdom.
+      describe("for a book's name", () => {
+        const wisdom = {
+          id: "wis",
+          name: "Livro da Sabedoria",
+          shortName: "Sabedoria",
+          abrv: "Sb",
+        } as Book
+
+        beforeEach(() => bookService.findBook.and.returnValue(wisdom))
+
+        it("searches it as a word on the pause, still offering the book", fakeAsync(() => {
+          component.onTyping("sabedoria")
+          expect(component.pendingSearch).toBeTrue()
+
+          tick(TYPING_PAUSE_MS)
+          expect(apiService.search).toHaveBeenCalledOnceWith("sabedoria", 1)
+          expect(router.navigate).not.toHaveBeenCalled()
+          expect(component.passageSuggestion?.label).toBe(
+            "Abrir Livro da Sabedoria",
+          )
+        }))
+
+        it("opens the book on Return", fakeAsync(() => {
+          apiService.getVerse.and.returnValue(of({} as Verse))
+          void component.onSearchSubmit("sabedoria")
+          tick()
+
+          expect(router.navigate).toHaveBeenCalledWith(["/", "wis", 1], {})
+          expect(apiService.search).not.toHaveBeenCalled()
+        }))
       })
 
       it("offers the choice for a psalm the liturgy numbers otherwise", () => {

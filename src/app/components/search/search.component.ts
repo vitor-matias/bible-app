@@ -196,12 +196,7 @@ export class SearchComponent {
       .pipe(
         debounceTime(TYPING_PAUSE_MS),
         map((text) => text.trim()),
-        filter(
-          (text) =>
-            text.length >= 2 &&
-            text !== this.searchTerm.trim() &&
-            !this.resolvePassage(text).target,
-        ),
+        filter((text) => this.searchesOnPause(text)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((text) => void this.onSearchSubmit(text, { typed: true }))
@@ -255,12 +250,20 @@ export class SearchComponent {
   onTyping(text: string): void {
     const query = text.trim()
     this.passageSuggestion = query ? this.suggestPassage(query) : null
-    this.pendingSearch =
-      query.length >= 2 &&
-      !this.passageSuggestion &&
-      query !== this.searchTerm.trim()
+    this.pendingSearch = this.searchesOnPause(query)
     this.cdr.detectChanges()
     this.typed.next(text)
+  }
+
+  /**
+   * Whether a typing pause searches `query` (trimmed): words, and a book's
+   * name too, as "Sabedoria", "Números" or "os" (Oseias) are also words to
+   * look up. Not a reference: "Jo 3" on the way to "Jo 3,16" is no search.
+   */
+  private searchesOnPause(query: string): boolean {
+    if (query.length < 2 || query === this.searchTerm.trim()) return false
+    const { target } = this.resolvePassage(query)
+    return !target || !!target.bookOnly
   }
 
   /** Opens the passage offered for what is typed. */
@@ -298,7 +301,8 @@ export class SearchComponent {
    * reference ("Jo 3,16", "Sl 94 (95), 1-2") or a book's name. Null for words
    * to search, in `text`. Return and a typing pause both ask this, so they
    * agree; only Return opens it, as a pause mid-reference ("Jo 3" on the way
-   * to "Jo 3,16") must not navigate away.
+   * to "Jo 3,16") must not navigate away. A pause searches a book's name as
+   * words instead (searchesOnPause).
    */
   private resolvePassage(query: string): {
     text: string
@@ -436,8 +440,10 @@ export class SearchComponent {
     this.psalmChoice = null
     this.pendingSearch = false
     // Taken up (tapped, or Return): no second copy of it above what follows.
-    this.passageSuggestion = null
-    const { text, target } = this.resolvePassage(query)
+    // A pause leaves the offer to open a book whose name it searches.
+    if (!typed) this.passageSuggestion = null
+    const { text, target: named } = this.resolvePassage(query)
+    const target = typed && named?.bookOnly ? null : named
 
     if (
       target?.book.id === PSALMS_BOOK_ID &&
