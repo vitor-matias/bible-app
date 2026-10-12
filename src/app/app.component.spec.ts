@@ -349,6 +349,17 @@ describe("AppComponent", () => {
       expect(toastSpy.show).toHaveBeenCalledTimes(2)
     }))
 
+    it("needs two backs again after a back that closed a panel in between", fakeAsync(() => {
+      backButton({ canGoBack: false })
+      const unregister = TestBed.inject(BackButtonService).register(() => true)
+      backButton({ canGoBack: false })
+      unregister()
+      backButton({ canGoBack: false })
+
+      expect(mockAppPlugin.minimizeApp).not.toHaveBeenCalled()
+      expect(toastSpy.show).toHaveBeenCalledTimes(2)
+    }))
+
     it("needs two backs again after coming back to the app", fakeAsync(() => {
       backButton({ canGoBack: false })
       backButton({ canGoBack: false })

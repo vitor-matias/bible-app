@@ -129,6 +129,9 @@ export class AppComponent implements OnInit, OnDestroy {
    * cold start); a lone one only says so, so a stray gesture can't leave.
    */
   private handleBackButton({ canGoBack }: BackButtonListenerEvent): void {
+    // Any other back in between (a panel, a page) takes two again.
+    const exitArmed = Date.now() < this.exitBackDeadline
+    this.exitBackDeadline = 0
     const dialogs = this.dialog.openDialogs
     if (dialogs.length > 0) {
       dialogs[dialogs.length - 1].close()
@@ -139,8 +142,7 @@ export class AppComponent implements OnInit, OnDestroy {
       window.history.back()
       return
     }
-    if (Date.now() < this.exitBackDeadline) {
-      this.exitBackDeadline = 0
+    if (exitArmed) {
       void this.appPlugin.minimizeApp()
       return
     }
