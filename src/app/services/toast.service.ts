@@ -3,7 +3,7 @@ import { MatSnackBar } from "@angular/material/snack-bar"
 import { NativeChromeService } from "./native-chrome.service"
 
 export interface ToastOptions {
-  /** The snackbar's button on the web; the iOS toast has none. */
+  /** The snackbar's button on the web ("" for none); the iOS toast has none. */
   action?: string
   duration?: number
 }

@@ -1,5 +1,5 @@
 import { NgZone } from "@angular/core"
-import { TestBed } from "@angular/core/testing"
+import { fakeAsync, TestBed, tick } from "@angular/core/testing"
 import { MatDialog, type MatDialogRef } from "@angular/material/dialog"
 import { Router } from "@angular/router"
 import type {
@@ -7,12 +7,13 @@ import type {
   URLOpenListenerEvent,
 } from "@capacitor/app"
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core"
-import { AppComponent } from "./app.component"
+import { AppComponent, EXIT_BACK_WINDOW_MS } from "./app.component"
 import { AnalyticsService } from "./services/analytics.service"
 import { BackButtonService } from "./services/back-button.service"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
+import { ToastService } from "./services/toast.service"
 import { APP_PLUGIN } from "./tokens"
 
 describe("AppComponent", () => {
@@ -23,11 +24,13 @@ describe("AppComponent", () => {
   let onboardingSpy: jasmine.SpyObj<OnboardingService>
   let nativeShellSpy: jasmine.SpyObj<NativeShellService>
   let dialogStub: { openDialogs: MatDialogRef<unknown>[] }
+  let toastSpy: jasmine.SpyObj<ToastService>
 
   beforeEach(async () => {
     routerSpy = jasmine.createSpyObj("Router", ["navigateByUrl", "navigate"])
     mockAppPlugin = jasmine.createSpyObj("App", ["addListener", "minimizeApp"])
     dialogStub = { openDialogs: [] }
+    toastSpy = jasmine.createSpyObj("ToastService", ["show"])
 
     const offlineDataSpy = jasmine.createSpyObj("OfflineDataService", [
       "preloadAllBooksAndChapters",
@@ -53,6 +56,7 @@ describe("AppComponent", () => {
         { provide: OnboardingService, useValue: onboardingSpy },
         { provide: MatDialog, useValue: dialogStub },
         { provide: NativeShellService, useValue: nativeShellSpy },
+        { provide: ToastService, useValue: toastSpy },
       ],
     }).compileComponents()
 
@@ -317,14 +321,53 @@ describe("AppComponent", () => {
       unregister()
     })
 
-    it("sends the app to the background from the first screen", () => {
+    // A single back used to leave from the first screen, so a stray back
+    // gesture dropped the reader out of the app.
+    it("sends the app to the background on a second back from the first screen", fakeAsync(() => {
       const historyBack = spyOn(window.history, "back")
 
       backButton({ canGoBack: false })
+      expect(mockAppPlugin.minimizeApp).not.toHaveBeenCalled()
+      expect(toastSpy.show).toHaveBeenCalledOnceWith(
+        "Volte atrás outra vez para sair.",
+        { action: "", duration: EXIT_BACK_WINDOW_MS },
+      )
+
+      tick(EXIT_BACK_WINDOW_MS - 1)
+      backButton({ canGoBack: false })
 
       expect(historyBack).not.toHaveBeenCalled()
-      expect(mockAppPlugin.minimizeApp).toHaveBeenCalled()
-    })
+      expect(mockAppPlugin.minimizeApp).toHaveBeenCalledTimes(1)
+    }))
+
+    it("only warns again when the second back comes too late", fakeAsync(() => {
+      backButton({ canGoBack: false })
+      tick(EXIT_BACK_WINDOW_MS)
+      backButton({ canGoBack: false })
+
+      expect(mockAppPlugin.minimizeApp).not.toHaveBeenCalled()
+      expect(toastSpy.show).toHaveBeenCalledTimes(2)
+    }))
+
+    it("needs two backs again after a back that closed a panel in between", fakeAsync(() => {
+      backButton({ canGoBack: false })
+      const unregister = TestBed.inject(BackButtonService).register(() => true)
+      backButton({ canGoBack: false })
+      unregister()
+      backButton({ canGoBack: false })
+
+      expect(mockAppPlugin.minimizeApp).not.toHaveBeenCalled()
+      expect(toastSpy.show).toHaveBeenCalledTimes(2)
+    }))
+
+    it("needs two backs again after coming back to the app", fakeAsync(() => {
+      backButton({ canGoBack: false })
+      backButton({ canGoBack: false })
+      backButton({ canGoBack: false })
+
+      expect(mockAppPlugin.minimizeApp).toHaveBeenCalledTimes(1)
+      expect(toastSpy.show).toHaveBeenCalledTimes(2)
+    }))
   })
 
   describe("shares from other apps", () => {

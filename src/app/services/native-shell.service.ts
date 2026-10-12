@@ -57,13 +57,34 @@ export class NativeShellService {
   /**
    * The navigation bar draws over the page (the app is edge-to-edge), so its
    * icons follow the in-app theme, which can differ from the device theme.
+   * Where the page stops short of the bars instead, the bar shows the brown
+   * window background (MainActivity.java), which takes light icons.
    */
   setNavigationBarTheme(isDark: boolean): void {
     if (!Capacitor.isNativePlatform()) return
+    const dark = isDark || !this.drawsUnderSystemBars()
     this.setBarStyle(
       SystemBarType.NavigationBar,
-      isDark ? SystemBarsStyle.Dark : SystemBarsStyle.Light,
+      dark ? SystemBarsStyle.Dark : SystemBarsStyle.Light,
     )
+  }
+
+  /**
+   * Capacitor's SystemBars only lets the page under the bars on WebView 140
+   * and later, the first to report them as safe areas. Older ones (Android 8
+   * and 9 stop at 138) get the page laid out between the bars, and a top
+   * safe area of 0.
+   */
+  private drawsUnderSystemBars(): boolean {
+    if (Capacitor.getPlatform() !== "android") return true
+    const probe = this.document.createElement("div")
+    // --app-inset-top lets specs simulate the status bar.
+    probe.style.cssText =
+      "position: fixed; height: var(--app-inset-top, env(safe-area-inset-top, 0px))"
+    this.document.body.append(probe)
+    const height = probe.offsetHeight
+    probe.remove()
+    return height > 0
   }
 
   private setBarStyle(bar: SystemBarType, style: SystemBarsStyle): void {

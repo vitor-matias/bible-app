@@ -27,6 +27,13 @@ const config: CapacitorConfig = {
     // ThemeService via SystemBars): the toolbar is always brown while the
     // navigation bar follows the in-app theme, which one static style cannot
     // express. The API sends CORS headers, so native HTTP patching is unneeded.
+    SystemBars: {
+      // index.html's viewport is viewport-fit=cover. Told up front, SystemBars
+      // lets the page under the bars from the first frame instead of once it
+      // has read the tag, so the page doesn't jump and NativeShellService
+      // sees the final safe area when it styles the navigation bar.
+      initialViewportFitValueHint: "cover",
+    },
   },
 }
 
