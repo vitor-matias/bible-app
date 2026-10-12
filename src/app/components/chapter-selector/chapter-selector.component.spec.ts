@@ -1,8 +1,15 @@
 import { CommonModule } from "@angular/common"
-import { SimpleChange } from "@angular/core"
-import { ComponentFixture, TestBed } from "@angular/core/testing"
+import { Component, SimpleChange, ViewChild } from "@angular/core"
+import {
+  ComponentFixture,
+  fakeAsync,
+  flush,
+  TestBed,
+} from "@angular/core/testing"
+import { MATERIAL_ANIMATIONS } from "@angular/material/core"
 import { MatIconModule } from "@angular/material/icon"
 import { MatListModule } from "@angular/material/list"
+import { MatDrawer, MatSidenavModule } from "@angular/material/sidenav"
 import { of } from "rxjs"
 import { BookmarkService } from "../../services/bookmark.service"
 import { ChapterSelectorComponent } from "./chapter-selector.component"
@@ -174,4 +181,67 @@ describe("ChapterSelectorComponent", () => {
     host.style.setProperty("--app-inset-bottom", "100px")
     expect(getComputedStyle(list).paddingBottom).toBe("0px")
   })
+})
+
+@Component({
+  imports: [MatSidenavModule, ChapterSelectorComponent],
+  template: `
+    <mat-drawer-container>
+      <mat-drawer mode="over">
+        <chapter-selector [chapters]="chapters" [selectedChapter]="2"
+          bookId="GEN"></chapter-selector>
+      </mat-drawer>
+    </mat-drawer-container>
+  `,
+})
+class DrawerHostComponent {
+  chapters: Chapter[] = [
+    { bookId: "GEN", number: 1, title: "Creation" },
+    { bookId: "GEN", number: 2, title: "Eden" },
+  ]
+  @ViewChild(MatDrawer) drawer!: MatDrawer
+}
+
+describe("ChapterSelectorComponent in the reader's drawer", () => {
+  beforeEach(() => {
+    const bookmarks = jasmine.createSpyObj("BookmarkService", [
+      "getBookmarksForBook",
+    ])
+    bookmarks.getBookmarksForBook.and.returnValue(of([]))
+    TestBed.configureTestingModule({
+      imports: [DrawerHostComponent],
+      providers: [
+        { provide: BookmarkService, useValue: bookmarks },
+        {
+          provide: MATERIAL_ANIMATIONS,
+          useValue: { animationsDisabled: true },
+        },
+      ],
+    })
+  })
+
+  // Reopening the drawer reuses the list, scrolled wherever it was left.
+  it("scrolls to the selected chapter each time the drawer opens", fakeAsync(() => {
+    const fixture = TestBed.createComponent(DrawerHostComponent)
+    const scrollSpy = spyOn(Element.prototype, "scrollIntoView")
+    fixture.detectChanges()
+    flush()
+    const drawer = fixture.componentInstance.drawer
+    const selected = (fixture.nativeElement as HTMLElement).querySelector(
+      ".highlight",
+    )
+    expect(selected?.textContent).toContain("Eden")
+
+    drawer.open()
+    flush()
+    drawer.close()
+    flush()
+    drawer.open()
+    flush()
+
+    expect(scrollSpy).toHaveBeenCalledTimes(2)
+    expect(
+      scrollSpy.calls.all().every((call) => call.object === selected),
+    ).toBe(true)
+  }))
 })
