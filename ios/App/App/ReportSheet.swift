@@ -69,7 +69,7 @@ final class ReportController: UITableViewController, UITextViewDelegate,
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        tableView.backgroundColor = sheetBackground
+        tableView.backgroundColor = formBackground
         tableView.keyboardDismissMode = .interactive
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "topic")
 
@@ -231,12 +231,12 @@ final class ReportController: UITableViewController, UITextViewDelegate,
             content.text = state.topics[indexPath.row].label
             cell.contentConfiguration = content
             cell.accessoryType = indexPath.row == topic ? .checkmark : .none
-            cell.backgroundColor = tileBackground
+            cell.backgroundColor = formRowBackground
             return cell
         default:
             let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
             cell.selectionStyle = .none
-            cell.backgroundColor = tileBackground
+            cell.backgroundColor = formRowBackground
             for view in [detailsView, placeholderLabel] as [UIView] {
                 view.translatesAutoresizingMaskIntoConstraints = false
                 cell.contentView.addSubview(view)

@@ -1,5 +1,12 @@
-import { SimpleChange } from "@angular/core"
-import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import { Component, SimpleChange, ViewChild } from "@angular/core"
+import {
+  type ComponentFixture,
+  fakeAsync,
+  flush,
+  TestBed,
+} from "@angular/core/testing"
+import { MATERIAL_ANIMATIONS } from "@angular/material/core"
+import { MatDrawer, MatSidenavModule } from "@angular/material/sidenav"
 import type { CanonGroup } from "../../bible-canon"
 
 import { BookSelectorComponent } from "./book-selector.component"
@@ -284,4 +291,61 @@ describe("BookSelectorComponent", () => {
     host.style.setProperty("--app-inset-bottom", "100px")
     expect(getComputedStyle(list).paddingBottom).toBe("8px")
   })
+})
+
+@Component({
+  imports: [MatSidenavModule, BookSelectorComponent],
+  template: `
+    <mat-drawer-container>
+      <mat-drawer mode="over">
+        <book-selector [books]="books" selectedBookId="mal"></book-selector>
+      </mat-drawer>
+    </mat-drawer-container>
+  `,
+})
+class DrawerHostComponent {
+  books: Book[] = [
+    {
+      id: "mal",
+      name: "Livro do Profeta Malaquias",
+      shortName: "Malaquias",
+      abrv: "Ml",
+      chapterCount: 3,
+    },
+  ]
+  @ViewChild(MatDrawer) drawer!: MatDrawer
+}
+
+describe("BookSelectorComponent in the reader's drawer", () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [DrawerHostComponent],
+      providers: [
+        {
+          provide: MATERIAL_ANIMATIONS,
+          useValue: { animationsDisabled: true },
+        },
+      ],
+    })
+  })
+
+  // The reader builds the list with the page, inside the closed drawer, whose
+  // content is display: none. The only scroll ran then and moved nothing, so
+  // the drawer opened at Génesis whatever the book.
+  it("scrolls to the selected book when the drawer opens", fakeAsync(() => {
+    const fixture = TestBed.createComponent(DrawerHostComponent)
+    const scrollSpy = spyOn(Element.prototype, "scrollIntoView")
+    fixture.detectChanges()
+    flush()
+    expect(scrollSpy).not.toHaveBeenCalled()
+
+    fixture.componentInstance.drawer.open()
+    flush()
+
+    const malaquias = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-book-id="mal"]',
+    ) as HTMLElement
+    expect(scrollSpy).toHaveBeenCalledTimes(1)
+    expect(scrollSpy.calls.mostRecent().object).toBe(malaquias)
+  }))
 })

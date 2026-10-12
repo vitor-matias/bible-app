@@ -30,6 +30,7 @@ import {
   OLD_TESTAMENT_INTRO,
   withIntros,
 } from "../../bible-canon"
+import { scrollOnDrawerOpen } from "../../utils/drawer-scroll"
 
 interface BookNode {
   name: string
@@ -95,6 +96,9 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   )
 
   private injector = inject(Injector)
+
+  /** In the reader's drawer, which scrolls to the book each time it opens. */
+  private inDrawer = scrollOnDrawerOpen(() => this.scrollToSelectedBook())
 
   constructor(private elementRef: ElementRef) {
     this.filterBooks("")
@@ -189,6 +193,7 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   }
 
   ngAfterViewInit(): void {
+    if (this.inDrawer) return
     // Runs while prerendering too, where the DOM has no scrollIntoView;
     // afterNextRender is browser-only.
     afterNextRender(() => this.scrollToSelectedBook(), {
