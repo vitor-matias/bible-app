@@ -49,7 +49,7 @@ export type NativeChromeAction =
   | { id: "search-submit"; text: string }
   | { id: "report-submit"; topic: string; details: string }
 
-/** The reader's bars: search, Notas and the menus on top; arrows and passage below. */
+/** The reader's bars: the menus and search on top; arrows, passage and Notas below. */
 export interface ReaderChrome {
   mode: "reader"
   themeMode: ThemeMode
@@ -67,7 +67,7 @@ export interface ReaderChrome {
   autoScrollAvailable: boolean
   canShare: boolean
   canReport: boolean
-  /** The chapter has notes: the top bar offers its Notas button. */
+  /** The chapter has notes: the toolbar offers its Notas button. */
   notes: boolean
   /** The colour of the ribbon on this chapter, shown on the bookmark button. */
   bookmarkColor: string | null

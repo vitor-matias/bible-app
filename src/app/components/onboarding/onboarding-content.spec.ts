@@ -65,7 +65,7 @@ describe("nativeOnboardingSteps", () => {
     )
     expect(step("tools")?.features[1]).toEqual({
       symbol: "bookmark",
-      text: "Toque no marcador, no topo à direita, para guardar marcadores coloridos nos capítulos a que quer voltar.",
+      text: "Toque no marcador, no topo à esquerda, para guardar marcadores coloridos nos capítulos a que quer voltar.",
     })
   })
 

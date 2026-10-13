@@ -198,20 +198,21 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         return item
     }()
 
-    /// Marcadores, to the left of ⋯.
+    /// Marcadores, right of the text button.
     private lazy var bookmarksItem = barButton("bookmark", "Marcadores", "bookmarks")
 
-    /// Text size, theme and page or scroll, to the left of Marcadores.
+    /// Text size, theme and page or scroll, right of ⋯.
     private lazy var fontItem: UIBarButtonItem = {
         let item = UIBarButtonItem(image: UIImage(systemName: "textformat.size"), menu: nil)
         item.accessibilityLabel = "Texto e aparência"
         return item
     }()
 
-    /// Pesquisar, in the top bar's left corner.
+    /// Pesquisar, in the top bar's right corner, as in the web header.
     private lazy var readerSearchItem = barButton("magnifyingglass", "Pesquisar", "search")
 
-    /// The notes of the verses on screen (the web app picks them), beside search.
+    /// The notes of the verses on screen (the web app picks them), at the
+    /// toolbar's right end.
     private lazy var notesItem = barButton("note.text", "Notas", "notes")
 
     private func configureReader(_ state: ChromeState) {
@@ -232,24 +233,22 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         }
         bookmarksItem.accessibilityValue = state.bookmarkName.map { "marcador \($0) neste capítulo" }
         fontItem.isEnabled = enabled
-        if readerItem.rightBarButtonItems?.first !== moreItem {
-            // Rightmost first: text size, Marcadores, then ⋯, each in a glass
-            // circle of its own rather than one shared capsule.
-            let items = [moreItem, bookmarksItem, fontItem]
+        if readerItem.leftBarButtonItems?.first !== moreItem {
+            // As the web header: its menu in the left corner, here ⋯, then the
+            // text button and Marcadores, each in a glass circle of its own
+            // rather than one shared capsule.
+            let items = [moreItem, fontItem, bookmarksItem]
             if #available(iOS 26.0, *) {
                 for item in items { item.sharesBackground = false }
             }
-            readerItem.rightBarButtonItems = items
+            readerItem.leftBarButtonItems = items
         }
         readerSearchItem.isEnabled = enabled
         notesItem.isEnabled = enabled
-        // Search in the corner; Notas, in chapters with notes, beside it.
-        let leftItems = (state.search ? [readerSearchItem] : []) + (state.notes ? [notesItem] : [])
-        if readerItem.leftBarButtonItems ?? [] != leftItems {
-            if #available(iOS 26.0, *) {
-                for item in leftItems { item.sharesBackground = false }
-            }
-            readerItem.leftBarButtonItems = leftItems
+        // Search in the right corner, as in the web header.
+        let rightItems = state.search ? [readerSearchItem] : []
+        if readerItem.rightBarButtonItems ?? [] != rightItems {
+            readerItem.rightBarButtonItems = rightItems
         }
 
         if let autoScroll = state.autoScroll {
@@ -265,9 +264,13 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             items += [previous, next]
         }
         fittedToolbarWidth = toolbarWidth
+        // The glass the other items take: the arrows share a capsule, Notas
+        // has a circle.
         let room = toolbarWidth - 2 * (Glass.barMargin + Glass.padding)
             - (state.chapterNavigation ? Glass.pair + Glass.gap : 0)
+            - (state.notes ? Glass.circle + Glass.gap : 0)
         items += [.flexibleSpace(), passageItem(state, enabled: enabled, room: room), .flexibleSpace()]
+        if state.notes { items.append(notesItem) }
         toolbar.setItems(items, animated: false)
     }
 
@@ -344,10 +347,12 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private var toolbarWidth: CGFloat { view.safeAreaLayoutGuide.layoutFrame.width }
 
     /// Liquid Glass toolbar metrics, the same on iOS 26 and 27: the bar's side
-    /// margins, two icons sharing a capsule (the arrows), the gap between glass
-    /// shapes, and a custom view's padding inside its own glass.
+    /// margins, an icon's glass circle, two icons sharing a capsule (the
+    /// arrows), the gap between glass shapes, and a custom view's padding
+    /// inside its own glass.
     private enum Glass {
         static let barMargin: CGFloat = 16
+        static let circle: CGFloat = 48
         static let pair: CGFloat = 100
         static let gap: CGFloat = 12
         static let padding: CGFloat = 5

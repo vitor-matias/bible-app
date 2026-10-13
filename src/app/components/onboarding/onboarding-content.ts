@@ -99,7 +99,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     intro:
       "Abra o menu ☰ no canto superior esquerdo para ajustar a leitura ao seu gosto.",
     iosIntro:
-      "Toque em AA, no topo à direita, para ajustar a leitura ao seu gosto.",
+      "Toque em AA, no topo à esquerda, para ajustar a leitura ao seu gosto.",
     features: [
       {
         icon: "dark_mode",
@@ -136,7 +136,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
         icon: "bookmarks",
         text: "Guarde marcadores coloridos nos capítulos a que quer voltar.",
         iosText:
-          "Toque no marcador, no topo à direita, para guardar marcadores coloridos nos capítulos a que quer voltar.",
+          "Toque no marcador, no topo à esquerda, para guardar marcadores coloridos nos capítulos a que quer voltar.",
       },
       {
         icon: "share",
