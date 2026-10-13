@@ -1,6 +1,7 @@
 import {
   ABOUT_GROUP,
   type CanonGroup,
+  isClusterIntro,
   NEW_TESTAMENT_GROUPS,
   NEW_TESTAMENT_INTRO,
   OLD_TESTAMENT_GROUPS,
@@ -72,7 +73,11 @@ export function buildPassagePicker(
   const pickerBook = (book: Book): PickerBook => ({
     id: book.id,
     // Introductions read just "Introdução": the group above gives the context.
-    label: book.introSlug ? "Introdução" : book.shortName,
+    // A cluster's, among the group's books, goes by its name.
+    label:
+      book.introSlug && !isClusterIntro(book.id)
+        ? "Introdução"
+        : book.shortName,
     name: book.name,
     abbreviation: compactLabel(book),
     chapters: chaptersOf(book).map((chapter) => ({
