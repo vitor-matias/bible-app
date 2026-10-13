@@ -290,6 +290,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         let button = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in
             self?.plugin.send("passage")
         })
+        // Each shorter form only while the one applied so far is too wide: at
+        // 390 pt "Sl 23 (22)" stays, "Sl 103 (102)" gives way to "Sl 103".
         for label in state.passageShortLabels where button.intrinsicContentSize.width > room {
             config.title = label
             button.configuration = config
