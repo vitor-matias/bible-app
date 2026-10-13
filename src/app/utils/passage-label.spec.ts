@@ -1,4 +1,8 @@
-import { passageLabel, passageSpokenLabel } from "./passage-label"
+import {
+  passageLabel,
+  passageShortLabels,
+  passageSpokenLabel,
+} from "./passage-label"
 
 describe("passage labels", () => {
   const luke = { id: "luk", shortName: "Lucas", name: "Evangelho de São Lucas" }
@@ -14,6 +18,26 @@ describe("passage labels", () => {
     expect(passageLabel(psalms, 136, 7)).toBe("Salmo 136 (135),7")
     expect(passageLabel(psalms, 116)).toBe("Salmo 116 (114-115)")
     expect(passageLabel(psalms, 1)).toBe("Salmo 1")
+  })
+
+  it("abbreviate the book where the name doesn't fit", () => {
+    expect(passageShortLabels({ id: "deu", abrv: "Dt" }, 3)).toEqual(["Dt 3"])
+    expect(passageShortLabels({ id: "act", abrv: "At" }, 0)).toEqual([
+      "At Intro",
+    ])
+    expect(passageShortLabels({ id: "jas", abrv: "Tg \ufeff" }, 1)).toEqual([
+      "Tg 1",
+    ])
+  })
+
+  it("abbreviate a psalm, then drop its liturgical number", () => {
+    const psalms = { id: "psa", abrv: "Sl" }
+    expect(passageShortLabels(psalms, 116)).toEqual([
+      "Sl 116 (114-115)",
+      "Sl 116",
+    ])
+    expect(passageShortLabels(psalms, 1)).toEqual(["Sl 1"])
+    expect(passageShortLabels(psalms, 0)).toEqual(["Sl Intro"])
   })
 
   it("read the liturgical number out for VoiceOver", () => {

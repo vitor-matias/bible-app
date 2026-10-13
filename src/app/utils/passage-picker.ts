@@ -8,7 +8,7 @@ import {
   withIntros,
 } from "../bible-canon"
 import { BookService } from "../services/book.service"
-import { passageSpokenLabel } from "./passage-label"
+import { cleanAbbreviation, passageSpokenLabel } from "./passage-label"
 import { liturgicalPsalmNumber, PSALMS_BOOK_ID } from "./psalms"
 
 /** Mirrors PassagePickerData in ios/App/App/PassagePicker.swift. */
@@ -122,11 +122,6 @@ function compactLabel(book: Book): string {
   if (book.introSlug) return "Intro"
   if (book.id === "about") return "Sobre"
   return cleanAbbreviation(book.abrv)
-}
-
-/** The API's abbreviations carry stray spaces and byte-order marks ("Tg \ufeff"). */
-export function cleanAbbreviation(abrv: string): string {
-  return abrv.replace(/[\s\ufeff]+/g, " ").trim()
 }
 
 /** The book's chapters as the reader numbers them: 0 is the introduction. */

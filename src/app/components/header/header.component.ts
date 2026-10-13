@@ -47,7 +47,11 @@ import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"
 import { SHARE_PLUGIN } from "../../tokens"
-import { passageLabel, passageSpokenLabel } from "../../utils/passage-label"
+import {
+  passageLabel,
+  passageShortLabels,
+  passageSpokenLabel,
+} from "../../utils/passage-label"
 import { buildPassagePicker } from "../../utils/passage-picker"
 import { PSALMS_BOOK_ID } from "../../utils/psalms"
 
@@ -413,13 +417,17 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     const isAbout = this.book.id === "about"
     // Standalone introductions and the About page have no chapters.
     const hasChapters = !isAbout && !this.book.introSlug
+    const label = !hasChapters
+      ? this.bookLabel
+      : this.book.id === PSALMS_BOOK_ID && this.chapterNumber > 0
+        ? passageLabel(this.book, this.chapterNumber)
+        : `${this.bookLabel} ${this.chapterLabel}`
     this.nativeChrome.show({
       mode: "reader",
-      passageLabel: !hasChapters
-        ? this.bookLabel
-        : this.book.id === PSALMS_BOOK_ID && this.chapterNumber > 0
-          ? passageLabel(this.book, this.chapterNumber)
-          : `${this.bookLabel} ${this.chapterLabel}`,
+      passageLabel: label,
+      passageShortLabels: hasChapters
+        ? passageShortLabels(this.book, this.chapterNumber)
+        : [],
       passageAccessibilityLabel: [
         hasChapters && this.chapterNumber > 0
           ? passageSpokenLabel(this.book, this.chapterNumber)
