@@ -21,7 +21,7 @@ struct ChromeState: Equatable {
     enum Mode: String {
         /// No native bars (e.g. the reader before its books load).
         case none
-        /// Top: ⋯, text; Marcadores, search. Bottom: chapter arrows, passage picker, Notas.
+        /// Top: ⋯, text; Marcadores, search. Bottom: chapter arrows, passage picker.
         case reader
         /// Top: Back. Bottom: the search field, above the keyboard.
         case search
@@ -54,8 +54,6 @@ struct ChromeState: Equatable {
     var bookmarkColor: String?
     /// Its spoken name ("vermelho").
     var bookmarkName: String?
-    /// The chapter has notes: the toolbar offers Notas.
-    var notes = false
 
     var autoScroll: AutoScrollState?
 
@@ -86,7 +84,6 @@ struct ChromeState: Equatable {
         canReport = call.getBool("canReport", false)
         bookmarkColor = call.getString("bookmarkColor")
         bookmarkName = call.getString("bookmarkName")
-        notes = call.getBool("notes", false)
         query = call.getString("query", "")
         title = call.getString("title", "")
         autoScroll = call.getObject("autoScroll").map(AutoScrollState.init)

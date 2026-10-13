@@ -211,9 +211,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// Pesquisar, in the top bar's right corner, as in the web header.
     private lazy var readerSearchItem = barButton("magnifyingglass", "Pesquisar", "search")
 
-    /// The notes of the verses on screen (the web app picks them), at the
-    /// toolbar's right end.
-    private lazy var notesItem = barButton("note.text", "Notas", "notes")
 
     private func configureReader(_ state: ChromeState) {
         let enabled = !state.inert
@@ -244,7 +241,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             readerItem.leftBarButtonItems = items
         }
         readerSearchItem.isEnabled = enabled
-        notesItem.isEnabled = enabled
         // Rightmost first: search in the corner, as in the web header, then
         // Marcadores.
         let rightItems = (state.search ? [readerSearchItem] : []) + [bookmarksItem]
@@ -268,13 +264,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             items += [previous, next]
         }
         fittedToolbarWidth = toolbarWidth
-        // The glass the other items take: the arrows share a capsule, Notas
-        // has a circle.
         let room = toolbarWidth - 2 * (Glass.barMargin + Glass.padding)
             - (state.chapterNavigation ? Glass.pair + Glass.gap : 0)
-            - (state.notes ? Glass.circle + Glass.gap : 0)
         items += [.flexibleSpace(), passageItem(state, enabled: enabled, room: room), .flexibleSpace()]
-        if state.notes { items.append(notesItem) }
         toolbar.setItems(items, animated: false)
     }
 
@@ -353,12 +345,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private var toolbarWidth: CGFloat { view.safeAreaLayoutGuide.layoutFrame.width }
 
     /// Liquid Glass toolbar metrics, the same on iOS 26 and 27: the bar's side
-    /// margins, an icon's glass circle, two icons sharing a capsule (the
-    /// arrows), the gap between glass shapes, and a custom view's padding
-    /// inside its own glass.
+    /// margins, two icons sharing a capsule (the arrows), the gap between glass
+    /// shapes, and a custom view's padding inside its own glass.
     private enum Glass {
         static let barMargin: CGFloat = 16
-        static let circle: CGFloat = 48
         static let pair: CGFloat = 100
         static let gap: CGFloat = 12
         static let padding: CGFloat = 5

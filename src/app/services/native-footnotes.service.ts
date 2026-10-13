@@ -51,34 +51,6 @@ export class NativeFootnotesService {
     this.present([{ footnotes, verse }], this.title(verse))
   }
 
-  /**
-   * The notes of several verses in one sheet, in order, each under its verse
-   * number, as at the foot of a printed page: "Mateus 5,3-9".
-   */
-  openVerses(verses: Verse[]): void {
-    const entries = verses
-      .map((verse) => ({
-        verse,
-        footnotes: verse.text.filter(
-          (t): t is _Footnote => t.type === "footnote",
-        ),
-      }))
-      .filter(({ footnotes }) => footnotes.length > 0)
-    if (entries.length === 0) return
-    const first = entries[0].verse
-    const last = entries[entries.length - 1].verse
-    void this.analytics.track("footnotes_opened", {
-      book: first.bookId,
-      chapter: first.chapterNumber,
-      verse: first.number,
-      source: "notes-button",
-    })
-    this.present(
-      entries,
-      first === last ? this.title(first) : this.title(first, last),
-    )
-  }
-
   private present(
     entries: { footnotes: _Footnote[]; verse: Verse }[],
     title: string,
@@ -129,19 +101,18 @@ export class NativeFootnotesService {
   }
 
   /**
-   * "Mateus 11,3", "Mateus 5,3-9", "Salmo 23 (22),1", or the chapter alone
-   * for notes before the first verse.
+   * "Mateus 11,3", "Salmo 23 (22),1", or the chapter alone for notes before
+   * the first verse.
    */
-  private title(verse: Verse, last?: Verse): string {
+  private title(verse: Verse): string {
     const book = this.bookService.findBookById(verse.bookId) ?? {
       id: verse.bookId,
       shortName: verse.bookId,
     }
-    const first = verse.number > 0 ? verse.number : undefined
-    const verses =
-      last && first !== undefined && last.number > first
-        ? `${first}-${last.number}`
-        : first
-    return passageLabel(book, verse.chapterNumber, verses)
+    return passageLabel(
+      book,
+      verse.chapterNumber,
+      verse.number > 0 ? verse.number : undefined,
+    )
   }
 }

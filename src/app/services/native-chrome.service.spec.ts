@@ -27,7 +27,6 @@ const READER: ReaderChrome = {
   autoScrollAvailable: true,
   canShare: true,
   canReport: true,
-  notes: false,
   bookmarkColor: null,
   bookmarkName: null,
 }
