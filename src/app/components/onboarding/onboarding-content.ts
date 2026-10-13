@@ -136,7 +136,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
         icon: "bookmarks",
         text: "Guarde marcadores coloridos nos capítulos a que quer voltar.",
         iosText:
-          "Toque no marcador, no topo à esquerda, para guardar marcadores coloridos nos capítulos a que quer voltar.",
+          "Toque no marcador, no topo à direita, para guardar marcadores coloridos nos capítulos a que quer voltar.",
       },
       {
         icon: "share",

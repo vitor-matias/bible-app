@@ -21,7 +21,7 @@ struct ChromeState: Equatable {
     enum Mode: String {
         /// No native bars (e.g. the reader before its books load).
         case none
-        /// Top: ⋯, text, Marcadores; search. Bottom: chapter arrows, passage picker, Notas.
+        /// Top: ⋯, text; Marcadores, search. Bottom: chapter arrows, passage picker, Notas.
         case reader
         /// Top: Back. Bottom: the search field, above the keyboard.
         case search

@@ -198,7 +198,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         return item
     }()
 
-    /// Marcadores, right of the text button.
+    /// Marcadores, left of search.
     private lazy var bookmarksItem = barButton("bookmark", "Marcadores", "bookmarks")
 
     /// Text size, theme and page or scroll, right of ⋯.
@@ -235,9 +235,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         fontItem.isEnabled = enabled
         if readerItem.leftBarButtonItems?.first !== moreItem {
             // As the web header: its menu in the left corner, here ⋯, then the
-            // text button and Marcadores, each in a glass circle of its own
-            // rather than one shared capsule.
-            let items = [moreItem, fontItem, bookmarksItem]
+            // text button, each in a glass circle of its own rather than one
+            // shared capsule.
+            let items = [moreItem, fontItem]
             if #available(iOS 26.0, *) {
                 for item in items { item.sharesBackground = false }
             }
@@ -245,9 +245,13 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         }
         readerSearchItem.isEnabled = enabled
         notesItem.isEnabled = enabled
-        // Search in the right corner, as in the web header.
-        let rightItems = state.search ? [readerSearchItem] : []
+        // Rightmost first: search in the corner, as in the web header, then
+        // Marcadores.
+        let rightItems = (state.search ? [readerSearchItem] : []) + [bookmarksItem]
         if readerItem.rightBarButtonItems ?? [] != rightItems {
+            if #available(iOS 26.0, *) {
+                for item in rightItems { item.sharesBackground = false }
+            }
             readerItem.rightBarButtonItems = rightItems
         }
 
