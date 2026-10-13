@@ -16,6 +16,7 @@ const READER: ReaderChrome = {
   mode: "reader",
   themeMode: "system",
   passageLabel: "Génesis 1",
+  passageShortLabels: ["Gn 1"],
   passageAccessibilityLabel: "Génesis 1",
   chapterNavigation: true,
   canGoPrevious: true,
@@ -26,7 +27,6 @@ const READER: ReaderChrome = {
   autoScrollAvailable: true,
   canShare: true,
   canReport: true,
-  notes: false,
   bookmarkColor: null,
   bookmarkName: null,
 }

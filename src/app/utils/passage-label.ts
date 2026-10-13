@@ -21,6 +21,31 @@ export function passageLabel(
 }
 
 /**
+ * Shorter forms of the same, longest first, for a toolbar too narrow for the
+ * name: the book abbreviated as the text's own references are ("Dt 3",
+ * "Gn Intro"), and a psalm, last, without its liturgical number ("Sl 23 (22)",
+ * "Sl 23").
+ */
+export function passageShortLabels(
+  book: Pick<Book, "id" | "abrv">,
+  chapter: number,
+): string[] {
+  const abbreviated = `${cleanAbbreviation(book.abrv)} ${chapter === 0 ? "Intro" : chapter}`
+  const liturgical =
+    book.id === PSALMS_BOOK_ID && chapter > 0
+      ? liturgicalPsalmNumber(chapter)
+      : null
+  return liturgical
+    ? [`${abbreviated} (${liturgical})`, abbreviated]
+    : [abbreviated]
+}
+
+/** The API's abbreviations carry stray spaces and byte-order marks ("Tg \ufeff"). */
+export function cleanAbbreviation(abrv: string): string {
+  return abrv.replace(/[\s\ufeff]+/g, " ").trim()
+}
+
+/**
  * The same, for VoiceOver, which would read the parentheses as an aside:
  * "Salmo 23, na liturgia 22".
  */

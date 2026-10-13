@@ -148,6 +148,27 @@ describe("buildPassagePicker", () => {
     expect(findBook("about")?.abbreviation).toBe("Sobre")
   })
 
+  // Mid-group, "Introdução" alone would not say which letters it introduces.
+  it("names a cluster's introduction, listed before its books", () => {
+    const { sections } = buildPassagePicker(
+      [
+        book("joao", { introSlug: "joao", shortName: "Cartas de João" }),
+        book("1jn"),
+        book("2jn"),
+      ],
+      [],
+      { bookId: "1jn", chapter: 1 },
+    )
+    const letters = sections[1].groups.find(
+      (group) => group.title === "Cartas Católicas",
+    )
+    expect(letters?.books.map(({ id, label }) => [id, label])).toEqual([
+      ["joao", "Cartas de João"],
+      ["1jn", "1JN"],
+      ["2jn", "2JN"],
+    ])
+  })
+
   it("cleans the stray spaces and byte-order marks from abbreviations", () => {
     expect(findBook("tit")?.abbreviation).toBe("Tt")
   })

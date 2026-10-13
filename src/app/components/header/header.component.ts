@@ -47,7 +47,11 @@ import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"
 import { SHARE_PLUGIN } from "../../tokens"
-import { passageLabel, passageSpokenLabel } from "../../utils/passage-label"
+import {
+  passageLabel,
+  passageShortLabels,
+  passageSpokenLabel,
+} from "../../utils/passage-label"
 import { buildPassagePicker } from "../../utils/passage-picker"
 import { PSALMS_BOOK_ID } from "../../utils/psalms"
 
@@ -88,8 +92,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /** For the iOS toolbar's arrows; the web page has its own. */
   @Input() canGoPrevious = false
   @Input() canGoNext = false
-  /** The chapter has notes, which the iOS toolbar's Notas button opens. */
-  @Input() hasNotes = false
 
   bookLabelMode: "title" | "prompt" = "title"
   /** True for the fade-out half of a label swap. */
@@ -131,8 +133,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Output() toggleViewMode = new EventEmitter<void>()
   /** iOS toolbar arrows: a page in paged mode, else a chapter. */
   @Output() previous = new EventEmitter<void>()
-  /** The iOS toolbar's Notas button: the notes of the verses on screen. */
-  @Output() openNotes = new EventEmitter<void>()
   @Output() next = new EventEmitter<void>()
   /** A passage chosen in the iOS picker; no chapter means the book's first. */
   @Output() selectPassage = new EventEmitter<{
@@ -413,13 +413,17 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     const isAbout = this.book.id === "about"
     // Standalone introductions and the About page have no chapters.
     const hasChapters = !isAbout && !this.book.introSlug
+    const label = !hasChapters
+      ? this.bookLabel
+      : this.book.id === PSALMS_BOOK_ID && this.chapterNumber > 0
+        ? passageLabel(this.book, this.chapterNumber)
+        : `${this.bookLabel} ${this.chapterLabel}`
     this.nativeChrome.show({
       mode: "reader",
-      passageLabel: !hasChapters
-        ? this.bookLabel
-        : this.book.id === PSALMS_BOOK_ID && this.chapterNumber > 0
-          ? passageLabel(this.book, this.chapterNumber)
-          : `${this.bookLabel} ${this.chapterLabel}`,
+      passageLabel: label,
+      passageShortLabels: hasChapters
+        ? passageShortLabels(this.book, this.chapterNumber)
+        : [],
       passageAccessibilityLabel: [
         hasChapters && this.chapterNumber > 0
           ? passageSpokenLabel(this.book, this.chapterNumber)
@@ -428,7 +432,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
           ? [`marcador ${this.bookmarkName.toLocaleLowerCase("pt")}`]
           : []),
       ].join(", "),
-      notes: this.hasNotes,
       bookmarkColor: this.currentBookmark?.color ?? null,
       bookmarkName: this.bookmarkName?.toLocaleLowerCase("pt") ?? null,
       chapterNavigation: !isAbout,
@@ -464,9 +467,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         break
       case "previous":
         this.previous.emit()
-        break
-      case "notes":
-        this.openNotes.emit()
         break
       case "next":
         this.next.emit()

@@ -115,6 +115,44 @@ describe("BookSelectorComponent", () => {
     expect(pentateuco?.books[0]).toBe("pentateuco")
   })
 
+  it("names a cluster's introduction, listed before its books", () => {
+    component.books = [
+      {
+        id: "joao",
+        name: "Cartas de João",
+        shortName: "Cartas de João",
+        abrv: "joao",
+        chapterCount: 0,
+        introduction: [],
+        introSlug: "joao",
+      },
+      {
+        id: "1jn",
+        name: "Primeira Carta de São João",
+        shortName: "1 João",
+        abrv: "1 Jo",
+        chapterCount: 5,
+      },
+    ]
+    component.ngOnChanges({
+      books: new SimpleChange(undefined, component.books, true),
+    })
+
+    const groups = component.ntDataSource.data as CanonGroup[]
+    const catholic = groups.find((group) => group.name === "Cartas Católicas")
+    expect(catholic?.books).toEqual([
+      "jas",
+      "1pe",
+      "2pe",
+      "joao",
+      "1jn",
+      "2jn",
+      "3jn",
+      "jud",
+    ])
+    expect(component.entryLabel("joao")).toBe("Cartas de João")
+  })
+
   it("omits introduction entries the API did not provide", () => {
     component.books = [
       {

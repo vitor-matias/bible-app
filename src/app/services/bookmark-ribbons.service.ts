@@ -1,6 +1,6 @@
 import { Injectable, inject } from "@angular/core"
 import { Router } from "@angular/router"
-import { cleanAbbreviation } from "../utils/passage-picker"
+import { cleanAbbreviation } from "../utils/passage-label"
 import { AnalyticsService } from "./analytics.service"
 import { BookService } from "./book.service"
 import { BookmarkService } from "./bookmark.service"

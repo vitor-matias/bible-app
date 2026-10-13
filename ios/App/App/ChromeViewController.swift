@@ -28,6 +28,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// Bars meant to be on screen; a fade-out may still be running for others.
     private var shownBars = Set<ObjectIdentifier>()
     private var reportedInsets = ChromeInsets()
+    /// The width the toolbar's passage button was last fitted to.
+    private var fittedToolbarWidth: CGFloat = 0
     private var plugin: NativeChromePlugin { bridgeController.chromePlugin }
 
     override func viewDidLoad() {
@@ -102,6 +104,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         super.viewDidLayoutSubviews()
         reportInsets()
         placeToast()
+        // Turned, or an iPad window resized: the book's name may fit now, or not.
+        if state.mode == .reader && toolbarWidth != fittedToolbarWidth {
+            UIView.performWithoutAnimation { configureReader(state) }
+        }
     }
 
     // MARK: - State
@@ -192,15 +198,19 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         return item
     }()
 
-    /// Marcadores, to the left of ⋯.
+    /// Marcadores, left of search.
     private lazy var bookmarksItem = barButton("bookmark", "Marcadores", "bookmarks")
 
-    /// Text size, theme and page or scroll, to the left of Marcadores.
+    /// Text size, theme and page or scroll, right of ⋯.
     private lazy var fontItem: UIBarButtonItem = {
         let item = UIBarButtonItem(image: UIImage(systemName: "textformat.size"), menu: nil)
         item.accessibilityLabel = "Texto e aparência"
         return item
     }()
+
+    /// Pesquisar, in the top bar's right corner, as in the web header.
+    private lazy var readerSearchItem = barButton("magnifyingglass", "Pesquisar", "search")
+
 
     private func configureReader(_ state: ChromeState) {
         let enabled = !state.inert
@@ -220,14 +230,25 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         }
         bookmarksItem.accessibilityValue = state.bookmarkName.map { "marcador \($0) neste capítulo" }
         fontItem.isEnabled = enabled
-        if readerItem.rightBarButtonItems?.first !== moreItem {
-            // Rightmost first: text size, Marcadores, then ⋯, each in a glass
-            // circle of its own rather than one shared capsule.
-            let items = [moreItem, bookmarksItem, fontItem]
+        if readerItem.leftBarButtonItems?.first !== moreItem {
+            // As the web header: its menu in the left corner, here ⋯, then the
+            // text button, each in a glass circle of its own rather than one
+            // shared capsule.
+            let items = [moreItem, fontItem]
             if #available(iOS 26.0, *) {
                 for item in items { item.sharesBackground = false }
             }
-            readerItem.rightBarButtonItems = items
+            readerItem.leftBarButtonItems = items
+        }
+        readerSearchItem.isEnabled = enabled
+        // Rightmost first: search in the corner, as in the web header, then
+        // Marcadores.
+        let rightItems = (state.search ? [readerSearchItem] : []) + [bookmarksItem]
+        if readerItem.rightBarButtonItems ?? [] != rightItems {
+            if #available(iOS 26.0, *) {
+                for item in rightItems { item.sharesBackground = false }
+            }
+            readerItem.rightBarButtonItems = rightItems
         }
 
         if let autoScroll = state.autoScroll {
@@ -242,32 +263,21 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             next.isEnabled = enabled && state.canGoNext
             items += [previous, next]
         }
-        items += [.flexibleSpace(), passageItem(state, enabled: enabled), .flexibleSpace()]
-        if state.notes {
-            // The notes of the verses on screen (the web app picks them).
-            let notes = barButton("note.text", "Notas", "notes")
-            notes.isEnabled = enabled
-            items.append(notes)
-        }
-        if state.search {
-            let search = barButton("magnifyingglass", "Pesquisar", "search")
-            search.isEnabled = enabled
-            items.append(search)
-        }
-        // Notas and search each in a circle of their own, not one capsule.
-        if #available(iOS 26.0, *) {
-            for item in items.suffix(state.notes && state.search ? 2 : 0) {
-                item.sharesBackground = false
-            }
-        }
+        fittedToolbarWidth = toolbarWidth
+        let room = toolbarWidth - 2 * (Glass.barMargin + Glass.padding)
+            - (state.chapterNavigation ? Glass.pair + Glass.gap : 0)
+        items += [.flexibleSpace(), passageItem(state, enabled: enabled, room: room), .flexibleSpace()]
         toolbar.setItems(items, animated: false)
     }
 
-    /// "Marcos 1", which opens the passage picker.
-    private func passageItem(_ state: ChromeState, enabled: Bool) -> UIBarButtonItem {
+    /// "Marcos 1", which opens the passage picker. Where the book's name
+    /// doesn't fit in `room`, "Dt 3": too wide a toolbar runs past the screen's
+    /// edges (iOS 26) or moves its last items, this one too, into a ⋯ menu (27).
+    private func passageItem(_ state: ChromeState, enabled: Bool, room: CGFloat) -> UIBarButtonItem {
         var config = UIButton.Configuration.plain()
         config.title = state.passageLabel
         config.baseForegroundColor = .label
+        config.titleLineBreakMode = .byTruncatingTail
         config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
             var attributes = attributes
             attributes.font = UIFontMetrics(forTextStyle: .body).scaledFont(for: .systemFont(ofSize: 17, weight: .medium))
@@ -276,10 +286,26 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         let button = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in
             self?.plugin.send("passage")
         })
+        // Each shorter form only while the one applied so far is too wide: at
+        // 390 pt "Sl 23 (22)" stays, "Sl 103 (102)" gives way to "Sl 103".
+        for label in state.passageShortLabels where button.intrinsicContentSize.width > room {
+            config.title = label
+            button.configuration = config
+        }
+        // At the largest text sizes even the shortest may not fit: it's cut short.
+        button.widthAnchor.constraint(lessThanOrEqualToConstant: max(room, 0)).isActive = true
         button.accessibilityLabel = state.passageAccessibilityLabel
         button.accessibilityHint = "Escolher livro e capítulo"
         button.isEnabled = enabled
-        return UIBarButtonItem(customView: button)
+        let item = UIBarButtonItem(customView: button)
+        // Should it still land in a ⋯ menu, where a custom view shows as nothing.
+        if #available(iOS 16.0, *) {
+            item.menuRepresentation = UIAction(title: state.passageLabel,
+                                               image: UIImage(systemName: "book")) { [weak self] _ in
+                self?.plugin.send("passage")
+            }
+        }
+        return item
     }
 
     /// Auto-scroll's controls: close, then speed, then play or pause.
@@ -307,12 +333,25 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         return [close, .flexibleSpace(), slower, speedItem, faster, .flexibleSpace(), play]
     }
 
+    /// The bar shows the symbol; the title names it to VoiceOver and in the
+    /// ⋯ menu iOS 27 makes of whatever doesn't fit.
     private func barButton(_ symbol: String, _ label: String, _ action: String) -> UIBarButtonItem {
-        let item = UIBarButtonItem(image: UIImage(systemName: symbol), primaryAction: UIAction { [weak self] _ in
+        UIBarButtonItem(title: label, image: UIImage(systemName: symbol), primaryAction: UIAction { [weak self] _ in
             self?.plugin.send(action)
         })
-        item.accessibilityLabel = label
-        return item
+    }
+
+    /// The toolbar's width: the safe area's, as it is pinned to it.
+    private var toolbarWidth: CGFloat { view.safeAreaLayoutGuide.layoutFrame.width }
+
+    /// Liquid Glass toolbar metrics, the same on iOS 26 and 27: the bar's side
+    /// margins, two icons sharing a capsule (the arrows), the gap between glass
+    /// shapes, and a custom view's padding inside its own glass.
+    private enum Glass {
+        static let barMargin: CGFloat = 16
+        static let pair: CGFloat = 100
+        static let gap: CGFloat = 12
+        static let padding: CGFloat = 5
     }
 
     // MARK: - Showing and hiding

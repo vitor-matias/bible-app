@@ -24,6 +24,7 @@ import {
 import {
   ABOUT_GROUP,
   type CanonGroup,
+  isClusterIntro,
   NEW_TESTAMENT_GROUPS,
   NEW_TESTAMENT_INTRO,
   OLD_TESTAMENT_GROUPS,
@@ -164,11 +165,16 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   @Output() submitData = new EventEmitter<{ bookId: Book["id"] }>()
 
-  /** Introductions read just "Introdução": the heading above gives the context. */
+  /**
+   * Introductions read just "Introdução": the heading above gives the context.
+   * A cluster's, among the group's books, goes by its name.
+   */
   entryLabel(bookId: string): string {
     const book = this.getBook(bookId)
     if (!book) return ""
-    return book.introSlug ? "Introdução" : book.shortName
+    return book.introSlug && !isClusterIntro(book.id)
+      ? "Introdução"
+      : book.shortName
   }
 
   getBook(bookId: string): Book | undefined {

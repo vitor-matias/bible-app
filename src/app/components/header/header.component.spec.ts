@@ -785,6 +785,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(lastState()).toEqual({
       mode: "reader",
       passageLabel: `${bookLabel()} 3`,
+      passageShortLabels: ["Gn 3"],
       passageAccessibilityLabel: "Livro do Génesis 3",
       chapterNavigation: true,
       canGoPrevious: true,
@@ -796,7 +797,6 @@ describe("HeaderComponent with the iOS native bars", () => {
       autoScrollAvailable: true,
       canShare: true,
       canReport: true,
-      notes: false,
       bookmarkColor: null,
       bookmarkName: null,
     })
@@ -836,6 +836,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(lastState()).toEqual(
       jasmine.objectContaining({
         passageLabel: "Sobre a Bíblia",
+        passageShortLabels: [],
         chapterNavigation: false,
         viewMode: null,
       }),
@@ -851,6 +852,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(lastState()).toEqual(
       jasmine.objectContaining({
         passageLabel: `${bookLabel()} ${component.mobile ? "Intro" : "Introdução"}`,
+        passageShortLabels: ["Gn Intro"],
         passageAccessibilityLabel: "Livro do Génesis Introdução",
       }),
     )
@@ -872,6 +874,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(lastState()).toEqual(
       jasmine.objectContaining({
         passageLabel: "Salmo 23 (22)",
+        passageShortLabels: ["Sl 23 (22)", "Sl 23"],
         passageAccessibilityLabel: "Salmo 23, na liturgia 22",
       }),
     )
@@ -936,19 +939,6 @@ describe("HeaderComponent with the iOS native bars", () => {
     actions.next({ id: "next" })
 
     expect(steps).toEqual(["previous", "next"])
-  })
-
-  // The toolbar's Notas button: the reader knows which verses are on screen.
-  it("offers the notes when the chapter has them, and asks the reader to open them", () => {
-    expect(lastState().notes).toBeFalse()
-    fixture.componentRef.setInput("hasNotes", true)
-    fixture.detectChanges()
-    expect(lastState().notes).toBeTrue()
-
-    let opened = 0
-    component.openNotes.subscribe(() => opened++)
-    actions.next({ id: "notes" })
-    expect(opened).toBe(1)
   })
 
   it("navigates to search", () => {

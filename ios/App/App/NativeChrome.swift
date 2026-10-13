@@ -21,7 +21,7 @@ struct ChromeState: Equatable {
     enum Mode: String {
         /// No native bars (e.g. the reader before its books load).
         case none
-        /// Top: the More menu. Bottom: chapter arrows, passage picker, search.
+        /// Top: ⋯, text; Marcadores, search. Bottom: chapter arrows, passage picker.
         case reader
         /// Top: Back. Bottom: the search field, above the keyboard.
         case search
@@ -38,6 +38,8 @@ struct ChromeState: Equatable {
 
     // Reader
     var passageLabel = ""
+    /// Shorter forms, longest first ("Dt 3"), for a toolbar too narrow for the name.
+    var passageShortLabels: [String] = []
     var passageAccessibilityLabel = ""
     var chapterNavigation = false
     var canGoPrevious = false
@@ -52,8 +54,6 @@ struct ChromeState: Equatable {
     var bookmarkColor: String?
     /// Its spoken name ("vermelho").
     var bookmarkName: String?
-    /// The chapter has notes: the toolbar offers Notas.
-    var notes = false
 
     var autoScroll: AutoScrollState?
 
@@ -71,6 +71,7 @@ struct ChromeState: Equatable {
         collapsed = call.getBool("collapsed", false)
         themeMode = call.getString("themeMode", "system")
         passageLabel = call.getString("passageLabel", "")
+        passageShortLabels = call.getArray("passageShortLabels", String.self) ?? []
         passageAccessibilityLabel = call.getString("passageAccessibilityLabel", passageLabel)
         chapterNavigation = call.getBool("chapterNavigation", false)
         canGoPrevious = call.getBool("canGoPrevious", false)
@@ -83,7 +84,6 @@ struct ChromeState: Equatable {
         canReport = call.getBool("canReport", false)
         bookmarkColor = call.getString("bookmarkColor")
         bookmarkName = call.getString("bookmarkName")
-        notes = call.getBool("notes", false)
         query = call.getString("query", "")
         title = call.getString("title", "")
         autoScroll = call.getObject("autoScroll").map(AutoScrollState.init)
