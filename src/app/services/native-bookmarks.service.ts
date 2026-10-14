@@ -73,8 +73,10 @@ export class NativeBookmarksService {
               this.ribbonsService.remove(ribbon)
             if (action.id === "bookmark-set")
               this.ribbonsService.assign(ribbon.value, bookId, chapter)
+            // Desfazer undoes the latest move, as the row names it; a move
+            // that did nothing leaves the last one's undo in place.
             if (action.id === "bookmark-move")
-              moved = this.ribbonsService.move(ribbon, bookId, chapter)
+              moved = this.ribbonsService.move(ribbon, bookId, chapter) ?? moved
             break
           }
           case "bookmark-undo":

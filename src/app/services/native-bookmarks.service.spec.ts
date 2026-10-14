@@ -191,6 +191,28 @@ describe("NativeBookmarksService", () => {
     expect(updated().move?.done).toBeFalse()
   })
 
+  it("keeps the undo when a later move does nothing", () => {
+    ribbons.move.and.returnValues(markedRed, undefined)
+    service.open("mat", 7)
+    actions.next({ id: "bookmark-move", color: "red" })
+    actions.next({ id: "bookmark-move", color: "blue" })
+    actions.next({ id: "bookmark-undo", color: "red" })
+
+    expect(ribbons.restore).toHaveBeenCalledOnceWith(markedRed)
+  })
+
+  it("undoes the latest of two moves", () => {
+    const markedBlue: Bookmark = { ...markedRed, chapter: 2, color: "blue" }
+    bookmarks.next([markedRed, markedBlue])
+    ribbons.move.and.returnValues(markedRed, markedBlue)
+    service.open("mat", 7)
+    actions.next({ id: "bookmark-move", color: "red" })
+    actions.next({ id: "bookmark-move", color: "blue" })
+    actions.next({ id: "bookmark-undo", color: "blue" })
+
+    expect(ribbons.restore).toHaveBeenCalledOnceWith(markedBlue)
+  })
+
   it("undoes only a move made in this sheet", () => {
     service.open("mat", 7)
     actions.next({ id: "bookmark-undo", color: "red" })
