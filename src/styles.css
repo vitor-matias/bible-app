@@ -464,25 +464,6 @@ html.dark-theme .native-chrome app-search {
   height: calc(100dvh - var(--app-header-height) - var(--app-chrome-top) - var(--app-reader-gap) - var(--app-inset-bottom));
 }
 
-/* Pages on the phone: the side margin sits inside each column, as in the
-   scrolling text, rather than outside the columns, where WebKit cut off the
-   verse numbers that hang to the left of a line of poetry. Gap = 2 * padding
-   still holds, so a page advances by the container's width. */
-@media (max-width: 768px) {
-  .native-chrome bible-reader .paged-view-container {
-    width: 100%;
-  }
-
-  .native-chrome bible-reader .paged-view {
-    padding-inline: 0;
-    column-gap: 0;
-  }
-
-  .native-chrome bible-reader .paged-view .chapterBlock {
-    padding-inline: 15px;
-  }
-}
-
 /* At the largest text sizes a line holds a handful of words: justified, it
    spreads into gaps. UnifiedGesturesDirective sets the class; centred
    headings keep their own alignment. */

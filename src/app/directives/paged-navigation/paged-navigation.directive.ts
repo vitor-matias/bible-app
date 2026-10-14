@@ -380,7 +380,12 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     if (maxScroll <= 0) return
 
     const remainder = maxScroll % advanceWidth
-    if (remainder > 1 && advanceWidth - remainder > 1) {
+    // A remainder of a pixel or two is the columns' rounding, not a page:
+    // padding it out would add a page with nothing on it.
+    if (
+      remainder > SCROLL_THRESHOLD &&
+      advanceWidth - remainder > SCROLL_THRESHOLD
+    ) {
       const extra = advanceWidth - remainder
       this.spacer = this.renderer.createElement("div")
 

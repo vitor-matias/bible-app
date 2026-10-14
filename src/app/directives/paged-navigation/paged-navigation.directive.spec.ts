@@ -301,6 +301,36 @@ describe("PagedNavigationDirective", () => {
     })
   })
 
+  describe("aligning the last page", () => {
+    beforeEach(() => {
+      // advanceWidth = 100 - (5+5) + 10 = 100
+      spyOnProperty(
+        hostComponent.block.nativeElement,
+        "clientWidth",
+      ).and.returnValue(100)
+      spyOn(window, "getComputedStyle").and.returnValue({
+        columnGap: "10px",
+        paddingLeft: "5px",
+        paddingRight: "5px",
+      } as unknown as CSSStyleDeclaration)
+      spyOnProperty(container, "clientWidth").and.returnValue(100)
+    })
+
+    it("pads a last page that ends part-way to a whole page", () => {
+      spyOnProperty(container, "scrollWidth").and.returnValue(350)
+      hostComponent.directive.ensureAlignedScrollWidth()
+      expect(container.children.length).toBe(2)
+    })
+
+    // With the margins inside the columns, a tablet's two columns came out
+    // 2 px over 4 pages: padded out, that made a fifth, empty page.
+    it("adds no page for a pixel or two of rounding", () => {
+      spyOnProperty(container, "scrollWidth").and.returnValue(302)
+      hostComponent.directive.ensureAlignedScrollWidth()
+      expect(container.children.length).toBe(1)
+    })
+  })
+
   // The page stood still under the finger and turned only once it let go.
   describe("dragging a page", () => {
     let block: HTMLElement
