@@ -11,6 +11,37 @@ import {
 import { PreferencesService } from "../services/preferences.service"
 import { SystemTextSizeService } from "../services/system-text-size.service"
 
+const MIN_FONT_SIZE = 70
+/**
+ * As large as the iPhone's third accessibility text size (AX3, 235% of the
+ * body text). The two above it left a handful of words to a line.
+ */
+const MAX_FONT_SIZE = 235
+const FONT_STEP = 5
+
+/**
+ * The text size (%) a reader opens at: the one chosen in the app; until one
+ * is, in the iOS app, the iPhone's own text size, to the nearest step (not
+ * saved, so it keeps following it); else null, for the standard size.
+ * `system` is asked only when no size was chosen.
+ */
+export function startingFontSize(
+  stored: unknown,
+  system: () => number | null,
+): number | null {
+  const clamp = (size: number) =>
+    Math.max(MIN_FONT_SIZE, Math.min(size, MAX_FONT_SIZE))
+  if (stored !== null && stored !== undefined) {
+    const parsed =
+      typeof stored === "number" ? stored : parseFloat(String(stored))
+    if (Number.isFinite(parsed)) return clamp(parsed)
+  }
+  const percent = system()
+  return percent === null
+    ? null
+    : clamp(Math.round(percent / FONT_STEP) * FONT_STEP)
+}
+
 @Directive({
   selector: "[unifiedGestures]",
   standalone: true,
@@ -27,7 +58,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
 
   private readonly BASE_FONT_SIZE = 100
   private currentFontSize: number
-  private readonly FONT_STEP = 5
+  private readonly FONT_STEP = FONT_STEP
 
   // Touch tracking variables
   private touches: { [key: number]: Touch } = {}
@@ -56,12 +87,8 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   /** The speed on letting go is the speed over this last stretch (ms). */
   private readonly RELEASE_WINDOW = 100
   private swipeAxis: "x" | "y" | null = null
-  private readonly MIN_FONT_SIZE = 70
-  /**
-   * As large as the iPhone's third accessibility text size (AX3, 235% of the
-   * body text). The two above it left a handful of words to a line.
-   */
-  private readonly MAX_FONT_SIZE = 235
+  private readonly MIN_FONT_SIZE = MIN_FONT_SIZE
+  private readonly MAX_FONT_SIZE = MAX_FONT_SIZE
   /** Past this, lines are too short to justify: they set ragged-right. */
   private readonly JUSTIFY_MAX_FONT_SIZE = 180
   private readonly boundTouchStart = this.onTouchStart.bind(this)
@@ -81,38 +108,12 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
 
   ngOnInit() {
     const element = this.el.nativeElement
-    const storedSize = this.preferencesService.getFontSize(
-      this.getFontSizeContext(),
+    const size = startingFontSize(
+      this.preferencesService.getFontSize(this.getFontSizeContext()),
+      () => this.systemTextSize.percent(),
     )
-
-    let hasValidSize = false
-    if (storedSize !== null && storedSize !== undefined) {
-      const parsedSize =
-        typeof storedSize === "number"
-          ? storedSize
-          : parseFloat(String(storedSize))
-      if (Number.isFinite(parsedSize)) {
-        this.currentFontSize = Math.max(
-          this.MIN_FONT_SIZE,
-          Math.min(parsedSize, this.MAX_FONT_SIZE),
-        )
-        hasValidSize = true
-      }
-    }
-
-    // Until a size is chosen here, the iOS app follows the iPhone's own text
-    // size, to the nearest step; it isn't saved, so it keeps following it.
-    const system = hasValidSize ? null : this.systemTextSize.percent()
-    if (system !== null) {
-      this.currentFontSize = Math.max(
-        this.MIN_FONT_SIZE,
-        Math.min(
-          Math.round(system / this.FONT_STEP) * this.FONT_STEP,
-          this.MAX_FONT_SIZE,
-        ),
-      )
-      hasValidSize = true
-    }
+    const hasValidSize = size !== null
+    if (size !== null) this.currentFontSize = size
 
     if (hasValidSize) {
       this.setFontSize(this.currentFontSize)

@@ -149,7 +149,7 @@ export interface BookmarksSheetState {
 export interface FootnotesSheetState {
   /** The verse, e.g. "Mateus 11,3". */
   title: string
-  /** The reader's footnote text size, 1 = 100%. */
+  /** The reader's text size, 1 = 100%: the iPhone's own text size included. */
   fontScale: number
   notes: {
     /** The note's marker, e.g. "3". */

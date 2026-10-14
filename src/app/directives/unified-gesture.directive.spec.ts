@@ -1,7 +1,10 @@
 import { ElementRef, Renderer2 } from "@angular/core"
 import { PreferencesService } from "../services/preferences.service"
 import type { SystemTextSizeService } from "../services/system-text-size.service"
-import { UnifiedGesturesDirective } from "./unified-gesture.directive"
+import {
+  startingFontSize,
+  UnifiedGesturesDirective,
+} from "./unified-gesture.directive"
 
 describe("UnifiedGesturesDirective", () => {
   let element: HTMLElement & { name?: string }
@@ -475,5 +478,21 @@ describe("UnifiedGesturesDirective", () => {
       "font-size",
       "100%",
     ])
+  })
+})
+
+// The footnotes sheet opens at the reader's size through this rule.
+describe("startingFontSize", () => {
+  it("takes the size chosen in the app, within the reader's range", () => {
+    expect(startingFontSize(125, () => 200)).toBe(125)
+    expect(startingFontSize(400, () => null)).toBe(235)
+  })
+
+  it("else follows the system's, to the nearest step", () => {
+    expect(startingFontSize(null, () => 148)).toBe(150)
+  })
+
+  it("else leaves the standard size", () => {
+    expect(startingFontSize(null, () => null)).toBeNull()
   })
 })

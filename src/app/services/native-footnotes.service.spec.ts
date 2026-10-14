@@ -14,6 +14,7 @@ import {
 } from "./native-chrome.service"
 import { NativeFootnotesService } from "./native-footnotes.service"
 import { PreferencesService } from "./preferences.service"
+import { SystemTextSizeService } from "./system-text-size.service"
 
 describe("NativeFootnotesService", () => {
   let actions: Subject<NativeChromeAction>
@@ -25,7 +26,9 @@ describe("NativeFootnotesService", () => {
   let bibleRef: jasmine.SpyObj<BibleReferenceService>
   let router: jasmine.SpyObj<Router>
   let analytics: jasmine.SpyObj<AnalyticsService>
-  let fontSize: number | null
+  /** The sizes stored per context: "reader" is the one AA changes. */
+  let fontSizes: Record<string, number>
+  let systemPercent: number | null
   let service: NativeFootnotesService
 
   const text = "Com este título (3,11; Jo 1,15) João pretende (8-9)."
@@ -64,7 +67,8 @@ describe("NativeFootnotesService", () => {
     router = jasmine.createSpyObj("Router", ["navigate"])
     analytics = jasmine.createSpyObj("AnalyticsService", ["track"])
     analytics.track.and.resolveTo()
-    fontSize = null
+    fontSizes = {}
+    systemPercent = null
     TestBed.configureTestingModule({
       providers: [
         { provide: NativeChromeService, useValue: nativeChrome },
@@ -73,7 +77,13 @@ describe("NativeFootnotesService", () => {
         { provide: AnalyticsService, useValue: analytics },
         {
           provide: PreferencesService,
-          useValue: { getFontSize: () => fontSize },
+          useValue: {
+            getFontSize: (context: string) => fontSizes[context] ?? null,
+          },
+        },
+        {
+          provide: SystemTextSizeService,
+          useValue: { percent: () => systemPercent },
         },
         {
           provide: BookService,
@@ -119,10 +129,17 @@ describe("NativeFootnotesService", () => {
     })
   })
 
-  it("uses the reader's footnote text size", () => {
-    fontSize = 125
+  // The notes kept the standard size after AA made the reader's text larger.
+  it("uses the reader's text size, as AA leaves it", () => {
+    fontSizes = { reader: 125, footnotes: 90 }
     service.open([footnote], verse)
     expect(shown().fontScale).toBe(1.25)
+  })
+
+  it("follows the iPhone's text size while the reader does", () => {
+    systemPercent = 148
+    service.open([footnote], verse)
+    expect(shown().fontScale).toBe(1.5)
   })
 
   it("titles a psalm's notes with its liturgical number too", () => {
