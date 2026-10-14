@@ -147,11 +147,16 @@ final class BookmarksController: UIViewController {
             editingRibbons = false
         }
         render()
-        // The move row comes and goes, and the hint's length changes.
+        // The new tiles take their places now: laid out inside the resize
+        // below, they grew in from a corner with every mark and removal.
+        view.layoutIfNeeded()
         updatePopoverSize()
+        // Resized only when the move row comes or goes, or the hint takes
+        // another line.
         let sheet = navigationController?.sheetPresentationController
             ?? navigationController?.popoverPresentationController?.adaptiveSheetPresentationController
-        if #available(iOS 16.0, *), let sheet {
+        if #available(iOS 16.0, *), let sheet, let shown = sheetSize,
+           sheetHeight(width: shown.width) != shown.height {
             sheet.animateChanges { sheet.invalidateDetents() }
         }
     }
@@ -167,9 +172,18 @@ final class BookmarksController: UIViewController {
         preferredContentSize = CGSize(width: width, height: height)
     }
 
+    /// The width the sheet was last measured at, and the height it was given.
+    private var sheetSize: (width: CGFloat, height: CGFloat)?
+
     /// The sheet's height: the ribbons and the hint, plus the move row when
     /// there is one. `width` is the sheet's.
     func sheetHeight(width: CGFloat) -> CGFloat {
+        let height = measuredSheetHeight(width: width)
+        sheetSize = (width, height)
+        return height
+    }
+
+    private func measuredSheetHeight(width: CGFloat) -> CGFloat {
         guard width > 48 else { return 300 }
         loadViewIfNeeded()
         // 300 holds the ribbons and two lines of hint at the standard text
