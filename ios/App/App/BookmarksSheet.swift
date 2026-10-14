@@ -15,9 +15,22 @@ struct BookmarksSheetState {
         let current: Bool
     }
 
+    /// A ribbon to move to the chapter being read, as one moves a ribbon on
+    /// reading further; once moved, the sheet offers to move it back.
+    struct Move {
+        let color: String
+        /// The ribbon's adjective, e.g. "vermelho".
+        let name: String
+        /// Where it is, or was before the move, e.g. "Mateus 5".
+        let from: String
+        /// Moved already: the row undoes it.
+        let done: Bool
+    }
+
     /// What a free ribbon would mark, e.g. "Mateus 11".
     let currentLabel: String
     let ribbons: [Ribbon]
+    let move: Move?
 
     init(_ call: CAPPluginCall) {
         currentLabel = call.getString("currentLabel", "")
@@ -26,6 +39,12 @@ struct BookmarksSheetState {
                    name: ribbon["name"] as? String ?? "",
                    label: ribbon["label"] as? String,
                    current: ribbon["current"] as? Bool ?? false)
+        }
+        move = call.getObject("move").map { move in
+            Move(color: move["color"] as? String ?? "",
+                 name: move["name"] as? String ?? "",
+                 from: move["from"] as? String ?? "",
+                 done: move["done"] as? Bool ?? false)
         }
     }
 }
@@ -46,12 +65,15 @@ func ribbonColor(_ name: String) -> UIColor? {
 }
 
 /// Eight ribbons in a grid, like the web panel. A free ribbon marks the chapter
-/// being read; a used one opens its passage. Editar shows remove badges, and a
-/// long press offers Abrir and Remover.
+/// being read; a used one opens its passage. Above them, a row moves the ribbon
+/// the reader read on from to this chapter. Editar shows remove badges, and a
+/// long press offers Abrir, Mover and Remover.
 final class BookmarksController: UIViewController {
     private var state: BookmarksSheetState
     private let send: (_ action: String, _ color: String) -> Void
     private let onClose: () -> Void
+    private let column = UIStackView()
+    private let moveRow = UIButton(type: .system)
     private let grid = UIStackView()
     private let footer = UILabel()
     private var editingRibbons = false
@@ -72,26 +94,31 @@ final class BookmarksController: UIViewController {
         view.backgroundColor = sheetBackground
         navigationItem.rightBarButtonItem = closeButton(for: self)
 
+        moveRow.addAction(UIAction { [weak self] _ in self?.moveTapped() }, for: .primaryActionTriggered)
         grid.axis = .vertical
         grid.spacing = 10
         grid.distribution = .fillEqually
-        footer.font = .preferredFont(forTextStyle: .footnote)
+        column.axis = .vertical
+        column.spacing = 12
+        column.addArrangedSubview(moveRow)
+        column.addArrangedSubview(grid)
+        footer.font = limitedFont(.footnote)
         footer.adjustsFontForContentSizeCategory = true
         footer.textColor = .secondaryLabel
         footer.numberOfLines = 0
         footer.textAlignment = .center
 
-        for subview in [grid, footer] as [UIView] {
+        for subview in [column, footer] as [UIView] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(subview)
         }
         let safeArea = view.safeAreaLayoutGuide
         NSLayoutConstraint.activate([
-            grid.topAnchor.constraint(equalTo: safeArea.topAnchor, constant: 8),
-            grid.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor, constant: 16),
-            grid.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor, constant: -16),
+            column.topAnchor.constraint(equalTo: safeArea.topAnchor, constant: 8),
+            column.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor, constant: 16),
+            column.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor, constant: -16),
             grid.heightAnchor.constraint(equalToConstant: 2 * 84 + 10),
-            footer.topAnchor.constraint(equalTo: grid.bottomAnchor, constant: 16),
+            footer.topAnchor.constraint(equalTo: column.bottomAnchor, constant: 16),
             footer.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor, constant: 24),
             footer.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor, constant: -24),
         ])
@@ -111,6 +138,40 @@ final class BookmarksController: UIViewController {
             editingRibbons = false
         }
         render()
+        // The move row comes and goes, and the hint's length changes.
+        if #available(iOS 16.0, *), let sheet = navigationController?.sheetPresentationController {
+            sheet.animateChanges { sheet.invalidateDetents() }
+        }
+    }
+
+    /// The sheet's height: the ribbons and the hint, plus the move row when
+    /// there is one. `width` is the sheet's.
+    func sheetHeight(width: CGFloat) -> CGFloat {
+        guard width > 48 else { return 300 }
+        loadViewIfNeeded()
+        // 300 holds the ribbons and two lines of hint at the standard text
+        // size; at larger sizes the hint takes more.
+        let standard = UITraitCollection(preferredContentSizeCategory: .large)
+        let standardHint = 2 * UIFont.preferredFont(forTextStyle: .footnote, compatibleWith: standard).lineHeight
+        var height = 300 + max(0, fittingHeight(footer, width: width - 48) - standardHint)
+        if state.move != nil {
+            height += fittingHeight(moveRow, width: width - 32) + column.spacing
+        }
+        return height
+    }
+
+    private func fittingHeight(_ view: UIView, width: CGFloat) -> CGFloat {
+        view.systemLayoutSizeFitting(CGSize(width: width, height: 0),
+                                     withHorizontalFittingPriority: .required,
+                                     verticalFittingPriority: .fittingSizeLevel).height
+    }
+
+    private func moveTapped() {
+        guard let move = state.move else { return }
+        send(move.done ? "bookmark-undo" : "bookmark-move", move.color)
+        UIAccessibility.post(notification: .announcement, argument: move.done
+            ? "Marcador \(move.name) de volta a \(move.from)"
+            : "Marcador \(move.name) em \(state.currentLabel)")
     }
 
     // MARK: - Drawing
@@ -137,6 +198,7 @@ final class BookmarksController: UIViewController {
             : marked ? "\(state.currentLabel) está marcado. Toque noutra fita livre para mudar a cor."
             : "Toque numa fita livre para marcar \(state.currentLabel)."
 
+        renderMove()
         grid.arrangedSubviews.forEach { $0.removeFromSuperview() }
         for row in stride(from: 0, to: state.ribbons.count, by: 4) {
             let line = UIStackView(arrangedSubviews: state.ribbons[row..<min(row + 4, state.ribbons.count)].map(tile))
@@ -144,6 +206,47 @@ final class BookmarksController: UIViewController {
             line.distribution = .fillEqually
             grid.addArrangedSubview(line)
         }
+    }
+
+    /// "Mover para Mateus 7", under it "O marcador vermelho está em Mateus 5";
+    /// once moved, "Desfazer".
+    private func renderMove() {
+        guard let move = state.move, !editingRibbons else {
+            moveRow.isHidden = true
+            return
+        }
+        moveRow.isHidden = false
+        var config = UIButton.Configuration.plain()
+        config.image = UIImage(systemName: move.done ? "arrow.uturn.backward" : "bookmark.fill",
+                               withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .medium))?
+            .withTintColor(move.done ? .label : ribbonColor(move.color) ?? .label, renderingMode: .alwaysOriginal)
+        config.imagePadding = 14
+        config.title = move.done ? "Desfazer" : "Mover para \(state.currentLabel)"
+        config.subtitle = move.done ? "O marcador \(move.name) volta a \(move.from)."
+            : "O marcador \(move.name) está em \(move.from)."
+        config.titleAlignment = .leading
+        config.titlePadding = 2
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+            var attributes = attributes
+            attributes.font = limitedFont(.systemFont(ofSize: 17, weight: .semibold), .body)
+            return attributes
+        }
+        config.subtitleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+            var attributes = attributes
+            attributes.font = limitedFont(.footnote)
+            attributes.foregroundColor = UIColor.secondaryLabel
+            return attributes
+        }
+        config.baseForegroundColor = .label
+        config.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
+        config.background.backgroundColor = tileBackground
+        config.background.cornerRadius = 14
+        moveRow.configuration = config
+        moveRow.contentHorizontalAlignment = .leading
+        moveRow.accessibilityLabel = move.done ? "Desfazer"
+            : "Mover o marcador \(move.name) para \(state.currentLabel)"
+        moveRow.accessibilityValue = move.done ? nil : "Está em \(move.from)"
+        moveRow.accessibilityHint = move.done ? "O marcador \(move.name) volta a \(move.from)" : nil
     }
 
     private func tile(_ ribbon: BookmarksSheetState.Ribbon) -> UIView {
@@ -155,11 +258,15 @@ final class BookmarksController: UIViewController {
             .withTintColor(color, renderingMode: .alwaysOriginal)
         config.imagePlacement = .top
         config.imagePadding = 6
-        config.title = ribbon.label ?? "Marcar"
+        // A free ribbon shows only its colour, as Apple's swatches do; the
+        // hint below says what tapping one does.
+        config.title = ribbon.label
         config.titleLineBreakMode = .byTruncatingTail
+        // A quarter of the row: "Sl 119" must fit at large text sizes too.
+        config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 4, bottom: 8, trailing: 4)
         config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
             var attributes = attributes
-            attributes.font = UIFont.preferredFont(forTextStyle: used ? .subheadline : .footnote)
+            attributes.font = limitedFont(.subheadline, limit: 1.5)
             return attributes
         }
         config.baseForegroundColor = ribbon.current ? ChromeViewController.onSelection
@@ -167,6 +274,8 @@ final class BookmarksController: UIViewController {
         config.background.backgroundColor = ribbon.current ? ChromeViewController.selectionFill : tileBackground
         config.background.cornerRadius = 14
         let button = UIButton(configuration: config)
+        button.titleLabel?.adjustsFontSizeToFitWidth = true
+        button.titleLabel?.minimumScaleFactor = 0.7
 
         var spoken = ribbon.name
         if let label = ribbon.label { spoken += ", \(label)" } else { spoken += ", livre" }
@@ -200,17 +309,22 @@ final class BookmarksController: UIViewController {
                 self?.send("bookmark-open", ribbon.color)
                 self?.dismiss(animated: true)
             }, for: .primaryActionTriggered)
-            // A long press offers the same, plus removing it.
-            button.menu = UIMenu(title: ribbon.label ?? "", children: [
-                UIAction(title: "Abrir", image: UIImage(systemName: "book")) { [weak self] _ in
-                    self?.send("bookmark-open", ribbon.color)
-                    self?.dismiss(animated: true)
-                },
-                UIAction(title: "Remover marcador", image: UIImage(systemName: "bookmark.slash"),
-                         attributes: .destructive) { [weak self] _ in
-                    self?.send("bookmark-remove", ribbon.color)
-                },
-            ])
+            // A long press offers the same, moving it here, and removing it.
+            // Not onto a chapter that has a ribbon: that one would come off.
+            let open = UIAction(title: "Abrir", image: UIImage(systemName: "book")) { [weak self] _ in
+                self?.send("bookmark-open", ribbon.color)
+                self?.dismiss(animated: true)
+            }
+            let move = UIAction(title: "Mover para \(state.currentLabel)",
+                                image: UIImage(systemName: "bookmark")) { [weak self] _ in
+                self?.send("bookmark-move", ribbon.color)
+            }
+            let remove = UIAction(title: "Remover marcador", image: UIImage(systemName: "bookmark.slash"),
+                                  attributes: .destructive) { [weak self] _ in
+                self?.send("bookmark-remove", ribbon.color)
+            }
+            let marked = state.ribbons.contains { $0.current }
+            button.menu = UIMenu(title: ribbon.label ?? "", children: marked ? [open, remove] : [open, move, remove])
         } else {
             button.accessibilityHint = "Marca \(state.currentLabel)"
             button.addAction(UIAction { [weak self] _ in self?.send("bookmark-set", ribbon.color) },

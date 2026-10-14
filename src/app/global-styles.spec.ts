@@ -122,4 +122,99 @@ describe("global styles", () => {
       expect(styleOf(".paged-view-container").marginTop).toBe("0px")
     })
   })
+
+  // In the dark theme the crimson verse numbers were 3.8:1 on the background,
+  // under the 4.5:1 that small text needs.
+  describe("verse numbers in the iOS app's dark theme", () => {
+    let verse: HTMLElement
+
+    beforeEach(() => {
+      verse = document.createElement("verse")
+      verse.innerHTML = '<span class="verseNumber">3</span>'
+      document.body.appendChild(verse)
+      document.documentElement.classList.add("dark-theme")
+    })
+
+    afterEach(() => {
+      verse.remove()
+      document.documentElement.classList.remove("dark-theme")
+      document.body.classList.remove("native-chrome")
+    })
+
+    const color = () =>
+      getComputedStyle(verse.querySelector(".verseNumber") as HTMLElement).color
+
+    it("are iOS's dark red", () => {
+      document.body.classList.add("native-chrome")
+      expect(color()).toBe("rgb(255, 69, 58)")
+    })
+
+    it("are left to the web theme elsewhere", () => {
+      expect(color()).not.toBe("rgb(255, 69, 58)")
+    })
+  })
+
+  // Paged, WebKit cut off the verse numbers hanging left of a line of poetry:
+  // the side margin was outside the columns, which clip their content.
+  describe("pages in the iOS app on a phone", () => {
+    const markup = `
+      <bible-reader>
+        <div class="paged-view-container">
+          <div class="bookBlock paged-view"><div class="chapterBlock"></div></div>
+        </div>
+      </bible-reader>`
+    let frame: HTMLIFrameElement | undefined
+
+    afterEach(() => frame?.remove())
+
+    /** The markup in a 390px-wide page with this page's stylesheets. */
+    async function onPhone(nativeChrome: boolean): Promise<Document> {
+      frame = document.createElement("iframe")
+      frame.style.width = "390px"
+      document.body.appendChild(frame)
+      const doc = frame.contentDocument as Document
+      const loaded: Promise<unknown>[] = []
+      for (const sheet of document.querySelectorAll(
+        'style, link[rel="stylesheet"]',
+      )) {
+        const copy = sheet.cloneNode(true) as HTMLElement
+        if (copy instanceof HTMLLinkElement) {
+          loaded.push(
+            new Promise((done) => {
+              copy.addEventListener("load", done)
+              copy.addEventListener("error", done)
+            }),
+          )
+        }
+        doc.head.appendChild(copy)
+      }
+      await Promise.all(loaded)
+      doc.body.innerHTML = markup
+      doc.body.classList.toggle("native-chrome", nativeChrome)
+      return doc
+    }
+
+    it("keeps the side margin inside each page", async () => {
+      const doc = await onPhone(true)
+      const style = (selector: string) =>
+        (doc.defaultView as Window).getComputedStyle(
+          doc.querySelector(selector) as HTMLElement,
+        )
+
+      expect(style(".chapterBlock").paddingLeft).toBe("15px")
+      expect(style(".chapterBlock").paddingRight).toBe("15px")
+      // Nothing outside the columns, so a page still advances by the width.
+      expect(style(".paged-view").paddingLeft).toBe("0px")
+      expect(style(".paged-view").columnGap).toBe("0px")
+    })
+
+    it("leaves the web layout's pages alone", async () => {
+      const doc = await onPhone(false)
+      const chapter = doc.querySelector(".chapterBlock") as HTMLElement
+
+      expect(
+        (doc.defaultView as Window).getComputedStyle(chapter).paddingLeft,
+      ).toBe("0px")
+    })
+  })
 })

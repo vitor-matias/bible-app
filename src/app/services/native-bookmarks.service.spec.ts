@@ -45,6 +45,8 @@ describe("NativeBookmarksService", () => {
       "open",
       "assign",
       "remove",
+      "move",
+      "restore",
     ])
     // The real colours; a bookmark labels its ribbon "Mt <chapter>".
     ribbons.ribbons.and.callFake((list: Bookmark[]) =>
@@ -147,6 +149,52 @@ describe("NativeBookmarksService", () => {
     expect(ribbons.remove).toHaveBeenCalledWith(
       jasmine.objectContaining({ value: "red" }),
     )
+  })
+
+  it("offers to move the ribbon read on from to this chapter", () => {
+    service.open("mat", 7)
+    expect(shown().move).toEqual({
+      color: "red",
+      name: "vermelho",
+      from: "Mateus 5",
+      done: false,
+    })
+  })
+
+  it("offers no move when the chapter carries the ribbon", () => {
+    service.open("mat", 5)
+    expect(shown().move).toBeNull()
+  })
+
+  it("moves the ribbon, then offers to undo the move", () => {
+    ribbons.move.and.returnValue(markedRed)
+    service.open("mat", 7)
+    actions.next({ id: "bookmark-move", color: "red" })
+    bookmarks.next([{ ...markedRed, chapter: 7, timestamp: 2 }])
+
+    expect(ribbons.move).toHaveBeenCalledOnceWith(
+      jasmine.objectContaining({ value: "red" }),
+      "mat",
+      7,
+    )
+    expect(updated().move).toEqual({
+      color: "red",
+      name: "vermelho",
+      from: "Mateus 5",
+      done: true,
+    })
+
+    actions.next({ id: "bookmark-undo", color: "red" })
+    bookmarks.next([markedRed])
+
+    expect(ribbons.restore).toHaveBeenCalledOnceWith(markedRed)
+    expect(updated().move?.done).toBeFalse()
+  })
+
+  it("undoes only a move made in this sheet", () => {
+    service.open("mat", 7)
+    actions.next({ id: "bookmark-undo", color: "red" })
+    expect(ribbons.restore).not.toHaveBeenCalled()
   })
 
   it("stops once the sheet is closed", () => {

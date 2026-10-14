@@ -7,6 +7,7 @@ import {
   BookmarkRibbonsService,
   RIBBON_COLORS,
   type RibbonState,
+  ribbonToMove,
 } from "./bookmark-ribbons.service"
 import {
   type BookmarksSheetState,
@@ -34,12 +35,14 @@ export class NativeBookmarksService {
     const session = new Subscription()
     this.session = session
     let ribbons: RibbonState[] = []
+    // Where a ribbon moved here was, while the sheet offers to undo it.
+    let moved: Bookmark | undefined
     let shown = false
 
     session.add(
       this.bookmarkService.bookmarks$.subscribe((bookmarks) => {
         ribbons = this.ribbonsService.ribbons(bookmarks)
-        const state = this.sheetState(ribbons, bookId, chapter)
+        const state = this.sheetState(ribbons, bookId, chapter, moved)
         if (shown) {
           this.nativeChrome.updateBookmarks(state)
         } else {
@@ -61,7 +64,8 @@ export class NativeBookmarksService {
             break
           case "bookmark-open":
           case "bookmark-set":
-          case "bookmark-remove": {
+          case "bookmark-remove":
+          case "bookmark-move": {
             const ribbon = ribbons.find((r) => r.value === action.color)
             if (!ribbon) return
             if (action.id === "bookmark-open") this.ribbonsService.open(ribbon)
@@ -69,8 +73,15 @@ export class NativeBookmarksService {
               this.ribbonsService.remove(ribbon)
             if (action.id === "bookmark-set")
               this.ribbonsService.assign(ribbon.value, bookId, chapter)
+            if (action.id === "bookmark-move")
+              moved = this.ribbonsService.move(ribbon, bookId, chapter)
             break
           }
+          case "bookmark-undo":
+            if (moved?.color !== action.color) return
+            this.ribbonsService.restore(moved)
+            moved = undefined
+            break
         }
       }),
     )
@@ -80,27 +91,41 @@ export class NativeBookmarksService {
     ribbons: RibbonState[],
     bookId: string,
     chapter: number,
+    moved: Bookmark | undefined,
   ): BookmarksSheetState {
-    const book = this.bookService.findBookById(bookId) ?? {
-      id: bookId,
-      shortName: bookId,
-    }
+    const spoken = (color: string) =>
+      RIBBON_COLORS.find((c) => c.value === color)?.spoken
+    const toMove = moved ? undefined : ribbonToMove(ribbons, bookId, chapter)
+    const from = moved ?? toMove?.bookmark
     return {
-      // As the passage button names it: "Mateus 11", "Salmo 96 (95)".
-      currentLabel:
-        chapter === 0
-          ? `${book.shortName} Introdução`
-          : passageLabel(book, chapter),
+      currentLabel: this.label(bookId, chapter),
       ribbons: ribbons.map((ribbon) => ({
         color: ribbon.value,
-        name:
-          RIBBON_COLORS.find((c) => c.value === ribbon.value)?.spoken ??
-          ribbon.name,
+        name: spoken(ribbon.value) ?? ribbon.name,
         label: ribbon.currentRef ?? null,
         current:
           ribbon.bookmark?.bookId === bookId &&
           ribbon.bookmark?.chapter === chapter,
       })),
+      move: from
+        ? {
+            color: from.color,
+            name: (spoken(from.color) ?? from.color).toLowerCase(),
+            from: this.label(from.bookId, from.chapter),
+            done: !!moved,
+          }
+        : null,
     }
+  }
+
+  /** As the passage button names it: "Mateus 11", "Salmo 96 (95)". */
+  private label(bookId: string, chapter: number): string {
+    const book = this.bookService.findBookById(bookId) ?? {
+      id: bookId,
+      shortName: bookId,
+    }
+    return chapter === 0
+      ? `${book.shortName} Introdução`
+      : passageLabel(book, chapter)
   }
 }

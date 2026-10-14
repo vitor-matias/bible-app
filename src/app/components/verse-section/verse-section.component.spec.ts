@@ -2,7 +2,10 @@ import { SimpleChange } from "@angular/core"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
 import { provideRouter, Router } from "@angular/router"
-import { BibleReferenceService } from "../../services/bible-reference.service"
+import {
+  type BibleReference,
+  BibleReferenceService,
+} from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { VerseSectionComponent } from "./verse-section.component"
@@ -135,6 +138,44 @@ describe("VerseSectionComponent", () => {
       )
 
       expect(component.parsedReferences.size).toBe(0)
+    })
+  })
+
+  describe("references in a heading", () => {
+    // "(Mc 4,21; 9,50)": two links between the edition's own punctuation.
+    const text = "(Mc 4,21; 9,50)"
+    const reference = (match: string, index: number) =>
+      ({ match, index, book: "mrk", chapter: 4 }) as BibleReference
+
+    beforeEach(() => {
+      mockBibleRef.extract.and.returnValue([
+        reference("Mc 4,21", 1),
+        reference("9,50", 10),
+      ])
+      component.changeLine = false
+      setData(
+        component,
+        makeVerse({
+          text: [
+            { type: "section", tag: "s1", text: "Sal da terra" },
+            { type: "references", text },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+    })
+
+    it("keeps the edition's spacing around the links", () => {
+      const references: HTMLElement =
+        fixture.nativeElement.querySelector(".references")
+      expect(references.textContent?.trim()).toBe(text)
+    })
+
+    it("keeps the closing dash on the heading's last line", () => {
+      const sections: HTMLElement[] = Array.from(
+        fixture.nativeElement.querySelectorAll(".section .section"),
+      )
+      expect(sections[sections.length - 1].textContent).toBe("\u00a0— ")
     })
   })
 

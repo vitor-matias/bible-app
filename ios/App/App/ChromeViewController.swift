@@ -5,6 +5,11 @@ import Capacitor
 /// siblings. Unlike a navigation controller's bars, these leave the web view's
 /// safe area alone, so hiding them never shifts the page. The page pads its
 /// scrolling content by `insets` instead, and the text scrolls under the glass.
+/// Text in the bars grows to the largest standard text size, XXXL (23 pt body
+/// text against 17), as in Apple's own bars; larger shows in the Large Content
+/// Viewer on a long press.
+private let barTextScaleLimit: CGFloat = 23 / 17
+
 final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIToolbarDelegate,
     UIGestureRecognizerDelegate {
     let bridgeController = MainViewController()
@@ -134,6 +139,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             if previous.mode != .reader {
                 topBar.setItems([readerItem], animated: previous.mode == .search)
             }
+            announceChanges(from: previous, to: next)
         case .search:
             searchItem.leftBarButtonItem = nil
             if previous.mode != .search {
@@ -146,12 +152,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             }
         case .page:
             pageItem.title = next.title
-            if next.search {
-                let search = barButton("magnifyingglass", "Pesquisar", "search")
-                search.isEnabled = !next.inert
+            pageSearchItem.isEnabled = !next.inert
+            let search = next.search ? pageSearchItem : nil
+            if pageItem.rightBarButtonItem !== search {
                 pageItem.rightBarButtonItem = search
-            } else {
-                pageItem.rightBarButtonItem = nil
             }
             if previous.mode != .page {
                 topBar.setItems([pageBackItem, pageItem], animated: previous.mode != .none)
@@ -211,6 +215,68 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// Pesquisar, in the top bar's right corner, as in the web header.
     private lazy var readerSearchItem = barButton("magnifyingglass", "Pesquisar", "search")
 
+    /// Pesquisar, on a plain page.
+    private lazy var pageSearchItem = barButton("magnifyingglass", "Pesquisar", "search")
+
+    // The toolbars' items too are made once and updated in place. Made anew
+    // with each update, the one VoiceOver was on (an arrow, +) was gone after
+    // a tap, and VoiceOver lost its place.
+
+    private lazy var previousItem = barButton("chevron.backward", "Capítulo anterior", "previous")
+    private lazy var nextItem = barButton("chevron.forward", "Capítulo seguinte", "next")
+    /// Either side of the passage, which they centre. The same two each time,
+    /// so that an unchanged toolbar compares equal.
+    private let passageSpaces = [UIBarButtonItem.flexibleSpace(), UIBarButtonItem.flexibleSpace()]
+
+    /// "Marcos 1", which opens the passage picker.
+    private lazy var passageButton: UIButton = {
+        var config = UIButton.Configuration.plain()
+        config.baseForegroundColor = .label
+        config.titleLineBreakMode = .byTruncatingTail
+        // As Apple's bars do, it stops growing at the largest standard size
+        // (XXXL); past it, a long press shows it large.
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+            var attributes = attributes
+            attributes.font = limitedFont(.systemFont(ofSize: 17, weight: .medium), .body, limit: barTextScaleLimit)
+            return attributes
+        }
+        let button = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in
+            self?.plugin.send("passage")
+        })
+        button.accessibilityHint = "Escolher livro e capítulo"
+        button.showsLargeContentViewer = true
+        return button
+    }()
+
+    /// At the largest text sizes even the shortest label may not fit: it's cut short.
+    private lazy var passageWidth: NSLayoutConstraint = {
+        let width = passageButton.widthAnchor.constraint(lessThanOrEqualToConstant: 0)
+        width.isActive = true
+        return width
+    }()
+
+    private lazy var passageItem = UIBarButtonItem(customView: passageButton)
+
+    private lazy var autoScrollCloseItem = barButton("xmark", "Fechar o deslocamento automático", "auto-scroll")
+    private lazy var slowerItem = barButton("minus", "Diminuir velocidade", "auto-scroll-slower")
+    private lazy var fasterItem = barButton("plus", "Aumentar velocidade", "auto-scroll-faster")
+    /// A plain bar button, like close: the bar stays monochrome.
+    private lazy var playItem = barButton("play.fill", "Iniciar", "auto-scroll-toggle")
+    /// Either side of the speed and its buttons.
+    private let autoScrollSpaces = [UIBarButtonItem.flexibleSpace(), UIBarButtonItem.flexibleSpace()]
+
+    private let speedLabel: UILabel = {
+        let label = UILabel()
+        label.font = limitedFont(.monospacedDigitSystemFont(ofSize: 15, weight: .medium), .subheadline,
+                                 limit: barTextScaleLimit)
+        label.adjustsFontForContentSizeCategory = true
+        label.showsLargeContentViewer = true
+        label.textAlignment = .center
+        label.accessibilityLabel = "Velocidade"
+        return label
+    }()
+
+    private lazy var speedItem = UIBarButtonItem(customView: speedLabel)
 
     private func configureReader(_ state: ChromeState) {
         let enabled = !state.inert
@@ -252,85 +318,85 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         }
 
         if let autoScroll = state.autoScroll {
-            autoScrollBar.setItems(autoScrollItems(autoScroll, enabled: enabled), animated: false)
+            configureAutoScroll(autoScroll, enabled: enabled)
         }
 
-        var items: [UIBarButtonItem] = []
-        if state.chapterNavigation {
-            let previous = barButton("chevron.backward", "Capítulo anterior", "previous")
-            previous.isEnabled = enabled && state.canGoPrevious
-            let next = barButton("chevron.forward", "Capítulo seguinte", "next")
-            next.isEnabled = enabled && state.canGoNext
-            items += [previous, next]
-        }
+        previousItem.isEnabled = enabled && state.canGoPrevious
+        nextItem.isEnabled = enabled && state.canGoNext
         fittedToolbarWidth = toolbarWidth
         let room = toolbarWidth - 2 * (Glass.barMargin + Glass.padding)
             - (state.chapterNavigation ? Glass.pair + Glass.gap : 0)
-        items += [.flexibleSpace(), passageItem(state, enabled: enabled, room: room), .flexibleSpace()]
-        toolbar.setItems(items, animated: false)
+        configurePassage(state, enabled: enabled, room: room)
+        let items = (state.chapterNavigation ? [previousItem, nextItem] : [])
+            + [passageSpaces[0], passageItem, passageSpaces[1]]
+        if toolbar.items ?? [] != items {
+            toolbar.setItems(items, animated: false)
+        }
     }
 
-    /// "Marcos 1", which opens the passage picker. Where the book's name
-    /// doesn't fit in `room`, "Dt 3": too wide a toolbar runs past the screen's
-    /// edges (iOS 26) or moves its last items, this one too, into a ⋯ menu (27).
-    private func passageItem(_ state: ChromeState, enabled: Bool, room: CGFloat) -> UIBarButtonItem {
-        var config = UIButton.Configuration.plain()
+    /// Where the book's name doesn't fit in `room`, "Dt 3": too wide a toolbar
+    /// runs past the screen's edges (iOS 26) or moves its last items, this one
+    /// too, into a ⋯ menu (27).
+    private func configurePassage(_ state: ChromeState, enabled: Bool, room: CGFloat) {
+        guard var config = passageButton.configuration else { return }
         config.title = state.passageLabel
-        config.baseForegroundColor = .label
-        config.titleLineBreakMode = .byTruncatingTail
-        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
-            var attributes = attributes
-            attributes.font = UIFontMetrics(forTextStyle: .body).scaledFont(for: .systemFont(ofSize: 17, weight: .medium))
-            return attributes
-        }
-        let button = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in
-            self?.plugin.send("passage")
-        })
+        passageButton.configuration = config
         // Each shorter form only while the one applied so far is too wide: at
         // 390 pt "Sl 23 (22)" stays, "Sl 103 (102)" gives way to "Sl 103".
-        for label in state.passageShortLabels where button.intrinsicContentSize.width > room {
+        for label in state.passageShortLabels where passageButton.intrinsicContentSize.width > room {
             config.title = label
-            button.configuration = config
+            passageButton.configuration = config
         }
-        // At the largest text sizes even the shortest may not fit: it's cut short.
-        button.widthAnchor.constraint(lessThanOrEqualToConstant: max(room, 0)).isActive = true
-        button.accessibilityLabel = state.passageAccessibilityLabel
-        button.accessibilityHint = "Escolher livro e capítulo"
-        button.isEnabled = enabled
-        let item = UIBarButtonItem(customView: button)
+        passageWidth.constant = max(room, 0)
+        passageButton.accessibilityLabel = state.passageAccessibilityLabel
+        passageButton.largeContentTitle = state.passageLabel
+        passageButton.isEnabled = enabled
         // Should it still land in a ⋯ menu, where a custom view shows as nothing.
         if #available(iOS 16.0, *) {
-            item.menuRepresentation = UIAction(title: state.passageLabel,
-                                               image: UIImage(systemName: "book")) { [weak self] _ in
+            passageItem.menuRepresentation = UIAction(title: state.passageLabel,
+                                                      image: UIImage(systemName: "book")) { [weak self] _ in
                 self?.plugin.send("passage")
             }
         }
-        return item
     }
 
     /// Auto-scroll's controls: close, then speed, then play or pause.
-    private func autoScrollItems(_ state: AutoScrollState, enabled: Bool) -> [UIBarButtonItem] {
-        let close = barButton("xmark", "Fechar o deslocamento automático", "auto-scroll")
-        let slower = barButton("minus", "Diminuir velocidade", "auto-scroll-slower")
-        slower.isEnabled = enabled && state.canSlower
-        let faster = barButton("plus", "Aumentar velocidade", "auto-scroll-faster")
-        faster.isEnabled = enabled && state.canFaster
+    private func configureAutoScroll(_ state: AutoScrollState, enabled: Bool) {
+        autoScrollCloseItem.isEnabled = enabled
+        slowerItem.isEnabled = enabled && state.canSlower
+        fasterItem.isEnabled = enabled && state.canFaster
+        speedLabel.text = state.speedLabel
+        speedLabel.largeContentTitle = state.speedLabel
+        speedLabel.accessibilityValue = state.speedAccessibilityLabel
+        playItem.image = UIImage(systemName: state.playing ? "pause.fill" : "play.fill")
+        playItem.title = state.playing ? "Pausar" : "Iniciar"
+        playItem.isEnabled = enabled
+        let items = [autoScrollCloseItem, autoScrollSpaces[0], slowerItem, speedItem, fasterItem,
+                     autoScrollSpaces[1], playItem]
+        if autoScrollBar.items ?? [] != items {
+            autoScrollBar.setItems(items, animated: false)
+        }
+    }
 
-        let speed = UILabel()
-        speed.text = state.speedLabel
-        speed.font = .monospacedDigitSystemFont(ofSize: UIFont.preferredFont(forTextStyle: .subheadline).pointSize,
-                                                weight: .medium)
-        speed.textAlignment = .center
-        speed.accessibilityLabel = "Velocidade: \(state.speedLabel)"
-        let speedItem = UIBarButtonItem(customView: speed)
+    /// The passage the reader's bars last showed.
+    private var shownPassage: String?
 
-        // A plain bar button, like close: the bar stays monochrome.
-        let play = barButton(state.playing ? "pause.fill" : "play.fill",
-                             state.playing ? "Pausar" : "Iniciar", "auto-scroll-toggle")
-        play.isEnabled = enabled
-        close.isEnabled = enabled
+    /// VoiceOver stays on what was tapped, an arrow or +, whose label doesn't
+    /// change: it's told what did, and keeps its place.
+    private func announceChanges(from previous: ChromeState, to next: ChromeState) {
+        if next.passageLabel != shownPassage {
+            // The first passage the reader shows is no change.
+            if shownPassage != nil { announce(next.passageAccessibilityLabel) }
+            shownPassage = next.passageLabel
+        } else if let speed = next.autoScroll?.speedAccessibilityLabel,
+                  let before = previous.autoScroll?.speedAccessibilityLabel, speed != before {
+            announce(speed)
+        }
+    }
 
-        return [close, .flexibleSpace(), slower, speedItem, faster, .flexibleSpace(), play]
+    private func announce(_ text: String) {
+        guard UIAccessibility.isVoiceOverRunning else { return }
+        UIAccessibility.post(notification: .announcement, argument: text)
     }
 
     /// The bar shows the symbol; the title names it to VoiceOver and in the
@@ -409,10 +475,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         }
         if animated {
             // Lay out what this state update changed first, outside the
-            // animation. The bars' items are rebuilt with every update (the
-            // speed label is a new view each time), and laid out inside the
-            // animation below they grew and slid into place, their text cut
-            // off on the way, whenever the bars hid or showed.
+            // animation: the speed's new text, the passage's. Laid out inside
+            // the animation below, they grew and slid into place, their text
+            // cut off on the way, whenever the bars hid or showed.
             view.layoutIfNeeded()
             UIView.animate(withDuration: 0.4, delay: 0, usingSpringWithDamping: 1, initialSpringVelocity: 0,
                            options: [.beginFromCurrentState, .allowUserInteraction], animations: changes)
@@ -436,7 +501,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             let autoScroll = state.autoScroll != nil && !collapsed
                 ? autoScrollBar.bounds.height + Self.autoScrollBarGap : 0
             return ChromeInsets(top: safeArea.top + topBar.bounds.height,
-                                bottom: safeArea.bottom + toolbar.bounds.height + autoScroll)
+                                bottom: safeArea.bottom + toolbar.bounds.height + autoScroll,
+                                collapsed: collapsed)
         case .search:
             return ChromeInsets(top: safeArea.top + topBar.bounds.height,
                                 bottom: view.bounds.height - searchField.frame.minY)
@@ -543,9 +609,12 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         let sheet = UINavigationController(rootViewController: bookmarks)
         sheet.modalPresentationStyle = .pageSheet
         if let controller = sheet.sheetPresentationController {
-            // Just tall enough for the two rows of ribbons and the hint.
+            // Just tall enough for the two rows of ribbons and the hint, and
+            // the move row when there is one.
             if #available(iOS 16.0, *) {
-                controller.detents = [.custom { _ in 300 }]
+                controller.detents = [.custom { [weak bookmarks, weak self] _ in
+                    bookmarks?.sheetHeight(width: self?.view.bounds.width ?? 0) ?? 300
+                }]
             } else {
                 controller.detents = [.medium()]
             }
@@ -751,16 +820,23 @@ enum ReaderMenu {
         if !state.autoScrollAvailable {
             autoScroll.attributes.insert(.disabled)
         }
-        var items: [UIMenuElement] = [autoScroll]
+        var reading: [UIMenuElement] = [autoScroll]
         if state.canShare {
-            items.append(action("Partilhar", "square.and.arrow.up", "share", send: send))
+            reading.append(action("Partilhar", "square.and.arrow.up", "share", send: send))
         }
+        var app: [UIMenuElement] = []
         if state.canReport {
-            items.append(action("Reportar erro", "exclamationmark.bubble", "report", send: send))
+            app.append(action("Reportar erro", "exclamationmark.bubble", "report", send: send))
         }
-        items.append(action("Como usar a app", "questionmark.circle", "help", send: send))
-        items.append(action("Política de Privacidade", "hand.raised", "privacy", send: send))
-        return UIMenu(children: items)
+        app.append(action("Como usar a app", "questionmark.circle", "help", send: send))
+        app.append(action("Política de Privacidade", "hand.raised", "privacy", send: send))
+        // Two groups with a divider, as the HIG asks of menus: what to do with
+        // the reading, then the app's help and legal pages. Inline sections,
+        // not submenus.
+        return UIMenu(children: [
+            UIMenu(options: .displayInline, children: reading),
+            UIMenu(options: .displayInline, children: app),
+        ])
     }
 }
 

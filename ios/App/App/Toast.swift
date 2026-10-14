@@ -34,7 +34,7 @@ final class ToastView: UIView {
         background.translatesAutoresizingMaskIntoConstraints = false
         addSubview(background)
 
-        label.font = .preferredFont(forTextStyle: .subheadline)
+        label.font = limitedFont(.subheadline)
         label.adjustsFontForContentSizeCategory = true
         label.textColor = .label
         label.textAlignment = .center
@@ -50,7 +50,7 @@ final class ToastView: UIView {
         main.titleLineBreakMode = .byTruncatingTail
         main.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
             var attributes = attributes
-            attributes.font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: .systemFont(ofSize: 15, weight: .semibold))
+            attributes.font = limitedFont(.systemFont(ofSize: 15, weight: .semibold), .subheadline)
             return attributes
         }
         mainButton.configuration = main

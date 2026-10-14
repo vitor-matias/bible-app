@@ -40,7 +40,15 @@ export type NativeChromeAction =
         | "toast-action"
     }
   | { id: "goto"; bookId: string; chapter?: number }
-  | { id: "bookmark-open" | "bookmark-set" | "bookmark-remove"; color: string }
+  | {
+      id:
+        | "bookmark-open"
+        | "bookmark-set"
+        | "bookmark-remove"
+        | "bookmark-move"
+        | "bookmark-undo"
+      color: string
+    }
   | { id: "bookmarks-closed" }
   | { id: "footnote-link"; index: number }
   | { id: "footnotes-closed" }
@@ -93,6 +101,8 @@ export type PageChrome = ReaderChrome | SearchChrome | TitledPageChrome
 export interface AutoScrollChrome {
   playing: boolean
   speedLabel: string
+  /** In words, for VoiceOver: "1,5 linhas por segundo". */
+  speedAccessibilityLabel: string
   canSlower: boolean
   canFaster: boolean
 }
@@ -120,6 +130,19 @@ export interface BookmarksSheetState {
     /** Marks the chapter being read. */
     current: boolean
   }[]
+  /**
+   * The ribbon offered to move to this chapter, or, once moved, to move back;
+   * null when there is none.
+   */
+  move: {
+    color: string
+    /** As the ribbon's adjective: "vermelho". */
+    name: string
+    /** Where the ribbon is, or was before the move: "Mateus 5". */
+    from: string
+    /** Moved: the sheet offers to undo it. */
+    done: boolean
+  } | null
 }
 
 /** A verse's footnotes. Mirrors FootnotesSheetState in FootnotesSheet.swift. */
@@ -164,6 +187,11 @@ export interface SheetPresented {
 export interface ChromeInsets {
   top: number
   bottom: number
+  /**
+   * Whether the reader's bars did hide: under VoiceOver the shell keeps them.
+   * Older shells don't say.
+   */
+  collapsed?: boolean
 }
 
 export interface NativeChromePlugin {
@@ -248,6 +276,8 @@ export class NativeChromeService {
   private toastAction?: () => void
   /** The bars' state as last sent to the shell (push). */
   private lastSent?: string
+  /** The shell says whether its bars did hide (ChromeInsets.collapsed). */
+  private collapseReported = false
 
   /** True in the iOS app, whose shell provides the NativeChrome plugin. */
   readonly enabled =
@@ -500,11 +530,15 @@ export class NativeChromeService {
           autoScroll: reader ? this.autoScroll : null,
         }
       : { mode: "none" }
-    // Lets the page draw its edge effects to match.
-    this.document.body.classList.toggle(
-      "native-chrome-collapsed",
-      state.mode === "reader" && state.collapsed,
-    )
+    // Lets the page draw its edge effects to match. Once the shell says
+    // whether the bars did hide (applyInsets), it decides: under VoiceOver
+    // they stay, and the text mustn't show where the fades were.
+    if (!this.collapseReported) {
+      this.document.body.classList.toggle(
+        "native-chrome-collapsed",
+        state.mode === "reader" && state.collapsed,
+      )
+    }
     // Pages ask for the same bars several times as they start; each push has
     // the shell rebuild them.
     const sent = JSON.stringify(state)
@@ -519,10 +553,14 @@ export class NativeChromeService {
     )
   }
 
-  private applyInsets({ top, bottom }: ChromeInsets): void {
+  private applyInsets({ top, bottom, collapsed }: ChromeInsets): void {
     const style = this.document.documentElement.style
     style.setProperty("--native-chrome-top", `${top}px`)
     style.setProperty("--native-chrome-bottom", `${bottom}px`)
+    if (collapsed !== undefined) {
+      this.collapseReported = true
+      this.document.body.classList.toggle("native-chrome-collapsed", collapsed)
+    }
   }
 }
 
