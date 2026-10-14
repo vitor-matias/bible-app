@@ -7,21 +7,18 @@ import {
   OnChanges,
   SimpleChanges,
 } from "@angular/core"
-import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
-import { Router, RouterModule } from "@angular/router"
+import { RouterModule } from "@angular/router"
 import {
   type BibleReference,
   BibleReferenceService,
 } from "../../services/bible-reference.service"
-import { BookService } from "../../services/book.service"
-import { NativeChromeService } from "../../services/native-chrome.service"
-import { TwoActionSnackComponent } from "../two-action-snackbar/two-action-snackbar.component"
+import { ToastService } from "../../services/toast.service"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 
 @Component({
   selector: "verse-section",
   standalone: true,
-  imports: [CommonModule, RouterModule, MatSnackBarModule],
+  imports: [CommonModule, RouterModule],
   templateUrl: "./verse-section.component.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./verse-section.component.css",
@@ -39,17 +36,12 @@ export class VerseSectionComponent implements OnChanges {
   @Input()
   nextIsParagraph = false
 
-  private readonly nativeChrome = inject(NativeChromeService)
+  private readonly toast = inject(ToastService)
 
   /** Pre-computed parsed references keyed by text index */
   parsedReferences: Map<number, (string | BibleReference)[]> = new Map()
 
-  constructor(
-    private bibleRef: BibleReferenceService,
-    private bookService: BookService,
-    private snackBar: MatSnackBar,
-    private router: Router,
-  ) {}
+  constructor(private bibleRef: BibleReferenceService) {}
 
   ngOnChanges(_changes: SimpleChanges): void {
     if (this.data) {
@@ -71,35 +63,6 @@ export class VerseSectionComponent implements OnChanges {
   getVerseQueryParams = getVerseQueryParams
 
   showReturnSnackbar() {
-    const currentLocation = {
-      bookId: this.data.bookId,
-      chapterNumber: this.data.chapterNumber,
-      verseNumber: this.data.number > 0 ? this.data.number : 1,
-    }
-    const book = this.bookService.findBook(currentLocation.bookId)
-    const place = `${book.shortName} ${currentLocation.chapterNumber},${currentLocation.verseNumber}`
-    const goBack = () =>
-      this.router.navigate(
-        [this.bookService.getUrlAbrv(book), currentLocation.chapterNumber],
-        {
-          queryParams: {
-            verseStart: currentLocation.verseNumber,
-            highlight: false,
-          },
-        },
-      )
-
-    // The way back is the button, as Books' "Back to Page" is: the iOS glass
-    // toast, or the snackbar elsewhere.
-    if (this.nativeChrome.enabled) {
-      this.nativeChrome.toast(`Voltar para ${place}`, {
-        symbol: "arrow.uturn.backward",
-        onTap: goBack,
-      })
-      return
-    }
-    this.snackBar.openFromComponent(TwoActionSnackComponent, {
-      data: { message: `Voltar para ${place}`, returnUrl: goBack },
-    })
+    this.toast.showReturn(this.data)
   }
 }

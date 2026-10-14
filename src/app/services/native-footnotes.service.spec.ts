@@ -15,6 +15,7 @@ import {
 import { NativeFootnotesService } from "./native-footnotes.service"
 import { PreferencesService } from "./preferences.service"
 import { SystemTextSizeService } from "./system-text-size.service"
+import { ToastService } from "./toast.service"
 
 describe("NativeFootnotesService", () => {
   let actions: Subject<NativeChromeAction>
@@ -26,6 +27,7 @@ describe("NativeFootnotesService", () => {
   let bibleRef: jasmine.SpyObj<BibleReferenceService>
   let router: jasmine.SpyObj<Router>
   let analytics: jasmine.SpyObj<AnalyticsService>
+  let toast: jasmine.SpyObj<ToastService>
   /** The sizes stored per context: "reader" is the one AA changes. */
   let fontSizes: Record<string, number>
   let systemPercent: number | null
@@ -67,6 +69,7 @@ describe("NativeFootnotesService", () => {
     router = jasmine.createSpyObj("Router", ["navigate"])
     analytics = jasmine.createSpyObj("AnalyticsService", ["track"])
     analytics.track.and.resolveTo()
+    toast = jasmine.createSpyObj("ToastService", ["showReturn"])
     fontSizes = {}
     systemPercent = null
     TestBed.configureTestingModule({
@@ -75,6 +78,7 @@ describe("NativeFootnotesService", () => {
         { provide: BibleReferenceService, useValue: bibleRef },
         { provide: Router, useValue: router },
         { provide: AnalyticsService, useValue: analytics },
+        { provide: ToastService, useValue: toast },
         {
           provide: PreferencesService,
           useValue: {
@@ -166,6 +170,16 @@ describe("NativeFootnotesService", () => {
     expect(router.navigate).toHaveBeenCalledWith(["/", "url-jhn", 1], {
       queryParams: { verseStart: 15, verseEnd: 18 },
     })
+  })
+
+  // Following a reference in a note left no way back to the verse.
+  it("offers the way back to the note's verse", () => {
+    service.open([footnote], verse)
+    expect(toast.showReturn).not.toHaveBeenCalled()
+
+    actions.next({ id: "footnote-link", index: 0 })
+
+    expect(toast.showReturn).toHaveBeenCalledOnceWith(verse)
   })
 
   it("stops listening once the sheet is closed", () => {

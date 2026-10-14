@@ -4,11 +4,12 @@ import {
   MatBottomSheetRef,
 } from "@angular/material/bottom-sheet"
 import { By } from "@angular/platform-browser"
-import { ActivatedRoute } from "@angular/router"
+import { ActivatedRoute, Router } from "@angular/router"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { ToastService } from "../../services/toast.service"
 import { FootnotesBottomSheetComponent } from "./footnotes-bottom-sheet.component"
 
 describe("FootnotesBottomSheetComponent", () => {
@@ -20,6 +21,7 @@ describe("FootnotesBottomSheetComponent", () => {
   let bibleRefSpy: jasmine.SpyObj<BibleReferenceService>
   let bookServiceSpy: jasmine.SpyObj<BookService>
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
+  let toastSpy: jasmine.SpyObj<ToastService>
 
   const mockData = {
     footnotes: [
@@ -42,6 +44,7 @@ describe("FootnotesBottomSheetComponent", () => {
     ])
     analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
     analyticsServiceSpy.track.and.returnValue(Promise.resolve())
+    toastSpy = jasmine.createSpyObj("ToastService", ["showReturn"])
 
     await TestBed.configureTestingModule({
       imports: [FootnotesBottomSheetComponent],
@@ -51,6 +54,7 @@ describe("FootnotesBottomSheetComponent", () => {
         { provide: BibleReferenceService, useValue: bibleRefSpy },
         { provide: BookService, useValue: bookServiceSpy },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
+        { provide: ToastService, useValue: toastSpy },
         { provide: ActivatedRoute, useValue: {} }, // For RouterModule
       ],
     }).compileComponents()
@@ -169,6 +173,40 @@ describe("FootnotesBottomSheetComponent", () => {
     it("should dismiss the bottom sheet", () => {
       component.close()
       expect(bottomSheetRefSpy.dismiss).toHaveBeenCalled()
+    })
+  })
+
+  // Following a reference in a note left no way back to the verse.
+  describe("following a reference", () => {
+    it("closes the sheet and offers the way back to the verse", () => {
+      bibleRefSpy.extract.and.callFake((text: string) =>
+        text.startsWith("See")
+          ? [
+              {
+                index: 4,
+                match: "Gen 1:1",
+                book: "GEN",
+                chapter: 1,
+                verses: [{ type: "single", verse: 1 }],
+              },
+            ]
+          : [],
+      )
+      bookServiceSpy.getUrlAbrv.and.returnValue("gn")
+      const navigate = spyOn(
+        TestBed.inject(Router),
+        "navigateByUrl",
+      ).and.resolveTo(true)
+      fixture.detectChanges()
+
+      const link: HTMLAnchorElement =
+        fixture.nativeElement.querySelector(".footnote-item a")
+      expect(link.textContent).toBe("Gen 1:1")
+      link.click()
+
+      expect(navigate).toHaveBeenCalled()
+      expect(bottomSheetRefSpy.dismiss).toHaveBeenCalled()
+      expect(toastSpy.showReturn).toHaveBeenCalledOnceWith(mockData.verse)
     })
   })
 })
