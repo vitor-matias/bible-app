@@ -5,6 +5,7 @@ import {
   getVerseQueryParams,
   parseReferences,
 } from "../components/verse/verse.utils"
+import { startingFontSize } from "../directives/unified-gesture.directive"
 import { passageLabel } from "../utils/passage-label"
 import { AnalyticsService } from "./analytics.service"
 import { BibleReferenceService } from "./bible-reference.service"
@@ -14,6 +15,7 @@ import {
   NativeChromeService,
 } from "./native-chrome.service"
 import { PreferencesService } from "./preferences.service"
+import { SystemTextSizeService } from "./system-text-size.service"
 
 /** Where a reference in a note leads, as the web sheet's routerLink has it. */
 interface FootnoteLink {
@@ -34,6 +36,7 @@ export class NativeFootnotesService {
   private readonly bibleRef = inject(BibleReferenceService)
   private readonly bookService = inject(BookService)
   private readonly preferences = inject(PreferencesService)
+  private readonly systemTextSize = inject(SystemTextSizeService)
   private readonly router = inject(Router)
   private readonly analytics = inject(AnalyticsService)
   private session?: Subscription
@@ -79,7 +82,12 @@ export class NativeFootnotesService {
 
     const state: FootnotesSheetState = {
       title,
-      fontScale: (this.preferences.getFontSize("footnotes") ?? 100) / 100,
+      // The reader's size, as AA leaves it: the web sheet's own (pinched
+      // in that sheet) has no way to change here.
+      fontScale:
+        (startingFontSize(this.preferences.getFontSize("reader"), () =>
+          this.systemTextSize.percent(),
+        ) ?? 100) / 100,
       notes,
     }
     const session = this.nativeChrome.actions$.subscribe((action) => {

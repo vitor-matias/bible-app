@@ -375,9 +375,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
 
     const isAbout = this.book?.id === "about"
-    const title = "Biblia Sagrada"
+    const title = "Bíblia Sagrada"
     const text = isAbout
-      ? "Leia a Biblia nesta app."
+      ? "Leia a Bíblia nesta app."
       : this.chapterNumber === 0
         ? `Ler a introdução de ${this.book?.name}.`
         : `Ler ${this.book?.name} ${this.chapterNumber}.`
@@ -387,7 +387,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     try {
       if (Capacitor.isNativePlatform()) {
         await this.sharePlugin.share({
-          title: "Biblia Sagrada",
+          title,
           text,
           url,
           dialogTitle: "Partilhar passagem",

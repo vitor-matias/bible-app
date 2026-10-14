@@ -27,6 +27,32 @@ export interface RibbonState {
 }
 
 /**
+ * The ribbon to offer moving to this chapter: of those in the same book, the
+ * nearest one behind it, which is where a reader who read on from a ribbon
+ * left it. None when the chapter already carries a ribbon, as moving one
+ * here would take that one off.
+ */
+export function ribbonToMove(
+  ribbons: RibbonState[],
+  bookId: string,
+  chapter: number,
+): RibbonState | undefined {
+  let nearest: RibbonState | undefined
+  for (const ribbon of ribbons) {
+    const marked = ribbon.bookmark
+    if (marked?.bookId !== bookId) continue
+    if (marked.chapter === chapter) return undefined
+    if (
+      marked.chapter < chapter &&
+      marked.chapter > (nearest?.bookmark?.chapter ?? -1)
+    ) {
+      nearest = ribbon
+    }
+  }
+  return nearest
+}
+
+/**
  * What the bookmark ribbons do, shared by the web panel
  * (BookmarkSelectorComponent) and the iOS native sheet: each colour marks at
  * most one chapter, and a chapter carries at most one colour.
@@ -45,18 +71,19 @@ export class BookmarkRibbonsService {
   ribbons(bookmarks: Bookmark[]): RibbonState[] {
     return RIBBON_COLORS.map(({ name, value }) => {
       const bookmark = bookmarks.find((b) => b.color === value)
-      let currentRef: string | undefined
-      if (bookmark) {
-        const book = this.bookService.findBookById(bookmark.bookId)
-        // Chapter 0 is the book introduction
-        const chapterLabel =
-          bookmark.chapter === 0 ? "Introdução" : `${bookmark.chapter}`
-        currentRef = book
-          ? `${cleanAbbreviation(book.abrv)} ${chapterLabel}`
-          : `${bookmark.bookId} ${chapterLabel}`
-      }
+      const currentRef = bookmark && this.ref(bookmark.bookId, bookmark.chapter)
       return { name, value, bookmark, currentRef }
     })
+  }
+
+  /** A ribbon's short name for a chapter, e.g. "Mc 2". */
+  ref(bookId: string, chapter: number): string {
+    const book = this.bookService.findBookById(bookId)
+    // Chapter 0 is the book introduction
+    const chapterLabel = chapter === 0 ? "Introdução" : `${chapter}`
+    return book
+      ? `${cleanAbbreviation(book.abrv)} ${chapterLabel}`
+      : `${bookId} ${chapterLabel}`
   }
 
   /** Opens the ribbon's passage. False when it marks a book that is unknown. */
@@ -90,6 +117,38 @@ export class BookmarkRibbonsService {
       chapter,
       color,
     })
+  }
+
+  /**
+   * Moves a used ribbon to the chapter, as one moves a ribbon in a printed
+   * Bible on reading further. Returns where it was, for `restore`.
+   */
+  move(
+    ribbon: RibbonState,
+    bookId: string,
+    chapter: number,
+  ): Bookmark | undefined {
+    const from = ribbon.bookmark
+    if (!from) return undefined
+    this.bookmarkService.addBookmark(bookId, chapter, ribbon.value)
+    this.haptics.success()
+    void this.analyticsService.track("bookmark_move", {
+      book: bookId,
+      chapter,
+      color: ribbon.value,
+      fromBook: from.bookId,
+      fromChapter: from.chapter,
+    })
+    return { ...from }
+  }
+
+  /** Undoes a move: the ribbon goes back to where it was. */
+  restore(previous: Bookmark): void {
+    this.bookmarkService.addBookmark(
+      previous.bookId,
+      previous.chapter,
+      previous.color,
+    )
   }
 
   remove(ribbon: RibbonState): void {

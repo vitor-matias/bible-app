@@ -88,6 +88,7 @@ describe("BibleReaderComponent", () => {
     ])
 
     routerSpy = jasmine.createSpyObj("Router", ["navigate"])
+    routerSpy.navigate.and.resolveTo(true)
     ;(routerSpy as unknown as { routerState: unknown }).routerState = {
       snapshot: {
         root: {
@@ -314,6 +315,12 @@ describe("BibleReaderComponent", () => {
       routerSpy.navigate.calls.reset()
     })
 
+    /** The chapter stepped to has loaded (applyChapter clears the slide). */
+    const land = () => {
+      component.isNavigatingForwards = false
+      component.isNavigatingBackwards = false
+    }
+
     it("goToNextChapter should navigate forward and stop scroll", () => {
       component.goToNextChapter()
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
@@ -333,6 +340,7 @@ describe("BibleReaderComponent", () => {
       spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
       component.chapterNumber = 2
       component.goToNextChapter()
+      land()
       component.goToPreviousChapter()
 
       expect(routerSpy.navigate.calls.allArgs()).toEqual([
@@ -387,8 +395,54 @@ describe("BibleReaderComponent", () => {
     it("gives light haptic feedback when turning to another chapter", () => {
       component.chapterNumber = 2
       component.goToNextChapter()
+      land()
       component.goToPreviousChapter()
       expect(hapticsSpy.light).toHaveBeenCalledTimes(2)
+    })
+
+    // A second swipe during the slide asked for the chapter already on its
+    // way: nothing happened, but it buzzed.
+    it("takes no second step, and gives no buzz, while a chapter is on its way", () => {
+      component.goToNextChapter()
+      component.goToNextChapter()
+      component.goToPreviousChapter()
+
+      expect(routerSpy.navigate).toHaveBeenCalledTimes(1)
+      expect(hapticsSpy.light).toHaveBeenCalledTimes(1)
+    })
+
+    it("steps again when the navigation came to nothing", async () => {
+      routerSpy.navigate.and.resolveTo(false)
+      component.goToNextChapter()
+      await Promise.resolve()
+
+      component.goToNextChapter()
+      expect(routerSpy.navigate).toHaveBeenCalledTimes(2)
+    })
+
+    it("moves the page with the finger in paged mode", () => {
+      component.viewMode = "paged"
+      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", [
+        "dragBy",
+        "cancelDrag",
+      ]) as unknown as PagedNavigationDirective
+
+      component.onSwipeMove(-40)
+      component.onSwipeCancel()
+
+      expect(component.pagedNav?.dragBy).toHaveBeenCalledWith(-40)
+      expect(component.pagedNav?.cancelDrag).toHaveBeenCalled()
+    })
+
+    it("moves nothing with the finger while scrolling", () => {
+      component.viewMode = "scrolling"
+      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", [
+        "dragBy",
+      ]) as unknown as PagedNavigationDirective
+
+      component.onSwipeMove(-40)
+
+      expect(component.pagedNav?.dragBy).not.toHaveBeenCalled()
     })
 
     it("gives no haptic feedback at either end of the book", () => {
@@ -684,6 +738,7 @@ describe("BibleReaderComponent", () => {
       component.onArrowPress(new KeyboardEvent("keydown", { key: "ArrowLeft" }))
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
 
+      land()
       routerSpy.navigate.calls.reset()
       component.onArrowPress(
         new KeyboardEvent("keydown", { key: "ArrowRight" }),
@@ -705,6 +760,66 @@ describe("BibleReaderComponent", () => {
       fixture.detectChanges()
       return fixture.nativeElement as HTMLElement
     }
+
+    // Paged, browsers cut off the verse numbers hanging left of a line of
+    // poetry: the side margin was outside the columns, which clip what
+    // overflows them.
+    describe("pages", () => {
+      // The specs run in Karma's frame: its width is the viewport the
+      // reader's media queries see.
+      const frame = window.frameElement as HTMLElement | null
+      let width = ""
+
+      beforeEach(() => {
+        width = frame?.style.width ?? ""
+      })
+
+      afterEach(() => {
+        if (frame) frame.style.width = width
+      })
+
+      function pagedAt(px: number) {
+        expect(frame).withContext("the specs run in a frame").toBeTruthy()
+        if (frame) frame.style.width = `${px}px`
+        const host = render("paged")
+        const style = (selector: string) =>
+          getComputedStyle(host.querySelector(selector) as HTMLElement)
+        return {
+          view: style(".paged-view"),
+          chapter: style(".chapterBlock"),
+        }
+      }
+
+      it("keep a phone's side margin inside each page", () => {
+        const { view, chapter } = pagedAt(390)
+
+        expect(chapter.paddingLeft).toBe("15px")
+        expect(chapter.paddingRight).toBe("15px")
+        // Nothing outside the columns, so a page advances by its width.
+        expect(view.paddingLeft).toBe("0px")
+        expect(view.columnGap).toBe("0px")
+      })
+
+      it("keep a tablet's margins inside each of its two columns", () => {
+        const { view, chapter } = pagedAt(1024)
+
+        // 2vw a side: 4vw between the columns, as the gap was.
+        expect(parseFloat(chapter.paddingLeft)).toBeCloseTo(1024 * 0.02, 0)
+        expect(view.paddingLeft).toBe("0px")
+        expect(view.columnGap).toBe("0px")
+      })
+    })
+
+    // At 310% a justified line of a few words spread into wide gaps.
+    it("sets the text ragged-right at the largest sizes", () => {
+      const host = render("scrolling")
+      const container = host.querySelector(".text-container") as HTMLElement
+      const block = host.querySelector(".bookBlock") as HTMLElement
+      expect(getComputedStyle(block).textAlign).toBe("justify")
+
+      container.classList.add("large-text")
+      expect(getComputedStyle(block).textAlign).toBe("start")
+    })
 
     function heightWithInset(element: HTMLElement, inset: string): number {
       ;(fixture.nativeElement as HTMLElement).style.setProperty(

@@ -375,6 +375,7 @@ describe("NativeChromeService", () => {
       service.setAutoScroll({
         playing: true,
         speedLabel: "1 ln/s",
+        speedAccessibilityLabel: "1 linha por segundo",
         canSlower: true,
         canFaster: true,
       })
@@ -401,7 +402,7 @@ describe("NativeChromeService", () => {
   // *-closed event would ever end the page's session with it.
   it("says whether a sheet came up", async () => {
     const service = create("ios")
-    const state = { currentLabel: "Mateus 11", ribbons: [] }
+    const state = { currentLabel: "Mateus 11", ribbons: [], move: null }
     plugin.showBookmarks.and.resolveTo({ presented: true })
     expect(await service.showBookmarks(state)).toBeTrue()
 
@@ -436,7 +437,7 @@ describe("NativeChromeService", () => {
 
   it("passes the bookmarks sheet through", () => {
     const service = create("ios")
-    const state = { currentLabel: "Mateus 11", ribbons: [] }
+    const state = { currentLabel: "Mateus 11", ribbons: [], move: null }
     service.showBookmarks(state)
     service.updateBookmarks(state)
 
@@ -480,6 +481,8 @@ describe("NativeChromeService", () => {
     }
     const collapsed = () => lastState().collapsed
 
+    // The shell answers with the insets alone here, as older ones do: the
+    // page's edge fades follow what it asked for.
     it("hides them on scrolling down, and brings them back on scrolling up", () => {
       service.trackScroll(scroller)
 
@@ -492,6 +495,30 @@ describe("NativeChromeService", () => {
       scrollTo(500)
       scrollTo(500 - COLLAPSE_DISTANCE)
       expect(collapsed()).toBeFalse()
+      expect(body.classList).not.toContain("native-chrome-collapsed")
+    })
+
+    // Under VoiceOver the shell keeps its bars, and the text showed through
+    // them where the fades were.
+    it("keeps the edge fades while the shell keeps its bars", () => {
+      listener("insets")({ top: 116, bottom: 82, collapsed: false })
+      service.trackScroll(scroller)
+      scrollTo(200)
+
+      expect(collapsed()).toBeTrue()
+      expect(body.classList).not.toContain("native-chrome-collapsed")
+
+      listener("insets")({ top: 116, bottom: 82, collapsed: true })
+      expect(body.classList).toContain("native-chrome-collapsed")
+    })
+
+    it("takes whether they hid from the shell's answer to a push too", async () => {
+      plugin.setState.and.resolveTo({ top: 116, bottom: 82, collapsed: false })
+      service.trackScroll(scroller)
+      scrollTo(200)
+      await settle()
+
+      expect(collapsed()).toBeTrue()
       expect(body.classList).not.toContain("native-chrome-collapsed")
     })
 
@@ -520,6 +547,7 @@ describe("NativeChromeService", () => {
       const autoScroll = {
         playing: false,
         speedLabel: "1 ln/s",
+        speedAccessibilityLabel: "1 linha por segundo",
         canSlower: true,
         canFaster: true,
       }
@@ -546,6 +574,7 @@ describe("NativeChromeService", () => {
       const autoScroll = {
         playing: false,
         speedLabel: "1 ln/s",
+        speedAccessibilityLabel: "1 linha por segundo",
         canSlower: true,
         canFaster: true,
       }
@@ -560,6 +589,7 @@ describe("NativeChromeService", () => {
         ...autoScroll,
         playing: true,
         speedLabel: "2 ln/s",
+        speedAccessibilityLabel: "2 linhas por segundo",
       })
       expect(collapsed()).toBeTrue()
 

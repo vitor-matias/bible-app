@@ -5,9 +5,13 @@
 	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>en</string>
+	<string>pt-PT</string>
 	<key>CFBundleDisplayName</key>
 	<string>Bíblia Sagrada</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>pt-PT</string>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

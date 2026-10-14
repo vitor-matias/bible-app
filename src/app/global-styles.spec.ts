@@ -122,4 +122,35 @@ describe("global styles", () => {
       expect(styleOf(".paged-view-container").marginTop).toBe("0px")
     })
   })
+
+  // In the dark theme the crimson verse numbers were 3.8:1 on the background,
+  // under the 4.5:1 that small text needs.
+  describe("verse numbers in the iOS app's dark theme", () => {
+    let verse: HTMLElement
+
+    beforeEach(() => {
+      verse = document.createElement("verse")
+      verse.innerHTML = '<span class="verseNumber">3</span>'
+      document.body.appendChild(verse)
+      document.documentElement.classList.add("dark-theme")
+    })
+
+    afterEach(() => {
+      verse.remove()
+      document.documentElement.classList.remove("dark-theme")
+      document.body.classList.remove("native-chrome")
+    })
+
+    const color = () =>
+      getComputedStyle(verse.querySelector(".verseNumber") as HTMLElement).color
+
+    it("are iOS's dark red", () => {
+      document.body.classList.add("native-chrome")
+      expect(color()).toBe("rgb(255, 69, 58)")
+    })
+
+    it("are left to the web theme elsewhere", () => {
+      expect(color()).not.toBe("rgb(255, 69, 58)")
+    })
+  })
 })

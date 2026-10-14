@@ -71,6 +71,20 @@ describe("AutoScrollService", () => {
     expect(service.getAutoScrollSpeedLabel(1.25)).toBe("1.25")
   })
 
+  // VoiceOver read "1/2 ln/s" in the iOS app's toolbar.
+  it("says the speed in words", () => {
+    expect(service.getAutoScrollSpeedSpokenLabel(1)).toBe("1 linha por segundo")
+    expect(service.getAutoScrollSpeedSpokenLabel(1.25)).toBe(
+      "1,25 linhas por segundo",
+    )
+    expect(service.getAutoScrollSpeedSpokenLabel(0.5)).toBe(
+      "meia linha por segundo",
+    )
+    expect(service.getAutoScrollSpeedSpokenLabel(1 / 6)).toBe(
+      "um sexto de linha por segundo",
+    )
+  })
+
   it("should start scrolling, observe line height changes, and stop cleanly", () => {
     const scrollElement = document.createElement("div")
     const lineHeightElement = document.createElement("div")

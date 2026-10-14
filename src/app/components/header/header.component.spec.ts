@@ -392,7 +392,7 @@ describe("HeaderComponent", () => {
     await component.sharePassage()
 
     expect(mockSharePlugin.share).toHaveBeenCalledWith({
-      title: "Biblia Sagrada",
+      title: "Bíblia Sagrada",
       text: jasmine.any(String),
       url: jasmine.any(String),
       dialogTitle: "Partilhar passagem",

@@ -94,12 +94,15 @@ struct ChromeState: Equatable {
 struct AutoScrollState: Equatable {
     var playing: Bool
     var speedLabel: String
+    /// In words, for VoiceOver: "1,5 linhas por segundo".
+    var speedAccessibilityLabel: String
     var canSlower: Bool
     var canFaster: Bool
 
     init(_ object: JSObject) {
         playing = object["playing"] as? Bool ?? false
         speedLabel = object["speedLabel"] as? String ?? ""
+        speedAccessibilityLabel = object["speedAccessibilityLabel"] as? String ?? speedLabel
         canSlower = object["canSlower"] as? Bool ?? false
         canFaster = object["canFaster"] as? Bool ?? false
     }
@@ -228,6 +231,9 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
 struct ChromeInsets: Equatable {
     var top: CGFloat = 0
     var bottom: CGFloat = 0
+    /// The reader's bars are hidden for reading. Not always when the page asks:
+    /// under VoiceOver they stay, and the page keeps its edge fades for them.
+    var collapsed = false
 
-    var dictionary: [String: Any] { ["top": top, "bottom": bottom] }
+    var dictionary: [String: Any] { ["top": top, "bottom": bottom, "collapsed": collapsed] }
 }

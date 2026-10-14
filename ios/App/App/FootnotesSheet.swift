@@ -16,7 +16,8 @@ struct FootnotesSheetState {
 
     /// The verse, e.g. "Mateus 11,3".
     let title: String
-    /// The reader's footnote text size, 1 = 100%.
+    /// The reader's text size, 1 = 100%, which already counts the iPhone's
+    /// own text size.
     let fontScale: CGFloat
     let notes: [Note]
 
@@ -88,14 +89,19 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
     }
 
     private func attributedNotes() -> NSAttributedString {
-        let body = UIFont.preferredFont(forTextStyle: .body)
+        // From the standard body size: the reader's scale already counts the
+        // iPhone's text size, and Dynamic Type on top would count it twice.
+        let body = UIFont.preferredFont(forTextStyle: .body,
+                                        compatibleWith: UITraitCollection(preferredContentSizeCategory: .large))
         let size = body.pointSize * 1.06 * state.fontScale
         let serif = body.fontDescriptor.withDesign(.serif) ?? body.fontDescriptor
         let regular = UIFont(descriptor: serif, size: size)
         let bold = UIFont(descriptor: serif.withSymbolicTraits(.traitBold) ?? serif, size: size * 1.04)
 
         let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = .justified
+        // As the reader: past 180% a line holds a handful of words, and
+        // justified it spreads them, even letter by letter.
+        paragraph.alignment = state.fontScale > 1.8 ? .natural : .justified
         paragraph.hyphenationFactor = 0.9
         paragraph.lineSpacing = size * 0.28
         paragraph.paragraphSpacing = size * 0.9

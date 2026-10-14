@@ -277,21 +277,33 @@ h6 {
   display: block;
 }
 
+/* The side margins sit inside each column, as the chapter's padding, rather
+   than outside the columns: browsers cut off what overflows a column, and
+   the verse numbers hanging left of a line of poetry did. With no gap or
+   padding outside the columns, a page advances by exactly its width. */
+
 /* Mobile - 1 Page */
 @media (max-width: 768px) {
+  .paged-view-container {
+    width: 100%;
+  }
+
   .paged-view {
     column-width: 80vw;
     /* Use column-width to allow multiple columns (pages) */
     column-count: auto;
-    /* Formula for stable paging: Gap = 2 * Padding */
-    column-gap: 4vw;
-    /* 2 * 2vw = 4vw */
-    padding: 0 2vw 2vw 2vw;
+    column-gap: 0;
+    padding: 0 0 2vw;
     width: 100%;
     margin: 0 !important;
     height: calc(100% - 78px);
     /* Reserve space for copyright footer */
     max-width: 100%;
+  }
+
+  /* As the scrolling text's margin. */
+  .paged-view .chapterBlock {
+    padding-inline: 15px;
   }
 }
 
@@ -306,9 +318,8 @@ h6 {
     column-count: 2;
     column-width: auto;
     column-fill: auto;
-    /* Formula for stable paging: Gap = 2 * Padding */
-    column-gap: 4vw;
-    padding: 0 2vw;
+    column-gap: 0;
+    padding: 0;
     height: calc(100% - 62px);
     /* Reserve space for copyright footer */
     width: 100%;
@@ -316,6 +327,11 @@ h6 {
     margin: 0 auto !important;
     orphans: 1;
     widows: 1;
+  }
+
+  /* 2vw a side: 4vw between the columns, 2vw at the edges, as before. */
+  .paged-view .chapterBlock {
+    padding-inline: 2vw;
   }
 }
 
@@ -330,15 +346,18 @@ h6 {
     column-count: 2;
     column-width: auto;
     column-fill: auto;
-    /* Formula for stable paging: Gap = 2 * Padding */
-    column-gap: 6vw;
-    padding: 0 3vw;
+    column-gap: 0;
+    padding: 0;
     height: calc(100% - 62px);
     /* Reserve space for copyright footer */
     width: 100%;
     max-width: 100%;
     orphans: 1;
     widows: 1;
+  }
+
+  .paged-view .chapterBlock {
+    padding-inline: 3vw;
   }
 }
 
