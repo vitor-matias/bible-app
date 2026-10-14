@@ -11,7 +11,7 @@ import Capacitor
 private let barTextScaleLimit: CGFloat = 23 / 17
 
 final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIToolbarDelegate,
-    UIGestureRecognizerDelegate {
+    UIGestureRecognizerDelegate, UIPopoverPresentationControllerDelegate {
     let bridgeController = MainViewController()
 
     private let topBar = UINavigationBar()
@@ -607,8 +607,19 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         })
         bookmarksSheet = bookmarks
         let sheet = UINavigationController(rootViewController: bookmarks)
-        sheet.modalPresentationStyle = .pageSheet
-        if let controller = sheet.sheetPresentationController {
+        // On iPad, a popover from the bookmark button, as Apple's apps show a
+        // bar button's panel there: as a sheet the eight ribbons stretched
+        // across the screen. Where the width is compact (iPhone, a narrow
+        // iPad window) it becomes the sheet.
+        sheet.modalPresentationStyle = .popover
+        if let popover = sheet.popoverPresentationController {
+            if #available(iOS 16.0, *) {
+                popover.sourceItem = bookmarksItem
+            } else {
+                popover.barButtonItem = bookmarksItem
+            }
+            popover.delegate = self
+            let controller = popover.adaptiveSheetPresentationController
             // Just tall enough for the two rows of ribbons and the hint, and
             // the move row when there is one.
             if #available(iOS 16.0, *) {
@@ -622,6 +633,15 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         }
         present(sheet, animated: true)
         return true
+    }
+
+    // A popover closes with a tap outside it, as Apple's do: no ✕ there.
+    func presentationController(_ presentationController: UIPresentationController,
+                                willPresentWithAdaptiveStyle style: UIModalPresentationStyle,
+                                transitionCoordinator: UIViewControllerTransitionCoordinator?) {
+        guard let bookmarks = bookmarksSheet,
+              presentationController.presentedViewController === bookmarks.navigationController else { return }
+        bookmarks.showsClose = style != .none
     }
 
     // MARK: - Footnotes

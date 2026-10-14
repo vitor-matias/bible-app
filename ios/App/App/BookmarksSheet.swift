@@ -89,10 +89,18 @@ final class BookmarksController: UIViewController {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
+    /// As a popover, on iPad, it has no ✕: a tap outside closes it.
+    var showsClose = true {
+        didSet { navigationItem.rightBarButtonItem = showsClose ? closeButton(for: self) : nil }
+    }
+
+    /// As a popover: this wide, and as tall as what it shows.
+    private static let popoverWidth: CGFloat = 375
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = sheetBackground
-        navigationItem.rightBarButtonItem = closeButton(for: self)
+        navigationItem.rightBarButtonItem = showsClose ? closeButton(for: self) : nil
 
         moveRow.addAction(UIAction { [weak self] _ in self?.moveTapped() }, for: .primaryActionTriggered)
         grid.axis = .vertical
@@ -123,6 +131,7 @@ final class BookmarksController: UIViewController {
             footer.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor, constant: -24),
         ])
         render()
+        updatePopoverSize()
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -139,9 +148,23 @@ final class BookmarksController: UIViewController {
         }
         render()
         // The move row comes and goes, and the hint's length changes.
-        if #available(iOS 16.0, *), let sheet = navigationController?.sheetPresentationController {
+        updatePopoverSize()
+        let sheet = navigationController?.sheetPresentationController
+            ?? navigationController?.popoverPresentationController?.adaptiveSheetPresentationController
+        if #available(iOS 16.0, *), let sheet {
             sheet.animateChanges { sheet.invalidateDetents() }
         }
+    }
+
+    /// As a popover, the size of what it shows: the ribbons, the hint, and
+    /// the move row when there is one.
+    private func updatePopoverSize() {
+        let width = Self.popoverWidth
+        var height = 8 + 2 * 84 + 10 + 16 + fittingHeight(footer, width: width - 48) + 20
+        if state.move != nil {
+            height += fittingHeight(moveRow, width: width - 32) + column.spacing
+        }
+        preferredContentSize = CGSize(width: width, height: height)
     }
 
     /// The sheet's height: the ribbons and the hint, plus the move row when
