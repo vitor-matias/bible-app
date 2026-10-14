@@ -15,6 +15,7 @@ import {
   VerseReference,
 } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { ToastService } from "../../services/toast.service"
 import { parseReferences } from "../verse/verse.utils"
 
 @Component({
@@ -35,7 +36,7 @@ import { parseReferences } from "../verse/verse.utils"
           @for(part of parseReferences(footnote.text).parts; track $index){ @if
           (typeof part === 'object') {
           <a
-            (click)="close()"
+            (click)="followReference()"
             [routerLink]="['/', getAbrv(part.book), part.chapter]"
             [queryParams]="getVerseQueryParams(part.verses)"
           >{{ part.match }}</a>
@@ -85,6 +86,7 @@ export class FootnotesBottomSheetComponent {
     private bibleRef: BibleReferenceService,
     private bookService: BookService,
     private analyticsService: AnalyticsService,
+    private toast: ToastService,
   ) {
     void this.analyticsService.track("footnotes_opened", {
       book: data.verse.bookId,
@@ -123,5 +125,11 @@ export class FootnotesBottomSheetComponent {
 
   close(): void {
     this.bottomSheetRef.dismiss()
+  }
+
+  /** The link navigates; this closes the sheet and offers the way back. */
+  followReference(): void {
+    this.close()
+    this.toast.showReturn(this.data.verse)
   }
 }
