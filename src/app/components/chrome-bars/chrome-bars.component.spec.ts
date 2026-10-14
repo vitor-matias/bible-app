@@ -86,15 +86,69 @@ describe("ChromeBarsComponent", () => {
   describe("the reader's", () => {
     beforeEach(() => create())
 
-    it("has text, bookmarks and More on top; arrows, the passage and search below", async () => {
+    // As the iOS bars since #170, ordered as the web header.
+    it("has More and text on the top left, bookmarks and search on the right; arrows and the passage below", async () => {
       await show(shown())
-      expect(button("Texto e aparência")).toBeTruthy()
-      expect(button("Marcadores")).toBeTruthy()
-      expect(button("Mais")).toBeTruthy()
+      const labels = (bar: string) =>
+        Array.from(host().querySelectorAll(`${bar} button`)).map((b) =>
+          b.getAttribute("aria-label"),
+        )
+      expect(labels(".top-bar")).toEqual([
+        "Mais",
+        "Texto e aparência",
+        "Marcadores",
+        "Pesquisar",
+      ])
+      expect(labels(".toolbar")).toEqual([
+        "Capítulo anterior",
+        "Capítulo seguinte",
+        "Livro do Génesis 1",
+      ])
       expect(button("Capítulo anterior").disabled).toBeTrue()
       expect(button("Capítulo seguinte").disabled).toBeFalse()
       expect(button("Livro do Génesis 1").textContent?.trim()).toBe("Génesis 1")
-      expect(button("Pesquisar")).toBeTruthy()
+    })
+
+    describe("passage, where its name doesn't fit", () => {
+      const ACTS: Partial<ReaderChrome> = {
+        passageLabel: "Atos dos Apóstolos 4",
+        passageShortLabels: ["At 4"],
+        passageAccessibilityLabel: "Atos dos Apóstolos 4",
+      }
+      const passage = () => button("Atos dos Apóstolos 4")
+      /** Room for "At 4" but not the book's name. */
+      const narrow = () => {
+        const toolbar = host().querySelector(".toolbar") as HTMLElement
+        toolbar.style.right = "auto"
+        toolbar.style.width = "190px"
+      }
+      const settle = async () => {
+        for (let i = 0; i < 3; i++) {
+          fixture.detectChanges()
+          await fixture.whenStable()
+        }
+      }
+
+      it("shows its name where it fits", async () => {
+        await show(shown(ACTS))
+        await settle()
+        expect(passage().textContent?.trim()).toBe("Atos dos Apóstolos 4")
+      })
+
+      it("takes the shorter form that fits, and the name again given room", async () => {
+        await show(shown(ACTS))
+        narrow()
+        window.dispatchEvent(new Event("resize"))
+        await settle()
+        expect(passage().textContent?.trim()).toBe("At 4")
+
+        const toolbar = host().querySelector(".toolbar") as HTMLElement
+        toolbar.style.removeProperty("width")
+        toolbar.style.removeProperty("right")
+        window.dispatchEvent(new Event("resize"))
+        await settle()
+        expect(passage().textContent?.trim()).toBe("Atos dos Apóstolos 4")
+      })
     })
 
     // The bars' colours outranked Material's own for a disabled button.
@@ -153,8 +207,12 @@ describe("ChromeBarsComponent", () => {
     describe("text menu", () => {
       const trigger = () =>
         fixture.debugElement
-          .queryAll(By.directive(MatMenuTrigger))[0]
-          .injector.get(MatMenuTrigger)
+          .queryAll(By.directive(MatMenuTrigger))
+          .find(
+            (element) =>
+              element.attributes["aria-label"] === "Texto e aparência",
+          )
+          ?.injector.get(MatMenuTrigger)
       const tile = (label: string) =>
         Array.from(document.querySelectorAll(".menu-tile")).find((tile) =>
           tile.textContent?.trim().endsWith(label),
@@ -177,7 +235,7 @@ describe("ChromeBarsComponent", () => {
         click(tile("Aumentar texto"))
         click(tile("Claro"))
         expect(sent).toEqual([{ id: "font-increase" }, { id: "theme-light" }])
-        expect(trigger().menuOpen).toBeTrue()
+        expect(trigger()?.menuOpen).toBeTrue()
       })
 
       // The page toggles between the two.

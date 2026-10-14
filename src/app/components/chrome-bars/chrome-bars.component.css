@@ -83,7 +83,6 @@
   width: 44px;
 }
 
-/* As the iOS toolbar: arrows left, the passage between, search right. */
 .toolbar,
 .auto-scroll-bar {
   justify-content: space-between;
@@ -108,31 +107,22 @@
   border-radius: calc(var(--bar-height) / 2);
 }
 
-.passage,
-.search-fab {
+/* As the iOS toolbar: the arrows, then the passage centred in the room
+   they leave (between flexible spaces there). */
+.passage {
+  min-width: 0;
   height: var(--bar-height);
+  margin: 0 auto;
+  padding: 0 20px;
+  overflow: hidden;
   border: none;
   border-radius: calc(var(--bar-height) / 2);
   color: inherit;
   font: inherit;
-  cursor: pointer;
-}
-
-.passage {
-  min-width: 0;
-  padding: 0 20px;
-  overflow: hidden;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.search-fab {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: var(--bar-height);
+  cursor: pointer;
 }
 
 .circle {

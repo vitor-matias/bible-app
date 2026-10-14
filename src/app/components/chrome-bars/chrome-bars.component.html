@@ -6,21 +6,28 @@
 
   <div #topBar class="top-bar">
     @if (reader(); as r) {
-    <span class="top-spacer"></span>
+    <!-- As the iOS bar, ordered as the web header: its menu, then the text
+         button, on the left; Marcadores, then search in the right corner. -->
+    <button type="button" mat-icon-button class="bar-button glass" [matMenuTriggerFor]="moreMenu" aria-label="Mais">
+      <mat-icon>more_vert</mat-icon>
+    </button>
     <button type="button" mat-icon-button class="bar-button glass" [matMenuTriggerFor]="textMenu"
       aria-label="Texto e aparência">
       <mat-icon>format_size</mat-icon>
     </button>
+    <span class="top-spacer"></span>
     <button type="button" mat-icon-button class="bar-button glass" aria-label="Marcadores"
       [attr.aria-description]="r.bookmarkName ? 'marcador ' + r.bookmarkName + ' neste capítulo' : null"
       (click)="send('bookmarks')">
       <mat-icon [class.filled]="!!r.bookmarkColor" [style.color]="r.bookmarkColor">bookmark</mat-icon>
     </button>
-    <button type="button" mat-icon-button class="bar-button glass" [matMenuTriggerFor]="moreMenu" aria-label="Mais">
-      <mat-icon>more_vert</mat-icon>
+    @if (r.search) {
+    <button type="button" mat-icon-button class="bar-button glass" aria-label="Pesquisar" (click)="send('search')">
+      <mat-icon>search</mat-icon>
     </button>
+    }
 
-    <mat-menu #textMenu="matMenu" xPosition="before" class="chrome-menu">
+    <mat-menu #textMenu="matMenu" xPosition="after" class="chrome-menu">
       <p class="menu-title">Texto e aparência</p>
       <!-- Menu items, so the arrow keys reach them; a click here stops short
            of the menu panel, so the menu stays open as the page changes. -->
@@ -54,7 +61,7 @@
       }
     </mat-menu>
 
-    <mat-menu #moreMenu="matMenu" xPosition="before" class="chrome-menu">
+    <mat-menu #moreMenu="matMenu" xPosition="after" class="chrome-menu">
       <button type="button" mat-menu-item role="menuitemcheckbox" [attr.aria-checked]="r.autoScrollVisible"
         [disabled]="!r.autoScrollAvailable" (click)="send('auto-scroll')">
         <mat-icon>{{ r.autoScrollVisible ? "check" : "autoplay" }}</mat-icon>
@@ -134,15 +141,10 @@
       </button>
     </div>
     }
-    <button type="button" matRipple class="passage glass" [attr.aria-label]="r.passageAccessibilityLabel"
+    <button #passage type="button" matRipple class="passage glass" [attr.aria-label]="r.passageAccessibilityLabel"
       aria-description="Escolher livro e capítulo" (click)="send('passage')">
-      {{ r.passageLabel }}
+      {{ passageText() }}
     </button>
-    @if (r.search) {
-    <button type="button" matRipple class="search-fab glass" aria-label="Pesquisar" (click)="send('search')">
-      <mat-icon>search</mat-icon>
-    </button>
-    }
   </div>
   }
 

@@ -7,6 +7,8 @@ import {
   ElementRef,
   effect,
   inject,
+  linkedSignal,
+  signal,
   viewChild,
 } from "@angular/core"
 import { MatButtonModule } from "@angular/material/button"
@@ -51,8 +53,9 @@ const VIEW_MODES = [
 /**
  * The iOS app's bars, drawn by the page in the Android app and in phone
  * browsers (WebChromeBars). Same layout and behaviour as the native ones:
- * text, bookmarks and More on top; arrows, the passage and search below;
- * auto-scroll's controls above them; the search field at the bottom. Same
+ * More and text on the top left, bookmarks and search on the right; the
+ * arrows and the passage below; auto-scroll's controls above them; the
+ * search field at the bottom. Same
  * state and the same taps (NativeChromeService), so pages need no code of
  * their own. The same look too: glass over the page, in its theme's colours.
  */
@@ -105,10 +108,33 @@ export class ChromeBarsComponent {
     return state.mode === "reader" ? state.autoScroll : null
   })
 
+  /** The passage's name, then its shorter forms ("Dt 3"), longest first. */
+  private readonly passageLabels = computed(
+    () => {
+      const reader = this.reader()
+      return reader
+        ? [reader.passageLabel, ...(reader.passageShortLabels ?? [])]
+        : []
+    },
+    { equal: (a, b) => a.join("\n") === b.join("\n") },
+  )
+  /** Which of them fits the toolbar; the name again for a new passage. */
+  private readonly fittedLabel = linkedSignal({
+    source: this.passageLabels,
+    computation: () => 0,
+  })
+  /** Counts the window's resizes, which can change the toolbar's room. */
+  private readonly resizes = signal(0)
+  readonly passageText = computed(() => {
+    const labels = this.passageLabels()
+    return labels[Math.min(this.fittedLabel(), labels.length - 1)] ?? ""
+  })
+
   private readonly topBar = viewChild<ElementRef<HTMLElement>>("topBar")
   private readonly bottomBar = viewChild<ElementRef<HTMLElement>>("bottomBar")
   private readonly autoScrollBar =
     viewChild<ElementRef<HTMLElement>>("autoScrollBar")
+  private readonly passage = viewChild<ElementRef<HTMLElement>>("passage")
   private readonly searchInput =
     viewChild<ElementRef<HTMLInputElement>>("searchInput")
   private readonly safeAreaProbe =
@@ -119,6 +145,18 @@ export class ChromeBarsComponent {
     afterRenderEffect(() => {
       this.state()
       this.measure()
+    })
+
+    // As the iOS toolbar: where the book's name doesn't fit, the longest
+    // shorter form that does; past the last, the label truncates.
+    afterRenderEffect(() => {
+      this.passageText()
+      this.resizes()
+      const passage = this.passage()?.nativeElement
+      if (!passage || passage.scrollWidth <= passage.clientWidth) return
+      if (this.fittedLabel() < this.passageLabels().length - 1) {
+        this.fittedLabel.update((index) => index + 1)
+      }
     })
 
     // The search page opens with its field ready, as on iOS; the query the
@@ -138,8 +176,14 @@ export class ChromeBarsComponent {
 
     if (typeof window === "undefined") return
     const remeasure = () => this.measure()
+    const resized = () => {
+      // More room may fit a longer form again, less may need a shorter one.
+      this.fittedLabel.set(0)
+      this.resizes.update((count) => count + 1)
+      this.measure()
+    }
     const keyboard = () => this.followKeyboard()
-    window.addEventListener("resize", remeasure)
+    window.addEventListener("resize", resized)
     window.visualViewport?.addEventListener("resize", keyboard)
     window.visualViewport?.addEventListener("scroll", keyboard)
     const observer = new ResizeObserver(remeasure)
@@ -154,7 +198,7 @@ export class ChromeBarsComponent {
       }
     })
     this.destroyRef.onDestroy(() => {
-      window.removeEventListener("resize", remeasure)
+      window.removeEventListener("resize", resized)
       window.visualViewport?.removeEventListener("resize", keyboard)
       window.visualViewport?.removeEventListener("scroll", keyboard)
       observer.disconnect()

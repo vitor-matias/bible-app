@@ -94,7 +94,10 @@ describe("barsOnboardingSteps", () => {
 
   it("describes the bars, not the web header", () => {
     expect(step("navigate")?.intro).toContain("barra inferior")
-    expect(step("customize")?.intro).toContain("botão do texto")
+    // On the top left, as on iOS (#170).
+    expect(step("customize")?.intro).toContain(
+      "botão do texto, no topo à esquerda",
+    )
     for (const text of texts) {
       expect(text).not.toContain("☰")
       expect(text).not.toContain("No topo do ecrã")

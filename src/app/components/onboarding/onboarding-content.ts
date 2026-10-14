@@ -106,7 +106,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     intro:
       "Abra o menu ☰ no canto superior esquerdo para ajustar a leitura ao seu gosto.",
     barsIntro:
-      "Toque no botão do texto, no topo à direita, para ajustar a leitura ao seu gosto.",
+      "Toque no botão do texto, no topo à esquerda, para ajustar a leitura ao seu gosto.",
     iosIntro:
       "Toque em AA, no topo à esquerda, para ajustar a leitura ao seu gosto.",
     features: [
