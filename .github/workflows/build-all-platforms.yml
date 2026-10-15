@@ -80,7 +80,7 @@ jobs:
   # both platform jobs. cap:prune copies dist/bible-app/browser to the webDir
   # (dist/bible-app/capacitor) without the prerendered route pages.
   build-native-web:
-    if: ${{ github.event_name == 'push' || inputs.build_android || inputs.build_ios || inputs.testflight }}
+    if: ${{ github.event_name == 'push' || inputs.build_android || inputs.build_ios || inputs.testflight || inputs.create_release }}
     runs-on: ubuntu-latest
     outputs:
       version_name: ${{ steps.version.outputs.name }}
@@ -156,7 +156,7 @@ jobs:
 
   build-android:
     needs: build-native-web
-    if: ${{ github.event_name == 'push' || inputs.build_android }}
+    if: ${{ github.event_name == 'push' || inputs.build_android || inputs.create_release }}
     outputs:
       apk_signed: ${{ steps.check-signing.outputs.apk_signed }}
     runs-on: ubuntu-latest
@@ -295,14 +295,16 @@ jobs:
 
   build-ios-macos:
     needs: build-native-web
-    if: ${{ github.event_name == 'push' || inputs.build_ios || inputs.testflight }}
+    if: ${{ github.event_name == 'push' || inputs.build_ios || inputs.testflight || inputs.create_release }}
     runs-on: macos-latest
-    # A TestFlight upload takes the App Store Connect API key (secrets
+    # Uploads to TestFlight when asked, and for every release: iOS's
+    # counterpart of the Play upload (submitting to review stays manual).
+    # An upload takes the App Store Connect API key (secrets
     # ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8_BASE64), the distribution
     # certificate (IOS_DIST_P12_BASE64, IOS_DIST_P12_PASSWORD) and its App
     # Store profile (IOS_PROFILE_BASE64), which names the app.
     env:
-      UPLOAD_TO_TESTFLIGHT: ${{ inputs.testflight }}
+      UPLOAD_TO_TESTFLIGHT: ${{ inputs.testflight || inputs.create_release || startsWith(github.ref, 'refs/tags/v') }}
       # The committed project pins 1.0 (1); App Store Connect rejects a
       # repeated build number, so both come from the release version.
       MARKETING_VERSION: ${{ needs.build-native-web.outputs.version_name }}
@@ -399,6 +401,11 @@ jobs:
           security import "$RUNNER_TEMP/AppleWWDRCAG3.cer" -k "$KEYCHAIN" > /dev/null
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
             -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          # codesign only accepts an identity whose chain it can build, and it
+          # looks for the intermediate on the keychain search list, so the
+          # (throwaway) runner gets the keychain there.
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          security find-identity -v -p codesigning "$KEYCHAIN"
           echo "$IOS_PROFILE_BASE64" | base64 --decode > "$RUNNER_TEMP/AppStore.mobileprovision"
 
           mkdir -p ios/App/build/output
@@ -420,12 +427,16 @@ jobs:
             ios/App/build/iOS.xcarchive
           retention-days: 30
 
+  # A release ships on both platforms or on neither: the tag (and through it
+  # the Play upload and the GitHub release) waits for the Android and the iOS
+  # build, and is skipped if either fails. It names the version they built.
   create-tag:
     name: Create Git Tag
-    # Only run on manual dispatch when create_release is true
+    needs: [build-native-web, build-android, build-ios-macos]
     if: |
       github.event_name == 'workflow_dispatch' &&
-      inputs.create_release == true
+      inputs.create_release == true &&
+      needs.build-android.outputs.apk_signed == 'true'
     runs-on: ubuntu-latest
     outputs:
       tag_name: ${{ steps.tag.outputs.tag_name }}
@@ -435,30 +446,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Calculate next version and push tag
+      - name: Push the release tag
         id: tag
         run: |
           set -e
-
-          # Find the latest semver tag (vX.Y.Z); fall back to v0.0.0 if none exists
-          LATEST=$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
-          LATEST=${LATEST:-v0.0.0}
-          echo "Latest tag: $LATEST"
-
-          # Strip the leading 'v'
-          VERSION=${LATEST#v}
-          MAJOR=$(echo "$VERSION" | cut -d. -f1)
-          MINOR=$(echo "$VERSION" | cut -d. -f2)
-          PATCH=$(echo "$VERSION" | cut -d. -f3)
-
-          BUMP="${{ inputs.bump }}"
-          case "$BUMP" in
-            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
-            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
-            *)     PATCH=$((PATCH + 1)) ;;
-          esac
-
-          TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          TAG="v${{ needs.build-native-web.outputs.version_name }}"
           echo "New tag: $TAG"
 
           git config user.name  "github-actions[bot]"
@@ -474,11 +466,12 @@ jobs:
   # Console with one release uploaded by hand; the API cannot create it.
   upload-play:
     name: Upload to Google Play
-    needs: [build-android, create-tag]
+    needs: [build-android, build-ios-macos, create-tag]
     if: |
       always() &&
       needs.build-android.result == 'success' &&
       needs.build-android.outputs.apk_signed == 'true' &&
+      needs.build-ios-macos.result == 'success' &&
       (
         (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
         (github.event_name == 'workflow_dispatch' && inputs.create_release == true && needs.create-tag.result == 'success')
@@ -506,12 +499,14 @@ jobs:
 
   create-release:
     name: Create GitHub Release
-    needs: [build-android, create-tag]
-    # Run on version tag pushes OR on manual dispatch when create_release is enabled
+    needs: [build-android, build-ios-macos, create-tag]
+    # Run on version tag pushes OR on manual dispatch when create_release is
+    # enabled, once both platforms have built
     if: |
       always() &&
       needs.build-android.result == 'success' &&
       needs.build-android.outputs.apk_signed == 'true' &&
+      needs.build-ios-macos.result == 'success' &&
       (
         (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
         (github.event_name == 'workflow_dispatch' && inputs.create_release == true && needs.create-tag.result == 'success')
