@@ -297,14 +297,15 @@ jobs:
     needs: build-native-web
     if: ${{ github.event_name == 'push' || inputs.build_ios || inputs.testflight || inputs.create_release }}
     runs-on: macos-latest
-    # Uploads to TestFlight when asked, and for every release: iOS's
-    # counterpart of the Play upload (submitting to review stays manual).
-    # An upload takes the App Store Connect API key (secrets
-    # ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8_BASE64), the distribution
-    # certificate (IOS_DIST_P12_BASE64, IOS_DIST_P12_PASSWORD) and its App
-    # Store profile (IOS_PROFILE_BASE64), which names the app.
+    # Signs the build for the App Store when it's bound for TestFlight: when
+    # asked, and for every release. Signing takes the distribution
+    # certificate (secrets IOS_DIST_P12_BASE64, IOS_DIST_P12_PASSWORD) and its
+    # App Store profile (IOS_PROFILE_BASE64), which names the app; the upload
+    # is upload-app-store's, like Android's is upload-play's.
+    outputs:
+      ipa_signed: ${{ steps.sign.outputs.signed }}
     env:
-      UPLOAD_TO_TESTFLIGHT: ${{ inputs.testflight || inputs.create_release || startsWith(github.ref, 'refs/tags/v') }}
+      SIGN_FOR_APP_STORE: ${{ inputs.testflight || inputs.create_release || startsWith(github.ref, 'refs/tags/v') }}
       # The committed project pins 1.0 (1); App Store Connect rejects a
       # repeated build number, so both come from the release version.
       MARKETING_VERSION: ${{ needs.build-native-web.outputs.version_name }}
@@ -347,10 +348,10 @@ jobs:
       # version, so each upload adds the run: after v1.0.12, run 15 builds
       # 1.0.13 (1000013.15.1).
       - name: Number the TestFlight build
-        if: ${{ env.UPLOAD_TO_TESTFLIGHT == 'true' }}
+        if: ${{ env.SIGN_FOR_APP_STORE == 'true' }}
         run: echo "CURRENT_PROJECT_VERSION=$CURRENT_PROJECT_VERSION.$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
 
-      # Always archived unsigned: the TestFlight upload signs afterwards.
+      # Always archived unsigned: the build is signed afterwards.
       # Signing here would need provisioning settings that the Swift packages'
       # targets refuse when set from the command line.
       - name: Build iOS app (Unsigned)
@@ -373,13 +374,12 @@ jobs:
       # Holder may create certificates, so Xcode's cloud signing is refused to
       # the runner and the API key alike. The build is signed with the
       # certificate and App Store profile he made (ios/scripts/sign-ipa.sh),
-      # from a throwaway keychain; the key only uploads it.
-      - name: Sign and upload to TestFlight
-        if: ${{ env.UPLOAD_TO_TESTFLIGHT == 'true' }}
+      # from a throwaway keychain. Signing here rather than at upload means a
+      # signing failure fails the build, and so blocks a release.
+      - name: Sign for the App Store
+        id: sign
+        if: ${{ env.SIGN_FOR_APP_STORE == 'true' }}
         env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
           IOS_DIST_P12_BASE64: ${{ secrets.IOS_DIST_P12_BASE64 }}
           IOS_DIST_P12_PASSWORD: ${{ secrets.IOS_DIST_P12_PASSWORD }}
           IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
@@ -387,7 +387,7 @@ jobs:
           set -e
           KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
           KEYCHAIN_PASSWORD=$(openssl rand -hex 24)
-          trap 'security delete-keychain "$KEYCHAIN" 2> /dev/null; rm -f "$RUNNER_TEMP"/*.p12 "$RUNNER_TEMP"/*.p8' EXIT
+          trap 'security delete-keychain "$KEYCHAIN" 2> /dev/null; rm -f "$RUNNER_TEMP"/*.p12' EXIT
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security set-keychain-settings -lut 3600 "$KEYCHAIN"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
@@ -412,11 +412,15 @@ jobs:
           ios/scripts/sign-ipa.sh ios/App/build/iOS.xcarchive \
             "$RUNNER_TEMP/AppStore.mobileprovision" "$KEYCHAIN" \
             ios/App/build/output/App.ipa
+          echo "signed=true" >> "$GITHUB_OUTPUT"
 
-          echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
-          xcrun altool --upload-app -f ios/App/build/output/App.ipa -t ios \
-            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" \
-            --p8-file-path "$RUNNER_TEMP/AuthKey.p8"
+      - name: Upload signed IPA
+        if: ${{ steps.sign.outputs.signed == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: ios/App/build/output/App.ipa
+          retention-days: 1
 
       - name: Upload iOS artifact
         uses: actions/upload-artifact@v4
@@ -496,6 +500,50 @@ jobs:
           releaseFiles: aab/**/app-release.aab
           track: ${{ inputs.play_track || 'internal' }}
           status: completed
+
+  # iOS's counterpart of upload-play: sends the signed build to App Store
+  # Connect, where it lands in TestFlight (submitting it to review stays
+  # manual). A release waits, like Play, for both builds and the tag; a
+  # TestFlight-only run needs only the iOS build. altool takes the App Store
+  # Connect API key (secrets ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8_BASE64).
+  upload-app-store:
+    name: Upload to App Store Connect
+    needs: [build-android, build-ios-macos, create-tag]
+    if: |
+      always() &&
+      needs.build-ios-macos.result == 'success' &&
+      needs.build-ios-macos.outputs.ipa_signed == 'true' &&
+      (
+        (github.event_name == 'workflow_dispatch' && inputs.testflight == true && inputs.create_release != true) ||
+        (
+          needs.build-android.result == 'success' &&
+          needs.build-android.outputs.apk_signed == 'true' &&
+          (
+            (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+            (github.event_name == 'workflow_dispatch' && inputs.create_release == true && needs.create-tag.result == 'success')
+          )
+        )
+      )
+    runs-on: macos-latest
+    steps:
+      - name: Download signed IPA
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-ipa
+          path: ipa
+
+      - name: Upload to App Store Connect
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          set -e
+          trap 'rm -f "$RUNNER_TEMP/AuthKey.p8"' EXIT
+          echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          xcrun altool --upload-app -f ipa/App.ipa -t ios \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" \
+            --p8-file-path "$RUNNER_TEMP/AuthKey.p8"
 
   create-release:
     name: Create GitHub Release
