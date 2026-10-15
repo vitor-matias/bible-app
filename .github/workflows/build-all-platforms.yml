@@ -113,8 +113,8 @@ jobs:
           path: dist/bible-app/capacitor
           retention-days: 1
 
-      # Release tag, or the next version from the latest tag. Format of the
-      # build number: 1.2.3 -> 1002003.
+      # Release tag, the latest tag, or (for a release or a TestFlight build)
+      # the next version after it. Format of the build number: 1.2.3 -> 1002003.
       - name: Compute version
         id: version
         run: |
@@ -129,7 +129,9 @@ jobs:
             MINOR=$(echo "$VERSION" | cut -d. -f2)
             PATCH=$(echo "$VERSION" | cut -d. -f3)
             
-            if [[ "${{ inputs.create_release }}" == "true" ]]; then
+            # A TestFlight build is a candidate for the next release: App
+            # Store Connect closes a version to new builds once it's released.
+            if [[ "${{ inputs.create_release }}" == "true" || "${{ inputs.testflight }}" == "true" ]]; then
               BUMP="${{ inputs.bump }}"
               case "$BUMP" in
                 major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
@@ -338,9 +340,10 @@ jobs:
           echo "Listing available destinations:"
           xcodebuild -project ios/App/App.xcodeproj -scheme App -showdestinations || true
 
-      # Test builds reuse the latest tag's version, and App Store Connect
-      # refuses a build number it has already seen for a version, so each
-      # upload adds the run: v1.0.12, run 15 -> build 1000012.15.1.
+      # Until it's tagged, every TestFlight build shares the next version, and
+      # App Store Connect refuses a build number it has already seen for a
+      # version, so each upload adds the run: after v1.0.12, run 15 builds
+      # 1.0.13 (1000013.15.1).
       - name: Number the TestFlight build
         if: ${{ env.UPLOAD_TO_TESTFLIGHT == 'true' }}
         run: echo "CURRENT_PROJECT_VERSION=$CURRENT_PROJECT_VERSION.$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
