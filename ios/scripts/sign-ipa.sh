@@ -28,7 +28,7 @@ security cms -D -i "$PROFILE" > "$WORK/profile.plist"
 APP_ID=$(plutil -extract Entitlements.application-identifier raw -o - "$WORK/profile.plist")
 TEAM_ID=$(plutil -extract TeamIdentifier.0 raw -o - "$WORK/profile.plist")
 IDENTITY=$(plutil -extract DeveloperCertificates.0 raw -o - "$WORK/profile.plist" |
-  base64 -d | shasum -a 1 | cut -d ' ' -f 1 | tr 'a-f' 'A-F')
+  base64 --decode | shasum -a 1 | cut -d ' ' -f 1 | tr 'a-f' 'A-F')
 
 cat > "$WORK/entitlements.plist" << EOF
 <?xml version="1.0" encoding="UTF-8"?>

@@ -386,7 +386,7 @@ jobs:
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security set-keychain-settings -lut 3600 "$KEYCHAIN"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          echo "$IOS_DIST_P12_BASE64" | base64 -d > "$RUNNER_TEMP/distribution.p12"
+          echo "$IOS_DIST_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/distribution.p12"
           security import "$RUNNER_TEMP/distribution.p12" -k "$KEYCHAIN" \
             -P "$IOS_DIST_P12_PASSWORD" -T /usr/bin/codesign > /dev/null
           # The intermediate that issues Apple Distribution certificates, so
@@ -396,14 +396,14 @@ jobs:
           security import "$RUNNER_TEMP/AppleWWDRCAG3.cer" -k "$KEYCHAIN" > /dev/null
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
             -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
-          echo "$IOS_PROFILE_BASE64" | base64 -d > "$RUNNER_TEMP/AppStore.mobileprovision"
+          echo "$IOS_PROFILE_BASE64" | base64 --decode > "$RUNNER_TEMP/AppStore.mobileprovision"
 
           mkdir -p ios/App/build/output
           ios/scripts/sign-ipa.sh ios/App/build/iOS.xcarchive \
             "$RUNNER_TEMP/AppStore.mobileprovision" "$KEYCHAIN" \
             ios/App/build/output/App.ipa
 
-          echo "$ASC_KEY_P8_BASE64" | base64 -d > "$RUNNER_TEMP/AuthKey.p8"
+          echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
           xcrun altool --upload-app -f ios/App/build/output/App.ipa -t ios \
             --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" \
             --p8-file-path "$RUNNER_TEMP/AuthKey.p8"
