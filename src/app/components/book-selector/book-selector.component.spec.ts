@@ -1,5 +1,12 @@
-import { SimpleChange } from "@angular/core"
-import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import { Component, SimpleChange, ViewChild } from "@angular/core"
+import {
+  type ComponentFixture,
+  fakeAsync,
+  flush,
+  TestBed,
+} from "@angular/core/testing"
+import { MATERIAL_ANIMATIONS } from "@angular/material/core"
+import { MatDrawer, MatSidenavModule } from "@angular/material/sidenav"
 import type { CanonGroup } from "../../bible-canon"
 
 import { BookSelectorComponent } from "./book-selector.component"
@@ -106,6 +113,44 @@ describe("BookSelectorComponent", () => {
     const groups = component.otDataSource.data as CanonGroup[]
     const pentateuco = groups.find((group) => group.name === "Pentateuco")
     expect(pentateuco?.books[0]).toBe("pentateuco")
+  })
+
+  it("names a cluster's introduction, listed before its books", () => {
+    component.books = [
+      {
+        id: "joao",
+        name: "Cartas de João",
+        shortName: "Cartas de João",
+        abrv: "joao",
+        chapterCount: 0,
+        introduction: [],
+        introSlug: "joao",
+      },
+      {
+        id: "1jn",
+        name: "Primeira Carta de São João",
+        shortName: "1 João",
+        abrv: "1 Jo",
+        chapterCount: 5,
+      },
+    ]
+    component.ngOnChanges({
+      books: new SimpleChange(undefined, component.books, true),
+    })
+
+    const groups = component.ntDataSource.data as CanonGroup[]
+    const catholic = groups.find((group) => group.name === "Cartas Católicas")
+    expect(catholic?.books).toEqual([
+      "jas",
+      "1pe",
+      "2pe",
+      "joao",
+      "1jn",
+      "2jn",
+      "3jn",
+      "jud",
+    ])
+    expect(component.entryLabel("joao")).toBe("Cartas de João")
   })
 
   it("omits introduction entries the API did not provide", () => {
@@ -284,4 +329,61 @@ describe("BookSelectorComponent", () => {
     host.style.setProperty("--app-inset-bottom", "100px")
     expect(getComputedStyle(list).paddingBottom).toBe("8px")
   })
+})
+
+@Component({
+  imports: [MatSidenavModule, BookSelectorComponent],
+  template: `
+    <mat-drawer-container>
+      <mat-drawer mode="over">
+        <book-selector [books]="books" selectedBookId="mal"></book-selector>
+      </mat-drawer>
+    </mat-drawer-container>
+  `,
+})
+class DrawerHostComponent {
+  books: Book[] = [
+    {
+      id: "mal",
+      name: "Livro do Profeta Malaquias",
+      shortName: "Malaquias",
+      abrv: "Ml",
+      chapterCount: 3,
+    },
+  ]
+  @ViewChild(MatDrawer) drawer!: MatDrawer
+}
+
+describe("BookSelectorComponent in the reader's drawer", () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [DrawerHostComponent],
+      providers: [
+        {
+          provide: MATERIAL_ANIMATIONS,
+          useValue: { animationsDisabled: true },
+        },
+      ],
+    })
+  })
+
+  // The reader builds the list with the page, inside the closed drawer, whose
+  // content is display: none. The only scroll ran then and moved nothing, so
+  // the drawer opened at Génesis whatever the book.
+  it("scrolls to the selected book when the drawer opens", fakeAsync(() => {
+    const fixture = TestBed.createComponent(DrawerHostComponent)
+    const scrollSpy = spyOn(Element.prototype, "scrollIntoView")
+    fixture.detectChanges()
+    flush()
+    expect(scrollSpy).not.toHaveBeenCalled()
+
+    fixture.componentInstance.drawer.open()
+    flush()
+
+    const malaquias = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-book-id="mal"]',
+    ) as HTMLElement
+    expect(scrollSpy).toHaveBeenCalledTimes(1)
+    expect(scrollSpy.calls.mostRecent().object).toBe(malaquias)
+  }))
 })

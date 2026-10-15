@@ -1,6 +1,7 @@
 import {
   ABOUT_GROUP,
   type CanonGroup,
+  isClusterIntro,
   NEW_TESTAMENT_GROUPS,
   NEW_TESTAMENT_INTRO,
   OLD_TESTAMENT_GROUPS,
@@ -8,7 +9,7 @@ import {
   withIntros,
 } from "../bible-canon"
 import { BookService } from "../services/book.service"
-import { passageSpokenLabel } from "./passage-label"
+import { cleanAbbreviation, passageSpokenLabel } from "./passage-label"
 import { liturgicalPsalmNumber, PSALMS_BOOK_ID } from "./psalms"
 
 /** Mirrors PassagePickerData in ios/App/App/PassagePicker.swift. */
@@ -72,7 +73,11 @@ export function buildPassagePicker(
   const pickerBook = (book: Book): PickerBook => ({
     id: book.id,
     // Introductions read just "Introdução": the group above gives the context.
-    label: book.introSlug ? "Introdução" : book.shortName,
+    // A cluster's, among the group's books, goes by its name.
+    label:
+      book.introSlug && !isClusterIntro(book.id)
+        ? "Introdução"
+        : book.shortName,
     name: book.name,
     abbreviation: compactLabel(book),
     chapters: chaptersOf(book).map((chapter) => ({
@@ -122,11 +127,6 @@ function compactLabel(book: Book): string {
   if (book.introSlug) return "Intro"
   if (book.id === "about") return "Sobre"
   return cleanAbbreviation(book.abrv)
-}
-
-/** The API's abbreviations carry stray spaces and byte-order marks ("Tg \ufeff"). */
-export function cleanAbbreviation(abrv: string): string {
-  return abrv.replace(/[\s\ufeff]+/g, " ").trim()
 }
 
 /** The book's chapters as the reader numbers them: 0 is the introduction. */

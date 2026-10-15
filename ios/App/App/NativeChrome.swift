@@ -21,7 +21,7 @@ struct ChromeState: Equatable {
     enum Mode: String {
         /// No native bars (e.g. the reader before its books load).
         case none
-        /// Top: the More menu. Bottom: chapter arrows, passage picker, search.
+        /// Top: ⋯, text; Marcadores, search. Bottom: chapter arrows, passage picker.
         case reader
         /// Top: Back. Bottom: the search field, above the keyboard.
         case search
@@ -38,6 +38,8 @@ struct ChromeState: Equatable {
 
     // Reader
     var passageLabel = ""
+    /// Shorter forms, longest first ("Dt 3"), for a toolbar too narrow for the name.
+    var passageShortLabels: [String] = []
     var passageAccessibilityLabel = ""
     var chapterNavigation = false
     var canGoPrevious = false
@@ -69,6 +71,7 @@ struct ChromeState: Equatable {
         collapsed = call.getBool("collapsed", false)
         themeMode = call.getString("themeMode", "system")
         passageLabel = call.getString("passageLabel", "")
+        passageShortLabels = call.getArray("passageShortLabels", String.self) ?? []
         passageAccessibilityLabel = call.getString("passageAccessibilityLabel", passageLabel)
         chapterNavigation = call.getBool("chapterNavigation", false)
         canGoPrevious = call.getBool("canGoPrevious", false)
@@ -91,12 +94,15 @@ struct ChromeState: Equatable {
 struct AutoScrollState: Equatable {
     var playing: Bool
     var speedLabel: String
+    /// In words, for VoiceOver: "1,5 linhas por segundo".
+    var speedAccessibilityLabel: String
     var canSlower: Bool
     var canFaster: Bool
 
     init(_ object: JSObject) {
         playing = object["playing"] as? Bool ?? false
         speedLabel = object["speedLabel"] as? String ?? ""
+        speedAccessibilityLabel = object["speedAccessibilityLabel"] as? String ?? speedLabel
         canSlower = object["canSlower"] as? Bool ?? false
         canFaster = object["canFaster"] as? Bool ?? false
     }
@@ -225,6 +231,9 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
 struct ChromeInsets: Equatable {
     var top: CGFloat = 0
     var bottom: CGFloat = 0
+    /// The reader's bars are hidden for reading. Not always when the page asks:
+    /// under VoiceOver they stay, and the page keeps its edge fades for them.
+    var collapsed = false
 
-    var dictionary: [String: Any] { ["top": top, "bottom": bottom] }
+    var dictionary: [String: Any] { ["top": top, "bottom": bottom, "collapsed": collapsed] }
 }

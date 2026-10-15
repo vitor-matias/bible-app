@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The web header's background (header.component.css). -->
+    <color name="header_background">#543D27</color>
+</resources>

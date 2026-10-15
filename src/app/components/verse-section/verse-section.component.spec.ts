@@ -1,10 +1,11 @@
 import { SimpleChange } from "@angular/core"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
-import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
-import { provideRouter, Router } from "@angular/router"
-import { BibleReferenceService } from "../../services/bible-reference.service"
-import { BookService } from "../../services/book.service"
-import { NativeChromeService } from "../../services/native-chrome.service"
+import { provideRouter } from "@angular/router"
+import {
+  type BibleReference,
+  BibleReferenceService,
+} from "../../services/bible-reference.service"
+import { ToastService } from "../../services/toast.service"
 import { VerseSectionComponent } from "./verse-section.component"
 
 function makeVerse(overrides: Partial<Verse> = {}): Verse {
@@ -35,41 +36,25 @@ describe("VerseSectionComponent", () => {
   let component: VerseSectionComponent
   let fixture: ComponentFixture<VerseSectionComponent>
   let mockBibleRef: jasmine.SpyObj<BibleReferenceService>
-  let mockSnackBar: MatSnackBar
-  let mockBookService: jasmine.SpyObj<BookService>
+  let toast: jasmine.SpyObj<ToastService>
 
   beforeEach(async () => {
     mockBibleRef = jasmine.createSpyObj("BibleReferenceService", ["extract"])
     mockBibleRef.extract.and.returnValue([])
 
-    mockSnackBar = jasmine.createSpyObj("MatSnackBar", ["openFromComponent"])
-
-    mockBookService = jasmine.createSpyObj("BookService", [
-      "findBook",
-      "getUrlAbrv",
-    ])
-    mockBookService.findBook.and.returnValue({
-      id: "gen",
-      shortName: "Gn",
-      abrv: "Gn",
-      name: "Génesis",
-      chapterCount: 50,
-    } as Book)
-    mockBookService.getUrlAbrv.and.returnValue("gn")
+    toast = jasmine.createSpyObj("ToastService", ["showReturn"])
 
     await TestBed.configureTestingModule({
-      imports: [VerseSectionComponent, MatSnackBarModule],
+      imports: [VerseSectionComponent],
       providers: [
         provideRouter([]),
         { provide: BibleReferenceService, useValue: mockBibleRef },
-        { provide: BookService, useValue: mockBookService },
+        { provide: ToastService, useValue: toast },
       ],
     }).compileComponents()
 
     fixture = TestBed.createComponent(VerseSectionComponent)
     component = fixture.componentInstance
-    mockSnackBar = (component as unknown as { snackBar: MatSnackBar }).snackBar
-    spyOn(mockSnackBar, "openFromComponent")
   })
 
   it("should create", () => {
@@ -138,77 +123,52 @@ describe("VerseSectionComponent", () => {
     })
   })
 
-  describe("showReturnSnackbar", () => {
-    it("should open snackbar with return location info", () => {
+  describe("references in a heading", () => {
+    // "(Mc 4,21; 9,50)": two links between the edition's own punctuation.
+    const text = "(Mc 4,21; 9,50)"
+    const reference = (match: string, index: number) =>
+      ({ match, index, book: "mrk", chapter: 4 }) as BibleReference
+
+    beforeEach(() => {
+      mockBibleRef.extract.and.returnValue([
+        reference("Mc 4,21", 1),
+        reference("9,50", 10),
+      ])
       component.changeLine = false
       setData(
         component,
-        makeVerse({ bookId: "gen", chapterNumber: 3, number: 5 }),
+        makeVerse({
+          text: [
+            { type: "section", tag: "s1", text: "Sal da terra" },
+            { type: "references", text },
+          ],
+        }),
       )
-
-      component.showReturnSnackbar()
-      const spy = mockSnackBar.openFromComponent as jasmine.Spy
-      expect(spy.calls.mostRecent().args[1].data.message).toBe(
-        "Voltar para Gn 3,5",
-      )
+      fixture.detectChanges()
     })
 
-    it("should use verse 1 when verse number is 0", () => {
-      component.changeLine = false
-      setData(
-        component,
-        makeVerse({ bookId: "gen", chapterNumber: 1, number: 0 }),
+    it("keeps the edition's spacing around the links", () => {
+      const references: HTMLElement =
+        fixture.nativeElement.querySelector(".references")
+      expect(references.textContent?.trim()).toBe(text)
+    })
+
+    it("keeps the closing dash on the heading's last line", () => {
+      const sections: HTMLElement[] = Array.from(
+        fixture.nativeElement.querySelectorAll(".section .section"),
       )
-
-      component.showReturnSnackbar()
-
-      const spy = mockSnackBar.openFromComponent as jasmine.Spy
-      const callArgs = spy.calls.mostRecent().args[1]
-      expect((callArgs.data as { message: string }).message).toContain(",1")
+      expect(sections[sections.length - 1].textContent).toBe("\u00a0— ")
     })
   })
 
-  describe("in the iOS app", () => {
-    let toast: jasmine.Spy
-
-    beforeEach(() => {
-      toast = jasmine.createSpy("toast")
-      TestBed.resetTestingModule()
-      TestBed.configureTestingModule({
-        imports: [VerseSectionComponent, MatSnackBarModule],
-        providers: [
-          provideRouter([]),
-          { provide: BibleReferenceService, useValue: mockBibleRef },
-          { provide: BookService, useValue: mockBookService },
-          {
-            provide: NativeChromeService,
-            useValue: { enabled: true, toast },
-          },
-        ],
-      })
-      fixture = TestBed.createComponent(VerseSectionComponent)
-      component = fixture.componentInstance
-      mockSnackBar = (component as unknown as { snackBar: MatSnackBar })
-        .snackBar
-      spyOn(mockSnackBar, "openFromComponent")
-    })
-
-    it("offers the way back as a glass toast that is a button", () => {
-      const router = TestBed.inject(Router)
-      const navigate = spyOn(router, "navigate").and.resolveTo(true)
-      setData(component, makeVerse({ chapterNumber: 3, number: 5 }))
+  describe("showReturnSnackbar", () => {
+    it("offers the way back to this verse", () => {
+      const verse = makeVerse({ chapterNumber: 3, number: 5 })
+      setData(component, verse)
 
       component.showReturnSnackbar()
 
-      expect(mockSnackBar.openFromComponent).not.toHaveBeenCalled()
-      expect(toast).toHaveBeenCalledOnceWith("Voltar para Gn 3,5", {
-        symbol: "arrow.uturn.backward",
-        onTap: jasmine.any(Function),
-      })
-      toast.calls.mostRecent().args[1].onTap()
-      expect(navigate).toHaveBeenCalledWith(["gn", 3], {
-        queryParams: { verseStart: 5, highlight: false },
-      })
+      expect(toast.showReturn).toHaveBeenCalledOnceWith(verse)
     })
   })
 

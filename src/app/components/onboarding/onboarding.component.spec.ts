@@ -365,6 +365,60 @@ describe("OnboardingComponent", () => {
     expect(element.querySelector(".install-done")).toBeNull()
     expect(element.querySelector(".guide")).not.toBeNull()
   })
+
+  describe("footer layout", () => {
+    function rect(selector: string): DOMRect {
+      const found = element.querySelector(selector)
+      if (!found) throw new Error(`No ${selector}`)
+      return found.getBoundingClientRect()
+    }
+
+    /** Lays out every step in a dialog `width` wide. */
+    function eachStep(width: number, check: (stepId: string) => void): void {
+      create()
+      element.style.width = `${width}px`
+      component.steps.forEach((step, i) => {
+        component.goTo(i)
+        fixture.detectChanges()
+        check(step.id)
+      })
+    }
+
+    // On a 360px Android phone the first step's buttons fitted beside the
+    // dots and the next step's wrapped under them, so they jumped between rows.
+    it("gives the dots and the buttons a row each on every step of a phone-width dialog", () => {
+      pwa.isInstalled = true // the four steps of the Android app
+
+      eachStep(331, (stepId) => {
+        const footer = rect(".actions")
+        const dots = element.querySelectorAll(".dot")
+        const firstDot = dots[0].getBoundingClientRect()
+        const lastDot = dots[dots.length - 1].getBoundingClientRect()
+        const [secondary, primary] = Array.from(
+          element.querySelectorAll(".buttons button"),
+          (candidate) => candidate.getBoundingClientRect(),
+        )
+
+        expect(secondary.top)
+          .withContext(stepId)
+          .toBeGreaterThanOrEqual(firstDot.bottom)
+        expect(firstDot.left - footer.left)
+          .withContext(`${stepId}: dots centred`)
+          .toBeCloseTo(footer.right - lastDot.right, 0)
+        expect(secondary.left - footer.left)
+          .withContext(`${stepId}: buttons at the edges`)
+          .toBeCloseTo(footer.right - primary.right, 0)
+      })
+    })
+
+    it("keeps the dots and the buttons on one row in a wider dialog", () => {
+      eachStep(520, (stepId) => {
+        expect(rect(".buttons").top)
+          .withContext(stepId)
+          .toBeLessThan(rect(".dots").bottom)
+      })
+    })
+  })
 })
 
 describe("getInstallGuide", () => {

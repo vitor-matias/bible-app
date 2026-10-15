@@ -214,7 +214,7 @@ describe("SearchComponent", () => {
       expect(apiService.search).toHaveBeenCalledOnceWith("pastor", 1)
     }))
 
-    it("leaves references and book names for Return", fakeAsync(() => {
+    it("leaves references for Return", fakeAsync(() => {
       referenceService.extract.and.returnValue([
         { book: "jhn", chapter: 3 },
       ] as unknown as ReturnType<BibleReferenceService["extract"]>)
@@ -294,6 +294,56 @@ describe("SearchComponent", () => {
         )
       })
 
+      // A book's name is also a word: "sabedoria" never reached the search,
+      // and Return left for the Book of Wisdom.
+      describe("for a book's name", () => {
+        const wisdom = {
+          id: "wis",
+          name: "Livro da Sabedoria",
+          shortName: "Sabedoria",
+          abrv: "Sb",
+        } as Book
+
+        beforeEach(() => bookService.findBook.and.returnValue(wisdom))
+
+        it("searches it as a word on the pause, still offering the book", fakeAsync(() => {
+          component.onTyping("sabedoria")
+          expect(component.pendingSearch).toBeTrue()
+
+          tick(TYPING_PAUSE_MS)
+          expect(apiService.search).toHaveBeenCalledOnceWith("sabedoria", 1)
+          expect(router.navigate).not.toHaveBeenCalled()
+          expect(component.passageSuggestion?.label).toBe(
+            "Abrir Livro da Sabedoria",
+          )
+        }))
+
+        it("opens the book on Return", fakeAsync(() => {
+          apiService.getVerse.and.returnValue(of({} as Verse))
+          void component.onSearchSubmit("sabedoria")
+          tick()
+
+          expect(router.navigate).toHaveBeenCalledWith(["/", "wis", 1], {})
+          expect(apiService.search).not.toHaveBeenCalled()
+        }))
+
+        // Return before the pause: the pause then searched the name, which
+        // superseded the book still being looked up, and nothing opened.
+        it("opens it on Return even when the lookup outlasts the pause", fakeAsync(() => {
+          const verse = new Subject<Verse>()
+          apiService.getVerse.and.returnValue(verse)
+          component.onTyping("sabedoria")
+          void component.onSearchSubmit("sabedoria")
+          tick(TYPING_PAUSE_MS)
+          expect(apiService.search).not.toHaveBeenCalled()
+
+          verse.next({} as Verse)
+          verse.complete()
+          tick()
+          expect(router.navigate).toHaveBeenCalledWith(["/", "wis", 1], {})
+        }))
+      })
+
       it("offers the choice for a psalm the liturgy numbers otherwise", () => {
         referenceService.extract.and.returnValue([
           { book: "Sl", chapter: 94 },
@@ -307,6 +357,30 @@ describe("SearchComponent", () => {
         component.onTyping("Sl 94")
         expect(component.passageSuggestion?.label).toBe("Escolher o Salmo 94")
       })
+
+      // Before, "Escolher o Salmo 94" stayed above the two psalms it offered.
+      it("goes away once taken up", fakeAsync(() => {
+        referenceService.extract.and.returnValue([
+          { book: "Sl", chapter: 94 },
+        ] as unknown as ReturnType<BibleReferenceService["extract"]>)
+        bookService.findBook.and.returnValue({
+          id: "psa",
+          name: "Livro dos Salmos",
+          shortName: "Salmos",
+          abrv: "Sl",
+        } as Book)
+        apiService.getVerse.and.returnValue(
+          of({ text: [] } as unknown as Verse),
+        )
+        component.onTyping("Sl 94")
+        ;(host().querySelector(".passage-suggestion") as HTMLElement).click()
+        tick()
+        fixture.detectChanges()
+
+        expect(component.psalmChoice?.length).toBe(2)
+        expect(component.passageSuggestion).toBeNull()
+        expect(host().querySelector(".passage-suggestion")).toBeNull()
+      }))
 
       // Before, nothing showed for the whole pause: it read as broken.
       it("says it is searching until the search runs", fakeAsync(() => {

@@ -20,7 +20,11 @@ import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
 import { PwaInstallService } from "./services/pwa-install.service"
 import { ThemeService } from "./services/theme.service"
+import { ToastService } from "./services/toast.service"
 import { APP_PLUGIN } from "./tokens"
+
+/** How long after a back on the first screen a second one leaves the app. */
+export const EXIT_BACK_WINDOW_MS = 2000
 
 @Component({
   selector: "app-root",
@@ -33,6 +37,8 @@ import { APP_PLUGIN } from "./tokens"
 export class AppComponent implements OnInit, OnDestroy {
   private installEventFired = false
   private readonly listenerHandles: PluginListenerHandle[] = []
+  /** Until when a back on the first screen leaves the app. */
+  private exitBackDeadline = 0
 
   private readonly installListener = () => {
     this.installEventFired = true
@@ -51,6 +57,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private dialog: MatDialog,
     private nativeShell: NativeShellService,
     private backButton: BackButtonService,
+    private toast: ToastService,
   ) {
     // Speed Insights is served by the Vercel deployment; the native apps load
     // from a local origin where its script does not exist.
@@ -116,11 +123,15 @@ export class AppComponent implements OnInit, OnDestroy {
   /**
    * Android's hardware back button (and back gesture). Registering a listener
    * disables Capacitor's default, which exits the app from any screen: close
-   * the topmost overlay or panel first, then go back in history, and on the
-   * first screen send the app to the background like other Android apps
-   * (exiting would make the next launch a cold start).
+   * the topmost overlay or panel first, then go back in history. On the first
+   * screen, a second back within EXIT_BACK_WINDOW_MS sends the app to the
+   * background like other Android apps (exiting would make the next launch a
+   * cold start); a lone one only says so, so a stray gesture can't leave.
    */
   private handleBackButton({ canGoBack }: BackButtonListenerEvent): void {
+    // Any other back in between (a panel, a page) takes two again.
+    const exitArmed = Date.now() < this.exitBackDeadline
+    this.exitBackDeadline = 0
     const dialogs = this.dialog.openDialogs
     if (dialogs.length > 0) {
       dialogs[dialogs.length - 1].close()
@@ -131,7 +142,15 @@ export class AppComponent implements OnInit, OnDestroy {
       window.history.back()
       return
     }
-    void this.appPlugin.minimizeApp()
+    if (exitArmed) {
+      void this.appPlugin.minimizeApp()
+      return
+    }
+    this.exitBackDeadline = Date.now() + EXIT_BACK_WINDOW_MS
+    this.toast.show("Volte atrás outra vez para sair.", {
+      action: "",
+      duration: EXIT_BACK_WINDOW_MS,
+    })
   }
 
   /**

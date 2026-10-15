@@ -25,6 +25,8 @@ const SCROLL_THRESHOLD = 5
 const RESIZE_DEBOUNCE_MS = 150
 // Debounce delay for processing DOM insertions (e.g. newly loaded verses)
 const MUTATION_DEBOUNCE_MS = 150
+// A smooth page turn has ended by then, even if no scroll event said so
+const TURN_SETTLE_MS = 1000
 
 /**
  * Directive that handles "paged" reading mode navigation.
@@ -57,6 +59,11 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   private spacer?: HTMLElement
   private layoutFrame?: number
   private _stayAtEnd = false
+  /** A drag under way: the page it started on, and the scroll position then. */
+  private drag?: { page: number; left: number }
+  /** The page a smooth turn is heading for: another turn goes on from it. */
+  private targetPage?: number
+  private targetTimeout?: number
   private readonly platformId = inject(PLATFORM_ID)
 
   constructor(
@@ -99,6 +106,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   ngOnDestroy(): void {
     clearTimeout(this.resizeTimeout)
     clearTimeout(this.alignmentTimeout)
+    clearTimeout(this.targetTimeout)
     if (this.layoutFrame !== undefined) cancelAnimationFrame(this.layoutFrame)
     this.mutationObserver?.disconnect()
     this.removeSpacer()
@@ -114,6 +122,13 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   @HostListener("scroll")
   onScroll(): void {
     if (this.viewMode !== "paged" || !this.container) return
+
+    if (this.targetPage !== undefined && this.bookBlock) {
+      const left = this.targetPage * this.getAdvanceWidth(this.bookBlock)
+      if (Math.abs(this.container.scrollLeft - left) <= SCROLL_THRESHOLD) {
+        this.setTarget(undefined)
+      }
+    }
 
     const isFirstPage = this.container.scrollLeft <= SCROLL_THRESHOLD
     const maxScroll = this.container.scrollWidth - this.container.clientWidth
@@ -144,16 +159,17 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
 
     this._stayAtEnd = false
     const advanceWidth = this.getAdvanceWidth(block)
-    const scrollLeft = this.container.scrollLeft
-    const scrollWidth = this.container.scrollWidth
-    const maxScroll = scrollWidth - this.container.clientWidth
+    const currentPageIndex = this.currentPage(advanceWidth)
+    const maxScroll = this.container.scrollWidth - this.container.clientWidth
+    this.releaseDrag()
 
-    if (maxScroll <= 0 || scrollLeft >= maxScroll - SCROLL_THRESHOLD) {
+    if (
+      maxScroll <= 0 ||
+      currentPageIndex * advanceWidth >= maxScroll - SCROLL_THRESHOLD
+    ) {
       this.nextChapter.emit()
     } else {
-      const currentPageIndex = Math.round(scrollLeft / advanceWidth)
-      const nextScrollLeft = (currentPageIndex + 1) * advanceWidth
-      this.container.scrollTo({ left: nextScrollLeft, behavior: "smooth" })
+      this.turnTo(currentPageIndex + 1, advanceWidth)
     }
   }
 
@@ -165,15 +181,93 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
 
     this._stayAtEnd = false
     const advanceWidth = this.getAdvanceWidth(block)
-    const scrollLeft = this.container.scrollLeft
+    const currentPageIndex = this.currentPage(advanceWidth)
+    this.releaseDrag()
 
-    if (scrollLeft <= SCROLL_THRESHOLD) {
+    if (currentPageIndex * advanceWidth <= SCROLL_THRESHOLD) {
       this.prevChapter.emit()
     } else {
-      const currentPageIndex = Math.round(scrollLeft / advanceWidth)
-      const prevScrollLeft = Math.max(0, (currentPageIndex - 1) * advanceWidth)
-      this.container.scrollTo({ left: prevScrollLeft, behavior: "smooth" })
+      this.turnTo(Math.max(0, currentPageIndex - 1), advanceWidth)
     }
+  }
+
+  /**
+   * Moves the page with the finger, `dx` px from where it came down. Past the
+   * first or last page the text gives, less the further it goes, as iOS
+   * content does at an edge: there is no page there.
+   */
+  dragBy(dx: number): void {
+    if (this.viewMode !== "paged") return
+    const block = this.bookBlock
+    if (!this.container || !block) return
+
+    if (!this.drag) {
+      // Caught mid-turn, it counts from the page on screen, as iOS's own
+      // paging does, not from where the turn was heading.
+      const page = Math.round(
+        this.container.scrollLeft / this.getAdvanceWidth(block),
+      )
+      this.setTarget(undefined)
+      this.drag = { page, left: this.container.scrollLeft }
+      block.style.transition = "none"
+    }
+    const maxScroll = Math.max(
+      0,
+      this.container.scrollWidth - this.container.clientWidth,
+    )
+    const wanted = this.drag.left - dx
+    const left = Math.min(Math.max(wanted, 0), maxScroll)
+    this.container.scrollLeft = left
+    const overshoot = wanted - left
+    block.style.transform = overshoot
+      ? `translateX(${-rubberband(overshoot, this.container.clientWidth)}px)`
+      : ""
+  }
+
+  /** A drag let go without a turn: the page goes back to where it was. */
+  cancelDrag(): void {
+    const block = this.bookBlock
+    if (!this.drag || !this.container || !block) return
+    const { page } = this.drag
+    this.releaseDrag()
+    this.turnTo(page, this.getAdvanceWidth(block))
+  }
+
+  /** The page turns are counted from: where a drag or a turn under way began. */
+  private currentPage(advanceWidth: number): number {
+    return (
+      this.drag?.page ??
+      this.targetPage ??
+      Math.round(this.container.scrollLeft / advanceWidth)
+    )
+  }
+
+  private turnTo(page: number, advanceWidth: number): void {
+    this.setTarget(page)
+    this.container.scrollTo({ left: page * advanceWidth, behavior: "smooth" })
+  }
+
+  private setTarget(page: number | undefined): void {
+    clearTimeout(this.targetTimeout)
+    this.targetPage = page
+    if (page !== undefined) {
+      this.targetTimeout = window.setTimeout(
+        () => this.setTarget(undefined),
+        TURN_SETTLE_MS,
+      )
+    }
+  }
+
+  /** Ends a drag; text pulled past an edge springs back. */
+  private releaseDrag(): void {
+    this.drag = undefined
+    const block = this.bookBlock
+    if (!block?.style.transform) return
+    const reduced = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)",
+    ).matches
+    block.style.transition = reduced ? "none" : "transform 0.3s ease-out"
+    block.style.transform = ""
   }
 
   /** Page-aligned: scrollIntoView would stop on a seam between two pages. */
@@ -186,6 +280,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     if (!this.container || !block) return
 
     this._stayAtEnd = false
+    this.setTarget(undefined)
     this.ensureAlignedScrollWidth()
 
     const advanceWidth = this.getAdvanceWidth(block)
@@ -215,6 +310,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
 
   scrollToEnd(): void {
     this._stayAtEnd = true
+    this.setTarget(undefined)
     this.snapToEnd()
   }
 
@@ -235,6 +331,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     const advanceWidth = this.getAdvanceWidth(block)
     const scrollLeft = this.container.scrollLeft
 
+    this.setTarget(undefined)
     const pageIndex = Math.round(scrollLeft / advanceWidth)
     this.container.scrollTo({
       left: pageIndex * advanceWidth,
@@ -283,7 +380,12 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     if (maxScroll <= 0) return
 
     const remainder = maxScroll % advanceWidth
-    if (remainder > 1 && advanceWidth - remainder > 1) {
+    // A remainder of a pixel or two is the columns' rounding, not a page:
+    // padding it out would add a page with nothing on it.
+    if (
+      remainder > SCROLL_THRESHOLD &&
+      advanceWidth - remainder > SCROLL_THRESHOLD
+    ) {
       const extra = advanceWidth - remainder
       this.spacer = this.renderer.createElement("div")
 
@@ -329,4 +431,16 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     })
     this.mutationObserver.observe(block, { childList: true, subtree: true })
   }
+}
+
+/**
+ * How far content follows a finger `overshoot` px past an edge of a
+ * `dimension` px view: nearly 1:1 at first, ever less after.
+ */
+function rubberband(overshoot: number, dimension: number): number {
+  const constant = 0.55
+  return (
+    (overshoot * dimension * constant) /
+    (dimension + constant * Math.abs(overshoot))
+  )
 }

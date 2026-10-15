@@ -88,7 +88,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
         icon: "notes",
         text: "Toque num versículo com nota para ler a nota de rodapé.",
         iosText:
-          "Toque no asterisco ＊ junto ao número do versículo para ler a nota. Um toque no texto mostra ou esconde os botões.",
+          "Toque no ícone de notas junto ao número do versículo para ler a nota. Um toque no texto mostra ou esconde os botões.",
       },
     ],
   },
@@ -99,7 +99,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     intro:
       "Abra o menu ☰ no canto superior esquerdo para ajustar a leitura ao seu gosto.",
     iosIntro:
-      "Toque em AA, no topo à direita, para ajustar a leitura ao seu gosto.",
+      "Toque em AA, no topo à esquerda, para ajustar a leitura ao seu gosto.",
     features: [
       {
         icon: "dark_mode",

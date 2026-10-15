@@ -40,6 +40,7 @@ final class OnboardingController: UIViewController, UIScrollViewDelegate, UIAdap
     private let pager = UIScrollView()
     private let pageControl = UIPageControl()
     private let primary = UIButton(type: .system)
+    private var pageViews: [UIView] = []
     private var pageTitles: [UILabel] = []
     private var page = 0
     private var pagerWidth: CGFloat = 0
@@ -71,6 +72,7 @@ final class OnboardingController: UIViewController, UIScrollViewDelegate, UIAdap
         pager.addSubview(pages)
         for step in steps {
             let page = makePage(step)
+            pageViews.append(page)
             pages.addArrangedSubview(page)
             page.widthAnchor.constraint(equalTo: pager.frameLayoutGuide.widthAnchor).isActive = true
         }
@@ -126,6 +128,8 @@ final class OnboardingController: UIViewController, UIScrollViewDelegate, UIAdap
         if step.logo, let logo = UIImage(named: "OnboardingLogo") {
             hero = UIImageView(image: logo)
             hero.heightAnchor.constraint(equalToConstant: 96).isActive = true
+            // The app's icon, which Smart Invert leaves alone on the Home Screen.
+            hero.accessibilityIgnoresInvertColors = true
         } else {
             let symbol = UIImage.SymbolConfiguration(pointSize: 52, weight: .regular)
             hero = UIImageView(image: UIImage(systemName: step.symbol, withConfiguration: symbol))
@@ -220,6 +224,11 @@ final class OnboardingController: UIViewController, UIScrollViewDelegate, UIAdap
 
     private func updateControls() {
         pageControl.currentPage = page
+        // VoiceOver reads the page in view, then the dots and the button, as
+        // in a UIPageViewController; not every page in turn before them.
+        for (index, view) in pageViews.enumerated() {
+            view.accessibilityElementsHidden = index != page
+        }
         let last = page == steps.count - 1
         primary.configuration?.title = last ? "Começar a ler" : "Seguinte"
     }

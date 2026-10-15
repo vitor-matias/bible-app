@@ -16,18 +16,15 @@
     @if (typeof part === 'object') {
     <a (click)="showReturnSnackbar()" [routerLink]="['/', (part.book | lowercase ), part.chapter]"
       [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)">{{part.match}}</a>
-    } @else {
-    {{part}}
-    }
+    } @else {<span>{{ part }}</span>}
     }
   </span>
   }
   @if (data.verseLabel === 'front' && isLast && data.text[data.text.length -1].type !== 'quote' && !nextIsQuote) {
-  <span class="section"> —
-  </span>
+  <span class="section">&nbsp;— </span>
   }
   @if (data.verseLabel !== 'front' && isLast && text.type !== 'quote' && !nextIsQuote) {
-  <span class="section"> — </span>
+  <span class="section">&nbsp;— </span>
   }
   }
 </span>

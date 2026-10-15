@@ -109,22 +109,51 @@ describe("NativeShellService", () => {
     tick(SPLASH_MAX_MS)
   }))
 
-  // The navigation bar draws over the page, so it follows the in-app theme,
-  // not the device theme.
-  it("styles the navigation bar for the in-app theme", () => {
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
-    const shell = TestBed.inject(NativeShellService)
+  describe("on Android", () => {
+    let shell: NativeShellService
 
-    shell.setNavigationBarTheme(true)
-    expect(systemBars.setStyle).toHaveBeenCalledWith({
-      bar: SystemBarType.NavigationBar,
-      style: SystemBarsStyle.Dark,
+    beforeEach(() => {
+      spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
+      spyOn(Capacitor, "getPlatform").and.returnValue("android")
+      // The real document, so the shell can measure the safe area.
+      TestBed.overrideProvider(DOCUMENT, { useValue: document })
+      shell = TestBed.inject(NativeShellService)
     })
 
-    shell.setNavigationBarTheme(false)
-    expect(systemBars.setStyle).toHaveBeenCalledWith({
-      bar: SystemBarType.NavigationBar,
-      style: SystemBarsStyle.Light,
+    afterEach(() => {
+      document.documentElement.style.removeProperty("--app-inset-top")
+    })
+
+    // The navigation bar draws over the page, so it follows the in-app
+    // theme, not the device theme.
+    it("styles the navigation bar for the in-app theme", () => {
+      document.documentElement.style.setProperty("--app-inset-top", "24px")
+
+      shell.setNavigationBarTheme(true)
+      expect(systemBars.setStyle).toHaveBeenCalledWith({
+        bar: SystemBarType.NavigationBar,
+        style: SystemBarsStyle.Dark,
+      })
+
+      shell.setNavigationBarTheme(false)
+      expect(systemBars.setStyle).toHaveBeenCalledWith({
+        bar: SystemBarType.NavigationBar,
+        style: SystemBarsStyle.Light,
+      })
+    })
+
+    // Older WebViews (Android 8, 9) report no safe area: the page stops at
+    // the bars, which show MainActivity's brown window background instead.
+    it("keeps the navigation bar icons light where the page stops at the bars", () => {
+      const children = document.body.childElementCount
+
+      shell.setNavigationBarTheme(false)
+
+      expect(systemBars.setStyle).toHaveBeenCalledOnceWith({
+        bar: SystemBarType.NavigationBar,
+        style: SystemBarsStyle.Dark,
+      })
+      expect(document.body.childElementCount).toBe(children)
     })
   })
 

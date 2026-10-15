@@ -1,6 +1,7 @@
 import { CommonModule } from "@angular/common"
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   DestroyRef,
   Inject,
@@ -19,7 +20,16 @@ import {
   BookmarkRibbonsService,
   RIBBON_COLORS,
   type RibbonState,
+  ribbonToMove,
 } from "../../services/bookmark-ribbons.service"
+
+/** The move offered above the ribbons, or, once made, its undo. */
+interface MoveOffer {
+  color: string
+  /** "Mover o marcador vermelho de Mt 5 para Mt 7". */
+  label: string
+  done: boolean
+}
 
 @Component({
   selector: "app-bookmark-selector",
@@ -34,8 +44,14 @@ export class BookmarkSelectorComponent implements OnInit {
 
   ribbons: RibbonState[] = []
 
+  move?: MoveOffer
+
+  /** Where a ribbon moved here was, while the panel offers to undo it. */
+  private moved?: Bookmark
+
   private destroyRef = inject(DestroyRef)
   private ribbonsService = inject(BookmarkRibbonsService)
+  private changeDetector = inject(ChangeDetectorRef)
 
   constructor(
     private bottomSheetRef: MatBottomSheetRef<BookmarkSelectorComponent>,
@@ -60,6 +76,38 @@ export class BookmarkSelectorComponent implements OnInit {
 
   updateRibbons(allBookmarks: Bookmark[]) {
     this.ribbons = this.ribbonsService.ribbons(allBookmarks)
+    this.move = this.moveOffer()
+    this.changeDetector.markForCheck()
+  }
+
+  /** Moves the ribbon read on from to this chapter, or undoes that. */
+  moveOrUndo(): void {
+    const { bookId, chapter } = this.data
+    if (this.moved) {
+      this.ribbonsService.restore(this.moved)
+      this.moved = undefined
+      return
+    }
+    const ribbon = ribbonToMove(this.ribbons, bookId, chapter)
+    if (ribbon) this.moved = this.ribbonsService.move(ribbon, bookId, chapter)
+  }
+
+  private moveOffer(): MoveOffer | undefined {
+    const { bookId, chapter } = this.data
+    const from =
+      this.moved ?? ribbonToMove(this.ribbons, bookId, chapter)?.bookmark
+    if (!from) return undefined
+    const color = (
+      RIBBON_COLORS.find((c) => c.value === from.color)?.spoken ?? from.color
+    ).toLowerCase()
+    const fromRef = this.ribbonsService.ref(from.bookId, from.chapter)
+    return {
+      color: from.color,
+      label: this.moved
+        ? `Desfazer: o marcador ${color} volta a ${fromRef}`
+        : `Mover o marcador ${color} de ${fromRef} para ${this.ribbonsService.ref(bookId, chapter)}`,
+      done: !!this.moved,
+    }
   }
 
   handleRibbonClick(ribbon: RibbonState): void {

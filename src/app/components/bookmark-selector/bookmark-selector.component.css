@@ -76,3 +76,11 @@ h3 {
   font-size: 24px;
   text-shadow: 1px 1px 1px black;
 }
+
+.move-button {
+  color: var(--text-color);
+  white-space: normal;
+  height: auto;
+  min-height: 40px;
+  padding-block: 8px;
+}

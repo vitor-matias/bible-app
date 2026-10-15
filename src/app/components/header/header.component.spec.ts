@@ -392,7 +392,7 @@ describe("HeaderComponent", () => {
     await component.sharePassage()
 
     expect(mockSharePlugin.share).toHaveBeenCalledWith({
-      title: "Biblia Sagrada",
+      title: "Bíblia Sagrada",
       text: jasmine.any(String),
       url: jasmine.any(String),
       dialogTitle: "Partilhar passagem",
@@ -785,6 +785,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(lastState()).toEqual({
       mode: "reader",
       passageLabel: `${bookLabel()} 3`,
+      passageShortLabels: ["Gn 3"],
       passageAccessibilityLabel: "Livro do Génesis 3",
       chapterNavigation: true,
       canGoPrevious: true,
@@ -835,6 +836,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(lastState()).toEqual(
       jasmine.objectContaining({
         passageLabel: "Sobre a Bíblia",
+        passageShortLabels: [],
         chapterNavigation: false,
         viewMode: null,
       }),
@@ -850,6 +852,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(lastState()).toEqual(
       jasmine.objectContaining({
         passageLabel: `${bookLabel()} ${component.mobile ? "Intro" : "Introdução"}`,
+        passageShortLabels: ["Gn Intro"],
         passageAccessibilityLabel: "Livro do Génesis Introdução",
       }),
     )
@@ -871,6 +874,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(lastState()).toEqual(
       jasmine.objectContaining({
         passageLabel: "Salmo 23 (22)",
+        passageShortLabels: ["Sl 23 (22)", "Sl 23"],
         passageAccessibilityLabel: "Salmo 23, na liturgia 22",
       }),
     )

@@ -24,12 +24,14 @@ import {
 import {
   ABOUT_GROUP,
   type CanonGroup,
+  isClusterIntro,
   NEW_TESTAMENT_GROUPS,
   NEW_TESTAMENT_INTRO,
   OLD_TESTAMENT_GROUPS,
   OLD_TESTAMENT_INTRO,
   withIntros,
 } from "../../bible-canon"
+import { scrollOnDrawerOpen } from "../../utils/drawer-scroll"
 
 interface BookNode {
   name: string
@@ -96,6 +98,9 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   private injector = inject(Injector)
 
+  /** In the reader's drawer, which scrolls to the book each time it opens. */
+  private inDrawer = scrollOnDrawerOpen(() => this.scrollToSelectedBook())
+
   constructor(private elementRef: ElementRef) {
     this.filterBooks("")
   }
@@ -160,11 +165,16 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   @Output() submitData = new EventEmitter<{ bookId: Book["id"] }>()
 
-  /** Introductions read just "Introdução": the heading above gives the context. */
+  /**
+   * Introductions read just "Introdução": the heading above gives the context.
+   * A cluster's, among the group's books, goes by its name.
+   */
   entryLabel(bookId: string): string {
     const book = this.getBook(bookId)
     if (!book) return ""
-    return book.introSlug ? "Introdução" : book.shortName
+    return book.introSlug && !isClusterIntro(book.id)
+      ? "Introdução"
+      : book.shortName
   }
 
   getBook(bookId: string): Book | undefined {
@@ -189,6 +199,7 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   }
 
   ngAfterViewInit(): void {
+    if (this.inDrawer) return
     // Runs while prerendering too, where the DOM has no scrollIntoView;
     // afterNextRender is browser-only.
     afterNextRender(() => this.scrollToSelectedBook(), {
