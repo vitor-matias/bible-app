@@ -37,7 +37,7 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
-import { RIBBON_COLORS } from "../../services/bookmark-ribbons.service"
+import { spokenRibbonName } from "../../services/bookmark-ribbons.service"
 import { NativeBookmarksService } from "../../services/native-bookmarks.service"
 import {
   type NativeChromeAction,
@@ -329,7 +329,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /** The ribbon on the chapter being read, by its spoken name ("Vermelho"). */
   get bookmarkName(): string | undefined {
     const color = this.currentBookmark?.color
-    return RIBBON_COLORS.find((ribbon) => ribbon.value === color)?.spoken
+    return color ? spokenRibbonName(color) : undefined
   }
 
   getViewModeIcon(): string {

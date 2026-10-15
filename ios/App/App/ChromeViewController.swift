@@ -690,14 +690,19 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     // MARK: - Onboarding
 
-    func presentOnboarding(_ steps: [OnboardingStepData], onFinish: @escaping (Bool, String) -> Void) {
+    /// Whether the sheet came up. UIKit refuses, with only a console warning, a
+    /// presentation while another is on its way in or out; `onFinish` then
+    /// never runs.
+    func presentOnboarding(_ steps: [OnboardingStepData], onFinish: @escaping (Bool, String) -> Void) -> Bool {
         let onboarding = OnboardingController(steps: steps, onFinish: onFinish)
         let sheet = UINavigationController(rootViewController: onboarding)
         sheet.modalPresentationStyle = traitCollection.horizontalSizeClass == .regular ? .formSheet : .pageSheet
         sheet.presentationController?.delegate = onboarding
         var presenter: UIViewController = self
         while let presented = presenter.presentedViewController { presenter = presented }
+        guard !presenter.isBeingPresented, !presenter.isBeingDismissed else { return false }
         presenter.present(sheet, animated: true)
+        return sheet.presentingViewController != nil
     }
 
     // MARK: - Delegates

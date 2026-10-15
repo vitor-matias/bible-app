@@ -203,15 +203,36 @@ jobs:
           set -e
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release-key.jks
 
+      # The secrets come in through the environment: pasted into the script,
+      # a `$` or backtick in a password was shell syntax and the build signed
+      # with the wrong one. Properties files read `\` as an escape, and Latin-1,
+      # so the values are escaped for them.
       - name: Create keystore.properties
         if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -e
-          cat > android/keystore.properties << EOF
-          storeFile=release-key.jks
-          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          node - << 'EOF'
+          const fs = require("node:fs")
+          const escape = (value = "") =>
+            value
+              .replace(/\\/g, "\\\\")
+              .replace(
+                /[^\x20-\x7e]/g,
+                (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`,
+              )
+              .replace(/^ /, "\\ ")
+          const { env } = process
+          const properties = [
+            "storeFile=release-key.jks",
+            `storePassword=${escape(env.ANDROID_KEYSTORE_PASSWORD)}`,
+            `keyAlias=${escape(env.ANDROID_KEY_ALIAS)}`,
+            `keyPassword=${escape(env.ANDROID_KEY_PASSWORD)}`,
+          ]
+          fs.writeFileSync("android/keystore.properties", `${properties.join("\n")}\n`)
           EOF
 
       - name: Build Android APK

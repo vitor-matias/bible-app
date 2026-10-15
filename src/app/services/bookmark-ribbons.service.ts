@@ -18,6 +18,11 @@ export const RIBBON_COLORS = [
   { name: "Grey", value: "grey", spoken: "Cinzento" },
 ]
 
+/** A ribbon's spoken name ("Vermelho"), by the colour a bookmark stores. */
+export function spokenRibbonName(color: string): string | undefined {
+  return RIBBON_COLORS.find((ribbon) => ribbon.value === color)?.spoken
+}
+
 export interface RibbonState {
   name: string
   value: string
@@ -52,6 +57,63 @@ export function ribbonToMove(
   return nearest
 }
 
+/** The move a panel offers above the ribbons, or, once made, its undo. */
+export interface RibbonMoveOffer {
+  /** Where the ribbon is, or was before the move. */
+  from: Bookmark
+  /** As the ribbon's adjective: "vermelho". */
+  name: string
+  /** Moved: the offer is to undo it. */
+  done: boolean
+}
+
+/**
+ * One panel's offer to move a ribbon to the chapter being read (ribbonToMove)
+ * and, once it moved, to move it back: the web panel and the iOS sheet each
+ * hold one while open, and only word and draw it their own way.
+ */
+export class RibbonMove {
+  /** Where the ribbon moved here was, while the offer is to undo it. */
+  private moved?: Bookmark
+
+  constructor(
+    private readonly service: BookmarkRibbonsService,
+    private readonly bookId: string,
+    private readonly chapter: number,
+  ) {}
+
+  /** What to offer, given the ribbons as they are now. */
+  offer(ribbons: RibbonState[]): RibbonMoveOffer | undefined {
+    const from =
+      this.moved ?? ribbonToMove(ribbons, this.bookId, this.chapter)?.bookmark
+    if (!from) return undefined
+    return {
+      from,
+      name: (spokenRibbonName(from.color) ?? from.color).toLowerCase(),
+      done: !!this.moved,
+    }
+  }
+
+  /**
+   * Moves the ribbon here. Undo then undoes the latest move, as the offer
+   * names it; a move that did nothing leaves the last one's undo in place.
+   */
+  move(ribbon: RibbonState): void {
+    this.moved =
+      this.service.move(ribbon, this.bookId, this.chapter) ?? this.moved
+  }
+
+  /** Puts the moved ribbon back; false when there is no move (of `color`) to undo. */
+  undo(color?: string): boolean {
+    if (!this.moved || (color !== undefined && this.moved.color !== color)) {
+      return false
+    }
+    this.service.restore(this.moved)
+    this.moved = undefined
+    return true
+  }
+}
+
 /**
  * What the bookmark ribbons do, shared by the web panel
  * (BookmarkSelectorComponent) and the iOS native sheet: each colour marks at
@@ -66,6 +128,11 @@ export class BookmarkRibbonsService {
   private readonly router = inject(Router)
   private readonly analyticsService = inject(AnalyticsService)
   private readonly haptics = inject(HapticsService)
+
+  /** A panel's move offer for the chapter it was opened on (RibbonMove). */
+  moveTo(bookId: string, chapter: number): RibbonMove {
+    return new RibbonMove(this, bookId, chapter)
+  }
 
   /** Every colour, with the passage it marks if it is in use. */
   ribbons(bookmarks: Bookmark[]): RibbonState[] {

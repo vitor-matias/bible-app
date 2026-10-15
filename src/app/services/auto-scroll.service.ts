@@ -38,6 +38,12 @@ export class AutoScrollService implements OnDestroy {
    * finger, the wheel, a key or the scrollbar moved it: the reader took over.
    */
   private expectedScrollTop = 0
+  /**
+   * How tall the text was then. When it changed too, the text reflowed (a
+   * new text size, verses loading) and the browser moved the page to keep
+   * the reader's place: that is no reader scrolling.
+   */
+  private expectedScrollHeight = 0
   private cachedLineHeight = 24
   private lineHeightObserver?: ResizeObserver
   private scrollElement?: HTMLElement
@@ -149,6 +155,7 @@ export class AutoScrollService implements OnDestroy {
     this.lastAutoScrollTimestamp = undefined
     this.accumulatedScrollDelta = 0
     this.expectedScrollTop = this.scrollElement.scrollTop
+    this.expectedScrollHeight = this.scrollElement.scrollHeight
     this.autoScrollEnabled = true
     this.keepAwakeService.start()
     this.setupLineHeightObserver()
@@ -182,13 +189,15 @@ export class AutoScrollService implements OnDestroy {
     }
 
     // Scrolling by hand takes over: stop, and leave the page where they put it.
-    if (
+    // A reflow moves the page too, but changes its height; carry on from there.
+    const moved =
       Math.abs(content.scrollTop - this.expectedScrollTop) >
       this.USER_SCROLL_TOLERANCE
-    ) {
+    if (moved && content.scrollHeight === this.expectedScrollHeight) {
       this.stop()
       return
     }
+    this.expectedScrollHeight = content.scrollHeight
 
     if (this.lastAutoScrollTimestamp === undefined) {
       this.lastAutoScrollTimestamp = timestamp

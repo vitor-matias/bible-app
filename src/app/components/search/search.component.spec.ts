@@ -811,9 +811,111 @@ describe("SearchComponent", () => {
     flushMicrotasks()
 
     expect(component.isLoading).toBeFalse()
-    // Paging and highlighting still belong to the search whose results show.
-    expect(component.searchTerm).toBe("light")
+    // Paging and highlighting belong to the search whose results show: none
+    // had finished, so not "light" (it never answered) nor the reference.
+    expect(component.searchTerm).toBe("")
   }))
+
+  describe("when a reference supersedes a word search under way", () => {
+    const john = {
+      id: "jhn",
+      abrv: "Jo",
+      shortName: "Joao",
+      name: "Evangelho segundo Joao",
+      chapterCount: 21,
+    } as Book
+    const lightPage = {
+      verses: [
+        {
+          bookId: "gen",
+          chapterNumber: 1,
+          number: 3,
+          verseLabel: "3",
+          text: [{ type: "text", text: "Faça-se a luz" }],
+        },
+      ],
+      total: 1,
+      currentPage: 1,
+      totalPages: 1,
+    } as VersePage
+    let pendingSearch$: Subject<VersePage>
+
+    beforeEach(() => {
+      spyOn(console, "error")
+      pendingSearch$ = new Subject<VersePage>()
+      referenceService.extract.and.callFake((text: string) =>
+        text.startsWith("Jo ")
+          ? [{ match: text, index: 0, book: "Jo", chapter: 99 }]
+          : [],
+      )
+      bookService.findBook.and.callFake((name: string) =>
+        name === "Jo" ? john : (undefined as unknown as Book),
+      )
+      apiService.getVerse.and.returnValue(throwError(() => ({ status: 404 })))
+    })
+
+    it("stops saying it is searching after a failed reference", fakeAsync(() => {
+      apiService.search.and.returnValue(of(lightPage))
+      void component.onSearchSubmit("luz")
+      flushMicrotasks()
+      apiService.search.and.returnValue(pendingSearch$.asObservable())
+      void component.onSearchSubmit("amor")
+      flushMicrotasks()
+      expect(component.resultsHeading).toBe("A procurar…")
+
+      void component.onSearchSubmit("Jo 99,1")
+      flushMicrotasks()
+      pendingSearch$.next({
+        verses: [],
+        total: 0,
+        currentPage: 1,
+        totalPages: 0,
+      })
+      pendingSearch$.complete()
+      flushMicrotasks()
+
+      // Back to the results on screen, which are still those for "luz".
+      expect(component.searching).toBeFalse()
+      expect(component.resultsHeading).toBe("1 resultado")
+      expect(component.statusMessage).toBe("1 resultado")
+      expect(component.searchTerm).toBe("luz")
+    }))
+
+    it("doesn't claim no results for a search that never answered", fakeAsync(() => {
+      apiService.search.and.returnValue(pendingSearch$.asObservable())
+      void component.onSearchSubmit("amor")
+      flushMicrotasks()
+
+      void component.onSearchSubmit("Jo 99,1")
+      flushMicrotasks()
+      fixture.detectChanges()
+
+      const text = fixture.nativeElement.textContent as string
+      expect(text).not.toContain("Nenhum resultado")
+      expect(text).not.toContain("A procurar")
+      expect(component.statusMessage).toBe("")
+    }))
+
+    it("ignores the stored Bible's answer to a superseded search", fakeAsync(() => {
+      network.isOffline = true
+      let answer: (verses: Verse[]) => void = () => {}
+      offlineSearch.search.and.returnValue(
+        new Promise((resolve) => {
+          answer = resolve
+        }),
+      )
+      void component.onSearchSubmit("amor")
+      flushMicrotasks()
+
+      void component.onSearchSubmit("Jo 99,1")
+      flushMicrotasks()
+      answer(lightPage.verses)
+      flushMicrotasks()
+
+      expect(component.searchResults).toEqual([])
+      expect(component.storedMatches).toBeNull()
+    }))
+  })
 
   it("should release the loading lock when the reference navigation is refused", fakeAsync(() => {
     // router.navigate resolves false on a cancelled navigation: no throw, and
@@ -1202,6 +1304,27 @@ describe("SearchComponent", () => {
         queryParams: { verseStart: 10 },
       })
     })
+
+    it("ends a word search still under way", fakeAsync(() => {
+      bookService.findBook.and.callFake((name: string) =>
+        name === "Sl" ? psalms : (undefined as unknown as Book),
+      )
+      referenceService.extract.and.returnValue([])
+      apiService.search.and.returnValue(new Subject<VersePage>())
+      void component.onSearchSubmit("amor")
+      flushMicrotasks()
+
+      referenceService.extract.and.returnValue([
+        { match: "Sl 94", index: 0, book: "Sl", chapter: 94 },
+      ])
+      void component.onSearchSubmit("Sl 94")
+      flushMicrotasks()
+
+      expect(component.psalmChoice?.length).toBe(2)
+      expect(component.searching).toBeFalse()
+      expect(component.isLoading).toBeFalse()
+      expect(component.statusMessage).toBe("Qual salmo procura?")
+    }))
 
     it("opens directly where both numberings agree", async () => {
       referenceService.extract.and.returnValue([

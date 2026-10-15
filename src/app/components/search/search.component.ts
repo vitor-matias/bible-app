@@ -158,6 +158,20 @@ export class SearchComponent {
   private lastSharedQuery: string | null = null
   /** Bumped on every submit so a slower, superseded request can be ignored. */
   private searchGeneration = 0
+  /**
+   * The page as the last finished word search left it, while a newer one is
+   * under way (`searching`): if a reference or the psalm choice supersedes
+   * that one, it goes back to this (abandonSearch).
+   */
+  private beforeSearch: Pick<
+    SearchComponent,
+    | "searchTerm"
+    | "hasSearched"
+    | "storedMatches"
+    | "nothingStored"
+    | "searchFailed"
+    | "statusMessage"
+  > | null = null
 
   private readonly nativeChrome = inject(NativeChromeService)
   private readonly network = inject(NetworkService)
@@ -518,12 +532,24 @@ export class SearchComponent {
           })
         }
       }
-      // Still here: the superseded text search's stale `finally` skips this.
-      this.isLoading = false
+      // Still here: the previous results stay on screen.
+      this.abandonSearch()
       this.cdr.detectChanges()
       return
     }
 
+    // A search superseding one still under way keeps the page the older one
+    // would go back to.
+    if (!this.searching) {
+      this.beforeSearch = {
+        searchTerm: this.searchTerm,
+        hasSearched: this.hasSearched,
+        storedMatches: this.storedMatches,
+        nothingStored: this.nothingStored,
+        searchFailed: this.searchFailed,
+        statusMessage: this.statusMessage,
+      }
+    }
     // Set only for text searches: a failed reference lookup leaves the
     // previous results on screen, and paging and highlighting read this.
     this.searchTerm = text
@@ -577,11 +603,28 @@ export class SearchComponent {
   }
 
   /**
+   * A reference or the psalm choice took over. A word search still under way
+   * is stale, and its `finally` skips the cleanup: the page goes back to what
+   * it showed before that search, rather than "A procurar…" for good.
+   */
+  private abandonSearch(): void {
+    this.isLoading = false
+    if (!this.searching) return
+    this.searching = false
+    if (this.beforeSearch) Object.assign(this, this.beforeSearch)
+    this.beforeSearch = null
+  }
+
+  /**
    * Searches the Bible stored on the device for the query's words. False when
-   * none is stored, as before the app has once been online.
+   * none is stored, as before the app has once been online, or when a newer
+   * submit superseded the search meanwhile (its caller checks for that).
    */
   private async searchStoredBible(text: string): Promise<boolean> {
+    const generation = this.searchGeneration
     const matches = await this.offlineSearch.search(text)
+    // Superseded: the page belongs to the newer submit.
+    if (generation !== this.searchGeneration) return false
     if (matches === null) {
       this.searchResults = []
       this.totalResults = 0
@@ -678,6 +721,7 @@ export class SearchComponent {
         psalms.chapters?.find((chapter) => chapter.number === number)?.title ??
         "",
     })
+    this.abandonSearch()
     this.psalmChoice = [
       option(psalm, "nesta Bíblia", verseStart),
       option(liturgical.psalm, "como na Missa", verseStart ?? liturgical.verse),
@@ -687,7 +731,6 @@ export class SearchComponent {
     this.searchResults = []
     this.totalResults = 0
     this.hasSearched = true
-    this.isLoading = false
     this.statusMessage = "Qual salmo procura?"
     this.syncNativeChrome()
     this.cdr.detectChanges()

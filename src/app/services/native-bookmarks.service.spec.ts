@@ -5,6 +5,7 @@ import { BookmarkService } from "./bookmark.service"
 import {
   BookmarkRibbonsService,
   RIBBON_COLORS,
+  RibbonMove,
   type RibbonState,
 } from "./bookmark-ribbons.service"
 import { NativeBookmarksService } from "./native-bookmarks.service"
@@ -47,7 +48,13 @@ describe("NativeBookmarksService", () => {
       "remove",
       "move",
       "restore",
+      "moveTo",
     ])
+    // The real move offer, over the spied move and restore.
+    ribbons.moveTo.and.callFake(
+      (bookId: string, chapter: number) =>
+        new RibbonMove(ribbons, bookId, chapter),
+    )
     // The real colours; a bookmark labels its ribbon "Mt <chapter>".
     ribbons.ribbons.and.callFake((list: Bookmark[]) =>
       RIBBON_COLORS.map(({ name, value }): RibbonState => {

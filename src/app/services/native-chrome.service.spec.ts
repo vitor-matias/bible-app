@@ -42,6 +42,7 @@ describe("NativeChromeService", () => {
     showToast: jasmine.Spy
     showReport: jasmine.Spy
     finishReport: jasmine.Spy
+    showOnboarding: jasmine.Spy
     addListener: jasmine.Spy
   }
   /** Tests that need more of the document add it. */
@@ -61,6 +62,7 @@ describe("NativeChromeService", () => {
       showToast: jasmine.createSpy("showToast").and.resolveTo(),
       showReport: jasmine.createSpy("showReport").and.resolveTo(),
       finishReport: jasmine.createSpy("finishReport").and.resolveTo(),
+      showOnboarding: jasmine.createSpy("showOnboarding").and.resolveTo(),
       addListener: jasmine.createSpy("addListener").and.resolveTo(),
     }
     body = document.createElement("body")
@@ -411,6 +413,27 @@ describe("NativeChromeService", () => {
 
     plugin.showBookmarks.and.rejectWith(new Error("no chrome"))
     expect(await service.showBookmarks(state)).toBeFalse()
+  })
+
+  // A sheet that never came up (UIKit refuses one while another is on its
+  // way) is not the onboarding seen: only a dismissal answers with a result.
+  it("tells a dismissed onboarding from one that never came up", async () => {
+    const service = create("ios")
+    plugin.showOnboarding.and.resolveTo({
+      presented: true,
+      completed: false,
+      lastStep: "navigate",
+    })
+    expect(await service.showOnboarding([])).toEqual({
+      completed: false,
+      lastStep: "navigate",
+    })
+
+    plugin.showOnboarding.and.resolveTo({ presented: false })
+    expect(await service.showOnboarding([])).toBeNull()
+
+    plugin.showOnboarding.and.rejectWith(new Error("no chrome"))
+    expect(await service.showOnboarding([])).toBeNull()
   })
 
   // Each push has the shell rebuild its bars and menu.

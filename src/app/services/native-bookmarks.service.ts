@@ -5,9 +5,9 @@ import { BookService } from "./book.service"
 import { BookmarkService } from "./bookmark.service"
 import {
   BookmarkRibbonsService,
-  RIBBON_COLORS,
+  type RibbonMove,
   type RibbonState,
-  ribbonToMove,
+  spokenRibbonName,
 } from "./bookmark-ribbons.service"
 import {
   type BookmarksSheetState,
@@ -35,14 +35,13 @@ export class NativeBookmarksService {
     const session = new Subscription()
     this.session = session
     let ribbons: RibbonState[] = []
-    // Where a ribbon moved here was, while the sheet offers to undo it.
-    let moved: Bookmark | undefined
+    const mover = this.ribbonsService.moveTo(bookId, chapter)
     let shown = false
 
     session.add(
       this.bookmarkService.bookmarks$.subscribe((bookmarks) => {
         ribbons = this.ribbonsService.ribbons(bookmarks)
-        const state = this.sheetState(ribbons, bookId, chapter, moved)
+        const state = this.sheetState(ribbons, bookId, chapter, mover)
         if (shown) {
           this.nativeChrome.updateBookmarks(state)
         } else {
@@ -73,16 +72,11 @@ export class NativeBookmarksService {
               this.ribbonsService.remove(ribbon)
             if (action.id === "bookmark-set")
               this.ribbonsService.assign(ribbon.value, bookId, chapter)
-            // Desfazer undoes the latest move, as the row names it; a move
-            // that did nothing leaves the last one's undo in place.
-            if (action.id === "bookmark-move")
-              moved = this.ribbonsService.move(ribbon, bookId, chapter) ?? moved
+            if (action.id === "bookmark-move") mover.move(ribbon)
             break
           }
           case "bookmark-undo":
-            if (moved?.color !== action.color) return
-            this.ribbonsService.restore(moved)
-            moved = undefined
+            mover.undo(action.color)
             break
         }
       }),
@@ -93,28 +87,25 @@ export class NativeBookmarksService {
     ribbons: RibbonState[],
     bookId: string,
     chapter: number,
-    moved: Bookmark | undefined,
+    mover: RibbonMove,
   ): BookmarksSheetState {
-    const spoken = (color: string) =>
-      RIBBON_COLORS.find((c) => c.value === color)?.spoken
-    const toMove = moved ? undefined : ribbonToMove(ribbons, bookId, chapter)
-    const from = moved ?? toMove?.bookmark
+    const offer = mover.offer(ribbons)
     return {
       currentLabel: this.label(bookId, chapter),
       ribbons: ribbons.map((ribbon) => ({
         color: ribbon.value,
-        name: spoken(ribbon.value) ?? ribbon.name,
+        name: spokenRibbonName(ribbon.value) ?? ribbon.name,
         label: ribbon.currentRef ?? null,
         current:
           ribbon.bookmark?.bookId === bookId &&
           ribbon.bookmark?.chapter === chapter,
       })),
-      move: from
+      move: offer
         ? {
-            color: from.color,
-            name: (spoken(from.color) ?? from.color).toLowerCase(),
-            from: this.label(from.bookId, from.chapter),
-            done: !!moved,
+            color: offer.from.color,
+            name: offer.name,
+            from: this.label(offer.from.bookId, offer.from.chapter),
+            done: offer.done,
           }
         : null,
     }

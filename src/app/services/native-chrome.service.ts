@@ -213,10 +213,13 @@ export interface NativeChromePlugin {
   showReport(state: ReportSheetState): Promise<SheetPresented>
   /** The answer to report-submit: the sheet closes, or shows `message`. */
   finishReport(result: { sent: boolean; message?: string }): Promise<void>
-  /** Resolves once the sheet is dismissed, however that happened. */
+  /**
+   * Resolves once the sheet is dismissed, however that happened; at once,
+   * with `presented: false`, when it didn't come up.
+   */
   showOnboarding(options: {
     steps: NativeOnboardingStep[]
-  }): Promise<OnboardingResult>
+  }): Promise<SheetPresented & Partial<OnboardingResult>>
   addListener(
     eventName: "action",
     listener: (action: NativeChromeAction) => void,
@@ -408,11 +411,24 @@ export class NativeChromeService {
     return presented(this.plugin.showFootnotes(state))
   }
 
-  /** The onboarding as a native sheet; resolves when it is dismissed. */
-  showOnboarding(steps: NativeOnboardingStep[]): Promise<OnboardingResult> {
-    return this.plugin
-      .showOnboarding({ steps })
-      .catch(() => ({ completed: false, lastStep: steps[0]?.id ?? "" }))
+  /**
+   * The onboarding as a native sheet; resolves when it is dismissed, or with
+   * null when it never came up (e.g. over a sheet still on its way), which
+   * isn't the onboarding seen.
+   */
+  showOnboarding(
+    steps: NativeOnboardingStep[],
+  ): Promise<OnboardingResult | null> {
+    return this.plugin.showOnboarding({ steps }).then(
+      (result) =>
+        result?.presented === true
+          ? {
+              completed: result.completed ?? false,
+              lastStep: result.lastStep ?? "",
+            }
+          : null,
+      () => null,
+    )
   }
 
   /**
