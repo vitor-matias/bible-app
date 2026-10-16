@@ -793,22 +793,24 @@ enum ReaderMenu {
         return action
     }
 
-    /// The small print under the privacy policy: "Versão 1.2.3", the release
-    /// number CI sets from the release tag (MARKETING_VERSION), and
-    /// "Bundle 20261016-120000Z", when the web bundle was compiled. A menu
-    /// has no small text, so each is an item with nothing to do, which it dims.
-    private static func versionItems(buildVersion: String?) -> [UIMenuElement] {
-        var lines: [String] = []
+    /// The small print at the end of the menu, on one line: "1.2.3 ·
+    /// 20261016-120000Z", the release number CI sets from the release tag
+    /// (MARKETING_VERSION), then the web bundle's id, when it was compiled. A
+    /// menu's only small text is an item's subtitle, so it is an untitled item
+    /// with nothing to do, which it dims. It gets a section of its own: among
+    /// items with icons it would be indented to their titles, and wrap.
+    private static func versionSection(buildVersion: String?) -> UIMenu? {
+        var parts: [String] = []
         let key = "CFBundleShortVersionString"
         if let release = Bundle.main.object(forInfoDictionaryKey: key) as? String, !release.isEmpty {
-            lines.append("Versão \(release)")
+            parts.append(release)
         }
         if let buildVersion, !buildVersion.isEmpty {
-            lines.append("Bundle \(buildVersion)")
+            parts.append(buildVersion)
         }
-        return lines.map { line -> UIMenuElement in
-            UIAction(title: line, attributes: .disabled) { _ in }
-        }
+        guard !parts.isEmpty else { return nil }
+        let item = UIAction(title: "", subtitle: parts.joined(separator: " · "), attributes: .disabled) { _ in }
+        return UIMenu(options: .displayInline, children: [item])
     }
 
     /// Choices side by side, rather than a menu within the menu.
@@ -858,8 +860,8 @@ enum ReaderMenu {
     }
 
     /// Builds the reader's more menu, with reading actions followed by app
-    /// actions and disabled version labels. State controls action availability;
-    /// selecting an enabled action passes its identifier to `send`.
+    /// actions and the version's small print. State controls action
+    /// availability; selecting an enabled action passes its identifier to `send`.
     static func make(_ state: ChromeState, send: @escaping (String) -> Void) -> UIMenu {
         let autoScroll = action("Deslocamento automático", "arrow.down.circle", "auto-scroll", send: send)
         autoScroll.state = state.autoScrollVisible ? .on : .off
@@ -876,14 +878,17 @@ enum ReaderMenu {
         }
         app.append(action("Como usar a app", "questionmark.circle", "help", send: send))
         app.append(action("Política de Privacidade", "hand.raised", "privacy", send: send))
-        app.append(contentsOf: versionItems(buildVersion: state.buildVersion))
         // Two groups with a divider, as the HIG asks of menus: what to do with
         // the reading, then the app's help and legal pages. Inline sections,
-        // not submenus.
-        return UIMenu(children: [
+        // not submenus. The version's small print ends it.
+        var sections = [
             UIMenu(options: .displayInline, children: reading),
             UIMenu(options: .displayInline, children: app),
-        ])
+        ]
+        if let version = versionSection(buildVersion: state.buildVersion) {
+            sections.append(version)
+        }
+        return UIMenu(children: sections)
     }
 }
 

@@ -295,23 +295,32 @@ describe("HeaderComponent", () => {
       fixture.detectChanges()
     }
 
-    const lines = () =>
-      Array.from(document.querySelectorAll(".menu-version > div"), (line) =>
-        line.textContent?.trim(),
-      )
+    const text = () =>
+      document
+        .querySelector(".menu-version")
+        ?.textContent?.replace(/\s+/g, " ")
+        .trim()
 
-    it("is small print right under the privacy policy: the release, then the compile timestamp", async () => {
+    it("is small print right under the privacy policy: the release, then the bundle's id", async () => {
       await openMenu()
 
       const version = document.querySelector(".menu-version")
-      expect(lines()).toEqual(["Versão 1.2.3", "Bundle 20261016-120000Z"])
+      expect(text()).toBe("1.2.3 · 20261016-120000Z")
       expect(version?.previousElementSibling?.getAttribute("href")).toBe(
         component.privacyPolicyUrl,
       )
       expect(version?.nextElementSibling).toBeNull()
     })
 
-    it("is the compile timestamp alone where there are no releases", async () => {
+    it("stays on one line, as in the iOS menu", async () => {
+      await openMenu()
+
+      const version = document.querySelector(".menu-version") as HTMLElement
+      expect(version.children.length).toBe(0)
+      expect(getComputedStyle(version).whiteSpace).toBe("nowrap")
+    })
+
+    it("labels the bundle's id where there are no releases", async () => {
       buildVersionSpy.getDisplayVersion.and.resolveTo({
         release: null,
         build: "20261016-120000Z",
@@ -321,7 +330,7 @@ describe("HeaderComponent", () => {
       fixture.detectChanges()
       await openMenu()
 
-      expect(lines()).toEqual(["Bundle 20261016-120000Z"])
+      expect(text()).toBe("Bundle 20261016-120000Z")
     })
 
     it("is left out until the version is known", async () => {
