@@ -17,13 +17,10 @@ export class AnalyticsService {
     }
 
     try {
-      let buildVersion: string | undefined
-      let buildEnvironment: string | undefined
+      let buildData: BuildData = {}
 
       try {
-        const info = await this.buildVersionService.getBuildInfo()
-        buildVersion = info.buildVersion
-        buildEnvironment = info.buildEnvironment
+        buildData = await this.buildData()
       } catch (error) {
         console.error("Failed to fetch build info for analytics", error)
       }
@@ -31,8 +28,7 @@ export class AnalyticsService {
       if (window.umami) {
         window.umami.track(eventName, {
           ...eventData,
-          buildVersion,
-          buildEnvironment,
+          ...buildData,
           platform: Capacitor.getPlatform(),
         })
       }
@@ -62,9 +58,7 @@ export class AnalyticsService {
       script.src.split("/").slice(0, -1).join("/")
     const endpoint = `${host.replace(/\/$/, "")}/api/send`
 
-    const info = await this.buildVersionService
-      .getBuildInfo()
-      .catch(() => undefined)
+    const buildData = await this.buildData().catch((): BuildData => ({}))
     let payload: UmamiPayload | null = {
       website,
       screen: `${window.screen.width}x${window.screen.height}`,
@@ -76,8 +70,7 @@ export class AnalyticsService {
       name: eventName,
       data: {
         ...eventData,
-        buildVersion: info?.buildVersion,
-        buildEnvironment: info?.buildEnvironment,
+        ...buildData,
         platform: Capacitor.getPlatform(),
       },
     }
@@ -102,6 +95,24 @@ export class AnalyticsService {
     }
   }
 
+  /**
+   * Which build sent an event, so a report or a count can be traced to the
+   * code behind it: the web bundle's timestamp and environment, and, in the
+   * native apps, their release.
+   */
+  private async buildData(): Promise<BuildData> {
+    const [info, appVersion] = await Promise.all([
+      this.buildVersionService.getBuildInfo(),
+      this.buildVersionService.getRelease(),
+    ])
+    return {
+      buildVersion: info.buildVersion,
+      buildEnvironment: info.buildEnvironment,
+      // The web has no release: its buildVersion is its version.
+      ...(appVersion ? { appVersion } : {}),
+    }
+  }
+
   areAnalyticsAvailable(): boolean {
     return (
       (typeof window !== "undefined" &&
@@ -110,6 +121,14 @@ export class AnalyticsService {
       false
     )
   }
+}
+
+/** What every event says about the build that sent it. */
+interface BuildData {
+  buildVersion?: string
+  buildEnvironment?: string
+  /** The native apps' release (1.2.3); absent on the web. */
+  appVersion?: string
 }
 
 /** The Umami payload fields this app rewrites; the script sends more. */

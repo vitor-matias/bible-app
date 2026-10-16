@@ -66,7 +66,7 @@ export class BuildVersionService {
    * Returns null on the web, for a missing or blank version, or if the app
    * info lookup fails.
    */
-  private async getRelease(): Promise<string | null> {
+  async getRelease(): Promise<string | null> {
     if (!Capacitor.isNativePlatform()) return null
     try {
       const { version } = await this.appPlugin.getInfo()
