@@ -179,6 +179,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     @Inject(SHARE_PLUGIN) private sharePlugin: typeof Share,
   ) {}
 
+  /**
+   * Initializes responsive and sharing state, follows bookmark changes, and
+   * connects the iOS bars. Loads the menu version asynchronously, ignoring
+   * it if this header has already been destroyed.
+   */
   ngOnInit(): void {
     this.updateMobile()
     this.canShare =
@@ -296,6 +301,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.onboardingService.open("menu")
   }
 
+  /**
+   * Ignores a late version result, unregisters the back handler, stops label
+   * cycling, and requests that the iOS bars hide.
+   */
   ngOnDestroy(): void {
     this.destroyed = true
     this.unregisterBackCloser()

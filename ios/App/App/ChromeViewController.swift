@@ -857,6 +857,9 @@ enum ReaderMenu {
         return UIMenu(title: "Texto e aparência", children: sections)
     }
 
+    /// Builds the reader's more menu, with reading actions followed by app
+    /// actions and disabled version labels. State controls action availability;
+    /// selecting an enabled action passes its identifier to `send`.
     static func make(_ state: ChromeState, send: @escaping (String) -> Void) -> UIMenu {
         let autoScroll = action("Deslocamento automático", "arrow.down.circle", "auto-scroll", send: send)
         autoScroll.state = state.autoScrollVisible ? .on : .off

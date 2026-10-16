@@ -67,6 +67,9 @@ struct ChromeState: Equatable {
 
     init() {}
 
+    /// Reads the web app's bar state, defaulting missing values to an empty,
+    /// inactive state with the system theme. An unknown mode hides the bars;
+    /// an absent build version leaves out the menu's bundle line.
     init(_ call: CAPPluginCall) {
         mode = Mode(rawValue: call.getString("mode", "none")) ?? .none
         inert = call.getBool("inert", false)

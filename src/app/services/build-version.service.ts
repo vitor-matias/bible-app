@@ -49,6 +49,9 @@ export class BuildVersionService {
   /**
    * The compile timestamp of the web bundle, which the native apps ship
    * inside them, and, in the native apps only, their release number.
+   * Uses `dev-local` when build metadata is unavailable or has no nonblank
+   * build version, including during server rendering. The release is null
+   * on the web, when blank, or when the native app info lookup fails.
    */
   async getDisplayVersion(): Promise<DisplayVersion> {
     const [release, { buildVersion }] = await Promise.all([
@@ -58,6 +61,11 @@ export class BuildVersionService {
     return { release, build: buildVersion ?? FALLBACK_BUILD_VERSION }
   }
 
+  /**
+   * Returns the native release as reported, preserving surrounding whitespace.
+   * Returns null on the web, for a missing or blank version, or if the app
+   * info lookup fails.
+   */
   private async getRelease(): Promise<string | null> {
     if (!Capacitor.isNativePlatform()) return null
     try {
