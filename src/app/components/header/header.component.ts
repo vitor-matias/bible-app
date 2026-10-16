@@ -38,7 +38,10 @@ import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { spokenRibbonName } from "../../services/bookmark-ribbons.service"
-import { BuildVersionService } from "../../services/build-version.service"
+import {
+  BuildVersionService,
+  type DisplayVersion,
+} from "../../services/build-version.service"
 import { NativeBookmarksService } from "../../services/native-bookmarks.service"
 import {
   type NativeChromeAction,
@@ -122,8 +125,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   readonly privacyPolicyUrl = PRIVACY_POLICY_URL
-  /** Small print under the menu's last item; empty until it is known. */
-  versionLabel = ""
+  /** Small print under the menu's last item; null until it is known. */
+  version: DisplayVersion | null = null
+  private destroyed = false
 
   private labelInterval?: number
   private labelSwapTimeout?: number
@@ -191,14 +195,14 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.syncNativeChrome()
       })
 
-    // The iOS shell draws its own menu, version included.
-    if (!this.native) {
-      void this.buildVersion.getDisplayVersion().then(({ kind, value }) => {
-        // A timestamp is not a version: say what it is.
-        this.versionLabel = `${kind === "release" ? "Versão" : "Compilação"} ${value}`
-        this.cdr.markForCheck()
-      })
-    }
+    // The iOS shell draws the menu: it gets the timestamp, and has the release.
+    void this.buildVersion.getDisplayVersion().then((version) => {
+      // Gone already: syncing now would put the bars back over another page.
+      if (this.destroyed) return
+      this.version = version
+      this.cdr.markForCheck()
+      this.syncNativeChrome()
+    })
 
     if (this.native) {
       this.nativeChrome.actions$
@@ -293,6 +297,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true
     this.unregisterBackCloser()
     this.stopLabelCycle()
     if (this.native) this.nativeChrome.hide()
@@ -459,6 +464,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       autoScrollAvailable: this.viewMode !== "paged",
       canShare: this.canShare,
       canReport: this.analyticsService.areAnalyticsAvailable(),
+      buildVersion: this.version?.build ?? null,
     })
   }
 

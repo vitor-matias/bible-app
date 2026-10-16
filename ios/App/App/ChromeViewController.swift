@@ -793,13 +793,22 @@ enum ReaderMenu {
         return action
     }
 
-    /// "Versão 1.2.3": the release number CI sets from the release tag
-    /// (MARKETING_VERSION), as the web menu's small print under the privacy policy.
-    private static var versionTitle: String? {
+    /// The small print under the privacy policy: "Versão 1.2.3", the release
+    /// number CI sets from the release tag (MARKETING_VERSION), and
+    /// "Compilação 20261016-120000Z", when the web bundle was compiled. A menu
+    /// has no small text, so each is an item with nothing to do, which it dims.
+    private static func versionItems(buildVersion: String?) -> [UIMenuElement] {
+        var lines: [String] = []
         let key = "CFBundleShortVersionString"
-        guard let version = Bundle.main.object(forInfoDictionaryKey: key) as? String,
-              !version.isEmpty else { return nil }
-        return "Versão \(version)"
+        if let release = Bundle.main.object(forInfoDictionaryKey: key) as? String, !release.isEmpty {
+            lines.append("Versão \(release)")
+        }
+        if let buildVersion, !buildVersion.isEmpty {
+            lines.append("Compilação \(buildVersion)")
+        }
+        return lines.map { line -> UIMenuElement in
+            UIAction(title: line, attributes: .disabled) { _ in }
+        }
     }
 
     /// Choices side by side, rather than a menu within the menu.
@@ -864,10 +873,7 @@ enum ReaderMenu {
         }
         app.append(action("Como usar a app", "questionmark.circle", "help", send: send))
         app.append(action("Política de Privacidade", "hand.raised", "privacy", send: send))
-        if let versionTitle {
-            // Small print: an item with nothing to do, so the menu dims it.
-            app.append(UIAction(title: versionTitle, attributes: .disabled) { _ in })
-        }
+        app.append(contentsOf: versionItems(buildVersion: state.buildVersion))
         // Two groups with a divider, as the HIG asks of menus: what to do with
         // the reading, then the app's help and legal pages. Inline sections,
         // not submenus.

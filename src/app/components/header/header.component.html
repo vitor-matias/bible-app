@@ -62,8 +62,13 @@
             <mat-icon class="open-in-new-icon">open_in_new</mat-icon>
           </span>
         </a>
-        @if (versionLabel) {
-        <div class="menu-version">{{ versionLabel }}</div>
+        @if (version) {
+        <div class="menu-version">
+          @if (version.release) {
+          <div>Versão {{ version.release }}</div>
+          }
+          <div>Compilação {{ version.build }}</div>
+        </div>
         }
       </mat-menu>
 

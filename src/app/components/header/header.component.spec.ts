@@ -19,7 +19,10 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
-import { BuildVersionService } from "../../services/build-version.service"
+import {
+  BuildVersionService,
+  type DisplayVersion,
+} from "../../services/build-version.service"
 import { NativeBookmarksService } from "../../services/native-bookmarks.service"
 import {
   type NativeChromeAction,
@@ -89,8 +92,8 @@ describe("HeaderComponent", () => {
       "getDisplayVersion",
     ])
     buildVersionSpy.getDisplayVersion.and.resolveTo({
-      kind: "release",
-      value: "1.2.3",
+      release: "1.2.3",
+      build: "20261016-120000Z",
     })
     originalShare = navigator.share
 
@@ -292,30 +295,33 @@ describe("HeaderComponent", () => {
       fixture.detectChanges()
     }
 
-    it("is small print right under the privacy policy", async () => {
+    const lines = () =>
+      Array.from(document.querySelectorAll(".menu-version > div"), (line) =>
+        line.textContent?.trim(),
+      )
+
+    it("is small print right under the privacy policy: the release, then the compile timestamp", async () => {
       await openMenu()
 
       const version = document.querySelector(".menu-version")
-      expect(version?.textContent?.trim()).toBe("Versão 1.2.3")
+      expect(lines()).toEqual(["Versão 1.2.3", "Compilação 20261016-120000Z"])
       expect(version?.previousElementSibling?.getAttribute("href")).toBe(
         component.privacyPolicyUrl,
       )
       expect(version?.nextElementSibling).toBeNull()
     })
 
-    it("names the compile timestamp, not a version, where there are no releases", async () => {
+    it("is the compile timestamp alone where there are no releases", async () => {
       buildVersionSpy.getDisplayVersion.and.resolveTo({
-        kind: "build",
-        value: "20261016-120000Z",
+        release: null,
+        build: "20261016-120000Z",
       })
       fixture = TestBed.createComponent(HeaderComponent)
       fixture.componentRef.setInput("book", component.book)
       fixture.detectChanges()
       await openMenu()
 
-      expect(document.querySelector(".menu-version")?.textContent?.trim()).toBe(
-        "Compilação 20261016-120000Z",
-      )
+      expect(lines()).toEqual(["Compilação 20261016-120000Z"])
     })
 
     it("is left out until the version is known", async () => {
@@ -806,8 +812,8 @@ describe("HeaderComponent with the iOS native bars", () => {
       "getDisplayVersion",
     ])
     buildVersion.getDisplayVersion.and.resolveTo({
-      kind: "release",
-      value: "1.2.3",
+      release: "1.2.3",
+      build: "20261016-120000Z",
     })
     // The native share sheet is always available in the app.
     spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
@@ -851,8 +857,28 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(fixture.nativeElement.querySelector("mat-toolbar")).toBeNull()
   })
 
-  it("leaves the version to the native menu", () => {
-    expect(buildVersion.getDisplayVersion).not.toHaveBeenCalled()
+  it("hands the native menu the compile timestamp, which it shows with its release", () => {
+    expect(lastState().buildVersion).toBe("20261016-120000Z")
+  })
+
+  it("does not bring the bars back if the reader is gone before the version arrives", async () => {
+    let arrive!: (version: DisplayVersion) => void
+    buildVersion.getDisplayVersion.and.returnValue(
+      new Promise((resolve) => {
+        arrive = resolve
+      }),
+    )
+    const late = TestBed.createComponent(HeaderComponent)
+    late.componentRef.setInput("book", genesis)
+    late.componentRef.setInput("chapterNumber", 3)
+    late.detectChanges()
+    late.destroy()
+    nativeChrome.show.calls.reset()
+
+    arrive({ release: null, build: "20261016-120000Z" })
+    await new Promise((resolve) => setTimeout(resolve))
+
+    expect(nativeChrome.show).not.toHaveBeenCalled()
   })
 
   it("sends the bars what the web header would show", () => {
@@ -873,6 +899,7 @@ describe("HeaderComponent with the iOS native bars", () => {
       canReport: true,
       bookmarkColor: null,
       bookmarkName: null,
+      buildVersion: "20261016-120000Z",
     })
   })
 

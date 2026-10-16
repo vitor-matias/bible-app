@@ -54,6 +54,8 @@ struct ChromeState: Equatable {
     var bookmarkColor: String?
     /// Its spoken name ("vermelho").
     var bookmarkName: String?
+    /// When the web bundle was compiled, for the menu's small print.
+    var buildVersion: String?
 
     var autoScroll: AutoScrollState?
 
@@ -84,6 +86,7 @@ struct ChromeState: Equatable {
         canReport = call.getBool("canReport", false)
         bookmarkColor = call.getString("bookmarkColor")
         bookmarkName = call.getString("bookmarkName")
+        buildVersion = call.getString("buildVersion")
         query = call.getString("query", "")
         title = call.getString("title", "")
         autoScroll = call.getObject("autoScroll").map(AutoScrollState.init)
