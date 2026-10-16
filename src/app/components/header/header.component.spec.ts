@@ -88,7 +88,10 @@ describe("HeaderComponent", () => {
     buildVersionSpy = jasmine.createSpyObj("BuildVersionService", [
       "getDisplayVersion",
     ])
-    buildVersionSpy.getDisplayVersion.and.resolveTo("1.2.3")
+    buildVersionSpy.getDisplayVersion.and.resolveTo({
+      kind: "release",
+      value: "1.2.3",
+    })
     originalShare = navigator.share
 
     await TestBed.configureTestingModule({
@@ -298,6 +301,21 @@ describe("HeaderComponent", () => {
         component.privacyPolicyUrl,
       )
       expect(version?.nextElementSibling).toBeNull()
+    })
+
+    it("names the compile timestamp, not a version, where there are no releases", async () => {
+      buildVersionSpy.getDisplayVersion.and.resolveTo({
+        kind: "build",
+        value: "20261016-120000Z",
+      })
+      fixture = TestBed.createComponent(HeaderComponent)
+      fixture.componentRef.setInput("book", component.book)
+      fixture.detectChanges()
+      await openMenu()
+
+      expect(document.querySelector(".menu-version")?.textContent?.trim()).toBe(
+        "Compilação 20261016-120000Z",
+      )
     })
 
     it("is left out until the version is known", async () => {
@@ -787,7 +805,10 @@ describe("HeaderComponent with the iOS native bars", () => {
     buildVersion = jasmine.createSpyObj("BuildVersionService", [
       "getDisplayVersion",
     ])
-    buildVersion.getDisplayVersion.and.resolveTo("1.2.3")
+    buildVersion.getDisplayVersion.and.resolveTo({
+      kind: "release",
+      value: "1.2.3",
+    })
     // The native share sheet is always available in the app.
     spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
 

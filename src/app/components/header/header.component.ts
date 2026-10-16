@@ -122,8 +122,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   readonly privacyPolicyUrl = PRIVACY_POLICY_URL
-  /** Shown under the menu's last item; empty until it is known. */
-  appVersion = ""
+  /** Small print under the menu's last item; empty until it is known. */
+  versionLabel = ""
 
   private labelInterval?: number
   private labelSwapTimeout?: number
@@ -193,8 +193,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
     // The iOS shell draws its own menu, version included.
     if (!this.native) {
-      void this.buildVersion.getDisplayVersion().then((version) => {
-        this.appVersion = version
+      void this.buildVersion.getDisplayVersion().then(({ kind, value }) => {
+        // A timestamp is not a version: say what it is.
+        this.versionLabel = `${kind === "release" ? "Versão" : "Compilação"} ${value}`
         this.cdr.markForCheck()
       })
     }

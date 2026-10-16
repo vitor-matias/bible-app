@@ -9,6 +9,16 @@ interface BuildInfo {
 
 const FALLBACK_BUILD_VERSION = "dev-local"
 
+/**
+ * What to tell a reader about this copy of the app: a release number (the
+ * native apps, 1.2.3) or the time it was compiled (the web app, which has no
+ * releases).
+ */
+export interface DisplayVersion {
+  kind: "release" | "build"
+  value: string
+}
+
 @Injectable({
   providedIn: "root",
 })
@@ -39,19 +49,20 @@ export class BuildVersionService {
   }
 
   /**
-   * The version to show a reader. The native apps have a release number
-   * (1.2.3, set from the release tag); the web app has only its build id.
+   * The native apps have a release number, set from the release tag. The web
+   * app, and an app that cannot say its release, have the compile timestamp.
    */
-  async getDisplayVersion(): Promise<string> {
+  async getDisplayVersion(): Promise<DisplayVersion> {
     if (Capacitor.isNativePlatform()) {
       try {
         const { version } = await this.appPlugin.getInfo()
-        if (version?.trim()) return version
+        if (version?.trim()) return { kind: "release", value: version }
       } catch {
-        // Fall back to the build id below.
+        // Fall back to the compile timestamp below.
       }
     }
-    return (await this.getBuildInfo()).buildVersion ?? FALLBACK_BUILD_VERSION
+    const { buildVersion } = await this.getBuildInfo()
+    return { kind: "build", value: buildVersion ?? FALLBACK_BUILD_VERSION }
   }
 
   private async loadBuildVersion(): Promise<void> {
