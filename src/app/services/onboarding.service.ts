@@ -85,7 +85,8 @@ export class OnboardingService {
       .showOnboarding(nativeOnboardingSteps())
       .then((result) => {
         this.nativeOpen = false
-        this.closed(source, result)
+        // Never shown: not seen either, so a first launch offers it again.
+        if (result) this.closed(source, result)
       })
   }
 

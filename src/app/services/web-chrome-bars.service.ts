@@ -142,12 +142,9 @@ export class WebChromeBars implements NativeChromePlugin {
     return Promise.resolve()
   }
 
-  showOnboarding(options: {
+  showOnboarding(_options: {
     steps: NativeOnboardingStep[]
-  }): Promise<OnboardingResult> {
-    return Promise.resolve({
-      completed: false,
-      lastStep: options.steps[0]?.id ?? "",
-    })
+  }): Promise<SheetPresented & Partial<OnboardingResult>> {
+    return Promise.resolve({ presented: false })
   }
 }

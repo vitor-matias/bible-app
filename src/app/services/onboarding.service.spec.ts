@@ -212,6 +212,25 @@ describe("OnboardingService", () => {
       })
     })
 
+    // UIKit refuses a sheet while another is on its way (say the passage
+    // picker as the first-launch timer fires): it was never seen.
+    it("keeps it unseen when the sheet never came up", async () => {
+      showOnboarding.and.resolveTo(null)
+      service.open("first_launch")
+      await Promise.resolve()
+      await Promise.resolve()
+
+      expect(preferencesSpy.setOnboardingSeen).not.toHaveBeenCalled()
+      expect(analyticsSpy.track).not.toHaveBeenCalledWith(
+        "onboarding_close",
+        jasmine.anything(),
+      )
+
+      // Nor does it stay "open": Ajuda in the menu still shows it.
+      service.open("menu")
+      expect(showOnboarding).toHaveBeenCalledTimes(2)
+    })
+
     it("shows one sheet at a time", async () => {
       service.open("menu")
       service.open("menu")

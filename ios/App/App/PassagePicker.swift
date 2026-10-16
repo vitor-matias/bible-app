@@ -193,8 +193,11 @@ private final class BookListViewController: UICollectionViewController, UISearch
         guard !scrolledToCurrent else { return }
         scrolledToCurrent = true
         // Animated: this runs once the sheet or the Back transition has settled,
-        // so an unanimated scroll shows as a jump.
-        if let current = data.currentBook, let indexPath = dataSource.indexPath(for: current) {
+        // so an unanimated scroll shows as a jump. Not to "Sobre a Bíblia",
+        // listed after Apocalipse: from there the reader is choosing where to
+        // start, and the list opens at Génesis, its tile still highlighted.
+        if let current = data.currentBook, current.id != "about",
+           let indexPath = dataSource.indexPath(for: current) {
             collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: true)
         }
     }
@@ -414,7 +417,7 @@ private final class TileCell: UICollectionViewCell {
     func configure(text: String, detail: String? = nil, style: UIFont.TextStyle, current: Bool,
                    ribbon color: UIColor? = nil, accessibilityLabel: String) {
         label.text = text
-        label.font = .preferredFont(forTextStyle: style)
+        label.font = limitedFont(style)
         label.textColor = current ? ChromeViewController.onSelection : .label
         detailLabel.text = detail.map { "(\($0))" }
         detailLabel.isHidden = detail == nil
@@ -435,6 +438,11 @@ private final class TileCell: UICollectionViewCell {
 private func tileSection(_ environment: NSCollectionLayoutEnvironment, minWidth: CGFloat, height: CGFloat,
                          trailing: CGFloat = 16) -> NSCollectionLayoutSection {
     let spacing: CGFloat = 8
+    // Tiles grow with their text, to its limit: fewer to a row, none cut short.
+    let scale = min(UIFontMetrics(forTextStyle: .headline)
+        .scaledValue(for: 1, compatibleWith: environment.traitCollection), tileTextScaleLimit)
+    let minWidth = minWidth * scale
+    let height = height * scale
     let available = environment.container.effectiveContentSize.width - 16 - trailing
     let columns = max(1, Int((available + spacing) / (minWidth + spacing)))
     // Spacing as item insets: fractional widths must add up to the row exactly.
@@ -498,6 +506,23 @@ private func softenTopEdge(of scrollView: UIScrollView) {
     if #available(iOS 26.0, *) {
         scrollView.topEdgeEffect.style = .soft
     }
+}
+
+/// How far text in a tile, a bar or a toast grows with the reader's text
+/// size: to twice the standard size. The largest accessibility sizes (AX5 is
+/// over three times) would overflow them; Apple's own bars stop sooner still.
+let tileTextScaleLimit: CGFloat = 2
+
+/// `font`, at the standard text size, scaled as `style` is, up to `limit`
+/// times its size.
+func limitedFont(_ font: UIFont, _ style: UIFont.TextStyle, limit: CGFloat = tileTextScaleLimit) -> UIFont {
+    UIFontMetrics(forTextStyle: style).scaledFont(for: font, maximumPointSize: font.pointSize * limit)
+}
+
+/// `style`'s own font, scaled up to `limit` times its standard size.
+func limitedFont(_ style: UIFont.TextStyle, limit: CGFloat = tileTextScaleLimit) -> UIFont {
+    let standard = UITraitCollection(preferredContentSizeCategory: .large)
+    return limitedFont(.preferredFont(forTextStyle: style, compatibleWith: standard), style, limit: limit)
 }
 
 func closeButton(for controller: UIViewController) -> UIBarButtonItem {

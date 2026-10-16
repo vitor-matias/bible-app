@@ -54,6 +54,8 @@ struct ChromeState: Equatable {
     var bookmarkColor: String?
     /// Its spoken name ("vermelho").
     var bookmarkName: String?
+    /// When the web bundle was compiled, for the menu's small print.
+    var buildVersion: String?
 
     var autoScroll: AutoScrollState?
 
@@ -65,6 +67,9 @@ struct ChromeState: Equatable {
 
     init() {}
 
+    /// Reads the web app's bar state, defaulting missing values to an empty,
+    /// inactive state with the system theme. An unknown mode hides the bars;
+    /// an absent build version leaves out the menu's bundle line.
     init(_ call: CAPPluginCall) {
         mode = Mode(rawValue: call.getString("mode", "none")) ?? .none
         inert = call.getBool("inert", false)
@@ -84,6 +89,7 @@ struct ChromeState: Equatable {
         canReport = call.getBool("canReport", false)
         bookmarkColor = call.getString("bookmarkColor")
         bookmarkName = call.getString("bookmarkName")
+        buildVersion = call.getString("buildVersion")
         query = call.getString("query", "")
         title = call.getString("title", "")
         autoScroll = call.getObject("autoScroll").map(AutoScrollState.init)
@@ -94,12 +100,15 @@ struct ChromeState: Equatable {
 struct AutoScrollState: Equatable {
     var playing: Bool
     var speedLabel: String
+    /// In words, for VoiceOver: "1,5 linhas por segundo".
+    var speedAccessibilityLabel: String
     var canSlower: Bool
     var canFaster: Bool
 
     init(_ object: JSObject) {
         playing = object["playing"] as? Bool ?? false
         speedLabel = object["speedLabel"] as? String ?? ""
+        speedAccessibilityLabel = object["speedAccessibilityLabel"] as? String ?? speedLabel
         canSlower = object["canSlower"] as? Bool ?? false
         canFaster = object["canFaster"] as? Bool ?? false
     }
@@ -202,15 +211,20 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     /// Resolves once the sheet is dismissed: completed, or skipped at a step.
+    /// Resolves at once with `presented: false` when it didn't come up, which
+    /// the web app must not take for the onboarding seen.
     @objc func showOnboarding(_ call: CAPPluginCall) {
         let steps = OnboardingStepData.parse(call)
         DispatchQueue.main.async {
             guard let chrome = self.chrome, !steps.isEmpty else {
-                call.resolve(["completed": false, "lastStep": ""])
+                call.resolve(["presented": false])
                 return
             }
-            chrome.presentOnboarding(steps) { completed, lastStep in
-                call.resolve(["completed": completed, "lastStep": lastStep])
+            let presented = chrome.presentOnboarding(steps) { completed, lastStep in
+                call.resolve(["presented": true, "completed": completed, "lastStep": lastStep])
+            }
+            if !presented {
+                call.resolve(["presented": false])
             }
         }
     }
@@ -228,6 +242,9 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
 struct ChromeInsets: Equatable {
     var top: CGFloat = 0
     var bottom: CGFloat = 0
+    /// The reader's bars are hidden for reading. Not always when the page asks:
+    /// under VoiceOver they stay, and the page keeps its edge fades for them.
+    var collapsed = false
 
-    var dictionary: [String: Any] { ["top": top, "bottom": bottom] }
+    var dictionary: [String: Any] { ["top": top, "bottom": bottom, "collapsed": collapsed] }
 }

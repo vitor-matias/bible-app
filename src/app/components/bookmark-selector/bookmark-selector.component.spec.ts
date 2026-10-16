@@ -168,6 +168,51 @@ describe("BookmarkSelectorComponent", () => {
     expect(bookmarkServiceSpy.removeBookmark).toHaveBeenCalledWith("MRK", 2)
   })
 
+  describe("moving a ribbon read on from", () => {
+    const moveButton = (): HTMLButtonElement | null =>
+      fixture.nativeElement.querySelector(".move-button")
+    const blueOnIntro: Bookmark = {
+      bookId: "GEN",
+      chapter: 0,
+      color: "blue",
+      timestamp: 1,
+    }
+
+    it("offers nothing without a ribbon behind this chapter", () => {
+      expect(moveButton()).toBeNull()
+    })
+
+    it("moves the ribbon here, then undoes the move", () => {
+      bookmarksSubject.next([blueOnIntro])
+      fixture.detectChanges()
+      expect(moveButton()?.textContent).toContain(
+        "Mover o marcador azul de Mc Introdução para Mc 1",
+      )
+
+      moveButton()?.click()
+      expect(bookmarkServiceSpy.addBookmark).toHaveBeenCalledWith(
+        "GEN",
+        1,
+        "blue",
+      )
+      bookmarksSubject.next([{ ...blueOnIntro, chapter: 1, timestamp: 2 }])
+      fixture.detectChanges()
+      expect(moveButton()?.textContent).toContain(
+        "Desfazer: o marcador azul volta a Mc Introdução",
+      )
+
+      moveButton()?.click()
+      expect(bookmarkServiceSpy.addBookmark).toHaveBeenCalledWith(
+        "GEN",
+        0,
+        "blue",
+      )
+      bookmarksSubject.next([blueOnIntro])
+      fixture.detectChanges()
+      expect(moveButton()?.textContent).toContain("Mover o marcador azul")
+    })
+  })
+
   it("should warn and not navigate when bookmark references unknown book", () => {
     const bookServiceSpy = TestBed.inject(
       BookService,

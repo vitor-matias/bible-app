@@ -1,6 +1,7 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatMenuTrigger } from "@angular/material/menu"
 import { By } from "@angular/platform-browser"
+import { BuildVersionService } from "../../services/build-version.service"
 import type {
   AutoScrollChrome,
   ChromeInsets,
@@ -28,6 +29,7 @@ const READER: ReaderChrome = {
   bookmarkColor: null,
   bookmarkName: null,
   passageShortLabels: ["Gn 1"],
+  buildVersion: "20261016-120000Z",
 }
 
 const shown = (
@@ -52,7 +54,18 @@ describe("ChromeBarsComponent", () => {
   let sent: NativeChromeAction[]
 
   function create(): void {
-    TestBed.configureTestingModule({ imports: [ChromeBarsComponent] })
+    TestBed.configureTestingModule({
+      imports: [ChromeBarsComponent],
+      providers: [
+        {
+          provide: BuildVersionService,
+          useValue: {
+            getDisplayVersion: () =>
+              Promise.resolve({ release: "1.2.3", build: "20261016-120000Z" }),
+          },
+        },
+      ],
+    })
     bars = TestBed.inject(WebChromeBars)
     sent = []
     void bars.addListener("action", (action) => sent.push(action))
@@ -262,6 +275,16 @@ describe("ChromeBarsComponent", () => {
         expect(sent).toEqual([{ id: "report" }])
       })
 
+      // As the web header's menu, which the bars take the place of (#175).
+      it("ends with the app's version in small print", async () => {
+        await fixture.whenStable()
+        await show(shown())
+        click(button("Mais"))
+        const version = document.querySelector(".menu-version")
+        expect(version?.textContent).toContain("Versão 1.2.3")
+        expect(version?.textContent).toContain("Bundle 20261016-120000Z")
+      })
+
       it("leaves out what the page can't do", async () => {
         await show(
           shown({
@@ -281,14 +304,18 @@ describe("ChromeBarsComponent", () => {
       const autoScroll: AutoScrollChrome = {
         playing: true,
         speedLabel: "1 ln/s",
+        speedAccessibilityLabel: "1 linha por segundo",
         canSlower: false,
         canFaster: true,
       }
 
       it("shows the speed, and pause while it plays", async () => {
         await show(shown({}, { autoScroll }))
-        expect(host().querySelector(".speed-label")?.textContent?.trim()).toBe(
-          "1 ln/s",
+        const speed = host().querySelector(".speed-label")
+        expect(speed?.textContent?.trim()).toBe("1 ln/s")
+        // In words for screen readers, as for VoiceOver on iOS.
+        expect(speed?.getAttribute("aria-label")).toBe(
+          "Velocidade: 1 linha por segundo",
         )
         expect(button("Diminuir velocidade").disabled).toBeTrue()
         click(button("Aumentar velocidade"))

@@ -12,10 +12,10 @@ import { AnalyticsService } from "../../services/analytics.service"
 import {
   BibleReference,
   BibleReferenceService,
-  VerseReference,
 } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
-import { parseReferences } from "../verse/verse.utils"
+import { ToastService } from "../../services/toast.service"
+import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 
 @Component({
   selector: "footnotes-bottom-sheet",
@@ -35,9 +35,9 @@ import { parseReferences } from "../verse/verse.utils"
           @for(part of parseReferences(footnote.text).parts; track $index){ @if
           (typeof part === 'object') {
           <a
-            (click)="close()"
+            (click)="followReference()"
             [routerLink]="['/', getAbrv(part.book), part.chapter]"
-            [queryParams]="getVerseQueryParams(part.verses)"
+            [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)"
           >{{ part.match }}</a>
           } @else {
           {{ part }}
@@ -85,6 +85,7 @@ export class FootnotesBottomSheetComponent {
     private bibleRef: BibleReferenceService,
     private bookService: BookService,
     private analyticsService: AnalyticsService,
+    private toast: ToastService,
   ) {
     void this.analyticsService.track("footnotes_opened", {
       book: data.verse.bookId,
@@ -104,17 +105,8 @@ export class FootnotesBottomSheetComponent {
     }
   }
 
-  getVerseQueryParams(verses?: VerseReference[]) {
-    if (!verses?.length) return null
-    const first = verses[0]
-    if (first.type === "single") {
-      return { verseStart: first.verse }
-    }
-    if (first.type === "range") {
-      return { verseStart: first.start, verseEnd: first.end }
-    }
-    return null
-  }
+  /** As the verse's own links and the iOS sheet have it. */
+  getVerseQueryParams = getVerseQueryParams
 
   getAbrv(bookId: string): string {
     const book = this.bookService.findBook(bookId)
@@ -123,5 +115,11 @@ export class FootnotesBottomSheetComponent {
 
   close(): void {
     this.bottomSheetRef.dismiss()
+  }
+
+  /** The link navigates; this closes the sheet and offers the way back. */
+  followReference(): void {
+    this.close()
+    this.toast.showReturn(this.data.verse)
   }
 }

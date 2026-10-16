@@ -17,14 +17,14 @@ export class AutoScrollService implements OnDestroy {
   readonly MAX_AUTO_SCROLL_LPS = 4
   readonly AUTO_SCROLL_STEP = 0.25
   private readonly FRACTIONAL_SPEED_STEPS = [
-    { value: 1 / 6, label: "1/6" },
-    { value: 1 / 5, label: "1/5" },
-    { value: 1 / 4, label: "1/4" },
-    { value: 1 / 3, label: "1/3" },
-    { value: 1 / 2, label: "1/2" },
-    { value: 2 / 3, label: "2/3" },
-    { value: 3 / 4, label: "3/4" },
-    { value: 4 / 5, label: "4/5" },
+    { value: 1 / 6, label: "1/6", spoken: "um sexto de linha" },
+    { value: 1 / 5, label: "1/5", spoken: "um quinto de linha" },
+    { value: 1 / 4, label: "1/4", spoken: "um quarto de linha" },
+    { value: 1 / 3, label: "1/3", spoken: "um terço de linha" },
+    { value: 1 / 2, label: "1/2", spoken: "meia linha" },
+    { value: 2 / 3, label: "2/3", spoken: "dois terços de linha" },
+    { value: 3 / 4, label: "3/4", spoken: "três quartos de linha" },
+    { value: 4 / 5, label: "4/5", spoken: "quatro quintos de linha" },
   ]
   private readonly FRACTIONAL_EPSILON = 0.002
   /** Pixels the page may sit from where auto-scroll left it: rounding, not a reader. */
@@ -38,6 +38,12 @@ export class AutoScrollService implements OnDestroy {
    * finger, the wheel, a key or the scrollbar moved it: the reader took over.
    */
   private expectedScrollTop = 0
+  /**
+   * How tall the text was then. When it changed too, the text reflowed (a
+   * new text size, verses loading) and the browser moved the page to keep
+   * the reader's place: that is no reader scrolling.
+   */
+  private expectedScrollHeight = 0
   private cachedLineHeight = 24
   private lineHeightObserver?: ResizeObserver
   private scrollElement?: HTMLElement
@@ -82,14 +88,31 @@ export class AutoScrollService implements OnDestroy {
     return Number.isInteger(rounded) ? rounded.toString() : rounded.toString()
   }
 
-  private getFractionalLabel(value: number): string | null {
-    if (value >= 1) {
-      return null
+  /**
+   * The speed in words, for screen readers, which can't say "1/2 ln/s":
+   * "meia linha por segundo", "1,25 linhas por segundo".
+   */
+  getAutoScrollSpeedSpokenLabel(value: number): string {
+    const fraction = this.getFractionalStep(value)
+    if (fraction) {
+      return `${fraction.spoken} por segundo`
     }
-    const match = this.FRACTIONAL_SPEED_STEPS.find(
+    const rounded = Number(value.toFixed(2))
+    const lines = rounded === 1 ? "linha" : "linhas"
+    return `${String(rounded).replace(".", ",")} ${lines} por segundo`
+  }
+
+  private getFractionalLabel(value: number): string | null {
+    return this.getFractionalStep(value)?.label ?? null
+  }
+
+  private getFractionalStep(value: number) {
+    if (value >= 1) {
+      return undefined
+    }
+    return this.FRACTIONAL_SPEED_STEPS.find(
       (step) => Math.abs(step.value - value) <= this.FRACTIONAL_EPSILON,
     )
-    return match?.label ?? null
   }
 
   private getNextSpeed(current: number, direction: number): number {
@@ -132,6 +155,7 @@ export class AutoScrollService implements OnDestroy {
     this.lastAutoScrollTimestamp = undefined
     this.accumulatedScrollDelta = 0
     this.expectedScrollTop = this.scrollElement.scrollTop
+    this.expectedScrollHeight = this.scrollElement.scrollHeight
     this.autoScrollEnabled = true
     this.keepAwakeService.start()
     this.setupLineHeightObserver()
@@ -165,13 +189,15 @@ export class AutoScrollService implements OnDestroy {
     }
 
     // Scrolling by hand takes over: stop, and leave the page where they put it.
-    if (
+    // A reflow moves the page too, but changes its height; carry on from there.
+    const moved =
       Math.abs(content.scrollTop - this.expectedScrollTop) >
       this.USER_SCROLL_TOLERANCE
-    ) {
+    if (moved && content.scrollHeight === this.expectedScrollHeight) {
       this.stop()
       return
     }
+    this.expectedScrollHeight = content.scrollHeight
 
     if (this.lastAutoScrollTimestamp === undefined) {
       this.lastAutoScrollTimestamp = timestamp

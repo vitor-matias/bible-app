@@ -37,7 +37,11 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
-import { RIBBON_COLORS } from "../../services/bookmark-ribbons.service"
+import { spokenRibbonName } from "../../services/bookmark-ribbons.service"
+import {
+  BuildVersionService,
+  type DisplayVersion,
+} from "../../services/build-version.service"
 import { NativeBookmarksService } from "../../services/native-bookmarks.service"
 import {
   type NativeChromeAction,
@@ -121,6 +125,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   readonly privacyPolicyUrl = PRIVACY_POLICY_URL
+  /** Small print under the menu's last item; null until it is known. */
+  version: DisplayVersion | null = null
+  private destroyed = false
 
   private labelInterval?: number
   private labelSwapTimeout?: number
@@ -148,6 +155,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly bookService = inject(BookService)
   private readonly nativeBookmarks = inject(NativeBookmarksService)
   private readonly nativeReport = inject(NativeReportService)
+  private readonly buildVersion = inject(BuildVersionService)
   private bookmarks: Bookmark[] = []
   /**
    * The app's bars draw this header (natively in the iOS app, in the page on
@@ -174,6 +182,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     @Inject(SHARE_PLUGIN) private sharePlugin: typeof Share,
   ) {}
 
+  /**
+   * Initializes responsive and sharing state, follows bookmark changes, and
+   * connects the iOS bars. Loads the menu version asynchronously, ignoring
+   * it if this header has already been destroyed.
+   */
   ngOnInit(): void {
     this.updateMobile()
     this.canShare =
@@ -189,6 +202,15 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.cdr.detectChanges()
         this.syncNativeChrome()
       })
+
+    // The iOS shell draws the menu: it gets the timestamp, and has the release.
+    void this.buildVersion.getDisplayVersion().then((version) => {
+      // Gone already: syncing now would put the bars back over another page.
+      if (this.destroyed) return
+      this.version = version
+      this.cdr.markForCheck()
+      this.syncNativeChrome()
+    })
 
     if (this.bars) {
       this.nativeChrome.actions$
@@ -282,7 +304,12 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.onboardingService.open("menu")
   }
 
+  /**
+   * Ignores a late version result, unregisters the back handler, stops label
+   * cycling, and requests that the iOS bars hide.
+   */
   ngOnDestroy(): void {
+    this.destroyed = true
     this.unregisterBackCloser()
     this.stopLabelCycle()
     if (this.bars) this.nativeChrome.hide()
@@ -332,7 +359,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /** The ribbon on the chapter being read, by its spoken name ("Vermelho"). */
   get bookmarkName(): string | undefined {
     const color = this.currentBookmark?.color
-    return RIBBON_COLORS.find((ribbon) => ribbon.value === color)?.spoken
+    return color ? spokenRibbonName(color) : undefined
   }
 
   getViewModeIcon(): string {
@@ -378,9 +405,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
 
     const isAbout = this.book?.id === "about"
-    const title = "Biblia Sagrada"
+    const title = "Bíblia Sagrada"
     const text = isAbout
-      ? "Leia a Biblia nesta app."
+      ? "Leia a Bíblia nesta app."
       : this.chapterNumber === 0
         ? `Ler a introdução de ${this.book?.name}.`
         : `Ler ${this.book?.name} ${this.chapterNumber}.`
@@ -390,7 +417,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     try {
       if (Capacitor.isNativePlatform()) {
         await this.sharePlugin.share({
-          title: "Biblia Sagrada",
+          title,
           text,
           url,
           dialogTitle: "Partilhar passagem",
@@ -449,6 +476,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       autoScrollAvailable: this.viewMode !== "paged",
       canShare: this.canShare,
       canReport: this.analyticsService.areAnalyticsAvailable(),
+      buildVersion: this.version?.build ?? null,
     })
   }
 

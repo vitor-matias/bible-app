@@ -16,6 +16,10 @@ import { MatRippleModule } from "@angular/material/core"
 import { MatDividerModule } from "@angular/material/divider"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenuModule } from "@angular/material/menu"
+import {
+  BuildVersionService,
+  type DisplayVersion,
+} from "../../services/build-version.service"
 import type {
   AutoScrollChrome,
   NativeChromeAction,
@@ -123,6 +127,8 @@ export class ChromeBarsComponent {
     source: this.passageLabels,
     computation: () => 0,
   })
+  /** For the More menu's small print, as the web header's menu has it. */
+  readonly version = signal<DisplayVersion | null>(null)
   /** Counts the window's resizes, which can change the toolbar's room. */
   private readonly resizes = signal(0)
   readonly passageText = computed(() => {
@@ -175,6 +181,9 @@ export class ChromeBarsComponent {
     })
 
     if (typeof window === "undefined") return
+    void inject(BuildVersionService)
+      .getDisplayVersion()
+      .then((version) => this.version.set(version))
     const remeasure = () => this.measure()
     const resized = () => {
       // More room may fit a longer form again, less may need a shorter one.

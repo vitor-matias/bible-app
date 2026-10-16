@@ -879,9 +879,34 @@ describe("VerseComponent", () => {
 
         expect(marker.querySelector("svg.noteIcon")).toBeTruthy()
         expect(marker.textContent?.trim()).toBe("")
-        expect(marker.getAttribute("aria-label")).toBe("Notas")
+        expect(marker.getAttribute("aria-label")).toBe("Notas do versículo 1")
         expect(marker.querySelector("svg")?.getAttribute("aria-hidden")).toBe(
           "true",
+        )
+      })
+
+      // VoiceOver read every marker as "Notas": nothing told one verse's
+      // from the next.
+      it("names the verse the notes are for, in poetry too", () => {
+        fixture.componentRef.setInput(
+          "data",
+          makeVerse({
+            number: 7,
+            text: [
+              { type: "quote", text: "Felizes os humildes", identLevel: 1 },
+              footnote,
+            ],
+          }),
+        )
+        fixture.detectChanges()
+
+        expect(
+          fixture.nativeElement.querySelector(
+            ".quoteVerseNumber .footnoteIndicator",
+          ),
+        ).toBe(asterisk())
+        expect(asterisk().getAttribute("aria-label")).toBe(
+          "Notas do versículo 7",
         )
       })
 
@@ -1183,5 +1208,32 @@ describe("VerseComponent", () => {
       // new line with no blank one in front of it.
       expect(hasBlankLine(fixture.nativeElement)).toBeFalse()
     })
+  })
+
+  // In justified prose, a wrapped line of poetry was spread into wide gaps
+  // ("Felizes  os  que  sofrem  perseguição  por") and hyphenated.
+  it("sets a line of poetry ragged-right and unhyphenated", () => {
+    const host = fixture.nativeElement as HTMLElement
+    host.style.textAlign = "justify"
+    host.style.hyphens = "auto"
+    setData(
+      component,
+      makeVerse({
+        number: 10,
+        text: [
+          {
+            type: "quote",
+            text: "Felizes os que sofrem perseguição por causa da justiça,",
+            identLevel: 1,
+          },
+        ],
+      }),
+    )
+    fixture.detectChanges()
+
+    const line = host.querySelector(".quoteLineWrapper") as HTMLElement
+    expect(line).toBeTruthy()
+    expect(getComputedStyle(line).textAlign).toBe("start")
+    expect(getComputedStyle(line).hyphens).toBe("manual")
   })
 })

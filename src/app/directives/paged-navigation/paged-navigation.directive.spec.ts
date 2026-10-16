@@ -301,6 +301,119 @@ describe("PagedNavigationDirective", () => {
     })
   })
 
+  describe("aligning the last page", () => {
+    beforeEach(() => {
+      // advanceWidth = 100 - (5+5) + 10 = 100
+      spyOnProperty(
+        hostComponent.block.nativeElement,
+        "clientWidth",
+      ).and.returnValue(100)
+      spyOn(window, "getComputedStyle").and.returnValue({
+        columnGap: "10px",
+        paddingLeft: "5px",
+        paddingRight: "5px",
+      } as unknown as CSSStyleDeclaration)
+      spyOnProperty(container, "clientWidth").and.returnValue(100)
+    })
+
+    it("pads a last page that ends part-way to a whole page", () => {
+      spyOnProperty(container, "scrollWidth").and.returnValue(350)
+      hostComponent.directive.ensureAlignedScrollWidth()
+      expect(container.children.length).toBe(2)
+    })
+
+    // With the margins inside the columns, a tablet's two columns came out
+    // 2 px over 4 pages: padded out, that made a fifth, empty page.
+    it("adds no page for a pixel or two of rounding", () => {
+      spyOnProperty(container, "scrollWidth").and.returnValue(302)
+      hostComponent.directive.ensureAlignedScrollWidth()
+      expect(container.children.length).toBe(1)
+    })
+  })
+
+  // The page stood still under the finger and turned only once it let go.
+  describe("dragging a page", () => {
+    let block: HTMLElement
+    const shift = () =>
+      Number(/translateX\((-?[\d.]+)px\)/.exec(block.style.transform)?.[1])
+
+    beforeEach(() => {
+      block = hostComponent.block.nativeElement
+      // advanceWidth = 100 - (5+5) + 10 = 100; the content scrolls 200.
+      spyOnProperty(block, "clientWidth").and.returnValue(100)
+      spyOn(window, "getComputedStyle").and.returnValue({
+        columnGap: "10px",
+        paddingLeft: "5px",
+        paddingRight: "5px",
+      } as unknown as CSSStyleDeclaration)
+    })
+
+    it("moves the page with the finger", () => {
+      container.scrollLeft = 100
+      hostComponent.directive.dragBy(-30)
+      expect(container.scrollLeft).toBe(130)
+    })
+
+    it("turns from the page the drag started on", () => {
+      container.scrollLeft = 100
+      hostComponent.directive.dragBy(-70)
+      hostComponent.directive.nextPage()
+
+      // @ts-expect-error TS complains about 1 argument for scrollTo overload
+      expect(container.scrollTo).toHaveBeenCalledWith({
+        left: 200,
+        behavior: "smooth",
+      })
+    })
+
+    it("goes back to its page when let go without a turn", () => {
+      container.scrollLeft = 100
+      hostComponent.directive.dragBy(-30)
+      hostComponent.directive.cancelDrag()
+
+      // @ts-expect-error TS complains about 1 argument for scrollTo overload
+      expect(container.scrollTo).toHaveBeenCalledWith({
+        left: 100,
+        behavior: "smooth",
+      })
+    })
+
+    it("gives past the first page, less the further it is pulled", () => {
+      container.scrollLeft = 0
+      hostComponent.directive.dragBy(60)
+      const first = shift()
+      hostComponent.directive.dragBy(120)
+      const second = shift()
+
+      expect(container.scrollLeft).toBe(0)
+      expect(first).toBeGreaterThan(0)
+      expect(first).toBeLessThan(60)
+      expect(second - first).toBeLessThan(first)
+    })
+
+    it("springs back as it turns to the previous chapter", () => {
+      container.scrollLeft = 0
+      hostComponent.directive.dragBy(60)
+      hostComponent.directive.prevPage()
+
+      expect(hostComponent.prevChapterCalled).toBeTrue()
+      expect(block.style.transform).toBe("")
+    })
+
+    // A second tap before the first turn had gone halfway turned to the same page.
+    it("turns on from the page a turn under way is heading for", () => {
+      container.scrollLeft = 0
+      hostComponent.directive.nextPage()
+      hostComponent.directive.nextPage()
+
+      // @ts-expect-error TS complains about 1 argument for scrollTo overload
+      expect(container.scrollTo).toHaveBeenCalledWith({
+        left: 200,
+        behavior: "smooth",
+      })
+    })
+  })
+
   // The bookBlock setter observes content changes as soon as it is bound, and
   // the server DOM has no MutationObserver — binding it there used to throw
   // once per prerendered route.

@@ -137,6 +137,6 @@ describe("WebChromeBars", () => {
           WebChromeBars["showOnboarding"]
         >[0]["steps"],
       }),
-    ).toEqual({ completed: false, lastStep: "welcome" })
+    ).toEqual({ presented: false })
   })
 })

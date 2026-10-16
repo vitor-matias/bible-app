@@ -41,7 +41,15 @@ export type NativeChromeAction =
         | "toast-action"
     }
   | { id: "goto"; bookId: string; chapter?: number }
-  | { id: "bookmark-open" | "bookmark-set" | "bookmark-remove"; color: string }
+  | {
+      id:
+        | "bookmark-open"
+        | "bookmark-set"
+        | "bookmark-remove"
+        | "bookmark-move"
+        | "bookmark-undo"
+      color: string
+    }
   | { id: "bookmarks-closed" }
   | { id: "footnote-link"; index: number }
   | { id: "footnotes-closed" }
@@ -71,6 +79,8 @@ export interface ReaderChrome {
   bookmarkColor: string | null
   /** Its spoken name ("vermelho"), for VoiceOver. */
   bookmarkName: string | null
+  /** When the web bundle was compiled, for the menu's small print. */
+  buildVersion: string | null
 }
 
 /** The search page's bars: Back on top, the search field at the bottom. */
@@ -94,6 +104,8 @@ export type PageChrome = ReaderChrome | SearchChrome | TitledPageChrome
 export interface AutoScrollChrome {
   playing: boolean
   speedLabel: string
+  /** In words, for VoiceOver: "1,5 linhas por segundo". */
+  speedAccessibilityLabel: string
   canSlower: boolean
   canFaster: boolean
 }
@@ -121,13 +133,26 @@ export interface BookmarksSheetState {
     /** Marks the chapter being read. */
     current: boolean
   }[]
+  /**
+   * The ribbon offered to move to this chapter, or, once moved, to move back;
+   * null when there is none.
+   */
+  move: {
+    color: string
+    /** As the ribbon's adjective: "vermelho". */
+    name: string
+    /** Where the ribbon is, or was before the move: "Mateus 5". */
+    from: string
+    /** Moved: the sheet offers to undo it. */
+    done: boolean
+  } | null
 }
 
 /** A verse's footnotes. Mirrors FootnotesSheetState in FootnotesSheet.swift. */
 export interface FootnotesSheetState {
   /** The verse, e.g. "Mateus 11,3". */
   title: string
-  /** The reader's footnote text size, 1 = 100%. */
+  /** The reader's text size, 1 = 100%: the iPhone's own text size included. */
   fontScale: number
   notes: {
     /** The note's marker, e.g. "3". */
@@ -165,6 +190,11 @@ export interface SheetPresented {
 export interface ChromeInsets {
   top: number
   bottom: number
+  /**
+   * Whether the reader's bars did hide: under VoiceOver the shell keeps them.
+   * Older shells don't say.
+   */
+  collapsed?: boolean
 }
 
 export interface NativeChromePlugin {
@@ -186,10 +216,13 @@ export interface NativeChromePlugin {
   showReport(state: ReportSheetState): Promise<SheetPresented>
   /** The answer to report-submit: the sheet closes, or shows `message`. */
   finishReport(result: { sent: boolean; message?: string }): Promise<void>
-  /** Resolves once the sheet is dismissed, however that happened. */
+  /**
+   * Resolves once the sheet is dismissed, however that happened; at once,
+   * with `presented: false`, when it didn't come up.
+   */
   showOnboarding(options: {
     steps: NativeOnboardingStep[]
-  }): Promise<OnboardingResult>
+  }): Promise<SheetPresented & Partial<OnboardingResult>>
   addListener(
     eventName: "action",
     listener: (action: NativeChromeAction) => void,
@@ -267,6 +300,8 @@ export class NativeChromeService {
   private toastAction?: () => void
   /** The bars' state as last sent to the shell (push). */
   private lastSent?: string
+  /** The shell says whether its bars did hide (ChromeInsets.collapsed). */
+  private collapseReported = false
 
   /**
    * True in the iOS app, whose shell provides the NativeChrome plugin: its
@@ -412,11 +447,24 @@ export class NativeChromeService {
     return presented(this.plugin.showFootnotes(state))
   }
 
-  /** The onboarding as a native sheet; resolves when it is dismissed. */
-  showOnboarding(steps: NativeOnboardingStep[]): Promise<OnboardingResult> {
-    return this.plugin
-      .showOnboarding({ steps })
-      .catch(() => ({ completed: false, lastStep: steps[0]?.id ?? "" }))
+  /**
+   * The onboarding as a native sheet; resolves when it is dismissed, or with
+   * null when it never came up (e.g. over a sheet still on its way), which
+   * isn't the onboarding seen.
+   */
+  showOnboarding(
+    steps: NativeOnboardingStep[],
+  ): Promise<OnboardingResult | null> {
+    return this.plugin.showOnboarding({ steps }).then(
+      (result) =>
+        result?.presented === true
+          ? {
+              completed: result.completed ?? false,
+              lastStep: result.lastStep ?? "",
+            }
+          : null,
+      () => null,
+    )
   }
 
   /**
@@ -534,11 +582,15 @@ export class NativeChromeService {
           autoScroll: reader ? this.autoScroll : null,
         }
       : { mode: "none" }
-    // Lets the page draw its edge effects to match.
-    this.document.body.classList.toggle(
-      "native-chrome-collapsed",
-      state.mode === "reader" && state.collapsed,
-    )
+    // Lets the page draw its edge effects to match. Once the shell says
+    // whether the bars did hide (applyInsets), it decides: under VoiceOver
+    // they stay, and the text mustn't show where the fades were.
+    if (!this.collapseReported) {
+      this.document.body.classList.toggle(
+        "native-chrome-collapsed",
+        state.mode === "reader" && state.collapsed,
+      )
+    }
     // Pages ask for the same bars several times as they start; each push has
     // the shell rebuild them.
     const sent = JSON.stringify(state)
@@ -553,10 +605,14 @@ export class NativeChromeService {
     )
   }
 
-  private applyInsets({ top, bottom }: ChromeInsets): void {
+  private applyInsets({ top, bottom, collapsed }: ChromeInsets): void {
     const style = this.document.documentElement.style
     style.setProperty("--native-chrome-top", `${top}px`)
     style.setProperty("--native-chrome-bottom", `${bottom}px`)
+    if (collapsed !== undefined) {
+      this.collapseReported = true
+      this.document.body.classList.toggle("native-chrome-collapsed", collapsed)
+    }
   }
 }
 

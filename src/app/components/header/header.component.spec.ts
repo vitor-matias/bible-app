@@ -19,6 +19,10 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
+import {
+  BuildVersionService,
+  type DisplayVersion,
+} from "../../services/build-version.service"
 import { NativeBookmarksService } from "../../services/native-bookmarks.service"
 import {
   type NativeChromeAction,
@@ -46,6 +50,7 @@ describe("HeaderComponent", () => {
   let dialogSpy: jasmine.SpyObj<MatDialog>
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
   let onboardingServiceSpy: jasmine.SpyObj<OnboardingService>
+  let buildVersionSpy: jasmine.SpyObj<BuildVersionService>
   let isOfflineSubject: BehaviorSubject<boolean>
   let mockSharePlugin: jasmine.SpyObj<typeof Share>
   let originalShare: typeof navigator.share
@@ -84,6 +89,13 @@ describe("HeaderComponent", () => {
     analyticsServiceSpy.track.and.returnValue(Promise.resolve())
     analyticsServiceSpy.areAnalyticsAvailable.and.returnValue(true)
     onboardingServiceSpy = jasmine.createSpyObj("OnboardingService", ["open"])
+    buildVersionSpy = jasmine.createSpyObj("BuildVersionService", [
+      "getDisplayVersion",
+    ])
+    buildVersionSpy.getDisplayVersion.and.resolveTo({
+      release: "1.2.3",
+      build: "20261016-120000Z",
+    })
     originalShare = navigator.share
 
     await TestBed.configureTestingModule({
@@ -100,6 +112,7 @@ describe("HeaderComponent", () => {
         { provide: SHARE_PLUGIN, useValue: mockSharePlugin },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
         { provide: OnboardingService, useValue: onboardingServiceSpy },
+        { provide: BuildVersionService, useValue: buildVersionSpy },
       ],
     }).compileComponents()
 
@@ -273,6 +286,60 @@ describe("HeaderComponent", () => {
     })
   })
 
+  describe("the version in the menu", () => {
+    const openMenu = async () => {
+      await fixture.whenStable()
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+    }
+
+    const lines = () =>
+      Array.from(document.querySelectorAll(".menu-version > div"), (line) =>
+        line.textContent?.trim(),
+      )
+
+    it("is small print right under the privacy policy: the release, then the compile timestamp", async () => {
+      await openMenu()
+
+      const version = document.querySelector(".menu-version")
+      expect(lines()).toEqual(["Versão 1.2.3", "Bundle 20261016-120000Z"])
+      expect(version?.previousElementSibling?.getAttribute("href")).toBe(
+        component.privacyPolicyUrl,
+      )
+      expect(version?.nextElementSibling).toBeNull()
+    })
+
+    it("is the compile timestamp alone where there are no releases", async () => {
+      buildVersionSpy.getDisplayVersion.and.resolveTo({
+        release: null,
+        build: "20261016-120000Z",
+      })
+      fixture = TestBed.createComponent(HeaderComponent)
+      fixture.componentRef.setInput("book", component.book)
+      fixture.detectChanges()
+      await openMenu()
+
+      expect(lines()).toEqual(["Bundle 20261016-120000Z"])
+    })
+
+    it("is left out until the version is known", async () => {
+      buildVersionSpy.getDisplayVersion.and.returnValue(new Promise(() => {}))
+      fixture = TestBed.createComponent(HeaderComponent)
+      fixture.componentRef.setInput("book", component.book)
+      fixture.detectChanges()
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+
+      expect(document.querySelector(".menu-version")).toBeNull()
+    })
+  })
+
   // One button in the menu's row of icons cycles through the three themes.
   describe("the theme in the menu", () => {
     const trigger = () =>
@@ -393,7 +460,7 @@ describe("HeaderComponent", () => {
     await component.sharePassage()
 
     expect(mockSharePlugin.share).toHaveBeenCalledWith({
-      title: "Biblia Sagrada",
+      title: "Bíblia Sagrada",
       text: jasmine.any(String),
       url: jasmine.any(String),
       dialogTitle: "Partilhar passagem",
@@ -697,6 +764,7 @@ describe("HeaderComponent with the iOS native bars", () => {
   let isOffline: BehaviorSubject<boolean>
   let nativeBookmarks: jasmine.SpyObj<NativeBookmarksService>
   let nativeReport: jasmine.SpyObj<NativeReportService>
+  let buildVersion: jasmine.SpyObj<BuildVersionService>
 
   const genesis: Book = {
     id: "gen",
@@ -743,6 +811,13 @@ describe("HeaderComponent with the iOS native bars", () => {
     isOffline = new BehaviorSubject(false)
     nativeBookmarks = jasmine.createSpyObj("NativeBookmarksService", ["open"])
     nativeReport = jasmine.createSpyObj("NativeReportService", ["open"])
+    buildVersion = jasmine.createSpyObj("BuildVersionService", [
+      "getDisplayVersion",
+    ])
+    buildVersion.getDisplayVersion.and.resolveTo({
+      release: "1.2.3",
+      build: "20261016-120000Z",
+    })
     // The native share sheet is always available in the app.
     spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
 
@@ -761,6 +836,7 @@ describe("HeaderComponent with the iOS native bars", () => {
         { provide: OnboardingService, useValue: onboarding },
         { provide: SHARE_PLUGIN, useValue: share },
         { provide: AnalyticsService, useValue: analytics },
+        { provide: BuildVersionService, useValue: buildVersion },
         {
           provide: NetworkService,
           useValue: { isOffline$: isOffline.asObservable(), isOffline: false },
@@ -784,6 +860,30 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(fixture.nativeElement.querySelector("mat-toolbar")).toBeNull()
   })
 
+  it("hands the native menu the compile timestamp, which it shows with its release", () => {
+    expect(lastState().buildVersion).toBe("20261016-120000Z")
+  })
+
+  it("does not bring the bars back if the reader is gone before the version arrives", async () => {
+    let arrive!: (version: DisplayVersion) => void
+    buildVersion.getDisplayVersion.and.returnValue(
+      new Promise((resolve) => {
+        arrive = resolve
+      }),
+    )
+    const late = TestBed.createComponent(HeaderComponent)
+    late.componentRef.setInput("book", genesis)
+    late.componentRef.setInput("chapterNumber", 3)
+    late.detectChanges()
+    late.destroy()
+    nativeChrome.show.calls.reset()
+
+    arrive({ release: null, build: "20261016-120000Z" })
+    await new Promise((resolve) => setTimeout(resolve))
+
+    expect(nativeChrome.show).not.toHaveBeenCalled()
+  })
+
   it("sends the bars what the web header would show", () => {
     expect(lastState()).toEqual({
       mode: "reader",
@@ -802,6 +902,7 @@ describe("HeaderComponent with the iOS native bars", () => {
       canReport: true,
       bookmarkColor: null,
       bookmarkName: null,
+      buildVersion: "20261016-120000Z",
     })
   })
 

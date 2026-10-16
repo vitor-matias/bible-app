@@ -5,6 +5,7 @@ import { BookmarkService } from "./bookmark.service"
 import {
   BookmarkRibbonsService,
   RIBBON_COLORS,
+  RibbonMove,
   type RibbonState,
 } from "./bookmark-ribbons.service"
 import { NativeBookmarksService } from "./native-bookmarks.service"
@@ -45,7 +46,15 @@ describe("NativeBookmarksService", () => {
       "open",
       "assign",
       "remove",
+      "move",
+      "restore",
+      "moveTo",
     ])
+    // The real move offer, over the spied move and restore.
+    ribbons.moveTo.and.callFake(
+      (bookId: string, chapter: number) =>
+        new RibbonMove(ribbons, bookId, chapter),
+    )
     // The real colours; a bookmark labels its ribbon "Mt <chapter>".
     ribbons.ribbons.and.callFake((list: Bookmark[]) =>
       RIBBON_COLORS.map(({ name, value }): RibbonState => {
@@ -147,6 +156,74 @@ describe("NativeBookmarksService", () => {
     expect(ribbons.remove).toHaveBeenCalledWith(
       jasmine.objectContaining({ value: "red" }),
     )
+  })
+
+  it("offers to move the ribbon read on from to this chapter", () => {
+    service.open("mat", 7)
+    expect(shown().move).toEqual({
+      color: "red",
+      name: "vermelho",
+      from: "Mateus 5",
+      done: false,
+    })
+  })
+
+  it("offers no move when the chapter carries the ribbon", () => {
+    service.open("mat", 5)
+    expect(shown().move).toBeNull()
+  })
+
+  it("moves the ribbon, then offers to undo the move", () => {
+    ribbons.move.and.returnValue(markedRed)
+    service.open("mat", 7)
+    actions.next({ id: "bookmark-move", color: "red" })
+    bookmarks.next([{ ...markedRed, chapter: 7, timestamp: 2 }])
+
+    expect(ribbons.move).toHaveBeenCalledOnceWith(
+      jasmine.objectContaining({ value: "red" }),
+      "mat",
+      7,
+    )
+    expect(updated().move).toEqual({
+      color: "red",
+      name: "vermelho",
+      from: "Mateus 5",
+      done: true,
+    })
+
+    actions.next({ id: "bookmark-undo", color: "red" })
+    bookmarks.next([markedRed])
+
+    expect(ribbons.restore).toHaveBeenCalledOnceWith(markedRed)
+    expect(updated().move?.done).toBeFalse()
+  })
+
+  it("keeps the undo when a later move does nothing", () => {
+    ribbons.move.and.returnValues(markedRed, undefined)
+    service.open("mat", 7)
+    actions.next({ id: "bookmark-move", color: "red" })
+    actions.next({ id: "bookmark-move", color: "blue" })
+    actions.next({ id: "bookmark-undo", color: "red" })
+
+    expect(ribbons.restore).toHaveBeenCalledOnceWith(markedRed)
+  })
+
+  it("undoes the latest of two moves", () => {
+    const markedBlue: Bookmark = { ...markedRed, chapter: 2, color: "blue" }
+    bookmarks.next([markedRed, markedBlue])
+    ribbons.move.and.returnValues(markedRed, markedBlue)
+    service.open("mat", 7)
+    actions.next({ id: "bookmark-move", color: "red" })
+    actions.next({ id: "bookmark-move", color: "blue" })
+    actions.next({ id: "bookmark-undo", color: "blue" })
+
+    expect(ribbons.restore).toHaveBeenCalledOnceWith(markedBlue)
+  })
+
+  it("undoes only a move made in this sheet", () => {
+    service.open("mat", 7)
+    actions.next({ id: "bookmark-undo", color: "red" })
+    expect(ribbons.restore).not.toHaveBeenCalled()
   })
 
   it("stops once the sheet is closed", () => {

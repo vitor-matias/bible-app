@@ -10,7 +10,10 @@ describe("AnalyticsService", () => {
   beforeEach(() => {
     buildVersionServiceMock = jasmine.createSpyObj("BuildVersionService", [
       "getBuildInfo",
+      "getRelease",
     ])
+    // The web, which has no release, unless a test says otherwise.
+    buildVersionServiceMock.getRelease.and.resolveTo(null)
     buildVersionServiceMock.getBuildInfo.and.returnValue(
       Promise.resolve({
         buildVersion: "test-version",
@@ -51,6 +54,21 @@ describe("AnalyticsService", () => {
       buildVersion: "test-version",
       buildEnvironment: "test-env",
       platform: "web",
+    })
+  })
+
+  it("should report the native app's release with every event", async () => {
+    spyOn(Capacitor, "getPlatform").and.returnValue("android")
+    buildVersionServiceMock.getRelease.and.resolveTo("1.2.3")
+
+    await service.track("test_event", { foo: "bar" })
+
+    expect(globalThis.umami?.track).toHaveBeenCalledWith("test_event", {
+      foo: "bar",
+      buildVersion: "test-version",
+      buildEnvironment: "test-env",
+      appVersion: "1.2.3",
+      platform: "android",
     })
   })
 
@@ -143,6 +161,30 @@ describe("AnalyticsService", () => {
           }),
         }),
       )
+    })
+
+    it("sends the native app's release with a problem report", async () => {
+      buildVersionServiceMock.getRelease.and.resolveTo("1.2.3")
+
+      await service.trackDelivered("report_problem", { topic: "typo" })
+
+      const body = JSON.parse(fetchSpy.calls.mostRecent().args[1].body)
+      expect(body.payload.data).toEqual({
+        topic: "typo",
+        buildVersion: "test-version",
+        buildEnvironment: "test-env",
+        appVersion: "1.2.3",
+        platform: "ios",
+      })
+    })
+
+    it("still sends a report when the build info can't be read", async () => {
+      buildVersionServiceMock.getBuildInfo.and.rejectWith(new Error("gone"))
+
+      await service.trackDelivered("report_problem", { topic: "typo" })
+
+      const body = JSON.parse(fetchSpy.calls.mostRecent().args[1].body)
+      expect(body.payload.data).toEqual({ topic: "typo", platform: "ios" })
     })
 
     it("rejects when the server refuses it", async () => {

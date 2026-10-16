@@ -84,6 +84,15 @@
       <button type="button" mat-menu-item (click)="send('privacy')">
         <mat-icon>privacy_tip</mat-icon><span>Política de Privacidade</span>
       </button>
+      <!-- Small print under the last item, as in the web header's menu. -->
+      @if (version(); as v) {
+      <div class="menu-version">
+        @if (v.release) {
+        <div>Versão {{ v.release }}</div>
+        }
+        <div>Bundle {{ v.build }}</div>
+      </div>
+      }
     </mat-menu>
     } @else {
     <button type="button" mat-icon-button class="bar-button glass" aria-label="Voltar" (click)="send('back')">
@@ -115,7 +124,7 @@
         (click)="send('auto-scroll-slower')">
         <mat-icon>remove</mat-icon>
       </button>
-      <span class="speed-label" [attr.aria-label]="'Velocidade: ' + auto.speedLabel">{{ auto.speedLabel }}</span>
+      <span class="speed-label" [attr.aria-label]="'Velocidade: ' + auto.speedAccessibilityLabel">{{ auto.speedLabel }}</span>
       <button type="button" mat-icon-button aria-label="Aumentar velocidade" [disabled]="!auto.canFaster"
         (click)="send('auto-scroll-faster')">
         <mat-icon>add</mat-icon>

@@ -410,6 +410,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.stepBackward()
   }
 
+  /** In paged mode the page follows the finger; chapters only turn on release. */
+  onSwipeMove(dx: number): void {
+    if (this.effectiveViewMode === "paged") this.pagedNav?.dragBy(dx)
+  }
+
+  onSwipeCancel(): void {
+    this.pagedNav?.cancelDrag()
+  }
+
   /** A page forward in paged mode, else the next chapter. */
   stepForward(): void {
     if (this.effectiveViewMode === "paged") {
@@ -444,7 +453,17 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     )
   }
 
+  /**
+   * A chapter is already on its way: a second step would ask for the same
+   * one again (chapterNumber changes only once it has loaded), doing nothing
+   * but buzz.
+   */
+  private get changingChapter(): boolean {
+    return this.isNavigatingForwards || this.isNavigatingBackwards
+  }
+
   goToNextChapter(): void {
+    if (this.changingChapter) return
     if (this.book.chapterCount >= this.chapterNumber + 1) {
       this.haptics.light()
       this.prepareChapterNavigation(true)
@@ -457,6 +476,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   goToPreviousChapter(): void {
+    if (this.changingChapter) return
     if (this.chapterNumber > this.minChapter) {
       this.haptics.light()
       this.prepareChapterNavigation(false)
@@ -487,11 +507,21 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   private navigateToAdjacentChapter(chapter: Chapter["number"]): void {
     const commands = this.chapterCommands(chapter, true)
-    if (this.replaceChapterHistory) {
-      this.router.navigate(commands, { replaceUrl: true })
-    } else {
-      this.router.navigate(commands)
-    }
+    const navigated = this.replaceChapterHistory
+      ? this.router.navigate(commands, { replaceUrl: true })
+      : this.router.navigate(commands)
+    // No chapter will load to clear the slide: the next step mustn't wait on it.
+    void navigated.then(
+      (ok) => {
+        if (!ok) this.clearChapterSlide()
+      },
+      () => this.clearChapterSlide(),
+    )
+  }
+
+  private clearChapterSlide(): void {
+    this.isNavigatingForwards = false
+    this.isNavigatingBackwards = false
   }
 
   goToChapter(newChapterNumber: Chapter["number"]): void {

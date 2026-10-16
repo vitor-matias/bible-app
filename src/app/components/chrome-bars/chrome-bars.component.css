@@ -194,6 +194,13 @@ mat-icon.filled {
   font-variation-settings: "FILL" 1;
 }
 
+/* Small print under the last item, level with the items' icons. */
+.menu-version {
+  padding: 4px 16px 8px;
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
 /* The text menu: rows of choices side by side, the current one marked. */
 .menu-title {
   margin: 0;

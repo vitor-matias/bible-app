@@ -62,6 +62,14 @@
             <mat-icon class="open-in-new-icon">open_in_new</mat-icon>
           </span>
         </a>
+        @if (version) {
+        <div class="menu-version">
+          @if (version.release) {
+          <div>Versão {{ version.release }}</div>
+          }
+          <div>Bundle {{ version.build }}</div>
+        </div>
+        }
       </mat-menu>
 
       <!-- The book/chapter picker is also the page's h1. aria-label pins its

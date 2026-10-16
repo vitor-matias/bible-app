@@ -234,6 +234,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
       "stop",
       "updateAutoScrollSpeed",
       "getAutoScrollSpeedLabel",
+      "getAutoScrollSpeedSpokenLabel",
     ])
     Object.defineProperties(autoScroll, {
       autoScrollEnabled: { get: () => playing },
@@ -243,6 +244,9 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
       MAX_AUTO_SCROLL_LPS: { get: () => 4 },
     })
     autoScroll.getAutoScrollSpeedLabel.and.callFake((value) => String(value))
+    autoScroll.getAutoScrollSpeedSpokenLabel.and.callFake(
+      (value) => `${value} por extenso`,
+    )
     autoScroll.start.and.callFake(() => {
       playing = true
     })
@@ -287,6 +291,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     expect(lastState()).toEqual({
       playing: false,
       speedLabel: "1 ln/s",
+      speedAccessibilityLabel: "1 por extenso",
       canSlower: true,
       canFaster: true,
     })
@@ -304,7 +309,10 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
   it("changes speed from the toolbar, down to the slowest", () => {
     actions.next({ id: "auto-scroll-faster" })
     expect(lastState()).toEqual(
-      jasmine.objectContaining({ speedLabel: "1.25 ln/s" }),
+      jasmine.objectContaining({
+        speedLabel: "1.25 ln/s",
+        speedAccessibilityLabel: "1.25 por extenso",
+      }),
     )
 
     for (let i = 0; i < 4; i++) actions.next({ id: "auto-scroll-slower" })

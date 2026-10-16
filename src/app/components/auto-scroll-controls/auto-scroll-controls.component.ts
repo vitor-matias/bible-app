@@ -129,6 +129,10 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     this.nativeChrome.setAutoScroll({
       playing: this.autoScrollEnabled,
       speedLabel: `${this.autoScrollSpeedLabel} ln/s`,
+      speedAccessibilityLabel:
+        this.autoScrollService.getAutoScrollSpeedSpokenLabel(
+          this.autoScrollLinesPerSecond,
+        ),
       canSlower: this.autoScrollLinesPerSecond > this.MIN_AUTO_SCROLL_LPS,
       canFaster: this.autoScrollLinesPerSecond < this.MAX_AUTO_SCROLL_LPS,
     })

@@ -18,12 +18,100 @@ export const RIBBON_COLORS = [
   { name: "Grey", value: "grey", spoken: "Cinzento" },
 ]
 
+/** A ribbon's spoken name ("Vermelho"), by the colour a bookmark stores. */
+export function spokenRibbonName(color: string): string | undefined {
+  return RIBBON_COLORS.find((ribbon) => ribbon.value === color)?.spoken
+}
+
 export interface RibbonState {
   name: string
   value: string
   /** The passage the ribbon marks, e.g. "Mc 2". */
   currentRef?: string
   bookmark?: Bookmark
+}
+
+/**
+ * The ribbon to offer moving to this chapter: of those in the same book, the
+ * nearest one behind it, which is where a reader who read on from a ribbon
+ * left it. None when the chapter already carries a ribbon, as moving one
+ * here would take that one off.
+ */
+export function ribbonToMove(
+  ribbons: RibbonState[],
+  bookId: string,
+  chapter: number,
+): RibbonState | undefined {
+  let nearest: RibbonState | undefined
+  for (const ribbon of ribbons) {
+    const marked = ribbon.bookmark
+    if (marked?.bookId !== bookId) continue
+    if (marked.chapter === chapter) return undefined
+    if (
+      marked.chapter < chapter &&
+      marked.chapter > (nearest?.bookmark?.chapter ?? -1)
+    ) {
+      nearest = ribbon
+    }
+  }
+  return nearest
+}
+
+/** The move a panel offers above the ribbons, or, once made, its undo. */
+export interface RibbonMoveOffer {
+  /** Where the ribbon is, or was before the move. */
+  from: Bookmark
+  /** As the ribbon's adjective: "vermelho". */
+  name: string
+  /** Moved: the offer is to undo it. */
+  done: boolean
+}
+
+/**
+ * One panel's offer to move a ribbon to the chapter being read (ribbonToMove)
+ * and, once it moved, to move it back: the web panel and the iOS sheet each
+ * hold one while open, and only word and draw it their own way.
+ */
+export class RibbonMove {
+  /** Where the ribbon moved here was, while the offer is to undo it. */
+  private moved?: Bookmark
+
+  constructor(
+    private readonly service: BookmarkRibbonsService,
+    private readonly bookId: string,
+    private readonly chapter: number,
+  ) {}
+
+  /** What to offer, given the ribbons as they are now. */
+  offer(ribbons: RibbonState[]): RibbonMoveOffer | undefined {
+    const from =
+      this.moved ?? ribbonToMove(ribbons, this.bookId, this.chapter)?.bookmark
+    if (!from) return undefined
+    return {
+      from,
+      name: (spokenRibbonName(from.color) ?? from.color).toLowerCase(),
+      done: !!this.moved,
+    }
+  }
+
+  /**
+   * Moves the ribbon here. Undo then undoes the latest move, as the offer
+   * names it; a move that did nothing leaves the last one's undo in place.
+   */
+  move(ribbon: RibbonState): void {
+    this.moved =
+      this.service.move(ribbon, this.bookId, this.chapter) ?? this.moved
+  }
+
+  /** Puts the moved ribbon back; false when there is no move (of `color`) to undo. */
+  undo(color?: string): boolean {
+    if (!this.moved || (color !== undefined && this.moved.color !== color)) {
+      return false
+    }
+    this.service.restore(this.moved)
+    this.moved = undefined
+    return true
+  }
 }
 
 /**
@@ -41,22 +129,28 @@ export class BookmarkRibbonsService {
   private readonly analyticsService = inject(AnalyticsService)
   private readonly haptics = inject(HapticsService)
 
+  /** A panel's move offer for the chapter it was opened on (RibbonMove). */
+  moveTo(bookId: string, chapter: number): RibbonMove {
+    return new RibbonMove(this, bookId, chapter)
+  }
+
   /** Every colour, with the passage it marks if it is in use. */
   ribbons(bookmarks: Bookmark[]): RibbonState[] {
     return RIBBON_COLORS.map(({ name, value }) => {
       const bookmark = bookmarks.find((b) => b.color === value)
-      let currentRef: string | undefined
-      if (bookmark) {
-        const book = this.bookService.findBookById(bookmark.bookId)
-        // Chapter 0 is the book introduction
-        const chapterLabel =
-          bookmark.chapter === 0 ? "Introdução" : `${bookmark.chapter}`
-        currentRef = book
-          ? `${cleanAbbreviation(book.abrv)} ${chapterLabel}`
-          : `${bookmark.bookId} ${chapterLabel}`
-      }
+      const currentRef = bookmark && this.ref(bookmark.bookId, bookmark.chapter)
       return { name, value, bookmark, currentRef }
     })
+  }
+
+  /** A ribbon's short name for a chapter, e.g. "Mc 2". */
+  ref(bookId: string, chapter: number): string {
+    const book = this.bookService.findBookById(bookId)
+    // Chapter 0 is the book introduction
+    const chapterLabel = chapter === 0 ? "Introdução" : `${chapter}`
+    return book
+      ? `${cleanAbbreviation(book.abrv)} ${chapterLabel}`
+      : `${bookId} ${chapterLabel}`
   }
 
   /** Opens the ribbon's passage. False when it marks a book that is unknown. */
@@ -90,6 +184,38 @@ export class BookmarkRibbonsService {
       chapter,
       color,
     })
+  }
+
+  /**
+   * Moves a used ribbon to the chapter, as one moves a ribbon in a printed
+   * Bible on reading further. Returns where it was, for `restore`.
+   */
+  move(
+    ribbon: RibbonState,
+    bookId: string,
+    chapter: number,
+  ): Bookmark | undefined {
+    const from = ribbon.bookmark
+    if (!from) return undefined
+    this.bookmarkService.addBookmark(bookId, chapter, ribbon.value)
+    this.haptics.success()
+    void this.analyticsService.track("bookmark_move", {
+      book: bookId,
+      chapter,
+      color: ribbon.value,
+      fromBook: from.bookId,
+      fromChapter: from.chapter,
+    })
+    return { ...from }
+  }
+
+  /** Undoes a move: the ribbon goes back to where it was. */
+  restore(previous: Bookmark): void {
+    this.bookmarkService.addBookmark(
+      previous.bookId,
+      previous.chapter,
+      previous.color,
+    )
   }
 
   remove(ribbon: RibbonState): void {
