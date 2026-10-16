@@ -78,6 +78,8 @@ export interface ReaderChrome {
   bookmarkColor: string | null
   /** Its spoken name ("vermelho"), for VoiceOver. */
   bookmarkName: string | null
+  /** When the web bundle was compiled, for the menu's small print. */
+  buildVersion: string | null
 }
 
 /** The search page's bars: Back on top, the search field at the bottom. */

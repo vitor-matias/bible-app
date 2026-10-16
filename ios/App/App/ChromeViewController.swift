@@ -793,6 +793,24 @@ enum ReaderMenu {
         return action
     }
 
+    /// The small print under the privacy policy: "Versão 1.2.3", the release
+    /// number CI sets from the release tag (MARKETING_VERSION), and
+    /// "Bundle 20261016-120000Z", when the web bundle was compiled. A menu
+    /// has no small text, so each is an item with nothing to do, which it dims.
+    private static func versionItems(buildVersion: String?) -> [UIMenuElement] {
+        var lines: [String] = []
+        let key = "CFBundleShortVersionString"
+        if let release = Bundle.main.object(forInfoDictionaryKey: key) as? String, !release.isEmpty {
+            lines.append("Versão \(release)")
+        }
+        if let buildVersion, !buildVersion.isEmpty {
+            lines.append("Bundle \(buildVersion)")
+        }
+        return lines.map { line -> UIMenuElement in
+            UIAction(title: line, attributes: .disabled) { _ in }
+        }
+    }
+
     /// Choices side by side, rather than a menu within the menu.
     private static func row(_ children: [UIMenuElement]) -> UIMenu {
         let row = UIMenu(title: "", options: .displayInline, children: children)
@@ -839,6 +857,9 @@ enum ReaderMenu {
         return UIMenu(title: "Texto e aparência", children: sections)
     }
 
+    /// Builds the reader's more menu, with reading actions followed by app
+    /// actions and disabled version labels. State controls action availability;
+    /// selecting an enabled action passes its identifier to `send`.
     static func make(_ state: ChromeState, send: @escaping (String) -> Void) -> UIMenu {
         let autoScroll = action("Deslocamento automático", "arrow.down.circle", "auto-scroll", send: send)
         autoScroll.state = state.autoScrollVisible ? .on : .off
@@ -855,6 +876,7 @@ enum ReaderMenu {
         }
         app.append(action("Como usar a app", "questionmark.circle", "help", send: send))
         app.append(action("Política de Privacidade", "hand.raised", "privacy", send: send))
+        app.append(contentsOf: versionItems(buildVersion: state.buildVersion))
         // Two groups with a divider, as the HIG asks of menus: what to do with
         // the reading, then the app's help and legal pages. Inline sections,
         // not submenus.

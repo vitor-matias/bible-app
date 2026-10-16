@@ -29,6 +29,7 @@ const READER: ReaderChrome = {
   canReport: true,
   bookmarkColor: null,
   bookmarkName: null,
+  buildVersion: null,
 }
 
 const SEARCH: SearchChrome = { mode: "search", themeMode: "dark", query: "" }
