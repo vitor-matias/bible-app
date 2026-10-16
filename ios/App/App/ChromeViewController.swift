@@ -795,7 +795,7 @@ enum ReaderMenu {
 
     /// The small print under the privacy policy: "Versão 1.2.3", the release
     /// number CI sets from the release tag (MARKETING_VERSION), and
-    /// "Compilação 20261016-120000Z", when the web bundle was compiled. A menu
+    /// "Bundle 20261016-120000Z", when the web bundle was compiled. A menu
     /// has no small text, so each is an item with nothing to do, which it dims.
     private static func versionItems(buildVersion: String?) -> [UIMenuElement] {
         var lines: [String] = []
@@ -804,7 +804,7 @@ enum ReaderMenu {
             lines.append("Versão \(release)")
         }
         if let buildVersion, !buildVersion.isEmpty {
-            lines.append("Compilação \(buildVersion)")
+            lines.append("Bundle \(buildVersion)")
         }
         return lines.map { line -> UIMenuElement in
             UIAction(title: line, attributes: .disabled) { _ in }

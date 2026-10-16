@@ -304,7 +304,7 @@ describe("HeaderComponent", () => {
       await openMenu()
 
       const version = document.querySelector(".menu-version")
-      expect(lines()).toEqual(["Versão 1.2.3", "Compilação 20261016-120000Z"])
+      expect(lines()).toEqual(["Versão 1.2.3", "Bundle 20261016-120000Z"])
       expect(version?.previousElementSibling?.getAttribute("href")).toBe(
         component.privacyPolicyUrl,
       )
@@ -321,7 +321,7 @@ describe("HeaderComponent", () => {
       fixture.detectChanges()
       await openMenu()
 
-      expect(lines()).toEqual(["Compilação 20261016-120000Z"])
+      expect(lines()).toEqual(["Bundle 20261016-120000Z"])
     })
 
     it("is left out until the version is known", async () => {
