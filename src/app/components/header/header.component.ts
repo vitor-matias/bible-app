@@ -38,6 +38,7 @@ import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { spokenRibbonName } from "../../services/bookmark-ribbons.service"
+import { BuildVersionService } from "../../services/build-version.service"
 import { NativeBookmarksService } from "../../services/native-bookmarks.service"
 import {
   type NativeChromeAction,
@@ -121,6 +122,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   readonly privacyPolicyUrl = PRIVACY_POLICY_URL
+  /** Shown under the menu's last item; empty until it is known. */
+  appVersion = ""
 
   private labelInterval?: number
   private labelSwapTimeout?: number
@@ -148,6 +151,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly bookService = inject(BookService)
   private readonly nativeBookmarks = inject(NativeBookmarksService)
   private readonly nativeReport = inject(NativeReportService)
+  private readonly buildVersion = inject(BuildVersionService)
   private bookmarks: Bookmark[] = []
   /** The iOS shell draws this header natively; the template renders nothing. */
   readonly native = this.nativeChrome.enabled
@@ -186,6 +190,14 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.cdr.detectChanges()
         this.syncNativeChrome()
       })
+
+    // The iOS shell draws its own menu; nothing here shows the version.
+    if (!this.native) {
+      void this.buildVersion.getDisplayVersion().then((version) => {
+        this.appVersion = version
+        this.cdr.markForCheck()
+      })
+    }
 
     if (this.native) {
       this.nativeChrome.actions$

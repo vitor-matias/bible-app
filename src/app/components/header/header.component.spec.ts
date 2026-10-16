@@ -19,6 +19,7 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
+import { BuildVersionService } from "../../services/build-version.service"
 import { NativeBookmarksService } from "../../services/native-bookmarks.service"
 import {
   type NativeChromeAction,
@@ -45,6 +46,7 @@ describe("HeaderComponent", () => {
   let dialogSpy: jasmine.SpyObj<MatDialog>
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
   let onboardingServiceSpy: jasmine.SpyObj<OnboardingService>
+  let buildVersionSpy: jasmine.SpyObj<BuildVersionService>
   let isOfflineSubject: BehaviorSubject<boolean>
   let mockSharePlugin: jasmine.SpyObj<typeof Share>
   let originalShare: typeof navigator.share
@@ -83,6 +85,10 @@ describe("HeaderComponent", () => {
     analyticsServiceSpy.track.and.returnValue(Promise.resolve())
     analyticsServiceSpy.areAnalyticsAvailable.and.returnValue(true)
     onboardingServiceSpy = jasmine.createSpyObj("OnboardingService", ["open"])
+    buildVersionSpy = jasmine.createSpyObj("BuildVersionService", [
+      "getDisplayVersion",
+    ])
+    buildVersionSpy.getDisplayVersion.and.resolveTo("1.2.3")
     originalShare = navigator.share
 
     await TestBed.configureTestingModule({
@@ -99,6 +105,7 @@ describe("HeaderComponent", () => {
         { provide: SHARE_PLUGIN, useValue: mockSharePlugin },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
         { provide: OnboardingService, useValue: onboardingServiceSpy },
+        { provide: BuildVersionService, useValue: buildVersionSpy },
       ],
     }).compileComponents()
 
@@ -269,6 +276,42 @@ describe("HeaderComponent", () => {
       fixture.destroy()
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+    })
+  })
+
+  describe("the version in the menu", () => {
+    const openMenu = async () => {
+      await fixture.whenStable()
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+    }
+
+    it("is small print right under the privacy policy", async () => {
+      await openMenu()
+
+      const version = document.querySelector(".menu-version")
+      expect(version?.textContent?.trim()).toBe("Versão 1.2.3")
+      expect(version?.previousElementSibling?.getAttribute("href")).toBe(
+        component.privacyPolicyUrl,
+      )
+      expect(version?.nextElementSibling).toBeNull()
+    })
+
+    it("is left out until the version is known", async () => {
+      buildVersionSpy.getDisplayVersion.and.returnValue(new Promise(() => {}))
+      fixture = TestBed.createComponent(HeaderComponent)
+      fixture.componentRef.setInput("book", component.book)
+      fixture.detectChanges()
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+
+      expect(document.querySelector(".menu-version")).toBeNull()
     })
   })
 
@@ -695,6 +738,7 @@ describe("HeaderComponent with the iOS native bars", () => {
   let isOffline: BehaviorSubject<boolean>
   let nativeBookmarks: jasmine.SpyObj<NativeBookmarksService>
   let nativeReport: jasmine.SpyObj<NativeReportService>
+  let buildVersion: jasmine.SpyObj<BuildVersionService>
 
   const genesis: Book = {
     id: "gen",
@@ -740,6 +784,10 @@ describe("HeaderComponent with the iOS native bars", () => {
     isOffline = new BehaviorSubject(false)
     nativeBookmarks = jasmine.createSpyObj("NativeBookmarksService", ["open"])
     nativeReport = jasmine.createSpyObj("NativeReportService", ["open"])
+    buildVersion = jasmine.createSpyObj("BuildVersionService", [
+      "getDisplayVersion",
+    ])
+    buildVersion.getDisplayVersion.and.resolveTo("1.2.3")
     // The native share sheet is always available in the app.
     spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
 
@@ -758,6 +806,7 @@ describe("HeaderComponent with the iOS native bars", () => {
         { provide: OnboardingService, useValue: onboarding },
         { provide: SHARE_PLUGIN, useValue: share },
         { provide: AnalyticsService, useValue: analytics },
+        { provide: BuildVersionService, useValue: buildVersion },
         {
           provide: NetworkService,
           useValue: { isOffline$: isOffline.asObservable(), isOffline: false },
@@ -779,6 +828,10 @@ describe("HeaderComponent with the iOS native bars", () => {
 
   it("renders no web toolbar", () => {
     expect(fixture.nativeElement.querySelector("mat-toolbar")).toBeNull()
+  })
+
+  it("leaves the version to the native menu", () => {
+    expect(buildVersion.getDisplayVersion).not.toHaveBeenCalled()
   })
 
   it("sends the bars what the web header would show", () => {

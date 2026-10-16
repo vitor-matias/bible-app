@@ -1,4 +1,6 @@
-import { Injectable } from "@angular/core"
+import { Injectable, inject } from "@angular/core"
+import { Capacitor } from "@capacitor/core"
+import { APP_PLUGIN } from "../tokens"
 
 interface BuildInfo {
   buildVersion?: string
@@ -11,6 +13,7 @@ const FALLBACK_BUILD_VERSION = "dev-local"
   providedIn: "root",
 })
 export class BuildVersionService {
+  private readonly appPlugin = inject(APP_PLUGIN)
   private buildVersion = FALLBACK_BUILD_VERSION
   private buildEnvironment = "unknown"
   private loadPromise?: Promise<void>
@@ -33,6 +36,22 @@ export class BuildVersionService {
       buildVersion: this.buildVersion,
       buildEnvironment: this.buildEnvironment,
     }
+  }
+
+  /**
+   * The version to show a reader. The native apps have a release number
+   * (1.2.3, set from the release tag); the web app has only its build id.
+   */
+  async getDisplayVersion(): Promise<string> {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { version } = await this.appPlugin.getInfo()
+        if (version?.trim()) return version
+      } catch {
+        // Fall back to the build id below.
+      }
+    }
+    return (await this.getBuildInfo()).buildVersion ?? FALLBACK_BUILD_VERSION
   }
 
   private async loadBuildVersion(): Promise<void> {
