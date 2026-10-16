@@ -191,7 +191,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.syncNativeChrome()
       })
 
-    // The iOS shell draws its own menu; nothing here shows the version.
+    // The iOS shell draws its own menu, version included.
     if (!this.native) {
       void this.buildVersion.getDisplayVersion().then((version) => {
         this.appVersion = version

@@ -793,6 +793,15 @@ enum ReaderMenu {
         return action
     }
 
+    /// "Versão 1.2.3": the release number CI sets from the release tag
+    /// (MARKETING_VERSION), as the web menu's small print under the privacy policy.
+    private static var versionTitle: String? {
+        let key = "CFBundleShortVersionString"
+        guard let version = Bundle.main.object(forInfoDictionaryKey: key) as? String,
+              !version.isEmpty else { return nil }
+        return "Versão \(version)"
+    }
+
     /// Choices side by side, rather than a menu within the menu.
     private static func row(_ children: [UIMenuElement]) -> UIMenu {
         let row = UIMenu(title: "", options: .displayInline, children: children)
@@ -855,6 +864,10 @@ enum ReaderMenu {
         }
         app.append(action("Como usar a app", "questionmark.circle", "help", send: send))
         app.append(action("Política de Privacidade", "hand.raised", "privacy", send: send))
+        if let versionTitle {
+            // Small print: an item with nothing to do, so the menu dims it.
+            app.append(UIAction(title: versionTitle, attributes: .disabled) { _ in })
+        }
         // Two groups with a divider, as the HIG asks of menus: what to do with
         // the reading, then the app's help and legal pages. Inline sections,
         // not submenus.
