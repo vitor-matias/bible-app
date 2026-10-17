@@ -27,6 +27,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private let searchField = SearchFieldView()
     private let toast = ToastView()
     private var toastBottom: NSLayoutConstraint!
+    private var topBarTop: NSLayoutConstraint!
 
     private(set) var state = ChromeState()
     private var collapsed = false
@@ -67,6 +68,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         toast.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(toast)
         toastBottom = toast.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        topBarTop = topBar.topAnchor.constraint(equalTo: view.topAnchor, constant: topBarOffset)
 
         // Dragging the page closes the search keyboard, as iOS search screens do.
         let drag = UIPanGestureRecognizer(target: self, action: #selector(pageDragged(_:)))
@@ -88,7 +90,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             toast.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             toast.leadingAnchor.constraint(greaterThanOrEqualTo: safeArea.leadingAnchor, constant: 24),
             toast.trailingAnchor.constraint(lessThanOrEqualTo: safeArea.trailingAnchor, constant: -24),
-            topBar.topAnchor.constraint(equalTo: safeArea.topAnchor),
+            topBarTop,
             topBar.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor),
             topBar.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor),
             toolbar.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
@@ -103,6 +105,11 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             // Rests above the home indicator, and rides up with the keyboard.
             searchField.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -8),
         ])
+    }
+
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
+        topBarTop.constant = topBarOffset
     }
 
     override func viewDidLayoutSubviews() {
@@ -500,15 +507,24 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             // show; hidden for reading (or under a panel), they take its place.
             let autoScroll = state.autoScroll != nil && !collapsed
                 ? autoScrollBar.bounds.height + Self.autoScrollBarGap : 0
-            return ChromeInsets(top: safeArea.top + topBar.bounds.height,
+            return ChromeInsets(top: topBarOffset + topBar.bounds.height,
                                 bottom: safeArea.bottom + toolbar.bounds.height + autoScroll,
                                 collapsed: collapsed)
         case .search:
-            return ChromeInsets(top: safeArea.top + topBar.bounds.height,
+            return ChromeInsets(top: topBarOffset + topBar.bounds.height,
                                 bottom: view.bounds.height - searchField.frame.minY)
         case .page:
-            return ChromeInsets(top: safeArea.top + topBar.bounds.height, bottom: safeArea.bottom)
+            return ChromeInsets(top: topBarOffset + topBar.bounds.height, bottom: safeArea.bottom)
         }
+    }
+
+    /// The top bar's distance from the top of the screen: under the status
+    /// bar, or, with none above it (a phone turned sideways, or the folded
+    /// iPhone Duo, whose status bar runs down its side), the system's side
+    /// margin, so the glass sits as far from the top edge as from the side
+    /// rather than touching it.
+    private var topBarOffset: CGFloat {
+        max(view.safeAreaInsets.top, systemMinimumLayoutMargins.leading)
     }
 
     private func reportInsets() {
