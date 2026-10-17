@@ -25,6 +25,11 @@ export interface StoreLink {
   label: string
   /** The one-time prompt, which is itself the button. */
   prompt: string
+  /**
+   * The prompt and menu entry inside the installed website, which its user
+   * already calls "the app": what is new is the store's.
+   */
+  newApp: string
 }
 
 /** Long enough into a visit that the visitor has started reading. */
@@ -48,6 +53,7 @@ export function storeLink(
       badge: "imgs/badges/app-store-pt-pt.svg",
       label: "Descarregar na App Store",
       prompt: "Obter a aplicação para iPhone e iPad",
+      newApp: "Nova aplicação na App Store",
     }
   }
   if (platform === "android" && apps.playPackage) {
@@ -58,6 +64,7 @@ export function storeLink(
       badge: "imgs/badges/google-play-pt.png",
       label: "Obter no Google Play",
       prompt: "Obter a aplicação para Android",
+      newApp: "Nova aplicação no Google Play",
     }
   }
   return null
@@ -88,6 +95,11 @@ export class AppPromoService {
   /** The store for the device in hand, if it has one. */
   deviceStore(source: StoreSource): StoreLink | null {
     return this.storeFor(this.pwaInstall.detectPlatform(), source)
+  }
+
+  /** The menu entry's words for a store link. */
+  menuLabel(link: StoreLink): string {
+    return this.pwaInstall.isInstalled ? link.newApp : "Instalar a aplicação"
   }
 
   /** The visitor has been shown the app for their device: no prompt now. */
@@ -138,7 +150,7 @@ export class AppPromoService {
     void this.analytics.track("app_prompt_shown", { store: link.store })
     this.snackBar.openFromComponent(TwoActionSnackComponent, {
       data: {
-        message: link.prompt,
+        message: this.pwaInstall.isInstalled ? link.newApp : link.prompt,
         icon: "install_mobile",
         onTap: () => this.openStore(link, "prompt"),
       },

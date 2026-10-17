@@ -55,7 +55,7 @@
         <a mat-menu-item class="app-store-link" [href]="appStore.url" target="_blank" rel="noopener"
           (click)="onOpenAppStore(appStore)">
           <mat-icon>install_mobile</mat-icon>
-          <span>Instalar a aplicação</span>
+          <span>{{ appStoreLabel }}</span>
         </a>
         }
         <button type="button" mat-menu-item (click)="onOpenHelp(menuTrigger)">

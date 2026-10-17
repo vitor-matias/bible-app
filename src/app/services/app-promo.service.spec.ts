@@ -12,6 +12,7 @@ import {
   AppPromoService,
   PROMPT_DELAY_MS,
   PROMPT_DURATION_MS,
+  type StoreLink,
   storeLink,
 } from "./app-promo.service"
 import { PreferencesService } from "./preferences.service"
@@ -58,6 +59,8 @@ describe("storeLink", () => {
 describe("AppPromoService", () => {
   let apps: StoreApps
   let platform: InstallPlatform
+  /** Whether the website runs installed, as a home-screen app. */
+  let installed: boolean
   let analyticsSpy: jasmine.SpyObj<AnalyticsService>
   let snackBar: { openFromComponent: jasmine.Spy; _openedSnackBarRef: unknown }
   let dialog: { openDialogs: unknown[] }
@@ -67,6 +70,7 @@ describe("AppPromoService", () => {
     localStorage.setItem("onboardingSeen", "true")
     apps = { ...LISTED }
     platform = "android"
+    installed = false
     analyticsSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
     analyticsSpy.track.and.resolveTo()
     snackBar = {
@@ -80,7 +84,12 @@ describe("AppPromoService", () => {
         { provide: STORE_APPS, useValue: apps },
         {
           provide: PwaInstallService,
-          useValue: { detectPlatform: () => platform },
+          useValue: {
+            detectPlatform: () => platform,
+            get isInstalled() {
+              return installed
+            },
+          },
         },
         { provide: AnalyticsService, useValue: analyticsSpy },
         { provide: MatSnackBar, useValue: snackBar },
@@ -154,6 +163,28 @@ describe("AppPromoService", () => {
       source: "prompt",
     })
   }))
+
+  it("prompts inside the installed website too, as news from the store", fakeAsync(() => {
+    installed = true
+
+    expect(service().scheduleOnce()).toBeTrue()
+    tick(PROMPT_DELAY_MS)
+
+    expect(promptData().message).toBe("Nova aplicação no Google Play")
+    expect(preferences().getAppPromoSeen()).toBeTrue()
+  }))
+
+  it("names the menu entry as news inside the installed website", () => {
+    const play = service().deviceStore("menu") as StoreLink
+    expect(service().menuLabel(play)).toBe("Instalar a aplicação")
+
+    installed = true
+    expect(service().menuLabel(play)).toBe("Nova aplicação no Google Play")
+
+    platform = "ios"
+    const appStore = service().deviceStore("menu") as StoreLink
+    expect(service().menuLabel(appStore)).toBe("Nova aplicação na App Store")
+  })
 
   it("leaves new visitors to onboarding, whose install step shows the store", () => {
     localStorage.removeItem("onboardingSeen")

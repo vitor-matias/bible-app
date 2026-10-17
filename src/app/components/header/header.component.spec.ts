@@ -102,10 +102,12 @@ describe("HeaderComponent", () => {
     })
     appPromoSpy = jasmine.createSpyObj("AppPromoService", [
       "deviceStore",
+      "menuLabel",
       "markSeen",
       "trackStoreOpen",
     ])
     appPromoSpy.deviceStore.and.returnValue(null)
+    appPromoSpy.menuLabel.and.returnValue("Instalar a aplicação")
     originalShare = navigator.share
 
     await TestBed.configureTestingModule({
@@ -304,6 +306,7 @@ describe("HeaderComponent", () => {
       badge: "imgs/badges/google-play-pt.png",
       label: "Obter no Google Play",
       prompt: "Obter a aplicação para Android",
+      newApp: "Nova aplicação no Google Play",
     }
 
     const openMenu = () => {
@@ -333,6 +336,18 @@ describe("HeaderComponent", () => {
       expect(appPromoSpy.deviceStore).toHaveBeenCalledWith("menu")
       expect(document.querySelector(".app-store-link")).toBeNull()
       expect(appPromoSpy.markSeen).not.toHaveBeenCalled()
+    })
+
+    it("takes its words from the promo, which says what's new inside the installed website", () => {
+      appPromoSpy.deviceStore.and.returnValue(play)
+      appPromoSpy.menuLabel.and.returnValue("Nova aplicação no Google Play")
+      recreate()
+      openMenu()
+
+      expect(appPromoSpy.menuLabel).toHaveBeenCalledWith(play)
+      expect(document.querySelector(".app-store-link")?.textContent).toContain(
+        "Nova aplicação no Google Play",
+      )
     })
 
     it("counts as the prompt once the open menu shows it", () => {
