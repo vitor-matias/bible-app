@@ -1,4 +1,9 @@
-import { NEW_TESTAMENT_GROUPS, OLD_TESTAMENT_GROUPS } from "./bible-canon"
+import {
+  CLUSTER_INTROS,
+  NEW_TESTAMENT_GROUPS,
+  OLD_TESTAMENT_GROUPS,
+  withIntros,
+} from "./bible-canon"
 
 describe("bible canon", () => {
   const groups = [...OLD_TESTAMENT_GROUPS, ...NEW_TESTAMENT_GROUPS]
@@ -29,5 +34,35 @@ describe("bible canon", () => {
       oldIds.has(id),
     )
     expect(shared).toEqual([])
+  })
+
+  it("keys each cluster's introduction by a canonical book", () => {
+    expect(
+      Object.keys(CLUSTER_INTROS).filter((id) => !ids.includes(id)),
+    ).toEqual([])
+  })
+
+  // 1 João's own introduction would hide the one for the three letters.
+  it("lists a cluster's introduction before its first book, once loaded", () => {
+    const catholic = [
+      {
+        name: "Cartas Católicas",
+        introSlug: "catolicas",
+        books: ["2pe", "1jn", "2jn"],
+      },
+    ]
+    const loaded = new Set(["catolicas", "joao"])
+    expect(
+      withIntros(catholic, "novotestamento", (id) => loaded.has(id)),
+    ).toEqual([
+      {
+        name: "Cartas Católicas",
+        introSlug: "catolicas",
+        books: ["catolicas", "2pe", "joao", "1jn", "2jn"],
+      },
+    ])
+    expect(
+      withIntros(catholic, "novotestamento", () => false)[0].books,
+    ).toEqual(["2pe", "1jn", "2jn"])
   })
 })

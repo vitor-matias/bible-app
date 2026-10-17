@@ -79,7 +79,8 @@
           },
           "options": {
             "proxyConfig": "proxy.conf.js",
-            "port": 4200
+            "port": 4200,
+            "hmr": false
           },
           "defaultConfiguration": "development"
         },

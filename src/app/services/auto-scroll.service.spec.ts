@@ -71,6 +71,20 @@ describe("AutoScrollService", () => {
     expect(service.getAutoScrollSpeedLabel(1.25)).toBe("1.25")
   })
 
+  // VoiceOver read "1/2 ln/s" in the iOS app's toolbar.
+  it("says the speed in words", () => {
+    expect(service.getAutoScrollSpeedSpokenLabel(1)).toBe("1 linha por segundo")
+    expect(service.getAutoScrollSpeedSpokenLabel(1.25)).toBe(
+      "1,25 linhas por segundo",
+    )
+    expect(service.getAutoScrollSpeedSpokenLabel(0.5)).toBe(
+      "meia linha por segundo",
+    )
+    expect(service.getAutoScrollSpeedSpokenLabel(1 / 6)).toBe(
+      "um sexto de linha por segundo",
+    )
+  })
+
   it("should start scrolling, observe line height changes, and stop cleanly", () => {
     const scrollElement = document.createElement("div")
     const lineHeightElement = document.createElement("div")
@@ -115,6 +129,142 @@ describe("AutoScrollService", () => {
 
     expect(service.autoScrollEnabled).toBeFalse()
     expect(keepAwakeServiceSpy.stop).toHaveBeenCalled()
+  })
+
+  // Regression: WebKit keeps scrollTop in whole pixels. Applying half a pixel
+  // per frame and discarding the rest left the iOS app's text standing still.
+  it("advances where the browser only scrolls whole pixels", () => {
+    let top = 0
+    const scrollElement = document.createElement("div")
+    Object.defineProperties(scrollElement, {
+      scrollHeight: { value: 10_000, configurable: true },
+      clientHeight: { value: 500, configurable: true },
+      scrollTop: {
+        get: () => top,
+        set: (value: number) => {
+          top = Math.floor(value)
+        },
+        configurable: true,
+      },
+    })
+    service.setAutoScrollLinesPerSecond(1)
+    service.start({ scrollElement })
+    const step = (service as unknown as Record<string, (t: number) => void>)[
+      "stepAutoScroll"
+    ].bind(service)
+
+    // Two seconds at 60 frames per second, each frame a fraction of a pixel.
+    for (let frame = 0; frame <= 120; frame++) step(frame * (1000 / 60))
+
+    // One line (24px without a line-height element) per second.
+    expect(top).toBeGreaterThanOrEqual(46)
+    expect(top).toBeLessThanOrEqual(48)
+  })
+
+  // Scrolling by hand has to take over: auto-scroll kept pulling the page out
+  // from under the reader's finger, wheel or scrollbar.
+  describe("when the reader scrolls by hand", () => {
+    let top: number
+    let height: number
+    let onStop: jasmine.Spy
+    let step: (timestamp: number) => void
+
+    beforeEach(() => {
+      top = 0
+      height = 10_000
+      onStop = jasmine.createSpy("onStop")
+      const scrollElement = document.createElement("div")
+      Object.defineProperties(scrollElement, {
+        scrollHeight: { get: () => height, configurable: true },
+        clientHeight: { value: 500, configurable: true },
+        // Whole pixels, as WebKit holds them.
+        scrollTop: {
+          get: () => top,
+          set: (value: number) => {
+            top = Math.floor(value)
+          },
+          configurable: true,
+        },
+      })
+      service.setAutoScrollLinesPerSecond(1)
+      service.start({ scrollElement, onStop })
+      step = (service as unknown as Record<string, (t: number) => void>)[
+        "stepAutoScroll"
+      ].bind(service)
+    })
+
+    const play = (frames: number, from = 0) => {
+      for (let frame = from; frame < from + frames; frame++) {
+        step(frame * (1000 / 60))
+      }
+    }
+
+    it("keeps going while only auto-scroll moves the page", () => {
+      play(120)
+
+      expect(top).toBeGreaterThan(40)
+      expect(service.autoScrollEnabled).toBeTrue()
+      expect(onStop).not.toHaveBeenCalled()
+    })
+
+    it("stops, and leaves the page where they put it", () => {
+      play(60)
+      top += 300 // a finger, the wheel, a key or the scrollbar
+      const where = top
+
+      step(2000)
+
+      expect(service.autoScrollEnabled).toBeFalse()
+      expect(onStop).toHaveBeenCalledTimes(1)
+      expect(keepAwakeServiceSpy.stop).toHaveBeenCalled()
+      expect(top).toBe(where)
+    })
+
+    it("stops when they scroll back up as well", () => {
+      play(60)
+      top -= 10
+
+      step(2000)
+
+      expect(service.autoScrollEnabled).toBeFalse()
+    })
+
+    it("does not take a pixel of rounding for the reader", () => {
+      play(30)
+      top += 1
+
+      step(2000)
+
+      expect(service.autoScrollEnabled).toBeTrue()
+    })
+
+    // A larger text size (pinch, A+) or verses loading above reflow the text,
+    // and Chromium's scroll anchoring moves the page to keep the reader's
+    // place: that stopped auto-scroll as if they had scrolled.
+    it("carries on, from the reader's place, when the text reflows", () => {
+      play(60)
+      height = 14_000
+      top += 400
+      const anchored = top
+
+      play(60, 60)
+
+      expect(service.autoScrollEnabled).toBeTrue()
+      expect(onStop).not.toHaveBeenCalled()
+      expect(top).toBeGreaterThan(anchored)
+    })
+
+    it("still stops for the reader after a reflow", () => {
+      play(30)
+      height = 14_000
+      top += 400
+      step(600)
+
+      top += 300
+      step(700)
+
+      expect(service.autoScrollEnabled).toBeFalse()
+    })
   })
 
   it("should refresh cached line height when the observer fires", () => {

@@ -28,6 +28,24 @@ export const SHARED_BOOK_INTROS: Readonly<Record<string, string>> = {
   "3jn": "joao",
 }
 
+/**
+ * Introductions written for a few books within a group: the edition introduces
+ * "Cartas de João" once, before the three letters. Unlike SHARED_BOOK_INTROS,
+ * these books have introductions of their own, which would hide it, so the
+ * book pickers list it as an entry before the first of them, keyed here.
+ */
+export const CLUSTER_INTROS: Readonly<Record<string, string>> = {
+  "1co": "corintios",
+  "1th": "tessalonicenses",
+  "1ti": "pastorais",
+  "1jn": "joao",
+}
+
+/** A cluster's introduction, listed among its group's books (CLUSTER_INTROS). */
+export function isClusterIntro(bookId: string): boolean {
+  return Object.values(CLUSTER_INTROS).includes(bookId)
+}
+
 export const OLD_TESTAMENT_GROUPS: CanonGroup[] = [
   {
     name: "Pentateuco",
@@ -126,3 +144,49 @@ export const NEW_TESTAMENT_GROUPS: CanonGroup[] = [
     books: ["rev"],
   },
 ]
+
+/**
+ * The introductions that open each Testament in the book pickers, before its
+ * groups: the general introduction, and the New Testament's. The API's slugs.
+ */
+export const OLD_TESTAMENT_INTRO = "geral"
+export const NEW_TESTAMENT_INTRO = "novotestamento"
+
+/**
+ * The About page, listed with the New Testament in the book pickers. Not in
+ * the canon groups: the crawlable book index must not link to it.
+ */
+export const ABOUT_GROUP: CanonGroup = {
+  name: "Sobre a Bíblia",
+  books: ["about"],
+}
+
+/**
+ * The book pickers' groups: each group's introduction first and each
+ * cluster's before its books, plus the ungrouped `leading` one (a group with
+ * no books, named after it). Introductions that have not loaded are dropped,
+ * so nothing renders blank.
+ */
+export function withIntros(
+  groups: CanonGroup[],
+  leading: string,
+  hasBook: (bookId: string) => boolean,
+): CanonGroup[] {
+  const groupsWithIntros = groups.map((group) => {
+    const books = group.books.flatMap((id) => {
+      const intro = CLUSTER_INTROS[id]
+      return intro && hasBook(intro) ? [intro, id] : [id]
+    })
+    return {
+      ...group,
+      books:
+        group.introSlug && hasBook(group.introSlug)
+          ? [group.introSlug, ...books]
+          : books,
+    }
+  })
+
+  return hasBook(leading)
+    ? [{ name: leading, books: [] }, ...groupsWithIntros]
+    : groupsWithIntros
+}

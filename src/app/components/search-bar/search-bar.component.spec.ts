@@ -87,6 +87,20 @@ describe("SearchBarComponent", () => {
     expect(heights).toEqual(["40px", "40px", "40px"])
   })
 
+  it("emits every edit, for searching as people type", async () => {
+    const typed: string[] = []
+    component.typing.subscribe((text) => typed.push(text))
+    const input = fixture.nativeElement.querySelector(
+      "input",
+    ) as HTMLInputElement
+
+    input.value = "luz"
+    input.dispatchEvent(new Event("input"))
+    await fixture.whenStable()
+
+    expect(typed).toEqual(["luz"])
+  })
+
   it("should create", () => {
     expect(component).toBeTruthy()
   })

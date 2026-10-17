@@ -53,8 +53,12 @@
   <!-- No crossorigin: the script is fetched without CORS, so a CORS
        preconnect would warm a socket it cannot reuse. -->
   <link rel="preconnect" href="https://umami.dojo.pt">
-  <script defer src="https://umami.dojo.pt/script.js" data-website-id="5f2a57be-86a2-4608-8fc5-667a9c24689c"></script>
-  <!-- Google tag (gtag.js) -->
+  <script defer src="https://umami.dojo.pt/script.js" data-website-id="5f2a57be-86a2-4608-8fc5-667a9c24689c"
+      data-before-send="umamiBeforeSend"></script>
+  <!-- web-only:start -->
+  <!-- Google tag (gtag.js). Website only: cap:prune strips this block from
+       the native apps, where ad measurement would count as tracking (App
+       Tracking Transparency on iOS, Data safety on Google Play). -->
   <link rel="preconnect" href="https://www.googletagmanager.com">
   <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18415019347"></script>
   <script>
@@ -64,6 +68,7 @@
 
     gtag('config', 'AW-18415019347');
   </script>
+  <!-- web-only:end -->
 </head>
 <body class="mat-typography">
   <app-root></app-root>

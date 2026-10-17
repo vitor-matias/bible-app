@@ -16,3 +16,16 @@ export const apiBaseUrl = Capacitor.isNativePlatform()
   : !isBrowser()
     ? `${serverApiOrigin}/v1`
     : "v1"
+
+/**
+ * Link to the current page for sharing. The native shells serve the bundled
+ * app from a localhost origin, which is useless to whoever receives the link,
+ * so point at the public site instead.
+ */
+export function shareableUrl(
+  location: Pick<Location, "href" | "pathname" | "search" | "hash">,
+): string {
+  if (!Capacitor.isNativePlatform()) return location.href
+  const { pathname, search, hash } = location
+  return `https://${appConfig.domain}${pathname}${search}${hash}`
+}

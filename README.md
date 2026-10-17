@@ -63,7 +63,8 @@ has real data with no local backend. The API base URL is resolved in
 | `npm run test:coverage` | Unit tests with coverage |
 | `npm run biome` | Lint + format with autofix (`--write --unsafe`) over `src` |
 | `npm run cap:sync` | Sync web build into native projects |
-| `npm run cap:ios` / `cap:android` | Add a native platform, sync, generate icons |
+| `npm run cap:ios` / `cap:android` | Copy the web build into the native project |
+| `npm run cap:icons` | Regenerate native icons and splash from `assets/` |
 
 ## Prerendering (static SSG)
 
@@ -90,19 +91,67 @@ inlined into every page, taking per-page HTML from ~166KB to ~241KB.
 
 ```bash
 npm run build         # produces dist/bible-app/browser
-npm run cap:android   # or cap:ios — first run adds the platform
+npm run cap:android   # or cap:ios
 npx cap open android  # open in Android Studio / Xcode
 ```
 
 `cap:sync`/`cap:ios`/`cap:android` first run `cap:prune`, which copies the build
 into `dist/bible-app/capacitor` (the `webDir`) without the ~1300 prerendered
-route pages — they would add tens of MB to the APK/IPA for a shell that loads
-the site remotely anyway. The copy is what gets stripped; `dist/bible-app/browser`
-stays intact, since that is what the web deploy publishes.
+route pages, which would add tens of MB to the APK/IPA. The native apps ship
+that bundle, so they start instantly and work offline; the API is called at
+`https://biblia.capuchinhos.org/v1`. The copy is what gets stripped;
+`dist/bible-app/browser` stays intact, since that is what the web deploy publishes.
+
+`cap:prune` also strips everything between `<!-- web-only:start -->` and
+`<!-- web-only:end -->` in `src/index.html` (the Google Ads tag), and fails if
+`googletagmanager` still appears in the native bundle: ad measurement in the
+apps would require App Tracking Transparency on iOS and a Data safety
+declaration on Google Play. Umami stays, since it carries problem reports.
+
+For live reload on a device, point the shell at your dev server:
+
+```bash
+npm start
+CAPACITOR_LIVE_RELOAD_URL=http://<your-lan-ip>:4200 npx cap run android
+```
 
 App identity lives in [capacitor.config.ts](capacitor.config.ts)
-(`org.capuchinhos.biblia`). Set `CAPACITOR_SERVER_URL` to point a native build at a
-different backend.
+(`org.capuchinhos.biblia`).
+
+### Android signing key
+
+Every Android build, whether from Google Play, a GitHub Release APK or
+Zapstore, must be signed with the **same key**. Android refuses to update an
+install from a build signed with a different key, so users would have to
+uninstall, which wipes their bookmarks. The release keystore (the
+`ANDROID_KEYSTORE_BASE64` secret) is that key; its SHA-256 fingerprint is the
+one in [`public/.well-known/assetlinks.json`](public/.well-known/assetlinks.json).
+
+- **Google Play:** when enrolling in Play App Signing, choose to upload the
+  existing key ("Export and upload a key from Java keystore") rather than
+  letting Google generate one. This choice cannot be changed later.
+- **CI:** *Build All Platforms* fails a signed release whose certificate is
+  not listed in `assetlinks.json`. If the key ever has to change on purpose,
+  add the new fingerprint there first (App Links need it anyway).
+
+### Google Play upload
+
+Releases (a `v*` tag push, or a manual *Build All Platforms* run with
+*Create a GitHub Release* ticked) also upload the signed AAB to Google Play,
+on the *internal* track by default (`play_track` input picks another).
+Test runs never upload. One-time setup:
+
+1. Create the app in Play Console (`org.capuchinhos.biblia`) and upload the
+   first AAB by hand: the API cannot create an app or its first release.
+2. In Google Cloud, create a service account and a JSON key for it.
+3. In Play Console, *Users and permissions*, invite the service account's
+   e-mail with release permissions for this app.
+4. Add the JSON key as the repository secret `PLAY_SERVICE_ACCOUNT_JSON`.
+
+Without the secret the step is skipped. While the app is still a draft in
+Play Console, releases must be uploaded as drafts: change `status:` in the
+workflow's *Upload to Google Play* step to `draft` until the first release
+is published.
 
 ## Architecture
 
