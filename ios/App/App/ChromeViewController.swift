@@ -31,7 +31,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// Where the toolbar, auto-scroll's bar and the toast go: the safe area's
     /// width, or, on an iPhone Duo folded part way, the screen right of the fold.
     private let bottomBars = UILayoutGuide()
-    private var bottomBarsLeading: NSLayoutConstraint!
+    private var bottomBarsLeft: NSLayoutConstraint!
 
     private(set) var state = ChromeState()
     private var collapsed = false
@@ -90,12 +90,13 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
         let safeArea = view.safeAreaLayoutGuide
         view.addLayoutGuide(bottomBars)
-        bottomBarsLeading = bottomBars.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor)
+        // Left and right, not leading and trailing: the fold's place is physical.
+        bottomBarsLeft = bottomBars.leftAnchor.constraint(equalTo: safeArea.leftAnchor)
         let autoScrollBarWidth = autoScrollBar.widthAnchor.constraint(equalTo: bottomBars.widthAnchor)
         autoScrollBarWidth.priority = .defaultHigh
         NSLayoutConstraint.activate([
-            bottomBarsLeading,
-            bottomBars.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor),
+            bottomBarsLeft,
+            bottomBars.rightAnchor.constraint(equalTo: safeArea.rightAnchor),
             bottomBars.topAnchor.constraint(equalTo: safeArea.topAnchor),
             bottomBars.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
             toastBottom,
@@ -134,7 +135,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
         topBarTop.constant = topBarOffset
-        bottomBarsLeading.constant = foldInset
+        bottomBarsLeft.constant = foldInset
     }
 
     override func viewDidLayoutSubviews() {
