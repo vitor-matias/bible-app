@@ -1210,6 +1210,103 @@ describe("VerseComponent", () => {
     })
   })
 
+  // Safari draws a block box inside the verse's inline text over the lines
+  // before it when the text is set in columns (the page-by-page view): Gn 25
+  // "Esaú e Jacob", Dt 1 "Recordação do passado" and its references. Lines
+  // of their own are inline-blocks a line wide, laid out with the text.
+  describe("headings and references on lines of their own", () => {
+    // Dt 1,5: a heading and its references after the verse's text.
+    function deuteronomy1v5(): Verse {
+      return makeVerse({
+        bookId: "deu",
+        number: 5,
+        text: [
+          { type: "text", text: "Moisés começou a expor esta Lei:" },
+          { type: "section", tag: "s1", text: "1. Recordação do passado" },
+          { type: "references", text: "(1,6-11,28)" },
+        ],
+      })
+    }
+
+    function lineWidth(): number {
+      const host = fixture.nativeElement as HTMLElement
+      return host.parentElement?.getBoundingClientRect().width ?? 0
+    }
+
+    it("sets a heading as an inline-block a line wide", () => {
+      setData(component, deuteronomy1v5())
+      fixture.detectChanges()
+
+      const heading = fixture.nativeElement.querySelector("h3") as HTMLElement
+      expect(getComputedStyle(heading).display).toBe("inline-block")
+      expect(heading.getBoundingClientRect().width).toBeCloseTo(lineWidth(), 0)
+    })
+
+    it("sets its references as an inline-block a line wide", () => {
+      setData(component, deuteronomy1v5())
+      fixture.detectChanges()
+
+      const references = fixture.nativeElement.querySelector(
+        ".references-block",
+      ) as HTMLElement
+      expect(getComputedStyle(references).display).toBe("inline-block")
+      expect(references.getBoundingClientRect().width).toBeCloseTo(
+        lineWidth(),
+        0,
+      )
+    })
+
+    // Pr 25: the chapter opens on a heading whose references sit beside the
+    // drop-cap number; a line-wide box would drop below it.
+    it("keeps references beside the chapter number a block", () => {
+      setData(
+        component,
+        makeVerse({
+          bookId: "pro",
+          chapterNumber: 25,
+          number: 0,
+          verseLabel: "0",
+          text: [
+            { type: "section", tag: "ms", text: "V. Segunda coleção" },
+            { type: "references", text: "(25,1-29,27)" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+
+      const references = fixture.nativeElement.querySelector(
+        ".references-block",
+      ) as HTMLElement
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+      expect(getComputedStyle(references).display).toBe("block")
+    })
+
+    it("tells a centred heading whether the chapter number floats beside it", () => {
+      setData(
+        component,
+        makeVerse({
+          number: 0,
+          verseLabel: "0",
+          text: [
+            { type: "section", tag: "s2", text: "Discurso de Elifaz" },
+            {
+              type: "quote",
+              text: "Se alguém te dirigir a palavra,",
+              identLevel: 1,
+            },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+
+      const heading = fixture.nativeElement.querySelector(
+        "verse-section .center",
+      ) as HTMLElement
+      expect(heading.classList).toContain("besideChapterNumber")
+      expect(getComputedStyle(heading).display).toBe("table")
+    })
+  })
+
   // In justified prose, a wrapped line of poetry was spread into wide gaps
   // ("Felizes  os  que  sofrem  perseguição  por") and hyphenated.
   it("sets a line of poetry ragged-right and unhyphenated", () => {
