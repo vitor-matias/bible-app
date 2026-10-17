@@ -14,6 +14,7 @@ import { Capacitor } from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
 import { appConfig } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
+import { AppPromoService } from "./services/app-promo.service"
 import { BackButtonService } from "./services/back-button.service"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
@@ -58,6 +59,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private nativeShell: NativeShellService,
     private backButton: BackButtonService,
     private toast: ToastService,
+    private appPromo: AppPromoService,
   ) {
     // Speed Insights is served by the Vercel deployment; the native apps load
     // from a local origin where its script does not exist.
@@ -78,6 +80,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.setupNativeListeners()
     this.nativeShell.init()
     this.onboardingService.showOnFirstLaunch()
+    this.appPromo.scheduleOnce()
   }
 
   private trackAppOpenEvent(): void {

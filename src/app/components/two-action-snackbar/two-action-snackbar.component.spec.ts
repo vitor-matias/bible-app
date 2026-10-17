@@ -10,18 +10,18 @@ describe("TwoActionSnackComponent", () => {
   })
 
   it("should call the return callback before dismissing", () => {
-    const returnUrl = jasmine.createSpy("returnUrl")
+    const onTap = jasmine.createSpy("onTap")
     const component = new TwoActionSnackComponent(
-      { message: "Back", returnUrl },
+      { message: "Back", onTap },
       snackBarRefSpy,
     )
 
-    component.goBack()
+    component.tap()
 
-    expect(returnUrl).toHaveBeenCalled()
+    expect(onTap).toHaveBeenCalled()
     expect(snackBarRefSpy.dismiss).toHaveBeenCalled()
     expect(
-      (returnUrl.calls.mostRecent() as unknown as { invocationOrder: number })
+      (onTap.calls.mostRecent() as unknown as { invocationOrder: number })
         .invocationOrder,
     ).toBeLessThan(
       (
@@ -38,7 +38,7 @@ describe("TwoActionSnackComponent", () => {
       snackBarRefSpy,
     )
 
-    component.goBack()
+    component.tap()
 
     expect(snackBarRefSpy.dismiss).toHaveBeenCalled()
   })
@@ -56,13 +56,13 @@ describe("TwoActionSnackComponent", () => {
 
   // A question with Voltar and Fechar under it said the same thing twice.
   it("is one button naming the way back, with a close button", () => {
-    const returnUrl = jasmine.createSpy("returnUrl")
+    const onTap = jasmine.createSpy("onTap")
     TestBed.configureTestingModule({
       imports: [TwoActionSnackComponent],
       providers: [
         {
           provide: MAT_SNACK_BAR_DATA,
-          useValue: { message: "Voltar para Gn 3,5", returnUrl },
+          useValue: { message: "Voltar para Gn 3,5", onTap },
         },
         { provide: MatSnackBarRef, useValue: snackBarRefSpy },
       ],
@@ -75,7 +75,27 @@ describe("TwoActionSnackComponent", () => {
     expect(goBack.textContent).toContain("Voltar para Gn 3,5")
     expect(close.getAttribute("aria-label")).toBe("Fechar")
     goBack.click()
-    expect(returnUrl).toHaveBeenCalled()
+    expect(onTap).toHaveBeenCalled()
     expect(snackBarRefSpy.dismiss).toHaveBeenCalled()
+  })
+
+  it("shows the icon it is given in place of the way back's arrow", () => {
+    TestBed.configureTestingModule({
+      imports: [TwoActionSnackComponent],
+      providers: [
+        {
+          provide: MAT_SNACK_BAR_DATA,
+          useValue: { message: "Obter a aplicação", icon: "install_mobile" },
+        },
+        { provide: MatSnackBarRef, useValue: snackBarRefSpy },
+      ],
+    })
+    const fixture = TestBed.createComponent(TwoActionSnackComponent)
+    fixture.detectChanges()
+
+    const icon = (fixture.nativeElement as HTMLElement).querySelector(
+      ".action mat-icon",
+    )
+    expect(icon?.textContent?.trim()).toBe("install_mobile")
   })
 })

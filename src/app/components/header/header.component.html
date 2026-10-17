@@ -51,6 +51,13 @@
             <span>Reportar Erro</span>
           </button>
         }
+        @if (appStore) {
+        <a mat-menu-item class="app-store-link" [href]="appStore.url" target="_blank" rel="noopener"
+          (click)="onOpenAppStore(appStore)">
+          <mat-icon>install_mobile</mat-icon>
+          <span>Instalar a aplicação</span>
+        </a>
+        }
         <button type="button" mat-menu-item (click)="onOpenHelp(menuTrigger)">
           <mat-icon>help</mat-icon>
           <span>Como usar a app</span>

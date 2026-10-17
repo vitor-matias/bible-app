@@ -28,6 +28,7 @@ export class PreferencesService {
     FONT_SIZE_PREFIX: "fontSize",
     VIEW_MODE: "viewMode",
     ONBOARDING_SEEN: "onboardingSeen",
+    APP_PROMO_SEEN: "appPromoSeen",
   }
 
   getTheme(): "light" | "dark" | "system" | null {
@@ -112,5 +113,15 @@ export class PreferencesService {
 
   setOnboardingSeen(seen: boolean): void {
     this.storage?.setItem(this.KEYS.ONBOARDING_SEEN, seen.toString())
+  }
+
+  /** As with onboarding: without usable storage, report it as seen. */
+  getAppPromoSeen(): boolean {
+    const storage = this.storage
+    return !storage || storage.getItem(this.KEYS.APP_PROMO_SEEN) === "true"
+  }
+
+  setAppPromoSeen(seen: boolean): void {
+    this.storage?.setItem(this.KEYS.APP_PROMO_SEEN, seen.toString())
   }
 }

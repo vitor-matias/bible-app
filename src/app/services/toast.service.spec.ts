@@ -61,7 +61,7 @@ describe("ToastService", () => {
     const returnSnack = () =>
       snackBar.openFromComponent.calls.mostRecent().args[1]?.data as {
         message: string
-        returnUrl: () => void
+        onTap: () => void
       }
 
     it("offers the way back to the verse in a snackbar", () => {
@@ -77,7 +77,7 @@ describe("ToastService", () => {
         jasmine.anything(),
       )
       expect(returnSnack().message).toBe("Voltar para Gn 3,5")
-      returnSnack().returnUrl()
+      returnSnack().onTap()
       expect(navigate).toHaveBeenCalledWith(["gn", 3], {
         queryParams: { verseStart: 5, highlight: false },
       })
