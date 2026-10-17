@@ -22,8 +22,7 @@ export interface StoreApps {
 export const storeApps: StoreApps = {
   // App Store Connect's "Apple ID" for the app.
   appStoreId: "6823135142",
-  // "org.capuchinhos.biblia" once it is out of internal testing.
-  playPackage: "",
+  playPackage: "org.capuchinhos.biblia",
 }
 
 /** API origin while prerendering; PRERENDER_API_ORIGIN points it at a stub. */
