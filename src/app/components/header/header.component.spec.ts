@@ -332,6 +332,17 @@ describe("HeaderComponent", () => {
 
       expect(appPromoSpy.deviceStore).toHaveBeenCalledWith("menu")
       expect(document.querySelector(".app-store-link")).toBeNull()
+      expect(appPromoSpy.markSeen).not.toHaveBeenCalled()
+    })
+
+    it("counts as the prompt once the open menu shows it", () => {
+      appPromoSpy.deviceStore.and.returnValue(play)
+      recreate()
+      expect(appPromoSpy.markSeen).not.toHaveBeenCalled()
+
+      openMenu()
+
+      expect(appPromoSpy.markSeen).toHaveBeenCalled()
     })
 
     it("links straight to the store, just above the help", () => {
@@ -346,7 +357,7 @@ describe("HeaderComponent", () => {
       expect(link?.nextElementSibling?.textContent).toContain("Como usar a app")
     })
 
-    it("counts and remembers a tap, so the prompt doesn't follow", () => {
+    it("counts a tap", () => {
       appPromoSpy.deviceStore.and.returnValue(play)
       recreate()
       openMenu()
@@ -359,7 +370,6 @@ describe("HeaderComponent", () => {
       link.click()
 
       expect(appPromoSpy.trackStoreOpen).toHaveBeenCalledWith(play, "menu")
-      expect(appPromoSpy.markSeen).toHaveBeenCalled()
     })
   })
 

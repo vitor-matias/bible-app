@@ -304,9 +304,13 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     })
   }
 
+  /** The store entry tells the visitor about the app: no prompt after it. */
+  onMenuOpened() {
+    if (this.appStore) this.appPromo.markSeen()
+  }
+
   /** The menu link itself opens the store. */
   onOpenAppStore(store: StoreLink) {
-    this.appPromo.markSeen()
     this.appPromo.trackStoreOpen(store, "menu")
   }
 

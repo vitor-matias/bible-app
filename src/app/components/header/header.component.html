@@ -4,7 +4,7 @@
   <mat-toolbar>
     <div class="header-content">
       <button class="menuButton" mat-icon-button [matMenuTriggerFor]="headerMenu" #menuTrigger="matMenuTrigger"
-        aria-label="Menu">
+        (menuOpened)="onMenuOpened()" aria-label="Menu">
         <mat-icon>menu</mat-icon>
       </button>
       <mat-menu #headerMenu="matMenu">
