@@ -27,6 +27,11 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private let searchField = SearchFieldView()
     private let toast = ToastView()
     private var toastBottom: NSLayoutConstraint!
+    private var topBarTop: NSLayoutConstraint!
+    /// Where the toolbar, auto-scroll's bar and the toast go: the safe area's
+    /// width, or, on an iPhone Duo folded part way, the screen right of the fold.
+    private let bottomBars = UILayoutGuide()
+    private var bottomBarsLeft: NSLayoutConstraint!
 
     private(set) var state = ChromeState()
     private var collapsed = false
@@ -67,6 +72,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         toast.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(toast)
         toastBottom = toast.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        topBarTop = topBar.topAnchor.constraint(equalTo: view.topAnchor, constant: topBarOffset)
 
         // Dragging the page closes the search keyboard, as iOS search screens do.
         let drag = UIPanGestureRecognizer(target: self, action: #selector(pageDragged(_:)))
@@ -83,26 +89,53 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
                                                object: nil)
 
         let safeArea = view.safeAreaLayoutGuide
+        view.addLayoutGuide(bottomBars)
+        // Left and right, not leading and trailing: the fold's place is physical.
+        bottomBarsLeft = bottomBars.leftAnchor.constraint(equalTo: safeArea.leftAnchor)
+        let autoScrollBarWidth = autoScrollBar.widthAnchor.constraint(equalTo: bottomBars.widthAnchor)
+        autoScrollBarWidth.priority = .defaultHigh
         NSLayoutConstraint.activate([
+            bottomBarsLeft,
+            bottomBars.rightAnchor.constraint(equalTo: safeArea.rightAnchor),
+            bottomBars.topAnchor.constraint(equalTo: safeArea.topAnchor),
+            bottomBars.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
             toastBottom,
-            toast.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            toast.leadingAnchor.constraint(greaterThanOrEqualTo: safeArea.leadingAnchor, constant: 24),
-            toast.trailingAnchor.constraint(lessThanOrEqualTo: safeArea.trailingAnchor, constant: -24),
-            topBar.topAnchor.constraint(equalTo: safeArea.topAnchor),
+            toast.centerXAnchor.constraint(equalTo: bottomBars.centerXAnchor),
+            toast.leadingAnchor.constraint(greaterThanOrEqualTo: bottomBars.leadingAnchor, constant: 24),
+            toast.trailingAnchor.constraint(lessThanOrEqualTo: bottomBars.trailingAnchor, constant: -24),
+            topBarTop,
             topBar.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor),
             topBar.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor),
             toolbar.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
-            toolbar.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor),
-            toolbar.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor),
-            // In the toolbar's place; lifted above it while it shows.
+            toolbar.leadingAnchor.constraint(equalTo: bottomBars.leadingAnchor),
+            toolbar.trailingAnchor.constraint(equalTo: bottomBars.trailingAnchor),
+            // In the toolbar's place; lifted above it while it shows. No wider
+            // than a phone: across an iPad or an unfolded iPhone Duo its three
+            // controls drifted apart, close and play at the screen's edges.
             autoScrollBar.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
-            autoScrollBar.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor),
-            autoScrollBar.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor),
+            autoScrollBar.centerXAnchor.constraint(equalTo: bottomBars.centerXAnchor),
+            autoScrollBar.widthAnchor.constraint(lessThanOrEqualTo: bottomBars.widthAnchor),
+            autoScrollBar.widthAnchor.constraint(lessThanOrEqualToConstant: Self.autoScrollBarMaxWidth),
+            autoScrollBarWidth,
             searchField.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor, constant: 16),
             searchField.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor, constant: -16),
             // Rests above the home indicator, and rides up with the keyboard.
             searchField.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -8),
         ])
+
+        #if canImport(UIKit, _version: 9127.0.85)
+        if #available(iOS 27.1, *) {
+            // The fold's region turns on and off with the hinge: lay the bars
+            // out again each time.
+            view.addInteraction(UIHingeInteraction { [weak self] _, _ in self?.view.setNeedsLayout() })
+        }
+        #endif
+    }
+
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
+        topBarTop.constant = topBarOffset
+        bottomBarsLeft.constant = foldInset
     }
 
     override func viewDidLayoutSubviews() {
@@ -245,6 +278,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         })
         button.accessibilityHint = "Escolher livro e capítulo"
         button.showsLargeContentViewer = true
+        // It gives way to its room (passageWidth), not to the bar: iOS 27.1's
+        // toolbar, wide on the unfolded iPhone Duo, squeezed it to "Liv…".
+        button.setContentCompressionResistancePriority(UILayoutPriority(999), for: .horizontal)
         return button
     }()
 
@@ -407,8 +443,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         })
     }
 
-    /// The toolbar's width: the safe area's, as it is pinned to it.
-    private var toolbarWidth: CGFloat { view.safeAreaLayoutGuide.layoutFrame.width }
+    /// The toolbar's width, as it is pinned to the bottom bars' guide.
+    private var toolbarWidth: CGFloat { bottomBars.layoutFrame.width }
 
     /// Liquid Glass toolbar metrics, the same on iOS 26 and 27: the bar's side
     /// margins, two icons sharing a capsule (the arrows), the gap between glass
@@ -453,6 +489,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     /// Space between auto-scroll's bar and the toolbar below it.
     private static let autoScrollBarGap: CGFloat = 12
+    /// The widest iPhone's, upright.
+    private static let autoScrollBarMaxWidth: CGFloat = 440
 
     /// Above the toolbar while it shows; in its place while it's hidden.
     private var autoScrollBarOffset: CGAffineTransform {
@@ -500,15 +538,41 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             // show; hidden for reading (or under a panel), they take its place.
             let autoScroll = state.autoScroll != nil && !collapsed
                 ? autoScrollBar.bounds.height + Self.autoScrollBarGap : 0
-            return ChromeInsets(top: safeArea.top + topBar.bounds.height,
+            return ChromeInsets(top: topBarOffset + topBar.bounds.height,
                                 bottom: safeArea.bottom + toolbar.bounds.height + autoScroll,
                                 collapsed: collapsed)
         case .search:
-            return ChromeInsets(top: safeArea.top + topBar.bounds.height,
+            return ChromeInsets(top: topBarOffset + topBar.bounds.height,
                                 bottom: view.bounds.height - searchField.frame.minY)
         case .page:
-            return ChromeInsets(top: safeArea.top + topBar.bounds.height, bottom: safeArea.bottom)
+            return ChromeInsets(top: topBarOffset + topBar.bounds.height, bottom: safeArea.bottom)
         }
+    }
+
+    /// The top bar's distance from the top of the screen: under the status
+    /// bar, or, with none above it (a phone turned sideways, or the folded
+    /// iPhone Duo, whose status bar runs down its side), the system's side
+    /// margin, so the glass sits as far from the top edge as from the side
+    /// rather than touching it.
+    private var topBarOffset: CGFloat {
+        max(view.safeAreaInsets.top, systemMinimumLayoutMargins.leading)
+    }
+
+    /// How far in from the safe area's left edge the fold of an iPhone Duo,
+    /// folded part way, ends: the bottom bars stay right of it, together.
+    /// Apple keeps buttons out of the crease; its toolbars nudge each button
+    /// aside on its own, which split the passage from its arrows and left
+    /// auto-scroll's speed on the fold. Its region is the crease plus the
+    /// margin interactive content keeps.
+    private var foldInset: CGFloat {
+        #if canImport(UIKit, _version: 9127.0.85)
+        if #available(iOS 27.1, *),
+           let fold = view.reservedRegions(kind: .division)
+            .first(where: { $0.isActive && $0.frame.height > $0.frame.width }) {
+            return max(fold.frame.maxX - view.safeAreaLayoutGuide.layoutFrame.minX, 0)
+        }
+        #endif
+        return 0
     }
 
     private func reportInsets() {

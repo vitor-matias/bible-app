@@ -854,6 +854,23 @@ describe("BibleReaderComponent", () => {
         heightWithInset(pages, "0px") - heightWithInset(pages, "100px"),
       ).toBeCloseTo(100, 0)
     })
+
+    // The folded iPhone Duo's status bar runs down its right side: centred
+    // on the whole screen, the copyright notice ran under it, cut off.
+    it("keeps the pages' footer between the side insets", () => {
+      const host = render("paged")
+      host.style.setProperty("--app-inset-left", "10px")
+      host.style.setProperty("--app-inset-right", "84px")
+      const footer = host.querySelector(".fixed-footer") as HTMLElement
+      expect(footer).toBeTruthy()
+
+      const box = footer.getBoundingClientRect()
+      expect(box.left).toBeCloseTo(10, 0)
+      expect(box.right).toBeCloseTo(
+        document.documentElement.clientWidth - 84,
+        0,
+      )
+    })
   })
 
   describe("Drawer Actions", () => {
