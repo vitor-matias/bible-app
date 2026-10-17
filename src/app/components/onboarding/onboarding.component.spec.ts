@@ -1,13 +1,16 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatDialogRef } from "@angular/material/dialog"
 import { BehaviorSubject } from "rxjs"
+import type { StoreApps } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
+import { PreferencesService } from "../../services/preferences.service"
 import {
   type InstallBrowser,
   type InstallPlatform,
   type InstallPromptOutcome,
   PwaInstallService,
 } from "../../services/pwa-install.service"
+import { STORE_APPS } from "../../tokens"
 import { OnboardingComponent } from "./onboarding.component"
 import {
   getInstallGuide,
@@ -39,8 +42,12 @@ describe("OnboardingComponent", () => {
   let pwa: FakePwaInstallService
   let dialogRefSpy: jasmine.SpyObj<MatDialogRef<OnboardingComponent>>
   let analyticsSpy: jasmine.SpyObj<AnalyticsService>
+  /** No store listings unless a test fills them in, whatever config.ts says. */
+  let apps: StoreApps
 
   beforeEach(async () => {
+    localStorage.removeItem("appPromoSeen")
+    apps = { appStoreId: "", playPackage: "" }
     pwa = new FakePwaInstallService()
     dialogRefSpy = jasmine.createSpyObj("MatDialogRef", ["close"])
     analyticsSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
@@ -52,9 +59,12 @@ describe("OnboardingComponent", () => {
         { provide: MatDialogRef, useValue: dialogRefSpy },
         { provide: PwaInstallService, useValue: pwa },
         { provide: AnalyticsService, useValue: analyticsSpy },
+        { provide: STORE_APPS, useValue: apps },
       ],
     }).compileComponents()
   })
+
+  afterEach(() => localStorage.removeItem("appPromoSeen"))
 
   function create(): void {
     fixture = TestBed.createComponent(OnboardingComponent)
@@ -364,6 +374,104 @@ describe("OnboardingComponent", () => {
     expect(component.installOutcome).toBe("dismissed")
     expect(element.querySelector(".install-done")).toBeNull()
     expect(element.querySelector(".guide")).not.toBeNull()
+  })
+
+  describe("with the apps in the stores", () => {
+    beforeEach(() => {
+      apps.appStoreId = "6740000000"
+      apps.playPackage = "org.capuchinhos.biblia"
+    })
+
+    const storeButton = () =>
+      element.querySelector<HTMLAnchorElement>("a.install-now")
+
+    const promptSeen = () =>
+      TestBed.inject(PreferencesService).getAppPromoSeen()
+
+    it("sends Android visitors to Google Play instead of the website's install", () => {
+      pwa.canPromptInstall = true
+      create()
+      goToInstallStep()
+
+      const link = storeButton()
+      expect(link?.textContent).toContain("Obter no Google Play")
+      expect(link?.getAttribute("href")).toBe(
+        "https://play.google.com/store/apps/details?id=org.capuchinhos.biblia&referrer=utm_source%3Dweb%26utm_medium%3Donboarding",
+      )
+      expect(link?.target).toBe("_blank")
+      expect(link?.rel).toBe("noopener")
+      expect(button("Instalar agora")).toBeUndefined()
+      expect(element.querySelector(".guide")).toBeNull()
+    })
+
+    it("sends iPhone and iPad visitors to the App Store", () => {
+      pwa.platform = "ios"
+      pwa.browser = "safari"
+      create()
+      goToInstallStep()
+
+      expect(storeButton()?.textContent).toContain("Obter na App Store")
+      expect(storeButton()?.getAttribute("href")).toBe(
+        "https://apps.apple.com/app/id6740000000",
+      )
+      expect(element.querySelector(".guide")).toBeNull()
+    })
+
+    it("keeps the website's install on a computer, with each phone's store a tap away", () => {
+      pwa.platform = "desktop"
+      create()
+      goToInstallStep()
+
+      expect(storeButton()).toBeNull()
+      expect(element.querySelector(".guide")).not.toBeNull()
+
+      platformButton("Android").click()
+      expect(storeButton()?.textContent).toContain("Google Play")
+    })
+
+    it("keeps the website's install on a platform whose listing is still empty", () => {
+      apps.playPackage = ""
+      create()
+      goToInstallStep()
+
+      expect(storeButton()).toBeNull()
+      expect(element.querySelector(".guide")).not.toBeNull()
+
+      platformButton("iPhone / iPad").click()
+      expect(storeButton()?.textContent).toContain("App Store")
+    })
+
+    it("counts the store as shown once the install step offers it for the device in hand", () => {
+      create()
+      expect(promptSeen()).toBeFalse()
+
+      goToInstallStep()
+      expect(promptSeen()).toBeTrue()
+    })
+
+    it("doesn't count another device's store as shown", () => {
+      pwa.platform = "desktop"
+      create()
+      goToInstallStep()
+
+      platformButton("Android").click()
+      expect(promptSeen()).toBeFalse()
+    })
+
+    it("counts a tap on the store button", () => {
+      create()
+      goToInstallStep()
+
+      const link = storeButton() as HTMLAnchorElement
+      // Keep Karma's page where it is.
+      link.addEventListener("click", (event) => event.preventDefault())
+      link.click()
+
+      expect(analyticsSpy.track).toHaveBeenCalledWith("app_store_open", {
+        store: "play",
+        source: "onboarding",
+      })
+    })
   })
 
   describe("footer layout", () => {

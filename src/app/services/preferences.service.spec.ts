@@ -70,6 +70,20 @@ describe("PreferencesService", () => {
     expect(service.getOnboardingSeen()).toBeTrue()
   })
 
+  it("should remember that the app prompt was shown", () => {
+    expect(service.getAppPromoSeen()).toBeFalse()
+
+    service.setAppPromoSeen(true)
+    expect(service.getAppPromoSeen()).toBeTrue()
+  })
+
+  it("should report the app prompt as shown when storage cannot record it", () => {
+    // Otherwise it would come back on every visit.
+    spyOn(Storage.prototype, "setItem").and.throwError("blocked")
+
+    expect(service.getAppPromoSeen()).toBeTrue()
+  })
+
   it("should store and read the last location", () => {
     service.setLastBookId("gen")
     service.setLastChapterNumber(3)

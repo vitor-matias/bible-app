@@ -36,7 +36,13 @@
       }
     </div>
 
-    @if (installOutcome === 'accepted') {
+    @if (store) {
+    <a mat-flat-button class="install-now" [href]="store.url" target="_blank" rel="noopener"
+      (click)="onStoreClick(store)">
+      <mat-icon>{{ store.icon }}</mat-icon>
+      {{ store.label }}
+    </a>
+    } @else if (installOutcome === 'accepted') {
     <p class="install-done">
       <mat-icon aria-hidden="true">check_circle</mat-icon>
       <span>A aplicação foi instalada. Procure o ícone «Bíblia Sagrada» no seu dispositivo.</span>
