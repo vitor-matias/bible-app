@@ -38,7 +38,8 @@ describe("storeLink", () => {
 
     expect(link?.store).toBe("app_store")
     expect(link?.url).toBe("https://apps.apple.com/app/id6740000000")
-    expect(link?.label).toBe("Obter na App Store")
+    expect(link?.label).toBe("Descarregar na App Store")
+    expect(link?.badge).toBe("imgs/badges/app-store-pt-pt.svg")
   })
 
   it("tells Google Play where on the website the visitor came from", () => {

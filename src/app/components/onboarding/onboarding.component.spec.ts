@@ -383,7 +383,11 @@ describe("OnboardingComponent", () => {
     })
 
     const storeButton = () =>
-      element.querySelector<HTMLAnchorElement>("a.install-now")
+      element.querySelector<HTMLAnchorElement>("a.store-badge")
+
+    /** The badge's alt text, which is the link's name. */
+    const badgeName = () =>
+      storeButton()?.querySelector("img")?.getAttribute("alt")
 
     const promptSeen = () =>
       TestBed.inject(PreferencesService).getAppPromoSeen()
@@ -394,7 +398,10 @@ describe("OnboardingComponent", () => {
       goToInstallStep()
 
       const link = storeButton()
-      expect(link?.textContent).toContain("Obter no Google Play")
+      expect(badgeName()).toBe("Obter no Google Play")
+      expect(link?.querySelector("img")?.getAttribute("src")).toBe(
+        "imgs/badges/google-play-pt.png",
+      )
       expect(link?.getAttribute("href")).toBe(
         "https://play.google.com/store/apps/details?id=org.capuchinhos.biblia&referrer=utm_source%3Dweb%26utm_medium%3Donboarding",
       )
@@ -410,7 +417,10 @@ describe("OnboardingComponent", () => {
       create()
       goToInstallStep()
 
-      expect(storeButton()?.textContent).toContain("Obter na App Store")
+      expect(badgeName()).toBe("Descarregar na App Store")
+      expect(storeButton()?.querySelector("img")?.getAttribute("src")).toBe(
+        "imgs/badges/app-store-pt-pt.svg",
+      )
       expect(storeButton()?.getAttribute("href")).toBe(
         "https://apps.apple.com/app/id6740000000",
       )
@@ -426,7 +436,7 @@ describe("OnboardingComponent", () => {
       expect(element.querySelector(".guide")).not.toBeNull()
 
       platformButton("Android").click()
-      expect(storeButton()?.textContent).toContain("Google Play")
+      expect(badgeName()).toContain("Google Play")
     })
 
     it("keeps the website's install on a platform whose listing is still empty", () => {
@@ -438,7 +448,7 @@ describe("OnboardingComponent", () => {
       expect(element.querySelector(".guide")).not.toBeNull()
 
       platformButton("iPhone / iPad").click()
-      expect(storeButton()?.textContent).toContain("App Store")
+      expect(badgeName()).toContain("App Store")
     })
 
     it("counts the store as shown once the install step offers it for the device in hand", () => {

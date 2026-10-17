@@ -37,10 +37,8 @@
     </div>
 
     @if (store) {
-    <a mat-flat-button class="install-now" [href]="store.url" target="_blank" rel="noopener"
-      (click)="onStoreClick(store)">
-      <mat-icon>{{ store.icon }}</mat-icon>
-      {{ store.label }}
+    <a class="store-badge" [href]="store.url" target="_blank" rel="noopener" (click)="onStoreClick(store)">
+      <img [src]="store.badge" [alt]="store.label" height="48">
     </a>
     } @else if (installOutcome === 'accepted') {
     <p class="install-done">

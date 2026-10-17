@@ -166,6 +166,30 @@
   opacity: 0.5;
 }
 
+/* The stores' badges, unaltered: Apple's must stand at least 40px tall, with
+   a quarter of its height clear around it. */
+.store-badge {
+  display: block;
+  width: fit-content;
+  margin: 12px auto;
+  border-radius: 8px;
+}
+
+.store-badge img {
+  display: block;
+  width: auto;
+  height: 48px;
+}
+
+.store-badge:focus-visible {
+  outline: 2px solid var(--cap-brown);
+  outline-offset: 3px;
+}
+
+:host-context(.dark-theme) .store-badge:focus-visible {
+  outline-color: antiquewhite;
+}
+
 .hint,
 .note {
   margin: 8px 0 0;

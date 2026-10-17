@@ -301,9 +301,9 @@ describe("HeaderComponent", () => {
     const play: StoreLink = {
       store: "play",
       url: "https://play.google.com/store/apps/details?id=org.capuchinhos.biblia",
+      badge: "imgs/badges/google-play-pt.png",
       label: "Obter no Google Play",
       prompt: "Obter a aplicação para Android",
-      icon: "android",
     }
 
     const openMenu = () => {

@@ -16,11 +16,15 @@ export type StoreSource = "onboarding" | "prompt" | "menu"
 export interface StoreLink {
   store: "app_store" | "play"
   url: string
-  /** The store button's label in the install step. */
+  /**
+   * The store's official badge for the install step, self-hosted and used
+   * unaltered, as both stores' badge guidelines require.
+   */
+  badge: string
+  /** The badge's own words, as its alt text. */
   label: string
   /** The one-time prompt, which is itself the button. */
   prompt: string
-  icon: string
 }
 
 /** Long enough into a visit that the visitor has started reading. */
@@ -41,9 +45,9 @@ export function storeLink(
     return {
       store: "app_store",
       url: `https://apps.apple.com/app/id${encodeURIComponent(apps.appStoreId)}`,
-      label: "Obter na App Store",
+      badge: "imgs/badges/app-store-pt-pt.svg",
+      label: "Descarregar na App Store",
       prompt: "Obter a aplicação para iPhone e iPad",
-      icon: "phone_iphone",
     }
   }
   if (platform === "android" && apps.playPackage) {
@@ -51,9 +55,9 @@ export function storeLink(
     return {
       store: "play",
       url: `https://play.google.com/store/apps/details?id=${encodeURIComponent(apps.playPackage)}&referrer=${encodeURIComponent(referrer)}`,
+      badge: "imgs/badges/google-play-pt.png",
       label: "Obter no Google Play",
       prompt: "Obter a aplicação para Android",
-      icon: "android",
     }
   }
   return null
