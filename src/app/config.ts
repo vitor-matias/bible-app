@@ -14,12 +14,14 @@ export interface StoreApps {
 }
 
 /**
- * The native apps' store listings, for the website to point visitors at. Fill
- * each in once its listing is public; while one is empty the website keeps to
- * its own install steps on that platform and promotes no store.
+ * The native apps' store listings, for the website to point visitors at. A
+ * listing must be public by the time the website ships with it; while one is
+ * empty the website keeps to its own install steps on that platform and
+ * promotes no store.
  */
 export const storeApps: StoreApps = {
-  appStoreId: "",
+  // App Store Connect's "Apple ID" for the app.
+  appStoreId: "6823135142",
   // "org.capuchinhos.biblia" once it is out of internal testing.
   playPackage: "",
 }
