@@ -85,6 +85,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
                                                object: nil)
 
         let safeArea = view.safeAreaLayoutGuide
+        let autoScrollBarWidth = autoScrollBar.widthAnchor.constraint(equalTo: safeArea.widthAnchor)
+        autoScrollBarWidth.priority = .defaultHigh
         NSLayoutConstraint.activate([
             toastBottom,
             toast.centerXAnchor.constraint(equalTo: view.centerXAnchor),
@@ -96,10 +98,14 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             toolbar.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
             toolbar.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor),
             toolbar.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor),
-            // In the toolbar's place; lifted above it while it shows.
+            // In the toolbar's place; lifted above it while it shows. No wider
+            // than a phone: across an iPad or an unfolded iPhone Duo its three
+            // controls drifted apart, close and play at the screen's edges.
             autoScrollBar.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
-            autoScrollBar.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor),
-            autoScrollBar.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor),
+            autoScrollBar.centerXAnchor.constraint(equalTo: safeArea.centerXAnchor),
+            autoScrollBar.widthAnchor.constraint(lessThanOrEqualTo: safeArea.widthAnchor),
+            autoScrollBar.widthAnchor.constraint(lessThanOrEqualToConstant: Self.autoScrollBarMaxWidth),
+            autoScrollBarWidth,
             searchField.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor, constant: 16),
             searchField.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor, constant: -16),
             // Rests above the home indicator, and rides up with the keyboard.
@@ -252,6 +258,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         })
         button.accessibilityHint = "Escolher livro e capítulo"
         button.showsLargeContentViewer = true
+        // It gives way to its room (passageWidth), not to the bar: iOS 27.1's
+        // toolbar, wide on the unfolded iPhone Duo, squeezed it to "Liv…".
+        button.setContentCompressionResistancePriority(UILayoutPriority(999), for: .horizontal)
         return button
     }()
 
@@ -460,6 +469,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     /// Space between auto-scroll's bar and the toolbar below it.
     private static let autoScrollBarGap: CGFloat = 12
+    /// The widest iPhone's, upright.
+    private static let autoScrollBarMaxWidth: CGFloat = 440
 
     /// Above the toolbar while it shows; in its place while it's hidden.
     private var autoScrollBarOffset: CGAffineTransform {
