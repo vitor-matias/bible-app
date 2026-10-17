@@ -1,7 +1,7 @@
   <!-- Hidden rather than visible: the design has no room for a title and the page
        is noindex, so this is purely a landmark for screen readers. -->
   <h1 class="visually-hidden">Pesquisar</h1>
-  @if (!native) {
+  @if (!bars) {
   <search-bar [value]="fieldValue" (searchValue)="onSearchSubmit($event)" (typing)="onTyping($event)"></search-bar>
   }
   <div unifiedGestures fontSizeContext="search" class="search-container" [class.has-suggestion]="!!passageSuggestion" #container>

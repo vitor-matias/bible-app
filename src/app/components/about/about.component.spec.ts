@@ -105,8 +105,12 @@ describe("AboutComponent", () => {
   // The iOS app has no accent colour: its main buttons are the text colour
   // inverted, so the beige-and-brown pill would be the only brand colour left.
   describe("in the iOS app", () => {
-    beforeEach(() => document.body.classList.add("native-chrome"))
-    afterEach(() => document.body.classList.remove("native-chrome"))
+    beforeEach(() =>
+      document.body.classList.add("native-chrome", "platform-ios"),
+    )
+    afterEach(() =>
+      document.body.classList.remove("native-chrome", "platform-ios"),
+    )
 
     /** A theme colour as computed styles report it, in either theme. */
     function themeColor(token: string): string {

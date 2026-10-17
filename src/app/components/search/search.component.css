@@ -127,7 +127,7 @@
   color: antiquewhite;
 }
 
-/* iOS: native bars float over the page (NativeChromeService), so the page
+/* The app's bars float over the page (NativeChromeService), so the page
    fills the screen and the results scroll under them. */
 :host-context(.native-chrome) .search-container {
   height: 100vh;
@@ -150,48 +150,48 @@
 
 /* iOS: status text is neutral grey, as in the system's empty states; the red
    stays with the scripture (the references, like the reader's verse numbers). */
-:host-context(.native-chrome)
+:host-context(.platform-ios)
   :is(.empty-state, .loading, .results-count, .results-hint, .psalm-note) {
   color: color-mix(in srgb, var(--text-color) 55%, transparent);
 }
 
-:host-context(.native-chrome) .empty-state-icon {
+:host-context(.platform-ios) .empty-state-icon {
   opacity: 1;
 }
 
 /* iOS: the results are content, not controls, so no glass: an inset grouped
    list, as in the system's own search screens. One rounded group, rows split
    by inset hairlines, the match in bold rather than a tinted box. */
-:host-context(.native-chrome) {
+:host-context(.platform-ios) {
   display: block;
   background-color: var(--background-color);
 }
 
-:host-context(.native-chrome) .results-section {
+:host-context(.platform-ios) .results-section {
   padding-left: 16px;
   padding-right: 16px;
 }
 
-:host-context(.native-chrome) :is(.results-count, .results-hint) {
+:host-context(.platform-ios) :is(.results-count, .results-hint) {
   font-family: var(--app-ios-font, system-ui);
   font-size: 13px;
   margin: 0 0 6px;
   padding: 0 16px;
 }
 
-:host-context(.native-chrome) .results-list {
+:host-context(.platform-ios) .results-list {
   margin: 0;
   border-radius: 12px;
   overflow: hidden;
   background-color: var(--card-background);
 }
 
-:host-context(.native-chrome) .result-item {
+:host-context(.platform-ios) .result-item {
   position: relative;
   margin: 0;
 }
 
-:host-context(.native-chrome) .result-item + .result-item::before {
+:host-context(.platform-ios) .result-item + .result-item::before {
   content: "";
   position: absolute;
   top: 0;
@@ -200,7 +200,7 @@
   border-top: 0.5px solid color-mix(in srgb, var(--text-color) 18%, transparent);
 }
 
-:host-context(.native-chrome) .result-card {
+:host-context(.platform-ios) .result-card {
   border: none;
   border-radius: 0;
   padding: 11px 16px 12px;
@@ -208,11 +208,11 @@
   transition: none;
 }
 
-:host-context(.native-chrome) .result-item:active .result-card {
+:host-context(.platform-ios) .result-item:active .result-card {
   background-color: color-mix(in srgb, var(--text-color) 8%, transparent);
 }
 
-:host-context(.native-chrome) .verse-ref {
+:host-context(.platform-ios) .verse-ref {
   font-family: var(--app-ios-font, system-ui);
   font-size: 15px;
   font-weight: 600;
@@ -220,19 +220,19 @@
 }
 
 /* The verse itself, set as in the reader. */
-:host-context(.native-chrome) .verse-text {
+:host-context(.platform-ios) .verse-text {
   font-family: "PT Serif", serif;
   font-size: 17px;
   line-height: 1.4;
 }
 
-:host-context(.native-chrome) .search-highlight {
+:host-context(.platform-ios) .search-highlight {
   background-color: transparent;
   font-weight: 700;
   padding: 0;
 }
 
-:host-context(.native-chrome) .empty-state .results-hint {
+:host-context(.platform-ios) .empty-state .results-hint {
   margin: 8px 0 0;
 }
 

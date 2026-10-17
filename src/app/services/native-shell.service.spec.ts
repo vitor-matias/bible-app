@@ -4,6 +4,7 @@ import { NavigationEnd, Router } from "@angular/router"
 import { Capacitor, SystemBarsStyle, SystemBarType } from "@capacitor/core"
 import { Subject } from "rxjs"
 import { SPLASH_SCREEN_PLUGIN, SYSTEM_BARS_PLUGIN } from "../tokens"
+import { NativeChromeService } from "./native-chrome.service"
 import { NativeShellService, SPLASH_MAX_MS } from "./native-shell.service"
 
 describe("NativeShellService", () => {
@@ -158,5 +159,67 @@ describe("NativeShellService", () => {
       TestBed.inject(NativeShellService).setNavigationBarTheme(true),
     ).not.toThrow()
     await Promise.resolve()
+  })
+
+  // The app's bars, drawn by the page: light in the light theme.
+  describe("with the web's own bars", () => {
+    let chrome: { bars: boolean; init: jasmine.Spy }
+
+    beforeEach(() => {
+      chrome = { bars: true, init: jasmine.createSpy("init") }
+      TestBed.overrideProvider(NativeChromeService, { useValue: chrome })
+    })
+
+    describe("on Android", () => {
+      beforeEach(() => {
+        // The real document, so the shell can measure the safe area.
+        TestBed.overrideProvider(DOCUMENT, { useValue: document })
+      })
+
+      afterEach(() => {
+        document.documentElement.style.removeProperty("--app-inset-top")
+        document.body.classList.remove("native-app", "platform-android")
+      })
+
+      it("lets the status bar follow the theme", fakeAsync(() => {
+        document.documentElement.style.setProperty("--app-inset-top", "24px")
+        init("android")
+        expect(systemBars.setStyle).not.toHaveBeenCalledWith({
+          bar: SystemBarType.StatusBar,
+          style: SystemBarsStyle.Dark,
+        })
+
+        TestBed.inject(NativeShellService).setNavigationBarTheme(false)
+        expect(systemBars.setStyle).toHaveBeenCalledWith({
+          bar: SystemBarType.StatusBar,
+          style: SystemBarsStyle.Light,
+        })
+        tick(SPLASH_MAX_MS)
+      }))
+
+      // Older WebViews (Android 8, 9): the status bar shows MainActivity's
+      // brown window background, as the navigation bar does.
+      it("keeps the status bar icons light where the page stops at the bars", fakeAsync(() => {
+        init("android")
+
+        TestBed.inject(NativeShellService).setNavigationBarTheme(false)
+        expect(systemBars.setStyle).not.toHaveBeenCalledWith({
+          bar: SystemBarType.StatusBar,
+          style: SystemBarsStyle.Light,
+        })
+        expect(systemBars.setStyle).toHaveBeenCalledWith({
+          bar: SystemBarType.StatusBar,
+          style: SystemBarsStyle.Dark,
+        })
+        tick(SPLASH_MAX_MS)
+      }))
+    })
+
+    it("starts them in phone browsers", fakeAsync(() => {
+      init("web")
+      expect(chrome.init).toHaveBeenCalledTimes(1)
+      expect(splash.hide).not.toHaveBeenCalled()
+      tick(SPLASH_MAX_MS)
+    }))
   })
 })

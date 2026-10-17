@@ -28,6 +28,7 @@ export class PreferencesService {
     FONT_SIZE_PREFIX: "fontSize",
     VIEW_MODE: "viewMode",
     ONBOARDING_SEEN: "onboardingSeen",
+    PICKER_ABBREVIATIONS: "passagePicker.abbreviations",
   }
 
   getTheme(): "light" | "dark" | "system" | null {
@@ -112,5 +113,14 @@ export class PreferencesService {
 
   setOnboardingSeen(seen: boolean): void {
     this.storage?.setItem(this.KEYS.ONBOARDING_SEEN, seen.toString())
+  }
+
+  /** The passage picker shows books by abbreviation ("Gn") rather than name. */
+  getPickerAbbreviations(): boolean {
+    return this.storage?.getItem(this.KEYS.PICKER_ABBREVIATIONS) === "true"
+  }
+
+  setPickerAbbreviations(on: boolean): void {
+    this.storage?.setItem(this.KEYS.PICKER_ABBREVIATIONS, on.toString())
   }
 }

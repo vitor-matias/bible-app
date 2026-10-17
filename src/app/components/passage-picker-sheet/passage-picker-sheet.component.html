@@ -1,0 +1,64 @@
+<div class="picker">
+  <div class="picker-header">
+    @if (book(); as current) {
+    <button type="button" mat-button class="back" (click)="showBooks()">
+      <mat-icon>chevron_left</mat-icon>Livros
+    </button>
+    <h2 class="picker-title">{{ current.name }}</h2>
+    } @else {
+    <button type="button" mat-icon-button class="mode" [class.selected]="abbreviations()"
+      [attr.aria-pressed]="abbreviations()" aria-label="Abreviaturas" (click)="toggleAbbreviations()">
+      <mat-icon>apps</mat-icon>
+    </button>
+    <h2 class="picker-title">Livros</h2>
+    }
+    <button type="button" mat-icon-button class="close" aria-label="Fechar" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  @if (!book()) {
+  <label class="filter">
+    <mat-icon aria-hidden="true">search</mat-icon>
+    <input type="search" placeholder="Filtrar livros" aria-label="Filtrar livros" enterkeyhint="search"
+      [value]="filter()" (input)="filter.set($any($event.target).value)" />
+  </label>
+  }
+
+  <div class="picker-body">
+    @if (book(); as current) {
+    <div class="tiles chapters">
+      @for (chapter of current.chapters; track chapter.number) {
+      <button type="button" class="tile" [class.intro]="!chapter.label"
+        [class.current]="isCurrentChapter(current, chapter)"
+        [attr.aria-current]="isCurrentChapter(current, chapter) ? 'page' : null"
+        [attr.aria-label]="chapterLabel(chapter)" [attr.title]="chapter.title ?? null"
+        (click)="pickChapter(current, chapter)">
+        <span class="tile-label">{{ chapter.label || "Introdução" }}</span>
+        @if (chapter.detail) {
+        <span class="tile-detail">({{ chapter.detail }})</span>
+        }
+        @if (chapter.bookmark) {
+        <span class="ribbon" [style.background-color]="chapter.bookmark" aria-hidden="true"></span>
+        }
+      </button>
+      }
+    </div>
+    } @else {
+    @for (section of sections(); track section.title) {
+    <h3 class="section-title">{{ section.title }}</h3>
+    <div class="tiles books" [class.abbreviations]="abbreviations()">
+      @for (entry of section.books; track entry.id) {
+      <button type="button" class="tile" [class.current]="isCurrentBook(entry)"
+        [attr.aria-current]="isCurrentBook(entry) ? 'page' : null" [attr.aria-label]="entry.name"
+        (click)="openBook(entry)">
+        {{ abbreviations() ? entry.abbreviation : entry.label }}
+      </button>
+      }
+    </div>
+    } @empty {
+    <p class="empty">Nenhum livro com «{{ filter() }}»</p>
+    }
+    }
+  </div>
+</div>

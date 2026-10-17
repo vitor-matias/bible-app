@@ -64,8 +64,8 @@ export class BookIndexComponent implements OnInit, OnDestroy {
   private themeService = inject(ThemeService)
   private router = inject(Router)
   private destroyRef = inject(DestroyRef)
-  /** The iOS app draws this page's toolbar natively. */
-  readonly native = this.nativeChrome.enabled
+  /** The app's bars draw this page's toolbar. */
+  readonly bars = this.nativeChrome.bars
 
   testaments$ = this.bookService.books$.pipe(
     map((books) => this.buildIndex(books)),
@@ -74,7 +74,7 @@ export class BookIndexComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.seoService.updateForBookIndex()
 
-    if (this.native) {
+    if (this.bars) {
       this.nativeChrome.show({
         mode: "page",
         themeMode: this.themeService.currentMode,
@@ -92,7 +92,7 @@ export class BookIndexComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.native) this.nativeChrome.hide()
+    if (this.bars) this.nativeChrome.hide()
   }
 
   private buildIndex(books: Book[]): TestamentIndex[] {
