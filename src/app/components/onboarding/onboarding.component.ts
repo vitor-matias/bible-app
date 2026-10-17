@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from "@angular/common"
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -41,7 +42,7 @@ export interface OnboardingResult {
 @Component({
   selector: "onboarding",
   standalone: true,
-  imports: [MatButtonModule, MatIconModule],
+  imports: [MatButtonModule, MatIconModule, NgTemplateOutlet],
   templateUrl: "./onboarding.component.html",
   styleUrl: "./onboarding.component.css",
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -55,7 +56,7 @@ export class OnboardingComponent {
   index = 0
   platform: InstallPlatform
   guide: InstallGuide
-  /** The native app's store, which replaces the website's install steps. */
+  /** The native app's store, offered ahead of the website's own install. */
   store: StoreLink | null
   installOutcome: InstallPromptOutcome | null = null
   installing = false

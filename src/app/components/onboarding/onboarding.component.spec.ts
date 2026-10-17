@@ -392,7 +392,11 @@ describe("OnboardingComponent", () => {
     const promptSeen = () =>
       TestBed.inject(PreferencesService).getAppPromoSeen()
 
-    it("sends Android visitors to Google Play instead of the website's install", () => {
+    /** The website's own install, folded under the store's badge. */
+    const webInstall = () =>
+      element.querySelector<HTMLDetailsElement>("details.web-install")
+
+    it("sends Android visitors to Google Play first", () => {
       pwa.canPromptInstall = true
       create()
       goToInstallStep()
@@ -407,8 +411,41 @@ describe("OnboardingComponent", () => {
       )
       expect(link?.target).toBe("_blank")
       expect(link?.rel).toBe("noopener")
-      expect(button("Instalar agora")).toBeUndefined()
-      expect(element.querySelector(".guide")).toBeNull()
+    })
+
+    it("keeps the website's install under the badge, folded away", () => {
+      pwa.canPromptInstall = true
+      create()
+      goToInstallStep()
+
+      const details = webInstall()
+      expect(details?.open).toBeFalse()
+      expect(details?.querySelector("summary")?.textContent).toContain(
+        "Instalar a partir do navegador",
+      )
+      expect(details?.querySelector(".guide")?.textContent).toContain(
+        "Instalar aplicação",
+      )
+      expect(details?.contains(button("Instalar agora") ?? null)).toBeTrue()
+      // Nothing of it outside the fold.
+      expect(element.querySelectorAll(".guide").length).toBe(1)
+    })
+
+    it("still installs the website from the fold", async () => {
+      pwa.canPromptInstall = true
+      create()
+      goToInstallStep()
+      webInstall()?.querySelector("summary")?.click()
+      expect(webInstall()?.open).toBeTrue()
+
+      button("Instalar agora")?.click()
+      await fixture.whenStable()
+      fixture.detectChanges()
+
+      expect(pwa.promptInstall).toHaveBeenCalled()
+      expect(
+        webInstall()?.querySelector(".install-done")?.textContent,
+      ).toContain("foi instalada")
     })
 
     it("sends iPhone and iPad visitors to the App Store", () => {
@@ -424,7 +461,9 @@ describe("OnboardingComponent", () => {
       expect(storeButton()?.getAttribute("href")).toBe(
         "https://apps.apple.com/app/id6740000000",
       )
-      expect(element.querySelector(".guide")).toBeNull()
+      expect(webInstall()?.querySelector(".guide")?.textContent).toContain(
+        "barra do Safari",
+      )
     })
 
     it("keeps the website's install on a computer, with each phone's store a tap away", () => {
@@ -433,6 +472,7 @@ describe("OnboardingComponent", () => {
       goToInstallStep()
 
       expect(storeButton()).toBeNull()
+      expect(webInstall()).toBeNull()
       expect(element.querySelector(".guide")).not.toBeNull()
 
       platformButton("Android").click()

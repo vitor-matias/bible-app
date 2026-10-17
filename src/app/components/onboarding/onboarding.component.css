@@ -190,6 +190,18 @@
   outline-color: antiquewhite;
 }
 
+.web-install {
+  margin-top: 4px;
+  border-top: 1px solid var(--border-color);
+}
+
+.web-install summary {
+  padding: 12px 0;
+  font-size: 14px;
+  color: var(--text-color);
+  cursor: pointer;
+}
+
 .hint,
 .note {
   margin: 8px 0 0;

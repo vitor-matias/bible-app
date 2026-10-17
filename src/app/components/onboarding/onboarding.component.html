@@ -40,35 +40,13 @@
     <a class="store-badge" [href]="store.url" target="_blank" rel="noopener" (click)="onStoreClick(store)">
       <img [src]="store.badge" [alt]="store.label" height="48">
     </a>
-    } @else if (installOutcome === 'accepted') {
-    <p class="install-done">
-      <mat-icon aria-hidden="true">check_circle</mat-icon>
-      <span>A aplicação foi instalada. Procure o ícone «Bíblia Sagrada» no seu dispositivo.</span>
-    </p>
+    <!-- The website's own install stays on offer, a tap away. -->
+    <details class="web-install">
+      <summary>Instalar a partir do navegador</summary>
+      <ng-container [ngTemplateOutlet]="webInstall" />
+    </details>
     } @else {
-      @if (canPromptInstall) {
-      <button type="button" mat-flat-button class="install-now" [disabled]="installing" (click)="installNow()">
-        <mat-icon>download</mat-icon>
-        Instalar agora
-      </button>
-      <p class="hint">Ou siga estes passos:</p>
-      }
-      <ol class="guide">
-        @for (guideStep of guide.steps; track guideStep.text) {
-        <li>
-          <mat-icon aria-hidden="true">{{ guideStep.icon }}</mat-icon>
-          <span>
-            @if (guideStep.label) {
-            <b>{{ guideStep.label }}:</b>
-            }
-            {{ guideStep.text }}
-          </span>
-        </li>
-        }
-      </ol>
-      @if (guide.note) {
-      <p class="note">{{ guide.note }}</p>
-      }
+    <ng-container [ngTemplateOutlet]="webInstall" />
     }
     }
   </section>
@@ -95,3 +73,36 @@
     }
   </div>
 </footer>
+
+<ng-template #webInstall>
+  @if (installOutcome === 'accepted') {
+  <p class="install-done">
+    <mat-icon aria-hidden="true">check_circle</mat-icon>
+    <span>A aplicação foi instalada. Procure o ícone «Bíblia Sagrada» no seu dispositivo.</span>
+  </p>
+  } @else {
+    @if (canPromptInstall) {
+    <button type="button" mat-flat-button class="install-now" [disabled]="installing" (click)="installNow()">
+      <mat-icon>download</mat-icon>
+      Instalar agora
+    </button>
+    <p class="hint">Ou siga estes passos:</p>
+    }
+    <ol class="guide">
+      @for (guideStep of guide.steps; track guideStep.text) {
+      <li>
+        <mat-icon aria-hidden="true">{{ guideStep.icon }}</mat-icon>
+        <span>
+          @if (guideStep.label) {
+          <b>{{ guideStep.label }}:</b>
+          }
+          {{ guideStep.text }}
+        </span>
+      </li>
+      }
+    </ol>
+    @if (guide.note) {
+    <p class="note">{{ guide.note }}</p>
+    }
+  }
+</ng-template>
