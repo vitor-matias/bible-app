@@ -51,7 +51,8 @@
 	</array>
 	<key>NSPrivacyAccessedAPITypes</key>
 	<array>
-		<!-- PassagePicker remembers the Nomes/Abreviaturas choice. -->
+		<!-- PassagePicker remembers the Nomes/Abreviaturas choice;
+		     @capawesome/capacitor-live-update keeps the current/next bundle. -->
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>

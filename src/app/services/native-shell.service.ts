@@ -4,6 +4,7 @@ import { NavigationEnd, Router } from "@angular/router"
 import { Capacitor, SystemBarsStyle, SystemBarType } from "@capacitor/core"
 import { filter, take } from "rxjs"
 import { SPLASH_SCREEN_PLUGIN, SYSTEM_BARS_PLUGIN } from "../tokens"
+import { LiveUpdateService } from "./live-update.service"
 import { NativeChromeService } from "./native-chrome.service"
 
 /** Longest the splash may stay up if the first navigation never completes. */
@@ -11,9 +12,9 @@ export const SPLASH_MAX_MS = 4000
 
 /**
  * Native-shell setup that has no web equivalent: platform classes for
- * platform-specific styling, system bar icon styles, and hiding the splash
+ * platform-specific styling, system bar icon styles, hiding the splash
  * screen once the first page has rendered (capacitor.config.ts sets
- * `launchAutoHide: false`). Keep native-only behaviour here so the rest of the
+ * `launchAutoHide: false`), and live updates of the web bundle. Keep native-only behaviour here so the rest of the
  * app stays platform-agnostic.
  */
 @Injectable({
@@ -24,6 +25,7 @@ export class NativeShellService {
   private readonly router = inject(Router)
   private readonly splashScreen = inject(SPLASH_SCREEN_PLUGIN)
   private readonly systemBars = inject(SYSTEM_BARS_PLUGIN)
+  private readonly liveUpdate = inject(LiveUpdateService)
   private readonly nativeChrome = inject(NativeChromeService)
   private splashHidden = false
 
@@ -49,6 +51,9 @@ export class NativeShellService {
       .subscribe(() => {
         // Wait a frame so the page has painted before the splash fades out.
         requestAnimationFrame(() => this.hideSplash())
+        // A page rendered, so this bundle works. Not on the splash timeout
+        // below: a live-update bundle that never renders must roll back.
+        void this.liveUpdate.readyAndCheck()
       })
     // Never strand the user behind the splash.
     setTimeout(() => this.hideSplash(), SPLASH_MAX_MS)

@@ -5,6 +5,8 @@ import { Haptics } from "@capacitor/haptics"
 import { Network } from "@capacitor/network"
 import { Share } from "@capacitor/share"
 import { SplashScreen } from "@capacitor/splash-screen"
+import { LiveUpdate } from "@capawesome/capacitor-live-update"
+import { appConfig } from "./config"
 import type { NativeChromePlugin } from "./services/native-chrome.service"
 
 function createNoopNgOnDestroyProxy<T extends object>(plugin: T): T {
@@ -65,6 +67,23 @@ export const SYSTEM_BARS_PLUGIN = new InjectionToken<typeof SystemBars>(
   {
     providedIn: "root",
     factory: () => createNoopNgOnDestroyProxy(SystemBars),
+  },
+)
+
+export const LIVE_UPDATE_PLUGIN = new InjectionToken<typeof LiveUpdate>(
+  "Capawesome Live Update Plugin",
+  {
+    providedIn: "root",
+    factory: () => createNoopNgOnDestroyProxy(LiveUpdate),
+  },
+)
+
+/** Where live-update manifests are served; empty disables live updates. */
+export const LIVE_UPDATE_BASE_URL = new InjectionToken<string>(
+  "Live update base URL",
+  {
+    providedIn: "root",
+    factory: () => appConfig.liveUpdateBaseUrl,
   },
 )
 
