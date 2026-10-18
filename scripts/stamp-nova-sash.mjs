@@ -1,15 +1,16 @@
 import { readdir } from "node:fs/promises"
 import sharp from "sharp"
 
-// A red "NOVO" sash across the top-right of the native apps' icons, for the
-// launch: it tells them apart from the website installed to the home screen,
-// which keeps the plain icon. Run by `npm run cap:icons` after
+// A red "NOVA" sash (as in "nova aplicação") across the top-right of the
+// native apps' icons, for the launch: it tells them apart from the website
+// installed to the home screen, which keeps the plain icon. Run by
+// `npm run cap:icons` after
 // @capacitor/assets, which would otherwise overwrite it. To retire it, drop
 // this script from cap:icons and run that again.
 //
 // The band sits well inside the icon rather than hugging the corner, so the
 // word stays whole under round Android launcher masks as well as the iPhone's
-// rounded square. "NOVO" is set in the system's Helvetica Neue (macOS), as the
+// rounded square. "NOVA" is set in the system's Helvetica Neue (macOS), as the
 // rest of the pipeline is run there.
 
 const RED = "#C62828"
@@ -33,7 +34,7 @@ function sash(canvas, { x, y, s }) {
   <g transform="translate(${cx} ${cy}) rotate(45)">
     <rect x="${-s}" y="${-band / 2}" width="${2 * s}" height="${band}" fill="${RED}"/>
     <text y="0" dy="0.35em" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
-      font-weight="700" font-size="${size}" letter-spacing="${size / 8}" fill="#FFFFFF">NOVO</text>
+      font-weight="700" font-size="${size}" letter-spacing="${size / 8}" fill="#FFFFFF">NOVA</text>
   </g>
 </svg>`)
 }
