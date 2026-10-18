@@ -360,7 +360,7 @@ describe("HeaderComponent", () => {
       expect(appPromoSpy.markSeen).toHaveBeenCalled()
     })
 
-    it("links straight to the store, just above the help", () => {
+    it("links straight to the store, just below the help", () => {
       appPromoSpy.deviceStore.and.returnValue(play)
       recreate()
       openMenu()
@@ -369,7 +369,9 @@ describe("HeaderComponent", () => {
       expect(link?.textContent).toContain("Instalar a aplicação")
       expect(link?.getAttribute("href")).toBe(play.url)
       expect(link?.target).toBe("_blank")
-      expect(link?.nextElementSibling?.textContent).toContain("Como usar a app")
+      expect(link?.previousElementSibling?.textContent).toContain(
+        "Como usar a app",
+      )
     })
 
     it("counts a tap", () => {

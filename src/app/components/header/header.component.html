@@ -51,6 +51,10 @@
             <span>Reportar Erro</span>
           </button>
         }
+        <button type="button" mat-menu-item (click)="onOpenHelp(menuTrigger)">
+          <mat-icon>help</mat-icon>
+          <span>Como usar a app</span>
+        </button>
         @if (appStore) {
         <a mat-menu-item class="app-store-link" [href]="appStore.url" target="_blank" rel="noopener"
           (click)="onOpenAppStore(appStore)">
@@ -58,10 +62,6 @@
           <span>{{ appStoreLabel }}</span>
         </a>
         }
-        <button type="button" mat-menu-item (click)="onOpenHelp(menuTrigger)">
-          <mat-icon>help</mat-icon>
-          <span>Como usar a app</span>
-        </button>
         <a mat-menu-item [href]="privacyPolicyUrl" target="_blank" rel="noopener noreferrer">
           <mat-icon>privacy_tip</mat-icon>
           <span class="privacy-label">
