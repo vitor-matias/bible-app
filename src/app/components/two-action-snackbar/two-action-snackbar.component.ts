@@ -3,25 +3,17 @@ import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { MAT_SNACK_BAR_DATA, MatSnackBarRef } from "@angular/material/snack-bar"
 
-export interface TwoActionSnackData {
-  message: string
-  /** Material icon before the message; the way back's arrow by default. */
-  icon?: string
-  onTap?: () => void
-}
-
 /**
- * A message that is itself the button, with a close button beside it: the way
- * back after following a reference ("↩ Voltar para João 1,18"), or the app's
- * store page. A question with Voltar and Fechar under it said the same thing
- * twice.
+ * The way back after following a reference: the whole message is the button
+ * ("↩ Voltar para João 1,18"), with a close button beside it. A question with
+ * Voltar and Fechar under it said the same thing twice.
  */
 @Component({
   selector: "app-two-action-snack",
   imports: [MatButtonModule, MatIconModule],
   template: `
-    <button mat-button class="action" (click)="tap()">
-      <mat-icon>{{ data.icon ?? "undo" }}</mat-icon>
+    <button mat-button class="go-back" (click)="goBack()">
+      <mat-icon>undo</mat-icon>
       {{ data.message }}
     </button>
     <button mat-icon-button class="close" (click)="dismiss()" aria-label="Fechar">
@@ -37,7 +29,7 @@ export interface TwoActionSnackData {
         gap: 4px;
         width: 100%;
       }
-      .action {
+      .go-back {
         flex: 1;
         justify-content: flex-start;
       }
@@ -51,12 +43,14 @@ export interface TwoActionSnackData {
 export class TwoActionSnackComponent {
   constructor(
     @Inject(MAT_SNACK_BAR_DATA)
-    public data: TwoActionSnackData,
+    public data: { message: string; returnUrl?: () => void },
     private snackBarRef: MatSnackBarRef<TwoActionSnackComponent>,
   ) {}
 
-  tap() {
-    this.data.onTap?.()
+  goBack() {
+    if (this.data.returnUrl) {
+      this.data.returnUrl()
+    }
     this.snackBarRef.dismiss()
   }
 

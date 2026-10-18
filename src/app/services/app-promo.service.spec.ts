@@ -3,8 +3,10 @@ import { fakeAsync, TestBed, tick } from "@angular/core/testing"
 import { MatDialog } from "@angular/material/dialog"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { Capacitor } from "@capacitor/core"
-import type { TwoActionSnackData } from "../components/two-action-snackbar/two-action-snackbar.component"
-import { TwoActionSnackComponent } from "../components/two-action-snackbar/two-action-snackbar.component"
+import {
+  AppPromptSnackComponent,
+  type AppPromptSnackData,
+} from "../components/app-prompt-snackbar/app-prompt-snackbar.component"
 import type { StoreApps } from "../config"
 import { STORE_APPS } from "../tokens"
 import { AnalyticsService } from "./analytics.service"
@@ -109,7 +111,7 @@ describe("AppPromoService", () => {
 
   const promptData = () =>
     snackBar.openFromComponent.calls.mostRecent().args[1]
-      .data as TwoActionSnackData
+      .data as AppPromptSnackData
 
   it("offers the store for the device in hand", () => {
     expect(service().deviceStore("menu")?.store).toBe("play")
@@ -133,11 +135,12 @@ describe("AppPromoService", () => {
 
     tick(1)
     expect(snackBar.openFromComponent).toHaveBeenCalledOnceWith(
-      TwoActionSnackComponent,
+      AppPromptSnackComponent,
       jasmine.objectContaining({ duration: PROMPT_DURATION_MS }),
     )
-    expect(promptData().message).toBe("Obter a aplicação para Android")
-    expect(promptData().icon).toBe("install_mobile")
+    expect(promptData().message).toBe("Leia na aplicação")
+    expect(promptData().link.store).toBe("play")
+    expect(promptData().link.url).toContain("utm_medium%3Dprompt")
     expect(preferences().getAppPromoSeen()).toBeTrue()
     expect(analyticsSpy.track).toHaveBeenCalledWith("app_prompt_shown", {
       store: "play",
@@ -146,18 +149,12 @@ describe("AppPromoService", () => {
     expect(service().scheduleOnce()).toBeFalse()
   }))
 
-  it("opens the store from the prompt in a new tab, keeping the reader's", fakeAsync(() => {
-    const open = spyOn(window, "open")
+  it("counts a tap on the prompt's badge", fakeAsync(() => {
     service().scheduleOnce()
     tick(PROMPT_DELAY_MS)
 
-    promptData().onTap?.()
+    promptData().onOpen()
 
-    expect(open).toHaveBeenCalledOnceWith(
-      jasmine.stringContaining("utm_medium%3Dprompt"),
-      "_blank",
-      "noopener",
-    )
     expect(analyticsSpy.track).toHaveBeenCalledWith("app_store_open", {
       store: "play",
       source: "prompt",
@@ -170,7 +167,7 @@ describe("AppPromoService", () => {
     expect(service().scheduleOnce()).toBeTrue()
     tick(PROMPT_DELAY_MS)
 
-    expect(promptData().message).toBe("Nova aplicação no Google Play")
+    expect(promptData().message).toBe("Nova aplicação")
     expect(preferences().getAppPromoSeen()).toBeTrue()
   }))
 

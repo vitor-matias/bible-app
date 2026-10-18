@@ -3,7 +3,10 @@ import { Injectable, inject, PLATFORM_ID } from "@angular/core"
 import { MatDialog } from "@angular/material/dialog"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { Capacitor } from "@capacitor/core"
-import { TwoActionSnackComponent } from "../components/two-action-snackbar/two-action-snackbar.component"
+import {
+  AppPromptSnackComponent,
+  type AppPromptSnackData,
+} from "../components/app-prompt-snackbar/app-prompt-snackbar.component"
 import type { StoreApps } from "../config"
 import { STORE_APPS } from "../tokens"
 import { AnalyticsService } from "./analytics.service"
@@ -23,11 +26,9 @@ export interface StoreLink {
   badge: string
   /** The badge's own words, as its alt text. */
   label: string
-  /** The one-time prompt, which is itself the button. */
-  prompt: string
   /**
-   * The prompt and menu entry inside the installed website, which its user
-   * already calls "the app": what is new is the store's.
+   * The menu entry inside the installed website, which its user already
+   * calls "the app": what is new is the store's.
    */
   newApp: string
 }
@@ -52,7 +53,6 @@ export function storeLink(
       url: `https://apps.apple.com/app/id${encodeURIComponent(apps.appStoreId)}`,
       badge: "imgs/badges/app-store-pt-pt.svg",
       label: "Descarregar na App Store",
-      prompt: "Obter a aplicação para iPhone e iPad",
       newApp: "Nova aplicação na App Store",
     }
   }
@@ -63,7 +63,6 @@ export function storeLink(
       url: `https://play.google.com/store/apps/details?id=${encodeURIComponent(apps.playPackage)}&referrer=${encodeURIComponent(referrer)}`,
       badge: "imgs/badges/google-play-pt.png",
       label: "Obter no Google Play",
-      prompt: "Obter a aplicação para Android",
       newApp: "Nova aplicação no Google Play",
     }
   }
@@ -148,19 +147,18 @@ export class AppPromoService {
     if (!link) return
     this.markSeen()
     void this.analytics.track("app_prompt_shown", { store: link.store })
-    this.snackBar.openFromComponent(TwoActionSnackComponent, {
+    this.snackBar.openFromComponent(AppPromptSnackComponent, {
       data: {
-        message: this.pwaInstall.isInstalled ? link.newApp : link.prompt,
-        icon: "install_mobile",
-        onTap: () => this.openStore(link, "prompt"),
-      },
+        // Beside the badge, which names the store. Inside the installed
+        // website, which its user already calls "the app", the news is the
+        // store's.
+        message: this.pwaInstall.isInstalled
+          ? "Nova aplicação"
+          : "Leia na aplicação",
+        link,
+        onOpen: () => this.trackStoreOpen(link, "prompt"),
+      } satisfies AppPromptSnackData,
       duration: PROMPT_DURATION_MS,
     })
-  }
-
-  /** In a new tab, so the reading tab stays where it was. */
-  private openStore(link: StoreLink, source: StoreSource): void {
-    this.trackStoreOpen(link, source)
-    window.open(link.url, "_blank", "noopener")
   }
 }

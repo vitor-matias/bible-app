@@ -58,7 +58,7 @@ export class ToastService {
       return
     }
     this.snackBar.openFromComponent(TwoActionSnackComponent, {
-      data: { message, onTap: goBack },
+      data: { message, returnUrl: goBack },
     })
   }
 }
