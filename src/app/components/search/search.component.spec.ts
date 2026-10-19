@@ -34,6 +34,7 @@ import { NetworkService } from "../../services/network.service"
 import { OfflineSearchService } from "../../services/offline-search.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
+import { contrastRatio } from "../../testing/contrast"
 import { firstLine, SearchComponent, TYPING_PAUSE_MS } from "./search.component"
 
 // How the edition sets Psalm 23,1 and 94,1.
@@ -1201,6 +1202,61 @@ describe("SearchComponent", () => {
         "Lucas 2,32",
         "Salmo 136 (135),7",
       ])
+    })
+
+    describe("the matched words", () => {
+      const root = document.documentElement
+      let wasDark: boolean
+
+      // ThemeService has already followed the machine's own scheme.
+      beforeEach(() => {
+        wasDark = root.classList.contains("dark-theme")
+        root.classList.remove("dark-theme")
+      })
+
+      afterEach(() => {
+        root.classList.toggle("dark-theme", wasDark)
+        document.body.classList.remove("native-chrome")
+      })
+
+      const match = () =>
+        getComputedStyle(
+          (fixture.nativeElement as HTMLElement).querySelector(
+            ".search-highlight",
+          ) as HTMLElement,
+        )
+
+      // Read from a probe: the card's own background is still transitioning.
+      const cardBackground = () => {
+        const probe = document.createElement("span")
+        probe.style.backgroundColor = "var(--card-background)"
+        document.body.appendChild(probe)
+        const color = getComputedStyle(probe).backgroundColor
+        probe.remove()
+        return color
+      }
+
+      it("keep the light theme's antiquewhite", () => {
+        expect(match().backgroundColor).toBe("rgb(250, 235, 215)")
+      })
+
+      // White on darkgrey, 2.3:1, was hard to read at night.
+      it("stay readable in the dark theme (WCAG AA)", () => {
+        root.classList.add("dark-theme")
+        const { color, backgroundColor } = match()
+
+        expect(
+          contrastRatio(color, backgroundColor, cardBackground()),
+        ).toBeGreaterThanOrEqual(4.5)
+      })
+
+      it("stay bold on no fill in the iOS app's dark theme", () => {
+        root.classList.add("dark-theme")
+        document.body.classList.add("native-chrome")
+
+        expect(match().backgroundColor).toBe("rgba(0, 0, 0, 0)")
+        expect(match().fontWeight).toBe("700")
+      })
     })
   })
 
