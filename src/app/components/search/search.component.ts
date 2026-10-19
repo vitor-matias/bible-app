@@ -390,7 +390,10 @@ export class SearchComponent {
   /**
    * Watches the end of the list afresh: a new observer reports at once
    * whether the end is in view, which an end that stayed in view while a
-   * page was added would otherwise never report again.
+   * page was added would otherwise never report again. Any of it in view
+   * counts: iOS 27 lays the list out at fractions of a pixel, and the
+   * one-pixel end, inside the list's clipped corners, may never show whole
+   * (58 to 83% at some lengths), which stopped the list at 100 verses.
    */
   private attachObserverToSentinel() {
     this.observer?.disconnect()
@@ -402,7 +405,7 @@ export class SearchComponent {
           this.loadMoreResults()
         }
       },
-      { threshold: 1.0 },
+      { threshold: 0 },
     )
     this.observer.observe(this.sentinelElement)
   }
