@@ -99,9 +99,13 @@ export interface TitledPageChrome {
 
 export type PageChrome = ReaderChrome | SearchChrome | TitledPageChrome
 
-/** Auto-scroll's controls, which take over the reader's toolbar while shown. */
+/**
+ * Auto-scroll's controls: a play button in the bottom corner, which grows into
+ * a capsule with the speed while playing.
+ */
 export interface AutoScrollChrome {
   playing: boolean
+  /** Just the number, "1/2", "1.25": the capsule has no room for a unit. */
   speedLabel: string
   /** In words, for VoiceOver: "1,5 linhas por segundo". */
   speedAccessibilityLabel: string
@@ -542,8 +546,9 @@ export class NativeChromeService {
       ? {
           ...this.requested,
           inert: this.modalOpen,
-          // Auto-scroll's controls stay within reach while the bars hide: the
-          // shell moves them down into the toolbar's place.
+          // While auto-scroll plays, its controls stay within reach as the
+          // bars hide: the shell moves them into the toolbar's place. Paused,
+          // its play button hides with the bars.
           collapsed: reader && (this.modalOpen || this.collapsed),
           autoScroll: reader ? this.autoScroll : null,
         }

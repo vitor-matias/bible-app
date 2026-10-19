@@ -123,12 +123,16 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     this.syncNativeChrome()
   }
 
-  /** Sends what these controls show to the iOS toolbar. */
+  /**
+   * Sends what these controls show to the iOS app, which draws its own. The
+   * speed goes without its unit, "1/2", to fit the app's compact capsule;
+   * VoiceOver reads it in words.
+   */
   private syncNativeChrome(): void {
     if (!this.native || this.destroyRef.destroyed) return
     this.nativeChrome.setAutoScroll({
       playing: this.autoScrollEnabled,
-      speedLabel: `${this.autoScrollSpeedLabel} ln/s`,
+      speedLabel: this.autoScrollSpeedLabel,
       speedAccessibilityLabel:
         this.autoScrollService.getAutoScrollSpeedSpokenLabel(
           this.autoScrollLinesPerSecond,

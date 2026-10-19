@@ -288,7 +288,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     ).toBeNull()
     expect(lastState()).toEqual({
       playing: false,
-      speedLabel: "1 ln/s",
+      speedLabel: "1",
       speedAccessibilityLabel: "1 por extenso",
       canSlower: true,
       canFaster: true,
@@ -308,14 +308,14 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     actions.next({ id: "auto-scroll-faster" })
     expect(lastState()).toEqual(
       jasmine.objectContaining({
-        speedLabel: "1.25 ln/s",
+        speedLabel: "1.25",
         speedAccessibilityLabel: "1.25 por extenso",
       }),
     )
 
     for (let i = 0; i < 4; i++) actions.next({ id: "auto-scroll-slower" })
     expect(lastState()).toEqual(
-      jasmine.objectContaining({ speedLabel: "0.25 ln/s", canSlower: false }),
+      jasmine.objectContaining({ speedLabel: "0.25", canSlower: false }),
     )
   })
 
