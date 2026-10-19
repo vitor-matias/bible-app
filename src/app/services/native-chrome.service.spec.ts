@@ -565,8 +565,8 @@ describe("NativeChromeService", () => {
       expect(collapsed()).toBeFalse()
     })
 
-    // The shell keeps auto-scroll's controls in reach: above the toolbar,
-    // and in its place while the bars are hidden.
+    // Paused, auto-scroll's play button sits above the toolbar, and the shell
+    // hides it with the bars.
     it("hides them while reading with auto-scroll's controls up", () => {
       const autoScroll = {
         playing: false,

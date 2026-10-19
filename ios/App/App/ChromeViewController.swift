@@ -22,7 +22,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private let pageItem = UINavigationItem()
     private let toolbar = UIToolbar()
     /// Auto-scroll's controls, while ⋯ shows them: in the corner just above the
-    /// toolbar, and in its place while the bars are hidden for reading.
+    /// toolbar, and in its place while playing with the bars hidden.
     private let autoScrollBar = AutoScrollControl()
     private let searchField = SearchFieldView()
     private let toast = ToastView()
@@ -209,7 +209,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             autoScrollBar.transform = autoScrollBarOffset
         }
         setShown(autoScrollBar, showAutoScroll, animated: animated)
-        if collapseChanged || previous.inert != next.inert {
+        // Playing or paused, auto-scroll's controls stay or go with the bars.
+        if collapseChanged || previous.inert != next.inert
+            || previous.autoScroll?.playing != next.autoScroll?.playing {
             animateCollapse(animated: animated)
         }
         // The insets depend on the collapse too (auto-scroll's stack), which
@@ -437,18 +439,26 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private func targetAlpha(_ bar: UIView) -> CGFloat {
         guard shownBars.contains(ObjectIdentifier(bar)) else { return 0 }
         // Auto-scroll's pause stays within reach while the bars are hidden for
-        // reading, but not over a panel, as the other bars don't.
-        if bar === autoScrollBar { return state.inert || toastShowing ? 0 : 1 }
+        // reading (not its play button), but not over a panel, as the other
+        // bars don't.
+        if bar === autoScrollBar { return state.inert || toastShowing || autoScrollTucked ? 0 : 1 }
         return collapsed && bar !== searchField ? 0 : 1
     }
+
+    /// The bars are hidden for reading while auto-scroll is paused: its play
+    /// button goes with them, as nothing is scrolling to pause.
+    private var autoScrollTucked: Bool { collapsed && state.autoScroll?.playing != true }
 
     /// Space between auto-scroll's bar and the toolbar below it.
     private static let autoScrollBarGap: CGFloat = 12
 
-    /// Above the toolbar while it shows; in its place while it's hidden.
+    /// Above the toolbar while it shows. While it's hidden, in its place when
+    /// playing; paused, sliding away with it, by the toolbar's own transform
+    /// (which animateCollapse sets first).
     private var autoScrollBarOffset: CGAffineTransform {
-        collapsed ? .identity
-            : CGAffineTransform(translationX: 0, y: -(toolbar.bounds.height + Self.autoScrollBarGap))
+        let above = CGAffineTransform(translationX: 0, y: -(toolbar.bounds.height + Self.autoScrollBarGap))
+        guard collapsed else { return above }
+        return autoScrollTucked ? above.concatenating(toolbar.transform) : .identity
     }
 
     /// Slides the reader's bars off screen. The page keeps its padding, so the
@@ -577,7 +587,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// Centred on auto-scroll's bar while it shows; otherwise just above
     /// whatever is at the bottom: the toolbar, the search field.
     private func placeToast() {
-        if toastShowing && shownBars.contains(ObjectIdentifier(autoScrollBar)) && !state.inert {
+        if toastShowing && shownBars.contains(ObjectIdentifier(autoScrollBar)) && !state.inert && !autoScrollTucked {
             // The bar is transformed into place, so its frame is undefined:
             // its centre, converted, is where it shows.
             let bounds = autoScrollBar.bounds

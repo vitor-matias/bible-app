@@ -546,8 +546,9 @@ export class NativeChromeService {
       ? {
           ...this.requested,
           inert: this.modalOpen,
-          // Auto-scroll's controls stay within reach while the bars hide: the
-          // shell moves them down into the toolbar's place.
+          // While auto-scroll plays, its controls stay within reach as the
+          // bars hide: the shell moves them into the toolbar's place. Paused,
+          // its play button hides with the bars.
           collapsed: reader && (this.modalOpen || this.collapsed),
           autoScroll: reader ? this.autoScroll : null,
         }
