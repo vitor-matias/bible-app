@@ -159,12 +159,18 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     /// The sheets resolve with whether they were presented: not over another
-    /// sheet, and then no closing event follows.
+    /// sheet, and then no closing event follows. One on its way out is waited
+    /// for, so its closing event comes first.
     @objc func showBookmarks(_ call: CAPPluginCall) {
         let state = BookmarksSheetState(call)
         DispatchQueue.main.async {
-            let presented = self.chrome?.presentBookmarks(state) ?? false
-            call.resolve(["presented": presented])
+            guard let chrome = self.chrome else {
+                call.resolve(["presented": false])
+                return
+            }
+            chrome.presentBookmarks(state) { presented in
+                call.resolve(["presented": presented])
+            }
         }
     }
 
@@ -192,8 +198,13 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func showReport(_ call: CAPPluginCall) {
         let state = ReportSheetState(call)
         DispatchQueue.main.async {
-            let presented = self.chrome?.presentReport(state) ?? false
-            call.resolve(["presented": presented])
+            guard let chrome = self.chrome else {
+                call.resolve(["presented": false])
+                return
+            }
+            chrome.presentReport(state) { presented in
+                call.resolve(["presented": presented])
+            }
         }
     }
 
@@ -210,8 +221,13 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func showFootnotes(_ call: CAPPluginCall) {
         let state = FootnotesSheetState(call)
         DispatchQueue.main.async {
-            let presented = self.chrome?.presentFootnotes(state) ?? false
-            call.resolve(["presented": presented])
+            guard let chrome = self.chrome else {
+                call.resolve(["presented": false])
+                return
+            }
+            chrome.presentFootnotes(state) { presented in
+                call.resolve(["presented": presented])
+            }
         }
     }
 

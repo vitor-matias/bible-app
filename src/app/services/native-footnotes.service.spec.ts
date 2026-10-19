@@ -182,12 +182,31 @@ describe("NativeFootnotesService", () => {
     expect(toast.showReturn).toHaveBeenCalledOnceWith(verse)
   })
 
-  it("stops listening once the sheet is closed", () => {
+  it("stops listening once the sheet is closed", async () => {
     service.open([footnote], verse)
+    await new Promise((resolve) => setTimeout(resolve))
     actions.next({ id: "footnotes-closed" })
     actions.next({ id: "footnote-link", index: 0 })
 
     expect(router.navigate).not.toHaveBeenCalled()
+  })
+
+  // A note tapped while the last sheet was closing: the shell presents this
+  // one once that one has gone, and the last one's close came in between.
+  it("keeps listening through the closing sheet's footnotes-closed", async () => {
+    let answer: (presented: boolean) => void = () => {}
+    nativeChrome.showFootnotes.and.returnValue(
+      new Promise<boolean>((resolve) => {
+        answer = resolve
+      }),
+    )
+    service.open([footnote], verse)
+    actions.next({ id: "footnotes-closed" })
+    answer(true)
+    await new Promise((resolve) => setTimeout(resolve))
+    actions.next({ id: "footnote-link", index: 0 })
+
+    expect(router.navigate).toHaveBeenCalled()
   })
 
   // Over another sheet none comes up, and no footnotes-closed would follow.
