@@ -231,7 +231,12 @@ export class AutoScrollService implements OnDestroy {
 
     this.lastAutoScrollTimestamp = timestamp
 
-    if (content.scrollTop + 5 >= content.scrollHeight - content.clientHeight) {
+    const end = content.scrollHeight - content.clientHeight
+    if (content.scrollTop + 5 >= end) {
+      // Finish at the very end, not a few pixels short of it: that's where
+      // the page counts as read through, and the iOS app's bars come back.
+      content.scrollTop = end
+      this.expectedScrollTop = content.scrollTop
       this.stop()
       return
     }

@@ -131,6 +131,24 @@ describe("AutoScrollService", () => {
     expect(keepAwakeServiceSpy.stop).toHaveBeenCalled()
   })
 
+  // It stopped 5px short, so the page never counted as read to its end.
+  it("finishes at the very end of the page, not a few pixels short", () => {
+    const scrollElement = document.createElement("div")
+    Object.defineProperties(scrollElement, {
+      scrollHeight: { value: 200, configurable: true },
+      clientHeight: { value: 100, configurable: true },
+      scrollTop: { value: 97, writable: true, configurable: true },
+    })
+
+    service.start({ scrollElement })
+    ;(service as unknown as Record<string, (timestamp: number) => void>)[
+      "stepAutoScroll"
+    ](1000)
+
+    expect(scrollElement.scrollTop).toBe(100)
+    expect(service.autoScrollEnabled).toBeFalse()
+  })
+
   // Regression: WebKit keeps scrollTop in whole pixels. Applying half a pixel
   // per frame and discarding the rest left the iOS app's text standing still.
   it("advances where the browser only scrolls whole pixels", () => {

@@ -100,17 +100,22 @@ export interface TitledPageChrome {
 export type PageChrome = ReaderChrome | SearchChrome | TitledPageChrome
 
 /**
- * Auto-scroll's controls: a play button in the bottom corner, which grows into
- * a capsule with the speed while playing.
+ * Auto-scroll's controls: a play button floating over the text, where the
+ * reader drags it, which grows into a capsule with the speed while playing.
  */
 export interface AutoScrollChrome {
   playing: boolean
-  /** Just the number, "1/2", "1.25": the capsule has no room for a unit. */
+  /**
+   * Just the number, "1/2", "1.25". The iOS app shows none: only VoiceOver
+   * says the speed, in words (speedAccessibilityLabel).
+   */
   speedLabel: string
   /** In words, for VoiceOver: "1,5 linhas por segundo". */
   speedAccessibilityLabel: string
   canSlower: boolean
   canFaster: boolean
+  /** False at the page's end, where there's nothing left to play. */
+  canPlay: boolean
 }
 
 /** Mirrors ChromeState in ios/App/App/NativeChrome.swift. */
@@ -547,8 +552,7 @@ export class NativeChromeService {
           ...this.requested,
           inert: this.modalOpen,
           // While auto-scroll plays, its controls stay within reach as the
-          // bars hide: the shell moves them into the toolbar's place. Paused,
-          // its play button hides with the bars.
+          // bars hide; paused, its play button hides with them.
           collapsed: reader && (this.modalOpen || this.collapsed),
           autoScroll: reader ? this.autoScroll : null,
         }

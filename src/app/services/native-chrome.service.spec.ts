@@ -381,6 +381,7 @@ describe("NativeChromeService", () => {
         speedAccessibilityLabel: "1 linha por segundo",
         canSlower: true,
         canFaster: true,
+        canPlay: true,
       })
       tap()
 
@@ -565,8 +566,7 @@ describe("NativeChromeService", () => {
       expect(collapsed()).toBeFalse()
     })
 
-    // Paused, auto-scroll's play button sits above the toolbar, and the shell
-    // hides it with the bars.
+    // Paused, the shell hides auto-scroll's play button with the bars.
     it("hides them while reading with auto-scroll's controls up", () => {
       const autoScroll = {
         playing: false,
@@ -574,6 +574,7 @@ describe("NativeChromeService", () => {
         speedAccessibilityLabel: "1 linha por segundo",
         canSlower: true,
         canFaster: true,
+        canPlay: true,
       }
       service.trackScroll(scroller)
       service.setAutoScroll(autoScroll)
@@ -601,6 +602,7 @@ describe("NativeChromeService", () => {
         speedAccessibilityLabel: "1 linha por segundo",
         canSlower: true,
         canFaster: true,
+        canPlay: true,
       }
       service.trackScroll(scroller)
       service.setAutoScroll(autoScroll)
