@@ -124,14 +124,15 @@
         (click)="send('auto-scroll-slower')">
         <mat-icon>remove</mat-icon>
       </button>
-      <span class="speed-label" [attr.aria-label]="'Velocidade: ' + auto.speedAccessibilityLabel">{{ auto.speedLabel }}</span>
+      <span class="speed-label" [attr.aria-label]="'Velocidade: ' + auto.speedAccessibilityLabel">{{ auto.speedLabel }} ln/s</span>
       <button type="button" mat-icon-button aria-label="Aumentar velocidade" [disabled]="!auto.canFaster"
         (click)="send('auto-scroll-faster')">
         <mat-icon>add</mat-icon>
       </button>
     </div>
+    <!-- At the page's end there's nothing left to play, as on iOS. -->
     <button type="button" mat-icon-button class="glass circle" [attr.aria-label]="auto.playing ? 'Pausar' : 'Iniciar'"
-      (click)="send('auto-scroll-toggle')">
+      [disabled]="!auto.playing && !auto.canPlay" (click)="send('auto-scroll-toggle')">
       <mat-icon class="filled">{{ auto.playing ? "pause" : "play_arrow" }}</mat-icon>
     </button>
   </div>

@@ -303,14 +303,16 @@ describe("ChromeBarsComponent", () => {
     describe("auto-scroll's bar", () => {
       const autoScroll: AutoScrollChrome = {
         playing: true,
-        speedLabel: "1 ln/s",
+        speedLabel: "1",
         speedAccessibilityLabel: "1 linha por segundo",
         canSlower: false,
         canFaster: true,
+        canPlay: true,
       }
 
       it("shows the speed, and pause while it plays", async () => {
         await show(shown({}, { autoScroll }))
+        // The state has just the number, which the iOS app doesn't show.
         const speed = host().querySelector(".speed-label")
         expect(speed?.textContent?.trim()).toBe("1 ln/s")
         // In words for screen readers, as for VoiceOver on iOS.
@@ -326,6 +328,19 @@ describe("ChromeBarsComponent", () => {
           { id: "auto-scroll-toggle" },
           { id: "auto-scroll" },
         ])
+      })
+
+      it("can't start at the page's end, but can pause there", async () => {
+        await show(
+          shown(
+            {},
+            { autoScroll: { ...autoScroll, playing: false, canPlay: false } },
+          ),
+        )
+        expect(button("Iniciar").disabled).toBeTrue()
+
+        await show(shown({}, { autoScroll: { ...autoScroll, canPlay: false } }))
+        expect(button("Pausar").disabled).toBeFalse()
       })
 
       // One long bar with its controls far apart looked out of place.

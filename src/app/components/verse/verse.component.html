@@ -51,7 +51,7 @@
         <span class="references">
           <!-- Part of the run, like the inter-verse gap above. -->
           <span class="verseRun">{{ " " }}</span>
-          <span class="references-block">
+          <span class="references-block" [class.besideChapterNumber]="chapterNumberDisplayIndex === i">
             @for(part of parsedReferences.get(i); track $index){
               @if(typeof part === "object" && part.book !== data.bookId){
                 <a class="references verseRun"
@@ -109,6 +109,7 @@
               [data]="getDataForSection(i)"
               [nextIsQuote]="checkNextIsQuote(i)"
               [nextIsParagraph]="checkNextIsParagraph(i)"
+              [besideChapterNumber]="chapterNumberDisplayIndex === i"
               [changeLine]="chapterNumberDisplayIndex !== i && data.text[i-1]?.type !== 'section' && data.text[i-1]?.type !== 'references'">
             </verse-section>
           }

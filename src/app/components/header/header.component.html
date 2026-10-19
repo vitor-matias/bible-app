@@ -63,11 +63,14 @@
           </span>
         </a>
         @if (version) {
+        <!-- One line, as in the iOS menu: the release, then the bundle's id.
+             The web has no releases; there the label says what the id is. -->
         <div class="menu-version">
           @if (version.release) {
-          <div>Versão {{ version.release }}</div>
+          {{ version.release }} · {{ version.build }}
+          } @else {
+          Bundle {{ version.build }}
           }
-          <div>Bundle {{ version.build }}</div>
         </div>
         }
       </mat-menu>

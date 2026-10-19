@@ -376,14 +376,17 @@ h6 {
   display: block;
 }
 
+/* Between the safe area's sides, like the page above it: a fixed box spans
+   the whole screen, and the folded iPhone Duo's status bar runs down its
+   right side. */
 .fixed-footer {
   position: fixed;
   bottom: calc(4px + var(--app-inset-bottom));
-  left: 50%;
-  transform: translateX(-50%);
+  left: var(--app-inset-left);
+  right: var(--app-inset-right);
   opacity: 0.9;
   padding: 8px 0 8px 0;
-  width: 100%;
+  width: auto;
 }
 /* Shown instead of the reader when the book list cannot be loaded. There is
    no header here, so clear the status bar / notch ourselves. */

@@ -1,4 +1,10 @@
-<span class="section" [ngClass]="{'center':data.text[data.text.length - 1].type === 'quote' || nextIsQuote}">
+@let centred = data.text[data.text.length - 1].type === 'quote' || nextIsQuote;
+<!-- A centred heading has lines of its own: this break ends the line of text
+     before it, which would otherwise be justified like any wrapped line. -->
+@if (centred && changeLine) {
+<br>
+}
+<span class="section" [class.center]="centred" [class.besideChapterNumber]="besideChapterNumber">
   @for (text of data.text; track $index; let i = $index; let isFirst = $first; let isLast = $last) {
   @if (changeLine && isFirst) {
   <br>

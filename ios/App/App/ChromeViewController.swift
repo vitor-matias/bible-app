@@ -21,12 +21,17 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private let pageBackItem = UINavigationItem()
     private let pageItem = UINavigationItem()
     private let toolbar = UIToolbar()
-    /// Auto-scroll's controls, while ⋯ shows them: just above the toolbar, and
-    /// in its place while the bars are hidden for reading.
-    private let autoScrollBar = UIToolbar()
+    /// Auto-scroll's controls, while ⋯ shows them: floating over the text,
+    /// where the reader drags them.
+    private let autoScrollControl = AutoScrollControl()
     private let searchField = SearchFieldView()
     private let toast = ToastView()
     private var toastBottom: NSLayoutConstraint!
+    private var topBarTop: NSLayoutConstraint!
+    /// Where the toolbar, auto-scroll's bar and the toast go: the safe area's
+    /// width, or, on an iPhone Duo folded part way, the screen right of the fold.
+    private let bottomBars = UILayoutGuide()
+    private var bottomBarsLeft: NSLayoutConstraint!
 
     private(set) var state = ChromeState()
     private var collapsed = false
@@ -48,17 +53,17 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
         topBar.delegate = self
         toolbar.delegate = self
-        autoScrollBar.delegate = self
+        autoScrollControl.send = { [weak self] id in self?.plugin.send(id) }
+        autoScrollControl.onMoved = { [weak self] in self?.fadeAutoScrollForToast() }
         // Bar glyphs stay monochrome, like the rest of the native parts.
         topBar.tintColor = .label
         toolbar.tintColor = .label
-        autoScrollBar.tintColor = .label
         searchBackItem.backButtonDisplayMode = .minimal
         pageBackItem.backButtonDisplayMode = .minimal
         searchField.onSubmit = { [weak self] text in self?.plugin.send("search-submit", ["text": text]) }
         searchField.onChange = { [weak self] text in self?.plugin.send("search-input", ["text": text]) }
 
-        for bar in [topBar, autoScrollBar, toolbar, searchField] as [UIView] {
+        for bar in [topBar, autoScrollControl, toolbar, searchField] as [UIView] {
             bar.translatesAutoresizingMaskIntoConstraints = false
             bar.alpha = 0
             bar.isHidden = true
@@ -67,6 +72,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         toast.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(toast)
         toastBottom = toast.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        topBarTop = topBar.topAnchor.constraint(equalTo: view.topAnchor, constant: topBarOffset)
 
         // Dragging the page closes the search keyboard, as iOS search screens do.
         let drag = UIPanGestureRecognizer(target: self, action: #selector(pageDragged(_:)))
@@ -83,26 +89,49 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
                                                object: nil)
 
         let safeArea = view.safeAreaLayoutGuide
+        view.addLayoutGuide(bottomBars)
+        // Left and right, not leading and trailing: the fold's place is physical.
+        bottomBarsLeft = bottomBars.leftAnchor.constraint(equalTo: safeArea.leftAnchor)
         NSLayoutConstraint.activate([
+            bottomBarsLeft,
+            bottomBars.rightAnchor.constraint(equalTo: safeArea.rightAnchor),
+            bottomBars.topAnchor.constraint(equalTo: safeArea.topAnchor),
+            bottomBars.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
             toastBottom,
-            toast.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            toast.leadingAnchor.constraint(greaterThanOrEqualTo: safeArea.leadingAnchor, constant: 24),
-            toast.trailingAnchor.constraint(lessThanOrEqualTo: safeArea.trailingAnchor, constant: -24),
-            topBar.topAnchor.constraint(equalTo: safeArea.topAnchor),
+            toast.centerXAnchor.constraint(equalTo: bottomBars.centerXAnchor),
+            toast.leadingAnchor.constraint(greaterThanOrEqualTo: bottomBars.leadingAnchor, constant: 24),
+            toast.trailingAnchor.constraint(lessThanOrEqualTo: bottomBars.trailingAnchor, constant: -24),
+            topBarTop,
             topBar.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor),
             topBar.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor),
             toolbar.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
-            toolbar.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor),
-            toolbar.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor),
-            // In the toolbar's place; lifted above it while it shows.
-            autoScrollBar.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
-            autoScrollBar.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor),
-            autoScrollBar.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor),
+            toolbar.leadingAnchor.constraint(equalTo: bottomBars.leadingAnchor),
+            toolbar.trailingAnchor.constraint(equalTo: bottomBars.trailingAnchor),
+            // The reading area, between the bars (where they rest, whether
+            // shown or not), for the reader to move it about in.
+            autoScrollControl.topAnchor.constraint(equalTo: topBar.bottomAnchor),
+            autoScrollControl.bottomAnchor.constraint(equalTo: toolbar.topAnchor),
+            autoScrollControl.leadingAnchor.constraint(equalTo: bottomBars.leadingAnchor),
+            autoScrollControl.trailingAnchor.constraint(equalTo: bottomBars.trailingAnchor),
             searchField.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor, constant: 16),
             searchField.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor, constant: -16),
             // Rests above the home indicator, and rides up with the keyboard.
             searchField.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -8),
         ])
+
+        #if canImport(UIKit, _version: 9127.0.85)
+        if #available(iOS 27.1, *) {
+            // The fold's region turns on and off with the hinge: lay the bars
+            // out again each time.
+            view.addInteraction(UIHingeInteraction { [weak self] _, _ in self?.view.setNeedsLayout() })
+        }
+        #endif
+    }
+
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
+        topBarTop.constant = topBarOffset
+        bottomBarsLeft.constant = foldInset
     }
 
     override func viewDidLayoutSubviews() {
@@ -128,7 +157,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         if next.mode != .none {
             view.window?.overrideUserInterfaceStyle = Self.interfaceStyle(next.themeMode)
         }
-        for bar in [topBar, autoScrollBar, toolbar, searchField] as [UIView] {
+        for bar in [topBar, autoScrollControl, toolbar, searchField] as [UIView] {
             bar.isUserInteractionEnabled = !next.inert
             bar.accessibilityElementsHidden = next.inert
         }
@@ -175,14 +204,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         setShown(topBar, next.mode != .none, animated: animated)
         setShown(toolbar, next.mode == .reader, animated: animated)
         setShown(searchField, next.mode == .search, animated: animated)
-        let showAutoScroll = next.mode == .reader && next.autoScroll != nil
-        if showAutoScroll && !shownBars.contains(ObjectIdentifier(autoScrollBar)) {
-            // Fades in where it belongs, without sliding there.
-            view.layoutIfNeeded()
-            autoScrollBar.transform = autoScrollBarOffset
-        }
-        setShown(autoScrollBar, showAutoScroll, animated: animated)
-        if collapseChanged || previous.inert != next.inert {
+        setShown(autoScrollControl, next.mode == .reader && next.autoScroll != nil, animated: animated)
+        // Playing or paused, auto-scroll's controls stay or go with the bars.
+        if collapseChanged || previous.inert != next.inert
+            || previous.autoScroll?.playing != next.autoScroll?.playing {
             animateCollapse(animated: animated)
         }
         // The insets depend on the collapse too (auto-scroll's stack), which
@@ -245,6 +270,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         })
         button.accessibilityHint = "Escolher livro e capítulo"
         button.showsLargeContentViewer = true
+        // It gives way to its room (passageWidth), not to the bar: iOS 27.1's
+        // toolbar, wide on the unfolded iPhone Duo, squeezed it to "Liv…".
+        button.setContentCompressionResistancePriority(UILayoutPriority(999), for: .horizontal)
         return button
     }()
 
@@ -256,27 +284,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     }()
 
     private lazy var passageItem = UIBarButtonItem(customView: passageButton)
-
-    private lazy var autoScrollCloseItem = barButton("xmark", "Fechar o deslocamento automático", "auto-scroll")
-    private lazy var slowerItem = barButton("minus", "Diminuir velocidade", "auto-scroll-slower")
-    private lazy var fasterItem = barButton("plus", "Aumentar velocidade", "auto-scroll-faster")
-    /// A plain bar button, like close: the bar stays monochrome.
-    private lazy var playItem = barButton("play.fill", "Iniciar", "auto-scroll-toggle")
-    /// Either side of the speed and its buttons.
-    private let autoScrollSpaces = [UIBarButtonItem.flexibleSpace(), UIBarButtonItem.flexibleSpace()]
-
-    private let speedLabel: UILabel = {
-        let label = UILabel()
-        label.font = limitedFont(.monospacedDigitSystemFont(ofSize: 15, weight: .medium), .subheadline,
-                                 limit: barTextScaleLimit)
-        label.adjustsFontForContentSizeCategory = true
-        label.showsLargeContentViewer = true
-        label.textAlignment = .center
-        label.accessibilityLabel = "Velocidade"
-        return label
-    }()
-
-    private lazy var speedItem = UIBarButtonItem(customView: speedLabel)
 
     private func configureReader(_ state: ChromeState) {
         let enabled = !state.inert
@@ -318,7 +325,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         }
 
         if let autoScroll = state.autoScroll {
-            configureAutoScroll(autoScroll, enabled: enabled)
+            autoScrollControl.configure(autoScroll, enabled: enabled)
         }
 
         previousItem.isEnabled = enabled && state.canGoPrevious
@@ -360,24 +367,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         }
     }
 
-    /// Auto-scroll's controls: close, then speed, then play or pause.
-    private func configureAutoScroll(_ state: AutoScrollState, enabled: Bool) {
-        autoScrollCloseItem.isEnabled = enabled
-        slowerItem.isEnabled = enabled && state.canSlower
-        fasterItem.isEnabled = enabled && state.canFaster
-        speedLabel.text = state.speedLabel
-        speedLabel.largeContentTitle = state.speedLabel
-        speedLabel.accessibilityValue = state.speedAccessibilityLabel
-        playItem.image = UIImage(systemName: state.playing ? "pause.fill" : "play.fill")
-        playItem.title = state.playing ? "Pausar" : "Iniciar"
-        playItem.isEnabled = enabled
-        let items = [autoScrollCloseItem, autoScrollSpaces[0], slowerItem, speedItem, fasterItem,
-                     autoScrollSpaces[1], playItem]
-        if autoScrollBar.items ?? [] != items {
-            autoScrollBar.setItems(items, animated: false)
-        }
-    }
-
     /// The passage the reader's bars last showed.
     private var shownPassage: String?
 
@@ -407,8 +396,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         })
     }
 
-    /// The toolbar's width: the safe area's, as it is pinned to it.
-    private var toolbarWidth: CGFloat { view.safeAreaLayoutGuide.layoutFrame.width }
+    /// The toolbar's width, as it is pinned to the bottom bars' guide.
+    private var toolbarWidth: CGFloat { bottomBars.layoutFrame.width }
 
     /// Liquid Glass toolbar metrics, the same on iOS 26 and 27: the bar's side
     /// margins, two icons sharing a capsule (the arrows), the gap between glass
@@ -446,19 +435,15 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private func targetAlpha(_ bar: UIView) -> CGFloat {
         guard shownBars.contains(ObjectIdentifier(bar)) else { return 0 }
         // Auto-scroll's pause stays within reach while the bars are hidden for
-        // reading, but not over a panel, as the other bars don't.
-        if bar === autoScrollBar { return state.inert || toastShowing ? 0 : 1 }
+        // reading (not its play button), but not over a panel, as the other
+        // bars don't, nor under a toast.
+        if bar === autoScrollControl { return state.inert || autoScrollTucked || toastCoversAutoScroll ? 0 : 1 }
         return collapsed && bar !== searchField ? 0 : 1
     }
 
-    /// Space between auto-scroll's bar and the toolbar below it.
-    private static let autoScrollBarGap: CGFloat = 12
-
-    /// Above the toolbar while it shows; in its place while it's hidden.
-    private var autoScrollBarOffset: CGAffineTransform {
-        collapsed ? .identity
-            : CGAffineTransform(translationX: 0, y: -(toolbar.bounds.height + Self.autoScrollBarGap))
-    }
+    /// The bars are hidden for reading while auto-scroll is paused: its play
+    /// button goes with them, as nothing is scrolling to pause.
+    private var autoScrollTucked: Bool { collapsed && state.autoScroll?.playing != true }
 
     /// Slides the reader's bars off screen. The page keeps its padding, so the
     /// text doesn't move; it simply shows where the bars were.
@@ -467,10 +452,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         let changes = {
             self.topBar.transform = slide ? CGAffineTransform(translationX: 0, y: -self.insets.top) : .identity
             self.toolbar.transform = slide ? CGAffineTransform(translationX: 0, y: self.insets.bottom) : .identity
-            self.autoScrollBar.transform = self.autoScrollBarOffset
-            for bar in [self.topBar, self.toolbar, self.autoScrollBar] { bar.alpha = self.targetAlpha(bar) }
-            // A toast in auto-scroll's slot moves with it.
-            self.placeToast()
+            for bar in [self.topBar, self.toolbar, self.autoScrollControl] { bar.alpha = self.targetAlpha(bar) }
             self.view.layoutIfNeeded()
         }
         if animated {
@@ -496,19 +478,43 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         case .none:
             return ChromeInsets(top: safeArea.top, bottom: safeArea.bottom)
         case .reader:
-            // Auto-scroll's controls stack above the toolbar while the bars
-            // show; hidden for reading (or under a panel), they take its place.
-            let autoScroll = state.autoScroll != nil && !collapsed
-                ? autoScrollBar.bounds.height + Self.autoScrollBarGap : 0
-            return ChromeInsets(top: safeArea.top + topBar.bounds.height,
-                                bottom: safeArea.bottom + toolbar.bounds.height + autoScroll,
+            // Auto-scroll's controls float over the text: the page leaves
+            // them no room, and the reader moves them off what they cover.
+            return ChromeInsets(top: topBarOffset + topBar.bounds.height,
+                                bottom: safeArea.bottom + toolbar.bounds.height,
                                 collapsed: collapsed)
         case .search:
-            return ChromeInsets(top: safeArea.top + topBar.bounds.height,
+            return ChromeInsets(top: topBarOffset + topBar.bounds.height,
                                 bottom: view.bounds.height - searchField.frame.minY)
         case .page:
-            return ChromeInsets(top: safeArea.top + topBar.bounds.height, bottom: safeArea.bottom)
+            return ChromeInsets(top: topBarOffset + topBar.bounds.height, bottom: safeArea.bottom)
         }
+    }
+
+    /// The top bar's distance from the top of the screen: under the status
+    /// bar, or, with none above it (a phone turned sideways, or the folded
+    /// iPhone Duo, whose status bar runs down its side), the system's side
+    /// margin, so the glass sits as far from the top edge as from the side
+    /// rather than touching it.
+    private var topBarOffset: CGFloat {
+        max(view.safeAreaInsets.top, systemMinimumLayoutMargins.leading)
+    }
+
+    /// How far in from the safe area's left edge the fold of an iPhone Duo,
+    /// folded part way, ends: the bottom bars stay right of it, together.
+    /// Apple keeps buttons out of the crease; its toolbars nudge each button
+    /// aside on its own, which split the passage from its arrows and left
+    /// auto-scroll's speed on the fold. Its region is the crease plus the
+    /// margin interactive content keeps.
+    private var foldInset: CGFloat {
+        #if canImport(UIKit, _version: 9127.0.85)
+        if #available(iOS 27.1, *),
+           let fold = view.reservedRegions(kind: .division)
+            .first(where: { $0.isActive && $0.frame.height > $0.frame.width }) {
+            return max(fold.frame.maxX - view.safeAreaLayoutGuide.layoutFrame.minX, 0)
+        }
+        #endif
+        return 0
     }
 
     private func reportInsets() {
@@ -532,7 +538,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     // MARK: - Toast
 
-    /// A toast is up: it has auto-scroll's slot, whose bar steps aside.
     private var toastShowing = false
 
     /// As a `button`, the toast is one (led by `symbol`), and tapping it
@@ -541,34 +546,40 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         view.layoutIfNeeded()
         let onTap: (() -> Void)? = button ? { [weak self] in self?.plugin.send("toast-action") } : nil
         toast.onHide = { [weak self] in self?.setToastShowing(false) }
+        placeToast()
         toast.show(message, symbol: symbol, onTap: onTap)
         toast.layoutIfNeeded()
         setToastShowing(true)
     }
 
-    /// One glass layer above the toolbar, not two: while a toast shows, it
-    /// takes auto-scroll's slot and auto-scroll's bar fades out of it.
+    /// One glass layer, not two: auto-scroll's controls step aside while a
+    /// toast shows where they are.
     private func setToastShowing(_ showing: Bool) {
         toastShowing = showing
-        placeToast()
         view.layoutIfNeeded()
+        fadeAutoScrollForToast()
+    }
+
+    /// Also once the reader drops auto-scroll's control onto a toast, or off one.
+    private func fadeAutoScrollForToast() {
         UIView.animate(withDuration: 0.25, delay: 0, options: [.beginFromCurrentState]) {
-            self.autoScrollBar.alpha = self.targetAlpha(self.autoScrollBar)
+            self.autoScrollControl.alpha = self.targetAlpha(self.autoScrollControl)
         }
     }
 
-    /// Centred on auto-scroll's bar while it shows; otherwise just above
-    /// whatever is at the bottom: the toolbar, the search field.
+    /// The toast and auto-scroll's glass meet. The toast's frame is off while it
+    /// scales in, so its size about its centre.
+    private var toastCoversAutoScroll: Bool {
+        guard toastShowing else { return false }
+        let size = toast.bounds.size
+        let shown = CGRect(x: toast.center.x - size.width / 2, y: toast.center.y - size.height / 2,
+                           width: size.width, height: size.height)
+        return shown.insetBy(dx: -8, dy: -8).intersects(autoScrollControl.glassFrame(in: view))
+    }
+
+    /// Just above whatever is at the bottom: the toolbar, the search field.
     private func placeToast() {
-        if toastShowing && shownBars.contains(ObjectIdentifier(autoScrollBar)) && !state.inert {
-            // The bar is transformed into place, so its frame is undefined:
-            // its centre, converted, is where it shows.
-            let bounds = autoScrollBar.bounds
-            let centre = autoScrollBar.convert(CGPoint(x: bounds.midX, y: bounds.midY), to: view)
-            toastBottom.constant = -(view.bounds.height - centre.y - toast.bounds.height / 2)
-        } else {
-            toastBottom.constant = -(insets.bottom + 12)
-        }
+        toastBottom.constant = -(insets.bottom + 12)
     }
 
     @objc private func voiceOverChanged() {
@@ -793,22 +804,24 @@ enum ReaderMenu {
         return action
     }
 
-    /// The small print under the privacy policy: "Versão 1.2.3", the release
-    /// number CI sets from the release tag (MARKETING_VERSION), and
-    /// "Bundle 20261016-120000Z", when the web bundle was compiled. A menu
-    /// has no small text, so each is an item with nothing to do, which it dims.
-    private static func versionItems(buildVersion: String?) -> [UIMenuElement] {
-        var lines: [String] = []
+    /// The small print at the end of the menu, on one line: "1.2.3 ·
+    /// 20261016-120000Z", the release number CI sets from the release tag
+    /// (MARKETING_VERSION), then the web bundle's id, when it was compiled. A
+    /// menu's only small text is an item's subtitle, so it is an untitled item
+    /// with nothing to do, which it dims. It gets a section of its own: among
+    /// items with icons it would be indented to their titles, and wrap.
+    private static func versionSection(buildVersion: String?) -> UIMenu? {
+        var parts: [String] = []
         let key = "CFBundleShortVersionString"
         if let release = Bundle.main.object(forInfoDictionaryKey: key) as? String, !release.isEmpty {
-            lines.append("Versão \(release)")
+            parts.append(release)
         }
         if let buildVersion, !buildVersion.isEmpty {
-            lines.append("Bundle \(buildVersion)")
+            parts.append(buildVersion)
         }
-        return lines.map { line -> UIMenuElement in
-            UIAction(title: line, attributes: .disabled) { _ in }
-        }
+        guard !parts.isEmpty else { return nil }
+        let item = UIAction(title: "", subtitle: parts.joined(separator: " · "), attributes: .disabled) { _ in }
+        return UIMenu(options: .displayInline, children: [item])
     }
 
     /// Choices side by side, rather than a menu within the menu.
@@ -858,8 +871,8 @@ enum ReaderMenu {
     }
 
     /// Builds the reader's more menu, with reading actions followed by app
-    /// actions and disabled version labels. State controls action availability;
-    /// selecting an enabled action passes its identifier to `send`.
+    /// actions and the version's small print. State controls action
+    /// availability; selecting an enabled action passes its identifier to `send`.
     static func make(_ state: ChromeState, send: @escaping (String) -> Void) -> UIMenu {
         let autoScroll = action("Deslocamento automático", "arrow.down.circle", "auto-scroll", send: send)
         autoScroll.state = state.autoScrollVisible ? .on : .off
@@ -876,14 +889,17 @@ enum ReaderMenu {
         }
         app.append(action("Como usar a app", "questionmark.circle", "help", send: send))
         app.append(action("Política de Privacidade", "hand.raised", "privacy", send: send))
-        app.append(contentsOf: versionItems(buildVersion: state.buildVersion))
         // Two groups with a divider, as the HIG asks of menus: what to do with
         // the reading, then the app's help and legal pages. Inline sections,
-        // not submenus.
-        return UIMenu(children: [
+        // not submenus. The version's small print ends it.
+        var sections = [
             UIMenu(options: .displayInline, children: reading),
             UIMenu(options: .displayInline, children: app),
-        ])
+        ]
+        if let version = versionSection(buildVersion: state.buildVersion) {
+            sections.append(version)
+        }
+        return UIMenu(children: sections)
     }
 }
 
