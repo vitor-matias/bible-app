@@ -1,13 +1,13 @@
 import UIKit
 
-/// Auto-scroll's controls, in the bottom bars' trailing corner. Paused, they
-/// are one glass circle, ▶; playing, it grows into a capsule, [− 1/2 + | ⏸],
-/// with the pause where play was. The speed shows only while playing, when it
-/// can be judged. There is no close button: ⋯ hides auto-scroll, as it showed it.
+/// Auto-scroll's controls, floating over the text. Paused, they are one glass
+/// circle, ▶; playing, it grows leftward into a capsule, [− 1/2 + | ⏸], with
+/// the pause where play was. The speed shows only while playing, when it can
+/// be judged. There is no close button: ⋯ hides auto-scroll, as it showed it.
 ///
-/// The view itself spans the bottom bars, a toolbar tall, so the controller
-/// places it as it does the toolbar. Only the glass takes touches; the rest of
-/// it passes them to the page.
+/// The reader drags it wherever they like, and it stays there, then and on
+/// later launches. The view itself spans the reading area, between the bars;
+/// only the glass takes touches, and the rest passes them to the page.
 final class AutoScrollControl: UIView {
     /// The tapped control's action: auto-scroll-toggle, -slower or -faster.
     var send: ((String) -> Void)?
@@ -23,10 +23,19 @@ final class AutoScrollControl: UIView {
     private var speedViews: [UIView] { [slowerButton, speedLabel, fasterButton, divider] }
     private var playing = false
 
+    /// Where the reader left the circle: its centre, across and down the
+    /// space it can take, each from 0 to 1.
+    private var position: CGPoint
+    private var glassRight: NSLayoutConstraint!
+    private var glassY: NSLayoutConstraint!
+
     /// The glass's height, and the circle's diameter.
     private static let height: CGFloat = 48
-    /// From the bottom bars' edge, as the toolbar's glass is.
+    /// Kept from the sides, as the toolbar's glass is.
     private static let margin: CGFloat = 16
+    /// Kept from the bars above and below.
+    private static let gap: CGFloat = 12
+    private static let positionKeys = (x: "autoScrollControlX", y: "autoScrollControlY")
 
     init() {
         if #available(iOS 26.0, *) {
@@ -36,6 +45,10 @@ final class AutoScrollControl: UIView {
         } else {
             background = UIVisualEffectView(effect: UIBlurEffect(style: .systemThickMaterial))
         }
+        // Bottom right until the reader moves it.
+        let defaults = UserDefaults.standard
+        position = CGPoint(x: defaults.object(forKey: Self.positionKeys.x) as? Double ?? 1,
+                           y: defaults.object(forKey: Self.positionKeys.y) as? Double ?? 1)
         super.init(frame: .zero)
 
         background.clipsToBounds = true
@@ -64,9 +77,17 @@ final class AutoScrollControl: UIView {
         for view in speedViews { view.clipsToBounds = true }
         background.contentView.addSubview(row)
 
+        // The circle's right edge where the reader put it. Near the left side
+        // the capsule is pushed right, rather than off the screen or squeezed:
+        // this gives way before the speed's resistance to shrinking (750).
+        glassRight = background.rightAnchor.constraint(equalTo: leftAnchor)
+        glassRight.priority = UILayoutPriority(700)
+        glassY = background.centerYAnchor.constraint(equalTo: topAnchor)
         NSLayoutConstraint.activate([
-            background.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Self.margin),
-            background.centerYAnchor.constraint(equalTo: centerYAnchor),
+            glassRight,
+            glassY,
+            background.leftAnchor.constraint(greaterThanOrEqualTo: leftAnchor, constant: Self.margin),
+            background.rightAnchor.constraint(lessThanOrEqualTo: rightAnchor, constant: -Self.margin),
             background.heightAnchor.constraint(equalToConstant: Self.height),
             row.leadingAnchor.constraint(equalTo: background.contentView.leadingAnchor),
             row.trailingAnchor.constraint(equalTo: background.contentView.trailingAnchor),
@@ -88,14 +109,77 @@ final class AutoScrollControl: UIView {
         }
         showSpeed(false)
         fadeSpeed(false)
+
+        background.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(dragged(_:))))
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     override func layoutSubviews() {
+        // In the same place relative to the reading area, whatever its size:
+        // turned, say.
+        let centre = circleCentre(at: position)
+        glassRight.constant = centre.x + Self.height / 2
+        glassY.constant = centre.y
         super.layoutSubviews()
         background.layer.cornerRadius = Self.height / 2
+    }
+
+    /// The space the circle's centre can take: the reading area, less margins.
+    private var circleRange: CGRect {
+        let inset = Self.height / 2
+        let range = bounds.inset(by: UIEdgeInsets(top: Self.gap + inset, left: Self.margin + inset,
+                                                  bottom: Self.gap + inset, right: Self.margin + inset))
+        return CGRect(origin: range.origin,
+                      size: CGSize(width: max(range.width, 0), height: max(range.height, 0)))
+    }
+
+    private func circleCentre(at position: CGPoint) -> CGPoint {
+        let range = circleRange
+        return CGPoint(x: range.minX + range.width * position.x, y: range.minY + range.height * position.y)
+    }
+
+    /// Where play shows now, the glass's transform included.
+    private var playCentre: CGPoint {
+        playButton.convert(CGPoint(x: playButton.bounds.midX, y: playButton.bounds.midY), to: self)
+    }
+
+    /// Follows the finger, and stays where it lets go, kept inside the
+    /// reading area.
+    @objc private func dragged(_ drag: UIPanGestureRecognizer) {
+        let moved = drag.translation(in: self)
+        switch drag.state {
+        case .changed:
+            background.transform = CGAffineTransform(translationX: moved.x, y: moved.y)
+        case .ended, .cancelled:
+            let dropped = playCentre
+            let range = circleRange
+            position = CGPoint(x: range.width > 0 ? min(max((dropped.x - range.minX) / range.width, 0), 1) : 1,
+                               y: range.height > 0 ? min(max((dropped.y - range.minY) / range.height, 0), 1) : 1)
+            UserDefaults.standard.set(Double(position.x), forKey: Self.positionKeys.x)
+            UserDefaults.standard.set(Double(position.y), forKey: Self.positionKeys.y)
+
+            // Laid out in its new place, and shown from where it was let go:
+            // only a drop past the edges moves it, back inside.
+            background.transform = .identity
+            setNeedsLayout()
+            layoutIfNeeded()
+            let placed = playCentre
+            background.transform = CGAffineTransform(translationX: dropped.x - placed.x, y: dropped.y - placed.y)
+            let still = UIAccessibility.isReduceMotionEnabled
+            UIView.animate(withDuration: 0.4, delay: 0, usingSpringWithDamping: still ? 1 : 0.8,
+                           initialSpringVelocity: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+                self.background.transform = .identity
+            }
+        default:
+            break
+        }
+    }
+
+    /// Where the glass shows, in `view`'s coordinates.
+    func glassFrame(in view: UIView) -> CGRect {
+        convert(background.frame, to: view)
     }
 
     /// Touches outside the glass reach the page, its rounded ends' corners
