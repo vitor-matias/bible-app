@@ -1,9 +1,11 @@
 import UIKit
 
 /// Auto-scroll's controls, floating over the text. Paused, they are one glass
-/// circle, ▶; playing, it grows leftward into a capsule, [− 1/2 + | ⏸], with
-/// the pause where play was. The speed shows only while playing, when it can
-/// be judged. There is no close button: ⋯ hides auto-scroll, as it showed it.
+/// circle, ▶; playing, it grows leftward into a capsule, [− + | ⏸], with the
+/// pause where play was. Slower and faster show only while playing, when the
+/// speed can be judged, by eye: the number says nothing a reader needs, and
+/// only VoiceOver reads it. There is no close button: ⋯ hides auto-scroll, as
+/// it showed it.
 ///
 /// The reader drags it wherever they like, and it stays there, then and on
 /// later launches. The view itself spans the reading area, between the bars;
@@ -17,10 +19,9 @@ final class AutoScrollControl: UIView {
     private lazy var slowerButton = button("minus", "Diminuir velocidade", "auto-scroll-slower")
     private lazy var fasterButton = button("plus", "Aumentar velocidade", "auto-scroll-faster")
     private lazy var playButton = button("play.fill", "Iniciar", "auto-scroll-toggle")
-    private let speedLabel = SpeedLabel()
     private let divider = UIView()
     /// Shown only while playing.
-    private var speedViews: [UIView] { [slowerButton, speedLabel, fasterButton, divider] }
+    private var speedViews: [UIView] { [slowerButton, fasterButton, divider] }
     private var playing = false
 
     /// Where the reader left the circle: its centre, across and down the
@@ -58,14 +59,6 @@ final class AutoScrollControl: UIView {
         // press shows them large.
         background.addInteraction(UILargeContentViewerInteraction())
 
-        // As the passage button's text, with digits of one width.
-        speedLabel.font = limitedFont(.monospacedDigitSystemFont(ofSize: 17, weight: .medium), .body,
-                                      limit: barTextScaleLimit)
-        speedLabel.adjustsFontForContentSizeCategory = true
-        speedLabel.textColor = .label
-        speedLabel.textAlignment = .center
-        speedLabel.showsLargeContentViewer = true
-        speedLabel.accessibilityLabel = "Velocidade"
         divider.backgroundColor = .separator
 
         row.axis = .horizontal
@@ -78,8 +71,8 @@ final class AutoScrollControl: UIView {
         background.contentView.addSubview(row)
 
         // The circle's right edge where the reader put it. Near the left side
-        // the capsule is pushed right, rather than off the screen or squeezed:
-        // this gives way before the speed's resistance to shrinking (750).
+        // the capsule is pushed right, rather than off the screen or squeezed
+        // (the buttons' widths, at 999, win).
         glassRight = background.rightAnchor.constraint(equalTo: leftAnchor)
         glassRight.priority = UILayoutPriority(700)
         glassY = background.centerYAnchor.constraint(equalTo: topAnchor)
@@ -193,17 +186,17 @@ final class AutoScrollControl: UIView {
     func configure(_ state: AutoScrollState, enabled: Bool) {
         slowerButton.isEnabled = enabled && state.canSlower
         fasterButton.isEnabled = enabled && state.canFaster
-        playButton.isEnabled = enabled
-        speedLabel.text = state.speedLabel
-        speedLabel.largeContentTitle = state.speedLabel
-        speedLabel.accessibilityValue = state.speedAccessibilityLabel
+        // Pause always; play not at the page's end, with nothing left to play.
+        playButton.isEnabled = enabled && (state.playing || state.canPlay)
+        // "Aumentar velocidade, meia linha por segundo".
+        slowerButton.accessibilityValue = state.speedAccessibilityLabel
+        fasterButton.accessibilityValue = state.speedAccessibilityLabel
         playButton.configuration?.image = UIImage(systemName: state.playing ? "pause.fill" : "play.fill")
         playButton.accessibilityLabel = state.playing ? "Pausar" : "Iniciar"
         playButton.largeContentTitle = playButton.accessibilityLabel
         guard state.playing != playing else { return }
         playing = state.playing
-        // The speed's new text first, outside the animation, inside which it
-        // would grow in cut off.
+        // Anything else this update changed first, outside the animation.
         layoutIfNeeded()
         // Animated only on screen: shown again, it starts as a circle at once.
         guard !isHidden && alpha > 0 && !UIAccessibility.isReduceMotionEnabled else {
@@ -211,9 +204,8 @@ final class AutoScrollControl: UIView {
             fadeSpeed(playing)
             return
         }
-        // The speed fades in once the capsule has nearly opened, and out
-        // before it closes: in step with it, "1" and + ran into each other
-        // on the way.
+        // − and + fade in once the capsule has nearly opened, and out before
+        // it closes: in step with it, they ran into each other on the way.
         UIView.animate(withDuration: 0.4, delay: playing ? 0 : 0.08, usingSpringWithDamping: 0.8,
                        initialSpringVelocity: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
             self.showSpeed(self.playing)
@@ -250,15 +242,5 @@ final class AutoScrollControl: UIView {
         button.showsLargeContentViewer = true
         button.addAction(UIAction { [weak self] _ in self?.send?(action) }, for: .primaryActionTriggered)
         return button
-    }
-}
-
-/// As wide as the widest speed, "3.75", whatever it shows: − beside it stays
-/// put as the speed changes.
-private final class SpeedLabel: UILabel {
-    override var intrinsicContentSize: CGSize {
-        let size = super.intrinsicContentSize
-        let widest = ("0.00" as NSString).size(withAttributes: [.font: font as Any]).width
-        return CGSize(width: max(size.width, ceil(widest)), height: size.height)
     }
 }

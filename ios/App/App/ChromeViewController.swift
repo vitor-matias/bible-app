@@ -8,7 +8,7 @@ import Capacitor
 /// Text in the bars grows to the largest standard text size, XXXL (23 pt body
 /// text against 17), as in Apple's own bars; larger shows in the Large Content
 /// Viewer on a long press.
-let barTextScaleLimit: CGFloat = 23 / 17
+private let barTextScaleLimit: CGFloat = 23 / 17
 
 final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIToolbarDelegate,
     UIGestureRecognizerDelegate, UIPopoverPresentationControllerDelegate {

@@ -381,6 +381,7 @@ describe("NativeChromeService", () => {
         speedAccessibilityLabel: "1 linha por segundo",
         canSlower: true,
         canFaster: true,
+        canPlay: true,
       })
       tap()
 
@@ -573,6 +574,7 @@ describe("NativeChromeService", () => {
         speedAccessibilityLabel: "1 linha por segundo",
         canSlower: true,
         canFaster: true,
+        canPlay: true,
       }
       service.trackScroll(scroller)
       service.setAutoScroll(autoScroll)
@@ -600,6 +602,7 @@ describe("NativeChromeService", () => {
         speedAccessibilityLabel: "1 linha por segundo",
         canSlower: true,
         canFaster: true,
+        canPlay: true,
       }
       service.trackScroll(scroller)
       service.setAutoScroll(autoScroll)

@@ -96,7 +96,7 @@ struct ChromeState: Equatable {
     }
 }
 
-/// Auto-scroll's controls, which take over the reader's toolbar while shown.
+/// Auto-scroll's controls, floating over the text while shown.
 struct AutoScrollState: Equatable {
     var playing: Bool
     var speedLabel: String
@@ -104,6 +104,8 @@ struct AutoScrollState: Equatable {
     var speedAccessibilityLabel: String
     var canSlower: Bool
     var canFaster: Bool
+    /// False at the page's end, where there's nothing left to play.
+    var canPlay: Bool
 
     init(_ object: JSObject) {
         playing = object["playing"] as? Bool ?? false
@@ -111,6 +113,7 @@ struct AutoScrollState: Equatable {
         speedAccessibilityLabel = object["speedAccessibilityLabel"] as? String ?? speedLabel
         canSlower = object["canSlower"] as? Bool ?? false
         canFaster = object["canFaster"] as? Bool ?? false
+        canPlay = object["canPlay"] as? Bool ?? true
     }
 }
 
