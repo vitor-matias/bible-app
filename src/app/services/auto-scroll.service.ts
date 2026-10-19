@@ -207,10 +207,12 @@ export class AutoScrollService implements OnDestroy {
     // Until the page stands still, follow it without pushing: a coast left
     // from before play, then start from where it comes to rest. Its steps
     // reach the web view unevenly, so one still frame is not yet the end.
+    // Every pixel counts here: its tail creeps along a pixel a frame.
     if (this.settling) {
+      const crept = content.scrollTop !== this.expectedScrollTop
       this.expectedScrollTop = content.scrollTop
       this.expectedScrollHeight = content.scrollHeight
-      if (moved || this.stillSince === undefined) {
+      if (crept || this.stillSince === undefined) {
         this.stillSince = timestamp
       }
       if (timestamp - this.stillSince < this.SETTLE_MS) {

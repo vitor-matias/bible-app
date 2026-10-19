@@ -364,6 +364,22 @@ describe("AutoScrollService", () => {
       expect(top).toBeGreaterThan(5000 - 70)
     })
 
+    // A pixel a frame is rounding to a playing page, but here it is the
+    // coast's tail: taken for stillness, the wait ended mid-creep and the
+    // next two-pixel step stopped play.
+    it("waits out a coast's last pixel-a-frame creep", () => {
+      const frames = coast([-30, -1, -1, -1, -1, -1, -1, -1, -2])
+
+      expect(service.autoScrollEnabled).toBeTrue()
+      expect(top).toBe(5000 - 39)
+
+      play(60, frames)
+
+      expect(service.autoScrollEnabled).toBeTrue()
+      expect(onStop).not.toHaveBeenCalled()
+      expect(top).toBeGreaterThan(5000 - 39)
+    })
+
     it("still stops for the reader once it scrolls", () => {
       const frames = coast([-40, -20, -5])
       play(60, frames)
