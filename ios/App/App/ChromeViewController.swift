@@ -552,6 +552,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         setToastShowing(true)
     }
 
+    func hideToast() {
+        toast.dismissNow()
+    }
+
     /// One glass layer, not two: auto-scroll's controls step aside while a
     /// toast shows where they are.
     private func setToastShowing(_ showing: Bool) {
