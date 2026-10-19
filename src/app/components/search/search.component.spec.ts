@@ -92,6 +92,8 @@ describe("SearchComponent", () => {
   let network: { isOffline: boolean; isOffline$: BehaviorSubject<boolean> }
   let offlineSearch: jasmine.SpyObj<OfflineSearchService>
   let observerCallback: IntersectionObserverCallback | null
+  /** What the live observer watches; the page keeps one at a time. */
+  let observed: Element | null
   let originalIntersectionObserver: typeof IntersectionObserver | undefined
 
   class MockIntersectionObserver implements IntersectionObserver {
@@ -104,11 +106,15 @@ describe("SearchComponent", () => {
       observerCallback = callback
     }
 
-    observe(_target: Element): void {}
+    observe(target: Element): void {
+      observed = target
+    }
 
     unobserve(_target: Element): void {}
 
-    disconnect(): void {}
+    disconnect(): void {
+      observed = null
+    }
 
     takeRecords(): IntersectionObserverEntry[] {
       return []
@@ -136,6 +142,7 @@ describe("SearchComponent", () => {
     offlineSearch = jasmine.createSpyObj("OfflineSearchService", ["search"])
     offlineSearch.search.and.resolveTo(null)
     observerCallback = null
+    observed = null
     originalIntersectionObserver = globalThis.IntersectionObserver
 
     globalThis.IntersectionObserver =
@@ -626,7 +633,6 @@ describe("SearchComponent", () => {
     component.sentinel = {
       nativeElement: document.createElement("div"),
     } as SearchComponent["sentinel"]
-    component.ngAfterViewInit()
 
     const callback = observerCallback
     if (!callback) {
@@ -707,7 +713,6 @@ describe("SearchComponent", () => {
     component.sentinel = {
       nativeElement: document.createElement("div"),
     } as SearchComponent["sentinel"]
-    component.ngAfterViewInit()
 
     const callback = observerCallback
     expect(callback).toBeDefined()
@@ -1063,6 +1068,39 @@ describe("SearchComponent", () => {
         {} as IntersectionObserver,
       )
       expect(component.searchResults.length).toBe(100)
+    })
+
+    // The native search field (NativeChromeService) marks nothing for
+    // checking: only the page's own detectChanges() renders the results. The
+    // end of the list went unwatched, and the list stopped at its first page.
+    it("watches the end of the list from the first page, without a check from above", async () => {
+      offlineSearch.search.and.resolveTo(
+        Array.from({ length: 120 }, (_, index) =>
+          stored("psa", index + 1, "Senhor"),
+        ),
+      )
+      fixture.detectChanges()
+      await component.onSearchSubmit("Senhor")
+
+      const end = () =>
+        (fixture.nativeElement as HTMLElement).querySelector(".sentinel")
+      expect(end()).not.toBeNull()
+      expect(observed).toBe(end())
+
+      const scrollToEnd = () =>
+        observerCallback?.(
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        )
+      scrollToEnd()
+      expect(component.searchResults.length).toBe(100)
+      expect(observed).toBe(end())
+
+      // The last page: nothing left to watch for.
+      scrollToEnd()
+      expect(component.searchResults.length).toBe(120)
+      expect(end()).toBeNull()
+      expect(observed).toBeNull()
     })
 
     it("says so when no Bible is stored yet", async () => {
