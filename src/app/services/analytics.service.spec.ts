@@ -2,6 +2,7 @@ import { fakeAsync, TestBed, tick } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
 import {
   AnalyticsService,
+  BUILD_DATA_WAIT_MS,
   DELIVERY_TIMEOUT_MS,
   labelUmamiPlatform,
 } from "./analytics.service"
@@ -233,6 +234,27 @@ describe("AnalyticsService", () => {
       tick(1)
       expect(signal?.aborted).toBeTrue()
       expect(outcome).toBe("failed")
+    }))
+
+    // build-info.json is fetched without a deadline: stalled, it held the
+    // report before the delivery timeout had even started.
+    it("sends without the build's details when they stall", fakeAsync(() => {
+      buildVersionServiceMock.getBuildInfo.and.returnValue(
+        new Promise(() => {}),
+      )
+      let sent = false
+      service.trackDelivered("report_problem", { topic: "typo" }).then(() => {
+        sent = true
+      })
+
+      tick(BUILD_DATA_WAIT_MS - 1)
+      expect(fetchSpy).not.toHaveBeenCalled()
+      tick(1)
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      const body = JSON.parse(fetchSpy.calls.mostRecent().args[1].body)
+      expect(body.payload.data).toEqual({ topic: "typo", platform: "ios" })
+      expect(sent).toBeTrue()
     }))
 
     it("rejects when the tracker isn't on the page", async () => {

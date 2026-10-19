@@ -8,6 +8,12 @@ import { BuildVersionService } from "./build-version.service"
  */
 export const DELIVERY_TIMEOUT_MS = 15_000
 
+/**
+ * How long a problem report waits for the build's details (build-info.json,
+ * the app's release) before it goes without them.
+ */
+export const BUILD_DATA_WAIT_MS = 3_000
+
 @Injectable({
   providedIn: "root",
 })
@@ -64,7 +70,9 @@ export class AnalyticsService {
       script.src.split("/").slice(0, -1).join("/")
     const endpoint = `${host.replace(/\/$/, "")}/api/send`
 
-    const buildData = await this.buildData().catch((): BuildData => ({}))
+    // The build's details are a nicety: a stalled build-info.json mustn't
+    // hold the report up before its own deadline has even started.
+    const buildData = await this.buildDataWithin(BUILD_DATA_WAIT_MS)
     let payload: UmamiPayload | null = {
       website,
       screen: `${window.screen.width}x${window.screen.height}`,
@@ -125,6 +133,22 @@ export class AnalyticsService {
       buildEnvironment: info.buildEnvironment,
       // The web has no release: its buildVersion is its version.
       ...(appVersion ? { appVersion } : {}),
+    }
+  }
+
+  /** buildData, or none if it fails or takes longer than `ms`. */
+  private async buildDataWithin(ms: number): Promise<BuildData> {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const late = new Promise<BuildData>((resolve) => {
+      timer = setTimeout(() => resolve({}), ms)
+    })
+    try {
+      return await Promise.race([
+        this.buildData().catch((): BuildData => ({})),
+        late,
+      ])
+    } finally {
+      clearTimeout(timer)
     }
   }
 
