@@ -129,9 +129,12 @@ jobs:
             MINOR=$(echo "$VERSION" | cut -d. -f2)
             PATCH=$(echo "$VERSION" | cut -d. -f3)
             
-            # A TestFlight build is a candidate for the next release: App
-            # Store Connect closes a version to new builds once it's released.
-            if [[ "${{ inputs.create_release }}" == "true" || "${{ inputs.testflight }}" == "true" ]]; then
+            # Only a release takes the next version. A TestFlight build on
+            # its own is another build of the latest one (its build number
+            # carries the run number). Once that version is released in the
+            # App Store, App Store Connect refuses new builds of it: make a
+            # release then.
+            if [[ "${{ inputs.create_release }}" == "true" ]]; then
               BUMP="${{ inputs.bump }}"
               case "$BUMP" in
                 major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
