@@ -505,6 +505,38 @@ describe("NativeChromeService", () => {
     }
     const collapsed = () => lastState().collapsed
 
+    // Auto-scroll stopping at the end brings its play button back above the
+    // toolbar, and the page's last lines went under it.
+    describe("as the bottom bars grow", () => {
+      beforeEach(() => {
+        // The page pads itself by the bottom inset, as styles.css has it; the
+        // service's document here is a stand-in, which lays nothing out.
+        const setProperty = root.style.setProperty.bind(root.style)
+        spyOn(root.style, "setProperty").and.callFake((name, value) => {
+          setProperty(name, value)
+          if (name === "--native-chrome-bottom") {
+            scroller.style.paddingBottom = value ?? ""
+          }
+        })
+        service.trackScroll(scroller)
+        listener("insets")({ top: 116, bottom: 82 })
+      })
+
+      it("keeps a page read to its end at its end", () => {
+        scroller.scrollTop = scroller.scrollHeight
+        listener("insets")({ top: 116, bottom: 144 })
+        expect(scroller.scrollTop + scroller.clientHeight).toBe(
+          scroller.scrollHeight,
+        )
+      })
+
+      it("leaves a page short of its end where it is", () => {
+        scroller.scrollTop = 600
+        listener("insets")({ top: 116, bottom: 144 })
+        expect(scroller.scrollTop).toBe(600)
+      })
+    })
+
     // The shell answers with the insets alone here, as older ones do: the
     // page's edge fades follow what it asked for.
     it("hides them on scrolling down, and brings them back on scrolling up", () => {
