@@ -72,13 +72,17 @@ final class AutoScrollControl: UIView {
             row.trailingAnchor.constraint(equalTo: background.contentView.trailingAnchor),
             row.topAnchor.constraint(equalTo: background.contentView.topAnchor),
             row.bottomAnchor.constraint(equalTo: background.contentView.bottomAnchor),
-            slowerButton.widthAnchor.constraint(equalToConstant: 44),
-            fasterButton.widthAnchor.constraint(equalToConstant: 44),
             // Play is the circle while paused, the pause the capsule's end.
             playButton.widthAnchor.constraint(equalToConstant: Self.height),
-            divider.widthAnchor.constraint(equalToConstant: 1),
             divider.heightAnchor.constraint(equalToConstant: 24),
         ])
+        // Just under required: hidden, the stack holds these at zero width,
+        // and that must win without breaking a constraint.
+        for (view, width) in [(slowerButton, 44), (fasterButton, 44), (divider, 1)] as [(UIView, CGFloat)] {
+            let constraint = view.widthAnchor.constraint(equalToConstant: width)
+            constraint.priority = .required - 1
+            constraint.isActive = true
+        }
         for button in [slowerButton, fasterButton, playButton] {
             button.heightAnchor.constraint(equalToConstant: Self.height).isActive = true
         }
