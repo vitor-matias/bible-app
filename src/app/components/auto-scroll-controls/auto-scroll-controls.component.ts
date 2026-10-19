@@ -124,8 +124,9 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Sends what these controls show to the iOS app's: the speed bare, "1/2",
-   * to fit its compact capsule; VoiceOver reads it in words.
+   * Sends what these controls show to the iOS app, which draws its own. The
+   * speed goes without its unit, "1/2", to fit the app's compact capsule;
+   * VoiceOver reads it in words.
    */
   private syncNativeChrome(): void {
     if (!this.native || this.destroyRef.destroyed) return

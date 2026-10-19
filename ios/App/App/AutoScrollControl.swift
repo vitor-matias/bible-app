@@ -98,10 +98,12 @@ final class AutoScrollControl: UIView {
         background.layer.cornerRadius = Self.height / 2
     }
 
-    /// Touches outside the glass reach the page.
+    /// Touches outside the glass reach the page, its rounded ends' corners
+    /// included: clipping draws the circle, but hit-testing is by rectangle.
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        let hit = super.hitTest(point, with: event)
-        return hit === self ? nil : hit
+        let inGlass = UIBezierPath(roundedRect: background.frame, cornerRadius: Self.height / 2)
+        guard inGlass.contains(point) else { return nil }
+        return super.hitTest(point, with: event)
     }
 
     func configure(_ state: AutoScrollState, enabled: Bool) {
