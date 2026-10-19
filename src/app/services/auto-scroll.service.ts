@@ -29,6 +29,8 @@ export class AutoScrollService implements OnDestroy {
   private readonly FRACTIONAL_EPSILON = 0.002
   /** Pixels the page may sit from where auto-scroll left it: rounding, not a reader. */
   private readonly USER_SCROLL_TOLERANCE = 1
+  /** How long the page has to stand still before play takes it over. */
+  private readonly SETTLE_MS = 100
 
   private autoScrollFrame?: number
   private lastAutoScrollTimestamp?: number
@@ -44,6 +46,14 @@ export class AutoScrollService implements OnDestroy {
    * the reader's place: that is no reader scrolling.
    */
   private expectedScrollHeight = 0
+  /**
+   * Play waits for the page to stand still. Pressed while a flick still
+   * carries it (iOS's momentum runs on, as the native ▶ is no touch on the
+   * text), that coast is not the reader taking over.
+   */
+  private settling = false
+  /** Since when the page has stood still, while play waits. */
+  private stillSince?: number
   private cachedLineHeight = 24
   private lineHeightObserver?: ResizeObserver
   private scrollElement?: HTMLElement
@@ -156,12 +166,12 @@ export class AutoScrollService implements OnDestroy {
     this.accumulatedScrollDelta = 0
     this.expectedScrollTop = this.scrollElement.scrollTop
     this.expectedScrollHeight = this.scrollElement.scrollHeight
+    this.settling = true
+    this.stillSince = undefined
     this.autoScrollEnabled = true
     this.keepAwakeService.start()
     this.setupLineHeightObserver()
-    this.autoScrollFrame = window.requestAnimationFrame((timestamp) => {
-      this.stepAutoScroll(timestamp)
-    })
+    this.requestNextStep()
   }
 
   stop(): void {
@@ -172,6 +182,8 @@ export class AutoScrollService implements OnDestroy {
       this.autoScrollFrame = undefined
     }
     this.lastAutoScrollTimestamp = undefined
+    this.settling = false
+    this.stillSince = undefined
     this.cleanupLineHeightObserver()
     if (wasActive) {
       this.keepAwakeService.stop()
@@ -188,11 +200,28 @@ export class AutoScrollService implements OnDestroy {
       return
     }
 
-    // Scrolling by hand takes over: stop, and leave the page where they put it.
-    // A reflow moves the page too, but changes its height; carry on from there.
     const moved =
       Math.abs(content.scrollTop - this.expectedScrollTop) >
       this.USER_SCROLL_TOLERANCE
+
+    // Until the page stands still, follow it without pushing: a coast left
+    // from before play, then start from where it comes to rest. Its steps
+    // reach the web view unevenly, so one still frame is not yet the end.
+    if (this.settling) {
+      this.expectedScrollTop = content.scrollTop
+      this.expectedScrollHeight = content.scrollHeight
+      if (moved || this.stillSince === undefined) {
+        this.stillSince = timestamp
+      }
+      if (timestamp - this.stillSince < this.SETTLE_MS) {
+        this.requestNextStep()
+        return
+      }
+      this.settling = false
+    }
+
+    // Scrolling by hand takes over: stop, and leave the page where they put it.
+    // A reflow moves the page too, but changes its height; carry on from there.
     if (moved && content.scrollHeight === this.expectedScrollHeight) {
       this.stop()
       return
@@ -242,10 +271,14 @@ export class AutoScrollService implements OnDestroy {
     }
 
     if (this.autoScrollEnabled) {
-      this.autoScrollFrame = window.requestAnimationFrame((nextTimestamp) => {
-        this.stepAutoScroll(nextTimestamp)
-      })
+      this.requestNextStep()
     }
+  }
+
+  private requestNextStep(): void {
+    this.autoScrollFrame = window.requestAnimationFrame((timestamp) => {
+      this.stepAutoScroll(timestamp)
+    })
   }
 
   private getLineHeight(): number {
