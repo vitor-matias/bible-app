@@ -88,11 +88,31 @@ describe("NativeReportService", () => {
 
   it("stops listening once the sheet closes", async () => {
     service.open(genesis, 3)
+    await settle()
     actions.next({ id: "report-closed" })
     actions.next({ id: "report-submit", topic: "typo", details: "vírgula" })
     await settle()
 
     expect(reports.send).not.toHaveBeenCalled()
+  })
+
+  // Asked for while the last sheet was closing: the shell presents this one
+  // once that one has gone, and the last one's close came in between.
+  it("keeps listening through the closing sheet's report-closed", async () => {
+    let answer: (presented: boolean) => void = () => {}
+    nativeChrome.showReport.and.returnValue(
+      new Promise<boolean>((resolve) => {
+        answer = resolve
+      }),
+    )
+    service.open(genesis, 3)
+    actions.next({ id: "report-closed" })
+    answer(true)
+    await settle()
+    actions.next({ id: "report-submit", topic: "typo", details: "vírgula" })
+    await settle()
+
+    expect(reports.send).toHaveBeenCalled()
   })
 
   // Over another sheet none comes up, and no report-closed would follow.

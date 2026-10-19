@@ -37,6 +37,9 @@ export class NativeBookmarksService {
     let ribbons: RibbonState[] = []
     const mover = this.ribbonsService.moveTo(bookId, chapter)
     let shown = false
+    // Until this sheet is up, a bookmarks-closed is the last one's: the
+    // shell waits for a sheet on its way out to go before presenting.
+    let presented = false
 
     session.add(
       this.bookmarkService.bookmarks$.subscribe((bookmarks) => {
@@ -48,8 +51,9 @@ export class NativeBookmarksService {
           shown = true
           // Over another sheet none comes up, and no bookmarks-closed would
           // end this.
-          void this.nativeChrome.showBookmarks(state).then((presented) => {
-            if (!presented) session.unsubscribe()
+          void this.nativeChrome.showBookmarks(state).then((up) => {
+            presented = up
+            if (!up) session.unsubscribe()
           })
         }
       }),
@@ -59,7 +63,7 @@ export class NativeBookmarksService {
       this.nativeChrome.actions$.subscribe((action) => {
         switch (action.id) {
           case "bookmarks-closed":
-            session.unsubscribe()
+            if (presented) session.unsubscribe()
             break
           case "bookmark-open":
           case "bookmark-set":

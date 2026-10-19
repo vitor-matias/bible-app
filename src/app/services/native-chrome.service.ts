@@ -210,7 +210,8 @@ export interface NativeChromePlugin {
   showPicker(data: PassagePickerData): Promise<void>
   /**
    * The sheets say whether they were presented: not over another sheet, and
-   * then no *-closed event follows.
+   * then no *-closed event follows. One on its way out is waited for, so its
+   * *-closed comes before the answer.
    */
   showBookmarks(state: BookmarksSheetState): Promise<SheetPresented>
   /** Refreshes the bookmarks sheet if it is still open. */

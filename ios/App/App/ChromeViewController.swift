@@ -527,13 +527,47 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     // MARK: - Passage picker
 
     func presentPicker(_ data: PassagePickerData) {
-        guard presentedViewController == nil else { return }
         let picker = PassagePickerController(data: data) { [weak self] bookId, chapter in
             var payload: [String: Any] = ["bookId": bookId]
             if let chapter { payload["chapter"] = chapter }
             self?.plugin.send("goto", payload)
         }
-        present(picker, animated: true)
+        presentSheet(picker) { _ in }
+    }
+
+    // MARK: - Sheets
+
+    /// A sheet asked for while the last one was on its way out, and its answer.
+    private var waitingSheet: (sheet: UIViewController, done: (Bool) -> Void)?
+
+    /// Presents `sheet` now or, while the last one is still on its way out,
+    /// once it has gone: a note tapped just after closing the notes used to
+    /// show nothing. `done` says whether it came up. It doesn't over a sheet
+    /// that stays, nor when the reader drags the closing one back up, and a
+    /// sheet asked for later takes a waiting one's place: the web app follows
+    /// only the latest.
+    private func presentSheet(_ sheet: UIViewController, done: @escaping (Bool) -> Void) {
+        guard let current = presentedViewController else {
+            present(sheet, animated: true)
+            done(true)
+            return
+        }
+        guard current.isBeingDismissed, let coordinator = current.transitionCoordinator else {
+            done(false)
+            return
+        }
+        let waiting = waitingSheet != nil
+        waitingSheet?.done(false)
+        waitingSheet = (sheet, done)
+        guard !waiting else { return }
+        coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+            // On the next turn: UIKit lets go of the old sheet after this.
+            DispatchQueue.main.async {
+                guard let self, let next = self.waitingSheet else { return }
+                self.waitingSheet = nil
+                self.presentSheet(next.sheet, done: next.done)
+            }
+        }
     }
 
     // MARK: - Toast
@@ -611,16 +645,13 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     private(set) weak var bookmarksSheet: BookmarksController?
 
-    /// False, and nothing shown, while another sheet is up.
-    @discardableResult
-    func presentBookmarks(_ state: BookmarksSheetState) -> Bool {
-        guard presentedViewController == nil else { return false }
+    /// See `presentSheet`.
+    func presentBookmarks(_ state: BookmarksSheetState, done: @escaping (Bool) -> Void) {
         let bookmarks = BookmarksController(state: state, send: { [weak self] action, color in
             self?.plugin.send(action, ["color": color])
         }, onClose: { [weak self] in
             self?.plugin.send("bookmarks-closed")
         })
-        bookmarksSheet = bookmarks
         let sheet = UINavigationController(rootViewController: bookmarks)
         // On iPad, a popover from the bookmark button, as Apple's apps show a
         // bar button's panel there: as a sheet the eight ribbons stretched
@@ -646,25 +677,25 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             }
             controller.prefersGrabberVisible = true
         }
-        present(sheet, animated: true)
-        return true
+        presentSheet(sheet) { [weak self] presented in
+            if presented { self?.bookmarksSheet = bookmarks }
+            done(presented)
+        }
     }
 
     // A popover closes with a tap outside it, as Apple's do: no ✕ there.
     func presentationController(_ presentationController: UIPresentationController,
                                 willPresentWithAdaptiveStyle style: UIModalPresentationStyle,
                                 transitionCoordinator: UIViewControllerTransitionCoordinator?) {
-        guard let bookmarks = bookmarksSheet,
-              presentationController.presentedViewController === bookmarks.navigationController else { return }
+        guard let bookmarks = (presentationController.presentedViewController as? UINavigationController)?
+            .viewControllers.first as? BookmarksController else { return }
         bookmarks.showsClose = style != .none
     }
 
     // MARK: - Footnotes
 
-    /// False, and nothing shown, while another sheet is up.
-    @discardableResult
-    func presentFootnotes(_ state: FootnotesSheetState) -> Bool {
-        guard presentedViewController == nil else { return false }
+    /// See `presentSheet`.
+    func presentFootnotes(_ state: FootnotesSheetState, done: @escaping (Bool) -> Void) {
         let footnotes = FootnotesController(state: state, onLink: { [weak self] index in
             self?.plugin.send("footnote-link", ["index": index])
         }, onClose: { [weak self] in
@@ -679,28 +710,26 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             // Scrolling reads on at either height; the grabber resizes.
             controller.prefersScrollingExpandsWhenScrolledToEdge = false
         }
-        present(sheet, animated: true)
-        return true
+        presentSheet(sheet, done: done)
     }
 
     // MARK: - Report
 
     private(set) weak var reportSheet: ReportController?
 
-    /// False, and nothing shown, while another sheet is up.
-    @discardableResult
-    func presentReport(_ state: ReportSheetState) -> Bool {
-        guard presentedViewController == nil else { return false }
+    /// See `presentSheet`.
+    func presentReport(_ state: ReportSheetState, done: @escaping (Bool) -> Void) {
         let report = ReportController(state: state, onSubmit: { [weak self] topic, details in
             self?.plugin.send("report-submit", ["topic": topic, "details": details])
         }, onClose: { [weak self] in
             self?.plugin.send("report-closed")
         })
-        reportSheet = report
         let sheet = UINavigationController(rootViewController: report)
         sheet.modalPresentationStyle = traitCollection.horizontalSizeClass == .regular ? .formSheet : .pageSheet
-        present(sheet, animated: true)
-        return true
+        presentSheet(sheet) { [weak self] presented in
+            if presented { self?.reportSheet = report }
+            done(presented)
+        }
     }
 
     // MARK: - Onboarding
