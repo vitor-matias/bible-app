@@ -54,6 +54,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         topBar.delegate = self
         toolbar.delegate = self
         autoScrollControl.send = { [weak self] id in self?.plugin.send(id) }
+        autoScrollControl.onMoved = { [weak self] in self?.fadeAutoScrollForToast() }
         // Bar glyphs stay monochrome, like the rest of the native parts.
         topBar.tintColor = .label
         toolbar.tintColor = .label
@@ -556,6 +557,11 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private func setToastShowing(_ showing: Bool) {
         toastShowing = showing
         view.layoutIfNeeded()
+        fadeAutoScrollForToast()
+    }
+
+    /// Also once the reader drops auto-scroll's control onto a toast, or off one.
+    private func fadeAutoScrollForToast() {
         UIView.animate(withDuration: 0.25, delay: 0, options: [.beginFromCurrentState]) {
             self.autoScrollControl.alpha = self.targetAlpha(self.autoScrollControl)
         }

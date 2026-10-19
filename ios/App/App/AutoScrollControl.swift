@@ -13,6 +13,8 @@ import UIKit
 final class AutoScrollControl: UIView {
     /// The tapped control's action: auto-scroll-toggle, -slower or -faster.
     var send: ((String) -> Void)?
+    /// The reader has dropped it in a new place.
+    var onMoved: (() -> Void)?
 
     private let background: UIVisualEffectView
     private let row = UIStackView()
@@ -165,14 +167,19 @@ final class AutoScrollControl: UIView {
                            initialSpringVelocity: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
                 self.background.transform = .identity
             }
+            onMoved?()
         default:
             break
         }
     }
 
-    /// Where the glass shows, in `view`'s coordinates.
+    /// Where the glass rests, in `view`'s coordinates: not where a drag, or
+    /// the settling after one, has it for the moment.
     func glassFrame(in view: UIView) -> CGRect {
-        convert(background.frame, to: view)
+        let size = background.bounds.size
+        let resting = CGRect(x: background.center.x - size.width / 2, y: background.center.y - size.height / 2,
+                             width: size.width, height: size.height)
+        return convert(resting, to: view)
     }
 
     /// Touches outside the glass reach the page, its rounded ends' corners

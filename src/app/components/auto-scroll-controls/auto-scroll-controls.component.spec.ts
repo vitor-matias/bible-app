@@ -229,8 +229,27 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
   let playing: boolean
   let speed: number
   let page: HTMLElement
+  /** What the controls' ResizeObserver watches, and a reflow it sees. */
+  let observed: Element[]
+  let resized: () => void
+  const realResizeObserver = globalThis.ResizeObserver
 
   beforeEach(async () => {
+    observed = []
+    resized = () => {}
+    globalThis.ResizeObserver = class {
+      constructor(callback: ResizeObserverCallback) {
+        resized = () => callback([], this as unknown as ResizeObserver)
+      }
+
+      observe(target: Element): void {
+        observed.push(target)
+      }
+
+      unobserve(): void {}
+
+      disconnect(): void {}
+    } as unknown as typeof ResizeObserver
     actions = new Subject()
     nativeChrome = {
       enabled: true,
@@ -290,6 +309,10 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     fixture.detectChanges()
   })
 
+  afterEach(() => {
+    globalThis.ResizeObserver = realResizeObserver
+  })
+
   const lastState = () => nativeChrome.setAutoScroll.calls.mostRecent().args[0]
 
   it("draws no web controls; the toolbar shows them", () => {
@@ -344,6 +367,23 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     expect(lastState()).toEqual(jasmine.objectContaining({ canPlay: true }))
     actions.next({ id: "auto-scroll-toggle" })
     expect(autoScroll.start).toHaveBeenCalled()
+  })
+
+  // A reflow moves the page's end without a scroll: text added at the end,
+  // larger type, a window made smaller.
+  it("follows the page's end as it reflows", () => {
+    expect(observed).toContain(page)
+
+    page.scrollTop = 500
+    page.dispatchEvent(new Event("scroll"))
+    expect(lastState()).toEqual(jasmine.objectContaining({ canPlay: false }))
+
+    Object.defineProperty(page, "scrollHeight", {
+      value: 1500,
+      configurable: true,
+    })
+    resized()
+    expect(lastState()).toEqual(jasmine.objectContaining({ canPlay: true }))
   })
 
   it("gives the toolbar back when closed", () => {

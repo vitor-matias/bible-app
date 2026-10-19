@@ -121,7 +121,10 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     this.safeMarkForCheck()
   }
 
-  /** Keeps atEnd current as the page scrolls, or its text changes size. */
+  /**
+   * Keeps atEnd current as the page scrolls, or reflows: its text changing
+   * size, or the page itself (a window resized).
+   */
   private followEnd(): void {
     const element = this.scrollElement
     if (!element) return
@@ -141,6 +144,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
         : new ResizeObserver(update)
     this.ngZone.runOutsideAngular(() => {
       element.addEventListener("scroll", update, { passive: true })
+      resize?.observe(element)
       if (this.lineHeightElement) resize?.observe(this.lineHeightElement)
     })
     this.destroyRef.onDestroy(() => {
