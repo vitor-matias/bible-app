@@ -8,7 +8,7 @@ import Capacitor
 /// Text in the bars grows to the largest standard text size, XXXL (23 pt body
 /// text against 17), as in Apple's own bars; larger shows in the Large Content
 /// Viewer on a long press.
-private let barTextScaleLimit: CGFloat = 23 / 17
+let barTextScaleLimit: CGFloat = 23 / 17
 
 final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIToolbarDelegate,
     UIGestureRecognizerDelegate, UIPopoverPresentationControllerDelegate {
@@ -21,9 +21,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private let pageBackItem = UINavigationItem()
     private let pageItem = UINavigationItem()
     private let toolbar = UIToolbar()
-    /// Auto-scroll's controls, while ⋯ shows them: just above the toolbar, and
-    /// in its place while the bars are hidden for reading.
-    private let autoScrollBar = UIToolbar()
+    /// Auto-scroll's controls, while ⋯ shows them: in the corner just above the
+    /// toolbar, and in its place while the bars are hidden for reading.
+    private let autoScrollBar = AutoScrollControl()
     private let searchField = SearchFieldView()
     private let toast = ToastView()
     private var toastBottom: NSLayoutConstraint!
@@ -53,11 +53,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
         topBar.delegate = self
         toolbar.delegate = self
-        autoScrollBar.delegate = self
+        autoScrollBar.send = { [weak self] id in self?.plugin.send(id) }
         // Bar glyphs stay monochrome, like the rest of the native parts.
         topBar.tintColor = .label
         toolbar.tintColor = .label
-        autoScrollBar.tintColor = .label
         searchBackItem.backButtonDisplayMode = .minimal
         pageBackItem.backButtonDisplayMode = .minimal
         searchField.onSubmit = { [weak self] text in self?.plugin.send("search-submit", ["text": text]) }
@@ -92,8 +91,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         view.addLayoutGuide(bottomBars)
         // Left and right, not leading and trailing: the fold's place is physical.
         bottomBarsLeft = bottomBars.leftAnchor.constraint(equalTo: safeArea.leftAnchor)
-        let autoScrollBarWidth = autoScrollBar.widthAnchor.constraint(equalTo: bottomBars.widthAnchor)
-        autoScrollBarWidth.priority = .defaultHigh
         NSLayoutConstraint.activate([
             bottomBarsLeft,
             bottomBars.rightAnchor.constraint(equalTo: safeArea.rightAnchor),
@@ -109,14 +106,11 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             toolbar.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
             toolbar.leadingAnchor.constraint(equalTo: bottomBars.leadingAnchor),
             toolbar.trailingAnchor.constraint(equalTo: bottomBars.trailingAnchor),
-            // In the toolbar's place; lifted above it while it shows. No wider
-            // than a phone: across an iPad or an unfolded iPhone Duo its three
-            // controls drifted apart, close and play at the screen's edges.
+            // In the toolbar's place, and as tall; lifted above it while it shows.
             autoScrollBar.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
-            autoScrollBar.centerXAnchor.constraint(equalTo: bottomBars.centerXAnchor),
-            autoScrollBar.widthAnchor.constraint(lessThanOrEqualTo: bottomBars.widthAnchor),
-            autoScrollBar.widthAnchor.constraint(lessThanOrEqualToConstant: Self.autoScrollBarMaxWidth),
-            autoScrollBarWidth,
+            autoScrollBar.leadingAnchor.constraint(equalTo: bottomBars.leadingAnchor),
+            autoScrollBar.trailingAnchor.constraint(equalTo: bottomBars.trailingAnchor),
+            autoScrollBar.heightAnchor.constraint(equalTo: toolbar.heightAnchor),
             searchField.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor, constant: 16),
             searchField.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor, constant: -16),
             // Rests above the home indicator, and rides up with the keyboard.
@@ -293,27 +287,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     private lazy var passageItem = UIBarButtonItem(customView: passageButton)
 
-    private lazy var autoScrollCloseItem = barButton("xmark", "Fechar o deslocamento automático", "auto-scroll")
-    private lazy var slowerItem = barButton("minus", "Diminuir velocidade", "auto-scroll-slower")
-    private lazy var fasterItem = barButton("plus", "Aumentar velocidade", "auto-scroll-faster")
-    /// A plain bar button, like close: the bar stays monochrome.
-    private lazy var playItem = barButton("play.fill", "Iniciar", "auto-scroll-toggle")
-    /// Either side of the speed and its buttons.
-    private let autoScrollSpaces = [UIBarButtonItem.flexibleSpace(), UIBarButtonItem.flexibleSpace()]
-
-    private let speedLabel: UILabel = {
-        let label = UILabel()
-        label.font = limitedFont(.monospacedDigitSystemFont(ofSize: 15, weight: .medium), .subheadline,
-                                 limit: barTextScaleLimit)
-        label.adjustsFontForContentSizeCategory = true
-        label.showsLargeContentViewer = true
-        label.textAlignment = .center
-        label.accessibilityLabel = "Velocidade"
-        return label
-    }()
-
-    private lazy var speedItem = UIBarButtonItem(customView: speedLabel)
-
     private func configureReader(_ state: ChromeState) {
         let enabled = !state.inert
         // The same item throughout, its menu updated: replacing the item
@@ -354,7 +327,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         }
 
         if let autoScroll = state.autoScroll {
-            configureAutoScroll(autoScroll, enabled: enabled)
+            autoScrollBar.configure(autoScroll, enabled: enabled)
         }
 
         previousItem.isEnabled = enabled && state.canGoPrevious
@@ -393,24 +366,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
                                                       image: UIImage(systemName: "book")) { [weak self] _ in
                 self?.plugin.send("passage")
             }
-        }
-    }
-
-    /// Auto-scroll's controls: close, then speed, then play or pause.
-    private func configureAutoScroll(_ state: AutoScrollState, enabled: Bool) {
-        autoScrollCloseItem.isEnabled = enabled
-        slowerItem.isEnabled = enabled && state.canSlower
-        fasterItem.isEnabled = enabled && state.canFaster
-        speedLabel.text = state.speedLabel
-        speedLabel.largeContentTitle = state.speedLabel
-        speedLabel.accessibilityValue = state.speedAccessibilityLabel
-        playItem.image = UIImage(systemName: state.playing ? "pause.fill" : "play.fill")
-        playItem.title = state.playing ? "Pausar" : "Iniciar"
-        playItem.isEnabled = enabled
-        let items = [autoScrollCloseItem, autoScrollSpaces[0], slowerItem, speedItem, fasterItem,
-                     autoScrollSpaces[1], playItem]
-        if autoScrollBar.items ?? [] != items {
-            autoScrollBar.setItems(items, animated: false)
         }
     }
 
@@ -489,8 +444,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     /// Space between auto-scroll's bar and the toolbar below it.
     private static let autoScrollBarGap: CGFloat = 12
-    /// The widest iPhone's, upright.
-    private static let autoScrollBarMaxWidth: CGFloat = 440
 
     /// Above the toolbar while it shows; in its place while it's hidden.
     private var autoScrollBarOffset: CGAffineTransform {
