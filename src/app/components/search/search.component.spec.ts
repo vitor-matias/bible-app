@@ -92,6 +92,7 @@ describe("SearchComponent", () => {
   let network: { isOffline: boolean; isOffline$: BehaviorSubject<boolean> }
   let offlineSearch: jasmine.SpyObj<OfflineSearchService>
   let observerCallback: IntersectionObserverCallback | null
+  let observerOptions: IntersectionObserverInit | undefined
   /** What the live observer watches; the page keeps one at a time. */
   let observed: Element | null
   let originalIntersectionObserver: typeof IntersectionObserver | undefined
@@ -102,8 +103,12 @@ describe("SearchComponent", () => {
     scrollMargin = ""
     thresholds = [1]
 
-    constructor(callback: IntersectionObserverCallback) {
+    constructor(
+      callback: IntersectionObserverCallback,
+      options?: IntersectionObserverInit,
+    ) {
       observerCallback = callback
+      observerOptions = options
     }
 
     observe(target: Element): void {
@@ -142,6 +147,7 @@ describe("SearchComponent", () => {
     offlineSearch = jasmine.createSpyObj("OfflineSearchService", ["search"])
     offlineSearch.search.and.resolveTo(null)
     observerCallback = null
+    observerOptions = undefined
     observed = null
     originalIntersectionObserver = globalThis.IntersectionObserver
 
@@ -1101,6 +1107,22 @@ describe("SearchComponent", () => {
       expect(component.searchResults.length).toBe(120)
       expect(end()).toBeNull()
       expect(observed).toBeNull()
+    })
+
+    // iOS 27 lays the list out at fractions of a pixel: the one-pixel end,
+    // inside the list's clipped corners, showed only 58 to 83% at some
+    // lengths. Waiting for all of it (threshold 1) stopped the list at 100.
+    it("shows the next page once any of the end of the list is in view", async () => {
+      offlineSearch.search.and.resolveTo(
+        Array.from({ length: 120 }, (_, index) =>
+          stored("psa", index + 1, "Senhor"),
+        ),
+      )
+      fixture.detectChanges()
+      await component.onSearchSubmit("Senhor")
+
+      expect(observed).not.toBeNull()
+      expect(observerOptions?.threshold ?? 0).toBe(0)
     })
 
     it("says so when no Bible is stored yet", async () => {
