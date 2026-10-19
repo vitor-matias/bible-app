@@ -129,6 +129,7 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "updateBookmarks", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showFootnotes", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showToast", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "hideToast", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showReport", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "finishReport", returnType: CAPPluginReturnPromise),
     ]
@@ -175,6 +176,15 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
             if !message.isEmpty {
                 self.chrome?.showToast(message, button: button, symbol: symbol)
             }
+            call.resolve()
+        }
+    }
+
+    /// Takes the toast down early: the web app's way back once the reader has
+    /// gone back by another route.
+    @objc func hideToast(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.chrome?.hideToast()
             call.resolve()
         }
     }
