@@ -1,6 +1,10 @@
-import { TestBed } from "@angular/core/testing"
+import { fakeAsync, TestBed, tick } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
-import { AnalyticsService, labelUmamiPlatform } from "./analytics.service"
+import {
+  AnalyticsService,
+  DELIVERY_TIMEOUT_MS,
+  labelUmamiPlatform,
+} from "./analytics.service"
 import { BuildVersionService } from "./build-version.service"
 
 describe("AnalyticsService", () => {
@@ -200,6 +204,36 @@ describe("AnalyticsService", () => {
         service.trackDelivered("report_problem", {}),
       ).toBeRejected()
     })
+
+    // On a stalled connection the report form stayed "sending" (and the iOS
+    // sheet unanswered) until the OS gave up on the request.
+    it("gives up on a request that stalls", fakeAsync(() => {
+      let signal: AbortSignal | undefined
+      fetchSpy.and.callFake(
+        (_url: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            signal = init.signal ?? undefined
+            signal?.addEventListener("abort", () =>
+              reject(new DOMException("Aborted", "AbortError")),
+            )
+          }),
+      )
+      let outcome: "pending" | "sent" | "failed" = "pending"
+      service.trackDelivered("report_problem", {}).then(
+        () => {
+          outcome = "sent"
+        },
+        () => {
+          outcome = "failed"
+        },
+      )
+
+      tick(DELIVERY_TIMEOUT_MS - 1)
+      expect(outcome).toBe("pending")
+      tick(1)
+      expect(signal?.aborted).toBeTrue()
+      expect(outcome).toBe("failed")
+    }))
 
     it("rejects when the tracker isn't on the page", async () => {
       script.remove()

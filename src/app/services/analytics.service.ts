@@ -2,6 +2,12 @@ import { Injectable } from "@angular/core"
 import { Capacitor } from "@capacitor/core"
 import { BuildVersionService } from "./build-version.service"
 
+/**
+ * How long a problem report may take to reach the server before it is given
+ * up on, and the form says to try again.
+ */
+export const DELIVERY_TIMEOUT_MS = 15_000
+
 @Injectable({
   providedIn: "root",
 })
@@ -85,13 +91,22 @@ export class AnalyticsService {
     }
     if (!payload) throw new Error("Analytics dropped the event")
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "event", payload }),
-    })
-    if (!response.ok) {
-      throw new Error(`Analytics responded ${response.status}`)
+    // A stalled connection would otherwise leave the form sending until the
+    // OS gives up. Not AbortSignal.timeout, which iOS 15's WebKit lacks.
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), DELIVERY_TIMEOUT_MS)
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "event", payload }),
+        signal: controller.signal,
+      })
+      if (!response.ok) {
+        throw new Error(`Analytics responded ${response.status}`)
+      }
+    } finally {
+      clearTimeout(timeout)
     }
   }
 
