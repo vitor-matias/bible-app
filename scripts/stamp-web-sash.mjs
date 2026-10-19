@@ -1,11 +1,16 @@
-import { copyFile, readdir } from "node:fs/promises"
+import { readdir } from "node:fs/promises"
 import sharp from "sharp"
 
 // A green "WEB" sash across the top-right of the icons the website installs
-// with (the manifest's maskable icons, also the iPhone's apple-touch-icon), so
-// the installed website reads apart from the native apps on a home screen.
-// Stamped in place; a second run is a no-op. The browser tab's favicon and
+// with, so the installed website reads apart from the native apps on a home
+// screen. Writes maskable_web_icon_x<N>.png from each plain
+// maskable_icon_x<N>.png; the manifest's maskable icons and the iPhone's
+// apple-touch-icon point at the stamped copies. The browser tab's favicon and
 // the round "any" icon (also onboarding's logo) stay plain.
+//
+// New file names, not stamped originals: production serves icons as
+// immutable for a year, so an icon changed in place could stay stale in
+// browsers, and in Chrome's check for an installed app's new icon.
 //
 // Maskable icons are cropped by the launcher, which only promises the circle
 // of radius 40% around the centre, so the band sits further in than a corner
@@ -20,7 +25,6 @@ const BAND = 0.146
 const TEXT = 0.086
 
 const ICONS = "public/icons"
-const FAVICON = `${ICONS}/favicon_x128.png`
 
 function sash(size) {
   const k = 1 - DIST * Math.SQRT2 // where the line meets the top and right edges
@@ -36,38 +40,15 @@ function sash(size) {
 </svg>`)
 }
 
-/** True when the band is already there: a point on it, past the word. */
-async function isStamped(file, size) {
-  const k = 1 - DIST * Math.SQRT2
-  const along = (0.2 * size) / Math.SQRT2
-  const x = Math.round(size - (k * size) / 2 + along)
-  const y = Math.round((k * size) / 2 + along)
-  const data = await sharp(file)
-    .extract({ left: Math.min(x, size - 1), top: Math.min(y, size - 1), width: 1, height: 1 })
-    .raw()
-    .toBuffer()
-  return Math.abs(data[0] - 0x2e) < 8 && Math.abs(data[1] - 0x7d) < 8 && Math.abs(data[2] - 0x32) < 8
-}
-
-async function stamp(file) {
-  const { width } = await sharp(file).metadata()
-  if (await isStamped(file, width)) {
-    console.log(`Already stamped: ${file}`)
-    return
-  }
-  const out = await sharp(file)
+for (const name of await readdir(ICONS)) {
+  const match = /^maskable_icon_x(\d+)\.png$/.exec(name)
+  if (!match) continue
+  const source = `${ICONS}/${name}`
+  const target = `${ICONS}/maskable_web_icon_x${match[1]}.png`
+  const { width } = await sharp(source).metadata()
+  await sharp(source)
     .composite([{ input: sash(width) }])
     .png()
-    .toBuffer()
-  await sharp(out).toFile(file)
-  console.log(`Stamped ${file}`)
-}
-
-// The tab keeps the plain icon: copy it out before the first stamp.
-const plain128 = `${ICONS}/maskable_icon_x128.png`
-const { width: w128 } = await sharp(plain128).metadata()
-if (!(await isStamped(plain128, w128))) await copyFile(plain128, FAVICON)
-
-for (const name of await readdir(ICONS)) {
-  if (/^maskable_icon_x\d+\.png$/.test(name)) await stamp(`${ICONS}/${name}`)
+    .toFile(target)
+  console.log(`Wrote ${target}`)
 }
