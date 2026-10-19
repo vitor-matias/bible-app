@@ -17,6 +17,12 @@ final class AutoScrollControl: UIView {
     var onMoved: (() -> Void)?
 
     private let background: UIVisualEffectView
+    /// Carries the glass, and is what a drag moves. Interactive glass leans
+    /// toward a finger sliding off it, judged from where it sits in its
+    /// superview, its own transform left out: moved itself, it took the whole
+    /// drag for such a slide, ran ahead of the finger (about 1.4 times as far)
+    /// and snapped back on release.
+    private let mover = UIView()
     private let row = UIStackView()
     private lazy var slowerButton = button("minus", "Diminuir velocidade", "auto-scroll-slower")
     private lazy var fasterButton = button("plus", "Aumentar velocidade", "auto-scroll-faster")
@@ -54,9 +60,11 @@ final class AutoScrollControl: UIView {
                            y: defaults.object(forKey: Self.positionKeys.y) as? Double ?? 1)
         super.init(frame: .zero)
 
+        mover.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(mover)
         background.clipsToBounds = true
         background.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(background)
+        mover.addSubview(background)
         // The glyphs stop growing with the text, as a toolbar's do; a long
         // press shows them large.
         background.addInteraction(UILargeContentViewerInteraction())
@@ -75,14 +83,18 @@ final class AutoScrollControl: UIView {
         // The circle's right edge where the reader put it. Near the left side
         // the capsule is pushed right, rather than off the screen or squeezed
         // (the buttons' widths, at 999, win).
-        glassRight = background.rightAnchor.constraint(equalTo: leftAnchor)
+        glassRight = mover.rightAnchor.constraint(equalTo: leftAnchor)
         glassRight.priority = UILayoutPriority(700)
-        glassY = background.centerYAnchor.constraint(equalTo: topAnchor)
+        glassY = mover.centerYAnchor.constraint(equalTo: topAnchor)
         NSLayoutConstraint.activate([
             glassRight,
             glassY,
-            background.leftAnchor.constraint(greaterThanOrEqualTo: leftAnchor, constant: Self.margin),
-            background.rightAnchor.constraint(lessThanOrEqualTo: rightAnchor, constant: -Self.margin),
+            mover.leftAnchor.constraint(greaterThanOrEqualTo: leftAnchor, constant: Self.margin),
+            mover.rightAnchor.constraint(lessThanOrEqualTo: rightAnchor, constant: -Self.margin),
+            background.leftAnchor.constraint(equalTo: mover.leftAnchor),
+            background.rightAnchor.constraint(equalTo: mover.rightAnchor),
+            background.topAnchor.constraint(equalTo: mover.topAnchor),
+            background.bottomAnchor.constraint(equalTo: mover.bottomAnchor),
             background.heightAnchor.constraint(equalToConstant: Self.height),
             row.leadingAnchor.constraint(equalTo: background.contentView.leadingAnchor),
             row.trailingAnchor.constraint(equalTo: background.contentView.trailingAnchor),
@@ -135,7 +147,7 @@ final class AutoScrollControl: UIView {
         return CGPoint(x: range.minX + range.width * position.x, y: range.minY + range.height * position.y)
     }
 
-    /// Where play shows now, the glass's transform included.
+    /// Where play shows now, a drag's transform included.
     private var playCentre: CGPoint {
         playButton.convert(CGPoint(x: playButton.bounds.midX, y: playButton.bounds.midY), to: self)
     }
@@ -146,7 +158,7 @@ final class AutoScrollControl: UIView {
         let moved = drag.translation(in: self)
         switch drag.state {
         case .changed:
-            background.transform = CGAffineTransform(translationX: moved.x, y: moved.y)
+            mover.transform = CGAffineTransform(translationX: moved.x, y: moved.y)
         case .ended, .cancelled:
             let dropped = playCentre
             let range = circleRange
@@ -157,15 +169,15 @@ final class AutoScrollControl: UIView {
 
             // Laid out in its new place, and shown from where it was let go:
             // only a drop past the edges moves it, back inside.
-            background.transform = .identity
+            mover.transform = .identity
             setNeedsLayout()
             layoutIfNeeded()
             let placed = playCentre
-            background.transform = CGAffineTransform(translationX: dropped.x - placed.x, y: dropped.y - placed.y)
+            mover.transform = CGAffineTransform(translationX: dropped.x - placed.x, y: dropped.y - placed.y)
             let still = UIAccessibility.isReduceMotionEnabled
             UIView.animate(withDuration: 0.4, delay: 0, usingSpringWithDamping: still ? 1 : 0.8,
                            initialSpringVelocity: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
-                self.background.transform = .identity
+                self.mover.transform = .identity
             }
             onMoved?()
         default:
@@ -176,8 +188,8 @@ final class AutoScrollControl: UIView {
     /// Where the glass rests, in `view`'s coordinates: not where a drag, or
     /// the settling after one, has it for the moment.
     func glassFrame(in view: UIView) -> CGRect {
-        let size = background.bounds.size
-        let resting = CGRect(x: background.center.x - size.width / 2, y: background.center.y - size.height / 2,
+        let size = mover.bounds.size
+        let resting = CGRect(x: mover.center.x - size.width / 2, y: mover.center.y - size.height / 2,
                              width: size.width, height: size.height)
         return convert(resting, to: view)
     }
@@ -185,7 +197,7 @@ final class AutoScrollControl: UIView {
     /// Touches outside the glass reach the page, its rounded ends' corners
     /// included: clipping draws the circle, but hit-testing is by rectangle.
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        let inGlass = UIBezierPath(roundedRect: background.frame, cornerRadius: Self.height / 2)
+        let inGlass = UIBezierPath(roundedRect: mover.frame, cornerRadius: Self.height / 2)
         guard inGlass.contains(point) else { return nil }
         return super.hitTest(point, with: event)
     }
