@@ -100,8 +100,8 @@ export interface TitledPageChrome {
 export type PageChrome = ReaderChrome | SearchChrome | TitledPageChrome
 
 /**
- * Auto-scroll's controls: a play button in the bottom corner, which grows into
- * a capsule with the speed while playing.
+ * Auto-scroll's controls: a play button floating over the text, where the
+ * reader drags it, which grows into a capsule with the speed while playing.
  */
 export interface AutoScrollChrome {
   playing: boolean
@@ -287,8 +287,6 @@ export class NativeChromeService {
   private lastSent?: string
   /** The shell says whether its bars did hide (ChromeInsets.collapsed). */
   private collapseReported = false
-  /** The page trackScroll follows: kept at its end as the bottom bars grow. */
-  private scroller?: HTMLElement
 
   /** True in the iOS app, whose shell provides the NativeChrome plugin. */
   readonly enabled =
@@ -447,7 +445,6 @@ export class NativeChromeService {
    */
   trackScroll(element: HTMLElement): () => void {
     if (!this.enabled) return () => {}
-    this.scroller = element
     let lastTop = element.scrollTop
     let anchor = lastTop
     let direction = 0
@@ -464,7 +461,8 @@ export class NativeChromeService {
         anchor = lastTop
       }
       lastTop = top
-      const atEnd = top <= 0 || scrolledToEnd(element)
+      const atEnd =
+        top <= 0 || top + element.clientHeight >= element.scrollHeight - 1
       if (performance.now() - lastTouch > USER_SCROLL_WINDOW_MS) {
         // Not the reader's scroll: start measuring afresh from here.
         anchor = top
@@ -504,7 +502,6 @@ export class NativeChromeService {
       for (const event of events) element.removeEventListener(event, onTouch)
       element.removeEventListener("pointerdown", onPointerDown)
       element.removeEventListener("click", onClick)
-      if (this.scroller === element) this.scroller = undefined
       this.setCollapsed(false)
     }
   }
@@ -550,8 +547,7 @@ export class NativeChromeService {
           ...this.requested,
           inert: this.modalOpen,
           // While auto-scroll plays, its controls stay within reach as the
-          // bars hide: the shell moves them into the toolbar's place. Paused,
-          // its play button hides with the bars.
+          // bars hide; paused, its play button hides with them.
           collapsed: reader && (this.modalOpen || this.collapsed),
           autoScroll: reader ? this.autoScroll : null,
         }
@@ -581,24 +577,13 @@ export class NativeChromeService {
 
   private applyInsets({ top, bottom, collapsed }: ChromeInsets): void {
     const style = this.document.documentElement.style
-    // A page read to its end stays there as the bottom bars grow under it
-    // (auto-scroll stopping at the end brings its play button back above the
-    // toolbar), rather than its last lines going under them.
-    const scroller = this.scroller
-    const atEnd = scroller !== undefined && scrolledToEnd(scroller)
     style.setProperty("--native-chrome-top", `${top}px`)
     style.setProperty("--native-chrome-bottom", `${bottom}px`)
-    if (atEnd) scroller.scrollTop = scroller.scrollHeight
     if (collapsed !== undefined) {
       this.collapseReported = true
       this.document.body.classList.toggle("native-chrome-collapsed", collapsed)
     }
   }
-}
-
-/** Scrolled down as far as it goes, to the pixel (WebKit rounds). */
-function scrolledToEnd(element: HTMLElement): boolean {
-  return element.scrollTop + element.clientHeight >= element.scrollHeight - 1
 }
 
 /** A sheet call's answer as a boolean; a failed call showed nothing. */
