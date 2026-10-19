@@ -105,12 +105,17 @@ export type PageChrome = ReaderChrome | SearchChrome | TitledPageChrome
  */
 export interface AutoScrollChrome {
   playing: boolean
-  /** Just the number, "1/2", "1.25": the capsule has no room for a unit. */
+  /**
+   * Just the number, "1/2", "1.25". The iOS app shows none: only VoiceOver
+   * says the speed, in words (speedAccessibilityLabel).
+   */
   speedLabel: string
   /** In words, for VoiceOver: "1,5 linhas por segundo". */
   speedAccessibilityLabel: string
   canSlower: boolean
   canFaster: boolean
+  /** False at the page's end, where there's nothing left to play. */
+  canPlay: boolean
 }
 
 /** Mirrors ChromeState in ios/App/App/NativeChrome.swift. */
