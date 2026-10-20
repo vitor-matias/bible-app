@@ -783,6 +783,8 @@ export class SearchComponent {
     // new ones too; one rendered anew is watched as Angular sets it.
     this.attachObserverToSentinel()
     this.scrollToTop()
+    // New results start at the top: a place noted in the last ones isn't theirs.
+    this.scrolledTo = 0
     this.keepQueryInUrl(text)
   }
 

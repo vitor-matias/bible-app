@@ -32,6 +32,7 @@ import {
 } from "../../services/native-chrome.service"
 import { NetworkService } from "../../services/network.service"
 import { OfflineSearchService } from "../../services/offline-search.service"
+import { SearchMemoryService } from "../../services/search-memory.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { contrastRatio } from "../../testing/contrast"
@@ -998,6 +999,28 @@ describe("SearchComponent", () => {
       await searching
 
       expect(location.replaceState).not.toHaveBeenCalled()
+    })
+
+    // Leaving without a click (Android's back button, iOS's native Back) kept
+    // the place noted in the previous results for the new ones.
+    it("keeps no place from a previous search", async () => {
+      document.documentElement.style.setProperty("--app-inset-bottom", "0px")
+      fixture.detectChanges()
+      await component.onSearchSubmit("bom pastor")
+      fixture.detectChanges()
+      const list = fixture.nativeElement.querySelector(
+        ".results-section",
+      ) as HTMLElement
+      list.scrollTop = 300
+      ;(fixture.nativeElement as HTMLElement).click()
+
+      await component.onSearchSubmit("luz")
+      fixture.destroy()
+
+      expect(TestBed.inject(SearchMemoryService).last).toEqual(
+        jasmine.objectContaining({ term: "luz", scrollTop: 0 }),
+      )
+      document.documentElement.style.removeProperty("--app-inset-bottom")
     })
 
     it("searches again for a query it didn't keep", async () => {
