@@ -96,8 +96,11 @@ export class NativeFootnotesService {
         ) ?? 100) / 100,
       notes,
     }
+    // Until this sheet is up, a footnotes-closed is the last one's: the
+    // shell waits for a sheet on its way out to go before presenting.
+    let presented = false
     const session = this.nativeChrome.actions$.subscribe((action) => {
-      if (action.id === "footnotes-closed") session.unsubscribe()
+      if (action.id === "footnotes-closed" && presented) session.unsubscribe()
       if (action.id !== "footnote-link") return
       const link = links[action.index]
       if (!link) return
@@ -110,8 +113,9 @@ export class NativeFootnotesService {
     this.session = session
     // Over another sheet none comes up, and no footnotes-closed would end
     // this.
-    void this.nativeChrome.showFootnotes(state).then((presented) => {
-      if (!presented) session.unsubscribe()
+    void this.nativeChrome.showFootnotes(state).then((up) => {
+      presented = up
+      if (!up) session.unsubscribe()
     })
   }
 

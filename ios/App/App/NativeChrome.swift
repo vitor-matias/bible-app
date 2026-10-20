@@ -96,7 +96,7 @@ struct ChromeState: Equatable {
     }
 }
 
-/// Auto-scroll's controls, which take over the reader's toolbar while shown.
+/// Auto-scroll's controls, floating over the text while shown.
 struct AutoScrollState: Equatable {
     var playing: Bool
     var speedLabel: String
@@ -104,6 +104,8 @@ struct AutoScrollState: Equatable {
     var speedAccessibilityLabel: String
     var canSlower: Bool
     var canFaster: Bool
+    /// False at the page's end, where there's nothing left to play.
+    var canPlay: Bool
 
     init(_ object: JSObject) {
         playing = object["playing"] as? Bool ?? false
@@ -111,6 +113,7 @@ struct AutoScrollState: Equatable {
         speedAccessibilityLabel = object["speedAccessibilityLabel"] as? String ?? speedLabel
         canSlower = object["canSlower"] as? Bool ?? false
         canFaster = object["canFaster"] as? Bool ?? false
+        canPlay = object["canPlay"] as? Bool ?? true
     }
 }
 
@@ -126,6 +129,7 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "updateBookmarks", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showFootnotes", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showToast", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "hideToast", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showReport", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "finishReport", returnType: CAPPluginReturnPromise),
     ]
@@ -155,12 +159,18 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     /// The sheets resolve with whether they were presented: not over another
-    /// sheet, and then no closing event follows.
+    /// sheet, and then no closing event follows. One on its way out is waited
+    /// for, so its closing event comes first.
     @objc func showBookmarks(_ call: CAPPluginCall) {
         let state = BookmarksSheetState(call)
         DispatchQueue.main.async {
-            let presented = self.chrome?.presentBookmarks(state) ?? false
-            call.resolve(["presented": presented])
+            guard let chrome = self.chrome else {
+                call.resolve(["presented": false])
+                return
+            }
+            chrome.presentBookmarks(state) { presented in
+                call.resolve(["presented": presented])
+            }
         }
     }
 
@@ -176,11 +186,25 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    /// Takes the toast down early: the web app's way back once the reader has
+    /// gone back by another route.
+    @objc func hideToast(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.chrome?.hideToast()
+            call.resolve()
+        }
+    }
+
     @objc func showReport(_ call: CAPPluginCall) {
         let state = ReportSheetState(call)
         DispatchQueue.main.async {
-            let presented = self.chrome?.presentReport(state) ?? false
-            call.resolve(["presented": presented])
+            guard let chrome = self.chrome else {
+                call.resolve(["presented": false])
+                return
+            }
+            chrome.presentReport(state) { presented in
+                call.resolve(["presented": presented])
+            }
         }
     }
 
@@ -197,8 +221,13 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func showFootnotes(_ call: CAPPluginCall) {
         let state = FootnotesSheetState(call)
         DispatchQueue.main.async {
-            let presented = self.chrome?.presentFootnotes(state) ?? false
-            call.resolve(["presented": presented])
+            guard let chrome = self.chrome else {
+                call.resolve(["presented": false])
+                return
+            }
+            chrome.presentFootnotes(state) { presented in
+                call.resolve(["presented": presented])
+            }
         }
     }
 

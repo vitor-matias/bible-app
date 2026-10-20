@@ -23,8 +23,11 @@ export class NativeReportService {
 
   open(book: Book, chapter: number): void {
     this.session?.unsubscribe()
+    // Until this sheet is up, a report-closed is the last one's: the shell
+    // waits for a sheet on its way out to go before presenting.
+    let presented = false
     const session = this.nativeChrome.actions$.subscribe((action) => {
-      if (action.id === "report-closed") session.unsubscribe()
+      if (action.id === "report-closed" && presented) session.unsubscribe()
       if (action.id !== "report-submit") return
       this.reports
         .send({
@@ -57,8 +60,9 @@ export class NativeReportService {
           "Descreva o problema (ex: falta uma vírgula após a palavra 'Deus')...",
         maxLength: PROBLEM_DETAILS_MAX_LENGTH,
       })
-      .then((presented) => {
-        if (!presented) session.unsubscribe()
+      .then((up) => {
+        presented = up
+        if (!up) session.unsubscribe()
       })
   }
 }

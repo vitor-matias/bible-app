@@ -30,6 +30,8 @@ import {
   ONBOARDING_STEPS,
   type OnboardingStep,
   PLATFORM_OPTIONS,
+  type TextSegment,
+  textSegments,
 } from "./onboarding-content"
 
 export type OnboardingSource = "first_launch" | "menu"
@@ -89,6 +91,11 @@ export class OnboardingComponent {
     pwaInstallService.canPromptInstall$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.cdr.markForCheck())
+  }
+
+  /** A step's text split around its inline [[icon]] markers. */
+  segments(text: string): readonly TextSegment[] {
+    return textSegments(text)
   }
 
   get step(): OnboardingStep {

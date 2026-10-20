@@ -94,15 +94,24 @@
         <mat-icon aria-hidden="true">{{ guideStep.icon }}</mat-icon>
         <span>
           @if (guideStep.label) {
-          <b>{{ guideStep.label }}:</b>
+          <b>{{ guideStep.label }}: </b>
           }
-          {{ guideStep.text }}
+          <ng-container [ngTemplateOutlet]="richText" [ngTemplateOutletContext]="{ $implicit: guideStep.text }" />
         </span>
       </li>
       }
     </ol>
     @if (guide.note) {
-    <p class="note">{{ guide.note }}</p>
+    <p class="note"><ng-container [ngTemplateOutlet]="richText" [ngTemplateOutletContext]="{ $implicit: guide.note }" /></p>
     }
+  }
+</ng-template>
+
+<!-- A step's text, with [[icon]] markers drawn as the browser's own button. -->
+<ng-template #richText let-text>
+  @for (segment of segments(text); track $index) {
+    @if (segment.kind === 'icon') {
+    <mat-icon class="inline-icon" aria-hidden="true">{{ segment.icon }}</mat-icon><span class="visually-hidden">{{ segment.label }}</span>
+    } @else {<span>{{ segment.text }}</span>}
   }
 </ng-template>

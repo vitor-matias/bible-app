@@ -34,6 +34,7 @@ import { NetworkService } from "../../services/network.service"
 import { OfflineSearchService } from "../../services/offline-search.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
+import { contrastRatio } from "../../testing/contrast"
 import { firstLine, SearchComponent, TYPING_PAUSE_MS } from "./search.component"
 
 // How the edition sets Psalm 23,1 and 94,1.
@@ -91,6 +92,9 @@ describe("SearchComponent", () => {
   let network: { isOffline: boolean; isOffline$: BehaviorSubject<boolean> }
   let offlineSearch: jasmine.SpyObj<OfflineSearchService>
   let observerCallback: IntersectionObserverCallback | null
+  let observerOptions: IntersectionObserverInit | undefined
+  /** What the live observer watches; the page keeps one at a time. */
+  let observed: Element | null
   let originalIntersectionObserver: typeof IntersectionObserver | undefined
 
   class MockIntersectionObserver implements IntersectionObserver {
@@ -99,15 +103,23 @@ describe("SearchComponent", () => {
     scrollMargin = ""
     thresholds = [1]
 
-    constructor(callback: IntersectionObserverCallback) {
+    constructor(
+      callback: IntersectionObserverCallback,
+      options?: IntersectionObserverInit,
+    ) {
       observerCallback = callback
+      observerOptions = options
     }
 
-    observe(_target: Element): void {}
+    observe(target: Element): void {
+      observed = target
+    }
 
     unobserve(_target: Element): void {}
 
-    disconnect(): void {}
+    disconnect(): void {
+      observed = null
+    }
 
     takeRecords(): IntersectionObserverEntry[] {
       return []
@@ -135,6 +147,8 @@ describe("SearchComponent", () => {
     offlineSearch = jasmine.createSpyObj("OfflineSearchService", ["search"])
     offlineSearch.search.and.resolveTo(null)
     observerCallback = null
+    observerOptions = undefined
+    observed = null
     originalIntersectionObserver = globalThis.IntersectionObserver
 
     globalThis.IntersectionObserver =
@@ -625,7 +639,6 @@ describe("SearchComponent", () => {
     component.sentinel = {
       nativeElement: document.createElement("div"),
     } as SearchComponent["sentinel"]
-    component.ngAfterViewInit()
 
     const callback = observerCallback
     if (!callback) {
@@ -706,7 +719,6 @@ describe("SearchComponent", () => {
     component.sentinel = {
       nativeElement: document.createElement("div"),
     } as SearchComponent["sentinel"]
-    component.ngAfterViewInit()
 
     const callback = observerCallback
     expect(callback).toBeDefined()
@@ -1064,6 +1076,55 @@ describe("SearchComponent", () => {
       expect(component.searchResults.length).toBe(100)
     })
 
+    // The native search field (NativeChromeService) marks nothing for
+    // checking: only the page's own detectChanges() renders the results. The
+    // end of the list went unwatched, and the list stopped at its first page.
+    it("watches the end of the list from the first page, without a check from above", async () => {
+      offlineSearch.search.and.resolveTo(
+        Array.from({ length: 120 }, (_, index) =>
+          stored("psa", index + 1, "Senhor"),
+        ),
+      )
+      fixture.detectChanges()
+      await component.onSearchSubmit("Senhor")
+
+      const end = () =>
+        (fixture.nativeElement as HTMLElement).querySelector(".sentinel")
+      expect(end()).not.toBeNull()
+      expect(observed).toBe(end())
+
+      const scrollToEnd = () =>
+        observerCallback?.(
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        )
+      scrollToEnd()
+      expect(component.searchResults.length).toBe(100)
+      expect(observed).toBe(end())
+
+      // The last page: nothing left to watch for.
+      scrollToEnd()
+      expect(component.searchResults.length).toBe(120)
+      expect(end()).toBeNull()
+      expect(observed).toBeNull()
+    })
+
+    // iOS 27 lays the list out at fractions of a pixel: the one-pixel end,
+    // inside the list's clipped corners, showed only 58 to 83% at some
+    // lengths. Waiting for all of it (threshold 1) stopped the list at 100.
+    it("shows the next page once any of the end of the list is in view", async () => {
+      offlineSearch.search.and.resolveTo(
+        Array.from({ length: 120 }, (_, index) =>
+          stored("psa", index + 1, "Senhor"),
+        ),
+      )
+      fixture.detectChanges()
+      await component.onSearchSubmit("Senhor")
+
+      expect(observed).not.toBeNull()
+      expect(observerOptions?.threshold ?? 0).toBe(0)
+    })
+
     it("says so when no Bible is stored yet", async () => {
       offlineSearch.search.and.resolveTo(null)
       await component.onSearchSubmit("luz")
@@ -1201,6 +1262,61 @@ describe("SearchComponent", () => {
         "Lucas 2,32",
         "Salmo 136 (135),7",
       ])
+    })
+
+    describe("the matched words", () => {
+      const root = document.documentElement
+      let wasDark: boolean
+
+      // ThemeService has already followed the machine's own scheme.
+      beforeEach(() => {
+        wasDark = root.classList.contains("dark-theme")
+        root.classList.remove("dark-theme")
+      })
+
+      afterEach(() => {
+        root.classList.toggle("dark-theme", wasDark)
+        document.body.classList.remove("native-chrome")
+      })
+
+      const match = () =>
+        getComputedStyle(
+          (fixture.nativeElement as HTMLElement).querySelector(
+            ".search-highlight",
+          ) as HTMLElement,
+        )
+
+      // Read from a probe: the card's own background is still transitioning.
+      const cardBackground = () => {
+        const probe = document.createElement("span")
+        probe.style.backgroundColor = "var(--card-background)"
+        document.body.appendChild(probe)
+        const color = getComputedStyle(probe).backgroundColor
+        probe.remove()
+        return color
+      }
+
+      it("keep the light theme's antiquewhite", () => {
+        expect(match().backgroundColor).toBe("rgb(250, 235, 215)")
+      })
+
+      // White on darkgrey, 2.3:1, was hard to read at night.
+      it("stay readable in the dark theme (WCAG AA)", () => {
+        root.classList.add("dark-theme")
+        const { color, backgroundColor } = match()
+
+        expect(
+          contrastRatio(color, backgroundColor, cardBackground()),
+        ).toBeGreaterThanOrEqual(4.5)
+      })
+
+      it("stay bold on no fill in the iOS app's dark theme", () => {
+        root.classList.add("dark-theme")
+        document.body.classList.add("native-chrome")
+
+        expect(match().backgroundColor).toBe("rgba(0, 0, 0, 0)")
+        expect(match().fontWeight).toBe("700")
+      })
     })
   })
 

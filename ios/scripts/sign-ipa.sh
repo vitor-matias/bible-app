@@ -27,8 +27,25 @@ cp "$PROFILE" "$WORK/Payload/App.app/embedded.mobileprovision"
 security cms -D -i "$PROFILE" > "$WORK/profile.plist"
 APP_ID=$(plutil -extract Entitlements.application-identifier raw -o - "$WORK/profile.plist")
 TEAM_ID=$(plutil -extract TeamIdentifier.0 raw -o - "$WORK/profile.plist")
-IDENTITY=$(plutil -extract DeveloperCertificates.0 raw -o - "$WORK/profile.plist" |
-  base64 --decode | shasum -a 1 | cut -d ' ' -f 1 | tr 'a-f' 'A-F')
+
+# A profile can list more than one certificate (the old and the new while
+# one is renewed): sign with the first whose identity is in the keychain.
+KEYCHAIN_IDENTITIES=$(security find-identity -v -p codesigning "$KEYCHAIN" |
+  awk '{ print toupper($2) }')
+IDENTITY=
+INDEX=0
+while CERT=$(plutil -extract "DeveloperCertificates.$INDEX" raw -o - "$WORK/profile.plist" 2> /dev/null); do
+  SHA1=$(printf '%s' "$CERT" | base64 --decode | shasum -a 1 | cut -d ' ' -f 1 | tr 'a-f' 'A-F')
+  if printf '%s\n' "$KEYCHAIN_IDENTITIES" | grep -qxF "$SHA1"; then
+    IDENTITY=$SHA1
+    break
+  fi
+  INDEX=$((INDEX + 1))
+done
+if [ -z "$IDENTITY" ]; then
+  echo "None of the profile's $INDEX certificate(s) has a signing identity in $KEYCHAIN." >&2
+  exit 1
+fi
 
 cat > "$WORK/entitlements.plist" << EOF
 <?xml version="1.0" encoding="UTF-8"?>

@@ -151,8 +151,21 @@ export class SearchComponent {
   readonly nothingStoredMessage = NOTHING_STORED
   private observer: IntersectionObserver | null = null
 
-  @ViewChild("sentinel", { static: false }) sentinel!: ElementRef
-  private lastSentinel: Element | null = null
+  /**
+   * The end of the list, watched for the next page. Angular sets it whenever
+   * the element comes or goes, also in this page's own detectChanges(). The
+   * native search field (NativeChromeService) marks nothing for checking, so
+   * a hook such as ngAfterViewChecked never ran after its results showed,
+   * and the list stopped at its first page.
+   */
+  @ViewChild("sentinel")
+  set sentinel(sentinel: ElementRef<Element> | undefined) {
+    const element = sentinel?.nativeElement ?? null
+    if (element === this.sentinelElement) return
+    this.sentinelElement = element
+    this.attachObserverToSentinel()
+  }
+  private sentinelElement: Element | null = null
   private queryParamSubscription?: Subscription
   /** Guards against re-running the same shared query on unrelated emissions. */
   private lastSharedQuery: string | null = null
@@ -243,17 +256,6 @@ export class SearchComponent {
         void this.onSearchSubmit(sharedQuery)
       },
     )
-  }
-
-  ngAfterViewInit(): void {
-    this.attachObserverToSentinel()
-  }
-
-  ngAfterViewChecked(): void {
-    // If the sentinel element has changed (e.g., after new search), re-attach observer
-    if (this.sentinel && this.sentinel.nativeElement !== this.lastSentinel) {
-      this.attachObserverToSentinel()
-    }
   }
 
   ngOnDestroy(): void {
@@ -385,22 +387,27 @@ export class SearchComponent {
     })
   }
 
+  /**
+   * Watches the end of the list afresh: a new observer reports at once
+   * whether the end is in view, which an end that stayed in view while a
+   * page was added would otherwise never report again. Any of it in view
+   * counts: iOS 27 lays the list out at fractions of a pixel, and the
+   * one-pixel end, inside the list's clipped corners, may never show whole
+   * (58 to 83% at some lengths), which stopped the list at 100 verses.
+   */
   private attachObserverToSentinel() {
-    if (this.observer) {
-      this.observer.disconnect()
-    }
-    if (this.sentinel) {
-      this.observer = new IntersectionObserver(
-        (entries) => {
-          if (entries[0].isIntersecting && !this.isLoading) {
-            this.loadMoreResults()
-          }
-        },
-        { threshold: 1.0 },
-      )
-      this.observer.observe(this.sentinel.nativeElement)
-      this.lastSentinel = this.sentinel.nativeElement
-    }
+    this.observer?.disconnect()
+    this.observer = null
+    if (!this.sentinelElement) return
+    this.observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !this.isLoading) {
+          this.loadMoreResults()
+        }
+      },
+      { threshold: 0 },
+    )
+    this.observer.observe(this.sentinelElement)
   }
 
   private async loadMoreResults() {
@@ -659,8 +666,8 @@ export class SearchComponent {
     ) {
       document.activeElement.blur()
     }
-    // The sentinel node is recreated when results change, so rebind the observer
-    // after each fresh search result set.
+    // An end of the list kept from the last results may be in view of the
+    // new ones too; one rendered anew is watched as Angular sets it.
     this.attachObserverToSentinel()
     this.scrollToTop()
   }

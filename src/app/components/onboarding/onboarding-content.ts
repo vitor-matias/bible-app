@@ -34,6 +34,45 @@ export interface InstallGuide {
   note?: string
 }
 
+/** A run of a step's text: words, or a browser button drawn as its icon. */
+export type TextSegment =
+  | { kind: "text"; text: string }
+  | { kind: "icon"; icon: string; label: string }
+
+/**
+ * Browser buttons a step can show as their icon, written [[icon]] in its
+ * text, with the name a screen reader says instead.
+ */
+const INLINE_ICONS: Readonly<Record<string, string>> = {
+  ios_share: "Partilhar",
+  menu: "menu",
+}
+
+const INLINE_ICON = /\[\[([a-z_]+)\]\]/g
+const segmentCache = new Map<string, readonly TextSegment[]>()
+
+/** Splits a step's text around its [[icon]] markers. */
+export function textSegments(text: string): readonly TextSegment[] {
+  const cached = segmentCache.get(text)
+  if (cached) return cached
+  const segments: TextSegment[] = []
+  let last = 0
+  for (const match of text.matchAll(INLINE_ICON)) {
+    const icon = match[1]
+    const label = INLINE_ICONS[icon]
+    if (!label) continue
+    if (match.index > last) {
+      segments.push({ kind: "text", text: text.slice(last, match.index) })
+    }
+    segments.push({ kind: "icon", icon, label })
+    last = match.index + match[0].length
+  }
+  if (last < text.length)
+    segments.push({ kind: "text", text: text.slice(last) })
+  segmentCache.set(text, segments)
+  return segments
+}
+
 export interface PlatformOption {
   id: InstallPlatform
   icon: string
@@ -165,6 +204,10 @@ const CONFIRM_MOBILE: InstallGuideStep = {
   text: "Confirme em «Instalar». O ícone da Bíblia aparece no ecrã principal.",
 }
 
+// Chrome's menu item has been «Instale e crie um atalho» since mid-2026;
+// earlier versions say «Instalar aplicação» or «Adicionar ao ecrã principal».
+// Either way it then offers «Instalar» or «Criar atalho», and a shortcut only
+// opens the page in Chrome.
 const ANDROID_CHROME: InstallGuide = {
   steps: [
     {
@@ -173,9 +216,12 @@ const ANDROID_CHROME: InstallGuide = {
     },
     {
       icon: "install_mobile",
-      text: "Escolha «Instalar aplicação» ou «Adicionar ao ecrã principal».",
+      text: "Escolha «Instale e crie um atalho» (em versões anteriores, «Instalar aplicação» ou «Adicionar ao ecrã principal»).",
     },
-    CONFIRM_MOBILE,
+    {
+      icon: "check_circle",
+      text: "Escolha «Instalar», não «Criar atalho». O ícone da Bíblia aparece no ecrã principal.",
+    },
   ],
 }
 
@@ -207,30 +253,38 @@ const ANDROID_EDGE: InstallGuide = {
   ],
 }
 
+// Since iOS 26 the iPhone's Safari keeps Share in the ≡ menu of the address
+// bar, unless the tabs are laid out at the bottom or top, which (like older
+// iOS and the iPad) still show a Share button. The share sheet may hide
+// «Adicionar ao ecrã principal» behind «Ver mais», and only iOS 26 or later
+// offers «Abrir como aplicação web».
 const IOS_SAFARI: InstallGuide = {
   steps: [
     {
-      icon: "ios_share",
-      text: "Toque no botão Partilhar (o quadrado com uma seta para cima), na barra do Safari.",
+      icon: "menu",
+      text: "Na barra de endereço do Safari, toque em [[menu]] e depois em «Partilhar». Se vir [[ios_share]] na barra do Safari, toque diretamente nesse botão.",
     },
     {
       icon: "add_box",
-      text: "Deslize as opções para baixo e escolha «Adicionar ao ecrã principal».",
+      text: "Desça na lista e escolha «Adicionar ao ecrã principal» (se não a vir, toque em «Ver mais»).",
     },
     {
       icon: "check_circle",
-      text: "Toque em «Adicionar», no canto superior direito.",
+      text: "Se aparecer a opção «Abrir como aplicação web», confirme que está ligada. Toque em «Adicionar», no canto superior direito.",
     },
   ],
-  note: "No iPad, o botão Partilhar fica no topo, junto à barra de endereço.",
+  note: "No iPad, toque diretamente em [[ios_share]], no canto superior direito do Safari.",
 }
 
 const IOS_OTHER: InstallGuide = {
   steps: [
-    { icon: "ios_share", text: "Toque no botão Partilhar do navegador." },
+    {
+      icon: "ios_share",
+      text: "Toque em [[ios_share]] (Partilhar) no navegador.",
+    },
     {
       icon: "add_box",
-      text: "Escolha «Adicionar ao ecrã principal» (disponível a partir do iOS 16.4).",
+      text: "Escolha «Adicionar ao ecrã principal», tocando em «Ver mais» se não a vir (disponível a partir do iOS 16.4).",
     },
     { icon: "check_circle", text: "Toque em «Adicionar»." },
   ],
@@ -250,28 +304,32 @@ const DESKTOP_BROWSER_STEPS: Record<DesktopBrowser, InstallGuideStep> = {
   chrome: {
     label: "Chrome",
     icon: "install_desktop",
-    text: "Clique no ícone de instalação, no lado direito da barra de endereço, ou abra o menu ⋮ → «Transmitir, guardar e partilhar» → «Instalar página como aplicação…».",
+    text: "Clique no ícone de instalação, no lado direito da barra de endereço, ou abra o menu ⋮ → «Transmitir, guardar e partilhar» → «Instalar página como app…».",
   },
   edge: {
     label: "Edge",
     icon: "install_desktop",
-    text: "Clique no ícone de instalação na barra de endereço, ou abra o menu ⋯ → «Aplicações» → «Instalar este site como uma aplicação».",
+    text: "Clique no ícone de instalação na barra de endereço, ou abra o menu ⋯ («Definições e muito mais») → «Aplicações» → «Instale este site como uma aplicação». Em algumas versões, «Aplicações» está dentro de «Mais ferramentas».",
   },
   safari: {
     label: "Safari (macOS 14 ou superior)",
     icon: "ios_share",
-    text: "Clique no botão Partilhar (ou no menu Ficheiro) e escolha «Adicionar à Dock».",
+    text: "Clique em [[ios_share]] (ou no menu Ficheiro) e escolha «Adicionar à Dock».",
   },
+  // Web apps arrived in Firefox 143 for Windows only (150 for the Microsoft
+  // Store build); macOS and Linux still have none. The address-bar button
+  // installs at once, without asking.
   firefox: {
     label: "Firefox",
-    icon: "info",
-    text: "Não suporta a instalação de aplicações web. Instale a partir do Chrome, Edge ou Safari, ou continue a ler no Firefox, incluindo sem ligação.",
+    icon: "install_desktop",
+    text: "No Windows (Firefox 143 ou superior; 150 ou superior se o instalou a partir da Microsoft Store), clique no botão de aplicações web, na barra de endereço, para fixar a Bíblia na barra de tarefas. No macOS e no Linux, o Firefox não instala aplicações web: use o Chrome, o Edge ou o Safari, ou continue a ler no Firefox, incluindo sem ligação.",
   },
 }
 
+// Firefox installs without a confirmation, so this one is conditional.
 const CONFIRM_DESKTOP: InstallGuideStep = {
   icon: "check_circle",
-  text: "Confirme em «Instalar» (ou «Adicionar»). A Bíblia passa a abrir numa janela própria, como qualquer outra aplicação.",
+  text: "Se o navegador pedir, confirme em «Instalar» (ou «Adicionar»). A Bíblia passa a abrir numa janela própria, como qualquer outra aplicação.",
 }
 
 /** Desktop users often have several browsers, so list them all, theirs first. */
