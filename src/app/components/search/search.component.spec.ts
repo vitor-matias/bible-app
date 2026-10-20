@@ -1,5 +1,5 @@
 import { Location } from "@angular/common"
-import { NO_ERRORS_SCHEMA } from "@angular/core"
+import { ApplicationRef, NO_ERRORS_SCHEMA } from "@angular/core"
 import {
   ComponentFixture,
   fakeAsync,
@@ -91,6 +91,7 @@ describe("SearchComponent", () => {
   let seoService: jasmine.SpyObj<SeoService>
   let network: { isOffline: boolean; isOffline$: BehaviorSubject<boolean> }
   let offlineSearch: jasmine.SpyObj<OfflineSearchService>
+  let location: jasmine.SpyObj<Location>
   let observerCallback: IntersectionObserverCallback | null
   let observerOptions: IntersectionObserverInit | undefined
   /** What the live observer watches; the page keeps one at a time. */
@@ -131,7 +132,17 @@ describe("SearchComponent", () => {
     referenceService = jasmine.createSpyObj("BibleReferenceService", [
       "extract",
     ])
-    bookService = jasmine.createSpyObj("BookService", ["findBook"])
+    bookService = jasmine.createSpyObj("BookService", [
+      "findBook",
+      "findTypedBook",
+    ])
+    // As BookService does it: the book findBook finds, but never the About
+    // page it falls back to, nor an introduction.
+    bookService.findTypedBook.and.callFake((text: string) => {
+      const book = bookService.findBook(text)
+      return book && !book.introSlug && book.id !== "about" ? book : undefined
+    })
+    location = jasmine.createSpyObj("Location", ["back", "replaceState"])
     snackBar = jasmine.createSpyObj("MatSnackBar", ["open"])
     router = jasmine.createSpyObj("Router", ["navigate"])
     router.navigate.and.resolveTo(true)
@@ -167,6 +178,7 @@ describe("SearchComponent", () => {
         { provide: SeoService, useValue: seoService },
         { provide: NetworkService, useValue: network },
         { provide: OfflineSearchService, useValue: offlineSearch },
+        { provide: Location, useValue: location },
       ],
     })
       .overrideComponent(SearchComponent, {
@@ -761,11 +773,11 @@ describe("SearchComponent", () => {
   it("should show a snackbar when a direct reference is invalid", async () => {
     referenceService.extract.and.returnValue([
       {
-        match: "John 99:1",
+        match: "John 3:99",
         index: 0,
         book: "John",
-        chapter: 99,
-        verses: [{ type: "single", verse: 1 }],
+        chapter: 3,
+        verses: [{ type: "single", verse: 99 }],
       },
     ])
     bookService.findBook.and.returnValue({
@@ -782,7 +794,7 @@ describe("SearchComponent", () => {
     )
 
     spyOn(console, "error")
-    await component.onSearchSubmit("John 99:1")
+    await component.onSearchSubmit("John 3:99")
 
     expect(console.error).toHaveBeenCalled()
     expect(snackBar.open).toHaveBeenCalledWith(
@@ -791,6 +803,176 @@ describe("SearchComponent", () => {
       { duration: 3000 },
     )
     expect(router.navigate).not.toHaveBeenCalled()
+  })
+
+  describe("a typed reference", () => {
+    const about: Book = {
+      id: "about",
+      abrv: "Sobre",
+      shortName: "Sobre a Bíblia",
+      name: "Sobre a Bíblia dos Capuchinhos",
+      chapterCount: 1,
+    }
+    const john: Book = {
+      id: "jhn",
+      abrv: "Jo",
+      shortName: "João",
+      name: "Evangelho segundo São João",
+      chapterCount: 21,
+    }
+    const reference = (book: string, chapter: number, verse?: number) => ({
+      match: `${book} ${chapter}`,
+      index: 0,
+      book,
+      chapter,
+      ...(verse ? { verses: [{ type: "single" as const, verse }] } : {}),
+    })
+
+    beforeEach(() => {
+      apiService.search.and.returnValue(
+        of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+      )
+      component.ngOnInit()
+    })
+
+    // findBook falls back to the About page for a book it doesn't know:
+    // "1 Co 13,4" offered "Abrir Sobre a Bíblia 13,4", and Return asked for
+    // /about/13/4, which doesn't exist.
+    it("never takes a book it doesn't know for the About page", fakeAsync(() => {
+      referenceService.extract.and.returnValue([reference("1 Xy", 13, 4)])
+      bookService.findBook.and.returnValue(about)
+
+      component.onTyping("1 Xy 13,4")
+      expect(component.passageSuggestion).toBeNull()
+
+      void component.onSearchSubmit("1 Xy 13,4")
+      flushMicrotasks()
+      expect(apiService.getVerse).not.toHaveBeenCalled()
+      expect(router.navigate).not.toHaveBeenCalled()
+      tick(TYPING_PAUSE_MS)
+    }))
+
+    it("opens the book that the typed abbreviation names", async () => {
+      const corinthians: Book = {
+        id: "1co",
+        abrv: "1 Cor",
+        shortName: "1 Coríntios",
+        name: "Primeira Carta aos Coríntios",
+        chapterCount: 16,
+      }
+      referenceService.extract.and.returnValue([reference("1 Co", 13, 4)])
+      bookService.findTypedBook.and.callFake((text: string) =>
+        text === "1 Co" ? corinthians : undefined,
+      )
+      apiService.getVerse.and.returnValue(of({} as Verse))
+
+      component.onTyping("1 Co 13,4")
+      expect(component.passageSuggestion?.label).toBe("Abrir 1 Coríntios 13,4")
+      await component.onSearchSubmit("1 Co 13,4")
+
+      expect(router.navigate).toHaveBeenCalledWith(["/", "1co", 13], {
+        queryParams: { verseStart: 4 },
+      })
+    })
+
+    it("offers no chapter past the book's last, and says so at once", async () => {
+      referenceService.extract.and.returnValue([reference("Jo", 99)])
+      bookService.findBook.and.returnValue(john)
+
+      component.onTyping("Jo 99")
+      expect(component.passageSuggestion).toBeNull()
+      expect(component.pendingSearch).toBeFalse()
+
+      await component.onSearchSubmit("Jo 99")
+      expect(apiService.getVerse).not.toHaveBeenCalled()
+      expect(snackBar.open).toHaveBeenCalledWith(
+        "Este capítulo ou versículo não existe.",
+        "Fechar",
+        { duration: 3000 },
+      )
+      expect(router.navigate).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("back from a result", () => {
+    const page = (count: number): VersePage => ({
+      verses: Array.from({ length: count }, (_, i) => ({
+        bookId: "jhn",
+        chapterNumber: 10,
+        number: i + 1,
+        verseLabel: `${i + 1}`,
+        text: [{ type: "text", text: "Eu sou o bom pastor." }],
+      })),
+      total: count,
+      currentPage: 1,
+      totalPages: 1,
+    })
+
+    beforeEach(() => {
+      referenceService.extract.and.returnValue([])
+      apiService.search.and.returnValue(of(page(40)))
+    })
+
+    it("keeps the query in the URL, without a step back of its own", async () => {
+      component.ngOnInit()
+      await component.onSearchSubmit("bom pastor")
+
+      expect(location.replaceState).toHaveBeenCalledWith(
+        "/search",
+        "q=bom%20pastor",
+      )
+    })
+
+    // Back came to an empty search: the query, the results and the place in
+    // them were gone, and the keyboard came up over the page.
+    it("finds the results where they were left, without searching again", async () => {
+      // The page's height, which the app sets: the list scrolls within it.
+      document.documentElement.style.setProperty("--app-inset-bottom", "0px")
+      fixture.detectChanges()
+      await component.onSearchSubmit("bom pastor")
+      fixture.detectChanges()
+      const list = fixture.nativeElement.querySelector(
+        ".results-section",
+      ) as HTMLElement
+      list.scrollTop = 300
+      const scrolled = list.scrollTop
+      expect(scrolled).toBeGreaterThan(0)
+      // Pressed; by its click the router may already have taken the page down.
+      list
+        .querySelectorAll(".result-item")[12]
+        .dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+      fixture.destroy()
+
+      queryParamMapSubject.next(convertToParamMap({ q: "bom pastor" }))
+      const back = TestBed.createComponent(SearchComponent)
+      back.detectChanges()
+      await back.whenStable()
+
+      expect(apiService.search).toHaveBeenCalledTimes(1)
+      expect(back.componentInstance.fieldValue).toBe("bom pastor")
+      expect(back.componentInstance.searchResults.length).toBe(40)
+      expect(back.componentInstance.statusMessage).toBe("40 resultados")
+      const restored = back.nativeElement.querySelector(
+        ".results-section",
+      ) as HTMLElement
+      // Set once the list is drawn, as the app's next render does.
+      TestBed.inject(ApplicationRef).tick()
+      expect(restored.scrollTop).toBe(scrolled)
+      document.documentElement.style.removeProperty("--app-inset-bottom")
+    })
+
+    it("searches again for a query it didn't keep", async () => {
+      fixture.detectChanges()
+      await component.onSearchSubmit("bom pastor")
+      fixture.destroy()
+
+      queryParamMapSubject.next(convertToParamMap({ q: "luz" }))
+      const other = TestBed.createComponent(SearchComponent)
+      other.detectChanges()
+      await other.whenStable()
+
+      expect(apiService.search).toHaveBeenCalledWith("luz", 1)
+    })
   })
 
   it("should release the loading lock when a failed reference supersedes a text search", fakeAsync(() => {
@@ -1178,6 +1360,22 @@ describe("SearchComponent", () => {
     expect(component.statusMessage).toContain("Não foi possível pesquisar")
   })
 
+  // The API limits how often one address may search; "Verifique a ligação"
+  // blamed a connection that was fine.
+  it("says when there were too many searches, not that the connection failed", async () => {
+    referenceService.extract.and.returnValue([])
+    apiService.search.and.returnValue(throwError(() => ({ status: 429 })))
+    offlineSearch.search.and.resolveTo(null)
+    spyOn(console, "error")
+    await component.onSearchSubmit("luz")
+    fixture.detectChanges()
+
+    const text = fixture.nativeElement.textContent as string
+    expect(text).toContain("muitas pesquisas seguidas")
+    expect(text).not.toContain("Verifique a ligação")
+    expect(component.statusMessage).toContain("muitas pesquisas seguidas")
+  })
+
   // The search by meaning can fail (e.g. its index rebuilding): words still work.
   it("falls back to the stored Bible when the server can't search", async () => {
     referenceService.extract.and.returnValue([])
@@ -1531,7 +1729,7 @@ describe("SearchComponent in the iOS app", () => {
       hide: jasmine.createSpy("hide"),
       toast: jasmine.createSpy("toast"),
     }
-    location = jasmine.createSpyObj("Location", ["back"])
+    location = jasmine.createSpyObj("Location", ["back", "replaceState"])
     apiService = jasmine.createSpyObj("BibleApiService", ["getVerse", "search"])
     apiService.search.and.returnValue(
       of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
@@ -1543,6 +1741,7 @@ describe("SearchComponent in the iOS app", () => {
     const bookService = jasmine.createSpyObj("BookService", [
       "findBook",
       "findBookById",
+      "findTypedBook",
     ])
     bookService.findBookById.and.returnValue({ shortName: "Mateus" })
     const analytics = jasmine.createSpyObj("AnalyticsService", ["track"])
