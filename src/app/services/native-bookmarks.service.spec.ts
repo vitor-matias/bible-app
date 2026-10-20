@@ -57,11 +57,12 @@ describe("NativeBookmarksService", () => {
     )
     // The real colours; a bookmark labels its ribbon "Mt <chapter>".
     ribbons.ribbons.and.callFake((list: Bookmark[]) =>
-      RIBBON_COLORS.map(({ name, value }): RibbonState => {
+      RIBBON_COLORS.map(({ name, value, spoken }): RibbonState => {
         const bookmark = list.find((b) => b.color === value)
         return {
           name,
           value,
+          spoken,
           bookmark,
           currentRef: bookmark ? `Mt ${bookmark.chapter}` : undefined,
         }

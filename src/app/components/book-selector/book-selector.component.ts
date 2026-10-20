@@ -3,6 +3,7 @@ import {
   AfterViewInit,
   afterNextRender,
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   ElementRef,
   EventEmitter,
@@ -97,9 +98,27 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   )
 
   private injector = inject(Injector)
+  private readonly cdr = inject(ChangeDetectorRef)
 
   /** In the reader's drawer, which scrolls to the book each time it opens. */
-  private inDrawer = scrollOnDrawerOpen(() => this.scrollToSelectedBook())
+  private inDrawer = scrollOnDrawerOpen(() => this.onDrawerOpen())
+
+  /**
+   * The whole list each time the drawer opens, at the book being read: the
+   * filter typed last time ("Sabed") would otherwise still hide the rest.
+   */
+  private onDrawerOpen(): void {
+    if (!this.filterQuery) {
+      this.scrollToSelectedBook()
+      return
+    }
+    this.filterBooks("")
+    this.cdr.markForCheck()
+    // The book may have been filtered out: it is there once drawn again.
+    afterNextRender(() => this.scrollToSelectedBook(), {
+      injector: this.injector,
+    })
+  }
 
   constructor(private elementRef: ElementRef) {
     this.filterBooks("")

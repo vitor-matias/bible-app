@@ -49,10 +49,16 @@ export class SearchBarComponent {
     this.query = value ?? ""
   }
 
+  /**
+   * Opens with the keyboard up, ready to type. Not over results already on
+   * screen, as after Back from one of them: the keyboard would hide them.
+   */
+  @Input() focusOnOpen = true
+
   constructor(private location: Location) {}
 
   ngAfterViewInit(): void {
-    if (this.searchInput) {
+    if (this.focusOnOpen && this.searchInput) {
       this.searchInput.nativeElement.focus()
     }
   }

@@ -33,6 +33,27 @@ describe("global styles", () => {
     expect(getComputedStyle(snackBar).marginBottom).toBe("108px")
   })
 
+  // In the light theme the action ("OK", "Fechar") was black on the dark
+  // snackbar: its label is a span, which a global rule paints the text colour
+  // instead of the snackbar's button colour. (Specs run without the Material
+  // theme, so the colour is set here.)
+  it("paints a snack bar's action in the snack bar's button colour", () => {
+    TestBed.createComponent(HostComponent)
+    TestBed.inject(MatSnackBar).open("Não foi possível carregar.", "OK")
+
+    // The one just opened: earlier specs' may still be on the page.
+    const container = Array.from(
+      document.querySelectorAll(".mat-mdc-snack-bar-container"),
+    ).at(-1) as HTMLElement
+    container.style.setProperty(
+      "--mat-snack-bar-button-color",
+      "rgb(226, 192, 163)",
+    )
+    const label = container.querySelector(".mdc-button__label") as HTMLElement
+
+    expect(getComputedStyle(label).color).toBe("rgb(226, 192, 163)")
+  })
+
   // A section title split as "MINISTÉ-RIO" looked like a misprint.
   describe("hyphenation in the reader", () => {
     let book: HTMLElement
