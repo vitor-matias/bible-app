@@ -198,7 +198,7 @@ private final class BookListViewController: UICollectionViewController, UISearch
         // start, and the list opens at Génesis, its tile still highlighted.
         if let current = data.currentBook, current.id != "about",
            let indexPath = dataSource.indexPath(for: current) {
-            collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: true)
+            collectionView.revealItem(at: indexPath)
         }
     }
 
@@ -332,7 +332,7 @@ private final class ChapterListViewController: UICollectionViewController {
         super.viewDidAppear(animated)
         if let current, let chapter = book.chapters.first(where: { $0.number == current }),
            let indexPath = dataSource.indexPath(for: chapter) {
-            collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: true)
+            collectionView.revealItem(at: indexPath)
         }
     }
 
@@ -498,6 +498,20 @@ let formRowBackground = UIColor { traits in
     traits.userInterfaceStyle == .dark
         ? UIColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1)
         : UIColor.white
+}
+
+private extension UICollectionView {
+    /// Scrolls the item to the middle, unless it is in full view already.
+    /// Centring one near the top moved the list a short way, leaving the first
+    /// section header under the bar. On the iPhone Duo's outer screen the
+    /// title is on the left, as the headers are, and it doesn't scroll away
+    /// for a scroll the app makes after Back, so "Livros" was drawn right over
+    /// "Antigo Testamento".
+    func revealItem(at indexPath: IndexPath) {
+        let visible = bounds.inset(by: adjustedContentInset)
+        if let item = layoutAttributesForItem(at: indexPath), visible.contains(item.frame) { return }
+        scrollToItem(at: indexPath, at: .centeredVertically, animated: true)
+    }
 }
 
 /// The content fades out under the bar, as in the system's sheets. Automatic
