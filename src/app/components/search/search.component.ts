@@ -5,7 +5,7 @@ import {
   ChangeDetectorRef,
   Component,
   DestroyRef,
-  type ElementRef,
+  ElementRef,
   Injector,
   inject,
   ViewChild,
@@ -205,6 +205,13 @@ export class SearchComponent {
   private readonly themeService = inject(ThemeService)
   private readonly location = inject(Location)
   private readonly destroyRef = inject(DestroyRef)
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef)
+  /**
+   * Back (or Forward) to this page: the browser's history, not a link or a
+   * shared query to /search?q=…, which search again even for the term kept.
+   * Read while the router builds the page; by ngOnInit it is done navigating.
+   */
+  private cameBack = inject(Router).currentNavigation()?.trigger === "popstate"
   /** The iOS app draws the search field and Back natively, not search-bar. */
   readonly native = this.nativeChrome.enabled
   /** Each keystroke, with the submit it followed (searchGeneration). */
@@ -224,6 +231,12 @@ export class SearchComponent {
 
   ngOnInit(): void {
     this.seoService.updateForSearch()
+    // Before a result's own click handler, which may take the page down at
+    // once: by the time a click bubbles up, the list reads as scrolled to 0.
+    // A click, so a screen reader's activation counts too.
+    this.host.nativeElement.addEventListener("click", () => this.notePlace(), {
+      capture: true,
+    })
 
     this.network.isOffline$
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -266,7 +279,10 @@ export class SearchComponent {
         if (!sharedQuery) this.lastSharedQuery = null
         if (!sharedQuery || sharedQuery === this.lastSharedQuery) return
         this.lastSharedQuery = sharedQuery
-        if (this.restore(sharedQuery)) return
+        // Only the query the page came back to; a later one is shared.
+        const back = this.cameBack
+        this.cameBack = false
+        if (back && this.restore(sharedQuery)) return
         void this.onSearchSubmit(sharedQuery)
       },
     )
@@ -274,6 +290,9 @@ export class SearchComponent {
 
   ngOnDestroy(): void {
     this.remember()
+    // A search still under way answers a page that is gone: it must not put
+    // its query in the URL of the page that replaced it (keepQueryInUrl).
+    this.searchGeneration++
     if (this.native) this.nativeChrome.hide()
     this.queryParamSubscription?.unsubscribe()
     if (this.observer) {
@@ -306,12 +325,8 @@ export class SearchComponent {
     }
   }
 
-  /**
-   * Notes how far the list is scrolled as a result is pressed. Not on its
-   * click, nor on leaving: the router may already have taken the page down
-   * by then, and a list off the page reads as scrolled to 0.
-   */
-  notePlace(): void {
+  /** Notes how far the list is scrolled as a result is opened (ngOnInit). */
+  private notePlace(): void {
     this.scrolledTo = this.resultsContainer?.nativeElement?.scrollTop ?? 0
   }
 

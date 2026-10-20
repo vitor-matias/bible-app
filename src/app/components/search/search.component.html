@@ -73,7 +73,7 @@
       @if (storedMatches) {
         <p class="results-hint">{{ storedResultsHint }}</p>
       }
-      <ul class="results-list" (pointerdown)="notePlace()">
+      <ul class="results-list">
         @for (result of searchResults; track $index) {
           <li class="result-item" [routerLink]="['/', result.bookId, result.chapterNumber]" [queryParams]="{ verseStart: result.number }">
             <div class="result-card">

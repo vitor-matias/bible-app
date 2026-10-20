@@ -92,6 +92,8 @@ describe("SearchComponent", () => {
   let network: { isOffline: boolean; isOffline$: BehaviorSubject<boolean> }
   let offlineSearch: jasmine.SpyObj<OfflineSearchService>
   let location: jasmine.SpyObj<Location>
+  /** How the navigation to the page came about (Router.currentNavigation). */
+  let navigationTrigger: "imperative" | "popstate" | null
   let observerCallback: IntersectionObserverCallback | null
   let observerOptions: IntersectionObserverInit | undefined
   /** What the live observer watches; the page keeps one at a time. */
@@ -146,6 +148,9 @@ describe("SearchComponent", () => {
     snackBar = jasmine.createSpyObj("MatSnackBar", ["open"])
     router = jasmine.createSpyObj("Router", ["navigate"])
     router.navigate.and.resolveTo(true)
+    navigationTrigger = null
+    ;(router as { currentNavigation: unknown }).currentNavigation = () =>
+      navigationTrigger && { trigger: navigationTrigger }
     analyticsService = jasmine.createSpyObj("AnalyticsService", ["track"])
     analyticsService.track.and.returnValue(Promise.resolve())
     queryParamMapSubject = new BehaviorSubject(convertToParamMap({}))
@@ -937,14 +942,17 @@ describe("SearchComponent", () => {
       list.scrollTop = 300
       const scrolled = list.scrollTop
       expect(scrolled).toBeGreaterThan(0)
-      // Pressed; by its click the router may already have taken the page down.
-      list
-        .querySelectorAll(".result-item")[12]
-        .dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
-      fixture.destroy()
+      // A result's click takes the page down before the click bubbles up, as
+      // the router does; a screen reader's activation is a click alone.
+      const result = list.querySelectorAll(".result-item")[12] as HTMLElement
+      result.addEventListener("click", () => fixture.destroy())
+      result.click()
 
+      navigationTrigger = "popstate"
       queryParamMapSubject.next(convertToParamMap({ q: "bom pastor" }))
       const back = TestBed.createComponent(SearchComponent)
+      // As in the app, the router is done navigating by ngOnInit.
+      navigationTrigger = null
       back.detectChanges()
       await back.whenStable()
 
@@ -959,6 +967,37 @@ describe("SearchComponent", () => {
       TestBed.inject(ApplicationRef).tick()
       expect(restored.scrollTop).toBe(scrolled)
       document.documentElement.style.removeProperty("--app-inset-bottom")
+    })
+
+    // Only Back restores: a share or a link to the same query searches anew.
+    it("searches again for a shared query of the term it kept", async () => {
+      fixture.detectChanges()
+      await component.onSearchSubmit("bom pastor")
+      fixture.destroy()
+
+      navigationTrigger = "imperative"
+      queryParamMapSubject.next(convertToParamMap({ q: "bom pastor" }))
+      const shared = TestBed.createComponent(SearchComponent)
+      shared.detectChanges()
+      await shared.whenStable()
+
+      expect(apiService.search).toHaveBeenCalledTimes(2)
+    })
+
+    // A search answering after the page had gone wrote its query into the
+    // URL of the page that replaced it.
+    it("leaves the next page's URL alone when a search answers late", async () => {
+      const answer = new Subject<VersePage>()
+      apiService.search.and.returnValue(answer)
+      fixture.detectChanges()
+      const searching = component.onSearchSubmit("bom pastor")
+      fixture.destroy()
+
+      answer.next(page(3))
+      answer.complete()
+      await searching
+
+      expect(location.replaceState).not.toHaveBeenCalled()
     })
 
     it("searches again for a query it didn't keep", async () => {
@@ -1757,7 +1796,13 @@ describe("SearchComponent in the iOS app", () => {
         { provide: BibleReferenceService, useValue: referenceService },
         { provide: BookService, useValue: bookService },
         { provide: MatSnackBar, useValue: jasmine.createSpyObj(["open"]) },
-        { provide: Router, useValue: jasmine.createSpyObj(["navigate"]) },
+        {
+          provide: Router,
+          useValue: {
+            navigate: jasmine.createSpy("navigate"),
+            currentNavigation: () => null,
+          },
+        },
         { provide: AnalyticsService, useValue: analytics },
         {
           provide: ActivatedRoute,
