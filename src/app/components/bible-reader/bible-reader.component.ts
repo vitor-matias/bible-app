@@ -535,8 +535,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   /** Without a chapter: chapter 1 rather than the introduction, except for
-   *  a standalone introduction, which has no chapters. */
+   *  a standalone introduction, which has no chapters. Stops auto-scroll, as
+   *  goToChapter does: the new book opened partway down, still scrolling. */
   goToPassage({ bookId, chapter }: { bookId: string; chapter?: number }): void {
+    this.autoScrollService.stop()
     const book = this.bookService.findBook(bookId)
     this.router.navigate([
       "/",
@@ -849,6 +851,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   @HostListener("window:keydown", ["$event"])
   onArrowPress(event: KeyboardEvent): void {
+    if (!this.arrowsTurnPages(event)) return
     if (event.key === "ArrowLeft") {
       this.effectiveViewMode === "paged"
         ? this.pagedNav?.prevPage()
@@ -859,6 +862,36 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         ? this.pagedNav?.nextPage()
         : this.goToNextChapter()
     }
+  }
+
+  /**
+   * The arrows belong to what has focus: a text field's caret, the drawer, an
+   * open menu, sheet or dialog, whose chapter would change underneath it. With
+   * a modifier they are the browser's or the system's (Alt+← is Back).
+   */
+  private arrowsTurnPages(event: KeyboardEvent): boolean {
+    if (
+      event.defaultPrevented ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey
+    ) {
+      return false
+    }
+    const target = event.target
+    if (
+      target instanceof HTMLElement &&
+      (target.isContentEditable ||
+        target.closest(
+          "input, textarea, select, mat-drawer, .cdk-overlay-container",
+        ))
+    ) {
+      return false
+    }
+    if (this.bookDrawer?.opened) return false
+    // A sheet or dialog may leave focus on the page behind it.
+    return !document.querySelector(".cdk-overlay-backdrop")
   }
 
   onIncreaseFontSize(): void {

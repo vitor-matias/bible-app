@@ -19,6 +19,7 @@ import {
   from,
   Observable,
   of,
+  ReplaySubject,
   Subject,
   throwError,
 } from "rxjs"
@@ -138,6 +139,10 @@ describe("SearchComponent", () => {
     bookService = jasmine.createSpyObj("BookService", [
       "findBook",
       "findTypedBook",
+    ])
+    // The book list has loaded, as it has by the time most searches answer.
+    ;(bookService as { books$: Observable<Book[]> }).books$ = of([
+      { id: "gen" } as Book,
     ])
     // As BookService does it: the book findBook finds, but never the About
     // page it falls back to, nor an introduction.
@@ -1524,6 +1529,78 @@ describe("SearchComponent", () => {
       ])
     })
 
+    // A shared /search?q= link answered before the book list had loaded, and
+    // findBook's fallback named every result "Sobre a Bíblia 2,32".
+    it("names the books only once the book list has loaded", async () => {
+      const books = new ReplaySubject<Book[]>(1)
+      ;(bookService as { books$: Observable<Book[]> }).books$ = books
+      const about = { id: "about", shortName: "Sobre a Bíblia" } as Book
+      bookService.findBook.and.returnValue(about)
+      fixture = TestBed.createComponent(SearchComponent)
+      component = fixture.componentInstance
+      await component.onSearchSubmit("luz")
+      fixture.detectChanges()
+
+      expect(all(".verse-ref")).toEqual(["1,26", "2,32", "136,7"])
+
+      bookService.findBook.and.callFake(
+        (id: string) => ({ luk: luke, psa: psalms })[id] ?? about,
+      )
+      books.next([luke, psalms])
+      fixture.detectChanges()
+
+      expect(all(".verse-ref").slice(1)).toEqual([
+        "Lucas 2,32",
+        "Salmo 136 (135),7",
+      ])
+    })
+
+    // Results were <li routerLink>: Enter and a middle click did nothing, so
+    // a keyboard or a screen reader could not open one.
+    it("links each result to its passage", () => {
+      const links = Array.from(
+        (
+          fixture.nativeElement as HTMLElement
+        ).querySelectorAll<HTMLAnchorElement>("a.result-card"),
+      )
+      expect(links.map((link) => link.getAttribute("href"))).toEqual([
+        "/jdg/1?verseStart=26",
+        "/luk/2?verseStart=32",
+        "/psa/136?verseStart=7",
+      ])
+      expect(component.passageHref("psa", 95)).toBe("/psa/95")
+
+      links[1].click()
+
+      expect(router.navigate).toHaveBeenCalledWith(["/", "luk", 2], {
+        queryParams: { verseStart: 32 },
+      })
+    })
+
+    it("leaves a click with a modifier to the browser, for a new tab", () => {
+      const link = (fixture.nativeElement as HTMLElement).querySelector(
+        "a.result-card",
+      ) as HTMLAnchorElement
+      let leftToBrowser = false
+      // After the result's own handler: note what it did, then keep the
+      // test page where it is.
+      link.addEventListener("click", (event) => {
+        leftToBrowser = !event.defaultPrevented
+        event.preventDefault()
+      })
+
+      link.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+          metaKey: true,
+        }),
+      )
+
+      expect(leftToBrowser).toBeTrue()
+      expect(router.navigate).not.toHaveBeenCalled()
+    })
+
     describe("the matched words", () => {
       const root = document.documentElement
       let wasDark: boolean
@@ -1806,6 +1883,7 @@ describe("SearchComponent in the iOS app", () => {
       "findTypedBook",
     ])
     bookService.findBookById.and.returnValue({ shortName: "Mateus" })
+    bookService.books$ = of([{ id: "mat" }])
     const analytics = jasmine.createSpyObj("AnalyticsService", ["track"])
     analytics.track.and.resolveTo()
 

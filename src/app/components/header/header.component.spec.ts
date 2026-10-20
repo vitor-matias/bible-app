@@ -200,6 +200,30 @@ describe("HeaderComponent", () => {
     expect(headings[0].textContent).toContain("Sobre a Bíblia dos Capuchinhos")
   })
 
+  // Android's 3-button navigation bar sits at the side of a landscape screen;
+  // the header ignored it, and Back and Recents covered menu and search.
+  it("keeps the menu and search buttons clear of side system bars", () => {
+    const host = fixture.nativeElement as HTMLElement
+    const edges = (left: string, right: string) => {
+      host.style.setProperty("--app-inset-left", left)
+      host.style.setProperty("--app-inset-right", right)
+      return {
+        menu: (
+          host.querySelector(".menuButton") as HTMLElement
+        ).getBoundingClientRect().left,
+        search: (
+          host.querySelector(".searchButton") as HTMLElement
+        ).getBoundingClientRect().right,
+      }
+    }
+
+    const none = edges("0px", "0px")
+    const inset = edges("48px", "40px")
+
+    expect(inset.menu - none.menu).toBeCloseTo(48, 0)
+    expect(none.search - inset.search).toBeCloseTo(40, 0)
+  })
+
   // References open from the stored Bible offline, and words are searched in it.
   it("keeps the search button while offline", () => {
     isOfflineSubject.next(true)

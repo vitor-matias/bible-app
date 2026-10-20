@@ -615,3 +615,109 @@ describe("PagedNavigationDirective", () => {
     })
   })
 })
+
+@Component({
+  template: `
+    <div
+      #container
+      style="overflow: hidden"
+      [style.width.px]="width"
+      [style.height.px]="height"
+      [appPagedNavigation]="block"
+      viewMode="paged"
+    >
+      <div
+        #block
+        style="columns: 1; column-gap: 0; column-fill: auto; font: 16px/20px monospace"
+        [style.height.px]="height"
+      >
+        @for (verse of verses; track verse) {
+          <span [id]="verse">{{ verse }} Disse-lhe Jesus: em verdade, em verdade te digo. </span>
+        }
+      </div>
+    </div>
+  `,
+  imports: [PagedNavigationDirective],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: true,
+})
+class PagesHostComponent {
+  width = 200
+  height = 100
+  verses = Array.from({ length: 80 }, (_, i) => i + 1)
+  @ViewChild("container") container!: ElementRef<HTMLElement>
+}
+
+// A rotation, a folding phone or Split View lays the pages out anew. The page
+// was found again by its pixel offset, which held other verses: Jo 3 from
+// verse 11 opened on verse 27 when the iPhone Duo unfolded.
+describe("PagedNavigationDirective across a resize", () => {
+  let fixture: ComponentFixture<PagesHostComponent>
+  let host: PagesHostComponent
+  let container: HTMLElement
+
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 400))
+
+  /** The first verse that starts on the page on screen. */
+  function firstVerseOnScreen(): HTMLElement {
+    const box = container.getBoundingClientRect()
+    const verse = Array.from(container.querySelectorAll("span")).find(
+      (span) => span.getClientRects()[0].left >= box.left - 1,
+    )
+    return verse as HTMLElement
+  }
+
+  function isOnScreen(verse: HTMLElement): boolean {
+    const box = container.getBoundingClientRect()
+    const start = verse.getClientRects()[0]
+    return start.left >= box.left - 1 && start.left < box.right - 1
+  }
+
+  async function resizeTo(width: number, height: number): Promise<void> {
+    host.width = width
+    host.height = height
+    fixture.detectChanges()
+    window.dispatchEvent(new Event("resize"))
+    await settle()
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [PagesHostComponent],
+    }).compileComponents()
+    fixture = TestBed.createComponent(PagesHostComponent)
+    host = fixture.componentInstance
+    fixture.detectChanges()
+    container = host.container.nativeElement
+    await settle()
+  })
+
+  it("keeps the verse the reader was on", async () => {
+    container.scrollLeft = 5 * 200
+    await settle()
+    const verse = firstVerseOnScreen()
+    expect(Number(verse.id)).toBeGreaterThan(1)
+
+    // Turned sideways: wider and taller pages hold several of the old ones.
+    await resizeTo(300, 300)
+
+    expect(isOnScreen(verse))
+      .withContext(`verse ${verse.id} on screen at 300x300`)
+      .toBeTrue()
+    expect(container.scrollLeft % 300).toBe(0)
+  })
+
+  it("comes back to the same page when turned back", async () => {
+    container.scrollLeft = 5 * 200
+    await settle()
+    const verse = firstVerseOnScreen()
+
+    await resizeTo(300, 300)
+    await resizeTo(200, 100)
+    await resizeTo(300, 300)
+    await resizeTo(200, 100)
+
+    expect(container.scrollLeft).toBe(5 * 200)
+    expect(firstVerseOnScreen()).toBe(verse)
+  })
+})
