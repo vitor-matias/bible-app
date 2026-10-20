@@ -143,7 +143,7 @@ private final class BookListViewController: UICollectionViewController, UISearch
     override func viewDidLoad() {
         super.viewDidLoad()
         collectionView.backgroundColor = sheetBackground
-        solidBar(for: self)
+        frostedBar(for: self)
         navigationItem.rightBarButtonItem = closeButton(for: self)
         navigationItem.leftBarButtonItem = modeToggle
         modeToggle.isSelected = mode == .abbreviations
@@ -300,7 +300,7 @@ private final class ChapterListViewController: UICollectionViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         collectionView.backgroundColor = sheetBackground
-        solidBar(for: self)
+        frostedBar(for: self)
         navigationItem.rightBarButtonItem = closeButton(for: self)
 
         let tile = UICollectionView.CellRegistration<TileCell, Chapter> { [current] cell, _, chapter in
@@ -542,21 +542,21 @@ private extension UICollectionView {
     }
 }
 
-/// A bar in the sheet's own colour, as sheets were before iOS 26: the tiles
-/// go under it out of sight, and a hairline shows once they do. The scroll
-/// edge effect, soft or hard, still showed them behind the title and buttons.
-private func solidBar(for controller: UICollectionViewController) {
-    func appearance(hairline: Bool) -> UINavigationBarAppearance {
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = sheetBackground
-        if !hairline { appearance.shadowColor = .clear }
-        return appearance
-    }
-    controller.navigationItem.standardAppearance = appearance(hairline: true)
-    controller.navigationItem.scrollEdgeAppearance = appearance(hairline: false)
+/// What scrolls under the bar is frosted, as in a material bar, so no tile
+/// shows behind the title and buttons: the scroll edge effect alone, soft or
+/// hard, left them readable there. Its soft fade still eases the band's lower
+/// edge. At the top of the list the bar is clear, part of the sheet.
+private func frostedBar(for controller: UICollectionViewController) {
+    let frosted = UINavigationBarAppearance()
+    frosted.configureWithDefaultBackground()
+    frosted.backgroundEffect = UIBlurEffect(style: .systemMaterial)
+    frosted.shadowColor = .clear
+    let clear = UINavigationBarAppearance()
+    clear.configureWithTransparentBackground()
+    controller.navigationItem.standardAppearance = frosted
+    controller.navigationItem.scrollEdgeAppearance = clear
     if #available(iOS 26.0, *) {
-        controller.collectionView.topEdgeEffect.isHidden = true
+        controller.collectionView.topEdgeEffect.style = .soft
     }
 }
 
