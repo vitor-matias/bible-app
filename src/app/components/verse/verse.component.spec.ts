@@ -6,8 +6,10 @@ import {
 } from "@angular/material/bottom-sheet"
 import { provideRouter } from "@angular/router"
 import { Subject } from "rxjs"
+import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
+import { KeepAwakeService } from "../../services/keep-awake.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { VerseComponent } from "./verse.component"
 
@@ -817,6 +819,15 @@ describe("VerseComponent", () => {
       ) as HTMLElement
     const asterisk = () =>
       fixture.nativeElement.querySelector(".footnoteIndicator") as HTMLElement
+    // Reading hands-free: ▶ pressed in the reader.
+    const play = () => {
+      spyOn(TestBed.inject(KeepAwakeService), "start")
+      const autoScroll = TestBed.inject(AutoScrollService)
+      autoScroll.start({ scrollElement: document.createElement("div") })
+      return autoScroll
+    }
+
+    afterEach(() => TestBed.inject(AutoScrollService).stop())
 
     // Before, it was in the text's colour, and read as a stray mark.
     it("shows the asterisk underlined in the text's accent, as a link", () => {
@@ -840,6 +851,16 @@ describe("VerseComponent", () => {
 
       expect(mockBottomSheet.open).toHaveBeenCalled()
       expect(text().getAttribute("role")).toBe("button")
+    })
+
+    // It scrolled on under the sheet, carrying the verse away.
+    it("stops auto-scroll as the notes open", () => {
+      const autoScroll = play()
+      render()
+      text().click()
+
+      expect(mockBottomSheet.open).toHaveBeenCalled()
+      expect(autoScroll.autoScrollEnabled).toBeFalse()
     })
 
     // There a tap on the text shows or hides the bars (NativeChromeService).
@@ -872,6 +893,21 @@ describe("VerseComponent", () => {
         const target = getComputedStyle(asterisk(), "::after")
         expect(target.width).toBe("44px")
         expect(target.height).toBe("44px")
+      })
+
+      it("stops auto-scroll as they open", () => {
+        const autoScroll = play()
+        asterisk().click()
+
+        expect(open).toHaveBeenCalled()
+        expect(autoScroll.autoScrollEnabled).toBeFalse()
+      })
+
+      it("plays on through a tap on the text, which opens nothing", () => {
+        const autoScroll = play()
+        text().click()
+
+        expect(autoScroll.autoScrollEnabled).toBeTrue()
       })
 
       it("marks them with a labelled icon, not an asterisk", () => {
