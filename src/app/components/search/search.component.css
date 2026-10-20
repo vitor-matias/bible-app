@@ -112,6 +112,12 @@
   font-style: normal;
 }
 
+/* The theme's darkgrey under white text was 2.3:1. The reader's verse tint
+   keeps the light theme's warmth and the words at over 8:1. */
+:host-context(.dark-theme) .search-highlight {
+  background-color: var(--verse-highlight-color);
+}
+
 .search-container {
   padding: 0;
   display: flex;

@@ -57,11 +57,12 @@ describe("NativeBookmarksService", () => {
     )
     // The real colours; a bookmark labels its ribbon "Mt <chapter>".
     ribbons.ribbons.and.callFake((list: Bookmark[]) =>
-      RIBBON_COLORS.map(({ name, value }): RibbonState => {
+      RIBBON_COLORS.map(({ name, value, spoken }): RibbonState => {
         const bookmark = list.find((b) => b.color === value)
         return {
           name,
           value,
+          spoken,
           bookmark,
           currentRef: bookmark ? `Mt ${bookmark.chapter}` : undefined,
         }
@@ -226,14 +227,33 @@ describe("NativeBookmarksService", () => {
     expect(ribbons.restore).not.toHaveBeenCalled()
   })
 
-  it("stops once the sheet is closed", () => {
+  it("stops once the sheet is closed", async () => {
     service.open("mat", 11)
+    await new Promise((resolve) => setTimeout(resolve))
     actions.next({ id: "bookmarks-closed" })
     bookmarks.next([])
     actions.next({ id: "bookmark-set", color: "blue" })
 
     expect(nativeChrome.updateBookmarks).not.toHaveBeenCalled()
     expect(ribbons.assign).not.toHaveBeenCalled()
+  })
+
+  // Opened while the last sheet was closing: the shell presents this one
+  // once that one has gone, and the last one's close came in between.
+  it("keeps going through the closing sheet's bookmarks-closed", async () => {
+    let answer: (presented: boolean) => void = () => {}
+    nativeChrome.showBookmarks.and.returnValue(
+      new Promise<boolean>((resolve) => {
+        answer = resolve
+      }),
+    )
+    service.open("mat", 11)
+    actions.next({ id: "bookmarks-closed" })
+    answer(true)
+    await new Promise((resolve) => setTimeout(resolve))
+    actions.next({ id: "bookmark-set", color: "blue" })
+
+    expect(ribbons.assign).toHaveBeenCalledOnceWith("blue", "mat", 11)
   })
 
   // Over another sheet none comes up, and no bookmarks-closed would follow.

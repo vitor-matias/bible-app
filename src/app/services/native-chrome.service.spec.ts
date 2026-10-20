@@ -44,6 +44,7 @@ describe("NativeChromeService", () => {
     showBookmarks: jasmine.Spy
     updateBookmarks: jasmine.Spy
     showToast: jasmine.Spy
+    hideToast: jasmine.Spy
     showReport: jasmine.Spy
     finishReport: jasmine.Spy
     showOnboarding: jasmine.Spy
@@ -64,6 +65,7 @@ describe("NativeChromeService", () => {
       showBookmarks: jasmine.createSpy("showBookmarks").and.resolveTo(),
       updateBookmarks: jasmine.createSpy("updateBookmarks").and.resolveTo(),
       showToast: jasmine.createSpy("showToast").and.resolveTo(),
+      hideToast: jasmine.createSpy("hideToast").and.resolveTo(),
       showReport: jasmine.createSpy("showReport").and.resolveTo(),
       finishReport: jasmine.createSpy("finishReport").and.resolveTo(),
       showOnboarding: jasmine.createSpy("showOnboarding").and.resolveTo(),
@@ -330,11 +332,12 @@ describe("NativeChromeService", () => {
   describe("a toast that is a button", () => {
     let service: NativeChromeService
     let goBack: jasmine.Spy
+    let hide: () => void
 
     beforeEach(() => {
       service = create("ios")
       goBack = jasmine.createSpy("goBack")
-      service.toast("Voltar para Gn 1,3", {
+      hide = service.toast("Voltar para Gn 1,3", {
         symbol: "arrow.uturn.backward",
         onTap: goBack,
       })
@@ -365,6 +368,27 @@ describe("NativeChromeService", () => {
 
       expect(goBack).not.toHaveBeenCalled()
     })
+
+    it("takes it down early, and its action with it", () => {
+      hide()
+      listener("action")({ id: "toast-action" })
+
+      expect(plugin.hideToast).toHaveBeenCalledTimes(1)
+      expect(goBack).not.toHaveBeenCalled()
+    })
+
+    it("leaves a toast that has replaced it alone", () => {
+      service.toast("Copiado")
+      hide()
+
+      expect(plugin.hideToast).not.toHaveBeenCalled()
+    })
+  })
+
+  it("has nothing to take down outside the iOS app", () => {
+    create("web").toast("Voltar para Gn 1,3", { onTap: () => {} })()
+
+    expect(plugin.hideToast).not.toHaveBeenCalled()
   })
 
   it("passes the report sheet and the outcome through", () => {

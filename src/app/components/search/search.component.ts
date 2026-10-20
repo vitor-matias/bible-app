@@ -5,7 +5,7 @@ import {
   ChangeDetectorRef,
   Component,
   DestroyRef,
-  type ElementRef,
+  ElementRef,
   Injector,
   inject,
   ViewChild,
@@ -29,6 +29,7 @@ import { BookService } from "../../services/book.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NetworkService } from "../../services/network.service"
 import { OfflineSearchService } from "../../services/offline-search.service"
+import { SearchMemoryService } from "../../services/search-memory.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
@@ -62,6 +63,13 @@ const NOTHING_STORED =
 /** The server's search failed, and no Bible is stored to search instead. */
 const SEARCH_FAILED =
   "Não foi possível pesquisar. Verifique a ligação e tente novamente."
+
+/** The server refused the search (HTTP 429): too many in a short while. */
+const SEARCH_RATE_LIMITED =
+  "Foram feitas muitas pesquisas seguidas. Aguarde um minuto e tente novamente."
+
+/** A chapter the book doesn't have, or a verse the chapter doesn't. */
+const NO_SUCH_PASSAGE = "Este capítulo ou versículo não existe."
 
 /** Verses of a search over the stored Bible shown at a time. */
 const STORED_PAGE_SIZE = 50
@@ -147,12 +155,28 @@ export class SearchComponent {
   nothingStored = false
   /** The server's search failed, with no stored Bible to search instead. */
   searchFailed = false
-  readonly searchFailedMessage = SEARCH_FAILED
+  /** Why it failed: no connection, or too many searches (HTTP 429). */
+  searchFailedMessage = SEARCH_FAILED
   readonly nothingStoredMessage = NOTHING_STORED
   private observer: IntersectionObserver | null = null
 
-  @ViewChild("sentinel", { static: false }) sentinel!: ElementRef
-  private lastSentinel: Element | null = null
+  /**
+   * The end of the list, watched for the next page. Angular sets it whenever
+   * the element comes or goes, also in this page's own detectChanges(). The
+   * native search field (NativeChromeService) marks nothing for checking, so
+   * a hook such as ngAfterViewChecked never ran after its results showed,
+   * and the list stopped at its first page.
+   */
+  @ViewChild("sentinel")
+  set sentinel(sentinel: ElementRef<Element> | undefined) {
+    const element = sentinel?.nativeElement ?? null
+    if (element === this.sentinelElement) return
+    this.sentinelElement = element
+    this.attachObserverToSentinel()
+  }
+  private sentinelElement: Element | null = null
+  /** How far the list was scrolled when a result was opened (notePlace). */
+  private scrolledTo = 0
   private queryParamSubscription?: Subscription
   /** Guards against re-running the same shared query on unrelated emissions. */
   private lastSharedQuery: string | null = null
@@ -176,10 +200,18 @@ export class SearchComponent {
   private readonly nativeChrome = inject(NativeChromeService)
   private readonly network = inject(NetworkService)
   private readonly offlineSearch = inject(OfflineSearchService)
+  private readonly memory = inject(SearchMemoryService)
   private readonly toast = inject(ToastService)
   private readonly themeService = inject(ThemeService)
   private readonly location = inject(Location)
   private readonly destroyRef = inject(DestroyRef)
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef)
+  /**
+   * Back (or Forward) to this page: the browser's history, not a link or a
+   * shared query to /search?q=…, which search again even for the term kept.
+   * Read while the router builds the page; by ngOnInit it is done navigating.
+   */
+  private cameBack = inject(Router).currentNavigation()?.trigger === "popstate"
   /** The iOS app draws the search field and Back natively, not search-bar. */
   readonly bars = this.nativeChrome.bars
   /** Each keystroke, with the submit it followed (searchGeneration). */
@@ -199,6 +231,12 @@ export class SearchComponent {
 
   ngOnInit(): void {
     this.seoService.updateForSearch()
+    // Before a result's own click handler, which may take the page down at
+    // once: by the time a click bubbles up, the list reads as scrolled to 0.
+    // A click, so a screen reader's activation counts too.
+    this.host.nativeElement.addEventListener("click", () => this.notePlace(), {
+      capture: true,
+    })
 
     this.network.isOffline$
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -231,8 +269,9 @@ export class SearchComponent {
       this.syncNativeChrome()
     }
 
-    // Share-target launches arrive as /search?q=. Subscribe, not snapshot:
-    // Angular reuses this component between /search URLs.
+    // Share-target launches arrive as /search?q=, and so does Back from a
+    // result (showResults keeps the query in the URL). Subscribe, not
+    // snapshot: Angular reuses this component between /search URLs.
     this.queryParamSubscription = this.route.queryParamMap.subscribe(
       (params) => {
         const sharedQuery = params.get("q")
@@ -240,28 +279,94 @@ export class SearchComponent {
         if (!sharedQuery) this.lastSharedQuery = null
         if (!sharedQuery || sharedQuery === this.lastSharedQuery) return
         this.lastSharedQuery = sharedQuery
+        // Only the query the page came back to; a later one is shared.
+        const back = this.cameBack
+        this.cameBack = false
+        if (back && this.restore(sharedQuery)) return
         void this.onSearchSubmit(sharedQuery)
       },
     )
   }
 
-  ngAfterViewInit(): void {
-    this.attachObserverToSentinel()
-  }
-
-  ngAfterViewChecked(): void {
-    // If the sentinel element has changed (e.g., after new search), re-attach observer
-    if (this.sentinel && this.sentinel.nativeElement !== this.lastSentinel) {
-      this.attachObserverToSentinel()
-    }
-  }
-
   ngOnDestroy(): void {
+    this.remember()
+    // A search still under way answers a page that is gone: it must not put
+    // its query in the URL of the page that replaced it (keepQueryInUrl).
+    this.searchGeneration++
     if (this.bars) this.nativeChrome.hide()
     this.queryParamSubscription?.unsubscribe()
     if (this.observer) {
       this.observer.disconnect()
     }
+  }
+
+  /**
+   * Keeps the word search on screen for Back from a result (restore). Not one
+   * still under way, nor the psalm choice or a failure: those search again.
+   */
+  private remember(): void {
+    if (
+      !this.hasSearched ||
+      this.searching ||
+      this.psalmChoice ||
+      this.searchFailed ||
+      this.nothingStored ||
+      !this.searchTerm
+    ) {
+      return
+    }
+    this.memory.last = {
+      term: this.searchTerm,
+      results: this.searchResults,
+      total: this.totalResults,
+      page: this.currentPage,
+      storedMatches: this.storedMatches,
+      scrollTop: this.scrolledTo,
+    }
+  }
+
+  /** Notes how far the list is scrolled as a result is opened (ngOnInit). */
+  private notePlace(): void {
+    this.scrolledTo = this.resultsContainer?.nativeElement?.scrollTop ?? 0
+  }
+
+  /**
+   * Back from a result: the list as it was left, where it was scrolled to,
+   * rather than asking the server again. False when `term` isn't the search
+   * kept (a shared query, or one from an earlier visit).
+   */
+  private restore(term: string): boolean {
+    const kept = this.memory.last
+    if (kept?.term !== term) return false
+    this.searchTerm = kept.term
+    this.fieldValue = kept.term
+    this.hasSearched = true
+    this.searchResults = kept.results
+    this.totalResults = kept.total
+    this.currentPage = kept.page
+    this.storedMatches = kept.storedMatches
+    this.statusMessage = this.resultsHeading
+    this.syncNativeChrome()
+    this.cdr.markForCheck()
+    afterNextRender(
+      () => {
+        const list = this.resultsContainer?.nativeElement as
+          | HTMLElement
+          | undefined
+        if (list) list.scrollTop = kept.scrollTop
+      },
+      { injector: this.injector },
+    )
+    return true
+  }
+
+  /**
+   * /search?q=…, so that Back from a result comes back to this search
+   * (restore). Replaced, not pushed: each search is no step back of its own.
+   * The router isn't asked, so the page isn't counted as a visit again.
+   */
+  private keepQueryInUrl(text: string): void {
+    this.location.replaceState("/search", `q=${encodeURIComponent(text)}`)
   }
 
   /** Searches once typing pauses (TYPING_PAUSE_MS); Return still searches at once. */
@@ -304,6 +409,8 @@ export class SearchComponent {
     if (book.introSlug || target.bookOnly) {
       return { label: `Abrir ${book.name}`, query }
     }
+    // "Jo 99": nothing to open. Return says so (onSearchSubmit).
+    if (beyondBook(target)) return null
     if (
       book.id === PSALMS_BOOK_ID &&
       !target.pairedPsalm &&
@@ -328,7 +435,7 @@ export class SearchComponent {
   } {
     // "Sl 94 (95), 1-2": with both numbers, a leaflet names one psalm.
     const pair = parsePsalmPair(query)
-    const pairBook = pair ? this.bookService.findBook(pair.book) : null
+    const pairBook = pair ? this.bookService.findTypedBook(pair.book) : null
     const pairedPsalm = !!pair && pairBook?.id === PSALMS_BOOK_ID
     const text =
       pair && pairedPsalm && pairBook
@@ -341,7 +448,9 @@ export class SearchComponent {
       // A well-formed Bible reference jumps straight into the reader instead
       // of going through the broader full-text search results flow.
       const ref = references[0]
-      const book = ref.book ? this.bookService.findBook(ref.book) : null
+      // A book of the Bible: "1 Co 13" is not the About page, which findBook
+      // falls back to, nor "Joao 3" the introduction to John's letters.
+      const book = ref.book ? this.bookService.findTypedBook(ref.book) : null
       if (book) {
         const first = ref.verses?.[0]
         target = {
@@ -356,8 +465,11 @@ export class SearchComponent {
         }
       }
     } else {
-      // The query is a book's name or abbreviation.
-      const book = this.bookService.findBook(text.trim())
+      // The query is a book's name or abbreviation, or an introduction's
+      // ("Pentateuco"), though a book comes first: "Joao" is João.
+      const name = text.trim()
+      const book =
+        this.bookService.findTypedBook(name) ?? this.bookService.findBook(name)
       if (book && book.id !== "about") {
         target = { book, chapter: 1, pairedPsalm, bookOnly: true }
       }
@@ -385,22 +497,27 @@ export class SearchComponent {
     })
   }
 
+  /**
+   * Watches the end of the list afresh: a new observer reports at once
+   * whether the end is in view, which an end that stayed in view while a
+   * page was added would otherwise never report again. Any of it in view
+   * counts: iOS 27 lays the list out at fractions of a pixel, and the
+   * one-pixel end, inside the list's clipped corners, may never show whole
+   * (58 to 83% at some lengths), which stopped the list at 100 verses.
+   */
   private attachObserverToSentinel() {
-    if (this.observer) {
-      this.observer.disconnect()
-    }
-    if (this.sentinel) {
-      this.observer = new IntersectionObserver(
-        (entries) => {
-          if (entries[0].isIntersecting && !this.isLoading) {
-            this.loadMoreResults()
-          }
-        },
-        { threshold: 1.0 },
-      )
-      this.observer.observe(this.sentinel.nativeElement)
-      this.lastSentinel = this.sentinel.nativeElement
-    }
+    this.observer?.disconnect()
+    this.observer = null
+    if (!this.sentinelElement) return
+    this.observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !this.isLoading) {
+          this.loadMoreResults()
+        }
+      },
+      { threshold: 0 },
+    )
+    this.observer.observe(this.sentinelElement)
   }
 
   private async loadMoreResults() {
@@ -477,6 +594,14 @@ export class SearchComponent {
       return
     }
 
+    if (target && beyondBook(target)) {
+      // No need to ask the server about "Jo 99".
+      this.toast.show(NO_SUCH_PASSAGE)
+      this.abandonSearch()
+      this.cdr.detectChanges()
+      return
+    }
+
     if (target) {
       const {
         book: targetBook,
@@ -511,16 +636,9 @@ export class SearchComponent {
       } catch (err) {
         if (isStale()) return
         console.error(err)
-        // HttpErrorResponse is not guaranteed here, so narrow the shape safely.
-        const status =
-          typeof err === "object" &&
-          err !== null &&
-          "status" in err &&
-          typeof err.status === "number"
-            ? err.status
-            : undefined
+        const status = httpStatus(err)
         if (status === 404 || status === 400) {
-          this.toast.show("Este capítulo ou versículo não existe.")
+          this.toast.show(NO_SUCH_PASSAGE)
         } else if (this.network.isOffline) {
           this.toast.show(
             "Sem ligação, e este capítulo ainda não está guardado neste dispositivo.",
@@ -587,12 +705,14 @@ export class SearchComponent {
         this.showResults(text, typed)
         return
       }
-      // Not "no results": the page says the search itself failed.
+      // Not "no results": the page says the search itself failed, and why.
       console.error("Error loading search results:", error)
       this.searchFailed = true
+      this.searchFailedMessage =
+        httpStatus(error) === 429 ? SEARCH_RATE_LIMITED : SEARCH_FAILED
       this.searchResults = []
       this.totalResults = 0
-      this.statusMessage = SEARCH_FAILED
+      this.statusMessage = this.searchFailedMessage
     } finally {
       if (!isStale()) {
         this.isLoading = false
@@ -659,10 +779,13 @@ export class SearchComponent {
     ) {
       document.activeElement.blur()
     }
-    // The sentinel node is recreated when results change, so rebind the observer
-    // after each fresh search result set.
+    // An end of the list kept from the last results may be in view of the
+    // new ones too; one rendered anew is watched as Angular sets it.
     this.attachObserverToSentinel()
     this.scrollToTop()
+    // New results start at the top: a place noted in the last ones isn't theirs.
+    this.scrolledTo = 0
+    this.keepQueryInUrl(text)
   }
 
   /**
@@ -782,6 +905,21 @@ export class SearchComponent {
   findBookById(bookId: string): Book | undefined {
     return this.bookService.findBook(bookId)
   }
+}
+
+/** A chapter past the book's last ("Jo 99"); an introduction has none. */
+function beyondBook({ book, chapter, bookOnly }: PassageTarget): boolean {
+  return !book.introSlug && !bookOnly && chapter > book.chapterCount
+}
+
+/** The HTTP status of a failed request; HttpErrorResponse isn't guaranteed. */
+function httpStatus(error: unknown): number | undefined {
+  return typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    typeof error.status === "number"
+    ? error.status
+    : undefined
 }
 
 /**

@@ -134,6 +134,10 @@ export class WebChromeBars implements NativeChromePlugin {
     return Promise.resolve()
   }
 
+  hideToast(): Promise<void> {
+    return Promise.resolve()
+  }
+
   showReport(): Promise<SheetPresented> {
     return Promise.resolve({ presented: false })
   }

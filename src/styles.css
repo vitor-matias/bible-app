@@ -305,6 +305,13 @@ html.dark-theme .onboarding-dialog .mat-mdc-button .mdc-button__label {
   margin-bottom: calc(8px + var(--app-inset-bottom));
 }
 
+/* The snackbar's action ("OK", "Fechar"). Its label is a span, which the
+   span rule above paints the text colour: black on the dark snackbar in the
+   light theme. */
+.mat-mdc-snack-bar-container .mat-mdc-button .mdc-button__label {
+  color: var(--mat-snack-bar-button-color);
+}
+
 /* iOS: above the native toolbar or search field (NativeChromeService). */
 .native-chrome .cdk-overlay-pane .mat-mdc-snack-bar-container {
   margin-bottom: calc(8px + var(--native-chrome-bottom, var(--app-inset-bottom)));

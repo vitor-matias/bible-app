@@ -163,6 +163,26 @@ describe("BookService", () => {
       expect(svc.findBook("gen").id).toBe("gen")
     })
 
+    // "Joao 3" opened "Cartas de João", whose id is "joao".
+    it("leaves introductions out of the books typed text names", async () => {
+      apiBooks.push({
+        id: "jhn",
+        name: "Evangelho segundo São João",
+        shortName: "João",
+        abrv: "Jo",
+        chapterCount: 21,
+      })
+      const svc = introApi([
+        { slug: "joao", name: "CARTAS DE JOÃO" },
+        { slug: "pentateuco", name: "INTRODUÇÃO AO PENTATEUCO" },
+      ])
+      await svc.initializeBooks()
+
+      expect(svc.findBook("joao").introSlug).toBe("joao")
+      expect(svc.findTypedBook("Joao")?.id).toBe("jhn")
+      expect(svc.findTypedBook("pentateuco")).toBeUndefined()
+    })
+
     it("caches a fetched introduction body on its book", async () => {
       const svc = introApi(
         [{ slug: "pentateuco", name: "INTRODUÇÃO AO PENTATEUCO" }],
@@ -239,6 +259,33 @@ describe("BookService", () => {
     await service.initializeBooks()
 
     expect(service.findBook("missing").id).toBe("about")
+  })
+
+  // "1 Co" is how many people type 1 Coríntios (abbreviated "1 Cor", id 1co).
+  it("should find a book by its id typed with a space", async () => {
+    await service.initializeBooks()
+
+    expect(service.findBookById("1 Sa")?.id).toBe("1sa")
+  })
+
+  describe("findTypedBook", () => {
+    it("finds a book by id, abbreviation or name, as typed", async () => {
+      await service.initializeBooks()
+
+      expect(service.findTypedBook("1 Sa")?.id).toBe("1sa")
+      expect(service.findTypedBook("1 Sm")?.id).toBe("1sa")
+      expect(service.findTypedBook("Genesis")?.id).toBe("gen")
+    })
+
+    // findBook falls back to the About page, and search offered "Abrir Sobre
+    // a Bíblia 13,4" for a reference to a book it didn't know.
+    it("never answers with the About page", async () => {
+      await service.initializeBooks()
+
+      expect(service.findTypedBook("1 Xy")).toBeUndefined()
+      expect(service.findTypedBook("Sobre")).toBeUndefined()
+      expect(service.findTypedBook("about")).toBeUndefined()
+    })
   })
 
   it("should normalize url abbreviations by removing spaces", async () => {

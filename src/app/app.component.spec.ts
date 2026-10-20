@@ -15,11 +15,13 @@ import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
 import { ToastService } from "./services/toast.service"
-import { APP_PLUGIN } from "./tokens"
+import { APP_PLUGIN, PAGE_HOSTNAME } from "./tokens"
 
 describe("AppComponent", () => {
   let routerSpy: jasmine.SpyObj<Router>
   let ngZone: NgZone
+  /** Where the page is served from (PAGE_HOSTNAME). */
+  let pageHostname: string
   // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
   let mockAppPlugin: jasmine.SpyObj<any>
   let onboardingSpy: jasmine.SpyObj<OnboardingService>
@@ -28,6 +30,7 @@ describe("AppComponent", () => {
   let toastSpy: jasmine.SpyObj<ToastService>
 
   beforeEach(async () => {
+    pageHostname = "localhost"
     routerSpy = jasmine.createSpyObj("Router", ["navigateByUrl", "navigate"])
     mockAppPlugin = jasmine.createSpyObj("App", ["addListener", "minimizeApp"])
     dialogStub = { openDialogs: [] }
@@ -58,6 +61,7 @@ describe("AppComponent", () => {
         { provide: MatDialog, useValue: dialogStub },
         { provide: NativeShellService, useValue: nativeShellSpy },
         { provide: ToastService, useValue: toastSpy },
+        { provide: PAGE_HOSTNAME, useFactory: () => pageHostname },
       ],
     }).compileComponents()
 
@@ -79,13 +83,27 @@ describe("AppComponent", () => {
       for (const script of Array.from(speedInsightsScripts())) script.remove()
     })
 
+    const servedFrom = (hostname: string) => {
+      pageHostname = hostname
+    }
+
     it("is not loaded in the native apps", () => {
+      servedFrom("localhost")
       TestBed.createComponent(AppComponent)
       expect(speedInsightsScripts().length).toBe(0)
     })
 
-    it("is loaded on the web", () => {
+    // The website is nginx: the script 404'd on every page.
+    it("is not loaded on the website", () => {
       ;(Capacitor.isNativePlatform as jasmine.Spy).and.returnValue(false)
+      servedFrom("biblia.capuchinhos.org")
+      TestBed.createComponent(AppComponent)
+      expect(speedInsightsScripts().length).toBe(0)
+    })
+
+    it("is loaded on the Vercel deployment", () => {
+      ;(Capacitor.isNativePlatform as jasmine.Spy).and.returnValue(false)
+      servedFrom("bible-app-ten-psi.vercel.app")
       TestBed.createComponent(AppComponent)
       expect(speedInsightsScripts().length).toBe(1)
     })

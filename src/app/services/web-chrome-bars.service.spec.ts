@@ -139,4 +139,10 @@ describe("WebChromeBars", () => {
       }),
     ).toEqual({ presented: false })
   })
+
+  // The web's snack bar shows the toasts; the bars have none to take down.
+  it("has no toast of its own to show or hide", async () => {
+    await expectAsync(bars.showToast()).toBeResolved()
+    await expectAsync(bars.hideToast()).toBeResolved()
+  })
 })

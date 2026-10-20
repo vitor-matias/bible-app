@@ -211,7 +211,8 @@ export interface NativeChromePlugin {
   showPicker(data: PassagePickerData): Promise<void>
   /**
    * The sheets say whether they were presented: not over another sheet, and
-   * then no *-closed event follows.
+   * then no *-closed event follows. One on its way out is waited for, so its
+   * *-closed comes before the answer.
    */
   showBookmarks(state: BookmarksSheetState): Promise<SheetPresented>
   /** Refreshes the bookmarks sheet if it is still open. */
@@ -222,6 +223,8 @@ export interface NativeChromePlugin {
     button?: boolean
     symbol?: string
   }): Promise<void>
+  /** Takes the toast down, if one is showing. */
+  hideToast(): Promise<void>
   showReport(state: ReportSheetState): Promise<SheetPresented>
   /** The answer to report-submit: the sheet closes, or shows `message`. */
   finishReport(result: { sent: boolean; message?: string }): Promise<void>
@@ -307,6 +310,8 @@ export class NativeChromeService {
   private autoScroll: AutoScrollChrome | null = null
   /** What tapping the current toast does, when it is a button. */
   private toastAction?: () => void
+  /** Counts the toasts shown, so a stale one's hide does nothing. */
+  private toastCount = 0
   /** The bars' state as last sent to the shell (push). */
   private lastSent?: string
   /** The shell says whether its bars did hide (ChromeInsets.collapsed). */
@@ -424,12 +429,16 @@ export class NativeChromeService {
     this.plugin.updateBookmarks(state).catch(() => {})
   }
 
-  /** A glass toast above the bottom bar; see ToastService. */
-  toast(message: string, options: NativeToastOptions = {}): void {
-    if (!this.enabled) return
+  /**
+   * A glass toast above the bottom bar; see ToastService. Returns what takes
+   * it down early, which leaves a toast that has replaced it alone.
+   */
+  toast(message: string, options: NativeToastOptions = {}): () => void {
+    if (!this.enabled) return () => {}
     const { onTap, symbol } = options
     // It replaces the toast before, and that one's action with it.
     this.toastAction = onTap
+    const shown = ++this.toastCount
     this.plugin
       .showToast(
         onTap
@@ -437,6 +446,11 @@ export class NativeChromeService {
           : { message },
       )
       .catch(() => {})
+    return () => {
+      if (shown !== this.toastCount) return
+      this.toastAction = undefined
+      this.plugin.hideToast().catch(() => {})
+    }
   }
 
   /** Whether the sheet came up; it doesn't over another one. */
