@@ -143,7 +143,7 @@ private final class BookListViewController: UICollectionViewController, UISearch
     override func viewDidLoad() {
         super.viewDidLoad()
         collectionView.backgroundColor = sheetBackground
-        softenTopEdge(of: collectionView)
+        solidBar(for: self)
         navigationItem.rightBarButtonItem = closeButton(for: self)
         navigationItem.leftBarButtonItem = modeToggle
         modeToggle.isSelected = mode == .abbreviations
@@ -300,7 +300,7 @@ private final class ChapterListViewController: UICollectionViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         collectionView.backgroundColor = sheetBackground
-        softenTopEdge(of: collectionView)
+        solidBar(for: self)
         navigationItem.rightBarButtonItem = closeButton(for: self)
 
         let tile = UICollectionView.CellRegistration<TileCell, Chapter> { [current] cell, _, chapter in
@@ -380,10 +380,10 @@ private final class TileCell: UICollectionViewCell {
         contentView.layer.cornerRadius = 12
         contentView.layer.cornerCurve = .continuous
         label.textAlignment = .center
-        // One line, shrinking a little for the longest names ("1 Tessalonicenses"):
-        // wrapping split "1" from its book.
-        label.numberOfLines = 1
-        label.adjustsFontForContentSizeCategory = true
+        // Long names take two lines ("Atos dos / Apóstolos"). A word too wide
+        // for the tile shrinks instead of breaking (`fitText`), and a number
+        // keeps to its book ("1 Tessalonicenses" shrinks on one line).
+        label.numberOfLines = 2
         label.adjustsFontSizeToFitWidth = true
         label.minimumScaleFactor = 0.65
         detailLabel.textAlignment = .center
@@ -416,8 +416,9 @@ private final class TileCell: UICollectionViewCell {
 
     func configure(text: String, detail: String? = nil, style: UIFont.TextStyle, current: Bool,
                    ribbon color: UIColor? = nil, accessibilityLabel: String) {
-        label.text = text
-        label.font = limitedFont(style)
+        label.text = text.replacingOccurrences(of: #"^(\d) "#, with: "$1\u{00A0}", options: .regularExpression)
+        textStyle = style
+        fitText()
         label.textColor = current ? ChromeViewController.onSelection : .label
         detailLabel.text = detail.map { "(\($0))" }
         detailLabel.isHidden = detail == nil
@@ -431,6 +432,33 @@ private final class TileCell: UICollectionViewCell {
 
     override var isHighlighted: Bool {
         didSet { contentView.alpha = isHighlighted ? 0.55 : 1 }
+    }
+
+    private var textStyle: UIFont.TextStyle = .body
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        fitText()
+    }
+
+    /// The style's font, made smaller if a word is wider than the tile: a label
+    /// that shrinks to fit two lines would break the word across them first.
+    private func fitText() {
+        let words = (label.text ?? "").split(separator: " ")
+        func widest(_ font: UIFont) -> CGFloat {
+            words.map { ceil(($0 as NSString).size(withAttributes: [.font: font]).width) }.max() ?? 0
+        }
+        let room = contentView.bounds.width - 12
+        var font = limitedFont(textStyle)
+        if room > 0, widest(font) > room {
+            // Measured at each size, not scaled in proportion: SF spaces its
+            // letters wider as it gets smaller, and "2 Tessalonicenses" broke.
+            font = font.withSize((font.pointSize * room / widest(font) * 2).rounded(.down) / 2)
+            while widest(font) > room, font.pointSize > 6 {
+                font = font.withSize(font.pointSize - 0.5)
+            }
+        }
+        if label.font != font { label.font = font }
     }
 }
 
@@ -514,11 +542,21 @@ private extension UICollectionView {
     }
 }
 
-/// The content fades out under the bar, as in the system's sheets. Automatic
-/// picked the hard style here: a lighter strip with a line under the bar.
-private func softenTopEdge(of scrollView: UIScrollView) {
+/// A bar in the sheet's own colour, as sheets were before iOS 26: the tiles
+/// go under it out of sight, and a hairline shows once they do. The scroll
+/// edge effect, soft or hard, still showed them behind the title and buttons.
+private func solidBar(for controller: UICollectionViewController) {
+    func appearance(hairline: Bool) -> UINavigationBarAppearance {
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = sheetBackground
+        if !hairline { appearance.shadowColor = .clear }
+        return appearance
+    }
+    controller.navigationItem.standardAppearance = appearance(hairline: true)
+    controller.navigationItem.scrollEdgeAppearance = appearance(hairline: false)
     if #available(iOS 26.0, *) {
-        scrollView.topEdgeEffect.style = .soft
+        controller.collectionView.topEdgeEffect.isHidden = true
     }
 }
 
