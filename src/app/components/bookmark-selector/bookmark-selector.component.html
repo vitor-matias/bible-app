@@ -17,7 +17,7 @@
     @for (ribbon of ribbons; track ribbon.value) {
     <div class="ribbon-item">
       <button type="button" class="color-button"
-        (click)="handleRibbonClick(ribbon)" [attr.aria-label]="ribbon.name">
+        (click)="handleRibbonClick(ribbon)" [attr.aria-label]="ribbon.currentRef ? ribbon.spoken + ', ' + ribbon.currentRef : ribbon.spoken">
         <!-- The ribbon's notched end is drawn, not clipped: Android's WebView
              painted a clip-path'd button garbled inside the sheet. -->
         <svg class="ribbon-shape" viewBox="0 0 56 80" preserveAspectRatio="none" aria-hidden="true">

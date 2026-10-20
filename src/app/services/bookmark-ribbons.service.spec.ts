@@ -15,11 +15,12 @@ import { HapticsService } from "./haptics.service"
 function ribbonsWith(
   marks: { color: string; bookId: string; chapter: number }[],
 ): RibbonState[] {
-  return RIBBON_COLORS.map(({ name, value }) => {
+  return RIBBON_COLORS.map(({ name, value, spoken }) => {
     const mark = marks.find((m) => m.color === value)
     return {
       name,
       value,
+      spoken,
       bookmark: mark && { ...mark, timestamp: 1 },
     }
   })

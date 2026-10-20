@@ -585,6 +585,31 @@ describe("VerseComponent", () => {
       )
       expect(interactive.length).toBeGreaterThan(0)
     })
+
+    // Tabbing onto a verse showed nothing: the text had outline: none, so a
+    // keyboard user couldn't tell which verse had the focus.
+    it("shows where the keyboard's focus is on the text", () => {
+      setData(
+        component,
+        makeVerse({
+          text: [
+            { type: "text", text: "verse text" },
+            { type: "footnote", text: "note", reference: "a" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+      const text = fixture.nativeElement.querySelector(
+        ".interactive[role='button']",
+      ) as HTMLElement
+
+      text.focus()
+
+      expect(text.matches(":focus-visible")).toBeTrue()
+      const style = getComputedStyle(text)
+      expect(style.outlineStyle).toBe("solid")
+      expect(style.outlineColor).toBe(style.color)
+    })
   })
 
   describe("deep-link highlight", () => {

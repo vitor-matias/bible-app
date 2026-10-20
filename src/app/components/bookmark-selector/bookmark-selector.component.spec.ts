@@ -128,6 +128,25 @@ describe("BookmarkSelectorComponent", () => {
     })
   })
 
+  // A screen reader said "Red", "Orange"… in an app otherwise in Portuguese.
+  it("names each ribbon in Portuguese, with the passage it marks", () => {
+    const labels = Array.from(
+      fixture.nativeElement.querySelectorAll(".color-button"),
+      (button: Element) => button.getAttribute("aria-label"),
+    )
+
+    expect(labels).toEqual([
+      "Vermelho",
+      "Laranja",
+      "Azul-petróleo",
+      "Verde",
+      "Azul, Mc 2",
+      "Índigo",
+      "Violeta",
+      "Cinzento",
+    ])
+  })
+
   /** A CSS colour as getComputedStyle reports it ("red" → "rgb(255, 0, 0)"). */
   const colorOf = (color: string): string => {
     const probe = document.createElement("span")
