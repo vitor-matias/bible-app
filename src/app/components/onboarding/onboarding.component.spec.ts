@@ -291,7 +291,7 @@ describe("OnboardingComponent", () => {
     }
 
     platformButton("iPhone / iPad").click()
-    expect(textOf(".guide")).toContain("barra do Safari")
+    expect(textOf(".guide")).toContain("barra de endereço do Safari")
   })
 
   it("says which browser the Android guide assumes when browsed from another device", () => {
@@ -451,6 +451,56 @@ describe("getInstallGuide", () => {
     expect(chrome.steps[0].text).toContain("Chrome")
     expect(chrome.steps[1].text).toContain("Instalar aplicação")
     expect(chrome.note).toBeUndefined()
+  })
+
+  // Checked against Chrome's own strings (Oct 2026): the menu item, then a
+  // choice where only «Instalar» installs; a shortcut just opens Chrome.
+  it("names Chrome's current menu item and steers past «Criar atalho»", () => {
+    const [menu, item, confirm] = getInstallGuide("android", "chrome").steps
+
+    expect(menu.text).toContain("⋮")
+    expect(item.text).toContain("«Instale e crie um atalho»")
+    expect(item.text).toContain("«Adicionar ao ecrã principal»")
+    expect(confirm.text).toContain("«Instalar», não «Criar atalho»")
+    // Firefox and Edge keep their own confirmation.
+    expect(getInstallGuide("android", "firefox").steps[2].text).toContain(
+      "Confirme em «Instalar»",
+    )
+  })
+
+  // Checked in Safari on iOS 27: Share sits in the address bar's ≡ menu and
+  // «Adicionar ao ecrã principal» behind «Ver mais».
+  it("walks the iPhone through Safari's ≡ menu and «Ver mais»", () => {
+    const guide = getInstallGuide("ios", "safari")
+    const [share, add, confirm] = guide.steps
+
+    expect(share.text).toContain("≡")
+    expect(share.text).toContain("«Partilhar»")
+    expect(add.text).toContain("«Ver mais»")
+    expect(add.text).toContain("«Adicionar ao ecrã principal»")
+    expect(confirm.text).toContain("«Abrir como aplicação web»")
+    expect(confirm.text).toContain("«Adicionar»")
+    expect(guide.note).toContain("canto superior direito")
+    expect(getInstallGuide("ios", "chrome").steps[1].text).toContain(
+      "«Ver mais»",
+    )
+  })
+
+  it("uses the desktop browsers' own wording, and installs from Firefox on Windows", () => {
+    const step = (browser: InstallBrowser) =>
+      getInstallGuide("desktop", browser).steps[0]
+
+    expect(step("chrome").text).toContain("«Instalar página como app…»")
+    expect(step("edge").text).toContain(
+      "«Instale este site como uma aplicação»",
+    )
+    expect(step("edge").text).toContain("«Definições e muito mais»")
+
+    const firefox = step("firefox").text
+    expect(firefox).toContain("Windows (Firefox 143 ou superior)")
+    expect(firefox).toContain("barra de tarefas")
+    expect(firefox).toContain("No macOS e no Linux")
+    expect(firefox).not.toContain("Não suporta")
   })
 
   it("says which browser the Android steps assume when the browser is unknown", () => {
