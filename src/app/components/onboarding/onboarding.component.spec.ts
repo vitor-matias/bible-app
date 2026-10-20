@@ -499,7 +499,7 @@ describe("getInstallGuide", () => {
 
     const steps = getInstallGuide("desktop", "chrome").steps
     expect(steps[0].text).toContain("Transmitir, guardar e partilhar")
-    expect(steps.at(-1)?.text).toContain("Confirme")
+    expect(steps.at(-1)?.text).toContain("confirme em «Instalar»")
   })
 
   it("tailors Android instructions to the browser", () => {
@@ -529,17 +529,22 @@ describe("getInstallGuide", () => {
   })
 
   // Checked in Safari on iOS 27: Share sits in the address bar's ≡ menu and
-  // «Adicionar ao ecrã principal» behind «Ver mais».
+  // «Adicionar ao ecrã principal» behind «Ver mais». Apple's iOS 26 guide
+  // adds the bottom/top tab layouts, which keep a Share button.
   it("walks the iPhone through Safari's ≡ menu and «Ver mais»", () => {
     const guide = getInstallGuide("ios", "safari")
     const [share, add, confirm] = guide.steps
 
     expect(share.text).toContain("[[menu]]")
     expect(share.text).toContain("«Partilhar»")
-    expect(share.text).toContain("[[ios_share]]")
-    expect(add.text).toContain("«Ver mais»")
+    expect(share.text).toContain("Se vir [[ios_share]]")
+    expect(share.text).not.toContain("versões anteriores")
     expect(add.text).toContain("«Adicionar ao ecrã principal»")
-    expect(confirm.text).toContain("«Abrir como aplicação web»")
+    expect(add.text).toContain("se não a vir, toque em «Ver mais»")
+    // iOS before 26 has no «Abrir como aplicação web».
+    expect(confirm.text).toContain(
+      "Se aparecer a opção «Abrir como aplicação web»",
+    )
     expect(confirm.text).toContain("«Adicionar»")
     expect(guide.note).toContain("canto superior direito")
     expect(getInstallGuide("ios", "chrome").steps[1].text).toContain(
@@ -558,10 +563,19 @@ describe("getInstallGuide", () => {
     expect(step("edge").text).toContain("«Definições e muito mais»")
 
     const firefox = step("firefox").text
-    expect(firefox).toContain("Windows (Firefox 143 ou superior)")
+    expect(firefox).toContain("Windows (Firefox 143 ou superior;")
+    expect(firefox).toContain(
+      "150 ou superior se o instalou a partir da Microsoft Store",
+    )
     expect(firefox).toContain("barra de tarefas")
     expect(firefox).toContain("No macOS e no Linux")
     expect(firefox).not.toContain("Não suporta")
+
+    // Firefox installs at once, so the shared confirmation is conditional.
+    const steps = getInstallGuide("desktop", "firefox").steps
+    expect(steps[steps.length - 1].text).toMatch(
+      /^Se o navegador pedir, confirme em «Instalar»/,
+    )
   })
 
   it("says which browser the Android steps assume when the browser is unknown", () => {

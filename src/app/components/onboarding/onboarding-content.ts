@@ -254,21 +254,23 @@ const ANDROID_EDGE: InstallGuide = {
 }
 
 // Since iOS 26 the iPhone's Safari keeps Share in the ≡ menu of the address
-// bar, and the share sheet hides «Adicionar ao ecrã principal» behind
-// «Ver mais». The iPad still has a Share button at the top right.
+// bar, unless the tabs are laid out at the bottom or top, which (like older
+// iOS and the iPad) still show a Share button. The share sheet may hide
+// «Adicionar ao ecrã principal» behind «Ver mais», and only iOS 26 or later
+// offers «Abrir como aplicação web».
 const IOS_SAFARI: InstallGuide = {
   steps: [
     {
       icon: "menu",
-      text: "Na barra de endereço do Safari, toque em [[menu]] e depois em «Partilhar». Em versões anteriores do iOS, toque diretamente em [[ios_share]].",
+      text: "Na barra de endereço do Safari, toque em [[menu]] e depois em «Partilhar». Se vir [[ios_share]] na barra do Safari, toque diretamente nesse botão.",
     },
     {
       icon: "add_box",
-      text: "Toque em «Ver mais» e escolha «Adicionar ao ecrã principal».",
+      text: "Desça na lista e escolha «Adicionar ao ecrã principal» (se não a vir, toque em «Ver mais»).",
     },
     {
       icon: "check_circle",
-      text: "Deixe ligada a opção «Abrir como aplicação web» e toque em «Adicionar», no canto superior direito.",
+      text: "Se aparecer a opção «Abrir como aplicação web», confirme que está ligada. Toque em «Adicionar», no canto superior direito.",
     },
   ],
   note: "No iPad, toque diretamente em [[ios_share]], no canto superior direito do Safari.",
@@ -314,18 +316,20 @@ const DESKTOP_BROWSER_STEPS: Record<DesktopBrowser, InstallGuideStep> = {
     icon: "ios_share",
     text: "Clique em [[ios_share]] (ou no menu Ficheiro) e escolha «Adicionar à Dock».",
   },
-  // Web apps arrived in Firefox 143 for Windows only (not the Microsoft
-  // Store build); macOS and Linux still have none.
+  // Web apps arrived in Firefox 143 for Windows only (150 for the Microsoft
+  // Store build); macOS and Linux still have none. The address-bar button
+  // installs at once, without asking.
   firefox: {
     label: "Firefox",
     icon: "install_desktop",
-    text: "No Windows (Firefox 143 ou superior), clique no botão de aplicações web, na barra de endereço, para fixar a Bíblia na barra de tarefas. No macOS e no Linux, o Firefox não instala aplicações web: use o Chrome, o Edge ou o Safari, ou continue a ler no Firefox, incluindo sem ligação.",
+    text: "No Windows (Firefox 143 ou superior; 150 ou superior se o instalou a partir da Microsoft Store), clique no botão de aplicações web, na barra de endereço, para fixar a Bíblia na barra de tarefas. No macOS e no Linux, o Firefox não instala aplicações web: use o Chrome, o Edge ou o Safari, ou continue a ler no Firefox, incluindo sem ligação.",
   },
 }
 
+// Firefox installs without a confirmation, so this one is conditional.
 const CONFIRM_DESKTOP: InstallGuideStep = {
   icon: "check_circle",
-  text: "Confirme em «Instalar» (ou «Adicionar»). A Bíblia passa a abrir numa janela própria, como qualquer outra aplicação.",
+  text: "Se o navegador pedir, confirme em «Instalar» (ou «Adicionar»). A Bíblia passa a abrir numa janela própria, como qualquer outra aplicação.",
 }
 
 /** Desktop users often have several browsers, so list them all, theirs first. */
