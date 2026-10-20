@@ -111,6 +111,52 @@ describe("BookmarkSelectorComponent", () => {
     expect(redRibbon?.bookmark).toBeUndefined()
   })
 
+  // Android's WebView painted the sheet garbled while the ribbons were cut to
+  // shape with clip-path: half the sheet missing, ghost ribbons beside them.
+  it("draws each ribbon's shape in its colour instead of clipping the button", () => {
+    const buttons = Array.from(
+      fixture.nativeElement.querySelectorAll(".color-button"),
+    ) as HTMLElement[]
+    expect(buttons.length).toBe(component.ribbons.length)
+
+    buttons.forEach((button, index) => {
+      expect(getComputedStyle(button).clipPath).toBe("none")
+      const shape = button.querySelector(".ribbon-shape path") as SVGElement
+      expect(getComputedStyle(shape).fill).toBe(
+        colorOf(component.ribbons[index].value),
+      )
+    })
+  })
+
+  // A screen reader said "Red", "Orange"… in an app otherwise in Portuguese.
+  it("names each ribbon in Portuguese, with the passage it marks", () => {
+    const labels = Array.from(
+      fixture.nativeElement.querySelectorAll(".color-button"),
+      (button: Element) => button.getAttribute("aria-label"),
+    )
+
+    expect(labels).toEqual([
+      "Vermelho",
+      "Laranja",
+      "Azul-petróleo",
+      "Verde",
+      "Azul, Mc 2",
+      "Índigo",
+      "Violeta",
+      "Cinzento",
+    ])
+  })
+
+  /** A CSS colour as getComputedStyle reports it ("red" → "rgb(255, 0, 0)"). */
+  const colorOf = (color: string): string => {
+    const probe = document.createElement("span")
+    probe.style.color = color
+    document.body.append(probe)
+    const computed = getComputedStyle(probe).color
+    probe.remove()
+    return computed
+  }
+
   it("should toggle delete mode", () => {
     expect(component.isDeleteMode).toBeFalse()
     component.toggleDeleteMode()

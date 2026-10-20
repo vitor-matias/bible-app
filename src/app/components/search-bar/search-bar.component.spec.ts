@@ -86,6 +86,32 @@ describe("SearchBarComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  // Android capitalised the first letter: "amor" showed as "Amor".
+  it("leaves typed words as typed", () => {
+    const input = fixture.nativeElement.querySelector(
+      "input",
+    ) as HTMLInputElement
+
+    expect(input.getAttribute("autocapitalize")).toBe("off")
+    expect(input.spellcheck).toBeFalse()
+  })
+
+  it("opens ready to type", () => {
+    const input = fixture.nativeElement.querySelector("input")
+    expect(document.activeElement).toBe(input)
+  })
+
+  // After Back from a result, the keyboard came up over the results.
+  it("doesn't bring the keyboard up over results already shown", () => {
+    const shown = TestBed.createComponent(SearchBarComponent)
+    shown.componentRef.setInput("focusOnOpen", false)
+    shown.detectChanges()
+
+    expect(document.activeElement).not.toBe(
+      shown.nativeElement.querySelector("input"),
+    )
+  })
+
   it("should prefill the query from the value input", () => {
     component.value = "Salmo 23"
     expect(component.query).withContext("after setter").toBe("Salmo 23")

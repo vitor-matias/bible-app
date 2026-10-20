@@ -26,6 +26,8 @@ export function spokenRibbonName(color: string): string | undefined {
 export interface RibbonState {
   name: string
   value: string
+  /** Its name read out, in Portuguese ("Vermelho"). */
+  spoken: string
   /** The passage the ribbon marks, e.g. "Mc 2". */
   currentRef?: string
   bookmark?: Bookmark
@@ -136,10 +138,10 @@ export class BookmarkRibbonsService {
 
   /** Every colour, with the passage it marks if it is in use. */
   ribbons(bookmarks: Bookmark[]): RibbonState[] {
-    return RIBBON_COLORS.map(({ name, value }) => {
+    return RIBBON_COLORS.map(({ name, value, spoken }) => {
       const bookmark = bookmarks.find((b) => b.color === value)
       const currentRef = bookmark && this.ref(bookmark.bookId, bookmark.chapter)
-      return { name, value, bookmark, currentRef }
+      return { name, value, spoken, bookmark, currentRef }
     })
   }
 

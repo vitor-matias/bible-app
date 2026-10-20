@@ -1,4 +1,5 @@
-import { InjectionToken } from "@angular/core"
+import { DOCUMENT } from "@angular/common"
+import { InjectionToken, inject } from "@angular/core"
 import { App } from "@capacitor/app"
 import { registerPlugin, SystemBars } from "@capacitor/core"
 import { Haptics } from "@capacitor/haptics"
@@ -88,4 +89,14 @@ export const NATIVE_CHROME_PLUGIN = new InjectionToken<NativeChromePlugin>(
 export const STORE_APPS = new InjectionToken<StoreApps>("Store apps", {
   providedIn: "root",
   factory: () => storeApps,
+})
+
+/**
+ * The host the page is served from: "biblia.capuchinhos.org" (nginx), a
+ * Vercel deployment, or the native apps' local origin. A token so that specs
+ * can be on any of them.
+ */
+export const PAGE_HOSTNAME = new InjectionToken<string>("Page hostname", {
+  providedIn: "root",
+  factory: () => inject(DOCUMENT).location?.hostname ?? "",
 })

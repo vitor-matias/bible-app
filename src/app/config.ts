@@ -25,6 +25,11 @@ export const storeApps: StoreApps = {
   playPackage: "org.capuchinhos.biblia",
 }
 
+/** A Vercel deployment (the test site and its previews), not the website. */
+export function isVercelHost(hostname: string): boolean {
+  return hostname.endsWith(".vercel.app")
+}
+
 /** API origin while prerendering; PRERENDER_API_ORIGIN points it at a stub. */
 export const serverApiOrigin =
   (globalThis as { process?: { env?: Record<string, string | undefined> } })

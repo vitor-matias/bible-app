@@ -4,6 +4,7 @@
     class="book-filter-input"
     placeholder="Filtrar livros..."
     aria-label="Filtrar livros"
+    [value]="filterQuery"
     (input)="filterBooks($any($event.target).value)"
   />
 </div>

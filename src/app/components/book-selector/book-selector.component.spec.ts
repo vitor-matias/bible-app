@@ -1,4 +1,9 @@
-import { Component, SimpleChange, ViewChild } from "@angular/core"
+import {
+  ApplicationRef,
+  Component,
+  SimpleChange,
+  ViewChild,
+} from "@angular/core"
 import {
   type ComponentFixture,
   fakeAsync,
@@ -385,5 +390,37 @@ describe("BookSelectorComponent in the reader's drawer", () => {
     ) as HTMLElement
     expect(scrollSpy).toHaveBeenCalledTimes(1)
     expect(scrollSpy.calls.mostRecent().object).toBe(malaquias)
+  }))
+
+  // After a filtered pick ("Sabed"), the drawer reopened still filtered, with
+  // the other books hidden.
+  it("opens on the whole list again, at the book being read", fakeAsync(() => {
+    const fixture = TestBed.createComponent(DrawerHostComponent)
+    const scrollSpy = spyOn(Element.prototype, "scrollIntoView")
+    const host = fixture.nativeElement as HTMLElement
+    fixture.detectChanges()
+    const { drawer } = fixture.componentInstance
+    drawer.open()
+    flush()
+    const input = host.querySelector(".book-filter-input") as HTMLInputElement
+    input.value = "Gen"
+    input.dispatchEvent(new Event("input"))
+    fixture.detectChanges()
+    expect(host.querySelector('[data-book-id="mal"]')).toBeNull()
+
+    drawer.close()
+    flush()
+    scrollSpy.calls.reset()
+    drawer.open()
+    flush()
+    // The app's next render, which zone.js runs after the drawer's event.
+    fixture.detectChanges()
+    TestBed.inject(ApplicationRef).tick()
+    flush()
+
+    expect(input.value).toBe("")
+    const malaquias = host.querySelector('[data-book-id="mal"]') as HTMLElement
+    expect(malaquias).not.toBeNull()
+    expect(scrollSpy.calls.mostRecent()?.object).toBe(malaquias)
   }))
 })

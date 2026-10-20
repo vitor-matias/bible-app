@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   Inject,
+  inject,
   NgZone,
   type OnDestroy,
   type OnInit,
@@ -12,7 +13,7 @@ import type { App, BackButtonListenerEvent } from "@capacitor/app"
 import type { PluginListenerHandle } from "@capacitor/core"
 import { Capacitor } from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
-import { appConfig } from "./config"
+import { appConfig, isVercelHost } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
 import { AppPromoService } from "./services/app-promo.service"
 import { BackButtonService } from "./services/back-button.service"
@@ -22,7 +23,7 @@ import { OnboardingService } from "./services/onboarding.service"
 import { PwaInstallService } from "./services/pwa-install.service"
 import { ThemeService } from "./services/theme.service"
 import { ToastService } from "./services/toast.service"
-import { APP_PLUGIN } from "./tokens"
+import { APP_PLUGIN, PAGE_HOSTNAME } from "./tokens"
 
 /** How long after a back on the first screen a second one leaves the app. */
 export const EXIT_BACK_WINDOW_MS = 2000
@@ -61,9 +62,10 @@ export class AppComponent implements OnInit, OnDestroy {
     private toast: ToastService,
     private appPromo: AppPromoService,
   ) {
-    // Speed Insights is served by the Vercel deployment; the native apps load
-    // from a local origin where its script does not exist.
-    if (!Capacitor.isNativePlatform()) injectSpeedInsights()
+    // Speed Insights is served by Vercel deployments only. The website itself
+    // is nginx, where its script 404s on every page, and the native apps load
+    // from a local origin where it doesn't exist either.
+    if (isVercelHost(inject(PAGE_HOSTNAME))) injectSpeedInsights()
   }
 
   ngOnInit(): void {

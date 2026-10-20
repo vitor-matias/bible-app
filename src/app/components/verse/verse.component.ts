@@ -20,6 +20,7 @@ import {
 } from "@angular/material/bottom-sheet"
 import { RouterModule } from "@angular/router"
 import { Subscription } from "rxjs"
+import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BackButtonService } from "../../services/back-button.service"
 import {
   type BibleReference,
@@ -97,6 +98,8 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   /** The iOS app shows footnotes in a native sheet. */
   private readonly nativeFootnotes = inject(NativeFootnotesService)
+
+  private readonly autoScroll = inject(AutoScrollService)
 
   constructor(
     private bibleRef: BibleReferenceService,
@@ -379,6 +382,9 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   toggleFootnotes(event?: Event): void {
     const footnotes = this.data.text.filter((t) => t.type === "footnote")
     if (footnotes.length === 0) return
+    // Auto-scroll would carry the verse away under the notes as they're read.
+    // It stays stopped once they close: ▶ plays it on from there.
+    this.autoScroll.stop()
     if (this.nativeFootnotes.enabled) {
       this.nativeFootnotes.open(footnotes, this.data)
       return
