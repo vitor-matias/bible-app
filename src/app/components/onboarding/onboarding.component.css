@@ -166,8 +166,9 @@
   opacity: 0.5;
 }
 
-/* The stores' badges, unaltered: Apple's must stand at least 40px tall, with
-   a quarter of its height clear around it. */
+/* The stores' badges, unaltered: Apple's must stand at least 40px tall and
+   Google's no smaller than the others, each with a quarter of its height
+   clear around it. */
 .store-badge {
   display: block;
   width: fit-content;
@@ -178,7 +179,7 @@
 .store-badge img {
   display: block;
   width: auto;
-  height: 48px;
+  height: 56px;
 }
 
 .store-badge:focus-visible {

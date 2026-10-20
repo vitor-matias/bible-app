@@ -448,6 +448,15 @@ describe("OnboardingComponent", () => {
       ).toContain("foi instalada")
     })
 
+    // Large enough to tap and read in the dialog; Apple's least is 40px.
+    it("shows the store's badge 56px tall", () => {
+      create()
+      goToInstallStep()
+
+      const badge = storeButton()?.querySelector("img") as HTMLImageElement
+      expect(getComputedStyle(badge).height).toBe("56px")
+    })
+
     it("sends iPhone and iPad visitors to the App Store", () => {
       pwa.platform = "ios"
       pwa.browser = "safari"
