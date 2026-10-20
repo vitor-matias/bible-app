@@ -632,7 +632,7 @@ describe("PagedNavigationDirective", () => {
         [style.height.px]="height"
       >
         @for (verse of verses; track verse) {
-          <span [id]="verse">{{ verse }} Disse-lhe Jesus: em verdade, em verdade te digo. </span>
+          <span [id]="verse">{{ verse }} {{ verse === LONG_VERSE ? longText : text }} </span>
         }
       </div>
     </div>
@@ -642,11 +642,17 @@ describe("PagedNavigationDirective", () => {
   standalone: true,
 })
 class PagesHostComponent {
+  readonly LONG_VERSE = LONG_VERSE
   width = 200
   height = 100
   verses = Array.from({ length: 80 }, (_, i) => i + 1)
+  text = "Disse-lhe Jesus: em verdade, em verdade te digo."
+  // Several pages long at 200x100, as a long verse is on a phone at a large size.
+  longText = Array(12).fill(this.text).join(" ")
   @ViewChild("container") container!: ElementRef<HTMLElement>
 }
+
+const LONG_VERSE = 30
 
 // A rotation, a folding phone or Split View lays the pages out anew. The page
 // was found again by its pixel offset, which held other verses: Jo 3 from
@@ -658,19 +664,38 @@ describe("PagedNavigationDirective across a resize", () => {
 
   const settle = () => new Promise((resolve) => setTimeout(resolve, 400))
 
-  /** The first verse that starts on the page on screen. */
-  function firstVerseOnScreen(): HTMLElement {
+  const verse = (id: number) =>
+    container.querySelector(`[id="${id}"]`) as HTMLElement
+  const fragments = (element: HTMLElement) =>
+    Array.from(element.getClientRects())
+  const onScreen = (rect: DOMRect) => {
     const box = container.getBoundingClientRect()
-    const verse = Array.from(container.querySelectorAll("span")).find(
-      (span) => span.getClientRects()[0].left >= box.left - 1,
-    )
-    return verse as HTMLElement
+    return rect.left >= box.left - 1 && rect.left < box.right - 1
   }
 
-  function isOnScreen(verse: HTMLElement): boolean {
+  function startsOnScreen(element: HTMLElement): boolean {
+    const start = fragments(element)[0]
+    return start !== undefined && onScreen(start)
+  }
+
+  /** The first verse that starts on the page on screen. */
+  const firstVerseOnScreen = () =>
+    Array.from(container.querySelectorAll<HTMLElement>("[id]")).find(
+      startsOnScreen,
+    )
+
+  /** Which of the pages a verse runs over is on screen, from 0. */
+  function pageWithin(element: HTMLElement): number {
     const box = container.getBoundingClientRect()
-    const start = verse.getClientRects()[0]
-    return start.left >= box.left - 1 && start.left < box.right - 1
+    const pages = new Set(
+      fragments(element).map((rect) =>
+        Math.floor(
+          (rect.left - box.left + container.scrollLeft + 1) / box.width,
+        ),
+      ),
+    )
+    const shown = Math.floor(container.scrollLeft / box.width)
+    return [...pages].sort((a, b) => a - b).indexOf(shown)
   }
 
   async function resizeTo(width: number, height: number): Promise<void> {
@@ -695,22 +720,52 @@ describe("PagedNavigationDirective across a resize", () => {
   it("keeps the verse the reader was on", async () => {
     container.scrollLeft = 5 * 200
     await settle()
-    const verse = firstVerseOnScreen()
-    expect(Number(verse.id)).toBeGreaterThan(1)
+    const first = firstVerseOnScreen()
+    expect(first).withContext("a verse starts on page 5").toBeDefined()
+    if (!first) return
+    expect(Number(first.id)).toBeGreaterThan(1)
 
     // Turned sideways: wider and taller pages hold several of the old ones.
     await resizeTo(300, 300)
 
-    expect(isOnScreen(verse))
-      .withContext(`verse ${verse.id} on screen at 300x300`)
+    expect(startsOnScreen(first))
+      .withContext(`verse ${first.id} on screen at 300x300`)
       .toBeTrue()
     expect(container.scrollLeft % 300).toBe(0)
+  })
+
+  // A page that one verse fills was found again by where the verse starts:
+  // the reader went back to its first page.
+  it("keeps the place inside a verse longer than a page", async () => {
+    const long = verse(LONG_VERSE)
+    const pages = new Set(
+      fragments(long).map((rect) =>
+        Math.floor((rect.left - container.getBoundingClientRect().left) / 200),
+      ),
+    )
+    expect(pages.size)
+      .withContext("the long verse runs over several pages")
+      .toBeGreaterThan(4)
+    const middle = [...pages].sort((a, b) => a - b)[Math.floor(pages.size / 2)]
+    container.scrollLeft = middle * 200
+    await settle()
+    expect(firstVerseOnScreen())
+      .withContext("the long verse fills the page")
+      .toBeUndefined()
+
+    await resizeTo(300, 150)
+
+    expect(startsOnScreen(long))
+      .withContext("not back on the verse's first page")
+      .toBeFalse()
+    expect(pageWithin(long)).toBeGreaterThan(0)
   })
 
   it("comes back to the same page when turned back", async () => {
     container.scrollLeft = 5 * 200
     await settle()
-    const verse = firstVerseOnScreen()
+    const first = firstVerseOnScreen()
+    expect(first).withContext("a verse starts on page 5").toBeDefined()
 
     await resizeTo(300, 300)
     await resizeTo(200, 100)
@@ -718,6 +773,6 @@ describe("PagedNavigationDirective across a resize", () => {
     await resizeTo(200, 100)
 
     expect(container.scrollLeft).toBe(5 * 200)
-    expect(firstVerseOnScreen()).toBe(verse)
+    expect(firstVerseOnScreen()).toBe(first)
   })
 })

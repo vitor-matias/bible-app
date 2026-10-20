@@ -69,11 +69,13 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   private targetPage?: number
   private targetTimeout?: number
   /**
-   * The verse the page on screen starts with. A resize (a rotation, a folding
-   * phone, Split View) lays the text out anew, so the page is found again by
-   * this verse, not by its pixel offset, which landed up to 16 verses on.
+   * Where the page on screen starts: a verse, and how far into it, as a share
+   * of the pages it runs over (0 when it starts on the page). A resize (a
+   * rotation, a folding phone, Split View) lays the text out anew, so the
+   * page is found again by this, not by its pixel offset, which landed up to
+   * 16 verses on.
    */
-  private anchor?: HTMLElement
+  private anchor?: { verse: HTMLElement; within: number }
   private anchorTimeout?: number
   /** A resize is under way: the layout no longer matches the anchor's page. */
   private resizing = false
@@ -171,14 +173,26 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     }
   }
 
-  /** Back to the page with the verse the reader was on, laid out anew. */
+  /** Back to the place in the verse the reader was on, laid out anew. */
   private restorePage(): void {
+    const block = this.bookBlock
     const anchor = this.anchor
-    if (anchor?.isConnected && this.bookBlock?.contains(anchor)) {
-      this.scrollToPage(anchor, "instant")
-    } else {
+    if (!block || !anchor?.verse.isConnected || !block.contains(anchor.verse)) {
       this.snapToNearestPage()
+      return
     }
+    if (anchor.within === 0) {
+      this.scrollToPage(anchor.verse, "instant")
+      return
+    }
+    // A verse longer than a page: as far into it as the reader was.
+    const advanceWidth = this.getAdvanceWidth(block)
+    if (advanceWidth <= 0) return
+    this._stayAtEnd = false
+    this.setTarget(undefined)
+    const { first, last } = this.pagesOf(anchor.verse, advanceWidth)
+    const page = first + Math.round(anchor.within * (last - first + 1))
+    this.showPage(Math.min(page, last), advanceWidth, "instant")
   }
 
   private noteAnchorSoon(): void {
@@ -192,9 +206,10 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
 
   /**
    * Notes the first verse that starts on the page on screen, or, on a page
-   * that one long verse fills, that verse. Kept while it still starts on the
-   * page, so a page found again by it is not noted by an earlier verse
-   * sharing it: a few rotations would walk the reader back.
+   * that one long verse fills, that verse and how far into it the page is.
+   * A verse that starts on the page is kept while it does, so a page found
+   * again by it is not noted by an earlier verse sharing it: a few rotations
+   * would walk the reader back.
    */
   private noteAnchor(): void {
     const block = this.bookBlock
@@ -205,33 +220,51 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     const page = Math.round(this.container.scrollLeft / advanceWidth)
     const kept = this.anchor
     if (
-      kept?.isConnected &&
-      block.contains(kept) &&
-      this.pageOf(kept, advanceWidth) === page
+      kept?.within === 0 &&
+      kept.verse.isConnected &&
+      block.contains(kept.verse) &&
+      this.pagesOf(kept.verse, advanceWidth).first === page
     ) {
       return
     }
 
-    let anchor: HTMLElement | undefined
-    for (const verse of Array.from(
+    let verse: HTMLElement | undefined
+    for (const candidate of Array.from(
       block.querySelectorAll<HTMLElement>(VERSE_SELECTOR),
     )) {
-      const start = this.pageOf(verse, advanceWidth)
+      const start = this.pagesOf(candidate, advanceWidth).first
       if (start > page) break
-      anchor = verse
+      verse = candidate
       if (start === page) break
     }
-    this.anchor = anchor
+    if (!verse) {
+      this.anchor = undefined
+      return
+    }
+    const { first, last } = this.pagesOf(verse, advanceWidth)
+    const within = first < page ? (page - first) / (last - first + 1) : 0
+    this.anchor = { verse, within }
   }
 
-  /** The page an element starts on: an inline verse's first fragment. */
-  private pageOf(element: HTMLElement, advanceWidth: number): number {
-    const rect = element.getClientRects()[0] ?? element.getBoundingClientRect()
-    const offset =
-      rect.left -
-      this.container.getBoundingClientRect().left +
-      this.container.scrollLeft
-    return Math.max(0, Math.floor((offset + SCROLL_THRESHOLD) / advanceWidth))
+  /** The pages an inline verse runs over: its first and last fragments'. */
+  private pagesOf(
+    element: HTMLElement,
+    advanceWidth: number,
+  ): { first: number; last: number } {
+    const rects = element.getClientRects()
+    const box = element.getBoundingClientRect()
+    const origin =
+      this.container.getBoundingClientRect().left - this.container.scrollLeft
+    const pageAt = (rect: DOMRect) =>
+      Math.max(
+        0,
+        Math.floor((rect.left - origin + SCROLL_THRESHOLD) / advanceWidth),
+      )
+    const first = pageAt(rects[0] ?? box)
+    return {
+      first,
+      last: Math.max(first, pageAt(rects[rects.length - 1] ?? box)),
+    }
   }
 
   /** Advances the scroll position by exactly one "page" width (one column + gap). */
@@ -369,14 +402,25 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     const advanceWidth = this.getAdvanceWidth(block)
     if (advanceWidth <= 0) return
 
-    const pageIndex = this.pageOf(element, advanceWidth)
+    this.showPage(
+      this.pagesOf(element, advanceWidth).first,
+      advanceWidth,
+      behavior,
+    )
+  }
+
+  /** Scrolls to a page, never past the last. */
+  private showPage(
+    page: number,
+    advanceWidth: number,
+    behavior: ScrollBehavior,
+  ): void {
     const maxScroll = Math.max(
       0,
       this.container.scrollWidth - this.container.clientWidth,
     )
-
     this.container.scrollTo({
-      left: Math.min(pageIndex * advanceWidth, maxScroll),
+      left: Math.min(page * advanceWidth, maxScroll),
       behavior,
     })
   }
