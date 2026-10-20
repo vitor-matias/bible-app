@@ -166,6 +166,21 @@
   opacity: 0.5;
 }
 
+/* A browser button drawn inside a step's text, the size of the text around
+   it. */
+.inline-icon {
+  /* The box is 1em of the icon's own size, so it hugs the glyph. */
+  width: 1em;
+  height: 1em;
+  font-size: 1.2em;
+  vertical-align: -0.2em;
+  color: inherit;
+}
+
+.guide .inline-icon {
+  color: inherit;
+}
+
 .hint,
 .note {
   margin: 8px 0 0;

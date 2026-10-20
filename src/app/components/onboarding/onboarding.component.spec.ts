@@ -13,6 +13,7 @@ import {
   getInstallGuide,
   INSTALL_STEP_ID,
   ONBOARDING_STEPS,
+  textSegments,
 } from "./onboarding-content"
 
 class FakePwaInstallService {
@@ -276,6 +277,33 @@ describe("OnboardingComponent", () => {
     expect(textOf(".note")).toContain("iPad")
   })
 
+  // The browser's own buttons, drawn as their icon rather than described.
+  it("draws Safari's buttons as icons, named for screen readers", () => {
+    pwa.platform = "ios"
+    pwa.browser = "safari"
+    create()
+    goToInstallStep()
+
+    const icons = Array.from(
+      element.querySelectorAll<HTMLElement>(
+        ".guide .inline-icon, .note .inline-icon",
+      ),
+    ).map((icon) => icon.textContent?.trim())
+    expect(icons).toEqual(["menu", "ios_share", "ios_share"])
+
+    const firstStep = element.querySelector(".guide li") as HTMLElement
+    const hidden = Array.from(
+      firstStep.querySelectorAll(".visually-hidden"),
+    ).map((label) => label.textContent?.trim())
+    expect(hidden).toEqual(["menu", "Partilhar"])
+    for (const icon of Array.from(firstStep.querySelectorAll(".inline-icon"))) {
+      expect(icon.getAttribute("aria-hidden")).toBe("true")
+    }
+    expect(textOf(".guide")).not.toContain("[[")
+    expect(textOf(".note")).not.toContain("[[")
+    expect(textOf(".guide")).not.toContain("quadrado com uma seta")
+  })
+
   it("shows generic instructions when browsing another platform, repainting on the plain button click", () => {
     create()
     goToInstallStep()
@@ -289,6 +317,14 @@ describe("OnboardingComponent", () => {
     for (const browser of ["Chrome:", "Edge:", "Safari", "Firefox:"]) {
       expect(textOf(".guide")).toContain(browser)
     }
+    // A space between each browser's name and its step.
+    const steps = Array.from(element.querySelectorAll(".guide li")).map(
+      (li) => li.textContent?.replace(/\s+/g, " ") ?? "",
+    )
+    expect(steps.some((text) => text.includes("Chrome: Clique"))).toBeTrue()
+    expect(
+      steps.some((text) => text.includes("Firefox: No Windows")),
+    ).toBeTrue()
 
     platformButton("iPhone / iPad").click()
     expect(textOf(".guide")).toContain("barra de endereço do Safari")
@@ -421,6 +457,30 @@ describe("OnboardingComponent", () => {
   })
 })
 
+describe("textSegments", () => {
+  it("splits a step around its [[icon]] markers", () => {
+    expect(
+      textSegments("Toque em [[ios_share]] e depois em «Partilhar»."),
+    ).toEqual([
+      { kind: "text", text: "Toque em " },
+      { kind: "icon", icon: "ios_share", label: "Partilhar" },
+      { kind: "text", text: " e depois em «Partilhar»." },
+    ])
+    expect(textSegments("[[menu]]")).toEqual([
+      { kind: "icon", icon: "menu", label: "menu" },
+    ])
+  })
+
+  it("leaves plain text, and markers it doesn't know, as they are", () => {
+    expect(textSegments("Toque no menu ⋮.")).toEqual([
+      { kind: "text", text: "Toque no menu ⋮." },
+    ])
+    expect(textSegments("A [[nope]] B")).toEqual([
+      { kind: "text", text: "A [[nope]] B" },
+    ])
+  })
+})
+
 describe("getInstallGuide", () => {
   it("lists every desktop browser, with the detected one first", () => {
     const labels = (browser: InstallBrowser | null) =>
@@ -474,8 +534,9 @@ describe("getInstallGuide", () => {
     const guide = getInstallGuide("ios", "safari")
     const [share, add, confirm] = guide.steps
 
-    expect(share.text).toContain("≡")
+    expect(share.text).toContain("[[menu]]")
     expect(share.text).toContain("«Partilhar»")
+    expect(share.text).toContain("[[ios_share]]")
     expect(add.text).toContain("«Ver mais»")
     expect(add.text).toContain("«Adicionar ao ecrã principal»")
     expect(confirm.text).toContain("«Abrir como aplicação web»")

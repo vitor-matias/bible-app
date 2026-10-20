@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from "@angular/common"
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -25,6 +26,8 @@ import {
   ONBOARDING_STEPS,
   type OnboardingStep,
   PLATFORM_OPTIONS,
+  type TextSegment,
+  textSegments,
 } from "./onboarding-content"
 
 export type OnboardingSource = "first_launch" | "menu"
@@ -37,7 +40,7 @@ export interface OnboardingResult {
 @Component({
   selector: "onboarding",
   standalone: true,
-  imports: [MatButtonModule, MatIconModule],
+  imports: [MatButtonModule, MatIconModule, NgTemplateOutlet],
   templateUrl: "./onboarding.component.html",
   styleUrl: "./onboarding.component.css",
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -80,6 +83,11 @@ export class OnboardingComponent {
     pwaInstallService.canPromptInstall$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.cdr.markForCheck())
+  }
+
+  /** A step's text split around its inline [[icon]] markers. */
+  segments(text: string): readonly TextSegment[] {
+    return textSegments(text)
   }
 
   get step(): OnboardingStep {

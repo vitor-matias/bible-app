@@ -34,6 +34,45 @@ export interface InstallGuide {
   note?: string
 }
 
+/** A run of a step's text: words, or a browser button drawn as its icon. */
+export type TextSegment =
+  | { kind: "text"; text: string }
+  | { kind: "icon"; icon: string; label: string }
+
+/**
+ * Browser buttons a step can show as their icon, written [[icon]] in its
+ * text, with the name a screen reader says instead.
+ */
+const INLINE_ICONS: Readonly<Record<string, string>> = {
+  ios_share: "Partilhar",
+  menu: "menu",
+}
+
+const INLINE_ICON = /\[\[([a-z_]+)\]\]/g
+const segmentCache = new Map<string, readonly TextSegment[]>()
+
+/** Splits a step's text around its [[icon]] markers. */
+export function textSegments(text: string): readonly TextSegment[] {
+  const cached = segmentCache.get(text)
+  if (cached) return cached
+  const segments: TextSegment[] = []
+  let last = 0
+  for (const match of text.matchAll(INLINE_ICON)) {
+    const icon = match[1]
+    const label = INLINE_ICONS[icon]
+    if (!label) continue
+    if (match.index > last) {
+      segments.push({ kind: "text", text: text.slice(last, match.index) })
+    }
+    segments.push({ kind: "icon", icon, label })
+    last = match.index + match[0].length
+  }
+  if (last < text.length)
+    segments.push({ kind: "text", text: text.slice(last) })
+  segmentCache.set(text, segments)
+  return segments
+}
+
 export interface PlatformOption {
   id: InstallPlatform
   icon: string
@@ -221,7 +260,7 @@ const IOS_SAFARI: InstallGuide = {
   steps: [
     {
       icon: "menu",
-      text: "Na barra de endereço do Safari, toque no botão ≡ e depois em «Partilhar». (Em versões anteriores do iOS, toque no botão Partilhar, o quadrado com uma seta para cima.)",
+      text: "Na barra de endereço do Safari, toque em [[menu]] e depois em «Partilhar». Em versões anteriores do iOS, toque diretamente em [[ios_share]].",
     },
     {
       icon: "add_box",
@@ -232,12 +271,15 @@ const IOS_SAFARI: InstallGuide = {
       text: "Deixe ligada a opção «Abrir como aplicação web» e toque em «Adicionar», no canto superior direito.",
     },
   ],
-  note: "No iPad, o botão Partilhar está no canto superior direito do Safari.",
+  note: "No iPad, toque diretamente em [[ios_share]], no canto superior direito do Safari.",
 }
 
 const IOS_OTHER: InstallGuide = {
   steps: [
-    { icon: "ios_share", text: "Toque no botão Partilhar do navegador." },
+    {
+      icon: "ios_share",
+      text: "Toque em [[ios_share]] (Partilhar) no navegador.",
+    },
     {
       icon: "add_box",
       text: "Escolha «Adicionar ao ecrã principal», tocando em «Ver mais» se não a vir (disponível a partir do iOS 16.4).",
@@ -270,7 +312,7 @@ const DESKTOP_BROWSER_STEPS: Record<DesktopBrowser, InstallGuideStep> = {
   safari: {
     label: "Safari (macOS 14 ou superior)",
     icon: "ios_share",
-    text: "Clique no botão Partilhar (ou no menu Ficheiro) e escolha «Adicionar à Dock».",
+    text: "Clique em [[ios_share]] (ou no menu Ficheiro) e escolha «Adicionar à Dock».",
   },
   // Web apps arrived in Firefox 143 for Windows only (not the Microsoft
   // Store build); macOS and Linux still have none.
