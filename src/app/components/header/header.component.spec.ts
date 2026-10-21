@@ -761,6 +761,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     show: jasmine.Spy
     hide: jasmine.Spy
     showPicker: jasmine.Spy
+    share: jasmine.Spy
   }
   let router: jasmine.SpyObj<Router>
   let theme: jasmine.SpyObj<ThemeService>
@@ -768,6 +769,7 @@ describe("HeaderComponent with the iOS native bars", () => {
   let dialog: jasmine.SpyObj<MatDialog>
   let onboarding: jasmine.SpyObj<OnboardingService>
   let share: jasmine.SpyObj<typeof Share>
+  let analytics: jasmine.SpyObj<AnalyticsService>
   let isOffline: BehaviorSubject<boolean>
   let nativeBookmarks: jasmine.SpyObj<NativeBookmarksService>
   let nativeReport: jasmine.SpyObj<NativeReportService>
@@ -789,6 +791,7 @@ describe("HeaderComponent with the iOS native bars", () => {
       show: jasmine.createSpy("show"),
       hide: jasmine.createSpy("hide"),
       showPicker: jasmine.createSpy("showPicker"),
+      share: jasmine.createSpy("share").and.resolveTo(true),
     }
     router = jasmine.createSpyObj("Router", ["navigate"])
     router.navigate.and.resolveTo(true)
@@ -808,7 +811,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     onboarding = jasmine.createSpyObj("OnboardingService", ["open"])
     share = jasmine.createSpyObj("Share", ["share"])
     share.share.and.resolveTo()
-    const analytics = jasmine.createSpyObj("AnalyticsService", [
+    analytics = jasmine.createSpyObj("AnalyticsService", [
       "track",
       "areAnalyticsAvailable",
     ])
@@ -1091,12 +1094,38 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(onboarding.open).toHaveBeenCalledWith("menu")
   })
 
-  it("shares the passage", async () => {
+  // Through the Share plugin, iOS fetched the link's preview from the website,
+  // whose icon has the WEB sash; the shell previews it with the app's.
+  it("shares the passage through the shell, headed by the page's title", async () => {
+    const title = document.title
+    document.title = "Livro do Génesis 3 | Bíblia Sagrada"
+    actions.next({ id: "share" })
+    await fixture.whenStable()
+    document.title = title
+
+    const { pathname, search, hash } = window.location
+    expect(nativeChrome.share).toHaveBeenCalledWith({
+      title: "Bíblia Sagrada",
+      text: "Ler Livro do Génesis 3.",
+      url: `https://biblia.capuchinhos.org${pathname}${search}${hash}`,
+      linkTitle: "Livro do Génesis 3 | Bíblia Sagrada",
+    })
+    expect(share.share).not.toHaveBeenCalled()
+    expect(analytics.track).toHaveBeenCalledWith("share", {
+      book: "gen",
+      chapter: 3,
+    })
+  })
+
+  it("counts no share when the sheet is closed without one", async () => {
+    nativeChrome.share.and.resolveTo(false)
     actions.next({ id: "share" })
     await fixture.whenStable()
 
-    expect(share.share).toHaveBeenCalledWith(
-      jasmine.objectContaining({ text: "Ler Livro do Génesis 3." }),
+    expect(nativeChrome.share).toHaveBeenCalled()
+    expect(analytics.track).not.toHaveBeenCalledWith(
+      "share",
+      jasmine.anything(),
     )
   })
 
