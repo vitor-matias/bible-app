@@ -1,18 +1,22 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatDialogRef } from "@angular/material/dialog"
 import { BehaviorSubject } from "rxjs"
+import type { StoreApps } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
+import { PreferencesService } from "../../services/preferences.service"
 import {
   type InstallBrowser,
   type InstallPlatform,
   type InstallPromptOutcome,
   PwaInstallService,
 } from "../../services/pwa-install.service"
+import { STORE_APPS } from "../../tokens"
 import { OnboardingComponent } from "./onboarding.component"
 import {
   getInstallGuide,
   INSTALL_STEP_ID,
   ONBOARDING_STEPS,
+  textSegments,
 } from "./onboarding-content"
 
 class FakePwaInstallService {
@@ -39,8 +43,12 @@ describe("OnboardingComponent", () => {
   let pwa: FakePwaInstallService
   let dialogRefSpy: jasmine.SpyObj<MatDialogRef<OnboardingComponent>>
   let analyticsSpy: jasmine.SpyObj<AnalyticsService>
+  /** No store listings unless a test fills them in, whatever config.ts says. */
+  let apps: StoreApps
 
   beforeEach(async () => {
+    localStorage.removeItem("appPromoSeen")
+    apps = { appStoreId: "", playPackage: "" }
     pwa = new FakePwaInstallService()
     dialogRefSpy = jasmine.createSpyObj("MatDialogRef", ["close"])
     analyticsSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
@@ -52,9 +60,12 @@ describe("OnboardingComponent", () => {
         { provide: MatDialogRef, useValue: dialogRefSpy },
         { provide: PwaInstallService, useValue: pwa },
         { provide: AnalyticsService, useValue: analyticsSpy },
+        { provide: STORE_APPS, useValue: apps },
       ],
     }).compileComponents()
   })
+
+  afterEach(() => localStorage.removeItem("appPromoSeen"))
 
   function create(): void {
     fixture = TestBed.createComponent(OnboardingComponent)
@@ -276,6 +287,33 @@ describe("OnboardingComponent", () => {
     expect(textOf(".note")).toContain("iPad")
   })
 
+  // The browser's own buttons, drawn as their icon rather than described.
+  it("draws Safari's buttons as icons, named for screen readers", () => {
+    pwa.platform = "ios"
+    pwa.browser = "safari"
+    create()
+    goToInstallStep()
+
+    const icons = Array.from(
+      element.querySelectorAll<HTMLElement>(
+        ".guide .inline-icon, .note .inline-icon",
+      ),
+    ).map((icon) => icon.textContent?.trim())
+    expect(icons).toEqual(["menu", "ios_share", "ios_share"])
+
+    const firstStep = element.querySelector(".guide li") as HTMLElement
+    const hidden = Array.from(
+      firstStep.querySelectorAll(".visually-hidden"),
+    ).map((label) => label.textContent?.trim())
+    expect(hidden).toEqual(["menu", "Partilhar"])
+    for (const icon of Array.from(firstStep.querySelectorAll(".inline-icon"))) {
+      expect(icon.getAttribute("aria-hidden")).toBe("true")
+    }
+    expect(textOf(".guide")).not.toContain("[[")
+    expect(textOf(".note")).not.toContain("[[")
+    expect(textOf(".guide")).not.toContain("quadrado com uma seta")
+  })
+
   it("shows generic instructions when browsing another platform, repainting on the plain button click", () => {
     create()
     goToInstallStep()
@@ -289,9 +327,17 @@ describe("OnboardingComponent", () => {
     for (const browser of ["Chrome:", "Edge:", "Safari", "Firefox:"]) {
       expect(textOf(".guide")).toContain(browser)
     }
+    // A space between each browser's name and its step.
+    const steps = Array.from(element.querySelectorAll(".guide li")).map(
+      (li) => li.textContent?.replace(/\s+/g, " ") ?? "",
+    )
+    expect(steps.some((text) => text.includes("Chrome: Clique"))).toBeTrue()
+    expect(
+      steps.some((text) => text.includes("Firefox: No Windows")),
+    ).toBeTrue()
 
     platformButton("iPhone / iPad").click()
-    expect(textOf(".guide")).toContain("barra do Safari")
+    expect(textOf(".guide")).toContain("barra de endereço do Safari")
   })
 
   it("says which browser the Android guide assumes when browsed from another device", () => {
@@ -366,6 +412,163 @@ describe("OnboardingComponent", () => {
     expect(element.querySelector(".guide")).not.toBeNull()
   })
 
+  describe("with the apps in the stores", () => {
+    beforeEach(() => {
+      apps.appStoreId = "6740000000"
+      apps.playPackage = "org.capuchinhos.biblia"
+    })
+
+    const storeButton = () =>
+      element.querySelector<HTMLAnchorElement>("a.store-badge")
+
+    /** The badge's alt text, which is the link's name. */
+    const badgeName = () =>
+      storeButton()?.querySelector("img")?.getAttribute("alt")
+
+    const promptSeen = () =>
+      TestBed.inject(PreferencesService).getAppPromoSeen()
+
+    /** The website's own install, folded under the store's badge. */
+    const webInstall = () =>
+      element.querySelector<HTMLDetailsElement>("details.web-install")
+
+    it("sends Android visitors to Google Play first", () => {
+      pwa.canPromptInstall = true
+      create()
+      goToInstallStep()
+
+      const link = storeButton()
+      expect(badgeName()).toBe("Obter no Google Play")
+      expect(link?.querySelector("img")?.getAttribute("src")).toBe(
+        "imgs/badges/google-play-pt.png",
+      )
+      expect(link?.getAttribute("href")).toBe(
+        "https://play.google.com/store/apps/details?id=org.capuchinhos.biblia&referrer=utm_source%3Dweb%26utm_medium%3Donboarding",
+      )
+      expect(link?.target).toBe("_blank")
+      expect(link?.rel).toBe("noopener")
+    })
+
+    it("keeps the website's install under the badge, folded away", () => {
+      pwa.canPromptInstall = true
+      create()
+      goToInstallStep()
+
+      const details = webInstall()
+      expect(details?.open).toBeFalse()
+      expect(details?.querySelector("summary")?.textContent).toContain(
+        "Instalar a partir do navegador",
+      )
+      expect(details?.querySelector(".guide")?.textContent).toContain(
+        "Instalar aplicação",
+      )
+      expect(details?.contains(button("Instalar agora") ?? null)).toBeTrue()
+      // Nothing of it outside the fold.
+      expect(element.querySelectorAll(".guide").length).toBe(1)
+    })
+
+    it("still installs the website from the fold", async () => {
+      pwa.canPromptInstall = true
+      create()
+      goToInstallStep()
+      webInstall()?.querySelector("summary")?.click()
+      expect(webInstall()?.open).toBeTrue()
+
+      button("Instalar agora")?.click()
+      await fixture.whenStable()
+      fixture.detectChanges()
+
+      expect(pwa.promptInstall).toHaveBeenCalled()
+      expect(
+        webInstall()?.querySelector(".install-done")?.textContent,
+      ).toContain("foi instalada")
+    })
+
+    // Large enough to tap and read in the dialog; Apple's least is 40px.
+    it("shows the store's badge 56px tall", () => {
+      create()
+      goToInstallStep()
+
+      const badge = storeButton()?.querySelector("img") as HTMLImageElement
+      expect(getComputedStyle(badge).height).toBe("56px")
+    })
+
+    it("sends iPhone and iPad visitors to the App Store", () => {
+      pwa.platform = "ios"
+      pwa.browser = "safari"
+      create()
+      goToInstallStep()
+
+      expect(badgeName()).toBe("Descarregar na App Store")
+      expect(storeButton()?.querySelector("img")?.getAttribute("src")).toBe(
+        "imgs/badges/app-store-pt-pt.svg",
+      )
+      expect(storeButton()?.getAttribute("href")).toBe(
+        "https://apps.apple.com/app/id6740000000",
+      )
+      expect(webInstall()?.querySelector(".guide")?.textContent).toContain(
+        "barra do Safari",
+      )
+    })
+
+    it("keeps the website's install on a computer, with each phone's store a tap away", () => {
+      pwa.platform = "desktop"
+      create()
+      goToInstallStep()
+
+      expect(storeButton()).toBeNull()
+      expect(webInstall()).toBeNull()
+      expect(element.querySelector(".guide")).not.toBeNull()
+
+      platformButton("Android").click()
+      expect(badgeName()).toContain("Google Play")
+    })
+
+    it("keeps the website's install on a platform whose listing is still empty", () => {
+      apps.playPackage = ""
+      create()
+      goToInstallStep()
+
+      expect(storeButton()).toBeNull()
+      expect(element.querySelector(".guide")).not.toBeNull()
+
+      platformButton("iPhone / iPad").click()
+      expect(badgeName()).toContain("App Store")
+    })
+
+    it("counts the store as shown once the install step offers it for the device in hand", () => {
+      create()
+      expect(promptSeen()).toBeFalse()
+
+      goToInstallStep()
+      expect(promptSeen()).toBeTrue()
+    })
+
+    it("doesn't count another device's store as shown", () => {
+      pwa.platform = "desktop"
+      create()
+      goToInstallStep()
+
+      platformButton("Android").click()
+      expect(promptSeen()).toBeFalse()
+    })
+
+    it("counts a tap on the store button", () => {
+      create()
+      goToInstallStep()
+
+      const link = storeButton() as HTMLAnchorElement
+      // Keep Karma's page where it is.
+      link.addEventListener("click", (event) => event.preventDefault())
+      link.click()
+
+      expect(analyticsSpy.track).toHaveBeenCalledWith("app_store_open", {
+        store: "play",
+        source: "onboarding",
+      })
+    })
+  })
+
   describe("footer layout", () => {
     function rect(selector: string): DOMRect {
       const found = element.querySelector(selector)
@@ -421,6 +624,30 @@ describe("OnboardingComponent", () => {
   })
 })
 
+describe("textSegments", () => {
+  it("splits a step around its [[icon]] markers", () => {
+    expect(
+      textSegments("Toque em [[ios_share]] e depois em «Partilhar»."),
+    ).toEqual([
+      { kind: "text", text: "Toque em " },
+      { kind: "icon", icon: "ios_share", label: "Partilhar" },
+      { kind: "text", text: " e depois em «Partilhar»." },
+    ])
+    expect(textSegments("[[menu]]")).toEqual([
+      { kind: "icon", icon: "menu", label: "menu" },
+    ])
+  })
+
+  it("leaves plain text, and markers it doesn't know, as they are", () => {
+    expect(textSegments("Toque no menu ⋮.")).toEqual([
+      { kind: "text", text: "Toque no menu ⋮." },
+    ])
+    expect(textSegments("A [[nope]] B")).toEqual([
+      { kind: "text", text: "A [[nope]] B" },
+    ])
+  })
+})
+
 describe("getInstallGuide", () => {
   it("lists every desktop browser, with the detected one first", () => {
     const labels = (browser: InstallBrowser | null) =>
@@ -439,7 +666,7 @@ describe("getInstallGuide", () => {
 
     const steps = getInstallGuide("desktop", "chrome").steps
     expect(steps[0].text).toContain("Transmitir, guardar e partilhar")
-    expect(steps.at(-1)?.text).toContain("Confirme")
+    expect(steps.at(-1)?.text).toContain("confirme em «Instalar»")
   })
 
   it("tailors Android instructions to the browser", () => {
@@ -451,6 +678,71 @@ describe("getInstallGuide", () => {
     expect(chrome.steps[0].text).toContain("Chrome")
     expect(chrome.steps[1].text).toContain("Instalar aplicação")
     expect(chrome.note).toBeUndefined()
+  })
+
+  // Checked against Chrome's own strings (Oct 2026): the menu item, then a
+  // choice where only «Instalar» installs; a shortcut just opens Chrome.
+  it("names Chrome's current menu item and steers past «Criar atalho»", () => {
+    const [menu, item, confirm] = getInstallGuide("android", "chrome").steps
+
+    expect(menu.text).toContain("⋮")
+    expect(item.text).toContain("«Instale e crie um atalho»")
+    expect(item.text).toContain("«Adicionar ao ecrã principal»")
+    expect(confirm.text).toContain("«Instalar», não «Criar atalho»")
+    // Firefox and Edge keep their own confirmation.
+    expect(getInstallGuide("android", "firefox").steps[2].text).toContain(
+      "Confirme em «Instalar»",
+    )
+  })
+
+  // Checked in Safari on iOS 27: Share sits in the address bar's ≡ menu and
+  // «Adicionar ao ecrã principal» behind «Ver mais». Apple's iOS 26 guide
+  // adds the bottom/top tab layouts, which keep a Share button.
+  it("walks the iPhone through Safari's ≡ menu and «Ver mais»", () => {
+    const guide = getInstallGuide("ios", "safari")
+    const [share, add, confirm] = guide.steps
+
+    expect(share.text).toContain("[[menu]]")
+    expect(share.text).toContain("«Partilhar»")
+    expect(share.text).toContain("Se vir [[ios_share]]")
+    expect(share.text).not.toContain("versões anteriores")
+    expect(add.text).toContain("«Adicionar ao ecrã principal»")
+    expect(add.text).toContain("se não a vir, toque em «Ver mais»")
+    // iOS before 26 has no «Abrir como aplicação web».
+    expect(confirm.text).toContain(
+      "Se aparecer a opção «Abrir como aplicação web»",
+    )
+    expect(confirm.text).toContain("«Adicionar»")
+    expect(guide.note).toContain("canto superior direito")
+    expect(getInstallGuide("ios", "chrome").steps[1].text).toContain(
+      "«Ver mais»",
+    )
+  })
+
+  it("uses the desktop browsers' own wording, and installs from Firefox on Windows", () => {
+    const step = (browser: InstallBrowser) =>
+      getInstallGuide("desktop", browser).steps[0]
+
+    expect(step("chrome").text).toContain("«Instalar página como app…»")
+    expect(step("edge").text).toContain(
+      "«Instale este site como uma aplicação»",
+    )
+    expect(step("edge").text).toContain("«Definições e muito mais»")
+
+    const firefox = step("firefox").text
+    expect(firefox).toContain("Windows (Firefox 143 ou superior;")
+    expect(firefox).toContain(
+      "150 ou superior se o instalou a partir da Microsoft Store",
+    )
+    expect(firefox).toContain("barra de tarefas")
+    expect(firefox).toContain("No macOS e no Linux")
+    expect(firefox).not.toContain("Não suporta")
+
+    // Firefox installs at once, so the shared confirmation is conditional.
+    const steps = getInstallGuide("desktop", "firefox").steps
+    expect(steps[steps.length - 1].text).toMatch(
+      /^Se o navegador pedir, confirme em «Instalar»/,
+    )
   })
 
   it("says which browser the Android steps assume when the browser is unknown", () => {

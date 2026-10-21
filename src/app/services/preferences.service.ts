@@ -28,6 +28,7 @@ export class PreferencesService {
     FONT_SIZE_PREFIX: "fontSize",
     VIEW_MODE: "viewMode",
     ONBOARDING_SEEN: "onboardingSeen",
+    APP_PROMO_SEEN: "appPromoSeen",
   }
 
   getTheme(): "light" | "dark" | "system" | null {
@@ -112,5 +113,28 @@ export class PreferencesService {
 
   setOnboardingSeen(seen: boolean): void {
     this.storage?.setItem(this.KEYS.ONBOARDING_SEEN, seen.toString())
+  }
+
+  /**
+   * As with onboarding: without usable storage, report it as seen. Storage
+   * that passed the probe can still throw later (quota, revoked access); the
+   * prompt isn't worth breaking the onboarding step or menu that records it.
+   */
+  getAppPromoSeen(): boolean {
+    try {
+      const storage = this.storage
+      return !storage || storage.getItem(this.KEYS.APP_PROMO_SEEN) === "true"
+    } catch (error) {
+      console.warn("Could not read whether the app prompt was shown", error)
+      return true
+    }
+  }
+
+  setAppPromoSeen(seen: boolean): void {
+    try {
+      this.storage?.setItem(this.KEYS.APP_PROMO_SEEN, seen.toString())
+    } catch (error) {
+      console.warn("Could not record that the app prompt was shown", error)
+    }
   }
 }

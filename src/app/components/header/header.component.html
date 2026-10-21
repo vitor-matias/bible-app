@@ -4,7 +4,7 @@
   <mat-toolbar>
     <div class="header-content">
       <button class="menuButton" mat-icon-button [matMenuTriggerFor]="headerMenu" #menuTrigger="matMenuTrigger"
-        aria-label="Menu">
+        (menuOpened)="onMenuOpened()" aria-label="Menu">
         <mat-icon>menu</mat-icon>
       </button>
       <mat-menu #headerMenu="matMenu">
@@ -55,6 +55,13 @@
           <mat-icon>help</mat-icon>
           <span>Como usar a app</span>
         </button>
+        @if (appStore) {
+        <a mat-menu-item class="app-store-link" [href]="appStore.url" target="_blank" rel="noopener"
+          (click)="onOpenAppStore(appStore)">
+          <mat-icon>install_mobile</mat-icon>
+          <span>{{ appStoreLabel }}</span>
+        </a>
+        }
         <a mat-menu-item [href]="privacyPolicyUrl" target="_blank" rel="noopener noreferrer">
           <mat-icon>privacy_tip</mat-icon>
           <span class="privacy-label">
