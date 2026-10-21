@@ -745,6 +745,91 @@ describe("BibleReaderComponent", () => {
       )
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
     })
+
+    // The shortcut fired from anywhere: ← in the book filter changed the
+    // chapter, and so did the arrows under an open sheet or with Alt held.
+    describe("arrow keys", () => {
+      const press = (init: KeyboardEventInit, target: EventTarget = window) => {
+        const event = new KeyboardEvent("keydown", {
+          key: "ArrowRight",
+          bubbles: true,
+          ...init,
+        })
+        target.dispatchEvent(event)
+        return event
+      }
+      const added: HTMLElement[] = []
+      const attach = <T extends HTMLElement>(element: T): T => {
+        document.body.appendChild(element)
+        added.push(element)
+        return element
+      }
+
+      beforeEach(() => {
+        component.chapterNumber = 2
+        routerSpy.navigate.calls.reset()
+      })
+
+      afterEach(() => {
+        for (const element of added.splice(0)) element.remove()
+      })
+
+      it("turn the chapter from the page", () => {
+        press({}, attach(document.createElement("div")))
+        expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
+      })
+
+      it("leave a text field's caret alone", () => {
+        for (const tag of ["input", "textarea"]) {
+          press({ key: "ArrowLeft" }, attach(document.createElement(tag)))
+        }
+        expect(routerSpy.navigate).not.toHaveBeenCalled()
+      })
+
+      it("leave the browser's and the system's shortcuts alone", () => {
+        for (const modifier of ["altKey", "ctrlKey", "metaKey", "shiftKey"]) {
+          press({ key: "ArrowLeft", [modifier]: true })
+        }
+        expect(routerSpy.navigate).not.toHaveBeenCalled()
+      })
+
+      it("don't turn the chapter under an open menu, sheet or dialog", () => {
+        const overlay = attach(document.createElement("div"))
+        overlay.className = "cdk-overlay-container"
+        const sheetButton = overlay.appendChild(
+          document.createElement("button"),
+        )
+        press({}, sheetButton)
+        expect(routerSpy.navigate).not.toHaveBeenCalled()
+
+        // Focus left on the page behind a modal backdrop.
+        const backdrop = overlay.appendChild(document.createElement("div"))
+        backdrop.className = "cdk-overlay-backdrop cdk-overlay-backdrop-showing"
+        press({}, attach(document.createElement("div")))
+        expect(routerSpy.navigate).not.toHaveBeenCalled()
+      })
+
+      // A closed menu or sheet leaves its backdrop in the page while it fades
+      // out, without -showing: an arrow pressed then did nothing.
+      it("turn the chapter while a closed overlay's backdrop fades out", () => {
+        const overlay = attach(document.createElement("div"))
+        overlay.className = "cdk-overlay-container"
+        const backdrop = overlay.appendChild(document.createElement("div"))
+        backdrop.className = "cdk-overlay-backdrop"
+
+        press({}, attach(document.createElement("div")))
+
+        expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
+      })
+
+      it("don't turn the chapter while the book drawer is open", () => {
+        component.bookDrawer = jasmine.createSpyObj("MatDrawer", ["close"], {
+          opened: true,
+        })
+        press({})
+        expect(routerSpy.navigate).not.toHaveBeenCalled()
+      })
+    })
   })
 
   // The app draws edge-to-edge, but nothing may sit behind the navigation
@@ -915,6 +1000,18 @@ describe("BibleReaderComponent", () => {
       component.onBookSubmit({ bookId: "gen" })
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
       expect(component.bookDrawer.close).toHaveBeenCalled()
+    })
+
+    // Picking a book while auto-scroll played opened it partway down, still
+    // scrolling; picking a chapter already stopped it.
+    it("stops auto-scroll when another book is picked", () => {
+      autoScrollServiceSpy.stop.calls.reset()
+      component.onBookSubmit({ bookId: "gen" })
+      expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
+
+      autoScrollServiceSpy.stop.calls.reset()
+      component.goToPassage({ bookId: "gen", chapter: 3 })
+      expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
     })
 
     it("onBookSubmit opens chapter 1 even when the book has an introduction", () => {

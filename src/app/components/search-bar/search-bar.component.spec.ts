@@ -18,6 +18,23 @@ describe("SearchBarComponent", () => {
 
   afterEach(() => document.documentElement.classList.remove("dark-theme"))
 
+  // A side navigation bar or notch in landscape covered Back and the field.
+  it("keeps its contents clear of side system bars", () => {
+    const host = fixture.nativeElement as HTMLElement
+    const content = host.querySelector(".content") as HTMLElement
+    const box = (left: string, right: string) => {
+      host.style.setProperty("--app-inset-left", left)
+      host.style.setProperty("--app-inset-right", right)
+      return content.getBoundingClientRect()
+    }
+
+    const none = box("0px", "0px")
+    const inset = box("48px", "40px")
+
+    expect(inset.left - none.left).toBeCloseTo(48, 0)
+    expect(none.right - inset.right).toBeCloseTo(40, 0)
+  })
+
   // The field is white in both themes, but its text colour is the browser's
   // default, which follows the page's color-scheme. .dark-theme sets
   // color-scheme: dark, so typed text turned white on the white field and the
