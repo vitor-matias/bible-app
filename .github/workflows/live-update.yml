@@ -1,0 +1,60 @@
+name: Publish Live Update
+
+# Publishes the current web app as an over-the-air update for the native
+# apps (docs/live-updates.md). Manual only: run it from the commit you want
+# installed apps on the same native channel to receive.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: live-update
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app
+        run: |
+          set -e
+          npm run build
+          npm run cap:prune
+
+      - name: Package and sign the bundle
+        env:
+          LIVE_UPDATE_SIGNING_KEY: ${{ secrets.LIVE_UPDATE_SIGNING_KEY }}
+        run: npm run live-update:package
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.LIVE_UPDATE_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.LIVE_UPDATE_SSH_KNOWN_HOSTS }}
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/live_update
+          chmod 600 ~/.ssh/live_update
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      # Zips first, manifests last: a device must never see a manifest whose
+      # zip has not finished uploading.
+      - name: Upload to the update server
+        env:
+          TARGET: ${{ secrets.LIVE_UPDATE_SSH_TARGET }}
+        run: |
+          set -e
+          RSYNC_SSH="ssh -i $HOME/.ssh/live_update -o StrictHostKeyChecking=yes"
+          rsync -rtv -e "$RSYNC_SSH" --exclude 'manifest.json' dist/live-update/ "$TARGET/"
+          rsync -rtv -e "$RSYNC_SSH" --include '*/' --include 'manifest.json' --exclude '*' dist/live-update/ "$TARGET/"
