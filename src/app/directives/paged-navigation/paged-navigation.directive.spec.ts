@@ -848,6 +848,26 @@ describe("PagedNavigationDirective across a resize", () => {
     }
   }, 30_000)
 
+  // The page on screen was noted only once the pages had rested, and a
+  // resize drops a pending note: turned and rotated at once, the reader was
+  // taken back to the page before the turn.
+  it("finds the page turned to when the resize comes right after", async () => {
+    container.scrollLeft = 5 * 200
+    // The scroll event, but not the rest that would note the page.
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => setTimeout(resolve, 20)),
+    )
+    const turnedTo = firstVerseOnScreen()
+    expect(turnedTo).withContext("a verse starts on page 5").toBeDefined()
+    if (!turnedTo) return
+
+    await resizeTo(300, 300)
+
+    expect(startsOnScreen(turnedTo))
+      .withContext(`verse ${turnedTo.id} on screen at 300x300`)
+      .toBeTrue()
+  })
+
   // A throw in the restore left the resize flag set: the verse on screen
   // was never noted again, and every later resize went back to the old one.
   it("goes on noting the verse on screen after a restore that failed", async () => {

@@ -169,6 +169,16 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
       this.container.scrollLeft >= maxScroll - SCROLL_THRESHOLD
 
     this.pageStateChange.emit({ isFirstPage, isLastPage })
+    // At once, so a resize right after a turn finds the page turned to (it
+    // drops the pending note), and again once the pages rest. Not while a
+    // turn or a link is still on its way: the pages it passes are not read.
+    if (
+      !this.resizing &&
+      this.targetPage === undefined &&
+      isPlatformBrowser(this.platformId)
+    ) {
+      this.noteAnchor()
+    }
     this.noteAnchorSoon()
   }
 
@@ -180,10 +190,15 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
       clearTimeout(this.anchorTimeout)
       clearTimeout(this.resizeTimeout)
       this.resizeTimeout = window.setTimeout(() => {
-        this.resizeTimeout = undefined
-        this.ensureAlignedScrollWidth()
-        this.restorePage()
-        this.onScroll()
+        // Resizing until the page is restored: a scroll noted in between
+        // would read the old offset in the new layout.
+        try {
+          this.ensureAlignedScrollWidth()
+          this.restorePage()
+        } finally {
+          this.resizeTimeout = undefined
+          this.onScroll()
+        }
       }, RESIZE_DEBOUNCE_MS)
     }
   }
@@ -426,17 +441,16 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
 
     this._stayAtEnd = false
     this.setTarget(undefined)
-    this.anchor = { verse: element, within: 0 }
     this.ensureAlignedScrollWidth()
+    // After aligning, which notes the page still on screen.
+    this.anchor = { verse: element, within: 0 }
 
     const advanceWidth = this.getAdvanceWidth(block)
     if (advanceWidth <= 0) return
 
-    this.showPage(
-      this.pagesOf(element, advanceWidth).first,
-      advanceWidth,
-      behavior,
-    )
+    const page = this.pagesOf(element, advanceWidth).first
+    this.setTarget(page)
+    this.showPage(page, advanceWidth, behavior)
   }
 
   /** Scrolls to a page, never past the last. */
