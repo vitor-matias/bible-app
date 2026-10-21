@@ -917,7 +917,23 @@ export class SearchComponent {
    *  screen reader and "open in a new tab" can follow. */
   passageHref(bookId: string, chapter: number, verseStart?: number): string {
     const query = verseStart ? `?verseStart=${verseStart}` : ""
-    return `/${bookId}/${chapter}${query}`
+    return `/${this.passagePath(bookId, chapter).join("/")}${query}`
+  }
+
+  /**
+   * As the reader's own links write it (/jo/3, /sl/23, /jo/intro): the
+   * book's id (jhn, psa) is a page only the app knows, which a new tab could
+   * not open on the server. Until the book list loads, the id, which the app
+   * still opens.
+   */
+  private passagePath(bookId: string, chapter: number): string[] {
+    const book = this.booksLoaded()
+      ? this.bookService.findBookById(bookId)
+      : undefined
+    return [
+      book ? this.bookService.getUrlAbrv(book) : bookId,
+      this.bookService.getChapterUrlSegment(chapter),
+    ]
   }
 
   /**
@@ -933,7 +949,7 @@ export class SearchComponent {
     if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
     event.preventDefault()
     void this.router.navigate(
-      ["/", bookId, chapter],
+      ["/", ...this.passagePath(bookId, chapter)],
       verseStart ? { queryParams: { verseStart } } : {},
     )
   }

@@ -890,8 +890,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       return false
     }
     if (this.bookDrawer?.opened) return false
-    // A sheet or dialog may leave focus on the page behind it.
-    return !document.querySelector(".cdk-overlay-backdrop")
+    // A sheet or dialog may leave focus on the page behind it. Only a backdrop
+    // still showing: a closed one stays in the page while it fades out, and
+    // an arrow pressed then did nothing.
+    return !document.querySelector(".cdk-overlay-backdrop-showing")
   }
 
   onIncreaseFontSize(): void {

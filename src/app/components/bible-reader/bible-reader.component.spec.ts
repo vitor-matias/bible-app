@@ -804,9 +804,22 @@ describe("BibleReaderComponent", () => {
 
         // Focus left on the page behind a modal backdrop.
         const backdrop = overlay.appendChild(document.createElement("div"))
-        backdrop.className = "cdk-overlay-backdrop"
+        backdrop.className = "cdk-overlay-backdrop cdk-overlay-backdrop-showing"
         press({}, attach(document.createElement("div")))
         expect(routerSpy.navigate).not.toHaveBeenCalled()
+      })
+
+      // A closed menu or sheet leaves its backdrop in the page while it fades
+      // out, without -showing: an arrow pressed then did nothing.
+      it("turn the chapter while a closed overlay's backdrop fades out", () => {
+        const overlay = attach(document.createElement("div"))
+        overlay.className = "cdk-overlay-container"
+        const backdrop = overlay.appendChild(document.createElement("div"))
+        backdrop.className = "cdk-overlay-backdrop"
+
+        press({}, attach(document.createElement("div")))
+
+        expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
       })
 
       it("don't turn the chapter while the book drawer is open", () => {

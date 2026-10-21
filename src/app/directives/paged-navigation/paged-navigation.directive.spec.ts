@@ -650,6 +650,7 @@ class PagesHostComponent {
   // Several pages long at 200x100, as a long verse is on a phone at a large size.
   longText = Array(12).fill(this.text).join(" ")
   @ViewChild("container") container!: ElementRef<HTMLElement>
+  @ViewChild(PagedNavigationDirective) nav!: PagedNavigationDirective
 }
 
 const LONG_VERSE = 30
@@ -697,6 +698,21 @@ describe("PagedNavigationDirective across a resize", () => {
     const shown = Math.floor(container.scrollLeft / box.width)
     return [...pages].sort((a, b) => a - b).indexOf(shown)
   }
+
+  /** The page an element starts on, from 0. */
+  function startPage(element: HTMLElement): number {
+    const box = container.getBoundingClientRect()
+    const start = fragments(element)[0]
+    return Math.floor(
+      (start.left - box.left + container.scrollLeft + 1) / box.width,
+    )
+  }
+
+  /** The verses that start on a page, in order. */
+  const startingOn = (page: number) =>
+    Array.from(container.querySelectorAll<HTMLElement>("[id]")).filter(
+      (element) => startPage(element) === page,
+    )
 
   async function resizeTo(width: number, height: number): Promise<void> {
     host.width = width
@@ -774,5 +790,88 @@ describe("PagedNavigationDirective across a resize", () => {
 
     expect(container.scrollLeft).toBe(5 * 200)
     expect(firstVerseOnScreen()).toBe(first)
+  })
+
+  // A deep link opened on its verse's page, lower down it. The first verse
+  // starting on the page was noted instead, and smaller pages left the linked
+  // verse on the page after it.
+  it("keeps the verse a link opened on", async () => {
+    const page = [3, 4, 5, 6, 7, 8].find((p) => startingOn(p).length > 1)
+    expect(page).withContext("a page two verses start on").toBeDefined()
+    if (page === undefined) return
+    const verses = startingOn(page)
+    const [above, linked] = [verses[0], verses[verses.length - 1]]
+
+    host.nav.scrollToPage(linked, "instant")
+    await settle()
+    expect(startsOnScreen(linked)).toBeTrue()
+
+    await resizeTo(200, 60)
+
+    expect(startsOnScreen(linked))
+      .withContext(`verse ${linked.id} on screen at 200x60`)
+      .toBeTrue()
+    expect(startsOnScreen(above))
+      .withContext(`verse ${above.id}, above it, starts on another page now`)
+      .toBeFalse()
+  })
+
+  // Rounding the page's start into the other layout landed a page on, and on
+  // the long verse's last page the next verse took over: each rotation and
+  // back walked the reader through the verse.
+  it("comes back to the same page inside a verse longer than a page", async () => {
+    const long = verse(LONG_VERSE)
+    const first = startPage(long)
+    const inside = new Set(
+      fragments(long).map((rect) =>
+        Math.floor((rect.left - container.getBoundingClientRect().left) / 200),
+      ),
+    )
+    // Not the first page, nor the last, where the next verse starts.
+    const pages = [...inside].filter(
+      (page) => page > first && startingOn(page).length === 0,
+    )
+    expect(pages.length)
+      .withContext("pages the long verse fills")
+      .toBeGreaterThan(2)
+
+    for (const page of pages) {
+      container.scrollLeft = page * 200
+      await settle()
+
+      await resizeTo(300, 150)
+      await resizeTo(200, 100)
+
+      expect(container.scrollLeft)
+        .withContext(`page ${page}, after turning and back`)
+        .toBe(page * 200)
+    }
+  }, 30_000)
+
+  // A throw in the restore left the resize flag set: the verse on screen
+  // was never noted again, and every later resize went back to the old one.
+  it("goes on noting the verse on screen after a restore that failed", async () => {
+    container.scrollLeft = 5 * 200
+    await settle()
+    const scrollTo = spyOn(container, "scrollTo").and.throwError(
+      new TypeError("unsupported scroll behavior"),
+    )
+    await jasmine.spyOnGlobalErrorsAsync(async (globalErrors) => {
+      await resizeTo(300, 300)
+      expect(globalErrors).toHaveBeenCalled()
+    })
+    scrollTo.and.callThrough()
+
+    container.scrollLeft = 2 * 300
+    await settle()
+    const read = firstVerseOnScreen()
+    expect(read).withContext("a verse starts on page 2").toBeDefined()
+    if (!read) return
+
+    await resizeTo(200, 100)
+
+    expect(startsOnScreen(read))
+      .withContext(`verse ${read.id} on screen at 200x100`)
+      .toBeTrue()
   })
 })

@@ -19,6 +19,17 @@ export interface PageState {
   isLastPage: boolean
 }
 
+/**
+ * Where the page on screen is in the text: a verse, and how far into it, as
+ * a share of the pages it runs over (0 when the page is the one it starts
+ * on). The share is taken at the page's middle, so a page found again by it
+ * is found again in the layout it came from.
+ */
+interface PageAnchor {
+  verse: HTMLElement
+  within: number
+}
+
 // Tolerates fractional pixel scrolling values typical in zoomed or scaled displays
 const SCROLL_THRESHOLD = 5
 // Debounce delay to prevent resize reflow thrashing
@@ -69,17 +80,22 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   private targetPage?: number
   private targetTimeout?: number
   /**
-   * Where the page on screen starts: a verse, and how far into it, as a share
-   * of the pages it runs over (0 when it starts on the page). A resize (a
-   * rotation, a folding phone, Split View) lays the text out anew, so the
-   * page is found again by this, not by its pixel offset, which landed up to
-   * 16 verses on.
+   * Where the page on screen is. A resize (a rotation, a folding phone,
+   * Split View) lays the text out anew, so the page is found again by this,
+   * not by its pixel offset, which landed up to 16 verses on.
    */
-  private anchor?: { verse: HTMLElement; within: number }
+  private anchor?: PageAnchor
   private anchorTimeout?: number
-  /** A resize is under way: the layout no longer matches the anchor's page. */
-  private resizing = false
   private readonly platformId = inject(PLATFORM_ID)
+
+  /**
+   * A resize is under way: the layout no longer matches the anchor's page.
+   * Read off the pending timer rather than kept as a flag, which a throw in
+   * the restore would leave set, and the anchor never noted again.
+   */
+  private get resizing(): boolean {
+    return this.resizeTimeout !== undefined
+  }
 
   constructor(
     private containerRef: ElementRef<HTMLElement>,
@@ -161,13 +177,12 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     if (this.viewMode === "paged") {
       // The resize's own scroll (the browser clamping the old offset) comes
       // next: it must not replace the verse the reader was on.
-      this.resizing = true
       clearTimeout(this.anchorTimeout)
       clearTimeout(this.resizeTimeout)
       this.resizeTimeout = window.setTimeout(() => {
+        this.resizeTimeout = undefined
         this.ensureAlignedScrollWidth()
         this.restorePage()
-        this.resizing = false
         this.onScroll()
       }, RESIZE_DEBOUNCE_MS)
     }
@@ -175,24 +190,31 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
 
   /** Back to the place in the verse the reader was on, laid out anew. */
   private restorePage(): void {
+    if (this.viewMode !== "paged") return
     const block = this.bookBlock
     const anchor = this.anchor
     if (!block || !anchor?.verse.isConnected || !block.contains(anchor.verse)) {
       this.snapToNearestPage()
       return
     }
-    if (anchor.within === 0) {
-      this.scrollToPage(anchor.verse, "instant")
-      return
-    }
-    // A verse longer than a page: as far into it as the reader was.
     const advanceWidth = this.getAdvanceWidth(block)
     if (advanceWidth <= 0) return
     this._stayAtEnd = false
     this.setTarget(undefined)
-    const { first, last } = this.pagesOf(anchor.verse, advanceWidth)
-    const page = first + Math.round(anchor.within * (last - first + 1))
-    this.showPage(Math.min(page, last), advanceWidth, "instant")
+    this.showPage(
+      this.anchorPage(anchor, advanceWidth),
+      advanceWidth,
+      "instant",
+    )
+  }
+
+  /** The page an anchor stands for in the layout as it is now. */
+  private anchorPage(
+    { verse, within }: PageAnchor,
+    advanceWidth: number,
+  ): number {
+    const { first, last } = this.pagesOf(verse, advanceWidth)
+    return Math.min(first + Math.floor(within * (last - first + 1)), last)
   }
 
   private noteAnchorSoon(): void {
@@ -207,9 +229,10 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   /**
    * Notes the first verse that starts on the page on screen, or, on a page
    * that one long verse fills, that verse and how far into it the page is.
-   * A verse that starts on the page is kept while it does, so a page found
-   * again by it is not noted by an earlier verse sharing it: a few rotations
-   * would walk the reader back.
+   * An anchor is kept while it still stands for the page on screen, so a page
+   * found again by it is not noted afresh: by an earlier verse sharing it,
+   * or, on the last page of a long verse, by the verse that starts there. A
+   * few rotations would walk the reader back, or on.
    */
   private noteAnchor(): void {
     const block = this.bookBlock
@@ -220,10 +243,9 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     const page = Math.round(this.container.scrollLeft / advanceWidth)
     const kept = this.anchor
     if (
-      kept?.within === 0 &&
-      kept.verse.isConnected &&
+      kept?.verse.isConnected &&
       block.contains(kept.verse) &&
-      this.pagesOf(kept.verse, advanceWidth).first === page
+      this.anchorPage(kept, advanceWidth) === page
     ) {
       return
     }
@@ -242,7 +264,9 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
       return
     }
     const { first, last } = this.pagesOf(verse, advanceWidth)
-    const within = first < page ? (page - first) / (last - first + 1) : 0
+    // The page's middle, not its start: rounded in another layout, the start
+    // can land a page on, and a round trip would not come back.
+    const within = first < page ? (page - first + 0.5) / (last - first + 1) : 0
     this.anchor = { verse, within }
   }
 
@@ -386,7 +410,12 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     block.style.transform = ""
   }
 
-  /** Page-aligned: scrollIntoView would stop on a seam between two pages. */
+  /**
+   * Page-aligned: scrollIntoView would stop on a seam between two pages. The
+   * element is the page's anchor from then on, not the first verse starting
+   * on its page: a deep-linked verse lower down would leave the screen when
+   * the page is laid out anew.
+   */
   scrollToPage(
     element: HTMLElement,
     behavior: ScrollBehavior = "smooth",
@@ -397,6 +426,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
 
     this._stayAtEnd = false
     this.setTarget(undefined)
+    this.anchor = { verse: element, within: 0 }
     this.ensureAlignedScrollWidth()
 
     const advanceWidth = this.getAdvanceWidth(block)
