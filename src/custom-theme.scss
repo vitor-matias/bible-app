@@ -41,3 +41,64 @@ $bible-app-theme-light: mat.define-theme((
 html {
   height: 100%;
 }
+
+// iOS shell: San Francisco for the app chrome, as native iOS apps use. The
+// scripture text keeps its own serif. NativeShellService sets the class.
+// Only the font-family tokens are overridden: the full
+// mat.all-component-typographies() would re-emit every size and weight token
+// and add ~12KB to the stylesheet every web visitor downloads. The names are
+// the Angular Material 22 `--mat-*-font` tokens; a token renamed in a future
+// version silently falls back to Roboto.
+$ios-system-font: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+$material-font-tokens: (
+  badge-text,
+  bottom-sheet-container-text,
+  button-toggle-label-text,
+  datepicker-calendar-text,
+  expansion-container-text,
+  expansion-header-text,
+  stepper-container-text,
+  stepper-header-label-text,
+  toolbar-title-text,
+  tree-node-text,
+  option-label-text,
+  optgroup-label-text,
+  card-subtitle-text,
+  card-title-text,
+  tooltip-supporting-text,
+  form-field-container-text,
+  form-field-subscript-text,
+  form-field-outlined-label-text,
+  form-field-filled-label-text,
+  select-trigger-text,
+  dialog-subhead,
+  dialog-supporting-text,
+  chip-label-text,
+  slide-toggle-label-text,
+  radio-label-text,
+  slider-label-label-text,
+  menu-item-label-text,
+  list-list-item-label-text,
+  list-list-item-supporting-text,
+  list-list-item-trailing-supporting-text,
+  paginator-container-text,
+  tab-label-text,
+  checkbox-label-text,
+  button-filled-label-text,
+  button-outlined-label-text,
+  button-protected-label-text,
+  button-text-label-text,
+  button-tonal-label-text,
+  fab-extended-label-text,
+  snack-bar-supporting-text,
+  table-header-headline,
+  table-row-item-label-text,
+  table-footer-supporting-text,
+);
+
+.platform-ios {
+  --app-ios-font: #{$ios-system-font};
+  @each $token in $material-font-tokens {
+    --mat-#{$token}-font: var(--app-ios-font);
+  }
+}

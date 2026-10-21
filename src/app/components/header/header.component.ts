@@ -1,4 +1,4 @@
-import { CommonModule, isPlatformBrowser } from "@angular/common"
+import { CommonModule, DOCUMENT, isPlatformBrowser } from "@angular/common"
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -14,7 +14,9 @@ import {
   type OnInit,
   Output,
   PLATFORM_ID,
+  type QueryList,
   type SimpleChanges,
+  ViewChildren,
 } from "@angular/core"
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
@@ -23,19 +25,39 @@ import { MatButtonToggleModule } from "@angular/material/button-toggle"
 import { MatDialog } from "@angular/material/dialog"
 import { MatDividerModule } from "@angular/material/divider"
 import { MatIconModule } from "@angular/material/icon"
-import { MatMenuModule, type MatMenuTrigger } from "@angular/material/menu"
+import { MatMenuModule, MatMenuTrigger } from "@angular/material/menu"
 import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
-import { RouterModule } from "@angular/router"
+import { Router, RouterModule } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import type { Share } from "@capacitor/share"
+import { shareableUrl } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
+import { BackButtonService } from "../../services/back-button.service"
+import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
-import { NetworkService } from "../../services/network.service"
+import { spokenRibbonName } from "../../services/bookmark-ribbons.service"
+import {
+  BuildVersionService,
+  type DisplayVersion,
+} from "../../services/build-version.service"
+import { NativeBookmarksService } from "../../services/native-bookmarks.service"
+import {
+  type NativeChromeAction,
+  NativeChromeService,
+} from "../../services/native-chrome.service"
+import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
-import { ThemeService } from "../../services/theme.service"
+import { type ThemeMode, ThemeService } from "../../services/theme.service"
 import { SHARE_PLUGIN } from "../../tokens"
+import {
+  passageLabel,
+  passageShortLabels,
+  passageSpokenLabel,
+} from "../../utils/passage-label"
+import { buildPassagePicker } from "../../utils/passage-picker"
+import { PSALMS_BOOK_ID } from "../../utils/psalms"
 
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
@@ -44,6 +66,8 @@ import { ReportProblemComponent } from "../report-problem/report-problem.compone
 const LABEL_HOLD_MS = 3500
 /** Fade-out half of a swap; must match the transition in the component CSS. */
 const LABEL_FADE_MS = 300
+
+const PRIVACY_POLICY_URL = "https://www.capuchinhos.org/politica-de-privacidade"
 
 @Component({
   standalone: true,
@@ -69,6 +93,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Input() chapterNumber!: number
   @Input() autoScrollControlsVisible = false
   @Input() viewMode: "scrolling" | "paged" = "scrolling"
+  /** For the iOS toolbar's arrows; the web page has its own. */
+  @Input() canGoPrevious = false
+  @Input() canGoNext = false
 
   bookLabelMode: "title" | "prompt" = "title"
   /** True for the fade-out half of a label swap. */
@@ -84,6 +111,24 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       ? `${this.book.name} Introdução`
       : `${this.book.name} ${this.chapterNumber}`
   }
+  /** Book button label; on the home page it cycles with a prompt. */
+  get bookLabel(): string {
+    if (this.book.id === "about" && this.bookLabelMode === "prompt") {
+      return "Escolher Livro"
+    }
+    return this.mobile ? this.book.shortName : this.book.name
+  }
+
+  get chapterLabel(): string {
+    if (this.chapterNumber !== 0) return String(this.chapterNumber)
+    return this.mobile ? "Intro" : "Introdução"
+  }
+
+  readonly privacyPolicyUrl = PRIVACY_POLICY_URL
+  /** Small print under the menu's last item; null until it is known. */
+  version: DisplayVersion | null = null
+  private destroyed = false
+
   private labelInterval?: number
   private labelSwapTimeout?: number
   canShare = false
@@ -93,12 +138,36 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Output() openChapterSelector = new EventEmitter<{ open: boolean }>()
   @Output() toggleAutoScrollControls = new EventEmitter<void>()
   @Output() toggleViewMode = new EventEmitter<void>()
+  /** iOS toolbar arrows: a page in paged mode, else a chapter. */
+  @Output() previous = new EventEmitter<void>()
+  @Output() next = new EventEmitter<void>()
+  /** A passage chosen in the iOS picker; no chapter means the book's first. */
+  @Output() selectPassage = new EventEmitter<{
+    bookId: string
+    chapter?: number
+  }>()
 
   mobile = false
-  isOffline = false
 
   private readonly destroyRef = inject(DestroyRef)
+  private readonly router = inject(Router)
+  private readonly nativeChrome = inject(NativeChromeService)
+  private readonly bookService = inject(BookService)
+  private readonly nativeBookmarks = inject(NativeBookmarksService)
+  private readonly nativeReport = inject(NativeReportService)
+  private readonly buildVersion = inject(BuildVersionService)
+  private bookmarks: Bookmark[] = []
+  /** The iOS shell draws this header natively; the template renders nothing. */
+  readonly native = this.nativeChrome.enabled
   private readonly platformId = inject(PLATFORM_ID)
+  private readonly document = inject(DOCUMENT)
+  @ViewChildren(MatMenuTrigger) private menuTriggers?: QueryList<MatMenuTrigger>
+  private readonly backButton = inject(BackButtonService)
+  private readonly unregisterBackCloser = this.backButton.register(() => {
+    const open = this.menuTriggers?.find((trigger) => trigger.menuOpen)
+    open?.closeMenu()
+    return !!open
+  })
 
   constructor(
     private readonly themeService: ThemeService,
@@ -106,12 +175,16 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     private readonly bottomSheet: MatBottomSheet,
     private readonly dialog: MatDialog,
     private readonly cdr: ChangeDetectorRef,
-    private readonly networkService: NetworkService,
     public readonly analyticsService: AnalyticsService,
     private readonly onboardingService: OnboardingService,
     @Inject(SHARE_PLUGIN) private sharePlugin: typeof Share,
   ) {}
 
+  /**
+   * Initializes responsive and sharing state, follows bookmark changes, and
+   * connects the iOS bars. Loads the menu version asynchronously, ignoring
+   * it if this header has already been destroyed.
+   */
   ngOnInit(): void {
     this.updateMobile()
     this.canShare =
@@ -119,20 +192,30 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       (typeof navigator !== "undefined" &&
         typeof navigator.share === "function")
 
-    this.isOffline = this.networkService.isOffline
-    this.networkService.isOffline$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((isOffline) => {
-        this.isOffline = isOffline
-        this.cdr.detectChanges()
-      })
-
     this.bookmarkService.bookmarks$
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => {
+      .subscribe((bookmarks) => {
+        this.bookmarks = bookmarks
         this.updateBookmarkState()
         this.cdr.detectChanges()
+        this.syncNativeChrome()
       })
+
+    // The iOS shell draws the menu: it gets the timestamp, and has the release.
+    void this.buildVersion.getDisplayVersion().then((version) => {
+      // Gone already: syncing now would put the bars back over another page.
+      if (this.destroyed) return
+      this.version = version
+      this.cdr.markForCheck()
+      this.syncNativeChrome()
+    })
+
+    if (this.native) {
+      this.nativeChrome.actions$
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe((action) => this.onNativeAction(action))
+      this.syncNativeChrome()
+    }
   }
 
   /** Window width, not screen width: a narrow desktop window counts too. */
@@ -143,6 +226,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     if (isMobile !== this.mobile) {
       this.mobile = isMobile
       this.cdr.markForCheck()
+      this.syncNativeChrome()
     }
   }
 
@@ -151,12 +235,14 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       this.updateBookmarkState()
     }
     if (changes["book"]) {
-      if (this.book?.id === "about") {
+      // The native bar has no room for the prompt; its button is plainly one.
+      if (this.book?.id === "about" && !this.native) {
         this.startLabelCycle()
       } else {
         this.stopLabelCycle()
       }
     }
+    this.syncNativeChrome()
   }
 
   private updateBookmarkState() {
@@ -173,10 +259,16 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     if (!this.book || this.chapterNumber == null) {
       return
     }
+    if (this.native) {
+      this.nativeBookmarks.open(this.book.id, this.chapterNumber)
+      return
+    }
 
-    this.bottomSheet.open(BookmarkSelectorComponent, {
-      data: { bookId: this.book.id, chapter: this.chapterNumber },
-    })
+    this.backButton.closeOnBack(
+      this.bottomSheet.open(BookmarkSelectorComponent, {
+        data: { bookId: this.book.id, chapter: this.chapterNumber },
+      }),
+    )
   }
 
   onToggleBookmarkFromMenu(trigger: MatMenuTrigger) {
@@ -186,7 +278,15 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   onReportProblem(trigger: MatMenuTrigger) {
     trigger.closeMenu()
+    this.openReportProblem()
+  }
+
+  openReportProblem() {
     if (!this.book || this.chapterNumber == null) {
+      return
+    }
+    if (this.native) {
+      this.nativeReport.open(this.book, this.chapterNumber)
       return
     }
 
@@ -202,8 +302,15 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.onboardingService.open("menu")
   }
 
+  /**
+   * Ignores a late version result, unregisters the back handler, stops label
+   * cycling, and requests that the iOS bars hide.
+   */
   ngOnDestroy(): void {
+    this.destroyed = true
+    this.unregisterBackCloser()
     this.stopLabelCycle()
+    if (this.native) this.nativeChrome.hide()
   }
 
   showBookSelector() {
@@ -233,21 +340,24 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   getThemeTooltip(): string {
     const mode = this.themeService.currentMode
-    if (mode === "system") return "Tema do Sistema"
-    return mode === "light" ? "Modo Claro" : "Modo Escuro"
+    // Says which theme is on: the button cycles through them.
+    if (mode === "system") return "Tema: Automático"
+    return mode === "light" ? "Tema: Claro" : "Tema: Escuro"
   }
 
-  isLightTheme(): boolean {
-    return this.themeService.currentMode === "light"
-  }
-
-  toggleTheme(): void {
+  /**
+   * One button cycles through the three themes. The menu stays open, so the
+   * page changes theme behind it and the icon shows the new one.
+   */
+  onToggleTheme(): void {
     this.themeService.toggleTheme()
+    this.cdr.detectChanges()
   }
 
-  onToggleTheme(event?: Event): void {
-    event?.stopPropagation()
-    this.toggleTheme()
+  /** The ribbon on the chapter being read, by its spoken name ("Vermelho"). */
+  get bookmarkName(): string | undefined {
+    const color = this.currentBookmark?.color
+    return color ? spokenRibbonName(color) : undefined
   }
 
   getViewModeIcon(): string {
@@ -256,8 +366,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   getViewModeTooltip(): string {
     return this.viewMode === "scrolling"
-      ? "Modo de Deslocamento (clique para mudar para páginas)"
-      : "Modo de Páginas (clique para mudar para deslocamento)"
+      ? "Texto contínuo (clique para mudar para página a página)"
+      : "Página a página (clique para mudar para texto contínuo)"
   }
 
   @Output() increaseFontSizeEvent = new EventEmitter<void>()
@@ -293,18 +403,28 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
 
     const isAbout = this.book?.id === "about"
-    const title = "Biblia Sagrada"
+    const title = "Bíblia Sagrada"
     const text = isAbout
-      ? "Leia a Biblia nesta app."
+      ? "Leia a Bíblia nesta app."
       : this.chapterNumber === 0
         ? `Ler a introdução de ${this.book?.name}.`
         : `Ler ${this.book?.name} ${this.chapterNumber}.`
-    const url = typeof window === "undefined" ? "" : window.location.href
+    const url =
+      typeof window === "undefined" ? "" : shareableUrl(window.location)
 
     try {
-      if (Capacitor.isNativePlatform()) {
+      if (this.native) {
+        // The page's title heads the preview, as iOS would fetch it.
+        const shared = await this.nativeChrome.share({
+          title,
+          text,
+          url,
+          linkTitle: this.document.title || title,
+        })
+        if (!shared) return
+      } else if (Capacitor.isNativePlatform()) {
         await this.sharePlugin.share({
-          title: "Biblia Sagrada",
+          title,
           text,
           url,
           dialogTitle: "Partilhar passagem",
@@ -321,6 +441,112 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       })
     } catch {
       // User canceled or share failed; no UI feedback needed.
+    }
+  }
+
+  /** Sends what this header would show to the iOS native bars. */
+  private syncNativeChrome(): void {
+    if (!this.native || !this.book) return
+    const isAbout = this.book.id === "about"
+    // Standalone introductions and the About page have no chapters.
+    const hasChapters = !isAbout && !this.book.introSlug
+    const label = !hasChapters
+      ? this.bookLabel
+      : this.book.id === PSALMS_BOOK_ID && this.chapterNumber > 0
+        ? passageLabel(this.book, this.chapterNumber)
+        : `${this.bookLabel} ${this.chapterLabel}`
+    this.nativeChrome.show({
+      mode: "reader",
+      passageLabel: label,
+      passageShortLabels: hasChapters
+        ? passageShortLabels(this.book, this.chapterNumber)
+        : [],
+      passageAccessibilityLabel: [
+        hasChapters && this.chapterNumber > 0
+          ? passageSpokenLabel(this.book, this.chapterNumber)
+          : this.headingLabel,
+        ...(this.bookmarkName
+          ? [`marcador ${this.bookmarkName.toLocaleLowerCase("pt")}`]
+          : []),
+      ].join(", "),
+      bookmarkColor: this.currentBookmark?.color ?? null,
+      bookmarkName: this.bookmarkName?.toLocaleLowerCase("pt") ?? null,
+      chapterNavigation: !isAbout,
+      canGoPrevious: this.canGoPrevious,
+      canGoNext: this.canGoNext,
+      // Offline too: references open from the stored Bible, and words are
+      // searched in it (OfflineSearchService).
+      search: true,
+      themeMode: this.themeService.currentMode,
+      viewMode: isAbout ? null : this.viewMode,
+      autoScrollVisible: this.autoScrollControlsVisible,
+      autoScrollAvailable: this.viewMode !== "paged",
+      canShare: this.canShare,
+      canReport: this.analyticsService.areAnalyticsAvailable(),
+      buildVersion: this.version?.build ?? null,
+    })
+  }
+
+  private onNativeAction(action: NativeChromeAction): void {
+    switch (action.id) {
+      case "passage":
+        this.nativeChrome.showPicker(
+          buildPassagePicker(this.bookService.getBooks(), this.bookmarks, {
+            bookId: this.book.id,
+            chapter: this.chapterNumber,
+          }),
+        )
+        break
+      case "goto":
+        this.selectPassage.emit({
+          bookId: action.bookId,
+          chapter: action.chapter,
+        })
+        break
+      case "previous":
+        this.previous.emit()
+        break
+      case "next":
+        this.next.emit()
+        break
+      case "search":
+        void this.router.navigate(["/search"])
+        break
+      case "theme-system":
+      case "theme-light":
+      case "theme-dark":
+        this.themeService.setTheme(
+          action.id.slice("theme-".length) as ThemeMode,
+        )
+        this.syncNativeChrome()
+        break
+      case "view-mode":
+        this.toggleViewMode.emit()
+        break
+      case "font-decrease":
+        this.decreaseFontSize()
+        break
+      case "font-increase":
+        this.increaseFontSize()
+        break
+      case "bookmarks":
+        this.openBookmarkSelector()
+        break
+      case "auto-scroll":
+        this.toggleAutoScrollControls.emit()
+        break
+      case "share":
+        void this.sharePassage()
+        break
+      case "report":
+        this.openReportProblem()
+        break
+      case "help":
+        this.onboardingService.open("menu")
+        break
+      case "privacy":
+        window.open(PRIVACY_POLICY_URL, "_blank", "noopener")
+        break
     }
   }
 

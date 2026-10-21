@@ -301,6 +301,119 @@ describe("PagedNavigationDirective", () => {
     })
   })
 
+  describe("aligning the last page", () => {
+    beforeEach(() => {
+      // advanceWidth = 100 - (5+5) + 10 = 100
+      spyOnProperty(
+        hostComponent.block.nativeElement,
+        "clientWidth",
+      ).and.returnValue(100)
+      spyOn(window, "getComputedStyle").and.returnValue({
+        columnGap: "10px",
+        paddingLeft: "5px",
+        paddingRight: "5px",
+      } as unknown as CSSStyleDeclaration)
+      spyOnProperty(container, "clientWidth").and.returnValue(100)
+    })
+
+    it("pads a last page that ends part-way to a whole page", () => {
+      spyOnProperty(container, "scrollWidth").and.returnValue(350)
+      hostComponent.directive.ensureAlignedScrollWidth()
+      expect(container.children.length).toBe(2)
+    })
+
+    // With the margins inside the columns, a tablet's two columns came out
+    // 2 px over 4 pages: padded out, that made a fifth, empty page.
+    it("adds no page for a pixel or two of rounding", () => {
+      spyOnProperty(container, "scrollWidth").and.returnValue(302)
+      hostComponent.directive.ensureAlignedScrollWidth()
+      expect(container.children.length).toBe(1)
+    })
+  })
+
+  // The page stood still under the finger and turned only once it let go.
+  describe("dragging a page", () => {
+    let block: HTMLElement
+    const shift = () =>
+      Number(/translateX\((-?[\d.]+)px\)/.exec(block.style.transform)?.[1])
+
+    beforeEach(() => {
+      block = hostComponent.block.nativeElement
+      // advanceWidth = 100 - (5+5) + 10 = 100; the content scrolls 200.
+      spyOnProperty(block, "clientWidth").and.returnValue(100)
+      spyOn(window, "getComputedStyle").and.returnValue({
+        columnGap: "10px",
+        paddingLeft: "5px",
+        paddingRight: "5px",
+      } as unknown as CSSStyleDeclaration)
+    })
+
+    it("moves the page with the finger", () => {
+      container.scrollLeft = 100
+      hostComponent.directive.dragBy(-30)
+      expect(container.scrollLeft).toBe(130)
+    })
+
+    it("turns from the page the drag started on", () => {
+      container.scrollLeft = 100
+      hostComponent.directive.dragBy(-70)
+      hostComponent.directive.nextPage()
+
+      // @ts-expect-error TS complains about 1 argument for scrollTo overload
+      expect(container.scrollTo).toHaveBeenCalledWith({
+        left: 200,
+        behavior: "smooth",
+      })
+    })
+
+    it("goes back to its page when let go without a turn", () => {
+      container.scrollLeft = 100
+      hostComponent.directive.dragBy(-30)
+      hostComponent.directive.cancelDrag()
+
+      // @ts-expect-error TS complains about 1 argument for scrollTo overload
+      expect(container.scrollTo).toHaveBeenCalledWith({
+        left: 100,
+        behavior: "smooth",
+      })
+    })
+
+    it("gives past the first page, less the further it is pulled", () => {
+      container.scrollLeft = 0
+      hostComponent.directive.dragBy(60)
+      const first = shift()
+      hostComponent.directive.dragBy(120)
+      const second = shift()
+
+      expect(container.scrollLeft).toBe(0)
+      expect(first).toBeGreaterThan(0)
+      expect(first).toBeLessThan(60)
+      expect(second - first).toBeLessThan(first)
+    })
+
+    it("springs back as it turns to the previous chapter", () => {
+      container.scrollLeft = 0
+      hostComponent.directive.dragBy(60)
+      hostComponent.directive.prevPage()
+
+      expect(hostComponent.prevChapterCalled).toBeTrue()
+      expect(block.style.transform).toBe("")
+    })
+
+    // A second tap before the first turn had gone halfway turned to the same page.
+    it("turns on from the page a turn under way is heading for", () => {
+      container.scrollLeft = 0
+      hostComponent.directive.nextPage()
+      hostComponent.directive.nextPage()
+
+      // @ts-expect-error TS complains about 1 argument for scrollTo overload
+      expect(container.scrollTo).toHaveBeenCalledWith({
+        left: 200,
+        behavior: "smooth",
+      })
+    })
+  })
+
   // The bookBlock setter observes content changes as soon as it is bound, and
   // the server DOM has no MutationObserver — binding it there used to throw
   // once per prerendered route.
@@ -500,5 +613,285 @@ describe("PagedNavigationDirective", () => {
         behavior: "smooth",
       })
     })
+  })
+})
+
+@Component({
+  template: `
+    <div
+      #container
+      style="overflow: hidden"
+      [style.width.px]="width"
+      [style.height.px]="height"
+      [appPagedNavigation]="block"
+      viewMode="paged"
+    >
+      <div
+        #block
+        style="columns: 1; column-gap: 0; column-fill: auto; font: 16px/20px monospace"
+        [style.height.px]="height"
+      >
+        @for (verse of verses; track verse) {
+          <span [id]="verse">{{ verse }} {{ verse === LONG_VERSE ? longText : text }} </span>
+        }
+      </div>
+    </div>
+  `,
+  imports: [PagedNavigationDirective],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: true,
+})
+class PagesHostComponent {
+  readonly LONG_VERSE = LONG_VERSE
+  width = 200
+  height = 100
+  verses = Array.from({ length: 80 }, (_, i) => i + 1)
+  text = "Disse-lhe Jesus: em verdade, em verdade te digo."
+  // Several pages long at 200x100, as a long verse is on a phone at a large size.
+  longText = Array(12).fill(this.text).join(" ")
+  @ViewChild("container") container!: ElementRef<HTMLElement>
+  @ViewChild(PagedNavigationDirective) nav!: PagedNavigationDirective
+}
+
+const LONG_VERSE = 30
+
+// A rotation, a folding phone or Split View lays the pages out anew. The page
+// was found again by its pixel offset, which held other verses: Jo 3 from
+// verse 11 opened on verse 27 when the iPhone Duo unfolded.
+describe("PagedNavigationDirective across a resize", () => {
+  let fixture: ComponentFixture<PagesHostComponent>
+  let host: PagesHostComponent
+  let container: HTMLElement
+
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 400))
+
+  const verse = (id: number) =>
+    container.querySelector(`[id="${id}"]`) as HTMLElement
+  const fragments = (element: HTMLElement) =>
+    Array.from(element.getClientRects())
+  const onScreen = (rect: DOMRect) => {
+    const box = container.getBoundingClientRect()
+    return rect.left >= box.left - 1 && rect.left < box.right - 1
+  }
+
+  function startsOnScreen(element: HTMLElement): boolean {
+    const start = fragments(element)[0]
+    return start !== undefined && onScreen(start)
+  }
+
+  /** The first verse that starts on the page on screen. */
+  const firstVerseOnScreen = () =>
+    Array.from(container.querySelectorAll<HTMLElement>("[id]")).find(
+      startsOnScreen,
+    )
+
+  /** Which of the pages a verse runs over is on screen, from 0. */
+  function pageWithin(element: HTMLElement): number {
+    const box = container.getBoundingClientRect()
+    const pages = new Set(
+      fragments(element).map((rect) =>
+        Math.floor(
+          (rect.left - box.left + container.scrollLeft + 1) / box.width,
+        ),
+      ),
+    )
+    const shown = Math.floor(container.scrollLeft / box.width)
+    return [...pages].sort((a, b) => a - b).indexOf(shown)
+  }
+
+  /** The page an element starts on, from 0. */
+  function startPage(element: HTMLElement): number {
+    const box = container.getBoundingClientRect()
+    const start = fragments(element)[0]
+    return Math.floor(
+      (start.left - box.left + container.scrollLeft + 1) / box.width,
+    )
+  }
+
+  /** The verses that start on a page, in order. */
+  const startingOn = (page: number) =>
+    Array.from(container.querySelectorAll<HTMLElement>("[id]")).filter(
+      (element) => startPage(element) === page,
+    )
+
+  async function resizeTo(width: number, height: number): Promise<void> {
+    host.width = width
+    host.height = height
+    fixture.detectChanges()
+    window.dispatchEvent(new Event("resize"))
+    await settle()
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [PagesHostComponent],
+    }).compileComponents()
+    fixture = TestBed.createComponent(PagesHostComponent)
+    host = fixture.componentInstance
+    fixture.detectChanges()
+    container = host.container.nativeElement
+    await settle()
+  })
+
+  it("keeps the verse the reader was on", async () => {
+    container.scrollLeft = 5 * 200
+    await settle()
+    const first = firstVerseOnScreen()
+    expect(first).withContext("a verse starts on page 5").toBeDefined()
+    if (!first) return
+    expect(Number(first.id)).toBeGreaterThan(1)
+
+    // Turned sideways: wider and taller pages hold several of the old ones.
+    await resizeTo(300, 300)
+
+    expect(startsOnScreen(first))
+      .withContext(`verse ${first.id} on screen at 300x300`)
+      .toBeTrue()
+    expect(container.scrollLeft % 300).toBe(0)
+  })
+
+  // A page that one verse fills was found again by where the verse starts:
+  // the reader went back to its first page.
+  it("keeps the place inside a verse longer than a page", async () => {
+    const long = verse(LONG_VERSE)
+    const pages = new Set(
+      fragments(long).map((rect) =>
+        Math.floor((rect.left - container.getBoundingClientRect().left) / 200),
+      ),
+    )
+    expect(pages.size)
+      .withContext("the long verse runs over several pages")
+      .toBeGreaterThan(4)
+    const middle = [...pages].sort((a, b) => a - b)[Math.floor(pages.size / 2)]
+    container.scrollLeft = middle * 200
+    await settle()
+    expect(firstVerseOnScreen())
+      .withContext("the long verse fills the page")
+      .toBeUndefined()
+
+    await resizeTo(300, 150)
+
+    expect(startsOnScreen(long))
+      .withContext("not back on the verse's first page")
+      .toBeFalse()
+    expect(pageWithin(long)).toBeGreaterThan(0)
+  })
+
+  it("comes back to the same page when turned back", async () => {
+    container.scrollLeft = 5 * 200
+    await settle()
+    const first = firstVerseOnScreen()
+    expect(first).withContext("a verse starts on page 5").toBeDefined()
+
+    await resizeTo(300, 300)
+    await resizeTo(200, 100)
+    await resizeTo(300, 300)
+    await resizeTo(200, 100)
+
+    expect(container.scrollLeft).toBe(5 * 200)
+    expect(firstVerseOnScreen()).toBe(first)
+  })
+
+  // A deep link opened on its verse's page, lower down it. The first verse
+  // starting on the page was noted instead, and smaller pages left the linked
+  // verse on the page after it.
+  it("keeps the verse a link opened on", async () => {
+    const page = [3, 4, 5, 6, 7, 8].find((p) => startingOn(p).length > 1)
+    expect(page).withContext("a page two verses start on").toBeDefined()
+    if (page === undefined) return
+    const verses = startingOn(page)
+    const [above, linked] = [verses[0], verses[verses.length - 1]]
+
+    host.nav.scrollToPage(linked, "instant")
+    await settle()
+    expect(startsOnScreen(linked)).toBeTrue()
+
+    await resizeTo(200, 60)
+
+    expect(startsOnScreen(linked))
+      .withContext(`verse ${linked.id} on screen at 200x60`)
+      .toBeTrue()
+    expect(startsOnScreen(above))
+      .withContext(`verse ${above.id}, above it, starts on another page now`)
+      .toBeFalse()
+  })
+
+  // Rounding the page's start into the other layout landed a page on, and on
+  // the long verse's last page the next verse took over: each rotation and
+  // back walked the reader through the verse.
+  it("comes back to the same page inside a verse longer than a page", async () => {
+    const long = verse(LONG_VERSE)
+    const first = startPage(long)
+    const inside = new Set(
+      fragments(long).map((rect) =>
+        Math.floor((rect.left - container.getBoundingClientRect().left) / 200),
+      ),
+    )
+    // Not the first page, nor the last, where the next verse starts.
+    const pages = [...inside].filter(
+      (page) => page > first && startingOn(page).length === 0,
+    )
+    expect(pages.length)
+      .withContext("pages the long verse fills")
+      .toBeGreaterThan(2)
+
+    for (const page of pages) {
+      container.scrollLeft = page * 200
+      await settle()
+
+      await resizeTo(300, 150)
+      await resizeTo(200, 100)
+
+      expect(container.scrollLeft)
+        .withContext(`page ${page}, after turning and back`)
+        .toBe(page * 200)
+    }
+  }, 30_000)
+
+  // The page on screen was noted only once the pages had rested, and a
+  // resize drops a pending note: turned and rotated at once, the reader was
+  // taken back to the page before the turn.
+  it("finds the page turned to when the resize comes right after", async () => {
+    container.scrollLeft = 5 * 200
+    // The scroll event, but not the rest that would note the page.
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => setTimeout(resolve, 20)),
+    )
+    const turnedTo = firstVerseOnScreen()
+    expect(turnedTo).withContext("a verse starts on page 5").toBeDefined()
+    if (!turnedTo) return
+
+    await resizeTo(300, 300)
+
+    expect(startsOnScreen(turnedTo))
+      .withContext(`verse ${turnedTo.id} on screen at 300x300`)
+      .toBeTrue()
+  })
+
+  // A throw in the restore left the resize flag set: the verse on screen
+  // was never noted again, and every later resize went back to the old one.
+  it("goes on noting the verse on screen after a restore that failed", async () => {
+    container.scrollLeft = 5 * 200
+    await settle()
+    const scrollTo = spyOn(container, "scrollTo").and.throwError(
+      new TypeError("unsupported scroll behavior"),
+    )
+    await jasmine.spyOnGlobalErrorsAsync(async (globalErrors) => {
+      await resizeTo(300, 300)
+      expect(globalErrors).toHaveBeenCalled()
+    })
+    scrollTo.and.callThrough()
+
+    container.scrollLeft = 2 * 300
+    await settle()
+    const read = firstVerseOnScreen()
+    expect(read).withContext("a verse starts on page 2").toBeDefined()
+    if (!read) return
+
+    await resizeTo(200, 100)
+
+    expect(startsOnScreen(read))
+      .withContext(`verse ${read.id} on screen at 200x100`)
+      .toBeTrue()
   })
 })

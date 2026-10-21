@@ -163,3 +163,12 @@
   outline: 2px solid var(--text-color);
   outline-offset: 3px;
 }
+
+/* iOS: the page's main action, as the app's main buttons are there: the text
+   colour inverted, no accent (ChromeViewController.selectionFill). */
+:host-context(.native-chrome) .read-online a {
+  border: none;
+  background-color: var(--text-color);
+  color: var(--background-color) !important;
+  font-family: var(--app-ios-font, system-ui);
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Bíblia Sagrada</string>
+    <string name="title_activity_main">Bíblia Sagrada</string>
+    <string name="package_name">org.capuchinhos.biblia</string>
+    <string name="custom_url_scheme">org.capuchinhos.biblia</string>
+</resources>
