@@ -732,6 +732,32 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         }
     }
 
+    // MARK: - Share
+
+    /// See `presentSheet`; `done` says whether something was shared.
+    func presentShare(_ share: ShareSheetState, done: @escaping (Bool) -> Void) {
+        let sheet = UIActivityViewController(activityItems: share.activityItems, applicationActivities: nil)
+        sheet.completionWithItemsHandler = { _, completed, _, _ in done(completed) }
+        // From ⋯, whose menu has Partilhar: a popover on iPad, and on iOS 26
+        // the iPhone's sheet grows out of it too.
+        if let popover = sheet.popoverPresentationController {
+            if state.mode == .reader {
+                if #available(iOS 16.0, *) {
+                    popover.sourceItem = moreItem
+                } else {
+                    popover.barButtonItem = moreItem
+                }
+            } else {
+                popover.sourceView = view
+                popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
+        }
+        presentSheet(sheet) { presented in
+            if !presented { done(false) }
+        }
+    }
+
     // MARK: - Onboarding
 
     /// Whether the sheet came up. UIKit refuses, with only a console warning, a
