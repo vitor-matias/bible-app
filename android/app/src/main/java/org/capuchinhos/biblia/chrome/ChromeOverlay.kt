@@ -612,7 +612,7 @@ private fun MoreMenu(chrome: ChromeController, state: ChromeState, enabled: Bool
 }
 
 @Composable
-private fun MenuItem(
+fun MenuItem(
     label: String,
     @DrawableRes icon: Int,
     enabled: Boolean = true,

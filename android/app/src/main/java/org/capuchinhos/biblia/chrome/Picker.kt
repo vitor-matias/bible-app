@@ -12,6 +12,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -31,6 +32,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -40,6 +42,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.foundation.text.modifiers.TextAutoSizeLayoutScope
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -70,7 +73,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -86,20 +91,26 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.traversalIndex
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import org.capuchinhos.biblia.R
 
 /**
  * The book and chapter picker as Material's full-screen dialog: the books in
- * a list under their testaments and groups, then the chosen book's chapters
- * as a grid of numbers. It opens on the current book's chapters, with ← to
- * the books; a book without chapters (an introduction) opens at once.
+ * a list or as tiles ([BookView]) under their testaments and groups, then the
+ * chosen book's chapters as a grid of numbers. It opens on the current book's
+ * chapters, with ← to the books; a book without chapters (an introduction)
+ * opens at once.
  */
 @Composable
 fun PassagePickerDialog(chrome: ChromeController, sheet: Sheet.Picker) {
@@ -113,9 +124,15 @@ fun PassagePickerDialog(chrome: ChromeController, sheet: Sheet.Picker) {
     // show: back from Coríntios, the filter "co" and the place in the list stay.
     var filter by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
+    val gridState = rememberLazyGridState()
     var placed by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     var chapterList by remember { mutableStateOf(context.chapterListPreferred()) }
+    var bookView by remember { mutableStateOf(context.bookViewPreferred()) }
+    val chooseBookView = { view: BookView ->
+        bookView = view
+        context.saveBookView(view)
+    }
     val close = { chrome.dismissed(sheet) }
     val choose = { bookId: String, chapter: Int? ->
         // Once: a second tap as the dialog goes would ask for it again.
@@ -139,7 +156,10 @@ fun PassagePickerDialog(chrome: ChromeController, sheet: Sheet.Picker) {
                         data,
                         filter = filter,
                         onFilter = { filter = it },
+                        view = bookView,
+                        onView = chooseBookView,
                         listState = listState,
+                        gridState = gridState,
                         placed = placed,
                         onPlaced = { placed = true },
                         onClose = close,
@@ -196,7 +216,10 @@ fun PassagePickerDialog(chrome: ChromeController, sheet: Sheet.Picker) {
                     data,
                     filter = filter,
                     onFilter = { filter = it },
+                    view = bookView,
+                    onView = chooseBookView,
                     listState = listState,
+                    gridState = gridState,
                     placed = placed,
                     onPlaced = { placed = true },
                     onClose = close,
@@ -289,7 +312,10 @@ private fun BookList(
     data: PassagePickerData,
     filter: String,
     onFilter: (String) -> Unit,
+    view: BookView,
+    onView: (BookView) -> Unit,
     listState: LazyListState,
+    gridState: LazyGridState,
     placed: Boolean,
     onPlaced: () -> Unit,
     onClose: () -> Unit,
@@ -299,6 +325,7 @@ private fun BookList(
 ) {
     val rows = remember(data, filter) { pickerRows(data, filter) }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val density = LocalDensity.current
     // Opens at the current book, once. Not at "Sobre a Bíblia", listed last:
     // from there the reader is choosing where to start.
     LaunchedEffect(Unit) {
@@ -306,10 +333,26 @@ private fun BookList(
         onPlaced()
         if (data.currentBookId == "about") return@LaunchedEffect
         val index = rows.indexOfFirst { it is PickerRow.Book && it.book.id == data.currentBookId }
-        if (index > 0) listState.scrollToItem(maxOf(index - 3, 0))
+        if (index <= 0) return@LaunchedEffect
+        if (view == BookView.List) {
+            listState.scrollToItem(maxOf(index - 3, 0))
+        } else {
+            // Its row a little way down, clear of the testament's heading.
+            gridState.scrollToItem(index)
+            gridState.scrollBy(-with(density) { 120.dp.toPx() })
+        }
     }
     // Back clears a filter before it closes the picker.
     BackHandler(enabled = filter.isNotEmpty()) { onFilter("") }
+    val switchView = { new: BookView ->
+        // The same books in view: list and grid have the same rows.
+        if (view == BookView.List && new != BookView.List) {
+            gridState.requestScrollToItem(listState.firstVisibleItemIndex)
+        } else if (view != BookView.List && new == BookView.List) {
+            listState.requestScrollToItem(gridState.firstVisibleItemIndex)
+        }
+        onView(new)
+    }
 
     Scaffold(
         modifier = Modifier
@@ -322,6 +365,7 @@ private fun BookList(
                 TopAppBar(
                     navigationIcon = { BarButton(R.drawable.ic_close, "Fechar", onClick = onClose) },
                     title = { Text("Livros", Modifier.semantics { heading() }) },
+                    actions = { BookViewMenu(view, switchView) },
                     scrollBehavior = scrollBehavior,
                 )
                 // In view, not behind an icon: 73 books are a long way to scroll.
@@ -329,57 +373,235 @@ private fun BookList(
             }
         },
     ) { padding ->
+        if (view != BookView.List) {
+            BookGrid(rows, filter, compact = view == BookView.Abbreviations, gridState, padding, selectedId, onChoose)
+            return@Scaffold
+        }
         val direction = LocalLayoutDirection.current
         LazyColumn(
+            // Below the bar and the filter, not under them: a sticky heading
+            // pins to the list's top, whatever its content padding.
+            modifier = Modifier.padding(top = padding.calculateTopPadding()),
             state = listState,
             contentPadding = PaddingValues(
                 start = padding.calculateStartPadding(direction),
                 end = padding.calculateEndPadding(direction),
-                top = padding.calculateTopPadding(),
                 bottom = padding.calculateBottomPadding() + 16.dp,
             ),
         ) {
             for (row in rows) {
                 when (row) {
                     is PickerRow.Testament -> stickyHeader(key = row.key, contentType = "testament") {
-                        Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                row.title,
-                                Modifier.padding(horizontal = 16.dp, vertical = 12.dp).semantics { heading() },
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
+                        TestamentHeading(row.title)
                     }
-                    is PickerRow.Group -> item(key = row.key, contentType = "group") {
-                        Text(
-                            row.title,
-                            Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp).semantics { heading() },
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    is PickerRow.Group -> item(key = row.key, contentType = "group") { GroupHeading(row.title) }
                     is PickerRow.Book -> item(key = row.key, contentType = "book") {
                         BookRow(row.book, current = row.book.id == selectedId) { onChoose(row.book) }
                     }
                 }
             }
             if (rows.isEmpty()) {
-                item(contentType = "empty") {
-                    Text(
-                        "Nenhum livro com «${filter.trim()}»",
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp)
-                            .semantics { liveRegion = LiveRegionMode.Polite },
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
+                item(contentType = "empty") { NoBooks(filter) }
+            }
+        }
+    }
+}
+
+/**
+ * The books as tiles, as in the iOS app: big ones with the names, or small
+ * ones with the abbreviations that fit most of a testament on a screen.
+ */
+@Composable
+private fun BookGrid(
+    rows: List<PickerRow>,
+    filter: String,
+    compact: Boolean,
+    gridState: LazyGridState,
+    padding: PaddingValues,
+    selectedId: String?,
+    onChoose: (PassagePickerData.Book) -> Unit,
+) {
+    val style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelLarge
+    val lines = if (compact) 1 else 2
+    val density = LocalDensity.current
+    // Android scales large text by less than the font scale (nonlinear).
+    val textScale = with(density) { style.fontSize.toDp().value / style.fontSize.value }
+    // Room for every tile's lines, so the tiles of a row are the same height.
+    val minHeight = maxOf(56.dp, with(density) { style.lineHeight.toDp() } * lines + 16.dp)
+    val direction = LocalLayoutDirection.current
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(bookTileMinWidth(compact, textScale)),
+        // As the list: below the bar, so the testament's heading pins in view.
+        modifier = Modifier.padding(top = padding.calculateTopPadding()),
+        state = gridState,
+        contentPadding = PaddingValues(
+            start = padding.calculateStartPadding(direction) + GRID_MARGIN,
+            end = padding.calculateEndPadding(direction) + GRID_MARGIN,
+            bottom = padding.calculateBottomPadding() + 24.dp,
+        ),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        for (row in rows) {
+            when (row) {
+                is PickerRow.Testament -> stickyHeader(key = row.key, contentType = "testament") {
+                    TestamentHeading(row.title, Modifier.bleed(GRID_MARGIN))
+                }
+                is PickerRow.Group -> item(key = row.key, span = { GridItemSpan(maxLineSpan) }, contentType = "group") {
+                    GroupHeading(row.title, Modifier.bleed(GRID_MARGIN))
+                }
+                is PickerRow.Book -> item(key = row.key, contentType = "book") {
+                    val book = row.book
+                    Tile(
+                        text = if (compact) book.abbreviation else tileLabel(book.label),
+                        current = book.id == selectedId,
+                        spoken = spokenLabel(book),
+                        textStyle = style,
+                        lines = lines,
+                        shrink = true,
+                        minHeight = minHeight,
+                    ) { onChoose(book) }
+                }
+            }
+        }
+        if (rows.isEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }, contentType = "empty") { NoBooks(filter) }
+        }
+    }
+}
+
+private val GRID_MARGIN = 16.dp
+
+/** Out over the grid's side margins, so a heading's band is as wide as in the list. */
+private fun Modifier.bleed(margin: Dp) = layout { measurable, constraints ->
+    val extra = margin.roundToPx()
+    val placeable = measurable.measure(constraints.offset(horizontal = extra * 2))
+    layout(constraints.maxWidth, placeable.height) { placeable.place(-extra, 0) }
+}
+
+/** A testament's name, which stays at the top while its books scroll under it. */
+@Composable
+private fun TestamentHeading(title: String, modifier: Modifier = Modifier) {
+    Surface(color = MaterialTheme.colorScheme.surface, modifier = modifier.fillMaxWidth()) {
+        Text(
+            title,
+            Modifier.padding(horizontal = 16.dp, vertical = 12.dp).semantics { heading() },
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
+@Composable
+private fun GroupHeading(title: String, modifier: Modifier = Modifier) {
+    Text(
+        title,
+        modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp).semantics { heading() },
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun NoBooks(filter: String) {
+    Text(
+        "Nenhum livro com «${filter.trim()}»",
+        Modifier
+            .fillMaxWidth()
+            .padding(24.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+    )
+}
+
+/** The books as a list or as tiles, from the bar; the choice is remembered. */
+@Composable
+private fun BookViewMenu(view: BookView, onView: (BookView) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        BarButton(view.icon, "Vista", stateDescription = view.label) { open = true }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            for (option in BookView.entries) {
+                MenuItem(option.label, option.icon, checked = option == view) {
+                    open = false
+                    onView(option)
                 }
             }
         }
     }
+}
+
+private val BookView.label: String
+    get() = when (this) {
+        BookView.List -> "Lista"
+        BookView.Names -> "Grelha com nomes"
+        BookView.Abbreviations -> "Grelha com abreviaturas"
+    }
+
+private val BookView.icon: Int
+    get() = when (this) {
+        BookView.List -> R.drawable.ic_view_list
+        BookView.Names -> R.drawable.ic_grid_view
+        BookView.Abbreviations -> R.drawable.ic_grid_on
+    }
+
+/**
+ * How the picker shows the books: a list with each book's abbreviation and
+ * chapters, or tiles as in the iOS app, big with the names or small with the
+ * abbreviations.
+ */
+enum class BookView(val preference: String) {
+    List("list"),
+    Names("names"),
+    Abbreviations("abbreviations");
+
+    companion object {
+        /** The list until the reader picks another. */
+        fun fromPreference(value: String?): BookView = entries.firstOrNull { it.preference == value } ?: List
+    }
+}
+
+/**
+ * The narrowest a book's tile gets: three names to a phone's row, or six
+ * abbreviations. Wider with larger text, as the iOS app's, up to twice.
+ */
+fun bookTileMinWidth(compact: Boolean, textScale: Float): Dp =
+    (if (compact) 56.dp else 104.dp) * textScale.coerceIn(1f, 2f)
+
+/** "1 Tessalonicenses" keeps its number on the name's line. */
+fun tileLabel(label: String): String = label.replace(LEADING_NUMBER, "$1 ")
+
+private val LEADING_NUMBER = Regex("^(\\d+) ")
+
+/** Whether lines ending at [lineEnds] (each line's end offset) only break [text] between words. */
+fun breaksBetweenWords(text: String, lineEnds: List<Int>): Boolean =
+    lineEnds.all { end -> end in 1..text.length && text[end - 1].let { it == ' ' || it == '-' } }
+
+/**
+ * Smaller a step at a time until the text fits its lines with every word
+ * whole: a name too wide for its tile ("Tessalonicenses") shrinks rather
+ * than break, as in the iOS app.
+ */
+private data class WholeWordsAutoSize(val min: TextUnit, val max: TextUnit) : TextAutoSize {
+    override fun TextAutoSizeLayoutScope.getFontSize(constraints: Constraints, text: AnnotatedString): TextUnit {
+        var size = max.value
+        while (size > min.value) {
+            val layout = performLayout(constraints, text, size.sp)
+            val lineEnds = (0 until layout.lineCount - 1).map { layout.getLineEnd(it) }
+            if (!layout.hasVisualOverflow && breaksBetweenWords(text.text, lineEnds)) return size.sp
+            size -= 1
+        }
+        return min
+    }
+}
+
+/** What TalkBack says for a book: its name and how many chapters it has. */
+private fun spokenLabel(book: PassagePickerData.Book): String = when (val count = book.chapterCount) {
+    0 -> book.name
+    1 -> "${book.name}, 1 capítulo"
+    else -> "${book.name}, $count capítulos"
 }
 
 /**
@@ -459,11 +681,7 @@ private fun BookRow(book: PassagePickerData.Book, current: Boolean, onClick: () 
         modifier = Modifier
             .clickable(role = Role.Button, onClick = onClick)
             .clearAndSetSemantics {
-                contentDescription = when (count) {
-                    0 -> book.name
-                    1 -> "${book.name}, 1 capítulo"
-                    else -> "${book.name}, $count capítulos"
-                }
+                contentDescription = spokenLabel(book)
                 // Only the current one: TalkBack says "Not selected" for false.
                 if (current) selected = true
             },
@@ -534,7 +752,7 @@ private fun ChapterGrid(
                 span = { if (it.label.isEmpty()) GridItemSpan(maxLineSpan) else GridItemSpan(1) },
             ) { chapter ->
                 val intro = chapter.label.isEmpty()
-                ChapterCell(
+                Tile(
                     text = if (intro) "Introdução" else chapter.label,
                     detail = chapter.detail?.let { "($it)" },
                     current = chapter.number == current,
@@ -612,6 +830,14 @@ private fun ChapterList(
 
 private const val PREFERENCES = "native-chrome"
 private const val CHAPTER_LIST = "picker.chapterList"
+private const val BOOK_VIEW = "picker.bookView"
+
+private fun Context.bookViewPreferred(): BookView =
+    BookView.fromPreference(getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).getString(BOOK_VIEW, null))
+
+private fun Context.saveBookView(view: BookView) {
+    getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit().putString(BOOK_VIEW, view.preference).apply()
+}
 
 /** Whether the reader last chose the chapters as a list. */
 private fun Context.chapterListPreferred(): Boolean =
@@ -630,12 +856,12 @@ private fun spokenLabel(chapter: PassagePickerData.Chapter): String {
 }
 
 /**
- * A chapter number. The current one is filled with the primary colour; a
- * bookmarked chapter shows its ribbon's colour as a dot.
+ * A chapter number, or a book. The current one is filled with the primary
+ * colour; a bookmarked chapter shows its ribbon's colour as a dot.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ChapterCell(
+private fun Tile(
     text: String,
     current: Boolean,
     spoken: String,
@@ -643,6 +869,10 @@ private fun ChapterCell(
     detail: String? = null,
     ribbon: Color? = null,
     longPressTitle: String? = null,
+    lines: Int = 1,
+    /** Smaller text where it doesn't fit, words kept whole. */
+    shrink: Boolean = false,
+    minHeight: Dp = 56.dp,
     onClick: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
@@ -654,7 +884,7 @@ private fun ChapterCell(
             contentColor = if (current) colors.onPrimary else colors.onSurface,
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 56.dp)
+                .heightIn(min = minHeight)
                 .combinedClickable(
                     onClick = onClick,
                     onLongClick = if (longPressTitle != null) ({ menu = true }) else null,
@@ -672,7 +902,13 @@ private fun ChapterCell(
                     Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(text, style = textStyle, maxLines = 1, textAlign = TextAlign.Center)
+                    Text(
+                        text,
+                        style = textStyle,
+                        maxLines = lines,
+                        textAlign = TextAlign.Center,
+                        autoSize = if (shrink) WholeWordsAutoSize(min = 9.sp, max = textStyle.fontSize) else null,
+                    )
                     if (detail != null) {
                         Text(detail, style = MaterialTheme.typography.labelSmall, modifier = Modifier.alpha(0.7f))
                     }

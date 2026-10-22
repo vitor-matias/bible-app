@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -408,6 +409,49 @@ class PickerRowsTest {
     @Test
     fun findsNothingForNoMatch() {
         assertEquals(emptyList<PickerRow>(), pickerRows(data, "Apocalipse"))
+    }
+}
+
+/** The picker's books as tiles, big with the names or small with the abbreviations, as on iOS. */
+class BookTilesTest {
+    // Saved as the iOS app saves its mode ("names", "abbreviations"); the list until one is chosen.
+    @Test
+    fun remembersTheView() {
+        for (view in BookView.entries) assertEquals(view, BookView.fromPreference(view.preference))
+        assertEquals(BookView.Names, BookView.fromPreference("names"))
+        assertEquals(BookView.Abbreviations, BookView.fromPreference("abbreviations"))
+        assertEquals(BookView.List, BookView.fromPreference(null))
+        assertEquals(BookView.List, BookView.fromPreference("tiles"))
+    }
+
+    @Test
+    fun smallTilesAreNarrower() {
+        assertEquals(104.dp, bookTileMinWidth(compact = false, textScale = 1f))
+        assertEquals(56.dp, bookTileMinWidth(compact = true, textScale = 1f))
+    }
+
+    // Larger text widens the tiles, up to twice; smaller text never narrows them.
+    @Test
+    fun tilesGrowWithTheText() {
+        assertEquals(156.dp, bookTileMinWidth(compact = false, textScale = 1.5f))
+        assertEquals(208.dp, bookTileMinWidth(compact = false, textScale = 3f))
+        assertEquals(56.dp, bookTileMinWidth(compact = true, textScale = 0.85f))
+    }
+
+    @Test
+    fun keepsANumberWithItsBook() {
+        assertEquals("1 Tessalonicenses", tileLabel("1 Tessalonicenses"))
+        assertEquals("Atos dos Apóstolos", tileLabel("Atos dos Apóstolos"))
+        assertEquals("Génesis", tileLabel("Génesis"))
+    }
+
+    // A line may end after a space, not inside a word: "Tessalonic|enses" means smaller text.
+    @Test
+    fun tellsABreakBetweenWordsFromOneInsideAWord() {
+        assertTrue(breaksBetweenWords("Atos dos Apóstolos", listOf("Atos dos ".length)))
+        assertTrue(breaksBetweenWords("Génesis", emptyList()))
+        assertFalse(breaksBetweenWords("Tessalonicenses", listOf(10)))
+        assertFalse(breaksBetweenWords("1 Tessalonicenses", listOf(2)))
     }
 }
 
