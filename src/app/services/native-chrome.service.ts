@@ -216,6 +216,12 @@ export interface NativeToastOptions {
   onTap?: () => void
   /** An SF Symbol before the button's label. */
   symbol?: string
+  /**
+   * The way back to where the reader was ("Voltar para …"): in the Android
+   * app it also goes once they have read on a screen's height, as a snackbar
+   * would stay over a line of the text otherwise.
+   */
+  returnToPage?: boolean
 }
 
 export interface SheetPresented {
@@ -594,7 +600,7 @@ export class NativeChromeService {
    */
   toast(message: string, options: NativeToastOptions = {}): () => void {
     if (!this.enabled) return () => {}
-    const { onTap, symbol } = options
+    const { onTap, symbol, returnToPage } = options
     // It replaces the toast before, and that one's action with it.
     this.toastAction = onTap
     const shown = ++this.toastCount
@@ -613,7 +619,7 @@ export class NativeChromeService {
       this.returnToastHide = undefined
       this.plugin.hideToast().catch(() => {})
     }
-    if (onTap) {
+    if (onTap && returnToPage) {
       this.returnToastHide = hide
       this.returnToastShownAt = performance.now()
     }
@@ -802,19 +808,34 @@ export class NativeChromeService {
   }
 
   private onScroll(event: Event): void {
-    const target = event.target
-    if (
-      target instanceof Element &&
-      this.tracked &&
-      (target === this.tracked || this.tracked.contains(target))
-    ) {
+    const target = event.target instanceof Element ? event.target : null
+    let top: number
+    if (this.tracked) {
+      // The reader: its own text, read from its scroller, whichever part of
+      // it moved (pages scroll across in an element inside). Not a list
+      // beside it, such as the book drawer's.
+      if (
+        !target ||
+        !(target === this.tracked || this.tracked.contains(target))
+      ) {
+        return
+      }
       this.lastScroller = target
       this.scheduleReading()
-    }
-    const top =
-      target instanceof Element
+      top = this.tracked.scrollTop
+    } else {
+      // Other pages scroll in an element of their own, but a menu's or a
+      // dialog's list isn't the page.
+      if (
+        target &&
+        this.overlayContainer.getContainerElement().contains(target)
+      ) {
+        return
+      }
+      top = target
         ? target.scrollTop
         : (this.document.scrollingElement?.scrollTop ?? 0)
+    }
     this.dismissReturnToastAfterScroll(top)
     // The text reaches the bar only past the reader's own top margin.
     const scrolled = top > SCROLLED_UNDER_BAR

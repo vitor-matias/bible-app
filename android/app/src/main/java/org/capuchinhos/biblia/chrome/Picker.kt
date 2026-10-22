@@ -58,6 +58,7 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -150,17 +151,22 @@ fun PassagePickerDialog(chrome: ChromeController, sheet: Sheet.Picker) {
                 VerticalDivider()
                 Box(Modifier.weight(1f).fillMaxHeight()) {
                     if (shown != null) {
-                        ChapterGrid(
-                            shown,
-                            current = data.currentChapter.takeIf { shown.id == data.currentBookId },
-                            asList = chapterList,
-                            onToggleList = {
-                                chapterList = !chapterList
-                                context.saveChapterListPreferred(chapterList)
-                            },
-                            onBack = null,
-                            onClose = null,
-                        ) { choose(shown.id, it) }
+                        // A grid of its own per book: in place, it kept the
+                        // last book's scroll (chapters share numbers, its
+                        // keys) and never scrolled to the new current one.
+                        key(shown.id) {
+                            ChapterGrid(
+                                shown,
+                                current = data.currentChapter.takeIf { shown.id == data.currentBookId },
+                                asList = chapterList,
+                                onToggleList = {
+                                    chapterList = !chapterList
+                                    context.saveChapterListPreferred(chapterList)
+                                },
+                                onBack = null,
+                                onClose = null,
+                            ) { choose(shown.id, it) }
+                        }
                     } else {
                         Surface(Modifier.fillMaxSize()) {
                             Box(contentAlignment = Alignment.Center) {

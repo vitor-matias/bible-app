@@ -231,6 +231,39 @@ describe("NativeChromeService", () => {
       expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: false }))
     })
 
+    // A list scrolling beside the reader (the book drawer's) isn't the
+    // reader's text, and the text's place is its scroller's.
+    it("follows the reader's own scroller, not one beside it", () => {
+      const service = create("android")
+      service.show(READER)
+      const stop = service.trackScroll(page)
+      const drawer = document.createElement("div")
+      root.appendChild(drawer)
+      Object.defineProperty(drawer, "scrollTop", { value: 400 })
+      drawer.dispatchEvent(new Event("scroll"))
+      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: false }))
+
+      // The pages scroll across inside it: still the reader's place.
+      scrollTo(40)
+      const pages = document.createElement("div")
+      page.appendChild(pages)
+      pages.dispatchEvent(new Event("scroll"))
+      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: true }))
+      stop()
+      drawer.remove()
+    })
+
+    it("leaves a menu's or a dialog's scrolling out, on other pages", () => {
+      create("android").show(SEARCH)
+      root.appendChild(overlays)
+      const list = document.createElement("div")
+      overlays.appendChild(list)
+      Object.defineProperty(list, "scrollTop", { value: 400 })
+      list.dispatchEvent(new Event("scroll"))
+      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: false }))
+      overlays.remove()
+    })
+
     // Each push rebuilds the iOS bars: none for a colour they don't show.
     it("isn't followed in the iOS app", () => {
       create("ios").show(READER)
@@ -1151,7 +1184,10 @@ describe("NativeChromeService", () => {
     }
 
     it("goes once the reader has read on a screen's height", () => {
-      service.toast("Voltar para Mateus 5,3", { onTap: () => {} })
+      service.toast("Voltar para Mateus 5,3", {
+        onTap: () => {},
+        returnToPage: true,
+      })
       now += 2000
       scrollTo(100)
       scrollTo(100 + window.innerHeight - 1)
@@ -1162,10 +1198,23 @@ describe("NativeChromeService", () => {
 
     // The reader lands on the verse as the toast shows: the app's scroll.
     it("leaves it up while the reader lands on the passage", () => {
-      service.toast("Voltar para Mateus 5,3", { onTap: () => {} })
+      service.toast("Voltar para Mateus 5,3", {
+        onTap: () => {},
+        returnToPage: true,
+      })
       scrollTo(5000)
       now += 2000
       scrollTo(5000 + window.innerHeight - 1)
+      expect(plugin.hideToast).not.toHaveBeenCalled()
+    })
+
+    // Only the way back goes as the reader reads on: another toast with an
+    // action stays until it is used, closed or replaced.
+    it("leaves another toast with an action up", () => {
+      service.toast("Marcador movido", { onTap: () => {} })
+      now += 2000
+      scrollTo(0)
+      scrollTo(window.innerHeight * 2)
       expect(plugin.hideToast).not.toHaveBeenCalled()
     })
 

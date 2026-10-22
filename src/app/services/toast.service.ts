@@ -61,6 +61,7 @@ export class ToastService {
       const hide = this.nativeChrome.toast(message, {
         symbol: "arrow.uturn.backward",
         onTap: goBack,
+        returnToPage: true,
       })
       this.returnWatch = this.hideOnReturn(urlAbrv, from.chapterNumber, hide)
       return

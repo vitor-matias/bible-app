@@ -132,7 +132,12 @@ describe("ToastService", () => {
       expect(snackBar.openFromComponent).not.toHaveBeenCalled()
       expect(nativeChrome.toast).toHaveBeenCalledOnceWith(
         "Voltar para Gn 3,5",
-        { symbol: "arrow.uturn.backward", onTap: jasmine.any(Function) },
+        {
+          symbol: "arrow.uturn.backward",
+          onTap: jasmine.any(Function),
+          // Android takes the way back down once the reader reads on.
+          returnToPage: true,
+        },
       )
       nativeChrome.toast.calls.mostRecent().args[1].onTap()
       expect(navigate).toHaveBeenCalledWith(["gn", 3], {
