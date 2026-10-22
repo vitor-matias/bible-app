@@ -12,6 +12,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -69,6 +70,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -88,6 +91,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.intl.LocaleList
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
@@ -95,6 +99,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -210,7 +215,8 @@ private fun SheetTitle(text: String, modifier: Modifier = Modifier) {
 /**
  * Text size, theme, and pages or scrolling, as Play Books' display options.
  * It stays open as people tap: the page changes behind it, and the sheet
- * itself takes the theme.
+ * itself takes the theme. On a short screen it's [compactTextSheet], so
+ * that some of the page still shows above it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -218,9 +224,10 @@ private fun AppearanceSheet(chrome: ChromeController, sheet: Sheet) {
     val state = chrome.state
     val sheetState = rememberBottomSheetState(SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
     val closer = rememberSheetCloser(chrome, sheet, sheetState)
+    val compact = with(LocalDensity.current) { compactTextSheet(LocalWindowInfo.current.containerSize.height.toDp().value) }
     ChromeSheet(chrome, sheet, sheetState, scrim = Color.Transparent) {
         Column(
-            Modifier.padding(start = 24.dp, end = 12.dp, bottom = 24.dp),
+            Modifier.padding(start = 24.dp, end = 12.dp, bottom = if (compact) 16.dp else 24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             SheetTitleRow("Texto e aparência", onClose = { closer.close() }, Modifier.padding(bottom = 8.dp))
@@ -233,8 +240,9 @@ private fun AppearanceSheet(chrome: ChromeController, sheet: Sheet) {
                     .padding(end = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-            TextSizeControls(chrome, state.textSize)
-            Caption("Tema")
+            TextSizeControls(chrome, state.textSize, compact)
+            // Compact, the choices say what they are without a caption.
+            if (!compact) Caption("Tema")
             ConnectedChoices(
                 options = listOf(
                     Choice("system", "Automático", R.drawable.ic_brightness_auto),
@@ -242,15 +250,17 @@ private fun AppearanceSheet(chrome: ChromeController, sheet: Sheet) {
                     Choice("dark", "Escuro", R.drawable.ic_dark_mode),
                 ),
                 selected = state.themeMode,
+                compact = compact,
             ) { chrome.send("theme-$it") }
             state.viewMode?.let { viewMode ->
-                Caption("Leitura")
+                if (!compact) Caption("Leitura")
                 ConnectedChoices(
                     options = listOf(
                         Choice("paged", "Página a página", R.drawable.ic_auto_stories),
                         Choice("scrolling", "Texto contínuo", R.drawable.ic_article),
                     ),
                     selected = viewMode,
+                    compact = compact,
                 ) { if (it != viewMode) chrome.send("view-mode") }
             }
             }
@@ -264,7 +274,7 @@ private fun AppearanceSheet(chrome: ChromeController, sheet: Sheet) {
  * with a tremor, and a switch can't drag.
  */
 @Composable
-private fun TextSizeControls(chrome: ChromeController, size: TextSize?) {
+private fun TextSizeControls(chrome: ChromeController, size: TextSize?, compact: Boolean) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             if (size != null) "Tamanho do texto: ${size.percent} %" else "Tamanho do texto",
@@ -288,7 +298,61 @@ private fun TextSizeControls(chrome: ChromeController, size: TextSize?) {
             Choice("font-decrease", "Diminuir texto", R.drawable.ic_text_decrease, enabled = size?.canDecrease ?: true),
             Choice("font-increase", "Aumentar texto", R.drawable.ic_text_increase, enabled = size?.canIncrease ?: true),
         ),
+        compact = compact,
     ) { chrome.sendStep(it, TextSize.STEP) }
+}
+
+/**
+ * Below this height (dp, the whole window) the text sheet, at full size,
+ * leaves no page above it to watch the text change: a 360 × 640 phone.
+ */
+private const val COMPACT_TEXT_SHEET_BELOW = 760f
+
+/** Whether a window this tall (dp) gets the compact text sheet. */
+internal fun compactTextSheet(windowHeight: Float): Boolean = windowHeight < COMPACT_TEXT_SHEET_BELOW
+
+/**
+ * Whether a label this wide fits beside its icon in a button this wide
+ * (both in px, [icon] with its gap, [padding] each side).
+ */
+internal fun fitsBesideIcon(buttonWidth: Float, labelWidth: Float, icon: Float, padding: Float): Boolean =
+    labelWidth + icon + 2 * padding <= buttonWidth
+
+/**
+ * How a row's buttons lay out: compact, the icon beside the label where every
+ * label of the row fits (at [BESIDE_MIN_FONT] at least), else above it; and
+ * how tall they are.
+ */
+private data class ChoiceLayout(val beside: Boolean, val minHeight: Dp, val padding: PaddingValues)
+
+private val BESIDE_MIN_FONT = 12.sp
+private val BESIDE_ICON = 18.dp
+private val BESIDE_GAP = 6.dp
+private val CHOICE_PADDING = 8.dp
+
+@Composable
+private fun rememberChoiceLayout(options: List<Choice>, compact: Boolean, rowWidth: Dp): ChoiceLayout {
+    if (!compact) return ChoiceLayout(beside = false, minHeight = 72.dp, PaddingValues(horizontal = CHOICE_PADDING, vertical = 12.dp))
+    val measurer = rememberTextMeasurer()
+    val style = MaterialTheme.typography.labelLarge.copy(fontSize = BESIDE_MIN_FONT)
+    val density = LocalDensity.current
+    val beside = remember(options, rowWidth, style, density) {
+        val gaps = ButtonGroupDefaults.ConnectedSpaceBetween * (options.size - 1)
+        val button = with(density) { ((rowWidth - gaps) / options.size).toPx() }
+        options.all { choice ->
+            fitsBesideIcon(
+                buttonWidth = button,
+                labelWidth = measurer.measure(choice.label, style, maxLines = 1).size.width.toFloat(),
+                icon = with(density) { (BESIDE_ICON + BESIDE_GAP).toPx() },
+                padding = with(density) { CHOICE_PADDING.toPx() },
+            )
+        }
+    }
+    return if (beside) {
+        ChoiceLayout(beside = true, minHeight = 48.dp, PaddingValues(horizontal = CHOICE_PADDING, vertical = 8.dp))
+    } else {
+        ChoiceLayout(beside = false, minHeight = 56.dp, PaddingValues(horizontal = CHOICE_PADDING, vertical = 6.dp))
+    }
 }
 
 @Composable
@@ -309,35 +373,39 @@ private data class Choice(
 )
 
 /**
- * Choices side by side in a connected group, the icon above the label: one
- * is checked, as radio buttons. Unchecked ones are drawn on the brightest
- * container, so they still read as buttons on the sheet.
+ * Choices side by side in a connected group, the icon above the label (or
+ * beside it, [rememberChoiceLayout]): one is checked, as radio buttons.
+ * Unchecked ones are drawn on the brightest container, so they still read
+ * as buttons on the sheet.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ConnectedChoices(options: List<Choice>, selected: String, onChoose: (String) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-    ) {
-        options.forEachIndexed { index, choice ->
-            ToggleButton(
-                checked = choice.value == selected,
-                onCheckedChange = { onChoose(choice.value) },
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = 72.dp)
-                    .semantics { role = Role.RadioButton },
-                shapes = when (index) {
-                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                    options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                },
-                colors = ToggleButtonDefaults.colors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                ),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
-            ) { ChoiceLabel(choice) }
+private fun ConnectedChoices(options: List<Choice>, selected: String, compact: Boolean, onChoose: (String) -> Unit) {
+    BoxWithConstraints {
+        val layout = rememberChoiceLayout(options, compact, maxWidth)
+        Row(
+            Modifier.fillMaxWidth().selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+        ) {
+            options.forEachIndexed { index, choice ->
+                ToggleButton(
+                    checked = choice.value == selected,
+                    onCheckedChange = { onChoose(choice.value) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = layout.minHeight)
+                        .semantics { role = Role.RadioButton },
+                    shapes = when (index) {
+                        0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                        options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                    },
+                    colors = ToggleButtonDefaults.colors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    ),
+                    contentPadding = layout.padding,
+                ) { ChoiceLabel(choice, layout.beside) }
+            }
         }
     }
 }
@@ -348,33 +416,49 @@ private fun ConnectedChoices(options: List<Choice>, selected: String, onChoose: 
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ConnectedButtons(options: List<Choice>, onPress: (String) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-    ) {
-        options.forEachIndexed { index, choice ->
-            FilledTonalButton(
-                onClick = { onPress(choice.value) },
-                enabled = choice.enabled,
-                modifier = Modifier.weight(1f).heightIn(min = 72.dp),
-                shape = if (index == 0) {
-                    ButtonGroupDefaults.connectedLeadingButtonShape
-                } else {
-                    ButtonGroupDefaults.connectedTrailingButtonShape
-                },
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                ),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
-            ) { ChoiceLabel(choice) }
+private fun ConnectedButtons(options: List<Choice>, compact: Boolean, onPress: (String) -> Unit) {
+    BoxWithConstraints {
+        val layout = rememberChoiceLayout(options, compact, maxWidth)
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+        ) {
+            options.forEachIndexed { index, choice ->
+                FilledTonalButton(
+                    onClick = { onPress(choice.value) },
+                    enabled = choice.enabled,
+                    modifier = Modifier.weight(1f).heightIn(min = layout.minHeight),
+                    shape = if (index == 0) {
+                        ButtonGroupDefaults.connectedLeadingButtonShape
+                    } else {
+                        ButtonGroupDefaults.connectedTrailingButtonShape
+                    },
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+                    contentPadding = layout.padding,
+                ) { ChoiceLabel(choice, layout.beside) }
+            }
         }
     }
 }
 
 @Composable
-private fun ChoiceLabel(choice: Choice) {
+private fun ChoiceLabel(choice: Choice, beside: Boolean) {
+    if (beside) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(painterResource(choice.icon), contentDescription = null, Modifier.size(BESIDE_ICON))
+            Spacer(Modifier.width(BESIDE_GAP))
+            Text(
+                choice.label,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                autoSize = TextAutoSize.StepBased(minFontSize = BESIDE_MIN_FONT, maxFontSize = 14.sp),
+            )
+        }
+        return
+    }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(painterResource(choice.icon), contentDescription = null)
         Spacer(Modifier.height(4.dp))

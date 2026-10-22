@@ -15,6 +15,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 
 /** Whether the in-app theme ("system", "light", "dark") is dark here. */
@@ -60,6 +62,25 @@ fun bibleColorScheme(dark: Boolean, sdkInt: Int, dynamic: (dark: Boolean) -> Col
  * which the top bar takes at rest.
  */
 fun pageBackground(dark: Boolean): Color = if (dark) Color(0xFF121212) else Color.White
+
+/** The band behind the navigation bar, as ARGB, and whether the bar's icons are dark on it. */
+data class NavigationBarBand(val color: Int, val darkIcons: Boolean)
+
+/**
+ * Where the page stops short of the navigation bar (WebView before 140, all
+ * of Android 7 to 9's), the band behind the bar: [page]'s colour, with dark
+ * icons on a light one. Android 7 can't make them dark (API 26 can), so a
+ * light page gets the system's black band there instead.
+ */
+fun navigationBarBand(page: Int, sdkInt: Int): NavigationBarBand {
+    // Where black on it contrasts more than white does.
+    val light = Color(page).luminance() > 0.179f
+    return when {
+        !light -> NavigationBarBand(page, darkIcons = false)
+        sdkInt >= Build.VERSION_CODES.O -> NavigationBarBand(page, darkIcons = true)
+        else -> NavigationBarBand(Color.Black.toArgb(), darkIcons = false)
+    }
+}
 
 /** Whether [BibleTheme] is dark, for the colours that differ by theme. */
 val LocalDarkTheme = staticCompositionLocalOf { false }

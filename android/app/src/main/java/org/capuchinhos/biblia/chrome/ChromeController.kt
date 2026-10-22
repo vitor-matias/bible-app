@@ -289,20 +289,24 @@ class ChromeController(
      * Where the page can't go under the system bars (WebView before 140, all
      * of Android 7 to 9's), SystemBars pads the window, and its background
      * shows behind them: the web header's brown (MainActivity.load). Under
-     * the native bars it takes their colour instead.
+     * the native bars it takes their colour instead, and the navigation
+     * bar's icons follow it ([navigationBarBand]): the web app asks for light
+     * ones there, for the brown, which left them white on a white page.
      */
     private fun applySystemBars() {
         val decor = activity.window.decorView
-        WindowCompat.getInsetsController(activity.window, decor).isAppearanceLightStatusBars =
-            state.mode != ChromeMode.None && !dark
+        val controller = WindowCompat.getInsetsController(activity.window, decor)
+        controller.isAppearanceLightStatusBars = state.mode != ChromeMode.None && !dark
         if (decor.paddingTop == 0 && decor.paddingBottom == 0) return
         // The status bar's strip takes the band's colour (the bar's, or the
         // page's while the bars are away); the navigation bar's, the page's.
         val (status, page) = systemBarsBackground ?: (windowBackground() to windowBackground())
+        val navigation = navigationBarBand(page, Build.VERSION.SDK_INT)
+        controller.isAppearanceLightNavigationBars = navigation.darkIcons
         val strips = systemBarStrips ?: LayerDrawable(arrayOf(ColorDrawable(), ColorDrawable())).apply {
             setLayerGravity(1, Gravity.TOP or Gravity.FILL_HORIZONTAL)
         }.also { systemBarStrips = it }
-        (strips.getDrawable(0) as ColorDrawable).color = page
+        (strips.getDrawable(0) as ColorDrawable).color = navigation.color
         (strips.getDrawable(1) as ColorDrawable).color = status
         strips.setLayerHeight(1, decor.paddingTop)
         if (decor.background !== strips) {

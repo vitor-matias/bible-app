@@ -606,3 +606,49 @@ class AutoScrollControlTest {
         assertEquals(100 to 200, autoScrollControlOrigin(fx, fy, 400, 600, 56, 56, 56))
     }
 }
+
+/** The band behind the navigation bar where the page stops short of it (Android 7 to 9). */
+class NavigationBarBandTest {
+    private val white = 0xFFFFFFFF.toInt()
+    private val dark = 0xFF121212.toInt()
+    private val brown = 0xFF543D27.toInt()
+
+    // The Moto G5 Plus (Android 8.1): the web app's light icons, for its brown, sat on the white page.
+    @Test
+    fun darkIconsOnALightPage() {
+        assertEquals(NavigationBarBand(white, darkIcons = true), navigationBarBand(white, sdkInt = 27))
+        assertEquals(NavigationBarBand(white, darkIcons = true), navigationBarBand(white, sdkInt = 28))
+    }
+
+    @Test
+    fun lightIconsOnADarkPageOrTheBrown() {
+        assertEquals(NavigationBarBand(dark, darkIcons = false), navigationBarBand(dark, sdkInt = 27))
+        assertEquals(NavigationBarBand(brown, darkIcons = false), navigationBarBand(brown, sdkInt = 27))
+        assertEquals(NavigationBarBand(dark, darkIcons = false), navigationBarBand(dark, sdkInt = 24))
+    }
+
+    // Android 7's icons are always light: black behind them, not the white page.
+    @Test
+    fun blackUnderLightIconsOnAndroid7() {
+        assertEquals(NavigationBarBand(0xFF000000.toInt(), darkIcons = false), navigationBarBand(white, sdkInt = 25))
+    }
+}
+
+/** The text sheet, made compact where it would hide the page it changes. */
+class TextSheetTest {
+    @Test
+    fun compactOnShortScreens() {
+        assertTrue(compactTextSheet(640f)) // Moto G5 Plus, 360 × 640
+        assertTrue(compactTextSheet(411f)) // a phone on its side
+        assertFalse(compactTextSheet(851f)) // Pixel 4a
+        assertFalse(compactTextSheet(915f)) // Pixel 9
+    }
+
+    // The label, the icon with its gap, and the padding on either side.
+    @Test
+    fun putsTheIconBesideOnlyWhereTheLabelFits() {
+        assertTrue(fitsBesideIcon(buttonWidth = 155f, labelWidth = 95f, icon = 24f, padding = 8f))
+        assertTrue(fitsBesideIcon(buttonWidth = 135f, labelWidth = 95f, icon = 24f, padding = 8f))
+        assertFalse(fitsBesideIcon(buttonWidth = 102f, labelWidth = 75f, icon = 24f, padding = 8f))
+    }
+}
