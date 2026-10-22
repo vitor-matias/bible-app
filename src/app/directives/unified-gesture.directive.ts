@@ -349,19 +349,21 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
 
   /**
    * A size up. A larger `step` (the Android app's 10) lands on its own grid,
-   * so 105 goes to 110 rather than 115.
+   * so 105 goes to 110 rather than 115. The grid is taken from the size as
+   * shown: a pinch leaves sizes like 119.6, shown as 120, which would
+   * otherwise step to 120 and seem not to move.
    */
   public increaseFontSize(step: number = this.FONT_STEP): void {
+    const shown = Math.round(this.currentFontSize)
     this.adjustFontSize(
-      (Math.floor(this.currentFontSize / step) + 1) * step -
-        this.currentFontSize,
+      (Math.floor(shown / step) + 1) * step - this.currentFontSize,
     )
   }
 
   public decreaseFontSize(step: number = this.FONT_STEP): void {
+    const shown = Math.round(this.currentFontSize)
     this.adjustFontSize(
-      (Math.ceil(this.currentFontSize / step) - 1) * step -
-        this.currentFontSize,
+      (Math.ceil(shown / step) - 1) * step - this.currentFontSize,
     )
   }
 

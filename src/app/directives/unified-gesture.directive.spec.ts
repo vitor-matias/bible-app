@@ -105,6 +105,20 @@ describe("UnifiedGesturesDirective", () => {
       expect(last().percent).toBe(90)
     })
 
+    // A pinch leaves fractions: 119.6 is shown as 120, and stepped to 120.
+    it("steps from the size as shown, not a pinch's fraction", () => {
+      stored = 119.6
+      directive.ngOnInit()
+      expect(last().percent).toBe(120)
+      directive.increaseFontSize(10)
+      expect(last().percent).toBe(130)
+
+      stored = 120.4
+      directive.ngOnInit()
+      directive.decreaseFontSize(10)
+      expect(last().percent).toBe(110)
+    })
+
     it("stops at either end", () => {
       stored = 230
       directive.ngOnInit()

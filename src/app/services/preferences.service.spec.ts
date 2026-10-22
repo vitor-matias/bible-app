@@ -81,6 +81,21 @@ describe("PreferencesService", () => {
     expect(service.getNativeBarsOnboardingSeen()).toBeTrue()
   })
 
+  // Storage that passed the probe can still fail later: full, or revoked.
+  it("should carry on when storage fails after the probe", () => {
+    service.setTheme("dark")
+    spyOn(Storage.prototype, "getItem").and.throwError("revoked")
+    spyOn(Storage.prototype, "setItem").and.throwError("full")
+    spyOn(Storage.prototype, "removeItem").and.throwError("revoked")
+
+    expect(() => service.setNativeBarsOnboardingSeen(true)).not.toThrow()
+    expect(() => service.clearFontSize("reader")).not.toThrow()
+    expect(service.getFontSize("reader")).toBeNull()
+    // Seen, as with no storage: the wizard does not reopen on every launch.
+    expect(service.getOnboardingSeen()).toBeTrue()
+    expect(service.getNativeBarsOnboardingSeen()).toBeTrue()
+  })
+
   it("should store and read the last location", () => {
     service.setLastBookId("gen")
     service.setLastChapterNumber(3)

@@ -63,7 +63,12 @@ button.highlight {
 .bookmarked {
   position: relative;
   z-index: 1;
-  /* On the ribbon: light on the dark tones, dark on the light ones. */
+}
+
+/* On the ribbon: light on the dark tones, dark on the light ones. A colour
+   stored before the ribbons is painted as it is, and its number keeps the
+   text's colour, as it always had: --ribbon-text was not chosen for it. */
+.on-ribbon {
   color: var(--ribbon-text);
 }
 

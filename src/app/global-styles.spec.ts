@@ -3,6 +3,7 @@ import { TestBed } from "@angular/core/testing"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { provideNoopAnimations } from "@angular/platform-browser/animations"
 import { RIBBON_COLORS } from "./services/bookmark-ribbons.service"
+import { contrastRatio } from "./testing/contrast"
 
 // Rules in src/styles.css that reach across components.
 describe("global styles", () => {
@@ -340,23 +341,3 @@ describe("global styles", () => {
     })
   })
 })
-
-/** WCAG relative luminance of a computed `rgb()` colour. */
-function luminance(cssColor: string): number {
-  const [r, g, b] = (cssColor.match(/[\d.]+/g) ?? [])
-    .slice(0, 3)
-    .map((value) => {
-      const channel = Number(value) / 255
-      return channel <= 0.03928
-        ? channel / 12.92
-        : ((channel + 0.055) / 1.055) ** 2.4
-    })
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b
-}
-
-function contrastRatio(foreground: string, background: string): number {
-  const [lighter, darker] = [luminance(foreground), luminance(background)].sort(
-    (a, b) => b - a,
-  )
-  return (lighter + 0.05) / (darker + 0.05)
-}

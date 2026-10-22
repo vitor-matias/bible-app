@@ -672,6 +672,42 @@ describe("BibleReaderComponent", () => {
       expect(component.gestures.decreaseFontSize).toHaveBeenCalled()
     })
 
+    // The Android text sheet steps by its own 10.
+    it("passes the text sheet's step and reset on to the gestures directive", () => {
+      component.gestures = jasmine.createSpyObj("UnifiedGesturesDirective", [
+        "increaseFontSize",
+        "decreaseFontSize",
+        "resetFontSize",
+      ])
+      component.onIncreaseFontSize(10)
+      expect(component.gestures.increaseFontSize).toHaveBeenCalledWith(10)
+
+      component.onDecreaseFontSize(10)
+      expect(component.gestures.decreaseFontSize).toHaveBeenCalledWith(10)
+
+      component.onResetFontSize()
+      expect(component.gestures.resetFontSize).toHaveBeenCalled()
+    })
+
+    it("keeps the text's size for the header", () => {
+      const size = { percent: 120, min: 70, max: 235, canReset: true }
+      component.onTextSizeChange(size)
+      expect(component.textSize).toEqual(size)
+    })
+
+    // "Livro seguinte" is a link: auto-scroll stops when it is followed here,
+    // not when it is opened in a new tab.
+    it("stops auto-scroll for a plain click on the next book's card only", () => {
+      autoScrollServiceSpy.stop.calls.reset()
+      component.prepareBookNavigation(
+        new MouseEvent("click", { button: 0, ctrlKey: true }),
+      )
+      expect(autoScrollServiceSpy.stop).not.toHaveBeenCalled()
+
+      component.prepareBookNavigation(new MouseEvent("click", { button: 0 }))
+      expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
+    })
+
     describe("checkIfNextVerseStartsWithQuote", () => {
       it("should return false if chapter or verses missing", () => {
         component.chapter = undefined as unknown as Chapter

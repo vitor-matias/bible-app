@@ -132,7 +132,7 @@ fun ReportDialog(chrome: ChromeController, sheet: Sheet.Report) {
                     actions = {
                         // A shape, not bare text, so it reads as the form's button.
                         Button(
-                            onClick = { chrome.submitReport(topic!!, details.trim()) },
+                            onClick = { topic?.let { chrome.submitReport(it, details.trim()) } },
                             enabled = canSend,
                             modifier = Modifier.padding(end = 8.dp),
                         ) { Text("Enviar") }

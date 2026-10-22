@@ -12,7 +12,7 @@
             @if(bookmarksMap.has(chapter.number)){
             <mat-icon [style.color]="ribbonColor(bookmarksMap.get(chapter.number))" class="bookmark-icon">bookmark</mat-icon>
             }
-            <span [ngClass]="{ 'bookmarked': bookmarksMap.has(chapter.number) }">{{ getChapterLabel(chapter) }}</span>
+            <span [ngClass]="{ 'bookmarked': bookmarksMap.has(chapter.number), 'on-ribbon': isRibbonColor(bookmarksMap.get(chapter.number)) }">{{ getChapterLabel(chapter) }}</span>
           </span>
           }
           <span class="chapter-title">{{getChapterDisplay(chapter)}}</span>
