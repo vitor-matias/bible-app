@@ -10,9 +10,9 @@ import {
   inject,
   ViewChild,
 } from "@angular/core"
-import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
+import { takeUntilDestroyed, toSignal } from "@angular/core/rxjs-interop"
 import { MatIconModule } from "@angular/material/icon"
-import { ActivatedRoute, Router, RouterModule } from "@angular/router"
+import { ActivatedRoute, Router } from "@angular/router"
 import {
   debounceTime,
   filter,
@@ -105,12 +105,7 @@ export interface PsalmOption {
   styleUrl: "./search.component.css",
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    SearchBarComponent,
-    RouterModule,
-    UnifiedGesturesDirective,
-    MatIconModule,
-  ],
+  imports: [SearchBarComponent, UnifiedGesturesDirective, MatIconModule],
 })
 export class SearchComponent {
   searchResults: Verse[] = []
@@ -206,6 +201,15 @@ export class SearchComponent {
   private readonly location = inject(Location)
   private readonly destroyRef = inject(DestroyRef)
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef)
+  /**
+   * Whether the book list has loaded. A shared /search?q= link can answer
+   * before it, and findBook falls back to the About page: every result read
+   * "Sobre a Bíblia 10,11". A signal, so the labels follow when it loads.
+   */
+  private readonly booksLoaded = toSignal(
+    inject(BookService).books$.pipe(map(() => true)),
+    { initialValue: false },
+  )
   /**
    * Back (or Forward) to this page: the browser's history, not a link or a
    * shared query to /search?q=…, which search again even for the term kept.
@@ -814,9 +818,12 @@ export class SearchComponent {
       : "A pesquisa pelo sentido não respondeu: procura as palavras no texto guardado."
   }
 
-  /** "Lucas 2,32", "Salmo 23 (22),4": as the text cites passages. */
+  /** "Lucas 2,32", "Salmo 23 (22),4": as the text cites passages. Until the
+   *  book list has loaded, only "2,32". */
   resultReference(result: Verse): string {
-    const book = this.findBookById(result.bookId)
+    const book = this.booksLoaded()
+      ? this.findBookById(result.bookId)
+      : undefined
     return book
       ? passageLabel(book, result.chapterNumber, result.number)
       : `${result.chapterNumber},${result.number}`
@@ -904,6 +911,47 @@ export class SearchComponent {
 
   findBookById(bookId: string): Book | undefined {
     return this.bookService.findBook(bookId)
+  }
+
+  /** A result's or a psalm's address: a real link, which a keyboard, a
+   *  screen reader and "open in a new tab" can follow. */
+  passageHref(bookId: string, chapter: number, verseStart?: number): string {
+    const query = verseStart ? `?verseStart=${verseStart}` : ""
+    return `/${this.passagePath(bookId, chapter).join("/")}${query}`
+  }
+
+  /**
+   * As the reader's own links write it (/jo/3, /sl/23, /jo/intro): the
+   * book's id (jhn, psa) is a page only the app knows, which a new tab could
+   * not open on the server. Until the book list loads, the id, which the app
+   * still opens.
+   */
+  private passagePath(bookId: string, chapter: number): string[] {
+    const book = this.booksLoaded()
+      ? this.bookService.findBookById(bookId)
+      : undefined
+    return [
+      book ? this.bookService.getUrlAbrv(book) : bookId,
+      this.bookService.getChapterUrlSegment(chapter),
+    ]
+  }
+
+  /**
+   * Opens a passage within the app. With a modifier the click is the
+   * browser's (a new tab or window); a middle click never arrives as one.
+   */
+  openPassage(
+    event: MouseEvent,
+    bookId: string,
+    chapter: number,
+    verseStart?: number,
+  ): void {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+    event.preventDefault()
+    void this.router.navigate(
+      ["/", ...this.passagePath(bookId, chapter)],
+      verseStart ? { queryParams: { verseStart } } : {},
+    )
   }
 }
 

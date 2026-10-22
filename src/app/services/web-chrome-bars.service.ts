@@ -138,6 +138,10 @@ export class WebChromeBars implements NativeChromePlugin {
     return Promise.resolve()
   }
 
+  share(): Promise<{ completed: boolean }> {
+    return Promise.resolve({ completed: false })
+  }
+
   showReport(): Promise<SheetPresented> {
     return Promise.resolve({ presented: false })
   }

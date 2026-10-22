@@ -195,6 +195,16 @@ export interface SheetPresented {
   presented: boolean
 }
 
+/** A passage for the shell's share sheet. */
+export interface NativeShareOptions {
+  /** Mail's subject. */
+  title: string
+  text: string
+  url: string
+  /** Heads the link's preview, beside the app's icon. */
+  linkTitle: string
+}
+
 /** The space the bars cover, in CSS pixels. */
 export interface ChromeInsets {
   top: number
@@ -235,6 +245,11 @@ export interface NativeChromePlugin {
   showOnboarding(options: {
     steps: NativeOnboardingStep[]
   }): Promise<SheetPresented & Partial<OnboardingResult>>
+  /**
+   * Resolves once the share sheet closes; at once, with `completed: false`,
+   * when it didn't come up.
+   */
+  share(options: NativeShareOptions): Promise<{ completed: boolean }>
   addListener(
     eventName: "action",
     listener: (action: NativeChromeAction) => void,
@@ -468,6 +483,19 @@ export class NativeChromeService {
   showFootnotes(state: FootnotesSheetState): Promise<boolean> {
     if (!this.enabled) return Promise.resolve(false)
     return presented(this.plugin.showFootnotes(state))
+  }
+
+  /**
+   * The system share sheet, which previews the link with the app's icon: left
+   * to itself, iOS fetches the website's, which has the WEB sash. Whether
+   * something was shared.
+   */
+  share(options: NativeShareOptions): Promise<boolean> {
+    if (!this.enabled) return Promise.resolve(false)
+    return this.plugin.share(options).then(
+      (result) => result?.completed === true,
+      () => false,
+    )
   }
 
   /**

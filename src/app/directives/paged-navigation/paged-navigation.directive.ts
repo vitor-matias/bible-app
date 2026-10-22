@@ -19,6 +19,17 @@ export interface PageState {
   isLastPage: boolean
 }
 
+/**
+ * Where the page on screen is in the text: a verse, and how far into it, as
+ * a share of the pages it runs over (0 when the page is the one it starts
+ * on). The share is taken at the page's middle, so a page found again by it
+ * is found again in the layout it came from.
+ */
+interface PageAnchor {
+  verse: HTMLElement
+  within: number
+}
+
 // Tolerates fractional pixel scrolling values typical in zoomed or scaled displays
 const SCROLL_THRESHOLD = 5
 // Debounce delay to prevent resize reflow thrashing
@@ -27,6 +38,10 @@ const RESIZE_DEBOUNCE_MS = 150
 const MUTATION_DEBOUNCE_MS = 150
 // A smooth page turn has ended by then, even if no scroll event said so
 const TURN_SETTLE_MS = 1000
+// How long the pages must rest before the verse on screen is noted
+const ANCHOR_DEBOUNCE_MS = 150
+// The verses in the block: the reader gives each its number as id
+const VERSE_SELECTOR = "[id]"
 
 /**
  * Directive that handles "paged" reading mode navigation.
@@ -64,7 +79,23 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   /** The page a smooth turn is heading for: another turn goes on from it. */
   private targetPage?: number
   private targetTimeout?: number
+  /**
+   * Where the page on screen is. A resize (a rotation, a folding phone,
+   * Split View) lays the text out anew, so the page is found again by this,
+   * not by its pixel offset, which landed up to 16 verses on.
+   */
+  private anchor?: PageAnchor
+  private anchorTimeout?: number
   private readonly platformId = inject(PLATFORM_ID)
+
+  /**
+   * A resize is under way: the layout no longer matches the anchor's page.
+   * Read off the pending timer rather than kept as a flag, which a throw in
+   * the restore would leave set, and the anchor never noted again.
+   */
+  private get resizing(): boolean {
+    return this.resizeTimeout !== undefined
+  }
 
   constructor(
     private containerRef: ElementRef<HTMLElement>,
@@ -107,6 +138,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     clearTimeout(this.resizeTimeout)
     clearTimeout(this.alignmentTimeout)
     clearTimeout(this.targetTimeout)
+    clearTimeout(this.anchorTimeout)
     if (this.layoutFrame !== undefined) cancelAnimationFrame(this.layoutFrame)
     this.mutationObserver?.disconnect()
     this.removeSpacer()
@@ -137,17 +169,140 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
       this.container.scrollLeft >= maxScroll - SCROLL_THRESHOLD
 
     this.pageStateChange.emit({ isFirstPage, isLastPage })
+    // At once, so a resize right after a turn finds the page turned to (it
+    // drops the pending note), and again once the pages rest. Not while a
+    // turn or a link is still on its way: the pages it passes are not read.
+    if (
+      !this.resizing &&
+      this.targetPage === undefined &&
+      isPlatformBrowser(this.platformId)
+    ) {
+      this.noteAnchor()
+    }
+    this.noteAnchorSoon()
   }
 
   @HostListener("window:resize")
   onWindowResize(): void {
     if (this.viewMode === "paged") {
+      // The resize's own scroll (the browser clamping the old offset) comes
+      // next: it must not replace the verse the reader was on.
+      clearTimeout(this.anchorTimeout)
       clearTimeout(this.resizeTimeout)
       this.resizeTimeout = window.setTimeout(() => {
-        this.ensureAlignedScrollWidth()
-        this.snapToNearestPage()
-        this.onScroll()
+        // Resizing until the page is restored: a scroll noted in between
+        // would read the old offset in the new layout.
+        try {
+          this.ensureAlignedScrollWidth()
+          this.restorePage()
+        } finally {
+          this.resizeTimeout = undefined
+          this.onScroll()
+        }
       }, RESIZE_DEBOUNCE_MS)
+    }
+  }
+
+  /** Back to the place in the verse the reader was on, laid out anew. */
+  private restorePage(): void {
+    if (this.viewMode !== "paged") return
+    const block = this.bookBlock
+    const anchor = this.anchor
+    if (!block || !anchor?.verse.isConnected || !block.contains(anchor.verse)) {
+      this.snapToNearestPage()
+      return
+    }
+    const advanceWidth = this.getAdvanceWidth(block)
+    if (advanceWidth <= 0) return
+    this._stayAtEnd = false
+    this.setTarget(undefined)
+    this.showPage(
+      this.anchorPage(anchor, advanceWidth),
+      advanceWidth,
+      "instant",
+    )
+  }
+
+  /** The page an anchor stands for in the layout as it is now. */
+  private anchorPage(
+    { verse, within }: PageAnchor,
+    advanceWidth: number,
+  ): number {
+    const { first, last } = this.pagesOf(verse, advanceWidth)
+    return Math.min(first + Math.floor(within * (last - first + 1)), last)
+  }
+
+  private noteAnchorSoon(): void {
+    if (this.resizing || !isPlatformBrowser(this.platformId)) return
+    clearTimeout(this.anchorTimeout)
+    this.anchorTimeout = window.setTimeout(
+      () => this.noteAnchor(),
+      ANCHOR_DEBOUNCE_MS,
+    )
+  }
+
+  /**
+   * Notes the first verse that starts on the page on screen, or, on a page
+   * that one long verse fills, that verse and how far into it the page is.
+   * An anchor is kept while it still stands for the page on screen, so a page
+   * found again by it is not noted afresh: by an earlier verse sharing it,
+   * or, on the last page of a long verse, by the verse that starts there. A
+   * few rotations would walk the reader back, or on.
+   */
+  private noteAnchor(): void {
+    const block = this.bookBlock
+    if (this.viewMode !== "paged" || !this.container || !block) return
+    const advanceWidth = this.getAdvanceWidth(block)
+    if (advanceWidth <= 0) return
+
+    const page = Math.round(this.container.scrollLeft / advanceWidth)
+    const kept = this.anchor
+    if (
+      kept?.verse.isConnected &&
+      block.contains(kept.verse) &&
+      this.anchorPage(kept, advanceWidth) === page
+    ) {
+      return
+    }
+
+    let verse: HTMLElement | undefined
+    for (const candidate of Array.from(
+      block.querySelectorAll<HTMLElement>(VERSE_SELECTOR),
+    )) {
+      const start = this.pagesOf(candidate, advanceWidth).first
+      if (start > page) break
+      verse = candidate
+      if (start === page) break
+    }
+    if (!verse) {
+      this.anchor = undefined
+      return
+    }
+    const { first, last } = this.pagesOf(verse, advanceWidth)
+    // The page's middle, not its start: rounded in another layout, the start
+    // can land a page on, and a round trip would not come back.
+    const within = first < page ? (page - first + 0.5) / (last - first + 1) : 0
+    this.anchor = { verse, within }
+  }
+
+  /** The pages an inline verse runs over: its first and last fragments'. */
+  private pagesOf(
+    element: HTMLElement,
+    advanceWidth: number,
+  ): { first: number; last: number } {
+    const rects = element.getClientRects()
+    const box = element.getBoundingClientRect()
+    const origin =
+      this.container.getBoundingClientRect().left - this.container.scrollLeft
+    const pageAt = (rect: DOMRect) =>
+      Math.max(
+        0,
+        Math.floor((rect.left - origin + SCROLL_THRESHOLD) / advanceWidth),
+      )
+    const first = pageAt(rects[0] ?? box)
+    return {
+      first,
+      last: Math.max(first, pageAt(rects[rects.length - 1] ?? box)),
     }
   }
 
@@ -270,7 +425,12 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     block.style.transform = ""
   }
 
-  /** Page-aligned: scrollIntoView would stop on a seam between two pages. */
+  /**
+   * Page-aligned: scrollIntoView would stop on a seam between two pages. The
+   * element is the page's anchor from then on, not the first verse starting
+   * on its page: a deep-linked verse lower down would leave the screen when
+   * the page is laid out anew.
+   */
   scrollToPage(
     element: HTMLElement,
     behavior: ScrollBehavior = "smooth",
@@ -282,28 +442,29 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     this._stayAtEnd = false
     this.setTarget(undefined)
     this.ensureAlignedScrollWidth()
+    // After aligning, which notes the page still on screen.
+    this.anchor = { verse: element, within: 0 }
 
     const advanceWidth = this.getAdvanceWidth(block)
     if (advanceWidth <= 0) return
 
-    // A verse is an inline box: its first fragment is the page it starts on.
-    const rect = element.getClientRects()[0] ?? element.getBoundingClientRect()
-    const offset =
-      rect.left -
-      this.container.getBoundingClientRect().left +
-      this.container.scrollLeft
+    const page = this.pagesOf(element, advanceWidth).first
+    this.setTarget(page)
+    this.showPage(page, advanceWidth, behavior)
+  }
 
-    const pageIndex = Math.max(
-      0,
-      Math.floor((offset + SCROLL_THRESHOLD) / advanceWidth),
-    )
+  /** Scrolls to a page, never past the last. */
+  private showPage(
+    page: number,
+    advanceWidth: number,
+    behavior: ScrollBehavior,
+  ): void {
     const maxScroll = Math.max(
       0,
       this.container.scrollWidth - this.container.clientWidth,
     )
-
     this.container.scrollTo({
-      left: Math.min(pageIndex * advanceWidth, maxScroll),
+      left: Math.min(page * advanceWidth, maxScroll),
       behavior,
     })
   }

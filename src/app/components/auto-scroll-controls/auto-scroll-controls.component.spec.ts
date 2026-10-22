@@ -80,6 +80,28 @@ describe("AutoScrollControlsComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  // In landscape, Android's 3-button navigation bar covered the + button.
+  it("keeps clear of a side system bar on a wide screen", () => {
+    // The specs run in Karma's frame: its width is the viewport the media
+    // queries see.
+    const frame = window.frameElement as HTMLElement | null
+    expect(frame).withContext("the specs run in a frame").toBeTruthy()
+    const width = frame?.style.width ?? ""
+    if (frame) frame.style.width = "945px"
+    const host = fixture.nativeElement as HTMLElement
+    const controls = host.querySelector(".auto-scroll-controls") as HTMLElement
+    const right = (inset: string) => {
+      host.style.setProperty("--app-inset-right", inset)
+      return controls.getBoundingClientRect().right
+    }
+
+    try {
+      expect(right("0px") - right("40px")).toBeCloseTo(40, 0)
+    } finally {
+      if (frame) frame.style.width = width
+    }
+  })
+
   it("should stop scroll on destroy", () => {
     component.ngOnDestroy()
     expect(autoScrollServiceSpy.stop).toHaveBeenCalled()

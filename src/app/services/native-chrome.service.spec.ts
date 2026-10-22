@@ -48,6 +48,7 @@ describe("NativeChromeService", () => {
     showReport: jasmine.Spy
     finishReport: jasmine.Spy
     showOnboarding: jasmine.Spy
+    share: jasmine.Spy
     addListener: jasmine.Spy
   }
   /** Tests that need more of the document add it. */
@@ -69,6 +70,7 @@ describe("NativeChromeService", () => {
       showReport: jasmine.createSpy("showReport").and.resolveTo(),
       finishReport: jasmine.createSpy("finishReport").and.resolveTo(),
       showOnboarding: jasmine.createSpy("showOnboarding").and.resolveTo(),
+      share: jasmine.createSpy("share").and.resolveTo(),
       addListener: jasmine.createSpy("addListener").and.resolveTo(),
     }
     body = document.createElement("body")
@@ -536,6 +538,27 @@ describe("NativeChromeService", () => {
 
     plugin.showOnboarding.and.rejectWith(new Error("no chrome"))
     expect(await service.showOnboarding([])).toBeNull()
+  })
+
+  // The shell previews the link with the app's icon; given a bare URL, iOS
+  // fetched the website's, which has the WEB sash.
+  it("hands the shell the share, and says whether something was shared", async () => {
+    const service = create("ios")
+    const options = {
+      title: "Bíblia Sagrada",
+      text: "Ler Mateus 5.",
+      url: "https://biblia.capuchinhos.org/mat/5",
+      linkTitle: "Mateus 5 | Bíblia Sagrada",
+    }
+    plugin.share.and.resolveTo({ completed: true })
+    expect(await service.share(options)).toBeTrue()
+    expect(plugin.share).toHaveBeenCalledWith(options)
+
+    plugin.share.and.resolveTo({ completed: false })
+    expect(await service.share(options)).toBeFalse()
+
+    plugin.share.and.rejectWith(new Error("no chrome"))
+    expect(await service.share(options)).toBeFalse()
   })
 
   // Each push has the shell rebuild its bars and menu.

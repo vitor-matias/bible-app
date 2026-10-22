@@ -75,7 +75,9 @@ mat-icon {
 
 .searchButton {
   position: fixed;
-  right: 8px;
+  /* Clear of a navigation bar or notch at the side of a landscape screen
+     (Android's 3-button bar covered this button). */
+  right: calc(8px + var(--app-inset-right));
   background-color: antiquewhite;
   color: #543d27;
   width: 18px;
@@ -99,7 +101,7 @@ mat-icon {
 
 .menuButton {
   position: fixed;
-  left: 8px;
+  left: calc(8px + var(--app-inset-left));
   background-color: antiquewhite;
   color: #543d27;
   width: 18px;

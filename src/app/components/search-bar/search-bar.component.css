@@ -15,9 +15,9 @@
   overflow: hidden;
   padding-top: env(safe-area-inset-top, 0px);
   /* Drop Material's 16px toolbar inset: .content supplies the 8px the reader
-     header uses. */
-  padding-left: 0;
-  padding-right: 0;
+     header uses. Only a side system bar or notch, in landscape, adds to it. */
+  padding-left: var(--app-inset-left);
+  padding-right: var(--app-inset-right);
   height: calc(56px + env(safe-area-inset-top, 0px));
   box-sizing: border-box;
 }

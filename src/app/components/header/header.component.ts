@@ -1,4 +1,4 @@
-import { CommonModule, isPlatformBrowser } from "@angular/common"
+import { CommonModule, DOCUMENT, isPlatformBrowser } from "@angular/common"
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -163,6 +163,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
    */
   readonly bars = this.nativeChrome.bars
   private readonly platformId = inject(PLATFORM_ID)
+  private readonly document = inject(DOCUMENT)
   @ViewChildren(MatMenuTrigger) private menuTriggers?: QueryList<MatMenuTrigger>
   private readonly backButton = inject(BackButtonService)
   private readonly unregisterBackCloser = this.backButton.register(() => {
@@ -415,7 +416,18 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       typeof window === "undefined" ? "" : shareableUrl(window.location)
 
     try {
-      if (Capacitor.isNativePlatform()) {
+      // The iOS shell's own sheet; with the web's bars (Android, phones),
+      // the share plugin or the browser's, as without bars.
+      if (this.nativeChrome.enabled) {
+        // The page's title heads the preview, as iOS would fetch it.
+        const shared = await this.nativeChrome.share({
+          title,
+          text,
+          url,
+          linkTitle: this.document.title || title,
+        })
+        if (!shared) return
+      } else if (Capacitor.isNativePlatform()) {
         await this.sharePlugin.share({
           title,
           text,

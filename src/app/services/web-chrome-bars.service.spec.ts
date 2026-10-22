@@ -140,6 +140,11 @@ describe("WebChromeBars", () => {
     ).toEqual({ presented: false })
   })
 
+  // NativeChromeService asks for the iOS shell's share sheet only there.
+  it("has no share sheet of its own", async () => {
+    expect(await bars.share()).toEqual({ completed: false })
+  })
+
   // The web's snack bar shows the toasts; the bars have none to take down.
   it("has no toast of its own to show or hide", async () => {
     await expectAsync(bars.showToast()).toBeResolved()
