@@ -13,9 +13,11 @@ import type { App, BackButtonListenerEvent } from "@capacitor/app"
 import type { PluginListenerHandle } from "@capacitor/core"
 import { Capacitor } from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
+import { ChromeBarsComponent } from "./components/chrome-bars/chrome-bars.component"
 import { appConfig, isVercelHost } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
 import { BackButtonService } from "./services/back-button.service"
+import { NativeChromeService } from "./services/native-chrome.service"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
@@ -32,10 +34,16 @@ export const EXIT_BACK_WINDOW_MS = 2000
   templateUrl: "app.component.html",
   styleUrl: "./app.component.css",
   standalone: true,
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, ChromeBarsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppComponent implements OnInit, OnDestroy {
+  /**
+   * The app's bars, drawn by the page: in the Android app and on phones. The
+   * iOS app draws them natively.
+   */
+  private readonly chrome = inject(NativeChromeService)
+  readonly webBars = this.chrome.bars && !this.chrome.enabled
   private installEventFired = false
   private readonly listenerHandles: PluginListenerHandle[] = []
   /** Until when a back on the first screen leaves the app. */

@@ -7,6 +7,7 @@ import { BookService } from "../../services/book.service"
 import {
   type NativeChromeAction,
   NativeChromeService,
+  WEB_BARS,
 } from "../../services/native-chrome.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
@@ -57,6 +58,8 @@ describe("BookIndexComponent", () => {
         provideRouter([]),
         { provide: BookService, useValue: bookServiceStub },
         { provide: SeoService, useValue: seoSpy },
+        // The reset dropped the spec default (testing-defaults.spec.ts).
+        { provide: WEB_BARS, useValue: false },
       ],
     }).compileComponents()
 
@@ -171,6 +174,7 @@ describe("BookIndexComponent in the iOS app", () => {
   let actions: Subject<NativeChromeAction>
   let nativeChrome: {
     enabled: boolean
+    bars: boolean
     actions$: Subject<NativeChromeAction>
     show: jasmine.Spy
     hide: jasmine.Spy
@@ -180,6 +184,7 @@ describe("BookIndexComponent in the iOS app", () => {
     actions = new Subject()
     nativeChrome = {
       enabled: true,
+      bars: true,
       actions$: actions,
       show: jasmine.createSpy("show"),
       hide: jasmine.createSpy("hide"),

@@ -217,7 +217,7 @@ export class SearchComponent {
    */
   private cameBack = inject(Router).currentNavigation()?.trigger === "popstate"
   /** The iOS app draws the search field and Back natively, not search-bar. */
-  readonly native = this.nativeChrome.enabled
+  readonly bars = this.nativeChrome.bars
   /** Each keystroke, with the submit it followed (searchGeneration). */
   private readonly typed = new Subject<{ text: string; generation: number }>()
 
@@ -261,7 +261,7 @@ export class SearchComponent {
       )
       .subscribe((text) => void this.onSearchSubmit(text, { typed: true }))
 
-    if (this.native) {
+    if (this.bars) {
       this.nativeChrome.actions$
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe((action) => {
@@ -297,7 +297,7 @@ export class SearchComponent {
     // A search still under way answers a page that is gone: it must not put
     // its query in the URL of the page that replaced it (keepQueryInUrl).
     this.searchGeneration++
-    if (this.native) this.nativeChrome.hide()
+    if (this.bars) this.nativeChrome.hide()
     this.queryParamSubscription?.unsubscribe()
     if (this.observer) {
       this.observer.disconnect()
@@ -493,7 +493,7 @@ export class SearchComponent {
 
   /** Shows the native search field, holding the current query. */
   private syncNativeChrome(): void {
-    if (!this.native) return
+    if (!this.bars) return
     this.nativeChrome.show({
       mode: "search",
       themeMode: this.themeService.currentMode,
