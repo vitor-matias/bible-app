@@ -417,7 +417,6 @@ private fun BookRow(book: PassagePickerData.Book, current: Boolean, onClick: () 
     val colors = MaterialTheme.colorScheme
     val count = book.chapterCount
     ListItem(
-        headlineContent = { Text(book.label, maxLines = 2, overflow = TextOverflow.Ellipsis) },
         leadingContent = {
             Surface(
                 shape = MaterialTheme.shapes.medium,
@@ -457,7 +456,7 @@ private fun BookRow(book: PassagePickerData.Book, current: Boolean, onClick: () 
                 }
                 selected = current
             },
-    )
+    ) { Text(book.label, maxLines = 2, overflow = TextOverflow.Ellipsis) }
 }
 
 /** A grid of chapter numbers, the introduction first across the full width. */
@@ -558,17 +557,6 @@ private fun ChapterList(
             val intro = chapter.label.isEmpty()
             val selected = chapter.number == current
             ListItem(
-                headlineContent = {
-                    Text(
-                        when {
-                            intro -> "Introdução"
-                            chapter.title.isNullOrEmpty() -> "Capítulo ${chapter.label}"
-                            else -> chapter.title
-                        },
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                },
                 supportingContent = chapter.detail?.let { { Text("Na liturgia, ${it}") } },
                 leadingContent = {
                     Surface(
@@ -596,7 +584,17 @@ private fun ChapterList(
                         contentDescription = spokenLabel(chapter)
                         this.selected = selected
                     },
-            )
+            ) {
+                Text(
+                    when {
+                        intro -> "Introdução"
+                        chapter.title.isNullOrEmpty() -> "Capítulo ${chapter.label}"
+                        else -> chapter.title
+                    },
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

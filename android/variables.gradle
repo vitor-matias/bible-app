@@ -1,6 +1,6 @@
 ext {
     minSdkVersion = 24
-    compileSdkVersion = 36
+    compileSdkVersion = 37
     targetSdkVersion = 36
     androidxActivityVersion = '1.11.0'
     androidxAppCompatVersion = '1.7.1'
@@ -15,8 +15,8 @@ ext {
     cordovaAndroidVersion = '14.0.1'
     // The native bars. Material 3's expressive components (the floating
     // toolbar, button groups) are only in 1.5, ahead of the BOM's 1.4.
-    // Later 1.5 alphas, and Compose 1.12 (BOM 2026.08), need SDK 37 and AGP 9.1.
-    composeBomVersion = '2026.06.00'
-    material3Version = '1.5.0-alpha18'
+    // 1.5 and Compose 1.12 need SDK 37 and AGP 9.1 or later.
+    composeBomVersion = '2026.09.00'
+    material3Version = '1.5.0-beta02'
     androidxActivityComposeVersion = '1.13.0'
 }

@@ -1,5 +1,5 @@
 apply plugin: 'com.android.application'
-apply plugin: 'org.jetbrains.kotlin.android'
+// Kotlin is built into AGP 9: only Compose's compiler plugin is applied.
 apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
 // Release signing is read from android/keystore.properties (written by CI,
@@ -45,8 +45,12 @@ android {
             if (keystorePropertiesFile.exists()) {
                 signingConfig signingConfigs.release
             }
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // R8 shrinks and optimises the Kotlin, Compose and Capacitor code.
+            // Capacitor's own consumer rules keep the plugins the web calls by
+            // name; the optimize defaults keep @JavascriptInterface methods.
+            minifyEnabled = true
+            shrinkResources = true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }

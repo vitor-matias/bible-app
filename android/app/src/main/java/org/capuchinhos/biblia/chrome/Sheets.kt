@@ -54,7 +54,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -215,7 +215,7 @@ private fun SheetTitle(text: String, modifier: Modifier = Modifier) {
 @Composable
 private fun AppearanceSheet(chrome: ChromeController, sheet: Sheet) {
     val state = chrome.state
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberBottomSheetState(SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
     val closer = rememberSheetCloser(chrome, sheet, sheetState)
     ChromeSheet(chrome, sheet, sheetState, scrim = Color.Transparent) {
         Column(
@@ -324,7 +324,7 @@ private fun ConnectedChoices(options: List<Choice>, selected: String, onChoose: 
                     options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
                     else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                 },
-                colors = ToggleButtonDefaults.toggleButtonColors(
+                colors = ToggleButtonDefaults.colors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                 ),
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
@@ -405,7 +405,7 @@ internal fun bookmarksHint(state: BookmarksSheetState, editing: Boolean): String
 @Composable
 private fun BookmarksSheet(chrome: ChromeController, sheet: Sheet.Bookmarks) {
     val state = sheet.state
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberBottomSheetState(SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
     val closer = rememberSheetCloser(chrome, sheet, sheetState)
     val anyUsed = state.ribbons.any { it.label != null }
     var editing by remember { mutableStateOf(false) }
@@ -625,7 +625,7 @@ private fun RibbonMenuItem(label: String, @DrawableRes icon: Int, destructive: B
 @Composable
 private fun FootnotesSheet(chrome: ChromeController, sheet: Sheet.Footnotes) {
     val state = sheet.state
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberBottomSheetState(SheetValue.Hidden)
     val closer = rememberSheetCloser(chrome, sheet, sheetState)
     val size = 17f * 1.06f * state.fontScale
     val style = TextStyle(

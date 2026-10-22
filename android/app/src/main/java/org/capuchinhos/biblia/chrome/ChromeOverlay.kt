@@ -55,6 +55,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -74,6 +77,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.SearchBarValue
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -90,6 +94,7 @@ import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -99,6 +104,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -688,17 +694,34 @@ private fun AutoScrollToolbar(chrome: ChromeController, autoScroll: AutoScrollSt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SearchView(chrome: ChromeController, state: ChromeState) {
-    var text by remember { mutableStateOf(state.query) }
+    val field = rememberTextFieldState(state.query)
+    // The full-screen view: open from the start, and never collapsed.
+    val searchBar = rememberSearchBarState(initialValue = SearchBarValue.Expanded)
     var focused by remember { mutableStateOf(false) }
+    // What the page last heard. Typing is sent on; the page's own query,
+    // echoed into the field, is not sent back to it.
+    var sent by remember { mutableStateOf(state.query) }
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     // Not while typing: a search that ran on a pause echoes its query.
     LaunchedEffect(state.query) {
-        if (!focused) text = state.query
+        if (!focused) {
+            sent = state.query
+            field.setTextAndPlaceCursorAtEnd(state.query)
+        }
+    }
+    LaunchedEffect(field) {
+        snapshotFlow { field.text.toString() }.collect { text ->
+            if (text != sent) {
+                sent = text
+                chrome.searchInput(text)
+            }
+        }
     }
     LaunchedEffect(Unit) { focus.requestFocus() }
     val search: (String) -> Unit = { query ->
-        text = query
+        sent = query
+        field.setTextAndPlaceCursorAtEnd(query)
         chrome.searchSubmit(query)
         keyboard?.hide()
     }
@@ -711,25 +734,19 @@ private fun SearchView(chrome: ChromeController, state: ChromeState) {
                 ) {
                     BarButton(R.drawable.ic_arrow_back, "Voltar", !state.inert) { chrome.send("back") }
                     SearchBarDefaults.InputField(
-                        query = text,
-                        onQueryChange = {
-                            text = it
-                            chrome.searchInput(it)
-                        },
+                        textFieldState = field,
+                        searchBarState = searchBar,
                         onSearch = { if (it.isNotBlank()) search(it) },
-                        expanded = true,
-                        onExpandedChange = {},
                         modifier = Modifier
                             .weight(1f)
                             .focusRequester(focus)
                             .onFocusChanged { focused = it.isFocused },
                         enabled = !state.inert,
                         placeholder = { Text("Procurar na Bíblia") },
-                        trailingIcon = if (text.isNotEmpty()) {
+                        trailingIcon = if (field.text.isNotEmpty()) {
                             {
                                 BarButton(R.drawable.ic_close, "Limpar", !state.inert) {
-                                    text = ""
-                                    chrome.searchInput("")
+                                    field.clearText()
                                     focus.requestFocus()
                                     keyboard?.show()
                                 }
@@ -742,10 +759,9 @@ private fun SearchView(chrome: ChromeController, state: ChromeState) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
-        if (text.isEmpty() && chrome.recentSearches.isNotEmpty() && !state.inert) {
+        if (field.text.isEmpty() && chrome.recentSearches.isNotEmpty() && !state.inert) {
             RecentSearches(chrome, onSearch = search) { query ->
-                text = query
-                chrome.searchInput(query)
+                field.setTextAndPlaceCursorAtEnd(query)
                 focus.requestFocus()
             }
         }
@@ -788,14 +804,13 @@ private fun RecentSearches(chrome: ChromeController, onSearch: (String) -> Unit,
             }
             items(chrome.recentSearches, key = { it }) { query ->
                 ListItem(
-                    headlineContent = { Text(query, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     leadingContent = { Icon(painterResource(R.drawable.ic_history), contentDescription = null) },
                     trailingContent = {
                         BarButton(R.drawable.ic_north_west, "Editar «$query»") { onEdit(query) }
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     modifier = Modifier.clickable(onClickLabel = "Pesquisar") { onSearch(query) },
-                )
+                ) { Text(query, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         }
     }

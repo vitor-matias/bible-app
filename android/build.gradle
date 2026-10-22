@@ -7,9 +7,10 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.13.0'
+        classpath 'com.android.tools.build:gradle:9.4.1'
         classpath 'com.google.gms:google-services:4.4.4'
         // The native bars (Kotlin, Jetpack Compose): see variables.gradle.
+        // AGP 9 compiles Kotlin itself; this sets the Kotlin it uses.
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
         classpath "org.jetbrains.kotlin:compose-compiler-gradle-plugin:$kotlinVersion"
 
@@ -27,6 +28,6 @@ allprojects {
     }
 }
 
-task clean(type: Delete) {
-    delete rootProject.buildDir
+tasks.register('clean', Delete) {
+    delete rootProject.layout.buildDirectory
 }
