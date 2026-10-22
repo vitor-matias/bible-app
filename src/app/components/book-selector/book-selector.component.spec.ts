@@ -48,6 +48,16 @@ describe("BookSelectorComponent", () => {
     ).toEqual(["Antigo Testamento", "Novo Testamento"])
   })
 
+  // The About page is in the header's menu, not among the books.
+  it("does not list the About page", () => {
+    expect(component.newTestament.map((group) => group.name)).not.toContain(
+      "Sobre a Bíblia",
+    )
+    expect(
+      component.newTestament.flatMap((group) => group.books),
+    ).not.toContain("about")
+  })
+
   // The testament label and the tree nodes once shared a grouped selector with
   // the (unused) h3. Editing one must not drag the other along: styling nodes
   // like labels collapses their fixed 48px box and the book names spill out.

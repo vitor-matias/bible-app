@@ -942,11 +942,13 @@ enum ReaderMenu {
         if state.canShare {
             reading.append(action("Partilhar", "square.and.arrow.up", "share", send: send))
         }
-        var app: [UIMenuElement] = []
+        var app: [UIMenuElement] = [
+            action("Como usar a app", "questionmark.circle", "help", send: send),
+            action("Sobre a Bíblia", "info.circle", "about", send: send),
+        ]
         if state.canReport {
             app.append(action("Reportar erro", "exclamationmark.bubble", "report", send: send))
         }
-        app.append(action("Como usar a app", "questionmark.circle", "help", send: send))
         app.append(action("Política de Privacidade", "hand.raised", "privacy", send: send))
         // Two groups with a divider, as the HIG asks of menus: what to do with
         // the reading, then the app's help and legal pages. Inline sections,

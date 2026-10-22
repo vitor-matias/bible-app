@@ -193,10 +193,8 @@ private final class BookListViewController: UICollectionViewController, UISearch
         guard !scrolledToCurrent else { return }
         scrolledToCurrent = true
         // Animated: this runs once the sheet or the Back transition has settled,
-        // so an unanimated scroll shows as a jump. Not to "Sobre a Bíblia",
-        // listed after Apocalipse: from there the reader is choosing where to
-        // start, and the list opens at Génesis, its tile still highlighted.
-        if let current = data.currentBook, current.id != "about",
+        // so an unanimated scroll shows as a jump.
+        if let current = data.currentBook,
            let indexPath = dataSource.indexPath(for: current) {
             collectionView.revealItem(at: indexPath)
         }

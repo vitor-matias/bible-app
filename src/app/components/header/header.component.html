@@ -45,16 +45,20 @@
           <span>Partilhar</span>
         </button>
         }
+        <button type="button" mat-menu-item (click)="onOpenHelp(menuTrigger)">
+          <mat-icon>help</mat-icon>
+          <span>Como usar a app</span>
+        </button>
+        <button type="button" mat-menu-item (click)="onOpenAbout(menuTrigger)">
+          <mat-icon>info</mat-icon>
+          <span>Sobre a Bíblia</span>
+        </button>
         @if (analyticsService.areAnalyticsAvailable()) {
           <button type="button" mat-menu-item (click)="onReportProblem(menuTrigger)">
             <mat-icon>report_problem</mat-icon>
             <span>Reportar erro</span>
           </button>
         }
-        <button type="button" mat-menu-item (click)="onOpenHelp(menuTrigger)">
-          <mat-icon>help</mat-icon>
-          <span>Como usar a app</span>
-        </button>
         <a mat-menu-item [href]="privacyPolicyUrl" target="_blank" rel="noopener noreferrer">
           <mat-icon>privacy_tip</mat-icon>
           <span class="privacy-label">

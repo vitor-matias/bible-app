@@ -336,6 +336,29 @@ describe("HeaderComponent", () => {
       expect(version?.nextElementSibling).toBeNull()
     })
 
+    it("follows the tutorial with About, the problem report and the privacy policy", async () => {
+      await openMenu()
+
+      const labels = Array.from(
+        document.querySelectorAll(".mat-mdc-menu-panel .mat-mdc-menu-item"),
+      )
+        .map((item) => {
+          // The labels alone, without the icons' ligature names.
+          const label = item.cloneNode(true) as HTMLElement
+          for (const icon of Array.from(label.querySelectorAll("mat-icon"))) {
+            icon.remove()
+          }
+          return label.textContent?.replace(/\s+/g, " ").trim() ?? ""
+        })
+        .filter(Boolean)
+      expect(labels.slice(-4)).toEqual([
+        "Como usar a app",
+        "Sobre a Bíblia",
+        "Reportar erro",
+        "Política de Privacidade",
+      ])
+    })
+
     it("stays on one line, as in the iOS menu", async () => {
       await openMenu()
 
@@ -462,6 +485,17 @@ describe("HeaderComponent", () => {
     // both themes.
     expect(ribbon.style.color).toBe("var(--ribbon-light-red)")
     expect(ribbon.parentElement?.textContent).toContain(", marcador vermelho")
+  })
+
+  it("opens the About page from the menu", () => {
+    const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
+    const selected: { bookId: string; chapter?: number }[] = []
+    component.selectPassage.subscribe((passage) => selected.push(passage))
+
+    component.onOpenAbout(trigger)
+
+    expect(trigger.closeMenu).toHaveBeenCalled()
+    expect(selected).toEqual([{ bookId: "about" }])
   })
 
   it("should open the onboarding wizard from the menu", () => {
@@ -1135,6 +1169,15 @@ describe("HeaderComponent with the iOS native bars", () => {
     fixture.componentRef.setInput("chapterNumber", 1)
     fixture.detectChanges()
     expect(lastState().textSize).toBeNull()
+  })
+
+  it("opens the About page from the native menu", () => {
+    const selected: { bookId: string; chapter?: number }[] = []
+    component.selectPassage.subscribe((passage) => selected.push(passage))
+
+    actions.next({ id: "about" })
+
+    expect(selected).toEqual([{ bookId: "about" }])
   })
 
   it("opens the native bookmarks sheet, the native problem report and help", () => {
