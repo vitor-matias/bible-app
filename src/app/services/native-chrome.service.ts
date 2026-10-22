@@ -31,6 +31,7 @@ export type NativeChromeAction =
         | "auto-scroll-faster"
         | "share"
         | "report"
+        | "about"
         | "help"
         | "privacy"
         | "report-closed"

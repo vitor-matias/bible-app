@@ -595,8 +595,9 @@ private fun MoreMenu(chrome: ChromeController, state: ChromeState, enabled: Bool
                 checked = state.autoScrollVisible) { choose("auto-scroll") }
             if (state.canShare) MenuItem("Partilhar", R.drawable.ic_share) { choose("share") }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            if (state.canReport) MenuItem("Reportar erro", R.drawable.ic_report_problem) { choose("report") }
             MenuItem("Como usar a app", R.drawable.ic_help) { choose("help") }
+            MenuItem("Sobre a Bíblia", R.drawable.ic_info) { choose("about") }
+            if (state.canReport) MenuItem("Reportar erro", R.drawable.ic_report_problem) { choose("report") }
             MenuItem("Política de Privacidade", R.drawable.ic_privacy_tip) { choose("privacy") }
             versionLine(state.buildVersion)?.let { version ->
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))

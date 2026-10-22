@@ -326,12 +326,10 @@ private fun BookList(
     val rows = remember(data, filter) { pickerRows(data, filter) }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val density = LocalDensity.current
-    // Opens at the current book, once. Not at "Sobre a Bíblia", listed last:
-    // from there the reader is choosing where to start.
+    // Opens at the current book, once.
     LaunchedEffect(Unit) {
         if (placed) return@LaunchedEffect
         onPlaced()
-        if (data.currentBookId == "about") return@LaunchedEffect
         val index = rows.indexOfFirst { it is PickerRow.Book && it.book.id == data.currentBookId }
         if (index <= 0) return@LaunchedEffect
         if (view == BookView.List) {

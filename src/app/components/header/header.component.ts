@@ -149,7 +149,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /** iOS toolbar arrows: a page in paged mode, else a chapter. */
   @Output() previous = new EventEmitter<void>()
   @Output() next = new EventEmitter<void>()
-  /** A passage chosen in the native picker; no chapter means the book's first. */
+  /** A passage chosen in the native picker or menu; no chapter means the book's first. */
   @Output() selectPassage = new EventEmitter<{
     bookId: string
     chapter?: number
@@ -303,6 +303,16 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       width: "90%",
       maxWidth: "500px",
     })
+  }
+
+  onOpenAbout(trigger: MatMenuTrigger) {
+    trigger.closeMenu()
+    this.openAbout()
+  }
+
+  /** The About page, which the book pickers no longer list. */
+  private openAbout(): void {
+    this.selectPassage.emit({ bookId: "about" })
   }
 
   onOpenHelp(trigger: MatMenuTrigger) {
@@ -555,6 +565,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         break
       case "report":
         this.openReportProblem()
+        break
+      case "about":
+        this.openAbout()
         break
       case "help":
         this.onboardingService.open("menu")

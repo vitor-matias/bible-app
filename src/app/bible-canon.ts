@@ -153,15 +153,6 @@ export const OLD_TESTAMENT_INTRO = "geral"
 export const NEW_TESTAMENT_INTRO = "novotestamento"
 
 /**
- * The About page, listed with the New Testament in the book pickers. Not in
- * the canon groups: the crawlable book index must not link to it.
- */
-export const ABOUT_GROUP: CanonGroup = {
-  name: "Sobre a Bíblia",
-  books: ["about"],
-}
-
-/**
  * The book pickers' groups: each group's introduction first and each
  * cluster's before its books, plus the ungrouped `leading` one (a group with
  * no books, named after it). Introductions that have not loaded are dropped,
