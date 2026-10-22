@@ -161,13 +161,14 @@ fun ChromeOverlay(chrome: ChromeController) {
         val cardSurface = MaterialTheme.colorScheme.surfaceContainerHigh.toArgb()
         SideEffect { chrome.onPalette(cardSurface) }
         Box(Modifier.fillMaxSize()) {
-            if (state.mode != ChromeMode.None) NavigationBarProtection(page)
             when (state.mode) {
                 ChromeMode.Reader -> ReaderBars(chrome, state, barColor, page)
                 ChromeMode.Search -> SearchView(chrome, state)
                 ChromeMode.Page -> PageBar(chrome, state, barColor)
                 ChromeMode.None -> {}
             }
+            // Over the page and the recent searches alike.
+            if (state.mode != ChromeMode.None) NavigationBarProtection(page)
             ToastHost(chrome, Modifier.align(Alignment.BottomCenter))
         }
         chrome.sheet?.let { SheetHost(chrome, it) }
@@ -208,7 +209,7 @@ private fun Modifier.away(away: Boolean) = if (away) clearAndSetSemantics {} els
  * (ChromeController), so the two don't stack.
  */
 @Composable
-private fun NavigationBarProtection(page: Color) {
+internal fun NavigationBarProtection(page: Color) {
     val density = LocalDensity.current
     val direction = LocalLayoutDirection.current
     val buttons = WindowInsets.tappableElement
@@ -891,6 +892,7 @@ private fun ToastHost(chrome: ChromeController, modifier: Modifier) {
             // words are the button, ✕ set apart from them: a slip on the way
             // to closing it mustn't lose the reader's place.
             Snackbar(
+                modifier = Modifier.widthIn(max = WIDE_CONTENT),
                 dismissAction = {
                     Row {
                         Spacer(Modifier.width(8.dp))
@@ -914,7 +916,7 @@ private fun ToastHost(chrome: ChromeController, modifier: Modifier) {
                 }
             }
         } else {
-            Snackbar(data)
+            Snackbar(data, Modifier.widthIn(max = WIDE_CONTENT))
         }
     }
 }

@@ -71,6 +71,10 @@ import kotlinx.coroutines.launch
 import org.capuchinhos.biblia.R
 
 /** Full screen, as Material's full-screen dialogs: forms and the onboarding. */
+/** How wide a form or a page of the onboarding grows on a tablet. */
+internal val WIDE_CONTENT = 600.dp
+
+/** Full screen, as Material's full-screen dialogs: forms and the onboarding. */
 internal val FullScreen = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
 
 /**
@@ -136,13 +140,21 @@ fun ReportDialog(chrome: ChromeController, sheet: Sheet.Report) {
                 )
             },
         ) { padding ->
-            Column(
+            // A form's width on a tablet, centred, not a line across the screen.
+            Box(
                 Modifier
                     .padding(padding)
                     // The Scaffold's insets taken: the keyboard's is added, not
                     // the navigation bar's again.
                     .consumeWindowInsets(padding)
                     .imePadding()
+                    .fillMaxSize(),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+            Column(
+                Modifier
+                    .widthIn(max = WIDE_CONTENT)
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 24.dp),
             ) {
@@ -199,6 +211,7 @@ fun ReportDialog(chrome: ChromeController, sheet: Sheet.Report) {
                     },
                 )
             }
+            }
         }
     }
 
@@ -254,7 +267,9 @@ fun OnboardingDialog(chrome: ChromeController, sheet: Sheet.Onboarding) {
             scope.launch { pager.animateScrollToPage(pager.currentPage - 1) }
         }
         Surface(Modifier.fillMaxSize()) {
-            Column(Modifier.windowInsetsPadding(WindowInsets.systemBars)) {
+            Box(contentAlignment = Alignment.TopCenter) {
+            // A page's width on a tablet, centred.
+            Column(Modifier.windowInsetsPadding(WindowInsets.systemBars).widthIn(max = WIDE_CONTENT)) {
                 Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End) {
                     if (!last) TextButton(onClick = { finish(false) }) { Text("Saltar") }
                     Spacer(Modifier.height(48.dp))
@@ -270,6 +285,7 @@ fun OnboardingDialog(chrome: ChromeController, sheet: Sheet.Onboarding) {
                         .padding(horizontal = 24.dp, vertical = 16.dp)
                         .heightIn(min = 56.dp),
                 ) { Text(if (last) "Começar a ler" else "Seguinte", style = MaterialTheme.typography.titleMedium) }
+            }
             }
         }
     }

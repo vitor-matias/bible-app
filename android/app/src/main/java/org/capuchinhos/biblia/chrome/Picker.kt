@@ -14,10 +14,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -50,6 +54,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -119,6 +124,55 @@ fun PassagePickerDialog(chrome: ChromeController, sheet: Sheet.Picker) {
     }
     Dialog(onDismissRequest = close, properties = FullScreen) {
         DialogSystemBarIcons()
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+        // On a tablet, an unfolded phone or a phone on its side: the books
+        // beside the chapters, as Material's list-detail layout, and no Back
+        // step between them.
+        if (maxWidth >= TWO_PANE_WIDTH) {
+            val shown = book ?: data.currentBook?.takeIf { it.chapters.isNotEmpty() }
+            Row(Modifier.fillMaxSize()) {
+                Box(Modifier.width(BOOK_PANE_WIDTH).fillMaxHeight()) {
+                    BookList(
+                        data,
+                        filter = filter,
+                        onFilter = { filter = it },
+                        listState = listState,
+                        placed = placed,
+                        onPlaced = { placed = true },
+                        onClose = close,
+                        selectedId = shown?.id,
+                    ) { picked ->
+                        if (picked.chapters.isEmpty()) choose(picked.id, null) else book = picked
+                    }
+                }
+                VerticalDivider()
+                Box(Modifier.weight(1f).fillMaxHeight()) {
+                    if (shown != null) {
+                        ChapterGrid(
+                            shown,
+                            current = data.currentChapter.takeIf { shown.id == data.currentBookId },
+                            asList = chapterList,
+                            onToggleList = {
+                                chapterList = !chapterList
+                                context.saveChapterListPreferred(chapterList)
+                            },
+                            onBack = null,
+                            onClose = null,
+                        ) { choose(shown.id, it) }
+                    } else {
+                        Surface(Modifier.fillMaxSize()) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    "Escolha um livro",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
         AnimatedContent(
             book,
             transitionSpec = {
@@ -165,8 +219,16 @@ fun PassagePickerDialog(chrome: ChromeController, sheet: Sheet.Picker) {
                 ) { choose(shown.id, it) }
             }
         }
+        }
+        // The lists scroll on under the three-button navigation bar.
+        NavigationBarProtection(MaterialTheme.colorScheme.background)
+        }
     }
 }
+
+/** From Material's medium width on, the books and chapters side by side. */
+private val TWO_PANE_WIDTH = 600.dp
+private val BOOK_PANE_WIDTH = 360.dp
 
 /** A line of the book list: a testament's heading, a group's, or a book. */
 sealed interface PickerRow {
@@ -223,6 +285,8 @@ private fun BookList(
     placed: Boolean,
     onPlaced: () -> Unit,
     onClose: () -> Unit,
+    /** The book highlighted: the one being read, or beside, the one shown. */
+    selectedId: String? = data.currentBookId,
     onChoose: (PassagePickerData.Book) -> Unit,
 ) {
     val rows = remember(data, filter) { pickerRows(data, filter) }
@@ -286,7 +350,7 @@ private fun BookList(
                         )
                     }
                     is PickerRow.Book -> item(key = row.key, contentType = "book") {
-                        BookRow(row.book, current = row.book.id == data.currentBookId) { onChoose(row.book) }
+                        BookRow(row.book, current = row.book.id == selectedId) { onChoose(row.book) }
                     }
                 }
             }
@@ -404,8 +468,9 @@ private fun ChapterGrid(
     current: Int?,
     asList: Boolean,
     onToggleList: () -> Unit,
-    onBack: () -> Unit,
-    onClose: () -> Unit,
+    /** Null beside the book list, which is then the way to another book. */
+    onBack: (() -> Unit)?,
+    onClose: (() -> Unit)?,
     onChoose: (Int) -> Unit,
 ) {
     val gridState = rememberLazyGridState()
@@ -420,7 +485,7 @@ private fun ChapterGrid(
             .semantics { paneTitle = book.name },
         topBar = {
             TopAppBar(
-                navigationIcon = { BarButton(R.drawable.ic_arrow_back, "Livros", onClick = onBack) },
+                navigationIcon = { onBack?.let { BarButton(R.drawable.ic_arrow_back, "Livros", onClick = it) } },
                 title = { Text(book.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 actions = {
                     // Numbers for speed (Salmos, Isaías), or a list with each
@@ -430,7 +495,7 @@ private fun ChapterGrid(
                     } else {
                         BarButton(R.drawable.ic_view_list, "Mostrar os títulos", onClick = onToggleList)
                     }
-                    BarButton(R.drawable.ic_close, "Fechar", onClick = onClose)
+                    onClose?.let { BarButton(R.drawable.ic_close, "Fechar", onClick = it) }
                 },
                 scrollBehavior = scrollBehavior,
             )
