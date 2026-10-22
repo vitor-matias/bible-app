@@ -44,8 +44,9 @@ jobs:
         run: npx ng build --configuration=production
 
   # Compiles the native Android app around the web bundle it ships, runs its
-  # JVM unit tests and Android lint, and builds a debug APK. Nothing is
-  # signed for release here; build-all-platforms.yml makes the release builds.
+  # JVM unit tests and Android lint, and builds the release APK through R8,
+  # so a shrinking or keep-rule break fails here too. Nothing is signed;
+  # build-all-platforms.yml makes the signed release builds.
   android:
     runs-on: ubuntu-latest
     permissions:
@@ -62,6 +63,9 @@ jobs:
           java-version: '21'
           cache: 'gradle'
       - run: npm ci
+      # compileSdk 37 (variables.gradle), which the runner's SDK may not have.
+      - name: Android SDK 37
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;37.0.0" > /dev/null'
       # cap:prune copies the build to Capacitor's webDir without the
       # prerendered route pages; sync copies it and the plugins into android/.
       - name: Build the native web bundle
@@ -70,9 +74,9 @@ jobs:
           npm run build
           npm run cap:prune
           npx cap sync android
-      - name: Unit tests, lint and debug APK
+      - name: Unit tests, lint and R8 release APK
         working-directory: android
-        run: ./gradlew testDebugUnitTest lintDebug assembleDebug
+        run: ./gradlew testDebugUnitTest lintDebug assembleRelease
       - name: Upload test and lint reports
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
