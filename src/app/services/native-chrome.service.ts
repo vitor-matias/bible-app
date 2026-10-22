@@ -507,6 +507,14 @@ export class NativeChromeService {
       )
     }
 
+    // The theme can change under the page without a page asking: the
+    // system's switch, which "Automático" follows (ThemeService). The bars
+    // take the page's colour again, as when a page shows them.
+    new MutationObserver(() => this.push()).observe(
+      this.document.documentElement,
+      { attributes: true, attributeFilter: ["class"] },
+    )
+
     const overlays = this.overlayContainer.getContainerElement()
     new MutationObserver(() => {
       const modalOpen = overlays.querySelector(MODAL_BACKDROP) !== null

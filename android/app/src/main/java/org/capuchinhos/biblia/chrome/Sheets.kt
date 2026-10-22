@@ -224,7 +224,15 @@ private fun AppearanceSheet(chrome: ChromeController, sheet: Sheet) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             SheetTitleRow("Texto e aparência", onClose = { closer.close() }, Modifier.padding(bottom = 8.dp))
-            Column(Modifier.padding(end = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // A phone on its side is shorter than the sheet: under the
+            // title, it scrolls, rather than squeezing Tema and losing Leitura.
+            Column(
+                Modifier
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState())
+                    .padding(end = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
             TextSizeControls(chrome, state.textSize)
             Caption("Tema")
             ConnectedChoices(
@@ -423,7 +431,9 @@ private fun BookmarksSheet(chrome: ChromeController, sheet: Sheet.Bookmarks) {
                     }
                 }
             }
-            Column(Modifier.padding(end = 12.dp)) {
+            // Scrolls under the title on a phone on its side, as the text
+            // settings do.
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(end = 12.dp)) {
             Spacer(Modifier.height(8.dp))
             val move = state.move
             if (move != null && !editing) {

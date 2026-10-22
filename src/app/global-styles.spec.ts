@@ -220,6 +220,24 @@ describe("global styles", () => {
       )
     })
 
+    // At 200% system font the WebView doubles it: seven lines between the
+    // arrows, a third of every page. Specs run unzoomed, so the sizes asked
+    // for are what the rule sets.
+    it("holds its growth with the system's font size to 130%", () => {
+      document.body.classList.add("native-chrome", "platform-android")
+      const details = footer.querySelector(".copyright-details") as HTMLElement
+      const size = (element: HTMLElement) =>
+        parseFloat(getComputedStyle(element).fontSize)
+      const wide = window.innerWidth >= 600
+      expect(size(footer)).toBeCloseTo(wide ? 18 : 14, 1)
+      expect(size(details)).toBeCloseTo(wide ? 13 : 11, 1)
+
+      document.documentElement.style.setProperty("--text-zoom", "2")
+      expect(size(footer)).toBeCloseTo((wide ? 18 : 14) * 0.65, 1)
+      expect(size(details)).toBeCloseTo((wide ? 13 : 11) * 0.65, 1)
+      document.documentElement.style.removeProperty("--text-zoom")
+    })
+
     it("leaves the iOS app's pages as they were", () => {
       document.body.classList.add("native-chrome", "platform-ios")
 

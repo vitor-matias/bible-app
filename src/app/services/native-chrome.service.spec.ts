@@ -1081,6 +1081,16 @@ describe("NativeChromeService", () => {
       expect(lastState().pageColor).toBe("#121212")
     })
 
+    // In "Automático", the system's switch to dark turned the page dark
+    // under bars that kept the light page's colour: a title the colour of
+    // its bar, until the next scroll.
+    it("sends the page's colour again when the theme changes under it", async () => {
+      root.style.setProperty("--background-color", "#121212")
+      root.classList.add("dark-theme")
+      await settle()
+      expect(lastState().pageColor).toBe("#121212")
+    })
+
     it("takes the line and the heading away when tracking stops", async () => {
       await scrollTo(100)
       stop()
