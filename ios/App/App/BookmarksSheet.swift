@@ -31,9 +31,13 @@ struct BookmarksSheetState {
     let currentLabel: String
     let ribbons: [Ribbon]
     let move: Move?
+    /// False on the About page, which has no chapters: its ribbons still
+    /// open their passages, but none marks it. Older web bundles don't say.
+    let canMark: Bool
 
     init(_ call: CAPPluginCall) {
         currentLabel = call.getString("currentLabel", "")
+        canMark = call.getBool("canMark", true)
         ribbons = (call.getArray("ribbons", JSObject.self) ?? []).map { ribbon in
             Ribbon(color: ribbon["color"] as? String ?? "",
                    name: ribbon["name"] as? String ?? "",
@@ -250,6 +254,9 @@ final class BookmarksController: UIViewController {
 
         let marked = state.ribbons.contains { $0.current }
         footer.text = editingRibbons ? "Toque numa fita para a retirar."
+            : !state.canMark && anyUsed
+                ? "Esta página não se pode marcar. Toque numa fita com nome para abrir essa passagem."
+            : !state.canMark ? "Esta página não se pode marcar."
             : marked ? "\(state.currentLabel) está marcado. Toque noutra fita livre para mudar a cor."
             : "Toque numa fita livre para marcar \(state.currentLabel)."
 
@@ -379,7 +386,12 @@ final class BookmarksController: UIViewController {
                 self?.send("bookmark-remove", ribbon.color)
             }
             let marked = state.ribbons.contains { $0.current }
-            button.menu = UIMenu(title: ribbon.label ?? "", children: marked ? [open, remove] : [open, move, remove])
+            button.menu = UIMenu(title: ribbon.label ?? "",
+                                 children: marked || !state.canMark ? [open, remove] : [open, move, remove])
+        } else if !state.canMark {
+            // Nothing here to mark: the free ribbons step back, as in editing.
+            button.isEnabled = false
+            button.alpha = 0.35
         } else {
             button.accessibilityHint = "Marca \(state.currentLabel)"
             button.addAction(UIAction { [weak self] _ in self?.send("bookmark-set", ribbon.color) },
