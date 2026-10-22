@@ -90,7 +90,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
         iosText:
           "Deslize o texto para o lado, ou toque nas setas ‹ › da barra inferior, para mudar de capítulo.",
         androidText:
-          "Deslize o texto para o lado, ou toque nas setas ‹ › dos cantos inferiores, para mudar de capítulo. No fim do capítulo, um botão leva ao seguinte.",
+          "Deslize o texto para o lado, ou toque nas setas ‹ › dos cantos inferiores, para mudar de capítulo.",
       },
       {
         icon: "link",

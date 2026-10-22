@@ -353,13 +353,17 @@ const SCROLLED_UNDER_BAR = 8
 
 /**
  * How far through its content `element` has scrolled, 0 to 1: across, for the
- * reader's pages, else down. Null when it doesn't scroll at all.
+ * reader's pages, else down. Whichever way it scrolls further, in screens: a
+ * chapter's text can overhang its column by a few pixels (Génesis 1 and 2 on a
+ * Pixel 9), which made it scroll across too. Null when it doesn't scroll.
  */
 export function scrollProgress(element: Element): number | null {
   const across = element.scrollWidth - element.clientWidth
   const down = element.scrollHeight - element.clientHeight
   const progress =
-    across > 1
+    across > 1 &&
+    across / Math.max(element.clientWidth, 1) >
+      down / Math.max(element.clientHeight, 1)
       ? element.scrollLeft / across
       : down > 1
         ? element.scrollTop / down

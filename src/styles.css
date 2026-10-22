@@ -516,6 +516,54 @@ html.dark-theme .platform-ios.native-chrome app-search {
   height: calc(100dvh - var(--app-header-height) - var(--app-chrome-top) - var(--app-reader-gap) - var(--app-inset-bottom));
 }
 
+/* The Android app's pages: the copyright shares the row of the corner
+   arrows (ChromeOverlay's ChapterArrows: 56dp, 24dp in from the sides, 16dp
+   up), between them, instead of a band of its own above the row, and the
+   text takes that band back. The page is a column: the text fills what the
+   copyright leaves. Taller than the arrows (large text, a narrow phone), the
+   copyright pushes the text up rather than running over it. */
+.platform-android.native-chrome bible-reader .mat-drawer-content:has(> .paged-view-container) {
+  display: flex;
+  flex-direction: column;
+}
+
+.platform-android.native-chrome bible-reader .paged-view-container {
+  flex: 1 1 0;
+  min-height: 0;
+  height: auto;
+}
+
+.platform-android.native-chrome bible-reader .paged-view {
+  height: 100%;
+}
+
+/* The row is the bottom inset's last 56px: the negative margin takes the
+   copyright down into it. */
+.platform-android.native-chrome bible-reader .fixed-footer {
+  position: static;
+  flex: none;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 56px;
+  margin: var(--app-reader-gap) calc(var(--app-inset-right) + 88px) -56px calc(var(--app-inset-left) + 88px);
+  padding: 0;
+  width: auto;
+  line-height: 1.25;
+}
+
+/* A phone's width (Material's compact windows): smaller, to fit the row. */
+@media (max-width: 599px) {
+  .platform-android.native-chrome bible-reader .fixed-footer {
+    font-size: 14px;
+  }
+
+  .platform-android.native-chrome bible-reader .fixed-footer .copyright-details {
+    font-size: 11px;
+  }
+}
+
 /* At the largest text sizes a line holds a handful of words: justified, it
    spreads into gaps. UnifiedGesturesDirective sets the class; centred
    headings keep their own alignment. */

@@ -1582,6 +1582,7 @@ describe("BibleReaderComponent", () => {
       bookServiceSpy.findBook.and.returnValue({
         ...mockBooks[0],
         shortName: "Génesis",
+        name: "Livro do Génesis",
         ...(options.introduction && {
           introduction: [{ type: "p", text: "…" }],
         }),
@@ -1604,28 +1605,22 @@ describe("BibleReaderComponent", () => {
     const cards = (cardFixture: ComponentFixture<BibleReaderComponent>) =>
       cardFixture.debugElement.queryAll(By.css("a.chapter-card"))
 
-    it("offers the next chapter after the text, and nothing above it", async () => {
-      const cardFixture = await readerAt(5)
-      const [next, ...others] = cards(cardFixture)
-
-      expect(others).toEqual([])
-      expect(next.nativeElement.textContent).toContain("Capítulo seguinte")
-      expect(next.nativeElement.textContent).toContain("Génesis 6")
-      // A real link, as the web's arrows: history replaced alike.
-      const reader = cardFixture.componentInstance
-      expect(reader.nextChapterLink).toEqual(["/", "1-genesis", "6"])
-      expect(next.injector.get(RouterLink).replaceUrl).toBe(
-        reader.replaceChapterHistory,
-      )
+    // The next chapter is the › arrow's: a card after every chapter only
+    // repeated it.
+    it("leaves the next chapter to the arrows", async () => {
+      expect(cards(await readerAt(5)).length).toBe(0)
     })
 
     // Above chapter 1 the card leads to the introduction, which otherwise
     // only the picker shows; elsewhere ‹ is at hand at a chapter's top.
     it("leads to the introduction from above chapter 1", async () => {
       const cardFixture = await readerAt(1, { introduction: true })
-      const [intro] = cards(cardFixture)
+      const [intro, ...others] = cards(cardFixture)
+      expect(others).toEqual([])
       expect(intro.nativeElement.textContent).toContain("Antes do capítulo 1")
-      expect(intro.nativeElement.textContent).toContain("Introdução ao livro")
+      expect(intro.nativeElement.textContent).toContain(
+        "Introdução ao Livro do Génesis",
+      )
       expect(cardFixture.componentInstance.previousChapterLink).toEqual([
         "/",
         "1-genesis",
@@ -1634,8 +1629,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("has nothing above chapter 1 of a book without an introduction", async () => {
-      const [only] = cards(await readerAt(1))
-      expect(only.nativeElement.textContent).toContain("Génesis 2")
+      expect(cards(await readerAt(1)).length).toBe(0)
     })
 
     // Génesis 50 was a dead end.
@@ -1663,11 +1657,16 @@ describe("BibleReaderComponent", () => {
 
     // Pages turn into the next chapter at the last one.
     it("leaves them out of pages", async () => {
-      expect(cards(await readerAt(5, { viewMode: "paged" })).length).toBe(0)
+      expect(
+        cards(await readerAt(1, { viewMode: "paged", introduction: true }))
+          .length,
+      ).toBe(0)
     })
 
     it("leaves them to the Android app", async () => {
-      expect(cards(await readerAt(5, { android: false })).length).toBe(0)
+      expect(
+        cards(await readerAt(1, { android: false, introduction: true })).length,
+      ).toBe(0)
     })
   })
 

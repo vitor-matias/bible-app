@@ -201,6 +201,23 @@ describe("ToastService", () => {
         expect(snackRef.dismiss).toHaveBeenCalledTimes(1)
       })
 
+      // On iOS "Voltar para Gn 1,1" stayed over the search page.
+      it("takes it down when they leave the text for search", async () => {
+        await followReference(true)
+
+        await router.navigateByUrl("/search?q=luz")
+
+        expect(hideToast).toHaveBeenCalledTimes(1)
+      })
+
+      it("takes the snackbar down on the way to the book list", async () => {
+        await followReference(false)
+
+        await router.navigateByUrl("/livros")
+
+        expect(snackRef.dismiss).toHaveBeenCalledTimes(1)
+      })
+
       it("keeps it after a reference within the chapter", async () => {
         start(false)
         await router.navigateByUrl("/gn/1")

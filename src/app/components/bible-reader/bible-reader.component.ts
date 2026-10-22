@@ -47,7 +47,7 @@ import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
 import { ToastService } from "../../services/toast.service"
-import { passageLabel } from "../../utils/passage-label"
+import { introductionTitle, passageLabel } from "../../utils/passage-label"
 import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
 import { BookIntroComponent } from "../book-intro/book-intro.component"
@@ -88,9 +88,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private haptics = inject(HapticsService)
   private nativeChrome = inject(NativeChromeService)
   /**
-   * The Android app's chapter cards: the chapter before, above the text, and
-   * the next one, after it, in place of the web's arrows (its own wait in the
-   * screen's corners while its bars show).
+   * The Android app's chapter cards, for what its corner arrows don't reach:
+   * the introduction, above chapter 1, and the next book, after a book's last
+   * chapter. The next chapter is the › arrow's alone.
    */
   readonly chapterCards = this.nativeChrome.android
 
@@ -490,7 +490,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     )
   }
 
-  /** A chapter card's passage: "Mateus 4", "Salmo 23 (22)", or the introduction. */
+  /** A chapter card's passage: "Êxodo 1", "Salmo 23 (22)", or the introduction. */
   chapterCardLabel(chapter: number, book: Book = this.book): string {
     return chapter === 0 ? "Introdução" : passageLabel(book, chapter)
   }
@@ -506,11 +506,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     )
   }
 
-  /** Whether the card after the text has a chapter of this book to go on to. */
-  get hasNextChapter(): boolean {
-    return (
-      this.book?.id !== "about" && this.chapterNumber < this.book?.chapterCount
-    )
+  /** The introduction card's title: "Introdução ao Livro do Génesis". */
+  get introCardTitle(): string {
+    return introductionTitle(this.book)
   }
 
   get canGoNext(): boolean {

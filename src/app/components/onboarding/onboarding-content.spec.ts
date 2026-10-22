@@ -110,6 +110,8 @@ describe("nativeOnboardingSteps for the Android app", () => {
     const [swipe, , notes] = step("navigate")?.features ?? []
     expect(swipe.text).toContain("cantos inferiores")
     expect(swipe.text).not.toContain("barra inferior")
+    // No card after the chapter any more: › is the way on.
+    expect(swipe.text).not.toContain("No fim do capítulo")
     expect(notes.text).toContain("ícone de notas")
     expect(notes.text).not.toContain("Um toque no texto")
   })

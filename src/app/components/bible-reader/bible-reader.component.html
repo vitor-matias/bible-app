@@ -34,7 +34,7 @@
           <mat-icon aria-hidden="true">arrow_back</mat-icon>
           <span class="chapter-card-text">
             <span class="chapter-card-kicker">Antes do capítulo 1</span>
-            <span class="chapter-card-passage">Introdução ao livro</span>
+            <span class="chapter-card-passage">{{ introCardTitle }}</span>
           </span>
         </a>
         }
@@ -57,16 +57,7 @@
           </div>
           }
         </div>
-        @if (showChapterCards && hasNextChapter) {
-        <a class="chapter-card chapter-card-next" [routerLink]="nextChapterLink" [replaceUrl]="replaceChapterHistory"
-          (click)="prepareChapterNavigation(true, $event)">
-          <span class="chapter-card-text">
-            <span class="chapter-card-kicker">Capítulo seguinte</span>
-            <span class="chapter-card-passage">{{ chapterCardLabel(chapterNumber + 1) }}</span>
-          </span>
-          <mat-icon aria-hidden="true">arrow_forward</mat-icon>
-        </a>
-        } @else if (showChapterCards && nextBook) {
+        @if (showChapterCards && nextBook) {
         <a class="chapter-card chapter-card-next" [routerLink]="nextBookLink" [replaceUrl]="replaceChapterHistory"
           (click)="prepareBookNavigation($event)">
           <span class="chapter-card-text">

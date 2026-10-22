@@ -221,14 +221,15 @@ class ChromeInsetsTest {
         assertEquals(ChromeInsets(88f, 48f), chromeInsets(reader, collapsed = false, 24f, 48f))
     }
 
-    // The arrows make way for auto-scroll's toolbar: one row, never two.
+    // Auto-scroll's control floats over the text, as on iOS: the page keeps
+    // the arrows' row and no more ("I do not want this white space").
     @Test
-    fun givesAutoScrollTheArrowsRow() {
+    fun keepsNoRowForAutoScroll() {
         val state = reader.copy(chapterNavigation = true, autoScroll = autoScroll)
-        assertEquals(ChromeInsets(88f, 48f + 16f + 64f), chromeInsets(state, collapsed = false, 24f, 48f))
-        assertEquals(ChromeInsets(88f, 48f + 16f + 64f, collapsed = true), chromeInsets(state, collapsed = true, 24f, 48f))
+        assertEquals(ChromeInsets(88f, 48f + 16f + 56f), chromeInsets(state, collapsed = false, 24f, 48f))
+        assertEquals(ChromeInsets(88f, 48f + 16f + 56f, collapsed = true), chromeInsets(state, collapsed = true, 24f, 48f))
         val alone = reader.copy(autoScroll = autoScroll)
-        assertEquals(ChromeInsets(88f, 48f + 16f + 64f), chromeInsets(alone, collapsed = false, 24f, 48f))
+        assertEquals(ChromeInsets(88f, 48f), chromeInsets(alone, collapsed = false, 24f, 48f))
     }
 
     // Large text makes the bar taller, a phone on its side shorter: the page
@@ -512,5 +513,52 @@ class BibleColorSchemeTest {
             val tone = ribbonTone(name, dark = tile.luminance() < 0.5f)!!
             assertTrue("$name: ${contrast(tone, tile)}", contrast(tone, tile) >= 3f)
         }
+    }
+}
+
+/** Where auto-scroll's control floats: the iOS app's AutoScrollControl, on Android. */
+class AutoScrollControlTest {
+    // A 400 x 600 px reading area, a 56 px button; paused, the control is the
+    // button alone; playing, 176 px wide.
+    private val area = 400 to 600
+
+    private fun origin(x: Float, y: Float, width: Int = 56, height: Int = 56) =
+        autoScrollControlOrigin(x, y, area.first, area.second, 56, width, height)
+
+    @Test
+    fun startsInTheBottomRightCorner() {
+        assertEquals(344 to 544, origin(1f, 1f))
+    }
+
+    // Play stays where it was: − and + come out to its left.
+    @Test
+    fun growsLeftwardFromTheButton() {
+        assertEquals(344 + 56 - 176 to 544, origin(1f, 1f, width = 176))
+        assertEquals(172 + 56 - 176 to 272, origin(0.5f, 0.5f, width = 176))
+    }
+
+    // Near the left side it is pushed right, never off the screen.
+    @Test
+    fun staysOnScreenNearTheLeftSide() {
+        assertEquals(0 to 0, origin(0f, 0f, width = 176))
+        assertEquals(0 to 0, origin(0f, 0f))
+    }
+
+    // The same place relative to the area, whatever its size: turned, unfolded.
+    @Test
+    fun keepsItsPlaceWhenTheAreaChanges() {
+        val (x, y) = autoScrollControlOrigin(0.5f, 0.25f, 800, 300, 56, 56, 56)
+        assertEquals((800 - 56) / 2 to ((300 - 56) * 0.25f).toInt(), x to y)
+    }
+
+    @Test
+    fun readsADropAsWhereTheButtonIs() {
+        // The button's centre in the middle of the area.
+        assertEquals(0.5f to 0.5f, autoScrollControlFraction(200f, 300f, 400, 600, 56))
+        // Dropped past the edges: kept at them.
+        assertEquals(0f to 1f, autoScrollControlFraction(-50f, 900f, 400, 600, 56))
+        // There and back: the drop's place is where it is laid out again.
+        val (fx, fy) = autoScrollControlFraction(100f + 28f, 200f + 28f, 400, 600, 56)
+        assertEquals(100 to 200, autoScrollControlOrigin(fx, fy, 400, 600, 56, 56, 56))
     }
 }

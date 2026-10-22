@@ -48,7 +48,7 @@ data class TextSize(
     }
 }
 
-/** Auto-scroll's controls, which take the chapter arrows' row while they show. */
+/** Auto-scroll's controls, which float over the text (AutoScrollControl). */
 data class AutoScrollState(
     val playing: Boolean,
     val speedLabel: String,
@@ -189,19 +189,51 @@ fun chromeInsets(
         return ChromeInsets(top = systemTop + BarMetrics.searchView + BarMetrics.divider, bottom = systemBottom)
     }
     if (state.mode != ChromeMode.Reader) return ChromeInsets(top = systemTop + BarMetrics.topBar, bottom = systemBottom)
-    // Auto-scroll's toolbar takes the chapter arrows' row while it is up. The
-    // end of the text stays clear of the row even while the arrows hide, so
-    // the page doesn't grow and shrink with them.
-    val row = when {
-        state.autoScroll != null -> BarMetrics.toolbar
-        state.chapterNavigation -> BarMetrics.chapterButton
-        else -> 0f
-    }
+    // The end of the text stays clear of the arrows' row even while they
+    // hide, so the page doesn't grow and shrink with them. Auto-scroll's
+    // control floats over the text, as on iOS: it keeps no row.
     return ChromeInsets(
         top = systemTop + readerBar,
-        bottom = systemBottom + if (row > 0f) BarMetrics.toolbarOffset + row else 0f,
+        bottom = systemBottom + if (state.chapterNavigation) BarMetrics.toolbarOffset + BarMetrics.chapterButton else 0f,
         collapsed = collapsed,
     )
+}
+
+/**
+ * Where auto-scroll's control goes in the reading area, [areaWidth] by
+ * [areaHeight] px: its button's centre where the reader left it ([fractionX],
+ * [fractionY], each 0 to 1 across the room the centre has), so it keeps its
+ * place whatever the area's size (turned, unfolded). Playing, the control
+ * grows leftward from the button, which stays put; near the left side it is
+ * pushed right rather than off the screen. Its top left corner.
+ */
+fun autoScrollControlOrigin(
+    fractionX: Float,
+    fractionY: Float,
+    areaWidth: Int,
+    areaHeight: Int,
+    button: Int,
+    width: Int,
+    height: Int,
+): Pair<Int, Int> {
+    val centreX = button / 2f + (areaWidth - button).coerceAtLeast(0) * fractionX.coerceIn(0f, 1f)
+    val centreY = button / 2f + (areaHeight - button).coerceAtLeast(0) * fractionY.coerceIn(0f, 1f)
+    val x = (centreX + button / 2f - width).toInt().coerceIn(0, (areaWidth - width).coerceAtLeast(0))
+    val y = (centreY - height / 2f).toInt().coerceIn(0, (areaHeight - height).coerceAtLeast(0))
+    return x to y
+}
+
+/**
+ * Where a drag left the control's button ([centreX], [centreY]: its centre in
+ * the area), as kept: fractions of the room, a drop past the area's edges
+ * taken as at them. The inverse of [autoScrollControlOrigin].
+ */
+fun autoScrollControlFraction(centreX: Float, centreY: Float, areaWidth: Int, areaHeight: Int, button: Int): Pair<Float, Float> {
+    val roomX = (areaWidth - button).coerceAtLeast(0)
+    val roomY = (areaHeight - button).coerceAtLeast(0)
+    val x = if (roomX > 0) ((centreX - button / 2f) / roomX).coerceIn(0f, 1f) else 1f
+    val y = if (roomY > 0) ((centreY - button / 2f) / roomY).coerceIn(0f, 1f) else 1f
+    return x to y
 }
 
 /** Material 3's bar sizes, in dp, which the insets are made of. */
@@ -213,10 +245,7 @@ object BarMetrics {
     const val searchView = 72f
     const val divider = 1f
 
-    /** A floating toolbar: auto-scroll's. */
-    const val toolbar = 64f
-
-    /** A floating toolbar's distance from the screen's bottom edge, and the arrows'. */
+    /** The arrows' distance from the screen's bottom edge, a floating toolbar's. */
     const val toolbarOffset = 16f
 
     /** The chapter arrows' buttons, at the bottom corners: Material's standard FAB. */

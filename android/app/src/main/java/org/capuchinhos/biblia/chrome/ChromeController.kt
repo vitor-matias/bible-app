@@ -106,6 +106,15 @@ class ChromeController(
 
     private val preferences = activity.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
 
+    /**
+     * Where the reader left auto-scroll's control: its button's centre,
+     * across and down the room it has, 0 to 1. Bottom right until moved.
+     */
+    var autoScrollPosition by mutableStateOf(
+        preferences.getFloat(AUTO_SCROLL_X, 1f) to preferences.getFloat(AUTO_SCROLL_Y, 1f),
+    )
+        private set
+
     /** What was searched for lately, newest first (search view). */
     var recentSearches by mutableStateOf(readRecentSearches(preferences.getString(RECENT_SEARCHES, null)))
         private set
@@ -358,6 +367,12 @@ class ChromeController(
         preferences.edit().remove(RECENT_SEARCHES).apply()
     }
 
+    /** The control dropped somewhere new: it stays there, on later launches too. */
+    fun moveAutoScroll(position: Pair<Float, Float>) {
+        autoScrollPosition = position
+        preferences.edit().putFloat(AUTO_SCROLL_X, position.first).putFloat(AUTO_SCROLL_Y, position.second).apply()
+    }
+
     fun submitReport(topic: String, details: String) {
         (sheet as? Sheet.Report)?.apply {
             sending = true
@@ -460,6 +475,8 @@ class ChromeController(
 
 private const val PREFERENCES = "native-chrome"
 private const val RECENT_SEARCHES = "search.recent"
+private const val AUTO_SCROLL_X = "autoScroll.x"
+private const val AUTO_SCROLL_Y = "autoScroll.y"
 
 /**
  * Switch Access and Voice Access reach only what is on screen: bars that

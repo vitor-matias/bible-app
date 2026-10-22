@@ -5,19 +5,26 @@ import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -103,6 +110,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -111,9 +119,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -135,10 +146,13 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import org.capuchinhos.biblia.R
 
 /** The bars, the snackbar and the open sheet, over the web view. */
@@ -277,7 +291,7 @@ private fun readerBarHeight(subtitle: Boolean): Dp {
  * web app says when: `collapsed`). They stay composed and slide off the
  * screen, so coming back costs no rebuilding while the page scrolls. The
  * chapter arrows wait in the bottom corners while the bars show; auto-scroll's
- * toolbar takes their row while it is up.
+ * control floats over the text, between them.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -294,11 +308,6 @@ private fun ReaderBars(chrome: ChromeController, state: ChromeState, barColor: C
         if (collapsed) 1f else 0f,
         if (collapsed) tween(150, easing = FastOutLinearInEasing) else tween(200, easing = LinearOutSlowInEasing),
         label = "bars",
-    )
-    val arrowsAway by animateFloatAsState(
-        if (collapsed || state.autoScroll != null) 1f else 0f,
-        if (collapsed) tween(150, easing = FastOutLinearInEasing) else tween(200, easing = LinearOutSlowInEasing),
-        label = "arrows",
     )
     val statusInsets = WindowInsets.statusBars.union(WindowInsets.displayCutout)
     val statusTop = statusInsets.getTop(density)
@@ -368,24 +377,36 @@ private fun ReaderBars(chrome: ChromeController, state: ChromeState, barColor: C
             if (state.chapterNavigation) {
                 Box(
                     Modifier
-                        .graphicsLayer { translationY = arrowsAway * bottomPx }
-                        .away(arrowsAway == 1f),
+                        .graphicsLayer { translationY = away * bottomPx }
+                        .away(away == 1f),
                 ) {
-                    ChapterArrows(chrome, state, enabled && arrowsAway == 0f)
+                    ChapterArrows(chrome, state, enabled && away == 0f)
                 }
             }
-            // Within reach while the bars hide for reading, but not over a
-            // panel, which the other bars make way for too.
-            AnimatedVisibility(
-                visible = state.autoScroll != null && !state.inert,
-                enter = fadeIn(),
-                exit = fadeOut(),
-            ) {
-                state.autoScroll?.let { AutoScrollToolbar(chrome, it, enabled) }
-            }
+        }
+        // Over the text, anywhere between the bars as they rest. Playing, it
+        // stays while they hide for reading; paused, it goes with them, as on
+        // iOS. Not over a panel, which the bars make way for too.
+        AnimatedVisibility(
+            visible = state.autoScroll != null && !state.inert && (state.autoScroll?.playing == true || !collapsed),
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(statusInsets.only(WindowInsetsSides.Top))
+                .padding(top = barHeight + AUTO_SCROLL_GAP)
+                .windowInsetsPadding(bottomInsets)
+                .padding(bottom = FloatingToolbarDefaults.ScreenOffset + BarMetrics.chapterButton.dp + AUTO_SCROLL_GAP)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                .padding(horizontal = 16.dp),
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            state.autoScroll?.let { AutoScrollControl(chrome, it, enabled) }
         }
     }
 }
+
+/** Auto-scroll's control keeps this far from the bars and the arrows. */
+private val AUTO_SCROLL_GAP = 12.dp
 
 /**
  * "Mateus 5 ▾", the button to the book and chapter picker, with the heading
@@ -474,13 +495,19 @@ private fun fittedPassage(state: ChromeState, style: TextStyle, width: Dp): Fitt
 /**
  * How far through the chapter the reader is, a line under the top bar on a
  * faint track, so it reads as a gauge rather than something loading. It
- * stays, under the status bar, while the bar is away. Read as it is drawn:
- * a scroll only redraws the line.
+ * stays, under the status bar, while the bar is away. The web reads the
+ * position at most 20 times a second: the line glides between readings,
+ * picking up each one where the last left it moving, rather than stepping.
+ * Read as it is drawn: a scroll only redraws the line.
  */
 @Composable
 private fun ReadingProgress(progress: () -> Float) {
+    val shown = remember { Animatable(progress()) }
+    LaunchedEffect(Unit) {
+        snapshotFlow(progress).collectLatest { shown.animateTo(it, PROGRESS_GLIDE) }
+    }
     LinearProgressIndicator(
-        progress = progress,
+        progress = { shown.value },
         modifier = Modifier
             .fillMaxWidth()
             .height(3.dp)
@@ -490,6 +517,9 @@ private fun ReadingProgress(progress: () -> Float) {
         drawStopIndicator = {},
     )
 }
+
+/** Critically damped: the line never runs past where the text is. */
+private val PROGRESS_GLIDE = spring<Float>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
 
 /**
  * ‹ and › in the bottom corners, set in from the edges where the back gesture
@@ -621,36 +651,90 @@ private fun versionLine(buildVersion: String?): String? {
 }
 
 /**
- * ✕ on its own, apart from − speed +, which a slip mustn't turn into
- * closing; play or pause as the toolbar's button. Read hands-free.
+ * Auto-scroll, as in the iOS app: paused, one button, ▶; playing, − and +
+ * come out to its left, with ⏸ where ▶ was. The speed isn't shown (TalkBack
+ * hears it on − and +), and there's no ✕: ⋮ hides auto-scroll, as it showed
+ * it. The reader drags it anywhere over the text, which keeps no room for it,
+ * and it stays there, then and on later launches. Read hands-free.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun AutoScrollToolbar(chrome: ChromeController, autoScroll: AutoScrollState, enabled: Boolean) {
+private fun AutoScrollControl(chrome: ChromeController, autoScroll: AutoScrollState, enabled: Boolean) {
     val colors = MaterialTheme.colorScheme
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Surface(
-            shape = CircleShape,
-            color = colors.surfaceContainer,
-            shadowElevation = FloatingToolbarDefaults.ContainerExpandedElevation,
-            modifier = Modifier.size(56.dp),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                BarButton(R.drawable.ic_close, "Fechar o deslocamento automático", enabled) {
-                    chrome.send("auto-scroll")
-                }
-            }
+    val button = with(LocalDensity.current) { BarMetrics.chapterButton.dp.roundToPx() }
+    // How far a drag, or the settling after one, has it from where it rests.
+    var drag by remember { mutableStateOf(Offset.Zero) }
+    val scope = rememberCoroutineScope()
+    var settling by remember { mutableStateOf<Job?>(null) }
+    // The last layout: the area's size, then the control's place and size.
+    val laidOut = remember { IntArray(6) }
+    // Laid out in its new place, it is shown from where it was let go: only a
+    // drop past the area's edges moves it, back inside.
+    fun drop() {
+        val (areaWidth, areaHeight, x, y) = laidOut
+        val (width, height) = laidOut.copyOfRange(4, 6)
+        val left = x + drag.x
+        val top = y + drag.y
+        val position = autoScrollControlFraction(left + width - button / 2f, top + height / 2f, areaWidth, areaHeight, button)
+        val (restX, restY) = autoScrollControlOrigin(position.first, position.second, areaWidth, areaHeight, button, width, height)
+        chrome.moveAutoScroll(position)
+        drag = Offset(left - restX, top - restY)
+        settling = scope.launch {
+            Animatable(drag, Offset.VectorConverter).animateTo(Offset.Zero, spring(dampingRatio = 0.8f)) { drag = value }
         }
-        HorizontalFloatingToolbar(
-            expanded = true,
-            floatingActionButton = {
+    }
+    Layout(
+        modifier = Modifier.fillMaxSize(),
+        content = {
+            Row(
+                Modifier.pointerInput(Unit) {
+                    detectDragGestures(
+                        onDragStart = { settling?.cancel() },
+                        onDragEnd = ::drop,
+                        onDragCancel = ::drop,
+                    ) { change, amount ->
+                        change.consume()
+                        drag += amount
+                    }
+                },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                AnimatedVisibility(
+                    visible = autoScroll.playing,
+                    enter = expandHorizontally(expandFrom = Alignment.End) + fadeIn(),
+                    exit = shrinkHorizontally(shrinkTowards = Alignment.End) + fadeOut(),
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = colors.surfaceContainer,
+                        shadowElevation = FloatingToolbarDefaults.ContainerExpandedElevation,
+                    ) {
+                        Row(Modifier.height(BarMetrics.chapterButton.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            BarButton(
+                                R.drawable.ic_remove,
+                                "Diminuir velocidade",
+                                enabled && autoScroll.canSlower,
+                                stateDescription = autoScroll.speedAccessibilityLabel,
+                            ) { chrome.send("auto-scroll-slower") }
+                            BarButton(
+                                R.drawable.ic_add,
+                                "Aumentar velocidade",
+                                enabled && autoScroll.canFaster,
+                                stateDescription = autoScroll.speedAccessibilityLabel,
+                            ) { chrome.send("auto-scroll-faster") }
+                        }
+                    }
+                }
                 // At the page's end there's nothing left to play: greyed out.
                 val canPress = enabled && (autoScroll.playing || autoScroll.canPlay)
                 // The accent itself, which stands out from the page in either
                 // theme (a container would be 1.85:1 on the dark page).
+                // Its toolbar would size it: alone, it would fill the area.
+                val size = Modifier.size(BarMetrics.chapterButton.dp)
                 FloatingToolbarDefaults.VibrantFloatingActionButton(
                     onClick = { if (canPress) chrome.send("auto-scroll-toggle") },
-                    modifier = if (canPress) Modifier else Modifier.semantics { disabled() },
+                    modifier = if (canPress) size else size.semantics { disabled() },
                     containerColor = colors.primary,
                     contentColor = colors.onPrimary.copy(alpha = if (canPress) 1f else 0.38f),
                 ) {
@@ -659,27 +743,17 @@ private fun AutoScrollToolbar(chrome: ChromeController, autoScroll: AutoScrollSt
                         contentDescription = if (autoScroll.playing) "Pausar" else "Iniciar",
                     )
                 }
-            },
-        ) {
-            BarButton(R.drawable.ic_remove, "Diminuir velocidade", enabled && autoScroll.canSlower) {
-                chrome.send("auto-scroll-slower")
             }
-            Text(
-                autoScroll.speedLabel,
-                Modifier
-                    .widthIn(min = 48.dp)
-                    .semantics {
-                        contentDescription = "Velocidade"
-                        stateDescription = autoScroll.speedAccessibilityLabel
-                        // Said after − or +, which keep their own labels.
-                        liveRegion = LiveRegionMode.Polite
-                    },
-                style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center,
-            )
-            BarButton(R.drawable.ic_add, "Aumentar velocidade", enabled && autoScroll.canFaster) {
-                chrome.send("auto-scroll-faster")
-            }
+        },
+    ) { measurables, constraints ->
+        val control = measurables.first().measure(constraints.copy(minWidth = 0, minHeight = 0))
+        val (fractionX, fractionY) = chrome.autoScrollPosition
+        val (x, y) = autoScrollControlOrigin(
+            fractionX, fractionY, constraints.maxWidth, constraints.maxHeight, button, control.width, control.height,
+        )
+        intArrayOf(constraints.maxWidth, constraints.maxHeight, x, y, control.width, control.height).copyInto(laidOut)
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            control.place(x + drag.x.roundToInt(), y + drag.y.roundToInt())
         }
     }
 }

@@ -1041,6 +1041,17 @@ describe("NativeChromeService", () => {
       expect(progress()).toBe(0.25)
     })
 
+    // Génesis 1 and 2 overhang the reader's width by a few pixels: the line
+    // read that sideways scroll, which never moved, and stayed at 0.
+    it("follows the text down when it also overhangs a few pixels across", async () => {
+      scroller.style.overflowX = "scroll"
+      content.style.width = "203px"
+      const end = scroller.scrollHeight - scroller.clientHeight
+      expect(scroller.scrollWidth - scroller.clientWidth).toBeGreaterThan(1)
+      await scrollTo(end / 2)
+      expect(progress()).toBe(0.5)
+    })
+
     it("shows the heading of the section that went up under the bar", async () => {
       await frame()
       expect(lastState().subtitle).toBeNull()

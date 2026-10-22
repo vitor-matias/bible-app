@@ -51,6 +51,16 @@ export function reportSubject(book: NamedBook, chapter: number): string {
     : passageLabel(book, chapter)
 }
 
+/**
+ * A book's introduction, by the book's full name: "Introdução ao Livro do
+ * Génesis", "Introdução ao Evangelho de São Mateus". The letters' names are
+ * feminine ("Carta aos Romanos", "Primeira Carta aos Coríntios"): "à".
+ */
+export function introductionTitle(book: Pick<Book, "name">): string {
+  const feminine = /^(Carta|Primeira|Segunda|Terceira) /.test(book.name)
+  return `Introdução ${feminine ? "à" : "ao"} ${book.name}`
+}
+
 /** The API's abbreviations carry stray spaces and byte-order marks ("Tg \ufeff"). */
 export function cleanAbbreviation(abrv: string): string {
   return abrv.replace(/[\s\ufeff]+/g, " ").trim()

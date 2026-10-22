@@ -146,6 +146,95 @@ describe("global styles", () => {
     })
   })
 
+  // On a tablet, the pages ended above the copyright, which sat in a band of
+  // its own above the corner arrows: most of a column's worth of white.
+  describe("the copyright in the Android app's pages", () => {
+    const TOP = 88
+    // The navigation bar's 24px, then the arrows' row: 16px up, 56px tall.
+    const BOTTOM = 96
+    let reader: HTMLElement
+    let footer: HTMLElement
+
+    beforeEach(() => {
+      reader = document.createElement("bible-reader")
+      // The drawer's content fills the screen, as in the reader.
+      reader.innerHTML = `
+        <div class="mat-drawer-content" style="position: fixed; inset: 0; box-sizing: border-box">
+          <div class="paged-view-container"><div class="bookBlock paged-view"></div></div>
+          <div class="copyright-footer fixed-footer">
+            <span><b>© DIFUSORA BÍBLICA</b></span>
+            <span class="copyright-details">Reservados todos os direitos.</span>
+          </div>
+        </div>`
+      document.body.appendChild(reader)
+      footer = reader.querySelector(".fixed-footer") as HTMLElement
+      document.documentElement.style.setProperty(
+        "--native-chrome-top",
+        `${TOP}px`,
+      )
+      document.documentElement.style.setProperty(
+        "--native-chrome-bottom",
+        `${BOTTOM}px`,
+      )
+    })
+
+    afterEach(() => {
+      reader.remove()
+      document.body.classList.remove("native-chrome", "platform-android")
+      document.documentElement.style.removeProperty("--native-chrome-top")
+      document.documentElement.style.removeProperty("--native-chrome-bottom")
+    })
+
+    const rect = (selector: string) =>
+      (reader.querySelector(selector) as HTMLElement).getBoundingClientRect()
+
+    it("sits between the arrows, in their row, and the page runs down to it", () => {
+      document.body.classList.add("native-chrome", "platform-android")
+      const rowTop = window.innerHeight - BOTTOM
+      const copyright = rect(".fixed-footer")
+
+      expect(copyright.top).toBeCloseTo(rowTop, 0)
+      expect(copyright.bottom).toBeCloseTo(rowTop + 56, 0)
+      expect(copyright.left).toBeCloseTo(88, 0)
+      expect(copyright.right).toBeCloseTo(window.innerWidth - 88, 0)
+      // 8px above the row, as the text starts 8px under the bar.
+      expect(rect(".paged-view-container").bottom).toBeCloseTo(rowTop - 8, 0)
+      // The columns fill it: no band kept back for the copyright.
+      expect(rect(".paged-view").height).toBeCloseTo(
+        rect(".paged-view-container").height,
+        0,
+      )
+    })
+
+    it("pushes the page up when it is taller than the arrows", () => {
+      document.body.classList.add("native-chrome", "platform-android")
+      // As at the largest text sizes.
+      footer.style.fontSize = "40px"
+      const copyright = rect(".fixed-footer")
+
+      expect(copyright.height).toBeGreaterThan(56)
+      expect(copyright.bottom).toBeCloseTo(window.innerHeight - BOTTOM + 56, 0)
+      expect(rect(".paged-view-container").bottom).toBeCloseTo(
+        copyright.top - 8,
+        0,
+      )
+    })
+
+    it("leaves the iOS app's pages as they were", () => {
+      document.body.classList.add("native-chrome", "platform-ios")
+
+      expect(
+        getComputedStyle(reader.querySelector(".mat-drawer-content") as Element)
+          .display,
+      ).toBe("block")
+      expect(rect(".paged-view-container").bottom).toBeCloseTo(
+        window.innerHeight - BOTTOM,
+        0,
+      )
+      document.body.classList.remove("platform-ios")
+    })
+  })
+
   // In the dark theme the crimson verse numbers were 3.8:1 on the background,
   // under the 4.5:1 that small text needs.
   describe("verse numbers in the iOS app's dark theme", () => {
