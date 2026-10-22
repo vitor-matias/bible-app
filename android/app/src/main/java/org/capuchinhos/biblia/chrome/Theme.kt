@@ -1,6 +1,7 @@
 package org.capuchinhos.biblia.chrome
 
 import android.os.Build
+import androidx.annotation.ChecksSdkIntAtLeast
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -46,7 +47,11 @@ fun BibleTheme(themeMode: String, content: @Composable () -> Unit) {
     }
 }
 
-/** The wallpaper's scheme where Android has one (12, API 31, on); else the brown. */
+/**
+ * The wallpaper's scheme where Android has one (12, API 31, on); else the
+ * brown. [dynamic] only runs from API 31, which the annotation tells lint.
+ */
+@ChecksSdkIntAtLeast(api = Build.VERSION_CODES.S, lambda = 2)
 fun bibleColorScheme(dark: Boolean, sdkInt: Int, dynamic: (dark: Boolean) -> ColorScheme): ColorScheme =
     if (sdkInt >= Build.VERSION_CODES.S) dynamic(dark) else if (dark) BrownDark else BrownLight
 

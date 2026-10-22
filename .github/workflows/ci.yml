@@ -4,7 +4,7 @@ on:
   push:
     branches: [ master, main ]
   pull_request:
-    branches: [ master, main ]
+    branches: [ master, main, 'feat/**' ]
 
 jobs:
   lint:
@@ -42,3 +42,41 @@ jobs:
       - run: npm ci
       - name: Build Production
         run: npx ng build --configuration=production
+
+  # Compiles the native Android app around the web bundle it ships, runs its
+  # JVM unit tests and Android lint, and builds a debug APK. Nothing is
+  # signed for release here; build-all-platforms.yml makes the release builds.
+  android:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 26
+          cache: 'npm'
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+      - run: npm ci
+      # cap:prune copies the build to Capacitor's webDir without the
+      # prerendered route pages; sync copies it and the plugins into android/.
+      - name: Build the native web bundle
+        run: |
+          set -e
+          npm run build
+          npm run cap:prune
+          npx cap sync android
+      - name: Unit tests, lint and debug APK
+        working-directory: android
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug
+      - name: Upload test and lint reports
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: android-reports
+          path: android/app/build/reports
+          retention-days: 7
