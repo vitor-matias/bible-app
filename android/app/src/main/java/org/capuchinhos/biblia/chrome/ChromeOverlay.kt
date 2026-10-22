@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -40,10 +41,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.tappableElement
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.windowInsetsEndWidth
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.windowInsetsStartWidth
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -106,6 +111,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -155,6 +161,7 @@ fun ChromeOverlay(chrome: ChromeController) {
         val cardSurface = MaterialTheme.colorScheme.surfaceContainerHigh.toArgb()
         SideEffect { chrome.onPalette(cardSurface) }
         Box(Modifier.fillMaxSize()) {
+            if (state.mode != ChromeMode.None) NavigationBarProtection(page)
             when (state.mode) {
                 ChromeMode.Reader -> ReaderBars(chrome, state, barColor, page)
                 ChromeMode.Search -> SearchView(chrome, state)
@@ -191,6 +198,38 @@ private fun Modifier.inert(inert: Boolean) = if (inert) clearAndSetSemantics {} 
 
 /** Bars moved off the screen are out of TalkBack's reading too. */
 private fun Modifier.away(away: Boolean) = if (away) clearAndSetSemantics {} else this
+
+/**
+ * Behind the three-button navigation bar, the page's colour, nearly opaque:
+ * the text scrolls on under it, as edge to edge, but not under the buttons,
+ * which Android's guidance protects. Gesture navigation's handle is no
+ * button (no tappable inset) and leaves the text clear. On its side in
+ * landscape, the band follows it. The system's own scrim is off
+ * (ChromeController), so the two don't stack.
+ */
+@Composable
+private fun NavigationBarProtection(page: Color) {
+    val density = LocalDensity.current
+    val direction = LocalLayoutDirection.current
+    val buttons = WindowInsets.tappableElement
+    val bottom = buttons.getBottom(density) > 0
+    val start = buttons.getLeft(density, direction) > 0
+    val end = buttons.getRight(density, direction) > 0
+    if (!bottom && !start && !end) return
+    val color = page.copy(alpha = 0.9f)
+    val bar = WindowInsets.navigationBars
+    Box(Modifier.fillMaxSize()) {
+        if (bottom) {
+            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().windowInsetsBottomHeight(bar).background(color))
+        }
+        if (start) {
+            Box(Modifier.align(Alignment.CenterStart).fillMaxHeight().windowInsetsStartWidth(bar).background(color))
+        }
+        if (end) {
+            Box(Modifier.align(Alignment.CenterEnd).fillMaxHeight().windowInsetsEndWidth(bar).background(color))
+        }
+    }
+}
 
 /**
  * Tells the controller the system bars' sizes, which the bars' insets are

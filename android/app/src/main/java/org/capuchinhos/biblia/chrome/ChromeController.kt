@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.util.TypedValue
 import android.view.View
 import android.graphics.drawable.ColorDrawable
+import android.os.Build
 import android.graphics.drawable.LayerDrawable
 import android.view.Gravity
 import android.view.ViewGroup
@@ -136,6 +137,11 @@ class ChromeController(
             overlay,
             ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
         )
+        // The overlay draws its own protection behind the three-button bar,
+        // in the page's colour; the system's scrim would stack on it.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            activity.window.isNavigationBarContrastEnforced = false
+        }
         // TalkBack reads the bars, then the page, rather than a whole chapter
         // before reaching them.
         webView.accessibilityTraversalAfter = overlay.id
