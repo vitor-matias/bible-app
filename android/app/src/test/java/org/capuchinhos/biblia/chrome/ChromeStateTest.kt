@@ -3,6 +3,10 @@ package org.capuchinhos.biblia.chrome
 import com.getcapacitor.JSObject
 import com.getcapacitor.PluginCall
 import androidx.compose.ui.graphics.Color
+import org.junit.Assert.assertSame
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.graphics.luminance
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -462,5 +466,51 @@ class BookmarksHintTest {
     @Test
     fun saysWhatEditingDoes() {
         assertEquals("Toque numa fita para a retirar.", bookmarksHint(state(ribbon("red", "Gn 1")), editing = true))
+    }
+}
+
+/** The bars' colours: the wallpaper's from Android 12, the website's brown before. */
+class BibleColorSchemeTest {
+    private val wallpaper = lightColorScheme(primary = Color(0xFF3F5F90))
+    private val wallpaperDark = darkColorScheme(primary = Color(0xFFA8C8FF))
+
+    private fun contrast(a: Color, b: Color): Float {
+        val (lighter, darker) = listOf(a.luminance(), b.luminance()).sortedDescending()
+        return (lighter + 0.05f) / (darker + 0.05f)
+    }
+
+    @Test
+    fun takesTheWallpapersFromAndroid12() {
+        assertSame(wallpaper, bibleColorScheme(dark = false, sdkInt = 31) { if (it) wallpaperDark else wallpaper })
+        assertSame(wallpaperDark, bibleColorScheme(dark = true, sdkInt = 36) { if (it) wallpaperDark else wallpaper })
+    }
+
+    @Test
+    fun keepsTheBrownBefore() {
+        assertSame(BrownLight, bibleColorScheme(dark = false, sdkInt = 30) { wallpaper })
+        assertSame(BrownDark, bibleColorScheme(dark = true, sdkInt = 26) { wallpaper })
+    }
+
+    // The website's brown is the accent: selected buttons, the current
+    // chapter, ▶. Their text and icons, and the corner arrows', read at 7:1.
+    @Test
+    fun keepsTheBrownsAccentReadable() {
+        assertEquals(0xFF543D27.toInt(), BrownLight.primary.toArgb())
+        for (scheme in listOf(BrownLight, BrownDark)) {
+            assertTrue(contrast(scheme.primary, scheme.onPrimary) >= 7f)
+            assertTrue(contrast(scheme.secondaryContainer, scheme.onSecondaryContainer) >= 6.5f)
+        }
+        assertTrue(contrast(BrownLight.primaryContainer, BrownLight.onPrimaryContainer) >= 7f)
+    }
+
+    // The chapter's own ribbon sits on primaryContainer: its tone, chosen for
+    // the tile, keeps 3:1 (it was 1.3–2:1 on the old dark container).
+    @Test
+    fun showsTheRibbonsOnTheCurrentTile() {
+        val tile = BrownLight.primaryContainer
+        for (name in listOf("red", "orange", "teal", "green", "blue", "indigo", "violet", "grey")) {
+            val tone = ribbonTone(name, dark = tile.luminance() < 0.5f)!!
+            assertTrue("$name: ${contrast(tone, tile)}", contrast(tone, tile) >= 3f)
+        }
     }
 }

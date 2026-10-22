@@ -5,7 +5,10 @@ import { Capacitor } from "@capacitor/core"
 import { NATIVE_CHROME_PLUGIN } from "../tokens"
 import type { PassagePickerData } from "../utils/passage-picker"
 import {
+  ANDROID_HIDE_DISTANCE,
+  ANDROID_REVEAL_DISTANCE,
   COLLAPSE_DISTANCE,
+  FLING_REVEAL_SPEED,
   type NativeChromeAction,
   NativeChromeService,
   type ReaderChrome,
@@ -112,7 +115,7 @@ describe("NativeChromeService", () => {
 
   const lastState = () => plugin.setState.calls.mostRecent().args[0]
 
-  function listener(event: "action" | "insets") {
+  function listener(event: "action" | "insets" | "palette") {
     const call = plugin.addListener.calls
       .all()
       .find(({ args }) => args[0] === event)
@@ -246,6 +249,15 @@ describe("NativeChromeService", () => {
     // The search field rides up with the keyboard.
     listener("insets")({ top: 116, bottom: 380 })
     expect(root.style.getPropertyValue("--native-chrome-bottom")).toBe("380px")
+  })
+
+  // The Android bars take the wallpaper's colours: the cards among them follow.
+  it("passes the bars' surface to the page's cards", () => {
+    create("android")
+    listener("palette")({ surfaceContainerHigh: "#DCE3F0" })
+    expect(
+      body.style.getPropertyValue("--android-surface-container-high"),
+    ).toBe("#DCE3F0")
   })
 
   it("relays taps, with their details", () => {
@@ -835,8 +847,11 @@ describe("NativeChromeService", () => {
 
     // Material's bars follow the scrolling: a tap that hid or showed them
     // would fight it. Only pages, which don't scroll, need the tap.
-    describe("a tap on the text in the Android app", () => {
+    // Material's bars follow the scrolling, but re-reading a line popped the
+    // bar over the text, and older readers didn't think to scroll up.
+    describe("in the Android app", () => {
       let line: HTMLElement
+      let now: number
 
       beforeEach(() => {
         TestBed.resetTestingModule()
@@ -851,6 +866,8 @@ describe("NativeChromeService", () => {
           ],
         })
         ;(Capacitor.getPlatform as jasmine.Spy).and.returnValue("android")
+        now = 10_000
+        spyOn(performance, "now").and.callFake(() => now)
         service = TestBed.inject(NativeChromeService)
         service.init()
         service.show(READER)
@@ -859,11 +876,77 @@ describe("NativeChromeService", () => {
         line = content.querySelector(".line") as HTMLElement
       })
 
-      it("leaves the bars to the scrolling where the text scrolls", () => {
+      /** A finger's scroll to `top`, taking `ms` (a slow drag, unless said). */
+      const drag = (top: number, ms = 200) => {
+        now += ms
+        scroller.dispatchEvent(new Event("touchmove"))
+        scroller.scrollTop = top
+        scroller.dispatchEvent(new Event("scroll"))
+      }
+
+      it("hides them after a line and a bit down, not one line", () => {
         service.trackScroll(scroller)
-        scrollTo(200)
+        drag(ANDROID_HIDE_DISTANCE - 8)
+        expect(collapsed()).toBeFalse()
+        drag(ANDROID_HIDE_DISTANCE)
+        expect(collapsed()).toBeTrue()
+      })
+
+      it("brings them back after two lines up, not one", () => {
+        service.trackScroll(scroller)
+        drag(100)
+        drag(400)
+        expect(collapsed()).toBeTrue()
+        drag(400 - 30)
+        expect(collapsed()).toBeTrue()
+        drag(400 - ANDROID_REVEAL_DISTANCE)
+        expect(collapsed()).toBeFalse()
+      })
+
+      it("brings them back at once on a flick up", () => {
+        service.trackScroll(scroller)
+        drag(100)
+        drag(400)
+        // 30 px in 10 ms: 3 px/ms, past FLING_REVEAL_SPEED.
+        drag(370, 10)
+        expect(30 / 10).toBeGreaterThanOrEqual(FLING_REVEAL_SPEED)
+        expect(collapsed()).toBeFalse()
+      })
+
+      // Voice Access, a keyboard or a switch scrolls without a finger.
+      it("brings them back on a scroll up that is no finger's", () => {
+        service.trackScroll(scroller)
+        drag(100)
+        drag(400)
+        now += 5000
+        scroller.scrollTop = 390
+        scroller.dispatchEvent(new Event("scroll"))
+        expect(collapsed()).toBeFalse()
+      })
+
+      it("shows them on a tap, which never hides them", () => {
+        service.trackScroll(scroller)
+        drag(100)
+        drag(400)
         expect(collapsed()).toBeTrue()
 
+        line.click()
+        expect(collapsed()).toBeFalse()
+        line.click()
+        expect(collapsed()).toBeFalse()
+      })
+
+      it("leaves them hidden on a tap while auto-scroll reads on", () => {
+        service.trackScroll(scroller)
+        service.setAutoScroll({
+          playing: true,
+          speedLabel: "1",
+          speedAccessibilityLabel: "1 linha por segundo",
+          canSlower: true,
+          canFaster: true,
+          canPlay: true,
+        })
+        expect(collapsed()).toBeTrue()
         line.click()
         expect(collapsed()).toBeTrue()
       })

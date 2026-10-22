@@ -30,7 +30,7 @@ class NativeChromePlugin : Plugin() {
     private lateinit var chrome: ChromeController
 
     override fun load() {
-        chrome = ChromeController(activity, bridge.webView, ::send, ::sendInsets)
+        chrome = ChromeController(activity, bridge.webView, ::send, ::sendInsets, ::sendPalette)
     }
 
     override fun handleOnConfigurationChanged(newConfig: Configuration) {
@@ -217,6 +217,11 @@ class NativeChromePlugin : Plugin() {
 
     private fun sendInsets(insets: ChromeInsets) {
         notifyListeners("insets", insets.toJSObject())
+    }
+
+    /** Kept until the web app listens: the first comes as the overlay first draws. */
+    private fun sendPalette(palette: JSObject) {
+        notifyListeners("palette", palette, true)
     }
 
     private fun presented(presented: Boolean) = JSObject().put("presented", presented)

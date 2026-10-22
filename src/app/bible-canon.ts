@@ -190,3 +190,15 @@ export function withIntros(
     ? [{ name: leading, books: [] }, ...groupsWithIntros]
     : groupsWithIntros
 }
+
+/** The books in the edition's order, Génesis to Apocalipse. */
+export const CANON_ORDER: readonly string[] = [
+  ...OLD_TESTAMENT_GROUPS,
+  ...NEW_TESTAMENT_GROUPS,
+].flatMap((group) => group.books)
+
+/** The book after `bookId` in the edition's order; none after Apocalipse. */
+export function nextCanonBook(bookId: string): string | undefined {
+  const index = CANON_ORDER.indexOf(bookId)
+  return index >= 0 ? CANON_ORDER[index + 1] : undefined
+}

@@ -64,6 +64,7 @@ describe("BibleReaderComponent", () => {
     ])
     bookServiceSpy = jasmine.createSpyObj("BookService", [
       "findBook",
+      "findBookById",
       "getUrlAbrv",
       "getChapterUrlSegment",
       "parseChapterUrlSegment",
@@ -1567,38 +1568,61 @@ describe("BibleReaderComponent", () => {
     const cards = (cardFixture: ComponentFixture<BibleReaderComponent>) =>
       cardFixture.debugElement.queryAll(By.css("a.chapter-card"))
 
-    it("offers the chapter before above the text and the next after it", async () => {
+    it("offers the next chapter after the text, and nothing above it", async () => {
       const cardFixture = await readerAt(5)
-      const [previous, next] = cards(cardFixture)
+      const [next, ...others] = cards(cardFixture)
 
-      expect(previous.nativeElement.textContent).toContain("Génesis 4")
+      expect(others).toEqual([])
+      expect(next.nativeElement.textContent).toContain("Capítulo seguinte")
       expect(next.nativeElement.textContent).toContain("Génesis 6")
-      // Real links, as the web's arrows: the same chapters, history replaced.
+      // A real link, as the web's arrows: history replaced alike.
       const reader = cardFixture.componentInstance
-      expect(reader.previousChapterLink).toEqual(["/", "1-genesis", "4"])
       expect(reader.nextChapterLink).toEqual(["/", "1-genesis", "6"])
-      for (const card of [previous, next]) {
-        expect(card.injector.get(RouterLink).replaceUrl).toBe(
-          reader.replaceChapterHistory,
-        )
-      }
-    })
-
-    it("has none past the book's first and last chapters", async () => {
-      const first = await readerAt(1)
-      expect(cards(first).length).toBe(1)
-      expect(cards(first)[0].nativeElement.textContent).toContain("Génesis 2")
-
-      const last = await readerAt(50)
-      expect(cards(last).length).toBe(1)
-      expect(cards(last)[0].nativeElement.textContent).toContain("Génesis 49")
-    })
-
-    it("names the introduction before chapter 1", async () => {
-      const cardFixture = await readerAt(1, { introduction: true })
-      expect(cards(cardFixture)[0].nativeElement.textContent).toContain(
-        "Introdução",
+      expect(next.injector.get(RouterLink).replaceUrl).toBe(
+        reader.replaceChapterHistory,
       )
+    })
+
+    // Above chapter 1 the card leads to the introduction, which otherwise
+    // only the picker shows; elsewhere ‹ is at hand at a chapter's top.
+    it("leads to the introduction from above chapter 1", async () => {
+      const cardFixture = await readerAt(1, { introduction: true })
+      const [intro] = cards(cardFixture)
+      expect(intro.nativeElement.textContent).toContain("Antes do capítulo 1")
+      expect(intro.nativeElement.textContent).toContain("Introdução ao livro")
+      expect(cardFixture.componentInstance.previousChapterLink).toEqual([
+        "/",
+        "1-genesis",
+        "intro",
+      ])
+    })
+
+    it("has nothing above chapter 1 of a book without an introduction", async () => {
+      const [only] = cards(await readerAt(1))
+      expect(only.nativeElement.textContent).toContain("Génesis 2")
+    })
+
+    // Génesis 50 was a dead end.
+    it("leads on to the next book from a book's last chapter", async () => {
+      bookServiceSpy.findBookById.and.callFake((id: string) =>
+        id === "exo"
+          ? ({ id: "exo", shortName: "Êxodo", chapterCount: 40 } as Book)
+          : undefined,
+      )
+      bookServiceSpy.getUrlAbrv.and.callFake((book: Book) =>
+        book.id === "exo" ? "2-exodo" : "1-genesis",
+      )
+      const cardFixture = await readerAt(50)
+      const [next, ...others] = cards(cardFixture)
+
+      expect(others).toEqual([])
+      expect(next.nativeElement.textContent).toContain("Livro seguinte")
+      expect(next.nativeElement.textContent).toContain("Êxodo 1")
+      expect(cardFixture.componentInstance.nextBookLink).toEqual([
+        "/",
+        "2-exodo",
+        "1",
+      ])
     })
 
     // Pages turn into the next chapter at the last one.

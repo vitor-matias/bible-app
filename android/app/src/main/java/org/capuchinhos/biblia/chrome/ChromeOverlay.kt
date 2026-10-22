@@ -150,6 +150,10 @@ fun ChromeOverlay(chrome: ChromeController) {
             chrome.setSystemBarsBackground(statusArgb, if (statusArgb != null) pageArgb else null)
         }
         ReportSystemInsets(chrome)
+        // The web's chapter cards sit among the bars: they take the same
+        // surface, wallpaper's or brown.
+        val cardSurface = MaterialTheme.colorScheme.surfaceContainerHigh.toArgb()
+        SideEffect { chrome.onPalette(cardSurface) }
         Box(Modifier.fillMaxSize()) {
             when (state.mode) {
                 ChromeMode.Reader -> ReaderBars(chrome, state, barColor, page)
@@ -596,15 +600,13 @@ private fun AutoScrollToolbar(chrome: ChromeController, autoScroll: AutoScrollSt
             floatingActionButton = {
                 // At the page's end there's nothing left to play: greyed out.
                 val canPress = enabled && (autoScroll.playing || autoScroll.canPlay)
-                // In the dark theme the brown container is 1.85:1 against the
-                // page; the light primary stands out at 11:1.
-                val dark = LocalDarkTheme.current
+                // The accent itself, which stands out from the page in either
+                // theme (a container would be 1.85:1 on the dark page).
                 FloatingToolbarDefaults.VibrantFloatingActionButton(
                     onClick = { if (canPress) chrome.send("auto-scroll-toggle") },
                     modifier = if (canPress) Modifier else Modifier.semantics { disabled() },
-                    containerColor = if (dark) colors.primary else colors.primaryContainer,
-                    contentColor = (if (dark) colors.onPrimary else colors.onPrimaryContainer)
-                        .copy(alpha = if (canPress) 1f else 0.38f),
+                    containerColor = colors.primary,
+                    contentColor = colors.onPrimary.copy(alpha = if (canPress) 1f else 0.38f),
                 ) {
                     Icon(
                         painterResource(if (autoScroll.playing) R.drawable.ic_pause_filled else R.drawable.ic_play_arrow_filled),

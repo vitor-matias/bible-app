@@ -63,6 +63,7 @@ class ChromeController(
     webView: WebView,
     private val send: (action: String, extra: JSObject) -> Unit,
     private val sendInsets: (ChromeInsets) -> Unit,
+    private val sendPalette: (JSObject) -> Unit,
 ) {
     var state by mutableStateOf(ChromeState())
         private set
@@ -201,6 +202,16 @@ class ChromeController(
     /** The space the bars cover now, which the page pads its content by. */
     val insets: ChromeInsets
         get() = chromeInsets(state, collapsed, systemTop, systemBottom, readerBar)
+
+    /** The scheme's surfaceContainerHigh as last sent to the web app. */
+    private var sentCardSurface: Int? = null
+
+    /** The bars' colours changed (theme, wallpaper): the web's cards follow. */
+    fun onPalette(surfaceContainerHigh: Int) {
+        if (surfaceContainerHigh == sentCardSurface) return
+        sentCardSurface = surfaceContainerHigh
+        sendPalette(JSObject().put("surfaceContainerHigh", cssHex(surfaceContainerHigh)))
+    }
 
     /** The reader's top bar was laid out at this height (dp). */
     fun onTopBarHeight(height: Float) {
@@ -454,3 +465,6 @@ private const val RECENT_SEARCHES = "search.recent"
 fun keepsBarsUp(serviceId: String): Boolean =
     serviceId.contains(".switchaccess.") ||
         serviceId.startsWith("com.google.android.apps.accessibility.voiceaccess/")
+
+/** An ARGB colour as CSS hex, without its alpha: "#EEE7E3". */
+fun cssHex(argb: Int): String = String.format("#%06X", argb and 0xFFFFFF)

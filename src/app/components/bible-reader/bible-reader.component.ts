@@ -26,6 +26,7 @@ import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { combineLatest, Subject, Subscription } from "rxjs"
 import { switchMap, take, takeUntil } from "rxjs/operators"
+import { nextCanonBook } from "../../bible-canon"
 import {
   PagedNavigationDirective,
   PageState,
@@ -419,6 +420,31 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       true,
     )
     this.nextChapterLink = this.chapterCommands(this.chapterNumber + 1, true)
+    const nextId =
+      this.book && this.chapterNumber >= this.book.chapterCount
+        ? nextCanonBook(this.book.id)
+        : undefined
+    this.nextBook = nextId ? this.bookService.findBookById(nextId) : undefined
+    this.nextBookLink = this.nextBook
+      ? [
+          "/",
+          this.bookService.getUrlAbrv(this.nextBook),
+          this.bookService.getChapterUrlSegment(1),
+        ]
+      : []
+  }
+
+  /**
+   * At a book's last chapter, the next book in the edition's order (Malaquias
+   * leads to Mateus); none after Apocalipse. Its chapter 1, as a link.
+   */
+  nextBook?: Book
+  nextBookLink: (string | number)[] = []
+
+  /** Following the "Livro seguinte" card: reading hands-free stops there. */
+  prepareBookNavigation(event: MouseEvent): void {
+    if (!this.isPlainLeftClick(event)) return
+    this.autoScrollService.stop()
   }
 
   onSwipeLeft(): void {
@@ -465,15 +491,22 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   /** A chapter card's passage: "Mateus 4", "Salmo 23 (22)", or the introduction. */
-  chapterCardLabel(chapter: number): string {
-    return chapter === 0 ? "Introdução" : passageLabel(this.book, chapter)
+  chapterCardLabel(chapter: number, book: Book = this.book): string {
+    return chapter === 0 ? "Introdução" : passageLabel(book, chapter)
   }
 
-  /** Whether the chapter cards have a chapter before, and after, in the book. */
-  get hasPreviousChapter(): boolean {
-    return this.book?.id !== "about" && this.chapterNumber > this.minChapter
+  /**
+   * Chapter 1 of a book with an introduction: the card above the text leads
+   * to it, which only the picker otherwise shows. Elsewhere ‹ is at hand at a
+   * chapter's top, where the bars always show.
+   */
+  get introCard(): boolean {
+    return (
+      this.book?.id !== "about" && this.chapterNumber === 1 && this.hasIntro
+    )
   }
 
+  /** Whether the card after the text has a chapter of this book to go on to. */
   get hasNextChapter(): boolean {
     return (
       this.book?.id !== "about" && this.chapterNumber < this.book?.chapterCount

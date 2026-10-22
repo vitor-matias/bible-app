@@ -1,15 +1,20 @@
 package org.capuchinhos.biblia.chrome
 
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 
 /** Whether the in-app theme ("system", "light", "dark") is dark here. */
 @Composable
@@ -20,14 +25,18 @@ fun isDarkTheme(themeMode: String): Boolean = when (themeMode) {
 }
 
 /**
- * Material 3 Expressive in the website's brown, on every Android version: the
- * app's own colour, not the wallpaper's. The reader's text keeps its red.
+ * Material 3 Expressive in the wallpaper's colours, as Android's own apps
+ * (Android 12 and later); before that, in the website's brown. The reader's
+ * text keeps its red either way.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun BibleTheme(themeMode: String, content: @Composable () -> Unit) {
     val dark = isDarkTheme(themeMode)
-    val colorScheme = if (dark) BrownDark else BrownLight
+    val context = LocalContext.current
+    val colorScheme = bibleColorScheme(dark, Build.VERSION.SDK_INT) { darkWallpaper ->
+        if (darkWallpaper) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    }
     CompositionLocalProvider(LocalDarkTheme provides dark) {
         MaterialExpressiveTheme(
             colorScheme = colorScheme,
@@ -36,6 +45,10 @@ fun BibleTheme(themeMode: String, content: @Composable () -> Unit) {
         )
     }
 }
+
+/** The wallpaper's scheme where Android has one (12, API 31, on); else the brown. */
+fun bibleColorScheme(dark: Boolean, sdkInt: Int, dynamic: (dark: Boolean) -> ColorScheme): ColorScheme =
+    if (sdkInt >= Build.VERSION_CODES.S) dynamic(dark) else if (dark) BrownDark else BrownLight
 
 /**
  * The web page's own background (`--background-color` in src/styles.css),
@@ -71,16 +84,21 @@ fun ribbonTone(name: String?, dark: Boolean): Color? {
 @Composable
 fun ribbonColor(name: String?): Color? = ribbonTone(name, LocalDarkTheme.current)
 
-// Material's fidelity scheme from the website's brown #543D27, its header's
-// colour, which it keeps as the primary container (material-color-utilities
-// 0.3.0, SchemeFidelity, contrast 0). Tonal spot would push it to caramel.
+// Phones without wallpaper colours (before Android 12): Material's fidelity
+// scheme from the website's brown #543D27, its header's colour
+// (material-color-utilities 0.3.0, SchemeFidelity, contrast 0; tonal spot
+// would push it to caramel), with the light theme's primary roles moved so
+// the brown is the accent, and a few on-colours lifted for contrast.
 
 internal val BrownLight = lightColorScheme(
-    primary = Color(0xFF3C2713),
+    // The website's brown is the accent, where the fidelity scheme put it on
+    // a dark container and kept a near-black primary: selected buttons, the
+    // current chapter and ▶ now show it (10.1:1 under white). Its container
+    // is light, so the ribbon tones made for light tiles show on it.
+    primary = Color(0xFF543D27),
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFF543D27),
-    // Lifted from the generated #C8A88C (4.55:1 on the brown) to 7.6:1.
-    onPrimaryContainer = Color(0xFFF0DCCD),
+    primaryContainer = Color(0xFFFFDCC2),
+    onPrimaryContainer = Color(0xFF2B1700),
     inversePrimary = Color(0xFFE2C0A3),
     secondary = Color(0xFF6A5C50),
     onSecondary = Color(0xFFFFFFFF),

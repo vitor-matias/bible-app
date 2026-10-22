@@ -523,6 +523,8 @@ private fun RibbonTile(
             shape = RoundedCornerShape(16.dp),
             color = tile,
             contentColor = if (ribbon.current) colors.onPrimaryContainer else colors.onSurface,
+            // The chapter's own ribbon, told by more than its fill.
+            border = if (ribbon.current) BorderStroke(2.dp, colors.primary) else null,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(84.dp)

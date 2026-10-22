@@ -243,6 +243,12 @@ export interface ChromeInsets {
   collapsed?: boolean
 }
 
+/** The Android bars' colours that the web's own surfaces match. */
+export interface NativePalette {
+  /** For the chapter cards, among the bars: "#EEE7E3". */
+  surfaceContainerHigh?: string
+}
+
 export interface NativeChromePlugin {
   setState(state: NativeChromeState): Promise<ChromeInsets>
   /**
@@ -290,6 +296,11 @@ export interface NativeChromePlugin {
     eventName: "insets",
     listener: (insets: ChromeInsets) => void,
   ): Promise<PluginListenerHandle>
+  /** The Android app's bar colours, from the wallpaper or the brown. */
+  addListener(
+    eventName: "palette",
+    listener: (palette: NativePalette) => void,
+  ): Promise<PluginListenerHandle>
 }
 
 /** Backdrop of an open dialog or bottom sheet (menus use a transparent one). */
@@ -301,6 +312,16 @@ const TAP_TARGETS =
 
 /** Scroll this far in one direction to hide or bring back the reader's bars. */
 export const COLLAPSE_DISTANCE = 24
+
+/**
+ * The Android app's: hidden after a line and a bit down, back after two
+ * lines up, so re-reading a line doesn't bring the bar over the text.
+ */
+export const ANDROID_HIDE_DISTANCE = 32
+export const ANDROID_REVEAL_DISTANCE = 64
+
+/** Or a flick up at this speed (px/ms; 1 is 1000 dp/s): someone looking for the bars. */
+export const FLING_REVEAL_SPEED = 1
 
 /**
  * How long after a touch a scroll still counts as the reader's own, which
@@ -465,6 +486,9 @@ export class NativeChromeService {
       }),
     )
     void this.plugin.addListener("insets", (insets) => this.applyInsets(insets))
+    void this.plugin.addListener("palette", (palette) =>
+      this.applyPalette(palette),
+    )
 
     // Whichever element a page scrolls in: scroll events don't bubble, but
     // they pass the document on their way down. Only the Android bar shows
@@ -639,8 +663,9 @@ export class NativeChromeService {
    * when it scrolls up or reaches either end. A tap on the text shows them, or
    * hides them again, as in Photos and Books; a tap on a link, a notes marker or
    * another control stays that control's. On Android the bars follow the
-   * scrolling alone, as Material's do: a tap only where the page can't scroll
-   * (pages). Returns the cleanup.
+   * scrolling, as Material's do, with more scrolling up than down to bring
+   * them back, or a flick; a tap only shows hidden ones, except in pages,
+   * which don't scroll and keep the toggle. Returns the cleanup.
    */
   trackScroll(element: HTMLElement): () => void {
     if (!this.enabled) return () => {}
@@ -648,32 +673,45 @@ export class NativeChromeService {
     this.lastScroller = undefined
     this.scheduleReading()
     let lastTop = element.scrollTop
+    let lastTime = performance.now()
     let anchor = lastTop
     let direction = 0
     let lastTouch = Number.NEGATIVE_INFINITY
+    const hideAfter = this.android ? ANDROID_HIDE_DISTANCE : COLLAPSE_DISTANCE
+    const showAfter = this.android ? ANDROID_REVEAL_DISTANCE : COLLAPSE_DISTANCE
     const onTouch = () => {
       lastTouch = performance.now()
     }
     const onScroll = () => {
       const top = element.scrollTop
+      const now = performance.now()
       const step = Math.sign(top - lastTop)
+      // How fast it is going up, px/ms.
+      const upSpeed = (lastTop - top) / Math.max(now - lastTime, 1)
       if (step !== 0 && step !== direction) {
         // Turned around: measure from here.
         direction = step
         anchor = lastTop
       }
       lastTop = top
+      lastTime = now
       const atEnd =
         top <= 0 || top + element.clientHeight >= element.scrollHeight - 1
-      if (performance.now() - lastTouch > USER_SCROLL_WINDOW_MS) {
-        // Not the reader's scroll: start measuring afresh from here.
+      if (now - lastTouch > USER_SCROLL_WINDOW_MS) {
+        // Not the reader's scroll: start measuring afresh from here. In the
+        // Android app, a scroll up that is no finger's (a keyboard, Voice
+        // Access, a switch) brings the bars back, as scrolling up does.
         anchor = top
-        if (atEnd) this.setCollapsed(false)
+        if (atEnd || (this.android && step < 0)) this.setCollapsed(false)
         return
       }
-      if (atEnd || anchor - top >= COLLAPSE_DISTANCE) {
+      if (
+        atEnd ||
+        anchor - top >= showAfter ||
+        (this.android && upSpeed >= FLING_REVEAL_SPEED)
+      ) {
         this.setCollapsed(false)
-      } else if (top - anchor >= COLLAPSE_DISTANCE) {
+      } else if (top - anchor >= hideAfter) {
         this.setCollapsed(true)
       }
     }
@@ -688,6 +726,12 @@ export class NativeChromeService {
         return
       }
       if (this.android && element.scrollHeight > element.clientHeight + 1) {
+        // Material's bars follow the scrolling; a tap only brings hidden
+        // ones back, for whoever doesn't think to scroll up. Not while
+        // auto-scroll reads on.
+        if (this.collapsed && !this.autoScroll?.playing) {
+          this.setCollapsed(false)
+        }
         return
       }
       this.setCollapsed(!this.collapsed)
@@ -887,6 +931,19 @@ export class NativeChromeService {
         // Not applied: the next push must not be skipped as a repeat.
         if (this.lastSent === sent) this.lastSent = undefined
       },
+    )
+  }
+
+  /**
+   * The Android bars take the wallpaper's colours (or the brown): the
+   * chapter cards, which sit among them, follow (styles.css). On the body,
+   * over the stylesheet's own fallback there.
+   */
+  private applyPalette({ surfaceContainerHigh }: NativePalette): void {
+    if (!surfaceContainerHigh) return
+    this.document.body.style.setProperty(
+      "--android-surface-container-high",
+      surfaceContainerHigh,
     )
   }
 
