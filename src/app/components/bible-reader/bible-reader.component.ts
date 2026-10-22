@@ -43,6 +43,7 @@ import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
 import { ToastService } from "../../services/toast.service"
+import { passageLabel } from "../../utils/passage-label"
 import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
 import { BookIntroComponent } from "../book-intro/book-intro.component"
@@ -82,6 +83,21 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private platformId = inject(PLATFORM_ID)
   private haptics = inject(HapticsService)
   private nativeChrome = inject(NativeChromeService)
+  /**
+   * The Android app's chapter cards: the chapter before, above the text, and
+   * the next one, after it, in place of the web's arrows (its own wait in the
+   * screen's corners while its bars show).
+   */
+  readonly chapterCards = this.nativeChrome.android
+
+  /** In scrolling mode, once the chapter is in: pages turn into the next one. */
+  get showChapterCards(): boolean {
+    return (
+      this.chapterCards &&
+      !!this.chapter &&
+      this.effectiveViewMode === "scrolling"
+    )
+  }
   private toast = inject(ToastService)
   private stopTrackingScroll?: () => void
   private unregisterBackCloser = inject(BackButtonService).register(() => {
@@ -442,6 +458,22 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     return (
       this.chapter.number > this.minChapter ||
       (this.effectiveViewMode === "paged" && !this.isFirstPage)
+    )
+  }
+
+  /** A chapter card's passage: "Mateus 4", "Salmo 23 (22)", or the introduction. */
+  chapterCardLabel(chapter: number): string {
+    return chapter === 0 ? "Introdução" : passageLabel(this.book, chapter)
+  }
+
+  /** Whether the chapter cards have a chapter before, and after, in the book. */
+  get hasPreviousChapter(): boolean {
+    return this.book?.id !== "about" && this.chapterNumber > this.minChapter
+  }
+
+  get hasNextChapter(): boolean {
+    return (
+      this.book?.id !== "about" && this.chapterNumber < this.book?.chapterCount
     )
   }
 

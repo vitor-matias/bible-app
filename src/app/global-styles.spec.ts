@@ -2,6 +2,7 @@ import { Component } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { provideNoopAnimations } from "@angular/platform-browser/animations"
+import { RIBBON_COLORS } from "./services/bookmark-ribbons.service"
 
 // Rules in src/styles.css that reach across components.
 describe("global styles", () => {
@@ -174,4 +175,156 @@ describe("global styles", () => {
       expect(color()).not.toBe("rgb(255, 69, 58)")
     })
   })
+
+  // The iOS app's glass bars float over the text, which fades out under them.
+  // The Android app's Material bars are opaque; WebView 133 garbled the
+  // blurred, masked overlay into a frozen patch of old text.
+  describe("the text's edge fades under the native bars", () => {
+    let reader: HTMLElement
+
+    beforeEach(() => {
+      reader = document.createElement("bible-reader")
+      document.body.appendChild(reader)
+      document.body.classList.add("native-chrome")
+    })
+
+    afterEach(() => {
+      reader.remove()
+      document.body.classList.remove(
+        "native-chrome",
+        "platform-ios",
+        "platform-android",
+      )
+    })
+
+    const fade = (edge: "::before" | "::after") =>
+      getComputedStyle(reader, edge)
+
+    it("blur the text under the iOS app's bars", () => {
+      document.body.classList.add("platform-ios")
+      expect(fade("::before").backdropFilter).toBe("blur(4px)")
+      expect(fade("::after").backdropFilter).toBe("blur(4px)")
+    })
+
+    it("are left out of the Android app", () => {
+      document.body.classList.add("platform-android")
+      expect(fade("::before").content).toBe("none")
+      expect(fade("::after").content).toBe("none")
+    })
+  })
+
+  // The grouped list's grey and white are iOS's system colours; the Android
+  // app's Material bars keep the theme's colours around the results.
+  describe("the search page's colours in the native apps", () => {
+    let search: HTMLElement
+
+    let wasDark: boolean
+
+    beforeEach(() => {
+      search = document.createElement("app-search")
+      document.body.appendChild(search)
+      document.body.classList.add("native-chrome")
+      // In the light theme: the dark one's grouped background is black.
+      wasDark = document.documentElement.classList.contains("dark-theme")
+      document.documentElement.classList.remove("dark-theme")
+    })
+
+    afterEach(() => {
+      document.documentElement.classList.toggle("dark-theme", wasDark)
+      search.remove()
+      document.body.classList.remove(
+        "native-chrome",
+        "platform-ios",
+        "platform-android",
+      )
+    })
+
+    const background = () =>
+      getComputedStyle(search).getPropertyValue("--background-color").trim()
+
+    it("are iOS's grouped colours in the iOS app", () => {
+      document.body.classList.add("platform-ios")
+      expect(background()).toBe("#f2f2f7")
+    })
+
+    it("are the theme's in the Android app", () => {
+      document.body.classList.add("platform-android")
+      expect(background()).not.toBe("#f2f2f7")
+    })
+  })
+
+  // Orange on a grey tile was 1.7:1, under the 3:1 a ribbon's shape needs:
+  // each colour has a darker tone on light surfaces and a lighter one on
+  // dark ones, as in the native apps.
+  describe("bookmark ribbon tones", () => {
+    let probe: HTMLElement
+    let wasDark: boolean
+
+    beforeEach(() => {
+      probe = document.createElement("span")
+      document.body.appendChild(probe)
+      wasDark = document.documentElement.classList.contains("dark-theme")
+    })
+
+    afterEach(() => {
+      probe.remove()
+      document.documentElement.classList.toggle("dark-theme", wasDark)
+    })
+
+    const resolve = (value: string) => {
+      probe.style.color = value
+      return getComputedStyle(probe).color
+    }
+
+    for (const dark of [false, true]) {
+      it(`keep 3:1 against the cards in the ${dark ? "dark" : "light"} theme`, () => {
+        document.documentElement.classList.toggle("dark-theme", dark)
+        const card = resolve("var(--card-background)")
+        for (const ribbon of RIBBON_COLORS) {
+          const tone = resolve(`var(--ribbon-${ribbon.value})`)
+          expect(contrastRatio(tone, card))
+            .withContext(ribbon.value)
+            .toBeGreaterThanOrEqual(3)
+          // Text on the ribbon (its passage, a chapter number) stays legible.
+          expect(contrastRatio(resolve("var(--ribbon-text)"), tone))
+            .withContext(`text on ${ribbon.value}`)
+            .toBeGreaterThanOrEqual(4)
+        }
+      })
+    }
+
+    it("keep the light tones on surfaces that stay light", () => {
+      document.documentElement.classList.add("dark-theme")
+      for (const ribbon of RIBBON_COLORS) {
+        expect(
+          contrastRatio(
+            resolve(`var(--ribbon-light-${ribbon.value})`),
+            resolve("antiquewhite"),
+          ),
+        )
+          .withContext(ribbon.value)
+          .toBeGreaterThanOrEqual(3)
+      }
+    })
+  })
 })
+
+/** WCAG relative luminance of a computed `rgb()` colour. */
+function luminance(cssColor: string): number {
+  const [r, g, b] = (cssColor.match(/[\d.]+/g) ?? [])
+    .slice(0, 3)
+    .map((value) => {
+      const channel = Number(value) / 255
+      return channel <= 0.03928
+        ? channel / 12.92
+        : ((channel + 0.055) / 1.055) ** 2.4
+    })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const [lighter, darker] = [luminance(foreground), luminance(background)].sort(
+    (a, b) => b - a,
+  )
+  return (lighter + 0.05) / (darker + 0.05)
+}

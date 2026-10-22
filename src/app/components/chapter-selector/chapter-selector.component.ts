@@ -20,6 +20,7 @@ import { MatTreeModule } from "@angular/material/tree"
 import { of } from "rxjs"
 import { map } from "rxjs/operators"
 import { BookmarkService } from "../../services/bookmark.service"
+import { ribbonColor } from "../../services/bookmark-ribbons.service"
 import { scrollOnDrawerOpen } from "../../utils/drawer-scroll"
 
 @Component({
@@ -50,6 +51,9 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
   bookId!: string
 
   bookmarks$ = of(new Map<number, string>()) // map chapter -> color
+
+  /** Each ribbon in the theme's tone for it. */
+  readonly ribbonColor = ribbonColor
 
   private injector = inject(Injector)
 

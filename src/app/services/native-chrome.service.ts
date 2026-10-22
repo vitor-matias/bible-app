@@ -118,12 +118,25 @@ export interface AutoScrollChrome {
   canPlay: boolean
 }
 
-/** Mirrors ChromeState in ios/App/App/NativeChrome.swift. */
+/**
+ * Mirrors ChromeState in ios/App/App/NativeChrome.swift and
+ * android/…/chrome/ChromeState.kt.
+ */
 export type NativeChromeState =
   | (PageChrome & {
       inert: boolean
       collapsed: boolean
+      /**
+       * The page's text has scrolled under the top bar. The Android bar is
+       * the page's colour at rest and Material's container colour then.
+       */
+      scrolled: boolean
       autoScroll: AutoScrollChrome | null
+      /**
+       * The heading of the section being read, which the Android bar shows
+       * under the passage; null before the first one is passed.
+       */
+      subtitle: string | null
     })
   | { mode: "none" }
 
@@ -217,6 +230,11 @@ export interface ChromeInsets {
 
 export interface NativeChromePlugin {
   setState(state: NativeChromeState): Promise<ChromeInsets>
+  /**
+   * How far through the chapter the reader is, 0 to 1, for the Android bar's
+   * progress line; null hides it. Android only.
+   */
+  setProgress(progress: { value: number | null }): Promise<void>
   showPicker(data: PassagePickerData): Promise<void>
   /**
    * The sheets say whether they were presented: not over another sheet, and
@@ -276,8 +294,66 @@ export const COLLAPSE_DISTANCE = 24
  */
 export const USER_SCROLL_WINDOW_MS = 2000
 
+/** The apps whose shells draw the bars: UIKit on iOS, Material 3 on Android. */
+const NATIVE_CHROME_PLATFORMS = ["ios", "android"]
+
 /**
- * The iOS app draws its bars natively, so they get the system's Liquid Glass.
+ * The section headings in the reader's text and in an introduction, which
+ * mark themselves: a verse's own heading is inline (verse-section).
+ */
+const SECTION_HEADINGS = "[data-section-heading]"
+
+/** Steps the progress line moves in: finer would cross the bridge for nothing. */
+const PROGRESS_STEPS = 500
+
+/**
+ * How far through its content `element` has scrolled, 0 to 1: across, for the
+ * reader's pages, else down. Null when it doesn't scroll at all.
+ */
+export function scrollProgress(element: Element): number | null {
+  const across = element.scrollWidth - element.clientWidth
+  const down = element.scrollHeight - element.clientHeight
+  const progress =
+    across > 1
+      ? element.scrollLeft / across
+      : down > 1
+        ? element.scrollTop / down
+        : null
+  if (progress === null) return null
+  return (
+    Math.round(Math.min(Math.max(progress, 0), 1) * PROGRESS_STEPS) /
+    PROGRESS_STEPS
+  )
+}
+
+/**
+ * The heading of the section being read in `element`: the last one that has
+ * gone up past `line` (the top bar's lower edge), or, in pages, onto a page
+ * before the one in view. Null before the first.
+ */
+export function currentSectionHeading(
+  element: Element,
+  line: number,
+): string | null {
+  const viewLeft = element.getBoundingClientRect().left
+  let current: string | null = null
+  for (const heading of element.querySelectorAll(SECTION_HEADINGS)) {
+    const rect = heading.getBoundingClientRect()
+    // Not laid out: a heading hidden with its page.
+    if (rect.width === 0 && rect.height === 0) continue
+    if (rect.bottom <= line || rect.right <= viewLeft) {
+      current = heading.textContent?.replace(/\s+/g, " ").trim() || current
+    } else {
+      // In reading order: the rest come later.
+      break
+    }
+  }
+  return current
+}
+
+/**
+ * The native apps draw their bars natively, so they get the system's look:
+ * Liquid Glass on iOS, Material 3 on Android (NativeChromePlugin.kt).
  * Pages stay in charge: they send what the bars show (`show`), render no web
  * header of their own, and handle the taps from `actions$`.
  *
@@ -312,11 +388,29 @@ export class NativeChromeService {
   private lastSent?: string
   /** The shell says whether its bars did hide (ChromeInsets.collapsed). */
   private collapseReported = false
+  /** Text under the top bar; followed in the Android app only (see scrolled). */
+  private scrolled = false
+  /** The section heading under the passage (Android); see currentSectionHeading. */
+  private subtitle: string | null = null
+  /** The reader's scrolling element (trackScroll), and the one that last scrolled in it. */
+  private tracked?: HTMLElement
+  private lastScroller?: Element
+  private readingFrame?: number
+  /** The progress line's value as last sent. */
+  private sentProgress?: number | null
+  /** Where the top bar ends, in CSS pixels (--native-chrome-top). */
+  private insetTop = 0
 
-  /** True in the iOS app, whose shell provides the NativeChrome plugin. */
+  /** True in the iOS and Android apps, whose shells provide the NativeChrome plugin. */
   readonly enabled =
-    Capacitor.getPlatform() === "ios" &&
+    NATIVE_CHROME_PLATFORMS.includes(Capacitor.getPlatform()) &&
     Capacitor.isPluginAvailable("NativeChrome")
+
+  /**
+   * The Android app: Material's bars, which scroll away with the text, show
+   * where in the chapter the reader is, and leave chapter cards in the text.
+   */
+  readonly android = this.enabled && Capacitor.getPlatform() === "android"
 
   /** Taps on the native bars, delivered inside the Angular zone. */
   readonly actions$ = this.actionSubject.asObservable()
@@ -341,6 +435,19 @@ export class NativeChromeService {
     )
     void this.plugin.addListener("insets", (insets) => this.applyInsets(insets))
 
+    // Whichever element a page scrolls in: scroll events don't bubble, but
+    // they pass the document on their way down. Only the Android bar shows
+    // it; on iOS each push rebuilds the bars, for nothing.
+    if (Capacitor.getPlatform() === "android") {
+      this.ngZone.runOutsideAngular(() =>
+        this.document.addEventListener(
+          "scroll",
+          (event) => this.onScroll(event),
+          { capture: true, passive: true },
+        ),
+      )
+    }
+
     const overlays = this.overlayContainer.getContainerElement()
     new MutationObserver(() => {
       const modalOpen = overlays.querySelector(MODAL_BACKDROP) !== null
@@ -359,8 +466,12 @@ export class NativeChromeService {
     if (!this.enabled) return
     clearTimeout(this.pendingHide)
     this.pendingHide = undefined
+    // Another kind of page starts at its top.
+    if (this.requested?.mode !== page.mode) this.scrolled = false
     this.requested = page
     this.push()
+    // A chapter of its own: where it is read from may not scroll to tell.
+    this.scheduleReading()
   }
 
   /**
@@ -488,10 +599,15 @@ export class NativeChromeService {
    * Hides the reader's bars while `element` scrolls down and brings them back
    * when it scrolls up or reaches either end. A tap on the text shows them, or
    * hides them again, as in Photos and Books; a tap on a link, a notes marker or
-   * another control stays that control's. Returns the cleanup.
+   * another control stays that control's. On Android the bars follow the
+   * scrolling alone, as Material's do: a tap only where the page can't scroll
+   * (pages). Returns the cleanup.
    */
   trackScroll(element: HTMLElement): () => void {
     if (!this.enabled) return () => {}
+    this.tracked = element
+    this.lastScroller = undefined
+    this.scheduleReading()
     let lastTop = element.scrollTop
     let anchor = lastTop
     let direction = 0
@@ -532,6 +648,9 @@ export class NativeChromeService {
       if (event.defaultPrevented || selecting || target?.closest(TAP_TARGETS)) {
         return
       }
+      if (this.android && element.scrollHeight > element.clientHeight + 1) {
+        return
+      }
       this.setCollapsed(!this.collapsed)
     }
     const events = ["touchstart", "touchmove", "touchend", "wheel"]
@@ -549,6 +668,12 @@ export class NativeChromeService {
       for (const event of events) element.removeEventListener(event, onTouch)
       element.removeEventListener("pointerdown", onPointerDown)
       element.removeEventListener("click", onClick)
+      if (this.tracked === element) {
+        this.tracked = undefined
+        this.lastScroller = undefined
+        this.subtitle = null
+        this.sendProgress(null)
+      }
       this.setCollapsed(false)
     }
   }
@@ -581,6 +706,60 @@ export class NativeChromeService {
     }
   }
 
+  private onScroll(event: Event): void {
+    const target = event.target
+    if (
+      target instanceof Element &&
+      this.tracked &&
+      (target === this.tracked || this.tracked.contains(target))
+    ) {
+      this.lastScroller = target
+      this.scheduleReading()
+    }
+    const top =
+      target instanceof Element
+        ? target.scrollTop
+        : (this.document.scrollingElement?.scrollTop ?? 0)
+    if (top > 0 === this.scrolled) return
+    this.scrolled = top > 0
+    this.push()
+  }
+
+  /**
+   * Where the reader is (Android): the progress line and the section's
+   * heading, once a frame at most while the text moves.
+   */
+  private scheduleReading(): void {
+    if (!this.android || this.readingFrame !== undefined) return
+    const view = this.document.defaultView
+    if (!view) return
+    this.ngZone.runOutsideAngular(() => {
+      this.readingFrame = view.requestAnimationFrame(() => {
+        this.readingFrame = undefined
+        this.updateReading()
+      })
+    })
+  }
+
+  private updateReading(): void {
+    const element = this.tracked
+    if (!element || this.requested?.mode !== "reader") return
+    const scroller = this.lastScroller?.isConnected
+      ? this.lastScroller
+      : element
+    this.sendProgress(scrollProgress(scroller) ?? scrollProgress(element))
+    const subtitle = currentSectionHeading(element, this.insetTop)
+    if (subtitle === this.subtitle) return
+    this.subtitle = subtitle
+    this.push()
+  }
+
+  private sendProgress(value: number | null): void {
+    if (!this.android || value === this.sentProgress) return
+    this.sentProgress = value
+    this.plugin.setProgress({ value }).catch(() => {})
+  }
+
   private setCollapsed(collapsed: boolean): void {
     if (collapsed === this.collapsed) return
     this.collapsed = collapsed
@@ -596,7 +775,9 @@ export class NativeChromeService {
           // While auto-scroll plays, its controls stay within reach as the
           // bars hide; paused, its play button hides with them.
           collapsed: reader && (this.modalOpen || this.collapsed),
+          scrolled: this.scrolled,
           autoScroll: reader ? this.autoScroll : null,
+          subtitle: reader ? this.subtitle : null,
         }
       : { mode: "none" }
     // Lets the page draw its edge effects to match. Once the shell says
@@ -623,6 +804,7 @@ export class NativeChromeService {
   }
 
   private applyInsets({ top, bottom, collapsed }: ChromeInsets): void {
+    this.insetTop = top
     const style = this.document.documentElement.style
     style.setProperty("--native-chrome-top", `${top}px`)
     style.setProperty("--native-chrome-bottom", `${bottom}px`)

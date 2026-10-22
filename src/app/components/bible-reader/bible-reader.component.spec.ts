@@ -1530,6 +1530,87 @@ describe("BibleReaderComponent", () => {
     })
   })
 
+  describe("Android chapter cards", () => {
+    /** The reader at `chapter`, as the Android app (or not) shows it. */
+    async function readerAt(
+      chapter: number,
+      options: {
+        android?: boolean
+        viewMode?: "scrolling" | "paged"
+        introduction?: boolean
+      } = {},
+    ): Promise<ComponentFixture<BibleReaderComponent>> {
+      TestBed.resetTestingModule()
+      await setUpTestBed({ imports: [RouterLink] })
+      bookServiceSpy.findBook.and.returnValue({
+        ...mockBooks[0],
+        shortName: "Génesis",
+        ...(options.introduction && {
+          introduction: [{ type: "p", text: "…" }],
+        }),
+      } as unknown as Book)
+      preferencesServiceSpy.getViewMode.and.returnValue(
+        options.viewMode ?? "scrolling",
+      )
+      Object.assign(TestBed.inject(NativeChromeService), {
+        android: options.android ?? true,
+      })
+      const cardFixture = TestBed.createComponent(BibleReaderComponent)
+      cardFixture.detectChanges()
+      cardFixture.componentInstance.getChapter(chapter)
+      await cardFixture.whenStable()
+      cardFixture.componentRef.changeDetectorRef.markForCheck()
+      cardFixture.detectChanges()
+      return cardFixture
+    }
+
+    const cards = (cardFixture: ComponentFixture<BibleReaderComponent>) =>
+      cardFixture.debugElement.queryAll(By.css("a.chapter-card"))
+
+    it("offers the chapter before above the text and the next after it", async () => {
+      const cardFixture = await readerAt(5)
+      const [previous, next] = cards(cardFixture)
+
+      expect(previous.nativeElement.textContent).toContain("Génesis 4")
+      expect(next.nativeElement.textContent).toContain("Génesis 6")
+      // Real links, as the web's arrows: the same chapters, history replaced.
+      const reader = cardFixture.componentInstance
+      expect(reader.previousChapterLink).toEqual(["/", "1-genesis", "4"])
+      expect(reader.nextChapterLink).toEqual(["/", "1-genesis", "6"])
+      for (const card of [previous, next]) {
+        expect(card.injector.get(RouterLink).replaceUrl).toBe(
+          reader.replaceChapterHistory,
+        )
+      }
+    })
+
+    it("has none past the book's first and last chapters", async () => {
+      const first = await readerAt(1)
+      expect(cards(first).length).toBe(1)
+      expect(cards(first)[0].nativeElement.textContent).toContain("Génesis 2")
+
+      const last = await readerAt(50)
+      expect(cards(last).length).toBe(1)
+      expect(cards(last)[0].nativeElement.textContent).toContain("Génesis 49")
+    })
+
+    it("names the introduction before chapter 1", async () => {
+      const cardFixture = await readerAt(1, { introduction: true })
+      expect(cards(cardFixture)[0].nativeElement.textContent).toContain(
+        "Introdução",
+      )
+    })
+
+    // Pages turn into the next chapter at the last one.
+    it("leaves them out of pages", async () => {
+      expect(cards(await readerAt(5, { viewMode: "paged" })).length).toBe(0)
+    })
+
+    it("leaves them to the Android app", async () => {
+      expect(cards(await readerAt(5, { android: false })).length).toBe(0)
+    })
+  })
+
   describe("iOS native bars", () => {
     it("hides them as the text scrolls, until the text goes away", () => {
       const stop = jasmine.createSpy("stop")

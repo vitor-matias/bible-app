@@ -28,6 +28,7 @@ export class PreferencesService {
     FONT_SIZE_PREFIX: "fontSize",
     VIEW_MODE: "viewMode",
     ONBOARDING_SEEN: "onboardingSeen",
+    NATIVE_BARS_ONBOARDING_SEEN: "nativeBarsOnboardingSeen",
   }
 
   getTheme(): "light" | "dark" | "system" | null {
@@ -112,5 +113,25 @@ export class PreferencesService {
 
   setOnboardingSeen(seen: boolean): void {
     this.storage?.setItem(this.KEYS.ONBOARDING_SEEN, seen.toString())
+  }
+
+  /**
+   * Whether the onboarding was seen with the Android app's native bars,
+   * which replaced its web header. As getOnboardingSeen, seen when storage
+   * is unusable.
+   */
+  getNativeBarsOnboardingSeen(): boolean {
+    const storage = this.storage
+    return (
+      !storage ||
+      storage.getItem(this.KEYS.NATIVE_BARS_ONBOARDING_SEEN) === "true"
+    )
+  }
+
+  setNativeBarsOnboardingSeen(seen: boolean): void {
+    this.storage?.setItem(
+      this.KEYS.NATIVE_BARS_ONBOARDING_SEEN,
+      seen.toString(),
+    )
   }
 }

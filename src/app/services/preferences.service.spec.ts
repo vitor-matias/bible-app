@@ -62,12 +62,23 @@ describe("PreferencesService", () => {
     expect(service.getOnboardingSeen()).toBeFalse()
   })
 
+  // The Android app shows it once more with its native bars.
+  it("should remember that the wizard was seen with the native bars", () => {
+    expect(service.getNativeBarsOnboardingSeen()).toBeFalse()
+
+    service.setNativeBarsOnboardingSeen(true)
+    expect(service.getNativeBarsOnboardingSeen()).toBeTrue()
+    // Its own key: the first-launch flag is untouched.
+    expect(service.getOnboardingSeen()).toBeFalse()
+  })
+
   it("should report the wizard as seen when storage cannot record it", () => {
     // A throwing setItem fails the safeLocalStorage() probe, as blocked
     // storage does; "unseen" would then reopen the wizard on every launch.
     spyOn(Storage.prototype, "setItem").and.throwError("blocked")
 
     expect(service.getOnboardingSeen()).toBeTrue()
+    expect(service.getNativeBarsOnboardingSeen()).toBeTrue()
   })
 
   it("should store and read the last location", () => {

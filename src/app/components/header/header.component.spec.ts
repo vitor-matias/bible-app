@@ -458,7 +458,9 @@ describe("HeaderComponent", () => {
     const ribbon = fixture.nativeElement.querySelector(
       ".chapter-ribbon",
     ) as HTMLElement
-    expect(ribbon.style.color).toBe("red")
+    // The light surfaces' tone: the header's button is antique white in
+    // both themes.
+    expect(ribbon.style.color).toBe("var(--ribbon-light-red)")
     expect(ribbon.parentElement?.textContent).toContain(", marcador vermelho")
   })
 

@@ -27,6 +27,16 @@
       <div #bookContainer [class.paged-view-container]="effectiveViewMode === 'paged'" [appPagedNavigation]="bookBlock"
         [viewMode]="effectiveViewMode" (nextChapter)="goToNextChapter()" (prevChapter)="goToPreviousChapter()"
         (pageStateChange)="onPageStateChange($event)">
+        @if (showChapterCards && hasPreviousChapter) {
+        <a class="chapter-card chapter-card-previous" [routerLink]="previousChapterLink" [replaceUrl]="replaceChapterHistory"
+          (click)="prepareChapterNavigation(false, $event)">
+          <mat-icon aria-hidden="true">arrow_back</mat-icon>
+          <span class="chapter-card-text">
+            <span class="chapter-card-kicker">Capítulo anterior</span>
+            <span class="chapter-card-passage">{{ chapterCardLabel(chapterNumber - 1) }}</span>
+          </span>
+        </a>
+        }
         <div #bookBlock class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}"
           [class.paged-view]="effectiveViewMode === 'paged'">
           @if (chapter) {
@@ -46,6 +56,16 @@
           </div>
           }
         </div>
+        @if (showChapterCards && hasNextChapter) {
+        <a class="chapter-card chapter-card-next" [routerLink]="nextChapterLink" [replaceUrl]="replaceChapterHistory"
+          (click)="prepareChapterNavigation(true, $event)">
+          <span class="chapter-card-text">
+            <span class="chapter-card-kicker">Capítulo seguinte</span>
+            <span class="chapter-card-passage">{{ chapterCardLabel(chapterNumber + 1) }}</span>
+          </span>
+          <mat-icon aria-hidden="true">arrow_forward</mat-icon>
+        </a>
+        }
       </div>
 
       @if (book.id !== 'about' && chapter) {

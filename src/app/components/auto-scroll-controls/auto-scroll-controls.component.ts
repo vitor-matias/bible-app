@@ -33,7 +33,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   private readonly nativeChrome = inject(NativeChromeService)
   private readonly destroyRef = inject(DestroyRef)
   private readonly ngZone = inject(NgZone)
-  /** The iOS app shows these controls in its native toolbar instead. */
+  /** The native apps show these controls in their own toolbar instead. */
   readonly native = this.nativeChrome.enabled
 
   constructor(
@@ -169,7 +169,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     this.syncNativeChrome()
   }
 
-  /** Sends what these controls show to the iOS app, which draws its own. */
+  /** Sends what these controls show to the native toolbar. */
   private syncNativeChrome(): void {
     if (!this.native || this.destroyRef.destroyed) return
     this.nativeChrome.setAutoScroll({

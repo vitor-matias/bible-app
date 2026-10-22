@@ -64,6 +64,30 @@ describe("VerseSectionComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  // The Android bar names the section being read (NativeChromeService): the
+  // heading, not the text or the references that run on from it.
+  it("marks the section's own heading", () => {
+    component.changeLine = false
+    setData(
+      component,
+      makeVerse({
+        text: [
+          { type: "section", tag: "s2", text: "Criação do mundo" },
+          { type: "references", text: "(Jo 1,1-3)" },
+          { type: "text", text: "No princípio" },
+        ],
+      }),
+    )
+    fixture.detectChanges()
+
+    const headings = fixture.nativeElement.querySelectorAll(
+      "[data-section-heading]",
+    ) as NodeListOf<HTMLElement>
+    expect(Array.from(headings, (heading) => heading.textContent)).toEqual([
+      "Criação do mundo",
+    ])
+  })
+
   describe("ngOnChanges — parsedReferences", () => {
     it("should pre-compute references for reference-type text entries", () => {
       component.changeLine = false

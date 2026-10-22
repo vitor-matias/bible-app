@@ -8,6 +8,8 @@ export interface OnboardingFeature {
   text: string
   /** The iOS app's wording, where its native bars put things elsewhere. */
   iosText?: string
+  /** The Android app's, where its Material bars differ from the iOS app's. */
+  androidText?: string
 }
 
 export interface OnboardingStep {
@@ -19,6 +21,10 @@ export interface OnboardingStep {
   intro: string
   /** The iOS app's wording, where its native bars put things elsewhere. */
   iosIntro?: string
+  /** The Android app's, where its Material bars differ from the iOS app's. */
+  androidIntro?: string
+  /** The Android app's icon, where it shows the button the intro names. */
+  androidIcon?: string
   features: readonly OnboardingFeature[]
 }
 
@@ -73,12 +79,16 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
       "No topo do ecrã, toque no nome do livro para escolher outro livro e no número para saltar para um capítulo.",
     iosIntro:
       "Na barra inferior, toque no nome do livro para escolher outro livro ou capítulo.",
+    androidIntro:
+      "No topo do ecrã, toque no nome do livro para escolher outro livro ou capítulo.",
     features: [
       {
         icon: "swipe",
         text: "Deslize o texto para o lado para mudar de capítulo. No computador, use as setas ← e → ou os botões nas margens.",
         iosText:
           "Deslize o texto para o lado, ou toque nas setas ‹ › da barra inferior, para mudar de capítulo.",
+        androidText:
+          "Deslize o texto para o lado, ou toque nas setas ‹ › dos cantos inferiores, para mudar de capítulo. No fim do capítulo, um botão leva ao seguinte.",
       },
       {
         icon: "link",
@@ -89,6 +99,8 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
         text: "Toque num versículo com nota para ler a nota de rodapé.",
         iosText:
           "Toque no ícone de notas junto ao número do versículo para ler a nota. Um toque no texto mostra ou esconde os botões.",
+        androidText:
+          "Toque no ícone de notas junto ao número do versículo para ler a nota. Os botões saem do caminho enquanto lê e voltam quando desliza para cima.",
       },
     ],
   },
@@ -100,6 +112,10 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
       "Abra o menu ☰ no canto superior esquerdo para ajustar a leitura ao seu gosto.",
     iosIntro:
       "Toque em AA, no topo à esquerda, para ajustar a leitura ao seu gosto.",
+    // TT is the button's glyph, as AA is iOS's; TalkBack users hear its name.
+    androidIntro:
+      "Toque em TT (Texto e aparência), no topo à direita, para ajustar a leitura ao seu gosto.",
+    androidIcon: "format_size",
     features: [
       {
         icon: "dark_mode",
@@ -118,6 +134,8 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
         text: "Ative o deslocamento automático para ler sem mãos, com velocidade ajustável.",
         iosText:
           "Ative o deslocamento automático no menu ⋯ para ler sem mãos, com velocidade ajustável.",
+        androidText:
+          "Ative o deslocamento automático no menu ⋮, no topo à direita, para ler sem mãos, com velocidade ajustável.",
       },
     ],
   },
@@ -307,15 +325,20 @@ export function getInstallGuide(
   }
 }
 
-/** One page of the iOS app's native onboarding sheet (NativeChrome.swift). */
+/**
+ * One page of the native apps' onboarding: the iOS app's sheet
+ * (OnboardingSheet.swift), the Android app's dialog (Dialogs.kt).
+ */
 export interface NativeOnboardingStep {
   id: string
   title: string
   intro: string
-  /** SF Symbol for the page's hero, unless it shows the app's logo. */
+  /** SF Symbol for the page's hero on iOS, unless it shows the app's logo. */
   symbol: string
+  /** The Material Symbol, which the Android app shows. */
+  icon: string
   logo: boolean
-  features: { symbol: string; text: string }[]
+  features: { symbol: string; icon: string; text: string }[]
 }
 
 /** SF Symbols standing in for the Material icons on iOS. */
@@ -343,23 +366,35 @@ export function sfSymbol(icon: string): string {
 }
 
 /**
- * The steps as the iOS app shows them: in its own words, with SF Symbols, and
- * without the install step (the app is installed by definition).
+ * The steps as the native apps show them: in their own words, and without
+ * the install step (the app is installed by definition). The Android app's
+ * Material bars put the passage on top and the chapter arrows in the corners;
+ * where it says nothing of its own, it reads as the iOS app.
  */
 export function nativeOnboardingSteps(
   steps: readonly OnboardingStep[] = ONBOARDING_STEPS,
+  platform: "ios" | "android" = "ios",
 ): NativeOnboardingStep[] {
+  const android = platform === "android"
   return steps
     .filter((step) => step.id !== INSTALL_STEP_ID)
     .map((step) => ({
       id: step.id,
       title: step.title,
-      intro: step.iosIntro ?? step.intro,
+      intro:
+        (android ? step.androidIntro : undefined) ??
+        step.iosIntro ??
+        step.intro,
       symbol: sfSymbol(step.icon),
+      icon: (android ? step.androidIcon : undefined) ?? step.icon,
       logo: !!step.image,
       features: step.features.map((feature) => ({
         symbol: sfSymbol(feature.icon),
-        text: feature.iosText ?? feature.text,
+        icon: feature.icon,
+        text:
+          (android ? feature.androidText : undefined) ??
+          feature.iosText ??
+          feature.text,
       })),
     }))
 }

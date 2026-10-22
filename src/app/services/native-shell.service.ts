@@ -37,8 +37,9 @@ export class NativeShellService {
     this.nativeChrome.init()
 
     // The web toolbars are always brown, so the status bar icons are always
-    // light. SystemBars would otherwise follow the device theme. While the iOS
-    // native bars show, ChromeViewController.swift sets them from the theme.
+    // light. SystemBars would otherwise follow the device theme. While the
+    // native bars show, the shell sets them from the theme
+    // (ChromeViewController.swift, ChromeOverlay.kt).
     this.setBarStyle(SystemBarType.StatusBar, SystemBarsStyle.Dark)
 
     this.router.events

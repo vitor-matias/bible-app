@@ -63,6 +63,8 @@ button.highlight {
 .bookmarked {
   position: relative;
   z-index: 1;
+  /* On the ribbon: light on the dark tones, dark on the light ones. */
+  color: var(--ribbon-text);
 }
 
 .chapterSelectorContainer {

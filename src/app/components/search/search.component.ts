@@ -216,7 +216,7 @@ export class SearchComponent {
    * Read while the router builds the page; by ngOnInit it is done navigating.
    */
   private cameBack = inject(Router).currentNavigation()?.trigger === "popstate"
-  /** The iOS app draws the search field and Back natively, not search-bar. */
+  /** The native apps draw the search field and Back, not search-bar. */
   readonly native = this.nativeChrome.enabled
   /** Each keystroke, with the submit it followed (searchGeneration). */
   private readonly typed = new Subject<{ text: string; generation: number }>()

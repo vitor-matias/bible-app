@@ -8,7 +8,7 @@ import {
 import { ToastService } from "./toast.service"
 
 /**
- * "Reportar erro" as a native form sheet in the iOS app. The sheet collects
+ * "Reportar erro" as a native form in the iOS and Android apps. The sheet collects
  * the report; this sends it as the web dialog (ReportProblemComponent) does,
  * then closes the sheet, or leaves it open with the error.
  */

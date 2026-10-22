@@ -7,14 +7,15 @@ import { BookService } from "./book.service"
 import { NativeChromeService } from "./native-chrome.service"
 
 export interface ToastOptions {
-  /** The snackbar's button on the web ("" for none); the iOS toast has none. */
+  /** The snackbar's button on the web ("" for none); the native toast has none. */
   action?: string
   duration?: number
 }
 
 /**
- * A short message: a Material snackbar on the web and Android, a native glass
- * toast in the iOS app (NativeChromeService).
+ * A short message: a Material snackbar on the web, a native glass toast in
+ * the iOS app, a native Material snackbar in the Android app
+ * (NativeChromeService).
  */
 @Injectable({
   providedIn: "root",

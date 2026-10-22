@@ -15,7 +15,7 @@ import {
 } from "./native-chrome.service"
 
 /**
- * The bookmarks panel as a native sheet in the iOS app. The sheet only draws
+ * The bookmarks panel as a native sheet in the iOS and Android apps. The sheet only draws
  * and reports taps; the ribbons' rules stay in BookmarkRibbonsService, and
  * the sheet is refreshed whenever the stored bookmarks change.
  */

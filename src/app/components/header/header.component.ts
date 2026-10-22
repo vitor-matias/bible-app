@@ -37,7 +37,10 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
-import { spokenRibbonName } from "../../services/bookmark-ribbons.service"
+import {
+  ribbonColor,
+  spokenRibbonName,
+} from "../../services/bookmark-ribbons.service"
 import {
   BuildVersionService,
   type DisplayVersion,
@@ -93,7 +96,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Input() chapterNumber!: number
   @Input() autoScrollControlsVisible = false
   @Input() viewMode: "scrolling" | "paged" = "scrolling"
-  /** For the iOS toolbar's arrows; the web page has its own. */
+  /** For the native toolbar's arrows; the web page has its own. */
   @Input() canGoPrevious = false
   @Input() canGoNext = false
 
@@ -133,6 +136,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private labelSwapTimeout?: number
   canShare = false
   currentBookmark: Bookmark | undefined
+  /** The ribbon's tone; on the header's antique-white button in both themes. */
+  readonly ribbonColor = ribbonColor
 
   @Output() openBookSelector = new EventEmitter<{ open: boolean }>()
   @Output() openChapterSelector = new EventEmitter<{ open: boolean }>()
@@ -141,7 +146,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /** iOS toolbar arrows: a page in paged mode, else a chapter. */
   @Output() previous = new EventEmitter<void>()
   @Output() next = new EventEmitter<void>()
-  /** A passage chosen in the iOS picker; no chapter means the book's first. */
+  /** A passage chosen in the native picker; no chapter means the book's first. */
   @Output() selectPassage = new EventEmitter<{
     bookId: string
     chapter?: number
@@ -157,7 +162,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly nativeReport = inject(NativeReportService)
   private readonly buildVersion = inject(BuildVersionService)
   private bookmarks: Bookmark[] = []
-  /** The iOS shell draws this header natively; the template renders nothing. */
+  /** The native shells draw this header; the template renders nothing. */
   readonly native = this.nativeChrome.enabled
   private readonly platformId = inject(PLATFORM_ID)
   private readonly document = inject(DOCUMENT)
@@ -182,7 +187,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   /**
    * Initializes responsive and sharing state, follows bookmark changes, and
-   * connects the iOS bars. Loads the menu version asynchronously, ignoring
+   * connects the native bars. Loads the menu version asynchronously, ignoring
    * it if this header has already been destroyed.
    */
   ngOnInit(): void {
@@ -201,7 +206,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.syncNativeChrome()
       })
 
-    // The iOS shell draws the menu: it gets the timestamp, and has the release.
+    // The native shell draws the menu: it gets the timestamp, and has the release.
     void this.buildVersion.getDisplayVersion().then((version) => {
       // Gone already: syncing now would put the bars back over another page.
       if (this.destroyed) return
@@ -304,7 +309,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   /**
    * Ignores a late version result, unregisters the back handler, stops label
-   * cycling, and requests that the iOS bars hide.
+   * cycling, and requests that the native bars hide.
    */
   ngOnDestroy(): void {
     this.destroyed = true
@@ -444,7 +449,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  /** Sends what this header would show to the iOS native bars. */
+  /** Sends what this header would show to the native bars. */
   private syncNativeChrome(): void {
     if (!this.native || !this.book) return
     const isAbout = this.book.id === "about"
