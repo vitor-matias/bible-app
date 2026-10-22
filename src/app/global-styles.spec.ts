@@ -187,16 +187,19 @@ describe("global styles", () => {
 
     const rect = (selector: string) =>
       (reader.querySelector(selector) as HTMLElement).getBoundingClientRect()
+    // The screen, as the reader fills it: the window less any scrollbar the
+    // test page shows (Linux's take room; macOS's float).
+    const screen = () => rect(".mat-drawer-content")
 
     it("sits between the arrows, in their row, and the page runs down to it", () => {
       document.body.classList.add("native-chrome", "platform-android")
-      const rowTop = window.innerHeight - BOTTOM
+      const rowTop = screen().bottom - BOTTOM
       const copyright = rect(".fixed-footer")
 
       expect(copyright.top).toBeCloseTo(rowTop, 0)
       expect(copyright.bottom).toBeCloseTo(rowTop + 56, 0)
       expect(copyright.left).toBeCloseTo(88, 0)
-      expect(copyright.right).toBeCloseTo(window.innerWidth - 88, 0)
+      expect(copyright.right).toBeCloseTo(screen().right - 88, 0)
       // 8px above the row, as the text starts 8px under the bar.
       expect(rect(".paged-view-container").bottom).toBeCloseTo(rowTop - 8, 0)
       // The columns fill it: no band kept back for the copyright.
@@ -213,7 +216,7 @@ describe("global styles", () => {
       const copyright = rect(".fixed-footer")
 
       expect(copyright.height).toBeGreaterThan(56)
-      expect(copyright.bottom).toBeCloseTo(window.innerHeight - BOTTOM + 56, 0)
+      expect(copyright.bottom).toBeCloseTo(screen().bottom - BOTTOM + 56, 0)
       expect(rect(".paged-view-container").bottom).toBeCloseTo(
         copyright.top - 8,
         0,
@@ -246,7 +249,7 @@ describe("global styles", () => {
           .display,
       ).toBe("block")
       expect(rect(".paged-view-container").bottom).toBeCloseTo(
-        window.innerHeight - BOTTOM,
+        screen().bottom - BOTTOM,
         0,
       )
       document.body.classList.remove("platform-ios")
