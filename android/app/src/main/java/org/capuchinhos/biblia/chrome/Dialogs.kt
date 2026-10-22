@@ -1,5 +1,6 @@
 package org.capuchinhos.biblia.chrome
 
+import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -247,6 +248,11 @@ fun OnboardingDialog(chrome: ChromeController, sheet: Sheet.Onboarding) {
 
     Dialog(onDismissRequest = { finish(false) }, properties = FullScreen) {
         DialogSystemBarIcons()
+        // Back turns back a page, as the system's own setup does; on the
+        // first page it skips. An edge swipe on page 2 used to end it all.
+        BackHandler(enabled = pager.currentPage > 0) {
+            scope.launch { pager.animateScrollToPage(pager.currentPage - 1) }
+        }
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.windowInsetsPadding(WindowInsets.systemBars)) {
                 Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End) {
@@ -360,7 +366,7 @@ private fun onboardingIcon(name: String): Int = when (name) {
     "dark_mode" -> R.drawable.ic_dark_mode
     "auto_stories" -> R.drawable.ic_auto_stories
     "text_increase" -> R.drawable.ic_text_increase
-    "auto_mode" -> R.drawable.ic_auto_mode
+    "arrow_circle_down" -> R.drawable.ic_arrow_circle_down
     "search" -> R.drawable.ic_search
     "bookmarks" -> R.drawable.ic_bookmarks
     "share" -> R.drawable.ic_share

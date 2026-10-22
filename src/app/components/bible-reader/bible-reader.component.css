@@ -19,6 +19,14 @@ h6 {
   font-size: 105%;
 }
 
+/* Android's narrow measure (about 38 characters) hyphenated six lines in
+   fifteen, three in a row, down to two-letter fragments ("so-bre"). Words
+   of seven letters or more only, three on either side; balanced endings. */
+:host-context(.platform-android) .bookBlock {
+  hyphenate-limit-chars: 7 3 3;
+  text-wrap: pretty;
+}
+
 .chapterBlock {
   touch-action: pan-y !important;
 }
@@ -150,6 +158,13 @@ h6 {
   background-color: color-mix(in srgb, currentColor 12%, transparent);
 }
 
+/* The Android bars' own surface (surfaceContainerHigh, set in styles.css),
+   so the card belongs with the corner buttons and sheets rather than looking
+   like the web's grey. */
+:host-context(.platform-android) .chapter-card {
+  background-color: var(--android-surface-container-high);
+}
+
 .chapter-card-next {
   justify-content: space-between;
   min-height: 72px;
@@ -158,6 +173,15 @@ h6 {
 .chapter-card-previous {
   margin-bottom: 8px;
   padding-block: 10px;
+}
+
+/* Android's WebView zooms text by the system's font size, the icon font
+   with it, but not mat-icon's 24px box (nor 1em: text zoom leaves em
+   lengths unzoomed): at 200% the arrow was cut to a corner. The box takes
+   the glyph's own size. */
+.chapter-card mat-icon {
+  width: auto;
+  height: auto;
 }
 
 .chapter-card-text {
@@ -171,9 +195,9 @@ h6 {
 }
 
 .chapter-card-kicker {
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  opacity: 0.7;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  opacity: 0.75;
 }
 
 .chapter-card-passage {

@@ -33,6 +33,7 @@ import { Router, RouterModule } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import type { Share } from "@capacitor/share"
 import { shareableUrl } from "../../config"
+import type { TextSize } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
@@ -95,6 +96,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Input() book!: Book
   @Input() chapterNumber!: number
   @Input() autoScrollControlsVisible = false
+  /** The reader's text size, for the Android app's text sheet; null before it opens. */
+  @Input() textSize: TextSize | null = null
   @Input() viewMode: "scrolling" | "paged" = "scrolling"
   /** For the native toolbar's arrows; the web page has its own. */
   @Input() canGoPrevious = false
@@ -375,8 +378,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       : "Página a página (clique para mudar para texto contínuo)"
   }
 
-  @Output() increaseFontSizeEvent = new EventEmitter<void>()
-  @Output() decreaseFontSizeEvent = new EventEmitter<void>()
+  /** A size up or down; a `step` (percent) where the native sheet asks for one. */
+  @Output() increaseFontSizeEvent = new EventEmitter<number | undefined>()
+  @Output() decreaseFontSizeEvent = new EventEmitter<number | undefined>()
+  /** Back to the size the text opens at without a choice. */
+  @Output() resetFontSizeEvent = new EventEmitter<void>()
 
   increaseFontSize(): void {
     this.increaseFontSizeEvent.emit()
@@ -489,6 +495,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       canShare: this.canShare,
       canReport: this.analyticsService.areAnalyticsAvailable(),
       buildVersion: this.version?.build ?? null,
+      textSize: isAbout ? null : this.textSize,
     })
   }
 
@@ -529,10 +536,13 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.toggleViewMode.emit()
         break
       case "font-decrease":
-        this.decreaseFontSize()
+        this.decreaseFontSizeEvent.emit(action.step)
         break
       case "font-increase":
-        this.increaseFontSize()
+        this.increaseFontSizeEvent.emit(action.step)
+        break
+      case "font-reset":
+        this.resetFontSizeEvent.emit()
         break
       case "bookmarks":
         this.openBookmarkSelector()

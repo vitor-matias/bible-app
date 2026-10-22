@@ -79,12 +79,15 @@ internal val BrownLight = lightColorScheme(
     primary = Color(0xFF3C2713),
     onPrimary = Color(0xFFFFFFFF),
     primaryContainer = Color(0xFF543D27),
-    onPrimaryContainer = Color(0xFFC8A88C),
+    // Lifted from the generated #C8A88C (4.55:1 on the brown) to 7.6:1.
+    onPrimaryContainer = Color(0xFFF0DCCD),
     inversePrimary = Color(0xFFE2C0A3),
     secondary = Color(0xFF6A5C50),
     onSecondary = Color(0xFFFFFFFF),
     secondaryContainer = Color(0xFFF0DCCD),
-    onSecondaryContainer = Color(0xFF6E6054),
+    // Darkened from the generated #6E6054 (4.57:1) to 9.8:1: the corner
+    // arrows' only affordance is their glyph.
+    onSecondaryContainer = Color(0xFF3B2F24),
     tertiary = Color(0xFF182F37),
     onTertiary = Color(0xFFFFFFFF),
     tertiaryContainer = Color(0xFF2F454E),
@@ -123,7 +126,8 @@ internal val BrownDark = darkColorScheme(
     secondary = Color(0xFFD6C3B5),
     onSecondary = Color(0xFF392E24),
     secondaryContainer = Color(0xFF53473C),
-    onSecondaryContainer = Color(0xFFC7B5A7),
+    // Lifted from the generated #C7B5A7 to 6.8:1.
+    onSecondaryContainer = Color(0xFFF0DCCD),
     tertiary = Color(0xFFB3CAD5),
     onTertiary = Color(0xFF1D333C),
     tertiaryContainer = Color(0xFF2F454E),

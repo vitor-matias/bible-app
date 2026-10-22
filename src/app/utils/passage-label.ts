@@ -40,6 +40,17 @@ export function passageShortLabels(
     : [abbreviated]
 }
 
+/**
+ * What a problem report is about, as the passage button names it: "Salmo 34
+ * (33)", "Mateus Introdução", or just the page ("Sobre a Bíblia").
+ */
+export function reportSubject(book: NamedBook, chapter: number): string {
+  if (book.id === "about") return book.shortName
+  return chapter === 0
+    ? `${book.shortName} Introdução`
+    : passageLabel(book, chapter)
+}
+
 /** The API's abbreviations carry stray spaces and byte-order marks ("Tg \ufeff"). */
 export function cleanAbbreviation(abrv: string): string {
   return abrv.replace(/[\s\ufeff]+/g, " ").trim()

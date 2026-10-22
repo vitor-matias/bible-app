@@ -24,7 +24,31 @@ enum class ChromeMode {
     Page,
 }
 
-/** Auto-scroll's controls, which stack above the chapter arrows while they show. */
+/** The reader's text size, which the text sheet shows and steps (percent). */
+data class TextSize(
+    val percent: Int,
+    val min: Int,
+    val max: Int,
+    /** Not at the size the text opens at without a choice. */
+    val canReset: Boolean,
+) {
+    val canDecrease get() = percent > min
+    val canIncrease get() = percent < max
+
+    companion object {
+        /** The step of the sheet's − and +: bigger than the web's 5, so 150% isn't ten taps away. */
+        const val STEP = 10
+
+        fun from(json: JSONObject) = TextSize(
+            percent = json.optInt("percent", 100),
+            min = json.optInt("min", 70),
+            max = json.optInt("max", 235),
+            canReset = json.optBoolean("canReset"),
+        )
+    }
+}
+
+/** Auto-scroll's controls, which take the chapter arrows' row while they show. */
 data class AutoScrollState(
     val playing: Boolean,
     val speedLabel: String,
@@ -83,6 +107,10 @@ data class ChromeState(
     val bookmarkName: String? = null,
     /** When the web bundle was compiled, for the menu's small print. */
     val buildVersion: String? = null,
+    /** The text's size; null where the page has none to set (the About page). */
+    val textSize: TextSize? = null,
+    /** The page's background (`#ffffff`), as an ARGB colour; null when the web app doesn't say. */
+    val pageColor: Int? = null,
     val autoScroll: AutoScrollState? = null,
     // Search
     val query: String = "",
@@ -119,6 +147,8 @@ data class ChromeState(
                 bookmarkColor = call.getString("bookmarkColor"),
                 bookmarkName = call.getString("bookmarkName"),
                 buildVersion = call.getString("buildVersion"),
+                textSize = call.getObject("textSize", null)?.let(TextSize::from),
+                pageColor = call.getString("pageColor")?.let(::cssHexColor),
                 autoScroll = call.getObject("autoScroll", null)?.let(AutoScrollState::from),
                 query = call.getString("query", "")!!,
                 title = call.getString("title", "")!!,
@@ -146,27 +176,30 @@ data class ChromeInsets(
  * the state is, before the overlay lays them out. Without bars, only the
  * system bars ([systemTop], [systemBottom], in dp) cover the page.
  */
-fun chromeInsets(state: ChromeState, collapsed: Boolean, systemTop: Float, systemBottom: Float): ChromeInsets {
+fun chromeInsets(
+    state: ChromeState,
+    collapsed: Boolean,
+    systemTop: Float,
+    systemBottom: Float,
+    /** The reader's top bar as drawn: taller for large text, shorter on a phone on its side. */
+    readerBar: Float = BarMetrics.topBar,
+): ChromeInsets {
     if (state.mode == ChromeMode.None) return ChromeInsets(top = systemTop, bottom = systemBottom)
     if (state.mode == ChromeMode.Search) {
         return ChromeInsets(top = systemTop + BarMetrics.searchView + BarMetrics.divider, bottom = systemBottom)
     }
-    val top = systemTop + BarMetrics.topBar
-    if (state.mode != ChromeMode.Reader) return ChromeInsets(top = top, bottom = systemBottom)
-    val arrows = if (state.chapterNavigation) BarMetrics.chapterButton else 0f
-    val autoScroll = if (state.autoScroll != null) BarMetrics.toolbar else 0f
-    // Auto-scroll's toolbar stacks above the chapter arrows while the bars
-    // show; hidden for reading, they leave it their row. The end of the text
-    // stays clear of the arrows' row even while they hide, so the page doesn't
-    // grow and shrink with them.
-    val stack = when {
-        collapsed -> maxOf(arrows, autoScroll)
-        arrows > 0f && autoScroll > 0f -> arrows + BarMetrics.toolbarGap + autoScroll
-        else -> arrows + autoScroll
+    if (state.mode != ChromeMode.Reader) return ChromeInsets(top = systemTop + BarMetrics.topBar, bottom = systemBottom)
+    // Auto-scroll's toolbar takes the chapter arrows' row while it is up. The
+    // end of the text stays clear of the row even while the arrows hide, so
+    // the page doesn't grow and shrink with them.
+    val row = when {
+        state.autoScroll != null -> BarMetrics.toolbar
+        state.chapterNavigation -> BarMetrics.chapterButton
+        else -> 0f
     }
     return ChromeInsets(
-        top = top,
-        bottom = systemBottom + if (stack > 0f) BarMetrics.toolbarOffset + stack else 0f,
+        top = systemTop + readerBar,
+        bottom = systemBottom + if (row > 0f) BarMetrics.toolbarOffset + row else 0f,
         collapsed = collapsed,
     )
 }
@@ -186,11 +219,8 @@ object BarMetrics {
     /** A floating toolbar's distance from the screen's bottom edge, and the arrows'. */
     const val toolbarOffset = 16f
 
-    /** Between auto-scroll's toolbar and the chapter arrows below it. */
-    const val toolbarGap = 12f
-
-    /** The chapter arrows' buttons, at the bottom corners: Android's touch target. */
-    const val chapterButton = 48f
+    /** The chapter arrows' buttons, at the bottom corners: Material's standard FAB. */
+    const val chapterButton = 56f
 }
 
 /** The books and chapters the picker offers (utils/passage-picker.ts). */
@@ -273,6 +303,8 @@ data class BookmarksSheetState(
     val currentLabel: String,
     val ribbons: List<Ribbon>,
     val move: Move?,
+    /** False on the About page, whose ribbons only open their passages. */
+    val canMark: Boolean = true,
 ) {
     data class Ribbon(
         /** The CSS colour name the bookmark stores. */
@@ -299,6 +331,7 @@ data class BookmarksSheetState(
     companion object {
         fun from(call: PluginCall) = BookmarksSheetState(
             currentLabel = call.getString("currentLabel", "")!!,
+            canMark = call.getBoolean("canMark", true)!!,
             ribbons = objects(call.getArray("ribbons")).map { ribbon ->
                 Ribbon(
                     color = ribbon.optString("color"),
@@ -440,3 +473,15 @@ fun readRecentSearches(stored: String?): List<String> =
     }
 
 fun writeRecentSearches(recent: List<String>): String = org.json.JSONArray(recent).toString()
+
+/** A CSS hex colour ("#fff", "#121212") as opaque ARGB; null for anything else. */
+fun cssHexColor(css: String): Int? {
+    val hex = css.trim().removePrefix("#")
+    if (!css.trim().startsWith("#") || hex.any { it !in "0123456789abcdefABCDEF" }) return null
+    val rgb = when (hex.length) {
+        3 -> hex.map { "$it$it" }.joinToString("")
+        6 -> hex
+        else -> return null
+    }
+    return (0xFF000000 or rgb.toLong(16)).toInt()
+}

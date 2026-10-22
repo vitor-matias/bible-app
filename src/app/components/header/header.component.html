@@ -32,7 +32,7 @@
           <span>Marcadores</span>
         </button>
         <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode === 'paged'">
-          <mat-icon>auto_mode</mat-icon>
+          <mat-icon>arrow_circle_down</mat-icon>
           <span>
             {{ autoScrollControlsVisible
             ? 'Esconder controlos de deslocamento automático'
@@ -48,7 +48,7 @@
         @if (analyticsService.areAnalyticsAvailable()) {
           <button type="button" mat-menu-item (click)="onReportProblem(menuTrigger)">
             <mat-icon>report_problem</mat-icon>
-            <span>Reportar Erro</span>
+            <span>Reportar erro</span>
           </button>
         }
         <button type="button" mat-menu-item (click)="onOpenHelp(menuTrigger)">

@@ -24,7 +24,7 @@ export class ProblemReportService {
   private readonly analytics = inject(AnalyticsService)
 
   readonly topics: readonly { value: string; label: string }[] = [
-    { value: "typo", label: "Erro Ortográfico" },
+    { value: "typo", label: "Erro ortográfico" },
     { value: "formatting", label: "Formatação" },
     /*{ value: "audio", label: "Áudio" },*/
     { value: "suggestion", label: "Sugestão" },

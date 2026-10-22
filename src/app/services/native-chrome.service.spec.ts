@@ -30,6 +30,7 @@ const READER: ReaderChrome = {
   bookmarkColor: null,
   bookmarkName: null,
   buildVersion: null,
+  textSize: null,
 }
 
 const SEARCH: SearchChrome = { mode: "search", themeMode: "dark", query: "" }
@@ -170,6 +171,7 @@ describe("NativeChromeService", () => {
       scrolled: false,
       subtitle: null,
       autoScroll: null,
+      pageColor: null,
     })
   })
 
@@ -199,6 +201,15 @@ describe("NativeChromeService", () => {
       expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: true }))
       scrollTo(0)
       expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: false }))
+    })
+
+    // Under the reader's own top margin the text hasn't reached the bar yet.
+    it("waits for the text to reach the bar", () => {
+      create("android").show(READER)
+      scrollTo(5)
+      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: false }))
+      scrollTo(9)
+      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: true }))
     })
 
     it("is sent once per change, not per scroll", () => {
@@ -287,6 +298,7 @@ describe("NativeChromeService", () => {
       scrolled: false,
       subtitle: null,
       autoScroll: null,
+      pageColor: null,
     })
   }))
 
@@ -399,7 +411,7 @@ describe("NativeChromeService", () => {
     const service = create("ios")
     const state = {
       message: "Encontrou algum problema?",
-      topics: [{ value: "typo", label: "Erro Ortográfico" }],
+      topics: [{ value: "typo", label: "Erro ortográfico" }],
       placeholder: "",
       maxLength: 500,
     }
@@ -510,7 +522,12 @@ describe("NativeChromeService", () => {
   // *-closed event would ever end the page's session with it.
   it("says whether a sheet came up", async () => {
     const service = create("ios")
-    const state = { currentLabel: "Mateus 11", ribbons: [], move: null }
+    const state = {
+      currentLabel: "Mateus 11",
+      ribbons: [],
+      move: null,
+      canMark: true,
+    }
     plugin.showBookmarks.and.resolveTo({ presented: true })
     expect(await service.showBookmarks(state)).toBeTrue()
 
@@ -587,7 +604,12 @@ describe("NativeChromeService", () => {
 
   it("passes the bookmarks sheet through", () => {
     const service = create("ios")
-    const state = { currentLabel: "Mateus 11", ribbons: [], move: null }
+    const state = {
+      currentLabel: "Mateus 11",
+      ribbons: [],
+      move: null,
+      canMark: true,
+    }
     service.showBookmarks(state)
     service.updateBookmarks(state)
 
@@ -903,8 +925,11 @@ describe("NativeChromeService", () => {
       root.remove()
     })
 
+    /** Past the 20-a-second limit on working out where the reader is, and a frame. */
     const frame = () =>
-      new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      new Promise<void>((resolve) =>
+        setTimeout(() => requestAnimationFrame(() => resolve()), 60),
+      )
     const scrollTo = async (top: number) => {
       scroller.scrollTop = top
       scroller.dispatchEvent(new Event("scroll"))
@@ -956,6 +981,12 @@ describe("NativeChromeService", () => {
       expect(plugin.setState.calls.count()).toBe(calls)
     })
 
+    it("sends the page's colour for the bars to match", async () => {
+      root.style.setProperty("--background-color", "#121212")
+      service.show({ ...READER, themeMode: "dark" })
+      expect(lastState().pageColor).toBe("#121212")
+    })
+
     it("takes the line and the heading away when tracking stops", async () => {
       await scrollTo(100)
       stop()
@@ -986,6 +1017,60 @@ describe("NativeChromeService", () => {
       await scrollTo(700)
       expect(plugin.setProgress).not.toHaveBeenCalled()
       expect(lastState().subtitle).toBeNull()
+    })
+  })
+
+  // "Voltar para …" covered a line of text for as long as one read on.
+  describe("the way back after following a reference, in the Android app", () => {
+    let page: HTMLElement
+    let service: NativeChromeService
+    let now: number
+
+    beforeEach(() => {
+      doc["defaultView"] = window
+      page = document.createElement("div")
+      root.appendChild(page)
+      now = 1000
+      spyOn(performance, "now").and.callFake(() => now)
+      service = create("android")
+      service.show(READER)
+    })
+
+    afterEach(() => page.remove())
+
+    const scrollTo = (top: number) => {
+      Object.defineProperty(page, "scrollTop", {
+        value: top,
+        configurable: true,
+      })
+      page.dispatchEvent(new Event("scroll"))
+    }
+
+    it("goes once the reader has read on a screen's height", () => {
+      service.toast("Voltar para Mateus 5,3", { onTap: () => {} })
+      now += 2000
+      scrollTo(100)
+      scrollTo(100 + window.innerHeight - 1)
+      expect(plugin.hideToast).not.toHaveBeenCalled()
+      scrollTo(100 + window.innerHeight)
+      expect(plugin.hideToast).toHaveBeenCalledTimes(1)
+    })
+
+    // The reader lands on the verse as the toast shows: the app's scroll.
+    it("leaves it up while the reader lands on the passage", () => {
+      service.toast("Voltar para Mateus 5,3", { onTap: () => {} })
+      scrollTo(5000)
+      now += 2000
+      scrollTo(5000 + window.innerHeight - 1)
+      expect(plugin.hideToast).not.toHaveBeenCalled()
+    })
+
+    it("leaves a plain toast to its own timing", () => {
+      service.toast("Copiado")
+      now += 2000
+      scrollTo(0)
+      scrollTo(window.innerHeight * 2)
+      expect(plugin.hideToast).not.toHaveBeenCalled()
     })
   })
 

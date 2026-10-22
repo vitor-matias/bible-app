@@ -6,6 +6,9 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.util.TypedValue
 import android.view.View
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.LayerDrawable
+import android.view.Gravity
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityManager
@@ -76,6 +79,13 @@ class ChromeController(
      */
     var themeMode by mutableStateOf("system")
         private set
+
+    /** The page's colour as the web app last said, kept like the theme; null before it does. */
+    var pageColor by mutableStateOf<Int?>(null)
+        private set
+
+    /** The reader's top bar as last drawn, in dp: it follows the text size. */
+    private var readerBar = BarMetrics.topBar
 
     /**
      * The status bar's and navigation bar's heights, in dp, from the overlay.
@@ -156,7 +166,10 @@ class ChromeController(
         if (state.mode == ChromeMode.Search && next.mode != ChromeMode.Search) rememberSearch(state.query)
         if (next.mode != ChromeMode.Reader) progress = null
         state = next
-        if (next.mode != ChromeMode.None) themeMode = next.themeMode
+        if (next.mode != ChromeMode.None) {
+            themeMode = next.themeMode
+            next.pageColor?.let { pageColor = it }
+        }
         // After SystemBars, whose style calls arrive with the theme's and
         // reset the window's background.
         activity.window.decorView.post { applySystemBars() }
@@ -187,7 +200,14 @@ class ChromeController(
 
     /** The space the bars cover now, which the page pads its content by. */
     val insets: ChromeInsets
-        get() = chromeInsets(state, collapsed, systemTop, systemBottom)
+        get() = chromeInsets(state, collapsed, systemTop, systemBottom, readerBar)
+
+    /** The reader's top bar was laid out at this height (dp). */
+    fun onTopBarHeight(height: Float) {
+        if (height == readerBar) return
+        readerBar = height
+        reportInsets()
+    }
 
     /** The overlay's system bar insets changed: rotated, or the keyboard came up. */
     fun onSystemInsets(top: Float, bottom: Float) {
@@ -206,8 +226,8 @@ class ChromeController(
 
     // MARK: The system bars
 
-    /** The top bar's colour, while it shows; null for the window's own. */
-    private var systemBarsBackground: Int? = null
+    /** Behind the status bar, and behind the rest, while bars show; null for the window's own. */
+    private var systemBarsBackground: Pair<Int, Int>? = null
 
     /** Whether the theme in use is dark: the in-app one, or the device's. */
     val dark: Boolean
@@ -218,9 +238,10 @@ class ChromeController(
                 Configuration.UI_MODE_NIGHT_YES
         }
 
-    fun setSystemBarsBackground(color: Int?) {
-        if (color == systemBarsBackground) return
-        systemBarsBackground = color
+    fun setSystemBarsBackground(status: Int?, page: Int?) {
+        val next = if (status != null && page != null) status to page else null
+        if (next == systemBarsBackground) return
+        systemBarsBackground = next
         applySystemBars()
     }
 
@@ -249,8 +270,32 @@ class ChromeController(
         WindowCompat.getInsetsController(activity.window, decor).isAppearanceLightStatusBars =
             state.mode != ChromeMode.None && !dark
         if (decor.paddingTop == 0 && decor.paddingBottom == 0) return
-        decor.setBackgroundColor(systemBarsBackground ?: windowBackground())
+        // The status bar's strip takes the band's colour (the bar's, or the
+        // page's while the bars are away); the navigation bar's, the page's.
+        val (status, page) = systemBarsBackground ?: (windowBackground() to windowBackground())
+        val strips = systemBarStrips ?: LayerDrawable(arrayOf(ColorDrawable(), ColorDrawable())).apply {
+            setLayerGravity(1, Gravity.TOP or Gravity.FILL_HORIZONTAL)
+        }.also { systemBarStrips = it }
+        (strips.getDrawable(0) as ColorDrawable).color = page
+        (strips.getDrawable(1) as ColorDrawable).color = status
+        strips.setLayerHeight(1, decor.paddingTop)
+        if (decor.background !== strips) {
+            // A new background resets the decor's padding (DecorView's
+            // drawableChanged), which is what holds the page clear of the
+            // system bars here: put it back.
+            val left = decor.paddingLeft
+            val top = decor.paddingTop
+            val right = decor.paddingRight
+            val bottom = decor.paddingBottom
+            decor.background = strips
+            decor.setPadding(left, top, right, bottom)
+        } else {
+            strips.invalidateSelf()
+        }
     }
+
+    /** The two strips behind the system bars, kept so that later colours don't replace the background. */
+    private var systemBarStrips: LayerDrawable? = null
 
     private fun windowBackground(): Int {
         val value = TypedValue()
@@ -265,6 +310,9 @@ class ChromeController(
     // MARK: Actions
 
     fun send(action: String) = send(action, JSObject())
+
+    /** A text size down or up, by the sheet's own step. */
+    fun sendStep(action: String, step: Int) = send(action, JSObject().put("step", step))
 
     fun goTo(bookId: String, chapter: Int?) {
         send("goto", JSObject().put("bookId", bookId).apply { if (chapter != null) put("chapter", chapter) })

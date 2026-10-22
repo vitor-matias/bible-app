@@ -1,11 +1,12 @@
 @if (book) {
 <div class="text-container" unifiedGestures fontSizeContext="reader" (swipeLeft)="onSwipeLeft()" (swipeRight)="onSwipeRight()"
-  (swipeMove)="onSwipeMove($event)" (swipeCancel)="onSwipeCancel()">
+  (swipeMove)="onSwipeMove($event)" (swipeCancel)="onSwipeCancel()" (textSizeChange)="onTextSizeChange($event)">
   <header class="reader-header" [book]="book" [chapterNumber]="chapterNumber" [viewMode]="effectiveViewMode"
     [autoScrollControlsVisible]="showAutoScrollControls" (openBookSelector)="openBookDrawer($event)"
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
-    (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize()"
-    (decreaseFontSizeEvent)="onDecreaseFontSize()" [canGoPrevious]="canGoPrevious" [canGoNext]="canGoNext"
+    (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize($event)"
+    (decreaseFontSizeEvent)="onDecreaseFontSize($event)" (resetFontSizeEvent)="onResetFontSize()" [textSize]="textSize"
+    [canGoPrevious]="canGoPrevious" [canGoNext]="canGoNext"
     (previous)="stepBackward()" (next)="stepForward()" (selectPassage)="goToPassage($event)"></header>
   <mat-drawer-container class="bookSelectorContainer" #container>
     @if (books.length) {

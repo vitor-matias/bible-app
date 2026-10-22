@@ -122,6 +122,23 @@ describe("NativeBookmarksService", () => {
     expect(shown().currentLabel).toBe("Mateus Introdução")
   })
 
+  // The sheet offered to mark "Sobre a Bíblia 1": a page with no chapters,
+  // where a ribbon leads nowhere to read. Its ribbons still open.
+  it("marks nothing on the About page, named as a page", () => {
+    TestBed.inject(BookService).findBookById = () =>
+      ({ id: "about", shortName: "Sobre a Bíblia" }) as Book
+    service.open("about", 1)
+
+    expect(shown().currentLabel).toBe("Sobre a Bíblia")
+    expect(shown().canMark).toBeFalse()
+    expect(shown().move).toBeNull()
+
+    actions.next({ id: "bookmark-set", color: "orange" })
+    expect(ribbons.assign).not.toHaveBeenCalled()
+    actions.next({ id: "bookmark-open", color: "red" })
+    expect(ribbons.open).toHaveBeenCalled()
+  })
+
   it("marks the ribbon on the chapter being read", () => {
     service.open("mat", 5)
     expect(shown().ribbons[0].current).toBeTrue()

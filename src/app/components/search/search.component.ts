@@ -774,7 +774,7 @@ export class SearchComponent {
     this.statusMessage = this.nothingStored
       ? NOTHING_STORED
       : this.totalResults === 0
-        ? `Nenhum resultado para "${text}"`
+        ? `Nenhum resultado para «${text}»`
         : this.resultsHeading
     if (
       !typed &&

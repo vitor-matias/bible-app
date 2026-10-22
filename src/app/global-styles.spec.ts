@@ -213,6 +213,38 @@ describe("global styles", () => {
     })
   })
 
+  // Night reading on Android: pure white glared, and crimson on #121212 is
+  // 3.75:1, under the 4.5:1 small text needs.
+  describe("the Android app's dark theme", () => {
+    let probe: HTMLElement
+
+    beforeEach(() => {
+      probe = document.createElement("p")
+      document.body.appendChild(probe)
+      document.documentElement.classList.add("dark-theme")
+    })
+
+    afterEach(() => {
+      probe.remove()
+      document.documentElement.classList.remove("dark-theme")
+      document.body.classList.remove("platform-android", "platform-ios")
+    })
+
+    const token = (name: string) =>
+      getComputedStyle(probe).getPropertyValue(name).trim()
+
+    it("sets the text off-white and the accent in a red that passes", () => {
+      document.body.classList.add("platform-android")
+      expect(token("--text-color")).toBe("#e8e1dd")
+      expect(token("--text-secondary")).toBe("#ff453a")
+    })
+
+    it("leaves the iOS app and the web as they were", () => {
+      document.body.classList.add("platform-ios")
+      expect(token("--text-color")).toBe("#ffffff")
+    })
+  })
+
   // The grouped list's grey and white are iOS's system colours; the Android
   // app's Material bars keep the theme's colours around the results.
   describe("the search page's colours in the native apps", () => {

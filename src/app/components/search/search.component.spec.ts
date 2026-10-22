@@ -1252,7 +1252,7 @@ describe("SearchComponent", () => {
 
     expect(component.searchResults).toEqual([])
     expect(snackBar.open).not.toHaveBeenCalled()
-    expect(component.statusMessage).toBe('Nenhum resultado para "missing"')
+    expect(component.statusMessage).toBe("Nenhum resultado para «missing»")
     expect(scrollToTopSpy).toHaveBeenCalled()
   })
 

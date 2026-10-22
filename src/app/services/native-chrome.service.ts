@@ -5,6 +5,7 @@ import { Capacitor, type PluginListenerHandle } from "@capacitor/core"
 import { Subject } from "rxjs"
 import type { OnboardingResult } from "../components/onboarding/onboarding.component"
 import type { NativeOnboardingStep } from "../components/onboarding/onboarding-content"
+import type { TextSize } from "../directives/unified-gesture.directive"
 import { NATIVE_CHROME_PLUGIN } from "../tokens"
 import type { PassagePickerData } from "../utils/passage-picker"
 import type { ThemeMode } from "./theme.service"
@@ -22,8 +23,7 @@ export type NativeChromeAction =
         | "theme-light"
         | "theme-dark"
         | "view-mode"
-        | "font-decrease"
-        | "font-increase"
+        | "font-reset"
         | "bookmarks"
         | "auto-scroll"
         | "auto-scroll-toggle"
@@ -39,6 +39,8 @@ export type NativeChromeAction =
         /** A tap on the toast's button; handled here (toast). */
         | "toast-action"
     }
+  /** A size down or up; the Android sheet asks for a `step` (percent) of its own. */
+  | { id: "font-decrease" | "font-increase"; step?: number }
   | { id: "goto"; bookId: string; chapter?: number }
   | {
       id:
@@ -80,6 +82,8 @@ export interface ReaderChrome {
   bookmarkName: string | null
   /** When the web bundle was compiled, for the menu's small print. */
   buildVersion: string | null
+  /** The text's size and range, which the Android text sheet shows; null where it has none. */
+  textSize: TextSize | null
 }
 
 /** The search page's bars: Back on top, the search field at the bottom. */
@@ -137,6 +141,12 @@ export type NativeChromeState =
        * under the passage; null before the first one is passed.
        */
       subtitle: string | null
+      /**
+       * The page's own background (--background-color), which the Android
+       * bars take at rest and paint behind the system bars where the page
+       * can't reach them.
+       */
+      pageColor: string | null
     })
   | { mode: "none" }
 
@@ -154,6 +164,11 @@ export interface BookmarksSheetState {
     /** Marks the chapter being read. */
     current: boolean
   }[]
+  /**
+   * Whether this page can be marked; the About page can't, but its ribbons
+   * still open their passages.
+   */
+  canMark: boolean
   /**
    * The ribbon offered to move to this chapter, or, once moved, to move back;
    * null when there is none.
@@ -306,6 +321,15 @@ const SECTION_HEADINGS = "[data-section-heading]"
 /** Steps the progress line moves in: finer would cross the bridge for nothing. */
 const PROGRESS_STEPS = 500
 
+/** The reading position is worked out at most this often while the text moves. */
+const READING_INTERVAL_MS = 50
+
+/** How long the reader may still be landing on a passage after "Voltar para …" shows. */
+const RETURN_TOAST_SETTLE_MS = 1500
+
+/** Scrolled this far, the text has reached the bar: the reader's top margin. */
+const SCROLLED_UNDER_BAR = 8
+
 /**
  * How far through its content `element` has scrolled, 0 to 1: across, for the
  * reader's pages, else down. Null when it doesn't scroll at all.
@@ -398,6 +422,13 @@ export class NativeChromeService {
   private readingFrame?: number
   /** The progress line's value as last sent. */
   private sentProgress?: number | null
+  /** When the reading position was last worked out (scheduleReading). */
+  private lastReading = Number.NEGATIVE_INFINITY
+  /** Takes the "Voltar para …" toast down once the reader reads on (Android). */
+  private returnToastHide?: () => void
+  /** Where the page was scrolled to when that toast showed, and when. */
+  private returnToastScrollStart?: number
+  private returnToastShownAt = 0
   /** Where the top bar ends, in CSS pixels (--native-chrome-top). */
   private insetTop = 0
 
@@ -531,6 +562,8 @@ export class NativeChromeService {
     // It replaces the toast before, and that one's action with it.
     this.toastAction = onTap
     const shown = ++this.toastCount
+    this.returnToastHide = undefined
+    this.returnToastScrollStart = undefined
     this.plugin
       .showToast(
         onTap
@@ -538,11 +571,17 @@ export class NativeChromeService {
           : { message },
       )
       .catch(() => {})
-    return () => {
+    const hide = () => {
       if (shown !== this.toastCount) return
       this.toastAction = undefined
+      this.returnToastHide = undefined
       this.plugin.hideToast().catch(() => {})
     }
+    if (onTap) {
+      this.returnToastHide = hide
+      this.returnToastShownAt = performance.now()
+    }
+    return hide
   }
 
   /** Whether the sheet came up; it doesn't over another one. */
@@ -720,9 +759,34 @@ export class NativeChromeService {
       target instanceof Element
         ? target.scrollTop
         : (this.document.scrollingElement?.scrollTop ?? 0)
-    if (top > 0 === this.scrolled) return
-    this.scrolled = top > 0
+    this.dismissReturnToastAfterScroll(top)
+    // The text reaches the bar only past the reader's own top margin.
+    const scrolled = top > SCROLLED_UNDER_BAR
+    if (scrolled === this.scrolled) return
+    this.scrolled = scrolled
     this.push()
+  }
+
+  /**
+   * "Voltar para …" stays until it is used, closed, or the reader has read
+   * on a screen's height from where it showed (Android): never on a timer,
+   * which hurries slow readers.
+   */
+  private dismissReturnToastAfterScroll(top: number): void {
+    if (!this.android || this.returnToastHide === undefined) return
+    // The reader lands on the verse as the toast shows: that scroll is the
+    // app's, so the reading is measured from where it settles.
+    if (performance.now() - this.returnToastShownAt < RETURN_TOAST_SETTLE_MS) {
+      this.returnToastScrollStart = top
+      return
+    }
+    this.returnToastScrollStart ??= top
+    const view = this.document.defaultView
+    if (!view) return
+    if (Math.abs(top - this.returnToastScrollStart) < view.innerHeight) return
+    const hide = this.returnToastHide
+    this.returnToastHide = undefined
+    hide()
   }
 
   /**
@@ -733,11 +797,20 @@ export class NativeChromeService {
     if (!this.android || this.readingFrame !== undefined) return
     const view = this.document.defaultView
     if (!view) return
+    // At most 20 times a second: each update reads the layout and crosses
+    // the bridge. The last scroll still gets its update, a little later.
+    const wait = Math.max(
+      0,
+      READING_INTERVAL_MS - (performance.now() - this.lastReading),
+    )
     this.ngZone.runOutsideAngular(() => {
-      this.readingFrame = view.requestAnimationFrame(() => {
-        this.readingFrame = undefined
-        this.updateReading()
-      })
+      this.readingFrame = view.setTimeout(() => {
+        view.requestAnimationFrame(() => {
+          this.readingFrame = undefined
+          this.lastReading = performance.now()
+          this.updateReading()
+        })
+      }, wait)
     })
   }
 
@@ -760,6 +833,19 @@ export class NativeChromeService {
     this.plugin.setProgress({ value }).catch(() => {})
   }
 
+  /** The page's background colour as declared (`#ffffff`, `#121212`). */
+  private pageColor(): string | null {
+    const view = this.document.defaultView
+    const root = this.document.documentElement
+    if (typeof view?.getComputedStyle !== "function" || !root) return null
+    return (
+      view
+        .getComputedStyle(root)
+        .getPropertyValue("--background-color")
+        .trim() || null
+    )
+  }
+
   private setCollapsed(collapsed: boolean): void {
     if (collapsed === this.collapsed) return
     this.collapsed = collapsed
@@ -778,6 +864,7 @@ export class NativeChromeService {
           scrolled: this.scrolled,
           autoScroll: reader ? this.autoScroll : null,
           subtitle: reader ? this.subtitle : null,
+          pageColor: this.pageColor(),
         }
       : { mode: "none" }
     // Lets the page draw its edge effects to match. Once the shell says

@@ -523,6 +523,21 @@ html.dark-theme .platform-ios.native-chrome app-search {
   text-align: start;
 }
 
+/* The Android app's dark theme: text off-white like its bars (onSurface
+   #E8E1DD, 14.5:1), which glares less than pure white at night, and the
+   accent in iOS's dark red, 5.5:1 where crimson's 3.75:1 fails small text. */
+.dark-theme .platform-android {
+  --text-color: #e8e1dd;
+  --text-secondary: #ff453a;
+  --android-surface-container-high: #2d2927;
+}
+
+/* The Android bars' surfaceContainerHigh (Theme.kt), for web surfaces that
+   sit among them: the chapter cards. */
+.platform-android {
+  --android-surface-container-high: #eee7e3;
+}
+
 /* Verse numbers are small text: the dark theme's crimson on #121212 is 3.8:1,
    under the 4.5:1 small text needs. iOS's own dark red is 5.5:1. */
 .dark-theme .native-chrome verse .verseNumber {

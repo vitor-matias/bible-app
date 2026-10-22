@@ -938,6 +938,7 @@ describe("HeaderComponent with the iOS native bars", () => {
       bookmarkColor: null,
       bookmarkName: null,
       buildVersion: "20261016-120000Z",
+      textSize: null,
     })
   })
 
@@ -1106,6 +1107,34 @@ describe("HeaderComponent with the iOS native bars", () => {
     actions.next({ id: "auto-scroll" })
 
     expect(emitted).toEqual(["view", "smaller", "larger", "scroll"])
+  })
+
+  // The Android sheet steps by 10, and resets to the size the text opens at.
+  it("passes the native sheet's step, and its reset, to the reader", () => {
+    const steps: (number | undefined)[] = []
+    let resets = 0
+    component.increaseFontSizeEvent.subscribe((step) => steps.push(step))
+    component.decreaseFontSizeEvent.subscribe((step) => steps.push(step))
+    component.resetFontSizeEvent.subscribe(() => resets++)
+
+    actions.next({ id: "font-increase", step: 10 })
+    actions.next({ id: "font-decrease", step: 10 })
+    actions.next({ id: "font-reset" })
+
+    expect(steps).toEqual([10, 10])
+    expect(resets).toBe(1)
+  })
+
+  it("sends the text size to the bars, but none for the About page", () => {
+    const size = { percent: 120, min: 70, max: 235, canReset: true }
+    fixture.componentRef.setInput("textSize", size)
+    fixture.detectChanges()
+    expect(lastState().textSize).toEqual(size)
+
+    component.book = { ...component.book, id: "about" }
+    fixture.componentRef.setInput("chapterNumber", 1)
+    fixture.detectChanges()
+    expect(lastState().textSize).toBeNull()
   })
 
   it("opens the native bookmarks sheet, the native problem report and help", () => {

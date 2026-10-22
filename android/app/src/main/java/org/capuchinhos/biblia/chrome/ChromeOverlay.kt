@@ -5,7 +5,10 @@ import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -19,6 +22,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -28,6 +32,7 @@ import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
@@ -36,6 +41,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.windowInsetsTopHeight
@@ -83,6 +89,7 @@ import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -94,7 +101,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -125,14 +134,25 @@ import org.capuchinhos.biblia.R
 fun ChromeOverlay(chrome: ChromeController) {
     val state = chrome.state
     BibleTheme(chrome.themeMode) {
-        val barColor = topBarColor(state.scrolled, isDarkTheme(chrome.themeMode))
-        val barsShown = state.mode != ChromeMode.None
-        val barArgb = barColor.toArgb()
-        SideEffect { chrome.setSystemBarsBackground(if (barsShown) barArgb else null) }
+        val page = chrome.pageColor?.let(::Color) ?: pageBackground(isDarkTheme(chrome.themeMode))
+        val barColor = topBarColor(state.scrolled, page)
+        // What shows behind the system bars where the page can't reach them
+        // (WebView before 140): the band over the status bar, and the page.
+        val statusColor = when (state.mode) {
+            ChromeMode.Reader -> if (chrome.collapsed) page else barColor
+            ChromeMode.Search -> MaterialTheme.colorScheme.surfaceContainerHigh
+            ChromeMode.Page -> barColor
+            ChromeMode.None -> null
+        }
+        val statusArgb = statusColor?.toArgb()
+        val pageArgb = page.toArgb()
+        SideEffect {
+            chrome.setSystemBarsBackground(statusArgb, if (statusArgb != null) pageArgb else null)
+        }
         ReportSystemInsets(chrome)
         Box(Modifier.fillMaxSize()) {
             when (state.mode) {
-                ChromeMode.Reader -> ReaderBars(chrome, state, barColor)
+                ChromeMode.Reader -> ReaderBars(chrome, state, barColor, page)
                 ChromeMode.Search -> SearchView(chrome, state)
                 ChromeMode.Page -> PageBar(chrome, state, barColor)
                 ChromeMode.None -> {}
@@ -149,8 +169,8 @@ fun ChromeOverlay(chrome: ChromeController) {
  * to stand apart from it.
  */
 @Composable
-private fun topBarColor(scrolled: Boolean, dark: Boolean): Color {
-    val target = if (scrolled) MaterialTheme.colorScheme.surfaceContainer else pageBackground(dark)
+private fun topBarColor(scrolled: Boolean, page: Color): Color {
+    val target = if (scrolled) MaterialTheme.colorScheme.surfaceContainer else page
     return animateColorAsState(target, label = "top bar").value
 }
 
@@ -164,6 +184,9 @@ private fun barColors(container: Color) = TopAppBarDefaults.topAppBarColors(
 
 /** An inert bar (a web panel over the page) is out of TalkBack's reading. */
 private fun Modifier.inert(inert: Boolean) = if (inert) clearAndSetSemantics {} else this
+
+/** Bars moved off the screen are out of TalkBack's reading too. */
+private fun Modifier.away(away: Boolean) = if (away) clearAndSetSemantics {} else this
 
 /**
  * Tells the controller the system bars' sizes, which the bars' insets are
@@ -181,62 +204,126 @@ private fun ReportSystemInsets(chrome: ChromeController) {
 
 // MARK: - Reader
 
+/** Above this text scale the section heading leaves the bar: the passage keeps its room. */
+private const val SUBTITLE_MAX_FONT_SCALE = 1.3f
+
+/**
+ * The reader's top bar height: Material's 64 dp, 56 dp in a short window
+ * (a phone on its side), and taller where large text needs it.
+ */
+@Composable
+private fun readerBarHeight(subtitle: Boolean): Dp {
+    val typography = MaterialTheme.typography
+    val base = if (LocalConfiguration.current.screenHeightDp < 480) 56.dp else BarMetrics.topBar.dp
+    val text = with(LocalDensity.current) {
+        typography.titleLarge.lineHeight.toDp() + if (subtitle) typography.bodyMedium.lineHeight.toDp() else 0.dp
+    }
+    return maxOf(base, text + 8.dp)
+}
+
 /**
  * The reader's bars, Material's way: the passage is the top bar's title, and
  * the bars scroll away with the text and come back when it scrolls up (the
- * web app says when: `collapsed`). The chapter arrows wait in the bottom
- * corners while the bars show, auto-scroll's toolbar above them.
+ * web app says when: `collapsed`). They stay composed and slide off the
+ * screen, so coming back costs no rebuilding while the page scrolls. The
+ * chapter arrows wait in the bottom corners while the bars show; auto-scroll's
+ * toolbar takes their row while it is up.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ReaderBars(chrome: ChromeController, state: ChromeState, barColor: Color) {
+private fun ReaderBars(chrome: ChromeController, state: ChromeState, barColor: Color, page: Color) {
     val enabled = !state.inert
     val collapsed = chrome.collapsed
-    val page = pageBackground(isDarkTheme(chrome.themeMode))
+    val density = LocalDensity.current
+    val showSubtitle = state.subtitle != null && density.fontScale < SUBTITLE_MAX_FONT_SCALE
+    val barHeight = readerBarHeight(showSubtitle)
+    SideEffect { chrome.onTopBarHeight(barHeight.value) }
+    // Material's motion for bars leaving and coming back: out quickly,
+    // easing in. Off with animations, it snaps.
+    val away by animateFloatAsState(
+        if (collapsed) 1f else 0f,
+        if (collapsed) tween(150, easing = FastOutLinearInEasing) else tween(200, easing = LinearOutSlowInEasing),
+        label = "bars",
+    )
+    val arrowsAway by animateFloatAsState(
+        if (collapsed || state.autoScroll != null) 1f else 0f,
+        if (collapsed) tween(150, easing = FastOutLinearInEasing) else tween(200, easing = LinearOutSlowInEasing),
+        label = "arrows",
+    )
+    val statusInsets = WindowInsets.statusBars.union(WindowInsets.displayCutout)
+    val statusTop = statusInsets.getTop(density)
+    val barPx = with(density) { barHeight.toPx() }
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.align(Alignment.TopCenter).fillMaxWidth()) {
-            // The status bar keeps a band of its own: the text scrolls under the
-            // bar, never under the clock.
+        // Slid up past the screen's edge while away, so nothing over the
+        // status bar can be tapped.
+        Box(
+            Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .windowInsetsPadding(statusInsets.only(WindowInsetsSides.Top))
+                .graphicsLayer { translationY = -away * (barPx + statusTop) }
+                .away(away == 1f),
+        ) {
+            TopAppBar(
+                title = { PassageTitle(chrome, state, enabled, showSubtitle) },
+                actions = {
+                    if (state.search) {
+                        BarButton(R.drawable.ic_search, "Pesquisar", enabled) { chrome.send("search") }
+                    }
+                    BookmarksButton(chrome, state, enabled)
+                    BarButton(R.drawable.ic_format_size, "Texto e aparência", enabled) {
+                        chrome.present(Sheet.Appearance)
+                    }
+                    MoreMenu(chrome, state, enabled)
+                },
+                expandedHeight = barHeight,
+                windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
+                colors = barColors(barColor),
+            )
+        }
+        // Under the bar; while it is away, under the status bar's band.
+        val showProgress by remember { derivedStateOf { chrome.progress != null } }
+        if (showProgress) {
             Box(
                 Modifier
-                    .fillMaxWidth()
-                    .windowInsetsTopHeight(WindowInsets.statusBars.union(WindowInsets.displayCutout))
-                    .background(animateColorAsState(if (collapsed) page else barColor, label = "status bar").value),
-            )
-            // Scrolled away as Material's enter-always bars are: it slides up
-            // under the status bar's band, and the progress line follows it.
-            AnimatedVisibility(
-                visible = !collapsed,
-                enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
-                exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut(),
+                    .align(Alignment.TopCenter)
+                    .windowInsetsPadding(statusInsets.only(WindowInsetsSides.Top))
+                    .padding(top = barHeight)
+                    .graphicsLayer { translationY = -away * barPx },
             ) {
-                TopAppBar(
-                    title = { PassageTitle(chrome, state, enabled) },
-                    actions = {
-                        if (state.search) {
-                            BarButton(R.drawable.ic_search, "Pesquisar", enabled) { chrome.send("search") }
-                        }
-                        BookmarksButton(chrome, state, enabled)
-                        BarButton(R.drawable.ic_format_size, "Texto e aparência", enabled) {
-                            chrome.present(Sheet.Appearance)
-                        }
-                        MoreMenu(chrome, state, enabled)
-                    },
-                    windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
-                    colors = barColors(barColor),
-                )
+                ReadingProgress { chrome.progress ?: 0f }
             }
-            chrome.progress?.let { ReadingProgress(it) }
         }
+        // The status bar keeps a band of its own: the text scrolls under the
+        // bar, never under the clock. Drawn last, over the bar sliding away.
+        Box(
+            Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .windowInsetsTopHeight(statusInsets)
+                .background(animateColorAsState(if (collapsed) page else barColor, label = "status bar").value),
+        )
 
-        Column(
+        val bottomInsets = WindowInsets.navigationBars.union(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
+        val bottomPx = bottomInsets.getBottom(density) +
+            with(density) { (FloatingToolbarDefaults.ScreenOffset + BarMetrics.chapterButton.dp).toPx() }
+        Box(
             Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal)))
+                .windowInsetsPadding(bottomInsets)
                 .padding(bottom = FloatingToolbarDefaults.ScreenOffset),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            contentAlignment = Alignment.BottomCenter,
         ) {
+            if (state.chapterNavigation) {
+                Box(
+                    Modifier
+                        .graphicsLayer { translationY = arrowsAway * bottomPx }
+                        .away(arrowsAway == 1f),
+                ) {
+                    ChapterArrows(chrome, state, enabled && arrowsAway == 0f)
+                }
+            }
             // Within reach while the bars hide for reading, but not over a
             // panel, which the other bars make way for too.
             AnimatedVisibility(
@@ -246,17 +333,6 @@ private fun ReaderBars(chrome: ChromeController, state: ChromeState, barColor: C
             ) {
                 state.autoScroll?.let { AutoScrollToolbar(chrome, it, enabled) }
             }
-            // Hidden for reading, they leave auto-scroll's toolbar their row.
-            AnimatedVisibility(
-                visible = !collapsed && state.chapterNavigation,
-                enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
-                exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
-            ) {
-                Column {
-                    if (state.autoScroll != null) Spacer(Modifier.height(BarMetrics.toolbarGap.dp))
-                    ChapterArrows(chrome, state, enabled)
-                }
-            }
         }
     }
 }
@@ -265,14 +341,15 @@ private fun ReaderBars(chrome: ChromeController, state: ChromeState, barColor: C
  * "Mateus 5 ▾", the button to the book and chapter picker, with the heading
  * of the section being read under it. The heading is the page's own, which
  * TalkBack reaches there: here it would only be said again at every section.
+ * Its name starts with what it shows ("Gn 1, …"), so Voice Access finds it.
  */
 @Composable
-private fun PassageTitle(chrome: ChromeController, state: ChromeState, enabled: Boolean) {
+private fun PassageTitle(chrome: ChromeController, state: ChromeState, enabled: Boolean, showSubtitle: Boolean) {
     BoxWithConstraints {
         val style = MaterialTheme.typography.titleLarge
-        // What the title slot leaves the text: the ▾ and the button's padding.
-        val room = maxWidth - 24.dp - 16.dp
-        val label = fittedPassage(state, style, room)
+        val fitted = fittedPassage(state, style, maxWidth)
+        val spoken = state.passageAccessibilityLabel
+        val name = if (spoken.contains(fitted.label, ignoreCase = true)) spoken else "${fitted.label}, $spoken"
         Column(
             Modifier
                 // The text on Material's title keyline; the ripple around it.
@@ -280,62 +357,85 @@ private fun PassageTitle(chrome: ChromeController, state: ChromeState, enabled: 
                 .clip(MaterialTheme.shapes.small)
                 .clickable(enabled = enabled, role = Role.Button) { chrome.send("passage") }
                 .clearAndSetSemantics {
-                    contentDescription = state.passageAccessibilityLabel
+                    contentDescription = name
                     role = Role.Button
                     onClick(label = "Escolher livro e capítulo") { chrome.send("passage"); true }
                     // Said when it changes (an arrow, a swipe), as iOS announces it.
                     liveRegion = LiveRegionMode.Polite
                 }
-                .padding(horizontal = 8.dp, vertical = 2.dp),
+                // Android's touch target, however short the text.
+                .heightIn(min = 48.dp)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalArrangement = Arrangement.Center,
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(label, style = style, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                Icon(painterResource(R.drawable.ic_arrow_drop_down), contentDescription = null)
+                Text(
+                    fitted.label,
+                    style = style,
+                    maxLines = 1,
+                    // Cut only as a last resort, and from the front: the
+                    // chapter's number is what matters.
+                    overflow = if (fitted.fits) TextOverflow.Clip else TextOverflow.StartEllipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (fitted.caret) Icon(painterResource(R.drawable.ic_arrow_drop_down), contentDescription = null)
             }
-            state.subtitle?.let { subtitle ->
-                AnimatedContent(subtitle, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "section") {
-                    Text(
-                        it,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+            if (showSubtitle) {
+                state.subtitle?.let { subtitle ->
+                    AnimatedContent(subtitle, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "section") {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+/** The passage as the title shows it, and whether the ▾ has room beside it. */
+private data class FittedPassage(val label: String, val caret: Boolean, val fits: Boolean)
+
 /**
  * "Deuteronómio 3", or, where that doesn't fit, the longest of its shorter
- * forms that does ("Dt 3"); cut short only as a last resort.
+ * forms that does ("Dt 3"). Without room even then, the ▾ makes way, and only
+ * after that is the label cut.
  */
 @Composable
-private fun fittedPassage(state: ChromeState, style: TextStyle, room: Dp): String {
+private fun fittedPassage(state: ChromeState, style: TextStyle, width: Dp): FittedPassage {
     val measurer = rememberTextMeasurer()
-    val roomPx = with(LocalDensity.current) { room.roundToPx() }
-    return remember(state.passageLabel, state.passageShortLabels, roomPx, style) {
-        (listOf(state.passageLabel) + state.passageShortLabels).firstOrNull {
-            measurer.measure(it, style, maxLines = 1).size.width <= roomPx
-        } ?: state.passageShortLabels.lastOrNull() ?: state.passageLabel
+    val density = LocalDensity.current
+    // The button's padding, and with the ▾ its 24 dp.
+    val bare = with(density) { (width - 16.dp).roundToPx() }
+    val withCaret = with(density) { (width - 16.dp - 24.dp).roundToPx() }
+    return remember(state.passageLabel, state.passageShortLabels, bare, style, density) {
+        val labels = listOf(state.passageLabel) + state.passageShortLabels
+        val widths = labels.map { measurer.measure(it, style, maxLines = 1).size.width }
+        labels.indices.firstOrNull { widths[it] <= withCaret }?.let { FittedPassage(labels[it], caret = true, fits = true) }
+            ?: labels.indices.firstOrNull { widths[it] <= bare }?.let { FittedPassage(labels[it], caret = false, fits = true) }
+            ?: FittedPassage(labels.last(), caret = false, fits = false)
     }
 }
 
 /**
- * How far through the chapter the reader is, a hairline under the top bar.
- * It stays, under the status bar, while the bar is away.
+ * How far through the chapter the reader is, a line under the top bar on a
+ * faint track, so it reads as a gauge rather than something loading. It
+ * stays, under the status bar, while the bar is away. Read as it is drawn:
+ * a scroll only redraws the line.
  */
 @Composable
-private fun ReadingProgress(progress: Float) {
-    val shown by animateFloatAsState(progress, label = "progress")
+private fun ReadingProgress(progress: () -> Float) {
     LinearProgressIndicator(
-        progress = { shown },
+        progress = progress,
         modifier = Modifier
             .fillMaxWidth()
-            .height(2.dp)
+            .height(3.dp)
             .clearAndSetSemantics {},
-        trackColor = Color.Transparent,
+        trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
         gapSize = 0.dp,
         drawStopIndicator = {},
     )
@@ -363,7 +463,7 @@ private fun ChapterArrows(chrome: ChromeController, state: ChromeState, enabled:
     }
 }
 
-/** A tonal floating button the size of Android's touch target. */
+/** A tonal floating button, Material's standard 56 dp. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChapterButton(@DrawableRes icon: Int, label: String, enabled: Boolean, onClick: () -> Unit) {
@@ -374,8 +474,6 @@ private fun ChapterButton(@DrawableRes icon: Int, label: String, enabled: Boolea
     ) {
         FloatingActionButton(
             onClick = { if (enabled) onClick() },
-            modifier = Modifier.size(BarMetrics.chapterButton.dp),
-            shape = MaterialTheme.shapes.large,
             containerColor = MaterialTheme.colorScheme.secondaryContainer,
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             elevation = FloatingActionButtonDefaults.loweredElevation(),
@@ -413,7 +511,7 @@ private fun MoreMenu(chrome: ChromeController, state: ChromeState, enabled: Bool
                 open = false
                 chrome.send(action)
             }
-            MenuItem("Deslocamento automático", R.drawable.ic_auto_mode, state.autoScrollAvailable,
+            MenuItem("Deslocamento automático", R.drawable.ic_arrow_circle_down, state.autoScrollAvailable,
                 checked = state.autoScrollVisible) { choose("auto-scroll") }
             if (state.canShare) MenuItem("Partilhar", R.drawable.ic_share) { choose("share") }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
@@ -498,11 +596,15 @@ private fun AutoScrollToolbar(chrome: ChromeController, autoScroll: AutoScrollSt
             floatingActionButton = {
                 // At the page's end there's nothing left to play: greyed out.
                 val canPress = enabled && (autoScroll.playing || autoScroll.canPlay)
+                // In the dark theme the brown container is 1.85:1 against the
+                // page; the light primary stands out at 11:1.
+                val dark = LocalDarkTheme.current
                 FloatingToolbarDefaults.VibrantFloatingActionButton(
                     onClick = { if (canPress) chrome.send("auto-scroll-toggle") },
                     modifier = if (canPress) Modifier else Modifier.semantics { disabled() },
-                    containerColor = colors.primaryContainer,
-                    contentColor = colors.onPrimaryContainer.copy(alpha = if (canPress) 1f else 0.38f),
+                    containerColor = if (dark) colors.primary else colors.primaryContainer,
+                    contentColor = (if (dark) colors.onPrimary else colors.onPrimaryContainer)
+                        .copy(alpha = if (canPress) 1f else 0.38f),
                 ) {
                     Icon(
                         painterResource(if (autoScroll.playing) R.drawable.ic_pause_filled else R.drawable.ic_play_arrow_filled),
@@ -614,11 +716,23 @@ private fun SearchView(chrome: ChromeController, state: ChromeState) {
  */
 @Composable
 private fun RecentSearches(chrome: ChromeController, onSearch: (String) -> Unit, onEdit: (String) -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxSize()) {
+    // The page's colour, which the results come in on: no flash as they do.
+    val page = chrome.pageColor?.let(::Color) ?: pageBackground(isDarkTheme(chrome.themeMode))
+    Surface(color = page, modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             Modifier.semantics { paneTitle = "Pesquisas recentes" },
             contentPadding = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal).asPaddingValues(),
         ) {
+            // What the page's own hint says, which this pane covers: a
+            // reference opens the passage.
+            item(contentType = "hint") {
+                Text(
+                    "Procure versículos, livros ou referências. Por exemplo: Jo 3,16 · Salmo 23 · o bom pastor",
+                    Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             item(contentType = "header") {
                 Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -732,23 +846,27 @@ private fun ToastHost(chrome: ChromeController, modifier: Modifier) {
     ) { data ->
         val visuals = data.visuals as? ToastVisuals
         if (visuals?.toast?.button == true) {
-            // The whole snackbar is the way back, as Books' "Back to Page".
+            // "Voltar para Mateus 5,3", worded as on the web and iOS. Only the
+            // words are the button, ✕ set apart from them: a slip on the way
+            // to closing it mustn't lose the reader's place.
             Snackbar(
-                modifier = Modifier.clickable(onClickLabel = visuals.message) { data.performAction() },
                 dismissAction = {
-                    BarButton(R.drawable.ic_close, "Fechar") { data.dismiss() }
+                    Row {
+                        Spacer(Modifier.width(8.dp))
+                        BarButton(R.drawable.ic_close, "Fechar") { data.dismiss() }
+                    }
                 },
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        painterResource(R.drawable.ic_undo),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.inversePrimary,
-                    )
+                TextButton(
+                    onClick = { data.performAction() },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.inversePrimary),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    Icon(painterResource(R.drawable.ic_undo), contentDescription = null)
                     Text(
                         visuals.message,
                         Modifier.padding(start = 12.dp),
-                        color = MaterialTheme.colorScheme.inversePrimary,
                         style = MaterialTheme.typography.labelLarge,
                         maxLines = 2,
                     )

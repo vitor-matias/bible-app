@@ -30,7 +30,10 @@ import {
   PagedNavigationDirective,
   PageState,
 } from "../../directives/paged-navigation/paged-navigation.directive"
-import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
+import {
+  type TextSize,
+  UnifiedGesturesDirective,
+} from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BackButtonService } from "../../services/back-button.service"
@@ -928,12 +931,24 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     return !document.querySelector(".cdk-overlay-backdrop-showing")
   }
 
-  onIncreaseFontSize(): void {
-    this.gestures.increaseFontSize()
+  onIncreaseFontSize(step?: number): void {
+    this.gestures.increaseFontSize(step)
   }
 
-  onDecreaseFontSize(): void {
-    this.gestures.decreaseFontSize()
+  onDecreaseFontSize(step?: number): void {
+    this.gestures.decreaseFontSize(step)
+  }
+
+  onResetFontSize(): void {
+    this.gestures.resetFontSize()
+  }
+
+  /** The text's size, which the header passes to the Android app's text sheet. */
+  textSize: TextSize | null = null
+
+  onTextSizeChange(size: TextSize): void {
+    this.textSize = size
+    this.cdr.markForCheck()
   }
 
   checkIfNextVerseStartsWithQuote(index: number): boolean {

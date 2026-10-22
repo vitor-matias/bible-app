@@ -63,11 +63,13 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
       },
       {
         icon: "history",
-        text: "Ao abrir a aplicação, volta ao livro e capítulo onde ficou.",
+        text: "Ao abrir a app, volta ao livro e capítulo onde ficou.",
       },
       {
         icon: "touch_app",
         text: "Esta introdução demora menos de um minuto. Pode voltar a vê-la em qualquer altura a partir do menu.",
+        androidText:
+          "Esta introdução demora menos de um minuto. Pode voltar a vê-la em qualquer altura no menu ⋮, em «Como usar a app».",
       },
     ],
   },
@@ -80,7 +82,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     iosIntro:
       "Na barra inferior, toque no nome do livro para escolher outro livro ou capítulo.",
     androidIntro:
-      "No topo do ecrã, toque no nome do livro para escolher outro livro ou capítulo.",
+      "No topo do ecrã, toque no livro e capítulo (por exemplo, «Génesis 1 ▾») para escolher outra passagem.",
     features: [
       {
         icon: "swipe",
@@ -130,7 +132,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
         text: "Aumente ou diminua o tamanho da letra, ou faça o gesto de pinça sobre o texto.",
       },
       {
-        icon: "auto_mode",
+        icon: "arrow_circle_down",
         text: "Ative o deslocamento automático para ler sem mãos, com velocidade ajustável.",
         iosText:
           "Ative o deslocamento automático no menu ⋯ para ler sem mãos, com velocidade ajustável.",
@@ -355,7 +357,7 @@ const SF_SYMBOLS: Readonly<Record<string, string>> = {
   dark_mode: "circle.lefthalf.filled",
   auto_stories: "book.pages",
   text_increase: "textformat.size",
-  auto_mode: "arrow.down.circle",
+  arrow_circle_down: "arrow.down.circle",
   search: "magnifyingglass",
   bookmarks: "bookmark",
   share: "square.and.arrow.up",

@@ -54,6 +54,11 @@ export class PreferencesService {
     this.storage?.setItem(key, size.toString())
   }
 
+  /** Forgets the chosen size: the text opens at the standard (or system) size again. */
+  clearFontSize(context: string = "default"): void {
+    this.storage?.removeItem(`${this.KEYS.FONT_SIZE_PREFIX}${context}`)
+  }
+
   getAutoScrollSpeed(): number | null {
     const stored = this.storage?.getItem(this.KEYS.AUTO_SCROLL_SPEED)
     const parsed = stored ? Number.parseFloat(stored) : null

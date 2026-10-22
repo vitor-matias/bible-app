@@ -1,5 +1,6 @@
 import { Injectable, inject } from "@angular/core"
 import type { Subscription } from "rxjs"
+import { reportSubject } from "../utils/passage-label"
 import { NativeChromeService } from "./native-chrome.service"
 import {
   PROBLEM_DETAILS_MAX_LENGTH,
@@ -54,7 +55,7 @@ export class NativeReportService {
     // Over another sheet none comes up, and no report-closed would end this.
     void this.nativeChrome
       .showReport({
-        message: `Encontrou algum problema em "${book.name}", capítulo ${chapter}? Ajude-nos a melhorar.`,
+        message: `Encontrou algum problema em «${reportSubject(book, chapter)}»? Ajude-nos a melhorar.`,
         topics: this.reports.topics,
         placeholder:
           "Descreva o problema (ex: falta uma vírgula após a palavra 'Deus')...",

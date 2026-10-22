@@ -44,12 +44,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -65,6 +67,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -170,6 +173,25 @@ private fun ChromeSheet(
     }
 }
 
+/**
+ * A sheet's title with ✕ at its end, between them any [actions]. Dragging
+ * the handle down or tapping above closes it too, but not everyone can drag
+ * (switch users) or sees the page above as a way out.
+ */
+@Composable
+private fun SheetTitleRow(
+    text: String,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+    actions: @Composable () -> Unit = {},
+) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        SheetTitle(text, Modifier.weight(1f))
+        actions()
+        BarButton(R.drawable.ic_close, "Fechar", onClick = onClose)
+    }
+}
+
 /** Two lines at most: "Segundo Livro das Crónicas" at large text sizes. */
 @Composable
 private fun SheetTitle(text: String, modifier: Modifier = Modifier) {
@@ -193,24 +215,16 @@ private fun SheetTitle(text: String, modifier: Modifier = Modifier) {
 @Composable
 private fun AppearanceSheet(chrome: ChromeController, sheet: Sheet) {
     val state = chrome.state
-    ChromeSheet(
-        chrome,
-        sheet,
-        rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        scrim = Color.Transparent,
-    ) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val closer = rememberSheetCloser(chrome, sheet, sheetState)
+    ChromeSheet(chrome, sheet, sheetState, scrim = Color.Transparent) {
         Column(
-            Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
+            Modifier.padding(start = 24.dp, end = 12.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            SheetTitle("Texto e aparência", Modifier.padding(bottom = 8.dp))
-            Caption("Tamanho do texto")
-            ConnectedButtons(
-                listOf(
-                    Choice("font-decrease", "Diminuir", R.drawable.ic_text_decrease),
-                    Choice("font-increase", "Aumentar", R.drawable.ic_text_increase),
-                ),
-            ) { chrome.send(it) }
+            SheetTitleRow("Texto e aparência", onClose = { closer.close() }, Modifier.padding(bottom = 8.dp))
+            Column(Modifier.padding(end = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextSizeControls(chrome, state.textSize)
             Caption("Tema")
             ConnectedChoices(
                 options = listOf(
@@ -230,8 +244,42 @@ private fun AppearanceSheet(chrome: ChromeController, sheet: Sheet) {
                     selected = viewMode,
                 ) { if (it != viewMode) chrome.send("view-mode") }
             }
+            }
         }
     }
+}
+
+/**
+ * "Tamanho do texto: 120 %", Repor, and − and + in steps of 10, off at
+ * either end of the range. Buttons rather than a slider: dragging is hard
+ * with a tremor, and a switch can't drag.
+ */
+@Composable
+private fun TextSizeControls(chrome: ChromeController, size: TextSize?) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            if (size != null) "Tamanho do texto: ${size.percent} %" else "Tamanho do texto",
+            Modifier
+                .weight(1f)
+                .padding(top = 8.dp)
+                .semantics {
+                    heading()
+                    // Said as − or + changes it.
+                    liveRegion = LiveRegionMode.Polite
+                },
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (size != null) {
+            TextButton(onClick = { chrome.send("font-reset") }, enabled = size.canReset) { Text("Repor") }
+        }
+    }
+    ConnectedButtons(
+        listOf(
+            Choice("font-decrease", "Diminuir texto", R.drawable.ic_text_decrease, enabled = size?.canDecrease ?: true),
+            Choice("font-increase", "Aumentar texto", R.drawable.ic_text_increase, enabled = size?.canIncrease ?: true),
+        ),
+    ) { chrome.sendStep(it, TextSize.STEP) }
 }
 
 @Composable
@@ -244,7 +292,12 @@ private fun Caption(text: String) {
     )
 }
 
-private data class Choice(val value: String, val label: String, @param:DrawableRes val icon: Int)
+private data class Choice(
+    val value: String,
+    val label: String,
+    @param:DrawableRes val icon: Int,
+    val enabled: Boolean = true,
+)
 
 /**
  * Choices side by side in a connected group, the icon above the label: one
@@ -294,6 +347,7 @@ private fun ConnectedButtons(options: List<Choice>, onPress: (String) -> Unit) {
         options.forEachIndexed { index, choice ->
             FilledTonalButton(
                 onClick = { onPress(choice.value) },
+                enabled = choice.enabled,
                 modifier = Modifier.weight(1f).heightIn(min = 72.dp),
                 shape = if (index == 0) {
                     ButtonGroupDefaults.connectedLeadingButtonShape
@@ -327,6 +381,20 @@ private fun ChoiceLabel(choice: Choice) {
 
 // MARK: - Bookmarks
 
+/** What the ribbons do now, under them: to mark, to go back, to take off. */
+internal fun bookmarksHint(state: BookmarksSheetState, editing: Boolean): String {
+    val anyUsed = state.ribbons.any { it.label != null }
+    return when {
+        editing -> "Toque numa fita para a retirar."
+        !state.canMark && anyUsed -> "Esta página não se pode marcar. Toque numa fita com nome para abrir essa passagem."
+        !state.canMark -> "Esta página não se pode marcar."
+        state.ribbons.any { it.current } ->
+            "${state.currentLabel} está marcado. Toque noutra fita livre para mudar a cor."
+        anyUsed -> "Toque numa fita com nome para voltar a essa passagem, ou numa fita livre para marcar ${state.currentLabel}."
+        else -> "Escolha uma cor para marcar ${state.currentLabel}. Para voltar, abra Marcadores e toque nessa fita."
+    }
+}
+
 /**
  * Eight ribbons in a grid, like the web panel. A free ribbon marks the
  * chapter being read; a used one opens its passage. Above them, a row moves
@@ -345,9 +413,8 @@ private fun BookmarksSheet(chrome: ChromeController, sheet: Sheet.Bookmarks) {
     val marked = state.ribbons.any { it.current }
 
     ChromeSheet(chrome, sheet, sheetState) {
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 24.dp)) {
-            Row(Modifier.fillMaxWidth().padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                SheetTitle("Marcadores", Modifier.weight(1f))
+        Column(Modifier.padding(start = 16.dp, end = 4.dp, bottom = 24.dp)) {
+            SheetTitleRow("Marcadores", onClose = { closer.close() }, Modifier.padding(start = 8.dp)) {
                 // A shape, not bare text: it reads as a button.
                 if (anyUsed) {
                     FilledTonalButton(onClick = { editing = !editing }) {
@@ -355,6 +422,7 @@ private fun BookmarksSheet(chrome: ChromeController, sheet: Sheet.Bookmarks) {
                     }
                 }
             }
+            Column(Modifier.padding(end = 12.dp)) {
             Spacer(Modifier.height(8.dp))
             val move = state.move
             if (move != null && !editing) {
@@ -367,7 +435,7 @@ private fun BookmarksSheet(chrome: ChromeController, sheet: Sheet.Bookmarks) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     row.forEach { ribbon ->
                         Box(Modifier.weight(1f)) {
-                            RibbonTile(ribbon, state.currentLabel, marked, editing, onOpen = {
+                            RibbonTile(ribbon, state.currentLabel, marked, editing, state.canMark, onOpen = {
                                 closer.close { chrome.sendWithColor("bookmark-open", ribbon.color) }
                             }) { action -> chrome.sendWithColor(action, ribbon.color) }
                         }
@@ -375,11 +443,7 @@ private fun BookmarksSheet(chrome: ChromeController, sheet: Sheet.Bookmarks) {
                 }
             }
             Text(
-                when {
-                    editing -> "Toque numa fita para a retirar."
-                    marked -> "${state.currentLabel} está marcado. Toque noutra fita livre para mudar a cor."
-                    else -> "Toque numa fita livre para marcar ${state.currentLabel}."
-                },
+                bookmarksHint(state, editing),
                 // Said as it changes: a ribbon set, moved or taken off, as
                 // iOS announces them.
                 Modifier
@@ -390,6 +454,7 @@ private fun BookmarksSheet(chrome: ChromeController, sheet: Sheet.Bookmarks) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
+            }
         }
     }
 }
@@ -438,10 +503,13 @@ private fun RibbonTile(
     currentLabel: String,
     marked: Boolean,
     editing: Boolean,
+    canMark: Boolean,
     onOpen: () -> Unit,
     onAction: (String) -> Unit,
 ) {
     val used = ribbon.label != null
+    // A free ribbon where nothing can be marked: shown, as there, but not a button.
+    val inert = !used && (editing || !canMark)
     var menu by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
     val spoken = buildString {
@@ -449,17 +517,18 @@ private fun RibbonTile(
         append(if (used) ", ${ribbon.label}" else ", livre")
         if (ribbon.current) append(", este capítulo")
     }
+    val tile = if (ribbon.current) colors.primaryContainer else colors.surfaceContainerHighest
     Box {
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = if (ribbon.current) colors.primaryContainer else colors.surfaceContainerHighest,
+            color = tile,
             contentColor = if (ribbon.current) colors.onPrimaryContainer else colors.onSurface,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(84.dp)
-                .alpha(if (editing && !used) 0.38f else 1f)
+                .alpha(if (inert) 0.38f else 1f)
                 .combinedClickable(
-                    enabled = !editing || used,
+                    enabled = !inert,
                     role = Role.Button,
                     onClick = {
                         when {
@@ -485,18 +554,22 @@ private fun RibbonTile(
                 Icon(
                     painterResource(if (used) R.drawable.ic_bookmark_filled else R.drawable.ic_bookmark),
                     contentDescription = null,
-                    tint = ribbonColor(ribbon.color) ?: colors.onSurface,
+                    // The tone made for the tile it is on: the light theme's
+                    // tones measured 1.3–2:1 on the dark brown of the chapter's
+                    // own ribbon.
+                    tint = ribbonTone(ribbon.color, dark = tile.luminance() < 0.5f) ?: colors.onSurface,
                     modifier = Modifier.size(32.dp),
                 )
-                ribbon.label?.let {
-                    Text(
-                        it,
-                        Modifier.padding(top = 6.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        maxLines = 1,
-                        autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 14.sp),
-                    )
-                }
+                Text(
+                    // The passage it marks; free, its colour's name, as
+                    // blue, indigo and violet are close.
+                    ribbon.label ?: ribbon.name,
+                    Modifier.padding(top = 6.dp),
+                    style = if (used) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelSmall,
+                    color = if (used) LocalContentColor.current else colors.onSurfaceVariant,
+                    maxLines = 1,
+                    autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = if (used) 14.sp else 11.sp),
+                )
             }
         }
         if (editing && used) {
@@ -567,9 +640,9 @@ private fun FootnotesSheet(chrome: ChromeController, sheet: Sheet.Footnotes) {
         lineBreak = LineBreak.Paragraph,
     )
     ChromeSheet(chrome, sheet, sheetState) {
-        Column(Modifier.padding(horizontal = 24.dp)) {
-            SheetTitle(state.title, Modifier.padding(bottom = 12.dp))
-            SelectionContainer(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
+        Column(Modifier.padding(start = 24.dp, end = 12.dp)) {
+            SheetTitleRow(state.title, onClose = { closer.close() }, Modifier.padding(bottom = 12.dp))
+            SelectionContainer(Modifier.verticalScroll(rememberScrollState()).padding(end = 12.dp, bottom = 32.dp)) {
                 // A paragraph per note, set apart as in the edition.
                 Column(verticalArrangement = Arrangement.spacedBy((size * 0.9f).dp)) {
                     for (note in state.notes) {

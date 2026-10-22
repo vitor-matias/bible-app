@@ -1,5 +1,6 @@
 package org.capuchinhos.biblia.chrome
 
+import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -31,6 +33,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.DropdownMenu
@@ -52,6 +55,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,15 +64,20 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -88,7 +97,17 @@ import org.capuchinhos.biblia.R
 fun PassagePickerDialog(chrome: ChromeController, sheet: Sheet.Picker) {
     val data = sheet.data
     var book by remember { mutableStateOf(data.currentBook?.takeIf { it.chapters.isNotEmpty() }) }
+    // Back goes to the books only once they have been seen: opened on the
+    // current book's chapters, one Back closes the picker.
+    var cameFromBooks by remember { mutableStateOf(false) }
     var chosen by remember { mutableStateOf(false) }
+    // Kept here, not in the book list, which leaves while a book's chapters
+    // show: back from Coríntios, the filter "co" and the place in the list stay.
+    var filter by rememberSaveable { mutableStateOf("") }
+    val listState = rememberLazyListState()
+    var placed by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    var chapterList by remember { mutableStateOf(context.chapterListPreferred()) }
     val close = { chrome.dismissed(sheet) }
     val choose = { bookId: String, chapter: Int? ->
         // Once: a second tap as the dialog goes would ask for it again.
@@ -111,16 +130,37 @@ fun PassagePickerDialog(chrome: ChromeController, sheet: Sheet.Picker) {
             label = "picker",
         ) { shown ->
             if (shown == null) {
-                BookList(data, onClose = close) { picked ->
-                    if (picked.chapters.isEmpty()) choose(picked.id, null) else book = picked
+                BookList(
+                    data,
+                    filter = filter,
+                    onFilter = { filter = it },
+                    listState = listState,
+                    placed = placed,
+                    onPlaced = { placed = true },
+                    onClose = close,
+                ) { picked ->
+                    if (picked.chapters.isEmpty()) {
+                        choose(picked.id, null)
+                    } else {
+                        cameFromBooks = true
+                        book = picked
+                    }
                 }
             } else {
                 // Back leads to the books, before it closes the picker.
-                BackHandler { book = null }
+                BackHandler(enabled = cameFromBooks) { book = null }
                 ChapterGrid(
                     shown,
                     current = data.currentChapter.takeIf { shown.id == data.currentBookId },
-                    onBack = { book = null },
+                    asList = chapterList,
+                    onToggleList = {
+                        chapterList = !chapterList
+                        context.saveChapterListPreferred(chapterList)
+                    },
+                    onBack = {
+                        cameFromBooks = true
+                        book = null
+                    },
                     onClose = close,
                 ) { choose(shown.id, it) }
             }
@@ -175,54 +215,44 @@ private val PassagePickerData.Book.chapterCount: Int
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-private fun BookList(data: PassagePickerData, onClose: () -> Unit, onChoose: (PassagePickerData.Book) -> Unit) {
-    var filtering by remember { mutableStateOf(false) }
-    var filter by remember { mutableStateOf("") }
+private fun BookList(
+    data: PassagePickerData,
+    filter: String,
+    onFilter: (String) -> Unit,
+    listState: LazyListState,
+    placed: Boolean,
+    onPlaced: () -> Unit,
+    onClose: () -> Unit,
+    onChoose: (PassagePickerData.Book) -> Unit,
+) {
     val rows = remember(data, filter) { pickerRows(data, filter) }
-    val listState = rememberLazyListState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    // Opens at the current book. Not at "Sobre a Bíblia", listed last: from
-    // there the reader is choosing where to start.
+    // Opens at the current book, once. Not at "Sobre a Bíblia", listed last:
+    // from there the reader is choosing where to start.
     LaunchedEffect(Unit) {
+        if (placed) return@LaunchedEffect
+        onPlaced()
         if (data.currentBookId == "about") return@LaunchedEffect
         val index = rows.indexOfFirst { it is PickerRow.Book && it.book.id == data.currentBookId }
         if (index > 0) listState.scrollToItem(maxOf(index - 3, 0))
     }
-    if (filtering) {
-        BackHandler {
-            filtering = false
-            filter = ""
-        }
-    }
+    // Back clears a filter before it closes the picker.
+    BackHandler(enabled = filter.isNotEmpty()) { onFilter("") }
 
     Scaffold(
         modifier = Modifier
             .nestedScroll(scrollBehavior.nestedScrollConnection)
             .semantics { paneTitle = "Livros" },
         topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    if (filtering) {
-                        BarButton(R.drawable.ic_arrow_back, "Fechar o filtro") {
-                            filtering = false
-                            filter = ""
-                        }
-                    } else {
-                        BarButton(R.drawable.ic_close, "Fechar", onClick = onClose)
-                    }
-                },
-                title = {
-                    if (filtering) {
-                        FilterField(filter) { filter = it }
-                    } else {
-                        Text("Livros")
-                    }
-                },
-                actions = {
-                    if (!filtering) BarButton(R.drawable.ic_search, "Filtrar livros") { filtering = true }
-                },
-                scrollBehavior = scrollBehavior,
-            )
+            Column {
+                TopAppBar(
+                    navigationIcon = { BarButton(R.drawable.ic_close, "Fechar", onClick = onClose) },
+                    title = { Text("Livros") },
+                    scrollBehavior = scrollBehavior,
+                )
+                // In view, not behind an icon: 73 books are a long way to scroll.
+                FilterField(filter, rows.count { it is PickerRow.Book }, onFilter)
+            }
         },
     ) { padding ->
         val direction = LocalLayoutDirection.current
@@ -264,7 +294,10 @@ private fun BookList(data: PassagePickerData, onClose: () -> Unit, onChoose: (Pa
                 item(contentType = "empty") {
                     Text(
                         "Nenhum livro com «${filter.trim()}»",
-                        Modifier.fillMaxWidth().padding(24.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp)
+                            .semantics { liveRegion = LiveRegionMode.Polite },
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -275,29 +308,39 @@ private fun BookList(data: PassagePickerData, onClose: () -> Unit, onChoose: (Pa
     }
 }
 
-/** The filter in the top bar's title, with the keyboard up. */
+/**
+ * The filter under the bar, always in view. TalkBack hears how many books
+ * it leaves ("3 livros"), as it can't see the list change.
+ */
 @Composable
-private fun FilterField(value: String, onValueChange: (String) -> Unit) {
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
+private fun FilterField(value: String, books: Int, onValueChange: (String) -> Unit) {
+    val keyboard = LocalSoftwareKeyboardController.current
     TextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth().focusRequester(focus),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .semantics {
+                if (value.isNotBlank()) stateDescription = if (books == 1) "1 livro" else "$books livros"
+            },
         placeholder = { Text("Filtrar livros") },
+        leadingIcon = { Icon(painterResource(R.drawable.ic_search), contentDescription = null) },
         trailingIcon = if (value.isNotEmpty()) {
             { BarButton(R.drawable.ic_close, "Limpar") { onValueChange("") } }
         } else {
             null
         },
         singleLine = true,
+        shape = CircleShape,
         colors = TextFieldDefaults.colors(
-            focusedContainerColor = Color.Transparent,
-            unfocusedContainerColor = Color.Transparent,
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             focusedIndicatorColor = Color.Transparent,
             unfocusedIndicatorColor = Color.Transparent,
         ),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done, autoCorrectEnabled = false),
+        keyboardActions = KeyboardActions(onDone = { keyboard?.hide() }),
     )
 }
 
@@ -333,7 +376,7 @@ private fun BookRow(book: PassagePickerData.Book, current: Boolean, onClick: () 
             }
         },
         trailingContent = if (count > 0) {
-            { Text("$count", style = MaterialTheme.typography.labelMedium) }
+            { Text("$count cap.", style = MaterialTheme.typography.labelMedium) }
         } else {
             null
         },
@@ -359,6 +402,8 @@ private fun BookRow(book: PassagePickerData.Book, current: Boolean, onClick: () 
 private fun ChapterGrid(
     book: PassagePickerData.Book,
     current: Int?,
+    asList: Boolean,
+    onToggleList: () -> Unit,
     onBack: () -> Unit,
     onClose: () -> Unit,
     onChoose: (Int) -> Unit,
@@ -377,11 +422,24 @@ private fun ChapterGrid(
             TopAppBar(
                 navigationIcon = { BarButton(R.drawable.ic_arrow_back, "Livros", onClick = onBack) },
                 title = { Text(book.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                actions = { BarButton(R.drawable.ic_close, "Fechar", onClick = onClose) },
+                actions = {
+                    // Numbers for speed (Salmos, Isaías), or a list with each
+                    // chapter's title to find one by what it tells.
+                    if (asList) {
+                        BarButton(R.drawable.ic_grid_view, "Mostrar só os números", onClick = onToggleList)
+                    } else {
+                        BarButton(R.drawable.ic_view_list, "Mostrar os títulos", onClick = onToggleList)
+                    }
+                    BarButton(R.drawable.ic_close, "Fechar", onClick = onClose)
+                },
                 scrollBehavior = scrollBehavior,
             )
         },
     ) { padding ->
+        if (asList) {
+            ChapterList(book, current, padding, onChoose)
+            return@Scaffold
+        }
         val direction = LocalLayoutDirection.current
         LazyVerticalGrid(
             columns = GridCells.Adaptive(64.dp),
@@ -414,6 +472,79 @@ private fun ChapterGrid(
             }
         }
     }
+}
+
+/** The chapters as a list, each with its title: "5 · Sermão da Montanha". */
+@Composable
+private fun ChapterList(
+    book: PassagePickerData.Book,
+    current: Int?,
+    padding: PaddingValues,
+    onChoose: (Int) -> Unit,
+) {
+    val listState = rememberLazyListState()
+    LaunchedEffect(Unit) {
+        val index = book.chapters.indexOfFirst { it.number == current }
+        if (index > 3) listState.scrollToItem(index - 3)
+    }
+    val colors = MaterialTheme.colorScheme
+    LazyColumn(state = listState, contentPadding = padding) {
+        items(book.chapters, key = { it.number }) { chapter ->
+            val intro = chapter.label.isEmpty()
+            val selected = chapter.number == current
+            ListItem(
+                headlineContent = {
+                    Text(
+                        when {
+                            intro -> "Introdução"
+                            chapter.title.isNullOrEmpty() -> "Capítulo ${chapter.label}"
+                            else -> chapter.title
+                        },
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+                supportingContent = chapter.detail?.let { { Text("Na liturgia, ${it}") } },
+                leadingContent = {
+                    Surface(
+                        shape = MaterialTheme.shapes.medium,
+                        color = if (selected) colors.primary else colors.surfaceContainerHigh,
+                        contentColor = if (selected) colors.onPrimary else colors.onSurface,
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            if (intro) {
+                                Icon(painterResource(R.drawable.ic_article), contentDescription = null, Modifier.size(20.dp))
+                            } else {
+                                Text(chapter.label, style = MaterialTheme.typography.titleSmall)
+                            }
+                        }
+                    }
+                },
+                trailingContent = ribbonColor(chapter.bookmark)?.let { ribbon ->
+                    { Icon(painterResource(R.drawable.ic_bookmark_filled), contentDescription = null, tint = ribbon) }
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                modifier = Modifier
+                    .clickable(role = Role.Button) { onChoose(chapter.number) }
+                    .clearAndSetSemantics {
+                        contentDescription = spokenLabel(chapter)
+                        this.selected = selected
+                    },
+            )
+        }
+    }
+}
+
+private const val PREFERENCES = "native-chrome"
+private const val CHAPTER_LIST = "picker.chapterList"
+
+/** Whether the reader last chose the chapters as a list. */
+private fun Context.chapterListPreferred(): Boolean =
+    getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).getBoolean(CHAPTER_LIST, false)
+
+private fun Context.saveChapterListPreferred(list: Boolean) {
+    getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit().putBoolean(CHAPTER_LIST, list).apply()
 }
 
 private fun spokenLabel(chapter: PassagePickerData.Chapter): String {

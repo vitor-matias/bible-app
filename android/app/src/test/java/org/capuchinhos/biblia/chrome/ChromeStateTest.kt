@@ -73,6 +73,26 @@ class ChromeStateTest {
         assertTrue(older.autoScroll!!.canPlay)
     }
 
+    @Test
+    fun readsTheTextSize() {
+        val state = ChromeState.from(
+            call("""{"mode":"reader","textSize":{"percent":120,"min":70,"max":235,"canReset":true}}"""),
+        )
+        assertEquals(TextSize(120, 70, 235, canReset = true), state.textSize)
+        assertTrue(state.textSize!!.canDecrease)
+        assertTrue(state.textSize!!.canIncrease)
+        // Off at either end of the range.
+        assertFalse(TextSize(70, 70, 235, canReset = true).canDecrease)
+        assertFalse(TextSize(235, 70, 235, canReset = true).canIncrease)
+        assertNull(ChromeState.from(call("""{"mode":"reader","textSize":null}""")).textSize)
+    }
+
+    @Test
+    fun readsThePagesColour() {
+        assertEquals(0xFF121212.toInt(), ChromeState.from(call("""{"mode":"reader","pageColor":"#121212"}""")).pageColor)
+        assertNull(ChromeState.from(call("""{"mode":"reader","pageColor":"white"}""")).pageColor)
+    }
+
     // A section without a heading sends an empty one.
     @Test
     fun readsABlankSubtitleAsNone() {
@@ -147,6 +167,15 @@ class ChromeStateTest {
         assertEquals(BookmarksSheetState.Move("red", "vermelho", "Mateus 5", done = false), sheet.move)
     }
 
+    // The About page's ribbons open their passages but mark nothing; older
+    // web bundles don't say, and every page could be marked.
+    @Test
+    fun readsWhetherThePageCanBeMarked() {
+        val about = BookmarksSheetState.from(call("""{"currentLabel":"Sobre a Bíblia","canMark":false,"ribbons":[]}"""))
+        assertFalse(about.canMark)
+        assertTrue(BookmarksSheetState.from(call("""{"currentLabel":"Mt 5","ribbons":[]}""")).canMark)
+    }
+
     @Test
     fun readsTheOnboardingsMaterialIcons() {
         val steps = OnboardingStep.from(
@@ -173,13 +202,13 @@ class ChromeInsetsTest {
     }
 
     // Top: the status bar and a 64 dp app bar. Bottom: the navigation bar,
-    // the arrows' 16 dp offset and their 48 dp.
+    // the arrows' 16 dp offset and their 56 dp.
     @Test
     fun coversTheReadersBars() {
         val arrows = reader.copy(chapterNavigation = true)
-        assertEquals(ChromeInsets(88f, 48f + 16f + 48f), chromeInsets(arrows, collapsed = false, 24f, 48f))
+        assertEquals(ChromeInsets(88f, 48f + 16f + 56f), chromeInsets(arrows, collapsed = false, 24f, 48f))
         // Hidden for reading, they keep their row: the page doesn't change length.
-        assertEquals(ChromeInsets(88f, 48f + 16f + 48f, collapsed = true), chromeInsets(arrows, collapsed = true, 24f, 48f))
+        assertEquals(ChromeInsets(88f, 48f + 16f + 56f, collapsed = true), chromeInsets(arrows, collapsed = true, 24f, 48f))
     }
 
     // "Sobre a Bíblia" has no chapters to turn: nothing at the bottom.
@@ -188,15 +217,25 @@ class ChromeInsetsTest {
         assertEquals(ChromeInsets(88f, 48f), chromeInsets(reader, collapsed = false, 24f, 48f))
     }
 
+    // The arrows make way for auto-scroll's toolbar: one row, never two.
     @Test
-    fun stacksAutoScrollAboveTheArrowsWhileTheBarsShow() {
+    fun givesAutoScrollTheArrowsRow() {
         val state = reader.copy(chapterNavigation = true, autoScroll = autoScroll)
-        assertEquals(ChromeInsets(88f, 48f + 16f + 48f + 12f + 64f), chromeInsets(state, collapsed = false, 24f, 48f))
-        // Hidden for reading, the arrows leave it their row.
+        assertEquals(ChromeInsets(88f, 48f + 16f + 64f), chromeInsets(state, collapsed = false, 24f, 48f))
         assertEquals(ChromeInsets(88f, 48f + 16f + 64f, collapsed = true), chromeInsets(state, collapsed = true, 24f, 48f))
-        // Without arrows, it has the row to itself.
         val alone = reader.copy(autoScroll = autoScroll)
         assertEquals(ChromeInsets(88f, 48f + 16f + 64f), chromeInsets(alone, collapsed = false, 24f, 48f))
+    }
+
+    // Large text makes the bar taller, a phone on its side shorter: the page
+    // starts under the bar as it is drawn.
+    @Test
+    fun followsTheReadersBarHeight() {
+        assertEquals(24f + 80f, chromeInsets(reader, collapsed = false, 24f, 48f, readerBar = 80f).top)
+        assertEquals(24f + 56f, chromeInsets(reader, collapsed = false, 24f, 48f, readerBar = 56f).top)
+        // Other pages keep Material's 64 dp bar.
+        val page = ChromeState(mode = ChromeMode.Page)
+        assertEquals(24f + 64f, chromeInsets(page, collapsed = false, 24f, 48f, readerBar = 80f).top)
     }
 
     @Test
@@ -364,5 +403,64 @@ class PickerRowsTest {
     @Test
     fun findsNothingForNoMatch() {
         assertEquals(emptyList<PickerRow>(), pickerRows(data, "Apocalipse"))
+    }
+}
+
+/** The page's colour as CSS declares it. */
+class CssHexColorTest {
+    @Test
+    fun readsSixAndThreeDigitHex() {
+        assertEquals(0xFFFFFFFF.toInt(), cssHexColor("#ffffff"))
+        assertEquals(0xFF121212.toInt(), cssHexColor(" #121212 "))
+        assertEquals(0xFFFFFFFF.toInt(), cssHexColor("#fff"))
+    }
+
+    @Test
+    fun leavesAnythingElse() {
+        assertNull(cssHexColor("white"))
+        assertNull(cssHexColor("rgb(18, 18, 18)"))
+        assertNull(cssHexColor("#12121"))
+        assertNull(cssHexColor("#zzzzzz"))
+    }
+}
+
+/** The line under the ribbons: how to mark, how to go back, what can't be marked. */
+class BookmarksHintTest {
+    private fun ribbon(color: String, label: String? = null, current: Boolean = false) =
+        BookmarksSheetState.Ribbon(color, color, label, current)
+
+    private fun state(vararg ribbons: BookmarksSheetState.Ribbon, canMark: Boolean = true) =
+        BookmarksSheetState("Mateus 5", ribbons.toList(), move = null, canMark = canMark)
+
+    // The first time, it also says how to come back.
+    @Test
+    fun saysHowToComeBackBeforeAnyIsUsed() {
+        assertEquals(
+            "Escolha uma cor para marcar Mateus 5. Para voltar, abra Marcadores e toque nessa fita.",
+            bookmarksHint(state(ribbon("red"), ribbon("blue")), editing = false),
+        )
+    }
+
+    @Test
+    fun saysANamedRibbonGoesBack() {
+        assertEquals(
+            "Toque numa fita com nome para voltar a essa passagem, ou numa fita livre para marcar Mateus 5.",
+            bookmarksHint(state(ribbon("red", "Gn 1"), ribbon("blue")), editing = false),
+        )
+    }
+
+    // "Sobre a Bíblia 1" was offered to be marked.
+    @Test
+    fun saysWhenThePageCantBeMarked() {
+        assertEquals("Esta página não se pode marcar.", bookmarksHint(state(ribbon("red"), canMark = false), editing = false))
+        assertEquals(
+            "Esta página não se pode marcar. Toque numa fita com nome para abrir essa passagem.",
+            bookmarksHint(state(ribbon("red", "Gn 1"), canMark = false), editing = false),
+        )
+    }
+
+    @Test
+    fun saysWhatEditingDoes() {
+        assertEquals("Toque numa fita para a retirar.", bookmarksHint(state(ribbon("red", "Gn 1")), editing = true))
     }
 }

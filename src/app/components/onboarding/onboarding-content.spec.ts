@@ -35,7 +35,7 @@ describe("nativeOnboardingSteps", () => {
     const feature = (id: string, icon: string) =>
       step(id)?.features.find((entry) => entry.symbol === sfSymbol(icon))?.text
     expect(feature("tools", "bookmarks")).toContain("Toque no marcador")
-    const autoScroll = feature("customize", "auto_mode")
+    const autoScroll = feature("customize", "arrow_circle_down")
     expect(autoScroll).toContain("menu ⋯")
   })
 
@@ -96,7 +96,7 @@ describe("nativeOnboardingSteps for the Android app", () => {
     // Its hero shows that button's icon.
     expect(step("customize")?.icon).toBe("format_size")
     const autoScroll = step("customize")?.features.find(
-      (feature) => feature.icon === "auto_mode",
+      (feature) => feature.icon === "arrow_circle_down",
     )?.text
     expect(autoScroll).toContain("menu ⋮, no topo à direita")
     expect(autoScroll).not.toContain("⋯")
@@ -114,6 +114,14 @@ describe("nativeOnboardingSteps for the Android app", () => {
     expect(notes.text).not.toContain("Um toque no texto")
   })
 
+  // The menu's entry is "Como usar a app", under ⋮; the title is the passage.
+  it("names where the introduction is found again, and the title", () => {
+    expect(step("welcome")?.features[2].text).toContain(
+      "no menu ⋮, em «Como usar a app»",
+    )
+    expect(step("navigate")?.intro).toContain("«Génesis 1 ▾»")
+  })
+
   it("keeps the iOS app's words where the bars are alike", () => {
     expect(step("tools")?.features[1].text).toContain("no topo à direita")
   })
@@ -124,7 +132,7 @@ describe("nativeOnboardingSteps for the Android app", () => {
       "dark_mode",
       "auto_stories",
       "text_increase",
-      "auto_mode",
+      "arrow_circle_down",
     ])
   })
 })
