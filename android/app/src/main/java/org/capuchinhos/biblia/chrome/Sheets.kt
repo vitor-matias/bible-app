@@ -72,6 +72,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
@@ -546,7 +547,9 @@ private fun RibbonTile(
                         else -> "Marcar $currentLabel"
                     },
                 )
-                .semantics { contentDescription = spoken },
+                // The spoken label only: merged, TalkBack added the name
+                // under the ribbon ("Vermelho, livre. Vermelho").
+                .clearAndSetSemantics { contentDescription = spoken },
         ) {
             Column(
                 Modifier.padding(horizontal = 4.dp, vertical = 8.dp),

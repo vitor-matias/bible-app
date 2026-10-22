@@ -78,11 +78,13 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -308,10 +310,12 @@ private fun BookList(
             .nestedScroll(scrollBehavior.nestedScrollConnection)
             .semantics { paneTitle = "Livros" },
         topBar = {
-            Column {
+            // The bar and the filter as one group, read before the list: the
+            // list starts at the top too, under them, and came first.
+            Column(Modifier.semantics { isTraversalGroup = true; traversalIndex = -1f }) {
                 TopAppBar(
                     navigationIcon = { BarButton(R.drawable.ic_close, "Fechar", onClick = onClose) },
-                    title = { Text("Livros") },
+                    title = { Text("Livros", Modifier.semantics { heading() }) },
                     scrollBehavior = scrollBehavior,
                 )
                 // In view, not behind an icon: 73 books are a long way to scroll.
@@ -454,7 +458,8 @@ private fun BookRow(book: PassagePickerData.Book, current: Boolean, onClick: () 
                     1 -> "${book.name}, 1 capítulo"
                     else -> "${book.name}, $count capítulos"
                 }
-                selected = current
+                // Only the current one: TalkBack says "Not selected" for false.
+                if (current) selected = true
             },
     ) { Text(book.label, maxLines = 2, overflow = TextOverflow.Ellipsis) }
 }
@@ -485,7 +490,7 @@ private fun ChapterGrid(
         topBar = {
             TopAppBar(
                 navigationIcon = { onBack?.let { BarButton(R.drawable.ic_arrow_back, "Livros", onClick = it) } },
-                title = { Text(book.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = { Text(book.name, Modifier.semantics { heading() }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 actions = {
                     // Numbers for speed (Salmos, Isaías), or a list with each
                     // chapter's title to find one by what it tells.
@@ -582,7 +587,7 @@ private fun ChapterList(
                     .clickable(role = Role.Button) { onChoose(chapter.number) }
                     .clearAndSetSemantics {
                         contentDescription = spokenLabel(chapter)
-                        this.selected = selected
+                        if (selected) this.selected = true
                     },
             ) {
                 Text(
@@ -649,9 +654,11 @@ private fun ChapterCell(
                     onLongClick = if (longPressTitle != null) ({ menu = true }) else null,
                     role = Role.Button,
                 )
-                .semantics {
+                // The spoken label only: merged, TalkBack added the number
+                // after it ("Capítulo 1, …. 1").
+                .clearAndSetSemantics {
                     contentDescription = spoken
-                    selected = current
+                    if (current) selected = true
                 },
         ) {
             Box(contentAlignment = Alignment.Center) {

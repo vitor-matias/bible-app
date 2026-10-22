@@ -128,7 +128,7 @@ fun ReportDialog(chrome: ChromeController, sheet: Sheet.Report) {
             topBar = {
                 TopAppBar(
                     navigationIcon = { BarButton(R.drawable.ic_close, "Fechar", !sheet.sending, onClick = close) },
-                    title = { Text("Reportar erro") },
+                    title = { Text("Reportar erro", Modifier.semantics { heading() }) },
                     actions = {
                         // A shape, not bare text, so it reads as the form's button.
                         Button(
@@ -275,7 +275,7 @@ fun OnboardingDialog(chrome: ChromeController, sheet: Sheet.Onboarding) {
                     Spacer(Modifier.height(48.dp))
                 }
                 HorizontalPager(pager, Modifier.weight(1f)) { page -> OnboardingPage(steps[page]) }
-                PageDots(count = steps.size, current = pager.currentPage)
+                PageDots(count = steps.size, current = pager.currentPage, title = steps[pager.currentPage].title)
                 Button(
                     onClick = {
                         if (last) finish(true) else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
@@ -342,12 +342,17 @@ private fun OnboardingPage(step: OnboardingStep) {
 }
 
 @Composable
-private fun PageDots(count: Int, current: Int) {
+private fun PageDots(count: Int, current: Int, title: String) {
     Row(
         Modifier
             .fillMaxWidth()
             .padding(top = 8.dp)
-            .clearAndSetSemantics { contentDescription = "Página ${current + 1} de $count" },
+            // Said as it changes: after Seguinte, TalkBack stays on the
+            // button, and said nothing of the new page.
+            .clearAndSetSemantics {
+                contentDescription = "Página ${current + 1} de $count: $title"
+                liveRegion = LiveRegionMode.Polite
+            },
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
     ) {
         repeat(count) { index ->
