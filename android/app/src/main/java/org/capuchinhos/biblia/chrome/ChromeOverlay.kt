@@ -10,6 +10,7 @@ import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -25,6 +26,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -60,6 +63,7 @@ import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.clearText
@@ -77,6 +81,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -144,6 +149,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
@@ -280,7 +286,7 @@ private fun readerBarHeight(subtitle: Boolean): Dp {
     val typography = MaterialTheme.typography
     val base = if (LocalConfiguration.current.screenHeightDp < 480) 56.dp else BarMetrics.topBar.dp
     val text = with(LocalDensity.current) {
-        typography.titleLarge.lineHeight.toDp() + if (subtitle) typography.bodyMedium.lineHeight.toDp() else 0.dp
+        typography.titleLargeEmphasized.lineHeight.toDp() + if (subtitle) typography.bodyMedium.lineHeight.toDp() else 0.dp
     }
     return maxOf(base, text + 8.dp)
 }
@@ -417,7 +423,10 @@ private val AUTO_SCROLL_GAP = 12.dp
 @Composable
 private fun PassageTitle(chrome: ChromeController, state: ChromeState, enabled: Boolean, showSubtitle: Boolean) {
     BoxWithConstraints {
-        val style = MaterialTheme.typography.titleLarge
+        // Emphasized (Material 3 Expressive): the passage, and the way to
+        // another, stands out from the bar's icons. SemiBold: the style's own
+        // Medium drew as Regular with the system's Roboto (API 37 emulator).
+        val style = MaterialTheme.typography.titleLargeEmphasized.copy(fontWeight = FontWeight.SemiBold)
         val fitted = fittedPassage(state, style, maxWidth)
         val spoken = state.passageAccessibilityLabel
         val name = if (spoken.contains(fitted.label, ignoreCase = true)) spoken else "${fitted.label}, $spoken"
@@ -543,10 +552,21 @@ private fun ChapterArrows(chrome: ChromeController, state: ChromeState, enabled:
     }
 }
 
-/** A tonal floating button, Material's standard 56 dp. */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * A tonal floating button, Material's standard 56 dp. Its corners tighten as
+ * it is pressed and spring back (Material 3 Expressive), so a tap is seen to
+ * land.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ChapterButton(@DrawableRes icon: Int, label: String, enabled: Boolean, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val corner by animateDpAsState(
+        if (pressed) 8.dp else 16.dp,
+        MaterialTheme.motionScheme.fastSpatialSpec(),
+        label = "press",
+    )
     TooltipBox(
         positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
         tooltip = { PlainTooltip { Text(label) } },
@@ -556,7 +576,9 @@ private fun ChapterButton(@DrawableRes icon: Int, label: String, enabled: Boolea
             onClick = { if (enabled) onClick() },
             containerColor = MaterialTheme.colorScheme.secondaryContainer,
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            shape = RoundedCornerShape(corner),
             elevation = FloatingActionButtonDefaults.loweredElevation(),
+            interactionSource = interaction,
         ) {
             Icon(painterResource(icon), contentDescription = label)
         }
@@ -929,6 +951,8 @@ fun BarButton(
     ) {
         IconButton(
             onClick = onClick,
+            // Round at rest, squarer while pressed (Material 3 Expressive).
+            shapes = IconButtonDefaults.shapes(),
             enabled = enabled,
             modifier = if (stateDescription != null) {
                 Modifier.semantics { this.stateDescription = stateDescription }

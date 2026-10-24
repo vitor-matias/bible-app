@@ -10,6 +10,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.scrollBy
@@ -46,9 +47,11 @@ import androidx.compose.foundation.text.modifiers.TextAutoSizeLayoutScope
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -58,6 +61,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -759,6 +763,7 @@ private fun ChapterGrid(
                     textStyle = if (intro) MaterialTheme.typography.labelLarge else MaterialTheme.typography.titleMedium,
                     // A long press shows the chapter's section title, which the cell has no room for.
                     longPressTitle = chapter.title?.takeIf { !intro && it.isNotEmpty() }?.let { "${chapter.label} · $it" },
+                    markCurrent = !intro,
                 ) { onChoose(chapter.number) }
             }
         }
@@ -766,6 +771,7 @@ private fun ChapterGrid(
 }
 
 /** The chapters as a list, each with its title: "5 · Sermão da Montanha". */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ChapterList(
     book: PassagePickerData.Book,
@@ -787,7 +793,8 @@ private fun ChapterList(
                 supportingContent = chapter.detail?.let { { Text("Na liturgia, ${it}") } },
                 leadingContent = {
                     Surface(
-                        shape = MaterialTheme.shapes.medium,
+                        // The current one in the grid's scalloped badge.
+                        shape = if (selected) MaterialShapes.Cookie9Sided.toShape() else MaterialTheme.shapes.medium,
                         color = if (selected) colors.primary else colors.surfaceContainerHigh,
                         contentColor = if (selected) colors.onPrimary else colors.onSurface,
                         modifier = Modifier.size(40.dp),
@@ -855,9 +862,10 @@ private fun spokenLabel(chapter: PassagePickerData.Chapter): String {
 
 /**
  * A chapter number, or a book. The current one is filled with the primary
- * colour; a bookmarked chapter shows its ribbon's colour as a dot.
+ * colour, or with [markCurrent] stands in a scalloped badge; a bookmarked
+ * chapter shows its ribbon's colour as a dot.
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun Tile(
     text: String,
@@ -871,14 +879,24 @@ private fun Tile(
     /** Smaller text where it doesn't fit, words kept whole. */
     shrink: Boolean = false,
     minHeight: Dp = 56.dp,
+    /**
+     * The current one in a badge of its own shape (Material 3 Expressive):
+     * found by its outline among the others, not by its colour alone.
+     */
+    markCurrent: Boolean = false,
     onClick: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
+    val badge = current && markCurrent
     Box {
         Surface(
             shape = MaterialTheme.shapes.medium,
-            color = if (current) colors.primary else colors.surfaceContainerHigh,
+            color = when {
+                badge -> Color.Transparent
+                current -> colors.primary
+                else -> colors.surfaceContainerHigh
+            },
             contentColor = if (current) colors.onPrimary else colors.onSurface,
             modifier = Modifier
                 .fillMaxWidth()
@@ -896,6 +914,11 @@ private fun Tile(
                 },
         ) {
             Box(contentAlignment = Alignment.Center) {
+                if (badge) {
+                    // The tile's height, square: the shape undistorted, and
+                    // the row no taller than the others.
+                    Box(Modifier.size(minHeight).background(colors.primary, MaterialShapes.Cookie9Sided.toShape()))
+                }
                 Column(
                     Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
