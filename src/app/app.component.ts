@@ -16,6 +16,7 @@ import { injectSpeedInsights } from "@vercel/speed-insights"
 import { appConfig, isVercelHost } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
 import { BackButtonService } from "./services/back-button.service"
+import { historyDepth } from "./services/depth-location-strategy"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
@@ -140,7 +141,9 @@ export class AppComponent implements OnInit, OnDestroy {
       return
     }
     if (this.backButton.closeTopmost()) return
-    if (canGoBack) {
+    // The WebView's canGoBack misses pages opened from the native bars before
+    // any tap on the page (DepthLocationStrategy); the app's own count doesn't.
+    if (canGoBack || historyDepth(window.history.state) > 0) {
       window.history.back()
       return
     }

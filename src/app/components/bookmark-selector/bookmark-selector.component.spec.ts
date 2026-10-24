@@ -11,6 +11,7 @@ import { BehaviorSubject } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
+import { ribbonColor } from "../../services/bookmark-ribbons.service"
 import { HapticsService } from "../../services/haptics.service"
 import { BookmarkSelectorComponent } from "./bookmark-selector.component"
 
@@ -113,6 +114,7 @@ describe("BookmarkSelectorComponent", () => {
 
   // Android's WebView painted the sheet garbled while the ribbons were cut to
   // shape with clip-path: half the sheet missing, ghost ribbons beside them.
+  // The colour is the theme's tone for the ribbon (--ribbon-*).
   it("draws each ribbon's shape in its colour instead of clipping the button", () => {
     const buttons = Array.from(
       fixture.nativeElement.querySelectorAll(".color-button"),
@@ -123,7 +125,7 @@ describe("BookmarkSelectorComponent", () => {
       expect(getComputedStyle(button).clipPath).toBe("none")
       const shape = button.querySelector(".ribbon-shape path") as SVGElement
       expect(getComputedStyle(shape).fill).toBe(
-        colorOf(component.ribbons[index].value),
+        colorOf(ribbonColor(component.ribbons[index].value) ?? ""),
       )
     })
   })

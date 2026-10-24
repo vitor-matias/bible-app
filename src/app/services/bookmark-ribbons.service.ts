@@ -18,6 +18,28 @@ export const RIBBON_COLORS = [
   { name: "Grey", value: "grey", spoken: "Cinzento" },
 ]
 
+/** Whether `color` is one of the ribbons, rather than a colour stored before them. */
+export function isRibbonColor(color: string | null | undefined): boolean {
+  return RIBBON_COLORS.some((ribbon) => ribbon.value === color)
+}
+
+/**
+ * The CSS colour to paint a ribbon in: its tone for the theme's surfaces
+ * (`--ribbon-<color>` in styles.css), or, with `surface: "light"`, the tone
+ * for a surface that stays light in both themes (the web header's buttons).
+ * Null for no ribbon; an unknown colour is painted as stored.
+ */
+export function ribbonColor(
+  color: string | null | undefined,
+  surface: "theme" | "light" = "theme",
+): string | null {
+  if (!color) return null
+  if (!isRibbonColor(color)) return color
+  return surface === "light"
+    ? `var(--ribbon-light-${color})`
+    : `var(--ribbon-${color})`
+}
+
 /** A ribbon's spoken name ("Vermelho"), by the colour a bookmark stores. */
 export function spokenRibbonName(color: string): string | undefined {
   return RIBBON_COLORS.find((ribbon) => ribbon.value === color)?.spoken

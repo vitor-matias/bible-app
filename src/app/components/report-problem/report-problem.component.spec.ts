@@ -28,7 +28,10 @@ describe("ReportProblemComponent", () => {
   let snackBarSpy: jasmine.SpyObj<MatSnackBar>
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
 
-  const mockDialogData = { book: { id: "gen", name: "Gênesis" }, chapter: 1 }
+  const mockDialogData = {
+    book: { id: "gen", name: "Gênesis", shortName: "Génesis" },
+    chapter: 1,
+  }
 
   beforeEach(async () => {
     mockDialogRef = jasmine.createSpyObj("MatDialogRef", ["close"])
@@ -78,6 +81,13 @@ describe("ReportProblemComponent", () => {
 
   it("should create", () => {
     expect(component).toBeTruthy()
+  })
+
+  it("names the passage as the reader does", () => {
+    const description = fixture.nativeElement.querySelector(
+      ".description",
+    ) as HTMLElement
+    expect(description.textContent).toContain("«Génesis 1»")
   })
 
   it("should initialize form with empty values", () => {

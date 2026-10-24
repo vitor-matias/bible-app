@@ -5,7 +5,10 @@ import { Capacitor } from "@capacitor/core"
 import { NATIVE_CHROME_PLUGIN } from "../tokens"
 import type { PassagePickerData } from "../utils/passage-picker"
 import {
+  ANDROID_HIDE_DISTANCE,
+  ANDROID_REVEAL_DISTANCE,
   COLLAPSE_DISTANCE,
+  FLING_REVEAL_SPEED,
   type NativeChromeAction,
   NativeChromeService,
   type ReaderChrome,
@@ -30,6 +33,7 @@ const READER: ReaderChrome = {
   bookmarkColor: null,
   bookmarkName: null,
   buildVersion: null,
+  textSize: null,
 }
 
 const SEARCH: SearchChrome = { mode: "search", themeMode: "dark", query: "" }
@@ -37,6 +41,7 @@ const SEARCH: SearchChrome = { mode: "search", themeMode: "dark", query: "" }
 describe("NativeChromeService", () => {
   let plugin: {
     setState: jasmine.Spy
+    setProgress: jasmine.Spy
     showPicker: jasmine.Spy
     showBookmarks: jasmine.Spy
     updateBookmarks: jasmine.Spy
@@ -59,6 +64,7 @@ describe("NativeChromeService", () => {
       setState: jasmine
         .createSpy("setState")
         .and.resolveTo({ top: 116, bottom: 82 }),
+      setProgress: jasmine.createSpy("setProgress").and.resolveTo(),
       showPicker: jasmine.createSpy("showPicker").and.resolveTo(),
       showBookmarks: jasmine.createSpy("showBookmarks").and.resolveTo(),
       updateBookmarks: jasmine.createSpy("updateBookmarks").and.resolveTo(),
@@ -73,7 +79,14 @@ describe("NativeChromeService", () => {
     body = document.createElement("body")
     root = document.createElement("html")
     overlays = document.createElement("div")
-    doc = { body, documentElement: root }
+    // Listeners on the document go on its <html>, which events from the
+    // page inside it pass through, as they pass the real document.
+    doc = {
+      body,
+      documentElement: root,
+      addEventListener: root.addEventListener.bind(root),
+      removeEventListener: root.removeEventListener.bind(root),
+    }
     TestBed.configureTestingModule({
       providers: [
         { provide: NATIVE_CHROME_PLUGIN, useValue: plugin },
@@ -102,20 +115,32 @@ describe("NativeChromeService", () => {
 
   const lastState = () => plugin.setState.calls.mostRecent().args[0]
 
-  function listener(event: "action" | "insets") {
+  function listener(event: "action" | "insets" | "palette") {
     const call = plugin.addListener.calls
       .all()
       .find(({ args }) => args[0] === event)
     return call?.args[1]
   }
 
-  it("is enabled only in the iOS app, which provides the plugin", () => {
+  it("is enabled in the iOS app, which provides the plugin", () => {
     expect(create("ios").enabled).toBeTrue()
   })
 
+  it("is enabled in the Android app, whose shell draws Material bars", () => {
+    const service = create("android")
+    expect(service.enabled).toBeTrue()
+    expect(body.classList).toContain("native-chrome")
+    expect(plugin.addListener).toHaveBeenCalledWith(
+      "action",
+      jasmine.any(Function),
+    )
+  })
+
+  // An Android shell from before the native bars has no plugin: the web
+  // header stays. The web never has the bars, whatever reports a plugin.
   for (const [platform, available] of [
-    ["android", true],
-    ["web", false],
+    ["android", false],
+    ["web", true],
     ["ios", false],
   ] as const) {
     it(`does nothing on ${platform} with the plugin ${available ? "present" : "absent"}`, fakeAsync(() => {
@@ -146,7 +171,105 @@ describe("NativeChromeService", () => {
       ...READER,
       inert: false,
       collapsed: false,
+      scrolled: false,
+      subtitle: null,
       autoScroll: null,
+      pageColor: null,
+    })
+  })
+
+  // The Android bar is the page's colour at rest and Material's container
+  // colour once text scrolls under it.
+  describe("text scrolled under the top bar", () => {
+    let page: HTMLElement
+
+    beforeEach(() => {
+      page = document.createElement("div")
+      root.appendChild(page)
+    })
+
+    afterEach(() => page.remove())
+
+    function scrollTo(top: number): void {
+      Object.defineProperty(page, "scrollTop", {
+        value: top,
+        configurable: true,
+      })
+      page.dispatchEvent(new Event("scroll"))
+    }
+
+    it("is sent to the Android bar as the page scrolls in any element", () => {
+      create("android").show(READER)
+      scrollTo(40)
+      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: true }))
+      scrollTo(0)
+      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: false }))
+    })
+
+    // Under the reader's own top margin the text hasn't reached the bar yet.
+    it("waits for the text to reach the bar", () => {
+      create("android").show(READER)
+      scrollTo(5)
+      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: false }))
+      scrollTo(9)
+      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: true }))
+    })
+
+    it("is sent once per change, not per scroll", () => {
+      create("android").show(READER)
+      scrollTo(40)
+      const calls = plugin.setState.calls.count()
+      scrollTo(80)
+      expect(plugin.setState.calls.count()).toBe(calls)
+    })
+
+    it("starts afresh on another kind of page", () => {
+      const service = create("android")
+      service.show(READER)
+      scrollTo(40)
+      service.show(SEARCH)
+      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: false }))
+    })
+
+    // A list scrolling beside the reader (the book drawer's) isn't the
+    // reader's text, and the text's place is its scroller's.
+    it("follows the reader's own scroller, not one beside it", () => {
+      const service = create("android")
+      service.show(READER)
+      const stop = service.trackScroll(page)
+      const drawer = document.createElement("div")
+      root.appendChild(drawer)
+      Object.defineProperty(drawer, "scrollTop", { value: 400 })
+      drawer.dispatchEvent(new Event("scroll"))
+      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: false }))
+
+      // The pages scroll across inside it: still the reader's place.
+      scrollTo(40)
+      const pages = document.createElement("div")
+      page.appendChild(pages)
+      pages.dispatchEvent(new Event("scroll"))
+      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: true }))
+      stop()
+      drawer.remove()
+    })
+
+    it("leaves a menu's or a dialog's scrolling out, on other pages", () => {
+      create("android").show(SEARCH)
+      root.appendChild(overlays)
+      const list = document.createElement("div")
+      overlays.appendChild(list)
+      Object.defineProperty(list, "scrollTop", { value: 400 })
+      list.dispatchEvent(new Event("scroll"))
+      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: false }))
+      overlays.remove()
+    })
+
+    // Each push rebuilds the iOS bars: none for a colour they don't show.
+    it("isn't followed in the iOS app", () => {
+      create("ios").show(READER)
+      const calls = plugin.setState.calls.count()
+      scrollTo(40)
+      expect(plugin.setState.calls.count()).toBe(calls)
     })
   })
 
@@ -159,6 +282,15 @@ describe("NativeChromeService", () => {
     // The search field rides up with the keyboard.
     listener("insets")({ top: 116, bottom: 380 })
     expect(root.style.getPropertyValue("--native-chrome-bottom")).toBe("380px")
+  })
+
+  // The Android bars take the wallpaper's colours: the cards among them follow.
+  it("passes the bars' surface to the page's cards", () => {
+    create("android")
+    listener("palette")({ surfaceContainerHigh: "#DCE3F0" })
+    expect(
+      body.style.getPropertyValue("--android-surface-container-high"),
+    ).toBe("#DCE3F0")
   })
 
   it("relays taps, with their details", () => {
@@ -208,7 +340,10 @@ describe("NativeChromeService", () => {
       ...SEARCH,
       inert: false,
       collapsed: false,
+      scrolled: false,
+      subtitle: null,
       autoScroll: null,
+      pageColor: null,
     })
   }))
 
@@ -321,7 +456,7 @@ describe("NativeChromeService", () => {
     const service = create("ios")
     const state = {
       message: "Encontrou algum problema?",
-      topics: [{ value: "typo", label: "Erro Ortográfico" }],
+      topics: [{ value: "typo", label: "Erro ortográfico" }],
       placeholder: "",
       maxLength: 500,
     }
@@ -432,7 +567,12 @@ describe("NativeChromeService", () => {
   // *-closed event would ever end the page's session with it.
   it("says whether a sheet came up", async () => {
     const service = create("ios")
-    const state = { currentLabel: "Mateus 11", ribbons: [], move: null }
+    const state = {
+      currentLabel: "Mateus 11",
+      ribbons: [],
+      move: null,
+      canMark: true,
+    }
     plugin.showBookmarks.and.resolveTo({ presented: true })
     expect(await service.showBookmarks(state)).toBeTrue()
 
@@ -509,7 +649,12 @@ describe("NativeChromeService", () => {
 
   it("passes the bookmarks sheet through", () => {
     const service = create("ios")
-    const state = { currentLabel: "Mateus 11", ribbons: [], move: null }
+    const state = {
+      currentLabel: "Mateus 11",
+      ribbons: [],
+      move: null,
+      canMark: true,
+    }
     service.showBookmarks(state)
     service.updateBookmarks(state)
 
@@ -733,12 +878,352 @@ describe("NativeChromeService", () => {
       })
     })
 
+    // Material's bars follow the scrolling: a tap that hid or showed them
+    // would fight it. Only pages, which don't scroll, need the tap.
+    // Material's bars follow the scrolling, but re-reading a line popped the
+    // bar over the text, and older readers didn't think to scroll up.
+    describe("in the Android app", () => {
+      let line: HTMLElement
+      let now: number
+
+      beforeEach(() => {
+        TestBed.resetTestingModule()
+        TestBed.configureTestingModule({
+          providers: [
+            { provide: NATIVE_CHROME_PLUGIN, useValue: plugin },
+            { provide: DOCUMENT, useValue: doc },
+            {
+              provide: OverlayContainer,
+              useValue: { getContainerElement: () => overlays },
+            },
+          ],
+        })
+        ;(Capacitor.getPlatform as jasmine.Spy).and.returnValue("android")
+        now = 10_000
+        spyOn(performance, "now").and.callFake(() => now)
+        service = TestBed.inject(NativeChromeService)
+        service.init()
+        service.show(READER)
+        const content = scroller.firstElementChild as HTMLElement
+        content.innerHTML = `<p class="line">No princípio havia o Verbo</p>`
+        line = content.querySelector(".line") as HTMLElement
+      })
+
+      /** A finger's scroll to `top`, taking `ms` (a slow drag, unless said). */
+      const drag = (top: number, ms = 200) => {
+        now += ms
+        scroller.dispatchEvent(new Event("touchmove"))
+        scroller.scrollTop = top
+        scroller.dispatchEvent(new Event("scroll"))
+      }
+
+      it("hides them after a line and a bit down, not one line", () => {
+        service.trackScroll(scroller)
+        drag(ANDROID_HIDE_DISTANCE - 8)
+        expect(collapsed()).toBeFalse()
+        drag(ANDROID_HIDE_DISTANCE)
+        expect(collapsed()).toBeTrue()
+      })
+
+      it("brings them back after two lines up, not one", () => {
+        service.trackScroll(scroller)
+        drag(100)
+        drag(400)
+        expect(collapsed()).toBeTrue()
+        drag(400 - 30)
+        expect(collapsed()).toBeTrue()
+        drag(400 - ANDROID_REVEAL_DISTANCE)
+        expect(collapsed()).toBeFalse()
+      })
+
+      it("brings them back at once on a flick up", () => {
+        service.trackScroll(scroller)
+        drag(100)
+        drag(400)
+        // 30 px in 10 ms: 3 px/ms, past FLING_REVEAL_SPEED.
+        drag(370, 10)
+        expect(30 / 10).toBeGreaterThanOrEqual(FLING_REVEAL_SPEED)
+        expect(collapsed()).toBeFalse()
+      })
+
+      // Voice Access, a keyboard or a switch scrolls without a finger.
+      it("brings them back on a scroll up that is no finger's", () => {
+        service.trackScroll(scroller)
+        drag(100)
+        drag(400)
+        now += 5000
+        scroller.scrollTop = 390
+        scroller.dispatchEvent(new Event("scroll"))
+        expect(collapsed()).toBeFalse()
+      })
+
+      it("shows them on a tap, which never hides them", () => {
+        service.trackScroll(scroller)
+        drag(100)
+        drag(400)
+        expect(collapsed()).toBeTrue()
+
+        line.click()
+        expect(collapsed()).toBeFalse()
+        line.click()
+        expect(collapsed()).toBeFalse()
+      })
+
+      it("leaves them hidden on a tap while auto-scroll reads on", () => {
+        service.trackScroll(scroller)
+        service.setAutoScroll({
+          playing: true,
+          speedLabel: "1",
+          speedAccessibilityLabel: "1 linha por segundo",
+          canSlower: true,
+          canFaster: true,
+          canPlay: true,
+        })
+        expect(collapsed()).toBeTrue()
+        line.click()
+        expect(collapsed()).toBeTrue()
+      })
+
+      it("still shows and hides them in pages, which don't scroll", () => {
+        const content = scroller.firstElementChild as HTMLElement
+        content.style.height = "50px"
+        service.trackScroll(scroller)
+
+        line.click()
+        expect(collapsed()).toBeTrue()
+        line.click()
+        expect(collapsed()).toBeFalse()
+      })
+    })
+
     it("never hides the search page's bars", () => {
       service.trackScroll(scroller)
       scrollTo(200)
       service.show(SEARCH)
 
       expect(collapsed()).toBeFalse()
+    })
+  })
+
+  describe("where the reader is, in the Android app", () => {
+    let scroller: HTMLElement
+    let content: HTMLElement
+    let service: NativeChromeService
+    let stop: () => void
+
+    /** The shell's bars end 116 px down (setState's answer above). */
+    beforeEach(async () => {
+      doc["defaultView"] = window
+      // Laid out, and inside the <html> the document's listeners are on.
+      document.body.appendChild(root)
+      scroller = document.createElement("div")
+      scroller.style.cssText =
+        "position: fixed; top: 0; left: 0; width: 200px; height: 300px; overflow-y: scroll"
+      content = document.createElement("div")
+      content.innerHTML = `
+        <div style="height: 150px"></div>
+        <h3 data-section-heading style="height: 20px; margin: 0">O Verbo fez-se homem</h3>
+        <div style="height: 500px"></div>
+        <p style="height: 20px; margin: 0">
+          <span data-section-heading>O testemunho de João</span> (Mt 3,1-12)
+        </p>
+        <div style="height: 2000px"></div>`
+      scroller.appendChild(content)
+      root.appendChild(scroller)
+      service = create("android")
+      service.show(READER)
+      await settle()
+      stop = service.trackScroll(scroller)
+    })
+
+    afterEach(() => {
+      stop()
+      root.remove()
+    })
+
+    /** Past the 20-a-second limit on working out where the reader is, and a frame. */
+    const frame = () =>
+      new Promise<void>((resolve) =>
+        setTimeout(() => requestAnimationFrame(() => resolve()), 60),
+      )
+    const scrollTo = async (top: number) => {
+      scroller.scrollTop = top
+      scroller.dispatchEvent(new Event("scroll"))
+      await frame()
+    }
+    const progress = () => plugin.setProgress.calls.mostRecent().args[0].value
+
+    it("sends how far through the chapter the text has scrolled", async () => {
+      await frame()
+      expect(progress()).toBe(0)
+      const end = scroller.scrollHeight - scroller.clientHeight
+      await scrollTo(end / 2)
+      expect(progress()).toBe(0.5)
+      await scrollTo(end)
+      expect(progress()).toBe(1)
+    })
+
+    it("follows the pages across, in paged view", async () => {
+      const pages = document.createElement("div")
+      pages.style.cssText = "width: 200px; overflow-x: scroll"
+      pages.innerHTML = `<div style="width: 1000px; height: 10px"></div>`
+      content.replaceChildren(pages)
+      pages.scrollLeft = 200
+      pages.dispatchEvent(new Event("scroll"))
+      await frame()
+      expect(progress()).toBe(0.25)
+    })
+
+    // Génesis 1 and 2 overhang the reader's width by a few pixels: the line
+    // read that sideways scroll, which never moved, and stayed at 0.
+    it("follows the text down when it also overhangs a few pixels across", async () => {
+      scroller.style.overflowX = "scroll"
+      content.style.width = "203px"
+      const end = scroller.scrollHeight - scroller.clientHeight
+      expect(scroller.scrollWidth - scroller.clientWidth).toBeGreaterThan(1)
+      await scrollTo(end / 2)
+      expect(progress()).toBe(0.5)
+    })
+
+    it("shows the heading of the section that went up under the bar", async () => {
+      await frame()
+      expect(lastState().subtitle).toBeNull()
+
+      // The first heading's bottom (150 + 20 − 100) is above the bar's edge.
+      await scrollTo(100)
+      expect(lastState().subtitle).toBe("O Verbo fez-se homem")
+
+      await scrollTo(700)
+      expect(lastState().subtitle).toBe("O testemunho de João")
+
+      await scrollTo(0)
+      expect(lastState().subtitle).toBeNull()
+    })
+
+    it("sends the heading once per section, not per scroll", async () => {
+      await scrollTo(100)
+      const calls = plugin.setState.calls.count()
+      await scrollTo(120)
+      await scrollTo(140)
+      expect(plugin.setState.calls.count()).toBe(calls)
+    })
+
+    it("sends the page's colour for the bars to match", async () => {
+      root.style.setProperty("--background-color", "#121212")
+      service.show({ ...READER, themeMode: "dark" })
+      expect(lastState().pageColor).toBe("#121212")
+    })
+
+    // In "Automático", the system's switch to dark turned the page dark
+    // under bars that kept the light page's colour: a title the colour of
+    // its bar, until the next scroll.
+    it("sends the page's colour again when the theme changes under it", async () => {
+      root.style.setProperty("--background-color", "#121212")
+      root.classList.add("dark-theme")
+      await settle()
+      expect(lastState().pageColor).toBe("#121212")
+    })
+
+    it("takes the line and the heading away when tracking stops", async () => {
+      await scrollTo(100)
+      stop()
+      expect(progress()).toBeNull()
+      service.show(READER)
+      expect(lastState().subtitle).toBeNull()
+    })
+
+    it("isn't followed in the iOS app", async () => {
+      stop()
+      TestBed.resetTestingModule()
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: NATIVE_CHROME_PLUGIN, useValue: plugin },
+          { provide: DOCUMENT, useValue: doc },
+          {
+            provide: OverlayContainer,
+            useValue: { getContainerElement: () => overlays },
+          },
+        ],
+      })
+      ;(Capacitor.getPlatform as jasmine.Spy).and.returnValue("ios")
+      const ios = TestBed.inject(NativeChromeService)
+      ios.init()
+      ios.show(READER)
+      plugin.setProgress.calls.reset()
+      stop = ios.trackScroll(scroller)
+      await scrollTo(700)
+      expect(plugin.setProgress).not.toHaveBeenCalled()
+      expect(lastState().subtitle).toBeNull()
+    })
+  })
+
+  // "Voltar para …" covered a line of text for as long as one read on.
+  describe("the way back after following a reference, in the Android app", () => {
+    let page: HTMLElement
+    let service: NativeChromeService
+    let now: number
+
+    beforeEach(() => {
+      doc["defaultView"] = window
+      page = document.createElement("div")
+      root.appendChild(page)
+      now = 1000
+      spyOn(performance, "now").and.callFake(() => now)
+      service = create("android")
+      service.show(READER)
+    })
+
+    afterEach(() => page.remove())
+
+    const scrollTo = (top: number) => {
+      Object.defineProperty(page, "scrollTop", {
+        value: top,
+        configurable: true,
+      })
+      page.dispatchEvent(new Event("scroll"))
+    }
+
+    it("goes once the reader has read on a screen's height", () => {
+      service.toast("Voltar para Mateus 5,3", {
+        onTap: () => {},
+        returnToPage: true,
+      })
+      now += 2000
+      scrollTo(100)
+      scrollTo(100 + window.innerHeight - 1)
+      expect(plugin.hideToast).not.toHaveBeenCalled()
+      scrollTo(100 + window.innerHeight)
+      expect(plugin.hideToast).toHaveBeenCalledTimes(1)
+    })
+
+    // The reader lands on the verse as the toast shows: the app's scroll.
+    it("leaves it up while the reader lands on the passage", () => {
+      service.toast("Voltar para Mateus 5,3", {
+        onTap: () => {},
+        returnToPage: true,
+      })
+      scrollTo(5000)
+      now += 2000
+      scrollTo(5000 + window.innerHeight - 1)
+      expect(plugin.hideToast).not.toHaveBeenCalled()
+    })
+
+    // Only the way back goes as the reader reads on: another toast with an
+    // action stays until it is used, closed or replaced.
+    it("leaves another toast with an action up", () => {
+      service.toast("Marcador movido", { onTap: () => {} })
+      now += 2000
+      scrollTo(0)
+      scrollTo(window.innerHeight * 2)
+      expect(plugin.hideToast).not.toHaveBeenCalled()
+    })
+
+    it("leaves a plain toast to its own timing", () => {
+      service.toast("Copiado")
+      now += 2000
+      scrollTo(0)
+      scrollTo(window.innerHeight * 2)
+      expect(plugin.hideToast).not.toHaveBeenCalled()
     })
   })
 
@@ -760,7 +1245,11 @@ describe("NativeChromeService", () => {
     })
     afterEach(() => {
       host.remove()
-      document.body.classList.remove("native-chrome")
+      document.body.classList.remove(
+        "native-chrome",
+        "platform-ios",
+        "platform-android",
+      )
     })
 
     it("are brown on the web", () => {
@@ -770,7 +1259,7 @@ describe("NativeChromeService", () => {
     })
 
     it("are the text colour in the iOS app", () => {
-      document.body.classList.add("native-chrome")
+      document.body.classList.add("native-chrome", "platform-ios")
       for (const token of tokens) {
         const value = getComputedStyle(host).getPropertyValue(token).trim()
         expect(value).withContext(token).not.toMatch(BROWN)
@@ -778,6 +1267,14 @@ describe("NativeChromeService", () => {
           .withContext(token)
           .toBe(getComputedStyle(host).getPropertyValue("--text-color").trim())
       }
+    })
+
+    // Its Material bars are the website's brown too.
+    it("stay brown in the Android app", () => {
+      document.body.classList.add("native-chrome", "platform-android")
+      expect(getComputedStyle(host).getPropertyValue("--cap-brown")).toMatch(
+        BROWN,
+      )
     })
   })
 })

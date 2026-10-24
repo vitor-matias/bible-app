@@ -25,6 +25,7 @@ import {
   ProblemReportService,
 } from "../../services/problem-report.service"
 import { ToastService } from "../../services/toast.service"
+import { reportSubject } from "../../utils/passage-label"
 
 export interface ReportProblemData {
   book: Book
@@ -61,6 +62,11 @@ export class ReportProblemComponent {
   })
 
   topics = this.reports.topics
+
+  /** "Salmo 34 (33)": the passage as the reader names it. */
+  get subject(): string {
+    return reportSubject(this.data.book, this.data.chapter)
+  }
 
   constructor(
     public dialogRef: MatDialogRef<ReportProblemComponent>,

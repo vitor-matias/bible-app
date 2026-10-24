@@ -61,10 +61,10 @@
     <div class="empty-state">
       <mat-icon class="empty-state-icon">search_off</mat-icon>
       @if (storedMatches) {
-        <p>Nenhum versículo com <strong>"{{ searchTerm }}"</strong></p>
+        <p>Nenhum versículo com <strong>«{{ searchTerm }}»</strong></p>
         <p class="results-hint">{{ storedResultsHint }}</p>
       } @else {
-        <p>Nenhum resultado para <strong>"{{ searchTerm }}"</strong></p>
+        <p>Nenhum resultado para <strong>«{{ searchTerm }}»</strong></p>
       }
     </div>
   } @else {

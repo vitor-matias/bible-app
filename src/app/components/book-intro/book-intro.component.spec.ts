@@ -90,6 +90,23 @@ describe("BookIntroComponent", () => {
     expect(fixture.nativeElement.querySelector("h3.intro-title-2")).toBeTruthy()
   })
 
+  // The Android bar names the section being read (NativeChromeService).
+  it("marks its titles as section headings", () => {
+    setIntroduction([
+      { type: "introTitle", level: 1, text: "EVANGELHO SEGUNDO SÃO JOÃO" },
+      { type: "introTitle", level: 2, text: "Autor" },
+      { type: "introTitle", level: 3, text: "Data" },
+      { type: "introParagraph", text: "depois" },
+    ])
+
+    const headings = fixture.nativeElement.querySelectorAll(
+      "[data-section-heading]",
+    ) as NodeListOf<HTMLElement>
+    expect(
+      Array.from(headings, (heading) => heading.textContent?.trim()),
+    ).toEqual(["EVANGELHO SEGUNDO SÃO JOÃO", "Autor", "Data"])
+  })
+
   it("should group consecutive list items into one list", () => {
     setIntroduction([
       { type: "introListItem", text: "primeiro" },

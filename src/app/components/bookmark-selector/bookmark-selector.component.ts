@@ -21,6 +21,7 @@ import {
   RIBBON_COLORS,
   type RibbonMove,
   type RibbonState,
+  ribbonColor,
   ribbonToMove,
 } from "../../services/bookmark-ribbons.service"
 
@@ -42,6 +43,8 @@ interface MoveOffer {
 })
 export class BookmarkSelectorComponent implements OnInit {
   colors = RIBBON_COLORS
+  /** Each ribbon in the theme's tone for it. */
+  readonly ribbonColor = ribbonColor
 
   ribbons: RibbonState[] = []
 

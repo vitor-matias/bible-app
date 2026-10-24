@@ -36,6 +36,11 @@ h3:not(:first-child) {
   margin-top: .5rem;
 }
 
+/* "Sl 8" stays whole: a reference split as "Sl" / "8;" reads as two. */
+.references a {
+  white-space: nowrap;
+}
+
 .references-block {
   display: inline-block;
   width: 100%;
@@ -187,6 +192,12 @@ h3:not(:first-child) {
   width: 44px;
   height: 44px;
   transform: translate(-50%, -50%);
+}
+
+/* Android's minimum touch target, as the floating buttons have. */
+:host-context(.platform-android.native-chrome) .footnoteIndicator::after {
+  width: 48px;
+  height: 48px;
 }
 
 /* Deep-link / search highlight, painted on the text runs. The inline <verse>

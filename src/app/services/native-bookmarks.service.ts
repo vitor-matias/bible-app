@@ -15,7 +15,7 @@ import {
 } from "./native-chrome.service"
 
 /**
- * The bookmarks panel as a native sheet in the iOS app. The sheet only draws
+ * The bookmarks panel as a native sheet in the iOS and Android apps. The sheet only draws
  * and reports taps; the ribbons' rules stay in BookmarkRibbonsService, and
  * the sheet is refreshed whenever the stored bookmarks change.
  */
@@ -74,7 +74,7 @@ export class NativeBookmarksService {
             if (action.id === "bookmark-open") this.ribbonsService.open(ribbon)
             if (action.id === "bookmark-remove")
               this.ribbonsService.remove(ribbon)
-            if (action.id === "bookmark-set")
+            if (action.id === "bookmark-set" && canMark(bookId))
               this.ribbonsService.assign(ribbon.value, bookId, chapter)
             if (action.id === "bookmark-move") mover.move(ribbon)
             break
@@ -93,9 +93,10 @@ export class NativeBookmarksService {
     chapter: number,
     mover: RibbonMove,
   ): BookmarksSheetState {
-    const offer = mover.offer(ribbons)
+    const offer = canMark(bookId) ? mover.offer(ribbons) : null
     return {
       currentLabel: this.label(bookId, chapter),
+      canMark: canMark(bookId),
       ribbons: ribbons.map((ribbon) => ({
         color: ribbon.value,
         name: spokenRibbonName(ribbon.value) ?? ribbon.name,
@@ -121,8 +122,15 @@ export class NativeBookmarksService {
       id: bookId,
       shortName: bookId,
     }
+    // The About page has no chapters: "Sobre a Bíblia", not "… 1".
+    if (!canMark(bookId)) return book.shortName
     return chapter === 0
       ? `${book.shortName} Introdução`
       : passageLabel(book, chapter)
   }
+}
+
+/** The About page can't be marked: a ribbon there would lead nowhere to read. */
+function canMark(bookId: string): boolean {
+  return bookId !== "about"
 }
