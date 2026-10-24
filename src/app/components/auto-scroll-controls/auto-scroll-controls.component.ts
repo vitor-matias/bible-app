@@ -18,6 +18,13 @@ import { AutoScrollService } from "../../services/auto-scroll.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { PreferencesService } from "../../services/preferences.service"
 
+/**
+ * How close to the slowest or fastest speed counts as there. The service
+ * keeps four decimals, so the slowest, 1/6, is stored as 0.1667: a little
+ * above it, which left − enabled there. The nearest steps are 0.03 apart.
+ */
+const SPEED_LIMIT_TOLERANCE = 0.001
+
 @Component({
   selector: "app-auto-scroll-controls",
   standalone: true,
@@ -179,8 +186,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
         this.autoScrollService.getAutoScrollSpeedSpokenLabel(
           this.autoScrollLinesPerSecond,
         ),
-      canSlower: this.autoScrollLinesPerSecond > this.MIN_AUTO_SCROLL_LPS,
-      canFaster: this.autoScrollLinesPerSecond < this.MAX_AUTO_SCROLL_LPS,
+      canSlower: this.canSlower,
+      canFaster: this.canFaster,
       canPlay: !this.atEnd,
     })
   }
@@ -196,6 +203,22 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   get autoScrollSpeedLabel(): string {
     return this.autoScrollService.getAutoScrollSpeedLabel(
       this.autoScrollLinesPerSecond,
+    )
+  }
+
+  /** Whether − can go slower; at the slowest it is disabled. */
+  get canSlower(): boolean {
+    return (
+      this.autoScrollLinesPerSecond - this.MIN_AUTO_SCROLL_LPS >
+      SPEED_LIMIT_TOLERANCE
+    )
+  }
+
+  /** Whether + can go faster; at the fastest it is disabled. */
+  get canFaster(): boolean {
+    return (
+      this.MAX_AUTO_SCROLL_LPS - this.autoScrollLinesPerSecond >
+      SPEED_LIMIT_TOLERANCE
     )
   }
 
