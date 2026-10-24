@@ -63,6 +63,7 @@ import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -74,6 +75,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.FloatingToolbarDefaults
@@ -82,6 +84,7 @@ import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.IconButtonShapes
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -733,18 +736,25 @@ private fun AutoScrollControl(chrome: ChromeController, autoScroll: AutoScrollSt
                         color = colors.surfaceContainer,
                         shadowElevation = FloatingToolbarDefaults.ContainerExpandedElevation,
                     ) {
-                        Row(Modifier.height(BarMetrics.chapterButton.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            BarButton(
+                        // − and +, one connected group (Material 3 Expressive).
+                        Row(
+                            Modifier.height(BarMetrics.chapterButton.dp).padding(horizontal = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            SpeedButton(
                                 R.drawable.ic_remove,
                                 "Diminuir velocidade",
+                                leading = true,
                                 enabled && autoScroll.canSlower,
-                                stateDescription = autoScroll.speedAccessibilityLabel,
+                                autoScroll.speedAccessibilityLabel,
                             ) { chrome.send("auto-scroll-slower") }
-                            BarButton(
+                            SpeedButton(
                                 R.drawable.ic_add,
                                 "Aumentar velocidade",
+                                leading = false,
                                 enabled && autoScroll.canFaster,
-                                stateDescription = autoScroll.speedAccessibilityLabel,
+                                autoScroll.speedAccessibilityLabel,
                             ) { chrome.send("auto-scroll-faster") }
                         }
                     }
@@ -755,9 +765,18 @@ private fun AutoScrollControl(chrome: ChromeController, autoScroll: AutoScrollSt
                 // theme (a container would be 1.85:1 on the dark page).
                 // Its toolbar would size it: alone, it would fill the area.
                 val size = Modifier.size(BarMetrics.chapterButton.dp)
+                // Round while paused, a rounded square while playing, the
+                // shape springing between them (Material 3 Expressive): which
+                // it is shows at a glance, not only by the small icon.
+                val corner by animateFloatAsState(
+                    if (autoScroll.playing) 28f else 50f,
+                    MaterialTheme.motionScheme.defaultSpatialSpec(),
+                    label = "play shape",
+                )
                 FloatingToolbarDefaults.VibrantFloatingActionButton(
                     onClick = { if (canPress) chrome.send("auto-scroll-toggle") },
                     modifier = if (canPress) size else size.semantics { disabled() },
+                    shape = RoundedCornerShape(percent = corner.roundToInt()),
                     containerColor = colors.primary,
                     contentColor = colors.onPrimary.copy(alpha = if (canPress) 1f else 0.38f),
                 ) {
@@ -777,6 +796,50 @@ private fun AutoScrollControl(chrome: ChromeController, autoScroll: AutoScrollSt
         intArrayOf(constraints.maxWidth, constraints.maxHeight, x, y, control.width, control.height).copyInto(laidOut)
         layout(constraints.maxWidth, constraints.maxHeight) {
             control.place(x + drag.x.roundToInt(), y + drag.y.roundToInt())
+        }
+    }
+}
+
+/**
+ * − or + in the speed group: tonal, rounded on the group's outer side and
+ * squarer on the inner, widening a little as it is pressed.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun SpeedButton(
+    @DrawableRes icon: Int,
+    label: String,
+    leading: Boolean,
+    enabled: Boolean,
+    stateDescription: String,
+    onClick: () -> Unit,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val width by animateDpAsState(if (pressed) 56.dp else 48.dp, MaterialTheme.motionScheme.fastSpatialSpec(), label = "press")
+    val outer = CornerSize(50)
+    val inner = CornerSize(8.dp)
+    val shape = if (leading) {
+        RoundedCornerShape(topStart = outer, bottomStart = outer, topEnd = inner, bottomEnd = inner)
+    } else {
+        RoundedCornerShape(topStart = inner, bottomStart = inner, topEnd = outer, bottomEnd = outer)
+    }
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
+        tooltip = { PlainTooltip { Text(label) } },
+        state = rememberTooltipState(),
+    ) {
+        FilledTonalIconButton(
+            onClick = onClick,
+            shapes = IconButtonShapes(shape = shape, pressedShape = RoundedCornerShape(inner)),
+            enabled = enabled,
+            interactionSource = interaction,
+            modifier = Modifier
+                .height(48.dp)
+                .width(width)
+                .semantics { this.stateDescription = stateDescription },
+        ) {
+            Icon(painterResource(icon), contentDescription = label)
         }
     }
 }
