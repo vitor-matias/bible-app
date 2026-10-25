@@ -121,12 +121,16 @@ h3:not(:first-child) {
 }
 
 /* A verse number, its notes marker and the verse's first word stay on one
-   line. The marker is a fullwidth asterisk, which lines break around as
-   around a CJK character ("4" | "＊" | "«Qual"); a word joiner after the
-   number and after the marker forbids those breaks. Generated content, so
-   it isn't copied with the text. */
-.verseNumber::after,
-.footnoteIndicator::after {
+   line ("4" | "＊" | "«Qual" broke apart). Nothing breaks inside the pair,
+   whatever the marker: browsers break around the iOS app's <svg> icon even
+   between word joiners. A word joiner after the pair forbids a break before
+   the word; it is generated, so it isn't copied with the text, and it is the
+   pair's ::after, since the marker's own is the apps' touch target. */
+.verseMarker {
+  white-space: nowrap;
+}
+
+.verseMarker::after {
   content: "\2060";
 }
 

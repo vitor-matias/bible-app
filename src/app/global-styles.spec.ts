@@ -63,7 +63,7 @@ describe("global styles", () => {
     beforeEach(() => {
       book = document.createElement("div")
       book.className = "bookBlock"
-      // As the reader's own (component-scoped) .bookBlock rule sets it.
+      // As the reader's .bookBlock rule sets it inside <bible-reader>.
       book.style.hyphens = "auto"
       book.innerHTML = `
         <p class="text">No princípio havia o Verbo</p>

@@ -16,24 +16,8 @@ h6 {
   --reader-side-margin: 24px;
 }
 
-.bookBlock {
-  font-family: var(--font-reading);
-  line-height: 1.6;
-  text-align: justify;
-  text-justify: inter-word;
-  hyphens: auto;
-  display: block;
-  margin: 15px var(--reader-side-margin);
-  font-size: 105%;
-}
-
-/* Android's narrow measure (about 38 characters) hyphenated six lines in
-   fifteen, three in a row, down to two-letter fragments ("so-bre"). Words
-   of seven letters or more only, three on either side; balanced endings. */
-:host-context(.platform-android) .bookBlock {
-  hyphenate-limit-chars: 7 3 3;
-  text-wrap: pretty;
-}
+/* The running text's own type (.bookBlock) is in styles.css, beside the
+   rules that vary it, which keeps this file under its size budget. */
 
 .chapterBlock {
   touch-action: pan-y !important;

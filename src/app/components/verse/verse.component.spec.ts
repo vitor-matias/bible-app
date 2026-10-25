@@ -869,37 +869,59 @@ describe("VerseComponent", () => {
     })
 
     // A narrow measure broke "4" | "＊" | "«Qual" onto separate lines: the
-    // fullwidth asterisk breaks like a CJK character.
-    it("keeps the number and the asterisk on the line of the first word", () => {
-      setData(
-        component,
-        makeVerse({
-          number: 4,
-          verseLabel: "4",
-          text: [{ type: "text", text: "«Qual é o homem" }, footnote],
-        }),
-      )
-      fixture.detectChanges()
-      const host = fixture.nativeElement as HTMLElement
-      // Every break the text allows is taken.
-      host.style.display = "block"
-      host.style.width = "1px"
-      const number = host.querySelector(".verseNumber") as HTMLElement
-      const run = [...host.querySelectorAll(".verseRun")].find((el) =>
-        el.textContent?.startsWith("«Qual"),
-      ) as HTMLElement
-      const word = document.createRange()
-      word.setStart(run.firstChild as Text, 0)
-      word.setEnd(run.firstChild as Text, "«Qual".length)
-      const wordBox = word.getBoundingClientRect()
-      // Superscripts sit high in the line, but within the word's height.
-      const onWordLine = (marker: HTMLElement) => {
-        const box = marker.getBoundingClientRect()
-        return box.top < wordBox.bottom && box.bottom > wordBox.top
+    // fullwidth asterisk breaks like a CJK character, and the iOS app's icon,
+    // an <svg>, broke away even between word joiners.
+    describe("on a line too narrow for any word", () => {
+      const onFirstWordLine = () => {
+        setData(
+          component,
+          makeVerse({
+            number: 4,
+            verseLabel: "4",
+            text: [{ type: "text", text: "«Qual é o homem" }, footnote],
+          }),
+        )
+        fixture.detectChanges()
+        const host = fixture.nativeElement as HTMLElement
+        // Every break the text allows is taken.
+        host.style.display = "block"
+        host.style.width = "1px"
+        const run = [...host.querySelectorAll(".verseRun")].find((el) =>
+          el.textContent?.startsWith("«Qual"),
+        ) as HTMLElement
+        const word = document.createRange()
+        word.setStart(run.firstChild as Text, 0)
+        word.setEnd(run.firstChild as Text, "«Qual".length)
+        const wordBox = word.getBoundingClientRect()
+        // Superscripts sit high in the line, but within the word's height.
+        return (marker: HTMLElement) => {
+          const box = marker.getBoundingClientRect()
+          return box.top < wordBox.bottom && box.bottom > wordBox.top
+        }
       }
+      const number = () =>
+        fixture.nativeElement.querySelector(".verseNumber") as HTMLElement
 
-      expect(onWordLine(number)).withContext("number").toBeTrue()
-      expect(onWordLine(asterisk())).withContext("asterisk").toBeTrue()
+      afterEach(() => document.body.classList.remove("native-chrome"))
+
+      it("keeps the number and the asterisk with the first word", () => {
+        const onWordLine = onFirstWordLine()
+
+        expect(onWordLine(number())).withContext("number").toBeTrue()
+        expect(onWordLine(asterisk())).withContext("asterisk").toBeTrue()
+      })
+
+      // There the marker's ::after is its touch target, not a word joiner.
+      it("keeps the number and the iOS app's icon with the first word", () => {
+        const native = TestBed.inject(NativeFootnotesService)
+        spyOnProperty(native, "enabled").and.returnValue(true)
+        document.body.classList.add("native-chrome")
+        const onWordLine = onFirstWordLine()
+
+        expect(asterisk().querySelector("svg.noteIcon")).toBeTruthy()
+        expect(onWordLine(number())).withContext("number").toBeTrue()
+        expect(onWordLine(asterisk())).withContext("icon").toBeTrue()
+      })
     })
 
     it("opens the notes from the text on the web", () => {

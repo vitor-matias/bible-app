@@ -584,6 +584,28 @@ html.dark-theme .platform-ios.native-chrome app-search {
   }
 }
 
+/* The reader's running text, from BibleReaderComponent (here rather than in
+   its stylesheet, which is at its size budget). The rules after it vary it,
+   as do the reader's own for tablets and the paged view. */
+.bookBlock {
+  font-family: var(--font-reading);
+  line-height: 1.6;
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+  display: block;
+  margin: 15px var(--reader-side-margin);
+  font-size: 105%;
+}
+
+/* Android's narrow measure (about 38 characters) hyphenated six lines in
+   fifteen, three in a row, down to two-letter fragments ("so-bre"). Words
+   of seven letters or more only, three on either side; balanced endings. */
+.platform-android .bookBlock {
+  hyphenate-limit-chars: 7 3 3;
+  text-wrap: pretty;
+}
+
 /* At the largest text sizes a line holds a handful of words: justified, it
    spreads into gaps. UnifiedGesturesDirective sets the class; centred
    headings keep their own alignment. */
