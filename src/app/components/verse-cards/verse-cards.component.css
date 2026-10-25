@@ -7,18 +7,25 @@
    verse, however hard the flick. A verse taller than the screen (large text)
    still scrolls freely inside its own card. */
 .verse-card {
-  min-height: calc(100vh - 56px - env(safe-area-inset-top, 0px));
-  min-height: calc(100dvh - 56px - env(safe-area-inset-top, 0px));
+  /* The reader's visible height, in its own terms: on the web that is the
+     screen less the header and the bottom inset; in the native apps the
+     header is gone and the glass bars (--app-chrome-top / --app-inset-bottom)
+     float over a full-height scroller instead. */
+  min-height: calc(
+    100vh - var(--app-header-height) - var(--app-chrome-top) -
+      var(--app-inset-bottom)
+  );
+  min-height: calc(
+    100dvh - var(--app-header-height) - var(--app-chrome-top) -
+      var(--app-inset-bottom)
+  );
   display: flex;
   flex-direction: column;
   justify-content: center;
   /* The host says how much of the bottom is covered (the reader pins its
-     copyright footer there), so the verse is centred in what can be seen. */
-  padding: 32px 24px
-    calc(
-      32px + var(--verse-cards-bottom-inset, 0px) +
-        env(safe-area-inset-bottom, 0px)
-    );
+     copyright footer there), so the verse is centred in what can be seen. No
+     safe-area term: the height above already stops short of the inset. */
+  padding: 32px 24px calc(32px + var(--verse-cards-bottom-inset, 0px));
   box-sizing: border-box;
   scroll-snap-align: start;
   scroll-snap-stop: always;

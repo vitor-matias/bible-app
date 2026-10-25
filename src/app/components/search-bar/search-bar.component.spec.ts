@@ -1,4 +1,5 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import { contrastRatio } from "../../testing/contrast"
 import { SearchBarComponent } from "./search-bar.component"
 
 describe("SearchBarComponent", () => {
@@ -14,6 +15,44 @@ describe("SearchBarComponent", () => {
     component = fixture.componentInstance
     fixture.detectChanges()
   })
+
+  afterEach(() => document.documentElement.classList.remove("dark-theme"))
+
+  // A side navigation bar or notch in landscape covered Back and the field.
+  it("keeps its contents clear of side system bars", () => {
+    const host = fixture.nativeElement as HTMLElement
+    const content = host.querySelector(".content") as HTMLElement
+    const box = (left: string, right: string) => {
+      host.style.setProperty("--app-inset-left", left)
+      host.style.setProperty("--app-inset-right", right)
+      return content.getBoundingClientRect()
+    }
+
+    const none = box("0px", "0px")
+    const inset = box("48px", "40px")
+
+    expect(inset.left - none.left).toBeCloseTo(48, 0)
+    expect(none.right - inset.right).toBeCloseTo(40, 0)
+  })
+
+  // The field is white in both themes, but its text colour is the browser's
+  // default, which follows the page's color-scheme. .dark-theme sets
+  // color-scheme: dark, so typed text turned white on the white field and the
+  // box looked empty.
+  for (const theme of ["light", "dark"]) {
+    it(`keeps typed text readable on its field in ${theme} mode`, () => {
+      document.documentElement.classList.toggle("dark-theme", theme === "dark")
+
+      const input = (fixture.nativeElement as HTMLElement).querySelector(
+        ".search-input",
+      ) as HTMLInputElement
+      const style = getComputedStyle(input)
+
+      expect(
+        contrastRatio(style.color, style.backgroundColor),
+      ).toBeGreaterThanOrEqual(4.5)
+    })
+  }
 
   // The reader header pins its buttons 8px from the viewport edge. This toolbar
   // lays its buttons out in flow instead, so Material's own 16px toolbar inset
@@ -46,8 +85,48 @@ describe("SearchBarComponent", () => {
     expect(heights).toEqual(["40px", "40px", "40px"])
   })
 
+  it("emits every edit, for searching as people type", async () => {
+    const typed: string[] = []
+    component.typing.subscribe((text) => typed.push(text))
+    const input = fixture.nativeElement.querySelector(
+      "input",
+    ) as HTMLInputElement
+
+    input.value = "luz"
+    input.dispatchEvent(new Event("input"))
+    await fixture.whenStable()
+
+    expect(typed).toEqual(["luz"])
+  })
+
   it("should create", () => {
     expect(component).toBeTruthy()
+  })
+
+  // Android capitalised the first letter: "amor" showed as "Amor".
+  it("leaves typed words as typed", () => {
+    const input = fixture.nativeElement.querySelector(
+      "input",
+    ) as HTMLInputElement
+
+    expect(input.getAttribute("autocapitalize")).toBe("off")
+    expect(input.spellcheck).toBeFalse()
+  })
+
+  it("opens ready to type", () => {
+    const input = fixture.nativeElement.querySelector("input")
+    expect(document.activeElement).toBe(input)
+  })
+
+  // After Back from a result, the keyboard came up over the results.
+  it("doesn't bring the keyboard up over results already shown", () => {
+    const shown = TestBed.createComponent(SearchBarComponent)
+    shown.componentRef.setInput("focusOnOpen", false)
+    shown.detectChanges()
+
+    expect(document.activeElement).not.toBe(
+      shown.nativeElement.querySelector("input"),
+    )
   })
 
   it("should prefill the query from the value input", () => {

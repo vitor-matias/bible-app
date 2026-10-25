@@ -55,6 +55,41 @@ describe("AboutComponent", () => {
     expect(element.querySelector('a[href="/gn/1"]')).toBeNull()
   })
 
+  // Prose lives in real paragraphs, not text nodes separated by empty <p>s.
+  it("puts each organisation's prose in non-empty paragraphs", () => {
+    const element = fixture.nativeElement as HTMLElement
+    const orgs = element.querySelectorAll<HTMLElement>("section.org")
+
+    expect(orgs.length).toBe(2)
+    for (const org of Array.from(orgs)) {
+      const paragraphs = Array.from(org.querySelectorAll("p"))
+      expect(paragraphs.length).toBeGreaterThan(0)
+      for (const p of paragraphs) {
+        expect(p.textContent?.trim()).not.toBe("")
+      }
+    }
+  })
+
+  it("opens the organisations' sites in a new tab without an opener", () => {
+    const element = fixture.nativeElement as HTMLElement
+    const links = Array.from(
+      element.querySelectorAll<HTMLAnchorElement>("a.site-link"),
+    )
+
+    expect(links.map((a) => a.href)).toEqual([
+      "https://www.difusorabiblica.com/",
+      "https://www.capuchinhos.org/",
+    ])
+    expect(links.map((a) => a.textContent?.trim())).toEqual([
+      "difusorabiblica.com",
+      "capuchinhos.org",
+    ])
+    for (const link of links) {
+      expect(link.target).toBe("_blank")
+      expect(link.relList.contains("noopener")).toBeTrue()
+    }
+  })
+
   // The list is not here, but the link to it is: /livros only passes weight to
   // the books if something links to /livros in the first place.
   it("links to the book index", () => {
@@ -65,5 +100,32 @@ describe("AboutComponent", () => {
     expect(link?.textContent?.trim()).toBe(
       "Ler a Bíblia online: todos os livros",
     )
+  })
+
+  // The iOS app has no accent colour: its main buttons are the text colour
+  // inverted, so the beige-and-brown pill would be the only brand colour left.
+  describe("in the iOS app", () => {
+    beforeEach(() => document.body.classList.add("native-chrome"))
+    afterEach(() => document.body.classList.remove("native-chrome"))
+
+    /** A theme colour as computed styles report it, in either theme. */
+    function themeColor(token: string): string {
+      const probe = document.createElement("span")
+      probe.style.color = `var(${token})`
+      document.body.appendChild(probe)
+      const color = getComputedStyle(probe).color
+      probe.remove()
+      return color
+    }
+
+    it("shows the book index link as a main button, without the brand colours", () => {
+      const link = (fixture.nativeElement as HTMLElement).querySelector(
+        ".read-online a",
+      ) as HTMLElement
+      const style = getComputedStyle(link)
+
+      expect(style.backgroundColor).toBe(themeColor("--text-color"))
+      expect(style.color).toBe(themeColor("--background-color"))
+    })
   })
 })

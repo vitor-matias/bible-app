@@ -175,6 +175,20 @@ describe("SeoService", () => {
       expect(getMetaContent('property="og:description"')).toBe(description)
     })
 
+    it("drops zero-width line markers and the space segment joins leave before punctuation", () => {
+      const chapter = makeChapter("\u200B")
+      chapter.verses?.[0].text.push(
+        { type: "text", text: "Louvai o" },
+        { type: "text", text: "Senhor" },
+        { type: "text", text: ", todas as nações!" },
+      )
+      service.updateForChapter(genesis, 1, chapter)
+
+      expect(getMetaContent('name="description"')).toBe(
+        "Génesis 1: Louvai o Senhor, todas as nações!",
+      )
+    })
+
     it("truncates long descriptions at a word boundary with an ellipsis", () => {
       const longText = "palavra ".repeat(60)
       service.updateForChapter(genesis, 1, makeChapter(longText))

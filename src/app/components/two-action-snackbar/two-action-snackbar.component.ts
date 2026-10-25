@@ -1,15 +1,24 @@
 import { ChangeDetectionStrategy, Component, Inject } from "@angular/core"
 import { MatButtonModule } from "@angular/material/button"
+import { MatIconModule } from "@angular/material/icon"
 import { MAT_SNACK_BAR_DATA, MatSnackBarRef } from "@angular/material/snack-bar"
 
+/**
+ * The way back after following a reference: the whole message is the button
+ * ("↩ Voltar para João 1,18"), with a close button beside it. A question with
+ * Voltar and Fechar under it said the same thing twice.
+ */
 @Component({
   selector: "app-two-action-snack",
-  imports: [MatButtonModule],
+  imports: [MatButtonModule, MatIconModule],
   template: `
-    <span class="message">{{ data.message }}</span>
-    <span class="spacer"></span>
-    <button mat-button (click)="goBack()">Voltar</button>
-    <button mat-button (click)="dismiss()">Fechar</button>
+    <button mat-button class="go-back" (click)="goBack()">
+      <mat-icon>undo</mat-icon>
+      {{ data.message }}
+    </button>
+    <button mat-icon-button class="close" (click)="dismiss()" aria-label="Fechar">
+      <mat-icon>close</mat-icon>
+    </button>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [
@@ -17,15 +26,15 @@ import { MAT_SNACK_BAR_DATA, MatSnackBarRef } from "@angular/material/snack-bar"
       :host {
         display: flex;
         align-items: center;
+        gap: 4px;
         width: 100%;
       }
-      .spacer {
-        flex: 1 1 auto;
+      .go-back {
+        flex: 1;
+        justify-content: flex-start;
       }
-      .message {
-        color: antiquewhite;
-      }
-      :host ::ng-deep .mat-mdc-button .mdc-button__label {
+      :host ::ng-deep .mat-mdc-button .mdc-button__label,
+      .mat-icon {
         color: antiquewhite;
       }
     `,

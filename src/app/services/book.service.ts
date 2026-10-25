@@ -1,8 +1,12 @@
-import { Injectable } from "@angular/core"
+import { isPlatformBrowser } from "@angular/common"
+import { Injectable, inject, NgZone, PLATFORM_ID } from "@angular/core"
+import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, firstValueFrom } from "rxjs"
-import { filter } from "rxjs/operators"
+import { filter, pairwise } from "rxjs/operators"
 import { SHARED_BOOK_INTROS } from "../bible-canon"
+import { APP_PLUGIN } from "../tokens"
 import { BibleApiService } from "./bible-api.service"
+import { NetworkService } from "./network.service"
 
 @Injectable({
   providedIn: "root",
@@ -13,20 +17,66 @@ export class BookService {
   books$ = this.booksSubject
     .asObservable()
     .pipe(filter((books) => books.length > 0))
+  private unavailableSubject = new BehaviorSubject(false)
+  /**
+   * True once loading the book list has failed with nothing cached, e.g. a
+   * first launch without a connection. The reader shows an empty state with
+   * a retry until a later load succeeds.
+   */
+  booksUnavailable$ = this.unavailableSubject.asObservable()
+  private readonly networkService = inject(NetworkService)
+  private readonly appPlugin = inject(APP_PLUGIN)
+  private readonly ngZone = inject(NgZone)
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID))
 
   constructor(private apiService: BibleApiService) {
     // APP_INITIALIZER reports failures; an unhandled rejection here would
     // kill the prerender worker and fail the build.
     this.initializeBooks().catch(() => {})
+    this.retryWhenLikelyToSucceed()
   }
 
   /** Loads books before the app starts; concurrent callers share one load. */
   initializeBooks(): Promise<void> {
     if (this.getBooks().length > 0) return Promise.resolve()
-    this.initPromise ??= this.loadBooks().finally(() => {
-      this.initPromise = undefined
-    })
+    this.initPromise ??= this.loadBooks()
+      .then(
+        () => this.unavailableSubject.next(false),
+        (error: unknown) => {
+          // Never while prerendering: the empty state would be baked into
+          // every static page, which instead falls back to client rendering.
+          if (this.isBrowser) this.unavailableSubject.next(true)
+          throw error
+        },
+      )
+      .finally(() => {
+        this.initPromise = undefined
+      })
     return this.initPromise
+  }
+
+  /** Retries a failed load; failures only keep the empty state up. */
+  retryBooks(): Promise<void> {
+    return this.initializeBooks().catch(() => {})
+  }
+
+  private retryWhenLikelyToSucceed(): void {
+    const retryIfUnavailable = () => {
+      if (this.unavailableSubject.value) void this.retryBooks()
+    }
+    this.networkService.isOffline$
+      .pipe(
+        pairwise(),
+        filter(([wasOffline, isOffline]) => wasOffline && !isOffline),
+      )
+      .subscribe(retryIfUnavailable)
+    // A connection may come back while the app is in the background, when
+    // the network listener can miss the change.
+    if (Capacitor.isNativePlatform()) {
+      void this.appPlugin
+        .addListener("resume", () => this.ngZone.run(retryIfUnavailable))
+        .catch(() => {})
+    }
   }
 
   private async loadBooks(): Promise<void> {
@@ -129,26 +179,35 @@ export class BookService {
     return this.booksSubject.getValue()
   }
 
-  findBookById(bookId: Book["id"]): Book | undefined {
+  /** Ids have no spaces, so "1 Co" is 1co. */
+  findBookById(bookId: Book["id"], books = this.getBooks()): Book | undefined {
     if (bookId == null) return undefined
-    return this.getBooks().find(
-      (book) => book.id.toUpperCase() === bookId.toUpperCase(),
-    )
+    const id = bookId.replace(/\s+/g, "").toUpperCase()
+    return books.find((book) => book.id.toUpperCase() === id)
   }
 
-  findBookByAbrv(bookAbrv: Book["abrv"]): Book | undefined {
-    return this.getBooks().find(
+  findBookByAbrv(
+    bookAbrv: Book["abrv"],
+    books = this.getBooks(),
+  ): Book | undefined {
+    return books.find(
       (book) =>
         book.abrv.replace(/\s+/g, " ").trim().toLocaleLowerCase() ===
         bookAbrv.replace(/\s+/g, " ").trim().toLocaleLowerCase(),
     )
   }
 
-  findBookByUrlAbrv(bookAbrv: Book["abrv"]): Book | undefined {
-    return this.getBooks().find((book) => this.getUrlAbrv(book) === bookAbrv)
+  findBookByUrlAbrv(
+    bookAbrv: Book["abrv"],
+    books = this.getBooks(),
+  ): Book | undefined {
+    return books.find((book) => this.getUrlAbrv(book) === bookAbrv)
   }
 
-  findBookByName(bookName: Book["shortName"]): Book | undefined {
+  findBookByName(
+    bookName: Book["shortName"],
+    books = this.getBooks(),
+  ): Book | undefined {
     const normalize = (value: string) =>
       value
         .normalize("NFD")
@@ -163,7 +222,7 @@ export class BookService {
       return [base, singular].filter(Boolean)
     }
     const needle = new Set(normalizeVariants(bookName))
-    return this.getBooks().find((book) =>
+    return books.find((book) =>
       book?.shortName
         ? normalizeVariants(book.shortName).some((variant) =>
             needle.has(variant),
@@ -181,6 +240,23 @@ export class BookService {
       this.findBookByUrlAbrv(bookId) ||
       this.findBookByName(bookId) ||
       this.getAboutBook()
+    )
+  }
+
+  /**
+   * The book of the Bible that typed text names ("1 Co", "Joao", "Sl"), if
+   * any. Unlike findBook, never the About page, and never an introduction:
+   * "Joao 3" is João, though "Cartas de João" has the id "joao".
+   */
+  findTypedBook(text: string): Book | undefined {
+    const books = this.getBooks().filter(
+      (book) => !book.introSlug && book.id !== "about",
+    )
+    return (
+      this.findBookById(text, books) ||
+      this.findBookByAbrv(text, books) ||
+      this.findBookByUrlAbrv(text, books) ||
+      this.findBookByName(text, books)
     )
   }
 

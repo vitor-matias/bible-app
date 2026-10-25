@@ -6,6 +6,11 @@ export const appConfig = {
   fallbackDomain: "bible-app-ten-psi.vercel.app",
 }
 
+/** A Vercel deployment (the test site and its previews), not the website. */
+export function isVercelHost(hostname: string): boolean {
+  return hostname.endsWith(".vercel.app")
+}
+
 /** API origin while prerendering; PRERENDER_API_ORIGIN points it at a stub. */
 export const serverApiOrigin =
   (globalThis as { process?: { env?: Record<string, string | undefined> } })
@@ -16,3 +21,16 @@ export const apiBaseUrl = Capacitor.isNativePlatform()
   : !isBrowser()
     ? `${serverApiOrigin}/v1`
     : "v1"
+
+/**
+ * Link to the current page for sharing. The native shells serve the bundled
+ * app from a localhost origin, which is useless to whoever receives the link,
+ * so point at the public site instead.
+ */
+export function shareableUrl(
+  location: Pick<Location, "href" | "pathname" | "search" | "hash">,
+): string {
+  if (!Capacitor.isNativePlatform()) return location.href
+  const { pathname, search, hash } = location
+  return `https://${appConfig.domain}${pathname}${search}${hash}`
+}

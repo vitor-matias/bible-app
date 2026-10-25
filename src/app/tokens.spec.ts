@@ -2,7 +2,12 @@ import { TestBed } from "@angular/core/testing"
 import { App } from "@capacitor/app"
 import { Network } from "@capacitor/network"
 import { Share } from "@capacitor/share"
-import { APP_PLUGIN, NETWORK_PLUGIN, SHARE_PLUGIN } from "./tokens"
+import {
+  APP_PLUGIN,
+  NATIVE_CHROME_PLUGIN,
+  NETWORK_PLUGIN,
+  SHARE_PLUGIN,
+} from "./tokens"
 
 describe("plugin tokens", () => {
   beforeEach(() => {
@@ -37,5 +42,20 @@ describe("plugin tokens", () => {
     expect(typeof plugin.ngOnDestroy).toBe("function")
     expect(() => plugin.ngOnDestroy?.()).not.toThrow()
     expect(typeof plugin.share).toBe("function")
+  })
+
+  // Prerendering creates an injector per page; registering per injector made
+  // Capacitor warn "already registered" 1420 times during the build.
+  it("registers the NativeChrome plugin once, however many injectors use it", () => {
+    const warn = spyOn(console, "warn")
+    for (let i = 0; i < 3; i++) {
+      TestBed.resetTestingModule()
+      TestBed.configureTestingModule({})
+      TestBed.inject(NATIVE_CHROME_PLUGIN)
+    }
+
+    expect(warn).not.toHaveBeenCalledWith(
+      jasmine.stringMatching(/NativeChrome.*already registered/),
+    )
   })
 })
