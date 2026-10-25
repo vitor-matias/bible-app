@@ -1,4 +1,4 @@
-import { CommonModule, isPlatformBrowser } from "@angular/common"
+import { CommonModule, DOCUMENT, isPlatformBrowser } from "@angular/common"
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -37,7 +37,11 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
-import { RIBBON_COLORS } from "../../services/bookmark-ribbons.service"
+import { spokenRibbonName } from "../../services/bookmark-ribbons.service"
+import {
+  BuildVersionService,
+  type DisplayVersion,
+} from "../../services/build-version.service"
 import { NativeBookmarksService } from "../../services/native-bookmarks.service"
 import {
   type NativeChromeAction,
@@ -121,6 +125,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   readonly privacyPolicyUrl = PRIVACY_POLICY_URL
+  /** Small print under the menu's last item; null until it is known. */
+  version: DisplayVersion | null = null
+  private destroyed = false
 
   private labelInterval?: number
   private labelSwapTimeout?: number
@@ -148,10 +155,12 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly bookService = inject(BookService)
   private readonly nativeBookmarks = inject(NativeBookmarksService)
   private readonly nativeReport = inject(NativeReportService)
+  private readonly buildVersion = inject(BuildVersionService)
   private bookmarks: Bookmark[] = []
   /** The iOS shell draws this header natively; the template renders nothing. */
   readonly native = this.nativeChrome.enabled
   private readonly platformId = inject(PLATFORM_ID)
+  private readonly document = inject(DOCUMENT)
   @ViewChildren(MatMenuTrigger) private menuTriggers?: QueryList<MatMenuTrigger>
   private readonly backButton = inject(BackButtonService)
   private readonly unregisterBackCloser = this.backButton.register(() => {
@@ -171,6 +180,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     @Inject(SHARE_PLUGIN) private sharePlugin: typeof Share,
   ) {}
 
+  /**
+   * Initializes responsive and sharing state, follows bookmark changes, and
+   * connects the iOS bars. Loads the menu version asynchronously, ignoring
+   * it if this header has already been destroyed.
+   */
   ngOnInit(): void {
     this.updateMobile()
     this.canShare =
@@ -186,6 +200,15 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.cdr.detectChanges()
         this.syncNativeChrome()
       })
+
+    // The iOS shell draws the menu: it gets the timestamp, and has the release.
+    void this.buildVersion.getDisplayVersion().then((version) => {
+      // Gone already: syncing now would put the bars back over another page.
+      if (this.destroyed) return
+      this.version = version
+      this.cdr.markForCheck()
+      this.syncNativeChrome()
+    })
 
     if (this.native) {
       this.nativeChrome.actions$
@@ -279,7 +302,12 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.onboardingService.open("menu")
   }
 
+  /**
+   * Ignores a late version result, unregisters the back handler, stops label
+   * cycling, and requests that the iOS bars hide.
+   */
   ngOnDestroy(): void {
+    this.destroyed = true
     this.unregisterBackCloser()
     this.stopLabelCycle()
     if (this.native) this.nativeChrome.hide()
@@ -329,7 +357,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /** The ribbon on the chapter being read, by its spoken name ("Vermelho"). */
   get bookmarkName(): string | undefined {
     const color = this.currentBookmark?.color
-    return RIBBON_COLORS.find((ribbon) => ribbon.value === color)?.spoken
+    return color ? spokenRibbonName(color) : undefined
   }
 
   getViewModeIcon(): string {
@@ -385,7 +413,16 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       typeof window === "undefined" ? "" : shareableUrl(window.location)
 
     try {
-      if (Capacitor.isNativePlatform()) {
+      if (this.native) {
+        // The page's title heads the preview, as iOS would fetch it.
+        const shared = await this.nativeChrome.share({
+          title,
+          text,
+          url,
+          linkTitle: this.document.title || title,
+        })
+        if (!shared) return
+      } else if (Capacitor.isNativePlatform()) {
         await this.sharePlugin.share({
           title,
           text,
@@ -446,6 +483,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       autoScrollAvailable: this.viewMode !== "paged",
       canShare: this.canShare,
       canReport: this.analyticsService.areAnalyticsAvailable(),
+      buildVersion: this.version?.build ?? null,
     })
   }
 

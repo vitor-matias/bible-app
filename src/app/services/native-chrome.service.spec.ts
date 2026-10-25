@@ -29,6 +29,7 @@ const READER: ReaderChrome = {
   canReport: true,
   bookmarkColor: null,
   bookmarkName: null,
+  buildVersion: null,
 }
 
 const SEARCH: SearchChrome = { mode: "search", themeMode: "dark", query: "" }
@@ -40,8 +41,11 @@ describe("NativeChromeService", () => {
     showBookmarks: jasmine.Spy
     updateBookmarks: jasmine.Spy
     showToast: jasmine.Spy
+    hideToast: jasmine.Spy
     showReport: jasmine.Spy
     finishReport: jasmine.Spy
+    showOnboarding: jasmine.Spy
+    share: jasmine.Spy
     addListener: jasmine.Spy
   }
   /** Tests that need more of the document add it. */
@@ -59,8 +63,11 @@ describe("NativeChromeService", () => {
       showBookmarks: jasmine.createSpy("showBookmarks").and.resolveTo(),
       updateBookmarks: jasmine.createSpy("updateBookmarks").and.resolveTo(),
       showToast: jasmine.createSpy("showToast").and.resolveTo(),
+      hideToast: jasmine.createSpy("hideToast").and.resolveTo(),
       showReport: jasmine.createSpy("showReport").and.resolveTo(),
       finishReport: jasmine.createSpy("finishReport").and.resolveTo(),
+      showOnboarding: jasmine.createSpy("showOnboarding").and.resolveTo(),
+      share: jasmine.createSpy("share").and.resolveTo(),
       addListener: jasmine.createSpy("addListener").and.resolveTo(),
     }
     body = document.createElement("body")
@@ -251,11 +258,12 @@ describe("NativeChromeService", () => {
   describe("a toast that is a button", () => {
     let service: NativeChromeService
     let goBack: jasmine.Spy
+    let hide: () => void
 
     beforeEach(() => {
       service = create("ios")
       goBack = jasmine.createSpy("goBack")
-      service.toast("Voltar para Gn 1,3", {
+      hide = service.toast("Voltar para Gn 1,3", {
         symbol: "arrow.uturn.backward",
         onTap: goBack,
       })
@@ -286,6 +294,27 @@ describe("NativeChromeService", () => {
 
       expect(goBack).not.toHaveBeenCalled()
     })
+
+    it("takes it down early, and its action with it", () => {
+      hide()
+      listener("action")({ id: "toast-action" })
+
+      expect(plugin.hideToast).toHaveBeenCalledTimes(1)
+      expect(goBack).not.toHaveBeenCalled()
+    })
+
+    it("leaves a toast that has replaced it alone", () => {
+      service.toast("Copiado")
+      hide()
+
+      expect(plugin.hideToast).not.toHaveBeenCalled()
+    })
+  })
+
+  it("has nothing to take down outside the iOS app", () => {
+    create("web").toast("Voltar para Gn 1,3", { onTap: () => {} })()
+
+    expect(plugin.hideToast).not.toHaveBeenCalled()
   })
 
   it("passes the report sheet and the outcome through", () => {
@@ -374,10 +403,11 @@ describe("NativeChromeService", () => {
       service.show(READER)
       service.setAutoScroll({
         playing: true,
-        speedLabel: "1 ln/s",
+        speedLabel: "1",
         speedAccessibilityLabel: "1 linha por segundo",
         canSlower: true,
         canFaster: true,
+        canPlay: true,
       })
       tap()
 
@@ -411,6 +441,48 @@ describe("NativeChromeService", () => {
 
     plugin.showBookmarks.and.rejectWith(new Error("no chrome"))
     expect(await service.showBookmarks(state)).toBeFalse()
+  })
+
+  // A sheet that never came up (UIKit refuses one while another is on its
+  // way) is not the onboarding seen: only a dismissal answers with a result.
+  it("tells a dismissed onboarding from one that never came up", async () => {
+    const service = create("ios")
+    plugin.showOnboarding.and.resolveTo({
+      presented: true,
+      completed: false,
+      lastStep: "navigate",
+    })
+    expect(await service.showOnboarding([])).toEqual({
+      completed: false,
+      lastStep: "navigate",
+    })
+
+    plugin.showOnboarding.and.resolveTo({ presented: false })
+    expect(await service.showOnboarding([])).toBeNull()
+
+    plugin.showOnboarding.and.rejectWith(new Error("no chrome"))
+    expect(await service.showOnboarding([])).toBeNull()
+  })
+
+  // The shell previews the link with the app's icon; given a bare URL, iOS
+  // fetched the website's, which has the WEB sash.
+  it("hands the shell the share, and says whether something was shared", async () => {
+    const service = create("ios")
+    const options = {
+      title: "Bíblia Sagrada",
+      text: "Ler Mateus 5.",
+      url: "https://biblia.capuchinhos.org/mat/5",
+      linkTitle: "Mateus 5 | Bíblia Sagrada",
+    }
+    plugin.share.and.resolveTo({ completed: true })
+    expect(await service.share(options)).toBeTrue()
+    expect(plugin.share).toHaveBeenCalledWith(options)
+
+    plugin.share.and.resolveTo({ completed: false })
+    expect(await service.share(options)).toBeFalse()
+
+    plugin.share.and.rejectWith(new Error("no chrome"))
+    expect(await service.share(options)).toBeFalse()
   })
 
   // Each push has the shell rebuild its bars and menu.
@@ -541,15 +613,15 @@ describe("NativeChromeService", () => {
       expect(collapsed()).toBeFalse()
     })
 
-    // The shell keeps auto-scroll's controls in reach: above the toolbar,
-    // and in its place while the bars are hidden.
+    // Paused, the shell hides auto-scroll's play button with the bars.
     it("hides them while reading with auto-scroll's controls up", () => {
       const autoScroll = {
         playing: false,
-        speedLabel: "1 ln/s",
+        speedLabel: "1",
         speedAccessibilityLabel: "1 linha por segundo",
         canSlower: true,
         canFaster: true,
+        canPlay: true,
       }
       service.trackScroll(scroller)
       service.setAutoScroll(autoScroll)
@@ -573,10 +645,11 @@ describe("NativeChromeService", () => {
     it("hides them while auto-scroll plays, and brings them back on pause", () => {
       const autoScroll = {
         playing: false,
-        speedLabel: "1 ln/s",
+        speedLabel: "1",
         speedAccessibilityLabel: "1 linha por segundo",
         canSlower: true,
         canFaster: true,
+        canPlay: true,
       }
       service.trackScroll(scroller)
       service.setAutoScroll(autoScroll)
@@ -588,7 +661,7 @@ describe("NativeChromeService", () => {
       service.setAutoScroll({
         ...autoScroll,
         playing: true,
-        speedLabel: "2 ln/s",
+        speedLabel: "2",
         speedAccessibilityLabel: "2 linhas por segundo",
       })
       expect(collapsed()).toBeTrue()

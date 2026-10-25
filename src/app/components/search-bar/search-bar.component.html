@@ -9,6 +9,8 @@
         type="search"
         aria-label="Procurar na Bíblia"
         placeholder="Procurar na Bíblia"
+        autocapitalize="off"
+        spellcheck="false"
         class="search-input"
         [(ngModel)]="query"
         (ngModelChange)="typing.emit($event)"

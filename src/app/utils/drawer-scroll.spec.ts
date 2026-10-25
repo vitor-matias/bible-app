@@ -98,6 +98,19 @@ describe("scrollOnDrawerOpen", () => {
     expect(probe("mat-drawer scroll-probe").scrolls).toBe(1)
   }))
 
+  it("doesn't scroll a list destroyed before its fallback runs", fakeAsync(() => {
+    fixture.detectChanges()
+    host.drawer.open()
+    flush()
+    host.inside = true
+    fixture.detectChanges()
+    const list = probe("mat-drawer scroll-probe")
+    fixture.destroy()
+    flush()
+
+    expect(list.scrolls).toBe(0)
+  }))
+
   it("scrolls once when built after openedStart has fired", fakeAsync(() => {
     fixture.detectChanges()
     host.drawer.open()

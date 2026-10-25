@@ -143,7 +143,7 @@ private final class BookListViewController: UICollectionViewController, UISearch
     override func viewDidLoad() {
         super.viewDidLoad()
         collectionView.backgroundColor = sheetBackground
-        softenTopEdge(of: collectionView)
+        frostedBar(for: self)
         navigationItem.rightBarButtonItem = closeButton(for: self)
         navigationItem.leftBarButtonItem = modeToggle
         modeToggle.isSelected = mode == .abbreviations
@@ -198,7 +198,7 @@ private final class BookListViewController: UICollectionViewController, UISearch
         // start, and the list opens at Génesis, its tile still highlighted.
         if let current = data.currentBook, current.id != "about",
            let indexPath = dataSource.indexPath(for: current) {
-            collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: true)
+            collectionView.revealItem(at: indexPath)
         }
     }
 
@@ -300,7 +300,7 @@ private final class ChapterListViewController: UICollectionViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         collectionView.backgroundColor = sheetBackground
-        softenTopEdge(of: collectionView)
+        frostedBar(for: self)
         navigationItem.rightBarButtonItem = closeButton(for: self)
 
         let tile = UICollectionView.CellRegistration<TileCell, Chapter> { [current] cell, _, chapter in
@@ -332,7 +332,7 @@ private final class ChapterListViewController: UICollectionViewController {
         super.viewDidAppear(animated)
         if let current, let chapter = book.chapters.first(where: { $0.number == current }),
            let indexPath = dataSource.indexPath(for: chapter) {
-            collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: true)
+            collectionView.revealItem(at: indexPath)
         }
     }
 
@@ -380,10 +380,10 @@ private final class TileCell: UICollectionViewCell {
         contentView.layer.cornerRadius = 12
         contentView.layer.cornerCurve = .continuous
         label.textAlignment = .center
-        // One line, shrinking a little for the longest names ("1 Tessalonicenses"):
-        // wrapping split "1" from its book.
-        label.numberOfLines = 1
-        label.adjustsFontForContentSizeCategory = true
+        // Long names take two lines ("Atos dos / Apóstolos"). A word too wide
+        // for the tile shrinks instead of breaking (`fitText`), and a number
+        // keeps to its book ("1 Tessalonicenses" shrinks on one line).
+        label.numberOfLines = 2
         label.adjustsFontSizeToFitWidth = true
         label.minimumScaleFactor = 0.65
         detailLabel.textAlignment = .center
@@ -416,8 +416,9 @@ private final class TileCell: UICollectionViewCell {
 
     func configure(text: String, detail: String? = nil, style: UIFont.TextStyle, current: Bool,
                    ribbon color: UIColor? = nil, accessibilityLabel: String) {
-        label.text = text
-        label.font = limitedFont(style)
+        label.text = text.replacingOccurrences(of: #"^(\d) "#, with: "$1\u{00A0}", options: .regularExpression)
+        textStyle = style
+        fitText()
         label.textColor = current ? ChromeViewController.onSelection : .label
         detailLabel.text = detail.map { "(\($0))" }
         detailLabel.isHidden = detail == nil
@@ -431,6 +432,33 @@ private final class TileCell: UICollectionViewCell {
 
     override var isHighlighted: Bool {
         didSet { contentView.alpha = isHighlighted ? 0.55 : 1 }
+    }
+
+    private var textStyle: UIFont.TextStyle = .body
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        fitText()
+    }
+
+    /// The style's font, made smaller if a word is wider than the tile: a label
+    /// that shrinks to fit two lines would break the word across them first.
+    private func fitText() {
+        let words = (label.text ?? "").split(separator: " ")
+        func widest(_ font: UIFont) -> CGFloat {
+            words.map { ceil(($0 as NSString).size(withAttributes: [.font: font]).width) }.max() ?? 0
+        }
+        let room = contentView.bounds.width - 12
+        var font = limitedFont(textStyle)
+        if room > 0, widest(font) > room {
+            // Measured at each size, not scaled in proportion: SF spaces its
+            // letters wider as it gets smaller, and "2 Tessalonicenses" broke.
+            font = font.withSize((font.pointSize * room / widest(font) * 2).rounded(.down) / 2)
+            while widest(font) > room, font.pointSize > 6 {
+                font = font.withSize(font.pointSize - 0.5)
+            }
+        }
+        if label.font != font { label.font = font }
     }
 }
 
@@ -500,11 +528,35 @@ let formRowBackground = UIColor { traits in
         : UIColor.white
 }
 
-/// The content fades out under the bar, as in the system's sheets. Automatic
-/// picked the hard style here: a lighter strip with a line under the bar.
-private func softenTopEdge(of scrollView: UIScrollView) {
+private extension UICollectionView {
+    /// Scrolls the item to the middle, unless it is in full view already.
+    /// Centring one near the top moved the list a short way, leaving the first
+    /// section header under the bar. On the iPhone Duo's outer screen the
+    /// title is on the left, as the headers are, and it doesn't scroll away
+    /// for a scroll the app makes after Back, so "Livros" was drawn right over
+    /// "Antigo Testamento".
+    func revealItem(at indexPath: IndexPath) {
+        let visible = bounds.inset(by: adjustedContentInset)
+        if let item = layoutAttributesForItem(at: indexPath), visible.contains(item.frame) { return }
+        scrollToItem(at: indexPath, at: .centeredVertically, animated: true)
+    }
+}
+
+/// What scrolls under the bar is frosted, as in a material bar, so no tile
+/// shows behind the title and buttons: the scroll edge effect alone, soft or
+/// hard, left them readable there. Its soft fade still eases the band's lower
+/// edge. At the top of the list the bar is clear, part of the sheet.
+private func frostedBar(for controller: UICollectionViewController) {
+    let frosted = UINavigationBarAppearance()
+    frosted.configureWithDefaultBackground()
+    frosted.backgroundEffect = UIBlurEffect(style: .systemMaterial)
+    frosted.shadowColor = .clear
+    let clear = UINavigationBarAppearance()
+    clear.configureWithTransparentBackground()
+    controller.navigationItem.standardAppearance = frosted
+    controller.navigationItem.scrollEdgeAppearance = clear
     if #available(iOS 26.0, *) {
-        scrollView.topEdgeEffect.style = .soft
+        controller.collectionView.topEdgeEffect.style = .soft
     }
 }
 

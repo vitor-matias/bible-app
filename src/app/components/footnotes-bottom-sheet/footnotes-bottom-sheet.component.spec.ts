@@ -4,7 +4,7 @@ import {
   MatBottomSheetRef,
 } from "@angular/material/bottom-sheet"
 import { By } from "@angular/platform-browser"
-import { ActivatedRoute, Router } from "@angular/router"
+import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
@@ -126,6 +126,38 @@ describe("FootnotesBottomSheetComponent", () => {
       )
       expect(result.parts[2]).toBe(".")
     })
+  })
+
+  // "Jb 38,1-39,30" spans chapters and has no `verses`: the link opened at
+  // the top of chapter 38 here, though at verse 1 in the iOS sheet.
+  it("opens a cross-chapter reference at its first verse", () => {
+    bookServiceSpy.findBook.and.returnValue({ id: "job" } as Book)
+    bookServiceSpy.getUrlAbrv.and.returnValue("jb")
+    bibleRefSpy.extract.and.callFake((text: string) =>
+      text.startsWith("See")
+        ? [
+            {
+              index: 4,
+              match: "Jb 38,5-39,30",
+              book: "job",
+              chapter: 38,
+              crossChapter: {
+                type: "crossChapterRange",
+                startChapter: 38,
+                startVerse: 5,
+                endChapter: 39,
+                endVerse: 30,
+              },
+            },
+          ]
+        : [],
+    )
+    fixture.detectChanges()
+
+    const link = fixture.debugElement
+      .query(By.directive(RouterLink))
+      .injector.get(RouterLink)
+    expect(link.queryParams).toEqual({ verseStart: 5 })
   })
 
   describe("getVerseQueryParams", () => {

@@ -36,6 +36,10 @@ export class VerseSectionComponent implements OnChanges {
   @Input()
   nextIsParagraph = false
 
+  /** Whether the chapter's drop-cap number floats beside this heading. */
+  @Input()
+  besideChapterNumber = false
+
   private readonly toast = inject(ToastService)
 
   /** Pre-computed parsed references keyed by text index */

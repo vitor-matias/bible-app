@@ -13,10 +13,24 @@
   font-size: 120%;
 }
 
+/* A heading centred on lines of its own, amid the verse's inline text. Not a
+   block box: Safari misplaces a block inside inline text set in columns (the
+   page-by-page view) and draws it over the lines before it (Is 14,23-24). An
+   inline-block a line wide is laid out with the text, where it belongs. */
 .center {
-  margin: 0 auto;
-  display: table;
+  display: inline-block;
+  width: 100%;
+  margin-bottom: 0.5rem;
   text-align: center;
+}
+
+/* A line-wide box would drop below the drop-cap chapter number; a table sits
+   beside it, centred in the rest of the line. Nothing comes before it there
+   for Safari to draw it over. */
+.center.besideChapterNumber {
+  display: table;
+  width: auto;
+  margin: 0 auto;
 }
 
 * {

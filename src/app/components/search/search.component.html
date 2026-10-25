@@ -2,7 +2,7 @@
        is noindex, so this is purely a landmark for screen readers. -->
   <h1 class="visually-hidden">Pesquisar</h1>
   @if (!native) {
-  <search-bar [value]="fieldValue" (searchValue)="onSearchSubmit($event)" (typing)="onTyping($event)"></search-bar>
+  <search-bar [value]="fieldValue" [focusOnOpen]="!hasSearched" (searchValue)="onSearchSubmit($event)" (typing)="onTyping($event)"></search-bar>
   }
   <div unifiedGestures fontSizeContext="search" class="search-container" [class.has-suggestion]="!!passageSuggestion" #container>
 
@@ -33,11 +33,11 @@
       <p class="results-hint">Nos livros litúrgicos, a maior parte dos salmos tem um número a menos.</p>
       <ul class="results-list">
         @for (option of psalmChoice; track option.psalm) {
-          <li class="result-item" [routerLink]="['/', 'psa', option.psalm]" [queryParams]="option.verseStart ? { verseStart: option.verseStart } : {}">
-            <div class="result-card">
+          <li class="result-item">
+            <a class="result-card" [href]="passageHref('psa', option.psalm, option.verseStart)" (click)="openPassage($event, 'psa', option.psalm, option.verseStart)">
               <strong class="verse-ref">{{ option.label }} <span class="psalm-note">· {{ option.note }}</span></strong>
               <p class="verse-text">{{ option.firstLine ?? option.title }}</p>
-            </div>
+            </a>
           </li>
         }
       </ul>
@@ -75,13 +75,13 @@
       }
       <ul class="results-list">
         @for (result of searchResults; track $index) {
-          <li class="result-item" [routerLink]="['/', result.bookId, result.chapterNumber]" [queryParams]="{ verseStart: result.number }">
-            <div class="result-card">
+          <li class="result-item">
+            <a class="result-card" [href]="passageHref(result.bookId, result.chapterNumber, result.number)" (click)="openPassage($event, result.bookId, result.chapterNumber, result.number)">
               <strong class="verse-ref">{{ resultReference(result) }}</strong>
               <!-- On one line: Angular keeps a space around text on lines of its
                    own, which put one before the punctuation after a match. -->
               <p class="verse-text">@for (segment of result.highlightedSegments; track $index) {@if (segment.highlight) {<mark class="search-highlight">{{ segment.text }}</mark>} @else {<span>{{ segment.text }}</span>}}</p>
-            </div>
+            </a>
           </li>
         }
         @if (searchResults.length < totalResults) {

@@ -2,6 +2,18 @@ import { Injectable } from "@angular/core"
 import { Capacitor } from "@capacitor/core"
 import { BuildVersionService } from "./build-version.service"
 
+/**
+ * How long a problem report may take to reach the server before it is given
+ * up on, and the form says to try again.
+ */
+export const DELIVERY_TIMEOUT_MS = 15_000
+
+/**
+ * How long a problem report waits for the build's details (build-info.json,
+ * the app's release) before it goes without them.
+ */
+export const BUILD_DATA_WAIT_MS = 3_000
+
 @Injectable({
   providedIn: "root",
 })
@@ -17,13 +29,10 @@ export class AnalyticsService {
     }
 
     try {
-      let buildVersion: string | undefined
-      let buildEnvironment: string | undefined
+      let buildData: BuildData = {}
 
       try {
-        const info = await this.buildVersionService.getBuildInfo()
-        buildVersion = info.buildVersion
-        buildEnvironment = info.buildEnvironment
+        buildData = await this.buildData()
       } catch (error) {
         console.error("Failed to fetch build info for analytics", error)
       }
@@ -31,8 +40,7 @@ export class AnalyticsService {
       if (window.umami) {
         window.umami.track(eventName, {
           ...eventData,
-          buildVersion,
-          buildEnvironment,
+          ...buildData,
           platform: Capacitor.getPlatform(),
         })
       }
@@ -62,9 +70,9 @@ export class AnalyticsService {
       script.src.split("/").slice(0, -1).join("/")
     const endpoint = `${host.replace(/\/$/, "")}/api/send`
 
-    const info = await this.buildVersionService
-      .getBuildInfo()
-      .catch(() => undefined)
+    // The build's details are a nicety: a stalled build-info.json mustn't
+    // hold the report up before its own deadline has even started.
+    const buildData = await this.buildDataWithin(BUILD_DATA_WAIT_MS)
     let payload: UmamiPayload | null = {
       website,
       screen: `${window.screen.width}x${window.screen.height}`,
@@ -76,8 +84,7 @@ export class AnalyticsService {
       name: eventName,
       data: {
         ...eventData,
-        buildVersion: info?.buildVersion,
-        buildEnvironment: info?.buildEnvironment,
+        ...buildData,
         platform: Capacitor.getPlatform(),
       },
     }
@@ -92,13 +99,56 @@ export class AnalyticsService {
     }
     if (!payload) throw new Error("Analytics dropped the event")
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "event", payload }),
+    // A stalled connection would otherwise leave the form sending until the
+    // OS gives up. Not AbortSignal.timeout, which iOS 15's WebKit lacks.
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), DELIVERY_TIMEOUT_MS)
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "event", payload }),
+        signal: controller.signal,
+      })
+      if (!response.ok) {
+        throw new Error(`Analytics responded ${response.status}`)
+      }
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+
+  /**
+   * Which build sent an event, so a report or a count can be traced to the
+   * code behind it: the web bundle's timestamp and environment, and, in the
+   * native apps, their release.
+   */
+  private async buildData(): Promise<BuildData> {
+    const [info, appVersion] = await Promise.all([
+      this.buildVersionService.getBuildInfo(),
+      this.buildVersionService.getRelease(),
+    ])
+    return {
+      buildVersion: info.buildVersion,
+      buildEnvironment: info.buildEnvironment,
+      // The web has no release: its buildVersion is its version.
+      ...(appVersion ? { appVersion } : {}),
+    }
+  }
+
+  /** buildData, or none if it fails or takes longer than `ms`. */
+  private async buildDataWithin(ms: number): Promise<BuildData> {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const late = new Promise<BuildData>((resolve) => {
+      timer = setTimeout(() => resolve({}), ms)
     })
-    if (!response.ok) {
-      throw new Error(`Analytics responded ${response.status}`)
+    try {
+      return await Promise.race([
+        this.buildData().catch((): BuildData => ({})),
+        late,
+      ])
+    } finally {
+      clearTimeout(timer)
     }
   }
 
@@ -110,6 +160,14 @@ export class AnalyticsService {
       false
     )
   }
+}
+
+/** What every event says about the build that sent it. */
+interface BuildData {
+  buildVersion?: string
+  buildEnvironment?: string
+  /** The native apps' release (1.2.3); absent on the web. */
+  appVersion?: string
 }
 
 /** The Umami payload fields this app rewrites; the script sends more. */

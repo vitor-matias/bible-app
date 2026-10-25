@@ -19,6 +19,7 @@ import { BookmarkService } from "../../services/bookmark.service"
 import {
   BookmarkRibbonsService,
   RIBBON_COLORS,
+  type RibbonMove,
   type RibbonState,
   ribbonToMove,
 } from "../../services/bookmark-ribbons.service"
@@ -46,19 +47,19 @@ export class BookmarkSelectorComponent implements OnInit {
 
   move?: MoveOffer
 
-  /** Where a ribbon moved here was, while the panel offers to undo it. */
-  private moved?: Bookmark
-
   private destroyRef = inject(DestroyRef)
   private ribbonsService = inject(BookmarkRibbonsService)
   private changeDetector = inject(ChangeDetectorRef)
+  private readonly mover: RibbonMove
 
   constructor(
     private bottomSheetRef: MatBottomSheetRef<BookmarkSelectorComponent>,
     @Inject(MAT_BOTTOM_SHEET_DATA)
     public data: { bookId: string; chapter: number },
     private bookmarkService: BookmarkService,
-  ) {}
+  ) {
+    this.mover = this.ribbonsService.moveTo(data.bookId, data.chapter)
+  }
 
   isDeleteMode = false
 
@@ -82,31 +83,27 @@ export class BookmarkSelectorComponent implements OnInit {
 
   /** Moves the ribbon read on from to this chapter, or undoes that. */
   moveOrUndo(): void {
-    const { bookId, chapter } = this.data
-    if (this.moved) {
-      this.ribbonsService.restore(this.moved)
-      this.moved = undefined
-      return
-    }
-    const ribbon = ribbonToMove(this.ribbons, bookId, chapter)
-    if (ribbon) this.moved = this.ribbonsService.move(ribbon, bookId, chapter)
+    if (this.mover.undo()) return
+    const ribbon = ribbonToMove(
+      this.ribbons,
+      this.data.bookId,
+      this.data.chapter,
+    )
+    if (ribbon) this.mover.move(ribbon)
   }
 
   private moveOffer(): MoveOffer | undefined {
-    const { bookId, chapter } = this.data
-    const from =
-      this.moved ?? ribbonToMove(this.ribbons, bookId, chapter)?.bookmark
-    if (!from) return undefined
-    const color = (
-      RIBBON_COLORS.find((c) => c.value === from.color)?.spoken ?? from.color
-    ).toLowerCase()
+    const offer = this.mover.offer(this.ribbons)
+    if (!offer) return undefined
+    const { from, name, done } = offer
     const fromRef = this.ribbonsService.ref(from.bookId, from.chapter)
+    const here = this.ribbonsService.ref(this.data.bookId, this.data.chapter)
     return {
       color: from.color,
-      label: this.moved
-        ? `Desfazer: o marcador ${color} volta a ${fromRef}`
-        : `Mover o marcador ${color} de ${fromRef} para ${this.ribbonsService.ref(bookId, chapter)}`,
-      done: !!this.moved,
+      label: done
+        ? `Desfazer: o marcador ${name} volta a ${fromRef}`
+        : `Mover o marcador ${name} de ${fromRef} para ${here}`,
+      done,
     }
   }
 

@@ -123,12 +123,35 @@ describe("AutoScrollService", () => {
     service.start({ scrollElement })
     // Drive the timer step directly so the test can deterministically simulate
     // requestAnimationFrame progress without waiting on browser scheduling.
-    ;(service as unknown as Record<string, (timestamp: number) => void>)[
+    const step = (service as unknown as Record<string, (t: number) => void>)[
       "stepAutoScroll"
-    ](1000)
+    ].bind(service)
+    step(1000)
+    // A tenth of a second later the page has stood still: play takes it.
+    step(1100)
 
     expect(service.autoScrollEnabled).toBeFalse()
     expect(keepAwakeServiceSpy.stop).toHaveBeenCalled()
+  })
+
+  // It stopped 5px short, so the page never counted as read to its end.
+  it("finishes at the very end of the page, not a few pixels short", () => {
+    const scrollElement = document.createElement("div")
+    Object.defineProperties(scrollElement, {
+      scrollHeight: { value: 200, configurable: true },
+      clientHeight: { value: 100, configurable: true },
+      scrollTop: { value: 97, writable: true, configurable: true },
+    })
+
+    service.start({ scrollElement })
+    const step = (service as unknown as Record<string, (t: number) => void>)[
+      "stepAutoScroll"
+    ].bind(service)
+    step(1000)
+    step(1100)
+
+    expect(scrollElement.scrollTop).toBe(100)
+    expect(service.autoScrollEnabled).toBeFalse()
   })
 
   // Regression: WebKit keeps scrollTop in whole pixels. Applying half a pixel
@@ -153,8 +176,9 @@ describe("AutoScrollService", () => {
       "stepAutoScroll"
     ].bind(service)
 
-    // Two seconds at 60 frames per second, each frame a fraction of a pixel.
-    for (let frame = 0; frame <= 120; frame++) step(frame * (1000 / 60))
+    // A tenth of a second standing still, then two seconds at 60 frames per
+    // second, each frame a fraction of a pixel.
+    for (let frame = 0; frame <= 126; frame++) step(frame * (1000 / 60))
 
     // One line (24px without a line-height element) per second.
     expect(top).toBeGreaterThanOrEqual(46)
@@ -165,15 +189,17 @@ describe("AutoScrollService", () => {
   // from under the reader's finger, wheel or scrollbar.
   describe("when the reader scrolls by hand", () => {
     let top: number
+    let height: number
     let onStop: jasmine.Spy
     let step: (timestamp: number) => void
 
     beforeEach(() => {
       top = 0
+      height = 10_000
       onStop = jasmine.createSpy("onStop")
       const scrollElement = document.createElement("div")
       Object.defineProperties(scrollElement, {
-        scrollHeight: { value: 10_000, configurable: true },
+        scrollHeight: { get: () => height, configurable: true },
         clientHeight: { value: 500, configurable: true },
         // Whole pixels, as WebKit holds them.
         scrollTop: {
@@ -191,8 +217,10 @@ describe("AutoScrollService", () => {
       ].bind(service)
     })
 
-    const play = (frames: number) => {
-      for (let frame = 0; frame < frames; frame++) step(frame * (1000 / 60))
+    const play = (frames: number, from = 0) => {
+      for (let frame = from; frame < from + frames; frame++) {
+        step(frame * (1000 / 60))
+      }
     }
 
     it("keeps going while only auto-scroll moves the page", () => {
@@ -232,6 +260,135 @@ describe("AutoScrollService", () => {
       step(2000)
 
       expect(service.autoScrollEnabled).toBeTrue()
+    })
+
+    // A larger text size (pinch, A+) or verses loading above reflow the text,
+    // and Chromium's scroll anchoring moves the page to keep the reader's
+    // place: that stopped auto-scroll as if they had scrolled.
+    it("carries on, from the reader's place, when the text reflows", () => {
+      play(60)
+      height = 14_000
+      top += 400
+      const anchored = top
+
+      play(60, 60)
+
+      expect(service.autoScrollEnabled).toBeTrue()
+      expect(onStop).not.toHaveBeenCalled()
+      expect(top).toBeGreaterThan(anchored)
+    })
+
+    it("still stops for the reader after a reflow", () => {
+      play(30)
+      height = 14_000
+      top += 400
+      step(600)
+
+      top += 300
+      step(700)
+
+      expect(service.autoScrollEnabled).toBeFalse()
+    })
+  })
+
+  // Regression: on iOS a tap on the native ▶ leaves the text's momentum
+  // running, and auto-scroll took that coast for the reader's hand and
+  // stopped on its first frame.
+  describe("when play is pressed while a flick still carries the page", () => {
+    const frameMs = 1000 / 60
+    let top: number
+    let onStop: jasmine.Spy
+    let step: (timestamp: number) => void
+
+    beforeEach(() => {
+      top = 5000
+      onStop = jasmine.createSpy("onStop")
+      const scrollElement = document.createElement("div")
+      Object.defineProperties(scrollElement, {
+        scrollHeight: { value: 10_000, configurable: true },
+        clientHeight: { value: 500, configurable: true },
+        scrollTop: {
+          get: () => top,
+          set: (value: number) => {
+            top = Math.floor(value)
+          },
+          configurable: true,
+        },
+      })
+      service.setAutoScrollLinesPerSecond(1)
+      service.start({ scrollElement, onStop })
+      step = (service as unknown as Record<string, (t: number) => void>)[
+        "stepAutoScroll"
+      ].bind(service)
+    })
+
+    /** Moves the page by each distance, a frame apart, as momentum does. */
+    const coast = (distances: number[]) => {
+      distances.forEach((distance, frame) => {
+        top += distance
+        step(frame * frameMs)
+      })
+      return distances.length
+    }
+
+    const play = (frames: number, from: number) => {
+      for (let frame = from; frame < from + frames; frame++) {
+        step(frame * frameMs)
+      }
+    }
+
+    it("rides the coast out, then scrolls on from where it came to rest", () => {
+      // Upwards, slowing down.
+      const frames = coast([-40, -30, -22, -15, -9, -5, -2, -1])
+      const rest = top
+
+      expect(rest).toBe(5000 - 124)
+      expect(service.autoScrollEnabled).toBeTrue()
+
+      play(60, frames)
+
+      expect(service.autoScrollEnabled).toBeTrue()
+      expect(onStop).not.toHaveBeenCalled()
+      expect(top).toBeGreaterThan(rest)
+    })
+
+    it("does not take a frame without news of the coast for its end", () => {
+      const frames = coast([-30, 0, -25, 0, 0, -12, 0, -3])
+
+      expect(service.autoScrollEnabled).toBeTrue()
+      expect(top).toBe(5000 - 70)
+
+      play(60, frames)
+
+      expect(service.autoScrollEnabled).toBeTrue()
+      expect(top).toBeGreaterThan(5000 - 70)
+    })
+
+    // A pixel a frame is rounding to a playing page, but here it is the
+    // coast's tail: taken for stillness, the wait ended mid-creep and the
+    // next two-pixel step stopped play.
+    it("waits out a coast's last pixel-a-frame creep", () => {
+      const frames = coast([-30, -1, -1, -1, -1, -1, -1, -1, -2])
+
+      expect(service.autoScrollEnabled).toBeTrue()
+      expect(top).toBe(5000 - 39)
+
+      play(60, frames)
+
+      expect(service.autoScrollEnabled).toBeTrue()
+      expect(onStop).not.toHaveBeenCalled()
+      expect(top).toBeGreaterThan(5000 - 39)
+    })
+
+    it("still stops for the reader once it scrolls", () => {
+      const frames = coast([-40, -20, -5])
+      play(60, frames)
+      top -= 300
+
+      step(5000)
+
+      expect(service.autoScrollEnabled).toBeFalse()
+      expect(onStop).toHaveBeenCalledTimes(1)
     })
   })
 

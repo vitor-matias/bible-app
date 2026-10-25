@@ -12,11 +12,10 @@ import { AnalyticsService } from "../../services/analytics.service"
 import {
   BibleReference,
   BibleReferenceService,
-  VerseReference,
 } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { ToastService } from "../../services/toast.service"
-import { parseReferences } from "../verse/verse.utils"
+import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 
 @Component({
   selector: "footnotes-bottom-sheet",
@@ -38,7 +37,7 @@ import { parseReferences } from "../verse/verse.utils"
           <a
             (click)="followReference()"
             [routerLink]="['/', getAbrv(part.book), part.chapter]"
-            [queryParams]="getVerseQueryParams(part.verses)"
+            [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)"
           >{{ part.match }}</a>
           } @else {
           {{ part }}
@@ -106,17 +105,8 @@ export class FootnotesBottomSheetComponent {
     }
   }
 
-  getVerseQueryParams(verses?: VerseReference[]) {
-    if (!verses?.length) return null
-    const first = verses[0]
-    if (first.type === "single") {
-      return { verseStart: first.verse }
-    }
-    if (first.type === "range") {
-      return { verseStart: first.start, verseEnd: first.end }
-    }
-    return null
-  }
+  /** As the verse's own links and the iOS sheet have it. */
+  getVerseQueryParams = getVerseQueryParams
 
   getAbrv(bookId: string): string {
     const book = this.bookService.findBook(bookId)

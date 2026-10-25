@@ -1,6 +1,11 @@
-import { TestBed } from "@angular/core/testing"
+import { fakeAsync, TestBed, tick } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
-import { AnalyticsService, labelUmamiPlatform } from "./analytics.service"
+import {
+  AnalyticsService,
+  BUILD_DATA_WAIT_MS,
+  DELIVERY_TIMEOUT_MS,
+  labelUmamiPlatform,
+} from "./analytics.service"
 import { BuildVersionService } from "./build-version.service"
 
 describe("AnalyticsService", () => {
@@ -10,7 +15,10 @@ describe("AnalyticsService", () => {
   beforeEach(() => {
     buildVersionServiceMock = jasmine.createSpyObj("BuildVersionService", [
       "getBuildInfo",
+      "getRelease",
     ])
+    // The web, which has no release, unless a test says otherwise.
+    buildVersionServiceMock.getRelease.and.resolveTo(null)
     buildVersionServiceMock.getBuildInfo.and.returnValue(
       Promise.resolve({
         buildVersion: "test-version",
@@ -51,6 +59,21 @@ describe("AnalyticsService", () => {
       buildVersion: "test-version",
       buildEnvironment: "test-env",
       platform: "web",
+    })
+  })
+
+  it("should report the native app's release with every event", async () => {
+    spyOn(Capacitor, "getPlatform").and.returnValue("android")
+    buildVersionServiceMock.getRelease.and.resolveTo("1.2.3")
+
+    await service.track("test_event", { foo: "bar" })
+
+    expect(globalThis.umami?.track).toHaveBeenCalledWith("test_event", {
+      foo: "bar",
+      buildVersion: "test-version",
+      buildEnvironment: "test-env",
+      appVersion: "1.2.3",
+      platform: "android",
     })
   })
 
@@ -145,6 +168,30 @@ describe("AnalyticsService", () => {
       )
     })
 
+    it("sends the native app's release with a problem report", async () => {
+      buildVersionServiceMock.getRelease.and.resolveTo("1.2.3")
+
+      await service.trackDelivered("report_problem", { topic: "typo" })
+
+      const body = JSON.parse(fetchSpy.calls.mostRecent().args[1].body)
+      expect(body.payload.data).toEqual({
+        topic: "typo",
+        buildVersion: "test-version",
+        buildEnvironment: "test-env",
+        appVersion: "1.2.3",
+        platform: "ios",
+      })
+    })
+
+    it("still sends a report when the build info can't be read", async () => {
+      buildVersionServiceMock.getBuildInfo.and.rejectWith(new Error("gone"))
+
+      await service.trackDelivered("report_problem", { topic: "typo" })
+
+      const body = JSON.parse(fetchSpy.calls.mostRecent().args[1].body)
+      expect(body.payload.data).toEqual({ topic: "typo", platform: "ios" })
+    })
+
     it("rejects when the server refuses it", async () => {
       fetchSpy.and.resolveTo(new Response("", { status: 500 }))
       await expectAsync(
@@ -158,6 +205,57 @@ describe("AnalyticsService", () => {
         service.trackDelivered("report_problem", {}),
       ).toBeRejected()
     })
+
+    // On a stalled connection the report form stayed "sending" (and the iOS
+    // sheet unanswered) until the OS gave up on the request.
+    it("gives up on a request that stalls", fakeAsync(() => {
+      let signal: AbortSignal | undefined
+      fetchSpy.and.callFake(
+        (_url: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            signal = init.signal ?? undefined
+            signal?.addEventListener("abort", () =>
+              reject(new DOMException("Aborted", "AbortError")),
+            )
+          }),
+      )
+      let outcome: "pending" | "sent" | "failed" = "pending"
+      service.trackDelivered("report_problem", {}).then(
+        () => {
+          outcome = "sent"
+        },
+        () => {
+          outcome = "failed"
+        },
+      )
+
+      tick(DELIVERY_TIMEOUT_MS - 1)
+      expect(outcome).toBe("pending")
+      tick(1)
+      expect(signal?.aborted).toBeTrue()
+      expect(outcome).toBe("failed")
+    }))
+
+    // build-info.json is fetched without a deadline: stalled, it held the
+    // report before the delivery timeout had even started.
+    it("sends without the build's details when they stall", fakeAsync(() => {
+      buildVersionServiceMock.getBuildInfo.and.returnValue(
+        new Promise(() => {}),
+      )
+      let sent = false
+      service.trackDelivered("report_problem", { topic: "typo" }).then(() => {
+        sent = true
+      })
+
+      tick(BUILD_DATA_WAIT_MS - 1)
+      expect(fetchSpy).not.toHaveBeenCalled()
+      tick(1)
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      const body = JSON.parse(fetchSpy.calls.mostRecent().args[1].body)
+      expect(body.payload.data).toEqual({ topic: "typo", platform: "ios" })
+      expect(sent).toBeTrue()
+    }))
 
     it("rejects when the tracker isn't on the page", async () => {
       script.remove()

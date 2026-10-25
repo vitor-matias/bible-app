@@ -92,7 +92,7 @@ inlined into every page, taking per-page HTML from ~166KB to ~241KB.
 ```bash
 npm run build         # produces dist/bible-app/browser
 npm run cap:android   # or cap:ios
-npx cap open android  # open in Android Studio / Xcode
+npx cap open android  # Android Studio; `npx cap open ios` for Xcode
 ```
 
 `cap:sync`/`cap:ios`/`cap:android` first run `cap:prune`, which copies the build

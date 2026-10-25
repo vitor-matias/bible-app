@@ -54,6 +54,8 @@ struct ChromeState: Equatable {
     var bookmarkColor: String?
     /// Its spoken name ("vermelho").
     var bookmarkName: String?
+    /// When the web bundle was compiled, for the menu's small print.
+    var buildVersion: String?
 
     var autoScroll: AutoScrollState?
 
@@ -65,6 +67,9 @@ struct ChromeState: Equatable {
 
     init() {}
 
+    /// Reads the web app's bar state, defaulting missing values to an empty,
+    /// inactive state with the system theme. An unknown mode hides the bars;
+    /// an absent build version leaves out the menu's bundle line.
     init(_ call: CAPPluginCall) {
         mode = Mode(rawValue: call.getString("mode", "none")) ?? .none
         inert = call.getBool("inert", false)
@@ -84,13 +89,14 @@ struct ChromeState: Equatable {
         canReport = call.getBool("canReport", false)
         bookmarkColor = call.getString("bookmarkColor")
         bookmarkName = call.getString("bookmarkName")
+        buildVersion = call.getString("buildVersion")
         query = call.getString("query", "")
         title = call.getString("title", "")
         autoScroll = call.getObject("autoScroll").map(AutoScrollState.init)
     }
 }
 
-/// Auto-scroll's controls, which take over the reader's toolbar while shown.
+/// Auto-scroll's controls, floating over the text while shown.
 struct AutoScrollState: Equatable {
     var playing: Bool
     var speedLabel: String
@@ -98,6 +104,8 @@ struct AutoScrollState: Equatable {
     var speedAccessibilityLabel: String
     var canSlower: Bool
     var canFaster: Bool
+    /// False at the page's end, where there's nothing left to play.
+    var canPlay: Bool
 
     init(_ object: JSObject) {
         playing = object["playing"] as? Bool ?? false
@@ -105,6 +113,7 @@ struct AutoScrollState: Equatable {
         speedAccessibilityLabel = object["speedAccessibilityLabel"] as? String ?? speedLabel
         canSlower = object["canSlower"] as? Bool ?? false
         canFaster = object["canFaster"] as? Bool ?? false
+        canPlay = object["canPlay"] as? Bool ?? true
     }
 }
 
@@ -120,8 +129,10 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "updateBookmarks", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showFootnotes", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showToast", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "hideToast", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showReport", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "finishReport", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "share", returnType: CAPPluginReturnPromise),
     ]
 
     weak var chrome: ChromeViewController?
@@ -149,12 +160,18 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     /// The sheets resolve with whether they were presented: not over another
-    /// sheet, and then no closing event follows.
+    /// sheet, and then no closing event follows. One on its way out is waited
+    /// for, so its closing event comes first.
     @objc func showBookmarks(_ call: CAPPluginCall) {
         let state = BookmarksSheetState(call)
         DispatchQueue.main.async {
-            let presented = self.chrome?.presentBookmarks(state) ?? false
-            call.resolve(["presented": presented])
+            guard let chrome = self.chrome else {
+                call.resolve(["presented": false])
+                return
+            }
+            chrome.presentBookmarks(state) { presented in
+                call.resolve(["presented": presented])
+            }
         }
     }
 
@@ -170,11 +187,25 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    /// Takes the toast down early: the web app's way back once the reader has
+    /// gone back by another route.
+    @objc func hideToast(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.chrome?.hideToast()
+            call.resolve()
+        }
+    }
+
     @objc func showReport(_ call: CAPPluginCall) {
         let state = ReportSheetState(call)
         DispatchQueue.main.async {
-            let presented = self.chrome?.presentReport(state) ?? false
-            call.resolve(["presented": presented])
+            guard let chrome = self.chrome else {
+                call.resolve(["presented": false])
+                return
+            }
+            chrome.presentReport(state) { presented in
+                call.resolve(["presented": presented])
+            }
         }
     }
 
@@ -191,8 +222,28 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func showFootnotes(_ call: CAPPluginCall) {
         let state = FootnotesSheetState(call)
         DispatchQueue.main.async {
-            let presented = self.chrome?.presentFootnotes(state) ?? false
-            call.resolve(["presented": presented])
+            guard let chrome = self.chrome else {
+                call.resolve(["presented": false])
+                return
+            }
+            chrome.presentFootnotes(state) { presented in
+                call.resolve(["presented": presented])
+            }
+        }
+    }
+
+    /// Resolves once the share sheet closes, with whether something was
+    /// shared; at once, with false, when it didn't come up.
+    @objc func share(_ call: CAPPluginCall) {
+        let state = ShareSheetState(call)
+        DispatchQueue.main.async {
+            guard let chrome = self.chrome, !state.activityItems.isEmpty else {
+                call.resolve(["completed": false])
+                return
+            }
+            chrome.presentShare(state) { completed in
+                call.resolve(["completed": completed])
+            }
         }
     }
 
@@ -205,15 +256,20 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     /// Resolves once the sheet is dismissed: completed, or skipped at a step.
+    /// Resolves at once with `presented: false` when it didn't come up, which
+    /// the web app must not take for the onboarding seen.
     @objc func showOnboarding(_ call: CAPPluginCall) {
         let steps = OnboardingStepData.parse(call)
         DispatchQueue.main.async {
             guard let chrome = self.chrome, !steps.isEmpty else {
-                call.resolve(["completed": false, "lastStep": ""])
+                call.resolve(["presented": false])
                 return
             }
-            chrome.presentOnboarding(steps) { completed, lastStep in
-                call.resolve(["completed": completed, "lastStep": lastStep])
+            let presented = chrome.presentOnboarding(steps) { completed, lastStep in
+                call.resolve(["presented": true, "completed": completed, "lastStep": lastStep])
+            }
+            if !presented {
+                call.resolve(["presented": false])
             }
         }
     }

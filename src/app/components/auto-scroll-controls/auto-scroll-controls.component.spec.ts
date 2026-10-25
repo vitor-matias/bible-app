@@ -11,6 +11,17 @@ import {
 import { PreferencesService } from "../../services/preferences.service"
 import { AutoScrollControlsComponent } from "./auto-scroll-controls.component"
 
+/** A page with a screenful of text below: half way through, not at its end. */
+function scrollablePage(): HTMLElement {
+  const page = document.createElement("div")
+  Object.defineProperties(page, {
+    scrollHeight: { value: 1000, configurable: true },
+    clientHeight: { value: 500, configurable: true },
+    scrollTop: { value: 0, writable: true, configurable: true },
+  })
+  return page
+}
+
 describe("AutoScrollControlsComponent", () => {
   let component: AutoScrollControlsComponent
   let fixture: ComponentFixture<AutoScrollControlsComponent>
@@ -69,6 +80,28 @@ describe("AutoScrollControlsComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  // In landscape, Android's 3-button navigation bar covered the + button.
+  it("keeps clear of a side system bar on a wide screen", () => {
+    // The specs run in Karma's frame: its width is the viewport the media
+    // queries see.
+    const frame = window.frameElement as HTMLElement | null
+    expect(frame).withContext("the specs run in a frame").toBeTruthy()
+    const width = frame?.style.width ?? ""
+    if (frame) frame.style.width = "945px"
+    const host = fixture.nativeElement as HTMLElement
+    const controls = host.querySelector(".auto-scroll-controls") as HTMLElement
+    const right = (inset: string) => {
+      host.style.setProperty("--app-inset-right", inset)
+      return controls.getBoundingClientRect().right
+    }
+
+    try {
+      expect(right("0px") - right("40px")).toBeCloseTo(40, 0)
+    } finally {
+      if (frame) frame.style.width = width
+    }
+  })
+
   it("should stop scroll on destroy", () => {
     component.ngOnDestroy()
     expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
@@ -80,7 +113,7 @@ describe("AutoScrollControlsComponent", () => {
         get: () => false,
         configurable: true,
       })
-      const mockScrollEl = document.createElement("div")
+      const mockScrollEl = scrollablePage()
       const mockLineHeightEl = document.createElement("div")
 
       component.scrollElement = mockScrollEl
@@ -125,7 +158,7 @@ describe("AutoScrollControlsComponent", () => {
         get: () => false,
         configurable: true,
       })
-      component.scrollElement = document.createElement("div")
+      component.scrollElement = scrollablePage()
       component.lineHeightElement = document.createElement("div")
 
       // We want to capture the onStop callback passed to start()
@@ -217,8 +250,28 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
   let autoScroll: jasmine.SpyObj<AutoScrollService>
   let playing: boolean
   let speed: number
+  let page: HTMLElement
+  /** What the controls' ResizeObserver watches, and a reflow it sees. */
+  let observed: Element[]
+  let resized: () => void
+  const realResizeObserver = globalThis.ResizeObserver
 
   beforeEach(async () => {
+    observed = []
+    resized = () => {}
+    globalThis.ResizeObserver = class {
+      constructor(callback: ResizeObserverCallback) {
+        resized = () => callback([], this as unknown as ResizeObserver)
+      }
+
+      observe(target: Element): void {
+        observed.push(target)
+      }
+
+      unobserve(): void {}
+
+      disconnect(): void {}
+    } as unknown as typeof ResizeObserver
     actions = new Subject()
     nativeChrome = {
       enabled: true,
@@ -269,15 +322,17 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     }).compileComponents()
 
     fixture = TestBed.createComponent(AutoScrollControlsComponent)
-    fixture.componentRef.setInput(
-      "scrollElement",
-      document.createElement("div"),
-    )
+    page = scrollablePage()
+    fixture.componentRef.setInput("scrollElement", page)
     fixture.componentRef.setInput(
       "lineHeightElement",
       document.createElement("div"),
     )
     fixture.detectChanges()
+  })
+
+  afterEach(() => {
+    globalThis.ResizeObserver = realResizeObserver
   })
 
   const lastState = () => nativeChrome.setAutoScroll.calls.mostRecent().args[0]
@@ -288,10 +343,11 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     ).toBeNull()
     expect(lastState()).toEqual({
       playing: false,
-      speedLabel: "1 ln/s",
+      speedLabel: "1",
       speedAccessibilityLabel: "1 por extenso",
       canSlower: true,
       canFaster: true,
+      canPlay: true,
     })
   })
 
@@ -308,15 +364,48 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     actions.next({ id: "auto-scroll-faster" })
     expect(lastState()).toEqual(
       jasmine.objectContaining({
-        speedLabel: "1.25 ln/s",
+        speedLabel: "1.25",
         speedAccessibilityLabel: "1.25 por extenso",
       }),
     )
 
     for (let i = 0; i < 4; i++) actions.next({ id: "auto-scroll-slower" })
     expect(lastState()).toEqual(
-      jasmine.objectContaining({ speedLabel: "0.25 ln/s", canSlower: false }),
+      jasmine.objectContaining({ speedLabel: "0.25", canSlower: false }),
     )
+  })
+
+  // Scrolled to the end, play started and stopped again at once.
+  it("turns play off at the end of the page", () => {
+    page.scrollTop = 500
+    page.dispatchEvent(new Event("scroll"))
+    expect(lastState()).toEqual(jasmine.objectContaining({ canPlay: false }))
+
+    actions.next({ id: "auto-scroll-toggle" })
+    expect(autoScroll.start).not.toHaveBeenCalled()
+
+    page.scrollTop = 300
+    page.dispatchEvent(new Event("scroll"))
+    expect(lastState()).toEqual(jasmine.objectContaining({ canPlay: true }))
+    actions.next({ id: "auto-scroll-toggle" })
+    expect(autoScroll.start).toHaveBeenCalled()
+  })
+
+  // A reflow moves the page's end without a scroll: text added at the end,
+  // larger type, a window made smaller.
+  it("follows the page's end as it reflows", () => {
+    expect(observed).toContain(page)
+
+    page.scrollTop = 500
+    page.dispatchEvent(new Event("scroll"))
+    expect(lastState()).toEqual(jasmine.objectContaining({ canPlay: false }))
+
+    Object.defineProperty(page, "scrollHeight", {
+      value: 1500,
+      configurable: true,
+    })
+    resized()
+    expect(lastState()).toEqual(jasmine.objectContaining({ canPlay: true }))
   })
 
   it("gives the toolbar back when closed", () => {

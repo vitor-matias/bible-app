@@ -19,6 +19,10 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
+import {
+  BuildVersionService,
+  type DisplayVersion,
+} from "../../services/build-version.service"
 import { NativeBookmarksService } from "../../services/native-bookmarks.service"
 import {
   type NativeChromeAction,
@@ -45,6 +49,7 @@ describe("HeaderComponent", () => {
   let dialogSpy: jasmine.SpyObj<MatDialog>
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
   let onboardingServiceSpy: jasmine.SpyObj<OnboardingService>
+  let buildVersionSpy: jasmine.SpyObj<BuildVersionService>
   let isOfflineSubject: BehaviorSubject<boolean>
   let mockSharePlugin: jasmine.SpyObj<typeof Share>
   let originalShare: typeof navigator.share
@@ -83,6 +88,13 @@ describe("HeaderComponent", () => {
     analyticsServiceSpy.track.and.returnValue(Promise.resolve())
     analyticsServiceSpy.areAnalyticsAvailable.and.returnValue(true)
     onboardingServiceSpy = jasmine.createSpyObj("OnboardingService", ["open"])
+    buildVersionSpy = jasmine.createSpyObj("BuildVersionService", [
+      "getDisplayVersion",
+    ])
+    buildVersionSpy.getDisplayVersion.and.resolveTo({
+      release: "1.2.3",
+      build: "20261016-120000Z",
+    })
     originalShare = navigator.share
 
     await TestBed.configureTestingModule({
@@ -99,6 +111,7 @@ describe("HeaderComponent", () => {
         { provide: SHARE_PLUGIN, useValue: mockSharePlugin },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
         { provide: OnboardingService, useValue: onboardingServiceSpy },
+        { provide: BuildVersionService, useValue: buildVersionSpy },
       ],
     }).compileComponents()
 
@@ -187,6 +200,30 @@ describe("HeaderComponent", () => {
     expect(headings[0].textContent).toContain("Sobre a Bíblia dos Capuchinhos")
   })
 
+  // Android's 3-button navigation bar sits at the side of a landscape screen;
+  // the header ignored it, and Back and Recents covered menu and search.
+  it("keeps the menu and search buttons clear of side system bars", () => {
+    const host = fixture.nativeElement as HTMLElement
+    const edges = (left: string, right: string) => {
+      host.style.setProperty("--app-inset-left", left)
+      host.style.setProperty("--app-inset-right", right)
+      return {
+        menu: (
+          host.querySelector(".menuButton") as HTMLElement
+        ).getBoundingClientRect().left,
+        search: (
+          host.querySelector(".searchButton") as HTMLElement
+        ).getBoundingClientRect().right,
+      }
+    }
+
+    const none = edges("0px", "0px")
+    const inset = edges("48px", "40px")
+
+    expect(inset.menu - none.menu).toBeCloseTo(48, 0)
+    expect(none.search - inset.search).toBeCloseTo(40, 0)
+  })
+
   // References open from the stored Bible offline, and words are searched in it.
   it("keeps the search button while offline", () => {
     isOfflineSubject.next(true)
@@ -269,6 +306,69 @@ describe("HeaderComponent", () => {
       fixture.destroy()
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+    })
+  })
+
+  describe("the version in the menu", () => {
+    const openMenu = async () => {
+      await fixture.whenStable()
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+    }
+
+    const text = () =>
+      document
+        .querySelector(".menu-version")
+        ?.textContent?.replace(/\s+/g, " ")
+        .trim()
+
+    it("is small print right under the privacy policy: the release, then the bundle's id", async () => {
+      await openMenu()
+
+      const version = document.querySelector(".menu-version")
+      expect(text()).toBe("1.2.3 · 20261016-120000Z")
+      expect(version?.previousElementSibling?.getAttribute("href")).toBe(
+        component.privacyPolicyUrl,
+      )
+      expect(version?.nextElementSibling).toBeNull()
+    })
+
+    it("stays on one line, as in the iOS menu", async () => {
+      await openMenu()
+
+      const version = document.querySelector(".menu-version") as HTMLElement
+      expect(version.children.length).toBe(0)
+      expect(getComputedStyle(version).whiteSpace).toBe("nowrap")
+    })
+
+    it("labels the bundle's id where there are no releases", async () => {
+      buildVersionSpy.getDisplayVersion.and.resolveTo({
+        release: null,
+        build: "20261016-120000Z",
+      })
+      fixture = TestBed.createComponent(HeaderComponent)
+      fixture.componentRef.setInput("book", component.book)
+      fixture.detectChanges()
+      await openMenu()
+
+      expect(text()).toBe("Bundle 20261016-120000Z")
+    })
+
+    it("is left out until the version is known", async () => {
+      buildVersionSpy.getDisplayVersion.and.returnValue(new Promise(() => {}))
+      fixture = TestBed.createComponent(HeaderComponent)
+      fixture.componentRef.setInput("book", component.book)
+      fixture.detectChanges()
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+
+      expect(document.querySelector(".menu-version")).toBeNull()
     })
   })
 
@@ -685,6 +785,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     show: jasmine.Spy
     hide: jasmine.Spy
     showPicker: jasmine.Spy
+    share: jasmine.Spy
   }
   let router: jasmine.SpyObj<Router>
   let theme: jasmine.SpyObj<ThemeService>
@@ -692,9 +793,11 @@ describe("HeaderComponent with the iOS native bars", () => {
   let dialog: jasmine.SpyObj<MatDialog>
   let onboarding: jasmine.SpyObj<OnboardingService>
   let share: jasmine.SpyObj<typeof Share>
+  let analytics: jasmine.SpyObj<AnalyticsService>
   let isOffline: BehaviorSubject<boolean>
   let nativeBookmarks: jasmine.SpyObj<NativeBookmarksService>
   let nativeReport: jasmine.SpyObj<NativeReportService>
+  let buildVersion: jasmine.SpyObj<BuildVersionService>
 
   const genesis: Book = {
     id: "gen",
@@ -712,6 +815,7 @@ describe("HeaderComponent with the iOS native bars", () => {
       show: jasmine.createSpy("show"),
       hide: jasmine.createSpy("hide"),
       showPicker: jasmine.createSpy("showPicker"),
+      share: jasmine.createSpy("share").and.resolveTo(true),
     }
     router = jasmine.createSpyObj("Router", ["navigate"])
     router.navigate.and.resolveTo(true)
@@ -731,7 +835,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     onboarding = jasmine.createSpyObj("OnboardingService", ["open"])
     share = jasmine.createSpyObj("Share", ["share"])
     share.share.and.resolveTo()
-    const analytics = jasmine.createSpyObj("AnalyticsService", [
+    analytics = jasmine.createSpyObj("AnalyticsService", [
       "track",
       "areAnalyticsAvailable",
     ])
@@ -740,6 +844,13 @@ describe("HeaderComponent with the iOS native bars", () => {
     isOffline = new BehaviorSubject(false)
     nativeBookmarks = jasmine.createSpyObj("NativeBookmarksService", ["open"])
     nativeReport = jasmine.createSpyObj("NativeReportService", ["open"])
+    buildVersion = jasmine.createSpyObj("BuildVersionService", [
+      "getDisplayVersion",
+    ])
+    buildVersion.getDisplayVersion.and.resolveTo({
+      release: "1.2.3",
+      build: "20261016-120000Z",
+    })
     // The native share sheet is always available in the app.
     spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
 
@@ -758,6 +869,7 @@ describe("HeaderComponent with the iOS native bars", () => {
         { provide: OnboardingService, useValue: onboarding },
         { provide: SHARE_PLUGIN, useValue: share },
         { provide: AnalyticsService, useValue: analytics },
+        { provide: BuildVersionService, useValue: buildVersion },
         {
           provide: NetworkService,
           useValue: { isOffline$: isOffline.asObservable(), isOffline: false },
@@ -781,6 +893,30 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(fixture.nativeElement.querySelector("mat-toolbar")).toBeNull()
   })
 
+  it("hands the native menu the compile timestamp, which it shows with its release", () => {
+    expect(lastState().buildVersion).toBe("20261016-120000Z")
+  })
+
+  it("does not bring the bars back if the reader is gone before the version arrives", async () => {
+    let arrive!: (version: DisplayVersion) => void
+    buildVersion.getDisplayVersion.and.returnValue(
+      new Promise((resolve) => {
+        arrive = resolve
+      }),
+    )
+    const late = TestBed.createComponent(HeaderComponent)
+    late.componentRef.setInput("book", genesis)
+    late.componentRef.setInput("chapterNumber", 3)
+    late.detectChanges()
+    late.destroy()
+    nativeChrome.show.calls.reset()
+
+    arrive({ release: null, build: "20261016-120000Z" })
+    await new Promise((resolve) => setTimeout(resolve))
+
+    expect(nativeChrome.show).not.toHaveBeenCalled()
+  })
+
   it("sends the bars what the web header would show", () => {
     expect(lastState()).toEqual({
       mode: "reader",
@@ -799,6 +935,7 @@ describe("HeaderComponent with the iOS native bars", () => {
       canReport: true,
       bookmarkColor: null,
       bookmarkName: null,
+      buildVersion: "20261016-120000Z",
     })
   })
 
@@ -981,12 +1118,38 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(onboarding.open).toHaveBeenCalledWith("menu")
   })
 
-  it("shares the passage", async () => {
+  // Through the Share plugin, iOS fetched the link's preview from the website,
+  // whose icon has the WEB sash; the shell previews it with the app's.
+  it("shares the passage through the shell, headed by the page's title", async () => {
+    const title = document.title
+    document.title = "Livro do Génesis 3 | Bíblia Sagrada"
+    actions.next({ id: "share" })
+    await fixture.whenStable()
+    document.title = title
+
+    const { pathname, search, hash } = window.location
+    expect(nativeChrome.share).toHaveBeenCalledWith({
+      title: "Bíblia Sagrada",
+      text: "Ler Livro do Génesis 3.",
+      url: `https://biblia.capuchinhos.org${pathname}${search}${hash}`,
+      linkTitle: "Livro do Génesis 3 | Bíblia Sagrada",
+    })
+    expect(share.share).not.toHaveBeenCalled()
+    expect(analytics.track).toHaveBeenCalledWith("share", {
+      book: "gen",
+      chapter: 3,
+    })
+  })
+
+  it("counts no share when the sheet is closed without one", async () => {
+    nativeChrome.share.and.resolveTo(false)
     actions.next({ id: "share" })
     await fixture.whenStable()
 
-    expect(share.share).toHaveBeenCalledWith(
-      jasmine.objectContaining({ text: "Ler Livro do Génesis 3." }),
+    expect(nativeChrome.share).toHaveBeenCalled()
+    expect(analytics.track).not.toHaveBeenCalledWith(
+      "share",
+      jasmine.anything(),
     )
   })
 

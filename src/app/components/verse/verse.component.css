@@ -20,7 +20,13 @@
   font-size: 120%;
 }
 
+/* Headings and lines of references sit amid the verse's inline text. They are
+   inline-blocks a line wide rather than blocks: Safari misplaces a block
+   inside inline text set in columns (the page-by-page view) and draws it over
+   the lines before it. An inline-block is laid out with the text. */
 h3 {
+  display: inline-block;
+  width: 100%;
   font-size: 125%;
   text-align: center;
   margin-bottom: 0.5rem;
@@ -31,9 +37,17 @@ h3:not(:first-child) {
 }
 
 .references-block {
-  display: block;
+  display: inline-block;
+  width: 100%;
   text-align: center;
   font-size: 125%;
+}
+
+/* A line-wide box would drop below the drop-cap chapter number, which a block
+   lets it sit beside. Nothing comes before it there for Safari to misplace. */
+.references-block.besideChapterNumber {
+  display: block;
+  width: auto;
 }
 
 .text-block {
@@ -120,6 +134,13 @@ h3:not(:first-child) {
 .interactive {
   cursor: pointer;
   outline: none;
+}
+
+/* Keyboard focus shows, as on the note markers; a tap or click shows none. */
+.interactive:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* A psalm's liturgical number, small under its own, as the edition prints it

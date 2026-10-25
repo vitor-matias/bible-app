@@ -380,6 +380,18 @@ describe("BibleReferenceService", () => {
       expect(out[0].verses).toEqual([{ type: "single", verse: 16 }])
     })
 
+    // ", 2" was taken as verse 2 of Jo 3, overlapping "2 Cor 5,17", which
+    // was matched too: the "2" showed twice in the verse and in the notes.
+    it("doesn't swallow the number of the next book after a comma", () => {
+      const out = service.extract("Jo 3,16, 2 Cor 5,17")
+      expect(out.map((ref) => ref.match)).toEqual(["Jo 3,16", "2 Cor 5,17"])
+      expect(out[0].verses).toEqual([{ type: "single", verse: 16 }])
+      // A comma list of verses is still one reference.
+      expect(service.extract("Jo 3,16, 2, 4").map((ref) => ref.match)).toEqual([
+        "Jo 3,16, 2, 4",
+      ])
+    })
+
     // "20-21.29" read as chapter 15 verse 20 to chapter 21 verse 29.
     it('keeps a dot after a range for verses: "Lc 15,20-21.29"', () => {
       const out = service.extract("Lc 15,20-21.29")

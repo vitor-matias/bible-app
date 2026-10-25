@@ -78,6 +78,8 @@ export interface ReaderChrome {
   bookmarkColor: string | null
   /** Its spoken name ("vermelho"), for VoiceOver. */
   bookmarkName: string | null
+  /** When the web bundle was compiled, for the menu's small print. */
+  buildVersion: string | null
 }
 
 /** The search page's bars: Back on top, the search field at the bottom. */
@@ -97,14 +99,23 @@ export interface TitledPageChrome {
 
 export type PageChrome = ReaderChrome | SearchChrome | TitledPageChrome
 
-/** Auto-scroll's controls, which take over the reader's toolbar while shown. */
+/**
+ * Auto-scroll's controls: a play button floating over the text, where the
+ * reader drags it, which grows into a capsule with the speed while playing.
+ */
 export interface AutoScrollChrome {
   playing: boolean
+  /**
+   * Just the number, "1/2", "1.25". The iOS app shows none: only VoiceOver
+   * says the speed, in words (speedAccessibilityLabel).
+   */
   speedLabel: string
   /** In words, for VoiceOver: "1,5 linhas por segundo". */
   speedAccessibilityLabel: string
   canSlower: boolean
   canFaster: boolean
+  /** False at the page's end, where there's nothing left to play. */
+  canPlay: boolean
 }
 
 /** Mirrors ChromeState in ios/App/App/NativeChrome.swift. */
@@ -183,6 +194,16 @@ export interface SheetPresented {
   presented: boolean
 }
 
+/** A passage for the shell's share sheet. */
+export interface NativeShareOptions {
+  /** Mail's subject. */
+  title: string
+  text: string
+  url: string
+  /** Heads the link's preview, beside the app's icon. */
+  linkTitle: string
+}
+
 /** The space the bars cover, in CSS pixels. */
 export interface ChromeInsets {
   top: number
@@ -199,7 +220,8 @@ export interface NativeChromePlugin {
   showPicker(data: PassagePickerData): Promise<void>
   /**
    * The sheets say whether they were presented: not over another sheet, and
-   * then no *-closed event follows.
+   * then no *-closed event follows. One on its way out is waited for, so its
+   * *-closed comes before the answer.
    */
   showBookmarks(state: BookmarksSheetState): Promise<SheetPresented>
   /** Refreshes the bookmarks sheet if it is still open. */
@@ -210,13 +232,23 @@ export interface NativeChromePlugin {
     button?: boolean
     symbol?: string
   }): Promise<void>
+  /** Takes the toast down, if one is showing. */
+  hideToast(): Promise<void>
   showReport(state: ReportSheetState): Promise<SheetPresented>
   /** The answer to report-submit: the sheet closes, or shows `message`. */
   finishReport(result: { sent: boolean; message?: string }): Promise<void>
-  /** Resolves once the sheet is dismissed, however that happened. */
+  /**
+   * Resolves once the sheet is dismissed, however that happened; at once,
+   * with `presented: false`, when it didn't come up.
+   */
   showOnboarding(options: {
     steps: NativeOnboardingStep[]
-  }): Promise<OnboardingResult>
+  }): Promise<SheetPresented & Partial<OnboardingResult>>
+  /**
+   * Resolves once the share sheet closes; at once, with `completed: false`,
+   * when it didn't come up.
+   */
+  share(options: NativeShareOptions): Promise<{ completed: boolean }>
   addListener(
     eventName: "action",
     listener: (action: NativeChromeAction) => void,
@@ -274,6 +306,8 @@ export class NativeChromeService {
   private autoScroll: AutoScrollChrome | null = null
   /** What tapping the current toast does, when it is a button. */
   private toastAction?: () => void
+  /** Counts the toasts shown, so a stale one's hide does nothing. */
+  private toastCount = 0
   /** The bars' state as last sent to the shell (push). */
   private lastSent?: string
   /** The shell says whether its bars did hide (ChromeInsets.collapsed). */
@@ -376,12 +410,16 @@ export class NativeChromeService {
     this.plugin.updateBookmarks(state).catch(() => {})
   }
 
-  /** A glass toast above the bottom bar; see ToastService. */
-  toast(message: string, options: NativeToastOptions = {}): void {
-    if (!this.enabled) return
+  /**
+   * A glass toast above the bottom bar; see ToastService. Returns what takes
+   * it down early, which leaves a toast that has replaced it alone.
+   */
+  toast(message: string, options: NativeToastOptions = {}): () => void {
+    if (!this.enabled) return () => {}
     const { onTap, symbol } = options
     // It replaces the toast before, and that one's action with it.
     this.toastAction = onTap
+    const shown = ++this.toastCount
     this.plugin
       .showToast(
         onTap
@@ -389,6 +427,11 @@ export class NativeChromeService {
           : { message },
       )
       .catch(() => {})
+    return () => {
+      if (shown !== this.toastCount) return
+      this.toastAction = undefined
+      this.plugin.hideToast().catch(() => {})
+    }
   }
 
   /** Whether the sheet came up; it doesn't over another one. */
@@ -408,11 +451,37 @@ export class NativeChromeService {
     return presented(this.plugin.showFootnotes(state))
   }
 
-  /** The onboarding as a native sheet; resolves when it is dismissed. */
-  showOnboarding(steps: NativeOnboardingStep[]): Promise<OnboardingResult> {
-    return this.plugin
-      .showOnboarding({ steps })
-      .catch(() => ({ completed: false, lastStep: steps[0]?.id ?? "" }))
+  /**
+   * The system share sheet, which previews the link with the app's icon: left
+   * to itself, iOS fetches the website's, which has the WEB sash. Whether
+   * something was shared.
+   */
+  share(options: NativeShareOptions): Promise<boolean> {
+    if (!this.enabled) return Promise.resolve(false)
+    return this.plugin.share(options).then(
+      (result) => result?.completed === true,
+      () => false,
+    )
+  }
+
+  /**
+   * The onboarding as a native sheet; resolves when it is dismissed, or with
+   * null when it never came up (e.g. over a sheet still on its way), which
+   * isn't the onboarding seen.
+   */
+  showOnboarding(
+    steps: NativeOnboardingStep[],
+  ): Promise<OnboardingResult | null> {
+    return this.plugin.showOnboarding({ steps }).then(
+      (result) =>
+        result?.presented === true
+          ? {
+              completed: result.completed ?? false,
+              lastStep: result.lastStep ?? "",
+            }
+          : null,
+      () => null,
+    )
   }
 
   /**
@@ -524,8 +593,8 @@ export class NativeChromeService {
       ? {
           ...this.requested,
           inert: this.modalOpen,
-          // Auto-scroll's controls stay within reach while the bars hide: the
-          // shell moves them down into the toolbar's place.
+          // While auto-scroll plays, its controls stay within reach as the
+          // bars hide; paused, its play button hides with them.
           collapsed: reader && (this.modalOpen || this.collapsed),
           autoScroll: reader ? this.autoScroll : null,
         }

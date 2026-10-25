@@ -22,7 +22,9 @@
 		9582B6972FE9A0000072D4E8 /* OnboardingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6962FE9A0000072D4E8 /* OnboardingSheet.swift */; };
 		9582B6992FE9A0000072D4E8 /* BookmarksSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6982FE9A0000072D4E8 /* BookmarksSheet.swift */; };
 		9582B69B2FE9A0000072D4E8 /* FootnotesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B69A2FE9A0000072D4E8 /* FootnotesSheet.swift */; };
+		9582B6A52FE9A0000072D4E8 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6A42FE9A0000072D4E8 /* ShareSheet.swift */; };
 		9582B69D2FE9A0000072D4E8 /* Toast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B69C2FE9A0000072D4E8 /* Toast.swift */; };
+		9582B6A32FE9A0000072D4E8 /* AutoScrollControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6A22FE9A0000072D4E8 /* AutoScrollControl.swift */; };
 		9582B69F2FE9A0000072D4E8 /* ReportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B69E2FE9A0000072D4E8 /* ReportSheet.swift */; };
 		9582B6A12FE9A0000072D4E8 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9582B6A02FE9A0000072D4E8 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -44,7 +46,9 @@
 		9582B6962FE9A0000072D4E8 /* OnboardingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSheet.swift; sourceTree = "<group>"; };
 		9582B6982FE9A0000072D4E8 /* BookmarksSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarksSheet.swift; sourceTree = "<group>"; };
 		9582B69A2FE9A0000072D4E8 /* FootnotesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootnotesSheet.swift; sourceTree = "<group>"; };
+		9582B6A42FE9A0000072D4E8 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		9582B69C2FE9A0000072D4E8 /* Toast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Toast.swift; sourceTree = "<group>"; };
+		9582B6A22FE9A0000072D4E8 /* AutoScrollControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoScrollControl.swift; sourceTree = "<group>"; };
 		9582B69E2FE9A0000072D4E8 /* ReportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportSheet.swift; sourceTree = "<group>"; };
 		9582B6A02FE9A0000072D4E8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
@@ -85,8 +89,10 @@
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				9582B6902FE9A0000072D4E8 /* NativeChrome.swift */,
 				9582B69C2FE9A0000072D4E8 /* Toast.swift */,
+				9582B6A22FE9A0000072D4E8 /* AutoScrollControl.swift */,
 				9582B69E2FE9A0000072D4E8 /* ReportSheet.swift */,
 				9582B69A2FE9A0000072D4E8 /* FootnotesSheet.swift */,
+				9582B6A42FE9A0000072D4E8 /* ShareSheet.swift */,
 				9582B6982FE9A0000072D4E8 /* BookmarksSheet.swift */,
 				9582B6962FE9A0000072D4E8 /* OnboardingSheet.swift */,
 				9582B6942FE9A0000072D4E8 /* PassagePicker.swift */,
@@ -189,8 +195,10 @@
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
 				9582B6912FE9A0000072D4E8 /* NativeChrome.swift in Sources */,
 				9582B69D2FE9A0000072D4E8 /* Toast.swift in Sources */,
+				9582B6A32FE9A0000072D4E8 /* AutoScrollControl.swift in Sources */,
 				9582B69F2FE9A0000072D4E8 /* ReportSheet.swift in Sources */,
 				9582B69B2FE9A0000072D4E8 /* FootnotesSheet.swift in Sources */,
+				9582B6A52FE9A0000072D4E8 /* ShareSheet.swift in Sources */,
 				9582B6992FE9A0000072D4E8 /* BookmarksSheet.swift in Sources */,
 				9582B6972FE9A0000072D4E8 /* OnboardingSheet.swift in Sources */,
 				9582B6952FE9A0000072D4E8 /* PassagePicker.swift in Sources */,

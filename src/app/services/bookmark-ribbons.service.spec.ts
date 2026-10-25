@@ -15,11 +15,12 @@ import { HapticsService } from "./haptics.service"
 function ribbonsWith(
   marks: { color: string; bookId: string; chapter: number }[],
 ): RibbonState[] {
-  return RIBBON_COLORS.map(({ name, value }) => {
+  return RIBBON_COLORS.map(({ name, value, spoken }) => {
     const mark = marks.find((m) => m.color === value)
     return {
       name,
       value,
+      spoken,
       bookmark: mark && { ...mark, timestamp: 1 },
     }
   })
@@ -113,5 +114,52 @@ describe("BookmarkRibbonsService", () => {
   it("puts a moved ribbon back", () => {
     service.restore({ bookId: "mat", chapter: 5, color: "red", timestamp: 1 })
     expect(bookmarks.addBookmark).toHaveBeenCalledOnceWith("mat", 5, "red")
+  })
+
+  // The web panel and the iOS sheet both offer it through RibbonMove.
+  describe("a panel's move offer", () => {
+    const before = ribbonsWith([{ color: "red", bookId: "mat", chapter: 5 }])
+    const after = ribbonsWith([{ color: "red", bookId: "mat", chapter: 7 }])
+
+    it("offers the ribbon read on from, by its spoken name", () => {
+      const mover = service.moveTo("mat", 7)
+      expect(mover.offer(before)).toEqual({
+        from: jasmine.objectContaining({ bookId: "mat", chapter: 5 }),
+        name: "vermelho",
+        done: false,
+      })
+    })
+
+    it("offers to undo a move, then puts the ribbon back", () => {
+      const mover = service.moveTo("mat", 7)
+      mover.move(before[0])
+
+      expect(mover.offer(after)).toEqual(
+        jasmine.objectContaining({
+          from: jasmine.objectContaining({ chapter: 5 }),
+          done: true,
+        }),
+      )
+      expect(mover.undo()).toBeTrue()
+      expect(bookmarks.addBookmark).toHaveBeenCalledWith("mat", 5, "red")
+      expect(mover.offer(after)).toBeUndefined()
+      expect(mover.undo()).toBeFalse()
+    })
+
+    it("undoes only the ribbon it moved", () => {
+      const mover = service.moveTo("mat", 7)
+      mover.move(before[0])
+
+      expect(mover.undo("blue")).toBeFalse()
+      expect(mover.undo("red")).toBeTrue()
+    })
+
+    it("keeps the last move's undo when a move does nothing", () => {
+      const mover = service.moveTo("mat", 7)
+      mover.move(before[0])
+      mover.move(ribbonsWith([])[1])
+
+      expect(mover.offer(after)?.done).toBeTrue()
+    })
   })
 })
