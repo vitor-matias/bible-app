@@ -146,6 +146,13 @@ jobs:
           fi
           
           VERSION_NAME=${TAG_NAME#v}
+          # App Store Connect takes only plain numbers, and Play's version
+          # code below needs minor and patch under 1000: a tag like
+          # v1.2.3-rc1 would get v1.2.3's code. Fail here, before any build.
+          if ! [[ "$VERSION_NAME" =~ ^[0-9]+\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            echo "::error::Release tags must be vMAJOR.MINOR.PATCH, minor and patch under 1000 (got $TAG_NAME)."
+            exit 1
+          fi
           MAJOR=$(echo "$VERSION_NAME" | cut -d. -f1)
           MINOR=$(echo "$VERSION_NAME" | cut -d. -f2)
           PATCH=$(echo "$VERSION_NAME" | cut -d. -f3)

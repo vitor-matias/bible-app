@@ -38,6 +38,11 @@ export interface BibleReference {
 export class BibleReferenceService {
   private bookAlternation = ""
   private explicitRe?: RegExp
+  /**
+   * A book's name with its own reference after a comma or a spaced dot ("Jo
+   * 3,16, 2 Cor 5,17"): the next reference, not more verses of this one.
+   */
+  private nextBookRe?: RegExp
 
   // Implicit full ref (no book): same-chapter "2,4b-25" OR cross-chapter "38,1-39,30"
   // IMPORTANT: cross-chapter branch (endCh,endV) is placed BEFORE same-chapter v2 to avoid greedy misparse.
@@ -113,6 +118,10 @@ export class BibleReferenceService {
       String.raw`)?\b`
 
     this.explicitRe = new RegExp(pattern, "gi")
+    this.nextBookRe = new RegExp(
+      String.raw`^(?:\s*,\s*|\.\s+)(?:${this.bookAlternation})\s+\d`,
+      "i",
+    )
   }
 
   extract(
@@ -198,18 +207,13 @@ export class BibleReferenceService {
         // After a dot, a number followed by ",5" or ":5" is a new chapter
         // ("Jo 3,16.4,5"); after a comma it is the next verse ("Mt 5,3,4,5").
         const newChapterRe = /^[,:]\d/
-        // After a spaced dot, a number that starts a book's name and its own
-        // reference ("2 Cor 5,17") is the next reference, not more verses.
-        const nextBookRe = new RegExp(
-          String.raw`^\.\s+(?:${this.bookAlternation})\s+\d`,
-          "i",
-        )
 
         while (true) {
           const tail = text.slice(currentIdx)
           const cm = listRe.exec(tail)
           if (!cm?.groups) break
-          if (cm.groups["spaced"] && nextBookRe.test(tail)) break
+          // A number that starts the next book's reference ("2 Cor 5,17").
+          if (this.nextBookRe?.test(tail)) break
           const dotted = cm[0].trimStart().startsWith(".")
           if (dotted && newChapterRe.test(tail.slice(cm[0].length))) break
 

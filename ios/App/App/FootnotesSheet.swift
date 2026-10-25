@@ -147,6 +147,15 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
         return UIAction { [weak self] _ in _ = self?.openLink(url) }
     }
 
+    /// No Open, Copy Link or Share for a nota:// link, which means nothing
+    /// outside this sheet (before iOS 17, shouldInteractWith refuses it).
+    @available(iOS 17.0, *)
+    func textView(_ textView: UITextView, menuConfigurationFor textItem: UITextItem,
+                  defaultMenu: UIMenu) -> UITextItem.MenuConfiguration? {
+        if case let .link(url) = textItem.content, url.scheme == Self.linkScheme { return nil }
+        return UITextItem.MenuConfiguration(menu: defaultMenu)
+    }
+
     func textView(_ textView: UITextView, shouldInteractWith url: URL, in characterRange: NSRange,
                   interaction: UITextItemInteraction) -> Bool {
         if url.scheme == Self.linkScheme {
