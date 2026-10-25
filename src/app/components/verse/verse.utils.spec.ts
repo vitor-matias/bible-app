@@ -96,7 +96,18 @@ describe("verse.utils", () => {
     it("should pass the bookId to the extract method", () => {
       mockBibleRef.extract.and.returnValue([])
       parseReferences(mockBibleRef, "text", "psa")
-      expect(mockBibleRef.extract).toHaveBeenCalledWith("text", "psa")
+      expect(mockBibleRef.extract).toHaveBeenCalledWith(
+        "text",
+        "psa",
+        undefined,
+      )
+    })
+
+    // Footnotes cite bare verses ("8-9") of their own chapter.
+    it("passes the chapter on, for bare verse references", () => {
+      mockBibleRef.extract.and.returnValue([])
+      parseReferences(mockBibleRef, "text", "mat", 11)
+      expect(mockBibleRef.extract).toHaveBeenCalledWith("text", "mat", 11)
     })
   })
 

@@ -9,12 +9,26 @@ import {
 } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
-import { Router } from "@angular/router"
+import { MatMenuTrigger } from "@angular/material/menu"
+import { By } from "@angular/platform-browser"
+import { ActivatedRoute, Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import type { Share } from "@capacitor/share"
-import { BehaviorSubject, of } from "rxjs"
+import { BehaviorSubject, of, Subject } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
+import { BackButtonService } from "../../services/back-button.service"
+import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
+import {
+  BuildVersionService,
+  type DisplayVersion,
+} from "../../services/build-version.service"
+import { NativeBookmarksService } from "../../services/native-bookmarks.service"
+import {
+  type NativeChromeAction,
+  NativeChromeService,
+} from "../../services/native-chrome.service"
+import { NativeReportService } from "../../services/native-report.service"
 import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { ThemeService } from "../../services/theme.service"
@@ -30,9 +44,12 @@ describe("HeaderComponent", () => {
   let themeServiceSpy: jasmine.SpyObj<ThemeService>
   let bookmarkServiceSpy: jasmine.SpyObj<BookmarkService>
   let bottomSheetSpy: jasmine.SpyObj<MatBottomSheet>
+  let bookmarkSheetDismissed: Subject<void>
+  let bookmarkSheetRef: { dismiss: jasmine.Spy; afterDismissed: () => unknown }
   let dialogSpy: jasmine.SpyObj<MatDialog>
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
   let onboardingServiceSpy: jasmine.SpyObj<OnboardingService>
+  let buildVersionSpy: jasmine.SpyObj<BuildVersionService>
   let isOfflineSubject: BehaviorSubject<boolean>
   let mockSharePlugin: jasmine.SpyObj<typeof Share>
   let originalShare: typeof navigator.share
@@ -44,14 +61,24 @@ describe("HeaderComponent", () => {
       isOffline$: isOfflineSubject.asObservable(),
       isOffline: false,
     })
-    themeServiceSpy = jasmine.createSpyObj("ThemeService", ["toggleTheme"], {
-      currentMode: "system",
-    })
+    themeServiceSpy = jasmine.createSpyObj(
+      "ThemeService",
+      ["toggleTheme", "setTheme"],
+      { currentMode: "system" },
+    )
     bookmarkServiceSpy = jasmine.createSpyObj("BookmarkService", [
       "getBookmark",
     ])
     bookmarkServiceSpy.bookmarks$ = of([])
     bottomSheetSpy = jasmine.createSpyObj("MatBottomSheet", ["open"])
+    bookmarkSheetDismissed = new Subject<void>()
+    bookmarkSheetRef = {
+      dismiss: jasmine.createSpy("dismiss"),
+      afterDismissed: () => bookmarkSheetDismissed.asObservable(),
+    }
+    bottomSheetSpy.open.and.returnValue(
+      bookmarkSheetRef as unknown as ReturnType<MatBottomSheet["open"]>,
+    )
     dialogSpy = jasmine.createSpyObj("MatDialog", ["open"])
     mockSharePlugin = jasmine.createSpyObj("Share", ["share"])
     analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", [
@@ -61,12 +88,21 @@ describe("HeaderComponent", () => {
     analyticsServiceSpy.track.and.returnValue(Promise.resolve())
     analyticsServiceSpy.areAnalyticsAvailable.and.returnValue(true)
     onboardingServiceSpy = jasmine.createSpyObj("OnboardingService", ["open"])
+    buildVersionSpy = jasmine.createSpyObj("BuildVersionService", [
+      "getDisplayVersion",
+    ])
+    buildVersionSpy.getDisplayVersion.and.resolveTo({
+      release: "1.2.3",
+      build: "20261016-120000Z",
+    })
     originalShare = navigator.share
 
     await TestBed.configureTestingModule({
       imports: [HeaderComponent, CommonModule],
       providers: [
         { provide: Router, useValue: routerSpy },
+        // The search button's routerLink; it's always shown now, offline too.
+        { provide: ActivatedRoute, useValue: {} },
         { provide: NetworkService, useValue: networkServiceSpy },
         { provide: ThemeService, useValue: themeServiceSpy },
         { provide: BookmarkService, useValue: bookmarkServiceSpy },
@@ -75,6 +111,7 @@ describe("HeaderComponent", () => {
         { provide: SHARE_PLUGIN, useValue: mockSharePlugin },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
         { provide: OnboardingService, useValue: onboardingServiceSpy },
+        { provide: BuildVersionService, useValue: buildVersionSpy },
       ],
     }).compileComponents()
 
@@ -163,11 +200,36 @@ describe("HeaderComponent", () => {
     expect(headings[0].textContent).toContain("Sobre a Bíblia dos Capuchinhos")
   })
 
-  it("should reflect offline status from NetworkService", () => {
+  // Android's 3-button navigation bar sits at the side of a landscape screen;
+  // the header ignored it, and Back and Recents covered menu and search.
+  it("keeps the menu and search buttons clear of side system bars", () => {
+    const host = fixture.nativeElement as HTMLElement
+    const edges = (left: string, right: string) => {
+      host.style.setProperty("--app-inset-left", left)
+      host.style.setProperty("--app-inset-right", right)
+      return {
+        menu: (
+          host.querySelector(".menuButton") as HTMLElement
+        ).getBoundingClientRect().left,
+        search: (
+          host.querySelector(".searchButton") as HTMLElement
+        ).getBoundingClientRect().right,
+      }
+    }
+
+    const none = edges("0px", "0px")
+    const inset = edges("48px", "40px")
+
+    expect(inset.menu - none.menu).toBeCloseTo(48, 0)
+    expect(none.search - inset.search).toBeCloseTo(40, 0)
+  })
+
+  // References open from the stored Bible offline, and words are searched in it.
+  it("keeps the search button while offline", () => {
     isOfflineSubject.next(true)
     fixture.detectChanges()
 
-    expect(component.isOffline).toBeTrue()
+    expect(fixture.nativeElement.querySelector(".searchButton")).toBeTruthy()
   })
 
   it("should open the report problem dialog from the menu", () => {
@@ -208,6 +270,198 @@ describe("HeaderComponent", () => {
     expect(dialogSpy.open).not.toHaveBeenCalled()
   })
 
+  describe("Android back button", () => {
+    const menuTrigger = () =>
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+
+    it("closes the open header menu", () => {
+      const trigger = menuTrigger()
+      trigger.openMenu()
+      expect(trigger.menuOpen).toBeTrue()
+
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
+      expect(trigger.menuOpen).toBeFalse()
+    })
+
+    it("dismisses the bookmark sheet it opened", () => {
+      component.chapterNumber = 1
+      component.openBookmarkSelector()
+
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
+      expect(bookmarkSheetRef.dismiss).toHaveBeenCalled()
+
+      bookmarkSheetDismissed.next()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+    })
+
+    it("leaves the back press alone when the menu is closed", () => {
+      expect(menuTrigger().menuOpen).toBeFalse()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+    })
+
+    it("stops handling the back press once destroyed", () => {
+      menuTrigger().openMenu()
+      fixture.destroy()
+
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+    })
+  })
+
+  describe("the version in the menu", () => {
+    const openMenu = async () => {
+      await fixture.whenStable()
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+    }
+
+    const text = () =>
+      document
+        .querySelector(".menu-version")
+        ?.textContent?.replace(/\s+/g, " ")
+        .trim()
+
+    it("is small print right under the privacy policy: the release, then the bundle's id", async () => {
+      await openMenu()
+
+      const version = document.querySelector(".menu-version")
+      expect(text()).toBe("1.2.3 · 20261016-120000Z")
+      expect(version?.previousElementSibling?.getAttribute("href")).toBe(
+        component.privacyPolicyUrl,
+      )
+      expect(version?.nextElementSibling).toBeNull()
+    })
+
+    it("stays on one line, as in the iOS menu", async () => {
+      await openMenu()
+
+      const version = document.querySelector(".menu-version") as HTMLElement
+      expect(version.children.length).toBe(0)
+      expect(getComputedStyle(version).whiteSpace).toBe("nowrap")
+    })
+
+    it("labels the bundle's id where there are no releases", async () => {
+      buildVersionSpy.getDisplayVersion.and.resolveTo({
+        release: null,
+        build: "20261016-120000Z",
+      })
+      fixture = TestBed.createComponent(HeaderComponent)
+      fixture.componentRef.setInput("book", component.book)
+      fixture.detectChanges()
+      await openMenu()
+
+      expect(text()).toBe("Bundle 20261016-120000Z")
+    })
+
+    it("is left out until the version is known", async () => {
+      buildVersionSpy.getDisplayVersion.and.returnValue(new Promise(() => {}))
+      fixture = TestBed.createComponent(HeaderComponent)
+      fixture.componentRef.setInput("book", component.book)
+      fixture.detectChanges()
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+
+      expect(document.querySelector(".menu-version")).toBeNull()
+    })
+  })
+
+  // One button in the menu's row of icons cycles through the three themes.
+  describe("the theme in the menu", () => {
+    const trigger = () =>
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+    const themeButton = () => {
+      trigger().openMenu()
+      fixture.detectChanges()
+      return document.querySelector<HTMLButtonElement>(
+        ".menu-controls .menu-control",
+      ) as HTMLButtonElement
+    }
+
+    it("shows the current theme", () => {
+      const button = themeButton()
+      expect(button.querySelector("mat-icon")?.textContent?.trim()).toBe(
+        "brightness_auto",
+      )
+      expect(button.getAttribute("aria-label")).toBe("Tema: Automático")
+    })
+
+    it("moves on to the next theme and keeps the menu open", () => {
+      const button = themeButton()
+      const currentMode = Object.getOwnPropertyDescriptor(
+        themeServiceSpy,
+        "currentMode",
+      )?.get as jasmine.Spy | undefined
+      themeServiceSpy.toggleTheme.and.callFake(() =>
+        currentMode?.and.returnValue("dark"),
+      )
+      button.click()
+
+      expect(themeServiceSpy.toggleTheme).toHaveBeenCalledTimes(1)
+      expect(trigger().menuOpen).toBeTrue()
+      expect(button.querySelector("mat-icon")?.textContent?.trim()).toBe(
+        "dark_mode",
+      )
+      // It says which theme is on: the icon alone left people guessing.
+      expect(button.getAttribute("aria-label")).toBe("Tema: Escuro")
+    })
+
+    it("names the reading modes in plain words", () => {
+      themeButton()
+      const viewMode = document.querySelectorAll<HTMLButtonElement>(
+        ".menu-controls .menu-control",
+      )[1]
+      expect(viewMode.getAttribute("aria-label")).toBe(
+        "Texto contínuo (clique para mudar para página a página)",
+      )
+    })
+
+    // Plain buttons in a menu are skipped by its arrow keys.
+    it("can be reached with the menu's arrow keys", () => {
+      themeButton()
+      trigger().menu?.focusFirstItem("keyboard")
+      expect(document.activeElement?.getAttribute("aria-label")).toBe(
+        "Tema: Automático",
+      )
+      const panel = document.querySelector(".mat-mdc-menu-panel") as HTMLElement
+      const down = new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+      })
+      Object.defineProperty(down, "keyCode", { get: () => 40 })
+      panel.dispatchEvent(down)
+      expect(document.activeElement).toBe(
+        document.querySelectorAll(".menu-controls .menu-control")[1],
+      )
+    })
+  })
+
+  // As a ribbon hangs from the page of a printed Bible.
+  it("shows the ribbon on the chapter being read", () => {
+    bookmarkServiceSpy.getBookmark.and.returnValue({
+      bookId: "gen",
+      chapter: 3,
+      color: "red",
+      timestamp: 1,
+    })
+    fixture.componentRef.setInput("chapterNumber", 3)
+    fixture.detectChanges()
+
+    const ribbon = fixture.nativeElement.querySelector(
+      ".chapter-ribbon",
+    ) as HTMLElement
+    expect(ribbon.style.color).toBe("red")
+    expect(ribbon.parentElement?.textContent).toContain(", marcador vermelho")
+  })
+
   it("should open the onboarding wizard from the menu", () => {
     const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
 
@@ -238,11 +492,47 @@ describe("HeaderComponent", () => {
     await component.sharePassage()
 
     expect(mockSharePlugin.share).toHaveBeenCalledWith({
-      title: "Biblia Sagrada",
+      title: "Bíblia Sagrada",
       text: jasmine.any(String),
       url: jasmine.any(String),
       dialogTitle: "Partilhar passagem",
     })
+  })
+
+  it("should share the public site URL, not the native localhost origin", async () => {
+    spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
+    mockSharePlugin.share.and.resolveTo()
+
+    component.chapterNumber = 1
+    component.ngOnInit()
+    await component.sharePassage()
+
+    const { pathname, search, hash } = window.location
+    expect(mockSharePlugin.share).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        url: `https://biblia.capuchinhos.org${pathname}${search}${hash}`,
+      }),
+    )
+  })
+
+  it("should share the page URL as is on the web", async () => {
+    spyOn(Capacitor, "isNativePlatform").and.returnValue(false)
+    if (!navigator.share) {
+      Object.defineProperty(navigator, "share", {
+        value: () => Promise.resolve(),
+        configurable: true,
+        writable: true,
+      })
+    }
+    const shareSpy = spyOn(navigator, "share").and.resolveTo()
+
+    component.chapterNumber = 1
+    component.ngOnInit()
+    await component.sharePassage()
+
+    expect(shareSpy).toHaveBeenCalledWith(
+      jasmine.objectContaining({ url: window.location.href }),
+    )
   })
 
   it("should share using navigator.share on web platforms", async () => {
@@ -482,5 +772,400 @@ describe("HeaderComponent", () => {
 
       expect(component.headingLabel).toBe("Introdução ao Pentateuco")
     })
+  })
+})
+
+describe("HeaderComponent with the iOS native bars", () => {
+  let fixture: ComponentFixture<HeaderComponent>
+  let component: HeaderComponent
+  let actions: Subject<NativeChromeAction>
+  let nativeChrome: {
+    enabled: boolean
+    actions$: Subject<NativeChromeAction>
+    show: jasmine.Spy
+    hide: jasmine.Spy
+    showPicker: jasmine.Spy
+    share: jasmine.Spy
+  }
+  let router: jasmine.SpyObj<Router>
+  let theme: jasmine.SpyObj<ThemeService>
+  let bottomSheet: jasmine.SpyObj<MatBottomSheet>
+  let dialog: jasmine.SpyObj<MatDialog>
+  let onboarding: jasmine.SpyObj<OnboardingService>
+  let share: jasmine.SpyObj<typeof Share>
+  let analytics: jasmine.SpyObj<AnalyticsService>
+  let isOffline: BehaviorSubject<boolean>
+  let nativeBookmarks: jasmine.SpyObj<NativeBookmarksService>
+  let nativeReport: jasmine.SpyObj<NativeReportService>
+  let buildVersion: jasmine.SpyObj<BuildVersionService>
+
+  const genesis: Book = {
+    id: "gen",
+    name: "Livro do Génesis",
+    shortName: "Génesis",
+    abrv: "Gn",
+    chapterCount: 50,
+  }
+
+  beforeEach(async () => {
+    actions = new Subject()
+    nativeChrome = {
+      enabled: true,
+      actions$: actions,
+      show: jasmine.createSpy("show"),
+      hide: jasmine.createSpy("hide"),
+      showPicker: jasmine.createSpy("showPicker"),
+      share: jasmine.createSpy("share").and.resolveTo(true),
+    }
+    router = jasmine.createSpyObj("Router", ["navigate"])
+    router.navigate.and.resolveTo(true)
+    theme = jasmine.createSpyObj("ThemeService", ["toggleTheme", "setTheme"], {
+      currentMode: "system",
+    })
+    const bookmarks = jasmine.createSpyObj("BookmarkService", ["getBookmark"])
+    bookmarks.bookmarks$ = of([
+      { bookId: "gen", chapter: 2, color: "red", timestamp: 1 },
+    ])
+    bottomSheet = jasmine.createSpyObj("MatBottomSheet", ["open"])
+    bottomSheet.open.and.returnValue({
+      dismiss: () => {},
+      afterDismissed: () => new Subject<void>(),
+    } as unknown as ReturnType<MatBottomSheet["open"]>)
+    dialog = jasmine.createSpyObj("MatDialog", ["open"])
+    onboarding = jasmine.createSpyObj("OnboardingService", ["open"])
+    share = jasmine.createSpyObj("Share", ["share"])
+    share.share.and.resolveTo()
+    analytics = jasmine.createSpyObj("AnalyticsService", [
+      "track",
+      "areAnalyticsAvailable",
+    ])
+    analytics.track.and.resolveTo()
+    analytics.areAnalyticsAvailable.and.returnValue(true)
+    isOffline = new BehaviorSubject(false)
+    nativeBookmarks = jasmine.createSpyObj("NativeBookmarksService", ["open"])
+    nativeReport = jasmine.createSpyObj("NativeReportService", ["open"])
+    buildVersion = jasmine.createSpyObj("BuildVersionService", [
+      "getDisplayVersion",
+    ])
+    buildVersion.getDisplayVersion.and.resolveTo({
+      release: "1.2.3",
+      build: "20261016-120000Z",
+    })
+    // The native share sheet is always available in the app.
+    spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
+
+    await TestBed.configureTestingModule({
+      imports: [HeaderComponent],
+      providers: [
+        { provide: NativeChromeService, useValue: nativeChrome },
+        { provide: NativeBookmarksService, useValue: nativeBookmarks },
+        { provide: NativeReportService, useValue: nativeReport },
+        { provide: BookService, useValue: { getBooks: () => [genesis] } },
+        { provide: Router, useValue: router },
+        { provide: ThemeService, useValue: theme },
+        { provide: BookmarkService, useValue: bookmarks },
+        { provide: MatBottomSheet, useValue: bottomSheet },
+        { provide: MatDialog, useValue: dialog },
+        { provide: OnboardingService, useValue: onboarding },
+        { provide: SHARE_PLUGIN, useValue: share },
+        { provide: AnalyticsService, useValue: analytics },
+        { provide: BuildVersionService, useValue: buildVersion },
+        {
+          provide: NetworkService,
+          useValue: { isOffline$: isOffline.asObservable(), isOffline: false },
+        },
+      ],
+    }).compileComponents()
+
+    fixture = TestBed.createComponent(HeaderComponent)
+    component = fixture.componentInstance
+    fixture.componentRef.setInput("book", genesis)
+    fixture.componentRef.setInput("chapterNumber", 3)
+    fixture.componentRef.setInput("canGoPrevious", true)
+    fixture.componentRef.setInput("canGoNext", true)
+    fixture.detectChanges()
+  })
+
+  const lastState = () => nativeChrome.show.calls.mostRecent().args[0]
+  const bookLabel = () => (component.mobile ? "Génesis" : "Livro do Génesis")
+
+  it("renders no web toolbar", () => {
+    expect(fixture.nativeElement.querySelector("mat-toolbar")).toBeNull()
+  })
+
+  it("hands the native menu the compile timestamp, which it shows with its release", () => {
+    expect(lastState().buildVersion).toBe("20261016-120000Z")
+  })
+
+  it("does not bring the bars back if the reader is gone before the version arrives", async () => {
+    let arrive!: (version: DisplayVersion) => void
+    buildVersion.getDisplayVersion.and.returnValue(
+      new Promise((resolve) => {
+        arrive = resolve
+      }),
+    )
+    const late = TestBed.createComponent(HeaderComponent)
+    late.componentRef.setInput("book", genesis)
+    late.componentRef.setInput("chapterNumber", 3)
+    late.detectChanges()
+    late.destroy()
+    nativeChrome.show.calls.reset()
+
+    arrive({ release: null, build: "20261016-120000Z" })
+    await new Promise((resolve) => setTimeout(resolve))
+
+    expect(nativeChrome.show).not.toHaveBeenCalled()
+  })
+
+  it("sends the bars what the web header would show", () => {
+    expect(lastState()).toEqual({
+      mode: "reader",
+      passageLabel: `${bookLabel()} 3`,
+      passageShortLabels: ["Gn 3"],
+      passageAccessibilityLabel: "Livro do Génesis 3",
+      chapterNavigation: true,
+      canGoPrevious: true,
+      canGoNext: true,
+      search: true,
+      themeMode: "system",
+      viewMode: "scrolling",
+      autoScrollVisible: false,
+      autoScrollAvailable: true,
+      canShare: true,
+      canReport: true,
+      bookmarkColor: null,
+      bookmarkName: null,
+      buildVersion: "20261016-120000Z",
+    })
+  })
+
+  it("shows the chapter's ribbon, by colour and by name, on the bookmark button", () => {
+    const bookmarks = TestBed.inject(
+      BookmarkService,
+    ) as jasmine.SpyObj<BookmarkService>
+    bookmarks.getBookmark.and.returnValue({
+      bookId: "gen",
+      chapter: 4,
+      color: "red",
+      timestamp: 1,
+    })
+    fixture.componentRef.setInput("chapterNumber", 4)
+    fixture.detectChanges()
+
+    expect(lastState()).toEqual(
+      jasmine.objectContaining({
+        bookmarkColor: "red",
+        bookmarkName: "vermelho",
+        passageAccessibilityLabel: "Livro do Génesis 4, marcador vermelho",
+      }),
+    )
+  })
+
+  it("has no arrows, chapter or view toggle on the home page", () => {
+    fixture.componentRef.setInput("book", {
+      ...genesis,
+      id: "about",
+      name: "Sobre a Bíblia",
+      shortName: "Sobre a Bíblia",
+    })
+    fixture.detectChanges()
+
+    expect(lastState()).toEqual(
+      jasmine.objectContaining({
+        passageLabel: "Sobre a Bíblia",
+        passageShortLabels: [],
+        chapterNavigation: false,
+        viewMode: null,
+      }),
+    )
+    // The web header's prompt swap has no place on a native button.
+    expect(component.bookLabelMode).toBe("title")
+  })
+
+  it("names the introduction as the chapter", () => {
+    fixture.componentRef.setInput("chapterNumber", 0)
+    fixture.detectChanges()
+
+    expect(lastState()).toEqual(
+      jasmine.objectContaining({
+        passageLabel: `${bookLabel()} ${component.mobile ? "Intro" : "Introdução"}`,
+        passageShortLabels: ["Gn Intro"],
+        passageAccessibilityLabel: "Livro do Génesis Introdução",
+      }),
+    )
+  })
+
+  // Leaflets at Mass number most psalms one lower; the edition prints both.
+  it("names a psalm with its liturgical number", () => {
+    fixture.componentRef.setInput("book", {
+      ...genesis,
+      id: "psa",
+      name: "Livro dos Salmos",
+      shortName: "Salmos",
+      abrv: "Sl",
+      chapterCount: 150,
+    })
+    fixture.componentRef.setInput("chapterNumber", 23)
+    fixture.detectChanges()
+
+    expect(lastState()).toEqual(
+      jasmine.objectContaining({
+        passageLabel: "Salmo 23 (22)",
+        passageShortLabels: ["Sl 23 (22)", "Sl 23"],
+        passageAccessibilityLabel: "Salmo 23, na liturgia 22",
+      }),
+    )
+  })
+
+  it("keeps search while offline", () => {
+    isOffline.next(true)
+    fixture.detectChanges()
+    expect(lastState()).toEqual(jasmine.objectContaining({ search: true }))
+  })
+
+  it("follows the reader's view mode, auto-scroll and arrows", () => {
+    fixture.componentRef.setInput("viewMode", "paged")
+    fixture.componentRef.setInput("autoScrollControlsVisible", true)
+    fixture.componentRef.setInput("canGoNext", false)
+    fixture.detectChanges()
+
+    expect(lastState()).toEqual(
+      jasmine.objectContaining({
+        viewMode: "paged",
+        autoScrollVisible: true,
+        autoScrollAvailable: false,
+        canGoNext: false,
+      }),
+    )
+  })
+
+  it("opens the passage picker on the current chapter, with bookmarks", () => {
+    actions.next({ id: "passage" })
+
+    const data = nativeChrome.showPicker.calls.mostRecent().args[0]
+    expect(data.currentBookId).toBe("gen")
+    expect(data.currentChapter).toBe(3)
+    const book = data.sections[0].groups[0].books[0]
+    expect(book.id).toBe("gen")
+    expect(book.chapters[1]).toEqual({
+      number: 2,
+      label: "2",
+      bookmark: "red",
+    })
+  })
+
+  it("passes on the passage picked", () => {
+    const picked: unknown[] = []
+    component.selectPassage.subscribe((passage) => picked.push(passage))
+
+    actions.next({ id: "goto", bookId: "exo", chapter: 2 })
+    actions.next({ id: "goto", bookId: "geral" })
+
+    expect(picked).toEqual([
+      { bookId: "exo", chapter: 2 },
+      { bookId: "geral", chapter: undefined },
+    ])
+  })
+
+  it("steps with the toolbar arrows", () => {
+    const steps: string[] = []
+    component.previous.subscribe(() => steps.push("previous"))
+    component.next.subscribe(() => steps.push("next"))
+
+    actions.next({ id: "previous" })
+    actions.next({ id: "next" })
+
+    expect(steps).toEqual(["previous", "next"])
+  })
+
+  it("navigates to search", () => {
+    actions.next({ id: "search" })
+    expect(router.navigate).toHaveBeenCalledWith(["/search"])
+  })
+
+  it("sets the chosen theme and shows it as chosen", () => {
+    nativeChrome.show.calls.reset()
+    actions.next({ id: "theme-dark" })
+
+    expect(theme.setTheme).toHaveBeenCalledWith("dark")
+    expect(nativeChrome.show).toHaveBeenCalled()
+  })
+
+  it("forwards view mode, text size and auto-scroll to the reader", () => {
+    const emitted: string[] = []
+    component.toggleViewMode.subscribe(() => emitted.push("view"))
+    component.decreaseFontSizeEvent.subscribe(() => emitted.push("smaller"))
+    component.increaseFontSizeEvent.subscribe(() => emitted.push("larger"))
+    component.toggleAutoScrollControls.subscribe(() => emitted.push("scroll"))
+
+    actions.next({ id: "view-mode" })
+    actions.next({ id: "font-decrease" })
+    actions.next({ id: "font-increase" })
+    actions.next({ id: "auto-scroll" })
+
+    expect(emitted).toEqual(["view", "smaller", "larger", "scroll"])
+  })
+
+  it("opens the native bookmarks sheet, the native problem report and help", () => {
+    actions.next({ id: "bookmarks" })
+    actions.next({ id: "report" })
+    actions.next({ id: "help" })
+
+    expect(nativeBookmarks.open).toHaveBeenCalledWith("gen", 3)
+    expect(bottomSheet.open).not.toHaveBeenCalled()
+    expect(nativeReport.open).toHaveBeenCalledWith(genesis, 3)
+    expect(dialog.open).not.toHaveBeenCalled()
+    expect(onboarding.open).toHaveBeenCalledWith("menu")
+  })
+
+  // Through the Share plugin, iOS fetched the link's preview from the website,
+  // whose icon has the WEB sash; the shell previews it with the app's.
+  it("shares the passage through the shell, headed by the page's title", async () => {
+    const title = document.title
+    document.title = "Livro do Génesis 3 | Bíblia Sagrada"
+    actions.next({ id: "share" })
+    await fixture.whenStable()
+    document.title = title
+
+    const { pathname, search, hash } = window.location
+    expect(nativeChrome.share).toHaveBeenCalledWith({
+      title: "Bíblia Sagrada",
+      text: "Ler Livro do Génesis 3.",
+      url: `https://biblia.capuchinhos.org${pathname}${search}${hash}`,
+      linkTitle: "Livro do Génesis 3 | Bíblia Sagrada",
+    })
+    expect(share.share).not.toHaveBeenCalled()
+    expect(analytics.track).toHaveBeenCalledWith("share", {
+      book: "gen",
+      chapter: 3,
+    })
+  })
+
+  it("counts no share when the sheet is closed without one", async () => {
+    nativeChrome.share.and.resolveTo(false)
+    actions.next({ id: "share" })
+    await fixture.whenStable()
+
+    expect(nativeChrome.share).toHaveBeenCalled()
+    expect(analytics.track).not.toHaveBeenCalledWith(
+      "share",
+      jasmine.anything(),
+    )
+  })
+
+  it("opens the privacy policy outside the app", () => {
+    const open = spyOn(window, "open")
+    actions.next({ id: "privacy" })
+
+    expect(open).toHaveBeenCalledWith(
+      "https://www.capuchinhos.org/politica-de-privacidade",
+      "_blank",
+      "noopener",
+    )
+  })
+
+  it("removes the bars when the reader goes away", () => {
+    fixture.destroy()
+    expect(nativeChrome.hide).toHaveBeenCalled()
   })
 })

@@ -1,6 +1,7 @@
 import { CommonModule } from "@angular/common"
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   DestroyRef,
   Inject,
@@ -14,16 +15,21 @@ import {
 } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
-import { Router } from "@angular/router"
-import { AnalyticsService } from "../../services/analytics.service"
-import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
+import {
+  BookmarkRibbonsService,
+  RIBBON_COLORS,
+  type RibbonMove,
+  type RibbonState,
+  ribbonToMove,
+} from "../../services/bookmark-ribbons.service"
 
-interface RibbonState {
-  name: string
-  value: string
-  currentRef?: string
-  bookmark?: Bookmark
+/** The move offered above the ribbons, or, once made, its undo. */
+interface MoveOffer {
+  color: string
+  /** "Mover o marcador vermelho de Mt 5 para Mt 7". */
+  label: string
+  done: boolean
 }
 
 @Component({
@@ -35,30 +41,25 @@ interface RibbonState {
   styleUrls: ["./bookmark-selector.component.css"],
 })
 export class BookmarkSelectorComponent implements OnInit {
-  colors = [
-    { name: "Red", value: "red" },
-    { name: "Orange", value: "orange" },
-    { name: "Teal", value: "teal" },
-    { name: "Green", value: "green" },
-    { name: "Blue", value: "blue" },
-    { name: "Indigo", value: "indigo" },
-    { name: "Violet", value: "violet" },
-    { name: "Grey", value: "grey" },
-  ]
+  colors = RIBBON_COLORS
 
   ribbons: RibbonState[] = []
 
+  move?: MoveOffer
+
   private destroyRef = inject(DestroyRef)
+  private ribbonsService = inject(BookmarkRibbonsService)
+  private changeDetector = inject(ChangeDetectorRef)
+  private readonly mover: RibbonMove
 
   constructor(
     private bottomSheetRef: MatBottomSheetRef<BookmarkSelectorComponent>,
     @Inject(MAT_BOTTOM_SHEET_DATA)
     public data: { bookId: string; chapter: number },
     private bookmarkService: BookmarkService,
-    private bookService: BookService,
-    private router: Router,
-    private analyticsService: AnalyticsService,
-  ) {}
+  ) {
+    this.mover = this.ribbonsService.moveTo(data.bookId, data.chapter)
+  }
 
   isDeleteMode = false
 
@@ -75,75 +76,55 @@ export class BookmarkSelectorComponent implements OnInit {
   }
 
   updateRibbons(allBookmarks: Bookmark[]) {
-    this.ribbons = this.colors.map((c) => {
-      const bookmark = allBookmarks.find((b) => b.color === c.value)
-      let currentRef: string | undefined
-      if (bookmark) {
-        const book = this.bookService.findBookById(bookmark.bookId)
-        // Chapter 0 is the book introduction
-        const chapterLabel =
-          bookmark.chapter === 0 ? "Introdução" : `${bookmark.chapter}`
-        currentRef = book
-          ? `${book.abrv} ${chapterLabel}`
-          : `${bookmark.bookId} ${chapterLabel}`
-      }
-      return {
-        ...c,
-        bookmark,
-        currentRef,
-      }
-    })
+    this.ribbons = this.ribbonsService.ribbons(allBookmarks)
+    this.move = this.moveOffer()
+    this.changeDetector.markForCheck()
+  }
+
+  /** Moves the ribbon read on from to this chapter, or undoes that. */
+  moveOrUndo(): void {
+    if (this.mover.undo()) return
+    const ribbon = ribbonToMove(
+      this.ribbons,
+      this.data.bookId,
+      this.data.chapter,
+    )
+    if (ribbon) this.mover.move(ribbon)
+  }
+
+  private moveOffer(): MoveOffer | undefined {
+    const offer = this.mover.offer(this.ribbons)
+    if (!offer) return undefined
+    const { from, name, done } = offer
+    const fromRef = this.ribbonsService.ref(from.bookId, from.chapter)
+    const here = this.ribbonsService.ref(this.data.bookId, this.data.chapter)
+    return {
+      color: from.color,
+      label: done
+        ? `Desfazer: o marcador ${name} volta a ${fromRef}`
+        : `Mover o marcador ${name} de ${fromRef} para ${here}`,
+      done,
+    }
   }
 
   handleRibbonClick(ribbon: RibbonState): void {
     if (this.isDeleteMode) {
-      if (ribbon.bookmark) {
-        this.bookmarkService.removeBookmark(
-          ribbon.bookmark.bookId,
-          ribbon.bookmark.chapter,
-        )
-        void this.analyticsService.track("bookmark_delete", {
-          book: ribbon.bookmark.bookId,
-          chapter: ribbon.bookmark.chapter,
-          color: ribbon.value,
-        })
-      }
+      this.ribbonsService.remove(ribbon)
       return
     }
 
     // 1. If already assigned elsewhere -> Navigate
     if (ribbon.bookmark) {
-      const book = this.bookService.findBookById(ribbon.bookmark.bookId)
-      if (book) {
-        void this.analyticsService.track("bookmark_use", {
-          book: ribbon.bookmark.bookId,
-          chapter: ribbon.bookmark.chapter,
-          color: ribbon.value,
-        })
-        this.router.navigate([
-          this.bookService.getUrlAbrv(book),
-          this.bookService.getChapterUrlSegment(ribbon.bookmark.chapter),
-        ])
-        this.bottomSheetRef.dismiss()
-      } else {
-        console.warn(
-          `Bookmark references unknown book: ${ribbon.bookmark.bookId}`,
-        )
-      }
+      if (this.ribbonsService.open(ribbon)) this.bottomSheetRef.dismiss()
       return
     }
 
     // 2. If empty -> Assign to current
-    this.bookmarkService.addBookmark(
+    this.ribbonsService.assign(
+      ribbon.value,
       this.data.bookId,
       this.data.chapter,
-      ribbon.value,
     )
-    void this.analyticsService.track("bookmark_create", {
-      book: this.data.bookId,
-      chapter: this.data.chapter,
-      color: ribbon.value,
-    })
   }
 
   isCurrentLocation(ribbon: RibbonState): boolean {

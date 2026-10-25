@@ -35,6 +35,8 @@ import { MatToolbarModule } from "@angular/material/toolbar"
 })
 export class SearchBarComponent {
   @Output() searchValue = new EventEmitter<string>()
+  /** Every edit, for searching as people type. */
+  @Output() typing = new EventEmitter<string>()
 
   @ViewChild("searchInput", { static: false })
   searchInput!: ElementRef<HTMLInputElement>
@@ -47,10 +49,16 @@ export class SearchBarComponent {
     this.query = value ?? ""
   }
 
+  /**
+   * Opens with the keyboard up, ready to type. Not over results already on
+   * screen, as after Back from one of them: the keyboard would hide them.
+   */
+  @Input() focusOnOpen = true
+
   constructor(private location: Location) {}
 
   ngAfterViewInit(): void {
-    if (this.searchInput) {
+    if (this.focusOnOpen && this.searchInput) {
       this.searchInput.nativeElement.focus()
     }
   }

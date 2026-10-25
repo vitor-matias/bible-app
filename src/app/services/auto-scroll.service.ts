@@ -17,20 +17,43 @@ export class AutoScrollService implements OnDestroy {
   readonly MAX_AUTO_SCROLL_LPS = 4
   readonly AUTO_SCROLL_STEP = 0.25
   private readonly FRACTIONAL_SPEED_STEPS = [
-    { value: 1 / 6, label: "1/6" },
-    { value: 1 / 5, label: "1/5" },
-    { value: 1 / 4, label: "1/4" },
-    { value: 1 / 3, label: "1/3" },
-    { value: 1 / 2, label: "1/2" },
-    { value: 2 / 3, label: "2/3" },
-    { value: 3 / 4, label: "3/4" },
-    { value: 4 / 5, label: "4/5" },
+    { value: 1 / 6, label: "1/6", spoken: "um sexto de linha" },
+    { value: 1 / 5, label: "1/5", spoken: "um quinto de linha" },
+    { value: 1 / 4, label: "1/4", spoken: "um quarto de linha" },
+    { value: 1 / 3, label: "1/3", spoken: "um terço de linha" },
+    { value: 1 / 2, label: "1/2", spoken: "meia linha" },
+    { value: 2 / 3, label: "2/3", spoken: "dois terços de linha" },
+    { value: 3 / 4, label: "3/4", spoken: "três quartos de linha" },
+    { value: 4 / 5, label: "4/5", spoken: "quatro quintos de linha" },
   ]
   private readonly FRACTIONAL_EPSILON = 0.002
+  /** Pixels the page may sit from where auto-scroll left it: rounding, not a reader. */
+  private readonly USER_SCROLL_TOLERANCE = 1
+  /** How long the page has to stand still before play takes it over. */
+  private readonly SETTLE_MS = 100
 
   private autoScrollFrame?: number
   private lastAutoScrollTimestamp?: number
   private accumulatedScrollDelta = 0
+  /**
+   * Where auto-scroll left the page. Found anywhere else on the next frame, a
+   * finger, the wheel, a key or the scrollbar moved it: the reader took over.
+   */
+  private expectedScrollTop = 0
+  /**
+   * How tall the text was then. When it changed too, the text reflowed (a
+   * new text size, verses loading) and the browser moved the page to keep
+   * the reader's place: that is no reader scrolling.
+   */
+  private expectedScrollHeight = 0
+  /**
+   * Play waits for the page to stand still. Pressed while a flick still
+   * carries it (iOS's momentum runs on, as the native ▶ is no touch on the
+   * text), that coast is not the reader taking over.
+   */
+  private settling = false
+  /** Since when the page has stood still, while play waits. */
+  private stillSince?: number
   private cachedLineHeight = 24
   private lineHeightObserver?: ResizeObserver
   private scrollElement?: HTMLElement
@@ -75,14 +98,31 @@ export class AutoScrollService implements OnDestroy {
     return Number.isInteger(rounded) ? rounded.toString() : rounded.toString()
   }
 
-  private getFractionalLabel(value: number): string | null {
-    if (value >= 1) {
-      return null
+  /**
+   * The speed in words, for screen readers, which can't say "1/2 ln/s":
+   * "meia linha por segundo", "1,25 linhas por segundo".
+   */
+  getAutoScrollSpeedSpokenLabel(value: number): string {
+    const fraction = this.getFractionalStep(value)
+    if (fraction) {
+      return `${fraction.spoken} por segundo`
     }
-    const match = this.FRACTIONAL_SPEED_STEPS.find(
+    const rounded = Number(value.toFixed(2))
+    const lines = rounded === 1 ? "linha" : "linhas"
+    return `${String(rounded).replace(".", ",")} ${lines} por segundo`
+  }
+
+  private getFractionalLabel(value: number): string | null {
+    return this.getFractionalStep(value)?.label ?? null
+  }
+
+  private getFractionalStep(value: number) {
+    if (value >= 1) {
+      return undefined
+    }
+    return this.FRACTIONAL_SPEED_STEPS.find(
       (step) => Math.abs(step.value - value) <= this.FRACTIONAL_EPSILON,
     )
-    return match?.label ?? null
   }
 
   private getNextSpeed(current: number, direction: number): number {
@@ -124,12 +164,14 @@ export class AutoScrollService implements OnDestroy {
 
     this.lastAutoScrollTimestamp = undefined
     this.accumulatedScrollDelta = 0
+    this.expectedScrollTop = this.scrollElement.scrollTop
+    this.expectedScrollHeight = this.scrollElement.scrollHeight
+    this.settling = true
+    this.stillSince = undefined
     this.autoScrollEnabled = true
     this.keepAwakeService.start()
     this.setupLineHeightObserver()
-    this.autoScrollFrame = window.requestAnimationFrame((timestamp) => {
-      this.stepAutoScroll(timestamp)
-    })
+    this.requestNextStep()
   }
 
   stop(): void {
@@ -140,6 +182,8 @@ export class AutoScrollService implements OnDestroy {
       this.autoScrollFrame = undefined
     }
     this.lastAutoScrollTimestamp = undefined
+    this.settling = false
+    this.stillSince = undefined
     this.cleanupLineHeightObserver()
     if (wasActive) {
       this.keepAwakeService.stop()
@@ -155,6 +199,36 @@ export class AutoScrollService implements OnDestroy {
       this.stop()
       return
     }
+
+    const moved =
+      Math.abs(content.scrollTop - this.expectedScrollTop) >
+      this.USER_SCROLL_TOLERANCE
+
+    // Until the page stands still, follow it without pushing: a coast left
+    // from before play, then start from where it comes to rest. Its steps
+    // reach the web view unevenly, so one still frame is not yet the end.
+    // Every pixel counts here: its tail creeps along a pixel a frame.
+    if (this.settling) {
+      const crept = content.scrollTop !== this.expectedScrollTop
+      this.expectedScrollTop = content.scrollTop
+      this.expectedScrollHeight = content.scrollHeight
+      if (crept || this.stillSince === undefined) {
+        this.stillSince = timestamp
+      }
+      if (timestamp - this.stillSince < this.SETTLE_MS) {
+        this.requestNextStep()
+        return
+      }
+      this.settling = false
+    }
+
+    // Scrolling by hand takes over: stop, and leave the page where they put it.
+    // A reflow moves the page too, but changes its height; carry on from there.
+    if (moved && content.scrollHeight === this.expectedScrollHeight) {
+      this.stop()
+      return
+    }
+    this.expectedScrollHeight = content.scrollHeight
 
     if (this.lastAutoScrollTimestamp === undefined) {
       this.lastAutoScrollTimestamp = timestamp
@@ -174,27 +248,39 @@ export class AutoScrollService implements OnDestroy {
 
     // Only apply scroll when accumulated delta is at least 0.5px to prevent jank
     if (Math.abs(this.accumulatedScrollDelta) >= 0.5) {
-      const nextTop = Math.min(
+      const previousTop = content.scrollTop
+      content.scrollTop = Math.min(
         content.scrollHeight - content.clientHeight,
-        content.scrollTop + this.accumulatedScrollDelta,
+        previousTop + this.accumulatedScrollDelta,
       )
-
-      content.scrollTop = nextTop
-      this.accumulatedScrollDelta = 0
+      // Keep what the browser didn't apply. WebKit (Safari, the iOS app) holds
+      // whole pixels only, so a dropped half pixel per frame never moved at all.
+      this.accumulatedScrollDelta -= content.scrollTop - previousTop
     }
+    // What the browser really holds, whole pixels in WebKit, not what was asked.
+    this.expectedScrollTop = content.scrollTop
 
     this.lastAutoScrollTimestamp = timestamp
 
-    if (content.scrollTop + 5 >= content.scrollHeight - content.clientHeight) {
+    const end = content.scrollHeight - content.clientHeight
+    if (content.scrollTop + 5 >= end) {
+      // Finish at the very end, not a few pixels short of it: that's where
+      // the page counts as read through, and the iOS app's bars come back.
+      content.scrollTop = end
+      this.expectedScrollTop = content.scrollTop
       this.stop()
       return
     }
 
     if (this.autoScrollEnabled) {
-      this.autoScrollFrame = window.requestAnimationFrame((nextTimestamp) => {
-        this.stepAutoScroll(nextTimestamp)
-      })
+      this.requestNextStep()
     }
+  }
+
+  private requestNextStep(): void {
+    this.autoScrollFrame = window.requestAnimationFrame((timestamp) => {
+      this.stepAutoScroll(timestamp)
+    })
   }
 
   private getLineHeight(): number {
