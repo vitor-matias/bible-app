@@ -518,6 +518,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       search: true,
       themeMode: this.themeService.currentMode,
       viewMode: isAbout ? null : this.viewMode,
+      raggedText: isAbout ? null : this.textAlign.ragged,
       autoScrollVisible: this.autoScrollControlsVisible,
       autoScrollAvailable: this.viewMode !== "paged",
       canShare: this.canShare,
@@ -562,6 +563,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         break
       case "view-mode":
         this.toggleViewMode.emit()
+        break
+      case "text-align":
+        this.textAlign.toggle()
+        this.syncNativeChrome()
         break
       case "font-decrease":
         this.decreaseFontSizeEvent.emit(action.step)
