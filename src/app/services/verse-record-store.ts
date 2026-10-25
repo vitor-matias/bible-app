@@ -20,9 +20,14 @@ export type VerseAddress = Pick<VerseRecord, "bookId" | "chapter" | "verse">
  * simply keeps nothing rather than throwing the reader out of the page.
  *
  * The whole set lives under one key: it is small, being one reader's own
- * annotations, and one key keeps a save atomic. Writes apply on top of what
- * storage holds rather than on top of this tab's copy, so two tabs open on
- * the same chapter cannot drop each other's work.
+ * annotations, and one key keeps the set consistent — a save never leaves
+ * half of it behind. Writes apply on top of what storage holds rather than on
+ * top of this tab's copy, so a tab left open for an hour cannot put its stale
+ * list back over what another tab has written since. Two writes that
+ * interleave inside the same instant can still lose one, which localStorage
+ * gives no way to prevent short of a key per verse; a reader annotating the
+ * same verse from two tabs in the same millisecond is the only one who would
+ * see it.
  *
  * Extracted because the notes and the highlights had all of this each, which
  * meant fixing the cross-tab write in one and not the other was a live
@@ -94,7 +99,9 @@ export abstract class VerseRecordStore<T extends VerseRecord> {
   private commit(change: (records: T[]) => T[]): void {
     // Storage is the base only while it holds everything this tab wrote.
     // Once a write has been refused it is behind, and building on it would
-    // drop the very records that were kept for the session.
+    // drop the very records that were kept for the session. Read and write
+    // stay in one task, with nothing awaited between them, which is as close
+    // to a critical section as localStorage allows.
     const next = change(this.unsaved ? this.records : this.read())
     this.subject.next(next)
     const storage = this.storage
