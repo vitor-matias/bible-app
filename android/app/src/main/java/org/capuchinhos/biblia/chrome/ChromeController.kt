@@ -17,6 +17,7 @@ import android.webkit.WebView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
@@ -51,6 +52,80 @@ sealed interface Sheet {
     data object Appearance : Sheet
 }
 
+/**
+ * The sheet over the page, and the one asked for while the last was closing,
+ * which comes up once that one is gone (as on iOS). Each sheet that comes up
+ * is a new [presentation]: the overlay composes it afresh, so a sheet of the
+ * same kind as the one just gone (one verse's notes after another's) doesn't
+ * take over that one's spent, hidden sheet state and stay down. [onGone]
+ * hears each sheet that has gone.
+ */
+class SheetQueue(private val onGone: (Sheet) -> Unit = {}) {
+    var sheet by mutableStateOf<Sheet?>(null)
+        private set
+
+    var presentation by mutableIntStateOf(0)
+        private set
+
+    /** The sheet on its way out: what's asked for now waits for it. */
+    private var closingSheet: Sheet? = null
+
+    /** Asked for while the last sheet was closing; shown once it's gone. */
+    private var waiting: Pair<Sheet, (Boolean) -> Unit>? = null
+
+    /**
+     * Shows [next], and tells [presented] whether it came up. Over a sheet that
+     * stays, it doesn't; over one on its way out, it comes up once that one is
+     * gone, after its closing event, as on iOS. A later request replaces one
+     * still waiting: the web app follows only the latest.
+     */
+    fun present(next: Sheet, presented: (Boolean) -> Unit = {}) {
+        val current = sheet
+        when {
+            current == null -> {
+                show(next)
+                presented(true)
+            }
+            current === closingSheet -> {
+                waiting?.second?.invoke(false)
+                waiting = next to presented
+            }
+            else -> presented(false)
+        }
+    }
+
+    /** [gone] has started to close (a tap, a swipe, the scrim). */
+    fun closing(gone: Sheet) {
+        if (sheet === gone) closingSheet = gone
+    }
+
+    /** Dragged back up as it closed: it stays, and what waited for it doesn't come. */
+    fun reopened(back: Sheet) {
+        if (closingSheet !== back) return
+        closingSheet = null
+        waiting?.second?.invoke(false)
+        waiting = null
+    }
+
+    /** The sheet is gone, however it went; what waited for it comes up. */
+    fun dismissed(gone: Sheet) {
+        if (sheet !== gone) return
+        sheet = null
+        closingSheet = null
+        onGone(gone)
+        waiting?.let { (next, presented) ->
+            waiting = null
+            show(next)
+            presented(true)
+        }
+    }
+
+    private fun show(next: Sheet) {
+        sheet = next
+        presentation++
+    }
+}
+
 /** A snackbar; [id] tells one from the next with the same text. */
 data class Toast(val id: Long, val message: String, val button: Boolean)
 
@@ -69,8 +144,21 @@ class ChromeController(
     var state by mutableStateOf(ChromeState())
         private set
 
-    var sheet by mutableStateOf<Sheet?>(null)
-        private set
+    private val sheets = SheetQueue { gone ->
+        // Where the web app waits for it.
+        when (gone) {
+            is Sheet.Bookmarks -> send("bookmarks-closed")
+            is Sheet.Footnotes -> send("footnotes-closed")
+            is Sheet.Report -> send("report-closed")
+            else -> {}
+        }
+    }
+
+    /** The sheet or dialog over the page. */
+    val sheet: Sheet? get() = sheets.sheet
+
+    /** Which time a sheet came up: the overlay composes each one afresh. */
+    val sheetPresentation: Int get() = sheets.presentation
 
     var toast by mutableStateOf<Toast?>(null)
         private set
@@ -387,63 +475,15 @@ class ChromeController(
 
     // MARK: Sheets
 
-    /** The sheet on its way out: what's asked for now waits for it. */
-    private var closingSheet: Sheet? = null
+    /** See [SheetQueue.present]. */
+    fun present(next: Sheet, presented: (Boolean) -> Unit = {}) = sheets.present(next, presented)
 
-    /** Asked for while the last sheet was closing; shown once it's gone. */
-    private var waiting: Pair<Sheet, (Boolean) -> Unit>? = null
+    fun closing(gone: Sheet) = sheets.closing(gone)
 
-    /**
-     * Shows [next], and tells [presented] whether it came up. Over a sheet that
-     * stays, it doesn't; over one on its way out, it comes up once that one is
-     * gone, after its closing event, as on iOS. A later request replaces one
-     * still waiting: the web app follows only the latest.
-     */
-    fun present(next: Sheet, presented: (Boolean) -> Unit = {}) {
-        val current = sheet
-        when {
-            current == null -> {
-                sheet = next
-                presented(true)
-            }
-            current === closingSheet -> {
-                waiting?.second?.invoke(false)
-                waiting = next to presented
-            }
-            else -> presented(false)
-        }
-    }
-
-    /** [gone] has started to close (a tap, a swipe, the scrim). */
-    fun closing(gone: Sheet) {
-        if (sheet === gone) closingSheet = gone
-    }
-
-    /** Dragged back up as it closed: it stays, and what waited for it doesn't come. */
-    fun reopened(back: Sheet) {
-        if (closingSheet !== back) return
-        closingSheet = null
-        waiting?.second?.invoke(false)
-        waiting = null
-    }
+    fun reopened(back: Sheet) = sheets.reopened(back)
 
     /** The sheet is gone, however it went: says so where the web app waits for it. */
-    fun dismissed(gone: Sheet) {
-        if (sheet !== gone) return
-        sheet = null
-        closingSheet = null
-        when (gone) {
-            is Sheet.Bookmarks -> send("bookmarks-closed")
-            is Sheet.Footnotes -> send("footnotes-closed")
-            is Sheet.Report -> send("report-closed")
-            else -> {}
-        }
-        waiting?.let { (next, presented) ->
-            waiting = null
-            sheet = next
-            presented(true)
-        }
-    }
+    fun dismissed(gone: Sheet) = sheets.dismissed(gone)
 
     fun updateBookmarks(next: BookmarksSheetState) {
         (sheet as? Sheet.Bookmarks)?.state = next

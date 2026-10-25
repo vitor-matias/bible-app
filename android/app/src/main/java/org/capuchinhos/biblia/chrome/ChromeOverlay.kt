@@ -116,6 +116,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -200,7 +201,9 @@ fun ChromeOverlay(chrome: ChromeController) {
             if (state.mode != ChromeMode.None) NavigationBarProtection(page)
             ToastHost(chrome, Modifier.align(Alignment.BottomCenter))
         }
-        chrome.sheet?.let { SheetHost(chrome, it) }
+        // Each anew: a sheet like the one just gone mustn't inherit its
+        // hidden state (SheetQueue).
+        chrome.sheet?.let { key(chrome.sheetPresentation) { SheetHost(chrome, it) } }
     }
 }
 
