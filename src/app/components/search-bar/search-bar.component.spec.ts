@@ -1,25 +1,6 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import { contrastRatio } from "../../testing/contrast"
 import { SearchBarComponent } from "./search-bar.component"
-
-/** WCAG relative luminance of a computed `rgb()`/`rgba()` colour. */
-function luminance(cssColor: string): number {
-  const [r, g, b] = (cssColor.match(/[\d.]+/g) ?? [])
-    .slice(0, 3)
-    .map((value) => {
-      const channel = Number(value) / 255
-      return channel <= 0.03928
-        ? channel / 12.92
-        : ((channel + 0.055) / 1.055) ** 2.4
-    })
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b
-}
-
-function contrastRatio(foreground: string, background: string): number {
-  const [lighter, darker] = [luminance(foreground), luminance(background)].sort(
-    (a, b) => b - a,
-  )
-  return (lighter + 0.05) / (darker + 0.05)
-}
 
 describe("SearchBarComponent", () => {
   let component: SearchBarComponent
@@ -36,6 +17,23 @@ describe("SearchBarComponent", () => {
   })
 
   afterEach(() => document.documentElement.classList.remove("dark-theme"))
+
+  // A side navigation bar or notch in landscape covered Back and the field.
+  it("keeps its contents clear of side system bars", () => {
+    const host = fixture.nativeElement as HTMLElement
+    const content = host.querySelector(".content") as HTMLElement
+    const box = (left: string, right: string) => {
+      host.style.setProperty("--app-inset-left", left)
+      host.style.setProperty("--app-inset-right", right)
+      return content.getBoundingClientRect()
+    }
+
+    const none = box("0px", "0px")
+    const inset = box("48px", "40px")
+
+    expect(inset.left - none.left).toBeCloseTo(48, 0)
+    expect(none.right - inset.right).toBeCloseTo(40, 0)
+  })
 
   // The field is white in both themes, but its text colour is the browser's
   // default, which follows the page's color-scheme. .dark-theme sets
@@ -87,8 +85,48 @@ describe("SearchBarComponent", () => {
     expect(heights).toEqual(["40px", "40px", "40px"])
   })
 
+  it("emits every edit, for searching as people type", async () => {
+    const typed: string[] = []
+    component.typing.subscribe((text) => typed.push(text))
+    const input = fixture.nativeElement.querySelector(
+      "input",
+    ) as HTMLInputElement
+
+    input.value = "luz"
+    input.dispatchEvent(new Event("input"))
+    await fixture.whenStable()
+
+    expect(typed).toEqual(["luz"])
+  })
+
   it("should create", () => {
     expect(component).toBeTruthy()
+  })
+
+  // Android capitalised the first letter: "amor" showed as "Amor".
+  it("leaves typed words as typed", () => {
+    const input = fixture.nativeElement.querySelector(
+      "input",
+    ) as HTMLInputElement
+
+    expect(input.getAttribute("autocapitalize")).toBe("off")
+    expect(input.spellcheck).toBeFalse()
+  })
+
+  it("opens ready to type", () => {
+    const input = fixture.nativeElement.querySelector("input")
+    expect(document.activeElement).toBe(input)
+  })
+
+  // After Back from a result, the keyboard came up over the results.
+  it("doesn't bring the keyboard up over results already shown", () => {
+    const shown = TestBed.createComponent(SearchBarComponent)
+    shown.componentRef.setInput("focusOnOpen", false)
+    shown.detectChanges()
+
+    expect(document.activeElement).not.toBe(
+      shown.nativeElement.querySelector("input"),
+    )
   })
 
   it("should prefill the query from the value input", () => {

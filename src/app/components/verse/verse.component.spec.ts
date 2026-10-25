@@ -6,7 +6,11 @@ import {
 } from "@angular/material/bottom-sheet"
 import { provideRouter } from "@angular/router"
 import { Subject } from "rxjs"
+import { AutoScrollService } from "../../services/auto-scroll.service"
+import { BackButtonService } from "../../services/back-button.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
+import { KeepAwakeService } from "../../services/keep-awake.service"
+import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { VerseComponent } from "./verse.component"
 
 const TRANSPARENT = "rgba(0, 0, 0, 0)"
@@ -41,6 +45,7 @@ describe("VerseComponent", () => {
   let mockBibleRef: jasmine.SpyObj<BibleReferenceService>
   let mockBottomSheet: MatBottomSheet
   let dismissed: Subject<void>
+  let dismissSheet: jasmine.Spy
 
   beforeEach(async () => {
     mockBibleRef = jasmine.createSpyObj("BibleReferenceService", ["extract"])
@@ -59,9 +64,11 @@ describe("VerseComponent", () => {
     mockBottomSheet = (component as unknown as { bottomSheet: MatBottomSheet })
       .bottomSheet
     dismissed = new Subject<void>()
+    dismissSheet = jasmine.createSpy("dismiss")
     spyOn(mockBottomSheet, "open").and.returnValue({
+      dismiss: dismissSheet,
       afterDismissed: () => dismissed.asObservable(),
-    } as ReturnType<MatBottomSheet["open"]>)
+    } as unknown as ReturnType<MatBottomSheet["open"]>)
   })
 
   it("should create", () => {
@@ -578,6 +585,31 @@ describe("VerseComponent", () => {
       )
       expect(interactive.length).toBeGreaterThan(0)
     })
+
+    // Tabbing onto a verse showed nothing: the text had outline: none, so a
+    // keyboard user couldn't tell which verse had the focus.
+    it("shows where the keyboard's focus is on the text", () => {
+      setData(
+        component,
+        makeVerse({
+          text: [
+            { type: "text", text: "verse text" },
+            { type: "footnote", text: "note", reference: "a" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+      const text = fixture.nativeElement.querySelector(
+        ".interactive[role='button']",
+      ) as HTMLElement
+
+      text.focus()
+
+      expect(text.matches(":focus-visible")).toBeTrue()
+      const style = getComputedStyle(text)
+      expect(style.outlineStyle).toBe("solid")
+      expect(style.outlineColor).toBe(style.color)
+    })
   })
 
   describe("deep-link highlight", () => {
@@ -826,7 +858,252 @@ describe("VerseComponent", () => {
     })
   })
 
+  describe("what a tap on a verse with notes opens", () => {
+    const footnote = { type: "footnote" as const, text: "note", reference: "1" }
+    const render = () => {
+      setData(
+        component,
+        makeVerse({ text: [{ type: "text", text: "No princípio" }, footnote] }),
+      )
+      fixture.detectChanges()
+    }
+    const text = () =>
+      fixture.nativeElement.querySelector(
+        ".verseRun:not(:empty)",
+      ) as HTMLElement
+    const asterisk = () =>
+      fixture.nativeElement.querySelector(".footnoteIndicator") as HTMLElement
+    // Reading hands-free: ▶ pressed in the reader.
+    const play = () => {
+      spyOn(TestBed.inject(KeepAwakeService), "start")
+      const autoScroll = TestBed.inject(AutoScrollService)
+      autoScroll.start({ scrollElement: document.createElement("div") })
+      return autoScroll
+    }
+
+    afterEach(() => TestBed.inject(AutoScrollService).stop())
+
+    // Before, it was in the text's colour, and read as a stray mark.
+    it("shows the asterisk underlined in the text's accent, as a link", () => {
+      render()
+      const accent = getComputedStyle(document.documentElement)
+        .getPropertyValue("--text-secondary")
+        .trim()
+      const probe = document.createElement("span")
+      probe.style.color = accent
+      document.body.appendChild(probe)
+      expect(getComputedStyle(asterisk()).color).toBe(
+        getComputedStyle(probe).color,
+      )
+      expect(getComputedStyle(asterisk()).textDecorationLine).toBe("underline")
+      probe.remove()
+    })
+
+    it("opens the notes from the text on the web", () => {
+      render()
+      text().click()
+
+      expect(mockBottomSheet.open).toHaveBeenCalled()
+      expect(text().getAttribute("role")).toBe("button")
+    })
+
+    // It scrolled on under the sheet, carrying the verse away.
+    it("stops auto-scroll as the notes open", () => {
+      const autoScroll = play()
+      render()
+      text().click()
+
+      expect(mockBottomSheet.open).toHaveBeenCalled()
+      expect(autoScroll.autoScrollEnabled).toBeFalse()
+    })
+
+    // There a tap on the text shows or hides the bars (NativeChromeService).
+    describe("in the iOS app", () => {
+      let open: jasmine.Spy
+
+      beforeEach(() => {
+        const native = TestBed.inject(NativeFootnotesService)
+        spyOnProperty(native, "enabled").and.returnValue(true)
+        open = spyOn(native, "open")
+        document.body.classList.add("native-chrome")
+        render()
+      })
+
+      afterEach(() => document.body.classList.remove("native-chrome"))
+
+      it("leaves the text alone", () => {
+        text().click()
+        text().dispatchEvent(new KeyboardEvent("keydown", { key: " " }))
+
+        expect(open).not.toHaveBeenCalled()
+        expect(text().getAttribute("role")).toBeNull()
+        expect(text().getAttribute("tabindex")).toBeNull()
+      })
+
+      it("opens them from the marker, a finger-sized target", () => {
+        asterisk().click()
+
+        expect(open).toHaveBeenCalledTimes(1)
+        const target = getComputedStyle(asterisk(), "::after")
+        expect(target.width).toBe("44px")
+        expect(target.height).toBe("44px")
+      })
+
+      it("stops auto-scroll as they open", () => {
+        const autoScroll = play()
+        asterisk().click()
+
+        expect(open).toHaveBeenCalled()
+        expect(autoScroll.autoScrollEnabled).toBeFalse()
+      })
+
+      it("plays on through a tap on the text, which opens nothing", () => {
+        const autoScroll = play()
+        text().click()
+
+        expect(autoScroll.autoScrollEnabled).toBeTrue()
+      })
+
+      it("marks them with a labelled icon, not an asterisk", () => {
+        const marker = asterisk()
+
+        expect(marker.querySelector("svg.noteIcon")).toBeTruthy()
+        expect(marker.textContent?.trim()).toBe("")
+        expect(marker.getAttribute("aria-label")).toBe("Notas do versículo 1")
+        expect(marker.querySelector("svg")?.getAttribute("aria-hidden")).toBe(
+          "true",
+        )
+      })
+
+      // VoiceOver read every marker as "Notas": nothing told one verse's
+      // from the next.
+      it("names the verse the notes are for, in poetry too", () => {
+        fixture.componentRef.setInput(
+          "data",
+          makeVerse({
+            number: 7,
+            text: [
+              { type: "quote", text: "Felizes os humildes", identLevel: 1 },
+              footnote,
+            ],
+          }),
+        )
+        fixture.detectChanges()
+
+        expect(
+          fixture.nativeElement.querySelector(
+            ".quoteVerseNumber .footnoteIndicator",
+          ),
+        ).toBe(asterisk())
+        expect(asterisk().getAttribute("aria-label")).toBe(
+          "Notas do versículo 7",
+        )
+      })
+
+      // The asterisk wore the accent; on iOS the icon is the text's colour.
+      it("draws the icon in the text's colour", () => {
+        const icon = asterisk().querySelector("svg") as SVGElement
+        const probe = document.createElement("span")
+        probe.style.color = getComputedStyle(document.documentElement)
+          .getPropertyValue("--text-color")
+          .trim()
+        document.body.appendChild(probe)
+
+        expect(getComputedStyle(icon).color).toBe(getComputedStyle(probe).color)
+        expect(getComputedStyle(icon).stroke).toBe(getComputedStyle(icon).color)
+        probe.remove()
+      })
+
+      // The 1em asterisk was too small a thing to aim at.
+      it("draws the icon bigger than the glyph it replaced", () => {
+        const icon = asterisk().querySelector("svg") as SVGElement
+        const fontSize = parseFloat(getComputedStyle(asterisk()).fontSize)
+        const { width, height } = getComputedStyle(icon)
+
+        expect(parseFloat(width)).toBeCloseTo(fontSize * 1.2, 1)
+        expect(parseFloat(height)).toBeCloseTo(fontSize * 1.2, 1)
+      })
+
+      // Riding above its verse number looked like it belonged to the line above.
+      it("sits level with the verse number, not above it", () => {
+        const icon = asterisk().querySelector("svg") as SVGElement
+        const number = fixture.nativeElement.querySelector(
+          ".verseNumber",
+        ) as HTMLElement
+        const fontSize = parseFloat(getComputedStyle(asterisk()).fontSize)
+        const { top } = getComputedStyle(icon)
+
+        // Moved down from its natural place by a fraction of the marker's size.
+        expect(parseFloat(top)).toBeGreaterThan(0)
+        expect(parseFloat(top)).toBeLessThan(fontSize * 0.5)
+        expect(getComputedStyle(number).verticalAlign).toBe(
+          getComputedStyle(asterisk()).verticalAlign,
+        )
+      })
+    })
+
+    it("keeps the asterisk outside the iOS app", () => {
+      render()
+
+      expect(asterisk().textContent?.trim()).toBe("＊")
+      expect(asterisk().querySelector("svg")).toBeNull()
+      expect(asterisk().hasAttribute("aria-label")).toBeFalse()
+    })
+  })
+
+  // Leaflets at Mass number most psalms one lower; the edition prints both.
+  describe("a psalm's number", () => {
+    const opening = (bookId: string, chapterNumber: number) =>
+      makeVerse({
+        bookId,
+        chapterNumber,
+        number: 0,
+        verseLabel: "front",
+        text: [{ type: "section", tag: "s2", text: "O BOM PASTOR" }],
+      })
+    const liturgical = () =>
+      fixture.nativeElement.querySelector(".liturgicalNumber") as HTMLElement
+
+    it("carries the liturgical number under it", () => {
+      setData(component, opening("psa", 23))
+      fixture.detectChanges()
+
+      expect(liturgical().textContent?.trim()).toBe("na liturgia, (22)")
+    })
+
+    it("carries none where the numberings agree, or outside the Psalms", () => {
+      setData(component, opening("psa", 150))
+      fixture.detectChanges()
+      expect(liturgical()).toBeNull()
+
+      setData(component, opening("gen", 23))
+      fixture.detectChanges()
+      expect(liturgical()).toBeNull()
+    })
+  })
+
   describe("toggleFootnotes", () => {
+    // The iOS app shows them in a native sheet instead.
+    it("opens the native sheet in the iOS app", () => {
+      const native = TestBed.inject(NativeFootnotesService)
+      spyOnProperty(native, "enabled").and.returnValue(true)
+      const open = spyOn(native, "open")
+      const footnote = {
+        type: "footnote" as const,
+        text: "note",
+        reference: "a",
+      }
+      const verse = makeVerse({
+        text: [{ type: "text", text: "verse" }, footnote],
+      })
+      setData(component, verse)
+
+      component.toggleFootnotes()
+
+      expect(open).toHaveBeenCalledWith([footnote], verse)
+      expect(mockBottomSheet.open).not.toHaveBeenCalled()
+    })
+
     it("should open bottom sheet when footnotes exist", () => {
       setData(
         component,
@@ -840,6 +1117,22 @@ describe("VerseComponent", () => {
 
       component.toggleFootnotes()
       expect(mockBottomSheet.open).toHaveBeenCalled()
+    })
+
+    it("lets the Android back button dismiss the footnotes sheet", () => {
+      setData(
+        component,
+        makeVerse({
+          text: [
+            { type: "text", text: "verse" },
+            { type: "footnote", text: "note", reference: "a" },
+          ],
+        }),
+      )
+      component.toggleFootnotes()
+
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
+      expect(dismissSheet).toHaveBeenCalled()
     })
 
     it("should not open bottom sheet when no footnotes", () => {
@@ -1176,5 +1469,129 @@ describe("VerseComponent", () => {
       // new line with no blank one in front of it.
       expect(hasBlankLine(fixture.nativeElement)).toBeFalse()
     })
+  })
+
+  // Safari draws a block box inside the verse's inline text over the lines
+  // before it when the text is set in columns (the page-by-page view): Gn 25
+  // "Esaú e Jacob", Dt 1 "Recordação do passado" and its references. Lines
+  // of their own are inline-blocks a line wide, laid out with the text.
+  describe("headings and references on lines of their own", () => {
+    // Dt 1,5: a heading and its references after the verse's text.
+    function deuteronomy1v5(): Verse {
+      return makeVerse({
+        bookId: "deu",
+        number: 5,
+        text: [
+          { type: "text", text: "Moisés começou a expor esta Lei:" },
+          { type: "section", tag: "s1", text: "1. Recordação do passado" },
+          { type: "references", text: "(1,6-11,28)" },
+        ],
+      })
+    }
+
+    function lineWidth(): number {
+      const host = fixture.nativeElement as HTMLElement
+      return host.parentElement?.getBoundingClientRect().width ?? 0
+    }
+
+    it("sets a heading as an inline-block a line wide", () => {
+      setData(component, deuteronomy1v5())
+      fixture.detectChanges()
+
+      const heading = fixture.nativeElement.querySelector("h3") as HTMLElement
+      expect(getComputedStyle(heading).display).toBe("inline-block")
+      expect(heading.getBoundingClientRect().width).toBeCloseTo(lineWidth(), 0)
+    })
+
+    it("sets its references as an inline-block a line wide", () => {
+      setData(component, deuteronomy1v5())
+      fixture.detectChanges()
+
+      const references = fixture.nativeElement.querySelector(
+        ".references-block",
+      ) as HTMLElement
+      expect(getComputedStyle(references).display).toBe("inline-block")
+      expect(references.getBoundingClientRect().width).toBeCloseTo(
+        lineWidth(),
+        0,
+      )
+    })
+
+    // Pr 25: the chapter opens on a heading whose references sit beside the
+    // drop-cap number; a line-wide box would drop below it.
+    it("keeps references beside the chapter number a block", () => {
+      setData(
+        component,
+        makeVerse({
+          bookId: "pro",
+          chapterNumber: 25,
+          number: 0,
+          verseLabel: "0",
+          text: [
+            { type: "section", tag: "ms", text: "V. Segunda coleção" },
+            { type: "references", text: "(25,1-29,27)" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+
+      const references = fixture.nativeElement.querySelector(
+        ".references-block",
+      ) as HTMLElement
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+      expect(getComputedStyle(references).display).toBe("block")
+    })
+
+    it("tells a centred heading whether the chapter number floats beside it", () => {
+      setData(
+        component,
+        makeVerse({
+          number: 0,
+          verseLabel: "0",
+          text: [
+            { type: "section", tag: "s2", text: "Discurso de Elifaz" },
+            {
+              type: "quote",
+              text: "Se alguém te dirigir a palavra,",
+              identLevel: 1,
+            },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+
+      const heading = fixture.nativeElement.querySelector(
+        "verse-section .center",
+      ) as HTMLElement
+      expect(heading.classList).toContain("besideChapterNumber")
+      expect(getComputedStyle(heading).display).toBe("table")
+    })
+  })
+
+  // In justified prose, a wrapped line of poetry was spread into wide gaps
+  // ("Felizes  os  que  sofrem  perseguição  por") and hyphenated.
+  it("sets a line of poetry ragged-right and unhyphenated", () => {
+    const host = fixture.nativeElement as HTMLElement
+    host.style.textAlign = "justify"
+    host.style.hyphens = "auto"
+    setData(
+      component,
+      makeVerse({
+        number: 10,
+        text: [
+          {
+            type: "quote",
+            text: "Felizes os que sofrem perseguição por causa da justiça,",
+            identLevel: 1,
+          },
+        ],
+      }),
+    )
+    fixture.detectChanges()
+
+    const line = host.querySelector(".quoteLineWrapper") as HTMLElement
+    expect(line).toBeTruthy()
+    expect(getComputedStyle(line).textAlign).toBe("start")
+    expect(getComputedStyle(line).hyphens).toBe("manual")
   })
 })

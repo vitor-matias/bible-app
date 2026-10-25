@@ -12,15 +12,21 @@ import {
 } from "@angular/core/testing"
 import { MatDialog } from "@angular/material/dialog"
 import { MatSnackBar } from "@angular/material/snack-bar"
+import { By } from "@angular/platform-browser"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
-import { ActivatedRoute, Router } from "@angular/router"
+import { ActivatedRoute, Router, RouterLink } from "@angular/router"
+import { Capacitor } from "@capacitor/core"
+
 import { BehaviorSubject, of, Subject, throwError } from "rxjs"
 import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
+import { BackButtonService } from "../../services/back-button.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
+import { HapticsService } from "../../services/haptics.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { ReadingTrailService } from "../../services/reading-trail.service"
@@ -59,6 +65,7 @@ describe("BibleReaderComponent", () => {
   let bookServiceSpy: jasmine.SpyObj<BookService>
   let preferencesServiceSpy: jasmine.SpyObj<PreferencesService>
   let routerSpy: jasmine.SpyObj<Router>
+  let hapticsSpy: jasmine.SpyObj<HapticsService>
   let routeMock: unknown
   let animationServiceSpy: jasmine.SpyObj<BibleReaderAnimationService>
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
@@ -88,10 +95,13 @@ describe("BibleReaderComponent", () => {
       "getChapterUrlSegment",
       "parseChapterUrlSegment",
       "loadGroupIntroBody",
+      "retryBooks",
     ])
     bookServiceSpy.books$ = new BehaviorSubject(
       mockBooks,
     ) as unknown as BehaviorSubject<Book[]>
+    bookServiceSpy.booksUnavailable$ = of(false)
+    bookServiceSpy.retryBooks.and.resolveTo()
     preferencesServiceSpy = jasmine.createSpyObj("PreferencesService", [
       "getAutoScrollSpeed",
       "getViewMode",
@@ -117,6 +127,7 @@ describe("BibleReaderComponent", () => {
     preferencesServiceSpy.getStudyColumnWidths.and.returnValue({})
 
     routerSpy = jasmine.createSpyObj("Router", ["navigate"])
+    routerSpy.navigate.and.resolveTo(true)
     ;(routerSpy as unknown as { routerState: unknown }).routerState = {
       snapshot: {
         root: {
@@ -187,7 +198,14 @@ describe("BibleReaderComponent", () => {
     component = fixture.componentInstance
   })
 
-  function setUpTestBed(options?: { platformId?: string }): Promise<void> {
+  function setUpTestBed(options?: {
+    platformId?: string
+    imports?: unknown[]
+  }): Promise<void> {
+    hapticsSpy = jasmine.createSpyObj<HapticsService>("HapticsService", [
+      "light",
+      "success",
+    ])
     return TestBed.configureTestingModule({
       imports: [BibleReaderComponent, BrowserAnimationsModule],
       providers: [
@@ -203,6 +221,7 @@ describe("BibleReaderComponent", () => {
         { provide: MatSnackBar, useValue: snackBarSpy },
         { provide: SeoService, useValue: seoServiceSpy },
         { provide: StudyModeService, useValue: studyMode },
+        { provide: HapticsService, useValue: hapticsSpy },
         ...(options?.platformId
           ? [{ provide: PLATFORM_ID, useValue: options.platformId }]
           : []),
@@ -211,7 +230,8 @@ describe("BibleReaderComponent", () => {
       .overrideComponent(BibleReaderComponent, {
         set: {
           schemas: [NO_ERRORS_SCHEMA],
-          imports: [], // Override standalone imports to avoid child dependency issues
+          // Override standalone imports to avoid child dependency issues
+          imports: (options?.imports ?? []) as never[],
         },
       })
       .compileComponents()
@@ -293,6 +313,42 @@ describe("BibleReaderComponent", () => {
     })
   })
 
+  describe("when the book list cannot be loaded", () => {
+    let unavailable$: BehaviorSubject<boolean>
+
+    beforeEach(() => {
+      // Nothing cached and the load failed: books$ never emits.
+      bookServiceSpy.books$ = new Subject<Book[]>()
+      unavailable$ = new BehaviorSubject(true)
+      bookServiceSpy.booksUnavailable$ = unavailable$
+      fixture.detectChanges()
+    })
+
+    const emptyState = (): HTMLElement | null =>
+      fixture.nativeElement.querySelector(".books-unavailable")
+
+    it("shows an empty state with a retry instead of a blank page", () => {
+      expect(component.book).toBeFalsy()
+      expect(emptyState()?.getAttribute("role")).toBe("alert")
+      expect(emptyState()?.textContent).toContain("Tentar novamente")
+    })
+
+    it("retries loading the books from the empty state", async () => {
+      emptyState()?.querySelector("button")?.click()
+      await fixture.whenStable()
+
+      expect(bookServiceSpy.retryBooks).toHaveBeenCalled()
+      expect(component.retryingBooks).toBeFalse()
+    })
+
+    it("hides the empty state once the books are available again", () => {
+      unavailable$.next(false)
+      fixture.detectChanges()
+
+      expect(emptyState()).toBeNull()
+    })
+  })
+
   describe("Navigation (Swipe / Arrow Keys / Methods)", () => {
     beforeEach(() => {
       fixture.detectChanges()
@@ -300,6 +356,12 @@ describe("BibleReaderComponent", () => {
       component.chapterNumber = 1
       routerSpy.navigate.calls.reset()
     })
+
+    /** The chapter stepped to has loaded (applyChapter clears the slide). */
+    const land = () => {
+      component.isNavigatingForwards = false
+      component.isNavigatingBackwards = false
+    }
 
     it("goToNextChapter should navigate forward and stop scroll", () => {
       component.goToNextChapter()
@@ -314,6 +376,124 @@ describe("BibleReaderComponent", () => {
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
       expect(component.isNavigatingBackwards).toBeTrue()
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
+    })
+
+    it("replaces the history entry for chapter steps in the native apps", () => {
+      spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
+      component.chapterNumber = 2
+      component.goToNextChapter()
+      land()
+      component.goToPreviousChapter()
+
+      expect(routerSpy.navigate.calls.allArgs()).toEqual([
+        [["/", "1-genesis", "3"], { replaceUrl: true }],
+        [["/", "1-genesis", "1"], { replaceUrl: true }],
+      ])
+    })
+
+    for (const [platform, native] of [
+      ["native apps", true],
+      ["web", false],
+    ] as const) {
+      it(`sets replaceUrl=${native} on the prev/next anchors on the ${platform}`, async () => {
+        TestBed.resetTestingModule()
+        await setUpTestBed({ imports: [RouterLink] })
+        spyOn(Capacitor, "isNativePlatform").and.returnValue(native)
+        const linkFixture = TestBed.createComponent(BibleReaderComponent)
+        linkFixture.detectChanges()
+        linkFixture.componentInstance.getChapter(5)
+        await linkFixture.whenStable()
+        linkFixture.componentRef.changeDetectorRef.markForCheck()
+        linkFixture.detectChanges()
+
+        const links = linkFixture.debugElement.queryAll(
+          By.css("a.floating-nav-button"),
+        )
+        expect(links.length).toBeGreaterThan(0)
+        for (const link of links) {
+          expect(link.injector.get(RouterLink).replaceUrl).toBe(native)
+        }
+      })
+    }
+
+    it("closes the open book drawer on the Android back button", () => {
+      const drawer = jasmine.createSpyObj("MatDrawer", ["close"], {
+        opened: true,
+      })
+      component.bookDrawer = drawer
+
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
+      expect(drawer.close).toHaveBeenCalled()
+    })
+
+    it("leaves the back button alone when the drawer is closed", () => {
+      component.bookDrawer = jasmine.createSpyObj("MatDrawer", ["close"], {
+        opened: false,
+      })
+
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+    })
+
+    it("gives light haptic feedback when turning to another chapter", () => {
+      component.chapterNumber = 2
+      component.goToNextChapter()
+      land()
+      component.goToPreviousChapter()
+      expect(hapticsSpy.light).toHaveBeenCalledTimes(2)
+    })
+
+    // A second swipe during the slide asked for the chapter already on its
+    // way: nothing happened, but it buzzed.
+    it("takes no second step, and gives no buzz, while a chapter is on its way", () => {
+      component.goToNextChapter()
+      component.goToNextChapter()
+      component.goToPreviousChapter()
+
+      expect(routerSpy.navigate).toHaveBeenCalledTimes(1)
+      expect(hapticsSpy.light).toHaveBeenCalledTimes(1)
+    })
+
+    it("steps again when the navigation came to nothing", async () => {
+      routerSpy.navigate.and.resolveTo(false)
+      component.goToNextChapter()
+      await Promise.resolve()
+
+      component.goToNextChapter()
+      expect(routerSpy.navigate).toHaveBeenCalledTimes(2)
+    })
+
+    it("moves the page with the finger in paged mode", () => {
+      component.viewMode = "paged"
+      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", [
+        "dragBy",
+        "cancelDrag",
+      ]) as unknown as PagedNavigationDirective
+
+      component.onSwipeMove(-40)
+      component.onSwipeCancel()
+
+      expect(component.pagedNav?.dragBy).toHaveBeenCalledWith(-40)
+      expect(component.pagedNav?.cancelDrag).toHaveBeenCalled()
+    })
+
+    it("moves nothing with the finger while scrolling", () => {
+      component.viewMode = "scrolling"
+      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", [
+        "dragBy",
+      ]) as unknown as PagedNavigationDirective
+
+      component.onSwipeMove(-40)
+
+      expect(component.pagedNav?.dragBy).not.toHaveBeenCalled()
+    })
+
+    it("gives no haptic feedback at either end of the book", () => {
+      component.chapterNumber = 1
+      component.goToPreviousChapter()
+      component.chapterNumber = 50
+      component.goToNextChapter()
+      expect(hapticsSpy.light).not.toHaveBeenCalled()
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
     })
 
     // The links are rebuilt when the reader lands on a chapter, so these go
@@ -447,6 +627,17 @@ describe("BibleReaderComponent", () => {
 
       expect(element.querySelector("a.prev-chapter")).toBeTruthy()
       expect(element.querySelector("button.prev-chapter")).toBeFalsy()
+    })
+
+    // Before, 40 px and 16 px from the edges, where Android's back gesture starts.
+    it("sizes the chapter arrows for a finger, clear of the screen edges", () => {
+      const next = (fixture.nativeElement as HTMLElement).querySelector(
+        "a.next-chapter",
+      ) as HTMLElement
+      const box = next.getBoundingClientRect()
+      expect(box.width).toBe(48)
+      expect(box.height).toBe(48)
+      expect(window.innerWidth - box.right).toBeGreaterThanOrEqual(24)
     })
 
     it("renders prev/next as buttons in paged mode", () => {
@@ -626,11 +817,223 @@ describe("BibleReaderComponent", () => {
       component.onArrowPress(new KeyboardEvent("keydown", { key: "ArrowLeft" }))
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
 
+      land()
       routerSpy.navigate.calls.reset()
       component.onArrowPress(
         new KeyboardEvent("keydown", { key: "ArrowRight" }),
       )
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
+    })
+
+    // The shortcut fired from anywhere: ← in the book filter changed the
+    // chapter, and so did the arrows under an open sheet or with Alt held.
+    describe("arrow keys", () => {
+      const press = (init: KeyboardEventInit, target: EventTarget = window) => {
+        const event = new KeyboardEvent("keydown", {
+          key: "ArrowRight",
+          bubbles: true,
+          ...init,
+        })
+        target.dispatchEvent(event)
+        return event
+      }
+      const added: HTMLElement[] = []
+      const attach = <T extends HTMLElement>(element: T): T => {
+        document.body.appendChild(element)
+        added.push(element)
+        return element
+      }
+
+      beforeEach(() => {
+        component.chapterNumber = 2
+        routerSpy.navigate.calls.reset()
+      })
+
+      afterEach(() => {
+        for (const element of added.splice(0)) element.remove()
+      })
+
+      it("turn the chapter from the page", () => {
+        press({}, attach(document.createElement("div")))
+        expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
+      })
+
+      it("leave a text field's caret alone", () => {
+        for (const tag of ["input", "textarea"]) {
+          press({ key: "ArrowLeft" }, attach(document.createElement(tag)))
+        }
+        expect(routerSpy.navigate).not.toHaveBeenCalled()
+      })
+
+      it("leave the browser's and the system's shortcuts alone", () => {
+        for (const modifier of ["altKey", "ctrlKey", "metaKey", "shiftKey"]) {
+          press({ key: "ArrowLeft", [modifier]: true })
+        }
+        expect(routerSpy.navigate).not.toHaveBeenCalled()
+      })
+
+      it("don't turn the chapter under an open menu, sheet or dialog", () => {
+        const overlay = attach(document.createElement("div"))
+        overlay.className = "cdk-overlay-container"
+        const sheetButton = overlay.appendChild(
+          document.createElement("button"),
+        )
+        press({}, sheetButton)
+        expect(routerSpy.navigate).not.toHaveBeenCalled()
+
+        // Focus left on the page behind a modal backdrop.
+        const backdrop = overlay.appendChild(document.createElement("div"))
+        backdrop.className = "cdk-overlay-backdrop cdk-overlay-backdrop-showing"
+        press({}, attach(document.createElement("div")))
+        expect(routerSpy.navigate).not.toHaveBeenCalled()
+      })
+
+      // A closed menu or sheet leaves its backdrop in the page while it fades
+      // out, without -showing: an arrow pressed then did nothing.
+      it("turn the chapter while a closed overlay's backdrop fades out", () => {
+        const overlay = attach(document.createElement("div"))
+        overlay.className = "cdk-overlay-container"
+        const backdrop = overlay.appendChild(document.createElement("div"))
+        backdrop.className = "cdk-overlay-backdrop"
+
+        press({}, attach(document.createElement("div")))
+
+        expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
+      })
+
+      it("don't turn the chapter while the book drawer is open", () => {
+        component.bookDrawer = jasmine.createSpyObj("MatDrawer", ["close"], {
+          opened: true,
+        })
+        press({})
+        expect(routerSpy.navigate).not.toHaveBeenCalled()
+      })
+    })
+  })
+
+  // The app draws edge-to-edge, but nothing may sit behind the navigation
+  // bar: the reader ends at its top and the page background shows behind it.
+  describe("bottom system inset", () => {
+    function render(viewMode: "scrolling" | "paged"): HTMLElement {
+      // ngOnInit restores the saved view mode; set ours after it.
+      fixture.detectChanges()
+      component.viewMode = viewMode
+      component.chapter = { bookId: "gen", number: 2 } as Chapter
+      component.chapterNumber = 2
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+      return fixture.nativeElement as HTMLElement
+    }
+
+    // Paged, browsers cut off the verse numbers hanging left of a line of
+    // poetry: the side margin was outside the columns, which clip what
+    // overflows them.
+    describe("pages", () => {
+      // The specs run in Karma's frame: its width is the viewport the
+      // reader's media queries see.
+      const frame = window.frameElement as HTMLElement | null
+      let width = ""
+
+      beforeEach(() => {
+        width = frame?.style.width ?? ""
+      })
+
+      afterEach(() => {
+        if (frame) frame.style.width = width
+      })
+
+      function pagedAt(px: number) {
+        expect(frame).withContext("the specs run in a frame").toBeTruthy()
+        if (frame) frame.style.width = `${px}px`
+        const host = render("paged")
+        const style = (selector: string) =>
+          getComputedStyle(host.querySelector(selector) as HTMLElement)
+        return {
+          view: style(".paged-view"),
+          chapter: style(".chapterBlock"),
+        }
+      }
+
+      it("keep a phone's side margin inside each page", () => {
+        const { view, chapter } = pagedAt(390)
+
+        expect(chapter.paddingLeft).toBe("15px")
+        expect(chapter.paddingRight).toBe("15px")
+        // Nothing outside the columns, so a page advances by its width.
+        expect(view.paddingLeft).toBe("0px")
+        expect(view.columnGap).toBe("0px")
+      })
+
+      it("keep a tablet's margins inside each of its two columns", () => {
+        const { view, chapter } = pagedAt(1024)
+
+        // 2vw a side: 4vw between the columns, as the gap was.
+        expect(parseFloat(chapter.paddingLeft)).toBeCloseTo(1024 * 0.02, 0)
+        expect(view.paddingLeft).toBe("0px")
+        expect(view.columnGap).toBe("0px")
+      })
+    })
+
+    // At 310% a justified line of a few words spread into wide gaps.
+    it("sets the text ragged-right at the largest sizes", () => {
+      const host = render("scrolling")
+      const container = host.querySelector(".text-container") as HTMLElement
+      const block = host.querySelector(".bookBlock") as HTMLElement
+      expect(getComputedStyle(block).textAlign).toBe("justify")
+
+      container.classList.add("large-text")
+      expect(getComputedStyle(block).textAlign).toBe("start")
+    })
+
+    function heightWithInset(element: HTMLElement, inset: string): number {
+      ;(fixture.nativeElement as HTMLElement).style.setProperty(
+        "--app-inset-bottom",
+        inset,
+      )
+      return element.getBoundingClientRect().height
+    }
+
+    it("ends the reader at the top of the navigation bar", () => {
+      const container = render("scrolling").querySelector(
+        ".bookSelectorContainer",
+      ) as HTMLElement
+      // NO_ERRORS_SCHEMA leaves mat-drawer-container an unknown inline
+      // element, which ignores height.
+      container.style.display = "block"
+
+      expect(
+        heightWithInset(container, "0px") - heightWithInset(container, "100px"),
+      ).toBeCloseTo(100, 0)
+    })
+
+    // Pages don't scroll: their text must end above the bar, where the
+    // fixed footer sits.
+    it("ends the pages above the navigation bar", () => {
+      const pages = render("paged").querySelector(
+        ".paged-view-container",
+      ) as HTMLElement
+      expect(pages).toBeTruthy()
+
+      expect(
+        heightWithInset(pages, "0px") - heightWithInset(pages, "100px"),
+      ).toBeCloseTo(100, 0)
+    })
+
+    // The folded iPhone Duo's status bar runs down its right side: centred
+    // on the whole screen, the copyright notice ran under it, cut off.
+    it("keeps the pages' footer between the side insets", () => {
+      const host = render("paged")
+      host.style.setProperty("--app-inset-left", "10px")
+      host.style.setProperty("--app-inset-right", "84px")
+      const footer = host.querySelector(".fixed-footer") as HTMLElement
+      expect(footer).toBeTruthy()
+
+      const box = footer.getBoundingClientRect()
+      expect(box.left).toBeCloseTo(10, 0)
+      expect(box.right).toBeCloseTo(
+        document.documentElement.clientWidth - 84,
+        0,
+      )
     })
   })
 
@@ -1544,6 +1947,17 @@ describe("BibleReaderComponent", () => {
         expect(open).toHaveBeenCalled()
       })
 
+      it("answers a key held with Shift, which is how ? and / are typed", () => {
+        component.visibleVerse = 2
+
+        // The gate that keeps Shift+→ from turning the page used to run
+        // first, and a shifted key never reached study mode's own at all.
+        const event = press("J", { shiftKey: true })
+
+        expect(component.selection?.verse.number).toBe(2)
+        expect(event.defaultPrevented).toBeTrue()
+      })
+
       it("leaves the keys to a menu or dialog that is open over the page", () => {
         const backdrop = document.createElement("div")
         backdrop.className = "cdk-overlay-backdrop-showing"
@@ -1694,6 +2108,18 @@ describe("BibleReaderComponent", () => {
       component.onBookSubmit({ bookId: "gen" })
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
       expect(component.bookDrawer.close).toHaveBeenCalled()
+    })
+
+    // Picking a book while auto-scroll played opened it partway down, still
+    // scrolling; picking a chapter already stopped it.
+    it("stops auto-scroll when another book is picked", () => {
+      autoScrollServiceSpy.stop.calls.reset()
+      component.onBookSubmit({ bookId: "gen" })
+      expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
+
+      autoScrollServiceSpy.stop.calls.reset()
+      component.goToPassage({ bookId: "gen", chapter: 3 })
+      expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
     })
 
     it("onBookSubmit opens chapter 1 even when the book has an introduction", () => {
@@ -2134,5 +2560,102 @@ describe("BibleReaderComponent", () => {
       tick()
       expect(animationServiceSpy.scrollToVerseElement).toHaveBeenCalled()
     }))
+  })
+
+  // The iOS toolbar's arrows and passage picker (HeaderComponent outputs).
+  describe("stepping and picking a passage", () => {
+    beforeEach(() => {
+      component.book = mockBooks[0] as unknown as Book
+      component.viewMode = "scrolling"
+    })
+
+    function at(chapter: number): void {
+      component.chapterNumber = chapter
+      component.chapter = { bookId: "gen", number: chapter } as Chapter
+    }
+
+    it("can step between chapters, but not past the first or last", () => {
+      at(1)
+      expect(component.canGoPrevious).toBeFalse()
+      expect(component.canGoNext).toBeTrue()
+
+      at(50)
+      expect(component.canGoPrevious).toBeTrue()
+      expect(component.canGoNext).toBeFalse()
+    })
+
+    it("can step back to the introduction", () => {
+      component.book = {
+        ...(mockBooks[0] as unknown as Book),
+        introduction: [{ type: "introParagraph", text: "intro" }],
+      }
+      at(1)
+      expect(component.canGoPrevious).toBeTrue()
+    })
+
+    it("steps through pages before chapters in paged mode", () => {
+      component.viewMode = "paged"
+      at(50)
+      component.isLastPage = false
+      expect(component.canGoNext).toBeTrue()
+
+      component.isLastPage = true
+      expect(component.canGoNext).toBeFalse()
+    })
+
+    it("has nowhere to step on the About page or before the text loads", () => {
+      at(1)
+      component.chapter = undefined as unknown as Chapter
+      expect(component.canGoNext).toBeFalse()
+
+      component.book = mockBooks[1] as unknown as Book
+      at(1)
+      expect(component.canGoPrevious).toBeFalse()
+      expect(component.canGoNext).toBeFalse()
+    })
+
+    it("steps like the swipes do", () => {
+      at(2)
+      component.stepForward()
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
+    })
+
+    it("opens the passage picked", () => {
+      component.goToPassage({ bookId: "gen", chapter: 7 })
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "7"])
+
+      component.goToPassage({ bookId: "gen", chapter: 0 })
+      expect(routerSpy.navigate).toHaveBeenCalledWith([
+        "/",
+        "1-genesis",
+        "intro",
+      ])
+    })
+
+    it("opens chapter 1 of a book picked without a chapter", () => {
+      component.goToPassage({ bookId: "gen" })
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
+    })
+  })
+
+  describe("iOS native bars", () => {
+    it("hides them as the text scrolls, until the text goes away", () => {
+      const stop = jasmine.createSpy("stop")
+      const track = spyOn(
+        TestBed.inject(NativeChromeService),
+        "trackScroll",
+      ).and.returnValue(stop)
+      const scroller = document.createElement("div")
+
+      component.drawerContent = new ElementRef(scroller)
+      expect(track).toHaveBeenCalledOnceWith(scroller)
+
+      component.drawerContent = undefined
+      expect(stop).toHaveBeenCalledTimes(1)
+
+      component.drawerContent = new ElementRef(scroller)
+      fixture.destroy()
+      expect(stop).toHaveBeenCalledTimes(2)
+    })
   })
 })

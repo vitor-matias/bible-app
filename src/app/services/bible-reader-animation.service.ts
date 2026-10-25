@@ -20,9 +20,18 @@ export const HIGHLIGHT_DURATION_MS = 2500
  */
 export const LAYOUT_SETTLE_MS = 600
 
-/** Default for scrolling mode: centre the verse in the vertical scroller. */
+/**
+ * Default for scrolling mode: centre the verse's start, its number, in the
+ * vertical scroller. Not the <verse> host: it is an inline box over several
+ * lines, and WebKit scrolls one that opens a paragraph as if it began at the
+ * top of the chapter, so Safari opened Jo 3,16 on verses 4-12.
+ */
 const scrollVerseIntoView = (element: HTMLElement): void => {
-  element.scrollIntoView({
+  const start =
+    element.querySelector<HTMLElement>(".verseNumber") ??
+    element.querySelector<HTMLElement>(".verseRun") ??
+    element
+  start.scrollIntoView({
     behavior: "smooth",
     block: "center",
     inline: "nearest",
@@ -88,7 +97,7 @@ export class BibleReaderAnimationService {
                 beforeScroll()
               } else {
                 const maxScroll = container.scrollWidth - container.clientWidth
-                container.scrollLeft = maxScroll > 0 ? maxScroll : 0
+                container.scrollLeft = Math.max(maxScroll, 0)
               }
               this.triggerSlideAnimation(drawerContent, container, true)
             })

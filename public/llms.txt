@@ -1,0 +1,22 @@
+# Bíblia Sagrada — Bíblia dos Capuchinhos
+
+> The complete Catholic Bible in European Portuguese, in the Difusora Bíblica translation published by the Portuguese Capuchin friars (Franciscanos Capuchinhos). Free to read online at https://biblia.capuchinhos.org, and offline in the web app and the Android and iOS apps.
+
+The site's interface and text are in Portuguese. Each chapter is its own prerendered HTML page, so you can read it without running JavaScript. When you quote a passage, cite it in Portuguese form (for example `Jo 3,16`: book abbreviation, then chapter, a comma, and the verse) and link to the chapter page.
+
+## URL structure
+
+- `https://biblia.capuchinhos.org/{book}/{chapter}` is one chapter, for example [Génesis 1](https://biblia.capuchinhos.org/gn/1) or [João 3](https://biblia.capuchinhos.org/jo/3). `{book}` is the book's Portuguese abbreviation in lowercase with spaces removed. The book index lists every book.
+- `https://biblia.capuchinhos.org/{book}/intro` is the introduction to a book, for example [Introdução a Génesis](https://biblia.capuchinhos.org/gn/intro).
+- `?verseStart={n}&verseEnd={m}` on a chapter URL highlights and scrolls to a verse range, for example [Jo 3,16-17](https://biblia.capuchinhos.org/jo/3?verseStart=16&verseEnd=17).
+
+## Key pages
+
+- [Livros (book index)](https://biblia.capuchinhos.org/livros): every book of the Old and New Testament, with links to their chapters and introductions
+- [Sobre a Bíblia dos Capuchinhos (home)](https://biblia.capuchinhos.org/): about the translation, Difusora Bíblica and the Capuchin friars
+- [Sitemap](https://biblia.capuchinhos.org/sitemap.xml): every chapter and introduction page
+
+## Optional
+
+- [Difusora Bíblica](https://www.difusorabiblica.com): the publisher of this translation
+- [Franciscanos Capuchinhos](https://www.capuchinhos.org): the Portuguese Capuchin province

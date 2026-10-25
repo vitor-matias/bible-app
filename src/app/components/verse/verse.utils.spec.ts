@@ -103,6 +103,8 @@ describe("verse.utils", () => {
       )
     })
 
+    // Footnotes cite bare verses ("8-9") of their own chapter, and a
+    // references block can use "v.12" shorthand.
     it("should pass the chapter on, so verse-only shorthand resolves", () => {
       mockBibleRef.extract.and.returnValue([])
       parseReferences(mockBibleRef, "v.12", "psa", 104)

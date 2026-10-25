@@ -7,9 +7,9 @@ import {
 
 /**
  * Splits text into plain runs and the Bible references found in it.
- * `chapter` is what lets verse-only shorthand ("v.12") resolve, so callers
- * rendering footnotes pass it; callers rendering a references block, where
- * every reference names its own chapter, do not need to.
+ * `chapter` is what lets verse-only shorthand ("v.12", "8-9") resolve, so
+ * callers rendering footnotes pass it; callers rendering a references block,
+ * where every reference names its own chapter, do not need to.
  */
 export function parseReferences(
   bibleRef: BibleReferenceService,

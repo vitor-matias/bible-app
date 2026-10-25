@@ -17,7 +17,7 @@ import {
   NEW_TESTAMENT_GROUPS,
   NEW_TESTAMENT_INTRO,
   OLD_TESTAMENT_GROUPS,
-  WHOLE_BIBLE_INTRO,
+  OLD_TESTAMENT_INTRO,
 } from "../../bible-canon"
 import { BookService } from "../../services/book.service"
 import { normalizeForSearch } from "../../utils/text"
@@ -269,7 +269,7 @@ export class StudySidebarComponent implements OnChanges {
       return book ? [{ kind: "intro" as const, book }] : []
     }
     this.sections = [
-      ...asSection(WHOLE_BIBLE_INTRO),
+      ...asSection(OLD_TESTAMENT_INTRO),
       ...oldTestament.map((group) => ({ kind: "group" as const, group })),
       ...asSection(NEW_TESTAMENT_INTRO),
       ...newTestament.map((group) => ({ kind: "group" as const, group })),

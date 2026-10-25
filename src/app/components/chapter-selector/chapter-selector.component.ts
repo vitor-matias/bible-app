@@ -20,6 +20,7 @@ import { MatTreeModule } from "@angular/material/tree"
 import { of } from "rxjs"
 import { map } from "rxjs/operators"
 import { BookmarkService } from "../../services/bookmark.service"
+import { scrollOnDrawerOpen } from "../../utils/drawer-scroll"
 
 @Component({
   selector: "chapter-selector",
@@ -52,6 +53,10 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
 
   private injector = inject(Injector)
 
+  /** In the reader's drawer, which scrolls to the chapter each time it opens:
+   *  reopening it reuses this list, scrolled wherever it was left. */
+  private inDrawer = scrollOnDrawerOpen(() => this.scrollToSelectedChapter())
+
   constructor(
     private elementRef: ElementRef,
     private bookmarkService: BookmarkService,
@@ -79,6 +84,7 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
   }
 
   ngAfterViewInit(): void {
+    if (this.inDrawer) return
     // Runs while prerendering too, where the DOM has no scrollIntoView;
     // afterNextRender is browser-only.
     afterNextRender(() => this.scrollToSelectedChapter(), {
