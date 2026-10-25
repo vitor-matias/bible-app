@@ -356,6 +356,66 @@ describe("global styles", () => {
     })
   })
 
+  describe("the light theme's reading colours", () => {
+    let probe: HTMLElement
+
+    beforeEach(() => {
+      probe = document.createElement("span")
+      document.body.appendChild(probe)
+    })
+
+    afterEach(() => probe.remove())
+
+    // Headless Chrome follows the Mac's dark mode: pin the light theme.
+    const light = <T>(read: () => T): T => {
+      const dark = document.documentElement.classList.contains("dark-theme")
+      document.documentElement.classList.remove("dark-theme")
+      try {
+        return read()
+      } finally {
+        if (dark) document.documentElement.classList.add("dark-theme")
+      }
+    }
+    const resolved = (color: string) => {
+      probe.style.color = color
+      return getComputedStyle(probe).color
+    }
+
+    it("set a soft near-black on a warm off-white, not black on white", () => {
+      const [text, background] = light(() => [
+        resolved("var(--text-color)"),
+        resolved("var(--background-color)"),
+      ])
+      expect(text).not.toBe("rgb(0, 0, 0)")
+      expect(background).not.toBe("rgb(255, 255, 255)")
+      expect(contrastRatio(text, background)).toBeGreaterThan(15)
+    })
+
+    it("keep the quieter markers and the accent readable as small text", () => {
+      const [marker, accent, background] = light(() => [
+        resolved("var(--text-marker, var(--text-secondary))"),
+        resolved("var(--text-secondary)"),
+        resolved("var(--background-color)"),
+      ])
+      expect(marker).not.toBe(accent)
+      expect(contrastRatio(marker, background)).toBeGreaterThanOrEqual(4.5)
+      expect(contrastRatio(accent, background)).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it("leave the dark theme's markers in its accent", () => {
+      const classes = document.documentElement.classList
+      const dark = classes.contains("dark-theme")
+      classes.add("dark-theme")
+      try {
+        expect(resolved("var(--text-marker, var(--text-secondary))")).toBe(
+          resolved("var(--text-secondary)"),
+        )
+      } finally {
+        if (!dark) classes.remove("dark-theme")
+      }
+    })
+  })
+
   // The grouped list's grey and white are iOS's system colours; the Android
   // app's Material bars keep the theme's colours around the results.
   describe("the search page's colours in the native apps", () => {

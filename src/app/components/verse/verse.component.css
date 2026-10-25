@@ -1,5 +1,5 @@
 .verseNumber {
-  color: var(--text-secondary);
+  color: var(--text-marker, var(--text-secondary));
   font-size: 65%;
   vertical-align: top;
   text-align: right;
@@ -7,7 +7,7 @@
 
 .section {
   color: var(--text-secondary);
-  font-weight: bold;
+  font-weight: 600;
 }
 
 .s1Section {
@@ -28,6 +28,10 @@ h3 {
   display: inline-block;
   width: 100%;
   font-size: 125%;
+  font-weight: 600;
+  /* Set tight and in lines of even length, not the body's open 1.6. */
+  line-height: 1.25;
+  text-wrap: balance;
   text-align: center;
   margin-bottom: 0.5rem;
 }
@@ -108,11 +112,22 @@ h3:not(:first-child) {
 .footnoteIndicator {
   vertical-align: top;
   font-size: 65%;
-  color: var(--text-secondary);
+  color: var(--text-marker, var(--text-secondary));
   cursor: pointer;
   text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
   text-decoration-thickness: 1px;
   text-underline-offset: 0.2em;
+}
+
+/* A verse number, its notes marker and the verse's first word stay on one
+   line. The marker is a fullwidth asterisk, which lines break around as
+   around a CJK character ("4" | "＊" | "«Qual"); a word joiner after the
+   number and after the marker forbids those breaks. Generated content, so
+   it isn't copied with the text. */
+.verseNumber::after,
+.footnoteIndicator::after {
+  content: "\2060";
 }
 
 .quoteLineWrapper {

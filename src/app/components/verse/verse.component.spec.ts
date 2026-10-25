@@ -854,20 +854,52 @@ describe("VerseComponent", () => {
 
     afterEach(() => TestBed.inject(AutoScrollService).stop())
 
-    // Before, it was in the text's colour, and read as a stray mark.
-    it("shows the asterisk underlined in the text's accent, as a link", () => {
+    // Before, it was in the text's colour, and read as a stray mark. It is
+    // the markers' quieter tint of the accent, as verse numbers are.
+    it("shows the asterisk underlined in the markers' accent, as a link", () => {
       render()
-      const accent = getComputedStyle(document.documentElement)
-        .getPropertyValue("--text-secondary")
-        .trim()
       const probe = document.createElement("span")
-      probe.style.color = accent
+      probe.style.color = "var(--text-marker, var(--text-secondary))"
       document.body.appendChild(probe)
       expect(getComputedStyle(asterisk()).color).toBe(
         getComputedStyle(probe).color,
       )
       expect(getComputedStyle(asterisk()).textDecorationLine).toBe("underline")
       probe.remove()
+    })
+
+    // A narrow measure broke "4" | "＊" | "«Qual" onto separate lines: the
+    // fullwidth asterisk breaks like a CJK character.
+    it("keeps the number and the asterisk on the line of the first word", () => {
+      setData(
+        component,
+        makeVerse({
+          number: 4,
+          verseLabel: "4",
+          text: [{ type: "text", text: "«Qual é o homem" }, footnote],
+        }),
+      )
+      fixture.detectChanges()
+      const host = fixture.nativeElement as HTMLElement
+      // Every break the text allows is taken.
+      host.style.display = "block"
+      host.style.width = "1px"
+      const number = host.querySelector(".verseNumber") as HTMLElement
+      const run = [...host.querySelectorAll(".verseRun")].find((el) =>
+        el.textContent?.startsWith("«Qual"),
+      ) as HTMLElement
+      const word = document.createRange()
+      word.setStart(run.firstChild as Text, 0)
+      word.setEnd(run.firstChild as Text, "«Qual".length)
+      const wordBox = word.getBoundingClientRect()
+      // Superscripts sit high in the line, but within the word's height.
+      const onWordLine = (marker: HTMLElement) => {
+        const box = marker.getBoundingClientRect()
+        return box.top < wordBox.bottom && box.bottom > wordBox.top
+      }
+
+      expect(onWordLine(number)).withContext("number").toBeTrue()
+      expect(onWordLine(asterisk())).withContext("asterisk").toBeTrue()
     })
 
     it("opens the notes from the text on the web", () => {

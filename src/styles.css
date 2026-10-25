@@ -6,10 +6,10 @@
 @import "@fontsource/roboto/300.css";
 @import "@fontsource/roboto/400.css";
 @import "@fontsource/roboto/500.css";
-@import "@fontsource/pt-serif/400.css";
-@import "@fontsource/pt-serif/400-italic.css";
-@import "@fontsource/pt-serif/700.css";
-@import "@fontsource/pt-serif/700-italic.css";
+/* Literata with its weight and optical-size axes: verse numbers and the
+   drop-cap chapter number each get the cut drawn for their size. */
+@import "@fontsource-variable/literata/opsz.css";
+@import "@fontsource-variable/literata/opsz-italic.css";
 @import "@material-symbols/font-400/outlined.css";
 
 /* For assistive-tech headings only; never to feed crawlers hidden text. */
@@ -71,6 +71,8 @@ body {
 
 /* Light theme variables */
 :root {
+  /* The face of the Bible text wherever it is set: reader, search, notes. */
+  --font-reading: "Literata Variable", Georgia, serif;
   /* Bottom system inset (Android navigation bar, iOS home indicator). The app
      draws edge-to-edge, so anything pinned to the bottom must clear it. One
      variable keeps every use consistent and lets specs simulate an inset. */
@@ -87,9 +89,14 @@ body {
   /* Declares that the page handles both schemes itself (.dark-theme below),
      so Android's forced dark theme doesn't repaint colours on top of ours. */
   color-scheme: light;
-  --background-color: #ffffff;
-  --text-color: #000000;
-  --text-secondary: darkred;
+  /* A soft near-black on a warm off-white (16.6:1): pure black on white
+     glares. The accent is a brick red that sits with the header's brown
+     (7.4:1); verse numbers and note markers are a quieter tint of it that
+     still passes as small text (5.4:1). */
+  --background-color: #fffbf7;
+  --text-color: #1f1b17;
+  --text-secondary: #8b3a2e;
+  --text-marker: #9c5549;
   --card-background: #f5f5f5;
   --border-color: #e0e0e0;
   --highlight-color: antiquewhite;
@@ -183,6 +190,9 @@ body {
   --ribbon-text: #121212;
   --text-color: #ffffff;
   --text-secondary: #dc143c;
+  /* Markers take the accent (verse.component.css falls back to it), so the
+     native apps' dark reds reach them too. */
+  --text-marker: initial;
   --card-background: #1e1e1e;
   --border-color: #333333;
   --highlight-color: darkgrey;
@@ -579,6 +589,14 @@ html.dark-theme .platform-ios.native-chrome app-search {
    headings keep their own alignment. */
 .text-container.large-text .bookBlock {
   text-align: start;
+}
+
+/* The reader's choice of ragged-right over the justified default
+   (TextAlignService): unhyphenated, with balanced endings. */
+html.ragged-text .bookBlock {
+  text-align: start;
+  hyphens: manual;
+  text-wrap: pretty;
 }
 
 /* The Android app's dark theme: text off-white like its bars (onSurface

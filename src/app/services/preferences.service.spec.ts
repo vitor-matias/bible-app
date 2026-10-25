@@ -50,6 +50,14 @@ describe("PreferencesService", () => {
     expect(service.getAutoScrollControlsVisible()).toBeTrue()
   })
 
+  it("should justify the text until ragged-right is chosen", () => {
+    expect(service.getRaggedText()).toBeFalse()
+    service.setRaggedText(true)
+    expect(service.getRaggedText()).toBeTrue()
+    service.setRaggedText(false)
+    expect(service.getRaggedText()).toBeFalse()
+  })
+
   it("should treat the onboarding wizard as unseen by default", () => {
     expect(service.getOnboardingSeen()).toBeFalse()
   })

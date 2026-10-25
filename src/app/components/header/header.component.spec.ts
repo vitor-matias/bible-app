@@ -447,6 +447,36 @@ describe("HeaderComponent", () => {
       )
     })
 
+    describe("text alignment", () => {
+      afterEach(() => {
+        localStorage.removeItem("raggedText")
+        document.documentElement.classList.remove("ragged-text")
+      })
+
+      it("switches the text between justified and ragged-right", () => {
+        themeButton()
+        const button = document.querySelectorAll<HTMLButtonElement>(
+          ".menu-controls .menu-control",
+        )[2]
+        expect(button.getAttribute("aria-label")).toBe(
+          "Justificado (clique para alinhar à esquerda)",
+        )
+
+        button.click()
+
+        expect(trigger().menuOpen).toBeTrue()
+        expect(
+          document.documentElement.classList.contains("ragged-text"),
+        ).toBeTrue()
+        expect(button.querySelector("mat-icon")?.textContent?.trim()).toBe(
+          "format_align_left",
+        )
+        expect(button.getAttribute("aria-label")).toBe(
+          "Alinhado à esquerda (clique para justificar)",
+        )
+      })
+    })
+
     // Plain buttons in a menu are skipped by its arrow keys.
     it("can be reached with the menu's arrow keys", () => {
       themeButton()

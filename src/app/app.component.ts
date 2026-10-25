@@ -21,6 +21,7 @@ import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
 import { PwaInstallService } from "./services/pwa-install.service"
+import { TextAlignService } from "./services/text-align.service"
 import { ThemeService } from "./services/theme.service"
 import { ToastService } from "./services/toast.service"
 import { APP_PLUGIN, PAGE_HOSTNAME } from "./tokens"
@@ -53,6 +54,8 @@ export class AppComponent implements OnInit, OnDestroy {
     private analyticsService: AnalyticsService,
     private onboardingService: OnboardingService,
     _themeService: ThemeService,
+    // Injected early so the reader's ragged-right choice applies on load.
+    _textAlignService: TextAlignService,
     // Injected early so it captures `beforeinstallprompt`, which fires once.
     _pwaInstallService: PwaInstallService,
     @Inject(APP_PLUGIN) private appPlugin: typeof App,
