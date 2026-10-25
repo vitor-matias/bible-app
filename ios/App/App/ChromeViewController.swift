@@ -174,7 +174,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             if previous.mode != .search {
                 topBar.setItems([searchBackItem, searchItem], animated: previous.mode == .reader)
                 searchField.text = next.query
-                searchField.focus()
             } else if next.query != previous.query && !searchField.isEditing {
                 // Not while typing: a search that ran on a pause echoes its query.
                 searchField.text = next.query
@@ -204,6 +203,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         setShown(topBar, next.mode != .none, animated: animated)
         setShown(toolbar, next.mode == .reader, animated: animated)
         setShown(searchField, next.mode == .search, animated: animated)
+        // Once shown: hidden, the field may not take the keyboard.
+        if next.mode == .search && previous.mode != .search {
+            searchField.focus()
+        }
         setShown(autoScrollControl, next.mode == .reader && next.autoScroll != nil, animated: animated)
         // Playing or paused, auto-scroll's controls stay or go with the bars.
         if collapseChanged || previous.inert != next.inert
