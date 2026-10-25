@@ -19,6 +19,7 @@ import {
   from,
   Observable,
   of,
+  ReplaySubject,
   Subject,
   throwError,
 } from "rxjs"
@@ -137,7 +138,19 @@ describe("SearchComponent", () => {
     ])
     bookService = jasmine.createSpyObj("BookService", [
       "findBook",
+      "findBookById",
       "findTypedBook",
+      "getUrlAbrv",
+      "getChapterUrlSegment",
+    ])
+    // The links' addresses, as the reader writes them.
+    bookService.getUrlAbrv.and.callFake(BookService.prototype.getUrlAbrv)
+    bookService.getChapterUrlSegment.and.callFake(
+      BookService.prototype.getChapterUrlSegment,
+    )
+    // The book list has loaded, as it has by the time most searches answer.
+    ;(bookService as { books$: Observable<Book[]> }).books$ = of([
+      { id: "gen" } as Book,
     ])
     // As BookService does it: the book findBook finds, but never the About
     // page it falls back to, nor an introduction.
@@ -1461,13 +1474,26 @@ describe("SearchComponent", () => {
   })
 
   describe("the results as rendered", () => {
-    const luke = { id: "luk", shortName: "Lucas", name: "Lucas" } as Book
-    const psalms = { id: "psa", shortName: "Salmos", name: "Salmos" } as Book
+    const luke = {
+      id: "luk",
+      abrv: "Lc",
+      shortName: "Lucas",
+      name: "Lucas",
+    } as Book
+    const psalms = {
+      id: "psa",
+      abrv: "Sl",
+      shortName: "Salmos",
+      name: "Salmos",
+    } as Book
 
     beforeEach(async () => {
       referenceService.extract.and.returnValue([])
       bookService.findBook.and.callFake(
         (id: string) => ({ luk: luke, psa: psalms })[id] as Book,
+      )
+      bookService.findBookById.and.callFake(
+        (id: string) => ({ luk: luke, psa: psalms })[id],
       )
       apiService.search.and.returnValue(
         of({
@@ -1509,6 +1535,13 @@ describe("SearchComponent", () => {
       Array.from(
         (fixture.nativeElement as HTMLElement).querySelectorAll(selector),
       ).map((element) => element.textContent?.trim())
+    const links = () =>
+      Array.from(
+        (
+          fixture.nativeElement as HTMLElement
+        ).querySelectorAll<HTMLAnchorElement>("a.result-card"),
+      )
+    const hrefs = () => links().map((link) => link.getAttribute("href"))
 
     // "nome de Luz , nome": the template put a space before the comma.
     it("keeps the punctuation after a match where the text has it", () => {
@@ -1522,6 +1555,80 @@ describe("SearchComponent", () => {
         "Lucas 2,32",
         "Salmo 136 (135),7",
       ])
+    })
+
+    // A shared /search?q= link answered before the book list had loaded, and
+    // findBook's fallback named every result "Sobre a Bíblia 2,32".
+    it("names the books only once the book list has loaded", async () => {
+      const books = new ReplaySubject<Book[]>(1)
+      ;(bookService as { books$: Observable<Book[]> }).books$ = books
+      const about = { id: "about", shortName: "Sobre a Bíblia" } as Book
+      bookService.findBook.and.returnValue(about)
+      fixture = TestBed.createComponent(SearchComponent)
+      component = fixture.componentInstance
+      await component.onSearchSubmit("luz")
+      fixture.detectChanges()
+
+      expect(all(".verse-ref")).toEqual(["1,26", "2,32", "136,7"])
+      // By the book's id until then, which the app still opens.
+      expect(hrefs()[1]).toBe("/luk/2?verseStart=32")
+
+      bookService.findBook.and.callFake(
+        (id: string) => ({ luk: luke, psa: psalms })[id] ?? about,
+      )
+      books.next([luke, psalms])
+      fixture.detectChanges()
+
+      expect(all(".verse-ref").slice(1)).toEqual([
+        "Lucas 2,32",
+        "Salmo 136 (135),7",
+      ])
+      expect(hrefs()[1]).toBe("/lc/2?verseStart=32")
+    })
+
+    // Results were <li routerLink>: Enter and a middle click did nothing, so
+    // a keyboard or a screen reader could not open one.
+    it("links each result to its passage", () => {
+      // The reader's addresses (/lc/2, /sl/136), not the books' ids (/luk/2,
+      // /psa/136): only the reader's pages exist on the server, for a new
+      // tab. A book missing from the list keeps its id.
+      expect(hrefs()).toEqual([
+        "/jdg/1?verseStart=26",
+        "/lc/2?verseStart=32",
+        "/sl/136?verseStart=7",
+      ])
+      expect(component.passageHref("psa", 95)).toBe("/sl/95")
+      expect(component.passageHref("luk", 0)).toBe("/lc/intro")
+
+      links()[1].click()
+
+      expect(router.navigate).toHaveBeenCalledWith(["/", "lc", "2"], {
+        queryParams: { verseStart: 32 },
+      })
+    })
+
+    it("leaves a click with a modifier to the browser, for a new tab", () => {
+      const link = (fixture.nativeElement as HTMLElement).querySelector(
+        "a.result-card",
+      ) as HTMLAnchorElement
+      let leftToBrowser = false
+      // After the result's own handler: note what it did, then keep the
+      // test page where it is.
+      link.addEventListener("click", (event) => {
+        leftToBrowser = !event.defaultPrevented
+        event.preventDefault()
+      })
+
+      link.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+          metaKey: true,
+        }),
+      )
+
+      expect(leftToBrowser).toBeTrue()
+      expect(router.navigate).not.toHaveBeenCalled()
     })
 
     describe("the matched words", () => {
@@ -1607,6 +1714,7 @@ describe("SearchComponent", () => {
 
     beforeEach(() => {
       bookService.findBook.and.returnValue(psalms)
+      bookService.findBookById.and.returnValue(psalms)
       apiService.getVerse.and.callFake((_book, chapter) =>
         of(
           chapter === 94
@@ -1639,6 +1747,13 @@ describe("SearchComponent", () => {
         }),
       ])
       expect(fixture.nativeElement.textContent).toContain("Qual salmo procura?")
+      // The reader's address, /sl/94, not the book's id, /psa/94.
+      const hrefs = Array.from(
+        (
+          fixture.nativeElement as HTMLElement
+        ).querySelectorAll<HTMLAnchorElement>("a.result-card"),
+      ).map((link) => link.getAttribute("href"))
+      expect(hrefs).toEqual(["/sl/94", "/sl/95"])
     })
 
     it("keeps the verses on both", async () => {
@@ -1804,8 +1919,18 @@ describe("SearchComponent in the iOS app", () => {
       "findBook",
       "findBookById",
       "findTypedBook",
+      "getUrlAbrv",
+      "getChapterUrlSegment",
     ])
-    bookService.findBookById.and.returnValue({ shortName: "Mateus" })
+    bookService.findBookById.and.returnValue({
+      abrv: "Mt",
+      shortName: "Mateus",
+    })
+    bookService.getUrlAbrv.and.callFake(BookService.prototype.getUrlAbrv)
+    bookService.getChapterUrlSegment.and.callFake(
+      BookService.prototype.getChapterUrlSegment,
+    )
+    bookService.books$ = of([{ id: "mat" }])
     const analytics = jasmine.createSpyObj("AnalyticsService", ["track"])
     analytics.track.and.resolveTo()
 

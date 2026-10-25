@@ -174,7 +174,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             if previous.mode != .search {
                 topBar.setItems([searchBackItem, searchItem], animated: previous.mode == .reader)
                 searchField.text = next.query
-                searchField.focus()
             } else if next.query != previous.query && !searchField.isEditing {
                 // Not while typing: a search that ran on a pause echoes its query.
                 searchField.text = next.query
@@ -204,6 +203,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         setShown(topBar, next.mode != .none, animated: animated)
         setShown(toolbar, next.mode == .reader, animated: animated)
         setShown(searchField, next.mode == .search, animated: animated)
+        // Once shown: hidden, the field may not take the keyboard.
+        if next.mode == .search && previous.mode != .search {
+            searchField.focus()
+        }
         setShown(autoScrollControl, next.mode == .reader && next.autoScroll != nil, animated: animated)
         // Playing or paused, auto-scroll's controls stay or go with the bars.
         if collapseChanged || previous.inert != next.inert
@@ -729,6 +732,32 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         presentSheet(sheet) { [weak self] presented in
             if presented { self?.reportSheet = report }
             done(presented)
+        }
+    }
+
+    // MARK: - Share
+
+    /// See `presentSheet`; `done` says whether something was shared.
+    func presentShare(_ share: ShareSheetState, done: @escaping (Bool) -> Void) {
+        let sheet = UIActivityViewController(activityItems: share.activityItems, applicationActivities: nil)
+        sheet.completionWithItemsHandler = { _, completed, _, _ in done(completed) }
+        // From ⋯, whose menu has Partilhar: a popover on iPad, and on iOS 26
+        // the iPhone's sheet grows out of it too.
+        if let popover = sheet.popoverPresentationController {
+            if state.mode == .reader {
+                if #available(iOS 16.0, *) {
+                    popover.sourceItem = moreItem
+                } else {
+                    popover.barButtonItem = moreItem
+                }
+            } else {
+                popover.sourceView = view
+                popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
+        }
+        presentSheet(sheet) { presented in
+            if !presented { done(false) }
         }
     }
 

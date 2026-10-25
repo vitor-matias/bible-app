@@ -132,6 +132,7 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "hideToast", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showReport", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "finishReport", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "share", returnType: CAPPluginReturnPromise),
     ]
 
     weak var chrome: ChromeViewController?
@@ -227,6 +228,21 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
             }
             chrome.presentFootnotes(state) { presented in
                 call.resolve(["presented": presented])
+            }
+        }
+    }
+
+    /// Resolves once the share sheet closes, with whether something was
+    /// shared; at once, with false, when it didn't come up.
+    @objc func share(_ call: CAPPluginCall) {
+        let state = ShareSheetState(call)
+        DispatchQueue.main.async {
+            guard let chrome = self.chrome, !state.activityItems.isEmpty else {
+                call.resolve(["completed": false])
+                return
+            }
+            chrome.presentShare(state) { completed in
+                call.resolve(["completed": completed])
             }
         }
     }

@@ -215,6 +215,52 @@ describe("BibleReaderAnimationService", () => {
       expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBeFalse()
     }))
 
+    it("should scroll to the verse number, not the multi-line inline verse", fakeAsync(() => {
+      // WebKit scrolls an inline <verse> that opens a paragraph as if it began
+      // at the top of the chapter: Safari opened Jo 3,16 on verses 4-12.
+      const bookBlock = document.createElement("div")
+      const verse = document.createElement("verse")
+      verse.id = "16"
+      verse.innerHTML =
+        '<span class="verseText verseRun"> </span><span class="verseNumber">16</span><span class="verseRun">Tanto amou Deus o mundo</span>'
+      bookBlock.appendChild(verse)
+      const verseNumber = verse.querySelector(".verseNumber") as HTMLElement
+      spyOn(verse, "scrollIntoView")
+      spyOn(verseNumber, "scrollIntoView")
+
+      service.scrollToVerseElement(bookBlock, undefined, 16)
+      tick(100)
+
+      expect(verseNumber.scrollIntoView).toHaveBeenCalledWith(
+        jasmine.objectContaining({ block: "center" }),
+      )
+      expect(verse.scrollIntoView).not.toHaveBeenCalled()
+      expect(verse.classList.contains(HIGHLIGHT_CLASS)).toBeTrue()
+
+      tick(LAYOUT_SETTLE_MS)
+      expect(verseNumber.scrollIntoView).toHaveBeenCalledTimes(2)
+      expect(verse.scrollIntoView).not.toHaveBeenCalled()
+      tick(HIGHLIGHT_DURATION_MS)
+    }))
+
+    it("should scroll to a verse's first run when it has no number", fakeAsync(() => {
+      const bookBlock = document.createElement("div")
+      const verse = document.createElement("verse")
+      verse.id = "1"
+      verse.innerHTML = '<span class="verseRun">No princípio</span>'
+      bookBlock.appendChild(verse)
+      const run = verse.querySelector(".verseRun") as HTMLElement
+      spyOn(verse, "scrollIntoView")
+      spyOn(run, "scrollIntoView")
+
+      service.scrollToVerseElement(bookBlock, undefined, 1, 1, false)
+      tick(100)
+
+      expect(run.scrollIntoView).toHaveBeenCalled()
+      expect(verse.scrollIntoView).not.toHaveBeenCalled()
+      tick(LAYOUT_SETTLE_MS)
+    }))
+
     it("should restart the fade when the same verse is highlighted again", fakeAsync(() => {
       const bookBlock = document.createElement("div")
       const verse1 = document.createElement("div")

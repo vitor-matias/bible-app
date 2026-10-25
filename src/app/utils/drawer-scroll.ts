@@ -1,4 +1,4 @@
-import { inject } from "@angular/core"
+import { DestroyRef, inject } from "@angular/core"
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatDrawer } from "@angular/material/sidenav"
 
@@ -17,6 +17,7 @@ import { MatDrawer } from "@angular/material/sidenav"
 export function scrollOnDrawerOpen(scroll: () => void): boolean {
   const drawer = inject(MatDrawer, { optional: true })
   if (!drawer) return false
+  const destroyRef = inject(DestroyRef)
 
   let openedSinceCreated = false
   drawer.openedStart.pipe(takeUntilDestroyed()).subscribe(() => {
@@ -24,9 +25,11 @@ export function scrollOnDrawerOpen(scroll: () => void): boolean {
     scroll()
   })
   if (drawer.opened) {
-    setTimeout(() => {
+    const fallback = setTimeout(() => {
       if (!openedSinceCreated) scroll()
     })
+    // A list swapped out again before it runs has nothing left to scroll.
+    destroyRef.onDestroy(() => clearTimeout(fallback))
   }
   return true
 }
