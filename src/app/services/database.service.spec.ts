@@ -189,6 +189,20 @@ describe("DatabaseService", () => {
       mockIDBTransaction.oncomplete()
       await expectAsync(promise).toBeResolved()
     })
+
+    it("should reject when the transaction aborts", async () => {
+      const promise = service.clear("testStore")
+
+      // Open DB
+      mockIDBRequest.onsuccess()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      const error = new Error("QuotaExceededError")
+      mockIDBTransaction.error = error
+      mockIDBTransaction.onabort()
+
+      await expectAsync(promise).toBeRejectedWith(error)
+    })
   })
 
   describe("clearAndPutAll", () => {
