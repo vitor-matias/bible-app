@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -44,6 +45,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.text.modifiers.TextAutoSizeLayoutScope
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -56,6 +58,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
@@ -82,6 +85,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -690,6 +694,23 @@ private fun BookRow(book: PassagePickerData.Book, current: Boolean, onClick: () 
     ) { Text(book.label, maxLines = 2, overflow = TextOverflow.Ellipsis) }
 }
 
+/**
+ * "← Livros", spelt out: a bare arrow didn't say it leads to the book list
+ * (iOS shows the same words on its back button). The arrow sits where an
+ * IconButton's would, 16dp in.
+ */
+@Composable
+private fun BackToBooks(onClick: () -> Unit) {
+    TextButton(
+        onClick = onClick,
+        contentPadding = PaddingValues(start = 12.dp, end = 16.dp),
+    ) {
+        Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = null)
+        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+        Text("Livros", maxLines = 1)
+    }
+}
+
 /** A grid of chapter numbers, the introduction first across the full width. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -715,8 +736,26 @@ private fun ChapterGrid(
             .semantics { paneTitle = book.name },
         topBar = {
             TopAppBar(
-                navigationIcon = { onBack?.let { BarButton(R.drawable.ic_arrow_back, "Livros", onClick = it) } },
-                title = { Text(book.name, Modifier.semantics { heading() }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                navigationIcon = { onBack?.let { BackToBooks(onClick = it) } },
+                title = {
+                    // Shrinks before it cuts: "Livros" beside it leaves
+                    // "Evangelho de São Mateus" a little short of room. A
+                    // name too long even then ("Primeira Carta aos
+                    // Tessalonicenses") gives way to the book's label, until
+                    // the window is resized (rotation).
+                    var short by remember(book.id, LocalWindowInfo.current.containerSize) { mutableStateOf(false) }
+                    Text(
+                        if (short) book.label else book.name,
+                        Modifier.semantics { heading() },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        onTextLayout = { if (it.hasVisualOverflow) short = true },
+                        autoSize = TextAutoSize.StepBased(
+                            minFontSize = 16.sp,
+                            maxFontSize = MaterialTheme.typography.titleLarge.fontSize,
+                        ),
+                    )
+                },
                 actions = {
                     // Numbers for speed (Salmos, Isaías), or a list with each
                     // chapter's title to find one by what it tells.
