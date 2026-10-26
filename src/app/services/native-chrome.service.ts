@@ -38,6 +38,8 @@ export type NativeChromeAction =
         | "scroll-top"
         /** A tap on the toast's button; handled here (toast). */
         | "toast-action"
+        /** A tap on the passage left while the bars hide; handled here. */
+        | "show-bars"
     }
   | { id: "goto"; bookId: string; chapter?: number }
   | {
@@ -330,6 +332,8 @@ export class NativeChromeService {
       this.ngZone.run(() => {
         if (action.id === "scroll-top") {
           this.scrollToTop()
+        } else if (action.id === "show-bars") {
+          this.setCollapsed(false)
         } else if (action.id === "toast-action") {
           const run = this.toastAction
           this.toastAction = undefined
