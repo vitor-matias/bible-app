@@ -212,7 +212,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             bar.accessibilityElementsHidden = next.inert
         }
 
-        if !usesVerticalBar {
+        if usesVerticalBar {
+            // The system bar isn't in the loop above: keep Voltar inert too.
+            systemBackItem.isEnabled = !next.inert
+        } else {
             setSystemBarItems(title: nil, left: [], right: [])
         }
         switch next.mode {
