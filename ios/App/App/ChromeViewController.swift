@@ -149,6 +149,11 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         if state.mode == .reader && toolbarWidth != fittedToolbarWidth {
             UIView.performWithoutAnimation { configureReader(state) }
         }
+        // Hidden, the small passage waits where the toolbar's is, ready to
+        // shrink from it: the first time too, and after a turn.
+        if !collapsed && !UIAccessibility.isReduceMotionEnabled {
+            compactPassage.transform = passageMorph().pill
+        }
     }
 
     // MARK: - State
@@ -502,18 +507,22 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private func animateCollapse(animated: Bool) {
         let motion = !UIAccessibility.isReduceMotionEnabled
         let slide = collapsed && motion
-        // Centres don't move with a transform: the layout's own.
-        let drop = compactPassage.center.y - toolbar.center.y
+        let morph = passageMorph()
         let changes = {
             self.topBar.transform = slide ? CGAffineTransform(translationX: 0, y: -self.insets.top) : .identity
-            self.toolbar.transform = slide
-                ? CGAffineTransform(translationX: 0, y: drop).scaledBy(x: 0.5, y: 0.5) : .identity
-            self.compactPassage.transform = motion && !self.collapsed
-                ? CGAffineTransform(translationX: 0, y: -drop).scaledBy(x: 2, y: 2) : .identity
-            for bar in [self.topBar, self.toolbar, self.compactPassage, self.autoScrollControl] {
+            self.toolbar.transform = slide ? morph.toolbar : .identity
+            self.compactPassage.transform = motion && !self.collapsed ? morph.pill : .identity
+            for bar in [self.topBar, self.autoScrollControl] { bar.alpha = self.targetAlpha(bar) }
+            self.view.layoutIfNeeded()
+        }
+        // The bar going fades in the first part of the move, and the one
+        // coming in the rest, so the two never show as a double image.
+        let fade = { (bar: UIView) in
+            let showing = self.targetAlpha(bar) > 0
+            UIView.animate(withDuration: showing ? 0.25 : 0.15, delay: showing ? 0.05 : 0,
+                           options: [.overrideInheritedDuration, .overrideInheritedCurve, .beginFromCurrentState]) {
                 bar.alpha = self.targetAlpha(bar)
             }
-            self.view.layoutIfNeeded()
         }
         if animated {
             // Lay out what this state update changed first, outside the
@@ -521,11 +530,42 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             // the animation below, they grew and slid into place, their text
             // cut off on the way, whenever the bars hid or showed.
             view.layoutIfNeeded()
-            UIView.animate(withDuration: 0.4, delay: 0, usingSpringWithDamping: 1, initialSpringVelocity: 0,
-                           options: [.beginFromCurrentState, .allowUserInteraction], animations: changes)
+            UIView.animate(withDuration: 0.45, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0,
+                           options: [.beginFromCurrentState, .allowUserInteraction]) {
+                changes()
+                fade(self.toolbar)
+                fade(self.compactPassage)
+            }
         } else {
             changes()
+            for bar in [toolbar, compactPassage] { bar.alpha = targetAlpha(bar) }
         }
+    }
+
+    /// Transforms that lay the toolbar's passage capsule over the small one,
+    /// and the small one over the capsule, so the bar seems to shrink into it
+    /// and grow back out of it. About each view's centre, as transforms are.
+    private func passageMorph() -> (toolbar: CGAffineTransform, pill: CGAffineTransform) {
+        let pill = compactPassage.bounds.size
+        let capsule = CGSize(width: passageButton.bounds.width + 2 * Glass.padding, height: toolbar.bounds.height)
+        guard pill.width > 0, pill.height > 0, capsule.width > 0, capsule.height > 0 else {
+            return (.identity, .identity)
+        }
+        // Where the capsule's centre is with the toolbar untransformed:
+        // centres and bounds ignore transforms.
+        let inToolbar = passageButton.convert(CGPoint(x: passageButton.bounds.midX, y: passageButton.bounds.midY),
+                                              to: toolbar)
+        let bar = toolbar.center
+        let passage = CGPoint(x: bar.x + inToolbar.x - toolbar.bounds.midX, y: bar.y + inToolbar.y - toolbar.bounds.midY)
+        let target = compactPassage.center
+        let sx = pill.width / capsule.width
+        let sy = pill.height / capsule.height
+        let toolbarMorph = CGAffineTransform(translationX: target.x - bar.x - sx * (passage.x - bar.x),
+                                             y: target.y - bar.y - sy * (passage.y - bar.y))
+            .scaledBy(x: sx, y: sy)
+        let pillMorph = CGAffineTransform(translationX: passage.x - target.x, y: passage.y - target.y)
+            .scaledBy(x: 1 / sx, y: 1 / sy)
+        return (toolbarMorph, pillMorph)
     }
 
     // MARK: - Insets
