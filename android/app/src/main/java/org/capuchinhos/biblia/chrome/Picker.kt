@@ -171,7 +171,13 @@ fun PassagePickerDialog(chrome: ChromeController, sheet: Sheet.Picker) {
                         onClose = close,
                         selectedId = shown?.id,
                     ) { picked ->
-                        if (picked.chapters.isEmpty()) choose(picked.id, null) else book = picked
+                        if (picked.chapters.isEmpty()) {
+                            choose(picked.id, null)
+                        } else {
+                            // The books were in view: folded to one pane, Back returns to them.
+                            cameFromBooks = true
+                            book = picked
+                        }
                     }
                 }
                 VerticalDivider()
