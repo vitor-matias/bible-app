@@ -28,6 +28,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private let toast = ToastView()
     private var toastBottom: NSLayoutConstraint!
     private var topBarTop: NSLayoutConstraint!
+    private var compactPassageBottom: NSLayoutConstraint!
     /// Where the toolbar, auto-scroll's bar and the toast go: the safe area's
     /// width, or, on an iPhone Duo folded part way, the screen right of the fold.
     private let bottomBars = UILayoutGuide()
@@ -63,7 +64,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         searchField.onSubmit = { [weak self] text in self?.plugin.send("search-submit", ["text": text]) }
         searchField.onChange = { [weak self] text in self?.plugin.send("search-input", ["text": text]) }
 
-        for bar in [topBar, autoScrollControl, toolbar, searchField] as [UIView] {
+        for bar in [topBar, autoScrollControl, toolbar, compactPassage, searchField] as [UIView] {
             bar.translatesAutoresizingMaskIntoConstraints = false
             bar.alpha = 0
             bar.isHidden = true
@@ -73,6 +74,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         view.addSubview(toast)
         toastBottom = toast.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         topBarTop = topBar.topAnchor.constraint(equalTo: view.topAnchor, constant: topBarOffset)
+        compactPassageBottom = compactPassage.bottomAnchor.constraint(equalTo: view.bottomAnchor,
+                                                                      constant: -compactPassageInset)
 
         // Dragging the page closes the search keyboard, as iOS search screens do.
         let drag = UIPanGestureRecognizer(target: self, action: #selector(pageDragged(_:)))
@@ -107,6 +110,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             toolbar.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
             toolbar.leadingAnchor.constraint(equalTo: bottomBars.leadingAnchor),
             toolbar.trailingAnchor.constraint(equalTo: bottomBars.trailingAnchor),
+            compactPassageBottom,
+            compactPassage.centerXAnchor.constraint(equalTo: bottomBars.centerXAnchor),
+            compactPassage.widthAnchor.constraint(lessThanOrEqualTo: bottomBars.widthAnchor, constant: -32),
             // The reading area, between the bars (where they rest, whether
             // shown or not), for the reader to move it about in.
             autoScrollControl.topAnchor.constraint(equalTo: topBar.bottomAnchor),
@@ -131,6 +137,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
         topBarTop.constant = topBarOffset
+        compactPassageBottom.constant = -compactPassageInset
         bottomBarsLeft.constant = foldInset
     }
 
@@ -157,7 +164,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         if next.mode != .none {
             view.window?.overrideUserInterfaceStyle = Self.interfaceStyle(next.themeMode)
         }
-        for bar in [topBar, autoScrollControl, toolbar, searchField] as [UIView] {
+        for bar in [topBar, autoScrollControl, toolbar, compactPassage, searchField] as [UIView] {
             bar.isUserInteractionEnabled = !next.inert
             bar.accessibilityElementsHidden = next.inert
         }
@@ -202,6 +209,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         collapsed = collapse
         setShown(topBar, next.mode != .none, animated: animated)
         setShown(toolbar, next.mode == .reader, animated: animated)
+        setShown(compactPassage, next.mode == .reader, animated: animated)
         setShown(searchField, next.mode == .search, animated: animated)
         // Once shown: hidden, the field may not take the keyboard.
         if next.mode == .search && previous.mode != .search {
@@ -288,6 +296,36 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     private lazy var passageItem = UIBarButtonItem(customView: passageButton)
 
+    /// While the bars are hidden for reading, the passage stays at the bottom,
+    /// small, as Safari keeps the site's name: a tap brings the bars back.
+    private lazy var compactPassage: UIButton = {
+        var config: UIButton.Configuration
+        if #available(iOS 26.0, *) {
+            config = .glass()
+        } else {
+            config = .plain()
+            config.background.visualEffect = UIBlurEffect(style: .systemThickMaterial)
+        }
+        config.cornerStyle = .capsule
+        config.baseForegroundColor = .label
+        config.titleLineBreakMode = .byTruncatingTail
+        config.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+            var attributes = attributes
+            attributes.font = limitedFont(.systemFont(ofSize: 13, weight: .medium), .footnote, limit: barTextScaleLimit)
+            return attributes
+        }
+        let button = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in
+            self?.plugin.send("show-bars")
+        })
+        button.accessibilityHint = "Mostrar os controlos"
+        button.showsLargeContentViewer = true
+        return button
+    }()
+
+    /// In the home indicator's strip, as Safari's; with none, clear of the edge.
+    private var compactPassageInset: CGFloat { max(view.safeAreaInsets.bottom - 20, 8) }
+
     private func configureReader(_ state: ChromeState) {
         let enabled = !state.inert
         // The same item throughout, its menu updated: replacing the item
@@ -330,6 +368,13 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         if let autoScroll = state.autoScroll {
             autoScrollControl.configure(autoScroll, enabled: enabled)
         }
+
+        if var config = compactPassage.configuration {
+            config.title = state.passageLabel
+            compactPassage.configuration = config
+        }
+        compactPassage.accessibilityLabel = state.passageAccessibilityLabel
+        compactPassage.largeContentTitle = state.passageLabel
 
         previousItem.isEnabled = enabled && state.canGoPrevious
         nextItem.isEnabled = enabled && state.canGoNext
@@ -441,6 +486,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         // reading (not its play button), but not over a panel, as the other
         // bars don't, nor under a toast.
         if bar === autoScrollControl { return state.inert || autoScrollTucked || toastCoversAutoScroll ? 0 : 1 }
+        // Not over a panel, which hides the bars too.
+        if bar === compactPassage { return collapsed && !state.inert ? 1 : 0 }
         return collapsed && bar !== searchField ? 0 : 1
     }
 
@@ -448,14 +495,24 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// button goes with them, as nothing is scrolling to pause.
     private var autoScrollTucked: Bool { collapsed && state.autoScroll?.playing != true }
 
-    /// Slides the reader's bars off screen. The page keeps its padding, so the
-    /// text doesn't move; it simply shows where the bars were.
+    /// Slides the top bar off screen and shrinks the toolbar into the small
+    /// passage, as Safari's bar does; showing them, the passage grows back into
+    /// the toolbar. The page keeps its padding, so the text doesn't move; it
+    /// simply shows where the bars were.
     private func animateCollapse(animated: Bool) {
-        let slide = collapsed && !UIAccessibility.isReduceMotionEnabled
+        let motion = !UIAccessibility.isReduceMotionEnabled
+        let slide = collapsed && motion
+        // Centres don't move with a transform: the layout's own.
+        let drop = compactPassage.center.y - toolbar.center.y
         let changes = {
             self.topBar.transform = slide ? CGAffineTransform(translationX: 0, y: -self.insets.top) : .identity
-            self.toolbar.transform = slide ? CGAffineTransform(translationX: 0, y: self.insets.bottom) : .identity
-            for bar in [self.topBar, self.toolbar, self.autoScrollControl] { bar.alpha = self.targetAlpha(bar) }
+            self.toolbar.transform = slide
+                ? CGAffineTransform(translationX: 0, y: drop).scaledBy(x: 0.5, y: 0.5) : .identity
+            self.compactPassage.transform = motion && !self.collapsed
+                ? CGAffineTransform(translationX: 0, y: -drop).scaledBy(x: 2, y: 2) : .identity
+            for bar in [self.topBar, self.toolbar, self.compactPassage, self.autoScrollControl] {
+                bar.alpha = self.targetAlpha(bar)
+            }
             self.view.layoutIfNeeded()
         }
         if animated {
