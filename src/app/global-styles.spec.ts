@@ -153,16 +153,29 @@ describe("global styles", () => {
     // that width with this one's styles, a reader with the paged view's
     // fixed footer, and the Duo's insets. Returns the text's and the
     // footer's left and right insets.
-    const insetsAt = (width: number, nativeChrome: boolean) => {
+    const insetsAt = async (width: number, nativeChrome: boolean) => {
       frame = document.createElement("iframe")
       frame.style.width = `${width}px`
       document.body.appendChild(frame)
       const page = frame.contentDocument as Document
+      // A cloned <link> loads anew: measured before it has, the page is
+      // unstyled.
+      const loads: Promise<unknown>[] = []
       for (const sheet of document.querySelectorAll(
         "style, link[rel=stylesheet]",
       )) {
-        page.head.appendChild(page.importNode(sheet, true))
+        const clone = page.importNode(sheet, true)
+        if (clone instanceof HTMLLinkElement || clone.nodeName === "LINK") {
+          loads.push(
+            new Promise((resolve, reject) => {
+              clone.addEventListener("load", resolve, { once: true })
+              clone.addEventListener("error", reject, { once: true })
+            }),
+          )
+        }
+        page.head.appendChild(clone)
       }
+      await Promise.all(loads)
       page.documentElement.style.setProperty("--app-inset-left", "0px")
       page.documentElement.style.setProperty("--app-inset-right", "60px")
       page.body.classList.toggle("native-chrome", nativeChrome)
@@ -189,19 +202,19 @@ describe("global styles", () => {
 
     afterEach(() => frame.remove())
 
-    it("splits them evenly, centring the text and its footer on the screen", () => {
-      expect(insetsAt(900, true)).toEqual({
+    it("splits them evenly, centring the text and its footer on the screen", async () => {
+      expect(await insetsAt(900, true)).toEqual({
         text: ["30px", "30px"],
         footer: ["30px", "30px"],
       })
     })
 
-    it("keeps to the safe area on one-page widths, whose text margin is narrow", () => {
-      expect(insetsAt(700, true).text).toEqual(["0px", "60px"])
+    it("keeps to the safe area on one-page widths, whose text margin is narrow", async () => {
+      expect((await insetsAt(700, true)).text).toEqual(["0px", "60px"])
     })
 
-    it("keeps to the safe area on the web", () => {
-      expect(insetsAt(900, false).text).toEqual(["0px", "60px"])
+    it("keeps to the safe area on the web", async () => {
+      expect((await insetsAt(900, false)).text).toEqual(["0px", "60px"])
     })
   })
 
