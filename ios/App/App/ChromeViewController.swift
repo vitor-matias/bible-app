@@ -20,7 +20,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private let searchItem = UINavigationItem(title: "Pesquisar")
     private let pageBackItem = UINavigationItem()
     private let pageItem = UINavigationItem()
-    private let toolbar = UIToolbar()
+    private let toolbar = CentredToolbar()
     /// Auto-scroll's controls, while ⋯ shows them: floating over the text,
     /// where the reader drags them.
     private let autoScrollControl = AutoScrollControl()
@@ -32,6 +32,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// width, or, on an iPhone Duo folded part way, the screen right of the fold.
     private let bottomBars = UILayoutGuide()
     private var bottomBarsLeft: NSLayoutConstraint!
+    private var toolbarLeft: NSLayoutConstraint!
+    private var toolbarRight: NSLayoutConstraint!
 
     private(set) var state = ChromeState()
     private var collapsed = false
@@ -92,6 +94,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         view.addLayoutGuide(bottomBars)
         // Left and right, not leading and trailing: the fold's place is physical.
         bottomBarsLeft = bottomBars.leftAnchor.constraint(equalTo: safeArea.leftAnchor)
+        toolbarLeft = toolbar.leftAnchor.constraint(equalTo: bottomBars.leftAnchor)
+        toolbarRight = toolbar.rightAnchor.constraint(equalTo: bottomBars.rightAnchor)
         NSLayoutConstraint.activate([
             bottomBarsLeft,
             bottomBars.rightAnchor.constraint(equalTo: safeArea.rightAnchor),
@@ -105,8 +109,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             topBar.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor),
             topBar.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor),
             toolbar.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
-            toolbar.leadingAnchor.constraint(equalTo: bottomBars.leadingAnchor),
-            toolbar.trailingAnchor.constraint(equalTo: bottomBars.trailingAnchor),
+            toolbarLeft,
+            toolbarRight,
             // The reading area, between the bars (where they rest, whether
             // shown or not), for the reader to move it about in.
             autoScrollControl.topAnchor.constraint(equalTo: topBar.bottomAnchor),
@@ -131,7 +135,18 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
         topBarTop.constant = topBarOffset
-        bottomBarsLeft.constant = foldInset
+        let fold = foldInset
+        bottomBarsLeft.constant = fold
+        // The open iPhone Duo's status bar runs down its right side: in the
+        // safe area alone, the passage sat left of the text, which the page
+        // centres on the screen. The bar reaches into the wider side inset as
+        // far as the narrower one goes, so its centre is the screen's, and
+        // centres its passage there (CentredToolbar). Folded part way, it
+        // stays right of the fold.
+        let insets = view.safeAreaInsets
+        let even = min(insets.left, insets.right)
+        toolbarLeft.constant = fold == 0 ? even - insets.left : 0
+        toolbarRight.constant = fold == 0 ? insets.right - even : 0
     }
 
     override func viewDidLayoutSubviews() {
@@ -1030,5 +1045,26 @@ final class SearchFieldView: UIView, UITextFieldDelegate {
         onSubmit?(textField.text ?? "")
         textField.resignFirstResponder()
         return false
+    }
+}
+
+/// A toolbar that centres its passage on its own width, not in its safe area,
+/// which the open iPhone Duo's status bar narrows on the right only. UIKit
+/// lays the items out between the safe area's sides and the layout margins
+/// it takes from them: both have to give, or the passage stays off centre.
+/// Each side keeps the narrower inset, so nothing lands under a notch.
+private final class CentredToolbar: UIToolbar {
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        insetsLayoutMarginsFromSafeArea = false
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override var safeAreaInsets: UIEdgeInsets {
+        var insets = super.safeAreaInsets
+        insets.left = min(insets.left, insets.right)
+        insets.right = insets.left
+        return insets
     }
 }
