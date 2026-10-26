@@ -43,6 +43,11 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private var reportedInsets = ChromeInsets()
     /// The width the toolbar's passage button was last fitted to.
     private var fittedToolbarWidth: CGFloat = 0
+    /// How far the toolbar reaches past the safe area on the left, where the
+    /// wider side inset is there (CentredToolbar), and the space its leading
+    /// items keep for it.
+    private var toolbarLeadingInset: CGFloat = 0
+    private var leadingInsetSpace = UIBarButtonItem.fixedSpace(0)
     private var plugin: NativeChromePlugin { bridgeController.chromePlugin }
 
     override func viewDidLoad() {
@@ -155,6 +160,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         let even = min(insets.left, insets.right)
         toolbarLeft.constant = fold == 0 ? even - insets.left : 0
         toolbarRight.constant = fold == 0 ? insets.right - even : 0
+        toolbarLeadingInset = -toolbarLeft.constant
     }
 
     override func viewDidLayoutSubviews() {
@@ -162,7 +168,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         reportInsets()
         placeToast()
         // Turned, or an iPad window resized: the book's name may fit now, or not.
-        if state.mode == .reader && toolbarWidth != fittedToolbarWidth {
+        // Turned the other way, the wider inset may have changed sides.
+        if state.mode == .reader
+            && (toolbarWidth != fittedToolbarWidth || toolbarLeadingInset != leadingInsetSpace.width) {
             UIView.performWithoutAnimation { configureReader(state) }
         }
         // Hidden, the small passage waits where the toolbar's is, ready to
@@ -403,7 +411,14 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         let room = toolbarWidth - 2 * (Glass.barMargin + Glass.padding)
             - (state.chapterNavigation ? Glass.pair + Glass.gap : 0)
         configurePassage(state, enabled: enabled, room: room)
-        let items = (state.chapterNavigation ? [previousItem, nextItem] : [])
+        // The bar reaches into a wider left inset: a space as wide keeps the
+        // arrows out of it, while the passage, between flexible spaces, still
+        // centres on the bar. A new item, so the toolbar lays out again.
+        if leadingInsetSpace.width != toolbarLeadingInset {
+            leadingInsetSpace = .fixedSpace(toolbarLeadingInset)
+        }
+        let items = (toolbarLeadingInset > 0 ? [leadingInsetSpace] : [])
+            + (state.chapterNavigation ? [previousItem, nextItem] : [])
             + [passageSpaces[0], passageItem, passageSpaces[1]]
         if toolbar.items ?? [] != items {
             toolbar.setItems(items, animated: false)
