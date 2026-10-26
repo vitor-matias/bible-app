@@ -76,7 +76,8 @@ export class NativeBookmarksService {
               this.ribbonsService.remove(ribbon)
             if (action.id === "bookmark-set" && canMark(bookId))
               this.ribbonsService.assign(ribbon.value, bookId, chapter)
-            if (action.id === "bookmark-move") mover.move(ribbon)
+            if (action.id === "bookmark-move" && canMark(bookId))
+              mover.move(ribbon)
             break
           }
           case "bookmark-undo":

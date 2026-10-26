@@ -330,9 +330,11 @@ describe("OfflineDataService", () => {
         jasmine.any(Object),
       )
       // The books fetch failing left nothing cached for "gen"...
-      expect(service.getCachedBook("gen")).toBeUndefined()
+      expect(await service.getCachedBookAsync("gen")).toBeUndefined()
       // ...but the introduction, an unrelated resource, is cached anyway.
-      expect(service.getCachedBook("pentateuco")?.introSlug).toBe("pentateuco")
+      expect((await service.getCachedBookAsync("pentateuco"))?.introSlug).toBe(
+        "pentateuco",
+      )
     })
 
     it("retries /books on the next preload after a books failure followed by a successful intros-only write", async () => {
@@ -359,7 +361,7 @@ describe("OfflineDataService", () => {
       await secondPromise
 
       httpMock.expectNone("v1/intros")
-      expect(service.getCachedBook("gen")?.name).toBe("Genesis")
+      expect((await service.getCachedBookAsync("gen"))?.name).toBe("Genesis")
     })
 
     it("should call AnalyticsService.track when source is install", async () => {
@@ -429,13 +431,13 @@ describe("OfflineDataService", () => {
 
         await promise
 
-        const pentateuco = service.getCachedBook("pentateuco")
+        const pentateuco = await service.getCachedBookAsync("pentateuco")
         expect(pentateuco?.introSlug).toBe("pentateuco")
         expect(pentateuco?.introduction).toEqual(introBodies[0].introduction)
-        const historicos = service.getCachedBook("historicos")
+        const historicos = await service.getCachedBookAsync("historicos")
         expect(historicos?.introduction).toEqual(introBodies[1].introduction)
         // The regular books are still cached too — one preload, everything.
-        expect(service.getCachedBook("gen")?.name).toBe("Genesis")
+        expect((await service.getCachedBookAsync("gen"))?.name).toBe("Genesis")
         // Every introduction succeeded, so the next launch can skip refetching.
         expect(mockLocalStorage._storage["groupIntrosCacheReady"]).toBe("true")
       })
@@ -460,11 +462,11 @@ describe("OfflineDataService", () => {
         await promise
 
         // The one that fetched fine is cached...
-        expect(service.getCachedBook("pentateuco")?.introduction).toEqual(
-          introBodies[0].introduction,
-        )
+        expect(
+          (await service.getCachedBookAsync("pentateuco"))?.introduction,
+        ).toEqual(introBodies[0].introduction)
         // ...the one that failed is not...
-        expect(service.getCachedBook("historicos")).toBeUndefined()
+        expect(await service.getCachedBookAsync("historicos")).toBeUndefined()
         expect(console.error).toHaveBeenCalledWith(
           "Failed to preload 1 of 2 standalone introductions for offline use",
         )
@@ -520,7 +522,7 @@ describe("OfflineDataService", () => {
           jasmine.any(Object),
         )
         // The books themselves are still cached despite the intros failure.
-        expect(service.getCachedBook("gen")?.name).toBe("Genesis")
+        expect((await service.getCachedBookAsync("gen"))?.name).toBe("Genesis")
         expect(
           mockLocalStorage._storage["groupIntrosCacheReady"],
         ).toBeUndefined()
@@ -619,7 +621,7 @@ describe("OfflineDataService", () => {
         },
       ])
 
-      const merged = service.getCachedBook("gen")
+      const merged = await service.getCachedBookAsync("gen")
       expect(merged?.chapters?.map((c) => c.number)).toEqual([1, 2, 3])
       expect(
         merged?.chapters?.find((c) => c.number === 1)?.verses?.length,
@@ -654,7 +656,7 @@ describe("OfflineDataService", () => {
         { ...base, chapters: [{ bookId: "gen", number: 1 }] },
       ])
 
-      const merged = service.getCachedBook("gen")
+      const merged = await service.getCachedBookAsync("gen")
       expect(merged?.chapters?.find((c) => c.number === 1)?.introduction).toBe(
         "Texto introdutório",
       )
@@ -663,7 +665,7 @@ describe("OfflineDataService", () => {
     it("should set and retrieve cached books", async () => {
       await service.setCachedBooks(mockBooks)
 
-      const cachedBooks = service.getCachedBooks()
+      const cachedBooks = await service.getCachedBooksAsync()
       expect(cachedBooks.length).toBe(2)
       expect(cachedBooks[0].id).toBe("gen")
     })
@@ -682,7 +684,7 @@ describe("OfflineDataService", () => {
       await service.setCachedBooks(existingBooks)
       await service.setCachedBooks(mockBooks)
 
-      const cachedBooks = service.getCachedBooks()
+      const cachedBooks = await service.getCachedBooksAsync()
       expect(cachedBooks.length).toBe(2)
       const genBook = cachedBooks.find((b) => b.id === "gen")
       expect(genBook?.chapters?.length).toBe(1)
@@ -701,82 +703,82 @@ describe("OfflineDataService", () => {
       )
     })
 
-    it("should return empty array when no books are cached", () => {
-      const books = service.getCachedBooks()
+    it("should return empty array when no books are cached", async () => {
+      const books = await service.getCachedBooksAsync()
       expect(books).toEqual([])
     })
   })
 
-  describe("getCachedBook", () => {
+  describe("getCachedBookAsync", () => {
     beforeEach(async () => {
       await service.setCachedBooks(mockBooks)
     })
 
-    it("should return book by id", () => {
-      const book = service.getCachedBook("gen")
+    it("should return book by id", async () => {
+      const book = await service.getCachedBookAsync("gen")
       expect(book).toBeDefined()
       expect(book?.name).toBe("Genesis")
     })
 
-    it("should return undefined for non-existent book", () => {
-      const book = service.getCachedBook("nonexistent")
+    it("should return undefined for non-existent book", async () => {
+      const book = await service.getCachedBookAsync("nonexistent")
       expect(book).toBeUndefined()
     })
   })
 
-  describe("getCachedChapter", () => {
+  describe("getCachedChapterAsync", () => {
     beforeEach(async () => {
       await service.setCachedBooks(mockBooks)
     })
 
-    it("should return chapter by book id and chapter number", () => {
-      const chapter = service.getCachedChapter("gen", 1)
+    it("should return chapter by book id and chapter number", async () => {
+      const chapter = await service.getCachedChapterAsync("gen", 1)
       expect(chapter).toBeDefined()
       expect(chapter?.number).toBe(1)
       expect(chapter?.bookId).toBe("gen")
     })
 
-    it("should return undefined for non-existent book", () => {
-      const chapter = service.getCachedChapter("nonexistent", 1)
+    it("should return undefined for non-existent book", async () => {
+      const chapter = await service.getCachedChapterAsync("nonexistent", 1)
       expect(chapter).toBeUndefined()
     })
 
-    it("should return undefined for non-existent chapter", () => {
-      const chapter = service.getCachedChapter("gen", 999)
+    it("should return undefined for non-existent chapter", async () => {
+      const chapter = await service.getCachedChapterAsync("gen", 999)
       expect(chapter).toBeUndefined()
     })
 
-    it("should return undefined when book has no chapters", () => {
-      const chapter = service.getCachedChapter("exo", 1)
+    it("should return undefined when book has no chapters", async () => {
+      const chapter = await service.getCachedChapterAsync("exo", 1)
       expect(chapter).toBeUndefined()
     })
   })
 
-  describe("getCachedVerse", () => {
+  describe("getCachedVerseAsync", () => {
     beforeEach(async () => {
       await service.setCachedBooks(mockBooks)
     })
 
-    it("should return verse by book id, chapter number, and verse number", () => {
-      const verse = service.getCachedVerse("gen", 1, 1)
+    it("should return verse by book id, chapter number, and verse number", async () => {
+      const verse = await service.getCachedVerseAsync("gen", 1, 1)
       expect(verse).toBeDefined()
       expect(verse?.number).toBe(1)
       expect(verse?.bookId).toBe("gen")
       expect(verse?.chapterNumber).toBe(1)
     })
 
-    it("should return undefined for non-existent book", () => {
-      const verse = service.getCachedVerse("nonexistent", 1, 1)
+    it("should return undefined for non-existent book", async () => {
+      const verse = await service.getCachedVerseAsync("nonexistent", 1, 1)
       expect(verse).toBeUndefined()
     })
 
-    it("should return undefined for non-existent chapter", () => {
-      const verse = service.getCachedVerse("gen", 999, 1)
+    it("should return undefined for non-existent chapter", async () => {
+      const verse = await service.getCachedVerseAsync("gen", 999, 1)
       expect(verse).toBeUndefined()
     })
 
-    it("should return undefined for non-existent verse", () => {
-      const verse = service.getCachedVerse("gen", 1, 999)
+    it("should return undefined for non-existent verse", async () => {
+      const verse = await service.getCachedVerseAsync("gen", 1, 999)
       expect(verse).toBeUndefined()
     })
   })
@@ -810,9 +812,9 @@ describe("OfflineDataService", () => {
       await service.setCachedBooks(loaded)
       await service.setCachedBooks(shallow)
 
-      const merged = service
-        .getCachedBooks()
-        .find((book) => book.id === "pentateuco")
+      const merged = (await service.getCachedBooksAsync()).find(
+        (book) => book.id === "pentateuco",
+      )
       expect(merged?.introduction?.length).toBe(1)
     })
 
@@ -840,7 +842,7 @@ describe("OfflineDataService", () => {
       await service.setCachedBooks(existing)
       await service.setCachedBooks(incoming)
 
-      const books = service.getCachedBooks()
+      const books = await service.getCachedBooksAsync()
       const genBook = books.find((b) => b.id === "gen")
       expect(genBook?.name).toBe("Genesis New")
       expect(genBook?.shortName).toBe("Genesis")
@@ -877,7 +879,7 @@ describe("OfflineDataService", () => {
       await service.setCachedBooks(existing)
       await service.setCachedBooks(incoming)
 
-      const books = service.getCachedBooks()
+      const books = await service.getCachedBooksAsync()
       const genBook = books.find((b) => b.id === "gen")
       expect(genBook?.chapters?.length).toBe(1)
     })
@@ -925,7 +927,7 @@ describe("OfflineDataService", () => {
       await service.setCachedBooks(existing)
       await service.setCachedBooks(incoming)
 
-      const books = service.getCachedBooks()
+      const books = await service.getCachedBooksAsync()
       const genBook = books.find((b) => b.id === "gen")
       expect(genBook?.chapters?.length).toBe(2)
     })
@@ -954,7 +956,7 @@ describe("OfflineDataService", () => {
       await service.setCachedBooks(existing)
       await service.setCachedBooks(incoming)
 
-      const books = service.getCachedBooks()
+      const books = await service.getCachedBooksAsync()
       expect(books.length).toBe(2)
       expect(books.find((b) => b.id === "gen")).toBeDefined()
       expect(books.find((b) => b.id === "exo")).toBeDefined()

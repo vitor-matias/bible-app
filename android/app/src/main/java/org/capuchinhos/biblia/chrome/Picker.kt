@@ -76,8 +76,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
@@ -872,7 +870,6 @@ private fun ChapterList(
     }
 }
 
-private const val PREFERENCES = "native-chrome"
 private const val CHAPTER_LIST = "picker.chapterList"
 private const val BOOK_VIEW = "picker.bookView"
 

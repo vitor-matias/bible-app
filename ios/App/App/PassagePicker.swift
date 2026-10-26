@@ -228,16 +228,17 @@ private final class BookListViewController: UICollectionViewController, UISearch
 
     private func show(filter: String) {
         let query = filter.trimmingCharacters(in: .whitespaces)
-        func matches(_ book: Book) -> Bool {
-            query.isEmpty || [book.label, book.name, book.abbreviation].contains {
-                $0.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+        // A group's own introduction is found by the group's name ("Pentateuco"), as on Android.
+        func matches(_ book: Book, in group: PassagePickerData.Group, of testament: PassagePickerData.Section) -> Bool {
+            query.isEmpty || [book.label, book.name, book.abbreviation, group.title, testament.title].contains {
+                $0?.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
             }
         }
 
         var snapshot = NSDiffableDataSourceSnapshot<String, Book>()
         for testament in data.sections {
             for group in testament.groups {
-                let books = group.books.filter(matches)
+                let books = group.books.filter { matches($0, in: group, of: testament) }
                 guard !books.isEmpty else { continue }
                 // The testament's own introduction sits under the testament's name.
                 let title = group.title ?? testament.title

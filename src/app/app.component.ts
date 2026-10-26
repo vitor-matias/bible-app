@@ -37,14 +37,9 @@ export const EXIT_BACK_WINDOW_MS = 2000
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppComponent implements OnInit, OnDestroy {
-  private installEventFired = false
   private readonly listenerHandles: PluginListenerHandle[] = []
   /** Until when a back on the first screen leaves the app. */
   private exitBackDeadline = 0
-
-  private readonly installListener = () => {
-    this.installEventFired = true
-  }
 
   constructor(
     private offlineDataService: OfflineDataService,
@@ -70,9 +65,7 @@ export class AppComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     if (typeof window === "undefined") return
 
-    window.addEventListener("appinstalled", this.installListener)
-    // Only preload from standalone check if install event hasn't fired
-    if (this.isStandaloneMode() && !this.installEventFired) {
+    if (this.isStandaloneMode()) {
       this.offlineDataService.preloadAllBooksAndChapters("standalone")
     }
 
@@ -227,9 +220,6 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   async ngOnDestroy(): Promise<void> {
-    if (typeof window !== "undefined") {
-      window.removeEventListener("appinstalled", this.installListener)
-    }
     await Promise.all(this.listenerHandles.map((handle) => handle.remove()))
   }
 

@@ -83,6 +83,35 @@ describe("BookmarkService", () => {
     )
   })
 
+  // One failed save left the queue rejected, so every later change failed too.
+  it("keeps saving after a save fails", async () => {
+    databaseService.clearAndPutAll.and.returnValues(
+      Promise.reject(new Error("QuotaExceededError")),
+      Promise.resolve(),
+    )
+    spyOn(console, "error")
+
+    await expectAsync(service.addBookmark("JHN", 3, "#4CAF50")).toBeRejected()
+    await service.addBookmark("JHN", 4, "#4CAF50")
+
+    expect(
+      service.getBookmarks().find((b) => b.color === "#4CAF50")?.chapter,
+    ).toBe(4)
+  })
+
+  it("keeps removing after a save fails", async () => {
+    databaseService.clearAndPutAll.and.returnValues(
+      Promise.reject(new Error("QuotaExceededError")),
+      Promise.resolve(),
+    )
+    spyOn(console, "error")
+
+    await expectAsync(service.addBookmark("JHN", 3, "#4CAF50")).toBeRejected()
+    await service.removeBookmark("GEN", 1)
+
+    expect(service.getBookmarks().some((b) => b.bookId === "GEN")).toBeFalse()
+  })
+
   it("should filter bookmarks for a specific book", (done) => {
     service.getBookmarksForBook("GEN").subscribe((bookmarks) => {
       expect(bookmarks.length).toBe(1)
