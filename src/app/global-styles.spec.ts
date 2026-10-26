@@ -145,14 +145,15 @@ describe("global styles", () => {
   })
 
   // On the open iPhone Duo the status bar runs down the right side, and the
-  // text, centred in the safe area, sat left of the screen's centre.
+  // text, centred in the safe area, sat left of the screen's centre. Centred
+  // with the scroller, the scroll indicator then ran down the bar.
   describe("the reader's side insets in the iOS app", () => {
     let frame: HTMLIFrameElement
 
     // The rule is for two-page widths, wider than the Karma frame: a page of
-    // that width with this one's styles, a reader with the paged view's
-    // fixed footer, and the Duo's insets. Returns the text's and the
-    // footer's left and right insets.
+    // that width with this one's styles, a reader with the scrolling view's
+    // text and footer and the paged view's fixed footer, and the Duo's
+    // insets. Returns how far each stays from the screen's sides.
     const insetsAt = async (width: number, nativeChrome: boolean) => {
       frame = document.createElement("iframe")
       frame.style.width = `${width}px`
@@ -188,33 +189,49 @@ describe("global styles", () => {
         right: var(--app-inset-right);
       }`
       page.head.appendChild(scoped)
-      reader.innerHTML = '<div class="fixed-footer" _ngcontent-reader></div>'
+      reader.innerHTML = `
+        <div class="mat-drawer-content">
+          <div><div class="bookBlock"></div></div>
+          <div class="copyright-footer"></div>
+          <div class="copyright-footer fixed-footer" _ngcontent-reader></div>
+        </div>`
       page.body.appendChild(reader)
-      const body = getComputedStyle(page.body)
-      const footer = getComputedStyle(
+      const gaps = (selector: string) => {
+        const box = (
+          reader.querySelector(selector) as HTMLElement
+        ).getBoundingClientRect()
+        return [box.left, page.documentElement.clientWidth - box.right]
+      }
+      const fixedFooter = getComputedStyle(
         reader.querySelector(".fixed-footer") as HTMLElement,
       )
       return {
-        text: [body.paddingLeft, body.paddingRight],
-        footer: [footer.left, footer.right],
+        scroller: gaps(".mat-drawer-content"),
+        text: gaps(".mat-drawer-content > div"),
+        footer: gaps(".copyright-footer:not(.fixed-footer)"),
+        fixedFooter: [fixedFooter.left, fixedFooter.right],
       }
     }
 
     afterEach(() => frame.remove())
 
-    it("splits them evenly, centring the text and its footer on the screen", async () => {
-      expect(await insetsAt(900, true)).toEqual({
-        text: ["30px", "30px"],
-        footer: ["30px", "30px"],
-      })
+    it("centres the text and its footers on the screen", async () => {
+      const insets = await insetsAt(900, true)
+      expect(insets.text).toEqual([30, 30])
+      expect(insets.footer).toEqual([30, 30])
+      expect(insets.fixedFooter).toEqual(["30px", "30px"])
+    })
+
+    it("keeps the scroller, and so its scroll indicator, out of the status bar", async () => {
+      expect((await insetsAt(900, true)).scroller).toEqual([0, 60])
     })
 
     it("keeps to the safe area on one-page widths, whose text margin is narrow", async () => {
-      expect((await insetsAt(700, true)).text).toEqual(["0px", "60px"])
+      expect((await insetsAt(700, true)).text).toEqual([0, 60])
     })
 
     it("keeps to the safe area on the web", async () => {
-      expect((await insetsAt(900, false)).text).toEqual(["0px", "60px"])
+      expect((await insetsAt(900, false)).text).toEqual([0, 60])
     })
   })
 
