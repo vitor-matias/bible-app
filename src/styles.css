@@ -469,6 +469,25 @@ html.dark-theme .native-chrome app-search {
   margin-top: var(--app-reader-gap);
 }
 
+/* The open iPhone Duo's status bar runs down its right side: centred in the
+   safe area, the text sat left of the screen's centre. Each side takes half
+   the insets, so the text centres on the screen; from 768px its columns keep
+   margins wider than the shift, so it still clears the bar. Narrower, the
+   text has only 15px of margin and keeps to the safe area. The paged view's
+   fixed copyright footer follows the text. */
+@media (min-width: 768px) {
+  body.native-chrome:has(bible-reader) {
+    --app-centred-inset: calc((var(--app-inset-left) + var(--app-inset-right)) / 2);
+    padding-left: var(--app-centred-inset);
+    padding-right: var(--app-centred-inset);
+  }
+
+  .native-chrome bible-reader .fixed-footer {
+    left: var(--app-centred-inset);
+    right: var(--app-centred-inset);
+  }
+}
+
 .native-chrome bible-reader .paged-view-container {
   margin-top: var(--app-reader-gap);
   height: calc(100vh - var(--app-header-height) - var(--app-chrome-top) - var(--app-reader-gap) - var(--app-inset-bottom));

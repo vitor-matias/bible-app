@@ -144,6 +144,67 @@ describe("global styles", () => {
     })
   })
 
+  // On the open iPhone Duo the status bar runs down the right side, and the
+  // text, centred in the safe area, sat left of the screen's centre.
+  describe("the reader's side insets in the iOS app", () => {
+    let frame: HTMLIFrameElement
+
+    // The rule is for two-page widths, wider than the Karma frame: a page of
+    // that width with this one's styles, a reader with the paged view's
+    // fixed footer, and the Duo's insets. Returns the text's and the
+    // footer's left and right insets.
+    const insetsAt = (width: number, nativeChrome: boolean) => {
+      frame = document.createElement("iframe")
+      frame.style.width = `${width}px`
+      document.body.appendChild(frame)
+      const page = frame.contentDocument as Document
+      for (const sheet of document.querySelectorAll(
+        "style, link[rel=stylesheet]",
+      )) {
+        page.head.appendChild(page.importNode(sheet, true))
+      }
+      page.documentElement.style.setProperty("--app-inset-left", "0px")
+      page.documentElement.style.setProperty("--app-inset-right", "60px")
+      page.body.classList.toggle("native-chrome", nativeChrome)
+      const reader = page.createElement("bible-reader")
+      // As the reader's own (component-scoped) .fixed-footer rule sets it.
+      const scoped = page.createElement("style")
+      scoped.textContent = `.fixed-footer[_ngcontent-reader] {
+        position: fixed;
+        left: var(--app-inset-left);
+        right: var(--app-inset-right);
+      }`
+      page.head.appendChild(scoped)
+      reader.innerHTML = '<div class="fixed-footer" _ngcontent-reader></div>'
+      page.body.appendChild(reader)
+      const body = getComputedStyle(page.body)
+      const footer = getComputedStyle(
+        reader.querySelector(".fixed-footer") as HTMLElement,
+      )
+      return {
+        text: [body.paddingLeft, body.paddingRight],
+        footer: [footer.left, footer.right],
+      }
+    }
+
+    afterEach(() => frame.remove())
+
+    it("splits them evenly, centring the text and its footer on the screen", () => {
+      expect(insetsAt(900, true)).toEqual({
+        text: ["30px", "30px"],
+        footer: ["30px", "30px"],
+      })
+    })
+
+    it("keeps to the safe area on one-page widths, whose text margin is narrow", () => {
+      expect(insetsAt(700, true).text).toEqual(["0px", "60px"])
+    })
+
+    it("keeps to the safe area on the web", () => {
+      expect(insetsAt(900, false).text).toEqual(["0px", "60px"])
+    })
+  })
+
   // In the dark theme the crimson verse numbers were 3.8:1 on the background,
   // under the 4.5:1 that small text needs.
   describe("verse numbers in the iOS app's dark theme", () => {
