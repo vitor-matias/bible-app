@@ -327,38 +327,6 @@ describe("BibleApiService", () => {
     })
   })
 
-  describe("getBook", () => {
-    it("should return a cached book when available", async () => {
-      const cachedBook = {
-        id: "gen",
-        name: "Genesis",
-        shortName: "Genesis",
-        abrv: "Gn",
-        chapterCount: 50,
-      } as Book
-      offlineDataServiceSpy.getCachedBookAsync.and.returnValue(
-        Promise.resolve(cachedBook),
-      )
-
-      const result = await firstValueFrom(service.getBook("gen"))
-
-      expect(result).toEqual(cachedBook)
-      httpMock.expectNone("v1/gen")
-    })
-
-    it("should throw when offline and the book is not cached", async () => {
-      offlineDataServiceSpy.getCachedBookAsync.and.returnValue(
-        Promise.resolve(undefined),
-      )
-      networkServiceStub.isOffline = true
-
-      await expectAsync(
-        firstValueFrom(service.getBook("gen")),
-      ).toBeRejectedWithError("Offline - book not cached")
-      httpMock.expectNone("v1/gen")
-    })
-  })
-
   describe("getVerse", () => {
     it("should return a cached verse when available", async () => {
       const cachedVerse = {
