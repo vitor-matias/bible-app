@@ -15,13 +15,9 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -65,8 +61,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
@@ -80,7 +74,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.FloatingToolbarDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -102,8 +95,6 @@ import androidx.compose.material3.SnackbarVisuals
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
@@ -154,7 +145,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -226,11 +216,8 @@ private fun barColors(container: Color) = TopAppBarDefaults.topAppBarColors(
     scrolledContainerColor = container,
 )
 
-/** An inert bar (a web panel over the page) is out of TalkBack's reading. */
+/** Out of TalkBack's reading: an inert bar (a web panel over the page), or one moved off the screen. */
 private fun Modifier.inert(inert: Boolean) = if (inert) clearAndSetSemantics {} else this
-
-/** Bars moved off the screen are out of TalkBack's reading too. */
-private fun Modifier.away(away: Boolean) = if (away) clearAndSetSemantics {} else this
 
 /**
  * Behind the three-button navigation bar, the page's colour, nearly opaque:
@@ -333,7 +320,7 @@ private fun ReaderBars(chrome: ChromeController, state: ChromeState, barColor: C
                 .fillMaxWidth()
                 .windowInsetsPadding(statusInsets.only(WindowInsetsSides.Top))
                 .graphicsLayer { translationY = -away * (barPx + statusTop) }
-                .away(away == 1f),
+                .inert(away == 1f),
         ) {
             TopAppBar(
                 title = { PassageTitle(chrome, state, enabled, showSubtitle) },
@@ -390,7 +377,7 @@ private fun ReaderBars(chrome: ChromeController, state: ChromeState, barColor: C
                 Box(
                     Modifier
                         .graphicsLayer { translationY = away * bottomPx }
-                        .away(away == 1f),
+                        .inert(away == 1f),
                 ) {
                     ChapterArrows(chrome, state, enabled && away == 0f)
                 }
