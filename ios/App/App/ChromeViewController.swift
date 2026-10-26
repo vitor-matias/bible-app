@@ -739,10 +739,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// See `presentSheet`; `done` says whether something was shared.
     func presentShare(_ share: ShareSheetState, done: @escaping (Bool) -> Void) {
         let sheet = UIActivityViewController(activityItems: share.activityItems, applicationActivities: nil)
-        sheet.completionWithItemsHandler = { activity, completed, _, _ in
+        sheet.completionWithItemsHandler = { activity, completed, _, error in
             // A cancelled target (Mail closed unsent) returns to the sheet, where
-            // another can still share; unanswered, the web side reads "not shared".
-            if !completed && activity != nil { return }
+            // another can still share; a failed one answers at once.
+            if !completed && activity != nil && error == nil { return }
             done(completed)
         }
         // From ⋯, whose menu has Partilhar: a popover on iPad, and on iOS 26
