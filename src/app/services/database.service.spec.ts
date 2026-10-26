@@ -15,6 +15,7 @@ describe("DatabaseService", () => {
     objectStore: jasmine.Spy
     oncomplete: () => void
     onerror: () => void
+    onabort: () => void
     error: Error | null
   }
   let mockIDBObjectStore: {
@@ -47,6 +48,7 @@ describe("DatabaseService", () => {
         .and.returnValue(mockIDBObjectStore),
       oncomplete: null as unknown as () => void, // To be assigned by service
       onerror: null as unknown as () => void, // To be assigned by service
+      onabort: null as unknown as () => void, // To be assigned by service
       error: null,
     }
 
@@ -269,6 +271,25 @@ describe("DatabaseService", () => {
 
       mockIDBTransaction.oncomplete()
       await expectAsync(promise).toBeResolved()
+    })
+  })
+
+  describe("clearAndPutAll", () => {
+    // A full disk aborts the transaction without an error event: the save
+    // waited forever, and every bookmark change queued behind it.
+    it("should reject when the transaction aborts", async () => {
+      mockIDBObjectStore.put.and.returnValue({})
+      const promise = service.clearAndPutAll("testStore", [{ id: 1 }])
+
+      // Open DB
+      mockIDBRequest.onsuccess()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      const error = new Error("QuotaExceededError")
+      mockIDBTransaction.error = error
+      mockIDBTransaction.onabort()
+
+      await expectAsync(promise).toBeRejectedWith(error)
     })
   })
 

@@ -56,7 +56,7 @@ export class BookmarkService {
     chapter: number,
     color: string,
   ): Promise<void> {
-    this.updatePromise = this.updatePromise.then(async () => {
+    this.updatePromise = this.updatePromise.catch(() => {}).then(async () => {
       const currentBookmarks = this.bookmarksSubject.value
       // Filter out any existing bookmark with the same color
       const bookmarksWithoutConflict = currentBookmarks.filter(
@@ -92,7 +92,7 @@ export class BookmarkService {
   }
 
   async removeBookmark(bookId: string, chapter: number): Promise<void> {
-    this.updatePromise = this.updatePromise.then(async () => {
+    this.updatePromise = this.updatePromise.catch(() => {}).then(async () => {
       const currentBookmarks = this.bookmarksSubject.value
       const updatedBookmarks = currentBookmarks.filter(
         (b) => !(b.bookId === bookId && b.chapter === chapter),

@@ -98,6 +98,7 @@ export class DatabaseService {
 
         transaction.oncomplete = () => resolve()
         transaction.onerror = () => reject(transaction.error)
+        transaction.onabort = () => reject(transaction.error)
       } catch (error) {
         reject(error)
       }
@@ -115,6 +116,7 @@ export class DatabaseService {
 
         transaction.oncomplete = () => resolve()
         transaction.onerror = () => reject(transaction.error)
+        transaction.onabort = () => reject(transaction.error)
 
         for (const item of items) {
           store.put(item)
@@ -140,6 +142,7 @@ export class DatabaseService {
 
         transaction.oncomplete = () => resolve()
         transaction.onerror = () => reject(transaction.error)
+        transaction.onabort = () => reject(transaction.error)
       } catch (error) {
         reject(error)
       }
@@ -158,6 +161,7 @@ export class DatabaseService {
 
         transaction.oncomplete = () => resolve()
         transaction.onerror = () => reject(transaction.error)
+        transaction.onabort = () => reject(transaction.error)
       } catch (error) {
         reject(error)
       }
@@ -175,6 +179,8 @@ export class DatabaseService {
 
         transaction.oncomplete = () => resolve()
         transaction.onerror = () => reject(transaction.error)
+        // A full disk ("QuotaExceededError") arrives only as an abort.
+        transaction.onabort = () => reject(transaction.error)
 
         // Clear existing data
         store.clear()
