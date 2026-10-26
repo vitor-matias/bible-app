@@ -447,6 +447,36 @@ describe("HeaderComponent", () => {
       )
     })
 
+    describe("text alignment", () => {
+      afterEach(() => {
+        localStorage.removeItem("raggedText")
+        document.documentElement.classList.remove("ragged-text")
+      })
+
+      it("switches the text between justified and ragged-right", () => {
+        themeButton()
+        const button = document.querySelectorAll<HTMLButtonElement>(
+          ".menu-controls .menu-control",
+        )[2]
+        expect(button.getAttribute("aria-label")).toBe(
+          "Justificado (clique para alinhar à esquerda)",
+        )
+
+        button.click()
+
+        expect(trigger().menuOpen).toBeTrue()
+        expect(
+          document.documentElement.classList.contains("ragged-text"),
+        ).toBeTrue()
+        expect(button.querySelector("mat-icon")?.textContent?.trim()).toBe(
+          "format_align_left",
+        )
+        expect(button.getAttribute("aria-label")).toBe(
+          "Alinhado à esquerda (clique para justificar)",
+        )
+      })
+    })
+
     // Plain buttons in a menu are skipped by its arrow keys.
     it("can be reached with the menu's arrow keys", () => {
       themeButton()
@@ -965,6 +995,7 @@ describe("HeaderComponent with the iOS native bars", () => {
       search: true,
       themeMode: "system",
       viewMode: "scrolling",
+      raggedText: false,
       autoScrollVisible: false,
       autoScrollAvailable: true,
       canShare: true,
@@ -1013,6 +1044,7 @@ describe("HeaderComponent with the iOS native bars", () => {
         passageShortLabels: [],
         chapterNavigation: false,
         viewMode: null,
+        raggedText: null,
       }),
     )
     // The web header's prompt swap has no place on a native button.
@@ -1141,6 +1173,30 @@ describe("HeaderComponent with the iOS native bars", () => {
     actions.next({ id: "auto-scroll" })
 
     expect(emitted).toEqual(["view", "smaller", "larger", "scroll"])
+  })
+
+  // The native menus' Justificado / Alinhado à esquerda: the same choice as
+  // the web menu's button, and the bars mark the new one.
+  it("sets the text ragged-right, or justified again, from the native menus", () => {
+    const classes = document.documentElement.classList
+    try {
+      actions.next({ id: "text-align" })
+
+      expect(classes.contains("ragged-text")).toBeTrue()
+      expect(lastState()).toEqual(
+        jasmine.objectContaining({ raggedText: true }),
+      )
+
+      actions.next({ id: "text-align" })
+
+      expect(classes.contains("ragged-text")).toBeFalse()
+      expect(lastState()).toEqual(
+        jasmine.objectContaining({ raggedText: false }),
+      )
+    } finally {
+      localStorage.removeItem("raggedText")
+      classes.remove("ragged-text")
+    }
   })
 
   // The Android sheet steps by 10, and resets to the size the text opens at.

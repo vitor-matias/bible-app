@@ -26,6 +26,7 @@ const READER: ReaderChrome = {
   canGoNext: true,
   search: true,
   viewMode: "scrolling",
+  raggedText: false,
   autoScrollVisible: false,
   autoScrollAvailable: true,
   canShare: true,

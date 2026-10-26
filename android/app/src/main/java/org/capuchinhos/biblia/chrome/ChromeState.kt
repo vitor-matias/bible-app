@@ -97,6 +97,8 @@ data class ChromeState(
     val search: Boolean = false,
     /** "paged" or "scrolling"; null hides the choice. */
     val viewMode: String? = null,
+    /** Whether the text is ragged-right rather than justified; null hides the choice. */
+    val raggedText: Boolean? = null,
     val autoScrollVisible: Boolean = false,
     val autoScrollAvailable: Boolean = false,
     val canShare: Boolean = false,
@@ -140,6 +142,7 @@ data class ChromeState(
                 canGoNext = call.getBoolean("canGoNext", false)!!,
                 search = call.getBoolean("search", false)!!,
                 viewMode = call.getString("viewMode"),
+                raggedText = call.getBoolean("raggedText", null),
                 autoScrollVisible = call.getBoolean("autoScrollVisible", false)!!,
                 autoScrollAvailable = call.getBoolean("autoScrollAvailable", false)!!,
                 canShare = call.getBoolean("canShare", false)!!,

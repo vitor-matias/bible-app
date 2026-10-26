@@ -57,6 +57,16 @@ export class PreferencesService {
     VIEW_MODE: "viewMode",
     ONBOARDING_SEEN: "onboardingSeen",
     NATIVE_BARS_ONBOARDING_SEEN: "nativeBarsOnboardingSeen",
+    RAGGED_TEXT: "raggedText",
+  }
+
+  /** Whether the reader chose ragged-right text; justified by default. */
+  getRaggedText(): boolean {
+    return this.read(this.KEYS.RAGGED_TEXT) === "true"
+  }
+
+  setRaggedText(ragged: boolean): void {
+    this.write(this.KEYS.RAGGED_TEXT, ragged.toString())
   }
 
   getTheme(): "light" | "dark" | "system" | null {

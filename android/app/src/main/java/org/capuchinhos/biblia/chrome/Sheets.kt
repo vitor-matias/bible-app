@@ -263,6 +263,18 @@ private fun AppearanceSheet(chrome: ChromeController, sheet: Sheet) {
                     compact = compact,
                 ) { if (it != viewMode) chrome.send("view-mode") }
             }
+            state.raggedText?.let { ragged ->
+                if (!compact) Caption("Alinhamento")
+                val current = if (ragged) "ragged" else "justified"
+                ConnectedChoices(
+                    options = listOf(
+                        Choice("justified", "Justificado", R.drawable.ic_format_align_justify),
+                        Choice("ragged", "Alinhado à esquerda", R.drawable.ic_format_align_left),
+                    ),
+                    selected = current,
+                    compact = compact,
+                ) { if (it != current) chrome.send("text-align") }
+            }
             }
         }
     }

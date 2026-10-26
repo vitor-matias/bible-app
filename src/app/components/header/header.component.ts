@@ -53,6 +53,7 @@ import {
 } from "../../services/native-chrome.service"
 import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
+import { TextAlignService } from "../../services/text-align.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"
 import { SHARE_PLUGIN } from "../../tokens"
 import {
@@ -160,6 +161,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly destroyRef = inject(DestroyRef)
   private readonly router = inject(Router)
   private readonly nativeChrome = inject(NativeChromeService)
+  private readonly textAlign = inject(TextAlignService)
   private readonly bookService = inject(BookService)
   private readonly nativeBookmarks = inject(NativeBookmarksService)
   private readonly nativeReport = inject(NativeReportService)
@@ -350,6 +352,22 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.toggleViewMode.emit()
   }
 
+  getTextAlignIcon(): string {
+    return this.textAlign.ragged ? "format_align_left" : "format_align_justify"
+  }
+
+  getTextAlignTooltip(): string {
+    return this.textAlign.ragged
+      ? "Alinhado à esquerda (clique para justificar)"
+      : "Justificado (clique para alinhar à esquerda)"
+  }
+
+  /** As the theme: the menu stays open, and the text realigns behind it. */
+  onToggleTextAlign(): void {
+    this.textAlign.toggle()
+    this.cdr.detectChanges()
+  }
+
   getThemeIcon(): string {
     const mode = this.themeService.currentMode
     if (mode === "system") return "brightness_auto"
@@ -500,6 +518,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       search: true,
       themeMode: this.themeService.currentMode,
       viewMode: isAbout ? null : this.viewMode,
+      raggedText: isAbout ? null : this.textAlign.ragged,
       autoScrollVisible: this.autoScrollControlsVisible,
       autoScrollAvailable: this.viewMode !== "paged",
       canShare: this.canShare,
@@ -544,6 +563,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         break
       case "view-mode":
         this.toggleViewMode.emit()
+        break
+      case "text-align":
+        this.textAlign.toggle()
+        this.syncNativeChrome()
         break
       case "font-decrease":
         this.decreaseFontSizeEvent.emit(action.step)

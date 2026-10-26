@@ -1,5 +1,5 @@
 .verseNumber {
-  color: var(--text-secondary);
+  color: var(--text-marker, var(--text-secondary));
   font-size: 65%;
   vertical-align: top;
   text-align: right;
@@ -7,7 +7,7 @@
 
 .section {
   color: var(--text-secondary);
-  font-weight: bold;
+  font-weight: 600;
 }
 
 .s1Section {
@@ -28,6 +28,10 @@ h3 {
   display: inline-block;
   width: 100%;
   font-size: 125%;
+  font-weight: 600;
+  /* Set tight and in lines of even length, not the body's open 1.6. */
+  line-height: 1.25;
+  text-wrap: balance;
   text-align: center;
   margin-bottom: 0.5rem;
 }
@@ -108,11 +112,26 @@ h3:not(:first-child) {
 .footnoteIndicator {
   vertical-align: top;
   font-size: 65%;
-  color: var(--text-secondary);
+  color: var(--text-marker, var(--text-secondary));
   cursor: pointer;
   text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
   text-decoration-thickness: 1px;
   text-underline-offset: 0.2em;
+}
+
+/* A verse number, its notes marker and the verse's first word stay on one
+   line ("4" | "＊" | "«Qual" broke apart). Nothing breaks inside the pair,
+   whatever the marker: browsers break around the iOS app's <svg> icon even
+   between word joiners. A word joiner after the pair forbids a break before
+   the word; it is generated, so it isn't copied with the text, and it is the
+   pair's ::after, since the marker's own is the apps' touch target. */
+.verseMarker {
+  white-space: nowrap;
+}
+
+.verseMarker::after {
+  content: "\2060";
 }
 
 .quoteLineWrapper {

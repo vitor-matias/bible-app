@@ -46,6 +46,8 @@ struct ChromeState: Equatable {
     var canGoNext = false
     var search = false
     var viewMode: String?
+    /// Whether the text is ragged-right rather than justified; nil hides the choice.
+    var raggedText: Bool?
     var autoScrollVisible = false
     var autoScrollAvailable = false
     var canShare = false
@@ -83,6 +85,7 @@ struct ChromeState: Equatable {
         canGoNext = call.getBool("canGoNext", false)
         search = call.getBool("search", false)
         viewMode = call.getString("viewMode")
+        raggedText = call.getBool("raggedText")
         autoScrollVisible = call.getBool("autoScrollVisible", false)
         autoScrollAvailable = call.getBool("autoScrollAvailable", false)
         canShare = call.getBool("canShare", false)

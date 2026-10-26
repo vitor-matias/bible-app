@@ -4,28 +4,20 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: "PT Serif", serif;
-  font-weight: bold;
+  font-family: var(--font-reading);
+  font-weight: 600;
+  line-height: 1.25;
+  text-wrap: balance;
 }
 
-.bookBlock {
-  font-family: "PT Serif", serif;
-  line-height: 1.6;
-  text-align: justify;
-  text-justify: inter-word;
-  hyphens: auto;
-  display: block;
-  margin: 15px;
-  font-size: 105%;
+:host {
+  /* A phone's side margin, scrolling or paged: room enough that the column
+     reads as a page rather than running to the screen's edges. */
+  --reader-side-margin: 24px;
 }
 
-/* Android's narrow measure (about 38 characters) hyphenated six lines in
-   fifteen, three in a row, down to two-letter fragments ("so-bre"). Words
-   of seven letters or more only, three on either side; balanced endings. */
-:host-context(.platform-android) .bookBlock {
-  hyphenate-limit-chars: 7 3 3;
-  text-wrap: pretty;
-}
+/* The running text's own type (.bookBlock) is in styles.css, beside the
+   rules that vary it, which keeps this file under its size budget. */
 
 .chapterBlock {
   touch-action: pan-y !important;
@@ -384,7 +376,7 @@ h6 {
 
   /* As the scrolling text's margin. */
   .paged-view .chapterBlock {
-    padding-inline: 15px;
+    padding-inline: var(--reader-side-margin);
   }
 }
 
@@ -443,7 +435,7 @@ h6 {
 }
 
 .copyright-footer {
-  font-family: "PT Serif", serif;
+  font-family: var(--font-reading);
   width: 95%;
   margin: 0 auto;
   padding: 8px 0 8px 0;

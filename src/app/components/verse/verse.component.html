@@ -13,10 +13,14 @@
            verse number; .verseText keeps it the size of the text. -->
       <span class="verseText verseRun">{{ " " }}</span>
     }
-    <span class="verseNumber">{{ data.number }}</span>
-    @if(hasFootnotes){
-      <span role="button" tabindex="0" (click)="toggleFootnotes($event)" (keydown.enter)="toggleFootnotes($event)" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)" class="footnoteIndicator" [attr.aria-label]="noteIcon ? 'Notas do versículo ' + data.number : null"><ng-container *ngTemplateOutlet="noteMark"></ng-container></span>
-    }
+    <!-- The number and its notes marker, kept on one line together and on
+         the line of the verse's first word (.verseMarker). -->
+    <span class="verseMarker">
+      <span class="verseNumber">{{ data.number }}</span>
+      @if(hasFootnotes){
+        <span role="button" tabindex="0" (click)="toggleFootnotes($event)" (keydown.enter)="toggleFootnotes($event)" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)" class="footnoteIndicator" [attr.aria-label]="noteIcon ? 'Notas do versículo ' + data.number : null"><ng-container *ngTemplateOutlet="noteMark"></ng-container></span>
+      }
+    </span>
   }
 
   <ng-template #elementContent let-text let-i="i" let-isFirst="isFirst" let-isLast="isLast" let-isQuote="isQuote">

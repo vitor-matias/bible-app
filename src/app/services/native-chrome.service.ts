@@ -23,6 +23,8 @@ export type NativeChromeAction =
         | "theme-light"
         | "theme-dark"
         | "view-mode"
+        /** Justified or ragged-right; handled by TextAlignService. */
+        | "text-align"
         | "font-reset"
         | "bookmarks"
         | "auto-scroll"
@@ -73,6 +75,8 @@ export interface ReaderChrome {
   search: boolean
   /** null hides the view-mode toggle. */
   viewMode: "scrolling" | "paged" | null
+  /** Whether the text is set ragged-right rather than justified; null hides the choice. */
+  raggedText: boolean | null
   autoScrollVisible: boolean
   autoScrollAvailable: boolean
   canShare: boolean

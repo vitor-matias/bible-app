@@ -915,11 +915,21 @@ describe("BibleReaderComponent", () => {
       it("keep a phone's side margin inside each page", () => {
         const { view, chapter } = pagedAt(390)
 
-        expect(chapter.paddingLeft).toBe("15px")
-        expect(chapter.paddingRight).toBe("15px")
+        expect(chapter.paddingLeft).toBe("24px")
+        expect(chapter.paddingRight).toBe("24px")
         // Nothing outside the columns, so a page advances by its width.
         expect(view.paddingLeft).toBe("0px")
         expect(view.columnGap).toBe("0px")
+      })
+
+      it("give scrolling text the same side margin as a page", () => {
+        expect(frame).withContext("the specs run in a frame").toBeTruthy()
+        if (frame) frame.style.width = "390px"
+        const block = render("scrolling").querySelector(
+          ".bookBlock",
+        ) as HTMLElement
+        expect(getComputedStyle(block).marginLeft).toBe("24px")
+        expect(getComputedStyle(block).marginRight).toBe("24px")
       })
 
       it("keep a tablet's margins inside each of its two columns", () => {
@@ -941,6 +951,22 @@ describe("BibleReaderComponent", () => {
 
       container.classList.add("large-text")
       expect(getComputedStyle(block).textAlign).toBe("start")
+    })
+
+    // The reader's choice in the menu (TextAlignService), over the default.
+    it("sets the text ragged-right and unhyphenated when chosen", () => {
+      const block = render("scrolling").querySelector(
+        ".bookBlock",
+      ) as HTMLElement
+      expect(getComputedStyle(block).hyphens).toBe("auto")
+
+      document.documentElement.classList.add("ragged-text")
+      try {
+        expect(getComputedStyle(block).textAlign).toBe("start")
+        expect(getComputedStyle(block).hyphens).toBe("manual")
+      } finally {
+        document.documentElement.classList.remove("ragged-text")
+      }
     })
 
     function heightWithInset(element: HTMLElement, inset: string): number {
