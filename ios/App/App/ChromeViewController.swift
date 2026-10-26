@@ -37,6 +37,11 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private var toolbarRight: NSLayoutConstraint!
 
     private(set) var state = ChromeState()
+    /// The buttons are in the navigation controller's bars, which iOS 27.1
+    /// stands up in the vertical bar beside the status bar (the iPhone Duo),
+    /// leaving the top and bottom of the screen to the page. Elsewhere those
+    /// bars stay hidden and the floating ones above are used.
+    private var usesVerticalBar = false
     private var collapsed = false
     /// Bars meant to be on screen; a fade-out may still be running for others.
     private var shownBars = Set<ObjectIdentifier>()
@@ -146,6 +151,15 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
+        // Folding or unfolding the Duo turns the vertical bar on or off: the
+        // reader's buttons move bars, outside this layout pass.
+        if verticalBarActive != usesVerticalBar {
+            usesVerticalBar = verticalBarActive
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.apply(self.state)
+            }
+        }
         topBarTop.constant = topBarOffset
         compactPassageBottom.constant = -compactPassageInset
         let fold = foldInset
@@ -198,17 +212,24 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             bar.accessibilityElementsHidden = next.inert
         }
 
+        if usesVerticalBar {
+            // The system bar isn't in the loop above: keep Voltar inert too.
+            systemBackItem.isEnabled = !next.inert
+        } else {
+            setSystemBarItems(title: nil, left: [], right: [])
+        }
         switch next.mode {
         case .reader:
             configureReader(next)
-            if previous.mode != .reader {
-                topBar.setItems([readerItem], animated: previous.mode == .search)
-            }
+            setTopBarItems([readerItem], animated: previous.mode == .search)
             announceChanges(from: previous, to: next)
         case .search:
             searchItem.leftBarButtonItem = nil
+            setTopBarItems([searchBackItem, searchItem], animated: previous.mode == .reader)
+            if usesVerticalBar {
+                setSystemBarItems(title: searchItem.title, left: [systemBackItem], right: [])
+            }
             if previous.mode != .search {
-                topBar.setItems([searchBackItem, searchItem], animated: previous.mode == .reader)
                 searchField.text = next.query
             } else if next.query != previous.query && !searchField.isEditing {
                 // Not while typing: a search that ran on a pause echoes its query.
@@ -218,12 +239,13 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             pageItem.title = next.title
             pageSearchItem.isEnabled = !next.inert
             let search = next.search ? pageSearchItem : nil
-            if pageItem.rightBarButtonItem !== search {
+            if usesVerticalBar {
+                pageItem.rightBarButtonItem = nil
+                setSystemBarItems(title: next.title, left: [systemBackItem], right: search.map { [$0] } ?? [])
+            } else if pageItem.rightBarButtonItem !== search {
                 pageItem.rightBarButtonItem = search
             }
-            if previous.mode != .page {
-                topBar.setItems([pageBackItem, pageItem], animated: previous.mode != .none)
-            }
+            setTopBarItems([pageBackItem, pageItem], animated: previous.mode != .none)
         case .none:
             break
         }
@@ -232,13 +254,19 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         }
 
         // VoiceOver users find the bars by swiping through the screen, not by
-        // tapping where they were: for them the bars stay.
+        // tapping where they were: for them the bars stay. So they do in the
+        // vertical bar, beside the text rather than over it.
         let collapse = next.mode == .reader && next.collapsed && !UIAccessibility.isVoiceOverRunning
+            && !usesVerticalBar
         let collapseChanged = collapse != collapsed
         collapsed = collapse
-        setShown(topBar, next.mode != .none, animated: animated)
+        let systemBars = usesVerticalBar && next.mode != .none
+        setShown(topBar, next.mode != .none && !systemBars, animated: animated)
         setShown(toolbar, next.mode == .reader, animated: animated)
         setShown(compactPassage, next.mode == .reader, animated: animated)
+        navigationController?.setNavigationBarHidden(!systemBars, animated: animated)
+        navigationController?.setToolbarHidden(!(systemBars && next.mode == .reader && next.chapterNavigation),
+                                               animated: animated)
         setShown(searchField, next.mode == .search, animated: animated)
         // Once shown: hidden, the field may not take the keyboard.
         if next.mode == .search && previous.mode != .search {
@@ -373,7 +401,14 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         }
         bookmarksItem.accessibilityValue = state.bookmarkName.map { "marcador \($0) neste capítulo" }
         fontItem.isEnabled = enabled
-        if readerItem.leftBarButtonItems?.first !== moreItem {
+        // An item shows in one bar at a time: the other bar lets go of it.
+        let barItem = usesVerticalBar ? navigationItem : readerItem
+        if usesVerticalBar {
+            readerItem.leftBarButtonItems = nil
+            readerItem.rightBarButtonItems = nil
+            navigationItem.title = nil
+        }
+        if barItem.leftBarButtonItems?.first !== moreItem {
             // As the web header: its menu in the left corner, here ⋯, then the
             // text button, each in a glass circle of its own rather than one
             // shared capsule.
@@ -381,17 +416,17 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             if #available(iOS 26.0, *) {
                 for item in items { item.sharesBackground = false }
             }
-            readerItem.leftBarButtonItems = items
+            barItem.leftBarButtonItems = items
         }
         readerSearchItem.isEnabled = enabled
         // Rightmost first: search in the corner, as in the web header, then
         // Marcadores.
         let rightItems = (state.search ? [readerSearchItem] : []) + [bookmarksItem]
-        if readerItem.rightBarButtonItems ?? [] != rightItems {
+        if barItem.rightBarButtonItems ?? [] != rightItems {
             if #available(iOS 26.0, *) {
                 for item in rightItems { item.sharesBackground = false }
             }
-            readerItem.rightBarButtonItems = rightItems
+            barItem.rightBarButtonItems = rightItems
         }
 
         if let autoScroll = state.autoScroll {
@@ -408,8 +443,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         previousItem.isEnabled = enabled && state.canGoPrevious
         nextItem.isEnabled = enabled && state.canGoNext
         fittedToolbarWidth = toolbarWidth
+        let arrows = state.chapterNavigation ? [previousItem, nextItem] : []
         let room = toolbarWidth - 2 * (Glass.barMargin + Glass.padding)
-            - (state.chapterNavigation ? Glass.pair + Glass.gap : 0)
+            - (arrows.isEmpty || usesVerticalBar ? 0 : Glass.pair + Glass.gap)
         configurePassage(state, enabled: enabled, room: room)
         // The bar reaches into a wider left inset: a space as wide keeps the
         // arrows out of it, while the passage, between flexible spaces, still
@@ -417,11 +453,21 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         if leadingInsetSpace.width != toolbarLeadingInset {
             leadingInsetSpace = .fixedSpace(toolbarLeadingInset)
         }
-        let items = (toolbarLeadingInset > 0 ? [leadingInsetSpace] : [])
-            + (state.chapterNavigation ? [previousItem, nextItem] : [])
-            + [passageSpaces[0], passageItem, passageSpaces[1]]
-        if toolbar.items ?? [] != items {
-            toolbar.setItems(items, animated: false)
+        // In the vertical bar the arrows join its column. The passage stays in
+        // the floating toolbar, which centres it on the screen, under the page;
+        // the system toolbar would centre it in its own strip, off the text.
+        let leading = usesVerticalBar ? [] : (toolbarLeadingInset > 0 ? [leadingInsetSpace] : []) + arrows
+        let floating = leading + [passageSpaces[0], passageItem, passageSpaces[1]]
+        let system = usesVerticalBar ? arrows : []
+        // An item shows in one bar at a time: the bar losing it lets go first.
+        let setFloating = { if self.toolbar.items ?? [] != floating { self.toolbar.setItems(floating, animated: false) } }
+        let setSystem = { if self.toolbarItems ?? [] != system { self.setToolbarItems(system, animated: false) } }
+        if usesVerticalBar {
+            setFloating()
+            setSystem()
+        } else {
+            setSystem()
+            setFloating()
         }
     }
 
@@ -478,6 +524,25 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         UIBarButtonItem(title: label, image: UIImage(systemName: symbol), primaryAction: UIAction { [weak self] _ in
             self?.plugin.send(action)
         })
+    }
+
+    /// Back, in the vertical bar: the system bar there has no page under this
+    /// one to go back to, so it gets the floating bar's back button as an item.
+    private lazy var systemBackItem = barButton("chevron.backward", "Voltar", "back")
+
+    /// The floating top bar's items, set again only when they change: the
+    /// vertical bar may have stood in for it in the meantime.
+    private func setTopBarItems(_ items: [UINavigationItem], animated: Bool) {
+        if topBar.items ?? [] != items {
+            topBar.setItems(items, animated: animated)
+        }
+    }
+
+    /// The system bar's items, where the vertical bar is used.
+    private func setSystemBarItems(title: String?, left: [UIBarButtonItem], right: [UIBarButtonItem]) {
+        navigationItem.title = title
+        if navigationItem.leftBarButtonItems ?? [] != left { navigationItem.leftBarButtonItems = left }
+        if navigationItem.rightBarButtonItems ?? [] != right { navigationItem.rightBarButtonItems = right }
     }
 
     /// The toolbar's width, as it is pinned to the bottom bars' guide.
@@ -605,21 +670,33 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// Without bars, only the status bar and home indicator cover the page.
     var insets: ChromeInsets {
         let safeArea = view.safeAreaInsets
+        // In the vertical bar the system bars are part of the safe area.
+        let top = usesVerticalBar ? safeArea.top : topBarOffset + topBar.bounds.height
         switch state.mode {
         case .none:
             return ChromeInsets(top: safeArea.top, bottom: safeArea.bottom)
         case .reader:
             // Auto-scroll's controls float over the text: the page leaves
             // them no room, and the reader moves them off what they cover.
-            return ChromeInsets(top: topBarOffset + topBar.bounds.height,
+            return ChromeInsets(top: top,
                                 bottom: safeArea.bottom + toolbar.bounds.height,
                                 collapsed: collapsed)
         case .search:
-            return ChromeInsets(top: topBarOffset + topBar.bounds.height,
-                                bottom: view.bounds.height - searchField.frame.minY)
+            return ChromeInsets(top: top, bottom: view.bounds.height - searchField.frame.minY)
         case .page:
-            return ChromeInsets(top: topBarOffset + topBar.bounds.height, bottom: safeArea.bottom)
+            return ChromeInsets(top: top, bottom: safeArea.bottom)
         }
+    }
+
+    /// iOS 27.1 places bars vertically here: the iPhone Duo, beside its status
+    /// bar.
+    private var verticalBarActive: Bool {
+        #if canImport(UIKit, _version: 9127.0.85)
+        if #available(iOS 27.1, *) {
+            return traitCollection.verticalBarEdge != .unspecified
+        }
+        #endif
+        return false
     }
 
     /// The top bar's distance from the top of the screen: under the status
@@ -1179,5 +1256,17 @@ private final class CentredToolbar: UIToolbar {
         insets.left = min(insets.left, insets.right)
         insets.right = insets.left
         return insets
+    }
+}
+
+/// Window root: hosts the chrome so the reader's buttons can use the system
+/// bars where iOS stands them up vertically; the chrome decides the bars, the
+/// status bar and the orientations.
+final class ChromeNavigationController: UINavigationController {
+    override var childForStatusBarStyle: UIViewController? { topViewController }
+    override var childForStatusBarHidden: UIViewController? { topViewController }
+    override var childForHomeIndicatorAutoHidden: UIViewController? { topViewController }
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        topViewController?.supportedInterfaceOrientations ?? .all
     }
 }
