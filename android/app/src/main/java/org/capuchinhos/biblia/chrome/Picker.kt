@@ -85,6 +85,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -738,12 +739,17 @@ private fun ChapterGrid(
                 navigationIcon = { onBack?.let { BackToBooks(onClick = it) } },
                 title = {
                     // Shrinks before it cuts: "Livros" beside it leaves
-                    // "Evangelho de São Mateus" a little short of room.
+                    // "Evangelho de São Mateus" a little short of room. A
+                    // name too long even then ("Primeira Carta aos
+                    // Tessalonicenses") gives way to the book's label, until
+                    // the window is resized (rotation).
+                    var short by remember(book.id, LocalWindowInfo.current.containerSize) { mutableStateOf(false) }
                     Text(
-                        book.name,
+                        if (short) book.label else book.name,
                         Modifier.semantics { heading() },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        onTextLayout = { if (it.hasVisualOverflow) short = true },
                         autoSize = TextAutoSize.StepBased(
                             minFontSize = 16.sp,
                             maxFontSize = MaterialTheme.typography.titleLarge.fontSize,
