@@ -686,8 +686,9 @@ private fun RibbonTile(
                 menu = false
                 onOpen()
             }
-            // Not onto a chapter that has a ribbon: that one would come off.
-            if (!marked) {
+            // Not onto a chapter that has a ribbon (that one would come off),
+            // nor onto a page that can't be marked.
+            if (!marked && canMark) {
                 RibbonMenuItem("Mover para $currentLabel", R.drawable.ic_bookmark) {
                     menu = false
                     onAction("bookmark-move")

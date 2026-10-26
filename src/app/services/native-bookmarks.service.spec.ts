@@ -135,6 +135,9 @@ describe("NativeBookmarksService", () => {
 
     actions.next({ id: "bookmark-set", color: "orange" })
     expect(ribbons.assign).not.toHaveBeenCalled()
+    // Android offered "Mover para Sobre a Bíblia", which lost the place read.
+    actions.next({ id: "bookmark-move", color: "red" })
+    expect(ribbons.move).not.toHaveBeenCalled()
     actions.next({ id: "bookmark-open", color: "red" })
     expect(ribbons.open).toHaveBeenCalled()
   })
