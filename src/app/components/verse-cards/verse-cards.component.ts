@@ -112,6 +112,10 @@ export class VerseCardsComponent
   }
 
   ngOnChanges(): void {
+    // An arrival still waiting for the scroll to end belongs to the chapter
+    // that was on screen when it happened. Served after the picker has
+    // replaced the chapter, it would move the reader one chapter too far.
+    this.arrivals.clear()
     this.verses = toVerseCards(this.chapter)
   }
 

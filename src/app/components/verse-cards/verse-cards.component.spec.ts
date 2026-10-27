@@ -1,4 +1,4 @@
-import { Component } from "@angular/core"
+import { Component, Input } from "@angular/core"
 import {
   type ComponentFixture,
   fakeAsync,
@@ -295,7 +295,7 @@ describe("VerseCardsComponent", () => {
       `,
     })
     class ScrollingHostComponent {
-      chapter = chapter
+      @Input() chapter = chapter
       reachedStart = jasmine.createSpy("reachedStart")
       reachedEnd = jasmine.createSpy("reachedEnd")
     }
@@ -356,6 +356,18 @@ describe("VerseCardsComponent", () => {
 
       scroller.dispatchEvent(new Event("scrollend"))
 
+      expect(host.componentInstance.reachedEnd).not.toHaveBeenCalled()
+    })
+
+    it("drops an arrival the picker has overtaken, instead of serving it to the new chapter", () => {
+      flingOntoEndStop()
+
+      // Before the scroll ends, the reader picks another chapter.
+      host.componentRef.setInput("chapter", { ...chapter, number: 7 })
+      host.detectChanges()
+      scroller.dispatchEvent(new Event("scrollend"))
+
+      // Served now, the arrival would move on from chapter 7 to 8.
       expect(host.componentInstance.reachedEnd).not.toHaveBeenCalled()
     })
 
