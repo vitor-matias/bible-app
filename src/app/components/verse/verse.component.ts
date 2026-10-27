@@ -53,13 +53,10 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   hasFootnotes = false
 
   /**
-   * Whether tapping the verse's text opens its notes. Not in the iOS app: a tap
+   * Whether tapping the verse's text opens its notes. Not in the native apps: a tap
    * on the text shows or hides its bars there, and the notes marker opens them.
    */
   notesOnText = false
-
-  /** The iOS app marks notes with an icon; elsewhere it is the edition's asterisk. */
-  noteIcon = false
 
   /** A psalm's liturgical number, which the edition prints in parentheses. */
   liturgicalNumber: string | null = null
@@ -96,7 +93,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   private readonly backButton = inject(BackButtonService)
 
-  /** The iOS app shows footnotes in a native sheet. */
+  /** The native apps show footnotes in a native sheet. */
   private readonly nativeFootnotes = inject(NativeFootnotesService)
 
   private readonly autoScroll = inject(AutoScrollService)
@@ -112,9 +109,6 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       this.chapterNumberDisplayIndex = this.computeChapterNumberIndex()
       this.hasFootnotes = this.data.text.some((t) => t.type === "footnote")
       this.notesOnText = this.hasFootnotes && !this.nativeFootnotes.enabled
-      // Whether or not this verse has notes: the hidden placeholder that keeps
-      // poetry's numbers aligned must be as wide as the marker it stands for.
-      this.noteIcon = this.nativeFootnotes.enabled
       this.liturgicalNumber =
         this.data.bookId === PSALMS_BOOK_ID
           ? liturgicalPsalmNumber(this.data.chapterNumber)

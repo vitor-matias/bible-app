@@ -17,6 +17,7 @@ import { appConfig, isVercelHost } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
 import { AppPromoService } from "./services/app-promo.service"
 import { BackButtonService } from "./services/back-button.service"
+import { historyDepth } from "./services/depth-location-strategy"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
@@ -37,14 +38,9 @@ export const EXIT_BACK_WINDOW_MS = 2000
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppComponent implements OnInit, OnDestroy {
-  private installEventFired = false
   private readonly listenerHandles: PluginListenerHandle[] = []
   /** Until when a back on the first screen leaves the app. */
   private exitBackDeadline = 0
-
-  private readonly installListener = () => {
-    this.installEventFired = true
-  }
 
   constructor(
     private offlineDataService: OfflineDataService,
@@ -71,9 +67,7 @@ export class AppComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     if (typeof window === "undefined") return
 
-    window.addEventListener("appinstalled", this.installListener)
-    // Only preload from standalone check if install event hasn't fired
-    if (this.isStandaloneMode() && !this.installEventFired) {
+    if (this.isStandaloneMode()) {
       this.offlineDataService.preloadAllBooksAndChapters("standalone")
     }
 
@@ -143,7 +137,9 @@ export class AppComponent implements OnInit, OnDestroy {
       return
     }
     if (this.backButton.closeTopmost()) return
-    if (canGoBack) {
+    // The WebView's canGoBack misses pages opened from the native bars before
+    // any tap on the page (DepthLocationStrategy); the app's own count doesn't.
+    if (canGoBack || historyDepth(window.history.state) > 0) {
       window.history.back()
       return
     }
@@ -227,9 +223,6 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   async ngOnDestroy(): Promise<void> {
-    if (typeof window !== "undefined") {
-      window.removeEventListener("appinstalled", this.installListener)
-    }
     await Promise.all(this.listenerHandles.map((handle) => handle.remove()))
   }
 

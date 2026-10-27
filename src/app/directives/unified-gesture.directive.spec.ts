@@ -3,6 +3,7 @@ import { PreferencesService } from "../services/preferences.service"
 import type { SystemTextSizeService } from "../services/system-text-size.service"
 import {
   startingFontSize,
+  type TextSize,
   UnifiedGesturesDirective,
 } from "./unified-gesture.directive"
 
@@ -29,6 +30,7 @@ describe("UnifiedGesturesDirective", () => {
     preferencesServiceSpy = jasmine.createSpyObj("PreferencesService", [
       "getFontSize",
       "setFontSize",
+      "clearFontSize",
     ])
     preferencesServiceSpy.getFontSize.and.returnValue(null)
     spyOn(window, "getComputedStyle").and.returnValue({
@@ -45,6 +47,114 @@ describe("UnifiedGesturesDirective", () => {
       systemTextSize,
     )
     directive.fontSizeContext = "reader"
+  })
+
+  describe("the text size for the Android sheet", () => {
+    let stored: number | null
+    let sizes: TextSize[]
+
+    beforeEach(() => {
+      stored = null
+      preferencesServiceSpy.getFontSize.and.callFake(() => stored)
+      preferencesServiceSpy.setFontSize.and.callFake((size: number) => {
+        stored = size
+      })
+      preferencesServiceSpy.clearFontSize.and.callFake(() => {
+        stored = null
+      })
+      sizes = []
+      directive.textSizeChange.subscribe((size) => sizes.push(size))
+    })
+
+    const last = () => sizes[sizes.length - 1]
+
+    it("says the size as the text opens, and as it changes", () => {
+      stored = 120
+      directive.ngOnInit()
+      expect(last()).toEqual({
+        percent: 120,
+        min: 70,
+        max: 235,
+        canReset: true,
+      })
+
+      directive.increaseFontSize()
+      expect(last().percent).toBe(125)
+    })
+
+    // Nothing to reset before the reader has chosen a size.
+    it("has nothing to reset at the size the text opens at", () => {
+      directive.ngOnInit()
+      expect(last()).toEqual({
+        percent: 100,
+        min: 70,
+        max: 235,
+        canReset: false,
+      })
+    })
+
+    // 150% was ten taps away in steps of 5.
+    it("steps by the sheet's 10, onto its grid", () => {
+      stored = 105
+      directive.ngOnInit()
+      directive.increaseFontSize(10)
+      expect(last().percent).toBe(110)
+      directive.decreaseFontSize(10)
+      expect(last().percent).toBe(100)
+      directive.decreaseFontSize(10)
+      expect(last().percent).toBe(90)
+    })
+
+    // A pinch leaves fractions: 119.6 is shown as 120, and stepped to 120.
+    it("steps from the size as shown, not a pinch's fraction", () => {
+      stored = 119.6
+      directive.ngOnInit()
+      expect(last().percent).toBe(120)
+      directive.increaseFontSize(10)
+      expect(last().percent).toBe(130)
+
+      stored = 120.4
+      directive.ngOnInit()
+      directive.decreaseFontSize(10)
+      expect(last().percent).toBe(110)
+    })
+
+    it("stops at either end", () => {
+      stored = 230
+      directive.ngOnInit()
+      directive.increaseFontSize(10)
+      expect(last().percent).toBe(235)
+      directive.increaseFontSize(10)
+      expect(last().percent).toBe(235)
+    })
+
+    it("resets to the standard size, forgetting the choice", () => {
+      stored = 150
+      directive.ngOnInit()
+      directive.resetFontSize()
+
+      expect(preferencesServiceSpy.clearFontSize).toHaveBeenCalledWith("reader")
+      expect(rendererSpy.setStyle).toHaveBeenCalledWith(
+        element,
+        "font-size",
+        "100%",
+      )
+      expect(last()).toEqual({
+        percent: 100,
+        min: 70,
+        max: 235,
+        canReset: false,
+      })
+    })
+
+    // The iOS app opens at the iPhone's own text size, and resets to it.
+    it("resets to the system's size where the text opens at it", () => {
+      stored = 150
+      systemTextSize.percent.and.returnValue(130)
+      directive.ngOnInit()
+      directive.resetFontSize()
+      expect(last().percent).toBe(130)
+    })
   })
 
   it("should register and remove the same touch listeners", () => {

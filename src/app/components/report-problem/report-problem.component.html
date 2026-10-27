@@ -1,14 +1,14 @@
-<h2 mat-dialog-title>Reportar Erro</h2>
+<h2 mat-dialog-title>Reportar erro</h2>
 
 <mat-dialog-content>
   <p class="description">
-    Encontrou algum problema em "{{ data.book.name }}", capítulo {{ data.chapter }}?
+    Encontrou algum problema em «{{ subject }}»?
     <br>Ajude-nos a melhorar.
   </p>
 
   <form [formGroup]="reportForm" class="report-form" (ngSubmit)="onSubmit()">
     <mat-form-field appearance="fill" class="full-width">
-      <mat-label>Tipo de Problema</mat-label>
+      <mat-label>Tipo de problema</mat-label>
       <mat-select formControlName="topic" panelClass="app-report-select-panel">
         @for (topic of topics; track topic.value) {
           <mat-option [value]="topic.value">{{ topic.label }}</mat-option>

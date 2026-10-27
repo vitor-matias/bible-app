@@ -31,9 +31,13 @@ struct BookmarksSheetState {
     let currentLabel: String
     let ribbons: [Ribbon]
     let move: Move?
+    /// False on the About page, which has no chapters: its ribbons still
+    /// open their passages, but none marks it. Older web bundles don't say.
+    let canMark: Bool
 
     init(_ call: CAPPluginCall) {
         currentLabel = call.getString("currentLabel", "")
+        canMark = call.getBool("canMark", true)
         ribbons = (call.getArray("ribbons", JSObject.self) ?? []).map { ribbon in
             Ribbon(color: ribbon["color"] as? String ?? "",
                    name: ribbon["name"] as? String ?? "",
@@ -49,19 +53,37 @@ struct BookmarksSheetState {
     }
 }
 
-/// The web app's ribbon colours (bookmark-ribbons.service.ts), as system colours.
+/// The web app's ribbon colours (bookmark-ribbons.service.ts), in tones that
+/// keep 3:1 against the tiles and bars they sit on: darker on light surfaces,
+/// lighter on dark ones. The system colours didn't (orange on a grey tile was
+/// under 2:1). The same tones as the web app (`--ribbon-*` in styles.css) and
+/// the Android app (Theme.kt).
 func ribbonColor(_ name: String) -> UIColor? {
-    switch name {
-    case "red": return .systemRed
-    case "orange": return .systemOrange
-    case "teal": return .systemTeal
-    case "green": return .systemGreen
-    case "blue": return .systemBlue
-    case "indigo": return .systemIndigo
-    case "violet": return .systemPurple
-    case "grey": return .systemGray
-    default: return nil
-    }
+    guard let tones = ribbonTones[name] else { return nil }
+    return UIColor { traits in traits.userInterfaceStyle == .dark ? tones.dark : tones.light }
+}
+
+/// On the current item, filled with the text colour inverted
+/// (`ChromeViewController.selectionFill`), the other theme's tone.
+func ribbonColorOnSelection(_ name: String) -> UIColor? {
+    guard let tones = ribbonTones[name] else { return nil }
+    return UIColor { traits in traits.userInterfaceStyle == .dark ? tones.light : tones.dark }
+}
+
+private let ribbonTones: [String: (light: UIColor, dark: UIColor)] = [
+    "red": (rgb(0xC62828), rgb(0xEF7070)),
+    "orange": (rgb(0xAD5700), rgb(0xFFA040)),
+    "teal": (rgb(0x00796B), rgb(0x4DB6AC)),
+    "green": (rgb(0x2E7D32), rgb(0x7CC47F)),
+    "blue": (rgb(0x1565C0), rgb(0x64B5F6)),
+    "indigo": (rgb(0x3949AB), rgb(0x9FA8DA)),
+    "violet": (rgb(0x8E24AA), rgb(0xCE93D8)),
+    "grey": (rgb(0x616161), rgb(0xBDBDBD)),
+]
+
+private func rgb(_ hex: UInt32) -> UIColor {
+    UIColor(red: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
 }
 
 /// Eight ribbons in a grid, like the web panel. A free ribbon marks the chapter
@@ -232,6 +254,9 @@ final class BookmarksController: UIViewController {
 
         let marked = state.ribbons.contains { $0.current }
         footer.text = editingRibbons ? "Toque numa fita para a retirar."
+            : !state.canMark && anyUsed
+                ? "Esta página não se pode marcar. Toque numa fita com nome para abrir essa passagem."
+            : !state.canMark ? "Esta página não se pode marcar."
             : marked ? "\(state.currentLabel) está marcado. Toque noutra fita livre para mudar a cor."
             : "Toque numa fita livre para marcar \(state.currentLabel)."
 
@@ -289,7 +314,7 @@ final class BookmarksController: UIViewController {
     private func tile(_ ribbon: BookmarksSheetState.Ribbon) -> UIView {
         let used = ribbon.label != nil
         var config = UIButton.Configuration.plain()
-        let color = ribbonColor(ribbon.color) ?? .label
+        let color = (ribbon.current ? ribbonColorOnSelection(ribbon.color) : ribbonColor(ribbon.color)) ?? .label
         config.image = UIImage(systemName: used ? "bookmark.fill" : "bookmark",
                                withConfiguration: UIImage.SymbolConfiguration(pointSize: 26, weight: .medium))?
             .withTintColor(color, renderingMode: .alwaysOriginal)
@@ -361,7 +386,12 @@ final class BookmarksController: UIViewController {
                 self?.send("bookmark-remove", ribbon.color)
             }
             let marked = state.ribbons.contains { $0.current }
-            button.menu = UIMenu(title: ribbon.label ?? "", children: marked ? [open, remove] : [open, move, remove])
+            button.menu = UIMenu(title: ribbon.label ?? "",
+                                 children: marked || !state.canMark ? [open, remove] : [open, move, remove])
+        } else if !state.canMark {
+            // Nothing here to mark: the free ribbons step back, as in editing.
+            button.isEnabled = false
+            button.alpha = 0.35
         } else {
             button.accessibilityHint = "Marca \(state.currentLabel)"
             button.addAction(UIAction { [weak self] _ in self?.send("bookmark-set", ribbon.color) },

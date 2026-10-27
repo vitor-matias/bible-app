@@ -1,6 +1,7 @@
 import {
   CLUSTER_INTROS,
   NEW_TESTAMENT_GROUPS,
+  nextCanonBook,
   OLD_TESTAMENT_GROUPS,
   withIntros,
 } from "./bible-canon"
@@ -64,5 +65,20 @@ describe("bible canon", () => {
     expect(
       withIntros(catholic, "novotestamento", () => false)[0].books,
     ).toEqual(["2pe", "1jn", "2jn"])
+  })
+
+  // The Android app's "Livro seguinte" card, at a book's last chapter.
+  describe("the book after another", () => {
+    it("follows the edition's order, not the API's", () => {
+      expect(nextCanonBook("gen")).toBe("exo")
+      // The API lists the deuterocanonical books last.
+      expect(nextCanonBook("est")).toBe("1ma")
+      expect(nextCanonBook("mal")).toBe("mat")
+    })
+
+    it("ends at Apocalipse, and knows no other page", () => {
+      expect(nextCanonBook("rev")).toBeUndefined()
+      expect(nextCanonBook("about")).toBeUndefined()
+    })
   })
 })

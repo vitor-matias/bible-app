@@ -7,6 +7,7 @@ import {
   BookmarkRibbonsService,
   RIBBON_COLORS,
   type RibbonState,
+  ribbonColor,
   ribbonToMove,
 } from "./bookmark-ribbons.service"
 import { HapticsService } from "./haptics.service"
@@ -25,6 +26,23 @@ function ribbonsWith(
     }
   })
 }
+
+describe("ribbonColor", () => {
+  it("paints a ribbon in the theme's tone for it", () => {
+    expect(ribbonColor("red")).toBe("var(--ribbon-red)")
+  })
+
+  // The web header's buttons are antique white in both themes.
+  it("paints it in the light surfaces' tone where the surface stays light", () => {
+    expect(ribbonColor("violet", "light")).toBe("var(--ribbon-light-violet)")
+  })
+
+  it("paints nothing for no ribbon, and an unknown colour as stored", () => {
+    expect(ribbonColor(undefined)).toBeNull()
+    expect(ribbonColor(null)).toBeNull()
+    expect(ribbonColor("gold")).toBe("gold")
+  })
+})
 
 describe("ribbonToMove", () => {
   it("offers the ribbon a reader read on from", () => {

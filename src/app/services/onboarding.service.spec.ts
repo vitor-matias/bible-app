@@ -1,10 +1,12 @@
 import { fakeAsync, TestBed, tick } from "@angular/core/testing"
 import { MatDialog, type MatDialogRef } from "@angular/material/dialog"
+import { Capacitor } from "@capacitor/core"
 import { Subject } from "rxjs"
 import {
   OnboardingComponent,
   type OnboardingResult,
 } from "../components/onboarding/onboarding.component"
+import type { NativeOnboardingStep } from "../components/onboarding/onboarding-content"
 import { AnalyticsService } from "./analytics.service"
 import { NativeChromeService } from "./native-chrome.service"
 import { FIRST_LAUNCH_DELAY_MS, OnboardingService } from "./onboarding.service"
@@ -27,8 +29,11 @@ describe("OnboardingService", () => {
     preferencesSpy = jasmine.createSpyObj("PreferencesService", [
       "getOnboardingSeen",
       "setOnboardingSeen",
+      "getNativeBarsOnboardingSeen",
+      "setNativeBarsOnboardingSeen",
     ])
     preferencesSpy.getOnboardingSeen.and.returnValue(false)
+    preferencesSpy.getNativeBarsOnboardingSeen.and.returnValue(false)
     analyticsSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
     analyticsSpy.track.and.resolveTo()
 
@@ -156,8 +161,8 @@ describe("OnboardingService", () => {
     })
   })
 
-  // The iOS app shows the steps as a native sheet instead of the dialog.
-  describe("in the iOS app", () => {
+  // The native apps show the steps themselves instead of the dialog.
+  describe("in the native apps", () => {
     let showOnboarding: jasmine.Spy
     let finish: (result: OnboardingResult) => void
 
@@ -199,6 +204,27 @@ describe("OnboardingService", () => {
       })
     })
 
+    it("words it for the Android app's bars there", () => {
+      spyOn(Capacitor, "getPlatform").and.returnValue("android")
+      service.open("menu")
+
+      const steps: NativeOnboardingStep[] =
+        showOnboarding.calls.mostRecent().args[0]
+      const customize = steps.find((step) => step.id === "customize")
+      expect(customize?.intro).toContain("Toque em TT")
+      expect(customize?.intro).not.toContain("AA")
+    })
+
+    it("words it for the iOS app's bars elsewhere", () => {
+      service.open("menu")
+
+      const steps: NativeOnboardingStep[] =
+        showOnboarding.calls.mostRecent().args[0]
+      expect(steps.find((step) => step.id === "customize")?.intro).toContain(
+        "AA",
+      )
+    })
+
     it("remembers it as seen and reports how it ended", async () => {
       service.open("first_launch")
       finish({ completed: false, lastStep: "navigate" })
@@ -230,6 +256,48 @@ describe("OnboardingService", () => {
       service.open("menu")
       expect(showOnboarding).toHaveBeenCalledTimes(2)
     })
+
+    // The Android app's native bars replaced the web header (☰) that the
+    // onboarding taught: those who saw it before see it once more.
+    describe("after the Android app's update to native bars", () => {
+      beforeEach(() => {
+        spyOn(Capacitor, "getPlatform").and.returnValue("android")
+        preferencesSpy.getOnboardingSeen.and.returnValue(true)
+      })
+
+      it("shows it once more to those who saw it before", fakeAsync(() => {
+        expect(service.showOnFirstLaunch("")).toBeTrue()
+        tick(FIRST_LAUNCH_DELAY_MS)
+        expect(showOnboarding).toHaveBeenCalledTimes(1)
+      }))
+
+      it("doesn't once it was seen with the native bars", fakeAsync(() => {
+        preferencesSpy.getNativeBarsOnboardingSeen.and.returnValue(true)
+        expect(service.showOnFirstLaunch("")).toBeFalse()
+        tick(FIRST_LAUNCH_DELAY_MS)
+        expect(showOnboarding).not.toHaveBeenCalled()
+      }))
+
+      it("remembers it as seen with the native bars", async () => {
+        service.open("first_launch")
+        finish({ completed: true, lastStep: "tools" })
+        await Promise.resolve()
+        expect(preferencesSpy.setNativeBarsOnboardingSeen).toHaveBeenCalledWith(
+          true,
+        )
+      })
+    })
+
+    // The iOS app had its native bars from the start: nothing to show again.
+    it("doesn't show it again in the iOS app", fakeAsync(() => {
+      spyOn(Capacitor, "getPlatform").and.returnValue("ios")
+      preferencesSpy.getOnboardingSeen.and.returnValue(true)
+      expect(service.showOnFirstLaunch("")).toBeFalse()
+      tick(FIRST_LAUNCH_DELAY_MS)
+      expect(showOnboarding).not.toHaveBeenCalled()
+      service.open("menu")
+      expect(preferencesSpy.setNativeBarsOnboardingSeen).not.toHaveBeenCalled()
+    }))
 
     it("shows one sheet at a time", async () => {
       service.open("menu")

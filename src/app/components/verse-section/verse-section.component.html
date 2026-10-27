@@ -10,7 +10,8 @@
   <br>
   }
   @if (text.type === 'text' || text.type === 'section') {
-  <span class="section">{{text.text}}</span>
+  <!-- A heading names the section in the Android bar (NativeChromeService). -->
+  <span class="section" [attr.data-section-heading]="text.type === 'section' ? '' : null">{{text.text}}</span>
   }
   @if(text.type === "references"){
   @if (data.text[data.text.length - 1].type === 'quote' || nextIsQuote) {
