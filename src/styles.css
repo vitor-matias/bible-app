@@ -93,6 +93,36 @@ body {
   --card-background: #f5f5f5;
   --border-color: #e0e0e0;
   --highlight-color: antiquewhite;
+  /* Bookmark ribbons (bookmark-ribbons.service.ts, ribbonColor): each colour
+     a bookmark stores in a tone that keeps 3:1 against the tiles and cards
+     it sits on, darker on light surfaces, lighter on dark ones. The same
+     tones as the native apps (Theme.kt, BookmarksSheet.swift). */
+  --ribbon-light-red: #c62828;
+  --ribbon-light-orange: #ad5700;
+  --ribbon-light-teal: #00796b;
+  --ribbon-light-green: #2e7d32;
+  --ribbon-light-blue: #1565c0;
+  --ribbon-light-indigo: #3949ab;
+  --ribbon-light-violet: #8e24aa;
+  --ribbon-light-grey: #616161;
+  --ribbon-dark-red: #ef7070;
+  --ribbon-dark-orange: #ffa040;
+  --ribbon-dark-teal: #4db6ac;
+  --ribbon-dark-green: #7cc47f;
+  --ribbon-dark-blue: #64b5f6;
+  --ribbon-dark-indigo: #9fa8da;
+  --ribbon-dark-violet: #ce93d8;
+  --ribbon-dark-grey: #bdbdbd;
+  --ribbon-red: var(--ribbon-light-red);
+  --ribbon-orange: var(--ribbon-light-orange);
+  --ribbon-teal: var(--ribbon-light-teal);
+  --ribbon-green: var(--ribbon-light-green);
+  --ribbon-blue: var(--ribbon-light-blue);
+  --ribbon-indigo: var(--ribbon-light-indigo);
+  --ribbon-violet: var(--ribbon-light-violet);
+  --ribbon-grey: var(--ribbon-light-grey);
+  /* Text on a ribbon: light on the dark tones, dark on the light ones. */
+  --ribbon-text: antiquewhite;
   /* Painted over body text, so translucent, unlike --highlight-color. */
   --verse-highlight-color: rgba(238, 176, 46, 0.42);
   --cap-brown: #543d27;
@@ -190,6 +220,15 @@ body {
 .dark-theme {
   color-scheme: dark;
   --background-color: #121212;
+  --ribbon-red: var(--ribbon-dark-red);
+  --ribbon-orange: var(--ribbon-dark-orange);
+  --ribbon-teal: var(--ribbon-dark-teal);
+  --ribbon-green: var(--ribbon-dark-green);
+  --ribbon-blue: var(--ribbon-dark-blue);
+  --ribbon-indigo: var(--ribbon-dark-indigo);
+  --ribbon-violet: var(--ribbon-dark-violet);
+  --ribbon-grey: var(--ribbon-dark-grey);
+  --ribbon-text: #121212;
   --text-color: #ffffff;
   --text-secondary: #dc143c;
   --card-background: #1e1e1e;
@@ -656,8 +695,9 @@ body .mat-mdc-form-field {
 /* The iOS app has no accent colour (ChromeViewController.selectionFill): the
    web controls it still shows follow the same rule. Main buttons are the text
    colour inverted, focus marks the text colour, highlights a neutral tint.
-   Redeclared here, not through --cap-brown: :root resolves these once. */
-.native-chrome {
+   Redeclared here, not through --cap-brown: :root resolves these once. The
+   Android app's Material bars are the website's brown, so it keeps the brown. */
+.platform-ios.native-chrome {
   --cap-brown: var(--text-color);
   --highlight-color: color-mix(in srgb, var(--text-color) 12%, transparent);
   --mat-form-field-focus-color: var(--text-color);
@@ -701,13 +741,14 @@ body .mat-mdc-form-field {
   --app-reader-gap: 8px;
 }
 
-/* The search page is a grouped list: the system's grouped colours. */
-.native-chrome app-search {
+/* The search page is a grouped list: on iOS, the system's grouped colours.
+   Android keeps the theme's, as its Material bars do. */
+.platform-ios.native-chrome app-search {
   --background-color: #f2f2f7;
   --card-background: #ffffff;
 }
 
-html.dark-theme .native-chrome app-search {
+html.dark-theme .platform-ios.native-chrome app-search {
   --background-color: #000000;
   --card-background: #1c1c1e;
 }
@@ -767,11 +808,84 @@ html.dark-theme .native-chrome app-search {
   height: calc(100dvh - var(--app-header-height) - var(--app-chrome-top) - var(--app-reader-gap) - var(--app-inset-bottom));
 }
 
+/* The Android app's pages: the copyright shares the row of the corner
+   arrows (ChromeOverlay's ChapterArrows: 56dp, 24dp in from the sides, 16dp
+   up), between them, instead of a band of its own above the row, and the
+   text takes that band back. The page is a column: the text fills what the
+   copyright leaves. Taller than the arrows (large text, a narrow phone), the
+   copyright pushes the text up rather than running over it. */
+.platform-android.native-chrome bible-reader .mat-drawer-content:has(> .paged-view-container) {
+  display: flex;
+  flex-direction: column;
+}
+
+.platform-android.native-chrome bible-reader .paged-view-container {
+  flex: 1 1 0;
+  min-height: 0;
+  height: auto;
+}
+
+.platform-android.native-chrome bible-reader .paged-view {
+  height: 100%;
+}
+
+/* The row is the bottom inset's last 56px: the negative margin takes the
+   copyright down into it. */
+.platform-android.native-chrome bible-reader .fixed-footer {
+  position: static;
+  flex: none;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 56px;
+  margin: var(--app-reader-gap) calc(var(--app-inset-right) + 88px) -56px calc(var(--app-inset-left) + 88px);
+  padding: 0;
+  width: auto;
+  line-height: 1.25;
+  /* The WebView zooms text by the system's font size: at 200% the copyright
+     took seven lines between the arrows, a third of every page. It grows to
+     130% at most (--text-zoom: NativeShellService), where the bar's subtitle
+     makes way too. */
+  --copyright-scale: min(1, 1.3 / var(--text-zoom, 1));
+  font-size: calc(18px * var(--copyright-scale));
+}
+
+.platform-android.native-chrome bible-reader .fixed-footer .copyright-details {
+  font-size: calc(13px * var(--copyright-scale));
+}
+
+/* A phone's width (Material's compact windows): smaller, to fit the row. */
+@media (max-width: 599px) {
+  .platform-android.native-chrome bible-reader .fixed-footer {
+    font-size: calc(14px * var(--copyright-scale));
+  }
+
+  .platform-android.native-chrome bible-reader .fixed-footer .copyright-details {
+    font-size: calc(11px * var(--copyright-scale));
+  }
+}
+
 /* At the largest text sizes a line holds a handful of words: justified, it
    spreads into gaps. UnifiedGesturesDirective sets the class; centred
    headings keep their own alignment. */
 .text-container.large-text .bookBlock {
   text-align: start;
+}
+
+/* The Android app's dark theme: text off-white like its bars (onSurface
+   #E8E1DD, 14.5:1), which glares less than pure white at night, and the
+   accent in iOS's dark red, 5.5:1 where crimson's 3.75:1 fails small text. */
+.dark-theme .platform-android {
+  --text-color: #e8e1dd;
+  --text-secondary: #ff453a;
+  --android-surface-container-high: #2d2927;
+}
+
+/* The Android bars' surfaceContainerHigh (Theme.kt), for web surfaces that
+   sit among them: the chapter cards. */
+.platform-android {
+  --android-surface-container-high: #eee7e3;
 }
 
 /* Verse numbers are small text: the dark theme's crimson on #121212 is 3.8:1,
@@ -780,11 +894,13 @@ html.dark-theme .native-chrome app-search {
   color: #ff453a;
 }
 
-/* Fades the text out under the status bar and the bars, as the system's
-   scroll edge effect does for native scroll views. Content layer, so a plain
-   blur rather than glass. */
-.native-chrome :is(bible-reader, app-search, book-index)::before,
-.native-chrome :is(bible-reader, app-search)::after {
+/* Fades the text out under the status bar and the iOS app's glass bars, as
+   the system's scroll edge effect does for native scroll views. Content
+   layer, so a plain blur rather than glass. The Android app's Material bars
+   are opaque, and Android's WebView before 140 garbled the blurred, masked
+   layer into a frozen patch of old text. */
+.platform-ios.native-chrome :is(bible-reader, app-search, book-index)::before,
+.platform-ios.native-chrome :is(bible-reader, app-search)::after {
   content: "";
   position: fixed;
   left: 0;
@@ -796,8 +912,8 @@ html.dark-theme .native-chrome app-search {
   transition: height 0.3s ease;
 }
 
-.native-chrome book-index::before,
-.native-chrome :is(bible-reader, app-search)::before {
+.platform-ios.native-chrome book-index::before,
+.platform-ios.native-chrome :is(bible-reader, app-search)::before {
   top: 0;
   height: var(--app-chrome-top);
   /* Solid behind the title and buttons, fading only below them: text that
@@ -807,7 +923,7 @@ html.dark-theme .native-chrome app-search {
   mask-image: linear-gradient(black 80%, transparent);
 }
 
-.native-chrome :is(bible-reader, app-search)::after {
+.platform-ios.native-chrome :is(bible-reader, app-search)::after {
   bottom: 0;
   height: var(--app-chrome-bottom);
   background: linear-gradient(transparent, var(--background-color) 70%);
@@ -816,11 +932,11 @@ html.dark-theme .native-chrome app-search {
 }
 
 /* Bars hidden while reading: only the status bar and home indicator remain. */
-.native-chrome-collapsed bible-reader::before {
+.platform-ios.native-chrome-collapsed bible-reader::before {
   height: env(safe-area-inset-top);
 }
 
-.native-chrome-collapsed bible-reader::after {
+.platform-ios.native-chrome-collapsed bible-reader::after {
   height: env(safe-area-inset-bottom);
 }
 

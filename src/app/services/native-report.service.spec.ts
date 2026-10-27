@@ -18,7 +18,7 @@ describe("NativeReportService", () => {
   let toast: jasmine.SpyObj<ToastService>
   let service: NativeReportService
 
-  const genesis = { id: "gen", name: "Génesis" } as Book
+  const genesis = { id: "gen", name: "Génesis", shortName: "Génesis" } as Book
   const settle = () => new Promise((resolve) => setTimeout(resolve))
 
   beforeEach(() => {
@@ -29,7 +29,7 @@ describe("NativeReportService", () => {
       finishReport: jasmine.createSpy("finishReport"),
     }
     reports = {
-      topics: [{ value: "typo", label: "Erro Ortográfico" }],
+      topics: [{ value: "typo", label: "Erro ortográfico" }],
       send: jasmine.createSpy("send").and.resolveTo(),
     }
     toast = jasmine.createSpyObj("ToastService", ["show"])
@@ -43,16 +43,30 @@ describe("NativeReportService", () => {
     service = TestBed.inject(NativeReportService)
   })
 
+  // Named as the passage button names it, in Portuguese quotation marks.
   it("opens the sheet about the chapter", () => {
     service.open(genesis, 3)
 
     expect(nativeChrome.showReport).toHaveBeenCalledWith({
-      message:
-        'Encontrou algum problema em "Génesis", capítulo 3? Ajude-nos a melhorar.',
+      message: "Encontrou algum problema em «Génesis 3»? Ajude-nos a melhorar.",
       topics: reports.topics,
       placeholder: jasmine.any(String),
       maxLength: 500,
     })
+  })
+
+  it("names a psalm with its liturgical number, and the About page alone", () => {
+    service.open({ id: "psa", name: "Salmos", shortName: "Salmos" } as Book, 34)
+    expect(
+      nativeChrome.showReport.calls.mostRecent().args[0].message,
+    ).toContain("«Salmo 34 (33)»")
+    service.open(
+      { id: "about", name: "Sobre", shortName: "Sobre a Bíblia" } as Book,
+      1,
+    )
+    expect(
+      nativeChrome.showReport.calls.mostRecent().args[0].message,
+    ).toContain("«Sobre a Bíblia»")
   })
 
   it("sends the report, closes the sheet and thanks", async () => {

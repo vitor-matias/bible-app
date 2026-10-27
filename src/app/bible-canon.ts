@@ -153,15 +153,6 @@ export const OLD_TESTAMENT_INTRO = "geral"
 export const NEW_TESTAMENT_INTRO = "novotestamento"
 
 /**
- * The About page, listed with the New Testament in the book pickers. Not in
- * the canon groups: the crawlable book index must not link to it.
- */
-export const ABOUT_GROUP: CanonGroup = {
-  name: "Sobre a Bíblia",
-  books: ["about"],
-}
-
-/**
  * The book pickers' groups: each group's introduction first and each
  * cluster's before its books, plus the ungrouped `leading` one (a group with
  * no books, named after it). Introductions that have not loaded are dropped,
@@ -189,4 +180,16 @@ export function withIntros(
   return hasBook(leading)
     ? [{ name: leading, books: [] }, ...groupsWithIntros]
     : groupsWithIntros
+}
+
+/** The books in the edition's order, Génesis to Apocalipse. */
+export const CANON_ORDER: readonly string[] = [
+  ...OLD_TESTAMENT_GROUPS,
+  ...NEW_TESTAMENT_GROUPS,
+].flatMap((group) => group.books)
+
+/** The book after `bookId` in the edition's order; none after Apocalipse. */
+export function nextCanonBook(bookId: string): string | undefined {
+  const index = CANON_ORDER.indexOf(bookId)
+  return index >= 0 ? CANON_ORDER[index + 1] : undefined
 }

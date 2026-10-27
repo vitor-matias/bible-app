@@ -136,12 +136,38 @@ describe("PreferencesService", () => {
     expect(service.getOnboardingSeen()).toBeFalse()
   })
 
+  // The Android app shows it once more with its native bars.
+  it("should remember that the wizard was seen with the native bars", () => {
+    expect(service.getNativeBarsOnboardingSeen()).toBeFalse()
+
+    service.setNativeBarsOnboardingSeen(true)
+    expect(service.getNativeBarsOnboardingSeen()).toBeTrue()
+    // Its own key: the first-launch flag is untouched.
+    expect(service.getOnboardingSeen()).toBeFalse()
+  })
+
   it("should report the wizard as seen when storage cannot record it", () => {
     // A throwing setItem fails the safeLocalStorage() probe, as blocked
     // storage does; "unseen" would then reopen the wizard on every launch.
     spyOn(Storage.prototype, "setItem").and.throwError("blocked")
 
     expect(service.getOnboardingSeen()).toBeTrue()
+    expect(service.getNativeBarsOnboardingSeen()).toBeTrue()
+  })
+
+  // Storage that passed the probe can still fail later: full, or revoked.
+  it("should carry on when storage fails after the probe", () => {
+    service.setTheme("dark")
+    spyOn(Storage.prototype, "getItem").and.throwError("revoked")
+    spyOn(Storage.prototype, "setItem").and.throwError("full")
+    spyOn(Storage.prototype, "removeItem").and.throwError("revoked")
+
+    expect(() => service.setNativeBarsOnboardingSeen(true)).not.toThrow()
+    expect(() => service.clearFontSize("reader")).not.toThrow()
+    expect(service.getFontSize("reader")).toBeNull()
+    // Seen, as with no storage: the wizard does not reopen on every launch.
+    expect(service.getOnboardingSeen()).toBeTrue()
+    expect(service.getNativeBarsOnboardingSeen()).toBeTrue()
   })
 
   it("should store and read the last location", () => {

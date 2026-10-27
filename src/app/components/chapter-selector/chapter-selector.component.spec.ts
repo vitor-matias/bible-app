@@ -19,12 +19,10 @@ describe("ChapterSelectorComponent", () => {
   let fixture: ComponentFixture<ChapterSelectorComponent>
   let _bookmarkServiceSpy: jasmine.SpyObj<BookmarkService>
 
-  const _mockBookmarks = new Map<number, string>([[1, "#F44336"]])
-
   beforeEach(async () => {
     const spy = jasmine.createSpyObj("BookmarkService", ["getBookmarksForBook"])
     spy.getBookmarksForBook.and.returnValue(
-      of([{ bookId: "GEN", chapter: 1, color: "#F44336", timestamp: 123 }]),
+      of([{ bookId: "GEN", chapter: 1, color: "red", timestamp: 123 }]),
     )
 
     await TestBed.configureTestingModule({
@@ -141,20 +139,29 @@ describe("ChapterSelectorComponent", () => {
     expect(secondChapterButton.querySelector(".bookmarked")).toBeFalsy()
   })
 
-  it("should apply colored style to bookmark icon", () => {
-    const icon = (fixture.nativeElement as HTMLElement).querySelector(
-      ".bookmark-icon",
-    ) as HTMLElement
-    const styleAttr = icon.getAttribute("style") || ""
-    expect(styleAttr).toBeTruthy()
-    // Different environments might serialize style values differently (hex vs rgb).
-    // As long as the style attribute contains our color property, the binding is working.
-    const expectedHex = "#f44336"
-    const expectedRgb = "rgb(244, 67, 54)"
-    const hasColor =
-      styleAttr.toLowerCase().includes(expectedHex) ||
-      styleAttr.includes(expectedRgb)
-    expect(hasColor).toBeTrue()
+  // The theme's tone for the ribbon, not the stored name: a template bound
+  // to the stored colour would paint plain CSS red.
+  it("paints a ribbon in the theme's tone, its number on it", () => {
+    const host = fixture.nativeElement as HTMLElement
+    const icon = host.querySelector(".bookmark-icon") as HTMLElement
+    expect(icon.getAttribute("style")).toContain("var(--ribbon-red)")
+    expect(host.querySelector(".bookmarked.on-ribbon")).toBeTruthy()
+  })
+
+  // A colour stored before the ribbons is painted as stored, and its number
+  // keeps the text's colour: --ribbon-text is only right on the ribbons' tones.
+  it("leaves a colour from before the ribbons as it was", () => {
+    _bookmarkServiceSpy.getBookmarksForBook.and.returnValue(
+      of([{ bookId: "EXO", chapter: 1, color: "gold", timestamp: 123 }]),
+    )
+    fixture.componentRef.setInput("bookId", "EXO")
+    fixture.detectChanges()
+
+    const host = fixture.nativeElement as HTMLElement
+    const icon = host.querySelector(".bookmark-icon") as HTMLElement
+    expect(icon.style.color).toBe("gold")
+    expect(host.querySelector(".bookmarked")).toBeTruthy()
+    expect(host.querySelector(".on-ribbon")).toBeFalsy()
   })
 
   // `font-size: large` is an absolute keyword: the chapter titles ignored the

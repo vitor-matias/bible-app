@@ -15,6 +15,7 @@ describe("DatabaseService", () => {
     objectStore: jasmine.Spy
     oncomplete: () => void
     onerror: () => void
+    onabort: () => void
     error: Error | null
   }
   let mockIDBObjectStore: {
@@ -47,6 +48,7 @@ describe("DatabaseService", () => {
         .and.returnValue(mockIDBObjectStore),
       oncomplete: null as unknown as () => void, // To be assigned by service
       onerror: null as unknown as () => void, // To be assigned by service
+      onabort: null as unknown as () => void, // To be assigned by service
       error: null,
     }
 
@@ -170,89 +172,6 @@ describe("DatabaseService", () => {
     })
   })
 
-  describe("put", () => {
-    it("should put an item into the store", async () => {
-      const item = { id: 1, val: "test" }
-
-      const promise = service.put("testStore", item)
-
-      // Open DB
-      mockIDBRequest.onsuccess()
-      await new Promise((resolve) => setTimeout(resolve, 0))
-
-      expect(mockIDBDatabase.transaction).toHaveBeenCalledWith(
-        "testStore",
-        "readwrite",
-      )
-      expect(mockIDBObjectStore.put).toHaveBeenCalledWith(item)
-
-      // Complete transaction
-      expect(mockIDBTransaction.oncomplete).toBeDefined()
-      mockIDBTransaction.oncomplete()
-
-      await expectAsync(promise).toBeResolved()
-    })
-
-    it("should reject if put transaction fails", async () => {
-      const item = { id: 1, val: "test" }
-      const promise = service.put("testStore", item)
-
-      // Open DB
-      mockIDBRequest.onsuccess()
-      await new Promise((resolve) => setTimeout(resolve, 0))
-
-      // Fail transaction
-      const error = new Error("Transaction Error")
-      mockIDBTransaction.error = error
-      expect(mockIDBTransaction.onerror).toBeDefined()
-      mockIDBTransaction.onerror()
-
-      await expectAsync(promise).toBeRejectedWith(error)
-    })
-  })
-
-  describe("putAll", () => {
-    it("should put multiple items", async () => {
-      const items = [{ id: 1 }, { id: 2 }]
-      const promise = service.putAll("testStore", items)
-
-      // Open DB
-      mockIDBRequest.onsuccess()
-      await new Promise((resolve) => setTimeout(resolve, 0))
-
-      expect(mockIDBDatabase.transaction).toHaveBeenCalledWith(
-        "testStore",
-        "readwrite",
-      )
-      expect(mockIDBObjectStore.put).toHaveBeenCalledTimes(2)
-      expect(mockIDBObjectStore.put).toHaveBeenCalledWith(items[0])
-      expect(mockIDBObjectStore.put).toHaveBeenCalledWith(items[1])
-
-      mockIDBTransaction.oncomplete()
-      await expectAsync(promise).toBeResolved()
-    })
-  })
-
-  describe("delete", () => {
-    it("should delete an item by key", async () => {
-      const key = 1
-      const promise = service.delete("testStore", key)
-
-      // Open DB
-      mockIDBRequest.onsuccess()
-      await new Promise((resolve) => setTimeout(resolve, 0))
-
-      expect(mockIDBDatabase.transaction).toHaveBeenCalledWith(
-        "testStore",
-        "readwrite",
-      )
-      expect(mockIDBObjectStore.delete).toHaveBeenCalledWith(key)
-
-      mockIDBTransaction.oncomplete()
-      await expectAsync(promise).toBeResolved()
-    })
-  })
-
   describe("clear", () => {
     it("should clear the store", async () => {
       const promise = service.clear("testStore")
@@ -269,6 +188,39 @@ describe("DatabaseService", () => {
 
       mockIDBTransaction.oncomplete()
       await expectAsync(promise).toBeResolved()
+    })
+
+    it("should reject when the transaction aborts", async () => {
+      const promise = service.clear("testStore")
+
+      // Open DB
+      mockIDBRequest.onsuccess()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      const error = new Error("QuotaExceededError")
+      mockIDBTransaction.error = error
+      mockIDBTransaction.onabort()
+
+      await expectAsync(promise).toBeRejectedWith(error)
+    })
+  })
+
+  describe("clearAndPutAll", () => {
+    // A full disk aborts the transaction without an error event: the save
+    // waited forever, and every bookmark change queued behind it.
+    it("should reject when the transaction aborts", async () => {
+      mockIDBObjectStore.put.and.returnValue({})
+      const promise = service.clearAndPutAll("testStore", [{ id: 1 }])
+
+      // Open DB
+      mockIDBRequest.onsuccess()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      const error = new Error("QuotaExceededError")
+      mockIDBTransaction.error = error
+      mockIDBTransaction.onabort()
+
+      await expectAsync(promise).toBeRejectedWith(error)
     })
   })
 

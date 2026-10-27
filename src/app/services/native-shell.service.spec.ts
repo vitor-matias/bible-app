@@ -38,6 +38,36 @@ describe("NativeShellService", () => {
     TestBed.inject(NativeShellService).init()
   }
 
+  // At 200% system font, Android's WebView draws a 100px font at 200px but
+  // keeps a box 1em tall at 100px: their ratio is the system's text zoom.
+  it("notes the system's text zoom on the root, for the stylesheet", fakeAsync(() => {
+    const root = document.createElement("html")
+    const page = document.createElement("div")
+    document.body.appendChild(page)
+    TestBed.overrideProvider(DOCUMENT, {
+      useValue: {
+        body: page,
+        documentElement: root,
+        defaultView: window,
+        createElement: document.createElement.bind(document),
+      },
+    })
+    const computed = window.getComputedStyle.bind(window)
+    spyOn(window, "getComputedStyle").and.callFake((element: Element) =>
+      (element as HTMLElement).style.height === "1em"
+        ? ({ fontSize: "200px" } as CSSStyleDeclaration)
+        : computed(element),
+    )
+
+    init("android")
+
+    expect(root.style.getPropertyValue("--text-zoom")).toBe("2")
+    // The probe is gone.
+    expect(page.children.length).toBe(0)
+    tick(SPLASH_MAX_MS)
+    page.remove()
+  }))
+
   it("tags the body with the native platform", fakeAsync(() => {
     init("ios")
     expect(body.classList).toContain("native-app")

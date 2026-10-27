@@ -140,13 +140,11 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             searchField.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -8),
         ])
 
-        #if canImport(UIKit, _version: 9127.0.85)
         if #available(iOS 27.1, *) {
             // The fold's region turns on and off with the hinge: lay the bars
             // out again each time.
             view.addInteraction(UIHingeInteraction { [weak self] _, _ in self?.view.setNeedsLayout() })
         }
-        #endif
     }
 
     override func viewWillLayoutSubviews() {
@@ -224,7 +222,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             setTopBarItems([readerItem], animated: previous.mode == .search)
             announceChanges(from: previous, to: next)
         case .search:
-            searchItem.leftBarButtonItem = nil
             setTopBarItems([searchBackItem, searchItem], animated: previous.mode == .reader)
             if usesVerticalBar {
                 setSystemBarItems(title: searchItem.title, left: [systemBackItem], right: [])
@@ -473,7 +470,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     /// Where the book's name doesn't fit in `room`, "Dt 3": too wide a toolbar
     /// runs past the screen's edges (iOS 26) or moves its last items, this one
-    /// too, into a ⋯ menu (27).
+    /// too, into a ⋯ menu (27). The arrows and the name must always show, so
+    /// the name gives way, never them: don't lean on the ⋯ menu instead.
     private func configurePassage(_ state: ChromeState, enabled: Bool, room: CGFloat) {
         guard var config = passageButton.configuration else { return }
         config.title = state.passageLabel
@@ -715,13 +713,11 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// auto-scroll's speed on the fold. Its region is the crease plus the
     /// margin interactive content keeps.
     private var foldInset: CGFloat {
-        #if canImport(UIKit, _version: 9127.0.85)
         if #available(iOS 27.1, *),
            let fold = view.reservedRegions(kind: .division)
             .first(where: { $0.isActive && $0.frame.height > $0.frame.width }) {
             return max(fold.frame.maxX - view.safeAreaLayoutGuide.layoutFrame.minX, 0)
         }
-        #endif
         return 0
     }
 
@@ -945,7 +941,12 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// See `presentSheet`; `done` says whether something was shared.
     func presentShare(_ share: ShareSheetState, done: @escaping (Bool) -> Void) {
         let sheet = UIActivityViewController(activityItems: share.activityItems, applicationActivities: nil)
-        sheet.completionWithItemsHandler = { _, completed, _, _ in done(completed) }
+        sheet.completionWithItemsHandler = { activity, completed, _, error in
+            // A cancelled target (Mail closed unsent) returns to the sheet, where
+            // another can still share; a failed one answers at once.
+            if !completed && activity != nil && error == nil { return }
+            done(completed)
+        }
         // From ⋯, whose menu has Partilhar: a popover on iPad, and on iOS 26
         // the iPhone's sheet grows out of it too.
         if let popover = sheet.popoverPresentationController {
@@ -968,19 +969,18 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     // MARK: - Onboarding
 
-    /// Whether the sheet came up. UIKit refuses, with only a console warning, a
-    /// presentation while another is on its way in or out; `onFinish` then
-    /// never runs.
-    func presentOnboarding(_ steps: [OnboardingStepData], onFinish: @escaping (Bool, String) -> Void) -> Bool {
+    /// Queued as the other sheets are (see `presentSheet`), as on Android;
+    /// `presented` says whether it came up, and `onFinish` runs only if it did.
+    func presentOnboarding(
+        _ steps: [OnboardingStepData],
+        presented: @escaping (Bool) -> Void,
+        onFinish: @escaping (Bool, String) -> Void
+    ) {
         let onboarding = OnboardingController(steps: steps, onFinish: onFinish)
         let sheet = UINavigationController(rootViewController: onboarding)
         sheet.modalPresentationStyle = traitCollection.horizontalSizeClass == .regular ? .formSheet : .pageSheet
         sheet.presentationController?.delegate = onboarding
-        var presenter: UIViewController = self
-        while let presented = presenter.presentedViewController { presenter = presented }
-        guard !presenter.isBeingPresented, !presenter.isBeingDismissed else { return false }
-        presenter.present(sheet, animated: true)
-        return sheet.presentingViewController != nil
+        presentSheet(sheet, done: presented)
     }
 
     // MARK: - Delegates
@@ -1024,7 +1024,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     }
 
     /// A capsule main-action button: glass on iOS 26, filled before.
-    static func prominentButton(title: String? = nil, symbol: String? = nil) -> UIButton {
+    static func prominentButton() -> UIButton {
         var config: UIButton.Configuration
         if #available(iOS 26.0, *) {
             config = .prominentGlass()
@@ -1034,8 +1034,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         }
         config.baseForegroundColor = onSelection
         config.cornerStyle = .capsule
-        config.title = title
-        config.image = symbol.flatMap { UIImage(systemName: $0) }
         let button = UIButton(configuration: config)
         button.tintColor = selectionFill
         return button
@@ -1150,11 +1148,13 @@ enum ReaderMenu {
         if state.canShare {
             reading.append(action("Partilhar", "square.and.arrow.up", "share", send: send))
         }
-        var app: [UIMenuElement] = []
+        var app: [UIMenuElement] = [
+            action("Como usar a app", "questionmark.circle", "help", send: send),
+            action("Sobre a Bíblia", "info.circle", "about", send: send),
+        ]
         if state.canReport {
             app.append(action("Reportar erro", "exclamationmark.bubble", "report", send: send))
         }
-        app.append(action("Como usar a app", "questionmark.circle", "help", send: send))
         app.append(action("Política de Privacidade", "hand.raised", "privacy", send: send))
         // Two groups with a divider, as the HIG asks of menus: what to do with
         // the reading, then the app's help and legal pages. Inline sections,

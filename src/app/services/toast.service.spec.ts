@@ -132,7 +132,12 @@ describe("ToastService", () => {
       expect(snackBar.openFromComponent).not.toHaveBeenCalled()
       expect(nativeChrome.toast).toHaveBeenCalledOnceWith(
         "Voltar para Gn 3,5",
-        { symbol: "arrow.uturn.backward", onTap: jasmine.any(Function) },
+        {
+          symbol: "arrow.uturn.backward",
+          onTap: jasmine.any(Function),
+          // Android takes the way back down once the reader reads on.
+          returnToPage: true,
+        },
       )
       nativeChrome.toast.calls.mostRecent().args[1].onTap()
       expect(navigate).toHaveBeenCalledWith(["gn", 3], {
@@ -197,6 +202,23 @@ describe("ToastService", () => {
 
         // The passage picker, say.
         await router.navigateByUrl("/gn/1")
+
+        expect(snackRef.dismiss).toHaveBeenCalledTimes(1)
+      })
+
+      // On iOS "Voltar para Gn 1,1" stayed over the search page.
+      it("takes it down when they leave the text for search", async () => {
+        await followReference(true)
+
+        await router.navigateByUrl("/search?q=luz")
+
+        expect(hideToast).toHaveBeenCalledTimes(1)
+      })
+
+      it("takes the snackbar down on the way to the book list", async () => {
+        await followReference(false)
+
+        await router.navigateByUrl("/livros")
 
         expect(snackRef.dismiss).toHaveBeenCalledTimes(1)
       })

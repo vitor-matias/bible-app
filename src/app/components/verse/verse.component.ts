@@ -75,7 +75,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   isQuotation = false
 
   /**
-   * Whether tapping the verse's text opens its notes. Not in the iOS app: a tap
+   * Whether tapping the verse's text opens its notes. Not in the native apps: a tap
    * on the text shows or hides its bars there, and the notes marker opens them.
    */
   notesOnText = false
@@ -142,7 +142,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   private readonly backButton = inject(BackButtonService)
 
-  /** The iOS app shows footnotes in a native sheet. */
+  /** The native apps show footnotes in a native sheet. */
   private readonly nativeFootnotes = inject(NativeFootnotesService)
 
   private readonly autoScroll = inject(AutoScrollService)

@@ -1467,6 +1467,18 @@ describe("VerseComponent", () => {
       return host.parentElement?.getBoundingClientRect().width ?? 0
     }
 
+    // The Android bar names the section being read (NativeChromeService).
+    it("marks its heading as a section heading", () => {
+      setData(component, deuteronomy1v5())
+      fixture.detectChanges()
+
+      const heading = fixture.nativeElement.querySelector(
+        "[data-section-heading]",
+      ) as HTMLElement
+      expect(heading.tagName).toBe("H3")
+      expect(heading.textContent).toContain("1. Recordação do passado")
+    })
+
     it("sets a heading as an inline-block a line wide", () => {
       setData(component, deuteronomy1v5())
       fixture.detectChanges()

@@ -336,6 +336,29 @@ describe("HeaderComponent", () => {
       expect(version?.nextElementSibling).toBeNull()
     })
 
+    it("follows the tutorial with About, the problem report and the privacy policy", async () => {
+      await openMenu()
+
+      const labels = Array.from(
+        document.querySelectorAll(".mat-mdc-menu-panel .mat-mdc-menu-item"),
+      )
+        .map((item) => {
+          // The labels alone, without the icons' ligature names.
+          const label = item.cloneNode(true) as HTMLElement
+          for (const icon of Array.from(label.querySelectorAll("mat-icon"))) {
+            icon.remove()
+          }
+          return label.textContent?.replace(/\s+/g, " ").trim() ?? ""
+        })
+        .filter(Boolean)
+      expect(labels.slice(-4)).toEqual([
+        "Como usar a app",
+        "Sobre a Bíblia",
+        "Reportar erro",
+        "Política de Privacidade",
+      ])
+    })
+
     it("stays on one line, as in the iOS menu", async () => {
       await openMenu()
 
@@ -458,8 +481,21 @@ describe("HeaderComponent", () => {
     const ribbon = fixture.nativeElement.querySelector(
       ".chapter-ribbon",
     ) as HTMLElement
-    expect(ribbon.style.color).toBe("red")
+    // The light surfaces' tone: the header's button is antique white in
+    // both themes.
+    expect(ribbon.style.color).toBe("var(--ribbon-light-red)")
     expect(ribbon.parentElement?.textContent).toContain(", marcador vermelho")
+  })
+
+  it("opens the About page from the menu", () => {
+    const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
+    const selected: { bookId: string; chapter?: number }[] = []
+    component.selectPassage.subscribe((passage) => selected.push(passage))
+
+    component.onOpenAbout(trigger)
+
+    expect(trigger.closeMenu).toHaveBeenCalled()
+    expect(selected).toEqual([{ bookId: "about" }])
   })
 
   it("should open the onboarding wizard from the menu", () => {
@@ -1112,6 +1148,7 @@ describe("HeaderComponent with the iOS native bars", () => {
       bookmarkColor: null,
       bookmarkName: null,
       buildVersion: "20261016-120000Z",
+      textSize: null,
     })
   })
 
@@ -1280,6 +1317,43 @@ describe("HeaderComponent with the iOS native bars", () => {
     actions.next({ id: "auto-scroll" })
 
     expect(emitted).toEqual(["view", "smaller", "larger", "scroll"])
+  })
+
+  // The Android sheet steps by 10, and resets to the size the text opens at.
+  it("passes the native sheet's step, and its reset, to the reader", () => {
+    const steps: (number | undefined)[] = []
+    let resets = 0
+    component.increaseFontSizeEvent.subscribe((step) => steps.push(step))
+    component.decreaseFontSizeEvent.subscribe((step) => steps.push(step))
+    component.resetFontSizeEvent.subscribe(() => resets++)
+
+    actions.next({ id: "font-increase", step: 10 })
+    actions.next({ id: "font-decrease", step: 10 })
+    actions.next({ id: "font-reset" })
+
+    expect(steps).toEqual([10, 10])
+    expect(resets).toBe(1)
+  })
+
+  it("sends the text size to the bars, but none for the About page", () => {
+    const size = { percent: 120, min: 70, max: 235, canReset: true }
+    fixture.componentRef.setInput("textSize", size)
+    fixture.detectChanges()
+    expect(lastState().textSize).toEqual(size)
+
+    component.book = { ...component.book, id: "about" }
+    fixture.componentRef.setInput("chapterNumber", 1)
+    fixture.detectChanges()
+    expect(lastState().textSize).toBeNull()
+  })
+
+  it("opens the About page from the native menu", () => {
+    const selected: { bookId: string; chapter?: number }[] = []
+    component.selectPassage.subscribe((passage) => selected.push(passage))
+
+    actions.next({ id: "about" })
+
+    expect(selected).toEqual([{ bookId: "about" }])
   })
 
   it("opens the native bookmarks sheet, the native problem report and help", () => {

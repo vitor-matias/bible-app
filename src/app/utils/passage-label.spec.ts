@@ -1,4 +1,5 @@
 import {
+  introductionTitle,
   passageLabel,
   passageShortLabels,
   passageSpokenLabel,
@@ -7,6 +8,26 @@ import {
 describe("passage labels", () => {
   const luke = { id: "luk", shortName: "Lucas", name: "Evangelho de São Lucas" }
   const psalms = { id: "psa", shortName: "Salmos", name: "Livro dos Salmos" }
+
+  // The card above chapter 1 said only "Introdução ao livro".
+  it("name a book's introduction after the book, in its gender", () => {
+    expect(introductionTitle({ name: "Livro do Génesis" })).toBe(
+      "Introdução ao Livro do Génesis",
+    )
+    expect(introductionTitle(luke)).toBe("Introdução ao Evangelho de São Lucas")
+    expect(introductionTitle({ name: "Cântico dos Cânticos" })).toBe(
+      "Introdução ao Cântico dos Cânticos",
+    )
+    expect(introductionTitle({ name: "Primeiro Livro dos Macabeus" })).toBe(
+      "Introdução ao Primeiro Livro dos Macabeus",
+    )
+    expect(introductionTitle({ name: "Carta aos Romanos" })).toBe(
+      "Introdução à Carta aos Romanos",
+    )
+    expect(introductionTitle({ name: "Primeira Carta aos Coríntios" })).toBe(
+      "Introdução à Primeira Carta aos Coríntios",
+    )
+  })
 
   it("cite a verse after a comma, as the text does", () => {
     expect(passageLabel(luke, 2, 32)).toBe("Lucas 2,32")

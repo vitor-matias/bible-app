@@ -1,3 +1,4 @@
+import { LocationStrategy } from "@angular/common"
 import { provideHttpClient } from "@angular/common/http"
 import { isDevMode, provideZoneChangeDetection } from "@angular/core"
 import { bootstrapApplication } from "@angular/platform-browser"
@@ -8,6 +9,7 @@ import { provideServiceWorker } from "@angular/service-worker"
 import { AppComponent } from "./app/app.component"
 import { routes } from "./app/app.routes"
 import { labelUmamiPlatform } from "./app/services/analytics.service"
+import { DepthLocationStrategy } from "./app/services/depth-location-strategy"
 import { isServiceWorkerEnabled } from "./app/utils/platform"
 
 export function initializeTheme(): void {
@@ -33,6 +35,7 @@ bootstrapApplication(AppComponent, {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
+    { provide: LocationStrategy, useClass: DepthLocationStrategy },
     provideServiceWorker("ngsw-worker.js", {
       enabled: isServiceWorkerEnabled(isDevMode()),
       registrationStrategy: "registerWhenStable:30000",

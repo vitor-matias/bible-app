@@ -1,4 +1,6 @@
 apply plugin: 'com.android.application'
+// Kotlin is built into AGP 9: only Compose's compiler plugin is applied.
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
 // Release signing is read from android/keystore.properties (written by CI,
 // never committed). Without it, release builds are left unsigned.
@@ -35,13 +37,20 @@ android {
             }
         }
     }
+    buildFeatures {
+        compose = true
+    }
     buildTypes {
         release {
             if (keystorePropertiesFile.exists()) {
                 signingConfig signingConfigs.release
             }
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // R8 shrinks and optimises the Kotlin, Compose and Capacitor code.
+            // Capacitor's own consumer rules keep the plugins the web calls by
+            // name; the optimize defaults keep @JavascriptInterface methods.
+            minifyEnabled = true
+            shrinkResources = true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
@@ -58,13 +67,28 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    implementation platform("androidx.compose:compose-bom:$composeBomVersion")
+    implementation "androidx.compose.ui:ui"
+    implementation "androidx.compose.foundation:foundation"
+    implementation "androidx.compose.material3:material3:$material3Version"
+    implementation "androidx.activity:activity-compose:$androidxActivityComposeVersion"
+    debugImplementation "androidx.compose.ui:ui-tooling"
+    implementation "androidx.compose.ui:ui-tooling-preview"
     testImplementation "junit:junit:$junitVersion"
+    // android.jar's org.json is stubbed in unit tests: the real one, to read
+    // what the web app sends (ChromeStateTest).
+    testImplementation "org.json:json:20250517"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
 }
 
 apply from: 'capacitor.build.gradle'
+
+// Capacitor's Gradle file sets Java 21 (capacitor.build.gradle); Kotlin matches it.
+kotlin {
+    jvmToolchain(21)
+}
 
 try {
     def servicesJSON = file('google-services.json')

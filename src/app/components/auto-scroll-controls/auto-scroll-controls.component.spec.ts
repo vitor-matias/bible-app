@@ -1,3 +1,4 @@
+import { ChangeDetectorRef } from "@angular/core"
 import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
@@ -197,6 +198,36 @@ describe("AutoScrollControlsComponent", () => {
       )
       expect(preferencesServiceSpy.setAutoScrollSpeed).toHaveBeenCalledWith(0.5)
     })
+
+    // The service keeps four decimals: the slowest, 1/6, is 0.1667, a hair
+    // above it, and − stayed enabled there while + did at the fastest.
+    it("disables − at the slowest speed as stored, and + at the fastest", () => {
+      const host = fixture.nativeElement as HTMLElement
+      const button = (label: string) =>
+        host.querySelector(
+          `button[aria-label="${label} velocidade do deslocamento automático"]`,
+        ) as HTMLButtonElement
+      const at = (speed: number) => {
+        Object.defineProperty(
+          autoScrollServiceSpy,
+          "autoScrollLinesPerSecond",
+          {
+            get: () => speed,
+            configurable: true,
+          },
+        )
+        fixture.componentRef.injector.get(ChangeDetectorRef).markForCheck()
+        fixture.detectChanges()
+      }
+
+      at(0.25004)
+      expect(button("Diminuir").disabled).toBeTrue()
+      expect(button("Aumentar").disabled).toBeFalse()
+
+      at(2.99996)
+      expect(button("Diminuir").disabled).toBeFalse()
+      expect(button("Aumentar").disabled).toBeTrue()
+    })
   })
 
   describe("getters", () => {
@@ -372,6 +403,15 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     for (let i = 0; i < 4; i++) actions.next({ id: "auto-scroll-slower" })
     expect(lastState()).toEqual(
       jasmine.objectContaining({ speedLabel: "0.25", canSlower: false }),
+    )
+  })
+
+  // The slowest as the service stores it, rounded a hair above the limit.
+  it("tells the toolbar − is done at the slowest speed as stored", () => {
+    speed = 0.25004
+    actions.next({ id: "auto-scroll-toggle" })
+    expect(lastState()).toEqual(
+      jasmine.objectContaining({ canSlower: false, canFaster: true }),
     )
   })
 
