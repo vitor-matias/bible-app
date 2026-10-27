@@ -102,17 +102,11 @@ h3:not(:first-child) {
   font-weight: normal;
 }
 
-/* The asterisk opens the verse's notes: underlined in the text's accent, as
-   the references in the text are, so it reads as something to tap rather
-   than a stray mark. */
+/* The note icon opens the verse's notes. */
 .footnoteIndicator {
   vertical-align: top;
   font-size: 65%;
-  color: var(--text-secondary);
   cursor: pointer;
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 0.2em;
 }
 
 .quoteLineWrapper {
@@ -157,11 +151,10 @@ h3:not(:first-child) {
   text-align: center;
 }
 
-/* The iOS app's marker is an icon, not the asterisk: a note with lines of text,
-   in the text's own colour (the asterisk wore the accent; the app has none on
-   iOS, and it has no text to underline). Its box is 1.2em and
-   the drawing fills most of it, so it is a visibly bigger thing to aim at than
-   the glyph it replaced (about 12 x 10 pt, against 8 x 6). It is centred on
+/* The marker is an icon, not the edition's asterisk: a note with lines of text,
+   in the text's own colour. Its box is 1.2em and the drawing fills most of it,
+   so it is a visibly bigger thing to aim at than the glyph it replaced (about
+   12 x 10 pt, against 8 x 6). It is centred on
    the verse number's digits rather than riding above them. The offset is a
    relative one: vertical-align had no effect on this inline SVG in WebKit.
    Measured in the iOS simulator. */
