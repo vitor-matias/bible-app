@@ -32,7 +32,7 @@
           <span>Marcadores</span>
         </button>
         <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode === 'paged'">
-          <mat-icon>auto_mode</mat-icon>
+          <mat-icon>arrow_circle_down</mat-icon>
           <span>
             {{ autoScrollControlsVisible
             ? 'Esconder controlos de deslocamento automático'
@@ -45,16 +45,20 @@
           <span>Partilhar</span>
         </button>
         }
-        @if (analyticsService.areAnalyticsAvailable()) {
-          <button type="button" mat-menu-item (click)="onReportProblem(menuTrigger)">
-            <mat-icon>report_problem</mat-icon>
-            <span>Reportar Erro</span>
-          </button>
-        }
         <button type="button" mat-menu-item (click)="onOpenHelp(menuTrigger)">
           <mat-icon>help</mat-icon>
           <span>Como usar a app</span>
         </button>
+        <button type="button" mat-menu-item (click)="onOpenAbout(menuTrigger)">
+          <mat-icon>info</mat-icon>
+          <span>Sobre a Bíblia</span>
+        </button>
+        @if (analyticsService.areAnalyticsAvailable()) {
+          <button type="button" mat-menu-item (click)="onReportProblem(menuTrigger)">
+            <mat-icon>report_problem</mat-icon>
+            <span>Reportar erro</span>
+          </button>
+        }
         <a mat-menu-item [href]="privacyPolicyUrl" target="_blank" rel="noopener noreferrer">
           <mat-icon>privacy_tip</mat-icon>
           <span class="privacy-label">
@@ -103,7 +107,7 @@
           {{ chapterLabel }}
           <!-- The ribbon on this chapter, as it hangs from a printed Bible. -->
           @if (bookmarkName) {
-          <mat-icon class="chapter-ribbon" [style.color]="currentBookmark?.color" aria-hidden="true">bookmark</mat-icon>
+          <mat-icon class="chapter-ribbon" [style.color]="ribbonColor(currentBookmark?.color, 'light')" aria-hidden="true">bookmark</mat-icon>
           <span class="visually-hidden">, marcador {{ bookmarkName.toLocaleLowerCase('pt') }}</span>
           }
         </mat-button-toggle>

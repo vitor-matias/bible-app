@@ -222,7 +222,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             setTopBarItems([readerItem], animated: previous.mode == .search)
             announceChanges(from: previous, to: next)
         case .search:
-            searchItem.leftBarButtonItem = nil
             setTopBarItems([searchBackItem, searchItem], animated: previous.mode == .reader)
             if usesVerticalBar {
                 setSystemBarItems(title: searchItem.title, left: [systemBackItem], right: [])
@@ -942,7 +941,12 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// See `presentSheet`; `done` says whether something was shared.
     func presentShare(_ share: ShareSheetState, done: @escaping (Bool) -> Void) {
         let sheet = UIActivityViewController(activityItems: share.activityItems, applicationActivities: nil)
-        sheet.completionWithItemsHandler = { _, completed, _, _ in done(completed) }
+        sheet.completionWithItemsHandler = { activity, completed, _, error in
+            // A cancelled target (Mail closed unsent) returns to the sheet, where
+            // another can still share; a failed one answers at once.
+            if !completed && activity != nil && error == nil { return }
+            done(completed)
+        }
         // From ⋯, whose menu has Partilhar: a popover on iPad, and on iOS 26
         // the iPhone's sheet grows out of it too.
         if let popover = sheet.popoverPresentationController {
@@ -965,19 +969,18 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     // MARK: - Onboarding
 
-    /// Whether the sheet came up. UIKit refuses, with only a console warning, a
-    /// presentation while another is on its way in or out; `onFinish` then
-    /// never runs.
-    func presentOnboarding(_ steps: [OnboardingStepData], onFinish: @escaping (Bool, String) -> Void) -> Bool {
+    /// Queued as the other sheets are (see `presentSheet`), as on Android;
+    /// `presented` says whether it came up, and `onFinish` runs only if it did.
+    func presentOnboarding(
+        _ steps: [OnboardingStepData],
+        presented: @escaping (Bool) -> Void,
+        onFinish: @escaping (Bool, String) -> Void
+    ) {
         let onboarding = OnboardingController(steps: steps, onFinish: onFinish)
         let sheet = UINavigationController(rootViewController: onboarding)
         sheet.modalPresentationStyle = traitCollection.horizontalSizeClass == .regular ? .formSheet : .pageSheet
         sheet.presentationController?.delegate = onboarding
-        var presenter: UIViewController = self
-        while let presented = presenter.presentedViewController { presenter = presented }
-        guard !presenter.isBeingPresented, !presenter.isBeingDismissed else { return false }
-        presenter.present(sheet, animated: true)
-        return sheet.presentingViewController != nil
+        presentSheet(sheet, done: presented)
     }
 
     // MARK: - Delegates
@@ -1021,7 +1024,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     }
 
     /// A capsule main-action button: glass on iOS 26, filled before.
-    static func prominentButton(title: String? = nil, symbol: String? = nil) -> UIButton {
+    static func prominentButton() -> UIButton {
         var config: UIButton.Configuration
         if #available(iOS 26.0, *) {
             config = .prominentGlass()
@@ -1031,8 +1034,6 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         }
         config.baseForegroundColor = onSelection
         config.cornerStyle = .capsule
-        config.title = title
-        config.image = symbol.flatMap { UIImage(systemName: $0) }
         let button = UIButton(configuration: config)
         button.tintColor = selectionFill
         return button
@@ -1147,11 +1148,13 @@ enum ReaderMenu {
         if state.canShare {
             reading.append(action("Partilhar", "square.and.arrow.up", "share", send: send))
         }
-        var app: [UIMenuElement] = []
+        var app: [UIMenuElement] = [
+            action("Como usar a app", "questionmark.circle", "help", send: send),
+            action("Sobre a Bíblia", "info.circle", "about", send: send),
+        ]
         if state.canReport {
             app.append(action("Reportar erro", "exclamationmark.bubble", "report", send: send))
         }
-        app.append(action("Como usar a app", "questionmark.circle", "help", send: send))
         app.append(action("Política de Privacidade", "hand.raised", "privacy", send: send))
         // Two groups with a divider, as the HIG asks of menus: what to do with
         // the reading, then the app's help and legal pages. Inline sections,

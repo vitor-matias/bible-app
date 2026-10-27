@@ -175,18 +175,9 @@ export class OfflineDataService {
     }
   }
 
-  getCachedBooks(): Book[] {
-    this.ensureCacheLoaded()
-    return this.cachedBooks ?? []
-  }
-
   async getCachedBooksAsync(): Promise<Book[]> {
     await this.ensureCacheLoaded()
     return this.cachedBooks ?? []
-  }
-
-  getCachedBook(bookId: Book["id"]): Book | undefined {
-    return this.getCachedBooks().find((book) => book.id === bookId)
   }
 
   async getCachedBookAsync(bookId: Book["id"]): Promise<Book | undefined> {
@@ -215,29 +206,12 @@ export class OfflineDataService {
     }
   }
 
-  getCachedChapter(
-    bookId: Book["id"],
-    chapterNumber: Chapter["number"],
-  ): Chapter | undefined {
-    const book = this.getCachedBook(bookId)
-    return book?.chapters?.find((chapter) => chapter.number === chapterNumber)
-  }
-
   async getCachedChapterAsync(
     bookId: Book["id"],
     chapterNumber: Chapter["number"],
   ): Promise<Chapter | undefined> {
     const book = await this.getCachedBookAsync(bookId)
     return book?.chapters?.find((chapter) => chapter.number === chapterNumber)
-  }
-
-  getCachedVerse(
-    bookId: Book["id"],
-    chapterNumber: Chapter["number"],
-    verseNumber: Verse["number"],
-  ): Verse | undefined {
-    const chapter = this.getCachedChapter(bookId, chapterNumber)
-    return chapter?.verses?.find((verse) => verse.number === verseNumber)
   }
 
   async getCachedVerseAsync(

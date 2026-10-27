@@ -90,7 +90,7 @@ export class BibleReaderAnimationService {
                 beforeScroll()
               } else {
                 const maxScroll = container.scrollWidth - container.clientWidth
-                container.scrollLeft = maxScroll > 0 ? maxScroll : 0
+                container.scrollLeft = Math.max(maxScroll, 0)
               }
               this.triggerSlideAnimation(drawerContent, container, true)
             })

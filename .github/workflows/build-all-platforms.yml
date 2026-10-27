@@ -193,6 +193,10 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      # compileSdk 37 (variables.gradle), which the runner's SDK may not have.
+      - name: Android SDK 37
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;37.0.0" > /dev/null'
+
       - name: Install dependencies
         run: npm ci
 

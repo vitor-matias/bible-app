@@ -27,7 +27,7 @@ interface FootnoteLink {
 }
 
 /**
- * A verse's footnotes as a native sheet in the iOS app. The references in the
+ * A verse's footnotes as a native sheet in the iOS and Android apps. The references in the
  * notes stay links: the sheet reports which one was tapped, and the reader
  * opens it as the web sheet (FootnotesBottomSheetComponent) would, with the
  * way back to the verse as a toast.

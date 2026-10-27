@@ -481,7 +481,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     if (!this.container || !block) return
 
     const maxScroll = this.container.scrollWidth - this.container.clientWidth
-    this.container.scrollLeft = maxScroll > 0 ? maxScroll : 0
+    this.container.scrollLeft = Math.max(maxScroll, 0)
   }
 
   private snapToNearestPage(): void {

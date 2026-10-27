@@ -26,11 +26,15 @@ import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { combineLatest, Subject, Subscription } from "rxjs"
 import { switchMap, take, takeUntil } from "rxjs/operators"
+import { nextCanonBook } from "../../bible-canon"
 import {
   PagedNavigationDirective,
   PageState,
 } from "../../directives/paged-navigation/paged-navigation.directive"
-import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
+import {
+  type TextSize,
+  UnifiedGesturesDirective,
+} from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BackButtonService } from "../../services/back-button.service"
@@ -43,6 +47,7 @@ import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
 import { ToastService } from "../../services/toast.service"
+import { introductionTitle, passageLabel } from "../../utils/passage-label"
 import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
 import { BookIntroComponent } from "../book-intro/book-intro.component"
@@ -82,6 +87,21 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private platformId = inject(PLATFORM_ID)
   private haptics = inject(HapticsService)
   private nativeChrome = inject(NativeChromeService)
+  /**
+   * The Android app's chapter cards, for what its corner arrows don't reach:
+   * the introduction, above chapter 1, and the next book, after a book's last
+   * chapter. The next chapter is the › arrow's alone.
+   */
+  readonly chapterCards = this.nativeChrome.android
+
+  /** In scrolling mode, once the chapter is in: pages turn into the next one. */
+  get showChapterCards(): boolean {
+    return (
+      this.chapterCards &&
+      !!this.chapter &&
+      this.effectiveViewMode === "scrolling"
+    )
+  }
   private toast = inject(ToastService)
   private stopTrackingScroll?: () => void
   private unregisterBackCloser = inject(BackButtonService).register(() => {
@@ -400,6 +420,31 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       true,
     )
     this.nextChapterLink = this.chapterCommands(this.chapterNumber + 1, true)
+    const nextId =
+      this.book && this.chapterNumber >= this.book.chapterCount
+        ? nextCanonBook(this.book.id)
+        : undefined
+    this.nextBook = nextId ? this.bookService.findBookById(nextId) : undefined
+    this.nextBookLink = this.nextBook
+      ? [
+          "/",
+          this.bookService.getUrlAbrv(this.nextBook),
+          this.bookService.getChapterUrlSegment(1),
+        ]
+      : []
+  }
+
+  /**
+   * At a book's last chapter, the next book in the edition's order (Malaquias
+   * leads to Mateus); none after Apocalipse. Its chapter 1, as a link.
+   */
+  nextBook?: Book
+  nextBookLink: (string | number)[] = []
+
+  /** Following the "Livro seguinte" card: reading hands-free stops there. */
+  prepareBookNavigation(event: MouseEvent): void {
+    if (!this.isPlainLeftClick(event)) return
+    this.autoScrollService.stop()
   }
 
   onSwipeLeft(): void {
@@ -443,6 +488,27 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.chapter.number > this.minChapter ||
       (this.effectiveViewMode === "paged" && !this.isFirstPage)
     )
+  }
+
+  /** A chapter card's passage: "Êxodo 1", "Salmo 23 (22)", or the introduction. */
+  chapterCardLabel(chapter: number, book: Book = this.book): string {
+    return chapter === 0 ? "Introdução" : passageLabel(book, chapter)
+  }
+
+  /**
+   * Chapter 1 of a book with an introduction: the card above the text leads
+   * to it, which only the picker otherwise shows. Elsewhere ‹ is at hand at a
+   * chapter's top, where the bars always show.
+   */
+  get introCard(): boolean {
+    return (
+      this.book?.id !== "about" && this.chapterNumber === 1 && this.hasIntro
+    )
+  }
+
+  /** The introduction card's title: "Introdução ao Livro do Génesis". */
+  get introCardTitle(): string {
+    return introductionTitle(this.book)
   }
 
   get canGoNext(): boolean {
@@ -896,12 +962,24 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     return !document.querySelector(".cdk-overlay-backdrop-showing")
   }
 
-  onIncreaseFontSize(): void {
-    this.gestures.increaseFontSize()
+  onIncreaseFontSize(step?: number): void {
+    this.gestures.increaseFontSize(step)
   }
 
-  onDecreaseFontSize(): void {
-    this.gestures.decreaseFontSize()
+  onDecreaseFontSize(step?: number): void {
+    this.gestures.decreaseFontSize(step)
+  }
+
+  onResetFontSize(): void {
+    this.gestures.resetFontSize()
+  }
+
+  /** The text's size, which the header passes to the Android app's text sheet. */
+  textSize: TextSize | null = null
+
+  onTextSizeChange(size: TextSize): void {
+    this.textSize = size
+    this.cdr.markForCheck()
   }
 
   checkIfNextVerseStartsWithQuote(index: number): boolean {

@@ -7,6 +7,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.webkit.WebView;
 import com.getcapacitor.BridgeActivity;
+import org.capuchinhos.biblia.chrome.NativeChromePlugin;
 
 public class MainActivity extends BridgeActivity {
 
@@ -30,6 +31,8 @@ public class MainActivity extends BridgeActivity {
         if (!restoring) {
             setIntent(toShareTargetIntent(getIntent()));
         }
+        // The bars and sheets, drawn natively over the web view.
+        registerPlugin(NativeChromePlugin.class);
         super.onCreate(savedInstanceState);
         restoring = false;
     }

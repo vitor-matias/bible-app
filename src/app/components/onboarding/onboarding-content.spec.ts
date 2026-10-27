@@ -35,7 +35,7 @@ describe("nativeOnboardingSteps", () => {
     const feature = (id: string, icon: string) =>
       step(id)?.features.find((entry) => entry.symbol === sfSymbol(icon))?.text
     expect(feature("tools", "bookmarks")).toContain("Toque no marcador")
-    const autoScroll = feature("customize", "auto_mode")
+    const autoScroll = feature("customize", "arrow_circle_down")
     expect(autoScroll).toContain("menu ⋯")
   })
 
@@ -65,6 +65,7 @@ describe("nativeOnboardingSteps", () => {
     )
     expect(step("tools")?.features[1]).toEqual({
       symbol: "bookmark",
+      icon: "bookmarks",
       text: "Toque no marcador, no topo à direita, para guardar marcadores coloridos nos capítulos a que quer voltar.",
     })
   })
@@ -79,5 +80,61 @@ describe("nativeOnboardingSteps", () => {
         expect(sfSymbol(icon)).withContext(icon).not.toBe("circle")
       }
     }
+  })
+})
+
+describe("nativeOnboardingSteps for the Android app", () => {
+  const steps = nativeOnboardingSteps(ONBOARDING_STEPS, "android")
+  const step = (id: string) => steps.find((entry) => entry.id === id)
+
+  // Its text button and ⋮ sit at the top right; the rest is where the iOS
+  // app has it.
+  it("points to the Android app's text button and ⋮ menu", () => {
+    expect(step("customize")?.intro).toContain(
+      "Toque em TT (Texto e aparência), no topo à direita",
+    )
+    // Its hero shows that button's icon.
+    expect(step("customize")?.icon).toBe("format_size")
+    const autoScroll = step("customize")?.features.find(
+      (feature) => feature.icon === "arrow_circle_down",
+    )?.text
+    expect(autoScroll).toContain("menu ⋮, no topo à direita")
+    expect(autoScroll).not.toContain("⋯")
+  })
+
+  // The passage is the top bar's title, the arrows sit in the corners, and
+  // the bars follow the scrolling rather than a tap on the text.
+  it("points to the passage on top and the arrows in the corners", () => {
+    expect(step("navigate")?.intro).toContain("No topo do ecrã")
+    expect(step("navigate")?.intro).not.toContain("barra inferior")
+    const [swipe, , notes] = step("navigate")?.features ?? []
+    expect(swipe.text).toContain("cantos inferiores")
+    expect(swipe.text).not.toContain("barra inferior")
+    // No card after the chapter any more: › is the way on.
+    expect(swipe.text).not.toContain("No fim do capítulo")
+    expect(notes.text).toContain("ícone de notas")
+    expect(notes.text).not.toContain("Um toque no texto")
+  })
+
+  // The menu's entry is "Como usar a app", under ⋮; the title is the passage.
+  it("names where the introduction is found again, and the title", () => {
+    expect(step("welcome")?.features[2].text).toContain(
+      "no menu ⋮, em «Como usar a app»",
+    )
+    expect(step("navigate")?.intro).toContain("«Génesis 1 ▾»")
+  })
+
+  it("keeps the iOS app's words where the bars are alike", () => {
+    expect(step("tools")?.features[1].text).toContain("no topo à direita")
+  })
+
+  it("sends the Material icons, which the Android app draws", () => {
+    expect(step("tools")?.icon).toBe("search")
+    expect(step("customize")?.features.map((feature) => feature.icon)).toEqual([
+      "dark_mode",
+      "auto_stories",
+      "text_increase",
+      "arrow_circle_down",
+    ])
   })
 })

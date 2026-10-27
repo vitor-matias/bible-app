@@ -327,6 +327,22 @@ describe("AppComponent", () => {
       expect(mockAppPlugin.minimizeApp).not.toHaveBeenCalled()
     })
 
+    // On a fresh launch, the WebView skips on Back a page opened from the
+    // native bars before any tap on the page, and says it can't go back.
+    it("goes back to a page the WebView skips, by the app's own count", () => {
+      const historyBack = spyOn(window.history, "back")
+      const state = window.history.state
+      window.history.replaceState({ ...state, appDepth: 1 }, "")
+      try {
+        backButton({ canGoBack: false })
+      } finally {
+        window.history.replaceState(state, "")
+      }
+
+      expect(historyBack).toHaveBeenCalled()
+      expect(toastSpy.show).not.toHaveBeenCalled()
+    })
+
     it("closes a registered panel, such as the book drawer, before going back", () => {
       const closeDrawer = jasmine.createSpy("closeDrawer").and.returnValue(true)
       const unregister = TestBed.inject(BackButtonService).register(closeDrawer)
