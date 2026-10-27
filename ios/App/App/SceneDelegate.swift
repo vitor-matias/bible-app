@@ -9,7 +9,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         window = UIWindow(windowScene: windowScene)
         // Hosts the web app under native bars (ChromeViewController.swift).
-        window?.rootViewController = ChromeViewController()
+        let chrome = ChromeNavigationController(rootViewController: ChromeViewController())
+        chrome.setNavigationBarHidden(true, animated: false)
+        chrome.setToolbarHidden(true, animated: false)
+        window?.rootViewController = chrome
         // Monochrome: checkmarks, the caret and sheet buttons in the text colour.
         window?.tintColor = .label
         window?.makeKeyAndVisible()

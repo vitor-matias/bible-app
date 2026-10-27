@@ -23,7 +23,6 @@ import {
   MatTreeModule,
 } from "@angular/material/tree"
 import {
-  ABOUT_GROUP,
   type CanonGroup,
   isClusterIntro,
   NEW_TESTAMENT_GROUPS,
@@ -133,9 +132,7 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
     return withIntros(groups, leading, (bookId) => !!this.getBook(bookId))
   }
 
-  // The About page is not in the shared canon: the crawlable book index must
-  // not link to it.
-  newTestament: CanonGroup[] = [...NEW_TESTAMENT_GROUPS, ABOUT_GROUP]
+  newTestament: CanonGroup[] = NEW_TESTAMENT_GROUPS
 
   filterQuery = ""
 

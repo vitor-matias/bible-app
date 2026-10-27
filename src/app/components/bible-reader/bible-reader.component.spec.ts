@@ -69,6 +69,7 @@ describe("BibleReaderComponent", () => {
     ])
     bookServiceSpy = jasmine.createSpyObj("BookService", [
       "findBook",
+      "findBookById",
       "getUrlAbrv",
       "getChapterUrlSegment",
       "parseChapterUrlSegment",
@@ -682,6 +683,42 @@ describe("BibleReaderComponent", () => {
 
       component.onDecreaseFontSize()
       expect(component.gestures.decreaseFontSize).toHaveBeenCalled()
+    })
+
+    // The Android text sheet steps by its own 10.
+    it("passes the text sheet's step and reset on to the gestures directive", () => {
+      component.gestures = jasmine.createSpyObj("UnifiedGesturesDirective", [
+        "increaseFontSize",
+        "decreaseFontSize",
+        "resetFontSize",
+      ])
+      component.onIncreaseFontSize(10)
+      expect(component.gestures.increaseFontSize).toHaveBeenCalledWith(10)
+
+      component.onDecreaseFontSize(10)
+      expect(component.gestures.decreaseFontSize).toHaveBeenCalledWith(10)
+
+      component.onResetFontSize()
+      expect(component.gestures.resetFontSize).toHaveBeenCalled()
+    })
+
+    it("keeps the text's size for the header", () => {
+      const size = { percent: 120, min: 70, max: 235, canReset: true }
+      component.onTextSizeChange(size)
+      expect(component.textSize).toEqual(size)
+    })
+
+    // "Livro seguinte" is a link: auto-scroll stops when it is followed here,
+    // not when it is opened in a new tab.
+    it("stops auto-scroll for a plain click on the next book's card only", () => {
+      autoScrollServiceSpy.stop.calls.reset()
+      component.prepareBookNavigation(
+        new MouseEvent("click", { button: 0, ctrlKey: true }),
+      )
+      expect(autoScrollServiceSpy.stop).not.toHaveBeenCalled()
+
+      component.prepareBookNavigation(new MouseEvent("click", { button: 0 }))
+      expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
     })
 
     describe("checkIfNextVerseStartsWithQuote", () => {
@@ -1933,6 +1970,109 @@ describe("BibleReaderComponent", () => {
     it("opens chapter 1 of a book picked without a chapter", () => {
       component.goToPassage({ bookId: "gen" })
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
+    })
+  })
+
+  describe("Android chapter cards", () => {
+    /** The reader at `chapter`, as the Android app (or not) shows it. */
+    async function readerAt(
+      chapter: number,
+      options: {
+        android?: boolean
+        viewMode?: "scrolling" | "paged"
+        introduction?: boolean
+      } = {},
+    ): Promise<ComponentFixture<BibleReaderComponent>> {
+      TestBed.resetTestingModule()
+      await setUpTestBed({ imports: [RouterLink] })
+      bookServiceSpy.findBook.and.returnValue({
+        ...mockBooks[0],
+        shortName: "Génesis",
+        name: "Livro do Génesis",
+        ...(options.introduction && {
+          introduction: [{ type: "p", text: "…" }],
+        }),
+      } as unknown as Book)
+      preferencesServiceSpy.getViewMode.and.returnValue(
+        options.viewMode ?? "scrolling",
+      )
+      Object.assign(TestBed.inject(NativeChromeService), {
+        android: options.android ?? true,
+      })
+      const cardFixture = TestBed.createComponent(BibleReaderComponent)
+      cardFixture.detectChanges()
+      cardFixture.componentInstance.getChapter(chapter)
+      await cardFixture.whenStable()
+      cardFixture.componentRef.changeDetectorRef.markForCheck()
+      cardFixture.detectChanges()
+      return cardFixture
+    }
+
+    const cards = (cardFixture: ComponentFixture<BibleReaderComponent>) =>
+      cardFixture.debugElement.queryAll(By.css("a.chapter-card"))
+
+    // The next chapter is the › arrow's: a card after every chapter only
+    // repeated it.
+    it("leaves the next chapter to the arrows", async () => {
+      expect(cards(await readerAt(5)).length).toBe(0)
+    })
+
+    // Above chapter 1 the card leads to the introduction, which otherwise
+    // only the picker shows; elsewhere ‹ is at hand at a chapter's top.
+    it("leads to the introduction from above chapter 1", async () => {
+      const cardFixture = await readerAt(1, { introduction: true })
+      const [intro, ...others] = cards(cardFixture)
+      expect(others).toEqual([])
+      expect(intro.nativeElement.textContent).toContain("Antes do capítulo 1")
+      expect(intro.nativeElement.textContent).toContain(
+        "Introdução ao Livro do Génesis",
+      )
+      expect(cardFixture.componentInstance.previousChapterLink).toEqual([
+        "/",
+        "1-genesis",
+        "intro",
+      ])
+    })
+
+    it("has nothing above chapter 1 of a book without an introduction", async () => {
+      expect(cards(await readerAt(1)).length).toBe(0)
+    })
+
+    // Génesis 50 was a dead end.
+    it("leads on to the next book from a book's last chapter", async () => {
+      bookServiceSpy.findBookById.and.callFake((id: string) =>
+        id === "exo"
+          ? ({ id: "exo", shortName: "Êxodo", chapterCount: 40 } as Book)
+          : undefined,
+      )
+      bookServiceSpy.getUrlAbrv.and.callFake((book: Book) =>
+        book.id === "exo" ? "2-exodo" : "1-genesis",
+      )
+      const cardFixture = await readerAt(50)
+      const [next, ...others] = cards(cardFixture)
+
+      expect(others).toEqual([])
+      expect(next.nativeElement.textContent).toContain("Livro seguinte")
+      expect(next.nativeElement.textContent).toContain("Êxodo 1")
+      expect(cardFixture.componentInstance.nextBookLink).toEqual([
+        "/",
+        "2-exodo",
+        "1",
+      ])
+    })
+
+    // Pages turn into the next chapter at the last one.
+    it("leaves them out of pages", async () => {
+      expect(
+        cards(await readerAt(1, { viewMode: "paged", introduction: true }))
+          .length,
+      ).toBe(0)
+    })
+
+    it("leaves them to the Android app", async () => {
+      expect(
+        cards(await readerAt(1, { android: false, introduction: true })).length,
+      ).toBe(0)
     })
   })
 

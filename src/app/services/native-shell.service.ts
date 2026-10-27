@@ -35,10 +35,12 @@ export class NativeShellService {
       `platform-${Capacitor.getPlatform()}`,
     )
     this.nativeChrome.init()
+    this.noteTextZoom()
 
     // The web toolbars are always brown, so the status bar icons are always
-    // light. SystemBars would otherwise follow the device theme. While the iOS
-    // native bars show, ChromeViewController.swift sets them from the theme.
+    // light. SystemBars would otherwise follow the device theme. While the
+    // native bars show, the shell sets them from the theme
+    // (ChromeViewController.swift, ChromeOverlay.kt).
     this.setBarStyle(SystemBarType.StatusBar, SystemBarsStyle.Dark)
 
     this.router.events
@@ -52,6 +54,32 @@ export class NativeShellService {
       })
     // Never strand the user behind the splash.
     setTimeout(() => this.hideSplash(), SPLASH_MAX_MS)
+  }
+
+  /**
+   * Android's WebView zooms every font size by the system's font size
+   * (textZoom), but not lengths in em: a box 1em tall in a 100px font stays
+   * 100px when the font draws at 200. Their ratio, as --text-zoom on the
+   * root, lets a rule hold some text's growth back (the paged copyright,
+   * styles.css). The system's font size restarts the activity when it
+   * changes, so once is enough.
+   */
+  private noteTextZoom(): void {
+    const view = this.document.defaultView
+    if (!view) return
+    const probe = this.document.createElement("div")
+    probe.style.cssText =
+      "position: absolute; visibility: hidden; font-size: 100px; height: 1em"
+    this.document.body.appendChild(probe)
+    const zoom =
+      parseFloat(view.getComputedStyle(probe).fontSize) /
+      probe.getBoundingClientRect().height
+    probe.remove()
+    if (!Number.isFinite(zoom) || zoom <= 0) return
+    this.document.documentElement.style.setProperty(
+      "--text-zoom",
+      `${Math.round(zoom * 100) / 100}`,
+    )
   }
 
   /**

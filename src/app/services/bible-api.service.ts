@@ -184,20 +184,6 @@ export class BibleApiService {
     )
   }
 
-  getBook(book: string): Observable<Book> {
-    return from(this.offlineDataService.getCachedBookAsync(book)).pipe(
-      switchMap((cached) => {
-        if (cached) {
-          return of(cached)
-        }
-        if (this.networkService.isOffline) {
-          return throwError(() => new Error("Offline - book not cached"))
-        }
-        return this.http.get(`${this.api}/${book}`) as Observable<Book>
-      }),
-    )
-  }
-
   /** Listing of the standalone introductions (whole Bible, testaments, groups). */
   getIntros(): Observable<IntroSummary[]> {
     return from(

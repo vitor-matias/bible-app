@@ -74,7 +74,6 @@ describe("buildPassagePicker", () => {
     expect(newTestament.groups.map((group) => group.title)).toEqual([
       "Evangelhos e Atos",
       "Cartas de São Paulo",
-      "Sobre a Bíblia",
     ])
   })
 
@@ -127,9 +126,13 @@ describe("buildPassagePicker", () => {
     )
   })
 
-  it("opens single pages directly: introductions and the About page", () => {
+  it("opens standalone introductions directly", () => {
     expect(findBook("pentateuco")?.chapters).toEqual([])
-    expect(findBook("about")?.chapters).toEqual([])
+  })
+
+  // The About page is in the menu, not among the books.
+  it("does not list the About page", () => {
+    expect(findBook("about")).toBeUndefined()
   })
 
   it("labels books by their short names, with their abbreviations", () => {
@@ -143,9 +146,8 @@ describe("buildPassagePicker", () => {
   })
 
   // The compact mode shows these in small tiles.
-  it("abbreviates introductions and the About page too", () => {
+  it("abbreviates introductions too", () => {
     expect(findBook("pentateuco")?.abbreviation).toBe("Intro")
-    expect(findBook("about")?.abbreviation).toBe("Sobre")
   })
 
   // Mid-group, "Introdução" alone would not say which letters it introduces.

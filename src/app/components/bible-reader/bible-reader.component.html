@@ -1,13 +1,14 @@
 @if (book) {
 <div class="text-container" unifiedGestures fontSizeContext="reader" (swipeLeft)="onSwipeLeft()" (swipeRight)="onSwipeRight()"
-  (swipeMove)="onSwipeMove($event)" (swipeCancel)="onSwipeCancel()">
+  (swipeMove)="onSwipeMove($event)" (swipeCancel)="onSwipeCancel()" (textSizeChange)="onTextSizeChange($event)">
   <header class="reader-header" [book]="book" [chapterNumber]="chapterNumber" [viewMode]="effectiveViewMode"
     [autoScrollControlsVisible]="showAutoScrollControls" [cardsView]="showCards"
     [cardsViewAvailable]="cardsViewAvailable" (toggleCardsView)="onToggleCardsView()"
     (openBookSelector)="openBookDrawer($event)"
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
-    (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize()"
-    (decreaseFontSizeEvent)="onDecreaseFontSize()" [canGoPrevious]="canGoPrevious" [canGoNext]="canGoNext"
+    (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize($event)"
+    (decreaseFontSizeEvent)="onDecreaseFontSize($event)" (resetFontSizeEvent)="onResetFontSize()" [textSize]="textSize"
+    [canGoPrevious]="canGoPrevious" [canGoNext]="canGoNext"
     (previous)="stepBackward()" (next)="stepForward()" (selectPassage)="goToPassage($event)"></header>
   <mat-drawer-container class="bookSelectorContainer" #container>
     @if (books.length) {
@@ -29,6 +30,16 @@
       <div #bookContainer [class.paged-view-container]="effectiveViewMode === 'paged'" [appPagedNavigation]="bookBlock"
         [viewMode]="effectiveViewMode" (nextChapter)="goToNextChapter()" (prevChapter)="goToPreviousChapter()"
         (pageStateChange)="onPageStateChange($event)">
+        @if (showChapterCards && introCard) {
+        <a class="chapter-card chapter-card-previous" [routerLink]="previousChapterLink" [replaceUrl]="replaceChapterHistory"
+          (click)="prepareChapterNavigation(false, $event)">
+          <mat-icon aria-hidden="true">arrow_back</mat-icon>
+          <span class="chapter-card-text">
+            <span class="chapter-card-kicker">Antes do capítulo 1</span>
+            <span class="chapter-card-passage">{{ introCardTitle }}</span>
+          </span>
+        </a>
+        }
         <div #bookBlock class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}"
           [class.paged-view]="effectiveViewMode === 'paged'" [class.cards-view]="showCards">
           @if (chapter && showCards) {
@@ -52,6 +63,16 @@
           </div>
           }
         </div>
+        @if (showChapterCards && nextBook) {
+        <a class="chapter-card chapter-card-next" [routerLink]="nextBookLink" [replaceUrl]="replaceChapterHistory"
+          (click)="prepareBookNavigation($event)">
+          <span class="chapter-card-text">
+            <span class="chapter-card-kicker">Livro seguinte</span>
+            <span class="chapter-card-passage">{{ chapterCardLabel(1, nextBook) }}</span>
+          </span>
+          <mat-icon aria-hidden="true">arrow_forward</mat-icon>
+        </a>
+        }
       </div>
 
       @if (book.id !== 'about' && chapter) {
