@@ -199,8 +199,8 @@ fun ReportDialog(chrome: ChromeController, sheet: Sheet.Report) {
                 }
                 OutlinedTextField(
                     value = details,
-                    // Counted in UTF-16 units, like the web form.
-                    onValueChange = { if (it.length <= state.maxLength) details = it },
+                    // Counted in UTF-16 units, like the web form; a longer paste is cut, not dropped.
+                    onValueChange = { details = nextDetails(details, it, state.maxLength) },
                     modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
                     enabled = !sheet.sending,
                     label = { Text("Detalhes") },

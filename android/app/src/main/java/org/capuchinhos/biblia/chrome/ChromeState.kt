@@ -483,12 +483,18 @@ fun fold(text: String): String =
 const val RECENT_SEARCH_LIMIT = 8
 
 /**
+ * Longer than any query worth repeating: text shared into the app arrives as a
+ * search too, and is not kept as a "recent" one.
+ */
+const val RECENT_SEARCH_MAX_LENGTH = 100
+
+/**
  * [query] first among [recent]: a search made again moves up rather than
  * showing twice, however it was accented or capitalised. Blank ones are not kept.
  */
 fun withRecentSearch(recent: List<String>, query: String): List<String> {
     val trimmed = query.trim()
-    if (trimmed.isEmpty()) return recent
+    if (trimmed.isEmpty() || trimmed.length > RECENT_SEARCH_MAX_LENGTH) return recent
     val key = fold(trimmed)
     return (listOf(trimmed) + recent.filter { fold(it) != key }).take(RECENT_SEARCH_LIMIT)
 }
@@ -496,10 +502,34 @@ fun withRecentSearch(recent: List<String>, query: String): List<String> {
 fun readRecentSearches(stored: String?): List<String> =
     try {
         val array = org.json.JSONArray(stored ?: "[]")
-        (0 until array.length()).mapNotNull { array.optString(it).takeIf(String::isNotBlank) }.take(RECENT_SEARCH_LIMIT)
+        (0 until array.length())
+            .mapNotNull { array.optString(it).takeIf { text -> text.isNotBlank() && text.length <= RECENT_SEARCH_MAX_LENGTH } }
+            // The list is keyed by its text, so a repeat (a restored backup) would crash the search view.
+            .distinctBy(::fold)
+            .take(RECENT_SEARCH_LIMIT)
     } catch (_: org.json.JSONException) {
         emptyList()
     }
+
+/** [text] cut to [max] UTF-16 units (as the web form counts them), not through a surrogate pair. */
+fun clampDetails(text: String, max: Int): String {
+    val cut = text.take(max.coerceAtLeast(0))
+    return if (cut.isNotEmpty() && cut.length < text.length && cut.last().isHighSurrogate()) cut.dropLast(1) else cut
+}
+
+/**
+ * The details field after an edit from [old] to [new], over [max]: what was
+ * inserted is cut to fit, so a paste is taken up to the limit and a key typed
+ * mid-text at the limit changes nothing, rather than pushing the end off.
+ */
+fun nextDetails(old: String, new: String, max: Int): String {
+    if (new.length <= max) return new
+    val prefix = old.commonPrefixWith(new).length
+    val suffix = old.substring(prefix).commonSuffixWith(new.substring(prefix)).length
+    val tail = new.length - suffix
+    val room = max - (new.length - (tail - prefix))
+    return new.substring(0, prefix) + clampDetails(new.substring(prefix, tail), room) + new.substring(tail)
+}
 
 fun writeRecentSearches(recent: List<String>): String = org.json.JSONArray(recent).toString()
 

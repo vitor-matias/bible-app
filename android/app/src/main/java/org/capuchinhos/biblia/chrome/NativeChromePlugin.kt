@@ -159,27 +159,33 @@ class NativeChromePlugin : Plugin() {
         }
     }
 
-    /** The share target chosen in the system's share sheet, if one was. */
-    private var shareTarget: ComponentName? = null
+    private val shareSession = ShareSession()
 
     private val shareChosen = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            shareTarget = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val target = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 intent.getParcelableExtra(Intent.EXTRA_CHOSEN_COMPONENT, ComponentName::class.java)
             } else {
                 @Suppress("DEPRECATION")
                 intent.getParcelableExtra(Intent.EXTRA_CHOSEN_COMPONENT)
             }
+            if (target != null) shareSession.choose()
         }
     }
 
     /**
      * The system share sheet with the passage's text and link, the page's
      * title over its preview. Resolves once the sheet closes, with whether
-     * an app was chosen to share with.
+     * an app was chosen to share with. Rejected while one is already open:
+     * Capacitor answers every sheet's result with the latest call, so the
+     * first call would never resolve.
      */
     @PluginMethod
     fun share(call: PluginCall) {
+        if (!shareSession.begin()) {
+            call.reject("The share sheet is already open")
+            return
+        }
         val text = listOfNotNull(call.getString("text"), call.getString("url"))
             .filter { it.isNotEmpty() }
             .joinToString("\n")
@@ -195,20 +201,30 @@ class NativeChromePlugin : Plugin() {
             Intent(SHARE_CHOSEN).setPackage(context.packageName),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
         )
-        shareTarget = null
-        ContextCompat.registerReceiver(context, shareChosen, IntentFilter(SHARE_CHOSEN), ContextCompat.RECEIVER_NOT_EXPORTED)
-        startActivityForResult(call, Intent.createChooser(send, null, chosen.intentSender), "shareClosed")
+        try {
+            ContextCompat.registerReceiver(context, shareChosen, IntentFilter(SHARE_CHOSEN), ContextCompat.RECEIVER_NOT_EXPORTED)
+            startActivityForResult(call, Intent.createChooser(send, null, chosen.intentSender), "shareClosed")
+        } catch (e: RuntimeException) {
+            // No sheet came up, so no result will close this one.
+            stopListeningForShare()
+            shareSession.end()
+            call.reject(e.message, e)
+        }
     }
 
     @ActivityCallback
     private fun shareClosed(call: PluginCall?, @Suppress("UNUSED_PARAMETER") result: ActivityResult) {
+        stopListeningForShare()
+        val completed = shareSession.end()
+        call?.resolve(JSObject().put("completed", completed))
+    }
+
+    private fun stopListeningForShare() {
         try {
             context.unregisterReceiver(shareChosen)
         } catch (_: IllegalArgumentException) {
             // Not registered: the activity was recreated while the sheet showed.
         }
-        call?.resolve(JSObject().put("completed", shareTarget != null))
-        shareTarget = null
     }
 
     private fun send(action: String, extra: JSObject) {
@@ -228,5 +244,34 @@ class NativeChromePlugin : Plugin() {
 
     private companion object {
         const val SHARE_CHOSEN = "org.capuchinhos.biblia.SHARE_CHOSEN"
+    }
+}
+
+/** The one share sheet that may be open, and whether an app was chosen in it. */
+internal class ShareSession {
+    private var open = false
+    private var chosen = false
+
+    /** False when a sheet is already open. */
+    @Synchronized
+    fun begin(): Boolean {
+        if (open) return false
+        open = true
+        chosen = false
+        return true
+    }
+
+    @Synchronized
+    fun choose() {
+        if (open) chosen = true
+    }
+
+    /** Closes the sheet; whether an app was chosen in it. */
+    @Synchronized
+    fun end(): Boolean {
+        val completed = chosen
+        open = false
+        chosen = false
+        return completed
     }
 }

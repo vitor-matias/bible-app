@@ -577,6 +577,13 @@ private fun MoveRow(move: BookmarksSheetState.Move, currentLabel: String, onClic
     }
 }
 
+/**
+ * A ribbon tile's height: 84 dp, or the 32 dp icon, the label's line (scaled
+ * with the text size, which autoSize doesn't shrink) and the paddings
+ * around them when that is taller.
+ */
+fun ribbonTileMinHeight(labelLineHeight: Dp): Dp = maxOf(84.dp, 32.dp + 6.dp + labelLineHeight + 16.dp)
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RibbonTile(
@@ -599,6 +606,8 @@ private fun RibbonTile(
         if (ribbon.current) append(", este capítulo")
     }
     val tile = if (ribbon.current) colors.primaryContainer else colors.surfaceContainerHighest
+    // From the larger label's line, used or free, so a row's tiles stay the same height.
+    val minHeight = ribbonTileMinHeight(with(LocalDensity.current) { MaterialTheme.typography.labelLarge.lineHeight.toDp() })
     Box {
         Surface(
             shape = RoundedCornerShape(16.dp),
@@ -608,7 +617,7 @@ private fun RibbonTile(
             border = if (ribbon.current) BorderStroke(2.dp, colors.primary) else null,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(84.dp)
+                .heightIn(min = minHeight)
                 .alpha(if (inert) 0.38f else 1f)
                 .combinedClickable(
                     enabled = !inert,

@@ -268,20 +268,32 @@ private fun ReportSystemInsets(chrome: ChromeController) {
 // MARK: - Reader
 
 /** Above this text scale the section heading leaves the bar: the passage keeps its room. */
-private const val SUBTITLE_MAX_FONT_SCALE = 1.3f
+internal const val SUBTITLE_MAX_FONT_SCALE = 1.3f
+
+internal fun subtitleFits(fontScale: Float) = fontScale < SUBTITLE_MAX_FONT_SCALE
 
 /**
- * The reader's top bar height: Material's 64 dp, 56 dp in a short window
- * (a phone on its side), and taller where large text needs it.
+ * The reader's top bar height in dp: [base] (Material's 64, 56 in a short
+ * window), or taller where large text needs it. The heading's line is
+ * reserved whether or not a heading shows, or the bar, and the web page's
+ * text under it, would jump each time one scrolls in or out.
  */
+internal fun readerBarHeightDp(base: Float, titleLine: Float, subtitleLine: Float, fontScale: Float): Float =
+    maxOf(base, titleLine + (if (subtitleFits(fontScale)) subtitleLine else 0f) + 8f)
+
 @Composable
-private fun readerBarHeight(subtitle: Boolean): Dp {
+private fun readerBarHeight(): Dp {
     val typography = MaterialTheme.typography
-    val base = if (LocalConfiguration.current.screenHeightDp < 480) 56.dp else BarMetrics.topBar.dp
-    val text = with(LocalDensity.current) {
-        typography.titleLargeEmphasized.lineHeight.toDp() + if (subtitle) typography.bodyMedium.lineHeight.toDp() else 0.dp
+    val base = if (LocalConfiguration.current.screenHeightDp < 480) 56f else BarMetrics.topBar
+    val density = LocalDensity.current
+    return with(density) {
+        readerBarHeightDp(
+            base,
+            typography.titleLargeEmphasized.lineHeight.toDp().value,
+            typography.bodyMedium.lineHeight.toDp().value,
+            fontScale,
+        ).dp
     }
-    return maxOf(base, text + 8.dp)
 }
 
 /**
@@ -298,8 +310,8 @@ private fun ReaderBars(chrome: ChromeController, state: ChromeState, barColor: C
     val enabled = !state.inert
     val collapsed = chrome.collapsed
     val density = LocalDensity.current
-    val showSubtitle = state.subtitle != null && density.fontScale < SUBTITLE_MAX_FONT_SCALE
-    val barHeight = readerBarHeight(showSubtitle)
+    val showSubtitle = state.subtitle != null && subtitleFits(density.fontScale)
+    val barHeight = readerBarHeight()
     SideEffect { chrome.onTopBarHeight(barHeight.value) }
     // Material's motion for bars leaving and coming back: out quickly,
     // easing in. Off with animations, it snaps.

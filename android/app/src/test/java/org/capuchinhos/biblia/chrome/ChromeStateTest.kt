@@ -335,6 +335,20 @@ class RecentSearchesTest {
         assertFalse(next.contains("Sl $RECENT_SEARCH_LIMIT"))
     }
 
+    // Text shared into the app is searched but is not a query to come back to.
+    @Test
+    fun keepsNoSharedText() {
+        val shared = "x".repeat(RECENT_SEARCH_MAX_LENGTH + 1)
+        assertEquals(listOf("luz"), withRecentSearch(listOf("luz"), shared))
+        assertEquals(listOf("luz"), readRecentSearches(writeRecentSearches(listOf(shared, "luz"))))
+    }
+
+    // The search list is keyed by its text: a repeat in a restored file must not reach it.
+    @Test
+    fun readsNoRepeats() {
+        assertEquals(listOf("luz", "amor"), readRecentSearches("""["luz","LUZ","amor"]"""))
+    }
+
     @Test
     fun storesThemAsJson() {
         val recent = listOf("o bom pastor", "Jo 3,16")
@@ -650,5 +664,50 @@ class TextSheetTest {
         assertTrue(fitsBesideIcon(buttonWidth = 155f, labelWidth = 95f, icon = 24f, padding = 8f))
         assertTrue(fitsBesideIcon(buttonWidth = 135f, labelWidth = 95f, icon = 24f, padding = 8f))
         assertFalse(fitsBesideIcon(buttonWidth = 102f, labelWidth = 75f, icon = 24f, padding = 8f))
+    }
+}
+
+/** The report's details field takes a paste up to the limit instead of refusing it. */
+class ClampDetailsTest {
+    @Test
+    fun cutsALongPasteToTheLimit() {
+        assertEquals("abcde", nextDetails("", "abcdefgh", 5))
+    }
+
+    @Test
+    fun takesWhatFitsOfAPasteAtTheEnd() {
+        assertEquals("abcXY", nextDetails("abc", "abcXYZ!", 5))
+    }
+
+    @Test
+    fun cutsAPasteInTheMiddleNotTheTextAfterIt() {
+        assertEquals("abXcde", nextDetails("abcde", "abXYZcde", 6))
+    }
+
+    // A key typed mid-text in a full field is refused, as before: the end is not pushed off.
+    @Test
+    fun ignoresAKeyTypedInAFullField() {
+        assertEquals("abcde", nextDetails("abcde", "abXcde", 5))
+    }
+
+    @Test
+    fun passesAnEditWithinTheLimit() {
+        assertEquals("abXcd", nextDetails("abcd", "abXcd", 5))
+        assertEquals("abd", nextDetails("abcd", "abd", 5))
+    }
+
+    @Test
+    fun replacesASelectionWithALongerPasteUpToTheLimit() {
+        assertEquals("aXYZe", nextDetails("abcde", "aXYZWe", 5))
+    }
+
+    @Test
+    fun doesNotSplitASurrogatePair() {
+        assertEquals("ab", clampDetails("ab\uD83D\uDE00", 3))
+    }
+
+    @Test
+    fun aNegativeLimitKeepsNothing() {
+        assertEquals("", clampDetails("abc", -1))
     }
 }
