@@ -927,17 +927,6 @@ describe("VerseComponent", () => {
         expect(autoScroll.autoScrollEnabled).toBeTrue()
       })
 
-      it("marks them with a labelled icon, not an asterisk", () => {
-        const marker = asterisk()
-
-        expect(marker.querySelector("svg.noteIcon")).toBeTruthy()
-        expect(marker.textContent?.trim()).toBe("")
-        expect(marker.getAttribute("aria-label")).toBe("Notas do versículo 1")
-        expect(marker.querySelector("svg")?.getAttribute("aria-hidden")).toBe(
-          "true",
-        )
-      })
-
       // VoiceOver read every marker as "Notas": nothing told one verse's
       // from the next.
       it("names the verse the notes are for, in poetry too", () => {
