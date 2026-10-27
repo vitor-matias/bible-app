@@ -883,20 +883,12 @@ describe("VerseComponent", () => {
 
     afterEach(() => TestBed.inject(AutoScrollService).stop())
 
-    // Before, it was in the text's colour, and read as a stray mark.
-    it("shows the asterisk underlined in the text's accent, as a link", () => {
+    it("marks them with a labelled icon, not an asterisk", () => {
       render()
-      const accent = getComputedStyle(document.documentElement)
-        .getPropertyValue("--text-secondary")
-        .trim()
-      const probe = document.createElement("span")
-      probe.style.color = accent
-      document.body.appendChild(probe)
-      expect(getComputedStyle(asterisk()).color).toBe(
-        getComputedStyle(probe).color,
-      )
-      expect(getComputedStyle(asterisk()).textDecorationLine).toBe("underline")
-      probe.remove()
+
+      expect(asterisk().querySelector("svg.noteIcon")).toBeTruthy()
+      expect(asterisk().textContent?.trim()).toBe("")
+      expect(asterisk().getAttribute("aria-label")).toBe("Notas do versículo 1")
     })
 
     it("opens the notes from the text on the web", () => {
@@ -964,17 +956,6 @@ describe("VerseComponent", () => {
         expect(autoScroll.autoScrollEnabled).toBeTrue()
       })
 
-      it("marks them with a labelled icon, not an asterisk", () => {
-        const marker = asterisk()
-
-        expect(marker.querySelector("svg.noteIcon")).toBeTruthy()
-        expect(marker.textContent?.trim()).toBe("")
-        expect(marker.getAttribute("aria-label")).toBe("Notas do versículo 1")
-        expect(marker.querySelector("svg")?.getAttribute("aria-hidden")).toBe(
-          "true",
-        )
-      })
-
       // VoiceOver read every marker as "Notas": nothing told one verse's
       // from the next.
       it("names the verse the notes are for, in poetry too", () => {
@@ -1000,7 +981,7 @@ describe("VerseComponent", () => {
         )
       })
 
-      // The asterisk wore the accent; on iOS the icon is the text's colour.
+      // The icon is the text's colour.
       it("draws the icon in the text's colour", () => {
         const icon = asterisk().querySelector("svg") as SVGElement
         const probe = document.createElement("span")
@@ -1040,14 +1021,6 @@ describe("VerseComponent", () => {
           getComputedStyle(asterisk()).verticalAlign,
         )
       })
-    })
-
-    it("keeps the asterisk outside the iOS app", () => {
-      render()
-
-      expect(asterisk().textContent?.trim()).toBe("＊")
-      expect(asterisk().querySelector("svg")).toBeNull()
-      expect(asterisk().hasAttribute("aria-label")).toBeFalse()
     })
   })
 

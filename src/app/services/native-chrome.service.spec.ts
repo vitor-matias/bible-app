@@ -594,6 +594,15 @@ describe("NativeChromeService", () => {
       expect(body.classList).not.toContain("native-chrome-collapsed")
     })
 
+    it("brings them back when the passage left in their place is tapped", () => {
+      service.trackScroll(scroller)
+      scrollTo(200)
+      expect(collapsed()).toBeTrue()
+
+      listener("action")({ id: "show-bars" })
+      expect(collapsed()).toBeFalse()
+    })
+
     it("brings them back at the end of the chapter, where the arrows are", () => {
       service.trackScroll(scroller)
       scrollTo(200)

@@ -8,11 +8,13 @@
       [attr.aria-label]="isSelectable ? 'Versículo ' + data.number : null"
       (keydown.enter)="onVerseNumberKeydown($event)"
       (keydown.space)="onVerseNumberKeydown($event)">{{ data.number }}</span></ng-template>
-  <!-- The notes marker beside a verse number: the asterisk the edition prints,
-       or in the iOS app a notes icon, which reads as something to tap. No
-       whitespace inside the blocks, or it would show as a space. -->
+  <!-- The notes marker beside a verse number: an icon, which reads as
+       something to tap. No whitespace inside, or it would show as a space. -->
+  <ng-template #noteIcon>
+    <svg class="noteIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4.5" y="2.5" width="15" height="19" rx="3.5"/><path d="M8.25 8.5h7.5M8.25 12h7.5M8.25 15.5h4.5"/></svg>
+  </ng-template>
   <ng-template #noteMark>
-    @if (noteIcon) {<svg class="noteIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4.5" y="2.5" width="15" height="19" rx="3.5"/><path d="M8.25 8.5h7.5M8.25 12h7.5M8.25 15.5h4.5"/></svg>} @else {&#65290;}
+    <span role="button" tabindex="0" (click)="onFootnoteMarkerClick($event)" (keydown.enter)="onFootnoteMarkerClick($event)" (keydown.space)="$event.preventDefault(); onFootnoteMarkerClick($event)" class="footnoteIndicator" [attr.aria-label]="'Notas do versículo ' + data.number"><ng-container *ngTemplateOutlet="noteIcon"></ng-container></span>
   </ng-template>
 
   <!-- Verse Number -->
@@ -24,7 +26,7 @@
     }
     <ng-container *ngTemplateOutlet="verseNumber"></ng-container>
     @if(hasFootnotes){
-      <span role="button" tabindex="0" (click)="onFootnoteMarkerClick($event)" (keydown.enter)="onFootnoteMarkerClick($event)" (keydown.space)="$event.preventDefault(); onFootnoteMarkerClick($event)" class="footnoteIndicator" [attr.aria-label]="noteIcon ? 'Notas do versículo ' + data.number : null"><ng-container *ngTemplateOutlet="noteMark"></ng-container></span>
+      <ng-container *ngTemplateOutlet="noteMark"></ng-container>
     }
   }
 
@@ -46,9 +48,9 @@
           <span class="quoteVerseNumber">
             <ng-container *ngTemplateOutlet="verseNumber"></ng-container>
             @if(hasFootnotes){
-              <span role="button" tabindex="0" (click)="onFootnoteMarkerClick($event)" (keydown.enter)="onFootnoteMarkerClick($event)" (keydown.space)="$event.preventDefault(); onFootnoteMarkerClick($event)" class="footnoteIndicator" [attr.aria-label]="noteIcon ? 'Notas do versículo ' + data.number : null"><ng-container *ngTemplateOutlet="noteMark"></ng-container></span>
+              <ng-container *ngTemplateOutlet="noteMark"></ng-container>
             } @else {
-              <span class="footnoteIndicator" style="visibility: hidden"><ng-container *ngTemplateOutlet="noteMark"></ng-container></span>
+              <span class="footnoteIndicator" style="visibility: hidden"><ng-container *ngTemplateOutlet="noteIcon"></ng-container></span>
             }
           </span>
         }

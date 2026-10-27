@@ -144,6 +144,97 @@ describe("global styles", () => {
     })
   })
 
+  // On the open iPhone Duo the status bar runs down the right side, and the
+  // text, centred in the safe area, sat left of the screen's centre. Centred
+  // with the scroller, the scroll indicator then ran down the bar.
+  describe("the reader's side insets in the iOS app", () => {
+    let frame: HTMLIFrameElement
+
+    // The rule is for two-page widths, wider than the Karma frame: a page of
+    // that width with this one's styles, a reader with the scrolling view's
+    // text and footer and the paged view's fixed footer, and the Duo's
+    // insets. Returns how far each stays from the screen's sides.
+    const insetsAt = async (width: number, nativeChrome: boolean) => {
+      frame = document.createElement("iframe")
+      frame.style.width = `${width}px`
+      document.body.appendChild(frame)
+      const page = frame.contentDocument as Document
+      // A cloned <link> loads anew: measured before it has, the page is
+      // unstyled.
+      const loads: Promise<unknown>[] = []
+      for (const sheet of document.querySelectorAll(
+        "style, link[rel=stylesheet]",
+      )) {
+        const clone = page.importNode(sheet, true)
+        if (clone instanceof HTMLLinkElement || clone.nodeName === "LINK") {
+          loads.push(
+            new Promise((resolve, reject) => {
+              clone.addEventListener("load", resolve, { once: true })
+              clone.addEventListener("error", reject, { once: true })
+            }),
+          )
+        }
+        page.head.appendChild(clone)
+      }
+      await Promise.all(loads)
+      page.documentElement.style.setProperty("--app-inset-left", "0px")
+      page.documentElement.style.setProperty("--app-inset-right", "60px")
+      page.body.classList.toggle("native-chrome", nativeChrome)
+      const reader = page.createElement("bible-reader")
+      // As the reader's own (component-scoped) .fixed-footer rule sets it.
+      const scoped = page.createElement("style")
+      scoped.textContent = `.fixed-footer[_ngcontent-reader] {
+        position: fixed;
+        left: var(--app-inset-left);
+        right: var(--app-inset-right);
+      }`
+      page.head.appendChild(scoped)
+      reader.innerHTML = `
+        <div class="mat-drawer-content">
+          <div><div class="bookBlock"></div></div>
+          <div class="copyright-footer"></div>
+          <div class="copyright-footer fixed-footer" _ngcontent-reader></div>
+        </div>`
+      page.body.appendChild(reader)
+      const gaps = (selector: string) => {
+        const box = (
+          reader.querySelector(selector) as HTMLElement
+        ).getBoundingClientRect()
+        return [box.left, page.documentElement.clientWidth - box.right]
+      }
+      const fixedFooter = getComputedStyle(
+        reader.querySelector(".fixed-footer") as HTMLElement,
+      )
+      return {
+        scroller: gaps(".mat-drawer-content"),
+        text: gaps(".mat-drawer-content > div"),
+        footer: gaps(".copyright-footer:not(.fixed-footer)"),
+        fixedFooter: [fixedFooter.left, fixedFooter.right],
+      }
+    }
+
+    afterEach(() => frame.remove())
+
+    it("centres the text and its footers on the screen", async () => {
+      const insets = await insetsAt(900, true)
+      expect(insets.text).toEqual([30, 30])
+      expect(insets.footer).toEqual([30, 30])
+      expect(insets.fixedFooter).toEqual(["30px", "30px"])
+    })
+
+    it("keeps the scroller, and so its scroll indicator, out of the status bar", async () => {
+      expect((await insetsAt(900, true)).scroller).toEqual([0, 60])
+    })
+
+    it("keeps to the safe area on one-page widths, whose text margin is narrow", async () => {
+      expect((await insetsAt(700, true)).text).toEqual([0, 60])
+    })
+
+    it("keeps to the safe area on the web", async () => {
+      expect((await insetsAt(900, false)).text).toEqual([0, 60])
+    })
+  })
+
   // In the dark theme the crimson verse numbers were 3.8:1 on the background,
   // under the 4.5:1 that small text needs.
   describe("verse numbers in the iOS app's dark theme", () => {
