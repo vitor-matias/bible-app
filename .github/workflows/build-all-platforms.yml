@@ -331,7 +331,7 @@ jobs:
   build-ios-macos:
     needs: build-native-web
     if: ${{ github.event_name == 'push' || inputs.build_ios || inputs.testflight || inputs.create_release }}
-    runs-on: macos-latest
+    runs-on: xcode-27  # macos-latest tops out at Xcode 26.x
     # Signs the build for the App Store when it's bound for TestFlight: when
     # asked, and for every release. Signing takes the distribution
     # certificate (secrets IOS_DIST_P12_BASE64, IOS_DIST_P12_PASSWORD) and its
