@@ -140,13 +140,11 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             searchField.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -8),
         ])
 
-        #if canImport(UIKit, _version: 9127.0.85)
         if #available(iOS 27.1, *) {
             // The fold's region turns on and off with the hinge: lay the bars
             // out again each time.
             view.addInteraction(UIHingeInteraction { [weak self] _, _ in self?.view.setNeedsLayout() })
         }
-        #endif
     }
 
     override func viewWillLayoutSubviews() {
@@ -473,7 +471,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     /// Where the book's name doesn't fit in `room`, "Dt 3": too wide a toolbar
     /// runs past the screen's edges (iOS 26) or moves its last items, this one
-    /// too, into a ⋯ menu (27).
+    /// too, into a ⋯ menu (27). The arrows and the name must always show, so
+    /// the name gives way, never them: don't lean on the ⋯ menu instead.
     private func configurePassage(_ state: ChromeState, enabled: Bool, room: CGFloat) {
         guard var config = passageButton.configuration else { return }
         config.title = state.passageLabel
@@ -715,13 +714,11 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// auto-scroll's speed on the fold. Its region is the crease plus the
     /// margin interactive content keeps.
     private var foldInset: CGFloat {
-        #if canImport(UIKit, _version: 9127.0.85)
         if #available(iOS 27.1, *),
            let fold = view.reservedRegions(kind: .division)
             .first(where: { $0.isActive && $0.frame.height > $0.frame.width }) {
             return max(fold.frame.maxX - view.safeAreaLayoutGuide.layoutFrame.minX, 0)
         }
-        #endif
         return 0
     }
 
