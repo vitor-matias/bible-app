@@ -58,7 +58,15 @@ export class VerseSectionComponent implements OnChanges {
     for (let i = 0; i < this.data.text.length; i++) {
       const t = this.data.text[i]
       if (t.type === "references") {
-        map.set(i, parseReferences(this.bibleRef, t.text, this.data.bookId))
+        map.set(
+          i,
+          parseReferences(
+            this.bibleRef,
+            t.text,
+            this.data.bookId,
+            this.data.chapterNumber,
+          ),
+        )
       }
     }
     return map

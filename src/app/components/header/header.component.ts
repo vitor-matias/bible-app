@@ -1,12 +1,15 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from "@angular/common"
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
   DestroyRef,
+  ElementRef,
   EventEmitter,
   HostListener,
   Inject,
+  Injector,
   Input,
   inject,
   type OnChanges,
@@ -99,6 +102,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /** The reader's text size, for the Android app's text sheet; null before it opens. */
   @Input() textSize: TextSize | null = null
   @Input() viewMode: "scrolling" | "paged" = "scrolling"
+  /** Whether the window is wide enough to offer study mode at all. */
+  @Input() studyModeAvailable = false
+  @Input() studyMode = false
   /** For the native toolbar's arrows; the web page has its own. */
   @Input() canGoPrevious = false
   @Input() canGoNext = false
@@ -146,6 +152,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   @Output() openChapterSelector = new EventEmitter<{ open: boolean }>()
   @Output() toggleAutoScrollControls = new EventEmitter<void>()
   @Output() toggleViewMode = new EventEmitter<void>()
+  @Output() toggleStudyMode = new EventEmitter<void>()
+  @Output() openShortcuts = new EventEmitter<void>()
   /** iOS toolbar arrows: a page in paged mode, else a chapter. */
   @Output() previous = new EventEmitter<void>()
   @Output() next = new EventEmitter<void>()
@@ -158,6 +166,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   mobile = false
 
   private readonly destroyRef = inject(DestroyRef)
+  private readonly injector = inject(Injector)
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef)
   private readonly router = inject(Router)
   private readonly nativeChrome = inject(NativeChromeService)
   private readonly bookService = inject(BookService)
@@ -348,6 +358,28 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   onToggleViewMode(event?: Event): void {
     event?.stopPropagation()
     this.toggleViewMode.emit()
+  }
+
+  onOpenShortcuts(trigger: MatMenuTrigger): void {
+    trigger.closeMenu()
+    this.openShortcuts.emit()
+  }
+
+  onToggleStudyMode(trigger: MatMenuTrigger, event?: Event): void {
+    event?.stopPropagation()
+    this.toggleStudyMode.emit()
+    trigger.closeMenu()
+    // Closing the menu hands focus back to the button that opened it — but
+    // the two layouts each draw their own chrome, so by then that button is
+    // gone and focus fell to the page, leaving a keyboard reader to start
+    // again from the top. It goes to the button that took its place.
+    afterNextRender(
+      () =>
+        this.host.nativeElement
+          .querySelector<HTMLElement>(".menuButton")
+          ?.focus({ preventScroll: true }),
+      { injector: this.injector },
+    )
   }
 
   getThemeIcon(): string {

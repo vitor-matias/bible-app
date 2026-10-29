@@ -5,6 +5,7 @@ import { BehaviorSubject, firstValueFrom } from "rxjs"
 import { filter, pairwise } from "rxjs/operators"
 import { SHARED_BOOK_INTROS } from "../bible-canon"
 import { APP_PLUGIN } from "../tokens"
+import { normalizeForSearch } from "../utils/text"
 import { BibleApiService } from "./bible-api.service"
 import { NetworkService } from "./network.service"
 
@@ -208,15 +209,8 @@ export class BookService {
     bookName: Book["shortName"],
     books = this.getBooks(),
   ): Book | undefined {
-    const normalize = (value: string) =>
-      value
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/\s+/g, " ")
-        .trim()
-        .toLocaleLowerCase()
     const normalizeVariants = (value: string) => {
-      const base = normalize(value)
+      const base = normalizeForSearch(value)
       const singular =
         base.length > 1 && base.endsWith("s") ? base.slice(0, -1) : ""
       return [base, singular].filter(Boolean)
