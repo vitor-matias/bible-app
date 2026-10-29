@@ -1244,7 +1244,7 @@ describe("NativeChromeService", () => {
       "--cap-brown",
       "--mat-form-field-focus-color",
       "--mat-form-field-filled-focus-active-indicator-color",
-      "--mdc-filled-button-container-color",
+      "--mat-button-filled-container-color",
     ]
     let host: HTMLElement
 

@@ -69,7 +69,7 @@
   margin-right: 0;
 }
 
-/* This specificity is needed to beat --mdc-filled-button-container-color,
+/* This specificity is needed to beat --mat-button-filled-container-color,
    which styles.css sets to cap-brown. */
 .button:not([disabled]) {
   background-color: antiquewhite;
