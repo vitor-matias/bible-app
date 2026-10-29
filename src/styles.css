@@ -164,7 +164,8 @@ body {
   --mat-button-filled-container-color: var(--cap-brown);
   --mat-button-filled-label-text-color: antiquewhite;
   --mat-button-filled-disabled-container-color: var(--border-color);
-  --mat-button-filled-disabled-label-text-color: var(--highlight-color);
+  /* 5:1 on --border-color; the antiquewhite highlight there was 1.1:1. */
+  --mat-button-filled-disabled-label-text-color: #5a5a5a;
   --mat-button-text-label-text-color: var(--text-color);
 }
 
@@ -443,7 +444,6 @@ body .mat-mdc-form-field {
   --mat-option-selected-state-label-text-color: var(--text-color);
   --mat-button-filled-container-color: var(--text-color);
   --mat-button-filled-label-text-color: var(--background-color);
-  --mat-button-filled-disabled-label-text-color: color-mix(in srgb, var(--text-color) 40%, transparent);
   --mdc-dialog-subhead-color: var(--text-color);
   --mat-dialog-title-text-color: var(--text-color);
 

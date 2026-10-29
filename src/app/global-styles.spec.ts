@@ -61,39 +61,61 @@ describe("global styles", () => {
   // text: styles.css set the --mdc-filled-button-* names, which Material 22
   // no longer reads, and the span rule painted the label the text colour.
   describe("the retry button when the Bible can't load", () => {
+    // Disabled while a retry runs ("A tentar…").
     @Component({
       imports: [MatButton],
       template: `<div class="books-unavailable">
         <button type="button" mat-flat-button>Tentar novamente</button>
+        <button type="button" mat-flat-button disabled>A tentar…</button>
       </div>`,
     })
     class RetryHostComponent {}
 
-    afterEach(() =>
-      document.body.classList.remove("native-chrome", "platform-ios"),
-    )
+    let wasDark: boolean
+    beforeEach(() => {
+      wasDark = document.documentElement.classList.contains("dark-theme")
+    })
+    afterEach(() => {
+      document.body.classList.remove("native-chrome", "platform-ios")
+      document.documentElement.classList.toggle("dark-theme", wasDark)
+    })
 
     for (const ios of [false, true]) {
-      it(`fills with the accent, its label legible, ${ios ? "in the iOS app" : "on the web"}`, () => {
-        document.body.classList.toggle("native-chrome", ios)
-        document.body.classList.toggle("platform-ios", ios)
-        const fixture = TestBed.createComponent(RetryHostComponent)
-        fixture.detectChanges()
-        const button = fixture.nativeElement.querySelector(
-          "button",
-        ) as HTMLElement
-        const label = button.querySelector(".mdc-button__label") as HTMLElement
-        // In the iOS app --cap-brown is the text colour (styles.css).
-        const probe = document.createElement("div")
-        probe.style.color = "var(--cap-brown)"
-        fixture.nativeElement.appendChild(probe)
+      for (const dark of [false, true]) {
+        it(`fills with the accent and stays legible ${ios ? "in the iOS app" : "on the web"}, ${dark ? "dark" : "light"}`, () => {
+          document.body.classList.toggle("native-chrome", ios)
+          document.body.classList.toggle("platform-ios", ios)
+          document.documentElement.classList.toggle("dark-theme", dark)
+          const fixture = TestBed.createComponent(RetryHostComponent)
+          fixture.detectChanges()
+          const [retry, retrying] = Array.from(
+            fixture.nativeElement.querySelectorAll("button"),
+          ) as HTMLElement[]
+          const probe = document.createElement("div")
+          fixture.nativeElement.appendChild(probe)
+          const resolve = (value: string) => {
+            probe.style.color = value
+            return getComputedStyle(probe).color
+          }
+          const fill = (button: HTMLElement) =>
+            getComputedStyle(button).backgroundColor
+          const label = (button: HTMLElement) =>
+            getComputedStyle(
+              button.querySelector(".mdc-button__label") as HTMLElement,
+            ).color
 
-        const fill = getComputedStyle(button).backgroundColor
-        expect(fill).toBe(getComputedStyle(probe).color)
-        expect(
-          contrastRatio(getComputedStyle(label).color, fill),
-        ).toBeGreaterThanOrEqual(4.5)
-      })
+          // Brown on the web, the text colour in the iOS app.
+          expect(fill(retry)).toBe(
+            ios ? resolve("var(--text-color)") : "rgb(84, 61, 39)",
+          )
+          expect(fill(retrying)).toBe(resolve("var(--border-color)"))
+          for (const button of [retry, retrying]) {
+            expect(contrastRatio(label(button), fill(button)))
+              .withContext(button.textContent?.trim() ?? "")
+              .toBeGreaterThanOrEqual(4.5)
+          }
+        })
+      }
     }
   })
 
