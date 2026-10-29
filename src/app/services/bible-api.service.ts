@@ -61,6 +61,17 @@ function serverRetry<T>() {
 }
 
 /**
+ * In the app, a connection that opens but never answers would leave the reader
+ * empty until iOS gives up on it; failing sooner brings up the retry screen.
+ */
+export const BOOK_LIST_TIMEOUT_MS = 15_000
+
+function bookListTimeout<T>(): MonoTypeOperatorFunction<T> {
+  // The server already times out and retries (createApiResilience).
+  return IS_SERVER ? (source) => source : timeout(BOOK_LIST_TIMEOUT_MS)
+}
+
+/**
  * Survives between prerenders in one worker, so a listing is fetched once
  * instead of ~1200 times. Never caches an empty response: every later render
  * would resolve every book to the About page instead of failing.
@@ -131,7 +142,13 @@ export class BibleApiService {
             this.http.get(`${this.api}/books`) as Observable<Book[]>
           ).pipe(
             serverRetry(),
+            bookListTimeout(),
             tap((books) => {
+              // A body that parses but isn't the list (a proxy's error page)
+              // fails like any other, so a retry asks the server again.
+              if (!Array.isArray(books)) {
+                throw new Error("Unexpected response for the book list")
+              }
               this.books = books
               serverBooksCache.write(books)
             }),
@@ -209,6 +226,8 @@ export class BibleApiService {
           this.http.get(`${this.api}/intros`) as Observable<IntroSummary[]>
         ).pipe(
           serverRetry(),
+          // BookService waits for these with the books.
+          bookListTimeout(),
           tap((intros) => serverIntrosCache.write(intros)),
           catchError((error) =>
             cached.length ? of(cached) : throwError(() => error),

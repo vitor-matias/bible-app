@@ -2,11 +2,18 @@ import { HttpErrorResponse } from "@angular/common/http"
 import {
   HttpClientTestingModule,
   HttpTestingController,
+  type TestRequest,
 } from "@angular/common/http/testing"
-import { fakeAsync, TestBed, tick } from "@angular/core/testing"
+import {
+  fakeAsync,
+  flushMicrotasks,
+  TestBed,
+  tick,
+} from "@angular/core/testing"
 import { firstValueFrom, Observable, of, TimeoutError } from "rxjs"
 import {
   BibleApiService,
+  BOOK_LIST_TIMEOUT_MS,
   createApiResilience,
   createServerBooksCache,
 } from "./bible-api.service"
@@ -325,6 +332,83 @@ describe("BibleApiService", () => {
       expect(await booksPromise).toEqual(remoteBooks)
       expect(service.books).toEqual(remoteBooks)
     })
+
+    // A first launch must end on the reader's retry screen, never stuck or
+    // broken, whatever happens to the request.
+    describe("when the request goes wrong", () => {
+      const remoteBooks = [
+        {
+          id: "exo",
+          name: "Exodus",
+          shortName: "Exodus",
+          abrv: "Ex",
+          chapterCount: 40,
+        },
+      ] as Book[]
+
+      beforeEach(() => {
+        offlineDataServiceSpy.getCachedBooksAsync.and.resolveTo([])
+      })
+
+      // A connection that opened but never answered left the reader empty,
+      // with no retry, until iOS gave up on it.
+      it("fails a stalled request in time, and a retry asks again", fakeAsync(() => {
+        let failure: unknown
+        service.getAvailableBooks().subscribe({
+          error: (error) => {
+            failure = error
+          },
+        })
+        flushMicrotasks()
+        const stalled = httpMock.expectOne("v1/books")
+
+        tick(BOOK_LIST_TIMEOUT_MS)
+
+        expect(failure).toBeInstanceOf(TimeoutError)
+        expect(stalled.cancelled).toBeTrue()
+        let books: Book[] | undefined
+        service.getAvailableBooks().subscribe((result) => {
+          books = result
+        })
+        flushMicrotasks()
+        httpMock.expectOne("v1/books").flush(remoteBooks)
+        expect(books).toEqual(remoteBooks)
+      }))
+
+      const failures: [string, (request: TestRequest) => void][] = [
+        [
+          "a download the network cut off",
+          (request) => request.error(new ProgressEvent("error")),
+        ],
+        // In the app HttpClient rejects a body that stops mid-JSON before
+        // this point; should one arrive as text, it must fail the same way.
+        [
+          "a truncated JSON body",
+          (request) => request.flush('[{"id":"exo","name":"Exo'),
+        ],
+        [
+          "a body that isn't the list",
+          (request) => request.flush({ error: "Bad gateway" }),
+        ],
+      ]
+      for (const [what, fail] of failures) {
+        it(`fails on ${what}, keeps nothing, and a retry asks again`, async () => {
+          const first = firstValueFrom(service.getAvailableBooks())
+          await Promise.resolve()
+          await Promise.resolve()
+          fail(httpMock.expectOne("v1/books"))
+
+          await expectAsync(first).toBeRejected()
+          expect(service.books).toEqual([])
+
+          const retry = firstValueFrom(service.getAvailableBooks())
+          await Promise.resolve()
+          await Promise.resolve()
+          httpMock.expectOne("v1/books").flush(remoteBooks)
+          expect(await retry).toEqual(remoteBooks)
+        })
+      }
+    })
   })
 
   describe("getVerse", () => {
@@ -437,6 +521,24 @@ describe("BibleApiService", () => {
         .flush("down", { status: 400, statusText: "Bad Request" })
       expect(await failing).toEqual(partial)
     })
+
+    // BookService waits for the listing with the books, so a stalled one held
+    // the book list back too.
+    it("fails a stalled listing in time", fakeAsync(() => {
+      let failure: unknown
+      service.getIntros().subscribe({
+        error: (error) => {
+          failure = error
+        },
+      })
+      flushMicrotasks()
+      const stalled = httpMock.expectOne("v1/intros")
+
+      tick(BOOK_LIST_TIMEOUT_MS)
+
+      expect(failure).toBeInstanceOf(TimeoutError)
+      expect(stalled.cancelled).toBeTrue()
+    }))
 
     it("throws when offline and the listing is not cached", async () => {
       networkServiceStub.isOffline = true
