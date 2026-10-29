@@ -1,5 +1,6 @@
 import { Component } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
+import { MatButton } from "@angular/material/button"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { provideNoopAnimations } from "@angular/platform-browser/animations"
 import { RIBBON_COLORS } from "./services/bookmark-ribbons.service"
@@ -54,6 +55,46 @@ describe("global styles", () => {
     const label = container.querySelector(".mdc-button__label") as HTMLElement
 
     expect(getComputedStyle(label).color).toBe("rgb(226, 192, 163)")
+  })
+
+  // Opened offline, the iOS app's "Tentar novamente" was dark brown with dark
+  // text: styles.css set the --mdc-filled-button-* names, which Material 22
+  // no longer reads, and the span rule painted the label the text colour.
+  describe("the retry button when the Bible can't load", () => {
+    @Component({
+      imports: [MatButton],
+      template: `<div class="books-unavailable">
+        <button type="button" mat-flat-button>Tentar novamente</button>
+      </div>`,
+    })
+    class RetryHostComponent {}
+
+    afterEach(() =>
+      document.body.classList.remove("native-chrome", "platform-ios"),
+    )
+
+    for (const ios of [false, true]) {
+      it(`fills with the accent, its label legible, ${ios ? "in the iOS app" : "on the web"}`, () => {
+        document.body.classList.toggle("native-chrome", ios)
+        document.body.classList.toggle("platform-ios", ios)
+        const fixture = TestBed.createComponent(RetryHostComponent)
+        fixture.detectChanges()
+        const button = fixture.nativeElement.querySelector(
+          "button",
+        ) as HTMLElement
+        const label = button.querySelector(".mdc-button__label") as HTMLElement
+        // In the iOS app --cap-brown is the text colour (styles.css).
+        const probe = document.createElement("div")
+        probe.style.color = "var(--cap-brown)"
+        fixture.nativeElement.appendChild(probe)
+
+        const fill = getComputedStyle(button).backgroundColor
+        expect(fill).toBe(getComputedStyle(probe).color)
+        expect(
+          contrastRatio(getComputedStyle(label).color, fill),
+        ).toBeGreaterThanOrEqual(4.5)
+      })
+    }
   })
 
   // A section title split as "MINISTÉ-RIO" looked like a misprint.
