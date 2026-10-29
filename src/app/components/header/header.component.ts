@@ -35,6 +35,10 @@ import type { Share } from "@capacitor/share"
 import { shareableUrl } from "../../config"
 import type { TextSize } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
+import {
+  AppPromoService,
+  type StoreLink,
+} from "../../services/app-promo.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
@@ -131,6 +135,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   readonly privacyPolicyUrl = PRIVACY_POLICY_URL
+  /** The native app's store for this phone or tablet, if it has one. */
+  appStore: StoreLink | null = null
+  appStoreLabel = ""
   /** Small print under the menu's last item; null until it is known. */
   version: DisplayVersion | null = null
   private destroyed = false
@@ -164,6 +171,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly nativeBookmarks = inject(NativeBookmarksService)
   private readonly nativeReport = inject(NativeReportService)
   private readonly buildVersion = inject(BuildVersionService)
+  private readonly appPromo = inject(AppPromoService)
   private bookmarks: Bookmark[] = []
   /** The native shells draw this header; the template renders nothing. */
   readonly native = this.nativeChrome.enabled
@@ -199,6 +207,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       Capacitor.isNativePlatform() ||
       (typeof navigator !== "undefined" &&
         typeof navigator.share === "function")
+    this.appStore = this.appPromo.deviceStore("menu")
+    if (this.appStore) {
+      this.appStoreLabel = this.appPromo.menuLabel(this.appStore)
+    }
 
     this.bookmarkService.bookmarks$
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -303,6 +315,16 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       width: "90%",
       maxWidth: "500px",
     })
+  }
+
+  /** The store entry tells the visitor about the app: no prompt after it. */
+  onMenuOpened() {
+    if (this.appStore) this.appPromo.markSeen()
+  }
+
+  /** The menu link itself opens the store. */
+  onOpenAppStore(store: StoreLink) {
+    this.appPromo.trackStoreOpen(store, "menu")
   }
 
   onOpenAbout(trigger: MatMenuTrigger) {

@@ -15,6 +15,7 @@ import { Capacitor } from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
 import { appConfig, isVercelHost } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
+import { AppPromoService } from "./services/app-promo.service"
 import { BackButtonService } from "./services/back-button.service"
 import { historyDepth } from "./services/depth-location-strategy"
 import { NativeShellService } from "./services/native-shell.service"
@@ -55,6 +56,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private nativeShell: NativeShellService,
     private backButton: BackButtonService,
     private toast: ToastService,
+    private appPromo: AppPromoService,
   ) {
     // Speed Insights is served by Vercel deployments only. The website itself
     // is nginx, where its script 404s on every page, and the native apps load
@@ -74,6 +76,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.setupNativeListeners()
     this.nativeShell.init()
     this.onboardingService.showOnFirstLaunch()
+    this.appPromo.scheduleOnce()
   }
 
   private trackAppOpenEvent(): void {

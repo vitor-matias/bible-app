@@ -16,6 +16,10 @@ import { Capacitor } from "@capacitor/core"
 import type { Share } from "@capacitor/share"
 import { BehaviorSubject, of, Subject } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
+import {
+  AppPromoService,
+  type StoreLink,
+} from "../../services/app-promo.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
@@ -50,6 +54,7 @@ describe("HeaderComponent", () => {
   let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
   let onboardingServiceSpy: jasmine.SpyObj<OnboardingService>
   let buildVersionSpy: jasmine.SpyObj<BuildVersionService>
+  let appPromoSpy: jasmine.SpyObj<AppPromoService>
   let isOfflineSubject: BehaviorSubject<boolean>
   let mockSharePlugin: jasmine.SpyObj<typeof Share>
   let originalShare: typeof navigator.share
@@ -95,6 +100,14 @@ describe("HeaderComponent", () => {
       release: "1.2.3",
       build: "20261016-120000Z",
     })
+    appPromoSpy = jasmine.createSpyObj("AppPromoService", [
+      "deviceStore",
+      "menuLabel",
+      "markSeen",
+      "trackStoreOpen",
+    ])
+    appPromoSpy.deviceStore.and.returnValue(null)
+    appPromoSpy.menuLabel.and.returnValue("Instalar a aplicação")
     originalShare = navigator.share
 
     await TestBed.configureTestingModule({
@@ -112,6 +125,7 @@ describe("HeaderComponent", () => {
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
         { provide: OnboardingService, useValue: onboardingServiceSpy },
         { provide: BuildVersionService, useValue: buildVersionSpy },
+        { provide: AppPromoService, useValue: appPromoSpy },
       ],
     }).compileComponents()
 
@@ -306,6 +320,96 @@ describe("HeaderComponent", () => {
       fixture.destroy()
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+    })
+  })
+
+  describe("the app's store in the menu", () => {
+    const play: StoreLink = {
+      store: "play",
+      url: "https://play.google.com/store/apps/details?id=org.capuchinhos.biblia",
+      badge: "imgs/badges/google-play-pt.png",
+      label: "Obter no Google Play",
+      newApp: "Nova aplicação no Google Play",
+    }
+
+    const openMenu = () => {
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+    }
+
+    const recreate = () => {
+      fixture = TestBed.createComponent(HeaderComponent)
+      component = fixture.componentInstance
+      fixture.componentRef.setInput("book", {
+        id: "gen",
+        name: "Genesis",
+        shortName: "",
+        abrv: "",
+        chapterCount: 50,
+      })
+      fixture.detectChanges()
+    }
+
+    it("is left out where the device has no store app", () => {
+      openMenu()
+
+      expect(appPromoSpy.deviceStore).toHaveBeenCalledWith("menu")
+      expect(document.querySelector(".app-store-link")).toBeNull()
+      expect(appPromoSpy.markSeen).not.toHaveBeenCalled()
+    })
+
+    it("takes its words from the promo, which says what's new inside the installed website", () => {
+      appPromoSpy.deviceStore.and.returnValue(play)
+      appPromoSpy.menuLabel.and.returnValue("Nova aplicação no Google Play")
+      recreate()
+      openMenu()
+
+      expect(appPromoSpy.menuLabel).toHaveBeenCalledWith(play)
+      expect(document.querySelector(".app-store-link")?.textContent).toContain(
+        "Nova aplicação no Google Play",
+      )
+    })
+
+    it("counts as the prompt once the open menu shows it", () => {
+      appPromoSpy.deviceStore.and.returnValue(play)
+      recreate()
+      expect(appPromoSpy.markSeen).not.toHaveBeenCalled()
+
+      openMenu()
+
+      expect(appPromoSpy.markSeen).toHaveBeenCalled()
+    })
+
+    it("links straight to the store, just below the help", () => {
+      appPromoSpy.deviceStore.and.returnValue(play)
+      recreate()
+      openMenu()
+
+      const link = document.querySelector<HTMLAnchorElement>(".app-store-link")
+      expect(link?.textContent).toContain("Instalar a aplicação")
+      expect(link?.getAttribute("href")).toBe(play.url)
+      expect(link?.target).toBe("_blank")
+      expect(link?.previousElementSibling?.textContent).toContain(
+        "Como usar a app",
+      )
+    })
+
+    it("counts a tap", () => {
+      appPromoSpy.deviceStore.and.returnValue(play)
+      recreate()
+      openMenu()
+
+      const link = document.querySelector<HTMLAnchorElement>(
+        ".app-store-link",
+      ) as HTMLAnchorElement
+      // Keep Karma's page where it is.
+      link.addEventListener("click", (event) => event.preventDefault())
+      link.click()
+
+      expect(appPromoSpy.trackStoreOpen).toHaveBeenCalledWith(play, "menu")
     })
   })
 

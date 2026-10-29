@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from "@angular/common"
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -13,6 +14,10 @@ import { MatDialogRef } from "@angular/material/dialog"
 import { MatIconModule } from "@angular/material/icon"
 import { AnalyticsService } from "../../services/analytics.service"
 import {
+  AppPromoService,
+  type StoreLink,
+} from "../../services/app-promo.service"
+import {
   type InstallBrowser,
   type InstallPlatform,
   type InstallPromptOutcome,
@@ -25,6 +30,8 @@ import {
   ONBOARDING_STEPS,
   type OnboardingStep,
   PLATFORM_OPTIONS,
+  type TextSegment,
+  textSegments,
 } from "./onboarding-content"
 
 export type OnboardingSource = "first_launch" | "menu"
@@ -37,7 +44,7 @@ export interface OnboardingResult {
 @Component({
   selector: "onboarding",
   standalone: true,
-  imports: [MatButtonModule, MatIconModule],
+  imports: [MatButtonModule, MatIconModule, NgTemplateOutlet],
   templateUrl: "./onboarding.component.html",
   styleUrl: "./onboarding.component.css",
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -51,12 +58,15 @@ export class OnboardingComponent {
   index = 0
   platform: InstallPlatform
   guide: InstallGuide
+  /** The native app's store, offered ahead of the website's own install. */
+  store: StoreLink | null
   installOutcome: InstallPromptOutcome | null = null
   installing = false
 
   private readonly detectedBrowser: InstallBrowser
   private readonly destroyRef = inject(DestroyRef)
   private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef)
+  private readonly appPromo = inject(AppPromoService)
 
   constructor(
     private readonly dialogRef: MatDialogRef<
@@ -75,11 +85,17 @@ export class OnboardingComponent {
     this.detectedBrowser = pwaInstallService.detectBrowser()
     this.platform = this.detectedPlatform
     this.guide = getInstallGuide(this.platform, this.detectedBrowser)
+    this.store = this.appPromo.storeFor(this.platform, "onboarding")
 
     // The native prompt may only become available while the wizard is open.
     pwaInstallService.canPromptInstall$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.cdr.markForCheck())
+  }
+
+  /** A step's text split around its inline [[icon]] markers. */
+  segments(text: string): readonly TextSegment[] {
+    return textSegments(text)
   }
 
   get step(): OnboardingStep {
@@ -114,6 +130,7 @@ export class OnboardingComponent {
   goTo(index: number): void {
     if (index < 0 || index >= this.steps.length || index === this.index) return
     this.index = index
+    this.noteStoreShown()
     // Plain buttons (step dots) don't repaint on their own under coalesced CD.
     this.cdr.detectChanges()
     // Move focus so screen readers hear the new step. The @if re-creates the
@@ -139,7 +156,25 @@ export class OnboardingComponent {
       platform,
       platform === this.detectedPlatform ? this.detectedBrowser : null,
     )
+    this.store = this.appPromo.storeFor(platform, "onboarding")
+    this.noteStoreShown()
     this.cdr.detectChanges()
+  }
+
+  /** The link itself opens the store. */
+  onStoreClick(store: StoreLink): void {
+    this.appPromo.trackStoreOpen(store, "onboarding")
+  }
+
+  /** Told about the app for their own device, the visitor needs no prompt. */
+  private noteStoreShown(): void {
+    if (
+      this.step.id === INSTALL_STEP_ID &&
+      this.platform === this.detectedPlatform &&
+      this.store
+    ) {
+      this.appPromo.markSeen()
+    }
   }
 
   async installNow(): Promise<void> {
