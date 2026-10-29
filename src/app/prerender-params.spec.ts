@@ -1,3 +1,4 @@
+import { isPrerenderStrict } from "./config"
 import { fetchPrerenderChapterParams } from "./prerender-params"
 
 describe("fetchPrerenderChapterParams", () => {
@@ -227,5 +228,118 @@ describe("fetchPrerenderChapterParams", () => {
     const params = await fetchPrerenderChapterParams(fetchFn)
 
     expect(params).toEqual([{ book: "gn", chapter: "1" }])
+  })
+
+  // Container builds run strict: a deploy build that cannot reach the API must
+  // fail (the running version keeps serving) instead of shipping every chapter
+  // as an empty client-rendered shell.
+  describe("strict mode", () => {
+    const strict = { strict: true }
+    const genesis = {
+      id: "GN",
+      name: "Génesis",
+      shortName: "Génesis",
+      abrv: "Gn",
+      chapterCount: 1,
+    }
+
+    it("fails instead of falling back when the book list cannot be fetched", async () => {
+      spyOn(console, "warn")
+      const failingFetch = jasmine
+        .createSpy("fetch")
+        .and.rejectWith(new Error("offline")) as unknown as typeof fetch
+
+      await expectAsync(
+        fetchPrerenderChapterParams(failingFetch, strict),
+      ).toBeRejectedWithError(/the book list.*offline.*PRERENDER_STRICT/)
+      expect(console.warn).not.toHaveBeenCalled()
+    })
+
+    it("fails on a non-OK response", async () => {
+      await expectAsync(
+        fetchPrerenderChapterParams(fetchReturning(null, false), strict),
+      ).toBeRejectedWithError(/responded 500/)
+    })
+
+    it("fails when the book list yields no routes", async () => {
+      await expectAsync(
+        fetchPrerenderChapterParams(fetchReturning([]), strict),
+      ).toBeRejectedWithError(/no routes/)
+    })
+
+    it("fails when the standalone introductions cannot be fetched", async () => {
+      const fetchFn = jasmine.createSpy("fetch").and.callFake((url: string) =>
+        url.endsWith("/v1/intros")
+          ? Promise.reject(new Error("boom"))
+          : Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve([genesis]),
+            } as Response),
+      ) as unknown as typeof fetch
+
+      await expectAsync(
+        fetchPrerenderChapterParams(fetchFn, strict),
+      ).toBeRejectedWithError(/standalone introductions.*boom/)
+    })
+
+    it("returns every route when the API answers, even with no introductions", async () => {
+      const params = await fetchPrerenderChapterParams(
+        fetchByUrl({ books: [genesis], intros: [] }),
+        strict,
+      )
+
+      expect(params).toEqual([{ book: "gn", chapter: "1" }])
+    })
+
+    it("still falls back quietly when strict is explicitly off", async () => {
+      spyOn(console, "warn")
+      const failingFetch = jasmine
+        .createSpy("fetch")
+        .and.rejectWith(new Error("offline")) as unknown as typeof fetch
+
+      await expectAsync(
+        fetchPrerenderChapterParams(failingFetch, { strict: false }),
+      ).toBeResolvedTo([])
+    })
+  })
+
+  describe("PRERENDER_STRICT", () => {
+    type ProcessHolder = { process?: { env?: Record<string, string> } }
+    const holder = globalThis as ProcessHolder
+    const originalProcess = holder.process
+
+    afterEach(() => {
+      if (originalProcess === undefined) {
+        delete holder.process
+      } else {
+        holder.process = originalProcess
+      }
+    })
+
+    it("is off when the variable is absent", () => {
+      delete holder.process
+
+      expect(isPrerenderStrict()).toBeFalse()
+    })
+
+    it("is read at call time and only 'true' turns it on", () => {
+      holder.process = { env: { PRERENDER_STRICT: "true" } }
+      expect(isPrerenderStrict()).toBeTrue()
+
+      holder.process = { env: { PRERENDER_STRICT: "false" } }
+      expect(isPrerenderStrict()).toBeFalse()
+    })
+
+    it("makes fetchPrerenderChapterParams strict by default", async () => {
+      holder.process = { env: { PRERENDER_STRICT: "true" } }
+      const failingFetch = jasmine
+        .createSpy("fetch")
+        .and.rejectWith(new Error("offline")) as unknown as typeof fetch
+
+      await expectAsync(
+        fetchPrerenderChapterParams(failingFetch),
+      ).toBeRejectedWithError(/PRERENDER_STRICT/)
+    })
   })
 })
