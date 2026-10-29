@@ -405,6 +405,33 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
+      # App Review rejects a build that crashes at launch. The same Release
+      # build, for the simulator, is launched on App Review's devices
+      # (ios/scripts/smoke-launch.sh): like a signing failure, a crash fails
+      # the build, and so blocks a release or a TestFlight upload.
+      - name: Smoke-launch on the simulator
+        run: |
+          set -e
+          xcodebuild -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath ios/App/build/simulator \
+            build \
+            CODE_SIGNING_ALLOWED=NO
+          ios/scripts/smoke-launch.sh \
+            ios/App/build/simulator/Build/Products/Release-iphonesimulator/App.app \
+            ios/App/build/crash-reports
+
+      - name: Upload crash reports
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ios-crash-reports
+          path: ios/App/build/crash-reports
+          if-no-files-found: ignore
+
       # The app's team is an individual membership, where only the Account
       # Holder may create certificates, so Xcode's cloud signing is refused to
       # the runner and the API key alike. The build is signed with the
