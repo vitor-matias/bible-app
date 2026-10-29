@@ -1,4 +1,4 @@
-import { HttpErrorResponse } from "@angular/common/http"
+import { HttpErrorResponse, HttpHeaders } from "@angular/common/http"
 import {
   HttpClientTestingModule,
   HttpTestingController,
@@ -11,11 +11,13 @@ import {
   tick,
 } from "@angular/core/testing"
 import { firstValueFrom, Observable, of, TimeoutError } from "rxjs"
+import { AnalyticsService } from "./analytics.service"
 import {
   BibleApiService,
   BOOK_LIST_TIMEOUT_MS,
   createApiResilience,
   createServerBooksCache,
+  describeBookListFailure,
 } from "./bible-api.service"
 import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
@@ -25,8 +27,11 @@ describe("BibleApiService", () => {
   let httpMock: HttpTestingController
   let offlineDataServiceSpy: jasmine.SpyObj<OfflineDataService>
   let networkServiceStub: { isOffline: boolean }
+  let analyticsSpy: jasmine.SpyObj<AnalyticsService>
 
   beforeEach(() => {
+    analyticsSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
+    analyticsSpy.track.and.resolveTo()
     const spy = jasmine.createSpyObj("OfflineDataService", [
       "getCachedChapterAsync",
       "getCachedBooksAsync",
@@ -44,6 +49,7 @@ describe("BibleApiService", () => {
         BibleApiService,
         { provide: OfflineDataService, useValue: spy },
         { provide: NetworkService, useValue: networkServiceStub },
+        { provide: AnalyticsService, useValue: analyticsSpy },
       ],
     })
 
@@ -366,6 +372,10 @@ describe("BibleApiService", () => {
 
         expect(failure).toBeInstanceOf(TimeoutError)
         expect(stalled.cancelled).toBeTrue()
+        expect(analyticsSpy.track).toHaveBeenCalledOnceWith(
+          "books_load_failed",
+          { reason: "timeout" },
+        )
         let books: Book[] | undefined
         service.getAvailableBooks().subscribe((result) => {
           books = result
@@ -373,26 +383,45 @@ describe("BibleApiService", () => {
         flushMicrotasks()
         httpMock.expectOne("v1/books").flush(remoteBooks)
         expect(books).toEqual(remoteBooks)
+        // The retry that worked reports nothing.
+        expect(analyticsSpy.track).toHaveBeenCalledTimes(1)
       }))
 
-      const failures: [string, (request: TestRequest) => void][] = [
+      const failures: [
+        string,
+        (request: TestRequest) => void,
+        Record<string, string | number>,
+      ][] = [
         [
           "a download the network cut off",
           (request) => request.error(new ProgressEvent("error")),
+          { reason: "network" },
         ],
         // In the app HttpClient rejects a body that stops mid-JSON before
         // this point; should one arrive as text, it must fail the same way.
         [
           "a truncated JSON body",
           (request) => request.flush('[{"id":"exo","name":"Exo'),
+          { reason: "not_a_list" },
         ],
         [
           "a body that isn't the list",
           (request) => request.flush({ error: "Bad gateway" }),
+          { reason: "not_a_list" },
+        ],
+        [
+          "a proxy's error page",
+          (request) =>
+            request.flush("<html><h1>502 Bad Gateway</h1></html>", {
+              status: 502,
+              statusText: "Bad Gateway",
+              headers: { "content-type": "text/html; charset=utf-8" },
+            }),
+          { reason: "http_error", status: 502, contentType: "text/html" },
         ],
       ]
-      for (const [what, fail] of failures) {
-        it(`fails on ${what}, keeps nothing, and a retry asks again`, async () => {
+      for (const [what, fail, event] of failures) {
+        it(`fails on ${what}, keeps nothing, reports it, and a retry asks again`, async () => {
           const first = firstValueFrom(service.getAvailableBooks())
           await Promise.resolve()
           await Promise.resolve()
@@ -400,14 +429,47 @@ describe("BibleApiService", () => {
 
           await expectAsync(first).toBeRejected()
           expect(service.books).toEqual([])
+          expect(analyticsSpy.track).toHaveBeenCalledOnceWith(
+            "books_load_failed",
+            event,
+          )
 
           const retry = firstValueFrom(service.getAvailableBooks())
           await Promise.resolve()
           await Promise.resolve()
           httpMock.expectOne("v1/books").flush(remoteBooks)
           expect(await retry).toEqual(remoteBooks)
+          expect(analyticsSpy.track).toHaveBeenCalledTimes(1)
         })
       }
+    })
+
+    describe("describeBookListFailure", () => {
+      // What HttpClient raises for a 200 that isn't JSON: a Wi-Fi login page,
+      // or JSON cut short. The testing backend never parses, so it's built here.
+      it("names an HTML page in place of the list", () => {
+        const error = new HttpErrorResponse({
+          status: 200,
+          statusText: "OK",
+          headers: new HttpHeaders({ "content-type": "text/html" }),
+          error: {
+            error: new SyntaxError("Unexpected token '<'"),
+            text: "<!DOCTYPE html><title>Hotel Wi-Fi</title>",
+          },
+        })
+
+        expect(describeBookListFailure(error)).toEqual({
+          reason: "not_json",
+          status: 200,
+          contentType: "text/html",
+        })
+      })
+
+      it("says other for anything else", () => {
+        expect(describeBookListFailure(new Error("?"))).toEqual({
+          reason: "other",
+        })
+      })
     })
   })
 

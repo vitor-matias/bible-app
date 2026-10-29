@@ -1,5 +1,5 @@
 import { HttpClient, HttpErrorResponse } from "@angular/common/http"
-import { Injectable } from "@angular/core"
+import { Injectable, inject } from "@angular/core"
 import {
   catchError,
   finalize,
@@ -10,6 +10,7 @@ import {
   retry,
   shareReplay,
   switchMap,
+  TimeoutError,
   tap,
   throwError,
   timeout,
@@ -17,6 +18,7 @@ import {
 } from "rxjs"
 import { apiBaseUrl } from "../config"
 import { isBrowser } from "../utils/platform"
+import { AnalyticsService } from "./analytics.service"
 import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
 
@@ -71,6 +73,28 @@ function bookListTimeout<T>(): MonoTypeOperatorFunction<T> {
   return IS_SERVER ? (source) => source : timeout(BOOK_LIST_TIMEOUT_MS)
 }
 
+/** A books body that parsed but isn't the list. */
+class UnexpectedBookListError extends Error {}
+
+/**
+ * Why the book list request failed, for the `books_load_failed` event. Never
+ * the body itself: a Wi-Fi login page may name the place.
+ */
+export function describeBookListFailure(
+  error: unknown,
+): Record<string, string | number> {
+  if (error instanceof TimeoutError) return { reason: "timeout" }
+  if (error instanceof UnexpectedBookListError) return { reason: "not_a_list" }
+  if (!(error instanceof HttpErrorResponse)) return { reason: "other" }
+  if (error.status === 0) return { reason: "network" }
+  const contentType =
+    error.headers?.get("content-type")?.split(";")[0].trim() || "unknown"
+  // HttpClient's error for a body it can't parse: an HTML page, or JSON cut short.
+  const reason =
+    error.error?.error instanceof SyntaxError ? "not_json" : "http_error"
+  return { reason, status: error.status, contentType }
+}
+
 /**
  * Survives between prerenders in one worker, so a listing is fetched once
  * instead of ~1200 times. Never caches an empty response: every later render
@@ -106,6 +130,7 @@ export class BibleApiService {
   // Keep a shared books request alive long enough for all early subscribers to reuse it.
   private booksRequest$: Observable<Book[]> | null = null
   books: Book[] = []
+  private readonly analyticsService = inject(AnalyticsService)
 
   constructor(
     private http: HttpClient,
@@ -147,13 +172,19 @@ export class BibleApiService {
               // A body that parses but isn't the list (a proxy's error page)
               // fails like any other, so a retry asks the server again.
               if (!Array.isArray(books)) {
-                throw new Error("Unexpected response for the book list")
+                throw new UnexpectedBookListError(
+                  "Unexpected response for the book list",
+                )
               }
               this.books = books
               serverBooksCache.write(books)
             }),
             catchError((error) => {
               this.booksRequest$ = null
+              void this.analyticsService.track(
+                "books_load_failed",
+                describeBookListFailure(error),
+              )
               return throwError(() => error)
             }),
             shareReplay(1),
