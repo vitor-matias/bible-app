@@ -102,6 +102,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /** For the native toolbar's arrows; the web page has its own. */
   @Input() canGoPrevious = false
   @Input() canGoNext = false
+  /** BibleScroll, the experimental one-verse-per-card view, is on. */
+  @Input() cardsView = false
+  /** Whether the reader can show the card view here (mobile, a chapter of verses). */
+  @Input() cardsViewAvailable = false
 
   bookLabelMode: "title" | "prompt" = "title"
   /** True for the fade-out half of a label swap. */
@@ -154,6 +158,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     bookId: string
     chapter?: number
   }>()
+  @Output() toggleCardsView = new EventEmitter<void>()
 
   mobile = false
 
@@ -318,6 +323,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   onOpenHelp(trigger: MatMenuTrigger) {
     trigger.closeMenu()
     this.onboardingService.open("menu")
+  }
+
+  onToggleCardsView(trigger: MatMenuTrigger) {
+    trigger.closeMenu()
+    this.toggleCardsView.emit()
   }
 
   /**
