@@ -6,6 +6,10 @@ Typecheck with `npx tsc -p tsconfig.app.json --noEmit` (specs: `-p tsconfig.spec
 Vitest browser mode on Playwright Chromium, run by `@angular/build:unit-test` (`npm test`;
 once per machine `npx playwright install chromium`).
 
+Engineering notes (iOS/Android recipes, test pitfalls, architecture gotchas, performance
+findings, crash-report symbolication) live in `docs/`; read the relevant file before working
+in that area.
+
 ## Definition of done (required before finishing)
 
 Whenever you change code under `src/`, before you finish:
