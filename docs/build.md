@@ -20,18 +20,13 @@ this was written). Put global rules in `src/styles.css`, which has no component 
 
 ### npm overrides
 
-`package.json` carries `overrides` (`tar`, `sharp`, `uuid`, `@hono/node-server`, `minimatch`,
-`@xmldom/xmldom`) that patch advisories in build tooling npm cannot otherwise fix. Most exist
-because the pinned `@capacitor/assets` 3.0.5 pins `sharp` at exactly 0.32.6 and depends on
-`@capacitor/cli` 5.x, which drags in `tar` 6. Version 4 of `@capacitor/assets` is out and
-depends on a current `sharp` and no longer on the old CLI: upgrading it is the first thing to
-try before adding more overrides, then remove the overrides it makes redundant and check
-`npm audit`.
+`package.json` carries one override, `uuid`, because `@capacitor/cli` pulls `xcode`, which pins
+`uuid` 7. Remove it and check `npm audit` when `xcode` moves on.
 
 npm applies overrides only during a full tree resolution. A targeted
-`npm install --save-dev <pkg>` leaves nested copies at their vulnerable versions: a bump of
-`jasmine-core` once silently restored `@capacitor/assets/node_modules/tar@6`, and an advisory
-reappeared while `package.json` still showed the override. After any targeted install:
+`npm install --save-dev <pkg>` leaves nested copies at their vulnerable versions: a dev tool's bump once
+silently restored a nested vulnerable `tar`, and an advisory reappeared while `package.json`
+still showed the override. After any targeted install:
 
 ```bash
 npm audit                      # and npm audit --omit=dev, which is what ships and has been clean
@@ -43,7 +38,8 @@ npm ci                         # what CI runs; the lockfile is what actually shi
 
 Angular framework packages peer-pin each other to an exact version (`platform-server`
 at `22.1.4` peers `common`, `compiler`, `core` and `platform-browser` at `22.1.4`;
-`material` pins `cdk`; `animations` pins `core`). There is no `.github/dependabot.yml`, so a
+`material` pins `cdk`; `animations` pins `core`). `.github/dependabot.yml` groups them, security updates
+included, because a
 security PR that bumps one `@angular/*` package leaves its siblings in the lockfile at the old
 version and `npm ci` fails with `ERESOLVE`, which turns lint, test and build red before any
 code runs. `npm install --package-lock-only @angular/core@X @angular/common@X ...` still fails,
@@ -57,8 +53,8 @@ Do not debug the code. In a separate PR (Dependabot stops maintaining a branch y
 2. Delete the `node_modules/@angular/<pkg>` entries for those packages from `package-lock.json`.
 3. Run a bare `npm install --package-lock-only`, then `npm ci --dry-run` to confirm.
 
-A `dependabot.yml` group for `@angular/*` with `applies-to: security-updates` would prevent the
-problem.
+The `angular-security` group in `.github/dependabot.yml` is there to prevent this; if it recurs,
+check that group first.
 
 ## Working in git worktrees
 

@@ -3,8 +3,8 @@
 ## Commands
 
 ```bash
-npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox   # all web specs (what CI runs)
-npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox \
+npx ng test --watch=false                                      # all web specs (what CI runs)
+npx ng test --watch=false \
   --include='src/app/components/search/*.spec.ts'              # a subset, to bisect a failure
 npm run e2e                                                    # Playwright, e2e/; starts `npm start` itself
 (cd android && ./gradlew testDebugUnitTest lintDebug)          # Android JVM tests + lint
@@ -13,9 +13,8 @@ npm run e2e                                                    # Playwright, e2e
 The iOS tests run with `xcodebuild test`, as the *iOS* job in
 `.github/workflows/ios.yml` does.
 
-`karma.conf.js` is an async function because current Puppeteer returns
-`executablePath()` as a promise; Karma awaits the config, so `CHROME_BIN` is set
-before Chrome launches. Keep it async.
+Web specs run in Vitest browser mode on Playwright's Chromium, so a fresh machine
+needs `npx playwright install chromium` once. CLAUDE.md has the Vitest conventions.
 
 `npm run e2e` reads the real books, chapters and search results from the public
 API through `proxy.conf.js`, so it needs a network. The icon helpers in
@@ -33,20 +32,18 @@ Assigning a host component's field and calling `detectChanges()` did not run the
 child's `ngOnChanges` in this TestBed setup. Drive inputs with
 `fixture.componentRef.setInput("name", value)`.
 
-### Plain buttons need `detectChanges()`
+### State changed outside a template listener needs marking
 
-`main.ts` and `app.config.ts` use `provideZoneChangeDetection({ eventCoalescing: true })`,
-which batches change detection onto an animation frame. A hand-written
-`<button>` in an `OnPush` component whose click only changes the component's own
-state does not repaint until something else triggers a pass (Angular Material
-controls render themselves and hide this; it showed in Safari, not Chromium).
+The app is zoneless, so a field written in a timer, promise, observer or native
+callback repaints only if something marks it: `markForCheck()`, `detectChanges()`,
+a signal, an `async` pipe or an output. Template listeners mark their own component.
 
-Call `this.cdr.detectChanges()` in the handler. In the spec, assert the render
-**without** a `detectChanges()` of your own: that is the condition that fails.
+Test the render **without** a `detectChanges()` of your own when the marking is
+what the spec is for: that is the condition that fails.
 
 ### Theme-dependent styles: headless Chrome follows the OS
 
-ChromeHeadless takes the machine's `prefers-color-scheme`, so on a Mac in dark mode
+Headless Chromium takes the machine's `prefers-color-scheme`, so on a Mac in dark mode
 any spec that does not mock `ThemeService` gets `.dark-theme` on `<html>`. A
 "light theme" assertion then fails locally and passes in CI. In such a spec:
 
@@ -60,7 +57,7 @@ has `contrastRatio()` for WCAG assertions.
 ### `routerLink` inside a `mat-menu` item
 
 In `header.component.spec.ts` the `Router` is a bare
-`jasmine.createSpyObj("Router", ["navigate"])`. A
+`createSpyObj("Router", ["navigate"])`. A
 `<button mat-menu-item routerLink="...">` then never appears in the opened
 overlay: `RouterLink` cannot instantiate against the spy inside the menu's lazily
 created view, and the error is swallowed, so the only symptom is "item not found".
