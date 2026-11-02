@@ -8,7 +8,7 @@ buildscript {
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:9.4.1'
-        classpath 'com.google.gms:google-services:4.4.4'
+        classpath 'com.google.gms:google-services:4.5.0'
         // The native bars (Kotlin, Jetpack Compose): see variables.gradle.
         // AGP 9 compiles Kotlin itself; this sets the Kotlin it uses.
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"

@@ -18,6 +18,9 @@
     "cap:android": "npm run cap:prune && npx cap sync android"
   },
   "private": true,
+  "engines": {
+    "node": "^22.22.3 || ^24.15.0 || >=26.0.0"
+  },
   "dependencies": {
     "@angular/animations": "^22.2.2",
     "@angular/cdk": "^22.2.2",
@@ -30,7 +33,7 @@
     "@angular/platform-server": "^22.2.2",
     "@angular/router": "^22.2.2",
     "@angular/service-worker": "^22.2.2",
-    "@angular/ssr": "^22.2.2",
+    "@angular/ssr": "^22.2.5",
     "@capacitor/android": "^8.5.2",
     "@capacitor/app": "^8.1.1",
     "@capacitor/core": "^8.5.2",
@@ -40,14 +43,14 @@
     "@capacitor/splash-screen": "^8.0.2",
     "@fontsource/pt-serif": "^5.3.0",
     "@fontsource/roboto": "^5.3.0",
-    "@material-symbols/font-400": "^0.48.0",
+    "@material-symbols/font-400": "^0.48.2",
     "@vercel/speed-insights": "^2.0.0",
     "rxjs": "~7.8.2",
     "tslib": "^2.8.1"
   },
   "devDependencies": {
-    "@angular/build": "^22.2.2",
-    "@angular/cli": "^22.2.4",
+    "@angular/build": "^22.2.5",
+    "@angular/cli": "^22.2.5",
     "@angular/compiler-cli": "^22.2.2",
     "@biomejs/biome": "^2.5.7",
     "@capacitor/assets": "^4.0.0",
@@ -56,7 +59,7 @@
     "@types/node": "^26.2.0",
     "@vitest/browser-playwright": "5.0.5",
     "@vitest/coverage-v8": "5.0.5",
-    "baseline-browser-mapping": "^2.11.12",
+    "baseline-browser-mapping": "^2.11.34",
     "sharp": "^0.35.3",
     "typescript": "~6.0.3",
     "vitest": "5.0.5"
