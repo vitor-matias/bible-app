@@ -752,6 +752,26 @@ describe("PagedNavigationDirective across a resize", () => {
     expect(container.scrollLeft % 200).toBe(0)
   })
 
+  // Aligning lifted the spacer holding the scrollable area, and measured it
+  // under the drag's transform.
+  it("waits for a drag to end before aligning late content", async () => {
+    const last = container.scrollWidth - container.clientWidth
+    container.scrollLeft = last
+    await settle()
+
+    host.nav.dragBy(-120)
+    const block = container.firstElementChild as HTMLElement
+    block.append(document.createElement("span"))
+    await settle()
+    expect(container.scrollLeft).toBe(last)
+
+    host.nav.nextPage()
+    await settle()
+    expect(container.scrollLeft).toBe(last)
+    await settle()
+    expect((container.scrollWidth - container.clientWidth) % 200).toBe(0)
+  })
+
   it("keeps the verse the reader was on", async () => {
     container.scrollLeft = 5 * 200
     await settle()

@@ -141,6 +141,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     clearTimeout(this.anchorTimeout)
     if (this.layoutFrame !== undefined) cancelAnimationFrame(this.layoutFrame)
     this.mutationObserver?.disconnect()
+    this.drag = undefined
     this.removeSpacer()
   }
 
@@ -581,19 +582,25 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     const block = this._bookBlock
     if (!block) return
 
-    this.mutationObserver = new MutationObserver(() => {
-      clearTimeout(this.alignmentTimeout)
-      this.alignmentTimeout = window.setTimeout(() => {
-        requestAnimationFrame(() => {
-          if (this._stayAtEnd) {
-            this.snapToEnd()
-          } else {
-            this.ensureAlignedScrollWidth()
-          }
-        })
-      }, MUTATION_DEBOUNCE_MS)
-    })
+    this.mutationObserver = new MutationObserver(() => this.alignSoon(block))
     this.mutationObserver.observe(block, { childList: true, subtree: true })
+  }
+
+  private alignSoon(block: HTMLElement): void {
+    clearTimeout(this.alignmentTimeout)
+    this.alignmentTimeout = window.setTimeout(() => {
+      requestAnimationFrame(() => {
+        // Not while a drag or its spring-back moves the columns: they'd be
+        // measured out of place, and the scroll clamped without the spacer.
+        if (this.drag || block.getAnimations().length > 0) {
+          this.alignSoon(block)
+        } else if (this._stayAtEnd) {
+          this.snapToEnd()
+        } else {
+          this.ensureAlignedScrollWidth()
+        }
+      })
+    }, MUTATION_DEBOUNCE_MS)
   }
 }
 
