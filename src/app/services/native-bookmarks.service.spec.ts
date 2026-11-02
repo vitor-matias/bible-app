@@ -9,11 +9,11 @@ import {
   type RibbonState,
 } from "./bookmark-ribbons.service"
 import { NativeBookmarksService } from "./native-bookmarks.service"
-import {
-  type BookmarksSheetState,
-  type NativeChromeAction,
-  NativeChromeService,
-} from "./native-chrome.service"
+import { NativeChromeService } from "./native-chrome.service"
+import type {
+  BookmarksSheetState,
+  NativeChromeAction,
+} from "./native-chrome.types"
 
 describe("NativeBookmarksService", () => {
   let bookmarks: BehaviorSubject<Bookmark[]>

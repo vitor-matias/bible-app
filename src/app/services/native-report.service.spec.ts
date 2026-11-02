@@ -1,9 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { Subject } from "rxjs"
-import {
-  type NativeChromeAction,
-  NativeChromeService,
-} from "./native-chrome.service"
+import { NativeChromeService } from "./native-chrome.service"
+import type { NativeChromeAction } from "./native-chrome.types"
 import { NativeReportService } from "./native-report.service"
 import { ProblemReportService } from "./problem-report.service"
 import { ToastService } from "./toast.service"

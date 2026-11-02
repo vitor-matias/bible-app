@@ -5,10 +5,8 @@ import { MatIconModule } from "@angular/material/icon"
 import { Subject } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
-import {
-  type NativeChromeAction,
-  NativeChromeService,
-} from "../../services/native-chrome.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
+import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { PreferencesService } from "../../services/preferences.service"
 import { AutoScrollControlsComponent } from "./auto-scroll-controls.component"
 

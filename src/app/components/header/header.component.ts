@@ -44,10 +44,8 @@ import {
   type DisplayVersion,
 } from "../../services/build-version.service"
 import { NativeBookmarksService } from "../../services/native-bookmarks.service"
-import {
-  type NativeChromeAction,
-  NativeChromeService,
-} from "../../services/native-chrome.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
+import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"

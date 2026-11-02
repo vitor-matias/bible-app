@@ -7,11 +7,11 @@ import {
   BibleReferenceService,
 } from "./bible-reference.service"
 import { BookService } from "./book.service"
-import {
-  type FootnotesSheetState,
-  type NativeChromeAction,
-  NativeChromeService,
-} from "./native-chrome.service"
+import { NativeChromeService } from "./native-chrome.service"
+import type {
+  FootnotesSheetState,
+  NativeChromeAction,
+} from "./native-chrome.types"
 import { NativeFootnotesService } from "./native-footnotes.service"
 import { PreferencesService } from "./preferences.service"
 import { SystemTextSizeService } from "./system-text-size.service"

@@ -9,11 +9,13 @@ import {
   ANDROID_REVEAL_DISTANCE,
   COLLAPSE_DISTANCE,
   FLING_REVEAL_SPEED,
-  type NativeChromeAction,
   NativeChromeService,
-  type ReaderChrome,
-  type SearchChrome,
 } from "./native-chrome.service"
+import type {
+  NativeChromeAction,
+  ReaderChrome,
+  SearchChrome,
+} from "./native-chrome.types"
 
 const READER: ReaderChrome = {
   mode: "reader",
