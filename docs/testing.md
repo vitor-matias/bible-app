@@ -130,8 +130,7 @@ For a pre-release pass over phones, tablets, foldables and desktop:
    gzip, so load times are pessimistic.
 2. Use Playwright with the installed Chrome (`chromium.launch({ channel: 'chrome' })`)
    for Chrome profiles; do not run `playwright install` for it.
-3. Block analytics in the browser context (`googletagmanager`, `google.com/ccm`,
-   `umami.`). The "Reportar erro" menu entry only shows when `window.umami.track`
+3. Block analytics in the browser context (`umami.`). The "Reportar erro" menu entry only shows when `window.umami.track`
    exists (`AnalyticsService.areAnalyticsAvailable`), so stub it for report tests.
 4. Sizes in CSS pixels for the iPhone Duo: outer screen 466x678, inner 669x951.
    The inner screen in landscape (951) and large phones turned sideways cross the
