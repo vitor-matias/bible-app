@@ -1,150 +1,150 @@
-import { type ComponentFixture, TestBed } from "@angular/core/testing"
-import { contrastRatio } from "../../testing/contrast"
-import { SearchBarComponent } from "./search-bar.component"
+import { type ComponentFixture, TestBed } from '@angular/core/testing';
+import { contrastRatio } from '../../testing/contrast';
+import { SearchBarComponent } from './search-bar.component';
 
-describe("SearchBarComponent", () => {
-  let component: SearchBarComponent
-  let fixture: ComponentFixture<SearchBarComponent>
+describe('SearchBarComponent', () => {
+  let component: SearchBarComponent;
+  let fixture: ComponentFixture<SearchBarComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [SearchBarComponent],
-    }).compileComponents()
+    }).compileComponents();
 
-    fixture = TestBed.createComponent(SearchBarComponent)
-    component = fixture.componentInstance
-    fixture.detectChanges()
-  })
+    fixture = TestBed.createComponent(SearchBarComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
 
-  afterEach(() => document.documentElement.classList.remove("dark-theme"))
+  afterEach(() => document.documentElement.classList.remove('dark-theme'));
 
   // A side navigation bar or notch in landscape covered Back and the field.
-  it("keeps its contents clear of side system bars", () => {
-    const host = fixture.nativeElement as HTMLElement
-    const content = host.querySelector(".content") as HTMLElement
+  it('keeps its contents clear of side system bars', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    const content = host.querySelector('.content') as HTMLElement;
     const box = (left: string, right: string) => {
-      host.style.setProperty("--app-inset-left", left)
-      host.style.setProperty("--app-inset-right", right)
-      return content.getBoundingClientRect()
-    }
+      host.style.setProperty('--app-inset-left', left);
+      host.style.setProperty('--app-inset-right', right);
+      return content.getBoundingClientRect();
+    };
 
-    const none = box("0px", "0px")
-    const inset = box("48px", "40px")
+    const none = box('0px', '0px');
+    const inset = box('48px', '40px');
 
-    expect(inset.left - none.left).toBeCloseTo(48, 0)
-    expect(none.right - inset.right).toBeCloseTo(40, 0)
-  })
+    expect(inset.left - none.left).toBeCloseTo(48, 0);
+    expect(none.right - inset.right).toBeCloseTo(40, 0);
+  });
 
   // The field is white in both themes, but its text colour is the browser's
   // default, which follows the page's color-scheme. .dark-theme sets
   // color-scheme: dark, so typed text turned white on the white field and the
   // box looked empty.
-  for (const theme of ["light", "dark"]) {
+  for (const theme of ['light', 'dark']) {
     it(`keeps typed text readable on its field in ${theme} mode`, () => {
-      document.documentElement.classList.toggle("dark-theme", theme === "dark")
+      document.documentElement.classList.toggle('dark-theme', theme === 'dark');
 
       const input = (fixture.nativeElement as HTMLElement).querySelector(
-        ".search-input",
-      ) as HTMLInputElement
-      const style = getComputedStyle(input)
+        '.search-input'
+      ) as HTMLInputElement;
+      const style = getComputedStyle(input);
 
       expect(
-        contrastRatio(style.color, style.backgroundColor),
-      ).toBeGreaterThanOrEqual(4.5)
-    })
+        contrastRatio(style.color, style.backgroundColor)
+      ).toBeGreaterThanOrEqual(4.5);
+    });
   }
 
   // The reader header pins its buttons 8px from the viewport edge. This toolbar
   // lays its buttons out in flow instead, so Material's own 16px toolbar inset
   // stacked on .content's 8px and left them 24px in — visibly out of line with
   // every other page.
-  it("insets its buttons like the reader header, not 16px further in", () => {
-    const element = fixture.nativeElement as HTMLElement
-    const toolbar = element.querySelector("mat-toolbar") as HTMLElement
-    const content = element.querySelector(".content") as HTMLElement
+  it('insets its buttons like the reader header, not 16px further in', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const toolbar = element.querySelector('mat-toolbar') as HTMLElement;
+    const content = element.querySelector('.content') as HTMLElement;
 
-    const toolbarStyle = getComputedStyle(toolbar)
-    expect(toolbarStyle.paddingLeft).toBe("0px")
-    expect(toolbarStyle.paddingRight).toBe("0px")
+    const toolbarStyle = getComputedStyle(toolbar);
+    expect(toolbarStyle.paddingLeft).toBe('0px');
+    expect(toolbarStyle.paddingRight).toBe('0px');
 
-    const contentStyle = getComputedStyle(content)
-    expect(contentStyle.paddingLeft).toBe("8px")
-    expect(contentStyle.paddingRight).toBe("8px")
-  })
+    const contentStyle = getComputedStyle(content);
+    expect(contentStyle.paddingLeft).toBe('8px');
+    expect(contentStyle.paddingRight).toBe('8px');
+  });
 
   // Same reason: the header's buttons take Material's default 40px, and at
   // 36px these read as a different, shorter control on an otherwise identical
   // toolbar. The input matches so the row reads as one.
   it("sizes its controls like the reader header's buttons", () => {
-    const element = fixture.nativeElement as HTMLElement
-    const heights = [".backButton", ".searchButton", ".search-input"].map(
+    const element = fixture.nativeElement as HTMLElement;
+    const heights = ['.backButton', '.searchButton', '.search-input'].map(
       (selector) =>
-        getComputedStyle(element.querySelector(selector) as HTMLElement).height,
-    )
+        getComputedStyle(element.querySelector(selector) as HTMLElement).height
+    );
 
-    expect(heights).toEqual(["40px", "40px", "40px"])
-  })
+    expect(heights).toEqual(['40px', '40px', '40px']);
+  });
 
-  it("emits every edit, for searching as people type", async () => {
-    const typed: string[] = []
-    component.typing.subscribe((text) => typed.push(text))
+  it('emits every edit, for searching as people type', async () => {
+    const typed: string[] = [];
+    component.typing.subscribe((text) => typed.push(text));
     const input = fixture.nativeElement.querySelector(
-      "input",
-    ) as HTMLInputElement
+      'input'
+    ) as HTMLInputElement;
 
-    input.value = "luz"
-    input.dispatchEvent(new Event("input"))
-    await fixture.whenStable()
+    input.value = 'luz';
+    input.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
 
-    expect(typed).toEqual(["luz"])
-  })
+    expect(typed).toEqual(['luz']);
+  });
 
-  it("should create", () => {
-    expect(component).toBeTruthy()
-  })
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
 
   // Android capitalised the first letter: "amor" showed as "Amor".
-  it("leaves typed words as typed", () => {
+  it('leaves typed words as typed', () => {
     const input = fixture.nativeElement.querySelector(
-      "input",
-    ) as HTMLInputElement
+      'input'
+    ) as HTMLInputElement;
 
-    expect(input.getAttribute("autocapitalize")).toBe("off")
-    expect(input.spellcheck).toBeFalse()
-  })
+    expect(input.getAttribute('autocapitalize')).toBe('off');
+    expect(input.spellcheck).toBe(false);
+  });
 
-  it("opens ready to type", () => {
-    const input = fixture.nativeElement.querySelector("input")
-    expect(document.activeElement).toBe(input)
-  })
+  it('opens ready to type', () => {
+    const input = fixture.nativeElement.querySelector('input');
+    expect(document.activeElement).toBe(input);
+  });
 
   // After Back from a result, the keyboard came up over the results.
   it("doesn't bring the keyboard up over results already shown", () => {
-    const shown = TestBed.createComponent(SearchBarComponent)
-    shown.componentRef.setInput("focusOnOpen", false)
-    shown.detectChanges()
+    const shown = TestBed.createComponent(SearchBarComponent);
+    shown.componentRef.setInput('focusOnOpen', false);
+    shown.detectChanges();
 
     expect(document.activeElement).not.toBe(
-      shown.nativeElement.querySelector("input"),
-    )
-  })
+      shown.nativeElement.querySelector('input')
+    );
+  });
 
-  it("should prefill the query from the value input", () => {
-    component.value = "Salmo 23"
-    expect(component.query).withContext("after setter").toBe("Salmo 23")
-    fixture.detectChanges()
-    expect(component.query).withContext("after CD").toBe("Salmo 23")
-  })
+  it('should prefill the query from the value input', () => {
+    component.value = 'Salmo 23';
+    expect(component.query, 'after setter').toBe('Salmo 23');
+    fixture.detectChanges();
+    expect(component.query, 'after CD').toBe('Salmo 23');
+  });
 
-  it("should clear the query when value is nullish", () => {
-    component.value = "old query"
-    expect(component.query).toBe("old query")
+  it('should clear the query when value is nullish', () => {
+    component.value = 'old query';
+    expect(component.query).toBe('old query');
 
-    component.value = null as unknown as string
-    expect(component.query).toBe("")
+    component.value = null as unknown as string;
+    expect(component.query).toBe('');
 
-    component.value = "another query"
-    component.value = undefined as unknown as string
-    expect(component.query).toBe("")
-  })
-})
+    component.value = 'another query';
+    component.value = undefined as unknown as string;
+    expect(component.query).toBe('');
+  });
+});

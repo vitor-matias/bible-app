@@ -1,69 +1,76 @@
-import { TestBed } from "@angular/core/testing"
-import { DatabaseService } from "./database.service"
+import type { Mock } from 'vitest';
+import { TestBed } from '@angular/core/testing';
+import { DatabaseService } from './database.service';
 
-describe("DatabaseService", () => {
-  let service: DatabaseService
-  let mockIndexedDB: { open: jasmine.Spy }
+describe('DatabaseService', () => {
+  let service: DatabaseService;
+  let mockIndexedDB: {
+    open: Mock;
+  };
   let mockIDBDatabase: {
-    transaction: jasmine.Spy
-    objectStoreNames: { contains: jasmine.Spy }
-    createObjectStore: jasmine.Spy
-    onversionchange: (() => void) | null
-    close: jasmine.Spy | (() => void)
-  }
+    transaction: Mock;
+    objectStoreNames: {
+      contains: Mock;
+    };
+    createObjectStore: Mock;
+    onversionchange: (() => void) | null;
+    close: Mock | (() => void);
+  };
   let mockIDBTransaction: {
-    objectStore: jasmine.Spy
-    oncomplete: () => void
-    onerror: () => void
-    onabort: () => void
-    error: Error | null
-  }
+    objectStore: Mock;
+    oncomplete: () => void;
+    onerror: () => void;
+    onabort: () => void;
+    error: Error | null;
+  };
   let mockIDBObjectStore: {
-    getAll: jasmine.Spy
-    put: jasmine.Spy
-    delete: jasmine.Spy
-    clear: jasmine.Spy
-  }
+    getAll: Mock;
+    put: Mock;
+    delete: Mock;
+    clear: Mock;
+  };
   let mockIDBRequest: {
-    result: unknown
-    onupgradeneeded: (event: unknown) => void
-    onsuccess: () => void
-    onerror: (event?: unknown) => void
-    onblocked: () => void
-    error: Error | null
-  }
+    result: unknown;
+    onupgradeneeded: (event: unknown) => void;
+    onsuccess: () => void;
+    onerror: (event?: unknown) => void;
+    onblocked: () => void;
+    error: Error | null;
+  };
 
   beforeEach(() => {
     // Reset mocks for each test
-    mockIDBObjectStore = jasmine.createSpyObj("IDBObjectStore", [
-      "getAll",
-      "put",
-      "delete",
-      "clear",
-    ])
+    mockIDBObjectStore = {
+      getAll: vi.fn().mockName('IDBObjectStore.getAll'),
+      put: vi.fn().mockName('IDBObjectStore.put'),
+      delete: vi.fn().mockName('IDBObjectStore.delete'),
+      clear: vi.fn().mockName('IDBObjectStore.clear'),
+    };
 
     mockIDBTransaction = {
-      objectStore: jasmine
-        .createSpy("objectStore")
-        .and.returnValue(mockIDBObjectStore),
+      objectStore: vi
+        .fn()
+        .mockName('objectStore')
+        .mockReturnValue(mockIDBObjectStore),
       oncomplete: null as unknown as () => void, // To be assigned by service
       onerror: null as unknown as () => void, // To be assigned by service
       onabort: null as unknown as () => void, // To be assigned by service
       error: null,
-    }
+    };
 
     // Add transaction method which is used to create transactions
     mockIDBDatabase = {
-      transaction: jasmine
-        .createSpy("transaction")
-        .and.returnValue(mockIDBTransaction),
+      transaction: vi
+        .fn()
+        .mockName('transaction')
+        .mockReturnValue(mockIDBTransaction),
       objectStoreNames: {
-        contains: jasmine.createSpy("contains").and.returnValue(false),
+        contains: vi.fn().mockName('contains').mockReturnValue(false),
       },
-      createObjectStore: jasmine.createSpy("createObjectStore"),
+      createObjectStore: vi.fn().mockName('createObjectStore'),
       onversionchange: null,
-      close: jasmine.createSpy("close"),
-    }
+      close: vi.fn().mockName('close'),
+    };
 
     mockIDBRequest = {
       result: mockIDBDatabase,
@@ -72,276 +79,284 @@ describe("DatabaseService", () => {
       onerror: null as unknown as (event?: unknown) => void,
       onblocked: null as unknown as () => void,
       error: null,
-    }
+    };
 
     mockIndexedDB = {
-      open: jasmine.createSpy("open").and.returnValue(mockIDBRequest),
-    }
+      open: vi.fn().mockName('open').mockReturnValue(mockIDBRequest),
+    };
 
     // Mock global indexedDB
     try {
-      spyOnProperty(window, "indexedDB", "get").and.returnValue(
-        mockIndexedDB as unknown as IDBFactory,
-      )
+      vi.spyOn(window, 'indexedDB', 'get').mockReturnValue(
+        mockIndexedDB as unknown as IDBFactory
+      );
     } catch (_e) {
-      ;(window as unknown as { indexedDB: unknown }).indexedDB = mockIndexedDB
+      (
+        window as unknown as {
+          indexedDB: unknown;
+        }
+      ).indexedDB = mockIndexedDB;
     }
 
-    TestBed.configureTestingModule({})
-    service = TestBed.inject(DatabaseService)
-  })
+    TestBed.configureTestingModule({});
+    service = TestBed.inject(DatabaseService);
+  });
 
-  it("should be created", () => {
-    expect(service).toBeTruthy()
-  })
+  it('should be created', () => {
+    expect(service).toBeTruthy();
+  });
 
-  describe("getAll", () => {
-    it("should retrieve all items from the store", async () => {
-      const mockItems = [{ id: 1, name: "Item 1" }]
+  describe('getAll', () => {
+    it('should retrieve all items from the store', async () => {
+      const mockItems = [{ id: 1, name: 'Item 1' }];
       const mockGetAllRequest = {
         result: mockItems,
         onsuccess: null as unknown as () => void,
         onerror: null as unknown as () => void,
-      }
-      mockIDBObjectStore.getAll.and.returnValue(mockGetAllRequest)
+      };
+      mockIDBObjectStore.getAll.mockReturnValue(mockGetAllRequest);
 
       // Start the call
-      const promise = service.getAll("testStore")
+      const promise = service.getAll('testStore');
 
       // Resolve DB open request
-      expect(mockIndexedDB.open).toHaveBeenCalled()
-      mockIDBRequest.onsuccess() // Resolve getDB()
+      expect(mockIndexedDB.open).toHaveBeenCalled();
+      mockIDBRequest.onsuccess(); // Resolve getDB()
 
       // Allow microtasks to process so that getDB() promise resolves and execution continues to transaction creation
-      await new Promise((resolve) => setTimeout(resolve, 0))
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
       // Now transaction should have been created and getAll called
       expect(mockIDBDatabase.transaction).toHaveBeenCalledWith(
-        "testStore",
-        "readonly",
-      )
-      expect(mockIDBObjectStore.getAll).toHaveBeenCalled()
+        'testStore',
+        'readonly'
+      );
+      expect(mockIDBObjectStore.getAll).toHaveBeenCalled();
 
       // Resolve getAll request
-      expect(mockGetAllRequest.onsuccess).toBeDefined()
-      mockGetAllRequest.onsuccess()
+      expect(mockGetAllRequest.onsuccess).toBeDefined();
+      mockGetAllRequest.onsuccess();
 
-      const items = await promise
-      expect(items).toEqual(mockItems)
-    })
+      const items = await promise;
+      expect(items).toEqual(mockItems);
+    });
 
-    it("should return empty array if database fails to open", async () => {
-      spyOn(console, "error")
-      mockIDBRequest.onerror = null as unknown as (event?: unknown) => void // Prepare
+    it('should return empty array if database fails to open', async () => {
+      vi.spyOn(console, 'error').mockReturnValue(undefined);
+      mockIDBRequest.onerror = null as unknown as (event?: unknown) => void; // Prepare
 
-      const promise = service.getAll("testStore")
+      const promise = service.getAll('testStore');
 
       // Fail DB open
-      const errorEvent = { target: { error: "DB Error" } }
-      mockIDBRequest.error = new Error("DB Error")
+      const errorEvent = { target: { error: 'DB Error' } };
+      mockIDBRequest.error = new Error('DB Error');
       // Call onerror if it was assigned
       // Note: getDB assigns onerror.
 
       // We assume setup happened synchronously inside getDB before await
-      expect(mockIDBRequest.onerror).toBeDefined()
-      mockIDBRequest.onerror(errorEvent)
+      expect(mockIDBRequest.onerror).toBeDefined();
+      mockIDBRequest.onerror(errorEvent);
 
-      const result = await promise
-      expect(result).toEqual([])
-    })
+      const result = await promise;
+      expect(result).toEqual([]);
+    });
 
-    it("should reject if transaction/request fails", async () => {
+    it('should reject if transaction/request fails', async () => {
       const mockGetAllRequest = {
         result: null,
         onsuccess: null as unknown as () => void,
         onerror: null as unknown as () => void,
-        error: new Error("GetAll failed"),
-      }
-      mockIDBObjectStore.getAll.and.returnValue(mockGetAllRequest)
+        error: new Error('GetAll failed'),
+      };
+      mockIDBObjectStore.getAll.mockReturnValue(mockGetAllRequest);
 
-      const promise = service.getAll("testStore")
+      const promise = service.getAll('testStore');
 
       // Open DB
-      mockIDBRequest.onsuccess()
-      await new Promise((resolve) => setTimeout(resolve, 0))
+      mockIDBRequest.onsuccess();
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
       // Fail Request
-      mockGetAllRequest.onerror()
+      mockGetAllRequest.onerror();
 
-      await expectAsync(promise).toBeRejectedWith(new Error("GetAll failed"))
-    })
-  })
+      await expect(promise).rejects.toEqual(new Error('GetAll failed'));
+    });
+  });
 
-  describe("clear", () => {
-    it("should clear the store", async () => {
-      const promise = service.clear("testStore")
+  describe('clear', () => {
+    it('should clear the store', async () => {
+      const promise = service.clear('testStore');
 
       // Open DB
-      mockIDBRequest.onsuccess()
-      await new Promise((resolve) => setTimeout(resolve, 0))
+      mockIDBRequest.onsuccess();
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
       expect(mockIDBDatabase.transaction).toHaveBeenCalledWith(
-        "testStore",
-        "readwrite",
-      )
-      expect(mockIDBObjectStore.clear).toHaveBeenCalled()
+        'testStore',
+        'readwrite'
+      );
+      expect(mockIDBObjectStore.clear).toHaveBeenCalled();
 
-      mockIDBTransaction.oncomplete()
-      await expectAsync(promise).toBeResolved()
-    })
+      mockIDBTransaction.oncomplete();
+      await expect(promise).resolves.not.toThrow();
+    });
 
-    it("should reject when the transaction aborts", async () => {
-      const promise = service.clear("testStore")
+    it('should reject when the transaction aborts', async () => {
+      const promise = service.clear('testStore');
 
       // Open DB
-      mockIDBRequest.onsuccess()
-      await new Promise((resolve) => setTimeout(resolve, 0))
+      mockIDBRequest.onsuccess();
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
-      const error = new Error("QuotaExceededError")
-      mockIDBTransaction.error = error
-      mockIDBTransaction.onabort()
+      const error = new Error('QuotaExceededError');
+      mockIDBTransaction.error = error;
+      mockIDBTransaction.onabort();
 
-      await expectAsync(promise).toBeRejectedWith(error)
-    })
-  })
+      await expect(promise).rejects.toEqual(error);
+    });
+  });
 
-  describe("clearAndPutAll", () => {
+  describe('clearAndPutAll', () => {
     // A full disk aborts the transaction without an error event: the save
     // waited forever, and every bookmark change queued behind it.
-    it("should reject when the transaction aborts", async () => {
-      mockIDBObjectStore.put.and.returnValue({})
-      const promise = service.clearAndPutAll("testStore", [{ id: 1 }])
+    it('should reject when the transaction aborts', async () => {
+      mockIDBObjectStore.put.mockReturnValue({});
+      const promise = service.clearAndPutAll('testStore', [{ id: 1 }]);
 
       // Open DB
-      mockIDBRequest.onsuccess()
-      await new Promise((resolve) => setTimeout(resolve, 0))
+      mockIDBRequest.onsuccess();
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
-      const error = new Error("QuotaExceededError")
-      mockIDBTransaction.error = error
-      mockIDBTransaction.onabort()
+      const error = new Error('QuotaExceededError');
+      mockIDBTransaction.error = error;
+      mockIDBTransaction.onabort();
 
-      await expectAsync(promise).toBeRejectedWith(error)
-    })
-  })
+      await expect(promise).rejects.toEqual(error);
+    });
+  });
 
-  describe("migrations", () => {
-    it("should create object stores on upgrade needed", async () => {
+  describe('migrations', () => {
+    it('should create object stores on upgrade needed', async () => {
       // Trigger getDB
-      service.getAll("books") // fire and forget to trigger open
+      service.getAll('books'); // fire and forget to trigger open
 
-      expect(mockIndexedDB.open).toHaveBeenCalledWith("offline-bible", 2)
+      expect(mockIndexedDB.open).toHaveBeenCalledWith('offline-bible', 2);
 
-      const upgradeEvent = {}
+      const upgradeEvent = {};
 
       // Test upgrade logic
-      mockIDBRequest.result = mockIDBDatabase
+      mockIDBRequest.result = mockIDBDatabase;
 
       // Case 1: stores don't exist
-      mockIDBDatabase.objectStoreNames.contains.and.returnValue(false)
+      mockIDBDatabase.objectStoreNames.contains.mockReturnValue(false);
 
-      mockIDBRequest.onupgradeneeded(upgradeEvent)
+      mockIDBRequest.onupgradeneeded(upgradeEvent);
 
-      expect(mockIDBDatabase.createObjectStore).toHaveBeenCalledWith("books", {
-        keyPath: "id",
-      })
+      expect(mockIDBDatabase.createObjectStore).toHaveBeenCalledWith('books', {
+        keyPath: 'id',
+      });
       expect(mockIDBDatabase.createObjectStore).toHaveBeenCalledWith(
-        "bookmarks",
-        { keyPath: ["bookId", "chapter"] },
-      )
-    })
+        'bookmarks',
+        { keyPath: ['bookId', 'chapter'] }
+      );
+    });
 
-    it("should not create existing object stores", async () => {
-      service.getAll("books")
+    it('should not create existing object stores', async () => {
+      service.getAll('books');
 
-      mockIDBRequest.result = mockIDBDatabase
+      mockIDBRequest.result = mockIDBDatabase;
       // Case 2: stores exist
-      mockIDBDatabase.objectStoreNames.contains.and.returnValue(true)
+      mockIDBDatabase.objectStoreNames.contains.mockReturnValue(true);
 
-      mockIDBRequest.onupgradeneeded({})
+      mockIDBRequest.onupgradeneeded({});
 
-      expect(mockIDBDatabase.createObjectStore).not.toHaveBeenCalled()
-    })
-  })
+      expect(mockIDBDatabase.createObjectStore).not.toHaveBeenCalled();
+    });
+  });
 
-  describe("onblocked handler", () => {
-    it("should warn when upgrade is blocked", async () => {
-      spyOn(console, "warn")
-      spyOn(console, "error")
+  describe('onblocked handler', () => {
+    it('should warn when upgrade is blocked', async () => {
+      vi.spyOn(console, 'warn').mockReturnValue(undefined);
+      vi.spyOn(console, 'error').mockReturnValue(undefined);
 
-      const promise = service.getAll("books")
+      const promise = service.getAll('books');
 
-      expect(mockIDBRequest.onblocked).toBeDefined()
-      mockIDBRequest.onblocked()
+      expect(mockIDBRequest.onblocked).toBeDefined();
+      mockIDBRequest.onblocked();
 
       expect(console.warn).toHaveBeenCalledWith(
-        "IndexedDB upgrade blocked. Close other tabs to continue.",
-      )
+        'IndexedDB upgrade blocked. Close other tabs to continue.'
+      );
 
-      const result = await promise
-      expect(result).toEqual([])
-      expect(console.error).toHaveBeenCalled()
-    })
-  })
+      const result = await promise;
+      expect(result).toEqual([]);
+      expect(console.error).toHaveBeenCalled();
+    });
+  });
 
-  describe("onversionchange handler", () => {
-    it("should assign onversionchange on successful open", async () => {
+  describe('onversionchange handler', () => {
+    it('should assign onversionchange on successful open', async () => {
       const mockGetAllRequest = {
         result: [],
         onsuccess: null as unknown as () => void,
         onerror: null as unknown as () => void,
-      }
-      mockIDBObjectStore.getAll.and.returnValue(mockGetAllRequest)
-      const promise = service.getAll("books")
-      mockIDBRequest.onsuccess()
-      await new Promise((resolve) => setTimeout(resolve, 0))
+      };
+      mockIDBObjectStore.getAll.mockReturnValue(mockGetAllRequest);
+      const promise = service.getAll('books');
+      mockIDBRequest.onsuccess();
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
-      expect(mockIDBDatabase.onversionchange).toBeDefined()
+      expect(mockIDBDatabase.onversionchange).toBeDefined();
 
       if (mockGetAllRequest.onsuccess) {
-        mockGetAllRequest.onsuccess()
+        mockGetAllRequest.onsuccess();
       }
-      await promise
-    })
+      await promise;
+    });
 
-    it("should close db and null reference when onversionchange fires", async () => {
-      const closeSpy = jasmine.createSpy("close")
-      mockIDBDatabase.close = closeSpy
+    it('should close db and null reference when onversionchange fires', async () => {
+      const closeSpy = vi.fn().mockName('close');
+      mockIDBDatabase.close = closeSpy;
       const mockGetAllRequest = {
         result: [],
         onsuccess: null as unknown as () => void,
         onerror: null as unknown as () => void,
-      }
-      mockIDBObjectStore.getAll.and.returnValue(mockGetAllRequest)
+      };
+      mockIDBObjectStore.getAll.mockReturnValue(mockGetAllRequest);
 
-      const promise = service.getAll("books")
-      mockIDBRequest.onsuccess()
-      await new Promise((resolve) => setTimeout(resolve, 0))
+      const promise = service.getAll('books');
+      mockIDBRequest.onsuccess();
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
       // Trigger version change
-      expect(mockIDBDatabase.onversionchange).toBeDefined()
-      mockIDBDatabase.onversionchange?.()
+      expect(mockIDBDatabase.onversionchange).toBeDefined();
+      mockIDBDatabase.onversionchange?.();
 
-      expect(closeSpy).toHaveBeenCalled()
+      expect(closeSpy).toHaveBeenCalled();
 
       if (mockGetAllRequest.onsuccess) {
-        mockGetAllRequest.onsuccess()
+        mockGetAllRequest.onsuccess();
       }
-      await promise
-    })
-  })
+      await promise;
+    });
+  });
 
-  describe("IndexedDB Unavailable", () => {
-    it("should return null DB if indexedDB is undefined", async () => {
-      const propDesc = Object.getOwnPropertyDescriptor(window, "indexedDB")
+  describe('IndexedDB Unavailable', () => {
+    it('should return null DB if indexedDB is undefined', async () => {
+      const propDesc = Object.getOwnPropertyDescriptor(window, 'indexedDB');
       if (propDesc?.get) {
-        ;(propDesc.get as jasmine.Spy).and.returnValue(undefined)
+        (propDesc.get as Mock).mockReturnValue(undefined);
       } else {
-        ;(window as unknown as { indexedDB: undefined }).indexedDB = undefined
+        (
+          window as unknown as {
+            indexedDB: undefined;
+          }
+        ).indexedDB = undefined;
       }
 
-      const promise = service.getAll("books")
-      const result = await promise
-      expect(result).toEqual([])
-    })
-  })
-})
+      const promise = service.getAll('books');
+      const result = await promise;
+      expect(result).toEqual([]);
+    });
+  });
+});

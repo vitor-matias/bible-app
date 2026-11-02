@@ -1,41 +1,62 @@
-import { fakeAsync, TestBed, tick } from "@angular/core/testing"
-import { MatDialog, type MatDialogRef } from "@angular/material/dialog"
-import { Capacitor } from "@capacitor/core"
-import { Subject } from "rxjs"
+import type { Mock, MockedObject } from 'vitest';
+import { TestBed } from '@angular/core/testing';
+import { MatDialog, type MatDialogRef } from '@angular/material/dialog';
+import { Capacitor } from '@capacitor/core';
+import { Subject } from 'rxjs';
 import {
   OnboardingComponent,
   type OnboardingResult,
-} from "../components/onboarding/onboarding.component"
-import type { NativeOnboardingStep } from "../components/onboarding/onboarding-content"
-import { AnalyticsService } from "./analytics.service"
-import { NativeChromeService } from "./native-chrome.service"
-import { FIRST_LAUNCH_DELAY_MS, OnboardingService } from "./onboarding.service"
-import { PreferencesService } from "./preferences.service"
+} from '../components/onboarding/onboarding.component';
+import type { NativeOnboardingStep } from '../components/onboarding/onboarding-content';
+import { AnalyticsService } from './analytics.service';
+import { NativeChromeService } from './native-chrome.service';
+import { FIRST_LAUNCH_DELAY_MS, OnboardingService } from './onboarding.service';
+import { PreferencesService } from './preferences.service';
 
-describe("OnboardingService", () => {
-  let service: OnboardingService
-  let dialogSpy: jasmine.SpyObj<MatDialog>
-  let dialogRefSpy: jasmine.SpyObj<MatDialogRef<OnboardingComponent>>
-  let preferencesSpy: jasmine.SpyObj<PreferencesService>
-  let analyticsSpy: jasmine.SpyObj<AnalyticsService>
-  let afterClosed$: Subject<OnboardingResult | undefined>
+describe('OnboardingService', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  let service: OnboardingService;
+  let dialogSpy: MockedObject<MatDialog>;
+  let dialogRefSpy: MockedObject<MatDialogRef<OnboardingComponent>>;
+  let preferencesSpy: MockedObject<PreferencesService>;
+  let analyticsSpy: MockedObject<AnalyticsService>;
+  let afterClosed$: Subject<OnboardingResult | undefined>;
 
   beforeEach(() => {
-    afterClosed$ = new Subject()
-    dialogRefSpy = jasmine.createSpyObj("MatDialogRef", ["afterClosed"])
-    dialogRefSpy.afterClosed.and.returnValue(afterClosed$.asObservable())
-    dialogSpy = jasmine.createSpyObj("MatDialog", ["open"])
-    dialogSpy.open.and.returnValue(dialogRefSpy)
-    preferencesSpy = jasmine.createSpyObj("PreferencesService", [
-      "getOnboardingSeen",
-      "setOnboardingSeen",
-      "getNativeBarsOnboardingSeen",
-      "setNativeBarsOnboardingSeen",
-    ])
-    preferencesSpy.getOnboardingSeen.and.returnValue(false)
-    preferencesSpy.getNativeBarsOnboardingSeen.and.returnValue(false)
-    analyticsSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
-    analyticsSpy.track.and.resolveTo()
+    afterClosed$ = new Subject();
+    dialogRefSpy = {
+      afterClosed: vi.fn().mockName('MatDialogRef.afterClosed'),
+    };
+    dialogRefSpy.afterClosed.mockReturnValue(afterClosed$.asObservable());
+    dialogSpy = {
+      open: vi.fn().mockName('MatDialog.open'),
+    };
+    dialogSpy.open.mockReturnValue(dialogRefSpy);
+    preferencesSpy = {
+      getOnboardingSeen: vi
+        .fn()
+        .mockName('PreferencesService.getOnboardingSeen'),
+      setOnboardingSeen: vi
+        .fn()
+        .mockName('PreferencesService.setOnboardingSeen'),
+      getNativeBarsOnboardingSeen: vi
+        .fn()
+        .mockName('PreferencesService.getNativeBarsOnboardingSeen'),
+      setNativeBarsOnboardingSeen: vi
+        .fn()
+        .mockName('PreferencesService.setNativeBarsOnboardingSeen'),
+    };
+    preferencesSpy.getOnboardingSeen.mockReturnValue(false);
+    preferencesSpy.getNativeBarsOnboardingSeen.mockReturnValue(false);
+    analyticsSpy = {
+      track: vi.fn().mockName('AnalyticsService.track'),
+    };
+    analyticsSpy.track.mockResolvedValue();
 
     TestBed.configureTestingModule({
       providers: [
@@ -43,137 +64,140 @@ describe("OnboardingService", () => {
         { provide: PreferencesService, useValue: preferencesSpy },
         { provide: AnalyticsService, useValue: analyticsSpy },
       ],
-    })
-    service = TestBed.inject(OnboardingService)
-  })
+    });
+    service = TestBed.inject(OnboardingService);
+  });
 
-  describe("showOnFirstLaunch", () => {
-    it("opens the wizard on a first visit once the reader has had time to paint", fakeAsync(() => {
-      expect(service.showOnFirstLaunch("")).toBeTrue()
-      expect(dialogSpy.open).not.toHaveBeenCalled()
+  describe('showOnFirstLaunch', () => {
+    it('opens the wizard on a first visit once the reader has had time to paint', async () => {
+      expect(service.showOnFirstLaunch('')).toBe(true);
+      expect(dialogSpy.open).not.toHaveBeenCalled();
 
-      tick(FIRST_LAUNCH_DELAY_MS)
+      await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS);
 
-      const [component, config] = dialogSpy.open.calls.mostRecent().args
-      expect(component).toBe(OnboardingComponent)
+      const [component, config] = vi.mocked(dialogSpy.open).mock.lastCall;
+      expect(component).toBe(OnboardingComponent);
       // The wizard reads no dialog data; the source only feeds analytics.
-      expect(config?.data).toBeUndefined()
-      expect(analyticsSpy.track).toHaveBeenCalledWith("onboarding_open", {
-        source: "first_launch",
-      })
-    }))
+      expect(config?.data).toBeUndefined();
+      expect(analyticsSpy.track).toHaveBeenCalledWith('onboarding_open', {
+        source: 'first_launch',
+      });
+    });
 
-    it("stays quiet once the wizard has been seen", fakeAsync(() => {
-      preferencesSpy.getOnboardingSeen.and.returnValue(true)
+    it('stays quiet once the wizard has been seen', async () => {
+      preferencesSpy.getOnboardingSeen.mockReturnValue(true);
 
-      expect(service.showOnFirstLaunch("")).toBeFalse()
-      tick(FIRST_LAUNCH_DELAY_MS)
+      expect(service.showOnFirstLaunch('')).toBe(false);
+      await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS);
 
-      expect(dialogSpy.open).not.toHaveBeenCalled()
-    }))
+      expect(dialogSpy.open).not.toHaveBeenCalled();
+    });
 
-    it("does not reopen once the timer fires after the wizard was already seen", fakeAsync(() => {
-      expect(service.showOnFirstLaunch("")).toBeTrue()
+    it('does not reopen once the timer fires after the wizard was already seen', async () => {
+      expect(service.showOnFirstLaunch('')).toBe(true);
 
       // The user opens the wizard from the menu and dismisses it before the
       // first-launch timer fires, which marks it seen — the stale timer must
       // not undo that and reopen it a moment later.
-      service.open("menu")
-      preferencesSpy.getOnboardingSeen.and.returnValue(true)
-      afterClosed$.next(undefined)
-      dialogSpy.open.calls.reset()
+      service.open('menu');
+      preferencesSpy.getOnboardingSeen.mockReturnValue(true);
+      afterClosed$.next(undefined);
+      dialogSpy.open.mockClear();
 
-      tick(FIRST_LAUNCH_DELAY_MS)
+      await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS);
 
-      expect(dialogSpy.open).not.toHaveBeenCalled()
-    }))
+      expect(dialogSpy.open).not.toHaveBeenCalled();
+    });
 
-    it("does not get in the way of a share-target launch", fakeAsync(() => {
-      expect(service.showOnFirstLaunch("?text=Jo%203,16")).toBeFalse()
+    it('does not get in the way of a share-target launch', async () => {
+      expect(service.showOnFirstLaunch('?text=Jo%203,16')).toBe(false);
       expect(
         service.showOnFirstLaunch(
-          "?url=https%3A%2F%2Fbiblia.capuchinhos.org%2Fjo%2F3",
-        ),
-      ).toBeFalse()
+          '?url=https%3A%2F%2Fbiblia.capuchinhos.org%2Fjo%2F3'
+        )
+      ).toBe(false);
       // A share sheet that only sends a title (no url/text) is still a share,
       // matching AppComponent.handleShareTarget's three-field detection.
-      expect(service.showOnFirstLaunch("?title=Salmo%2023")).toBeFalse()
-      tick(FIRST_LAUNCH_DELAY_MS)
+      expect(service.showOnFirstLaunch('?title=Salmo%2023')).toBe(false);
+      await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS);
 
-      expect(dialogSpy.open).not.toHaveBeenCalled()
-    }))
-  })
+      expect(dialogSpy.open).not.toHaveBeenCalled();
+    });
+  });
 
-  describe("open", () => {
-    it("opens the wizard with an accessible, size-constrained dialog", () => {
-      const ref = service.open("menu")
+  describe('open', () => {
+    it('opens the wizard with an accessible, size-constrained dialog', () => {
+      const ref = service.open('menu');
 
-      expect(ref).toBe(dialogRefSpy)
+      expect(ref).toBe(dialogRefSpy);
       expect(dialogSpy.open).toHaveBeenCalledWith(
         OnboardingComponent,
-        jasmine.objectContaining({
-          ariaLabelledBy: "onboarding-title",
-          maxHeight: "90vh",
-        }),
-      )
-    })
+        expect.objectContaining({
+          ariaLabelledBy: 'onboarding-title',
+          maxHeight: '90vh',
+        })
+      );
+    });
 
-    it("reuses the open dialog instead of stacking a second one", () => {
-      service.open("menu")
-      service.open("first_launch")
+    it('reuses the open dialog instead of stacking a second one', () => {
+      service.open('menu');
+      service.open('first_launch');
 
-      expect(dialogSpy.open).toHaveBeenCalledTimes(1)
-    })
+      expect(dialogSpy.open).toHaveBeenCalledTimes(1);
+    });
 
-    it("remembers the wizard as seen when it is completed", () => {
-      service.open("menu")
+    it('remembers the wizard as seen when it is completed', () => {
+      service.open('menu');
 
-      afterClosed$.next({ completed: true, lastStep: "install" })
+      afterClosed$.next({ completed: true, lastStep: 'install' });
 
-      expect(preferencesSpy.setOnboardingSeen).toHaveBeenCalledWith(true)
-      expect(analyticsSpy.track).toHaveBeenCalledWith("onboarding_close", {
-        source: "menu",
+      expect(preferencesSpy.setOnboardingSeen).toHaveBeenCalledWith(true);
+      expect(analyticsSpy.track).toHaveBeenCalledWith('onboarding_close', {
+        source: 'menu',
         completed: true,
-        lastStep: "install",
-      })
-    })
+        lastStep: 'install',
+      });
+    });
 
-    it("remembers the wizard as seen even when dismissed with the backdrop", () => {
-      service.open("first_launch")
+    it('remembers the wizard as seen even when dismissed with the backdrop', () => {
+      service.open('first_launch');
 
-      afterClosed$.next(undefined)
+      afterClosed$.next(undefined);
 
-      expect(preferencesSpy.setOnboardingSeen).toHaveBeenCalledWith(true)
-      expect(analyticsSpy.track).toHaveBeenCalledWith("onboarding_close", {
-        source: "first_launch",
+      expect(preferencesSpy.setOnboardingSeen).toHaveBeenCalledWith(true);
+      expect(analyticsSpy.track).toHaveBeenCalledWith('onboarding_close', {
+        source: 'first_launch',
         completed: false,
         lastStep: undefined,
-      })
-    })
+      });
+    });
 
-    it("can be opened again after it closes", () => {
-      service.open("menu")
-      afterClosed$.next(undefined)
+    it('can be opened again after it closes', () => {
+      service.open('menu');
+      afterClosed$.next(undefined);
 
-      service.open("menu")
+      service.open('menu');
 
-      expect(dialogSpy.open).toHaveBeenCalledTimes(2)
-    })
-  })
+      expect(dialogSpy.open).toHaveBeenCalledTimes(2);
+    });
+  });
 
   // The native apps show the steps themselves instead of the dialog.
-  describe("in the native apps", () => {
-    let showOnboarding: jasmine.Spy
-    let finish: (result: OnboardingResult) => void
+  describe('in the native apps', () => {
+    let showOnboarding: Mock;
+    let finish: (result: OnboardingResult) => void;
 
     beforeEach(() => {
-      showOnboarding = jasmine.createSpy("showOnboarding").and.callFake(
-        () =>
-          new Promise<OnboardingResult>((resolve) => {
-            finish = resolve
-          }),
-      )
-      TestBed.resetTestingModule()
+      showOnboarding = vi
+        .fn()
+        .mockName('showOnboarding')
+        .mockImplementation(
+          () =>
+            new Promise<OnboardingResult>((resolve) => {
+              finish = resolve;
+            })
+        );
+      TestBed.resetTestingModule();
       TestBed.configureTestingModule({
         providers: [
           { provide: MatDialog, useValue: dialogSpy },
@@ -184,130 +208,130 @@ describe("OnboardingService", () => {
             useValue: { enabled: true, showOnboarding },
           },
         ],
-      })
-      service = TestBed.inject(OnboardingService)
-    })
+      });
+      service = TestBed.inject(OnboardingService);
+    });
 
-    it("shows the native sheet, without the install step", () => {
-      expect(service.open("menu")).toBeNull()
+    it('shows the native sheet, without the install step', () => {
+      expect(service.open('menu')).toBeNull();
 
-      expect(dialogSpy.open).not.toHaveBeenCalled()
-      const steps = showOnboarding.calls.mostRecent().args[0]
+      expect(dialogSpy.open).not.toHaveBeenCalled();
+      const steps = vi.mocked(showOnboarding).mock.lastCall[0];
       expect(steps.map((step: { id: string }) => step.id)).toEqual([
-        "welcome",
-        "navigate",
-        "customize",
-        "tools",
-      ])
-      expect(analyticsSpy.track).toHaveBeenCalledWith("onboarding_open", {
-        source: "menu",
-      })
-    })
+        'welcome',
+        'navigate',
+        'customize',
+        'tools',
+      ]);
+      expect(analyticsSpy.track).toHaveBeenCalledWith('onboarding_open', {
+        source: 'menu',
+      });
+    });
 
     it("words it for the Android app's bars there", () => {
-      spyOn(Capacitor, "getPlatform").and.returnValue("android")
-      service.open("menu")
+      vi.spyOn(Capacitor, 'getPlatform').mockReturnValue('android');
+      service.open('menu');
 
       const steps: NativeOnboardingStep[] =
-        showOnboarding.calls.mostRecent().args[0]
-      const customize = steps.find((step) => step.id === "customize")
-      expect(customize?.intro).toContain("Toque em TT")
-      expect(customize?.intro).not.toContain("AA")
-    })
+        vi.mocked(showOnboarding).mock.lastCall[0];
+      const customize = steps.find((step) => step.id === 'customize');
+      expect(customize?.intro).toContain('Toque em TT');
+      expect(customize?.intro).not.toContain('AA');
+    });
 
     it("words it for the iOS app's bars elsewhere", () => {
-      service.open("menu")
+      service.open('menu');
 
       const steps: NativeOnboardingStep[] =
-        showOnboarding.calls.mostRecent().args[0]
-      expect(steps.find((step) => step.id === "customize")?.intro).toContain(
-        "AA",
-      )
-    })
+        vi.mocked(showOnboarding).mock.lastCall[0];
+      expect(steps.find((step) => step.id === 'customize')?.intro).toContain(
+        'AA'
+      );
+    });
 
-    it("remembers it as seen and reports how it ended", async () => {
-      service.open("first_launch")
-      finish({ completed: false, lastStep: "navigate" })
-      await Promise.resolve()
+    it('remembers it as seen and reports how it ended', async () => {
+      service.open('first_launch');
+      finish({ completed: false, lastStep: 'navigate' });
+      await Promise.resolve();
 
-      expect(preferencesSpy.setOnboardingSeen).toHaveBeenCalledWith(true)
-      expect(analyticsSpy.track).toHaveBeenCalledWith("onboarding_close", {
-        source: "first_launch",
+      expect(preferencesSpy.setOnboardingSeen).toHaveBeenCalledWith(true);
+      expect(analyticsSpy.track).toHaveBeenCalledWith('onboarding_close', {
+        source: 'first_launch',
         completed: false,
-        lastStep: "navigate",
-      })
-    })
+        lastStep: 'navigate',
+      });
+    });
 
     // UIKit refuses a sheet while another is on its way (say the passage
     // picker as the first-launch timer fires): it was never seen.
-    it("keeps it unseen when the sheet never came up", async () => {
-      showOnboarding.and.resolveTo(null)
-      service.open("first_launch")
-      await Promise.resolve()
-      await Promise.resolve()
+    it('keeps it unseen when the sheet never came up', async () => {
+      showOnboarding.mockResolvedValue(null);
+      service.open('first_launch');
+      await Promise.resolve();
+      await Promise.resolve();
 
-      expect(preferencesSpy.setOnboardingSeen).not.toHaveBeenCalled()
+      expect(preferencesSpy.setOnboardingSeen).not.toHaveBeenCalled();
       expect(analyticsSpy.track).not.toHaveBeenCalledWith(
-        "onboarding_close",
-        jasmine.anything(),
-      )
+        'onboarding_close',
+        expect.anything()
+      );
 
       // Nor does it stay "open": Ajuda in the menu still shows it.
-      service.open("menu")
-      expect(showOnboarding).toHaveBeenCalledTimes(2)
-    })
+      service.open('menu');
+      expect(showOnboarding).toHaveBeenCalledTimes(2);
+    });
 
     // The Android app's native bars replaced the web header (☰) that the
     // onboarding taught: those who saw it before see it once more.
     describe("after the Android app's update to native bars", () => {
       beforeEach(() => {
-        spyOn(Capacitor, "getPlatform").and.returnValue("android")
-        preferencesSpy.getOnboardingSeen.and.returnValue(true)
-      })
+        vi.spyOn(Capacitor, 'getPlatform').mockReturnValue('android');
+        preferencesSpy.getOnboardingSeen.mockReturnValue(true);
+      });
 
-      it("shows it once more to those who saw it before", fakeAsync(() => {
-        expect(service.showOnFirstLaunch("")).toBeTrue()
-        tick(FIRST_LAUNCH_DELAY_MS)
-        expect(showOnboarding).toHaveBeenCalledTimes(1)
-      }))
+      it('shows it once more to those who saw it before', async () => {
+        expect(service.showOnFirstLaunch('')).toBe(true);
+        await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS);
+        expect(showOnboarding).toHaveBeenCalledTimes(1);
+      });
 
-      it("doesn't once it was seen with the native bars", fakeAsync(() => {
-        preferencesSpy.getNativeBarsOnboardingSeen.and.returnValue(true)
-        expect(service.showOnFirstLaunch("")).toBeFalse()
-        tick(FIRST_LAUNCH_DELAY_MS)
-        expect(showOnboarding).not.toHaveBeenCalled()
-      }))
+      it("doesn't once it was seen with the native bars", async () => {
+        preferencesSpy.getNativeBarsOnboardingSeen.mockReturnValue(true);
+        expect(service.showOnFirstLaunch('')).toBe(false);
+        await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS);
+        expect(showOnboarding).not.toHaveBeenCalled();
+      });
 
-      it("remembers it as seen with the native bars", async () => {
-        service.open("first_launch")
-        finish({ completed: true, lastStep: "tools" })
-        await Promise.resolve()
+      it('remembers it as seen with the native bars', async () => {
+        service.open('first_launch');
+        finish({ completed: true, lastStep: 'tools' });
+        await Promise.resolve();
         expect(preferencesSpy.setNativeBarsOnboardingSeen).toHaveBeenCalledWith(
-          true,
-        )
-      })
-    })
+          true
+        );
+      });
+    });
 
     // The iOS app had its native bars from the start: nothing to show again.
-    it("doesn't show it again in the iOS app", fakeAsync(() => {
-      spyOn(Capacitor, "getPlatform").and.returnValue("ios")
-      preferencesSpy.getOnboardingSeen.and.returnValue(true)
-      expect(service.showOnFirstLaunch("")).toBeFalse()
-      tick(FIRST_LAUNCH_DELAY_MS)
-      expect(showOnboarding).not.toHaveBeenCalled()
-      service.open("menu")
-      expect(preferencesSpy.setNativeBarsOnboardingSeen).not.toHaveBeenCalled()
-    }))
+    it("doesn't show it again in the iOS app", async () => {
+      vi.spyOn(Capacitor, 'getPlatform').mockReturnValue('ios');
+      preferencesSpy.getOnboardingSeen.mockReturnValue(true);
+      expect(service.showOnFirstLaunch('')).toBe(false);
+      await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS);
+      expect(showOnboarding).not.toHaveBeenCalled();
+      service.open('menu');
+      expect(preferencesSpy.setNativeBarsOnboardingSeen).not.toHaveBeenCalled();
+    });
 
-    it("shows one sheet at a time", async () => {
-      service.open("menu")
-      service.open("menu")
-      expect(showOnboarding).toHaveBeenCalledTimes(1)
+    it('shows one sheet at a time', async () => {
+      service.open('menu');
+      service.open('menu');
+      expect(showOnboarding).toHaveBeenCalledTimes(1);
 
-      finish({ completed: true, lastStep: "tools" })
-      await Promise.resolve()
-      service.open("menu")
-      expect(showOnboarding).toHaveBeenCalledTimes(2)
-    })
-  })
-})
+      finish({ completed: true, lastStep: 'tools' });
+      await Promise.resolve();
+      service.open('menu');
+      expect(showOnboarding).toHaveBeenCalledTimes(2);
+    });
+  });
+});

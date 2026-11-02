@@ -1,45 +1,50 @@
-import { ElementRef, Renderer2 } from "@angular/core"
-import { TestBed } from "@angular/core/testing"
-import { PreferencesService } from "../services/preferences.service"
-import { SystemTextSizeService } from "../services/system-text-size.service"
+import type { MockedObject } from 'vitest';
+import { ElementRef, Renderer2 } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { PreferencesService } from '../services/preferences.service';
+import { SystemTextSizeService } from '../services/system-text-size.service';
 import {
   startingFontSize,
   type TextSize,
   UnifiedGesturesDirective,
-} from "./unified-gesture.directive"
+} from './unified-gesture.directive';
 
-describe("UnifiedGesturesDirective", () => {
-  let element: HTMLElement & { name?: string }
-  let rendererSpy: jasmine.SpyObj<Renderer2>
-  let preferencesServiceSpy: jasmine.SpyObj<PreferencesService>
-  let systemTextSize: jasmine.SpyObj<SystemTextSizeService>
-  let directive: UnifiedGesturesDirective
+describe('UnifiedGesturesDirective', () => {
+  let element: HTMLElement & {
+    name?: string;
+  };
+  let rendererSpy: MockedObject<Renderer2>;
+  let preferencesServiceSpy: MockedObject<PreferencesService>;
+  let systemTextSize: MockedObject<SystemTextSizeService>;
+  let directive: UnifiedGesturesDirective;
 
   beforeEach(() => {
-    element = document.createElement("div")
-    element.innerHTML = "<h1>Heading</h1>"
-    Object.defineProperty(element, "style", {
-      value: document.createElement("div").style,
+    element = document.createElement('div');
+    element.innerHTML = '<h1>Heading</h1>';
+    Object.defineProperty(element, 'style', {
+      value: document.createElement('div').style,
       configurable: true,
-    })
+    });
 
-    rendererSpy = jasmine.createSpyObj("Renderer2", [
-      "setStyle",
-      "addClass",
-      "removeClass",
-    ])
-    preferencesServiceSpy = jasmine.createSpyObj("PreferencesService", [
-      "getFontSize",
-      "setFontSize",
-      "clearFontSize",
-    ])
-    preferencesServiceSpy.getFontSize.and.returnValue(null)
-    spyOn(window, "getComputedStyle").and.returnValue({
-      fontSize: "100",
-    } as CSSStyleDeclaration)
+    rendererSpy = {
+      setStyle: vi.fn().mockName('Renderer2.setStyle'),
+      addClass: vi.fn().mockName('Renderer2.addClass'),
+      removeClass: vi.fn().mockName('Renderer2.removeClass'),
+    };
+    preferencesServiceSpy = {
+      getFontSize: vi.fn().mockName('PreferencesService.getFontSize'),
+      setFontSize: vi.fn().mockName('PreferencesService.setFontSize'),
+      clearFontSize: vi.fn().mockName('PreferencesService.clearFontSize'),
+    };
+    preferencesServiceSpy.getFontSize.mockReturnValue(null);
+    vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+      fontSize: '100',
+    } as CSSStyleDeclaration);
 
-    systemTextSize = jasmine.createSpyObj("SystemTextSizeService", ["percent"])
-    systemTextSize.percent.and.returnValue(null)
+    systemTextSize = {
+      percent: vi.fn().mockName('SystemTextSizeService.percent'),
+    };
+    systemTextSize.percent.mockReturnValue(null);
 
     TestBed.configureTestingModule({
       providers: [
@@ -48,344 +53,339 @@ describe("UnifiedGesturesDirective", () => {
         { provide: PreferencesService, useValue: preferencesServiceSpy },
         { provide: SystemTextSizeService, useValue: systemTextSize },
       ],
-    })
+    });
     directive = TestBed.runInInjectionContext(
-      () => new UnifiedGesturesDirective(),
-    )
+      () => new UnifiedGesturesDirective()
+    );
     // No template binds the input here, and signal inputs are not assignable.
-    Object.assign(directive, { fontSizeContext: () => "reader" })
-  })
+    Object.assign(directive, { fontSizeContext: () => 'reader' });
+  });
 
-  describe("the text size for the Android sheet", () => {
-    let stored: number | null
-    let sizes: TextSize[]
+  describe('the text size for the Android sheet', () => {
+    let stored: number | null;
+    let sizes: TextSize[];
 
     beforeEach(() => {
-      stored = null
-      preferencesServiceSpy.getFontSize.and.callFake(() => stored)
-      preferencesServiceSpy.setFontSize.and.callFake((size: number) => {
-        stored = size
-      })
-      preferencesServiceSpy.clearFontSize.and.callFake(() => {
-        stored = null
-      })
-      sizes = []
-      directive.textSizeChange.subscribe((size) => sizes.push(size))
-    })
+      stored = null;
+      preferencesServiceSpy.getFontSize.mockImplementation(() => stored);
+      preferencesServiceSpy.setFontSize.mockImplementation((size: number) => {
+        stored = size;
+      });
+      preferencesServiceSpy.clearFontSize.mockImplementation(() => {
+        stored = null;
+      });
+      sizes = [];
+      directive.textSizeChange.subscribe((size) => sizes.push(size));
+    });
 
-    const last = () => sizes[sizes.length - 1]
+    const last = () => sizes[sizes.length - 1];
 
-    it("says the size as the text opens, and as it changes", () => {
-      stored = 120
-      directive.ngOnInit()
+    it('says the size as the text opens, and as it changes', () => {
+      stored = 120;
+      directive.ngOnInit();
       expect(last()).toEqual({
         percent: 120,
         min: 70,
         max: 235,
         canReset: true,
-      })
+      });
 
-      directive.increaseFontSize()
-      expect(last().percent).toBe(125)
-    })
+      directive.increaseFontSize();
+      expect(last().percent).toBe(125);
+    });
 
     // Nothing to reset before the reader has chosen a size.
-    it("has nothing to reset at the size the text opens at", () => {
-      directive.ngOnInit()
+    it('has nothing to reset at the size the text opens at', () => {
+      directive.ngOnInit();
       expect(last()).toEqual({
         percent: 100,
         min: 70,
         max: 235,
         canReset: false,
-      })
-    })
+      });
+    });
 
     // 150% was ten taps away in steps of 5.
     it("steps by the sheet's 10, onto its grid", () => {
-      stored = 105
-      directive.ngOnInit()
-      directive.increaseFontSize(10)
-      expect(last().percent).toBe(110)
-      directive.decreaseFontSize(10)
-      expect(last().percent).toBe(100)
-      directive.decreaseFontSize(10)
-      expect(last().percent).toBe(90)
-    })
+      stored = 105;
+      directive.ngOnInit();
+      directive.increaseFontSize(10);
+      expect(last().percent).toBe(110);
+      directive.decreaseFontSize(10);
+      expect(last().percent).toBe(100);
+      directive.decreaseFontSize(10);
+      expect(last().percent).toBe(90);
+    });
 
     // A pinch leaves fractions: 119.6 is shown as 120, and stepped to 120.
     it("steps from the size as shown, not a pinch's fraction", () => {
-      stored = 119.6
-      directive.ngOnInit()
-      expect(last().percent).toBe(120)
-      directive.increaseFontSize(10)
-      expect(last().percent).toBe(130)
+      stored = 119.6;
+      directive.ngOnInit();
+      expect(last().percent).toBe(120);
+      directive.increaseFontSize(10);
+      expect(last().percent).toBe(130);
 
-      stored = 120.4
-      directive.ngOnInit()
-      directive.decreaseFontSize(10)
-      expect(last().percent).toBe(110)
-    })
+      stored = 120.4;
+      directive.ngOnInit();
+      directive.decreaseFontSize(10);
+      expect(last().percent).toBe(110);
+    });
 
-    it("stops at either end", () => {
-      stored = 230
-      directive.ngOnInit()
-      directive.increaseFontSize(10)
-      expect(last().percent).toBe(235)
-      directive.increaseFontSize(10)
-      expect(last().percent).toBe(235)
-    })
+    it('stops at either end', () => {
+      stored = 230;
+      directive.ngOnInit();
+      directive.increaseFontSize(10);
+      expect(last().percent).toBe(235);
+      directive.increaseFontSize(10);
+      expect(last().percent).toBe(235);
+    });
 
-    it("resets to the standard size, forgetting the choice", () => {
-      stored = 150
-      directive.ngOnInit()
-      directive.resetFontSize()
+    it('resets to the standard size, forgetting the choice', () => {
+      stored = 150;
+      directive.ngOnInit();
+      directive.resetFontSize();
 
-      expect(preferencesServiceSpy.clearFontSize).toHaveBeenCalledWith("reader")
+      expect(preferencesServiceSpy.clearFontSize).toHaveBeenCalledWith(
+        'reader'
+      );
       expect(rendererSpy.setStyle).toHaveBeenCalledWith(
         element,
-        "font-size",
-        "100%",
-      )
+        'font-size',
+        '100%'
+      );
       expect(last()).toEqual({
         percent: 100,
         min: 70,
         max: 235,
         canReset: false,
-      })
-    })
+      });
+    });
 
     // The iOS app opens at the iPhone's own text size, and resets to it.
     it("resets to the system's size where the text opens at it", () => {
-      stored = 150
-      systemTextSize.percent.and.returnValue(130)
-      directive.ngOnInit()
-      directive.resetFontSize()
-      expect(last().percent).toBe(130)
-    })
-  })
+      stored = 150;
+      systemTextSize.percent.mockReturnValue(130);
+      directive.ngOnInit();
+      directive.resetFontSize();
+      expect(last().percent).toBe(130);
+    });
+  });
 
-  it("should register and remove the same touch listeners", () => {
-    const addEventListenerSpy = spyOn(
-      element,
-      "addEventListener",
-    ).and.callThrough()
-    const removeEventListenerSpy = spyOn(
-      element,
-      "removeEventListener",
-    ).and.callThrough()
+  it('should register and remove the same touch listeners', () => {
+    const addEventListenerSpy = vi.spyOn(element, 'addEventListener');
+    const removeEventListenerSpy = vi.spyOn(element, 'removeEventListener');
 
-    directive.ngOnInit()
-    directive.ngOnDestroy()
+    directive.ngOnInit();
+    directive.ngOnDestroy();
 
-    expect(addEventListenerSpy.calls.count()).toBe(4)
-    expect(removeEventListenerSpy.calls.count()).toBe(4)
+    expect(vi.mocked(addEventListenerSpy).mock.calls.length).toBe(4);
+    expect(vi.mocked(removeEventListenerSpy).mock.calls.length).toBe(4);
     for (let index = 0; index < 4; index++) {
-      expect(removeEventListenerSpy.calls.argsFor(index)[0]).toBe(
-        addEventListenerSpy.calls.argsFor(index)[0],
-      )
-      expect(removeEventListenerSpy.calls.argsFor(index)[1]).toBe(
-        addEventListenerSpy.calls.argsFor(index)[1],
-      )
+      expect(vi.mocked(removeEventListenerSpy).mock.calls[index][0]).toBe(
+        vi.mocked(addEventListenerSpy).mock.calls[index][0]
+      );
+      expect(vi.mocked(removeEventListenerSpy).mock.calls[index][1]).toBe(
+        vi.mocked(addEventListenerSpy).mock.calls[index][1]
+      );
     }
-  })
+  });
 
-  describe("ngOnInit initialization", () => {
-    it("should set font size to valid storedSize", () => {
-      preferencesServiceSpy.getFontSize.and.returnValue(120)
-      directive.ngOnInit()
+  describe('ngOnInit initialization', () => {
+    it('should set font size to valid storedSize', () => {
+      preferencesServiceSpy.getFontSize.mockReturnValue(120);
+      directive.ngOnInit();
       expect(rendererSpy.setStyle).toHaveBeenCalledWith(
         element,
-        "font-size",
-        "120%",
-      )
-    })
+        'font-size',
+        '120%'
+      );
+    });
 
-    it("should clamp storedSize if it is below MIN_FONT_SIZE", () => {
-      preferencesServiceSpy.getFontSize.and.returnValue(50) // MIN_FONT_SIZE is 70
-      directive.ngOnInit()
+    it('should clamp storedSize if it is below MIN_FONT_SIZE', () => {
+      preferencesServiceSpy.getFontSize.mockReturnValue(50); // MIN_FONT_SIZE is 70
+      directive.ngOnInit();
       expect(rendererSpy.setStyle).toHaveBeenCalledWith(
         element,
-        "font-size",
-        "70%",
-      )
-    })
+        'font-size',
+        '70%'
+      );
+    });
 
-    it("should clamp storedSize if it is above MAX_FONT_SIZE", () => {
-      preferencesServiceSpy.getFontSize.and.returnValue(400) // MAX_FONT_SIZE is 235
-      directive.ngOnInit()
+    it('should clamp storedSize if it is above MAX_FONT_SIZE', () => {
+      preferencesServiceSpy.getFontSize.mockReturnValue(400); // MAX_FONT_SIZE is 235
+      directive.ngOnInit();
       expect(rendererSpy.setStyle).toHaveBeenCalledWith(
         element,
-        "font-size",
-        "235%",
-      )
-    })
+        'font-size',
+        '235%'
+      );
+    });
 
     // Text stopped at 180%, smaller than the iPhone's accessibility sizes.
-    it("keeps a size well past 180%", () => {
-      preferencesServiceSpy.getFontSize.and.returnValue(220)
-      directive.ngOnInit()
+    it('keeps a size well past 180%', () => {
+      preferencesServiceSpy.getFontSize.mockReturnValue(220);
+      directive.ngOnInit();
       expect(rendererSpy.setStyle).toHaveBeenCalledWith(
         element,
-        "font-size",
-        "220%",
-      )
-    })
+        'font-size',
+        '220%'
+      );
+    });
 
     // At 310% a justified line of a few words spread into wide gaps.
-    it("sets text past 180% ragged-right, and back", () => {
-      preferencesServiceSpy.getFontSize.and.returnValue(180)
-      directive.ngOnInit()
-      expect(rendererSpy.addClass).not.toHaveBeenCalled()
+    it('sets text past 180% ragged-right, and back', () => {
+      preferencesServiceSpy.getFontSize.mockReturnValue(180);
+      directive.ngOnInit();
+      expect(rendererSpy.addClass).not.toHaveBeenCalled();
 
-      directive.increaseFontSize()
-      expect(rendererSpy.addClass).toHaveBeenCalledWith(element, "large-text")
+      directive.increaseFontSize();
+      expect(rendererSpy.addClass).toHaveBeenCalledWith(element, 'large-text');
 
-      directive.decreaseFontSize()
+      directive.decreaseFontSize();
       expect(rendererSpy.removeClass).toHaveBeenCalledWith(
         element,
-        "large-text",
-      )
-    })
+        'large-text'
+      );
+    });
 
-    it("grows on past 180% a step at a time", () => {
-      preferencesServiceSpy.getFontSize.and.returnValue(180)
-      directive.ngOnInit()
-      directive.increaseFontSize()
+    it('grows on past 180% a step at a time', () => {
+      preferencesServiceSpy.getFontSize.mockReturnValue(180);
+      directive.ngOnInit();
+      directive.increaseFontSize();
       expect(rendererSpy.setStyle).toHaveBeenCalledWith(
         element,
-        "font-size",
-        "185%",
-      )
-    })
+        'font-size',
+        '185%'
+      );
+    });
 
-    it("should not call setFontSize and use default if storedSize is missing", () => {
-      preferencesServiceSpy.getFontSize.and.returnValue(null)
-      directive.ngOnInit()
-      expect(rendererSpy.setStyle).not.toHaveBeenCalled()
+    it('should not call setFontSize and use default if storedSize is missing', () => {
+      preferencesServiceSpy.getFontSize.mockReturnValue(null);
+      directive.ngOnInit();
+      expect(rendererSpy.setStyle).not.toHaveBeenCalled();
 
       // increasing size starts from default -> 105
-      directive.increaseFontSize()
+      directive.increaseFontSize();
       expect(rendererSpy.setStyle).toHaveBeenCalledWith(
         element,
-        "font-size",
-        "105%",
-      )
-    })
+        'font-size',
+        '105%'
+      );
+    });
 
-    it("should treat 0 as a valid size and clamp it to MIN_FONT_SIZE", () => {
-      preferencesServiceSpy.getFontSize.and.returnValue(0)
-      directive.ngOnInit()
+    it('should treat 0 as a valid size and clamp it to MIN_FONT_SIZE', () => {
+      preferencesServiceSpy.getFontSize.mockReturnValue(0);
+      directive.ngOnInit();
       expect(rendererSpy.setStyle).toHaveBeenCalledWith(
         element,
-        "font-size",
-        "70%",
-      )
-    })
+        'font-size',
+        '70%'
+      );
+    });
 
-    it("should fallback to default without calling setFontSize if storedSize is invalid string", () => {
-      preferencesServiceSpy.getFontSize.and.returnValue(
-        "invalid" as unknown as number,
-      )
-      directive.ngOnInit()
-      expect(rendererSpy.setStyle).not.toHaveBeenCalled()
+    it('should fallback to default without calling setFontSize if storedSize is invalid string', () => {
+      preferencesServiceSpy.getFontSize.mockReturnValue(
+        'invalid' as unknown as number
+      );
+      directive.ngOnInit();
+      expect(rendererSpy.setStyle).not.toHaveBeenCalled();
 
-      directive.increaseFontSize()
+      directive.increaseFontSize();
       expect(rendererSpy.setStyle).toHaveBeenCalledWith(
         element,
-        "font-size",
-        "105%",
-      )
-    })
+        'font-size',
+        '105%'
+      );
+    });
 
     // The iOS app, until a size is chosen in it: the iPhone's text size.
-    describe("with no size chosen in the app", () => {
+    describe('with no size chosen in the app', () => {
       it("starts from the system's, to the nearest step, without saving it", () => {
-        systemTextSize.percent.and.returnValue(123.5)
-        directive.ngOnInit()
+        systemTextSize.percent.mockReturnValue(123.5);
+        directive.ngOnInit();
 
         expect(rendererSpy.setStyle).toHaveBeenCalledWith(
           element,
-          "font-size",
-          "125%",
-        )
-        expect(preferencesServiceSpy.setFontSize).not.toHaveBeenCalled()
+          'font-size',
+          '125%'
+        );
+        expect(preferencesServiceSpy.setFontSize).not.toHaveBeenCalled();
 
         // Steps go on from there.
-        directive.increaseFontSize()
+        directive.increaseFontSize();
         expect(rendererSpy.setStyle).toHaveBeenCalledWith(
           element,
-          "font-size",
-          "130%",
-        )
-      })
+          'font-size',
+          '130%'
+        );
+      });
 
       // AX3 is 235% of the body text; AX5, the largest, 312%.
       it("follows the iPhone's accessibility sizes up to AX3", () => {
-        systemTextSize.percent.and.returnValue(235)
-        directive.ngOnInit()
+        systemTextSize.percent.mockReturnValue(235);
+        directive.ngOnInit();
         expect(rendererSpy.setStyle).toHaveBeenCalledWith(
           element,
-          "font-size",
-          "235%",
-        )
-      })
+          'font-size',
+          '235%'
+        );
+      });
 
       it("keeps the largest system sizes within the reader's range", () => {
-        systemTextSize.percent.and.returnValue(312)
-        directive.ngOnInit()
+        systemTextSize.percent.mockReturnValue(312);
+        directive.ngOnInit();
         expect(rendererSpy.setStyle).toHaveBeenCalledWith(
           element,
-          "font-size",
-          "235%",
-        )
-      })
+          'font-size',
+          '235%'
+        );
+      });
 
-      it("gives way to a size chosen in the app", () => {
-        systemTextSize.percent.and.returnValue(124)
-        preferencesServiceSpy.getFontSize.and.returnValue(90)
-        directive.ngOnInit()
+      it('gives way to a size chosen in the app', () => {
+        systemTextSize.percent.mockReturnValue(124);
+        preferencesServiceSpy.getFontSize.mockReturnValue(90);
+        directive.ngOnInit();
 
         expect(rendererSpy.setStyle).toHaveBeenCalledWith(
           element,
-          "font-size",
-          "90%",
-        )
-        expect(systemTextSize.percent).not.toHaveBeenCalled()
-      })
-    })
-  })
+          'font-size',
+          '90%'
+        );
+        expect(systemTextSize.percent).not.toHaveBeenCalled();
+      });
+    });
+  });
 
-  it("should emit swipeLeft for a fast left swipe", () => {
-    spyOn(Date, "now").and.returnValues(0, 100)
-    const swipeLeftSpy = jasmine.createSpy("swipeLeft")
-    directive.swipeLeft.subscribe(swipeLeftSpy)
-
-    ;(directive as unknown as Record<string, (e: TouchEvent) => void>)[
-      "onTouchStart"
+  it('should emit swipeLeft for a fast left swipe', () => {
+    vi.spyOn(Date, 'now').mockReturnValueOnce(0).mockReturnValueOnce(100);
+    const swipeLeftSpy = vi.fn().mockName('swipeLeft');
+    directive.swipeLeft.subscribe(swipeLeftSpy);
+    (directive as unknown as Record<string, (e: TouchEvent) => void>)[
+      'onTouchStart'
     ]({
       touches: [{ identifier: 1, clientX: 200, clientY: 10 }],
-    } as unknown as TouchEvent)
-    ;(directive as unknown as Record<string, (e: TouchEvent) => void>)[
-      "onTouchEnd"
+    } as unknown as TouchEvent);
+    (directive as unknown as Record<string, (e: TouchEvent) => void>)[
+      'onTouchEnd'
     ]({
       changedTouches: [{ identifier: 1, clientX: 0, clientY: 15 }],
-    } as unknown as TouchEvent)
+    } as unknown as TouchEvent);
 
-    expect(swipeLeftSpy).toHaveBeenCalled()
-  })
+    expect(swipeLeftSpy).toHaveBeenCalled();
+  });
 
   // A diagonal flick while scrolling used to change the chapter.
-  describe("when a swipe changes the chapter", () => {
-    type Point = [x: number, y: number]
+  describe('when a swipe changes the chapter', () => {
+    type Point = [x: number, y: number];
     const call = (handler: string, event: object) =>
       (directive as unknown as Record<string, (e: TouchEvent) => void>)[
         handler
-      ](event as TouchEvent)
+      ](event as TouchEvent);
     const touch = ([clientX, clientY]: Point) => ({
       identifier: 1,
       clientX,
       clientY,
-    })
+    });
 
     /**
      * A one-finger gesture through `moves`, lifted after `ms`, its points
@@ -393,39 +393,39 @@ describe("UnifiedGesturesDirective", () => {
      */
     function gesture(moves: Point[], ms: number | number[]) {
       const times =
-        typeof ms === "number"
+        typeof ms === 'number'
           ? moves.map((_, i) => (ms * i) / (moves.length - 1))
-          : ms
-      spyOn(Date, "now").and.returnValues(...times)
-      const swiped = jasmine.createSpy("swiped")
-      directive.swipeLeft.subscribe(swiped)
-      directive.swipeRight.subscribe(swiped)
-      const moved = jasmine.createSpy("moved")
-      directive.swipeMove.subscribe(moved)
-      const cancelled = jasmine.createSpy("cancelled")
-      directive.swipeCancel.subscribe(cancelled)
-      const preventDefault = jasmine.createSpy("preventDefault")
-      call("onTouchStart", { touches: [touch(moves[0])] })
+          : ms;
+      vi.spyOn(Date, 'now').mockReturnValueOnce(...times);
+      const swiped = vi.fn().mockName('swiped');
+      directive.swipeLeft.subscribe(swiped);
+      directive.swipeRight.subscribe(swiped);
+      const moved = vi.fn().mockName('moved');
+      directive.swipeMove.subscribe(moved);
+      const cancelled = vi.fn().mockName('cancelled');
+      directive.swipeCancel.subscribe(cancelled);
+      const preventDefault = vi.fn().mockName('preventDefault');
+      call('onTouchStart', { touches: [touch(moves[0])] });
       for (const point of moves.slice(1, -1)) {
-        call("onTouchMove", { touches: [touch(point)], preventDefault })
+        call('onTouchMove', { touches: [touch(point)], preventDefault });
       }
-      call("onTouchEnd", { changedTouches: [touch(moves[moves.length - 1])] })
-      return { swiped, moved, cancelled, preventDefault }
+      call('onTouchEnd', { changedTouches: [touch(moves[moves.length - 1])] });
+      return { swiped, moved, cancelled, preventDefault };
     }
 
-    it("never on a diagonal flick", () => {
+    it('never on a diagonal flick', () => {
       const { swiped } = gesture(
         [
           [200, 300],
           [250, 260],
           [290, 220],
         ],
-        100,
-      )
-      expect(swiped).not.toHaveBeenCalled()
-    })
+        100
+      );
+      expect(swiped).not.toHaveBeenCalled();
+    });
 
-    it("never once the gesture started as a scroll", () => {
+    it('never once the gesture started as a scroll', () => {
       const { swiped } = gesture(
         [
           [200, 300],
@@ -433,38 +433,38 @@ describe("UnifiedGesturesDirective", () => {
           [400, 280],
           [420, 280],
         ],
-        150,
-      )
-      expect(swiped).not.toHaveBeenCalled()
-    })
+        150
+      );
+      expect(swiped).not.toHaveBeenCalled();
+    });
 
-    it("on a slow, deliberate drag across a good part of the page", () => {
+    it('on a slow, deliberate drag across a good part of the page', () => {
       const { swiped, preventDefault } = gesture(
         [
           [window.innerWidth * 0.8, 300],
           [window.innerWidth * 0.75, 302],
           [window.innerWidth * 0.4, 310],
         ],
-        1500,
-      )
-      expect(swiped).toHaveBeenCalledTimes(1)
-      expect(preventDefault).toHaveBeenCalled()
-    })
+        1500
+      );
+      expect(swiped).toHaveBeenCalledTimes(1);
+      expect(preventDefault).toHaveBeenCalled();
+    });
 
-    it("not on a short, slow drag", () => {
+    it('not on a short, slow drag', () => {
       const { swiped } = gesture(
         [
           [200, 300],
           [215, 300],
           [270, 302],
         ],
-        1000,
-      )
-      expect(swiped).not.toHaveBeenCalled()
-    })
+        1000
+      );
+      expect(swiped).not.toHaveBeenCalled();
+    });
 
     // The whole gesture's average speed rejected a flick made after a pause.
-    it("on a flick, however long the finger rested first", () => {
+    it('on a flick, however long the finger rested first', () => {
       const { swiped } = gesture(
         [
           [300, 300],
@@ -472,14 +472,14 @@ describe("UnifiedGesturesDirective", () => {
           [290, 300],
           [190, 302],
         ],
-        [0, 50, 1000, 1080],
-      )
-      expect(swiped).toHaveBeenCalledTimes(1)
-    })
+        [0, 50, 1000, 1080]
+      );
+      expect(swiped).toHaveBeenCalledTimes(1);
+    });
 
     // Dragged most of the way, then brought back: the reader changed their mind.
-    it("not when the finger heads back before letting go", () => {
-      const width = window.innerWidth
+    it('not when the finger heads back before letting go', () => {
+      const width = window.innerWidth;
       const { swiped, cancelled } = gesture(
         [
           [width * 0.9, 300],
@@ -487,13 +487,13 @@ describe("UnifiedGesturesDirective", () => {
           [width * 0.2, 302],
           [width * 0.45, 302],
         ],
-        [0, 50, 600, 660],
-      )
-      expect(swiped).not.toHaveBeenCalled()
-      expect(cancelled).toHaveBeenCalledTimes(1)
-    })
+        [0, 50, 600, 660]
+      );
+      expect(swiped).not.toHaveBeenCalled();
+      expect(cancelled).toHaveBeenCalledTimes(1);
+    });
 
-    it("not on a finger held still before letting go, short of the distance", () => {
+    it('not on a finger held still before letting go, short of the distance', () => {
       const { swiped } = gesture(
         [
           [300, 300],
@@ -501,12 +501,12 @@ describe("UnifiedGesturesDirective", () => {
           [200, 300],
           [200, 300],
         ],
-        [0, 30, 80, 600],
-      )
-      expect(swiped).not.toHaveBeenCalled()
-    })
+        [0, 30, 80, 600]
+      );
+      expect(swiped).not.toHaveBeenCalled();
+    });
 
-    it("reports the drag as it goes, from where the finger came down", () => {
+    it('reports the drag as it goes, from where the finger came down', () => {
       const { moved } = gesture(
         [
           [300, 300],
@@ -514,102 +514,101 @@ describe("UnifiedGesturesDirective", () => {
           [240, 302],
           [100, 302],
         ],
-        200,
-      )
+        200
+      );
       // Not before the gesture is known to be sideways (12 px).
-      expect(moved.calls.allArgs()).toEqual([[-15], [-60]])
-    })
+      expect(vi.mocked(moved).mock.calls).toEqual([[-15], [-60]]);
+    });
 
-    it("lets nothing follow a scroll", () => {
+    it('lets nothing follow a scroll', () => {
       const { moved, cancelled } = gesture(
         [
           [200, 300],
           [202, 280],
           [203, 200],
         ],
-        300,
-      )
-      expect(moved).not.toHaveBeenCalled()
-      expect(cancelled).not.toHaveBeenCalled()
-    })
-  })
+        300
+      );
+      expect(moved).not.toHaveBeenCalled();
+      expect(cancelled).not.toHaveBeenCalled();
+    });
+  });
 
-  it("should persist font size after a pinch gesture", () => {
-    const preventDefault = jasmine.createSpy("preventDefault")
-
-    ;(directive as unknown as Record<string, (e: TouchEvent) => void>)[
-      "onTouchStart"
+  it('should persist font size after a pinch gesture', () => {
+    const preventDefault = vi.fn().mockName('preventDefault');
+    (directive as unknown as Record<string, (e: TouchEvent) => void>)[
+      'onTouchStart'
     ]({
       touches: [
         { identifier: 1, clientX: 0, clientY: 0 },
         { identifier: 2, clientX: 0, clientY: 100 },
       ],
       preventDefault,
-    } as unknown as TouchEvent)
-    ;(directive as unknown as Record<string, (e: TouchEvent) => void>)[
-      "onTouchMove"
+    } as unknown as TouchEvent);
+    (directive as unknown as Record<string, (e: TouchEvent) => void>)[
+      'onTouchMove'
     ]({
       touches: [
         { identifier: 1, clientX: 0, clientY: 0 },
         { identifier: 2, clientX: 0, clientY: 150 },
       ],
       preventDefault,
-    } as unknown as TouchEvent)
-    ;(directive as unknown as Record<string, (e: TouchEvent) => void>)[
-      "onTouchEnd"
+    } as unknown as TouchEvent);
+    (directive as unknown as Record<string, (e: TouchEvent) => void>)[
+      'onTouchEnd'
     ]({
       changedTouches: [{ identifier: 1, clientX: 0, clientY: 0 }],
-    } as unknown as TouchEvent)
+    } as unknown as TouchEvent);
 
-    expect(preventDefault).toHaveBeenCalled()
+    expect(preventDefault).toHaveBeenCalled();
     expect(rendererSpy.setStyle).toHaveBeenCalledWith(
       element,
-      "font-size",
-      "150%",
-    )
+      'font-size',
+      '150%'
+    );
     expect(preferencesServiceSpy.setFontSize).toHaveBeenCalledWith(
       150,
-      "reader",
-    )
-  })
+      'reader'
+    );
+  });
 
-  it("should adjust font size with the public helpers", () => {
-    directive.increaseFontSize()
-    directive.decreaseFontSize()
+  it('should adjust font size with the public helpers', () => {
+    directive.increaseFontSize();
+    directive.decreaseFontSize();
 
-    expect(preferencesServiceSpy.setFontSize.calls.argsFor(0)).toEqual([
+    expect(vi.mocked(preferencesServiceSpy.setFontSize).mock.calls[0]).toEqual([
       105,
-      "reader",
-    ])
-    expect(preferencesServiceSpy.setFontSize.calls.argsFor(1)).toEqual([
+      'reader',
+    ]);
+    expect(vi.mocked(preferencesServiceSpy.setFontSize).mock.calls[1]).toEqual([
       100,
-      "reader",
-    ])
-    expect(rendererSpy.setStyle.calls.argsFor(0)).toEqual([
+      'reader',
+    ]);
+    expect(vi.mocked(rendererSpy.setStyle).mock.calls[0]).toEqual([
       element,
-      "font-size",
-      "105%",
-    ])
-    expect(rendererSpy.setStyle.calls.argsFor(2)).toEqual([
+      'font-size',
+      '105%',
+    ]);
+    expect(vi.mocked(rendererSpy.setStyle).mock.calls[2]).toEqual([
       element,
-      "font-size",
-      "100%",
-    ])
-  })
-})
+      'font-size',
+      '100%',
+    ]);
+  });
+});
 
 // The footnotes sheet opens at the reader's size through this rule.
-describe("startingFontSize", () => {
+describe('startingFontSize', () => {
   it("takes the size chosen in the app, within the reader's range", () => {
-    expect(startingFontSize(125, () => 200)).toBe(125)
-    expect(startingFontSize(400, () => null)).toBe(235)
-  })
+    expect(startingFontSize(125, () => 200)).toBe(125);
+    expect(startingFontSize(400, () => null)).toBe(235);
+  });
 
   it("else follows the system's, to the nearest step", () => {
-    expect(startingFontSize(null, () => 148)).toBe(150)
-  })
+    expect(startingFontSize(null, () => 148)).toBe(150);
+  });
 
-  it("else leaves the standard size", () => {
-    expect(startingFontSize(null, () => null)).toBeNull()
-  })
-})
+  it('else leaves the standard size', () => {
+    expect(startingFontSize(null, () => null)).toBeNull();
+  });
+});

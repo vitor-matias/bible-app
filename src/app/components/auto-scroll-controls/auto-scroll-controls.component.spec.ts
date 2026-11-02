@@ -1,65 +1,74 @@
-import { ChangeDetectorRef } from "@angular/core"
-import { ComponentFixture, TestBed } from "@angular/core/testing"
-import { MatButtonModule } from "@angular/material/button"
-import { MatIconModule } from "@angular/material/icon"
-import { Subject } from "rxjs"
-import { AnalyticsService } from "../../services/analytics.service"
-import { AutoScrollService } from "../../services/auto-scroll.service"
-import { NativeChromeService } from "../../services/native-chrome.service"
-import type { NativeChromeAction } from "../../services/native-chrome.types"
-import { PreferencesService } from "../../services/preferences.service"
-import { AutoScrollControlsComponent } from "./auto-scroll-controls.component"
+import type { Mock, MockedObject } from 'vitest';
+import { ChangeDetectorRef } from '@angular/core';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { Subject } from 'rxjs';
+import { AnalyticsService } from '../../services/analytics.service';
+import { AutoScrollService } from '../../services/auto-scroll.service';
+import { NativeChromeService } from '../../services/native-chrome.service';
+import type { NativeChromeAction } from '../../services/native-chrome.types';
+import { PreferencesService } from '../../services/preferences.service';
+import { AutoScrollControlsComponent } from './auto-scroll-controls.component';
 
 /** A page with a screenful of text below: half way through, not at its end. */
 function scrollablePage(): HTMLElement {
-  const page = document.createElement("div")
+  const page = document.createElement('div');
   Object.defineProperties(page, {
     scrollHeight: { value: 1000, configurable: true },
     clientHeight: { value: 500, configurable: true },
     scrollTop: { value: 0, writable: true, configurable: true },
-  })
-  return page
+  });
+  return page;
 }
 
-describe("AutoScrollControlsComponent", () => {
-  let component: AutoScrollControlsComponent
-  let fixture: ComponentFixture<AutoScrollControlsComponent>
+describe('AutoScrollControlsComponent', () => {
+  let component: AutoScrollControlsComponent;
+  let fixture: ComponentFixture<AutoScrollControlsComponent>;
 
-  let autoScrollServiceSpy: jasmine.SpyObj<AutoScrollService>
-  let preferencesServiceSpy: jasmine.SpyObj<PreferencesService>
-  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
+  let autoScrollServiceSpy: MockedObject<AutoScrollService>;
+  let preferencesServiceSpy: MockedObject<PreferencesService>;
+  let analyticsServiceSpy: MockedObject<AnalyticsService>;
 
   beforeEach(async () => {
-    autoScrollServiceSpy = jasmine.createSpyObj("AutoScrollService", [
-      "start",
-      "stop",
-      "updateAutoScrollSpeed",
-      "getAutoScrollSpeedLabel",
-    ])
+    autoScrollServiceSpy = {
+      start: vi.fn().mockName('AutoScrollService.start'),
+      stop: vi.fn().mockName('AutoScrollService.stop'),
+      updateAutoScrollSpeed: vi
+        .fn()
+        .mockName('AutoScrollService.updateAutoScrollSpeed'),
+      getAutoScrollSpeedLabel: vi
+        .fn()
+        .mockName('AutoScrollService.getAutoScrollSpeedLabel'),
+    };
     // Mock getters which can't be spied directly using createSpyObj on properties
-    Object.defineProperty(autoScrollServiceSpy, "autoScrollEnabled", {
+    Object.defineProperty(autoScrollServiceSpy, 'autoScrollEnabled', {
       get: () => false,
       configurable: true,
-    })
-    Object.defineProperty(autoScrollServiceSpy, "autoScrollLinesPerSecond", {
+    });
+    Object.defineProperty(autoScrollServiceSpy, 'autoScrollLinesPerSecond', {
       get: () => 1,
       configurable: true,
-    })
-    Object.defineProperty(autoScrollServiceSpy, "AUTO_SCROLL_STEP", {
+    });
+    Object.defineProperty(autoScrollServiceSpy, 'AUTO_SCROLL_STEP', {
       get: () => 0.5,
-    })
-    Object.defineProperty(autoScrollServiceSpy, "MIN_AUTO_SCROLL_LPS", {
+    });
+    Object.defineProperty(autoScrollServiceSpy, 'MIN_AUTO_SCROLL_LPS', {
       get: () => 0.25,
-    })
-    Object.defineProperty(autoScrollServiceSpy, "MAX_AUTO_SCROLL_LPS", {
+    });
+    Object.defineProperty(autoScrollServiceSpy, 'MAX_AUTO_SCROLL_LPS', {
       get: () => 3,
-    })
+    });
 
-    preferencesServiceSpy = jasmine.createSpyObj("PreferencesService", [
-      "setAutoScrollSpeed",
-    ])
-    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
-    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
+    preferencesServiceSpy = {
+      setAutoScrollSpeed: vi
+        .fn()
+        .mockName('PreferencesService.setAutoScrollSpeed'),
+    };
+    analyticsServiceSpy = {
+      track: vi.fn().mockName('AnalyticsService.track'),
+    };
+    analyticsServiceSpy.track.mockResolvedValue();
 
     await TestBed.configureTestingModule({
       imports: [AutoScrollControlsComponent, MatButtonModule, MatIconModule],
@@ -68,277 +77,291 @@ describe("AutoScrollControlsComponent", () => {
         { provide: PreferencesService, useValue: preferencesServiceSpy },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
       ],
-    }).compileComponents()
+    }).compileComponents();
 
-    fixture = TestBed.createComponent(AutoScrollControlsComponent)
-    component = fixture.componentInstance
-    fixture.detectChanges()
-  })
+    fixture = TestBed.createComponent(AutoScrollControlsComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
 
-  it("should create", () => {
-    expect(component).toBeTruthy()
-  })
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
 
   // In landscape, Android's 3-button navigation bar covered the + button.
-  it("keeps clear of a side system bar on a wide screen", () => {
+  it('keeps clear of a side system bar on a wide screen', () => {
     // The specs run in Karma's frame: its width is the viewport the media
     // queries see.
-    const frame = window.frameElement as HTMLElement | null
-    expect(frame).withContext("the specs run in a frame").toBeTruthy()
-    const width = frame?.style.width ?? ""
-    if (frame) frame.style.width = "945px"
-    const host = fixture.nativeElement as HTMLElement
-    const controls = host.querySelector(".auto-scroll-controls") as HTMLElement
+    const frame = window.frameElement as HTMLElement | null;
+    expect(frame, 'the specs run in a frame').toBeTruthy();
+    const width = frame?.style.width ?? '';
+    if (frame) frame.style.width = '945px';
+    const host = fixture.nativeElement as HTMLElement;
+    const controls = host.querySelector('.auto-scroll-controls') as HTMLElement;
     const right = (inset: string) => {
-      host.style.setProperty("--app-inset-right", inset)
-      return controls.getBoundingClientRect().right
-    }
+      host.style.setProperty('--app-inset-right', inset);
+      return controls.getBoundingClientRect().right;
+    };
 
     try {
-      expect(right("0px") - right("40px")).toBeCloseTo(40, 0)
+      expect(right('0px') - right('40px')).toBeCloseTo(40, 0);
     } finally {
-      if (frame) frame.style.width = width
+      if (frame) frame.style.width = width;
     }
-  })
+  });
 
-  it("should stop scroll on destroy", () => {
-    component.ngOnDestroy()
-    expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
-  })
+  it('should stop scroll on destroy', () => {
+    component.ngOnDestroy();
+    expect(autoScrollServiceSpy.stop).toHaveBeenCalled();
+  });
 
-  describe("toggleAutoScroll", () => {
-    it("should start scroll if currently disabled and elements are provided", () => {
-      Object.defineProperty(autoScrollServiceSpy, "autoScrollEnabled", {
+  describe('toggleAutoScroll', () => {
+    it('should start scroll if currently disabled and elements are provided', () => {
+      Object.defineProperty(autoScrollServiceSpy, 'autoScrollEnabled', {
         get: () => false,
         configurable: true,
-      })
-      const mockScrollEl = scrollablePage()
-      const mockLineHeightEl = document.createElement("div")
+      });
+      const mockScrollEl = scrollablePage();
+      const mockLineHeightEl = document.createElement('div');
 
-      fixture.componentRef.setInput("scrollElement", mockScrollEl)
-      fixture.componentRef.setInput("lineHeightElement", mockLineHeightEl)
+      fixture.componentRef.setInput('scrollElement', mockScrollEl);
+      fixture.componentRef.setInput('lineHeightElement', mockLineHeightEl);
 
-      component.toggleAutoScroll()
+      component.toggleAutoScroll();
 
       expect(autoScrollServiceSpy.start).toHaveBeenCalledWith({
         scrollElement: mockScrollEl,
         lineHeightElement: mockLineHeightEl,
-        onStop: jasmine.any(Function),
-      })
-    })
+        onStop: expect.any(Function),
+      });
+    });
 
-    it("should NOT start scroll if elements are missing", () => {
-      Object.defineProperty(autoScrollServiceSpy, "autoScrollEnabled", {
+    it('should NOT start scroll if elements are missing', () => {
+      Object.defineProperty(autoScrollServiceSpy, 'autoScrollEnabled', {
         get: () => false,
         configurable: true,
-      })
+      });
 
-      fixture.componentRef.setInput("scrollElement", undefined)
-      fixture.componentRef.setInput("lineHeightElement", undefined)
+      fixture.componentRef.setInput('scrollElement', undefined);
+      fixture.componentRef.setInput('lineHeightElement', undefined);
 
-      component.toggleAutoScroll()
+      component.toggleAutoScroll();
 
-      expect(autoScrollServiceSpy.start).not.toHaveBeenCalled()
-    })
+      expect(autoScrollServiceSpy.start).not.toHaveBeenCalled();
+    });
 
-    it("should stop scroll if currently enabled", () => {
-      Object.defineProperty(autoScrollServiceSpy, "autoScrollEnabled", {
+    it('should stop scroll if currently enabled', () => {
+      Object.defineProperty(autoScrollServiceSpy, 'autoScrollEnabled', {
         get: () => true,
         configurable: true,
-      })
+      });
 
-      component.toggleAutoScroll()
+      component.toggleAutoScroll();
 
-      expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
-    })
+      expect(autoScrollServiceSpy.stop).toHaveBeenCalled();
+    });
 
-    it("should trigger CDR markForCheck through safeMarkForCheck on onStop callback", () => {
-      Object.defineProperty(autoScrollServiceSpy, "autoScrollEnabled", {
+    it('should trigger CDR markForCheck through safeMarkForCheck on onStop callback', () => {
+      Object.defineProperty(autoScrollServiceSpy, 'autoScrollEnabled', {
         get: () => false,
         configurable: true,
-      })
-      fixture.componentRef.setInput("scrollElement", scrollablePage())
+      });
+      fixture.componentRef.setInput('scrollElement', scrollablePage());
       fixture.componentRef.setInput(
-        "lineHeightElement",
-        document.createElement("div"),
-      )
+        'lineHeightElement',
+        document.createElement('div')
+      );
 
       // We want to capture the onStop callback passed to start()
-      let stopCallback: (() => void) | undefined
-      autoScrollServiceSpy.start.and.callFake((config) => {
-        stopCallback = config.onStop
-      })
+      let stopCallback: (() => void) | undefined;
+      autoScrollServiceSpy.start.mockImplementation((config) => {
+        stopCallback = config.onStop;
+      });
 
-      component.toggleAutoScroll()
-      expect(stopCallback).toBeDefined()
+      component.toggleAutoScroll();
+      expect(stopCallback).toBeDefined();
 
       // Should not throw when called
-      expect(() => stopCallback?.()).not.toThrow()
-    })
-  })
+      expect(() => stopCallback?.()).not.toThrow();
+    });
+  });
 
-  describe("speed controls", () => {
-    it("should increase speed", () => {
-      autoScrollServiceSpy.updateAutoScrollSpeed.and.returnValue(1.5)
+  describe('speed controls', () => {
+    it('should increase speed', () => {
+      autoScrollServiceSpy.updateAutoScrollSpeed.mockReturnValue(1.5);
 
-      component.increaseAutoScrollSpeed()
-
-      expect(autoScrollServiceSpy.updateAutoScrollSpeed).toHaveBeenCalledWith(
-        0.5,
-      )
-      expect(preferencesServiceSpy.setAutoScrollSpeed).toHaveBeenCalledWith(1.5)
-    })
-
-    it("should decrease speed", () => {
-      autoScrollServiceSpy.updateAutoScrollSpeed.and.returnValue(0.5)
-
-      component.decreaseAutoScrollSpeed()
+      component.increaseAutoScrollSpeed();
 
       expect(autoScrollServiceSpy.updateAutoScrollSpeed).toHaveBeenCalledWith(
-        -0.5,
-      )
-      expect(preferencesServiceSpy.setAutoScrollSpeed).toHaveBeenCalledWith(0.5)
-    })
+        0.5
+      );
+      expect(preferencesServiceSpy.setAutoScrollSpeed).toHaveBeenCalledWith(
+        1.5
+      );
+    });
+
+    it('should decrease speed', () => {
+      autoScrollServiceSpy.updateAutoScrollSpeed.mockReturnValue(0.5);
+
+      component.decreaseAutoScrollSpeed();
+
+      expect(autoScrollServiceSpy.updateAutoScrollSpeed).toHaveBeenCalledWith(
+        -0.5
+      );
+      expect(preferencesServiceSpy.setAutoScrollSpeed).toHaveBeenCalledWith(
+        0.5
+      );
+    });
 
     // The service keeps four decimals: the slowest, 1/6, is 0.1667, a hair
     // above it, and − stayed enabled there while + did at the fastest.
-    it("disables − at the slowest speed as stored, and + at the fastest", () => {
-      const host = fixture.nativeElement as HTMLElement
+    it('disables − at the slowest speed as stored, and + at the fastest', () => {
+      const host = fixture.nativeElement as HTMLElement;
       const button = (label: string) =>
         host.querySelector(
-          `button[aria-label="${label} velocidade do deslocamento automático"]`,
-        ) as HTMLButtonElement
+          `button[aria-label="${label} velocidade do deslocamento automático"]`
+        ) as HTMLButtonElement;
       const at = (speed: number) => {
         Object.defineProperty(
           autoScrollServiceSpy,
-          "autoScrollLinesPerSecond",
+          'autoScrollLinesPerSecond',
           {
             get: () => speed,
             configurable: true,
-          },
-        )
-        fixture.componentRef.injector.get(ChangeDetectorRef).markForCheck()
-        fixture.detectChanges()
-      }
+          }
+        );
+        fixture.componentRef.injector.get(ChangeDetectorRef).markForCheck();
+        fixture.detectChanges();
+      };
 
-      at(0.25004)
-      expect(button("Diminuir").disabled).toBeTrue()
-      expect(button("Aumentar").disabled).toBeFalse()
+      at(0.25004);
+      expect(button('Diminuir').disabled).toBe(true);
+      expect(button('Aumentar').disabled).toBe(false);
 
-      at(2.99996)
-      expect(button("Diminuir").disabled).toBeFalse()
-      expect(button("Aumentar").disabled).toBeTrue()
-    })
-  })
+      at(2.99996);
+      expect(button('Diminuir').disabled).toBe(false);
+      expect(button('Aumentar').disabled).toBe(true);
+    });
+  });
 
-  describe("getters", () => {
-    it("should surface autoScrollEnabled", () => {
-      Object.defineProperty(autoScrollServiceSpy, "autoScrollEnabled", {
+  describe('getters', () => {
+    it('should surface autoScrollEnabled', () => {
+      Object.defineProperty(autoScrollServiceSpy, 'autoScrollEnabled', {
         get: () => true,
         configurable: true,
-      })
-      expect(component.autoScrollEnabled).toBeTrue()
-    })
+      });
+      expect(component.autoScrollEnabled).toBe(true);
+    });
 
-    it("should surface autoScrollLinesPerSecond", () => {
-      Object.defineProperty(autoScrollServiceSpy, "autoScrollLinesPerSecond", {
+    it('should surface autoScrollLinesPerSecond', () => {
+      Object.defineProperty(autoScrollServiceSpy, 'autoScrollLinesPerSecond', {
         get: () => 2.5,
         configurable: true,
-      })
-      expect(component.autoScrollLinesPerSecond).toBe(2.5)
-    })
+      });
+      expect(component.autoScrollLinesPerSecond).toBe(2.5);
+    });
 
-    it("should surface MIN_AUTO_SCROLL_LPS", () => {
-      expect(component.MIN_AUTO_SCROLL_LPS).toBe(0.25)
-    })
+    it('should surface MIN_AUTO_SCROLL_LPS', () => {
+      expect(component.MIN_AUTO_SCROLL_LPS).toBe(0.25);
+    });
 
-    it("should surface MAX_AUTO_SCROLL_LPS", () => {
-      expect(component.MAX_AUTO_SCROLL_LPS).toBe(3)
-    })
+    it('should surface MAX_AUTO_SCROLL_LPS', () => {
+      expect(component.MAX_AUTO_SCROLL_LPS).toBe(3);
+    });
 
-    it("should delegate array label generation to service", () => {
-      autoScrollServiceSpy.getAutoScrollSpeedLabel.and.returnValue("Normal")
-      Object.defineProperty(autoScrollServiceSpy, "autoScrollLinesPerSecond", {
+    it('should delegate array label generation to service', () => {
+      autoScrollServiceSpy.getAutoScrollSpeedLabel.mockReturnValue('Normal');
+      Object.defineProperty(autoScrollServiceSpy, 'autoScrollLinesPerSecond', {
         get: () => 1,
         configurable: true,
-      })
+      });
 
-      expect(component.autoScrollSpeedLabel).toBe("Normal")
+      expect(component.autoScrollSpeedLabel).toBe('Normal');
       expect(autoScrollServiceSpy.getAutoScrollSpeedLabel).toHaveBeenCalledWith(
-        1,
-      )
-    })
-  })
-})
+        1
+      );
+    });
+  });
+});
 
-describe("AutoScrollControlsComponent in the iOS app", () => {
-  let fixture: ComponentFixture<AutoScrollControlsComponent>
-  let actions: Subject<NativeChromeAction>
+describe('AutoScrollControlsComponent in the iOS app', () => {
+  let fixture: ComponentFixture<AutoScrollControlsComponent>;
+  let actions: Subject<NativeChromeAction>;
   let nativeChrome: {
-    enabled: boolean
-    actions$: Subject<NativeChromeAction>
-    setAutoScroll: jasmine.Spy
-  }
-  let autoScroll: jasmine.SpyObj<AutoScrollService>
-  let playing: boolean
-  let speed: number
-  let page: HTMLElement
+    enabled: boolean;
+    actions$: Subject<NativeChromeAction>;
+    setAutoScroll: Mock;
+  };
+  let autoScroll: MockedObject<AutoScrollService>;
+  let playing: boolean;
+  let speed: number;
+  let page: HTMLElement;
   /** What the controls' ResizeObserver watches, and a reflow it sees. */
-  let observed: Element[]
-  let resized: () => void
-  const realResizeObserver = globalThis.ResizeObserver
+  let observed: Element[];
+  let resized: () => void;
+  const realResizeObserver = globalThis.ResizeObserver;
 
   beforeEach(async () => {
-    observed = []
-    resized = () => {}
+    observed = [];
+    resized = () => {};
     globalThis.ResizeObserver = class {
       constructor(callback: ResizeObserverCallback) {
-        resized = () => callback([], this as unknown as ResizeObserver)
+        resized = () => callback([], this as unknown as ResizeObserver);
       }
 
       observe(target: Element): void {
-        observed.push(target)
+        observed.push(target);
       }
 
       unobserve(): void {}
 
       disconnect(): void {}
-    } as unknown as typeof ResizeObserver
-    actions = new Subject()
+    } as unknown as typeof ResizeObserver;
+    actions = new Subject();
     nativeChrome = {
       enabled: true,
       actions$: actions,
-      setAutoScroll: jasmine.createSpy("setAutoScroll"),
-    }
-    playing = false
-    speed = 1
-    autoScroll = jasmine.createSpyObj("AutoScrollService", [
-      "start",
-      "stop",
-      "updateAutoScrollSpeed",
-      "getAutoScrollSpeedLabel",
-      "getAutoScrollSpeedSpokenLabel",
-    ])
+      setAutoScroll: vi.fn().mockName('setAutoScroll'),
+    };
+    playing = false;
+    speed = 1;
+    autoScroll = {
+      start: vi.fn().mockName('AutoScrollService.start'),
+      stop: vi.fn().mockName('AutoScrollService.stop'),
+      updateAutoScrollSpeed: vi
+        .fn()
+        .mockName('AutoScrollService.updateAutoScrollSpeed'),
+      getAutoScrollSpeedLabel: vi
+        .fn()
+        .mockName('AutoScrollService.getAutoScrollSpeedLabel'),
+      getAutoScrollSpeedSpokenLabel: vi
+        .fn()
+        .mockName('AutoScrollService.getAutoScrollSpeedSpokenLabel'),
+    };
     Object.defineProperties(autoScroll, {
       autoScrollEnabled: { get: () => playing },
       autoScrollLinesPerSecond: { get: () => speed },
       AUTO_SCROLL_STEP: { get: () => 0.25 },
       MIN_AUTO_SCROLL_LPS: { get: () => 0.25 },
       MAX_AUTO_SCROLL_LPS: { get: () => 4 },
-    })
-    autoScroll.getAutoScrollSpeedLabel.and.callFake((value) => String(value))
-    autoScroll.getAutoScrollSpeedSpokenLabel.and.callFake(
-      (value) => `${value} por extenso`,
-    )
-    autoScroll.start.and.callFake(() => {
-      playing = true
-    })
-    autoScroll.updateAutoScrollSpeed.and.callFake((delta) => {
-      speed += delta
-      return speed
-    })
-    const analytics = jasmine.createSpyObj("AnalyticsService", ["track"])
-    analytics.track.and.resolveTo()
+    });
+    autoScroll.getAutoScrollSpeedLabel.mockImplementation((value) =>
+      String(value)
+    );
+    autoScroll.getAutoScrollSpeedSpokenLabel.mockImplementation(
+      (value) => `${value} por extenso`
+    );
+    autoScroll.start.mockImplementation(() => {
+      playing = true;
+    });
+    autoScroll.updateAutoScrollSpeed.mockImplementation((delta) => {
+      speed += delta;
+      return speed;
+    });
+    const analytics = {
+      track: vi.fn().mockName('AnalyticsService.track'),
+    };
+    analytics.track.mockResolvedValue();
 
     await TestBed.configureTestingModule({
       imports: [AutoScrollControlsComponent],
@@ -347,110 +370,113 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
         { provide: AutoScrollService, useValue: autoScroll },
         {
           provide: PreferencesService,
-          useValue: jasmine.createSpyObj(["setAutoScrollSpeed"]),
+          useValue: {
+            setAutoScrollSpeed: vi.fn(),
+          },
         },
         { provide: AnalyticsService, useValue: analytics },
       ],
-    }).compileComponents()
+    }).compileComponents();
 
-    fixture = TestBed.createComponent(AutoScrollControlsComponent)
-    page = scrollablePage()
-    fixture.componentRef.setInput("scrollElement", page)
+    fixture = TestBed.createComponent(AutoScrollControlsComponent);
+    page = scrollablePage();
+    fixture.componentRef.setInput('scrollElement', page);
     fixture.componentRef.setInput(
-      "lineHeightElement",
-      document.createElement("div"),
-    )
-    fixture.detectChanges()
-  })
+      'lineHeightElement',
+      document.createElement('div')
+    );
+    fixture.detectChanges();
+  });
 
   afterEach(() => {
-    globalThis.ResizeObserver = realResizeObserver
-  })
+    globalThis.ResizeObserver = realResizeObserver;
+  });
 
-  const lastState = () => nativeChrome.setAutoScroll.calls.mostRecent().args[0]
+  const lastState = () =>
+    vi.mocked(nativeChrome.setAutoScroll).mock.lastCall[0];
 
-  it("draws no web controls; the toolbar shows them", () => {
+  it('draws no web controls; the toolbar shows them', () => {
     expect(
-      fixture.nativeElement.querySelector(".auto-scroll-controls"),
-    ).toBeNull()
+      fixture.nativeElement.querySelector('.auto-scroll-controls')
+    ).toBeNull();
     expect(lastState()).toEqual({
       playing: false,
-      speedLabel: "1",
-      speedAccessibilityLabel: "1 por extenso",
+      speedLabel: '1',
+      speedAccessibilityLabel: '1 por extenso',
       canSlower: true,
       canFaster: true,
       canPlay: true,
-    })
-  })
+    });
+  });
 
-  it("plays and pauses from the toolbar", () => {
-    actions.next({ id: "auto-scroll-toggle" })
-    expect(autoScroll.start).toHaveBeenCalled()
-    expect(lastState()).toEqual(jasmine.objectContaining({ playing: true }))
+  it('plays and pauses from the toolbar', () => {
+    actions.next({ id: 'auto-scroll-toggle' });
+    expect(autoScroll.start).toHaveBeenCalled();
+    expect(lastState()).toEqual(expect.objectContaining({ playing: true }));
 
-    actions.next({ id: "auto-scroll-toggle" })
-    expect(autoScroll.stop).toHaveBeenCalled()
-  })
+    actions.next({ id: 'auto-scroll-toggle' });
+    expect(autoScroll.stop).toHaveBeenCalled();
+  });
 
-  it("changes speed from the toolbar, down to the slowest", () => {
-    actions.next({ id: "auto-scroll-faster" })
+  it('changes speed from the toolbar, down to the slowest', () => {
+    actions.next({ id: 'auto-scroll-faster' });
     expect(lastState()).toEqual(
-      jasmine.objectContaining({
-        speedLabel: "1.25",
-        speedAccessibilityLabel: "1.25 por extenso",
-      }),
-    )
+      expect.objectContaining({
+        speedLabel: '1.25',
+        speedAccessibilityLabel: '1.25 por extenso',
+      })
+    );
 
-    for (let i = 0; i < 4; i++) actions.next({ id: "auto-scroll-slower" })
+    for (let i = 0; i < 4; i++) actions.next({ id: 'auto-scroll-slower' });
     expect(lastState()).toEqual(
-      jasmine.objectContaining({ speedLabel: "0.25", canSlower: false }),
-    )
-  })
+      expect.objectContaining({ speedLabel: '0.25', canSlower: false })
+    );
+  });
 
   // The slowest as the service stores it, rounded a hair above the limit.
-  it("tells the toolbar − is done at the slowest speed as stored", () => {
-    speed = 0.25004
-    actions.next({ id: "auto-scroll-toggle" })
+  it('tells the toolbar − is done at the slowest speed as stored', () => {
+    speed = 0.25004;
+    actions.next({ id: 'auto-scroll-toggle' });
     expect(lastState()).toEqual(
-      jasmine.objectContaining({ canSlower: false, canFaster: true }),
-    )
-  })
+      expect.objectContaining({ canSlower: false, canFaster: true })
+    );
+  });
 
   // Scrolled to the end, play started and stopped again at once.
-  it("turns play off at the end of the page", () => {
-    page.scrollTop = 500
-    page.dispatchEvent(new Event("scroll"))
-    expect(lastState()).toEqual(jasmine.objectContaining({ canPlay: false }))
+  it('turns play off at the end of the page', () => {
+    page.scrollTop = 500;
+    page.dispatchEvent(new Event('scroll'));
+    expect(lastState()).toEqual(expect.objectContaining({ canPlay: false }));
 
-    actions.next({ id: "auto-scroll-toggle" })
-    expect(autoScroll.start).not.toHaveBeenCalled()
+    actions.next({ id: 'auto-scroll-toggle' });
+    expect(autoScroll.start).not.toHaveBeenCalled();
 
-    page.scrollTop = 300
-    page.dispatchEvent(new Event("scroll"))
-    expect(lastState()).toEqual(jasmine.objectContaining({ canPlay: true }))
-    actions.next({ id: "auto-scroll-toggle" })
-    expect(autoScroll.start).toHaveBeenCalled()
-  })
+    page.scrollTop = 300;
+    page.dispatchEvent(new Event('scroll'));
+    expect(lastState()).toEqual(expect.objectContaining({ canPlay: true }));
+    actions.next({ id: 'auto-scroll-toggle' });
+    expect(autoScroll.start).toHaveBeenCalled();
+  });
 
   // A reflow moves the page's end without a scroll: text added at the end,
   // larger type, a window made smaller.
   it("follows the page's end as it reflows", () => {
-    expect(observed).toContain(page)
+    expect(observed).toContain(page);
 
-    page.scrollTop = 500
-    page.dispatchEvent(new Event("scroll"))
-    expect(lastState()).toEqual(jasmine.objectContaining({ canPlay: false }))
+    page.scrollTop = 500;
+    page.dispatchEvent(new Event('scroll'));
+    expect(lastState()).toEqual(expect.objectContaining({ canPlay: false }));
 
-    Object.defineProperty(page, "scrollHeight", {
+    Object.defineProperty(page, 'scrollHeight', {
       value: 1500,
       configurable: true,
-    })
-    resized()
-    expect(lastState()).toEqual(jasmine.objectContaining({ canPlay: true }))
-  })
+    });
+    resized();
+    expect(lastState()).toEqual(expect.objectContaining({ canPlay: true }));
+  });
 
-  it("gives the toolbar back when closed", () => {
-    fixture.destroy()
-    expect(lastState()).toBeNull()
-  })
-})
+  it('gives the toolbar back when closed', () => {
+    fixture.destroy();
+    expect(lastState()).toBeNull();
+  });
+});

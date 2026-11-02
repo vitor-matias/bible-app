@@ -1,7 +1,8 @@
-import { DOCUMENT } from "@angular/common"
-import { TestBed } from "@angular/core/testing"
-import { Meta, Title } from "@angular/platform-browser"
-import { BookService } from "./book.service"
+import type { MockedObject } from 'vitest';
+import { DOCUMENT } from '@angular/common';
+import { TestBed } from '@angular/core/testing';
+import { Meta, Title } from '@angular/platform-browser';
+import { BookService } from './book.service';
 import {
   SEO_BASE_URL,
   SEO_BOOK_INDEX_NAME,
@@ -10,386 +11,402 @@ import {
   SEO_HOME_TITLE,
   SEO_SITE_NAME,
   SeoService,
-} from "./seo.service"
+} from './seo.service';
 
-describe("SeoService", () => {
-  let service: SeoService
-  let title: Title
-  let meta: Meta
-  let doc: Document
-  let bookServiceSpy: jasmine.SpyObj<BookService>
+describe('SeoService', () => {
+  let service: SeoService;
+  let title: Title;
+  let meta: Meta;
+  let doc: Document;
+  let bookServiceSpy: MockedObject<BookService>;
 
   const genesis = {
-    id: "GN",
-    name: "Génesis",
-    shortName: "Génesis",
-    abrv: "Gn",
+    id: 'GN',
+    name: 'Génesis',
+    shortName: 'Génesis',
+    abrv: 'Gn',
     chapterCount: 50,
-  } as Book
+  } as Book;
 
   const aboutBook = {
-    id: "about",
-    name: "Sobre a Bíblia dos Capuchinhos",
-    shortName: "Sobre a Bíblia",
-    abrv: "Sobre",
+    id: 'about',
+    name: 'Sobre a Bíblia dos Capuchinhos',
+    shortName: 'Sobre a Bíblia',
+    abrv: 'Sobre',
     chapterCount: 1,
-  } as Book
+  } as Book;
 
   function makeChapter(text: string): Chapter {
     return {
-      bookId: "GN",
+      bookId: 'GN',
       number: 1,
       verses: [
         {
-          bookId: "GN",
+          bookId: 'GN',
           chapterNumber: 1,
           number: 1,
-          verseLabel: "1",
+          verseLabel: '1',
           text: [
-            { type: "text", text },
-            { type: "footnote", text: "nota ignorada", reference: "a" },
-            { type: "references", text: "Jo 1,1" },
+            { type: 'text', text },
+            { type: 'footnote', text: 'nota ignorada', reference: 'a' },
+            { type: 'references', text: 'Jo 1,1' },
           ],
         },
       ],
-    }
+    };
   }
 
   function getMetaContent(selector: string): string | undefined {
-    return meta.getTag(selector)?.getAttribute("content") ?? undefined
+    return meta.getTag(selector)?.getAttribute('content') ?? undefined;
   }
 
   function getCanonicalHref(): string | null | undefined {
-    return doc.head.querySelector('link[rel="canonical"]')?.getAttribute("href")
+    return doc.head
+      .querySelector('link[rel="canonical"]')
+      ?.getAttribute('href');
   }
 
   beforeEach(() => {
-    bookServiceSpy = jasmine.createSpyObj("BookService", [
-      "getUrlAbrv",
-      "getChapterUrlSegment",
-    ])
-    bookServiceSpy.getUrlAbrv.and.returnValue("gn")
-    bookServiceSpy.getChapterUrlSegment.and.callFake((chapter: number) =>
-      chapter === 0 ? "intro" : chapter.toString(),
-    )
+    bookServiceSpy = {
+      getUrlAbrv: vi.fn().mockName('BookService.getUrlAbrv'),
+      getChapterUrlSegment: vi
+        .fn()
+        .mockName('BookService.getChapterUrlSegment'),
+    };
+    bookServiceSpy.getUrlAbrv.mockReturnValue('gn');
+    bookServiceSpy.getChapterUrlSegment.mockImplementation((chapter: number) =>
+      chapter === 0 ? 'intro' : chapter.toString()
+    );
 
     TestBed.configureTestingModule({
       providers: [{ provide: BookService, useValue: bookServiceSpy }],
-    })
+    });
 
-    service = TestBed.inject(SeoService)
-    title = TestBed.inject(Title)
-    meta = TestBed.inject(Meta)
-    doc = TestBed.inject(DOCUMENT)
-  })
+    service = TestBed.inject(SeoService);
+    title = TestBed.inject(Title);
+    meta = TestBed.inject(Meta);
+    doc = TestBed.inject(DOCUMENT);
+  });
 
   afterEach(() => {
     for (const link of Array.from(
-      doc.head.querySelectorAll('link[rel="canonical"]'),
+      doc.head.querySelectorAll('link[rel="canonical"]')
     )) {
-      link.remove()
+      link.remove();
     }
-    doc.getElementById("seo-breadcrumbs")?.remove()
-    meta.removeTag('name="robots"')
-    meta.removeTag('name="description"')
-    meta.removeTag('property="og:title"')
-    meta.removeTag('property="og:description"')
-    meta.removeTag('property="og:url"')
-    meta.removeTag('name="twitter:title"')
-    meta.removeTag('name="twitter:description"')
-  })
+    doc.getElementById('seo-breadcrumbs')?.remove();
+    meta.removeTag('name="robots"');
+    meta.removeTag('name="description"');
+    meta.removeTag('property="og:title"');
+    meta.removeTag('property="og:description"');
+    meta.removeTag('property="og:url"');
+    meta.removeTag('name="twitter:title"');
+    meta.removeTag('name="twitter:description"');
+  });
 
-  it("should be created", () => {
-    expect(service).toBeTruthy()
-  })
+  it('should be created', () => {
+    expect(service).toBeTruthy();
+  });
 
-  describe("updateForChapter", () => {
-    it("sets title, canonical URL and og/twitter tags for a chapter", () => {
-      service.updateForChapter(genesis, 3)
+  describe('updateForChapter', () => {
+    it('sets title, canonical URL and og/twitter tags for a chapter', () => {
+      service.updateForChapter(genesis, 3);
 
-      expect(title.getTitle()).toBe(`Génesis 3 | ${SEO_SITE_NAME}`)
-      expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/gn/3`)
-      expect(getMetaContent('property="og:url"')).toBe(`${SEO_BASE_URL}/gn/3`)
+      expect(title.getTitle()).toBe(`Génesis 3 | ${SEO_SITE_NAME}`);
+      expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/gn/3`);
+      expect(getMetaContent('property="og:url"')).toBe(`${SEO_BASE_URL}/gn/3`);
       expect(getMetaContent('property="og:title"')).toBe(
-        `Génesis 3 | ${SEO_SITE_NAME}`,
-      )
+        `Génesis 3 | ${SEO_SITE_NAME}`
+      );
       expect(getMetaContent('name="twitter:title"')).toBe(
-        `Génesis 3 | ${SEO_SITE_NAME}`,
-      )
-      expect(bookServiceSpy.getUrlAbrv).toHaveBeenCalledWith(genesis)
-    })
+        `Génesis 3 | ${SEO_SITE_NAME}`
+      );
+      expect(bookServiceSpy.getUrlAbrv).toHaveBeenCalledWith(genesis);
+    });
 
-    it("labels the introduction chapter as Introdução at the /intro URL", () => {
-      service.updateForChapter(genesis, 0)
+    it('labels the introduction chapter as Introdução at the /intro URL', () => {
+      service.updateForChapter(genesis, 0);
 
-      expect(title.getTitle()).toBe(`Génesis Introdução | ${SEO_SITE_NAME}`)
-      expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/gn/intro`)
+      expect(title.getTitle()).toBe(`Génesis Introdução | ${SEO_SITE_NAME}`);
+      expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/gn/intro`);
       expect(getMetaContent('property="og:url"')).toBe(
-        `${SEO_BASE_URL}/gn/intro`,
-      )
+        `${SEO_BASE_URL}/gn/intro`
+      );
       expect(getMetaContent('name="description"')).toContain(
-        "introdução a Génesis",
-      )
-      expect(getMetaContent('name="description"')).not.toContain("capítulo 0")
-    })
+        'introdução a Génesis'
+      );
+      expect(getMetaContent('name="description"')).not.toContain('capítulo 0');
+    });
 
-    it("describes an introduction with its own prose and one book crumb", () => {
+    it('describes an introduction with its own prose and one book crumb', () => {
       const withIntro = {
         ...genesis,
         introduction: [
-          { type: "introParagraph", text: "O Pentateuco abre a Bíblia." },
+          { type: 'introParagraph', text: 'O Pentateuco abre a Bíblia.' },
         ],
-      } as Book
+      } as Book;
 
-      service.updateForChapter(withIntro, 0)
+      service.updateForChapter(withIntro, 0);
 
       expect(getMetaContent('name="description"')).toContain(
-        "O Pentateuco abre a Bíblia.",
-      )
-      expect(getMetaContent('name="description"')).not.toContain("capítulo 0")
+        'O Pentateuco abre a Bíblia.'
+      );
+      expect(getMetaContent('name="description"')).not.toContain('capítulo 0');
 
       // The book crumb is the intro itself here, so it must not be repeated.
       const script = document.querySelector(
-        'script[type="application/ld+json"]',
-      )
+        'script[type="application/ld+json"]'
+      );
       const items =
-        JSON.parse(script?.textContent ?? "{}").itemListElement ?? []
-      const urls = items.map((i: { item: string }) => i.item)
-      expect(urls).toEqual([...new Set(urls)])
-      expect(urls).toContain(`${SEO_BASE_URL}/gn/intro`)
-    })
+        JSON.parse(script?.textContent ?? '{}').itemListElement ?? [];
+      const urls = items.map((i: { item: string }) => i.item);
+      expect(urls).toEqual([...new Set(urls)]);
+      expect(urls).toContain(`${SEO_BASE_URL}/gn/intro`);
+    });
 
-    it("builds the description from verse text, skipping footnotes and references", () => {
+    it('builds the description from verse text, skipping footnotes and references', () => {
       service.updateForChapter(
         genesis,
         1,
-        makeChapter("No princípio, Deus criou o céu e a terra."),
-      )
+        makeChapter('No princípio, Deus criou o céu e a terra.')
+      );
 
-      const description = getMetaContent('name="description"')
+      const description = getMetaContent('name="description"');
       expect(description).toBe(
-        "Génesis 1: No princípio, Deus criou o céu e a terra.",
-      )
-      expect(description).not.toContain("nota ignorada")
-      expect(description).not.toContain("Jo 1,1")
-      expect(getMetaContent('property="og:description"')).toBe(description)
-    })
+        'Génesis 1: No princípio, Deus criou o céu e a terra.'
+      );
+      expect(description).not.toContain('nota ignorada');
+      expect(description).not.toContain('Jo 1,1');
+      expect(getMetaContent('property="og:description"')).toBe(description);
+    });
 
-    it("drops zero-width line markers and the space segment joins leave before punctuation", () => {
-      const chapter = makeChapter("\u200B")
+    it('drops zero-width line markers and the space segment joins leave before punctuation', () => {
+      const chapter = makeChapter('\u200B');
       chapter.verses?.[0].text.push(
-        { type: "text", text: "Louvai o" },
-        { type: "text", text: "Senhor" },
-        { type: "text", text: ", todas as nações!" },
-      )
-      service.updateForChapter(genesis, 1, chapter)
+        { type: 'text', text: 'Louvai o' },
+        { type: 'text', text: 'Senhor' },
+        { type: 'text', text: ', todas as nações!' }
+      );
+      service.updateForChapter(genesis, 1, chapter);
 
       expect(getMetaContent('name="description"')).toBe(
-        "Génesis 1: Louvai o Senhor, todas as nações!",
-      )
-    })
+        'Génesis 1: Louvai o Senhor, todas as nações!'
+      );
+    });
 
-    it("truncates long descriptions at a word boundary with an ellipsis", () => {
-      const longText = "palavra ".repeat(60)
-      service.updateForChapter(genesis, 1, makeChapter(longText))
+    it('truncates long descriptions at a word boundary with an ellipsis', () => {
+      const longText = 'palavra '.repeat(60);
+      service.updateForChapter(genesis, 1, makeChapter(longText));
 
-      const description = getMetaContent('name="description"') ?? ""
-      expect(description.length).toBeLessThanOrEqual(159)
-      expect(description.endsWith("…")).toBeTrue()
-      expect(description).not.toContain("  ")
-    })
+      const description = getMetaContent('name="description"') ?? '';
+      expect(description.length).toBeLessThanOrEqual(159);
+      expect(description.endsWith('…')).toBe(true);
+      expect(description).not.toContain('  ');
+    });
 
-    it("falls back to a generic description when the chapter has no verses", () => {
-      service.updateForChapter(genesis, 2)
+    it('falls back to a generic description when the chapter has no verses', () => {
+      service.updateForChapter(genesis, 2);
 
-      const description = getMetaContent('name="description"') ?? ""
-      expect(description).toContain("Génesis")
-      expect(description).toContain("2")
-    })
+      const description = getMetaContent('name="description"') ?? '';
+      expect(description).toContain('Génesis');
+      expect(description).toContain('2');
+    });
 
-    it("removes a previously set robots noindex tag", () => {
-      service.updateForSearch()
-      expect(getMetaContent('name="robots"')).toBe("noindex, follow")
+    it('removes a previously set robots noindex tag', () => {
+      service.updateForSearch();
+      expect(getMetaContent('name="robots"')).toBe('noindex, follow');
 
-      service.updateForChapter(genesis, 1)
-      expect(meta.getTag('name="robots"')).toBeNull()
-    })
+      service.updateForChapter(genesis, 1);
+      expect(meta.getTag('name="robots"')).toBeNull();
+    });
 
-    it("updates the existing canonical link instead of adding a second one", () => {
-      service.updateForChapter(genesis, 1)
-      service.updateForChapter(genesis, 2)
+    it('updates the existing canonical link instead of adding a second one', () => {
+      service.updateForChapter(genesis, 1);
+      service.updateForChapter(genesis, 2);
 
-      expect(doc.head.querySelectorAll('link[rel="canonical"]').length).toBe(1)
-      expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/gn/2`)
-    })
+      expect(doc.head.querySelectorAll('link[rel="canonical"]').length).toBe(1);
+      expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/gn/2`);
+    });
 
     // Spelled out rather than interpolated: every other expectation here builds
     // its string from SEO_SITE_NAME/SEO_HOME_TITLE, so they would all still
     // pass if those names were changed by accident.
-    it("titles the home page with the online-Bible keywords", () => {
-      service.updateForChapter(aboutBook, 1)
+    it('titles the home page with the online-Bible keywords', () => {
+      service.updateForChapter(aboutBook, 1);
 
       expect(title.getTitle()).toBe(
-        "Bíblia Sagrada Online — Bíblia dos Capuchinhos",
-      )
-    })
+        'Bíblia Sagrada Online — Bíblia dos Capuchinhos'
+      );
+    });
 
-    it("uses the site defaults for the about page", () => {
-      service.updateForChapter(aboutBook, 1)
+    it('uses the site defaults for the about page', () => {
+      service.updateForChapter(aboutBook, 1);
 
-      expect(title.getTitle()).toBe(SEO_HOME_TITLE)
-      expect(getMetaContent('name="description"')).toBe(SEO_DEFAULT_DESCRIPTION)
-      expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/`)
-    })
-  })
+      expect(title.getTitle()).toBe(SEO_HOME_TITLE);
+      expect(getMetaContent('name="description"')).toBe(
+        SEO_DEFAULT_DESCRIPTION
+      );
+      expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/`);
+    });
+  });
 
-  describe("breadcrumb JSON-LD", () => {
+  describe('breadcrumb JSON-LD', () => {
     function getBreadcrumbs(): {
-      itemListElement: { position: number; name: string; item: string }[]
+      itemListElement: {
+        position: number;
+        name: string;
+        item: string;
+      }[];
     } | null {
-      const script = doc.getElementById("seo-breadcrumbs")
-      return script?.textContent ? JSON.parse(script.textContent) : null
+      const script = doc.getElementById('seo-breadcrumbs');
+      return script?.textContent ? JSON.parse(script.textContent) : null;
     }
 
-    it("injects a Home → Book → Chapter BreadcrumbList for a chapter", () => {
-      service.updateForChapter(genesis, 3)
+    it('injects a Home → Book → Chapter BreadcrumbList for a chapter', () => {
+      service.updateForChapter(genesis, 3);
 
-      const breadcrumbs = getBreadcrumbs()
-      expect(breadcrumbs).not.toBeNull()
-      expect(breadcrumbs?.itemListElement.length).toBe(3)
-      expect(breadcrumbs?.itemListElement[0].name).toBe(SEO_SITE_NAME)
-      expect(breadcrumbs?.itemListElement[0].item).toBe(`${SEO_BASE_URL}/`)
-      expect(breadcrumbs?.itemListElement[1].name).toBe("Génesis")
-      expect(breadcrumbs?.itemListElement[1].item).toBe(`${SEO_BASE_URL}/gn/1`)
-      expect(breadcrumbs?.itemListElement[2].name).toBe("Génesis 3")
-      expect(breadcrumbs?.itemListElement[2].item).toBe(`${SEO_BASE_URL}/gn/3`)
-      expect(breadcrumbs?.itemListElement[2].position).toBe(3)
-    })
+      const breadcrumbs = getBreadcrumbs();
+      expect(breadcrumbs).not.toBeNull();
+      expect(breadcrumbs?.itemListElement.length).toBe(3);
+      expect(breadcrumbs?.itemListElement[0].name).toBe(SEO_SITE_NAME);
+      expect(breadcrumbs?.itemListElement[0].item).toBe(`${SEO_BASE_URL}/`);
+      expect(breadcrumbs?.itemListElement[1].name).toBe('Génesis');
+      expect(breadcrumbs?.itemListElement[1].item).toBe(`${SEO_BASE_URL}/gn/1`);
+      expect(breadcrumbs?.itemListElement[2].name).toBe('Génesis 3');
+      expect(breadcrumbs?.itemListElement[2].item).toBe(`${SEO_BASE_URL}/gn/3`);
+      expect(breadcrumbs?.itemListElement[2].position).toBe(3);
+    });
 
     // A standalone introduction has no chapters, and its body is empty until
     // loadGroupIntroBody() fills it. Keying the book crumb off the body alone
     // emitted /pentateuco/1 — a URL with no page — into the JSON-LD.
     it("points a standalone introduction's book crumb at /intro, not /1", () => {
       const standalone = {
-        id: "pentateuco",
-        name: "Introdução ao Pentateuco",
-        shortName: "Introdução ao Pentateuco",
-        abrv: "pentateuco",
+        id: 'pentateuco',
+        name: 'Introdução ao Pentateuco',
+        shortName: 'Introdução ao Pentateuco',
+        abrv: 'pentateuco',
         chapterCount: 0,
         introduction: [],
-        introSlug: "pentateuco",
-      } as unknown as Book
-      bookServiceSpy.getUrlAbrv.and.returnValue("pentateuco")
+        introSlug: 'pentateuco',
+      } as unknown as Book;
+      bookServiceSpy.getUrlAbrv.mockReturnValue('pentateuco');
 
-      service.updateForChapter(standalone, 0)
+      service.updateForChapter(standalone, 0);
 
-      const items = getBreadcrumbs()?.itemListElement ?? []
+      const items = getBreadcrumbs()?.itemListElement ?? [];
       expect(items.map((crumb) => crumb.item)).not.toContain(
-        `${SEO_BASE_URL}/pentateuco/1`,
-      )
+        `${SEO_BASE_URL}/pentateuco/1`
+      );
       expect(items[items.length - 1].item).toBe(
-        `${SEO_BASE_URL}/pentateuco/intro`,
-      )
-    })
+        `${SEO_BASE_URL}/pentateuco/intro`
+      );
+    });
 
     // Books sharing an introduction (1–2 Samuel…) carry `sharedIntroSlug` and
     // an empty body until /intro is visited, yet /1sm/intro is a real page.
     it("points a shared-introduction book's crumb at /intro from a chapter", () => {
       const samuel = {
         ...genesis,
-        id: "1sa",
-        shortName: "1 Samuel",
+        id: '1sa',
+        shortName: '1 Samuel',
         introduction: [],
-        sharedIntroSlug: "samuel",
-      } as Book
-      bookServiceSpy.getUrlAbrv.and.returnValue("1sm")
+        sharedIntroSlug: 'samuel',
+      } as Book;
+      bookServiceSpy.getUrlAbrv.mockReturnValue('1sm');
 
-      service.updateForChapter(samuel, 5)
+      service.updateForChapter(samuel, 5);
 
-      const items = getBreadcrumbs()?.itemListElement ?? []
-      expect(items[1].item).toBe(`${SEO_BASE_URL}/1sm/intro`)
-    })
+      const items = getBreadcrumbs()?.itemListElement ?? [];
+      expect(items[1].item).toBe(`${SEO_BASE_URL}/1sm/intro`);
+    });
 
-    it("escapes < so a name cannot close the script element", () => {
+    it('escapes < so a name cannot close the script element', () => {
       // The payload is baked into prerendered HTML: a name carrying
       // "</script>" would end the JSON-LD block and inject markup.
       service.updateForChapter(
-        { ...genesis, shortName: "Génesis</script><img>" } as Book,
-        3,
-      )
+        { ...genesis, shortName: 'Génesis</script><img>' } as Book,
+        3
+      );
 
-      const raw = doc.getElementById("seo-breadcrumbs")?.textContent ?? ""
-      expect(raw).not.toContain("</script>")
-      expect(raw).toContain("\\u003c/script")
+      const raw = doc.getElementById('seo-breadcrumbs')?.textContent ?? '';
+      expect(raw).not.toContain('</script>');
+      expect(raw).toContain('\\u003c/script');
       // Still valid JSON-LD carrying the original name.
       expect(getBreadcrumbs()?.itemListElement[1].name).toBe(
-        "Génesis</script><img>",
-      )
-    })
+        'Génesis</script><img>'
+      );
+    });
 
-    it("replaces the breadcrumb script on navigation instead of stacking", () => {
-      service.updateForChapter(genesis, 1)
-      service.updateForChapter(genesis, 2)
+    it('replaces the breadcrumb script on navigation instead of stacking', () => {
+      service.updateForChapter(genesis, 1);
+      service.updateForChapter(genesis, 2);
 
-      expect(doc.querySelectorAll("#seo-breadcrumbs").length).toBe(1)
+      expect(doc.querySelectorAll('#seo-breadcrumbs').length).toBe(1);
       expect(getBreadcrumbs()?.itemListElement[2].item).toBe(
-        `${SEO_BASE_URL}/gn/2`,
-      )
-    })
+        `${SEO_BASE_URL}/gn/2`
+      );
+    });
 
-    it("removes the breadcrumb script on search and about pages", () => {
-      service.updateForChapter(genesis, 1)
-      service.updateForSearch()
-      expect(doc.getElementById("seo-breadcrumbs")).toBeNull()
+    it('removes the breadcrumb script on search and about pages', () => {
+      service.updateForChapter(genesis, 1);
+      service.updateForSearch();
+      expect(doc.getElementById('seo-breadcrumbs')).toBeNull();
 
-      service.updateForChapter(genesis, 1)
-      service.updateForChapter(aboutBook, 1)
-      expect(doc.getElementById("seo-breadcrumbs")).toBeNull()
-    })
-  })
+      service.updateForChapter(genesis, 1);
+      service.updateForChapter(aboutBook, 1);
+      expect(doc.getElementById('seo-breadcrumbs')).toBeNull();
+    });
+  });
 
-  describe("updateForBookIndex", () => {
-    it("sets an indexable head at the /livros canonical URL", () => {
+  describe('updateForBookIndex', () => {
+    it('sets an indexable head at the /livros canonical URL', () => {
       // Arrive from search so the noindex tag is actually there to be cleared,
       // rather than asserting the absence of a tag nothing ever set.
-      service.updateForSearch()
-      service.updateForBookIndex()
+      service.updateForSearch();
+      service.updateForBookIndex();
 
-      expect(title.getTitle()).toBe(`${SEO_BOOK_INDEX_NAME} | ${SEO_SITE_NAME}`)
-      expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}${SEO_BOOK_INDEX_PATH}`)
-      expect(meta.getTag('name="robots"')).toBeNull()
+      expect(title.getTitle()).toBe(
+        `${SEO_BOOK_INDEX_NAME} | ${SEO_SITE_NAME}`
+      );
+      expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}${SEO_BOOK_INDEX_PATH}`);
+      expect(meta.getTag('name="robots"')).toBeNull();
       expect(getMetaContent('property="og:url"')).toBe(
-        `${SEO_BASE_URL}${SEO_BOOK_INDEX_PATH}`,
-      )
-    })
+        `${SEO_BASE_URL}${SEO_BOOK_INDEX_PATH}`
+      );
+    });
 
     // The hub sits between the home page and a book, so it needs crumbs of its
     // own rather than the chapter crumbs left over from the previous page.
-    it("injects a Home → Livros BreadcrumbList", () => {
-      service.updateForChapter(genesis, 3)
-      service.updateForBookIndex()
+    it('injects a Home → Livros BreadcrumbList', () => {
+      service.updateForChapter(genesis, 3);
+      service.updateForBookIndex();
 
-      const script = doc.getElementById("seo-breadcrumbs")
+      const script = doc.getElementById('seo-breadcrumbs');
       const breadcrumbs = script?.textContent
         ? (JSON.parse(script.textContent) as {
-            itemListElement: { position: number; name: string; item: string }[]
+            itemListElement: {
+              position: number;
+              name: string;
+              item: string;
+            }[];
           })
-        : null
-      expect(breadcrumbs?.itemListElement.length).toBe(2)
-      expect(breadcrumbs?.itemListElement[1].name).toBe(SEO_BOOK_INDEX_NAME)
+        : null;
+      expect(breadcrumbs?.itemListElement.length).toBe(2);
+      expect(breadcrumbs?.itemListElement[1].name).toBe(SEO_BOOK_INDEX_NAME);
       expect(breadcrumbs?.itemListElement[1].item).toBe(
-        `${SEO_BASE_URL}${SEO_BOOK_INDEX_PATH}`,
-      )
-    })
-  })
+        `${SEO_BASE_URL}${SEO_BOOK_INDEX_PATH}`
+      );
+    });
+  });
 
-  describe("updateForSearch", () => {
-    it("sets a noindex robots tag and the search canonical URL", () => {
-      service.updateForSearch()
+  describe('updateForSearch', () => {
+    it('sets a noindex robots tag and the search canonical URL', () => {
+      service.updateForSearch();
 
-      expect(title.getTitle()).toBe(`Pesquisar | ${SEO_SITE_NAME}`)
-      expect(getMetaContent('name="robots"')).toBe("noindex, follow")
-      expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/search`)
-    })
-  })
-})
+      expect(title.getTitle()).toBe(`Pesquisar | ${SEO_SITE_NAME}`);
+      expect(getMetaContent('name="robots"')).toBe('noindex, follow');
+      expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/search`);
+    });
+  });
+});

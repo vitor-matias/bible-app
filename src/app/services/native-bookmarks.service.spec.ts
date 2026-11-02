@@ -1,73 +1,74 @@
-import { TestBed } from "@angular/core/testing"
-import { BehaviorSubject, Subject } from "rxjs"
-import { BookService } from "./book.service"
-import { BookmarkService } from "./bookmark.service"
+import type { Mock, MockedObject } from 'vitest';
+import { TestBed } from '@angular/core/testing';
+import { BehaviorSubject, Subject } from 'rxjs';
+import { BookService } from './book.service';
+import { BookmarkService } from './bookmark.service';
 import {
   BookmarkRibbonsService,
   RIBBON_COLORS,
   RibbonMove,
   type RibbonState,
-} from "./bookmark-ribbons.service"
-import { NativeBookmarksService } from "./native-bookmarks.service"
-import { NativeChromeService } from "./native-chrome.service"
+} from './bookmark-ribbons.service';
+import { NativeBookmarksService } from './native-bookmarks.service';
+import { NativeChromeService } from './native-chrome.service';
 import type {
   BookmarksSheetState,
   NativeChromeAction,
-} from "./native-chrome.types"
+} from './native-chrome.types';
 
-describe("NativeBookmarksService", () => {
-  let bookmarks: BehaviorSubject<Bookmark[]>
-  let actions: Subject<NativeChromeAction>
+describe('NativeBookmarksService', () => {
+  let bookmarks: BehaviorSubject<Bookmark[]>;
+  let actions: Subject<NativeChromeAction>;
   let nativeChrome: {
-    actions$: Subject<NativeChromeAction>
-    showBookmarks: jasmine.Spy
-    updateBookmarks: jasmine.Spy
-  }
-  let ribbons: jasmine.SpyObj<BookmarkRibbonsService>
-  let service: NativeBookmarksService
+    actions$: Subject<NativeChromeAction>;
+    showBookmarks: Mock;
+    updateBookmarks: Mock;
+  };
+  let ribbons: MockedObject<BookmarkRibbonsService>;
+  let service: NativeBookmarksService;
 
   const markedRed: Bookmark = {
-    bookId: "mat",
+    bookId: 'mat',
     chapter: 5,
-    color: "red",
+    color: 'red',
     timestamp: 1,
-  }
+  };
 
   beforeEach(() => {
-    bookmarks = new BehaviorSubject<Bookmark[]>([markedRed])
-    actions = new Subject()
+    bookmarks = new BehaviorSubject<Bookmark[]>([markedRed]);
+    actions = new Subject();
     nativeChrome = {
       actions$: actions,
-      showBookmarks: jasmine.createSpy("showBookmarks").and.resolveTo(true),
-      updateBookmarks: jasmine.createSpy("updateBookmarks"),
-    }
-    ribbons = jasmine.createSpyObj("BookmarkRibbonsService", [
-      "ribbons",
-      "open",
-      "assign",
-      "remove",
-      "move",
-      "restore",
-      "moveTo",
-    ])
+      showBookmarks: vi.fn().mockName('showBookmarks').mockResolvedValue(true),
+      updateBookmarks: vi.fn().mockName('updateBookmarks'),
+    };
+    ribbons = {
+      ribbons: vi.fn().mockName('BookmarkRibbonsService.ribbons'),
+      open: vi.fn().mockName('BookmarkRibbonsService.open'),
+      assign: vi.fn().mockName('BookmarkRibbonsService.assign'),
+      remove: vi.fn().mockName('BookmarkRibbonsService.remove'),
+      move: vi.fn().mockName('BookmarkRibbonsService.move'),
+      restore: vi.fn().mockName('BookmarkRibbonsService.restore'),
+      moveTo: vi.fn().mockName('BookmarkRibbonsService.moveTo'),
+    };
     // The real move offer, over the spied move and restore.
-    ribbons.moveTo.and.callFake(
+    ribbons.moveTo.mockImplementation(
       (bookId: string, chapter: number) =>
-        new RibbonMove(ribbons, bookId, chapter),
-    )
+        new RibbonMove(ribbons, bookId, chapter)
+    );
     // The real colours; a bookmark labels its ribbon "Mt <chapter>".
-    ribbons.ribbons.and.callFake((list: Bookmark[]) =>
+    ribbons.ribbons.mockImplementation((list: Bookmark[]) =>
       RIBBON_COLORS.map(({ name, value, spoken }): RibbonState => {
-        const bookmark = list.find((b) => b.color === value)
+        const bookmark = list.find((b) => b.color === value);
         return {
           name,
           value,
           spoken,
           bookmark,
           currentRef: bookmark ? `Mt ${bookmark.chapter}` : undefined,
-        }
-      }),
-    )
+        };
+      })
+    );
     TestBed.configureTestingModule({
       providers: [
         { provide: NativeChromeService, useValue: nativeChrome },
@@ -78,221 +79,233 @@ describe("NativeBookmarksService", () => {
         },
         {
           provide: BookService,
-          useValue: { findBookById: () => ({ shortName: "Mateus" }) },
+          useValue: { findBookById: () => ({ shortName: 'Mateus' }) },
         },
       ],
-    })
-    service = TestBed.inject(NativeBookmarksService)
-  })
+    });
+    service = TestBed.inject(NativeBookmarksService);
+  });
 
   const shown = (): BookmarksSheetState =>
-    nativeChrome.showBookmarks.calls.mostRecent().args[0]
+    vi.mocked(nativeChrome.showBookmarks).mock.lastCall[0];
   const updated = (): BookmarksSheetState =>
-    nativeChrome.updateBookmarks.calls.mostRecent().args[0]
+    vi.mocked(nativeChrome.updateBookmarks).mock.lastCall[0];
 
-  it("shows every ribbon, in Portuguese, with the passage it marks", () => {
-    service.open("mat", 11)
+  it('shows every ribbon, in Portuguese, with the passage it marks', () => {
+    service.open('mat', 11);
 
-    const state = shown()
-    expect(state.currentLabel).toBe("Mateus 11")
-    expect(state.ribbons.length).toBe(8)
+    const state = shown();
+    expect(state.currentLabel).toBe('Mateus 11');
+    expect(state.ribbons.length).toBe(8);
     expect(state.ribbons[0]).toEqual({
-      color: "red",
-      name: "Vermelho",
-      label: "Mt 5",
+      color: 'red',
+      name: 'Vermelho',
+      label: 'Mt 5',
       current: false,
-    })
+    });
     expect(state.ribbons[1]).toEqual({
-      color: "orange",
-      name: "Laranja",
+      color: 'orange',
+      name: 'Laranja',
       label: null,
       current: false,
-    })
-  })
+    });
+  });
 
-  it("names a psalm as the passage button does", () => {
+  it('names a psalm as the passage button does', () => {
     TestBed.inject(BookService).findBookById = () =>
-      ({ id: "psa", shortName: "Salmos" }) as Book
-    service.open("psa", 96)
-    expect(shown().currentLabel).toBe("Salmo 96 (95)")
-  })
+      ({ id: 'psa', shortName: 'Salmos' } as Book);
+    service.open('psa', 96);
+    expect(shown().currentLabel).toBe('Salmo 96 (95)');
+  });
 
-  it("names the introduction as the chapter", () => {
-    service.open("mat", 0)
-    expect(shown().currentLabel).toBe("Mateus Introdução")
-  })
+  it('names the introduction as the chapter', () => {
+    service.open('mat', 0);
+    expect(shown().currentLabel).toBe('Mateus Introdução');
+  });
 
   // The sheet offered to mark "Sobre a Bíblia 1": a page with no chapters,
   // where a ribbon leads nowhere to read. Its ribbons still open.
-  it("marks nothing on the About page, named as a page", () => {
+  it('marks nothing on the About page, named as a page', () => {
     TestBed.inject(BookService).findBookById = () =>
-      ({ id: "about", shortName: "Sobre a Bíblia" }) as Book
-    service.open("about", 1)
+      ({ id: 'about', shortName: 'Sobre a Bíblia' } as Book);
+    service.open('about', 1);
 
-    expect(shown().currentLabel).toBe("Sobre a Bíblia")
-    expect(shown().canMark).toBeFalse()
-    expect(shown().move).toBeNull()
+    expect(shown().currentLabel).toBe('Sobre a Bíblia');
+    expect(shown().canMark).toBe(false);
+    expect(shown().move).toBeNull();
 
-    actions.next({ id: "bookmark-set", color: "orange" })
-    expect(ribbons.assign).not.toHaveBeenCalled()
+    actions.next({ id: 'bookmark-set', color: 'orange' });
+    expect(ribbons.assign).not.toHaveBeenCalled();
     // Android offered "Mover para Sobre a Bíblia", which lost the place read.
-    actions.next({ id: "bookmark-move", color: "red" })
-    expect(ribbons.move).not.toHaveBeenCalled()
-    actions.next({ id: "bookmark-open", color: "red" })
-    expect(ribbons.open).toHaveBeenCalled()
-  })
+    actions.next({ id: 'bookmark-move', color: 'red' });
+    expect(ribbons.move).not.toHaveBeenCalled();
+    actions.next({ id: 'bookmark-open', color: 'red' });
+    expect(ribbons.open).toHaveBeenCalled();
+  });
 
-  it("marks the ribbon on the chapter being read", () => {
-    service.open("mat", 5)
-    expect(shown().ribbons[0].current).toBeTrue()
-  })
+  it('marks the ribbon on the chapter being read', () => {
+    service.open('mat', 5);
+    expect(shown().ribbons[0].current).toBe(true);
+  });
 
-  it("refreshes the open sheet when the bookmarks change", () => {
-    service.open("mat", 11)
+  it('refreshes the open sheet when the bookmarks change', () => {
+    service.open('mat', 11);
     bookmarks.next([
       markedRed,
-      { bookId: "mat", chapter: 11, color: "blue", timestamp: 2 },
-    ])
+      { bookId: 'mat', chapter: 11, color: 'blue', timestamp: 2 },
+    ]);
 
-    expect(nativeChrome.showBookmarks).toHaveBeenCalledTimes(1)
-    const blue = updated().ribbons.find((r) => r.color === "blue")
+    expect(nativeChrome.showBookmarks).toHaveBeenCalledTimes(1);
+    const blue = updated().ribbons.find((r) => r.color === 'blue');
     expect(blue).toEqual({
-      color: "blue",
-      name: "Azul",
-      label: "Mt 11",
+      color: 'blue',
+      name: 'Azul',
+      label: 'Mt 11',
       current: true,
-    })
-  })
+    });
+  });
 
-  it("opens, marks and removes through the shared ribbon rules", () => {
-    service.open("mat", 11)
-    actions.next({ id: "bookmark-open", color: "red" })
-    actions.next({ id: "bookmark-set", color: "blue" })
-    actions.next({ id: "bookmark-remove", color: "red" })
+  it('opens, marks and removes through the shared ribbon rules', () => {
+    service.open('mat', 11);
+    actions.next({ id: 'bookmark-open', color: 'red' });
+    actions.next({ id: 'bookmark-set', color: 'blue' });
+    actions.next({ id: 'bookmark-remove', color: 'red' });
 
     expect(ribbons.open).toHaveBeenCalledWith(
-      jasmine.objectContaining({ value: "red" }),
-    )
-    expect(ribbons.assign).toHaveBeenCalledWith("blue", "mat", 11)
+      expect.objectContaining({ value: 'red' })
+    );
+    expect(ribbons.assign).toHaveBeenCalledWith('blue', 'mat', 11);
     expect(ribbons.remove).toHaveBeenCalledWith(
-      jasmine.objectContaining({ value: "red" }),
-    )
-  })
+      expect.objectContaining({ value: 'red' })
+    );
+  });
 
-  it("offers to move the ribbon read on from to this chapter", () => {
-    service.open("mat", 7)
+  it('offers to move the ribbon read on from to this chapter', () => {
+    service.open('mat', 7);
     expect(shown().move).toEqual({
-      color: "red",
-      name: "vermelho",
-      from: "Mateus 5",
+      color: 'red',
+      name: 'vermelho',
+      from: 'Mateus 5',
       done: false,
-    })
-  })
+    });
+  });
 
-  it("offers no move when the chapter carries the ribbon", () => {
-    service.open("mat", 5)
-    expect(shown().move).toBeNull()
-  })
+  it('offers no move when the chapter carries the ribbon', () => {
+    service.open('mat', 5);
+    expect(shown().move).toBeNull();
+  });
 
-  it("moves the ribbon, then offers to undo the move", () => {
-    ribbons.move.and.returnValue(markedRed)
-    service.open("mat", 7)
-    actions.next({ id: "bookmark-move", color: "red" })
-    bookmarks.next([{ ...markedRed, chapter: 7, timestamp: 2 }])
+  it('moves the ribbon, then offers to undo the move', () => {
+    ribbons.move.mockReturnValue(markedRed);
+    service.open('mat', 7);
+    actions.next({ id: 'bookmark-move', color: 'red' });
+    bookmarks.next([{ ...markedRed, chapter: 7, timestamp: 2 }]);
 
-    expect(ribbons.move).toHaveBeenCalledOnceWith(
-      jasmine.objectContaining({ value: "red" }),
-      "mat",
-      7,
-    )
+    expect(ribbons.move).toHaveBeenCalledTimes(1);
+
+    expect(ribbons.move).toHaveBeenCalledWith(
+      expect.objectContaining({ value: 'red' }),
+      'mat',
+      7
+    );
     expect(updated().move).toEqual({
-      color: "red",
-      name: "vermelho",
-      from: "Mateus 5",
+      color: 'red',
+      name: 'vermelho',
+      from: 'Mateus 5',
       done: true,
-    })
+    });
 
-    actions.next({ id: "bookmark-undo", color: "red" })
-    bookmarks.next([markedRed])
+    actions.next({ id: 'bookmark-undo', color: 'red' });
+    bookmarks.next([markedRed]);
 
-    expect(ribbons.restore).toHaveBeenCalledOnceWith(markedRed)
-    expect(updated().move?.done).toBeFalse()
-  })
+    expect(ribbons.restore).toHaveBeenCalledTimes(1);
 
-  it("keeps the undo when a later move does nothing", () => {
-    ribbons.move.and.returnValues(markedRed, undefined)
-    service.open("mat", 7)
-    actions.next({ id: "bookmark-move", color: "red" })
-    actions.next({ id: "bookmark-move", color: "blue" })
-    actions.next({ id: "bookmark-undo", color: "red" })
+    expect(ribbons.restore).toHaveBeenCalledWith(markedRed);
+    expect(updated().move?.done).toBe(false);
+  });
 
-    expect(ribbons.restore).toHaveBeenCalledOnceWith(markedRed)
-  })
+  it('keeps the undo when a later move does nothing', () => {
+    ribbons.move.mockReturnValueOnce(markedRed).mockReturnValueOnce(undefined);
+    service.open('mat', 7);
+    actions.next({ id: 'bookmark-move', color: 'red' });
+    actions.next({ id: 'bookmark-move', color: 'blue' });
+    actions.next({ id: 'bookmark-undo', color: 'red' });
 
-  it("undoes the latest of two moves", () => {
-    const markedBlue: Bookmark = { ...markedRed, chapter: 2, color: "blue" }
-    bookmarks.next([markedRed, markedBlue])
-    ribbons.move.and.returnValues(markedRed, markedBlue)
-    service.open("mat", 7)
-    actions.next({ id: "bookmark-move", color: "red" })
-    actions.next({ id: "bookmark-move", color: "blue" })
-    actions.next({ id: "bookmark-undo", color: "blue" })
+    expect(ribbons.restore).toHaveBeenCalledTimes(1);
 
-    expect(ribbons.restore).toHaveBeenCalledOnceWith(markedBlue)
-  })
+    expect(ribbons.restore).toHaveBeenCalledWith(markedRed);
+  });
 
-  it("undoes only a move made in this sheet", () => {
-    service.open("mat", 7)
-    actions.next({ id: "bookmark-undo", color: "red" })
-    expect(ribbons.restore).not.toHaveBeenCalled()
-  })
+  it('undoes the latest of two moves', () => {
+    const markedBlue: Bookmark = { ...markedRed, chapter: 2, color: 'blue' };
+    bookmarks.next([markedRed, markedBlue]);
+    ribbons.move.mockReturnValueOnce(markedRed).mockReturnValueOnce(markedBlue);
+    service.open('mat', 7);
+    actions.next({ id: 'bookmark-move', color: 'red' });
+    actions.next({ id: 'bookmark-move', color: 'blue' });
+    actions.next({ id: 'bookmark-undo', color: 'blue' });
 
-  it("stops once the sheet is closed", async () => {
-    service.open("mat", 11)
-    await new Promise((resolve) => setTimeout(resolve))
-    actions.next({ id: "bookmarks-closed" })
-    bookmarks.next([])
-    actions.next({ id: "bookmark-set", color: "blue" })
+    expect(ribbons.restore).toHaveBeenCalledTimes(1);
 
-    expect(nativeChrome.updateBookmarks).not.toHaveBeenCalled()
-    expect(ribbons.assign).not.toHaveBeenCalled()
-  })
+    expect(ribbons.restore).toHaveBeenCalledWith(markedBlue);
+  });
+
+  it('undoes only a move made in this sheet', () => {
+    service.open('mat', 7);
+    actions.next({ id: 'bookmark-undo', color: 'red' });
+    expect(ribbons.restore).not.toHaveBeenCalled();
+  });
+
+  it('stops once the sheet is closed', async () => {
+    service.open('mat', 11);
+    await new Promise((resolve) => setTimeout(resolve));
+    actions.next({ id: 'bookmarks-closed' });
+    bookmarks.next([]);
+    actions.next({ id: 'bookmark-set', color: 'blue' });
+
+    expect(nativeChrome.updateBookmarks).not.toHaveBeenCalled();
+    expect(ribbons.assign).not.toHaveBeenCalled();
+  });
 
   // Opened while the last sheet was closing: the shell presents this one
   // once that one has gone, and the last one's close came in between.
   it("keeps going through the closing sheet's bookmarks-closed", async () => {
-    let answer: (presented: boolean) => void = () => {}
-    nativeChrome.showBookmarks.and.returnValue(
+    let answer: (presented: boolean) => void = () => {};
+    nativeChrome.showBookmarks.mockReturnValue(
       new Promise<boolean>((resolve) => {
-        answer = resolve
-      }),
-    )
-    service.open("mat", 11)
-    actions.next({ id: "bookmarks-closed" })
-    answer(true)
-    await new Promise((resolve) => setTimeout(resolve))
-    actions.next({ id: "bookmark-set", color: "blue" })
+        answer = resolve;
+      })
+    );
+    service.open('mat', 11);
+    actions.next({ id: 'bookmarks-closed' });
+    answer(true);
+    await new Promise((resolve) => setTimeout(resolve));
+    actions.next({ id: 'bookmark-set', color: 'blue' });
 
-    expect(ribbons.assign).toHaveBeenCalledOnceWith("blue", "mat", 11)
-  })
+    expect(ribbons.assign).toHaveBeenCalledTimes(1);
+
+    expect(ribbons.assign).toHaveBeenCalledWith('blue', 'mat', 11);
+  });
 
   // Over another sheet none comes up, and no bookmarks-closed would follow.
-  it("stops when no sheet came up", async () => {
-    nativeChrome.showBookmarks.and.resolveTo(false)
-    service.open("mat", 11)
-    await new Promise((resolve) => setTimeout(resolve))
-    bookmarks.next([])
-    actions.next({ id: "bookmark-set", color: "blue" })
+  it('stops when no sheet came up', async () => {
+    nativeChrome.showBookmarks.mockResolvedValue(false);
+    service.open('mat', 11);
+    await new Promise((resolve) => setTimeout(resolve));
+    bookmarks.next([]);
+    actions.next({ id: 'bookmark-set', color: 'blue' });
 
-    expect(nativeChrome.updateBookmarks).not.toHaveBeenCalled()
-    expect(ribbons.assign).not.toHaveBeenCalled()
-  })
+    expect(nativeChrome.updateBookmarks).not.toHaveBeenCalled();
+    expect(ribbons.assign).not.toHaveBeenCalled();
+  });
 
-  it("follows only the latest sheet", () => {
-    service.open("mat", 11)
-    service.open("mat", 12)
-    actions.next({ id: "bookmark-set", color: "blue" })
+  it('follows only the latest sheet', () => {
+    service.open('mat', 11);
+    service.open('mat', 12);
+    actions.next({ id: 'bookmark-set', color: 'blue' });
 
-    expect(ribbons.assign).toHaveBeenCalledOnceWith("blue", "mat", 12)
-  })
-})
+    expect(ribbons.assign).toHaveBeenCalledTimes(1);
+
+    expect(ribbons.assign).toHaveBeenCalledWith('blue', 'mat', 12);
+  });
+});
