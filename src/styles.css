@@ -750,10 +750,10 @@ html.dark-theme .platform-ios.native-chrome app-search {
   display: none;
 }
 
-/* The policy is long: its dialog stays clear of the status bar and scrolls within. */
+/* The policy is long: its dialog stays clear of the native bars and scrolls within. */
 .privacy-dialog-panel {
-  --privacy-inset-top: var(--safe-area-inset-top, env(safe-area-inset-top));
-  --privacy-inset-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom));
+  --privacy-inset-top: var(--native-chrome-top, var(--safe-area-inset-top, env(safe-area-inset-top)));
+  --privacy-inset-bottom: var(--native-chrome-bottom, var(--safe-area-inset-bottom, env(safe-area-inset-bottom)));
   max-height: calc(100dvh - var(--privacy-inset-top) - var(--privacy-inset-bottom) - 16px) !important;
   margin-top: var(--privacy-inset-top);
   margin-bottom: var(--privacy-inset-bottom);
