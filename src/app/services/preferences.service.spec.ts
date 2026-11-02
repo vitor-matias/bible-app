@@ -98,6 +98,9 @@ describe("PreferencesService", () => {
 
     expect(() => service.setNativeBarsOnboardingSeen(true)).not.toThrow()
     expect(() => service.clearFontSize("reader")).not.toThrow()
+    // The reader reads this before it loads anything; a throw would stop it.
+    expect(() => service.setCardsView(true)).not.toThrow()
+    expect(service.getCardsView()).toBe(false)
     expect(service.getFontSize("reader")).toBeNull()
     // Seen, as with no storage: the wizard does not reopen on every launch.
     expect(service.getOnboardingSeen()).toBe(true)

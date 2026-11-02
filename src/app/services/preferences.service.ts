@@ -138,11 +138,11 @@ export class PreferencesService {
 
   /** BibleScroll, the experimental one-verse-per-card view, layered over the view mode. */
   getCardsView(): boolean {
-    return this.storage?.getItem(this.KEYS.CARDS_VIEW) === "true"
+    return this.read(this.KEYS.CARDS_VIEW) === "true"
   }
 
   setCardsView(enabled: boolean): void {
-    this.storage?.setItem(this.KEYS.CARDS_VIEW, enabled.toString())
+    this.write(this.KEYS.CARDS_VIEW, enabled.toString())
   }
 
   /**
