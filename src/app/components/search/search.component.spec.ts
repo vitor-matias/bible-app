@@ -303,6 +303,25 @@ describe("SearchComponent", () => {
       expect(component.meaningSearchConsent).toBe(true)
     })
 
+    it("can be withdrawn without a connection", () => {
+      component.setMeaningSearch(true)
+      component.offline = true
+      component.searchTerm = ""
+      fixture.detectChanges()
+
+      const status = fixture.nativeElement.querySelector(".meaning-status")
+      status.querySelector("button").click()
+      expect(localStorage.getItem("meaningSearchConsent")).toBe("false")
+    })
+
+    it("redoes a search on screen as a word search, even if it names a book", () => {
+      const submit = vi.spyOn(component, "onSearchSubmit")
+      component.searchTerm = "Sabedoria"
+      component.setMeaningSearch(true)
+
+      expect(submit).toHaveBeenCalledWith("Sabedoria", { typed: true })
+    })
+
     it("asks only while unanswered", () => {
       component.meaningSearchConsent = null
       fixture.detectChanges()

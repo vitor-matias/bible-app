@@ -30,7 +30,7 @@
         <button type="button" class="meaning-consent-allow" (click)="setMeaningSearch(true)">Ativar</button>
       </div>
     </section>
-  } @else if (!offline) {
+  } @else if (meaningSearchConsent !== null) {
     <p class="meaning-status">
       Pesquisa por significado {{ meaningSearchConsent ? "ativa" : "desativada" }} ·
       <button type="button" class="link-button" (click)="setMeaningSearch(!meaningSearchConsent)">

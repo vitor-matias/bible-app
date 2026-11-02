@@ -745,7 +745,9 @@ export class SearchComponent {
     this.preferences.setMeaningSearchConsent(allowed)
     this.meaningSearchConsent = allowed
     this.cdr.detectChanges()
-    if (this.searchTerm) void this.onSearchSubmit(this.searchTerm)
+    // Typed: searchTerm is a word search, even when it names a book.
+    if (this.searchTerm)
+      void this.onSearchSubmit(this.searchTerm, { typed: true })
   }
 
   openPrivacyPolicy(): void {
