@@ -57,7 +57,7 @@
     "@capacitor/assets": "^4.0.0",
     "@capacitor/cli": "^8.5.2",
     "@playwright/test": "^1.62.1",
-    "@types/jasmine": "~6.0.0",
+    "@types/jasmine": "~7.0.0",
     "@types/node": "^26.2.0",
     "baseline-browser-mapping": "^2.11.34",
     "istanbul-lib-instrument": "^6.0.3",
