@@ -240,7 +240,7 @@
 
   @case ('search') {
   <div class="tab-body" role="tabpanel" id="study-tabpanel-search" aria-labelledby="study-tab-search">
-    <!-- Enter rather than as-you-type: this search goes to the server. -->
+    <!-- Enter rather than as-you-type: online, this search goes to the server. -->
     <div class="note-search">
       <label class="note-label" for="study-search">Procurar na Bíblia</label>
       <input id="study-search" name="procurar" autocomplete="off" spellcheck="false"
@@ -249,15 +249,15 @@
         (keydown.enter)="onSearchSubmit($any($event.target).value)" />
     </div>
 
-    @if (offline) {
-    <p class="panel-empty small">A pesquisa precisa de ligação à internet.</p>
-    } @else {
     @switch (searchState) {
     @case ('searching') {
     <p class="panel-empty small">A procurar…</p>
     }
     @case ('failed') {
     <p class="panel-empty small">Não foi possível procurar agora.</p>
+    }
+    @case ('nothingStored') {
+    <p class="panel-empty small">{{ nothingStoredMessage }}</p>
     }
     @case ('missing') {
     <p class="panel-empty small">«{{ searchQuery }}» não existe: o capítulo ou o versículo não estão nesse livro.</p>
@@ -285,7 +285,6 @@
     }
     @default {
     <p class="panel-empty small">Um versículo, um livro ou uma referência.</p>
-    }
     }
     }
   </div>

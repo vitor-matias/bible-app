@@ -98,6 +98,10 @@ export type ParallelRequest = {
 /** How far a panel-width list of results is worth going. */
 const SEARCH_RESULT_LIMIT = 30
 
+/** The same words the search page gives when offline with no Bible stored. */
+const NOTHING_STORED =
+  "Sem ligação, e a Bíblia ainda não está guardada neste dispositivo. Abra a app uma vez com ligação para a guardar."
+
 /**
  * How many verses of a cited passage the panel quotes. Enough to recognise
  * the passage and read the thought it opens with; past that it is no longer
@@ -242,7 +246,14 @@ export class StudyPanelComponent implements OnChanges {
   noteDraft = ""
   searchQuery = ""
   searchResults: SearchHit[] = []
-  searchState: "idle" | "searching" | "done" | "failed" | "missing" = "idle"
+  searchState:
+    | "idle"
+    | "searching"
+    | "done"
+    | "failed"
+    | "missing"
+    | "nothingStored" = "idle"
+  readonly nothingStoredMessage = NOTHING_STORED
   searchTotal = 0
   /** The search is the API's, so it is the one thing here that needs the net. */
   offline = false
@@ -684,9 +695,9 @@ export class StudyPanelComponent implements OnChanges {
     this.cdr.markForCheck()
 
     // A reference, or a book's name, is somewhere to go rather than words to
-    // look for. The search service says which, for this box and the search
-    // page alike: this one used to have a copy of its own, which did not
-    // know, so "Mt 22,37" listed verses with a 22 in them.
+    // look for. The search service says which: this box used to have a copy
+    // of its own, which did not know, so "Mt 22,37" listed verses with a 22
+    // in them.
     this.searchSubscription = this.searchService
       .run(query, SEARCH_RESULT_LIMIT)
       .subscribe({
@@ -700,6 +711,9 @@ export class StudyPanelComponent implements OnChanges {
           } else if (outcome.kind === "missing") {
             this.searchState = "missing"
             void this.announcer.announce(`${query} não existe.`)
+          } else if (outcome.kind === "nothingStored") {
+            this.searchState = "nothingStored"
+            void this.announcer.announce(NOTHING_STORED)
           } else {
             this.searchTotal = outcome.total
             this.searchResults = outcome.hits

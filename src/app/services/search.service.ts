@@ -1,6 +1,7 @@
 import { Injectable, inject } from "@angular/core"
 import {
   catchError,
+  from,
   map,
   type Observable,
   of,
@@ -9,10 +10,12 @@ import {
   throwError,
   timeout,
 } from "rxjs"
-import { highlightSegments } from "../utils/text"
+import { highlightWords, verseText } from "../utils/text-search"
 import { BibleApiService } from "./bible-api.service"
 import { BibleReferenceService } from "./bible-reference.service"
 import { BookService } from "./book.service"
+import { NetworkService } from "./network.service"
+import { OfflineSearchService } from "./offline-search.service"
 
 /** How long results wait for the book list before going without it. */
 const BOOK_LIST_PATIENCE_MS = 4000
@@ -38,7 +41,7 @@ export type SearchResults = {
 
 /**
  * What came of a search: somewhere to go, a reference to somewhere that is
- * not there, or verses found.
+ * not there, verses found, or — offline — no Bible stored to look in.
  */
 export type SearchOutcome =
   | {
@@ -47,24 +50,25 @@ export type SearchOutcome =
       queryParams?: { verseStart: Verse["number"] }
     }
   | { kind: "missing" }
+  | { kind: "nothingStored" }
   | SearchResults
 
 /**
- * The app's search, whichever box it is typed into.
+ * The study panel's search: a reference to go to, or words to look for.
  *
- * There are two — the search page and a tab of the study panel — and they had
- * a copy each, which came apart the way copies do: only one of them knew a
- * reference from words to look for, they linked to the same chapter by two
- * different URLs, and one of them showed a verse of a psalm as no text at all,
- * its copy of "the words of a verse" having left poetry out. What a search
- * means is decided here; what each box does with the answer — a snackbar or
- * a line in a column, a page of results or an endless list — stays with it.
+ * The search page has its own flow — paging, suggestions, the psalms' double
+ * numbering — and does not use this. What the two share is the word matching
+ * in utils/text-search (a verse's words, what to mark), so a hit reads the
+ * same in both; a copy of that here once showed a psalm's verse as no text at
+ * all, and put a space before the comma after "Senhor".
  */
 @Injectable({ providedIn: "root" })
 export class SearchService {
   private readonly api = inject(BibleApiService)
   private readonly references = inject(BibleReferenceService)
   private readonly books = inject(BookService)
+  private readonly network = inject(NetworkService)
+  private readonly offlineSearch = inject(OfflineSearchService)
 
   /**
    * Runs a search. A reference ("Mt 22,37"), or a book by name, is somewhere
@@ -105,8 +109,13 @@ export class SearchService {
     )
   }
 
-  /** One page of the text search's results. */
-  page(query: string, page: number, limit?: number): Observable<SearchResults> {
+  /**
+   * One page of the text search's results. Offline, the server's search by
+   * meaning is out of reach, and the words are looked for in the Bible kept on
+   * the device instead, as the search page does.
+   */
+  page(query: string, page: number, limit?: number): Observable<SearchOutcome> {
+    if (this.network.isOffline) return this.stored(query, limit)
     const request =
       limit === undefined
         ? this.api.search(query, page)
@@ -124,6 +133,25 @@ export class SearchService {
         total: results.total,
         hits: results.verses.map((verse) => this.toHit(verse, query)),
       })),
+    )
+  }
+
+  /** The words of the query in the stored Bible: its first page, or none. */
+  private stored(query: string, limit?: number): Observable<SearchOutcome> {
+    return from(this.offlineSearch.search(query)).pipe(
+      map((matches) =>
+        matches === null
+          ? { kind: "nothingStored" as const }
+          : {
+              kind: "results" as const,
+              query,
+              page: 1,
+              total: matches.length,
+              hits: matches
+                .slice(0, limit ?? matches.length)
+                .map((verse) => this.toHit(verse, query)),
+            },
+      ),
     )
   }
 
@@ -154,30 +182,8 @@ export class SearchService {
         this.books.getChapterUrlSegment(verse.chapterNumber),
       ],
       queryParams: { verseStart: verse.number },
-      highlightedSegments: highlightSegments(
-        SearchService.wordsOf(verse),
-        query,
-      ),
+      highlightedSegments: highlightWords(verseText(verse), query),
     }
-  }
-
-  /**
-   * The words of a verse as one line: prose, poetry and paragraph openings,
-   * without headings or apparatus, and without the zero-width characters the
-   * edition uses to hang poetry from.
-   */
-  static wordsOf(verse: Verse): string {
-    return (verse.text ?? [])
-      .filter(
-        (part) =>
-          part.type === "text" ||
-          part.type === "quote" ||
-          part.type === "paragraph",
-      )
-      .map((part) => part.text.replace(/[​-‍﻿]/g, ""))
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim()
   }
 
   /** HttpErrorResponse is not guaranteed here, so the shape is narrowed. */

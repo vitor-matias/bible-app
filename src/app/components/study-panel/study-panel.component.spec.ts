@@ -14,7 +14,9 @@ import {
 } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { HighlightService } from "../../services/highlight.service"
+import { NetworkService } from "../../services/network.service"
 import { NotesService } from "../../services/notes.service"
+import { OfflineSearchService } from "../../services/offline-search.service"
 import { ReverseReferencesService } from "../../services/reverse-references.service"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import {
@@ -1490,6 +1492,47 @@ describe("StudyPanelComponent", () => {
 
       expect(api.search).toHaveBeenCalled()
       expect(router.navigate).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("searching with no connection", () => {
+    beforeEach(() => {
+      vi.spyOn(
+        TestBed.inject(NetworkService),
+        "isOffline",
+        "get",
+      ).mockReturnValue(true)
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [] },
+      })
+    })
+
+    it("looks in the Bible kept on the device rather than refusing", async () => {
+      vi.spyOn(
+        TestBed.inject(OfflineSearchService),
+        "search",
+      ).mockResolvedValue([verse(37, [plain("Amarás o Senhor")])])
+
+      component.onSearchSubmit("amarás")
+
+      await vi.waitFor(() => expect(component.searchState).toBe("done"))
+      expect(api.search).not.toHaveBeenCalled()
+      expect(component.searchResults).toHaveLength(1)
+    })
+
+    it("says so when no Bible is kept on the device", async () => {
+      vi.spyOn(
+        TestBed.inject(OfflineSearchService),
+        "search",
+      ).mockResolvedValue(null)
+
+      component.onSearchSubmit("amarás")
+
+      await vi.waitFor(() =>
+        expect(component.searchState).toBe("nothingStored"),
+      )
+      expect(component.searchResults).toEqual([])
     })
   })
 

@@ -4,6 +4,8 @@ import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { BibleApiService } from "./bible-api.service"
 import { BibleReferenceService } from "./bible-reference.service"
 import { BookService } from "./book.service"
+import { NetworkService } from "./network.service"
+import { OfflineSearchService } from "./offline-search.service"
 import { SearchService } from "./search.service"
 
 const MATTHEW = { id: "mat", abrv: "Mt", shortName: "Mateus" } as Book
@@ -19,6 +21,8 @@ describe("SearchService", () => {
   let api: SpyObj<BibleApiService>
   let references: SpyObj<BibleReferenceService>
   let booksLoaded: ReplaySubject<Book[]>
+  let network: { isOffline: boolean }
+  let offline: SpyObj<OfflineSearchService>
 
   beforeEach(() => {
     booksLoaded = new ReplaySubject<Book[]>(1)
@@ -31,6 +35,10 @@ describe("SearchService", () => {
       "destinationOf",
     ])
     references.destinationOf.mockReturnValue(null)
+    network = { isOffline: false }
+    offline = createSpyObj<OfflineSearchService>("OfflineSearchService", [
+      "search",
+    ])
     const books = createSpyObj<BookService>(
       "BookService",
       ["findBook", "getUrlAbrv", "getChapterUrlSegment"],
@@ -48,6 +56,8 @@ describe("SearchService", () => {
         { provide: BibleApiService, useValue: api },
         { provide: BibleReferenceService, useValue: references },
         { provide: BookService, useValue: books },
+        { provide: NetworkService, useValue: network },
+        { provide: OfflineSearchService, useValue: offline },
       ],
     })
     service = TestBed.inject(SearchService)
@@ -169,6 +179,8 @@ describe("SearchService", () => {
           { provide: BibleApiService, useValue: api },
           { provide: BibleReferenceService, useValue: references },
           { provide: BookService, useValue: books },
+          { provide: NetworkService, useValue: network },
+          { provide: OfflineSearchService, useValue: offline },
         ],
       })
       let listed = 0
@@ -182,21 +194,126 @@ describe("SearchService", () => {
     })
   })
 
-  it("reads the words of a verse of poetry", () => {
-    // The search page's own copy of this took prose only, so a verse of a
-    // psalm — poetry from its first word — was listed with no text at all.
-    const psalm = {
-      text: [
-        { type: "quote", text: "​", identLevel: 1 },
-        { type: "text", text: "Feliz o homem " },
-        { type: "section", tag: "s1", text: "Um título" },
-        { type: "quote", text: "que não segue o conselho", identLevel: 1 },
-        { type: "footnote", text: "nota", reference: "1,1" },
-      ],
-    } as Verse
+  describe("what a hit says", () => {
+    const hitFor = async (verse: Verse): Promise<string> => {
+      api.search.mockReturnValue(
+        of({ verses: [verse], total: 1, currentPage: 1, totalPages: 1 }),
+      )
+      const outcome = await firstValueFrom(service.run("amarás"))
+      if (outcome.kind !== "results") throw new Error("expected results")
+      return outcome.hits[0].highlightedSegments
+        .map((segment) => segment.text)
+        .join("")
+    }
 
-    expect(SearchService.wordsOf(psalm)).toBe(
-      "Feliz o homem que não segue o conselho",
-    )
+    it("reads the words of a verse of poetry", async () => {
+      // The search page's own copy of this took prose only, so a verse of a
+      // psalm — poetry from its first word — was listed with no text at all.
+      const psalm = {
+        bookId: "mat",
+        chapterNumber: 1,
+        number: 1,
+        text: [
+          { type: "quote", text: "​", identLevel: 1 },
+          { type: "text", text: "Feliz o homem " },
+          { type: "section", tag: "s1", text: "Um título" },
+          { type: "quote", text: "que não segue o conselho", identLevel: 1 },
+          { type: "footnote", text: "nota", reference: "1,1" },
+        ],
+      } as Verse
+
+      expect(await hitFor(psalm)).toBe("Feliz o homem que não segue o conselho")
+    })
+
+    it("sets no space before the punctuation after a run of its own", async () => {
+      // The edition prints "Senhor" as a run of its own, in small capitals:
+      // joined with spaces, the comma after it came out as "Senhor , teu".
+      const verse = {
+        bookId: "mat",
+        chapterNumber: 22,
+        number: 37,
+        text: [
+          { type: "text", text: "Amarás o " },
+          { type: "text", text: "Senhor" },
+          { type: "text", text: ", teu Deus" },
+        ],
+      } as Verse
+
+      expect(await hitFor(verse)).toBe("Amarás o Senhor, teu Deus")
+    })
+
+    it("marks the words typed, accents and case aside", async () => {
+      api.search.mockReturnValue(
+        of({
+          verses: [
+            {
+              bookId: "mat",
+              chapterNumber: 22,
+              number: 37,
+              text: [{ type: "text", text: "Amarás ao Senhor, teu Deus" }],
+            } as Verse,
+          ],
+          total: 1,
+          currentPage: 1,
+          totalPages: 1,
+        }),
+      )
+
+      const outcome = await firstValueFrom(service.run("AMARAS senhor"))
+
+      if (outcome.kind !== "results") throw new Error("expected results")
+      expect(
+        outcome.hits[0].highlightedSegments
+          .filter((segment) => segment.highlight)
+          .map((segment) => segment.text),
+      ).toEqual(["Amarás", "Senhor"])
+    })
+  })
+
+  describe("with no connection", () => {
+    const stored = (number: number): Verse =>
+      ({
+        bookId: "mat",
+        chapterNumber: 22,
+        number,
+        text: [{ type: "text", text: `Amarás ${number}` }],
+      }) as Verse
+
+    beforeEach(() => {
+      network.isOffline = true
+    })
+
+    it("looks for the words in the Bible kept on the device", async () => {
+      offline.search.mockResolvedValue([stored(37), stored(38), stored(39)])
+
+      const outcome = await firstValueFrom(service.run("amarás", 2))
+
+      expect(api.search).not.toHaveBeenCalled()
+      expect(offline.search).toHaveBeenCalledExactlyOnceWith("amarás")
+      // A page of them, and the count of all.
+      if (outcome.kind !== "results") throw new Error("expected results")
+      expect(outcome.total).toBe(3)
+      expect(outcome.hits.map((hit) => hit.number)).toEqual([37, 38])
+    })
+
+    it("says so when no Bible is kept there", async () => {
+      offline.search.mockResolvedValue(null)
+
+      expect(await firstValueFrom(service.run("amarás"))).toEqual({
+        kind: "nothingStored",
+      })
+    })
+
+    it("still answers a reference as somewhere to go", async () => {
+      references.destinationOf.mockReturnValue({
+        book: PENTATEUCH,
+        chapter: 1,
+      })
+
+      const outcome = await firstValueFrom(service.run("Pentateuco"))
+
+      expect(outcome.kind).toBe("destination")
+      expect(offline.search).not.toHaveBeenCalled()
+    })
   })
 })
