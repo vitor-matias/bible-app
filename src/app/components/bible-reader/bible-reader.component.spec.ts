@@ -29,12 +29,6 @@ import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BibleReaderComponent } from "./bible-reader.component"
 
 describe("BibleReaderComponent", () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
   let component: BibleReaderComponent
   let fixture: ComponentFixture<BibleReaderComponent>
 
@@ -468,6 +462,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("exposes router link arrays for the prev/next chapter anchors", async () => {
+      vi.useFakeTimers()
       component.getChapter(5)
       await vi.advanceTimersByTimeAsync(0)
 
@@ -479,6 +474,7 @@ describe("BibleReaderComponent", () => {
     // array would rebuild both hrefs on every change detection pass — one per
     // animation frame while auto-scroll runs.
     it("keeps the same link arrays across change detection", async () => {
+      vi.useFakeTimers()
       component.getChapter(5)
       await vi.advanceTimersByTimeAsync(0)
       const previous = component.previousChapterLink
@@ -491,6 +487,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("uses the intro segment when the previous chapter is the introduction", async () => {
+      vi.useFakeTimers()
       component.book = introBook()
       component.getChapter(1)
       await vi.advanceTimersByTimeAsync(0)
@@ -499,6 +496,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("clamps the prev/next links at the book boundaries", async () => {
+      vi.useFakeTimers()
       // First chapter of a book without an introduction: must not offer /0
       // or /intro, which this book does not have.
       component.getChapter(1)
@@ -512,6 +510,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("never links below the introduction on an intro book", async () => {
+      vi.useFakeTimers()
       component.book = introBook()
       component.getChapter(0)
       await vi.advanceTimersByTimeAsync(0)
@@ -1031,12 +1030,14 @@ describe("BibleReaderComponent", () => {
     })
 
     it("openBookDrawer should toggle drawer", async () => {
+      vi.useFakeTimers()
       component.openBookDrawer({ open: true })
       await vi.advanceTimersByTimeAsync(0)
       expect(component.bookDrawer.toggle).toHaveBeenCalled()
     })
 
     it("openChapterDrawer should open drawer with chapter mode", async () => {
+      vi.useFakeTimers()
       component.showBooks = true
       component.openChapterDrawer({ open: true })
       await vi.advanceTimersByTimeAsync(0)
@@ -1046,6 +1047,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("openChapterDrawer should just toggle drawer when showBooks is false", async () => {
+      vi.useFakeTimers()
       component.showBooks = false
       component.openChapterDrawer({ open: true })
       await vi.advanceTimersByTimeAsync(0)
@@ -1089,6 +1091,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("should close and reopen drawer when showBooks is false for openBookDrawer", async () => {
+      vi.useFakeTimers()
       component.showBooks = false
       component.openBookDrawer({ open: true })
       await vi.advanceTimersByTimeAsync(0)
@@ -1099,6 +1102,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("should close and reopen drawer when showBooks is true for openChapterDrawer", async () => {
+      vi.useFakeTimers()
       component.showBooks = true
       component.openChapterDrawer({ open: true })
       await vi.advanceTimersByTimeAsync(0)
@@ -1137,6 +1141,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("onToggleViewMode should switch back to scrolling mode", async () => {
+      vi.useFakeTimers()
       component.viewMode = "paged"
       component.onToggleViewMode()
       expect(component.viewMode).toBe("scrolling")
@@ -1307,6 +1312,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("should finalize and call animation.scrollToTop on success", async () => {
+      vi.useFakeTimers()
       apiServiceSpy.getChapter.mockReturnValue(
         of(mockChapter as unknown as Chapter),
       )
@@ -1323,6 +1329,7 @@ describe("BibleReaderComponent", () => {
     // that chapter's verse element and scroll strategy; it must not survive
     // into the chapter that replaced it.
     it("should drop a pending scroll realign when a new chapter is applied", async () => {
+      vi.useFakeTimers()
       animationServiceSpy.cancelPendingRealign.mockClear()
 
       component.getChapter(1)
@@ -1340,6 +1347,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("should update SEO metadata when a chapter is applied", async () => {
+      vi.useFakeTimers()
       seoServiceSpy.updateForChapter.mockClear()
       apiServiceSpy.getChapter.mockReturnValue(
         of(mockChapter as unknown as Chapter),
@@ -1356,6 +1364,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("should call scrollToEnd when navigating backwards in paged mode", async () => {
+      vi.useFakeTimers()
       component.viewMode = "paged"
       component.isNavigatingBackwards = true
       component.pagedNav = createSpyObj("PagedNavigationDirective", [
@@ -1387,6 +1396,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("should call ensureAlignedScrollWidth when navigating forwards in paged mode", async () => {
+      vi.useFakeTimers()
       component.viewMode = "paged"
       component.isNavigatingForwards = true
       component.pagedNav = createSpyObj("PagedNavigationDirective", [
@@ -1416,6 +1426,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("should trigger slide out animation if navigating", async () => {
+      vi.useFakeTimers()
       component.isNavigatingForwards = true
       // Need a dummy nativeElement
       component.bookContainer = {
@@ -1429,6 +1440,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("should call scrollToVerseElement if verseStart provided", async () => {
+      vi.useFakeTimers()
       apiServiceSpy.getChapter.mockReturnValue(
         of(mockChapter as unknown as Chapter),
       )
@@ -1438,6 +1450,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("should trigger slide out animation in error fallback if navigating", async () => {
+      vi.useFakeTimers()
       vi.spyOn(console, "error").mockReturnValue(undefined)
       component.isNavigatingForwards = true
       component.bookContainer = {
@@ -1455,6 +1468,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("should revert URL with replaceUrl and not reset container when online error occurs", async () => {
+      vi.useFakeTimers()
       vi.spyOn(console, "error").mockReturnValue(undefined)
       apiServiceSpy.getChapter.mockReturnValue(
         throwError(() => new Error("Not found")),
@@ -1479,6 +1493,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("should revert URL with replaceUrl and not reset container when NetworkService reports offline", async () => {
+      vi.useFakeTimers()
       vi.spyOn(console, "error").mockReturnValue(undefined)
       ;(
         networkServiceSpy as unknown as {
@@ -1507,6 +1522,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("should scroll to a requested verse on the About page", async () => {
+      vi.useFakeTimers()
       bookServiceSpy.findBook.mockReturnValue(mockBooks[1] as unknown as Book)
       component.book = mockBooks[1] as unknown as Book
 

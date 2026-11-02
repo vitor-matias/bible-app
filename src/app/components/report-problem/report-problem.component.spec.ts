@@ -17,12 +17,6 @@ import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { ReportProblemComponent } from "./report-problem.component"
 
 describe("ReportProblemComponent", () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
   let component: ReportProblemComponent
   let fixture: ComponentFixture<ReportProblemComponent>
   let mockDialogRef: SpyObj<MatDialogRef<ReportProblemComponent>>
@@ -137,6 +131,7 @@ describe("ReportProblemComponent", () => {
   })
 
   it("should track event and close dialog if form is valid on submit", async () => {
+    vi.useFakeTimers()
     component.reportForm.get("topic")?.setValue("formatting")
     component.reportForm.get("details")?.setValue("bold text missing")
     const submitPromise = component.onSubmit()
@@ -164,6 +159,7 @@ describe("ReportProblemComponent", () => {
   })
 
   it("should show an error snackbar and keep the dialog open when analytics transport is unavailable", async () => {
+    vi.useFakeTimers()
     component.reportForm.get("topic")?.setValue("other")
     component.reportForm.get("details")?.setValue("missing analytics script")
     window.umami = undefined
@@ -188,6 +184,7 @@ describe("ReportProblemComponent", () => {
   })
 
   it("should show an error snackbar when tracking throws", async () => {
+    vi.useFakeTimers()
     component.reportForm.get("topic")?.setValue("typo")
     component.reportForm.get("details")?.setValue("tracking failure")
 

@@ -20,12 +20,6 @@ import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
 
 describe("BibleApiService", () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
   let service: BibleApiService
   let httpMock: HttpTestingController
   let offlineDataServiceSpy: SpyObj<OfflineDataService>
@@ -379,6 +373,7 @@ describe("BibleApiService", () => {
       // A connection that opened but never answered left the reader empty,
       // with no retry, until iOS gave up on it.
       it("fails a stalled request in time, and a retry asks again", async () => {
+        vi.useFakeTimers()
         let failure: unknown
         service.getAvailableBooks().subscribe({
           error: (error) => {
@@ -604,6 +599,7 @@ describe("BibleApiService", () => {
     // BookService waits for the listing with the books, so a stalled one held
     // the book list back too.
     it("fails a stalled listing in time", async () => {
+      vi.useFakeTimers()
       let failure: unknown
       service.getIntros().subscribe({
         error: (error) => {
@@ -666,6 +662,7 @@ describe("BibleApiService", () => {
     })
 
     it("times out and retries a request that never completes on the server", async () => {
+      vi.useFakeTimers()
       let error: unknown
       let attempts = 0
       // A request that accepts the connection but never responds.
@@ -687,6 +684,7 @@ describe("BibleApiService", () => {
     // Retrying a 404 only multiplies the request count and the backoff wait:
     // prerendering "/" asks for /v1/about/1, which the API never serves.
     it("fails a permanent 4xx immediately instead of retrying it", async () => {
+      vi.useFakeTimers()
       let attempts = 0
       let error: unknown
       const notFound = new Observable<never>((subscriber) => {
@@ -706,6 +704,7 @@ describe("BibleApiService", () => {
     })
 
     it("still retries the 4xx codes that mean try again", async () => {
+      vi.useFakeTimers()
       for (const status of [408, 429]) {
         let attempts = 0
         const throttled = new Observable<never>((subscriber) => {

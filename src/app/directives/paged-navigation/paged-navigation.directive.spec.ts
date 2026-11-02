@@ -66,12 +66,6 @@ class TestHostComponent {
 }
 
 describe("PagedNavigationDirective", () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
   let fixture: ComponentFixture<TestHostComponent>
   let hostComponent: TestHostComponent
   let container: HTMLElement
@@ -97,6 +91,7 @@ describe("PagedNavigationDirective", () => {
 
   describe("switching into paged mode", () => {
     it("measures after the class that creates the columns is applied", async () => {
+      vi.useFakeTimers()
       // Angular writes the column class on the inner block *after* this
       // directive's ngOnChanges, so a synchronous measurement sees a
       // single-column block, reports "last page" and leaves the reader without
@@ -537,6 +532,7 @@ describe("PagedNavigationDirective", () => {
 
   describe("window resize", () => {
     it("should snap to nearest page after debounce", async () => {
+      vi.useFakeTimers()
       vi.spyOn(container, "scrollLeft", "get").mockReturnValue(120) // partway
 
       vi.spyOn(
@@ -580,6 +576,7 @@ describe("PagedNavigationDirective", () => {
     })
 
     it("should do nothing if block or container is undefined when resizing", async () => {
+      vi.useFakeTimers()
       hostComponent.directive.bookBlock = undefined
       window.dispatchEvent(new Event("resize"))
 

@@ -31,12 +31,6 @@ class HostComponent {
 }
 
 describe("scrollOnDrawerOpen", () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
   let fixture: ComponentFixture<HostComponent>
   let host: HostComponent
 
@@ -59,6 +53,7 @@ describe("scrollOnDrawerOpen", () => {
   })
 
   it("does nothing outside a drawer", async () => {
+    vi.useFakeTimers()
     fixture.detectChanges()
     host.drawer.open()
     await vi.runAllTimersAsync()
@@ -69,6 +64,7 @@ describe("scrollOnDrawerOpen", () => {
 
   // The book list is built with the page, inside the closed drawer.
   it("scrolls each time the drawer starts opening, not before", async () => {
+    vi.useFakeTimers()
     host.inside.set(true)
     fixture.detectChanges()
     await vi.runAllTimersAsync()
@@ -91,6 +87,7 @@ describe("scrollOnDrawerOpen", () => {
   // list can come before or after that opening's openedStart, and must scroll
   // once either way.
   it("scrolls once when built just after the drawer starts opening", async () => {
+    vi.useFakeTimers()
     fixture.detectChanges()
     host.drawer.open()
     host.inside.set(true)
@@ -101,6 +98,7 @@ describe("scrollOnDrawerOpen", () => {
   })
 
   it("doesn't scroll a list destroyed before its fallback runs", async () => {
+    vi.useFakeTimers()
     fixture.detectChanges()
     host.drawer.open()
     await vi.runAllTimersAsync()
@@ -114,6 +112,7 @@ describe("scrollOnDrawerOpen", () => {
   })
 
   it("scrolls once when built after openedStart has fired", async () => {
+    vi.useFakeTimers()
     fixture.detectChanges()
     host.drawer.open()
     await vi.runAllTimersAsync()

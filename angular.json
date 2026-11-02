@@ -60,6 +60,11 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "test": {
+              "styles": [
+                "src/styles.css"
+              ]
             }
           },
           "defaultConfiguration": "production"
@@ -91,7 +96,13 @@
             "runner": "vitest",
             "browsers": [
               "chromium"
-            ]
+            ],
+            "setupFiles": [
+              "src/test-setup.ts"
+            ],
+            "browserViewport": "800x600",
+            "buildTarget": "bible-app:build:development,test",
+            "runnerConfig": "vitest-base.config.mts"
           }
         }
       }

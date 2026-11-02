@@ -11,12 +11,6 @@ import {
 import { BuildVersionService } from "./build-version.service"
 
 describe("AnalyticsService", () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
   let service: AnalyticsService
   let buildVersionServiceMock: SpyObj<BuildVersionService>
 
@@ -216,6 +210,7 @@ describe("AnalyticsService", () => {
     // On a stalled connection the report form stayed "sending" (and the iOS
     // sheet unanswered) until the OS gave up on the request.
     it("gives up on a request that stalls", async () => {
+      vi.useFakeTimers()
       let signal: AbortSignal | undefined
       fetchSpy.mockImplementation(
         (_url: string, init: RequestInit) =>
@@ -246,6 +241,7 @@ describe("AnalyticsService", () => {
     // build-info.json is fetched without a deadline: stalled, it held the
     // report before the delivery timeout had even started.
     it("sends without the build's details when they stall", async () => {
+      vi.useFakeTimers()
       buildVersionServiceMock.getBuildInfo.mockReturnValue(
         new Promise(() => {}),
       )

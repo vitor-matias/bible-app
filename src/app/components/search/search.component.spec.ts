@@ -74,12 +74,6 @@ describe("firstLine", () => {
 })
 
 describe("SearchComponent", () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
   let component: SearchComponent
   let fixture: ComponentFixture<SearchComponent>
   let apiService: SpyObj<BibleApiService>
@@ -256,6 +250,7 @@ describe("SearchComponent", () => {
     })
 
     it("searches once typing pauses", async () => {
+      vi.useFakeTimers()
       component.onTyping("pas")
       await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS - 1)
       // Each keystroke restarts the wait.
@@ -269,6 +264,7 @@ describe("SearchComponent", () => {
     })
 
     it("leaves references for Return", async () => {
+      vi.useFakeTimers()
       referenceService.extract.mockReturnValue([
         { book: "jhn", chapter: 3 },
       ] as unknown as ReturnType<BibleReferenceService["extract"]>)
@@ -281,12 +277,14 @@ describe("SearchComponent", () => {
     })
 
     it("waits for at least two letters", async () => {
+      vi.useFakeTimers()
       component.onTyping(" a ")
       await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
       expect(apiService.search).not.toHaveBeenCalled()
     })
 
     it("doesn't repeat a search that Return already ran", async () => {
+      vi.useFakeTimers()
       component.onTyping("pastor ")
       void component.onSearchSubmit("pastor")
       await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
@@ -297,6 +295,7 @@ describe("SearchComponent", () => {
     // Return would search the words of a reference to a book it can't find,
     // so a pause does too: both ask the same question.
     it("searches what Return would search", async () => {
+      vi.useFakeTimers()
       referenceService.extract.mockReturnValue([
         { book: "Xy", chapter: 3 },
       ] as unknown as ReturnType<BibleReferenceService["extract"]>)
@@ -320,6 +319,7 @@ describe("SearchComponent", () => {
       const host = () => fixture.nativeElement as HTMLElement
 
       it("offers a typed reference at once, and opens it", async () => {
+        vi.useFakeTimers()
         referenceService.extract.mockReturnValue([
           { book: "Jo", chapter: 3, verses: [{ type: "single", verse: 16 }] },
         ] as unknown as ReturnType<BibleReferenceService["extract"]>)
@@ -363,6 +363,7 @@ describe("SearchComponent", () => {
         beforeEach(() => bookService.findBook.mockReturnValue(wisdom))
 
         it("searches it as a word on the pause, still offering the book", async () => {
+          vi.useFakeTimers()
           component.onTyping("sabedoria")
           expect(component.pendingSearch).toBe(true)
 
@@ -376,6 +377,7 @@ describe("SearchComponent", () => {
         })
 
         it("opens the book on Return", async () => {
+          vi.useFakeTimers()
           apiService.getVerse.mockReturnValue(of({} as Verse))
           void component.onSearchSubmit("sabedoria")
           await vi.advanceTimersByTimeAsync(0)
@@ -387,6 +389,7 @@ describe("SearchComponent", () => {
         // Return before the pause: the pause then searched the name, which
         // superseded the book still being looked up, and nothing opened.
         it("opens it on Return even when the lookup outlasts the pause", async () => {
+          vi.useFakeTimers()
           const verse = new Subject<Verse>()
           apiService.getVerse.mockReturnValue(verse)
           component.onTyping("sabedoria")
@@ -417,6 +420,7 @@ describe("SearchComponent", () => {
 
       // Before, "Escolher o Salmo 94" stayed above the two psalms it offered.
       it("goes away once taken up", async () => {
+        vi.useFakeTimers()
         referenceService.extract.mockReturnValue([
           { book: "Sl", chapter: 94 },
         ] as unknown as ReturnType<BibleReferenceService["extract"]>)
@@ -441,6 +445,7 @@ describe("SearchComponent", () => {
 
       // Before, nothing showed for the whole pause: it read as broken.
       it("says it is searching until the search runs", async () => {
+        vi.useFakeTimers()
         component.onTyping("pastor")
         expect(component.passageSuggestion).toBeNull()
         expect(host().textContent).toContain("A procurar…")
@@ -488,6 +493,7 @@ describe("SearchComponent", () => {
 
       // Before, the pause's search closed the keyboard mid-query.
       it("keeps the field in use", async () => {
+        vi.useFakeTimers()
         component.onTyping("pastor")
         await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
 
@@ -497,6 +503,7 @@ describe("SearchComponent", () => {
 
       // Before, "amor " came back as "amor", and typing on gave "amorde".
       it("leaves what is being typed as it is", async () => {
+        vi.useFakeTimers()
         component.onTyping("pastor ")
         await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
 
@@ -505,6 +512,7 @@ describe("SearchComponent", () => {
       })
 
       it("closes the keyboard over the results after Return", async () => {
+        vi.useFakeTimers()
         void component.onSearchSubmit("pastor")
         await vi.advanceTimersByTimeAsync(0)
 
@@ -672,6 +680,7 @@ describe("SearchComponent", () => {
   })
 
   it("should discard a page that arrives after a newer search took over", async () => {
+    vi.useFakeTimers()
     // Pagination for query A is in flight when query B is submitted. A's page
     // must not append itself to B's results, nor clear B's loading state.
     component.searchTerm = "beginning"
@@ -745,6 +754,7 @@ describe("SearchComponent", () => {
   })
 
   it("should keep loadMoreResults locked until the next page arrives", async () => {
+    vi.useFakeTimers()
     const nextVerse = {
       bookId: "gen",
       chapterNumber: 1,
@@ -881,6 +891,7 @@ describe("SearchComponent", () => {
     // "1 Co 13,4" offered "Abrir Sobre a Bíblia 13,4", and Return asked for
     // /about/13/4, which doesn't exist.
     it("never takes a book it doesn't know for the About page", async () => {
+      vi.useFakeTimers()
       referenceService.extract.mockReturnValue([reference("1 Xy", 13, 4)])
       bookService.findBook.mockReturnValue(about)
 
@@ -1074,6 +1085,7 @@ describe("SearchComponent", () => {
   })
 
   it("should release the loading lock when a failed reference supersedes a text search", async () => {
+    vi.useFakeTimers()
     // The text search goes stale the moment the reference is submitted, so its
     // own `finally` no longer clears `isLoading`; the reference path has to.
     const pendingSearch$ = new Subject<VersePage>()
@@ -1152,6 +1164,7 @@ describe("SearchComponent", () => {
     })
 
     it("stops saying it is searching after a failed reference", async () => {
+      vi.useFakeTimers()
       apiService.search.mockReturnValue(of(lightPage))
       void component.onSearchSubmit("luz")
       await vi.advanceTimersByTimeAsync(0)
@@ -1179,6 +1192,7 @@ describe("SearchComponent", () => {
     })
 
     it("doesn't claim no results for a search that never answered", async () => {
+      vi.useFakeTimers()
       apiService.search.mockReturnValue(pendingSearch$.asObservable())
       void component.onSearchSubmit("amor")
       await vi.advanceTimersByTimeAsync(0)
@@ -1194,6 +1208,7 @@ describe("SearchComponent", () => {
     })
 
     it("ignores the stored Bible's answer to a superseded search", async () => {
+      vi.useFakeTimers()
       network.isOffline = true
       let answer: (verses: Verse[]) => void = () => {}
       offlineSearch.search.mockReturnValue(
@@ -1215,6 +1230,7 @@ describe("SearchComponent", () => {
   })
 
   it("should release the loading lock when the reference navigation is refused", async () => {
+    vi.useFakeTimers()
     // router.navigate resolves false on a cancelled navigation: no throw, and
     // the superseded text search no longer clears the flag itself.
     const pendingSearch$ = new Subject<VersePage>()
@@ -1833,6 +1849,7 @@ describe("SearchComponent", () => {
     })
 
     it("ends a word search still under way", async () => {
+      vi.useFakeTimers()
       bookService.findBook.mockImplementation((name: string) =>
         name === "Sl" ? psalms : (undefined as unknown as Book),
       )
@@ -1922,12 +1939,6 @@ describe("SearchComponent", () => {
 })
 
 describe("SearchComponent in the iOS app", () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
   let fixture: ComponentFixture<SearchComponent>
   let actions: Subject<NativeChromeAction>
   let nativeChrome: {
@@ -2044,6 +2055,7 @@ describe("SearchComponent in the iOS app", () => {
   })
 
   it("searches as people type in the native field", async () => {
+    vi.useFakeTimers()
     actions.next({ id: "search-input", text: "pastor" })
     await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
 

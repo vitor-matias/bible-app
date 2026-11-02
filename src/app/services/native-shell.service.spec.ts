@@ -8,12 +8,12 @@ import { SPLASH_SCREEN_PLUGIN, SYSTEM_BARS_PLUGIN } from "../tokens"
 import { NativeShellService, SPLASH_MAX_MS } from "./native-shell.service"
 
 describe("NativeShellService", () => {
+  // Before the beforeEach below, which stubs requestAnimationFrame: installing
+  // the fake clock afterwards would replace that stub.
   beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
+    vi.useFakeTimers()
   })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
+
   let events: Subject<unknown>
   let splash: {
     hide: Mock

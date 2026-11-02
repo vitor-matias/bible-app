@@ -121,12 +121,6 @@ function differences(sent: unknown, fixture: unknown, path = ""): string[] {
 }
 
 describe("the native chrome contract fixtures", () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
   let setState: Mock
 
   beforeEach(() => {
@@ -197,6 +191,7 @@ describe("the native chrome contract fixtures", () => {
   })
 
   it("matches what is sent once there are no bars", async () => {
+    vi.useFakeTimers()
     const chrome = service()
     chrome.show(READER)
     chrome.hide()

@@ -241,12 +241,6 @@ class DrawerHostComponent {
 
 describe("ChapterSelectorComponent in the reader's drawer", () => {
   beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-  beforeEach(() => {
     const bookmarks = createSpyObj("BookmarkService", ["getBookmarksForBook"])
     bookmarks.getBookmarksForBook.mockReturnValue(of([]))
     TestBed.configureTestingModule({
@@ -263,6 +257,7 @@ describe("ChapterSelectorComponent in the reader's drawer", () => {
 
   // Reopening the drawer reuses the list, scrolled wherever it was left.
   it("scrolls to the selected chapter each time the drawer opens", async () => {
+    vi.useFakeTimers()
     const fixture = TestBed.createComponent(DrawerHostComponent)
     const scrollSpy = vi
       .spyOn(Element.prototype, "scrollIntoView")

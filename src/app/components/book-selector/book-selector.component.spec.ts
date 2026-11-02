@@ -371,12 +371,6 @@ class DrawerHostComponent {
 
 describe("BookSelectorComponent in the reader's drawer", () => {
   beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-  beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [DrawerHostComponent],
       providers: [
@@ -392,6 +386,7 @@ describe("BookSelectorComponent in the reader's drawer", () => {
   // content is display: none. The only scroll ran then and moved nothing, so
   // the drawer opened at Génesis whatever the book.
   it("scrolls to the selected book when the drawer opens", async () => {
+    vi.useFakeTimers()
     const fixture = TestBed.createComponent(DrawerHostComponent)
     const scrollSpy = vi
       .spyOn(Element.prototype, "scrollIntoView")
@@ -413,6 +408,7 @@ describe("BookSelectorComponent in the reader's drawer", () => {
   // After a filtered pick ("Sabed"), the drawer reopened still filtered, with
   // the other books hidden.
   it("opens on the whole list again, at the book being read", async () => {
+    vi.useFakeTimers()
     const fixture = TestBed.createComponent(DrawerHostComponent)
     const scrollSpy = vi
       .spyOn(Element.prototype, "scrollIntoView")

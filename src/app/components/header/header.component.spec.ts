@@ -1,10 +1,6 @@
 import { CommonModule } from "@angular/common"
 import { ChangeDetectorRef, PLATFORM_ID, SimpleChange } from "@angular/core"
-import {
-  type ComponentFixture,
-  discardPeriodicTasks,
-  TestBed,
-} from "@angular/core/testing"
+import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
 import { MatMenuTrigger } from "@angular/material/menu"
@@ -33,12 +29,6 @@ import { ReportProblemComponent } from "../report-problem/report-problem.compone
 import { HeaderComponent } from "./header.component"
 
 describe("HeaderComponent", () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
   let component: HeaderComponent
   let fixture: ComponentFixture<HeaderComponent>
   let routerSpy: SpyObj<Router>
@@ -626,6 +616,7 @@ describe("HeaderComponent", () => {
     // in the DOM, so the page h1 read "<title> Escolher Livro" — words no page
     // text repeats.
     it("keeps only the label on screen inside the heading", async () => {
+      vi.useFakeTimers()
       fixture.componentRef.setInput("book", aboutBook)
       fixture.detectChanges()
 
@@ -656,13 +647,13 @@ describe("HeaderComponent", () => {
       )
 
       component.ngOnDestroy()
-      discardPeriodicTasks()
     })
 
     // The visible label alternates, so the heading's own text cannot be relied
     // on to name the page; the accessible name has to stay put or the only
     // heading on the page ends up announcing the picker instead.
     it("keeps the heading naming the page across a label swap", async () => {
+      vi.useFakeTimers()
       fixture.componentRef.setInput("book", aboutBook)
       fixture.detectChanges()
 
@@ -683,7 +674,6 @@ describe("HeaderComponent", () => {
       )
 
       component.ngOnDestroy()
-      discardPeriodicTasks()
     })
 
     // The label swap is decorative; announcing each one is noise.
@@ -713,6 +703,7 @@ describe("HeaderComponent", () => {
     })
 
     it("fades the label out before swapping its text", async () => {
+      vi.useFakeTimers()
       fixture.componentRef.setInput("book", aboutBook)
       fixture.detectChanges()
 
@@ -734,10 +725,10 @@ describe("HeaderComponent", () => {
       expect(label().classList.contains("faded")).toBe(false)
 
       component.ngOnDestroy()
-      discardPeriodicTasks()
     })
 
     it("drops a half-finished swap when the cycle stops", async () => {
+      vi.useFakeTimers()
       fixture.componentRef.setInput("book", aboutBook)
       fixture.detectChanges()
 
@@ -748,8 +739,6 @@ describe("HeaderComponent", () => {
       await vi.advanceTimersByTimeAsync(300)
       expect(component.labelFading).toBe(false)
       expect(component.bookLabelMode).toBe("title")
-
-      discardPeriodicTasks()
     })
 
     it("cycles the about label in the browser", () => {

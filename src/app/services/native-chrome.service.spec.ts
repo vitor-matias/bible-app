@@ -43,12 +43,6 @@ const READER: ReaderChrome = {
 const SEARCH: SearchChrome = { mode: "search", themeMode: "dark", query: "" }
 
 describe("NativeChromeService", () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
   let plugin: {
     setState: Mock
     setProgress: Mock
@@ -169,6 +163,7 @@ describe("NativeChromeService", () => {
     it(`does nothing on ${platform} with the plugin ${
       available ? "present" : "absent"
     }`, async () => {
+      vi.useFakeTimers()
       const service = create(platform, available)
       service.show(READER)
       service.hide()
@@ -343,6 +338,7 @@ describe("NativeChromeService", () => {
   })
 
   it("removes the bars once the page is gone", async () => {
+    vi.useFakeTimers()
     const service = create("ios")
     service.show(READER)
     service.hide()
@@ -354,6 +350,7 @@ describe("NativeChromeService", () => {
 
   // A route change destroys one page and creates the next.
   it("keeps the bars up when the next page takes over at once", async () => {
+    vi.useFakeTimers()
     const service = create("ios")
     service.show(READER)
     service.hide()

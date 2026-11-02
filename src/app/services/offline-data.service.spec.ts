@@ -130,9 +130,9 @@ describe("OfflineDataService", () => {
     spy.clear.mockResolvedValue(undefined)
 
     // Mock NetworkService
-    const networkSpy = {
+    const networkSpy = createSpyObj<NetworkService>("NetworkService", [], {
       isOffline: false,
-    }
+    })
 
     const analyticsSpy = createSpyObj("AnalyticsService", ["track"])
     analyticsSpy.track.mockResolvedValue(undefined)

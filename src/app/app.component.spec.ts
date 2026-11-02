@@ -20,12 +20,6 @@ import { createSpyObj, type SpyObj } from "./testing/spy-obj"
 import { APP_PLUGIN, PAGE_HOSTNAME } from "./tokens"
 
 describe("AppComponent", () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
   let routerSpy: SpyObj<Router>
   let ngZone: NgZone
   /** Where the page is served from (PAGE_HOSTNAME). */
@@ -394,6 +388,7 @@ describe("AppComponent", () => {
     // A single back used to leave from the first screen, so a stray back
     // gesture dropped the reader out of the app.
     it("sends the app to the background on a second back from the first screen", async () => {
+      vi.useFakeTimers()
       const historyBack = vi
         .spyOn(window.history, "back")
         .mockReturnValue(undefined)
@@ -414,6 +409,7 @@ describe("AppComponent", () => {
     })
 
     it("only warns again when the second back comes too late", async () => {
+      vi.useFakeTimers()
       backButton({ canGoBack: false })
       await vi.advanceTimersByTimeAsync(EXIT_BACK_WINDOW_MS)
       backButton({ canGoBack: false })
@@ -423,6 +419,7 @@ describe("AppComponent", () => {
     })
 
     it("needs two backs again after a back that closed a panel in between", async () => {
+      vi.useFakeTimers()
       backButton({ canGoBack: false })
       const unregister = TestBed.inject(BackButtonService).register(() => true)
       backButton({ canGoBack: false })
@@ -434,6 +431,7 @@ describe("AppComponent", () => {
     })
 
     it("needs two backs again after coming back to the app", async () => {
+      vi.useFakeTimers()
       backButton({ canGoBack: false })
       backButton({ canGoBack: false })
       backButton({ canGoBack: false })

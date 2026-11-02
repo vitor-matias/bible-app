@@ -15,12 +15,6 @@ import { FIRST_LAUNCH_DELAY_MS, OnboardingService } from "./onboarding.service"
 import { PreferencesService } from "./preferences.service"
 
 describe("OnboardingService", () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
   let service: OnboardingService
   let dialogSpy: SpyObj<MatDialog>
   let dialogRefSpy: SpyObj<MatDialogRef<OnboardingComponent>>
@@ -57,6 +51,7 @@ describe("OnboardingService", () => {
 
   describe("showOnFirstLaunch", () => {
     it("opens the wizard on a first visit once the reader has had time to paint", async () => {
+      vi.useFakeTimers()
       expect(service.showOnFirstLaunch("")).toBe(true)
       expect(dialogSpy.open).not.toHaveBeenCalled()
 
@@ -72,6 +67,7 @@ describe("OnboardingService", () => {
     })
 
     it("stays quiet once the wizard has been seen", async () => {
+      vi.useFakeTimers()
       preferencesSpy.getOnboardingSeen.mockReturnValue(true)
 
       expect(service.showOnFirstLaunch("")).toBe(false)
@@ -81,6 +77,7 @@ describe("OnboardingService", () => {
     })
 
     it("does not reopen once the timer fires after the wizard was already seen", async () => {
+      vi.useFakeTimers()
       expect(service.showOnFirstLaunch("")).toBe(true)
 
       // The user opens the wizard from the menu and dismisses it before the
@@ -97,6 +94,7 @@ describe("OnboardingService", () => {
     })
 
     it("does not get in the way of a share-target launch", async () => {
+      vi.useFakeTimers()
       expect(service.showOnFirstLaunch("?text=Jo%203,16")).toBe(false)
       expect(
         service.showOnFirstLaunch(
@@ -279,12 +277,14 @@ describe("OnboardingService", () => {
       })
 
       it("shows it once more to those who saw it before", async () => {
+        vi.useFakeTimers()
         expect(service.showOnFirstLaunch("")).toBe(true)
         await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS)
         expect(showOnboarding).toHaveBeenCalledTimes(1)
       })
 
       it("doesn't once it was seen with the native bars", async () => {
+        vi.useFakeTimers()
         preferencesSpy.getNativeBarsOnboardingSeen.mockReturnValue(true)
         expect(service.showOnFirstLaunch("")).toBe(false)
         await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS)
@@ -303,6 +303,7 @@ describe("OnboardingService", () => {
 
     // The iOS app had its native bars from the start: nothing to show again.
     it("doesn't show it again in the iOS app", async () => {
+      vi.useFakeTimers()
       vi.spyOn(Capacitor, "getPlatform").mockReturnValue("ios")
       preferencesSpy.getOnboardingSeen.mockReturnValue(true)
       expect(service.showOnFirstLaunch("")).toBe(false)

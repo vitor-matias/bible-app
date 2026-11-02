@@ -8,12 +8,12 @@ import {
 } from "./bible-reader-animation.service"
 
 describe("BibleReaderAnimationService", () => {
+  // Before the beforeEach below, which stubs requestAnimationFrame: installing
+  // the fake clock afterwards would replace that stub.
   beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
+    vi.useFakeTimers()
   })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
+
   let service: BibleReaderAnimationService
 
   beforeEach(() => {
@@ -67,8 +67,8 @@ describe("BibleReaderAnimationService", () => {
       service.scrollToTop(drawerContentRow, containerRow, "paged", false)
 
       await vi.advanceTimersByTimeAsync(0)
-      // inner setTimeout
-      await vi.advanceTimersByTimeAsync(0)
+      // inner setTimeout: a 0 ms timer set while the clock ticks is due 1 ms on
+      await vi.advanceTimersByTimeAsync(1)
 
       expect(containerRow.scrollLeft).toBe(0)
       expect(service.triggerSlideAnimation).toHaveBeenCalledWith(
