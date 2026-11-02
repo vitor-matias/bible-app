@@ -30,17 +30,17 @@ const READER: ReaderChrome = {
   passageAccessibilityLabel: "Deuteronómio, capítulo 3",
   chapterNavigation: true,
   canGoPrevious: true,
-  canGoNext: false,
+  canGoNext: true,
   search: true,
   viewMode: "paged",
   autoScrollVisible: true,
   autoScrollAvailable: true,
   canShare: true,
-  canReport: false,
+  canReport: true,
   bookmarkColor: "red",
   bookmarkName: "vermelho",
   buildVersion: "20261018-120000Z",
-  textSize: { percent: 120, min: 70, max: 235, canReset: true },
+  textSize: { percent: 120, min: 80, max: 200, canReset: true },
 }
 
 const READER_MINIMAL: ReaderChrome = {
@@ -51,11 +51,13 @@ const READER_MINIMAL: ReaderChrome = {
   passageAccessibilityLabel: "Génesis 1",
   chapterNavigation: false,
   canGoPrevious: false,
+  canGoNext: false,
   search: false,
   viewMode: null,
   autoScrollVisible: false,
   autoScrollAvailable: false,
   canShare: false,
+  canReport: false,
   bookmarkColor: null,
   bookmarkName: null,
   buildVersion: null,
@@ -80,7 +82,7 @@ const AUTO_SCROLL: AutoScrollChrome = {
   speedLabel: "1,5",
   speedAccessibilityLabel: "1,5 linhas por segundo",
   canSlower: true,
-  canFaster: false,
+  canFaster: true,
   canPlay: false,
 }
 
@@ -117,6 +119,14 @@ function differences(sent: unknown, fixture: unknown, path = ""): string[] {
     key in a && key in b
       ? differences(a[key], b[key], `${path}.${key}`)
       : [`${path}.${key}: only ${key in a ? "sent" : "in the fixture"}`],
+  )
+}
+
+/** The fields a spec drives, so the sent values can be held to the fixture's. */
+function driven(from: object, chrome: object): Record<string, unknown> {
+  const values = from as Record<string, unknown>
+  return Object.fromEntries(
+    Object.keys(chrome).map((key) => [key, values[key]]),
   )
 }
 
@@ -173,21 +183,28 @@ describe("the native chrome contract fixtures", () => {
     chrome.show(READER)
     chrome.setAutoScroll(AUTO_SCROLL)
     expect(differences(sent(), reader)).toEqual([])
+    expect(driven(sent(), READER)).toEqual(driven(reader, READER))
+    expect(sent().autoScroll).toEqual(reader.autoScroll)
   })
 
   it("matches what the reader's bars send, with nothing optional", () => {
     service().show(READER_MINIMAL)
     expect(differences(sent(), readerMinimal)).toEqual([])
+    expect(driven(sent(), READER_MINIMAL)).toEqual(
+      driven(readerMinimal, READER_MINIMAL),
+    )
   })
 
   it("matches what the search page's bars send", () => {
     service().show(SEARCH)
     expect(differences(sent(), search)).toEqual([])
+    expect(driven(sent(), SEARCH)).toEqual(driven(search, SEARCH))
   })
 
   it("matches what a plain page's bars send", () => {
     service().show(PAGE)
     expect(differences(sent(), page)).toEqual([])
+    expect(driven(sent(), PAGE)).toEqual(driven(page, PAGE))
   })
 
   it("matches what is sent once there are no bars", async () => {

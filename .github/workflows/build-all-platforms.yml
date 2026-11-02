@@ -87,12 +87,12 @@ jobs:
       version_code: ${{ steps.version.outputs.code }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
@@ -175,20 +175,21 @@ jobs:
       # Read by android/app/build.gradle as -PversionCode / -PversionName.
       ORG_GRADLE_PROJECT_versionCode: ${{ needs.build-native-web.outputs.version_code }}
       ORG_GRADLE_PROJECT_versionName: ${{ needs.build-native-web.outputs.version_name }}
+      MAPPING_NAME: mapping-${{ needs.build-native-web.outputs.version_name }}-${{ needs.build-native-web.outputs.version_code }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -256,6 +257,7 @@ jobs:
           if [ -n "${HAS_ANDROID_KEYSTORE}" ]; then
             echo "Building Release APK..."
             ./gradlew assembleRelease
+            sha256sum app/build/outputs/mapping/release/mapping.txt > "$RUNNER_TEMP/apk-mapping.sha256"
           else
             echo "Building Debug APK (no keystore provided)..."
             ./gradlew assembleDebug
@@ -309,6 +311,21 @@ jobs:
           path: android/app/build/outputs/apk/**/*.apk
           retention-days: 30
 
+      - name: Name R8 mapping
+        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
+        run: cp android/app/build/outputs/mapping/release/mapping.txt "android/app/build/outputs/mapping/release/$MAPPING_NAME.txt"
+
+      # Beside the APK, so a failed AAB build still leaves that APK readable.
+      # 90 days is this repo's maximum, enough for test builds. A release's
+      # mapping lasts as long as the release: create-release attaches it.
+      - name: Upload R8 mapping
+        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-${{ env.MAPPING_NAME }}
+          path: android/app/build/outputs/mapping/release/${{ env.MAPPING_NAME }}.txt
+          retention-days: 90
+
       - name: Build Android AAB
         run: |
           set -e
@@ -316,6 +333,9 @@ jobs:
           if [ -n "${HAS_ANDROID_KEYSTORE}" ]; then
             echo "Building Release AAB..."
             ./gradlew bundleRelease
+            # Both builds share one R8 task, so one mapping reads both. If the
+            # task ever ran again here, the AAB wouldn't match the kept mapping.
+            sha256sum -c "$RUNNER_TEMP/apk-mapping.sha256"
           else
             echo "Building Debug AAB (no keystore provided)..."
             ./gradlew bundleDebug
@@ -347,10 +367,10 @@ jobs:
       CURRENT_PROJECT_VERSION: ${{ needs.build-native-web.outputs.version_code }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
@@ -508,7 +528,7 @@ jobs:
       tag_name: ${{ steps.tag.outputs.tag_name }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -609,7 +629,7 @@ jobs:
 
   create-release:
     name: Create GitHub Release
-    needs: [build-android, build-ios-macos, create-tag]
+    needs: [build-native-web, build-android, build-ios-macos, create-tag]
     # Run on version tag pushes OR on manual dispatch when create_release is
     # enabled, once both platforms have built
     if: |
@@ -629,6 +649,14 @@ jobs:
           name: android-apk
           path: release-assets
 
+      # Safe to publish: it holds only class, method and source file names, of
+      # this public repo's code and its open source libraries, no string values.
+      - name: Download R8 mapping artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: android-mapping-${{ needs.build-native-web.outputs.version_name }}-${{ needs.build-native-web.outputs.version_code }}
+          path: release-assets
+
       - name: List downloaded assets
         run: find release-assets -type f
 
@@ -642,11 +670,13 @@ jobs:
           fi
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.resolve-tag.outputs.tag_name }}
           name: "Release ${{ steps.resolve-tag.outputs.tag_name }}"
           draft: false
           prerelease: ${{ contains(steps.resolve-tag.outputs.tag_name, '-') }}
           generate_release_notes: true
-          files: release-assets/**/*.apk
+          files: |
+            release-assets/**/*.apk
+            release-assets/mapping-*.txt

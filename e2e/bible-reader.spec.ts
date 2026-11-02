@@ -148,14 +148,26 @@ test.describe("Book selector drawer", () => {
     const drawer = page.locator("mat-drawer")
     await expect(drawer).toBeVisible({ timeout: 5_000 })
 
-    // 73 canonical books plus the synthetic About entry the picker appends,
-    // plus the "Introdução" entries, whose number changes with the content.
+    // The 73 canonical books. Introductions are left out by id: their number follows the content, and
+    // a cluster's goes by its name, so their labels can't tell them apart.
     const books = drawer.locator(
       "mat-tree-node:not(.book-group) .bookSelectorButton",
     )
+    const intros: { slug: string }[] = await (
+      await page.request.get("/v1/intros")
+    ).json()
+    const introIds = new Set(intros.map((intro) => intro.slug))
     await expect
-      .poll(() => books.count(), { timeout: 15_000 })
-      .toBeGreaterThanOrEqual(74)
+      .poll(
+        async () =>
+          (
+            await books.evaluateAll((nodes) =>
+              nodes.map((node) => node.getAttribute("data-book-id") ?? ""),
+            )
+          ).filter((id) => !introIds.has(id)).length,
+        { timeout: 15_000 },
+      )
+      .toBe(73)
 
     const unresolved = await books.evaluateAll((nodes) =>
       nodes
@@ -450,5 +462,86 @@ test.describe("Link previews", () => {
     expect(size.width).toBe(size.height)
     expect(size.width).toBeGreaterThanOrEqual(200)
     expect(size.width).toBeLessThan(300)
+  })
+})
+
+test.describe("Theme before the bundle", () => {
+  const cases: [os: "light" | "dark", stored: string | null, dark: boolean][] =
+    [
+      ["dark", null, true],
+      ["dark", "system", true],
+      ["light", "dark", true],
+      ["light", null, false],
+      ["light", "system", false],
+      ["dark", "light", false],
+    ]
+
+  for (const [os, stored, dark] of cases) {
+    test(`device ${os}, stored ${stored}: ${dark ? "dark" : "light"} with no JS bundle`, async ({
+      page,
+    }) => {
+      await page.emulateMedia({ colorScheme: os })
+      await page.addInitScript((theme) => {
+        if (theme) localStorage.setItem("theme", theme)
+      }, stored)
+      // With every .js file blocked, only the inline script can set the theme,
+      // so this is what the first frame looks like before the bundle arrives.
+      await page.route("**/*.js", (route) => route.abort())
+
+      await page.goto("/gn/1")
+
+      await expect(page.locator("body")).toHaveCSS(
+        "background-color",
+        dark ? "rgb(18, 18, 18)" : "rgb(255, 255, 255)",
+      )
+    })
+  }
+
+  test("unreadable storage follows the device", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "dark" })
+    await page.addInitScript(() =>
+      Object.defineProperty(window, "localStorage", {
+        get() {
+          throw new Error("blocked")
+        },
+      }),
+    )
+    await page.route("**/*.js", (route) => route.abort())
+
+    await page.goto("/gn/1")
+
+    await expect(page.locator("html")).toHaveClass(/dark-theme/)
+  })
+
+  test("the bundle does not take dark away again on a stored system theme", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: "dark" })
+    await page.addInitScript(() => {
+      localStorage.setItem("theme", "system")
+      const before: (string | null)[] = []
+      Object.assign(window, { classesBefore: before })
+      new MutationObserver((records) => {
+        for (const record of records) {
+          if (record.target === document.documentElement)
+            before.push(record.oldValue)
+        }
+      }).observe(document, {
+        subtree: true,
+        attributeFilter: ["class"],
+        attributeOldValue: true,
+      })
+    })
+
+    await page.goto("/gn/1")
+    await page.locator("verse").first().waitFor({ timeout: 15_000 })
+
+    const before = await page.evaluate(
+      () => (window as unknown as { classesBefore: string[] }).classesBefore,
+    )
+    // The first change is the inline script adding it; any class list after
+    // that without it means the page went back to light for a moment.
+    expect(before.slice(1).every((c) => c.includes("dark-theme"))).toBe(true)
+    await expect(page.locator("html")).toHaveClass(/dark-theme/)
   })
 })
