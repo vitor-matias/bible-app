@@ -26,11 +26,15 @@ ligature renders as its own name in words.
 Build components through `TestBed`, not `new Component(...)`, so injection
 context mistakes show up in the spec.
 
-### Inputs on a host fixture: use `setInput`
+### Setting inputs: `setInput`, or a signal on a test host
 
-Assigning a host component's field and calling `detectChanges()` did not run the
-child's `ngOnChanges` in this TestBed setup. Drive inputs with
+For a component `TestBed` created directly, use
 `fixture.componentRef.setInput("name", value)`.
+
+`setInput` only reaches the fixture component's own inputs, so it can't change
+what a test host binds to its child. Keep that state in a signal on the host and
+`set()` it: assigning a plain host field and calling `detectChanges()` did not
+run the child's `ngOnChanges` in this TestBed setup.
 
 ### State changed outside a template listener needs marking
 
