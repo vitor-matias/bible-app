@@ -2,6 +2,8 @@ import { defineConfig, devices } from "@playwright/test"
 
 export default defineConfig({
   testDir: "./e2e",
+  // playwright.prerendered.config.ts: those need a production build.
+  testIgnore: "prerendered/**",
   fullyParallel: false,
   retries: 1,
   workers: 1,

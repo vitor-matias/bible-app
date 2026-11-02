@@ -2,6 +2,7 @@ import {
   ChangeDetectorRef,
   ElementRef,
   NO_ERRORS_SCHEMA,
+  PendingTasks,
   PLATFORM_ID,
 } from "@angular/core"
 import { ComponentFixture, TestBed } from "@angular/core/testing"
@@ -1300,6 +1301,136 @@ describe("BibleReaderComponent", () => {
 
       expect(apiServiceSpy.getChapter).not.toHaveBeenCalled()
       expect(component.chapter?.bookId).toBe("about")
+    })
+  })
+
+  // Hydration leaves the prerendered DOM in the host until the app is stable.
+  describe("with a prerendered chapter on screen", () => {
+    let chapter$: Subject<Chapter>
+    let endHold: Mock
+
+    const start = () => {
+      fixture.nativeElement.insertAdjacentHTML(
+        "beforeend",
+        '<div class="chapterBlock"><verse>No princípio</verse></div>',
+      )
+      fixture.detectChanges()
+    }
+    const container = (): HTMLElement =>
+      fixture.nativeElement.querySelector(".bookBlock").parentElement
+
+    beforeEach(() => {
+      chapter$ = new Subject<Chapter>()
+      apiServiceSpy.getChapter.mockReturnValue(chapter$)
+      endHold = vi.fn()
+      vi.spyOn(TestBed.inject(PendingTasks), "add").mockReturnValue(endHold)
+    })
+
+    it("keeps the app unstable until the chapter is in", () => {
+      start()
+      expect(TestBed.inject(PendingTasks).add).toHaveBeenCalledTimes(1)
+      expect(endHold).not.toHaveBeenCalled()
+
+      chapter$.next(mockChapter as unknown as Chapter)
+
+      expect(endHold).toHaveBeenCalledTimes(1)
+    })
+
+    // Hydration's cleanup deletes the text once the app is stable, so the chapter
+    // must have claimed it first.
+    it("renders the chapter before letting the app stabilize", () => {
+      endHold.mockImplementation(() => {
+        expect(component.chapter).toBeTruthy()
+        expect(
+          fixture.nativeElement.querySelector(".bookBlock .chapterBlock"),
+        ).toBeTruthy()
+      })
+      start()
+
+      chapter$.next(mockChapter as unknown as Chapter)
+
+      expect(endHold).toHaveBeenCalled()
+    })
+
+    it("lets the app stabilize when the chapter fails to load", () => {
+      vi.spyOn(console, "error").mockImplementation(() => {})
+      start()
+
+      chapter$.error(new Error("offline"))
+
+      expect(endHold).toHaveBeenCalledTimes(1)
+    })
+
+    it("lets the app stabilize when the book list fails to load", () => {
+      bookServiceSpy.books$ = new Subject<Book[]>()
+      bookServiceSpy.booksUnavailable$ = of(true)
+      start()
+
+      expect(endHold).toHaveBeenCalledTimes(1)
+    })
+
+    it("lets the app stabilize when the reader goes away first", () => {
+      start()
+
+      fixture.destroy()
+
+      expect(endHold).toHaveBeenCalledTimes(1)
+    })
+
+    // Client-rendered pages and the native apps have nothing to hold on to.
+    it("holds nothing without one", () => {
+      fixture.detectChanges()
+
+      expect(TestBed.inject(PendingTasks).add).not.toHaveBeenCalled()
+    })
+
+    it("leaves the text in place when the data arrives", () => {
+      start()
+      fixture.detectChanges()
+
+      chapter$.next(mockChapter as unknown as Chapter)
+
+      expect(container().style.opacity).toBe("")
+      expect(animationServiceSpy.scrollToTop).not.toHaveBeenCalled()
+      expect(preferencesServiceSpy.setLastBookId).toHaveBeenCalledWith("gen")
+    })
+
+    it("still reveals the text when switching it to the saved paged view", () => {
+      preferencesServiceSpy.getViewMode.mockReturnValue("paged")
+      start()
+      fixture.detectChanges()
+
+      chapter$.next(mockChapter as unknown as Chapter)
+
+      expect(container().style.opacity).toBe("0")
+      expect(animationServiceSpy.scrollToTop).toHaveBeenCalled()
+    })
+
+    it("still goes to the verse of a deep link", () => {
+      ;(
+        routerSpy as unknown as {
+          routerState: { snapshot: { root: { firstChild: unknown } } }
+        }
+      ).routerState.snapshot.root.firstChild = {
+        params: { book: "gen", chapter: "1" },
+        queryParams: { verseStart: "5" },
+      }
+      start()
+
+      chapter$.next(mockChapter as unknown as Chapter)
+
+      expect(animationServiceSpy.scrollToVerseElement).toHaveBeenCalled()
+    })
+
+    it("still animates a chapter turned to before the data arrives", async () => {
+      start()
+      fixture.detectChanges()
+      component.isNavigatingForwards = true
+
+      chapter$.next(mockChapter as unknown as Chapter)
+      await fixture.whenStable()
+
+      expect(animationServiceSpy.scrollToTop).toHaveBeenCalled()
     })
   })
 
