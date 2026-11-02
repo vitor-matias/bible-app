@@ -1417,6 +1417,19 @@ describe("BibleReaderComponent", () => {
       })
     })
 
+    it("moves the panel's divider the way the pointer does, not the other way", () => {
+      // The panel is on the right: its edge goes left as it grows, so
+      // ArrowLeft widens it, as a drag to the left does.
+      component.columnWidths = { panel: 400 }
+
+      component.onResizeKey("panel", press("ArrowLeft"))
+      expect(component.columnWidths.panel).toBe(416)
+
+      component.onResizeKey("panel", press("ArrowRight"))
+      component.onResizeKey("panel", press("ArrowRight"))
+      expect(component.columnWidths.panel).toBe(384)
+    })
+
     it("keeps a column within what it can usefully be", () => {
       component.columnWidths = { rail: 170 }
 

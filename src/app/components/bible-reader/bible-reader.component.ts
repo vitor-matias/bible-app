@@ -1921,10 +1921,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           : 0
     if (!step) return
     event.preventDefault()
-    // A pixel step on the split is a percentage of the column it divides.
-    const column = this.studyColumn?.nativeElement.getBoundingClientRect().width
-    const delta = divider === "split" && column ? (step / column) * 100 : step
-    this.commit(divider, this.dividerValue(divider) + delta)
+    // The move a drag of that many pixels makes, so the keys and the pointer
+    // agree on which way each divider goes: the panel's grows to the left.
+    this.commit(
+      divider,
+      this.nextValue(divider, step, this.dividerValue(divider)),
+    )
   }
 
   /** Hands a divider back to the layout's own clamped width. */
