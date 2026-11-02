@@ -5,7 +5,7 @@ import { registerPlugin, SystemBars } from "@capacitor/core"
 import { Haptics } from "@capacitor/haptics"
 import { Network } from "@capacitor/network"
 import { SplashScreen } from "@capacitor/splash-screen"
-import type { NativeChromePlugin } from "./services/native-chrome.service"
+import type { NativeChromePlugin } from "./services/native-chrome.types"
 
 function createNoopNgOnDestroyProxy<T extends object>(plugin: T): T {
   return new Proxy(plugin, {

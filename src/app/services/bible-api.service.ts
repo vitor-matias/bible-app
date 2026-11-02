@@ -1,5 +1,6 @@
 import { HttpClient, HttpErrorResponse } from "@angular/common/http"
-import { Injectable, inject } from "@angular/core"
+import { Injectable, Injector, inject } from "@angular/core"
+import { pendingUntilEvent } from "@angular/core/rxjs-interop"
 import {
   catchError,
   finalize,
@@ -122,6 +123,11 @@ const serverIntrosCache = createServerBooksCache<IntroSummary>(IS_SERVER)
   providedIn: "root",
 })
 export class BibleApiService {
+  private http = inject(HttpClient)
+  private injector = inject(Injector)
+  private offlineDataService = inject(OfflineDataService)
+  private networkService = inject(NetworkService)
+
   api = apiBaseUrl
   // Track in-flight chapter requests by book+chapter so concurrent navigation
   // shares the same fetch without leaking the result across different chapters.
@@ -131,12 +137,6 @@ export class BibleApiService {
   private booksRequest$: Observable<Book[]> | null = null
   books: Book[] = []
   private readonly analyticsService = inject(AnalyticsService)
-
-  constructor(
-    private http: HttpClient,
-    private offlineDataService: OfflineDataService,
-    private networkService: NetworkService,
-  ) {}
 
   getAvailableBooks(): Observable<Book[]> {
     return from(this.offlineDataService.getCachedBooksAsync()).pipe(
@@ -229,6 +229,9 @@ export class BibleApiService {
         this.chapterRequests.set(requestKey, request)
         return request
       }),
+      // The prerender serializes a page once the app is stable. Zone.js held
+      // it unstable through the cache lookup's promise; zoneless, only this.
+      pendingUntilEvent(this.injector),
     )
   }
 
@@ -284,6 +287,7 @@ export class BibleApiService {
           ) as Observable<GroupIntro>
         ).pipe(serverRetry())
       }),
+      pendingUntilEvent(this.injector),
     )
   }
 

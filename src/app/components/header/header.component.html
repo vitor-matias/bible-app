@@ -14,7 +14,7 @@
           <button type="button" mat-menu-item class="menu-control" (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" matTooltipPosition="above" [attr.aria-label]="getThemeTooltip()">
             <mat-icon>{{ getThemeIcon() }}</mat-icon>
           </button>
-          @if (book.id !== 'about') {
+          @if (book().id !== 'about') {
           <button type="button" mat-menu-item class="menu-control" (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" matTooltipPosition="above" [attr.aria-label]="getViewModeTooltip()">
             <mat-icon>{{ getViewModeIcon() }}</mat-icon>
           </button>
@@ -31,10 +31,10 @@
           <mat-icon>bookmarks</mat-icon>
           <span>Marcadores</span>
         </button>
-        <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode === 'paged'">
+        <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode() === 'paged'">
           <mat-icon>arrow_circle_down</mat-icon>
           <span>
-            {{ autoScrollControlsVisible
+            {{ autoScrollControlsVisible()
             ? 'Esconder controlos de deslocamento automático'
             : 'Mostrar controlos de deslocamento automático' }}
           </span>
@@ -89,7 +89,7 @@
           (click)="showBookSelector(); bookToggle.checked = false"
           (keydown.enter)="showBookSelector(); bookToggle.checked = false">
 
-          @if (book.id === 'about') {
+          @if (book().id === 'about') {
           <!-- One element with swapped text: a second, stacked label would put
                "Escolher Livro" inside the page's h1. -->
           <span class="cycle-wrapper">
@@ -101,7 +101,7 @@
         </mat-button-toggle>
 
         <!-- Standalone introductions have no chapters to pick. -->
-        @if(book.id !== 'about' && !book.introSlug){
+        @if(book().id !== 'about' && !book().introSlug){
         <mat-button-toggle #chapterToggle mat-flat-button matTooltip="Escolher capítulo"
           class="bookSelectorButtonContent" (click)="showChapterSelector(); chapterToggle.checked = false">
           {{ chapterLabel }}

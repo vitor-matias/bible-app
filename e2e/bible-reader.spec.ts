@@ -148,14 +148,26 @@ test.describe("Book selector drawer", () => {
     const drawer = page.locator("mat-drawer")
     await expect(drawer).toBeVisible({ timeout: 5_000 })
 
-    // 73 canonical books plus the synthetic About entry the picker appends,
-    // plus the "Introdução" entries, whose number changes with the content.
+    // The 73 canonical books. Introductions are left out by id: their number follows the content, and
+    // a cluster's goes by its name, so their labels can't tell them apart.
     const books = drawer.locator(
       "mat-tree-node:not(.book-group) .bookSelectorButton",
     )
+    const intros: { slug: string }[] = await (
+      await page.request.get("/v1/intros")
+    ).json()
+    const introIds = new Set(intros.map((intro) => intro.slug))
     await expect
-      .poll(() => books.count(), { timeout: 15_000 })
-      .toBeGreaterThanOrEqual(74)
+      .poll(
+        async () =>
+          (
+            await books.evaluateAll((nodes) =>
+              nodes.map((node) => node.getAttribute("data-book-id") ?? ""),
+            )
+          ).filter((id) => !introIds.has(id)).length,
+        { timeout: 15_000 },
+      )
+      .toBe(73)
 
     const unresolved = await books.evaluateAll((nodes) =>
       nodes

@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core"
+import { Injectable, inject } from "@angular/core"
 import { Capacitor } from "@capacitor/core"
 import { BuildVersionService } from "./build-version.service"
 
@@ -18,7 +18,7 @@ export const BUILD_DATA_WAIT_MS = 3_000
   providedIn: "root",
 })
 export class AnalyticsService {
-  constructor(private buildVersionService: BuildVersionService) {}
+  private buildVersionService = inject(BuildVersionService)
 
   async track(
     eventName: string,

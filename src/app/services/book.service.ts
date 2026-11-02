@@ -12,6 +12,8 @@ import { NetworkService } from "./network.service"
   providedIn: "root",
 })
 export class BookService {
+  private apiService = inject(BibleApiService)
+
   private booksSubject = new BehaviorSubject<Book[]>([])
   private initPromise?: Promise<void>
   books$ = this.booksSubject
@@ -29,7 +31,7 @@ export class BookService {
   private readonly ngZone = inject(NgZone)
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID))
 
-  constructor(private apiService: BibleApiService) {
+  constructor() {
     // APP_INITIALIZER reports failures; an unhandled rejection here would
     // kill the prerender worker and fail the build.
     this.initializeBooks().catch(() => {})

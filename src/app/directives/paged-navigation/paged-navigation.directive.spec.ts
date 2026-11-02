@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   PLATFORM_ID,
+  signal,
   ViewChild,
 } from "@angular/core"
 import {
@@ -22,14 +23,14 @@ import {
       #container
       style="width: 100px; overflow-x: scroll;"
       [appPagedNavigation]="block"
-      [viewMode]="viewMode"
+      [viewMode]="viewMode()"
       (nextChapter)="onNextChapter()"
       (prevChapter)="onPrevChapter()"
       (pageStateChange)="onPageStateChange($event)"
     >
       <div
         #block
-        [class.paged-view]="viewMode === 'paged'"
+        [class.paged-view]="viewMode() === 'paged'"
         style="width: 300px; column-gap: 10px; padding-left: 5px; padding-right: 5px;"
       >
         Content
@@ -41,7 +42,9 @@ import {
   standalone: true,
 })
 class TestHostComponent {
-  viewMode: "scrolling" | "paged" = "paged"
+  // Signals: a plain field changed after the first check isn't picked up by a
+  // zoneless fixture's detectChanges.
+  readonly viewMode = signal<"scrolling" | "paged">("paged")
 
   @ViewChild("container") container!: ElementRef<HTMLElement>
   @ViewChild("block") block!: ElementRef<HTMLElement>
@@ -94,7 +97,7 @@ describe("PagedNavigationDirective", () => {
       // directive's ngOnChanges, so a synchronous measurement sees a
       // single-column block, reports "last page" and leaves the reader without
       // a next-page control — the whole introduction stuck on page one.
-      hostComponent.viewMode = "scrolling"
+      hostComponent.viewMode.set("scrolling")
       fixture.detectChanges()
       tick(16)
       // Seed the state the stale measurement would leave behind.
@@ -107,7 +110,7 @@ describe("PagedNavigationDirective", () => {
         block.classList.contains("paged-view") ? 1200 : 400,
       )
 
-      hostComponent.viewMode = "paged"
+      hostComponent.viewMode.set("paged")
       fixture.detectChanges()
       tick(16)
 
@@ -169,7 +172,7 @@ describe("PagedNavigationDirective", () => {
     })
 
     it("should do nothing in scrolling mode", () => {
-      hostComponent.viewMode = "scrolling"
+      hostComponent.viewMode.set("scrolling")
       fixture.detectChanges()
 
       hostComponent.pageState = undefined
@@ -191,7 +194,7 @@ describe("PagedNavigationDirective", () => {
 
   describe("nextPage", () => {
     it("should do nothing in scrolling mode", () => {
-      hostComponent.viewMode = "scrolling"
+      hostComponent.viewMode.set("scrolling")
       fixture.detectChanges()
 
       hostComponent.directive.nextPage()
@@ -251,7 +254,7 @@ describe("PagedNavigationDirective", () => {
 
   describe("prevPage", () => {
     it("should do nothing in scrolling mode", () => {
-      hostComponent.viewMode = "scrolling"
+      hostComponent.viewMode.set("scrolling")
       fixture.detectChanges()
 
       hostComponent.directive.prevPage()
@@ -501,7 +504,7 @@ describe("PagedNavigationDirective", () => {
     })
 
     it("should do nothing in scrolling mode", () => {
-      hostComponent.viewMode = "scrolling"
+      hostComponent.viewMode.set("scrolling")
       fixture.detectChanges()
 
       hostComponent.directive.scrollToPage(elementAt(250))
@@ -566,16 +569,14 @@ describe("PagedNavigationDirective", () => {
     }))
 
     it("should do nothing if viewMode is not paged", () => {
-      let timeoutCalled = false
-      spyOn(window, "setTimeout").and.callFake((() => {
-        timeoutCalled = true
-        return 1
-      }) as unknown as typeof setTimeout)
-      hostComponent.viewMode = "scrolling"
+      hostComponent.viewMode.set("scrolling")
       fixture.detectChanges()
 
       window.dispatchEvent(new Event("resize"))
-      expect(timeoutCalled).toBeFalse()
+      // Not a setTimeout spy: the zoneless scheduler uses setTimeout too.
+      expect(
+        (hostComponent.directive as unknown as { resizing: boolean }).resizing,
+      ).toBeFalse()
     })
 
     it("should do nothing if block or container is undefined when resizing", fakeAsync(() => {
@@ -621,15 +622,15 @@ describe("PagedNavigationDirective", () => {
     <div
       #container
       style="position: relative; overflow: hidden"
-      [style.width.px]="width"
-      [style.height.px]="height"
+      [style.width.px]="width()"
+      [style.height.px]="height()"
       [appPagedNavigation]="block"
       viewMode="paged"
     >
       <div
         #block
         style="columns: 1; column-gap: 0; column-fill: auto; font: 16px/20px monospace"
-        [style.height.px]="height"
+        [style.height.px]="height()"
       >
         @for (verse of verses; track verse) {
           <span [id]="verse">{{ verse }} {{ verse === LONG_VERSE ? longText : text }} </span>
@@ -643,8 +644,8 @@ describe("PagedNavigationDirective", () => {
 })
 class PagesHostComponent {
   readonly LONG_VERSE = LONG_VERSE
-  width = 200
-  height = 100
+  readonly width = signal(200)
+  readonly height = signal(100)
   verses = Array.from({ length: 80 }, (_, i) => i + 1)
   text = "Disse-lhe Jesus: em verdade, em verdade te digo."
   // Several pages long at 200x100, as a long verse is on a phone at a large size.
@@ -715,8 +716,8 @@ describe("PagedNavigationDirective across a resize", () => {
     )
 
   async function resizeTo(width: number, height: number): Promise<void> {
-    host.width = width
-    host.height = height
+    host.width.set(width)
+    host.height.set(height)
     fixture.detectChanges()
     window.dispatchEvent(new Event("resize"))
     await settle()

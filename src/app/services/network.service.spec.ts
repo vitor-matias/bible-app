@@ -1,12 +1,15 @@
-import { Injector, NgZone } from "@angular/core"
+import { Injector } from "@angular/core"
+import { TestBed } from "@angular/core/testing"
 import type { PluginListenerHandle } from "@capacitor/core"
 import type { ConnectionStatus } from "@capacitor/network"
+import { NETWORK_PLUGIN } from "../tokens"
 import { NetworkService } from "./network.service"
+import { OfflineDataService } from "./offline-data.service"
 
 describe("NetworkService", () => {
   let service: NetworkService
-  let ngZoneMock: jasmine.SpyObj<NgZone>
-  let injectorMock: jasmine.SpyObj<Injector>
+  let injectorGet: jasmine.Spy
+  let offlineData: { preloadAllBooksAndChapters: jasmine.Spy }
   let mockStatus: ConnectionStatus
   let mockNetworkListener: jasmine.SpyObj<PluginListenerHandle>
   let capturedCallback: ((status: ConnectionStatus) => void) | undefined
@@ -24,16 +27,11 @@ describe("NetworkService", () => {
     ])
     mockNetworkListener.remove.and.resolveTo()
 
-    ngZoneMock = jasmine.createSpyObj("NgZone", ["run"])
-    // biome-ignore lint/complexity/noBannedTypes: Mocking NgZone
-    ngZoneMock.run.and.callFake((fn: Function) => fn())
-
-    injectorMock = jasmine.createSpyObj<Injector>("Injector", ["get"])
-    injectorMock.get.and.returnValue({
+    offlineData = {
       preloadAllBooksAndChapters: jasmine
         .createSpy("preloadAllBooksAndChapters")
         .and.resolveTo(),
-    })
+    }
 
     mockNetworkPlugin = jasmine.createSpyObj("Network", [
       "addListener",
@@ -52,8 +50,15 @@ describe("NetworkService", () => {
     )
     mockNetworkPlugin.getStatus.and.callFake(() => Promise.resolve(mockStatus))
 
-    // Directly instantiate the service without TestBed to avoid complex Angular 18+ environment issues
-    service = new NetworkService(ngZoneMock, injectorMock, mockNetworkPlugin)
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: NETWORK_PLUGIN, useValue: mockNetworkPlugin },
+        { provide: OfflineDataService, useValue: offlineData },
+      ],
+    })
+    service = TestBed.inject(NetworkService)
+    // After construction, so only the service's own lookups are counted.
+    injectorGet = spyOn(TestBed.inject(Injector), "get").and.callThrough()
 
     // Flush microtasks to ensure initial getStatus resolves
     await Promise.resolve()
@@ -73,11 +78,7 @@ describe("NetworkService", () => {
     mockStatus.connectionType = "none"
 
     // Instantiate new service - it will use the mocked Network plugin
-    const newService = new NetworkService(
-      ngZoneMock as NgZone,
-      injectorMock,
-      mockNetworkPlugin,
-    )
+    const newService = TestBed.runInInjectionContext(() => new NetworkService())
 
     // Wait for constructor's init
     await Promise.resolve()
@@ -107,11 +108,7 @@ describe("NetworkService", () => {
   })
 
   it("should preload offline content when transitioning offline -> online", async () => {
-    const offlineDataService = injectorMock.get(
-      // biome-ignore lint/suspicious/noExplicitAny: token irrelevant for the spy
-      undefined as any,
-    ) as { preloadAllBooksAndChapters: jasmine.Spy }
-    injectorMock.get.calls.reset()
+    injectorGet.calls.reset()
 
     expect(capturedCallback).toBeDefined()
     capturedCallback?.({ connected: false, connectionType: "none" })
@@ -125,12 +122,15 @@ describe("NetworkService", () => {
     // import can outlast a fixed 200ms budget, and the test then fails on the
     // injector expectation rather than on the thing it covers.
     const deadline = Date.now() + 2000
-    while (injectorMock.get.calls.count() === 0 && Date.now() < deadline) {
+    while (
+      offlineData.preloadAllBooksAndChapters.calls.count() === 0 &&
+      Date.now() < deadline
+    ) {
       await new Promise((resolve) => setTimeout(resolve, 10))
     }
 
-    expect(injectorMock.get).toHaveBeenCalled()
-    expect(offlineDataService.preloadAllBooksAndChapters).toHaveBeenCalledWith(
+    expect(injectorGet).toHaveBeenCalledWith(OfflineDataService)
+    expect(offlineData.preloadAllBooksAndChapters).toHaveBeenCalledWith(
       "standalone",
     )
   })

@@ -39,6 +39,10 @@ android {
     buildFeatures {
         compose = true
     }
+    sourceSets {
+        // The payloads the web app sends, shared with the iOS and web tests.
+        test.resources.srcDir rootProject.file('../native-contract')
+    }
     buildTypes {
         release {
             if (keystorePropertiesFile.exists()) {

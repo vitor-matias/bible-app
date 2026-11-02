@@ -10,10 +10,8 @@ import { passageLabel } from "../utils/passage-label"
 import { AnalyticsService } from "./analytics.service"
 import { BibleReferenceService } from "./bible-reference.service"
 import { BookService } from "./book.service"
-import {
-  type FootnotesSheetState,
-  NativeChromeService,
-} from "./native-chrome.service"
+import { NativeChromeService } from "./native-chrome.service"
+import type { FootnotesSheetState } from "./native-chrome.types"
 import { PreferencesService } from "./preferences.service"
 import { SystemTextSizeService } from "./system-text-size.service"
 import { ToastService } from "./toast.service"
