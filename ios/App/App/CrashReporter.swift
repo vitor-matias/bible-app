@@ -81,10 +81,8 @@ final class CrashReporter: NSObject, MXMetricManagerSubscriber {
         URLSession.shared.dataTask(with: request).resume()
     }
 
-    /// The crashed thread's frames, innermost first. A call stack tree is
-    /// rooted at the thread's entry point and each sub-frame is a callee, so a
-    /// crash's tree is one chain ending at the crash site: reverse it before
-    /// capping, or a deep stack loses exactly the frames that matter.
+    /// The crashed thread's frames, innermost first. In a crash's tree each
+    /// frame has at most one sub-frame: its caller.
     private static func crashedThreadFrames(_ tree: MXCallStackTree) -> [String] {
         guard
             let root = try? JSONSerialization.jsonObject(with: tree.jsonRepresentation()) as? [String: Any],
@@ -93,13 +91,13 @@ final class CrashReporter: NSObject, MXMetricManagerSubscriber {
         else { return [] }
         var frames: [String] = []
         var frame = (stack["callStackRootFrames"] as? [[String: Any]])?.first
-        while let current = frame {
+        while let current = frame, frames.count < maxFrames {
             let name = current["binaryName"] as? String ?? "?"
             let uuid = current["binaryUUID"] as? String ?? "?"
             let offset = current["offsetIntoBinaryTextSegment"] as? Int ?? 0
             frames.append("\(name) \(uuid) +0x\(String(offset, radix: 16))")
             frame = (current["subFrames"] as? [[String: Any]])?.first
         }
-        return Array(frames.reversed().prefix(maxFrames))
+        return frames
     }
 }

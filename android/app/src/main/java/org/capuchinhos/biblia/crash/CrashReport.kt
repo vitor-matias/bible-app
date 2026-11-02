@@ -24,7 +24,7 @@ data class AppInfo(
 )
 
 /** What the system recorded about the last run's death (ApplicationExitInfo). */
-data class Exit(val timestamp: Long, val kind: Kind, val status: Int) {
+data class Exit(val timestamp: Long, val kind: Kind, val status: Int, val process: String = "") {
     enum class Kind { CRASH, NATIVE_CRASH, ANR }
 }
 
@@ -57,6 +57,8 @@ object CrashReport {
 
     fun fromExit(exit: Exit, anrFrames: List<String>, app: AppInfo): Map<String, String> {
         val data = base(app, exit.kind.name.lowercase())
+        // The app's own process, or a WebView renderer it outlives.
+        if (exit.process.isNotEmpty()) data["process"] = exit.process
         // The status of a native crash is the signal number (11 = SIGSEGV).
         if (exit.kind == Exit.Kind.NATIVE_CRASH) data["signal"] = exit.status.toString()
         addFrames(data, anrFrames)

@@ -111,7 +111,8 @@ class CrashReportTest {
 
     @Test
     fun aNativeCrashCarriesItsSignalAndAnAnrItsMainThreadFrames() {
-        val native = CrashReport.fromExit(Exit(1, Exit.Kind.NATIVE_CRASH, 11), emptyList(), app)
+        val native = CrashReport.fromExit(Exit(1, Exit.Kind.NATIVE_CRASH, 11, "org.capuchinhos.biblia:sandboxed"), emptyList(), app)
+        assertEquals("org.capuchinhos.biblia:sandboxed", native["process"])
         assertEquals("11", native["signal"])
         assertEquals("native_crash", native["source"])
         val anr = CrashReport.fromExit(Exit(1, Exit.Kind.ANR, 0), listOf("a.B.c(B.java:1)"), app)

@@ -73,7 +73,7 @@ object CrashReporting {
                 ApplicationExitInfo.REASON_ANR -> Exit.Kind.ANR
                 else -> null
             }
-            kind?.let { Exit(info.timestamp, it, info.status) to info }
+            kind?.let { Exit(info.timestamp, it, info.status, info.processName.orEmpty()) to info }
         }.toMap()
         for (exit in CrashReport.newExits(infos.keys.toList(), after)) {
             if (!CrashReport.isCoveredBySavedReport(exit, savedAt)) {
