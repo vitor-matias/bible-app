@@ -2,9 +2,9 @@
 // else the client-rendered shell, with /v1 from the public API.
 import { createServer } from "node:http"
 import { existsSync, readFileSync, statSync } from "node:fs"
-import { extname, join } from "node:path"
+import { extname, join, resolve, sep } from "node:path"
 
-const ROOT = "dist/bible-app/browser"
+const ROOT = resolve("dist/bible-app/browser")
 const TYPES = {
   ".css": "text/css",
   ".html": "text/html; charset=utf-8",
@@ -23,10 +23,15 @@ createServer(async (request, response) => {
     return
   }
   let file = join(ROOT, decodeURIComponent(pathname))
+  if (!file.startsWith(ROOT + sep)) {
+    response.writeHead(403)
+    response.end()
+    return
+  }
   if (existsSync(file) && statSync(file).isDirectory()) {
     file = join(file, "index.html")
   }
   if (!existsSync(file)) file = join(ROOT, "index.csr.html")
   response.writeHead(200, { "content-type": TYPES[extname(file)] ?? "" })
   response.end(readFileSync(file))
-}).listen(4201)
+}).listen(4201, "127.0.0.1")
