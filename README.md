@@ -40,7 +40,7 @@ Angular Material, and a thin REST backend.
 
 ## Getting started
 
-Prerequisites: Node 20+ and npm.
+Prerequisites: Node (see `.nvmrc`) and npm.
 
 ```bash
 npm ci

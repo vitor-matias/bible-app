@@ -24,6 +24,17 @@ describe("global styles", () => {
     document.documentElement.style.removeProperty("--app-inset-bottom")
   })
 
+  // Swapping in PT Serif rewrapped the prerendered chapter once it was on
+  // screen, which alone made for a CLS of 0.75 on /gn/1.
+  it("does not swap the reader's font in after the text has painted", () => {
+    const faces = Array.from(document.fonts).filter((face) =>
+      face.family.includes("PT Serif"),
+    )
+
+    expect(faces.length).toBeGreaterThan(0)
+    expect(faces.every((face) => face.display === "block")).toBeTrue()
+  })
+
   // The search result counts appeared on top of the Android navigation bar.
   it("lifts snack bars above the bottom system inset", () => {
     TestBed.createComponent(HostComponent)
