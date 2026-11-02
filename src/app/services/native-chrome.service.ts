@@ -133,7 +133,10 @@ export class NativeChromeService {
    */
   readonly android = this.enabled && Capacitor.getPlatform() === "android"
 
-  /** Taps on the native bars, delivered inside the Angular zone. */
+  /**
+   * Taps on the native bars. The app is zoneless: a handler re-renders what it
+   * changes by marking it (markForCheck, detectChanges, or an output).
+   */
   readonly actions$ = this.actionSubject.asObservable()
 
   init(): void {

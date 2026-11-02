@@ -11,6 +11,9 @@ export type ThemeMode = "light" | "dark" | "system"
   providedIn: "root",
 })
 export class ThemeService {
+  private preferencesService = inject(PreferencesService)
+  private analyticsService = inject(AnalyticsService)
+
   private readonly platformId = inject(PLATFORM_ID)
   private readonly nativeShell = inject(NativeShellService)
   private themeMode = new BehaviorSubject<ThemeMode>("system")
@@ -20,10 +23,7 @@ export class ThemeService {
     ? null
     : window.matchMedia("(prefers-color-scheme: dark)")
 
-  constructor(
-    private preferencesService: PreferencesService,
-    private analyticsService: AnalyticsService,
-  ) {
+  constructor() {
     // Check localStorage for saved theme preference
     const savedTheme = this.preferencesService.getTheme()
 

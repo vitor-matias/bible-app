@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core"
+import { Injectable, inject } from "@angular/core"
 import { BookService } from "./book.service"
 
 // ---------------- Types (unchanged) ----------------
@@ -36,6 +36,8 @@ export interface BibleReference {
 
 @Injectable({ providedIn: "root" })
 export class BibleReferenceService {
+  private bookService = inject(BookService)
+
   private bookAlternation = ""
   private explicitRe?: RegExp
   /**
@@ -59,7 +61,7 @@ export class BibleReferenceService {
   private verseOnlyRe =
     /\bv\.?\s*(?<v1>\d+(?:[a-c]{1,2})?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c]{1,2})?))?\b/gi
 
-  constructor(private bookService: BookService) {
+  constructor() {
     this.bookService.books$.subscribe(() => {
       this.rebuildPattern()
     })

@@ -4,8 +4,8 @@ import {
   ChangeDetectorRef,
   Component,
   DestroyRef,
-  Input,
   inject,
+  input,
   NgZone,
   OnDestroy,
   OnInit,
@@ -34,21 +34,19 @@ const SPEED_LIMIT_TOLERANCE = 0.001
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AutoScrollControlsComponent implements OnInit, OnDestroy {
-  @Input() scrollElement?: HTMLElement
-  @Input() lineHeightElement?: HTMLElement
+  private autoScrollService = inject(AutoScrollService)
+  private preferencesService = inject(PreferencesService)
+  private cdr = inject(ChangeDetectorRef)
+  private analyticsService = inject(AnalyticsService)
+
+  readonly scrollElement = input<HTMLElement>()
+  readonly lineHeightElement = input<HTMLElement>()
 
   private readonly nativeChrome = inject(NativeChromeService)
   private readonly destroyRef = inject(DestroyRef)
   private readonly ngZone = inject(NgZone)
   /** The native apps show these controls in their own toolbar instead. */
   readonly native = this.nativeChrome.enabled
-
-  constructor(
-    private autoScrollService: AutoScrollService,
-    private preferencesService: PreferencesService,
-    private cdr: ChangeDetectorRef,
-    private analyticsService: AnalyticsService,
-  ) {}
 
   /** The page is scrolled to its end: there's nothing left to play. */
   atEnd = false
@@ -101,11 +99,13 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   }
 
   private startAutoScroll(): void {
-    if (!this.scrollElement || !this.lineHeightElement) return
+    const scrollElement = this.scrollElement()
+    const lineHeightElement = this.lineHeightElement()
+    if (!scrollElement || !lineHeightElement) return
 
     this.autoScrollService.start({
-      scrollElement: this.scrollElement,
-      lineHeightElement: this.lineHeightElement,
+      scrollElement,
+      lineHeightElement,
       onStop: () => {
         this.safeMarkForCheck()
       },
@@ -133,7 +133,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
    * size, or the page itself (a window resized).
    */
   private followEnd(): void {
-    const element = this.scrollElement
+    const element = this.scrollElement()
     if (!element) return
     const update = () => {
       const atEnd = this.scrolledToEnd()
@@ -152,7 +152,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     this.ngZone.runOutsideAngular(() => {
       element.addEventListener("scroll", update, { passive: true })
       resize?.observe(element)
-      if (this.lineHeightElement) resize?.observe(this.lineHeightElement)
+      const lineHeightElement = this.lineHeightElement()
+      if (lineHeightElement) resize?.observe(lineHeightElement)
     })
     this.destroyRef.onDestroy(() => {
       element.removeEventListener("scroll", update)
@@ -162,7 +163,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   /** Down as far as it goes, to the pixel (WebKit keeps whole pixels). */
   private scrolledToEnd(): boolean {
-    const element = this.scrollElement
+    const element = this.scrollElement()
     if (!element) return false
     return element.scrollTop + element.clientHeight >= element.scrollHeight - 1
   }

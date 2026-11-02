@@ -21,18 +21,16 @@ export const FIRST_LAUNCH_DELAY_MS = 800
   providedIn: "root",
 })
 export class OnboardingService {
+  private readonly dialog = inject(MatDialog)
+  private readonly preferencesService = inject(PreferencesService)
+  private readonly analyticsService = inject(AnalyticsService)
+
   private dialogRef: MatDialogRef<
     OnboardingComponent,
     OnboardingResult
   > | null = null
   private nativeOpen = false
   private readonly nativeChrome = inject(NativeChromeService)
-
-  constructor(
-    private readonly dialog: MatDialog,
-    private readonly preferencesService: PreferencesService,
-    private readonly analyticsService: AnalyticsService,
-  ) {}
 
   /**
    * Schedules the wizard on a first visit (never on a share-target launch),

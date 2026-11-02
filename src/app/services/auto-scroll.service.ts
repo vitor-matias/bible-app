@@ -1,4 +1,4 @@
-import { Injectable, OnDestroy } from "@angular/core"
+import { Injectable, inject, OnDestroy } from "@angular/core"
 import { KeepAwakeService } from "./keep-awake.service"
 
 type AutoScrollConfig = {
@@ -11,6 +11,8 @@ type AutoScrollConfig = {
   providedIn: "root",
 })
 export class AutoScrollService implements OnDestroy {
+  private keepAwakeService = inject(KeepAwakeService)
+
   autoScrollEnabled = false
   autoScrollLinesPerSecond = 1
   readonly MIN_AUTO_SCROLL_LPS = 1 / 6
@@ -59,8 +61,6 @@ export class AutoScrollService implements OnDestroy {
   private scrollElement?: HTMLElement
   private lineHeightElement?: HTMLElement
   private onStop?: () => void
-
-  constructor(private keepAwakeService: KeepAwakeService) {}
 
   ngOnDestroy(): void {
     this.stop()

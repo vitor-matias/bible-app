@@ -1,3 +1,4 @@
+import { TestBed } from "@angular/core/testing"
 import { AutoScrollService } from "./auto-scroll.service"
 import { KeepAwakeService } from "./keep-awake.service"
 
@@ -37,7 +38,10 @@ describe("AutoScrollService", () => {
       disconnect(): void {}
     } as unknown as typeof ResizeObserver
 
-    service = new AutoScrollService(keepAwakeServiceSpy)
+    TestBed.configureTestingModule({
+      providers: [{ provide: KeepAwakeService, useValue: keepAwakeServiceSpy }],
+    })
+    service = TestBed.inject(AutoScrollService)
   })
 
   afterEach(() => {

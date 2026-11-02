@@ -1,4 +1,4 @@
-import { Component, ViewChild } from "@angular/core"
+import { Component, signal, ViewChild } from "@angular/core"
 import {
   type ComponentFixture,
   fakeAsync,
@@ -21,7 +21,7 @@ class ScrollProbeComponent {
   template: `
     <mat-drawer-container>
       <mat-drawer mode="over">
-        @if (inside) {
+        @if (inside()) {
           <scroll-probe />
         }
       </mat-drawer>
@@ -30,7 +30,7 @@ class ScrollProbeComponent {
   `,
 })
 class HostComponent {
-  inside = false
+  readonly inside = signal(false)
   @ViewChild(MatDrawer) drawer!: MatDrawer
 }
 
@@ -67,7 +67,7 @@ describe("scrollOnDrawerOpen", () => {
 
   // The book list is built with the page, inside the closed drawer.
   it("scrolls each time the drawer starts opening, not before", fakeAsync(() => {
-    host.inside = true
+    host.inside.set(true)
     fixture.detectChanges()
     flush()
     const list = probe("mat-drawer scroll-probe")
@@ -91,7 +91,7 @@ describe("scrollOnDrawerOpen", () => {
   it("scrolls once when built just after the drawer starts opening", fakeAsync(() => {
     fixture.detectChanges()
     host.drawer.open()
-    host.inside = true
+    host.inside.set(true)
     fixture.detectChanges()
     flush()
 
@@ -102,7 +102,7 @@ describe("scrollOnDrawerOpen", () => {
     fixture.detectChanges()
     host.drawer.open()
     flush()
-    host.inside = true
+    host.inside.set(true)
     fixture.detectChanges()
     const list = probe("mat-drawer scroll-probe")
     fixture.destroy()
@@ -115,7 +115,7 @@ describe("scrollOnDrawerOpen", () => {
     fixture.detectChanges()
     host.drawer.open()
     flush()
-    host.inside = true
+    host.inside.set(true)
     fixture.detectChanges()
     flush()
 

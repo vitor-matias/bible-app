@@ -108,6 +108,16 @@ export interface PsalmOption {
   imports: [SearchBarComponent, UnifiedGesturesDirective, MatIconModule],
 })
 export class SearchComponent {
+  private apiService = inject(BibleApiService)
+  private referenceService = inject(BibleReferenceService)
+  private bookService = inject(BookService)
+  private router = inject(Router)
+  private route = inject(ActivatedRoute)
+  private cdr = inject(ChangeDetectorRef)
+  private analyticsService = inject(AnalyticsService)
+  private injector = inject(Injector)
+  private seoService = inject(SeoService)
+
   searchResults: Verse[] = []
 
   searchTerm = ""
@@ -220,18 +230,6 @@ export class SearchComponent {
   readonly native = this.nativeChrome.enabled
   /** Each keystroke, with the submit it followed (searchGeneration). */
   private readonly typed = new Subject<{ text: string; generation: number }>()
-
-  constructor(
-    private apiService: BibleApiService,
-    private referenceService: BibleReferenceService,
-    private bookService: BookService,
-    private router: Router,
-    private route: ActivatedRoute,
-    private cdr: ChangeDetectorRef,
-    private analyticsService: AnalyticsService,
-    private injector: Injector,
-    private seoService: SeoService,
-  ) {}
 
   ngOnInit(): void {
     this.seoService.updateForSearch()

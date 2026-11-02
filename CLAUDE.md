@@ -21,6 +21,16 @@ fail — but treat the list above as the standard regardless. The hook can't jud
 on you. Prefer `TestBed` over `new Component(...)` in specs so DI/injection-context
 regressions are caught (constructing components by hand has bitten this repo before).
 
+## Zoneless
+
+The app and the TestBed run zoneless (`provideZonelessChangeDetection`). A field written
+in a timer, promise, observer or native callback re-renders only if something marks it:
+`markForCheck()`, `detectChanges()`, a signal, an `async` pipe or an output. In specs, set
+inputs with `fixture.componentRef.setInput` and keep host-fixture state in signals; a plain
+field changed after the first check is not picked up. Work the prerender must wait for
+needs a `PendingTasks` task (`pendingUntilEvent`), as zone.js no longer holds the app
+unstable. `src/test-zone.ts` loads zone.js for `fakeAsync` only.
+
 ## Code-review / "sloppiness" passes
 
 When asked to review the code (quality, sloppiness, smells), be token-efficient — lead with
