@@ -1,6 +1,7 @@
 import { ElementRef, Renderer2 } from "@angular/core"
+import { TestBed } from "@angular/core/testing"
 import { PreferencesService } from "../services/preferences.service"
-import type { SystemTextSizeService } from "../services/system-text-size.service"
+import { SystemTextSizeService } from "../services/system-text-size.service"
 import {
   startingFontSize,
   type TextSize,
@@ -40,13 +41,19 @@ describe("UnifiedGesturesDirective", () => {
     systemTextSize = jasmine.createSpyObj("SystemTextSizeService", ["percent"])
     systemTextSize.percent.and.returnValue(null)
 
-    directive = new UnifiedGesturesDirective(
-      new ElementRef(element),
-      rendererSpy,
-      preferencesServiceSpy,
-      systemTextSize,
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: ElementRef, useValue: new ElementRef(element) },
+        { provide: Renderer2, useValue: rendererSpy },
+        { provide: PreferencesService, useValue: preferencesServiceSpy },
+        { provide: SystemTextSizeService, useValue: systemTextSize },
+      ],
+    })
+    directive = TestBed.runInInjectionContext(
+      () => new UnifiedGesturesDirective(),
     )
-    directive.fontSizeContext = "reader"
+    // No template binds the input here, and signal inputs are not assignable.
+    Object.assign(directive, { fontSizeContext: () => "reader" })
   })
 
   describe("the text size for the Android sheet", () => {

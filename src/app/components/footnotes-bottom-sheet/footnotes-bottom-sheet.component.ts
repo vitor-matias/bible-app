@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Inject } from "@angular/core"
+import { ChangeDetectionStrategy, Component, inject } from "@angular/core"
 
 import {
   MAT_BOTTOM_SHEET_DATA,
@@ -27,7 +27,11 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
     RouterModule,
   ],
   template: `
-    <div unifiedGestures fontSizeContext="footnotes" class="footnotes-container">
+    <div
+      unifiedGestures
+      fontSizeContext="footnotes"
+      class="footnotes-container"
+    >
       <div class="footnotes-list">
         @for (footnote of data.footnotes; track footnote) {
         <div class="footnote-item">
@@ -38,7 +42,8 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
             (click)="followReference()"
             [routerLink]="['/', getAbrv(part.book), part.chapter]"
             [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)"
-          >{{ part.match }}</a>
+            >{{ part.match }}</a
+          >
           } @else {
           {{ part }}
           } }
@@ -78,15 +83,20 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
   ],
 })
 export class FootnotesBottomSheetComponent {
-  constructor(
-    private bottomSheetRef: MatBottomSheetRef<FootnotesBottomSheetComponent>,
-    @Inject(MAT_BOTTOM_SHEET_DATA)
-    public data: { footnotes: _Footnote[]; verse: Verse },
-    private bibleRef: BibleReferenceService,
-    private bookService: BookService,
-    private analyticsService: AnalyticsService,
-    private toast: ToastService,
-  ) {
+  private bottomSheetRef =
+    inject<MatBottomSheetRef<FootnotesBottomSheetComponent>>(MatBottomSheetRef)
+  data = inject<{
+    footnotes: _Footnote[]
+    verse: Verse
+  }>(MAT_BOTTOM_SHEET_DATA)
+  private bibleRef = inject(BibleReferenceService)
+  private bookService = inject(BookService)
+  private analyticsService = inject(AnalyticsService)
+  private toast = inject(ToastService)
+
+  constructor() {
+    const data = this.data
+
     void this.analyticsService.track("footnotes_opened", {
       book: data.verse.bookId,
       chapter: data.verse.chapterNumber,

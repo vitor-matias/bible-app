@@ -110,13 +110,15 @@ describe("HeaderComponent", () => {
 
     fixture = TestBed.createComponent(HeaderComponent)
     component = fixture.componentInstance
-    component.book = {
+    fixture.componentRef.setInput("book", {
       id: "gen",
       name: "Genesis",
       shortName: "",
       abrv: "",
       chapterCount: 50,
-    }
+    })
+    // Required inputs: the reader always binds both.
+    fixture.componentRef.setInput("chapterNumber", 1)
     fixture.detectChanges()
   })
 
@@ -227,13 +229,13 @@ describe("HeaderComponent", () => {
 
   it("should open the report problem dialog from the menu", () => {
     const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
-    component.chapterNumber = 3
+    fixture.componentRef.setInput("chapterNumber", 3)
 
     component.onReportProblem(trigger)
 
     expect(trigger.closeMenu).toHaveBeenCalled()
     expect(dialogSpy.open).toHaveBeenCalledWith(ReportProblemComponent, {
-      data: { book: component.book, chapter: 3 },
+      data: { book: component.book(), chapter: 3 },
       width: "90%",
       maxWidth: "500px",
     })
@@ -242,12 +244,12 @@ describe("HeaderComponent", () => {
   // Chapter 0 is the introduction; a falsy check used to swallow it.
   it("should open the report problem dialog for an introduction", () => {
     const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
-    component.chapterNumber = 0
+    fixture.componentRef.setInput("chapterNumber", 0)
 
     component.onReportProblem(trigger)
 
     expect(dialogSpy.open).toHaveBeenCalledWith(ReportProblemComponent, {
-      data: { book: component.book, chapter: 0 },
+      data: { book: component.book(), chapter: 0 },
       width: "90%",
       maxWidth: "500px",
     })
@@ -256,7 +258,10 @@ describe("HeaderComponent", () => {
   it("should not open the report problem dialog when chapter context is missing", () => {
     const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
 
-    component.chapterNumber = undefined as unknown as number
+    fixture.componentRef.setInput(
+      "chapterNumber",
+      undefined as unknown as number,
+    )
     component.onReportProblem(trigger)
 
     expect(trigger.closeMenu).toHaveBeenCalled()
@@ -279,7 +284,7 @@ describe("HeaderComponent", () => {
     })
 
     it("dismisses the bookmark sheet it opened", () => {
-      component.chapterNumber = 1
+      fixture.componentRef.setInput("chapterNumber", 1)
       component.openBookmarkSelector()
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
@@ -366,7 +371,8 @@ describe("HeaderComponent", () => {
         build: "20261016-120000Z",
       })
       fixture = TestBed.createComponent(HeaderComponent)
-      fixture.componentRef.setInput("book", component.book)
+      fixture.componentRef.setInput("book", component.book())
+      fixture.componentRef.setInput("chapterNumber", 1)
       fixture.detectChanges()
       await openMenu()
 
@@ -376,7 +382,8 @@ describe("HeaderComponent", () => {
     it("is left out until the version is known", async () => {
       buildVersionSpy.getDisplayVersion.and.returnValue(new Promise(() => {}))
       fixture = TestBed.createComponent(HeaderComponent)
-      fixture.componentRef.setInput("book", component.book)
+      fixture.componentRef.setInput("book", component.book())
+      fixture.componentRef.setInput("chapterNumber", 1)
       fixture.detectChanges()
       fixture.debugElement
         .query(By.directive(MatMenuTrigger))
@@ -511,7 +518,7 @@ describe("HeaderComponent", () => {
     }
     const shareSpy = spyOn(navigator, "share").and.resolveTo()
 
-    component.chapterNumber = 1
+    fixture.componentRef.setInput("chapterNumber", 1)
     component.ngOnInit()
     await component.sharePassage()
 
@@ -534,7 +541,7 @@ describe("HeaderComponent", () => {
     }
     spyOn(navigator, "share").and.callFake(shareSpy)
 
-    component.chapterNumber = 1
+    fixture.componentRef.setInput("chapterNumber", 1)
     component.ngOnInit() // Re-init to pickup the web platform
     expect(component.canShare).toBeTrue()
 
@@ -556,7 +563,7 @@ describe("HeaderComponent", () => {
         writable: true,
       })
 
-      component.chapterNumber = 1
+      fixture.componentRef.setInput("chapterNumber", 1)
       component.ngOnInit()
       expect(component.canShare).toBeTrue()
 
@@ -725,7 +732,7 @@ describe("HeaderComponent", () => {
     it("cycles the about label in the browser", () => {
       const setIntervalSpy = spyOn(window, "setInterval").and.callThrough()
 
-      component.book = aboutBook
+      fixture.componentRef.setInput("book", aboutBook)
       component.ngOnChanges({
         book: new SimpleChange(undefined, aboutBook, false),
       })
@@ -751,12 +758,13 @@ describe("HeaderComponent", () => {
           { provide: PLATFORM_ID, useValue: "server" },
         ],
       }).compileComponents()
-      const serverComponent = TestBed.createComponent(HeaderComponent)
-        .componentInstance as HeaderComponent
+      const serverFixture = TestBed.createComponent(HeaderComponent)
+      const serverComponent = serverFixture.componentInstance
 
       const setIntervalSpy = spyOn(window, "setInterval").and.callThrough()
 
-      serverComponent.book = aboutBook
+      serverFixture.componentRef.setInput("book", aboutBook)
+      serverFixture.componentRef.setInput("chapterNumber", 1)
       serverComponent.ngOnChanges({
         book: new SimpleChange(undefined, aboutBook, true),
       })
@@ -769,27 +777,27 @@ describe("HeaderComponent", () => {
     it("names an introduction instead of announcing chapter 0", () => {
       // The visible label reads "Introdução"; the h1's accessible name must
       // not read "0" to screen-reader and voice-control users.
-      component.book = {
+      fixture.componentRef.setInput("book", {
         id: "gen",
         name: "Livro do Génesis",
         shortName: "Génesis",
-      } as Book
-      component.chapterNumber = 0
+      } as Book)
+      fixture.componentRef.setInput("chapterNumber", 0)
 
       expect(component.headingLabel).toBe("Livro do Génesis Introdução")
 
-      component.chapterNumber = 3
+      fixture.componentRef.setInput("chapterNumber", 3)
       expect(component.headingLabel).toBe("Livro do Génesis 3")
     })
 
     it("lets a standalone introduction name itself", () => {
-      component.book = {
+      fixture.componentRef.setInput("book", {
         id: "pentateuco",
         name: "Introdução ao Pentateuco",
         shortName: "Introdução ao Pentateuco",
         introSlug: "pentateuco",
-      } as Book
-      component.chapterNumber = 0
+      } as Book)
+      fixture.componentRef.setInput("chapterNumber", 0)
 
       expect(component.headingLabel).toBe("Introdução ao Pentateuco")
     })
@@ -1146,7 +1154,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     fixture.detectChanges()
     expect(lastState().textSize).toEqual(size)
 
-    component.book = { ...component.book, id: "about" }
+    fixture.componentRef.setInput("book", { ...component.book(), id: "about" })
     fixture.componentRef.setInput("chapterNumber", 1)
     fixture.detectChanges()
     expect(lastState().textSize).toBeNull()

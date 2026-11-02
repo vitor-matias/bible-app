@@ -41,11 +41,11 @@ describe("ChapterSelectorComponent", () => {
       BookmarkService,
     ) as jasmine.SpyObj<BookmarkService>
 
-    component.chapters = [
+    fixture.componentRef.setInput("chapters", [
       { bookId: "GEN", number: 1, title: "Creation" },
       { bookId: "GEN", number: 2, title: "Eden" },
-    ]
-    component.bookId = "GEN"
+    ])
+    fixture.componentRef.setInput("bookId", "GEN")
 
     // Manually trigger ngOnChanges to initialize bookmarks$
     component.ngOnChanges({
@@ -62,7 +62,7 @@ describe("ChapterSelectorComponent", () => {
   // ngAfterViewInit also runs while prerendering, where the server DOM has no
   // scrollIntoView — calling it there threw once per prerendered route.
   it("should not scroll straight from ngAfterViewInit", () => {
-    component.selectedChapter = 1
+    fixture.componentRef.setInput("selectedChapter", 1)
     fixture.detectChanges()
     expect(
       (fixture.nativeElement as HTMLElement).querySelector(".highlight"),
@@ -100,11 +100,11 @@ describe("ChapterSelectorComponent", () => {
     // A fixture of its own: the shared one has already rendered, and
     // afterNextRender only fires for the render that follows registration.
     const freshFixture = TestBed.createComponent(ChapterSelectorComponent)
-    freshFixture.componentInstance.chapters = [
+    freshFixture.componentRef.setInput("chapters", [
       { bookId: "GEN", number: 1, title: "Creation" },
-    ]
-    freshFixture.componentInstance.bookId = "GEN"
-    freshFixture.componentInstance.selectedChapter = 1
+    ])
+    freshFixture.componentRef.setInput("bookId", "GEN")
+    freshFixture.componentRef.setInput("selectedChapter", 1)
     freshFixture.componentInstance.ngOnChanges({
       bookId: new SimpleChange(null, "GEN", true),
     })
@@ -119,6 +119,32 @@ describe("ChapterSelectorComponent", () => {
     // Exactly once: ngAfterViewInit and ngOnChanges each schedule a deferred
     // scroll, and scheduling both would scroll twice per open.
     expect(scrollSpy).toHaveBeenCalledTimes(1)
+  })
+
+  // submit() used to assign the selectedChapter input; as a signal input it
+  // can't be written, so the highlight is a linkedSignal over it.
+  it("moves the highlight to a tapped chapter before the input follows", () => {
+    fixture.componentRef.setInput("chapters", [
+      { bookId: "GEN", number: 1, title: "Creation" },
+      { bookId: "GEN", number: 2, title: "Eden" },
+    ])
+    fixture.componentRef.setInput("selectedChapter", 1)
+    fixture.detectChanges()
+    const highlighted = () =>
+      Array.from<HTMLElement>(
+        fixture.nativeElement.querySelectorAll(".chapterSelectorButton"),
+      ).map((button) => button.classList.contains("highlight"))
+    expect(highlighted()).toEqual([true, false])
+
+    fixture.nativeElement.querySelectorAll(".chapterSelectorButton")[1].click()
+    fixture.detectChanges()
+    expect(highlighted()).toEqual([false, true])
+
+    // The input moving on takes the highlight with it.
+    fixture.componentRef.setInput("selectedChapter", 2)
+    fixture.componentRef.setInput("selectedChapter", 1)
+    fixture.detectChanges()
+    expect(highlighted()).toEqual([true, false])
   })
 
   it("should render bookmark icon for bookmarked chapters", () => {

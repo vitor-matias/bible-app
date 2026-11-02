@@ -115,8 +115,8 @@ describe("AutoScrollControlsComponent", () => {
       const mockScrollEl = scrollablePage()
       const mockLineHeightEl = document.createElement("div")
 
-      component.scrollElement = mockScrollEl
-      component.lineHeightElement = mockLineHeightEl
+      fixture.componentRef.setInput("scrollElement", mockScrollEl)
+      fixture.componentRef.setInput("lineHeightElement", mockLineHeightEl)
 
       component.toggleAutoScroll()
 
@@ -133,8 +133,8 @@ describe("AutoScrollControlsComponent", () => {
         configurable: true,
       })
 
-      component.scrollElement = undefined
-      component.lineHeightElement = undefined
+      fixture.componentRef.setInput("scrollElement", undefined)
+      fixture.componentRef.setInput("lineHeightElement", undefined)
 
       component.toggleAutoScroll()
 
@@ -157,8 +157,11 @@ describe("AutoScrollControlsComponent", () => {
         get: () => false,
         configurable: true,
       })
-      component.scrollElement = scrollablePage()
-      component.lineHeightElement = document.createElement("div")
+      fixture.componentRef.setInput("scrollElement", scrollablePage())
+      fixture.componentRef.setInput(
+        "lineHeightElement",
+        document.createElement("div"),
+      )
 
       // We want to capture the onStop callback passed to start()
       let stopCallback: (() => void) | undefined

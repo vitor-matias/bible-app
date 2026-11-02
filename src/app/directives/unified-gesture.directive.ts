@@ -1,11 +1,11 @@
 import {
   Directive,
   ElementRef,
-  EventEmitter,
-  Input,
+  inject,
+  input,
   type OnDestroy,
   type OnInit,
-  Output,
+  output,
   Renderer2,
 } from "@angular/core"
 import { PreferencesService } from "../services/preferences.service"
@@ -58,15 +58,22 @@ export function startingFontSize(
   exportAs: "unifiedGestures",
 })
 export class UnifiedGesturesDirective implements OnInit, OnDestroy {
-  @Output() swipeLeft = new EventEmitter<void>()
-  @Output() swipeRight = new EventEmitter<void>()
+  private el = inject(ElementRef)
+  private renderer = inject(Renderer2)
+  private preferencesService = inject(PreferencesService)
+  private systemTextSize = inject(SystemTextSizeService)
+
+  readonly swipeLeft = output<void>()
+  readonly swipeRight = output<void>()
   /** A sideways drag under way: how far (px) the finger is from where it came down. */
-  @Output() swipeMove = new EventEmitter<number>()
+  readonly swipeMove = output<number>()
   /** A sideways drag let go without turning: whatever followed it goes back. */
-  @Output() swipeCancel = new EventEmitter<void>()
-  @Output() pinchZoom = new EventEmitter<{ scale: number }>()
+  readonly swipeCancel = output<void>()
+  readonly pinchZoom = output<{
+    scale: number
+  }>()
   /** The text size, as it opens and whenever it changes. */
-  @Output() textSizeChange = new EventEmitter<TextSize>()
+  readonly textSizeChange = output<TextSize>()
 
   private readonly BASE_FONT_SIZE = 100
   private currentFontSize: number
@@ -107,14 +114,9 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   private readonly boundTouchMove = this.onTouchMove.bind(this)
   private readonly boundTouchEnd = this.onTouchEnd.bind(this)
   private readonly boundTouchCancel = this.onTouchCancel.bind(this)
-  @Input() fontSizeContext?: string
+  readonly fontSizeContext = input<string>()
 
-  constructor(
-    private el: ElementRef,
-    private renderer: Renderer2,
-    private preferencesService: PreferencesService,
-    private systemTextSize: SystemTextSizeService,
-  ) {
+  constructor() {
     this.currentFontSize = this.BASE_FONT_SIZE
   }
 
@@ -427,8 +429,9 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   }
 
   private getFontSizeContext(): string {
-    if (this.fontSizeContext) {
-      return this.fontSizeContext
+    const fontSizeContext = this.fontSizeContext()
+    if (fontSizeContext) {
+      return fontSizeContext
     }
 
     console.warn(

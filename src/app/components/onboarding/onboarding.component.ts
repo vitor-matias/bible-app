@@ -43,6 +43,12 @@ export interface OnboardingResult {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class OnboardingComponent {
+  private readonly dialogRef =
+    inject<MatDialogRef<OnboardingComponent, OnboardingResult>>(MatDialogRef)
+  private readonly pwaInstallService = inject(PwaInstallService)
+  private readonly analyticsService = inject(AnalyticsService)
+  private readonly cdr = inject(ChangeDetectorRef)
+
   readonly installStepId = INSTALL_STEP_ID
   readonly platforms = PLATFORM_OPTIONS
   readonly steps: readonly OnboardingStep[]
@@ -58,15 +64,9 @@ export class OnboardingComponent {
   private readonly destroyRef = inject(DestroyRef)
   private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef)
 
-  constructor(
-    private readonly dialogRef: MatDialogRef<
-      OnboardingComponent,
-      OnboardingResult
-    >,
-    private readonly pwaInstallService: PwaInstallService,
-    private readonly analyticsService: AnalyticsService,
-    private readonly cdr: ChangeDetectorRef,
-  ) {
+  constructor() {
+    const pwaInstallService = this.pwaInstallService
+
     this.steps = pwaInstallService.isInstalled
       ? ONBOARDING_STEPS.filter((step) => step.id !== INSTALL_STEP_ID)
       : ONBOARDING_STEPS

@@ -122,6 +122,10 @@ const serverIntrosCache = createServerBooksCache<IntroSummary>(IS_SERVER)
   providedIn: "root",
 })
 export class BibleApiService {
+  private http = inject(HttpClient)
+  private offlineDataService = inject(OfflineDataService)
+  private networkService = inject(NetworkService)
+
   api = apiBaseUrl
   // Track in-flight chapter requests by book+chapter so concurrent navigation
   // shares the same fetch without leaking the result across different chapters.
@@ -131,12 +135,6 @@ export class BibleApiService {
   private booksRequest$: Observable<Book[]> | null = null
   books: Book[] = []
   private readonly analyticsService = inject(AnalyticsService)
-
-  constructor(
-    private http: HttpClient,
-    private offlineDataService: OfflineDataService,
-    private networkService: NetworkService,
-  ) {}
 
   getAvailableBooks(): Observable<Book[]> {
     return from(this.offlineDataService.getCachedBooksAsync()).pipe(

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Inject } from "@angular/core"
+import { ChangeDetectionStrategy, Component, inject } from "@angular/core"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { MAT_SNACK_BAR_DATA, MatSnackBarRef } from "@angular/material/snack-bar"
@@ -16,7 +16,12 @@ import { MAT_SNACK_BAR_DATA, MatSnackBarRef } from "@angular/material/snack-bar"
       <mat-icon>undo</mat-icon>
       {{ data.message }}
     </button>
-    <button mat-icon-button class="close" (click)="dismiss()" aria-label="Fechar">
+    <button
+      mat-icon-button
+      class="close"
+      (click)="dismiss()"
+      aria-label="Fechar"
+    >
       <mat-icon>close</mat-icon>
     </button>
   `,
@@ -41,11 +46,12 @@ import { MAT_SNACK_BAR_DATA, MatSnackBarRef } from "@angular/material/snack-bar"
   ],
 })
 export class TwoActionSnackComponent {
-  constructor(
-    @Inject(MAT_SNACK_BAR_DATA)
-    public data: { message: string; returnUrl?: () => void },
-    private snackBarRef: MatSnackBarRef<TwoActionSnackComponent>,
-  ) {}
+  data = inject<{
+    message: string
+    returnUrl?: () => void
+  }>(MAT_SNACK_BAR_DATA)
+  private snackBarRef =
+    inject<MatSnackBarRef<TwoActionSnackComponent>>(MatSnackBarRef)
 
   goBack() {
     if (this.data.returnUrl) {

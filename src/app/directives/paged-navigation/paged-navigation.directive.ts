@@ -2,13 +2,13 @@ import { isPlatformBrowser } from "@angular/common"
 import {
   Directive,
   ElementRef,
-  EventEmitter,
   HostListener,
   Input,
   inject,
+  input,
   OnChanges,
   OnDestroy,
-  Output,
+  output,
   PLATFORM_ID,
   Renderer2,
   SimpleChanges,
@@ -53,6 +53,10 @@ const VERSE_SELECTOR = "[id]"
   standalone: true,
 })
 export class PagedNavigationDirective implements OnChanges, OnDestroy {
+  private containerRef = inject<ElementRef<HTMLElement>>(ElementRef)
+  private renderer = inject(Renderer2)
+
+  // A setter input with side effects: stays an @Input (no signal input form).
   @Input("appPagedNavigation") set bookBlock(value: HTMLElement | undefined) {
     this._bookBlock = value
     this.observeContentChanges()
@@ -61,11 +65,11 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     return this._bookBlock
   }
   /** Determines if the reader is in continuous scroll or horizontal paged mode. */
-  @Input() viewMode: "scrolling" | "paged" = "scrolling"
+  readonly viewMode = input<"scrolling" | "paged">("scrolling")
 
-  @Output() nextChapter = new EventEmitter<void>()
-  @Output() prevChapter = new EventEmitter<void>()
-  @Output() pageStateChange = new EventEmitter<PageState>()
+  readonly nextChapter = output<void>()
+  readonly prevChapter = output<void>()
+  readonly pageStateChange = output<PageState>()
 
   private _bookBlock?: HTMLElement
   private resizeTimeout?: number
@@ -97,11 +101,6 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     return this.resizeTimeout !== undefined
   }
 
-  constructor(
-    private containerRef: ElementRef<HTMLElement>,
-    private renderer: Renderer2,
-  ) {}
-
   private get container(): HTMLElement {
     return this.containerRef.nativeElement
   }
@@ -109,7 +108,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   ngOnChanges(changes: SimpleChanges): void {
     if (!changes["viewMode"]) return
 
-    if (this.viewMode !== "paged") {
+    if (this.viewMode() !== "paged") {
       this.removeSpacer()
       this.onScroll()
       return
@@ -154,7 +153,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
 
   @HostListener("scroll")
   onScroll(): void {
-    if (this.viewMode !== "paged" || !this.container) return
+    if (this.viewMode() !== "paged" || !this.container) return
 
     if (this.targetPage !== undefined && this.bookBlock) {
       const left = this.targetPage * this.getAdvanceWidth(this.bookBlock)
@@ -185,7 +184,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
 
   @HostListener("window:resize")
   onWindowResize(): void {
-    if (this.viewMode === "paged") {
+    if (this.viewMode() === "paged") {
       // The resize's own scroll (the browser clamping the old offset) comes
       // next: it must not replace the verse the reader was on.
       clearTimeout(this.anchorTimeout)
@@ -206,7 +205,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
 
   /** Back to the place in the verse the reader was on, laid out anew. */
   private restorePage(): void {
-    if (this.viewMode !== "paged") return
+    if (this.viewMode() !== "paged") return
     const block = this.bookBlock
     const anchor = this.anchor
     if (!block || !anchor?.verse.isConnected || !block.contains(anchor.verse)) {
@@ -252,7 +251,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
    */
   private noteAnchor(): void {
     const block = this.bookBlock
-    if (this.viewMode !== "paged" || !this.container || !block) return
+    if (this.viewMode() !== "paged" || !this.container || !block) return
     const advanceWidth = this.getAdvanceWidth(block)
     if (advanceWidth <= 0) return
 
@@ -309,7 +308,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
 
   /** Advances the scroll position by exactly one "page" width (one column + gap). */
   nextPage(): void {
-    if (this.viewMode !== "paged") return
+    if (this.viewMode() !== "paged") return
     const block = this.bookBlock
     if (!this.container || !block) return
 
@@ -331,7 +330,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
 
   /** Regresses the scroll position by exactly one "page" width. */
   prevPage(): void {
-    if (this.viewMode !== "paged") return
+    if (this.viewMode() !== "paged") return
     const block = this.bookBlock
     if (!this.container || !block) return
 
@@ -353,7 +352,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
    * content does at an edge: there is no page there.
    */
   dragBy(dx: number): void {
-    if (this.viewMode !== "paged") return
+    if (this.viewMode() !== "paged") return
     const block = this.bookBlock
     if (!this.container || !block) return
 
@@ -441,7 +440,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     element: HTMLElement,
     behavior: ScrollBehavior = "smooth",
   ): void {
-    if (this.viewMode !== "paged") return
+    if (this.viewMode() !== "paged") return
     const block = this.bookBlock
     if (!this.container || !block) return
 
@@ -491,7 +490,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   }
 
   private snapToNearestPage(): void {
-    if (this.viewMode !== "paged") return
+    if (this.viewMode() !== "paged") return
     const block = this.bookBlock
     if (!this.container || !block) return
 
@@ -535,7 +534,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     this.removeSpacer()
 
     const block = this._bookBlock
-    if (!this.container || !block || this.viewMode !== "paged") return
+    if (!this.container || !block || this.viewMode() !== "paged") return
 
     const advanceWidth = this.getAdvanceWidth(block)
     if (advanceWidth <= 0) return

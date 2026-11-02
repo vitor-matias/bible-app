@@ -81,6 +81,18 @@ import { VerseComponent } from "../verse/verse.component"
   ],
 })
 export class BibleReaderComponent implements OnInit, OnDestroy {
+  private autoScrollService = inject(AutoScrollService)
+  private apiService = inject(BibleApiService)
+  private bookService = inject(BookService)
+  private preferencesService = inject(PreferencesService)
+  private cdr = inject(ChangeDetectorRef)
+  private router = inject(Router)
+  private route = inject(ActivatedRoute)
+  private animationService = inject(BibleReaderAnimationService)
+  private analyticsService = inject(AnalyticsService)
+  private networkService = inject(NetworkService)
+  private seoService = inject(SeoService)
+
   private destroy$ = new Subject<void>()
   private chapterSubscription?: Subscription
   private injector = inject(Injector)
@@ -223,20 +235,6 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck()
     }
   }
-
-  constructor(
-    private autoScrollService: AutoScrollService,
-    private apiService: BibleApiService,
-    private bookService: BookService,
-    private preferencesService: PreferencesService,
-    private cdr: ChangeDetectorRef,
-    private router: Router,
-    private route: ActivatedRoute,
-    private animationService: BibleReaderAnimationService,
-    private analyticsService: AnalyticsService,
-    private networkService: NetworkService,
-    private seoService: SeoService,
-  ) {}
 
   ngOnInit(): void {
     const storedSpeed = this.preferencesService.getAutoScrollSpeed()

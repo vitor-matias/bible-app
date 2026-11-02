@@ -13,6 +13,7 @@ import { BackButtonService } from "./services/back-button.service"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
+import { PreferencesService } from "./services/preferences.service"
 import { ToastService } from "./services/toast.service"
 import { APP_PLUGIN, PAGE_HOSTNAME } from "./tokens"
 
@@ -66,6 +67,21 @@ describe("AppComponent", () => {
 
     ngZone = TestBed.inject(NgZone)
     spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
+  })
+
+  // Nothing else asks for these two: ThemeService applies the saved theme, and
+  // PwaInstallService must catch the one-shot `beforeinstallprompt`.
+  it("creates the theme and install services at startup", () => {
+    const savedTheme = spyOn(PreferencesService.prototype, "getTheme")
+    const listen = spyOn(window, "addEventListener").and.callThrough()
+
+    TestBed.createComponent(AppComponent)
+
+    expect(savedTheme).toHaveBeenCalled()
+    expect(listen).toHaveBeenCalledWith(
+      "beforeinstallprompt",
+      jasmine.any(Function),
+    )
   })
 
   it("should create the app", () => {

@@ -79,7 +79,7 @@ describe("FootnotesBottomSheetComponent", () => {
     )
     expect(gestures).toBeTruthy()
     expect(
-      gestures.injector.get(UnifiedGesturesDirective).fontSizeContext,
+      gestures.injector.get(UnifiedGesturesDirective).fontSizeContext(),
     ).toBe("footnotes")
   })
 

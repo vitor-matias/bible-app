@@ -9,12 +9,20 @@ describe("TwoActionSnackComponent", () => {
     snackBarRefSpy = jasmine.createSpyObj("MatSnackBarRef", ["dismiss"])
   })
 
+  function create(data: { message: string; returnUrl?: () => void }) {
+    TestBed.configureTestingModule({
+      imports: [TwoActionSnackComponent],
+      providers: [
+        { provide: MAT_SNACK_BAR_DATA, useValue: data },
+        { provide: MatSnackBarRef, useValue: snackBarRefSpy },
+      ],
+    })
+    return TestBed.createComponent(TwoActionSnackComponent).componentInstance
+  }
+
   it("should call the return callback before dismissing", () => {
     const returnUrl = jasmine.createSpy("returnUrl")
-    const component = new TwoActionSnackComponent(
-      { message: "Back", returnUrl },
-      snackBarRefSpy,
-    )
+    const component = create({ message: "Back", returnUrl })
 
     component.goBack()
 
@@ -33,10 +41,7 @@ describe("TwoActionSnackComponent", () => {
   })
 
   it("should dismiss even when no return callback is provided", () => {
-    const component = new TwoActionSnackComponent(
-      { message: "Close" },
-      snackBarRefSpy,
-    )
+    const component = create({ message: "Close" })
 
     component.goBack()
 
@@ -44,10 +49,7 @@ describe("TwoActionSnackComponent", () => {
   })
 
   it("should dismiss when the close action is used", () => {
-    const component = new TwoActionSnackComponent(
-      { message: "Close" },
-      snackBarRefSpy,
-    )
+    const component = create({ message: "Close" })
 
     component.dismiss()
 
