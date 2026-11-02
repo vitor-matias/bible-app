@@ -43,6 +43,10 @@ jobs:
       - run: npm ci
       - name: Build Production
         run: npx ng build --configuration=production
+      # `ng serve` never renders on the server, so hydration needs this build.
+      - run: npx playwright install --with-deps chromium
+      - name: Check the prerendered pages hydrate
+        run: npx playwright test --config=playwright.prerendered.config.ts
 
   # Playwright specs in e2e/ against `ng serve`. Like the dev server they use,
   # they read the real books, chapters and search from the public API

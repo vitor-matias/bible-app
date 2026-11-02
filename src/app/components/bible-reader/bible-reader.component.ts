@@ -10,6 +10,7 @@ import {
   inject,
   type OnDestroy,
   type OnInit,
+  PendingTasks,
   PLATFORM_ID,
   ViewChild,
 } from "@angular/core"
@@ -97,6 +98,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private chapterSubscription?: Subscription
   private injector = inject(Injector)
   private platformId = inject(PLATFORM_ID)
+  private host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement
+  private pendingTasks = inject(PendingTasks)
+  /** Set while the prerendered chapter on screen waits for its data. */
+  private endPrerenderHold?: () => void
   private haptics = inject(HapticsService)
   private nativeChrome = inject(NativeChromeService)
   /**
@@ -237,6 +242,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Hydration deletes the server DOM it hasn't claimed once the app is stable,
+    // and waiting on IndexedDB doesn't count as work: the text would blank out.
+    if (this.host.querySelector(".chapterBlock")) {
+      this.endPrerenderHold = this.pendingTasks.add()
+    }
+
     const storedSpeed = this.preferencesService.getAutoScrollSpeed()
     if (storedSpeed) {
       this.autoScrollService.setAutoScrollLinesPerSecond(storedSpeed)
@@ -258,6 +269,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe((unavailable) => {
         this.booksUnavailable = unavailable
+        if (unavailable) this.releasePrerender()
         this.cdr.markForCheck()
       })
 
@@ -360,6 +372,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.releasePrerender()
     this.unregisterBackCloser()
     this.destroy$.next()
     this.destroy$.complete()
@@ -367,6 +380,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.animationService.cancelPendingRealign()
     this.stopTrackingScroll?.()
     // AutoScrollService handles its own cleanup now if we stop it, or the component stopping it
+  }
+
+  private releasePrerender(): void {
+    this.endPrerenderHold?.()
+    this.endPrerenderHold = undefined
   }
 
   /** The one place chapter URLs are built, for anchors and navigation alike. */
@@ -720,6 +738,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.isNavigatingBackwards = false
     this.isNavigatingForwards = false
     this.notifyChapterLoadFailed()
+    this.releasePrerender()
     if (isPlatformBrowser(this.platformId)) {
       this.router.navigate(
         [
@@ -778,7 +797,16 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     verseEnd?: Verse["number"],
     highlight = true,
   ): void {
-    this.resetContainerForRepaint()
+    // Paged view lays the text out anew and a verse link moves it, so those
+    // still reveal it. Otherwise it's in place, and the reader may have scrolled.
+    const alreadyShown =
+      !!this.endPrerenderHold &&
+      !verseStart &&
+      this.effectiveViewMode === "scrolling" &&
+      !this.isNavigatingForwards &&
+      !this.isNavigatingBackwards
+
+    if (!alreadyShown) this.resetContainerForRepaint()
 
     this.chapter = chapterData
     this.chapterNumber = chapter
@@ -797,7 +825,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.isNavigatingBackwards = false
     this.isNavigatingForwards = false
 
-    if (!verseStart) {
+    if (verseStart) {
+      this.scrollToVerse(verseStart, verseEnd, highlight)
+    } else if (!alreadyShown) {
       this.animationService.scrollToTop(
         this.drawerContent?.nativeElement,
         this.bookContainer?.nativeElement,
@@ -807,12 +837,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           ? () => this.pagedNav?.scrollToEnd()
           : () => this.pagedNav?.ensureAlignedScrollWidth(),
       )
-    } else {
-      this.scrollToVerse(verseStart, verseEnd, highlight)
     }
 
     this.preferencesService.setLastBookId(this.book.id)
     this.preferencesService.setLastChapterNumber(this.chapterNumber)
+    this.releasePrerender()
   }
 
   /** Paged mode scrolls in whole pages, so paged navigation does the scroll. */
