@@ -76,7 +76,7 @@ dependencies {
     testImplementation "junit:junit:$junitVersion"
     // android.jar's org.json is stubbed in unit tests: the real one, to read
     // what the web app sends (ChromeStateTest).
-    testImplementation "org.json:json:20250517"
+    testImplementation "org.json:json:20260814"
     implementation project(':capacitor-cordova-android-plugins')
 }
 
