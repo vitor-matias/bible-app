@@ -148,11 +148,14 @@ test.describe("Book selector drawer", () => {
     const drawer = page.locator("mat-drawer")
     await expect(drawer).toBeVisible({ timeout: 5_000 })
 
-    // 73 canonical books plus the synthetic About entry the picker appends.
+    // 73 canonical books plus the synthetic About entry the picker appends,
+    // plus the "Introdução" entries, whose number changes with the content.
     const books = drawer.locator(
       "mat-tree-node:not(.book-group) .bookSelectorButton",
     )
-    await expect.poll(() => books.count(), { timeout: 15_000 }).toBe(74)
+    await expect
+      .poll(() => books.count(), { timeout: 15_000 })
+      .toBeGreaterThanOrEqual(74)
 
     const unresolved = await books.evaluateAll((nodes) =>
       nodes
@@ -255,6 +258,9 @@ test.describe("Icon font", () => {
     await expect(wizard).toBeVisible()
 
     const dots = wizard.locator(".dot")
+    // count() doesn't wait: the dialog is visible a beat before its dots are
+    // rendered, and an early 0 skips the loop, so the install step never opens.
+    await expect(dots.first()).toBeVisible()
     const count = await dots.count()
     for (let i = 0; i < count; i++) {
       await dots.nth(i).click()
