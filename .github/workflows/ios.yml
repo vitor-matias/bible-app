@@ -9,6 +9,7 @@ on:
     branches: [ master, main, 'feat/**' ]
     paths:
       - 'ios/**'
+      - 'native-contract/**'
       - 'package.json'
       - 'package-lock.json'
       - 'capacitor.config.ts'
@@ -41,14 +42,19 @@ jobs:
           npm run build
           npm run cap:prune
           npx cap sync ios
-      - name: Build the app for the simulator
+      # Builds the app too. A simulator of its own, as ios/scripts/smoke-launch.sh
+      # makes: a runtime's default devices can be only the iPhone Duo.
+      - name: Build the app and run its tests on the simulator
         run: |
           set -e
-          xcodebuild -project ios/App/App.xcodeproj \
+          TYPE=com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max
+          RUNTIME=$(xcrun simctl list runtimes -j | jq -r --arg type "$TYPE" '
+            [.runtimes[] | select(.platform == "iOS" and .isAvailable and
+              any(.supportedDeviceTypes[]; .identifier == $type))]
+            | max_by(.version | split(".") | map(tonumber)) | .identifier // empty')
+          UDID=$(xcrun simctl create "PR tests" "$TYPE" "$RUNTIME")
+          xcodebuild test -project ios/App/App.xcodeproj \
             -scheme App \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination "platform=iOS Simulator,id=$UDID" \
             -derivedDataPath ios/App/build/ci \
-            build \
             CODE_SIGNING_ALLOWED=NO

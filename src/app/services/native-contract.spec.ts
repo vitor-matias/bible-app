@@ -98,6 +98,10 @@ function differences(sent: unknown, fixture: unknown, path = ""): string[] {
       `${path || "state"}: sent ${typeof sent}, fixture ${typeof fixture}`,
     ]
   }
+  // The shells switch on the mode, so its value is part of the contract too.
+  if (path === ".mode" && sent !== fixture) {
+    return [`.mode: sent ${sent}, fixture ${fixture}`]
+  }
   if (typeof sent !== "object") return []
   if (Array.isArray(sent) && Array.isArray(fixture)) {
     return sent.length && fixture.length
@@ -190,6 +194,12 @@ describe("the native chrome contract fixtures", () => {
     tick()
     expect(sent()).toEqual(none)
   }))
+
+  it("notices a changed mode", () => {
+    expect(differences({ mode: "reading" }, { mode: "reader" })).toEqual([
+      ".mode: sent reading, fixture reader",
+    ])
+  })
 
   // The comparison itself must notice a rename.
   it("notices a renamed key", () => {
