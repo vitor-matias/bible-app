@@ -8,13 +8,13 @@ import reader from "../../../native-contract/reader.json"
 import readerMinimal from "../../../native-contract/reader-minimal.json"
 import search from "../../../native-contract/search.json"
 import { NATIVE_CHROME_PLUGIN } from "../tokens"
-import {
-  type AutoScrollChrome,
-  NativeChromeService,
-  type ReaderChrome,
-  type SearchChrome,
-  type TitledPageChrome,
-} from "./native-chrome.service"
+import { NativeChromeService } from "./native-chrome.service"
+import type {
+  AutoScrollChrome,
+  ReaderChrome,
+  SearchChrome,
+  TitledPageChrome,
+} from "./native-chrome.types"
 
 // The iOS and Android shells parse these same files (native-contract/):
 // they are what the service sends. Here the service is driven and what it

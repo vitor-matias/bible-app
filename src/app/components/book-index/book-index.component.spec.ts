@@ -4,10 +4,8 @@ import { of, Subject } from "rxjs"
 
 import { OLD_TESTAMENT_GROUPS } from "../../bible-canon"
 import { BookService } from "../../services/book.service"
-import {
-  type NativeChromeAction,
-  NativeChromeService,
-} from "../../services/native-chrome.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
+import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { BookIndexComponent } from "./book-index.component"
