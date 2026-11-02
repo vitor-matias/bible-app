@@ -545,6 +545,46 @@ describe("HeaderComponent", () => {
     expect(shareSpy).toHaveBeenCalled()
   })
 
+  describe("in a native build without the NativeChrome plugin", () => {
+    beforeEach(() => {
+      spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
+    })
+
+    it("shares the public URL through navigator.share", async () => {
+      const shareSpy = jasmine.createSpy("share").and.resolveTo()
+      Object.defineProperty(navigator, "share", {
+        value: shareSpy,
+        configurable: true,
+        writable: true,
+      })
+
+      component.chapterNumber = 1
+      component.ngOnInit()
+      expect(component.canShare).toBeTrue()
+
+      await component.sharePassage()
+
+      const { pathname, search, hash } = window.location
+      expect(shareSpy).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          url: `https://biblia.capuchinhos.org${pathname}${search}${hash}`,
+        }),
+      )
+    })
+
+    it("offers no share when navigator.share is missing too", () => {
+      Object.defineProperty(navigator, "share", {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      })
+
+      component.ngOnInit()
+
+      expect(component.canShare).toBeFalse()
+    })
+  })
+
   describe("about label cycle", () => {
     const aboutBook: Book = {
       id: "about",
