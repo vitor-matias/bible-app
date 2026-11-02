@@ -1,68 +1,68 @@
-import type { MockedObject } from 'vitest';
-import { HttpErrorResponse, HttpHeaders } from '@angular/common/http';
+import { HttpErrorResponse, HttpHeaders } from "@angular/common/http"
 import {
   HttpClientTestingModule,
   HttpTestingController,
   type TestRequest,
-} from '@angular/common/http/testing';
-import { ApplicationRef } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
-import { firstValueFrom, Observable, of, TimeoutError } from 'rxjs';
-import { AnalyticsService } from './analytics.service';
+} from "@angular/common/http/testing"
+import { ApplicationRef } from "@angular/core"
+import { TestBed } from "@angular/core/testing"
+import { firstValueFrom, Observable, of, TimeoutError } from "rxjs"
+import type { MockedObject } from "vitest"
+import { AnalyticsService } from "./analytics.service"
 import {
   BibleApiService,
   BOOK_LIST_TIMEOUT_MS,
   createApiResilience,
   createServerBooksCache,
   describeBookListFailure,
-} from './bible-api.service';
-import { NetworkService } from './network.service';
-import { OfflineDataService } from './offline-data.service';
+} from "./bible-api.service"
+import { NetworkService } from "./network.service"
+import { OfflineDataService } from "./offline-data.service"
 
-describe('BibleApiService', () => {
+describe("BibleApiService", () => {
   beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true });
-  });
+    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
+  })
   afterEach(() => {
-    vi.useRealTimers();
-  });
-  let service: BibleApiService;
-  let httpMock: HttpTestingController;
-  let offlineDataServiceSpy: MockedObject<OfflineDataService>;
+    vi.useRealTimers()
+  })
+  let service: BibleApiService
+  let httpMock: HttpTestingController
+  let offlineDataServiceSpy: MockedObject<OfflineDataService>
   let networkServiceStub: {
-    isOffline: boolean;
-  };
-  let analyticsSpy: MockedObject<AnalyticsService>;
+    isOffline: boolean
+  }
+  let analyticsSpy: MockedObject<AnalyticsService>
 
   beforeEach(() => {
     analyticsSpy = {
-      track: vi.fn().mockName('AnalyticsService.track'),
-    };
-    analyticsSpy.track.mockResolvedValue();
+      track: vi.fn().mockName("AnalyticsService.track"),
+    }
+    analyticsSpy.track.mockResolvedValue()
     const spy = {
       getCachedChapterAsync: vi
         .fn()
-        .mockName('OfflineDataService.getCachedChapterAsync'),
+        .mockName("OfflineDataService.getCachedChapterAsync"),
       getCachedBooksAsync: vi
         .fn()
-        .mockName('OfflineDataService.getCachedBooksAsync'),
+        .mockName("OfflineDataService.getCachedBooksAsync"),
       getCachedBookAsync: vi
         .fn()
-        .mockName('OfflineDataService.getCachedBookAsync'),
+        .mockName("OfflineDataService.getCachedBookAsync"),
       getCachedVerseAsync: vi
         .fn()
-        .mockName('OfflineDataService.getCachedVerseAsync'),
+        .mockName("OfflineDataService.getCachedVerseAsync"),
       getCachedGroupIntroSummariesAsync: vi
         .fn()
-        .mockName('OfflineDataService.getCachedGroupIntroSummariesAsync'),
+        .mockName("OfflineDataService.getCachedGroupIntroSummariesAsync"),
       getCachedGroupIntroAsync: vi
         .fn()
-        .mockName('OfflineDataService.getCachedGroupIntroAsync'),
+        .mockName("OfflineDataService.getCachedGroupIntroAsync"),
       areGroupIntrosCached: vi
         .fn()
-        .mockName('OfflineDataService.areGroupIntrosCached'),
-    };
-    networkServiceStub = { isOffline: false };
+        .mockName("OfflineDataService.areGroupIntrosCached"),
+    }
+    networkServiceStub = { isOffline: false }
 
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
@@ -72,29 +72,29 @@ describe('BibleApiService', () => {
         { provide: NetworkService, useValue: networkServiceStub },
         { provide: AnalyticsService, useValue: analyticsSpy },
       ],
-    });
+    })
 
-    service = TestBed.inject(BibleApiService);
-    httpMock = TestBed.inject(HttpTestingController);
+    service = TestBed.inject(BibleApiService)
+    httpMock = TestBed.inject(HttpTestingController)
     offlineDataServiceSpy = TestBed.inject(
-      OfflineDataService
-    ) as MockedObject<OfflineDataService>;
+      OfflineDataService,
+    ) as MockedObject<OfflineDataService>
 
     // Mock navigator.onLine to be true
-    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true);
-  });
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true)
+  })
 
   afterEach(() => {
-    httpMock.verify();
-  });
+    httpMock.verify()
+  })
 
-  it('should be created', () => {
-    expect(service).toBeTruthy();
-  });
+  it("should be created", () => {
+    expect(service).toBeTruthy()
+  })
 
-  describe('getChapter', () => {
-    const book = 'gen';
-    const chapterNum = 1;
+  describe("getChapter", () => {
+    const book = "gen"
+    const chapterNum = 1
     const mockChapter = {
       bookId: book,
       number: chapterNum,
@@ -103,684 +103,682 @@ describe('BibleApiService', () => {
           bookId: book,
           chapterNumber: chapterNum,
           number: 1,
-          verseLabel: '1',
+          verseLabel: "1",
           text: [
             {
-              type: 'text',
-              text: 'In the beginning...',
+              type: "text",
+              text: "In the beginning...",
             },
           ],
         },
       ],
-    } as Chapter;
+    } as Chapter
 
-    it('should return cached chapter when it contains verses', async () => {
-      offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(
-        mockChapter
-      );
+    it("should return cached chapter when it contains verses", async () => {
+      offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(mockChapter)
 
-      const result = await firstValueFrom(service.getChapter(book, chapterNum));
-      expect(result).toEqual(mockChapter);
-      httpMock.expectNone(`v1/${book}/${chapterNum}`);
-    });
+      const result = await firstValueFrom(service.getChapter(book, chapterNum))
+      expect(result).toEqual(mockChapter)
+      httpMock.expectNone(`v1/${book}/${chapterNum}`)
+    })
 
     // The prerender serializes a page once the app is stable: from the call to
     // the answer, nothing but this keeps it so (the cache lookup is a promise).
-    it('keeps the app unstable from the call until the chapter arrives', async () => {
-      offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(undefined);
+    it("keeps the app unstable from the call until the chapter arrives", async () => {
+      offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(undefined)
       const isStable = () =>
-        firstValueFrom(TestBed.inject(ApplicationRef).isStable);
+        firstValueFrom(TestBed.inject(ApplicationRef).isStable)
 
       const chapterPromise = firstValueFrom(
-        service.getChapter(book, chapterNum)
-      );
-      expect(await isStable()).toBe(false);
+        service.getChapter(book, chapterNum),
+      )
+      expect(await isStable()).toBe(false)
 
-      await Promise.resolve();
-      await Promise.resolve();
-      httpMock.expectOne(`v1/${book}/${chapterNum}`).flush(mockChapter);
-      await chapterPromise;
+      await Promise.resolve()
+      await Promise.resolve()
+      httpMock.expectOne(`v1/${book}/${chapterNum}`).flush(mockChapter)
+      await chapterPromise
       // Settles only once the task has been released.
-      await TestBed.inject(ApplicationRef).whenStable();
-    });
+      await TestBed.inject(ApplicationRef).whenStable()
+    })
 
-    it('lets go of the app when the chapter fails', async () => {
-      offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(undefined);
-      networkServiceStub.isOffline = true;
+    it("lets go of the app when the chapter fails", async () => {
+      offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(undefined)
+      networkServiceStub.isOffline = true
 
       await expect(
-        firstValueFrom(service.getChapter(book, chapterNum))
-      ).rejects.toThrow();
-      await TestBed.inject(ApplicationRef).whenStable();
-    });
+        firstValueFrom(service.getChapter(book, chapterNum)),
+      ).rejects.toThrow()
+      await TestBed.inject(ApplicationRef).whenStable()
+    })
 
-    it('should fetch from server when cache returns undefined', async () => {
-      offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(undefined);
+    it("should fetch from server when cache returns undefined", async () => {
+      offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(undefined)
 
       const chapterPromise = firstValueFrom(
-        service.getChapter(book, chapterNum)
-      );
+        service.getChapter(book, chapterNum),
+      )
 
       // Wait for the cache check microtask to complete
-      await Promise.resolve();
-      await Promise.resolve();
+      await Promise.resolve()
+      await Promise.resolve()
 
-      const req = httpMock.expectOne(`v1/${book}/${chapterNum}`);
-      expect(req.request.method).toBe('GET');
-      req.flush(mockChapter);
+      const req = httpMock.expectOne(`v1/${book}/${chapterNum}`)
+      expect(req.request.method).toBe("GET")
+      req.flush(mockChapter)
 
-      const result = await chapterPromise;
-      expect(result).toEqual(mockChapter);
-    });
+      const result = await chapterPromise
+      expect(result).toEqual(mockChapter)
+    })
 
-    it('should fetch from server when cached chapter has no verses array', async () => {
-      const hollowChapter = { bookId: book, number: chapterNum } as Chapter;
+    it("should fetch from server when cached chapter has no verses array", async () => {
+      const hollowChapter = { bookId: book, number: chapterNum } as Chapter
       offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(
-        hollowChapter
-      );
+        hollowChapter,
+      )
 
       const chapterPromise = firstValueFrom(
-        service.getChapter(book, chapterNum)
-      );
+        service.getChapter(book, chapterNum),
+      )
 
       // Wait for the cache check microtask to complete
-      await Promise.resolve();
-      await Promise.resolve();
+      await Promise.resolve()
+      await Promise.resolve()
 
-      const req = httpMock.expectOne(`v1/${book}/${chapterNum}`);
-      req.flush(mockChapter);
+      const req = httpMock.expectOne(`v1/${book}/${chapterNum}`)
+      req.flush(mockChapter)
 
-      const result = await chapterPromise;
-      expect(result).toEqual(mockChapter);
-    });
+      const result = await chapterPromise
+      expect(result).toEqual(mockChapter)
+    })
 
-    it('should fetch from server when cached chapter has empty verses array', async () => {
+    it("should fetch from server when cached chapter has empty verses array", async () => {
       const emptyChapter = {
         bookId: book,
         number: chapterNum,
         verses: [],
-      } as Chapter;
+      } as Chapter
       offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(
-        emptyChapter
-      );
+        emptyChapter,
+      )
 
       const chapterPromise = firstValueFrom(
-        service.getChapter(book, chapterNum)
-      );
+        service.getChapter(book, chapterNum),
+      )
 
       // Wait for the cache check microtask to complete
-      await Promise.resolve();
-      await Promise.resolve();
+      await Promise.resolve()
+      await Promise.resolve()
 
-      const req = httpMock.expectOne(`v1/${book}/${chapterNum}`);
-      req.flush(mockChapter);
+      const req = httpMock.expectOne(`v1/${book}/${chapterNum}`)
+      req.flush(mockChapter)
 
-      const result = await chapterPromise;
-      expect(result).toEqual(mockChapter);
-    });
+      const result = await chapterPromise
+      expect(result).toEqual(mockChapter)
+    })
 
-    it('should share a single request for the same chapter', async () => {
-      offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(undefined);
+    it("should share a single request for the same chapter", async () => {
+      offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(undefined)
 
-      const firstChapterPromise = firstValueFrom(service.getChapter(book, 1));
-      const secondChapterPromise = firstValueFrom(service.getChapter(book, 1));
+      const firstChapterPromise = firstValueFrom(service.getChapter(book, 1))
+      const secondChapterPromise = firstValueFrom(service.getChapter(book, 1))
 
-      await Promise.resolve();
-      await Promise.resolve();
+      await Promise.resolve()
+      await Promise.resolve()
 
-      const req = httpMock.expectOne(`v1/${book}/1`);
-      req.flush(mockChapter);
+      const req = httpMock.expectOne(`v1/${book}/1`)
+      req.flush(mockChapter)
 
-      expect(await firstChapterPromise).toEqual(mockChapter);
-      expect(await secondChapterPromise).toEqual(mockChapter);
-    });
+      expect(await firstChapterPromise).toEqual(mockChapter)
+      expect(await secondChapterPromise).toEqual(mockChapter)
+    })
 
-    it('should keep concurrent chapter requests isolated by book and chapter', async () => {
+    it("should keep concurrent chapter requests isolated by book and chapter", async () => {
       const otherChapter = {
-        bookId: 'exo',
+        bookId: "exo",
         number: 2,
         verses: [
           {
-            bookId: 'exo',
+            bookId: "exo",
             chapterNumber: 2,
             number: 1,
-            verseLabel: '1',
+            verseLabel: "1",
             text: [
               {
-                type: 'text',
-                text: 'Now these are the names...',
+                type: "text",
+                text: "Now these are the names...",
               },
             ],
           },
         ],
-      } as Chapter;
+      } as Chapter
 
-      offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(undefined);
+      offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(undefined)
 
-      const firstChapterPromise = firstValueFrom(service.getChapter(book, 1));
-      const secondChapterPromise = firstValueFrom(service.getChapter('exo', 2));
+      const firstChapterPromise = firstValueFrom(service.getChapter(book, 1))
+      const secondChapterPromise = firstValueFrom(service.getChapter("exo", 2))
 
-      await Promise.resolve();
-      await Promise.resolve();
+      await Promise.resolve()
+      await Promise.resolve()
 
-      const firstReq = httpMock.expectOne(`v1/${book}/1`);
-      const secondReq = httpMock.expectOne('v1/exo/2');
+      const firstReq = httpMock.expectOne(`v1/${book}/1`)
+      const secondReq = httpMock.expectOne("v1/exo/2")
 
-      secondReq.flush(otherChapter);
-      firstReq.flush(mockChapter);
+      secondReq.flush(otherChapter)
+      firstReq.flush(mockChapter)
 
-      expect(await firstChapterPromise).toEqual(mockChapter);
-      expect(await secondChapterPromise).toEqual(otherChapter);
-    });
-  });
+      expect(await firstChapterPromise).toEqual(mockChapter)
+      expect(await secondChapterPromise).toEqual(otherChapter)
+    })
+  })
 
-  describe('getAvailableBooks', () => {
-    it('should return cached books before using the network', async () => {
+  describe("getAvailableBooks", () => {
+    it("should return cached books before using the network", async () => {
       const cachedBooks = [
         {
-          id: 'gen',
-          name: 'Genesis',
-          shortName: 'Genesis',
-          abrv: 'Gn',
+          id: "gen",
+          name: "Genesis",
+          shortName: "Genesis",
+          abrv: "Gn",
           chapterCount: 50,
         },
-      ] as Book[];
-      offlineDataServiceSpy.getCachedBooksAsync.mockResolvedValue(cachedBooks);
+      ] as Book[]
+      offlineDataServiceSpy.getCachedBooksAsync.mockResolvedValue(cachedBooks)
 
-      const result = await firstValueFrom(service.getAvailableBooks());
+      const result = await firstValueFrom(service.getAvailableBooks())
 
-      expect(result).toEqual(cachedBooks);
-      httpMock.expectNone('v1/books');
-    });
+      expect(result).toEqual(cachedBooks)
+      httpMock.expectNone("v1/books")
+    })
 
-    it('should throw when offline and no cached books exist', async () => {
-      offlineDataServiceSpy.getCachedBooksAsync.mockResolvedValue([]);
-      networkServiceStub.isOffline = true;
+    it("should throw when offline and no cached books exist", async () => {
+      offlineDataServiceSpy.getCachedBooksAsync.mockResolvedValue([])
+      networkServiceStub.isOffline = true
 
       await expect(
-        firstValueFrom(service.getAvailableBooks())
-      ).rejects.toThrowError('Offline and no cached books available');
-      httpMock.expectNone('v1/books');
-    });
+        firstValueFrom(service.getAvailableBooks()),
+      ).rejects.toThrowError("Offline and no cached books available")
+      httpMock.expectNone("v1/books")
+    })
 
-    it('should exclude cached group-intro pseudo-books from the available books', async () => {
+    it("should exclude cached group-intro pseudo-books from the available books", async () => {
       const realBook = {
-        id: 'gen',
-        name: 'Genesis',
-        shortName: 'Genesis',
-        abrv: 'Gn',
+        id: "gen",
+        name: "Genesis",
+        shortName: "Genesis",
+        abrv: "Gn",
         chapterCount: 50,
-      } as Book;
+      } as Book
       const introBook = {
-        id: 'pentateuco',
-        name: 'Pentateuco',
-        shortName: 'Pentateuco',
-        abrv: 'pentateuco',
+        id: "pentateuco",
+        name: "Pentateuco",
+        shortName: "Pentateuco",
+        abrv: "pentateuco",
         chapterCount: 0,
-        introSlug: 'pentateuco',
+        introSlug: "pentateuco",
         introduction: [],
-      } as Book;
+      } as Book
       offlineDataServiceSpy.getCachedBooksAsync.mockResolvedValue([
         realBook,
         introBook,
-      ]);
+      ])
 
-      const result = await firstValueFrom(service.getAvailableBooks());
+      const result = await firstValueFrom(service.getAvailableBooks())
 
       // BookService builds its own synthetic entry for every standalone
       // introduction from getIntros() — leaking the cached pseudo-book
       // through here would duplicate it.
-      expect(result).toEqual([realBook]);
-      httpMock.expectNone('v1/books');
-    });
+      expect(result).toEqual([realBook])
+      httpMock.expectNone("v1/books")
+    })
 
-    it('should throw when offline and only group-intro pseudo-books are cached', async () => {
+    it("should throw when offline and only group-intro pseudo-books are cached", async () => {
       const introBook = {
-        id: 'pentateuco',
-        name: 'Pentateuco',
-        shortName: 'Pentateuco',
-        abrv: 'pentateuco',
+        id: "pentateuco",
+        name: "Pentateuco",
+        shortName: "Pentateuco",
+        abrv: "pentateuco",
         chapterCount: 0,
-        introSlug: 'pentateuco',
+        introSlug: "pentateuco",
         introduction: [],
-      } as Book;
-      offlineDataServiceSpy.getCachedBooksAsync.mockResolvedValue([introBook]);
-      networkServiceStub.isOffline = true;
+      } as Book
+      offlineDataServiceSpy.getCachedBooksAsync.mockResolvedValue([introBook])
+      networkServiceStub.isOffline = true
 
       await expect(
-        firstValueFrom(service.getAvailableBooks())
-      ).rejects.toThrowError('Offline and no cached books available');
-      httpMock.expectNone('v1/books');
-    });
+        firstValueFrom(service.getAvailableBooks()),
+      ).rejects.toThrowError("Offline and no cached books available")
+      httpMock.expectNone("v1/books")
+    })
 
-    it('should fetch books from the server and cache them in memory', async () => {
+    it("should fetch books from the server and cache them in memory", async () => {
       const remoteBooks = [
         {
-          id: 'exo',
-          name: 'Exodus',
-          shortName: 'Exodus',
-          abrv: 'Ex',
+          id: "exo",
+          name: "Exodus",
+          shortName: "Exodus",
+          abrv: "Ex",
           chapterCount: 40,
         },
-      ] as Book[];
-      offlineDataServiceSpy.getCachedBooksAsync.mockResolvedValue([]);
+      ] as Book[]
+      offlineDataServiceSpy.getCachedBooksAsync.mockResolvedValue([])
 
-      const booksPromise = firstValueFrom(service.getAvailableBooks());
+      const booksPromise = firstValueFrom(service.getAvailableBooks())
 
-      await Promise.resolve();
-      await Promise.resolve();
+      await Promise.resolve()
+      await Promise.resolve()
 
-      const req = httpMock.expectOne('v1/books');
-      req.flush(remoteBooks);
+      const req = httpMock.expectOne("v1/books")
+      req.flush(remoteBooks)
 
-      expect(await booksPromise).toEqual(remoteBooks);
-      expect(service.books).toEqual(remoteBooks);
-    });
+      expect(await booksPromise).toEqual(remoteBooks)
+      expect(service.books).toEqual(remoteBooks)
+    })
 
     // A first launch must end on the reader's retry screen, never stuck or
     // broken, whatever happens to the request.
-    describe('when the request goes wrong', () => {
+    describe("when the request goes wrong", () => {
       const remoteBooks = [
         {
-          id: 'exo',
-          name: 'Exodus',
-          shortName: 'Exodus',
-          abrv: 'Ex',
+          id: "exo",
+          name: "Exodus",
+          shortName: "Exodus",
+          abrv: "Ex",
           chapterCount: 40,
         },
-      ] as Book[];
+      ] as Book[]
 
       beforeEach(() => {
-        offlineDataServiceSpy.getCachedBooksAsync.mockResolvedValue([]);
-      });
+        offlineDataServiceSpy.getCachedBooksAsync.mockResolvedValue([])
+      })
 
       // A connection that opened but never answered left the reader empty,
       // with no retry, until iOS gave up on it.
-      it('fails a stalled request in time, and a retry asks again', async () => {
-        let failure: unknown;
+      it("fails a stalled request in time, and a retry asks again", async () => {
+        let failure: unknown
         service.getAvailableBooks().subscribe({
           error: (error) => {
-            failure = error;
+            failure = error
           },
-        });
-        await vi.advanceTimersByTimeAsync(0);
-        const stalled = httpMock.expectOne('v1/books');
+        })
+        await vi.advanceTimersByTimeAsync(0)
+        const stalled = httpMock.expectOne("v1/books")
 
-        await vi.advanceTimersByTimeAsync(BOOK_LIST_TIMEOUT_MS);
+        await vi.advanceTimersByTimeAsync(BOOK_LIST_TIMEOUT_MS)
 
-        expect(failure).toBeInstanceOf(TimeoutError);
-        expect(stalled.cancelled).toBe(true);
-        expect(analyticsSpy.track).toHaveBeenCalledTimes(1);
-        expect(analyticsSpy.track).toHaveBeenCalledWith('books_load_failed', {
-          reason: 'timeout',
-        });
-        let books: Book[] | undefined;
+        expect(failure).toBeInstanceOf(TimeoutError)
+        expect(stalled.cancelled).toBe(true)
+        expect(analyticsSpy.track).toHaveBeenCalledTimes(1)
+        expect(analyticsSpy.track).toHaveBeenCalledWith("books_load_failed", {
+          reason: "timeout",
+        })
+        let books: Book[] | undefined
         service.getAvailableBooks().subscribe((result) => {
-          books = result;
-        });
-        await vi.advanceTimersByTimeAsync(0);
-        httpMock.expectOne('v1/books').flush(remoteBooks);
-        expect(books).toEqual(remoteBooks);
+          books = result
+        })
+        await vi.advanceTimersByTimeAsync(0)
+        httpMock.expectOne("v1/books").flush(remoteBooks)
+        expect(books).toEqual(remoteBooks)
         // The retry that worked reports nothing.
-        expect(analyticsSpy.track).toHaveBeenCalledTimes(1);
-      });
+        expect(analyticsSpy.track).toHaveBeenCalledTimes(1)
+      })
 
       const failures: [
         string,
         (request: TestRequest) => void,
-        Record<string, string | number>
+        Record<string, string | number>,
       ][] = [
         [
-          'a download the network cut off',
-          (request) => request.error(new ProgressEvent('error')),
-          { reason: 'network' },
+          "a download the network cut off",
+          (request) => request.error(new ProgressEvent("error")),
+          { reason: "network" },
         ],
         // In the app HttpClient rejects a body that stops mid-JSON before
         // this point; should one arrive as text, it must fail the same way.
         [
-          'a truncated JSON body',
+          "a truncated JSON body",
           (request) => request.flush('[{"id":"exo","name":"Exo'),
-          { reason: 'not_a_list' },
+          { reason: "not_a_list" },
         ],
         [
           "a body that isn't the list",
-          (request) => request.flush({ error: 'Bad gateway' }),
-          { reason: 'not_a_list' },
+          (request) => request.flush({ error: "Bad gateway" }),
+          { reason: "not_a_list" },
         ],
         [
           "a proxy's error page",
           (request) =>
-            request.flush('<html><h1>502 Bad Gateway</h1></html>', {
+            request.flush("<html><h1>502 Bad Gateway</h1></html>", {
               status: 502,
-              statusText: 'Bad Gateway',
-              headers: { 'content-type': 'text/html; charset=utf-8' },
+              statusText: "Bad Gateway",
+              headers: { "content-type": "text/html; charset=utf-8" },
             }),
-          { reason: 'http_error', status: 502, contentType: 'text/html' },
+          { reason: "http_error", status: 502, contentType: "text/html" },
         ],
-      ];
+      ]
       for (const [what, fail, event] of failures) {
         it(`fails on ${what}, keeps nothing, reports it, and a retry asks again`, async () => {
-          const first = firstValueFrom(service.getAvailableBooks());
-          await Promise.resolve();
-          await Promise.resolve();
+          const first = firstValueFrom(service.getAvailableBooks())
+          await Promise.resolve()
+          await Promise.resolve()
           // TODO: vitest-migration: expect.fail() only accepts a string message. Verify that converting this argument with String() produces the expected failure output. See: https://vitest.dev/api/expect.html#expect-fail
-          expect.fail(String(httpMock.expectOne('v1/books')));
+          expect.fail(String(httpMock.expectOne("v1/books")))
 
-          await expect(first).rejects.toThrow();
-          expect(service.books).toEqual([]);
-          expect(analyticsSpy.track).toHaveBeenCalledTimes(1);
+          await expect(first).rejects.toThrow()
+          expect(service.books).toEqual([])
+          expect(analyticsSpy.track).toHaveBeenCalledTimes(1)
           expect(analyticsSpy.track).toHaveBeenCalledWith(
-            'books_load_failed',
-            event
-          );
+            "books_load_failed",
+            event,
+          )
 
-          const retry = firstValueFrom(service.getAvailableBooks());
-          await Promise.resolve();
-          await Promise.resolve();
-          httpMock.expectOne('v1/books').flush(remoteBooks);
-          expect(await retry).toEqual(remoteBooks);
-          expect(analyticsSpy.track).toHaveBeenCalledTimes(1);
-        });
+          const retry = firstValueFrom(service.getAvailableBooks())
+          await Promise.resolve()
+          await Promise.resolve()
+          httpMock.expectOne("v1/books").flush(remoteBooks)
+          expect(await retry).toEqual(remoteBooks)
+          expect(analyticsSpy.track).toHaveBeenCalledTimes(1)
+        })
       }
-    });
+    })
 
-    describe('describeBookListFailure', () => {
+    describe("describeBookListFailure", () => {
       // What HttpClient raises for a 200 that isn't JSON: a Wi-Fi login page,
       // or JSON cut short. The testing backend never parses, so it's built here.
-      it('names an HTML page in place of the list', () => {
+      it("names an HTML page in place of the list", () => {
         const error = new HttpErrorResponse({
           status: 200,
-          statusText: 'OK',
-          headers: new HttpHeaders({ 'content-type': 'text/html' }),
+          statusText: "OK",
+          headers: new HttpHeaders({ "content-type": "text/html" }),
           error: {
             error: new SyntaxError("Unexpected token '<'"),
-            text: '<!DOCTYPE html><title>Hotel Wi-Fi</title>',
+            text: "<!DOCTYPE html><title>Hotel Wi-Fi</title>",
           },
-        });
+        })
 
         expect(describeBookListFailure(error)).toEqual({
-          reason: 'not_json',
+          reason: "not_json",
           status: 200,
-          contentType: 'text/html',
-        });
-      });
+          contentType: "text/html",
+        })
+      })
 
-      it('says other for anything else', () => {
-        expect(describeBookListFailure(new Error('?'))).toEqual({
-          reason: 'other',
-        });
-      });
-    });
-  });
+      it("says other for anything else", () => {
+        expect(describeBookListFailure(new Error("?"))).toEqual({
+          reason: "other",
+        })
+      })
+    })
+  })
 
-  describe('getVerse', () => {
-    it('should return a cached verse when available', async () => {
+  describe("getVerse", () => {
+    it("should return a cached verse when available", async () => {
       const cachedVerse = {
-        bookId: 'gen',
+        bookId: "gen",
         chapterNumber: 1,
         number: 1,
-        verseLabel: '1',
+        verseLabel: "1",
         text: [
           {
-            type: 'text',
-            text: 'In the beginning...',
+            type: "text",
+            text: "In the beginning...",
           },
         ],
-      } as Verse;
-      offlineDataServiceSpy.getCachedVerseAsync.mockResolvedValue(cachedVerse);
+      } as Verse
+      offlineDataServiceSpy.getCachedVerseAsync.mockResolvedValue(cachedVerse)
 
-      const result = await firstValueFrom(service.getVerse('gen', 1, 1));
+      const result = await firstValueFrom(service.getVerse("gen", 1, 1))
 
-      expect(result).toEqual(cachedVerse);
-      httpMock.expectNone('v1/gen/1/1');
-    });
+      expect(result).toEqual(cachedVerse)
+      httpMock.expectNone("v1/gen/1/1")
+    })
 
-    it('should throw when offline and the verse is not cached', async () => {
-      offlineDataServiceSpy.getCachedVerseAsync.mockResolvedValue(undefined);
-      networkServiceStub.isOffline = true;
+    it("should throw when offline and the verse is not cached", async () => {
+      offlineDataServiceSpy.getCachedVerseAsync.mockResolvedValue(undefined)
+      networkServiceStub.isOffline = true
 
       await expect(
-        firstValueFrom(service.getVerse('gen', 1, 1))
-      ).rejects.toThrowError('Offline - verse not cached');
-      httpMock.expectNone('v1/gen/1/1');
-    });
-  });
+        firstValueFrom(service.getVerse("gen", 1, 1)),
+      ).rejects.toThrowError("Offline - verse not cached")
+      httpMock.expectNone("v1/gen/1/1")
+    })
+  })
 
-  describe('introductions', () => {
+  describe("introductions", () => {
     beforeEach(() => {
       offlineDataServiceSpy.getCachedGroupIntroSummariesAsync.mockResolvedValue(
-        []
-      );
+        [],
+      )
       offlineDataServiceSpy.getCachedGroupIntroAsync.mockResolvedValue(
-        undefined
-      );
-    });
+        undefined,
+      )
+    })
 
-    it('requests the listing and one body through the resilience wrapper', async () => {
+    it("requests the listing and one body through the resilience wrapper", async () => {
       // The wrapper is a pass-through in the browser; on the server it adds
       // the timeout and backoff that keep a prerender build from shipping
       // pages with no introductions after one transient failure. The cache
       // check ahead of the request is itself async, so the request only
       // appears after a microtask tick.
-      const intros = [{ slug: 'pentateuco', name: 'PENTATEUCO' }];
-      const introsPromise = firstValueFrom(service.getIntros());
-      await Promise.resolve();
-      await Promise.resolve();
+      const intros = [{ slug: "pentateuco", name: "PENTATEUCO" }]
+      const introsPromise = firstValueFrom(service.getIntros())
+      await Promise.resolve()
+      await Promise.resolve()
 
-      httpMock.expectOne('v1/intros').flush(intros);
-      expect(await introsPromise).toEqual(intros as IntroSummary[]);
+      httpMock.expectOne("v1/intros").flush(intros)
+      expect(await introsPromise).toEqual(intros as IntroSummary[])
 
-      const introPromise = firstValueFrom(service.getIntro('pentateuco'));
-      await Promise.resolve();
-      await Promise.resolve();
+      const introPromise = firstValueFrom(service.getIntro("pentateuco"))
+      await Promise.resolve()
+      await Promise.resolve()
 
-      httpMock.expectOne('v1/intros/pentateuco').flush({
-        slug: 'pentateuco',
-        name: 'PENTATEUCO',
+      httpMock.expectOne("v1/intros/pentateuco").flush({
+        slug: "pentateuco",
+        name: "PENTATEUCO",
         introduction: [],
-      });
-      expect((await introPromise).slug).toBe('pentateuco');
-    });
+      })
+      expect((await introPromise).slug).toBe("pentateuco")
+    })
 
-    it('returns the cached listing without hitting the network', async () => {
-      const cachedIntros = [{ slug: 'pentateuco', name: 'Pentateuco' }];
+    it("returns the cached listing without hitting the network", async () => {
+      const cachedIntros = [{ slug: "pentateuco", name: "Pentateuco" }]
       offlineDataServiceSpy.getCachedGroupIntroSummariesAsync.mockResolvedValue(
-        cachedIntros
-      );
-      offlineDataServiceSpy.areGroupIntrosCached.mockReturnValue(true);
+        cachedIntros,
+      )
+      offlineDataServiceSpy.areGroupIntrosCached.mockReturnValue(true)
 
-      const result = await firstValueFrom(service.getIntros());
+      const result = await firstValueFrom(service.getIntros())
 
-      expect(result).toEqual(cachedIntros);
-      httpMock.expectNone('v1/intros');
-    });
+      expect(result).toEqual(cachedIntros)
+      httpMock.expectNone("v1/intros")
+    })
 
-    it('asks the network past a partial cache, keeping it as the fallback', async () => {
+    it("asks the network past a partial cache, keeping it as the fallback", async () => {
       // One slug failing during preload leaves the cache short. Served as the
       // listing, the missing introduction would vanish for the whole session.
-      const partial = [{ slug: 'pentateuco', name: 'Pentateuco' }];
-      const full = [...partial, { slug: 'samuel', name: 'Samuel' }];
+      const partial = [{ slug: "pentateuco", name: "Pentateuco" }]
+      const full = [...partial, { slug: "samuel", name: "Samuel" }]
       offlineDataServiceSpy.getCachedGroupIntroSummariesAsync.mockResolvedValue(
-        partial
-      );
-      offlineDataServiceSpy.areGroupIntrosCached.mockReturnValue(false);
+        partial,
+      )
+      offlineDataServiceSpy.areGroupIntrosCached.mockReturnValue(false)
 
-      const online = firstValueFrom(service.getIntros());
-      await Promise.resolve();
-      await Promise.resolve();
-      httpMock.expectOne('v1/intros').flush(full);
-      expect(await online).toEqual(full);
+      const online = firstValueFrom(service.getIntros())
+      await Promise.resolve()
+      await Promise.resolve()
+      httpMock.expectOne("v1/intros").flush(full)
+      expect(await online).toEqual(full)
 
-      const failing = firstValueFrom(service.getIntros());
-      await Promise.resolve();
-      await Promise.resolve();
+      const failing = firstValueFrom(service.getIntros())
+      await Promise.resolve()
+      await Promise.resolve()
       httpMock
-        .expectOne('v1/intros')
-        .flush('down', { status: 400, statusText: 'Bad Request' });
-      expect(await failing).toEqual(partial);
-    });
+        .expectOne("v1/intros")
+        .flush("down", { status: 400, statusText: "Bad Request" })
+      expect(await failing).toEqual(partial)
+    })
 
     // BookService waits for the listing with the books, so a stalled one held
     // the book list back too.
-    it('fails a stalled listing in time', async () => {
-      let failure: unknown;
+    it("fails a stalled listing in time", async () => {
+      let failure: unknown
       service.getIntros().subscribe({
         error: (error) => {
-          failure = error;
+          failure = error
         },
-      });
-      await vi.advanceTimersByTimeAsync(0);
-      const stalled = httpMock.expectOne('v1/intros');
+      })
+      await vi.advanceTimersByTimeAsync(0)
+      const stalled = httpMock.expectOne("v1/intros")
 
-      await vi.advanceTimersByTimeAsync(BOOK_LIST_TIMEOUT_MS);
+      await vi.advanceTimersByTimeAsync(BOOK_LIST_TIMEOUT_MS)
 
-      expect(failure).toBeInstanceOf(TimeoutError);
-      expect(stalled.cancelled).toBe(true);
-    });
+      expect(failure).toBeInstanceOf(TimeoutError)
+      expect(stalled.cancelled).toBe(true)
+    })
 
-    it('throws when offline and the listing is not cached', async () => {
-      networkServiceStub.isOffline = true;
+    it("throws when offline and the listing is not cached", async () => {
+      networkServiceStub.isOffline = true
 
       await expect(firstValueFrom(service.getIntros())).rejects.toThrowError(
-        'Offline and no cached introductions available'
-      );
-      httpMock.expectNone('v1/intros');
-    });
+        "Offline and no cached introductions available",
+      )
+      httpMock.expectNone("v1/intros")
+    })
 
-    it('returns the cached body without hitting the network', async () => {
+    it("returns the cached body without hitting the network", async () => {
       const cachedIntro: GroupIntro = {
-        slug: 'pentateuco',
-        name: 'Pentateuco',
-        introduction: [{ type: 'introTitle', level: 1, text: 'Pentateuco' }],
-      };
+        slug: "pentateuco",
+        name: "Pentateuco",
+        introduction: [{ type: "introTitle", level: 1, text: "Pentateuco" }],
+      }
       offlineDataServiceSpy.getCachedGroupIntroAsync.mockResolvedValue(
-        cachedIntro
-      );
+        cachedIntro,
+      )
 
-      const result = await firstValueFrom(service.getIntro('pentateuco'));
+      const result = await firstValueFrom(service.getIntro("pentateuco"))
 
-      expect(result).toEqual(cachedIntro);
-      httpMock.expectNone('v1/intros/pentateuco');
-    });
+      expect(result).toEqual(cachedIntro)
+      httpMock.expectNone("v1/intros/pentateuco")
+    })
 
-    it('throws when offline and the body is not cached', async () => {
-      networkServiceStub.isOffline = true;
+    it("throws when offline and the body is not cached", async () => {
+      networkServiceStub.isOffline = true
 
       await expect(
-        firstValueFrom(service.getIntro('pentateuco'))
-      ).rejects.toThrowError('Offline - introduction not cached');
-      httpMock.expectNone('v1/intros/pentateuco');
-    });
-  });
+        firstValueFrom(service.getIntro("pentateuco")),
+      ).rejects.toThrowError("Offline - introduction not cached")
+      httpMock.expectNone("v1/intros/pentateuco")
+    })
+  })
 
-  describe('createApiResilience', () => {
-    it('passes the source through untouched in the browser', () => {
-      let value: number | undefined;
+  describe("createApiResilience", () => {
+    it("passes the source through untouched in the browser", () => {
+      let value: number | undefined
       of(42)
         .pipe(createApiResilience<number>(false))
         .subscribe((v) => {
-          value = v;
-        });
-      expect(value).toBe(42);
-    });
+          value = v
+        })
+      expect(value).toBe(42)
+    })
 
-    it('times out and retries a request that never completes on the server', async () => {
-      let error: unknown;
-      let attempts = 0;
+    it("times out and retries a request that never completes on the server", async () => {
+      let error: unknown
+      let attempts = 0
       // A request that accepts the connection but never responds.
       const hangingRequest = new Observable<never>(() => {
-        attempts++;
-      });
+        attempts++
+      })
 
       hangingRequest
         .pipe(createApiResilience(true, 1000, 2, 100))
-        .subscribe({ error: (err: unknown) => (error = err) });
+        .subscribe({ error: (err: unknown) => (error = err) })
 
       // Initial attempt + 2 retries, with 200ms and 400ms backoff between.
-      await vi.advanceTimersByTimeAsync(1000 + 200 + 1000 + 400 + 1000);
+      await vi.advanceTimersByTimeAsync(1000 + 200 + 1000 + 400 + 1000)
 
-      expect(attempts).toBe(3);
-      expect(error).toBeInstanceOf(TimeoutError);
-    });
+      expect(attempts).toBe(3)
+      expect(error).toBeInstanceOf(TimeoutError)
+    })
 
     // Retrying a 404 only multiplies the request count and the backoff wait:
     // prerendering "/" asks for /v1/about/1, which the API never serves.
-    it('fails a permanent 4xx immediately instead of retrying it', async () => {
-      let attempts = 0;
-      let error: unknown;
+    it("fails a permanent 4xx immediately instead of retrying it", async () => {
+      let attempts = 0
+      let error: unknown
       const notFound = new Observable<never>((subscriber) => {
-        attempts++;
+        attempts++
         subscriber.error(
-          new HttpErrorResponse({ status: 404, statusText: 'Not Found' })
-        );
-      });
+          new HttpErrorResponse({ status: 404, statusText: "Not Found" }),
+        )
+      })
 
       notFound
         .pipe(createApiResilience(true, 1000, 3, 100))
-        .subscribe({ error: (err: unknown) => (error = err) });
-      await vi.advanceTimersByTimeAsync(10000);
+        .subscribe({ error: (err: unknown) => (error = err) })
+      await vi.advanceTimersByTimeAsync(10000)
 
-      expect(attempts).toBe(1);
-      expect((error as HttpErrorResponse).status).toBe(404);
-    });
+      expect(attempts).toBe(1)
+      expect((error as HttpErrorResponse).status).toBe(404)
+    })
 
-    it('still retries the 4xx codes that mean try again', async () => {
+    it("still retries the 4xx codes that mean try again", async () => {
       for (const status of [408, 429]) {
-        let attempts = 0;
+        let attempts = 0
         const throttled = new Observable<never>((subscriber) => {
-          attempts++;
-          subscriber.error(new HttpErrorResponse({ status }));
-        });
+          attempts++
+          subscriber.error(new HttpErrorResponse({ status }))
+        })
 
         throttled
           .pipe(createApiResilience(true, 1000, 2, 100))
-          .subscribe({ error: () => {} });
-        await vi.advanceTimersByTimeAsync(10000);
+          .subscribe({ error: () => {} })
+        await vi.advanceTimersByTimeAsync(10000)
 
-        expect(attempts, `status ${status}`).toBe(3);
+        expect(attempts, `status ${status}`).toBe(3)
       }
-    });
-  });
+    })
+  })
 
-  describe('server book list cache', () => {
+  describe("server book list cache", () => {
     // One 200-with-[] would otherwise be reused by every later render in the
     // prerender worker, resolving every book to the About page.
-    it('does not keep a degenerate book list for the rest of the build', () => {
-      const cache = createServerBooksCache(true);
+    it("does not keep a degenerate book list for the rest of the build", () => {
+      const cache = createServerBooksCache(true)
 
-      cache.write([]);
-      expect(cache.read()).toBeNull();
+      cache.write([])
+      expect(cache.read()).toBeNull()
 
-      cache.write(undefined as unknown as Book[]);
-      expect(cache.read()).toBeNull();
-    });
+      cache.write(undefined as unknown as Book[])
+      expect(cache.read()).toBeNull()
+    })
 
-    it('keeps a usable book list and will not let a later empty response clobber it', () => {
-      const cache = createServerBooksCache(true);
-      const books = [{ id: 'gen' } as Book];
+    it("keeps a usable book list and will not let a later empty response clobber it", () => {
+      const cache = createServerBooksCache(true)
+      const books = [{ id: "gen" } as Book]
 
-      cache.write(books);
-      expect(cache.read()).toBe(books);
+      cache.write(books)
+      expect(cache.read()).toBe(books)
 
-      cache.write([]);
-      expect(cache.read()).toBe(books);
-    });
+      cache.write([])
+      expect(cache.read()).toBe(books)
+    })
 
     // Binding isServer at construction is what makes this unmixable: a browser
     // cache can neither be written to nor read from, whatever the call site.
-    it('is server-only', () => {
-      const cache = createServerBooksCache(false);
+    it("is server-only", () => {
+      const cache = createServerBooksCache(false)
 
-      cache.write([{ id: 'gen' } as Book]);
-      expect(cache.read()).toBeNull();
-    });
+      cache.write([{ id: "gen" } as Book])
+      expect(cache.read()).toBeNull()
+    })
 
-    it('does not share state between instances', () => {
-      const first = createServerBooksCache(true);
-      const second = createServerBooksCache(true);
+    it("does not share state between instances", () => {
+      const first = createServerBooksCache(true)
+      const second = createServerBooksCache(true)
 
-      first.write([{ id: 'gen' } as Book]);
-      expect(second.read()).toBeNull();
-    });
-  });
-});
+      first.write([{ id: "gen" } as Book])
+      expect(second.read()).toBeNull()
+    })
+  })
+})

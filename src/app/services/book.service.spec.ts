@@ -1,472 +1,472 @@
-import type { MockedObject } from 'vitest';
-import { PLATFORM_ID } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
-import { Capacitor } from '@capacitor/core';
-import { BehaviorSubject, firstValueFrom, of, throwError } from 'rxjs';
-import { APP_PLUGIN } from '../tokens';
-import { BibleApiService } from './bible-api.service';
-import { BookService } from './book.service';
-import { NetworkService } from './network.service';
+import { PLATFORM_ID } from "@angular/core"
+import { TestBed } from "@angular/core/testing"
+import { Capacitor } from "@capacitor/core"
+import { BehaviorSubject, firstValueFrom, of, throwError } from "rxjs"
+import type { MockedObject } from "vitest"
+import { APP_PLUGIN } from "../tokens"
+import { BibleApiService } from "./bible-api.service"
+import { BookService } from "./book.service"
+import { NetworkService } from "./network.service"
 
-describe('BookService', () => {
-  let service: BookService;
-  let apiBooks: Book[];
+describe("BookService", () => {
+  let service: BookService
+  let apiBooks: Book[]
 
   const mockBooks: Book[] = [
     {
-      id: 'gen',
-      name: 'Gênesis',
-      shortName: 'Gênesis',
-      abrv: 'Gn',
+      id: "gen",
+      name: "Gênesis",
+      shortName: "Gênesis",
+      abrv: "Gn",
       chapterCount: 50,
     },
     {
-      id: 'exo',
-      name: 'Êxodo',
-      shortName: 'Êxodo',
-      abrv: 'Ex',
+      id: "exo",
+      name: "Êxodo",
+      shortName: "Êxodo",
+      abrv: "Ex",
       chapterCount: 40,
     },
     {
-      id: 'psa',
-      name: 'Psalms',
-      shortName: 'Psalms',
-      abrv: 'Ps',
+      id: "psa",
+      name: "Psalms",
+      shortName: "Psalms",
+      abrv: "Ps",
       chapterCount: 150,
     },
     {
-      id: 'mat',
-      name: 'Mateus',
-      shortName: 'Mateus',
-      abrv: 'Mt',
+      id: "mat",
+      name: "Mateus",
+      shortName: "Mateus",
+      abrv: "Mt",
       chapterCount: 28,
     },
     {
-      id: 'acts',
-      name: 'Acts of the Apostles',
-      shortName: 'Acts',
-      abrv: 'At',
+      id: "acts",
+      name: "Acts of the Apostles",
+      shortName: "Acts",
+      abrv: "At",
       chapterCount: 28,
     },
     {
-      id: 'rom',
-      name: 'Romans',
-      shortName: 'Romans',
-      abrv: 'Rm',
+      id: "rom",
+      name: "Romans",
+      shortName: "Romans",
+      abrv: "Rm",
       chapterCount: 16,
     },
     {
-      id: 'job',
-      name: 'Jó',
-      shortName: 'Jó',
-      abrv: 'Jb',
+      id: "job",
+      name: "Jó",
+      shortName: "Jó",
+      abrv: "Jb",
       chapterCount: 42,
     },
     {
-      id: '1sa',
-      name: 'Primeiro Livro de Samuel',
-      shortName: '1 Samuel',
-      abrv: '1 Sm',
+      id: "1sa",
+      name: "Primeiro Livro de Samuel",
+      shortName: "1 Samuel",
+      abrv: "1 Sm",
       chapterCount: 31,
     },
-  ];
+  ]
 
   beforeEach(() => {
-    apiBooks = mockBooks.map((book) => ({ ...book }));
+    apiBooks = mockBooks.map((book) => ({ ...book }))
     const apiServiceSpy = {
-      getAvailableBooks: vi.fn().mockName('BibleApiService.getAvailableBooks'),
-      getIntros: vi.fn().mockName('BibleApiService.getIntros'),
-      getIntro: vi.fn().mockName('BibleApiService.getIntro'),
-    };
-    apiServiceSpy.getAvailableBooks.mockReturnValue(of(apiBooks));
-    apiServiceSpy.getIntros.mockReturnValue(of([]));
+      getAvailableBooks: vi.fn().mockName("BibleApiService.getAvailableBooks"),
+      getIntros: vi.fn().mockName("BibleApiService.getIntros"),
+      getIntro: vi.fn().mockName("BibleApiService.getIntro"),
+    }
+    apiServiceSpy.getAvailableBooks.mockReturnValue(of(apiBooks))
+    apiServiceSpy.getIntros.mockReturnValue(of([]))
 
     TestBed.configureTestingModule({
       providers: [
         BookService,
         { provide: BibleApiService, useValue: apiServiceSpy },
       ],
-    });
-    service = TestBed.inject(BookService);
-    TestBed.inject(BibleApiService);
-  });
+    })
+    service = TestBed.inject(BookService)
+    TestBed.inject(BibleApiService)
+  })
 
-  describe('standalone introductions', () => {
+  describe("standalone introductions", () => {
     const introApi = (intros: IntroSummary[], body?: GroupIntro) => {
       const spy = {
         getAvailableBooks: vi
           .fn()
-          .mockName('BibleApiService.getAvailableBooks'),
-        getIntros: vi.fn().mockName('BibleApiService.getIntros'),
-        getIntro: vi.fn().mockName('BibleApiService.getIntro'),
-      };
-      spy.getAvailableBooks.mockReturnValue(of(apiBooks));
-      spy.getIntros.mockReturnValue(of(intros));
-      spy.getIntro.mockReturnValue(body ? of(body) : of());
-      TestBed.resetTestingModule();
+          .mockName("BibleApiService.getAvailableBooks"),
+        getIntros: vi.fn().mockName("BibleApiService.getIntros"),
+        getIntro: vi.fn().mockName("BibleApiService.getIntro"),
+      }
+      spy.getAvailableBooks.mockReturnValue(of(apiBooks))
+      spy.getIntros.mockReturnValue(of(intros))
+      spy.getIntro.mockReturnValue(body ? of(body) : of())
+      TestBed.resetTestingModule()
       TestBed.configureTestingModule({
         providers: [BookService, { provide: BibleApiService, useValue: spy }],
-      });
-      return TestBed.inject(BookService);
-    };
+      })
+      return TestBed.inject(BookService)
+    }
 
-    it('exposes each introduction as a findable book', async () => {
+    it("exposes each introduction as a findable book", async () => {
       const svc = introApi([
-        { slug: 'pentateuco', name: 'INTRODUÇÃO AO PENTATEUCO' },
-      ]);
-      await svc.initializeBooks();
+        { slug: "pentateuco", name: "INTRODUÇÃO AO PENTATEUCO" },
+      ])
+      await svc.initializeBooks()
 
-      const intro = svc.findBook('pentateuco');
-      expect(intro.id).toBe('pentateuco');
-      expect(intro.introSlug).toBe('pentateuco');
+      const intro = svc.findBook("pentateuco")
+      expect(intro.id).toBe("pentateuco")
+      expect(intro.introSlug).toBe("pentateuco")
       // Upper-case USFM headers become a readable title.
-      expect(intro.name).toBe('Introdução ao Pentateuco');
+      expect(intro.name).toBe("Introdução ao Pentateuco")
       // No chapters: the introduction is the only thing to read.
-      expect(intro.chapterCount).toBe(0);
-    });
+      expect(intro.chapterCount).toBe(0)
+    })
 
-    it('points books with a shared introduction at it', async () => {
-      const svc = introApi([{ slug: 'samuel', name: 'LIVROS DE SAMUEL' }]);
-      await svc.initializeBooks();
+    it("points books with a shared introduction at it", async () => {
+      const svc = introApi([{ slug: "samuel", name: "LIVROS DE SAMUEL" }])
+      await svc.initializeBooks()
 
       // 1/2 Samuel carry no introduction of their own; the edition writes one
       // for both, so both must read from it.
-      const first = svc.getBooks().find((book) => book.id === '1sa');
-      expect(first?.sharedIntroSlug).toBe('samuel');
-      expect(BookService.introSlugFor(first)).toBe('samuel');
-    });
+      const first = svc.getBooks().find((book) => book.id === "1sa")
+      expect(first?.sharedIntroSlug).toBe("samuel")
+      expect(BookService.introSlugFor(first)).toBe("samuel")
+    })
 
-    it('does not claim a shared introduction the API does not serve', async () => {
-      const svc = introApi([]);
-      await svc.initializeBooks();
+    it("does not claim a shared introduction the API does not serve", async () => {
+      const svc = introApi([])
+      await svc.initializeBooks()
 
-      const first = svc.getBooks().find((book) => book.id === '1sa');
-      expect(first?.sharedIntroSlug).toBeUndefined();
-    });
+      const first = svc.getBooks().find((book) => book.id === "1sa")
+      expect(first?.sharedIntroSlug).toBeUndefined()
+    })
 
-    it('shares one load between concurrent initializeBooks() callers', async () => {
+    it("shares one load between concurrent initializeBooks() callers", async () => {
       // The constructor and APP_INITIALIZER both call it in the same tick;
       // without sharing, /intros is fetched twice and books$ emits twice.
-      const svc = introApi([{ slug: 'pentateuco', name: 'PENTATEUCO' }]);
+      const svc = introApi([{ slug: "pentateuco", name: "PENTATEUCO" }])
       const api = TestBed.inject(
-        BibleApiService
-      ) as MockedObject<BibleApiService>;
+        BibleApiService,
+      ) as MockedObject<BibleApiService>
 
-      await Promise.all([svc.initializeBooks(), svc.initializeBooks()]);
+      await Promise.all([svc.initializeBooks(), svc.initializeBooks()])
 
-      expect(api.getIntros).toHaveBeenCalledTimes(1);
-      expect(api.getAvailableBooks).toHaveBeenCalledTimes(1);
-    });
+      expect(api.getIntros).toHaveBeenCalledTimes(1)
+      expect(api.getAvailableBooks).toHaveBeenCalledTimes(1)
+    })
 
-    it('keeps working when the API serves no introductions', async () => {
-      const svc = introApi([]);
-      await svc.initializeBooks();
+    it("keeps working when the API serves no introductions", async () => {
+      const svc = introApi([])
+      await svc.initializeBooks()
 
-      expect(svc.getBooks().some((book) => book.introSlug)).toBe(false);
-      expect(svc.findBook('gen').id).toBe('gen');
-    });
+      expect(svc.getBooks().some((book) => book.introSlug)).toBe(false)
+      expect(svc.findBook("gen").id).toBe("gen")
+    })
 
     // "Joao 3" opened "Cartas de João", whose id is "joao".
-    it('leaves introductions out of the books typed text names', async () => {
+    it("leaves introductions out of the books typed text names", async () => {
       apiBooks.push({
-        id: 'jhn',
-        name: 'Evangelho segundo São João',
-        shortName: 'João',
-        abrv: 'Jo',
+        id: "jhn",
+        name: "Evangelho segundo São João",
+        shortName: "João",
+        abrv: "Jo",
         chapterCount: 21,
-      });
+      })
       const svc = introApi([
-        { slug: 'joao', name: 'CARTAS DE JOÃO' },
-        { slug: 'pentateuco', name: 'INTRODUÇÃO AO PENTATEUCO' },
-      ]);
-      await svc.initializeBooks();
+        { slug: "joao", name: "CARTAS DE JOÃO" },
+        { slug: "pentateuco", name: "INTRODUÇÃO AO PENTATEUCO" },
+      ])
+      await svc.initializeBooks()
 
-      expect(svc.findBook('joao').introSlug).toBe('joao');
-      expect(svc.findTypedBook('Joao')?.id).toBe('jhn');
-      expect(svc.findTypedBook('pentateuco')).toBeUndefined();
-    });
+      expect(svc.findBook("joao").introSlug).toBe("joao")
+      expect(svc.findTypedBook("Joao")?.id).toBe("jhn")
+      expect(svc.findTypedBook("pentateuco")).toBeUndefined()
+    })
 
-    it('caches a fetched introduction body on its book', async () => {
+    it("caches a fetched introduction body on its book", async () => {
       const svc = introApi(
-        [{ slug: 'pentateuco', name: 'INTRODUÇÃO AO PENTATEUCO' }],
+        [{ slug: "pentateuco", name: "INTRODUÇÃO AO PENTATEUCO" }],
         {
-          slug: 'pentateuco',
-          name: 'INTRODUÇÃO AO PENTATEUCO',
-          introduction: [{ type: 'introParagraph', text: 'Cinco rolos.' }],
-        }
-      );
-      await svc.initializeBooks();
+          slug: "pentateuco",
+          name: "INTRODUÇÃO AO PENTATEUCO",
+          introduction: [{ type: "introParagraph", text: "Cinco rolos." }],
+        },
+      )
+      await svc.initializeBooks()
 
-      const loaded = await svc.loadGroupIntroBody(svc.findBook('pentateuco'));
+      const loaded = await svc.loadGroupIntroBody(svc.findBook("pentateuco"))
 
-      expect(loaded.introduction?.length).toBe(1);
+      expect(loaded.introduction?.length).toBe(1)
       // Stored back on the list, so the reader finds it next time.
-      expect(svc.findBook('pentateuco').introduction?.length).toBe(1);
-    });
-  });
+      expect(svc.findBook("pentateuco").introduction?.length).toBe(1)
+    })
+  })
 
-  it('should be created', () => {
-    expect(service).toBeTruthy();
-  });
+  it("should be created", () => {
+    expect(service).toBeTruthy()
+  })
 
-  it('should not surface an unhandled rejection when the eager constructor load fails', async () => {
+  it("should not surface an unhandled rejection when the eager constructor load fails", async () => {
     // An unhandled rejection here kills prerender worker threads at build time.
     const failingApi = {
-      getAvailableBooks: vi.fn().mockName('BibleApiService.getAvailableBooks'),
-      getIntros: vi.fn().mockName('BibleApiService.getIntros'),
-    };
+      getAvailableBooks: vi.fn().mockName("BibleApiService.getAvailableBooks"),
+      getIntros: vi.fn().mockName("BibleApiService.getIntros"),
+    }
     failingApi.getAvailableBooks.mockReturnValue(
-      throwError(() => new Error('API unavailable'))
-    );
-    failingApi.getIntros.mockReturnValue(of([]));
+      throwError(() => new Error("API unavailable")),
+    )
+    failingApi.getIntros.mockReturnValue(of([]))
 
-    TestBed.resetTestingModule();
+    TestBed.resetTestingModule()
     TestBed.configureTestingModule({
       providers: [
         BookService,
         { provide: BibleApiService, useValue: failingApi },
       ],
-    });
-    expect(() => TestBed.inject(BookService)).not.toThrow();
+    })
+    expect(() => TestBed.inject(BookService)).not.toThrow()
     // Let the constructor's fire-and-forget promise settle; a missing .catch
     // would trigger Jasmine's global unhandled-rejection failure here.
-    await new Promise((resolve) => setTimeout(resolve));
-  });
+    await new Promise((resolve) => setTimeout(resolve))
+  })
 
-  it('should add the about book without mutating the API result', async () => {
-    await service.initializeBooks();
+  it("should add the about book without mutating the API result", async () => {
+    await service.initializeBooks()
 
-    expect(apiBooks.some((book) => book.id === 'about')).toBe(false);
-    expect(service.getBooks().some((book) => book.id === 'about')).toBe(true);
-  });
+    expect(apiBooks.some((book) => book.id === "about")).toBe(false)
+    expect(service.getBooks().some((book) => book.id === "about")).toBe(true)
+  })
 
-  it('should find a book by id case-insensitively', async () => {
-    await service.initializeBooks();
+  it("should find a book by id case-insensitively", async () => {
+    await service.initializeBooks()
 
-    expect(service.findBookById('GEN')?.id).toBe('gen');
-  });
+    expect(service.findBookById("GEN")?.id).toBe("gen")
+  })
 
-  it('should find a book by abbreviation', async () => {
-    await service.initializeBooks();
+  it("should find a book by abbreviation", async () => {
+    await service.initializeBooks()
 
-    expect(service.findBookByAbrv('gn')?.id).toBe('gen');
-  });
+    expect(service.findBookByAbrv("gn")?.id).toBe("gen")
+  })
 
-  it('should find a book by url abbreviation', async () => {
-    await service.initializeBooks();
+  it("should find a book by url abbreviation", async () => {
+    await service.initializeBooks()
 
-    expect(service.findBookByUrlAbrv('jb')?.id).toBe('job');
-  });
+    expect(service.findBookByUrlAbrv("jb")?.id).toBe("job")
+  })
 
-  it('should fall back to the about book when no match exists', async () => {
-    await service.initializeBooks();
+  it("should fall back to the about book when no match exists", async () => {
+    await service.initializeBooks()
 
-    expect(service.findBook('missing').id).toBe('about');
-  });
+    expect(service.findBook("missing").id).toBe("about")
+  })
 
   // "1 Co" is how many people type 1 Coríntios (abbreviated "1 Cor", id 1co).
-  it('should find a book by its id typed with a space', async () => {
-    await service.initializeBooks();
+  it("should find a book by its id typed with a space", async () => {
+    await service.initializeBooks()
 
-    expect(service.findBookById('1 Sa')?.id).toBe('1sa');
-  });
+    expect(service.findBookById("1 Sa")?.id).toBe("1sa")
+  })
 
-  describe('findTypedBook', () => {
-    it('finds a book by id, abbreviation or name, as typed', async () => {
-      await service.initializeBooks();
+  describe("findTypedBook", () => {
+    it("finds a book by id, abbreviation or name, as typed", async () => {
+      await service.initializeBooks()
 
-      expect(service.findTypedBook('1 Sa')?.id).toBe('1sa');
-      expect(service.findTypedBook('1 Sm')?.id).toBe('1sa');
-      expect(service.findTypedBook('Genesis')?.id).toBe('gen');
-    });
+      expect(service.findTypedBook("1 Sa")?.id).toBe("1sa")
+      expect(service.findTypedBook("1 Sm")?.id).toBe("1sa")
+      expect(service.findTypedBook("Genesis")?.id).toBe("gen")
+    })
 
     // findBook falls back to the About page, and search offered "Abrir Sobre
     // a Bíblia 13,4" for a reference to a book it didn't know.
-    it('never answers with the About page', async () => {
-      await service.initializeBooks();
+    it("never answers with the About page", async () => {
+      await service.initializeBooks()
 
-      expect(service.findTypedBook('1 Xy')).toBeUndefined();
-      expect(service.findTypedBook('Sobre')).toBeUndefined();
-      expect(service.findTypedBook('about')).toBeUndefined();
-    });
-  });
+      expect(service.findTypedBook("1 Xy")).toBeUndefined()
+      expect(service.findTypedBook("Sobre")).toBeUndefined()
+      expect(service.findTypedBook("about")).toBeUndefined()
+    })
+  })
 
-  it('should normalize url abbreviations by removing spaces', async () => {
-    await service.initializeBooks();
+  it("should normalize url abbreviations by removing spaces", async () => {
+    await service.initializeBooks()
 
     expect(
       service.getUrlAbrv({
-        id: '1sm',
-        name: 'Primeiro Samuel',
-        shortName: '1 Samuel',
-        abrv: '1 Sm',
+        id: "1sm",
+        name: "Primeiro Samuel",
+        shortName: "1 Samuel",
+        abrv: "1 Sm",
         chapterCount: 31,
-      })
-    ).toBe('1sm');
-  });
+      }),
+    ).toBe("1sm")
+  })
 
-  describe('chapter URL segments', () => {
-    it('should map the introduction to /intro and back', () => {
-      expect(service.getChapterUrlSegment(0)).toBe('intro');
-      expect(service.getChapterUrlSegment(3)).toBe('3');
-      expect(service.parseChapterUrlSegment('intro')).toBe(0);
+  describe("chapter URL segments", () => {
+    it("should map the introduction to /intro and back", () => {
+      expect(service.getChapterUrlSegment(0)).toBe("intro")
+      expect(service.getChapterUrlSegment(3)).toBe("3")
+      expect(service.parseChapterUrlSegment("intro")).toBe(0)
       // Legacy /0 URLs keep working
-      expect(service.parseChapterUrlSegment('0')).toBe(0);
-      expect(service.parseChapterUrlSegment('12')).toBe(12);
-    });
+      expect(service.parseChapterUrlSegment("0")).toBe(0)
+      expect(service.parseChapterUrlSegment("12")).toBe(12)
+    })
 
-    it('should fall back for missing or non-canonical segments', () => {
-      expect(service.parseChapterUrlSegment(null)).toBe(1);
-      expect(service.parseChapterUrlSegment(undefined)).toBe(1);
-      expect(service.parseChapterUrlSegment('')).toBe(1);
-      expect(service.parseChapterUrlSegment(null, 5)).toBe(5);
-      expect(service.parseChapterUrlSegment('2junk')).toBe(1);
-      expect(service.parseChapterUrlSegment('1.5')).toBe(1);
-      expect(service.parseChapterUrlSegment('-3')).toBe(1);
-      expect(service.parseChapterUrlSegment('99999999999999999999')).toBe(1);
-    });
-  });
+    it("should fall back for missing or non-canonical segments", () => {
+      expect(service.parseChapterUrlSegment(null)).toBe(1)
+      expect(service.parseChapterUrlSegment(undefined)).toBe(1)
+      expect(service.parseChapterUrlSegment("")).toBe(1)
+      expect(service.parseChapterUrlSegment(null, 5)).toBe(5)
+      expect(service.parseChapterUrlSegment("2junk")).toBe(1)
+      expect(service.parseChapterUrlSegment("1.5")).toBe(1)
+      expect(service.parseChapterUrlSegment("-3")).toBe(1)
+      expect(service.parseChapterUrlSegment("99999999999999999999")).toBe(1)
+    })
+  })
 
-  describe('findBookByName', () => {
+  describe("findBookByName", () => {
     beforeEach(async () => {
-      await service.initializeBooks();
-    });
+      await service.initializeBooks()
+    })
 
-    it('should find a book by exact name match', () => {
-      const book = service.findBookByName('Gênesis');
-      expect(book).toBeDefined();
-      expect(book?.id).toBe('gen');
-    });
+    it("should find a book by exact name match", () => {
+      const book = service.findBookByName("Gênesis")
+      expect(book).toBeDefined()
+      expect(book?.id).toBe("gen")
+    })
 
-    it('should find a book by name with case insensitive matching', () => {
-      const book = service.findBookByName('GÊNESIS');
-      expect(book).toBeDefined();
-      expect(book?.id).toBe('gen');
-    });
+    it("should find a book by name with case insensitive matching", () => {
+      const book = service.findBookByName("GÊNESIS")
+      expect(book).toBeDefined()
+      expect(book?.id).toBe("gen")
+    })
 
-    it('should find a book by name with lowercase', () => {
-      const book = service.findBookByName('gênesis');
-      expect(book).toBeDefined();
-      expect(book?.id).toBe('gen');
-    });
+    it("should find a book by name with lowercase", () => {
+      const book = service.findBookByName("gênesis")
+      expect(book).toBeDefined()
+      expect(book?.id).toBe("gen")
+    })
 
-    it('should find a book by stripping diacritics', () => {
-      const book = service.findBookByName('Genesis');
-      expect(book).toBeDefined();
-      expect(book?.id).toBe('gen');
-      expect(book?.shortName).toBe('Gênesis');
-    });
+    it("should find a book by stripping diacritics", () => {
+      const book = service.findBookByName("Genesis")
+      expect(book).toBeDefined()
+      expect(book?.id).toBe("gen")
+      expect(book?.shortName).toBe("Gênesis")
+    })
 
-    it('should find a book by stripping diacritics from Êxodo', () => {
-      const book = service.findBookByName('Exodo');
-      expect(book).toBeDefined();
-      expect(book?.id).toBe('exo');
-      expect(book?.shortName).toBe('Êxodo');
-    });
+    it("should find a book by stripping diacritics from Êxodo", () => {
+      const book = service.findBookByName("Exodo")
+      expect(book).toBeDefined()
+      expect(book?.id).toBe("exo")
+      expect(book?.shortName).toBe("Êxodo")
+    })
 
-    it('should find a book by stripping diacritics from Jó', () => {
-      const book = service.findBookByName('Jo');
-      expect(book).toBeDefined();
-      expect(book?.id).toBe('job');
-      expect(book?.shortName).toBe('Jó');
-    });
+    it("should find a book by stripping diacritics from Jó", () => {
+      const book = service.findBookByName("Jo")
+      expect(book).toBeDefined()
+      expect(book?.id).toBe("job")
+      expect(book?.shortName).toBe("Jó")
+    })
 
-    it('should find a book using singular form when plural is provided', () => {
-      const book = service.findBookByName('Psalm');
-      expect(book).toBeDefined();
-      expect(book?.id).toBe('psa');
-      expect(book?.shortName).toBe('Psalms');
-    });
+    it("should find a book using singular form when plural is provided", () => {
+      const book = service.findBookByName("Psalm")
+      expect(book).toBeDefined()
+      expect(book?.id).toBe("psa")
+      expect(book?.shortName).toBe("Psalms")
+    })
 
-    it('should find a book using plural form when singular is provided', () => {
-      const book = service.findBookByName('Roman');
-      expect(book).toBeDefined();
-      expect(book?.id).toBe('rom');
-      expect(book?.shortName).toBe('Romans');
-    });
+    it("should find a book using plural form when singular is provided", () => {
+      const book = service.findBookByName("Roman")
+      expect(book).toBeDefined()
+      expect(book?.id).toBe("rom")
+      expect(book?.shortName).toBe("Romans")
+    })
 
     it("should handle names ending with 's' that are already singular", () => {
-      const book = service.findBookByName('Acts');
-      expect(book).toBeDefined();
-      expect(book?.id).toBe('acts');
-    });
+      const book = service.findBookByName("Acts")
+      expect(book).toBeDefined()
+      expect(book?.id).toBe("acts")
+    })
 
-    it('should handle whitespace normalization', () => {
-      const book = service.findBookByName('  Gênesis  ');
-      expect(book).toBeDefined();
-      expect(book?.id).toBe('gen');
-    });
+    it("should handle whitespace normalization", () => {
+      const book = service.findBookByName("  Gênesis  ")
+      expect(book).toBeDefined()
+      expect(book?.id).toBe("gen")
+    })
 
-    it('should handle multiple spaces in name', () => {
-      const book = service.findBookByName('  Acts  ');
-      expect(book).toBeDefined();
-      expect(book?.id).toBe('acts');
-    });
+    it("should handle multiple spaces in name", () => {
+      const book = service.findBookByName("  Acts  ")
+      expect(book).toBeDefined()
+      expect(book?.id).toBe("acts")
+    })
 
-    it('should handle single-character names', () => {
+    it("should handle single-character names", () => {
       // Test with Jó which becomes "Jo" when diacritics are stripped
-      const book = service.findBookByName('Jó');
-      expect(book).toBeDefined();
-      expect(book?.id).toBe('job');
-    });
+      const book = service.findBookByName("Jó")
+      expect(book).toBeDefined()
+      expect(book?.id).toBe("job")
+    })
 
-    it('should return undefined for non-existent book', () => {
-      const book = service.findBookByName('NonExistentBook');
-      expect(book).toBeUndefined();
-    });
+    it("should return undefined for non-existent book", () => {
+      const book = service.findBookByName("NonExistentBook")
+      expect(book).toBeUndefined()
+    })
 
-    it('should handle empty string', () => {
-      const book = service.findBookByName('');
-      expect(book).toBeUndefined();
-    });
+    it("should handle empty string", () => {
+      const book = service.findBookByName("")
+      expect(book).toBeUndefined()
+    })
 
-    it('should handle combination of diacritics, case, and whitespace', () => {
-      const book = service.findBookByName('  GENESIS  ');
-      expect(book).toBeDefined();
-      expect(book?.id).toBe('gen');
-      expect(book?.shortName).toBe('Gênesis');
-    });
+    it("should handle combination of diacritics, case, and whitespace", () => {
+      const book = service.findBookByName("  GENESIS  ")
+      expect(book).toBeDefined()
+      expect(book?.id).toBe("gen")
+      expect(book?.shortName).toBe("Gênesis")
+    })
 
-    it('should match book with diacritics using normalized search', () => {
-      const book = service.findBookByName('mateus');
-      expect(book).toBeDefined();
-      expect(book?.id).toBe('mat');
-    });
-  });
+    it("should match book with diacritics using normalized search", () => {
+      const book = service.findBookByName("mateus")
+      expect(book).toBeDefined()
+      expect(book?.id).toBe("mat")
+    })
+  })
 
-  describe('when the book list cannot be loaded', () => {
-    let api: MockedObject<BibleApiService>;
-    let isOffline$: BehaviorSubject<boolean>;
-    let resume: () => void;
+  describe("when the book list cannot be loaded", () => {
+    let api: MockedObject<BibleApiService>
+    let isOffline$: BehaviorSubject<boolean>
+    let resume: () => void
 
     function createService(
       native = false,
-      platformId: 'browser' | 'server' = 'browser'
+      platformId: "browser" | "server" = "browser",
     ): BookService {
       api = {
         getAvailableBooks: vi
           .fn()
-          .mockName('BibleApiService.getAvailableBooks'),
-        getIntros: vi.fn().mockName('BibleApiService.getIntros'),
-        getIntro: vi.fn().mockName('BibleApiService.getIntro'),
-      };
+          .mockName("BibleApiService.getAvailableBooks"),
+        getIntros: vi.fn().mockName("BibleApiService.getIntros"),
+        getIntro: vi.fn().mockName("BibleApiService.getIntro"),
+      }
       // A first launch without a connection, then a working one.
       api.getAvailableBooks
         .mockReturnValueOnce(
-          throwError(() => new Error('Offline and no cached books available'))
+          throwError(() => new Error("Offline and no cached books available")),
         )
-        .mockReturnValueOnce(of(apiBooks));
-      api.getIntros.mockReturnValue(of([]));
-      isOffline$ = new BehaviorSubject(true);
-      resume = () => expect.fail('resume listener was not registered');
+        .mockReturnValueOnce(of(apiBooks))
+      api.getIntros.mockReturnValue(of([]))
+      isOffline$ = new BehaviorSubject(true)
+      resume = () => expect.fail("resume listener was not registered")
       const appPlugin = {
         addListener: (event: string, callback: () => void) => {
-          if (event === 'resume') resume = callback;
-          return Promise.resolve({ remove: async () => {} });
+          if (event === "resume") resume = callback
+          return Promise.resolve({ remove: async () => {} })
         },
-      };
-      vi.spyOn(Capacitor, 'isNativePlatform').mockReturnValue(native);
-      TestBed.resetTestingModule();
+      }
+      vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(native)
+      TestBed.resetTestingModule()
       TestBed.configureTestingModule({
         providers: [
           BookService,
@@ -475,76 +475,76 @@ describe('BookService', () => {
           { provide: APP_PLUGIN, useValue: appPlugin },
           { provide: PLATFORM_ID, useValue: platformId },
         ],
-      });
-      return TestBed.inject(BookService);
+      })
+      return TestBed.inject(BookService)
     }
 
     async function settle(svc: BookService): Promise<void> {
       // The constructor's first load; its failure is swallowed.
-      await svc.retryBooks();
+      await svc.retryBooks()
     }
 
-    it('reports the books as unavailable', async () => {
-      const svc = createService();
-      await settle(svc);
+    it("reports the books as unavailable", async () => {
+      const svc = createService()
+      await settle(svc)
 
-      expect(await firstValueFrom(svc.booksUnavailable$)).toBe(true);
-    });
+      expect(await firstValueFrom(svc.booksUnavailable$)).toBe(true)
+    })
 
-    it('never reports them unavailable while prerendering', async () => {
-      const svc = createService(false, 'server');
-      await settle(svc);
+    it("never reports them unavailable while prerendering", async () => {
+      const svc = createService(false, "server")
+      await settle(svc)
 
-      expect(await firstValueFrom(svc.booksUnavailable$)).toBe(false);
-    });
+      expect(await firstValueFrom(svc.booksUnavailable$)).toBe(false)
+    })
 
-    it('recovers on a manual retry', async () => {
-      const svc = createService();
-      await settle(svc);
+    it("recovers on a manual retry", async () => {
+      const svc = createService()
+      await settle(svc)
 
-      await svc.retryBooks();
+      await svc.retryBooks()
 
-      expect(await firstValueFrom(svc.booksUnavailable$)).toBe(false);
-      expect(svc.getBooks().length).toBeGreaterThan(0);
-    });
+      expect(await firstValueFrom(svc.booksUnavailable$)).toBe(false)
+      expect(svc.getBooks().length).toBeGreaterThan(0)
+    })
 
-    it('retries when the connection comes back', async () => {
-      const svc = createService();
-      await settle(svc);
-      api.getAvailableBooks.mockClear();
+    it("retries when the connection comes back", async () => {
+      const svc = createService()
+      await settle(svc)
+      api.getAvailableBooks.mockClear()
 
-      isOffline$.next(false);
+      isOffline$.next(false)
       // The reconnect itself starts the refetch...
-      expect(api.getAvailableBooks).toHaveBeenCalledTimes(1);
+      expect(api.getAvailableBooks).toHaveBeenCalledTimes(1)
       // ...and this joins it rather than starting another.
-      await svc.retryBooks();
+      await svc.retryBooks()
 
-      expect(api.getAvailableBooks).toHaveBeenCalledTimes(1);
-      expect(await firstValueFrom(svc.booksUnavailable$)).toBe(false);
-    });
+      expect(api.getAvailableBooks).toHaveBeenCalledTimes(1)
+      expect(await firstValueFrom(svc.booksUnavailable$)).toBe(false)
+    })
 
-    it('retries when the native app resumes', async () => {
-      const svc = createService(true);
-      await settle(svc);
-      api.getAvailableBooks.mockClear();
+    it("retries when the native app resumes", async () => {
+      const svc = createService(true)
+      await settle(svc)
+      api.getAvailableBooks.mockClear()
 
-      resume();
-      await firstValueFrom(svc.books$);
+      resume()
+      await firstValueFrom(svc.books$)
 
-      expect(api.getAvailableBooks).toHaveBeenCalledTimes(1);
-    });
+      expect(api.getAvailableBooks).toHaveBeenCalledTimes(1)
+    })
 
-    it('does not refetch on reconnect once the books loaded', async () => {
-      const svc = createService();
-      await settle(svc);
-      await svc.retryBooks();
-      api.getAvailableBooks.mockClear();
+    it("does not refetch on reconnect once the books loaded", async () => {
+      const svc = createService()
+      await settle(svc)
+      await svc.retryBooks()
+      api.getAvailableBooks.mockClear()
 
-      isOffline$.next(false);
-      isOffline$.next(true);
-      isOffline$.next(false);
+      isOffline$.next(false)
+      isOffline$.next(true)
+      isOffline$.next(false)
 
-      expect(api.getAvailableBooks).not.toHaveBeenCalled();
-    });
-  });
-});
+      expect(api.getAvailableBooks).not.toHaveBeenCalled()
+    })
+  })
+})

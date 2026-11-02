@@ -1,61 +1,61 @@
-import type { MockedObject } from 'vitest';
-import { SimpleChange } from '@angular/core';
-import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { SimpleChange } from "@angular/core"
+import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import { provideRouter } from "@angular/router"
+import type { MockedObject } from "vitest"
 import {
   type BibleReference,
   BibleReferenceService,
-} from '../../services/bible-reference.service';
-import { ToastService } from '../../services/toast.service';
-import { VerseSectionComponent } from './verse-section.component';
+} from "../../services/bible-reference.service"
+import { ToastService } from "../../services/toast.service"
+import { VerseSectionComponent } from "./verse-section.component"
 
 function makeVerse(overrides: Partial<Verse> = {}): Verse {
   return {
-    bookId: 'gen',
+    bookId: "gen",
     chapterNumber: 1,
     number: 1,
-    verseLabel: '1',
+    verseLabel: "1",
     text: [
       {
-        type: 'text',
-        text: 'In the beginning...',
+        type: "text",
+        text: "In the beginning...",
       },
     ],
     ...overrides,
-  };
+  }
 }
 
 function setData(
   fixture: ComponentFixture<VerseSectionComponent>,
-  data: Verse
+  data: Verse,
 ): void {
-  const component = fixture.componentInstance;
+  const component = fixture.componentInstance
   // A required input throws until it has a value.
-  let prev: Verse | undefined;
+  let prev: Verse | undefined
   try {
-    prev = component.data();
+    prev = component.data()
   } catch {}
-  fixture.componentRef.setInput('data', data);
+  fixture.componentRef.setInput("data", data)
   component.ngOnChanges({
     data: new SimpleChange(prev, data, prev === undefined),
-  });
+  })
 }
 
-describe('VerseSectionComponent', () => {
-  let component: VerseSectionComponent;
-  let fixture: ComponentFixture<VerseSectionComponent>;
-  let mockBibleRef: MockedObject<BibleReferenceService>;
-  let toast: MockedObject<ToastService>;
+describe("VerseSectionComponent", () => {
+  let component: VerseSectionComponent
+  let fixture: ComponentFixture<VerseSectionComponent>
+  let mockBibleRef: MockedObject<BibleReferenceService>
+  let toast: MockedObject<ToastService>
 
   beforeEach(async () => {
     mockBibleRef = {
-      extract: vi.fn().mockName('BibleReferenceService.extract'),
-    };
-    mockBibleRef.extract.mockReturnValue([]);
+      extract: vi.fn().mockName("BibleReferenceService.extract"),
+    }
+    mockBibleRef.extract.mockReturnValue([])
 
     toast = {
-      showReturn: vi.fn().mockName('ToastService.showReturn'),
-    };
+      showReturn: vi.fn().mockName("ToastService.showReturn"),
+    }
 
     await TestBed.configureTestingModule({
       imports: [VerseSectionComponent],
@@ -64,230 +64,230 @@ describe('VerseSectionComponent', () => {
         { provide: BibleReferenceService, useValue: mockBibleRef },
         { provide: ToastService, useValue: toast },
       ],
-    }).compileComponents();
+    }).compileComponents()
 
-    fixture = TestBed.createComponent(VerseSectionComponent);
-    component = fixture.componentInstance;
-  });
+    fixture = TestBed.createComponent(VerseSectionComponent)
+    component = fixture.componentInstance
+  })
 
-  it('should create', () => {
-    fixture.componentRef.setInput('changeLine', false);
-    setData(fixture, makeVerse());
-    fixture.detectChanges();
-    expect(component).toBeTruthy();
-  });
+  it("should create", () => {
+    fixture.componentRef.setInput("changeLine", false)
+    setData(fixture, makeVerse())
+    fixture.detectChanges()
+    expect(component).toBeTruthy()
+  })
 
   // The Android bar names the section being read (NativeChromeService): the
   // heading, not the text or the references that run on from it.
   it("marks the section's own heading", () => {
-    fixture.componentRef.setInput('changeLine', false);
+    fixture.componentRef.setInput("changeLine", false)
     setData(
       fixture,
       makeVerse({
         text: [
-          { type: 'section', tag: 's2', text: 'Criação do mundo' },
-          { type: 'references', text: '(Jo 1,1-3)' },
-          { type: 'text', text: 'No princípio' },
+          { type: "section", tag: "s2", text: "Criação do mundo" },
+          { type: "references", text: "(Jo 1,1-3)" },
+          { type: "text", text: "No princípio" },
         ],
-      })
-    );
-    fixture.detectChanges();
+      }),
+    )
+    fixture.detectChanges()
 
     const headings = fixture.nativeElement.querySelectorAll(
-      '[data-section-heading]'
-    ) as NodeListOf<HTMLElement>;
+      "[data-section-heading]",
+    ) as NodeListOf<HTMLElement>
     expect(Array.from(headings, (heading) => heading.textContent)).toEqual([
-      'Criação do mundo',
-    ]);
-  });
+      "Criação do mundo",
+    ])
+  })
 
-  describe('ngOnChanges — parsedReferences', () => {
-    it('should pre-compute references for reference-type text entries', () => {
-      fixture.componentRef.setInput('changeLine', false);
+  describe("ngOnChanges — parsedReferences", () => {
+    it("should pre-compute references for reference-type text entries", () => {
+      fixture.componentRef.setInput("changeLine", false)
       setData(
         fixture,
         makeVerse({
           text: [
-            { type: 'text', text: 'verse' },
-            { type: 'references', text: 'Gn 1,1' },
+            { type: "text", text: "verse" },
+            { type: "references", text: "Gn 1,1" },
           ],
-        })
-      );
+        }),
+      )
 
-      expect(component.parsedReferences.has(1)).toBe(true);
-      expect(component.parsedReferences.get(1)?.length).toBeGreaterThan(0);
-    });
+      expect(component.parsedReferences.has(1)).toBe(true)
+      expect(component.parsedReferences.get(1)?.length).toBeGreaterThan(0)
+    })
 
-    it('should not create entries for non-reference text types', () => {
-      fixture.componentRef.setInput('changeLine', false);
+    it("should not create entries for non-reference text types", () => {
+      fixture.componentRef.setInput("changeLine", false)
       setData(
         fixture,
         makeVerse({
           text: [
-            { type: 'text', text: 'plain' },
+            { type: "text", text: "plain" },
             {
-              type: 'section',
-              tag: 's2',
-              text: 'title',
+              type: "section",
+              tag: "s2",
+              text: "title",
             },
           ],
-        })
-      );
+        }),
+      )
 
-      expect(component.parsedReferences.size).toBe(0);
-    });
+      expect(component.parsedReferences.size).toBe(0)
+    })
 
-    it('should recompute when data input changes', () => {
-      fixture.componentRef.setInput('changeLine', false);
+    it("should recompute when data input changes", () => {
+      fixture.componentRef.setInput("changeLine", false)
       setData(
         fixture,
         makeVerse({
-          text: [{ type: 'references', text: 'Gn 1,1' }],
-        })
-      );
+          text: [{ type: "references", text: "Gn 1,1" }],
+        }),
+      )
 
-      expect(component.parsedReferences.has(0)).toBe(true);
+      expect(component.parsedReferences.has(0)).toBe(true)
 
       // Change data
       setData(
         fixture,
         makeVerse({
-          text: [{ type: 'text', text: 'no refs' }],
-        })
-      );
+          text: [{ type: "text", text: "no refs" }],
+        }),
+      )
 
-      expect(component.parsedReferences.size).toBe(0);
-    });
-  });
+      expect(component.parsedReferences.size).toBe(0)
+    })
+  })
 
-  describe('references in a heading', () => {
+  describe("references in a heading", () => {
     // "(Mc 4,21; 9,50)": two links between the edition's own punctuation.
-    const text = '(Mc 4,21; 9,50)';
+    const text = "(Mc 4,21; 9,50)"
     const reference = (match: string, index: number) =>
-      ({ match, index, book: 'mrk', chapter: 4 } as BibleReference);
+      ({ match, index, book: "mrk", chapter: 4 }) as BibleReference
 
     beforeEach(() => {
       mockBibleRef.extract.mockReturnValue([
-        reference('Mc 4,21', 1),
-        reference('9,50', 10),
-      ]);
-      fixture.componentRef.setInput('changeLine', false);
+        reference("Mc 4,21", 1),
+        reference("9,50", 10),
+      ])
+      fixture.componentRef.setInput("changeLine", false)
       setData(
         fixture,
         makeVerse({
           text: [
-            { type: 'section', tag: 's1', text: 'Sal da terra' },
-            { type: 'references', text },
+            { type: "section", tag: "s1", text: "Sal da terra" },
+            { type: "references", text },
           ],
-        })
-      );
-      fixture.detectChanges();
-    });
+        }),
+      )
+      fixture.detectChanges()
+    })
 
     it("keeps the edition's spacing around the links", () => {
       const references: HTMLElement =
-        fixture.nativeElement.querySelector('.references');
-      expect(references.textContent?.trim()).toBe(text);
-    });
+        fixture.nativeElement.querySelector(".references")
+      expect(references.textContent?.trim()).toBe(text)
+    })
 
     it("keeps the closing dash on the heading's last line", () => {
       const sections: HTMLElement[] = Array.from(
-        fixture.nativeElement.querySelectorAll('.section .section')
-      );
-      expect(sections[sections.length - 1].textContent).toBe('\u00a0— ');
-    });
-  });
+        fixture.nativeElement.querySelectorAll(".section .section"),
+      )
+      expect(sections[sections.length - 1].textContent).toBe("\u00a0— ")
+    })
+  })
 
   // Is 14,23: the verse ends on the heading of the next oracle, and verse 24
   // opens with poetry, so the heading is centred on lines of its own. As a
   // block box inside the inline text, Safari drew it over the verse's last
   // lines in the page-by-page view and justified the line before it.
-  describe('a centred heading', () => {
+  describe("a centred heading", () => {
     const isaiah14v23 = () =>
       makeVerse({
-        bookId: 'isa',
+        bookId: "isa",
         chapterNumber: 14,
         number: 23,
         text: [
-          { type: 'text', text: 'Reduzi-la-ei a um ninho de ouriços' },
-          { type: 'section', tag: 's2', text: 'Oráculo contra os assírios' },
-          { type: 'references', text: '(10,5-16)' },
+          { type: "text", text: "Reduzi-la-ei a um ninho de ouriços" },
+          { type: "section", tag: "s2", text: "Oráculo contra os assírios" },
+          { type: "references", text: "(10,5-16)" },
         ],
-      });
+      })
 
     function render(inputs: { changeLine: boolean; beside: boolean }) {
-      fixture.componentRef.setInput('changeLine', inputs.changeLine);
-      fixture.componentRef.setInput('besideChapterNumber', inputs.beside);
-      fixture.componentRef.setInput('nextIsQuote', true);
-      setData(fixture, isaiah14v23());
-      fixture.detectChanges();
-      return fixture.nativeElement.querySelector('.center') as HTMLElement;
+      fixture.componentRef.setInput("changeLine", inputs.changeLine)
+      fixture.componentRef.setInput("besideChapterNumber", inputs.beside)
+      fixture.componentRef.setInput("nextIsQuote", true)
+      setData(fixture, isaiah14v23())
+      fixture.detectChanges()
+      return fixture.nativeElement.querySelector(".center") as HTMLElement
     }
 
-    it('is an inline-block a line wide, not a block box', () => {
-      const heading = render({ changeLine: true, beside: false });
+    it("is an inline-block a line wide, not a block box", () => {
+      const heading = render({ changeLine: true, beside: false })
 
       // A line wide, so it never shares a line with the text around it.
-      const line = (fixture.nativeElement as HTMLElement).parentElement;
-      expect(getComputedStyle(heading).display).toBe('inline-block');
+      const line = (fixture.nativeElement as HTMLElement).parentElement
+      expect(getComputedStyle(heading).display).toBe("inline-block")
       expect(heading.getBoundingClientRect().width).toBeCloseTo(
         line?.getBoundingClientRect().width ?? 0,
-        0
-      );
-    });
+        0,
+      )
+    })
 
-    it('ends the line of text before it with a forced break', () => {
-      const heading = render({ changeLine: true, beside: false });
+    it("ends the line of text before it with a forced break", () => {
+      const heading = render({ changeLine: true, beside: false })
 
-      expect(heading.previousElementSibling?.tagName).toBe('BR');
-    });
+      expect(heading.previousElementSibling?.tagName).toBe("BR")
+    })
 
-    it('stays a table beside the chapter number, which it would drop below', () => {
-      const heading = render({ changeLine: false, beside: true });
+    it("stays a table beside the chapter number, which it would drop below", () => {
+      const heading = render({ changeLine: false, beside: true })
 
-      expect(getComputedStyle(heading).display).toBe('table');
-      expect(heading.previousElementSibling).toBeNull();
-    });
+      expect(getComputedStyle(heading).display).toBe("table")
+      expect(heading.previousElementSibling).toBeNull()
+    })
 
-    it('leaves a heading that runs into the text inline, with no break before it', () => {
-      fixture.componentRef.setInput('changeLine', true);
+    it("leaves a heading that runs into the text inline, with no break before it", () => {
+      fixture.componentRef.setInput("changeLine", true)
       setData(
         fixture,
         makeVerse({
-          text: [{ type: 'section', tag: 's2', text: 'Israel regressa' }],
-        })
-      );
-      fixture.detectChanges();
+          text: [{ type: "section", tag: "s2", text: "Israel regressa" }],
+        }),
+      )
+      fixture.detectChanges()
 
       const heading = fixture.nativeElement.querySelector(
-        ':scope > .section'
-      ) as HTMLElement;
-      expect(heading.classList).not.toContain('center');
-      expect(getComputedStyle(heading).display).toBe('inline');
-      expect(heading.previousElementSibling).toBeNull();
-    });
-  });
+        ":scope > .section",
+      ) as HTMLElement
+      expect(heading.classList).not.toContain("center")
+      expect(getComputedStyle(heading).display).toBe("inline")
+      expect(heading.previousElementSibling).toBeNull()
+    })
+  })
 
-  describe('showReturnSnackbar', () => {
-    it('offers the way back to this verse', () => {
-      const verse = makeVerse({ chapterNumber: 3, number: 5 });
-      setData(fixture, verse);
+  describe("showReturnSnackbar", () => {
+    it("offers the way back to this verse", () => {
+      const verse = makeVerse({ chapterNumber: 3, number: 5 })
+      setData(fixture, verse)
 
-      component.showReturnSnackbar();
+      component.showReturnSnackbar()
 
-      expect(toast.showReturn).toHaveBeenCalledTimes(1);
+      expect(toast.showReturn).toHaveBeenCalledTimes(1)
 
-      expect(toast.showReturn).toHaveBeenCalledWith(verse);
-    });
-  });
+      expect(toast.showReturn).toHaveBeenCalledWith(verse)
+    })
+  })
 
-  describe('getVerseQueryParams', () => {
-    it('should be the shared utility function', () => {
-      expect(component.getVerseQueryParams).toBeDefined();
-      expect(component.getVerseQueryParams([])).toBeNull();
+  describe("getVerseQueryParams", () => {
+    it("should be the shared utility function", () => {
+      expect(component.getVerseQueryParams).toBeDefined()
+      expect(component.getVerseQueryParams([])).toBeNull()
       expect(
-        component.getVerseQueryParams([{ type: 'single', verse: 3 }])
-      ).toEqual({ verseStart: 3 });
-    });
-  });
-});
+        component.getVerseQueryParams([{ type: "single", verse: 3 }]),
+      ).toEqual({ verseStart: 3 })
+    })
+  })
+})

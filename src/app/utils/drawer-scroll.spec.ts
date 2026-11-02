@@ -1,14 +1,14 @@
-import { Component, signal, ViewChild } from '@angular/core';
-import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
-import { By } from '@angular/platform-browser';
-import { scrollOnDrawerOpen } from './drawer-scroll';
+import { Component, signal, ViewChild } from "@angular/core"
+import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import { MATERIAL_ANIMATIONS } from "@angular/material/core"
+import { MatDrawer, MatSidenavModule } from "@angular/material/sidenav"
+import { By } from "@angular/platform-browser"
+import { scrollOnDrawerOpen } from "./drawer-scroll"
 
-@Component({ selector: 'scroll-probe', template: '' })
+@Component({ selector: "scroll-probe", template: "" })
 class ScrollProbeComponent {
-  scrolls = 0;
-  inDrawer = scrollOnDrawerOpen(() => this.scrolls++);
+  scrolls = 0
+  inDrawer = scrollOnDrawerOpen(() => this.scrolls++)
 }
 
 @Component({
@@ -25,24 +25,24 @@ class ScrollProbeComponent {
   `,
 })
 class HostComponent {
-  readonly inside = signal(false);
+  readonly inside = signal(false)
   @ViewChild(MatDrawer)
-  drawer!: MatDrawer;
+  drawer!: MatDrawer
 }
 
-describe('scrollOnDrawerOpen', () => {
+describe("scrollOnDrawerOpen", () => {
   beforeEach(() => {
-    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true });
-  });
+    vi.useFakeTimers({ advanceTimeDelta: 1, shouldAdvanceTime: true })
+  })
   afterEach(() => {
-    vi.useRealTimers();
-  });
-  let fixture: ComponentFixture<HostComponent>;
-  let host: HostComponent;
+    vi.useRealTimers()
+  })
+  let fixture: ComponentFixture<HostComponent>
+  let host: HostComponent
 
   const probe = (selector: string) =>
     fixture.debugElement.query(By.css(selector))
-      .componentInstance as ScrollProbeComponent;
+      .componentInstance as ScrollProbeComponent
 
   beforeEach(() => {
     TestBed.configureTestingModule({
@@ -53,74 +53,74 @@ describe('scrollOnDrawerOpen', () => {
           useValue: { animationsDisabled: true },
         },
       ],
-    });
-    fixture = TestBed.createComponent(HostComponent);
-    host = fixture.componentInstance;
-  });
+    })
+    fixture = TestBed.createComponent(HostComponent)
+    host = fixture.componentInstance
+  })
 
-  it('does nothing outside a drawer', async () => {
-    fixture.detectChanges();
-    host.drawer.open();
-    await vi.runAllTimersAsync();
+  it("does nothing outside a drawer", async () => {
+    fixture.detectChanges()
+    host.drawer.open()
+    await vi.runAllTimersAsync()
 
-    expect(probe('.outside').inDrawer).toBe(false);
-    expect(probe('.outside').scrolls).toBe(0);
-  });
+    expect(probe(".outside").inDrawer).toBe(false)
+    expect(probe(".outside").scrolls).toBe(0)
+  })
 
   // The book list is built with the page, inside the closed drawer.
-  it('scrolls each time the drawer starts opening, not before', async () => {
-    host.inside.set(true);
-    fixture.detectChanges();
-    await vi.runAllTimersAsync();
-    const list = probe('mat-drawer scroll-probe');
-    expect(list.inDrawer).toBe(true);
-    expect(list.scrolls).toBe(0);
+  it("scrolls each time the drawer starts opening, not before", async () => {
+    host.inside.set(true)
+    fixture.detectChanges()
+    await vi.runAllTimersAsync()
+    const list = probe("mat-drawer scroll-probe")
+    expect(list.inDrawer).toBe(true)
+    expect(list.scrolls).toBe(0)
 
-    host.drawer.open();
-    await vi.runAllTimersAsync();
-    expect(list.scrolls).toBe(1);
+    host.drawer.open()
+    await vi.runAllTimersAsync()
+    expect(list.scrolls).toBe(1)
 
-    host.drawer.close();
-    await vi.runAllTimersAsync();
-    host.drawer.open();
-    await vi.runAllTimersAsync();
-    expect(list.scrolls).toBe(2);
-  });
+    host.drawer.close()
+    await vi.runAllTimersAsync()
+    host.drawer.open()
+    await vi.runAllTimersAsync()
+    expect(list.scrolls).toBe(2)
+  })
 
   // The reader swaps the book and chapter lists as the drawer opens: the new
   // list can come before or after that opening's openedStart, and must scroll
   // once either way.
-  it('scrolls once when built just after the drawer starts opening', async () => {
-    fixture.detectChanges();
-    host.drawer.open();
-    host.inside.set(true);
-    fixture.detectChanges();
-    await vi.runAllTimersAsync();
+  it("scrolls once when built just after the drawer starts opening", async () => {
+    fixture.detectChanges()
+    host.drawer.open()
+    host.inside.set(true)
+    fixture.detectChanges()
+    await vi.runAllTimersAsync()
 
-    expect(probe('mat-drawer scroll-probe').scrolls).toBe(1);
-  });
+    expect(probe("mat-drawer scroll-probe").scrolls).toBe(1)
+  })
 
   it("doesn't scroll a list destroyed before its fallback runs", async () => {
-    fixture.detectChanges();
-    host.drawer.open();
-    await vi.runAllTimersAsync();
-    host.inside.set(true);
-    fixture.detectChanges();
-    const list = probe('mat-drawer scroll-probe');
-    fixture.destroy();
-    await vi.runAllTimersAsync();
+    fixture.detectChanges()
+    host.drawer.open()
+    await vi.runAllTimersAsync()
+    host.inside.set(true)
+    fixture.detectChanges()
+    const list = probe("mat-drawer scroll-probe")
+    fixture.destroy()
+    await vi.runAllTimersAsync()
 
-    expect(list.scrolls).toBe(0);
-  });
+    expect(list.scrolls).toBe(0)
+  })
 
-  it('scrolls once when built after openedStart has fired', async () => {
-    fixture.detectChanges();
-    host.drawer.open();
-    await vi.runAllTimersAsync();
-    host.inside.set(true);
-    fixture.detectChanges();
-    await vi.runAllTimersAsync();
+  it("scrolls once when built after openedStart has fired", async () => {
+    fixture.detectChanges()
+    host.drawer.open()
+    await vi.runAllTimersAsync()
+    host.inside.set(true)
+    fixture.detectChanges()
+    await vi.runAllTimersAsync()
 
-    expect(probe('mat-drawer scroll-probe').scrolls).toBe(1);
-  });
-});
+    expect(probe("mat-drawer scroll-probe").scrolls).toBe(1)
+  })
+})

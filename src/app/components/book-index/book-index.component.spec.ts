@@ -1,23 +1,23 @@
-import type { Mock, MockedObject } from 'vitest';
-import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
-import { of, Subject } from 'rxjs';
+import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import { provideRouter, Router } from "@angular/router"
+import { of, Subject } from "rxjs"
+import type { Mock, MockedObject } from "vitest"
 
-import { OLD_TESTAMENT_GROUPS } from '../../bible-canon';
-import { BookService } from '../../services/book.service';
-import { NativeChromeService } from '../../services/native-chrome.service';
-import type { NativeChromeAction } from '../../services/native-chrome.types';
-import { SeoService } from '../../services/seo.service';
-import { ThemeService } from '../../services/theme.service';
-import { BookIndexComponent } from './book-index.component';
+import { OLD_TESTAMENT_GROUPS } from "../../bible-canon"
+import { BookService } from "../../services/book.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
+import type { NativeChromeAction } from "../../services/native-chrome.types"
+import { SeoService } from "../../services/seo.service"
+import { ThemeService } from "../../services/theme.service"
+import { BookIndexComponent } from "./book-index.component"
 
-describe('BookIndexComponent', () => {
-  let fixture: ComponentFixture<BookIndexComponent>;
-  let element: HTMLElement;
-  let seoSpy: MockedObject<SeoService>;
+describe("BookIndexComponent", () => {
+  let fixture: ComponentFixture<BookIndexComponent>
+  let element: HTMLElement
+  let seoSpy: MockedObject<SeoService>
 
   function book(id: string, name: string, abrv: string): Book {
-    return { id, name, shortName: name, abrv, chapterCount: 1 } as Book;
+    return { id, name, shortName: name, abrv, chapterCount: 1 } as Book
   }
 
   /**
@@ -26,29 +26,29 @@ describe('BookIndexComponent', () => {
    * and the synthetic entries BookService appends to books$.
    */
   const books: Book[] = [
-    book('gen', 'Génesis', 'Gn'),
-    book('exo', 'Êxodo', 'Ex'),
+    book("gen", "Génesis", "Gn"),
+    book("exo", "Êxodo", "Ex"),
     // "lev", "num" and "deu" are deliberately absent from this stub.
-    book('jos', 'Josué', 'Js'),
-    book('mat', 'Evangelho segundo São Mateus', 'Mt'),
-    book('heb', 'Carta aos Hebreus', 'Heb'),
-    book('rev', 'Apocalipse', 'Ap'),
+    book("jos", "Josué", "Js"),
+    book("mat", "Evangelho segundo São Mateus", "Mt"),
+    book("heb", "Carta aos Hebreus", "Heb"),
+    book("rev", "Apocalipse", "Ap"),
     // Synthetic entries: the About page, and one standalone introduction.
-    book('about', 'Sobre a Bíblia dos Capuchinhos', 'Sobre'),
-    book('pentateuco', 'Introdução ao Pentateuco', 'pentateuco'),
-  ];
+    book("about", "Sobre a Bíblia dos Capuchinhos", "Sobre"),
+    book("pentateuco", "Introdução ao Pentateuco", "pentateuco"),
+  ]
 
   async function setup(available: Book[] = books): Promise<void> {
     // The blanket beforeEach already built a module; a test that wants a
     // different book list has to start from a clean one.
-    TestBed.resetTestingModule();
+    TestBed.resetTestingModule()
     seoSpy = {
-      updateForBookIndex: vi.fn().mockName('SeoService.updateForBookIndex'),
-    };
+      updateForBookIndex: vi.fn().mockName("SeoService.updateForBookIndex"),
+    }
     const bookServiceStub = {
       books$: of(available),
-      getUrlAbrv: (entry: Book) => entry.abrv.replace(/\s/g, '').toLowerCase(),
-    };
+      getUrlAbrv: (entry: Book) => entry.abrv.replace(/\s/g, "").toLowerCase(),
+    }
 
     await TestBed.configureTestingModule({
       imports: [BookIndexComponent],
@@ -57,141 +57,141 @@ describe('BookIndexComponent', () => {
         { provide: BookService, useValue: bookServiceStub },
         { provide: SeoService, useValue: seoSpy },
       ],
-    }).compileComponents();
+    }).compileComponents()
 
-    fixture = TestBed.createComponent(BookIndexComponent);
-    fixture.detectChanges();
-    element = fixture.nativeElement as HTMLElement;
+    fixture = TestBed.createComponent(BookIndexComponent)
+    fixture.detectChanges()
+    element = fixture.nativeElement as HTMLElement
   }
 
   function hrefs(): string[] {
-    return Array.from(element.querySelectorAll('a')).map(
-      (anchor) => anchor.getAttribute('href') ?? ''
-    );
+    return Array.from(element.querySelectorAll("a")).map(
+      (anchor) => anchor.getAttribute("href") ?? "",
+    )
   }
 
   beforeEach(async () => {
-    await setup();
-  });
+    await setup()
+  })
 
-  it('should create', () => {
-    expect(fixture.componentInstance).toBeTruthy();
-  });
+  it("should create", () => {
+    expect(fixture.componentInstance).toBeTruthy()
+  })
 
   // The whole point of the page: a crawlable anchor to every book the API
   // returned, so link weight reaches all of them in one hop.
-  it('links every canonical book to its first chapter', () => {
-    expect(hrefs()).toContain('/gn/1');
-    expect(hrefs()).toContain('/ex/1');
-    expect(hrefs()).toContain('/js/1');
-    expect(hrefs()).toContain('/mt/1');
-    expect(hrefs()).toContain('/heb/1');
-    expect(hrefs()).toContain('/ap/1');
-  });
+  it("links every canonical book to its first chapter", () => {
+    expect(hrefs()).toContain("/gn/1")
+    expect(hrefs()).toContain("/ex/1")
+    expect(hrefs()).toContain("/js/1")
+    expect(hrefs()).toContain("/mt/1")
+    expect(hrefs()).toContain("/heb/1")
+    expect(hrefs()).toContain("/ap/1")
+  })
 
-  it('groups the books by testament and by canon group', () => {
-    const testaments = Array.from(element.querySelectorAll('h2')).map(
-      (heading) => heading.textContent?.trim()
-    );
-    expect(testaments).toEqual(['Antigo Testamento', 'Novo Testamento']);
+  it("groups the books by testament and by canon group", () => {
+    const testaments = Array.from(element.querySelectorAll("h2")).map(
+      (heading) => heading.textContent?.trim(),
+    )
+    expect(testaments).toEqual(["Antigo Testamento", "Novo Testamento"])
 
-    const groups = Array.from(element.querySelectorAll('h3')).map((heading) =>
-      heading.textContent?.trim()
-    );
-    expect(groups).toContain('Pentateuco');
-    expect(groups).toContain('Apocalipse');
-  });
+    const groups = Array.from(element.querySelectorAll("h3")).map((heading) =>
+      heading.textContent?.trim(),
+    )
+    expect(groups).toContain("Pentateuco")
+    expect(groups).toContain("Apocalipse")
+  })
 
-  it('gives the page a single h1 naming it', () => {
-    const headings = element.querySelectorAll('h1');
-    expect(headings.length).toBe(1);
-    expect(headings[0].textContent?.trim()).toBe('Livros da Bíblia');
-  });
+  it("gives the page a single h1 naming it", () => {
+    const headings = element.querySelectorAll("h1")
+    expect(headings.length).toBe(1)
+    expect(headings[0].textContent?.trim()).toBe("Livros da Bíblia")
+  })
 
   // Standalone introductions are prerendered pages too, so the hub links them.
-  it('links a group heading to its standalone introduction', () => {
-    expect(hrefs()).toContain('/pentateuco/intro');
-  });
+  it("links a group heading to its standalone introduction", () => {
+    expect(hrefs()).toContain("/pentateuco/intro")
+  })
 
   // Every OT group in the canon declares an introSlug, but only "pentateuco"
   // is in this stub — the rest must not become links to pages that were never
   // prerendered.
-  it('leaves a group unlinked when its introduction is not available', () => {
-    const withSlug = OLD_TESTAMENT_GROUPS.filter((group) => group.introSlug);
-    expect(withSlug.length).toBeGreaterThan(1);
+  it("leaves a group unlinked when its introduction is not available", () => {
+    const withSlug = OLD_TESTAMENT_GROUPS.filter((group) => group.introSlug)
+    expect(withSlug.length).toBeGreaterThan(1)
 
-    const introHrefs = hrefs().filter((href) => href.endsWith('/intro'));
-    expect(introHrefs).toEqual(['/pentateuco/intro']);
+    const introHrefs = hrefs().filter((href) => href.endsWith("/intro"))
+    expect(introHrefs).toEqual(["/pentateuco/intro"])
 
-    const historicos = Array.from(element.querySelectorAll('h3')).find(
-      (heading) => heading.textContent?.trim() === 'Livros Históricos'
-    );
-    expect(historicos?.querySelector('a')).toBeNull();
-  });
+    const historicos = Array.from(element.querySelectorAll("h3")).find(
+      (heading) => heading.textContent?.trim() === "Livros Históricos",
+    )
+    expect(historicos?.querySelector("a")).toBeNull()
+  })
 
   // bible-canon.ts states the 73 canonical books; the About entry and the
   // introduction entries are appended to books$ by BookService and are not
   // books of the Bible.
-  it('omits the synthetic About entry', () => {
-    expect(hrefs()).not.toContain('/sobre/1');
-    expect(element.textContent).not.toContain('Sobre a Bíblia dos Capuchinhos');
-  });
+  it("omits the synthetic About entry", () => {
+    expect(hrefs()).not.toContain("/sobre/1")
+    expect(element.textContent).not.toContain("Sobre a Bíblia dos Capuchinhos")
+  })
 
-  it('skips canonical ids the API did not return', () => {
-    expect(hrefs()).not.toContain('/lv/1');
-    const pentateuco = Array.from(element.querySelectorAll('h3')).find(
-      (heading) => heading.textContent?.trim() === 'Pentateuco'
-    );
-    expect(pentateuco?.parentElement?.querySelectorAll('li').length).toBe(2);
-  });
+  it("skips canonical ids the API did not return", () => {
+    expect(hrefs()).not.toContain("/lv/1")
+    const pentateuco = Array.from(element.querySelectorAll("h3")).find(
+      (heading) => heading.textContent?.trim() === "Pentateuco",
+    )
+    expect(pentateuco?.parentElement?.querySelectorAll("li").length).toBe(2)
+  })
 
-  it('sets the book-index head on init', () => {
-    expect(seoSpy.updateForBookIndex).toHaveBeenCalled();
-  });
+  it("sets the book-index head on init", () => {
+    expect(seoSpy.updateForBookIndex).toHaveBeenCalled()
+  })
 
-  it('offers a way back to the home page', () => {
-    expect(hrefs()).toContain('/');
-  });
+  it("offers a way back to the home page", () => {
+    expect(hrefs()).toContain("/")
+  })
 
   // books$ only emits once BookService has books, but a build whose API call
   // failed still renders the page — it must come up empty rather than throw.
-  it('renders no book links when the API returned nothing', async () => {
-    await setup([]);
+  it("renders no book links when the API returned nothing", async () => {
+    await setup([])
 
-    expect(hrefs().filter((href) => /\/\d+$/.test(href))).toEqual([]);
-    expect(element.querySelectorAll('li').length).toBe(0);
+    expect(hrefs().filter((href) => /\/\d+$/.test(href))).toEqual([])
+    expect(element.querySelectorAll("li").length).toBe(0)
     // The chrome is still there, so the reader is not stranded.
-    expect(hrefs()).toContain('/');
-  });
-});
+    expect(hrefs()).toContain("/")
+  })
+})
 
-describe('BookIndexComponent in the iOS app', () => {
-  let fixture: ComponentFixture<BookIndexComponent>;
-  let actions: Subject<NativeChromeAction>;
+describe("BookIndexComponent in the iOS app", () => {
+  let fixture: ComponentFixture<BookIndexComponent>
+  let actions: Subject<NativeChromeAction>
   let nativeChrome: {
-    enabled: boolean;
-    actions$: Subject<NativeChromeAction>;
-    show: Mock;
-    hide: Mock;
-  };
+    enabled: boolean
+    actions$: Subject<NativeChromeAction>
+    show: Mock
+    hide: Mock
+  }
 
   beforeEach(async () => {
-    actions = new Subject();
+    actions = new Subject()
     nativeChrome = {
       enabled: true,
       actions$: actions,
-      show: vi.fn().mockName('show'),
-      hide: vi.fn().mockName('hide'),
-    };
+      show: vi.fn().mockName("show"),
+      hide: vi.fn().mockName("hide"),
+    }
     await TestBed.configureTestingModule({
       imports: [BookIndexComponent],
       providers: [
         provideRouter([]),
         { provide: NativeChromeService, useValue: nativeChrome },
-        { provide: ThemeService, useValue: { currentMode: 'dark' } },
+        { provide: ThemeService, useValue: { currentMode: "dark" } },
         {
           provide: BookService,
-          useValue: { books$: of([]), getUrlAbrv: () => '' },
+          useValue: { books$: of([]), getUrlAbrv: () => "" },
         },
         {
           provide: SeoService,
@@ -200,39 +200,39 @@ describe('BookIndexComponent in the iOS app', () => {
           },
         },
       ],
-    }).compileComponents();
-    fixture = TestBed.createComponent(BookIndexComponent);
-    fixture.detectChanges();
-  });
+    }).compileComponents()
+    fixture = TestBed.createComponent(BookIndexComponent)
+    fixture.detectChanges()
+  })
 
-  it('shows the native bar instead of the brown web toolbar', () => {
-    const element = fixture.nativeElement as HTMLElement;
-    expect(element.querySelector('mat-toolbar')).toBeNull();
+  it("shows the native bar instead of the brown web toolbar", () => {
+    const element = fixture.nativeElement as HTMLElement
+    expect(element.querySelector("mat-toolbar")).toBeNull()
     // The heading stays, for screen readers.
-    expect(element.querySelector('h1')?.textContent).toContain(
-      'Livros da Bíblia'
-    );
+    expect(element.querySelector("h1")?.textContent).toContain(
+      "Livros da Bíblia",
+    )
     expect(nativeChrome.show).toHaveBeenCalledWith({
-      mode: 'page',
-      themeMode: 'dark',
-      title: 'Livros da Bíblia',
+      mode: "page",
+      themeMode: "dark",
+      title: "Livros da Bíblia",
       search: true,
-    });
-  });
+    })
+  })
 
   it("goes where the web toolbar's buttons go", () => {
     const navigate = vi
-      .spyOn(TestBed.inject(Router), 'navigate')
-      .mockResolvedValue(true);
-    actions.next({ id: 'back' });
-    actions.next({ id: 'search' });
+      .spyOn(TestBed.inject(Router), "navigate")
+      .mockResolvedValue(true)
+    actions.next({ id: "back" })
+    actions.next({ id: "search" })
 
-    expect(navigate).toHaveBeenCalledWith(['/']);
-    expect(navigate).toHaveBeenCalledWith(['/search']);
-  });
+    expect(navigate).toHaveBeenCalledWith(["/"])
+    expect(navigate).toHaveBeenCalledWith(["/search"])
+  })
 
-  it('removes the bar when leaving', () => {
-    fixture.destroy();
-    expect(nativeChrome.hide).toHaveBeenCalled();
-  });
-});
+  it("removes the bar when leaving", () => {
+    fixture.destroy()
+    expect(nativeChrome.hide).toHaveBeenCalled()
+  })
+})

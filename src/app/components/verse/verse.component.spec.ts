@@ -1,63 +1,63 @@
-import type { Mock, MockedObject } from 'vitest';
-import { SimpleChange } from '@angular/core';
-import { type ComponentFixture, TestBed } from '@angular/core/testing';
+import { SimpleChange } from "@angular/core"
+import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import {
   MatBottomSheet,
   MatBottomSheetModule,
-} from '@angular/material/bottom-sheet';
-import { provideRouter } from '@angular/router';
-import { Subject } from 'rxjs';
-import { AutoScrollService } from '../../services/auto-scroll.service';
-import { BackButtonService } from '../../services/back-button.service';
-import { BibleReferenceService } from '../../services/bible-reference.service';
-import { KeepAwakeService } from '../../services/keep-awake.service';
-import { NativeFootnotesService } from '../../services/native-footnotes.service';
-import { VerseComponent } from './verse.component';
+} from "@angular/material/bottom-sheet"
+import { provideRouter } from "@angular/router"
+import { Subject } from "rxjs"
+import type { Mock, MockedObject } from "vitest"
+import { AutoScrollService } from "../../services/auto-scroll.service"
+import { BackButtonService } from "../../services/back-button.service"
+import { BibleReferenceService } from "../../services/bible-reference.service"
+import { KeepAwakeService } from "../../services/keep-awake.service"
+import { NativeFootnotesService } from "../../services/native-footnotes.service"
+import { VerseComponent } from "./verse.component"
 
-const TRANSPARENT = 'rgba(0, 0, 0, 0)';
+const TRANSPARENT = "rgba(0, 0, 0, 0)"
 
 function makeVerse(overrides: Partial<Verse> = {}): Verse {
   return {
-    bookId: 'gen',
+    bookId: "gen",
     chapterNumber: 1,
     number: 1,
-    verseLabel: '1',
+    verseLabel: "1",
     text: [
       {
-        type: 'text',
-        text: 'In the beginning...',
+        type: "text",
+        text: "In the beginning...",
       },
     ],
     ...overrides,
-  };
+  }
 }
 
 function setData(fixture: ComponentFixture<VerseComponent>, data: Verse): void {
-  const component = fixture.componentInstance;
+  const component = fixture.componentInstance
   // A required input throws until it has a value.
-  let prev: Verse | undefined;
+  let prev: Verse | undefined
   try {
-    prev = component.data();
+    prev = component.data()
   } catch {}
-  fixture.componentRef.setInput('data', data);
+  fixture.componentRef.setInput("data", data)
   component.ngOnChanges({
     data: new SimpleChange(prev, data, prev === undefined),
-  });
+  })
 }
 
-describe('VerseComponent', () => {
-  let component: VerseComponent;
-  let fixture: ComponentFixture<VerseComponent>;
-  let mockBibleRef: MockedObject<BibleReferenceService>;
-  let mockBottomSheet: MatBottomSheet;
-  let dismissed: Subject<void>;
-  let dismissSheet: Mock;
+describe("VerseComponent", () => {
+  let component: VerseComponent
+  let fixture: ComponentFixture<VerseComponent>
+  let mockBibleRef: MockedObject<BibleReferenceService>
+  let mockBottomSheet: MatBottomSheet
+  let dismissed: Subject<void>
+  let dismissSheet: Mock
 
   beforeEach(async () => {
     mockBibleRef = {
-      extract: vi.fn().mockName('BibleReferenceService.extract'),
-    };
-    mockBibleRef.extract.mockReturnValue([]);
+      extract: vi.fn().mockName("BibleReferenceService.extract"),
+    }
+    mockBibleRef.extract.mockReturnValue([])
 
     await TestBed.configureTestingModule({
       imports: [VerseComponent, MatBottomSheetModule],
@@ -65,537 +65,537 @@ describe('VerseComponent', () => {
         provideRouter([]),
         { provide: BibleReferenceService, useValue: mockBibleRef },
       ],
-    }).compileComponents();
+    }).compileComponents()
 
-    fixture = TestBed.createComponent(VerseComponent);
-    component = fixture.componentInstance;
+    fixture = TestBed.createComponent(VerseComponent)
+    component = fixture.componentInstance
     mockBottomSheet = (
       component as unknown as {
-        bottomSheet: MatBottomSheet;
+        bottomSheet: MatBottomSheet
       }
-    ).bottomSheet;
-    dismissed = new Subject<void>();
-    dismissSheet = vi.fn().mockName('dismiss');
-    vi.spyOn(mockBottomSheet, 'open').mockReturnValue({
+    ).bottomSheet
+    dismissed = new Subject<void>()
+    dismissSheet = vi.fn().mockName("dismiss")
+    vi.spyOn(mockBottomSheet, "open").mockReturnValue({
       dismiss: dismissSheet,
       afterDismissed: () => dismissed.asObservable(),
-    } as unknown as ReturnType<MatBottomSheet['open']>);
-  });
+    } as unknown as ReturnType<MatBottomSheet["open"]>)
+  })
 
-  it('should create', () => {
-    setData(fixture, makeVerse());
-    fixture.detectChanges();
-    expect(component).toBeTruthy();
-  });
+  it("should create", () => {
+    setData(fixture, makeVerse())
+    fixture.detectChanges()
+    expect(component).toBeTruthy()
+  })
 
-  describe('ngOnChanges — chapterNumberDisplayIndex', () => {
-    it('should be -1 for regular verses (number > 0)', () => {
-      setData(fixture, makeVerse({ number: 5 }));
-      expect(component.chapterNumberDisplayIndex).toBe(-1);
-    });
+  describe("ngOnChanges — chapterNumberDisplayIndex", () => {
+    it("should be -1 for regular verses (number > 0)", () => {
+      setData(fixture, makeVerse({ number: 5 }))
+      expect(component.chapterNumberDisplayIndex).toBe(-1)
+    })
 
-    it('should target s2 section index for verse 0 with s2 section', () => {
+    it("should target s2 section index for verse 0 with s2 section", () => {
       setData(
         fixture,
         makeVerse({
           number: 0,
           text: [
-            { type: 'text', text: 'intro' },
+            { type: "text", text: "intro" },
             {
-              type: 'section',
-              tag: 's2',
-              text: 'Section Title',
+              type: "section",
+              tag: "s2",
+              text: "Section Title",
             },
-            { type: 'text', text: 'more' },
+            { type: "text", text: "more" },
           ],
-        })
-      );
-      expect(component.chapterNumberDisplayIndex).toBe(1);
-    });
+        }),
+      )
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+    })
 
-    it('should target last element for verse 0 without s2 section', () => {
+    it("should target last element for verse 0 without s2 section", () => {
       setData(
         fixture,
         makeVerse({
           number: 0,
           text: [
-            { type: 'text', text: 'intro' },
-            { type: 'text', text: 'more' },
+            { type: "text", text: "intro" },
+            { type: "text", text: "more" },
           ],
-        })
-      );
-      expect(component.chapterNumberDisplayIndex).toBe(1);
-    });
+        }),
+      )
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+    })
 
-    it('should target the first s2 if multiple s2 sections exist', () => {
+    it("should target the first s2 if multiple s2 sections exist", () => {
       setData(
         fixture,
         makeVerse({
           number: 0,
           text: [
             {
-              type: 'section',
-              tag: 's1',
-              text: 'Main',
+              type: "section",
+              tag: "s1",
+              text: "Main",
             },
             {
-              type: 'section',
-              tag: 's2',
-              text: 'First Sub',
+              type: "section",
+              tag: "s2",
+              text: "First Sub",
             },
             {
-              type: 'section',
-              tag: 's2',
-              text: 'Second Sub',
+              type: "section",
+              tag: "s2",
+              text: "Second Sub",
             },
           ],
-        })
-      );
-      expect(component.chapterNumberDisplayIndex).toBe(1);
-    });
-  });
+        }),
+      )
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+    })
+  })
 
-  describe('ngOnChanges — hasFootnotes', () => {
-    it('should be false when no footnotes present', () => {
+  describe("ngOnChanges — hasFootnotes", () => {
+    it("should be false when no footnotes present", () => {
       setData(
         fixture,
         makeVerse({
-          text: [{ type: 'text', text: 'plain text' }],
-        })
-      );
-      expect(component.hasFootnotes).toBe(false);
-    });
+          text: [{ type: "text", text: "plain text" }],
+        }),
+      )
+      expect(component.hasFootnotes).toBe(false)
+    })
 
-    it('should be true when footnotes are present', () => {
+    it("should be true when footnotes are present", () => {
       setData(
         fixture,
         makeVerse({
           text: [
-            { type: 'text', text: 'some text' },
-            { type: 'footnote', text: 'note content', reference: 'a' },
+            { type: "text", text: "some text" },
+            { type: "footnote", text: "note content", reference: "a" },
           ],
-        })
-      );
-      expect(component.hasFootnotes).toBe(true);
-    });
-  });
+        }),
+      )
+      expect(component.hasFootnotes).toBe(true)
+    })
+  })
 
-  describe('ngOnChanges — parsedReferences', () => {
-    it('should pre-compute references for text entries of type references', () => {
-      mockBibleRef.extract.mockReturnValue([]);
+  describe("ngOnChanges — parsedReferences", () => {
+    it("should pre-compute references for text entries of type references", () => {
+      mockBibleRef.extract.mockReturnValue([])
 
       setData(
         fixture,
         makeVerse({
           text: [
-            { type: 'text', text: 'verse text' },
-            { type: 'references', text: 'Gn 1,1' },
+            { type: "text", text: "verse text" },
+            { type: "references", text: "Gn 1,1" },
           ],
-        })
-      );
+        }),
+      )
 
-      expect(component.parsedReferences.has(1)).toBe(true);
-      expect(component.parsedReferences.has(0)).toBe(false);
-    });
+      expect(component.parsedReferences.has(1)).toBe(true)
+      expect(component.parsedReferences.has(0)).toBe(false)
+    })
 
-    it('should not compute references for non-reference text types', () => {
+    it("should not compute references for non-reference text types", () => {
       setData(
         fixture,
         makeVerse({
           text: [
-            { type: 'text', text: 'plain' },
-            { type: 'paragraph', text: ' ' },
+            { type: "text", text: "plain" },
+            { type: "paragraph", text: " " },
           ],
-        })
-      );
+        }),
+      )
 
-      expect(component.parsedReferences.size).toBe(0);
-    });
-  });
+      expect(component.parsedReferences.size).toBe(0)
+    })
+  })
 
-  describe('getFirstTextType', () => {
-    it('should return the type of the first non-footnote, non-references element', () => {
+  describe("getFirstTextType", () => {
+    it("should return the type of the first non-footnote, non-references element", () => {
       setData(
         fixture,
         makeVerse({
           text: [
-            { type: 'footnote', text: 'note', reference: 'a' },
-            { type: 'references', text: 'ref' },
+            { type: "footnote", text: "note", reference: "a" },
+            { type: "references", text: "ref" },
             {
-              type: 'quote',
-              text: 'quoted',
+              type: "quote",
+              text: "quoted",
               identLevel: 1,
             },
           ],
-        })
-      );
-      expect(component.getFirstTextType()).toBe('quote');
-    });
+        }),
+      )
+      expect(component.getFirstTextType()).toBe("quote")
+    })
 
-    it('should return undefined when all elements are footnotes or references', () => {
+    it("should return undefined when all elements are footnotes or references", () => {
       setData(
         fixture,
         makeVerse({
           text: [
-            { type: 'footnote', text: 'note', reference: 'a' },
-            { type: 'references', text: 'ref' },
+            { type: "footnote", text: "note", reference: "a" },
+            { type: "references", text: "ref" },
           ],
-        })
-      );
-      expect(component.getFirstTextType()).toBeUndefined();
-    });
-  });
+        }),
+      )
+      expect(component.getFirstTextType()).toBeUndefined()
+    })
+  })
 
-  describe('isFirstDisplayableElement', () => {
-    it('should return true for the first displayable element index', () => {
+  describe("isFirstDisplayableElement", () => {
+    it("should return true for the first displayable element index", () => {
       setData(
         fixture,
         makeVerse({
           text: [
-            { type: 'footnote', text: 'note', reference: 'a' },
+            { type: "footnote", text: "note", reference: "a" },
             {
-              type: 'text',
-              text: 'first visible',
+              type: "text",
+              text: "first visible",
             },
           ],
-        })
-      );
-      expect(component.isFirstDisplayableElement(1)).toBe(true);
-      expect(component.isFirstDisplayableElement(0)).toBe(false);
-    });
-  });
+        }),
+      )
+      expect(component.isFirstDisplayableElement(1)).toBe(true)
+      expect(component.isFirstDisplayableElement(0)).toBe(false)
+    })
+  })
 
-  describe('isInSection', () => {
-    it('should return true when an s2 section precedes the position', () => {
+  describe("isInSection", () => {
+    it("should return true when an s2 section precedes the position", () => {
       const data: TextType[] = [
-        { type: 'section', tag: 's2', text: 'title' },
-        { type: 'text', text: 'in section' },
-      ];
-      setData(fixture, makeVerse({ text: data }));
-      expect(component.isInSection(data, 1)).toBe(true);
-    });
+        { type: "section", tag: "s2", text: "title" },
+        { type: "text", text: "in section" },
+      ]
+      setData(fixture, makeVerse({ text: data }))
+      expect(component.isInSection(data, 1)).toBe(true)
+    })
 
-    it('should return false when a paragraph precedes the s2 section', () => {
+    it("should return false when a paragraph precedes the s2 section", () => {
       const data: TextType[] = [
-        { type: 'section', tag: 's2', text: 'title' },
-        { type: 'paragraph', text: ' ' },
+        { type: "section", tag: "s2", text: "title" },
+        { type: "paragraph", text: " " },
         {
-          type: 'text',
-          text: 'after paragraph',
+          type: "text",
+          text: "after paragraph",
         },
-      ];
-      setData(fixture, makeVerse({ text: data }));
-      expect(component.isInSection(data, 2)).toBe(false);
-    });
+      ]
+      setData(fixture, makeVerse({ text: data }))
+      expect(component.isInSection(data, 2)).toBe(false)
+    })
 
-    it('should return false when a quote precedes the position', () => {
+    it("should return false when a quote precedes the position", () => {
       const data: TextType[] = [
-        { type: 'section', tag: 's2', text: 'title' },
+        { type: "section", tag: "s2", text: "title" },
         {
-          type: 'quote',
-          text: 'quoted',
+          type: "quote",
+          text: "quoted",
           identLevel: 1,
         },
-        { type: 'text', text: 'after quote' },
-      ];
-      setData(fixture, makeVerse({ text: data }));
-      expect(component.isInSection(data, 2)).toBe(false);
-    });
+        { type: "text", text: "after quote" },
+      ]
+      setData(fixture, makeVerse({ text: data }))
+      expect(component.isInSection(data, 2)).toBe(false)
+    })
 
-    it('should return false when no s2 section exists before position', () => {
+    it("should return false when no s2 section exists before position", () => {
       const data: TextType[] = [
-        { type: 'text', text: 'just text' },
-        { type: 'text', text: 'more text' },
-      ];
-      setData(fixture, makeVerse({ text: data }));
-      expect(component.isInSection(data, 1)).toBe(false);
-    });
-  });
+        { type: "text", text: "just text" },
+        { type: "text", text: "more text" },
+      ]
+      setData(fixture, makeVerse({ text: data }))
+      expect(component.isInSection(data, 1)).toBe(false)
+    })
+  })
 
-  describe('getDataForSection', () => {
-    it('should collect elements until a paragraph is found', () => {
+  describe("getDataForSection", () => {
+    it("should collect elements until a paragraph is found", () => {
       setData(
         fixture,
         makeVerse({
           text: [
             {
-              type: 'section',
-              tag: 's2',
-              text: 'title',
+              type: "section",
+              tag: "s2",
+              text: "title",
             },
-            { type: 'text', text: 'in section' },
-            { type: 'paragraph', text: ' ' },
+            { type: "text", text: "in section" },
+            { type: "paragraph", text: " " },
             {
-              type: 'text',
-              text: 'after paragraph',
+              type: "text",
+              text: "after paragraph",
             },
           ],
-        })
-      );
+        }),
+      )
 
-      const result = component.getDataForSection(0);
-      expect(result.text.length).toBe(2);
-      expect(result.text[0].type).toBe('section');
-      expect(result.text[1].type).toBe('text');
-    });
+      const result = component.getDataForSection(0)
+      expect(result.text.length).toBe(2)
+      expect(result.text[0].type).toBe("section")
+      expect(result.text[1].type).toBe("text")
+    })
 
-    it('should break on quote type (except at index 0)', () => {
+    it("should break on quote type (except at index 0)", () => {
       setData(
         fixture,
         makeVerse({
           text: [
             {
-              type: 'section',
-              tag: 's2',
-              text: 'title',
+              type: "section",
+              tag: "s2",
+              text: "title",
             },
-            { type: 'text', text: 'in section' },
+            { type: "text", text: "in section" },
             {
-              type: 'quote',
-              text: 'quoted',
+              type: "quote",
+              text: "quoted",
               identLevel: 1,
             },
             {
-              type: 'text',
-              text: 'after quote',
+              type: "text",
+              text: "after quote",
             },
           ],
-        })
-      );
+        }),
+      )
 
-      const result = component.getDataForSection(0);
-      expect(result.text.length).toBe(2);
-    });
+      const result = component.getDataForSection(0)
+      expect(result.text.length).toBe(2)
+    })
 
-    it('should include quote at index 0 of sliced array', () => {
+    it("should include quote at index 0 of sliced array", () => {
       setData(
         fixture,
         makeVerse({
           text: [
             {
-              type: 'quote',
-              text: 'quoted',
+              type: "quote",
+              text: "quoted",
               identLevel: 1,
             },
-            { type: 'text', text: 'after' },
-            { type: 'paragraph', text: ' ' },
+            { type: "text", text: "after" },
+            { type: "paragraph", text: " " },
           ],
-        })
-      );
+        }),
+      )
 
-      const result = component.getDataForSection(0);
-      expect(result.text.length).toBe(2);
-      expect(result.text[0].type).toBe('quote');
-    });
+      const result = component.getDataForSection(0)
+      expect(result.text.length).toBe(2)
+      expect(result.text[0].type).toBe("quote")
+    })
 
-    it('should preserve verse metadata in returned data', () => {
+    it("should preserve verse metadata in returned data", () => {
       setData(
         fixture,
         makeVerse({
-          bookId: 'psa',
+          bookId: "psa",
           chapterNumber: 23,
           number: 1,
           text: [
-            { type: 'text', text: 'line' },
-            { type: 'paragraph', text: ' ' },
+            { type: "text", text: "line" },
+            { type: "paragraph", text: " " },
           ],
-        })
-      );
+        }),
+      )
 
-      const result = component.getDataForSection(0);
-      expect(result.bookId).toBe('psa');
-      expect(result.chapterNumber).toBe(23);
-      expect(result.number).toBe(1);
-    });
-  });
+      const result = component.getDataForSection(0)
+      expect(result.bookId).toBe("psa")
+      expect(result.chapterNumber).toBe(23)
+      expect(result.number).toBe(1)
+    })
+  })
 
-  describe('checkNextIsQuote', () => {
-    it('should return true when next displayable element after section is a quote', () => {
+  describe("checkNextIsQuote", () => {
+    it("should return true when next displayable element after section is a quote", () => {
       setData(
         fixture,
         makeVerse({
           text: [
-            { type: 'text', text: 'first' },
-            { type: 'footnote', text: 'note', reference: 'a' },
+            { type: "text", text: "first" },
+            { type: "footnote", text: "note", reference: "a" },
             {
-              type: 'quote',
-              text: 'quoted',
+              type: "quote",
+              text: "quoted",
               identLevel: 1,
             },
           ],
-        })
-      );
-      fixture.componentRef.setInput('nextVerseStartsWithQuote', false);
+        }),
+      )
+      fixture.componentRef.setInput("nextVerseStartsWithQuote", false)
 
       // getDataForSection(0) => [text] (breaks on quote at index > 0)
       // lastElementIndex = 0 + 1 - 1 = 0
       // Next displayable after index 0: footnote at 1 is skipped, quote at 2 is found
-      const result = component.checkNextIsQuote(0);
-      expect(result).toBe(true);
-    });
+      const result = component.checkNextIsQuote(0)
+      expect(result).toBe(true)
+    })
 
-    it('should return false when next displayable element is a paragraph', () => {
+    it("should return false when next displayable element is a paragraph", () => {
       setData(
         fixture,
         makeVerse({
           text: [
-            { type: 'text', text: 'first' },
-            { type: 'paragraph', text: ' ' },
+            { type: "text", text: "first" },
+            { type: "paragraph", text: " " },
             {
-              type: 'quote',
-              text: 'quoted',
+              type: "quote",
+              text: "quoted",
               identLevel: 1,
             },
           ],
-        })
-      );
-      fixture.componentRef.setInput('nextVerseStartsWithQuote', false);
+        }),
+      )
+      fixture.componentRef.setInput("nextVerseStartsWithQuote", false)
 
       // getDataForSection(0) => [text] (breaks on paragraph)
       // lastElementIndex = 0 + 1 - 1 = 0
       // Next displayable after index 0: paragraph at 1 is displayable, not quote
-      expect(component.checkNextIsQuote(0)).toBe(false);
-    });
+      expect(component.checkNextIsQuote(0)).toBe(false)
+    })
 
-    it('should fall back to nextVerseStartsWithQuote when no more elements', () => {
+    it("should fall back to nextVerseStartsWithQuote when no more elements", () => {
       setData(
         fixture,
         makeVerse({
           text: [
             {
-              type: 'text',
-              text: 'only element',
+              type: "text",
+              text: "only element",
             },
           ],
-        })
-      );
-      fixture.componentRef.setInput('nextVerseStartsWithQuote', true);
+        }),
+      )
+      fixture.componentRef.setInput("nextVerseStartsWithQuote", true)
 
-      expect(component.checkNextIsQuote(0)).toBe(true);
-    });
+      expect(component.checkNextIsQuote(0)).toBe(true)
+    })
 
-    it('should return false when next element is not a quote', () => {
+    it("should return false when next element is not a quote", () => {
       setData(
         fixture,
         makeVerse({
           text: [
-            { type: 'text', text: 'first' },
-            { type: 'paragraph', text: ' ' },
+            { type: "text", text: "first" },
+            { type: "paragraph", text: " " },
             {
-              type: 'text',
-              text: 'not a quote',
+              type: "text",
+              text: "not a quote",
             },
           ],
-        })
-      );
-      fixture.componentRef.setInput('nextVerseStartsWithQuote', false);
+        }),
+      )
+      fixture.componentRef.setInput("nextVerseStartsWithQuote", false)
 
-      expect(component.checkNextIsQuote(0)).toBe(false);
-    });
-  });
+      expect(component.checkNextIsQuote(0)).toBe(false)
+    })
+  })
 
-  describe('shouldShowParagraph', () => {
-    it('should return false for verse 0', () => {
+  describe("shouldShowParagraph", () => {
+    it("should return false for verse 0", () => {
       const data = makeVerse({
         number: 0,
         text: [
-          { type: 'text', text: 'intro' },
-          { type: 'paragraph', text: ' ' },
+          { type: "text", text: "intro" },
+          { type: "paragraph", text: " " },
         ],
-      });
-      setData(fixture, data);
+      })
+      setData(fixture, data)
 
       expect(
-        component.shouldShowParagraph(data, data.text[1] as Paragraph, 1)
-      ).toBe(false);
-    });
+        component.shouldShowParagraph(data, data.text[1] as Paragraph, 1),
+      ).toBe(false)
+    })
 
-    it('should return true for psalms regardless of previous type', () => {
+    it("should return true for psalms regardless of previous type", () => {
       const data = makeVerse({
-        bookId: 'psa',
+        bookId: "psa",
         number: 1,
         text: [
           {
-            type: 'section',
-            tag: 's1',
-            text: 'title',
+            type: "section",
+            tag: "s1",
+            text: "title",
           },
-          { type: 'paragraph', text: ' ' },
+          { type: "paragraph", text: " " },
         ],
-      });
-      setData(fixture, data);
+      })
+      setData(fixture, data)
 
       expect(
-        component.shouldShowParagraph(data, data.text[1] as Paragraph, 1)
-      ).toBe(true);
-    });
+        component.shouldShowParagraph(data, data.text[1] as Paragraph, 1),
+      ).toBe(true)
+    })
 
-    it('should return false when preceded by a section', () => {
+    it("should return false when preceded by a section", () => {
       const data = makeVerse({
         number: 1,
         text: [
           {
-            type: 'section',
-            tag: 's1',
-            text: 'title',
+            type: "section",
+            tag: "s1",
+            text: "title",
           },
-          { type: 'paragraph', text: ' ' },
+          { type: "paragraph", text: " " },
         ],
-      });
-      setData(fixture, data);
+      })
+      setData(fixture, data)
 
       expect(
-        component.shouldShowParagraph(data, data.text[1] as Paragraph, 1)
-      ).toBe(false);
-    });
+        component.shouldShowParagraph(data, data.text[1] as Paragraph, 1),
+      ).toBe(false)
+    })
 
-    it('should return true when preceded by text', () => {
+    it("should return true when preceded by text", () => {
       const data = makeVerse({
         number: 1,
         text: [
-          { type: 'text', text: 'before' },
-          { type: 'paragraph', text: ' ' },
+          { type: "text", text: "before" },
+          { type: "paragraph", text: " " },
         ],
-      });
-      setData(fixture, data);
+      })
+      setData(fixture, data)
 
       expect(
-        component.shouldShowParagraph(data, data.text[1] as Paragraph, 1)
-      ).toBe(true);
-    });
-  });
+        component.shouldShowParagraph(data, data.text[1] as Paragraph, 1),
+      ).toBe(true)
+    })
+  })
 
-  describe('a11y — text body tabindex and role', () => {
-    it('should not render tabindex or role on text span when verse has no footnotes', () => {
+  describe("a11y — text body tabindex and role", () => {
+    it("should not render tabindex or role on text span when verse has no footnotes", () => {
       setData(
         fixture,
         makeVerse({
-          text: [{ type: 'text', text: 'plain' }],
-        })
-      );
-      fixture.detectChanges();
+          text: [{ type: "text", text: "plain" }],
+        }),
+      )
+      fixture.detectChanges()
       const interactive = fixture.nativeElement.querySelectorAll(
-        ".interactive[tabindex='0'][role='button']"
-      );
-      expect(interactive.length).toBe(0);
-    });
+        ".interactive[tabindex='0'][role='button']",
+      )
+      expect(interactive.length).toBe(0)
+    })
 
-    it('should render tabindex and role on text span when verse has footnotes', () => {
+    it("should render tabindex and role on text span when verse has footnotes", () => {
       setData(
         fixture,
         makeVerse({
           text: [
-            { type: 'text', text: 'verse text' },
-            { type: 'footnote', text: 'note', reference: 'a' },
+            { type: "text", text: "verse text" },
+            { type: "footnote", text: "note", reference: "a" },
           ],
-        })
-      );
-      fixture.detectChanges();
+        }),
+      )
+      fixture.detectChanges()
       const interactive = fixture.nativeElement.querySelectorAll(
-        ".interactive[tabindex='0'][role='button']"
-      );
-      expect(interactive.length).toBeGreaterThan(0);
-    });
+        ".interactive[tabindex='0'][role='button']",
+      )
+      expect(interactive.length).toBeGreaterThan(0)
+    })
 
     // Tabbing onto a verse showed nothing: the text had outline: none, so a
     // keyboard user couldn't tell which verse had the focus.
@@ -604,135 +604,135 @@ describe('VerseComponent', () => {
         fixture,
         makeVerse({
           text: [
-            { type: 'text', text: 'verse text' },
-            { type: 'footnote', text: 'note', reference: 'a' },
+            { type: "text", text: "verse text" },
+            { type: "footnote", text: "note", reference: "a" },
           ],
-        })
-      );
-      fixture.detectChanges();
+        }),
+      )
+      fixture.detectChanges()
       const text = fixture.nativeElement.querySelector(
-        ".interactive[role='button']"
-      ) as HTMLElement;
+        ".interactive[role='button']",
+      ) as HTMLElement
 
-      text.focus();
+      text.focus()
 
-      expect(text.matches(':focus-visible')).toBe(true);
-      const style = getComputedStyle(text);
-      expect(style.outlineStyle).toBe('solid');
-      expect(style.outlineColor).toBe(style.color);
-    });
-  });
+      expect(text.matches(":focus-visible")).toBe(true)
+      const style = getComputedStyle(text)
+      expect(style.outlineStyle).toBe("solid")
+      expect(style.outlineColor).toBe(style.color)
+    })
+  })
 
-  describe('deep-link highlight', () => {
+  describe("deep-link highlight", () => {
     /** Mirrors what BibleReaderAnimationService puts on the <verse> host. */
     function highlightHost(): HTMLElement {
-      const host = fixture.nativeElement as HTMLElement;
-      host.classList.add('verse-highlight');
-      fixture.detectChanges();
-      return host;
+      const host = fixture.nativeElement as HTMLElement
+      host.classList.add("verse-highlight")
+      fixture.detectChanges()
+      return host
     }
 
-    it('should mark the text run so the stroke can be painted on it', () => {
+    it("should mark the text run so the stroke can be painted on it", () => {
       setData(
         fixture,
         makeVerse({
-          text: [{ type: 'text', text: 'plain' }],
-        })
-      );
-      highlightHost();
+          text: [{ type: "text", text: "plain" }],
+        }),
+      )
+      highlightHost()
 
       const run = fixture.nativeElement.querySelector(
-        '.verseRun'
-      ) as HTMLElement;
-      expect(run.textContent).toContain('plain');
-      expect(getComputedStyle(run).backgroundColor).not.toBe(TRANSPARENT);
-    });
+        ".verseRun",
+      ) as HTMLElement
+      expect(run.textContent).toContain("plain")
+      expect(getComputedStyle(run).backgroundColor).not.toBe(TRANSPARENT)
+    })
 
-    it('should leave the run unpainted while the verse is not highlighted', () => {
+    it("should leave the run unpainted while the verse is not highlighted", () => {
       setData(
         fixture,
         makeVerse({
-          text: [{ type: 'text', text: 'plain' }],
-        })
-      );
-      fixture.detectChanges();
+          text: [{ type: "text", text: "plain" }],
+        }),
+      )
+      fixture.detectChanges()
 
       const run = fixture.nativeElement.querySelector(
-        '.verseRun'
-      ) as HTMLElement;
-      expect(getComputedStyle(run).backgroundColor).toBe(TRANSPARENT);
-    });
+        ".verseRun",
+      ) as HTMLElement
+      expect(getComputedStyle(run).backgroundColor).toBe(TRANSPARENT)
+    })
 
-    it('should never paint the inline host, whose line fragments would colour the gaps between verses', () => {
+    it("should never paint the inline host, whose line fragments would colour the gaps between verses", () => {
       setData(
         fixture,
         makeVerse({
-          text: [{ type: 'text', text: 'plain' }],
-        })
-      );
-      const host = highlightHost();
+          text: [{ type: "text", text: "plain" }],
+        }),
+      )
+      const host = highlightHost()
 
-      const style = getComputedStyle(host);
-      expect(style.backgroundImage).toBe('none');
-      expect(style.backgroundColor).toBe('rgba(0, 0, 0, 0)');
-    });
+      const style = getComputedStyle(host)
+      expect(style.backgroundImage).toBe("none")
+      expect(style.backgroundColor).toBe("rgba(0, 0, 0, 0)")
+    })
 
-    it('should paint the verse number so it is not left out of the stroke', () => {
+    it("should paint the verse number so it is not left out of the stroke", () => {
       setData(
         fixture,
         makeVerse({
           number: 2,
-          text: [{ type: 'text', text: 'plain' }],
-        })
-      );
-      highlightHost();
+          text: [{ type: "text", text: "plain" }],
+        }),
+      )
+      highlightHost()
 
       const number = fixture.nativeElement.querySelector(
-        '.verseNumber'
-      ) as HTMLElement;
-      expect(getComputedStyle(number).backgroundColor).not.toBe(TRANSPARENT);
-    });
+        ".verseNumber",
+      ) as HTMLElement
+      expect(getComputedStyle(number).backgroundColor).not.toBe(TRANSPARENT)
+    })
 
-    it('should wrap the space in front of a verse number in a run so the stroke does not break', () => {
+    it("should wrap the space in front of a verse number in a run so the stroke does not break", () => {
       setData(
         fixture,
         makeVerse({
           number: 2,
-          text: [{ type: 'text', text: 'plain' }],
-        })
-      );
-      highlightHost();
+          text: [{ type: "text", text: "plain" }],
+        }),
+      )
+      highlightHost()
 
       const gap = fixture.nativeElement.querySelector(
-        '.verseRun'
-      ) as HTMLElement;
-      expect(gap.textContent).toBe(' ');
-      expect(getComputedStyle(gap).backgroundColor).not.toBe(TRANSPARENT);
-    });
+        ".verseRun",
+      ) as HTMLElement
+      expect(gap.textContent).toBe(" ")
+      expect(getComputedStyle(gap).backgroundColor).not.toBe(TRANSPARENT)
+    })
 
-    it('should paint a poetry verse number once, on the wrapper rather than on both it and its digits', () => {
+    it("should paint a poetry verse number once, on the wrapper rather than on both it and its digits", () => {
       setData(
         fixture,
         makeVerse({
           number: 3,
           text: [
             {
-              type: 'quote',
-              text: 'a line of poetry',
+              type: "quote",
+              text: "a line of poetry",
               identLevel: 1,
             },
           ],
-        })
-      );
-      highlightHost();
+        }),
+      )
+      highlightHost()
 
       const wrapper = fixture.nativeElement.querySelector(
-        '.quoteVerseNumber'
-      ) as HTMLElement;
-      const digits = wrapper.querySelector('.verseNumber') as HTMLElement;
-      expect(getComputedStyle(wrapper).backgroundColor).not.toBe(TRANSPARENT);
-      expect(getComputedStyle(digits).backgroundColor).toBe(TRANSPARENT);
-    });
+        ".quoteVerseNumber",
+      ) as HTMLElement
+      const digits = wrapper.querySelector(".verseNumber") as HTMLElement
+      expect(getComputedStyle(wrapper).backgroundColor).not.toBe(TRANSPARENT)
+      expect(getComputedStyle(digits).backgroundColor).toBe(TRANSPARENT)
+    })
 
     function withFootnote(): HTMLElement {
       setData(
@@ -740,283 +740,277 @@ describe('VerseComponent', () => {
         makeVerse({
           number: 2,
           text: [
-            { type: 'text', text: 'plain' },
-            { type: 'footnote', text: 'uma nota', reference: 'a' },
+            { type: "text", text: "plain" },
+            { type: "footnote", text: "uma nota", reference: "a" },
           ],
-        })
-      );
-      fixture.detectChanges();
+        }),
+      )
+      fixture.detectChanges()
       return fixture.nativeElement.querySelector(
-        '.footnoteIndicator'
-      ) as HTMLElement;
+        ".footnoteIndicator",
+      ) as HTMLElement
     }
 
-    it('should paint the footnote marker so it is not left out of the stroke', () => {
-      const marker = withFootnote();
+    it("should paint the footnote marker so it is not left out of the stroke", () => {
+      const marker = withFootnote()
       // Read the style only after highlighting: reading it first starts the
       // background-color transition, and the value would be its start colour.
-      highlightHost();
+      highlightHost()
 
-      expect(getComputedStyle(marker).backgroundColor).not.toBe(TRANSPARENT);
-    });
+      expect(getComputedStyle(marker).backgroundColor).not.toBe(TRANSPARENT)
+    })
 
     // Padding does not move an inline box but does enlarge the border box the
     // browser hit-tests, and the marker is a button: a taller one would cover
     // the line below for the 2.5s the highlight lasts.
     it("should not grow the footnote button's hit area while highlighted", () => {
-      const marker = withFootnote();
-      const restingPadding = getComputedStyle(marker).paddingBottom;
+      const marker = withFootnote()
+      const restingPadding = getComputedStyle(marker).paddingBottom
 
-      highlightHost();
+      highlightHost()
 
-      expect(getComputedStyle(marker).paddingBottom).toBe(restingPadding);
-    });
+      expect(getComputedStyle(marker).paddingBottom).toBe(restingPadding)
+    })
 
-    it('should wrap the space before a references block so the stroke does not break', () => {
+    it("should wrap the space before a references block so the stroke does not break", () => {
       setData(
         fixture,
         makeVerse({
           text: [
-            { type: 'text', text: 'plain' },
-            { type: 'references', text: 'Jo 1,1' },
+            { type: "text", text: "plain" },
+            { type: "references", text: "Jo 1,1" },
           ],
-        })
-      );
-      highlightHost();
+        }),
+      )
+      highlightHost()
 
       const gap = fixture.nativeElement.querySelector(
-        '.references > .verseRun'
-      ) as HTMLElement;
-      expect(gap.textContent).toBe(' ');
-      expect(getComputedStyle(gap).backgroundColor).not.toBe(TRANSPARENT);
-    });
+        ".references > .verseRun",
+      ) as HTMLElement
+      expect(gap.textContent).toBe(" ")
+      expect(getComputedStyle(gap).backgroundColor).not.toBe(TRANSPARENT)
+    })
 
-    it('should wrap the space after a line of poetry so the stroke does not break', () => {
+    it("should wrap the space after a line of poetry so the stroke does not break", () => {
       setData(
         fixture,
         makeVerse({
           number: 3,
           text: [
             {
-              type: 'quote',
-              text: 'a line of poetry',
+              type: "quote",
+              text: "a line of poetry",
               identLevel: 1,
             },
           ],
-        })
-      );
-      highlightHost();
+        }),
+      )
+      highlightHost()
 
       const runs = Array.from(
-        (fixture.nativeElement as HTMLElement).querySelectorAll('.verseRun')
-      ) as HTMLElement[];
-      const trailing = runs.find((run) => run.textContent === ' ');
-      expect(trailing).toBeTruthy();
+        (fixture.nativeElement as HTMLElement).querySelectorAll(".verseRun"),
+      ) as HTMLElement[]
+      const trailing = runs.find((run) => run.textContent === " ")
+      expect(trailing).toBeTruthy()
       expect(
-        getComputedStyle(trailing as HTMLElement).backgroundColor
-      ).not.toBe(TRANSPARENT);
-    });
+        getComputedStyle(trailing as HTMLElement).backgroundColor,
+      ).not.toBe(TRANSPARENT)
+    })
 
-    it('should not paint the quote line wrapper, whose box extends past the end of the line', () => {
+    it("should not paint the quote line wrapper, whose box extends past the end of the line", () => {
       setData(
         fixture,
         makeVerse({
           number: 3,
           text: [
             {
-              type: 'quote',
-              text: 'a line of poetry',
+              type: "quote",
+              text: "a line of poetry",
               identLevel: 1,
             },
           ],
-        })
-      );
-      highlightHost();
+        }),
+      )
+      highlightHost()
 
       const wrapper = fixture.nativeElement.querySelector(
-        '.quoteLineWrapper'
-      ) as HTMLElement;
-      expect(getComputedStyle(wrapper).backgroundColor).toBe(TRANSPARENT);
-    });
-  });
+        ".quoteLineWrapper",
+      ) as HTMLElement
+      expect(getComputedStyle(wrapper).backgroundColor).toBe(TRANSPARENT)
+    })
+  })
 
-  describe('what a tap on a verse with notes opens', () => {
+  describe("what a tap on a verse with notes opens", () => {
     const footnote = {
-      type: 'footnote' as const,
-      text: 'note',
-      reference: '1',
-    };
+      type: "footnote" as const,
+      text: "note",
+      reference: "1",
+    }
     const render = () => {
       setData(
         fixture,
-        makeVerse({ text: [{ type: 'text', text: 'No princípio' }, footnote] })
-      );
-      fixture.detectChanges();
-    };
+        makeVerse({ text: [{ type: "text", text: "No princípio" }, footnote] }),
+      )
+      fixture.detectChanges()
+    }
     const text = () =>
       fixture.nativeElement.querySelector(
-        '.verseRun:not(:empty)'
-      ) as HTMLElement;
+        ".verseRun:not(:empty)",
+      ) as HTMLElement
     const asterisk = () =>
-      fixture.nativeElement.querySelector('.footnoteIndicator') as HTMLElement;
+      fixture.nativeElement.querySelector(".footnoteIndicator") as HTMLElement
     // Reading hands-free: ▶ pressed in the reader.
     const play = () => {
-      vi.spyOn(TestBed.inject(KeepAwakeService), 'start').mockReturnValue(
-        undefined
-      );
-      const autoScroll = TestBed.inject(AutoScrollService);
-      autoScroll.start({ scrollElement: document.createElement('div') });
-      return autoScroll;
-    };
+      vi.spyOn(TestBed.inject(KeepAwakeService), "start").mockReturnValue(
+        undefined,
+      )
+      const autoScroll = TestBed.inject(AutoScrollService)
+      autoScroll.start({ scrollElement: document.createElement("div") })
+      return autoScroll
+    }
 
-    afterEach(() => TestBed.inject(AutoScrollService).stop());
+    afterEach(() => TestBed.inject(AutoScrollService).stop())
 
-    it('marks them with a labelled icon, not an asterisk', () => {
-      render();
+    it("marks them with a labelled icon, not an asterisk", () => {
+      render()
 
-      expect(asterisk().querySelector('svg.noteIcon')).toBeTruthy();
-      expect(asterisk().textContent?.trim()).toBe('');
-      expect(asterisk().getAttribute('aria-label')).toBe(
-        'Notas do versículo 1'
-      );
-    });
+      expect(asterisk().querySelector("svg.noteIcon")).toBeTruthy()
+      expect(asterisk().textContent?.trim()).toBe("")
+      expect(asterisk().getAttribute("aria-label")).toBe("Notas do versículo 1")
+    })
 
-    it('opens the notes from the text on the web', () => {
-      render();
-      text().click();
+    it("opens the notes from the text on the web", () => {
+      render()
+      text().click()
 
-      expect(mockBottomSheet.open).toHaveBeenCalled();
-      expect(text().getAttribute('role')).toBe('button');
-    });
+      expect(mockBottomSheet.open).toHaveBeenCalled()
+      expect(text().getAttribute("role")).toBe("button")
+    })
 
     // It scrolled on under the sheet, carrying the verse away.
-    it('stops auto-scroll as the notes open', () => {
-      const autoScroll = play();
-      render();
-      text().click();
+    it("stops auto-scroll as the notes open", () => {
+      const autoScroll = play()
+      render()
+      text().click()
 
-      expect(mockBottomSheet.open).toHaveBeenCalled();
-      expect(autoScroll.autoScrollEnabled).toBe(false);
-    });
+      expect(mockBottomSheet.open).toHaveBeenCalled()
+      expect(autoScroll.autoScrollEnabled).toBe(false)
+    })
 
     // There a tap on the text shows or hides the bars (NativeChromeService).
-    describe('in the iOS app', () => {
-      let open: Mock;
+    describe("in the iOS app", () => {
+      let open: Mock
 
       beforeEach(() => {
-        const native = TestBed.inject(NativeFootnotesService);
-        vi.spyOn(native, 'enabled').mockReturnValue(true);
-        open = vi.spyOn(native, 'open').mockReturnValue(undefined);
-        document.body.classList.add('native-chrome');
-        render();
-      });
+        const native = TestBed.inject(NativeFootnotesService)
+        vi.spyOn(native, "enabled").mockReturnValue(true)
+        open = vi.spyOn(native, "open").mockReturnValue(undefined)
+        document.body.classList.add("native-chrome")
+        render()
+      })
 
-      afterEach(() => document.body.classList.remove('native-chrome'));
+      afterEach(() => document.body.classList.remove("native-chrome"))
 
-      it('leaves the text alone', () => {
-        text().click();
-        text().dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+      it("leaves the text alone", () => {
+        text().click()
+        text().dispatchEvent(new KeyboardEvent("keydown", { key: " " }))
 
-        expect(open).not.toHaveBeenCalled();
-        expect(text().getAttribute('role')).toBeNull();
-        expect(text().getAttribute('tabindex')).toBeNull();
-      });
+        expect(open).not.toHaveBeenCalled()
+        expect(text().getAttribute("role")).toBeNull()
+        expect(text().getAttribute("tabindex")).toBeNull()
+      })
 
-      it('opens them from the marker, a finger-sized target', () => {
-        asterisk().click();
+      it("opens them from the marker, a finger-sized target", () => {
+        asterisk().click()
 
-        expect(open).toHaveBeenCalledTimes(1);
-        const target = getComputedStyle(asterisk(), '::after');
-        expect(target.width).toBe('44px');
-        expect(target.height).toBe('44px');
-      });
+        expect(open).toHaveBeenCalledTimes(1)
+        const target = getComputedStyle(asterisk(), "::after")
+        expect(target.width).toBe("44px")
+        expect(target.height).toBe("44px")
+      })
 
-      it('stops auto-scroll as they open', () => {
-        const autoScroll = play();
-        asterisk().click();
+      it("stops auto-scroll as they open", () => {
+        const autoScroll = play()
+        asterisk().click()
 
-        expect(open).toHaveBeenCalled();
-        expect(autoScroll.autoScrollEnabled).toBe(false);
-      });
+        expect(open).toHaveBeenCalled()
+        expect(autoScroll.autoScrollEnabled).toBe(false)
+      })
 
-      it('plays on through a tap on the text, which opens nothing', () => {
-        const autoScroll = play();
-        text().click();
+      it("plays on through a tap on the text, which opens nothing", () => {
+        const autoScroll = play()
+        text().click()
 
-        expect(autoScroll.autoScrollEnabled).toBe(true);
-      });
+        expect(autoScroll.autoScrollEnabled).toBe(true)
+      })
 
       // VoiceOver read every marker as "Notas": nothing told one verse's
       // from the next.
-      it('names the verse the notes are for, in poetry too', () => {
+      it("names the verse the notes are for, in poetry too", () => {
         fixture.componentRef.setInput(
-          'data',
+          "data",
           makeVerse({
             number: 7,
             text: [
-              { type: 'quote', text: 'Felizes os humildes', identLevel: 1 },
+              { type: "quote", text: "Felizes os humildes", identLevel: 1 },
               footnote,
             ],
-          })
-        );
-        fixture.detectChanges();
+          }),
+        )
+        fixture.detectChanges()
 
         expect(
           fixture.nativeElement.querySelector(
-            '.quoteVerseNumber .footnoteIndicator'
-          )
-        ).toBe(asterisk());
-        expect(asterisk().getAttribute('aria-label')).toBe(
-          'Notas do versículo 7'
-        );
-      });
+            ".quoteVerseNumber .footnoteIndicator",
+          ),
+        ).toBe(asterisk())
+        expect(asterisk().getAttribute("aria-label")).toBe(
+          "Notas do versículo 7",
+        )
+      })
 
       // The icon is the text's colour.
       it("draws the icon in the text's colour", () => {
-        const icon = asterisk().querySelector('svg') as SVGElement;
-        const probe = document.createElement('span');
+        const icon = asterisk().querySelector("svg") as SVGElement
+        const probe = document.createElement("span")
         probe.style.color = getComputedStyle(document.documentElement)
-          .getPropertyValue('--text-color')
-          .trim();
-        document.body.appendChild(probe);
+          .getPropertyValue("--text-color")
+          .trim()
+        document.body.appendChild(probe)
 
-        expect(getComputedStyle(icon).color).toBe(
-          getComputedStyle(probe).color
-        );
-        expect(getComputedStyle(icon).stroke).toBe(
-          getComputedStyle(icon).color
-        );
-        probe.remove();
-      });
+        expect(getComputedStyle(icon).color).toBe(getComputedStyle(probe).color)
+        expect(getComputedStyle(icon).stroke).toBe(getComputedStyle(icon).color)
+        probe.remove()
+      })
 
       // The 1em asterisk was too small a thing to aim at.
-      it('draws the icon bigger than the glyph it replaced', () => {
-        const icon = asterisk().querySelector('svg') as SVGElement;
-        const fontSize = parseFloat(getComputedStyle(asterisk()).fontSize);
-        const { width, height } = getComputedStyle(icon);
+      it("draws the icon bigger than the glyph it replaced", () => {
+        const icon = asterisk().querySelector("svg") as SVGElement
+        const fontSize = parseFloat(getComputedStyle(asterisk()).fontSize)
+        const { width, height } = getComputedStyle(icon)
 
-        expect(parseFloat(width)).toBeCloseTo(fontSize * 1.2, 1);
-        expect(parseFloat(height)).toBeCloseTo(fontSize * 1.2, 1);
-      });
+        expect(parseFloat(width)).toBeCloseTo(fontSize * 1.2, 1)
+        expect(parseFloat(height)).toBeCloseTo(fontSize * 1.2, 1)
+      })
 
       // Riding above its verse number looked like it belonged to the line above.
-      it('sits level with the verse number, not above it', () => {
-        const icon = asterisk().querySelector('svg') as SVGElement;
+      it("sits level with the verse number, not above it", () => {
+        const icon = asterisk().querySelector("svg") as SVGElement
         const number = fixture.nativeElement.querySelector(
-          '.verseNumber'
-        ) as HTMLElement;
-        const fontSize = parseFloat(getComputedStyle(asterisk()).fontSize);
-        const { top } = getComputedStyle(icon);
+          ".verseNumber",
+        ) as HTMLElement
+        const fontSize = parseFloat(getComputedStyle(asterisk()).fontSize)
+        const { top } = getComputedStyle(icon)
 
         // Moved down from its natural place by a fraction of the marker's size.
-        expect(parseFloat(top)).toBeGreaterThan(0);
-        expect(parseFloat(top)).toBeLessThan(fontSize * 0.5);
+        expect(parseFloat(top)).toBeGreaterThan(0)
+        expect(parseFloat(top)).toBeLessThan(fontSize * 0.5)
         expect(getComputedStyle(number).verticalAlign).toBe(
-          getComputedStyle(asterisk()).verticalAlign
-        );
-      });
-    });
-  });
+          getComputedStyle(asterisk()).verticalAlign,
+        )
+      })
+    })
+  })
 
   // Leaflets at Mass number most psalms one lower; the edition prints both.
   describe("a psalm's number", () => {
@@ -1025,146 +1019,146 @@ describe('VerseComponent', () => {
         bookId,
         chapterNumber,
         number: 0,
-        verseLabel: 'front',
-        text: [{ type: 'section', tag: 's2', text: 'O BOM PASTOR' }],
-      });
+        verseLabel: "front",
+        text: [{ type: "section", tag: "s2", text: "O BOM PASTOR" }],
+      })
     const liturgical = () =>
-      fixture.nativeElement.querySelector('.liturgicalNumber') as HTMLElement;
+      fixture.nativeElement.querySelector(".liturgicalNumber") as HTMLElement
 
-    it('carries the liturgical number under it', () => {
-      setData(fixture, opening('psa', 23));
-      fixture.detectChanges();
+    it("carries the liturgical number under it", () => {
+      setData(fixture, opening("psa", 23))
+      fixture.detectChanges()
 
-      expect(liturgical().textContent?.trim()).toBe('na liturgia, (22)');
-    });
+      expect(liturgical().textContent?.trim()).toBe("na liturgia, (22)")
+    })
 
-    it('carries none where the numberings agree, or outside the Psalms', () => {
-      setData(fixture, opening('psa', 150));
-      fixture.detectChanges();
-      expect(liturgical()).toBeNull();
+    it("carries none where the numberings agree, or outside the Psalms", () => {
+      setData(fixture, opening("psa", 150))
+      fixture.detectChanges()
+      expect(liturgical()).toBeNull()
 
-      setData(fixture, opening('gen', 23));
-      fixture.detectChanges();
-      expect(liturgical()).toBeNull();
-    });
-  });
+      setData(fixture, opening("gen", 23))
+      fixture.detectChanges()
+      expect(liturgical()).toBeNull()
+    })
+  })
 
-  describe('toggleFootnotes', () => {
+  describe("toggleFootnotes", () => {
     // The iOS app shows them in a native sheet instead.
-    it('opens the native sheet in the iOS app', () => {
-      const native = TestBed.inject(NativeFootnotesService);
-      vi.spyOn(native, 'enabled').mockReturnValue(true);
-      const open = vi.spyOn(native, 'open').mockReturnValue(undefined);
+    it("opens the native sheet in the iOS app", () => {
+      const native = TestBed.inject(NativeFootnotesService)
+      vi.spyOn(native, "enabled").mockReturnValue(true)
+      const open = vi.spyOn(native, "open").mockReturnValue(undefined)
       const footnote = {
-        type: 'footnote' as const,
-        text: 'note',
-        reference: 'a',
-      };
+        type: "footnote" as const,
+        text: "note",
+        reference: "a",
+      }
       const verse = makeVerse({
-        text: [{ type: 'text', text: 'verse' }, footnote],
-      });
-      setData(fixture, verse);
+        text: [{ type: "text", text: "verse" }, footnote],
+      })
+      setData(fixture, verse)
 
-      component.toggleFootnotes();
+      component.toggleFootnotes()
 
-      expect(open).toHaveBeenCalledWith([footnote], verse);
-      expect(mockBottomSheet.open).not.toHaveBeenCalled();
-    });
+      expect(open).toHaveBeenCalledWith([footnote], verse)
+      expect(mockBottomSheet.open).not.toHaveBeenCalled()
+    })
 
-    it('should open bottom sheet when footnotes exist', () => {
+    it("should open bottom sheet when footnotes exist", () => {
       setData(
         fixture,
         makeVerse({
           text: [
-            { type: 'text', text: 'verse' },
-            { type: 'footnote', text: 'note', reference: 'a' },
+            { type: "text", text: "verse" },
+            { type: "footnote", text: "note", reference: "a" },
           ],
-        })
-      );
+        }),
+      )
 
-      component.toggleFootnotes();
-      expect(mockBottomSheet.open).toHaveBeenCalled();
-    });
+      component.toggleFootnotes()
+      expect(mockBottomSheet.open).toHaveBeenCalled()
+    })
 
-    it('lets the Android back button dismiss the footnotes sheet', () => {
+    it("lets the Android back button dismiss the footnotes sheet", () => {
       setData(
         fixture,
         makeVerse({
           text: [
-            { type: 'text', text: 'verse' },
-            { type: 'footnote', text: 'note', reference: 'a' },
+            { type: "text", text: "verse" },
+            { type: "footnote", text: "note", reference: "a" },
           ],
-        })
-      );
-      component.toggleFootnotes();
+        }),
+      )
+      component.toggleFootnotes()
 
-      expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(true);
-      expect(dismissSheet).toHaveBeenCalled();
-    });
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(true)
+      expect(dismissSheet).toHaveBeenCalled()
+    })
 
-    it('should not open bottom sheet when no footnotes', () => {
+    it("should not open bottom sheet when no footnotes", () => {
       setData(
         fixture,
         makeVerse({
-          text: [{ type: 'text', text: 'verse' }],
-        })
-      );
+          text: [{ type: "text", text: "verse" }],
+        }),
+      )
 
-      component.toggleFootnotes();
-      expect(mockBottomSheet.open).not.toHaveBeenCalled();
-    });
+      component.toggleFootnotes()
+      expect(mockBottomSheet.open).not.toHaveBeenCalled()
+    })
 
-    it('should disable restoreFocus and refocus the trigger without scrolling on dismiss', () => {
+    it("should disable restoreFocus and refocus the trigger without scrolling on dismiss", () => {
       setData(
         fixture,
         makeVerse({
           text: [
-            { type: 'text', text: 'verse' },
-            { type: 'footnote', text: 'note', reference: 'a' },
+            { type: "text", text: "verse" },
+            { type: "footnote", text: "note", reference: "a" },
           ],
-        })
-      );
+        }),
+      )
 
-      const trigger = document.createElement('span');
-      const focusSpy = vi.spyOn(trigger, 'focus').mockReturnValue(undefined);
+      const trigger = document.createElement("span")
+      const focusSpy = vi.spyOn(trigger, "focus").mockReturnValue(undefined)
 
-      component.toggleFootnotes({ currentTarget: trigger } as unknown as Event);
+      component.toggleFootnotes({ currentTarget: trigger } as unknown as Event)
 
       // Material's own restore-focus scrolls the marker into view, which jumps
       // the reader to the chapter start in paged mode — so we opt out of it.
       expect(mockBottomSheet.open).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ restoreFocus: false })
-      );
+        expect.objectContaining({ restoreFocus: false }),
+      )
       // Focus is only restored after the sheet closes, and without scrolling.
-      expect(focusSpy).not.toHaveBeenCalled();
-      dismissed.next();
-      expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
-    });
-  });
+      expect(focusSpy).not.toHaveBeenCalled()
+      dismissed.next()
+      expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true })
+    })
+  })
 
-  describe('blank elements in the source text', () => {
+  describe("blank elements in the source text", () => {
     /**
      * A blank line is two forced breaks with nothing rendered between them.
      * Counting <br> elements would just track the markup; this tracks what
      * the reader sees.
      */
     function hasBlankLine(host: HTMLElement): boolean {
-      const breaks = Array.from(host.querySelectorAll('br'));
+      const breaks = Array.from(host.querySelectorAll("br"))
       return breaks.some((br) => {
-        let node = br.nextSibling;
+        let node = br.nextSibling
         while (node) {
           if (node.nodeType === Node.ELEMENT_NODE) {
-            const element = node as HTMLElement;
-            if (element.tagName === 'BR') return true;
-            if (element.textContent?.trim()) return false;
+            const element = node as HTMLElement
+            if (element.tagName === "BR") return true
+            if (element.textContent?.trim()) return false
           } else if (node.nodeType === Node.TEXT_NODE) {
-            if (node.textContent?.trim()) return false;
+            if (node.textContent?.trim()) return false
           }
-          node = node.nextSibling;
+          node = node.nextSibling
         }
-        return false;
-      });
+        return false
+      })
     }
 
     /**
@@ -1175,54 +1169,54 @@ describe('VerseComponent', () => {
       return makeVerse({
         number: 2,
         text: [
-          { type: 'quote', text: '\u200b' },
+          { type: "quote", text: "\u200b" },
           {
-            type: 'text',
-            text: 'antes põe o seu enlevo na lei do ',
+            type: "text",
+            text: "antes põe o seu enlevo na lei do ",
           },
-          { type: 'text', text: 'Senhor', allCaps: true },
-          { type: 'text', text: '' },
+          { type: "text", text: "Senhor", allCaps: true },
+          { type: "text", text: "" },
           {
-            type: 'quote',
-            text: 'e nela medita dia e noite.',
+            type: "quote",
+            text: "e nela medita dia e noite.",
           },
         ] as TextType[],
-      });
+      })
     }
 
-    it('drops an empty element instead of printing a blank line for it', () => {
-      setData(fixture, psalmVerse());
+    it("drops an empty element instead of printing a blank line for it", () => {
+      setData(fixture, psalmVerse())
 
       const rendered = component.displayGroups.flatMap((group) =>
-        group.elements.map((element) => element.originalIndex)
-      );
-      expect(rendered).not.toContain(3);
-      expect(rendered).toContain(4);
-    });
+        group.elements.map((element) => element.originalIndex),
+      )
+      expect(rendered).not.toContain(3)
+      expect(rendered).toContain(4)
+    })
 
-    it('keeps a prose run on one line, breaking only before the poetry', () => {
-      setData(fixture, psalmVerse());
-      fixture.detectChanges();
+    it("keeps a prose run on one line, breaking only before the poetry", () => {
+      setData(fixture, psalmVerse())
+      fixture.detectChanges()
 
       // Every quote group brings its own break, so the prose needs none of
       // its own: "antes põe o seu enlevo na lei do" and "Senhor" stay on one
       // line, with nothing breaking between them.
-      const wrapper = fixture.nativeElement.querySelector('.quoteLineWrapper');
-      expect(wrapper.querySelectorAll('br').length).toBe(0);
-      expect(hasBlankLine(fixture.nativeElement)).toBe(false);
-    });
+      const wrapper = fixture.nativeElement.querySelector(".quoteLineWrapper")
+      expect(wrapper.querySelectorAll("br").length).toBe(0)
+      expect(hasBlankLine(fixture.nativeElement)).toBe(false)
+    })
 
-    it('renders that verse as a single line of prose', () => {
-      setData(fixture, psalmVerse());
-      fixture.detectChanges();
+    it("renders that verse as a single line of prose", () => {
+      setData(fixture, psalmVerse())
+      fixture.detectChanges()
 
-      const wrapper = fixture.nativeElement.querySelector('.quoteLineWrapper');
-      expect(wrapper.textContent.replace(/\s+/g, ' ')).toContain(
-        'antes põe o seu enlevo na lei do Senhor'
-      );
-    });
+      const wrapper = fixture.nativeElement.querySelector(".quoteLineWrapper")
+      expect(wrapper.textContent.replace(/\s+/g, " ")).toContain(
+        "antes põe o seu enlevo na lei do Senhor",
+      )
+    })
 
-    it('keeps an empty paragraph element, which is the paragraph break', () => {
+    it("keeps an empty paragraph element, which is the paragraph break", () => {
       // Psalm 1,3 ends on one: its text is just a newline, but dropping it
       // ran the next paragraph on into the end of this verse.
       setData(
@@ -1231,175 +1225,175 @@ describe('VerseComponent', () => {
           number: 3,
           text: [
             {
-              type: 'quote',
-              text: 'em tudo o que faz é bem sucedido.',
+              type: "quote",
+              text: "em tudo o que faz é bem sucedido.",
             },
-            { type: 'paragraph', text: '\n' },
+            { type: "paragraph", text: "\n" },
           ] as TextType[],
-        })
-      );
+        }),
+      )
 
       const rendered = component.displayGroups.flatMap((group) =>
-        group.elements.map((element) => element.originalIndex)
-      );
-      expect(rendered).toContain(1);
-    });
+        group.elements.map((element) => element.originalIndex),
+      )
+      expect(rendered).toContain(1)
+    })
 
-    it('still starts poetry on its own line after prose', () => {
+    it("still starts poetry on its own line after prose", () => {
       setData(
         fixture,
         makeVerse({
           number: 1,
           text: [
-            { type: 'text', text: 'Jesus disse-lhe:' },
+            { type: "text", text: "Jesus disse-lhe:" },
             {
-              type: 'quote',
-              text: 'Amarás ao Senhor,',
+              type: "quote",
+              text: "Amarás ao Senhor,",
             },
           ] as TextType[],
-        })
-      );
-      fixture.detectChanges();
+        }),
+      )
+      fixture.detectChanges()
 
       // The quote group brings the break itself, so the poetry starts on a
       // new line with no blank one in front of it.
-      expect(hasBlankLine(fixture.nativeElement)).toBe(false);
-    });
-  });
+      expect(hasBlankLine(fixture.nativeElement)).toBe(false)
+    })
+  })
 
   // Safari draws a block box inside the verse's inline text over the lines
   // before it when the text is set in columns (the page-by-page view): Gn 25
   // "Esaú e Jacob", Dt 1 "Recordação do passado" and its references. Lines
   // of their own are inline-blocks a line wide, laid out with the text.
-  describe('headings and references on lines of their own', () => {
+  describe("headings and references on lines of their own", () => {
     // Dt 1,5: a heading and its references after the verse's text.
     function deuteronomy1v5(): Verse {
       return makeVerse({
-        bookId: 'deu',
+        bookId: "deu",
         number: 5,
         text: [
-          { type: 'text', text: 'Moisés começou a expor esta Lei:' },
-          { type: 'section', tag: 's1', text: '1. Recordação do passado' },
-          { type: 'references', text: '(1,6-11,28)' },
+          { type: "text", text: "Moisés começou a expor esta Lei:" },
+          { type: "section", tag: "s1", text: "1. Recordação do passado" },
+          { type: "references", text: "(1,6-11,28)" },
         ],
-      });
+      })
     }
 
     function lineWidth(): number {
-      const host = fixture.nativeElement as HTMLElement;
-      return host.parentElement?.getBoundingClientRect().width ?? 0;
+      const host = fixture.nativeElement as HTMLElement
+      return host.parentElement?.getBoundingClientRect().width ?? 0
     }
 
     // The Android bar names the section being read (NativeChromeService).
-    it('marks its heading as a section heading', () => {
-      setData(fixture, deuteronomy1v5());
-      fixture.detectChanges();
+    it("marks its heading as a section heading", () => {
+      setData(fixture, deuteronomy1v5())
+      fixture.detectChanges()
 
       const heading = fixture.nativeElement.querySelector(
-        '[data-section-heading]'
-      ) as HTMLElement;
-      expect(heading.tagName).toBe('H3');
-      expect(heading.textContent).toContain('1. Recordação do passado');
-    });
+        "[data-section-heading]",
+      ) as HTMLElement
+      expect(heading.tagName).toBe("H3")
+      expect(heading.textContent).toContain("1. Recordação do passado")
+    })
 
-    it('sets a heading as an inline-block a line wide', () => {
-      setData(fixture, deuteronomy1v5());
-      fixture.detectChanges();
+    it("sets a heading as an inline-block a line wide", () => {
+      setData(fixture, deuteronomy1v5())
+      fixture.detectChanges()
 
-      const heading = fixture.nativeElement.querySelector('h3') as HTMLElement;
-      expect(getComputedStyle(heading).display).toBe('inline-block');
-      expect(heading.getBoundingClientRect().width).toBeCloseTo(lineWidth(), 0);
-    });
+      const heading = fixture.nativeElement.querySelector("h3") as HTMLElement
+      expect(getComputedStyle(heading).display).toBe("inline-block")
+      expect(heading.getBoundingClientRect().width).toBeCloseTo(lineWidth(), 0)
+    })
 
-    it('sets its references as an inline-block a line wide', () => {
-      setData(fixture, deuteronomy1v5());
-      fixture.detectChanges();
+    it("sets its references as an inline-block a line wide", () => {
+      setData(fixture, deuteronomy1v5())
+      fixture.detectChanges()
 
       const references = fixture.nativeElement.querySelector(
-        '.references-block'
-      ) as HTMLElement;
-      expect(getComputedStyle(references).display).toBe('inline-block');
+        ".references-block",
+      ) as HTMLElement
+      expect(getComputedStyle(references).display).toBe("inline-block")
       expect(references.getBoundingClientRect().width).toBeCloseTo(
         lineWidth(),
-        0
-      );
-    });
+        0,
+      )
+    })
 
     // Pr 25: the chapter opens on a heading whose references sit beside the
     // drop-cap number; a line-wide box would drop below it.
-    it('keeps references beside the chapter number a block', () => {
+    it("keeps references beside the chapter number a block", () => {
       setData(
         fixture,
         makeVerse({
-          bookId: 'pro',
+          bookId: "pro",
           chapterNumber: 25,
           number: 0,
-          verseLabel: '0',
+          verseLabel: "0",
           text: [
-            { type: 'section', tag: 'ms', text: 'V. Segunda coleção' },
-            { type: 'references', text: '(25,1-29,27)' },
+            { type: "section", tag: "ms", text: "V. Segunda coleção" },
+            { type: "references", text: "(25,1-29,27)" },
           ],
-        })
-      );
-      fixture.detectChanges();
+        }),
+      )
+      fixture.detectChanges()
 
       const references = fixture.nativeElement.querySelector(
-        '.references-block'
-      ) as HTMLElement;
-      expect(component.chapterNumberDisplayIndex).toBe(1);
-      expect(getComputedStyle(references).display).toBe('block');
-    });
+        ".references-block",
+      ) as HTMLElement
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+      expect(getComputedStyle(references).display).toBe("block")
+    })
 
-    it('tells a centred heading whether the chapter number floats beside it', () => {
+    it("tells a centred heading whether the chapter number floats beside it", () => {
       setData(
         fixture,
         makeVerse({
           number: 0,
-          verseLabel: '0',
+          verseLabel: "0",
           text: [
-            { type: 'section', tag: 's2', text: 'Discurso de Elifaz' },
+            { type: "section", tag: "s2", text: "Discurso de Elifaz" },
             {
-              type: 'quote',
-              text: 'Se alguém te dirigir a palavra,',
+              type: "quote",
+              text: "Se alguém te dirigir a palavra,",
               identLevel: 1,
             },
           ],
-        })
-      );
-      fixture.detectChanges();
+        }),
+      )
+      fixture.detectChanges()
 
       const heading = fixture.nativeElement.querySelector(
-        'verse-section .center'
-      ) as HTMLElement;
-      expect(heading.classList).toContain('besideChapterNumber');
-      expect(getComputedStyle(heading).display).toBe('table');
-    });
-  });
+        "verse-section .center",
+      ) as HTMLElement
+      expect(heading.classList).toContain("besideChapterNumber")
+      expect(getComputedStyle(heading).display).toBe("table")
+    })
+  })
 
   // In justified prose, a wrapped line of poetry was spread into wide gaps
   // ("Felizes  os  que  sofrem  perseguição  por") and hyphenated.
-  it('sets a line of poetry ragged-right and unhyphenated', () => {
-    const host = fixture.nativeElement as HTMLElement;
-    host.style.textAlign = 'justify';
-    host.style.hyphens = 'auto';
+  it("sets a line of poetry ragged-right and unhyphenated", () => {
+    const host = fixture.nativeElement as HTMLElement
+    host.style.textAlign = "justify"
+    host.style.hyphens = "auto"
     setData(
       fixture,
       makeVerse({
         number: 10,
         text: [
           {
-            type: 'quote',
-            text: 'Felizes os que sofrem perseguição por causa da justiça,',
+            type: "quote",
+            text: "Felizes os que sofrem perseguição por causa da justiça,",
             identLevel: 1,
           },
         ],
-      })
-    );
-    fixture.detectChanges();
+      }),
+    )
+    fixture.detectChanges()
 
-    const line = host.querySelector('.quoteLineWrapper') as HTMLElement;
-    expect(line).toBeTruthy();
-    expect(getComputedStyle(line).textAlign).toBe('start');
-    expect(getComputedStyle(line).hyphens).toBe('manual');
-  });
-});
+    const line = host.querySelector(".quoteLineWrapper") as HTMLElement
+    expect(line).toBeTruthy()
+    expect(getComputedStyle(line).textAlign).toBe("start")
+    expect(getComputedStyle(line).hyphens).toBe("manual")
+  })
+})

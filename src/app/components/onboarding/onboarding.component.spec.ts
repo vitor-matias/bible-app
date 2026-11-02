@@ -1,58 +1,58 @@
-import type { MockedObject } from 'vitest';
-import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import { MatDialogRef } from '@angular/material/dialog';
-import { BehaviorSubject } from 'rxjs';
-import { AnalyticsService } from '../../services/analytics.service';
+import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import { MatDialogRef } from "@angular/material/dialog"
+import { BehaviorSubject } from "rxjs"
+import type { MockedObject } from "vitest"
+import { AnalyticsService } from "../../services/analytics.service"
 import {
   type InstallBrowser,
   type InstallPlatform,
   type InstallPromptOutcome,
   PwaInstallService,
-} from '../../services/pwa-install.service';
-import { OnboardingComponent } from './onboarding.component';
+} from "../../services/pwa-install.service"
+import { OnboardingComponent } from "./onboarding.component"
 import {
   getInstallGuide,
   INSTALL_STEP_ID,
   ONBOARDING_STEPS,
-} from './onboarding-content';
+} from "./onboarding-content"
 
 class FakePwaInstallService {
-  isInstalled = false;
-  canPromptInstall = false;
-  readonly canPromptInstall$ = new BehaviorSubject<boolean>(false);
-  platform: InstallPlatform = 'android';
-  browser: InstallBrowser = 'chrome';
+  isInstalled = false
+  canPromptInstall = false
+  readonly canPromptInstall$ = new BehaviorSubject<boolean>(false)
+  platform: InstallPlatform = "android"
+  browser: InstallBrowser = "chrome"
   detectPlatform = vi
     .fn()
-    .mockName('detectPlatform')
-    .mockImplementation(() => this.platform);
+    .mockName("detectPlatform")
+    .mockImplementation(() => this.platform)
   detectBrowser = vi
     .fn()
-    .mockName('detectBrowser')
-    .mockImplementation(() => this.browser);
+    .mockName("detectBrowser")
+    .mockImplementation(() => this.browser)
   promptInstall = vi
     .fn()
-    .mockName('promptInstall')
-    .mockResolvedValue('accepted' as InstallPromptOutcome);
+    .mockName("promptInstall")
+    .mockResolvedValue("accepted" as InstallPromptOutcome)
 }
 
-describe('OnboardingComponent', () => {
-  let fixture: ComponentFixture<OnboardingComponent>;
-  let component: OnboardingComponent;
-  let element: HTMLElement;
-  let pwa: FakePwaInstallService;
-  let dialogRefSpy: MockedObject<MatDialogRef<OnboardingComponent>>;
-  let analyticsSpy: MockedObject<AnalyticsService>;
+describe("OnboardingComponent", () => {
+  let fixture: ComponentFixture<OnboardingComponent>
+  let component: OnboardingComponent
+  let element: HTMLElement
+  let pwa: FakePwaInstallService
+  let dialogRefSpy: MockedObject<MatDialogRef<OnboardingComponent>>
+  let analyticsSpy: MockedObject<AnalyticsService>
 
   beforeEach(async () => {
-    pwa = new FakePwaInstallService();
+    pwa = new FakePwaInstallService()
     dialogRefSpy = {
-      close: vi.fn().mockName('MatDialogRef.close'),
-    };
+      close: vi.fn().mockName("MatDialogRef.close"),
+    }
     analyticsSpy = {
-      track: vi.fn().mockName('AnalyticsService.track'),
-    };
-    analyticsSpy.track.mockResolvedValue();
+      track: vi.fn().mockName("AnalyticsService.track"),
+    }
+    analyticsSpy.track.mockResolvedValue()
 
     await TestBed.configureTestingModule({
       imports: [OnboardingComponent],
@@ -61,419 +61,417 @@ describe('OnboardingComponent', () => {
         { provide: PwaInstallService, useValue: pwa },
         { provide: AnalyticsService, useValue: analyticsSpy },
       ],
-    }).compileComponents();
-  });
+    }).compileComponents()
+  })
 
   function create(): void {
-    fixture = TestBed.createComponent(OnboardingComponent);
-    component = fixture.componentInstance;
-    element = fixture.nativeElement;
-    fixture.detectChanges();
+    fixture = TestBed.createComponent(OnboardingComponent)
+    component = fixture.componentInstance
+    element = fixture.nativeElement
+    fixture.detectChanges()
   }
 
   function title(): string {
-    return element.querySelector('.title')?.textContent?.trim() ?? '';
+    return element.querySelector(".title")?.textContent?.trim() ?? ""
   }
 
   function textOf(selector: string): string {
-    return element.querySelector(selector)?.textContent ?? '';
+    return element.querySelector(selector)?.textContent ?? ""
   }
 
   function button(label: string): HTMLButtonElement | undefined {
-    return Array.from(element.querySelectorAll('button')).find((candidate) =>
-      candidate.textContent?.includes(label)
-    );
+    return Array.from(element.querySelectorAll("button")).find((candidate) =>
+      candidate.textContent?.includes(label),
+    )
   }
 
   function platformButton(label: string): HTMLButtonElement {
     const found = Array.from(
-      element.querySelectorAll<HTMLButtonElement>('.platforms button')
-    ).find((candidate) => candidate.textContent?.includes(label));
-    if (!found) throw new Error(`No platform button labelled ${label}`);
-    return found;
+      element.querySelectorAll<HTMLButtonElement>(".platforms button"),
+    ).find((candidate) => candidate.textContent?.includes(label))
+    if (!found) throw new Error(`No platform button labelled ${label}`)
+    return found
   }
 
   function goToInstallStep(): void {
-    component.goTo(component.steps.length - 1);
-    fixture.detectChanges();
+    component.goTo(component.steps.length - 1)
+    fixture.detectChanges()
   }
 
-  it('shows the app logo on the welcome step and an icon afterwards', () => {
-    create();
+  it("shows the app logo on the welcome step and an icon afterwards", () => {
+    create()
 
-    const logo = element.querySelector<HTMLImageElement>('.hero-logo');
-    expect(logo?.getAttribute('src')).toBe('icons/512X512_REDONDO.png');
-    expect(element.querySelector('.hero-icon')).toBeNull();
+    const logo = element.querySelector<HTMLImageElement>(".hero-logo")
+    expect(logo?.getAttribute("src")).toBe("icons/512X512_REDONDO.png")
+    expect(element.querySelector(".hero-icon")).toBeNull()
 
-    component.next();
+    component.next()
 
-    expect(element.querySelector('.hero-logo')).toBeNull();
-    expect(textOf('.hero-icon')).toContain('explore');
-  });
+    expect(element.querySelector(".hero-logo")).toBeNull()
+    expect(textOf(".hero-icon")).toContain("explore")
+  })
 
-  it('starts on the welcome step with one dot per step', () => {
-    create();
+  it("starts on the welcome step with one dot per step", () => {
+    create()
 
-    expect(title()).toContain('Bem-vindo');
-    expect(element.querySelector('.step-count')).toBeNull();
-    expect(element.querySelectorAll('.dot').length).toBe(
-      ONBOARDING_STEPS.length
-    );
-    expect(button('Saltar')).toBeDefined();
-    expect(button('Seguinte')).toBeDefined();
-    expect(button('Anterior')).toBeUndefined();
-  });
+    expect(title()).toContain("Bem-vindo")
+    expect(element.querySelector(".step-count")).toBeNull()
+    expect(element.querySelectorAll(".dot").length).toBe(
+      ONBOARDING_STEPS.length,
+    )
+    expect(button("Saltar")).toBeDefined()
+    expect(button("Seguinte")).toBeDefined()
+    expect(button("Anterior")).toBeUndefined()
+  })
 
-  it('moves forwards and backwards through the steps', () => {
-    create();
+  it("moves forwards and backwards through the steps", () => {
+    create()
 
-    button('Seguinte')?.click();
-    fixture.detectChanges();
-    expect(title()).toBe('Navegar na Bíblia');
-    expect(button('Saltar')).toBeUndefined();
+    button("Seguinte")?.click()
+    fixture.detectChanges()
+    expect(title()).toBe("Navegar na Bíblia")
+    expect(button("Saltar")).toBeUndefined()
 
-    button('Anterior')?.click();
-    fixture.detectChanges();
-    expect(title()).toContain('Bem-vindo');
+    button("Anterior")?.click()
+    fixture.detectChanges()
+    expect(title()).toContain("Bem-vindo")
 
-    component.back();
-    expect(component.index).toBe(0);
-  });
+    component.back()
+    expect(component.index).toBe(0)
+  })
 
-  it('repaints when a step dot is clicked, without an external change detection pass', () => {
-    create();
-    const dots = element.querySelectorAll<HTMLButtonElement>('.dot');
+  it("repaints when a step dot is clicked, without an external change detection pass", () => {
+    create()
+    const dots = element.querySelectorAll<HTMLButtonElement>(".dot")
 
-    dots[2].click();
+    dots[2].click()
 
-    expect(title()).toBe('Ler à sua maneira');
-    expect(dots[2].classList).toContain('active');
-    expect(dots[2].getAttribute('aria-current')).toBe('step');
-  });
+    expect(title()).toBe("Ler à sua maneira")
+    expect(dots[2].classList).toContain("active")
+    expect(dots[2].getAttribute("aria-current")).toBe("step")
+  })
 
-  describe('keyboard navigation', () => {
-    const windowListener = vi.fn().mockName('windowKeydown');
+  describe("keyboard navigation", () => {
+    const windowListener = vi.fn().mockName("windowKeydown")
 
     beforeEach(() => {
-      windowListener.mockClear();
-      window.addEventListener('keydown', windowListener);
-    });
+      windowListener.mockClear()
+      window.addEventListener("keydown", windowListener)
+    })
 
     afterEach(() => {
-      window.removeEventListener('keydown', windowListener);
-    });
+      window.removeEventListener("keydown", windowListener)
+    })
 
     function press(target: EventTarget, key: string): KeyboardEvent {
-      const event = new KeyboardEvent('keydown', {
+      const event = new KeyboardEvent("keydown", {
         key,
         bubbles: true,
         cancelable: true,
-      });
-      target.dispatchEvent(event);
-      fixture.detectChanges();
-      return event;
+      })
+      target.dispatchEvent(event)
+      fixture.detectChanges()
+      return event
     }
 
-    it('turns steps with the arrow keys even when focus sits on the dialog container', () => {
-      create();
+    it("turns steps with the arrow keys even when focus sits on the dialog container", () => {
+      create()
 
       // The dialog focuses its container, an ancestor of the component.
-      press(document.body, 'ArrowRight');
-      expect(component.index).toBe(1);
+      press(document.body, "ArrowRight")
+      expect(component.index).toBe(1)
 
-      press(document.body, 'ArrowLeft');
-      expect(component.index).toBe(0);
-    });
+      press(document.body, "ArrowLeft")
+      expect(component.index).toBe(0)
+    })
 
-    it('keeps the arrow keys from reaching the reader behind the dialog', () => {
-      create();
+    it("keeps the arrow keys from reaching the reader behind the dialog", () => {
+      create()
 
-      const event = press(element, 'ArrowRight');
+      const event = press(element, "ArrowRight")
 
-      expect(event.defaultPrevented).toBe(true);
-      expect(windowListener).not.toHaveBeenCalled();
-    });
+      expect(event.defaultPrevented).toBe(true)
+      expect(windowListener).not.toHaveBeenCalled()
+    })
 
-    it('leaves other keys alone', () => {
-      create();
+    it("leaves other keys alone", () => {
+      create()
 
-      const event = press(element, 'Enter');
+      const event = press(element, "Enter")
 
-      expect(event.defaultPrevented).toBe(false);
-      expect(windowListener).toHaveBeenCalled();
-      expect(component.index).toBe(0);
-    });
+      expect(event.defaultPrevented).toBe(false)
+      expect(windowListener).toHaveBeenCalled()
+      expect(component.index).toBe(0)
+    })
 
-    it('leaves the arrow keys to the platform switcher when it has focus, but still keeps them from the reader', () => {
-      create();
-      goToInstallStep();
-      const installIndex = component.index;
+    it("leaves the arrow keys to the platform switcher when it has focus, but still keeps them from the reader", () => {
+      create()
+      goToInstallStep()
+      const installIndex = component.index
 
-      const event = press(platformButton('Android'), 'ArrowLeft');
+      const event = press(platformButton("Android"), "ArrowLeft")
 
-      expect(component.index).toBe(installIndex);
-      expect(event.defaultPrevented).toBe(false);
-      expect(windowListener).not.toHaveBeenCalled();
-    });
+      expect(component.index).toBe(installIndex)
+      expect(event.defaultPrevented).toBe(false)
+      expect(windowListener).not.toHaveBeenCalled()
+    })
 
     it("moves focus to the new step's heading so screen readers announce it", () => {
-      create();
+      create()
 
-      press(document.body, 'ArrowRight');
+      press(document.body, "ArrowRight")
 
-      expect(document.activeElement?.id).toBe('onboarding-title');
-      expect(document.activeElement?.textContent).toContain('Navegar');
-    });
-  });
+      expect(document.activeElement?.id).toBe("onboarding-title")
+      expect(document.activeElement?.textContent).toContain("Navegar")
+    })
+  })
 
-  it('ends on the install step and finishes from there', () => {
-    create();
-    goToInstallStep();
+  it("ends on the install step and finishes from there", () => {
+    create()
+    goToInstallStep()
 
-    expect(title()).toBe('Instalar a aplicação');
-    expect(button('Seguinte')).toBeUndefined();
+    expect(title()).toBe("Instalar a aplicação")
+    expect(button("Seguinte")).toBeUndefined()
 
-    button('Começar a ler')?.click();
+    button("Começar a ler")?.click()
 
     expect(dialogRefSpy.close).toHaveBeenCalledWith({
       completed: true,
       lastStep: INSTALL_STEP_ID,
-    });
-  });
+    })
+  })
 
-  it('closes without completing when skipped', () => {
-    create();
-    (element.querySelector('.close') as HTMLButtonElement).click();
+  it("closes without completing when skipped", () => {
+    create()
+    ;(element.querySelector(".close") as HTMLButtonElement).click()
 
     expect(dialogRefSpy.close).toHaveBeenCalledWith({
       completed: false,
-      lastStep: 'welcome',
-    });
-  });
+      lastStep: "welcome",
+    })
+  })
 
-  it('omits the install step when the app already runs installed', () => {
-    pwa.isInstalled = true;
-    create();
+  it("omits the install step when the app already runs installed", () => {
+    pwa.isInstalled = true
+    create()
 
-    expect(component.steps.length).toBe(ONBOARDING_STEPS.length - 1);
+    expect(component.steps.length).toBe(ONBOARDING_STEPS.length - 1)
     expect(component.steps.some((step) => step.id === INSTALL_STEP_ID)).toBe(
-      false
-    );
-    expect(element.querySelectorAll('.dot').length).toBe(
-      ONBOARDING_STEPS.length - 1
-    );
+      false,
+    )
+    expect(element.querySelectorAll(".dot").length).toBe(
+      ONBOARDING_STEPS.length - 1,
+    )
 
-    goToInstallStep();
-    expect(button('Começar a ler')).toBeDefined();
-    expect(element.querySelector('.platforms')).toBeNull();
-  });
+    goToInstallStep()
+    expect(button("Começar a ler")).toBeDefined()
+    expect(element.querySelector(".platforms")).toBeNull()
+  })
 
-  it('preselects the detected platform and tailors the guide to the browser', () => {
-    pwa.platform = 'ios';
-    pwa.browser = 'safari';
-    create();
-    goToInstallStep();
+  it("preselects the detected platform and tailors the guide to the browser", () => {
+    pwa.platform = "ios"
+    pwa.browser = "safari"
+    create()
+    goToInstallStep()
 
-    expect(platformButton('iPhone / iPad').getAttribute('aria-pressed')).toBe(
-      'true'
-    );
-    expect(platformButton('Android').getAttribute('aria-pressed')).toBe(
-      'false'
-    );
-    expect(textOf('.guide')).toContain('Adicionar ao ecrã principal');
-    expect(textOf('.guide')).toContain('Safari');
-    expect(textOf('.note')).toContain('iPad');
-  });
+    expect(platformButton("iPhone / iPad").getAttribute("aria-pressed")).toBe(
+      "true",
+    )
+    expect(platformButton("Android").getAttribute("aria-pressed")).toBe("false")
+    expect(textOf(".guide")).toContain("Adicionar ao ecrã principal")
+    expect(textOf(".guide")).toContain("Safari")
+    expect(textOf(".note")).toContain("iPad")
+  })
 
-  it('shows generic instructions when browsing another platform, repainting on the plain button click', () => {
-    create();
-    goToInstallStep();
+  it("shows generic instructions when browsing another platform, repainting on the plain button click", () => {
+    create()
+    goToInstallStep()
 
-    platformButton('Computador').click();
+    platformButton("Computador").click()
 
-    expect(platformButton('Computador').getAttribute('aria-pressed')).toBe(
-      'true'
-    );
-    expect(textOf('.guide')).toContain('barra de endereço');
-    for (const browser of ['Chrome:', 'Edge:', 'Safari', 'Firefox:']) {
-      expect(textOf('.guide')).toContain(browser);
+    expect(platformButton("Computador").getAttribute("aria-pressed")).toBe(
+      "true",
+    )
+    expect(textOf(".guide")).toContain("barra de endereço")
+    for (const browser of ["Chrome:", "Edge:", "Safari", "Firefox:"]) {
+      expect(textOf(".guide")).toContain(browser)
     }
 
-    platformButton('iPhone / iPad').click();
-    expect(textOf('.guide')).toContain('barra do Safari');
-  });
+    platformButton("iPhone / iPad").click()
+    expect(textOf(".guide")).toContain("barra do Safari")
+  })
 
-  it('says which browser the Android guide assumes when browsed from another device', () => {
-    pwa.platform = 'desktop';
-    pwa.browser = 'safari';
-    create();
-    goToInstallStep();
+  it("says which browser the Android guide assumes when browsed from another device", () => {
+    pwa.platform = "desktop"
+    pwa.browser = "safari"
+    create()
+    goToInstallStep()
 
-    platformButton('Android').click();
+    platformButton("Android").click()
 
-    expect(textOf('.guide')).toContain('Chrome');
-    expect(textOf('.note')).toContain('Samsung Internet');
-  });
+    expect(textOf(".guide")).toContain("Chrome")
+    expect(textOf(".note")).toContain("Samsung Internet")
+  })
 
-  it('offers the one-tap install only for the device in hand', () => {
-    pwa.canPromptInstall = true;
-    create();
-    goToInstallStep();
+  it("offers the one-tap install only for the device in hand", () => {
+    pwa.canPromptInstall = true
+    create()
+    goToInstallStep()
 
-    expect(button('Instalar agora')).toBeDefined();
+    expect(button("Instalar agora")).toBeDefined()
 
-    platformButton('iPhone / iPad').click();
-    expect(button('Instalar agora')).toBeUndefined();
+    platformButton("iPhone / iPad").click()
+    expect(button("Instalar agora")).toBeUndefined()
 
-    platformButton('Android').click();
-    expect(button('Instalar agora')).toBeDefined();
-  });
+    platformButton("Android").click()
+    expect(button("Instalar agora")).toBeDefined()
+  })
 
-  it('picks up an install prompt that arrives while the wizard is open', () => {
-    create();
-    goToInstallStep();
-    expect(button('Instalar agora')).toBeUndefined();
+  it("picks up an install prompt that arrives while the wizard is open", () => {
+    create()
+    goToInstallStep()
+    expect(button("Instalar agora")).toBeUndefined()
 
-    pwa.canPromptInstall = true;
-    pwa.canPromptInstall$.next(true);
-    fixture.detectChanges();
+    pwa.canPromptInstall = true
+    pwa.canPromptInstall$.next(true)
+    fixture.detectChanges()
 
-    expect(button('Instalar agora')).toBeDefined();
-  });
+    expect(button("Instalar agora")).toBeDefined()
+  })
 
-  it('runs the native prompt and confirms the installation', async () => {
-    pwa.canPromptInstall = true;
-    create();
-    goToInstallStep();
+  it("runs the native prompt and confirms the installation", async () => {
+    pwa.canPromptInstall = true
+    create()
+    goToInstallStep()
 
-    button('Instalar agora')?.click();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    button("Instalar agora")?.click()
+    await fixture.whenStable()
+    fixture.detectChanges()
 
-    expect(pwa.promptInstall).toHaveBeenCalled();
-    expect(analyticsSpy.track).toHaveBeenCalledWith('pwa_install_prompt', {
-      outcome: 'accepted',
-      installPlatform: 'android',
-    });
-    expect(textOf('.install-done')).toContain('foi instalada');
-    expect(button('Instalar agora')).toBeUndefined();
-    expect(element.querySelector('.guide')).toBeNull();
-  });
+    expect(pwa.promptInstall).toHaveBeenCalled()
+    expect(analyticsSpy.track).toHaveBeenCalledWith("pwa_install_prompt", {
+      outcome: "accepted",
+      installPlatform: "android",
+    })
+    expect(textOf(".install-done")).toContain("foi instalada")
+    expect(button("Instalar agora")).toBeUndefined()
+    expect(element.querySelector(".guide")).toBeNull()
+  })
 
-  it('keeps the manual steps when the user dismisses the native prompt', async () => {
-    pwa.canPromptInstall = true;
-    pwa.promptInstall.mockResolvedValue('dismissed' as InstallPromptOutcome);
-    create();
-    goToInstallStep();
+  it("keeps the manual steps when the user dismisses the native prompt", async () => {
+    pwa.canPromptInstall = true
+    pwa.promptInstall.mockResolvedValue("dismissed" as InstallPromptOutcome)
+    create()
+    goToInstallStep()
 
-    button('Instalar agora')?.click();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    button("Instalar agora")?.click()
+    await fixture.whenStable()
+    fixture.detectChanges()
 
-    expect(component.installOutcome).toBe('dismissed');
-    expect(element.querySelector('.install-done')).toBeNull();
-    expect(element.querySelector('.guide')).not.toBeNull();
-  });
+    expect(component.installOutcome).toBe("dismissed")
+    expect(element.querySelector(".install-done")).toBeNull()
+    expect(element.querySelector(".guide")).not.toBeNull()
+  })
 
-  describe('footer layout', () => {
+  describe("footer layout", () => {
     function rect(selector: string): DOMRect {
-      const found = element.querySelector(selector);
-      if (!found) throw new Error(`No ${selector}`);
-      return found.getBoundingClientRect();
+      const found = element.querySelector(selector)
+      if (!found) throw new Error(`No ${selector}`)
+      return found.getBoundingClientRect()
     }
 
     /** Lays out every step in a dialog `width` wide. */
     function eachStep(width: number, check: (stepId: string) => void): void {
-      create();
-      element.style.width = `${width}px`;
+      create()
+      element.style.width = `${width}px`
       component.steps.forEach((step, i) => {
-        component.goTo(i);
-        fixture.detectChanges();
-        check(step.id);
-      });
+        component.goTo(i)
+        fixture.detectChanges()
+        check(step.id)
+      })
     }
 
     // On a 360px Android phone the first step's buttons fitted beside the
     // dots and the next step's wrapped under them, so they jumped between rows.
-    it('gives the dots and the buttons a row each on every step of a phone-width dialog', () => {
-      pwa.isInstalled = true; // the four steps of the Android app
+    it("gives the dots and the buttons a row each on every step of a phone-width dialog", () => {
+      pwa.isInstalled = true // the four steps of the Android app
 
       eachStep(331, (stepId) => {
-        const footer = rect('.actions');
-        const dots = element.querySelectorAll('.dot');
-        const firstDot = dots[0].getBoundingClientRect();
-        const lastDot = dots[dots.length - 1].getBoundingClientRect();
+        const footer = rect(".actions")
+        const dots = element.querySelectorAll(".dot")
+        const firstDot = dots[0].getBoundingClientRect()
+        const lastDot = dots[dots.length - 1].getBoundingClientRect()
         const [secondary, primary] = Array.from(
-          element.querySelectorAll('.buttons button'),
-          (candidate) => candidate.getBoundingClientRect()
-        );
+          element.querySelectorAll(".buttons button"),
+          (candidate) => candidate.getBoundingClientRect(),
+        )
 
-        expect(secondary.top, stepId).toBeGreaterThanOrEqual(firstDot.bottom);
+        expect(secondary.top, stepId).toBeGreaterThanOrEqual(firstDot.bottom)
         expect(
           firstDot.left - footer.left,
-          `${stepId}: dots centred`
-        ).toBeCloseTo(footer.right - lastDot.right, 0);
+          `${stepId}: dots centred`,
+        ).toBeCloseTo(footer.right - lastDot.right, 0)
         expect(
           secondary.left - footer.left,
-          `${stepId}: buttons at the edges`
-        ).toBeCloseTo(footer.right - primary.right, 0);
-      });
-    });
+          `${stepId}: buttons at the edges`,
+        ).toBeCloseTo(footer.right - primary.right, 0)
+      })
+    })
 
-    it('keeps the dots and the buttons on one row in a wider dialog', () => {
+    it("keeps the dots and the buttons on one row in a wider dialog", () => {
       eachStep(520, (stepId) => {
-        expect(rect('.buttons').top, stepId).toBeLessThan(rect('.dots').bottom);
-      });
-    });
-  });
-});
+        expect(rect(".buttons").top, stepId).toBeLessThan(rect(".dots").bottom)
+      })
+    })
+  })
+})
 
-describe('getInstallGuide', () => {
-  it('lists every desktop browser, with the detected one first', () => {
+describe("getInstallGuide", () => {
+  it("lists every desktop browser, with the detected one first", () => {
     const labels = (browser: InstallBrowser | null) =>
-      getInstallGuide('desktop', browser).steps.map((step) => step.label);
+      getInstallGuide("desktop", browser).steps.map((step) => step.label)
 
-    expect(labels('safari')).toEqual([
-      'Safari (macOS 14 ou superior)',
-      'Chrome',
-      'Edge',
-      'Firefox',
+    expect(labels("safari")).toEqual([
+      "Safari (macOS 14 ou superior)",
+      "Chrome",
+      "Edge",
+      "Firefox",
       undefined,
-    ]);
-    expect(labels('firefox')[0]).toBe('Firefox');
-    expect(labels(null)[0]).toBe('Chrome');
-    expect(labels('other')[0]).toBe('Chrome');
+    ])
+    expect(labels("firefox")[0]).toBe("Firefox")
+    expect(labels(null)[0]).toBe("Chrome")
+    expect(labels("other")[0]).toBe("Chrome")
 
-    const steps = getInstallGuide('desktop', 'chrome').steps;
-    expect(steps[0].text).toContain('Transmitir, guardar e partilhar');
-    expect(steps.at(-1)?.text).toContain('Confirme');
-  });
+    const steps = getInstallGuide("desktop", "chrome").steps
+    expect(steps[0].text).toContain("Transmitir, guardar e partilhar")
+    expect(steps.at(-1)?.text).toContain("Confirme")
+  })
 
-  it('tailors Android instructions to the browser', () => {
-    expect(getInstallGuide('android', 'firefox').steps[0].text).toContain(
-      'Firefox'
-    );
-    expect(getInstallGuide('android', 'edge').steps[0].text).toContain('Edge');
-    const chrome = getInstallGuide('android', 'chrome');
-    expect(chrome.steps[0].text).toContain('Chrome');
-    expect(chrome.steps[1].text).toContain('Instalar aplicação');
-    expect(chrome.note).toBeUndefined();
-  });
+  it("tailors Android instructions to the browser", () => {
+    expect(getInstallGuide("android", "firefox").steps[0].text).toContain(
+      "Firefox",
+    )
+    expect(getInstallGuide("android", "edge").steps[0].text).toContain("Edge")
+    const chrome = getInstallGuide("android", "chrome")
+    expect(chrome.steps[0].text).toContain("Chrome")
+    expect(chrome.steps[1].text).toContain("Instalar aplicação")
+    expect(chrome.note).toBeUndefined()
+  })
 
-  it('says which browser the Android steps assume when the browser is unknown', () => {
-    for (const browser of [null, 'other'] as const) {
-      const guide = getInstallGuide('android', browser);
-      expect(guide.steps).toBe(getInstallGuide('android', 'chrome').steps);
-      expect(guide.note).toContain('Chrome');
-      expect(guide.note).toContain('Samsung Internet');
+  it("says which browser the Android steps assume when the browser is unknown", () => {
+    for (const browser of [null, "other"] as const) {
+      const guide = getInstallGuide("android", browser)
+      expect(guide.steps).toBe(getInstallGuide("android", "chrome").steps)
+      expect(guide.note).toContain("Chrome")
+      expect(guide.note).toContain("Samsung Internet")
     }
-  });
+  })
 
-  it('points non-Safari iOS browsers at the share menu with a Safari fallback', () => {
-    const guide = getInstallGuide('ios', 'chrome');
+  it("points non-Safari iOS browsers at the share menu with a Safari fallback", () => {
+    const guide = getInstallGuide("ios", "chrome")
 
-    expect(guide.steps[1].text).toContain('iOS 16.4');
-    expect(guide.note).toContain('Safari');
-    expect(getInstallGuide('ios', null)).toBe(getInstallGuide('ios', 'safari'));
-  });
-});
+    expect(guide.steps[1].text).toContain("iOS 16.4")
+    expect(guide.note).toContain("Safari")
+    expect(getInstallGuide("ios", null)).toBe(getInstallGuide("ios", "safari"))
+  })
+})

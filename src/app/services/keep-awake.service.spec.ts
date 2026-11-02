@@ -1,219 +1,219 @@
-import type { Mock } from 'vitest';
-import { TestBed } from '@angular/core/testing';
-import { KeepAwakeService } from './keep-awake.service';
+import { TestBed } from "@angular/core/testing"
+import type { Mock } from "vitest"
+import { KeepAwakeService } from "./keep-awake.service"
 
-describe('KeepAwakeService', () => {
-  let service: KeepAwakeService | undefined;
-  let addEventListenerSpy: Mock;
-  let removeEventListenerSpy: Mock;
-  let originalWakeLock: Navigator['wakeLock'];
-  let hadOwnVisibilityState: boolean;
-  let originalVisibilityState: DocumentVisibilityState;
+describe("KeepAwakeService", () => {
+  let service: KeepAwakeService | undefined
+  let addEventListenerSpy: Mock
+  let removeEventListenerSpy: Mock
+  let originalWakeLock: Navigator["wakeLock"]
+  let hadOwnVisibilityState: boolean
+  let originalVisibilityState: DocumentVisibilityState
 
   beforeEach(() => {
-    originalWakeLock = navigator.wakeLock;
-    hadOwnVisibilityState = Object.hasOwn(document, 'visibilityState');
-    originalVisibilityState = document.visibilityState;
-    addEventListenerSpy = vi.spyOn(document, 'addEventListener');
-    removeEventListenerSpy = vi.spyOn(document, 'removeEventListener');
-  });
+    originalWakeLock = navigator.wakeLock
+    hadOwnVisibilityState = Object.hasOwn(document, "visibilityState")
+    originalVisibilityState = document.visibilityState
+    addEventListenerSpy = vi.spyOn(document, "addEventListener")
+    removeEventListenerSpy = vi.spyOn(document, "removeEventListener")
+  })
 
   afterEach(() => {
     // Tear the instance down so its visibilitychange listener does not leak
     // into later specs and make the suite order-dependent.
-    service?.ngOnDestroy();
-    service = undefined;
+    service?.ngOnDestroy()
+    service = undefined
 
     if (originalWakeLock === undefined) {
-      Reflect.deleteProperty(navigator, 'wakeLock');
+      Reflect.deleteProperty(navigator, "wakeLock")
     } else {
-      Object.defineProperty(navigator, 'wakeLock', {
+      Object.defineProperty(navigator, "wakeLock", {
         value: originalWakeLock,
         configurable: true,
-      });
+      })
     }
 
     if (hadOwnVisibilityState) {
-      Object.defineProperty(document, 'visibilityState', {
+      Object.defineProperty(document, "visibilityState", {
         value: originalVisibilityState,
         configurable: true,
-      });
+      })
     } else {
-      Reflect.deleteProperty(document, 'visibilityState');
+      Reflect.deleteProperty(document, "visibilityState")
     }
-  });
+  })
 
-  it('should register the visibilitychange listener on construction', () => {
-    service = TestBed.runInInjectionContext(() => new KeepAwakeService());
+  it("should register the visibilitychange listener on construction", () => {
+    service = TestBed.runInInjectionContext(() => new KeepAwakeService())
 
-    expect(service).toBeTruthy();
+    expect(service).toBeTruthy()
     expect(addEventListenerSpy).toHaveBeenCalledWith(
-      'visibilitychange',
-      expect.any(Function)
-    );
-  });
+      "visibilitychange",
+      expect.any(Function),
+    )
+  })
 
-  it('should request a wake lock only once while active', async () => {
+  it("should request a wake lock only once while active", async () => {
     const sentinel = {
-      addEventListener: vi.fn().mockName('addEventListener'),
-      release: vi.fn().mockName('release').mockResolvedValue(),
-    } as unknown as WakeLockSentinel;
+      addEventListener: vi.fn().mockName("addEventListener"),
+      release: vi.fn().mockName("release").mockResolvedValue(),
+    } as unknown as WakeLockSentinel
     // Keep the first request pending so the duplicate calls below race it.
-    let resolveRequest!: (value: WakeLockSentinel) => void;
+    let resolveRequest!: (value: WakeLockSentinel) => void
     const pendingRequest = new Promise<WakeLockSentinel>((resolve) => {
-      resolveRequest = resolve;
-    });
+      resolveRequest = resolve
+    })
     const requestSpy = vi
       .fn()
-      .mockName('request')
-      .mockReturnValue(pendingRequest);
-    Object.defineProperty(navigator, 'wakeLock', {
+      .mockName("request")
+      .mockReturnValue(pendingRequest)
+    Object.defineProperty(navigator, "wakeLock", {
       value: { request: requestSpy },
       configurable: true,
-    });
-    Object.defineProperty(document, 'visibilityState', {
-      value: 'visible',
+    })
+    Object.defineProperty(document, "visibilityState", {
+      value: "visible",
       configurable: true,
-    });
-    service = TestBed.runInInjectionContext(() => new KeepAwakeService());
+    })
+    service = TestBed.runInInjectionContext(() => new KeepAwakeService())
 
-    service.start();
+    service.start()
     // Second start and a visibility re-fire while the first request is still
     // in flight must not stack another wake lock request.
-    service.start();
-    document.dispatchEvent(new Event('visibilitychange'));
-    await Promise.resolve();
+    service.start()
+    document.dispatchEvent(new Event("visibilitychange"))
+    await Promise.resolve()
 
-    expect(requestSpy).toHaveBeenCalledTimes(1);
+    expect(requestSpy).toHaveBeenCalledTimes(1)
 
-    resolveRequest(sentinel);
-    await pendingRequest;
-    await Promise.resolve();
+    resolveRequest(sentinel)
+    await pendingRequest
+    await Promise.resolve()
 
-    expect(requestSpy).toHaveBeenCalledTimes(1);
+    expect(requestSpy).toHaveBeenCalledTimes(1)
     expect(sentinel.addEventListener).toHaveBeenCalledWith(
-      'release',
-      expect.any(Function)
-    );
-  });
+      "release",
+      expect.any(Function),
+    )
+  })
 
-  it('should release a wake lock that resolves after stop()', async () => {
+  it("should release a wake lock that resolves after stop()", async () => {
     const sentinel = {
-      addEventListener: vi.fn().mockName('addEventListener'),
-      release: vi.fn().mockName('release').mockResolvedValue(),
-    } as unknown as WakeLockSentinel;
+      addEventListener: vi.fn().mockName("addEventListener"),
+      release: vi.fn().mockName("release").mockResolvedValue(),
+    } as unknown as WakeLockSentinel
     // Keep the request pending so stop() runs before it settles.
-    let resolveRequest!: (value: WakeLockSentinel) => void;
+    let resolveRequest!: (value: WakeLockSentinel) => void
     const pendingRequest = new Promise<WakeLockSentinel>((resolve) => {
-      resolveRequest = resolve;
-    });
+      resolveRequest = resolve
+    })
     const requestSpy = vi
       .fn()
-      .mockName('request')
-      .mockReturnValue(pendingRequest);
-    Object.defineProperty(navigator, 'wakeLock', {
+      .mockName("request")
+      .mockReturnValue(pendingRequest)
+    Object.defineProperty(navigator, "wakeLock", {
       value: { request: requestSpy },
       configurable: true,
-    });
-    service = TestBed.runInInjectionContext(() => new KeepAwakeService());
+    })
+    service = TestBed.runInInjectionContext(() => new KeepAwakeService())
 
-    service.start();
-    service.stop();
-    resolveRequest(sentinel);
-    await pendingRequest;
-    await Promise.resolve();
+    service.start()
+    service.stop()
+    resolveRequest(sentinel)
+    await pendingRequest
+    await Promise.resolve()
 
-    expect(sentinel.release).toHaveBeenCalled();
-    expect(sentinel.addEventListener).not.toHaveBeenCalled();
-  });
+    expect(sentinel.release).toHaveBeenCalled()
+    expect(sentinel.addEventListener).not.toHaveBeenCalled()
+  })
 
-  it('should release the wake lock when stopped', async () => {
+  it("should release the wake lock when stopped", async () => {
     const sentinel = {
-      addEventListener: vi.fn().mockName('addEventListener'),
-      release: vi.fn().mockName('release').mockResolvedValue(),
-    } as unknown as WakeLockSentinel;
-    const requestSpy = vi.fn().mockName('request').mockResolvedValue(sentinel);
-    Object.defineProperty(navigator, 'wakeLock', {
+      addEventListener: vi.fn().mockName("addEventListener"),
+      release: vi.fn().mockName("release").mockResolvedValue(),
+    } as unknown as WakeLockSentinel
+    const requestSpy = vi.fn().mockName("request").mockResolvedValue(sentinel)
+    Object.defineProperty(navigator, "wakeLock", {
       value: { request: requestSpy },
       configurable: true,
-    });
-    service = TestBed.runInInjectionContext(() => new KeepAwakeService());
+    })
+    service = TestBed.runInInjectionContext(() => new KeepAwakeService())
 
-    service.start();
-    await Promise.resolve();
-    service.stop();
-    await Promise.resolve();
+    service.start()
+    await Promise.resolve()
+    service.stop()
+    await Promise.resolve()
 
-    expect(requestSpy).toHaveBeenCalled();
-    expect(sentinel.release).toHaveBeenCalled();
-  });
+    expect(requestSpy).toHaveBeenCalled()
+    expect(sentinel.release).toHaveBeenCalled()
+  })
 
-  it('should request a new wake lock when restarted while the old one is releasing', async () => {
-    let finishRelease: () => void = () => {};
+  it("should request a new wake lock when restarted while the old one is releasing", async () => {
+    let finishRelease: () => void = () => {}
     const sentinel = {
-      addEventListener: vi.fn().mockName('addEventListener'),
+      addEventListener: vi.fn().mockName("addEventListener"),
       release: vi
         .fn()
-        .mockName('release')
+        .mockName("release")
         .mockReturnValue(
           new Promise<void>((resolve) => {
-            finishRelease = resolve;
-          })
+            finishRelease = resolve
+          }),
         ),
-    } as unknown as WakeLockSentinel;
-    const requestSpy = vi.fn().mockName('request').mockResolvedValue(sentinel);
-    Object.defineProperty(navigator, 'wakeLock', {
+    } as unknown as WakeLockSentinel
+    const requestSpy = vi.fn().mockName("request").mockResolvedValue(sentinel)
+    Object.defineProperty(navigator, "wakeLock", {
       value: { request: requestSpy },
       configurable: true,
-    });
-    service = TestBed.runInInjectionContext(() => new KeepAwakeService());
+    })
+    service = TestBed.runInInjectionContext(() => new KeepAwakeService())
 
-    service.start();
-    await Promise.resolve();
-    await Promise.resolve();
-    service.stop();
-    service.start();
-    finishRelease();
-    await Promise.resolve();
+    service.start()
+    await Promise.resolve()
+    await Promise.resolve()
+    service.stop()
+    service.start()
+    finishRelease()
+    await Promise.resolve()
 
-    expect(requestSpy).toHaveBeenCalledTimes(2);
-  });
+    expect(requestSpy).toHaveBeenCalledTimes(2)
+  })
 
-  it('should reacquire the wake lock when the document becomes visible again', async () => {
+  it("should reacquire the wake lock when the document becomes visible again", async () => {
     const sentinel = {
-      addEventListener: vi.fn().mockName('addEventListener'),
-      release: vi.fn().mockName('release').mockResolvedValue(),
-    } as unknown as WakeLockSentinel;
-    const requestSpy = vi.fn().mockName('request').mockResolvedValue(sentinel);
-    Object.defineProperty(navigator, 'wakeLock', {
+      addEventListener: vi.fn().mockName("addEventListener"),
+      release: vi.fn().mockName("release").mockResolvedValue(),
+    } as unknown as WakeLockSentinel
+    const requestSpy = vi.fn().mockName("request").mockResolvedValue(sentinel)
+    Object.defineProperty(navigator, "wakeLock", {
       value: { request: requestSpy },
       configurable: true,
-    });
-    service = TestBed.runInInjectionContext(() => new KeepAwakeService());
-    service.start();
-    await Promise.resolve();
+    })
+    service = TestBed.runInInjectionContext(() => new KeepAwakeService())
+    service.start()
+    await Promise.resolve()
 
-    Object.defineProperty(document, 'visibilityState', {
-      value: 'visible',
+    Object.defineProperty(document, "visibilityState", {
+      value: "visible",
       configurable: true,
-    });
-    (service as unknown as Record<string, WakeLockSentinel | undefined>)[
-      'wakeLockSentinel'
-    ] = undefined;
-    document.dispatchEvent(new Event('visibilitychange'));
-    await Promise.resolve();
+    })
+    ;(service as unknown as Record<string, WakeLockSentinel | undefined>)[
+      "wakeLockSentinel"
+    ] = undefined
+    document.dispatchEvent(new Event("visibilitychange"))
+    await Promise.resolve()
 
-    expect(requestSpy).toHaveBeenCalledTimes(2);
-  });
+    expect(requestSpy).toHaveBeenCalledTimes(2)
+  })
 
-  it('should remove the visibilitychange listener on destroy', () => {
-    service = TestBed.runInInjectionContext(() => new KeepAwakeService());
+  it("should remove the visibilitychange listener on destroy", () => {
+    service = TestBed.runInInjectionContext(() => new KeepAwakeService())
 
-    service.ngOnDestroy();
+    service.ngOnDestroy()
 
     expect(removeEventListenerSpy).toHaveBeenCalledWith(
-      'visibilitychange',
-      expect.any(Function)
-    );
-  });
-});
+      "visibilitychange",
+      expect.any(Function),
+    )
+  })
+})
