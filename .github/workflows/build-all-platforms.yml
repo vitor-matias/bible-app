@@ -311,6 +311,21 @@ jobs:
           path: android/app/build/outputs/apk/**/*.apk
           retention-days: 30
 
+      - name: Name R8 mapping
+        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
+        run: cp android/app/build/outputs/mapping/release/mapping.txt "android/app/build/outputs/mapping/release/$MAPPING_NAME.txt"
+
+      # Beside the APK, so a failed AAB build still leaves that APK readable.
+      # 90 days is this repo's maximum, enough for test builds. A release's
+      # mapping lasts as long as the release: create-release attaches it.
+      - name: Upload R8 mapping
+        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-${{ env.MAPPING_NAME }}
+          path: android/app/build/outputs/mapping/release/${{ env.MAPPING_NAME }}.txt
+          retention-days: 90
+
       - name: Build Android AAB
         run: |
           set -e
@@ -319,7 +334,7 @@ jobs:
             echo "Building Release AAB..."
             ./gradlew bundleRelease
             # Both builds share one R8 task, so one mapping reads both. If the
-            # task ever ran again here, the APK's mapping would be overwritten.
+            # task ever ran again here, the AAB wouldn't match the kept mapping.
             sha256sum -c "$RUNNER_TEMP/apk-mapping.sha256"
           else
             echo "Building Debug AAB (no keystore provided)..."
@@ -332,20 +347,6 @@ jobs:
           name: android-aab
           path: android/app/build/outputs/bundle/**/*.aab
           retention-days: 30
-
-      - name: Name R8 mapping
-        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
-        run: cp android/app/build/outputs/mapping/release/mapping.txt "android/app/build/outputs/mapping/release/$MAPPING_NAME.txt"
-
-      # 90 days is this repo's maximum, enough for test builds. A release's
-      # mapping lasts as long as the release: create-release attaches it.
-      - name: Upload R8 mapping
-        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: android-${{ env.MAPPING_NAME }}
-          path: android/app/build/outputs/mapping/release/${{ env.MAPPING_NAME }}.txt
-          retention-days: 90
 
   build-ios-macos:
     needs: build-native-web
