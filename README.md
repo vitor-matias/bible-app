@@ -36,7 +36,7 @@ Angular Material, and a thin REST backend.
 | Offline cache   | IndexedDB (`DatabaseService` / `OfflineDataService`) |
 | PWA             | Angular Service Worker (`ngsw-config.json`) |
 | Lint / format   | Biome |
-| Tests           | Karma + Jasmine |
+| Tests           | Vitest (browser mode, Playwright Chromium) |
 
 ## Getting started
 
@@ -59,7 +59,7 @@ has real data with no local backend. The API base URL is resolved in
 | `npm start` | Dev server with backend proxy |
 | `npm run build` | Production build + writes build metadata (`build:post`) |
 | `npm run watch` | Development build in watch mode |
-| `npm test` | Unit tests (Karma) |
+| `npm test` | Unit tests (Vitest in Chromium; first run `npx playwright install chromium`) |
 | `npm run test:coverage` | Unit tests with coverage |
 | `npm run biome` | Lint + format with autofix (`--write --unsafe`) over `src` |
 | `npm run cap:sync` | Sync web build into native projects |

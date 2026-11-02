@@ -429,7 +429,7 @@ describe("BookSelectorComponent in the reader's drawer", () => {
     scrollSpy.mockClear()
     drawer.open()
     await vi.runAllTimersAsync()
-    // The app's next render, which zone.js runs after the drawer's event.
+    // The app's next render, which runs after the drawer's event.
     fixture.detectChanges()
     TestBed.inject(ApplicationRef).tick()
     await vi.runAllTimersAsync()

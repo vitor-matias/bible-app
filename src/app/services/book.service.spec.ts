@@ -225,7 +225,7 @@ describe("BookService", () => {
     })
     expect(() => TestBed.inject(BookService)).not.toThrow()
     // Let the constructor's fire-and-forget promise settle; a missing .catch
-    // would trigger Jasmine's global unhandled-rejection failure here.
+    // would fail the run here as an unhandled rejection.
     await new Promise((resolve) => setTimeout(resolve))
   })
 

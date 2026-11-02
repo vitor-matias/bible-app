@@ -83,7 +83,7 @@ describe("AutoScrollControlsComponent", () => {
 
   // In landscape, Android's 3-button navigation bar covered the + button.
   it("keeps clear of a side system bar on a wide screen", () => {
-    // The specs run in Karma's frame: its width is the viewport the media
+    // The specs run in the test runner's frame: its width is the viewport the media
     // queries see.
     const frame = window.frameElement as HTMLElement | null
     expect(frame, "the specs run in a frame").toBeTruthy()

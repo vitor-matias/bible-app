@@ -1,4 +1,5 @@
 import { TestBed } from "@angular/core/testing"
+import { firstValueFrom } from "rxjs"
 import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { BookmarkService } from "./bookmark.service"
 import { DatabaseService } from "./database.service"
@@ -110,9 +111,8 @@ describe("BookmarkService", () => {
   })
 
   it("should filter bookmarks for a specific book", async () => {
-    service.getBookmarksForBook("GEN").subscribe((bookmarks) => {
-      expect(bookmarks.length).toBe(1)
-      expect(bookmarks[0].bookId).toBe("GEN")
-    })
+    const bookmarks = await firstValueFrom(service.getBookmarksForBook("GEN"))
+    expect(bookmarks.length).toBe(1)
+    expect(bookmarks[0].bookId).toBe("GEN")
   })
 })

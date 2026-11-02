@@ -328,7 +328,7 @@ describe("global styles", () => {
   describe("the reader's side insets in the iOS app", () => {
     let frame: HTMLIFrameElement
 
-    // The rule is for two-page widths, wider than the Karma frame: a page of
+    // The rule is for two-page widths, wider than the test frame: a page of
     // that width with this one's styles, a reader with the scrolling view's
     // text and footer and the paged view's fixed footer, and the Duo's
     // insets. Returns how far each stays from the screen's sides.

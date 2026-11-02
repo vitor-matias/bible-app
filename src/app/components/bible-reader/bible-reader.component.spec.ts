@@ -913,7 +913,7 @@ describe("BibleReaderComponent", () => {
     // poetry: the side margin was outside the columns, which clip what
     // overflows them.
     describe("pages", () => {
-      // The specs run in Karma's frame: its width is the viewport the
+      // The specs run in the test runner's frame: its width is the viewport the
       // reader's media queries see.
       const frame = window.frameElement as HTMLElement | null
       let width = ""

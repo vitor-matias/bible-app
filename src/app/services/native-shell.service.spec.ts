@@ -38,7 +38,7 @@ describe("NativeShellService", () => {
         { provide: DOCUMENT, useValue: { body } },
       ],
     })
-    // requestAnimationFrame is not driven by fakeAsync; run it inline.
+    // The fake clock would not run requestAnimationFrame callbacks until advanced; run them inline.
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
       callback(0)
       return 0
