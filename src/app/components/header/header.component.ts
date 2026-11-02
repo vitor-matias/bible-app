@@ -6,7 +6,6 @@ import {
   DestroyRef,
   EventEmitter,
   HostListener,
-  Inject,
   Input,
   inject,
   type OnChanges,
@@ -30,8 +29,6 @@ import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { Router, RouterModule } from "@angular/router"
-import { Capacitor } from "@capacitor/core"
-import type { Share } from "@capacitor/share"
 import { shareableUrl } from "../../config"
 import type { TextSize } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
@@ -54,7 +51,6 @@ import {
 import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"
-import { SHARE_PLUGIN } from "../../tokens"
 import {
   passageLabel,
   passageShortLabels,
@@ -185,7 +181,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     private readonly cdr: ChangeDetectorRef,
     public readonly analyticsService: AnalyticsService,
     private readonly onboardingService: OnboardingService,
-    @Inject(SHARE_PLUGIN) private sharePlugin: typeof Share,
   ) {}
 
   /**
@@ -196,7 +191,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   ngOnInit(): void {
     this.updateMobile()
     this.canShare =
-      Capacitor.isNativePlatform() ||
+      this.native ||
       (typeof navigator !== "undefined" &&
         typeof navigator.share === "function")
 
@@ -443,13 +438,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
           linkTitle: this.document.title || title,
         })
         if (!shared) return
-      } else if (Capacitor.isNativePlatform()) {
-        await this.sharePlugin.share({
-          title,
-          text,
-          url,
-          dialogTitle: "Partilhar passagem",
-        })
       } else {
         await navigator.share({ title, text, url })
       }

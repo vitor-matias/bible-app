@@ -13,7 +13,6 @@ import { MatMenuTrigger } from "@angular/material/menu"
 import { By } from "@angular/platform-browser"
 import { ActivatedRoute, Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
-import type { Share } from "@capacitor/share"
 import { BehaviorSubject, of, Subject } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
@@ -32,7 +31,6 @@ import { NativeReportService } from "../../services/native-report.service"
 import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { ThemeService } from "../../services/theme.service"
-import { SHARE_PLUGIN } from "../../tokens"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { HeaderComponent } from "./header.component"
 
@@ -51,7 +49,6 @@ describe("HeaderComponent", () => {
   let onboardingServiceSpy: jasmine.SpyObj<OnboardingService>
   let buildVersionSpy: jasmine.SpyObj<BuildVersionService>
   let isOfflineSubject: BehaviorSubject<boolean>
-  let mockSharePlugin: jasmine.SpyObj<typeof Share>
   let originalShare: typeof navigator.share
 
   beforeEach(async () => {
@@ -80,7 +77,6 @@ describe("HeaderComponent", () => {
       bookmarkSheetRef as unknown as ReturnType<MatBottomSheet["open"]>,
     )
     dialogSpy = jasmine.createSpyObj("MatDialog", ["open"])
-    mockSharePlugin = jasmine.createSpyObj("Share", ["share"])
     analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", [
       "track",
       "areAnalyticsAvailable",
@@ -108,7 +104,6 @@ describe("HeaderComponent", () => {
         { provide: BookmarkService, useValue: bookmarkServiceSpy },
         { provide: MatBottomSheet, useValue: bottomSheetSpy },
         { provide: MatDialog, useValue: dialogSpy },
-        { provide: SHARE_PLUGIN, useValue: mockSharePlugin },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
         { provide: OnboardingService, useValue: onboardingServiceSpy },
         { provide: BuildVersionService, useValue: buildVersionSpy },
@@ -507,50 +502,6 @@ describe("HeaderComponent", () => {
     expect(onboardingServiceSpy.open).toHaveBeenCalledWith("menu")
   })
 
-  it("should share using Capacitor Share on native platforms", async () => {
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
-    mockSharePlugin.share.and.resolveTo()
-
-    if (!navigator.share) {
-      Object.defineProperty(navigator, "share", {
-        value: () => Promise.resolve(),
-        configurable: true,
-        writable: true,
-      })
-    }
-    spyOn(navigator, "share").and.resolveTo()
-
-    component.chapterNumber = 1
-    component.ngOnInit() // Re-init to pickup the new native platform check
-
-    expect(component.canShare).toBeTrue()
-
-    await component.sharePassage()
-
-    expect(mockSharePlugin.share).toHaveBeenCalledWith({
-      title: "Bíblia Sagrada",
-      text: jasmine.any(String),
-      url: jasmine.any(String),
-      dialogTitle: "Partilhar passagem",
-    })
-  })
-
-  it("should share the public site URL, not the native localhost origin", async () => {
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
-    mockSharePlugin.share.and.resolveTo()
-
-    component.chapterNumber = 1
-    component.ngOnInit()
-    await component.sharePassage()
-
-    const { pathname, search, hash } = window.location
-    expect(mockSharePlugin.share).toHaveBeenCalledWith(
-      jasmine.objectContaining({
-        url: `https://biblia.capuchinhos.org${pathname}${search}${hash}`,
-      }),
-    )
-  })
-
   it("should share the page URL as is on the web", async () => {
     spyOn(Capacitor, "isNativePlatform").and.returnValue(false)
     if (!navigator.share) {
@@ -585,8 +536,6 @@ describe("HeaderComponent", () => {
     }
     spyOn(navigator, "share").and.callFake(shareSpy)
 
-    mockSharePlugin.share.and.resolveTo() // Should not be called
-
     component.chapterNumber = 1
     component.ngOnInit() // Re-init to pickup the web platform
     expect(component.canShare).toBeTrue()
@@ -594,7 +543,6 @@ describe("HeaderComponent", () => {
     await component.sharePassage()
 
     expect(shareSpy).toHaveBeenCalled()
-    expect(mockSharePlugin.share).not.toHaveBeenCalled()
   })
 
   describe("about label cycle", () => {
@@ -761,7 +709,6 @@ describe("HeaderComponent", () => {
           { provide: BookmarkService, useValue: bookmarkServiceSpy },
           { provide: MatBottomSheet, useValue: bottomSheetSpy },
           { provide: MatDialog, useValue: dialogSpy },
-          { provide: SHARE_PLUGIN, useValue: mockSharePlugin },
           { provide: AnalyticsService, useValue: analyticsServiceSpy },
           { provide: PLATFORM_ID, useValue: "server" },
         ],
@@ -828,7 +775,6 @@ describe("HeaderComponent with the iOS native bars", () => {
   let bottomSheet: jasmine.SpyObj<MatBottomSheet>
   let dialog: jasmine.SpyObj<MatDialog>
   let onboarding: jasmine.SpyObj<OnboardingService>
-  let share: jasmine.SpyObj<typeof Share>
   let analytics: jasmine.SpyObj<AnalyticsService>
   let isOffline: BehaviorSubject<boolean>
   let nativeBookmarks: jasmine.SpyObj<NativeBookmarksService>
@@ -869,8 +815,6 @@ describe("HeaderComponent with the iOS native bars", () => {
     } as unknown as ReturnType<MatBottomSheet["open"]>)
     dialog = jasmine.createSpyObj("MatDialog", ["open"])
     onboarding = jasmine.createSpyObj("OnboardingService", ["open"])
-    share = jasmine.createSpyObj("Share", ["share"])
-    share.share.and.resolveTo()
     analytics = jasmine.createSpyObj("AnalyticsService", [
       "track",
       "areAnalyticsAvailable",
@@ -887,7 +831,7 @@ describe("HeaderComponent with the iOS native bars", () => {
       release: "1.2.3",
       build: "20261016-120000Z",
     })
-    // The native share sheet is always available in the app.
+    // In the app, shared links point at the public site.
     spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
 
     await TestBed.configureTestingModule({
@@ -903,7 +847,6 @@ describe("HeaderComponent with the iOS native bars", () => {
         { provide: MatBottomSheet, useValue: bottomSheet },
         { provide: MatDialog, useValue: dialog },
         { provide: OnboardingService, useValue: onboarding },
-        { provide: SHARE_PLUGIN, useValue: share },
         { provide: AnalyticsService, useValue: analytics },
         { provide: BuildVersionService, useValue: buildVersion },
         {
@@ -1192,7 +1135,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(onboarding.open).toHaveBeenCalledWith("menu")
   })
 
-  // Through the Share plugin, iOS fetched the link's preview from the website,
+  // Left to itself, iOS fetched the link's preview from the website,
   // whose icon has the WEB sash; the shell previews it with the app's.
   it("shares the passage through the shell, headed by the page's title", async () => {
     const title = document.title
@@ -1208,7 +1151,6 @@ describe("HeaderComponent with the iOS native bars", () => {
       url: `https://biblia.capuchinhos.org${pathname}${search}${hash}`,
       linkTitle: "Livro do Génesis 3 | Bíblia Sagrada",
     })
-    expect(share.share).not.toHaveBeenCalled()
     expect(analytics.track).toHaveBeenCalledWith("share", {
       book: "gen",
       chapter: 3,
