@@ -14,10 +14,12 @@ import { MatTooltipModule } from "@angular/material/tooltip"
 import { Router } from "@angular/router"
 import {
   type CanonGroup,
+  isClusterIntro,
   NEW_TESTAMENT_GROUPS,
   NEW_TESTAMENT_INTRO,
   OLD_TESTAMENT_GROUPS,
   OLD_TESTAMENT_INTRO,
+  withIntros,
 } from "../../bible-canon"
 import { BookService } from "../../services/book.service"
 import { normalizeForSearch } from "../../utils/text"
@@ -151,15 +153,19 @@ export class StudySidebarComponent implements OnChanges {
   /**
    * What a row says. An introduction inside a group reads just "Introdução":
    * the heading above it already names what it introduces, and repeating that
-   * would say the same thing twice. The wider ones keep their own names,
-   * having no heading to lean on.
+   * would say the same thing twice. A cluster's — "Cartas de João", among the
+   * letters it covers — goes by its name, as in the drawer, since it is one of
+   * several rows and the heading does not say which it introduces. The wider
+   * ones keep their own names, having no heading to lean on.
    *
    * Only inside the canon groups: a filtered list is a flat list of matches
    * with no headings over it, so there the entry's own name is what tells one
    * introduction from another.
    */
   entryLabel(entry: Book): string {
-    return entry.introSlug ? "Introdução" : entry.shortName
+    return entry.introSlug && !isClusterIntro(entry.id)
+      ? "Introdução"
+      : entry.shortName
   }
 
   /** An introduction has no chapters to count. */
@@ -243,22 +249,23 @@ export class StudySidebarComponent implements OnChanges {
   private buildGroups(): SidebarGroup[] {
     const byId = new Map(this.books.map((book) => [book.id, book]))
 
-    const build = (canon: CanonGroup[]): SidebarGroup[] =>
-      canon
-        .map((group) => {
-          const intro = group.introSlug ? byId.get(group.introSlug) : undefined
-          const books = group.books
+    // The drawer's own list: each group led by its introduction, and each
+    // cluster ("Cartas de João") before the books it covers. Those books have
+    // introductions of their own, which would otherwise hide it. The
+    // testament's leading introduction comes back as a group of no books,
+    // which the filter drops: it is set apart as a section below instead.
+    const build = (canon: CanonGroup[], leading: string): SidebarGroup[] =>
+      withIntros(canon, leading, (id) => byId.has(id))
+        .map((group) => ({
+          name: group.name,
+          books: group.books
             .map((id) => byId.get(id))
-            .filter((book): book is Book => !!book)
-          return {
-            name: group.name,
-            books: intro ? [intro, ...books] : books,
-          }
-        })
+            .filter((book): book is Book => !!book),
+        }))
         .filter((group) => group.books.length > 0)
 
-    const oldTestament = build(OLD_TESTAMENT_GROUPS)
-    const newTestament = build(NEW_TESTAMENT_GROUPS)
+    const oldTestament = build(OLD_TESTAMENT_GROUPS, OLD_TESTAMENT_INTRO)
+    const newTestament = build(NEW_TESTAMENT_GROUPS, NEW_TESTAMENT_INTRO)
 
     // The two wider introductions take their place in the canon rather than
     // being gathered at the top: the whole Bible's leads everything, the New

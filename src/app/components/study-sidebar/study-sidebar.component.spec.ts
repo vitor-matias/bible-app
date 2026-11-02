@@ -1,5 +1,6 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { provideRouter } from "@angular/router"
+import { CLUSTER_INTROS } from "../../bible-canon"
 import { BookService } from "../../services/book.service"
 import { StudySidebarComponent } from "./study-sidebar.component"
 
@@ -196,6 +197,97 @@ describe("StudySidebarComponent", () => {
       // After an Old Testament group, and immediately before the gospels.
       expect(order.indexOf("Pentateuco")).toBeLessThan(nt)
       expect(order[nt + 1]).toBe("Evangelhos e Atos")
+    })
+
+    describe("one written for a few books of a group", () => {
+      // The edition introduces "Cartas de João" once; 1 João has an
+      // introduction of its own, which would hide it, so the drawer lists it
+      // before the letters and the rail has to as well.
+      const letters = [
+        makeBook("jas", { shortName: "Tiago" }),
+        makeBook("1jn", { shortName: "1 João" }),
+        makeBook("2jn", { shortName: "2 João" }),
+      ]
+      const johns = makeIntro("joao", "Cartas de João")
+
+      const rowsOfOpenGroup = (): string[] =>
+        Array.from(
+          fixture.nativeElement.querySelectorAll(".group .book-name"),
+        ).map((row) => (row as HTMLElement).textContent?.trim() ?? "")
+
+      it("is listed before the first of the books it covers", () => {
+        setInputs({ books: [...letters, johns], book: letters[0] })
+
+        const group = component.groups.find(
+          (g) => g.name === "Cartas Católicas",
+        )
+        expect(group?.books.map((book) => book.id)).toEqual([
+          "jas",
+          "joao",
+          "1jn",
+          "2jn",
+        ])
+      })
+
+      it("goes by its name, not as one more Introdução", () => {
+        setInputs({ books: [...letters, johns], book: letters[0] })
+        fixture.detectChanges()
+
+        expect(rowsOfOpenGroup()).toEqual([
+          "Tiago",
+          "Cartas de João",
+          "1 João",
+          "2 João",
+        ])
+      })
+
+      it("opens at the introduction, which has no chapters to count", () => {
+        setInputs({ books: [...letters, johns], book: letters[0] })
+        fixture.detectChanges()
+
+        const row = Array.from(
+          fixture.nativeElement.querySelectorAll(".group .book-row"),
+        ).find((entry) =>
+          (entry as HTMLElement).textContent?.includes("Cartas de João"),
+        ) as HTMLElement
+        expect(row.getAttribute("href")).toBe("/joao/intro")
+        expect(row.querySelector(".book-count")?.textContent?.trim()).toBe("")
+      })
+
+      it("is left out until it has loaded, so nothing renders blank", () => {
+        setInputs({ books: letters, book: letters[0] })
+
+        const group = component.groups.find(
+          (g) => g.name === "Cartas Católicas",
+        )
+        expect(group?.books.map((book) => book.id)).toEqual([
+          "jas",
+          "1jn",
+          "2jn",
+        ])
+      })
+
+      it("opens its group when it is the page being read", () => {
+        setInputs({ books: [...letters, johns], book: johns })
+
+        expect(component.expandedGroup).toBe("Cartas Católicas")
+      })
+
+      it("is listed for every cluster the edition has, not only John's", () => {
+        for (const [first, slug] of Object.entries(CLUSTER_INTROS)) {
+          setInputs({
+            books: [makeBook(first), makeIntro(slug, slug)],
+            book: undefined,
+          })
+
+          const group = component.groups.find((g) =>
+            g.books.some((book) => book.id === first),
+          )
+          const ids = group?.books.map((book) => book.id) ?? []
+          // Immediately before the first of its books.
+          expect(ids[ids.indexOf(first) - 1], slug).toBe(slug)
+        }
+      })
     })
 
     it("opens an introduction when it is picked", () => {
