@@ -5,6 +5,8 @@ export const serverRoutes: ServerRoute[] = [
   { path: "", renderMode: RenderMode.Prerender },
   // The book index links every book, so it must be in the crawlable HTML.
   { path: "livros", renderMode: RenderMode.Prerender },
+  // The address the store listings link to, readable without running the app.
+  { path: "privacidade", renderMode: RenderMode.Prerender },
   // Search results are user-specific and noindexed.
   { path: "search", renderMode: RenderMode.Client },
   {

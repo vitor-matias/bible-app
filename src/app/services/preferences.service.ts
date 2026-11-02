@@ -57,6 +57,17 @@ export class PreferencesService {
     VIEW_MODE: "viewMode",
     ONBOARDING_SEEN: "onboardingSeen",
     NATIVE_BARS_ONBOARDING_SEEN: "nativeBarsOnboardingSeen",
+    MEANING_SEARCH_CONSENT: "meaningSearchConsent",
+  }
+
+  /** The reader's answer about search by meaning; null until they give one. */
+  getMeaningSearchConsent(): boolean | null {
+    const stored = this.read(this.KEYS.MEANING_SEARCH_CONSENT)
+    return stored === "true" ? true : stored === "false" ? false : null
+  }
+
+  setMeaningSearchConsent(allowed: boolean): void {
+    this.write(this.KEYS.MEANING_SEARCH_CONSENT, String(allowed))
   }
 
   getTheme(): "light" | "dark" | "system" | null {

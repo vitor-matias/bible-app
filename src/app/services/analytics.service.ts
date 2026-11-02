@@ -177,17 +177,39 @@ export interface UmamiPayload {
   [field: string]: unknown
 }
 
+/** What the reader searched or shared, in /search?q= and share-target URLs. */
+const READER_TEXT_PARAMS = ["q", "text", "title", "url"]
+
+function withoutReaderText(value: unknown): unknown {
+  if (typeof value !== "string" || !value.includes("?")) return value
+  try {
+    const url = new URL(value, "http://relative")
+    for (const param of READER_TEXT_PARAMS) url.searchParams.delete(param)
+    return url.origin === "http://relative"
+      ? `${url.pathname}${url.search}${url.hash}`
+      : url.href
+  } catch {
+    return ""
+  }
+}
+
 /**
- * Umami's `data-before-send` hook (registered in main.ts). The native shells
+ * Umami's `data-before-send` hook (registered in main.ts). Keeps what the
+ * reader searched or shared out of the URLs it reports. The native shells
  * serve the app from https://localhost, so their page views would all be
  * counted under that hostname: label them by platform instead. Custom events
  * also carry `platform` in their data (see AnalyticsService.track).
  */
-export function labelUmamiPlatform(
+export function prepareUmamiPayload(
   _type: string,
   payload: UmamiPayload,
 ): UmamiPayload {
+  const cleaned = {
+    ...payload,
+    url: withoutReaderText(payload["url"]),
+    referrer: withoutReaderText(payload["referrer"]),
+  }
   const platform = Capacitor.getPlatform()
-  if (platform === "web") return payload
-  return { ...payload, hostname: `${platform}-app`, tag: platform }
+  if (platform === "web") return cleaned
+  return { ...cleaned, hostname: `${platform}-app`, tag: platform }
 }

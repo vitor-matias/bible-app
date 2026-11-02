@@ -129,7 +129,11 @@ describe("SearchComponent", () => {
   }
 
   beforeEach(async () => {
-    apiService = createSpyObj("BibleApiService", ["getVerse", "search"])
+    apiService = createSpyObj("BibleApiService", [
+      "getVerse",
+      "search",
+      "searchByMeaning",
+    ])
     referenceService = createSpyObj("BibleReferenceService", ["extract"])
     bookService = createSpyObj("BookService", [
       "findBook",
@@ -240,6 +244,64 @@ describe("SearchComponent", () => {
     expect(withoutInset - withInset).toBeCloseTo(100, 0)
   })
 
+  describe("search by meaning", () => {
+    const consent = () =>
+      fixture.nativeElement.querySelector(".meaning-consent")
+
+    beforeEach(() => {
+      localStorage.removeItem("meaningSearchConsent")
+      referenceService.extract.mockReturnValue([])
+      apiService.search.mockReturnValue(
+        of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+      )
+      apiService.searchByMeaning.mockReturnValue(
+        of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+      )
+    })
+
+    afterEach(() => localStorage.removeItem("meaningSearchConsent"))
+
+    it("sends nothing to Voyage AI until the reader turns it on", async () => {
+      component.meaningSearchConsent = null
+      await component.onSearchSubmit("não tenhas medo")
+
+      expect(apiService.search).toHaveBeenCalledWith("não tenhas medo", 1)
+      expect(apiService.searchByMeaning).not.toHaveBeenCalled()
+    })
+
+    it("turning it on is remembered and redoes the search on screen", async () => {
+      await component.onSearchSubmit("não tenhas medo")
+      component.setMeaningSearch(true)
+
+      expect(localStorage.getItem("meaningSearchConsent")).toBe("true")
+      expect(apiService.searchByMeaning).toHaveBeenCalledWith(
+        "não tenhas medo",
+        1,
+      )
+    })
+
+    it("can be withdrawn, and the words are searched instead", async () => {
+      component.setMeaningSearch(true)
+      component.setMeaningSearch(false)
+      apiService.search.mockClear()
+      apiService.searchByMeaning.mockClear()
+      await component.onSearchSubmit("pastor")
+
+      expect(localStorage.getItem("meaningSearchConsent")).toBe("false")
+      expect(apiService.search).toHaveBeenCalledWith("pastor", 1)
+      expect(apiService.searchByMeaning).not.toHaveBeenCalled()
+    })
+
+    it("asks only while unanswered", () => {
+      component.meaningSearchConsent = null
+      fixture.detectChanges()
+      expect(consent()).not.toBeNull()
+
+      component.setMeaningSearch(false)
+      expect(consent()).toBeNull()
+    })
+  })
+
   describe("searching as people type", () => {
     beforeEach(() => {
       referenceService.extract.mockReturnValue([])
@@ -306,6 +368,14 @@ describe("SearchComponent", () => {
       expect(apiService.search).toHaveBeenCalledTimes(1)
 
       expect(apiService.search).toHaveBeenCalledWith("Xy 3", 1)
+    })
+
+    it("counts a search without telling analytics what was searched", async () => {
+      vi.useFakeTimers()
+      component.onTyping("pastor")
+      await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
+
+      expect(analyticsService.track).toHaveBeenCalledWith("search")
     })
 
     // The search by meaning waits for the pause; what costs nothing doesn't.
@@ -1516,7 +1586,7 @@ describe("SearchComponent", () => {
 
     expect(component.resultsHeading).toBe("1 versículo com estas palavras")
     expect(fixture.nativeElement.textContent).toContain(
-      "A pesquisa pelo sentido não respondeu",
+      "A pesquisa não respondeu",
     )
     expect(snackBar.open).not.toHaveBeenCalled()
   })
