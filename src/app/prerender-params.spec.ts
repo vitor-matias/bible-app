@@ -1,26 +1,34 @@
+import type { Mock } from "vitest"
 import { fetchPrerenderChapterParams } from "./prerender-params"
+import { lastCall } from "./testing/spy-obj"
 
 describe("fetchPrerenderChapterParams", () => {
   /** Answers each endpoint with its own payload, like the real API. */
   function fetchByUrl(bodies: Record<string, unknown>): typeof fetch {
-    return jasmine.createSpy("fetch").and.callFake((url: string) =>
-      Promise.resolve({
-        ok: true,
-        status: 200,
-        json: () =>
-          Promise.resolve(
-            url.endsWith("/v1/intros") ? bodies["intros"] : bodies["books"],
-          ),
-      } as Response),
-    ) as unknown as typeof fetch
+    return vi
+      .fn()
+      .mockName("fetch")
+      .mockImplementation((url: string) =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve(
+              url.endsWith("/v1/intros") ? bodies["intros"] : bodies["books"],
+            ),
+        } as Response),
+      ) as unknown as typeof fetch
   }
 
   function fetchReturning(body: unknown, ok = true): typeof fetch {
-    return jasmine.createSpy("fetch").and.resolveTo({
-      ok,
-      status: ok ? 200 : 500,
-      json: () => Promise.resolve(body),
-    } as Response) as unknown as typeof fetch
+    return vi
+      .fn()
+      .mockName("fetch")
+      .mockResolvedValue({
+        ok,
+        status: ok ? 200 : 500,
+        json: () => Promise.resolve(body),
+      } as Response) as unknown as typeof fetch
   }
 
   it("expands every book into one param set per chapter, using the URL abbreviation", async () => {
@@ -125,7 +133,7 @@ describe("fetchPrerenderChapterParams", () => {
       { chapterCount: 3 }, // no abrv
       { abrv: "Lv", chapterCount: 0 }, // empty book
       { abrv: "   ", chapterCount: 2 }, // whitespace-only abbreviation
-      { abrv: "Nm", chapterCount: 10_000 }, // absurd chapter count
+      { abrv: "Nm", chapterCount: 10000 }, // absurd chapter count
     ]
 
     const params = await fetchPrerenderChapterParams(fetchReturning(books))
@@ -134,22 +142,21 @@ describe("fetchPrerenderChapterParams", () => {
   })
 
   it("bounds the book-list request with an abort signal", async () => {
-    const fetchSpy = fetchReturning([]) as jasmine.Spy
+    const fetchSpy = fetchReturning([]) as Mock
     await fetchPrerenderChapterParams(fetchSpy as unknown as typeof fetch)
 
-    const init = fetchSpy.calls.mostRecent().args[1] as RequestInit
+    const init = lastCall(vi.mocked(fetchSpy))[1] as RequestInit
     expect(init.signal).toBeInstanceOf(AbortSignal)
   })
 
   it("returns an empty list instead of throwing when the API fails", async () => {
-    spyOn(console, "warn")
-    const failingFetch = jasmine
-      .createSpy("fetch")
-      .and.rejectWith(new Error("offline")) as unknown as typeof fetch
+    vi.spyOn(console, "warn").mockReturnValue(undefined)
+    const failingFetch = vi
+      .fn()
+      .mockName("fetch")
+      .mockRejectedValue(new Error("offline")) as unknown as typeof fetch
 
-    await expectAsync(fetchPrerenderChapterParams(failingFetch)).toBeResolvedTo(
-      [],
-    )
+    await expect(fetchPrerenderChapterParams(failingFetch)).resolves.toEqual([])
     expect(console.warn).toHaveBeenCalled()
   })
 
@@ -157,23 +164,23 @@ describe("fetchPrerenderChapterParams", () => {
   // large response expand into hundreds of thousands of route params and
   // exhaust build memory before the fallback below can run.
   it("returns an empty list when the API reports implausibly many books", async () => {
-    spyOn(console, "warn")
-    const books = Array.from({ length: 5_000 }, (_, index) => ({
+    vi.spyOn(console, "warn").mockReturnValue(undefined)
+    const books = Array.from({ length: 5000 }, (_, index) => ({
       abrv: `bk${index}`,
       chapterCount: 200,
     }))
 
-    await expectAsync(
+    await expect(
       fetchPrerenderChapterParams(fetchReturning(books)),
-    ).toBeResolvedTo([])
+    ).resolves.toEqual([])
     expect(console.warn).toHaveBeenCalled()
   })
 
   it("returns an empty list on a non-OK response", async () => {
-    spyOn(console, "warn")
-    await expectAsync(
+    vi.spyOn(console, "warn").mockReturnValue(undefined)
+    await expect(
       fetchPrerenderChapterParams(fetchReturning(null, false)),
-    ).toBeResolvedTo([])
+    ).resolves.toEqual([])
   })
 
   it("prerenders a page for every standalone introduction", async () => {
@@ -205,24 +212,27 @@ describe("fetchPrerenderChapterParams", () => {
   })
 
   it("still returns the chapter routes when the intro listing fails", async () => {
-    const fetchFn = jasmine.createSpy("fetch").and.callFake((url: string) =>
-      url.endsWith("/v1/intros")
-        ? Promise.reject(new Error("boom"))
-        : Promise.resolve({
-            ok: true,
-            status: 200,
-            json: () =>
-              Promise.resolve([
-                {
-                  id: "GN",
-                  name: "Génesis",
-                  shortName: "Génesis",
-                  abrv: "Gn",
-                  chapterCount: 1,
-                },
-              ]),
-          } as Response),
-    ) as unknown as typeof fetch
+    const fetchFn = vi
+      .fn()
+      .mockName("fetch")
+      .mockImplementation((url: string) =>
+        url.endsWith("/v1/intros")
+          ? Promise.reject(new Error("boom"))
+          : Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () =>
+                Promise.resolve([
+                  {
+                    id: "GN",
+                    name: "Génesis",
+                    shortName: "Génesis",
+                    abrv: "Gn",
+                    chapterCount: 1,
+                  },
+                ]),
+            } as Response),
+      ) as unknown as typeof fetch
 
     const params = await fetchPrerenderChapterParams(fetchFn)
 

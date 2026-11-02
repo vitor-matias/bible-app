@@ -2,15 +2,12 @@ import {
   ChangeDetectorRef,
   ElementRef,
   NO_ERRORS_SCHEMA,
+  PendingTasks,
   PLATFORM_ID,
 } from "@angular/core"
-import {
-  ComponentFixture,
-  fakeAsync,
-  TestBed,
-  tick,
-} from "@angular/core/testing"
+import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatDialog } from "@angular/material/dialog"
+import type { MatDrawer } from "@angular/material/sidenav"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { By } from "@angular/platform-browser"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
@@ -18,6 +15,7 @@ import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 
 import { BehaviorSubject, of, Subject, throwError } from "rxjs"
+import type { Mock } from "vitest"
 import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
@@ -32,6 +30,7 @@ import { PreferencesService } from "../../services/preferences.service"
 import { ReadingTrailService } from "../../services/reading-trail.service"
 import { SeoService } from "../../services/seo.service"
 import { StudyModeService } from "../../services/study-mode.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BibleReaderComponent } from "./bible-reader.component"
 
 /**
@@ -44,10 +43,13 @@ class FakeStudyModeService {
   readonly available$ = this.availableSubject.asObservable()
   readonly active$ = this.activeSubject.asObservable()
   isEnabled = false
-  toggle = jasmine.createSpy("toggle").and.callFake(() => {
-    this.isEnabled = !this.isEnabled
-    this.activeSubject.next(this.isEnabled && this.availableSubject.value)
-  })
+  toggle = vi
+    .fn()
+    .mockName("toggle")
+    .mockImplementation(() => {
+      this.isEnabled = !this.isEnabled
+      this.activeSubject.next(this.isEnabled && this.availableSubject.value)
+    })
 
   activate(): void {
     this.availableSubject.next(true)
@@ -60,18 +62,18 @@ describe("BibleReaderComponent", () => {
   let component: BibleReaderComponent
   let fixture: ComponentFixture<BibleReaderComponent>
 
-  let autoScrollServiceSpy: jasmine.SpyObj<AutoScrollService>
-  let apiServiceSpy: jasmine.SpyObj<BibleApiService>
-  let bookServiceSpy: jasmine.SpyObj<BookService>
-  let preferencesServiceSpy: jasmine.SpyObj<PreferencesService>
-  let routerSpy: jasmine.SpyObj<Router>
-  let hapticsSpy: jasmine.SpyObj<HapticsService>
+  let autoScrollServiceSpy: SpyObj<AutoScrollService>
+  let apiServiceSpy: SpyObj<BibleApiService>
+  let bookServiceSpy: SpyObj<BookService>
+  let preferencesServiceSpy: SpyObj<PreferencesService>
+  let routerSpy: SpyObj<Router>
+  let hapticsSpy: SpyObj<HapticsService>
   let routeMock: unknown
-  let animationServiceSpy: jasmine.SpyObj<BibleReaderAnimationService>
-  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
-  let networkServiceSpy: jasmine.SpyObj<NetworkService>
-  let snackBarSpy: jasmine.SpyObj<MatSnackBar>
-  let seoServiceSpy: jasmine.SpyObj<SeoService>
+  let animationServiceSpy: SpyObj<BibleReaderAnimationService>
+  let analyticsServiceSpy: SpyObj<AnalyticsService>
+  let networkServiceSpy: SpyObj<NetworkService>
+  let snackBarSpy: SpyObj<MatSnackBar>
+  let seoServiceSpy: SpyObj<SeoService>
   let studyMode: FakeStudyModeService
 
   const mockBooks = [
@@ -81,15 +83,12 @@ describe("BibleReaderComponent", () => {
   const mockChapter = { bookId: "gen", number: 1, verses: [] }
 
   beforeEach(async () => {
-    autoScrollServiceSpy = jasmine.createSpyObj("AutoScrollService", [
+    autoScrollServiceSpy = createSpyObj("AutoScrollService", [
       "setAutoScrollLinesPerSecond",
       "stop",
     ])
-    apiServiceSpy = jasmine.createSpyObj("BibleApiService", [
-      "getBook",
-      "getChapter",
-    ])
-    bookServiceSpy = jasmine.createSpyObj("BookService", [
+    apiServiceSpy = createSpyObj("BibleApiService", ["getChapter"])
+    bookServiceSpy = createSpyObj("BookService", [
       "findBook",
       "findBookById",
       "getUrlAbrv",
@@ -102,8 +101,8 @@ describe("BibleReaderComponent", () => {
       mockBooks,
     ) as unknown as BehaviorSubject<Book[]>
     bookServiceSpy.booksUnavailable$ = of(false)
-    bookServiceSpy.retryBooks.and.resolveTo()
-    preferencesServiceSpy = jasmine.createSpyObj("PreferencesService", [
+    bookServiceSpy.retryBooks.mockResolvedValue(undefined)
+    preferencesServiceSpy = createSpyObj("PreferencesService", [
       "getAutoScrollSpeed",
       "getViewMode",
       "getAutoScrollControlsVisible",
@@ -122,14 +121,18 @@ describe("BibleReaderComponent", () => {
       "getStudyColumnWidths",
       "setStudyColumnWidths",
     ])
-    preferencesServiceSpy.getStudyMode.and.returnValue(false)
-    preferencesServiceSpy.getStudySidebarCollapsed.and.returnValue(false)
-    preferencesServiceSpy.getStudyPanelCollapsed.and.returnValue(false)
-    preferencesServiceSpy.getStudyColumnWidths.and.returnValue({})
+    preferencesServiceSpy.getStudyMode.mockReturnValue(false)
+    preferencesServiceSpy.getStudySidebarCollapsed.mockReturnValue(false)
+    preferencesServiceSpy.getStudyPanelCollapsed.mockReturnValue(false)
+    preferencesServiceSpy.getStudyColumnWidths.mockReturnValue({})
 
-    routerSpy = jasmine.createSpyObj("Router", ["navigate"])
-    routerSpy.navigate.and.resolveTo(true)
-    ;(routerSpy as unknown as { routerState: unknown }).routerState = {
+    routerSpy = createSpyObj("Router", ["navigate"])
+    routerSpy.navigate.mockResolvedValue(true)
+    ;(
+      routerSpy as unknown as {
+        routerState: unknown
+      }
+    ).routerState = {
       snapshot: {
         root: {
           firstChild: {
@@ -150,36 +153,38 @@ describe("BibleReaderComponent", () => {
       queryParamMap: new BehaviorSubject(new Map()),
     }
 
-    animationServiceSpy = jasmine.createSpyObj("BibleReaderAnimationService", [
+    animationServiceSpy = createSpyObj("BibleReaderAnimationService", [
       "scrollToTop",
       "triggerSlideAnimation",
       "triggerSlideOutAnimation",
       "scrollToVerseElement",
       "cancelPendingRealign",
     ])
-    animationServiceSpy.triggerSlideOutAnimation.and.returnValue(
-      Promise.resolve(),
-    )
+    animationServiceSpy.triggerSlideOutAnimation.mockResolvedValue(undefined)
 
-    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
-    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
-    networkServiceSpy = jasmine.createSpyObj("NetworkService", [
+    analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
+    analyticsServiceSpy.track.mockResolvedValue(undefined)
+    networkServiceSpy = createSpyObj("NetworkService", [
       "ngOnDestroy",
-    ]) as jasmine.SpyObj<NetworkService>
-    ;(networkServiceSpy as unknown as { isOffline: boolean }).isOffline = false
-    snackBarSpy = jasmine.createSpyObj("MatSnackBar", ["open"])
-    seoServiceSpy = jasmine.createSpyObj("SeoService", ["updateForChapter"])
+    ]) as SpyObj<NetworkService>
+    ;(
+      networkServiceSpy as unknown as {
+        isOffline: boolean
+      }
+    ).isOffline = false
+    snackBarSpy = createSpyObj("MatSnackBar", ["open"])
+    seoServiceSpy = createSpyObj("SeoService", ["updateForChapter"])
 
     // Default returns
-    preferencesServiceSpy.getAutoScrollSpeed.and.returnValue(50)
-    preferencesServiceSpy.getViewMode.and.returnValue("scrolling")
-    preferencesServiceSpy.getAutoScrollControlsVisible.and.returnValue(false)
-    bookServiceSpy.findBook.and.returnValue(mockBooks[0] as unknown as Book)
-    bookServiceSpy.getUrlAbrv.and.returnValue("1-genesis")
-    bookServiceSpy.getChapterUrlSegment.and.callFake((chapter: number) =>
+    preferencesServiceSpy.getAutoScrollSpeed.mockReturnValue(50)
+    preferencesServiceSpy.getViewMode.mockReturnValue("scrolling")
+    preferencesServiceSpy.getAutoScrollControlsVisible.mockReturnValue(false)
+    bookServiceSpy.findBook.mockReturnValue(mockBooks[0] as unknown as Book)
+    bookServiceSpy.getUrlAbrv.mockReturnValue("1-genesis")
+    bookServiceSpy.getChapterUrlSegment.mockImplementation((chapter: number) =>
       chapter === 0 ? "intro" : chapter.toString(),
     )
-    bookServiceSpy.parseChapterUrlSegment.and.callFake(
+    bookServiceSpy.parseChapterUrlSegment.mockImplementation(
       (segment: string | null | undefined, fallback = 1) => {
         if (segment == null || segment === "") return fallback
         if (segment === "intro") return 0
@@ -187,7 +192,7 @@ describe("BibleReaderComponent", () => {
         return Number.isFinite(parsed) ? parsed : fallback
       },
     )
-    apiServiceSpy.getChapter.and.returnValue(
+    apiServiceSpy.getChapter.mockReturnValue(
       of(mockChapter as unknown as Chapter),
     )
 
@@ -203,10 +208,7 @@ describe("BibleReaderComponent", () => {
     platformId?: string
     imports?: unknown[]
   }): Promise<void> {
-    hapticsSpy = jasmine.createSpyObj<HapticsService>("HapticsService", [
-      "light",
-      "success",
-    ])
+    hapticsSpy = createSpyObj("HapticsService", ["light", "success"])
     return TestBed.configureTestingModule({
       imports: [BibleReaderComponent, BrowserAnimationsModule],
       providers: [
@@ -276,8 +278,8 @@ describe("BibleReaderComponent", () => {
     it("should not navigate while server-rendering when the chapter fails to load", async () => {
       TestBed.resetTestingModule()
       await setUpTestBed({ platformId: "server" })
-      spyOn(console, "error")
-      apiServiceSpy.getChapter.and.returnValue(
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      apiServiceSpy.getChapter.mockReturnValue(
         throwError(() => new Error("API unavailable")),
       )
       TestBed.createComponent(BibleReaderComponent).detectChanges()
@@ -303,10 +305,11 @@ describe("BibleReaderComponent", () => {
 
     it("should not call getChapter if book and chapter didn't change on route update", () => {
       fixture.detectChanges() // Sets up initial sub
-      apiServiceSpy.getChapter.calls.reset()
-
+      apiServiceSpy.getChapter.mockClear()
       ;(
-        routeMock as { queryParamMap: BehaviorSubject<Map<string, string>> }
+        routeMock as {
+          queryParamMap: BehaviorSubject<Map<string, string>>
+        }
       ).queryParamMap.next(new Map([["verseStart", "2"]]))
 
       expect(apiServiceSpy.getChapter).not.toHaveBeenCalled()
@@ -339,7 +342,7 @@ describe("BibleReaderComponent", () => {
       await fixture.whenStable()
 
       expect(bookServiceSpy.retryBooks).toHaveBeenCalled()
-      expect(component.retryingBooks).toBeFalse()
+      expect(component.retryingBooks).toBe(false)
     })
 
     it("hides the empty state once the books are available again", () => {
@@ -355,7 +358,7 @@ describe("BibleReaderComponent", () => {
       fixture.detectChanges()
       component.book = mockBooks[0] as unknown as Book
       component.chapterNumber = 1
-      routerSpy.navigate.calls.reset()
+      routerSpy.navigate.mockClear()
     })
 
     /** The chapter stepped to has loaded (applyChapter clears the slide). */
@@ -367,7 +370,7 @@ describe("BibleReaderComponent", () => {
     it("goToNextChapter should navigate forward and stop scroll", () => {
       component.goToNextChapter()
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
-      expect(component.isNavigatingForwards).toBeTrue()
+      expect(component.isNavigatingForwards).toBe(true)
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "2"])
     })
 
@@ -375,18 +378,18 @@ describe("BibleReaderComponent", () => {
       component.chapterNumber = 2
       component.goToPreviousChapter()
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
-      expect(component.isNavigatingBackwards).toBeTrue()
+      expect(component.isNavigatingBackwards).toBe(true)
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
     })
 
     it("replaces the history entry for chapter steps in the native apps", () => {
-      spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
+      vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true)
       component.chapterNumber = 2
       component.goToNextChapter()
       land()
       component.goToPreviousChapter()
 
-      expect(routerSpy.navigate.calls.allArgs()).toEqual([
+      expect(vi.mocked(routerSpy.navigate).mock.calls).toEqual([
         [["/", "1-genesis", "3"], { replaceUrl: true }],
         [["/", "1-genesis", "1"], { replaceUrl: true }],
       ])
@@ -399,7 +402,7 @@ describe("BibleReaderComponent", () => {
       it(`sets replaceUrl=${native} on the prev/next anchors on the ${platform}`, async () => {
         TestBed.resetTestingModule()
         await setUpTestBed({ imports: [RouterLink] })
-        spyOn(Capacitor, "isNativePlatform").and.returnValue(native)
+        vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(native)
         const linkFixture = TestBed.createComponent(BibleReaderComponent)
         linkFixture.detectChanges()
         linkFixture.componentInstance.getChapter(5)
@@ -418,21 +421,21 @@ describe("BibleReaderComponent", () => {
     }
 
     it("closes the open book drawer on the Android back button", () => {
-      const drawer = jasmine.createSpyObj("MatDrawer", ["close"], {
+      const drawer = createSpyObj<MatDrawer>("MatDrawer", ["close"], {
         opened: true,
       })
       component.bookDrawer = drawer
 
-      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(true)
       expect(drawer.close).toHaveBeenCalled()
     })
 
     it("leaves the back button alone when the drawer is closed", () => {
-      component.bookDrawer = jasmine.createSpyObj("MatDrawer", ["close"], {
+      component.bookDrawer = createSpyObj<MatDrawer>("MatDrawer", ["close"], {
         opened: false,
       })
 
-      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(false)
     })
 
     it("gives light haptic feedback when turning to another chapter", () => {
@@ -455,7 +458,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("steps again when the navigation came to nothing", async () => {
-      routerSpy.navigate.and.resolveTo(false)
+      routerSpy.navigate.mockResolvedValue(false)
       component.goToNextChapter()
       await Promise.resolve()
 
@@ -465,7 +468,7 @@ describe("BibleReaderComponent", () => {
 
     it("moves the page with the finger in paged mode", () => {
       component.viewMode = "paged"
-      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", [
+      component.pagedNav = createSpyObj("PagedNavigationDirective", [
         "dragBy",
         "cancelDrag",
       ]) as unknown as PagedNavigationDirective
@@ -479,7 +482,7 @@ describe("BibleReaderComponent", () => {
 
     it("moves nothing with the finger while scrolling", () => {
       component.viewMode = "scrolling"
-      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", [
+      component.pagedNav = createSpyObj("PagedNavigationDirective", [
         "dragBy",
       ]) as unknown as PagedNavigationDirective
 
@@ -504,20 +507,22 @@ describe("BibleReaderComponent", () => {
       introduction: [{ type: "introParagraph", text: "intro" }],
     })
 
-    it("exposes router link arrays for the prev/next chapter anchors", fakeAsync(() => {
+    it("exposes router link arrays for the prev/next chapter anchors", async () => {
+      vi.useFakeTimers()
       component.getChapter(5)
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
 
       expect(component.previousChapterLink).toEqual(["/", "1-genesis", "4"])
       expect(component.nextChapterLink).toEqual(["/", "1-genesis", "6"])
-    }))
+    })
 
     // RouterLink diffs its input by reference, so a getter returning a fresh
     // array would rebuild both hrefs on every change detection pass — one per
     // animation frame while auto-scroll runs.
-    it("keeps the same link arrays across change detection", fakeAsync(() => {
+    it("keeps the same link arrays across change detection", async () => {
+      vi.useFakeTimers()
       component.getChapter(5)
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
       const previous = component.previousChapterLink
       const next = component.nextChapterLink
 
@@ -525,52 +530,55 @@ describe("BibleReaderComponent", () => {
 
       expect(component.previousChapterLink).toBe(previous)
       expect(component.nextChapterLink).toBe(next)
-    }))
+    })
 
-    it("uses the intro segment when the previous chapter is the introduction", fakeAsync(() => {
+    it("uses the intro segment when the previous chapter is the introduction", async () => {
+      vi.useFakeTimers()
       component.book = introBook()
       component.getChapter(1)
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
 
       expect(component.previousChapterLink).toEqual(["/", "1-genesis", "intro"])
-    }))
+    })
 
-    it("clamps the prev/next links at the book boundaries", fakeAsync(() => {
+    it("clamps the prev/next links at the book boundaries", async () => {
+      vi.useFakeTimers()
       // First chapter of a book without an introduction: must not offer /0
       // or /intro, which this book does not have.
       component.getChapter(1)
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
       expect(component.previousChapterLink).toEqual(["/", "1-genesis", "1"])
 
       // Last chapter: must not point past the end of the book.
       component.getChapter(50)
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
       expect(component.nextChapterLink).toEqual(["/", "1-genesis", "50"])
-    }))
+    })
 
-    it("never links below the introduction on an intro book", fakeAsync(() => {
+    it("never links below the introduction on an intro book", async () => {
+      vi.useFakeTimers()
       component.book = introBook()
       component.getChapter(0)
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
 
       // /-1 must never be produced from the introduction.
       expect(component.previousChapterLink).toEqual(["/", "1-genesis", "intro"])
-    }))
+    })
 
     it("does not arm a slide transition past the book boundaries", () => {
       component.chapterNumber = 1
       component.isNavigatingBackwards = false
-      autoScrollServiceSpy.stop.calls.reset()
+      autoScrollServiceSpy.stop.mockClear()
 
       component.prepareChapterNavigation(false)
 
-      expect(component.isNavigatingBackwards).toBeFalse()
+      expect(component.isNavigatingBackwards).toBe(false)
       expect(autoScrollServiceSpy.stop).not.toHaveBeenCalled()
 
       component.chapterNumber = 50
       component.prepareChapterNavigation(true)
 
-      expect(component.isNavigatingForwards).toBeFalse()
+      expect(component.isNavigatingForwards).toBe(false)
     })
 
     it("prepareChapterNavigation stops auto-scroll and sets the slide direction", () => {
@@ -578,14 +586,14 @@ describe("BibleReaderComponent", () => {
       component.chapterNumber = 5
       component.prepareChapterNavigation(true)
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
-      expect(component.isNavigatingForwards).toBeTrue()
-      expect(component.isNavigatingBackwards).toBeFalse()
+      expect(component.isNavigatingForwards).toBe(true)
+      expect(component.isNavigatingBackwards).toBe(false)
 
       component.prepareChapterNavigation(false)
-      expect(component.isNavigatingBackwards).toBeTrue()
+      expect(component.isNavigatingBackwards).toBe(true)
       // The opposite direction has to be cleared, or a chapter that loads
       // later slides the wrong way.
-      expect(component.isNavigatingForwards).toBeFalse()
+      expect(component.isNavigatingForwards).toBe(false)
     })
 
     // RouterLink lets the browser handle modified and non-primary clicks
@@ -606,12 +614,12 @@ describe("BibleReaderComponent", () => {
       }
 
       expect(autoScrollServiceSpy.stop).not.toHaveBeenCalled()
-      expect(component.isNavigatingForwards).toBeFalse()
-      expect(component.isNavigatingBackwards).toBeFalse()
+      expect(component.isNavigatingForwards).toBe(false)
+      expect(component.isNavigatingBackwards).toBe(false)
 
       component.prepareChapterNavigation(true, new MouseEvent("click"))
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
-      expect(component.isNavigatingForwards).toBeTrue()
+      expect(component.isNavigatingForwards).toBe(true)
     })
 
     it("renders prev/next as anchors (crawlable links) in scrolling mode", () => {
@@ -623,7 +631,11 @@ describe("BibleReaderComponent", () => {
 
       component.chapter = { bookId: "gen", number: 2 } as Chapter
       component.chapterNumber = 2
-      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      ;(
+        component as unknown as {
+          cdr: ChangeDetectorRef
+        }
+      ).cdr.markForCheck()
       fixture.detectChanges()
 
       expect(element.querySelector("a.prev-chapter")).toBeTruthy()
@@ -645,7 +657,11 @@ describe("BibleReaderComponent", () => {
       component.viewMode = "paged"
       component.chapter = { bookId: "gen", number: 2 } as Chapter
       component.chapterNumber = 2
-      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      ;(
+        component as unknown as {
+          cdr: ChangeDetectorRef
+        }
+      ).cdr.markForCheck()
       fixture.detectChanges()
 
       const element = fixture.nativeElement as HTMLElement
@@ -669,7 +685,11 @@ describe("BibleReaderComponent", () => {
       component.chapter = { bookId: "pentateuco", number: 0 } as Chapter
       component.chapterNumber = 0
       component.onPageStateChange({ isFirstPage: true, isLastPage: false })
-      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      ;(
+        component as unknown as {
+          cdr: ChangeDetectorRef
+        }
+      ).cdr.markForCheck()
       fixture.detectChanges()
 
       const element = fixture.nativeElement as HTMLElement
@@ -685,10 +705,16 @@ describe("BibleReaderComponent", () => {
     })
 
     it("onPageStateChange should only mark for check if state changed", () => {
-      const cdrSpy = spyOn(
-        (component as unknown as { cdr: ChangeDetectorRef }).cdr,
-        "markForCheck",
-      )
+      const cdrSpy = vi
+        .spyOn(
+          (
+            component as unknown as {
+              cdr: ChangeDetectorRef
+            }
+          ).cdr,
+          "markForCheck",
+        )
+        .mockReturnValue(undefined)
 
       component.isFirstPage = true
       component.isLastPage = false
@@ -697,13 +723,13 @@ describe("BibleReaderComponent", () => {
       expect(cdrSpy).not.toHaveBeenCalled()
 
       component.onPageStateChange({ isFirstPage: false, isLastPage: true })
-      expect(component.isFirstPage).toBeFalse()
-      expect(component.isLastPage).toBeTrue()
+      expect(component.isFirstPage).toBe(false)
+      expect(component.isLastPage).toBe(true)
       expect(cdrSpy).toHaveBeenCalled()
     })
 
     it("should increase and decrease font size via gestures directive", () => {
-      component.gestures = jasmine.createSpyObj("UnifiedGesturesDirective", [
+      component.gestures = createSpyObj("UnifiedGesturesDirective", [
         "increaseFontSize",
         "decreaseFontSize",
       ])
@@ -753,7 +779,7 @@ describe("BibleReaderComponent", () => {
 
     // The Android text sheet steps by its own 10.
     it("passes the text sheet's step and reset on to the gestures directive", () => {
-      component.gestures = jasmine.createSpyObj("UnifiedGesturesDirective", [
+      component.gestures = createSpyObj("UnifiedGesturesDirective", [
         "increaseFontSize",
         "decreaseFontSize",
         "resetFontSize",
@@ -777,7 +803,7 @@ describe("BibleReaderComponent", () => {
     // "Livro seguinte" is a link: auto-scroll stops when it is followed here,
     // not when it is opened in a new tab.
     it("stops auto-scroll for a plain click on the next book's card only", () => {
-      autoScrollServiceSpy.stop.calls.reset()
+      autoScrollServiceSpy.stop.mockClear()
       component.prepareBookNavigation(
         new MouseEvent("click", { button: 0, ctrlKey: true }),
       )
@@ -790,10 +816,10 @@ describe("BibleReaderComponent", () => {
     describe("checkIfNextVerseStartsWithQuote", () => {
       it("should return false if chapter or verses missing", () => {
         component.chapter = undefined as unknown as Chapter
-        expect(component.checkIfNextVerseStartsWithQuote(0)).toBeFalse()
+        expect(component.checkIfNextVerseStartsWithQuote(0)).toBe(false)
 
         component.chapter = { verses: [] } as unknown as Chapter
-        expect(component.checkIfNextVerseStartsWithQuote(0)).toBeFalse()
+        expect(component.checkIfNextVerseStartsWithQuote(0)).toBe(false)
       })
 
       it("should check if the next verse starts with a quote", () => {
@@ -804,7 +830,7 @@ describe("BibleReaderComponent", () => {
           ],
         } as unknown as Chapter
 
-        expect(component.checkIfNextVerseStartsWithQuote(0)).toBeTrue()
+        expect(component.checkIfNextVerseStartsWithQuote(0)).toBe(true)
       })
 
       it("should return false if next verse has no displayable text", () => {
@@ -815,7 +841,7 @@ describe("BibleReaderComponent", () => {
           ],
         } as unknown as Chapter
 
-        expect(component.checkIfNextVerseStartsWithQuote(0)).toBeFalse()
+        expect(component.checkIfNextVerseStartsWithQuote(0)).toBe(false)
       })
     })
     it("onSwipeLeft should go to next chapter if scrolling mode", () => {
@@ -826,7 +852,7 @@ describe("BibleReaderComponent", () => {
 
     it("onSwipeLeft should go to next page if paged mode", () => {
       component.viewMode = "paged"
-      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", [
+      component.pagedNav = createSpyObj("PagedNavigationDirective", [
         "nextPage",
       ]) as unknown as PagedNavigationDirective
       component.onSwipeLeft()
@@ -842,7 +868,7 @@ describe("BibleReaderComponent", () => {
 
     it("onSwipeRight should go to prev page if paged mode", () => {
       component.viewMode = "paged"
-      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", [
+      component.pagedNav = createSpyObj("PagedNavigationDirective", [
         "prevPage",
       ]) as unknown as PagedNavigationDirective
       component.onSwipeRight()
@@ -855,7 +881,7 @@ describe("BibleReaderComponent", () => {
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
 
       land()
-      routerSpy.navigate.calls.reset()
+      routerSpy.navigate.mockClear()
       component.onArrowPress(
         new KeyboardEvent("keydown", { key: "ArrowRight" }),
       )
@@ -883,7 +909,7 @@ describe("BibleReaderComponent", () => {
 
       beforeEach(() => {
         component.chapterNumber = 2
-        routerSpy.navigate.calls.reset()
+        routerSpy.navigate.mockClear()
       })
 
       afterEach(() => {
@@ -939,7 +965,7 @@ describe("BibleReaderComponent", () => {
       })
 
       it("don't turn the chapter while the book drawer is open", () => {
-        component.bookDrawer = jasmine.createSpyObj("MatDrawer", ["close"], {
+        component.bookDrawer = createSpyObj<MatDrawer>("MatDrawer", ["close"], {
           opened: true,
         })
         press({})
@@ -957,7 +983,11 @@ describe("BibleReaderComponent", () => {
       component.viewMode = viewMode
       component.chapter = { bookId: "gen", number: 2 } as Chapter
       component.chapterNumber = 2
-      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      ;(
+        component as unknown as {
+          cdr: ChangeDetectorRef
+        }
+      ).cdr.markForCheck()
       fixture.detectChanges()
       return fixture.nativeElement as HTMLElement
     }
@@ -966,7 +996,7 @@ describe("BibleReaderComponent", () => {
     // poetry: the side margin was outside the columns, which clip what
     // overflows them.
     describe("pages", () => {
-      // The specs run in Karma's frame: its width is the viewport the
+      // The specs run in the test runner's frame: its width is the viewport the
       // reader's media queries see.
       const frame = window.frameElement as HTMLElement | null
       let width = ""
@@ -980,7 +1010,7 @@ describe("BibleReaderComponent", () => {
       })
 
       function pagedAt(px: number) {
-        expect(frame).withContext("the specs run in a frame").toBeTruthy()
+        expect(frame, "the specs run in a frame").toBeTruthy()
         if (frame) frame.style.width = `${px}px`
         const host = render("paged")
         const style = (selector: string) =>
@@ -1099,7 +1129,7 @@ describe("BibleReaderComponent", () => {
     }
 
     function load(verses: Verse[]): void {
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
       )
       fixture.detectChanges()
@@ -1112,7 +1142,7 @@ describe("BibleReaderComponent", () => {
       ]
       load(verses)
 
-      expect(component.isQuotationVerse(verses[0])).toBeTrue()
+      expect(component.isQuotationVerse(verses[0])).toBe(true)
     })
 
     it("carries the mark through the rest of the quoted passage", () => {
@@ -1127,8 +1157,8 @@ describe("BibleReaderComponent", () => {
       ]
       load(verses)
 
-      expect(component.isQuotationVerse(verses[1])).toBeTrue()
-      expect(component.isQuotationVerse(verses[2])).toBeFalse()
+      expect(component.isQuotationVerse(verses[1])).toBe(true)
+      expect(component.isQuotationVerse(verses[2])).toBe(false)
     })
 
     it("does not read a prophet's superscription as introducing a quotation", () => {
@@ -1142,8 +1172,8 @@ describe("BibleReaderComponent", () => {
       ]
       load(verses)
 
-      expect(component.isQuotationVerse(verses[1])).toBeFalse()
-      expect(component.isQuotationVerse(verses[2])).toBeFalse()
+      expect(component.isQuotationVerse(verses[1])).toBe(false)
+      expect(component.isQuotationVerse(verses[2])).toBe(false)
     })
 
     it("reads the colon through a closing quotation mark", () => {
@@ -1152,7 +1182,7 @@ describe("BibleReaderComponent", () => {
       ]
       load(verses)
 
-      expect(component.isQuotationVerse(verses[0])).toBeTrue()
+      expect(component.isQuotationVerse(verses[0])).toBe(true)
     })
 
     it("leaves a book written in verse unmarked", () => {
@@ -1171,8 +1201,8 @@ describe("BibleReaderComponent", () => {
       ]
       load(verses)
 
-      expect(component.isQuotationVerse(verses[0])).toBeFalse()
-      expect(component.isQuotationVerse(verses[1])).toBeFalse()
+      expect(component.isQuotationVerse(verses[0])).toBe(false)
+      expect(component.isQuotationVerse(verses[1])).toBe(false)
     })
 
     it("does not read a section heading as prose introducing a quotation", () => {
@@ -1188,7 +1218,7 @@ describe("BibleReaderComponent", () => {
       ]
       load(verses)
 
-      expect(component.isQuotationVerse(verses[1])).toBeFalse()
+      expect(component.isQuotationVerse(verses[1])).toBe(false)
     })
   })
 
@@ -1201,10 +1231,10 @@ describe("BibleReaderComponent", () => {
     })
 
     it("records the chapter the reader lands on", () => {
-      bookServiceSpy.getUrlAbrv.and.returnValue("gn")
-      bookServiceSpy.getChapterUrlSegment.and.returnValue("1")
+      bookServiceSpy.getUrlAbrv.mockReturnValue("gn")
+      bookServiceSpy.getChapterUrlSegment.mockReturnValue("1")
 
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of({ bookId: "gen", number: 1, verses: [] } as unknown as Chapter),
       )
       component.getChapter(1)
@@ -1213,9 +1243,9 @@ describe("BibleReaderComponent", () => {
     })
 
     it("restarts the trail from where the reader is standing", () => {
-      bookServiceSpy.getUrlAbrv.and.returnValue("gn")
-      bookServiceSpy.getChapterUrlSegment.and.returnValue("3")
-      apiServiceSpy.getChapter.and.returnValue(
+      bookServiceSpy.getUrlAbrv.mockReturnValue("gn")
+      bookServiceSpy.getChapterUrlSegment.mockReturnValue("3")
+      apiServiceSpy.getChapter.mockReturnValue(
         of({ bookId: "gen", number: 3, verses: [] } as unknown as Chapter),
       )
       component.getChapter(1)
@@ -1237,8 +1267,8 @@ describe("BibleReaderComponent", () => {
     })
 
     it("names a book's introduction rather than numbering it", () => {
-      bookServiceSpy.getUrlAbrv.and.returnValue("gn")
-      bookServiceSpy.getChapterUrlSegment.and.returnValue("intro")
+      bookServiceSpy.getUrlAbrv.mockReturnValue("gn")
+      bookServiceSpy.getChapterUrlSegment.mockReturnValue("intro")
       component.book = {
         id: "gen",
         shortName: "Génesis",
@@ -1327,7 +1357,7 @@ describe("BibleReaderComponent", () => {
 
     it("moves the split by the share of the column the pointer crossed", () => {
       studyMode.activate()
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of({ bookId: "job", number: 38, verses: [] } as unknown as Chapter),
       )
       component.onOpenBeside({
@@ -1342,7 +1372,7 @@ describe("BibleReaderComponent", () => {
       // A known column width, so the pixel-to-percentage conversion has
       // something to divide by: 100px of a 1000px column is 10%.
       const column = component.studyColumn?.nativeElement as HTMLElement
-      spyOn(column, "getBoundingClientRect").and.returnValue({
+      vi.spyOn(column, "getBoundingClientRect").mockReturnValue({
         width: 1000,
       } as DOMRect)
       const divider = fixture.nativeElement.querySelector(
@@ -1439,7 +1469,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("fetches the whole chapter, not only the verses named", () => {
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of(jobChapter as unknown as Chapter),
       )
 
@@ -1466,7 +1496,7 @@ describe("BibleReaderComponent", () => {
           ],
         },
       ]
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of({ bookId: "job", number: 38, verses } as unknown as Chapter),
       )
 
@@ -1483,15 +1513,15 @@ describe("BibleReaderComponent", () => {
       // The selection bar marks and cites against this, not the chapter.
       expect(component.parallelBook?.id).toBe(bookServiceSpy.findBook("job").id)
       // Set like the chapter beside it: a quotation is italic in both.
-      expect(verse.isQuotation).toBeTrue()
+      expect(verse.isQuotation).toBe(true)
     })
 
     it("asks again for a passage that failed to load", () => {
-      apiServiceSpy.getChapter.and.returnValue(throwError(() => new Error()))
+      apiServiceSpy.getChapter.mockReturnValue(throwError(() => new Error()))
       component.onOpenBeside(request)
-      expect(component.parallel?.failed).toBeTrue()
+      expect(component.parallel?.failed).toBe(true)
 
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of(jobChapter as unknown as Chapter),
       )
       component.retryParallel()
@@ -1502,7 +1532,7 @@ describe("BibleReaderComponent", () => {
 
     it("names the passage before its text arrives", () => {
       const pending = new Subject<Chapter>()
-      apiServiceSpy.getChapter.and.returnValue(pending)
+      apiServiceSpy.getChapter.mockReturnValue(pending)
 
       component.onOpenBeside(request)
 
@@ -1515,40 +1545,40 @@ describe("BibleReaderComponent", () => {
     })
 
     it("says when a passage could not be fetched", () => {
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         throwError(() => new Error("offline")),
       )
 
       component.onOpenBeside(request)
 
-      expect(component.parallel?.failed).toBeTrue()
+      expect(component.parallel?.failed).toBe(true)
       expect(component.parallel?.chapter).toBeUndefined()
     })
 
     it("marks the verses the reference names, and no others", () => {
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of(jobChapter as unknown as Chapter),
       )
       component.onOpenBeside(request)
 
-      expect(component.isCitedVerse({ number: 3 } as Verse)).toBeFalse()
-      expect(component.isCitedVerse({ number: 4 } as Verse)).toBeTrue()
-      expect(component.isCitedVerse({ number: 6 } as Verse)).toBeTrue()
-      expect(component.isCitedVerse({ number: 7 } as Verse)).toBeFalse()
+      expect(component.isCitedVerse({ number: 3 } as Verse)).toBe(false)
+      expect(component.isCitedVerse({ number: 4 } as Verse)).toBe(true)
+      expect(component.isCitedVerse({ number: 6 } as Verse)).toBe(true)
+      expect(component.isCitedVerse({ number: 7 } as Verse)).toBe(false)
     })
 
     it("marks a single named verse", () => {
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of(jobChapter as unknown as Chapter),
       )
       component.onOpenBeside({ ...request, verseStart: 4, verseEnd: undefined })
 
-      expect(component.isCitedVerse({ number: 4 } as Verse)).toBeTrue()
-      expect(component.isCitedVerse({ number: 5 } as Verse)).toBeFalse()
+      expect(component.isCitedVerse({ number: 4 } as Verse)).toBe(true)
+      expect(component.isCitedVerse({ number: 5 } as Verse)).toBe(false)
     })
 
     it("marks nothing where the reference names a whole chapter", () => {
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of(jobChapter as unknown as Chapter),
       )
       component.onOpenBeside({
@@ -1557,54 +1587,54 @@ describe("BibleReaderComponent", () => {
         verseEnd: undefined,
       })
 
-      expect(component.isCitedVerse({ number: 1 } as Verse)).toBeFalse()
+      expect(component.isCitedVerse({ number: 1 } as Verse)).toBe(false)
     })
 
     it("folds the panel away to make room, and gives it back", () => {
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of(jobChapter as unknown as Chapter),
       )
-      preferencesServiceSpy.setStudyPanelCollapsed.calls.reset()
+      preferencesServiceSpy.setStudyPanelCollapsed.mockClear()
 
       component.onOpenBeside(request)
-      expect(component.studyPanelCollapsed).toBeTrue()
+      expect(component.studyPanelCollapsed).toBe(true)
       // Borrowed, not chosen: the reader's own preference is untouched.
       expect(
         preferencesServiceSpy.setStudyPanelCollapsed,
       ).not.toHaveBeenCalled()
 
       component.closeParallel()
-      expect(component.studyPanelCollapsed).toBeFalse()
+      expect(component.studyPanelCollapsed).toBe(false)
     })
 
     it("leaves a panel the reader folded folded", () => {
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of(jobChapter as unknown as Chapter),
       )
       component.toggleStudyPanel()
-      expect(component.studyPanelCollapsed).toBeTrue()
+      expect(component.studyPanelCollapsed).toBe(true)
 
       component.onOpenBeside(request)
       component.closeParallel()
 
-      expect(component.studyPanelCollapsed).toBeTrue()
+      expect(component.studyPanelCollapsed).toBe(true)
     })
 
     it("does not unfold a panel the reader opened while comparing", () => {
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of(jobChapter as unknown as Chapter),
       )
       component.onOpenBeside(request)
       component.toggleStudyPanel()
-      expect(component.studyPanelCollapsed).toBeFalse()
+      expect(component.studyPanelCollapsed).toBe(false)
 
       component.closeParallel()
 
-      expect(component.studyPanelCollapsed).toBeFalse()
+      expect(component.studyPanelCollapsed).toBe(false)
     })
 
     it("closes when asked", () => {
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of(jobChapter as unknown as Chapter),
       )
       component.onOpenBeside(request)
@@ -1615,7 +1645,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("closes itself once the chapter it holds is the one being read", () => {
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of(mockChapter as unknown as Chapter),
       )
       // The parallel is Genesis 1, and so is the chapter about to be applied:
@@ -1634,7 +1664,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("stays open on a chapter it is not a copy of", () => {
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of(mockChapter as unknown as Chapter),
       )
       component.onOpenBeside(request)
@@ -1652,19 +1682,19 @@ describe("BibleReaderComponent", () => {
 
     it("passes the service's availability on to the header", () => {
       studyMode.availableSubject.next(true)
-      expect(component.studyModeAvailable).toBeTrue()
+      expect(component.studyModeAvailable).toBe(true)
     })
 
     it("turns on when the service says it is active", () => {
       studyMode.activate()
-      expect(component.studyModeActive).toBeTrue()
+      expect(component.studyModeActive).toBe(true)
     })
 
     it("keeps the About page out of it, having no verses to study", () => {
       studyMode.activate()
       component.book = { id: "about" } as Book
 
-      expect(component.studyModeActive).toBeFalse()
+      expect(component.studyModeActive).toBe(false)
     })
 
     it("reads in one column, whatever the paged preference says", () => {
@@ -1682,7 +1712,7 @@ describe("BibleReaderComponent", () => {
       expect(studyMode.toggle).toHaveBeenCalled()
       expect(analyticsServiceSpy.track).toHaveBeenCalledWith(
         "study_mode_toggle",
-        jasmine.objectContaining({ enabled: true }),
+        expect.objectContaining({ enabled: true }),
       )
     })
 
@@ -1747,7 +1777,20 @@ describe("BibleReaderComponent", () => {
       expect(component.selection).not.toBeNull()
     })
 
-    it("follows the reading position as the column scrolls", fakeAsync(() => {
+    // The zoneless fixture runs change detection on its own, which re-resolves
+    // the @ViewChild between a spec's assignment and the frame that reads it.
+    // A setter that ignores that write keeps the stand-in in place.
+    const pinStudyScroll = (nativeElement: object) => {
+      const standIn = { nativeElement } as unknown as ElementRef<HTMLElement>
+      Object.defineProperty(component, "studyScroll", {
+        get: () => standIn,
+        set: () => {},
+        configurable: true,
+      })
+    }
+
+    it("follows the reading position as the column scrolls", async () => {
+      vi.useFakeTimers()
       studyMode.activate()
       // A column whose top is at 0, with three verses laid out down it: the
       // first has scrolled past, the second is the one being read.
@@ -1756,42 +1799,39 @@ describe("BibleReaderComponent", () => {
           id,
           getBoundingClientRect: () => ({ bottom }) as DOMRect,
         }) as HTMLElement
-      component.studyScroll = {
-        nativeElement: {
-          getBoundingClientRect: () => ({ top: 0 }) as DOMRect,
-          querySelectorAll: () => [
-            verse("1", -40),
-            verse("2", 120),
-            verse("3", 400),
-          ],
-        },
-      } as unknown as ElementRef<HTMLElement>
+      pinStudyScroll({
+        getBoundingClientRect: () => ({ top: 0 }) as DOMRect,
+        querySelectorAll: () => [
+          verse("1", -40),
+          verse("2", 120),
+          verse("3", 400),
+        ],
+      })
 
       component.onStudyScroll()
-      tick(16)
+      await vi.advanceTimersByTimeAsync(16)
 
       expect(component.visibleVerse).toBe(2)
-    }))
+    })
 
-    it("does not follow the scroll outside study mode", fakeAsync(() => {
-      component.studyScroll = {
-        nativeElement: {
-          getBoundingClientRect: () => ({ top: 0 }) as DOMRect,
-          querySelectorAll: () => [],
-        },
-      } as unknown as ElementRef<HTMLElement>
+    it("does not follow the scroll outside study mode", async () => {
+      vi.useFakeTimers()
+      pinStudyScroll({
+        getBoundingClientRect: () => ({ top: 0 }) as DOMRect,
+        querySelectorAll: () => [],
+      })
 
       component.onStudyScroll()
-      tick(16)
+      await vi.advanceTimersByTimeAsync(16)
 
       expect(component.visibleVerse).toBeUndefined()
-    }))
+    })
 
     it("forgets the reading position when the chapter changes", () => {
       studyMode.activate()
       component.visibleVerse = 39
 
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of({ bookId: "gen", number: 2, verses: [] } as unknown as Chapter),
       )
       component.getChapter(2)
@@ -1812,7 +1852,7 @@ describe("BibleReaderComponent", () => {
       studyMode.activate()
       component.onVerseSelected({ verse: { number: 39 } as Verse })
 
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of({ bookId: "gen", number: 2, verses: [] } as unknown as Chapter),
       )
       component.getChapter(2)
@@ -1821,20 +1861,20 @@ describe("BibleReaderComponent", () => {
     })
 
     it("restores the folded state of each side column", () => {
-      preferencesServiceSpy.getStudySidebarCollapsed.and.returnValue(true)
-      preferencesServiceSpy.getStudyPanelCollapsed.and.returnValue(false)
+      preferencesServiceSpy.getStudySidebarCollapsed.mockReturnValue(true)
+      preferencesServiceSpy.getStudyPanelCollapsed.mockReturnValue(false)
 
       const secondFixture = TestBed.createComponent(BibleReaderComponent)
       secondFixture.detectChanges()
 
-      expect(secondFixture.componentInstance.studySidebarCollapsed).toBeTrue()
-      expect(secondFixture.componentInstance.studyPanelCollapsed).toBeFalse()
+      expect(secondFixture.componentInstance.studySidebarCollapsed).toBe(true)
+      expect(secondFixture.componentInstance.studyPanelCollapsed).toBe(false)
     })
 
     it("remembers a side column the reader folds away", () => {
       component.toggleStudySidebar()
 
-      expect(component.studySidebarCollapsed).toBeTrue()
+      expect(component.studySidebarCollapsed).toBe(true)
       expect(
         preferencesServiceSpy.setStudySidebarCollapsed,
       ).toHaveBeenCalledWith(true)
@@ -1843,11 +1883,11 @@ describe("BibleReaderComponent", () => {
     it("unfolds the panel when a verse is picked, so the answer is visible", () => {
       studyMode.activate()
       component.toggleStudyPanel()
-      expect(component.studyPanelCollapsed).toBeTrue()
+      expect(component.studyPanelCollapsed).toBe(true)
 
       component.onVerseSelected({ verse: { number: 39 } as Verse })
 
-      expect(component.studyPanelCollapsed).toBeFalse()
+      expect(component.studyPanelCollapsed).toBe(false)
       expect(preferencesServiceSpy.setStudyPanelCollapsed).toHaveBeenCalledWith(
         false,
       )
@@ -1857,7 +1897,7 @@ describe("BibleReaderComponent", () => {
       studyMode.activate()
       component.toggleAutoScrollControlsVisibility()
 
-      expect(component.showAutoScrollControls).toBeTrue()
+      expect(component.showAutoScrollControls).toBe(true)
     })
 
     it("keeps auto-scroll when a side column is folded away", () => {
@@ -1868,7 +1908,7 @@ describe("BibleReaderComponent", () => {
 
       // Folding a rail widens the measure; it does not change how the text is
       // read, so nothing that depends on scrolling is withdrawn.
-      expect(component.showAutoScrollControls).toBeTrue()
+      expect(component.showAutoScrollControls).toBe(true)
     })
 
     it("offers auto-scroll in study mode even when the stored view mode is paged", () => {
@@ -1878,7 +1918,7 @@ describe("BibleReaderComponent", () => {
 
       // Study mode with both columns open scrolls, whatever the reading
       // layout's own preference says.
-      expect(component.showAutoScrollControls).toBeTrue()
+      expect(component.showAutoScrollControls).toBe(true)
     })
 
     it("scrolls, whatever the reading layout's own view mode says", () => {
@@ -1918,7 +1958,7 @@ describe("BibleReaderComponent", () => {
 
       beforeEach(() => {
         studyMode.activate()
-        apiServiceSpy.getChapter.and.returnValue(
+        apiServiceSpy.getChapter.mockReturnValue(
           of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
         )
         component.getChapter(1)
@@ -1941,15 +1981,15 @@ describe("BibleReaderComponent", () => {
       })
 
       it("takes the key, so the page does not also act on it", () => {
-        expect(press("j").defaultPrevented).toBeTrue()
-        expect(press("x").defaultPrevented).toBeFalse()
+        expect(press("j").defaultPrevented).toBe(true)
+        expect(press("x").defaultPrevented).toBe(false)
       })
 
       it("folds the side columns", () => {
         press("l")
-        expect(component.studySidebarCollapsed).toBeTrue()
+        expect(component.studySidebarCollapsed).toBe(true)
         press("p")
-        expect(component.studyPanelCollapsed).toBeTrue()
+        expect(component.studyPanelCollapsed).toBe(true)
       })
 
       it("chooses the verse being read before writing a note on it", () => {
@@ -1977,7 +2017,9 @@ describe("BibleReaderComponent", () => {
       })
 
       it("opens the list of shortcuts", () => {
-        const open = spyOn(TestBed.inject(MatDialog), "open")
+        const open = vi
+          .spyOn(TestBed.inject(MatDialog), "open")
+          .mockReturnValue(undefined as never)
 
         press("?", { shiftKey: true })
 
@@ -1992,7 +2034,7 @@ describe("BibleReaderComponent", () => {
         const event = press("J", { shiftKey: true })
 
         expect(component.selection?.verse.number).toBe(2)
-        expect(event.defaultPrevented).toBeTrue()
+        expect(event.defaultPrevented).toBe(true)
       })
 
       it("leaves the keys to a menu or dialog that is open over the page", () => {
@@ -2012,7 +2054,7 @@ describe("BibleReaderComponent", () => {
       it("means nothing in the reading layout", () => {
         studyMode.activeSubject.next(false)
 
-        expect(press("j").defaultPrevented).toBeFalse()
+        expect(press("j").defaultPrevented).toBe(false)
         expect(component.selection).toBeNull()
       })
     })
@@ -2024,21 +2066,21 @@ describe("BibleReaderComponent", () => {
         scrollHost: HTMLElement | undefined
       }
       // The verse at the top of the reading layout's column.
-      spyOn(
+      vi.spyOn(
         BibleReaderComponent as unknown as {
           firstVisibleVerseIn: () => number | undefined
         },
         "firstVisibleVerseIn",
-      ).and.returnValue(20)
-      const restore = spyOn(
+      ).mockReturnValue(20)
+      const restore = vi.spyOn(
         component as unknown as Internals,
         "restoreReadingPosition",
-      ).and.callThrough()
+      )
 
       studyMode.activate()
 
       // Switching builds a new scrolling column, which starts at its top.
-      expect(restore).toHaveBeenCalledOnceWith(20)
+      expect(restore).toHaveBeenCalledExactlyOnceWith(20)
     })
 
     it("scrolls the new column to the verse that was being read", () => {
@@ -2051,10 +2093,11 @@ describe("BibleReaderComponent", () => {
         host.appendChild(verse)
       }
       document.body.appendChild(host)
-      spyOnProperty(
+      vi.spyOn(
         component as unknown as { scrollHost: HTMLElement },
         "scrollHost",
-      ).and.returnValue(host)
+        "get",
+      ).mockReturnValue(host)
 
       component["restoreReadingPosition"](3)
 
@@ -2065,7 +2108,7 @@ describe("BibleReaderComponent", () => {
     it("selects the verse a link within the same chapter points at", () => {
       studyMode.activate()
       const verses = [{ number: 1 } as Verse, { number: 12 } as Verse]
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
       )
       component.getChapter(1, 1)
@@ -2082,7 +2125,7 @@ describe("BibleReaderComponent", () => {
     it("selects the verse a deep link points at", () => {
       studyMode.activate()
       const verses = [{ number: 1 } as Verse, { number: 39 } as Verse]
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
       )
 
@@ -2093,7 +2136,7 @@ describe("BibleReaderComponent", () => {
 
     it("does not select a deep-linked verse outside study mode", () => {
       const verses = [{ number: 39 } as Verse]
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
       )
 
@@ -2106,40 +2149,36 @@ describe("BibleReaderComponent", () => {
   describe("Drawer Actions", () => {
     beforeEach(() => {
       fixture.detectChanges()
-      component.bookDrawer = jasmine.createSpyObj("MatDrawer", [
-        "close",
-        "toggle",
-      ])
-      ;(component.bookDrawer.toggle as jasmine.Spy).and.returnValue(
-        Promise.resolve(),
-      )
-      ;(component.bookDrawer.close as jasmine.Spy).and.returnValue(
-        Promise.resolve(),
-      )
+      component.bookDrawer = createSpyObj("MatDrawer", ["close", "toggle"])
+      ;(component.bookDrawer.toggle as Mock).mockResolvedValue(undefined)
+      ;(component.bookDrawer.close as Mock).mockResolvedValue(undefined)
     })
 
-    it("openBookDrawer should toggle drawer", fakeAsync(() => {
+    it("openBookDrawer should toggle drawer", async () => {
+      vi.useFakeTimers()
       component.openBookDrawer({ open: true })
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
       expect(component.bookDrawer.toggle).toHaveBeenCalled()
-    }))
+    })
 
-    it("openChapterDrawer should open drawer with chapter mode", fakeAsync(() => {
+    it("openChapterDrawer should open drawer with chapter mode", async () => {
+      vi.useFakeTimers()
       component.showBooks = true
       component.openChapterDrawer({ open: true })
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
       expect(component.bookDrawer.close).toHaveBeenCalled()
-      expect(component.showBooks).toBeFalse()
+      expect(component.showBooks).toBe(false)
       expect(component.bookDrawer.toggle).toHaveBeenCalled()
-    }))
+    })
 
-    it("openChapterDrawer should just toggle drawer when showBooks is false", fakeAsync(() => {
+    it("openChapterDrawer should just toggle drawer when showBooks is false", async () => {
+      vi.useFakeTimers()
       component.showBooks = false
       component.openChapterDrawer({ open: true })
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
       expect(component.bookDrawer.toggle).toHaveBeenCalled()
       expect(component.bookDrawer.close).not.toHaveBeenCalled()
-    }))
+    })
 
     it("onBookSubmit should navigate to book and close drawer", () => {
       component.onBookSubmit({ bookId: "gen" })
@@ -2150,17 +2189,17 @@ describe("BibleReaderComponent", () => {
     // Picking a book while auto-scroll played opened it partway down, still
     // scrolling; picking a chapter already stopped it.
     it("stops auto-scroll when another book is picked", () => {
-      autoScrollServiceSpy.stop.calls.reset()
+      autoScrollServiceSpy.stop.mockClear()
       component.onBookSubmit({ bookId: "gen" })
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
 
-      autoScrollServiceSpy.stop.calls.reset()
+      autoScrollServiceSpy.stop.mockClear()
       component.goToPassage({ bookId: "gen", chapter: 3 })
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
     })
 
     it("onBookSubmit opens chapter 1 even when the book has an introduction", () => {
-      bookServiceSpy.findBook.and.returnValue({
+      bookServiceSpy.findBook.mockReturnValue({
         ...(mockBooks[0] as unknown as Book),
         introduction: [{ type: "introParagraph", text: "intro" }],
       })
@@ -2176,25 +2215,27 @@ describe("BibleReaderComponent", () => {
       expect(component.bookDrawer.close).toHaveBeenCalled()
     })
 
-    it("should close and reopen drawer when showBooks is false for openBookDrawer", fakeAsync(() => {
+    it("should close and reopen drawer when showBooks is false for openBookDrawer", async () => {
+      vi.useFakeTimers()
       component.showBooks = false
       component.openBookDrawer({ open: true })
-      tick()
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.advanceTimersByTimeAsync(0)
       expect(component.bookDrawer.close).toHaveBeenCalled()
       expect(component.bookDrawer.toggle).toHaveBeenCalled()
-      expect(component.showBooks).toBeTrue()
-    }))
+      expect(component.showBooks).toBe(true)
+    })
 
-    it("should close and reopen drawer when showBooks is true for openChapterDrawer", fakeAsync(() => {
+    it("should close and reopen drawer when showBooks is true for openChapterDrawer", async () => {
+      vi.useFakeTimers()
       component.showBooks = true
       component.openChapterDrawer({ open: true })
-      tick()
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.advanceTimersByTimeAsync(0)
       expect(component.bookDrawer.close).toHaveBeenCalled()
       expect(component.bookDrawer.toggle).toHaveBeenCalled()
-      expect(component.showBooks).toBeFalse()
-    }))
+      expect(component.showBooks).toBe(false)
+    })
 
     it("dismissBookDrawer should close drawer directly", () => {
       component.dismissBookDrawer()
@@ -2208,9 +2249,9 @@ describe("BibleReaderComponent", () => {
     })
 
     it("toggleAutoScrollControlsVisibility should toggle and save state", () => {
-      expect(component.showAutoScrollControls).toBeFalse()
+      expect(component.showAutoScrollControls).toBe(false)
       component.toggleAutoScrollControlsVisibility()
-      expect(component.showAutoScrollControls).toBeTrue()
+      expect(component.showAutoScrollControls).toBe(true)
       expect(
         preferencesServiceSpy.setAutoScrollControlsVisible,
       ).toHaveBeenCalledWith(true)
@@ -2221,24 +2262,25 @@ describe("BibleReaderComponent", () => {
       component.onToggleViewMode()
       expect(component.viewMode).toBe("paged")
       expect(preferencesServiceSpy.setViewMode).toHaveBeenCalledWith("paged")
-      expect(component.showAutoScrollControls).toBeFalse()
+      expect(component.showAutoScrollControls).toBe(false)
     })
 
-    it("onToggleViewMode should switch back to scrolling mode", fakeAsync(() => {
+    it("onToggleViewMode should switch back to scrolling mode", async () => {
+      vi.useFakeTimers()
       component.viewMode = "paged"
       component.onToggleViewMode()
       expect(component.viewMode).toBe("scrolling")
       expect(preferencesServiceSpy.setViewMode).toHaveBeenCalledWith(
         "scrolling",
       )
-    }))
+    })
   })
 
   describe("introduction route on books without intro", () => {
     it("should normalize chapter 0 to chapter 1 and load it", () => {
       component.book = mockBooks[0] as unknown as Book
-      apiServiceSpy.getChapter.calls.reset()
-      routerSpy.navigate.calls.reset()
+      apiServiceSpy.getChapter.mockClear()
+      routerSpy.navigate.mockClear()
 
       component.getChapter(0)
 
@@ -2256,9 +2298,8 @@ describe("BibleReaderComponent", () => {
       // arrives; re-running the startup block would navigate and apply the
       // chapter already on screen a second time.
       fixture.detectChanges()
-      apiServiceSpy.getChapter.calls.reset()
-      routerSpy.navigate.calls.reset()
-
+      apiServiceSpy.getChapter.mockClear()
+      routerSpy.navigate.mockClear()
       ;(bookServiceSpy.books$ as unknown as BehaviorSubject<Book[]>).next([
         ...(mockBooks as unknown as Book[]),
       ])
@@ -2285,19 +2326,21 @@ describe("BibleReaderComponent", () => {
         introduction: [{ type: "introParagraph", text: "Texto" }],
       } as unknown as Book
       fixture.detectChanges()
-      component.bookDrawer = jasmine.createSpyObj("MatDrawer", ["close"])
-      seoServiceSpy.updateForChapter.calls.reset()
+      component.bookDrawer = createSpyObj("MatDrawer", ["close"])
+      seoServiceSpy.updateForChapter.mockClear()
 
-      bookServiceSpy.findBook.and.returnValue(samuel)
-      bookServiceSpy.loadGroupIntroBody.and.callFake(async () => {
-        bookServiceSpy.findBook.and.returnValue(loaded)
+      bookServiceSpy.findBook.mockReturnValue(samuel)
+      bookServiceSpy.loadGroupIntroBody.mockImplementation(async () => {
+        bookServiceSpy.findBook.mockReturnValue(loaded)
         ;(bookServiceSpy.books$ as unknown as BehaviorSubject<Book[]>).next([
           loaded,
         ])
         return loaded
       })
       ;(
-        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+        routeMock as {
+          paramMap: BehaviorSubject<Map<string, string>>
+        }
       ).paramMap.next(
         new Map([
           ["book", "1sm"],
@@ -2324,7 +2367,7 @@ describe("BibleReaderComponent", () => {
       } as unknown as Book
       component.book = samuel
       let resolveIntro: (book: Book) => void = () => {}
-      bookServiceSpy.loadGroupIntroBody.and.returnValue(
+      bookServiceSpy.loadGroupIntroBody.mockReturnValue(
         new Promise<Book>((resolve) => {
           resolveIntro = resolve
         }),
@@ -2347,9 +2390,9 @@ describe("BibleReaderComponent", () => {
       // Tapping "previous" on chapter 1 of a shared-introduction book while
       // offline: the slide direction used to stay set, so the next chapter
       // opened at the bottom, and the URL stayed on /intro.
-      spyOn(console, "error")
+      vi.spyOn(console, "error").mockReturnValue(undefined)
       fixture.detectChanges()
-      routerSpy.navigate.calls.reset()
+      routerSpy.navigate.mockClear()
       component.book = {
         id: "1sa",
         name: "1 Samuel",
@@ -2361,22 +2404,22 @@ describe("BibleReaderComponent", () => {
       } as unknown as Book
       component.chapterNumber = 1
       component.isNavigatingBackwards = true
-      bookServiceSpy.loadGroupIntroBody.and.rejectWith(new Error("offline"))
+      bookServiceSpy.loadGroupIntroBody.mockRejectedValue(new Error("offline"))
 
       component.getChapter(0)
       await fixture.whenStable()
 
-      expect(component.isNavigatingBackwards).toBeFalse()
+      expect(component.isNavigatingBackwards).toBe(false)
       expect(snackBarSpy.open).toHaveBeenCalled()
       expect(routerSpy.navigate).toHaveBeenCalledWith(
-        ["/", jasmine.anything(), "1"],
+        ["/", expect.anything(), "1"],
         { replaceUrl: true },
       )
     })
 
     it("renders the About page without asking the API for it", () => {
       component.book = mockBooks[1] as unknown as Book
-      apiServiceSpy.getChapter.calls.reset()
+      apiServiceSpy.getChapter.mockClear()
 
       component.getChapter(1)
 
@@ -2385,84 +2428,218 @@ describe("BibleReaderComponent", () => {
     })
   })
 
+  // Hydration leaves the prerendered DOM in the host until the app is stable.
+  describe("with a prerendered chapter on screen", () => {
+    let chapter$: Subject<Chapter>
+    let endHold: Mock
+
+    const start = () => {
+      fixture.nativeElement.insertAdjacentHTML(
+        "beforeend",
+        '<div class="chapterBlock"><verse>No princípio</verse></div>',
+      )
+      fixture.detectChanges()
+    }
+    const container = (): HTMLElement =>
+      fixture.nativeElement.querySelector(".bookBlock").parentElement
+
+    beforeEach(() => {
+      chapter$ = new Subject<Chapter>()
+      apiServiceSpy.getChapter.mockReturnValue(chapter$)
+      endHold = vi.fn()
+      vi.spyOn(TestBed.inject(PendingTasks), "add").mockReturnValue(endHold)
+    })
+
+    it("keeps the app unstable until the chapter is in", () => {
+      start()
+      expect(TestBed.inject(PendingTasks).add).toHaveBeenCalledTimes(1)
+      expect(endHold).not.toHaveBeenCalled()
+
+      chapter$.next(mockChapter as unknown as Chapter)
+
+      expect(endHold).toHaveBeenCalledTimes(1)
+    })
+
+    // Hydration's cleanup deletes the text once the app is stable, so the chapter
+    // must have claimed it first.
+    it("renders the chapter before letting the app stabilize", () => {
+      endHold.mockImplementation(() => {
+        expect(component.chapter).toBeTruthy()
+        expect(
+          fixture.nativeElement.querySelector(".bookBlock .chapterBlock"),
+        ).toBeTruthy()
+      })
+      start()
+
+      chapter$.next(mockChapter as unknown as Chapter)
+
+      expect(endHold).toHaveBeenCalled()
+    })
+
+    it("lets the app stabilize when the chapter fails to load", () => {
+      vi.spyOn(console, "error").mockImplementation(() => {})
+      start()
+
+      chapter$.error(new Error("offline"))
+
+      expect(endHold).toHaveBeenCalledTimes(1)
+    })
+
+    it("lets the app stabilize when the book list fails to load", () => {
+      bookServiceSpy.books$ = new Subject<Book[]>()
+      bookServiceSpy.booksUnavailable$ = of(true)
+      start()
+
+      expect(endHold).toHaveBeenCalledTimes(1)
+    })
+
+    it("lets the app stabilize when the reader goes away first", () => {
+      start()
+
+      fixture.destroy()
+
+      expect(endHold).toHaveBeenCalledTimes(1)
+    })
+
+    // Client-rendered pages and the native apps have nothing to hold on to.
+    it("holds nothing without one", () => {
+      fixture.detectChanges()
+
+      expect(TestBed.inject(PendingTasks).add).not.toHaveBeenCalled()
+    })
+
+    it("leaves the text in place when the data arrives", () => {
+      start()
+      fixture.detectChanges()
+
+      chapter$.next(mockChapter as unknown as Chapter)
+
+      expect(container().style.opacity).toBe("")
+      expect(animationServiceSpy.scrollToTop).not.toHaveBeenCalled()
+      expect(preferencesServiceSpy.setLastBookId).toHaveBeenCalledWith("gen")
+    })
+
+    it("still reveals the text when switching it to the saved paged view", () => {
+      preferencesServiceSpy.getViewMode.mockReturnValue("paged")
+      start()
+      fixture.detectChanges()
+
+      chapter$.next(mockChapter as unknown as Chapter)
+
+      expect(container().style.opacity).toBe("0")
+      expect(animationServiceSpy.scrollToTop).toHaveBeenCalled()
+    })
+
+    it("still goes to the verse of a deep link", () => {
+      ;(
+        routerSpy as unknown as {
+          routerState: { snapshot: { root: { firstChild: unknown } } }
+        }
+      ).routerState.snapshot.root.firstChild = {
+        params: { book: "gen", chapter: "1" },
+        queryParams: { verseStart: "5" },
+      }
+      start()
+
+      chapter$.next(mockChapter as unknown as Chapter)
+
+      expect(animationServiceSpy.scrollToVerseElement).toHaveBeenCalled()
+    })
+
+    it("still animates a chapter turned to before the data arrives", async () => {
+      start()
+      fixture.detectChanges()
+      component.isNavigatingForwards = true
+
+      chapter$.next(mockChapter as unknown as Chapter)
+      await fixture.whenStable()
+
+      expect(animationServiceSpy.scrollToTop).toHaveBeenCalled()
+    })
+  })
+
   describe("getChapter and animations", () => {
     beforeEach(() => {
       fixture.detectChanges()
-      animationServiceSpy.scrollToTop.calls.reset()
-      preferencesServiceSpy.setLastBookId.calls.reset()
-      routerSpy.navigate.calls.reset()
+      animationServiceSpy.scrollToTop.mockClear()
+      preferencesServiceSpy.setLastBookId.mockClear()
+      routerSpy.navigate.mockClear()
     })
 
-    it("should finalize and call animation.scrollToTop on success", fakeAsync(() => {
-      apiServiceSpy.getChapter.and.returnValue(
+    it("should finalize and call animation.scrollToTop on success", async () => {
+      vi.useFakeTimers()
+      apiServiceSpy.getChapter.mockReturnValue(
         of(mockChapter as unknown as Chapter),
       )
       component.getChapter(1)
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
 
       expect(component.chapter).toEqual(mockChapter as unknown as Chapter)
       expect(component.chapterNumber).toBe(1)
       expect(animationServiceSpy.scrollToTop).toHaveBeenCalled()
       expect(preferencesServiceSpy.setLastBookId).toHaveBeenCalledWith("gen")
-    }))
+    })
 
     // The realign pass registered by the previous chapter's deep link holds
     // that chapter's verse element and scroll strategy; it must not survive
     // into the chapter that replaced it.
-    it("should drop a pending scroll realign when a new chapter is applied", fakeAsync(() => {
-      animationServiceSpy.cancelPendingRealign.calls.reset()
+    it("should drop a pending scroll realign when a new chapter is applied", async () => {
+      vi.useFakeTimers()
+      animationServiceSpy.cancelPendingRealign.mockClear()
 
       component.getChapter(1)
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
 
       expect(animationServiceSpy.cancelPendingRealign).toHaveBeenCalled()
-    }))
+    })
 
     it("should drop a pending scroll realign on destroy", () => {
-      animationServiceSpy.cancelPendingRealign.calls.reset()
+      animationServiceSpy.cancelPendingRealign.mockClear()
 
       component.ngOnDestroy()
 
       expect(animationServiceSpy.cancelPendingRealign).toHaveBeenCalled()
     })
 
-    it("should update SEO metadata when a chapter is applied", fakeAsync(() => {
-      seoServiceSpy.updateForChapter.calls.reset()
-      apiServiceSpy.getChapter.and.returnValue(
+    it("should update SEO metadata when a chapter is applied", async () => {
+      vi.useFakeTimers()
+      seoServiceSpy.updateForChapter.mockClear()
+      apiServiceSpy.getChapter.mockReturnValue(
         of(mockChapter as unknown as Chapter),
       )
 
       component.getChapter(1)
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
 
       expect(seoServiceSpy.updateForChapter).toHaveBeenCalledWith(
         component.book,
         1,
         mockChapter as unknown as Chapter,
       )
-    }))
+    })
 
-    it("should call scrollToEnd when navigating backwards in paged mode", fakeAsync(() => {
+    it("should call scrollToEnd when navigating backwards in paged mode", async () => {
+      vi.useFakeTimers()
       component.viewMode = "paged"
       component.isNavigatingBackwards = true
-      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", [
+      component.pagedNav = createSpyObj("PagedNavigationDirective", [
         "scrollToEnd",
         "ensureAlignedScrollWidth",
       ]) as unknown as PagedNavigationDirective
 
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of(mockChapter as unknown as Chapter),
       )
 
       let capturedCallback: (() => void) | undefined
-      animationServiceSpy.scrollToTop.and.callFake(
+      animationServiceSpy.scrollToTop.mockImplementation(
         (content, container, mode, startAtBottom, cb) => {
           capturedCallback = cb
         },
       )
 
       component.getChapter(1)
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
 
       expect(animationServiceSpy.scrollToTop).toHaveBeenCalled()
       expect(capturedCallback).toBeDefined()
@@ -2471,38 +2648,40 @@ describe("BibleReaderComponent", () => {
       expect(
         component.pagedNav?.ensureAlignedScrollWidth,
       ).not.toHaveBeenCalled()
-    }))
+    })
 
-    it("should call ensureAlignedScrollWidth when navigating forwards in paged mode", fakeAsync(() => {
+    it("should call ensureAlignedScrollWidth when navigating forwards in paged mode", async () => {
+      vi.useFakeTimers()
       component.viewMode = "paged"
       component.isNavigatingForwards = true
-      component.pagedNav = jasmine.createSpyObj("PagedNavigationDirective", [
+      component.pagedNav = createSpyObj("PagedNavigationDirective", [
         "scrollToEnd",
         "ensureAlignedScrollWidth",
       ]) as unknown as PagedNavigationDirective
 
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         of(mockChapter as unknown as Chapter),
       )
 
       let capturedCallback: (() => void) | undefined
-      animationServiceSpy.scrollToTop.and.callFake(
+      animationServiceSpy.scrollToTop.mockImplementation(
         (content, container, mode, startAtBottom, cb) => {
           capturedCallback = cb
         },
       )
 
       component.getChapter(2)
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
 
       expect(animationServiceSpy.scrollToTop).toHaveBeenCalled()
       expect(capturedCallback).toBeDefined()
       if (capturedCallback) capturedCallback()
       expect(component.pagedNav?.ensureAlignedScrollWidth).toHaveBeenCalled()
       expect(component.pagedNav?.scrollToEnd).not.toHaveBeenCalled()
-    }))
+    })
 
-    it("should trigger slide out animation if navigating", fakeAsync(() => {
+    it("should trigger slide out animation if navigating", async () => {
+      vi.useFakeTimers()
       component.isNavigatingForwards = true
       // Need a dummy nativeElement
       component.bookContainer = {
@@ -2510,40 +2689,43 @@ describe("BibleReaderComponent", () => {
       } as unknown as ElementRef
 
       component.getChapter(2)
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
 
       expect(animationServiceSpy.triggerSlideOutAnimation).toHaveBeenCalled()
-    }))
+    })
 
-    it("should call scrollToVerseElement if verseStart provided", fakeAsync(() => {
-      apiServiceSpy.getChapter.and.returnValue(
+    it("should call scrollToVerseElement if verseStart provided", async () => {
+      vi.useFakeTimers()
+      apiServiceSpy.getChapter.mockReturnValue(
         of(mockChapter as unknown as Chapter),
       )
       component.getChapter(1, 5, 10, true)
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
       expect(animationServiceSpy.scrollToVerseElement).toHaveBeenCalled()
-    }))
+    })
 
-    it("should trigger slide out animation in error fallback if navigating", fakeAsync(() => {
-      spyOn(console, "error")
+    it("should trigger slide out animation in error fallback if navigating", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
       component.isNavigatingForwards = true
       component.bookContainer = {
         nativeElement: document.createElement("div"),
       } as unknown as ElementRef
-      apiServiceSpy.getChapter.and.returnValue(
+      apiServiceSpy.getChapter.mockReturnValue(
         throwError(() => new Error("Not found")),
       )
-      bookServiceSpy.findBook.and.returnValue(mockBooks[1] as unknown as Book)
+      bookServiceSpy.findBook.mockReturnValue(mockBooks[1] as unknown as Book)
       component.book = mockBooks[1] as unknown as Book
 
       component.getChapter(2)
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
       expect(animationServiceSpy.triggerSlideOutAnimation).toHaveBeenCalled()
-    }))
+    })
 
-    it("should revert URL with replaceUrl and not reset container when online error occurs", fakeAsync(() => {
-      spyOn(console, "error")
-      apiServiceSpy.getChapter.and.returnValue(
+    it("should revert URL with replaceUrl and not reset container when online error occurs", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      apiServiceSpy.getChapter.mockReturnValue(
         throwError(() => new Error("Not found")),
       )
       component.book = mockBooks[0] as unknown as Book
@@ -2552,7 +2734,7 @@ describe("BibleReaderComponent", () => {
       component.bookContainer = { nativeElement: el } as unknown as ElementRef
 
       component.getChapter(4)
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
 
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"], {
         replaceUrl: true,
@@ -2563,12 +2745,17 @@ describe("BibleReaderComponent", () => {
         "OK",
         { duration: 4000 },
       )
-    }))
+    })
 
-    it("should revert URL with replaceUrl and not reset container when NetworkService reports offline", fakeAsync(() => {
-      spyOn(console, "error")
-      ;(networkServiceSpy as unknown as { isOffline: boolean }).isOffline = true
-      apiServiceSpy.getChapter.and.returnValue(
+    it("should revert URL with replaceUrl and not reset container when NetworkService reports offline", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      ;(
+        networkServiceSpy as unknown as {
+          isOffline: boolean
+        }
+      ).isOffline = true
+      apiServiceSpy.getChapter.mockReturnValue(
         throwError(() => new Error("Network error")),
       )
       component.book = mockBooks[0] as unknown as Book
@@ -2577,7 +2764,7 @@ describe("BibleReaderComponent", () => {
       component.bookContainer = { nativeElement: el } as unknown as ElementRef
 
       component.getChapter(2)
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"], {
         replaceUrl: true,
       })
@@ -2587,16 +2774,17 @@ describe("BibleReaderComponent", () => {
         "OK",
         { duration: 4000 },
       )
-    }))
+    })
 
-    it("should scroll to a requested verse on the About page", fakeAsync(() => {
-      bookServiceSpy.findBook.and.returnValue(mockBooks[1] as unknown as Book)
+    it("should scroll to a requested verse on the About page", async () => {
+      vi.useFakeTimers()
+      bookServiceSpy.findBook.mockReturnValue(mockBooks[1] as unknown as Book)
       component.book = mockBooks[1] as unknown as Book
 
       component.getChapter(1, 10)
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
       expect(animationServiceSpy.scrollToVerseElement).toHaveBeenCalled()
-    }))
+    })
   })
 
   // The iOS toolbar's arrows and passage picker (HeaderComponent outputs).
@@ -2613,12 +2801,12 @@ describe("BibleReaderComponent", () => {
 
     it("can step between chapters, but not past the first or last", () => {
       at(1)
-      expect(component.canGoPrevious).toBeFalse()
-      expect(component.canGoNext).toBeTrue()
+      expect(component.canGoPrevious).toBe(false)
+      expect(component.canGoNext).toBe(true)
 
       at(50)
-      expect(component.canGoPrevious).toBeTrue()
-      expect(component.canGoNext).toBeFalse()
+      expect(component.canGoPrevious).toBe(true)
+      expect(component.canGoNext).toBe(false)
     })
 
     it("can step back to the introduction", () => {
@@ -2627,28 +2815,28 @@ describe("BibleReaderComponent", () => {
         introduction: [{ type: "introParagraph", text: "intro" }],
       }
       at(1)
-      expect(component.canGoPrevious).toBeTrue()
+      expect(component.canGoPrevious).toBe(true)
     })
 
     it("steps through pages before chapters in paged mode", () => {
       component.viewMode = "paged"
       at(50)
       component.isLastPage = false
-      expect(component.canGoNext).toBeTrue()
+      expect(component.canGoNext).toBe(true)
 
       component.isLastPage = true
-      expect(component.canGoNext).toBeFalse()
+      expect(component.canGoNext).toBe(false)
     })
 
     it("has nowhere to step on the About page or before the text loads", () => {
       at(1)
       component.chapter = undefined as unknown as Chapter
-      expect(component.canGoNext).toBeFalse()
+      expect(component.canGoNext).toBe(false)
 
       component.book = mockBooks[1] as unknown as Book
       at(1)
-      expect(component.canGoPrevious).toBeFalse()
-      expect(component.canGoNext).toBeFalse()
+      expect(component.canGoPrevious).toBe(false)
+      expect(component.canGoNext).toBe(false)
     })
 
     it("steps like the swipes do", () => {
@@ -2687,7 +2875,7 @@ describe("BibleReaderComponent", () => {
     ): Promise<ComponentFixture<BibleReaderComponent>> {
       TestBed.resetTestingModule()
       await setUpTestBed({ imports: [RouterLink] })
-      bookServiceSpy.findBook.and.returnValue({
+      bookServiceSpy.findBook.mockReturnValue({
         ...mockBooks[0],
         shortName: "Génesis",
         name: "Livro do Génesis",
@@ -2695,7 +2883,7 @@ describe("BibleReaderComponent", () => {
           introduction: [{ type: "p", text: "…" }],
         }),
       } as unknown as Book)
-      preferencesServiceSpy.getViewMode.and.returnValue(
+      preferencesServiceSpy.getViewMode.mockReturnValue(
         options.viewMode ?? "scrolling",
       )
       Object.assign(TestBed.inject(NativeChromeService), {
@@ -2742,12 +2930,12 @@ describe("BibleReaderComponent", () => {
 
     // Génesis 50 was a dead end.
     it("leads on to the next book from a book's last chapter", async () => {
-      bookServiceSpy.findBookById.and.callFake((id: string) =>
+      bookServiceSpy.findBookById.mockImplementation((id: string) =>
         id === "exo"
           ? ({ id: "exo", shortName: "Êxodo", chapterCount: 40 } as Book)
           : undefined,
       )
-      bookServiceSpy.getUrlAbrv.and.callFake((book: Book) =>
+      bookServiceSpy.getUrlAbrv.mockImplementation((book: Book) =>
         book.id === "exo" ? "2-exodo" : "1-genesis",
       )
       const cardFixture = await readerAt(50)
@@ -2780,15 +2968,15 @@ describe("BibleReaderComponent", () => {
 
   describe("iOS native bars", () => {
     it("hides them as the text scrolls, until the text goes away", () => {
-      const stop = jasmine.createSpy("stop")
-      const track = spyOn(
-        TestBed.inject(NativeChromeService),
-        "trackScroll",
-      ).and.returnValue(stop)
+      const stop = vi.fn().mockName("stop")
+      const track = vi
+        .spyOn(TestBed.inject(NativeChromeService), "trackScroll")
+        .mockReturnValue(stop)
       const scroller = document.createElement("div")
 
       component.drawerContent = new ElementRef(scroller)
-      expect(track).toHaveBeenCalledOnceWith(scroller)
+      expect(track).toHaveBeenCalledTimes(1)
+      expect(track).toHaveBeenCalledWith(scroller)
 
       component.drawerContent = undefined
       expect(stop).toHaveBeenCalledTimes(1)

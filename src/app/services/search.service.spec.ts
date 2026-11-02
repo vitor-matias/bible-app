@@ -1,5 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 import { firstValueFrom, of, ReplaySubject, throwError } from "rxjs"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { BibleApiService } from "./bible-api.service"
 import { BibleReferenceService } from "./bible-reference.service"
 import { BookService } from "./book.service"
@@ -15,30 +16,29 @@ const PENTATEUCH = {
 
 describe("SearchService", () => {
   let service: SearchService
-  let api: jasmine.SpyObj<BibleApiService>
-  let references: jasmine.SpyObj<BibleReferenceService>
+  let api: SpyObj<BibleApiService>
+  let references: SpyObj<BibleReferenceService>
   let booksLoaded: ReplaySubject<Book[]>
 
   beforeEach(() => {
     booksLoaded = new ReplaySubject<Book[]>(1)
     booksLoaded.next([MATTHEW])
-    api = jasmine.createSpyObj<BibleApiService>("BibleApiService", [
+    api = createSpyObj<BibleApiService>("BibleApiService", [
       "getVerse",
       "search",
     ])
-    references = jasmine.createSpyObj<BibleReferenceService>(
-      "BibleReferenceService",
-      ["destinationOf"],
-    )
-    references.destinationOf.and.returnValue(null)
-    const books = jasmine.createSpyObj<BookService>(
+    references = createSpyObj<BibleReferenceService>("BibleReferenceService", [
+      "destinationOf",
+    ])
+    references.destinationOf.mockReturnValue(null)
+    const books = createSpyObj<BookService>(
       "BookService",
       ["findBook", "getUrlAbrv", "getChapterUrlSegment"],
       { books$: booksLoaded.asObservable() },
     )
-    books.findBook.and.returnValue(MATTHEW)
-    books.getUrlAbrv.and.callFake((book: Book) => book.abrv.toLowerCase())
-    books.getChapterUrlSegment.and.callFake((chapter: number) =>
+    books.findBook.mockReturnValue(MATTHEW)
+    books.getUrlAbrv.mockImplementation((book: Book) => book.abrv.toLowerCase())
+    books.getChapterUrlSegment.mockImplementation((chapter: number) =>
       String(chapter),
     )
 
@@ -54,16 +54,16 @@ describe("SearchService", () => {
   })
 
   it("answers a reference with where to go, once it knows it is there", async () => {
-    references.destinationOf.and.returnValue({
+    references.destinationOf.mockReturnValue({
       book: MATTHEW,
       chapter: 22,
       verseStart: 37,
     })
-    api.getVerse.and.returnValue(of({} as Verse))
+    api.getVerse.mockReturnValue(of({} as Verse))
 
     const outcome = await firstValueFrom(service.run(" Mt 22,37 "))
 
-    expect(api.getVerse).toHaveBeenCalledOnceWith("mat", 22, 37)
+    expect(api.getVerse).toHaveBeenCalledExactlyOnceWith("mat", 22, 37)
     expect(api.search).not.toHaveBeenCalled()
     expect(outcome).toEqual({
       kind: "destination",
@@ -73,8 +73,8 @@ describe("SearchService", () => {
   })
 
   it("answers a reference to a verse that is not there as missing", async () => {
-    references.destinationOf.and.returnValue({ book: MATTHEW, chapter: 40 })
-    api.getVerse.and.returnValue(throwError(() => ({ status: 404 })))
+    references.destinationOf.mockReturnValue({ book: MATTHEW, chapter: 40 })
+    api.getVerse.mockReturnValue(throwError(() => ({ status: 404 })))
 
     expect(await firstValueFrom(service.run("Mt 40"))).toEqual({
       kind: "missing",
@@ -82,14 +82,16 @@ describe("SearchService", () => {
   })
 
   it("leaves any other failure to whoever asked", async () => {
-    references.destinationOf.and.returnValue({ book: MATTHEW, chapter: 22 })
-    api.getVerse.and.returnValue(throwError(() => ({ status: 503 })))
+    references.destinationOf.mockReturnValue({ book: MATTHEW, chapter: 22 })
+    api.getVerse.mockReturnValue(throwError(() => ({ status: 503 })))
 
-    await expectAsync(firstValueFrom(service.run("Mt 22"))).toBeRejected()
+    await expect(firstValueFrom(service.run("Mt 22"))).rejects.toMatchObject({
+      status: 503,
+    })
   })
 
   it("opens a standalone introduction without asking for a verse of it", async () => {
-    references.destinationOf.and.returnValue({ book: PENTATEUCH, chapter: 1 })
+    references.destinationOf.mockReturnValue({ book: PENTATEUCH, chapter: 1 })
 
     const outcome = await firstValueFrom(service.run("Pentateuco"))
 
@@ -101,7 +103,7 @@ describe("SearchService", () => {
   })
 
   it("searches the text for anything else, and readies what it finds", async () => {
-    api.search.and.returnValue(
+    api.search.mockReturnValue(
       of({
         verses: [
           {
@@ -120,8 +122,8 @@ describe("SearchService", () => {
 
     const outcome = await firstValueFrom(service.run("amarás", 30))
 
-    expect(api.search).toHaveBeenCalledOnceWith("amarás", 1, 30)
-    if (outcome.kind !== "results") return fail("expected results")
+    expect(api.search).toHaveBeenCalledExactlyOnceWith("amarás", 1, 30)
+    if (outcome.kind !== "results") throw new Error("expected results")
     expect(outcome.total).toBe(12)
     const [hit] = outcome.hits
     expect(hit.reference).toBe("Mateus 22,37")
@@ -152,15 +154,15 @@ describe("SearchService", () => {
       // A search shared into the app runs as the app starts.
       booksLoaded = new ReplaySubject<Book[]>(1)
       TestBed.resetTestingModule()
-      const books = jasmine.createSpyObj<BookService>(
+      const books = createSpyObj<BookService>(
         "BookService",
         ["findBook", "getUrlAbrv", "getChapterUrlSegment"],
         { books$: booksLoaded.asObservable() },
       )
-      books.findBook.and.returnValue(MATTHEW)
-      books.getUrlAbrv.and.returnValue("mt")
-      books.getChapterUrlSegment.and.returnValue("22")
-      api.search.and.returnValue(of(found))
+      books.findBook.mockReturnValue(MATTHEW)
+      books.getUrlAbrv.mockReturnValue("mt")
+      books.getChapterUrlSegment.mockReturnValue("22")
+      api.search.mockReturnValue(of(found))
       TestBed.configureTestingModule({
         providers: [
           SearchService,

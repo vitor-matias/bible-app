@@ -1,4 +1,5 @@
 import { TestBed } from "@angular/core/testing"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import {
   type BibleReference,
   BibleReferenceService,
@@ -39,34 +40,35 @@ function verse(number: number, references?: string): Verse {
 
 describe("ReverseReferencesService", () => {
   let service: ReverseReferencesService
-  let offline: jasmine.SpyObj<OfflineDataService>
-  let bibleRef: jasmine.SpyObj<BibleReferenceService>
+  let offline: SpyObj<OfflineDataService>
+  let bibleRef: SpyObj<BibleReferenceService>
 
   function configure(books: Book[]): void {
     TestBed.resetTestingModule()
-    offline = jasmine.createSpyObj<OfflineDataService>("OfflineDataService", [
+    offline = createSpyObj<OfflineDataService>("OfflineDataService", [
       "getCachedBooksAsync",
     ])
-    offline.getCachedBooksAsync.and.resolveTo(books)
+    offline.getCachedBooksAsync.mockResolvedValue(books)
 
-    bibleRef = jasmine.createSpyObj<BibleReferenceService>(
-      "BibleReferenceService",
-      ["extract"],
-    )
-    bibleRef.extract.and.returnValue([])
+    bibleRef = createSpyObj<BibleReferenceService>("BibleReferenceService", [
+      "extract",
+    ])
+    bibleRef.extract.mockReturnValue([])
 
-    const bookService = jasmine.createSpyObj<BookService>("BookService", [
+    const bookService = createSpyObj<BookService>("BookService", [
       "findBook",
       "getUrlAbrv",
       "getChapterUrlSegment",
     ])
-    bookService.findBook.and.callFake((id: string) => {
+    bookService.findBook.mockImplementation((id: string) => {
       if (id === "mat" || id === "Mt") return MATTHEW
       if (id === "mrk" || id === "Mc") return MARK
       return ABOUT
     })
-    bookService.getUrlAbrv.and.callFake((book: Book) => book.abrv.toLowerCase())
-    bookService.getChapterUrlSegment.and.callFake((chapter: number) =>
+    bookService.getUrlAbrv.mockImplementation((book: Book) =>
+      book.abrv.toLowerCase(),
+    )
+    bookService.getChapterUrlSegment.mockImplementation((chapter: number) =>
       String(chapter),
     )
 
@@ -83,21 +85,25 @@ describe("ReverseReferencesService", () => {
 
   it("gives up loading when the corpus cannot be read", async () => {
     configure([])
-    offline.getCachedBooksAsync.and.rejectWith(new Error("IndexedDB refused"))
+    offline.getCachedBooksAsync.mockRejectedValue(
+      new Error("IndexedDB refused"),
+    )
 
     // Resolves rather than rejecting: its caller awaits it and then reads
     // the state, and a rejection there left the panel saying "A procurar…"
     // for good.
-    await expectAsync(service.ensureIndex()).toBeResolved()
+    await expect(service.ensureIndex()).resolves.toBeUndefined()
     expect(service.state).toBe("unavailable")
   })
 
   it("tries again after a failed build", async () => {
     configure([])
-    offline.getCachedBooksAsync.and.rejectWith(new Error("IndexedDB refused"))
+    offline.getCachedBooksAsync.mockRejectedValue(
+      new Error("IndexedDB refused"),
+    )
     await service.ensureIndex()
 
-    offline.getCachedBooksAsync.and.resolveTo([])
+    offline.getCachedBooksAsync.mockResolvedValue([])
     await service.ensureIndex()
 
     expect(offline.getCachedBooksAsync).toHaveBeenCalledTimes(2)
@@ -146,7 +152,7 @@ describe("ReverseReferencesService", () => {
         chapters: [{ bookId: "mat", number: 22, verses: [stored, verse(34)] }],
       } as Book,
     ])
-    bibleRef.extract.and.returnValue([
+    bibleRef.extract.mockReturnValue([
       {
         book: "mrk",
         chapter: 12,
@@ -177,7 +183,7 @@ describe("ReverseReferencesService", () => {
         chapters: [{ bookId: "mat", number: 22, verses: [stored, verse(1)] }],
       } as Book,
     ])
-    bibleRef.extract.and.returnValue([
+    bibleRef.extract.mockReturnValue([
       {
         book: "mat",
         chapter: 22,
@@ -325,7 +331,7 @@ describe("ReverseReferencesService", () => {
         ],
       } as Book,
     ])
-    bibleRef.extract.and.returnValue(
+    bibleRef.extract.mockReturnValue(
       refs.map((ref) => ({
         match: "Mc 12,31",
         index: 0,

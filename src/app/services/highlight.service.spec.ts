@@ -1,4 +1,5 @@
 import { TestBed } from "@angular/core/testing"
+import { firstValueFrom } from "rxjs"
 import { HighlightService, type VerseHighlight } from "./highlight.service"
 
 const STORAGE_KEY = "verseHighlights"
@@ -59,18 +60,17 @@ describe("HighlightService", () => {
     expect(service.colorFor("mrk", 22, 37)).toBe("pink")
   })
 
-  it("reports a chapter's marks by verse", (done) => {
+  it("reports a chapter's marks by verse", async () => {
     const service = makeService()
     service.toggle("mat", 22, 37, "yellow")
     service.toggle("mat", 22, 39, "green")
     service.toggle("mat", 23, 1, "blue")
 
-    service.forChapter("mat", 22).subscribe((marks) => {
-      expect(marks.get(37)).toBe("yellow")
-      expect(marks.get(39)).toBe("green")
-      expect(marks.has(1)).toBeFalse()
-      done()
-    })
+    const marks = await firstValueFrom(service.forChapter("mat", 22))
+
+    expect(marks.get(37)).toBe("yellow")
+    expect(marks.get(39)).toBe("green")
+    expect(marks.has(1)).toBe(false)
   })
 
   it("keeps marks another tab made while this one was open", () => {
@@ -130,7 +130,9 @@ describe("HighlightService", () => {
 
   it("keeps every mark of the session when storage refuses all writes", () => {
     // A privacy-mode browser: the probe write throws, so there is no storage.
-    spyOn(Storage.prototype, "setItem").and.throwError("denied")
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("denied")
+    })
     const service = makeService()
 
     service.toggle("mat", 22, 37, "yellow")
@@ -148,7 +150,7 @@ describe("HighlightService", () => {
     service.toggle("mat", 22, 36, "blue")
 
     const setItem = Storage.prototype.setItem
-    spyOn(Storage.prototype, "setItem").and.callFake(function (
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (
       this: Storage,
       key: string,
       value: string,

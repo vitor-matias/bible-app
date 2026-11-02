@@ -3,13 +3,13 @@ import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { Subject } from "rxjs"
+import type { Mock } from "vitest"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
-import {
-  type NativeChromeAction,
-  NativeChromeService,
-} from "../../services/native-chrome.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
+import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { PreferencesService } from "../../services/preferences.service"
+import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
 import { AutoScrollControlsComponent } from "./auto-scroll-controls.component"
 
 /** A page with a screenful of text below: half way through, not at its end. */
@@ -27,12 +27,12 @@ describe("AutoScrollControlsComponent", () => {
   let component: AutoScrollControlsComponent
   let fixture: ComponentFixture<AutoScrollControlsComponent>
 
-  let autoScrollServiceSpy: jasmine.SpyObj<AutoScrollService>
-  let preferencesServiceSpy: jasmine.SpyObj<PreferencesService>
-  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
+  let autoScrollServiceSpy: SpyObj<AutoScrollService>
+  let preferencesServiceSpy: SpyObj<PreferencesService>
+  let analyticsServiceSpy: SpyObj<AnalyticsService>
 
   beforeEach(async () => {
-    autoScrollServiceSpy = jasmine.createSpyObj("AutoScrollService", [
+    autoScrollServiceSpy = createSpyObj("AutoScrollService", [
       "start",
       "stop",
       "updateAutoScrollSpeed",
@@ -57,11 +57,11 @@ describe("AutoScrollControlsComponent", () => {
       get: () => 3,
     })
 
-    preferencesServiceSpy = jasmine.createSpyObj("PreferencesService", [
+    preferencesServiceSpy = createSpyObj("PreferencesService", [
       "setAutoScrollSpeed",
     ])
-    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
-    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
+    analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
+    analyticsServiceSpy.track.mockResolvedValue(undefined)
 
     await TestBed.configureTestingModule({
       imports: [AutoScrollControlsComponent, MatButtonModule, MatIconModule],
@@ -83,10 +83,10 @@ describe("AutoScrollControlsComponent", () => {
 
   // In landscape, Android's 3-button navigation bar covered the + button.
   it("keeps clear of a side system bar on a wide screen", () => {
-    // The specs run in Karma's frame: its width is the viewport the media
+    // The specs run in the test runner's frame: its width is the viewport the media
     // queries see.
     const frame = window.frameElement as HTMLElement | null
-    expect(frame).withContext("the specs run in a frame").toBeTruthy()
+    expect(frame, "the specs run in a frame").toBeTruthy()
     const width = frame?.style.width ?? ""
     if (frame) frame.style.width = "945px"
     const host = fixture.nativeElement as HTMLElement
@@ -117,15 +117,15 @@ describe("AutoScrollControlsComponent", () => {
       const mockScrollEl = scrollablePage()
       const mockLineHeightEl = document.createElement("div")
 
-      component.scrollElement = mockScrollEl
-      component.lineHeightElement = mockLineHeightEl
+      fixture.componentRef.setInput("scrollElement", mockScrollEl)
+      fixture.componentRef.setInput("lineHeightElement", mockLineHeightEl)
 
       component.toggleAutoScroll()
 
       expect(autoScrollServiceSpy.start).toHaveBeenCalledWith({
         scrollElement: mockScrollEl,
         lineHeightElement: mockLineHeightEl,
-        onStop: jasmine.any(Function),
+        onStop: expect.any(Function),
       })
     })
 
@@ -135,8 +135,8 @@ describe("AutoScrollControlsComponent", () => {
         configurable: true,
       })
 
-      component.scrollElement = undefined
-      component.lineHeightElement = undefined
+      fixture.componentRef.setInput("scrollElement", undefined)
+      fixture.componentRef.setInput("lineHeightElement", undefined)
 
       component.toggleAutoScroll()
 
@@ -159,12 +159,15 @@ describe("AutoScrollControlsComponent", () => {
         get: () => false,
         configurable: true,
       })
-      component.scrollElement = scrollablePage()
-      component.lineHeightElement = document.createElement("div")
+      fixture.componentRef.setInput("scrollElement", scrollablePage())
+      fixture.componentRef.setInput(
+        "lineHeightElement",
+        document.createElement("div"),
+      )
 
       // We want to capture the onStop callback passed to start()
       let stopCallback: (() => void) | undefined
-      autoScrollServiceSpy.start.and.callFake((config) => {
+      autoScrollServiceSpy.start.mockImplementation((config) => {
         stopCallback = config.onStop
       })
 
@@ -178,7 +181,7 @@ describe("AutoScrollControlsComponent", () => {
 
   describe("speed controls", () => {
     it("should increase speed", () => {
-      autoScrollServiceSpy.updateAutoScrollSpeed.and.returnValue(1.5)
+      autoScrollServiceSpy.updateAutoScrollSpeed.mockReturnValue(1.5)
 
       component.increaseAutoScrollSpeed()
 
@@ -189,7 +192,7 @@ describe("AutoScrollControlsComponent", () => {
     })
 
     it("should decrease speed", () => {
-      autoScrollServiceSpy.updateAutoScrollSpeed.and.returnValue(0.5)
+      autoScrollServiceSpy.updateAutoScrollSpeed.mockReturnValue(0.5)
 
       component.decreaseAutoScrollSpeed()
 
@@ -221,12 +224,12 @@ describe("AutoScrollControlsComponent", () => {
       }
 
       at(0.25004)
-      expect(button("Diminuir").disabled).toBeTrue()
-      expect(button("Aumentar").disabled).toBeFalse()
+      expect(button("Diminuir").disabled).toBe(true)
+      expect(button("Aumentar").disabled).toBe(false)
 
       at(2.99996)
-      expect(button("Diminuir").disabled).toBeFalse()
-      expect(button("Aumentar").disabled).toBeTrue()
+      expect(button("Diminuir").disabled).toBe(false)
+      expect(button("Aumentar").disabled).toBe(true)
     })
   })
 
@@ -236,7 +239,7 @@ describe("AutoScrollControlsComponent", () => {
         get: () => true,
         configurable: true,
       })
-      expect(component.autoScrollEnabled).toBeTrue()
+      expect(component.autoScrollEnabled).toBe(true)
     })
 
     it("should surface autoScrollLinesPerSecond", () => {
@@ -256,7 +259,7 @@ describe("AutoScrollControlsComponent", () => {
     })
 
     it("should delegate array label generation to service", () => {
-      autoScrollServiceSpy.getAutoScrollSpeedLabel.and.returnValue("Normal")
+      autoScrollServiceSpy.getAutoScrollSpeedLabel.mockReturnValue("Normal")
       Object.defineProperty(autoScrollServiceSpy, "autoScrollLinesPerSecond", {
         get: () => 1,
         configurable: true,
@@ -276,9 +279,9 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
   let nativeChrome: {
     enabled: boolean
     actions$: Subject<NativeChromeAction>
-    setAutoScroll: jasmine.Spy
+    setAutoScroll: Mock
   }
-  let autoScroll: jasmine.SpyObj<AutoScrollService>
+  let autoScroll: SpyObj<AutoScrollService>
   let playing: boolean
   let speed: number
   let page: HTMLElement
@@ -307,11 +310,11 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     nativeChrome = {
       enabled: true,
       actions$: actions,
-      setAutoScroll: jasmine.createSpy("setAutoScroll"),
+      setAutoScroll: vi.fn().mockName("setAutoScroll"),
     }
     playing = false
     speed = 1
-    autoScroll = jasmine.createSpyObj("AutoScrollService", [
+    autoScroll = createSpyObj("AutoScrollService", [
       "start",
       "stop",
       "updateAutoScrollSpeed",
@@ -325,19 +328,21 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
       MIN_AUTO_SCROLL_LPS: { get: () => 0.25 },
       MAX_AUTO_SCROLL_LPS: { get: () => 4 },
     })
-    autoScroll.getAutoScrollSpeedLabel.and.callFake((value) => String(value))
-    autoScroll.getAutoScrollSpeedSpokenLabel.and.callFake(
+    autoScroll.getAutoScrollSpeedLabel.mockImplementation((value) =>
+      String(value),
+    )
+    autoScroll.getAutoScrollSpeedSpokenLabel.mockImplementation(
       (value) => `${value} por extenso`,
     )
-    autoScroll.start.and.callFake(() => {
+    autoScroll.start.mockImplementation(() => {
       playing = true
     })
-    autoScroll.updateAutoScrollSpeed.and.callFake((delta) => {
+    autoScroll.updateAutoScrollSpeed.mockImplementation((delta) => {
       speed += delta
       return speed
     })
-    const analytics = jasmine.createSpyObj("AnalyticsService", ["track"])
-    analytics.track.and.resolveTo()
+    const analytics = createSpyObj("AnalyticsService", ["track"])
+    analytics.track.mockResolvedValue(undefined)
 
     await TestBed.configureTestingModule({
       imports: [AutoScrollControlsComponent],
@@ -346,7 +351,9 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
         { provide: AutoScrollService, useValue: autoScroll },
         {
           provide: PreferencesService,
-          useValue: jasmine.createSpyObj(["setAutoScrollSpeed"]),
+          useValue: {
+            setAutoScrollSpeed: vi.fn(),
+          },
         },
         { provide: AnalyticsService, useValue: analytics },
       ],
@@ -366,7 +373,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     globalThis.ResizeObserver = realResizeObserver
   })
 
-  const lastState = () => nativeChrome.setAutoScroll.calls.mostRecent().args[0]
+  const lastState = () => lastCall(vi.mocked(nativeChrome.setAutoScroll))[0]
 
   it("draws no web controls; the toolbar shows them", () => {
     expect(
@@ -385,7 +392,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
   it("plays and pauses from the toolbar", () => {
     actions.next({ id: "auto-scroll-toggle" })
     expect(autoScroll.start).toHaveBeenCalled()
-    expect(lastState()).toEqual(jasmine.objectContaining({ playing: true }))
+    expect(lastState()).toEqual(expect.objectContaining({ playing: true }))
 
     actions.next({ id: "auto-scroll-toggle" })
     expect(autoScroll.stop).toHaveBeenCalled()
@@ -394,7 +401,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
   it("changes speed from the toolbar, down to the slowest", () => {
     actions.next({ id: "auto-scroll-faster" })
     expect(lastState()).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         speedLabel: "1.25",
         speedAccessibilityLabel: "1.25 por extenso",
       }),
@@ -402,7 +409,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
 
     for (let i = 0; i < 4; i++) actions.next({ id: "auto-scroll-slower" })
     expect(lastState()).toEqual(
-      jasmine.objectContaining({ speedLabel: "0.25", canSlower: false }),
+      expect.objectContaining({ speedLabel: "0.25", canSlower: false }),
     )
   })
 
@@ -411,7 +418,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     speed = 0.25004
     actions.next({ id: "auto-scroll-toggle" })
     expect(lastState()).toEqual(
-      jasmine.objectContaining({ canSlower: false, canFaster: true }),
+      expect.objectContaining({ canSlower: false, canFaster: true }),
     )
   })
 
@@ -419,14 +426,14 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
   it("turns play off at the end of the page", () => {
     page.scrollTop = 500
     page.dispatchEvent(new Event("scroll"))
-    expect(lastState()).toEqual(jasmine.objectContaining({ canPlay: false }))
+    expect(lastState()).toEqual(expect.objectContaining({ canPlay: false }))
 
     actions.next({ id: "auto-scroll-toggle" })
     expect(autoScroll.start).not.toHaveBeenCalled()
 
     page.scrollTop = 300
     page.dispatchEvent(new Event("scroll"))
-    expect(lastState()).toEqual(jasmine.objectContaining({ canPlay: true }))
+    expect(lastState()).toEqual(expect.objectContaining({ canPlay: true }))
     actions.next({ id: "auto-scroll-toggle" })
     expect(autoScroll.start).toHaveBeenCalled()
   })
@@ -438,14 +445,14 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
 
     page.scrollTop = 500
     page.dispatchEvent(new Event("scroll"))
-    expect(lastState()).toEqual(jasmine.objectContaining({ canPlay: false }))
+    expect(lastState()).toEqual(expect.objectContaining({ canPlay: false }))
 
     Object.defineProperty(page, "scrollHeight", {
       value: 1500,
       configurable: true,
     })
     resized()
-    expect(lastState()).toEqual(jasmine.objectContaining({ canPlay: true }))
+    expect(lastState()).toEqual(expect.objectContaining({ canPlay: true }))
   })
 
   it("gives the toolbar back when closed", () => {

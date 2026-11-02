@@ -1,5 +1,6 @@
 import { PLATFORM_ID } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { PreferencesService } from "./preferences.service"
 import { STUDY_MODE_MIN_WIDTH, StudyModeService } from "./study-mode.service"
 
@@ -9,15 +10,15 @@ function configure(
   platformId: object | string = "browser",
 ): {
   service: StudyModeService
-  preferences: jasmine.SpyObj<PreferencesService>
+  preferences: SpyObj<PreferencesService>
   /** Flips the viewport across the threshold, as the media query would. */
   setWide: (wide: boolean) => void
 } {
-  const preferences = jasmine.createSpyObj<PreferencesService>(
-    "PreferencesService",
-    ["getStudyMode", "setStudyMode"],
-  )
-  preferences.getStudyMode.and.returnValue(stored)
+  const preferences = createSpyObj<PreferencesService>("PreferencesService", [
+    "getStudyMode",
+    "setStudyMode",
+  ])
+  preferences.getStudyMode.mockReturnValue(stored)
 
   TestBed.configureTestingModule({
     providers: [
@@ -37,7 +38,7 @@ function configure(
       listeners.push(handler),
     removeEventListener: () => {},
   }
-  spyOn(window, "matchMedia").and.returnValue(
+  vi.spyOn(window, "matchMedia").mockReturnValue(
     query as unknown as MediaQueryList,
   )
 
@@ -56,31 +57,31 @@ describe("StudyModeService", () => {
 
   it("offers study mode at the minimum supported width", () => {
     const { service } = configure(STUDY_MODE_MIN_WIDTH, false)
-    expect(service.isAvailable).toBeTrue()
+    expect(service.isAvailable).toBe(true)
   })
 
   it("does not offer it one pixel below that width", () => {
     const { service } = configure(STUDY_MODE_MIN_WIDTH - 1, false)
-    expect(service.isAvailable).toBeFalse()
+    expect(service.isAvailable).toBe(false)
   })
 
   it("restores the stored preference on start", () => {
     const { service } = configure(1400, true)
-    expect(service.isEnabled).toBeTrue()
-    expect(service.isActive).toBeTrue()
+    expect(service.isEnabled).toBe(true)
+    expect(service.isActive).toBe(true)
   })
 
   it("stays inactive on a narrow window without forgetting the preference", () => {
     const { service } = configure(800, true)
-    expect(service.isEnabled).toBeTrue()
-    expect(service.isAvailable).toBeFalse()
-    expect(service.isActive).toBeFalse()
+    expect(service.isEnabled).toBe(true)
+    expect(service.isAvailable).toBe(false)
+    expect(service.isActive).toBe(false)
   })
 
   it("persists the preference when it is toggled", () => {
     const { service, preferences } = configure(1400, false)
     service.toggle()
-    expect(service.isEnabled).toBeTrue()
+    expect(service.isEnabled).toBe(true)
     expect(preferences.setStudyMode).toHaveBeenCalledWith(true)
   })
 
@@ -103,37 +104,39 @@ describe("StudyModeService", () => {
 
   it("re-measures when the viewport crosses the threshold", () => {
     const { service, setWide } = configure(800, true)
-    expect(service.isAvailable).toBeFalse()
+    expect(service.isAvailable).toBe(false)
 
     setWide(true)
 
-    expect(service.isAvailable).toBeTrue()
-    expect(service.isActive).toBeTrue()
+    expect(service.isAvailable).toBe(true)
+    expect(service.isActive).toBe(true)
   })
 
   it("gives study mode up again when the window narrows", () => {
     const { service, setWide } = configure(1400, true)
-    expect(service.isActive).toBeTrue()
+    expect(service.isActive).toBe(true)
 
     setWide(false)
 
-    expect(service.isActive).toBeFalse()
+    expect(service.isActive).toBe(false)
     // The preference outlives the window it could not be shown in.
-    expect(service.isEnabled).toBeTrue()
+    expect(service.isEnabled).toBe(true)
   })
 
   it("works with a MediaQueryList that only has addListener", () => {
     // Safari before 14 and the WebViews built on it. Calling addEventListener
     // there would throw while the service is being constructed.
+    const preferences = createSpyObj<PreferencesService>("PreferencesService", [
+      "getStudyMode",
+      "setStudyMode",
+    ])
+    preferences.getStudyMode.mockReturnValue(true)
     TestBed.configureTestingModule({
       providers: [
         StudyModeService,
         {
           provide: PreferencesService,
-          useValue: jasmine.createSpyObj<PreferencesService>(
-            "PreferencesService",
-            { getStudyMode: true, setStudyMode: undefined },
-          ),
+          useValue: preferences,
         },
         { provide: PLATFORM_ID, useValue: "browser" },
       ],
@@ -145,16 +148,16 @@ describe("StudyModeService", () => {
       addListener: (handler: () => void) => listeners.push(handler),
       removeListener: (handler: () => void) => removed.push(handler),
     }
-    spyOn(window, "matchMedia").and.returnValue(
+    vi.spyOn(window, "matchMedia").mockReturnValue(
       legacyQuery as unknown as MediaQueryList,
     )
 
     const service = TestBed.inject(StudyModeService)
-    expect(service.isAvailable).toBeFalse()
+    expect(service.isAvailable).toBe(false)
 
     legacyQuery.matches = true
     for (const handler of listeners) handler()
-    expect(service.isAvailable).toBeTrue()
+    expect(service.isAvailable).toBe(true)
 
     // And the listener comes off again with the service.
     TestBed.resetTestingModule()
@@ -164,44 +167,43 @@ describe("StudyModeService", () => {
   it("keeps up with the window where there is no matchMedia to ask", () => {
     // Some embedded browsers have no matchMedia. The service falls back to
     // the window's own width, and to the resize event to hear it change.
+    const preferences = createSpyObj<PreferencesService>("PreferencesService", [
+      "getStudyMode",
+      "setStudyMode",
+    ])
+    preferences.getStudyMode.mockReturnValue(true)
     TestBed.configureTestingModule({
       providers: [
         StudyModeService,
         {
           provide: PreferencesService,
-          useValue: jasmine.createSpyObj<PreferencesService>(
-            "PreferencesService",
-            {
-              getStudyMode: true,
-              setStudyMode: undefined,
-            },
-          ),
+          useValue: preferences,
         },
         { provide: PLATFORM_ID, useValue: "browser" },
       ],
     })
-    spyOn(window, "matchMedia" as never).and.returnValue(
-      undefined as unknown as never,
+    vi.spyOn(window, "matchMedia").mockReturnValue(
+      undefined as unknown as MediaQueryList,
     )
     const widths = [800, 1400]
-    spyOnProperty(window, "innerWidth", "get").and.callFake(
+    vi.spyOn(window, "innerWidth", "get").mockImplementation(
       () => widths[0] as number,
     )
 
     const service = TestBed.inject(StudyModeService)
-    expect(service.isAvailable).toBeFalse()
+    expect(service.isAvailable).toBe(false)
 
     widths[0] = widths[1]
     window.dispatchEvent(new Event("resize"))
 
-    expect(service.isAvailable).toBeTrue()
-    expect(service.isActive).toBeTrue()
+    expect(service.isAvailable).toBe(true)
+    expect(service.isActive).toBe(true)
   })
 
   it("stays unavailable while server-rendering, with no window to measure", () => {
     const { service, preferences } = configure(1400, true, "server")
-    expect(service.isAvailable).toBeFalse()
-    expect(service.isEnabled).toBeFalse()
+    expect(service.isAvailable).toBe(false)
+    expect(service.isEnabled).toBe(false)
     expect(preferences.getStudyMode).not.toHaveBeenCalled()
   })
 })

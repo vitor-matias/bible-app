@@ -106,7 +106,7 @@ describe("StudySidebarComponent", () => {
 
     component.toggleGroup(group)
 
-    expect(component.isExpanded(group)).toBeFalse()
+    expect(component.isExpanded(group)).toBe(false)
   })
 
   it("renders a group opening without waiting for another pass", () => {
@@ -274,7 +274,7 @@ describe("StudySidebarComponent", () => {
       component.clearFilter()
       fixture.detectChanges()
 
-      expect(component.filtering).toBeFalse()
+      expect(component.filtering).toBe(false)
       expect(fixture.nativeElement.querySelector(".group-toggle")).toBeTruthy()
     })
 
@@ -334,7 +334,7 @@ describe("StudySidebarComponent", () => {
 
     setInputs({ books: [...BOOKS] })
 
-    expect(component.isExpanded(group)).toBeFalse()
+    expect(component.isExpanded(group)).toBe(false)
   })
 
   it("renders each book of the open group with its chapter count", () => {
@@ -491,7 +491,7 @@ describe("StudySidebarComponent", () => {
       component.onChapterClick({ bookId: "mat", number: 2 } as Chapter, click)
 
       // Not taken over: the browser opens the address in a new tab.
-      expect(click.defaultPrevented).toBeFalse()
+      expect(click.defaultPrevented).toBe(false)
       expect(asked).toBe(0)
     })
 
@@ -502,7 +502,7 @@ describe("StudySidebarComponent", () => {
 
       component.onChapterClick({ bookId: "mat", number: 2 } as Chapter, click)
 
-      expect(click.defaultPrevented).toBeTrue()
+      expect(click.defaultPrevented).toBe(true)
       expect(asked).toBe(1)
     })
   })

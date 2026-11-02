@@ -1,5 +1,6 @@
 import { Component } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
+import { MatButton } from "@angular/material/button"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { provideNoopAnimations } from "@angular/platform-browser/animations"
 import { RIBBON_COLORS } from "./services/bookmark-ribbons.service"
@@ -21,6 +22,17 @@ describe("global styles", () => {
   afterEach(() => {
     TestBed.inject(MatSnackBar).dismiss()
     document.documentElement.style.removeProperty("--app-inset-bottom")
+  })
+
+  // Swapping in PT Serif rewrapped the prerendered chapter once it was on
+  // screen, which alone made for a CLS of 0.75 on /gn/1.
+  it("does not swap the reader's font in after the text has painted", () => {
+    const faces = Array.from(document.fonts).filter((face) =>
+      face.family.includes("PT Serif"),
+    )
+
+    expect(faces.length).toBeGreaterThan(0)
+    expect(faces.every((face) => face.display === "block")).toBe(true)
   })
 
   // The search result counts appeared on top of the Android navigation bar.
@@ -54,6 +66,71 @@ describe("global styles", () => {
     const label = container.querySelector(".mdc-button__label") as HTMLElement
 
     expect(getComputedStyle(label).color).toBe("rgb(226, 192, 163)")
+  })
+
+  // Opened offline, the iOS app's "Tentar novamente" was dark brown with dark
+  // text: styles.css set the --mdc-filled-button-* names, which Material 22
+  // no longer reads, and the span rule painted the label the text colour.
+  describe("the retry button when the Bible can't load", () => {
+    // Disabled while a retry runs ("A tentar…").
+    @Component({
+      imports: [MatButton],
+      template: `<div class="books-unavailable">
+        <button type="button" mat-flat-button>Tentar novamente</button>
+        <button type="button" mat-flat-button disabled>A tentar…</button>
+      </div>`,
+    })
+    class RetryHostComponent {}
+
+    let wasDark: boolean
+    beforeEach(() => {
+      wasDark = document.documentElement.classList.contains("dark-theme")
+    })
+    afterEach(() => {
+      document.body.classList.remove("native-chrome", "platform-ios")
+      document.documentElement.classList.toggle("dark-theme", wasDark)
+    })
+
+    for (const ios of [false, true]) {
+      for (const dark of [false, true]) {
+        it(`fills with the accent and stays legible ${
+          ios ? "in the iOS app" : "on the web"
+        }, ${dark ? "dark" : "light"}`, () => {
+          document.body.classList.toggle("native-chrome", ios)
+          document.body.classList.toggle("platform-ios", ios)
+          document.documentElement.classList.toggle("dark-theme", dark)
+          const fixture = TestBed.createComponent(RetryHostComponent)
+          fixture.detectChanges()
+          const [retry, retrying] = Array.from(
+            fixture.nativeElement.querySelectorAll("button"),
+          ) as HTMLElement[]
+          const probe = document.createElement("div")
+          fixture.nativeElement.appendChild(probe)
+          const resolve = (value: string) => {
+            probe.style.color = value
+            return getComputedStyle(probe).color
+          }
+          const fill = (button: HTMLElement) =>
+            getComputedStyle(button).backgroundColor
+          const label = (button: HTMLElement) =>
+            getComputedStyle(
+              button.querySelector(".mdc-button__label") as HTMLElement,
+            ).color
+
+          // Brown on the web, the text colour in the iOS app.
+          expect(fill(retry)).toBe(
+            ios ? resolve("var(--text-color)") : "rgb(84, 61, 39)",
+          )
+          expect(fill(retrying)).toBe(resolve("var(--border-color)"))
+          for (const button of [retry, retrying]) {
+            expect(
+              contrastRatio(label(button), fill(button)),
+              button.textContent?.trim() ?? "",
+            ).toBeGreaterThanOrEqual(4.5)
+          }
+        })
+      }
+    }
   })
 
   // A section title split as "MINISTÉ-RIO" looked like a misprint.
@@ -262,7 +339,7 @@ describe("global styles", () => {
   describe("the reader's side insets in the iOS app", () => {
     let frame: HTMLIFrameElement
 
-    // The rule is for two-page widths, wider than the Karma frame: a page of
+    // The rule is for two-page widths, wider than the test frame: a page of
     // that width with this one's styles, a reader with the scrolling view's
     // text and footer and the paged view's fixed footer, and the Duo's
     // insets. Returns how far each stays from the screen's sides.
@@ -511,18 +588,22 @@ describe("global styles", () => {
     }
 
     for (const dark of [false, true]) {
-      it(`keep 3:1 against the cards in the ${dark ? "dark" : "light"} theme`, () => {
+      it(`keep 3:1 against the cards in the ${
+        dark ? "dark" : "light"
+      } theme`, () => {
         document.documentElement.classList.toggle("dark-theme", dark)
         const card = resolve("var(--card-background)")
         for (const ribbon of RIBBON_COLORS) {
           const tone = resolve(`var(--ribbon-${ribbon.value})`)
-          expect(contrastRatio(tone, card))
-            .withContext(ribbon.value)
-            .toBeGreaterThanOrEqual(3)
+          expect(
+            contrastRatio(tone, card),
+            ribbon.value,
+          ).toBeGreaterThanOrEqual(3)
           // Text on the ribbon (its passage, a chapter number) stays legible.
-          expect(contrastRatio(resolve("var(--ribbon-text)"), tone))
-            .withContext(`text on ${ribbon.value}`)
-            .toBeGreaterThanOrEqual(4)
+          expect(
+            contrastRatio(resolve("var(--ribbon-text)"), tone),
+            `text on ${ribbon.value}`,
+          ).toBeGreaterThanOrEqual(4)
         }
       })
     }
@@ -535,9 +616,8 @@ describe("global styles", () => {
             resolve(`var(--ribbon-light-${ribbon.value})`),
             resolve("antiquewhite"),
           ),
-        )
-          .withContext(ribbon.value)
-          .toBeGreaterThanOrEqual(3)
+          ribbon.value,
+        ).toBeGreaterThanOrEqual(3)
       }
     })
   })

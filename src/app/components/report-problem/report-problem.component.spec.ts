@@ -1,10 +1,4 @@
-import {
-  ComponentFixture,
-  fakeAsync,
-  flush,
-  TestBed,
-  tick,
-} from "@angular/core/testing"
+import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { ReactiveFormsModule } from "@angular/forms"
 import {
   MAT_DIALOG_DATA,
@@ -19,14 +13,15 @@ import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
 import { AnalyticsService } from "../../services/analytics.service"
 import { ProblemReportService } from "../../services/problem-report.service"
 import { ToastService } from "../../services/toast.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { ReportProblemComponent } from "./report-problem.component"
 
 describe("ReportProblemComponent", () => {
   let component: ReportProblemComponent
   let fixture: ComponentFixture<ReportProblemComponent>
-  let mockDialogRef: jasmine.SpyObj<MatDialogRef<ReportProblemComponent>>
-  let snackBarSpy: jasmine.SpyObj<MatSnackBar>
-  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
+  let mockDialogRef: SpyObj<MatDialogRef<ReportProblemComponent>>
+  let snackBarSpy: SpyObj<MatSnackBar>
+  let analyticsServiceSpy: SpyObj<AnalyticsService>
 
   const mockDialogData = {
     book: { id: "gen", name: "Gênesis", shortName: "Génesis" },
@@ -34,14 +29,14 @@ describe("ReportProblemComponent", () => {
   }
 
   beforeEach(async () => {
-    mockDialogRef = jasmine.createSpyObj("MatDialogRef", ["close"])
-    snackBarSpy = jasmine.createSpyObj("MatSnackBar", ["open"])
-    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", [
+    mockDialogRef = createSpyObj("MatDialogRef", ["close"])
+    snackBarSpy = createSpyObj("MatSnackBar", ["open"])
+    analyticsServiceSpy = createSpyObj("AnalyticsService", [
       "trackDelivered",
       "areAnalyticsAvailable",
     ])
-    analyticsServiceSpy.trackDelivered.and.returnValue(Promise.resolve())
-    analyticsServiceSpy.areAnalyticsAvailable.and.returnValue(true)
+    analyticsServiceSpy.trackDelivered.mockResolvedValue(undefined)
+    analyticsServiceSpy.areAnalyticsAvailable.mockReturnValue(true)
 
     await TestBed.configureTestingModule({
       imports: [
@@ -76,7 +71,11 @@ describe("ReportProblemComponent", () => {
   })
 
   afterEach(() => {
-    delete (window as { umami?: unknown }).umami
+    delete (
+      window as {
+        umami?: unknown
+      }
+    ).umami
   })
 
   it("should create", () => {
@@ -93,17 +92,17 @@ describe("ReportProblemComponent", () => {
   it("should initialize form with empty values", () => {
     expect(component.reportForm.get("topic")?.value).toBe("")
     expect(component.reportForm.get("details")?.value).toBe("")
-    expect(component.reportForm.valid).toBeFalse()
+    expect(component.reportForm.valid).toBe(false)
   })
 
   it("should require topic and details", () => {
     component.reportForm.get("topic")?.setValue("")
     component.reportForm.get("details")?.setValue("")
-    expect(component.reportForm.valid).toBeFalse()
+    expect(component.reportForm.valid).toBe(false)
 
     component.reportForm.get("topic")?.setValue("typo")
     component.reportForm.get("details")?.setValue("test missing word")
-    expect(component.reportForm.valid).toBeTrue()
+    expect(component.reportForm.valid).toBe(true)
   })
 
   it("should enforce max length on details", () => {
@@ -111,10 +110,10 @@ describe("ReportProblemComponent", () => {
     component.reportForm.get("topic")?.setValue("typo")
     component.reportForm.get("details")?.setValue(longString)
 
-    expect(component.reportForm.valid).toBeFalse()
-    expect(
-      component.reportForm.get("details")?.hasError("maxlength"),
-    ).toBeTrue()
+    expect(component.reportForm.valid).toBe(false)
+    expect(component.reportForm.get("details")?.hasError("maxlength")).toBe(
+      true,
+    )
   })
 
   it("should call dialogRef.close() onCancel", () => {
@@ -131,13 +130,14 @@ describe("ReportProblemComponent", () => {
     expect(snackBarSpy.open).not.toHaveBeenCalled()
   })
 
-  it("should track event and close dialog if form is valid on submit", fakeAsync(() => {
+  it("should track event and close dialog if form is valid on submit", async () => {
+    vi.useFakeTimers()
     component.reportForm.get("topic")?.setValue("formatting")
     component.reportForm.get("details")?.setValue("bold text missing")
     const submitPromise = component.onSubmit()
 
-    tick(600)
-    flush()
+    await vi.advanceTimersByTimeAsync(600)
+    await vi.runAllTimersAsync()
 
     expect(analyticsServiceSpy.trackDelivered).toHaveBeenCalledWith(
       "report_problem",
@@ -156,21 +156,22 @@ describe("ReportProblemComponent", () => {
     expect(mockDialogRef.close).toHaveBeenCalledWith(true)
 
     void submitPromise
-  }))
+  })
 
-  it("should show an error snackbar and keep the dialog open when analytics transport is unavailable", fakeAsync(() => {
+  it("should show an error snackbar and keep the dialog open when analytics transport is unavailable", async () => {
+    vi.useFakeTimers()
     component.reportForm.get("topic")?.setValue("other")
     component.reportForm.get("details")?.setValue("missing analytics script")
     window.umami = undefined
-    analyticsServiceSpy.trackDelivered.and.rejectWith(
+    analyticsServiceSpy.trackDelivered.mockRejectedValue(
       new Error("Analytics transport unavailable"),
     )
 
-    spyOn(console, "error")
+    vi.spyOn(console, "error").mockReturnValue(undefined)
 
     const submitPromise = component.onSubmit()
-    tick(600)
-    flush()
+    await vi.advanceTimersByTimeAsync(600)
+    await vi.runAllTimersAsync()
 
     expect(snackBarSpy.open).toHaveBeenCalledWith(
       "Erro ao enviar o relatório. Tente novamente.",
@@ -180,20 +181,23 @@ describe("ReportProblemComponent", () => {
     expect(mockDialogRef.close).not.toHaveBeenCalled()
 
     void submitPromise
-  }))
+  })
 
-  it("should show an error snackbar when tracking throws", fakeAsync(() => {
+  it("should show an error snackbar when tracking throws", async () => {
+    vi.useFakeTimers()
     component.reportForm.get("topic")?.setValue("typo")
     component.reportForm.get("details")?.setValue("tracking failure")
 
     const trackingError = new Error("tracking failed")
-    analyticsServiceSpy.trackDelivered.and.throwError(trackingError.message)
+    analyticsServiceSpy.trackDelivered.mockImplementation(() => {
+      throw new Error(trackingError.message)
+    })
 
-    const consoleSpy = spyOn(console, "error")
+    const consoleSpy = vi.spyOn(console, "error").mockReturnValue(undefined)
 
     const submitPromise = component.onSubmit()
-    tick(600)
-    flush()
+    await vi.advanceTimersByTimeAsync(600)
+    await vi.runAllTimersAsync()
 
     expect(consoleSpy).toHaveBeenCalled()
     expect(snackBarSpy.open).toHaveBeenCalledWith(
@@ -204,5 +208,5 @@ describe("ReportProblemComponent", () => {
     expect(mockDialogRef.close).not.toHaveBeenCalled()
 
     void submitPromise
-  }))
+  })
 })

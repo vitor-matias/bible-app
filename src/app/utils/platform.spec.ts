@@ -6,23 +6,23 @@ describe("isBrowser", () => {
   // global; the guards that call this are covered by the server-rendering
   // specs of their own consumers (ThemeService, KeepAwakeService, the reader).
   it("is true in a browser", () => {
-    expect(isBrowser()).toBeTrue()
+    expect(isBrowser()).toBe(true)
   })
 })
 
 describe("isServiceWorkerEnabled", () => {
   it("is enabled for production web builds", () => {
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(false)
-    expect(isServiceWorkerEnabled(false)).toBeTrue()
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(false)
+    expect(isServiceWorkerEnabled(false)).toBe(true)
   })
 
   it("is disabled in dev mode", () => {
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(false)
-    expect(isServiceWorkerEnabled(true)).toBeFalse()
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(false)
+    expect(isServiceWorkerEnabled(true)).toBe(false)
   })
 
   it("is disabled inside the native shells", () => {
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
-    expect(isServiceWorkerEnabled(false)).toBeFalse()
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true)
+    expect(isServiceWorkerEnabled(false)).toBe(false)
   })
 })

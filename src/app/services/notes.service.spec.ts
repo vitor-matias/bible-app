@@ -1,4 +1,5 @@
 import { TestBed } from "@angular/core/testing"
+import { firstValueFrom } from "rxjs"
 import { NotesService, type VerseNote } from "./notes.service"
 
 const STORAGE_KEY = "verseNotes"
@@ -18,7 +19,9 @@ describe("NotesService", () => {
     const service = makeService()
     // The probe behind safeLocalStorage() ran when the service was made; a
     // storage can still refuse later (quota, a revoked permission).
-    spyOn(Storage.prototype, "getItem").and.throwError("SecurityError")
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("SecurityError")
+    })
 
     expect(() => service.saveNote("mat", 22, 39, "aqui")).not.toThrow()
     expect(service.getNote("mat", 22, 39)?.text).toBe("aqui")
@@ -43,12 +46,12 @@ describe("NotesService", () => {
 
   it("does not count saving the same text again as an edit", () => {
     const service = makeService()
-    jasmine.clock().install()
-    jasmine.clock().mockDate(new Date(1000))
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(1000))
     service.saveNote("mat", 22, 39, "igual")
-    jasmine.clock().mockDate(new Date(5000))
+    vi.setSystemTime(new Date(5000))
     service.saveNote("mat", 22, 39, "igual ")
-    jasmine.clock().uninstall()
+    vi.useRealTimers()
 
     expect(service.getNote("mat", 22, 39)?.updatedAt).toBe(1000)
   })
@@ -93,16 +96,15 @@ describe("NotesService", () => {
     expect(service.getNote("mrk", 22, 39)?.text).toBe("outro livro")
   })
 
-  it("lists a chapter's notes in verse order", (done) => {
+  it("lists a chapter's notes in verse order", async () => {
     const service = makeService()
     service.saveNote("mat", 22, 40, "quarenta")
     service.saveNote("mat", 22, 12, "doze")
     service.saveNote("mat", 23, 1, "outro capítulo")
 
-    service.notesForChapter("mat", 22).subscribe((notes) => {
-      expect(notes.map((note) => note.verse)).toEqual([12, 40])
-      done()
-    })
+    const notes = await firstValueFrom(service.notesForChapter("mat", 22))
+
+    expect(notes.map((note) => note.verse)).toEqual([12, 40])
   })
 
   it("emits the updated chapter list as notes are written", () => {

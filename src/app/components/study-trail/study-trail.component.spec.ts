@@ -1,6 +1,7 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { provideRouter } from "@angular/router"
 import type { TrailEntry } from "../../services/reading-trail.service"
+import { lastCall } from "../../testing/spy-obj"
 import { StudyTrailComponent } from "./study-trail.component"
 
 function entry(label: string, key = label): TrailEntry {
@@ -29,7 +30,7 @@ describe("StudyTrailComponent", () => {
   it("names where the reader is before there is any way back", () => {
     setEntries([entry("Mateus 22")])
 
-    expect(component.hasTrail).toBeFalse()
+    expect(component.hasTrail).toBe(false)
     // The heading is the point of the row even with nowhere to go back to;
     // what it has nothing to offer yet is a way to clear the trail.
     const current = fixture.nativeElement.querySelector(".trail-current")
@@ -49,8 +50,8 @@ describe("StudyTrailComponent", () => {
     // The trail records the way taken: Mateus → Lucas → Mateus keeps all
     // three steps. Tracked by key, the repeat breaks the loop's contract that
     // every track value is unique, and Angular reports it (NG0955).
-    const warn = spyOn(console, "warn")
-    const error = spyOn(console, "error")
+    const warn = vi.spyOn(console, "warn").mockReturnValue(undefined)
+    const error = vi.spyOn(console, "error").mockReturnValue(undefined)
 
     const mateus = entry("Mateus 22")
     const lucas = entry("Lucas 14")
@@ -64,10 +65,10 @@ describe("StudyTrailComponent", () => {
       fixture.nativeElement.querySelectorAll(".trail-item"),
     ).map((item) => (item as HTMLElement).textContent?.trim().split(/\s*›/)[0])
     expect(labels).toEqual(["Mateus 22", "Lucas 14", "Mateus 22", "Marcos 12"])
-    const complaints = [...warn.calls.allArgs(), ...error.calls.allArgs()]
+    const complaints = [...warn.mock.calls, ...error.mock.calls]
       .flat()
       .map(String)
-    expect(complaints.some((line) => line.includes("NG0955"))).toBeFalse()
+    expect(complaints.some((line) => line.includes("NG0955"))).toBe(false)
   })
 
   it("lists the way back once the reader has travelled", () => {
@@ -103,12 +104,12 @@ describe("StudyTrailComponent", () => {
   it("scrolls forward to the step the reader is on", () => {
     setEntries([entry("Mateus 22"), entry("Lucas 14")])
     const list = fixture.nativeElement.querySelector(".trail-list")
-    const scrollTo = spyOn(list, "scrollTo")
+    const scrollTo = vi.spyOn(list, "scrollTo").mockReturnValue(undefined)
 
     setEntries([entry("Mateus 22"), entry("Lucas 14"), entry("Marcos 12")])
 
     expect(scrollTo).toHaveBeenCalled()
-    const [options] = scrollTo.calls.mostRecent().args as [ScrollToOptions]
+    const [options] = lastCall(scrollTo) as [ScrollToOptions]
     expect(options.left).toBe(list.scrollWidth)
   })
 

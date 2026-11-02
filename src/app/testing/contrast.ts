@@ -1,7 +1,17 @@
-/** The channels of a computed `rgb()`/`rgba()` colour, alpha last. */
+/**
+ * The channels (0–255) of a computed colour, alpha last: `rgb()`/`rgba()`, or
+ * the `color(srgb r g b / a)` that Chrome computes a `color-mix()` to.
+ */
 function channels(cssColor: string): [number, number, number, number] {
   const [r, g, b, a = 1] = (cssColor.match(/[\d.]+/g) ?? []).map(Number)
-  return [r, g, b, a]
+  const scale = cssColor.startsWith("color(srgb") ? 255 : 1
+  return [r * scale, g * scale, b * scale, a]
+}
+
+/** `top` painted over the opaque `[r, g, b]` under it. */
+function paint(top: string, under: number[]): number[] {
+  const [r, g, b, alpha] = channels(top)
+  return [r, g, b].map((channel, i) => channel * alpha + under[i] * (1 - alpha))
 }
 
 /** WCAG relative luminance of opaque `[r, g, b]` channels. */
@@ -17,20 +27,17 @@ function luminance([r, g, b]: number[]): number {
 
 /**
  * WCAG contrast of `foreground` on `background`. A translucent background is
- * first painted over `under`, the opaque colour it sits on.
+ * first painted over `under`, the opaque colour it sits on, and a translucent
+ * foreground over the background.
  */
 export function contrastRatio(
   foreground: string,
   background: string,
   under = "rgb(255, 255, 255)",
 ): number {
-  const [r, g, b, alpha] = channels(background)
-  const base = channels(under)
-  const painted = [r, g, b].map(
-    (channel, i) => channel * alpha + base[i] * (1 - alpha),
-  )
+  const painted = paint(background, channels(under))
   const [lighter, darker] = [
-    luminance(channels(foreground)),
+    luminance(paint(foreground, painted)),
     luminance(painted),
   ].sort((a, b) => b - a)
   return (lighter + 0.05) / (darker + 0.05)

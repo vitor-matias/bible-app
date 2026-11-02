@@ -136,7 +136,7 @@ describe("OfflineSearchService", () => {
     })
 
     expect((await service.search("luz"))?.length).toBe(5000)
-    expect(ran).toBeTrue()
+    expect(ran).toBe(true)
   })
 
   it("finds nothing for a query without words", async () => {

@@ -98,7 +98,7 @@ describe("BibleReferenceService", () => {
       expect(job?.chapter).toBe(38)
       expect(job?.endChapter).toBe(39)
       // The neighbours parse as they did before.
-      expect(refs.some((ref) => ref.chapter === 2)).toBeTrue()
+      expect(refs.some((ref) => ref.chapter === 2)).toBe(true)
       const john = refs.find((ref) => /Jo /.test(ref.match))
       expect(john?.verses).toEqual([{ type: "range", start: 1, end: 3 }])
     })

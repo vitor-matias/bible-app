@@ -1,28 +1,34 @@
 import { TestBed } from "@angular/core/testing"
+import type { Mock } from "vitest"
+import { createSpyObj } from "../testing/spy-obj"
 import { DatabaseService } from "./database.service"
 
 describe("DatabaseService", () => {
   let service: DatabaseService
-  let mockIndexedDB: { open: jasmine.Spy }
+  let mockIndexedDB: {
+    open: Mock
+  }
   let mockIDBDatabase: {
-    transaction: jasmine.Spy
-    objectStoreNames: { contains: jasmine.Spy }
-    createObjectStore: jasmine.Spy
+    transaction: Mock
+    objectStoreNames: {
+      contains: Mock
+    }
+    createObjectStore: Mock
     onversionchange: (() => void) | null
-    close: jasmine.Spy | (() => void)
+    close: Mock | (() => void)
   }
   let mockIDBTransaction: {
-    objectStore: jasmine.Spy
+    objectStore: Mock
     oncomplete: () => void
     onerror: () => void
     onabort: () => void
     error: Error | null
   }
   let mockIDBObjectStore: {
-    getAll: jasmine.Spy
-    put: jasmine.Spy
-    delete: jasmine.Spy
-    clear: jasmine.Spy
+    getAll: Mock
+    put: Mock
+    delete: Mock
+    clear: Mock
   }
   let mockIDBRequest: {
     result: unknown
@@ -35,7 +41,7 @@ describe("DatabaseService", () => {
 
   beforeEach(() => {
     // Reset mocks for each test
-    mockIDBObjectStore = jasmine.createSpyObj("IDBObjectStore", [
+    mockIDBObjectStore = createSpyObj("IDBObjectStore", [
       "getAll",
       "put",
       "delete",
@@ -43,9 +49,10 @@ describe("DatabaseService", () => {
     ])
 
     mockIDBTransaction = {
-      objectStore: jasmine
-        .createSpy("objectStore")
-        .and.returnValue(mockIDBObjectStore),
+      objectStore: vi
+        .fn()
+        .mockName("objectStore")
+        .mockReturnValue(mockIDBObjectStore),
       oncomplete: null as unknown as () => void, // To be assigned by service
       onerror: null as unknown as () => void, // To be assigned by service
       onabort: null as unknown as () => void, // To be assigned by service
@@ -54,15 +61,16 @@ describe("DatabaseService", () => {
 
     // Add transaction method which is used to create transactions
     mockIDBDatabase = {
-      transaction: jasmine
-        .createSpy("transaction")
-        .and.returnValue(mockIDBTransaction),
+      transaction: vi
+        .fn()
+        .mockName("transaction")
+        .mockReturnValue(mockIDBTransaction),
       objectStoreNames: {
-        contains: jasmine.createSpy("contains").and.returnValue(false),
+        contains: vi.fn().mockName("contains").mockReturnValue(false),
       },
-      createObjectStore: jasmine.createSpy("createObjectStore"),
+      createObjectStore: vi.fn().mockName("createObjectStore"),
       onversionchange: null,
-      close: jasmine.createSpy("close"),
+      close: vi.fn().mockName("close"),
     }
 
     mockIDBRequest = {
@@ -75,16 +83,20 @@ describe("DatabaseService", () => {
     }
 
     mockIndexedDB = {
-      open: jasmine.createSpy("open").and.returnValue(mockIDBRequest),
+      open: vi.fn().mockName("open").mockReturnValue(mockIDBRequest),
     }
 
     // Mock global indexedDB
     try {
-      spyOnProperty(window, "indexedDB", "get").and.returnValue(
+      vi.spyOn(window, "indexedDB", "get").mockReturnValue(
         mockIndexedDB as unknown as IDBFactory,
       )
     } catch (_e) {
-      ;(window as unknown as { indexedDB: unknown }).indexedDB = mockIndexedDB
+      ;(
+        window as unknown as {
+          indexedDB: unknown
+        }
+      ).indexedDB = mockIndexedDB
     }
 
     TestBed.configureTestingModule({})
@@ -103,7 +115,7 @@ describe("DatabaseService", () => {
         onsuccess: null as unknown as () => void,
         onerror: null as unknown as () => void,
       }
-      mockIDBObjectStore.getAll.and.returnValue(mockGetAllRequest)
+      mockIDBObjectStore.getAll.mockReturnValue(mockGetAllRequest)
 
       // Start the call
       const promise = service.getAll("testStore")
@@ -131,7 +143,7 @@ describe("DatabaseService", () => {
     })
 
     it("should return empty array if database fails to open", async () => {
-      spyOn(console, "error")
+      vi.spyOn(console, "error").mockReturnValue(undefined)
       mockIDBRequest.onerror = null as unknown as (event?: unknown) => void // Prepare
 
       const promise = service.getAll("testStore")
@@ -157,7 +169,7 @@ describe("DatabaseService", () => {
         onerror: null as unknown as () => void,
         error: new Error("GetAll failed"),
       }
-      mockIDBObjectStore.getAll.and.returnValue(mockGetAllRequest)
+      mockIDBObjectStore.getAll.mockReturnValue(mockGetAllRequest)
 
       const promise = service.getAll("testStore")
 
@@ -168,7 +180,7 @@ describe("DatabaseService", () => {
       // Fail Request
       mockGetAllRequest.onerror()
 
-      await expectAsync(promise).toBeRejectedWith(new Error("GetAll failed"))
+      await expect(promise).rejects.toEqual(new Error("GetAll failed"))
     })
   })
 
@@ -187,7 +199,7 @@ describe("DatabaseService", () => {
       expect(mockIDBObjectStore.clear).toHaveBeenCalled()
 
       mockIDBTransaction.oncomplete()
-      await expectAsync(promise).toBeResolved()
+      await expect(promise).resolves.toBeUndefined()
     })
 
     it("should reject when the transaction aborts", async () => {
@@ -201,7 +213,7 @@ describe("DatabaseService", () => {
       mockIDBTransaction.error = error
       mockIDBTransaction.onabort()
 
-      await expectAsync(promise).toBeRejectedWith(error)
+      await expect(promise).rejects.toEqual(error)
     })
   })
 
@@ -209,7 +221,7 @@ describe("DatabaseService", () => {
     // A full disk aborts the transaction without an error event: the save
     // waited forever, and every bookmark change queued behind it.
     it("should reject when the transaction aborts", async () => {
-      mockIDBObjectStore.put.and.returnValue({})
+      mockIDBObjectStore.put.mockReturnValue({})
       const promise = service.clearAndPutAll("testStore", [{ id: 1 }])
 
       // Open DB
@@ -220,7 +232,7 @@ describe("DatabaseService", () => {
       mockIDBTransaction.error = error
       mockIDBTransaction.onabort()
 
-      await expectAsync(promise).toBeRejectedWith(error)
+      await expect(promise).rejects.toEqual(error)
     })
   })
 
@@ -237,7 +249,7 @@ describe("DatabaseService", () => {
       mockIDBRequest.result = mockIDBDatabase
 
       // Case 1: stores don't exist
-      mockIDBDatabase.objectStoreNames.contains.and.returnValue(false)
+      mockIDBDatabase.objectStoreNames.contains.mockReturnValue(false)
 
       mockIDBRequest.onupgradeneeded(upgradeEvent)
 
@@ -255,7 +267,7 @@ describe("DatabaseService", () => {
 
       mockIDBRequest.result = mockIDBDatabase
       // Case 2: stores exist
-      mockIDBDatabase.objectStoreNames.contains.and.returnValue(true)
+      mockIDBDatabase.objectStoreNames.contains.mockReturnValue(true)
 
       mockIDBRequest.onupgradeneeded({})
 
@@ -265,8 +277,8 @@ describe("DatabaseService", () => {
 
   describe("onblocked handler", () => {
     it("should warn when upgrade is blocked", async () => {
-      spyOn(console, "warn")
-      spyOn(console, "error")
+      vi.spyOn(console, "warn").mockReturnValue(undefined)
+      vi.spyOn(console, "error").mockReturnValue(undefined)
 
       const promise = service.getAll("books")
 
@@ -290,7 +302,7 @@ describe("DatabaseService", () => {
         onsuccess: null as unknown as () => void,
         onerror: null as unknown as () => void,
       }
-      mockIDBObjectStore.getAll.and.returnValue(mockGetAllRequest)
+      mockIDBObjectStore.getAll.mockReturnValue(mockGetAllRequest)
       const promise = service.getAll("books")
       mockIDBRequest.onsuccess()
       await new Promise((resolve) => setTimeout(resolve, 0))
@@ -304,14 +316,14 @@ describe("DatabaseService", () => {
     })
 
     it("should close db and null reference when onversionchange fires", async () => {
-      const closeSpy = jasmine.createSpy("close")
+      const closeSpy = vi.fn().mockName("close")
       mockIDBDatabase.close = closeSpy
       const mockGetAllRequest = {
         result: [],
         onsuccess: null as unknown as () => void,
         onerror: null as unknown as () => void,
       }
-      mockIDBObjectStore.getAll.and.returnValue(mockGetAllRequest)
+      mockIDBObjectStore.getAll.mockReturnValue(mockGetAllRequest)
 
       const promise = service.getAll("books")
       mockIDBRequest.onsuccess()
@@ -334,9 +346,13 @@ describe("DatabaseService", () => {
     it("should return null DB if indexedDB is undefined", async () => {
       const propDesc = Object.getOwnPropertyDescriptor(window, "indexedDB")
       if (propDesc?.get) {
-        ;(propDesc.get as jasmine.Spy).and.returnValue(undefined)
+        ;(propDesc.get as Mock).mockReturnValue(undefined)
       } else {
-        ;(window as unknown as { indexedDB: undefined }).indexedDB = undefined
+        ;(
+          window as unknown as {
+            indexedDB: undefined
+          }
+        ).indexedDB = undefined
       }
 
       const promise = service.getAll("books")

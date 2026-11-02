@@ -9,10 +9,8 @@ import {
   type RibbonState,
   spokenRibbonName,
 } from "./bookmark-ribbons.service"
-import {
-  type BookmarksSheetState,
-  NativeChromeService,
-} from "./native-chrome.service"
+import { NativeChromeService } from "./native-chrome.service"
+import type { BookmarksSheetState } from "./native-chrome.types"
 
 /**
  * The bookmarks panel as a native sheet in the iOS and Android apps. The sheet only draws

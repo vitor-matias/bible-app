@@ -18,6 +18,11 @@
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		9582B6912FE9A0000072D4E8 /* NativeChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6902FE9A0000072D4E8 /* NativeChrome.swift */; };
 		9582B6932FE9A0000072D4E8 /* ChromeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6922FE9A0000072D4E8 /* ChromeViewController.swift */; };
+		9582B7C12FEA00000072D4E8 /* ChromeViewController+Reader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B7B12FEA00000072D4E8 /* ChromeViewController+Reader.swift */; };
+		9582B7C22FEA00000072D4E8 /* ChromeViewController+Bars.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B7B22FEA00000072D4E8 /* ChromeViewController+Bars.swift */; };
+		9582B7C32FEA00000072D4E8 /* ChromeViewController+Sheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B7B32FEA00000072D4E8 /* ChromeViewController+Sheets.swift */; };
+		9582B7C42FEA00000072D4E8 /* ReaderMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B7B42FEA00000072D4E8 /* ReaderMenu.swift */; };
+		9582B7C52FEA00000072D4E8 /* SearchFieldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B7B52FEA00000072D4E8 /* SearchFieldView.swift */; };
 		9582B6952FE9A0000072D4E8 /* PassagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6942FE9A0000072D4E8 /* PassagePicker.swift */; };
 		9582B6972FE9A0000072D4E8 /* OnboardingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6962FE9A0000072D4E8 /* OnboardingSheet.swift */; };
 		9582B6992FE9A0000072D4E8 /* BookmarksSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6982FE9A0000072D4E8 /* BookmarksSheet.swift */; };
@@ -27,7 +32,19 @@
 		9582B6A32FE9A0000072D4E8 /* AutoScrollControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6A22FE9A0000072D4E8 /* AutoScrollControl.swift */; };
 		9582B69F2FE9A0000072D4E8 /* ReportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B69E2FE9A0000072D4E8 /* ReportSheet.swift */; };
 		9582B6A12FE9A0000072D4E8 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9582B6A02FE9A0000072D4E8 /* PrivacyInfo.xcprivacy */; };
+		9582B7A52FEA00000072D4E8 /* ChromeStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B7A62FEA00000072D4E8 /* ChromeStateTests.swift */; };
+		9582B7A72FEA00000072D4E8 /* native-contract in Resources */ = {isa = PBXBuildFile; fileRef = 9582B7A82FEA00000072D4E8 /* native-contract */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		9582B7AB2FEA00000072D4E8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 504EC3031FED79650016851F;
+			remoteInfo = App;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
@@ -42,6 +59,11 @@
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		9582B6902FE9A0000072D4E8 /* NativeChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeChrome.swift; sourceTree = "<group>"; };
 		9582B6922FE9A0000072D4E8 /* ChromeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromeViewController.swift; sourceTree = "<group>"; };
+		9582B7B12FEA00000072D4E8 /* ChromeViewController+Reader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ChromeViewController+Reader.swift"; sourceTree = "<group>"; };
+		9582B7B22FEA00000072D4E8 /* ChromeViewController+Bars.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ChromeViewController+Bars.swift"; sourceTree = "<group>"; };
+		9582B7B32FEA00000072D4E8 /* ChromeViewController+Sheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ChromeViewController+Sheets.swift"; sourceTree = "<group>"; };
+		9582B7B42FEA00000072D4E8 /* ReaderMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderMenu.swift; sourceTree = "<group>"; };
+		9582B7B52FEA00000072D4E8 /* SearchFieldView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchFieldView.swift; sourceTree = "<group>"; };
 		9582B6942FE9A0000072D4E8 /* PassagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassagePicker.swift; sourceTree = "<group>"; };
 		9582B6962FE9A0000072D4E8 /* OnboardingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSheet.swift; sourceTree = "<group>"; };
 		9582B6982FE9A0000072D4E8 /* BookmarksSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarksSheet.swift; sourceTree = "<group>"; };
@@ -52,6 +74,9 @@
 		9582B69E2FE9A0000072D4E8 /* ReportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportSheet.swift; sourceTree = "<group>"; };
 		9582B6A02FE9A0000072D4E8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		9582B7A12FEA00000072D4E8 /* AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9582B7A62FEA00000072D4E8 /* ChromeStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromeStateTests.swift; sourceTree = "<group>"; };
+		9582B7A82FEA00000072D4E8 /* native-contract */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "native-contract"; path = "../../native-contract"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,6 +88,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		9582B7A32FEA00000072D4E8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -70,6 +102,8 @@
 			isa = PBXGroup;
 			children = (
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
+				9582B7A92FEA00000072D4E8 /* AppTests */,
+				9582B7A82FEA00000072D4E8 /* native-contract */,
 				504EC3061FED79650016851F /* App */,
 				504EC3051FED79650016851F /* Products */,
 			);
@@ -79,6 +113,7 @@
 			isa = PBXGroup;
 			children = (
 				504EC3041FED79650016851F /* App.app */,
+				9582B7A12FEA00000072D4E8 /* AppTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -97,6 +132,11 @@
 				9582B6962FE9A0000072D4E8 /* OnboardingSheet.swift */,
 				9582B6942FE9A0000072D4E8 /* PassagePicker.swift */,
 				9582B6922FE9A0000072D4E8 /* ChromeViewController.swift */,
+				9582B7B12FEA00000072D4E8 /* ChromeViewController+Reader.swift */,
+				9582B7B22FEA00000072D4E8 /* ChromeViewController+Bars.swift */,
+				9582B7B32FEA00000072D4E8 /* ChromeViewController+Sheets.swift */,
+				9582B7B42FEA00000072D4E8 /* ReaderMenu.swift */,
+				9582B7B52FEA00000072D4E8 /* SearchFieldView.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -108,6 +148,14 @@
 				50B271D01FEDC1A000F3C39B /* public */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		9582B7A92FEA00000072D4E8 /* AppTests */ = {
+			isa = PBXGroup;
+			children = (
+				9582B7A62FEA00000072D4E8 /* ChromeStateTests.swift */,
+			);
+			path = AppTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -133,6 +181,24 @@
 			productReference = 504EC3041FED79650016851F /* App.app */;
 			productType = "com.apple.product-type.application";
 		};
+		9582B7A02FEA00000072D4E8 /* AppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9582B7AC2FEA00000072D4E8 /* Build configuration list for PBXNativeTarget "AppTests" */;
+			buildPhases = (
+				9582B7A22FEA00000072D4E8 /* Sources */,
+				9582B7A32FEA00000072D4E8 /* Frameworks */,
+				9582B7A42FEA00000072D4E8 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9582B7AA2FEA00000072D4E8 /* PBXTargetDependency */,
+			);
+			name = AppTests;
+			productName = AppTests;
+			productReference = 9582B7A12FEA00000072D4E8 /* AppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -145,6 +211,10 @@
 					504EC3031FED79650016851F = {
 						CreatedOnToolsVersion = 9.2;
 						LastSwiftMigration = 1100;
+					};
+					9582B7A02FEA00000072D4E8 = {
+						CreatedOnToolsVersion = 9.2;
+						TestTargetID = 504EC3031FED79650016851F;
 					};
 				};
 			};
@@ -165,6 +235,7 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* App */,
+				9582B7A02FEA00000072D4E8 /* AppTests */,
 			);
 		};
 /* End PBXProject section */
@@ -181,6 +252,14 @@
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
 				9582B6A12FE9A0000072D4E8 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9582B7A42FEA00000072D4E8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9582B7A72FEA00000072D4E8 /* native-contract in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -203,10 +282,31 @@
 				9582B6972FE9A0000072D4E8 /* OnboardingSheet.swift in Sources */,
 				9582B6952FE9A0000072D4E8 /* PassagePicker.swift in Sources */,
 				9582B6932FE9A0000072D4E8 /* ChromeViewController.swift in Sources */,
+				9582B7C12FEA00000072D4E8 /* ChromeViewController+Reader.swift in Sources */,
+				9582B7C22FEA00000072D4E8 /* ChromeViewController+Bars.swift in Sources */,
+				9582B7C32FEA00000072D4E8 /* ChromeViewController+Sheets.swift in Sources */,
+				9582B7C42FEA00000072D4E8 /* ReaderMenu.swift in Sources */,
+				9582B7C52FEA00000072D4E8 /* SearchFieldView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9582B7A22FEA00000072D4E8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9582B7A52FEA00000072D4E8 /* ChromeStateTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		9582B7AA2FEA00000072D4E8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 504EC3031FED79650016851F /* App */;
+			targetProxy = 9582B7AB2FEA00000072D4E8 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		504EC30B1FED79650016851F /* Main.storyboard */ = {
@@ -385,6 +485,40 @@
 			};
 			name = Release;
 		};
+		9582B7AD2FEA00000072D4E8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.capuchinhos.biblia.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/App.app/App";
+			};
+			name = Debug;
+		};
+		9582B7AE2FEA00000072D4E8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.capuchinhos.biblia.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/App.app/App";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -402,6 +536,15 @@
 			buildConfigurations = (
 				504EC3171FED79650016851F /* Debug */,
 				504EC3181FED79650016851F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9582B7AC2FEA00000072D4E8 /* Build configuration list for PBXNativeTarget "AppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9582B7AD2FEA00000072D4E8 /* Debug */,
+				9582B7AE2FEA00000072D4E8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

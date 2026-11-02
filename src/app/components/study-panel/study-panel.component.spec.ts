@@ -1,10 +1,5 @@
 import { LiveAnnouncer } from "@angular/cdk/a11y"
-import {
-  type ComponentFixture,
-  fakeAsync,
-  TestBed,
-  tick,
-} from "@angular/core/testing"
+import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import {
   MatSnackBar,
   type MatSnackBarRef,
@@ -21,6 +16,7 @@ import { BookService } from "../../services/book.service"
 import { HighlightService } from "../../services/highlight.service"
 import { NotesService } from "../../services/notes.service"
 import { ReverseReferencesService } from "../../services/reverse-references.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import {
   NOTE_SAVE_DEBOUNCE_MS,
   NOTE_SEARCH_DEBOUNCE_MS,
@@ -99,8 +95,8 @@ function reference(
 describe("StudyPanelComponent", () => {
   let component: StudyPanelComponent
   let fixture: ComponentFixture<StudyPanelComponent>
-  let api: jasmine.SpyObj<BibleApiService>
-  let bibleRef: jasmine.SpyObj<BibleReferenceService>
+  let api: SpyObj<BibleApiService>
+  let bibleRef: SpyObj<BibleReferenceService>
   let notes: NotesService
 
   function setInputs(next: {
@@ -122,34 +118,36 @@ describe("StudyPanelComponent", () => {
     localStorage.removeItem("verseNotes")
     localStorage.removeItem("verseHighlights")
 
-    api = jasmine.createSpyObj<BibleApiService>("BibleApiService", [
+    api = createSpyObj<BibleApiService>("BibleApiService", [
       "getChapter",
       "getVerse",
       "search",
     ])
-    api.getChapter.and.returnValue(
+    api.getChapter.mockReturnValue(
       of({ bookId: "mrk", number: 12, verses: [] }),
     )
 
-    bibleRef = jasmine.createSpyObj<BibleReferenceService>(
-      "BibleReferenceService",
-      ["extract", "destinationOf"],
-    )
-    bibleRef.extract.and.returnValue([])
-    bibleRef.destinationOf.and.returnValue(null)
+    bibleRef = createSpyObj<BibleReferenceService>("BibleReferenceService", [
+      "extract",
+      "destinationOf",
+    ])
+    bibleRef.extract.mockReturnValue([])
+    bibleRef.destinationOf.mockReturnValue(null)
 
-    const bookService = jasmine.createSpyObj<BookService>(
+    const bookService = createSpyObj<BookService>(
       "BookService",
       ["findBook", "getUrlAbrv", "getChapterUrlSegment"],
       { books$: of([BOOK, MARK]) },
     )
-    bookService.getChapterUrlSegment.and.callFake((chapter: number) =>
+    bookService.getChapterUrlSegment.mockImplementation((chapter: number) =>
       String(chapter),
     )
-    bookService.findBook.and.callFake((id: string) =>
+    bookService.findBook.mockImplementation((id: string) =>
       id === "mrk" || id === "Mc" ? MARK : BOOK,
     )
-    bookService.getUrlAbrv.and.callFake((book: Book) => book.abrv.toLowerCase())
+    bookService.getUrlAbrv.mockImplementation((book: Book) =>
+      book.abrv.toLowerCase(),
+    )
 
     await TestBed.configureTestingModule({
       imports: [StudyPanelComponent],
@@ -175,11 +173,11 @@ describe("StudyPanelComponent", () => {
     it("does not list a citation of a book it cannot resolve", () => {
       // findBook answers with the About page for a name it does not know —
       // the orphaned "Rs" a mis-split "2 Rs 25" leaves behind, say.
-      const books = TestBed.inject(BookService) as jasmine.SpyObj<BookService>
-      books.findBook.and.callFake((id: string) =>
+      const books = TestBed.inject(BookService) as SpyObj<BookService>
+      books.findBook.mockImplementation((id: string) =>
         id === "Rs" ? ({ ...BOOK, id: "about" } as Book) : MARK,
       )
-      bibleRef.extract.and.returnValue([
+      bibleRef.extract.mockReturnValue([
         reference("Rs", 25, 1, 2),
         reference("mrk", 12, 28, 34),
       ])
@@ -202,7 +200,7 @@ describe("StudyPanelComponent", () => {
     })
 
     it("does not fetch a chapter again to quote from it a second time", () => {
-      bibleRef.extract.and.callFake((text: string) =>
+      bibleRef.extract.mockImplementation((text: string) =>
         text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
       )
       const chapter = (number: number): Chapter => ({
@@ -222,7 +220,7 @@ describe("StudyPanelComponent", () => {
     })
 
     it("groups references under the passage they open, not the verse before it", () => {
-      bibleRef.extract.and.callFake((text: string) =>
+      bibleRef.extract.mockImplementation((text: string) =>
         text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
       )
       setInputs({
@@ -256,7 +254,7 @@ describe("StudyPanelComponent", () => {
       // Hebrews 1 opens "PRÓLOGO (1,1-4)" and then "Deus falou-nos por seu
       // Filho": the first parenthesis is the extent of the division, not a
       // passage the text points at. Both arrive as references elements.
-      bibleRef.extract.and.callFake((text: string) =>
+      bibleRef.extract.mockImplementation((text: string) =>
         text === "(1,1-4)"
           ? [reference("heb", 1, 1, 4)]
           : text === "(Gn 46,1-27)"
@@ -289,7 +287,7 @@ describe("StudyPanelComponent", () => {
     })
 
     it("names both ends of a reference that runs out of its chapter", () => {
-      bibleRef.extract.and.returnValue([
+      bibleRef.extract.mockReturnValue([
         {
           match: "Mc 1,5-2,52",
           index: 0,
@@ -319,7 +317,7 @@ describe("StudyPanelComponent", () => {
     })
 
     it("quotes the opening of a reference that runs out of its chapter", () => {
-      bibleRef.extract.and.returnValue([
+      bibleRef.extract.mockReturnValue([
         {
           match: "Mc 1,5-2,52",
           index: 0,
@@ -334,7 +332,7 @@ describe("StudyPanelComponent", () => {
           },
         },
       ] as ReturnType<BibleReferenceService["extract"]>)
-      api.getChapter.and.returnValue(
+      api.getChapter.mockReturnValue(
         of({
           bookId: "mrk",
           number: 1,
@@ -360,14 +358,14 @@ describe("StudyPanelComponent", () => {
       // Its opening verses, like any long passage — not the single verse it
       // starts on — and the way on to the rest of it.
       expect(entry.verses.map((quoted) => quoted.number)).toEqual([5, 6, 7])
-      expect(entry.truncated).toBeTrue()
+      expect(entry.truncated).toBe(true)
     })
 
     it("keeps the references printed after that range", () => {
       // Matthew heads its first division "(1,1-2,23; ver Lc 1,5-2,52)": the
       // division's own extent, and then the gospel to read beside it. Only
       // the extent is the heading's own.
-      bibleRef.extract.and.returnValue([
+      bibleRef.extract.mockReturnValue([
         {
           match: "1,1-2,23",
           index: 0,
@@ -410,7 +408,7 @@ describe("StudyPanelComponent", () => {
     })
 
     it("ends a passage where the next heading begins", () => {
-      bibleRef.extract.and.callFake((text: string) =>
+      bibleRef.extract.mockImplementation((text: string) =>
         text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
       )
       setInputs({
@@ -436,7 +434,7 @@ describe("StudyPanelComponent", () => {
     })
 
     it("names the passage a chapter's opening parallels cover", () => {
-      bibleRef.extract.and.returnValue([reference("luk", 14, 15, 24)])
+      bibleRef.extract.mockReturnValue([reference("luk", 14, 15, 24)])
       setInputs({
         book: BOOK,
         chapter: {
@@ -462,7 +460,7 @@ describe("StudyPanelComponent", () => {
     })
 
     it("shows a reference once even when the verse prints it twice", () => {
-      bibleRef.extract.and.returnValue([
+      bibleRef.extract.mockReturnValue([
         reference("mrk", 12, 31),
         reference("mrk", 12, 31),
       ])
@@ -479,7 +477,7 @@ describe("StudyPanelComponent", () => {
     })
 
     it("fetches one chapter for references that share it", () => {
-      bibleRef.extract.and.callFake((text: string) =>
+      bibleRef.extract.mockImplementation((text: string) =>
         text === "a" ? [reference("mrk", 12, 28)] : [reference("mrk", 12, 31)],
       )
       setInputs({
@@ -496,8 +494,8 @@ describe("StudyPanelComponent", () => {
     })
 
     it("quotes up to three verses of a passage and offers the rest as a link", () => {
-      bibleRef.extract.and.returnValue([reference("mrk", 12, 28, 34)])
-      api.getChapter.and.returnValue(
+      bibleRef.extract.mockReturnValue([reference("mrk", 12, 28, 34)])
+      api.getChapter.mockReturnValue(
         of({
           bookId: "mrk",
           number: 12,
@@ -521,15 +519,15 @@ describe("StudyPanelComponent", () => {
 
       const entry = component.referenceGroups[0].entries[0]
       expect(entry.verses.map((v) => v.number)).toEqual([28, 29, 30])
-      expect(entry.truncated).toBeTrue()
+      expect(entry.truncated).toBe(true)
       expect(
         fixture.nativeElement.querySelector(".reference-more"),
       ).toBeTruthy()
     })
 
     it("does not mark a short passage as running on", () => {
-      bibleRef.extract.and.returnValue([reference("mrk", 12, 30, 31)])
-      api.getChapter.and.returnValue(
+      bibleRef.extract.mockReturnValue([reference("mrk", 12, 30, 31)])
+      api.getChapter.mockReturnValue(
         of({
           bookId: "mrk",
           number: 12,
@@ -560,8 +558,8 @@ describe("StudyPanelComponent", () => {
     })
 
     it("links the passage even when its text cannot be fetched", () => {
-      bibleRef.extract.and.returnValue([reference("mrk", 12, 31)])
-      api.getChapter.and.returnValue(throwError(() => new Error("offline")))
+      bibleRef.extract.mockReturnValue([reference("mrk", 12, 31)])
+      api.getChapter.mockReturnValue(throwError(() => new Error("offline")))
       setInputs({
         book: BOOK,
         chapter: {
@@ -576,8 +574,8 @@ describe("StudyPanelComponent", () => {
     })
 
     it("shows the referenced verse's own words, without its apparatus", () => {
-      bibleRef.extract.and.returnValue([reference("mrk", 12, 31)])
-      api.getChapter.and.returnValue(
+      bibleRef.extract.mockReturnValue([reference("mrk", 12, 31)])
+      api.getChapter.mockReturnValue(
         of({
           bookId: "mrk",
           number: 12,
@@ -622,10 +620,10 @@ describe("StudyPanelComponent", () => {
 
     it("quotes the opening of a chapter cited whole", () => {
       // "Jb 38" names a chapter, not a verse in it.
-      bibleRef.extract.and.returnValue([
+      bibleRef.extract.mockReturnValue([
         { match: "Jb 38", index: 0, book: "job", chapter: 38 },
       ] as ReturnType<BibleReferenceService["extract"]>)
-      api.getChapter.and.returnValue(
+      api.getChapter.mockReturnValue(
         of({
           bookId: "job",
           number: 38,
@@ -659,14 +657,14 @@ describe("StudyPanelComponent", () => {
 
       const entry = component.referenceGroups[0].entries[0]
       expect(entry.verses.map((v) => v.number)).toEqual([1, 2, 3])
-      expect(entry.truncated).toBeTrue()
+      expect(entry.truncated).toBe(true)
     })
 
     it("does not open a quoted psalm on an invisible character", () => {
-      bibleRef.extract.and.returnValue([
+      bibleRef.extract.mockReturnValue([
         { match: "Sl 8", index: 0, book: "psa", chapter: 8 },
       ] as ReturnType<BibleReferenceService["extract"]>)
-      api.getChapter.and.returnValue(
+      api.getChapter.mockReturnValue(
         of({
           bookId: "psa",
           number: 8,
@@ -700,10 +698,10 @@ describe("StudyPanelComponent", () => {
     })
 
     it("sets a quoted psalm in its own lines, with the divine name in caps", () => {
-      bibleRef.extract.and.returnValue([
+      bibleRef.extract.mockReturnValue([
         { match: "Sl 104", index: 0, book: "psa", chapter: 104 },
       ] as ReturnType<BibleReferenceService["extract"]>)
-      api.getChapter.and.returnValue(
+      api.getChapter.mockReturnValue(
         of({
           bookId: "psa",
           number: 104,
@@ -750,7 +748,7 @@ describe("StudyPanelComponent", () => {
       expect(preview.lines[0].map((run) => run.text).join("")).toBe(
         "Bendiz, ó minha alma, o Senhor!",
       )
-      expect(preview.lines[0].some((run) => run.allCaps)).toBeTrue()
+      expect(preview.lines[0].some((run) => run.allCaps)).toBe(true)
       expect(preview.lines[1][0].text).toBe("Estás revestido de esplendor")
     })
 
@@ -758,10 +756,10 @@ describe("StudyPanelComponent", () => {
       // Hebrews 1,5 is a line of prose and then the scripture it quotes, set
       // by this edition as a paragraph. Run together it reads "disse Deus
       // alguma vez:Tu és meu Filho".
-      bibleRef.extract.and.returnValue([
+      bibleRef.extract.mockReturnValue([
         { match: "Hb 1,5", index: 0, book: "heb", chapter: 1 },
       ] as ReturnType<BibleReferenceService["extract"]>)
-      api.getChapter.and.returnValue(
+      api.getChapter.mockReturnValue(
         of({
           bookId: "heb",
           number: 1,
@@ -803,7 +801,7 @@ describe("StudyPanelComponent", () => {
     })
 
     it("gives each verse of a quoted psalm its own line", () => {
-      bibleRef.extract.and.returnValue([
+      bibleRef.extract.mockReturnValue([
         { match: "Sl 104", index: 0, book: "psa", chapter: 104 },
       ] as ReturnType<BibleReferenceService["extract"]>)
       const poetry = (number: number) => ({
@@ -813,7 +811,7 @@ describe("StudyPanelComponent", () => {
         verseLabel: String(number),
         text: [{ type: "quote", text: `linha ${number}` }] as TextType[],
       })
-      api.getChapter.and.returnValue(
+      api.getChapter.mockReturnValue(
         of({ bookId: "psa", number: 104, verses: [poetry(1), poetry(2)] }),
       )
       setInputs({
@@ -826,13 +824,13 @@ describe("StudyPanelComponent", () => {
       })
 
       const [first, second] = component.referenceGroups[0].entries[0].verses
-      expect(first.breakBefore).toBeFalse()
+      expect(first.breakBefore).toBe(false)
       // Otherwise verse 2's number runs straight into the end of verse 1.
-      expect(second.breakBefore).toBeTrue()
+      expect(second.breakBefore).toBe(true)
     })
 
     it("lets prose verses run on, as the chapter does", () => {
-      bibleRef.extract.and.returnValue([reference("mrk", 12, 30, 31)])
+      bibleRef.extract.mockReturnValue([reference("mrk", 12, 30, 31)])
       const prose = (number: number) => ({
         bookId: "mrk",
         chapterNumber: 12,
@@ -840,7 +838,7 @@ describe("StudyPanelComponent", () => {
         verseLabel: String(number),
         text: [plain(`verso ${number}`)],
       })
-      api.getChapter.and.returnValue(
+      api.getChapter.mockReturnValue(
         of({ bookId: "mrk", number: 12, verses: [prose(30), prose(31)] }),
       )
       setInputs({
@@ -853,11 +851,11 @@ describe("StudyPanelComponent", () => {
       })
 
       const verses = component.referenceGroups[0].entries[0].verses
-      expect(verses.every((v) => !v.breakBefore)).toBeTrue()
+      expect(verses.every((v) => !v.breakBefore)).toBe(true)
     })
 
     it("names both ends of a run of whole chapters", () => {
-      bibleRef.extract.and.returnValue([
+      bibleRef.extract.mockReturnValue([
         {
           match: "Jb 38-39",
           index: 0,
@@ -866,7 +864,7 @@ describe("StudyPanelComponent", () => {
           endChapter: 39,
         },
       ] as ReturnType<BibleReferenceService["extract"]>)
-      api.getChapter.and.returnValue(
+      api.getChapter.mockReturnValue(
         of({
           bookId: "job",
           number: 38,
@@ -900,8 +898,8 @@ describe("StudyPanelComponent", () => {
     })
 
     it("keeps a reference as a link when its text cannot be fetched", () => {
-      bibleRef.extract.and.returnValue([reference("mrk", 12, 31)])
-      api.getChapter.and.returnValue(throwError(() => new Error("offline")))
+      bibleRef.extract.mockReturnValue([reference("mrk", 12, 31)])
+      api.getChapter.mockReturnValue(throwError(() => new Error("offline")))
       setInputs({
         book: BOOK,
         chapter: {
@@ -912,19 +910,19 @@ describe("StudyPanelComponent", () => {
       })
 
       const entry = component.referenceGroups[0].entries[0]
-      expect(entry.failed).toBeTrue()
+      expect(entry.failed).toBe(true)
       expect(entry.link).toEqual(["/", "mc", 12])
     })
 
     it("does not refetch when the reader only selects a verse", () => {
-      bibleRef.extract.and.returnValue([reference("mrk", 12, 31)])
+      bibleRef.extract.mockReturnValue([reference("mrk", 12, 31)])
       const chapter: Chapter = {
         bookId: "mat",
         number: 22,
         verses: [verse(39, [references("Mc 12,31")])],
       }
       setInputs({ book: BOOK, chapter })
-      api.getChapter.calls.reset()
+      api.getChapter.mockClear()
 
       setInputs({ selection: { verse: chapter.verses?.[0] as Verse } })
 
@@ -932,7 +930,7 @@ describe("StudyPanelComponent", () => {
     })
 
     it("keeps the passage's references marked for every verse in it", () => {
-      bibleRef.extract.and.callFake((text: string) =>
+      bibleRef.extract.mockImplementation((text: string) =>
         text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
       )
       const chapter: Chapter = {
@@ -975,9 +973,7 @@ describe("StudyPanelComponent", () => {
             verse: chapter.verses?.find((v) => v.number === number) as Verse,
           },
         })
-        expect(component.isCurrentGroup(group))
-          .withContext(`verse ${number}`)
-          .toBeTrue()
+        expect(component.isCurrentGroup(group), `verse ${number}`).toBe(true)
       }
 
       // The next passage is not this one.
@@ -986,11 +982,11 @@ describe("StudyPanelComponent", () => {
           verse: chapter.verses?.find((v) => v.number === 41) as Verse,
         },
       })
-      expect(component.isCurrentGroup(group)).toBeFalse()
+      expect(component.isCurrentGroup(group)).toBe(false)
     })
 
     it("follows the verse on screen without marking it", () => {
-      bibleRef.extract.and.callFake((text: string) =>
+      bibleRef.extract.mockImplementation((text: string) =>
         text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
       )
       setInputs({
@@ -1012,14 +1008,14 @@ describe("StudyPanelComponent", () => {
       expect(component.activeVerse).toBe(39)
       // ...but scrolling past a verse is not choosing it, so nothing is
       // marked until the reader actually picks one.
-      expect(component.isCurrentGroup(component.referenceGroups[0])).toBeFalse()
+      expect(component.isCurrentGroup(component.referenceGroups[0])).toBe(false)
       expect(
         fixture.nativeElement.querySelector(".reference-group.current"),
       ).toBeNull()
     })
 
     it("marks the passage once the reader picks a verse in it", () => {
-      bibleRef.extract.and.callFake((text: string) =>
+      bibleRef.extract.mockImplementation((text: string) =>
         text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
       )
       const chapter: Chapter = {
@@ -1037,14 +1033,14 @@ describe("StudyPanelComponent", () => {
       })
       fixture.detectChanges()
 
-      expect(component.isCurrentGroup(component.referenceGroups[0])).toBeTrue()
+      expect(component.isCurrentGroup(component.referenceGroups[0])).toBe(true)
       expect(
         fixture.nativeElement.querySelector(".reference-group.current"),
       ).toBeTruthy()
     })
 
     it("stops marking when the reader lets the verse go", () => {
-      bibleRef.extract.and.callFake((text: string) =>
+      bibleRef.extract.mockImplementation((text: string) =>
         text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
       )
       const chapter: Chapter = {
@@ -1057,15 +1053,15 @@ describe("StudyPanelComponent", () => {
         chapter,
         selection: { verse: chapter.verses?.[0] as Verse },
       })
-      expect(component.isCurrentGroup(component.referenceGroups[0])).toBeTrue()
+      expect(component.isCurrentGroup(component.referenceGroups[0])).toBe(true)
 
       setInputs({ selection: null, visibleVerse: 34 })
 
-      expect(component.isCurrentGroup(component.referenceGroups[0])).toBeFalse()
+      expect(component.isCurrentGroup(component.referenceGroups[0])).toBe(false)
     })
 
     it("lets a chosen verse outrank the one on screen", () => {
-      bibleRef.extract.and.returnValue([])
+      bibleRef.extract.mockReturnValue([])
       const chosen = verse(12, [plain("escolhido")])
       setInputs({
         book: BOOK,
@@ -1078,7 +1074,7 @@ describe("StudyPanelComponent", () => {
     })
 
     it("goes back to following the screen once the verse is let go", () => {
-      bibleRef.extract.and.returnValue([])
+      bibleRef.extract.mockReturnValue([])
       const chosen = verse(12, [plain("escolhido")])
       setInputs({
         book: BOOK,
@@ -1092,8 +1088,9 @@ describe("StudyPanelComponent", () => {
       expect(component.activeVerse).toBe(39)
     })
 
-    it("stops following once the reader scrolls the panel themselves", fakeAsync(() => {
-      bibleRef.extract.and.returnValue([reference("mrk", 12, 31)])
+    it("stops following once the reader scrolls the panel themselves", async () => {
+      vi.useFakeTimers()
+      bibleRef.extract.mockReturnValue([reference("mrk", 12, 31)])
       const first = verse(34, [references("Mc 12,28")])
       const second = verse(39, [references("Mc 12,31")])
       setInputs({
@@ -1101,11 +1098,11 @@ describe("StudyPanelComponent", () => {
         chapter: { bookId: "mat", number: 22, verses: [first, second] },
         visibleVerse: 34,
       })
-      tick(50)
-      const follow = spyOn(
+      await vi.advanceTimersByTimeAsync(50)
+      const follow = vi.spyOn(
         component as unknown as { scrollActiveIntoView: () => void },
         "scrollActiveIntoView",
-      ).and.callThrough()
+      )
 
       // They are reading something in the panel; the text scrolling on under
       // their other hand must not take it away from them.
@@ -1118,11 +1115,11 @@ describe("StudyPanelComponent", () => {
       // Picking a verse is asking the panel to look somewhere: it follows.
       setInputs({ selection: { verse: second } })
       expect(follow).toHaveBeenCalled()
-      tick(50)
-    }))
+      await vi.advanceTimersByTimeAsync(50)
+    })
 
     it("marks the selected verse's group as the current one", () => {
-      bibleRef.extract.and.returnValue([reference("mrk", 12, 31)])
+      bibleRef.extract.mockReturnValue([reference("mrk", 12, 31)])
       const target = verse(39, [references("Mc 12,31")])
       setInputs({
         book: BOOK,
@@ -1138,7 +1135,7 @@ describe("StudyPanelComponent", () => {
 
   describe("opening a reference beside the chapter", () => {
     function openFirstReference(): ParallelRequest[] {
-      bibleRef.extract.and.callFake((text: string) =>
+      bibleRef.extract.mockImplementation((text: string) =>
         text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
       )
       setInputs({
@@ -1167,7 +1164,7 @@ describe("StudyPanelComponent", () => {
 
       expect(asked.length).toBe(1)
       expect(asked[0]).toEqual(
-        jasmine.objectContaining({
+        expect.objectContaining({
           label: "Marcos 12,28-34",
           bookId: "mrk",
           chapterNumber: 12,
@@ -1356,20 +1353,22 @@ describe("StudyPanelComponent", () => {
 
     it("copies the verse with its reference", async () => {
       const written: string[] = []
-      spyOn(navigator.clipboard, "writeText").and.callFake((text: string) => {
-        written.push(text)
-        return Promise.resolve()
-      })
+      vi.spyOn(navigator.clipboard, "writeText").mockImplementation(
+        (text: string) => {
+          written.push(text)
+          return Promise.resolve()
+        },
+      )
       selectVerse()
 
       await component.copySelectedVerse()
 
       expect(written).toEqual(["Amarás ao Senhor (Mateus 22,37)"])
-      expect(component.copied).toBeTrue()
+      expect(component.copied).toBe(true)
     })
 
     it("says nothing when the clipboard refuses", async () => {
-      spyOn(navigator.clipboard, "writeText").and.rejectWith(
+      vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(
         new Error("denied"),
       )
       selectVerse()
@@ -1378,7 +1377,7 @@ describe("StudyPanelComponent", () => {
 
       // The verse is still on screen to select by hand; an error thrown over
       // the text would help nobody.
-      expect(component.copied).toBeFalse()
+      expect(component.copied).toBe(false)
     })
   })
 
@@ -1429,7 +1428,7 @@ describe("StudyPanelComponent", () => {
 
     beforeEach(() => {
       router = TestBed.inject(Router)
-      spyOn(router, "navigate").and.resolveTo(true)
+      vi.spyOn(router, "navigate").mockResolvedValue(true)
       setInputs({
         book: BOOK,
         chapter: { bookId: "mat", number: 22, verses: [] },
@@ -1437,24 +1436,29 @@ describe("StudyPanelComponent", () => {
     })
 
     it("goes to the passage instead of searching for its digits", () => {
-      bibleRef.destinationOf.and.returnValue({
+      bibleRef.destinationOf.mockReturnValue({
         book: MARK,
         chapter: 12,
         verseStart: 31,
       })
-      api.getVerse.and.returnValue(of(verse(31, [])))
+      api.getVerse.mockReturnValue(of(verse(31, [])))
 
       component.onSearchSubmit("Mc 12,31")
 
       expect(api.search).not.toHaveBeenCalled()
-      expect(router.navigate).toHaveBeenCalledOnceWith(["/", "mc", "12"], {
-        queryParams: { verseStart: 31 },
-      })
+      expect(router.navigate).toHaveBeenCalledExactlyOnceWith(
+        ["/", "mc", "12"],
+        {
+          queryParams: { verseStart: 31 },
+        },
+      )
     })
 
     it("says aloud what a search found", () => {
-      const announce = spyOn(TestBed.inject(LiveAnnouncer), "announce")
-      api.search.and.returnValue(
+      const announce = vi
+        .spyOn(TestBed.inject(LiveAnnouncer), "announce")
+        .mockResolvedValue(undefined)
+      api.search.mockReturnValue(
         of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
       )
 
@@ -1462,12 +1466,14 @@ describe("StudyPanelComponent", () => {
 
       // On screen "A procurar…" is simply replaced, which says nothing to a
       // reader who cannot see it.
-      expect(announce).toHaveBeenCalledOnceWith("Nada encontrado para amarás.")
+      expect(announce).toHaveBeenCalledExactlyOnceWith(
+        "Nada encontrado para amarás.",
+      )
     })
 
     it("says so when the reference names a verse that is not there", () => {
-      bibleRef.destinationOf.and.returnValue({ book: MARK, chapter: 40 })
-      api.getVerse.and.returnValue(throwError(() => ({ status: 404 })))
+      bibleRef.destinationOf.mockReturnValue({ book: MARK, chapter: 40 })
+      api.getVerse.mockReturnValue(throwError(() => ({ status: 404 })))
 
       component.onSearchSubmit("Mc 40")
 
@@ -1476,7 +1482,7 @@ describe("StudyPanelComponent", () => {
     })
 
     it("still searches the text for anything else", () => {
-      api.search.and.returnValue(
+      api.search.mockReturnValue(
         of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
       )
 
@@ -1501,58 +1507,63 @@ describe("StudyPanelComponent", () => {
 
     afterEach(() => body.remove())
 
-    it("arrives where it was sent", fakeAsync(() => {
+    it("arrives where it was sent", async () => {
+      vi.useFakeTimers()
       component["glideTo"](body, 600)
-      tick(2000)
+      await vi.advanceTimersByTimeAsync(2000)
 
       expect(body.scrollTop).toBe(600)
       expect(component["glide"]).toBeUndefined()
-    }))
+    })
 
-    it("lets go the moment the reader scrolls the panel themselves", fakeAsync(() => {
+    it("lets go the moment the reader scrolls the panel themselves", async () => {
+      vi.useFakeTimers()
       component["glideTo"](body, 2000)
-      tick(100)
+      await vi.advanceTimersByTimeAsync(100)
       const taken = body.scrollTop
       expect(taken).toBeGreaterThan(0)
       expect(taken).toBeLessThan(2000)
 
       body.dispatchEvent(new Event("wheel"))
-      tick(2000)
+      await vi.advanceTimersByTimeAsync(2000)
 
       // It used to write its own position back on every frame until it had
       // finished, whatever the reader did in the meantime.
       expect(body.scrollTop).toBe(taken)
-    }))
+    })
 
-    it("keeps following when the reader presses one of the panel's controls", fakeAsync(() => {
+    it("keeps following when the reader presses one of the panel's controls", async () => {
+      vi.useFakeTimers()
       // "Abrir ao lado", "Copiar", a colour: pressing one is not scrolling the
       // panel, and it used to freeze it on the passage it was showing.
       const button = document.createElement("button")
       body.appendChild(button)
       component["glideTo"](body, 2000)
-      tick(100)
+      await vi.advanceTimersByTimeAsync(100)
 
       button.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
-      tick(3000)
+      await vi.advanceTimersByTimeAsync(3000)
 
-      expect(component["readerHoldsPanel"]).toBeFalse()
+      expect(component["readerHoldsPanel"]).toBe(false)
       expect(body.scrollTop).toBe(2000)
-    }))
+    })
 
-    it("still lets go on a press on the panel's text", fakeAsync(() => {
+    it("still lets go on a press on the panel's text", async () => {
+      vi.useFakeTimers()
       component["glideTo"](body, 2000)
-      tick(100)
+      await vi.advanceTimersByTimeAsync(100)
 
       body.firstElementChild?.dispatchEvent(
         new PointerEvent("pointerdown", { bubbles: true }),
       )
 
-      expect(component["readerHoldsPanel"]).toBeTrue()
-    }))
+      expect(component["readerHoldsPanel"]).toBe(true)
+    })
 
-    it("bends towards a new target without stopping first", fakeAsync(() => {
+    it("bends towards a new target without stopping first", async () => {
+      vi.useFakeTimers()
       component["glideTo"](body, 2000)
-      tick(150)
+      await vi.advanceTimersByTimeAsync(150)
       const speed = component["glide"]?.velocity ?? 0
       expect(speed).toBeGreaterThan(0)
 
@@ -1560,15 +1571,15 @@ describe("StudyPanelComponent", () => {
       component["glideTo"](body, 2400)
 
       expect(component["glide"]?.velocity).toBe(speed)
-      tick(3000)
+      await vi.advanceTimersByTimeAsync(3000)
       expect(body.scrollTop).toBe(2400)
-    }))
+    })
   })
 
   describe("what cites this verse", () => {
     it("offers to look rather than indexing the corpus unasked", () => {
       const reverse = TestBed.inject(ReverseReferencesService)
-      const build = spyOn(reverse, "ensureIndex").and.resolveTo()
+      const build = vi.spyOn(reverse, "ensureIndex").mockResolvedValue()
       const target = verse(37, [plain("Amarás ao Senhor")])
 
       setInputs({
@@ -1583,7 +1594,7 @@ describe("StudyPanelComponent", () => {
 
     it("builds the index only when the reader asks", async () => {
       const reverse = TestBed.inject(ReverseReferencesService)
-      const build = spyOn(reverse, "ensureIndex").and.resolveTo()
+      const build = vi.spyOn(reverse, "ensureIndex").mockResolvedValue()
       const target = verse(37, [plain("Amarás ao Senhor")])
       setInputs({
         book: BOOK,
@@ -1600,10 +1611,10 @@ describe("StudyPanelComponent", () => {
   describe("what cites this verse, without the offline text", () => {
     it("lets the reader ask again once the text may have arrived", async () => {
       const reverse = TestBed.inject(ReverseReferencesService)
-      const state = spyOnProperty(reverse, "state").and.returnValue(
-        "unavailable",
-      )
-      const build = spyOn(reverse, "ensureIndex").and.resolveTo()
+      const state = vi
+        .spyOn(reverse, "state", "get")
+        .mockReturnValue("unavailable")
+      const build = vi.spyOn(reverse, "ensureIndex").mockResolvedValue()
       const target = verse(37, [plain("Amarás ao Senhor")])
       setInputs({
         book: BOOK,
@@ -1616,7 +1627,7 @@ describe("StudyPanelComponent", () => {
       ) as HTMLButtonElement
       expect(retry).toBeTruthy()
 
-      state.and.returnValue("ready")
+      state.mockReturnValue("ready")
       retry.click()
       await fixture.whenStable()
 
@@ -1638,7 +1649,8 @@ describe("StudyPanelComponent", () => {
       expect(component.noteDraft).toBe("escrita antes")
     })
 
-    it("saves what the reader types, once they stop typing", fakeAsync(() => {
+    it("saves what the reader types, once they stop typing", async () => {
+      vi.useFakeTimers()
       const target = verse(39, [])
       setInputs({
         book: BOOK,
@@ -1649,11 +1661,12 @@ describe("StudyPanelComponent", () => {
       component.onNoteInput("a minha nota")
       expect(notes.getNote("mat", 22, 39)).toBeUndefined()
 
-      tick(500)
+      await vi.advanceTimersByTimeAsync(500)
       expect(notes.getNote("mat", 22, 39)?.text).toBe("a minha nota")
-    }))
+    })
 
-    it("files a pending save under the book it was typed in", fakeAsync(() => {
+    it("files a pending save under the book it was typed in", async () => {
+      vi.useFakeTimers()
       const target = verse(39, [])
       setInputs({
         book: BOOK,
@@ -1669,18 +1682,20 @@ describe("StudyPanelComponent", () => {
         chapter: { bookId: "luk", number: 22, verses: [other] },
         selection: null,
       })
-      tick(500)
+      await vi.advanceTimersByTimeAsync(500)
 
       expect(notes.getNote("mat", 22, 39)?.text).toBe("sobre Mateus")
       expect(notes.getNote("luk", 22, 39)).toBeUndefined()
-    }))
+    })
 
     it("lets a note deleted by emptying its box be put back", () => {
       notes.saveNote("mat", 22, 39, "para não perder")
       const undo = new Subject<void>()
-      const open = spyOn(TestBed.inject(MatSnackBar), "open").and.returnValue({
-        onAction: () => undo.asObservable(),
-      } as MatSnackBarRef<TextOnlySnackBar>)
+      const open = vi
+        .spyOn(TestBed.inject(MatSnackBar), "open")
+        .mockReturnValue({
+          onAction: () => undo.asObservable(),
+        } as MatSnackBarRef<TextOnlySnackBar>)
       const target = verse(39, [])
       setInputs({
         book: BOOK,
@@ -1692,10 +1707,10 @@ describe("StudyPanelComponent", () => {
       component.onNoteInput("")
       component.onNoteBlur()
       expect(notes.getNote("mat", 22, 39)).toBeUndefined()
-      expect(open).toHaveBeenCalledOnceWith(
+      expect(open).toHaveBeenCalledExactlyOnceWith(
         "Nota apagada",
         "Anular",
-        jasmine.any(Object),
+        expect.any(Object),
       )
 
       undo.next()
@@ -1746,7 +1761,8 @@ describe("StudyPanelComponent", () => {
 
     // Driven by tick rather than by a real 260ms wait: the debounce is 200ms,
     // and a loaded machine can run the subscriber after the assertion.
-    it("saves what is still being typed when the panel goes", fakeAsync(() => {
+    it("saves what is still being typed when the panel goes", async () => {
+      vi.useFakeTimers()
       // Leaving study mode, a window narrowed past the layout, a route
       // change: the box is removed, which does not reliably blur it, and the
       // waiting save used to go with it.
@@ -1757,14 +1773,15 @@ describe("StudyPanelComponent", () => {
         selection: { verse: target },
       })
       component.onNoteInput("sobre o amor")
-      tick(100)
+      await vi.advanceTimersByTimeAsync(100)
 
       fixture.destroy()
 
       expect(notes.getNote("mat", 22, 39)?.text).toBe("sobre o amor")
-    }))
+    })
 
-    it("saves the verse being left when the reader moves on mid-note", fakeAsync(() => {
+    it("saves the verse being left when the reader moves on mid-note", async () => {
+      vi.useFakeTimers()
       // A keyboard path can change the verse with the box still focused, so
       // no blur runs. The next keystroke replaced the waiting value, and the
       // first verse's note was never written.
@@ -1773,17 +1790,18 @@ describe("StudyPanelComponent", () => {
       const chapter = { bookId: "mat", number: 22, verses: [first, second] }
       setInputs({ book: BOOK, chapter, selection: { verse: first } })
       component.onNoteInput("sobre o amor")
-      tick(100)
+      await vi.advanceTimersByTimeAsync(100)
 
       setInputs({ selection: { verse: second } })
       component.onNoteInput("sobre a lei")
-      tick(NOTE_SAVE_DEBOUNCE_MS)
+      await vi.advanceTimersByTimeAsync(NOTE_SAVE_DEBOUNCE_MS)
 
       expect(notes.getNote("mat", 22, 39)?.text).toBe("sobre o amor")
       expect(notes.getNote("mat", 22, 40)?.text).toBe("sobre a lei")
-    }))
+    })
 
-    it("finds a note by its words, across books", fakeAsync(() => {
+    it("finds a note by its words, across books", async () => {
+      vi.useFakeTimers()
       notes.saveNote("mat", 22, 39, "sobre o amor ao próximo")
       notes.saveNote("psa", 1, 2, "a lei do Senhor")
       setInputs({
@@ -1792,12 +1810,13 @@ describe("StudyPanelComponent", () => {
       })
 
       component.onNoteQuery("lei")
-      tick(NOTE_SEARCH_DEBOUNCE_MS)
+      await vi.advanceTimersByTimeAsync(NOTE_SEARCH_DEBOUNCE_MS)
 
       expect(component.noteMatches.map((note) => note.bookId)).toEqual(["psa"])
-    }))
+    })
 
-    it("ignores accents and case when searching", fakeAsync(() => {
+    it("ignores accents and case when searching", async () => {
+      vi.useFakeTimers()
       notes.saveNote("mat", 22, 39, "sobre o coração")
       setInputs({
         book: BOOK,
@@ -1805,10 +1824,10 @@ describe("StudyPanelComponent", () => {
       })
 
       component.onNoteQuery("CORACAO")
-      tick(NOTE_SEARCH_DEBOUNCE_MS)
+      await vi.advanceTimersByTimeAsync(NOTE_SEARCH_DEBOUNCE_MS)
 
       expect(component.noteMatches.length).toBe(1)
-    }))
+    })
 
     it("lists the chapter's other notes", () => {
       notes.saveNote("mat", 22, 12, "doze")

@@ -41,8 +41,8 @@ describe("chapter references", () => {
     const placed = placeReferences(hebrews)
 
     expect(placed.map((block) => block.startsAt)).toEqual([5, 5])
-    expect(placed[0].underMajorHeading).toBeTrue()
-    expect(placed[1].underMajorHeading).toBeFalse()
+    expect(placed[0].underMajorHeading).toBe(true)
+    expect(placed[1].underMajorHeading).toBe(false)
   })
 
   it("still opens the verse it heads when nothing comes before it", () => {

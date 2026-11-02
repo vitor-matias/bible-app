@@ -2,8 +2,8 @@ import { CommonModule } from "@angular/common"
 import {
   ChangeDetectionStrategy,
   Component,
-  Input,
   inject,
+  input,
   OnChanges,
   SimpleChanges,
 } from "@angular/core"
@@ -24,48 +24,39 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
   styleUrl: "./verse-section.component.css",
 })
 export class VerseSectionComponent implements OnChanges {
-  @Input()
-  data!: Verse
+  private bibleRef = inject(BibleReferenceService)
 
-  @Input()
-  changeLine!: boolean
+  readonly data = input.required<Verse>()
 
-  @Input()
-  nextIsQuote = false
+  readonly changeLine = input.required<boolean>()
 
-  @Input()
-  nextIsParagraph = false
+  readonly nextIsQuote = input(false)
+
+  readonly nextIsParagraph = input(false)
 
   /** Whether the chapter's drop-cap number floats beside this heading. */
-  @Input()
-  besideChapterNumber = false
+  readonly besideChapterNumber = input(false)
 
   private readonly toast = inject(ToastService)
 
   /** Pre-computed parsed references keyed by text index */
   parsedReferences: Map<number, (string | BibleReference)[]> = new Map()
 
-  constructor(private bibleRef: BibleReferenceService) {}
-
   ngOnChanges(_changes: SimpleChanges): void {
-    if (this.data) {
+    if (this.data()) {
       this.parsedReferences = this.computeParsedReferences()
     }
   }
 
   private computeParsedReferences(): Map<number, (string | BibleReference)[]> {
     const map = new Map<number, (string | BibleReference)[]>()
-    for (let i = 0; i < this.data.text.length; i++) {
-      const t = this.data.text[i]
+    for (let i = 0; i < this.data().text.length; i++) {
+      const t = this.data().text[i]
       if (t.type === "references") {
+        const { bookId, chapterNumber } = this.data()
         map.set(
           i,
-          parseReferences(
-            this.bibleRef,
-            t.text,
-            this.data.bookId,
-            this.data.chapterNumber,
-          ),
+          parseReferences(this.bibleRef, t.text, bookId, chapterNumber),
         )
       }
     }
@@ -75,6 +66,6 @@ export class VerseSectionComponent implements OnChanges {
   getVerseQueryParams = getVerseQueryParams
 
   showReturnSnackbar() {
-    this.toast.showReturn(this.data)
+    this.toast.showReturn(this.data())
   }
 }

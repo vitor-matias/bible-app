@@ -131,7 +131,7 @@ describe("SelectionActionsComponent", () => {
 
     component.mark("pink")
 
-    expect(document.getSelection()?.isCollapsed).toBeTrue()
+    expect(document.getSelection()?.isCollapsed).toBe(true)
     expect(component.position).toBeNull()
   })
 
@@ -187,10 +187,12 @@ describe("SelectionActionsComponent", () => {
         verses: [],
       })
       const written: string[] = []
-      spyOn(navigator.clipboard, "writeText").and.callFake((text: string) => {
-        written.push(text)
-        return Promise.resolve()
-      })
+      vi.spyOn(navigator.clipboard, "writeText").mockImplementation(
+        (text: string) => {
+          written.push(text)
+          return Promise.resolve()
+        },
+      )
       selectParallel()
 
       await component.copy()
@@ -235,10 +237,12 @@ describe("SelectionActionsComponent", () => {
     footer.textContent = "Direitos reservados"
     host.after(footer)
     const written: string[] = []
-    spyOn(navigator.clipboard, "writeText").and.callFake((text: string) => {
-      written.push(text)
-      return Promise.resolve()
-    })
+    vi.spyOn(navigator.clipboard, "writeText").mockImplementation(
+      (text: string) => {
+        written.push(text)
+        return Promise.resolve()
+      },
+    )
 
     const range = document.createRange()
     range.setStart(host.querySelector('verse[id="39"]') as Node, 0)
@@ -253,14 +257,14 @@ describe("SelectionActionsComponent", () => {
   })
 
   it("forgets it copied once something else is selected", async () => {
-    spyOn(navigator.clipboard, "writeText").and.resolveTo()
+    vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue()
     selectVerses(host, 37, 37)
     await component.copy()
-    expect(component.copied).toBeTrue()
+    expect(component.copied).toBe(true)
 
     selectVerses(host, 38, 39)
 
-    expect(component.copied).toBeFalse()
+    expect(component.copied).toBe(false)
     expect(component["copiedTimer"]).toBeUndefined()
   })
 
@@ -284,10 +288,12 @@ describe("SelectionActionsComponent", () => {
     host.appendChild(verse)
 
     const written: string[] = []
-    spyOn(navigator.clipboard, "writeText").and.callFake((text: string) => {
-      written.push(text)
-      return Promise.resolve()
-    })
+    vi.spyOn(navigator.clipboard, "writeText").mockImplementation(
+      (text: string) => {
+        written.push(text)
+        return Promise.resolve()
+      },
+    )
 
     const range = document.createRange()
     range.selectNodeContents(verse)
@@ -304,10 +310,12 @@ describe("SelectionActionsComponent", () => {
 
   it("copies the selected words with their reference", async () => {
     const written: string[] = []
-    spyOn(navigator.clipboard, "writeText").and.callFake((text: string) => {
-      written.push(text)
-      return Promise.resolve()
-    })
+    vi.spyOn(navigator.clipboard, "writeText").mockImplementation(
+      (text: string) => {
+        written.push(text)
+        return Promise.resolve()
+      },
+    )
     selectVerses(host, 37, 37)
 
     await component.copy()
@@ -339,21 +347,21 @@ describe("SelectionActionsComponent", () => {
       const verse = host.querySelector(`verse[id="${number}"]`) as HTMLElement
       verse.textContent = "Porque o seu amor é para sempre. "
     }
-    spyOn(navigator.clipboard, "writeText").and.resolveTo()
+    vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue()
     selectVerses(host, 37, 37)
     await component.copy()
-    expect(component.copied).toBeTrue()
+    expect(component.copied).toBe(true)
 
     selectVerses(host, 38, 38)
 
-    expect(component.copied).toBeFalse()
+    expect(component.copied).toBe(false)
     expect(component["copiedTimer"]).toBeUndefined()
   })
 
   it("does not paint over a colour chosen after the marks came off", () => {
     highlights.toggle("mat", 22, 37, "green")
     const undo = new Subject<void>()
-    spyOn(TestBed.inject(MatSnackBar), "open").and.returnValue({
+    vi.spyOn(TestBed.inject(MatSnackBar), "open").mockReturnValue({
       onAction: () => undo.asObservable(),
     } as MatSnackBarRef<TextOnlySnackBar>)
     selectVerses(host, 37, 37)
@@ -370,7 +378,7 @@ describe("SelectionActionsComponent", () => {
     highlights.toggle("mat", 22, 37, "green")
     highlights.toggle("mat", 22, 38, "pink")
     const undo = new Subject<void>()
-    const open = spyOn(TestBed.inject(MatSnackBar), "open").and.returnValue({
+    const open = vi.spyOn(TestBed.inject(MatSnackBar), "open").mockReturnValue({
       onAction: () => undo.asObservable(),
     } as MatSnackBarRef<TextOnlySnackBar>)
     selectVerses(host, 37, 39)
@@ -380,7 +388,7 @@ describe("SelectionActionsComponent", () => {
     expect(open).toHaveBeenCalledWith(
       "2 marcas retiradas",
       "Anular",
-      jasmine.any(Object),
+      expect.any(Object),
     )
 
     undo.next()
@@ -389,7 +397,9 @@ describe("SelectionActionsComponent", () => {
   })
 
   it("offers nothing to undo when there was no mark to take off", () => {
-    const open = spyOn(TestBed.inject(MatSnackBar), "open")
+    const open = vi
+      .spyOn(TestBed.inject(MatSnackBar), "open")
+      .mockReturnValue(undefined as never)
     selectVerses(host, 37, 37)
 
     component.clearMarks()
@@ -398,12 +408,14 @@ describe("SelectionActionsComponent", () => {
   })
 
   it("shows that copying failed, instead of doing nothing", async () => {
-    spyOn(navigator.clipboard, "writeText").and.rejectWith(new Error("denied"))
+    vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(
+      new Error("denied"),
+    )
     selectVerses(host, 37, 37)
 
     await component.copy()
 
-    expect(component.copyFailed).toBeTrue()
+    expect(component.copyFailed).toBe(true)
     expect(
       fixture.nativeElement
         .querySelector(".bar-action:last-child mat-icon")
@@ -417,9 +429,9 @@ describe("SelectionActionsComponent", () => {
       ({ top, bottom: top + 20, left: 300, width: 100, height: 20 }) as DOMRect
 
     // Room above: the bar sits over the words and grows up out of them.
-    expect(place(rect(400)).below).toBeFalse()
+    expect(place(rect(400)).below).toBe(false)
     // None: it goes underneath, and has to grow downwards instead.
-    expect(place(rect(10)).below).toBeTrue()
+    expect(place(rect(10)).below).toBe(true)
     // Across the bar, the origin is over the middle of the selection.
     const placed = place(rect(400))
     expect(placed.left + placed.originX).toBe(350)
