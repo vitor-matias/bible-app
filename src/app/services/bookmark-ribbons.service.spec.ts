@@ -1,5 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 import { Router } from "@angular/router"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import { BookService } from "./book.service"
 import { BookmarkService } from "./bookmark.service"
@@ -14,7 +15,11 @@ import { HapticsService } from "./haptics.service"
 
 /** The eight ribbons, those listed marking the given chapters. */
 function ribbonsWith(
-  marks: { color: string; bookId: string; chapter: number }[],
+  marks: {
+    color: string
+    bookId: string
+    chapter: number
+  }[],
 ): RibbonState[] {
   return RIBBON_COLORS.map(({ name, value, spoken }) => {
     const mark = marks.find((m) => m.color === value)
@@ -82,17 +87,17 @@ describe("ribbonToMove", () => {
 })
 
 describe("BookmarkRibbonsService", () => {
-  let bookmarks: jasmine.SpyObj<BookmarkService>
-  let analytics: jasmine.SpyObj<AnalyticsService>
+  let bookmarks: SpyObj<BookmarkService>
+  let analytics: SpyObj<AnalyticsService>
   let service: BookmarkRibbonsService
 
   beforeEach(() => {
-    bookmarks = jasmine.createSpyObj("BookmarkService", [
+    bookmarks = createSpyObj("BookmarkService", [
       "addBookmark",
       "removeBookmark",
     ])
-    analytics = jasmine.createSpyObj("AnalyticsService", ["track"])
-    analytics.track.and.resolveTo()
+    analytics = createSpyObj("AnalyticsService", ["track"])
+    analytics.track.mockResolvedValue(undefined)
     TestBed.configureTestingModule({
       providers: [
         { provide: BookmarkService, useValue: bookmarks },
@@ -101,7 +106,7 @@ describe("BookmarkRibbonsService", () => {
         { provide: Router, useValue: {} },
         {
           provide: HapticsService,
-          useValue: jasmine.createSpyObj("HapticsService", ["success"]),
+          useValue: createSpyObj("HapticsService", ["success"]),
         },
       ],
     })
@@ -113,13 +118,15 @@ describe("BookmarkRibbonsService", () => {
 
     const previous = service.move(red, "mat", 7)
 
-    expect(bookmarks.addBookmark).toHaveBeenCalledOnceWith("mat", 7, "red")
+    expect(bookmarks.addBookmark).toHaveBeenCalledTimes(1)
+
+    expect(bookmarks.addBookmark).toHaveBeenCalledWith("mat", 7, "red")
     expect(previous).toEqual(
-      jasmine.objectContaining({ bookId: "mat", chapter: 5, color: "red" }),
+      expect.objectContaining({ bookId: "mat", chapter: 5, color: "red" }),
     )
     expect(analytics.track).toHaveBeenCalledWith(
       "bookmark_move",
-      jasmine.objectContaining({ chapter: 7, fromChapter: 5 }),
+      expect.objectContaining({ chapter: 7, fromChapter: 5 }),
     )
   })
 
@@ -131,7 +138,8 @@ describe("BookmarkRibbonsService", () => {
 
   it("puts a moved ribbon back", () => {
     service.restore({ bookId: "mat", chapter: 5, color: "red", timestamp: 1 })
-    expect(bookmarks.addBookmark).toHaveBeenCalledOnceWith("mat", 5, "red")
+    expect(bookmarks.addBookmark).toHaveBeenCalledTimes(1)
+    expect(bookmarks.addBookmark).toHaveBeenCalledWith("mat", 5, "red")
   })
 
   // The web panel and the iOS sheet both offer it through RibbonMove.
@@ -142,7 +150,7 @@ describe("BookmarkRibbonsService", () => {
     it("offers the ribbon read on from, by its spoken name", () => {
       const mover = service.moveTo("mat", 7)
       expect(mover.offer(before)).toEqual({
-        from: jasmine.objectContaining({ bookId: "mat", chapter: 5 }),
+        from: expect.objectContaining({ bookId: "mat", chapter: 5 }),
         name: "vermelho",
         done: false,
       })
@@ -153,23 +161,23 @@ describe("BookmarkRibbonsService", () => {
       mover.move(before[0])
 
       expect(mover.offer(after)).toEqual(
-        jasmine.objectContaining({
-          from: jasmine.objectContaining({ chapter: 5 }),
+        expect.objectContaining({
+          from: expect.objectContaining({ chapter: 5 }),
           done: true,
         }),
       )
-      expect(mover.undo()).toBeTrue()
+      expect(mover.undo()).toBe(true)
       expect(bookmarks.addBookmark).toHaveBeenCalledWith("mat", 5, "red")
       expect(mover.offer(after)).toBeUndefined()
-      expect(mover.undo()).toBeFalse()
+      expect(mover.undo()).toBe(false)
     })
 
     it("undoes only the ribbon it moved", () => {
       const mover = service.moveTo("mat", 7)
       mover.move(before[0])
 
-      expect(mover.undo("blue")).toBeFalse()
-      expect(mover.undo("red")).toBeTrue()
+      expect(mover.undo("blue")).toBe(false)
+      expect(mover.undo("red")).toBe(true)
     })
 
     it("keeps the last move's undo when a move does nothing", () => {
@@ -177,7 +185,7 @@ describe("BookmarkRibbonsService", () => {
       mover.move(before[0])
       mover.move(ribbonsWith([])[1])
 
-      expect(mover.offer(after)?.done).toBeTrue()
+      expect(mover.offer(after)?.done).toBe(true)
     })
   })
 })

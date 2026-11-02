@@ -1,5 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
+import type { Mock } from "vitest"
 import {
   type BeforeInstallPromptEvent,
   PwaInstallService,
@@ -30,9 +31,11 @@ const UA = {
 
 function createInstallPromptEvent(
   outcome: "accepted" | "dismissed",
-): BeforeInstallPromptEvent & { prompt: jasmine.Spy } {
+): BeforeInstallPromptEvent & {
+  prompt: Mock
+} {
   return Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
-    prompt: jasmine.createSpy("prompt").and.resolveTo(),
+    prompt: vi.fn().mockName("prompt").mockResolvedValue(undefined),
     userChoice: Promise.resolve({ outcome, platform: "web" }),
   })
 }
@@ -83,11 +86,11 @@ describe("PwaInstallService", () => {
     it("is not installed in a regular browser tab", () => {
       service = TestBed.inject(PwaInstallService)
 
-      expect(service.isInstalled).toBeFalse()
+      expect(service.isInstalled).toBe(false)
     })
 
     it("is installed when running in standalone display mode", () => {
-      spyOn(window, "matchMedia").and.callFake(
+      vi.spyOn(window, "matchMedia").mockImplementation(
         (query: string) =>
           ({
             matches: query === "(display-mode: standalone)",
@@ -96,15 +99,15 @@ describe("PwaInstallService", () => {
 
       service = TestBed.inject(PwaInstallService)
 
-      expect(service.isInstalled).toBeTrue()
+      expect(service.isInstalled).toBe(true)
     })
 
     it("is installed inside the native Capacitor shell", () => {
-      spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
+      vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true)
 
       service = TestBed.inject(PwaInstallService)
 
-      expect(service.isInstalled).toBeTrue()
+      expect(service.isInstalled).toBe(true)
     })
 
     it("stops listening once destroyed", () => {
@@ -114,17 +117,17 @@ describe("PwaInstallService", () => {
       window.dispatchEvent(createInstallPromptEvent("accepted"))
       window.dispatchEvent(new Event("appinstalled"))
 
-      expect(service.canPromptInstall).toBeFalse()
-      expect(service.isInstalled).toBeFalse()
+      expect(service.canPromptInstall).toBe(false)
+      expect(service.isInstalled).toBe(false)
     })
 
     it("becomes installed when the browser fires appinstalled", () => {
       service = TestBed.inject(PwaInstallService)
-      expect(service.isInstalled).toBeFalse()
+      expect(service.isInstalled).toBe(false)
 
       window.dispatchEvent(new Event("appinstalled"))
 
-      expect(service.isInstalled).toBeTrue()
+      expect(service.isInstalled).toBe(true)
     })
   })
 
@@ -134,8 +137,8 @@ describe("PwaInstallService", () => {
     })
 
     it("is unavailable until the browser offers it", async () => {
-      expect(service.canPromptInstall).toBeFalse()
-      await expectAsync(service.promptInstall()).toBeResolvedTo("unavailable")
+      expect(service.canPromptInstall).toBe(false)
+      await expect(service.promptInstall()).resolves.toEqual("unavailable")
     })
 
     it("captures beforeinstallprompt, suppresses the mini-infobar and shows it on demand", async () => {
@@ -143,16 +146,16 @@ describe("PwaInstallService", () => {
 
       window.dispatchEvent(event)
 
-      expect(event.defaultPrevented).toBeTrue()
-      expect(service.canPromptInstall).toBeTrue()
+      expect(event.defaultPrevented).toBe(true)
+      expect(service.canPromptInstall).toBe(true)
 
       const outcome = await service.promptInstall()
 
       expect(event.prompt).toHaveBeenCalled()
       expect(outcome).toBe("accepted")
-      expect(service.isInstalled).toBeTrue()
+      expect(service.isInstalled).toBe(true)
       // The event is single-use.
-      expect(service.canPromptInstall).toBeFalse()
+      expect(service.canPromptInstall).toBe(false)
     })
 
     it("does not mark the app installed when the user dismisses the prompt", async () => {
@@ -161,17 +164,17 @@ describe("PwaInstallService", () => {
       const outcome = await service.promptInstall()
 
       expect(outcome).toBe("dismissed")
-      expect(service.isInstalled).toBeFalse()
-      expect(service.canPromptInstall).toBeFalse()
+      expect(service.isInstalled).toBe(false)
+      expect(service.canPromptInstall).toBe(false)
     })
 
     it("reports unavailable when the prompt itself fails", async () => {
       const event = createInstallPromptEvent("accepted")
-      event.prompt.and.rejectWith(new Error("blocked"))
-      spyOn(console, "error")
+      event.prompt.mockRejectedValue(new Error("blocked"))
+      vi.spyOn(console, "error").mockReturnValue(undefined)
       window.dispatchEvent(event)
 
-      await expectAsync(service.promptInstall()).toBeResolvedTo("unavailable")
+      await expect(service.promptInstall()).resolves.toEqual("unavailable")
       expect(console.error).toHaveBeenCalled()
     })
   })

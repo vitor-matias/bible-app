@@ -10,6 +10,7 @@ import {
   inject,
   type OnDestroy,
   type OnInit,
+  PendingTasks,
   PLATFORM_ID,
   ViewChild,
 } from "@angular/core"
@@ -100,10 +101,27 @@ const scrollCardIntoView = (element: HTMLElement): void => {
   ],
 })
 export class BibleReaderComponent implements OnInit, OnDestroy {
+  private autoScrollService = inject(AutoScrollService)
+  private apiService = inject(BibleApiService)
+  private bookService = inject(BookService)
+  private preferencesService = inject(PreferencesService)
+  private cdr = inject(ChangeDetectorRef)
+  private router = inject(Router)
+  private route = inject(ActivatedRoute)
+  private animationService = inject(BibleReaderAnimationService)
+  private analyticsService = inject(AnalyticsService)
+  private networkService = inject(NetworkService)
+  private seoService = inject(SeoService)
+  private pwaInstallService = inject(PwaInstallService)
+
   private destroy$ = new Subject<void>()
   private chapterSubscription?: Subscription
   private injector = inject(Injector)
   private platformId = inject(PLATFORM_ID)
+  private host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement
+  private pendingTasks = inject(PendingTasks)
+  /** Set while the prerendered chapter on screen waits for its data. */
+  private endPrerenderHold?: () => void
   private haptics = inject(HapticsService)
   private nativeChrome = inject(NativeChromeService)
   /**
@@ -299,22 +317,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     }
   }
 
-  constructor(
-    private autoScrollService: AutoScrollService,
-    private apiService: BibleApiService,
-    private bookService: BookService,
-    private preferencesService: PreferencesService,
-    private cdr: ChangeDetectorRef,
-    private router: Router,
-    private route: ActivatedRoute,
-    private animationService: BibleReaderAnimationService,
-    private analyticsService: AnalyticsService,
-    private networkService: NetworkService,
-    private seoService: SeoService,
-    private pwaInstallService: PwaInstallService,
-  ) {}
-
   ngOnInit(): void {
+    // Hydration deletes the server DOM it hasn't claimed once the app is stable,
+    // and waiting on IndexedDB doesn't count as work: the text would blank out.
+    if (this.host.querySelector(".chapterBlock")) {
+      this.endPrerenderHold = this.pendingTasks.add()
+    }
+
     const storedSpeed = this.preferencesService.getAutoScrollSpeed()
     if (storedSpeed) {
       this.autoScrollService.setAutoScrollLinesPerSecond(storedSpeed)
@@ -332,11 +341,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe((books) => {
         this.books = books
+        this.cdr.markForCheck()
       })
     this.bookService.booksUnavailable$
       .pipe(takeUntil(this.destroy$))
       .subscribe((unavailable) => {
         this.booksUnavailable = unavailable
+        if (unavailable) this.releasePrerender()
         this.cdr.markForCheck()
       })
 
@@ -439,6 +450,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.releasePrerender()
     this.unregisterBackCloser()
     this.destroy$.next()
     this.destroy$.complete()
@@ -446,6 +458,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.animationService.cancelPendingRealign()
     this.stopTrackingScroll?.()
     // AutoScrollService handles its own cleanup now if we stop it, or the component stopping it
+  }
+
+  private releasePrerender(): void {
+    this.endPrerenderHold?.()
+    this.endPrerenderHold = undefined
   }
 
   /** The one place chapter URLs are built, for anchors and navigation alike. */
@@ -799,6 +816,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.isNavigatingBackwards = false
     this.isNavigatingForwards = false
     this.notifyChapterLoadFailed()
+    this.releasePrerender()
     if (isPlatformBrowser(this.platformId)) {
       this.router.navigate(
         [
@@ -857,7 +875,16 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     verseEnd?: Verse["number"],
     highlight = true,
   ): void {
-    this.resetContainerForRepaint()
+    // Paged view lays the text out anew and a verse link moves it, so those
+    // still reveal it. Otherwise it's in place, and the reader may have scrolled.
+    const alreadyShown =
+      !!this.endPrerenderHold &&
+      !verseStart &&
+      this.effectiveViewMode === "scrolling" &&
+      !this.isNavigatingForwards &&
+      !this.isNavigatingBackwards
+
+    if (!alreadyShown) this.resetContainerForRepaint()
 
     this.chapter = chapterData
     this.chapterNumber = chapter
@@ -876,10 +903,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.isNavigatingBackwards = false
     this.isNavigatingForwards = false
 
-    if (!verseStart) {
-      // The card view places itself, and keeps the scroller away from the
-      // service: its smooth scroll to the very top would run back through
-      // every card of the new chapter and come to rest on the leading stop —
+    if (verseStart) {
+      this.scrollToVerse(verseStart, verseEnd, highlight)
+    } else if (this.showCards || !alreadyShown) {
+      // The card view places itself — on the hydrated first page too, whose
+      // prerendered text the cards replace — and keeps the scroller away from
+      // the service: its smooth scroll to the very top would run back through
+      // every card of the new chapter and come to rest on the leading stop,
       // which asks for the chapter before this one.
       if (this.showCards) this.restOnCard(startAtBottom ? "last" : "first")
       this.animationService.scrollToTop(
@@ -891,12 +921,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           ? () => this.pagedNav?.scrollToEnd()
           : () => this.pagedNav?.ensureAlignedScrollWidth(),
       )
-    } else {
-      this.scrollToVerse(verseStart, verseEnd, highlight)
     }
 
     this.preferencesService.setLastBookId(this.book.id)
     this.preferencesService.setLastChapterNumber(this.chapterNumber)
+    this.releasePrerender()
   }
 
   /** Paged mode scrolls in whole pages, so paged navigation does the scroll. */

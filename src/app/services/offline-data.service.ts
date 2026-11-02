@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http"
-import { Injectable } from "@angular/core"
+import { Injectable, inject } from "@angular/core"
 import { firstValueFrom } from "rxjs"
 import { apiBaseUrl } from "../config"
 import { safeLocalStorage } from "../utils/web-storage"
@@ -11,6 +11,11 @@ import { NetworkService } from "./network.service"
   providedIn: "root",
 })
 export class OfflineDataService {
+  private http = inject(HttpClient)
+  private databaseService = inject(DatabaseService)
+  private networkService = inject(NetworkService)
+  private analyticsService = inject(AnalyticsService)
+
   private cacheFlagKey = "booksCacheReady"
   private groupIntrosCacheFlagKey = "groupIntrosCacheReady"
   private cacheTimestampKey = "booksCacheTimestamp"
@@ -23,13 +28,6 @@ export class OfflineDataService {
   private apiBase = apiBaseUrl
   private cacheLoadPromise: Promise<void> | null = null
   private migrationPromise: Promise<boolean> | null = null
-
-  constructor(
-    private http: HttpClient,
-    private databaseService: DatabaseService,
-    private networkService: NetworkService,
-    private analyticsService: AnalyticsService,
-  ) {}
 
   /**
    * Fetches all books and chapters so they are stored by the Service Worker

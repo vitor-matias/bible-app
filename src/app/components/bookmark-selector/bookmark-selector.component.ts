@@ -4,7 +4,6 @@ import {
   ChangeDetectorRef,
   Component,
   DestroyRef,
-  Inject,
   inject,
   OnInit,
 } from "@angular/core"
@@ -42,6 +41,14 @@ interface MoveOffer {
   styleUrls: ["./bookmark-selector.component.css"],
 })
 export class BookmarkSelectorComponent implements OnInit {
+  private bottomSheetRef =
+    inject<MatBottomSheetRef<BookmarkSelectorComponent>>(MatBottomSheetRef)
+  data = inject<{
+    bookId: string
+    chapter: number
+  }>(MAT_BOTTOM_SHEET_DATA)
+  private bookmarkService = inject(BookmarkService)
+
   colors = RIBBON_COLORS
   /** Each ribbon in the theme's tone for it. */
   readonly ribbonColor = ribbonColor
@@ -55,12 +62,9 @@ export class BookmarkSelectorComponent implements OnInit {
   private changeDetector = inject(ChangeDetectorRef)
   private readonly mover: RibbonMove
 
-  constructor(
-    private bottomSheetRef: MatBottomSheetRef<BookmarkSelectorComponent>,
-    @Inject(MAT_BOTTOM_SHEET_DATA)
-    public data: { bookId: string; chapter: number },
-    private bookmarkService: BookmarkService,
-  ) {
+  constructor() {
+    const data = this.data
+
     this.mover = this.ribbonsService.moveTo(data.bookId, data.chapter)
   }
 

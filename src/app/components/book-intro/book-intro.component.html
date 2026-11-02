@@ -41,14 +41,18 @@
           <p class="intro-outline" [class.intro-outline-2]="item.element.level === 2">{{ item.element.text }}</p>
         }
         @case ('introTable') {
+          <!-- tbody: the browser adds one when parsing the prerendered page, and
+               hydration needs the template to match. -->
           <table class="intro-table">
-            @for (row of item.element.rows; track $index) {
-              <tr>
-                @for (cell of row; track $index) {
-                  <td>{{ cell }}</td>
-                }
-              </tr>
-            }
+            <tbody>
+              @for (row of item.element.rows; track $index) {
+                <tr>
+                  @for (cell of row; track $index) {
+                    <td>{{ cell }}</td>
+                  }
+                </tr>
+              }
+            </tbody>
           </table>
         }
         @case ('introMajorSection') {

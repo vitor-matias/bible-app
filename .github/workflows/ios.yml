@@ -1,0 +1,60 @@
+name: iOS
+
+# Compiles the native iOS app around the web bundle it ships, so a pull
+# request that breaks it fails here and not at the next release. The runner is
+# macOS, which is costly, so it only runs for changes that can affect the app.
+# Nothing is signed; build-all-platforms.yml makes the signed release builds.
+on:
+  pull_request:
+    branches: [ master, main, 'feat/**' ]
+    paths:
+      - 'ios/**'
+      - 'native-contract/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.ts'
+      - '.github/workflows/ios.yml'
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    runs-on: xcode-27  # macos-latest tops out at Xcode 26.x
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: '27.1'
+      - run: npm ci
+      # cap:prune copies the build to Capacitor's webDir without the
+      # prerendered route pages; sync copies it and the plugins into ios/.
+      - name: Build the native web bundle
+        run: |
+          set -e
+          npm run build
+          npm run cap:prune
+          npx cap sync ios
+      # Builds the app too. A simulator of its own, as ios/scripts/smoke-launch.sh
+      # makes: a runtime's default devices can be only the iPhone Duo.
+      - name: Build the app and run its tests on the simulator
+        run: |
+          set -e
+          TYPE=com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max
+          RUNTIME=$(xcrun simctl list runtimes -j | jq -r --arg type "$TYPE" '
+            [.runtimes[] | select(.platform == "iOS" and .isAvailable and
+              any(.supportedDeviceTypes[]; .identifier == $type))]
+            | max_by(.version | split(".") | map(tonumber)) | .identifier // empty')
+          UDID=$(xcrun simctl create "PR tests" "$TYPE" "$RUNTIME")
+          xcodebuild test -project ios/App/App.xcodeproj \
+            -scheme App \
+            -destination "platform=iOS Simulator,id=$UDID" \
+            -derivedDataPath ios/App/build/ci \
+            CODE_SIGNING_ALLOWED=NO

@@ -1,17 +1,19 @@
 import { TestBed } from "@angular/core/testing"
 import { Router } from "@angular/router"
 import { Subject } from "rxjs"
+import type { Mock } from "vitest"
+import { createSpyObj, lastCall, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import {
   type BibleReference,
   BibleReferenceService,
 } from "./bible-reference.service"
 import { BookService } from "./book.service"
-import {
-  type FootnotesSheetState,
-  type NativeChromeAction,
-  NativeChromeService,
-} from "./native-chrome.service"
+import { NativeChromeService } from "./native-chrome.service"
+import type {
+  FootnotesSheetState,
+  NativeChromeAction,
+} from "./native-chrome.types"
 import { NativeFootnotesService } from "./native-footnotes.service"
 import { PreferencesService } from "./preferences.service"
 import { SystemTextSizeService } from "./system-text-size.service"
@@ -22,12 +24,12 @@ describe("NativeFootnotesService", () => {
   let nativeChrome: {
     enabled: boolean
     actions$: Subject<NativeChromeAction>
-    showFootnotes: jasmine.Spy
+    showFootnotes: Mock
   }
-  let bibleRef: jasmine.SpyObj<BibleReferenceService>
-  let router: jasmine.SpyObj<Router>
-  let analytics: jasmine.SpyObj<AnalyticsService>
-  let toast: jasmine.SpyObj<ToastService>
+  let bibleRef: SpyObj<BibleReferenceService>
+  let router: SpyObj<Router>
+  let analytics: SpyObj<AnalyticsService>
+  let toast: SpyObj<ToastService>
   /** The sizes stored per context: "reader" is the one AA changes. */
   let fontSizes: Record<string, number>
   let systemPercent: number | null
@@ -62,14 +64,14 @@ describe("NativeFootnotesService", () => {
     nativeChrome = {
       enabled: true,
       actions$: actions,
-      showFootnotes: jasmine.createSpy("showFootnotes").and.resolveTo(true),
+      showFootnotes: vi.fn().mockName("showFootnotes").mockResolvedValue(true),
     }
-    bibleRef = jasmine.createSpyObj("BibleReferenceService", ["extract"])
-    bibleRef.extract.and.returnValue(references)
-    router = jasmine.createSpyObj("Router", ["navigate"])
-    analytics = jasmine.createSpyObj("AnalyticsService", ["track"])
-    analytics.track.and.resolveTo()
-    toast = jasmine.createSpyObj("ToastService", ["showReturn"])
+    bibleRef = createSpyObj("BibleReferenceService", ["extract"])
+    bibleRef.extract.mockReturnValue(references)
+    router = createSpyObj("Router", ["navigate"])
+    analytics = createSpyObj("AnalyticsService", ["track"])
+    analytics.track.mockResolvedValue(undefined)
+    toast = createSpyObj("ToastService", ["showReturn"])
     fontSizes = {}
     systemPercent = null
     TestBed.configureTestingModule({
@@ -104,7 +106,7 @@ describe("NativeFootnotesService", () => {
 
   const footnote = { type: "footnote" as const, text, reference: "3." }
   const shown = (): FootnotesSheetState =>
-    nativeChrome.showFootnotes.calls.mostRecent().args[0]
+    lastCall(vi.mocked(nativeChrome.showFootnotes))[0]
 
   it("shows the notes with their references as links", () => {
     service.open([footnote], verse)
@@ -179,7 +181,9 @@ describe("NativeFootnotesService", () => {
 
     actions.next({ id: "footnote-link", index: 0 })
 
-    expect(toast.showReturn).toHaveBeenCalledOnceWith(verse)
+    expect(toast.showReturn).toHaveBeenCalledTimes(1)
+
+    expect(toast.showReturn).toHaveBeenCalledWith(verse)
   })
 
   it("stops listening once the sheet is closed", async () => {
@@ -195,7 +199,7 @@ describe("NativeFootnotesService", () => {
   // one once that one has gone, and the last one's close came in between.
   it("keeps listening through the closing sheet's footnotes-closed", async () => {
     let answer: (presented: boolean) => void = () => {}
-    nativeChrome.showFootnotes.and.returnValue(
+    nativeChrome.showFootnotes.mockReturnValue(
       new Promise<boolean>((resolve) => {
         answer = resolve
       }),
@@ -211,7 +215,7 @@ describe("NativeFootnotesService", () => {
 
   // Over another sheet none comes up, and no footnotes-closed would follow.
   it("stops listening when no sheet came up", async () => {
-    nativeChrome.showFootnotes.and.resolveTo(false)
+    nativeChrome.showFootnotes.mockResolvedValue(false)
     service.open([footnote], verse)
     await new Promise((resolve) => setTimeout(resolve))
     actions.next({ id: "footnote-link", index: 0 })

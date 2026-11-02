@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core"
+import { Injectable, inject } from "@angular/core"
 import { BehaviorSubject, type Observable } from "rxjs"
 import { map } from "rxjs/operators"
 import { DatabaseService } from "./database.service"
@@ -7,12 +7,14 @@ import { DatabaseService } from "./database.service"
   providedIn: "root",
 })
 export class BookmarkService {
+  private databaseService = inject(DatabaseService)
+
   private bookmarksSubject = new BehaviorSubject<Bookmark[]>([])
   bookmarks$ = this.bookmarksSubject.asObservable()
   private updatePromise: Promise<void> = Promise.resolve()
   initialized: Promise<void>
 
-  constructor(private databaseService: DatabaseService) {
+  constructor() {
     this.initialized = this.init()
   }
 

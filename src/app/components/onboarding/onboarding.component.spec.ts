@@ -8,6 +8,7 @@ import {
   type InstallPromptOutcome,
   PwaInstallService,
 } from "../../services/pwa-install.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { OnboardingComponent } from "./onboarding.component"
 import {
   getInstallGuide,
@@ -21,15 +22,18 @@ class FakePwaInstallService {
   readonly canPromptInstall$ = new BehaviorSubject<boolean>(false)
   platform: InstallPlatform = "android"
   browser: InstallBrowser = "chrome"
-  detectPlatform = jasmine
-    .createSpy("detectPlatform")
-    .and.callFake(() => this.platform)
-  detectBrowser = jasmine
-    .createSpy("detectBrowser")
-    .and.callFake(() => this.browser)
-  promptInstall = jasmine
-    .createSpy("promptInstall")
-    .and.resolveTo("accepted" as InstallPromptOutcome)
+  detectPlatform = vi
+    .fn()
+    .mockName("detectPlatform")
+    .mockImplementation(() => this.platform)
+  detectBrowser = vi
+    .fn()
+    .mockName("detectBrowser")
+    .mockImplementation(() => this.browser)
+  promptInstall = vi
+    .fn()
+    .mockName("promptInstall")
+    .mockResolvedValue("accepted" as InstallPromptOutcome)
 }
 
 describe("OnboardingComponent", () => {
@@ -37,14 +41,14 @@ describe("OnboardingComponent", () => {
   let component: OnboardingComponent
   let element: HTMLElement
   let pwa: FakePwaInstallService
-  let dialogRefSpy: jasmine.SpyObj<MatDialogRef<OnboardingComponent>>
-  let analyticsSpy: jasmine.SpyObj<AnalyticsService>
+  let dialogRefSpy: SpyObj<MatDialogRef<OnboardingComponent>>
+  let analyticsSpy: SpyObj<AnalyticsService>
 
   beforeEach(async () => {
     pwa = new FakePwaInstallService()
-    dialogRefSpy = jasmine.createSpyObj("MatDialogRef", ["close"])
-    analyticsSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
-    analyticsSpy.track.and.resolveTo()
+    dialogRefSpy = createSpyObj("MatDialogRef", ["close"])
+    analyticsSpy = createSpyObj("AnalyticsService", ["track"])
+    analyticsSpy.track.mockResolvedValue(undefined)
 
     await TestBed.configureTestingModule({
       imports: [OnboardingComponent],
@@ -144,10 +148,10 @@ describe("OnboardingComponent", () => {
   })
 
   describe("keyboard navigation", () => {
-    const windowListener = jasmine.createSpy("windowKeydown")
+    const windowListener = vi.fn().mockName("windowKeydown")
 
     beforeEach(() => {
-      windowListener.calls.reset()
+      windowListener.mockClear()
       window.addEventListener("keydown", windowListener)
     })
 
@@ -182,7 +186,7 @@ describe("OnboardingComponent", () => {
 
       const event = press(element, "ArrowRight")
 
-      expect(event.defaultPrevented).toBeTrue()
+      expect(event.defaultPrevented).toBe(true)
       expect(windowListener).not.toHaveBeenCalled()
     })
 
@@ -191,7 +195,7 @@ describe("OnboardingComponent", () => {
 
       const event = press(element, "Enter")
 
-      expect(event.defaultPrevented).toBeFalse()
+      expect(event.defaultPrevented).toBe(false)
       expect(windowListener).toHaveBeenCalled()
       expect(component.index).toBe(0)
     })
@@ -204,7 +208,7 @@ describe("OnboardingComponent", () => {
       const event = press(platformButton("Android"), "ArrowLeft")
 
       expect(component.index).toBe(installIndex)
-      expect(event.defaultPrevented).toBeFalse()
+      expect(event.defaultPrevented).toBe(false)
       expect(windowListener).not.toHaveBeenCalled()
     })
 
@@ -235,7 +239,6 @@ describe("OnboardingComponent", () => {
 
   it("closes without completing when skipped", () => {
     create()
-
     ;(element.querySelector(".close") as HTMLButtonElement).click()
 
     expect(dialogRefSpy.close).toHaveBeenCalledWith({
@@ -249,9 +252,9 @@ describe("OnboardingComponent", () => {
     create()
 
     expect(component.steps.length).toBe(ONBOARDING_STEPS.length - 1)
-    expect(
-      component.steps.some((step) => step.id === INSTALL_STEP_ID),
-    ).toBeFalse()
+    expect(component.steps.some((step) => step.id === INSTALL_STEP_ID)).toBe(
+      false,
+    )
     expect(element.querySelectorAll(".dot").length).toBe(
       ONBOARDING_STEPS.length - 1,
     )
@@ -353,7 +356,7 @@ describe("OnboardingComponent", () => {
 
   it("keeps the manual steps when the user dismisses the native prompt", async () => {
     pwa.canPromptInstall = true
-    pwa.promptInstall.and.resolveTo("dismissed" as InstallPromptOutcome)
+    pwa.promptInstall.mockResolvedValue("dismissed" as InstallPromptOutcome)
     create()
     goToInstallStep()
 
@@ -399,23 +402,21 @@ describe("OnboardingComponent", () => {
           (candidate) => candidate.getBoundingClientRect(),
         )
 
-        expect(secondary.top)
-          .withContext(stepId)
-          .toBeGreaterThanOrEqual(firstDot.bottom)
-        expect(firstDot.left - footer.left)
-          .withContext(`${stepId}: dots centred`)
-          .toBeCloseTo(footer.right - lastDot.right, 0)
-        expect(secondary.left - footer.left)
-          .withContext(`${stepId}: buttons at the edges`)
-          .toBeCloseTo(footer.right - primary.right, 0)
+        expect(secondary.top, stepId).toBeGreaterThanOrEqual(firstDot.bottom)
+        expect(
+          firstDot.left - footer.left,
+          `${stepId}: dots centred`,
+        ).toBeCloseTo(footer.right - lastDot.right, 0)
+        expect(
+          secondary.left - footer.left,
+          `${stepId}: buttons at the edges`,
+        ).toBeCloseTo(footer.right - primary.right, 0)
       })
     })
 
     it("keeps the dots and the buttons on one row in a wider dialog", () => {
       eachStep(520, (stepId) => {
-        expect(rect(".buttons").top)
-          .withContext(stepId)
-          .toBeLessThan(rect(".dots").bottom)
+        expect(rect(".buttons").top, stepId).toBeLessThan(rect(".dots").bottom)
       })
     })
   })

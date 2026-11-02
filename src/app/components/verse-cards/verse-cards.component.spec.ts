@@ -1,10 +1,5 @@
 import { Component, Input } from "@angular/core"
-import {
-  type ComponentFixture,
-  fakeAsync,
-  TestBed,
-  tick,
-} from "@angular/core/testing"
+import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { provideRouter } from "@angular/router"
 import { of } from "rxjs"
 import { BookService } from "../../services/book.service"
@@ -16,8 +11,8 @@ describe("VerseCardsComponent", () => {
   let originalIntersectionObserver: typeof IntersectionObserver
 
   class MockIntersectionObserver {
-    observe = jasmine.createSpy("observe")
-    disconnect = jasmine.createSpy("disconnect")
+    observe = vi.fn().mockName("observe")
+    disconnect = vi.fn().mockName("disconnect")
 
     constructor(
       private callback: IntersectionObserverCallback,
@@ -200,12 +195,12 @@ describe("VerseCardsComponent", () => {
 
     it("asks for the previous chapter when the reader scrolls up onto the stop", () => {
       offerPrevious("João 2")
-      const reachedStart = jasmine.createSpy("reachedStart")
-      const reachedEnd = jasmine.createSpy("reachedEnd")
+      const reachedStart = vi.fn().mockName("reachedStart")
+      const reachedEnd = vi.fn().mockName("reachedEnd")
       fixture.componentInstance.reachedStart.subscribe(reachedStart)
       fixture.componentInstance.reachedEnd.subscribe(reachedEnd)
 
-      expect(observers[0].observe).toHaveBeenCalledOnceWith(startCard())
+      expect(observers[0].observe).toHaveBeenCalledExactlyOnceWith(startCard())
       expect(observers[0].options?.threshold).toBe(0.9)
 
       // The chapter opens resting on a verse; then the reader swipes down.
@@ -222,7 +217,7 @@ describe("VerseCardsComponent", () => {
     // landed there, and opening João 3,16 sent the reader to João 2.
     it("does not ask when the stop is already on screen as the watching starts", () => {
       offerPrevious("João 2")
-      const reachedStart = jasmine.createSpy("reachedStart")
+      const reachedStart = vi.fn().mockName("reachedStart")
       fixture.componentInstance.reachedStart.subscribe(reachedStart)
 
       observers[0].report(1)
@@ -238,7 +233,7 @@ describe("VerseCardsComponent", () => {
 
     it("does not ask for a sliver of the stop peeking in", () => {
       offerPrevious("João 2")
-      const reachedStart = jasmine.createSpy("reachedStart")
+      const reachedStart = vi.fn().mockName("reachedStart")
       fixture.componentInstance.reachedStart.subscribe(reachedStart)
 
       observers[0].report(0)
@@ -249,7 +244,7 @@ describe("VerseCardsComponent", () => {
 
     it("asks again only after the reader has left the stop and come back", () => {
       offerPrevious("João 2")
-      const reachedStart = jasmine.createSpy("reachedStart")
+      const reachedStart = vi.fn().mockName("reachedStart")
       fixture.componentInstance.reachedStart.subscribe(reachedStart)
 
       observers[0].report(0)
@@ -296,8 +291,8 @@ describe("VerseCardsComponent", () => {
     })
     class ScrollingHostComponent {
       @Input() chapter = chapter
-      reachedStart = jasmine.createSpy("reachedStart")
-      reachedEnd = jasmine.createSpy("reachedEnd")
+      reachedStart = vi.fn().mockName("reachedStart")
+      reachedEnd = vi.fn().mockName("reachedEnd")
     }
 
     let host: ComponentFixture<ScrollingHostComponent>
@@ -306,7 +301,7 @@ describe("VerseCardsComponent", () => {
     function observerOf(selector: string): MockIntersectionObserver {
       const stop = host.nativeElement.querySelector(selector)
       const observer = observers.find(
-        (candidate) => candidate.observe.calls.mostRecent()?.args[0] === stop,
+        (candidate) => candidate.observe.mock.lastCall?.[0] === stop,
       )
       if (!observer) throw new Error(`Nothing watches ${selector}`)
       return observer
@@ -391,56 +386,56 @@ describe("VerseCardsComponent", () => {
       expect(host.componentInstance.reachedStart).toHaveBeenCalledTimes(1)
     })
 
-    it("without a scrollend event, takes a pause in the scroll events for the end", fakeAsync(() => {
-      spyOn(
+    it("without a scrollend event, takes a pause in the scroll events for the end", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(
         VerseCardsComponent.prototype as unknown as {
           supportsScrollEnd(): boolean
         },
         "supportsScrollEnd",
-      ).and.returnValue(false)
+      ).mockReturnValue(false)
 
       flingOntoEndStop()
-      tick(100)
+      await vi.advanceTimersByTimeAsync(100)
       // Still gliding: every scroll event pushes the end back.
       scroller.dispatchEvent(new Event("scroll"))
-      tick(149)
+      await vi.advanceTimersByTimeAsync(149)
       expect(host.componentInstance.reachedEnd).not.toHaveBeenCalled()
 
-      tick(1)
+      await vi.advanceTimersByTimeAsync(1)
 
       expect(host.componentInstance.reachedEnd).toHaveBeenCalledTimes(1)
-    }))
+    })
 
-    it("does not wait for ever on a scrollend that never comes", fakeAsync(() => {
+    it("does not wait for ever on a scrollend that never comes", async () => {
+      vi.useFakeTimers()
       flingOntoEndStop()
 
-      tick(999)
+      await vi.advanceTimersByTimeAsync(999)
       expect(host.componentInstance.reachedEnd).not.toHaveBeenCalled()
-      tick(1)
+      await vi.advanceTimersByTimeAsync(1)
 
       expect(host.componentInstance.reachedEnd).toHaveBeenCalledTimes(1)
-    }))
+    })
 
-    it("stops listening to the scroller when the view is left", fakeAsync(() => {
-      const removeEventListener = spyOn(
-        scroller,
-        "removeEventListener",
-      ).and.callThrough()
+    it("stops listening to the scroller when the view is left", async () => {
+      vi.useFakeTimers()
+      const removeEventListener = vi.spyOn(scroller, "removeEventListener")
       flingOntoEndStop()
 
       host.destroy()
-      tick(1000)
+      await vi.advanceTimersByTimeAsync(1000)
 
       expect(removeEventListener).toHaveBeenCalledWith(
         "scroll",
-        jasmine.any(Function),
+        expect.any(Function),
       )
       expect(removeEventListener).toHaveBeenCalledWith(
         "scrollend",
-        jasmine.any(Function),
+        expect.any(Function),
       )
       expect(host.componentInstance.reachedEnd).not.toHaveBeenCalled()
-    }))
+    })
   })
 
   describe("the end of the book", () => {
@@ -494,10 +489,10 @@ describe("VerseCardsComponent", () => {
 
     it("asks for the next chapter when the reader scrolls onto the stop", () => {
       offerNext("João 4")
-      const reached = jasmine.createSpy("reachedEnd")
+      const reached = vi.fn().mockName("reachedEnd")
       fixture.componentInstance.reachedEnd.subscribe(reached)
 
-      expect(observers[0].observe).toHaveBeenCalledOnceWith(endCard())
+      expect(observers[0].observe).toHaveBeenCalledExactlyOnceWith(endCard())
       expect(observers[0].options?.threshold).toBe(0.9)
 
       observers[0].report(0)
@@ -508,11 +503,11 @@ describe("VerseCardsComponent", () => {
 
     it("does not ask when the stop leaves the screen again", () => {
       offerNext("João 4")
-      const reached = jasmine.createSpy("reachedEnd")
+      const reached = vi.fn().mockName("reachedEnd")
       fixture.componentInstance.reachedEnd.subscribe(reached)
 
       observers[0].report(1)
-      reached.calls.reset()
+      reached.mockClear()
       observers[0].report(0)
 
       expect(reached).not.toHaveBeenCalled()

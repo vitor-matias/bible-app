@@ -9,11 +9,11 @@ describe("isMobileDevice", () => {
     ({ detectPlatform: () => platform }) as PwaInstallService
 
   it("counts Android and iOS as mobile", () => {
-    expect(isMobileDevice(on("android"))).toBeTrue()
-    expect(isMobileDevice(on("ios"))).toBeTrue()
+    expect(isMobileDevice(on("android"))).toBe(true)
+    expect(isMobileDevice(on("ios"))).toBe(true)
   })
 
   it("does not count a desktop", () => {
-    expect(isMobileDevice(on("desktop"))).toBeFalse()
+    expect(isMobileDevice(on("desktop"))).toBe(false)
   })
 })

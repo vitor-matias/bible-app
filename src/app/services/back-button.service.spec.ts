@@ -10,7 +10,7 @@ describe("BackButtonService", () => {
   })
 
   it("reports that nothing was closed with no closers", () => {
-    expect(service.closeTopmost()).toBeFalse()
+    expect(service.closeTopmost()).toBe(false)
   })
 
   it("tries the most recently registered closer first", () => {
@@ -24,16 +24,16 @@ describe("BackButtonService", () => {
       return true
     })
 
-    expect(service.closeTopmost()).toBeTrue()
+    expect(service.closeTopmost()).toBe(true)
     expect(calls).toEqual(["menu"])
   })
 
   it("falls through closers that had nothing open", () => {
-    const drawer = jasmine.createSpy("drawer").and.returnValue(true)
+    const drawer = vi.fn().mockName("drawer").mockReturnValue(true)
     service.register(drawer)
     service.register(() => false)
 
-    expect(service.closeTopmost()).toBeTrue()
+    expect(service.closeTopmost()).toBe(true)
     expect(drawer).toHaveBeenCalled()
   })
 
@@ -41,16 +41,16 @@ describe("BackButtonService", () => {
     it("dismisses the sheet on back, and only until it is dismissed", () => {
       const dismissed = new Subject<void>()
       const ref = {
-        dismiss: jasmine.createSpy("dismiss"),
+        dismiss: vi.fn().mockName("dismiss"),
         afterDismissed: () => dismissed.asObservable(),
       }
       service.closeOnBack(ref)
 
-      expect(service.closeTopmost()).toBeTrue()
+      expect(service.closeTopmost()).toBe(true)
       expect(ref.dismiss).toHaveBeenCalledTimes(1)
 
       dismissed.next()
-      expect(service.closeTopmost()).toBeFalse()
+      expect(service.closeTopmost()).toBe(false)
       expect(ref.dismiss).toHaveBeenCalledTimes(1)
     })
   })
@@ -76,12 +76,12 @@ describe("BackButtonService", () => {
   })
 
   it("stops calling a closer once unregistered", () => {
-    const closer = jasmine.createSpy("closer").and.returnValue(true)
+    const closer = vi.fn().mockName("closer").mockReturnValue(true)
     const unregister = service.register(closer)
 
     unregister()
 
-    expect(service.closeTopmost()).toBeFalse()
+    expect(service.closeTopmost()).toBe(false)
     expect(closer).not.toHaveBeenCalled()
   })
 })

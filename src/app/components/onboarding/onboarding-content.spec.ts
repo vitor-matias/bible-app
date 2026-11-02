@@ -59,9 +59,9 @@ describe("nativeOnboardingSteps", () => {
   })
 
   it("shows the logo on the welcome page and symbols elsewhere", () => {
-    expect(step("welcome")?.logo).toBeTrue()
+    expect(step("welcome")?.logo).toBe(true)
     expect(step("tools")).toEqual(
-      jasmine.objectContaining({ logo: false, symbol: "magnifyingglass" }),
+      expect.objectContaining({ logo: false, symbol: "magnifyingglass" }),
     )
     expect(step("tools")?.features[1]).toEqual({
       symbol: "bookmark",
@@ -77,7 +77,7 @@ describe("nativeOnboardingSteps", () => {
         source.icon,
         ...source.features.map((feature) => feature.icon),
       ]) {
-        expect(sfSymbol(icon)).withContext(icon).not.toBe("circle")
+        expect(sfSymbol(icon), icon).not.toBe("circle")
       }
     }
   })

@@ -30,7 +30,7 @@ ${output}
 
 check "Biome lint" npx @biomejs/biome check ./src
 check "TypeScript typecheck" npx tsc -p tsconfig.app.json --noEmit
-check "Unit tests" npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox
+check "Unit tests" npx ng test --watch=false
 
 if [ "$failed" -eq 1 ]; then
   {

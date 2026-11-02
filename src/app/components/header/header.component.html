@@ -16,7 +16,7 @@
           </button>
           <!-- The card view replaces the scrolling/paged layout altogether, so
                the toggle between those two has nothing to act on meanwhile. -->
-          @if (book.id !== 'about' && !cardsView) {
+          @if (book().id !== 'about' && !cardsView()) {
           <button type="button" mat-menu-item class="menu-control" (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" matTooltipPosition="above" [attr.aria-label]="getViewModeTooltip()">
             <mat-icon>{{ getViewModeIcon() }}</mat-icon>
           </button>
@@ -33,21 +33,21 @@
           <mat-icon>bookmarks</mat-icon>
           <span>Marcadores</span>
         </button>
-        <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode === 'paged' || cardsView">
+        <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode() === 'paged' || cardsView()">
           <mat-icon>arrow_circle_down</mat-icon>
           <span>
-            {{ autoScrollControlsVisible
+            {{ autoScrollControlsVisible()
             ? 'Esconder controlos de deslocamento automático'
             : 'Mostrar controlos de deslocamento automático' }}
           </span>
         </button>
         <!-- Offered by the reader only where it can show: on a phone or
              tablet, on a chapter of verses. -->
-        @if (cardsViewAvailable) {
+        @if (cardsViewAvailable()) {
         <button type="button" mat-menu-item (click)="onToggleCardsView(menuTrigger)">
           <mat-icon>swipe_up</mat-icon>
           <span class="experimental-label">
-            {{ cardsView ? 'Sair do BibleScroll' : 'BibleScroll' }}
+            {{ cardsView() ? 'Sair do BibleScroll' : 'BibleScroll' }}
             <span class="experimental-badge">Experimental</span>
           </span>
         </button>
@@ -102,7 +102,7 @@
           (click)="showBookSelector(); bookToggle.checked = false"
           (keydown.enter)="showBookSelector(); bookToggle.checked = false">
 
-          @if (book.id === 'about') {
+          @if (book().id === 'about') {
           <!-- One element with swapped text: a second, stacked label would put
                "Escolher Livro" inside the page's h1. -->
           <span class="cycle-wrapper">
@@ -114,7 +114,7 @@
         </mat-button-toggle>
 
         <!-- Standalone introductions have no chapters to pick. -->
-        @if(book.id !== 'about' && !book.introSlug){
+        @if(book().id !== 'about' && !book().introSlug){
         <mat-button-toggle #chapterToggle mat-flat-button matTooltip="Escolher capítulo"
           class="bookSelectorButtonContent" (click)="showChapterSelector(); chapterToggle.checked = false">
           {{ chapterLabel }}

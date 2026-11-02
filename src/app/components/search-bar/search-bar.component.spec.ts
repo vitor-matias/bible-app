@@ -110,7 +110,7 @@ describe("SearchBarComponent", () => {
     ) as HTMLInputElement
 
     expect(input.getAttribute("autocapitalize")).toBe("off")
-    expect(input.spellcheck).toBeFalse()
+    expect(input.spellcheck).toBe(false)
   })
 
   it("opens ready to type", () => {
@@ -131,9 +131,9 @@ describe("SearchBarComponent", () => {
 
   it("should prefill the query from the value input", () => {
     component.value = "Salmo 23"
-    expect(component.query).withContext("after setter").toBe("Salmo 23")
+    expect(component.query, "after setter").toBe("Salmo 23")
     fixture.detectChanges()
-    expect(component.query).withContext("after CD").toBe("Salmo 23")
+    expect(component.query, "after CD").toBe("Salmo 23")
   })
 
   it("should clear the query when value is nullish", () => {
