@@ -21,6 +21,7 @@ export default defineConfig({
     command: "npm start",
     url: "http://localhost:4200",
     reuseExistingServer: true,
-    timeout: 60_000,
+    // A CI runner has no Angular build cache for its first compile.
+    timeout: 180_000,
   },
 })
