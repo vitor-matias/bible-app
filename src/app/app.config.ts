@@ -3,7 +3,7 @@ import { provideHttpClient } from "@angular/common/http"
 import {
   APP_INITIALIZER,
   type ApplicationConfig,
-  provideZoneChangeDetection,
+  provideZonelessChangeDetection,
 } from "@angular/core"
 import { MAT_ICON_DEFAULT_OPTIONS } from "@angular/material/icon"
 import { provideAnimationsAsync } from "@angular/platform-browser/animations/async"
@@ -34,7 +34,7 @@ export function initializeBookService(
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideZoneChangeDetection({ eventCoalescing: true }),
+    provideZonelessChangeDetection(),
     provideRouter(routes),
     { provide: LocationStrategy, useClass: DepthLocationStrategy },
     provideServiceWorker("ngsw-worker.js", {

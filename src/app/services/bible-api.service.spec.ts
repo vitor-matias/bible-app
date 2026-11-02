@@ -4,6 +4,7 @@ import {
   HttpTestingController,
   type TestRequest,
 } from "@angular/common/http/testing"
+import { ApplicationRef } from "@angular/core"
 import {
   fakeAsync,
   flushMicrotasks,
@@ -101,6 +102,36 @@ describe("BibleApiService", () => {
       const result = await firstValueFrom(service.getChapter(book, chapterNum))
       expect(result).toEqual(mockChapter)
       httpMock.expectNone(`v1/${book}/${chapterNum}`)
+    })
+
+    // The prerender serializes a page once the app is stable: from the call to
+    // the answer, nothing but this keeps it so (the cache lookup is a promise).
+    it("keeps the app unstable from the call until the chapter arrives", async () => {
+      offlineDataServiceSpy.getCachedChapterAsync.and.resolveTo(undefined)
+      const isStable = () =>
+        firstValueFrom(TestBed.inject(ApplicationRef).isStable)
+
+      const chapterPromise = firstValueFrom(
+        service.getChapter(book, chapterNum),
+      )
+      expect(await isStable()).toBeFalse()
+
+      await Promise.resolve()
+      await Promise.resolve()
+      httpMock.expectOne(`v1/${book}/${chapterNum}`).flush(mockChapter)
+      await chapterPromise
+      // Settles only once the task has been released.
+      await TestBed.inject(ApplicationRef).whenStable()
+    })
+
+    it("lets go of the app when the chapter fails", async () => {
+      offlineDataServiceSpy.getCachedChapterAsync.and.resolveTo(undefined)
+      networkServiceStub.isOffline = true
+
+      await expectAsync(
+        firstValueFrom(service.getChapter(book, chapterNum)),
+      ).toBeRejected()
+      await TestBed.inject(ApplicationRef).whenStable()
     })
 
     it("should fetch from server when cache returns undefined", async () => {

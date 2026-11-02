@@ -1,6 +1,6 @@
 import { LocationStrategy } from "@angular/common"
 import { provideHttpClient } from "@angular/common/http"
-import { isDevMode, provideZoneChangeDetection } from "@angular/core"
+import { isDevMode, provideZonelessChangeDetection } from "@angular/core"
 import { bootstrapApplication } from "@angular/platform-browser"
 import { provideAnimationsAsync } from "@angular/platform-browser/animations/async"
 import { provideRouter } from "@angular/router"
@@ -33,7 +33,7 @@ initializeTheme()
 if (typeof window !== "undefined") window.umamiBeforeSend = labelUmamiPlatform
 bootstrapApplication(AppComponent, {
   providers: [
-    provideZoneChangeDetection({ eventCoalescing: true }),
+    provideZonelessChangeDetection(),
     provideRouter(routes),
     { provide: LocationStrategy, useClass: DepthLocationStrategy },
     provideServiceWorker("ngsw-worker.js", {

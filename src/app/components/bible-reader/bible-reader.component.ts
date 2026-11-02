@@ -252,6 +252,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe((books) => {
         this.books = books
+        this.cdr.markForCheck()
       })
     this.bookService.booksUnavailable$
       .pipe(takeUntil(this.destroy$))
