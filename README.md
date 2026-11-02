@@ -52,6 +52,22 @@ The dev server proxies `/v1/**` to the production backend
 has real data with no local backend. The API base URL is resolved in
 [src/app/config.ts](src/app/config.ts) (`/v1` on the web, absolute domain on native).
 
+## Docs
+
+Engineering notes for working on the app, by topic:
+
+- [docs/architecture.md](docs/architecture.md): introductions, boot and the book cache,
+  the reader's layout variables, the native-chrome contract.
+- [docs/testing.md](docs/testing.md): running specs, test pitfalls, debugging a stale dev
+  server, the multi-device playtest.
+- [docs/ios.md](docs/ios.md): simulator recipes, bridge logs, UIKit and Safari quirks.
+- [docs/android.md](docs/android.md): build, emulator and TalkBack recipes, WebView quirks.
+- [docs/performance.md](docs/performance.md): Lighthouse, why critical CSS stays off, fonts.
+- [docs/build.md](docs/build.md): reproducing build failures, npm overrides, Angular
+  lockstep pins, worktrees, PR hygiene.
+- [docs/crash-reports.md](docs/crash-reports.md): reading and symbolicating the iOS and
+  Android crash events (needs `feat/crash-reports`).
+
 ## npm scripts
 
 | Script | Does |
@@ -85,7 +101,9 @@ actually prerendered. `public/sitemap.xml` is a home-page-only fallback so
 
 Critical-CSS inlining is off (`optimization.styles.inlineCritical` in
 `angular.json`): nearly the whole ~143KB stylesheet was classed as critical and
-inlined into every page, taking per-page HTML from ~166KB to ~241KB.
+inlined into every page, taking per-page HTML from ~166KB to ~241KB. A later measurement found
+no first-paint gain worth that and a worse layout shift
+([docs/performance.md](docs/performance.md#critical-css-stays-off)).
 
 ## Mobile (Capacitor)
 
