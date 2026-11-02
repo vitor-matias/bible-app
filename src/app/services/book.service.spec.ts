@@ -2,6 +2,7 @@ import { PLATFORM_ID } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, firstValueFrom, of, throwError } from "rxjs"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { APP_PLUGIN } from "../tokens"
 import { BibleApiService } from "./bible-api.service"
 import { BookService } from "./book.service"
@@ -72,13 +73,13 @@ describe("BookService", () => {
 
   beforeEach(() => {
     apiBooks = mockBooks.map((book) => ({ ...book }))
-    const apiServiceSpy = jasmine.createSpyObj("BibleApiService", [
+    const apiServiceSpy = createSpyObj("BibleApiService", [
       "getAvailableBooks",
       "getIntros",
       "getIntro",
     ])
-    apiServiceSpy.getAvailableBooks.and.returnValue(of(apiBooks))
-    apiServiceSpy.getIntros.and.returnValue(of([]))
+    apiServiceSpy.getAvailableBooks.mockReturnValue(of(apiBooks))
+    apiServiceSpy.getIntros.mockReturnValue(of([]))
 
     TestBed.configureTestingModule({
       providers: [
@@ -92,14 +93,14 @@ describe("BookService", () => {
 
   describe("standalone introductions", () => {
     const introApi = (intros: IntroSummary[], body?: GroupIntro) => {
-      const spy = jasmine.createSpyObj("BibleApiService", [
+      const spy = createSpyObj("BibleApiService", [
         "getAvailableBooks",
         "getIntros",
         "getIntro",
       ])
-      spy.getAvailableBooks.and.returnValue(of(apiBooks))
-      spy.getIntros.and.returnValue(of(intros))
-      spy.getIntro.and.returnValue(body ? of(body) : of())
+      spy.getAvailableBooks.mockReturnValue(of(apiBooks))
+      spy.getIntros.mockReturnValue(of(intros))
+      spy.getIntro.mockReturnValue(body ? of(body) : of())
       TestBed.resetTestingModule()
       TestBed.configureTestingModule({
         providers: [BookService, { provide: BibleApiService, useValue: spy }],
@@ -145,9 +146,7 @@ describe("BookService", () => {
       // The constructor and APP_INITIALIZER both call it in the same tick;
       // without sharing, /intros is fetched twice and books$ emits twice.
       const svc = introApi([{ slug: "pentateuco", name: "PENTATEUCO" }])
-      const api = TestBed.inject(
-        BibleApiService,
-      ) as jasmine.SpyObj<BibleApiService>
+      const api = TestBed.inject(BibleApiService) as SpyObj<BibleApiService>
 
       await Promise.all([svc.initializeBooks(), svc.initializeBooks()])
 
@@ -159,7 +158,7 @@ describe("BookService", () => {
       const svc = introApi([])
       await svc.initializeBooks()
 
-      expect(svc.getBooks().some((book) => book.introSlug)).toBeFalse()
+      expect(svc.getBooks().some((book) => book.introSlug)).toBe(false)
       expect(svc.findBook("gen").id).toBe("gen")
     })
 
@@ -208,14 +207,14 @@ describe("BookService", () => {
 
   it("should not surface an unhandled rejection when the eager constructor load fails", async () => {
     // An unhandled rejection here kills prerender worker threads at build time.
-    const failingApi = jasmine.createSpyObj("BibleApiService", [
+    const failingApi = createSpyObj("BibleApiService", [
       "getAvailableBooks",
       "getIntros",
     ])
-    failingApi.getAvailableBooks.and.returnValue(
+    failingApi.getAvailableBooks.mockReturnValue(
       throwError(() => new Error("API unavailable")),
     )
-    failingApi.getIntros.and.returnValue(of([]))
+    failingApi.getIntros.mockReturnValue(of([]))
 
     TestBed.resetTestingModule()
     TestBed.configureTestingModule({
@@ -226,15 +225,15 @@ describe("BookService", () => {
     })
     expect(() => TestBed.inject(BookService)).not.toThrow()
     // Let the constructor's fire-and-forget promise settle; a missing .catch
-    // would trigger Jasmine's global unhandled-rejection failure here.
+    // would fail the run here as an unhandled rejection.
     await new Promise((resolve) => setTimeout(resolve))
   })
 
   it("should add the about book without mutating the API result", async () => {
     await service.initializeBooks()
 
-    expect(apiBooks.some((book) => book.id === "about")).toBeFalse()
-    expect(service.getBooks().some((book) => book.id === "about")).toBeTrue()
+    expect(apiBooks.some((book) => book.id === "about")).toBe(false)
+    expect(service.getBooks().some((book) => book.id === "about")).toBe(true)
   })
 
   it("should find a book by id case-insensitively", async () => {
@@ -432,7 +431,7 @@ describe("BookService", () => {
   })
 
   describe("when the book list cannot be loaded", () => {
-    let api: jasmine.SpyObj<BibleApiService>
+    let api: SpyObj<BibleApiService>
     let isOffline$: BehaviorSubject<boolean>
     let resume: () => void
 
@@ -440,26 +439,27 @@ describe("BookService", () => {
       native = false,
       platformId: "browser" | "server" = "browser",
     ): BookService {
-      api = jasmine.createSpyObj("BibleApiService", [
+      api = createSpyObj("BibleApiService", [
         "getAvailableBooks",
         "getIntros",
         "getIntro",
       ])
       // A first launch without a connection, then a working one.
-      api.getAvailableBooks.and.returnValues(
-        throwError(() => new Error("Offline and no cached books available")),
-        of(apiBooks),
-      )
-      api.getIntros.and.returnValue(of([]))
+      api.getAvailableBooks
+        .mockReturnValueOnce(
+          throwError(() => new Error("Offline and no cached books available")),
+        )
+        .mockReturnValueOnce(of(apiBooks))
+      api.getIntros.mockReturnValue(of([]))
       isOffline$ = new BehaviorSubject(true)
-      resume = () => fail("resume listener was not registered")
+      resume = () => expect.fail("resume listener was not registered")
       const appPlugin = {
         addListener: (event: string, callback: () => void) => {
           if (event === "resume") resume = callback
           return Promise.resolve({ remove: async () => {} })
         },
       }
-      spyOn(Capacitor, "isNativePlatform").and.returnValue(native)
+      vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(native)
       TestBed.resetTestingModule()
       TestBed.configureTestingModule({
         providers: [
@@ -482,14 +482,14 @@ describe("BookService", () => {
       const svc = createService()
       await settle(svc)
 
-      expect(await firstValueFrom(svc.booksUnavailable$)).toBeTrue()
+      expect(await firstValueFrom(svc.booksUnavailable$)).toBe(true)
     })
 
     it("never reports them unavailable while prerendering", async () => {
       const svc = createService(false, "server")
       await settle(svc)
 
-      expect(await firstValueFrom(svc.booksUnavailable$)).toBeFalse()
+      expect(await firstValueFrom(svc.booksUnavailable$)).toBe(false)
     })
 
     it("recovers on a manual retry", async () => {
@@ -498,14 +498,14 @@ describe("BookService", () => {
 
       await svc.retryBooks()
 
-      expect(await firstValueFrom(svc.booksUnavailable$)).toBeFalse()
+      expect(await firstValueFrom(svc.booksUnavailable$)).toBe(false)
       expect(svc.getBooks().length).toBeGreaterThan(0)
     })
 
     it("retries when the connection comes back", async () => {
       const svc = createService()
       await settle(svc)
-      api.getAvailableBooks.calls.reset()
+      api.getAvailableBooks.mockClear()
 
       isOffline$.next(false)
       // The reconnect itself starts the refetch...
@@ -514,13 +514,13 @@ describe("BookService", () => {
       await svc.retryBooks()
 
       expect(api.getAvailableBooks).toHaveBeenCalledTimes(1)
-      expect(await firstValueFrom(svc.booksUnavailable$)).toBeFalse()
+      expect(await firstValueFrom(svc.booksUnavailable$)).toBe(false)
     })
 
     it("retries when the native app resumes", async () => {
       const svc = createService(true)
       await settle(svc)
-      api.getAvailableBooks.calls.reset()
+      api.getAvailableBooks.mockClear()
 
       resume()
       await firstValueFrom(svc.books$)
@@ -532,7 +532,7 @@ describe("BookService", () => {
       const svc = createService()
       await settle(svc)
       await svc.retryBooks()
-      api.getAvailableBooks.calls.reset()
+      api.getAvailableBooks.mockClear()
 
       isOffline$.next(false)
       isOffline$.next(true)

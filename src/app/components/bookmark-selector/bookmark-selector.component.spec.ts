@@ -13,19 +13,18 @@ import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { ribbonColor } from "../../services/bookmark-ribbons.service"
 import { HapticsService } from "../../services/haptics.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BookmarkSelectorComponent } from "./bookmark-selector.component"
 
 describe("BookmarkSelectorComponent", () => {
   let component: BookmarkSelectorComponent
-  let hapticsSpy: jasmine.SpyObj<HapticsService>
+  let hapticsSpy: SpyObj<HapticsService>
   let fixture: ComponentFixture<BookmarkSelectorComponent>
-  let bookmarkServiceSpy: jasmine.SpyObj<BookmarkService>
-  let _bookServiceSpy: jasmine.SpyObj<BookService>
-  let bottomSheetRefSpy: jasmine.SpyObj<
-    MatBottomSheetRef<BookmarkSelectorComponent>
-  >
-  let routerSpy: jasmine.SpyObj<Router>
-  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
+  let bookmarkServiceSpy: SpyObj<BookmarkService>
+  let _bookServiceSpy: SpyObj<BookService>
+  let bottomSheetRefSpy: SpyObj<MatBottomSheetRef<BookmarkSelectorComponent>>
+  let routerSpy: SpyObj<Router>
+  let analyticsServiceSpy: SpyObj<AnalyticsService>
   let bookmarksSubject: BehaviorSubject<Bookmark[]>
 
   const mockData = { bookId: "GEN", chapter: 1 }
@@ -34,34 +33,31 @@ describe("BookmarkSelectorComponent", () => {
   ]
 
   beforeEach(async () => {
-    const bookmarkSpy = jasmine.createSpyObj("BookmarkService", [
+    const bookmarkSpy = createSpyObj("BookmarkService", [
       "addBookmark",
       "removeBookmark",
     ])
-    const bookSpy = jasmine.createSpyObj("BookService", [
+    const bookSpy = createSpyObj("BookService", [
       "findBookById",
       "getUrlAbrv",
       "getChapterUrlSegment",
     ])
-    const sheetSpy = jasmine.createSpyObj("MatBottomSheetRef", ["dismiss"])
-    const rSpy = jasmine.createSpyObj("Router", ["navigate"])
-    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
-    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
+    const sheetSpy = createSpyObj("MatBottomSheetRef", ["dismiss"])
+    const rSpy = createSpyObj("Router", ["navigate"])
+    analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
+    analyticsServiceSpy.track.mockResolvedValue(undefined)
 
     bookmarksSubject = new BehaviorSubject<Bookmark[]>(mockBookmarks)
     void Object.defineProperty(bookmarkSpy, "bookmarks$", {
       get: () => bookmarksSubject.asObservable(),
     })
 
-    bookmarkSpy.addBookmark.and.returnValue(Promise.resolve())
-    hapticsSpy = jasmine.createSpyObj<HapticsService>("HapticsService", [
-      "light",
-      "success",
-    ])
-    bookmarkSpy.removeBookmark.and.returnValue(Promise.resolve())
-    bookSpy.findBookById.and.returnValue({ abrv: "Mc", shortName: "Marcos" })
-    bookSpy.getUrlAbrv.and.returnValue("mrk")
-    bookSpy.getChapterUrlSegment.and.callFake((chapter: number) =>
+    bookmarkSpy.addBookmark.mockResolvedValue(undefined)
+    hapticsSpy = createSpyObj("HapticsService", ["light", "success"])
+    bookmarkSpy.removeBookmark.mockResolvedValue(undefined)
+    bookSpy.findBookById.mockReturnValue({ abrv: "Mc", shortName: "Marcos" })
+    bookSpy.getUrlAbrv.mockReturnValue("mrk")
+    bookSpy.getChapterUrlSegment.mockImplementation((chapter: number) =>
       chapter === 0 ? "intro" : chapter.toString(),
     )
 
@@ -87,12 +83,12 @@ describe("BookmarkSelectorComponent", () => {
     component = fixture.componentInstance
     bookmarkServiceSpy = TestBed.inject(
       BookmarkService,
-    ) as jasmine.SpyObj<BookmarkService>
-    _bookServiceSpy = TestBed.inject(BookService) as jasmine.SpyObj<BookService>
-    bottomSheetRefSpy = TestBed.inject(MatBottomSheetRef) as jasmine.SpyObj<
+    ) as SpyObj<BookmarkService>
+    _bookServiceSpy = TestBed.inject(BookService) as SpyObj<BookService>
+    bottomSheetRefSpy = TestBed.inject(MatBottomSheetRef) as SpyObj<
       MatBottomSheetRef<BookmarkSelectorComponent>
     >
-    routerSpy = TestBed.inject(Router) as jasmine.SpyObj<Router>
+    routerSpy = TestBed.inject(Router) as SpyObj<Router>
 
     fixture.detectChanges()
   })
@@ -160,9 +156,9 @@ describe("BookmarkSelectorComponent", () => {
   }
 
   it("should toggle delete mode", () => {
-    expect(component.isDeleteMode).toBeFalse()
+    expect(component.isDeleteMode).toBe(false)
     component.toggleDeleteMode()
-    expect(component.isDeleteMode).toBeTrue()
+    expect(component.isDeleteMode).toBe(true)
   })
 
   it("should navigate when clicking a ribbon assigned elsewhere", () => {
@@ -262,16 +258,14 @@ describe("BookmarkSelectorComponent", () => {
   })
 
   it("should warn and not navigate when bookmark references unknown book", () => {
-    const bookServiceSpy = TestBed.inject(
-      BookService,
-    ) as jasmine.SpyObj<BookService>
-    bookServiceSpy.findBookById.and.returnValue(undefined)
+    const bookServiceSpy = TestBed.inject(BookService) as SpyObj<BookService>
+    bookServiceSpy.findBookById.mockReturnValue(undefined)
     bookmarksSubject.next([
       { bookId: "UNKNOWN", chapter: 1, color: "blue", timestamp: 789 },
     ])
     fixture.detectChanges()
 
-    spyOn(console, "warn")
+    vi.spyOn(console, "warn").mockReturnValue(undefined)
     const blueRibbon = component.ribbons.find((r) => r.value === "blue")
     expect(blueRibbon).toBeTruthy()
     if (blueRibbon) {

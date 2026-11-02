@@ -21,7 +21,7 @@ describe("psalm numbering", () => {
 
   it("gives none where both numberings agree", () => {
     for (const psalm of [1, 8, 9, 148, 150]) {
-      expect(liturgicalPsalmNumber(psalm)).withContext(`${psalm}`).toBeNull()
+      expect(liturgicalPsalmNumber(psalm), `${psalm}`).toBeNull()
     }
   })
 
@@ -43,19 +43,19 @@ describe("psalm numbering", () => {
     for (let psalm = 1; psalm <= 150; psalm++) {
       const liturgical = liturgicalPsalmNumber(psalm)
       const first = Number((liturgical ?? String(psalm)).split("-")[0])
-      expect(psalmFromLiturgical(first)?.psalm)
-        .withContext(`Psalm ${psalm}`)
-        .toBe(psalm === 10 ? 9 : psalm === 115 ? 114 : psalm)
+      expect(psalmFromLiturgical(first)?.psalm, `Psalm ${psalm}`).toBe(
+        psalm === 10 ? 9 : psalm === 115 ? 114 : psalm,
+      )
     }
   })
 
   it("knows which bare numbers could mean two psalms", () => {
-    expect(isAmbiguousPsalmNumber(94)).toBeTrue()
-    expect(isAmbiguousPsalmNumber(23)).toBeTrue()
-    expect(isAmbiguousPsalmNumber(1)).toBeFalse()
-    expect(isAmbiguousPsalmNumber(9)).toBeFalse()
-    expect(isAmbiguousPsalmNumber(147)).toBeFalse()
-    expect(isAmbiguousPsalmNumber(150)).toBeFalse()
+    expect(isAmbiguousPsalmNumber(94)).toBe(true)
+    expect(isAmbiguousPsalmNumber(23)).toBe(true)
+    expect(isAmbiguousPsalmNumber(1)).toBe(false)
+    expect(isAmbiguousPsalmNumber(9)).toBe(false)
+    expect(isAmbiguousPsalmNumber(147)).toBe(false)
+    expect(isAmbiguousPsalmNumber(150)).toBe(false)
   })
 
   describe("a psalm cited with both numbers", () => {

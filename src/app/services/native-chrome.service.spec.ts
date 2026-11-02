@@ -1,7 +1,9 @@
 import { OverlayContainer } from "@angular/cdk/overlay"
 import { DOCUMENT } from "@angular/common"
-import { fakeAsync, TestBed, tick } from "@angular/core/testing"
+import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
+import type { Mock } from "vitest"
+import { lastCall } from "../testing/spy-obj"
 import { NATIVE_CHROME_PLUGIN } from "../tokens"
 import type { PassagePickerData } from "../utils/passage-picker"
 import {
@@ -42,18 +44,18 @@ const SEARCH: SearchChrome = { mode: "search", themeMode: "dark", query: "" }
 
 describe("NativeChromeService", () => {
   let plugin: {
-    setState: jasmine.Spy
-    setProgress: jasmine.Spy
-    showPicker: jasmine.Spy
-    showBookmarks: jasmine.Spy
-    updateBookmarks: jasmine.Spy
-    showToast: jasmine.Spy
-    hideToast: jasmine.Spy
-    showReport: jasmine.Spy
-    finishReport: jasmine.Spy
-    showOnboarding: jasmine.Spy
-    share: jasmine.Spy
-    addListener: jasmine.Spy
+    setState: Mock
+    setProgress: Mock
+    showPicker: Mock
+    showBookmarks: Mock
+    updateBookmarks: Mock
+    showToast: Mock
+    hideToast: Mock
+    showReport: Mock
+    finishReport: Mock
+    showOnboarding: Mock
+    share: Mock
+    addListener: Mock
   }
   /** Tests that need more of the document add it. */
   let doc: Record<string, unknown>
@@ -63,20 +65,33 @@ describe("NativeChromeService", () => {
 
   beforeEach(() => {
     plugin = {
-      setState: jasmine
-        .createSpy("setState")
-        .and.resolveTo({ top: 116, bottom: 82 }),
-      setProgress: jasmine.createSpy("setProgress").and.resolveTo(),
-      showPicker: jasmine.createSpy("showPicker").and.resolveTo(),
-      showBookmarks: jasmine.createSpy("showBookmarks").and.resolveTo(),
-      updateBookmarks: jasmine.createSpy("updateBookmarks").and.resolveTo(),
-      showToast: jasmine.createSpy("showToast").and.resolveTo(),
-      hideToast: jasmine.createSpy("hideToast").and.resolveTo(),
-      showReport: jasmine.createSpy("showReport").and.resolveTo(),
-      finishReport: jasmine.createSpy("finishReport").and.resolveTo(),
-      showOnboarding: jasmine.createSpy("showOnboarding").and.resolveTo(),
-      share: jasmine.createSpy("share").and.resolveTo(),
-      addListener: jasmine.createSpy("addListener").and.resolveTo(),
+      setState: vi
+        .fn()
+        .mockName("setState")
+        .mockResolvedValue({ top: 116, bottom: 82 }),
+      setProgress: vi.fn().mockName("setProgress").mockResolvedValue(undefined),
+      showPicker: vi.fn().mockName("showPicker").mockResolvedValue(undefined),
+      showBookmarks: vi
+        .fn()
+        .mockName("showBookmarks")
+        .mockResolvedValue(undefined),
+      updateBookmarks: vi
+        .fn()
+        .mockName("updateBookmarks")
+        .mockResolvedValue(undefined),
+      showToast: vi.fn().mockName("showToast").mockResolvedValue(undefined),
+      hideToast: vi.fn().mockName("hideToast").mockResolvedValue(undefined),
+      showReport: vi.fn().mockName("showReport").mockResolvedValue(undefined),
+      finishReport: vi
+        .fn()
+        .mockName("finishReport")
+        .mockResolvedValue(undefined),
+      showOnboarding: vi
+        .fn()
+        .mockName("showOnboarding")
+        .mockResolvedValue(undefined),
+      share: vi.fn().mockName("share").mockResolvedValue(undefined),
+      addListener: vi.fn().mockName("addListener").mockResolvedValue(undefined),
     }
     body = document.createElement("body")
     root = document.createElement("html")
@@ -105,8 +120,8 @@ describe("NativeChromeService", () => {
     platform: "ios" | "android" | "web",
     pluginAvailable = true,
   ): NativeChromeService {
-    spyOn(Capacitor, "getPlatform").and.returnValue(platform)
-    spyOn(Capacitor, "isPluginAvailable").and.returnValue(pluginAvailable)
+    vi.spyOn(Capacitor, "getPlatform").mockReturnValue(platform)
+    vi.spyOn(Capacitor, "isPluginAvailable").mockReturnValue(pluginAvailable)
     const service = TestBed.inject(NativeChromeService)
     service.init()
     return service
@@ -115,26 +130,26 @@ describe("NativeChromeService", () => {
   /** Lets MutationObserver callbacks and plugin promises run. */
   const settle = () => new Promise((resolve) => setTimeout(resolve))
 
-  const lastState = () => plugin.setState.calls.mostRecent().args[0]
+  const lastState = () => lastCall(vi.mocked(plugin.setState))[0]
 
   function listener(event: "action" | "insets" | "palette") {
-    const call = plugin.addListener.calls
-      .all()
-      .find(({ args }) => args[0] === event)
-    return call?.args[1]
+    const call = vi
+      .mocked(plugin.addListener)
+      .mock.calls.find((args) => args[0] === event)
+    return call?.[1]
   }
 
   it("is enabled in the iOS app, which provides the plugin", () => {
-    expect(create("ios").enabled).toBeTrue()
+    expect(create("ios").enabled).toBe(true)
   })
 
   it("is enabled in the Android app, whose shell draws Material bars", () => {
     const service = create("android")
-    expect(service.enabled).toBeTrue()
+    expect(service.enabled).toBe(true)
     expect(body.classList).toContain("native-chrome")
     expect(plugin.addListener).toHaveBeenCalledWith(
       "action",
-      jasmine.any(Function),
+      expect.any(Function),
     )
   })
 
@@ -145,21 +160,24 @@ describe("NativeChromeService", () => {
     ["web", true],
     ["ios", false],
   ] as const) {
-    it(`does nothing on ${platform} with the plugin ${available ? "present" : "absent"}`, fakeAsync(() => {
+    it(`does nothing on ${platform} with the plugin ${
+      available ? "present" : "absent"
+    }`, async () => {
+      vi.useFakeTimers()
       const service = create(platform, available)
       service.show(READER)
       service.hide()
       service.showPicker({} as PassagePickerData)
       const stop = service.trackScroll(document.createElement("div"))
       stop()
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
 
-      expect(service.enabled).toBeFalse()
+      expect(service.enabled).toBe(false)
       expect(body.classList).not.toContain("native-chrome")
       expect(plugin.addListener).not.toHaveBeenCalled()
       expect(plugin.setState).not.toHaveBeenCalled()
       expect(plugin.showPicker).not.toHaveBeenCalled()
-    }))
+    })
   }
 
   it("marks the body so pages drop their web headers' space", () => {
@@ -203,26 +221,26 @@ describe("NativeChromeService", () => {
     it("is sent to the Android bar as the page scrolls in any element", () => {
       create("android").show(READER)
       scrollTo(40)
-      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: true }))
+      expect(lastState()).toEqual(expect.objectContaining({ scrolled: true }))
       scrollTo(0)
-      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: false }))
+      expect(lastState()).toEqual(expect.objectContaining({ scrolled: false }))
     })
 
     // Under the reader's own top margin the text hasn't reached the bar yet.
     it("waits for the text to reach the bar", () => {
       create("android").show(READER)
       scrollTo(5)
-      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: false }))
+      expect(lastState()).toEqual(expect.objectContaining({ scrolled: false }))
       scrollTo(9)
-      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: true }))
+      expect(lastState()).toEqual(expect.objectContaining({ scrolled: true }))
     })
 
     it("is sent once per change, not per scroll", () => {
       create("android").show(READER)
       scrollTo(40)
-      const calls = plugin.setState.calls.count()
+      const calls = vi.mocked(plugin.setState).mock.calls.length
       scrollTo(80)
-      expect(plugin.setState.calls.count()).toBe(calls)
+      expect(vi.mocked(plugin.setState).mock.calls.length).toBe(calls)
     })
 
     it("starts afresh on another kind of page", () => {
@@ -230,7 +248,7 @@ describe("NativeChromeService", () => {
       service.show(READER)
       scrollTo(40)
       service.show(SEARCH)
-      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: false }))
+      expect(lastState()).toEqual(expect.objectContaining({ scrolled: false }))
     })
 
     // A list scrolling beside the reader (the book drawer's) isn't the
@@ -243,14 +261,14 @@ describe("NativeChromeService", () => {
       root.appendChild(drawer)
       Object.defineProperty(drawer, "scrollTop", { value: 400 })
       drawer.dispatchEvent(new Event("scroll"))
-      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: false }))
+      expect(lastState()).toEqual(expect.objectContaining({ scrolled: false }))
 
       // The pages scroll across inside it: still the reader's place.
       scrollTo(40)
       const pages = document.createElement("div")
       page.appendChild(pages)
       pages.dispatchEvent(new Event("scroll"))
-      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: true }))
+      expect(lastState()).toEqual(expect.objectContaining({ scrolled: true }))
       stop()
       drawer.remove()
     })
@@ -262,16 +280,16 @@ describe("NativeChromeService", () => {
       overlays.appendChild(list)
       Object.defineProperty(list, "scrollTop", { value: 400 })
       list.dispatchEvent(new Event("scroll"))
-      expect(lastState()).toEqual(jasmine.objectContaining({ scrolled: false }))
+      expect(lastState()).toEqual(expect.objectContaining({ scrolled: false }))
       overlays.remove()
     })
 
     // Each push rebuilds the iOS bars: none for a colour they don't show.
     it("isn't followed in the iOS app", () => {
       create("ios").show(READER)
-      const calls = plugin.setState.calls.count()
+      const calls = vi.mocked(plugin.setState).mock.calls.length
       scrollTo(40)
-      expect(plugin.setState.calls.count()).toBe(calls)
+      expect(vi.mocked(plugin.setState).mock.calls.length).toBe(calls)
     })
   })
 
@@ -319,23 +337,25 @@ describe("NativeChromeService", () => {
     expect(plugin.showPicker).toHaveBeenCalledWith(data)
   })
 
-  it("removes the bars once the page is gone", fakeAsync(() => {
+  it("removes the bars once the page is gone", async () => {
+    vi.useFakeTimers()
     const service = create("ios")
     service.show(READER)
     service.hide()
     expect(plugin.setState).toHaveBeenCalledTimes(1)
 
-    tick()
+    await vi.advanceTimersByTimeAsync(0)
     expect(lastState()).toEqual({ mode: "none" })
-  }))
+  })
 
   // A route change destroys one page and creates the next.
-  it("keeps the bars up when the next page takes over at once", fakeAsync(() => {
+  it("keeps the bars up when the next page takes over at once", async () => {
+    vi.useFakeTimers()
     const service = create("ios")
     service.show(READER)
     service.hide()
     service.show(SEARCH)
-    tick()
+    await vi.advanceTimersByTimeAsync(0)
 
     expect(plugin.setState).not.toHaveBeenCalledWith({ mode: "none" })
     expect(lastState()).toEqual({
@@ -347,7 +367,7 @@ describe("NativeChromeService", () => {
       autoScroll: null,
       pageColor: null,
     })
-  }))
+  })
 
   // A panel (footnotes, a dialog) opens under the bars, which sit above the
   // whole web view: they slide away while it is open.
@@ -363,13 +383,13 @@ describe("NativeChromeService", () => {
     backdrop.classList.add("cdk-overlay-backdrop-showing")
     await settle()
     expect(lastState()).toEqual(
-      jasmine.objectContaining({ inert: true, collapsed: true }),
+      expect.objectContaining({ inert: true, collapsed: true }),
     )
 
     backdrop.classList.remove("cdk-overlay-backdrop-showing")
     await settle()
     expect(lastState()).toEqual(
-      jasmine.objectContaining({ inert: false, collapsed: false }),
+      expect.objectContaining({ inert: false, collapsed: false }),
     )
   })
 
@@ -382,24 +402,26 @@ describe("NativeChromeService", () => {
     await settle()
 
     expect(lastState()).toEqual(
-      jasmine.objectContaining({ inert: true, collapsed: false }),
+      expect.objectContaining({ inert: true, collapsed: false }),
     )
   })
 
   it("passes toasts through", () => {
     create("ios").toast("Copiado")
 
-    expect(plugin.showToast).toHaveBeenCalledOnceWith({ message: "Copiado" })
+    expect(plugin.showToast).toHaveBeenCalledTimes(1)
+
+    expect(plugin.showToast).toHaveBeenCalledWith({ message: "Copiado" })
   })
 
   describe("a toast that is a button", () => {
     let service: NativeChromeService
-    let goBack: jasmine.Spy
+    let goBack: Mock
     let hide: () => void
 
     beforeEach(() => {
       service = create("ios")
-      goBack = jasmine.createSpy("goBack")
+      goBack = vi.fn().mockName("goBack")
       hide = service.toast("Voltar para Gn 1,3", {
         symbol: "arrow.uturn.backward",
         onTap: goBack,
@@ -477,7 +499,7 @@ describe("NativeChromeService", () => {
     let scroller: HTMLElement
     let line: HTMLElement
     let reduceMotion: boolean
-    let scrollTo: jasmine.Spy
+    let scrollTo: Mock
 
     beforeEach(() => {
       scroller = document.createElement("div")
@@ -499,7 +521,7 @@ describe("NativeChromeService", () => {
         elementFromPoint: (x: number, y: number) =>
           x === 200 && y === 400 ? line : null,
       })
-      scrollTo = spyOn(scroller, "scrollTo")
+      scrollTo = vi.spyOn(scroller, "scrollTo").mockReturnValue(undefined)
     })
 
     afterEach(() => scroller.remove())
@@ -512,7 +534,9 @@ describe("NativeChromeService", () => {
       service.actions$.subscribe((action) => actions.push(action))
       tap()
 
-      expect(scrollTo).toHaveBeenCalledOnceWith({
+      expect(scrollTo).toHaveBeenCalledTimes(1)
+
+      expect(scrollTo).toHaveBeenCalledWith({
         top: 0,
         behavior: "smooth",
       })
@@ -526,10 +550,10 @@ describe("NativeChromeService", () => {
       scroller.dispatchEvent(new Event("touchmove"))
       scroller.scrollTop = 600 + COLLAPSE_DISTANCE
       scroller.dispatchEvent(new Event("scroll"))
-      expect(lastState().collapsed).toBeTrue()
+      expect(lastState().collapsed).toBe(true)
 
       tap()
-      expect(lastState().collapsed).toBeFalse()
+      expect(lastState().collapsed).toBe(false)
     })
 
     it("jumps with reduced motion, and while auto-scroll plays", () => {
@@ -549,15 +573,17 @@ describe("NativeChromeService", () => {
       tap()
 
       expect(scrollTo).toHaveBeenCalledTimes(2)
-      for (const call of scrollTo.calls.all()) {
-        expect(call.args[0]).toEqual({ top: 0, behavior: "auto" })
+      for (const args of vi.mocked(scrollTo).mock.calls) {
+        expect(args[0]).toEqual({ top: 0, behavior: "auto" })
       }
     })
 
     it("leaves a page already at the top alone", () => {
       create("ios")
       scroller.scrollTop = 0
-      const pageScroll = spyOn(document.body, "scrollTo")
+      const pageScroll = vi
+        .spyOn(document.body, "scrollTo")
+        .mockReturnValue(undefined)
       tap()
 
       expect(scrollTo).not.toHaveBeenCalled()
@@ -575,21 +601,21 @@ describe("NativeChromeService", () => {
       move: null,
       canMark: true,
     }
-    plugin.showBookmarks.and.resolveTo({ presented: true })
-    expect(await service.showBookmarks(state)).toBeTrue()
+    plugin.showBookmarks.mockResolvedValue({ presented: true })
+    expect(await service.showBookmarks(state)).toBe(true)
 
-    plugin.showBookmarks.and.resolveTo({ presented: false })
-    expect(await service.showBookmarks(state)).toBeFalse()
+    plugin.showBookmarks.mockResolvedValue({ presented: false })
+    expect(await service.showBookmarks(state)).toBe(false)
 
-    plugin.showBookmarks.and.rejectWith(new Error("no chrome"))
-    expect(await service.showBookmarks(state)).toBeFalse()
+    plugin.showBookmarks.mockRejectedValue(new Error("no chrome"))
+    expect(await service.showBookmarks(state)).toBe(false)
   })
 
   // A sheet that never came up (UIKit refuses one while another is on its
   // way) is not the onboarding seen: only a dismissal answers with a result.
   it("tells a dismissed onboarding from one that never came up", async () => {
     const service = create("ios")
-    plugin.showOnboarding.and.resolveTo({
+    plugin.showOnboarding.mockResolvedValue({
       presented: true,
       completed: false,
       lastStep: "navigate",
@@ -599,10 +625,10 @@ describe("NativeChromeService", () => {
       lastStep: "navigate",
     })
 
-    plugin.showOnboarding.and.resolveTo({ presented: false })
+    plugin.showOnboarding.mockResolvedValue({ presented: false })
     expect(await service.showOnboarding([])).toBeNull()
 
-    plugin.showOnboarding.and.rejectWith(new Error("no chrome"))
+    plugin.showOnboarding.mockRejectedValue(new Error("no chrome"))
     expect(await service.showOnboarding([])).toBeNull()
   })
 
@@ -616,15 +642,15 @@ describe("NativeChromeService", () => {
       url: "https://biblia.capuchinhos.org/mat/5",
       linkTitle: "Mateus 5 | Bíblia Sagrada",
     }
-    plugin.share.and.resolveTo({ completed: true })
-    expect(await service.share(options)).toBeTrue()
+    plugin.share.mockResolvedValue({ completed: true })
+    expect(await service.share(options)).toBe(true)
     expect(plugin.share).toHaveBeenCalledWith(options)
 
-    plugin.share.and.resolveTo({ completed: false })
-    expect(await service.share(options)).toBeFalse()
+    plugin.share.mockResolvedValue({ completed: false })
+    expect(await service.share(options)).toBe(false)
 
-    plugin.share.and.rejectWith(new Error("no chrome"))
-    expect(await service.share(options)).toBeFalse()
+    plugin.share.mockRejectedValue(new Error("no chrome"))
+    expect(await service.share(options)).toBe(false)
   })
 
   // Each push has the shell rebuild its bars and menu.
@@ -640,11 +666,11 @@ describe("NativeChromeService", () => {
 
   it("sends them again after a push that failed", async () => {
     const service = create("ios")
-    plugin.setState.and.rejectWith(new Error("not ready"))
+    plugin.setState.mockRejectedValue(new Error("not ready"))
     service.show(READER)
     await settle()
 
-    plugin.setState.and.resolveTo({ top: 116, bottom: 82 })
+    plugin.setState.mockResolvedValue({ top: 116, bottom: 82 })
     service.show(READER)
     expect(plugin.setState).toHaveBeenCalledTimes(2)
   })
@@ -706,14 +732,14 @@ describe("NativeChromeService", () => {
       service.trackScroll(scroller)
 
       scrollTo(10)
-      expect(collapsed()).toBeFalse()
+      expect(collapsed()).toBe(false)
       scrollTo(10 + COLLAPSE_DISTANCE)
-      expect(collapsed()).toBeTrue()
+      expect(collapsed()).toBe(true)
       expect(body.classList).toContain("native-chrome-collapsed")
 
       scrollTo(500)
       scrollTo(500 - COLLAPSE_DISTANCE)
-      expect(collapsed()).toBeFalse()
+      expect(collapsed()).toBe(false)
       expect(body.classList).not.toContain("native-chrome-collapsed")
     })
 
@@ -724,7 +750,7 @@ describe("NativeChromeService", () => {
       service.trackScroll(scroller)
       scrollTo(200)
 
-      expect(collapsed()).toBeTrue()
+      expect(collapsed()).toBe(true)
       expect(body.classList).not.toContain("native-chrome-collapsed")
 
       listener("insets")({ top: 116, bottom: 82, collapsed: true })
@@ -732,31 +758,35 @@ describe("NativeChromeService", () => {
     })
 
     it("takes whether they hid from the shell's answer to a push too", async () => {
-      plugin.setState.and.resolveTo({ top: 116, bottom: 82, collapsed: false })
+      plugin.setState.mockResolvedValue({
+        top: 116,
+        bottom: 82,
+        collapsed: false,
+      })
       service.trackScroll(scroller)
       scrollTo(200)
       await settle()
 
-      expect(collapsed()).toBeTrue()
+      expect(collapsed()).toBe(true)
       expect(body.classList).not.toContain("native-chrome-collapsed")
     })
 
     it("brings them back when the passage left in their place is tapped", () => {
       service.trackScroll(scroller)
       scrollTo(200)
-      expect(collapsed()).toBeTrue()
+      expect(collapsed()).toBe(true)
 
       listener("action")({ id: "show-bars" })
-      expect(collapsed()).toBeFalse()
+      expect(collapsed()).toBe(false)
     })
 
     it("brings them back at the end of the chapter, where the arrows are", () => {
       service.trackScroll(scroller)
       scrollTo(200)
-      expect(collapsed()).toBeTrue()
+      expect(collapsed()).toBe(true)
 
       scrollTo(scroller.scrollHeight - scroller.clientHeight)
-      expect(collapsed()).toBeFalse()
+      expect(collapsed()).toBe(false)
     })
 
     it("brings them back when tracking stops", () => {
@@ -764,9 +794,9 @@ describe("NativeChromeService", () => {
       scrollTo(200)
       stop()
 
-      expect(collapsed()).toBeFalse()
+      expect(collapsed()).toBe(false)
       scrollTo(600)
-      expect(collapsed()).toBeFalse()
+      expect(collapsed()).toBe(false)
     })
 
     // Paused, the shell hides auto-scroll's play button with the bars.
@@ -782,18 +812,18 @@ describe("NativeChromeService", () => {
       service.trackScroll(scroller)
       service.setAutoScroll(autoScroll)
       expect(lastState()).toEqual(
-        jasmine.objectContaining({ autoScroll, collapsed: false }),
+        expect.objectContaining({ autoScroll, collapsed: false }),
       )
 
       scrollTo(200)
       expect(lastState()).toEqual(
-        jasmine.objectContaining({ autoScroll, collapsed: true }),
+        expect.objectContaining({ autoScroll, collapsed: true }),
       )
 
       // Closing auto-scroll brings the bars back.
       service.setAutoScroll(null)
       expect(lastState()).toEqual(
-        jasmine.objectContaining({ autoScroll: null, collapsed: false }),
+        expect.objectContaining({ autoScroll: null, collapsed: false }),
       )
     })
 
@@ -809,10 +839,10 @@ describe("NativeChromeService", () => {
       }
       service.trackScroll(scroller)
       service.setAutoScroll(autoScroll)
-      expect(collapsed()).toBeFalse()
+      expect(collapsed()).toBe(false)
 
       service.setAutoScroll({ ...autoScroll, playing: true })
-      expect(collapsed()).toBeTrue()
+      expect(collapsed()).toBe(true)
       // A new speed while playing leaves them as they are.
       service.setAutoScroll({
         ...autoScroll,
@@ -820,10 +850,10 @@ describe("NativeChromeService", () => {
         speedLabel: "2",
         speedAccessibilityLabel: "2 linhas por segundo",
       })
-      expect(collapsed()).toBeTrue()
+      expect(collapsed()).toBe(true)
 
       service.setAutoScroll({ ...autoScroll, playing: false })
-      expect(collapsed()).toBeFalse()
+      expect(collapsed()).toBe(false)
     })
 
     // Opening a footnote's reference scrolls to its verse.
@@ -831,13 +861,13 @@ describe("NativeChromeService", () => {
       service.trackScroll(scroller)
       scroller.scrollTop = 600
       scroller.dispatchEvent(new Event("scroll"))
-      expect(collapsed()).toBeFalse()
+      expect(collapsed()).toBe(false)
 
       // And measures the reader's next scroll from where it landed.
       scrollTo(600 + COLLAPSE_DISTANCE - 1)
-      expect(collapsed()).toBeFalse()
+      expect(collapsed()).toBe(false)
       scrollTo(600 + COLLAPSE_DISTANCE)
-      expect(collapsed()).toBeTrue()
+      expect(collapsed()).toBe(true)
     })
 
     describe("a tap on the text", () => {
@@ -861,31 +891,31 @@ describe("NativeChromeService", () => {
 
       it("shows the hidden bars, and a second tap hides them", () => {
         scrollTo(200)
-        expect(collapsed()).toBeTrue()
+        expect(collapsed()).toBe(true)
 
         line.click()
-        expect(collapsed()).toBeFalse()
+        expect(collapsed()).toBe(false)
         line.click()
-        expect(collapsed()).toBeTrue()
+        expect(collapsed()).toBe(true)
       })
 
       it("leaves taps on links and asterisks to them", () => {
         link.click()
         asterisk.click()
-        expect(collapsed()).toBeFalse()
+        expect(collapsed()).toBe(false)
       })
 
       it("leaves a tap that only dismisses a selection", () => {
         doc["getSelection"] = () => ({ isCollapsed: false })
         line.dispatchEvent(new Event("pointerdown", { bubbles: true }))
         line.click()
-        expect(collapsed()).toBeFalse()
+        expect(collapsed()).toBe(false)
       })
 
       it("stops once tracking stops", () => {
         stop()
         line.click()
-        expect(collapsed()).toBeFalse()
+        expect(collapsed()).toBe(false)
       })
     })
 
@@ -909,9 +939,9 @@ describe("NativeChromeService", () => {
             },
           ],
         })
-        ;(Capacitor.getPlatform as jasmine.Spy).and.returnValue("android")
-        now = 10_000
-        spyOn(performance, "now").and.callFake(() => now)
+        ;(Capacitor.getPlatform as Mock).mockReturnValue("android")
+        now = 10000
+        vi.spyOn(performance, "now").mockImplementation(() => now)
         service = TestBed.inject(NativeChromeService)
         service.init()
         service.show(READER)
@@ -931,20 +961,20 @@ describe("NativeChromeService", () => {
       it("hides them after a line and a bit down, not one line", () => {
         service.trackScroll(scroller)
         drag(ANDROID_HIDE_DISTANCE - 8)
-        expect(collapsed()).toBeFalse()
+        expect(collapsed()).toBe(false)
         drag(ANDROID_HIDE_DISTANCE)
-        expect(collapsed()).toBeTrue()
+        expect(collapsed()).toBe(true)
       })
 
       it("brings them back after two lines up, not one", () => {
         service.trackScroll(scroller)
         drag(100)
         drag(400)
-        expect(collapsed()).toBeTrue()
+        expect(collapsed()).toBe(true)
         drag(400 - 30)
-        expect(collapsed()).toBeTrue()
+        expect(collapsed()).toBe(true)
         drag(400 - ANDROID_REVEAL_DISTANCE)
-        expect(collapsed()).toBeFalse()
+        expect(collapsed()).toBe(false)
       })
 
       it("brings them back at once on a flick up", () => {
@@ -954,7 +984,7 @@ describe("NativeChromeService", () => {
         // 30 px in 10 ms: 3 px/ms, past FLING_REVEAL_SPEED.
         drag(370, 10)
         expect(30 / 10).toBeGreaterThanOrEqual(FLING_REVEAL_SPEED)
-        expect(collapsed()).toBeFalse()
+        expect(collapsed()).toBe(false)
       })
 
       // Voice Access, a keyboard or a switch scrolls without a finger.
@@ -965,19 +995,19 @@ describe("NativeChromeService", () => {
         now += 5000
         scroller.scrollTop = 390
         scroller.dispatchEvent(new Event("scroll"))
-        expect(collapsed()).toBeFalse()
+        expect(collapsed()).toBe(false)
       })
 
       it("shows them on a tap, which never hides them", () => {
         service.trackScroll(scroller)
         drag(100)
         drag(400)
-        expect(collapsed()).toBeTrue()
+        expect(collapsed()).toBe(true)
 
         line.click()
-        expect(collapsed()).toBeFalse()
+        expect(collapsed()).toBe(false)
         line.click()
-        expect(collapsed()).toBeFalse()
+        expect(collapsed()).toBe(false)
       })
 
       it("leaves them hidden on a tap while auto-scroll reads on", () => {
@@ -990,9 +1020,9 @@ describe("NativeChromeService", () => {
           canFaster: true,
           canPlay: true,
         })
-        expect(collapsed()).toBeTrue()
+        expect(collapsed()).toBe(true)
         line.click()
-        expect(collapsed()).toBeTrue()
+        expect(collapsed()).toBe(true)
       })
 
       it("still shows and hides them in pages, which don't scroll", () => {
@@ -1001,9 +1031,9 @@ describe("NativeChromeService", () => {
         service.trackScroll(scroller)
 
         line.click()
-        expect(collapsed()).toBeTrue()
+        expect(collapsed()).toBe(true)
         line.click()
-        expect(collapsed()).toBeFalse()
+        expect(collapsed()).toBe(false)
       })
     })
 
@@ -1012,7 +1042,7 @@ describe("NativeChromeService", () => {
       scrollTo(200)
       service.show(SEARCH)
 
-      expect(collapsed()).toBeFalse()
+      expect(collapsed()).toBe(false)
     })
   })
 
@@ -1062,7 +1092,7 @@ describe("NativeChromeService", () => {
       scroller.dispatchEvent(new Event("scroll"))
       await frame()
     }
-    const progress = () => plugin.setProgress.calls.mostRecent().args[0].value
+    const progress = () => lastCall(vi.mocked(plugin.setProgress))[0].value
 
     it("sends how far through the chapter the text has scrolled", async () => {
       await frame()
@@ -1113,10 +1143,10 @@ describe("NativeChromeService", () => {
 
     it("sends the heading once per section, not per scroll", async () => {
       await scrollTo(100)
-      const calls = plugin.setState.calls.count()
+      const calls = vi.mocked(plugin.setState).mock.calls.length
       await scrollTo(120)
       await scrollTo(140)
-      expect(plugin.setState.calls.count()).toBe(calls)
+      expect(vi.mocked(plugin.setState).mock.calls.length).toBe(calls)
     })
 
     it("sends the page's colour for the bars to match", async () => {
@@ -1156,11 +1186,11 @@ describe("NativeChromeService", () => {
           },
         ],
       })
-      ;(Capacitor.getPlatform as jasmine.Spy).and.returnValue("ios")
+      ;(Capacitor.getPlatform as Mock).mockReturnValue("ios")
       const ios = TestBed.inject(NativeChromeService)
       ios.init()
       ios.show(READER)
-      plugin.setProgress.calls.reset()
+      plugin.setProgress.mockClear()
       stop = ios.trackScroll(scroller)
       await scrollTo(700)
       expect(plugin.setProgress).not.toHaveBeenCalled()
@@ -1179,7 +1209,7 @@ describe("NativeChromeService", () => {
       page = document.createElement("div")
       root.appendChild(page)
       now = 1000
-      spyOn(performance, "now").and.callFake(() => now)
+      vi.spyOn(performance, "now").mockImplementation(() => now)
       service = create("android")
       service.show(READER)
     })
@@ -1273,10 +1303,10 @@ describe("NativeChromeService", () => {
       document.body.classList.add("native-chrome", "platform-ios")
       for (const token of tokens) {
         const value = getComputedStyle(host).getPropertyValue(token).trim()
-        expect(value).withContext(token).not.toMatch(BROWN)
-        expect(value)
-          .withContext(token)
-          .toBe(getComputedStyle(host).getPropertyValue("--text-color").trim())
+        expect(value, token).not.toMatch(BROWN)
+        expect(value, token).toBe(
+          getComputedStyle(host).getPropertyValue("--text-color").trim(),
+        )
       }
     })
 

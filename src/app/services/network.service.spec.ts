@@ -2,19 +2,23 @@ import { Injector } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import type { PluginListenerHandle } from "@capacitor/core"
 import type { ConnectionStatus } from "@capacitor/network"
+import type { Mock } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { NETWORK_PLUGIN } from "../tokens"
 import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
 
 describe("NetworkService", () => {
   let service: NetworkService
-  let injectorGet: jasmine.Spy
-  let offlineData: { preloadAllBooksAndChapters: jasmine.Spy }
+  let injectorGet: Mock
+  let offlineData: {
+    preloadAllBooksAndChapters: Mock
+  }
   let mockStatus: ConnectionStatus
-  let mockNetworkListener: jasmine.SpyObj<PluginListenerHandle>
+  let mockNetworkListener: SpyObj<PluginListenerHandle>
   let capturedCallback: ((status: ConnectionStatus) => void) | undefined
   // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
-  let mockNetworkPlugin: jasmine.SpyObj<any>
+  let mockNetworkPlugin: SpyObj<any>
 
   beforeEach(async () => {
     mockStatus = {
@@ -22,22 +26,18 @@ describe("NetworkService", () => {
       connectionType: "wifi",
     }
     capturedCallback = undefined
-    mockNetworkListener = jasmine.createSpyObj("PluginListenerHandle", [
-      "remove",
-    ])
-    mockNetworkListener.remove.and.resolveTo()
+    mockNetworkListener = createSpyObj("PluginListenerHandle", ["remove"])
+    mockNetworkListener.remove.mockResolvedValue(undefined)
 
     offlineData = {
-      preloadAllBooksAndChapters: jasmine
-        .createSpy("preloadAllBooksAndChapters")
-        .and.resolveTo(),
+      preloadAllBooksAndChapters: vi
+        .fn()
+        .mockName("preloadAllBooksAndChapters")
+        .mockResolvedValue(undefined),
     }
 
-    mockNetworkPlugin = jasmine.createSpyObj("Network", [
-      "addListener",
-      "getStatus",
-    ])
-    mockNetworkPlugin.addListener.and.callFake(
+    mockNetworkPlugin = createSpyObj("Network", ["addListener", "getStatus"])
+    mockNetworkPlugin.addListener.mockImplementation(
       (eventName: string, callback: (status: ConnectionStatus) => void) => {
         if (eventName === "networkStatusChange") {
           capturedCallback = callback
@@ -48,7 +48,9 @@ describe("NetworkService", () => {
         } as PluginListenerHandle)
       },
     )
-    mockNetworkPlugin.getStatus.and.callFake(() => Promise.resolve(mockStatus))
+    mockNetworkPlugin.getStatus.mockImplementation(() =>
+      Promise.resolve(mockStatus),
+    )
 
     TestBed.configureTestingModule({
       providers: [
@@ -58,7 +60,7 @@ describe("NetworkService", () => {
     })
     service = TestBed.inject(NetworkService)
     // After construction, so only the service's own lookups are counted.
-    injectorGet = spyOn(TestBed.inject(Injector), "get").and.callThrough()
+    injectorGet = vi.spyOn(TestBed.inject(Injector), "get")
 
     // Flush microtasks to ensure initial getStatus resolves
     await Promise.resolve()
@@ -70,7 +72,7 @@ describe("NetworkService", () => {
   })
 
   it("should handle initially connected state", () => {
-    expect(service.isOffline).toBeFalse()
+    expect(service.isOffline).toBe(false)
   })
 
   it("should handle initially disconnected state", async () => {
@@ -84,20 +86,21 @@ describe("NetworkService", () => {
     await Promise.resolve()
     await Promise.resolve()
 
-    expect(newService.isOffline).toBeTrue()
+    expect(newService.isOffline).toBe(true)
   })
 
   it("should update offline state via network listener", () => {
-    expect(capturedCallback).toBeDefined(
+    expect(
+      capturedCallback,
       "networkStatusChange listener should be registered",
-    )
+    ).toBeDefined()
 
     if (capturedCallback) {
       capturedCallback({ connected: false, connectionType: "none" })
-      expect(service.isOffline).toBeTrue()
+      expect(service.isOffline).toBe(true)
 
       capturedCallback({ connected: true, connectionType: "wifi" })
-      expect(service.isOffline).toBeFalse()
+      expect(service.isOffline).toBe(false)
     }
   })
 
@@ -108,11 +111,11 @@ describe("NetworkService", () => {
   })
 
   it("should preload offline content when transitioning offline -> online", async () => {
-    injectorGet.calls.reset()
+    injectorGet.mockClear()
 
     expect(capturedCallback).toBeDefined()
     capturedCallback?.({ connected: false, connectionType: "none" })
-    expect(service.isOffline).toBeTrue()
+    expect(service.isOffline).toBe(true)
 
     capturedCallback?.({ connected: true, connectionType: "wifi" })
 
@@ -123,7 +126,8 @@ describe("NetworkService", () => {
     // injector expectation rather than on the thing it covers.
     const deadline = Date.now() + 2000
     while (
-      offlineData.preloadAllBooksAndChapters.calls.count() === 0 &&
+      vi.mocked(offlineData.preloadAllBooksAndChapters).mock.calls.length ===
+        0 &&
       Date.now() < deadline
     ) {
       await new Promise((resolve) => setTimeout(resolve, 10))

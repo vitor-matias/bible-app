@@ -60,6 +60,11 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "test": {
+              "styles": [
+                "src/styles.css"
+              ]
             }
           },
           "defaultConfiguration": "production"
@@ -85,24 +90,19 @@
           "builder": "@angular/build:extract-i18n"
         },
         "test": {
-          "builder": "@angular/build:karma",
+          "builder": "@angular/build:unit-test",
           "options": {
-            "polyfills": [
-              "src/test-zone.ts",
-              "zone.js/testing"
-            ],
             "tsConfig": "tsconfig.spec.json",
-            "assets": [
-              {
-                "glob": "**/*",
-                "input": "public"
-              }
+            "runner": "vitest",
+            "browsers": [
+              "chromium"
             ],
-            "styles": [
-              "src/styles.css"
+            "setupFiles": [
+              "src/test-setup.ts"
             ],
-            "scripts": [],
-            "karmaConfig": "karma.conf.js"
+            "browserViewport": "800x600",
+            "buildTarget": "bible-app:build:development,test",
+            "runnerConfig": "vitest-base.config.mts"
           }
         }
       }

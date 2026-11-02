@@ -1,10 +1,5 @@
 import { Component, signal, ViewChild } from "@angular/core"
-import {
-  type ComponentFixture,
-  fakeAsync,
-  flush,
-  TestBed,
-} from "@angular/core/testing"
+import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MATERIAL_ANIMATIONS } from "@angular/material/core"
 import { MatDrawer, MatSidenavModule } from "@angular/material/sidenav"
 import { By } from "@angular/platform-browser"
@@ -22,7 +17,7 @@ class ScrollProbeComponent {
     <mat-drawer-container>
       <mat-drawer mode="over">
         @if (inside()) {
-          <scroll-probe />
+        <scroll-probe />
         }
       </mat-drawer>
     </mat-drawer-container>
@@ -31,7 +26,8 @@ class ScrollProbeComponent {
 })
 class HostComponent {
   readonly inside = signal(false)
-  @ViewChild(MatDrawer) drawer!: MatDrawer
+  @ViewChild(MatDrawer)
+  drawer!: MatDrawer
 }
 
 describe("scrollOnDrawerOpen", () => {
@@ -56,69 +52,74 @@ describe("scrollOnDrawerOpen", () => {
     host = fixture.componentInstance
   })
 
-  it("does nothing outside a drawer", fakeAsync(() => {
+  it("does nothing outside a drawer", async () => {
+    vi.useFakeTimers()
     fixture.detectChanges()
     host.drawer.open()
-    flush()
+    await vi.runAllTimersAsync()
 
-    expect(probe(".outside").inDrawer).toBeFalse()
+    expect(probe(".outside").inDrawer).toBe(false)
     expect(probe(".outside").scrolls).toBe(0)
-  }))
+  })
 
   // The book list is built with the page, inside the closed drawer.
-  it("scrolls each time the drawer starts opening, not before", fakeAsync(() => {
+  it("scrolls each time the drawer starts opening, not before", async () => {
+    vi.useFakeTimers()
     host.inside.set(true)
     fixture.detectChanges()
-    flush()
+    await vi.runAllTimersAsync()
     const list = probe("mat-drawer scroll-probe")
-    expect(list.inDrawer).toBeTrue()
+    expect(list.inDrawer).toBe(true)
     expect(list.scrolls).toBe(0)
 
     host.drawer.open()
-    flush()
+    await vi.runAllTimersAsync()
     expect(list.scrolls).toBe(1)
 
     host.drawer.close()
-    flush()
+    await vi.runAllTimersAsync()
     host.drawer.open()
-    flush()
+    await vi.runAllTimersAsync()
     expect(list.scrolls).toBe(2)
-  }))
+  })
 
   // The reader swaps the book and chapter lists as the drawer opens: the new
   // list can come before or after that opening's openedStart, and must scroll
   // once either way.
-  it("scrolls once when built just after the drawer starts opening", fakeAsync(() => {
+  it("scrolls once when built just after the drawer starts opening", async () => {
+    vi.useFakeTimers()
     fixture.detectChanges()
     host.drawer.open()
     host.inside.set(true)
     fixture.detectChanges()
-    flush()
+    await vi.runAllTimersAsync()
 
     expect(probe("mat-drawer scroll-probe").scrolls).toBe(1)
-  }))
+  })
 
-  it("doesn't scroll a list destroyed before its fallback runs", fakeAsync(() => {
+  it("doesn't scroll a list destroyed before its fallback runs", async () => {
+    vi.useFakeTimers()
     fixture.detectChanges()
     host.drawer.open()
-    flush()
+    await vi.runAllTimersAsync()
     host.inside.set(true)
     fixture.detectChanges()
     const list = probe("mat-drawer scroll-probe")
     fixture.destroy()
-    flush()
+    await vi.runAllTimersAsync()
 
     expect(list.scrolls).toBe(0)
-  }))
+  })
 
-  it("scrolls once when built after openedStart has fired", fakeAsync(() => {
+  it("scrolls once when built after openedStart has fired", async () => {
+    vi.useFakeTimers()
     fixture.detectChanges()
     host.drawer.open()
-    flush()
+    await vi.runAllTimersAsync()
     host.inside.set(true)
     fixture.detectChanges()
-    flush()
+    await vi.runAllTimersAsync()
 
     expect(probe("mat-drawer scroll-probe").scrolls).toBe(1)
-  }))
+  })
 })

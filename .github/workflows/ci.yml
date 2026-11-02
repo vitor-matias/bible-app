@@ -17,7 +17,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - name: Run Biome Lint
-        run: npx biome ci src karma.conf.js
+        run: npx biome ci src vitest-base.config.mts
 
   test:
     runs-on: ubuntu-latest
@@ -28,8 +28,9 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - name: Run Tests (Headless)
-        run: npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox
+        run: npx ng test --watch=false
 
   build:
     runs-on: ubuntu-latest

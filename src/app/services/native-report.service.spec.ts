@@ -1,5 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { Subject } from "rxjs"
+import type { Mock } from "vitest"
+import { createSpyObj, lastCall, type SpyObj } from "../testing/spy-obj"
 import { NativeChromeService } from "./native-chrome.service"
 import type { NativeChromeAction } from "./native-chrome.types"
 import { NativeReportService } from "./native-report.service"
@@ -8,12 +10,17 @@ import { ToastService } from "./toast.service"
 
 describe("NativeReportService", () => {
   let actions: Subject<NativeChromeAction>
-  let nativeChrome: { actions$: Subject<NativeChromeAction> } & Record<
-    "showReport" | "finishReport",
-    jasmine.Spy
-  >
-  let reports: { topics: { value: string; label: string }[]; send: jasmine.Spy }
-  let toast: jasmine.SpyObj<ToastService>
+  let nativeChrome: {
+    actions$: Subject<NativeChromeAction>
+  } & Record<"showReport" | "finishReport", Mock>
+  let reports: {
+    topics: {
+      value: string
+      label: string
+    }[]
+    send: Mock
+  }
+  let toast: SpyObj<ToastService>
   let service: NativeReportService
 
   const genesis = { id: "gen", name: "Génesis", shortName: "Génesis" } as Book
@@ -23,14 +30,14 @@ describe("NativeReportService", () => {
     actions = new Subject()
     nativeChrome = {
       actions$: actions,
-      showReport: jasmine.createSpy("showReport").and.resolveTo(true),
-      finishReport: jasmine.createSpy("finishReport"),
+      showReport: vi.fn().mockName("showReport").mockResolvedValue(true),
+      finishReport: vi.fn().mockName("finishReport"),
     }
     reports = {
       topics: [{ value: "typo", label: "Erro ortográfico" }],
-      send: jasmine.createSpy("send").and.resolveTo(),
+      send: vi.fn().mockName("send").mockResolvedValue(undefined),
     }
-    toast = jasmine.createSpyObj("ToastService", ["show"])
+    toast = createSpyObj("ToastService", ["show"])
     TestBed.configureTestingModule({
       providers: [
         { provide: NativeChromeService, useValue: nativeChrome },
@@ -48,23 +55,23 @@ describe("NativeReportService", () => {
     expect(nativeChrome.showReport).toHaveBeenCalledWith({
       message: "Encontrou algum problema em «Génesis 3»? Ajude-nos a melhorar.",
       topics: reports.topics,
-      placeholder: jasmine.any(String),
+      placeholder: expect.any(String),
       maxLength: 500,
     })
   })
 
   it("names a psalm with its liturgical number, and the About page alone", () => {
     service.open({ id: "psa", name: "Salmos", shortName: "Salmos" } as Book, 34)
-    expect(
-      nativeChrome.showReport.calls.mostRecent().args[0].message,
-    ).toContain("«Salmo 34 (33)»")
+    expect(lastCall(vi.mocked(nativeChrome.showReport))[0].message).toContain(
+      "«Salmo 34 (33)»",
+    )
     service.open(
       { id: "about", name: "Sobre", shortName: "Sobre a Bíblia" } as Book,
       1,
     )
-    expect(
-      nativeChrome.showReport.calls.mostRecent().args[0].message,
-    ).toContain("«Sobre a Bíblia»")
+    expect(lastCall(vi.mocked(nativeChrome.showReport))[0].message).toContain(
+      "«Sobre a Bíblia»",
+    )
   })
 
   it("sends the report, closes the sheet and thanks", async () => {
@@ -85,8 +92,8 @@ describe("NativeReportService", () => {
   })
 
   it("keeps the sheet open with the error when sending fails", async () => {
-    spyOn(console, "error")
-    reports.send.and.rejectWith(new Error("Analytics is unavailable"))
+    vi.spyOn(console, "error").mockReturnValue(undefined)
+    reports.send.mockRejectedValue(new Error("Analytics is unavailable"))
     service.open(genesis, 3)
     actions.next({ id: "report-submit", topic: "typo", details: "vírgula" })
     await settle()
@@ -112,7 +119,7 @@ describe("NativeReportService", () => {
   // once that one has gone, and the last one's close came in between.
   it("keeps listening through the closing sheet's report-closed", async () => {
     let answer: (presented: boolean) => void = () => {}
-    nativeChrome.showReport.and.returnValue(
+    nativeChrome.showReport.mockReturnValue(
       new Promise<boolean>((resolve) => {
         answer = resolve
       }),
@@ -129,7 +136,7 @@ describe("NativeReportService", () => {
 
   // Over another sheet none comes up, and no report-closed would follow.
   it("stops listening when no sheet came up", async () => {
-    nativeChrome.showReport.and.resolveTo(false)
+    nativeChrome.showReport.mockResolvedValue(false)
     service.open(genesis, 3)
     await settle()
     actions.next({ id: "report-submit", topic: "typo", details: "vírgula" })
@@ -144,8 +151,10 @@ describe("NativeReportService", () => {
     actions.next({ id: "report-submit", topic: "typo", details: "vírgula" })
     await settle()
 
-    expect(reports.send).toHaveBeenCalledOnceWith(
-      jasmine.objectContaining({ chapter: 4 }),
+    expect(reports.send).toHaveBeenCalledTimes(1)
+
+    expect(reports.send).toHaveBeenCalledWith(
+      expect.objectContaining({ chapter: 4 }),
     )
   })
 })

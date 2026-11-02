@@ -31,7 +31,7 @@ describe("plugin tokens", () => {
   // Prerendering creates an injector per page; registering per injector made
   // Capacitor warn "already registered" 1420 times during the build.
   it("registers the NativeChrome plugin once, however many injectors use it", () => {
-    const warn = spyOn(console, "warn")
+    const warn = vi.spyOn(console, "warn").mockReturnValue(undefined)
     for (let i = 0; i < 3; i++) {
       TestBed.resetTestingModule()
       TestBed.configureTestingModule({})
@@ -39,7 +39,7 @@ describe("plugin tokens", () => {
     }
 
     expect(warn).not.toHaveBeenCalledWith(
-      jasmine.stringMatching(/NativeChrome.*already registered/),
+      expect.stringMatching(/NativeChrome.*already registered/),
     )
   })
 })

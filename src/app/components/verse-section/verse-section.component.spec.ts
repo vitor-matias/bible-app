@@ -6,6 +6,7 @@ import {
   BibleReferenceService,
 } from "../../services/bible-reference.service"
 import { ToastService } from "../../services/toast.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { VerseSectionComponent } from "./verse-section.component"
 
 function makeVerse(overrides: Partial<Verse> = {}): Verse {
@@ -43,14 +44,14 @@ function setData(
 describe("VerseSectionComponent", () => {
   let component: VerseSectionComponent
   let fixture: ComponentFixture<VerseSectionComponent>
-  let mockBibleRef: jasmine.SpyObj<BibleReferenceService>
-  let toast: jasmine.SpyObj<ToastService>
+  let mockBibleRef: SpyObj<BibleReferenceService>
+  let toast: SpyObj<ToastService>
 
   beforeEach(async () => {
-    mockBibleRef = jasmine.createSpyObj("BibleReferenceService", ["extract"])
-    mockBibleRef.extract.and.returnValue([])
+    mockBibleRef = createSpyObj("BibleReferenceService", ["extract"])
+    mockBibleRef.extract.mockReturnValue([])
 
-    toast = jasmine.createSpyObj("ToastService", ["showReturn"])
+    toast = createSpyObj("ToastService", ["showReturn"])
 
     await TestBed.configureTestingModule({
       imports: [VerseSectionComponent],
@@ -162,7 +163,7 @@ describe("VerseSectionComponent", () => {
       ({ match, index, book: "mrk", chapter: 4 }) as BibleReference
 
     beforeEach(() => {
-      mockBibleRef.extract.and.returnValue([
+      mockBibleRef.extract.mockReturnValue([
         reference("Mc 4,21", 1),
         reference("9,50", 10),
       ])
@@ -270,7 +271,9 @@ describe("VerseSectionComponent", () => {
 
       component.showReturnSnackbar()
 
-      expect(toast.showReturn).toHaveBeenCalledOnceWith(verse)
+      expect(toast.showReturn).toHaveBeenCalledTimes(1)
+
+      expect(toast.showReturn).toHaveBeenCalledWith(verse)
     })
   })
 

@@ -1,12 +1,13 @@
 import { TestBed } from "@angular/core/testing"
 import { MAT_SNACK_BAR_DATA, MatSnackBarRef } from "@angular/material/snack-bar"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { TwoActionSnackComponent } from "./two-action-snackbar.component"
 
 describe("TwoActionSnackComponent", () => {
-  let snackBarRefSpy: jasmine.SpyObj<MatSnackBarRef<TwoActionSnackComponent>>
+  let snackBarRefSpy: SpyObj<MatSnackBarRef<TwoActionSnackComponent>>
 
   beforeEach(() => {
-    snackBarRefSpy = jasmine.createSpyObj("MatSnackBarRef", ["dismiss"])
+    snackBarRefSpy = createSpyObj("MatSnackBarRef", ["dismiss"])
   })
 
   function create(data: { message: string; returnUrl?: () => void }) {
@@ -21,22 +22,15 @@ describe("TwoActionSnackComponent", () => {
   }
 
   it("should call the return callback before dismissing", () => {
-    const returnUrl = jasmine.createSpy("returnUrl")
+    const returnUrl = vi.fn().mockName("returnUrl")
     const component = create({ message: "Back", returnUrl })
 
     component.goBack()
 
     expect(returnUrl).toHaveBeenCalled()
     expect(snackBarRefSpy.dismiss).toHaveBeenCalled()
-    expect(
-      (returnUrl.calls.mostRecent() as unknown as { invocationOrder: number })
-        .invocationOrder,
-    ).toBeLessThan(
-      (
-        snackBarRefSpy.dismiss.calls.mostRecent() as unknown as {
-          invocationOrder: number
-        }
-      ).invocationOrder,
+    expect(returnUrl.mock.invocationCallOrder[0]).toBeLessThan(
+      snackBarRefSpy.dismiss.mock.invocationCallOrder[0],
     )
   })
 
@@ -58,7 +52,7 @@ describe("TwoActionSnackComponent", () => {
 
   // A question with Voltar and Fechar under it said the same thing twice.
   it("is one button naming the way back, with a close button", () => {
-    const returnUrl = jasmine.createSpy("returnUrl")
+    const returnUrl = vi.fn().mockName("returnUrl")
     TestBed.configureTestingModule({
       imports: [TwoActionSnackComponent],
       providers: [

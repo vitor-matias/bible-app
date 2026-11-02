@@ -10,21 +10,21 @@ describe("SystemTextSizeService", () => {
   })
 
   it("follows nothing outside the iOS app", () => {
-    spyOn(Capacitor, "getPlatform").and.returnValue("web")
+    vi.spyOn(Capacitor, "getPlatform").mockReturnValue("web")
     expect(service.percent()).toBeNull()
   })
 
   // Chrome has no Dynamic Type: the iOS web view would size the probe.
   it("follows nothing where the system font is unknown", () => {
-    spyOn(Capacitor, "getPlatform").and.returnValue("ios")
-    spyOn(CSS, "supports").and.returnValue(false)
+    vi.spyOn(Capacitor, "getPlatform").mockReturnValue("ios")
+    vi.spyOn(CSS, "supports").mockReturnValue(false)
     expect(service.percent()).toBeNull()
   })
 
   it("reads the system body size against iOS's default", () => {
-    spyOn(Capacitor, "getPlatform").and.returnValue("ios")
-    spyOn(CSS, "supports").and.returnValue(true)
-    spyOn(window, "getComputedStyle").and.returnValue({
+    vi.spyOn(Capacitor, "getPlatform").mockReturnValue("ios")
+    vi.spyOn(CSS, "supports").mockReturnValue(true)
+    vi.spyOn(window, "getComputedStyle").mockReturnValue({
       fontSize: "21px",
     } as CSSStyleDeclaration)
 

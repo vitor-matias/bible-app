@@ -6,12 +6,7 @@ import {
   signal,
   ViewChild,
 } from "@angular/core"
-import {
-  ComponentFixture,
-  fakeAsync,
-  TestBed,
-  tick,
-} from "@angular/core/testing"
+import { ComponentFixture, TestBed } from "@angular/core/testing"
 import {
   PagedNavigationDirective,
   PageState,
@@ -46,9 +41,12 @@ class TestHostComponent {
   // zoneless fixture's detectChanges.
   readonly viewMode = signal<"scrolling" | "paged">("paged")
 
-  @ViewChild("container") container!: ElementRef<HTMLElement>
-  @ViewChild("block") block!: ElementRef<HTMLElement>
-  @ViewChild(PagedNavigationDirective) directive!: PagedNavigationDirective
+  @ViewChild("container")
+  container!: ElementRef<HTMLElement>
+  @ViewChild("block")
+  block!: ElementRef<HTMLElement>
+  @ViewChild(PagedNavigationDirective)
+  directive!: PagedNavigationDirective
 
   nextChapterCalled = false
   prevChapterCalled = false
@@ -84,7 +82,7 @@ describe("PagedNavigationDirective", () => {
 
     // Mock scrollTo
     // biome-ignore lint/suspicious/noExplicitAny: bypassing DOM strict args for spy
-    container.scrollTo = jasmine.createSpy("scrollTo") as any
+    container.scrollTo = vi.fn().mockName("scrollTo") as any
   })
 
   it("should create", () => {
@@ -92,33 +90,34 @@ describe("PagedNavigationDirective", () => {
   })
 
   describe("switching into paged mode", () => {
-    it("measures after the class that creates the columns is applied", fakeAsync(() => {
+    it("measures after the class that creates the columns is applied", async () => {
+      vi.useFakeTimers()
       // Angular writes the column class on the inner block *after* this
       // directive's ngOnChanges, so a synchronous measurement sees a
       // single-column block, reports "last page" and leaves the reader without
       // a next-page control — the whole introduction stuck on page one.
       hostComponent.viewMode.set("scrolling")
       fixture.detectChanges()
-      tick(16)
+      await vi.advanceTimersByTimeAsync(16)
       // Seed the state the stale measurement would leave behind.
       hostComponent.pageState = { isFirstPage: true, isLastPage: true }
 
       const block = hostComponent.block.nativeElement
-      spyOnProperty(container, "scrollLeft").and.returnValue(0)
-      spyOnProperty(container, "clientWidth").and.returnValue(400)
-      spyOnProperty(container, "scrollWidth").and.callFake(() =>
+      vi.spyOn(container, "scrollLeft", "get").mockReturnValue(0)
+      vi.spyOn(container, "clientWidth", "get").mockReturnValue(400)
+      vi.spyOn(container, "scrollWidth", "get").mockImplementation(() =>
         block.classList.contains("paged-view") ? 1200 : 400,
       )
 
       hostComponent.viewMode.set("paged")
       fixture.detectChanges()
-      tick(16)
+      await vi.advanceTimersByTimeAsync(16)
 
       expect(hostComponent.pageState).toEqual({
         isFirstPage: true,
         isLastPage: false,
       })
-    }))
+    })
   })
 
   describe("late-arriving content", () => {
@@ -128,9 +127,9 @@ describe("PagedNavigationDirective", () => {
       // control and overflow-x hidden, i.e. stuck on page one.
       hostComponent.pageState = { isFirstPage: true, isLastPage: true }
 
-      spyOnProperty(container, "scrollLeft").and.returnValue(0)
-      spyOnProperty(container, "scrollWidth").and.returnValue(1200)
-      spyOnProperty(container, "clientWidth").and.returnValue(400)
+      vi.spyOn(container, "scrollLeft", "get").mockReturnValue(0)
+      vi.spyOn(container, "scrollWidth", "get").mockReturnValue(1200)
+      vi.spyOn(container, "clientWidth", "get").mockReturnValue(400)
 
       // The directive observes the block for content changes.
       // Every layout change (the MutationObserver on late content, a chapter
@@ -147,12 +146,11 @@ describe("PagedNavigationDirective", () => {
   describe("onScroll", () => {
     it("should emit page state", () => {
       // Mock scroll state
-      const scrollLeftSpy = spyOnProperty(
-        container,
-        "scrollLeft",
-      ).and.returnValue(0)
-      spyOnProperty(container, "scrollWidth").and.returnValue(300)
-      spyOnProperty(container, "clientWidth").and.returnValue(100)
+      const scrollLeftSpy = vi
+        .spyOn(container, "scrollLeft", "get")
+        .mockReturnValue(0)
+      vi.spyOn(container, "scrollWidth", "get").mockReturnValue(300)
+      vi.spyOn(container, "clientWidth", "get").mockReturnValue(100)
 
       hostComponent.directive.onScroll()
 
@@ -162,7 +160,7 @@ describe("PagedNavigationDirective", () => {
       })
 
       // Last page
-      scrollLeftSpy.and.returnValue(200)
+      scrollLeftSpy.mockReturnValue(200)
       hostComponent.directive.onScroll()
 
       expect(hostComponent.pageState).toEqual({
@@ -200,7 +198,7 @@ describe("PagedNavigationDirective", () => {
       hostComponent.directive.nextPage()
 
       expect(container.scrollTo).not.toHaveBeenCalled()
-      expect(hostComponent.nextChapterCalled).toBeFalse()
+      expect(hostComponent.nextChapterCalled).toBe(false)
     })
 
     it("should do nothing if container or block is undefined", () => {
@@ -211,16 +209,17 @@ describe("PagedNavigationDirective", () => {
 
     it("should scroll to next page if there is more content", () => {
       // Total scrollable: 200. We are at 0.
-      spyOnProperty(container, "scrollLeft").and.returnValue(0)
-      spyOnProperty(container, "scrollWidth").and.returnValue(300)
-      spyOnProperty(container, "clientWidth").and.returnValue(100)
+      vi.spyOn(container, "scrollLeft", "get").mockReturnValue(0)
+      vi.spyOn(container, "scrollWidth", "get").mockReturnValue(300)
+      vi.spyOn(container, "clientWidth", "get").mockReturnValue(100)
 
       // Advance width calc: 300 - (5+5) + 10 = 300?? Wait, block clientWidth is 300.
-      spyOnProperty(
+      vi.spyOn(
         hostComponent.block.nativeElement,
         "clientWidth",
-      ).and.returnValue(100)
-      spyOn(window, "getComputedStyle").and.returnValue({
+        "get",
+      ).mockReturnValue(100)
+      vi.spyOn(window, "getComputedStyle").mockReturnValue({
         columnGap: "10px",
         paddingLeft: "5px",
         paddingRight: "5px",
@@ -232,23 +231,22 @@ describe("PagedNavigationDirective", () => {
 
       hostComponent.directive.nextPage()
 
-      // @ts-expect-error TS complains about 1 argument for scrollTo overload
       expect(container.scrollTo).toHaveBeenCalledWith({
         left: 100,
         behavior: "smooth",
       })
-      expect(hostComponent.nextChapterCalled).toBeFalse()
+      expect(hostComponent.nextChapterCalled).toBe(false)
     })
 
     it("should emit nextChapter when on last page", () => {
-      spyOnProperty(container, "scrollLeft").and.returnValue(200)
-      spyOnProperty(container, "scrollWidth").and.returnValue(300)
-      spyOnProperty(container, "clientWidth").and.returnValue(100)
+      vi.spyOn(container, "scrollLeft", "get").mockReturnValue(200)
+      vi.spyOn(container, "scrollWidth", "get").mockReturnValue(300)
+      vi.spyOn(container, "clientWidth", "get").mockReturnValue(100)
 
       hostComponent.directive.nextPage()
 
       expect(container.scrollTo).not.toHaveBeenCalled()
-      expect(hostComponent.nextChapterCalled).toBeTrue()
+      expect(hostComponent.nextChapterCalled).toBe(true)
     })
   })
 
@@ -260,7 +258,7 @@ describe("PagedNavigationDirective", () => {
       hostComponent.directive.prevPage()
 
       expect(container.scrollTo).not.toHaveBeenCalled()
-      expect(hostComponent.prevChapterCalled).toBeFalse()
+      expect(hostComponent.prevChapterCalled).toBe(false)
     })
 
     it("should do nothing if container or block is undefined", () => {
@@ -270,13 +268,14 @@ describe("PagedNavigationDirective", () => {
     })
 
     it("should scroll to previous page if not on first page", () => {
-      spyOnProperty(container, "scrollLeft").and.returnValue(100)
+      vi.spyOn(container, "scrollLeft", "get").mockReturnValue(100)
 
-      spyOnProperty(
+      vi.spyOn(
         hostComponent.block.nativeElement,
         "clientWidth",
-      ).and.returnValue(100)
-      spyOn(window, "getComputedStyle").and.returnValue({
+        "get",
+      ).mockReturnValue(100)
+      vi.spyOn(window, "getComputedStyle").mockReturnValue({
         columnGap: "10px",
         paddingLeft: "5px",
         paddingRight: "5px",
@@ -286,41 +285,41 @@ describe("PagedNavigationDirective", () => {
 
       hostComponent.directive.prevPage()
 
-      // @ts-expect-error TS complains about 1 argument for scrollTo overload
       expect(container.scrollTo).toHaveBeenCalledWith({
         left: 0,
         behavior: "smooth",
       })
-      expect(hostComponent.prevChapterCalled).toBeFalse()
+      expect(hostComponent.prevChapterCalled).toBe(false)
     })
 
     it("should emit prevChapter when on first page", () => {
-      spyOnProperty(container, "scrollLeft").and.returnValue(0)
+      vi.spyOn(container, "scrollLeft", "get").mockReturnValue(0)
 
       hostComponent.directive.prevPage()
 
       expect(container.scrollTo).not.toHaveBeenCalled()
-      expect(hostComponent.prevChapterCalled).toBeTrue()
+      expect(hostComponent.prevChapterCalled).toBe(true)
     })
   })
 
   describe("aligning the last page", () => {
     beforeEach(() => {
       // advanceWidth = 100 - (5+5) + 10 = 100
-      spyOnProperty(
+      vi.spyOn(
         hostComponent.block.nativeElement,
         "clientWidth",
-      ).and.returnValue(100)
-      spyOn(window, "getComputedStyle").and.returnValue({
+        "get",
+      ).mockReturnValue(100)
+      vi.spyOn(window, "getComputedStyle").mockReturnValue({
         columnGap: "10px",
         paddingLeft: "5px",
         paddingRight: "5px",
       } as unknown as CSSStyleDeclaration)
-      spyOnProperty(container, "clientWidth").and.returnValue(100)
+      vi.spyOn(container, "clientWidth", "get").mockReturnValue(100)
     })
 
     it("pads a last page that ends part-way to a whole page", () => {
-      spyOnProperty(container, "scrollWidth").and.returnValue(350)
+      vi.spyOn(container, "scrollWidth", "get").mockReturnValue(350)
       hostComponent.directive.ensureAlignedScrollWidth()
       expect(container.children.length).toBe(2)
     })
@@ -328,7 +327,7 @@ describe("PagedNavigationDirective", () => {
     // With the margins inside the columns, a tablet's two columns came out
     // 2 px over 4 pages: padded out, that made a fifth, empty page.
     it("adds no page for a pixel or two of rounding", () => {
-      spyOnProperty(container, "scrollWidth").and.returnValue(302)
+      vi.spyOn(container, "scrollWidth", "get").mockReturnValue(302)
       hostComponent.directive.ensureAlignedScrollWidth()
       expect(container.children.length).toBe(1)
     })
@@ -343,8 +342,8 @@ describe("PagedNavigationDirective", () => {
     beforeEach(() => {
       block = hostComponent.block.nativeElement
       // advanceWidth = 100 - (5+5) + 10 = 100; the content scrolls 200.
-      spyOnProperty(block, "clientWidth").and.returnValue(100)
-      spyOn(window, "getComputedStyle").and.returnValue({
+      vi.spyOn(block, "clientWidth", "get").mockReturnValue(100)
+      vi.spyOn(window, "getComputedStyle").mockReturnValue({
         columnGap: "10px",
         paddingLeft: "5px",
         paddingRight: "5px",
@@ -362,7 +361,6 @@ describe("PagedNavigationDirective", () => {
       hostComponent.directive.dragBy(-70)
       hostComponent.directive.nextPage()
 
-      // @ts-expect-error TS complains about 1 argument for scrollTo overload
       expect(container.scrollTo).toHaveBeenCalledWith({
         left: 200,
         behavior: "smooth",
@@ -374,7 +372,6 @@ describe("PagedNavigationDirective", () => {
       hostComponent.directive.dragBy(-30)
       hostComponent.directive.cancelDrag()
 
-      // @ts-expect-error TS complains about 1 argument for scrollTo overload
       expect(container.scrollTo).toHaveBeenCalledWith({
         left: 100,
         behavior: "smooth",
@@ -399,7 +396,7 @@ describe("PagedNavigationDirective", () => {
       hostComponent.directive.dragBy(60)
       hostComponent.directive.prevPage()
 
-      expect(hostComponent.prevChapterCalled).toBeTrue()
+      expect(hostComponent.prevChapterCalled).toBe(true)
       expect(block.style.transform).toBe("")
     })
 
@@ -409,7 +406,6 @@ describe("PagedNavigationDirective", () => {
       hostComponent.directive.nextPage()
       hostComponent.directive.nextPage()
 
-      // @ts-expect-error TS complains about 1 argument for scrollTo overload
       expect(container.scrollTo).toHaveBeenCalledWith({
         left: 200,
         behavior: "smooth",
@@ -428,7 +424,7 @@ describe("PagedNavigationDirective", () => {
         providers: [{ provide: PLATFORM_ID, useValue: "server" }],
       }).compileComponents()
 
-      const observerSpy = spyOn(window, "MutationObserver").and.callThrough()
+      const observerSpy = vi.spyOn(window, "MutationObserver")
       const serverFixture = TestBed.createComponent(TestHostComponent)
 
       expect(() => serverFixture.detectChanges()).not.toThrow()
@@ -439,13 +435,14 @@ describe("PagedNavigationDirective", () => {
   describe("scrollToPage", () => {
     /** Puts the directive on a 100px page grid, as the nextPage specs do. */
     function stubPageGrid(): void {
-      spyOnProperty(container, "scrollWidth").and.returnValue(500)
-      spyOnProperty(container, "clientWidth").and.returnValue(100)
-      spyOnProperty(
+      vi.spyOn(container, "scrollWidth", "get").mockReturnValue(500)
+      vi.spyOn(container, "clientWidth", "get").mockReturnValue(100)
+      vi.spyOn(
         hostComponent.block.nativeElement,
         "clientWidth",
-      ).and.returnValue(100)
-      spyOn(window, "getComputedStyle").and.returnValue({
+        "get",
+      ).mockReturnValue(100)
+      vi.spyOn(window, "getComputedStyle").mockReturnValue({
         columnGap: "10px",
         paddingLeft: "5px",
         paddingRight: "5px",
@@ -456,7 +453,7 @@ describe("PagedNavigationDirective", () => {
     function elementAt(left: number): HTMLElement {
       const element = document.createElement("span")
       const rect = { left, right: left, top: 0, bottom: 0 } as DOMRect
-      spyOn(element, "getClientRects").and.returnValue([
+      vi.spyOn(element, "getClientRects").mockReturnValue([
         rect,
       ] as unknown as DOMRectList)
       return element
@@ -464,12 +461,11 @@ describe("PagedNavigationDirective", () => {
 
     it("should scroll to the start of the page holding the element, not to the element itself", () => {
       stubPageGrid()
-      spyOnProperty(container, "scrollLeft").and.returnValue(0)
+      vi.spyOn(container, "scrollLeft", "get").mockReturnValue(0)
 
       // The verse starts 250px in, which is a third of the way into page 2.
       hostComponent.directive.scrollToPage(elementAt(250))
 
-      // @ts-expect-error TS complains about 1 argument for scrollTo overload
       expect(container.scrollTo).toHaveBeenCalledWith({
         left: 200,
         behavior: "smooth",
@@ -478,12 +474,11 @@ describe("PagedNavigationDirective", () => {
 
     it("should measure from the content, not the viewport, when already scrolled", () => {
       stubPageGrid()
-      spyOnProperty(container, "scrollLeft").and.returnValue(300)
+      vi.spyOn(container, "scrollLeft", "get").mockReturnValue(300)
 
       // 120px along the viewport with 300 already scrolled away is page 4.
       hostComponent.directive.scrollToPage(elementAt(120))
 
-      // @ts-expect-error TS complains about 1 argument for scrollTo overload
       expect(container.scrollTo).toHaveBeenCalledWith({
         left: 400,
         behavior: "smooth",
@@ -492,11 +487,10 @@ describe("PagedNavigationDirective", () => {
 
     it("should not scroll past the end of the content", () => {
       stubPageGrid()
-      spyOnProperty(container, "scrollLeft").and.returnValue(0)
+      vi.spyOn(container, "scrollLeft", "get").mockReturnValue(0)
 
       hostComponent.directive.scrollToPage(elementAt(4000))
 
-      // @ts-expect-error TS complains about 1 argument for scrollTo overload
       expect(container.scrollTo).toHaveBeenCalledWith({
         left: 400,
         behavior: "smooth",
@@ -516,18 +510,15 @@ describe("PagedNavigationDirective", () => {
   describe("scrollToEnd", () => {
     it("should ensure aligned scroll width and set scrollLeft to the max scroll", () => {
       // Mock sizes
-      spyOnProperty(container, "scrollWidth").and.returnValue(300)
-      spyOnProperty(container, "clientWidth").and.returnValue(100)
+      vi.spyOn(container, "scrollWidth", "get").mockReturnValue(300)
+      vi.spyOn(container, "clientWidth", "get").mockReturnValue(100)
 
-      const scrollLeftSetter = jasmine.createSpy("scrollLeftSetter")
-      spyOnProperty(container, "scrollLeft", "set").and.callFake(
+      const scrollLeftSetter = vi.fn().mockName("scrollLeftSetter")
+      vi.spyOn(container, "scrollLeft", "set").mockImplementation(
         scrollLeftSetter,
       )
 
-      spyOn(
-        hostComponent.directive,
-        "ensureAlignedScrollWidth",
-      ).and.callThrough()
+      vi.spyOn(hostComponent.directive, "ensureAlignedScrollWidth")
 
       hostComponent.directive.scrollToEnd()
 
@@ -540,14 +531,16 @@ describe("PagedNavigationDirective", () => {
   })
 
   describe("window resize", () => {
-    it("should snap to nearest page after debounce", fakeAsync(() => {
-      spyOnProperty(container, "scrollLeft").and.returnValue(120) // partway
+    it("should snap to nearest page after debounce", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(container, "scrollLeft", "get").mockReturnValue(120) // partway
 
-      spyOnProperty(
+      vi.spyOn(
         hostComponent.block.nativeElement,
         "clientWidth",
-      ).and.returnValue(100)
-      spyOn(window, "getComputedStyle").and.returnValue({
+        "get",
+      ).mockReturnValue(100)
+      vi.spyOn(window, "getComputedStyle").mockReturnValue({
         columnGap: "10px",
         paddingLeft: "5px",
         paddingRight: "5px",
@@ -559,14 +552,13 @@ describe("PagedNavigationDirective", () => {
 
       expect(container.scrollTo).not.toHaveBeenCalled()
 
-      tick(150) // wait for debounce
+      await vi.advanceTimersByTimeAsync(150) // wait for debounce
 
-      // @ts-expect-error TS complains about 1 argument for scrollTo overload
       expect(container.scrollTo).toHaveBeenCalledWith({
         left: 100,
         behavior: "smooth",
       })
-    }))
+    })
 
     it("should do nothing if viewMode is not paged", () => {
       hostComponent.viewMode.set("scrolling")
@@ -575,40 +567,43 @@ describe("PagedNavigationDirective", () => {
       window.dispatchEvent(new Event("resize"))
       // Not a setTimeout spy: the zoneless scheduler uses setTimeout too.
       expect(
-        (hostComponent.directive as unknown as { resizing: boolean }).resizing,
-      ).toBeFalse()
+        (
+          hostComponent.directive as unknown as {
+            resizing: boolean
+          }
+        ).resizing,
+      ).toBe(false)
     })
 
-    it("should do nothing if block or container is undefined when resizing", fakeAsync(() => {
+    it("should do nothing if block or container is undefined when resizing", async () => {
+      vi.useFakeTimers()
       hostComponent.directive.bookBlock = undefined
       window.dispatchEvent(new Event("resize"))
 
-      expect(() => {
-        tick(150)
-      }).not.toThrow()
-    }))
+      await vi.advanceTimersByTimeAsync(150)
+    })
   })
 
   describe("getAdvanceWidth", () => {
     it("should calculate correctly with fallback values", () => {
-      spyOnProperty(
+      vi.spyOn(
         hostComponent.block.nativeElement,
         "clientWidth",
-      ).and.returnValue(200)
-      spyOn(window, "getComputedStyle").and.returnValue({
+        "get",
+      ).mockReturnValue(200)
+      vi.spyOn(window, "getComputedStyle").mockReturnValue({
         columnGap: "", // falsy numeric parsing
         paddingLeft: "invalid",
         paddingRight: "",
       } as unknown as CSSStyleDeclaration)
 
       // advance = 200 - (0+0) + 0 = 200
-      spyOnProperty(container, "scrollLeft").and.returnValue(0)
-      spyOnProperty(container, "scrollWidth").and.returnValue(300)
-      spyOnProperty(container, "clientWidth").and.returnValue(100)
+      vi.spyOn(container, "scrollLeft", "get").mockReturnValue(0)
+      vi.spyOn(container, "scrollWidth", "get").mockReturnValue(300)
+      vi.spyOn(container, "clientWidth", "get").mockReturnValue(100)
 
       hostComponent.directive.nextPage()
 
-      // @ts-expect-error TS complains about 1 argument for scrollTo overload
       expect(container.scrollTo).toHaveBeenCalledWith({
         left: 200, // advanceWidth used
         behavior: "smooth",
@@ -633,7 +628,9 @@ describe("PagedNavigationDirective", () => {
         [style.height.px]="height()"
       >
         @for (verse of verses; track verse) {
-          <span [id]="verse">{{ verse }} {{ verse === LONG_VERSE ? longText : text }} </span>
+        <span [id]="verse"
+          >{{ verse }} {{ verse === LONG_VERSE ? longText : text }}
+        </span>
         }
       </div>
     </div>
@@ -650,8 +647,10 @@ class PagesHostComponent {
   text = "Disse-lhe Jesus: em verdade, em verdade te digo."
   // Several pages long at 200x100, as a long verse is on a phone at a large size.
   longText = Array(12).fill(this.text).join(" ")
-  @ViewChild("container") container!: ElementRef<HTMLElement>
-  @ViewChild(PagedNavigationDirective) nav!: PagedNavigationDirective
+  @ViewChild("container")
+  container!: ElementRef<HTMLElement>
+  @ViewChild(PagedNavigationDirective)
+  nav!: PagedNavigationDirective
 }
 
 const LONG_VERSE = 30
@@ -794,16 +793,17 @@ describe("PagedNavigationDirective across a resize", () => {
     container.scrollLeft = 5 * 200
     await settle()
     const first = firstVerseOnScreen()
-    expect(first).withContext("a verse starts on page 5").toBeDefined()
+    expect(first, "a verse starts on page 5").toBeDefined()
     if (!first) return
     expect(Number(first.id)).toBeGreaterThan(1)
 
     // Turned sideways: wider and taller pages hold several of the old ones.
     await resizeTo(300, 300)
 
-    expect(startsOnScreen(first))
-      .withContext(`verse ${first.id} on screen at 300x300`)
-      .toBeTrue()
+    expect(
+      startsOnScreen(first),
+      `verse ${first.id} on screen at 300x300`,
+    ).toBe(true)
     expect(container.scrollLeft % 300).toBe(0)
   })
 
@@ -816,21 +816,23 @@ describe("PagedNavigationDirective across a resize", () => {
         Math.floor((rect.left - container.getBoundingClientRect().left) / 200),
       ),
     )
-    expect(pages.size)
-      .withContext("the long verse runs over several pages")
-      .toBeGreaterThan(4)
+    expect(
+      pages.size,
+      "the long verse runs over several pages",
+    ).toBeGreaterThan(4)
     const middle = [...pages].sort((a, b) => a - b)[Math.floor(pages.size / 2)]
     container.scrollLeft = middle * 200
     await settle()
-    expect(firstVerseOnScreen())
-      .withContext("the long verse fills the page")
-      .toBeUndefined()
+    expect(
+      firstVerseOnScreen(),
+      "the long verse fills the page",
+    ).toBeUndefined()
 
     await resizeTo(300, 150)
 
-    expect(startsOnScreen(long))
-      .withContext("not back on the verse's first page")
-      .toBeFalse()
+    expect(startsOnScreen(long), "not back on the verse's first page").toBe(
+      false,
+    )
     expect(pageWithin(long)).toBeGreaterThan(0)
   })
 
@@ -838,7 +840,7 @@ describe("PagedNavigationDirective across a resize", () => {
     container.scrollLeft = 5 * 200
     await settle()
     const first = firstVerseOnScreen()
-    expect(first).withContext("a verse starts on page 5").toBeDefined()
+    expect(first, "a verse starts on page 5").toBeDefined()
 
     await resizeTo(300, 300)
     await resizeTo(200, 100)
@@ -854,23 +856,25 @@ describe("PagedNavigationDirective across a resize", () => {
   // verse on the page after it.
   it("keeps the verse a link opened on", async () => {
     const page = [3, 4, 5, 6, 7, 8].find((p) => startingOn(p).length > 1)
-    expect(page).withContext("a page two verses start on").toBeDefined()
+    expect(page, "a page two verses start on").toBeDefined()
     if (page === undefined) return
     const verses = startingOn(page)
     const [above, linked] = [verses[0], verses[verses.length - 1]]
 
     host.nav.scrollToPage(linked, "instant")
     await settle()
-    expect(startsOnScreen(linked)).toBeTrue()
+    expect(startsOnScreen(linked)).toBe(true)
 
     await resizeTo(200, 60)
 
-    expect(startsOnScreen(linked))
-      .withContext(`verse ${linked.id} on screen at 200x60`)
-      .toBeTrue()
-    expect(startsOnScreen(above))
-      .withContext(`verse ${above.id}, above it, starts on another page now`)
-      .toBeFalse()
+    expect(
+      startsOnScreen(linked),
+      `verse ${linked.id} on screen at 200x60`,
+    ).toBe(true)
+    expect(
+      startsOnScreen(above),
+      `verse ${above.id}, above it, starts on another page now`,
+    ).toBe(false)
   })
 
   // Rounding the page's start into the other layout landed a page on, and on
@@ -888,9 +892,7 @@ describe("PagedNavigationDirective across a resize", () => {
     const pages = [...inside].filter(
       (page) => page > first && startingOn(page).length === 0,
     )
-    expect(pages.length)
-      .withContext("pages the long verse fills")
-      .toBeGreaterThan(2)
+    expect(pages.length, "pages the long verse fills").toBeGreaterThan(2)
 
     for (const page of pages) {
       container.scrollLeft = page * 200
@@ -899,11 +901,11 @@ describe("PagedNavigationDirective across a resize", () => {
       await resizeTo(300, 150)
       await resizeTo(200, 100)
 
-      expect(container.scrollLeft)
-        .withContext(`page ${page}, after turning and back`)
-        .toBe(page * 200)
+      expect(container.scrollLeft, `page ${page}, after turning and back`).toBe(
+        page * 200,
+      )
     }
-  }, 30_000)
+  }, 30000)
 
   // The page on screen was noted only once the pages had rested, and a
   // resize drops a pending note: turned and rotated at once, the reader was
@@ -915,14 +917,15 @@ describe("PagedNavigationDirective across a resize", () => {
       requestAnimationFrame(() => setTimeout(resolve, 20)),
     )
     const turnedTo = firstVerseOnScreen()
-    expect(turnedTo).withContext("a verse starts on page 5").toBeDefined()
+    expect(turnedTo, "a verse starts on page 5").toBeDefined()
     if (!turnedTo) return
 
     await resizeTo(300, 300)
 
-    expect(startsOnScreen(turnedTo))
-      .withContext(`verse ${turnedTo.id} on screen at 300x300`)
-      .toBeTrue()
+    expect(
+      startsOnScreen(turnedTo),
+      `verse ${turnedTo.id} on screen at 300x300`,
+    ).toBe(true)
   })
 
   // A throw in the restore left the resize flag set: the verse on screen
@@ -930,25 +933,36 @@ describe("PagedNavigationDirective across a resize", () => {
   it("goes on noting the verse on screen after a restore that failed", async () => {
     container.scrollLeft = 5 * 200
     await settle()
-    const scrollTo = spyOn(container, "scrollTo").and.throwError(
-      new TypeError("unsupported scroll behavior"),
-    )
-    await jasmine.spyOnGlobalErrorsAsync(async (globalErrors) => {
+    const scrollTo = vi.spyOn(container, "scrollTo").mockImplementation(() => {
+      throw new TypeError("unsupported scroll behavior")
+    })
+    // The throw surfaces as an uncaught error on the window. Take it there, so
+    // the runner doesn't report it, and check it happened.
+    const globalErrors = vi.fn()
+    const onError = (event: ErrorEvent) => {
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      globalErrors(event.error)
+    }
+    window.addEventListener("error", onError, true)
+    try {
       await resizeTo(300, 300)
       expect(globalErrors).toHaveBeenCalled()
-    })
-    scrollTo.and.callThrough()
+    } finally {
+      window.removeEventListener("error", onError, true)
+    }
+    scrollTo.mockRestore()
 
     container.scrollLeft = 2 * 300
     await settle()
     const read = firstVerseOnScreen()
-    expect(read).withContext("a verse starts on page 2").toBeDefined()
+    expect(read, "a verse starts on page 2").toBeDefined()
     if (!read) return
 
     await resizeTo(200, 100)
 
-    expect(startsOnScreen(read))
-      .withContext(`verse ${read.id} on screen at 200x100`)
-      .toBeTrue()
+    expect(startsOnScreen(read), `verse ${read.id} on screen at 200x100`).toBe(
+      true,
+    )
   })
 })

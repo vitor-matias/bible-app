@@ -1,10 +1,11 @@
 import { TestBed } from "@angular/core/testing"
+import type { Mock } from "vitest"
 import { KeepAwakeService } from "./keep-awake.service"
 
 describe("KeepAwakeService", () => {
   let service: KeepAwakeService | undefined
-  let addEventListenerSpy: jasmine.Spy
-  let removeEventListenerSpy: jasmine.Spy
+  let addEventListenerSpy: Mock
+  let removeEventListenerSpy: Mock
   let originalWakeLock: Navigator["wakeLock"]
   let hadOwnVisibilityState: boolean
   let originalVisibilityState: DocumentVisibilityState
@@ -13,11 +14,8 @@ describe("KeepAwakeService", () => {
     originalWakeLock = navigator.wakeLock
     hadOwnVisibilityState = Object.hasOwn(document, "visibilityState")
     originalVisibilityState = document.visibilityState
-    addEventListenerSpy = spyOn(document, "addEventListener").and.callThrough()
-    removeEventListenerSpy = spyOn(
-      document,
-      "removeEventListener",
-    ).and.callThrough()
+    addEventListenerSpy = vi.spyOn(document, "addEventListener")
+    removeEventListenerSpy = vi.spyOn(document, "removeEventListener")
   })
 
   afterEach(() => {
@@ -51,23 +49,24 @@ describe("KeepAwakeService", () => {
     expect(service).toBeTruthy()
     expect(addEventListenerSpy).toHaveBeenCalledWith(
       "visibilitychange",
-      jasmine.any(Function),
+      expect.any(Function),
     )
   })
 
   it("should request a wake lock only once while active", async () => {
     const sentinel = {
-      addEventListener: jasmine.createSpy("addEventListener"),
-      release: jasmine.createSpy("release").and.resolveTo(),
+      addEventListener: vi.fn().mockName("addEventListener"),
+      release: vi.fn().mockName("release").mockResolvedValue(undefined),
     } as unknown as WakeLockSentinel
     // Keep the first request pending so the duplicate calls below race it.
     let resolveRequest!: (value: WakeLockSentinel) => void
     const pendingRequest = new Promise<WakeLockSentinel>((resolve) => {
       resolveRequest = resolve
     })
-    const requestSpy = jasmine
-      .createSpy("request")
-      .and.returnValue(pendingRequest)
+    const requestSpy = vi
+      .fn()
+      .mockName("request")
+      .mockReturnValue(pendingRequest)
     Object.defineProperty(navigator, "wakeLock", {
       value: { request: requestSpy },
       configurable: true,
@@ -94,23 +93,24 @@ describe("KeepAwakeService", () => {
     expect(requestSpy).toHaveBeenCalledTimes(1)
     expect(sentinel.addEventListener).toHaveBeenCalledWith(
       "release",
-      jasmine.any(Function),
+      expect.any(Function),
     )
   })
 
   it("should release a wake lock that resolves after stop()", async () => {
     const sentinel = {
-      addEventListener: jasmine.createSpy("addEventListener"),
-      release: jasmine.createSpy("release").and.resolveTo(),
+      addEventListener: vi.fn().mockName("addEventListener"),
+      release: vi.fn().mockName("release").mockResolvedValue(undefined),
     } as unknown as WakeLockSentinel
     // Keep the request pending so stop() runs before it settles.
     let resolveRequest!: (value: WakeLockSentinel) => void
     const pendingRequest = new Promise<WakeLockSentinel>((resolve) => {
       resolveRequest = resolve
     })
-    const requestSpy = jasmine
-      .createSpy("request")
-      .and.returnValue(pendingRequest)
+    const requestSpy = vi
+      .fn()
+      .mockName("request")
+      .mockReturnValue(pendingRequest)
     Object.defineProperty(navigator, "wakeLock", {
       value: { request: requestSpy },
       configurable: true,
@@ -129,10 +129,10 @@ describe("KeepAwakeService", () => {
 
   it("should release the wake lock when stopped", async () => {
     const sentinel = {
-      addEventListener: jasmine.createSpy("addEventListener"),
-      release: jasmine.createSpy("release").and.resolveTo(),
+      addEventListener: vi.fn().mockName("addEventListener"),
+      release: vi.fn().mockName("release").mockResolvedValue(undefined),
     } as unknown as WakeLockSentinel
-    const requestSpy = jasmine.createSpy("request").and.resolveTo(sentinel)
+    const requestSpy = vi.fn().mockName("request").mockResolvedValue(sentinel)
     Object.defineProperty(navigator, "wakeLock", {
       value: { request: requestSpy },
       configurable: true,
@@ -151,14 +151,17 @@ describe("KeepAwakeService", () => {
   it("should request a new wake lock when restarted while the old one is releasing", async () => {
     let finishRelease: () => void = () => {}
     const sentinel = {
-      addEventListener: jasmine.createSpy("addEventListener"),
-      release: jasmine.createSpy("release").and.returnValue(
-        new Promise<void>((resolve) => {
-          finishRelease = resolve
-        }),
-      ),
+      addEventListener: vi.fn().mockName("addEventListener"),
+      release: vi
+        .fn()
+        .mockName("release")
+        .mockReturnValue(
+          new Promise<void>((resolve) => {
+            finishRelease = resolve
+          }),
+        ),
     } as unknown as WakeLockSentinel
-    const requestSpy = jasmine.createSpy("request").and.resolveTo(sentinel)
+    const requestSpy = vi.fn().mockName("request").mockResolvedValue(sentinel)
     Object.defineProperty(navigator, "wakeLock", {
       value: { request: requestSpy },
       configurable: true,
@@ -178,10 +181,10 @@ describe("KeepAwakeService", () => {
 
   it("should reacquire the wake lock when the document becomes visible again", async () => {
     const sentinel = {
-      addEventListener: jasmine.createSpy("addEventListener"),
-      release: jasmine.createSpy("release").and.resolveTo(),
+      addEventListener: vi.fn().mockName("addEventListener"),
+      release: vi.fn().mockName("release").mockResolvedValue(undefined),
     } as unknown as WakeLockSentinel
-    const requestSpy = jasmine.createSpy("request").and.resolveTo(sentinel)
+    const requestSpy = vi.fn().mockName("request").mockResolvedValue(sentinel)
     Object.defineProperty(navigator, "wakeLock", {
       value: { request: requestSpy },
       configurable: true,
@@ -194,8 +197,6 @@ describe("KeepAwakeService", () => {
       value: "visible",
       configurable: true,
     })
-    // Clear the private sentinel to mimic a released wake lock before the
-    // visibilitychange handler tries to reacquire it.
     ;(service as unknown as Record<string, WakeLockSentinel | undefined>)[
       "wakeLockSentinel"
     ] = undefined
@@ -212,7 +213,7 @@ describe("KeepAwakeService", () => {
 
     expect(removeEventListenerSpy).toHaveBeenCalledWith(
       "visibilitychange",
-      jasmine.any(Function),
+      expect.any(Function),
     )
   })
 })

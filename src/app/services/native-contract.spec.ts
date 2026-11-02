@@ -1,12 +1,14 @@
 import { OverlayContainer } from "@angular/cdk/overlay"
 import { DOCUMENT } from "@angular/common"
-import { fakeAsync, TestBed, tick } from "@angular/core/testing"
+import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
+import type { Mock } from "vitest"
 import none from "../../../native-contract/none.json"
 import page from "../../../native-contract/page.json"
 import reader from "../../../native-contract/reader.json"
 import readerMinimal from "../../../native-contract/reader-minimal.json"
 import search from "../../../native-contract/search.json"
+import { lastCall } from "../testing/spy-obj"
 import { NATIVE_CHROME_PLUGIN } from "../tokens"
 import { NativeChromeService } from "./native-chrome.service"
 import type {
@@ -129,12 +131,13 @@ function driven(from: object, chrome: object): Record<string, unknown> {
 }
 
 describe("the native chrome contract fixtures", () => {
-  let setState: jasmine.Spy
+  let setState: Mock
 
   beforeEach(() => {
-    setState = jasmine
-      .createSpy("setState")
-      .and.resolveTo({ top: 0, bottom: 0 })
+    setState = vi
+      .fn()
+      .mockName("setState")
+      .mockResolvedValue({ top: 0, bottom: 0 })
     const root = document.createElement("html")
     TestBed.configureTestingModule({
       providers: [
@@ -163,8 +166,8 @@ describe("the native chrome contract fixtures", () => {
         },
       ],
     })
-    spyOn(Capacitor, "getPlatform").and.returnValue("ios")
-    spyOn(Capacitor, "isPluginAvailable").and.returnValue(true)
+    vi.spyOn(Capacitor, "getPlatform").mockReturnValue("ios")
+    vi.spyOn(Capacitor, "isPluginAvailable").mockReturnValue(true)
   })
 
   function service(): NativeChromeService {
@@ -173,7 +176,7 @@ describe("the native chrome contract fixtures", () => {
     return service
   }
 
-  const sent = () => setState.calls.mostRecent().args[0]
+  const sent = () => lastCall(vi.mocked(setState))[0]
 
   it("matches what the reader's bars send, with auto-scroll playing", () => {
     const chrome = service()
@@ -204,13 +207,14 @@ describe("the native chrome contract fixtures", () => {
     expect(driven(sent(), PAGE)).toEqual(driven(page, PAGE))
   })
 
-  it("matches what is sent once there are no bars", fakeAsync(() => {
+  it("matches what is sent once there are no bars", async () => {
+    vi.useFakeTimers()
     const chrome = service()
     chrome.show(READER)
     chrome.hide()
-    tick()
+    await vi.advanceTimersByTimeAsync(0)
     expect(sent()).toEqual(none)
-  }))
+  })
 
   it("notices a changed mode", () => {
     expect(differences({ mode: "reading" }, { mode: "reader" })).toEqual([

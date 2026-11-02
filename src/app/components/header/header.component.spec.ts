@@ -1,12 +1,6 @@
 import { CommonModule } from "@angular/common"
 import { ChangeDetectorRef, PLATFORM_ID, SimpleChange } from "@angular/core"
-import {
-  type ComponentFixture,
-  discardPeriodicTasks,
-  fakeAsync,
-  TestBed,
-  tick,
-} from "@angular/core/testing"
+import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
 import { MatMenuTrigger } from "@angular/material/menu"
@@ -14,6 +8,7 @@ import { By } from "@angular/platform-browser"
 import { ActivatedRoute, Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, of, Subject } from "rxjs"
+import type { Mock } from "vitest"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
@@ -29,63 +24,66 @@ import { NativeReportService } from "../../services/native-report.service"
 import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { ThemeService } from "../../services/theme.service"
+import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { HeaderComponent } from "./header.component"
 
 describe("HeaderComponent", () => {
   let component: HeaderComponent
   let fixture: ComponentFixture<HeaderComponent>
-  let routerSpy: jasmine.SpyObj<Router>
-  let networkServiceSpy: jasmine.SpyObj<NetworkService>
-  let themeServiceSpy: jasmine.SpyObj<ThemeService>
-  let bookmarkServiceSpy: jasmine.SpyObj<BookmarkService>
-  let bottomSheetSpy: jasmine.SpyObj<MatBottomSheet>
+  let routerSpy: SpyObj<Router>
+  let networkServiceSpy: SpyObj<NetworkService>
+  let themeServiceSpy: SpyObj<ThemeService>
+  let bookmarkServiceSpy: SpyObj<BookmarkService>
+  let bottomSheetSpy: SpyObj<MatBottomSheet>
   let bookmarkSheetDismissed: Subject<void>
-  let bookmarkSheetRef: { dismiss: jasmine.Spy; afterDismissed: () => unknown }
-  let dialogSpy: jasmine.SpyObj<MatDialog>
-  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
-  let onboardingServiceSpy: jasmine.SpyObj<OnboardingService>
-  let buildVersionSpy: jasmine.SpyObj<BuildVersionService>
+  let bookmarkSheetRef: {
+    dismiss: Mock
+    afterDismissed: () => unknown
+  }
+  let dialogSpy: SpyObj<MatDialog>
+  let analyticsServiceSpy: SpyObj<AnalyticsService>
+  let onboardingServiceSpy: SpyObj<OnboardingService>
+  let buildVersionSpy: SpyObj<BuildVersionService>
   let isOfflineSubject: BehaviorSubject<boolean>
   let originalShare: typeof navigator.share
 
   beforeEach(async () => {
-    routerSpy = jasmine.createSpyObj("Router", ["navigate"])
+    routerSpy = createSpyObj("Router", ["navigate"])
     isOfflineSubject = new BehaviorSubject<boolean>(false)
-    networkServiceSpy = jasmine.createSpyObj("NetworkService", [], {
+    networkServiceSpy = createSpyObj<NetworkService>("NetworkService", [], {
       isOffline$: isOfflineSubject.asObservable(),
       isOffline: false,
     })
-    themeServiceSpy = jasmine.createSpyObj(
+    themeServiceSpy = createSpyObj<ThemeService>(
       "ThemeService",
       ["toggleTheme", "setTheme"],
       { currentMode: "system" },
     )
-    bookmarkServiceSpy = jasmine.createSpyObj("BookmarkService", [
-      "getBookmark",
-    ])
-    bookmarkServiceSpy.bookmarks$ = of([])
-    bottomSheetSpy = jasmine.createSpyObj("MatBottomSheet", ["open"])
+    bookmarkServiceSpy = createSpyObj<BookmarkService>(
+      "BookmarkService",
+      ["getBookmark"],
+      { bookmarks$: of([]) },
+    )
+    bottomSheetSpy = createSpyObj("MatBottomSheet", ["open"])
     bookmarkSheetDismissed = new Subject<void>()
     bookmarkSheetRef = {
-      dismiss: jasmine.createSpy("dismiss"),
+      dismiss: vi.fn().mockName("dismiss"),
       afterDismissed: () => bookmarkSheetDismissed.asObservable(),
     }
-    bottomSheetSpy.open.and.returnValue(
+    bottomSheetSpy.open.mockReturnValue(
       bookmarkSheetRef as unknown as ReturnType<MatBottomSheet["open"]>,
     )
-    dialogSpy = jasmine.createSpyObj("MatDialog", ["open"])
-    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", [
+    dialogSpy = createSpyObj("MatDialog", ["open"])
+    analyticsServiceSpy = createSpyObj("AnalyticsService", [
       "track",
       "areAnalyticsAvailable",
     ])
-    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
-    analyticsServiceSpy.areAnalyticsAvailable.and.returnValue(true)
-    onboardingServiceSpy = jasmine.createSpyObj("OnboardingService", ["open"])
-    buildVersionSpy = jasmine.createSpyObj("BuildVersionService", [
-      "getDisplayVersion",
-    ])
-    buildVersionSpy.getDisplayVersion.and.resolveTo({
+    analyticsServiceSpy.track.mockResolvedValue(undefined)
+    analyticsServiceSpy.areAnalyticsAvailable.mockReturnValue(true)
+    onboardingServiceSpy = createSpyObj("OnboardingService", ["open"])
+    buildVersionSpy = createSpyObj("BuildVersionService", ["getDisplayVersion"])
+    buildVersionSpy.getDisplayVersion.mockResolvedValue({
       release: "1.2.3",
       build: "20261016-120000Z",
     })
@@ -158,9 +156,11 @@ describe("HeaderComponent", () => {
 
   const renderWithMobile = (mobile: boolean): void => {
     component.mobile = mobile
-    // The component is OnPush, so a plain property change needs its own
-    // change detector marked, not the fixture host's.
-    ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+    ;(
+      component as unknown as {
+        cdr: ChangeDetectorRef
+      }
+    ).cdr.markForCheck()
     fixture.detectChanges()
   }
 
@@ -228,7 +228,9 @@ describe("HeaderComponent", () => {
   })
 
   it("should open the report problem dialog from the menu", () => {
-    const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
+    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
+      "closeMenu",
+    ])
     fixture.componentRef.setInput("chapterNumber", 3)
 
     component.onReportProblem(trigger)
@@ -243,7 +245,9 @@ describe("HeaderComponent", () => {
 
   // Chapter 0 is the introduction; a falsy check used to swallow it.
   it("should open the report problem dialog for an introduction", () => {
-    const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
+    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
+      "closeMenu",
+    ])
     fixture.componentRef.setInput("chapterNumber", 0)
 
     component.onReportProblem(trigger)
@@ -256,7 +260,9 @@ describe("HeaderComponent", () => {
   })
 
   it("should not open the report problem dialog when chapter context is missing", () => {
-    const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
+    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
+      "closeMenu",
+    ])
 
     fixture.componentRef.setInput(
       "chapterNumber",
@@ -277,33 +283,33 @@ describe("HeaderComponent", () => {
     it("closes the open header menu", () => {
       const trigger = menuTrigger()
       trigger.openMenu()
-      expect(trigger.menuOpen).toBeTrue()
+      expect(trigger.menuOpen).toBe(true)
 
-      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
-      expect(trigger.menuOpen).toBeFalse()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(true)
+      expect(trigger.menuOpen).toBe(false)
     })
 
     it("dismisses the bookmark sheet it opened", () => {
       fixture.componentRef.setInput("chapterNumber", 1)
       component.openBookmarkSelector()
 
-      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(true)
       expect(bookmarkSheetRef.dismiss).toHaveBeenCalled()
 
       bookmarkSheetDismissed.next()
-      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(false)
     })
 
     it("leaves the back press alone when the menu is closed", () => {
-      expect(menuTrigger().menuOpen).toBeFalse()
-      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+      expect(menuTrigger().menuOpen).toBe(false)
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(false)
     })
 
     it("stops handling the back press once destroyed", () => {
       menuTrigger().openMenu()
       fixture.destroy()
 
-      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(false)
     })
   })
 
@@ -366,7 +372,7 @@ describe("HeaderComponent", () => {
     })
 
     it("labels the bundle's id where there are no releases", async () => {
-      buildVersionSpy.getDisplayVersion.and.resolveTo({
+      buildVersionSpy.getDisplayVersion.mockResolvedValue({
         release: null,
         build: "20261016-120000Z",
       })
@@ -380,7 +386,7 @@ describe("HeaderComponent", () => {
     })
 
     it("is left out until the version is known", async () => {
-      buildVersionSpy.getDisplayVersion.and.returnValue(new Promise(() => {}))
+      buildVersionSpy.getDisplayVersion.mockReturnValue(new Promise(() => {}))
       fixture = TestBed.createComponent(HeaderComponent)
       fixture.componentRef.setInput("book", component.book())
       fixture.componentRef.setInput("chapterNumber", 1)
@@ -422,14 +428,14 @@ describe("HeaderComponent", () => {
       const currentMode = Object.getOwnPropertyDescriptor(
         themeServiceSpy,
         "currentMode",
-      )?.get as jasmine.Spy | undefined
-      themeServiceSpy.toggleTheme.and.callFake(() =>
-        currentMode?.and.returnValue("dark"),
+      )?.get as Mock | undefined
+      themeServiceSpy.toggleTheme.mockImplementation(() =>
+        currentMode?.mockReturnValue("dark"),
       )
       button.click()
 
       expect(themeServiceSpy.toggleTheme).toHaveBeenCalledTimes(1)
-      expect(trigger().menuOpen).toBeTrue()
+      expect(trigger().menuOpen).toBe(true)
       expect(button.querySelector("mat-icon")?.textContent?.trim()).toBe(
         "dark_mode",
       )
@@ -469,7 +475,7 @@ describe("HeaderComponent", () => {
 
   // As a ribbon hangs from the page of a printed Bible.
   it("shows the ribbon on the chapter being read", () => {
-    bookmarkServiceSpy.getBookmark.and.returnValue({
+    bookmarkServiceSpy.getBookmark.mockReturnValue({
       bookId: "gen",
       chapter: 3,
       color: "red",
@@ -488,8 +494,13 @@ describe("HeaderComponent", () => {
   })
 
   it("opens the About page from the menu", () => {
-    const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
-    const selected: { bookId: string; chapter?: number }[] = []
+    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
+      "closeMenu",
+    ])
+    const selected: {
+      bookId: string
+      chapter?: number
+    }[] = []
     component.selectPassage.subscribe((passage) => selected.push(passage))
 
     component.onOpenAbout(trigger)
@@ -499,7 +510,9 @@ describe("HeaderComponent", () => {
   })
 
   it("should open the onboarding wizard from the menu", () => {
-    const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
+    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
+      "closeMenu",
+    ])
 
     component.onOpenHelp(trigger)
 
@@ -508,7 +521,7 @@ describe("HeaderComponent", () => {
   })
 
   it("should share the page URL as is on the web", async () => {
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(false)
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(false)
     if (!navigator.share) {
       Object.defineProperty(navigator, "share", {
         value: () => Promise.resolve(),
@@ -516,21 +529,21 @@ describe("HeaderComponent", () => {
         writable: true,
       })
     }
-    const shareSpy = spyOn(navigator, "share").and.resolveTo()
+    const shareSpy = vi.spyOn(navigator, "share").mockResolvedValue(undefined)
 
     fixture.componentRef.setInput("chapterNumber", 1)
     component.ngOnInit()
     await component.sharePassage()
 
     expect(shareSpy).toHaveBeenCalledWith(
-      jasmine.objectContaining({ url: window.location.href }),
+      expect.objectContaining({ url: window.location.href }),
     )
   })
 
   it("should share using navigator.share on web platforms", async () => {
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(false)
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(false)
 
-    const shareSpy = jasmine.createSpy("share").and.resolveTo()
+    const shareSpy = vi.fn().mockName("share").mockResolvedValue(undefined)
 
     if (!navigator.share) {
       Object.defineProperty(navigator, "share", {
@@ -539,11 +552,11 @@ describe("HeaderComponent", () => {
         writable: true,
       })
     }
-    spyOn(navigator, "share").and.callFake(shareSpy)
+    vi.spyOn(navigator, "share").mockImplementation(shareSpy)
 
     fixture.componentRef.setInput("chapterNumber", 1)
     component.ngOnInit() // Re-init to pickup the web platform
-    expect(component.canShare).toBeTrue()
+    expect(component.canShare).toBe(true)
 
     await component.sharePassage()
 
@@ -552,11 +565,11 @@ describe("HeaderComponent", () => {
 
   describe("in a native build without the NativeChrome plugin", () => {
     beforeEach(() => {
-      spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
+      vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true)
     })
 
     it("shares the public URL through navigator.share", async () => {
-      const shareSpy = jasmine.createSpy("share").and.resolveTo()
+      const shareSpy = vi.fn().mockName("share").mockResolvedValue(undefined)
       Object.defineProperty(navigator, "share", {
         value: shareSpy,
         configurable: true,
@@ -565,13 +578,13 @@ describe("HeaderComponent", () => {
 
       fixture.componentRef.setInput("chapterNumber", 1)
       component.ngOnInit()
-      expect(component.canShare).toBeTrue()
+      expect(component.canShare).toBe(true)
 
       await component.sharePassage()
 
       const { pathname, search, hash } = window.location
       expect(shareSpy).toHaveBeenCalledWith(
-        jasmine.objectContaining({
+        expect.objectContaining({
           url: `https://biblia.capuchinhos.org${pathname}${search}${hash}`,
         }),
       )
@@ -586,7 +599,7 @@ describe("HeaderComponent", () => {
 
       component.ngOnInit()
 
-      expect(component.canShare).toBeFalse()
+      expect(component.canShare).toBe(false)
     })
   })
 
@@ -602,7 +615,8 @@ describe("HeaderComponent", () => {
     // The audit's complaint: with two stacked labels crossfading, both stayed
     // in the DOM, so the page h1 read "<title> Escolher Livro" — words no page
     // text repeats.
-    it("keeps only the label on screen inside the heading", fakeAsync(() => {
+    it("keeps only the label on screen inside the heading", async () => {
+      vi.useFakeTimers()
       fixture.componentRef.setInput("book", aboutBook)
       fixture.detectChanges()
 
@@ -617,7 +631,7 @@ describe("HeaderComponent", () => {
       expect(heading.textContent).not.toContain("Escolher Livro")
 
       // Halfway through a swap the old text is fading but still the only one.
-      tick(3500)
+      await vi.advanceTimersByTimeAsync(3500)
       fixture.detectChanges()
       expect(
         (fixture.nativeElement as HTMLElement).querySelectorAll(".cycle-text")
@@ -625,7 +639,7 @@ describe("HeaderComponent", () => {
       ).toBe(1)
 
       // Once swapped, the prompt has replaced the title rather than joined it.
-      tick(300)
+      await vi.advanceTimersByTimeAsync(300)
       fixture.detectChanges()
       expect(heading.textContent).toContain("Escolher Livro")
       expect(heading.textContent).not.toContain(
@@ -633,13 +647,13 @@ describe("HeaderComponent", () => {
       )
 
       component.ngOnDestroy()
-      discardPeriodicTasks()
-    }))
+    })
 
     // The visible label alternates, so the heading's own text cannot be relied
     // on to name the page; the accessible name has to stay put or the only
     // heading on the page ends up announcing the picker instead.
-    it("keeps the heading naming the page across a label swap", fakeAsync(() => {
+    it("keeps the heading naming the page across a label swap", async () => {
+      vi.useFakeTimers()
       fixture.componentRef.setInput("book", aboutBook)
       fixture.detectChanges()
 
@@ -650,8 +664,8 @@ describe("HeaderComponent", () => {
         "Sobre a Bíblia dos Capuchinhos",
       )
 
-      tick(3500)
-      tick(300)
+      await vi.advanceTimersByTimeAsync(3500)
+      await vi.advanceTimersByTimeAsync(300)
       fixture.detectChanges()
 
       expect(heading.textContent).toContain("Escolher Livro")
@@ -660,8 +674,7 @@ describe("HeaderComponent", () => {
       )
 
       component.ngOnDestroy()
-      discardPeriodicTasks()
-    }))
+    })
 
     // The label swap is decorative; announcing each one is noise.
     it("does not announce the label swap", () => {
@@ -689,7 +702,8 @@ describe("HeaderComponent", () => {
       )
     })
 
-    it("fades the label out before swapping its text", fakeAsync(() => {
+    it("fades the label out before swapping its text", async () => {
+      vi.useFakeTimers()
       fixture.componentRef.setInput("book", aboutBook)
       fixture.detectChanges()
 
@@ -698,39 +712,37 @@ describe("HeaderComponent", () => {
           ".cycle-text",
         ) as HTMLElement
 
-      expect(label().classList.contains("faded")).toBeFalse()
+      expect(label().classList.contains("faded")).toBe(false)
 
-      tick(3500)
+      await vi.advanceTimersByTimeAsync(3500)
       fixture.detectChanges()
       // Fading out, text not yet changed.
-      expect(label().classList.contains("faded")).toBeTrue()
+      expect(label().classList.contains("faded")).toBe(true)
       expect(label().textContent).toContain("Sobre a Bíblia dos Capuchinhos")
 
-      tick(300)
+      await vi.advanceTimersByTimeAsync(300)
       fixture.detectChanges()
-      expect(label().classList.contains("faded")).toBeFalse()
+      expect(label().classList.contains("faded")).toBe(false)
 
       component.ngOnDestroy()
-      discardPeriodicTasks()
-    }))
+    })
 
-    it("drops a half-finished swap when the cycle stops", fakeAsync(() => {
+    it("drops a half-finished swap when the cycle stops", async () => {
+      vi.useFakeTimers()
       fixture.componentRef.setInput("book", aboutBook)
       fixture.detectChanges()
 
-      tick(3500) // mid-swap: faded out, waiting to change text
+      await vi.advanceTimersByTimeAsync(3500) // mid-swap: faded out, waiting to change text
       component.ngOnDestroy()
 
       // The pending swap must not fire against a torn-down component.
-      tick(300)
-      expect(component.labelFading).toBeFalse()
+      await vi.advanceTimersByTimeAsync(300)
+      expect(component.labelFading).toBe(false)
       expect(component.bookLabelMode).toBe("title")
-
-      discardPeriodicTasks()
-    }))
+    })
 
     it("cycles the about label in the browser", () => {
-      const setIntervalSpy = spyOn(window, "setInterval").and.callThrough()
+      const setIntervalSpy = vi.spyOn(window, "setInterval")
 
       fixture.componentRef.setInput("book", aboutBook)
       component.ngOnChanges({
@@ -761,7 +773,7 @@ describe("HeaderComponent", () => {
       const serverFixture = TestBed.createComponent(HeaderComponent)
       const serverComponent = serverFixture.componentInstance
 
-      const setIntervalSpy = spyOn(window, "setInterval").and.callThrough()
+      const setIntervalSpy = vi.spyOn(window, "setInterval")
 
       serverFixture.componentRef.setInput("book", aboutBook)
       serverFixture.componentRef.setInput("chapterNumber", 1)
@@ -811,21 +823,21 @@ describe("HeaderComponent with the iOS native bars", () => {
   let nativeChrome: {
     enabled: boolean
     actions$: Subject<NativeChromeAction>
-    show: jasmine.Spy
-    hide: jasmine.Spy
-    showPicker: jasmine.Spy
-    share: jasmine.Spy
+    show: Mock
+    hide: Mock
+    showPicker: Mock
+    share: Mock
   }
-  let router: jasmine.SpyObj<Router>
-  let theme: jasmine.SpyObj<ThemeService>
-  let bottomSheet: jasmine.SpyObj<MatBottomSheet>
-  let dialog: jasmine.SpyObj<MatDialog>
-  let onboarding: jasmine.SpyObj<OnboardingService>
-  let analytics: jasmine.SpyObj<AnalyticsService>
+  let router: SpyObj<Router>
+  let theme: SpyObj<ThemeService>
+  let bottomSheet: SpyObj<MatBottomSheet>
+  let dialog: SpyObj<MatDialog>
+  let onboarding: SpyObj<OnboardingService>
+  let analytics: SpyObj<AnalyticsService>
   let isOffline: BehaviorSubject<boolean>
-  let nativeBookmarks: jasmine.SpyObj<NativeBookmarksService>
-  let nativeReport: jasmine.SpyObj<NativeReportService>
-  let buildVersion: jasmine.SpyObj<BuildVersionService>
+  let nativeBookmarks: SpyObj<NativeBookmarksService>
+  let nativeReport: SpyObj<NativeReportService>
+  let buildVersion: SpyObj<BuildVersionService>
 
   const genesis: Book = {
     id: "gen",
@@ -840,45 +852,50 @@ describe("HeaderComponent with the iOS native bars", () => {
     nativeChrome = {
       enabled: true,
       actions$: actions,
-      show: jasmine.createSpy("show"),
-      hide: jasmine.createSpy("hide"),
-      showPicker: jasmine.createSpy("showPicker"),
-      share: jasmine.createSpy("share").and.resolveTo(true),
+      show: vi.fn().mockName("show"),
+      hide: vi.fn().mockName("hide"),
+      showPicker: vi.fn().mockName("showPicker"),
+      share: vi.fn().mockName("share").mockResolvedValue(true),
     }
-    router = jasmine.createSpyObj("Router", ["navigate"])
-    router.navigate.and.resolveTo(true)
-    theme = jasmine.createSpyObj("ThemeService", ["toggleTheme", "setTheme"], {
-      currentMode: "system",
-    })
-    const bookmarks = jasmine.createSpyObj("BookmarkService", ["getBookmark"])
-    bookmarks.bookmarks$ = of([
-      { bookId: "gen", chapter: 2, color: "red", timestamp: 1 },
-    ])
-    bottomSheet = jasmine.createSpyObj("MatBottomSheet", ["open"])
-    bottomSheet.open.and.returnValue({
+    router = createSpyObj("Router", ["navigate"])
+    router.navigate.mockResolvedValue(true)
+    theme = createSpyObj<ThemeService>(
+      "ThemeService",
+      ["toggleTheme", "setTheme"],
+      { currentMode: "system" },
+    )
+    const bookmarks = createSpyObj<BookmarkService>(
+      "BookmarkService",
+      ["getBookmark"],
+      {
+        bookmarks$: of([
+          { bookId: "gen", chapter: 2, color: "red", timestamp: 1 },
+        ]),
+      },
+    )
+    bottomSheet = createSpyObj("MatBottomSheet", ["open"])
+    bottomSheet.open.mockReturnValue({
       dismiss: () => {},
       afterDismissed: () => new Subject<void>(),
     } as unknown as ReturnType<MatBottomSheet["open"]>)
-    dialog = jasmine.createSpyObj("MatDialog", ["open"])
-    onboarding = jasmine.createSpyObj("OnboardingService", ["open"])
-    analytics = jasmine.createSpyObj("AnalyticsService", [
+    dialog = createSpyObj("MatDialog", ["open"])
+    onboarding = createSpyObj("OnboardingService", ["open"])
+    analytics = createSpyObj("AnalyticsService", [
       "track",
       "areAnalyticsAvailable",
     ])
-    analytics.track.and.resolveTo()
-    analytics.areAnalyticsAvailable.and.returnValue(true)
+    analytics.track.mockResolvedValue(undefined)
+    analytics.areAnalyticsAvailable.mockReturnValue(true)
     isOffline = new BehaviorSubject(false)
-    nativeBookmarks = jasmine.createSpyObj("NativeBookmarksService", ["open"])
-    nativeReport = jasmine.createSpyObj("NativeReportService", ["open"])
-    buildVersion = jasmine.createSpyObj("BuildVersionService", [
-      "getDisplayVersion",
-    ])
-    buildVersion.getDisplayVersion.and.resolveTo({
+    nativeBookmarks = createSpyObj("NativeBookmarksService", ["open"])
+    nativeReport = createSpyObj("NativeReportService", ["open"])
+    buildVersion = createSpyObj("BuildVersionService", ["getDisplayVersion"])
+    buildVersion.getDisplayVersion.mockResolvedValue({
       release: "1.2.3",
       build: "20261016-120000Z",
     })
     // In the app, shared links point at the public site.
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true)
 
     await TestBed.configureTestingModule({
       imports: [HeaderComponent],
@@ -911,7 +928,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     fixture.detectChanges()
   })
 
-  const lastState = () => nativeChrome.show.calls.mostRecent().args[0]
+  const lastState = () => lastCall(vi.mocked(nativeChrome.show))[0]
   const bookLabel = () => (component.mobile ? "Génesis" : "Livro do Génesis")
 
   it("renders no web toolbar", () => {
@@ -924,7 +941,7 @@ describe("HeaderComponent with the iOS native bars", () => {
 
   it("does not bring the bars back if the reader is gone before the version arrives", async () => {
     let arrive!: (version: DisplayVersion) => void
-    buildVersion.getDisplayVersion.and.returnValue(
+    buildVersion.getDisplayVersion.mockReturnValue(
       new Promise((resolve) => {
         arrive = resolve
       }),
@@ -934,7 +951,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     late.componentRef.setInput("chapterNumber", 3)
     late.detectChanges()
     late.destroy()
-    nativeChrome.show.calls.reset()
+    nativeChrome.show.mockClear()
 
     arrive({ release: null, build: "20261016-120000Z" })
     await new Promise((resolve) => setTimeout(resolve))
@@ -966,10 +983,8 @@ describe("HeaderComponent with the iOS native bars", () => {
   })
 
   it("shows the chapter's ribbon, by colour and by name, on the bookmark button", () => {
-    const bookmarks = TestBed.inject(
-      BookmarkService,
-    ) as jasmine.SpyObj<BookmarkService>
-    bookmarks.getBookmark.and.returnValue({
+    const bookmarks = TestBed.inject(BookmarkService) as SpyObj<BookmarkService>
+    bookmarks.getBookmark.mockReturnValue({
       bookId: "gen",
       chapter: 4,
       color: "red",
@@ -979,7 +994,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     fixture.detectChanges()
 
     expect(lastState()).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         bookmarkColor: "red",
         bookmarkName: "vermelho",
         passageAccessibilityLabel: "Livro do Génesis 4, marcador vermelho",
@@ -997,7 +1012,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     fixture.detectChanges()
 
     expect(lastState()).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         passageLabel: "Sobre a Bíblia",
         passageShortLabels: [],
         chapterNavigation: false,
@@ -1013,8 +1028,10 @@ describe("HeaderComponent with the iOS native bars", () => {
     fixture.detectChanges()
 
     expect(lastState()).toEqual(
-      jasmine.objectContaining({
-        passageLabel: `${bookLabel()} ${component.mobile ? "Intro" : "Introdução"}`,
+      expect.objectContaining({
+        passageLabel: `${bookLabel()} ${
+          component.mobile ? "Intro" : "Introdução"
+        }`,
         passageShortLabels: ["Gn Intro"],
         passageAccessibilityLabel: "Livro do Génesis Introdução",
       }),
@@ -1035,7 +1052,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     fixture.detectChanges()
 
     expect(lastState()).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         passageLabel: "Salmo 23 (22)",
         passageShortLabels: ["Sl 23 (22)", "Sl 23"],
         passageAccessibilityLabel: "Salmo 23, na liturgia 22",
@@ -1046,7 +1063,7 @@ describe("HeaderComponent with the iOS native bars", () => {
   it("keeps search while offline", () => {
     isOffline.next(true)
     fixture.detectChanges()
-    expect(lastState()).toEqual(jasmine.objectContaining({ search: true }))
+    expect(lastState()).toEqual(expect.objectContaining({ search: true }))
   })
 
   it("follows the reader's view mode, auto-scroll and arrows", () => {
@@ -1056,7 +1073,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     fixture.detectChanges()
 
     expect(lastState()).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         viewMode: "paged",
         autoScrollVisible: true,
         autoScrollAvailable: false,
@@ -1068,7 +1085,7 @@ describe("HeaderComponent with the iOS native bars", () => {
   it("opens the passage picker on the current chapter, with bookmarks", () => {
     actions.next({ id: "passage" })
 
-    const data = nativeChrome.showPicker.calls.mostRecent().args[0]
+    const data = lastCall(vi.mocked(nativeChrome.showPicker))[0]
     expect(data.currentBookId).toBe("gen")
     expect(data.currentChapter).toBe(3)
     const book = data.sections[0].groups[0].books[0]
@@ -1110,7 +1127,7 @@ describe("HeaderComponent with the iOS native bars", () => {
   })
 
   it("sets the chosen theme and shows it as chosen", () => {
-    nativeChrome.show.calls.reset()
+    nativeChrome.show.mockClear()
     actions.next({ id: "theme-dark" })
 
     expect(theme.setTheme).toHaveBeenCalledWith("dark")
@@ -1161,7 +1178,10 @@ describe("HeaderComponent with the iOS native bars", () => {
   })
 
   it("opens the About page from the native menu", () => {
-    const selected: { bookId: string; chapter?: number }[] = []
+    const selected: {
+      bookId: string
+      chapter?: number
+    }[] = []
     component.selectPassage.subscribe((passage) => selected.push(passage))
 
     actions.next({ id: "about" })
@@ -1204,19 +1224,16 @@ describe("HeaderComponent with the iOS native bars", () => {
   })
 
   it("counts no share when the sheet is closed without one", async () => {
-    nativeChrome.share.and.resolveTo(false)
+    nativeChrome.share.mockResolvedValue(false)
     actions.next({ id: "share" })
     await fixture.whenStable()
 
     expect(nativeChrome.share).toHaveBeenCalled()
-    expect(analytics.track).not.toHaveBeenCalledWith(
-      "share",
-      jasmine.anything(),
-    )
+    expect(analytics.track).not.toHaveBeenCalledWith("share", expect.anything())
   })
 
   it("opens the privacy policy outside the app", () => {
-    const open = spyOn(window, "open")
+    const open = vi.spyOn(window, "open").mockReturnValue(undefined as never)
     actions.next({ id: "privacy" })
 
     expect(open).toHaveBeenCalledWith(

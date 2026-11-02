@@ -86,7 +86,7 @@ describe("AboutComponent", () => {
     ])
     for (const link of links) {
       expect(link.target).toBe("_blank")
-      expect(link.relList.contains("noopener")).toBeTrue()
+      expect(link.relList.contains("noopener")).toBe(true)
     }
   })
 

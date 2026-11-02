@@ -6,11 +6,13 @@ import {
 } from "@angular/material/bottom-sheet"
 import { provideRouter } from "@angular/router"
 import { Subject } from "rxjs"
+import type { Mock } from "vitest"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { KeepAwakeService } from "../../services/keep-awake.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { VerseComponent } from "./verse.component"
 
 const TRANSPARENT = "rgba(0, 0, 0, 0)"
@@ -47,14 +49,14 @@ function setData(fixture: ComponentFixture<VerseComponent>, data: Verse): void {
 describe("VerseComponent", () => {
   let component: VerseComponent
   let fixture: ComponentFixture<VerseComponent>
-  let mockBibleRef: jasmine.SpyObj<BibleReferenceService>
+  let mockBibleRef: SpyObj<BibleReferenceService>
   let mockBottomSheet: MatBottomSheet
   let dismissed: Subject<void>
-  let dismissSheet: jasmine.Spy
+  let dismissSheet: Mock
 
   beforeEach(async () => {
-    mockBibleRef = jasmine.createSpyObj("BibleReferenceService", ["extract"])
-    mockBibleRef.extract.and.returnValue([])
+    mockBibleRef = createSpyObj("BibleReferenceService", ["extract"])
+    mockBibleRef.extract.mockReturnValue([])
 
     await TestBed.configureTestingModule({
       imports: [VerseComponent, MatBottomSheetModule],
@@ -66,11 +68,14 @@ describe("VerseComponent", () => {
 
     fixture = TestBed.createComponent(VerseComponent)
     component = fixture.componentInstance
-    mockBottomSheet = (component as unknown as { bottomSheet: MatBottomSheet })
-      .bottomSheet
+    mockBottomSheet = (
+      component as unknown as {
+        bottomSheet: MatBottomSheet
+      }
+    ).bottomSheet
     dismissed = new Subject<void>()
-    dismissSheet = jasmine.createSpy("dismiss")
-    spyOn(mockBottomSheet, "open").and.returnValue({
+    dismissSheet = vi.fn().mockName("dismiss")
+    vi.spyOn(mockBottomSheet, "open").mockReturnValue({
       dismiss: dismissSheet,
       afterDismissed: () => dismissed.asObservable(),
     } as unknown as ReturnType<MatBottomSheet["open"]>)
@@ -176,7 +181,7 @@ describe("VerseComponent", () => {
 
   describe("ngOnChanges — parsedReferences", () => {
     it("should pre-compute references for text entries of type references", () => {
-      mockBibleRef.extract.and.returnValue([])
+      mockBibleRef.extract.mockReturnValue([])
 
       setData(
         fixture,
@@ -610,7 +615,7 @@ describe("VerseComponent", () => {
 
       text.focus()
 
-      expect(text.matches(":focus-visible")).toBeTrue()
+      expect(text.matches(":focus-visible")).toBe(true)
       const style = getComputedStyle(text)
       expect(style.outlineStyle).toBe("solid")
       expect(style.outlineColor).toBe(style.color)
@@ -855,7 +860,9 @@ describe("VerseComponent", () => {
       fixture.nativeElement.querySelector(".footnoteIndicator") as HTMLElement
     // Reading hands-free: ▶ pressed in the reader.
     const play = () => {
-      spyOn(TestBed.inject(KeepAwakeService), "start")
+      vi.spyOn(TestBed.inject(KeepAwakeService), "start").mockReturnValue(
+        undefined,
+      )
       const autoScroll = TestBed.inject(AutoScrollService)
       autoScroll.start({ scrollElement: document.createElement("div") })
       return autoScroll
@@ -886,17 +893,17 @@ describe("VerseComponent", () => {
       text().click()
 
       expect(mockBottomSheet.open).toHaveBeenCalled()
-      expect(autoScroll.autoScrollEnabled).toBeFalse()
+      expect(autoScroll.autoScrollEnabled).toBe(false)
     })
 
     // There a tap on the text shows or hides the bars (NativeChromeService).
     describe("in the iOS app", () => {
-      let open: jasmine.Spy
+      let open: Mock
 
       beforeEach(() => {
         const native = TestBed.inject(NativeFootnotesService)
-        spyOnProperty(native, "enabled").and.returnValue(true)
-        open = spyOn(native, "open")
+        vi.spyOn(native, "enabled", "get").mockReturnValue(true)
+        open = vi.spyOn(native, "open").mockReturnValue(undefined)
         document.body.classList.add("native-chrome")
         render()
       })
@@ -926,14 +933,14 @@ describe("VerseComponent", () => {
         asterisk().click()
 
         expect(open).toHaveBeenCalled()
-        expect(autoScroll.autoScrollEnabled).toBeFalse()
+        expect(autoScroll.autoScrollEnabled).toBe(false)
       })
 
       it("plays on through a tap on the text, which opens nothing", () => {
         const autoScroll = play()
         text().click()
 
-        expect(autoScroll.autoScrollEnabled).toBeTrue()
+        expect(autoScroll.autoScrollEnabled).toBe(true)
       })
 
       // VoiceOver read every marker as "Notas": nothing told one verse's
@@ -1039,8 +1046,8 @@ describe("VerseComponent", () => {
     // The iOS app shows them in a native sheet instead.
     it("opens the native sheet in the iOS app", () => {
       const native = TestBed.inject(NativeFootnotesService)
-      spyOnProperty(native, "enabled").and.returnValue(true)
-      const open = spyOn(native, "open")
+      vi.spyOn(native, "enabled", "get").mockReturnValue(true)
+      const open = vi.spyOn(native, "open").mockReturnValue(undefined)
       const footnote = {
         type: "footnote" as const,
         text: "note",
@@ -1084,7 +1091,7 @@ describe("VerseComponent", () => {
       )
       component.toggleFootnotes()
 
-      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(true)
       expect(dismissSheet).toHaveBeenCalled()
     })
 
@@ -1112,15 +1119,15 @@ describe("VerseComponent", () => {
       )
 
       const trigger = document.createElement("span")
-      const focusSpy = spyOn(trigger, "focus")
+      const focusSpy = vi.spyOn(trigger, "focus").mockReturnValue(undefined)
 
       component.toggleFootnotes({ currentTarget: trigger } as unknown as Event)
 
       // Material's own restore-focus scrolls the marker into view, which jumps
       // the reader to the chapter start in paged mode — so we opt out of it.
       expect(mockBottomSheet.open).toHaveBeenCalledWith(
-        jasmine.anything(),
-        jasmine.objectContaining({ restoreFocus: false }),
+        expect.anything(),
+        expect.objectContaining({ restoreFocus: false }),
       )
       // Focus is only restored after the sheet closes, and without scrolling.
       expect(focusSpy).not.toHaveBeenCalled()
@@ -1195,7 +1202,7 @@ describe("VerseComponent", () => {
       // line, with nothing breaking between them.
       const wrapper = fixture.nativeElement.querySelector(".quoteLineWrapper")
       expect(wrapper.querySelectorAll("br").length).toBe(0)
-      expect(hasBlankLine(fixture.nativeElement)).toBeFalse()
+      expect(hasBlankLine(fixture.nativeElement)).toBe(false)
     })
 
     it("renders that verse as a single line of prose", () => {
@@ -1249,7 +1256,7 @@ describe("VerseComponent", () => {
 
       // The quote group brings the break itself, so the poetry starts on a
       // new line with no blank one in front of it.
-      expect(hasBlankLine(fixture.nativeElement)).toBeFalse()
+      expect(hasBlankLine(fixture.nativeElement)).toBe(false)
     })
   })
 
