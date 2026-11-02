@@ -10,6 +10,7 @@ import {
   inject,
   type OnDestroy,
   type OnInit,
+  PendingTasks,
   PLATFORM_ID,
   ViewChild,
 } from "@angular/core"
@@ -26,11 +27,15 @@ import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { combineLatest, Subject, Subscription } from "rxjs"
 import { switchMap, take, takeUntil } from "rxjs/operators"
+import { nextCanonBook } from "../../bible-canon"
 import {
   PagedNavigationDirective,
   PageState,
 } from "../../directives/paged-navigation/paged-navigation.directive"
-import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
+import {
+  type TextSize,
+  UnifiedGesturesDirective,
+} from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BackButtonService } from "../../services/back-button.service"
@@ -43,6 +48,7 @@ import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
 import { ToastService } from "../../services/toast.service"
+import { introductionTitle, passageLabel } from "../../utils/passage-label"
 import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
 import { BookIntroComponent } from "../book-intro/book-intro.component"
@@ -76,12 +82,43 @@ import { VerseComponent } from "../verse/verse.component"
   ],
 })
 export class BibleReaderComponent implements OnInit, OnDestroy {
+  private autoScrollService = inject(AutoScrollService)
+  private apiService = inject(BibleApiService)
+  private bookService = inject(BookService)
+  private preferencesService = inject(PreferencesService)
+  private cdr = inject(ChangeDetectorRef)
+  private router = inject(Router)
+  private route = inject(ActivatedRoute)
+  private animationService = inject(BibleReaderAnimationService)
+  private analyticsService = inject(AnalyticsService)
+  private networkService = inject(NetworkService)
+  private seoService = inject(SeoService)
+
   private destroy$ = new Subject<void>()
   private chapterSubscription?: Subscription
   private injector = inject(Injector)
   private platformId = inject(PLATFORM_ID)
+  private host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement
+  private pendingTasks = inject(PendingTasks)
+  /** Set while the prerendered chapter on screen waits for its data. */
+  private endPrerenderHold?: () => void
   private haptics = inject(HapticsService)
   private nativeChrome = inject(NativeChromeService)
+  /**
+   * The Android app's chapter cards, for what its corner arrows don't reach:
+   * the introduction, above chapter 1, and the next book, after a book's last
+   * chapter. The next chapter is the › arrow's alone.
+   */
+  readonly chapterCards = this.nativeChrome.android
+
+  /** In scrolling mode, once the chapter is in: pages turn into the next one. */
+  get showChapterCards(): boolean {
+    return (
+      this.chapterCards &&
+      !!this.chapter &&
+      this.effectiveViewMode === "scrolling"
+    )
+  }
   private toast = inject(ToastService)
   private stopTrackingScroll?: () => void
   private unregisterBackCloser = inject(BackButtonService).register(() => {
@@ -204,21 +241,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     }
   }
 
-  constructor(
-    private autoScrollService: AutoScrollService,
-    private apiService: BibleApiService,
-    private bookService: BookService,
-    private preferencesService: PreferencesService,
-    private cdr: ChangeDetectorRef,
-    private router: Router,
-    private route: ActivatedRoute,
-    private animationService: BibleReaderAnimationService,
-    private analyticsService: AnalyticsService,
-    private networkService: NetworkService,
-    private seoService: SeoService,
-  ) {}
-
   ngOnInit(): void {
+    // Hydration deletes the server DOM it hasn't claimed once the app is stable,
+    // and waiting on IndexedDB doesn't count as work: the text would blank out.
+    if (this.host.querySelector(".chapterBlock")) {
+      this.endPrerenderHold = this.pendingTasks.add()
+    }
+
     const storedSpeed = this.preferencesService.getAutoScrollSpeed()
     if (storedSpeed) {
       this.autoScrollService.setAutoScrollLinesPerSecond(storedSpeed)
@@ -234,11 +263,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe((books) => {
         this.books = books
+        this.cdr.markForCheck()
       })
     this.bookService.booksUnavailable$
       .pipe(takeUntil(this.destroy$))
       .subscribe((unavailable) => {
         this.booksUnavailable = unavailable
+        if (unavailable) this.releasePrerender()
         this.cdr.markForCheck()
       })
 
@@ -341,6 +372,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.releasePrerender()
     this.unregisterBackCloser()
     this.destroy$.next()
     this.destroy$.complete()
@@ -348,6 +380,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.animationService.cancelPendingRealign()
     this.stopTrackingScroll?.()
     // AutoScrollService handles its own cleanup now if we stop it, or the component stopping it
+  }
+
+  private releasePrerender(): void {
+    this.endPrerenderHold?.()
+    this.endPrerenderHold = undefined
   }
 
   /** The one place chapter URLs are built, for anchors and navigation alike. */
@@ -400,6 +437,31 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       true,
     )
     this.nextChapterLink = this.chapterCommands(this.chapterNumber + 1, true)
+    const nextId =
+      this.book && this.chapterNumber >= this.book.chapterCount
+        ? nextCanonBook(this.book.id)
+        : undefined
+    this.nextBook = nextId ? this.bookService.findBookById(nextId) : undefined
+    this.nextBookLink = this.nextBook
+      ? [
+          "/",
+          this.bookService.getUrlAbrv(this.nextBook),
+          this.bookService.getChapterUrlSegment(1),
+        ]
+      : []
+  }
+
+  /**
+   * At a book's last chapter, the next book in the edition's order (Malaquias
+   * leads to Mateus); none after Apocalipse. Its chapter 1, as a link.
+   */
+  nextBook?: Book
+  nextBookLink: (string | number)[] = []
+
+  /** Following the "Livro seguinte" card: reading hands-free stops there. */
+  prepareBookNavigation(event: MouseEvent): void {
+    if (!this.isPlainLeftClick(event)) return
+    this.autoScrollService.stop()
   }
 
   onSwipeLeft(): void {
@@ -443,6 +505,27 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.chapter.number > this.minChapter ||
       (this.effectiveViewMode === "paged" && !this.isFirstPage)
     )
+  }
+
+  /** A chapter card's passage: "Êxodo 1", "Salmo 23 (22)", or the introduction. */
+  chapterCardLabel(chapter: number, book: Book = this.book): string {
+    return chapter === 0 ? "Introdução" : passageLabel(book, chapter)
+  }
+
+  /**
+   * Chapter 1 of a book with an introduction: the card above the text leads
+   * to it, which only the picker otherwise shows. Elsewhere ‹ is at hand at a
+   * chapter's top, where the bars always show.
+   */
+  get introCard(): boolean {
+    return (
+      this.book?.id !== "about" && this.chapterNumber === 1 && this.hasIntro
+    )
+  }
+
+  /** The introduction card's title: "Introdução ao Livro do Génesis". */
+  get introCardTitle(): string {
+    return introductionTitle(this.book)
   }
 
   get canGoNext(): boolean {
@@ -655,6 +738,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.isNavigatingBackwards = false
     this.isNavigatingForwards = false
     this.notifyChapterLoadFailed()
+    this.releasePrerender()
     if (isPlatformBrowser(this.platformId)) {
       this.router.navigate(
         [
@@ -713,7 +797,16 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     verseEnd?: Verse["number"],
     highlight = true,
   ): void {
-    this.resetContainerForRepaint()
+    // Paged view lays the text out anew and a verse link moves it, so those
+    // still reveal it. Otherwise it's in place, and the reader may have scrolled.
+    const alreadyShown =
+      !!this.endPrerenderHold &&
+      !verseStart &&
+      this.effectiveViewMode === "scrolling" &&
+      !this.isNavigatingForwards &&
+      !this.isNavigatingBackwards
+
+    if (!alreadyShown) this.resetContainerForRepaint()
 
     this.chapter = chapterData
     this.chapterNumber = chapter
@@ -732,7 +825,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.isNavigatingBackwards = false
     this.isNavigatingForwards = false
 
-    if (!verseStart) {
+    if (verseStart) {
+      this.scrollToVerse(verseStart, verseEnd, highlight)
+    } else if (!alreadyShown) {
       this.animationService.scrollToTop(
         this.drawerContent?.nativeElement,
         this.bookContainer?.nativeElement,
@@ -742,12 +837,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           ? () => this.pagedNav?.scrollToEnd()
           : () => this.pagedNav?.ensureAlignedScrollWidth(),
       )
-    } else {
-      this.scrollToVerse(verseStart, verseEnd, highlight)
     }
 
     this.preferencesService.setLastBookId(this.book.id)
     this.preferencesService.setLastChapterNumber(this.chapterNumber)
+    this.releasePrerender()
   }
 
   /** Paged mode scrolls in whole pages, so paged navigation does the scroll. */
@@ -896,12 +990,24 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     return !document.querySelector(".cdk-overlay-backdrop-showing")
   }
 
-  onIncreaseFontSize(): void {
-    this.gestures.increaseFontSize()
+  onIncreaseFontSize(step?: number): void {
+    this.gestures.increaseFontSize(step)
   }
 
-  onDecreaseFontSize(): void {
-    this.gestures.decreaseFontSize()
+  onDecreaseFontSize(step?: number): void {
+    this.gestures.decreaseFontSize(step)
+  }
+
+  onResetFontSize(): void {
+    this.gestures.resetFontSize()
+  }
+
+  /** The text's size, which the header passes to the Android app's text sheet. */
+  textSize: TextSize | null = null
+
+  onTextSizeChange(size: TextSize): void {
+    this.textSize = size
+    this.cdr.markForCheck()
   }
 
   checkIfNextVerseStartsWithQuote(index: number): boolean {

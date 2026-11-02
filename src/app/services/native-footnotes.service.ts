@@ -10,10 +10,8 @@ import { passageLabel } from "../utils/passage-label"
 import { AnalyticsService } from "./analytics.service"
 import { BibleReferenceService } from "./bible-reference.service"
 import { BookService } from "./book.service"
-import {
-  type FootnotesSheetState,
-  NativeChromeService,
-} from "./native-chrome.service"
+import { NativeChromeService } from "./native-chrome.service"
+import type { FootnotesSheetState } from "./native-chrome.types"
 import { PreferencesService } from "./preferences.service"
 import { SystemTextSizeService } from "./system-text-size.service"
 import { ToastService } from "./toast.service"
@@ -27,7 +25,7 @@ interface FootnoteLink {
 }
 
 /**
- * A verse's footnotes as a native sheet in the iOS app. The references in the
+ * A verse's footnotes as a native sheet in the iOS and Android apps. The references in the
  * notes stay links: the sheet reports which one was tapped, and the reader
  * opens it as the web sheet (FootnotesBottomSheetComponent) would, with the
  * way back to the verse as a toast.

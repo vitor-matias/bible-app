@@ -64,7 +64,7 @@ export class BookIndexComponent implements OnInit, OnDestroy {
   private themeService = inject(ThemeService)
   private router = inject(Router)
   private destroyRef = inject(DestroyRef)
-  /** The iOS app draws this page's toolbar natively. */
+  /** The native apps draw this page's toolbar. */
   readonly native = this.nativeChrome.enabled
 
   testaments$ = this.bookService.books$.pipe(

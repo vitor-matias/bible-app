@@ -39,6 +39,11 @@
   -ms-user-select: text !important;
 }
 
+/* "Sl 8" stays whole: a reference split as "Sl" / "8;" reads as two. */
+.references a {
+  white-space: nowrap;
+}
+
 .references {
   font-size: 80%;
   color: var(--text-color);

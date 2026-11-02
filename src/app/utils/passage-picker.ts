@@ -1,5 +1,4 @@
 import {
-  ABOUT_GROUP,
   type CanonGroup,
   isClusterIntro,
   NEW_TESTAMENT_GROUPS,
@@ -111,11 +110,7 @@ export function buildPassagePicker(
   return {
     sections: [
       section("Antigo Testamento", OLD_TESTAMENT_GROUPS, OLD_TESTAMENT_INTRO),
-      section(
-        "Novo Testamento",
-        [...NEW_TESTAMENT_GROUPS, ABOUT_GROUP],
-        NEW_TESTAMENT_INTRO,
-      ),
+      section("Novo Testamento", NEW_TESTAMENT_GROUPS, NEW_TESTAMENT_INTRO),
     ],
     currentBookId: current.bookId,
     currentChapter: current.chapter,
@@ -125,14 +120,13 @@ export function buildPassagePicker(
 /** A book's label in the picker's compact mode. */
 function compactLabel(book: Book): string {
   if (book.introSlug) return "Intro"
-  if (book.id === "about") return "Sobre"
   return cleanAbbreviation(book.abrv)
 }
 
 /** The book's chapters as the reader numbers them: 0 is the introduction. */
 function chaptersOf(book: Book): Omit<PickerChapter, "bookmark">[] {
-  // Standalone introductions and the About page are single pages.
-  if (book.introSlug || book.id === "about") return []
+  // Standalone introductions are single pages.
+  if (book.introSlug) return []
 
   const titled = book.chapters?.length
     ? book.chapters

@@ -73,7 +73,7 @@ h3 {
 }
 
 .ribbon-text {
-  color: antiquewhite;
+  color: var(--ribbon-text);
   text-align: center;
   line-height: 1.1;
   padding: 4px;
@@ -82,7 +82,7 @@ h3 {
 }
 
 .add-icon {
-  color: antiquewhite;
+  color: var(--ribbon-text);
   font-size: 24px;
   text-shadow: 1px 1px 1px black;
 }
@@ -93,4 +93,9 @@ h3 {
   height: auto;
   min-height: 40px;
   padding-block: 8px;
+}
+
+/* Dark text on the dark theme's light ribbons needs no shadow. */
+:host-context(.dark-theme) :is(.ribbon-text, .add-icon) {
+  text-shadow: none;
 }

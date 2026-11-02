@@ -7,14 +7,15 @@ import { BookService } from "./book.service"
 import { NativeChromeService } from "./native-chrome.service"
 
 export interface ToastOptions {
-  /** The snackbar's button on the web ("" for none); the iOS toast has none. */
+  /** The snackbar's button on the web ("" for none); the native toast has none. */
   action?: string
   duration?: number
 }
 
 /**
- * A short message: a Material snackbar on the web and Android, a native glass
- * toast in the iOS app (NativeChromeService).
+ * A short message: a Material snackbar on the web, a native glass toast in
+ * the iOS app, a native Material snackbar in the Android app
+ * (NativeChromeService).
  */
 @Injectable({
   providedIn: "root",
@@ -60,6 +61,7 @@ export class ToastService {
       const hide = this.nativeChrome.toast(message, {
         symbol: "arrow.uturn.backward",
         onTap: goBack,
+        returnToPage: true,
       })
       this.returnWatch = this.hideOnReturn(urlAbrv, from.chapterNumber, hide)
       return
@@ -79,7 +81,8 @@ export class ToastService {
    * The way back goes once the reader has gone back by another route: the back
    * gesture, Android's back button or the browser's (any step through
    * history), or anything that brings them back to its chapter, such as the
-   * passage picker. Reading on from the reference keeps it, as Books does.
+   * passage picker. Reading on from the reference keeps it, as Books does;
+   * leaving the text for search or the book list doesn't.
    */
   private hideOnReturn(
     urlAbrv: string,
@@ -91,20 +94,28 @@ export class ToastService {
     // isn't a return.
     let away = !this.isChapter(this.router.url, urlAbrv, chapter)
     const watch = this.router.events.subscribe((event) => {
-      let returned = false
+      let done = false
       if (event instanceof NavigationStart) {
-        returned = event.navigationTrigger === "popstate"
+        done = event.navigationTrigger === "popstate"
       } else if (event instanceof NavigationEnd) {
-        const here = this.isChapter(event.urlAfterRedirects, urlAbrv, chapter)
-        returned = here && away
+        const url = event.urlAfterRedirects
+        const here = this.isChapter(url, urlAbrv, chapter)
+        done = (here && away) || !this.isReader(url)
         away ||= !here
       }
-      if (!returned) return
+      if (!done) return
       watch.unsubscribe()
       hide()
     })
     if (closed) watch.add(closed.subscribe(() => watch.unsubscribe()))
     return watch
+  }
+
+  /** A passage, or the last one read (/): not search or the book list. */
+  private isReader(url: string): boolean {
+    const segments =
+      this.router.parseUrl(url).root.children["primary"]?.segments ?? []
+    return segments.length !== 1
   }
 
   private isChapter(url: string, urlAbrv: string, chapter: number): boolean {

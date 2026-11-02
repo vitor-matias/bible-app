@@ -1,0 +1,33 @@
+{
+  "mode": "reader",
+  "themeMode": "dark",
+  "passageLabel": "Deuteronómio 3",
+  "passageShortLabels": ["Dt 3"],
+  "passageAccessibilityLabel": "Deuteronómio, capítulo 3",
+  "chapterNavigation": true,
+  "canGoPrevious": true,
+  "canGoNext": true,
+  "search": true,
+  "viewMode": "paged",
+  "autoScrollVisible": true,
+  "autoScrollAvailable": true,
+  "canShare": true,
+  "canReport": true,
+  "bookmarkColor": "red",
+  "bookmarkName": "vermelho",
+  "buildVersion": "20261018-120000Z",
+  "textSize": { "percent": 120, "min": 80, "max": 200, "canReset": true },
+  "inert": true,
+  "collapsed": true,
+  "scrolled": true,
+  "autoScroll": {
+    "playing": true,
+    "speedLabel": "1,5",
+    "speedAccessibilityLabel": "1,5 linhas por segundo",
+    "canSlower": true,
+    "canFaster": true,
+    "canPlay": false
+  },
+  "subtitle": "As bem-aventuranças",
+  "pageColor": "#121212"
+}

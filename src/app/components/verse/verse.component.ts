@@ -5,8 +5,8 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
-  Input,
   inject,
+  input,
   OnChanges,
   OnDestroy,
   QueryList,
@@ -46,6 +46,10 @@ import { getVerseQueryParams, parseReferences } from "./verse.utils"
   standalone: true,
 })
 export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
+  private bibleRef = inject(BibleReferenceService)
+  private bottomSheet = inject(MatBottomSheet)
+  private cdr = inject(ChangeDetectorRef)
+
   /** Pre-computed index where the chapter number should be displayed, or -1 */
   chapterNumberDisplayIndex = -1
 
@@ -53,13 +57,10 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   hasFootnotes = false
 
   /**
-   * Whether tapping the verse's text opens its notes. Not in the iOS app: a tap
+   * Whether tapping the verse's text opens its notes. Not in the native apps: a tap
    * on the text shows or hides its bars there, and the notes marker opens them.
    */
   notesOnText = false
-
-  /** The iOS app marks notes with an icon; elsewhere it is the edition's asterisk. */
-  noteIcon = false
 
   /** A psalm's liturgical number, which the edition prints in parentheses. */
   liturgicalNumber: string | null = null
@@ -73,14 +74,11 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   /** Pre-computed parsed references keyed by text index */
   parsedReferences: Map<number, (string | BibleReference)[]> = new Map()
 
-  @Input()
-  data!: Verse
+  readonly data = input.required<Verse>()
 
-  @Input()
-  chapterNumber?: number
+  readonly chapterNumber = input<number>()
 
-  @Input()
-  nextVerseStartsWithQuote = false
+  readonly nextVerseStartsWithQuote = input(false)
 
   @ViewChildren("indentable")
   indentableElements!: QueryList<ElementRef<HTMLElement>>
@@ -96,28 +94,20 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   private readonly backButton = inject(BackButtonService)
 
-  /** The iOS app shows footnotes in a native sheet. */
+  /** The native apps show footnotes in a native sheet. */
   private readonly nativeFootnotes = inject(NativeFootnotesService)
 
   private readonly autoScroll = inject(AutoScrollService)
 
-  constructor(
-    private bibleRef: BibleReferenceService,
-    private bottomSheet: MatBottomSheet,
-    private cdr: ChangeDetectorRef,
-  ) {}
-
   ngOnChanges(_changes: SimpleChanges): void {
-    if (this.data) {
+    const data = this.data()
+    if (data) {
       this.chapterNumberDisplayIndex = this.computeChapterNumberIndex()
-      this.hasFootnotes = this.data.text.some((t) => t.type === "footnote")
+      this.hasFootnotes = data.text.some((t) => t.type === "footnote")
       this.notesOnText = this.hasFootnotes && !this.nativeFootnotes.enabled
-      // Whether or not this verse has notes: the hidden placeholder that keeps
-      // poetry's numbers aligned must be as wide as the marker it stands for.
-      this.noteIcon = this.nativeFootnotes.enabled
       this.liturgicalNumber =
-        this.data.bookId === PSALMS_BOOK_ID
-          ? liturgicalPsalmNumber(this.data.chapterNumber)
+        data.bookId === PSALMS_BOOK_ID
+          ? liturgicalPsalmNumber(data.chapterNumber)
           : null
       this.parsedReferences = this.computeParsedReferences()
       this.displayGroups = this.computeDisplayGroups()
@@ -238,13 +228,13 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   getFirstTextType(): string | undefined {
-    return this.data.text.find(
+    return this.data().text.find(
       (t) => t.type !== "footnote" && t.type !== "references",
     )?.type
   }
 
   isFirstDisplayableElement(index: number): boolean {
-    const firstIdx = this.data.text.findIndex(
+    const firstIdx = this.data().text.findIndex(
       (t) => t.type !== "footnote" && t.type !== "references",
     )
     return index === firstIdx
@@ -254,8 +244,8 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     const sectionText = this.getDataForSection(i).text
     const lastElementIndex = i + sectionText.length - 1
 
-    if (lastElementIndex + 1 < this.data.text.length) {
-      const nextDisplayableIdx = this.data.text.findIndex(
+    if (lastElementIndex + 1 < this.data().text.length) {
+      const nextDisplayableIdx = this.data().text.findIndex(
         (t, idx) =>
           idx > lastElementIndex &&
           t.type !== "footnote" &&
@@ -263,19 +253,19 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       )
 
       if (nextDisplayableIdx !== -1) {
-        return this.data.text[nextDisplayableIdx].type === "quote"
+        return this.data().text[nextDisplayableIdx].type === "quote"
       }
     }
 
-    return this.nextVerseStartsWithQuote
+    return this.nextVerseStartsWithQuote()
   }
 
   checkNextIsParagraph(i: number): boolean {
     const sectionText = this.getDataForSection(i).text
     const lastElementIndex = i + sectionText.length - 1
 
-    if (lastElementIndex + 1 < this.data.text.length) {
-      const nextDisplayableIdx = this.data.text.findIndex(
+    if (lastElementIndex + 1 < this.data().text.length) {
+      const nextDisplayableIdx = this.data().text.findIndex(
         (t, idx) =>
           idx > lastElementIndex &&
           t.type !== "footnote" &&
@@ -283,22 +273,23 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       )
 
       if (nextDisplayableIdx !== -1) {
-        return this.data.text[nextDisplayableIdx].type === "paragraph"
+        return this.data().text[nextDisplayableIdx].type === "paragraph"
       }
     }
     return false
   }
 
   private computeChapterNumberIndex(): number {
-    if (this.data.number !== 0) return -1
+    const data = this.data()
+    if (data.number !== 0) return -1
 
-    const hasS2 = this.data.text.some(
+    const hasS2 = data.text.some(
       (text) => text.type === "section" && text.tag === "s2",
     )
 
-    for (let i = 0; i < this.data.text.length; i++) {
-      const text = this.data.text[i]
-      const isLast = i === this.data.text.length - 1
+    for (let i = 0; i < data.text.length; i++) {
+      const text = data.text[i]
+      const isLast = i === data.text.length - 1
 
       if (
         (text.type === "section" && text.tag === "s2") ||
@@ -327,7 +318,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   getDataForSection(i: number) {
-    const afterText = this.data.text.slice(i)
+    const afterText = this.data().text.slice(i)
 
     const sectionText = []
 
@@ -341,7 +332,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       sectionText.push(afterText[index])
     }
 
-    return { ...this.data, text: sectionText }
+    return { ...this.data(), text: sectionText }
   }
 
   shouldShowParagraph(data: Verse, text: Paragraph, i: number): boolean {
@@ -357,10 +348,10 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   private computeParsedReferences(): Map<number, (string | BibleReference)[]> {
     const map = new Map<number, (string | BibleReference)[]>()
-    for (let i = 0; i < this.data.text.length; i++) {
-      const t = this.data.text[i]
+    for (let i = 0; i < this.data().text.length; i++) {
+      const t = this.data().text[i]
       if (t.type === "references") {
-        map.set(i, parseReferences(this.bibleRef, t.text, this.data.bookId))
+        map.set(i, parseReferences(this.bibleRef, t.text, this.data().bookId))
       }
     }
     return map
@@ -380,13 +371,13 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   toggleFootnotes(event?: Event): void {
-    const footnotes = this.data.text.filter((t) => t.type === "footnote")
+    const footnotes = this.data().text.filter((t) => t.type === "footnote")
     if (footnotes.length === 0) return
     // Auto-scroll would carry the verse away under the notes as they're read.
     // It stays stopped once they close: ▶ plays it on from there.
     this.autoScroll.stop()
     if (this.nativeFootnotes.enabled) {
-      this.nativeFootnotes.open(footnotes, this.data)
+      this.nativeFootnotes.open(footnotes, this.data())
       return
     }
     // Capture the marker that opened the sheet so we can restore focus to it
@@ -396,7 +387,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     // preventScroll keeps a11y intact without moving the page.
     const trigger = event?.currentTarget as HTMLElement | null
     const ref = this.bottomSheet.open(FootnotesBottomSheetComponent, {
-      data: { footnotes, verse: this.data },
+      data: { footnotes, verse: this.data() },
       restoreFocus: false,
     })
     this.backButton.closeOnBack(ref)
@@ -419,7 +410,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     const groups: DisplayGroup[] = []
     let currentGroup: DisplayGroup | null = null
 
-    this.data.text.forEach((text, originalIndex) => {
+    this.data().text.forEach((text, originalIndex) => {
       if (VerseComponent.isBlank(text)) return
 
       // Elements that should be considered continuation if they follow a quote

@@ -1,15 +1,13 @@
 import { TestBed } from "@angular/core/testing"
 import { App } from "@capacitor/app"
 import { Network } from "@capacitor/network"
-import { Share } from "@capacitor/share"
-import { LiveUpdate } from "@capawesome/capacitor-live-update"
+import type { LiveUpdate } from "@capawesome/capacitor-live-update"
 import {
   APP_PLUGIN,
   LIVE_UPDATE_BASE_URL,
   LIVE_UPDATE_PLUGIN,
   NATIVE_CHROME_PLUGIN,
   NETWORK_PLUGIN,
-  SHARE_PLUGIN,
 } from "./tokens"
 
 describe("plugin tokens", () => {
@@ -37,20 +35,10 @@ describe("plugin tokens", () => {
     expect(plugin.addListener).toBe(Network.addListener)
   })
 
-  it("should expose a noop ngOnDestroy for the Share plugin", () => {
-    const plugin = TestBed.inject(SHARE_PLUGIN) as typeof Share & {
-      ngOnDestroy?: () => void
-    }
-
-    expect(typeof plugin.ngOnDestroy).toBe("function")
-    expect(() => plugin.ngOnDestroy?.()).not.toThrow()
-    expect(typeof plugin.share).toBe("function")
-  })
-
   // Prerendering creates an injector per page; registering per injector made
   // Capacitor warn "already registered" 1420 times during the build.
   it("registers the NativeChrome plugin once, however many injectors use it", () => {
-    const warn = spyOn(console, "warn")
+    const warn = vi.spyOn(console, "warn").mockReturnValue(undefined)
     for (let i = 0; i < 3; i++) {
       TestBed.resetTestingModule()
       TestBed.configureTestingModule({})
@@ -58,7 +46,7 @@ describe("plugin tokens", () => {
     }
 
     expect(warn).not.toHaveBeenCalledWith(
-      jasmine.stringMatching(/NativeChrome.*already registered/),
+      expect.stringMatching(/NativeChrome.*already registered/),
     )
   })
 

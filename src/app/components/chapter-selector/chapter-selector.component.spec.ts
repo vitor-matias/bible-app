@@ -1,30 +1,24 @@
 import { CommonModule } from "@angular/common"
 import { Component, SimpleChange, ViewChild } from "@angular/core"
-import {
-  ComponentFixture,
-  fakeAsync,
-  flush,
-  TestBed,
-} from "@angular/core/testing"
+import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { MATERIAL_ANIMATIONS } from "@angular/material/core"
 import { MatIconModule } from "@angular/material/icon"
 import { MatListModule } from "@angular/material/list"
 import { MatDrawer, MatSidenavModule } from "@angular/material/sidenav"
 import { of } from "rxjs"
 import { BookmarkService } from "../../services/bookmark.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { ChapterSelectorComponent } from "./chapter-selector.component"
 
 describe("ChapterSelectorComponent", () => {
   let component: ChapterSelectorComponent
   let fixture: ComponentFixture<ChapterSelectorComponent>
-  let _bookmarkServiceSpy: jasmine.SpyObj<BookmarkService>
-
-  const _mockBookmarks = new Map<number, string>([[1, "#F44336"]])
+  let _bookmarkServiceSpy: SpyObj<BookmarkService>
 
   beforeEach(async () => {
-    const spy = jasmine.createSpyObj("BookmarkService", ["getBookmarksForBook"])
-    spy.getBookmarksForBook.and.returnValue(
-      of([{ bookId: "GEN", chapter: 1, color: "#F44336", timestamp: 123 }]),
+    const spy = createSpyObj("BookmarkService", ["getBookmarksForBook"])
+    spy.getBookmarksForBook.mockReturnValue(
+      of([{ bookId: "GEN", chapter: 1, color: "red", timestamp: 123 }]),
     )
 
     await TestBed.configureTestingModule({
@@ -41,13 +35,13 @@ describe("ChapterSelectorComponent", () => {
     component = fixture.componentInstance
     _bookmarkServiceSpy = TestBed.inject(
       BookmarkService,
-    ) as jasmine.SpyObj<BookmarkService>
+    ) as SpyObj<BookmarkService>
 
-    component.chapters = [
+    fixture.componentRef.setInput("chapters", [
       { bookId: "GEN", number: 1, title: "Creation" },
       { bookId: "GEN", number: 2, title: "Eden" },
-    ]
-    component.bookId = "GEN"
+    ])
+    fixture.componentRef.setInput("bookId", "GEN")
 
     // Manually trigger ngOnChanges to initialize bookmarks$
     component.ngOnChanges({
@@ -64,12 +58,14 @@ describe("ChapterSelectorComponent", () => {
   // ngAfterViewInit also runs while prerendering, where the server DOM has no
   // scrollIntoView — calling it there threw once per prerendered route.
   it("should not scroll straight from ngAfterViewInit", () => {
-    component.selectedChapter = 1
+    fixture.componentRef.setInput("selectedChapter", 1)
     fixture.detectChanges()
     expect(
       (fixture.nativeElement as HTMLElement).querySelector(".highlight"),
     ).toBeTruthy()
-    const scrollSpy = spyOn(Element.prototype, "scrollIntoView")
+    const scrollSpy = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockReturnValue(undefined)
 
     component.ngAfterViewInit()
 
@@ -102,15 +98,17 @@ describe("ChapterSelectorComponent", () => {
     // A fixture of its own: the shared one has already rendered, and
     // afterNextRender only fires for the render that follows registration.
     const freshFixture = TestBed.createComponent(ChapterSelectorComponent)
-    freshFixture.componentInstance.chapters = [
+    freshFixture.componentRef.setInput("chapters", [
       { bookId: "GEN", number: 1, title: "Creation" },
-    ]
-    freshFixture.componentInstance.bookId = "GEN"
-    freshFixture.componentInstance.selectedChapter = 1
+    ])
+    freshFixture.componentRef.setInput("bookId", "GEN")
+    freshFixture.componentRef.setInput("selectedChapter", 1)
     freshFixture.componentInstance.ngOnChanges({
       bookId: new SimpleChange(null, "GEN", true),
     })
-    const scrollSpy = spyOn(Element.prototype, "scrollIntoView")
+    const scrollSpy = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockReturnValue(undefined)
 
     freshFixture.detectChanges()
     await freshFixture.whenStable()
@@ -121,6 +119,32 @@ describe("ChapterSelectorComponent", () => {
     // Exactly once: ngAfterViewInit and ngOnChanges each schedule a deferred
     // scroll, and scheduling both would scroll twice per open.
     expect(scrollSpy).toHaveBeenCalledTimes(1)
+  })
+
+  // submit() used to assign the selectedChapter input; as a signal input it
+  // can't be written, so the highlight is a linkedSignal over it.
+  it("moves the highlight to a tapped chapter before the input follows", () => {
+    fixture.componentRef.setInput("chapters", [
+      { bookId: "GEN", number: 1, title: "Creation" },
+      { bookId: "GEN", number: 2, title: "Eden" },
+    ])
+    fixture.componentRef.setInput("selectedChapter", 1)
+    fixture.detectChanges()
+    const highlighted = () =>
+      Array.from<HTMLElement>(
+        fixture.nativeElement.querySelectorAll(".chapterSelectorButton"),
+      ).map((button) => button.classList.contains("highlight"))
+    expect(highlighted()).toEqual([true, false])
+
+    fixture.nativeElement.querySelectorAll(".chapterSelectorButton")[1].click()
+    fixture.detectChanges()
+    expect(highlighted()).toEqual([false, true])
+
+    // The input moving on takes the highlight with it.
+    fixture.componentRef.setInput("selectedChapter", 2)
+    fixture.componentRef.setInput("selectedChapter", 1)
+    fixture.detectChanges()
+    expect(highlighted()).toEqual([true, false])
   })
 
   it("should render bookmark icon for bookmarked chapters", () => {
@@ -141,20 +165,29 @@ describe("ChapterSelectorComponent", () => {
     expect(secondChapterButton.querySelector(".bookmarked")).toBeFalsy()
   })
 
-  it("should apply colored style to bookmark icon", () => {
-    const icon = (fixture.nativeElement as HTMLElement).querySelector(
-      ".bookmark-icon",
-    ) as HTMLElement
-    const styleAttr = icon.getAttribute("style") || ""
-    expect(styleAttr).toBeTruthy()
-    // Different environments might serialize style values differently (hex vs rgb).
-    // As long as the style attribute contains our color property, the binding is working.
-    const expectedHex = "#f44336"
-    const expectedRgb = "rgb(244, 67, 54)"
-    const hasColor =
-      styleAttr.toLowerCase().includes(expectedHex) ||
-      styleAttr.includes(expectedRgb)
-    expect(hasColor).toBeTrue()
+  // The theme's tone for the ribbon, not the stored name: a template bound
+  // to the stored colour would paint plain CSS red.
+  it("paints a ribbon in the theme's tone, its number on it", () => {
+    const host = fixture.nativeElement as HTMLElement
+    const icon = host.querySelector(".bookmark-icon") as HTMLElement
+    expect(icon.getAttribute("style")).toContain("var(--ribbon-red)")
+    expect(host.querySelector(".bookmarked.on-ribbon")).toBeTruthy()
+  })
+
+  // A colour stored before the ribbons is painted as stored, and its number
+  // keeps the text's colour: --ribbon-text is only right on the ribbons' tones.
+  it("leaves a colour from before the ribbons as it was", () => {
+    _bookmarkServiceSpy.getBookmarksForBook.mockReturnValue(
+      of([{ bookId: "EXO", chapter: 1, color: "gold", timestamp: 123 }]),
+    )
+    fixture.componentRef.setInput("bookId", "EXO")
+    fixture.detectChanges()
+
+    const host = fixture.nativeElement as HTMLElement
+    const icon = host.querySelector(".bookmark-icon") as HTMLElement
+    expect(icon.style.color).toBe("gold")
+    expect(host.querySelector(".bookmarked")).toBeTruthy()
+    expect(host.querySelector(".on-ribbon")).toBeFalsy()
   })
 
   // `font-size: large` is an absolute keyword: the chapter titles ignored the
@@ -188,8 +221,11 @@ describe("ChapterSelectorComponent", () => {
   template: `
     <mat-drawer-container>
       <mat-drawer mode="over">
-        <chapter-selector [chapters]="chapters" [selectedChapter]="2"
-          bookId="GEN"></chapter-selector>
+        <chapter-selector
+          [chapters]="chapters"
+          [selectedChapter]="2"
+          bookId="GEN"
+        ></chapter-selector>
       </mat-drawer>
     </mat-drawer-container>
   `,
@@ -199,15 +235,14 @@ class DrawerHostComponent {
     { bookId: "GEN", number: 1, title: "Creation" },
     { bookId: "GEN", number: 2, title: "Eden" },
   ]
-  @ViewChild(MatDrawer) drawer!: MatDrawer
+  @ViewChild(MatDrawer)
+  drawer!: MatDrawer
 }
 
 describe("ChapterSelectorComponent in the reader's drawer", () => {
   beforeEach(() => {
-    const bookmarks = jasmine.createSpyObj("BookmarkService", [
-      "getBookmarksForBook",
-    ])
-    bookmarks.getBookmarksForBook.and.returnValue(of([]))
+    const bookmarks = createSpyObj("BookmarkService", ["getBookmarksForBook"])
+    bookmarks.getBookmarksForBook.mockReturnValue(of([]))
     TestBed.configureTestingModule({
       imports: [DrawerHostComponent],
       providers: [
@@ -221,11 +256,14 @@ describe("ChapterSelectorComponent in the reader's drawer", () => {
   })
 
   // Reopening the drawer reuses the list, scrolled wherever it was left.
-  it("scrolls to the selected chapter each time the drawer opens", fakeAsync(() => {
+  it("scrolls to the selected chapter each time the drawer opens", async () => {
+    vi.useFakeTimers()
     const fixture = TestBed.createComponent(DrawerHostComponent)
-    const scrollSpy = spyOn(Element.prototype, "scrollIntoView")
+    const scrollSpy = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockReturnValue(undefined)
     fixture.detectChanges()
-    flush()
+    await vi.runAllTimersAsync()
     const drawer = fixture.componentInstance.drawer
     const selected = (fixture.nativeElement as HTMLElement).querySelector(
       ".highlight",
@@ -233,15 +271,15 @@ describe("ChapterSelectorComponent in the reader's drawer", () => {
     expect(selected?.textContent).toContain("Eden")
 
     drawer.open()
-    flush()
+    await vi.runAllTimersAsync()
     drawer.close()
-    flush()
+    await vi.runAllTimersAsync()
     drawer.open()
-    flush()
+    await vi.runAllTimersAsync()
 
     expect(scrollSpy).toHaveBeenCalledTimes(2)
     expect(
-      scrollSpy.calls.all().every((call) => call.object === selected),
+      scrollSpy.mock.contexts.every((context) => context === selected),
     ).toBe(true)
-  }))
+  })
 })

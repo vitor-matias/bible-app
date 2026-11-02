@@ -193,10 +193,8 @@ private final class BookListViewController: UICollectionViewController, UISearch
         guard !scrolledToCurrent else { return }
         scrolledToCurrent = true
         // Animated: this runs once the sheet or the Back transition has settled,
-        // so an unanimated scroll shows as a jump. Not to "Sobre a Bíblia",
-        // listed after Apocalipse: from there the reader is choosing where to
-        // start, and the list opens at Génesis, its tile still highlighted.
-        if let current = data.currentBook, current.id != "about",
+        // so an unanimated scroll shows as a jump.
+        if let current = data.currentBook,
            let indexPath = dataSource.indexPath(for: current) {
             collectionView.revealItem(at: indexPath)
         }
@@ -230,16 +228,17 @@ private final class BookListViewController: UICollectionViewController, UISearch
 
     private func show(filter: String) {
         let query = filter.trimmingCharacters(in: .whitespaces)
-        func matches(_ book: Book) -> Bool {
-            query.isEmpty || [book.label, book.name, book.abbreviation].contains {
-                $0.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+        // A group's own introduction is found by the group's name ("Pentateuco"), as on Android.
+        func matches(_ book: Book, in group: PassagePickerData.Group, of testament: PassagePickerData.Section) -> Bool {
+            query.isEmpty || [book.label, book.name, book.abbreviation, group.title, testament.title].contains {
+                $0?.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
             }
         }
 
         var snapshot = NSDiffableDataSourceSnapshot<String, Book>()
         for testament in data.sections {
             for group in testament.groups {
-                let books = group.books.filter(matches)
+                let books = group.books.filter { matches($0, in: group, of: testament) }
                 guard !books.isEmpty else { continue }
                 // The testament's own introduction sits under the testament's name.
                 let title = group.title ?? testament.title
@@ -310,7 +309,7 @@ private final class ChapterListViewController: UICollectionViewController {
                 detail: chapter.detail,
                 style: isIntro ? .body : .headline,
                 current: chapter.number == current,
-                ribbon: chapter.bookmark.flatMap(ribbonColor),
+                ribbon: chapter.bookmark.flatMap(chapter.number == current ? ribbonColorOnSelection : ribbonColor),
                 accessibilityLabel: Self.spokenLabel(for: chapter))
         }
         dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { view, indexPath, chapter in
@@ -368,12 +367,14 @@ private final class ChapterListViewController: UICollectionViewController {
 }
 
 /// A rounded tile: a book or a chapter number. The current one is filled with
-/// the text colour, inverted; a bookmarked chapter shows its ribbon colour as a dot.
+/// the text colour, inverted; a bookmarked chapter shows its ribbon colour as a
+/// dot, ringed in the sheet's colour so that it shows on either fill.
 private final class TileCell: UICollectionViewCell {
     private let label = UILabel()
     /// A second, smaller line: a psalm's liturgical number.
     private let detailLabel = UILabel()
     private let ribbon = UIView()
+    private let ribbonRing = UIView()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -394,18 +395,26 @@ private final class TileCell: UICollectionViewCell {
         lines.axis = .vertical
         lines.alignment = .fill
         lines.translatesAutoresizingMaskIntoConstraints = false
-        ribbon.layer.cornerRadius = 4
+        ribbon.layer.cornerRadius = 5
         ribbon.translatesAutoresizingMaskIntoConstraints = false
+        ribbonRing.layer.cornerRadius = 7
+        ribbonRing.backgroundColor = sheetBackground
+        ribbonRing.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(lines)
+        contentView.addSubview(ribbonRing)
         contentView.addSubview(ribbon)
         NSLayoutConstraint.activate([
             lines.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 6),
             lines.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -6),
             lines.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            ribbon.widthAnchor.constraint(equalToConstant: 8),
-            ribbon.heightAnchor.constraint(equalToConstant: 8),
-            ribbon.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6),
-            ribbon.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -6),
+            ribbonRing.widthAnchor.constraint(equalToConstant: 14),
+            ribbonRing.heightAnchor.constraint(equalToConstant: 14),
+            ribbonRing.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
+            ribbonRing.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -4),
+            ribbon.widthAnchor.constraint(equalToConstant: 10),
+            ribbon.heightAnchor.constraint(equalToConstant: 10),
+            ribbon.centerXAnchor.constraint(equalTo: ribbonRing.centerXAnchor),
+            ribbon.centerYAnchor.constraint(equalTo: ribbonRing.centerYAnchor),
         ])
         isAccessibilityElement = true
         accessibilityTraits = .button
@@ -426,6 +435,7 @@ private final class TileCell: UICollectionViewCell {
         contentView.backgroundColor = current ? ChromeViewController.selectionFill : tileBackground
         ribbon.backgroundColor = color
         ribbon.isHidden = color == nil
+        ribbonRing.isHidden = color == nil
         self.accessibilityLabel = accessibilityLabel
         accessibilityTraits = current ? [.button, .selected] : .button
     }

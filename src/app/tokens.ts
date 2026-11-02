@@ -4,11 +4,10 @@ import { App } from "@capacitor/app"
 import { registerPlugin, SystemBars } from "@capacitor/core"
 import { Haptics } from "@capacitor/haptics"
 import { Network } from "@capacitor/network"
-import { Share } from "@capacitor/share"
 import { SplashScreen } from "@capacitor/splash-screen"
 import { LiveUpdate } from "@capawesome/capacitor-live-update"
 import { appConfig } from "./config"
-import type { NativeChromePlugin } from "./services/native-chrome.service"
+import type { NativeChromePlugin } from "./services/native-chrome.types"
 
 function createNoopNgOnDestroyProxy<T extends object>(plugin: T): T {
   return new Proxy(plugin, {
@@ -36,14 +35,6 @@ export const NETWORK_PLUGIN = new InjectionToken<typeof Network>(
   {
     providedIn: "root",
     factory: () => createNoopNgOnDestroyProxy(Network),
-  },
-)
-
-export const SHARE_PLUGIN = new InjectionToken<typeof Share>(
-  "Capacitor Share Plugin",
-  {
-    providedIn: "root",
-    factory: () => createNoopNgOnDestroyProxy(Share),
   },
 )
 

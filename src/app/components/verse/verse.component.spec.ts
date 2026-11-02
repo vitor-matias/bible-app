@@ -6,11 +6,13 @@ import {
 } from "@angular/material/bottom-sheet"
 import { provideRouter } from "@angular/router"
 import { Subject } from "rxjs"
+import type { Mock } from "vitest"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { KeepAwakeService } from "../../services/keep-awake.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { VerseComponent } from "./verse.component"
 
 const TRANSPARENT = "rgba(0, 0, 0, 0)"
@@ -31,9 +33,14 @@ function makeVerse(overrides: Partial<Verse> = {}): Verse {
   }
 }
 
-function setData(component: VerseComponent, data: Verse): void {
-  const prev = component.data
-  component.data = data
+function setData(fixture: ComponentFixture<VerseComponent>, data: Verse): void {
+  const component = fixture.componentInstance
+  // A required input throws until it has a value.
+  let prev: Verse | undefined
+  try {
+    prev = component.data()
+  } catch {}
+  fixture.componentRef.setInput("data", data)
   component.ngOnChanges({
     data: new SimpleChange(prev, data, prev === undefined),
   })
@@ -42,14 +49,14 @@ function setData(component: VerseComponent, data: Verse): void {
 describe("VerseComponent", () => {
   let component: VerseComponent
   let fixture: ComponentFixture<VerseComponent>
-  let mockBibleRef: jasmine.SpyObj<BibleReferenceService>
+  let mockBibleRef: SpyObj<BibleReferenceService>
   let mockBottomSheet: MatBottomSheet
   let dismissed: Subject<void>
-  let dismissSheet: jasmine.Spy
+  let dismissSheet: Mock
 
   beforeEach(async () => {
-    mockBibleRef = jasmine.createSpyObj("BibleReferenceService", ["extract"])
-    mockBibleRef.extract.and.returnValue([])
+    mockBibleRef = createSpyObj("BibleReferenceService", ["extract"])
+    mockBibleRef.extract.mockReturnValue([])
 
     await TestBed.configureTestingModule({
       imports: [VerseComponent, MatBottomSheetModule],
@@ -61,31 +68,34 @@ describe("VerseComponent", () => {
 
     fixture = TestBed.createComponent(VerseComponent)
     component = fixture.componentInstance
-    mockBottomSheet = (component as unknown as { bottomSheet: MatBottomSheet })
-      .bottomSheet
+    mockBottomSheet = (
+      component as unknown as {
+        bottomSheet: MatBottomSheet
+      }
+    ).bottomSheet
     dismissed = new Subject<void>()
-    dismissSheet = jasmine.createSpy("dismiss")
-    spyOn(mockBottomSheet, "open").and.returnValue({
+    dismissSheet = vi.fn().mockName("dismiss")
+    vi.spyOn(mockBottomSheet, "open").mockReturnValue({
       dismiss: dismissSheet,
       afterDismissed: () => dismissed.asObservable(),
     } as unknown as ReturnType<MatBottomSheet["open"]>)
   })
 
   it("should create", () => {
-    setData(component, makeVerse())
+    setData(fixture, makeVerse())
     fixture.detectChanges()
     expect(component).toBeTruthy()
   })
 
   describe("ngOnChanges — chapterNumberDisplayIndex", () => {
     it("should be -1 for regular verses (number > 0)", () => {
-      setData(component, makeVerse({ number: 5 }))
+      setData(fixture, makeVerse({ number: 5 }))
       expect(component.chapterNumberDisplayIndex).toBe(-1)
     })
 
     it("should target s2 section index for verse 0 with s2 section", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           number: 0,
           text: [
@@ -104,7 +114,7 @@ describe("VerseComponent", () => {
 
     it("should target last element for verse 0 without s2 section", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           number: 0,
           text: [
@@ -118,7 +128,7 @@ describe("VerseComponent", () => {
 
     it("should target the first s2 if multiple s2 sections exist", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           number: 0,
           text: [
@@ -147,7 +157,7 @@ describe("VerseComponent", () => {
   describe("ngOnChanges — hasFootnotes", () => {
     it("should be false when no footnotes present", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [{ type: "text", text: "plain text" }],
         }),
@@ -157,7 +167,7 @@ describe("VerseComponent", () => {
 
     it("should be true when footnotes are present", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "text", text: "some text" },
@@ -171,10 +181,10 @@ describe("VerseComponent", () => {
 
   describe("ngOnChanges — parsedReferences", () => {
     it("should pre-compute references for text entries of type references", () => {
-      mockBibleRef.extract.and.returnValue([])
+      mockBibleRef.extract.mockReturnValue([])
 
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "text", text: "verse text" },
@@ -189,7 +199,7 @@ describe("VerseComponent", () => {
 
     it("should not compute references for non-reference text types", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "text", text: "plain" },
@@ -205,7 +215,7 @@ describe("VerseComponent", () => {
   describe("getFirstTextType", () => {
     it("should return the type of the first non-footnote, non-references element", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "footnote", text: "note", reference: "a" },
@@ -223,7 +233,7 @@ describe("VerseComponent", () => {
 
     it("should return undefined when all elements are footnotes or references", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "footnote", text: "note", reference: "a" },
@@ -238,7 +248,7 @@ describe("VerseComponent", () => {
   describe("isFirstDisplayableElement", () => {
     it("should return true for the first displayable element index", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "footnote", text: "note", reference: "a" },
@@ -260,7 +270,7 @@ describe("VerseComponent", () => {
         { type: "section", tag: "s2", text: "title" },
         { type: "text", text: "in section" },
       ]
-      setData(component, makeVerse({ text: data }))
+      setData(fixture, makeVerse({ text: data }))
       expect(component.isInSection(data, 1)).toBe(true)
     })
 
@@ -273,7 +283,7 @@ describe("VerseComponent", () => {
           text: "after paragraph",
         },
       ]
-      setData(component, makeVerse({ text: data }))
+      setData(fixture, makeVerse({ text: data }))
       expect(component.isInSection(data, 2)).toBe(false)
     })
 
@@ -287,7 +297,7 @@ describe("VerseComponent", () => {
         },
         { type: "text", text: "after quote" },
       ]
-      setData(component, makeVerse({ text: data }))
+      setData(fixture, makeVerse({ text: data }))
       expect(component.isInSection(data, 2)).toBe(false)
     })
 
@@ -296,7 +306,7 @@ describe("VerseComponent", () => {
         { type: "text", text: "just text" },
         { type: "text", text: "more text" },
       ]
-      setData(component, makeVerse({ text: data }))
+      setData(fixture, makeVerse({ text: data }))
       expect(component.isInSection(data, 1)).toBe(false)
     })
   })
@@ -304,7 +314,7 @@ describe("VerseComponent", () => {
   describe("getDataForSection", () => {
     it("should collect elements until a paragraph is found", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             {
@@ -330,7 +340,7 @@ describe("VerseComponent", () => {
 
     it("should break on quote type (except at index 0)", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             {
@@ -358,7 +368,7 @@ describe("VerseComponent", () => {
 
     it("should include quote at index 0 of sliced array", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             {
@@ -379,7 +389,7 @@ describe("VerseComponent", () => {
 
     it("should preserve verse metadata in returned data", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           bookId: "psa",
           chapterNumber: 23,
@@ -401,7 +411,7 @@ describe("VerseComponent", () => {
   describe("checkNextIsQuote", () => {
     it("should return true when next displayable element after section is a quote", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "text", text: "first" },
@@ -414,7 +424,7 @@ describe("VerseComponent", () => {
           ],
         }),
       )
-      component.nextVerseStartsWithQuote = false
+      fixture.componentRef.setInput("nextVerseStartsWithQuote", false)
 
       // getDataForSection(0) => [text] (breaks on quote at index > 0)
       // lastElementIndex = 0 + 1 - 1 = 0
@@ -425,7 +435,7 @@ describe("VerseComponent", () => {
 
     it("should return false when next displayable element is a paragraph", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "text", text: "first" },
@@ -438,7 +448,7 @@ describe("VerseComponent", () => {
           ],
         }),
       )
-      component.nextVerseStartsWithQuote = false
+      fixture.componentRef.setInput("nextVerseStartsWithQuote", false)
 
       // getDataForSection(0) => [text] (breaks on paragraph)
       // lastElementIndex = 0 + 1 - 1 = 0
@@ -448,7 +458,7 @@ describe("VerseComponent", () => {
 
     it("should fall back to nextVerseStartsWithQuote when no more elements", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             {
@@ -458,14 +468,14 @@ describe("VerseComponent", () => {
           ],
         }),
       )
-      component.nextVerseStartsWithQuote = true
+      fixture.componentRef.setInput("nextVerseStartsWithQuote", true)
 
       expect(component.checkNextIsQuote(0)).toBe(true)
     })
 
     it("should return false when next element is not a quote", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "text", text: "first" },
@@ -477,7 +487,7 @@ describe("VerseComponent", () => {
           ],
         }),
       )
-      component.nextVerseStartsWithQuote = false
+      fixture.componentRef.setInput("nextVerseStartsWithQuote", false)
 
       expect(component.checkNextIsQuote(0)).toBe(false)
     })
@@ -492,7 +502,7 @@ describe("VerseComponent", () => {
           { type: "paragraph", text: " " },
         ],
       })
-      setData(component, data)
+      setData(fixture, data)
 
       expect(
         component.shouldShowParagraph(data, data.text[1] as Paragraph, 1),
@@ -512,7 +522,7 @@ describe("VerseComponent", () => {
           { type: "paragraph", text: " " },
         ],
       })
-      setData(component, data)
+      setData(fixture, data)
 
       expect(
         component.shouldShowParagraph(data, data.text[1] as Paragraph, 1),
@@ -531,7 +541,7 @@ describe("VerseComponent", () => {
           { type: "paragraph", text: " " },
         ],
       })
-      setData(component, data)
+      setData(fixture, data)
 
       expect(
         component.shouldShowParagraph(data, data.text[1] as Paragraph, 1),
@@ -546,7 +556,7 @@ describe("VerseComponent", () => {
           { type: "paragraph", text: " " },
         ],
       })
-      setData(component, data)
+      setData(fixture, data)
 
       expect(
         component.shouldShowParagraph(data, data.text[1] as Paragraph, 1),
@@ -557,7 +567,7 @@ describe("VerseComponent", () => {
   describe("a11y — text body tabindex and role", () => {
     it("should not render tabindex or role on text span when verse has no footnotes", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [{ type: "text", text: "plain" }],
         }),
@@ -571,7 +581,7 @@ describe("VerseComponent", () => {
 
     it("should render tabindex and role on text span when verse has footnotes", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "text", text: "verse text" },
@@ -590,7 +600,7 @@ describe("VerseComponent", () => {
     // keyboard user couldn't tell which verse had the focus.
     it("shows where the keyboard's focus is on the text", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "text", text: "verse text" },
@@ -605,7 +615,7 @@ describe("VerseComponent", () => {
 
       text.focus()
 
-      expect(text.matches(":focus-visible")).toBeTrue()
+      expect(text.matches(":focus-visible")).toBe(true)
       const style = getComputedStyle(text)
       expect(style.outlineStyle).toBe("solid")
       expect(style.outlineColor).toBe(style.color)
@@ -623,7 +633,7 @@ describe("VerseComponent", () => {
 
     it("should mark the text run so the stroke can be painted on it", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [{ type: "text", text: "plain" }],
         }),
@@ -639,7 +649,7 @@ describe("VerseComponent", () => {
 
     it("should leave the run unpainted while the verse is not highlighted", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [{ type: "text", text: "plain" }],
         }),
@@ -654,7 +664,7 @@ describe("VerseComponent", () => {
 
     it("should never paint the inline host, whose line fragments would colour the gaps between verses", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [{ type: "text", text: "plain" }],
         }),
@@ -668,7 +678,7 @@ describe("VerseComponent", () => {
 
     it("should paint the verse number so it is not left out of the stroke", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           number: 2,
           text: [{ type: "text", text: "plain" }],
@@ -684,7 +694,7 @@ describe("VerseComponent", () => {
 
     it("should wrap the space in front of a verse number in a run so the stroke does not break", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           number: 2,
           text: [{ type: "text", text: "plain" }],
@@ -701,7 +711,7 @@ describe("VerseComponent", () => {
 
     it("should paint a poetry verse number once, on the wrapper rather than on both it and its digits", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           number: 3,
           text: [
@@ -725,7 +735,7 @@ describe("VerseComponent", () => {
 
     function withFootnote(): HTMLElement {
       setData(
-        component,
+        fixture,
         makeVerse({
           number: 2,
           text: [
@@ -763,7 +773,7 @@ describe("VerseComponent", () => {
 
     it("should wrap the space before a references block so the stroke does not break", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "text", text: "plain" },
@@ -782,7 +792,7 @@ describe("VerseComponent", () => {
 
     it("should wrap the space after a line of poetry so the stroke does not break", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           number: 3,
           text: [
@@ -808,7 +818,7 @@ describe("VerseComponent", () => {
 
     it("should not paint the quote line wrapper, whose box extends past the end of the line", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           number: 3,
           text: [
@@ -830,10 +840,14 @@ describe("VerseComponent", () => {
   })
 
   describe("what a tap on a verse with notes opens", () => {
-    const footnote = { type: "footnote" as const, text: "note", reference: "1" }
+    const footnote = {
+      type: "footnote" as const,
+      text: "note",
+      reference: "1",
+    }
     const render = () => {
       setData(
-        component,
+        fixture,
         makeVerse({ text: [{ type: "text", text: "No princípio" }, footnote] }),
       )
       fixture.detectChanges()
@@ -846,7 +860,9 @@ describe("VerseComponent", () => {
       fixture.nativeElement.querySelector(".footnoteIndicator") as HTMLElement
     // Reading hands-free: ▶ pressed in the reader.
     const play = () => {
-      spyOn(TestBed.inject(KeepAwakeService), "start")
+      vi.spyOn(TestBed.inject(KeepAwakeService), "start").mockReturnValue(
+        undefined,
+      )
       const autoScroll = TestBed.inject(AutoScrollService)
       autoScroll.start({ scrollElement: document.createElement("div") })
       return autoScroll
@@ -854,20 +870,12 @@ describe("VerseComponent", () => {
 
     afterEach(() => TestBed.inject(AutoScrollService).stop())
 
-    // Before, it was in the text's colour, and read as a stray mark.
-    it("shows the asterisk underlined in the text's accent, as a link", () => {
+    it("marks them with a labelled icon, not an asterisk", () => {
       render()
-      const accent = getComputedStyle(document.documentElement)
-        .getPropertyValue("--text-secondary")
-        .trim()
-      const probe = document.createElement("span")
-      probe.style.color = accent
-      document.body.appendChild(probe)
-      expect(getComputedStyle(asterisk()).color).toBe(
-        getComputedStyle(probe).color,
-      )
-      expect(getComputedStyle(asterisk()).textDecorationLine).toBe("underline")
-      probe.remove()
+
+      expect(asterisk().querySelector("svg.noteIcon")).toBeTruthy()
+      expect(asterisk().textContent?.trim()).toBe("")
+      expect(asterisk().getAttribute("aria-label")).toBe("Notas do versículo 1")
     })
 
     it("opens the notes from the text on the web", () => {
@@ -885,17 +893,17 @@ describe("VerseComponent", () => {
       text().click()
 
       expect(mockBottomSheet.open).toHaveBeenCalled()
-      expect(autoScroll.autoScrollEnabled).toBeFalse()
+      expect(autoScroll.autoScrollEnabled).toBe(false)
     })
 
     // There a tap on the text shows or hides the bars (NativeChromeService).
     describe("in the iOS app", () => {
-      let open: jasmine.Spy
+      let open: Mock
 
       beforeEach(() => {
         const native = TestBed.inject(NativeFootnotesService)
-        spyOnProperty(native, "enabled").and.returnValue(true)
-        open = spyOn(native, "open")
+        vi.spyOn(native, "enabled", "get").mockReturnValue(true)
+        open = vi.spyOn(native, "open").mockReturnValue(undefined)
         document.body.classList.add("native-chrome")
         render()
       })
@@ -925,25 +933,14 @@ describe("VerseComponent", () => {
         asterisk().click()
 
         expect(open).toHaveBeenCalled()
-        expect(autoScroll.autoScrollEnabled).toBeFalse()
+        expect(autoScroll.autoScrollEnabled).toBe(false)
       })
 
       it("plays on through a tap on the text, which opens nothing", () => {
         const autoScroll = play()
         text().click()
 
-        expect(autoScroll.autoScrollEnabled).toBeTrue()
-      })
-
-      it("marks them with a labelled icon, not an asterisk", () => {
-        const marker = asterisk()
-
-        expect(marker.querySelector("svg.noteIcon")).toBeTruthy()
-        expect(marker.textContent?.trim()).toBe("")
-        expect(marker.getAttribute("aria-label")).toBe("Notas do versículo 1")
-        expect(marker.querySelector("svg")?.getAttribute("aria-hidden")).toBe(
-          "true",
-        )
+        expect(autoScroll.autoScrollEnabled).toBe(true)
       })
 
       // VoiceOver read every marker as "Notas": nothing told one verse's
@@ -971,7 +968,7 @@ describe("VerseComponent", () => {
         )
       })
 
-      // The asterisk wore the accent; on iOS the icon is the text's colour.
+      // The icon is the text's colour.
       it("draws the icon in the text's colour", () => {
         const icon = asterisk().querySelector("svg") as SVGElement
         const probe = document.createElement("span")
@@ -1012,14 +1009,6 @@ describe("VerseComponent", () => {
         )
       })
     })
-
-    it("keeps the asterisk outside the iOS app", () => {
-      render()
-
-      expect(asterisk().textContent?.trim()).toBe("＊")
-      expect(asterisk().querySelector("svg")).toBeNull()
-      expect(asterisk().hasAttribute("aria-label")).toBeFalse()
-    })
   })
 
   // Leaflets at Mass number most psalms one lower; the edition prints both.
@@ -1036,18 +1025,18 @@ describe("VerseComponent", () => {
       fixture.nativeElement.querySelector(".liturgicalNumber") as HTMLElement
 
     it("carries the liturgical number under it", () => {
-      setData(component, opening("psa", 23))
+      setData(fixture, opening("psa", 23))
       fixture.detectChanges()
 
       expect(liturgical().textContent?.trim()).toBe("na liturgia, (22)")
     })
 
     it("carries none where the numberings agree, or outside the Psalms", () => {
-      setData(component, opening("psa", 150))
+      setData(fixture, opening("psa", 150))
       fixture.detectChanges()
       expect(liturgical()).toBeNull()
 
-      setData(component, opening("gen", 23))
+      setData(fixture, opening("gen", 23))
       fixture.detectChanges()
       expect(liturgical()).toBeNull()
     })
@@ -1057,8 +1046,8 @@ describe("VerseComponent", () => {
     // The iOS app shows them in a native sheet instead.
     it("opens the native sheet in the iOS app", () => {
       const native = TestBed.inject(NativeFootnotesService)
-      spyOnProperty(native, "enabled").and.returnValue(true)
-      const open = spyOn(native, "open")
+      vi.spyOn(native, "enabled", "get").mockReturnValue(true)
+      const open = vi.spyOn(native, "open").mockReturnValue(undefined)
       const footnote = {
         type: "footnote" as const,
         text: "note",
@@ -1067,7 +1056,7 @@ describe("VerseComponent", () => {
       const verse = makeVerse({
         text: [{ type: "text", text: "verse" }, footnote],
       })
-      setData(component, verse)
+      setData(fixture, verse)
 
       component.toggleFootnotes()
 
@@ -1077,7 +1066,7 @@ describe("VerseComponent", () => {
 
     it("should open bottom sheet when footnotes exist", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "text", text: "verse" },
@@ -1092,7 +1081,7 @@ describe("VerseComponent", () => {
 
     it("lets the Android back button dismiss the footnotes sheet", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "text", text: "verse" },
@@ -1102,13 +1091,13 @@ describe("VerseComponent", () => {
       )
       component.toggleFootnotes()
 
-      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(true)
       expect(dismissSheet).toHaveBeenCalled()
     })
 
     it("should not open bottom sheet when no footnotes", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [{ type: "text", text: "verse" }],
         }),
@@ -1120,7 +1109,7 @@ describe("VerseComponent", () => {
 
     it("should disable restoreFocus and refocus the trigger without scrolling on dismiss", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "text", text: "verse" },
@@ -1130,15 +1119,15 @@ describe("VerseComponent", () => {
       )
 
       const trigger = document.createElement("span")
-      const focusSpy = spyOn(trigger, "focus")
+      const focusSpy = vi.spyOn(trigger, "focus").mockReturnValue(undefined)
 
       component.toggleFootnotes({ currentTarget: trigger } as unknown as Event)
 
       // Material's own restore-focus scrolls the marker into view, which jumps
       // the reader to the chapter start in paged mode — so we opt out of it.
       expect(mockBottomSheet.open).toHaveBeenCalledWith(
-        jasmine.anything(),
-        jasmine.objectContaining({ restoreFocus: false }),
+        expect.anything(),
+        expect.objectContaining({ restoreFocus: false }),
       )
       // Focus is only restored after the sheet closes, and without scrolling.
       expect(focusSpy).not.toHaveBeenCalled()
@@ -1195,7 +1184,7 @@ describe("VerseComponent", () => {
     }
 
     it("drops an empty element instead of printing a blank line for it", () => {
-      setData(component, psalmVerse())
+      setData(fixture, psalmVerse())
 
       const rendered = component.displayGroups.flatMap((group) =>
         group.elements.map((element) => element.originalIndex),
@@ -1205,7 +1194,7 @@ describe("VerseComponent", () => {
     })
 
     it("keeps a prose run on one line, breaking only before the poetry", () => {
-      setData(component, psalmVerse())
+      setData(fixture, psalmVerse())
       fixture.detectChanges()
 
       // Every quote group brings its own break, so the prose needs none of
@@ -1213,11 +1202,11 @@ describe("VerseComponent", () => {
       // line, with nothing breaking between them.
       const wrapper = fixture.nativeElement.querySelector(".quoteLineWrapper")
       expect(wrapper.querySelectorAll("br").length).toBe(0)
-      expect(hasBlankLine(fixture.nativeElement)).toBeFalse()
+      expect(hasBlankLine(fixture.nativeElement)).toBe(false)
     })
 
     it("renders that verse as a single line of prose", () => {
-      setData(component, psalmVerse())
+      setData(fixture, psalmVerse())
       fixture.detectChanges()
 
       const wrapper = fixture.nativeElement.querySelector(".quoteLineWrapper")
@@ -1230,7 +1219,7 @@ describe("VerseComponent", () => {
       // Psalm 1,3 ends on one: its text is just a newline, but dropping it
       // ran the next paragraph on into the end of this verse.
       setData(
-        component,
+        fixture,
         makeVerse({
           number: 3,
           text: [
@@ -1251,7 +1240,7 @@ describe("VerseComponent", () => {
 
     it("still starts poetry on its own line after prose", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           number: 1,
           text: [
@@ -1267,7 +1256,7 @@ describe("VerseComponent", () => {
 
       // The quote group brings the break itself, so the poetry starts on a
       // new line with no blank one in front of it.
-      expect(hasBlankLine(fixture.nativeElement)).toBeFalse()
+      expect(hasBlankLine(fixture.nativeElement)).toBe(false)
     })
   })
 
@@ -1294,8 +1283,20 @@ describe("VerseComponent", () => {
       return host.parentElement?.getBoundingClientRect().width ?? 0
     }
 
+    // The Android bar names the section being read (NativeChromeService).
+    it("marks its heading as a section heading", () => {
+      setData(fixture, deuteronomy1v5())
+      fixture.detectChanges()
+
+      const heading = fixture.nativeElement.querySelector(
+        "[data-section-heading]",
+      ) as HTMLElement
+      expect(heading.tagName).toBe("H3")
+      expect(heading.textContent).toContain("1. Recordação do passado")
+    })
+
     it("sets a heading as an inline-block a line wide", () => {
-      setData(component, deuteronomy1v5())
+      setData(fixture, deuteronomy1v5())
       fixture.detectChanges()
 
       const heading = fixture.nativeElement.querySelector("h3") as HTMLElement
@@ -1304,7 +1305,7 @@ describe("VerseComponent", () => {
     })
 
     it("sets its references as an inline-block a line wide", () => {
-      setData(component, deuteronomy1v5())
+      setData(fixture, deuteronomy1v5())
       fixture.detectChanges()
 
       const references = fixture.nativeElement.querySelector(
@@ -1321,7 +1322,7 @@ describe("VerseComponent", () => {
     // drop-cap number; a line-wide box would drop below it.
     it("keeps references beside the chapter number a block", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           bookId: "pro",
           chapterNumber: 25,
@@ -1344,7 +1345,7 @@ describe("VerseComponent", () => {
 
     it("tells a centred heading whether the chapter number floats beside it", () => {
       setData(
-        component,
+        fixture,
         makeVerse({
           number: 0,
           verseLabel: "0",
@@ -1375,7 +1376,7 @@ describe("VerseComponent", () => {
     host.style.textAlign = "justify"
     host.style.hyphens = "auto"
     setData(
-      component,
+      fixture,
       makeVerse({
         number: 10,
         text: [

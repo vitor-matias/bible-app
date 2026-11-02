@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material Symbols Rounded "grid_on", as the web app's icons. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+        <path
+            android:fillColor="@android:color/black"
+            android:pathData="M180 -120Q156 -120 138 -138Q120 -156 120 -180V-780Q120 -804 138 -822Q156 -840 180 -840H780Q804 -840 822 -822Q840 -804 840 -780V-180Q840 -156 822 -138Q804 -120 780 -120ZM180 -180H340V-340H180V-180Q180 -180 180 -180Q180 -180 180 -180ZM400 -180H560V-340H400ZM620 -180H780Q780 -180 780 -180Q780 -180 780 -180V-340H620ZM180 -400H340V-560H180ZM400 -400H560V-560H400ZM620 -400H780V-560H620ZM180 -620H340V-780H180Q180 -780 180 -780Q180 -780 180 -780ZM400 -620H560V-780H400ZM620 -620H780V-780Q780 -780 780 -780Q780 -780 780 -780H620Z" />
+    </group>
+</vector>

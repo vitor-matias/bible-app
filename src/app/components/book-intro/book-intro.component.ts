@@ -2,7 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   forwardRef,
-  Input,
+  input,
   type OnChanges,
 } from "@angular/core"
 
@@ -26,13 +26,12 @@ type IntroDisplayElement =
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BookIntroComponent implements OnChanges {
-  @Input()
-  introduction: IntroElement[] = []
+  readonly introduction = input<IntroElement[]>([])
 
   displayElements: IntroDisplayElement[] = []
 
   ngOnChanges(): void {
-    this.displayElements = this.buildDisplayElements(this.introduction)
+    this.displayElements = this.buildDisplayElements(this.introduction())
   }
 
   /**

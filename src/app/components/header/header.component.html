@@ -14,7 +14,7 @@
           <button type="button" mat-menu-item class="menu-control" (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" matTooltipPosition="above" [attr.aria-label]="getThemeTooltip()">
             <mat-icon>{{ getThemeIcon() }}</mat-icon>
           </button>
-          @if (book.id !== 'about') {
+          @if (book().id !== 'about') {
           <button type="button" mat-menu-item class="menu-control" (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" matTooltipPosition="above" [attr.aria-label]="getViewModeTooltip()">
             <mat-icon>{{ getViewModeIcon() }}</mat-icon>
           </button>
@@ -31,10 +31,10 @@
           <mat-icon>bookmarks</mat-icon>
           <span>Marcadores</span>
         </button>
-        <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode === 'paged'">
-          <mat-icon>auto_mode</mat-icon>
+        <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode() === 'paged'">
+          <mat-icon>arrow_circle_down</mat-icon>
           <span>
-            {{ autoScrollControlsVisible
+            {{ autoScrollControlsVisible()
             ? 'Esconder controlos de deslocamento automático'
             : 'Mostrar controlos de deslocamento automático' }}
           </span>
@@ -45,16 +45,20 @@
           <span>Partilhar</span>
         </button>
         }
-        @if (analyticsService.areAnalyticsAvailable()) {
-          <button type="button" mat-menu-item (click)="onReportProblem(menuTrigger)">
-            <mat-icon>report_problem</mat-icon>
-            <span>Reportar Erro</span>
-          </button>
-        }
         <button type="button" mat-menu-item (click)="onOpenHelp(menuTrigger)">
           <mat-icon>help</mat-icon>
           <span>Como usar a app</span>
         </button>
+        <button type="button" mat-menu-item (click)="onOpenAbout(menuTrigger)">
+          <mat-icon>info</mat-icon>
+          <span>Sobre a Bíblia</span>
+        </button>
+        @if (analyticsService.areAnalyticsAvailable()) {
+          <button type="button" mat-menu-item (click)="onReportProblem(menuTrigger)">
+            <mat-icon>report_problem</mat-icon>
+            <span>Reportar erro</span>
+          </button>
+        }
         <a mat-menu-item [href]="privacyPolicyUrl" target="_blank" rel="noopener noreferrer">
           <mat-icon>privacy_tip</mat-icon>
           <span class="privacy-label">
@@ -85,7 +89,7 @@
           (click)="showBookSelector(); bookToggle.checked = false"
           (keydown.enter)="showBookSelector(); bookToggle.checked = false">
 
-          @if (book.id === 'about') {
+          @if (book().id === 'about') {
           <!-- One element with swapped text: a second, stacked label would put
                "Escolher Livro" inside the page's h1. -->
           <span class="cycle-wrapper">
@@ -97,13 +101,13 @@
         </mat-button-toggle>
 
         <!-- Standalone introductions have no chapters to pick. -->
-        @if(book.id !== 'about' && !book.introSlug){
+        @if(book().id !== 'about' && !book().introSlug){
         <mat-button-toggle #chapterToggle mat-flat-button matTooltip="Escolher capítulo"
           class="bookSelectorButtonContent" (click)="showChapterSelector(); chapterToggle.checked = false">
           {{ chapterLabel }}
           <!-- The ribbon on this chapter, as it hangs from a printed Bible. -->
           @if (bookmarkName) {
-          <mat-icon class="chapter-ribbon" [style.color]="currentBookmark?.color" aria-hidden="true">bookmark</mat-icon>
+          <mat-icon class="chapter-ribbon" [style.color]="ribbonColor(currentBookmark?.color, 'light')" aria-hidden="true">bookmark</mat-icon>
           <span class="visually-hidden">, marcador {{ bookmarkName.toLocaleLowerCase('pt') }}</span>
           }
         </mat-button-toggle>

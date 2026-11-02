@@ -1,11 +1,11 @@
 import {
   Directive,
   ElementRef,
-  EventEmitter,
-  Input,
+  inject,
+  input,
   type OnDestroy,
   type OnInit,
-  Output,
+  output,
   Renderer2,
 } from "@angular/core"
 import { PreferencesService } from "../services/preferences.service"
@@ -18,6 +18,16 @@ const MIN_FONT_SIZE = 70
  */
 const MAX_FONT_SIZE = 235
 const FONT_STEP = 5
+
+/** The text size's range, for a control that shows it (the Android app's sheet). */
+export interface TextSize {
+  /** Percent of the standard size. */
+  percent: number
+  min: number
+  max: number
+  /** Not at the size the text opens at without a choice of the reader's. */
+  canReset: boolean
+}
 
 /**
  * The text size (%) a reader opens at: the one chosen in the app; until one
@@ -48,13 +58,22 @@ export function startingFontSize(
   exportAs: "unifiedGestures",
 })
 export class UnifiedGesturesDirective implements OnInit, OnDestroy {
-  @Output() swipeLeft = new EventEmitter<void>()
-  @Output() swipeRight = new EventEmitter<void>()
+  private el = inject(ElementRef)
+  private renderer = inject(Renderer2)
+  private preferencesService = inject(PreferencesService)
+  private systemTextSize = inject(SystemTextSizeService)
+
+  readonly swipeLeft = output<void>()
+  readonly swipeRight = output<void>()
   /** A sideways drag under way: how far (px) the finger is from where it came down. */
-  @Output() swipeMove = new EventEmitter<number>()
+  readonly swipeMove = output<number>()
   /** A sideways drag let go without turning: whatever followed it goes back. */
-  @Output() swipeCancel = new EventEmitter<void>()
-  @Output() pinchZoom = new EventEmitter<{ scale: number }>()
+  readonly swipeCancel = output<void>()
+  readonly pinchZoom = output<{
+    scale: number
+  }>()
+  /** The text size, as it opens and whenever it changes. */
+  readonly textSizeChange = output<TextSize>()
 
   private readonly BASE_FONT_SIZE = 100
   private currentFontSize: number
@@ -95,14 +114,9 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   private readonly boundTouchMove = this.onTouchMove.bind(this)
   private readonly boundTouchEnd = this.onTouchEnd.bind(this)
   private readonly boundTouchCancel = this.onTouchCancel.bind(this)
-  @Input() fontSizeContext?: string
+  readonly fontSizeContext = input<string>()
 
-  constructor(
-    private el: ElementRef,
-    private renderer: Renderer2,
-    private preferencesService: PreferencesService,
-    private systemTextSize: SystemTextSizeService,
-  ) {
+  constructor() {
     this.currentFontSize = this.BASE_FONT_SIZE
   }
 
@@ -122,6 +136,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     }
 
     this.lastScale = this.currentFontSize / this.BASE_FONT_SIZE
+    this.emitTextSize()
 
     // Let the element keep its own scroll behavior while we take ownership of
     // custom swipe and pinch gestures.
@@ -325,6 +340,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
       this.currentFontSize,
       this.getFontSizeContext(),
     )
+    this.emitTextSize()
   }
 
   private getDistance(touch1: Touch, touch2: Touch): number {
@@ -333,12 +349,52 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     return Math.sqrt(dx * dx + dy * dy)
   }
 
-  public increaseFontSize(): void {
-    this.adjustFontSize(this.FONT_STEP)
+  /**
+   * A size up. A larger `step` (the Android app's 10) lands on its own grid,
+   * so 105 goes to 110 rather than 115. The grid is taken from the size as
+   * shown: a pinch leaves sizes like 119.6, shown as 120, which would
+   * otherwise step to 120 and seem not to move.
+   */
+  public increaseFontSize(step: number = this.FONT_STEP): void {
+    const shown = Math.round(this.currentFontSize)
+    this.adjustFontSize(
+      (Math.floor(shown / step) + 1) * step - this.currentFontSize,
+    )
   }
 
-  public decreaseFontSize(): void {
-    this.adjustFontSize(-this.FONT_STEP)
+  public decreaseFontSize(step: number = this.FONT_STEP): void {
+    const shown = Math.round(this.currentFontSize)
+    this.adjustFontSize(
+      (Math.ceil(shown / step) - 1) * step - this.currentFontSize,
+    )
+  }
+
+  /** Back to the size the text opens at without a choice: standard, or the system's. */
+  public resetFontSize(): void {
+    this.preferencesService.clearFontSize(this.getFontSizeContext())
+    const size = this.defaultFontSize()
+    this.setFontSize(size)
+    this.currentFontSize = size
+    this.lastScale = size / this.BASE_FONT_SIZE
+    this.emitTextSize()
+  }
+
+  private defaultFontSize(): number {
+    return (
+      startingFontSize(null, () => this.systemTextSize.percent()) ??
+      this.BASE_FONT_SIZE
+    )
+  }
+
+  private emitTextSize(): void {
+    this.textSizeChange.emit({
+      percent: Math.round(this.currentFontSize),
+      min: this.MIN_FONT_SIZE,
+      max: this.MAX_FONT_SIZE,
+      // A size of the reader's own: without one the text is at its default.
+      canReset:
+        this.preferencesService.getFontSize(this.getFontSizeContext()) !== null,
+    })
   }
 
   private adjustFontSize(delta: number): void {
@@ -354,6 +410,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
       this.currentFontSize,
       this.getFontSizeContext(),
     )
+    this.emitTextSize()
   }
 
   private setFontSize(fontSize: number) {
@@ -372,8 +429,9 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   }
 
   private getFontSizeContext(): string {
-    if (this.fontSizeContext) {
-      return this.fontSizeContext
+    const fontSizeContext = this.fontSizeContext()
+    if (fontSizeContext) {
+      return fontSizeContext
     }
 
     console.warn(

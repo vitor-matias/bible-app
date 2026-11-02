@@ -1,5 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
+import type { Mock } from "vitest"
 import { LIVE_UPDATE_BASE_URL, LIVE_UPDATE_PLUGIN } from "../tokens"
 import { BuildVersionService } from "./build-version.service"
 import { LiveUpdateService } from "./live-update.service"
@@ -9,16 +10,16 @@ describe("LiveUpdateService", () => {
   const newer = "20261002-090000Z"
 
   let plugin: {
-    ready: jasmine.Spy
-    getChannel: jasmine.Spy
-    getBlockedBundles: jasmine.Spy
-    getNextBundle: jasmine.Spy
-    getDownloadedBundles: jasmine.Spy
-    downloadBundle: jasmine.Spy
-    setNextBundle: jasmine.Spy
+    ready: Mock
+    getChannel: Mock
+    getBlockedBundles: Mock
+    getNextBundle: Mock
+    getDownloadedBundles: Mock
+    downloadBundle: Mock
+    setNextBundle: Mock
   }
   let buildVersion: string
-  let fetchSpy: jasmine.Spy
+  let fetchSpy: Mock
 
   function manifest(overrides: Record<string, unknown> = {}) {
     return {
@@ -31,7 +32,7 @@ describe("LiveUpdateService", () => {
   }
 
   function serve(body: unknown, ok = true): void {
-    fetchSpy.and.resolveTo({ ok, json: async () => body } as Response)
+    fetchSpy.mockResolvedValue({ ok, json: async () => body } as Response)
   }
 
   function setUp(
@@ -52,25 +53,35 @@ describe("LiveUpdateService", () => {
 
   beforeEach(() => {
     plugin = {
-      ready: jasmine.createSpy("ready").and.resolveTo({}),
-      getChannel: jasmine
-        .createSpy("getChannel")
-        .and.resolveTo({ channel: "native-1" }),
-      getBlockedBundles: jasmine
-        .createSpy("getBlockedBundles")
-        .and.resolveTo({ bundleIds: [] }),
-      getNextBundle: jasmine
-        .createSpy("getNextBundle")
-        .and.resolveTo({ bundleId: null }),
-      getDownloadedBundles: jasmine
-        .createSpy("getDownloadedBundles")
-        .and.resolveTo({ bundleIds: [] }),
-      downloadBundle: jasmine.createSpy("downloadBundle").and.resolveTo(),
-      setNextBundle: jasmine.createSpy("setNextBundle").and.resolveTo(),
+      ready: vi.fn().mockName("ready").mockResolvedValue({}),
+      getChannel: vi
+        .fn()
+        .mockName("getChannel")
+        .mockResolvedValue({ channel: "native-1" }),
+      getBlockedBundles: vi
+        .fn()
+        .mockName("getBlockedBundles")
+        .mockResolvedValue({ bundleIds: [] }),
+      getNextBundle: vi
+        .fn()
+        .mockName("getNextBundle")
+        .mockResolvedValue({ bundleId: null }),
+      getDownloadedBundles: vi
+        .fn()
+        .mockName("getDownloadedBundles")
+        .mockResolvedValue({ bundleIds: [] }),
+      downloadBundle: vi
+        .fn()
+        .mockName("downloadBundle")
+        .mockResolvedValue(undefined),
+      setNextBundle: vi
+        .fn()
+        .mockName("setNextBundle")
+        .mockResolvedValue(undefined),
     }
     buildVersion = running
-    fetchSpy = spyOn(window, "fetch")
-    spyOn(Capacitor, "getPlatform").and.returnValue("android")
+    fetchSpy = vi.spyOn(window, "fetch") as Mock
+    vi.spyOn(Capacitor, "getPlatform").mockReturnValue("android")
   })
 
   it("downloads a newer bundle from the platform's channel and applies it next launch", async () => {
@@ -121,7 +132,7 @@ describe("LiveUpdateService", () => {
   // Re-applying a bundle that was rolled back would break every other launch.
   it("skips a bundle that was rolled back", async () => {
     serve(manifest())
-    plugin.getBlockedBundles.and.resolveTo({ bundleIds: [newer] })
+    plugin.getBlockedBundles.mockResolvedValue({ bundleIds: [newer] })
     await setUp().readyAndCheck()
     expect(plugin.downloadBundle).not.toHaveBeenCalled()
     expect(plugin.setNextBundle).not.toHaveBeenCalled()
@@ -129,7 +140,7 @@ describe("LiveUpdateService", () => {
 
   it("does nothing when the bundle is already queued", async () => {
     serve(manifest())
-    plugin.getNextBundle.and.resolveTo({ bundleId: newer })
+    plugin.getNextBundle.mockResolvedValue({ bundleId: newer })
     await setUp().readyAndCheck()
     expect(plugin.downloadBundle).not.toHaveBeenCalled()
     expect(plugin.setNextBundle).not.toHaveBeenCalled()
@@ -137,7 +148,7 @@ describe("LiveUpdateService", () => {
 
   it("re-queues an already downloaded bundle without downloading it again", async () => {
     serve(manifest())
-    plugin.getDownloadedBundles.and.resolveTo({ bundleIds: [newer] })
+    plugin.getDownloadedBundles.mockResolvedValue({ bundleIds: [newer] })
     await setUp().readyAndCheck()
     expect(plugin.downloadBundle).not.toHaveBeenCalled()
     expect(plugin.setNextBundle).toHaveBeenCalledWith({ bundleId: newer })
@@ -157,7 +168,7 @@ describe("LiveUpdateService", () => {
   })
 
   it("does nothing without a channel", async () => {
-    plugin.getChannel.and.resolveTo({ channel: null })
+    plugin.getChannel.mockResolvedValue({ channel: null })
     await setUp().readyAndCheck()
     expect(fetchSpy).not.toHaveBeenCalled()
   })
@@ -171,9 +182,9 @@ describe("LiveUpdateService", () => {
   // Offline launches are normal for a Bible reader; a failed check must not
   // surface or block anything.
   it("swallows network and plugin failures", async () => {
-    fetchSpy.and.rejectWith(new TypeError("offline"))
-    spyOn(console, "warn")
-    await expectAsync(setUp().readyAndCheck()).toBeResolved()
+    fetchSpy.mockRejectedValue(new TypeError("offline"))
+    vi.spyOn(console, "warn").mockImplementation(() => {})
+    await expect(setUp().readyAndCheck()).resolves.toBeUndefined()
     expect(console.warn).toHaveBeenCalled()
   })
 })

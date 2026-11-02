@@ -61,7 +61,7 @@ describe("buildPassagePicker", () => {
 
     // The general introduction is listed on its own, before the groups.
     expect(oldTestament.groups[0]).toEqual({
-      books: [jasmine.objectContaining({ id: "geral", label: "Introdução" })],
+      books: [expect.objectContaining({ id: "geral", label: "Introdução" })],
     })
     // A group's introduction comes first in it; unloaded books are left out.
     const pentateuch = oldTestament.groups[1]
@@ -74,7 +74,6 @@ describe("buildPassagePicker", () => {
     expect(newTestament.groups.map((group) => group.title)).toEqual([
       "Evangelhos e Atos",
       "Cartas de São Paulo",
-      "Sobre a Bíblia",
     ])
   })
 
@@ -108,7 +107,7 @@ describe("buildPassagePicker", () => {
       bookmark: undefined,
     })
     expect(findBook("exo")?.chapters[0]).not.toEqual(
-      jasmine.objectContaining({ spoken: jasmine.anything() }),
+      expect.objectContaining({ spoken: expect.anything() }),
     )
   })
 
@@ -123,18 +122,22 @@ describe("buildPassagePicker", () => {
   // Samuel's introduction is shared with 2 Samuel, so it is chapter 0 too.
   it("offers a shared introduction as the book's chapter 0", () => {
     expect(findBook("1sa")?.chapters[0]).toEqual(
-      jasmine.objectContaining({ number: 0, title: "Introdução" }),
+      expect.objectContaining({ number: 0, title: "Introdução" }),
     )
   })
 
-  it("opens single pages directly: introductions and the About page", () => {
+  it("opens standalone introductions directly", () => {
     expect(findBook("pentateuco")?.chapters).toEqual([])
-    expect(findBook("about")?.chapters).toEqual([])
+  })
+
+  // The About page is in the menu, not among the books.
+  it("does not list the About page", () => {
+    expect(findBook("about")).toBeUndefined()
   })
 
   it("labels books by their short names, with their abbreviations", () => {
     expect(findBook("exo")).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         label: "EXO",
         name: "Livro exo",
         abbreviation: "exo",
@@ -143,9 +146,8 @@ describe("buildPassagePicker", () => {
   })
 
   // The compact mode shows these in small tiles.
-  it("abbreviates introductions and the About page too", () => {
+  it("abbreviates introductions too", () => {
     expect(findBook("pentateuco")?.abbreviation).toBe("Intro")
-    expect(findBook("about")?.abbreviation).toBe("Sobre")
   })
 
   // Mid-group, "Introdução" alone would not say which letters it introduces.

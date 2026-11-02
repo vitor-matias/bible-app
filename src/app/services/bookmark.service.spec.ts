@@ -1,10 +1,12 @@
 import { TestBed } from "@angular/core/testing"
+import { firstValueFrom } from "rxjs"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { BookmarkService } from "./bookmark.service"
 import { DatabaseService } from "./database.service"
 
 describe("BookmarkService", () => {
   let service: BookmarkService
-  let databaseService: jasmine.SpyObj<DatabaseService>
+  let databaseService: SpyObj<DatabaseService>
 
   const mockBookmarks: Bookmark[] = [
     { bookId: "GEN", chapter: 1, color: "#F44336", timestamp: 123 },
@@ -12,26 +14,24 @@ describe("BookmarkService", () => {
   ]
 
   beforeEach(async () => {
-    const spy = jasmine.createSpyObj("DatabaseService", [
+    const spy = createSpyObj("DatabaseService", [
       "getAll",
       "clearAndPutAll",
       "delete",
       "clear",
     ])
-    spy.getAll.and.callFake(() =>
+    spy.getAll.mockImplementation(() =>
       Promise.resolve(JSON.parse(JSON.stringify(mockBookmarks))),
     )
-    spy.clearAndPutAll.and.returnValue(Promise.resolve())
-    spy.delete.and.returnValue(Promise.resolve())
-    spy.clear.and.returnValue(Promise.resolve())
+    spy.clearAndPutAll.mockResolvedValue(undefined)
+    spy.delete.mockResolvedValue(undefined)
+    spy.clear.mockResolvedValue(undefined)
 
     TestBed.configureTestingModule({
       providers: [BookmarkService, { provide: DatabaseService, useValue: spy }],
     })
     service = TestBed.inject(BookmarkService)
-    databaseService = TestBed.inject(
-      DatabaseService,
-    ) as jasmine.SpyObj<DatabaseService>
+    databaseService = TestBed.inject(DatabaseService) as SpyObj<DatabaseService>
 
     // Wait for initialization to complete
     await service.initialized
@@ -83,11 +83,36 @@ describe("BookmarkService", () => {
     )
   })
 
-  it("should filter bookmarks for a specific book", (done) => {
-    service.getBookmarksForBook("GEN").subscribe((bookmarks) => {
-      expect(bookmarks.length).toBe(1)
-      expect(bookmarks[0].bookId).toBe("GEN")
-      done()
-    })
+  // One failed save left the queue rejected, so every later change failed too.
+  it("keeps saving after a save fails", async () => {
+    databaseService.clearAndPutAll
+      .mockReturnValueOnce(Promise.reject(new Error("QuotaExceededError")))
+      .mockReturnValueOnce(Promise.resolve())
+    vi.spyOn(console, "error").mockReturnValue(undefined)
+
+    await expect(service.addBookmark("JHN", 3, "#4CAF50")).rejects.toThrow()
+    await service.addBookmark("JHN", 4, "#4CAF50")
+
+    expect(
+      service.getBookmarks().find((b) => b.color === "#4CAF50")?.chapter,
+    ).toBe(4)
+  })
+
+  it("keeps removing after a save fails", async () => {
+    databaseService.clearAndPutAll
+      .mockReturnValueOnce(Promise.reject(new Error("QuotaExceededError")))
+      .mockReturnValueOnce(Promise.resolve())
+    vi.spyOn(console, "error").mockReturnValue(undefined)
+
+    await expect(service.addBookmark("JHN", 3, "#4CAF50")).rejects.toThrow()
+    await service.removeBookmark("GEN", 1)
+
+    expect(service.getBookmarks().some((b) => b.bookId === "GEN")).toBe(false)
+  })
+
+  it("should filter bookmarks for a specific book", async () => {
+    const bookmarks = await firstValueFrom(service.getBookmarksForBook("GEN"))
+    expect(bookmarks.length).toBe(1)
+    expect(bookmarks[0].bookId).toBe("GEN")
   })
 })

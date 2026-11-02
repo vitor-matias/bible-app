@@ -1,10 +1,5 @@
 import { CommonModule } from "@angular/common"
-import {
-  ChangeDetectionStrategy,
-  Component,
-  Inject,
-  inject,
-} from "@angular/core"
+import { ChangeDetectionStrategy, Component, inject } from "@angular/core"
 import {
   FormControl,
   FormGroup,
@@ -25,6 +20,7 @@ import {
   ProblemReportService,
 } from "../../services/problem-report.service"
 import { ToastService } from "../../services/toast.service"
+import { reportSubject } from "../../utils/passage-label"
 
 export interface ReportProblemData {
   book: Book
@@ -48,6 +44,9 @@ export interface ReportProblemData {
   styleUrls: ["./report-problem.component.css"],
 })
 export class ReportProblemComponent {
+  dialogRef = inject<MatDialogRef<ReportProblemComponent>>(MatDialogRef)
+  data = inject<ReportProblemData>(MAT_DIALOG_DATA)
+
   private readonly toast = inject(ToastService)
   private readonly reports = inject(ProblemReportService)
   isSending = false
@@ -62,10 +61,10 @@ export class ReportProblemComponent {
 
   topics = this.reports.topics
 
-  constructor(
-    public dialogRef: MatDialogRef<ReportProblemComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: ReportProblemData,
-  ) {}
+  /** "Salmo 34 (33)": the passage as the reader names it. */
+  get subject(): string {
+    return reportSubject(this.data.book, this.data.chapter)
+  }
 
   async onSubmit() {
     if (this.isSending || this.reportForm.invalid) {

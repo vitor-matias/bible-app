@@ -1,5 +1,7 @@
-import { fakeAsync, TestBed, tick } from "@angular/core/testing"
+import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
+import type { Mock } from "vitest"
+import { createSpyObj, lastCall, type SpyObj } from "../testing/spy-obj"
 import {
   AnalyticsService,
   BUILD_DATA_WAIT_MS,
@@ -10,21 +12,19 @@ import { BuildVersionService } from "./build-version.service"
 
 describe("AnalyticsService", () => {
   let service: AnalyticsService
-  let buildVersionServiceMock: jasmine.SpyObj<BuildVersionService>
+  let buildVersionServiceMock: SpyObj<BuildVersionService>
 
   beforeEach(() => {
-    buildVersionServiceMock = jasmine.createSpyObj("BuildVersionService", [
+    buildVersionServiceMock = createSpyObj("BuildVersionService", [
       "getBuildInfo",
       "getRelease",
     ])
     // The web, which has no release, unless a test says otherwise.
-    buildVersionServiceMock.getRelease.and.resolveTo(null)
-    buildVersionServiceMock.getBuildInfo.and.returnValue(
-      Promise.resolve({
-        buildVersion: "test-version",
-        buildEnvironment: "test-env",
-      }),
-    )
+    buildVersionServiceMock.getRelease.mockResolvedValue(null)
+    buildVersionServiceMock.getBuildInfo.mockResolvedValue({
+      buildVersion: "test-version",
+      buildEnvironment: "test-env",
+    })
 
     TestBed.configureTestingModule({
       providers: [
@@ -35,9 +35,7 @@ describe("AnalyticsService", () => {
     service = TestBed.inject(AnalyticsService)
 
     // Setup global umami mock
-    globalThis.umami = {
-      track: jasmine.createSpy("track"),
-    }
+    globalThis.umami = createSpyObj("Spy", ["track"])
   })
 
   afterEach(() => {
@@ -49,7 +47,7 @@ describe("AnalyticsService", () => {
   })
 
   it("should call umami.track with event name, data, build version, and platform", async () => {
-    spyOn(Capacitor, "getPlatform").and.returnValue("web")
+    vi.spyOn(Capacitor, "getPlatform").mockReturnValue("web")
 
     await service.track("test_event", { foo: "bar" })
 
@@ -63,8 +61,8 @@ describe("AnalyticsService", () => {
   })
 
   it("should report the native app's release with every event", async () => {
-    spyOn(Capacitor, "getPlatform").and.returnValue("android")
-    buildVersionServiceMock.getRelease.and.resolveTo("1.2.3")
+    vi.spyOn(Capacitor, "getPlatform").mockReturnValue("android")
+    buildVersionServiceMock.getRelease.mockResolvedValue("1.2.3")
 
     await service.track("test_event", { foo: "bar" })
 
@@ -78,7 +76,7 @@ describe("AnalyticsService", () => {
   })
 
   it("should not fail if optional eventData is omitted", async () => {
-    spyOn(Capacitor, "getPlatform").and.returnValue("android")
+    vi.spyOn(Capacitor, "getPlatform").mockReturnValue("android")
 
     await service.track("test_event_2")
 
@@ -90,25 +88,28 @@ describe("AnalyticsService", () => {
   })
 
   it("should securely swallow errors and not throw if getBuildInfo fails", async () => {
-    spyOn(console, "error")
-    buildVersionServiceMock.getBuildInfo.and.returnValue(
-      Promise.reject(new Error("Build info fetch failed")),
+    vi.spyOn(console, "error").mockReturnValue(undefined)
+    buildVersionServiceMock.getBuildInfo.mockRejectedValue(
+      new Error("Build info fetch failed"),
     )
 
-    await expectAsync(service.track("test_event")).toBeResolved()
+    await expect(service.track("test_event")).resolves.toBeUndefined()
     expect(console.error).toHaveBeenCalled()
     expect(globalThis.umami?.track).toHaveBeenCalled()
   })
 
   it("should securely swallow errors and not throw if umami.track fails", async () => {
-    spyOn(console, "error")
+    vi.spyOn(console, "error").mockReturnValue(undefined)
     if (globalThis.umami) {
-      globalThis.umami.track = jasmine
-        .createSpy("track")
-        .and.throwError("Mock tracking failure")
+      globalThis.umami.track = vi
+        .fn()
+        .mockName("track")
+        .mockImplementation(() => {
+          throw new Error("Mock tracking failure")
+        })
     }
 
-    await expectAsync(service.track("test_event")).toBeResolved()
+    await expect(service.track("test_event")).resolves.toBeUndefined()
     expect(console.error).toHaveBeenCalled()
   })
 
@@ -123,7 +124,7 @@ describe("AnalyticsService", () => {
   // could say "sent" when it wasn't.
   describe("trackDelivered", () => {
     let script: HTMLScriptElement
-    let fetchSpy: jasmine.Spy
+    let fetchSpy: Mock
 
     beforeEach(() => {
       script = document.createElement("script")
@@ -136,10 +137,10 @@ describe("AnalyticsService", () => {
         _type: string,
         payload: Record<string, unknown>,
       ) => ({ ...payload, hostname: "ios-app" })
-      fetchSpy = spyOn(window, "fetch").and.resolveTo(
-        new Response("{}", { status: 200 }),
-      )
-      spyOn(Capacitor, "getPlatform").and.returnValue("ios")
+      fetchSpy = vi
+        .spyOn(window, "fetch")
+        .mockResolvedValue(new Response("{}", { status: 200 }))
+      vi.spyOn(Capacitor, "getPlatform").mockReturnValue("ios")
     })
 
     afterEach(() => {
@@ -150,16 +151,16 @@ describe("AnalyticsService", () => {
     it("sends the event beside the tracker's script, through its hook", async () => {
       await service.trackDelivered("report_problem", { topic: "typo" })
 
-      const [url, init] = fetchSpy.calls.mostRecent().args
+      const [url, init] = lastCall(vi.mocked(fetchSpy))
       expect(url).toBe("https://umami.example.org/api/send")
       const body = JSON.parse(init.body)
       expect(body.type).toBe("event")
       expect(body.payload).toEqual(
-        jasmine.objectContaining({
+        expect.objectContaining({
           website: "site-1",
           name: "report_problem",
           hostname: "ios-app",
-          data: jasmine.objectContaining({
+          data: expect.objectContaining({
             topic: "typo",
             buildVersion: "test-version",
             platform: "ios",
@@ -169,11 +170,11 @@ describe("AnalyticsService", () => {
     })
 
     it("sends the native app's release with a problem report", async () => {
-      buildVersionServiceMock.getRelease.and.resolveTo("1.2.3")
+      buildVersionServiceMock.getRelease.mockResolvedValue("1.2.3")
 
       await service.trackDelivered("report_problem", { topic: "typo" })
 
-      const body = JSON.parse(fetchSpy.calls.mostRecent().args[1].body)
+      const body = JSON.parse(lastCall(vi.mocked(fetchSpy))[1].body)
       expect(body.payload.data).toEqual({
         topic: "typo",
         buildVersion: "test-version",
@@ -184,33 +185,34 @@ describe("AnalyticsService", () => {
     })
 
     it("still sends a report when the build info can't be read", async () => {
-      buildVersionServiceMock.getBuildInfo.and.rejectWith(new Error("gone"))
+      buildVersionServiceMock.getBuildInfo.mockRejectedValue(new Error("gone"))
 
       await service.trackDelivered("report_problem", { topic: "typo" })
 
-      const body = JSON.parse(fetchSpy.calls.mostRecent().args[1].body)
+      const body = JSON.parse(lastCall(vi.mocked(fetchSpy))[1].body)
       expect(body.payload.data).toEqual({ topic: "typo", platform: "ios" })
     })
 
     it("rejects when the server refuses it", async () => {
-      fetchSpy.and.resolveTo(new Response("", { status: 500 }))
-      await expectAsync(
+      fetchSpy.mockResolvedValue(new Response("", { status: 500 }))
+      await expect(
         service.trackDelivered("report_problem", {}),
-      ).toBeRejected()
+      ).rejects.toThrow()
     })
 
     it("rejects when it can't reach the server", async () => {
-      fetchSpy.and.rejectWith(new TypeError("Failed to fetch"))
-      await expectAsync(
+      fetchSpy.mockRejectedValue(new TypeError("Failed to fetch"))
+      await expect(
         service.trackDelivered("report_problem", {}),
-      ).toBeRejected()
+      ).rejects.toThrow()
     })
 
     // On a stalled connection the report form stayed "sending" (and the iOS
     // sheet unanswered) until the OS gave up on the request.
-    it("gives up on a request that stalls", fakeAsync(() => {
+    it("gives up on a request that stalls", async () => {
+      vi.useFakeTimers()
       let signal: AbortSignal | undefined
-      fetchSpy.and.callFake(
+      fetchSpy.mockImplementation(
         (_url: string, init: RequestInit) =>
           new Promise((_resolve, reject) => {
             signal = init.signal ?? undefined
@@ -229,17 +231,18 @@ describe("AnalyticsService", () => {
         },
       )
 
-      tick(DELIVERY_TIMEOUT_MS - 1)
+      await vi.advanceTimersByTimeAsync(DELIVERY_TIMEOUT_MS - 1)
       expect(outcome).toBe("pending")
-      tick(1)
-      expect(signal?.aborted).toBeTrue()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(signal?.aborted).toBe(true)
       expect(outcome).toBe("failed")
-    }))
+    })
 
     // build-info.json is fetched without a deadline: stalled, it held the
     // report before the delivery timeout had even started.
-    it("sends without the build's details when they stall", fakeAsync(() => {
-      buildVersionServiceMock.getBuildInfo.and.returnValue(
+    it("sends without the build's details when they stall", async () => {
+      vi.useFakeTimers()
+      buildVersionServiceMock.getBuildInfo.mockReturnValue(
         new Promise(() => {}),
       )
       let sent = false
@@ -247,21 +250,21 @@ describe("AnalyticsService", () => {
         sent = true
       })
 
-      tick(BUILD_DATA_WAIT_MS - 1)
+      await vi.advanceTimersByTimeAsync(BUILD_DATA_WAIT_MS - 1)
       expect(fetchSpy).not.toHaveBeenCalled()
-      tick(1)
+      await vi.advanceTimersByTimeAsync(1)
 
       expect(fetchSpy).toHaveBeenCalledTimes(1)
-      const body = JSON.parse(fetchSpy.calls.mostRecent().args[1].body)
+      const body = JSON.parse(lastCall(vi.mocked(fetchSpy))[1].body)
       expect(body.payload.data).toEqual({ topic: "typo", platform: "ios" })
-      expect(sent).toBeTrue()
-    }))
+      expect(sent).toBe(true)
+    })
 
     it("rejects when the tracker isn't on the page", async () => {
       script.remove()
-      await expectAsync(
+      await expect(
         service.trackDelivered("report_problem", {}),
-      ).toBeRejected()
+      ).rejects.toThrow()
       expect(fetchSpy).not.toHaveBeenCalled()
     })
   })
@@ -273,7 +276,7 @@ describe("labelUmamiPlatform", () => {
   const payload = { hostname: "localhost", url: "/mc/7", website: "id" }
 
   it("labels native page views with the platform", () => {
-    spyOn(Capacitor, "getPlatform").and.returnValue("android")
+    vi.spyOn(Capacitor, "getPlatform").mockReturnValue("android")
     expect(labelUmamiPlatform("event", payload)).toEqual({
       ...payload,
       hostname: "android-app",
@@ -282,7 +285,7 @@ describe("labelUmamiPlatform", () => {
   })
 
   it("leaves web page views untouched", () => {
-    spyOn(Capacitor, "getPlatform").and.returnValue("web")
+    vi.spyOn(Capacitor, "getPlatform").mockReturnValue("web")
     expect(labelUmamiPlatform("event", payload)).toBe(payload)
   })
 })

@@ -4,8 +4,8 @@ import {
   ChangeDetectorRef,
   Component,
   DestroyRef,
-  Input,
   inject,
+  input,
   NgZone,
   OnDestroy,
   OnInit,
@@ -18,6 +18,13 @@ import { AutoScrollService } from "../../services/auto-scroll.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { PreferencesService } from "../../services/preferences.service"
 
+/**
+ * How close to the slowest or fastest speed counts as there. The service
+ * keeps four decimals, so the slowest, 1/6, is stored as 0.1667: a little
+ * above it, which left − enabled there. The nearest steps are 0.03 apart.
+ */
+const SPEED_LIMIT_TOLERANCE = 0.001
+
 @Component({
   selector: "app-auto-scroll-controls",
   standalone: true,
@@ -27,21 +34,19 @@ import { PreferencesService } from "../../services/preferences.service"
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AutoScrollControlsComponent implements OnInit, OnDestroy {
-  @Input() scrollElement?: HTMLElement
-  @Input() lineHeightElement?: HTMLElement
+  private autoScrollService = inject(AutoScrollService)
+  private preferencesService = inject(PreferencesService)
+  private cdr = inject(ChangeDetectorRef)
+  private analyticsService = inject(AnalyticsService)
+
+  readonly scrollElement = input<HTMLElement>()
+  readonly lineHeightElement = input<HTMLElement>()
 
   private readonly nativeChrome = inject(NativeChromeService)
   private readonly destroyRef = inject(DestroyRef)
   private readonly ngZone = inject(NgZone)
-  /** The iOS app shows these controls in its native toolbar instead. */
+  /** The native apps show these controls in their own toolbar instead. */
   readonly native = this.nativeChrome.enabled
-
-  constructor(
-    private autoScrollService: AutoScrollService,
-    private preferencesService: PreferencesService,
-    private cdr: ChangeDetectorRef,
-    private analyticsService: AnalyticsService,
-  ) {}
 
   /** The page is scrolled to its end: there's nothing left to play. */
   atEnd = false
@@ -94,11 +99,13 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   }
 
   private startAutoScroll(): void {
-    if (!this.scrollElement || !this.lineHeightElement) return
+    const scrollElement = this.scrollElement()
+    const lineHeightElement = this.lineHeightElement()
+    if (!scrollElement || !lineHeightElement) return
 
     this.autoScrollService.start({
-      scrollElement: this.scrollElement,
-      lineHeightElement: this.lineHeightElement,
+      scrollElement,
+      lineHeightElement,
       onStop: () => {
         this.safeMarkForCheck()
       },
@@ -126,7 +133,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
    * size, or the page itself (a window resized).
    */
   private followEnd(): void {
-    const element = this.scrollElement
+    const element = this.scrollElement()
     if (!element) return
     const update = () => {
       const atEnd = this.scrolledToEnd()
@@ -145,7 +152,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     this.ngZone.runOutsideAngular(() => {
       element.addEventListener("scroll", update, { passive: true })
       resize?.observe(element)
-      if (this.lineHeightElement) resize?.observe(this.lineHeightElement)
+      const lineHeightElement = this.lineHeightElement()
+      if (lineHeightElement) resize?.observe(lineHeightElement)
     })
     this.destroyRef.onDestroy(() => {
       element.removeEventListener("scroll", update)
@@ -155,7 +163,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   /** Down as far as it goes, to the pixel (WebKit keeps whole pixels). */
   private scrolledToEnd(): boolean {
-    const element = this.scrollElement
+    const element = this.scrollElement()
     if (!element) return false
     return element.scrollTop + element.clientHeight >= element.scrollHeight - 1
   }
@@ -169,7 +177,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     this.syncNativeChrome()
   }
 
-  /** Sends what these controls show to the iOS app, which draws its own. */
+  /** Sends what these controls show to the native toolbar. */
   private syncNativeChrome(): void {
     if (!this.native || this.destroyRef.destroyed) return
     this.nativeChrome.setAutoScroll({
@@ -179,8 +187,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
         this.autoScrollService.getAutoScrollSpeedSpokenLabel(
           this.autoScrollLinesPerSecond,
         ),
-      canSlower: this.autoScrollLinesPerSecond > this.MIN_AUTO_SCROLL_LPS,
-      canFaster: this.autoScrollLinesPerSecond < this.MAX_AUTO_SCROLL_LPS,
+      canSlower: this.canSlower,
+      canFaster: this.canFaster,
       canPlay: !this.atEnd,
     })
   }
@@ -196,6 +204,22 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   get autoScrollSpeedLabel(): string {
     return this.autoScrollService.getAutoScrollSpeedLabel(
       this.autoScrollLinesPerSecond,
+    )
+  }
+
+  /** Whether − can go slower; at the slowest it is disabled. */
+  get canSlower(): boolean {
+    return (
+      this.autoScrollLinesPerSecond - this.MIN_AUTO_SCROLL_LPS >
+      SPEED_LIMIT_TOLERANCE
+    )
+  }
+
+  /** Whether + can go faster; at the fastest it is disabled. */
+  get canFaster(): boolean {
+    return (
+      this.MAX_AUTO_SCROLL_LPS - this.autoScrollLinesPerSecond >
+      SPEED_LIMIT_TOLERANCE
     )
   }
 

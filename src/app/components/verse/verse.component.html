@@ -1,21 +1,23 @@
-@if (data) {
-  <!-- The notes marker beside a verse number: the asterisk the edition prints,
-       or in the iOS app a notes icon, which reads as something to tap. No
-       whitespace inside the blocks, or it would show as a space. -->
+@if (data()) {
+  <!-- The notes marker beside a verse number: an icon, which reads as
+       something to tap. No whitespace inside, or it would show as a space. -->
+  <ng-template #noteIcon>
+    <svg class="noteIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4.5" y="2.5" width="15" height="19" rx="3.5"/><path d="M8.25 8.5h7.5M8.25 12h7.5M8.25 15.5h4.5"/></svg>
+  </ng-template>
   <ng-template #noteMark>
-    @if (noteIcon) {<svg class="noteIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4.5" y="2.5" width="15" height="19" rx="3.5"/><path d="M8.25 8.5h7.5M8.25 12h7.5M8.25 15.5h4.5"/></svg>} @else {&#65290;}
+    <span role="button" tabindex="0" (click)="toggleFootnotes($event)" (keydown.enter)="toggleFootnotes($event)" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)" class="footnoteIndicator" [attr.aria-label]="'Notas do versículo ' + data().number"><ng-container *ngTemplateOutlet="noteIcon"></ng-container></span>
   </ng-template>
 
   <!-- Verse Number -->
-  @if(data.number > 0 && getFirstTextType() !== 'quote'){
-    @if(data.number > 1) {
+  @if(data().number > 0 && getFirstTextType() !== 'quote'){
+    @if(data().number > 1) {
       <!-- Part of the run so the highlight stroke does not break before the
            verse number; .verseText keeps it the size of the text. -->
       <span class="verseText verseRun">{{ " " }}</span>
     }
-    <span class="verseNumber">{{ data.number }}</span>
+    <span class="verseNumber">{{ data().number }}</span>
     @if(hasFootnotes){
-      <span role="button" tabindex="0" (click)="toggleFootnotes($event)" (keydown.enter)="toggleFootnotes($event)" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)" class="footnoteIndicator" [attr.aria-label]="noteIcon ? 'Notas do versículo ' + data.number : null"><ng-container *ngTemplateOutlet="noteMark"></ng-container></span>
+      <ng-container *ngTemplateOutlet="noteMark"></ng-container>
     }
   }
 
@@ -23,7 +25,7 @@
     <!-- Chapter Number Display -->
     @if (chapterNumberDisplayIndex === i) {
       <div #chapterNumber class="chapterNumber">
-        {{ data.chapterNumber }}
+        {{ data().chapterNumber }}
         @if (liturgicalNumber) {
           <span class="liturgicalNumber"><span class="visually-hidden">na liturgia, </span>({{ liturgicalNumber }})</span>
         }
@@ -31,15 +33,15 @@
     }
 
     <!-- Regular Text and Quote Text Content -->
-    @if (!isInSection(data.text, i) || isQuote) {
+    @if (!isInSection(data().text, i) || isQuote) {
       @if (text.type === 'text' || text.type === 'quote') {
-        @if (text.type === 'quote' && isFirstDisplayableElement(i) && data.number > 0) {
+        @if (text.type === 'quote' && isFirstDisplayableElement(i) && data().number > 0) {
           <span class="quoteVerseNumber">
-            <span class="verseNumber">{{ data.number }}</span>
+            <span class="verseNumber">{{ data().number }}</span>
             @if(hasFootnotes){
-              <span role="button" tabindex="0" (click)="toggleFootnotes($event)" (keydown.enter)="toggleFootnotes($event)" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)" class="footnoteIndicator" [attr.aria-label]="noteIcon ? 'Notas do versículo ' + data.number : null"><ng-container *ngTemplateOutlet="noteMark"></ng-container></span>
+              <ng-container *ngTemplateOutlet="noteMark"></ng-container>
             } @else {
-              <span class="footnoteIndicator" style="visibility: hidden"><ng-container *ngTemplateOutlet="noteMark"></ng-container></span>
+              <span class="footnoteIndicator" style="visibility: hidden"><ng-container *ngTemplateOutlet="noteIcon"></ng-container></span>
             }
           </span>
         }
@@ -53,7 +55,7 @@
           <span class="verseRun">{{ " " }}</span>
           <span class="references-block" [class.besideChapterNumber]="chapterNumberDisplayIndex === i">
             @for(part of parsedReferences.get(i); track $index){
-              @if(typeof part === "object" && part.book !== data.bookId){
+              @if(typeof part === "object" && part.book !== data().bookId){
                 <a class="references verseRun"
                   [routerLink]="['/', (part.book | lowercase ), part.chapter]"
                   [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)"
@@ -68,7 +70,7 @@
         }
 
         <!-- Paragraph Breaks -->
-        @if (text.type === 'paragraph' && data.verseLabel !== 'front' && !isFirst) {
+        @if (text.type === 'paragraph' && data().verseLabel !== 'front' && !isFirst) {
           <br>
         }
         @if (isLast && text.type === 'quote') {
@@ -77,7 +79,7 @@
 
         <!-- Complex Paragraph Logic -->
         @if (text.type === 'paragraph') {
-          @if (!isFirst && isLast && chapterNumberDisplayIndex !== i && !shouldShowParagraph(data, text, i)) {
+          @if (!isFirst && isLast && chapterNumberDisplayIndex !== i && !shouldShowParagraph(data(), text, i)) {
             <span>
               <br>
               <span #indentable class="verseRun" [attr.data-index]="i" [class.indent]="indentStates[i] !== false">
@@ -85,7 +87,7 @@
               </span>
             </span>
           }
-          @if (shouldShowParagraph(data, text, i)) {
+          @if (shouldShowParagraph(data(), text, i)) {
             <span #indentable class="verseRun" [attr.data-index]="i" [class.indent]="indentStates[i] !== false">
               {{ text.text }}
             </span>
@@ -98,11 +100,11 @@
             @if(!isFirst){
               <br>
               <!-- if previous is text, add another br; safari shenanigans -->
-              @if(data.text[i-1]?.type === 'text'){
+              @if(data().text[i-1]?.type === 'text'){
                 <br>
               }
             }
-            <h3>{{ text.text }}</h3>
+            <h3 data-section-heading>{{ text.text }}</h3>
           }
           @if (text.tag === 's2') {
             <verse-section
@@ -110,7 +112,7 @@
               [nextIsQuote]="checkNextIsQuote(i)"
               [nextIsParagraph]="checkNextIsParagraph(i)"
               [besideChapterNumber]="chapterNumberDisplayIndex === i"
-              [changeLine]="chapterNumberDisplayIndex !== i && data.text[i-1]?.type !== 'section' && data.text[i-1]?.type !== 'references'">
+              [changeLine]="chapterNumberDisplayIndex !== i && data().text[i-1]?.type !== 'section' && data().text[i-1]?.type !== 'references'">
             </verse-section>
           }
         }
@@ -122,7 +124,7 @@
     @if (group.type === 'normal') {
       @for (element of group.elements; track element.originalIndex) {
         <span class="verseText">
-          <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === data.text.length - 1, isQuote: false }"></ng-container>
+          <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === data().text.length - 1, isQuote: false }"></ng-container>
         </span>
       }
     } @else {
@@ -132,7 +134,7 @@
         <br>
           <span #indentable [attr.data-index]="firstElement.originalIndex" [ngClass]="{'indent': indentStates[firstElement.originalIndex] !== false, 'indent2': getQuoteIdentLevel(firstText) === 2}" class="quoteLineWrapper">
             @for (element of group.elements; track element.originalIndex) {
-              <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === data.text.length - 1, isQuote: element.data.type === 'quote' }"></ng-container>
+              <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === data().text.length - 1, isQuote: element.data.type === 'quote' }"></ng-container>
             }
           </span><span class="verseRun">{{ " " }}</span>
       </span>

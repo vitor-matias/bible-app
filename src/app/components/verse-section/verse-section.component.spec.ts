@@ -6,6 +6,7 @@ import {
   BibleReferenceService,
 } from "../../services/bible-reference.service"
 import { ToastService } from "../../services/toast.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { VerseSectionComponent } from "./verse-section.component"
 
 function makeVerse(overrides: Partial<Verse> = {}): Verse {
@@ -24,9 +25,17 @@ function makeVerse(overrides: Partial<Verse> = {}): Verse {
   }
 }
 
-function setData(component: VerseSectionComponent, data: Verse): void {
-  const prev = component.data
-  component.data = data
+function setData(
+  fixture: ComponentFixture<VerseSectionComponent>,
+  data: Verse,
+): void {
+  const component = fixture.componentInstance
+  // A required input throws until it has a value.
+  let prev: Verse | undefined
+  try {
+    prev = component.data()
+  } catch {}
+  fixture.componentRef.setInput("data", data)
   component.ngOnChanges({
     data: new SimpleChange(prev, data, prev === undefined),
   })
@@ -35,14 +44,14 @@ function setData(component: VerseSectionComponent, data: Verse): void {
 describe("VerseSectionComponent", () => {
   let component: VerseSectionComponent
   let fixture: ComponentFixture<VerseSectionComponent>
-  let mockBibleRef: jasmine.SpyObj<BibleReferenceService>
-  let toast: jasmine.SpyObj<ToastService>
+  let mockBibleRef: SpyObj<BibleReferenceService>
+  let toast: SpyObj<ToastService>
 
   beforeEach(async () => {
-    mockBibleRef = jasmine.createSpyObj("BibleReferenceService", ["extract"])
-    mockBibleRef.extract.and.returnValue([])
+    mockBibleRef = createSpyObj("BibleReferenceService", ["extract"])
+    mockBibleRef.extract.mockReturnValue([])
 
-    toast = jasmine.createSpyObj("ToastService", ["showReturn"])
+    toast = createSpyObj("ToastService", ["showReturn"])
 
     await TestBed.configureTestingModule({
       imports: [VerseSectionComponent],
@@ -58,17 +67,41 @@ describe("VerseSectionComponent", () => {
   })
 
   it("should create", () => {
-    component.changeLine = false
-    setData(component, makeVerse())
+    fixture.componentRef.setInput("changeLine", false)
+    setData(fixture, makeVerse())
     fixture.detectChanges()
     expect(component).toBeTruthy()
   })
 
+  // The Android bar names the section being read (NativeChromeService): the
+  // heading, not the text or the references that run on from it.
+  it("marks the section's own heading", () => {
+    fixture.componentRef.setInput("changeLine", false)
+    setData(
+      fixture,
+      makeVerse({
+        text: [
+          { type: "section", tag: "s2", text: "Criação do mundo" },
+          { type: "references", text: "(Jo 1,1-3)" },
+          { type: "text", text: "No princípio" },
+        ],
+      }),
+    )
+    fixture.detectChanges()
+
+    const headings = fixture.nativeElement.querySelectorAll(
+      "[data-section-heading]",
+    ) as NodeListOf<HTMLElement>
+    expect(Array.from(headings, (heading) => heading.textContent)).toEqual([
+      "Criação do mundo",
+    ])
+  })
+
   describe("ngOnChanges — parsedReferences", () => {
     it("should pre-compute references for reference-type text entries", () => {
-      component.changeLine = false
+      fixture.componentRef.setInput("changeLine", false)
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "text", text: "verse" },
@@ -82,9 +115,9 @@ describe("VerseSectionComponent", () => {
     })
 
     it("should not create entries for non-reference text types", () => {
-      component.changeLine = false
+      fixture.componentRef.setInput("changeLine", false)
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "text", text: "plain" },
@@ -101,9 +134,9 @@ describe("VerseSectionComponent", () => {
     })
 
     it("should recompute when data input changes", () => {
-      component.changeLine = false
+      fixture.componentRef.setInput("changeLine", false)
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [{ type: "references", text: "Gn 1,1" }],
         }),
@@ -113,7 +146,7 @@ describe("VerseSectionComponent", () => {
 
       // Change data
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [{ type: "text", text: "no refs" }],
         }),
@@ -130,13 +163,13 @@ describe("VerseSectionComponent", () => {
       ({ match, index, book: "mrk", chapter: 4 }) as BibleReference
 
     beforeEach(() => {
-      mockBibleRef.extract.and.returnValue([
+      mockBibleRef.extract.mockReturnValue([
         reference("Mc 4,21", 1),
         reference("9,50", 10),
       ])
-      component.changeLine = false
+      fixture.componentRef.setInput("changeLine", false)
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [
             { type: "section", tag: "s1", text: "Sal da terra" },
@@ -179,10 +212,10 @@ describe("VerseSectionComponent", () => {
       })
 
     function render(inputs: { changeLine: boolean; beside: boolean }) {
-      component.changeLine = inputs.changeLine
-      component.besideChapterNumber = inputs.beside
-      component.nextIsQuote = true
-      setData(component, isaiah14v23())
+      fixture.componentRef.setInput("changeLine", inputs.changeLine)
+      fixture.componentRef.setInput("besideChapterNumber", inputs.beside)
+      fixture.componentRef.setInput("nextIsQuote", true)
+      setData(fixture, isaiah14v23())
       fixture.detectChanges()
       return fixture.nativeElement.querySelector(".center") as HTMLElement
     }
@@ -213,9 +246,9 @@ describe("VerseSectionComponent", () => {
     })
 
     it("leaves a heading that runs into the text inline, with no break before it", () => {
-      component.changeLine = true
+      fixture.componentRef.setInput("changeLine", true)
       setData(
-        component,
+        fixture,
         makeVerse({
           text: [{ type: "section", tag: "s2", text: "Israel regressa" }],
         }),
@@ -234,11 +267,13 @@ describe("VerseSectionComponent", () => {
   describe("showReturnSnackbar", () => {
     it("offers the way back to this verse", () => {
       const verse = makeVerse({ chapterNumber: 3, number: 5 })
-      setData(component, verse)
+      setData(fixture, verse)
 
       component.showReturnSnackbar()
 
-      expect(toast.showReturn).toHaveBeenCalledOnceWith(verse)
+      expect(toast.showReturn).toHaveBeenCalledTimes(1)
+
+      expect(toast.showReturn).toHaveBeenCalledWith(verse)
     })
   })
 

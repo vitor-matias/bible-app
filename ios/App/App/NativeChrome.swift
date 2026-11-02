@@ -256,7 +256,7 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     /// Resolves once the sheet is dismissed: completed, or skipped at a step.
-    /// Resolves at once with `presented: false` when it didn't come up, which
+    /// Resolves with `presented: false` when it doesn't come up, which
     /// the web app must not take for the onboarding seen.
     @objc func showOnboarding(_ call: CAPPluginCall) {
         let steps = OnboardingStepData.parse(call)
@@ -265,11 +265,10 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
                 call.resolve(["presented": false])
                 return
             }
-            let presented = chrome.presentOnboarding(steps) { completed, lastStep in
+            chrome.presentOnboarding(steps, presented: { presented in
+                if !presented { call.resolve(["presented": false]) }
+            }) { completed, lastStep in
                 call.resolve(["presented": true, "completed": completed, "lastStep": lastStep])
-            }
-            if !presented {
-                call.resolve(["presented": false])
             }
         }
     }

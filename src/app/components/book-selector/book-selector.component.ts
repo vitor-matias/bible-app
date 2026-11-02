@@ -6,12 +6,11 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
-  EventEmitter,
   Injector,
-  Input,
   inject,
+  input,
   OnChanges,
-  Output,
+  output,
   SimpleChanges,
 } from "@angular/core"
 import { MatButtonModule } from "@angular/material/button"
@@ -23,7 +22,6 @@ import {
   MatTreeModule,
 } from "@angular/material/tree"
 import {
-  ABOUT_GROUP,
   type CanonGroup,
   isClusterIntro,
   NEW_TESTAMENT_GROUPS,
@@ -55,6 +53,8 @@ interface ExampleFlatNode {
   styleUrl: "./book-selector.component.css",
 })
 export class BookSelectorComponent implements AfterViewInit, OnChanges {
+  private elementRef = inject(ElementRef)
+
   private _transformer = (node: BookNode | string, level: number) => {
     return {
       expandable:
@@ -120,7 +120,7 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
     })
   }
 
-  constructor(private elementRef: ElementRef) {
+  constructor() {
     this.filterBooks("")
   }
 
@@ -133,9 +133,7 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
     return withIntros(groups, leading, (bookId) => !!this.getBook(bookId))
   }
 
-  // The About page is not in the shared canon: the crawlable book index must
-  // not link to it.
-  newTestament: CanonGroup[] = [...NEW_TESTAMENT_GROUPS, ABOUT_GROUP]
+  newTestament: CanonGroup[] = NEW_TESTAMENT_GROUPS
 
   filterQuery = ""
 
@@ -176,13 +174,13 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
     this.ntTreeControl.expandAll()
   }
 
-  @Input()
-  books: Book[] = []
+  readonly books = input<Book[]>([])
 
-  @Input()
-  selectedBookId: string | undefined
+  readonly selectedBookId = input<string>()
 
-  @Output() submitData = new EventEmitter<{ bookId: Book["id"] }>()
+  readonly submitData = output<{
+    bookId: Book["id"]
+  }>()
 
   /**
    * Introductions read just "Introdução": the heading above gives the context.
@@ -197,7 +195,7 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   }
 
   getBook(bookId: string): Book | undefined {
-    return this.books.find((book) => book.id === bookId)
+    return this.books().find((book) => book.id === bookId)
   }
 
   submit(id: Book["id"]) {
@@ -239,11 +237,12 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   }
 
   private scrollToSelectedBook(): void {
-    if (!this.selectedBookId) return
+    const selectedBookId = this.selectedBookId()
+    if (!selectedBookId) return
 
     // Find element with data-book-id
     const element = this.elementRef.nativeElement.querySelector(
-      `[data-book-id="${this.selectedBookId}"]`,
+      `[data-book-id="${selectedBookId}"]`,
     )
 
     if (element) {

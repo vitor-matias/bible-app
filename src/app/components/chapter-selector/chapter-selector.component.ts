@@ -5,12 +5,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
-  EventEmitter,
   Injector,
-  Input,
   inject,
+  input,
+  linkedSignal,
   OnChanges,
-  Output,
+  output,
   SimpleChanges,
 } from "@angular/core"
 import { MatButtonModule } from "@angular/material/button"
@@ -20,6 +20,10 @@ import { MatTreeModule } from "@angular/material/tree"
 import { of } from "rxjs"
 import { map } from "rxjs/operators"
 import { BookmarkService } from "../../services/bookmark.service"
+import {
+  isRibbonColor,
+  ribbonColor,
+} from "../../services/bookmark-ribbons.service"
 import { scrollOnDrawerOpen } from "../../utils/drawer-scroll"
 
 @Component({
@@ -36,20 +40,27 @@ import { scrollOnDrawerOpen } from "../../utils/drawer-scroll"
   styleUrl: "./chapter-selector.component.css",
 })
 export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
-  @Input()
-  chapters: Chapter[] = []
+  private elementRef = inject(ElementRef)
+  private bookmarkService = inject(BookmarkService)
 
-  @Input()
-  selectedChapter: Chapter["number"] = 1
+  readonly chapters = input<Chapter[]>([])
 
-  @Output() submitData = new EventEmitter<{
+  readonly selectedChapter = input<Chapter["number"]>(1)
+
+  /** The highlighted chapter: follows the input, and a tap moves it at once. */
+  protected readonly highlighted = linkedSignal(() => this.selectedChapter())
+
+  readonly submitData = output<{
     chapterNumber: Chapter["number"]
   }>()
 
-  @Input()
-  bookId!: string
+  readonly bookId = input.required<string>()
 
   bookmarks$ = of(new Map<number, string>()) // map chapter -> color
+
+  /** Each ribbon in the theme's tone for it. */
+  readonly ribbonColor = ribbonColor
+  readonly isRibbonColor = isRibbonColor
 
   private injector = inject(Injector)
 
@@ -57,13 +68,8 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
    *  reopening it reuses this list, scrolled wherever it was left. */
   private inDrawer = scrollOnDrawerOpen(() => this.scrollToSelectedChapter())
 
-  constructor(
-    private elementRef: ElementRef,
-    private bookmarkService: BookmarkService,
-  ) {}
-
   submit(id: Chapter["number"]) {
-    this.selectedChapter = id
+    this.highlighted.set(id)
     this.submitData.emit({ chapterNumber: id })
   }
 
@@ -99,18 +105,17 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
         injector: this.injector,
       })
     }
-    if (changes["bookId"] && this.bookId) {
-      this.bookmarks$ = this.bookmarkService
-        .getBookmarksForBook(this.bookId)
-        .pipe(
-          map((bookmarks) => {
-            const map = new Map<number, string>()
-            bookmarks.forEach((b) => {
-              map.set(b.chapter, b.color)
-            })
-            return map
-          }),
-        )
+    const bookId = this.bookId()
+    if (changes["bookId"] && bookId) {
+      this.bookmarks$ = this.bookmarkService.getBookmarksForBook(bookId).pipe(
+        map((bookmarks) => {
+          const map = new Map<number, string>()
+          bookmarks.forEach((b) => {
+            map.set(b.chapter, b.color)
+          })
+          return map
+        }),
+      )
     }
   }
 

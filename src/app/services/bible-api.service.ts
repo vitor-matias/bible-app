@@ -1,5 +1,6 @@
 import { HttpClient, HttpErrorResponse } from "@angular/common/http"
-import { Injectable } from "@angular/core"
+import { Injectable, Injector, inject } from "@angular/core"
+import { pendingUntilEvent } from "@angular/core/rxjs-interop"
 import {
   catchError,
   finalize,
@@ -10,6 +11,7 @@ import {
   retry,
   shareReplay,
   switchMap,
+  TimeoutError,
   tap,
   throwError,
   timeout,
@@ -17,6 +19,7 @@ import {
 } from "rxjs"
 import { apiBaseUrl } from "../config"
 import { isBrowser } from "../utils/platform"
+import { AnalyticsService } from "./analytics.service"
 import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
 
@@ -61,6 +64,39 @@ function serverRetry<T>() {
 }
 
 /**
+ * In the app, a connection that opens but never answers would leave the reader
+ * empty until iOS gives up on it; failing sooner brings up the retry screen.
+ */
+export const BOOK_LIST_TIMEOUT_MS = 15_000
+
+function bookListTimeout<T>(): MonoTypeOperatorFunction<T> {
+  // The server already times out and retries (createApiResilience).
+  return IS_SERVER ? (source) => source : timeout(BOOK_LIST_TIMEOUT_MS)
+}
+
+/** A books body that parsed but isn't the list. */
+class UnexpectedBookListError extends Error {}
+
+/**
+ * Why the book list request failed, for the `books_load_failed` event. Never
+ * the body itself: a Wi-Fi login page may name the place.
+ */
+export function describeBookListFailure(
+  error: unknown,
+): Record<string, string | number> {
+  if (error instanceof TimeoutError) return { reason: "timeout" }
+  if (error instanceof UnexpectedBookListError) return { reason: "not_a_list" }
+  if (!(error instanceof HttpErrorResponse)) return { reason: "other" }
+  if (error.status === 0) return { reason: "network" }
+  const contentType =
+    error.headers?.get("content-type")?.split(";")[0].trim() || "unknown"
+  // HttpClient's error for a body it can't parse: an HTML page, or JSON cut short.
+  const reason =
+    error.error?.error instanceof SyntaxError ? "not_json" : "http_error"
+  return { reason, status: error.status, contentType }
+}
+
+/**
  * Survives between prerenders in one worker, so a listing is fetched once
  * instead of ~1200 times. Never caches an empty response: every later render
  * would resolve every book to the About page instead of failing.
@@ -87,6 +123,11 @@ const serverIntrosCache = createServerBooksCache<IntroSummary>(IS_SERVER)
   providedIn: "root",
 })
 export class BibleApiService {
+  private http = inject(HttpClient)
+  private injector = inject(Injector)
+  private offlineDataService = inject(OfflineDataService)
+  private networkService = inject(NetworkService)
+
   api = apiBaseUrl
   // Track in-flight chapter requests by book+chapter so concurrent navigation
   // shares the same fetch without leaking the result across different chapters.
@@ -95,12 +136,7 @@ export class BibleApiService {
   // Keep a shared books request alive long enough for all early subscribers to reuse it.
   private booksRequest$: Observable<Book[]> | null = null
   books: Book[] = []
-
-  constructor(
-    private http: HttpClient,
-    private offlineDataService: OfflineDataService,
-    private networkService: NetworkService,
-  ) {}
+  private readonly analyticsService = inject(AnalyticsService)
 
   getAvailableBooks(): Observable<Book[]> {
     return from(this.offlineDataService.getCachedBooksAsync()).pipe(
@@ -131,12 +167,24 @@ export class BibleApiService {
             this.http.get(`${this.api}/books`) as Observable<Book[]>
           ).pipe(
             serverRetry(),
+            bookListTimeout(),
             tap((books) => {
+              // A body that parses but isn't the list (a proxy's error page)
+              // fails like any other, so a retry asks the server again.
+              if (!Array.isArray(books)) {
+                throw new UnexpectedBookListError(
+                  "Unexpected response for the book list",
+                )
+              }
               this.books = books
               serverBooksCache.write(books)
             }),
             catchError((error) => {
               this.booksRequest$ = null
+              void this.analyticsService.track(
+                "books_load_failed",
+                describeBookListFailure(error),
+              )
               return throwError(() => error)
             }),
             shareReplay(1),
@@ -181,20 +229,9 @@ export class BibleApiService {
         this.chapterRequests.set(requestKey, request)
         return request
       }),
-    )
-  }
-
-  getBook(book: string): Observable<Book> {
-    return from(this.offlineDataService.getCachedBookAsync(book)).pipe(
-      switchMap((cached) => {
-        if (cached) {
-          return of(cached)
-        }
-        if (this.networkService.isOffline) {
-          return throwError(() => new Error("Offline - book not cached"))
-        }
-        return this.http.get(`${this.api}/${book}`) as Observable<Book>
-      }),
+      // The prerender serializes a page once the app is stable. Zone.js held
+      // it unstable through the cache lookup's promise; zoneless, only this.
+      pendingUntilEvent(this.injector),
     )
   }
 
@@ -223,6 +260,8 @@ export class BibleApiService {
           this.http.get(`${this.api}/intros`) as Observable<IntroSummary[]>
         ).pipe(
           serverRetry(),
+          // BookService waits for these with the books.
+          bookListTimeout(),
           tap((intros) => serverIntrosCache.write(intros)),
           catchError((error) =>
             cached.length ? of(cached) : throwError(() => error),
@@ -248,6 +287,7 @@ export class BibleApiService {
           ) as Observable<GroupIntro>
         ).pipe(serverRetry())
       }),
+      pendingUntilEvent(this.injector),
     )
   }
 

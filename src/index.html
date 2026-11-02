@@ -1,7 +1,19 @@
 <!doctype html>
-<html lang="pt">
+<html lang="pt-PT">
 <head>
   <meta charset="utf-8">
+  <!-- Inline because the first paint can come seconds before the bundle, and
+       ThemeService only takes over then. Same rule as ThemeService: nothing
+       stored, "system" or an unknown value all follow the device. -->
+  <script>
+    (function () {
+      var theme = null;
+      try { theme = localStorage.getItem("theme"); } catch (e) {}
+      if (theme === "dark" || (theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches)) {
+        document.documentElement.classList.add("dark-theme");
+      }
+    })();
+  </script>
   <title>Bíblia Sagrada Online — Bíblia dos Capuchinhos</title>
   <base href="/">
   <meta name="viewport"

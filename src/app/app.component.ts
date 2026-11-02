@@ -1,7 +1,6 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  Inject,
   inject,
   NgZone,
   type OnDestroy,
@@ -9,13 +8,14 @@ import {
 } from "@angular/core"
 import { MatDialog } from "@angular/material/dialog"
 import { Router, RouterOutlet } from "@angular/router"
-import type { App, BackButtonListenerEvent } from "@capacitor/app"
+import type { BackButtonListenerEvent } from "@capacitor/app"
 import type { PluginListenerHandle } from "@capacitor/core"
 import { Capacitor } from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
 import { appConfig, isVercelHost } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
 import { BackButtonService } from "./services/back-button.service"
+import { historyDepth } from "./services/depth-location-strategy"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
@@ -36,30 +36,26 @@ export const EXIT_BACK_WINDOW_MS = 2000
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppComponent implements OnInit, OnDestroy {
-  private installEventFired = false
+  private offlineDataService = inject(OfflineDataService)
+  private router = inject(Router)
+  private ngZone = inject(NgZone)
+  private analyticsService = inject(AnalyticsService)
+  private onboardingService = inject(OnboardingService)
+  private appPlugin = inject(APP_PLUGIN)
+  private dialog = inject(MatDialog)
+  private nativeShell = inject(NativeShellService)
+  private backButton = inject(BackButtonService)
+  private toast = inject(ToastService)
+
   private readonly listenerHandles: PluginListenerHandle[] = []
   /** Until when a back on the first screen leaves the app. */
   private exitBackDeadline = 0
 
-  private readonly installListener = () => {
-    this.installEventFired = true
-  }
-
-  constructor(
-    private offlineDataService: OfflineDataService,
-    private router: Router,
-    private ngZone: NgZone,
-    private analyticsService: AnalyticsService,
-    private onboardingService: OnboardingService,
-    _themeService: ThemeService,
-    // Injected early so it captures `beforeinstallprompt`, which fires once.
-    _pwaInstallService: PwaInstallService,
-    @Inject(APP_PLUGIN) private appPlugin: typeof App,
-    private dialog: MatDialog,
-    private nativeShell: NativeShellService,
-    private backButton: BackButtonService,
-    private toast: ToastService,
-  ) {
+  constructor() {
+    // Injected early so they capture what fires once: the theme's media-query
+    // listener and the PWA's `beforeinstallprompt`.
+    inject(ThemeService)
+    inject(PwaInstallService)
     // Speed Insights is served by Vercel deployments only. The website itself
     // is nginx, where its script 404s on every page, and the native apps load
     // from a local origin where it doesn't exist either.
@@ -69,9 +65,7 @@ export class AppComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     if (typeof window === "undefined") return
 
-    window.addEventListener("appinstalled", this.installListener)
-    // Only preload from standalone check if install event hasn't fired
-    if (this.isStandaloneMode() && !this.installEventFired) {
+    if (this.isStandaloneMode()) {
       this.offlineDataService.preloadAllBooksAndChapters("standalone")
     }
 
@@ -140,7 +134,9 @@ export class AppComponent implements OnInit, OnDestroy {
       return
     }
     if (this.backButton.closeTopmost()) return
-    if (canGoBack) {
+    // The WebView's canGoBack misses pages opened from the native bars before
+    // any tap on the page (DepthLocationStrategy); the app's own count doesn't.
+    if (canGoBack || historyDepth(window.history.state) > 0) {
       window.history.back()
       return
     }
@@ -224,9 +220,6 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   async ngOnDestroy(): Promise<void> {
-    if (typeof window !== "undefined") {
-      window.removeEventListener("appinstalled", this.installListener)
-    }
     await Promise.all(this.listenerHandles.map((handle) => handle.remove()))
   }
 

@@ -40,6 +40,27 @@ export function passageShortLabels(
     : [abbreviated]
 }
 
+/**
+ * What a problem report is about, as the passage button names it: "Salmo 34
+ * (33)", "Mateus Introdução", or just the page ("Sobre a Bíblia").
+ */
+export function reportSubject(book: NamedBook, chapter: number): string {
+  if (book.id === "about") return book.shortName
+  return chapter === 0
+    ? `${book.shortName} Introdução`
+    : passageLabel(book, chapter)
+}
+
+/**
+ * A book's introduction, by the book's full name: "Introdução ao Livro do
+ * Génesis", "Introdução ao Evangelho de São Mateus". The letters' names are
+ * feminine ("Carta aos Romanos", "Primeira Carta aos Coríntios"): "à".
+ */
+export function introductionTitle(book: Pick<Book, "name">): string {
+  const feminine = /^(Carta|Primeira|Segunda|Terceira) /.test(book.name)
+  return `Introdução ${feminine ? "à" : "ao"} ${book.name}`
+}
+
 /** The API's abbreviations carry stray spaces and byte-order marks ("Tg \ufeff"). */
 export function cleanAbbreviation(abrv: string): string {
   return abrv.replace(/[\s\ufeff]+/g, " ").trim()

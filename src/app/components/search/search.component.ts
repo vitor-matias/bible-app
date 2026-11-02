@@ -108,6 +108,16 @@ export interface PsalmOption {
   imports: [SearchBarComponent, UnifiedGesturesDirective, MatIconModule],
 })
 export class SearchComponent {
+  private apiService = inject(BibleApiService)
+  private referenceService = inject(BibleReferenceService)
+  private bookService = inject(BookService)
+  private router = inject(Router)
+  private route = inject(ActivatedRoute)
+  private cdr = inject(ChangeDetectorRef)
+  private analyticsService = inject(AnalyticsService)
+  private injector = inject(Injector)
+  private seoService = inject(SeoService)
+
   searchResults: Verse[] = []
 
   searchTerm = ""
@@ -216,22 +226,10 @@ export class SearchComponent {
    * Read while the router builds the page; by ngOnInit it is done navigating.
    */
   private cameBack = inject(Router).currentNavigation()?.trigger === "popstate"
-  /** The iOS app draws the search field and Back natively, not search-bar. */
+  /** The native apps draw the search field and Back, not search-bar. */
   readonly native = this.nativeChrome.enabled
   /** Each keystroke, with the submit it followed (searchGeneration). */
   private readonly typed = new Subject<{ text: string; generation: number }>()
-
-  constructor(
-    private apiService: BibleApiService,
-    private referenceService: BibleReferenceService,
-    private bookService: BookService,
-    private router: Router,
-    private route: ActivatedRoute,
-    private cdr: ChangeDetectorRef,
-    private analyticsService: AnalyticsService,
-    private injector: Injector,
-    private seoService: SeoService,
-  ) {}
 
   ngOnInit(): void {
     this.seoService.updateForSearch()
@@ -774,7 +772,7 @@ export class SearchComponent {
     this.statusMessage = this.nothingStored
       ? NOTHING_STORED
       : this.totalResults === 0
-        ? `Nenhum resultado para "${text}"`
+        ? `Nenhum resultado para «${text}»`
         : this.resultsHeading
     if (
       !typed &&

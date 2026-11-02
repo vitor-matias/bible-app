@@ -87,14 +87,14 @@ jobs:
       version_code: ${{ steps.version.outputs.code }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version-file: '.nvmrc'
           cache: 'npm'
 
       - name: Install dependencies
@@ -175,23 +175,28 @@ jobs:
       # Read by android/app/build.gradle as -PversionCode / -PversionName.
       ORG_GRADLE_PROJECT_versionCode: ${{ needs.build-native-web.outputs.version_code }}
       ORG_GRADLE_PROJECT_versionName: ${{ needs.build-native-web.outputs.version_name }}
+      MAPPING_NAME: mapping-${{ needs.build-native-web.outputs.version_name }}-${{ needs.build-native-web.outputs.version_code }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version-file: '.nvmrc'
           cache: 'npm'
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
           java-version: '21'
+
+      # compileSdk 37 (variables.gradle), which the runner's SDK may not have.
+      - name: Android SDK 37
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;37.0.0" > /dev/null'
 
       - name: Install dependencies
         run: npm ci
@@ -252,6 +257,7 @@ jobs:
           if [ -n "${HAS_ANDROID_KEYSTORE}" ]; then
             echo "Building Release APK..."
             ./gradlew assembleRelease
+            sha256sum app/build/outputs/mapping/release/mapping.txt > "$RUNNER_TEMP/apk-mapping.sha256"
           else
             echo "Building Debug APK (no keystore provided)..."
             ./gradlew assembleDebug
@@ -305,6 +311,21 @@ jobs:
           path: android/app/build/outputs/apk/**/*.apk
           retention-days: 30
 
+      - name: Name R8 mapping
+        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
+        run: cp android/app/build/outputs/mapping/release/mapping.txt "android/app/build/outputs/mapping/release/$MAPPING_NAME.txt"
+
+      # Beside the APK, so a failed AAB build still leaves that APK readable.
+      # 90 days is this repo's maximum, enough for test builds. A release's
+      # mapping lasts as long as the release: create-release attaches it.
+      - name: Upload R8 mapping
+        if: ${{ env.HAS_ANDROID_KEYSTORE != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-${{ env.MAPPING_NAME }}
+          path: android/app/build/outputs/mapping/release/${{ env.MAPPING_NAME }}.txt
+          retention-days: 90
+
       - name: Build Android AAB
         run: |
           set -e
@@ -312,6 +333,9 @@ jobs:
           if [ -n "${HAS_ANDROID_KEYSTORE}" ]; then
             echo "Building Release AAB..."
             ./gradlew bundleRelease
+            # Both builds share one R8 task, so one mapping reads both. If the
+            # task ever ran again here, the AAB wouldn't match the kept mapping.
+            sha256sum -c "$RUNNER_TEMP/apk-mapping.sha256"
           else
             echo "Building Debug AAB (no keystore provided)..."
             ./gradlew bundleDebug
@@ -327,7 +351,7 @@ jobs:
   build-ios-macos:
     needs: build-native-web
     if: ${{ github.event_name == 'push' || inputs.build_ios || inputs.testflight || inputs.create_release }}
-    runs-on: macos-latest
+    runs-on: xcode-27  # macos-latest tops out at Xcode 26.x
     # Signs the build for the App Store when it's bound for TestFlight: when
     # asked, and for every release. Signing takes the distribution
     # certificate (secrets IOS_DIST_P12_BASE64, IOS_DIST_P12_PASSWORD) and its
@@ -343,12 +367,12 @@ jobs:
       CURRENT_PROJECT_VERSION: ${{ needs.build-native-web.outputs.version_code }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version-file: '.nvmrc'
           cache: 'npm'
 
       - name: Install dependencies
@@ -363,7 +387,7 @@ jobs:
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: '27.1'
 
       - name: Sync Capacitor iOS
         run: |
@@ -400,6 +424,33 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
+
+      # App Review rejects a build that crashes at launch. The same Release
+      # build, for the simulator, is launched on App Review's devices
+      # (ios/scripts/smoke-launch.sh): like a signing failure, a crash fails
+      # the build, and so blocks a release or a TestFlight upload.
+      - name: Smoke-launch on the simulator
+        run: |
+          set -e
+          xcodebuild -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath ios/App/build/simulator \
+            build \
+            CODE_SIGNING_ALLOWED=NO
+          ios/scripts/smoke-launch.sh \
+            ios/App/build/simulator/Build/Products/Release-iphonesimulator/App.app \
+            ios/App/build/crash-reports
+
+      - name: Upload crash reports
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ios-crash-reports
+          path: ios/App/build/crash-reports
+          if-no-files-found: ignore
 
       # The app's team is an individual membership, where only the Account
       # Holder may create certificates, so Xcode's cloud signing is refused to
@@ -477,7 +528,7 @@ jobs:
       tag_name: ${{ steps.tag.outputs.tag_name }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -578,7 +629,7 @@ jobs:
 
   create-release:
     name: Create GitHub Release
-    needs: [build-android, build-ios-macos, create-tag]
+    needs: [build-native-web, build-android, build-ios-macos, create-tag]
     # Run on version tag pushes OR on manual dispatch when create_release is
     # enabled, once both platforms have built
     if: |
@@ -598,6 +649,14 @@ jobs:
           name: android-apk
           path: release-assets
 
+      # Safe to publish: it holds only class, method and source file names, of
+      # this public repo's code and its open source libraries, no string values.
+      - name: Download R8 mapping artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: android-mapping-${{ needs.build-native-web.outputs.version_name }}-${{ needs.build-native-web.outputs.version_code }}
+          path: release-assets
+
       - name: List downloaded assets
         run: find release-assets -type f
 
@@ -611,11 +670,13 @@ jobs:
           fi
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.resolve-tag.outputs.tag_name }}
           name: "Release ${{ steps.resolve-tag.outputs.tag_name }}"
           draft: false
           prerelease: ${{ contains(steps.resolve-tag.outputs.tag_name, '-') }}
           generate_release_notes: true
-          files: release-assets/**/*.apk
+          files: |
+            release-assets/**/*.apk
+            release-assets/mapping-*.txt

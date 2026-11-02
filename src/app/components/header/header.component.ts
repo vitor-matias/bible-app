@@ -4,15 +4,13 @@ import {
   ChangeDetectorRef,
   Component,
   DestroyRef,
-  EventEmitter,
   HostListener,
-  Inject,
-  Input,
   inject,
+  input,
   type OnChanges,
   type OnDestroy,
   type OnInit,
-  Output,
+  output,
   PLATFORM_ID,
   type QueryList,
   type SimpleChanges,
@@ -30,27 +28,26 @@ import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { Router, RouterModule } from "@angular/router"
-import { Capacitor } from "@capacitor/core"
-import type { Share } from "@capacitor/share"
 import { shareableUrl } from "../../config"
+import type { TextSize } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
-import { spokenRibbonName } from "../../services/bookmark-ribbons.service"
+import {
+  ribbonColor,
+  spokenRibbonName,
+} from "../../services/bookmark-ribbons.service"
 import {
   BuildVersionService,
   type DisplayVersion,
 } from "../../services/build-version.service"
 import { NativeBookmarksService } from "../../services/native-bookmarks.service"
-import {
-  type NativeChromeAction,
-  NativeChromeService,
-} from "../../services/native-chrome.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
+import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"
-import { SHARE_PLUGIN } from "../../tokens"
 import {
   passageLabel,
   passageShortLabels,
@@ -89,13 +86,23 @@ const PRIVACY_POLICY_URL = "https://www.capuchinhos.org/politica-de-privacidade"
   styleUrls: ["./header.component.css"],
 })
 export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
-  @Input() book!: Book
-  @Input() chapterNumber!: number
-  @Input() autoScrollControlsVisible = false
-  @Input() viewMode: "scrolling" | "paged" = "scrolling"
-  /** For the iOS toolbar's arrows; the web page has its own. */
-  @Input() canGoPrevious = false
-  @Input() canGoNext = false
+  private readonly themeService = inject(ThemeService)
+  private readonly bookmarkService = inject(BookmarkService)
+  private readonly bottomSheet = inject(MatBottomSheet)
+  private readonly dialog = inject(MatDialog)
+  private readonly cdr = inject(ChangeDetectorRef)
+  readonly analyticsService = inject(AnalyticsService)
+  private readonly onboardingService = inject(OnboardingService)
+
+  readonly book = input.required<Book>()
+  readonly chapterNumber = input.required<number>()
+  readonly autoScrollControlsVisible = input(false)
+  /** The reader's text size, for the Android app's text sheet; null before it opens. */
+  readonly textSize = input<TextSize | null>(null)
+  readonly viewMode = input<"scrolling" | "paged">("scrolling")
+  /** For the native toolbar's arrows; the web page has its own. */
+  readonly canGoPrevious = input(false)
+  readonly canGoNext = input(false)
 
   bookLabelMode: "title" | "prompt" = "title"
   /** True for the fade-out half of a label swap. */
@@ -103,24 +110,28 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   /** Accessible name for the h1, whose visible label cycles on the home page. */
   get headingLabel(): string {
-    if (!this.book) return ""
-    if (this.book.id === "about") return this.book.name
+    const book = this.book()
+    if (!book) return ""
+    if (book.id === "about") return book.name
     // A standalone introduction is already named after itself.
-    if (this.book.introSlug) return this.book.name
-    return this.chapterNumber === 0
-      ? `${this.book.name} Introdução`
-      : `${this.book.name} ${this.chapterNumber}`
+    if (book.introSlug) return book.name
+    const chapterNumber = this.chapterNumber()
+    return chapterNumber === 0
+      ? `${book.name} Introdução`
+      : `${book.name} ${chapterNumber}`
   }
   /** Book button label; on the home page it cycles with a prompt. */
   get bookLabel(): string {
-    if (this.book.id === "about" && this.bookLabelMode === "prompt") {
+    const book = this.book()
+    if (book.id === "about" && this.bookLabelMode === "prompt") {
       return "Escolher Livro"
     }
-    return this.mobile ? this.book.shortName : this.book.name
+    return this.mobile ? book.shortName : book.name
   }
 
   get chapterLabel(): string {
-    if (this.chapterNumber !== 0) return String(this.chapterNumber)
+    const chapterNumber = this.chapterNumber()
+    if (chapterNumber !== 0) return String(chapterNumber)
     return this.mobile ? "Intro" : "Introdução"
   }
 
@@ -133,16 +144,22 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private labelSwapTimeout?: number
   canShare = false
   currentBookmark: Bookmark | undefined
+  /** The ribbon's tone; on the header's antique-white button in both themes. */
+  readonly ribbonColor = ribbonColor
 
-  @Output() openBookSelector = new EventEmitter<{ open: boolean }>()
-  @Output() openChapterSelector = new EventEmitter<{ open: boolean }>()
-  @Output() toggleAutoScrollControls = new EventEmitter<void>()
-  @Output() toggleViewMode = new EventEmitter<void>()
+  readonly openBookSelector = output<{
+    open: boolean
+  }>()
+  readonly openChapterSelector = output<{
+    open: boolean
+  }>()
+  readonly toggleAutoScrollControls = output<void>()
+  readonly toggleViewMode = output<void>()
   /** iOS toolbar arrows: a page in paged mode, else a chapter. */
-  @Output() previous = new EventEmitter<void>()
-  @Output() next = new EventEmitter<void>()
-  /** A passage chosen in the iOS picker; no chapter means the book's first. */
-  @Output() selectPassage = new EventEmitter<{
+  readonly previous = output<void>()
+  readonly next = output<void>()
+  /** A passage chosen in the native picker or menu; no chapter means the book's first. */
+  readonly selectPassage = output<{
     bookId: string
     chapter?: number
   }>()
@@ -157,11 +174,12 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly nativeReport = inject(NativeReportService)
   private readonly buildVersion = inject(BuildVersionService)
   private bookmarks: Bookmark[] = []
-  /** The iOS shell draws this header natively; the template renders nothing. */
+  /** The native shells draw this header; the template renders nothing. */
   readonly native = this.nativeChrome.enabled
   private readonly platformId = inject(PLATFORM_ID)
   private readonly document = inject(DOCUMENT)
-  @ViewChildren(MatMenuTrigger) private menuTriggers?: QueryList<MatMenuTrigger>
+  @ViewChildren(MatMenuTrigger)
+  private menuTriggers?: QueryList<MatMenuTrigger>
   private readonly backButton = inject(BackButtonService)
   private readonly unregisterBackCloser = this.backButton.register(() => {
     const open = this.menuTriggers?.find((trigger) => trigger.menuOpen)
@@ -169,26 +187,15 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     return !!open
   })
 
-  constructor(
-    private readonly themeService: ThemeService,
-    private readonly bookmarkService: BookmarkService,
-    private readonly bottomSheet: MatBottomSheet,
-    private readonly dialog: MatDialog,
-    private readonly cdr: ChangeDetectorRef,
-    public readonly analyticsService: AnalyticsService,
-    private readonly onboardingService: OnboardingService,
-    @Inject(SHARE_PLUGIN) private sharePlugin: typeof Share,
-  ) {}
-
   /**
    * Initializes responsive and sharing state, follows bookmark changes, and
-   * connects the iOS bars. Loads the menu version asynchronously, ignoring
+   * connects the native bars. Loads the menu version asynchronously, ignoring
    * it if this header has already been destroyed.
    */
   ngOnInit(): void {
     this.updateMobile()
     this.canShare =
-      Capacitor.isNativePlatform() ||
+      this.native ||
       (typeof navigator !== "undefined" &&
         typeof navigator.share === "function")
 
@@ -201,7 +208,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.syncNativeChrome()
       })
 
-    // The iOS shell draws the menu: it gets the timestamp, and has the release.
+    // The native shell draws the menu: it gets the timestamp, and has the release.
     void this.buildVersion.getDisplayVersion().then((version) => {
       // Gone already: syncing now would put the bars back over another page.
       if (this.destroyed) return
@@ -236,7 +243,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
     if (changes["book"]) {
       // The native bar has no room for the prompt; its button is plainly one.
-      if (this.book?.id === "about" && !this.native) {
+      if (this.book()?.id === "about" && !this.native) {
         this.startLabelCycle()
       } else {
         this.stopLabelCycle()
@@ -247,26 +254,29 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   private updateBookmarkState() {
     // != null, not truthy: chapter 0 is the book introduction.
-    if (this.book && this.chapterNumber != null) {
+    const book = this.book()
+    if (book && this.chapterNumber() != null) {
       this.currentBookmark = this.bookmarkService.getBookmark(
-        this.book.id,
-        this.chapterNumber,
+        book.id,
+        this.chapterNumber(),
       )
     }
   }
 
   openBookmarkSelector() {
-    if (!this.book || this.chapterNumber == null) {
+    const book = this.book()
+    const chapterNumber = this.chapterNumber()
+    if (!book || chapterNumber == null) {
       return
     }
     if (this.native) {
-      this.nativeBookmarks.open(this.book.id, this.chapterNumber)
+      this.nativeBookmarks.open(book.id, chapterNumber)
       return
     }
 
     this.backButton.closeOnBack(
       this.bottomSheet.open(BookmarkSelectorComponent, {
-        data: { bookId: this.book.id, chapter: this.chapterNumber },
+        data: { bookId: book.id, chapter: chapterNumber },
       }),
     )
   }
@@ -282,19 +292,31 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   openReportProblem() {
-    if (!this.book || this.chapterNumber == null) {
+    const book = this.book()
+    const chapterNumber = this.chapterNumber()
+    if (!book || chapterNumber == null) {
       return
     }
     if (this.native) {
-      this.nativeReport.open(this.book, this.chapterNumber)
+      this.nativeReport.open(book, chapterNumber)
       return
     }
 
     this.dialog.open(ReportProblemComponent, {
-      data: { book: this.book, chapter: this.chapterNumber },
+      data: { book, chapter: chapterNumber },
       width: "90%",
       maxWidth: "500px",
     })
+  }
+
+  onOpenAbout(trigger: MatMenuTrigger) {
+    trigger.closeMenu()
+    this.openAbout()
+  }
+
+  /** The About page, which the book pickers no longer list. */
+  private openAbout(): void {
+    this.selectPassage.emit({ bookId: "about" })
   }
 
   onOpenHelp(trigger: MatMenuTrigger) {
@@ -304,7 +326,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   /**
    * Ignores a late version result, unregisters the back handler, stops label
-   * cycling, and requests that the iOS bars hide.
+   * cycling, and requests that the native bars hide.
    */
   ngOnDestroy(): void {
     this.destroyed = true
@@ -361,20 +383,23 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   getViewModeIcon(): string {
-    return this.viewMode === "scrolling" ? "swipe_vertical" : "auto_stories"
+    return this.viewMode() === "scrolling" ? "swipe_vertical" : "auto_stories"
   }
 
   getViewModeTooltip(): string {
-    return this.viewMode === "scrolling"
+    return this.viewMode() === "scrolling"
       ? "Texto contínuo (clique para mudar para página a página)"
       : "Página a página (clique para mudar para texto contínuo)"
   }
 
-  @Output() increaseFontSizeEvent = new EventEmitter<void>()
-  @Output() decreaseFontSizeEvent = new EventEmitter<void>()
+  /** A size up or down; a `step` (percent) where the native sheet asks for one. */
+  readonly increaseFontSizeEvent = output<number | undefined>()
+  readonly decreaseFontSizeEvent = output<number | undefined>()
+  /** Back to the size the text opens at without a choice. */
+  readonly resetFontSizeEvent = output<void>()
 
   increaseFontSize(): void {
-    this.increaseFontSizeEvent.emit()
+    this.increaseFontSizeEvent.emit(undefined)
   }
 
   onIncreaseFontSize(event?: Event): void {
@@ -383,7 +408,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   decreaseFontSize(): void {
-    this.decreaseFontSizeEvent.emit()
+    this.decreaseFontSizeEvent.emit(undefined)
   }
 
   onDecreaseFontSize(event?: Event): void {
@@ -402,13 +427,15 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       return
     }
 
-    const isAbout = this.book?.id === "about"
+    const book = this.book()
+    const isAbout = book?.id === "about"
     const title = "Bíblia Sagrada"
+    const chapterNumber = this.chapterNumber()
     const text = isAbout
       ? "Leia a Bíblia nesta app."
-      : this.chapterNumber === 0
-        ? `Ler a introdução de ${this.book?.name}.`
-        : `Ler ${this.book?.name} ${this.chapterNumber}.`
+      : chapterNumber === 0
+        ? `Ler a introdução de ${book?.name}.`
+        : `Ler ${book?.name} ${chapterNumber}.`
     const url =
       typeof window === "undefined" ? "" : shareableUrl(window.location)
 
@@ -422,13 +449,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
           linkTitle: this.document.title || title,
         })
         if (!shared) return
-      } else if (Capacitor.isNativePlatform()) {
-        await this.sharePlugin.share({
-          title,
-          text,
-          url,
-          dialogTitle: "Partilhar passagem",
-        })
       } else {
         await navigator.share({ title, text, url })
       }
@@ -436,34 +456,35 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       // Shared successfully
 
       void this.analyticsService.track("share", {
-        book: this.book?.id,
-        chapter: this.chapterNumber,
+        book: book?.id,
+        chapter: this.chapterNumber(),
       })
     } catch {
       // User canceled or share failed; no UI feedback needed.
     }
   }
 
-  /** Sends what this header would show to the iOS native bars. */
+  /** Sends what this header would show to the native bars. */
   private syncNativeChrome(): void {
-    if (!this.native || !this.book) return
-    const isAbout = this.book.id === "about"
+    const book = this.book()
+    if (!this.native || !book) return
+    const isAbout = book.id === "about"
     // Standalone introductions and the About page have no chapters.
-    const hasChapters = !isAbout && !this.book.introSlug
+    const hasChapters = !isAbout && !book.introSlug
     const label = !hasChapters
       ? this.bookLabel
-      : this.book.id === PSALMS_BOOK_ID && this.chapterNumber > 0
-        ? passageLabel(this.book, this.chapterNumber)
+      : book.id === PSALMS_BOOK_ID && this.chapterNumber() > 0
+        ? passageLabel(book, this.chapterNumber())
         : `${this.bookLabel} ${this.chapterLabel}`
     this.nativeChrome.show({
       mode: "reader",
       passageLabel: label,
       passageShortLabels: hasChapters
-        ? passageShortLabels(this.book, this.chapterNumber)
+        ? passageShortLabels(book, this.chapterNumber())
         : [],
       passageAccessibilityLabel: [
-        hasChapters && this.chapterNumber > 0
-          ? passageSpokenLabel(this.book, this.chapterNumber)
+        hasChapters && this.chapterNumber() > 0
+          ? passageSpokenLabel(book, this.chapterNumber())
           : this.headingLabel,
         ...(this.bookmarkName
           ? [`marcador ${this.bookmarkName.toLocaleLowerCase("pt")}`]
@@ -472,18 +493,19 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       bookmarkColor: this.currentBookmark?.color ?? null,
       bookmarkName: this.bookmarkName?.toLocaleLowerCase("pt") ?? null,
       chapterNavigation: !isAbout,
-      canGoPrevious: this.canGoPrevious,
-      canGoNext: this.canGoNext,
+      canGoPrevious: this.canGoPrevious(),
+      canGoNext: this.canGoNext(),
       // Offline too: references open from the stored Bible, and words are
       // searched in it (OfflineSearchService).
       search: true,
       themeMode: this.themeService.currentMode,
-      viewMode: isAbout ? null : this.viewMode,
-      autoScrollVisible: this.autoScrollControlsVisible,
-      autoScrollAvailable: this.viewMode !== "paged",
+      viewMode: isAbout ? null : this.viewMode(),
+      autoScrollVisible: this.autoScrollControlsVisible(),
+      autoScrollAvailable: this.viewMode() !== "paged",
       canShare: this.canShare,
       canReport: this.analyticsService.areAnalyticsAvailable(),
       buildVersion: this.version?.build ?? null,
+      textSize: isAbout ? null : this.textSize(),
     })
   }
 
@@ -492,8 +514,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       case "passage":
         this.nativeChrome.showPicker(
           buildPassagePicker(this.bookService.getBooks(), this.bookmarks, {
-            bookId: this.book.id,
-            chapter: this.chapterNumber,
+            bookId: this.book().id,
+            chapter: this.chapterNumber(),
           }),
         )
         break
@@ -524,10 +546,13 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.toggleViewMode.emit()
         break
       case "font-decrease":
-        this.decreaseFontSize()
+        this.decreaseFontSizeEvent.emit(action.step)
         break
       case "font-increase":
-        this.increaseFontSize()
+        this.increaseFontSizeEvent.emit(action.step)
+        break
+      case "font-reset":
+        this.resetFontSizeEvent.emit()
         break
       case "bookmarks":
         this.openBookmarkSelector()
@@ -540,6 +565,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         break
       case "report":
         this.openReportProblem()
+        break
+      case "about":
+        this.openAbout()
         break
       case "help":
         this.onboardingService.open("menu")

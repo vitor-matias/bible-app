@@ -1,12 +1,6 @@
 import { Location } from "@angular/common"
 import { ApplicationRef, NO_ERRORS_SCHEMA } from "@angular/core"
-import {
-  ComponentFixture,
-  fakeAsync,
-  flushMicrotasks,
-  TestBed,
-  tick,
-} from "@angular/core/testing"
+import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import {
   ActivatedRoute,
@@ -23,20 +17,20 @@ import {
   Subject,
   throwError,
 } from "rxjs"
+import type { Mock } from "vitest"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
-import {
-  type NativeChromeAction,
-  NativeChromeService,
-} from "../../services/native-chrome.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
+import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { NetworkService } from "../../services/network.service"
 import { OfflineSearchService } from "../../services/offline-search.service"
 import { SearchMemoryService } from "../../services/search-memory.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { contrastRatio } from "../../testing/contrast"
+import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
 import { firstLine, SearchComponent, TYPING_PAUSE_MS } from "./search.component"
 
 // How the edition sets Psalm 23,1 and 94,1.
@@ -82,18 +76,21 @@ describe("firstLine", () => {
 describe("SearchComponent", () => {
   let component: SearchComponent
   let fixture: ComponentFixture<SearchComponent>
-  let apiService: jasmine.SpyObj<BibleApiService>
-  let referenceService: jasmine.SpyObj<BibleReferenceService>
-  let bookService: jasmine.SpyObj<BookService>
-  let snackBar: jasmine.SpyObj<MatSnackBar>
-  let router: jasmine.SpyObj<Router>
-  let analyticsService: jasmine.SpyObj<AnalyticsService>
+  let apiService: SpyObj<BibleApiService>
+  let referenceService: SpyObj<BibleReferenceService>
+  let bookService: SpyObj<BookService>
+  let snackBar: SpyObj<MatSnackBar>
+  let router: SpyObj<Router>
+  let analyticsService: SpyObj<AnalyticsService>
   let routeMock: ActivatedRoute
   let queryParamMapSubject: BehaviorSubject<ParamMap>
-  let seoService: jasmine.SpyObj<SeoService>
-  let network: { isOffline: boolean; isOffline$: BehaviorSubject<boolean> }
-  let offlineSearch: jasmine.SpyObj<OfflineSearchService>
-  let location: jasmine.SpyObj<Location>
+  let seoService: SpyObj<SeoService>
+  let network: {
+    isOffline: boolean
+    isOffline$: BehaviorSubject<boolean>
+  }
+  let offlineSearch: SpyObj<OfflineSearchService>
+  let location: SpyObj<Location>
   /** How the navigation to the page came about (Router.currentNavigation). */
   let navigationTrigger: "imperative" | "popstate" | null
   let observerCallback: IntersectionObserverCallback | null
@@ -132,11 +129,9 @@ describe("SearchComponent", () => {
   }
 
   beforeEach(async () => {
-    apiService = jasmine.createSpyObj("BibleApiService", ["getVerse", "search"])
-    referenceService = jasmine.createSpyObj("BibleReferenceService", [
-      "extract",
-    ])
-    bookService = jasmine.createSpyObj("BookService", [
+    apiService = createSpyObj("BibleApiService", ["getVerse", "search"])
+    referenceService = createSpyObj("BibleReferenceService", ["extract"])
+    bookService = createSpyObj("BookService", [
       "findBook",
       "findBookById",
       "findTypedBook",
@@ -144,38 +139,43 @@ describe("SearchComponent", () => {
       "getChapterUrlSegment",
     ])
     // The links' addresses, as the reader writes them.
-    bookService.getUrlAbrv.and.callFake(BookService.prototype.getUrlAbrv)
-    bookService.getChapterUrlSegment.and.callFake(
+    bookService.getUrlAbrv.mockImplementation(BookService.prototype.getUrlAbrv)
+    bookService.getChapterUrlSegment.mockImplementation(
       BookService.prototype.getChapterUrlSegment,
     )
-    // The book list has loaded, as it has by the time most searches answer.
-    ;(bookService as { books$: Observable<Book[]> }).books$ = of([
-      { id: "gen" } as Book,
-    ])
+    ;(
+      bookService as {
+        books$: Observable<Book[]>
+      }
+    ).books$ = of([{ id: "gen" } as Book])
     // As BookService does it: the book findBook finds, but never the About
     // page it falls back to, nor an introduction.
-    bookService.findTypedBook.and.callFake((text: string) => {
+    bookService.findTypedBook.mockImplementation((text: string) => {
       const book = bookService.findBook(text)
       return book && !book.introSlug && book.id !== "about" ? book : undefined
     })
-    location = jasmine.createSpyObj("Location", ["back", "replaceState"])
-    snackBar = jasmine.createSpyObj("MatSnackBar", ["open"])
-    router = jasmine.createSpyObj("Router", ["navigate"])
-    router.navigate.and.resolveTo(true)
+    location = createSpyObj("Location", ["back", "replaceState"])
+    snackBar = createSpyObj("MatSnackBar", ["open"])
+    router = createSpyObj("Router", ["navigate"])
+    router.navigate.mockResolvedValue(true)
     navigationTrigger = null
-    ;(router as { currentNavigation: unknown }).currentNavigation = () =>
+    ;(
+      router as {
+        currentNavigation: unknown
+      }
+    ).currentNavigation = () =>
       navigationTrigger && { trigger: navigationTrigger }
-    analyticsService = jasmine.createSpyObj("AnalyticsService", ["track"])
-    analyticsService.track.and.returnValue(Promise.resolve())
+    analyticsService = createSpyObj("AnalyticsService", ["track"])
+    analyticsService.track.mockResolvedValue(undefined)
     queryParamMapSubject = new BehaviorSubject(convertToParamMap({}))
     routeMock = {
       snapshot: { queryParamMap: convertToParamMap({}) },
       queryParamMap: queryParamMapSubject.asObservable(),
     } as ActivatedRoute
-    seoService = jasmine.createSpyObj("SeoService", ["updateForSearch"])
+    seoService = createSpyObj("SeoService", ["updateForSearch"])
     network = { isOffline: false, isOffline$: new BehaviorSubject(false) }
-    offlineSearch = jasmine.createSpyObj("OfflineSearchService", ["search"])
-    offlineSearch.search.and.resolveTo(null)
+    offlineSearch = createSpyObj("OfflineSearchService", ["search"])
+    offlineSearch.search.mockResolvedValue(null)
     observerCallback = null
     observerOptions = undefined
     observed = null
@@ -214,7 +214,9 @@ describe("SearchComponent", () => {
       globalThis.IntersectionObserver = originalIntersectionObserver
     } else {
       delete (
-        globalThis as { IntersectionObserver?: typeof IntersectionObserver }
+        globalThis as {
+          IntersectionObserver?: typeof IntersectionObserver
+        }
       ).IntersectionObserver
     }
   })
@@ -240,63 +242,71 @@ describe("SearchComponent", () => {
 
   describe("searching as people type", () => {
     beforeEach(() => {
-      referenceService.extract.and.returnValue([])
-      apiService.search.and.returnValue(
+      referenceService.extract.mockReturnValue([])
+      apiService.search.mockReturnValue(
         of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
       )
       component.ngOnInit()
     })
 
-    it("searches once typing pauses", fakeAsync(() => {
+    it("searches once typing pauses", async () => {
+      vi.useFakeTimers()
       component.onTyping("pas")
-      tick(TYPING_PAUSE_MS - 1)
+      await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS - 1)
       // Each keystroke restarts the wait.
       component.onTyping("pastor")
-      tick(TYPING_PAUSE_MS - 1)
+      await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS - 1)
       expect(apiService.search).not.toHaveBeenCalled()
 
-      tick(1)
-      expect(apiService.search).toHaveBeenCalledOnceWith("pastor", 1)
-    }))
+      await vi.advanceTimersByTimeAsync(1)
+      expect(apiService.search).toHaveBeenCalledTimes(1)
+      expect(apiService.search).toHaveBeenCalledWith("pastor", 1)
+    })
 
-    it("leaves references for Return", fakeAsync(() => {
-      referenceService.extract.and.returnValue([
+    it("leaves references for Return", async () => {
+      vi.useFakeTimers()
+      referenceService.extract.mockReturnValue([
         { book: "jhn", chapter: 3 },
       ] as unknown as ReturnType<BibleReferenceService["extract"]>)
-      bookService.findBook.and.returnValue({ id: "jhn" } as Book)
+      bookService.findBook.mockReturnValue({ id: "jhn" } as Book)
       component.onTyping("Jo 3")
-      tick(TYPING_PAUSE_MS)
+      await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
 
       expect(apiService.search).not.toHaveBeenCalled()
       expect(router.navigate).not.toHaveBeenCalled()
-    }))
+    })
 
-    it("waits for at least two letters", fakeAsync(() => {
+    it("waits for at least two letters", async () => {
+      vi.useFakeTimers()
       component.onTyping(" a ")
-      tick(TYPING_PAUSE_MS)
+      await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
       expect(apiService.search).not.toHaveBeenCalled()
-    }))
+    })
 
-    it("doesn't repeat a search that Return already ran", fakeAsync(() => {
+    it("doesn't repeat a search that Return already ran", async () => {
+      vi.useFakeTimers()
       component.onTyping("pastor ")
       void component.onSearchSubmit("pastor")
-      tick(TYPING_PAUSE_MS)
+      await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
 
       expect(apiService.search).toHaveBeenCalledTimes(1)
-    }))
+    })
 
     // Return would search the words of a reference to a book it can't find,
     // so a pause does too: both ask the same question.
-    it("searches what Return would search", fakeAsync(() => {
-      referenceService.extract.and.returnValue([
+    it("searches what Return would search", async () => {
+      vi.useFakeTimers()
+      referenceService.extract.mockReturnValue([
         { book: "Xy", chapter: 3 },
       ] as unknown as ReturnType<BibleReferenceService["extract"]>)
-      bookService.findBook.and.returnValue(undefined as unknown as Book)
+      bookService.findBook.mockReturnValue(undefined as unknown as Book)
       component.onTyping("Xy 3")
-      tick(TYPING_PAUSE_MS)
+      await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
 
-      expect(apiService.search).toHaveBeenCalledOnceWith("Xy 3", 1)
-    }))
+      expect(apiService.search).toHaveBeenCalledTimes(1)
+
+      expect(apiService.search).toHaveBeenCalledWith("Xy 3", 1)
+    })
 
     // The search by meaning waits for the pause; what costs nothing doesn't.
     describe("while the search waits for the pause", () => {
@@ -308,31 +318,32 @@ describe("SearchComponent", () => {
       } as Book
       const host = () => fixture.nativeElement as HTMLElement
 
-      it("offers a typed reference at once, and opens it", fakeAsync(() => {
-        referenceService.extract.and.returnValue([
+      it("offers a typed reference at once, and opens it", async () => {
+        vi.useFakeTimers()
+        referenceService.extract.mockReturnValue([
           { book: "Jo", chapter: 3, verses: [{ type: "single", verse: 16 }] },
         ] as unknown as ReturnType<BibleReferenceService["extract"]>)
-        bookService.findBook.and.returnValue(john)
-        apiService.getVerse.and.returnValue(of({} as Verse))
+        bookService.findBook.mockReturnValue(john)
+        apiService.getVerse.mockReturnValue(of({} as Verse))
 
         component.onTyping("Jo 3,16")
         const offer = host().querySelector(
           ".passage-suggestion",
         ) as HTMLButtonElement
         expect(offer.textContent).toContain("Abrir João 3,16")
-        expect(component.pendingSearch).toBeFalse()
+        expect(component.pendingSearch).toBe(false)
 
         offer.click()
-        tick()
+        await vi.advanceTimersByTimeAsync(0)
         expect(router.navigate).toHaveBeenCalledWith(["/", "jhn", 3], {
           queryParams: { verseStart: 16 },
         })
-        tick(TYPING_PAUSE_MS)
+        await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
         expect(apiService.search).not.toHaveBeenCalled()
-      }))
+      })
 
       it("offers a book by its name", () => {
-        bookService.findBook.and.returnValue(john)
+        bookService.findBook.mockReturnValue(john)
         component.onTyping("João")
         expect(component.passageSuggestion?.label).toBe(
           "Abrir Evangelho segundo São João",
@@ -349,51 +360,55 @@ describe("SearchComponent", () => {
           abrv: "Sb",
         } as Book
 
-        beforeEach(() => bookService.findBook.and.returnValue(wisdom))
+        beforeEach(() => bookService.findBook.mockReturnValue(wisdom))
 
-        it("searches it as a word on the pause, still offering the book", fakeAsync(() => {
+        it("searches it as a word on the pause, still offering the book", async () => {
+          vi.useFakeTimers()
           component.onTyping("sabedoria")
-          expect(component.pendingSearch).toBeTrue()
+          expect(component.pendingSearch).toBe(true)
 
-          tick(TYPING_PAUSE_MS)
-          expect(apiService.search).toHaveBeenCalledOnceWith("sabedoria", 1)
+          await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
+          expect(apiService.search).toHaveBeenCalledTimes(1)
+          expect(apiService.search).toHaveBeenCalledWith("sabedoria", 1)
           expect(router.navigate).not.toHaveBeenCalled()
           expect(component.passageSuggestion?.label).toBe(
             "Abrir Livro da Sabedoria",
           )
-        }))
+        })
 
-        it("opens the book on Return", fakeAsync(() => {
-          apiService.getVerse.and.returnValue(of({} as Verse))
+        it("opens the book on Return", async () => {
+          vi.useFakeTimers()
+          apiService.getVerse.mockReturnValue(of({} as Verse))
           void component.onSearchSubmit("sabedoria")
-          tick()
+          await vi.advanceTimersByTimeAsync(0)
 
           expect(router.navigate).toHaveBeenCalledWith(["/", "wis", 1], {})
           expect(apiService.search).not.toHaveBeenCalled()
-        }))
+        })
 
         // Return before the pause: the pause then searched the name, which
         // superseded the book still being looked up, and nothing opened.
-        it("opens it on Return even when the lookup outlasts the pause", fakeAsync(() => {
+        it("opens it on Return even when the lookup outlasts the pause", async () => {
+          vi.useFakeTimers()
           const verse = new Subject<Verse>()
-          apiService.getVerse.and.returnValue(verse)
+          apiService.getVerse.mockReturnValue(verse)
           component.onTyping("sabedoria")
           void component.onSearchSubmit("sabedoria")
-          tick(TYPING_PAUSE_MS)
+          await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
           expect(apiService.search).not.toHaveBeenCalled()
 
           verse.next({} as Verse)
           verse.complete()
-          tick()
+          await vi.advanceTimersByTimeAsync(0)
           expect(router.navigate).toHaveBeenCalledWith(["/", "wis", 1], {})
-        }))
+        })
       })
 
       it("offers the choice for a psalm the liturgy numbers otherwise", () => {
-        referenceService.extract.and.returnValue([
+        referenceService.extract.mockReturnValue([
           { book: "Sl", chapter: 94 },
         ] as unknown as ReturnType<BibleReferenceService["extract"]>)
-        bookService.findBook.and.returnValue({
+        bookService.findBook.mockReturnValue({
           id: "psa",
           name: "Livro dos Salmos",
           shortName: "Salmos",
@@ -404,44 +419,47 @@ describe("SearchComponent", () => {
       })
 
       // Before, "Escolher o Salmo 94" stayed above the two psalms it offered.
-      it("goes away once taken up", fakeAsync(() => {
-        referenceService.extract.and.returnValue([
+      it("goes away once taken up", async () => {
+        vi.useFakeTimers()
+        referenceService.extract.mockReturnValue([
           { book: "Sl", chapter: 94 },
         ] as unknown as ReturnType<BibleReferenceService["extract"]>)
-        bookService.findBook.and.returnValue({
+        bookService.findBook.mockReturnValue({
           id: "psa",
           name: "Livro dos Salmos",
           shortName: "Salmos",
           abrv: "Sl",
         } as Book)
-        apiService.getVerse.and.returnValue(
+        apiService.getVerse.mockReturnValue(
           of({ text: [] } as unknown as Verse),
         )
         component.onTyping("Sl 94")
         ;(host().querySelector(".passage-suggestion") as HTMLElement).click()
-        tick()
+        await vi.advanceTimersByTimeAsync(0)
         fixture.detectChanges()
 
         expect(component.psalmChoice?.length).toBe(2)
         expect(component.passageSuggestion).toBeNull()
         expect(host().querySelector(".passage-suggestion")).toBeNull()
-      }))
+      })
 
       // Before, nothing showed for the whole pause: it read as broken.
-      it("says it is searching until the search runs", fakeAsync(() => {
+      it("says it is searching until the search runs", async () => {
+        vi.useFakeTimers()
         component.onTyping("pastor")
         expect(component.passageSuggestion).toBeNull()
         expect(host().textContent).toContain("A procurar…")
 
-        tick(TYPING_PAUSE_MS)
-        expect(apiService.search).toHaveBeenCalledOnceWith("pastor", 1)
-        expect(component.pendingSearch).toBeFalse()
-      }))
+        await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
+        expect(apiService.search).toHaveBeenCalledTimes(1)
+        expect(apiService.search).toHaveBeenCalledWith("pastor", 1)
+        expect(component.pendingSearch).toBe(false)
+      })
 
       it("waits for nothing once the text is cleared", () => {
         component.onTyping("pastor")
         component.onTyping("")
-        expect(component.pendingSearch).toBeFalse()
+        expect(component.pendingSearch).toBe(false)
         expect(component.passageSuggestion).toBeNull()
         expect(host().textContent).toContain("Por exemplo: Jo 3,16")
       })
@@ -451,7 +469,7 @@ describe("SearchComponent", () => {
       let field: HTMLInputElement
 
       beforeEach(() => {
-        apiService.search.and.returnValue(
+        apiService.search.mockReturnValue(
           of({
             verses: [
               {
@@ -474,36 +492,41 @@ describe("SearchComponent", () => {
       afterEach(() => field.remove())
 
       // Before, the pause's search closed the keyboard mid-query.
-      it("keeps the field in use", fakeAsync(() => {
+      it("keeps the field in use", async () => {
+        vi.useFakeTimers()
         component.onTyping("pastor")
-        tick(TYPING_PAUSE_MS)
+        await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
 
         expect(component.searchResults.length).toBe(1)
         expect(document.activeElement).toBe(field)
-      }))
+      })
 
       // Before, "amor " came back as "amor", and typing on gave "amorde".
-      it("leaves what is being typed as it is", fakeAsync(() => {
+      it("leaves what is being typed as it is", async () => {
+        vi.useFakeTimers()
         component.onTyping("pastor ")
-        tick(TYPING_PAUSE_MS)
+        await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
 
         expect(component.searchTerm).toBe("pastor")
         expect(component.fieldValue).toBe("")
-      }))
+      })
 
-      it("closes the keyboard over the results after Return", fakeAsync(() => {
+      it("closes the keyboard over the results after Return", async () => {
+        vi.useFakeTimers()
         void component.onSearchSubmit("pastor")
-        tick()
+        await vi.advanceTimersByTimeAsync(0)
 
         expect(component.fieldValue).toBe("pastor")
         expect(document.activeElement).not.toBe(field)
-      }))
+      })
     })
   })
 
   it("should run a shared query from the q query param on init", () => {
     queryParamMapSubject.next(convertToParamMap({ q: "shared text" }))
-    const submitSpy = spyOn(component, "onSearchSubmit")
+    const submitSpy = vi
+      .spyOn(component, "onSearchSubmit")
+      .mockReturnValue(undefined as never)
 
     component.ngOnInit()
 
@@ -511,7 +534,9 @@ describe("SearchComponent", () => {
   })
 
   it("should run a second shared query without re-creating the component", () => {
-    const submitSpy = spyOn(component, "onSearchSubmit")
+    const submitSpy = vi
+      .spyOn(component, "onSearchSubmit")
+      .mockReturnValue(undefined as never)
     component.ngOnInit()
 
     queryParamMapSubject.next(convertToParamMap({ q: "first" }))
@@ -522,7 +547,9 @@ describe("SearchComponent", () => {
   })
 
   it("should not re-run the same shared query on an unrelated emission", () => {
-    const submitSpy = spyOn(component, "onSearchSubmit")
+    const submitSpy = vi
+      .spyOn(component, "onSearchSubmit")
+      .mockReturnValue(undefined as never)
     component.ngOnInit()
 
     queryParamMapSubject.next(convertToParamMap({ q: "same" }))
@@ -532,7 +559,9 @@ describe("SearchComponent", () => {
   })
 
   it("should re-run a shared query that went away and came back", () => {
-    const submitSpy = spyOn(component, "onSearchSubmit")
+    const submitSpy = vi
+      .spyOn(component, "onSearchSubmit")
+      .mockReturnValue(undefined as never)
     component.ngOnInit()
 
     queryParamMapSubject.next(convertToParamMap({ q: "same" }))
@@ -543,8 +572,8 @@ describe("SearchComponent", () => {
   })
 
   it("should open a standalone introduction at /intro without probing a verse", async () => {
-    referenceService.extract.and.returnValue([])
-    bookService.findBook.and.returnValue({
+    referenceService.extract.mockReturnValue([])
+    bookService.findBook.mockReturnValue({
       id: "pentateuco",
       abrv: "pentateuco",
       shortName: "Introdução ao Pentateuco",
@@ -563,7 +592,9 @@ describe("SearchComponent", () => {
   })
 
   it("should not search on init without a q query param", () => {
-    const submitSpy = spyOn(component, "onSearchSubmit")
+    const submitSpy = vi
+      .spyOn(component, "onSearchSubmit")
+      .mockReturnValue(undefined as never)
 
     component.ngOnInit()
 
@@ -584,7 +615,7 @@ describe("SearchComponent", () => {
       text: [],
     } as Verse
 
-    referenceService.extract.and.returnValue([
+    referenceService.extract.mockReturnValue([
       {
         match: "John 3:16",
         index: 0,
@@ -593,14 +624,14 @@ describe("SearchComponent", () => {
         verses: [{ type: "single", verse: 16 }],
       },
     ])
-    bookService.findBook.and.returnValue({
+    bookService.findBook.mockReturnValue({
       id: "jhn",
       abrv: "Jo",
       shortName: "Joao",
       name: "Evangelho segundo Joao",
       chapterCount: 21,
     })
-    apiService.getVerse.and.returnValue(of(verse))
+    apiService.getVerse.mockReturnValue(of(verse))
 
     await component.onSearchSubmit("John 3:16")
 
@@ -618,9 +649,9 @@ describe("SearchComponent", () => {
       text: [],
     } as Verse
 
-    referenceService.extract.and.returnValue([])
+    referenceService.extract.mockReturnValue([])
 
-    bookService.findBook.and.callFake((text: string) => {
+    bookService.findBook.mockImplementation((text: string) => {
       if (text === "lc") {
         return {
           id: "luk",
@@ -639,7 +670,7 @@ describe("SearchComponent", () => {
       }
     })
 
-    apiService.getVerse.and.returnValue(of(verse))
+    apiService.getVerse.mockReturnValue(of(verse))
 
     await component.onSearchSubmit("lc")
 
@@ -648,7 +679,8 @@ describe("SearchComponent", () => {
     expect(router.navigate).toHaveBeenCalledWith(["/", "luk", 1], {})
   })
 
-  it("should discard a page that arrives after a newer search took over", fakeAsync(() => {
+  it("should discard a page that arrives after a newer search took over", async () => {
+    vi.useFakeTimers()
     // Pagination for query A is in flight when query B is submitted. A's page
     // must not append itself to B's results, nor clear B's loading state.
     component.searchTerm = "beginning"
@@ -665,7 +697,7 @@ describe("SearchComponent", () => {
     ]
 
     const pendingPage$ = new Subject<VersePage>()
-    apiService.search.and.returnValue(pendingPage$.asObservable())
+    apiService.search.mockReturnValue(pendingPage$.asObservable())
 
     component.sentinel = {
       nativeElement: document.createElement("div"),
@@ -679,15 +711,15 @@ describe("SearchComponent", () => {
       [{ isIntersecting: true } as IntersectionObserverEntry],
       {} as IntersectionObserver,
     )
-    flushMicrotasks()
+    await vi.advanceTimersByTimeAsync(0)
     expect(apiService.search).toHaveBeenCalledWith("beginning", 2)
 
     // A newer search takes over while A's page is still pending.
     const newerSearch$ = new Subject<VersePage>()
-    apiService.search.and.returnValue(newerSearch$.asObservable())
-    referenceService.extract.and.returnValue([])
+    apiService.search.mockReturnValue(newerSearch$.asObservable())
+    referenceService.extract.mockReturnValue([])
     void component.onSearchSubmit("light")
-    flushMicrotasks()
+    await vi.advanceTimersByTimeAsync(0)
     const resultsUnderNewSearch = component.searchResults.length
 
     // Now A's page finally arrives.
@@ -706,22 +738,23 @@ describe("SearchComponent", () => {
       totalPages: 1,
     })
     pendingPage$.complete()
-    flushMicrotasks()
+    await vi.advanceTimersByTimeAsync(0)
 
     expect(component.searchResults.length).toBe(resultsUnderNewSearch)
     expect(
       component.searchResults.some((verse) =>
         verse.text.some((part) => part.text === "Stale second verse"),
       ),
-    ).toBeFalse()
+    ).toBe(false)
     // The newer search is still loading; the stale page must not say otherwise.
-    expect(component.isLoading).toBeTrue()
+    expect(component.isLoading).toBe(true)
 
     newerSearch$.complete()
-    flushMicrotasks()
-  }))
+    await vi.advanceTimersByTimeAsync(0)
+  })
 
-  it("should keep loadMoreResults locked until the next page arrives", fakeAsync(() => {
+  it("should keep loadMoreResults locked until the next page arrives", async () => {
+    vi.useFakeTimers()
     const nextVerse = {
       bookId: "gen",
       chapterNumber: 1,
@@ -745,7 +778,7 @@ describe("SearchComponent", () => {
     // Keep the page-2 request pending so a second trigger arrives while the
     // first one is still in flight.
     const pendingPage$ = new Subject<VersePage>()
-    apiService.search.and.returnValue(pendingPage$.asObservable())
+    apiService.search.mockReturnValue(pendingPage$.asObservable())
 
     component.sentinel = {
       nativeElement: document.createElement("div"),
@@ -763,11 +796,11 @@ describe("SearchComponent", () => {
       )
 
     trigger()
-    flushMicrotasks()
+    await vi.advanceTimersByTimeAsync(0)
     // Second intersection while the first request is still pending must not
     // start another request.
     trigger()
-    flushMicrotasks()
+    await vi.advanceTimersByTimeAsync(0)
     expect(apiService.search).toHaveBeenCalledTimes(1)
     expect(apiService.search).toHaveBeenCalledWith("beginning", 2)
 
@@ -778,19 +811,19 @@ describe("SearchComponent", () => {
       totalPages: 2,
     } as VersePage)
     pendingPage$.complete()
-    flushMicrotasks()
+    await vi.advanceTimersByTimeAsync(0)
 
     expect(apiService.search).toHaveBeenCalledTimes(1)
     expect(component.searchResults).toEqual([
-      jasmine.objectContaining({ number: 1 }),
-      jasmine.objectContaining({ number: 2 }),
+      expect.objectContaining({ number: 1 }),
+      expect.objectContaining({ number: 2 }),
     ])
     expect(component.currentPage).toBe(2)
-    expect(component.isLoading).toBeFalse()
-  }))
+    expect(component.isLoading).toBe(false)
+  })
 
   it("should show a snackbar when a direct reference is invalid", async () => {
-    referenceService.extract.and.returnValue([
+    referenceService.extract.mockReturnValue([
       {
         match: "John 3:99",
         index: 0,
@@ -799,20 +832,20 @@ describe("SearchComponent", () => {
         verses: [{ type: "single", verse: 99 }],
       },
     ])
-    bookService.findBook.and.returnValue({
+    bookService.findBook.mockReturnValue({
       id: "jhn",
       abrv: "Jo",
       shortName: "Joao",
       name: "Evangelho segundo Joao",
       chapterCount: 21,
     })
-    apiService.getVerse.and.returnValue(
+    apiService.getVerse.mockReturnValue(
       new Observable((subscriber) => {
         subscriber.error({ status: 404 })
       }),
     )
 
-    spyOn(console, "error")
+    vi.spyOn(console, "error").mockReturnValue(undefined)
     await component.onSearchSubmit("John 3:99")
 
     expect(console.error).toHaveBeenCalled()
@@ -848,7 +881,7 @@ describe("SearchComponent", () => {
     })
 
     beforeEach(() => {
-      apiService.search.and.returnValue(
+      apiService.search.mockReturnValue(
         of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
       )
       component.ngOnInit()
@@ -857,19 +890,20 @@ describe("SearchComponent", () => {
     // findBook falls back to the About page for a book it doesn't know:
     // "1 Co 13,4" offered "Abrir Sobre a Bíblia 13,4", and Return asked for
     // /about/13/4, which doesn't exist.
-    it("never takes a book it doesn't know for the About page", fakeAsync(() => {
-      referenceService.extract.and.returnValue([reference("1 Xy", 13, 4)])
-      bookService.findBook.and.returnValue(about)
+    it("never takes a book it doesn't know for the About page", async () => {
+      vi.useFakeTimers()
+      referenceService.extract.mockReturnValue([reference("1 Xy", 13, 4)])
+      bookService.findBook.mockReturnValue(about)
 
       component.onTyping("1 Xy 13,4")
       expect(component.passageSuggestion).toBeNull()
 
       void component.onSearchSubmit("1 Xy 13,4")
-      flushMicrotasks()
+      await vi.advanceTimersByTimeAsync(0)
       expect(apiService.getVerse).not.toHaveBeenCalled()
       expect(router.navigate).not.toHaveBeenCalled()
-      tick(TYPING_PAUSE_MS)
-    }))
+      await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
+    })
 
     it("opens the book that the typed abbreviation names", async () => {
       const corinthians: Book = {
@@ -879,11 +913,11 @@ describe("SearchComponent", () => {
         name: "Primeira Carta aos Coríntios",
         chapterCount: 16,
       }
-      referenceService.extract.and.returnValue([reference("1 Co", 13, 4)])
-      bookService.findTypedBook.and.callFake((text: string) =>
+      referenceService.extract.mockReturnValue([reference("1 Co", 13, 4)])
+      bookService.findTypedBook.mockImplementation((text: string) =>
         text === "1 Co" ? corinthians : undefined,
       )
-      apiService.getVerse.and.returnValue(of({} as Verse))
+      apiService.getVerse.mockReturnValue(of({} as Verse))
 
       component.onTyping("1 Co 13,4")
       expect(component.passageSuggestion?.label).toBe("Abrir 1 Coríntios 13,4")
@@ -895,12 +929,12 @@ describe("SearchComponent", () => {
     })
 
     it("offers no chapter past the book's last, and says so at once", async () => {
-      referenceService.extract.and.returnValue([reference("Jo", 99)])
-      bookService.findBook.and.returnValue(john)
+      referenceService.extract.mockReturnValue([reference("Jo", 99)])
+      bookService.findBook.mockReturnValue(john)
 
       component.onTyping("Jo 99")
       expect(component.passageSuggestion).toBeNull()
-      expect(component.pendingSearch).toBeFalse()
+      expect(component.pendingSearch).toBe(false)
 
       await component.onSearchSubmit("Jo 99")
       expect(apiService.getVerse).not.toHaveBeenCalled()
@@ -928,8 +962,8 @@ describe("SearchComponent", () => {
     })
 
     beforeEach(() => {
-      referenceService.extract.and.returnValue([])
-      apiService.search.and.returnValue(of(page(40)))
+      referenceService.extract.mockReturnValue([])
+      apiService.search.mockReturnValue(of(page(40)))
     })
 
     it("keeps the query in the URL, without a step back of its own", async () => {
@@ -1002,7 +1036,7 @@ describe("SearchComponent", () => {
     // URL of the page that replaced it.
     it("leaves the next page's URL alone when a search answers late", async () => {
       const answer = new Subject<VersePage>()
-      apiService.search.and.returnValue(answer)
+      apiService.search.mockReturnValue(answer)
       fixture.detectChanges()
       const searching = component.onSearchSubmit("bom pastor")
       fixture.destroy()
@@ -1031,7 +1065,7 @@ describe("SearchComponent", () => {
       fixture.destroy()
 
       expect(TestBed.inject(SearchMemoryService).last).toEqual(
-        jasmine.objectContaining({ term: "luz", scrollTop: 0 }),
+        expect.objectContaining({ term: "luz", scrollTop: 0 }),
       )
       document.documentElement.style.removeProperty("--app-inset-bottom")
     })
@@ -1050,40 +1084,46 @@ describe("SearchComponent", () => {
     })
   })
 
-  it("should release the loading lock when a failed reference supersedes a text search", fakeAsync(() => {
+  it("should release the loading lock when a failed reference supersedes a text search", async () => {
+    vi.useFakeTimers()
     // The text search goes stale the moment the reference is submitted, so its
     // own `finally` no longer clears `isLoading`; the reference path has to.
     const pendingSearch$ = new Subject<VersePage>()
-    apiService.search.and.returnValue(pendingSearch$.asObservable())
-    referenceService.extract.and.returnValue([])
+    apiService.search.mockReturnValue(pendingSearch$.asObservable())
+    referenceService.extract.mockReturnValue([])
     void component.onSearchSubmit("light")
-    flushMicrotasks()
-    expect(component.isLoading).toBeTrue()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(component.isLoading).toBe(true)
 
-    referenceService.extract.and.returnValue([
+    referenceService.extract.mockReturnValue([
       { match: "John 99:1", index: 0, book: "John", chapter: 99 },
     ])
-    bookService.findBook.and.returnValue({
+    bookService.findBook.mockReturnValue({
       id: "jhn",
       abrv: "Jo",
       shortName: "Joao",
       name: "Evangelho segundo Joao",
       chapterCount: 21,
     })
-    apiService.getVerse.and.returnValue(throwError(() => ({ status: 404 })))
-    spyOn(console, "error")
+    apiService.getVerse.mockReturnValue(throwError(() => ({ status: 404 })))
+    vi.spyOn(console, "error").mockReturnValue(undefined)
     void component.onSearchSubmit("John 99:1")
-    flushMicrotasks()
+    await vi.advanceTimersByTimeAsync(0)
 
-    pendingSearch$.next({ verses: [], total: 0, currentPage: 1, totalPages: 0 })
+    pendingSearch$.next({
+      verses: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 0,
+    })
     pendingSearch$.complete()
-    flushMicrotasks()
+    await vi.advanceTimersByTimeAsync(0)
 
-    expect(component.isLoading).toBeFalse()
+    expect(component.isLoading).toBe(false)
     // Paging and highlighting belong to the search whose results show: none
     // had finished, so not "light" (it never answered) nor the reference.
     expect(component.searchTerm).toBe("")
-  }))
+  })
 
   describe("when a reference supersedes a word search under way", () => {
     const john = {
@@ -1110,30 +1150,31 @@ describe("SearchComponent", () => {
     let pendingSearch$: Subject<VersePage>
 
     beforeEach(() => {
-      spyOn(console, "error")
+      vi.spyOn(console, "error").mockReturnValue(undefined)
       pendingSearch$ = new Subject<VersePage>()
-      referenceService.extract.and.callFake((text: string) =>
+      referenceService.extract.mockImplementation((text: string) =>
         text.startsWith("Jo ")
           ? [{ match: text, index: 0, book: "Jo", chapter: 99 }]
           : [],
       )
-      bookService.findBook.and.callFake((name: string) =>
+      bookService.findBook.mockImplementation((name: string) =>
         name === "Jo" ? john : (undefined as unknown as Book),
       )
-      apiService.getVerse.and.returnValue(throwError(() => ({ status: 404 })))
+      apiService.getVerse.mockReturnValue(throwError(() => ({ status: 404 })))
     })
 
-    it("stops saying it is searching after a failed reference", fakeAsync(() => {
-      apiService.search.and.returnValue(of(lightPage))
+    it("stops saying it is searching after a failed reference", async () => {
+      vi.useFakeTimers()
+      apiService.search.mockReturnValue(of(lightPage))
       void component.onSearchSubmit("luz")
-      flushMicrotasks()
-      apiService.search.and.returnValue(pendingSearch$.asObservable())
+      await vi.advanceTimersByTimeAsync(0)
+      apiService.search.mockReturnValue(pendingSearch$.asObservable())
       void component.onSearchSubmit("amor")
-      flushMicrotasks()
+      await vi.advanceTimersByTimeAsync(0)
       expect(component.resultsHeading).toBe("A procurar…")
 
       void component.onSearchSubmit("Jo 99,1")
-      flushMicrotasks()
+      await vi.advanceTimersByTimeAsync(0)
       pendingSearch$.next({
         verses: [],
         total: 0,
@@ -1141,79 +1182,84 @@ describe("SearchComponent", () => {
         totalPages: 0,
       })
       pendingSearch$.complete()
-      flushMicrotasks()
+      await vi.advanceTimersByTimeAsync(0)
 
       // Back to the results on screen, which are still those for "luz".
-      expect(component.searching).toBeFalse()
+      expect(component.searching).toBe(false)
       expect(component.resultsHeading).toBe("1 resultado")
       expect(component.statusMessage).toBe("1 resultado")
       expect(component.searchTerm).toBe("luz")
-    }))
+    })
 
-    it("doesn't claim no results for a search that never answered", fakeAsync(() => {
-      apiService.search.and.returnValue(pendingSearch$.asObservable())
+    it("doesn't claim no results for a search that never answered", async () => {
+      vi.useFakeTimers()
+      apiService.search.mockReturnValue(pendingSearch$.asObservable())
       void component.onSearchSubmit("amor")
-      flushMicrotasks()
+      await vi.advanceTimersByTimeAsync(0)
 
       void component.onSearchSubmit("Jo 99,1")
-      flushMicrotasks()
+      await vi.advanceTimersByTimeAsync(0)
       fixture.detectChanges()
 
       const text = fixture.nativeElement.textContent as string
       expect(text).not.toContain("Nenhum resultado")
       expect(text).not.toContain("A procurar")
       expect(component.statusMessage).toBe("")
-    }))
+    })
 
-    it("ignores the stored Bible's answer to a superseded search", fakeAsync(() => {
+    it("ignores the stored Bible's answer to a superseded search", async () => {
+      vi.useFakeTimers()
       network.isOffline = true
       let answer: (verses: Verse[]) => void = () => {}
-      offlineSearch.search.and.returnValue(
+      offlineSearch.search.mockReturnValue(
         new Promise((resolve) => {
           answer = resolve
         }),
       )
       void component.onSearchSubmit("amor")
-      flushMicrotasks()
+      await vi.advanceTimersByTimeAsync(0)
 
       void component.onSearchSubmit("Jo 99,1")
-      flushMicrotasks()
+      await vi.advanceTimersByTimeAsync(0)
       answer(lightPage.verses)
-      flushMicrotasks()
+      await vi.advanceTimersByTimeAsync(0)
 
       expect(component.searchResults).toEqual([])
       expect(component.storedMatches).toBeNull()
-    }))
+    })
   })
 
-  it("should release the loading lock when the reference navigation is refused", fakeAsync(() => {
+  it("should release the loading lock when the reference navigation is refused", async () => {
+    vi.useFakeTimers()
     // router.navigate resolves false on a cancelled navigation: no throw, and
     // the superseded text search no longer clears the flag itself.
     const pendingSearch$ = new Subject<VersePage>()
-    apiService.search.and.returnValue(pendingSearch$.asObservable())
-    referenceService.extract.and.returnValue([])
+    apiService.search.mockReturnValue(pendingSearch$.asObservable())
+    referenceService.extract.mockReturnValue([])
     void component.onSearchSubmit("light")
-    flushMicrotasks()
+    await vi.advanceTimersByTimeAsync(0)
 
-    bookService.findBook.and.returnValue({
+    bookService.findBook.mockReturnValue({
       id: "jhn",
       abrv: "Jo",
       shortName: "Joao",
       name: "Evangelho segundo Joao",
       chapterCount: 21,
     })
-    apiService.getVerse.and.returnValue(of({ text: [] } as unknown as Verse))
-    router.navigate.and.resolveTo(false)
+    apiService.getVerse.mockReturnValue(of({ text: [] } as unknown as Verse))
+    router.navigate.mockResolvedValue(false)
     void component.onSearchSubmit("Jo")
-    flushMicrotasks()
+    await vi.advanceTimersByTimeAsync(0)
 
-    expect(component.isLoading).toBeFalse()
-  }))
+    expect(component.isLoading).toBe(false)
+  })
 
   it("should populate search results and announce the count", async () => {
-    const scrollToTopSpy = spyOn(component, "scrollToTop")
-    referenceService.extract.and.returnValue([])
-    apiService.search.and.returnValue(
+    const scrollToTopSpy = vi
+      .spyOn(component, "scrollToTop")
+      .mockReturnValue(undefined)
+    referenceService.extract.mockReturnValue([])
+    apiService.search.mockReturnValue(
       of({
         verses: [
           {
@@ -1242,9 +1288,11 @@ describe("SearchComponent", () => {
   })
 
   it("should announce when no search results are found", async () => {
-    const scrollToTopSpy = spyOn(component, "scrollToTop")
-    referenceService.extract.and.returnValue([])
-    apiService.search.and.returnValue(
+    const scrollToTopSpy = vi
+      .spyOn(component, "scrollToTop")
+      .mockReturnValue(undefined)
+    referenceService.extract.mockReturnValue([])
+    apiService.search.mockReturnValue(
       of({ verses: [], total: 0, currentPage: 1, totalPages: 0 } as VersePage),
     )
 
@@ -1252,14 +1300,14 @@ describe("SearchComponent", () => {
 
     expect(component.searchResults).toEqual([])
     expect(snackBar.open).not.toHaveBeenCalled()
-    expect(component.statusMessage).toBe('Nenhum resultado para "missing"')
+    expect(component.statusMessage).toBe("Nenhum resultado para «missing»")
     expect(scrollToTopSpy).toHaveBeenCalled()
   })
 
   // The search returns the 100 verses nearest in meaning: a cap, not a count.
   it("says when the results are the most relevant, not all", async () => {
-    referenceService.extract.and.returnValue([])
-    apiService.search.and.returnValue(
+    referenceService.extract.mockReturnValue([])
+    apiService.search.mockReturnValue(
       of({
         verses: [],
         total: 100,
@@ -1270,7 +1318,7 @@ describe("SearchComponent", () => {
     await component.onSearchSubmit("luz")
     expect(component.resultsHeading).toBe("Os 100 mais relevantes")
 
-    apiService.search.and.returnValue(
+    apiService.search.mockReturnValue(
       of({ verses: [], total: 23, currentPage: 1, totalPages: 1 } as VersePage),
     )
     await component.onSearchSubmit("Betel")
@@ -1287,13 +1335,13 @@ describe("SearchComponent", () => {
       }) as Verse
 
     beforeEach(() => {
-      referenceService.extract.and.returnValue([])
+      referenceService.extract.mockReturnValue([])
       network.isOffline = true
       network.isOffline$.next(true)
     })
 
     it("searches the words in the Bible stored on the device", async () => {
-      offlineSearch.search.and.resolveTo([
+      offlineSearch.search.mockResolvedValue([
         stored("gen", 3, "Deus disse: «Faça-se a luz.»"),
         stored("jhn", 5, "A Luz brilhou nas trevas,"),
       ])
@@ -1314,7 +1362,7 @@ describe("SearchComponent", () => {
     })
 
     it("shows them a page at a time", async () => {
-      offlineSearch.search.and.resolveTo(
+      offlineSearch.search.mockResolvedValue(
         Array.from({ length: 120 }, (_, index) =>
           stored("psa", index + 1, "Senhor"),
         ),
@@ -1337,7 +1385,7 @@ describe("SearchComponent", () => {
     // checking: only the page's own detectChanges() renders the results. The
     // end of the list went unwatched, and the list stopped at its first page.
     it("watches the end of the list from the first page, without a check from above", async () => {
-      offlineSearch.search.and.resolveTo(
+      offlineSearch.search.mockResolvedValue(
         Array.from({ length: 120 }, (_, index) =>
           stored("psa", index + 1, "Senhor"),
         ),
@@ -1370,7 +1418,7 @@ describe("SearchComponent", () => {
     // inside the list's clipped corners, showed only 58 to 83% at some
     // lengths. Waiting for all of it (threshold 1) stopped the list at 100.
     it("shows the next page once any of the end of the list is in view", async () => {
-      offlineSearch.search.and.resolveTo(
+      offlineSearch.search.mockResolvedValue(
         Array.from({ length: 120 }, (_, index) =>
           stored("psa", index + 1, "Senhor"),
         ),
@@ -1383,11 +1431,11 @@ describe("SearchComponent", () => {
     })
 
     it("says so when no Bible is stored yet", async () => {
-      offlineSearch.search.and.resolveTo(null)
+      offlineSearch.search.mockResolvedValue(null)
       await component.onSearchSubmit("luz")
       fixture.detectChanges()
 
-      expect(component.nothingStored).toBeTrue()
+      expect(component.nothingStored).toBe(true)
       expect(fixture.nativeElement.textContent).toContain(
         "a Bíblia ainda não está guardada neste dispositivo",
       )
@@ -1401,14 +1449,14 @@ describe("SearchComponent", () => {
     })
 
     it("says when a passage isn't stored yet", async () => {
-      referenceService.extract.and.returnValue([
+      referenceService.extract.mockReturnValue([
         { match: "Jo 3,16", index: 0, book: "Jo", chapter: 3 },
       ])
-      bookService.findBook.and.returnValue({ id: "jhn" } as Book)
-      apiService.getVerse.and.returnValue(
+      bookService.findBook.mockReturnValue({ id: "jhn" } as Book)
+      apiService.getVerse.mockReturnValue(
         throwError(() => new Error("Offline - verse not cached")),
       )
-      spyOn(console, "error")
+      vi.spyOn(console, "error").mockReturnValue(undefined)
       await component.onSearchSubmit("Jo 3,16")
 
       expect(snackBar.open).toHaveBeenCalledWith(
@@ -1421,15 +1469,15 @@ describe("SearchComponent", () => {
 
   // Before, this looked like "no results", with the status stuck on "A procurar…".
   it("says the search failed when the server fails and nothing is stored", async () => {
-    referenceService.extract.and.returnValue([])
-    apiService.search.and.returnValue(throwError(() => ({ status: 0 })))
-    offlineSearch.search.and.resolveTo(null)
-    spyOn(console, "error")
+    referenceService.extract.mockReturnValue([])
+    apiService.search.mockReturnValue(throwError(() => ({ status: 0 })))
+    offlineSearch.search.mockResolvedValue(null)
+    vi.spyOn(console, "error").mockReturnValue(undefined)
     await component.onSearchSubmit("luz")
     fixture.detectChanges()
 
     const text = fixture.nativeElement.textContent as string
-    expect(component.searchFailed).toBeTrue()
+    expect(component.searchFailed).toBe(true)
     expect(text).toContain("Não foi possível pesquisar")
     expect(text).not.toContain("Nenhum resultado")
     expect(component.statusMessage).toContain("Não foi possível pesquisar")
@@ -1438,10 +1486,10 @@ describe("SearchComponent", () => {
   // The API limits how often one address may search; "Verifique a ligação"
   // blamed a connection that was fine.
   it("says when there were too many searches, not that the connection failed", async () => {
-    referenceService.extract.and.returnValue([])
-    apiService.search.and.returnValue(throwError(() => ({ status: 429 })))
-    offlineSearch.search.and.resolveTo(null)
-    spyOn(console, "error")
+    referenceService.extract.mockReturnValue([])
+    apiService.search.mockReturnValue(throwError(() => ({ status: 429 })))
+    offlineSearch.search.mockResolvedValue(null)
+    vi.spyOn(console, "error").mockReturnValue(undefined)
     await component.onSearchSubmit("luz")
     fixture.detectChanges()
 
@@ -1453,9 +1501,9 @@ describe("SearchComponent", () => {
 
   // The search by meaning can fail (e.g. its index rebuilding): words still work.
   it("falls back to the stored Bible when the server can't search", async () => {
-    referenceService.extract.and.returnValue([])
-    apiService.search.and.returnValue(throwError(() => ({ status: 503 })))
-    offlineSearch.search.and.resolveTo([
+    referenceService.extract.mockReturnValue([])
+    apiService.search.mockReturnValue(throwError(() => ({ status: 503 })))
+    offlineSearch.search.mockResolvedValue([
       {
         bookId: "jhn",
         chapterNumber: 1,
@@ -1488,14 +1536,14 @@ describe("SearchComponent", () => {
     } as Book
 
     beforeEach(async () => {
-      referenceService.extract.and.returnValue([])
-      bookService.findBook.and.callFake(
+      referenceService.extract.mockReturnValue([])
+      bookService.findBook.mockImplementation(
         (id: string) => ({ luk: luke, psa: psalms })[id] as Book,
       )
-      bookService.findBookById.and.callFake(
+      bookService.findBookById.mockImplementation(
         (id: string) => ({ luk: luke, psa: psalms })[id],
       )
-      apiService.search.and.returnValue(
+      apiService.search.mockReturnValue(
         of({
           verses: [
             {
@@ -1561,9 +1609,13 @@ describe("SearchComponent", () => {
     // findBook's fallback named every result "Sobre a Bíblia 2,32".
     it("names the books only once the book list has loaded", async () => {
       const books = new ReplaySubject<Book[]>(1)
-      ;(bookService as { books$: Observable<Book[]> }).books$ = books
+      ;(
+        bookService as {
+          books$: Observable<Book[]>
+        }
+      ).books$ = books
       const about = { id: "about", shortName: "Sobre a Bíblia" } as Book
-      bookService.findBook.and.returnValue(about)
+      bookService.findBook.mockReturnValue(about)
       fixture = TestBed.createComponent(SearchComponent)
       component = fixture.componentInstance
       await component.onSearchSubmit("luz")
@@ -1573,7 +1625,7 @@ describe("SearchComponent", () => {
       // By the book's id until then, which the app still opens.
       expect(hrefs()[1]).toBe("/luk/2?verseStart=32")
 
-      bookService.findBook.and.callFake(
+      bookService.findBook.mockImplementation(
         (id: string) => ({ luk: luke, psa: psalms })[id] ?? about,
       )
       books.next([luke, psalms])
@@ -1627,7 +1679,7 @@ describe("SearchComponent", () => {
         }),
       )
 
-      expect(leftToBrowser).toBeTrue()
+      expect(leftToBrowser).toBe(true)
       expect(router.navigate).not.toHaveBeenCalled()
     })
 
@@ -1713,9 +1765,9 @@ describe("SearchComponent", () => {
       }) as Verse
 
     beforeEach(() => {
-      bookService.findBook.and.returnValue(psalms)
-      bookService.findBookById.and.returnValue(psalms)
-      apiService.getVerse.and.callFake((_book, chapter) =>
+      bookService.findBook.mockReturnValue(psalms)
+      bookService.findBookById.mockReturnValue(psalms)
+      apiService.getVerse.mockImplementation((_book, chapter) =>
         of(
           chapter === 94
             ? verse(94, "Ó Senhor, Deus vingador,")
@@ -1725,7 +1777,7 @@ describe("SearchComponent", () => {
     })
 
     it("offers both psalms it may mean, by how they begin", async () => {
-      referenceService.extract.and.returnValue([
+      referenceService.extract.mockReturnValue([
         { match: "Sl 94", index: 0, book: "Sl", chapter: 94 },
       ])
       await component.onSearchSubmit("Sl 94")
@@ -1733,13 +1785,13 @@ describe("SearchComponent", () => {
 
       expect(router.navigate).not.toHaveBeenCalled()
       expect(component.psalmChoice).toEqual([
-        jasmine.objectContaining({
+        expect.objectContaining({
           psalm: 94,
           label: "Salmo 94 (93)",
           note: "nesta Bíblia",
           firstLine: "Ó Senhor, Deus vingador,",
         }),
-        jasmine.objectContaining({
+        expect.objectContaining({
           psalm: 95,
           label: "Salmo 95 (94)",
           note: "como na Missa",
@@ -1757,7 +1809,7 @@ describe("SearchComponent", () => {
     })
 
     it("keeps the verses on both", async () => {
-      referenceService.extract.and.returnValue([
+      referenceService.extract.mockReturnValue([
         {
           match: "Sl 94,6-7",
           index: 0,
@@ -1774,7 +1826,7 @@ describe("SearchComponent", () => {
     })
 
     it("opens directly when the leaflet gives both numbers", async () => {
-      referenceService.extract.and.returnValue([
+      referenceService.extract.mockReturnValue([
         { match: "Sl 95,1-2", index: 0, book: "Sl", chapter: 95 },
       ])
       await component.onSearchSubmit("Sl 94 (95), 1-2")
@@ -1786,7 +1838,7 @@ describe("SearchComponent", () => {
 
     // The liturgy's Psalm 115 is the second half of this edition's 116.
     it("opens the half of a psalm a pair names", async () => {
-      referenceService.extract.and.returnValue([
+      referenceService.extract.mockReturnValue([
         { match: "Sl 116", index: 0, book: "Sl", chapter: 116 },
       ])
       await component.onSearchSubmit("Sl 115 (116B)")
@@ -1796,29 +1848,30 @@ describe("SearchComponent", () => {
       })
     })
 
-    it("ends a word search still under way", fakeAsync(() => {
-      bookService.findBook.and.callFake((name: string) =>
+    it("ends a word search still under way", async () => {
+      vi.useFakeTimers()
+      bookService.findBook.mockImplementation((name: string) =>
         name === "Sl" ? psalms : (undefined as unknown as Book),
       )
-      referenceService.extract.and.returnValue([])
-      apiService.search.and.returnValue(new Subject<VersePage>())
+      referenceService.extract.mockReturnValue([])
+      apiService.search.mockReturnValue(new Subject<VersePage>())
       void component.onSearchSubmit("amor")
-      flushMicrotasks()
+      await vi.advanceTimersByTimeAsync(0)
 
-      referenceService.extract.and.returnValue([
+      referenceService.extract.mockReturnValue([
         { match: "Sl 94", index: 0, book: "Sl", chapter: 94 },
       ])
       void component.onSearchSubmit("Sl 94")
-      flushMicrotasks()
+      await vi.advanceTimersByTimeAsync(0)
 
       expect(component.psalmChoice?.length).toBe(2)
-      expect(component.searching).toBeFalse()
-      expect(component.isLoading).toBeFalse()
+      expect(component.searching).toBe(false)
+      expect(component.isLoading).toBe(false)
       expect(component.statusMessage).toBe("Qual salmo procura?")
-    }))
+    })
 
     it("opens directly where both numberings agree", async () => {
-      referenceService.extract.and.returnValue([
+      referenceService.extract.mockReturnValue([
         { match: "Sl 150", index: 0, book: "Sl", chapter: 150 },
       ])
       await component.onSearchSubmit("Sl 150")
@@ -1829,9 +1882,10 @@ describe("SearchComponent", () => {
   })
 
   it("should disconnect the observer on destroy", () => {
-    const observer = jasmine.createSpyObj("IntersectionObserver", [
-      "disconnect",
-    ])
+    const observer = createSpyObj<IntersectionObserver>(
+      "IntersectionObserver",
+      ["disconnect"],
+    )
     component["observer"] = observer
 
     component.ngOnDestroy()
@@ -1842,8 +1896,8 @@ describe("SearchComponent", () => {
   // A share target can deliver two queries back to back. If A resolves after
   // B, A used to overwrite B's results and clear B's loading state.
   it("should ignore a superseded search that resolves last", async () => {
-    referenceService.extract.and.returnValue([])
-    bookService.findBook.and.returnValue({ id: "about" } as Book)
+    referenceService.extract.mockReturnValue([])
+    bookService.findBook.mockReturnValue({ id: "about" } as Book)
 
     const verseFor = (text: string) =>
       ({
@@ -1866,7 +1920,7 @@ describe("SearchComponent", () => {
       resolveA = resolve
     })
 
-    apiService.search.and.callFake((text: string) =>
+    apiService.search.mockImplementation((text: string) =>
       text === "A" ? from(slowA) : of(page([verseFor("B result")], 1)),
     )
 
@@ -1880,7 +1934,7 @@ describe("SearchComponent", () => {
 
     expect(component.searchResults[0].text?.[0].text).toBe("B result")
     expect(component.totalResults).toBe(1)
-    expect(component.isLoading).toBeFalse()
+    expect(component.isLoading).toBe(false)
   })
 })
 
@@ -1890,49 +1944,49 @@ describe("SearchComponent in the iOS app", () => {
   let nativeChrome: {
     enabled: boolean
     actions$: Subject<NativeChromeAction>
-    show: jasmine.Spy
-    hide: jasmine.Spy
-    toast: jasmine.Spy
+    show: Mock
+    hide: Mock
+    toast: Mock
   }
-  let location: jasmine.SpyObj<Location>
-  let apiService: jasmine.SpyObj<BibleApiService>
+  let location: SpyObj<Location>
+  let apiService: SpyObj<BibleApiService>
 
   beforeEach(async () => {
     actions = new Subject()
     nativeChrome = {
       enabled: true,
       actions$: actions,
-      show: jasmine.createSpy("show"),
-      hide: jasmine.createSpy("hide"),
-      toast: jasmine.createSpy("toast"),
+      show: vi.fn().mockName("show"),
+      hide: vi.fn().mockName("hide"),
+      toast: vi.fn().mockName("toast"),
     }
-    location = jasmine.createSpyObj("Location", ["back", "replaceState"])
-    apiService = jasmine.createSpyObj("BibleApiService", ["getVerse", "search"])
-    apiService.search.and.returnValue(
+    location = createSpyObj("Location", ["back", "replaceState"])
+    apiService = createSpyObj("BibleApiService", ["getVerse", "search"])
+    apiService.search.mockReturnValue(
       of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
     )
-    const referenceService = jasmine.createSpyObj("BibleReferenceService", [
-      "extract",
-    ])
-    referenceService.extract.and.returnValue([])
-    const bookService = jasmine.createSpyObj("BookService", [
-      "findBook",
-      "findBookById",
-      "findTypedBook",
-      "getUrlAbrv",
-      "getChapterUrlSegment",
-    ])
-    bookService.findBookById.and.returnValue({
+    const referenceService = createSpyObj("BibleReferenceService", ["extract"])
+    referenceService.extract.mockReturnValue([])
+    const bookService = Object.assign(
+      createSpyObj<BookService>("BookService", [
+        "findBook",
+        "findBookById",
+        "findTypedBook",
+        "getUrlAbrv",
+        "getChapterUrlSegment",
+      ]),
+      { books$: of([{ id: "mat" }]) },
+    )
+    bookService.findBookById.mockReturnValue({
       abrv: "Mt",
       shortName: "Mateus",
-    })
-    bookService.getUrlAbrv.and.callFake(BookService.prototype.getUrlAbrv)
-    bookService.getChapterUrlSegment.and.callFake(
+    } as Book)
+    bookService.getUrlAbrv.mockImplementation(BookService.prototype.getUrlAbrv)
+    bookService.getChapterUrlSegment.mockImplementation(
       BookService.prototype.getChapterUrlSegment,
     )
-    bookService.books$ = of([{ id: "mat" }])
-    const analytics = jasmine.createSpyObj("AnalyticsService", ["track"])
-    analytics.track.and.resolveTo()
+    const analytics = createSpyObj("AnalyticsService", ["track"])
+    analytics.track.mockResolvedValue(undefined)
 
     await TestBed.configureTestingModule({
       imports: [SearchComponent],
@@ -1943,11 +1997,16 @@ describe("SearchComponent in the iOS app", () => {
         { provide: BibleApiService, useValue: apiService },
         { provide: BibleReferenceService, useValue: referenceService },
         { provide: BookService, useValue: bookService },
-        { provide: MatSnackBar, useValue: jasmine.createSpyObj(["open"]) },
+        {
+          provide: MatSnackBar,
+          useValue: {
+            open: vi.fn(),
+          },
+        },
         {
           provide: Router,
           useValue: {
-            navigate: jasmine.createSpy("navigate"),
+            navigate: vi.fn().mockName("navigate"),
             currentNavigation: () => null,
           },
         },
@@ -1958,7 +2017,9 @@ describe("SearchComponent in the iOS app", () => {
         },
         {
           provide: SeoService,
-          useValue: jasmine.createSpyObj(["updateForSearch"]),
+          useValue: {
+            updateForSearch: vi.fn(),
+          },
         },
       ],
     })
@@ -1988,21 +2049,22 @@ describe("SearchComponent in the iOS app", () => {
     await fixture.whenStable()
 
     expect(apiService.search).toHaveBeenCalledWith("pastor", 1)
-    expect(nativeChrome.show.calls.mostRecent().args[0]).toEqual(
-      jasmine.objectContaining({ query: "pastor" }),
+    expect(lastCall(vi.mocked(nativeChrome.show))[0]).toEqual(
+      expect.objectContaining({ query: "pastor" }),
     )
   })
 
-  it("searches as people type in the native field", fakeAsync(() => {
+  it("searches as people type in the native field", async () => {
+    vi.useFakeTimers()
     actions.next({ id: "search-input", text: "pastor" })
-    tick(TYPING_PAUSE_MS)
+    await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
 
     expect(apiService.search).toHaveBeenCalledWith("pastor", 1)
-  }))
+  })
 
   // The results heading has the count; a toast over the list hid a result.
   it("shows no results toast", async () => {
-    apiService.search.and.returnValue(
+    apiService.search.mockReturnValue(
       of({
         verses: [
           {
@@ -2030,7 +2092,7 @@ describe("SearchComponent in the iOS app", () => {
   it("lists the results as an iOS grouped list, matches in bold", async () => {
     document.body.classList.add("native-chrome")
     try {
-      apiService.search.and.returnValue(
+      apiService.search.mockReturnValue(
         of({
           verses: [
             {
