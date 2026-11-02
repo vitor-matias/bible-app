@@ -12,22 +12,6 @@ import { labelUmamiPlatform } from "./app/services/analytics.service"
 import { DepthLocationStrategy } from "./app/services/depth-location-strategy"
 import { isServiceWorkerEnabled } from "./app/utils/platform"
 
-export function initializeTheme(): void {
-  if (typeof window === "undefined" || typeof document === "undefined") {
-    return
-  }
-
-  const savedTheme =
-    typeof localStorage !== "undefined" ? localStorage.getItem("theme") : null
-  const prefersDark =
-    typeof window.matchMedia === "function"
-      ? window.matchMedia("(prefers-color-scheme: dark)").matches
-      : false
-  const isDark = savedTheme ? savedTheme === "dark" : prefersDark
-  document.documentElement.classList.toggle("dark-theme", isDark)
-}
-
-initializeTheme()
 // Umami reads the hook at send time; its first page view waits for the page
 // to finish loading, by which point this has run.
 if (typeof window !== "undefined") window.umamiBeforeSend = labelUmamiPlatform
