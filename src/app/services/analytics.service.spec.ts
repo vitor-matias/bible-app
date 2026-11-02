@@ -93,7 +93,7 @@ describe("AnalyticsService", () => {
       new Error("Build info fetch failed"),
     )
 
-    await expect(service.track("test_event")).resolves.not.toThrow()
+    await expect(service.track("test_event")).resolves.toBeUndefined()
     expect(console.error).toHaveBeenCalled()
     expect(globalThis.umami?.track).toHaveBeenCalled()
   })
@@ -109,7 +109,7 @@ describe("AnalyticsService", () => {
         })
     }
 
-    await expect(service.track("test_event")).resolves.not.toThrow()
+    await expect(service.track("test_event")).resolves.toBeUndefined()
     expect(console.error).toHaveBeenCalled()
   })
 

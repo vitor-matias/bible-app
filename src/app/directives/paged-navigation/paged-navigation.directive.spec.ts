@@ -580,7 +580,7 @@ describe("PagedNavigationDirective", () => {
       hostComponent.directive.bookBlock = undefined
       window.dispatchEvent(new Event("resize"))
 
-      await expect(vi.advanceTimersByTimeAsync(150)).resolves.not.toThrow()
+      await vi.advanceTimersByTimeAsync(150)
     })
   })
 

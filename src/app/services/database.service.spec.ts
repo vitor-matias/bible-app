@@ -199,7 +199,7 @@ describe("DatabaseService", () => {
       expect(mockIDBObjectStore.clear).toHaveBeenCalled()
 
       mockIDBTransaction.oncomplete()
-      await expect(promise).resolves.not.toThrow()
+      await expect(promise).resolves.toBeUndefined()
     })
 
     it("should reject when the transaction aborts", async () => {
