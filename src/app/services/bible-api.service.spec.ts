@@ -666,6 +666,33 @@ describe("BibleApiService", () => {
       ).toBeRejectedWithError("Offline - introduction not cached")
       httpMock.expectNone("v1/intros/pentateuco")
     })
+
+    // As for chapters: the prerender must not serialize the page during the
+    // cache lookup.
+    it("keeps the app unstable from the call until the introduction arrives", async () => {
+      offlineDataServiceSpy.getCachedGroupIntroAsync.and.resolveTo(undefined)
+      const appRef = TestBed.inject(ApplicationRef)
+
+      const introPromise = firstValueFrom(service.getIntro("pentateuco"))
+      expect(await firstValueFrom(appRef.isStable)).toBeFalse()
+
+      await Promise.resolve()
+      await Promise.resolve()
+      httpMock.expectOne("v1/intros/pentateuco").flush({ slug: "pentateuco" })
+      await introPromise
+      // Settles only once the task has been released.
+      await appRef.whenStable()
+    })
+
+    it("lets go of the app when the introduction fails", async () => {
+      offlineDataServiceSpy.getCachedGroupIntroAsync.and.resolveTo(undefined)
+      networkServiceStub.isOffline = true
+
+      await expectAsync(
+        firstValueFrom(service.getIntro("pentateuco")),
+      ).toBeRejected()
+      await TestBed.inject(ApplicationRef).whenStable()
+    })
   })
 
   describe("createApiResilience", () => {
