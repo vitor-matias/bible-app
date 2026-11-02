@@ -793,16 +793,6 @@ describe("PagedNavigationDirective across a resize", () => {
     container.scrollLeft = 5 * 200
     await settle()
     const first = firstVerseOnScreen()
-    expect(first).withContext("a verse starts on page 5").toBeDefined()
-    if (!first) return
-    expect(Number(first.id)).toBeGreaterThan(1)
-  it('keeps the verse the reader was on', async () => {
-    container.scrollLeft = 5 * 200;
-    await settle();
-    const first = firstVerseOnScreen();
-    expect(first, 'a verse starts on page 5').toBeDefined();
-    if (!first) return;
-    expect(Number(first.id)).toBeGreaterThan(1);
     expect(first, "a verse starts on page 5").toBeDefined()
     if (!first) return
     expect(Number(first.id)).toBeGreaterThan(1)
