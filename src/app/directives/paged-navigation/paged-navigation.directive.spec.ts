@@ -772,6 +772,23 @@ describe("PagedNavigationDirective across a resize", () => {
     expect((container.scrollWidth - container.clientWidth) % 200).toBe(0)
   })
 
+  // A spacer from before the content grew ends short of it, and holds nothing.
+  it("holds the scrollable area when content outgrew the spacer", async () => {
+    container.scrollLeft = container.scrollWidth - container.clientWidth
+    await settle()
+    host.nav.dragBy(-60)
+    host.nav.cancelDrag()
+    await settle()
+
+    const block = container.firstElementChild as HTMLElement
+    block.append(host.longText)
+    const last = container.scrollWidth - container.clientWidth
+    container.scrollLeft = last
+    host.nav.dragBy(-120)
+
+    expect(container.scrollLeft).toBe(last)
+  })
+
   it("keeps the verse the reader was on", async () => {
     container.scrollLeft = 5 * 200
     await settle()

@@ -368,7 +368,9 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
       block.style.transition = "none"
       // The transform below carries the columns, and so the scrollable area,
       // with it: pulled past the last page, the browser would clamp the scroll.
-      if (!this.spacer) this.addSpacer(this.container.scrollWidth)
+      const scrollWidth = this.container.scrollWidth
+      this.removeSpacer()
+      this.addSpacer(scrollWidth)
     }
     const maxScroll = Math.max(
       0,
