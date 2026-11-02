@@ -1,9 +1,5 @@
-import {
-  fakeAsync,
-  flushMicrotasks,
-  TestBed,
-  tick,
-} from "@angular/core/testing"
+import { TestBed } from "@angular/core/testing"
+import { lastCall } from "../testing/spy-obj"
 import {
   BibleReaderAnimationService,
   HIGHLIGHT_CLASS,
@@ -12,6 +8,12 @@ import {
 } from "./bible-reader-animation.service"
 
 describe("BibleReaderAnimationService", () => {
+  // Before the beforeEach below, which stubs requestAnimationFrame: installing
+  // the fake clock afterwards would replace that stub.
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
   let service: BibleReaderAnimationService
 
   beforeEach(() => {
@@ -19,7 +21,7 @@ describe("BibleReaderAnimationService", () => {
     service = TestBed.inject(BibleReaderAnimationService)
 
     // Helper to mock requestAnimationFrame
-    spyOn(window, "requestAnimationFrame").and.callFake(
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation(
       (cb: FrameRequestCallback) => {
         cb(0)
         return 0
@@ -32,16 +34,15 @@ describe("BibleReaderAnimationService", () => {
   })
 
   describe("scrollToTop", () => {
-    it("should scroll to top in scrolling viewMode", fakeAsync(() => {
+    it("should scroll to top in scrolling viewMode", async () => {
       const drawerContentRow = document.createElement("div")
       const containerRow = document.createElement("div")
-      spyOn(drawerContentRow, "scrollTo")
-      spyOn(service, "triggerSlideAnimation")
+      vi.spyOn(drawerContentRow, "scrollTo").mockReturnValue(undefined)
+      vi.spyOn(service, "triggerSlideAnimation").mockReturnValue(undefined)
 
       service.scrollToTop(drawerContentRow, containerRow, "scrolling", false)
 
-      tick(0)
-      // @ts-expect-error TS complains about 1 argument for scrollTo overload
+      await vi.advanceTimersByTimeAsync(0)
       expect(drawerContentRow.scrollTo).toHaveBeenCalledWith({
         top: 0,
         behavior: "smooth",
@@ -49,25 +50,25 @@ describe("BibleReaderAnimationService", () => {
 
       // We have another setTimeout inside for requestAnimationFrame which we can't easily mock tick
       // However we know it gets called. The best we can do is expect the first part.
-    }))
+    })
 
-    it("should handle undefined elements without throwing", fakeAsync(() => {
+    it("should handle undefined elements without throwing", async () => {
       expect(() => {
         service.scrollToTop(undefined, undefined, "scrolling", false)
-        tick(0)
       }).not.toThrow()
-    }))
+      await vi.advanceTimersByTimeAsync(0)
+    })
 
-    it("should scroll to start in paged viewMode and startAtBottom false", fakeAsync(() => {
+    it("should scroll to start in paged viewMode and startAtBottom false", async () => {
       const drawerContentRow = document.createElement("div")
       const containerRow = document.createElement("div")
-      spyOn(service, "triggerSlideAnimation")
+      vi.spyOn(service, "triggerSlideAnimation").mockReturnValue(undefined)
 
       service.scrollToTop(drawerContentRow, containerRow, "paged", false)
 
-      tick(0)
-      // inner setTimeout
-      tick(0)
+      await vi.advanceTimersByTimeAsync(0)
+      // inner setTimeout: a 0 ms timer set while the clock ticks is due 1 ms on
+      await vi.advanceTimersByTimeAsync(1)
 
       expect(containerRow.scrollLeft).toBe(0)
       expect(service.triggerSlideAnimation).toHaveBeenCalledWith(
@@ -75,9 +76,9 @@ describe("BibleReaderAnimationService", () => {
         containerRow,
         false,
       )
-    }))
+    })
 
-    it("should scroll to end in paged viewMode and startAtBottom true", fakeAsync(() => {
+    it("should scroll to end in paged viewMode and startAtBottom true", async () => {
       const drawerContentRow = document.createElement("div")
       const containerRow = document.createElement("div")
       Object.defineProperty(containerRow, "scrollWidth", { value: 500 })
@@ -89,13 +90,13 @@ describe("BibleReaderAnimationService", () => {
           sl = v
         },
       })
-      spyOn(service, "triggerSlideAnimation")
+      vi.spyOn(service, "triggerSlideAnimation").mockReturnValue(undefined)
 
       service.scrollToTop(drawerContentRow, containerRow, "paged", true)
 
-      tick(0)
+      await vi.advanceTimersByTimeAsync(0)
       // inner setTimeout of 100ms
-      tick(100)
+      await vi.advanceTimersByTimeAsync(100)
 
       expect(containerRow.scrollLeft).toBe(400)
       expect(service.triggerSlideAnimation).toHaveBeenCalledWith(
@@ -103,57 +104,57 @@ describe("BibleReaderAnimationService", () => {
         containerRow,
         true,
       )
-    }))
+    })
 
-    it("should scroll to 0 if maxScroll is negative in paged viewMode startAtBottom true", fakeAsync(() => {
+    it("should scroll to 0 if maxScroll is negative in paged viewMode startAtBottom true", async () => {
       const drawerContentRow = document.createElement("div")
       const containerRow = document.createElement("div")
       Object.defineProperty(containerRow, "scrollWidth", { value: 100 })
       Object.defineProperty(containerRow, "clientWidth", { value: 500 })
-      spyOn(service, "triggerSlideAnimation")
+      vi.spyOn(service, "triggerSlideAnimation").mockReturnValue(undefined)
 
       service.scrollToTop(drawerContentRow, containerRow, "paged", true)
 
-      tick(0)
-      tick(100)
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.advanceTimersByTimeAsync(100)
 
       expect(containerRow.scrollLeft).toBe(0)
-    }))
+    })
   })
 
   describe("triggerSlideAnimation", () => {
-    it("should add slide-in-left class when isBackward is true", fakeAsync(() => {
+    it("should add slide-in-left class when isBackward is true", async () => {
       const drawerContentRow = document.createElement("div")
       const containerRow = document.createElement("div")
 
       service.triggerSlideAnimation(drawerContentRow, containerRow, true)
 
-      expect(containerRow.classList.contains("slide-in-left")).toBeTrue()
-      tick(600)
-      expect(containerRow.classList.contains("slide-in-left")).toBeFalse()
-    }))
+      expect(containerRow.classList.contains("slide-in-left")).toBe(true)
+      await vi.advanceTimersByTimeAsync(600)
+      expect(containerRow.classList.contains("slide-in-left")).toBe(false)
+    })
 
-    it("should add slide-in-right class when isBackward is false", fakeAsync(() => {
+    it("should add slide-in-right class when isBackward is false", async () => {
       const drawerContentRow = document.createElement("div")
       const containerRow = document.createElement("div")
 
       service.triggerSlideAnimation(drawerContentRow, containerRow, false)
 
-      expect(containerRow.classList.contains("slide-in-right")).toBeTrue()
-      tick(600)
-      expect(containerRow.classList.contains("slide-in-right")).toBeFalse()
-    }))
+      expect(containerRow.classList.contains("slide-in-right")).toBe(true)
+      await vi.advanceTimersByTimeAsync(600)
+      expect(containerRow.classList.contains("slide-in-right")).toBe(false)
+    })
 
-    it("should handle undefined drawerContent flexibly", fakeAsync(() => {
+    it("should handle undefined drawerContent flexibly", async () => {
       const containerRow = document.createElement("div")
       service.triggerSlideAnimation(undefined, containerRow, false)
-      expect(containerRow.classList.contains("slide-in-right")).toBeTrue()
-      tick(600)
-    }))
+      expect(containerRow.classList.contains("slide-in-right")).toBe(true)
+      await vi.advanceTimersByTimeAsync(600)
+    })
   })
 
   describe("triggerSlideOutAnimation", () => {
-    it("should add slide-out-right and resolve promise when isBackward is true", fakeAsync(() => {
+    it("should add slide-out-right and resolve promise when isBackward is true", async () => {
       const containerRow = document.createElement("div")
 
       let resolved = false
@@ -161,17 +162,17 @@ describe("BibleReaderAnimationService", () => {
         resolved = true
       })
 
-      expect(containerRow.classList.contains("slide-out-right")).toBeTrue()
+      expect(containerRow.classList.contains("slide-out-right")).toBe(true)
 
       // Simulate animation end
       containerRow.dispatchEvent(new Event("animationend"))
-      tick()
+      await vi.advanceTimersByTimeAsync(0)
 
-      expect(resolved).toBeTrue()
-      expect(containerRow.classList.contains("slide-out-right")).toBeFalse()
-    }))
+      expect(resolved).toBe(true)
+      expect(containerRow.classList.contains("slide-out-right")).toBe(false)
+    })
 
-    it("should resolve via fallback timeout if animationend does not fire", fakeAsync(() => {
+    it("should resolve via fallback timeout if animationend does not fire", async () => {
       const containerRow = document.createElement("div")
 
       let resolved = false
@@ -179,18 +180,18 @@ describe("BibleReaderAnimationService", () => {
         resolved = true
       })
 
-      expect(containerRow.classList.contains("slide-out-left")).toBeTrue()
+      expect(containerRow.classList.contains("slide-out-left")).toBe(true)
 
       // wait for 600ms fallback timeout
-      tick(600)
+      await vi.advanceTimersByTimeAsync(600)
 
-      expect(resolved).toBeTrue()
-      expect(containerRow.classList.contains("slide-out-left")).toBeFalse()
-    }))
+      expect(resolved).toBe(true)
+      expect(containerRow.classList.contains("slide-out-left")).toBe(false)
+    })
   })
 
   describe("scrollToVerseElement", () => {
-    it("should find verse elements and scroll to them", fakeAsync(() => {
+    it("should find verse elements and scroll to them", async () => {
       const bookBlock = document.createElement("div")
       const verse1 = document.createElement("div")
       verse1.id = "1"
@@ -200,92 +201,138 @@ describe("BibleReaderAnimationService", () => {
       verse2.id = "2"
       bookBlock.appendChild(verse2)
 
-      spyOn(verse1, "scrollIntoView")
+      vi.spyOn(verse1, "scrollIntoView").mockReturnValue(undefined)
 
       service.scrollToVerseElement(bookBlock, undefined, 1, 1, true, false)
-      tick(100)
+      await vi.advanceTimersByTimeAsync(100)
 
       expect(verse1.scrollIntoView).toHaveBeenCalled()
-      expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBeTrue()
+      expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBe(true)
       // The stroke is drawn by the verse component's own styles; painting the
       // inline host from here is what used to colour whitespace and gaps.
       expect(verse1.style.backgroundColor).toBe("")
 
-      tick(HIGHLIGHT_DURATION_MS)
-      expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBeFalse()
-    }))
+      await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS)
+      expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBe(false)
+    })
 
-    it("should restart the fade when the same verse is highlighted again", fakeAsync(() => {
+    it("should scroll to the verse number, not the multi-line inline verse", async () => {
+      // WebKit scrolls an inline <verse> that opens a paragraph as if it began
+      // at the top of the chapter: Safari opened Jo 3,16 on verses 4-12.
+      const bookBlock = document.createElement("div")
+      const verse = document.createElement("verse")
+      verse.id = "16"
+      verse.innerHTML =
+        '<span class="verseText verseRun"> </span><span class="verseNumber">16</span><span class="verseRun">Tanto amou Deus o mundo</span>'
+      bookBlock.appendChild(verse)
+      const verseNumber = verse.querySelector(".verseNumber") as HTMLElement
+      vi.spyOn(verse, "scrollIntoView").mockReturnValue(undefined)
+      vi.spyOn(verseNumber, "scrollIntoView").mockReturnValue(undefined)
+
+      service.scrollToVerseElement(bookBlock, undefined, 16)
+      await vi.advanceTimersByTimeAsync(100)
+
+      expect(verseNumber.scrollIntoView).toHaveBeenCalledWith(
+        expect.objectContaining({ block: "center" }),
+      )
+      expect(verse.scrollIntoView).not.toHaveBeenCalled()
+      expect(verse.classList.contains(HIGHLIGHT_CLASS)).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(LAYOUT_SETTLE_MS)
+      expect(verseNumber.scrollIntoView).toHaveBeenCalledTimes(2)
+      expect(verse.scrollIntoView).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS)
+    })
+
+    it("should scroll to a verse's first run when it has no number", async () => {
+      const bookBlock = document.createElement("div")
+      const verse = document.createElement("verse")
+      verse.id = "1"
+      verse.innerHTML = '<span class="verseRun">No princípio</span>'
+      bookBlock.appendChild(verse)
+      const run = verse.querySelector(".verseRun") as HTMLElement
+      vi.spyOn(verse, "scrollIntoView").mockReturnValue(undefined)
+      vi.spyOn(run, "scrollIntoView").mockReturnValue(undefined)
+
+      service.scrollToVerseElement(bookBlock, undefined, 1, 1, false)
+      await vi.advanceTimersByTimeAsync(100)
+
+      expect(run.scrollIntoView).toHaveBeenCalled()
+      expect(verse.scrollIntoView).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(LAYOUT_SETTLE_MS)
+    })
+
+    it("should restart the fade when the same verse is highlighted again", async () => {
       const bookBlock = document.createElement("div")
       const verse1 = document.createElement("div")
       verse1.id = "1"
       bookBlock.appendChild(verse1)
-      spyOn(verse1, "scrollIntoView")
+      vi.spyOn(verse1, "scrollIntoView").mockReturnValue(undefined)
 
       service.scrollToVerseElement(bookBlock, undefined, 1, 1, true, false)
-      tick(100)
-      tick(HIGHLIGHT_DURATION_MS - 500)
+      await vi.advanceTimersByTimeAsync(100)
+      await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS - 500)
 
       service.scrollToVerseElement(bookBlock, undefined, 1, 1, true, false)
-      tick(100)
+      await vi.advanceTimersByTimeAsync(100)
 
       // The first timeout would have fired by now had it not been cleared.
-      tick(500)
-      expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBeTrue()
+      await vi.advanceTimersByTimeAsync(500)
+      expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBe(true)
 
-      tick(HIGHLIGHT_DURATION_MS)
-      expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBeFalse()
-    }))
+      await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS)
+      expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBe(false)
+    })
 
-    it("should highlight every verse of a range", fakeAsync(() => {
+    it("should highlight every verse of a range", async () => {
       const bookBlock = document.createElement("div")
       const verses = [1, 2, 3].map((n) => {
         const el = document.createElement("div")
         el.id = String(n)
         bookBlock.appendChild(el)
-        spyOn(el, "scrollIntoView")
+        vi.spyOn(el, "scrollIntoView").mockReturnValue(undefined)
         return el
       })
 
       service.scrollToVerseElement(bookBlock, undefined, 1, 3, true, false)
-      tick(100)
+      await vi.advanceTimersByTimeAsync(100)
 
-      expect(
-        verses.every((el) => el.classList.contains(HIGHLIGHT_CLASS)),
-      ).toBeTrue()
+      expect(verses.every((el) => el.classList.contains(HIGHLIGHT_CLASS))).toBe(
+        true,
+      )
       // Only the first verse of the range is scrolled into view.
       expect(verses[0].scrollIntoView).toHaveBeenCalled()
       expect(verses[1].scrollIntoView).not.toHaveBeenCalled()
 
-      tick(HIGHLIGHT_DURATION_MS)
-      expect(
-        verses.some((el) => el.classList.contains(HIGHLIGHT_CLASS)),
-      ).toBeFalse()
-    }))
+      await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS)
+      expect(verses.some((el) => el.classList.contains(HIGHLIGHT_CLASS))).toBe(
+        false,
+      )
+    })
 
-    it("should do nothing if bookBlock is undefined", fakeAsync(() => {
+    it("should do nothing if bookBlock is undefined", async () => {
       expect(() => {
         service.scrollToVerseElement(undefined, undefined, 1, 1, true, false)
-        tick(100)
       }).not.toThrow()
-    }))
+      await vi.advanceTimersByTimeAsync(100)
+    })
 
-    it("should skip if verse element is not found", fakeAsync(() => {
+    it("should skip if verse element is not found", async () => {
       const bookBlock = document.createElement("div")
       expect(() => {
         service.scrollToVerseElement(bookBlock, undefined, 1, 1, true, false)
-        tick(100)
       }).not.toThrow()
-    }))
+      await vi.advanceTimersByTimeAsync(100)
+    })
 
-    it("should not highlight if highlight is false, but should trigger slide animation on bookContainer", fakeAsync(() => {
+    it("should not highlight if highlight is false, but should trigger slide animation on bookContainer", async () => {
       const bookBlock = document.createElement("div")
       const verse1 = document.createElement("div")
       verse1.id = "1"
       bookBlock.appendChild(verse1)
       const bookContainer = document.createElement("div")
-      spyOn(verse1, "scrollIntoView")
-      spyOn(service, "triggerSlideAnimation")
+      vi.spyOn(verse1, "scrollIntoView").mockReturnValue(undefined)
+      vi.spyOn(service, "triggerSlideAnimation").mockReturnValue(undefined)
 
       service.scrollToVerseElement(
         bookBlock,
@@ -295,61 +342,67 @@ describe("BibleReaderAnimationService", () => {
         false,
         true,
       )
-      tick(100)
+      await vi.advanceTimersByTimeAsync(100)
 
       expect(verse1.scrollIntoView).toHaveBeenCalled()
-      expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBeFalse()
+      expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBe(false)
       expect(service.triggerSlideAnimation).toHaveBeenCalledWith(
         undefined,
         bookContainer,
         true,
       )
 
-      tick(LAYOUT_SETTLE_MS)
-    }))
+      await vi.advanceTimersByTimeAsync(LAYOUT_SETTLE_MS)
+    })
 
-    it("should re-align once the layout has settled, so a verse at the end of a chapter is not left short", fakeAsync(() => {
+    it("should re-align once the layout has settled, so a verse at the end of a chapter is not left short", async () => {
       const bookBlock = document.createElement("div")
       const verse1 = document.createElement("div")
       verse1.id = "1"
       bookBlock.appendChild(verse1)
-      const scrollIntoView = spyOn(verse1, "scrollIntoView")
+      const scrollIntoView = vi
+        .spyOn(verse1, "scrollIntoView")
+        .mockReturnValue(undefined)
 
       service.scrollToVerseElement(bookBlock, undefined, 1, 1, false, false)
-      tick(100)
+      await vi.advanceTimersByTimeAsync(100)
       // A pending font swap can add a pass of its own, so count the passes that
       // the settle window itself is responsible for rather than the total.
-      const afterInitialScroll = scrollIntoView.calls.count()
+      const afterInitialScroll = vi.mocked(scrollIntoView).mock.calls.length
       expect(afterInitialScroll).toBeGreaterThan(0)
 
-      tick(LAYOUT_SETTLE_MS)
-      expect(scrollIntoView.calls.count()).toBeGreaterThan(afterInitialScroll)
-    }))
+      await vi.advanceTimersByTimeAsync(LAYOUT_SETTLE_MS)
+      expect(vi.mocked(scrollIntoView).mock.calls.length).toBeGreaterThan(
+        afterInitialScroll,
+      )
+    })
 
-    it("should stop re-aligning once the reader scrolls for themselves", fakeAsync(() => {
+    it("should stop re-aligning once the reader scrolls for themselves", async () => {
       const bookBlock = document.createElement("div")
       const verse1 = document.createElement("div")
       verse1.id = "1"
       bookBlock.appendChild(verse1)
-      const scrollIntoView = spyOn(verse1, "scrollIntoView")
+      const scrollIntoView = vi
+        .spyOn(verse1, "scrollIntoView")
+        .mockReturnValue(undefined)
 
       service.scrollToVerseElement(bookBlock, undefined, 1, 1, false, false)
-      tick(100)
+      await vi.advanceTimersByTimeAsync(100)
       window.dispatchEvent(new Event("wheel"))
-      const afterTakeOver = scrollIntoView.calls.count()
+      const afterTakeOver = vi.mocked(scrollIntoView).mock.calls.length
 
-      tick(LAYOUT_SETTLE_MS)
-      expect(scrollIntoView.calls.count()).toBe(afterTakeOver)
-    }))
+      await vi.advanceTimersByTimeAsync(LAYOUT_SETTLE_MS)
+      expect(vi.mocked(scrollIntoView).mock.calls.length).toBe(afterTakeOver)
+    })
 
     // The pass holds the previous chapter's verse element and scroll strategy;
     // once the reader has moved on it must not scroll the page that replaced it.
-    it("should not realign after the pending pass is cancelled", fakeAsync(() => {
+    it("should not realign after the pending pass is cancelled", async () => {
       const bookBlock = document.createElement("div")
       const verse1 = document.createElement("div")
       verse1.id = "1"
       bookBlock.appendChild(verse1)
-      const bringIntoView = jasmine.createSpy("bringIntoView")
+      const bringIntoView = vi.fn().mockName("bringIntoView")
 
       service.scrollToVerseElement(
         bookBlock,
@@ -360,21 +413,23 @@ describe("BibleReaderAnimationService", () => {
         false,
         bringIntoView,
       )
-      tick(100)
-      const afterInitialScroll = bringIntoView.calls.count()
+      await vi.advanceTimersByTimeAsync(100)
+      const afterInitialScroll = vi.mocked(bringIntoView).mock.calls.length
 
       service.cancelPendingRealign()
-      tick(LAYOUT_SETTLE_MS)
+      await vi.advanceTimersByTimeAsync(LAYOUT_SETTLE_MS)
 
-      expect(bringIntoView.calls.count()).toBe(afterInitialScroll)
-    }))
+      expect(vi.mocked(bringIntoView).mock.calls.length).toBe(
+        afterInitialScroll,
+      )
+    })
 
-    it("should drop a scroll that has not fired yet when cancelled", fakeAsync(() => {
+    it("should drop a scroll that has not fired yet when cancelled", async () => {
       const bookBlock = document.createElement("div")
       const verse1 = document.createElement("div")
       verse1.id = "1"
       bookBlock.appendChild(verse1)
-      const bringIntoView = jasmine.createSpy("bringIntoView")
+      const bringIntoView = vi.fn().mockName("bringIntoView")
 
       service.scrollToVerseElement(
         bookBlock,
@@ -387,12 +442,12 @@ describe("BibleReaderAnimationService", () => {
       )
       // Cancelled inside the 100ms window, before the scroll is even attempted.
       service.cancelPendingRealign()
-      tick(100 + LAYOUT_SETTLE_MS)
+      await vi.advanceTimersByTimeAsync(100 + LAYOUT_SETTLE_MS)
 
       expect(bringIntoView).not.toHaveBeenCalled()
-    }))
+    })
 
-    it("should supersede an earlier pass when a new verse is scrolled to", fakeAsync(() => {
+    it("should supersede an earlier pass when a new verse is scrolled to", async () => {
       const bookBlock = document.createElement("div")
       const verses = [1, 2].map((n) => {
         const el = document.createElement("div")
@@ -400,8 +455,8 @@ describe("BibleReaderAnimationService", () => {
         bookBlock.appendChild(el)
         return el
       })
-      const first = jasmine.createSpy("first")
-      const second = jasmine.createSpy("second")
+      const first = vi.fn().mockName("first")
+      const second = vi.fn().mockName("second")
 
       service.scrollToVerseElement(
         bookBlock,
@@ -412,8 +467,8 @@ describe("BibleReaderAnimationService", () => {
         false,
         first,
       )
-      tick(100)
-      const afterFirstScroll = first.calls.count()
+      await vi.advanceTimersByTimeAsync(100)
+      const afterFirstScroll = vi.mocked(first).mock.calls.length
 
       service.scrollToVerseElement(
         bookBlock,
@@ -424,17 +479,17 @@ describe("BibleReaderAnimationService", () => {
         false,
         second,
       )
-      tick(100 + LAYOUT_SETTLE_MS)
+      await vi.advanceTimersByTimeAsync(100 + LAYOUT_SETTLE_MS)
 
       // Only the verse the reader last asked for keeps being realigned.
-      expect(first.calls.count()).toBe(afterFirstScroll)
-      expect(second.calls.mostRecent().args[0]).toBe(verses[1])
-    }))
+      expect(vi.mocked(first).mock.calls.length).toBe(afterFirstScroll)
+      expect(lastCall(vi.mocked(second))[0]).toBe(verses[1])
+    })
 
     // Two deep links inside the 100ms window: the older timer used to survive,
     // scroll to its own verse first, and then clear the field tracking the
     // newer one, leaving that one uncancellable.
-    it("should drop a deep-link scroll that a newer one supersedes", fakeAsync(() => {
+    it("should drop a deep-link scroll that a newer one supersedes", async () => {
       const bookBlock = document.createElement("div")
       const verses = [1, 2].map((n) => {
         const el = document.createElement("div")
@@ -442,8 +497,8 @@ describe("BibleReaderAnimationService", () => {
         bookBlock.appendChild(el)
         return el
       })
-      const first = jasmine.createSpy("first")
-      const second = jasmine.createSpy("second")
+      const first = vi.fn().mockName("first")
+      const second = vi.fn().mockName("second")
 
       service.scrollToVerseElement(
         bookBlock,
@@ -455,7 +510,7 @@ describe("BibleReaderAnimationService", () => {
         first,
       )
       // Still inside the 100ms window.
-      tick(50)
+      await vi.advanceTimersByTimeAsync(50)
       service.scrollToVerseElement(
         bookBlock,
         undefined,
@@ -465,16 +520,16 @@ describe("BibleReaderAnimationService", () => {
         false,
         second,
       )
-      tick(100)
+      await vi.advanceTimersByTimeAsync(100)
 
       expect(first).not.toHaveBeenCalled()
       expect(second).toHaveBeenCalledWith(verses[1])
 
       // And the newer pass is still cancellable.
       service.cancelPendingRealign()
-      tick(LAYOUT_SETTLE_MS)
-      expect(second.calls.count()).toBe(1)
-    }))
+      await vi.advanceTimersByTimeAsync(LAYOUT_SETTLE_MS)
+      expect(vi.mocked(second).mock.calls.length).toBe(1)
+    })
 
     describe("with a font swap still pending", () => {
       let resolveFonts: () => void
@@ -501,12 +556,12 @@ describe("BibleReaderAnimationService", () => {
 
       // The correction happens on the last thing to settle, not on each: two
       // scrolls would re-aim mid-animation for no gain.
-      it("should correct the scroll once, after the font swap lands", fakeAsync(() => {
+      it("should correct the scroll once, after the font swap lands", async () => {
         const bookBlock = document.createElement("div")
         const verse1 = document.createElement("div")
         verse1.id = "1"
         bookBlock.appendChild(verse1)
-        const bringIntoView = jasmine.createSpy("bringIntoView")
+        const bringIntoView = vi.fn().mockName("bringIntoView")
 
         service.scrollToVerseElement(
           bookBlock,
@@ -517,28 +572,28 @@ describe("BibleReaderAnimationService", () => {
           false,
           bringIntoView,
         )
-        tick(100)
-        expect(bringIntoView.calls.count()).toBe(1) // the initial scroll
+        await vi.advanceTimersByTimeAsync(100)
+        expect(vi.mocked(bringIntoView).mock.calls.length).toBe(1) // the initial scroll
 
         // The settle timer alone is not enough while a font swap is in flight.
-        tick(LAYOUT_SETTLE_MS)
-        expect(bringIntoView.calls.count()).toBe(1)
+        await vi.advanceTimersByTimeAsync(LAYOUT_SETTLE_MS)
+        expect(vi.mocked(bringIntoView).mock.calls.length).toBe(1)
 
         resolveFonts()
-        flushMicrotasks()
-        expect(bringIntoView.calls.count()).toBe(2)
+        await vi.advanceTimersByTimeAsync(0)
+        expect(vi.mocked(bringIntoView).mock.calls.length).toBe(2)
 
         // Nothing further once both have settled.
-        tick(LAYOUT_SETTLE_MS)
-        expect(bringIntoView.calls.count()).toBe(2)
-      }))
+        await vi.advanceTimersByTimeAsync(LAYOUT_SETTLE_MS)
+        expect(vi.mocked(bringIntoView).mock.calls.length).toBe(2)
+      })
 
-      it("should not correct the scroll before the settle timer, even if the fonts land first", fakeAsync(() => {
+      it("should not correct the scroll before the settle timer, even if the fonts land first", async () => {
         const bookBlock = document.createElement("div")
         const verse1 = document.createElement("div")
         verse1.id = "1"
         bookBlock.appendChild(verse1)
-        const bringIntoView = jasmine.createSpy("bringIntoView")
+        const bringIntoView = vi.fn().mockName("bringIntoView")
 
         service.scrollToVerseElement(
           bookBlock,
@@ -549,24 +604,24 @@ describe("BibleReaderAnimationService", () => {
           false,
           bringIntoView,
         )
-        tick(100)
+        await vi.advanceTimersByTimeAsync(100)
 
         resolveFonts()
-        flushMicrotasks()
-        expect(bringIntoView.calls.count()).toBe(1) // still only the initial one
+        await vi.advanceTimersByTimeAsync(0)
+        expect(vi.mocked(bringIntoView).mock.calls.length).toBe(1) // still only the initial one
 
-        tick(LAYOUT_SETTLE_MS)
-        expect(bringIntoView.calls.count()).toBe(2)
-      }))
+        await vi.advanceTimersByTimeAsync(LAYOUT_SETTLE_MS)
+        expect(vi.mocked(bringIntoView).mock.calls.length).toBe(2)
+      })
     })
 
-    it("should hand the scroll to the given strategy instead of scrollIntoView", fakeAsync(() => {
+    it("should hand the scroll to the given strategy instead of scrollIntoView", async () => {
       const bookBlock = document.createElement("div")
       const verse1 = document.createElement("div")
       verse1.id = "1"
       bookBlock.appendChild(verse1)
-      spyOn(verse1, "scrollIntoView")
-      const bringIntoView = jasmine.createSpy("bringIntoView")
+      vi.spyOn(verse1, "scrollIntoView").mockReturnValue(undefined)
+      const bringIntoView = vi.fn().mockName("bringIntoView")
 
       service.scrollToVerseElement(
         bookBlock,
@@ -577,15 +632,17 @@ describe("BibleReaderAnimationService", () => {
         false,
         bringIntoView,
       )
-      tick(100)
+      await vi.advanceTimersByTimeAsync(100)
 
       expect(bringIntoView).toHaveBeenCalledWith(verse1)
       expect(verse1.scrollIntoView).not.toHaveBeenCalled()
-      const afterInitialScroll = bringIntoView.calls.count()
+      const afterInitialScroll = vi.mocked(bringIntoView).mock.calls.length
 
-      tick(LAYOUT_SETTLE_MS)
-      expect(bringIntoView.calls.count()).toBeGreaterThan(afterInitialScroll)
+      await vi.advanceTimersByTimeAsync(LAYOUT_SETTLE_MS)
+      expect(vi.mocked(bringIntoView).mock.calls.length).toBeGreaterThan(
+        afterInitialScroll,
+      )
       expect(verse1.scrollIntoView).not.toHaveBeenCalled()
-    }))
+    })
   })
 })

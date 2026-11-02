@@ -3,6 +3,8 @@ import {
   HttpTestingController,
 } from "@angular/common/http/testing"
 import { TestBed } from "@angular/core/testing"
+import type { Mock } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import { DatabaseService } from "./database.service"
 import { NetworkService } from "./network.service"
@@ -10,15 +12,15 @@ import { OfflineDataService } from "./offline-data.service"
 
 describe("OfflineDataService", () => {
   let service: OfflineDataService
-  let networkService: jasmine.SpyObj<NetworkService>
+  let networkService: SpyObj<NetworkService>
   let httpMock: HttpTestingController
   let mockLocalStorage: {
     _storage: Record<string, string>
-    getItem: jasmine.Spy
-    setItem: jasmine.Spy
-    removeItem: jasmine.Spy
-    clear: jasmine.Spy
-    key: jasmine.Spy
+    getItem: Mock
+    setItem: Mock
+    removeItem: Mock
+    clear: Mock
+    key: Mock
     length: number
     // biome-ignore lint/suspicious/noExplicitAny: Mock local storage needs dynamic access
     [key: string]: any
@@ -64,7 +66,7 @@ describe("OfflineDataService", () => {
     },
   ]
 
-  let databaseService: jasmine.SpyObj<DatabaseService>
+  let databaseService: SpyObj<DatabaseService>
 
   const flushMicrotasks = async () => {
     for (let i = 0; i < 5; i++) {
@@ -86,48 +88,54 @@ describe("OfflineDataService", () => {
     // Mock localStorage
     mockLocalStorage = {
       _storage: {} as Record<string, string>,
-      getItem: jasmine.createSpy("getItem").and.callFake((key: string) => {
-        return mockLocalStorage._storage[key] || null
-      }),
-      setItem: jasmine
-        .createSpy("setItem")
-        .and.callFake((key: string, value: string) => {
+      getItem: vi
+        .fn()
+        .mockName("getItem")
+        .mockImplementation((key: string) => {
+          return mockLocalStorage._storage[key] || null
+        }),
+      setItem: vi
+        .fn()
+        .mockName("setItem")
+        .mockImplementation((key: string, value: string) => {
           mockLocalStorage._storage[key] = value
         }),
-      removeItem: jasmine
-        .createSpy("removeItem")
-        .and.callFake((key: string) => {
+      removeItem: vi
+        .fn()
+        .mockName("removeItem")
+        .mockImplementation((key: string) => {
           delete mockLocalStorage._storage[key]
         }),
-      clear: jasmine.createSpy("clear").and.callFake(() => {
-        mockLocalStorage._storage = {}
-      }),
-      key: jasmine.createSpy("key"),
+      clear: vi
+        .fn()
+        .mockName("clear")
+        .mockImplementation(() => {
+          mockLocalStorage._storage = {}
+        }),
+      key: vi.fn().mockName("key"),
       length: 0,
     }
-    spyOnProperty(window, "localStorage", "get").and.returnValue(
-      mockLocalStorage,
-    )
+    vi.spyOn(window, "localStorage", "get").mockReturnValue(mockLocalStorage)
     // Persisted schema matches the current version, so no migration runs.
     mockLocalStorage._storage["booksCacheSchemaVersion"] = "2"
 
     // Mock DatabaseService
-    const spy = jasmine.createSpyObj("DatabaseService", [
+    const spy = createSpyObj("DatabaseService", [
       "getAll",
       "clearAndPutAll",
       "clear",
     ])
-    spy.getAll.and.returnValue(Promise.resolve([]))
-    spy.clearAndPutAll.and.returnValue(Promise.resolve())
-    spy.clear.and.returnValue(Promise.resolve())
+    spy.getAll.mockResolvedValue([])
+    spy.clearAndPutAll.mockResolvedValue(undefined)
+    spy.clear.mockResolvedValue(undefined)
 
     // Mock NetworkService
-    const networkSpy = jasmine.createSpyObj("NetworkService", [], {
+    const networkSpy = createSpyObj<NetworkService>("NetworkService", [], {
       isOffline: false,
     })
 
-    const analyticsSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
-    analyticsSpy.track.and.returnValue(Promise.resolve())
+    const analyticsSpy = createSpyObj("AnalyticsService", ["track"])
+    analyticsSpy.track.mockResolvedValue(undefined)
 
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
@@ -139,12 +147,8 @@ describe("OfflineDataService", () => {
       ],
     })
     service = TestBed.inject(OfflineDataService)
-    databaseService = TestBed.inject(
-      DatabaseService,
-    ) as jasmine.SpyObj<DatabaseService>
-    networkService = TestBed.inject(
-      NetworkService,
-    ) as jasmine.SpyObj<NetworkService>
+    databaseService = TestBed.inject(DatabaseService) as SpyObj<DatabaseService>
+    networkService = TestBed.inject(NetworkService) as SpyObj<NetworkService>
     httpMock = TestBed.inject(HttpTestingController)
   })
 
@@ -193,13 +197,15 @@ describe("OfflineDataService", () => {
       const localStorageSpy = Object.getOwnPropertyDescriptor(
         window,
         "localStorage",
-      )?.get as jasmine.Spy
-      localStorageSpy.and.throwError("denied")
+      )?.get as Mock
+      localStorageSpy.mockImplementation(() => {
+        throw new Error("denied")
+      })
       // mockBooks are regular books — none carry introSlug, so the
       // no-storage fallback must recognize introductions were never cached
       // and fetch them, instead of treating "any book exists" as proof both
       // books and introductions are ready.
-      databaseService.getAll.and.returnValue(Promise.resolve(mockBooks))
+      databaseService.getAll.mockResolvedValue(mockBooks)
 
       const promise = service.preloadAllBooksAndChapters()
       await flushIntros()
@@ -214,22 +220,22 @@ describe("OfflineDataService", () => {
       const localStorageSpy = Object.getOwnPropertyDescriptor(
         window,
         "localStorage",
-      )?.get as jasmine.Spy
-      localStorageSpy.and.throwError("denied")
-      databaseService.getAll.and.returnValue(
-        Promise.resolve([
-          ...mockBooks,
-          {
-            id: "pentateuco",
-            name: "Pentateuco",
-            shortName: "Pentateuco",
-            abrv: "pentateuco",
-            chapterCount: 0,
-            introSlug: "pentateuco",
-            introduction: [],
-          },
-        ]),
-      )
+      )?.get as Mock
+      localStorageSpy.mockImplementation(() => {
+        throw new Error("denied")
+      })
+      databaseService.getAll.mockResolvedValue([
+        ...mockBooks,
+        {
+          id: "pentateuco",
+          name: "Pentateuco",
+          shortName: "Pentateuco",
+          abrv: "pentateuco",
+          chapterCount: 0,
+          introSlug: "pentateuco",
+          introduction: [],
+        },
+      ])
 
       await service.preloadAllBooksAndChapters()
 
@@ -256,7 +262,7 @@ describe("OfflineDataService", () => {
       )
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
         "booksCacheTimestamp",
-        jasmine.any(String),
+        expect.any(String),
       )
     })
 
@@ -266,7 +272,7 @@ describe("OfflineDataService", () => {
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = oldTimestamp.toString()
 
-      spyOnProperty(navigator, "onLine", "get").and.returnValue(true)
+      vi.spyOn(navigator, "onLine", "get").mockReturnValue(true)
 
       const promise = service.preloadAllBooksAndChapters()
       // preload awaits the cache-schema check before issuing the request
@@ -280,7 +286,7 @@ describe("OfflineDataService", () => {
 
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
         "booksCacheTimestamp",
-        jasmine.any(String),
+        expect.any(String),
       )
     })
 
@@ -292,8 +298,8 @@ describe("OfflineDataService", () => {
       const isOfflineSpy = Object.getOwnPropertyDescriptor(
         networkService,
         "isOffline",
-      )?.get as jasmine.Spy
-      isOfflineSpy.and.returnValue(true)
+      )?.get as Mock
+      isOfflineSpy.mockReturnValue(true)
 
       await service.preloadAllBooksAndChapters()
 
@@ -302,7 +308,7 @@ describe("OfflineDataService", () => {
     })
 
     it("should handle preload errors gracefully and still cache introductions independently", async () => {
-      spyOn(console, "error")
+      vi.spyOn(console, "error").mockReturnValue(undefined)
 
       const promise = service.preloadAllBooksAndChapters()
       // preload awaits the cache-schema check before issuing the request
@@ -327,16 +333,18 @@ describe("OfflineDataService", () => {
 
       expect(console.error).toHaveBeenCalledWith(
         "Failed to preload books for offline use",
-        jasmine.any(Object),
+        expect.any(Object),
       )
       // The books fetch failing left nothing cached for "gen"...
-      expect(service.getCachedBook("gen")).toBeUndefined()
+      expect(await service.getCachedBookAsync("gen")).toBeUndefined()
       // ...but the introduction, an unrelated resource, is cached anyway.
-      expect(service.getCachedBook("pentateuco")?.introSlug).toBe("pentateuco")
+      expect((await service.getCachedBookAsync("pentateuco"))?.introSlug).toBe(
+        "pentateuco",
+      )
     })
 
     it("retries /books on the next preload after a books failure followed by a successful intros-only write", async () => {
-      spyOn(console, "error")
+      vi.spyOn(console, "error").mockReturnValue(undefined)
 
       // First launch: books fails, intros succeeds.
       const firstPromise = service.preloadAllBooksAndChapters()
@@ -359,7 +367,7 @@ describe("OfflineDataService", () => {
       await secondPromise
 
       httpMock.expectNone("v1/intros")
-      expect(service.getCachedBook("gen")?.name).toBe("Genesis")
+      expect((await service.getCachedBookAsync("gen"))?.name).toBe("Genesis")
     })
 
     it("should call AnalyticsService.track when source is install", async () => {
@@ -429,19 +437,19 @@ describe("OfflineDataService", () => {
 
         await promise
 
-        const pentateuco = service.getCachedBook("pentateuco")
+        const pentateuco = await service.getCachedBookAsync("pentateuco")
         expect(pentateuco?.introSlug).toBe("pentateuco")
         expect(pentateuco?.introduction).toEqual(introBodies[0].introduction)
-        const historicos = service.getCachedBook("historicos")
+        const historicos = await service.getCachedBookAsync("historicos")
         expect(historicos?.introduction).toEqual(introBodies[1].introduction)
         // The regular books are still cached too — one preload, everything.
-        expect(service.getCachedBook("gen")?.name).toBe("Genesis")
+        expect((await service.getCachedBookAsync("gen"))?.name).toBe("Genesis")
         // Every introduction succeeded, so the next launch can skip refetching.
         expect(mockLocalStorage._storage["groupIntrosCacheReady"]).toBe("true")
       })
 
       it("keeps the introductions that succeeded when one body request fails", async () => {
-        spyOn(console, "error")
+        vi.spyOn(console, "error").mockReturnValue(undefined)
 
         const promise = service.preloadAllBooksAndChapters()
         await flushMicrotasks()
@@ -460,11 +468,11 @@ describe("OfflineDataService", () => {
         await promise
 
         // The one that fetched fine is cached...
-        expect(service.getCachedBook("pentateuco")?.introduction).toEqual(
-          introBodies[0].introduction,
-        )
+        expect(
+          (await service.getCachedBookAsync("pentateuco"))?.introduction,
+        ).toEqual(introBodies[0].introduction)
         // ...the one that failed is not...
-        expect(service.getCachedBook("historicos")).toBeUndefined()
+        expect(await service.getCachedBookAsync("historicos")).toBeUndefined()
         expect(console.error).toHaveBeenCalledWith(
           "Failed to preload 1 of 2 standalone introductions for offline use",
         )
@@ -476,7 +484,7 @@ describe("OfflineDataService", () => {
       })
 
       it("drops a stale ready flag when an expired refresh comes back partial", async () => {
-        spyOn(console, "error")
+        vi.spyOn(console, "error").mockReturnValue(undefined)
         mockLocalStorage._storage["booksCacheReady"] = "true"
         mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
         mockLocalStorage._storage["booksCacheTimestamp"] = "1"
@@ -499,7 +507,7 @@ describe("OfflineDataService", () => {
       })
 
       it("does not fail the whole preload when the introductions request fails", async () => {
-        spyOn(console, "error")
+        vi.spyOn(console, "error").mockReturnValue(undefined)
 
         const promise = service.preloadAllBooksAndChapters()
         await flushMicrotasks()
@@ -513,14 +521,14 @@ describe("OfflineDataService", () => {
 
         expect(console.error).toHaveBeenCalledWith(
           "Failed to preload group introductions for offline use",
-          jasmine.any(Object),
+          expect.any(Object),
         )
         expect(console.error).not.toHaveBeenCalledWith(
           "Failed to preload books for offline use",
-          jasmine.any(Object),
+          expect.any(Object),
         )
         // The books themselves are still cached despite the intros failure.
-        expect(service.getCachedBook("gen")?.name).toBe("Genesis")
+        expect((await service.getCachedBookAsync("gen"))?.name).toBe("Genesis")
         expect(
           mockLocalStorage._storage["groupIntrosCacheReady"],
         ).toBeUndefined()
@@ -619,7 +627,7 @@ describe("OfflineDataService", () => {
         },
       ])
 
-      const merged = service.getCachedBook("gen")
+      const merged = await service.getCachedBookAsync("gen")
       expect(merged?.chapters?.map((c) => c.number)).toEqual([1, 2, 3])
       expect(
         merged?.chapters?.find((c) => c.number === 1)?.verses?.length,
@@ -654,7 +662,7 @@ describe("OfflineDataService", () => {
         { ...base, chapters: [{ bookId: "gen", number: 1 }] },
       ])
 
-      const merged = service.getCachedBook("gen")
+      const merged = await service.getCachedBookAsync("gen")
       expect(merged?.chapters?.find((c) => c.number === 1)?.introduction).toBe(
         "Texto introdutório",
       )
@@ -663,7 +671,7 @@ describe("OfflineDataService", () => {
     it("should set and retrieve cached books", async () => {
       await service.setCachedBooks(mockBooks)
 
-      const cachedBooks = service.getCachedBooks()
+      const cachedBooks = await service.getCachedBooksAsync()
       expect(cachedBooks.length).toBe(2)
       expect(cachedBooks[0].id).toBe("gen")
     })
@@ -682,7 +690,7 @@ describe("OfflineDataService", () => {
       await service.setCachedBooks(existingBooks)
       await service.setCachedBooks(mockBooks)
 
-      const cachedBooks = service.getCachedBooks()
+      const cachedBooks = await service.getCachedBooksAsync()
       expect(cachedBooks.length).toBe(2)
       const genBook = cachedBooks.find((b) => b.id === "gen")
       expect(genBook?.chapters?.length).toBe(1)
@@ -693,7 +701,7 @@ describe("OfflineDataService", () => {
 
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
         "booksCacheTimestamp",
-        jasmine.any(String),
+        expect.any(String),
       )
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
         "booksCacheReady",
@@ -701,82 +709,82 @@ describe("OfflineDataService", () => {
       )
     })
 
-    it("should return empty array when no books are cached", () => {
-      const books = service.getCachedBooks()
+    it("should return empty array when no books are cached", async () => {
+      const books = await service.getCachedBooksAsync()
       expect(books).toEqual([])
     })
   })
 
-  describe("getCachedBook", () => {
+  describe("getCachedBookAsync", () => {
     beforeEach(async () => {
       await service.setCachedBooks(mockBooks)
     })
 
-    it("should return book by id", () => {
-      const book = service.getCachedBook("gen")
+    it("should return book by id", async () => {
+      const book = await service.getCachedBookAsync("gen")
       expect(book).toBeDefined()
       expect(book?.name).toBe("Genesis")
     })
 
-    it("should return undefined for non-existent book", () => {
-      const book = service.getCachedBook("nonexistent")
+    it("should return undefined for non-existent book", async () => {
+      const book = await service.getCachedBookAsync("nonexistent")
       expect(book).toBeUndefined()
     })
   })
 
-  describe("getCachedChapter", () => {
+  describe("getCachedChapterAsync", () => {
     beforeEach(async () => {
       await service.setCachedBooks(mockBooks)
     })
 
-    it("should return chapter by book id and chapter number", () => {
-      const chapter = service.getCachedChapter("gen", 1)
+    it("should return chapter by book id and chapter number", async () => {
+      const chapter = await service.getCachedChapterAsync("gen", 1)
       expect(chapter).toBeDefined()
       expect(chapter?.number).toBe(1)
       expect(chapter?.bookId).toBe("gen")
     })
 
-    it("should return undefined for non-existent book", () => {
-      const chapter = service.getCachedChapter("nonexistent", 1)
+    it("should return undefined for non-existent book", async () => {
+      const chapter = await service.getCachedChapterAsync("nonexistent", 1)
       expect(chapter).toBeUndefined()
     })
 
-    it("should return undefined for non-existent chapter", () => {
-      const chapter = service.getCachedChapter("gen", 999)
+    it("should return undefined for non-existent chapter", async () => {
+      const chapter = await service.getCachedChapterAsync("gen", 999)
       expect(chapter).toBeUndefined()
     })
 
-    it("should return undefined when book has no chapters", () => {
-      const chapter = service.getCachedChapter("exo", 1)
+    it("should return undefined when book has no chapters", async () => {
+      const chapter = await service.getCachedChapterAsync("exo", 1)
       expect(chapter).toBeUndefined()
     })
   })
 
-  describe("getCachedVerse", () => {
+  describe("getCachedVerseAsync", () => {
     beforeEach(async () => {
       await service.setCachedBooks(mockBooks)
     })
 
-    it("should return verse by book id, chapter number, and verse number", () => {
-      const verse = service.getCachedVerse("gen", 1, 1)
+    it("should return verse by book id, chapter number, and verse number", async () => {
+      const verse = await service.getCachedVerseAsync("gen", 1, 1)
       expect(verse).toBeDefined()
       expect(verse?.number).toBe(1)
       expect(verse?.bookId).toBe("gen")
       expect(verse?.chapterNumber).toBe(1)
     })
 
-    it("should return undefined for non-existent book", () => {
-      const verse = service.getCachedVerse("nonexistent", 1, 1)
+    it("should return undefined for non-existent book", async () => {
+      const verse = await service.getCachedVerseAsync("nonexistent", 1, 1)
       expect(verse).toBeUndefined()
     })
 
-    it("should return undefined for non-existent chapter", () => {
-      const verse = service.getCachedVerse("gen", 999, 1)
+    it("should return undefined for non-existent chapter", async () => {
+      const verse = await service.getCachedVerseAsync("gen", 999, 1)
       expect(verse).toBeUndefined()
     })
 
-    it("should return undefined for non-existent verse", () => {
-      const verse = service.getCachedVerse("gen", 1, 999)
+    it("should return undefined for non-existent verse", async () => {
+      const verse = await service.getCachedVerseAsync("gen", 1, 999)
       expect(verse).toBeUndefined()
     })
   })
@@ -810,9 +818,9 @@ describe("OfflineDataService", () => {
       await service.setCachedBooks(loaded)
       await service.setCachedBooks(shallow)
 
-      const merged = service
-        .getCachedBooks()
-        .find((book) => book.id === "pentateuco")
+      const merged = (await service.getCachedBooksAsync()).find(
+        (book) => book.id === "pentateuco",
+      )
       expect(merged?.introduction?.length).toBe(1)
     })
 
@@ -840,7 +848,7 @@ describe("OfflineDataService", () => {
       await service.setCachedBooks(existing)
       await service.setCachedBooks(incoming)
 
-      const books = service.getCachedBooks()
+      const books = await service.getCachedBooksAsync()
       const genBook = books.find((b) => b.id === "gen")
       expect(genBook?.name).toBe("Genesis New")
       expect(genBook?.shortName).toBe("Genesis")
@@ -877,7 +885,7 @@ describe("OfflineDataService", () => {
       await service.setCachedBooks(existing)
       await service.setCachedBooks(incoming)
 
-      const books = service.getCachedBooks()
+      const books = await service.getCachedBooksAsync()
       const genBook = books.find((b) => b.id === "gen")
       expect(genBook?.chapters?.length).toBe(1)
     })
@@ -925,7 +933,7 @@ describe("OfflineDataService", () => {
       await service.setCachedBooks(existing)
       await service.setCachedBooks(incoming)
 
-      const books = service.getCachedBooks()
+      const books = await service.getCachedBooksAsync()
       const genBook = books.find((b) => b.id === "gen")
       expect(genBook?.chapters?.length).toBe(2)
     })
@@ -954,7 +962,7 @@ describe("OfflineDataService", () => {
       await service.setCachedBooks(existing)
       await service.setCachedBooks(incoming)
 
-      const books = service.getCachedBooks()
+      const books = await service.getCachedBooksAsync()
       expect(books.length).toBe(2)
       expect(books.find((b) => b.id === "gen")).toBeDefined()
       expect(books.find((b) => b.id === "exo")).toBeDefined()
@@ -974,9 +982,7 @@ describe("OfflineDataService", () => {
     // just-written current-shape records and re-downloaded the whole Bible.
     it("should mark the schema current after a successful cache write", async () => {
       delete mockLocalStorage._storage["booksCacheSchemaVersion"]
-      databaseService.clear.and.returnValue(
-        Promise.reject(new Error("clear failed")),
-      )
+      databaseService.clear.mockRejectedValue(new Error("clear failed"))
 
       await service.setCachedBooks([staleBook])
 
@@ -988,10 +994,10 @@ describe("OfflineDataService", () => {
       delete mockLocalStorage._storage["booksCacheSchemaVersion"]
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
-      databaseService.getAll.and.returnValue(Promise.resolve([staleBook]))
+      databaseService.getAll.mockResolvedValue([staleBook])
       // Once cleared, the store no longer returns the stale record.
-      databaseService.clear.and.callFake(() => {
-        databaseService.getAll.and.returnValue(Promise.resolve([]))
+      databaseService.clear.mockImplementation(() => {
+        databaseService.getAll.mockResolvedValue([])
         return Promise.resolve()
       })
 
@@ -1007,12 +1013,12 @@ describe("OfflineDataService", () => {
     })
 
     it("should still refresh via preload when the migration clear fails", async () => {
-      spyOn(console, "error")
+      vi.spyOn(console, "error").mockReturnValue(undefined)
       delete mockLocalStorage._storage["booksCacheSchemaVersion"]
       // Stale metadata from the old schema claims the cache is ready.
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
-      databaseService.clear.and.returnValue(Promise.reject(new Error("boom")))
+      databaseService.clear.mockRejectedValue(new Error("boom"))
 
       const promise = service.preloadAllBooksAndChapters()
       await flushMicrotasks()
@@ -1025,10 +1031,10 @@ describe("OfflineDataService", () => {
     })
 
     it("should not expose stale records when the migration clear fails", async () => {
-      spyOn(console, "error")
+      vi.spyOn(console, "error").mockReturnValue(undefined)
       delete mockLocalStorage._storage["booksCacheSchemaVersion"]
-      databaseService.clear.and.returnValue(Promise.reject(new Error("boom")))
-      databaseService.getAll.and.returnValue(Promise.resolve([staleBook]))
+      databaseService.clear.mockRejectedValue(new Error("boom"))
+      databaseService.getAll.mockResolvedValue([staleBook])
 
       const books = await service.getCachedBooksAsync()
 
@@ -1048,7 +1054,7 @@ describe("OfflineDataService", () => {
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = oldTimestamp.toString()
 
-      spyOnProperty(navigator, "onLine", "get").and.returnValue(true)
+      vi.spyOn(navigator, "onLine", "get").mockReturnValue(true)
 
       const promise = service.preloadAllBooksAndChapters()
       // preload awaits the cache-schema check before issuing the request
@@ -1104,7 +1110,7 @@ describe("OfflineDataService", () => {
 
       expect(databaseService.clearAndPutAll).toHaveBeenCalledWith(
         "books",
-        jasmine.any(Array),
+        expect.any(Array),
       )
     })
 
@@ -1122,7 +1128,7 @@ describe("OfflineDataService", () => {
 
       expect(databaseService.clearAndPutAll).toHaveBeenCalledWith(
         "books",
-        jasmine.any(Array),
+        expect.any(Array),
       )
     })
   })

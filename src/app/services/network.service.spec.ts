@@ -1,17 +1,24 @@
-import { Injector, NgZone } from "@angular/core"
+import { Injector } from "@angular/core"
+import { TestBed } from "@angular/core/testing"
 import type { PluginListenerHandle } from "@capacitor/core"
 import type { ConnectionStatus } from "@capacitor/network"
+import type { Mock } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
+import { NETWORK_PLUGIN } from "../tokens"
 import { NetworkService } from "./network.service"
+import { OfflineDataService } from "./offline-data.service"
 
 describe("NetworkService", () => {
   let service: NetworkService
-  let ngZoneMock: jasmine.SpyObj<NgZone>
-  let injectorMock: jasmine.SpyObj<Injector>
+  let injectorGet: Mock
+  let offlineData: {
+    preloadAllBooksAndChapters: Mock
+  }
   let mockStatus: ConnectionStatus
-  let mockNetworkListener: jasmine.SpyObj<PluginListenerHandle>
+  let mockNetworkListener: SpyObj<PluginListenerHandle>
   let capturedCallback: ((status: ConnectionStatus) => void) | undefined
   // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
-  let mockNetworkPlugin: jasmine.SpyObj<any>
+  let mockNetworkPlugin: SpyObj<any>
 
   beforeEach(async () => {
     mockStatus = {
@@ -19,27 +26,18 @@ describe("NetworkService", () => {
       connectionType: "wifi",
     }
     capturedCallback = undefined
-    mockNetworkListener = jasmine.createSpyObj("PluginListenerHandle", [
-      "remove",
-    ])
-    mockNetworkListener.remove.and.resolveTo()
+    mockNetworkListener = createSpyObj("PluginListenerHandle", ["remove"])
+    mockNetworkListener.remove.mockResolvedValue(undefined)
 
-    ngZoneMock = jasmine.createSpyObj("NgZone", ["run"])
-    // biome-ignore lint/complexity/noBannedTypes: Mocking NgZone
-    ngZoneMock.run.and.callFake((fn: Function) => fn())
+    offlineData = {
+      preloadAllBooksAndChapters: vi
+        .fn()
+        .mockName("preloadAllBooksAndChapters")
+        .mockResolvedValue(undefined),
+    }
 
-    injectorMock = jasmine.createSpyObj<Injector>("Injector", ["get"])
-    injectorMock.get.and.returnValue({
-      preloadAllBooksAndChapters: jasmine
-        .createSpy("preloadAllBooksAndChapters")
-        .and.resolveTo(),
-    })
-
-    mockNetworkPlugin = jasmine.createSpyObj("Network", [
-      "addListener",
-      "getStatus",
-    ])
-    mockNetworkPlugin.addListener.and.callFake(
+    mockNetworkPlugin = createSpyObj("Network", ["addListener", "getStatus"])
+    mockNetworkPlugin.addListener.mockImplementation(
       (eventName: string, callback: (status: ConnectionStatus) => void) => {
         if (eventName === "networkStatusChange") {
           capturedCallback = callback
@@ -50,10 +48,19 @@ describe("NetworkService", () => {
         } as PluginListenerHandle)
       },
     )
-    mockNetworkPlugin.getStatus.and.callFake(() => Promise.resolve(mockStatus))
+    mockNetworkPlugin.getStatus.mockImplementation(() =>
+      Promise.resolve(mockStatus),
+    )
 
-    // Directly instantiate the service without TestBed to avoid complex Angular 18+ environment issues
-    service = new NetworkService(ngZoneMock, injectorMock, mockNetworkPlugin)
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: NETWORK_PLUGIN, useValue: mockNetworkPlugin },
+        { provide: OfflineDataService, useValue: offlineData },
+      ],
+    })
+    service = TestBed.inject(NetworkService)
+    // After construction, so only the service's own lookups are counted.
+    injectorGet = vi.spyOn(TestBed.inject(Injector), "get")
 
     // Flush microtasks to ensure initial getStatus resolves
     await Promise.resolve()
@@ -65,7 +72,7 @@ describe("NetworkService", () => {
   })
 
   it("should handle initially connected state", () => {
-    expect(service.isOffline).toBeFalse()
+    expect(service.isOffline).toBe(false)
   })
 
   it("should handle initially disconnected state", async () => {
@@ -73,30 +80,27 @@ describe("NetworkService", () => {
     mockStatus.connectionType = "none"
 
     // Instantiate new service - it will use the mocked Network plugin
-    const newService = new NetworkService(
-      ngZoneMock as NgZone,
-      injectorMock,
-      mockNetworkPlugin,
-    )
+    const newService = TestBed.runInInjectionContext(() => new NetworkService())
 
     // Wait for constructor's init
     await Promise.resolve()
     await Promise.resolve()
 
-    expect(newService.isOffline).toBeTrue()
+    expect(newService.isOffline).toBe(true)
   })
 
   it("should update offline state via network listener", () => {
-    expect(capturedCallback).toBeDefined(
+    expect(
+      capturedCallback,
       "networkStatusChange listener should be registered",
-    )
+    ).toBeDefined()
 
     if (capturedCallback) {
       capturedCallback({ connected: false, connectionType: "none" })
-      expect(service.isOffline).toBeTrue()
+      expect(service.isOffline).toBe(true)
 
       capturedCallback({ connected: true, connectionType: "wifi" })
-      expect(service.isOffline).toBeFalse()
+      expect(service.isOffline).toBe(false)
     }
   })
 
@@ -107,15 +111,11 @@ describe("NetworkService", () => {
   })
 
   it("should preload offline content when transitioning offline -> online", async () => {
-    const offlineDataService = injectorMock.get(
-      // biome-ignore lint/suspicious/noExplicitAny: token irrelevant for the spy
-      undefined as any,
-    ) as { preloadAllBooksAndChapters: jasmine.Spy }
-    injectorMock.get.calls.reset()
+    injectorGet.mockClear()
 
     expect(capturedCallback).toBeDefined()
     capturedCallback?.({ connected: false, connectionType: "none" })
-    expect(service.isOffline).toBeTrue()
+    expect(service.isOffline).toBe(true)
 
     capturedCallback?.({ connected: true, connectionType: "wifi" })
 
@@ -125,12 +125,16 @@ describe("NetworkService", () => {
     // import can outlast a fixed 200ms budget, and the test then fails on the
     // injector expectation rather than on the thing it covers.
     const deadline = Date.now() + 2000
-    while (injectorMock.get.calls.count() === 0 && Date.now() < deadline) {
+    while (
+      vi.mocked(offlineData.preloadAllBooksAndChapters).mock.calls.length ===
+        0 &&
+      Date.now() < deadline
+    ) {
       await new Promise((resolve) => setTimeout(resolve, 10))
     }
 
-    expect(injectorMock.get).toHaveBeenCalled()
-    expect(offlineDataService.preloadAllBooksAndChapters).toHaveBeenCalledWith(
+    expect(injectorGet).toHaveBeenCalledWith(OfflineDataService)
+    expect(offlineData.preloadAllBooksAndChapters).toHaveBeenCalledWith(
       "standalone",
     )
   })

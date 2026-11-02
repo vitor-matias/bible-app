@@ -1,0 +1,713 @@
+package org.capuchinhos.biblia.chrome
+
+import com.getcapacitor.JSObject
+import com.getcapacitor.PluginCall
+import androidx.compose.ui.graphics.Color
+import org.junit.Assert.assertSame
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.unit.dp
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/** What the web app sends (native-chrome.service.ts), as the bars read it. */
+class ChromeStateTest {
+    private fun call(json: String) = PluginCall(null, "NativeChrome", "1", "setState", JSObject(json))
+
+    @Test
+    fun readsTheReadersBars() {
+        val state = ChromeState.from(
+            call(
+                """
+                {"mode":"reader","themeMode":"dark","passageLabel":"Deuteronómio 3",
+                 "passageShortLabels":["Dt 3"],"passageAccessibilityLabel":"Deuteronómio, capítulo 3",
+                 "chapterNavigation":true,"canGoPrevious":true,"canGoNext":false,"search":true,
+                 "viewMode":"paged","autoScrollVisible":true,"autoScrollAvailable":true,
+                 "canShare":true,"canReport":false,"bookmarkColor":"red","bookmarkName":"vermelho",
+                 "buildVersion":"20261018-120000Z","inert":false,"collapsed":true,"scrolled":true,
+                 "subtitle":"As bem-aventuranças",
+                 "autoScroll":{"playing":true,"speedLabel":"1,5×","speedAccessibilityLabel":"1,5 linhas por segundo",
+                   "canSlower":true,"canFaster":false}}
+                """,
+            ),
+        )
+        assertEquals(ChromeMode.Reader, state.mode)
+        assertEquals("dark", state.themeMode)
+        assertEquals(listOf("Dt 3"), state.passageShortLabels)
+        assertEquals("Deuteronómio, capítulo 3", state.passageAccessibilityLabel)
+        assertTrue(state.canGoPrevious)
+        assertFalse(state.canGoNext)
+        assertEquals("paged", state.viewMode)
+        assertEquals("red", state.bookmarkColor)
+        assertTrue(state.collapsed)
+        assertTrue(state.scrolled)
+        assertEquals("As bem-aventuranças", state.subtitle)
+        assertEquals(
+            AutoScrollState(true, "1,5×", "1,5 linhas por segundo", canSlower = true, canFaster = false),
+            state.autoScroll,
+        )
+    }
+
+    // The web app sends null for what a page doesn't show.
+    @Test
+    fun readsNullAsAbsent() {
+        val state = ChromeState.from(
+            call("""{"mode":"reader","viewMode":null,"bookmarkColor":null,"autoScroll":null,"passageLabel":"Mt 5"}"""),
+        )
+        assertNull(state.viewMode)
+        assertNull(state.bookmarkColor)
+        assertNull(state.autoScroll)
+        assertNull(state.subtitle)
+        // Spoken as shown, when no spoken form comes.
+        assertEquals("Mt 5", state.passageAccessibilityLabel)
+    }
+
+    // At the page's end there's nothing to play; older web bundles don't say.
+    @Test
+    fun readsWhetherAutoScrollCanPlay() {
+        val atEnd = ChromeState.from(
+            call("""{"mode":"reader","autoScroll":{"playing":false,"speedLabel":"1","canPlay":false}}"""),
+        )
+        assertFalse(atEnd.autoScroll!!.canPlay)
+        val older = ChromeState.from(call("""{"mode":"reader","autoScroll":{"playing":false,"speedLabel":"1"}}"""))
+        assertTrue(older.autoScroll!!.canPlay)
+    }
+
+    @Test
+    fun readsTheTextSize() {
+        val state = ChromeState.from(
+            call("""{"mode":"reader","textSize":{"percent":120,"min":70,"max":235,"canReset":true}}"""),
+        )
+        assertEquals(TextSize(120, 70, 235, canReset = true), state.textSize)
+        assertTrue(state.textSize!!.canDecrease)
+        assertTrue(state.textSize!!.canIncrease)
+        // Off at either end of the range.
+        assertFalse(TextSize(70, 70, 235, canReset = true).canDecrease)
+        assertFalse(TextSize(235, 70, 235, canReset = true).canIncrease)
+        assertNull(ChromeState.from(call("""{"mode":"reader","textSize":null}""")).textSize)
+    }
+
+    @Test
+    fun readsThePagesColour() {
+        assertEquals(0xFF121212.toInt(), ChromeState.from(call("""{"mode":"reader","pageColor":"#121212"}""")).pageColor)
+        assertNull(ChromeState.from(call("""{"mode":"reader","pageColor":"white"}""")).pageColor)
+    }
+
+    // A section without a heading sends an empty one.
+    @Test
+    fun readsABlankSubtitleAsNone() {
+        assertNull(ChromeState.from(call("""{"mode":"reader","subtitle":"  "}""")).subtitle)
+    }
+
+    @Test
+    fun hidesTheBarsForAnUnknownMode() {
+        assertEquals(ChromeMode.None, ChromeState.from(call("""{"mode":"gallery"}""")).mode)
+        assertEquals(ChromeState(), ChromeState.from(call("{}")))
+    }
+
+    @Test
+    fun readsThePickersBooksAndChapters() {
+        val data = PassagePickerData.from(
+            call(
+                """
+                {"currentBookId":"sl","currentChapter":23,"sections":[{"title":"Antigo Testamento","groups":[
+                  {"books":[{"id":"intro-at","label":"Introdução","name":"Introdução ao AT","abbreviation":"Intro","chapters":[]}]},
+                  {"title":"Livros Sapienciais","books":[{"id":"sl","label":"Salmos","name":"Livro dos Salmos",
+                    "abbreviation":"Sl","chapters":[{"number":0,"label":"","title":"Introdução"},
+                    {"number":23,"label":"23","detail":"22","spoken":"Salmo 23, na liturgia 22","bookmark":"blue"}]}]}]}]}
+                """,
+            ),
+        )
+        val groups = data.sections.single().groups
+        assertNull(groups[0].title)
+        assertEquals("Livros Sapienciais", groups[1].title)
+        val psalms = data.currentBook!!
+        assertEquals("sl", psalms.id)
+        val psalm = psalms.chapters[1]
+        assertEquals("22", psalm.detail)
+        assertEquals("blue", psalm.bookmark)
+        assertNull(psalms.chapters[0].detail)
+        assertEquals(23, data.currentChapter)
+    }
+
+    @Test
+    fun readsNotesWithTheirLinks() {
+        val notes = FootnotesSheetState.from(
+            call(
+                """
+                {"title":"Génesis 1,1","fontScale":1.25,"notes":[{"reference":"1.","parts":[
+                  {"text":"Ver "},{"text":"Ex 20,11","link":0},{"text":"."}]}]}
+                """,
+            ),
+        )
+        assertEquals(1.25f, notes.fontScale)
+        assertEquals(
+            listOf(
+                FootnotesSheetState.Part("Ver ", null),
+                FootnotesSheetState.Part("Ex 20,11", 0),
+                FootnotesSheetState.Part(".", null),
+            ),
+            notes.notes.single().parts,
+        )
+    }
+
+    @Test
+    fun readsTheRibbonsAndTheMove() {
+        val sheet = BookmarksSheetState.from(
+            call(
+                """
+                {"currentLabel":"Mateus 7","ribbons":[{"color":"red","name":"Vermelho","label":"Mt 5","current":false},
+                  {"color":"orange","name":"Laranja","label":null,"current":false}],
+                 "move":{"color":"red","name":"vermelho","from":"Mateus 5","done":false}}
+                """,
+            ),
+        )
+        assertEquals("Mt 5", sheet.ribbons[0].label)
+        assertNull(sheet.ribbons[1].label)
+        assertEquals(BookmarksSheetState.Move("red", "vermelho", "Mateus 5", done = false), sheet.move)
+    }
+
+    // The About page's ribbons open their passages but mark nothing; older
+    // web bundles don't say, and every page could be marked.
+    @Test
+    fun readsWhetherThePageCanBeMarked() {
+        val about = BookmarksSheetState.from(call("""{"currentLabel":"Sobre a Bíblia","canMark":false,"ribbons":[]}"""))
+        assertFalse(about.canMark)
+        assertTrue(BookmarksSheetState.from(call("""{"currentLabel":"Mt 5","ribbons":[]}""")).canMark)
+    }
+
+    @Test
+    fun readsTheOnboardingsMaterialIcons() {
+        val steps = OnboardingStep.from(
+            call(
+                """
+                {"steps":[{"id":"tools","title":"Pesquisar","intro":"…","symbol":"magnifyingglass","icon":"search",
+                  "logo":false,"features":[{"symbol":"bookmark","icon":"bookmarks","text":"Marcadores"}]}]}
+                """,
+            ),
+        )
+        assertEquals("search", steps.single().icon)
+        assertEquals(OnboardingStep.Feature("bookmarks", "Marcadores"), steps.single().features.single())
+    }
+}
+
+/** The space the bars cover, which the page pads its scrolling content by. */
+class ChromeInsetsTest {
+    private val reader = ChromeState(mode = ChromeMode.Reader)
+    private val autoScroll = AutoScrollState(false, "1×", "1 linha por segundo", canSlower = true, canFaster = true)
+
+    @Test
+    fun coversOnlyTheSystemBarsWithoutBars() {
+        assertEquals(ChromeInsets(24f, 48f), chromeInsets(ChromeState(), collapsed = false, 24f, 48f))
+    }
+
+    // Top: the status bar and a 64 dp app bar. Bottom: the navigation bar,
+    // the arrows' 16 dp offset and their 56 dp.
+    @Test
+    fun coversTheReadersBars() {
+        val arrows = reader.copy(chapterNavigation = true)
+        assertEquals(ChromeInsets(88f, 48f + 16f + 56f), chromeInsets(arrows, collapsed = false, 24f, 48f))
+        // Hidden for reading, they keep their row: the page doesn't change length.
+        assertEquals(ChromeInsets(88f, 48f + 16f + 56f, collapsed = true), chromeInsets(arrows, collapsed = true, 24f, 48f))
+    }
+
+    // "Sobre a Bíblia" has no chapters to turn: nothing at the bottom.
+    @Test
+    fun leavesTheBottomToThePageWithoutArrows() {
+        assertEquals(ChromeInsets(88f, 48f), chromeInsets(reader, collapsed = false, 24f, 48f))
+    }
+
+    // Auto-scroll's control floats over the text, as on iOS: the page keeps
+    // the arrows' row and no more ("I do not want this white space").
+    @Test
+    fun keepsNoRowForAutoScroll() {
+        val state = reader.copy(chapterNavigation = true, autoScroll = autoScroll)
+        assertEquals(ChromeInsets(88f, 48f + 16f + 56f), chromeInsets(state, collapsed = false, 24f, 48f))
+        assertEquals(ChromeInsets(88f, 48f + 16f + 56f, collapsed = true), chromeInsets(state, collapsed = true, 24f, 48f))
+        val alone = reader.copy(autoScroll = autoScroll)
+        assertEquals(ChromeInsets(88f, 48f), chromeInsets(alone, collapsed = false, 24f, 48f))
+    }
+
+    // Large text makes the bar taller, a phone on its side shorter: the page
+    // starts under the bar as it is drawn.
+    @Test
+    fun followsTheReadersBarHeight() {
+        assertEquals(24f + 80f, chromeInsets(reader, collapsed = false, 24f, 48f, readerBar = 80f).top)
+        assertEquals(24f + 56f, chromeInsets(reader, collapsed = false, 24f, 48f, readerBar = 56f).top)
+        // Other pages keep Material's 64 dp bar.
+        val page = ChromeState(mode = ChromeMode.Page)
+        assertEquals(24f + 64f, chromeInsets(page, collapsed = false, 24f, 48f, readerBar = 80f).top)
+    }
+
+    @Test
+    fun leavesTheBottomToThePageWhenSearching() {
+        // The search view's 72 dp header and its divider.
+        val search = ChromeState(mode = ChromeMode.Search)
+        assertEquals(ChromeInsets(97f, 48f), chromeInsets(search, collapsed = false, 24f, 48f))
+        val page = ChromeState(mode = ChromeMode.Page)
+        assertEquals(ChromeInsets(88f, 48f), chromeInsets(page, collapsed = false, 24f, 48f))
+    }
+}
+
+/** The ribbons' tones, the same on Android, iOS and the web. */
+class RibbonToneTest {
+    private val names = listOf("red", "orange", "teal", "green", "blue", "indigo", "violet", "grey")
+
+    private fun contrast(a: Color, b: Color): Float {
+        val (lighter, darker) = listOf(a.luminance(), b.luminance()).sortedDescending()
+        return (lighter + 0.05f) / (darker + 0.05f)
+    }
+
+    // Orange was 1.7:1 on a light tile: each keeps 3:1 against Material's
+    // brightest tile in its theme, and the crimson scheme's.
+    @Test
+    fun keepsThreeToOneOnTheTiles() {
+        for (name in names) {
+            for (tile in listOf(Color(0xFFE6E0E9), Color(0xFFF0DEDE))) {
+                assertTrue(name, contrast(ribbonTone(name, dark = false)!!, tile) >= 3f)
+            }
+            for (tile in listOf(Color(0xFF36343B), Color(0xFF3D3232))) {
+                assertTrue(name, contrast(ribbonTone(name, dark = true)!!, tile) >= 3f)
+            }
+        }
+    }
+
+    @Test
+    fun matchesTheWebApp() {
+        // --ribbon-light-orange and --ribbon-dark-orange in src/styles.css.
+        assertEquals(Color(0xFFAD5700), ribbonTone("orange", dark = false))
+        assertEquals(Color(0xFFFFA040), ribbonTone("orange", dark = true))
+    }
+
+    @Test
+    fun paintsNothingForNoRibbon() {
+        assertNull(ribbonTone(null, dark = false))
+        assertNull(ribbonTone("gold", dark = true))
+    }
+}
+
+/** Who needs the reader's bars to stay up rather than hide while reading. */
+class BarsStayUpTest {
+    @Test
+    fun keepsThemUpForSwitchAndVoiceAccess() {
+        assertTrue(keepsBarsUp("com.google.android.marvin.talkback/com.google.android.accessibility.switchaccess.SwitchAccessService"))
+        assertTrue(keepsBarsUp("com.google.android.apps.accessibility.voiceaccess/.JustSpeakService"))
+    }
+
+    // Select to Speak shares Switch Access's package; password managers are
+    // accessibility services too. Their users read with the bars hiding.
+    @Test
+    fun letsThemHideForOtherServices() {
+        assertFalse(keepsBarsUp("com.google.android.marvin.talkback/com.google.android.accessibility.selecttospeak.SelectToSpeakService"))
+        assertFalse(keepsBarsUp("com.example.passwords/.AutofillAccessibilityService"))
+    }
+}
+
+/** The search view's recent searches, newest first. */
+class RecentSearchesTest {
+    @Test
+    fun putsTheLatestFirst() {
+        assertEquals(listOf("luz", "amor"), withRecentSearch(listOf("amor"), "luz"))
+    }
+
+    // Searched again, however it was typed, it moves up rather than repeating.
+    @Test
+    fun movesARepeatedSearchUp() {
+        assertEquals(listOf("Génesis", "luz"), withRecentSearch(listOf("luz", "genesis"), " Génesis "))
+    }
+
+    @Test
+    fun keepsNothingBlank() {
+        assertEquals(listOf("luz"), withRecentSearch(listOf("luz"), "   "))
+    }
+
+    @Test
+    fun keepsTheLatestEight() {
+        val full = (1..RECENT_SEARCH_LIMIT).map { "Sl $it" }
+        val next = withRecentSearch(full, "Jo 3,16")
+        assertEquals(RECENT_SEARCH_LIMIT, next.size)
+        assertEquals("Jo 3,16", next.first())
+        assertFalse(next.contains("Sl $RECENT_SEARCH_LIMIT"))
+    }
+
+    // Text shared into the app is searched but is not a query to come back to.
+    @Test
+    fun keepsNoSharedText() {
+        val shared = "x".repeat(RECENT_SEARCH_MAX_LENGTH + 1)
+        assertEquals(listOf("luz"), withRecentSearch(listOf("luz"), shared))
+        assertEquals(listOf("luz"), readRecentSearches(writeRecentSearches(listOf(shared, "luz"))))
+    }
+
+    // The search list is keyed by its text: a repeat in a restored file must not reach it.
+    @Test
+    fun readsNoRepeats() {
+        assertEquals(listOf("luz", "amor"), readRecentSearches("""["luz","LUZ","amor"]"""))
+    }
+
+    @Test
+    fun storesThemAsJson() {
+        val recent = listOf("o bom pastor", "Jo 3,16")
+        assertEquals(recent, readRecentSearches(writeRecentSearches(recent)))
+        assertEquals(emptyList<String>(), readRecentSearches(null))
+        assertEquals(emptyList<String>(), readRecentSearches("not json"))
+    }
+}
+
+/** The picker's book list, and its filter. */
+class PickerRowsTest {
+    private val data = PassagePickerData(
+        sections = listOf(
+            PassagePickerData.Section(
+                "Antigo Testamento",
+                listOf(
+                    PassagePickerData.Group(
+                        "Pentateuco",
+                        listOf(book("intro-pent", "Introdução", ""), book("gn", "Génesis", "Gn", 50)),
+                    ),
+                    PassagePickerData.Group("Livros Sapienciais", listOf(book("sl", "Salmos", "Sl", 150))),
+                ),
+            ),
+            PassagePickerData.Section(
+                "Novo Testamento",
+                listOf(PassagePickerData.Group("Evangelhos", listOf(book("mt", "Mateus", "Mt", 28)))),
+            ),
+        ),
+        currentBookId = "mt",
+        currentChapter = 5,
+    )
+
+    private fun book(id: String, label: String, abbreviation: String, chapters: Int = 0) =
+        PassagePickerData.Book(
+            id = id,
+            label = label,
+            name = label,
+            abbreviation = abbreviation,
+            chapters = (1..chapters).map { PassagePickerData.Chapter(it, "$it", null, null, null, null) },
+        )
+
+    private fun List<PickerRow>.keys() = map { it.key }
+
+    @Test
+    fun listsTheBooksUnderTheirHeadings() {
+        assertEquals(
+            listOf(
+                "testament:Antigo Testamento", "group:Pentateuco", "book:intro-pent", "book:gn",
+                "group:Livros Sapienciais", "book:sl",
+                "testament:Novo Testamento", "group:Evangelhos", "book:mt",
+            ),
+            pickerRows(data, "").keys(),
+        )
+    }
+
+    // Accents and case don't count, and headings left without books go.
+    @Test
+    fun filtersByNameOrAbbreviation() {
+        assertEquals(listOf("testament:Antigo Testamento", "group:Pentateuco", "book:gn"), pickerRows(data, "GENESIS").keys())
+        assertEquals(listOf("testament:Novo Testamento", "group:Evangelhos", "book:mt"), pickerRows(data, "mt").keys())
+    }
+
+    // A group's own introduction is listed as "Introdução": its group's name finds it.
+    @Test
+    fun findsAGroupsBooksByItsName() {
+        assertEquals(
+            listOf("testament:Antigo Testamento", "group:Pentateuco", "book:intro-pent", "book:gn"),
+            pickerRows(data, "pentateuco").keys(),
+        )
+    }
+
+    @Test
+    fun findsNothingForNoMatch() {
+        assertEquals(emptyList<PickerRow>(), pickerRows(data, "Apocalipse"))
+    }
+}
+
+/** The picker's books as tiles, big with the names or small with the abbreviations, as on iOS. */
+class BookTilesTest {
+    // Saved as the iOS app saves its mode ("names", "abbreviations"); the list until one is chosen.
+    @Test
+    fun remembersTheView() {
+        for (view in BookView.entries) assertEquals(view, BookView.fromPreference(view.preference))
+        assertEquals(BookView.Names, BookView.fromPreference("names"))
+        assertEquals(BookView.Abbreviations, BookView.fromPreference("abbreviations"))
+        assertEquals(BookView.List, BookView.fromPreference(null))
+        assertEquals(BookView.List, BookView.fromPreference("tiles"))
+    }
+
+    @Test
+    fun smallTilesAreNarrower() {
+        assertEquals(104.dp, bookTileMinWidth(compact = false, textScale = 1f))
+        assertEquals(56.dp, bookTileMinWidth(compact = true, textScale = 1f))
+    }
+
+    // Larger text widens the tiles, up to twice; smaller text never narrows them.
+    @Test
+    fun tilesGrowWithTheText() {
+        assertEquals(156.dp, bookTileMinWidth(compact = false, textScale = 1.5f))
+        assertEquals(208.dp, bookTileMinWidth(compact = false, textScale = 3f))
+        assertEquals(56.dp, bookTileMinWidth(compact = true, textScale = 0.85f))
+    }
+
+    @Test
+    fun keepsANumberWithItsBook() {
+        assertEquals("1 Tessalonicenses", tileLabel("1 Tessalonicenses"))
+        assertEquals("Atos dos Apóstolos", tileLabel("Atos dos Apóstolos"))
+        assertEquals("Génesis", tileLabel("Génesis"))
+    }
+
+    // A line may end after a space, not inside a word: "Tessalonic|enses" means smaller text.
+    @Test
+    fun tellsABreakBetweenWordsFromOneInsideAWord() {
+        assertTrue(breaksBetweenWords("Atos dos Apóstolos", listOf("Atos dos ".length)))
+        assertTrue(breaksBetweenWords("Génesis", emptyList()))
+        assertFalse(breaksBetweenWords("Tessalonicenses", listOf(10)))
+        assertFalse(breaksBetweenWords("1 Tessalonicenses", listOf(2)))
+    }
+}
+
+/** The page's colour as CSS declares it. */
+class CssHexColorTest {
+    @Test
+    fun readsSixAndThreeDigitHex() {
+        assertEquals(0xFFFFFFFF.toInt(), cssHexColor("#ffffff"))
+        assertEquals(0xFF121212.toInt(), cssHexColor(" #121212 "))
+        assertEquals(0xFFFFFFFF.toInt(), cssHexColor("#fff"))
+    }
+
+    @Test
+    fun leavesAnythingElse() {
+        assertNull(cssHexColor("white"))
+        assertNull(cssHexColor("rgb(18, 18, 18)"))
+        assertNull(cssHexColor("#12121"))
+        assertNull(cssHexColor("#zzzzzz"))
+    }
+}
+
+/** The line under the ribbons: how to mark, how to go back, what can't be marked. */
+class BookmarksHintTest {
+    private fun ribbon(color: String, label: String? = null, current: Boolean = false) =
+        BookmarksSheetState.Ribbon(color, color, label, current)
+
+    private fun state(vararg ribbons: BookmarksSheetState.Ribbon, canMark: Boolean = true) =
+        BookmarksSheetState("Mateus 5", ribbons.toList(), move = null, canMark = canMark)
+
+    // The first time, it also says how to come back.
+    @Test
+    fun saysHowToComeBackBeforeAnyIsUsed() {
+        assertEquals(
+            "Escolha uma cor para marcar Mateus 5. Para voltar, abra Marcadores e toque nessa fita.",
+            bookmarksHint(state(ribbon("red"), ribbon("blue")), editing = false),
+        )
+    }
+
+    @Test
+    fun saysANamedRibbonGoesBack() {
+        assertEquals(
+            "Toque numa fita com nome para voltar a essa passagem, ou numa fita livre para marcar Mateus 5.",
+            bookmarksHint(state(ribbon("red", "Gn 1"), ribbon("blue")), editing = false),
+        )
+    }
+
+    // "Sobre a Bíblia 1" was offered to be marked.
+    @Test
+    fun saysWhenThePageCantBeMarked() {
+        assertEquals("Esta página não se pode marcar.", bookmarksHint(state(ribbon("red"), canMark = false), editing = false))
+        assertEquals(
+            "Esta página não se pode marcar. Toque numa fita com nome para abrir essa passagem.",
+            bookmarksHint(state(ribbon("red", "Gn 1"), canMark = false), editing = false),
+        )
+    }
+
+    @Test
+    fun saysWhatEditingDoes() {
+        assertEquals("Toque numa fita para a retirar.", bookmarksHint(state(ribbon("red", "Gn 1")), editing = true))
+    }
+}
+
+/** The bars' colours: the wallpaper's from Android 12, the website's brown before. */
+class BibleColorSchemeTest {
+    private val wallpaper = lightColorScheme(primary = Color(0xFF3F5F90))
+    private val wallpaperDark = darkColorScheme(primary = Color(0xFFA8C8FF))
+
+    private fun contrast(a: Color, b: Color): Float {
+        val (lighter, darker) = listOf(a.luminance(), b.luminance()).sortedDescending()
+        return (lighter + 0.05f) / (darker + 0.05f)
+    }
+
+    @Test
+    fun takesTheWallpapersFromAndroid12() {
+        assertSame(wallpaper, bibleColorScheme(dark = false, sdkInt = 31) { if (it) wallpaperDark else wallpaper })
+        assertSame(wallpaperDark, bibleColorScheme(dark = true, sdkInt = 36) { if (it) wallpaperDark else wallpaper })
+    }
+
+    @Test
+    fun keepsTheBrownBefore() {
+        assertSame(BrownLight, bibleColorScheme(dark = false, sdkInt = 30) { wallpaper })
+        assertSame(BrownDark, bibleColorScheme(dark = true, sdkInt = 26) { wallpaper })
+    }
+
+    // The website's brown is the accent: selected buttons, the current
+    // chapter, ▶. Their text and icons, and the corner arrows', read at 7:1.
+    @Test
+    fun keepsTheBrownsAccentReadable() {
+        assertEquals(0xFF543D27.toInt(), BrownLight.primary.toArgb())
+        for (scheme in listOf(BrownLight, BrownDark)) {
+            assertTrue(contrast(scheme.primary, scheme.onPrimary) >= 7f)
+            assertTrue(contrast(scheme.secondaryContainer, scheme.onSecondaryContainer) >= 6.5f)
+        }
+        assertTrue(contrast(BrownLight.primaryContainer, BrownLight.onPrimaryContainer) >= 7f)
+    }
+
+    // The chapter's own ribbon sits on primaryContainer: its tone, chosen for
+    // the tile, keeps 3:1 (it was 1.3–2:1 on the old dark container).
+    @Test
+    fun showsTheRibbonsOnTheCurrentTile() {
+        val tile = BrownLight.primaryContainer
+        for (name in listOf("red", "orange", "teal", "green", "blue", "indigo", "violet", "grey")) {
+            val tone = ribbonTone(name, dark = tile.luminance() < 0.5f)!!
+            assertTrue("$name: ${contrast(tone, tile)}", contrast(tone, tile) >= 3f)
+        }
+    }
+}
+
+/** Where auto-scroll's control floats: the iOS app's AutoScrollControl, on Android. */
+class AutoScrollControlTest {
+    // A 400 x 600 px reading area, a 56 px button; paused, the control is the
+    // button alone; playing, 176 px wide.
+    private val area = 400 to 600
+
+    private fun origin(x: Float, y: Float, width: Int = 56, height: Int = 56) =
+        autoScrollControlOrigin(x, y, area.first, area.second, 56, width, height)
+
+    @Test
+    fun startsInTheBottomRightCorner() {
+        assertEquals(344 to 544, origin(1f, 1f))
+    }
+
+    // Play stays where it was: − and + come out to its left.
+    @Test
+    fun growsLeftwardFromTheButton() {
+        assertEquals(344 + 56 - 176 to 544, origin(1f, 1f, width = 176))
+        assertEquals(172 + 56 - 176 to 272, origin(0.5f, 0.5f, width = 176))
+    }
+
+    // Near the left side it is pushed right, never off the screen.
+    @Test
+    fun staysOnScreenNearTheLeftSide() {
+        assertEquals(0 to 0, origin(0f, 0f, width = 176))
+        assertEquals(0 to 0, origin(0f, 0f))
+    }
+
+    // The same place relative to the area, whatever its size: turned, unfolded.
+    @Test
+    fun keepsItsPlaceWhenTheAreaChanges() {
+        val (x, y) = autoScrollControlOrigin(0.5f, 0.25f, 800, 300, 56, 56, 56)
+        assertEquals((800 - 56) / 2 to ((300 - 56) * 0.25f).toInt(), x to y)
+    }
+
+    @Test
+    fun readsADropAsWhereTheButtonIs() {
+        // The button's centre in the middle of the area.
+        assertEquals(0.5f to 0.5f, autoScrollControlFraction(200f, 300f, 400, 600, 56))
+        // Dropped past the edges: kept at them.
+        assertEquals(0f to 1f, autoScrollControlFraction(-50f, 900f, 400, 600, 56))
+        // There and back: the drop's place is where it is laid out again.
+        val (fx, fy) = autoScrollControlFraction(100f + 28f, 200f + 28f, 400, 600, 56)
+        assertEquals(100 to 200, autoScrollControlOrigin(fx, fy, 400, 600, 56, 56, 56))
+    }
+}
+
+/** The band behind the navigation bar where the page stops short of it (Android 7 to 9). */
+class NavigationBarBandTest {
+    private val white = 0xFFFFFFFF.toInt()
+    private val dark = 0xFF121212.toInt()
+    private val brown = 0xFF543D27.toInt()
+
+    // The Moto G5 Plus (Android 8.1): the web app's light icons, for its brown, sat on the white page.
+    @Test
+    fun darkIconsOnALightPage() {
+        assertEquals(NavigationBarBand(white, darkIcons = true), navigationBarBand(white, sdkInt = 27))
+        assertEquals(NavigationBarBand(white, darkIcons = true), navigationBarBand(white, sdkInt = 28))
+    }
+
+    @Test
+    fun lightIconsOnADarkPageOrTheBrown() {
+        assertEquals(NavigationBarBand(dark, darkIcons = false), navigationBarBand(dark, sdkInt = 27))
+        assertEquals(NavigationBarBand(brown, darkIcons = false), navigationBarBand(brown, sdkInt = 27))
+        assertEquals(NavigationBarBand(dark, darkIcons = false), navigationBarBand(dark, sdkInt = 24))
+    }
+
+    // Android 7's icons are always light: black behind them, not the white page.
+    @Test
+    fun blackUnderLightIconsOnAndroid7() {
+        assertEquals(NavigationBarBand(0xFF000000.toInt(), darkIcons = false), navigationBarBand(white, sdkInt = 25))
+    }
+}
+
+/** The text sheet, made compact where it would hide the page it changes. */
+class TextSheetTest {
+    @Test
+    fun compactOnShortScreens() {
+        assertTrue(compactTextSheet(640f)) // Moto G5 Plus, 360 × 640
+        assertTrue(compactTextSheet(411f)) // a phone on its side
+        assertFalse(compactTextSheet(851f)) // Pixel 4a
+        assertFalse(compactTextSheet(915f)) // Pixel 9
+    }
+
+    // The label, the icon with its gap, and the padding on either side.
+    @Test
+    fun putsTheIconBesideOnlyWhereTheLabelFits() {
+        assertTrue(fitsBesideIcon(buttonWidth = 155f, labelWidth = 95f, icon = 24f, padding = 8f))
+        assertTrue(fitsBesideIcon(buttonWidth = 135f, labelWidth = 95f, icon = 24f, padding = 8f))
+        assertFalse(fitsBesideIcon(buttonWidth = 102f, labelWidth = 75f, icon = 24f, padding = 8f))
+    }
+}
+
+/** The report's details field takes a paste up to the limit instead of refusing it. */
+class ClampDetailsTest {
+    @Test
+    fun cutsALongPasteToTheLimit() {
+        assertEquals("abcde", nextDetails("", "abcdefgh", 5))
+    }
+
+    @Test
+    fun takesWhatFitsOfAPasteAtTheEnd() {
+        assertEquals("abcXY", nextDetails("abc", "abcXYZ!", 5))
+    }
+
+    @Test
+    fun cutsAPasteInTheMiddleNotTheTextAfterIt() {
+        assertEquals("abXcde", nextDetails("abcde", "abXYZcde", 6))
+    }
+
+    // A key typed mid-text in a full field is refused, as before: the end is not pushed off.
+    @Test
+    fun ignoresAKeyTypedInAFullField() {
+        assertEquals("abcde", nextDetails("abcde", "abXcde", 5))
+    }
+
+    @Test
+    fun passesAnEditWithinTheLimit() {
+        assertEquals("abXcd", nextDetails("abcd", "abXcd", 5))
+        assertEquals("abd", nextDetails("abcd", "abd", 5))
+    }
+
+    @Test
+    fun replacesASelectionWithALongerPasteUpToTheLimit() {
+        assertEquals("aXYZe", nextDetails("abcde", "aXYZWe", 5))
+    }
+
+    @Test
+    fun doesNotSplitASurrogatePair() {
+        assertEquals("ab", clampDetails("ab\uD83D\uDE00", 3))
+    }
+
+    @Test
+    fun aNegativeLimitKeepsNothing() {
+        assertEquals("", clampDetails("abc", -1))
+    }
+}

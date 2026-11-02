@@ -3,14 +3,14 @@ import {
   AfterViewInit,
   afterNextRender,
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   ElementRef,
-  EventEmitter,
   Injector,
-  Input,
   inject,
+  input,
   OnChanges,
-  Output,
+  output,
   SimpleChanges,
 } from "@angular/core"
 import { MatButtonModule } from "@angular/material/button"
@@ -23,9 +23,14 @@ import {
 } from "@angular/material/tree"
 import {
   type CanonGroup,
+  isClusterIntro,
   NEW_TESTAMENT_GROUPS,
+  NEW_TESTAMENT_INTRO,
   OLD_TESTAMENT_GROUPS,
+  OLD_TESTAMENT_INTRO,
+  withIntros,
 } from "../../bible-canon"
+import { scrollOnDrawerOpen } from "../../utils/drawer-scroll"
 
 interface BookNode {
   name: string
@@ -48,6 +53,8 @@ interface ExampleFlatNode {
   styleUrl: "./book-selector.component.css",
 })
 export class BookSelectorComponent implements AfterViewInit, OnChanges {
+  private elementRef = inject(ElementRef)
+
   private _transformer = (node: BookNode | string, level: number) => {
     return {
       expandable:
@@ -91,8 +98,29 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   )
 
   private injector = inject(Injector)
+  private readonly cdr = inject(ChangeDetectorRef)
 
-  constructor(private elementRef: ElementRef) {
+  /** In the reader's drawer, which scrolls to the book each time it opens. */
+  private inDrawer = scrollOnDrawerOpen(() => this.onDrawerOpen())
+
+  /**
+   * The whole list each time the drawer opens, at the book being read: the
+   * filter typed last time ("Sabed") would otherwise still hide the rest.
+   */
+  private onDrawerOpen(): void {
+    if (!this.filterQuery) {
+      this.scrollToSelectedBook()
+      return
+    }
+    this.filterBooks("")
+    this.cdr.markForCheck()
+    // The book may have been filtered out: it is there once drawn again.
+    afterNextRender(() => this.scrollToSelectedBook(), {
+      injector: this.injector,
+    })
+  }
+
+  constructor() {
     this.filterBooks("")
   }
 
@@ -100,33 +128,12 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   oldTestament: CanonGroup[] = OLD_TESTAMENT_GROUPS
 
-  /**
-   * Prepends each group's introduction, plus the ungrouped `leading` one.
-   * Introductions that have not loaded are dropped, so nothing renders blank.
-   */
+  /** A childless node renders through the leaf template: see withIntros. */
   private withIntros(groups: CanonGroup[], leading: string): CanonGroup[] {
-    const groupsWithIntros = groups.map((group) =>
-      group.introSlug && this.getBook(group.introSlug)
-        ? { ...group, books: [group.introSlug, ...group.books] }
-        : group,
-    )
-
-    // A childless node renders through the leaf template, so it is named
-    // after the slug it navigates to.
-    return this.getBook(leading)
-      ? [{ name: leading, books: [] }, ...groupsWithIntros]
-      : groupsWithIntros
+    return withIntros(groups, leading, (bookId) => !!this.getBook(bookId))
   }
 
-  // The About page is not in the shared canon: the crawlable book index must
-  // not link to it.
-  newTestament: CanonGroup[] = [
-    ...NEW_TESTAMENT_GROUPS,
-    {
-      name: "Sobre a Bíblia",
-      books: ["about"],
-    },
-  ]
+  newTestament: CanonGroup[] = NEW_TESTAMENT_GROUPS
 
   filterQuery = ""
 
@@ -158,32 +165,37 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
     }
 
     this.otDataSource.data = filterGroup(
-      this.withIntros(this.oldTestament, "geral"),
+      this.withIntros(this.oldTestament, OLD_TESTAMENT_INTRO),
     )
     this.ntDataSource.data = filterGroup(
-      this.withIntros(this.newTestament, "novotestamento"),
+      this.withIntros(this.newTestament, NEW_TESTAMENT_INTRO),
     )
     this.otTreeControl.expandAll()
     this.ntTreeControl.expandAll()
   }
 
-  @Input()
-  books: Book[] = []
+  readonly books = input<Book[]>([])
 
-  @Input()
-  selectedBookId: string | undefined
+  readonly selectedBookId = input<string>()
 
-  @Output() submitData = new EventEmitter<{ bookId: Book["id"] }>()
+  readonly submitData = output<{
+    bookId: Book["id"]
+  }>()
 
-  /** Introductions read just "Introdução": the heading above gives the context. */
+  /**
+   * Introductions read just "Introdução": the heading above gives the context.
+   * A cluster's, among the group's books, goes by its name.
+   */
   entryLabel(bookId: string): string {
     const book = this.getBook(bookId)
     if (!book) return ""
-    return book.introSlug ? "Introdução" : book.shortName
+    return book.introSlug && !isClusterIntro(book.id)
+      ? "Introdução"
+      : book.shortName
   }
 
   getBook(bookId: string): Book | undefined {
-    return this.books.find((book) => book.id === bookId)
+    return this.books().find((book) => book.id === bookId)
   }
 
   submit(id: Book["id"]) {
@@ -204,6 +216,7 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   }
 
   ngAfterViewInit(): void {
+    if (this.inDrawer) return
     // Runs while prerendering too, where the DOM has no scrollIntoView;
     // afterNextRender is browser-only.
     afterNextRender(() => this.scrollToSelectedBook(), {
@@ -224,11 +237,12 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   }
 
   private scrollToSelectedBook(): void {
-    if (!this.selectedBookId) return
+    const selectedBookId = this.selectedBookId()
+    if (!selectedBookId) return
 
     // Find element with data-book-id
     const element = this.elementRef.nativeElement.querySelector(
-      `[data-book-id="${this.selectedBookId}"]`,
+      `[data-book-id="${selectedBookId}"]`,
     )
 
     if (element) {

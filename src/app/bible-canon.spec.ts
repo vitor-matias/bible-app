@@ -1,4 +1,10 @@
-import { NEW_TESTAMENT_GROUPS, OLD_TESTAMENT_GROUPS } from "./bible-canon"
+import {
+  CLUSTER_INTROS,
+  NEW_TESTAMENT_GROUPS,
+  nextCanonBook,
+  OLD_TESTAMENT_GROUPS,
+  withIntros,
+} from "./bible-canon"
 
 describe("bible canon", () => {
   const groups = [...OLD_TESTAMENT_GROUPS, ...NEW_TESTAMENT_GROUPS]
@@ -29,5 +35,50 @@ describe("bible canon", () => {
       oldIds.has(id),
     )
     expect(shared).toEqual([])
+  })
+
+  it("keys each cluster's introduction by a canonical book", () => {
+    expect(
+      Object.keys(CLUSTER_INTROS).filter((id) => !ids.includes(id)),
+    ).toEqual([])
+  })
+
+  // 1 João's own introduction would hide the one for the three letters.
+  it("lists a cluster's introduction before its first book, once loaded", () => {
+    const catholic = [
+      {
+        name: "Cartas Católicas",
+        introSlug: "catolicas",
+        books: ["2pe", "1jn", "2jn"],
+      },
+    ]
+    const loaded = new Set(["catolicas", "joao"])
+    expect(
+      withIntros(catholic, "novotestamento", (id) => loaded.has(id)),
+    ).toEqual([
+      {
+        name: "Cartas Católicas",
+        introSlug: "catolicas",
+        books: ["catolicas", "2pe", "joao", "1jn", "2jn"],
+      },
+    ])
+    expect(
+      withIntros(catholic, "novotestamento", () => false)[0].books,
+    ).toEqual(["2pe", "1jn", "2jn"])
+  })
+
+  // The Android app's "Livro seguinte" card, at a book's last chapter.
+  describe("the book after another", () => {
+    it("follows the edition's order, not the API's", () => {
+      expect(nextCanonBook("gen")).toBe("exo")
+      // The API lists the deuterocanonical books last.
+      expect(nextCanonBook("est")).toBe("1ma")
+      expect(nextCanonBook("mal")).toBe("mat")
+    })
+
+    it("ends at Apocalipse, and knows no other page", () => {
+      expect(nextCanonBook("rev")).toBeUndefined()
+      expect(nextCanonBook("about")).toBeUndefined()
+    })
   })
 })

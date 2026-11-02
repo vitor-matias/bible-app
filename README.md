@@ -4,7 +4,7 @@ An offline-first Bible reader for the Portuguese Capuchin friars
 ([biblia.capuchinhos.org](https://biblia.capuchinhos.org/)), shipped as a
 Progressive Web App and as native iOS/Android apps via Capacitor.
 
-Built with Angular 22 (standalone, zoneless-friendly, `OnPush` throughout),
+Built with Angular 22 (standalone, zoneless, `OnPush` throughout),
 Angular Material, and a thin REST backend.
 
 ## Features
@@ -30,17 +30,17 @@ Angular Material, and a thin REST backend.
 | Area            | Choice |
 |-----------------|--------|
 | Framework       | Angular 22 (standalone components, `OnPush`) |
-| UI              | Angular Material + Bootstrap 5 |
+| UI              | Angular Material |
 | Reactivity      | RxJS 7 |
 | Native shell    | Capacitor 8 (iOS / Android) |
 | Offline cache   | IndexedDB (`DatabaseService` / `OfflineDataService`) |
 | PWA             | Angular Service Worker (`ngsw-config.json`) |
 | Lint / format   | Biome |
-| Tests           | Karma + Jasmine |
+| Tests           | Vitest (browser mode, Playwright Chromium) |
 
 ## Getting started
 
-Prerequisites: Node 20+ and npm.
+Prerequisites: Node (see `.nvmrc`) and npm.
 
 ```bash
 npm ci
@@ -52,6 +52,22 @@ The dev server proxies `/v1/**` to the production backend
 has real data with no local backend. The API base URL is resolved in
 [src/app/config.ts](src/app/config.ts) (`/v1` on the web, absolute domain on native).
 
+## Docs
+
+Engineering notes for working on the app, by topic:
+
+- [docs/architecture.md](docs/architecture.md): introductions, boot and the book cache,
+  the reader's layout variables, the native-chrome contract.
+- [docs/testing.md](docs/testing.md): running specs, test pitfalls, debugging a stale dev
+  server, the multi-device playtest.
+- [docs/ios.md](docs/ios.md): simulator recipes, bridge logs, UIKit and Safari quirks.
+- [docs/android.md](docs/android.md): build, emulator and TalkBack recipes, WebView quirks.
+- [docs/performance.md](docs/performance.md): Lighthouse, why critical CSS stays off, fonts.
+- [docs/build.md](docs/build.md): reproducing build failures, npm overrides, Angular
+  lockstep pins, worktrees, PR hygiene.
+- [docs/crash-reports.md](docs/crash-reports.md): reading and symbolicating the iOS and
+  Android crash events (needs `feat/crash-reports`).
+
 ## npm scripts
 
 | Script | Does |
@@ -59,11 +75,12 @@ has real data with no local backend. The API base URL is resolved in
 | `npm start` | Dev server with backend proxy |
 | `npm run build` | Production build + writes build metadata (`build:post`) |
 | `npm run watch` | Development build in watch mode |
-| `npm test` | Unit tests (Karma) |
+| `npm test` | Unit tests (Vitest in Chromium; first run `npx playwright install chromium`) |
 | `npm run test:coverage` | Unit tests with coverage |
 | `npm run biome` | Lint + format with autofix (`--write --unsafe`) over `src` |
 | `npm run cap:sync` | Sync web build into native projects |
-| `npm run cap:ios` / `cap:android` | Add a native platform, sync, generate icons |
+| `npm run cap:ios` / `cap:android` | Copy the web build into the native project |
+| `npm run cap:icons` | Regenerate native icons and splash from `assets/` |
 
 ## Prerendering (static SSG)
 
@@ -86,7 +103,9 @@ actually prerendered. `public/sitemap.xml` is a home-page-only fallback so
 
 Critical-CSS inlining is off (`optimization.styles.inlineCritical` in
 `angular.json`): nearly the whole ~143KB stylesheet was classed as critical and
-inlined into every page, taking per-page HTML from ~166KB to ~241KB.
+inlined into every page, taking per-page HTML from ~166KB to ~241KB. A later measurement found
+no first-paint gain worth that and a worse layout shift
+([docs/performance.md](docs/performance.md#critical-css-stays-off)).
 
 ## Container deploy (Render)
 
@@ -116,19 +135,67 @@ docker run --rm -p 8080:10000 -e API_ORIGIN=https://biblia.capuchinhos.org bible
 
 ```bash
 npm run build         # produces dist/bible-app/browser
-npm run cap:android   # or cap:ios — first run adds the platform
-npx cap open android  # open in Android Studio / Xcode
+npm run cap:android   # or cap:ios
+npx cap open android  # Android Studio; `npx cap open ios` for Xcode
 ```
 
 `cap:sync`/`cap:ios`/`cap:android` first run `cap:prune`, which copies the build
 into `dist/bible-app/capacitor` (the `webDir`) without the ~1300 prerendered
-route pages — they would add tens of MB to the APK/IPA for a shell that loads
-the site remotely anyway. The copy is what gets stripped; `dist/bible-app/browser`
-stays intact, since that is what the web deploy publishes.
+route pages, which would add tens of MB to the APK/IPA. The native apps ship
+that bundle, so they start instantly and work offline; the API is called at
+`https://biblia.capuchinhos.org/v1`. The copy is what gets stripped;
+`dist/bible-app/browser` stays intact, since that is what the web deploy publishes.
+
+`cap:prune` also strips everything between `<!-- web-only:start -->` and
+`<!-- web-only:end -->` in `src/index.html` (the Google Ads tag), and fails if
+`googletagmanager` still appears in the native bundle: ad measurement in the
+apps would require App Tracking Transparency on iOS and a Data safety
+declaration on Google Play. Umami stays, since it carries problem reports.
+
+For live reload on a device, point the shell at your dev server:
+
+```bash
+npm start
+CAPACITOR_LIVE_RELOAD_URL=http://<your-lan-ip>:4200 npx cap run android
+```
 
 App identity lives in [capacitor.config.ts](capacitor.config.ts)
-(`org.capuchinhos.biblia`). Set `CAPACITOR_SERVER_URL` to point a native build at a
-different backend.
+(`org.capuchinhos.biblia`).
+
+### Android signing key
+
+Every Android build, whether from Google Play, a GitHub Release APK or
+Zapstore, must be signed with the **same key**. Android refuses to update an
+install from a build signed with a different key, so users would have to
+uninstall, which wipes their bookmarks. The release keystore (the
+`ANDROID_KEYSTORE_BASE64` secret) is that key; its SHA-256 fingerprint is the
+one in [`public/.well-known/assetlinks.json`](public/.well-known/assetlinks.json).
+
+- **Google Play:** when enrolling in Play App Signing, choose to upload the
+  existing key ("Export and upload a key from Java keystore") rather than
+  letting Google generate one. This choice cannot be changed later.
+- **CI:** *Build All Platforms* fails a signed release whose certificate is
+  not listed in `assetlinks.json`. If the key ever has to change on purpose,
+  add the new fingerprint there first (App Links need it anyway).
+
+### Google Play upload
+
+Releases (a `v*` tag push, or a manual *Build All Platforms* run with
+*Create a GitHub Release* ticked) also upload the signed AAB to Google Play,
+on the *internal* track by default (`play_track` input picks another).
+Test runs never upload. One-time setup:
+
+1. Create the app in Play Console (`org.capuchinhos.biblia`) and upload the
+   first AAB by hand: the API cannot create an app or its first release.
+2. In Google Cloud, create a service account and a JSON key for it.
+3. In Play Console, *Users and permissions*, invite the service account's
+   e-mail with release permissions for this app.
+4. Add the JSON key as the repository secret `PLAY_SERVICE_ACCOUNT_JSON`.
+
+Without the secret the step is skipped. While the app is still a draft in
+Play Console, releases must be uploaded as drafts: change `status:` in the
+workflow's *Upload to Google Play* step to `draft` until the first release
+is published.
 
 ## Architecture
 

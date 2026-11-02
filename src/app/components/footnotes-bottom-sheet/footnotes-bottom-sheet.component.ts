@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Inject } from "@angular/core"
+import { ChangeDetectionStrategy, Component, inject } from "@angular/core"
 
 import {
   MAT_BOTTOM_SHEET_DATA,
@@ -12,9 +12,10 @@ import { AnalyticsService } from "../../services/analytics.service"
 import {
   BibleReference,
   BibleReferenceService,
-  VerseReference,
 } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { ToastService } from "../../services/toast.service"
+import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 
 @Component({
   selector: "footnotes-bottom-sheet",
@@ -26,7 +27,11 @@ import { BookService } from "../../services/book.service"
     RouterModule,
   ],
   template: `
-    <div unifiedGestures fontSizeContext="footnotes" class="footnotes-container">
+    <div
+      unifiedGestures
+      fontSizeContext="footnotes"
+      class="footnotes-container"
+    >
       <div class="footnotes-list">
         @for (footnote of data.footnotes; track footnote) {
         <div class="footnote-item">
@@ -34,10 +39,11 @@ import { BookService } from "../../services/book.service"
           @for(part of parseReferences(footnote.text).parts; track $index){ @if
           (typeof part === 'object') {
           <a
-            (click)="close()"
+            (click)="followReference()"
             [routerLink]="['/', getAbrv(part.book), part.chapter]"
-            [queryParams]="getVerseQueryParams(part.verses)"
-          >{{ part.match }}</a>
+            [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)"
+            >{{ part.match }}</a
+          >
           } @else {
           {{ part }}
           } }
@@ -77,14 +83,20 @@ import { BookService } from "../../services/book.service"
   ],
 })
 export class FootnotesBottomSheetComponent {
-  constructor(
-    private bottomSheetRef: MatBottomSheetRef<FootnotesBottomSheetComponent>,
-    @Inject(MAT_BOTTOM_SHEET_DATA)
-    public data: { footnotes: _Footnote[]; verse: Verse },
-    private bibleRef: BibleReferenceService,
-    private bookService: BookService,
-    private analyticsService: AnalyticsService,
-  ) {
+  private bottomSheetRef =
+    inject<MatBottomSheetRef<FootnotesBottomSheetComponent>>(MatBottomSheetRef)
+  data = inject<{
+    footnotes: _Footnote[]
+    verse: Verse
+  }>(MAT_BOTTOM_SHEET_DATA)
+  private bibleRef = inject(BibleReferenceService)
+  private bookService = inject(BookService)
+  private analyticsService = inject(AnalyticsService)
+  private toast = inject(ToastService)
+
+  constructor() {
+    const data = this.data
+
     void this.analyticsService.track("footnotes_opened", {
       book: data.verse.bookId,
       chapter: data.verse.chapterNumber,
@@ -93,39 +105,18 @@ export class FootnotesBottomSheetComponent {
   }
 
   parseReferences(text: string): { parts: (string | BibleReference)[] } {
-    const refs = this.bibleRef.extract(
-      text,
-      this.data.verse.bookId,
-      this.data.verse.chapterNumber,
-    )
-    if (!refs.length) return { parts: [text] }
-
-    const parts: (string | BibleReference)[] = []
-    let lastIdx = 0
-    for (const ref of refs) {
-      if (ref.index > lastIdx) {
-        parts.push(text.slice(lastIdx, ref.index))
-      }
-      parts.push(ref)
-      lastIdx = ref.index + ref.match.length
+    return {
+      parts: parseReferences(
+        this.bibleRef,
+        text,
+        this.data.verse.bookId,
+        this.data.verse.chapterNumber,
+      ),
     }
-    if (lastIdx < text.length) {
-      parts.push(text.slice(lastIdx))
-    }
-    return { parts }
   }
 
-  getVerseQueryParams(verses?: VerseReference[]) {
-    if (!verses?.length) return null
-    const first = verses[0]
-    if (first.type === "single") {
-      return { verseStart: first.verse }
-    }
-    if (first.type === "range") {
-      return { verseStart: first.start, verseEnd: first.end }
-    }
-    return null
-  }
+  /** As the verse's own links and the iOS sheet have it. */
+  getVerseQueryParams = getVerseQueryParams
 
   getAbrv(bookId: string): string {
     const book = this.bookService.findBook(bookId)
@@ -134,5 +125,11 @@ export class FootnotesBottomSheetComponent {
 
   close(): void {
     this.bottomSheetRef.dismiss()
+  }
+
+  /** The link navigates; this closes the sheet and offers the way back. */
+  followReference(): void {
+    this.close()
+    this.toast.showReturn(this.data.verse)
   }
 }

@@ -1,7 +1,7 @@
 .chapterSelectorButton:not(disabled) {
   background-color: var(--card-background);
   color: var(--text-color);
-  font-size: large;
+  font-size: 112.5%;
   margin-left: 8px;
   position: relative;
   /* Cap the row width and anchor content left, or a capped row centres and
@@ -63,6 +63,13 @@ button.highlight {
 .bookmarked {
   position: relative;
   z-index: 1;
+}
+
+/* On the ribbon: light on the dark tones, dark on the light ones. A colour
+   stored before the ribbons is painted as it is, and its number keeps the
+   text's colour, as it always had: --ribbon-text was not chosen for it. */
+.on-ribbon {
+  color: var(--ribbon-text);
 }
 
 .chapterSelectorContainer {

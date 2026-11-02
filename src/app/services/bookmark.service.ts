@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core"
+import { Injectable, inject } from "@angular/core"
 import { BehaviorSubject, type Observable } from "rxjs"
 import { map } from "rxjs/operators"
 import { DatabaseService } from "./database.service"
@@ -7,12 +7,14 @@ import { DatabaseService } from "./database.service"
   providedIn: "root",
 })
 export class BookmarkService {
+  private databaseService = inject(DatabaseService)
+
   private bookmarksSubject = new BehaviorSubject<Bookmark[]>([])
   bookmarks$ = this.bookmarksSubject.asObservable()
   private updatePromise: Promise<void> = Promise.resolve()
   initialized: Promise<void>
 
-  constructor(private databaseService: DatabaseService) {
+  constructor() {
     this.initialized = this.init()
   }
 
@@ -47,58 +49,58 @@ export class BookmarkService {
     return found ? { ...found } : undefined
   }
 
-  isBookmarked(bookId: string, chapter: number): boolean {
-    return !!this.getBookmark(bookId, chapter)
-  }
-
   async addBookmark(
     bookId: string,
     chapter: number,
     color: string,
   ): Promise<void> {
-    this.updatePromise = this.updatePromise.then(async () => {
-      const currentBookmarks = this.bookmarksSubject.value
-      // Filter out any existing bookmark with the same color
-      const bookmarksWithoutConflict = currentBookmarks.filter(
-        (b) => b.color !== color,
-      )
+    this.updatePromise = this.updatePromise
+      .catch(() => {})
+      .then(async () => {
+        const currentBookmarks = this.bookmarksSubject.value
+        // Filter out any existing bookmark with the same color
+        const bookmarksWithoutConflict = currentBookmarks.filter(
+          (b) => b.color !== color,
+        )
 
-      // Check if we are updating an existing bookmark (same location)
-      const existingIndex = bookmarksWithoutConflict.findIndex(
-        (b) => b.bookId === bookId && b.chapter === chapter,
-      )
+        // Check if we are updating an existing bookmark (same location)
+        const existingIndex = bookmarksWithoutConflict.findIndex(
+          (b) => b.bookId === bookId && b.chapter === chapter,
+        )
 
-      const newBookmark: Bookmark = {
-        bookId,
-        chapter,
-        color,
-        timestamp: Date.now(),
-      }
+        const newBookmark: Bookmark = {
+          bookId,
+          chapter,
+          color,
+          timestamp: Date.now(),
+        }
 
-      let updatedBookmarks: Bookmark[]
+        let updatedBookmarks: Bookmark[]
 
-      if (existingIndex > -1) {
-        // Update existing bookmark (e.g. changing color, though color is unique now, so this path is technically assigning a new unique color to an existing location)
-        updatedBookmarks = [...bookmarksWithoutConflict]
-        updatedBookmarks[existingIndex] = newBookmark
-      } else {
-        // Add new bookmark
-        updatedBookmarks = [...bookmarksWithoutConflict, newBookmark]
-      }
+        if (existingIndex > -1) {
+          // Update existing bookmark (e.g. changing color, though color is unique now, so this path is technically assigning a new unique color to an existing location)
+          updatedBookmarks = [...bookmarksWithoutConflict]
+          updatedBookmarks[existingIndex] = newBookmark
+        } else {
+          // Add new bookmark
+          updatedBookmarks = [...bookmarksWithoutConflict, newBookmark]
+        }
 
-      await this.saveBookmarks(updatedBookmarks)
-    })
+        await this.saveBookmarks(updatedBookmarks)
+      })
     return this.updatePromise
   }
 
   async removeBookmark(bookId: string, chapter: number): Promise<void> {
-    this.updatePromise = this.updatePromise.then(async () => {
-      const currentBookmarks = this.bookmarksSubject.value
-      const updatedBookmarks = currentBookmarks.filter(
-        (b) => !(b.bookId === bookId && b.chapter === chapter),
-      )
-      await this.saveBookmarks(updatedBookmarks)
-    })
+    this.updatePromise = this.updatePromise
+      .catch(() => {})
+      .then(async () => {
+        const currentBookmarks = this.bookmarksSubject.value
+        const updatedBookmarks = currentBookmarks.filter(
+          (b) => !(b.bookId === bookId && b.chapter === chapter),
+        )
+        await this.saveBookmarks(updatedBookmarks)
+      })
     return this.updatePromise
   }
 

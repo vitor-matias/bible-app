@@ -1,6 +1,7 @@
 import { DOCUMENT } from "@angular/common"
 import { TestBed } from "@angular/core/testing"
 import { Meta, Title } from "@angular/platform-browser"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { BookService } from "./book.service"
 import {
   SEO_BASE_URL,
@@ -17,7 +18,7 @@ describe("SeoService", () => {
   let title: Title
   let meta: Meta
   let doc: Document
-  let bookServiceSpy: jasmine.SpyObj<BookService>
+  let bookServiceSpy: SpyObj<BookService>
 
   const genesis = {
     id: "GN",
@@ -64,12 +65,12 @@ describe("SeoService", () => {
   }
 
   beforeEach(() => {
-    bookServiceSpy = jasmine.createSpyObj("BookService", [
+    bookServiceSpy = createSpyObj("BookService", [
       "getUrlAbrv",
       "getChapterUrlSegment",
     ])
-    bookServiceSpy.getUrlAbrv.and.returnValue("gn")
-    bookServiceSpy.getChapterUrlSegment.and.callFake((chapter: number) =>
+    bookServiceSpy.getUrlAbrv.mockReturnValue("gn")
+    bookServiceSpy.getChapterUrlSegment.mockImplementation((chapter: number) =>
       chapter === 0 ? "intro" : chapter.toString(),
     )
 
@@ -175,13 +176,27 @@ describe("SeoService", () => {
       expect(getMetaContent('property="og:description"')).toBe(description)
     })
 
+    it("drops zero-width line markers and the space segment joins leave before punctuation", () => {
+      const chapter = makeChapter("\u200B")
+      chapter.verses?.[0].text.push(
+        { type: "text", text: "Louvai o" },
+        { type: "text", text: "Senhor" },
+        { type: "text", text: ", todas as nações!" },
+      )
+      service.updateForChapter(genesis, 1, chapter)
+
+      expect(getMetaContent('name="description"')).toBe(
+        "Génesis 1: Louvai o Senhor, todas as nações!",
+      )
+    })
+
     it("truncates long descriptions at a word boundary with an ellipsis", () => {
       const longText = "palavra ".repeat(60)
       service.updateForChapter(genesis, 1, makeChapter(longText))
 
       const description = getMetaContent('name="description"') ?? ""
       expect(description.length).toBeLessThanOrEqual(159)
-      expect(description.endsWith("…")).toBeTrue()
+      expect(description.endsWith("…")).toBe(true)
       expect(description).not.toContain("  ")
     })
 
@@ -231,7 +246,11 @@ describe("SeoService", () => {
 
   describe("breadcrumb JSON-LD", () => {
     function getBreadcrumbs(): {
-      itemListElement: { position: number; name: string; item: string }[]
+      itemListElement: {
+        position: number
+        name: string
+        item: string
+      }[]
     } | null {
       const script = doc.getElementById("seo-breadcrumbs")
       return script?.textContent ? JSON.parse(script.textContent) : null
@@ -265,7 +284,7 @@ describe("SeoService", () => {
         introduction: [],
         introSlug: "pentateuco",
       } as unknown as Book
-      bookServiceSpy.getUrlAbrv.and.returnValue("pentateuco")
+      bookServiceSpy.getUrlAbrv.mockReturnValue("pentateuco")
 
       service.updateForChapter(standalone, 0)
 
@@ -288,7 +307,7 @@ describe("SeoService", () => {
         introduction: [],
         sharedIntroSlug: "samuel",
       } as Book
-      bookServiceSpy.getUrlAbrv.and.returnValue("1sm")
+      bookServiceSpy.getUrlAbrv.mockReturnValue("1sm")
 
       service.updateForChapter(samuel, 5)
 
@@ -358,7 +377,11 @@ describe("SeoService", () => {
       const script = doc.getElementById("seo-breadcrumbs")
       const breadcrumbs = script?.textContent
         ? (JSON.parse(script.textContent) as {
-            itemListElement: { position: number; name: string; item: string }[]
+            itemListElement: {
+              position: number
+              name: string
+              item: string
+            }[]
           })
         : null
       expect(breadcrumbs?.itemListElement.length).toBe(2)

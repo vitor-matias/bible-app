@@ -5,12 +5,15 @@ import {
   type VerseReference,
 } from "../../services/bible-reference.service"
 
+/** Splits text into plain runs and the references found in it. `chapter`
+ *  resolves bare verse references ("8-9") in footnotes to the verse's chapter. */
 export function parseReferences(
   bibleRef: BibleReferenceService,
   text: string,
   bookId: string,
+  chapter?: number,
 ): (string | BibleReference)[] {
-  const refs = bibleRef.extract(text, bookId)
+  const refs = bibleRef.extract(text, bookId, chapter)
   if (!refs.length) return [text]
 
   const parts: (string | BibleReference)[] = []

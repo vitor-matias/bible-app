@@ -239,7 +239,15 @@ export class SeoService {
       }
       if (length >= MAX_DESCRIPTION_LENGTH) break
     }
-    return parts.join(" ").replace(/\s+/g, " ").trim()
+    // Poetry carries zero-width spaces as line markers, and joining segments
+    // on a space strands the punctuation that follows an inline one
+    // ("o Senhor ,").
+    return parts
+      .join(" ")
+      .replace(/\u200B/g, "")
+      .replace(/\s+/g, " ")
+      .replace(/ ([,.;:!?»])/g, "$1")
+      .trim()
   }
 
   private truncate(value: string): string {

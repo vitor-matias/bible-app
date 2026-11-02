@@ -1,8 +1,12 @@
+import { PLATFORM_ID } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
-import { of, throwError } from "rxjs"
+import { Capacitor } from "@capacitor/core"
+import { BehaviorSubject, firstValueFrom, of, throwError } from "rxjs"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
+import { APP_PLUGIN } from "../tokens"
 import { BibleApiService } from "./bible-api.service"
-
 import { BookService } from "./book.service"
+import { NetworkService } from "./network.service"
 
 describe("BookService", () => {
   let service: BookService
@@ -69,13 +73,13 @@ describe("BookService", () => {
 
   beforeEach(() => {
     apiBooks = mockBooks.map((book) => ({ ...book }))
-    const apiServiceSpy = jasmine.createSpyObj("BibleApiService", [
+    const apiServiceSpy = createSpyObj("BibleApiService", [
       "getAvailableBooks",
       "getIntros",
       "getIntro",
     ])
-    apiServiceSpy.getAvailableBooks.and.returnValue(of(apiBooks))
-    apiServiceSpy.getIntros.and.returnValue(of([]))
+    apiServiceSpy.getAvailableBooks.mockReturnValue(of(apiBooks))
+    apiServiceSpy.getIntros.mockReturnValue(of([]))
 
     TestBed.configureTestingModule({
       providers: [
@@ -89,14 +93,14 @@ describe("BookService", () => {
 
   describe("standalone introductions", () => {
     const introApi = (intros: IntroSummary[], body?: GroupIntro) => {
-      const spy = jasmine.createSpyObj("BibleApiService", [
+      const spy = createSpyObj("BibleApiService", [
         "getAvailableBooks",
         "getIntros",
         "getIntro",
       ])
-      spy.getAvailableBooks.and.returnValue(of(apiBooks))
-      spy.getIntros.and.returnValue(of(intros))
-      spy.getIntro.and.returnValue(body ? of(body) : of())
+      spy.getAvailableBooks.mockReturnValue(of(apiBooks))
+      spy.getIntros.mockReturnValue(of(intros))
+      spy.getIntro.mockReturnValue(body ? of(body) : of())
       TestBed.resetTestingModule()
       TestBed.configureTestingModule({
         providers: [BookService, { provide: BibleApiService, useValue: spy }],
@@ -142,9 +146,7 @@ describe("BookService", () => {
       // The constructor and APP_INITIALIZER both call it in the same tick;
       // without sharing, /intros is fetched twice and books$ emits twice.
       const svc = introApi([{ slug: "pentateuco", name: "PENTATEUCO" }])
-      const api = TestBed.inject(
-        BibleApiService,
-      ) as jasmine.SpyObj<BibleApiService>
+      const api = TestBed.inject(BibleApiService) as SpyObj<BibleApiService>
 
       await Promise.all([svc.initializeBooks(), svc.initializeBooks()])
 
@@ -156,8 +158,28 @@ describe("BookService", () => {
       const svc = introApi([])
       await svc.initializeBooks()
 
-      expect(svc.getBooks().some((book) => book.introSlug)).toBeFalse()
+      expect(svc.getBooks().some((book) => book.introSlug)).toBe(false)
       expect(svc.findBook("gen").id).toBe("gen")
+    })
+
+    // "Joao 3" opened "Cartas de João", whose id is "joao".
+    it("leaves introductions out of the books typed text names", async () => {
+      apiBooks.push({
+        id: "jhn",
+        name: "Evangelho segundo São João",
+        shortName: "João",
+        abrv: "Jo",
+        chapterCount: 21,
+      })
+      const svc = introApi([
+        { slug: "joao", name: "CARTAS DE JOÃO" },
+        { slug: "pentateuco", name: "INTRODUÇÃO AO PENTATEUCO" },
+      ])
+      await svc.initializeBooks()
+
+      expect(svc.findBook("joao").introSlug).toBe("joao")
+      expect(svc.findTypedBook("Joao")?.id).toBe("jhn")
+      expect(svc.findTypedBook("pentateuco")).toBeUndefined()
     })
 
     it("caches a fetched introduction body on its book", async () => {
@@ -185,14 +207,14 @@ describe("BookService", () => {
 
   it("should not surface an unhandled rejection when the eager constructor load fails", async () => {
     // An unhandled rejection here kills prerender worker threads at build time.
-    const failingApi = jasmine.createSpyObj("BibleApiService", [
+    const failingApi = createSpyObj("BibleApiService", [
       "getAvailableBooks",
       "getIntros",
     ])
-    failingApi.getAvailableBooks.and.returnValue(
+    failingApi.getAvailableBooks.mockReturnValue(
       throwError(() => new Error("API unavailable")),
     )
-    failingApi.getIntros.and.returnValue(of([]))
+    failingApi.getIntros.mockReturnValue(of([]))
 
     TestBed.resetTestingModule()
     TestBed.configureTestingModule({
@@ -203,15 +225,15 @@ describe("BookService", () => {
     })
     expect(() => TestBed.inject(BookService)).not.toThrow()
     // Let the constructor's fire-and-forget promise settle; a missing .catch
-    // would trigger Jasmine's global unhandled-rejection failure here.
+    // would fail the run here as an unhandled rejection.
     await new Promise((resolve) => setTimeout(resolve))
   })
 
   it("should add the about book without mutating the API result", async () => {
     await service.initializeBooks()
 
-    expect(apiBooks.some((book) => book.id === "about")).toBeFalse()
-    expect(service.getBooks().some((book) => book.id === "about")).toBeTrue()
+    expect(apiBooks.some((book) => book.id === "about")).toBe(false)
+    expect(service.getBooks().some((book) => book.id === "about")).toBe(true)
   })
 
   it("should find a book by id case-insensitively", async () => {
@@ -236,6 +258,33 @@ describe("BookService", () => {
     await service.initializeBooks()
 
     expect(service.findBook("missing").id).toBe("about")
+  })
+
+  // "1 Co" is how many people type 1 Coríntios (abbreviated "1 Cor", id 1co).
+  it("should find a book by its id typed with a space", async () => {
+    await service.initializeBooks()
+
+    expect(service.findBookById("1 Sa")?.id).toBe("1sa")
+  })
+
+  describe("findTypedBook", () => {
+    it("finds a book by id, abbreviation or name, as typed", async () => {
+      await service.initializeBooks()
+
+      expect(service.findTypedBook("1 Sa")?.id).toBe("1sa")
+      expect(service.findTypedBook("1 Sm")?.id).toBe("1sa")
+      expect(service.findTypedBook("Genesis")?.id).toBe("gen")
+    })
+
+    // findBook falls back to the About page, and search offered "Abrir Sobre
+    // a Bíblia 13,4" for a reference to a book it didn't know.
+    it("never answers with the About page", async () => {
+      await service.initializeBooks()
+
+      expect(service.findTypedBook("1 Xy")).toBeUndefined()
+      expect(service.findTypedBook("Sobre")).toBeUndefined()
+      expect(service.findTypedBook("about")).toBeUndefined()
+    })
   })
 
   it("should normalize url abbreviations by removing spaces", async () => {
@@ -378,6 +427,118 @@ describe("BookService", () => {
       const book = service.findBookByName("mateus")
       expect(book).toBeDefined()
       expect(book?.id).toBe("mat")
+    })
+  })
+
+  describe("when the book list cannot be loaded", () => {
+    let api: SpyObj<BibleApiService>
+    let isOffline$: BehaviorSubject<boolean>
+    let resume: () => void
+
+    function createService(
+      native = false,
+      platformId: "browser" | "server" = "browser",
+    ): BookService {
+      api = createSpyObj("BibleApiService", [
+        "getAvailableBooks",
+        "getIntros",
+        "getIntro",
+      ])
+      // A first launch without a connection, then a working one.
+      api.getAvailableBooks
+        .mockReturnValueOnce(
+          throwError(() => new Error("Offline and no cached books available")),
+        )
+        .mockReturnValueOnce(of(apiBooks))
+      api.getIntros.mockReturnValue(of([]))
+      isOffline$ = new BehaviorSubject(true)
+      resume = () => expect.fail("resume listener was not registered")
+      const appPlugin = {
+        addListener: (event: string, callback: () => void) => {
+          if (event === "resume") resume = callback
+          return Promise.resolve({ remove: async () => {} })
+        },
+      }
+      vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(native)
+      TestBed.resetTestingModule()
+      TestBed.configureTestingModule({
+        providers: [
+          BookService,
+          { provide: BibleApiService, useValue: api },
+          { provide: NetworkService, useValue: { isOffline$ } },
+          { provide: APP_PLUGIN, useValue: appPlugin },
+          { provide: PLATFORM_ID, useValue: platformId },
+        ],
+      })
+      return TestBed.inject(BookService)
+    }
+
+    async function settle(svc: BookService): Promise<void> {
+      // The constructor's first load; its failure is swallowed.
+      await svc.retryBooks()
+    }
+
+    it("reports the books as unavailable", async () => {
+      const svc = createService()
+      await settle(svc)
+
+      expect(await firstValueFrom(svc.booksUnavailable$)).toBe(true)
+    })
+
+    it("never reports them unavailable while prerendering", async () => {
+      const svc = createService(false, "server")
+      await settle(svc)
+
+      expect(await firstValueFrom(svc.booksUnavailable$)).toBe(false)
+    })
+
+    it("recovers on a manual retry", async () => {
+      const svc = createService()
+      await settle(svc)
+
+      await svc.retryBooks()
+
+      expect(await firstValueFrom(svc.booksUnavailable$)).toBe(false)
+      expect(svc.getBooks().length).toBeGreaterThan(0)
+    })
+
+    it("retries when the connection comes back", async () => {
+      const svc = createService()
+      await settle(svc)
+      api.getAvailableBooks.mockClear()
+
+      isOffline$.next(false)
+      // The reconnect itself starts the refetch...
+      expect(api.getAvailableBooks).toHaveBeenCalledTimes(1)
+      // ...and this joins it rather than starting another.
+      await svc.retryBooks()
+
+      expect(api.getAvailableBooks).toHaveBeenCalledTimes(1)
+      expect(await firstValueFrom(svc.booksUnavailable$)).toBe(false)
+    })
+
+    it("retries when the native app resumes", async () => {
+      const svc = createService(true)
+      await settle(svc)
+      api.getAvailableBooks.mockClear()
+
+      resume()
+      await firstValueFrom(svc.books$)
+
+      expect(api.getAvailableBooks).toHaveBeenCalledTimes(1)
+    })
+
+    it("does not refetch on reconnect once the books loaded", async () => {
+      const svc = createService()
+      await settle(svc)
+      await svc.retryBooks()
+      api.getAvailableBooks.mockClear()
+
+      isOffline$.next(false)
+      isOffline$.next(true)
+      isOffline$.next(false)
+
+      expect(api.getAvailableBooks).not.toHaveBeenCalled()
     })
   })
 })

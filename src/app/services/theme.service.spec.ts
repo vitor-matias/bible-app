@@ -1,30 +1,37 @@
 import { TestBed } from "@angular/core/testing"
+import type { Mock } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
+import { NativeShellService } from "./native-shell.service"
 import { PreferencesService } from "./preferences.service"
 import { ThemeService } from "./theme.service"
 
 describe("ThemeService", () => {
   let service: ThemeService
-  let prefsSpy: jasmine.SpyObj<PreferencesService>
-  let classListToggleSpy: jasmine.Spy
+  let prefsSpy: SpyObj<PreferencesService>
+  let classListToggleSpy: Mock
+  let nativeShellSpy: SpyObj<NativeShellService>
 
   beforeEach(() => {
-    prefsSpy = jasmine.createSpyObj("PreferencesService", [
-      "getTheme",
-      "setTheme",
+    prefsSpy = createSpyObj("PreferencesService", ["getTheme", "setTheme"])
+    prefsSpy.getTheme.mockReturnValue(null)
+
+    classListToggleSpy = vi
+      .spyOn(document.documentElement.classList, "toggle")
+      .mockReturnValue(undefined as never)
+
+    nativeShellSpy = createSpyObj("NativeShellService", [
+      "setNavigationBarTheme",
     ])
-    prefsSpy.getTheme.and.returnValue(null)
-
-    classListToggleSpy = spyOn(document.documentElement.classList, "toggle")
-
-    const analyticsSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
-    analyticsSpy.track.and.returnValue(Promise.resolve())
+    const analyticsSpy = createSpyObj("AnalyticsService", ["track"])
+    analyticsSpy.track.mockResolvedValue(undefined)
 
     TestBed.configureTestingModule({
       providers: [
         ThemeService,
         { provide: PreferencesService, useValue: prefsSpy },
         { provide: AnalyticsService, useValue: analyticsSpy },
+        { provide: NativeShellService, useValue: nativeShellSpy },
       ],
     })
   })
@@ -39,35 +46,35 @@ describe("ThemeService", () => {
   })
 
   it("should default to system theme when no saved preference", () => {
-    prefsSpy.getTheme.and.returnValue(null)
+    prefsSpy.getTheme.mockReturnValue(null)
     service = createService()
     expect(service.currentMode).toBe("system")
   })
 
   it("should restore saved theme from preferences", () => {
-    prefsSpy.getTheme.and.returnValue("dark")
+    prefsSpy.getTheme.mockReturnValue("dark")
     service = createService()
     expect(service.currentMode).toBe("dark")
   })
 
   it("should apply dark-theme class when mode is dark", () => {
-    prefsSpy.getTheme.and.returnValue("dark")
+    prefsSpy.getTheme.mockReturnValue("dark")
     service = createService()
     expect(classListToggleSpy).toHaveBeenCalledWith("dark-theme", true)
   })
 
   it("should apply light theme (no dark-theme class) when mode is light", () => {
-    prefsSpy.getTheme.and.returnValue("light")
+    prefsSpy.getTheme.mockReturnValue("light")
     service = createService()
     expect(classListToggleSpy).toHaveBeenCalledWith("dark-theme", false)
   })
 
   it("should cycle through themes on toggleTheme", () => {
-    prefsSpy.getTheme.and.returnValue("light")
+    prefsSpy.getTheme.mockReturnValue("light")
     service = createService()
     const analyticsSpy = TestBed.inject(
       AnalyticsService,
-    ) as jasmine.SpyObj<AnalyticsService>
+    ) as SpyObj<AnalyticsService>
 
     // light -> dark
     service.toggleTheme()
@@ -89,11 +96,11 @@ describe("ThemeService", () => {
   })
 
   it("should emit theme mode changes through themeMode$", () => {
-    prefsSpy.getTheme.and.returnValue("light")
+    prefsSpy.getTheme.mockReturnValue("light")
     service = createService()
     const analyticsSpy = TestBed.inject(
       AnalyticsService,
-    ) as jasmine.SpyObj<AnalyticsService>
+    ) as SpyObj<AnalyticsService>
 
     const emitted: string[] = []
     service.themeMode$.subscribe((mode) => emitted.push(mode))
@@ -110,22 +117,20 @@ describe("ThemeService", () => {
   it("should use addEventListener when available (modern browsers)", () => {
     const mockMql = {
       matches: false,
-      addEventListener: jasmine.createSpy("addEventListener"),
-      addListener: jasmine.createSpy("addListener"),
+      addEventListener: vi.fn().mockName("addEventListener"),
+      addListener: vi.fn().mockName("addListener"),
     }
-    spyOn(window, "matchMedia").and.returnValue(
+    vi.spyOn(window, "matchMedia").mockReturnValue(
       mockMql as unknown as MediaQueryList,
     )
 
-    prefsSpy.getTheme.and.returnValue(null)
+    prefsSpy.getTheme.mockReturnValue(null)
     // Need a new instance to trigger the constructor with the mocked matchMedia
-    service = TestBed.runInInjectionContext(
-      () => new ThemeService(prefsSpy, TestBed.inject(AnalyticsService)),
-    )
+    service = TestBed.runInInjectionContext(() => new ThemeService())
 
     expect(mockMql.addEventListener).toHaveBeenCalledWith(
       "change",
-      jasmine.any(Function),
+      expect.any(Function),
     )
     expect(mockMql.addListener).not.toHaveBeenCalled()
   })
@@ -134,18 +139,16 @@ describe("ThemeService", () => {
     const mockMql = {
       matches: false,
       addEventListener: undefined,
-      addListener: jasmine.createSpy("addListener"),
+      addListener: vi.fn().mockName("addListener"),
     }
-    spyOn(window, "matchMedia").and.returnValue(
+    vi.spyOn(window, "matchMedia").mockReturnValue(
       mockMql as unknown as MediaQueryList,
     )
 
-    prefsSpy.getTheme.and.returnValue(null)
-    service = TestBed.runInInjectionContext(
-      () => new ThemeService(prefsSpy, TestBed.inject(AnalyticsService)),
-    )
+    prefsSpy.getTheme.mockReturnValue(null)
+    service = TestBed.runInInjectionContext(() => new ThemeService())
 
-    expect(mockMql.addListener).toHaveBeenCalledWith(jasmine.any(Function))
+    expect(mockMql.addListener).toHaveBeenCalledWith(expect.any(Function))
   })
 
   it("should update theme when system preference changes while in system mode", () => {
@@ -155,18 +158,16 @@ describe("ThemeService", () => {
       addEventListener: (_event: string, handler: () => void) => {
         changeHandler = handler
       },
-      addListener: jasmine.createSpy("addListener"),
+      addListener: vi.fn().mockName("addListener"),
     }
-    spyOn(window, "matchMedia").and.returnValue(
+    vi.spyOn(window, "matchMedia").mockReturnValue(
       mockMql as unknown as MediaQueryList,
     )
 
-    prefsSpy.getTheme.and.returnValue("system")
-    service = TestBed.runInInjectionContext(
-      () => new ThemeService(prefsSpy, TestBed.inject(AnalyticsService)),
-    )
+    prefsSpy.getTheme.mockReturnValue("system")
+    service = TestBed.runInInjectionContext(() => new ThemeService())
 
-    classListToggleSpy.calls.reset()
+    classListToggleSpy.mockClear()
     changeHandler?.()
 
     expect(classListToggleSpy).toHaveBeenCalledWith("dark-theme", true)
@@ -179,21 +180,60 @@ describe("ThemeService", () => {
       addEventListener: (_event: string, handler: () => void) => {
         changeHandler = handler
       },
-      addListener: jasmine.createSpy("addListener"),
+      addListener: vi.fn().mockName("addListener"),
     }
-    spyOn(window, "matchMedia").and.returnValue(
+    vi.spyOn(window, "matchMedia").mockReturnValue(
       mockMql as unknown as MediaQueryList,
     )
 
-    prefsSpy.getTheme.and.returnValue("dark")
-    service = TestBed.runInInjectionContext(
-      () => new ThemeService(prefsSpy, TestBed.inject(AnalyticsService)),
-    )
+    prefsSpy.getTheme.mockReturnValue("dark")
+    service = TestBed.runInInjectionContext(() => new ThemeService())
 
-    classListToggleSpy.calls.reset()
+    classListToggleSpy.mockClear()
     changeHandler?.()
 
     // Should not have been called again since mode is "dark", not "system"
     expect(classListToggleSpy).not.toHaveBeenCalled()
+  })
+
+  // The app's theme can differ from the device's; the navigation bar icons
+  // must follow the app's, or they vanish against the page.
+  it("passes the applied theme to the native navigation bar", () => {
+    prefsSpy.getTheme.mockReturnValue("dark")
+    service = createService()
+    expect(nativeShellSpy.setNavigationBarTheme).toHaveBeenCalledWith(true)
+
+    nativeShellSpy.setNavigationBarTheme.mockClear()
+    service.toggleTheme() // dark -> system
+    service.toggleTheme() // system -> light
+    expect(nativeShellSpy.setNavigationBarTheme).toHaveBeenCalledWith(false)
+  })
+
+  // The iOS native menu picks a theme directly instead of cycling.
+  it("sets, applies and saves a chosen theme", () => {
+    service = createService()
+    classListToggleSpy.mockClear()
+
+    service.setTheme("dark")
+
+    expect(service.currentMode).toBe("dark")
+    expect(classListToggleSpy).toHaveBeenCalledWith("dark-theme", true)
+    expect(prefsSpy.setTheme).toHaveBeenCalledWith("dark")
+  })
+
+  // Re-tapping the current choice in the iOS menu's theme row.
+  it("does nothing for the theme already on", () => {
+    prefsSpy.getTheme.mockReturnValue("dark")
+    service = createService()
+    const analytics = TestBed.inject(
+      AnalyticsService,
+    ) as SpyObj<AnalyticsService>
+    classListToggleSpy.mockClear()
+
+    service.setTheme("dark")
+
+    expect(classListToggleSpy).not.toHaveBeenCalled()
+    expect(prefsSpy.setTheme).not.toHaveBeenCalled()
+    expect(analytics.track).not.toHaveBeenCalled()
   })
 })

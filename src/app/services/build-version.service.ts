@@ -1,4 +1,6 @@
-import { Injectable } from "@angular/core"
+import { Injectable, inject } from "@angular/core"
+import { Capacitor } from "@capacitor/core"
+import { APP_PLUGIN } from "../tokens"
 
 interface BuildInfo {
   buildVersion?: string
@@ -7,10 +9,19 @@ interface BuildInfo {
 
 const FALLBACK_BUILD_VERSION = "dev-local"
 
+/** What to tell a reader about this copy of the app. */
+export interface DisplayVersion {
+  /** The native apps' release number (1.2.3, set from the release tag). */
+  release: string | null
+  /** When the web bundle was compiled, as a timestamp. */
+  build: string
+}
+
 @Injectable({
   providedIn: "root",
 })
 export class BuildVersionService {
+  private readonly appPlugin = inject(APP_PLUGIN)
   private buildVersion = FALLBACK_BUILD_VERSION
   private buildEnvironment = "unknown"
   private loadPromise?: Promise<void>
@@ -32,6 +43,36 @@ export class BuildVersionService {
     return {
       buildVersion: this.buildVersion,
       buildEnvironment: this.buildEnvironment,
+    }
+  }
+
+  /**
+   * The compile timestamp of the web bundle, which the native apps ship
+   * inside them, and, in the native apps only, their release number.
+   * Uses `dev-local` when build metadata is unavailable or has no nonblank
+   * build version, including during server rendering. The release is null
+   * on the web, when blank, or when the native app info lookup fails.
+   */
+  async getDisplayVersion(): Promise<DisplayVersion> {
+    const [release, { buildVersion }] = await Promise.all([
+      this.getRelease(),
+      this.getBuildInfo(),
+    ])
+    return { release, build: buildVersion ?? FALLBACK_BUILD_VERSION }
+  }
+
+  /**
+   * Returns the native release as reported, preserving surrounding whitespace.
+   * Returns null on the web, for a missing or blank version, or if the app
+   * info lookup fails.
+   */
+  async getRelease(): Promise<string | null> {
+    if (!Capacitor.isNativePlatform()) return null
+    try {
+      const { version } = await this.appPlugin.getInfo()
+      return version?.trim() ? version : null
+    } catch {
+      return null
     }
   }
 

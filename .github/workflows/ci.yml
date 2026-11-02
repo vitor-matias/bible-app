@@ -4,41 +4,113 @@ on:
   push:
     branches: [ master, main ]
   pull_request:
-    branches: [ master, main ]
+    branches: [ master, main, 'feat/**' ]
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 26
+          node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci
       - name: Run Biome Lint
-        run: npx biome ci src karma.conf.js
+        run: npx biome ci src vitest-base.config.mts
 
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 26
+          node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - name: Run Tests (Headless)
-        run: npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox
+        run: npx ng test --watch=false
 
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 26
+          node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci
       - name: Build Production
         run: npx ng build --configuration=production
+      # `ng serve` never renders on the server, so hydration needs this build.
+      - run: npx playwright install --with-deps chromium
+      - name: Check the prerendered pages hydrate
+        run: npx playwright test --config=playwright.prerendered.config.ts
+
+  # Playwright specs in e2e/ against `ng serve`. Like the dev server they use,
+  # they read the real books, chapters and search from the public API
+  # (proxy.conf.js), so this job needs the runner to reach that API.
+  e2e:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Run Playwright tests
+        run: npx playwright test
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-results
+          path: test-results
+          retention-days: 7
+
+  # Compiles the native Android app around the web bundle it ships, runs its
+  # JVM unit tests and Android lint, and builds the release APK through R8,
+  # so a shrinking or keep-rule break fails here too. Nothing is signed;
+  # build-all-platforms.yml makes the signed release builds.
+  android:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+      - run: npm ci
+      # compileSdk 37 (variables.gradle), which the runner's SDK may not have.
+      - name: Android SDK 37
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;37.0.0" > /dev/null'
+      # cap:prune copies the build to Capacitor's webDir without the
+      # prerendered route pages; sync copies it and the plugins into android/.
+      - name: Build the native web bundle
+        run: |
+          set -e
+          npm run build
+          npm run cap:prune
+          npx cap sync android
+      - name: Unit tests, lint and R8 release APK
+        working-directory: android
+        run: ./gradlew testDebugUnitTest lintDebug assembleRelease
+      - name: Upload test and lint reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-reports
+          path: android/app/build/reports
+          retention-days: 7

@@ -3,9 +3,10 @@ import {
   ChangeDetectionStrategy,
   Component,
   type ElementRef,
-  EventEmitter,
   Input,
-  Output,
+  inject,
+  input,
+  output,
   ViewChild,
 } from "@angular/core"
 import { FormsModule } from "@angular/forms"
@@ -34,7 +35,11 @@ import { MatToolbarModule } from "@angular/material/toolbar"
   styleUrls: ["./search-bar.component.css"],
 })
 export class SearchBarComponent {
-  @Output() searchValue = new EventEmitter<string>()
+  private location = inject(Location)
+
+  readonly searchValue = output<string>()
+  /** Every edit, for searching as people type. */
+  readonly typing = output<string>()
 
   @ViewChild("searchInput", { static: false })
   searchInput!: ElementRef<HTMLInputElement>
@@ -42,15 +47,20 @@ export class SearchBarComponent {
   query = ""
 
   /** Prefills the input (e.g. with a share-target query). */
+  // A setter input with side effects: stays an @Input (no signal input form).
   @Input()
   set value(value: string) {
     this.query = value ?? ""
   }
 
-  constructor(private location: Location) {}
+  /**
+   * Opens with the keyboard up, ready to type. Not over results already on
+   * screen, as after Back from one of them: the keyboard would hide them.
+   */
+  readonly focusOnOpen = input(true)
 
   ngAfterViewInit(): void {
-    if (this.searchInput) {
+    if (this.focusOnOpen() && this.searchInput) {
       this.searchInput.nativeElement.focus()
     }
   }

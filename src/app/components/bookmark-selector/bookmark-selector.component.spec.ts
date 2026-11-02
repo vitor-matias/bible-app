@@ -11,18 +11,20 @@ import { BehaviorSubject } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
+import { ribbonColor } from "../../services/bookmark-ribbons.service"
+import { HapticsService } from "../../services/haptics.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BookmarkSelectorComponent } from "./bookmark-selector.component"
 
 describe("BookmarkSelectorComponent", () => {
   let component: BookmarkSelectorComponent
+  let hapticsSpy: SpyObj<HapticsService>
   let fixture: ComponentFixture<BookmarkSelectorComponent>
-  let bookmarkServiceSpy: jasmine.SpyObj<BookmarkService>
-  let _bookServiceSpy: jasmine.SpyObj<BookService>
-  let bottomSheetRefSpy: jasmine.SpyObj<
-    MatBottomSheetRef<BookmarkSelectorComponent>
-  >
-  let routerSpy: jasmine.SpyObj<Router>
-  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
+  let bookmarkServiceSpy: SpyObj<BookmarkService>
+  let _bookServiceSpy: SpyObj<BookService>
+  let bottomSheetRefSpy: SpyObj<MatBottomSheetRef<BookmarkSelectorComponent>>
+  let routerSpy: SpyObj<Router>
+  let analyticsServiceSpy: SpyObj<AnalyticsService>
   let bookmarksSubject: BehaviorSubject<Bookmark[]>
 
   const mockData = { bookId: "GEN", chapter: 1 }
@@ -31,30 +33,31 @@ describe("BookmarkSelectorComponent", () => {
   ]
 
   beforeEach(async () => {
-    const bookmarkSpy = jasmine.createSpyObj("BookmarkService", [
+    const bookmarkSpy = createSpyObj("BookmarkService", [
       "addBookmark",
       "removeBookmark",
     ])
-    const bookSpy = jasmine.createSpyObj("BookService", [
+    const bookSpy = createSpyObj("BookService", [
       "findBookById",
       "getUrlAbrv",
       "getChapterUrlSegment",
     ])
-    const sheetSpy = jasmine.createSpyObj("MatBottomSheetRef", ["dismiss"])
-    const rSpy = jasmine.createSpyObj("Router", ["navigate"])
-    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
-    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
+    const sheetSpy = createSpyObj("MatBottomSheetRef", ["dismiss"])
+    const rSpy = createSpyObj("Router", ["navigate"])
+    analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
+    analyticsServiceSpy.track.mockResolvedValue(undefined)
 
     bookmarksSubject = new BehaviorSubject<Bookmark[]>(mockBookmarks)
     void Object.defineProperty(bookmarkSpy, "bookmarks$", {
       get: () => bookmarksSubject.asObservable(),
     })
 
-    bookmarkSpy.addBookmark.and.returnValue(Promise.resolve())
-    bookmarkSpy.removeBookmark.and.returnValue(Promise.resolve())
-    bookSpy.findBookById.and.returnValue({ abrv: "Mc", shortName: "Marcos" })
-    bookSpy.getUrlAbrv.and.returnValue("mrk")
-    bookSpy.getChapterUrlSegment.and.callFake((chapter: number) =>
+    bookmarkSpy.addBookmark.mockResolvedValue(undefined)
+    hapticsSpy = createSpyObj("HapticsService", ["light", "success"])
+    bookmarkSpy.removeBookmark.mockResolvedValue(undefined)
+    bookSpy.findBookById.mockReturnValue({ abrv: "Mc", shortName: "Marcos" })
+    bookSpy.getUrlAbrv.mockReturnValue("mrk")
+    bookSpy.getChapterUrlSegment.mockImplementation((chapter: number) =>
       chapter === 0 ? "intro" : chapter.toString(),
     )
 
@@ -72,6 +75,7 @@ describe("BookmarkSelectorComponent", () => {
         { provide: MatBottomSheetRef, useValue: sheetSpy },
         { provide: Router, useValue: rSpy },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
+        { provide: HapticsService, useValue: hapticsSpy },
       ],
     }).compileComponents()
 
@@ -79,12 +83,12 @@ describe("BookmarkSelectorComponent", () => {
     component = fixture.componentInstance
     bookmarkServiceSpy = TestBed.inject(
       BookmarkService,
-    ) as jasmine.SpyObj<BookmarkService>
-    _bookServiceSpy = TestBed.inject(BookService) as jasmine.SpyObj<BookService>
-    bottomSheetRefSpy = TestBed.inject(MatBottomSheetRef) as jasmine.SpyObj<
+    ) as SpyObj<BookmarkService>
+    _bookServiceSpy = TestBed.inject(BookService) as SpyObj<BookService>
+    bottomSheetRefSpy = TestBed.inject(MatBottomSheetRef) as SpyObj<
       MatBottomSheetRef<BookmarkSelectorComponent>
     >
-    routerSpy = TestBed.inject(Router) as jasmine.SpyObj<Router>
+    routerSpy = TestBed.inject(Router) as SpyObj<Router>
 
     fixture.detectChanges()
   })
@@ -104,10 +108,57 @@ describe("BookmarkSelectorComponent", () => {
     expect(redRibbon?.bookmark).toBeUndefined()
   })
 
+  // Android's WebView painted the sheet garbled while the ribbons were cut to
+  // shape with clip-path: half the sheet missing, ghost ribbons beside them.
+  // The colour is the theme's tone for the ribbon (--ribbon-*).
+  it("draws each ribbon's shape in its colour instead of clipping the button", () => {
+    const buttons = Array.from(
+      fixture.nativeElement.querySelectorAll(".color-button"),
+    ) as HTMLElement[]
+    expect(buttons.length).toBe(component.ribbons.length)
+
+    buttons.forEach((button, index) => {
+      expect(getComputedStyle(button).clipPath).toBe("none")
+      const shape = button.querySelector(".ribbon-shape path") as SVGElement
+      expect(getComputedStyle(shape).fill).toBe(
+        colorOf(ribbonColor(component.ribbons[index].value) ?? ""),
+      )
+    })
+  })
+
+  // A screen reader said "Red", "Orange"… in an app otherwise in Portuguese.
+  it("names each ribbon in Portuguese, with the passage it marks", () => {
+    const labels = Array.from(
+      fixture.nativeElement.querySelectorAll(".color-button"),
+      (button: Element) => button.getAttribute("aria-label"),
+    )
+
+    expect(labels).toEqual([
+      "Vermelho",
+      "Laranja",
+      "Azul-petróleo",
+      "Verde",
+      "Azul, Mc 2",
+      "Índigo",
+      "Violeta",
+      "Cinzento",
+    ])
+  })
+
+  /** A CSS colour as getComputedStyle reports it ("red" → "rgb(255, 0, 0)"). */
+  const colorOf = (color: string): string => {
+    const probe = document.createElement("span")
+    probe.style.color = color
+    document.body.append(probe)
+    const computed = getComputedStyle(probe).color
+    probe.remove()
+    return computed
+  }
+
   it("should toggle delete mode", () => {
-    expect(component.isDeleteMode).toBeFalse()
+    expect(component.isDeleteMode).toBe(false)
     component.toggleDeleteMode()
-    expect(component.isDeleteMode).toBeTrue()
+    expect(component.isDeleteMode).toBe(true)
   })
 
   it("should navigate when clicking a ribbon assigned elsewhere", () => {
@@ -130,6 +181,7 @@ describe("BookmarkSelectorComponent", () => {
 
     expect(bookmarkServiceSpy.addBookmark).toHaveBeenCalledWith("GEN", 1, "red")
     expect(bottomSheetRefSpy.dismiss).not.toHaveBeenCalled()
+    expect(hapticsSpy.success).toHaveBeenCalled()
   })
 
   it("should NOT remove bookmark when clicking ribbon assigned to current location", () => {
@@ -160,17 +212,60 @@ describe("BookmarkSelectorComponent", () => {
     expect(bookmarkServiceSpy.removeBookmark).toHaveBeenCalledWith("MRK", 2)
   })
 
+  describe("moving a ribbon read on from", () => {
+    const moveButton = (): HTMLButtonElement | null =>
+      fixture.nativeElement.querySelector(".move-button")
+    const blueOnIntro: Bookmark = {
+      bookId: "GEN",
+      chapter: 0,
+      color: "blue",
+      timestamp: 1,
+    }
+
+    it("offers nothing without a ribbon behind this chapter", () => {
+      expect(moveButton()).toBeNull()
+    })
+
+    it("moves the ribbon here, then undoes the move", () => {
+      bookmarksSubject.next([blueOnIntro])
+      fixture.detectChanges()
+      expect(moveButton()?.textContent).toContain(
+        "Mover o marcador azul de Mc Introdução para Mc 1",
+      )
+
+      moveButton()?.click()
+      expect(bookmarkServiceSpy.addBookmark).toHaveBeenCalledWith(
+        "GEN",
+        1,
+        "blue",
+      )
+      bookmarksSubject.next([{ ...blueOnIntro, chapter: 1, timestamp: 2 }])
+      fixture.detectChanges()
+      expect(moveButton()?.textContent).toContain(
+        "Desfazer: o marcador azul volta a Mc Introdução",
+      )
+
+      moveButton()?.click()
+      expect(bookmarkServiceSpy.addBookmark).toHaveBeenCalledWith(
+        "GEN",
+        0,
+        "blue",
+      )
+      bookmarksSubject.next([blueOnIntro])
+      fixture.detectChanges()
+      expect(moveButton()?.textContent).toContain("Mover o marcador azul")
+    })
+  })
+
   it("should warn and not navigate when bookmark references unknown book", () => {
-    const bookServiceSpy = TestBed.inject(
-      BookService,
-    ) as jasmine.SpyObj<BookService>
-    bookServiceSpy.findBookById.and.returnValue(undefined)
+    const bookServiceSpy = TestBed.inject(BookService) as SpyObj<BookService>
+    bookServiceSpy.findBookById.mockReturnValue(undefined)
     bookmarksSubject.next([
       { bookId: "UNKNOWN", chapter: 1, color: "blue", timestamp: 789 },
     ])
     fixture.detectChanges()
 
-    spyOn(console, "warn")
+    vi.spyOn(console, "warn").mockReturnValue(undefined)
     const blueRibbon = component.ribbons.find((r) => r.value === "blue")
     expect(blueRibbon).toBeTruthy()
     if (blueRibbon) {

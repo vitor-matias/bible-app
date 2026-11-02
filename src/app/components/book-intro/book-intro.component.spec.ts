@@ -57,6 +57,19 @@ describe("BookIntroComponent", () => {
     )
   })
 
+  // Browsers add a tbody when parsing prerendered HTML; without one in the
+  // template too, hydrating an introduction with a table throws NG0501.
+  it("should keep table rows in an explicit tbody", () => {
+    setIntroduction([
+      { type: "introTable", rows: [["1—11", "Origens"]] },
+    ] as IntroElement[])
+
+    const rows =
+      fixture.nativeElement.querySelector("table.intro-table").children
+    expect(rows.length).toBe(1)
+    expect(rows[0].tagName).toBe("TBODY")
+  })
+
   // The sidebar renders <book-intro> again; without the reset its own
   // .intro-container compounds 120% to 144%.
   it("should not compound the container font size inside a sidebar", () => {
@@ -88,6 +101,23 @@ describe("BookIntroComponent", () => {
       fixture.nativeElement.querySelector("h2.intro-title-1").textContent,
     ).toContain("EVANGELHO SEGUNDO SÃO JOÃO")
     expect(fixture.nativeElement.querySelector("h3.intro-title-2")).toBeTruthy()
+  })
+
+  // The Android bar names the section being read (NativeChromeService).
+  it("marks its titles as section headings", () => {
+    setIntroduction([
+      { type: "introTitle", level: 1, text: "EVANGELHO SEGUNDO SÃO JOÃO" },
+      { type: "introTitle", level: 2, text: "Autor" },
+      { type: "introTitle", level: 3, text: "Data" },
+      { type: "introParagraph", text: "depois" },
+    ])
+
+    const headings = fixture.nativeElement.querySelectorAll(
+      "[data-section-heading]",
+    ) as NodeListOf<HTMLElement>
+    expect(
+      Array.from(headings, (heading) => heading.textContent?.trim()),
+    ).toEqual(["EVANGELHO SEGUNDO SÃO JOÃO", "Autor", "Data"])
   })
 
   it("should group consecutive list items into one list", () => {

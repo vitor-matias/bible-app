@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page, test as base } from "@playwright/test"
+import { test as base, expect, type Locator, type Page } from "@playwright/test"
 
 // The app proxies /v1 to https://biblia.capuchinhos.org — tests run against
 // the live dev server and the real API.
@@ -61,9 +61,9 @@ test.describe("Initial load", () => {
     // Angular router redirects to a stored or default book/chapter
     await expect(page).toHaveURL(/\/[a-z0-9-]+\/\d+/, { timeout: 10_000 })
     // Content should load — either verses (bible book) or the about page
-    await expect(
-      page.locator("verse, about").first(),
-    ).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator("verse, about").first()).toBeVisible({
+      timeout: 15_000,
+    })
   })
 
   test("shows the header with book and chapter labels", async ({ page }) => {
@@ -131,7 +131,9 @@ test.describe("Book selector drawer", () => {
     const drawer = page.locator("mat-drawer")
     await expect(drawer).toBeVisible({ timeout: 5_000 })
     // Book selector should list at least one entry
-    await expect(drawer.locator("mat-tree-node, mat-list-item").first()).toBeVisible()
+    await expect(
+      drawer.locator("mat-tree-node, mat-list-item").first(),
+    ).toBeVisible()
   })
 
   // bible-canon.ts lists the books by id and BookSelectorComponent.getBook
@@ -146,11 +148,26 @@ test.describe("Book selector drawer", () => {
     const drawer = page.locator("mat-drawer")
     await expect(drawer).toBeVisible({ timeout: 5_000 })
 
-    // 73 canonical books plus the synthetic About entry the picker appends.
+    // The 73 canonical books. Introductions are left out by id: their number follows the content, and
+    // a cluster's goes by its name, so their labels can't tell them apart.
     const books = drawer.locator(
       "mat-tree-node:not(.book-group) .bookSelectorButton",
     )
-    await expect.poll(() => books.count(), { timeout: 15_000 }).toBe(74)
+    const intros: { slug: string }[] = await (
+      await page.request.get("/v1/intros")
+    ).json()
+    const introIds = new Set(intros.map((intro) => intro.slug))
+    await expect
+      .poll(
+        async () =>
+          (
+            await books.evaluateAll((nodes) =>
+              nodes.map((node) => node.getAttribute("data-book-id") ?? ""),
+            )
+          ).filter((id) => !introIds.has(id)).length,
+        { timeout: 15_000 },
+      )
+      .toBe(73)
 
     const unresolved = await books.evaluateAll((nodes) =>
       nodes
@@ -175,7 +192,9 @@ test.describe("Book selector drawer", () => {
 })
 
 test.describe("Chapter selector", () => {
-  test("opens chapter list when chapter toggle is clicked", async ({ page }) => {
+  test("opens chapter list when chapter toggle is clicked", async ({
+    page,
+  }) => {
     await page.goto("/jo/1")
     await page.locator("verse").first().waitFor({ timeout: 15_000 })
 
@@ -251,6 +270,9 @@ test.describe("Icon font", () => {
     await expect(wizard).toBeVisible()
 
     const dots = wizard.locator(".dot")
+    // count() doesn't wait: the dialog is visible a beat before its dots are
+    // rendered, and an early 0 skips the loop, so the install step never opens.
+    await expect(dots.first()).toBeVisible()
     const count = await dots.count()
     for (let i = 0; i < count; i++) {
       await dots.nth(i).click()
@@ -406,3 +428,120 @@ test.describe("Onboarding", () => {
   })
 })
 
+test.describe("Link previews", () => {
+  // Messaging apps blow any image 300px or wider up into a full-width banner;
+  // a small square one is shown as a thumbnail beside the text. They only
+  // fetch it from the absolute production URL.
+  test("advertises a small square thumbnail that the app actually ships", async ({
+    page,
+  }) => {
+    await page.goto("/jo/1")
+
+    const content = (selector: string) =>
+      page.locator(selector).getAttribute("content")
+
+    const image = await content('meta[property="og:image"]')
+    expect(image).toMatch(/^https:\/\/biblia\.capuchinhos\.org\/imgs\/.+\.png$/)
+    expect(await content('meta[name="twitter:image"]')).toBe(image)
+    expect(await content('meta[name="twitter:card"]')).toBe("summary")
+
+    const size = await page.evaluate(
+      async (src) => {
+        const img = new Image()
+        img.src = src
+        await img.decode()
+        return { width: img.naturalWidth, height: img.naturalHeight }
+      },
+      new URL(image ?? "").pathname,
+    )
+
+    expect(size).toEqual({
+      width: Number(await content('meta[property="og:image:width"]')),
+      height: Number(await content('meta[property="og:image:height"]')),
+    })
+    expect(size.width).toBe(size.height)
+    expect(size.width).toBeGreaterThanOrEqual(200)
+    expect(size.width).toBeLessThan(300)
+  })
+})
+
+test.describe("Theme before the bundle", () => {
+  const cases: [os: "light" | "dark", stored: string | null, dark: boolean][] =
+    [
+      ["dark", null, true],
+      ["dark", "system", true],
+      ["light", "dark", true],
+      ["light", null, false],
+      ["light", "system", false],
+      ["dark", "light", false],
+    ]
+
+  for (const [os, stored, dark] of cases) {
+    test(`device ${os}, stored ${stored}: ${dark ? "dark" : "light"} with no JS bundle`, async ({
+      page,
+    }) => {
+      await page.emulateMedia({ colorScheme: os })
+      await page.addInitScript((theme) => {
+        if (theme) localStorage.setItem("theme", theme)
+      }, stored)
+      // With every .js file blocked, only the inline script can set the theme,
+      // so this is what the first frame looks like before the bundle arrives.
+      await page.route("**/*.js", (route) => route.abort())
+
+      await page.goto("/gn/1")
+
+      await expect(page.locator("body")).toHaveCSS(
+        "background-color",
+        dark ? "rgb(18, 18, 18)" : "rgb(255, 255, 255)",
+      )
+    })
+  }
+
+  test("unreadable storage follows the device", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "dark" })
+    await page.addInitScript(() =>
+      Object.defineProperty(window, "localStorage", {
+        get() {
+          throw new Error("blocked")
+        },
+      }),
+    )
+    await page.route("**/*.js", (route) => route.abort())
+
+    await page.goto("/gn/1")
+
+    await expect(page.locator("html")).toHaveClass(/dark-theme/)
+  })
+
+  test("the bundle does not take dark away again on a stored system theme", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: "dark" })
+    await page.addInitScript(() => {
+      localStorage.setItem("theme", "system")
+      const before: (string | null)[] = []
+      Object.assign(window, { classesBefore: before })
+      new MutationObserver((records) => {
+        for (const record of records) {
+          if (record.target === document.documentElement)
+            before.push(record.oldValue)
+        }
+      }).observe(document, {
+        subtree: true,
+        attributeFilter: ["class"],
+        attributeOldValue: true,
+      })
+    })
+
+    await page.goto("/gn/1")
+    await page.locator("verse").first().waitFor({ timeout: 15_000 })
+
+    const before = await page.evaluate(
+      () => (window as unknown as { classesBefore: string[] }).classesBefore,
+    )
+    // The first change is the inline script adding it; any class list after
+    // that without it means the page went back to light for a moment.
+    expect(before.slice(1).every((c) => c.includes("dark-theme"))).toBe(true)
+    await expect(page.locator("html")).toHaveClass(/dark-theme/)
+  })
+})

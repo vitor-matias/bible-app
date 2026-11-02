@@ -181,6 +181,7 @@
 }
 
 .actions {
+  container-type: inline-size;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -233,6 +234,22 @@
 .buttons {
   display: flex;
   gap: 4px;
+}
+
+/* The widest step's row (five dots, «Anterior» and «Começar a ler») needs
+   ~360px, so a phone-width dialog gives the dots and the buttons a row each
+   on every step. Left to wrap, only the steps with the longer labels did,
+   and the buttons jumped between rows from one step to the next. */
+@container (width < 380px) {
+  .dots {
+    flex-basis: 100%;
+    justify-content: center;
+  }
+
+  .buttons {
+    flex-basis: 100%;
+    justify-content: space-between;
+  }
 }
 
 @keyframes fade-in {

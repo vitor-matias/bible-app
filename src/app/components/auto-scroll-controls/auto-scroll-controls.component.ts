@@ -3,14 +3,27 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
-  Input,
+  DestroyRef,
+  inject,
+  input,
+  NgZone,
   OnDestroy,
+  OnInit,
 } from "@angular/core"
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
 import { PreferencesService } from "../../services/preferences.service"
+
+/**
+ * How close to the slowest or fastest speed counts as there. The service
+ * keeps four decimals, so the slowest, 1/6, is stored as 0.1667: a little
+ * above it, which left − enabled there. The nearest steps are 0.03 apart.
+ */
+const SPEED_LIMIT_TOLERANCE = 0.001
 
 @Component({
   selector: "app-auto-scroll-controls",
@@ -20,23 +33,45 @@ import { PreferencesService } from "../../services/preferences.service"
   styleUrls: ["./auto-scroll-controls.component.css"],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AutoScrollControlsComponent implements OnDestroy {
-  @Input() scrollElement?: HTMLElement
-  @Input() lineHeightElement?: HTMLElement
+export class AutoScrollControlsComponent implements OnInit, OnDestroy {
+  private autoScrollService = inject(AutoScrollService)
+  private preferencesService = inject(PreferencesService)
+  private cdr = inject(ChangeDetectorRef)
+  private analyticsService = inject(AnalyticsService)
 
-  constructor(
-    private autoScrollService: AutoScrollService,
-    private preferencesService: PreferencesService,
-    private cdr: ChangeDetectorRef,
-    private analyticsService: AnalyticsService,
-  ) {}
+  readonly scrollElement = input<HTMLElement>()
+  readonly lineHeightElement = input<HTMLElement>()
+
+  private readonly nativeChrome = inject(NativeChromeService)
+  private readonly destroyRef = inject(DestroyRef)
+  private readonly ngZone = inject(NgZone)
+  /** The native apps show these controls in their own toolbar instead. */
+  readonly native = this.nativeChrome.enabled
+
+  /** The page is scrolled to its end: there's nothing left to play. */
+  atEnd = false
+
+  ngOnInit(): void {
+    this.followEnd()
+    if (!this.native) return
+    this.nativeChrome.actions$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ id }) => {
+        if (id === "auto-scroll-toggle") this.toggleAutoScroll()
+        if (id === "auto-scroll-slower") this.decreaseAutoScrollSpeed()
+        if (id === "auto-scroll-faster") this.increaseAutoScrollSpeed()
+      })
+    this.syncNativeChrome()
+  }
 
   ngOnDestroy(): void {
     this.stopAutoScroll()
+    if (this.native) this.nativeChrome.setAutoScroll(null)
   }
 
   toggleAutoScroll(): void {
     if (!this.autoScrollEnabled) {
+      if (this.scrolledToEnd()) return
       this.startAutoScroll()
     } else {
       this.stopAutoScroll()
@@ -60,14 +95,17 @@ export class AutoScrollControlsComponent implements OnDestroy {
     })
 
     this.cdr.markForCheck()
+    this.syncNativeChrome()
   }
 
   private startAutoScroll(): void {
-    if (!this.scrollElement || !this.lineHeightElement) return
+    const scrollElement = this.scrollElement()
+    const lineHeightElement = this.lineHeightElement()
+    if (!scrollElement || !lineHeightElement) return
 
     this.autoScrollService.start({
-      scrollElement: this.scrollElement,
-      lineHeightElement: this.lineHeightElement,
+      scrollElement,
+      lineHeightElement,
       onStop: () => {
         this.safeMarkForCheck()
       },
@@ -90,12 +128,69 @@ export class AutoScrollControlsComponent implements OnDestroy {
     this.safeMarkForCheck()
   }
 
+  /**
+   * Keeps atEnd current as the page scrolls, or reflows: its text changing
+   * size, or the page itself (a window resized).
+   */
+  private followEnd(): void {
+    const element = this.scrollElement()
+    if (!element) return
+    const update = () => {
+      const atEnd = this.scrolledToEnd()
+      if (atEnd === this.atEnd) return
+      this.ngZone.run(() => {
+        this.atEnd = atEnd
+        this.safeMarkForCheck()
+      })
+    }
+    this.atEnd = this.scrolledToEnd()
+    // Scrolling needs no change detection, only a change of atEnd does.
+    const resize =
+      typeof ResizeObserver === "undefined"
+        ? undefined
+        : new ResizeObserver(update)
+    this.ngZone.runOutsideAngular(() => {
+      element.addEventListener("scroll", update, { passive: true })
+      resize?.observe(element)
+      const lineHeightElement = this.lineHeightElement()
+      if (lineHeightElement) resize?.observe(lineHeightElement)
+    })
+    this.destroyRef.onDestroy(() => {
+      element.removeEventListener("scroll", update)
+      resize?.disconnect()
+    })
+  }
+
+  /** Down as far as it goes, to the pixel (WebKit keeps whole pixels). */
+  private scrolledToEnd(): boolean {
+    const element = this.scrollElement()
+    if (!element) return false
+    return element.scrollTop + element.clientHeight >= element.scrollHeight - 1
+  }
+
   private safeMarkForCheck(): void {
     try {
       this.cdr.markForCheck()
     } catch {
       // Safely ignore errors if change detection cannot be triggered (e.g., component destroyed)
     }
+    this.syncNativeChrome()
+  }
+
+  /** Sends what these controls show to the native toolbar. */
+  private syncNativeChrome(): void {
+    if (!this.native || this.destroyRef.destroyed) return
+    this.nativeChrome.setAutoScroll({
+      playing: this.autoScrollEnabled,
+      speedLabel: this.autoScrollSpeedLabel,
+      speedAccessibilityLabel:
+        this.autoScrollService.getAutoScrollSpeedSpokenLabel(
+          this.autoScrollLinesPerSecond,
+        ),
+      canSlower: this.canSlower,
+      canFaster: this.canFaster,
+      canPlay: !this.atEnd,
+    })
   }
 
   get autoScrollEnabled(): boolean {
@@ -109,6 +204,22 @@ export class AutoScrollControlsComponent implements OnDestroy {
   get autoScrollSpeedLabel(): string {
     return this.autoScrollService.getAutoScrollSpeedLabel(
       this.autoScrollLinesPerSecond,
+    )
+  }
+
+  /** Whether − can go slower; at the slowest it is disabled. */
+  get canSlower(): boolean {
+    return (
+      this.autoScrollLinesPerSecond - this.MIN_AUTO_SCROLL_LPS >
+      SPEED_LIMIT_TOLERANCE
+    )
+  }
+
+  /** Whether + can go faster; at the fastest it is disabled. */
+  get canFaster(): boolean {
+    return (
+      this.MAX_AUTO_SCROLL_LPS - this.autoScrollLinesPerSecond >
+      SPEED_LIMIT_TOLERANCE
     )
   }
 

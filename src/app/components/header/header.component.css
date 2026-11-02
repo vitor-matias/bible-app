@@ -75,7 +75,9 @@ mat-icon {
 
 .searchButton {
   position: fixed;
-  right: 8px;
+  /* Clear of a navigation bar or notch at the side of a landscape screen
+     (Android's 3-button bar covered this button). */
+  right: calc(8px + var(--app-inset-right));
   background-color: antiquewhite;
   color: #543d27;
   width: 18px;
@@ -99,7 +101,7 @@ mat-icon {
 
 .menuButton {
   position: fixed;
-  left: 8px;
+  left: calc(8px + var(--app-inset-left));
   background-color: antiquewhite;
   color: #543d27;
   width: 18px;
@@ -154,13 +156,47 @@ mat-icon {
   min-width: 240px;
 }
 
-.menu-controls button {
+/* Round icon buttons. They are menu items underneath, so the menu's arrow
+   keys reach them. */
+.menu-control.mat-mdc-menu-item {
+  flex: none;
+  justify-content: center;
+  width: 48px;
+  min-width: 0;
+  height: 48px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
   transform: scale(1.2);
+}
+
+/* An icon alone: the menu item's empty label would take the room and push
+   the icon to the side. */
+.menu-control ::ng-deep .mat-mdc-menu-item-text {
+  display: none;
+}
+
+.menu-control mat-icon {
+  margin: 0;
   color: inherit;
 }
 
-.menu-controls mat-icon {
-  color: inherit;
+/* The ribbon on the chapter being read, small after its number. */
+.chapter-ribbon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  vertical-align: -3px;
+  font-variation-settings: "FILL" 1;
+}
+
+/* Small print under the last item, level with the items' icons, on one line. */
+.menu-version {
+  padding: 4px 16px 8px;
+  font-size: 0.75rem;
+  opacity: 0.6;
+  white-space: nowrap;
 }
 
 ::ng-deep .mat-mdc-menu-content .privacy-label {

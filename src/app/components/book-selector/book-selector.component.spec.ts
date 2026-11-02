@@ -1,7 +1,13 @@
-import { SimpleChange } from "@angular/core"
+import {
+  ApplicationRef,
+  Component,
+  SimpleChange,
+  ViewChild,
+} from "@angular/core"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import { MATERIAL_ANIMATIONS } from "@angular/material/core"
+import { MatDrawer, MatSidenavModule } from "@angular/material/sidenav"
 import type { CanonGroup } from "../../bible-canon"
-
 import { BookSelectorComponent } from "./book-selector.component"
 
 describe("BookSelectorComponent", () => {
@@ -34,6 +40,16 @@ describe("BookSelectorComponent", () => {
         label.textContent?.trim(),
       ),
     ).toEqual(["Antigo Testamento", "Novo Testamento"])
+  })
+
+  // The About page is in the header's menu, not among the books.
+  it("does not list the About page", () => {
+    expect(component.newTestament.map((group) => group.name)).not.toContain(
+      "Sobre a Bíblia",
+    )
+    expect(
+      component.newTestament.flatMap((group) => group.books),
+    ).not.toContain("about")
   })
 
   // The testament label and the tree nodes once shared a grouped selector with
@@ -69,11 +85,13 @@ describe("BookSelectorComponent", () => {
   // ngAfterViewInit also runs while prerendering, where the server DOM has no
   // scrollIntoView — calling it there threw once per prerendered route.
   it("should not scroll straight from ngAfterViewInit", () => {
-    component.selectedBookId = "gen"
+    fixture.componentRef.setInput("selectedBookId", "gen")
     const target = document.createElement("div")
     target.setAttribute("data-book-id", "gen")
     ;(fixture.nativeElement as HTMLElement).appendChild(target)
-    const scrollSpy = spyOn(Element.prototype, "scrollIntoView")
+    const scrollSpy = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockReturnValue(undefined)
 
     component.ngAfterViewInit()
 
@@ -81,7 +99,7 @@ describe("BookSelectorComponent", () => {
   })
 
   it("lists a group's introduction before its books", () => {
-    component.books = [
+    fixture.componentRef.setInput("books", [
       {
         id: "pentateuco",
         name: "Introdução Ao Pentateuco",
@@ -98,9 +116,9 @@ describe("BookSelectorComponent", () => {
         abrv: "Gn",
         chapterCount: 50,
       },
-    ]
+    ])
     component.ngOnChanges({
-      books: new SimpleChange(undefined, component.books, true),
+      books: new SimpleChange(undefined, component.books(), true),
     })
 
     const groups = component.otDataSource.data as CanonGroup[]
@@ -108,8 +126,46 @@ describe("BookSelectorComponent", () => {
     expect(pentateuco?.books[0]).toBe("pentateuco")
   })
 
+  it("names a cluster's introduction, listed before its books", () => {
+    fixture.componentRef.setInput("books", [
+      {
+        id: "joao",
+        name: "Cartas de João",
+        shortName: "Cartas de João",
+        abrv: "joao",
+        chapterCount: 0,
+        introduction: [],
+        introSlug: "joao",
+      },
+      {
+        id: "1jn",
+        name: "Primeira Carta de São João",
+        shortName: "1 João",
+        abrv: "1 Jo",
+        chapterCount: 5,
+      },
+    ])
+    component.ngOnChanges({
+      books: new SimpleChange(undefined, component.books(), true),
+    })
+
+    const groups = component.ntDataSource.data as CanonGroup[]
+    const catholic = groups.find((group) => group.name === "Cartas Católicas")
+    expect(catholic?.books).toEqual([
+      "jas",
+      "1pe",
+      "2pe",
+      "joao",
+      "1jn",
+      "2jn",
+      "3jn",
+      "jud",
+    ])
+    expect(component.entryLabel("joao")).toBe("Cartas de João")
+  })
+
   it("omits introduction entries the API did not provide", () => {
-    component.books = [
+    fixture.componentRef.setInput("books", [
       {
         id: "gen",
         name: "Livro do Génesis",
@@ -117,14 +173,14 @@ describe("BookSelectorComponent", () => {
         abrv: "Gn",
         chapterCount: 50,
       },
-    ]
+    ])
     component.ngOnChanges({
-      books: new SimpleChange(undefined, component.books, true),
+      books: new SimpleChange(undefined, component.books(), true),
     })
 
     // No synthetic intro books loaded: nothing blank may be listed.
     const groups = component.otDataSource.data as CanonGroup[]
-    expect(groups.some((group) => group.name === "geral")).toBeFalse()
+    expect(groups.some((group) => group.name === "geral")).toBe(false)
     const pentateuco = groups.find((group) => group.name === "Pentateuco")
     expect(pentateuco?.books).not.toContain("pentateuco")
   })
@@ -139,8 +195,10 @@ describe("BookSelectorComponent", () => {
     const target = document.createElement("div")
     target.setAttribute("data-book-id", "gen")
     ;(freshFixture.nativeElement as HTMLElement).appendChild(target)
-    freshFixture.componentInstance.selectedBookId = "gen"
-    const scrollSpy = spyOn(Element.prototype, "scrollIntoView")
+    freshFixture.componentRef.setInput("selectedBookId", "gen")
+    const scrollSpy = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockReturnValue(undefined)
 
     freshFixture.detectChanges()
     await freshFixture.whenStable()
@@ -151,7 +209,7 @@ describe("BookSelectorComponent", () => {
   })
 
   it("filters books with accent-insensitive short names", () => {
-    component.books = [
+    fixture.componentRef.setInput("books", [
       {
         id: "gen",
         name: "Livro do Génesis",
@@ -159,7 +217,7 @@ describe("BookSelectorComponent", () => {
         abrv: "Gn",
         chapterCount: 50,
       },
-    ]
+    ])
 
     component.filterBooks("genesis")
 
@@ -175,7 +233,7 @@ describe("BookSelectorComponent", () => {
   it("keeps the introductions that belong to no group in a filtered list", () => {
     // The whole-Bible and New Testament introductions are childless entries,
     // so a filter that only keeps groups with matching children erases them.
-    component.books = [
+    fixture.componentRef.setInput("books", [
       {
         id: "geral",
         name: "Introdução Geral",
@@ -192,7 +250,7 @@ describe("BookSelectorComponent", () => {
         chapterCount: 0,
         introSlug: "novotestamento",
       },
-    ] as unknown as Book[]
+    ] as unknown as Book[])
 
     component.filterBooks("geral")
     expect(component.otDataSource.data).toEqual([{ name: "geral", books: [] }])
@@ -206,7 +264,7 @@ describe("BookSelectorComponent", () => {
   // With a filter applied, ngOnChanges dropped a new book list on the floor
   // and the tree kept showing results built from the previous one.
   it("re-applies the active filter when the book list changes", () => {
-    component.books = [
+    fixture.componentRef.setInput("books", [
       {
         id: "gen",
         name: "Livro do Génesis",
@@ -214,9 +272,10 @@ describe("BookSelectorComponent", () => {
         abrv: "Gn",
         chapterCount: 50,
       },
-    ] as Book[]
+    ] as Book[])
+    const books = component.books()
     component.ngOnChanges({
-      books: new SimpleChange(undefined, component.books, true),
+      books: new SimpleChange(undefined, books, true),
     })
     component.filterBooks("livro")
     expect(component.otDataSource.data).toEqual([
@@ -224,8 +283,8 @@ describe("BookSelectorComponent", () => {
     ])
 
     // Same filter, new list: Exodus matches "livro" too and must appear.
-    const previous = component.books
-    component.books = [
+    const previous = books
+    fixture.componentRef.setInput("books", [
       ...previous,
       {
         id: "exo",
@@ -234,13 +293,150 @@ describe("BookSelectorComponent", () => {
         abrv: "Ex",
         chapterCount: 40,
       },
-    ] as Book[]
+    ] as Book[])
     component.ngOnChanges({
-      books: new SimpleChange(previous, component.books, false),
+      books: new SimpleChange(previous, component.books(), false),
     })
 
     expect(component.otDataSource.data).toEqual([
       { name: "Pentateuco", introSlug: "pentateuco", books: ["gen", "exo"] },
     ])
+  })
+
+  // `font-size: large` is an absolute keyword: lowering the font size shrank
+  // the group labels but not the book names beside them.
+  it("scales the book buttons with the inherited font size", () => {
+    fixture.componentRef.setInput("books", [
+      {
+        id: "gen",
+        name: "Livro do Génesis",
+        shortName: "Génesis",
+        abrv: "Gn",
+        chapterCount: 50,
+      },
+    ])
+    component.ngOnChanges({
+      books: new SimpleChange(undefined, component.books(), true),
+    })
+    component.otTreeControl.expandAll()
+    fixture.detectChanges()
+
+    const host = fixture.nativeElement as HTMLElement
+    const button = host.querySelector(".bookSelectorButton") as HTMLElement
+    expect(button).toBeTruthy()
+
+    host.style.fontSize = "10px"
+    const small = Number.parseFloat(getComputedStyle(button).fontSize)
+    host.style.fontSize = "20px"
+    const large = Number.parseFloat(getComputedStyle(button).fontSize)
+
+    expect(large).toBeCloseTo(small * 2, 1)
+  })
+
+  // The drawer sits inside the reader, which already ends above the
+  // navigation bar: padding the list for the inset again left a large blank
+  // space below the last row.
+  it("does not pad the book list for the bottom system inset", () => {
+    const host = fixture.nativeElement as HTMLElement
+    const list = host.querySelector(".bible-books-container") as HTMLElement
+
+    host.style.setProperty("--app-inset-bottom", "100px")
+    expect(getComputedStyle(list).paddingBottom).toBe("8px")
+  })
+})
+
+@Component({
+  imports: [MatSidenavModule, BookSelectorComponent],
+  template: `
+    <mat-drawer-container>
+      <mat-drawer mode="over">
+        <book-selector [books]="books" selectedBookId="mal"></book-selector>
+      </mat-drawer>
+    </mat-drawer-container>
+  `,
+})
+class DrawerHostComponent {
+  books: Book[] = [
+    {
+      id: "mal",
+      name: "Livro do Profeta Malaquias",
+      shortName: "Malaquias",
+      abrv: "Ml",
+      chapterCount: 3,
+    },
+  ]
+  @ViewChild(MatDrawer)
+  drawer!: MatDrawer
+}
+
+describe("BookSelectorComponent in the reader's drawer", () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [DrawerHostComponent],
+      providers: [
+        {
+          provide: MATERIAL_ANIMATIONS,
+          useValue: { animationsDisabled: true },
+        },
+      ],
+    })
+  })
+
+  // The reader builds the list with the page, inside the closed drawer, whose
+  // content is display: none. The only scroll ran then and moved nothing, so
+  // the drawer opened at Génesis whatever the book.
+  it("scrolls to the selected book when the drawer opens", async () => {
+    vi.useFakeTimers()
+    const fixture = TestBed.createComponent(DrawerHostComponent)
+    const scrollSpy = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockReturnValue(undefined)
+    fixture.detectChanges()
+    await vi.runAllTimersAsync()
+    expect(scrollSpy).not.toHaveBeenCalled()
+
+    fixture.componentInstance.drawer.open()
+    await vi.runAllTimersAsync()
+
+    const malaquias = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-book-id="mal"]',
+    ) as HTMLElement
+    expect(scrollSpy).toHaveBeenCalledTimes(1)
+    expect(scrollSpy.mock.contexts.at(-1)).toBe(malaquias)
+  })
+
+  // After a filtered pick ("Sabed"), the drawer reopened still filtered, with
+  // the other books hidden.
+  it("opens on the whole list again, at the book being read", async () => {
+    vi.useFakeTimers()
+    const fixture = TestBed.createComponent(DrawerHostComponent)
+    const scrollSpy = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockReturnValue(undefined)
+    const host = fixture.nativeElement as HTMLElement
+    fixture.detectChanges()
+    const { drawer } = fixture.componentInstance
+    drawer.open()
+    await vi.runAllTimersAsync()
+    const input = host.querySelector(".book-filter-input") as HTMLInputElement
+    input.value = "Gen"
+    input.dispatchEvent(new Event("input"))
+    fixture.detectChanges()
+    expect(host.querySelector('[data-book-id="mal"]')).toBeNull()
+
+    drawer.close()
+    await vi.runAllTimersAsync()
+    scrollSpy.mockClear()
+    drawer.open()
+    await vi.runAllTimersAsync()
+    // The app's next render, which runs after the drawer's event.
+    fixture.detectChanges()
+    TestBed.inject(ApplicationRef).tick()
+    await vi.runAllTimersAsync()
+
+    expect(input.value).toBe("")
+    const malaquias = host.querySelector('[data-book-id="mal"]') as HTMLElement
+    expect(malaquias).not.toBeNull()
+    expect(scrollSpy.mock.contexts.at(-1)).toBe(malaquias)
   })
 })

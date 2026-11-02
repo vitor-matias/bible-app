@@ -3,18 +3,19 @@ import {
   BibleReferenceService,
   type CrossChapterRange,
 } from "../../services/bible-reference.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { getVerseQueryParams, parseReferences } from "./verse.utils"
 
 describe("verse.utils", () => {
   describe("parseReferences", () => {
-    let mockBibleRef: jasmine.SpyObj<BibleReferenceService>
+    let mockBibleRef: SpyObj<BibleReferenceService>
 
     beforeEach(() => {
-      mockBibleRef = jasmine.createSpyObj("BibleReferenceService", ["extract"])
+      mockBibleRef = createSpyObj("BibleReferenceService", ["extract"])
     })
 
     it("should return the original text in an array when no references found", () => {
-      mockBibleRef.extract.and.returnValue([])
+      mockBibleRef.extract.mockReturnValue([])
       const result = parseReferences(mockBibleRef, "some plain text", "gen")
       expect(result).toEqual(["some plain text"])
     })
@@ -27,7 +28,7 @@ describe("verse.utils", () => {
         chapter: 1,
         verses: [{ type: "single", verse: 1 }],
       }
-      mockBibleRef.extract.and.returnValue([ref])
+      mockBibleRef.extract.mockReturnValue([ref])
 
       const result = parseReferences(mockBibleRef, "See: Gn 1,1 here", "gen")
 
@@ -44,7 +45,7 @@ describe("verse.utils", () => {
         book: "gen",
         chapter: 1,
       }
-      mockBibleRef.extract.and.returnValue([ref])
+      mockBibleRef.extract.mockReturnValue([ref])
 
       const result = parseReferences(mockBibleRef, "Gn 1,1 rest", "gen")
 
@@ -60,7 +61,7 @@ describe("verse.utils", () => {
         book: "gen",
         chapter: 1,
       }
-      mockBibleRef.extract.and.returnValue([ref])
+      mockBibleRef.extract.mockReturnValue([ref])
 
       const result = parseReferences(mockBibleRef, "See: Gn 1,1", "gen")
 
@@ -82,7 +83,7 @@ describe("verse.utils", () => {
         book: "exo",
         chapter: 2,
       }
-      mockBibleRef.extract.and.returnValue([ref1, ref2])
+      mockBibleRef.extract.mockReturnValue([ref1, ref2])
 
       const result = parseReferences(mockBibleRef, "Gn 1,1 ; Ex 2,3 end", "gen")
 
@@ -94,9 +95,20 @@ describe("verse.utils", () => {
     })
 
     it("should pass the bookId to the extract method", () => {
-      mockBibleRef.extract.and.returnValue([])
+      mockBibleRef.extract.mockReturnValue([])
       parseReferences(mockBibleRef, "text", "psa")
-      expect(mockBibleRef.extract).toHaveBeenCalledWith("text", "psa")
+      expect(mockBibleRef.extract).toHaveBeenCalledWith(
+        "text",
+        "psa",
+        undefined,
+      )
+    })
+
+    // Footnotes cite bare verses ("8-9") of their own chapter.
+    it("passes the chapter on, for bare verse references", () => {
+      mockBibleRef.extract.mockReturnValue([])
+      parseReferences(mockBibleRef, "text", "mat", 11)
+      expect(mockBibleRef.extract).toHaveBeenCalledWith("text", "mat", 11)
     })
   })
 

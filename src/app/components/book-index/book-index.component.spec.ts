@@ -1,16 +1,21 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
-import { provideRouter } from "@angular/router"
-import { of } from "rxjs"
+import { provideRouter, Router } from "@angular/router"
+import { of, Subject } from "rxjs"
+import type { Mock } from "vitest"
 
 import { OLD_TESTAMENT_GROUPS } from "../../bible-canon"
 import { BookService } from "../../services/book.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
+import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { SeoService } from "../../services/seo.service"
+import { ThemeService } from "../../services/theme.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BookIndexComponent } from "./book-index.component"
 
 describe("BookIndexComponent", () => {
   let fixture: ComponentFixture<BookIndexComponent>
   let element: HTMLElement
-  let seoSpy: jasmine.SpyObj<SeoService>
+  let seoSpy: SpyObj<SeoService>
 
   function book(id: string, name: string, abrv: string): Book {
     return { id, name, shortName: name, abrv, chapterCount: 1 } as Book
@@ -38,9 +43,7 @@ describe("BookIndexComponent", () => {
     // The blanket beforeEach already built a module; a test that wants a
     // different book list has to start from a clean one.
     TestBed.resetTestingModule()
-    seoSpy = jasmine.createSpyObj<SeoService>("SeoService", [
-      "updateForBookIndex",
-    ])
+    seoSpy = createSpyObj("SeoService", ["updateForBookIndex"])
     const bookServiceStub = {
       books$: of(available),
       getUrlAbrv: (entry: Book) => entry.abrv.replace(/\s/g, "").toLowerCase(),
@@ -158,5 +161,77 @@ describe("BookIndexComponent", () => {
     expect(element.querySelectorAll("li").length).toBe(0)
     // The chrome is still there, so the reader is not stranded.
     expect(hrefs()).toContain("/")
+  })
+})
+
+describe("BookIndexComponent in the iOS app", () => {
+  let fixture: ComponentFixture<BookIndexComponent>
+  let actions: Subject<NativeChromeAction>
+  let nativeChrome: {
+    enabled: boolean
+    actions$: Subject<NativeChromeAction>
+    show: Mock
+    hide: Mock
+  }
+
+  beforeEach(async () => {
+    actions = new Subject()
+    nativeChrome = {
+      enabled: true,
+      actions$: actions,
+      show: vi.fn().mockName("show"),
+      hide: vi.fn().mockName("hide"),
+    }
+    await TestBed.configureTestingModule({
+      imports: [BookIndexComponent],
+      providers: [
+        provideRouter([]),
+        { provide: NativeChromeService, useValue: nativeChrome },
+        { provide: ThemeService, useValue: { currentMode: "dark" } },
+        {
+          provide: BookService,
+          useValue: { books$: of([]), getUrlAbrv: () => "" },
+        },
+        {
+          provide: SeoService,
+          useValue: {
+            updateForBookIndex: vi.fn(),
+          },
+        },
+      ],
+    }).compileComponents()
+    fixture = TestBed.createComponent(BookIndexComponent)
+    fixture.detectChanges()
+  })
+
+  it("shows the native bar instead of the brown web toolbar", () => {
+    const element = fixture.nativeElement as HTMLElement
+    expect(element.querySelector("mat-toolbar")).toBeNull()
+    // The heading stays, for screen readers.
+    expect(element.querySelector("h1")?.textContent).toContain(
+      "Livros da Bíblia",
+    )
+    expect(nativeChrome.show).toHaveBeenCalledWith({
+      mode: "page",
+      themeMode: "dark",
+      title: "Livros da Bíblia",
+      search: true,
+    })
+  })
+
+  it("goes where the web toolbar's buttons go", () => {
+    const navigate = vi
+      .spyOn(TestBed.inject(Router), "navigate")
+      .mockResolvedValue(true)
+    actions.next({ id: "back" })
+    actions.next({ id: "search" })
+
+    expect(navigate).toHaveBeenCalledWith(["/"])
+    expect(navigate).toHaveBeenCalledWith(["/search"])
+  })
+
+  it("removes the bar when leaving", () => {
+    fixture.destroy()
+    expect(nativeChrome.hide).toHaveBeenCalled()
   })
 })

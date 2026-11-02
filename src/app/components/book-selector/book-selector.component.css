@@ -79,7 +79,9 @@ li {
 .bookSelectorButton:not(disabled) {
   background-color: var(--card-background);
   color: var(--text-color);
-  font-size: large;
+  /* Relative, not the `large` keyword: keywords ignore the inherited size,
+     so only the group labels (a % of it) shrank with the font setting. */
+  font-size: 112.5%;
   width: 100%;
   height: auto !important;
   min-height: 48px;

@@ -1,18 +1,18 @@
 <div class="chapterSelectorContainer">
   @if (bookmarks$ | async; as bookmarksMap) {
     <mat-list>
-      @for (chapter of chapters; track chapter.number) {
+      @for (chapter of chapters(); track chapter.number) {
       <mat-list-item>
         <button type="button" class="chapterSelectorButton" mat-flat-button (click)="submit(chapter.number)"
-          [ngClass]="{ 'highlight': chapter.number === selectedChapter }">
+          [ngClass]="{ 'highlight': chapter.number === highlighted() }">
           <!-- The introduction has no number: skip the slot unless it is
                bookmarked, so the ribbon stays visible. -->
           @if (getChapterLabel(chapter) || bookmarksMap.has(chapter.number)) {
           <span class="number-wrapper">
             @if(bookmarksMap.has(chapter.number)){
-            <mat-icon [style.color]="bookmarksMap.get(chapter.number)" class="bookmark-icon">bookmark</mat-icon>
+            <mat-icon [style.color]="ribbonColor(bookmarksMap.get(chapter.number))" class="bookmark-icon">bookmark</mat-icon>
             }
-            <span [ngClass]="{ 'bookmarked': bookmarksMap.has(chapter.number) }">{{ getChapterLabel(chapter) }}</span>
+            <span [ngClass]="{ 'bookmarked': bookmarksMap.has(chapter.number), 'on-ribbon': isRibbonColor(bookmarksMap.get(chapter.number)) }">{{ getChapterLabel(chapter) }}</span>
           </span>
           }
           <span class="chapter-title">{{getChapterDisplay(chapter)}}</span>
