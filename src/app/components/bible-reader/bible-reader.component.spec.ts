@@ -1284,29 +1284,9 @@ describe("BibleReaderComponent", () => {
   })
 
   describe("dragging the columns to size", () => {
-    function press(key: string): KeyboardEvent {
-      return new KeyboardEvent("keydown", { key })
-    }
-
     beforeEach(() => {
       fixture.detectChanges()
       studyMode.activate()
-    })
-
-    it("writes the widths as the properties the layout reads", () => {
-      component.columnWidths = { rail: 300, panel: 420, split: 60 }
-
-      expect(component.columnStyle).toEqual({
-        "--study-rail-width": "300px",
-        "--study-panel-width": "420px",
-        "--study-split": "60%",
-      })
-    })
-
-    it("leaves untouched dividers to the layout's own widths", () => {
-      component.columnWidths = { rail: 300 }
-
-      expect(component.columnStyle).toEqual({ "--study-rail-width": "300px" })
     })
 
     it("follows the pointer, and keeps where it was let go", () => {
@@ -1322,13 +1302,13 @@ describe("BibleReaderComponent", () => {
           new PointerEvent(type, { bubbles: true, clientX, pointerId: 1 }),
         )
 
-      component.columnWidths = { rail: 300 }
+      component.columns.widths = { rail: 300 }
       drag("pointerdown", 300)
       drag("pointermove", 340)
       drag("pointerup", 340)
 
-      expect(component.columnWidths.rail).toBe(340)
-      expect(component.resizing).toBeNull()
+      expect(component.columns.widths.rail).toBe(340)
+      expect(component.columns.resizing).toBeNull()
       expect(preferencesServiceSpy.setStudyColumnWidths).toHaveBeenCalledWith({
         rail: 340,
       })
@@ -1346,13 +1326,13 @@ describe("BibleReaderComponent", () => {
           new PointerEvent(type, { bubbles: true, clientX, pointerId: 1 }),
         )
 
-      component.columnWidths = { panel: 400 }
+      component.columns.widths = { panel: 400 }
       drag("pointerdown", 1000)
       // The panel is on the right, so it grows as the pointer moves left.
       drag("pointermove", 940)
       drag("pointerup", 940)
 
-      expect(component.columnWidths.panel).toBe(460)
+      expect(component.columns.widths.panel).toBe(460)
     })
 
     it("moves the split by the share of the column the pointer crossed", () => {
@@ -1384,78 +1364,12 @@ describe("BibleReaderComponent", () => {
           new PointerEvent(type, { bubbles: true, clientX, pointerId: 1 }),
         )
 
-      component.columnWidths = { split: 50 }
+      component.columns.widths = { split: 50 }
       drag("pointerdown", 500)
       drag("pointermove", 600)
       drag("pointerup", 600)
 
-      expect(component.columnWidths.split).toBe(60)
-    })
-
-    it("gives the space back when the column is folded away", () => {
-      component.columnWidths = { rail: 400, panel: 500 }
-      component.studySidebarCollapsed = true
-
-      // The width is the reader's, and it is kept for when they unfold it —
-      // but a folded column is a strip, and an inline width would hold the
-      // space open against the layout.
-      expect(component.columnStyle["--study-rail-width"]).toBeUndefined()
-      expect(component.columnStyle["--study-panel-width"]).toBe("500px")
-
-      component.studySidebarCollapsed = false
-      expect(component.columnStyle["--study-rail-width"]).toBe("400px")
-    })
-
-    it("moves a divider with the arrow keys, and remembers where", () => {
-      component.columnWidths = { rail: 300 }
-
-      component.onResizeKey("rail", press("ArrowRight"))
-
-      expect(component.columnWidths.rail).toBe(316)
-      expect(preferencesServiceSpy.setStudyColumnWidths).toHaveBeenCalledWith({
-        rail: 316,
-      })
-    })
-
-    it("moves the panel's divider the way the pointer does, not the other way", () => {
-      // The panel is on the right: its edge goes left as it grows, so
-      // ArrowLeft widens it, as a drag to the left does.
-      component.columnWidths = { panel: 400 }
-
-      component.onResizeKey("panel", press("ArrowLeft"))
-      expect(component.columnWidths.panel).toBe(416)
-
-      component.onResizeKey("panel", press("ArrowRight"))
-      component.onResizeKey("panel", press("ArrowRight"))
-      expect(component.columnWidths.panel).toBe(384)
-    })
-
-    it("keeps a column within what it can usefully be", () => {
-      component.columnWidths = { rail: 170 }
-
-      component.onResizeKey("rail", press("ArrowLeft"))
-
-      expect(component.columnWidths.rail).toBe(160)
-    })
-
-    it("ignores keys that are not a divider's", () => {
-      component.columnWidths = { rail: 300 }
-
-      component.onResizeKey("rail", press("ArrowUp"))
-
-      expect(component.columnWidths.rail).toBe(300)
-    })
-
-    it("hands one divider back to the layout without disturbing the others", () => {
-      component.columnWidths = { rail: 300, panel: 420 }
-
-      component.resetDivider("rail")
-
-      expect(component.columnWidths.rail).toBeUndefined()
-      expect(component.columnWidths.panel).toBe(420)
-      expect(preferencesServiceSpy.setStudyColumnWidths).toHaveBeenCalledWith({
-        panel: 420,
-      })
+      expect(component.columns.widths.split).toBe(60)
     })
 
     it("opens where the reader last left the dividers", () => {

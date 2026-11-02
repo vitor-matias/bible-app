@@ -51,10 +51,7 @@ import {
 } from "../../services/highlight.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NetworkService } from "../../services/network.service"
-import {
-  PreferencesService,
-  type StudyColumnWidths,
-} from "../../services/preferences.service"
+import { PreferencesService } from "../../services/preferences.service"
 import {
   ReadingTrailService,
   type TrailEntry,
@@ -80,30 +77,10 @@ import { StudyShortcutsComponent } from "../study-shortcuts/study-shortcuts.comp
 import { StudySidebarComponent } from "../study-sidebar/study-sidebar.component"
 import { StudyTrailComponent } from "../study-trail/study-trail.component"
 import { VerseComponent } from "../verse/verse.component"
+import { StudyColumns } from "./study-columns"
 
 /** Breathing room above the cited verses when a parallel opens on them. */
 const PARALLEL_TOP_MARGIN = 12
-
-/**
- * What a reader may drag study mode's columns to.
- *
- * The limits are the same ones the stylesheet clamps to by default: below the
- * minimum a column stops being able to show what it is for, and above the
- * maximum it starts taking the text's room rather than sharing it. The split
- * is the share of the reading column the chapter keeps when a passage is open
- * beside it.
- */
-const COLUMN_LIMITS = {
-  rail: { min: 160, max: 420 },
-  panel: { min: 240, max: 560 },
-  split: { min: 25, max: 75 },
-} as const
-
-/** How far one arrow-key press moves a divider. */
-const RESIZE_STEP = 16
-
-/** Which divider a drag or a key press is moving. */
-export type StudyDivider = keyof typeof COLUMN_LIMITS
 
 @Component({
   selector: "bible-reader",
@@ -244,20 +221,17 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
    */
   private panelFoldedForParallel = false
 
-  /** Where the reader has dragged the dividers, if anywhere. */
-  columnWidths: StudyColumnWidths = {}
-  /**
-   * Where each divider stands, for the separators to announce. Measured when
-   * one takes focus rather than on every pass: a divider left alone still has
-   * a width, and reading it off the layout costs a reflow that change
-   * detection runs often enough to feel.
-   */
-  dividerValues: Record<StudyDivider, number> = { rail: 0, panel: 0, split: 50 }
-  /** What a divider may be moved between, for the same announcement. */
-  readonly dividerLimits = COLUMN_LIMITS
-  /** Set while a divider is under the pointer, to keep the drag cursor. */
-  resizing: StudyDivider | null = null
-  private dragFrom?: { pointerId: number; x: number; value: number }
+  /** The columns' draggable widths: see StudyColumns. */
+  readonly columns = new StudyColumns({
+    container: () => this.textContainer?.nativeElement,
+    column: () => this.studyColumn?.nativeElement,
+    folded: () => ({
+      rail: this.studySidebarCollapsed,
+      panel: this.studyPanelCollapsed,
+    }),
+    save: (widths) => this.preferencesService.setStudyColumnWidths(widths),
+    repaint: () => this.cdr.detectChanges(),
+  })
 
   book!: Book
   books: Book[] = []
@@ -456,7 +430,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.studySidebarCollapsed =
       this.preferencesService.getStudySidebarCollapsed()
     this.studyPanelCollapsed = this.preferencesService.getStudyPanelCollapsed()
-    this.columnWidths = this.preferencesService.getStudyColumnWidths()
+    this.columns.widths = this.preferencesService.getStudyColumnWidths()
 
     this.autoScrollControlsPreference =
       this.preferencesService.getAutoScrollControlsVisible()
@@ -1813,181 +1787,6 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.studyPanelCollapsed = false
       this.panelFoldedForParallel = false
     }
-  }
-
-  /**
-   * The widths the reader has set, as custom properties on the layout. The
-   * stylesheet's clamped defaults apply to whatever is not here, so a divider
-   * never touched keeps behaving as the layout wants it to.
-   */
-  get columnStyle(): Record<string, string> {
-    const style: Record<string, string> = {}
-    const { rail, panel, split } = this.columnWidths
-    // A folded column has no width of the reader's to honour: it is a strip
-    // with an unfold button on it. Left here, the width dragged earlier is an
-    // inline style, and it would beat the stylesheet and hold the space open.
-    if (rail !== undefined && !this.studySidebarCollapsed) {
-      style["--study-rail-width"] = `${rail}px`
-    }
-    if (panel !== undefined && !this.studyPanelCollapsed) {
-      style["--study-panel-width"] = `${panel}px`
-    }
-    if (split !== undefined) style["--study-split"] = `${split}%`
-    return style
-  }
-
-  /** Reads every divider off the layout, so each can announce where it is. */
-  onDividerFocus(): void {
-    this.dividerValues = {
-      rail: Math.round(this.dividerValue("rail")),
-      panel: Math.round(this.dividerValue("panel")),
-      split: Math.round(this.dividerValue("split")),
-    }
-    this.cdr.detectChanges()
-  }
-
-  /** Where a divider currently stands, whether the reader put it there or not. */
-  private dividerValue(divider: StudyDivider): number {
-    const stored = this.columnWidths[divider]
-    if (stored !== undefined) return stored
-    const measure = (element: Element | undefined | null): number =>
-      element ? element.getBoundingClientRect().width : 0
-    const host = this.textContainer?.nativeElement
-    if (divider === "rail") return measure(host?.querySelector(".study-rail"))
-    if (divider === "panel") return measure(host?.querySelector(".study-aside"))
-    const column = measure(this.studyColumn?.nativeElement)
-    const pane = measure(this.studyColumn?.nativeElement.firstElementChild)
-    return column > 0 ? (pane / column) * 100 : 50
-  }
-
-  /**
-   * Follows the pointer while a divider is dragged.
-   *
-   * The property is written straight to the element rather than through a
-   * binding: a drag emits a move event per frame, and running change detection
-   * over the whole reader on each one is what makes a resize feel heavy. The
-   * value is committed to the component and to the reader's preferences when
-   * the pointer is let go.
-   */
-  startResize(divider: StudyDivider, event: PointerEvent): void {
-    event.preventDefault()
-    this.resizing = divider
-    this.dragFrom = {
-      pointerId: event.pointerId,
-      x: event.clientX,
-      value: this.dividerValue(divider),
-    }
-    ;(event.target as HTMLElement).setPointerCapture(event.pointerId)
-    this.cdr.detectChanges()
-  }
-
-  onResizeMove(event: PointerEvent): void {
-    const from = this.dragFrom
-    if (!from || from.pointerId !== event.pointerId || !this.resizing) return
-    this.paint(
-      this.resizing,
-      this.nextValue(this.resizing, event.clientX - from.x, from.value),
-    )
-  }
-
-  onResizeEnd(event: PointerEvent): void {
-    const from = this.dragFrom
-    if (!from || !this.resizing) return
-    const divider = this.resizing
-    this.commit(
-      divider,
-      this.nextValue(divider, event.clientX - from.x, from.value),
-    )
-    this.dragFrom = undefined
-    this.resizing = null
-    this.cdr.detectChanges()
-  }
-
-  /**
-   * The keyboard half of a divider: it is a separator the reader can focus,
-   * and arrows move it. Home puts it back where the layout wanted it.
-   */
-  onResizeKey(divider: StudyDivider, event: KeyboardEvent): void {
-    if (event.key === "Home") {
-      this.resetDivider(divider)
-      event.preventDefault()
-      return
-    }
-    const step =
-      event.key === "ArrowLeft"
-        ? -RESIZE_STEP
-        : event.key === "ArrowRight"
-          ? RESIZE_STEP
-          : 0
-    if (!step) return
-    event.preventDefault()
-    // The move a drag of that many pixels makes, so the keys and the pointer
-    // agree on which way each divider goes: the panel's grows to the left.
-    this.commit(
-      divider,
-      this.nextValue(divider, step, this.dividerValue(divider)),
-    )
-  }
-
-  /** Hands a divider back to the layout's own clamped width. */
-  resetDivider(divider: StudyDivider): void {
-    const { [divider]: _dropped, ...rest } = this.columnWidths
-    this.columnWidths = rest
-    this.textContainer?.nativeElement.style.removeProperty(
-      divider === "split" ? "--study-split" : `--study-${divider}-width`,
-    )
-    this.studyColumn?.nativeElement.style.removeProperty("--study-split")
-    this.preferencesService.setStudyColumnWidths(this.columnWidths)
-    this.cdr.detectChanges()
-  }
-
-  /** Where a drag has moved a divider to. */
-  private nextValue(
-    divider: StudyDivider,
-    deltaX: number,
-    from: number,
-  ): number {
-    // The panel grows as the pointer moves left, the others as it moves right.
-    const towards = divider === "panel" ? -deltaX : deltaX
-    const column = this.studyColumn?.nativeElement.getBoundingClientRect().width
-    const delta =
-      divider === "split" && column ? (towards / column) * 100 : towards
-    return from + delta
-  }
-
-  /** What the column can usefully be, whichever way it was asked to move. */
-  private clamp(divider: StudyDivider, value: number): number {
-    const limits = COLUMN_LIMITS[divider]
-    return Math.min(limits.max, Math.max(limits.min, value))
-  }
-
-  private paint(divider: StudyDivider, raw: number): void {
-    const value = this.clamp(divider, raw)
-    if (divider === "split") {
-      this.studyColumn?.nativeElement.style.setProperty(
-        "--study-split",
-        `${value}%`,
-      )
-      return
-    }
-    this.textContainer?.nativeElement.style.setProperty(
-      `--study-${divider}-width`,
-      `${value}px`,
-    )
-  }
-
-  private commit(divider: StudyDivider, value: number): void {
-    // Clamped here rather than at each caller: the pointer and the arrow keys
-    // both end up in this one place, and a column may only be so wide.
-    const rounded = Math.round(this.clamp(divider, value) * 10) / 10
-    this.columnWidths = { ...this.columnWidths, [divider]: rounded }
-    this.dividerValues = {
-      ...this.dividerValues,
-      [divider]: Math.round(rounded),
-    }
-    this.paint(divider, rounded)
-    this.preferencesService.setStudyColumnWidths(this.columnWidths)
-    this.cdr.detectChanges()
   }
 
   /** True while this verse is one of those the reference actually names. */

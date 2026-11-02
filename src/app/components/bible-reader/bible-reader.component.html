@@ -4,7 +4,7 @@
   (textSizeChange)="onTextSizeChange($event)"
   [class.study-active]="studyModeActive"
   [class.rail-collapsed]="studySidebarCollapsed" [class.panel-collapsed]="studyPanelCollapsed"
-  [class.resizing]="resizing" [style]="columnStyle">
+  [class.resizing]="columns.resizing" [style]="columns.style">
   <header class="reader-header" [book]="book" [chapterNumber]="chapterNumber" [viewMode]="effectiveViewMode"
     [autoScrollControlsVisible]="showAutoScrollControls" (openBookSelector)="openBookDrawer($event)"
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
@@ -39,12 +39,12 @@
     <!-- Dividers: drag them, or focus one and use the arrows. Home hands the
          column back to the width the layout chose for it. -->
     <div class="study-resizer rail-divider" role="separator" aria-orientation="vertical" tabindex="0"
-      [attr.aria-label]="'Largura da lista de livros'" [attr.aria-valuenow]="dividerValues.rail"
-      [attr.aria-valuemin]="dividerLimits.rail.min" [attr.aria-valuemax]="dividerLimits.rail.max"
-      (focus)="onDividerFocus()" (pointerdown)="startResize('rail', $event)"
-      (pointermove)="onResizeMove($event)" (pointerup)="onResizeEnd($event)"
-      (pointercancel)="onResizeEnd($event)" (keydown)="onResizeKey('rail', $event)"
-      (dblclick)="resetDivider('rail')"></div>
+      [attr.aria-label]="'Largura da lista de livros'" [attr.aria-valuenow]="columns.values.rail"
+      [attr.aria-valuemin]="columns.limits.rail.min" [attr.aria-valuemax]="columns.limits.rail.max"
+      (focus)="columns.announce()" (pointerdown)="columns.start('rail', $event)"
+      (pointermove)="columns.move($event)" (pointerup)="columns.end($event)"
+      (pointercancel)="columns.end($event)" (keydown)="columns.key('rail', $event)"
+      (dblclick)="columns.reset('rail')"></div>
 
     <!-- The chapter, and beside it whatever the reader has opened next to it.
          #studyScroll and #bookContainer stand in for the drawer content and
@@ -84,12 +84,12 @@
            its own, so following the parallel never moves the chapter. -->
       @if (parallel) {
       <div class="study-resizer split-divider" role="separator" aria-orientation="vertical" tabindex="0"
-        aria-label="Largura da passagem ao lado" [attr.aria-valuenow]="dividerValues.split"
-        [attr.aria-valuemin]="dividerLimits.split.min" [attr.aria-valuemax]="dividerLimits.split.max"
-        (focus)="onDividerFocus()" (pointerdown)="startResize('split', $event)"
-        (pointermove)="onResizeMove($event)" (pointerup)="onResizeEnd($event)"
-        (pointercancel)="onResizeEnd($event)" (keydown)="onResizeKey('split', $event)"
-        (dblclick)="resetDivider('split')"></div>
+        aria-label="Largura da passagem ao lado" [attr.aria-valuenow]="columns.values.split"
+        [attr.aria-valuemin]="columns.limits.split.min" [attr.aria-valuemax]="columns.limits.split.max"
+        (focus)="columns.announce()" (pointerdown)="columns.start('split', $event)"
+        (pointermove)="columns.move($event)" (pointerup)="columns.end($event)"
+        (pointercancel)="columns.end($event)" (keydown)="columns.key('split', $event)"
+        (dblclick)="columns.reset('split')"></div>
       <aside class="study-parallel" [attr.aria-label]="'Passagem ao lado: ' + parallel.label">
         <div class="parallel-head">
           <a class="study-label parallel-title" [routerLink]="parallel.link" [queryParams]="parallel.queryParams"
@@ -128,12 +128,12 @@
     <!-- Dividers: drag them, or focus one and use the arrows. Home hands the
          column back to the width the layout chose for it. -->
     <div class="study-resizer panel-divider" role="separator" aria-orientation="vertical" tabindex="0"
-      [attr.aria-label]="'Largura do aparato'" [attr.aria-valuenow]="dividerValues.panel"
-      [attr.aria-valuemin]="dividerLimits.panel.min" [attr.aria-valuemax]="dividerLimits.panel.max"
-      (focus)="onDividerFocus()" (pointerdown)="startResize('panel', $event)"
-      (pointermove)="onResizeMove($event)" (pointerup)="onResizeEnd($event)"
-      (pointercancel)="onResizeEnd($event)" (keydown)="onResizeKey('panel', $event)"
-      (dblclick)="resetDivider('panel')"></div>
+      [attr.aria-label]="'Largura do aparato'" [attr.aria-valuenow]="columns.values.panel"
+      [attr.aria-valuemin]="columns.limits.panel.min" [attr.aria-valuemax]="columns.limits.panel.max"
+      (focus)="columns.announce()" (pointerdown)="columns.start('panel', $event)"
+      (pointermove)="columns.move($event)" (pointerup)="columns.end($event)"
+      (pointercancel)="columns.end($event)" (keydown)="columns.key('panel', $event)"
+      (dblclick)="columns.reset('panel')"></div>
 
     <study-panel class="study-aside" [book]="book" [chapter]="chapter" [selection]="selection"
       [visibleVerse]="visibleVerse" [collapsed]="studyPanelCollapsed"
