@@ -141,6 +141,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     clearTimeout(this.anchorTimeout)
     if (this.layoutFrame !== undefined) cancelAnimationFrame(this.layoutFrame)
     this.mutationObserver?.disconnect()
+    this.drag = undefined
     this.removeSpacer()
   }
 
@@ -365,6 +366,11 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
       this.setTarget(undefined)
       this.drag = { page, left: this.container.scrollLeft }
       block.style.transition = "none"
+      // The transform below carries the columns, and so the scrollable area,
+      // with it: pulled past the last page, the browser would clamp the scroll.
+      const scrollWidth = this.container.scrollWidth
+      this.removeSpacer()
+      this.addSpacer(scrollWidth)
     }
     const maxScroll = Math.max(
       0,
@@ -547,23 +553,23 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
       remainder > SCROLL_THRESHOLD &&
       advanceWidth - remainder > SCROLL_THRESHOLD
     ) {
-      const extra = advanceWidth - remainder
-      this.spacer = this.renderer.createElement("div")
+      this.addSpacer(scrollWidth + advanceWidth - remainder)
+    }
+  }
 
-      if (this.spacer) {
-        this.renderer.setStyle(this.spacer, "position", "absolute")
-        this.renderer.setStyle(this.spacer, "top", "0")
-        this.renderer.setStyle(
-          this.spacer,
-          "left",
-          `${scrollWidth + extra - 1}px`,
-        )
-        this.renderer.setStyle(this.spacer, "width", "1px")
-        this.renderer.setStyle(this.spacer, "height", "1px")
-        this.renderer.setStyle(this.spacer, "pointerEvents", "none")
+  /** Keeps the scrollable area at least `scrollWidth` wide. */
+  private addSpacer(scrollWidth: number): void {
+    this.spacer = this.renderer.createElement("div")
 
-        this.renderer.appendChild(this.container, this.spacer)
-      }
+    if (this.spacer) {
+      this.renderer.setStyle(this.spacer, "position", "absolute")
+      this.renderer.setStyle(this.spacer, "top", "0")
+      this.renderer.setStyle(this.spacer, "left", `${scrollWidth - 1}px`)
+      this.renderer.setStyle(this.spacer, "width", "1px")
+      this.renderer.setStyle(this.spacer, "height", "1px")
+      this.renderer.setStyle(this.spacer, "pointerEvents", "none")
+
+      this.renderer.appendChild(this.container, this.spacer)
     }
   }
 
@@ -578,19 +584,25 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     const block = this._bookBlock
     if (!block) return
 
-    this.mutationObserver = new MutationObserver(() => {
-      clearTimeout(this.alignmentTimeout)
-      this.alignmentTimeout = window.setTimeout(() => {
-        requestAnimationFrame(() => {
-          if (this._stayAtEnd) {
-            this.snapToEnd()
-          } else {
-            this.ensureAlignedScrollWidth()
-          }
-        })
-      }, MUTATION_DEBOUNCE_MS)
-    })
+    this.mutationObserver = new MutationObserver(() => this.alignSoon(block))
     this.mutationObserver.observe(block, { childList: true, subtree: true })
+  }
+
+  private alignSoon(block: HTMLElement): void {
+    clearTimeout(this.alignmentTimeout)
+    this.alignmentTimeout = window.setTimeout(() => {
+      requestAnimationFrame(() => {
+        // Not while a drag or its spring-back moves the columns: they'd be
+        // measured out of place, and the scroll clamped without the spacer.
+        if (this.drag || block.getAnimations().length > 0) {
+          this.alignSoon(block)
+        } else if (this._stayAtEnd) {
+          this.snapToEnd()
+        } else {
+          this.ensureAlignedScrollWidth()
+        }
+      })
+    }, MUTATION_DEBOUNCE_MS)
   }
 }
 
