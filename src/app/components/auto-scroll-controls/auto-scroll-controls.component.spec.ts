@@ -3,12 +3,13 @@ import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { Subject } from "rxjs"
-import type { Mock, MockedObject } from "vitest"
+import type { Mock } from "vitest"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { PreferencesService } from "../../services/preferences.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { AutoScrollControlsComponent } from "./auto-scroll-controls.component"
 
 /** A page with a screenful of text below: half way through, not at its end. */
@@ -26,21 +27,17 @@ describe("AutoScrollControlsComponent", () => {
   let component: AutoScrollControlsComponent
   let fixture: ComponentFixture<AutoScrollControlsComponent>
 
-  let autoScrollServiceSpy: MockedObject<AutoScrollService>
-  let preferencesServiceSpy: MockedObject<PreferencesService>
-  let analyticsServiceSpy: MockedObject<AnalyticsService>
+  let autoScrollServiceSpy: SpyObj<AutoScrollService>
+  let preferencesServiceSpy: SpyObj<PreferencesService>
+  let analyticsServiceSpy: SpyObj<AnalyticsService>
 
   beforeEach(async () => {
-    autoScrollServiceSpy = {
-      start: vi.fn().mockName("AutoScrollService.start"),
-      stop: vi.fn().mockName("AutoScrollService.stop"),
-      updateAutoScrollSpeed: vi
-        .fn()
-        .mockName("AutoScrollService.updateAutoScrollSpeed"),
-      getAutoScrollSpeedLabel: vi
-        .fn()
-        .mockName("AutoScrollService.getAutoScrollSpeedLabel"),
-    }
+    autoScrollServiceSpy = createSpyObj("AutoScrollService", [
+      "start",
+      "stop",
+      "updateAutoScrollSpeed",
+      "getAutoScrollSpeedLabel",
+    ])
     // Mock getters which can't be spied directly using createSpyObj on properties
     Object.defineProperty(autoScrollServiceSpy, "autoScrollEnabled", {
       get: () => false,
@@ -60,14 +57,10 @@ describe("AutoScrollControlsComponent", () => {
       get: () => 3,
     })
 
-    preferencesServiceSpy = {
-      setAutoScrollSpeed: vi
-        .fn()
-        .mockName("PreferencesService.setAutoScrollSpeed"),
-    }
-    analyticsServiceSpy = {
-      track: vi.fn().mockName("AnalyticsService.track"),
-    }
+    preferencesServiceSpy = createSpyObj("PreferencesService", [
+      "setAutoScrollSpeed",
+    ])
+    analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
     analyticsServiceSpy.track.mockResolvedValue()
 
     await TestBed.configureTestingModule({
@@ -288,7 +281,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     actions$: Subject<NativeChromeAction>
     setAutoScroll: Mock
   }
-  let autoScroll: MockedObject<AutoScrollService>
+  let autoScroll: SpyObj<AutoScrollService>
   let playing: boolean
   let speed: number
   let page: HTMLElement
@@ -321,19 +314,13 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     }
     playing = false
     speed = 1
-    autoScroll = {
-      start: vi.fn().mockName("AutoScrollService.start"),
-      stop: vi.fn().mockName("AutoScrollService.stop"),
-      updateAutoScrollSpeed: vi
-        .fn()
-        .mockName("AutoScrollService.updateAutoScrollSpeed"),
-      getAutoScrollSpeedLabel: vi
-        .fn()
-        .mockName("AutoScrollService.getAutoScrollSpeedLabel"),
-      getAutoScrollSpeedSpokenLabel: vi
-        .fn()
-        .mockName("AutoScrollService.getAutoScrollSpeedSpokenLabel"),
-    }
+    autoScroll = createSpyObj("AutoScrollService", [
+      "start",
+      "stop",
+      "updateAutoScrollSpeed",
+      "getAutoScrollSpeedLabel",
+      "getAutoScrollSpeedSpokenLabel",
+    ])
     Object.defineProperties(autoScroll, {
       autoScrollEnabled: { get: () => playing },
       autoScrollLinesPerSecond: { get: () => speed },
@@ -354,9 +341,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
       speed += delta
       return speed
     })
-    const analytics = {
-      track: vi.fn().mockName("AnalyticsService.track"),
-    }
+    const analytics = createSpyObj("AnalyticsService", ["track"])
     analytics.track.mockResolvedValue()
 
     await TestBed.configureTestingModule({

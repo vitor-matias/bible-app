@@ -1,11 +1,11 @@
 import { TestBed } from "@angular/core/testing"
-import type { MockedObject } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { BookmarkService } from "./bookmark.service"
 import { DatabaseService } from "./database.service"
 
 describe("BookmarkService", () => {
   let service: BookmarkService
-  let databaseService: MockedObject<DatabaseService>
+  let databaseService: SpyObj<DatabaseService>
 
   const mockBookmarks: Bookmark[] = [
     { bookId: "GEN", chapter: 1, color: "#F44336", timestamp: 123 },
@@ -13,12 +13,12 @@ describe("BookmarkService", () => {
   ]
 
   beforeEach(async () => {
-    const spy = {
-      getAll: vi.fn().mockName("DatabaseService.getAll"),
-      clearAndPutAll: vi.fn().mockName("DatabaseService.clearAndPutAll"),
-      delete: vi.fn().mockName("DatabaseService.delete"),
-      clear: vi.fn().mockName("DatabaseService.clear"),
-    }
+    const spy = createSpyObj("DatabaseService", [
+      "getAll",
+      "clearAndPutAll",
+      "delete",
+      "clear",
+    ])
     spy.getAll.mockImplementation(() =>
       Promise.resolve(JSON.parse(JSON.stringify(mockBookmarks))),
     )
@@ -30,9 +30,7 @@ describe("BookmarkService", () => {
       providers: [BookmarkService, { provide: DatabaseService, useValue: spy }],
     })
     service = TestBed.inject(BookmarkService)
-    databaseService = TestBed.inject(
-      DatabaseService,
-    ) as MockedObject<DatabaseService>
+    databaseService = TestBed.inject(DatabaseService) as SpyObj<DatabaseService>
 
     // Wait for initialization to complete
     await service.initialized

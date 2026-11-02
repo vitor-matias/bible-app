@@ -3,7 +3,8 @@ import {
   HttpTestingController,
 } from "@angular/common/http/testing"
 import { TestBed } from "@angular/core/testing"
-import type { Mock, MockedObject } from "vitest"
+import type { Mock } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import { DatabaseService } from "./database.service"
 import { NetworkService } from "./network.service"
@@ -11,7 +12,7 @@ import { OfflineDataService } from "./offline-data.service"
 
 describe("OfflineDataService", () => {
   let service: OfflineDataService
-  let networkService: MockedObject<NetworkService>
+  let networkService: SpyObj<NetworkService>
   let httpMock: HttpTestingController
   let mockLocalStorage: {
     _storage: Record<string, string>
@@ -65,7 +66,7 @@ describe("OfflineDataService", () => {
     },
   ]
 
-  let databaseService: MockedObject<DatabaseService>
+  let databaseService: SpyObj<DatabaseService>
 
   const flushMicrotasks = async () => {
     for (let i = 0; i < 5; i++) {
@@ -119,11 +120,11 @@ describe("OfflineDataService", () => {
     mockLocalStorage._storage["booksCacheSchemaVersion"] = "2"
 
     // Mock DatabaseService
-    const spy = {
-      getAll: vi.fn().mockName("DatabaseService.getAll"),
-      clearAndPutAll: vi.fn().mockName("DatabaseService.clearAndPutAll"),
-      clear: vi.fn().mockName("DatabaseService.clear"),
-    }
+    const spy = createSpyObj("DatabaseService", [
+      "getAll",
+      "clearAndPutAll",
+      "clear",
+    ])
     spy.getAll.mockResolvedValue([])
     spy.clearAndPutAll.mockResolvedValue()
     spy.clear.mockResolvedValue()
@@ -133,9 +134,7 @@ describe("OfflineDataService", () => {
       isOffline: false,
     }
 
-    const analyticsSpy = {
-      track: vi.fn().mockName("AnalyticsService.track"),
-    }
+    const analyticsSpy = createSpyObj("AnalyticsService", ["track"])
     analyticsSpy.track.mockResolvedValue()
 
     TestBed.configureTestingModule({
@@ -148,12 +147,8 @@ describe("OfflineDataService", () => {
       ],
     })
     service = TestBed.inject(OfflineDataService)
-    databaseService = TestBed.inject(
-      DatabaseService,
-    ) as MockedObject<DatabaseService>
-    networkService = TestBed.inject(
-      NetworkService,
-    ) as MockedObject<NetworkService>
+    databaseService = TestBed.inject(DatabaseService) as SpyObj<DatabaseService>
+    networkService = TestBed.inject(NetworkService) as SpyObj<NetworkService>
     httpMock = TestBed.inject(HttpTestingController)
   })
 

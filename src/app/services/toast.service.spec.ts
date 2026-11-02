@@ -9,8 +9,9 @@ import {
 } from "@angular/material/snack-bar"
 import { provideRouter, Router } from "@angular/router"
 import { Subject } from "rxjs"
-import type { Mock, MockedObject } from "vitest"
+import type { Mock } from "vitest"
 import { TwoActionSnackComponent } from "../components/two-action-snackbar/two-action-snackbar.component"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { BookService } from "./book.service"
 import { NativeChromeService } from "./native-chrome.service"
 import { ToastService } from "./toast.service"
@@ -19,8 +20,8 @@ import { ToastService } from "./toast.service"
 class PassagePage {}
 
 describe("ToastService", () => {
-  let snackBar: MockedObject<MatSnackBar>
-  let snackRef: MockedObject<MatSnackBarRef<TwoActionSnackComponent>>
+  let snackBar: SpyObj<MatSnackBar>
+  let snackRef: SpyObj<MatSnackBarRef<TwoActionSnackComponent>>
   let snackClosed: Subject<MatSnackBarDismiss>
   let nativeChrome: {
     enabled: boolean
@@ -31,15 +32,9 @@ describe("ToastService", () => {
 
   function create(native: boolean): ToastService {
     snackClosed = new Subject()
-    snackRef = {
-      dismiss: vi.fn().mockName("MatSnackBarRef.dismiss"),
-      afterDismissed: vi.fn().mockName("MatSnackBarRef.afterDismissed"),
-    }
+    snackRef = createSpyObj("MatSnackBarRef", ["dismiss", "afterDismissed"])
     snackRef.afterDismissed.mockReturnValue(snackClosed)
-    snackBar = {
-      open: vi.fn().mockName("MatSnackBar.open"),
-      openFromComponent: vi.fn().mockName("MatSnackBar.openFromComponent"),
-    }
+    snackBar = createSpyObj("MatSnackBar", ["open", "openFromComponent"])
     snackBar.openFromComponent.mockReturnValue(snackRef)
     hideToast = vi.fn().mockName("hideToast")
     nativeChrome = {

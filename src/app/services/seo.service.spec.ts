@@ -1,7 +1,7 @@
 import { DOCUMENT } from "@angular/common"
 import { TestBed } from "@angular/core/testing"
 import { Meta, Title } from "@angular/platform-browser"
-import type { MockedObject } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { BookService } from "./book.service"
 import {
   SEO_BASE_URL,
@@ -18,7 +18,7 @@ describe("SeoService", () => {
   let title: Title
   let meta: Meta
   let doc: Document
-  let bookServiceSpy: MockedObject<BookService>
+  let bookServiceSpy: SpyObj<BookService>
 
   const genesis = {
     id: "GN",
@@ -65,12 +65,10 @@ describe("SeoService", () => {
   }
 
   beforeEach(() => {
-    bookServiceSpy = {
-      getUrlAbrv: vi.fn().mockName("BookService.getUrlAbrv"),
-      getChapterUrlSegment: vi
-        .fn()
-        .mockName("BookService.getChapterUrlSegment"),
-    }
+    bookServiceSpy = createSpyObj("BookService", [
+      "getUrlAbrv",
+      "getChapterUrlSegment",
+    ])
     bookServiceSpy.getUrlAbrv.mockReturnValue("gn")
     bookServiceSpy.getChapterUrlSegment.mockImplementation((chapter: number) =>
       chapter === 0 ? "intro" : chapter.toString(),

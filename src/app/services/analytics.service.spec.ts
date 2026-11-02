@@ -1,6 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
-import type { Mock, MockedObject } from "vitest"
+import type { Mock } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import {
   AnalyticsService,
   BUILD_DATA_WAIT_MS,
@@ -17,13 +18,13 @@ describe("AnalyticsService", () => {
     vi.useRealTimers()
   })
   let service: AnalyticsService
-  let buildVersionServiceMock: MockedObject<BuildVersionService>
+  let buildVersionServiceMock: SpyObj<BuildVersionService>
 
   beforeEach(() => {
-    buildVersionServiceMock = {
-      getBuildInfo: vi.fn().mockName("BuildVersionService.getBuildInfo"),
-      getRelease: vi.fn().mockName("BuildVersionService.getRelease"),
-    }
+    buildVersionServiceMock = createSpyObj("BuildVersionService", [
+      "getBuildInfo",
+      "getRelease",
+    ])
     // The web, which has no release, unless a test says otherwise.
     buildVersionServiceMock.getRelease.mockResolvedValue(null)
     buildVersionServiceMock.getBuildInfo.mockResolvedValue({
@@ -40,9 +41,7 @@ describe("AnalyticsService", () => {
     service = TestBed.inject(AnalyticsService)
 
     // Setup global umami mock
-    globalThis.umami = {
-      track: vi.fn().mockName("track"),
-    }
+    globalThis.umami = createSpyObj("Spy", ["track"])
   })
 
   afterEach(() => {

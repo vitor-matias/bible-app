@@ -2,7 +2,7 @@ import { PLATFORM_ID } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, firstValueFrom, of, throwError } from "rxjs"
-import type { MockedObject } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { APP_PLUGIN } from "../tokens"
 import { BibleApiService } from "./bible-api.service"
 import { BookService } from "./book.service"
@@ -73,11 +73,11 @@ describe("BookService", () => {
 
   beforeEach(() => {
     apiBooks = mockBooks.map((book) => ({ ...book }))
-    const apiServiceSpy = {
-      getAvailableBooks: vi.fn().mockName("BibleApiService.getAvailableBooks"),
-      getIntros: vi.fn().mockName("BibleApiService.getIntros"),
-      getIntro: vi.fn().mockName("BibleApiService.getIntro"),
-    }
+    const apiServiceSpy = createSpyObj("BibleApiService", [
+      "getAvailableBooks",
+      "getIntros",
+      "getIntro",
+    ])
     apiServiceSpy.getAvailableBooks.mockReturnValue(of(apiBooks))
     apiServiceSpy.getIntros.mockReturnValue(of([]))
 
@@ -93,13 +93,11 @@ describe("BookService", () => {
 
   describe("standalone introductions", () => {
     const introApi = (intros: IntroSummary[], body?: GroupIntro) => {
-      const spy = {
-        getAvailableBooks: vi
-          .fn()
-          .mockName("BibleApiService.getAvailableBooks"),
-        getIntros: vi.fn().mockName("BibleApiService.getIntros"),
-        getIntro: vi.fn().mockName("BibleApiService.getIntro"),
-      }
+      const spy = createSpyObj("BibleApiService", [
+        "getAvailableBooks",
+        "getIntros",
+        "getIntro",
+      ])
       spy.getAvailableBooks.mockReturnValue(of(apiBooks))
       spy.getIntros.mockReturnValue(of(intros))
       spy.getIntro.mockReturnValue(body ? of(body) : of())
@@ -148,9 +146,7 @@ describe("BookService", () => {
       // The constructor and APP_INITIALIZER both call it in the same tick;
       // without sharing, /intros is fetched twice and books$ emits twice.
       const svc = introApi([{ slug: "pentateuco", name: "PENTATEUCO" }])
-      const api = TestBed.inject(
-        BibleApiService,
-      ) as MockedObject<BibleApiService>
+      const api = TestBed.inject(BibleApiService) as SpyObj<BibleApiService>
 
       await Promise.all([svc.initializeBooks(), svc.initializeBooks()])
 
@@ -211,10 +207,10 @@ describe("BookService", () => {
 
   it("should not surface an unhandled rejection when the eager constructor load fails", async () => {
     // An unhandled rejection here kills prerender worker threads at build time.
-    const failingApi = {
-      getAvailableBooks: vi.fn().mockName("BibleApiService.getAvailableBooks"),
-      getIntros: vi.fn().mockName("BibleApiService.getIntros"),
-    }
+    const failingApi = createSpyObj("BibleApiService", [
+      "getAvailableBooks",
+      "getIntros",
+    ])
     failingApi.getAvailableBooks.mockReturnValue(
       throwError(() => new Error("API unavailable")),
     )
@@ -435,7 +431,7 @@ describe("BookService", () => {
   })
 
   describe("when the book list cannot be loaded", () => {
-    let api: MockedObject<BibleApiService>
+    let api: SpyObj<BibleApiService>
     let isOffline$: BehaviorSubject<boolean>
     let resume: () => void
 
@@ -443,13 +439,11 @@ describe("BookService", () => {
       native = false,
       platformId: "browser" | "server" = "browser",
     ): BookService {
-      api = {
-        getAvailableBooks: vi
-          .fn()
-          .mockName("BibleApiService.getAvailableBooks"),
-        getIntros: vi.fn().mockName("BibleApiService.getIntros"),
-        getIntro: vi.fn().mockName("BibleApiService.getIntro"),
-      }
+      api = createSpyObj("BibleApiService", [
+        "getAvailableBooks",
+        "getIntros",
+        "getIntro",
+      ])
       // A first launch without a connection, then a working one.
       api.getAvailableBooks
         .mockReturnValueOnce(

@@ -1,6 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { BehaviorSubject, Subject } from "rxjs"
-import type { Mock, MockedObject } from "vitest"
+import type { Mock } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { BookService } from "./book.service"
 import { BookmarkService } from "./bookmark.service"
 import {
@@ -24,7 +25,7 @@ describe("NativeBookmarksService", () => {
     showBookmarks: Mock
     updateBookmarks: Mock
   }
-  let ribbons: MockedObject<BookmarkRibbonsService>
+  let ribbons: SpyObj<BookmarkRibbonsService>
   let service: NativeBookmarksService
 
   const markedRed: Bookmark = {
@@ -42,15 +43,15 @@ describe("NativeBookmarksService", () => {
       showBookmarks: vi.fn().mockName("showBookmarks").mockResolvedValue(true),
       updateBookmarks: vi.fn().mockName("updateBookmarks"),
     }
-    ribbons = {
-      ribbons: vi.fn().mockName("BookmarkRibbonsService.ribbons"),
-      open: vi.fn().mockName("BookmarkRibbonsService.open"),
-      assign: vi.fn().mockName("BookmarkRibbonsService.assign"),
-      remove: vi.fn().mockName("BookmarkRibbonsService.remove"),
-      move: vi.fn().mockName("BookmarkRibbonsService.move"),
-      restore: vi.fn().mockName("BookmarkRibbonsService.restore"),
-      moveTo: vi.fn().mockName("BookmarkRibbonsService.moveTo"),
-    }
+    ribbons = createSpyObj("BookmarkRibbonsService", [
+      "ribbons",
+      "open",
+      "assign",
+      "remove",
+      "move",
+      "restore",
+      "moveTo",
+    ])
     // The real move offer, over the spied move and restore.
     ribbons.moveTo.mockImplementation(
       (bookId: string, chapter: number) =>

@@ -8,25 +8,23 @@ import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { Router } from "@angular/router"
 import { BehaviorSubject } from "rxjs"
-import type { MockedObject } from "vitest"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { ribbonColor } from "../../services/bookmark-ribbons.service"
 import { HapticsService } from "../../services/haptics.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BookmarkSelectorComponent } from "./bookmark-selector.component"
 
 describe("BookmarkSelectorComponent", () => {
   let component: BookmarkSelectorComponent
-  let hapticsSpy: MockedObject<HapticsService>
+  let hapticsSpy: SpyObj<HapticsService>
   let fixture: ComponentFixture<BookmarkSelectorComponent>
-  let bookmarkServiceSpy: MockedObject<BookmarkService>
-  let _bookServiceSpy: MockedObject<BookService>
-  let bottomSheetRefSpy: MockedObject<
-    MatBottomSheetRef<BookmarkSelectorComponent>
-  >
-  let routerSpy: MockedObject<Router>
-  let analyticsServiceSpy: MockedObject<AnalyticsService>
+  let bookmarkServiceSpy: SpyObj<BookmarkService>
+  let _bookServiceSpy: SpyObj<BookService>
+  let bottomSheetRefSpy: SpyObj<MatBottomSheetRef<BookmarkSelectorComponent>>
+  let routerSpy: SpyObj<Router>
+  let analyticsServiceSpy: SpyObj<AnalyticsService>
   let bookmarksSubject: BehaviorSubject<Bookmark[]>
 
   const mockData = { bookId: "GEN", chapter: 1 }
@@ -35,26 +33,18 @@ describe("BookmarkSelectorComponent", () => {
   ]
 
   beforeEach(async () => {
-    const bookmarkSpy = {
-      addBookmark: vi.fn().mockName("BookmarkService.addBookmark"),
-      removeBookmark: vi.fn().mockName("BookmarkService.removeBookmark"),
-    }
-    const bookSpy = {
-      findBookById: vi.fn().mockName("BookService.findBookById"),
-      getUrlAbrv: vi.fn().mockName("BookService.getUrlAbrv"),
-      getChapterUrlSegment: vi
-        .fn()
-        .mockName("BookService.getChapterUrlSegment"),
-    }
-    const sheetSpy = {
-      dismiss: vi.fn().mockName("MatBottomSheetRef.dismiss"),
-    }
-    const rSpy = {
-      navigate: vi.fn().mockName("Router.navigate"),
-    }
-    analyticsServiceSpy = {
-      track: vi.fn().mockName("AnalyticsService.track"),
-    }
+    const bookmarkSpy = createSpyObj("BookmarkService", [
+      "addBookmark",
+      "removeBookmark",
+    ])
+    const bookSpy = createSpyObj("BookService", [
+      "findBookById",
+      "getUrlAbrv",
+      "getChapterUrlSegment",
+    ])
+    const sheetSpy = createSpyObj("MatBottomSheetRef", ["dismiss"])
+    const rSpy = createSpyObj("Router", ["navigate"])
+    analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
     analyticsServiceSpy.track.mockResolvedValue()
 
     bookmarksSubject = new BehaviorSubject<Bookmark[]>(mockBookmarks)
@@ -63,10 +53,7 @@ describe("BookmarkSelectorComponent", () => {
     })
 
     bookmarkSpy.addBookmark.mockResolvedValue()
-    hapticsSpy = {
-      light: vi.fn().mockName("HapticsService.light"),
-      success: vi.fn().mockName("HapticsService.success"),
-    }
+    hapticsSpy = createSpyObj("HapticsService", ["light", "success"])
     bookmarkSpy.removeBookmark.mockResolvedValue()
     bookSpy.findBookById.mockReturnValue({ abrv: "Mc", shortName: "Marcos" })
     bookSpy.getUrlAbrv.mockReturnValue("mrk")
@@ -96,12 +83,12 @@ describe("BookmarkSelectorComponent", () => {
     component = fixture.componentInstance
     bookmarkServiceSpy = TestBed.inject(
       BookmarkService,
-    ) as MockedObject<BookmarkService>
-    _bookServiceSpy = TestBed.inject(BookService) as MockedObject<BookService>
-    bottomSheetRefSpy = TestBed.inject(MatBottomSheetRef) as MockedObject<
+    ) as SpyObj<BookmarkService>
+    _bookServiceSpy = TestBed.inject(BookService) as SpyObj<BookService>
+    bottomSheetRefSpy = TestBed.inject(MatBottomSheetRef) as SpyObj<
       MatBottomSheetRef<BookmarkSelectorComponent>
     >
-    routerSpy = TestBed.inject(Router) as MockedObject<Router>
+    routerSpy = TestBed.inject(Router) as SpyObj<Router>
 
     fixture.detectChanges()
   })
@@ -271,9 +258,7 @@ describe("BookmarkSelectorComponent", () => {
   })
 
   it("should warn and not navigate when bookmark references unknown book", () => {
-    const bookServiceSpy = TestBed.inject(
-      BookService,
-    ) as MockedObject<BookService>
+    const bookServiceSpy = TestBed.inject(BookService) as SpyObj<BookService>
     bookServiceSpy.findBookById.mockReturnValue(undefined)
     bookmarksSubject.next([
       { bookId: "UNKNOWN", chapter: 1, color: "blue", timestamp: 789 },

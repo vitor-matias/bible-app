@@ -12,7 +12,7 @@ import { By } from "@angular/platform-browser"
 import { ActivatedRoute, Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, of, Subject } from "rxjs"
-import type { Mock, MockedObject } from "vitest"
+import type { Mock } from "vitest"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
@@ -28,6 +28,7 @@ import { NativeReportService } from "../../services/native-report.service"
 import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { ThemeService } from "../../services/theme.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { HeaderComponent } from "./header.component"
 
@@ -40,27 +41,25 @@ describe("HeaderComponent", () => {
   })
   let component: HeaderComponent
   let fixture: ComponentFixture<HeaderComponent>
-  let routerSpy: MockedObject<Router>
-  let networkServiceSpy: MockedObject<NetworkService>
-  let themeServiceSpy: MockedObject<ThemeService>
-  let bookmarkServiceSpy: MockedObject<BookmarkService>
-  let bottomSheetSpy: MockedObject<MatBottomSheet>
+  let routerSpy: SpyObj<Router>
+  let networkServiceSpy: SpyObj<NetworkService>
+  let themeServiceSpy: SpyObj<ThemeService>
+  let bookmarkServiceSpy: SpyObj<BookmarkService>
+  let bottomSheetSpy: SpyObj<MatBottomSheet>
   let bookmarkSheetDismissed: Subject<void>
   let bookmarkSheetRef: {
     dismiss: Mock
     afterDismissed: () => unknown
   }
-  let dialogSpy: MockedObject<MatDialog>
-  let analyticsServiceSpy: MockedObject<AnalyticsService>
-  let onboardingServiceSpy: MockedObject<OnboardingService>
-  let buildVersionSpy: MockedObject<BuildVersionService>
+  let dialogSpy: SpyObj<MatDialog>
+  let analyticsServiceSpy: SpyObj<AnalyticsService>
+  let onboardingServiceSpy: SpyObj<OnboardingService>
+  let buildVersionSpy: SpyObj<BuildVersionService>
   let isOfflineSubject: BehaviorSubject<boolean>
   let originalShare: typeof navigator.share
 
   beforeEach(async () => {
-    routerSpy = {
-      navigate: vi.fn().mockName("Router.navigate"),
-    }
+    routerSpy = createSpyObj("Router", ["navigate"])
     isOfflineSubject = new BehaviorSubject<boolean>(false)
     networkServiceSpy = {
       isOffline$: isOfflineSubject.asObservable(),
@@ -71,13 +70,9 @@ describe("HeaderComponent", () => {
       setTheme: vi.fn().mockName("ThemeService.setTheme"),
       currentMode: "system",
     }
-    bookmarkServiceSpy = {
-      getBookmark: vi.fn().mockName("BookmarkService.getBookmark"),
-    }
+    bookmarkServiceSpy = createSpyObj("BookmarkService", ["getBookmark"])
     bookmarkServiceSpy.bookmarks$ = of([])
-    bottomSheetSpy = {
-      open: vi.fn().mockName("MatBottomSheet.open"),
-    }
+    bottomSheetSpy = createSpyObj("MatBottomSheet", ["open"])
     bookmarkSheetDismissed = new Subject<void>()
     bookmarkSheetRef = {
       dismiss: vi.fn().mockName("dismiss"),
@@ -86,25 +81,15 @@ describe("HeaderComponent", () => {
     bottomSheetSpy.open.mockReturnValue(
       bookmarkSheetRef as unknown as ReturnType<MatBottomSheet["open"]>,
     )
-    dialogSpy = {
-      open: vi.fn().mockName("MatDialog.open"),
-    }
-    analyticsServiceSpy = {
-      track: vi.fn().mockName("AnalyticsService.track"),
-      areAnalyticsAvailable: vi
-        .fn()
-        .mockName("AnalyticsService.areAnalyticsAvailable"),
-    }
+    dialogSpy = createSpyObj("MatDialog", ["open"])
+    analyticsServiceSpy = createSpyObj("AnalyticsService", [
+      "track",
+      "areAnalyticsAvailable",
+    ])
     analyticsServiceSpy.track.mockResolvedValue()
     analyticsServiceSpy.areAnalyticsAvailable.mockReturnValue(true)
-    onboardingServiceSpy = {
-      open: vi.fn().mockName("OnboardingService.open"),
-    }
-    buildVersionSpy = {
-      getDisplayVersion: vi
-        .fn()
-        .mockName("BuildVersionService.getDisplayVersion"),
-    }
+    onboardingServiceSpy = createSpyObj("OnboardingService", ["open"])
+    buildVersionSpy = createSpyObj("BuildVersionService", ["getDisplayVersion"])
     buildVersionSpy.getDisplayVersion.mockResolvedValue({
       release: "1.2.3",
       build: "20261016-120000Z",
@@ -250,9 +235,7 @@ describe("HeaderComponent", () => {
   })
 
   it("should open the report problem dialog from the menu", () => {
-    const trigger = {
-      closeMenu: vi.fn().mockName("MatMenuTrigger.closeMenu"),
-    }
+    const trigger = createSpyObj("MatMenuTrigger", ["closeMenu"])
     fixture.componentRef.setInput("chapterNumber", 3)
 
     component.onReportProblem(trigger)
@@ -267,9 +250,7 @@ describe("HeaderComponent", () => {
 
   // Chapter 0 is the introduction; a falsy check used to swallow it.
   it("should open the report problem dialog for an introduction", () => {
-    const trigger = {
-      closeMenu: vi.fn().mockName("MatMenuTrigger.closeMenu"),
-    }
+    const trigger = createSpyObj("MatMenuTrigger", ["closeMenu"])
     fixture.componentRef.setInput("chapterNumber", 0)
 
     component.onReportProblem(trigger)
@@ -282,9 +263,7 @@ describe("HeaderComponent", () => {
   })
 
   it("should not open the report problem dialog when chapter context is missing", () => {
-    const trigger = {
-      closeMenu: vi.fn().mockName("MatMenuTrigger.closeMenu"),
-    }
+    const trigger = createSpyObj("MatMenuTrigger", ["closeMenu"])
 
     fixture.componentRef.setInput(
       "chapterNumber",
@@ -516,9 +495,7 @@ describe("HeaderComponent", () => {
   })
 
   it("opens the About page from the menu", () => {
-    const trigger = {
-      closeMenu: vi.fn().mockName("MatMenuTrigger.closeMenu"),
-    }
+    const trigger = createSpyObj("MatMenuTrigger", ["closeMenu"])
     const selected: {
       bookId: string
       chapter?: number
@@ -532,9 +509,7 @@ describe("HeaderComponent", () => {
   })
 
   it("should open the onboarding wizard from the menu", () => {
-    const trigger = {
-      closeMenu: vi.fn().mockName("MatMenuTrigger.closeMenu"),
-    }
+    const trigger = createSpyObj("MatMenuTrigger", ["closeMenu"])
 
     component.onOpenHelp(trigger)
 
@@ -851,16 +826,16 @@ describe("HeaderComponent with the iOS native bars", () => {
     showPicker: Mock
     share: Mock
   }
-  let router: MockedObject<Router>
-  let theme: MockedObject<ThemeService>
-  let bottomSheet: MockedObject<MatBottomSheet>
-  let dialog: MockedObject<MatDialog>
-  let onboarding: MockedObject<OnboardingService>
-  let analytics: MockedObject<AnalyticsService>
+  let router: SpyObj<Router>
+  let theme: SpyObj<ThemeService>
+  let bottomSheet: SpyObj<MatBottomSheet>
+  let dialog: SpyObj<MatDialog>
+  let onboarding: SpyObj<OnboardingService>
+  let analytics: SpyObj<AnalyticsService>
   let isOffline: BehaviorSubject<boolean>
-  let nativeBookmarks: MockedObject<NativeBookmarksService>
-  let nativeReport: MockedObject<NativeReportService>
-  let buildVersion: MockedObject<BuildVersionService>
+  let nativeBookmarks: SpyObj<NativeBookmarksService>
+  let nativeReport: SpyObj<NativeReportService>
+  let buildVersion: SpyObj<BuildVersionService>
 
   const genesis: Book = {
     id: "gen",
@@ -880,54 +855,34 @@ describe("HeaderComponent with the iOS native bars", () => {
       showPicker: vi.fn().mockName("showPicker"),
       share: vi.fn().mockName("share").mockResolvedValue(true),
     }
-    router = {
-      navigate: vi.fn().mockName("Router.navigate"),
-    }
+    router = createSpyObj("Router", ["navigate"])
     router.navigate.mockResolvedValue(true)
     theme = {
       toggleTheme: vi.fn().mockName("ThemeService.toggleTheme"),
       setTheme: vi.fn().mockName("ThemeService.setTheme"),
       currentMode: "system",
     }
-    const bookmarks = {
-      getBookmark: vi.fn().mockName("BookmarkService.getBookmark"),
-    }
+    const bookmarks = createSpyObj("BookmarkService", ["getBookmark"])
     bookmarks.bookmarks$ = of([
       { bookId: "gen", chapter: 2, color: "red", timestamp: 1 },
     ])
-    bottomSheet = {
-      open: vi.fn().mockName("MatBottomSheet.open"),
-    }
+    bottomSheet = createSpyObj("MatBottomSheet", ["open"])
     bottomSheet.open.mockReturnValue({
       dismiss: () => {},
       afterDismissed: () => new Subject<void>(),
     } as unknown as ReturnType<MatBottomSheet["open"]>)
-    dialog = {
-      open: vi.fn().mockName("MatDialog.open"),
-    }
-    onboarding = {
-      open: vi.fn().mockName("OnboardingService.open"),
-    }
-    analytics = {
-      track: vi.fn().mockName("AnalyticsService.track"),
-      areAnalyticsAvailable: vi
-        .fn()
-        .mockName("AnalyticsService.areAnalyticsAvailable"),
-    }
+    dialog = createSpyObj("MatDialog", ["open"])
+    onboarding = createSpyObj("OnboardingService", ["open"])
+    analytics = createSpyObj("AnalyticsService", [
+      "track",
+      "areAnalyticsAvailable",
+    ])
     analytics.track.mockResolvedValue()
     analytics.areAnalyticsAvailable.mockReturnValue(true)
     isOffline = new BehaviorSubject(false)
-    nativeBookmarks = {
-      open: vi.fn().mockName("NativeBookmarksService.open"),
-    }
-    nativeReport = {
-      open: vi.fn().mockName("NativeReportService.open"),
-    }
-    buildVersion = {
-      getDisplayVersion: vi
-        .fn()
-        .mockName("BuildVersionService.getDisplayVersion"),
-    }
+    nativeBookmarks = createSpyObj("NativeBookmarksService", ["open"])
+    nativeReport = createSpyObj("NativeReportService", ["open"])
+    buildVersion = createSpyObj("BuildVersionService", ["getDisplayVersion"])
     buildVersion.getDisplayVersion.mockResolvedValue({
       release: "1.2.3",
       build: "20261016-120000Z",
@@ -1021,9 +976,7 @@ describe("HeaderComponent with the iOS native bars", () => {
   })
 
   it("shows the chapter's ribbon, by colour and by name, on the bookmark button", () => {
-    const bookmarks = TestBed.inject(
-      BookmarkService,
-    ) as MockedObject<BookmarkService>
+    const bookmarks = TestBed.inject(BookmarkService) as SpyObj<BookmarkService>
     bookmarks.getBookmark.mockReturnValue({
       bookId: "gen",
       chapter: 4,

@@ -1,21 +1,19 @@
 import { TestBed } from "@angular/core/testing"
-import type { Mock, MockedObject } from "vitest"
+import type { Mock } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AutoScrollService } from "./auto-scroll.service"
 import { KeepAwakeService } from "./keep-awake.service"
 
 describe("AutoScrollService", () => {
   let service: AutoScrollService
-  let keepAwakeServiceSpy: MockedObject<KeepAwakeService>
+  let keepAwakeServiceSpy: SpyObj<KeepAwakeService>
   let requestAnimationFrameSpy: Mock
   let cancelAnimationFrameSpy: Mock
   let resizeObserverCallback: ResizeObserverCallback | undefined
   let originalResizeObserver: typeof ResizeObserver | undefined
 
   beforeEach(() => {
-    keepAwakeServiceSpy = {
-      start: vi.fn().mockName("KeepAwakeService.start"),
-      stop: vi.fn().mockName("KeepAwakeService.stop"),
-    }
+    keepAwakeServiceSpy = createSpyObj("KeepAwakeService", ["start", "stop"])
     originalResizeObserver = globalThis.ResizeObserver
     resizeObserverCallback = undefined
     requestAnimationFrameSpy = vi

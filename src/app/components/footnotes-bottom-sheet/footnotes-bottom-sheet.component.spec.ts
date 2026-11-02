@@ -5,24 +5,24 @@ import {
 } from "@angular/material/bottom-sheet"
 import { By } from "@angular/platform-browser"
 import { ActivatedRoute, Router, RouterLink } from "@angular/router"
-import type { MockedObject } from "vitest"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { ToastService } from "../../services/toast.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { FootnotesBottomSheetComponent } from "./footnotes-bottom-sheet.component"
 
 describe("FootnotesBottomSheetComponent", () => {
   let component: FootnotesBottomSheetComponent
   let fixture: ComponentFixture<FootnotesBottomSheetComponent>
-  let bottomSheetRefSpy: MockedObject<
+  let bottomSheetRefSpy: SpyObj<
     MatBottomSheetRef<FootnotesBottomSheetComponent>
   >
-  let bibleRefSpy: MockedObject<BibleReferenceService>
-  let bookServiceSpy: MockedObject<BookService>
-  let analyticsServiceSpy: MockedObject<AnalyticsService>
-  let toastSpy: MockedObject<ToastService>
+  let bibleRefSpy: SpyObj<BibleReferenceService>
+  let bookServiceSpy: SpyObj<BookService>
+  let analyticsServiceSpy: SpyObj<AnalyticsService>
+  let toastSpy: SpyObj<ToastService>
 
   const mockData = {
     footnotes: [
@@ -37,23 +37,12 @@ describe("FootnotesBottomSheetComponent", () => {
   }
 
   beforeEach(async () => {
-    bottomSheetRefSpy = {
-      dismiss: vi.fn().mockName("MatBottomSheetRef.dismiss"),
-    }
-    bibleRefSpy = {
-      extract: vi.fn().mockName("BibleReferenceService.extract"),
-    }
-    bookServiceSpy = {
-      findBook: vi.fn().mockName("BookService.findBook"),
-      getUrlAbrv: vi.fn().mockName("BookService.getUrlAbrv"),
-    }
-    analyticsServiceSpy = {
-      track: vi.fn().mockName("AnalyticsService.track"),
-    }
+    bottomSheetRefSpy = createSpyObj("MatBottomSheetRef", ["dismiss"])
+    bibleRefSpy = createSpyObj("BibleReferenceService", ["extract"])
+    bookServiceSpy = createSpyObj("BookService", ["findBook", "getUrlAbrv"])
+    analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
     analyticsServiceSpy.track.mockResolvedValue()
-    toastSpy = {
-      showReturn: vi.fn().mockName("ToastService.showReturn"),
-    }
+    toastSpy = createSpyObj("ToastService", ["showReturn"])
 
     await TestBed.configureTestingModule({
       imports: [FootnotesBottomSheetComponent],

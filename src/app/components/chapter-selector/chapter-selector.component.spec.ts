@@ -6,21 +6,17 @@ import { MatIconModule } from "@angular/material/icon"
 import { MatListModule } from "@angular/material/list"
 import { MatDrawer, MatSidenavModule } from "@angular/material/sidenav"
 import { of } from "rxjs"
-import type { MockedObject } from "vitest"
 import { BookmarkService } from "../../services/bookmark.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { ChapterSelectorComponent } from "./chapter-selector.component"
 
 describe("ChapterSelectorComponent", () => {
   let component: ChapterSelectorComponent
   let fixture: ComponentFixture<ChapterSelectorComponent>
-  let _bookmarkServiceSpy: MockedObject<BookmarkService>
+  let _bookmarkServiceSpy: SpyObj<BookmarkService>
 
   beforeEach(async () => {
-    const spy = {
-      getBookmarksForBook: vi
-        .fn()
-        .mockName("BookmarkService.getBookmarksForBook"),
-    }
+    const spy = createSpyObj("BookmarkService", ["getBookmarksForBook"])
     spy.getBookmarksForBook.mockReturnValue(
       of([{ bookId: "GEN", chapter: 1, color: "red", timestamp: 123 }]),
     )
@@ -39,7 +35,7 @@ describe("ChapterSelectorComponent", () => {
     component = fixture.componentInstance
     _bookmarkServiceSpy = TestBed.inject(
       BookmarkService,
-    ) as MockedObject<BookmarkService>
+    ) as SpyObj<BookmarkService>
 
     fixture.componentRef.setInput("chapters", [
       { bookId: "GEN", number: 1, title: "Creation" },
@@ -251,11 +247,7 @@ describe("ChapterSelectorComponent in the reader's drawer", () => {
     vi.useRealTimers()
   })
   beforeEach(() => {
-    const bookmarks = {
-      getBookmarksForBook: vi
-        .fn()
-        .mockName("BookmarkService.getBookmarksForBook"),
-    }
+    const bookmarks = createSpyObj("BookmarkService", ["getBookmarksForBook"])
     bookmarks.getBookmarksForBook.mockReturnValue(of([]))
     TestBed.configureTestingModule({
       imports: [DrawerHostComponent],

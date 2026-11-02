@@ -1,5 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 import type { Mock } from "vitest"
+import { createSpyObj } from "../testing/spy-obj"
 import { DatabaseService } from "./database.service"
 
 describe("DatabaseService", () => {
@@ -40,12 +41,12 @@ describe("DatabaseService", () => {
 
   beforeEach(() => {
     // Reset mocks for each test
-    mockIDBObjectStore = {
-      getAll: vi.fn().mockName("IDBObjectStore.getAll"),
-      put: vi.fn().mockName("IDBObjectStore.put"),
-      delete: vi.fn().mockName("IDBObjectStore.delete"),
-      clear: vi.fn().mockName("IDBObjectStore.clear"),
-    }
+    mockIDBObjectStore = createSpyObj("IDBObjectStore", [
+      "getAll",
+      "put",
+      "delete",
+      "clear",
+    ])
 
     mockIDBTransaction = {
       objectStore: vi

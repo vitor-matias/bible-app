@@ -1,15 +1,13 @@
 import { TestBed } from "@angular/core/testing"
 import { MAT_SNACK_BAR_DATA, MatSnackBarRef } from "@angular/material/snack-bar"
-import type { MockedObject } from "vitest"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { TwoActionSnackComponent } from "./two-action-snackbar.component"
 
 describe("TwoActionSnackComponent", () => {
-  let snackBarRefSpy: MockedObject<MatSnackBarRef<TwoActionSnackComponent>>
+  let snackBarRefSpy: SpyObj<MatSnackBarRef<TwoActionSnackComponent>>
 
   beforeEach(() => {
-    snackBarRefSpy = {
-      dismiss: vi.fn().mockName("MatSnackBarRef.dismiss"),
-    }
+    snackBarRefSpy = createSpyObj("MatSnackBarRef", ["dismiss"])
   })
 
   function create(data: { message: string; returnUrl?: () => void }) {

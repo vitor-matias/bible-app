@@ -1,19 +1,17 @@
-import type { MockedObject } from "vitest"
 import {
   type BibleReference,
   BibleReferenceService,
   type CrossChapterRange,
 } from "../../services/bible-reference.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { getVerseQueryParams, parseReferences } from "./verse.utils"
 
 describe("verse.utils", () => {
   describe("parseReferences", () => {
-    let mockBibleRef: MockedObject<BibleReferenceService>
+    let mockBibleRef: SpyObj<BibleReferenceService>
 
     beforeEach(() => {
-      mockBibleRef = {
-        extract: vi.fn().mockName("BibleReferenceService.extract"),
-      }
+      mockBibleRef = createSpyObj("BibleReferenceService", ["extract"])
     })
 
     it("should return the original text in an array when no references found", () => {

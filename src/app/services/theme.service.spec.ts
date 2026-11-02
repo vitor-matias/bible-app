@@ -1,5 +1,6 @@
 import { TestBed } from "@angular/core/testing"
-import type { Mock, MockedObject } from "vitest"
+import type { Mock } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import { NativeShellService } from "./native-shell.service"
 import { PreferencesService } from "./preferences.service"
@@ -7,29 +8,22 @@ import { ThemeService } from "./theme.service"
 
 describe("ThemeService", () => {
   let service: ThemeService
-  let prefsSpy: MockedObject<PreferencesService>
+  let prefsSpy: SpyObj<PreferencesService>
   let classListToggleSpy: Mock
-  let nativeShellSpy: MockedObject<NativeShellService>
+  let nativeShellSpy: SpyObj<NativeShellService>
 
   beforeEach(() => {
-    prefsSpy = {
-      getTheme: vi.fn().mockName("PreferencesService.getTheme"),
-      setTheme: vi.fn().mockName("PreferencesService.setTheme"),
-    }
+    prefsSpy = createSpyObj("PreferencesService", ["getTheme", "setTheme"])
     prefsSpy.getTheme.mockReturnValue(null)
 
     classListToggleSpy = vi
       .spyOn(document.documentElement.classList, "toggle")
       .mockReturnValue(undefined)
 
-    nativeShellSpy = {
-      setNavigationBarTheme: vi
-        .fn()
-        .mockName("NativeShellService.setNavigationBarTheme"),
-    }
-    const analyticsSpy = {
-      track: vi.fn().mockName("AnalyticsService.track"),
-    }
+    nativeShellSpy = createSpyObj("NativeShellService", [
+      "setNavigationBarTheme",
+    ])
+    const analyticsSpy = createSpyObj("AnalyticsService", ["track"])
     analyticsSpy.track.mockResolvedValue()
 
     TestBed.configureTestingModule({
@@ -80,7 +74,7 @@ describe("ThemeService", () => {
     service = createService()
     const analyticsSpy = TestBed.inject(
       AnalyticsService,
-    ) as MockedObject<AnalyticsService>
+    ) as SpyObj<AnalyticsService>
 
     // light -> dark
     service.toggleTheme()
@@ -106,7 +100,7 @@ describe("ThemeService", () => {
     service = createService()
     const analyticsSpy = TestBed.inject(
       AnalyticsService,
-    ) as MockedObject<AnalyticsService>
+    ) as SpyObj<AnalyticsService>
 
     const emitted: string[] = []
     service.themeMode$.subscribe((mode) => emitted.push(mode))
@@ -233,7 +227,7 @@ describe("ThemeService", () => {
     service = createService()
     const analytics = TestBed.inject(
       AnalyticsService,
-    ) as MockedObject<AnalyticsService>
+    ) as SpyObj<AnalyticsService>
     classListToggleSpy.mockClear()
 
     service.setTheme("dark")

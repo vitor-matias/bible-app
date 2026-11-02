@@ -1,21 +1,19 @@
 import { TestBed } from "@angular/core/testing"
-import type { MockedObject } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import { ProblemReportService } from "./problem-report.service"
 
 describe("ProblemReportService", () => {
-  let analytics: MockedObject<AnalyticsService>
+  let analytics: SpyObj<AnalyticsService>
   let service: ProblemReportService
 
   const report = { bookId: "gen", chapter: 1, topic: "typo", details: "x" }
 
   beforeEach(() => {
-    analytics = {
-      trackDelivered: vi.fn().mockName("AnalyticsService.trackDelivered"),
-      areAnalyticsAvailable: vi
-        .fn()
-        .mockName("AnalyticsService.areAnalyticsAvailable"),
-    }
+    analytics = createSpyObj("AnalyticsService", [
+      "trackDelivered",
+      "areAnalyticsAvailable",
+    ])
     analytics.trackDelivered.mockResolvedValue()
     TestBed.configureTestingModule({
       providers: [{ provide: AnalyticsService, useValue: analytics }],

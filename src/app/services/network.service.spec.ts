@@ -2,7 +2,8 @@ import { Injector } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import type { PluginListenerHandle } from "@capacitor/core"
 import type { ConnectionStatus } from "@capacitor/network"
-import type { Mock, MockedObject } from "vitest"
+import type { Mock } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { NETWORK_PLUGIN } from "../tokens"
 import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
@@ -14,10 +15,10 @@ describe("NetworkService", () => {
     preloadAllBooksAndChapters: Mock
   }
   let mockStatus: ConnectionStatus
-  let mockNetworkListener: MockedObject<PluginListenerHandle>
+  let mockNetworkListener: SpyObj<PluginListenerHandle>
   let capturedCallback: ((status: ConnectionStatus) => void) | undefined
   // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
-  let mockNetworkPlugin: MockedObject<any>
+  let mockNetworkPlugin: SpyObj<any>
 
   beforeEach(async () => {
     mockStatus = {
@@ -25,9 +26,7 @@ describe("NetworkService", () => {
       connectionType: "wifi",
     }
     capturedCallback = undefined
-    mockNetworkListener = {
-      remove: vi.fn().mockName("PluginListenerHandle.remove"),
-    }
+    mockNetworkListener = createSpyObj("PluginListenerHandle", ["remove"])
     mockNetworkListener.remove.mockResolvedValue()
 
     offlineData = {
@@ -37,10 +36,7 @@ describe("NetworkService", () => {
         .mockResolvedValue(),
     }
 
-    mockNetworkPlugin = {
-      addListener: vi.fn().mockName("Network.addListener"),
-      getStatus: vi.fn().mockName("Network.getStatus"),
-    }
+    mockNetworkPlugin = createSpyObj("Network", ["addListener", "getStatus"])
     mockNetworkPlugin.addListener.mockImplementation(
       (eventName: string, callback: (status: ConnectionStatus) => void) => {
         if (eventName === "networkStatusChange") {

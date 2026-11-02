@@ -2,12 +2,13 @@ import { TestBed } from "@angular/core/testing"
 import { MatDialog, type MatDialogRef } from "@angular/material/dialog"
 import { Capacitor } from "@capacitor/core"
 import { Subject } from "rxjs"
-import type { Mock, MockedObject } from "vitest"
+import type { Mock } from "vitest"
 import {
   OnboardingComponent,
   type OnboardingResult,
 } from "../components/onboarding/onboarding.component"
 import type { NativeOnboardingStep } from "../components/onboarding/onboarding-content"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import { NativeChromeService } from "./native-chrome.service"
 import { FIRST_LAUNCH_DELAY_MS, OnboardingService } from "./onboarding.service"
@@ -21,41 +22,27 @@ describe("OnboardingService", () => {
     vi.useRealTimers()
   })
   let service: OnboardingService
-  let dialogSpy: MockedObject<MatDialog>
-  let dialogRefSpy: MockedObject<MatDialogRef<OnboardingComponent>>
-  let preferencesSpy: MockedObject<PreferencesService>
-  let analyticsSpy: MockedObject<AnalyticsService>
+  let dialogSpy: SpyObj<MatDialog>
+  let dialogRefSpy: SpyObj<MatDialogRef<OnboardingComponent>>
+  let preferencesSpy: SpyObj<PreferencesService>
+  let analyticsSpy: SpyObj<AnalyticsService>
   let afterClosed$: Subject<OnboardingResult | undefined>
 
   beforeEach(() => {
     afterClosed$ = new Subject()
-    dialogRefSpy = {
-      afterClosed: vi.fn().mockName("MatDialogRef.afterClosed"),
-    }
+    dialogRefSpy = createSpyObj("MatDialogRef", ["afterClosed"])
     dialogRefSpy.afterClosed.mockReturnValue(afterClosed$.asObservable())
-    dialogSpy = {
-      open: vi.fn().mockName("MatDialog.open"),
-    }
+    dialogSpy = createSpyObj("MatDialog", ["open"])
     dialogSpy.open.mockReturnValue(dialogRefSpy)
-    preferencesSpy = {
-      getOnboardingSeen: vi
-        .fn()
-        .mockName("PreferencesService.getOnboardingSeen"),
-      setOnboardingSeen: vi
-        .fn()
-        .mockName("PreferencesService.setOnboardingSeen"),
-      getNativeBarsOnboardingSeen: vi
-        .fn()
-        .mockName("PreferencesService.getNativeBarsOnboardingSeen"),
-      setNativeBarsOnboardingSeen: vi
-        .fn()
-        .mockName("PreferencesService.setNativeBarsOnboardingSeen"),
-    }
+    preferencesSpy = createSpyObj("PreferencesService", [
+      "getOnboardingSeen",
+      "setOnboardingSeen",
+      "getNativeBarsOnboardingSeen",
+      "setNativeBarsOnboardingSeen",
+    ])
     preferencesSpy.getOnboardingSeen.mockReturnValue(false)
     preferencesSpy.getNativeBarsOnboardingSeen.mockReturnValue(false)
-    analyticsSpy = {
-      track: vi.fn().mockName("AnalyticsService.track"),
-    }
+    analyticsSpy = createSpyObj("AnalyticsService", ["track"])
     analyticsSpy.track.mockResolvedValue()
 
     TestBed.configureTestingModule({

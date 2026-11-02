@@ -7,7 +7,7 @@ import type {
   URLOpenListenerEvent,
 } from "@capacitor/app"
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core"
-import type { Mock, MockedObject } from "vitest"
+import type { Mock } from "vitest"
 import { AppComponent, EXIT_BACK_WINDOW_MS } from "./app.component"
 import { AnalyticsService } from "./services/analytics.service"
 import { BackButtonService } from "./services/back-button.service"
@@ -16,6 +16,7 @@ import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
 import { PreferencesService } from "./services/preferences.service"
 import { ToastService } from "./services/toast.service"
+import { createSpyObj, type SpyObj } from "./testing/spy-obj"
 import { APP_PLUGIN, PAGE_HOSTNAME } from "./tokens"
 
 describe("AppComponent", () => {
@@ -25,55 +26,37 @@ describe("AppComponent", () => {
   afterEach(() => {
     vi.useRealTimers()
   })
-  let routerSpy: MockedObject<Router>
+  let routerSpy: SpyObj<Router>
   let ngZone: NgZone
   /** Where the page is served from (PAGE_HOSTNAME). */
   let pageHostname: string
   // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
-  let mockAppPlugin: MockedObject<any>
-  let onboardingSpy: MockedObject<OnboardingService>
-  let nativeShellSpy: MockedObject<NativeShellService>
+  let mockAppPlugin: SpyObj<any>
+  let onboardingSpy: SpyObj<OnboardingService>
+  let nativeShellSpy: SpyObj<NativeShellService>
   let dialogStub: {
     openDialogs: MatDialogRef<unknown>[]
   }
-  let toastSpy: MockedObject<ToastService>
+  let toastSpy: SpyObj<ToastService>
 
   beforeEach(async () => {
     pageHostname = "localhost"
-    routerSpy = {
-      navigateByUrl: vi.fn().mockName("Router.navigateByUrl"),
-      navigate: vi.fn().mockName("Router.navigate"),
-    }
-    mockAppPlugin = {
-      addListener: vi.fn().mockName("App.addListener"),
-      minimizeApp: vi.fn().mockName("App.minimizeApp"),
-    }
+    routerSpy = createSpyObj("Router", ["navigateByUrl", "navigate"])
+    mockAppPlugin = createSpyObj("App", ["addListener", "minimizeApp"])
     dialogStub = { openDialogs: [] }
-    toastSpy = {
-      show: vi.fn().mockName("ToastService.show"),
-    }
+    toastSpy = createSpyObj("ToastService", ["show"])
 
-    const offlineDataSpy = {
-      preloadAllBooksAndChapters: vi
-        .fn()
-        .mockName("OfflineDataService.preloadAllBooksAndChapters"),
-    }
-    const analyticsSpy = {
-      track: vi.fn().mockName("AnalyticsService.track"),
-    }
+    const offlineDataSpy = createSpyObj("OfflineDataService", [
+      "preloadAllBooksAndChapters",
+    ])
+    const analyticsSpy = createSpyObj("AnalyticsService", ["track"])
     analyticsSpy.track.mockResolvedValue()
-    onboardingSpy = {
-      showOnFirstLaunch: vi
-        .fn()
-        .mockName("OnboardingService.showOnFirstLaunch"),
-    }
+    onboardingSpy = createSpyObj("OnboardingService", ["showOnFirstLaunch"])
 
-    nativeShellSpy = {
-      init: vi.fn().mockName("NativeShellService.init"),
-      setNavigationBarTheme: vi
-        .fn()
-        .mockName("NativeShellService.setNavigationBarTheme"),
-    }
+    nativeShellSpy = createSpyObj("NativeShellService", [
+      "init",
+      "setNavigationBarTheme",
+    ])
 
     await TestBed.configureTestingModule({
       imports: [AppComponent],

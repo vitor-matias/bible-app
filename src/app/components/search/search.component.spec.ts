@@ -17,7 +17,7 @@ import {
   Subject,
   throwError,
 } from "rxjs"
-import type { Mock, MockedObject } from "vitest"
+import type { Mock } from "vitest"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
@@ -30,6 +30,7 @@ import { SearchMemoryService } from "../../services/search-memory.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { contrastRatio } from "../../testing/contrast"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { firstLine, SearchComponent, TYPING_PAUSE_MS } from "./search.component"
 
 // How the edition sets Psalm 23,1 and 94,1.
@@ -81,21 +82,21 @@ describe("SearchComponent", () => {
   })
   let component: SearchComponent
   let fixture: ComponentFixture<SearchComponent>
-  let apiService: MockedObject<BibleApiService>
-  let referenceService: MockedObject<BibleReferenceService>
-  let bookService: MockedObject<BookService>
-  let snackBar: MockedObject<MatSnackBar>
-  let router: MockedObject<Router>
-  let analyticsService: MockedObject<AnalyticsService>
+  let apiService: SpyObj<BibleApiService>
+  let referenceService: SpyObj<BibleReferenceService>
+  let bookService: SpyObj<BookService>
+  let snackBar: SpyObj<MatSnackBar>
+  let router: SpyObj<Router>
+  let analyticsService: SpyObj<AnalyticsService>
   let routeMock: ActivatedRoute
   let queryParamMapSubject: BehaviorSubject<ParamMap>
-  let seoService: MockedObject<SeoService>
+  let seoService: SpyObj<SeoService>
   let network: {
     isOffline: boolean
     isOffline$: BehaviorSubject<boolean>
   }
-  let offlineSearch: MockedObject<OfflineSearchService>
-  let location: MockedObject<Location>
+  let offlineSearch: SpyObj<OfflineSearchService>
+  let location: SpyObj<Location>
   /** How the navigation to the page came about (Router.currentNavigation). */
   let navigationTrigger: "imperative" | "popstate" | null
   let observerCallback: IntersectionObserverCallback | null
@@ -134,22 +135,15 @@ describe("SearchComponent", () => {
   }
 
   beforeEach(async () => {
-    apiService = {
-      getVerse: vi.fn().mockName("BibleApiService.getVerse"),
-      search: vi.fn().mockName("BibleApiService.search"),
-    }
-    referenceService = {
-      extract: vi.fn().mockName("BibleReferenceService.extract"),
-    }
-    bookService = {
-      findBook: vi.fn().mockName("BookService.findBook"),
-      findBookById: vi.fn().mockName("BookService.findBookById"),
-      findTypedBook: vi.fn().mockName("BookService.findTypedBook"),
-      getUrlAbrv: vi.fn().mockName("BookService.getUrlAbrv"),
-      getChapterUrlSegment: vi
-        .fn()
-        .mockName("BookService.getChapterUrlSegment"),
-    }
+    apiService = createSpyObj("BibleApiService", ["getVerse", "search"])
+    referenceService = createSpyObj("BibleReferenceService", ["extract"])
+    bookService = createSpyObj("BookService", [
+      "findBook",
+      "findBookById",
+      "findTypedBook",
+      "getUrlAbrv",
+      "getChapterUrlSegment",
+    ])
     // The links' addresses, as the reader writes them.
     bookService.getUrlAbrv.mockImplementation(BookService.prototype.getUrlAbrv)
     bookService.getChapterUrlSegment.mockImplementation(
@@ -166,16 +160,9 @@ describe("SearchComponent", () => {
       const book = bookService.findBook(text)
       return book && !book.introSlug && book.id !== "about" ? book : undefined
     })
-    location = {
-      back: vi.fn().mockName("Location.back"),
-      replaceState: vi.fn().mockName("Location.replaceState"),
-    }
-    snackBar = {
-      open: vi.fn().mockName("MatSnackBar.open"),
-    }
-    router = {
-      navigate: vi.fn().mockName("Router.navigate"),
-    }
+    location = createSpyObj("Location", ["back", "replaceState"])
+    snackBar = createSpyObj("MatSnackBar", ["open"])
+    router = createSpyObj("Router", ["navigate"])
     router.navigate.mockResolvedValue(true)
     navigationTrigger = null
     ;(
@@ -184,22 +171,16 @@ describe("SearchComponent", () => {
       }
     ).currentNavigation = () =>
       navigationTrigger && { trigger: navigationTrigger }
-    analyticsService = {
-      track: vi.fn().mockName("AnalyticsService.track"),
-    }
+    analyticsService = createSpyObj("AnalyticsService", ["track"])
     analyticsService.track.mockResolvedValue()
     queryParamMapSubject = new BehaviorSubject(convertToParamMap({}))
     routeMock = {
       snapshot: { queryParamMap: convertToParamMap({}) },
       queryParamMap: queryParamMapSubject.asObservable(),
     } as ActivatedRoute
-    seoService = {
-      updateForSearch: vi.fn().mockName("SeoService.updateForSearch"),
-    }
+    seoService = createSpyObj("SeoService", ["updateForSearch"])
     network = { isOffline: false, isOffline$: new BehaviorSubject(false) }
-    offlineSearch = {
-      search: vi.fn().mockName("OfflineSearchService.search"),
-    }
+    offlineSearch = createSpyObj("OfflineSearchService", ["search"])
     offlineSearch.search.mockResolvedValue(null)
     observerCallback = null
     observerOptions = undefined
@@ -1884,9 +1865,7 @@ describe("SearchComponent", () => {
   })
 
   it("should disconnect the observer on destroy", () => {
-    const observer = {
-      disconnect: vi.fn().mockName("IntersectionObserver.disconnect"),
-    }
+    const observer = createSpyObj("IntersectionObserver", ["disconnect"])
     component["observer"] = observer
 
     component.ngOnDestroy()
@@ -1955,8 +1934,8 @@ describe("SearchComponent in the iOS app", () => {
     hide: Mock
     toast: Mock
   }
-  let location: MockedObject<Location>
-  let apiService: MockedObject<BibleApiService>
+  let location: SpyObj<Location>
+  let apiService: SpyObj<BibleApiService>
 
   beforeEach(async () => {
     actions = new Subject()
@@ -1967,30 +1946,20 @@ describe("SearchComponent in the iOS app", () => {
       hide: vi.fn().mockName("hide"),
       toast: vi.fn().mockName("toast"),
     }
-    location = {
-      back: vi.fn().mockName("Location.back"),
-      replaceState: vi.fn().mockName("Location.replaceState"),
-    }
-    apiService = {
-      getVerse: vi.fn().mockName("BibleApiService.getVerse"),
-      search: vi.fn().mockName("BibleApiService.search"),
-    }
+    location = createSpyObj("Location", ["back", "replaceState"])
+    apiService = createSpyObj("BibleApiService", ["getVerse", "search"])
     apiService.search.mockReturnValue(
       of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
     )
-    const referenceService = {
-      extract: vi.fn().mockName("BibleReferenceService.extract"),
-    }
+    const referenceService = createSpyObj("BibleReferenceService", ["extract"])
     referenceService.extract.mockReturnValue([])
-    const bookService = {
-      findBook: vi.fn().mockName("BookService.findBook"),
-      findBookById: vi.fn().mockName("BookService.findBookById"),
-      findTypedBook: vi.fn().mockName("BookService.findTypedBook"),
-      getUrlAbrv: vi.fn().mockName("BookService.getUrlAbrv"),
-      getChapterUrlSegment: vi
-        .fn()
-        .mockName("BookService.getChapterUrlSegment"),
-    }
+    const bookService = createSpyObj("BookService", [
+      "findBook",
+      "findBookById",
+      "findTypedBook",
+      "getUrlAbrv",
+      "getChapterUrlSegment",
+    ])
     bookService.findBookById.mockReturnValue({
       abrv: "Mt",
       shortName: "Mateus",
@@ -2000,9 +1969,7 @@ describe("SearchComponent in the iOS app", () => {
       BookService.prototype.getChapterUrlSegment,
     )
     bookService.books$ = of([{ id: "mat" }])
-    const analytics = {
-      track: vi.fn().mockName("AnalyticsService.track"),
-    }
+    const analytics = createSpyObj("AnalyticsService", ["track"])
     analytics.track.mockResolvedValue()
 
     await TestBed.configureTestingModule({

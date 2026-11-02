@@ -1,6 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { Subject } from "rxjs"
-import type { Mock, MockedObject } from "vitest"
+import type { Mock } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { NativeChromeService } from "./native-chrome.service"
 import type { NativeChromeAction } from "./native-chrome.types"
 import { NativeReportService } from "./native-report.service"
@@ -19,7 +20,7 @@ describe("NativeReportService", () => {
     }[]
     send: Mock
   }
-  let toast: MockedObject<ToastService>
+  let toast: SpyObj<ToastService>
   let service: NativeReportService
 
   const genesis = { id: "gen", name: "Génesis", shortName: "Génesis" } as Book
@@ -36,9 +37,7 @@ describe("NativeReportService", () => {
       topics: [{ value: "typo", label: "Erro ortográfico" }],
       send: vi.fn().mockName("send").mockResolvedValue(),
     }
-    toast = {
-      show: vi.fn().mockName("ToastService.show"),
-    }
+    toast = createSpyObj("ToastService", ["show"])
     TestBed.configureTestingModule({
       providers: [
         { provide: NativeChromeService, useValue: nativeChrome },

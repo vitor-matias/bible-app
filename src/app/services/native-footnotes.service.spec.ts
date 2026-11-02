@@ -1,7 +1,8 @@
 import { TestBed } from "@angular/core/testing"
 import { Router } from "@angular/router"
 import { Subject } from "rxjs"
-import type { Mock, MockedObject } from "vitest"
+import type { Mock } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import {
   type BibleReference,
@@ -25,10 +26,10 @@ describe("NativeFootnotesService", () => {
     actions$: Subject<NativeChromeAction>
     showFootnotes: Mock
   }
-  let bibleRef: MockedObject<BibleReferenceService>
-  let router: MockedObject<Router>
-  let analytics: MockedObject<AnalyticsService>
-  let toast: MockedObject<ToastService>
+  let bibleRef: SpyObj<BibleReferenceService>
+  let router: SpyObj<Router>
+  let analytics: SpyObj<AnalyticsService>
+  let toast: SpyObj<ToastService>
   /** The sizes stored per context: "reader" is the one AA changes. */
   let fontSizes: Record<string, number>
   let systemPercent: number | null
@@ -65,20 +66,12 @@ describe("NativeFootnotesService", () => {
       actions$: actions,
       showFootnotes: vi.fn().mockName("showFootnotes").mockResolvedValue(true),
     }
-    bibleRef = {
-      extract: vi.fn().mockName("BibleReferenceService.extract"),
-    }
+    bibleRef = createSpyObj("BibleReferenceService", ["extract"])
     bibleRef.extract.mockReturnValue(references)
-    router = {
-      navigate: vi.fn().mockName("Router.navigate"),
-    }
-    analytics = {
-      track: vi.fn().mockName("AnalyticsService.track"),
-    }
+    router = createSpyObj("Router", ["navigate"])
+    analytics = createSpyObj("AnalyticsService", ["track"])
     analytics.track.mockResolvedValue()
-    toast = {
-      showReturn: vi.fn().mockName("ToastService.showReturn"),
-    }
+    toast = createSpyObj("ToastService", ["showReturn"])
     fontSizes = {}
     systemPercent = null
     TestBed.configureTestingModule({

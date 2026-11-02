@@ -1,8 +1,8 @@
 import { ElementRef, Renderer2 } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
-import type { MockedObject } from "vitest"
 import { PreferencesService } from "../services/preferences.service"
 import { SystemTextSizeService } from "../services/system-text-size.service"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import {
   startingFontSize,
   type TextSize,
@@ -13,9 +13,9 @@ describe("UnifiedGesturesDirective", () => {
   let element: HTMLElement & {
     name?: string
   }
-  let rendererSpy: MockedObject<Renderer2>
-  let preferencesServiceSpy: MockedObject<PreferencesService>
-  let systemTextSize: MockedObject<SystemTextSizeService>
+  let rendererSpy: SpyObj<Renderer2>
+  let preferencesServiceSpy: SpyObj<PreferencesService>
+  let systemTextSize: SpyObj<SystemTextSizeService>
   let directive: UnifiedGesturesDirective
 
   beforeEach(() => {
@@ -26,24 +26,22 @@ describe("UnifiedGesturesDirective", () => {
       configurable: true,
     })
 
-    rendererSpy = {
-      setStyle: vi.fn().mockName("Renderer2.setStyle"),
-      addClass: vi.fn().mockName("Renderer2.addClass"),
-      removeClass: vi.fn().mockName("Renderer2.removeClass"),
-    }
-    preferencesServiceSpy = {
-      getFontSize: vi.fn().mockName("PreferencesService.getFontSize"),
-      setFontSize: vi.fn().mockName("PreferencesService.setFontSize"),
-      clearFontSize: vi.fn().mockName("PreferencesService.clearFontSize"),
-    }
+    rendererSpy = createSpyObj("Renderer2", [
+      "setStyle",
+      "addClass",
+      "removeClass",
+    ])
+    preferencesServiceSpy = createSpyObj("PreferencesService", [
+      "getFontSize",
+      "setFontSize",
+      "clearFontSize",
+    ])
     preferencesServiceSpy.getFontSize.mockReturnValue(null)
     vi.spyOn(window, "getComputedStyle").mockReturnValue({
       fontSize: "100",
     } as CSSStyleDeclaration)
 
-    systemTextSize = {
-      percent: vi.fn().mockName("SystemTextSizeService.percent"),
-    }
+    systemTextSize = createSpyObj("SystemTextSizeService", ["percent"])
     systemTextSize.percent.mockReturnValue(null)
 
     TestBed.configureTestingModule({

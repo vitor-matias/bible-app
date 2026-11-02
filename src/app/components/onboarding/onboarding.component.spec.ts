@@ -1,7 +1,6 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatDialogRef } from "@angular/material/dialog"
 import { BehaviorSubject } from "rxjs"
-import type { MockedObject } from "vitest"
 import { AnalyticsService } from "../../services/analytics.service"
 import {
   type InstallBrowser,
@@ -9,6 +8,7 @@ import {
   type InstallPromptOutcome,
   PwaInstallService,
 } from "../../services/pwa-install.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { OnboardingComponent } from "./onboarding.component"
 import {
   getInstallGuide,
@@ -41,17 +41,13 @@ describe("OnboardingComponent", () => {
   let component: OnboardingComponent
   let element: HTMLElement
   let pwa: FakePwaInstallService
-  let dialogRefSpy: MockedObject<MatDialogRef<OnboardingComponent>>
-  let analyticsSpy: MockedObject<AnalyticsService>
+  let dialogRefSpy: SpyObj<MatDialogRef<OnboardingComponent>>
+  let analyticsSpy: SpyObj<AnalyticsService>
 
   beforeEach(async () => {
     pwa = new FakePwaInstallService()
-    dialogRefSpy = {
-      close: vi.fn().mockName("MatDialogRef.close"),
-    }
-    analyticsSpy = {
-      track: vi.fn().mockName("AnalyticsService.track"),
-    }
+    dialogRefSpy = createSpyObj("MatDialogRef", ["close"])
+    analyticsSpy = createSpyObj("AnalyticsService", ["track"])
     analyticsSpy.track.mockResolvedValue()
 
     await TestBed.configureTestingModule({

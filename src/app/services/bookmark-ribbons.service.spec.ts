@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 import { Router } from "@angular/router"
-import type { MockedObject } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import { BookService } from "./book.service"
 import { BookmarkService } from "./bookmark.service"
@@ -87,18 +87,16 @@ describe("ribbonToMove", () => {
 })
 
 describe("BookmarkRibbonsService", () => {
-  let bookmarks: MockedObject<BookmarkService>
-  let analytics: MockedObject<AnalyticsService>
+  let bookmarks: SpyObj<BookmarkService>
+  let analytics: SpyObj<AnalyticsService>
   let service: BookmarkRibbonsService
 
   beforeEach(() => {
-    bookmarks = {
-      addBookmark: vi.fn().mockName("BookmarkService.addBookmark"),
-      removeBookmark: vi.fn().mockName("BookmarkService.removeBookmark"),
-    }
-    analytics = {
-      track: vi.fn().mockName("AnalyticsService.track"),
-    }
+    bookmarks = createSpyObj("BookmarkService", [
+      "addBookmark",
+      "removeBookmark",
+    ])
+    analytics = createSpyObj("AnalyticsService", ["track"])
     analytics.track.mockResolvedValue()
     TestBed.configureTestingModule({
       providers: [
@@ -108,9 +106,7 @@ describe("BookmarkRibbonsService", () => {
         { provide: Router, useValue: {} },
         {
           provide: HapticsService,
-          useValue: {
-            success: vi.fn().mockName("HapticsService.success"),
-          },
+          useValue: createSpyObj("HapticsService", ["success"]),
         },
       ],
     })

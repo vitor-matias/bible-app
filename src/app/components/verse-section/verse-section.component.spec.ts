@@ -1,12 +1,12 @@
 import { SimpleChange } from "@angular/core"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { provideRouter } from "@angular/router"
-import type { MockedObject } from "vitest"
 import {
   type BibleReference,
   BibleReferenceService,
 } from "../../services/bible-reference.service"
 import { ToastService } from "../../services/toast.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { VerseSectionComponent } from "./verse-section.component"
 
 function makeVerse(overrides: Partial<Verse> = {}): Verse {
@@ -44,18 +44,14 @@ function setData(
 describe("VerseSectionComponent", () => {
   let component: VerseSectionComponent
   let fixture: ComponentFixture<VerseSectionComponent>
-  let mockBibleRef: MockedObject<BibleReferenceService>
-  let toast: MockedObject<ToastService>
+  let mockBibleRef: SpyObj<BibleReferenceService>
+  let toast: SpyObj<ToastService>
 
   beforeEach(async () => {
-    mockBibleRef = {
-      extract: vi.fn().mockName("BibleReferenceService.extract"),
-    }
+    mockBibleRef = createSpyObj("BibleReferenceService", ["extract"])
     mockBibleRef.extract.mockReturnValue([])
 
-    toast = {
-      showReturn: vi.fn().mockName("ToastService.showReturn"),
-    }
+    toast = createSpyObj("ToastService", ["showReturn"])
 
     await TestBed.configureTestingModule({
       imports: [VerseSectionComponent],

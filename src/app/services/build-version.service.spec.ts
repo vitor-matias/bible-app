@@ -1,12 +1,12 @@
 import { TestBed } from "@angular/core/testing"
 import type { App } from "@capacitor/app"
 import { Capacitor } from "@capacitor/core"
-import type { MockedObject } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { APP_PLUGIN } from "../tokens"
 import { BuildVersionService } from "./build-version.service"
 
 describe("BuildVersionService", () => {
-  let appPlugin: MockedObject<typeof App>
+  let appPlugin: SpyObj<typeof App>
 
   const createService = () => TestBed.inject(BuildVersionService)
   const serveBuildInfo = (buildVersion: string) =>
@@ -15,9 +15,7 @@ describe("BuildVersionService", () => {
       .mockResolvedValue(new Response(JSON.stringify({ buildVersion })))
 
   beforeEach(() => {
-    appPlugin = {
-      getInfo: vi.fn().mockName("App.getInfo"),
-    }
+    appPlugin = createSpyObj("App", ["getInfo"])
     TestBed.configureTestingModule({
       providers: [{ provide: APP_PLUGIN, useValue: appPlugin }],
     })

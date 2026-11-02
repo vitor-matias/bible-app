@@ -11,7 +11,7 @@ import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
 import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, of, Subject, throwError } from "rxjs"
-import type { Mock, MockedObject } from "vitest"
+import type { Mock } from "vitest"
 import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
@@ -24,6 +24,7 @@ import { NativeChromeService } from "../../services/native-chrome.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BibleReaderComponent } from "./bible-reader.component"
 
 describe("BibleReaderComponent", () => {
@@ -36,18 +37,18 @@ describe("BibleReaderComponent", () => {
   let component: BibleReaderComponent
   let fixture: ComponentFixture<BibleReaderComponent>
 
-  let autoScrollServiceSpy: MockedObject<AutoScrollService>
-  let apiServiceSpy: MockedObject<BibleApiService>
-  let bookServiceSpy: MockedObject<BookService>
-  let preferencesServiceSpy: MockedObject<PreferencesService>
-  let routerSpy: MockedObject<Router>
-  let hapticsSpy: MockedObject<HapticsService>
+  let autoScrollServiceSpy: SpyObj<AutoScrollService>
+  let apiServiceSpy: SpyObj<BibleApiService>
+  let bookServiceSpy: SpyObj<BookService>
+  let preferencesServiceSpy: SpyObj<PreferencesService>
+  let routerSpy: SpyObj<Router>
+  let hapticsSpy: SpyObj<HapticsService>
   let routeMock: unknown
-  let animationServiceSpy: MockedObject<BibleReaderAnimationService>
-  let analyticsServiceSpy: MockedObject<AnalyticsService>
-  let networkServiceSpy: MockedObject<NetworkService>
-  let snackBarSpy: MockedObject<MatSnackBar>
-  let seoServiceSpy: MockedObject<SeoService>
+  let animationServiceSpy: SpyObj<BibleReaderAnimationService>
+  let analyticsServiceSpy: SpyObj<AnalyticsService>
+  let networkServiceSpy: SpyObj<NetworkService>
+  let snackBarSpy: SpyObj<MatSnackBar>
+  let seoServiceSpy: SpyObj<SeoService>
 
   const mockBooks = [
     { id: "gen", name: "Genesis", urlAbrv: "1-genesis", chapterCount: 50 },
@@ -56,59 +57,38 @@ describe("BibleReaderComponent", () => {
   const mockChapter = { bookId: "gen", number: 1, verses: [] }
 
   beforeEach(async () => {
-    autoScrollServiceSpy = {
-      setAutoScrollLinesPerSecond: vi
-        .fn()
-        .mockName("AutoScrollService.setAutoScrollLinesPerSecond"),
-      stop: vi.fn().mockName("AutoScrollService.stop"),
-    }
-    apiServiceSpy = {
-      getBook: vi.fn().mockName("BibleApiService.getBook"),
-      getChapter: vi.fn().mockName("BibleApiService.getChapter"),
-    }
-    bookServiceSpy = {
-      findBook: vi.fn().mockName("BookService.findBook"),
-      findBookById: vi.fn().mockName("BookService.findBookById"),
-      getUrlAbrv: vi.fn().mockName("BookService.getUrlAbrv"),
-      getChapterUrlSegment: vi
-        .fn()
-        .mockName("BookService.getChapterUrlSegment"),
-      parseChapterUrlSegment: vi
-        .fn()
-        .mockName("BookService.parseChapterUrlSegment"),
-      loadGroupIntroBody: vi.fn().mockName("BookService.loadGroupIntroBody"),
-      retryBooks: vi.fn().mockName("BookService.retryBooks"),
-    }
+    autoScrollServiceSpy = createSpyObj("AutoScrollService", [
+      "setAutoScrollLinesPerSecond",
+      "stop",
+    ])
+    apiServiceSpy = createSpyObj("BibleApiService", ["getBook", "getChapter"])
+    bookServiceSpy = createSpyObj("BookService", [
+      "findBook",
+      "findBookById",
+      "getUrlAbrv",
+      "getChapterUrlSegment",
+      "parseChapterUrlSegment",
+      "loadGroupIntroBody",
+      "retryBooks",
+    ])
     bookServiceSpy.books$ = new BehaviorSubject(
       mockBooks,
     ) as unknown as BehaviorSubject<Book[]>
     bookServiceSpy.booksUnavailable$ = of(false)
     bookServiceSpy.retryBooks.mockResolvedValue()
-    preferencesServiceSpy = {
-      getAutoScrollSpeed: vi
-        .fn()
-        .mockName("PreferencesService.getAutoScrollSpeed"),
-      getViewMode: vi.fn().mockName("PreferencesService.getViewMode"),
-      getAutoScrollControlsVisible: vi
-        .fn()
-        .mockName("PreferencesService.getAutoScrollControlsVisible"),
-      setAutoScrollControlsVisible: vi
-        .fn()
-        .mockName("PreferencesService.setAutoScrollControlsVisible"),
-      setViewMode: vi.fn().mockName("PreferencesService.setViewMode"),
-      getLastBookId: vi.fn().mockName("PreferencesService.getLastBookId"),
-      setLastBookId: vi.fn().mockName("PreferencesService.setLastBookId"),
-      getLastChapterNumber: vi
-        .fn()
-        .mockName("PreferencesService.getLastChapterNumber"),
-      setLastChapterNumber: vi
-        .fn()
-        .mockName("PreferencesService.setLastChapterNumber"),
-    }
+    preferencesServiceSpy = createSpyObj("PreferencesService", [
+      "getAutoScrollSpeed",
+      "getViewMode",
+      "getAutoScrollControlsVisible",
+      "setAutoScrollControlsVisible",
+      "setViewMode",
+      "getLastBookId",
+      "setLastBookId",
+      "getLastChapterNumber",
+      "setLastChapterNumber",
+    ])
 
-    routerSpy = {
-      navigate: vi.fn().mockName("Router.navigate"),
-    }
+    routerSpy = createSpyObj("Router", ["navigate"])
     routerSpy.navigate.mockResolvedValue(true)
     ;(
       routerSpy as unknown as {
@@ -135,41 +115,27 @@ describe("BibleReaderComponent", () => {
       queryParamMap: new BehaviorSubject(new Map()),
     }
 
-    animationServiceSpy = {
-      scrollToTop: vi.fn().mockName("BibleReaderAnimationService.scrollToTop"),
-      triggerSlideAnimation: vi
-        .fn()
-        .mockName("BibleReaderAnimationService.triggerSlideAnimation"),
-      triggerSlideOutAnimation: vi
-        .fn()
-        .mockName("BibleReaderAnimationService.triggerSlideOutAnimation"),
-      scrollToVerseElement: vi
-        .fn()
-        .mockName("BibleReaderAnimationService.scrollToVerseElement"),
-      cancelPendingRealign: vi
-        .fn()
-        .mockName("BibleReaderAnimationService.cancelPendingRealign"),
-    }
+    animationServiceSpy = createSpyObj("BibleReaderAnimationService", [
+      "scrollToTop",
+      "triggerSlideAnimation",
+      "triggerSlideOutAnimation",
+      "scrollToVerseElement",
+      "cancelPendingRealign",
+    ])
     animationServiceSpy.triggerSlideOutAnimation.mockResolvedValue()
 
-    analyticsServiceSpy = {
-      track: vi.fn().mockName("AnalyticsService.track"),
-    }
+    analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
     analyticsServiceSpy.track.mockResolvedValue()
-    networkServiceSpy = {
-      ngOnDestroy: vi.fn().mockName("NetworkService.ngOnDestroy"),
-    } as MockedObject<NetworkService>
+    networkServiceSpy = createSpyObj("NetworkService", [
+      "ngOnDestroy",
+    ]) as SpyObj<NetworkService>
     ;(
       networkServiceSpy as unknown as {
         isOffline: boolean
       }
     ).isOffline = false
-    snackBarSpy = {
-      open: vi.fn().mockName("MatSnackBar.open"),
-    }
-    seoServiceSpy = {
-      updateForChapter: vi.fn().mockName("SeoService.updateForChapter"),
-    }
+    snackBarSpy = createSpyObj("MatSnackBar", ["open"])
+    seoServiceSpy = createSpyObj("SeoService", ["updateForChapter"])
 
     // Default returns
     preferencesServiceSpy.getAutoScrollSpeed.mockReturnValue(50)
@@ -202,10 +168,7 @@ describe("BibleReaderComponent", () => {
     platformId?: string
     imports?: unknown[]
   }): Promise<void> {
-    hapticsSpy = {
-      light: vi.fn().mockName("HapticsService.light"),
-      success: vi.fn().mockName("HapticsService.success"),
-    }
+    hapticsSpy = createSpyObj("HapticsService", ["light", "success"])
     return TestBed.configureTestingModule({
       imports: [BibleReaderComponent, BrowserAnimationsModule],
       providers: [
@@ -466,10 +429,10 @@ describe("BibleReaderComponent", () => {
 
     it("moves the page with the finger in paged mode", () => {
       component.viewMode = "paged"
-      component.pagedNav = {
-        dragBy: vi.fn().mockName("PagedNavigationDirective.dragBy"),
-        cancelDrag: vi.fn().mockName("PagedNavigationDirective.cancelDrag"),
-      } as unknown as PagedNavigationDirective
+      component.pagedNav = createSpyObj("PagedNavigationDirective", [
+        "dragBy",
+        "cancelDrag",
+      ]) as unknown as PagedNavigationDirective
 
       component.onSwipeMove(-40)
       component.onSwipeCancel()
@@ -480,9 +443,9 @@ describe("BibleReaderComponent", () => {
 
     it("moves nothing with the finger while scrolling", () => {
       component.viewMode = "scrolling"
-      component.pagedNav = {
-        dragBy: vi.fn().mockName("PagedNavigationDirective.dragBy"),
-      } as unknown as PagedNavigationDirective
+      component.pagedNav = createSpyObj("PagedNavigationDirective", [
+        "dragBy",
+      ]) as unknown as PagedNavigationDirective
 
       component.onSwipeMove(-40)
 
@@ -722,14 +685,10 @@ describe("BibleReaderComponent", () => {
     })
 
     it("should increase and decrease font size via gestures directive", () => {
-      component.gestures = {
-        increaseFontSize: vi
-          .fn()
-          .mockName("UnifiedGesturesDirective.increaseFontSize"),
-        decreaseFontSize: vi
-          .fn()
-          .mockName("UnifiedGesturesDirective.decreaseFontSize"),
-      }
+      component.gestures = createSpyObj("UnifiedGesturesDirective", [
+        "increaseFontSize",
+        "decreaseFontSize",
+      ])
       component.onIncreaseFontSize()
       expect(component.gestures.increaseFontSize).toHaveBeenCalled()
 
@@ -739,17 +698,11 @@ describe("BibleReaderComponent", () => {
 
     // The Android text sheet steps by its own 10.
     it("passes the text sheet's step and reset on to the gestures directive", () => {
-      component.gestures = {
-        increaseFontSize: vi
-          .fn()
-          .mockName("UnifiedGesturesDirective.increaseFontSize"),
-        decreaseFontSize: vi
-          .fn()
-          .mockName("UnifiedGesturesDirective.decreaseFontSize"),
-        resetFontSize: vi
-          .fn()
-          .mockName("UnifiedGesturesDirective.resetFontSize"),
-      }
+      component.gestures = createSpyObj("UnifiedGesturesDirective", [
+        "increaseFontSize",
+        "decreaseFontSize",
+        "resetFontSize",
+      ])
       component.onIncreaseFontSize(10)
       expect(component.gestures.increaseFontSize).toHaveBeenCalledWith(10)
 
@@ -818,9 +771,9 @@ describe("BibleReaderComponent", () => {
 
     it("onSwipeLeft should go to next page if paged mode", () => {
       component.viewMode = "paged"
-      component.pagedNav = {
-        nextPage: vi.fn().mockName("PagedNavigationDirective.nextPage"),
-      } as unknown as PagedNavigationDirective
+      component.pagedNav = createSpyObj("PagedNavigationDirective", [
+        "nextPage",
+      ]) as unknown as PagedNavigationDirective
       component.onSwipeLeft()
       expect(component.pagedNav?.nextPage).toHaveBeenCalled()
     })
@@ -834,9 +787,9 @@ describe("BibleReaderComponent", () => {
 
     it("onSwipeRight should go to prev page if paged mode", () => {
       component.viewMode = "paged"
-      component.pagedNav = {
-        prevPage: vi.fn().mockName("PagedNavigationDirective.prevPage"),
-      } as unknown as PagedNavigationDirective
+      component.pagedNav = createSpyObj("PagedNavigationDirective", [
+        "prevPage",
+      ]) as unknown as PagedNavigationDirective
       component.onSwipeRight()
       expect(component.pagedNav?.prevPage).toHaveBeenCalled()
     })
@@ -1074,10 +1027,7 @@ describe("BibleReaderComponent", () => {
   describe("Drawer Actions", () => {
     beforeEach(() => {
       fixture.detectChanges()
-      component.bookDrawer = {
-        close: vi.fn().mockName("MatDrawer.close"),
-        toggle: vi.fn().mockName("MatDrawer.toggle"),
-      }
+      component.bookDrawer = createSpyObj("MatDrawer", ["close", "toggle"])
       ;(component.bookDrawer.toggle as Mock).mockResolvedValue()
       ;(component.bookDrawer.close as Mock).mockResolvedValue()
     })
@@ -1248,9 +1198,7 @@ describe("BibleReaderComponent", () => {
         introduction: [{ type: "introParagraph", text: "Texto" }],
       } as unknown as Book
       fixture.detectChanges()
-      component.bookDrawer = {
-        close: vi.fn().mockName("MatDrawer.close"),
-      }
+      component.bookDrawer = createSpyObj("MatDrawer", ["close"])
       seoServiceSpy.updateForChapter.mockClear()
 
       bookServiceSpy.findBook.mockReturnValue(samuel)
@@ -1412,12 +1360,10 @@ describe("BibleReaderComponent", () => {
     it("should call scrollToEnd when navigating backwards in paged mode", async () => {
       component.viewMode = "paged"
       component.isNavigatingBackwards = true
-      component.pagedNav = {
-        scrollToEnd: vi.fn().mockName("PagedNavigationDirective.scrollToEnd"),
-        ensureAlignedScrollWidth: vi
-          .fn()
-          .mockName("PagedNavigationDirective.ensureAlignedScrollWidth"),
-      } as unknown as PagedNavigationDirective
+      component.pagedNav = createSpyObj("PagedNavigationDirective", [
+        "scrollToEnd",
+        "ensureAlignedScrollWidth",
+      ]) as unknown as PagedNavigationDirective
 
       apiServiceSpy.getChapter.mockReturnValue(
         of(mockChapter as unknown as Chapter),
@@ -1445,12 +1391,10 @@ describe("BibleReaderComponent", () => {
     it("should call ensureAlignedScrollWidth when navigating forwards in paged mode", async () => {
       component.viewMode = "paged"
       component.isNavigatingForwards = true
-      component.pagedNav = {
-        scrollToEnd: vi.fn().mockName("PagedNavigationDirective.scrollToEnd"),
-        ensureAlignedScrollWidth: vi
-          .fn()
-          .mockName("PagedNavigationDirective.ensureAlignedScrollWidth"),
-      } as unknown as PagedNavigationDirective
+      component.pagedNav = createSpyObj("PagedNavigationDirective", [
+        "scrollToEnd",
+        "ensureAlignedScrollWidth",
+      ]) as unknown as PagedNavigationDirective
 
       apiServiceSpy.getChapter.mockReturnValue(
         of(mockChapter as unknown as Chapter),

@@ -10,10 +10,10 @@ import { MatInputModule } from "@angular/material/input"
 import { MatSelectModule } from "@angular/material/select"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
-import type { MockedObject } from "vitest"
 import { AnalyticsService } from "../../services/analytics.service"
 import { ProblemReportService } from "../../services/problem-report.service"
 import { ToastService } from "../../services/toast.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { ReportProblemComponent } from "./report-problem.component"
 
 describe("ReportProblemComponent", () => {
@@ -25,9 +25,9 @@ describe("ReportProblemComponent", () => {
   })
   let component: ReportProblemComponent
   let fixture: ComponentFixture<ReportProblemComponent>
-  let mockDialogRef: MockedObject<MatDialogRef<ReportProblemComponent>>
-  let snackBarSpy: MockedObject<MatSnackBar>
-  let analyticsServiceSpy: MockedObject<AnalyticsService>
+  let mockDialogRef: SpyObj<MatDialogRef<ReportProblemComponent>>
+  let snackBarSpy: SpyObj<MatSnackBar>
+  let analyticsServiceSpy: SpyObj<AnalyticsService>
 
   const mockDialogData = {
     book: { id: "gen", name: "Gênesis", shortName: "Génesis" },
@@ -35,18 +35,12 @@ describe("ReportProblemComponent", () => {
   }
 
   beforeEach(async () => {
-    mockDialogRef = {
-      close: vi.fn().mockName("MatDialogRef.close"),
-    }
-    snackBarSpy = {
-      open: vi.fn().mockName("MatSnackBar.open"),
-    }
-    analyticsServiceSpy = {
-      trackDelivered: vi.fn().mockName("AnalyticsService.trackDelivered"),
-      areAnalyticsAvailable: vi
-        .fn()
-        .mockName("AnalyticsService.areAnalyticsAvailable"),
-    }
+    mockDialogRef = createSpyObj("MatDialogRef", ["close"])
+    snackBarSpy = createSpyObj("MatSnackBar", ["open"])
+    analyticsServiceSpy = createSpyObj("AnalyticsService", [
+      "trackDelivered",
+      "areAnalyticsAvailable",
+    ])
     analyticsServiceSpy.trackDelivered.mockResolvedValue()
     analyticsServiceSpy.areAnalyticsAvailable.mockReturnValue(true)
 

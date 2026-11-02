@@ -7,7 +7,7 @@ import {
 import { ApplicationRef } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { firstValueFrom, Observable, of, TimeoutError } from "rxjs"
-import type { MockedObject } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import {
   BibleApiService,
@@ -28,40 +28,24 @@ describe("BibleApiService", () => {
   })
   let service: BibleApiService
   let httpMock: HttpTestingController
-  let offlineDataServiceSpy: MockedObject<OfflineDataService>
+  let offlineDataServiceSpy: SpyObj<OfflineDataService>
   let networkServiceStub: {
     isOffline: boolean
   }
-  let analyticsSpy: MockedObject<AnalyticsService>
+  let analyticsSpy: SpyObj<AnalyticsService>
 
   beforeEach(() => {
-    analyticsSpy = {
-      track: vi.fn().mockName("AnalyticsService.track"),
-    }
+    analyticsSpy = createSpyObj("AnalyticsService", ["track"])
     analyticsSpy.track.mockResolvedValue()
-    const spy = {
-      getCachedChapterAsync: vi
-        .fn()
-        .mockName("OfflineDataService.getCachedChapterAsync"),
-      getCachedBooksAsync: vi
-        .fn()
-        .mockName("OfflineDataService.getCachedBooksAsync"),
-      getCachedBookAsync: vi
-        .fn()
-        .mockName("OfflineDataService.getCachedBookAsync"),
-      getCachedVerseAsync: vi
-        .fn()
-        .mockName("OfflineDataService.getCachedVerseAsync"),
-      getCachedGroupIntroSummariesAsync: vi
-        .fn()
-        .mockName("OfflineDataService.getCachedGroupIntroSummariesAsync"),
-      getCachedGroupIntroAsync: vi
-        .fn()
-        .mockName("OfflineDataService.getCachedGroupIntroAsync"),
-      areGroupIntrosCached: vi
-        .fn()
-        .mockName("OfflineDataService.areGroupIntrosCached"),
-    }
+    const spy = createSpyObj("OfflineDataService", [
+      "getCachedChapterAsync",
+      "getCachedBooksAsync",
+      "getCachedBookAsync",
+      "getCachedVerseAsync",
+      "getCachedGroupIntroSummariesAsync",
+      "getCachedGroupIntroAsync",
+      "areGroupIntrosCached",
+    ])
     networkServiceStub = { isOffline: false }
 
     TestBed.configureTestingModule({
@@ -78,7 +62,7 @@ describe("BibleApiService", () => {
     httpMock = TestBed.inject(HttpTestingController)
     offlineDataServiceSpy = TestBed.inject(
       OfflineDataService,
-    ) as MockedObject<OfflineDataService>
+    ) as SpyObj<OfflineDataService>
 
     // Mock navigator.onLine to be true
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true)

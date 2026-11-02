@@ -6,12 +6,13 @@ import {
 } from "@angular/material/bottom-sheet"
 import { provideRouter } from "@angular/router"
 import { Subject } from "rxjs"
-import type { Mock, MockedObject } from "vitest"
+import type { Mock } from "vitest"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { KeepAwakeService } from "../../services/keep-awake.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { VerseComponent } from "./verse.component"
 
 const TRANSPARENT = "rgba(0, 0, 0, 0)"
@@ -48,15 +49,13 @@ function setData(fixture: ComponentFixture<VerseComponent>, data: Verse): void {
 describe("VerseComponent", () => {
   let component: VerseComponent
   let fixture: ComponentFixture<VerseComponent>
-  let mockBibleRef: MockedObject<BibleReferenceService>
+  let mockBibleRef: SpyObj<BibleReferenceService>
   let mockBottomSheet: MatBottomSheet
   let dismissed: Subject<void>
   let dismissSheet: Mock
 
   beforeEach(async () => {
-    mockBibleRef = {
-      extract: vi.fn().mockName("BibleReferenceService.extract"),
-    }
+    mockBibleRef = createSpyObj("BibleReferenceService", ["extract"])
     mockBibleRef.extract.mockReturnValue([])
 
     await TestBed.configureTestingModule({
