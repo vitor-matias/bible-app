@@ -36,7 +36,7 @@ describe("BibleApiService", () => {
 
   beforeEach(() => {
     analyticsSpy = createSpyObj("AnalyticsService", ["track"])
-    analyticsSpy.track.mockResolvedValue()
+    analyticsSpy.track.mockResolvedValue(undefined)
     const spy = createSpyObj("OfflineDataService", [
       "getCachedChapterAsync",
       "getCachedBooksAsync",
@@ -445,8 +445,7 @@ describe("BibleApiService", () => {
           const first = firstValueFrom(service.getAvailableBooks())
           await Promise.resolve()
           await Promise.resolve()
-          // TODO: vitest-migration: expect.fail() only accepts a string message. Verify that converting this argument with String() produces the expected failure output. See: https://vitest.dev/api/expect.html#expect-fail
-          expect.fail(String(httpMock.expectOne("v1/books")))
+          fail(httpMock.expectOne("v1/books"))
 
           await expect(first).rejects.toThrow()
           expect(service.books).toEqual([])

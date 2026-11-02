@@ -5,6 +5,7 @@ import {
   PLATFORM_ID,
 } from "@angular/core"
 import { ComponentFixture, TestBed } from "@angular/core/testing"
+import type { MatDrawer } from "@angular/material/sidenav"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { By } from "@angular/platform-browser"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
@@ -61,7 +62,7 @@ describe("BibleReaderComponent", () => {
       "setAutoScrollLinesPerSecond",
       "stop",
     ])
-    apiServiceSpy = createSpyObj("BibleApiService", ["getBook", "getChapter"])
+    apiServiceSpy = createSpyObj("BibleApiService", ["getChapter"])
     bookServiceSpy = createSpyObj("BookService", [
       "findBook",
       "findBookById",
@@ -75,7 +76,7 @@ describe("BibleReaderComponent", () => {
       mockBooks,
     ) as unknown as BehaviorSubject<Book[]>
     bookServiceSpy.booksUnavailable$ = of(false)
-    bookServiceSpy.retryBooks.mockResolvedValue()
+    bookServiceSpy.retryBooks.mockResolvedValue(undefined)
     preferencesServiceSpy = createSpyObj("PreferencesService", [
       "getAutoScrollSpeed",
       "getViewMode",
@@ -122,10 +123,10 @@ describe("BibleReaderComponent", () => {
       "scrollToVerseElement",
       "cancelPendingRealign",
     ])
-    animationServiceSpy.triggerSlideOutAnimation.mockResolvedValue()
+    animationServiceSpy.triggerSlideOutAnimation.mockResolvedValue(undefined)
 
     analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
-    analyticsServiceSpy.track.mockResolvedValue()
+    analyticsServiceSpy.track.mockResolvedValue(undefined)
     networkServiceSpy = createSpyObj("NetworkService", [
       "ngOnDestroy",
     ]) as SpyObj<NetworkService>
@@ -380,10 +381,9 @@ describe("BibleReaderComponent", () => {
     }
 
     it("closes the open book drawer on the Android back button", () => {
-      const drawer = {
-        close: vi.fn().mockName("MatDrawer.close"),
+      const drawer = createSpyObj<MatDrawer>("MatDrawer", ["close"], {
         opened: true,
-      }
+      })
       component.bookDrawer = drawer
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(true)
@@ -391,10 +391,9 @@ describe("BibleReaderComponent", () => {
     })
 
     it("leaves the back button alone when the drawer is closed", () => {
-      component.bookDrawer = {
-        close: vi.fn().mockName("MatDrawer.close"),
+      component.bookDrawer = createSpyObj<MatDrawer>("MatDrawer", ["close"], {
         opened: false,
-      }
+      })
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(false)
     })
@@ -884,10 +883,9 @@ describe("BibleReaderComponent", () => {
       })
 
       it("don't turn the chapter while the book drawer is open", () => {
-        component.bookDrawer = {
-          close: vi.fn().mockName("MatDrawer.close"),
+        component.bookDrawer = createSpyObj<MatDrawer>("MatDrawer", ["close"], {
           opened: true,
-        }
+        })
         press({})
         expect(routerSpy.navigate).not.toHaveBeenCalled()
       })
@@ -1028,8 +1026,8 @@ describe("BibleReaderComponent", () => {
     beforeEach(() => {
       fixture.detectChanges()
       component.bookDrawer = createSpyObj("MatDrawer", ["close", "toggle"])
-      ;(component.bookDrawer.toggle as Mock).mockResolvedValue()
-      ;(component.bookDrawer.close as Mock).mockResolvedValue()
+      ;(component.bookDrawer.toggle as Mock).mockResolvedValue(undefined)
+      ;(component.bookDrawer.close as Mock).mockResolvedValue(undefined)
     })
 
     it("openBookDrawer should toggle drawer", async () => {

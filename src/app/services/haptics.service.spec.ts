@@ -14,8 +14,11 @@ describe("HapticsService", () => {
 
   beforeEach(() => {
     plugin = {
-      impact: vi.fn().mockName("impact").mockResolvedValue(),
-      notification: vi.fn().mockName("notification").mockResolvedValue(),
+      impact: vi.fn().mockName("impact").mockResolvedValue(undefined),
+      notification: vi
+        .fn()
+        .mockName("notification")
+        .mockResolvedValue(undefined),
     }
     TestBed.configureTestingModule({
       providers: [{ provide: HAPTICS_PLUGIN, useValue: plugin }],

@@ -22,9 +22,9 @@ describe("BookmarkService", () => {
     spy.getAll.mockImplementation(() =>
       Promise.resolve(JSON.parse(JSON.stringify(mockBookmarks))),
     )
-    spy.clearAndPutAll.mockResolvedValue()
-    spy.delete.mockResolvedValue()
-    spy.clear.mockResolvedValue()
+    spy.clearAndPutAll.mockResolvedValue(undefined)
+    spy.delete.mockResolvedValue(undefined)
+    spy.clear.mockResolvedValue(undefined)
 
     TestBed.configureTestingModule({
       providers: [BookmarkService, { provide: DatabaseService, useValue: spy }],

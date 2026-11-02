@@ -25,8 +25,10 @@ describe("NativeShellService", () => {
 
   beforeEach(() => {
     events = new Subject()
-    splash = { hide: vi.fn().mockName("hide").mockResolvedValue() }
-    systemBars = { setStyle: vi.fn().mockName("setStyle").mockResolvedValue() }
+    splash = { hide: vi.fn().mockName("hide").mockResolvedValue(undefined) }
+    systemBars = {
+      setStyle: vi.fn().mockName("setStyle").mockResolvedValue(undefined),
+    }
     body = document.createElement("body")
     TestBed.configureTestingModule({
       providers: [

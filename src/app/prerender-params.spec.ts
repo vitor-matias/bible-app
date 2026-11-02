@@ -1,5 +1,6 @@
 import type { Mock } from "vitest"
 import { fetchPrerenderChapterParams } from "./prerender-params"
+import { lastCall } from "./testing/spy-obj"
 
 describe("fetchPrerenderChapterParams", () => {
   /** Answers each endpoint with its own payload, like the real API. */
@@ -144,7 +145,7 @@ describe("fetchPrerenderChapterParams", () => {
     const fetchSpy = fetchReturning([]) as Mock
     await fetchPrerenderChapterParams(fetchSpy as unknown as typeof fetch)
 
-    const init = vi.mocked(fetchSpy).mock.lastCall[1] as RequestInit
+    const init = lastCall(vi.mocked(fetchSpy))[1] as RequestInit
     expect(init.signal).toBeInstanceOf(AbortSignal)
   })
 

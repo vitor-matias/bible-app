@@ -284,7 +284,7 @@ describe("ChapterSelectorComponent in the reader's drawer", () => {
 
     expect(scrollSpy).toHaveBeenCalledTimes(2)
     expect(
-      vi.mocked(scrollSpy).mock.calls.every((call) => call.object === selected),
+      scrollSpy.mock.contexts.every((context) => context === selected),
     ).toBe(true)
   })
 })

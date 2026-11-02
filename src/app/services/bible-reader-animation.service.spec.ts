@@ -1,4 +1,5 @@
 import { TestBed } from "@angular/core/testing"
+import { lastCall } from "../testing/spy-obj"
 import {
   BibleReaderAnimationService,
   HIGHLIGHT_CLASS,
@@ -42,7 +43,6 @@ describe("BibleReaderAnimationService", () => {
       service.scrollToTop(drawerContentRow, containerRow, "scrolling", false)
 
       await vi.advanceTimersByTimeAsync(0)
-      // @ts-expect-error TS complains about 1 argument for scrollTo overload
       expect(drawerContentRow.scrollTo).toHaveBeenCalledWith({
         top: 0,
         behavior: "smooth",
@@ -483,7 +483,7 @@ describe("BibleReaderAnimationService", () => {
 
       // Only the verse the reader last asked for keeps being realigned.
       expect(vi.mocked(first).mock.calls.length).toBe(afterFirstScroll)
-      expect(vi.mocked(second).mock.lastCall[0]).toBe(verses[1])
+      expect(lastCall(vi.mocked(second))[0]).toBe(verses[1])
     })
 
     // Two deep links inside the 100ms window: the older timer used to survive,

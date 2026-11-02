@@ -29,20 +29,8 @@ describe("TwoActionSnackComponent", () => {
 
     expect(returnUrl).toHaveBeenCalled()
     expect(snackBarRefSpy.dismiss).toHaveBeenCalled()
-    // TODO: vitest-migration: Direct usage of mostRecent() is not supported. Please refactor to access .args directly or use vi.mocked(spy).mock.lastCall. See: https://vitest.dev/api/mocked.html#mock-lastcall
-    // TODO: vitest-migration: Direct usage of mostRecent() is not supported. Please refactor to access .args directly or use vi.mocked(spy).mock.lastCall. See: https://vitest.dev/api/mocked.html#mock-lastcall
-    expect(
-      (
-        returnUrl.calls.mostRecent() as unknown as {
-          invocationOrder: number
-        }
-      ).invocationOrder,
-    ).toBeLessThan(
-      (
-        snackBarRefSpy.dismiss.calls.mostRecent() as unknown as {
-          invocationOrder: number
-        }
-      ).invocationOrder,
+    expect(returnUrl.mock.invocationCallOrder[0]).toBeLessThan(
+      snackBarRefSpy.dismiss.mock.invocationCallOrder[0],
     )
   })
 

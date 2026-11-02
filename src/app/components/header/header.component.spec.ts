@@ -28,7 +28,7 @@ import { NativeReportService } from "../../services/native-report.service"
 import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { ThemeService } from "../../services/theme.service"
-import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
+import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { HeaderComponent } from "./header.component"
 
@@ -61,17 +61,20 @@ describe("HeaderComponent", () => {
   beforeEach(async () => {
     routerSpy = createSpyObj("Router", ["navigate"])
     isOfflineSubject = new BehaviorSubject<boolean>(false)
-    networkServiceSpy = {
+    networkServiceSpy = createSpyObj<NetworkService>("NetworkService", [], {
       isOffline$: isOfflineSubject.asObservable(),
       isOffline: false,
-    }
-    themeServiceSpy = {
-      toggleTheme: vi.fn().mockName("ThemeService.toggleTheme"),
-      setTheme: vi.fn().mockName("ThemeService.setTheme"),
-      currentMode: "system",
-    }
-    bookmarkServiceSpy = createSpyObj("BookmarkService", ["getBookmark"])
-    bookmarkServiceSpy.bookmarks$ = of([])
+    })
+    themeServiceSpy = createSpyObj<ThemeService>(
+      "ThemeService",
+      ["toggleTheme", "setTheme"],
+      { currentMode: "system" },
+    )
+    bookmarkServiceSpy = createSpyObj<BookmarkService>(
+      "BookmarkService",
+      ["getBookmark"],
+      { bookmarks$: of([]) },
+    )
     bottomSheetSpy = createSpyObj("MatBottomSheet", ["open"])
     bookmarkSheetDismissed = new Subject<void>()
     bookmarkSheetRef = {
@@ -86,7 +89,7 @@ describe("HeaderComponent", () => {
       "track",
       "areAnalyticsAvailable",
     ])
-    analyticsServiceSpy.track.mockResolvedValue()
+    analyticsServiceSpy.track.mockResolvedValue(undefined)
     analyticsServiceSpy.areAnalyticsAvailable.mockReturnValue(true)
     onboardingServiceSpy = createSpyObj("OnboardingService", ["open"])
     buildVersionSpy = createSpyObj("BuildVersionService", ["getDisplayVersion"])
@@ -235,7 +238,9 @@ describe("HeaderComponent", () => {
   })
 
   it("should open the report problem dialog from the menu", () => {
-    const trigger = createSpyObj("MatMenuTrigger", ["closeMenu"])
+    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
+      "closeMenu",
+    ])
     fixture.componentRef.setInput("chapterNumber", 3)
 
     component.onReportProblem(trigger)
@@ -250,7 +255,9 @@ describe("HeaderComponent", () => {
 
   // Chapter 0 is the introduction; a falsy check used to swallow it.
   it("should open the report problem dialog for an introduction", () => {
-    const trigger = createSpyObj("MatMenuTrigger", ["closeMenu"])
+    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
+      "closeMenu",
+    ])
     fixture.componentRef.setInput("chapterNumber", 0)
 
     component.onReportProblem(trigger)
@@ -263,7 +270,9 @@ describe("HeaderComponent", () => {
   })
 
   it("should not open the report problem dialog when chapter context is missing", () => {
-    const trigger = createSpyObj("MatMenuTrigger", ["closeMenu"])
+    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
+      "closeMenu",
+    ])
 
     fixture.componentRef.setInput(
       "chapterNumber",
@@ -431,7 +440,7 @@ describe("HeaderComponent", () => {
         "currentMode",
       )?.get as Mock | undefined
       themeServiceSpy.toggleTheme.mockImplementation(() =>
-        currentMode.mockReturnValue("dark"),
+        currentMode?.mockReturnValue("dark"),
       )
       button.click()
 
@@ -495,7 +504,9 @@ describe("HeaderComponent", () => {
   })
 
   it("opens the About page from the menu", () => {
-    const trigger = createSpyObj("MatMenuTrigger", ["closeMenu"])
+    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
+      "closeMenu",
+    ])
     const selected: {
       bookId: string
       chapter?: number
@@ -509,7 +520,9 @@ describe("HeaderComponent", () => {
   })
 
   it("should open the onboarding wizard from the menu", () => {
-    const trigger = createSpyObj("MatMenuTrigger", ["closeMenu"])
+    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
+      "closeMenu",
+    ])
 
     component.onOpenHelp(trigger)
 
@@ -526,7 +539,7 @@ describe("HeaderComponent", () => {
         writable: true,
       })
     }
-    const shareSpy = vi.spyOn(navigator, "share").mockResolvedValue()
+    const shareSpy = vi.spyOn(navigator, "share").mockResolvedValue(undefined)
 
     fixture.componentRef.setInput("chapterNumber", 1)
     component.ngOnInit()
@@ -540,7 +553,7 @@ describe("HeaderComponent", () => {
   it("should share using navigator.share on web platforms", async () => {
     vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(false)
 
-    const shareSpy = vi.fn().mockName("share").mockResolvedValue()
+    const shareSpy = vi.fn().mockName("share").mockResolvedValue(undefined)
 
     if (!navigator.share) {
       Object.defineProperty(navigator, "share", {
@@ -566,7 +579,7 @@ describe("HeaderComponent", () => {
     })
 
     it("shares the public URL through navigator.share", async () => {
-      const shareSpy = vi.fn().mockName("share").mockResolvedValue()
+      const shareSpy = vi.fn().mockName("share").mockResolvedValue(undefined)
       Object.defineProperty(navigator, "share", {
         value: shareSpy,
         configurable: true,
@@ -857,15 +870,20 @@ describe("HeaderComponent with the iOS native bars", () => {
     }
     router = createSpyObj("Router", ["navigate"])
     router.navigate.mockResolvedValue(true)
-    theme = {
-      toggleTheme: vi.fn().mockName("ThemeService.toggleTheme"),
-      setTheme: vi.fn().mockName("ThemeService.setTheme"),
-      currentMode: "system",
-    }
-    const bookmarks = createSpyObj("BookmarkService", ["getBookmark"])
-    bookmarks.bookmarks$ = of([
-      { bookId: "gen", chapter: 2, color: "red", timestamp: 1 },
-    ])
+    theme = createSpyObj<ThemeService>(
+      "ThemeService",
+      ["toggleTheme", "setTheme"],
+      { currentMode: "system" },
+    )
+    const bookmarks = createSpyObj<BookmarkService>(
+      "BookmarkService",
+      ["getBookmark"],
+      {
+        bookmarks$: of([
+          { bookId: "gen", chapter: 2, color: "red", timestamp: 1 },
+        ]),
+      },
+    )
     bottomSheet = createSpyObj("MatBottomSheet", ["open"])
     bottomSheet.open.mockReturnValue({
       dismiss: () => {},
@@ -877,7 +895,7 @@ describe("HeaderComponent with the iOS native bars", () => {
       "track",
       "areAnalyticsAvailable",
     ])
-    analytics.track.mockResolvedValue()
+    analytics.track.mockResolvedValue(undefined)
     analytics.areAnalyticsAvailable.mockReturnValue(true)
     isOffline = new BehaviorSubject(false)
     nativeBookmarks = createSpyObj("NativeBookmarksService", ["open"])
@@ -921,7 +939,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     fixture.detectChanges()
   })
 
-  const lastState = () => vi.mocked(nativeChrome.show).mock.lastCall[0]
+  const lastState = () => lastCall(vi.mocked(nativeChrome.show))[0]
   const bookLabel = () => (component.mobile ? "Génesis" : "Livro do Génesis")
 
   it("renders no web toolbar", () => {
@@ -1078,7 +1096,7 @@ describe("HeaderComponent with the iOS native bars", () => {
   it("opens the passage picker on the current chapter, with bookmarks", () => {
     actions.next({ id: "passage" })
 
-    const data = vi.mocked(nativeChrome.showPicker).mock.lastCall[0]
+    const data = lastCall(vi.mocked(nativeChrome.showPicker))[0]
     expect(data.currentBookId).toBe("gen")
     expect(data.currentChapter).toBe(3)
     const book = data.sections[0].groups[0].books[0]
@@ -1226,7 +1244,7 @@ describe("HeaderComponent with the iOS native bars", () => {
   })
 
   it("opens the privacy policy outside the app", () => {
-    const open = vi.spyOn(window, "open").mockReturnValue(undefined)
+    const open = vi.spyOn(window, "open").mockReturnValue(undefined as never)
     actions.next({ id: "privacy" })
 
     expect(open).toHaveBeenCalledWith(

@@ -1,7 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { Subject } from "rxjs"
 import type { Mock } from "vitest"
-import { createSpyObj, type SpyObj } from "../testing/spy-obj"
+import { createSpyObj, lastCall, type SpyObj } from "../testing/spy-obj"
 import { NativeChromeService } from "./native-chrome.service"
 import type { NativeChromeAction } from "./native-chrome.types"
 import { NativeReportService } from "./native-report.service"
@@ -35,7 +35,7 @@ describe("NativeReportService", () => {
     }
     reports = {
       topics: [{ value: "typo", label: "Erro ortográfico" }],
-      send: vi.fn().mockName("send").mockResolvedValue(),
+      send: vi.fn().mockName("send").mockResolvedValue(undefined),
     }
     toast = createSpyObj("ToastService", ["show"])
     TestBed.configureTestingModule({
@@ -62,16 +62,16 @@ describe("NativeReportService", () => {
 
   it("names a psalm with its liturgical number, and the About page alone", () => {
     service.open({ id: "psa", name: "Salmos", shortName: "Salmos" } as Book, 34)
-    expect(
-      vi.mocked(nativeChrome.showReport).mock.lastCall[0].message,
-    ).toContain("«Salmo 34 (33)»")
+    expect(lastCall(vi.mocked(nativeChrome.showReport))[0].message).toContain(
+      "«Salmo 34 (33)»",
+    )
     service.open(
       { id: "about", name: "Sobre", shortName: "Sobre a Bíblia" } as Book,
       1,
     )
-    expect(
-      vi.mocked(nativeChrome.showReport).mock.lastCall[0].message,
-    ).toContain("«Sobre a Bíblia»")
+    expect(lastCall(vi.mocked(nativeChrome.showReport))[0].message).toContain(
+      "«Sobre a Bíblia»",
+    )
   })
 
   it("sends the report, closes the sheet and thanks", async () => {

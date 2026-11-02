@@ -8,6 +8,7 @@ import page from "../../../native-contract/page.json"
 import reader from "../../../native-contract/reader.json"
 import readerMinimal from "../../../native-contract/reader-minimal.json"
 import search from "../../../native-contract/search.json"
+import { lastCall } from "../testing/spy-obj"
 import { NATIVE_CHROME_PLUGIN } from "../tokens"
 import { NativeChromeService } from "./native-chrome.service"
 import type {
@@ -171,7 +172,7 @@ describe("the native chrome contract fixtures", () => {
     return service
   }
 
-  const sent = () => vi.mocked(setState).mock.lastCall[0]
+  const sent = () => lastCall(vi.mocked(setState))[0]
 
   it("matches what the reader's bars send, with auto-scroll playing", () => {
     const chrome = service()

@@ -50,7 +50,7 @@ describe("AppComponent", () => {
       "preloadAllBooksAndChapters",
     ])
     const analyticsSpy = createSpyObj("AnalyticsService", ["track"])
-    analyticsSpy.track.mockResolvedValue()
+    analyticsSpy.track.mockResolvedValue(undefined)
     onboardingSpy = createSpyObj("OnboardingService", ["showOnFirstLaunch"])
 
     nativeShellSpy = createSpyObj("NativeShellService", [
@@ -82,7 +82,7 @@ describe("AppComponent", () => {
   it("creates the theme and install services at startup", () => {
     const savedTheme = vi
       .spyOn(PreferencesService.prototype, "getTheme")
-      .mockReturnValue(undefined)
+      .mockReturnValue(undefined as unknown as null)
     const listen = vi.spyOn(window, "addEventListener")
 
     TestBed.createComponent(AppComponent)
@@ -328,12 +328,10 @@ describe("AppComponent", () => {
     })
 
     it("closes the topmost dialog first", () => {
-      const lower = {
-        close: vi.fn(),
-      }
-      const top = {
-        close: vi.fn(),
-      }
+      const lower = createSpyObj<MatDialogRef<unknown>>("MatDialogRef", [
+        "close",
+      ])
+      const top = createSpyObj<MatDialogRef<unknown>>("MatDialogRef", ["close"])
       dialogStub.openDialogs = [lower, top]
       const closePanel = vi.fn().mockName("closePanel").mockReturnValue(true)
       const unregister = TestBed.inject(BackButtonService).register(closePanel)

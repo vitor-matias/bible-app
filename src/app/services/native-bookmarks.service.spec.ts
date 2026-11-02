@@ -1,7 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { BehaviorSubject, Subject } from "rxjs"
 import type { Mock } from "vitest"
-import { createSpyObj, type SpyObj } from "../testing/spy-obj"
+import { createSpyObj, lastCall, type SpyObj } from "../testing/spy-obj"
 import { BookService } from "./book.service"
 import { BookmarkService } from "./bookmark.service"
 import {
@@ -88,9 +88,9 @@ describe("NativeBookmarksService", () => {
   })
 
   const shown = (): BookmarksSheetState =>
-    vi.mocked(nativeChrome.showBookmarks).mock.lastCall[0]
+    lastCall(vi.mocked(nativeChrome.showBookmarks))[0]
   const updated = (): BookmarksSheetState =>
-    vi.mocked(nativeChrome.updateBookmarks).mock.lastCall[0]
+    lastCall(vi.mocked(nativeChrome.updateBookmarks))[0]
 
   it("shows every ribbon, in Portuguese, with the passage it marks", () => {
     service.open("mat", 11)

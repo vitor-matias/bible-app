@@ -11,7 +11,7 @@ import { provideRouter, Router } from "@angular/router"
 import { Subject } from "rxjs"
 import type { Mock } from "vitest"
 import { TwoActionSnackComponent } from "../components/two-action-snackbar/two-action-snackbar.component"
-import { createSpyObj, type SpyObj } from "../testing/spy-obj"
+import { createSpyObj, lastCall, type SpyObj } from "../testing/spy-obj"
 import { BookService } from "./book.service"
 import { NativeChromeService } from "./native-chrome.service"
 import { ToastService } from "./toast.service"
@@ -93,7 +93,7 @@ describe("ToastService", () => {
 
   describe("showReturn", () => {
     const returnSnack = () =>
-      vi.mocked(snackBar.openFromComponent).mock.lastCall[1]?.data as {
+      lastCall(vi.mocked(snackBar.openFromComponent))[1]?.data as {
         message: string
         returnUrl: () => void
       }
@@ -140,7 +140,7 @@ describe("ToastService", () => {
         // Android takes the way back down once the reader reads on.
         returnToPage: true,
       })
-      vi.mocked(nativeChrome.toast).mock.lastCall[1].onTap()
+      lastCall(vi.mocked(nativeChrome.toast))[1].onTap()
       expect(navigate).toHaveBeenCalledWith(["gn", 3], {
         queryParams: { verseStart: 5, highlight: false },
       })

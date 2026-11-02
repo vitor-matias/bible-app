@@ -27,13 +27,13 @@ describe("NetworkService", () => {
     }
     capturedCallback = undefined
     mockNetworkListener = createSpyObj("PluginListenerHandle", ["remove"])
-    mockNetworkListener.remove.mockResolvedValue()
+    mockNetworkListener.remove.mockResolvedValue(undefined)
 
     offlineData = {
       preloadAllBooksAndChapters: vi
         .fn()
         .mockName("preloadAllBooksAndChapters")
-        .mockResolvedValue(),
+        .mockResolvedValue(undefined),
     }
 
     mockNetworkPlugin = createSpyObj("Network", ["addListener", "getStatus"])
@@ -90,9 +90,10 @@ describe("NetworkService", () => {
   })
 
   it("should update offline state via network listener", () => {
-    expect(capturedCallback).toBeDefined(
+    expect(
+      capturedCallback,
       "networkStatusChange listener should be registered",
-    )
+    ).toBeDefined()
 
     if (capturedCallback) {
       capturedCallback({ connected: false, connectionType: "none" })

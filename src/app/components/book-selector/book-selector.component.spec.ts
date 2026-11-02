@@ -8,7 +8,6 @@ import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MATERIAL_ANIMATIONS } from "@angular/material/core"
 import { MatDrawer, MatSidenavModule } from "@angular/material/sidenav"
 import type { CanonGroup } from "../../bible-canon"
-
 import { BookSelectorComponent } from "./book-selector.component"
 
 describe("BookSelectorComponent", () => {
@@ -408,8 +407,7 @@ describe("BookSelectorComponent in the reader's drawer", () => {
       '[data-book-id="mal"]',
     ) as HTMLElement
     expect(scrollSpy).toHaveBeenCalledTimes(1)
-    // TODO: vitest-migration: Direct usage of mostRecent() is not supported. Please refactor to access .args directly or use vi.mocked(spy).mock.lastCall. See: https://vitest.dev/api/mocked.html#mock-lastcall
-    expect(scrollSpy.calls.mostRecent().object).toBe(malaquias)
+    expect(scrollSpy.mock.contexts.at(-1)).toBe(malaquias)
   })
 
   // After a filtered pick ("Sabed"), the drawer reopened still filtered, with
@@ -443,7 +441,6 @@ describe("BookSelectorComponent in the reader's drawer", () => {
     expect(input.value).toBe("")
     const malaquias = host.querySelector('[data-book-id="mal"]') as HTMLElement
     expect(malaquias).not.toBeNull()
-    // TODO: vitest-migration: Direct usage of mostRecent() is not supported. Please refactor to access .args directly or use vi.mocked(spy).mock.lastCall. See: https://vitest.dev/api/mocked.html#mock-lastcall
-    expect(scrollSpy.calls.mostRecent()?.object).toBe(malaquias)
+    expect(scrollSpy.mock.contexts.at(-1)).toBe(malaquias)
   })
 })

@@ -14,7 +14,7 @@ describe("ProblemReportService", () => {
       "trackDelivered",
       "areAnalyticsAvailable",
     ])
-    analytics.trackDelivered.mockResolvedValue()
+    analytics.trackDelivered.mockResolvedValue(undefined)
     TestBed.configureTestingModule({
       providers: [{ provide: AnalyticsService, useValue: analytics }],
     })

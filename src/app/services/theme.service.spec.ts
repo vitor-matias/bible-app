@@ -18,13 +18,13 @@ describe("ThemeService", () => {
 
     classListToggleSpy = vi
       .spyOn(document.documentElement.classList, "toggle")
-      .mockReturnValue(undefined)
+      .mockReturnValue(undefined as never)
 
     nativeShellSpy = createSpyObj("NativeShellService", [
       "setNavigationBarTheme",
     ])
     const analyticsSpy = createSpyObj("AnalyticsService", ["track"])
-    analyticsSpy.track.mockResolvedValue()
+    analyticsSpy.track.mockResolvedValue(undefined)
 
     TestBed.configureTestingModule({
       providers: [

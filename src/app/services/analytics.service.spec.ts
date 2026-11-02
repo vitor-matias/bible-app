@@ -1,7 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
 import type { Mock } from "vitest"
-import { createSpyObj, type SpyObj } from "../testing/spy-obj"
+import { createSpyObj, lastCall, type SpyObj } from "../testing/spy-obj"
 import {
   AnalyticsService,
   BUILD_DATA_WAIT_MS,
@@ -157,7 +157,7 @@ describe("AnalyticsService", () => {
     it("sends the event beside the tracker's script, through its hook", async () => {
       await service.trackDelivered("report_problem", { topic: "typo" })
 
-      const [url, init] = vi.mocked(fetchSpy).mock.lastCall
+      const [url, init] = lastCall(vi.mocked(fetchSpy))
       expect(url).toBe("https://umami.example.org/api/send")
       const body = JSON.parse(init.body)
       expect(body.type).toBe("event")
@@ -180,7 +180,7 @@ describe("AnalyticsService", () => {
 
       await service.trackDelivered("report_problem", { topic: "typo" })
 
-      const body = JSON.parse(vi.mocked(fetchSpy).mock.lastCall[1].body)
+      const body = JSON.parse(lastCall(vi.mocked(fetchSpy))[1].body)
       expect(body.payload.data).toEqual({
         topic: "typo",
         buildVersion: "test-version",
@@ -195,7 +195,7 @@ describe("AnalyticsService", () => {
 
       await service.trackDelivered("report_problem", { topic: "typo" })
 
-      const body = JSON.parse(vi.mocked(fetchSpy).mock.lastCall[1].body)
+      const body = JSON.parse(lastCall(vi.mocked(fetchSpy))[1].body)
       expect(body.payload.data).toEqual({ topic: "typo", platform: "ios" })
     })
 
@@ -259,7 +259,7 @@ describe("AnalyticsService", () => {
       await vi.advanceTimersByTimeAsync(1)
 
       expect(fetchSpy).toHaveBeenCalledTimes(1)
-      const body = JSON.parse(vi.mocked(fetchSpy).mock.lastCall[1].body)
+      const body = JSON.parse(lastCall(vi.mocked(fetchSpy))[1].body)
       expect(body.payload.data).toEqual({ topic: "typo", platform: "ios" })
       expect(sent).toBe(true)
     })

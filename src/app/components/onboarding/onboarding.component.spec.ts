@@ -48,7 +48,7 @@ describe("OnboardingComponent", () => {
     pwa = new FakePwaInstallService()
     dialogRefSpy = createSpyObj("MatDialogRef", ["close"])
     analyticsSpy = createSpyObj("AnalyticsService", ["track"])
-    analyticsSpy.track.mockResolvedValue()
+    analyticsSpy.track.mockResolvedValue(undefined)
 
     await TestBed.configureTestingModule({
       imports: [OnboardingComponent],

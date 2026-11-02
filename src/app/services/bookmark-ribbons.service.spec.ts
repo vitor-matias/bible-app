@@ -97,7 +97,7 @@ describe("BookmarkRibbonsService", () => {
       "removeBookmark",
     ])
     analytics = createSpyObj("AnalyticsService", ["track"])
-    analytics.track.mockResolvedValue()
+    analytics.track.mockResolvedValue(undefined)
     TestBed.configureTestingModule({
       providers: [
         { provide: BookmarkService, useValue: bookmarks },

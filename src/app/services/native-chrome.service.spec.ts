@@ -3,6 +3,7 @@ import { DOCUMENT } from "@angular/common"
 import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
 import type { Mock } from "vitest"
+import { lastCall } from "../testing/spy-obj"
 import { NATIVE_CHROME_PLUGIN } from "../tokens"
 import type { PassagePickerData } from "../utils/passage-picker"
 import {
@@ -74,17 +75,29 @@ describe("NativeChromeService", () => {
         .fn()
         .mockName("setState")
         .mockResolvedValue({ top: 116, bottom: 82 }),
-      setProgress: vi.fn().mockName("setProgress").mockResolvedValue(),
-      showPicker: vi.fn().mockName("showPicker").mockResolvedValue(),
-      showBookmarks: vi.fn().mockName("showBookmarks").mockResolvedValue(),
-      updateBookmarks: vi.fn().mockName("updateBookmarks").mockResolvedValue(),
-      showToast: vi.fn().mockName("showToast").mockResolvedValue(),
-      hideToast: vi.fn().mockName("hideToast").mockResolvedValue(),
-      showReport: vi.fn().mockName("showReport").mockResolvedValue(),
-      finishReport: vi.fn().mockName("finishReport").mockResolvedValue(),
-      showOnboarding: vi.fn().mockName("showOnboarding").mockResolvedValue(),
-      share: vi.fn().mockName("share").mockResolvedValue(),
-      addListener: vi.fn().mockName("addListener").mockResolvedValue(),
+      setProgress: vi.fn().mockName("setProgress").mockResolvedValue(undefined),
+      showPicker: vi.fn().mockName("showPicker").mockResolvedValue(undefined),
+      showBookmarks: vi
+        .fn()
+        .mockName("showBookmarks")
+        .mockResolvedValue(undefined),
+      updateBookmarks: vi
+        .fn()
+        .mockName("updateBookmarks")
+        .mockResolvedValue(undefined),
+      showToast: vi.fn().mockName("showToast").mockResolvedValue(undefined),
+      hideToast: vi.fn().mockName("hideToast").mockResolvedValue(undefined),
+      showReport: vi.fn().mockName("showReport").mockResolvedValue(undefined),
+      finishReport: vi
+        .fn()
+        .mockName("finishReport")
+        .mockResolvedValue(undefined),
+      showOnboarding: vi
+        .fn()
+        .mockName("showOnboarding")
+        .mockResolvedValue(undefined),
+      share: vi.fn().mockName("share").mockResolvedValue(undefined),
+      addListener: vi.fn().mockName("addListener").mockResolvedValue(undefined),
     }
     body = document.createElement("body")
     root = document.createElement("html")
@@ -123,13 +136,13 @@ describe("NativeChromeService", () => {
   /** Lets MutationObserver callbacks and plugin promises run. */
   const settle = () => new Promise((resolve) => setTimeout(resolve))
 
-  const lastState = () => vi.mocked(plugin.setState).mock.lastCall[0]
+  const lastState = () => lastCall(vi.mocked(plugin.setState))[0]
 
   function listener(event: "action" | "insets" | "palette") {
     const call = vi
       .mocked(plugin.addListener)
-      .mock.calls.find(({ args }) => args[0] === event)
-    return call?.args[1]
+      .mock.calls.find((args) => args[0] === event)
+    return call?.[1]
   }
 
   it("is enabled in the iOS app, which provides the plugin", () => {
@@ -563,8 +576,8 @@ describe("NativeChromeService", () => {
       tap()
 
       expect(scrollTo).toHaveBeenCalledTimes(2)
-      for (const call of vi.mocked(scrollTo).mock.calls) {
-        expect(call.args[0]).toEqual({ top: 0, behavior: "auto" })
+      for (const args of vi.mocked(scrollTo).mock.calls) {
+        expect(args[0]).toEqual({ top: 0, behavior: "auto" })
       }
     })
 
@@ -1082,7 +1095,7 @@ describe("NativeChromeService", () => {
       scroller.dispatchEvent(new Event("scroll"))
       await frame()
     }
-    const progress = () => vi.mocked(plugin.setProgress).mock.lastCall[0].value
+    const progress = () => lastCall(vi.mocked(plugin.setProgress))[0].value
 
     it("sends how far through the chapter the text has scrolled", async () => {
       await frame()

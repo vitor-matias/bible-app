@@ -41,7 +41,7 @@ describe("ReportProblemComponent", () => {
       "trackDelivered",
       "areAnalyticsAvailable",
     ])
-    analyticsServiceSpy.trackDelivered.mockResolvedValue()
+    analyticsServiceSpy.trackDelivered.mockResolvedValue(undefined)
     analyticsServiceSpy.areAnalyticsAvailable.mockReturnValue(true)
 
     await TestBed.configureTestingModule({

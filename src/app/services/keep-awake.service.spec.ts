@@ -56,7 +56,7 @@ describe("KeepAwakeService", () => {
   it("should request a wake lock only once while active", async () => {
     const sentinel = {
       addEventListener: vi.fn().mockName("addEventListener"),
-      release: vi.fn().mockName("release").mockResolvedValue(),
+      release: vi.fn().mockName("release").mockResolvedValue(undefined),
     } as unknown as WakeLockSentinel
     // Keep the first request pending so the duplicate calls below race it.
     let resolveRequest!: (value: WakeLockSentinel) => void
@@ -100,7 +100,7 @@ describe("KeepAwakeService", () => {
   it("should release a wake lock that resolves after stop()", async () => {
     const sentinel = {
       addEventListener: vi.fn().mockName("addEventListener"),
-      release: vi.fn().mockName("release").mockResolvedValue(),
+      release: vi.fn().mockName("release").mockResolvedValue(undefined),
     } as unknown as WakeLockSentinel
     // Keep the request pending so stop() runs before it settles.
     let resolveRequest!: (value: WakeLockSentinel) => void
@@ -130,7 +130,7 @@ describe("KeepAwakeService", () => {
   it("should release the wake lock when stopped", async () => {
     const sentinel = {
       addEventListener: vi.fn().mockName("addEventListener"),
-      release: vi.fn().mockName("release").mockResolvedValue(),
+      release: vi.fn().mockName("release").mockResolvedValue(undefined),
     } as unknown as WakeLockSentinel
     const requestSpy = vi.fn().mockName("request").mockResolvedValue(sentinel)
     Object.defineProperty(navigator, "wakeLock", {
@@ -182,7 +182,7 @@ describe("KeepAwakeService", () => {
   it("should reacquire the wake lock when the document becomes visible again", async () => {
     const sentinel = {
       addEventListener: vi.fn().mockName("addEventListener"),
-      release: vi.fn().mockName("release").mockResolvedValue(),
+      release: vi.fn().mockName("release").mockResolvedValue(undefined),
     } as unknown as WakeLockSentinel
     const requestSpy = vi.fn().mockName("request").mockResolvedValue(sentinel)
     Object.defineProperty(navigator, "wakeLock", {

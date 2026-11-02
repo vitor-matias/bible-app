@@ -30,7 +30,7 @@ import { SearchMemoryService } from "../../services/search-memory.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { contrastRatio } from "../../testing/contrast"
-import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
+import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
 import { firstLine, SearchComponent, TYPING_PAUSE_MS } from "./search.component"
 
 // How the edition sets Psalm 23,1 and 94,1.
@@ -172,7 +172,7 @@ describe("SearchComponent", () => {
     ).currentNavigation = () =>
       navigationTrigger && { trigger: navigationTrigger }
     analyticsService = createSpyObj("AnalyticsService", ["track"])
-    analyticsService.track.mockResolvedValue()
+    analyticsService.track.mockResolvedValue(undefined)
     queryParamMapSubject = new BehaviorSubject(convertToParamMap({}))
     routeMock = {
       snapshot: { queryParamMap: convertToParamMap({}) },
@@ -518,7 +518,7 @@ describe("SearchComponent", () => {
     queryParamMapSubject.next(convertToParamMap({ q: "shared text" }))
     const submitSpy = vi
       .spyOn(component, "onSearchSubmit")
-      .mockReturnValue(undefined)
+      .mockReturnValue(undefined as never)
 
     component.ngOnInit()
 
@@ -528,7 +528,7 @@ describe("SearchComponent", () => {
   it("should run a second shared query without re-creating the component", () => {
     const submitSpy = vi
       .spyOn(component, "onSearchSubmit")
-      .mockReturnValue(undefined)
+      .mockReturnValue(undefined as never)
     component.ngOnInit()
 
     queryParamMapSubject.next(convertToParamMap({ q: "first" }))
@@ -541,7 +541,7 @@ describe("SearchComponent", () => {
   it("should not re-run the same shared query on an unrelated emission", () => {
     const submitSpy = vi
       .spyOn(component, "onSearchSubmit")
-      .mockReturnValue(undefined)
+      .mockReturnValue(undefined as never)
     component.ngOnInit()
 
     queryParamMapSubject.next(convertToParamMap({ q: "same" }))
@@ -553,7 +553,7 @@ describe("SearchComponent", () => {
   it("should re-run a shared query that went away and came back", () => {
     const submitSpy = vi
       .spyOn(component, "onSearchSubmit")
-      .mockReturnValue(undefined)
+      .mockReturnValue(undefined as never)
     component.ngOnInit()
 
     queryParamMapSubject.next(convertToParamMap({ q: "same" }))
@@ -586,7 +586,7 @@ describe("SearchComponent", () => {
   it("should not search on init without a q query param", () => {
     const submitSpy = vi
       .spyOn(component, "onSearchSubmit")
-      .mockReturnValue(undefined)
+      .mockReturnValue(undefined as never)
 
     component.ngOnInit()
 
@@ -1865,7 +1865,10 @@ describe("SearchComponent", () => {
   })
 
   it("should disconnect the observer on destroy", () => {
-    const observer = createSpyObj("IntersectionObserver", ["disconnect"])
+    const observer = createSpyObj<IntersectionObserver>(
+      "IntersectionObserver",
+      ["disconnect"],
+    )
     component["observer"] = observer
 
     component.ngOnDestroy()
@@ -1953,24 +1956,26 @@ describe("SearchComponent in the iOS app", () => {
     )
     const referenceService = createSpyObj("BibleReferenceService", ["extract"])
     referenceService.extract.mockReturnValue([])
-    const bookService = createSpyObj("BookService", [
-      "findBook",
-      "findBookById",
-      "findTypedBook",
-      "getUrlAbrv",
-      "getChapterUrlSegment",
-    ])
+    const bookService = Object.assign(
+      createSpyObj<BookService>("BookService", [
+        "findBook",
+        "findBookById",
+        "findTypedBook",
+        "getUrlAbrv",
+        "getChapterUrlSegment",
+      ]),
+      { books$: of([{ id: "mat" }]) },
+    )
     bookService.findBookById.mockReturnValue({
       abrv: "Mt",
       shortName: "Mateus",
-    })
+    } as Book)
     bookService.getUrlAbrv.mockImplementation(BookService.prototype.getUrlAbrv)
     bookService.getChapterUrlSegment.mockImplementation(
       BookService.prototype.getChapterUrlSegment,
     )
-    bookService.books$ = of([{ id: "mat" }])
     const analytics = createSpyObj("AnalyticsService", ["track"])
-    analytics.track.mockResolvedValue()
+    analytics.track.mockResolvedValue(undefined)
 
     await TestBed.configureTestingModule({
       imports: [SearchComponent],
@@ -2033,7 +2038,7 @@ describe("SearchComponent in the iOS app", () => {
     await fixture.whenStable()
 
     expect(apiService.search).toHaveBeenCalledWith("pastor", 1)
-    expect(vi.mocked(nativeChrome.show).mock.lastCall[0]).toEqual(
+    expect(lastCall(vi.mocked(nativeChrome.show))[0]).toEqual(
       expect.objectContaining({ query: "pastor" }),
     )
   })

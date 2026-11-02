@@ -2,7 +2,7 @@ import { TestBed } from "@angular/core/testing"
 import { Router } from "@angular/router"
 import { Subject } from "rxjs"
 import type { Mock } from "vitest"
-import { createSpyObj, type SpyObj } from "../testing/spy-obj"
+import { createSpyObj, lastCall, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import {
   type BibleReference,
@@ -70,7 +70,7 @@ describe("NativeFootnotesService", () => {
     bibleRef.extract.mockReturnValue(references)
     router = createSpyObj("Router", ["navigate"])
     analytics = createSpyObj("AnalyticsService", ["track"])
-    analytics.track.mockResolvedValue()
+    analytics.track.mockResolvedValue(undefined)
     toast = createSpyObj("ToastService", ["showReturn"])
     fontSizes = {}
     systemPercent = null
@@ -106,7 +106,7 @@ describe("NativeFootnotesService", () => {
 
   const footnote = { type: "footnote" as const, text, reference: "3." }
   const shown = (): FootnotesSheetState =>
-    vi.mocked(nativeChrome.showFootnotes).mock.lastCall[0]
+    lastCall(vi.mocked(nativeChrome.showFootnotes))[0]
 
   it("shows the notes with their references as links", () => {
     service.open([footnote], verse)

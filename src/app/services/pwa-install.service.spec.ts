@@ -35,7 +35,7 @@ function createInstallPromptEvent(
   prompt: Mock
 } {
   return Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
-    prompt: vi.fn().mockName("prompt").mockResolvedValue(),
+    prompt: vi.fn().mockName("prompt").mockResolvedValue(undefined),
     userChoice: Promise.resolve({ outcome, platform: "web" }),
   })
 }

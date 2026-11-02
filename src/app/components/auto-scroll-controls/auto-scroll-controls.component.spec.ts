@@ -9,7 +9,7 @@ import { AutoScrollService } from "../../services/auto-scroll.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { PreferencesService } from "../../services/preferences.service"
-import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
+import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
 import { AutoScrollControlsComponent } from "./auto-scroll-controls.component"
 
 /** A page with a screenful of text below: half way through, not at its end. */
@@ -61,7 +61,7 @@ describe("AutoScrollControlsComponent", () => {
       "setAutoScrollSpeed",
     ])
     analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
-    analyticsServiceSpy.track.mockResolvedValue()
+    analyticsServiceSpy.track.mockResolvedValue(undefined)
 
     await TestBed.configureTestingModule({
       imports: [AutoScrollControlsComponent, MatButtonModule, MatIconModule],
@@ -342,7 +342,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
       return speed
     })
     const analytics = createSpyObj("AnalyticsService", ["track"])
-    analytics.track.mockResolvedValue()
+    analytics.track.mockResolvedValue(undefined)
 
     await TestBed.configureTestingModule({
       imports: [AutoScrollControlsComponent],
@@ -373,7 +373,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     globalThis.ResizeObserver = realResizeObserver
   })
 
-  const lastState = () => vi.mocked(nativeChrome.setAutoScroll).mock.lastCall[0]
+  const lastState = () => lastCall(vi.mocked(nativeChrome.setAutoScroll))[0]
 
   it("draws no web controls; the toolbar shows them", () => {
     expect(

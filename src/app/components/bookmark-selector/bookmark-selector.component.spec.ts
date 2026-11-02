@@ -45,16 +45,16 @@ describe("BookmarkSelectorComponent", () => {
     const sheetSpy = createSpyObj("MatBottomSheetRef", ["dismiss"])
     const rSpy = createSpyObj("Router", ["navigate"])
     analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
-    analyticsServiceSpy.track.mockResolvedValue()
+    analyticsServiceSpy.track.mockResolvedValue(undefined)
 
     bookmarksSubject = new BehaviorSubject<Bookmark[]>(mockBookmarks)
     void Object.defineProperty(bookmarkSpy, "bookmarks$", {
       get: () => bookmarksSubject.asObservable(),
     })
 
-    bookmarkSpy.addBookmark.mockResolvedValue()
+    bookmarkSpy.addBookmark.mockResolvedValue(undefined)
     hapticsSpy = createSpyObj("HapticsService", ["light", "success"])
-    bookmarkSpy.removeBookmark.mockResolvedValue()
+    bookmarkSpy.removeBookmark.mockResolvedValue(undefined)
     bookSpy.findBookById.mockReturnValue({ abrv: "Mc", shortName: "Marcos" })
     bookSpy.getUrlAbrv.mockReturnValue("mrk")
     bookSpy.getChapterUrlSegment.mockImplementation((chapter: number) =>

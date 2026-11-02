@@ -902,7 +902,7 @@ describe("VerseComponent", () => {
 
       beforeEach(() => {
         const native = TestBed.inject(NativeFootnotesService)
-        vi.spyOn(native, "enabled").mockReturnValue(true)
+        vi.spyOn(native, "enabled", "get").mockReturnValue(true)
         open = vi.spyOn(native, "open").mockReturnValue(undefined)
         document.body.classList.add("native-chrome")
         render()
@@ -1046,7 +1046,7 @@ describe("VerseComponent", () => {
     // The iOS app shows them in a native sheet instead.
     it("opens the native sheet in the iOS app", () => {
       const native = TestBed.inject(NativeFootnotesService)
-      vi.spyOn(native, "enabled").mockReturnValue(true)
+      vi.spyOn(native, "enabled", "get").mockReturnValue(true)
       const open = vi.spyOn(native, "open").mockReturnValue(undefined)
       const footnote = {
         type: "footnote" as const,

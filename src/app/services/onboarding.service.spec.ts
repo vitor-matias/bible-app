@@ -8,7 +8,7 @@ import {
   type OnboardingResult,
 } from "../components/onboarding/onboarding.component"
 import type { NativeOnboardingStep } from "../components/onboarding/onboarding-content"
-import { createSpyObj, type SpyObj } from "../testing/spy-obj"
+import { createSpyObj, lastCall, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import { NativeChromeService } from "./native-chrome.service"
 import { FIRST_LAUNCH_DELAY_MS, OnboardingService } from "./onboarding.service"
@@ -43,7 +43,7 @@ describe("OnboardingService", () => {
     preferencesSpy.getOnboardingSeen.mockReturnValue(false)
     preferencesSpy.getNativeBarsOnboardingSeen.mockReturnValue(false)
     analyticsSpy = createSpyObj("AnalyticsService", ["track"])
-    analyticsSpy.track.mockResolvedValue()
+    analyticsSpy.track.mockResolvedValue(undefined)
 
     TestBed.configureTestingModule({
       providers: [
@@ -62,7 +62,7 @@ describe("OnboardingService", () => {
 
       await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS)
 
-      const [component, config] = vi.mocked(dialogSpy.open).mock.lastCall
+      const [component, config] = lastCall(vi.mocked(dialogSpy.open))
       expect(component).toBe(OnboardingComponent)
       // The wizard reads no dialog data; the source only feeds analytics.
       expect(config?.data).toBeUndefined()
@@ -203,7 +203,7 @@ describe("OnboardingService", () => {
       expect(service.open("menu")).toBeNull()
 
       expect(dialogSpy.open).not.toHaveBeenCalled()
-      const steps = vi.mocked(showOnboarding).mock.lastCall[0]
+      const steps = lastCall(vi.mocked(showOnboarding))[0]
       expect(steps.map((step: { id: string }) => step.id)).toEqual([
         "welcome",
         "navigate",
@@ -219,8 +219,9 @@ describe("OnboardingService", () => {
       vi.spyOn(Capacitor, "getPlatform").mockReturnValue("android")
       service.open("menu")
 
-      const steps: NativeOnboardingStep[] =
-        vi.mocked(showOnboarding).mock.lastCall[0]
+      const steps: NativeOnboardingStep[] = lastCall(
+        vi.mocked(showOnboarding),
+      )[0]
       const customize = steps.find((step) => step.id === "customize")
       expect(customize?.intro).toContain("Toque em TT")
       expect(customize?.intro).not.toContain("AA")
@@ -229,8 +230,9 @@ describe("OnboardingService", () => {
     it("words it for the iOS app's bars elsewhere", () => {
       service.open("menu")
 
-      const steps: NativeOnboardingStep[] =
-        vi.mocked(showOnboarding).mock.lastCall[0]
+      const steps: NativeOnboardingStep[] = lastCall(
+        vi.mocked(showOnboarding),
+      )[0]
       expect(steps.find((step) => step.id === "customize")?.intro).toContain(
         "AA",
       )

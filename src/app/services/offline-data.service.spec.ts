@@ -126,8 +126,8 @@ describe("OfflineDataService", () => {
       "clear",
     ])
     spy.getAll.mockResolvedValue([])
-    spy.clearAndPutAll.mockResolvedValue()
-    spy.clear.mockResolvedValue()
+    spy.clearAndPutAll.mockResolvedValue(undefined)
+    spy.clear.mockResolvedValue(undefined)
 
     // Mock NetworkService
     const networkSpy = {
@@ -135,7 +135,7 @@ describe("OfflineDataService", () => {
     }
 
     const analyticsSpy = createSpyObj("AnalyticsService", ["track"])
-    analyticsSpy.track.mockResolvedValue()
+    analyticsSpy.track.mockResolvedValue(undefined)
 
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],

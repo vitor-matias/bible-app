@@ -392,7 +392,8 @@ describe("UnifiedGesturesDirective", () => {
         typeof ms === "number"
           ? moves.map((_, i) => (ms * i) / (moves.length - 1))
           : ms
-      vi.spyOn(Date, "now").mockReturnValueOnce(...times)
+      const now = vi.spyOn(Date, "now")
+      for (const time of times) now.mockReturnValueOnce(time)
       const swiped = vi.fn().mockName("swiped")
       directive.swipeLeft.subscribe(swiped)
       directive.swipeRight.subscribe(swiped)

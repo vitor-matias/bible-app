@@ -41,7 +41,7 @@ describe("FootnotesBottomSheetComponent", () => {
     bibleRefSpy = createSpyObj("BibleReferenceService", ["extract"])
     bookServiceSpy = createSpyObj("BookService", ["findBook", "getUrlAbrv"])
     analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
-    analyticsServiceSpy.track.mockResolvedValue()
+    analyticsServiceSpy.track.mockResolvedValue(undefined)
     toastSpy = createSpyObj("ToastService", ["showReturn"])
 
     await TestBed.configureTestingModule({
