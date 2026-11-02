@@ -620,7 +620,7 @@ describe("PagedNavigationDirective", () => {
   template: `
     <div
       #container
-      style="overflow: hidden"
+      style="position: relative; overflow: hidden"
       [style.width.px]="width"
       [style.height.px]="height"
       [appPagedNavigation]="block"
@@ -731,6 +731,25 @@ describe("PagedNavigationDirective across a resize", () => {
     fixture.detectChanges()
     container = host.container.nativeElement
     await settle()
+  })
+
+  // Pulled left, the text's columns left the scrollable area with it: the
+  // browser clamped the scroll back, a jolt on every move, and letting go on
+  // the last page of the last chapter left the page off its place.
+  it("stays on the last page when pulled past it", async () => {
+    const last = container.scrollWidth - container.clientWidth
+    container.scrollLeft = last
+    await settle()
+
+    host.nav.dragBy(-60)
+    expect(container.scrollLeft).toBe(last)
+    host.nav.dragBy(-120)
+    expect(container.scrollLeft).toBe(last)
+
+    host.nav.nextPage()
+    await settle()
+    expect(container.scrollLeft).toBe(last)
+    expect(container.scrollLeft % 200).toBe(0)
   })
 
   it("keeps the verse the reader was on", async () => {

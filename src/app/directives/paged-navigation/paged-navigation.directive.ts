@@ -365,6 +365,9 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
       this.setTarget(undefined)
       this.drag = { page, left: this.container.scrollLeft }
       block.style.transition = "none"
+      // The transform below carries the columns, and so the scrollable area,
+      // with it: pulled past the last page, the browser would clamp the scroll.
+      if (!this.spacer) this.addSpacer(this.container.scrollWidth)
     }
     const maxScroll = Math.max(
       0,
@@ -547,23 +550,23 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
       remainder > SCROLL_THRESHOLD &&
       advanceWidth - remainder > SCROLL_THRESHOLD
     ) {
-      const extra = advanceWidth - remainder
-      this.spacer = this.renderer.createElement("div")
+      this.addSpacer(scrollWidth + advanceWidth - remainder)
+    }
+  }
 
-      if (this.spacer) {
-        this.renderer.setStyle(this.spacer, "position", "absolute")
-        this.renderer.setStyle(this.spacer, "top", "0")
-        this.renderer.setStyle(
-          this.spacer,
-          "left",
-          `${scrollWidth + extra - 1}px`,
-        )
-        this.renderer.setStyle(this.spacer, "width", "1px")
-        this.renderer.setStyle(this.spacer, "height", "1px")
-        this.renderer.setStyle(this.spacer, "pointerEvents", "none")
+  /** Keeps the scrollable area at least `scrollWidth` wide. */
+  private addSpacer(scrollWidth: number): void {
+    this.spacer = this.renderer.createElement("div")
 
-        this.renderer.appendChild(this.container, this.spacer)
-      }
+    if (this.spacer) {
+      this.renderer.setStyle(this.spacer, "position", "absolute")
+      this.renderer.setStyle(this.spacer, "top", "0")
+      this.renderer.setStyle(this.spacer, "left", `${scrollWidth - 1}px`)
+      this.renderer.setStyle(this.spacer, "width", "1px")
+      this.renderer.setStyle(this.spacer, "height", "1px")
+      this.renderer.setStyle(this.spacer, "pointerEvents", "none")
+
+      this.renderer.appendChild(this.container, this.spacer)
     }
   }
 
