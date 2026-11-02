@@ -292,6 +292,17 @@ describe("SearchComponent", () => {
       expect(apiService.searchByMeaning).not.toHaveBeenCalled()
     })
 
+    it("keeps the switch on the page after a search", async () => {
+      component.setMeaningSearch(false)
+      await component.onSearchSubmit("pastor")
+      fixture.detectChanges()
+
+      const status = fixture.nativeElement.querySelector(".meaning-status")
+      expect(status.textContent).toContain("desativada")
+      status.querySelector("button").click()
+      expect(component.meaningSearchConsent).toBe(true)
+    })
+
     it("asks only while unanswered", () => {
       component.meaningSearchConsent = null
       fixture.detectChanges()

@@ -16,13 +16,23 @@ export class PrivacyPolicyComponent {}
   selector: "privacy-policy-dialog",
   imports: [PrivacyPolicyComponent, MatDialogModule, MatButtonModule],
   template: `
-    <h2 mat-dialog-title>Política de Privacidade</h2>
+    <h2 class="policy-title" mat-dialog-title>Política de Privacidade</h2>
     <mat-dialog-content class="policy-scroll"><privacy-policy /></mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button type="button" mat-button mat-dialog-close>Fechar</button>
+    <mat-dialog-actions class="policy-actions" align="end">
+      <button type="button" class="policy-close" mat-button mat-dialog-close>Fechar</button>
     </mat-dialog-actions>
   `,
-  styles: ".policy-scroll { max-height: none; flex: 1 1 auto; }",
+  styles: `
+    .policy-scroll { max-height: none; flex: 1 1 auto; }
+    /* The search page's button colour is global, and light on this surface. */
+    .policy-close ::ng-deep .mdc-button__label { color: var(--text-color); }
+    /* A phone on its side: leave the height to the text. */
+    @media (max-height: 500px) {
+      .policy-title { padding-top: 10px; padding-bottom: 4px; font-size: 1.1rem; line-height: 1.4; }
+      .policy-title::before { display: none; }
+      .policy-actions { min-height: 40px; padding: 0 8px; }
+    }
+  `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PrivacyPolicyDialogComponent {}

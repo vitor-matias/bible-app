@@ -30,6 +30,13 @@
         <button type="button" class="meaning-consent-allow" (click)="setMeaningSearch(true)">Ativar</button>
       </div>
     </section>
+  } @else if (!offline) {
+    <p class="meaning-status">
+      Pesquisa por significado {{ meaningSearchConsent ? "ativa" : "desativada" }} ·
+      <button type="button" class="link-button" (click)="setMeaningSearch(!meaningSearchConsent)">
+        {{ meaningSearchConsent ? "Desativar" : "Ativar" }}
+      </button>
+    </p>
   }
 
   @if (!hasSearched && !pendingSearch) {
@@ -37,14 +44,6 @@
       <mat-icon class="empty-state-icon">search</mat-icon>
       <p>Procure versículos, livros ou referências bíblicas</p>
       <p class="results-hint">Por exemplo: Jo 3,16 · Salmo 23 · o bom pastor</p>
-      @if (!offline && meaningSearchConsent !== null) {
-        <p class="results-hint">
-          Pesquisa por significado {{ meaningSearchConsent ? "ativa" : "desativada" }} ·
-          <button type="button" class="link-button" (click)="setMeaningSearch(!meaningSearchConsent)">
-            {{ meaningSearchConsent ? "Desativar" : "Ativar" }}
-          </button>
-        </p>
-      }
       @if (offline) {
         <p class="results-hint">Sem ligação: pode abrir referências, como Jo 3,16, e procurar palavras no texto guardado neste dispositivo.</p>
       }

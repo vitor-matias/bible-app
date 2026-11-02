@@ -161,7 +161,7 @@
 /* iOS: status text is neutral grey, as in the system's empty states; the red
    stays with the scripture (the references, like the reader's verse numbers). */
 :host-context(.native-chrome)
-  :is(.empty-state, .loading, .results-count, .results-hint, .psalm-note) {
+  :is(.empty-state, .loading, .results-count, .results-hint, .psalm-note, .meaning-status) {
   color: color-mix(in srgb, var(--text-color) 55%, transparent);
 }
 
@@ -300,18 +300,27 @@
   margin: 0;
 }
 
+/* Beside results too: Android's recent searches cover the empty page. */
+.meaning-status {
+  flex: none;
+  margin: 8px 16px 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
 /* Clears the native bar; what follows then needn't. */
-:host-context(.native-chrome) .meaning-consent {
+:host-context(.native-chrome) :is(.meaning-consent, .meaning-status) {
   flex: none;
   margin-top: calc(8px + var(--app-chrome-top));
 }
 
-:host-context(.native-chrome) .meaning-consent + .empty-state {
+:host-context(.native-chrome) :is(.meaning-consent, .meaning-status) + .empty-state {
   margin-top: 0;
   padding-top: 16px;
 }
 
-:host-context(.native-chrome) .meaning-consent + .results-section {
+:host-context(.native-chrome) :is(.meaning-consent, .meaning-status) + .results-section {
   padding-top: 20px;
 }
 
