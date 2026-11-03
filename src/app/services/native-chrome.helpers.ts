@@ -18,15 +18,13 @@ const PROGRESS_STEPS = 500
 export function scrollProgress(element: Element): number | null {
   const across = element.scrollWidth - element.clientWidth
   const down = element.scrollHeight - element.clientHeight
-  const progress =
+  const horizontal =
     across > 1 &&
     across / Math.max(element.clientWidth, 1) >
       down / Math.max(element.clientHeight, 1)
-      ? element.scrollLeft / across
-      : down > 1
-        ? element.scrollTop / down
-        : null
-  if (progress === null) return null
+  const extent = horizontal ? down : across
+  if (extent <= 1) return null
+  const progress = (horizontal ? element.scrollLeft : element.scrollTop) / extent
   return (
     Math.round(Math.min(Math.max(progress, 0), 1) * PROGRESS_STEPS) /
     PROGRESS_STEPS
