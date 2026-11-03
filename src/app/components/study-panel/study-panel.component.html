@@ -70,6 +70,10 @@
       <mat-icon>{{ linkCopied ? 'check' : 'link' }}</mat-icon>
       {{ linkCopied ? 'Ligação copiada' : 'Copiar ligação' }}
     </button>
+    <button type="button" class="verse-action" (click)="copyAsCitation()">
+      <mat-icon>{{ citationCopied ? 'check' : 'format_quote' }}</mat-icon>
+      {{ citationCopied ? 'Citação copiada' : 'Copiar como citação' }}
+    </button>
     
 
     <!-- The note box lives here as well as in its own tab: a thought about a

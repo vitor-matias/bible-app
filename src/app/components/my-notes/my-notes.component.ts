@@ -33,12 +33,11 @@ import {
   toMarkdown,
   toPlainText,
 } from "../../utils/study-backup"
+import { EDITION } from "../../utils/text"
 import { verseText } from "../../utils/text-search"
 
 /** What the list can be narrowed to besides a colour: see matchesFilter. */
 type Filter = "all" | "notes" | "marks" | (typeof HIGHLIGHT_COLORS)[number]
-
-const EDITION = "Bíblia Sagrada, tradução da Difusora Bíblica"
 
 /** Chapters asked for at once, to quote the verses: a notebook can span many. */
 const QUOTE_REQUESTS_AT_ONCE = 3

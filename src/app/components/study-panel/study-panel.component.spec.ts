@@ -24,6 +24,7 @@ import {
 } from "../../services/reverse-references.service"
 import { StudyModeService } from "../../services/study-mode.service"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
+import { EDITION } from "../../utils/text"
 import {
   NOTE_SAVE_DEBOUNCE_MS,
   NOTE_SEARCH_DEBOUNCE_MS,
@@ -2109,6 +2110,100 @@ describe("StudyPanelComponent", () => {
         "Não foi possível copiar a ligação.",
       )
       expect(component.linkCopied).toBe(false)
+    })
+  })
+
+  describe("a verse copied as a citation", () => {
+    const target = verse(37, [plain("Amarás ao Senhor")])
+    const choose = (book: Book = BOOK, number = 22): void =>
+      setInputs({
+        book,
+        chapter: { bookId: book.id, number, verses: [target] },
+        selection: { verse: target },
+      })
+
+    it("is offered beside copying the words", () => {
+      choose()
+
+      const labels = Array.from<Element>(
+        fixture.nativeElement.querySelectorAll(".verse-actions .verse-action"),
+      ).map((button) => button.textContent?.trim())
+      expect(
+        labels.some((label) => label?.includes("Copiar como citação")),
+      ).toBe(true)
+    })
+
+    it("names the whole book and the edition, not the short form", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } })
+      choose()
+
+      await component.copyAsCitation()
+
+      expect(writeText).toHaveBeenCalledExactlyOnceWith(
+        `«Amarás ao Senhor»\n— Evangelho de São Mateus 22,37, ${EDITION}`,
+      )
+      expect(component.citationCopied).toBe(true)
+    })
+
+    it("gives a psalm the number the liturgy uses as well", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } })
+      choose(
+        { ...BOOK, id: "psa", name: "Salmos", shortName: "Sl", abrv: "Sl" },
+        23,
+      )
+
+      await component.copyAsCitation()
+
+      expect(writeText).toHaveBeenCalledExactlyOnceWith(
+        `«Amarás ao Senhor»\n— Salmos 23,37 (numeração litúrgica: 22,37), ${EDITION}`,
+      )
+    })
+
+    it("says aloud that it could not, when the clipboard refuses", async () => {
+      const announce = vi
+        .spyOn(TestBed.inject(LiveAnnouncer), "announce")
+        .mockResolvedValue(undefined)
+      vi.stubGlobal("navigator", {
+        ...navigator,
+        clipboard: { writeText: vi.fn().mockRejectedValue(new Error("no")) },
+      })
+      choose()
+      announce.mockClear()
+
+      await component.copyAsCitation()
+
+      expect(announce).toHaveBeenCalledWith(
+        "Não foi possível copiar a citação.",
+      )
+      expect(component.citationCopied).toBe(false)
+    })
+
+    it("shows 'done' for a moment on each button, then goes back", async () => {
+      vi.useFakeTimers()
+      vi.stubGlobal("navigator", {
+        ...navigator,
+        clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+      })
+      choose()
+
+      await component.copySelectedVerse()
+      await component.copyLink()
+      await component.copyAsCitation()
+      expect([
+        component.copied,
+        component.linkCopied,
+        component.citationCopied,
+      ]).toEqual([true, true, true])
+
+      await vi.advanceTimersByTimeAsync(2000)
+
+      expect([
+        component.copied,
+        component.linkCopied,
+        component.citationCopied,
+      ]).toEqual([false, false, false])
     })
   })
 

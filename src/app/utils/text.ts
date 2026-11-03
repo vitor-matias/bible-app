@@ -23,3 +23,22 @@ export function normalizeForSearch(value: string): string {
 export function formatPassage(text: string, reference: string): string {
   return reference ? `${text} (${reference})` : text
 }
+
+/** The edition every quotation and export names. */
+export const EDITION = "Bíblia Sagrada, tradução da Difusora Bíblica"
+
+/**
+ * A passage as a footnote or a bulletin would cite it: the words in
+ * guillemets, then the full reference and the edition they come from.
+ * `alsoNumbered` is the psalm's other (liturgical) number, when it has one.
+ */
+export function formatCitation(
+  text: string,
+  reference: string,
+  alsoNumbered?: string,
+): string {
+  const where = alsoNumbered
+    ? `${reference} (numeração litúrgica: ${alsoNumbered})`
+    : reference
+  return `«${text}»\n— ${where}, ${EDITION}`
+}

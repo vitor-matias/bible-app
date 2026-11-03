@@ -61,7 +61,8 @@ import {
   placeReferences,
   sectionStartsIn,
 } from "../../utils/chapter-references"
-import { formatPassage } from "../../utils/text"
+import { liturgicalPsalmNumber, PSALMS_BOOK_ID } from "../../utils/psalms"
+import { formatCitation, formatPassage } from "../../utils/text"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 
 export type PanelTab = "references" | "footnotes" | "notes" | "search"
@@ -261,6 +262,8 @@ export class StudyPanelComponent implements OnChanges {
   searchEngine: "server" | "stored" = "server"
   /** The link to the verse has just been copied. */
   linkCopied = false
+  /** The verse has just been copied with its full citation. */
+  citationCopied = false
   /** The Bible is being fetched for "Citado em": see downloadText. */
   downloading = false
   /**
@@ -381,8 +384,12 @@ export class StudyPanelComponent implements OnChanges {
   private readonly noteSearch = new Subject<string>()
   private noteSearchSubscription?: Subscription
   private searchSubscription?: Subscription
-  private copiedTimer?: ReturnType<typeof setTimeout>
-  private linkCopiedTimer?: ReturnType<typeof setTimeout>
+  private readonly copiedTimers: Partial<
+    Record<
+      "copied" | "linkCopied" | "citationCopied",
+      ReturnType<typeof setTimeout>
+    >
+  > = {}
 
   constructor() {
     this.noteInput
@@ -421,8 +428,7 @@ export class StudyPanelComponent implements OnChanges {
       this.noteSearchSubscription?.unsubscribe()
       this.searchSubscription?.unsubscribe()
       this.stopGlide()
-      if (this.copiedTimer) clearTimeout(this.copiedTimer)
-      if (this.linkCopiedTimer) clearTimeout(this.linkCopiedTimer)
+      for (const timer of Object.values(this.copiedTimers)) clearTimeout(timer)
       this.cancelReferenceRequests()
     })
   }
@@ -1021,21 +1027,12 @@ export class StudyPanelComponent implements OnChanges {
       this.bookService.getUrlAbrv(this.book),
       this.bookService.getChapterUrlSegment(verse.chapterNumber),
     ].join("/")
-    try {
-      await navigator.clipboard.writeText(
-        `${window.location.origin}/${path}?verseStart=${verse.number}`,
-      )
-      this.linkCopied = true
-      this.cdr.markForCheck()
-      void this.announcer.announce("Ligação copiada.")
-      if (this.linkCopiedTimer) clearTimeout(this.linkCopiedTimer)
-      this.linkCopiedTimer = setTimeout(() => {
-        this.linkCopied = false
-        this.cdr.markForCheck()
-      }, COPIED_FEEDBACK_MS)
-    } catch {
-      void this.announcer.announce("Não foi possível copiar a ligação.")
-    }
+    await this.copyWithFeedback(
+      `${window.location.origin}/${path}?verseStart=${verse.number}`,
+      "linkCopied",
+      "Ligação copiada.",
+      "Não foi possível copiar a ligação.",
+    )
   }
 
   /**
@@ -1064,23 +1061,63 @@ export class StudyPanelComponent implements OnChanges {
 
     const text = StudyPanelComponent.plainText(verse)
     const reference = `${this.book.shortName} ${this.selectedVerseLabel}`
-    try {
-      await navigator.clipboard.writeText(formatPassage(text, reference))
-      this.copied = true
-      this.cdr.markForCheck()
-      void this.announcer.announce(`${reference} copiado.`)
-      if (this.copiedTimer) clearTimeout(this.copiedTimer)
-      this.copiedTimer = setTimeout(() => {
-        this.copied = false
-        this.cdr.markForCheck()
-      }, COPIED_FEEDBACK_MS)
-    } catch {
+    await this.copyWithFeedback(
+      formatPassage(text, reference),
+      "copied",
+      `${reference} copiado.`,
       // Clipboard permission refused, or no clipboard at all: the verse is
       // still on screen to select by hand, so nothing is thrown over the
       // text — but a reader who cannot see that the label never changed is
       // told that it did not work.
-      void this.announcer.announce("Não foi possível copiar.")
+      "Não foi possível copiar.",
+    )
+  }
+
+  /**
+   * The verse the way a footnote cites it — in quotation marks, with the full
+   * book name and the edition — for the reader who pastes into a sermon,
+   * an essay or a bulletin and would otherwise type the credit by hand. A
+   * psalm also gets its liturgical number, as leaflets use that one.
+   */
+  async copyAsCitation(): Promise<void> {
+    const verse = this.selectedVerse
+    if (!verse || !this.book) return
+    const reference = `${this.book.name} ${this.selectedVerseLabel}`
+    const psalm = this.book.id === PSALMS_BOOK_ID ? this.chapter?.number : null
+    const liturgical = psalm ? liturgicalPsalmNumber(psalm) : null
+    await this.copyWithFeedback(
+      formatCitation(
+        StudyPanelComponent.plainText(verse),
+        reference,
+        liturgical ? `${liturgical},${verse.number}` : undefined,
+      ),
+      "citationCopied",
+      `${reference} copiado como citação.`,
+      "Não foi possível copiar a citação.",
+    )
+  }
+
+  /** Puts text on the clipboard, shows the button's "done" state for a moment and says so. */
+  private async copyWithFeedback(
+    text: string,
+    flag: "copied" | "linkCopied" | "citationCopied",
+    done: string,
+    failed: string,
+  ): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      void this.announcer.announce(failed)
+      return
     }
+    this[flag] = true
+    this.cdr.markForCheck()
+    void this.announcer.announce(done)
+    clearTimeout(this.copiedTimers[flag])
+    this.copiedTimers[flag] = setTimeout(() => {
+      this[flag] = false
+      this.cdr.markForCheck()
+    }, COPIED_FEEDBACK_MS)
   }
 
   private persistNote(

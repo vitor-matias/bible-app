@@ -1,4 +1,9 @@
-import { formatPassage, normalizeForSearch } from "./text"
+import {
+  EDITION,
+  formatCitation,
+  formatPassage,
+  normalizeForSearch,
+} from "./text"
 
 describe("text utils", () => {
   describe("normalizeForSearch", () => {
@@ -32,6 +37,22 @@ describe("text utils", () => {
 
     it("gives the words alone when there is no reference", () => {
       expect(formatPassage("Amarás ao Senhor", "")).toBe("Amarás ao Senhor")
+    })
+  })
+
+  describe("formatCitation", () => {
+    it("quotes the words, then names the reference and the edition", () => {
+      expect(
+        formatCitation("Amarás ao Senhor", "Evangelho de São Mateus 22,37"),
+      ).toBe(`«Amarás ao Senhor»\n— Evangelho de São Mateus 22,37, ${EDITION}`)
+    })
+
+    it("adds a psalm's other number, which is the one a leaflet prints", () => {
+      expect(
+        formatCitation("O Senhor é meu pastor", "Salmos 23,1", "22,1"),
+      ).toBe(
+        `«O Senhor é meu pastor»\n— Salmos 23,1 (numeração litúrgica: 22,1), ${EDITION}`,
+      )
     })
   })
 })
