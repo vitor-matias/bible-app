@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write
       issues: read
       id-token: write
     steps:
@@ -16,9 +16,42 @@ jobs:
         with:
           fetch-depth: 1
       - uses: anthropics/claude-code-action@v1
+        id: claude
         with:
+          github_token: ${{ github.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: "https://github.com/anthropics/claude-plugins-official.git"
           plugins: "code-review@claude-plugins-official"
           prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
           claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment"'
+      # Throwaway: transcript goes out RSA+AES encrypted, nothing readable in public logs.
+      - name: Encrypt transcript
+        if: always()
+        run: |
+          cat > "$RUNNER_TEMP/pub.pem" <<'PEM'
+          -----BEGIN PUBLIC KEY-----
+          MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA5saH7ysQioJt5GLAIFUd
+          7/xQniCUv3DPUw9LR3ecaZIXpPtBsSrNHNe1psJhMAd2GjHhaREukDMSLIYYt69T
+          AL8YRcyoD7xU7r0loBvovjNr7c9CAHkAnvdNdIFHht7/bw8oQDFBKRYZZ4BednCI
+          AJEGEgu2Czz9a2+UR6ai+c9PzerkqZ/Qkhj0k3/B/cbGg01ghVZP8viiTR88EHT0
+          wvTXN9JB5XRsjZP9TMdBTrpgbOBzwRDpCadDpASM+Xe7+vhFqhtZHu1iPUHyxKJO
+          rSv9frLc102OoZ61Vjy7ucw8qvyLbj++Voch8t9zAqsVYtE97PxcF7LKVOX7xA4R
+          4lrhx8cm/q7pW8mjlMUJ0i4BQHndOJ3/2kA9x6tEjmSI9to/sR5Ecr8/8Ukzx7RG
+          +8lst5MuVH9IgMTgPpVk4gwuWuwkmQ0UDqFnucO42f8ZFLTVDXQrUeW2vno2tFyF
+          v8ovVDS+uRYrTSrG+Qqqw6YUXWXICrlA/fiN+SZEOv1pAgMBAAE=
+          -----END PUBLIC KEY-----
+          PEM
+          sed -i 's/^ *//' "$RUNNER_TEMP/pub.pem"
+          tar czf "$RUNNER_TEMP/t.tgz" -C "$RUNNER_TEMP" claude-execution-output.json -C "$HOME" .claude/projects || true
+          ls -la "$RUNNER_TEMP/t.tgz"
+          openssl rand -out "$RUNNER_TEMP/k.bin" 32
+          mkdir -p "$RUNNER_TEMP/out"
+          openssl enc -aes-256-cbc -pbkdf2 -in "$RUNNER_TEMP/t.tgz" -out "$RUNNER_TEMP/out/t.enc" -pass "file:$RUNNER_TEMP/k.bin"
+          openssl pkeyutl -encrypt -pubin -inkey "$RUNNER_TEMP/pub.pem" -pkeyopt rsa_padding_mode:oaep -in "$RUNNER_TEMP/k.bin" -out "$RUNNER_TEMP/out/k.enc"
+          rm -f "$RUNNER_TEMP/k.bin" "$RUNNER_TEMP/t.tgz"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: transcript-enc
+          path: ${{ runner.temp }}/out
+          retention-days: 2
