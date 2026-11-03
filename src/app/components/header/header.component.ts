@@ -329,6 +329,15 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.selectPassage.emit({ bookId: "about" })
   }
 
+  /**
+   * A mouse or trackpad, as on a computer. Study mode is for those, so a
+   * window too narrow for it is explained to them; on a phone the item would
+   * only promise what the device cannot do.
+   */
+  readonly desktopPointer =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(hover: hover) and (pointer: fine)").matches === true
+
   /** Everything the reader has written and marked: see MyNotesComponent. */
   onOpenMyNotes(trigger: MatMenuTrigger): void {
     trigger.closeMenu()

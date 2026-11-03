@@ -198,6 +198,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   @ViewChild("studyScroll") studyScroll?: ElementRef<HTMLElement>
   @ViewChild(StudyPanelComponent) studyPanel?: StudyPanelComponent
 
+  /** Said once a session that study mode needs a wider window: see ngOnInit. */
+  private toldAboutNarrowWindow = false
+
   /** The column a cross reference is read in, beside the chapter. */
   @ViewChild("parallelScroll") parallelScroll?: ElementRef<HTMLElement>
 
@@ -429,7 +432,24 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           active !== this.studyMode && this.bookBlock
             ? BibleReaderComponent.firstVisibleVerseIn(this.scrollHost)
             : undefined
+        const wasActive = this.studyMode
         this.studyMode = active
+        // The window narrowed (or was zoomed) past what study mode fits in,
+        // and the layout fell back to one column without a word: say so, once,
+        // so a reader who chose it knows why it went and that it will be back.
+        if (
+          wasActive &&
+          !active &&
+          this.studyModeService.isEnabled &&
+          !this.studyModeService.isAvailable &&
+          !this.toldAboutNarrowWindow
+        ) {
+          this.toldAboutNarrowWindow = true
+          this.toast.show(
+            "O modo de estudo precisa de uma janela mais larga. Volta quando ela o permitir.",
+            { action: "OK" },
+          )
+        }
         // A selection means nothing outside the panel showing it.
         if (!active) this.selection = null
         this.cdr.markForCheck()

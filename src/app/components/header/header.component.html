@@ -37,15 +37,32 @@
       <mat-icon>edit_note</mat-icon>
       <span>As minhas notas e marcas</span>
     </button>
-    <!-- Only where the layout fits (see StudyModeService): on a narrow
-         window the item would promise a mode the reader cannot get. The
-         About page is excluded for the same reason — it is the app's own
-         copy, and the reader keeps it in the plain layout. -->
-    @if (studyModeAvailable() && book().id !== 'about') {
-    <button mat-menu-item (click)="onToggleStudyMode(menuTrigger, $event)">
+    <!-- The About page is left out: it is the app's own copy, and the reader
+         keeps it in the plain layout. -->
+    @if (book().id !== 'about') {
+    @if (studyModeAvailable()) {
+    <button mat-menu-item class="two-lines" (click)="onToggleStudyMode(menuTrigger, $event)">
       <mat-icon>view_sidebar</mat-icon>
-      <span>{{ studyMode() ? 'Voltar ao modo de leitura' : 'Modo de estudo' }}</span>
+      <span>
+        {{ studyMode() ? 'Voltar ao modo de leitura' : 'Modo de estudo' }}
+        @if (!studyMode()) {
+        <!-- "Modo de estudo" alone sounds like homework. -->
+        <small class="menu-sub">Notas, referências e pesquisa ao lado do texto</small>
+        }
+      </span>
     </button>
+    } @else if (desktopPointer) {
+    <!-- Shown, not left out: a mode that vanishes when the window narrows, and
+         zooming in narrows it, gave no way to know it had ever been there.
+         Disabled but reachable by keyboard, so a screen reader can read why. -->
+    <button mat-menu-item class="two-lines" disabled [disabledInteractive]="true">
+      <mat-icon>view_sidebar</mat-icon>
+      <span>
+        Modo de estudo
+        <small class="menu-sub">Precisa de uma janela mais larga (ou de menos zoom)</small>
+      </span>
+    </button>
+    }
     }
     <!-- Only where they work. Opened with "?" too, which a reader has to
          have been told about to press. -->

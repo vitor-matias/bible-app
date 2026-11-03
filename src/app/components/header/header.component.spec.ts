@@ -625,32 +625,94 @@ describe("HeaderComponent", () => {
       ).map((span) => (span.textContent ?? "").trim())
     }
 
-    it("is offered on a book, once the window is wide enough", () => {
+    /** The study mode entry in the opened menu, if there is one. */
+    function studyItem(): HTMLElement | undefined {
+      fixture.nativeElement.querySelector(".menuButton").click()
+      fixture.detectChanges()
+      return Array.from(
+        document.querySelectorAll<HTMLElement>(
+          ".mat-mdc-menu-content [mat-menu-item]",
+        ),
+      ).find((item) => item.textContent?.includes("Modo de estudo"))
+    }
+    const aboutBook = {
+      id: "about",
+      name: "Sobre",
+      shortName: "Sobre",
+      abrv: "Sobre",
+      chapterCount: 1,
+    }
+
+    it("is offered on a book, once the window is wide enough, and says what it is", () => {
       fixture.componentRef.setInput("studyModeAvailable", true)
       fixture.detectChanges()
 
-      expect(menuLabels()).toContain("Modo de estudo")
+      const item = studyItem()
+      expect(item?.getAttribute("aria-disabled")).not.toBe("true")
+      expect(item?.textContent).toContain(
+        "Notas, referências e pesquisa ao lado do texto",
+      )
     })
 
-    it("is not offered on a window too narrow to show it", () => {
-      fixture.componentRef.setInput("studyModeAvailable", false)
-      fixture.detectChanges()
+    describe("on a window too narrow to show it", () => {
+      beforeEach(() => {
+        fixture.componentRef.setInput("studyModeAvailable", false)
+        fixture.detectChanges()
+      })
 
-      expect(menuLabels()).not.toContain("Modo de estudo")
+      it("is still there on a computer, disabled, saying why", () => {
+        Object.defineProperty(component, "desktopPointer", { value: true })
+        fixture.detectChanges()
+
+        const item = studyItem()
+        expect(item).toBeTruthy()
+        expect(item?.getAttribute("aria-disabled")).toBe("true")
+        expect(item?.textContent).toContain("Precisa de uma janela mais larga")
+      })
+
+      it("stays reachable from the keyboard, so a screen reader can read why", () => {
+        Object.defineProperty(component, "desktopPointer", { value: true })
+        fixture.detectChanges()
+
+        // A plain disabled button is skipped by the arrow keys and never read;
+        // this one is not removed from the page, only from use.
+        expect(studyItem()?.hasAttribute("disabled")).toBe(false)
+      })
+
+      it("does nothing when it is used", () => {
+        Object.defineProperty(component, "desktopPointer", { value: true })
+        fixture.detectChanges()
+        let asked = 0
+        component.toggleStudyMode.subscribe(() => asked++)
+
+        studyItem()?.click()
+
+        expect(asked).toBe(0)
+      })
+
+      it("is not there on a phone or tablet, which cannot make the window wider", () => {
+        Object.defineProperty(component, "desktopPointer", { value: false })
+        fixture.detectChanges()
+
+        expect(studyItem()).toBeUndefined()
+      })
     })
 
     it("is not offered on the About page, which has no study layout", () => {
       fixture.componentRef.setInput("studyModeAvailable", true)
-      fixture.componentRef.setInput("book", {
-        id: "about",
-        name: "Sobre",
-        shortName: "Sobre",
-        abrv: "Sobre",
-        chapterCount: 1,
-      })
+      fixture.componentRef.setInput("book", aboutBook)
       fixture.detectChanges()
 
-      expect(menuLabels()).not.toContain("Modo de estudo")
+      expect(studyItem()).toBeUndefined()
+    })
+
+    it("is not even explained on the About page when the window is narrow", () => {
+      fixture.componentRef.setInput("studyModeAvailable", false)
+      fixture.componentRef.setInput("book", aboutBook)
+      Object.defineProperty(component, "desktopPointer", { value: true })
+      fixture.detectChanges()
+
+      expect(studyItem()).toBeUndefined()
     })
 
     it("offers the way back once study mode is on", () => {

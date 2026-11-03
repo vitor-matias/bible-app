@@ -30,6 +30,7 @@ import { PreferencesService } from "../../services/preferences.service"
 import { ReadingTrailService } from "../../services/reading-trail.service"
 import { SeoService } from "../../services/seo.service"
 import { StudyModeService } from "../../services/study-mode.service"
+import { ToastService } from "../../services/toast.service"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BibleReaderComponent } from "./bible-reader.component"
 
@@ -43,6 +44,9 @@ class FakeStudyModeService {
   readonly available$ = this.availableSubject.asObservable()
   readonly active$ = this.activeSubject.asObservable()
   isEnabled = false
+  get isAvailable(): boolean {
+    return this.availableSubject.value
+  }
   shortcutsEnabled = true
   toggle = vi
     .fn()
@@ -1657,6 +1661,49 @@ describe("BibleReaderComponent", () => {
   describe("study mode", () => {
     beforeEach(() => {
       fixture.detectChanges()
+    })
+
+    describe("when the window narrows past study mode", () => {
+      let show: ReturnType<typeof vi.spyOn>
+
+      beforeEach(() => {
+        show = vi
+          .spyOn(TestBed.inject(ToastService), "show")
+          .mockReturnValue(undefined as never)
+        studyMode.activate()
+      })
+
+      const narrow = (): void => {
+        studyMode.availableSubject.next(false)
+        studyMode.activeSubject.next(false)
+      }
+      const widen = (): void => {
+        studyMode.availableSubject.next(true)
+        studyMode.activeSubject.next(true)
+      }
+
+      it("says why the layout changed, since nothing else does", () => {
+        narrow()
+
+        expect(show).toHaveBeenCalledExactlyOnceWith(
+          "O modo de estudo precisa de uma janela mais larga. Volta quando ela o permitir.",
+          { action: "OK" },
+        )
+      })
+
+      it("says it once, not every time a drag crosses the line", () => {
+        narrow()
+        widen()
+        narrow()
+
+        expect(show).toHaveBeenCalledTimes(1)
+      })
+
+      it("says nothing when the reader turned study mode off themselves", () => {
+        studyMode.toggle()
+
+        expect(show).not.toHaveBeenCalled()
+      })
     })
 
     it("passes the service's availability on to the header", () => {
