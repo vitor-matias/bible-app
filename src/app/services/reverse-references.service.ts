@@ -14,6 +14,9 @@ export type IncomingReference = {
   /** Identity, so the same citation is never listed twice. */
   key: string
   label: string
+  /** The citing passage's book and chapter, to open it beside the reader's. */
+  bookId: Book["id"]
+  chapterNumber: Chapter["number"]
   link: (string | number)[]
   queryParams: Record<string, number> | null
   /** The span of the target this citation covers, for matching a verse. */
@@ -229,6 +232,8 @@ export class ReverseReferencesService {
       const entry: IncomingReference = {
         key,
         label: `${book.shortName} ${chapter.number},${citedFrom}`,
+        bookId: book.id,
+        chapterNumber: chapter.number,
         link: [
           "/",
           this.bookService.getUrlAbrv(book),

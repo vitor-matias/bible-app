@@ -353,6 +353,52 @@ describe("SearchService", () => {
     })
   })
 
+  describe("who answered, and which page", () => {
+    const result = (number: number): Verse =>
+      ({
+        bookId: "mat",
+        chapterNumber: 22,
+        number,
+        text: [{ type: "text", text: `Amarás ${number}` }],
+      }) as Verse
+
+    it("says the server answered, and asks it for the page wanted", async () => {
+      api.search.mockReturnValue(
+        of({ verses: [result(1)], total: 61, currentPage: 3, totalPages: 3 }),
+      )
+
+      const outcome = await firstValueFrom(service.page("amarás", 3, 30))
+
+      expect(api.search).toHaveBeenCalledWith("amarás", 3, 30)
+      expect(outcome).toMatchObject({
+        kind: "results",
+        page: 3,
+        engine: "server",
+      })
+    })
+
+    it("says the stored Bible answered, and slices the page out of its matches", async () => {
+      network.isOffline = true
+      offline.search.mockResolvedValue(
+        Array.from({ length: 65 }, (_, i) => result(i + 1)),
+      )
+
+      const second = await firstValueFrom(service.page("amarás", 2, 30))
+
+      expect(second).toMatchObject({
+        kind: "results",
+        page: 2,
+        total: 65,
+        engine: "stored",
+      })
+      expect(
+        second.kind === "results" && second.hits.map((hit) => hit.number),
+      ).toEqual(Array.from({ length: 30 }, (_, i) => i + 31))
+      const third = await firstValueFrom(service.page("amarás", 3, 30))
+      expect(third.kind === "results" && third.hits).toHaveLength(5)
+    })
+  })
+
   describe("with no connection", () => {
     const stored = (number: number): Verse =>
       ({

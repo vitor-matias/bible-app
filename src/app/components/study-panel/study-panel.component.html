@@ -76,6 +76,8 @@
          verse arrives while reading its parallels, not after switching tabs. -->
     <div class="note-box">
       <label class="note-label" for="study-note">A minha nota em {{ selectedVerseLabel }}</label>
+      <input class="note-title" name="titulo" autocomplete="off" type="text" placeholder="Título (opcional)"
+        aria-label="Título da nota" [value]="noteTitle" (input)="onNoteTitleInput($any($event.target).value)" (blur)="onNoteBlur()" />
       <textarea id="study-note" name="nota" autocomplete="off" class="note-input" rows="2" placeholder="Escrever… fica neste navegador, sem conta."
         [value]="noteDraft" (input)="onNoteInput($any($event.target).value)" (blur)="onNoteBlur()"></textarea>
       <p class="note-hint">
@@ -165,6 +167,9 @@
           @if (entry.excerpt) {
           <p class="reference-excerpt">{{ entry.excerpt }}</p>
           }
+          <p class="reference-actions">
+            <button type="button" class="reference-more" (click)="openCitationBeside(entry)">Abrir ao lado</button>
+          </p>
         </li>
         }
       </ul>
@@ -244,6 +249,8 @@
     @if (selectedVerse) {
     <div class="note-box">
       <label class="note-label" for="study-note-tab">A minha nota em {{ selectedVerseLabel }}</label>
+      <input class="note-title" name="titulo" autocomplete="off" type="text" placeholder="Título (opcional)"
+        aria-label="Título da nota" [value]="noteTitle" (input)="onNoteTitleInput($any($event.target).value)" (blur)="onNoteBlur()" />
       <textarea id="study-note-tab" name="nota" autocomplete="off" class="note-input" rows="4" placeholder="Escrever… fica neste navegador, sem conta."
         [value]="noteDraft" (input)="onNoteInput($any($event.target).value)" (blur)="onNoteBlur()"></textarea>
       <p class="note-hint">
@@ -274,6 +281,9 @@
         <a class="note-ref" [routerLink]="noteLink(note)" [queryParams]="noteQueryParams(note)">
           {{ noteReference(note) }}
         </a>
+        @if (note.title) {
+        <span class="note-title-text">{{ note.title }}</span>
+        }
         <span class="note-body">{{ note.text }}</span>
       </li>
       }
@@ -287,6 +297,9 @@
       @for (note of chapterNotes; track note.verse) {
       <li class="saved-note" [class.current]="isCurrent(note.verse)" [attr.aria-current]="isCurrent(note.verse) ? 'true' : null" [attr.data-verse]="note.verse">
         <a class="note-ref" [routerLink]="noteLink(note)" [queryParams]="noteQueryParams(note)">{{ noteLabel(note) }}</a>
+        @if (note.title) {
+        <span class="note-title-text">{{ note.title }}</span>
+        }
         <span class="note-body">{{ note.text }}</span>
       </li>
       }
@@ -339,7 +352,7 @@
     }
     @case ('done') {
     @if (searchResults.length) {
-    <p class="panel-caption notes-caption">{{ searchSummary }}</p>
+    <p class="panel-caption notes-caption">{{ searchSummary }}. {{ searchEngineNote }}</p>
     <!-- Set like the cross references above: a result is a passage, named and
          then quoted, not a row in a table of them. -->
     <ul class="reference-list">
@@ -351,9 +364,18 @@
         <!-- One line on purpose: a break between these blocks would put a
              space either side of every match. -->
         <p class="reference-text">@for (segment of result.highlightedSegments; track $index) {@if (segment.highlight) {<mark>{{ segment.text }}</mark>} @else {{{ segment.text }}}}</p>
+        <p class="reference-actions">
+          <button type="button" class="reference-more" (click)="openHitBeside(result)">Abrir ao lado</button>
+        </p>
       </li>
       }
     </ul>
+    @if (searchResults.length < searchTotal) {
+    <button type="button" class="verse-action" [disabled]="searchLoadingMore" (click)="loadMoreResults()">
+      <mat-icon>expand_more</mat-icon>
+      {{ searchLoadingMore ? 'A carregar…' : 'Mais resultados' }}
+    </button>
+    }
     } @else {
     <p class="panel-empty small">Nada encontrado para «{{ searchQuery }}».</p>
     }

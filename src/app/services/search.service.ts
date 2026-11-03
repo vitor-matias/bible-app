@@ -44,6 +44,12 @@ export type SearchResults = {
   page: number
   total: number
   hits: SearchHit[]
+  /**
+   * Who answered. The server's search goes by meaning and the stored Bible's by
+   * the words typed, so the same query can list different verses, and a reader
+   * comparing two lists should be able to tell which they are looking at.
+   */
+  engine: "server" | "stored"
 }
 
 /** One of the psalms a bare psalm number may mean. */
@@ -192,7 +198,7 @@ export class SearchService {
    * the device instead, as the search page does.
    */
   page(query: string, page: number, limit?: number): Observable<SearchOutcome> {
-    if (this.network.isOffline) return this.stored(query, limit)
+    if (this.network.isOffline) return this.stored(query, page, limit)
     const request =
       limit === undefined
         ? this.api.search(query, page)
@@ -209,12 +215,17 @@ export class SearchService {
         page,
         total: results.total,
         hits: results.verses.map((verse) => this.toHit(verse, query)),
+        engine: "server" as const,
       })),
     )
   }
 
   /** The words of the query in the stored Bible: its first page, or none. */
-  private stored(query: string, limit?: number): Observable<SearchOutcome> {
+  private stored(
+    query: string,
+    page: number,
+    limit?: number,
+  ): Observable<SearchOutcome> {
     return from(this.offlineSearch.search(query)).pipe(
       map((matches) =>
         matches === null
@@ -222,11 +233,16 @@ export class SearchService {
           : {
               kind: "results" as const,
               query,
-              page: 1,
+              page,
               total: matches.length,
+              // The stored search has every match at once; a page is a slice.
               hits: matches
-                .slice(0, limit ?? matches.length)
+                .slice(
+                  limit === undefined ? 0 : (page - 1) * limit,
+                  limit === undefined ? matches.length : page * limit,
+                )
                 .map((verse) => this.toHit(verse, query)),
+              engine: "stored" as const,
             },
       ),
     )

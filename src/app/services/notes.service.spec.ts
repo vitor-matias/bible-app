@@ -31,6 +31,60 @@ describe("NotesService", () => {
     localStorage.removeItem(STORAGE_KEY)
   })
 
+  describe("a note's title", () => {
+    it("is kept with the note, trimmed, and left off when there is none", () => {
+      const service = makeService()
+
+      service.saveNote("mat", 22, 37, "texto", "  Homilia do domingo  ")
+      service.saveNote("mat", 22, 38, "outro")
+
+      expect(service.getNote("mat", 22, 37)?.title).toBe("Homilia do domingo")
+      expect(service.getNote("mat", 22, 38)).not.toHaveProperty("title")
+    })
+
+    it("counts as an edit when it changes, but not when it is saved again as it was", () => {
+      const service = makeService()
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date(1000))
+      service.saveNote("mat", 22, 37, "texto", "Um")
+      vi.setSystemTime(new Date(5000))
+
+      service.saveNote("mat", 22, 37, "texto", "Um")
+      expect(service.getNote("mat", 22, 37)?.updatedAt).toBe(1000)
+
+      service.saveNote("mat", 22, 37, "texto", "Dois")
+      expect(service.getNote("mat", 22, 37)?.updatedAt).toBe(5000)
+      vi.useRealTimers()
+    })
+
+    it("can be taken off again", () => {
+      const service = makeService()
+      service.saveNote("mat", 22, 37, "texto", "Um")
+
+      service.saveNote("mat", 22, 37, "texto", "")
+
+      expect(service.getNote("mat", 22, 37)).not.toHaveProperty("title")
+    })
+
+    it("is not a note by itself: with no text there is nothing to keep", () => {
+      const service = makeService()
+      service.saveNote("mat", 22, 37, "texto")
+
+      service.saveNote("mat", 22, 37, "   ", "Só o título")
+
+      expect(service.getNote("mat", 22, 37)).toBeUndefined()
+    })
+
+    it("is searched along with the text", async () => {
+      const service = makeService()
+      service.saveNote("mat", 22, 37, "nada a ver", "Mandamento do amor")
+
+      const found = await firstValueFrom(service.search("mandamento"))
+
+      expect(found.map((note) => note.verse)).toEqual([37])
+    })
+  })
+
   describe("notes from a saved copy", () => {
     const saved = (
       verse: number,

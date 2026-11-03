@@ -79,30 +79,48 @@ export class NotesService extends VerseRecordStore<VerseNote> {
       map((notes) =>
         needle
           ? notes
-              .filter((note) => normalizeForSearch(note.text).includes(needle))
+              .filter((note) =>
+                normalizeForSearch(`${note.title ?? ""} ${note.text}`).includes(
+                  needle,
+                ),
+              )
               .sort((a, b) => b.updatedAt - a.updatedAt)
           : [],
       ),
     )
   }
 
-  /** Saves a note, or removes it when the reader empties the box. */
+  /**
+   * Saves a note, or removes it when the reader empties the box. A title is
+   * only ever a name for a note: with no text there is no note, whatever the
+   * title says.
+   */
   saveNote(
     bookId: Book["id"],
     chapter: Chapter["number"],
     verse: Verse["number"],
     text: string,
+    title = "",
   ): void {
     const trimmed = text.trim()
     if (!trimmed) {
       this.deleteNote(bookId, chapter, verse)
       return
     }
+    const name = title.trim()
     // Saving what is already there — leaving the box without typing, the
     // debounce landing after a blur — must not pass for an edit: updatedAt
     // orders the reader's notes, newest first.
-    if (this.getNote(bookId, chapter, verse)?.text === trimmed) return
-    this.put({ bookId, chapter, verse, text: trimmed, updatedAt: Date.now() })
+    const before = this.getNote(bookId, chapter, verse)
+    if (before?.text === trimmed && (before.title ?? "") === name) return
+    this.put({
+      bookId,
+      chapter,
+      verse,
+      text: trimmed,
+      updatedAt: Date.now(),
+      ...(name ? { title: name } : {}),
+    })
   }
 
   deleteNote(

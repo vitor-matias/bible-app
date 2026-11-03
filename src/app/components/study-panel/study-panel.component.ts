@@ -252,6 +252,13 @@ export class StudyPanelComponent implements OnChanges {
   noteMatches: VerseNote[] = []
   noteQuery = ""
   noteDraft = ""
+  /** The note's optional name, kept beside its text: see NotesService. */
+  noteTitle = ""
+  /** The page of results the list has got to, for asking for the next one. */
+  searchPage = 1
+  searchLoadingMore = false
+  /** Who answered, as the reader is told: see SearchResults.engine. */
+  searchEngine: "server" | "stored" = "server"
   /** The link to the verse has just been copied. */
   linkCopied = false
   /** The Bible is being fetched for "Citado em": see downloadText. */
@@ -353,6 +360,7 @@ export class StudyPanelComponent implements OnChanges {
     bookId: Book["id"]
     target: Verse
     text: string
+    title: string
   }>()
   /**
    * The last thing typed into the note box that is not saved yet.
@@ -364,7 +372,12 @@ export class StudyPanelComponent implements OnChanges {
    * box blurring, and the next keystroke replaces the waiting value. Held
    * here as well so it can be written out at both of those moments.
    */
-  private pendingNote?: { bookId: Book["id"]; target: Verse; text: string }
+  private pendingNote?: {
+    bookId: Book["id"]
+    target: Verse
+    text: string
+    title: string
+  }
   private readonly noteSearch = new Subject<string>()
   private noteSearchSubscription?: Subscription
   private searchSubscription?: Subscription
@@ -553,10 +566,26 @@ export class StudyPanelComponent implements OnChanges {
 
   onNoteInput(value: string): void {
     this.noteDraft = value
+    this.queueNote()
+  }
+
+  /** The title is saved with the text it names, on the same wait. */
+  onNoteTitleInput(value: string): void {
+    this.noteTitle = value
+    this.queueNote()
+  }
+
+  private queueNote(): void {
     const target = this.selectedVerse
     if (target && this.book) {
-      this.pendingNote = { bookId: this.book.id, target, text: value }
-      this.noteInput.next({ bookId: this.book.id, target, text: value })
+      const pending = {
+        bookId: this.book.id,
+        target,
+        text: this.noteDraft,
+        title: this.noteTitle,
+      }
+      this.pendingNote = pending
+      this.noteInput.next(pending)
     }
   }
 
@@ -568,7 +597,7 @@ export class StudyPanelComponent implements OnChanges {
     }
     const target = this.selectedVerse
     if (target && this.book) {
-      this.persistNote(this.book.id, target, this.noteDraft)
+      this.persistNote(this.book.id, target, this.noteDraft, this.noteTitle)
     }
   }
 
@@ -589,10 +618,16 @@ export class StudyPanelComponent implements OnChanges {
         pending.target.chapterNumber,
         pending.target.number,
         pending.text,
+        pending.title,
       )
       return
     }
-    this.persistNote(pending.bookId, pending.target, pending.text)
+    this.persistNote(
+      pending.bookId,
+      pending.target,
+      pending.text,
+      pending.title,
+    )
   }
 
   /** The verse the panel is following: the chosen one, else the one on screen. */
@@ -836,6 +871,8 @@ export class StudyPanelComponent implements OnChanges {
           } else {
             this.searchTotal = outcome.total
             this.searchResults = outcome.hits
+            this.searchPage = outcome.page
+            this.searchEngine = outcome.engine
             this.searchState = "done"
             void this.announcer.announce(
               outcome.hits.length
@@ -853,6 +890,72 @@ export class StudyPanelComponent implements OnChanges {
           this.cdr.markForCheck()
         },
       })
+  }
+
+  /** The next page of the same search, added below what is already listed. */
+  loadMoreResults(): void {
+    if (this.searchLoadingMore || !this.searchQuery) return
+    this.searchLoadingMore = true
+    this.cdr.markForCheck()
+    this.searchSubscription?.unsubscribe()
+    this.searchSubscription = this.searchService
+      .page(this.searchQuery, this.searchPage + 1, SEARCH_RESULT_LIMIT)
+      .subscribe({
+        next: (outcome) => {
+          if (outcome.kind === "results") {
+            const listed = new Set(this.searchResults.map((hit) => hit.key))
+            this.searchResults = [
+              ...this.searchResults,
+              ...outcome.hits.filter((hit) => !listed.has(hit.key)),
+            ]
+            this.searchPage = outcome.page
+            this.searchTotal = outcome.total
+          }
+          this.searchLoadingMore = false
+          this.cdr.markForCheck()
+          void this.announcer.announce(this.searchSummary)
+        },
+        error: () => {
+          this.searchLoadingMore = false
+          this.cdr.markForCheck()
+          void this.announcer.announce(
+            "Não foi possível carregar mais resultados.",
+          )
+        },
+      })
+  }
+
+  /** What answered, in the reader's terms. */
+  get searchEngineNote(): string {
+    return this.searchEngine === "stored"
+      ? "Palavras no texto guardado neste dispositivo."
+      : "Pesquisa no servidor, por sentido."
+  }
+
+  /** A search hit, read beside the chapter instead of instead of it. */
+  openHitBeside(hit: SearchHit): void {
+    this.openBeside.emit({
+      key: hit.key,
+      label: hit.reference,
+      bookId: hit.bookId,
+      chapterNumber: hit.chapterNumber,
+      verseStart: hit.number,
+      link: hit.link,
+      queryParams: hit.queryParams,
+    })
+  }
+
+  /** A passage that cites the verse, read beside the chapter. */
+  openCitationBeside(entry: IncomingReference): void {
+    this.openBeside.emit({
+      key: entry.key,
+      label: entry.label,
+      bookId: entry.bookId,
+      chapterNumber: entry.chapterNumber,
+      verseStart: entry.queryParams?.["verseStart"],
+      link: entry.link,
+      queryParams: entry.queryParams,
+    })
   }
 
   /**
@@ -980,10 +1083,15 @@ export class StudyPanelComponent implements OnChanges {
     }
   }
 
-  private persistNote(bookId: Book["id"], verse: Verse, text: string): void {
+  private persistNote(
+    bookId: Book["id"],
+    verse: Verse,
+    text: string,
+    title = "",
+  ): void {
     const chapter = verse.chapterNumber
     const before = this.notesService.getNote(bookId, chapter, verse.number)
-    this.notesService.saveNote(bookId, chapter, verse.number, text)
+    this.notesService.saveNote(bookId, chapter, verse.number, text, title)
     if (!before || text.trim()) return
 
     // Emptying the box is how a note is deleted, which makes deleting one a
@@ -992,7 +1100,13 @@ export class StudyPanelComponent implements OnChanges {
       .open("Nota apagada", "Anular", { duration: UNDO_WINDOW_MS })
       .onAction()
       .subscribe(() => {
-        this.notesService.saveNote(bookId, chapter, verse.number, before.text)
+        this.notesService.saveNote(
+          bookId,
+          chapter,
+          verse.number,
+          before.text,
+          before.title,
+        )
         // Back in the box too, if the reader is still on that verse.
         this.loadNoteDraft()
         this.cdr.markForCheck()
@@ -1003,11 +1117,16 @@ export class StudyPanelComponent implements OnChanges {
     const verse = this.selectedVerse
     if (!verse || !this.book) {
       this.noteDraft = ""
+      this.noteTitle = ""
       return
     }
-    this.noteDraft =
-      this.notesService.getNote(this.book.id, verse.chapterNumber, verse.number)
-        ?.text ?? ""
+    const note = this.notesService.getNote(
+      this.book.id,
+      verse.chapterNumber,
+      verse.number,
+    )
+    this.noteDraft = note?.text ?? ""
+    this.noteTitle = note?.title ?? ""
   }
 
   /**

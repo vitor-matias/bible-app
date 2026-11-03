@@ -1795,6 +1795,108 @@ describe("StudyPanelComponent", () => {
     })
   })
 
+  describe("more of a search, and reading a hit beside the chapter", () => {
+    const hits = (from: number, count: number): Verse[] =>
+      Array.from({ length: count }, (_, i) => ({
+        bookId: "mat",
+        chapterNumber: 22,
+        number: from + i,
+        verseLabel: String(from + i),
+        text: [{ type: "text", text: `Amarás ${from + i}` }],
+      })) as Verse[]
+    const found = (verses: Verse[], total: number) =>
+      of({ verses, total, currentPage: 1, totalPages: 2 })
+
+    beforeEach(() => {
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [] },
+      })
+      component.openTab("search")
+    })
+
+    it("says who answered, so two lists are not mistaken for each other", () => {
+      api.search.mockReturnValue(found(hits(1, 2), 2))
+
+      component.onSearchSubmit("amarás")
+      fixture.detectChanges()
+
+      expect(
+        fixture.nativeElement.querySelector(
+          "#study-tabpanel-search .notes-caption",
+        ).textContent,
+      ).toContain("Pesquisa no servidor, por sentido.")
+    })
+
+    it("offers more when there is more, and adds the next page below", () => {
+      api.search.mockReturnValueOnce(found(hits(1, 30), 45))
+      component.onSearchSubmit("amarás")
+      fixture.detectChanges()
+      const more = fixture.nativeElement.querySelector(
+        "#study-tabpanel-search .verse-action",
+      ) as HTMLButtonElement
+      expect(more.textContent).toContain("Mais resultados")
+
+      api.search.mockReturnValueOnce(found(hits(31, 15), 45))
+      more.click()
+      fixture.detectChanges()
+
+      expect(api.search).toHaveBeenLastCalledWith("amarás", 2, 30)
+      expect(component.searchResults).toHaveLength(45)
+      // Nothing left to ask for.
+      expect(
+        fixture.nativeElement.querySelector(
+          "#study-tabpanel-search .verse-action",
+        ),
+      ).toBeNull()
+    })
+
+    it("does not list a verse twice when a page overlaps the last", () => {
+      api.search.mockReturnValueOnce(found(hits(1, 30), 40))
+      component.onSearchSubmit("amarás")
+      api.search.mockReturnValueOnce(found(hits(26, 15), 40))
+
+      component.loadMoreResults()
+
+      expect(component.searchResults).toHaveLength(40)
+    })
+
+    it("keeps what is listed, and says so, when the next page cannot be had", () => {
+      const announce = vi
+        .spyOn(TestBed.inject(LiveAnnouncer), "announce")
+        .mockResolvedValue(undefined)
+      api.search.mockReturnValueOnce(found(hits(1, 30), 45))
+      component.onSearchSubmit("amarás")
+      api.search.mockReturnValueOnce(throwError(() => new Error("503")))
+
+      component.loadMoreResults()
+
+      expect(component.searchResults).toHaveLength(30)
+      expect(component.searchLoadingMore).toBe(false)
+      expect(announce).toHaveBeenCalledWith(
+        "Não foi possível carregar mais resultados.",
+      )
+    })
+
+    it("opens a hit beside the chapter, as a cross reference can be", () => {
+      api.search.mockReturnValue(found(hits(37, 1), 1))
+      component.onSearchSubmit("amarás")
+      const opened: ParallelRequest[] = []
+      component.openBeside.subscribe((request) => opened.push(request))
+
+      component.openHitBeside(component.searchResults[0])
+
+      expect(opened).toEqual([
+        expect.objectContaining({
+          bookId: "mat",
+          chapterNumber: 22,
+          verseStart: 37,
+          label: "Mateus 22,37",
+        }),
+      ])
+    })
+  })
+
   describe("what cites this verse, with the text stored", () => {
     const target = verse(37, [plain("Amarás ao Senhor")])
     let reverse: ReverseReferencesService
@@ -1804,6 +1906,8 @@ describe("StudyPanelComponent", () => {
     ): IncomingReference => ({
       key: "a",
       label: "Marcos 12,31",
+      bookId: "mrk",
+      chapterNumber: 12,
       link: ["/", "mc", "12"],
       queryParams: { verseStart: 31 },
       fromVerse: 37,
@@ -1853,6 +1957,22 @@ describe("StudyPanelComponent", () => {
           excerpt: "Amarás o teu próximo como a ti mesmo",
         },
         { label: "Lucas 10,27", source: "nota de rodapé", excerpt: undefined },
+      ])
+    })
+
+    it("opens a citing passage beside the chapter", () => {
+      const opened: ParallelRequest[] = []
+      component.openBeside.subscribe((request) => opened.push(request))
+
+      component.openCitationBeside(citation())
+
+      expect(opened).toEqual([
+        expect.objectContaining({
+          bookId: "mrk",
+          chapterNumber: 12,
+          verseStart: 31,
+          label: "Marcos 12,31",
+        }),
       ])
     })
 
@@ -2263,6 +2383,95 @@ describe("StudyPanelComponent", () => {
       fixture.detectChanges()
 
       expect(warning()).toBeNull()
+    })
+  })
+
+  describe("a note's title", () => {
+    const target = verse(39, [])
+    const choose = (): void =>
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+    const typeInto = (selector: string, value: string): void => {
+      const field = fixture.nativeElement.querySelector(selector) as
+        | HTMLInputElement
+        | HTMLTextAreaElement
+      field.value = value
+      field.dispatchEvent(new Event("input", { bubbles: true }))
+    }
+
+    it("is saved with the note, once the reader stops typing", async () => {
+      vi.useFakeTimers()
+      choose()
+
+      typeInto("#study-note", "o segundo mandamento")
+      typeInto(".note-title", "Homilia")
+      await vi.advanceTimersByTimeAsync(500)
+
+      expect(notes.getNote("mat", 22, 39)).toMatchObject({
+        text: "o segundo mandamento",
+        title: "Homilia",
+      })
+    })
+
+    it("is not kept without a note to name", async () => {
+      vi.useFakeTimers()
+      choose()
+
+      typeInto(".note-title", "Só o título")
+      await vi.advanceTimersByTimeAsync(500)
+
+      expect(notes.getNote("mat", 22, 39)).toBeUndefined()
+    })
+
+    it("comes back with the note when the verse is chosen again", () => {
+      notes.saveNote("mat", 22, 39, "escrita antes", "O título")
+
+      choose()
+
+      expect(component.noteTitle).toBe("O título")
+      expect(
+        (fixture.nativeElement.querySelector(".note-title") as HTMLInputElement)
+          .value,
+      ).toBe("O título")
+    })
+
+    it("is put back with the note when a deleted one is taken back", () => {
+      notes.saveNote("mat", 22, 39, "para não perder", "O título")
+      const undo = new Subject<void>()
+      vi.spyOn(TestBed.inject(MatSnackBar), "open").mockReturnValue({
+        onAction: () => undo.asObservable(),
+      } as unknown as MatSnackBarRef<TextOnlySnackBar>)
+      choose()
+
+      component.onNoteInput("")
+      component.onNoteBlur()
+      expect(notes.getNote("mat", 22, 39)).toBeUndefined()
+      undo.next()
+
+      expect(notes.getNote("mat", 22, 39)).toMatchObject({
+        text: "para não perder",
+        title: "O título",
+      })
+    })
+
+    it("is shown with the chapter's notes", () => {
+      notes.saveNote("mat", 22, 39, "um texto", "Um título")
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+      })
+      fixture.nativeElement
+        .querySelectorAll(".tab")[2]
+        .dispatchEvent(new MouseEvent("click"))
+      fixture.detectChanges()
+
+      expect(
+        fixture.nativeElement.querySelector(".saved-note .note-title-text")
+          ?.textContent,
+      ).toBe("Um título")
     })
   })
 

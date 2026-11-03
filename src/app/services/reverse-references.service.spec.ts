@@ -353,6 +353,9 @@ describe("ReverseReferencesService", () => {
       expect(service.incomingFor("mrk", 12, 31)[0]).toMatchObject({
         source: "referência",
         excerpt: words,
+        // Where it is, for opening it beside the reader's chapter.
+        bookId: "mat",
+        chapterNumber: 22,
       })
     })
 
