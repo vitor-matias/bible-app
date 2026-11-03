@@ -32,6 +32,7 @@ jobs:
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
         run: |
+          jq -r 'last.result' "$EXECUTION_FILE" # test only
           jq -r '.[] | select(.type == "assistant") | .message.content[]? | select(.type == "tool_use") | "\(.name) \(.input.model // "")"' "$EXECUTION_FILE"
           jq -e 'last | .is_error | not' "$EXECUTION_FILE" > /dev/null || { echo "::error::The review ended in an error, so it may have posted nothing."; exit 1; }
           jq -e 'any(.[]; .type == "assistant" and any(.message.content[]?; .type == "tool_use" and (.name == "Agent" or .name == "Task")))' "$EXECUTION_FILE" > /dev/null || { echo "::error::The review launched no agents."; exit 1; }
