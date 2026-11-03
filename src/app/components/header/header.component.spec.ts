@@ -376,6 +376,11 @@ describe("HeaderComponent", () => {
       installItem()?.click()
       await fixture.whenStable()
 
+      expect(analyticsServiceSpy.track).toHaveBeenCalledWith(
+        "pwa_install_prompt",
+        expect.objectContaining({ outcome: "dismissed" }),
+      )
+
       offerInstall("dismissed")
       await openMenu()
 
