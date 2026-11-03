@@ -16,7 +16,7 @@ import {
   type SimpleChanges,
   ViewChildren,
 } from "@angular/core"
-import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
+import { takeUntilDestroyed, toSignal } from "@angular/core/rxjs-interop"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
@@ -47,6 +47,7 @@ import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
+import { PwaInstallService } from "../../services/pwa-install.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"
 import {
   passageLabel,
@@ -93,6 +94,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly cdr = inject(ChangeDetectorRef)
   readonly analyticsService = inject(AnalyticsService)
   private readonly onboardingService = inject(OnboardingService)
+  private readonly pwaInstallService = inject(PwaInstallService)
+  /** Browsers that can't prompt (iOS, Firefox) get the tutorial's steps instead. */
+  readonly canInstall = toSignal(this.pwaInstallService.canPromptInstall$, {
+    requireSync: true,
+  })
 
   readonly book = input.required<Book>()
   readonly chapterNumber = input.required<number>()
@@ -329,40 +335,46 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.onboardingService.open("menu")
   }
 
+<<<<<<< HEAD
   onToggleCardsView(trigger: MatMenuTrigger) {
     trigger.closeMenu()
     this.toggleCardsView.emit()
+=======
+  async onInstall(trigger: MatMenuTrigger): Promise<void> {
+    trigger.closeMenu()
+    const outcome = await this.pwaInstallService.promptInstall()
+    // AnalyticsService.track overwrites `platform`, hence the distinct key.
+    void this.analyticsService.track("pwa_install_prompt", {
+      outcome,
+      installPlatform: this.pwaInstallService.detectPlatform(),
+    })
+>>>>>>> origin/master
   }
 
   /**
    * Ignores a late version result, unregisters the back handler, stops label
    * cycling, and requests that the native bars hide.
    */
-  ngOnDestroy(): void {
+  ngOnDestroy(): void 
     this.destroyed = true
     this.unregisterBackCloser()
     this.stopLabelCycle()
     if (this.native) this.nativeChrome.hide()
-  }
 
-  showBookSelector() {
+  showBookSelector() 
     this.openBookSelector.emit({ open: true })
-  }
 
-  showChapterSelector() {
+  showChapterSelector() 
     this.openChapterSelector.emit({ open: true })
-  }
 
-  onToggleAutoScrollControls(trigger: MatMenuTrigger, event?: Event): void {
+  onToggleAutoScrollControls(trigger: MatMenuTrigger, event?: Event): void 
     event?.stopPropagation()
     this.toggleAutoScrollControls.emit()
     trigger.closeMenu()
-  }
 
-  onToggleViewMode(event?: Event): void {
+  onToggleViewMode(event?: Event): void 
     event?.stopPropagation()
     this.toggleViewMode.emit()
-  }
 
   getThemeIcon(): string {
     const mode = this.themeService.currentMode
@@ -381,10 +393,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
    * One button cycles through the three themes. The menu stays open, so the
    * page changes theme behind it and the icon shows the new one.
    */
-  onToggleTheme(): void {
+  onToggleTheme(): void 
     this.themeService.toggleTheme()
     this.cdr.detectChanges()
-  }
 
   /** The ribbon on the chapter being read, by its spoken name ("Vermelho"). */
   get bookmarkName(): string | undefined {
@@ -392,15 +403,13 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     return color ? spokenRibbonName(color) : undefined
   }
 
-  getViewModeIcon(): string {
+  getViewModeIcon(): string 
     return this.viewMode() === "scrolling" ? "swipe_vertical" : "auto_stories"
-  }
 
-  getViewModeTooltip(): string {
+  getViewModeTooltip(): string 
     return this.viewMode() === "scrolling"
       ? "Texto contínuo (clique para mudar para página a página)"
       : "Página a página (clique para mudar para texto contínuo)"
-  }
 
   /** A size up or down; a `step` (percent) where the native sheet asks for one. */
   readonly increaseFontSizeEvent = output<number | undefined>()
@@ -408,29 +417,24 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /** Back to the size the text opens at without a choice. */
   readonly resetFontSizeEvent = output<void>()
 
-  increaseFontSize(): void {
+  increaseFontSize(): void 
     this.increaseFontSizeEvent.emit(undefined)
-  }
 
-  onIncreaseFontSize(event?: Event): void {
+  onIncreaseFontSize(event?: Event): void 
     event?.stopPropagation()
     this.increaseFontSize()
-  }
 
-  decreaseFontSize(): void {
+  decreaseFontSize(): void 
     this.decreaseFontSizeEvent.emit(undefined)
-  }
 
-  onDecreaseFontSize(event?: Event): void {
+  onDecreaseFontSize(event?: Event): void 
     event?.stopPropagation()
     this.decreaseFontSize()
-  }
 
-  async onShare(trigger: MatMenuTrigger, event?: Event): Promise<void> {
+  async onShare(trigger: MatMenuTrigger, event?: Event): Promise<void> 
     event?.stopPropagation()
     trigger.closeMenu()
     await this.sharePassage()
-  }
 
   async sharePassage(): Promise<void> {
     if (!this.canShare) {
@@ -519,7 +523,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     })
   }
 
-  private onNativeAction(action: NativeChromeAction): void {
+  private onNativeAction(action: NativeChromeAction): void 
     switch (action.id) {
       case "passage":
         this.nativeChrome.showPicker(
@@ -586,9 +590,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         window.open(PRIVACY_POLICY_URL, "_blank", "noopener")
         break
     }
-  }
 
-  private startLabelCycle(): void {
+  private startLabelCycle(): void 
     this.stopLabelCycle()
     this.bookLabelMode = "title"
     // Browser-only: there is no window while prerendering the home page.
@@ -605,9 +608,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.cdr.detectChanges()
       }, LABEL_FADE_MS)
     }, LABEL_HOLD_MS)
-  }
 
-  private stopLabelCycle(): void {
+  private stopLabelCycle(): void 
     if (this.labelInterval) {
       clearInterval(this.labelInterval)
       this.labelInterval = undefined
@@ -618,5 +620,4 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
     this.bookLabelMode = "title"
     this.labelFading = false
-  }
 }
