@@ -317,6 +317,114 @@ describe("ReverseReferencesService", () => {
     expect(offline.getCachedBooksAsync).toHaveBeenCalledTimes(1)
   })
 
+  describe("what a citation says about itself", () => {
+    const words = "Amarás o teu próximo como a ti mesmo"
+    const citing = (text: Verse["text"]): Book =>
+      ({
+        ...MATTHEW,
+        chapters: [
+          {
+            bookId: "mat",
+            number: 22,
+            verses: [{ ...verse(39), text }],
+          },
+        ],
+      }) as Book
+    const cites = (target: string): BibleReference =>
+      ({
+        book: target,
+        chapter: 12,
+        verses: [{ type: "single", verse: 31 }],
+        match: target,
+        index: 0,
+      }) as unknown as BibleReference
+
+    it("quotes the start of the citing verse", async () => {
+      configure([
+        citing([
+          { type: "text", text: words },
+          { type: "references", text: "Mc 12,31" },
+        ]),
+      ])
+      bibleRef.extract.mockReturnValue([cites("mrk")])
+
+      await service.ensureIndex()
+
+      expect(service.incomingFor("mrk", 12, 31)[0]).toMatchObject({
+        source: "referência",
+        excerpt: words,
+      })
+    })
+
+    it("cuts a long verse at a word, not in the middle of one", async () => {
+      const long = `${"palavra ".repeat(40)}fim`
+      configure([
+        citing([
+          { type: "text", text: long },
+          { type: "references", text: "Mc 12,31" },
+        ]),
+      ])
+      bibleRef.extract.mockReturnValue([cites("mrk")])
+
+      await service.ensureIndex()
+
+      const { excerpt } = service.incomingFor("mrk", 12, 31)[0]
+      expect(excerpt.endsWith("palavra…")).toBe(true)
+      expect(excerpt.length).toBeLessThanOrEqual(141)
+    })
+
+    it("finds a verse cited only in a footnote, and says it is a footnote", async () => {
+      configure([
+        citing([
+          { type: "text", text: words },
+          { type: "footnote", text: "Ver Mc 12,31.", reference: "22,39" },
+        ]),
+      ])
+      bibleRef.extract.mockImplementation((text: string) =>
+        text.startsWith("Ver Mc") ? [cites("mrk")] : [],
+      )
+
+      await service.ensureIndex()
+
+      const incoming = service.incomingFor("mrk", 12, 31)
+      expect(incoming).toHaveLength(1)
+      expect(incoming[0]).toMatchObject({
+        source: "nota",
+        label: "Mateus 22,39",
+      })
+    })
+
+    it("lists a passage once when the cross references and a footnote both cite it", async () => {
+      configure([
+        citing([
+          { type: "text", text: words },
+          { type: "references", text: "Mc 12,31" },
+          { type: "footnote", text: "Ver Mc 12,31.", reference: "22,39" },
+        ]),
+      ])
+      bibleRef.extract.mockReturnValue([cites("mrk")])
+
+      await service.ensureIndex()
+
+      const incoming = service.incomingFor("mrk", 12, 31)
+      expect(incoming).toHaveLength(1)
+      expect(incoming[0].source).toBe("referência")
+    })
+  })
+
+  it("forgets what it knew when the text it was built from goes", async () => {
+    bibleRefWith([
+      { book: "mrk", chapter: 12, verses: [{ type: "single", verse: 31 }] },
+    ])
+    await service.ensureIndex()
+    expect(service.state).toBe("ready")
+
+    service.reset()
+
+    expect(service.state).toBe("idle")
+    expect(service.incomingFor("mrk", 12, 31)).toEqual([])
+  })
+
   /** Stubs a corpus of one chapter whose verse 39 prints the given refs. */
   function bibleRefWith(refs: unknown[]): void {
     configure([

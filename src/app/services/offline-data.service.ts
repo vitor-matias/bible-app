@@ -34,7 +34,7 @@ export class OfflineDataService {
    * for offline usage. Subsequent calls are skipped once the data is cached.
    */
   async preloadAllBooksAndChapters(
-    source: "install" | "standalone" = "standalone",
+    source: "install" | "standalone" | "study" = "standalone",
   ): Promise<void> {
     if (typeof window === "undefined") return
 
@@ -82,6 +82,26 @@ export class OfflineDataService {
     if (!introsAlreadyCached || isExpired) {
       await this.preloadGroupIntros()
     }
+  }
+
+  /** Whether the whole Bible is stored on this device, not just parts of it. */
+  isBibleStored(): boolean {
+    return safeLocalStorage()?.getItem(this.cacheFlagKey) === "true"
+  }
+
+  /**
+   * Drops the stored Bible — books, chapters, introductions — and the flags
+   * that vouch for them, so nothing claims text that is no longer there. For a
+   * reader who downloaded it in a browser tab and wants the space back; an
+   * installed app stores it by design and fetches it again on its next start.
+   */
+  async removeStoredBible(): Promise<void> {
+    await this.databaseService.clear("books")
+    this.cachedBooks = null
+    const storage = safeLocalStorage()
+    storage?.removeItem(this.cacheFlagKey)
+    storage?.removeItem(this.groupIntrosCacheFlagKey)
+    storage?.removeItem(this.cacheTimestampKey)
   }
 
   /** Whether the last introductions preload cached every one of them. */
@@ -364,7 +384,7 @@ export class OfflineDataService {
     return Date.now() - timestamp > this.cacheMaxAgeMs
   }
 
-  private trackBooksCachedEvent(source: "install" | "standalone") {
+  private trackBooksCachedEvent(source: "install" | "standalone" | "study") {
     void this.analyticsService.track("pwa_books_cached", { source })
   }
 }

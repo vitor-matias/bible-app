@@ -1047,6 +1047,39 @@ describe("OfflineDataService", () => {
     })
   })
 
+  describe("the stored Bible, to ask about and to remove", () => {
+    it("is stored only once the books have been cached", () => {
+      expect(service.isBibleStored()).toBe(false)
+
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+
+      expect(service.isBibleStored()).toBe(true)
+    })
+
+    it("can be removed, with every flag that vouched for it", async () => {
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
+
+      await service.removeStoredBible()
+
+      expect(databaseService.clear).toHaveBeenCalledWith("books")
+      expect(service.isBibleStored()).toBe(false)
+      expect(mockLocalStorage._storage["groupIntrosCacheReady"]).toBeUndefined()
+      expect(mockLocalStorage._storage["booksCacheTimestamp"]).toBeUndefined()
+    })
+
+    it("stops serving books it has dropped", async () => {
+      await service.setCachedBooks(mockBooks)
+      expect((await service.getCachedBooksAsync()).length).toBeGreaterThan(0)
+      databaseService.getAll.mockResolvedValue([])
+
+      await service.removeStoredBible()
+
+      expect(await service.getCachedBooksAsync()).toEqual([])
+    })
+  })
+
   describe("cache expiry", () => {
     it("should consider cache expired after 40 days", async () => {
       // 41 days ago

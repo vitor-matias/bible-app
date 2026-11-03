@@ -1,6 +1,7 @@
 import { Injectable, inject } from "@angular/core"
 import { BehaviorSubject, type Observable } from "rxjs"
 import { placeReferences } from "../utils/chapter-references"
+import { verseText } from "../utils/text-search"
 import {
   type BibleReference,
   BibleReferenceService,
@@ -18,7 +19,18 @@ export type IncomingReference = {
   /** The span of the target this citation covers, for matching a verse. */
   fromVerse: Verse["number"]
   toVerse: Verse["number"]
+  /**
+   * Where the citation is printed: among the edition's cross references, or in
+   * one of its footnotes. They are not the same claim, and a list that does
+   * not say which leaves the reader to guess how much weight each carries.
+   */
+  source: "referência" | "nota"
+  /** The start of the citing verse, so a row is a passage and not just a name. */
+  excerpt: string
 }
+
+/** How much of a citing verse a row quotes. */
+const EXCERPT_CHARS = 140
 
 export type IndexState = "idle" | "building" | "ready" | "unavailable"
 
@@ -73,6 +85,16 @@ export class ReverseReferencesService {
         this.building = undefined
       })
     return this.building
+  }
+
+  /**
+   * Forgets the index, for when the text it was built from has been removed:
+   * what it would say next is "nothing cites this verse", which is not true.
+   */
+  reset(): void {
+    this.index = null
+    this.building = undefined
+    this.stateSubject.next("idle")
   }
 
   /** The citations pointing at one verse, or [] while there is no index. */
@@ -133,7 +155,39 @@ export class ReverseReferencesService {
               placed.underHeading || placed.verse.number < 1
                 ? placed.startsAt
                 : placed.verse.number
-            this.add(index, seen, book, chapter, citedFrom, reference)
+            this.add(
+              index,
+              seen,
+              book,
+              chapter,
+              citedFrom,
+              reference,
+              "referência",
+            )
+          }
+        }
+        // The footnotes cite Scripture too (the Rodapé tab links them), and a
+        // verse cited only there is not one that "nothing cites". Read after
+        // the cross references, so a passage that does both is listed once,
+        // under the stronger claim.
+        for (const footnoted of chapter.verses ?? []) {
+          for (const part of footnoted.text ?? []) {
+            if (part.type !== "footnote") continue
+            for (const reference of this.bibleRef.extract(
+              part.text,
+              book.id,
+              chapter.number,
+            )) {
+              this.add(
+                index,
+                seen,
+                book,
+                chapter,
+                Math.max(footnoted.number, 1),
+                reference,
+                "nota",
+              )
+            }
           }
         }
       }
@@ -151,6 +205,7 @@ export class ReverseReferencesService {
     /** The verse the citing passage starts at. */
     citedFrom: Verse["number"],
     reference: BibleReference,
+    via: IncomingReference["source"],
   ): void {
     const target = this.bookService.findBook(reference.book)
     // findBook falls back to the About page for anything it cannot resolve;
@@ -182,6 +237,8 @@ export class ReverseReferencesService {
         queryParams: { verseStart: citedFrom },
         fromVerse: span.from,
         toVerse: span.to,
+        source: via,
+        excerpt: ReverseReferencesService.excerptOf(chapter, citedFrom),
       }
 
       const existing = index.get(targetKey)
@@ -191,6 +248,18 @@ export class ReverseReferencesService {
         index.set(targetKey, [entry])
       }
     }
+  }
+
+  /** The first words of a verse, cut at a word, for a row to quote. */
+  private static excerptOf(
+    chapter: Chapter,
+    verseNumber: Verse["number"],
+  ): string {
+    const found = chapter.verses?.find((verse) => verse.number === verseNumber)
+    const text = found ? verseText(found) : ""
+    if (text.length <= EXCERPT_CHARS) return text
+    const cut = text.slice(0, EXCERPT_CHARS)
+    return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), 1))}…`
   }
 
   /**

@@ -16,8 +16,12 @@ import { BookService } from "../../services/book.service"
 import { HighlightService } from "../../services/highlight.service"
 import { NetworkService } from "../../services/network.service"
 import { NotesService } from "../../services/notes.service"
+import { OfflineDataService } from "../../services/offline-data.service"
 import { OfflineSearchService } from "../../services/offline-search.service"
-import { ReverseReferencesService } from "../../services/reverse-references.service"
+import {
+  type IncomingReference,
+  ReverseReferencesService,
+} from "../../services/reverse-references.service"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import {
   NOTE_SAVE_DEBOUNCE_MS,
@@ -1652,30 +1656,190 @@ describe("StudyPanelComponent", () => {
   })
 
   describe("what cites this verse, without the offline text", () => {
-    it("lets the reader ask again once the text may have arrived", async () => {
-      const reverse = TestBed.inject(ReverseReferencesService)
-      const state = vi
-        .spyOn(reverse, "state", "get")
-        .mockReturnValue("unavailable")
-      const build = vi.spyOn(reverse, "ensureIndex").mockResolvedValue()
-      const target = verse(37, [plain("Amarás ao Senhor")])
+    const target = verse(37, [plain("Amarás ao Senhor")])
+    let reverse: ReverseReferencesService
+    let offlineData: OfflineDataService
+
+    const choose = (): void =>
       setInputs({
         book: BOOK,
         chapter: { bookId: "mat", number: 22, verses: [target] },
         selection: { verse: target },
       })
+    const action = (): HTMLButtonElement | null =>
+      fixture.nativeElement.querySelector(".incoming .verse-action")
+    const incomingText = (): string =>
+      (fixture.nativeElement.querySelector(".incoming")?.textContent ?? "")
+        .replace(/\s+/g, " ")
+        .trim()
 
-      const retry = fixture.nativeElement.querySelector(
-        ".incoming .verse-action",
-      ) as HTMLButtonElement
-      expect(retry).toBeTruthy()
+    beforeEach(() => {
+      reverse = TestBed.inject(ReverseReferencesService)
+      offlineData = TestBed.inject(OfflineDataService)
+      vi.spyOn(reverse, "state", "get").mockReturnValue("unavailable")
+      vi.spyOn(window, "matchMedia").mockReturnValue({
+        matches: false,
+      } as MediaQueryList)
+    })
 
-      state.mockReturnValue("ready")
-      retry.click()
+    it("says what it needs and how much it is, and offers to fetch it", () => {
+      choose()
+
+      expect(incomingText()).toContain(
+        "Precisa da Bíblia guardada neste dispositivo (cerca de 5 MB).",
+      )
+      expect(action()?.textContent).toContain("Descarregar o texto")
+    })
+
+    it("fetches the Bible when asked, and then looks", async () => {
+      const preload = vi
+        .spyOn(offlineData, "preloadAllBooksAndChapters")
+        .mockResolvedValue()
+      vi.spyOn(offlineData, "isBibleStored").mockReturnValue(true)
+      const build = vi.spyOn(reverse, "ensureIndex").mockResolvedValue()
+      choose()
+
+      action()?.click()
       await fixture.whenStable()
 
+      expect(preload).toHaveBeenCalledExactlyOnceWith("study")
       expect(build).toHaveBeenCalled()
-      expect(component.incomingState).toBe("ready")
+    })
+
+    it("does not go on to look when the fetch did not store anything", async () => {
+      vi.spyOn(offlineData, "preloadAllBooksAndChapters").mockResolvedValue()
+      vi.spyOn(offlineData, "isBibleStored").mockReturnValue(false)
+      const build = vi.spyOn(reverse, "ensureIndex").mockResolvedValue()
+      choose()
+
+      await component.downloadText()
+
+      expect(build).not.toHaveBeenCalled()
+      expect(component.downloading).toBe(false)
+    })
+
+    it("fetches nothing without a connection, and says to try again", () => {
+      vi.spyOn(
+        TestBed.inject(NetworkService),
+        "isOffline",
+        "get",
+      ).mockReturnValue(true)
+      TestBed.inject(NetworkService).isOffline$.subscribe()
+      component.offline = true
+      choose()
+      fixture.detectChanges()
+
+      expect(action()).toBeNull()
+      expect(incomingText()).toContain("Sem ligação")
+    })
+
+    it("in the installed app only asks again, since the app fetches it by itself", async () => {
+      vi.spyOn(window, "matchMedia").mockReturnValue({
+        matches: true,
+      } as MediaQueryList)
+      const build = vi.spyOn(reverse, "ensureIndex").mockResolvedValue()
+      choose()
+
+      expect(action()?.textContent).toContain("Procurar de novo")
+
+      action()?.click()
+      await fixture.whenStable()
+      expect(build).toHaveBeenCalled()
+    })
+  })
+
+  describe("what cites this verse, with the text stored", () => {
+    const target = verse(37, [plain("Amarás ao Senhor")])
+    let reverse: ReverseReferencesService
+
+    const citation = (
+      overrides: Partial<IncomingReference> = {},
+    ): IncomingReference => ({
+      key: "a",
+      label: "Marcos 12,31",
+      link: ["/", "mc", "12"],
+      queryParams: { verseStart: 31 },
+      fromVerse: 37,
+      toVerse: 37,
+      source: "referência",
+      excerpt: "Amarás o teu próximo como a ti mesmo",
+      ...overrides,
+    })
+
+    beforeEach(() => {
+      reverse = TestBed.inject(ReverseReferencesService)
+      vi.spyOn(reverse, "state", "get").mockReturnValue("ready")
+      vi.spyOn(reverse, "incomingFor").mockReturnValue([
+        citation(),
+        citation({
+          key: "b",
+          label: "Lucas 10,27",
+          source: "nota",
+          excerpt: "",
+        }),
+      ])
+      vi.spyOn(window, "matchMedia").mockReturnValue({
+        matches: false,
+      } as MediaQueryList)
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+    })
+
+    it("says where each citation is printed, and quotes the citing verse", () => {
+      const part = (row: Element, selector: string): string | undefined =>
+        row.querySelector(selector)?.textContent?.trim()
+      const rows = Array.from<Element>(
+        fixture.nativeElement.querySelectorAll(".incoming .reference"),
+      ).map((row) => ({
+        label: part(row, ".reference-label"),
+        source: part(row, ".reference-source"),
+        excerpt: part(row, ".reference-excerpt"),
+      }))
+
+      expect(rows).toEqual([
+        {
+          label: "Marcos 12,31",
+          source: "referência cruzada",
+          excerpt: "Amarás o teu próximo como a ti mesmo",
+        },
+        { label: "Lucas 10,27", source: "nota de rodapé", excerpt: undefined },
+      ])
+    })
+
+    it("lets the reader take the text away again, and forgets what it was built from", async () => {
+      const offlineData = TestBed.inject(OfflineDataService)
+      const remove = vi
+        .spyOn(offlineData, "removeStoredBible")
+        .mockResolvedValue()
+      const reset = vi.spyOn(reverse, "reset")
+      const button = Array.from(
+        fixture.nativeElement.querySelectorAll(".incoming .verse-action"),
+      ).find((b) =>
+        (b as HTMLElement).textContent?.includes("Remover"),
+      ) as HTMLButtonElement
+
+      button.click()
+      await fixture.whenStable()
+
+      expect(remove).toHaveBeenCalled()
+      expect(reset).toHaveBeenCalled()
+      expect(component.incoming).toEqual([])
+    })
+
+    it("does not offer to remove what the installed app keeps on purpose", () => {
+      vi.spyOn(window, "matchMedia").mockReturnValue({
+        matches: true,
+      } as MediaQueryList)
+      component.showIncoming()
+      fixture.detectChanges()
+
+      const labels = Array.from(
+        fixture.nativeElement.querySelectorAll(".incoming .verse-action"),
+      ).map((b) => (b as HTMLElement).textContent)
+      expect(labels.join(" ")).not.toContain("Remover")
     })
   })
 

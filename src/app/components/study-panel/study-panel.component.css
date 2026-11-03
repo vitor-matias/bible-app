@@ -143,6 +143,18 @@
   margin-top: 12px;
 }
 
+.reference-source {
+  margin-left: 8px;
+  font-size: 0.85em;
+  color: var(--study-muted);
+}
+
+.reference-excerpt {
+  margin: 2px 0 0;
+  color: var(--study-muted);
+  line-height: 1.4;
+}
+
 .note-hint {
   margin: 6px 0 0;
   color: var(--study-muted);

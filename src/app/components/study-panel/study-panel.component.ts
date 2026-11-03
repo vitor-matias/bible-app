@@ -18,6 +18,7 @@ import { MatIconModule } from "@angular/material/icon"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { Router, RouterModule } from "@angular/router"
+import { Capacitor } from "@capacitor/core"
 import {
   catchError,
   combineLatest,
@@ -43,6 +44,7 @@ import {
 } from "../../services/highlight.service"
 import { NetworkService } from "../../services/network.service"
 import { NotesService, type VerseNote } from "../../services/notes.service"
+import { OfflineDataService } from "../../services/offline-data.service"
 import {
   type IncomingReference,
   type IndexState,
@@ -245,6 +247,8 @@ export class StudyPanelComponent implements OnChanges {
   noteMatches: VerseNote[] = []
   noteQuery = ""
   noteDraft = ""
+  /** The Bible is being fetched for "Citado em": see downloadText. */
+  downloading = false
   /**
    * The browser is refusing to keep the notes or marks (see
    * VerseRecordStore.saveFailed$): what is written lives in this page only.
@@ -298,6 +302,7 @@ export class StudyPanelComponent implements OnChanges {
   private readonly highlights = inject(HighlightService)
   private readonly reverseRefs = inject(ReverseReferencesService)
   private readonly network = inject(NetworkService)
+  private readonly offlineData = inject(OfflineDataService)
   private readonly cdr = inject(ChangeDetectorRef)
   private readonly destroyRef = inject(DestroyRef)
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef)
@@ -636,6 +641,46 @@ export class StudyPanelComponent implements OnChanges {
    * downloaded it should not have a Bible fetched under them for a panel
    * section they did not open.
    */
+  /**
+   * Whether this is the installed app, which stores the Bible by design and
+   * fetches it by itself; in a browser tab nothing does, so the reader is
+   * offered the download and the way to take it away again.
+   */
+  get installedApp(): boolean {
+    return (
+      Capacitor.isNativePlatform() ||
+      (typeof window !== "undefined" &&
+        window.matchMedia?.("(display-mode: standalone)").matches === true)
+    )
+  }
+
+  /** The reader's own choice, with the size said: nothing is fetched unasked. */
+  async downloadText(): Promise<void> {
+    this.downloading = true
+    this.cdr.markForCheck()
+    try {
+      await this.offlineData.preloadAllBooksAndChapters("study")
+    } finally {
+      this.downloading = false
+    }
+    if (!this.offlineData.isBibleStored()) {
+      void this.announcer.announce("Não foi possível descarregar o texto.")
+      this.cdr.markForCheck()
+      return
+    }
+    await this.showIncoming()
+  }
+
+  /** Gives the space back, and forgets the index built from the text. */
+  async removeText(): Promise<void> {
+    await this.offlineData.removeStoredBible()
+    this.reverseRefs.reset()
+    this.incomingState = this.reverseRefs.state
+    this.incoming = []
+    void this.announcer.announce("Texto removido deste navegador.")
+    this.cdr.markForCheck()
+  }
+
   async showIncoming(): Promise<void> {
     this.incomingState = "building"
     this.cdr.detectChanges()
@@ -647,9 +692,9 @@ export class StudyPanelComponent implements OnChanges {
     // aloud, or a reader who cannot see the panel never learns it arrived.
     void this.announcer.announce(
       this.incomingState === "unavailable"
-        ? "Precisa do texto offline."
+        ? "Precisa da Bíblia guardada neste dispositivo."
         : this.incoming.length === 0
-          ? "Nenhuma passagem cita este versículo."
+          ? "Nenhuma referência cruzada nem nota de rodapé da edição cita este versículo."
           : this.incoming.length === 1
             ? "1 passagem cita este versículo."
             : `${this.incoming.length} passagens citam este versículo.`,

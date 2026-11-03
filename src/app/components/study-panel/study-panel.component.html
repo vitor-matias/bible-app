@@ -149,25 +149,47 @@
       <ul class="reference-list">
         @for (entry of incoming; track entry.key) {
         <li class="reference">
-          <a class="reference-label" [routerLink]="entry.link" [queryParams]="entry.queryParams">{{ entry.label }}</a>
+          <a class="reference-label" [routerLink]="entry.link" [queryParams]="entry.queryParams">{{ entry.label }}</a>{{ " " }}
+          <!-- Which kind of citation it is: a cross reference and a footnote
+               are not the same claim, and the reader should not have to guess. -->
+          <span class="reference-source">{{ entry.source === 'nota' ? 'nota de rodapé' : 'referência cruzada' }}</span>
+          @if (entry.excerpt) {
+          <p class="reference-excerpt">{{ entry.excerpt }}</p>
+          }
         </li>
         }
       </ul>
       } @else {
-      <p class="panel-empty small">Nenhuma passagem cita este versículo.</p>
+      <p class="panel-empty small">Nenhuma referência cruzada nem nota de rodapé da edição cita este versículo.</p>
+      }
+      @if (!installedApp) {
+      <button type="button" class="verse-action" (click)="removeText()">
+        <mat-icon>delete</mat-icon>
+        Remover o texto deste navegador
+      </button>
       }
       }
       @case ('building') {
       <p class="panel-empty small">A procurar…</p>
       }
       @case ('unavailable') {
-      <p class="panel-empty small">Precisa do texto offline. Instale a app para o descarregar.</p>
-      <!-- The text may still have been downloading when the reader asked:
-           without a way to ask again, this stood until the page reloaded. -->
+      <p class="panel-empty small">Precisa da Bíblia guardada neste dispositivo (cerca de 5 MB).</p>
+      @if (installedApp) {
+      <!-- The app fetches it by itself, and may still have been at it when the
+           reader asked: without a way to ask again, this stood until the page
+           reloaded. -->
       <button type="button" class="verse-action" (click)="showIncoming()">
         <mat-icon>refresh</mat-icon>
         Procurar de novo
       </button>
+      } @else if (offline) {
+      <p class="panel-empty small">Sem ligação: volte a tentar quando a tiver.</p>
+      } @else {
+      <button type="button" class="verse-action" [disabled]="downloading" (click)="downloadText()">
+        <mat-icon>download</mat-icon>
+        {{ downloading ? 'A descarregar…' : 'Descarregar o texto' }}
+      </button>
+      }
       }
       @default {
       <button type="button" class="verse-action" (click)="showIncoming()">
