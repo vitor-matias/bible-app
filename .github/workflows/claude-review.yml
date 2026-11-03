@@ -1,10 +1,7 @@
 name: Claude Review
 on:
   pull_request:
-    types: [opened, synchronize, ready_for_review, reopened]
-concurrency:
-  group: claude-review-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+    types: [opened, ready_for_review, reopened]
 jobs:
   review:
     if: ${{ !github.event.pull_request.draft && github.event.pull_request.user.type != 'Bot' && github.event.pull_request.head.repo.full_name == github.repository }}
@@ -31,7 +28,7 @@ jobs:
             /code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}
             The repo owner asks for the full multi-agent review: launch every step's agents with the Task tool,
             in the foreground (run_in_background: false), on the model each step names, and do not review the diff yourself.
-            This workflow runs again on every push, so drop step 1's check for an earlier Claude comment.
+            Reopening a PR asks for a fresh review, so drop step 1's check for an earlier Claude comment.
             Before posting, read the inline comments already on the PR with
             `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments --paginate`
             and skip any issue already commented on. Do not post the no-issues comment if the PR already has one.
