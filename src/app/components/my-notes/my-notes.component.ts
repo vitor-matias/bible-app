@@ -83,6 +83,12 @@ export class MyNotesComponent implements OnInit {
   /** What the filters leave of it. */
   visible: NotebookEntry[] = []
   books: { id: Book["id"]; name: string }[] = []
+  /**
+   * Whether the book list has come. Until it has, a reference cannot be named
+   * or linked — the service answers with the About page — so nothing is listed
+   * rather than listed under the wrong name.
+   */
+  booksKnown = false
   filter: Filter = "all"
   bookId = ""
   /** What the last thing the reader asked for came to, read out as it changes. */
@@ -143,6 +149,12 @@ export class MyNotesComponent implements OnInit {
         this.askForQuotes()
         this.cdr.markForCheck()
       })
+
+    this.bookService.books$.pipe(takeUntilDestroyed()).subscribe(() => {
+      this.booksKnown = true
+      this.books = this.bookOptions()
+      this.cdr.markForCheck()
+    })
 
     combineLatest([this.notesService.saveFailed$, this.highlights.saveFailed$])
       .pipe(takeUntilDestroyed())

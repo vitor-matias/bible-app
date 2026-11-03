@@ -1,6 +1,6 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { provideRouter } from "@angular/router"
-import { of, throwError } from "rxjs"
+import { BehaviorSubject, filter, of, throwError } from "rxjs"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BookService } from "../../services/book.service"
 import { HighlightService } from "../../services/highlight.service"
@@ -33,6 +33,7 @@ describe("MyNotesComponent", () => {
   let notes: NotesService
   let marks: HighlightService
   let api: SpyObj<BibleApiService>
+  let bookList: BehaviorSubject<Book[]>
 
   const page = (): HTMLElement => fixture.nativeElement
   const refs = (): string[] =>
@@ -75,6 +76,10 @@ describe("MyNotesComponent", () => {
     )
     books.getUrlAbrv.mockImplementation((book: Book) => book.id)
     books.getChapterUrlSegment.mockImplementation((n: number) => String(n))
+    bookList = new BehaviorSubject<Book[]>([{ id: "gen" } as Book])
+    Object.assign(books, {
+      books$: bookList.pipe(filter((list) => list.length > 0)),
+    })
 
     await TestBed.configureTestingModule({
       imports: [MyNotesComponent],
@@ -112,6 +117,28 @@ describe("MyNotesComponent", () => {
     expect(refs()).toEqual(["Génesis 1,1", "Mateus 22,37", "João 3,16"])
     const link = page().querySelectorAll(".entry-ref a")[1] as HTMLAnchorElement
     expect(link.getAttribute("href")).toBe("/mat/22?verseStart=37")
+  })
+
+  it("lists nothing until the book list has come, rather than under the About page's name", () => {
+    // A page opened by its address: the book list is still on its way.
+    bookList = new BehaviorSubject<Book[]>([])
+    Object.assign(TestBed.inject(BookService), {
+      books$: bookList.pipe(filter((list) => list.length > 0)),
+    })
+    fixture = TestBed.createComponent(MyNotesComponent)
+    notes.saveNote("mat", 22, 37, "o maior mandamento")
+    fixture.detectChanges()
+
+    // Neither the empty-state (there is a note) nor an entry named wrongly.
+    expect(page().querySelector(".entries")).toBeNull()
+    expect(page().querySelector(".empty")).toBeNull()
+    // The copy to keep does not need the names, so it is not held back.
+    expect(button("Guardar uma cópia").disabled).toBe(false)
+
+    bookList.next([{ id: "mat" } as Book])
+    fixture.detectChanges()
+
+    expect(refs()).toEqual(["Mateus 22,37"])
   })
 
   it("says the colour of a mark in words", () => {

@@ -46,7 +46,7 @@
 
   <p class="status no-print" role="status" aria-live="polite">{{ status }}</p>
 
-  @if (entries.length) {
+  @if (entries.length && booksKnown) {
   <section class="filters no-print" aria-label="Escolher o que mostrar">
     <label>
       Mostrar
@@ -102,7 +102,7 @@
     <li class="empty">Nada corresponde a esta escolha.</li>
     }
   </ol>
-  } @else {
+  } @else if (!entries.length) {
   <p class="empty">
     Ainda não escreveu nem marcou nada. Num versículo, clique no seu número para escrever uma nota,
     ou selecione texto para o marcar.
