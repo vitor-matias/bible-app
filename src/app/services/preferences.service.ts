@@ -56,6 +56,7 @@ export class PreferencesService {
     FONT_SIZE_PREFIX: "fontSize",
     VIEW_MODE: "viewMode",
     STUDY_MODE: "studyMode",
+    STUDY_SHORTCUTS: "studyShortcuts",
     STUDY_SIDEBAR_COLLAPSED: "studySidebarCollapsed",
     STUDY_PANEL_COLLAPSED: "studyPanelCollapsed",
     STUDY_COLUMN_WIDTHS: "studyColumnWidths",
@@ -177,6 +178,19 @@ export class PreferencesService {
 
   setStudyMode(enabled: boolean): void {
     this.storage?.setItem(this.KEYS.STUDY_MODE, enabled.toString())
+  }
+
+  /**
+   * Whether study mode's one-letter keys are on. On by default; a reader whose
+   * screen reader uses the same letters, or who presses them by accident, can
+   * turn them off, and it is kept.
+   */
+  getStudyShortcuts(): boolean {
+    return this.storage?.getItem(this.KEYS.STUDY_SHORTCUTS) !== "false"
+  }
+
+  setStudyShortcuts(enabled: boolean): void {
+    this.storage?.setItem(this.KEYS.STUDY_SHORTCUTS, enabled.toString())
   }
 
   /**

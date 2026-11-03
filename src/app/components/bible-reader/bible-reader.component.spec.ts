@@ -43,6 +43,7 @@ class FakeStudyModeService {
   readonly available$ = this.availableSubject.asObservable()
   readonly active$ = this.activeSubject.asObservable()
   isEnabled = false
+  shortcutsEnabled = true
   toggle = vi
     .fn()
     .mockName("toggle")
@@ -1406,6 +1407,57 @@ describe("BibleReaderComponent", () => {
       expect(component.parallel?.chapter).toBe(jobChapter as unknown as Chapter)
     })
 
+    describe("where the focus goes", () => {
+      let opener: HTMLButtonElement
+
+      beforeEach(() => {
+        apiServiceSpy.getChapter.mockReturnValue(
+          of(jobChapter as unknown as Chapter),
+        )
+        opener = document.createElement("button")
+        opener.textContent = "Abrir ao lado"
+        document.body.appendChild(opener)
+        opener.focus()
+      })
+
+      afterEach(() => opener.remove())
+
+      it("is on the passage that was asked for, not left on a button that has folded away", () => {
+        component.onOpenBeside(request)
+
+        const pane = fixture.nativeElement.querySelector(".study-parallel")
+        expect(pane).toBeTruthy()
+        expect(document.activeElement).toBe(pane)
+      })
+
+      it("goes back to what asked, when the passage is closed", () => {
+        component.onOpenBeside(request)
+
+        component.closeParallel()
+
+        expect(document.activeElement).toBe(opener)
+      })
+
+      it("does not take the focus from where the reader has put it since", () => {
+        component.onOpenBeside(request)
+        const elsewhere = document.createElement("input")
+        document.body.appendChild(elsewhere)
+        elsewhere.focus()
+
+        component.closeParallel()
+
+        expect(document.activeElement).toBe(elsewhere)
+        elsewhere.remove()
+      })
+
+      it("copes with an opener that has gone in the meantime", () => {
+        component.onOpenBeside(request)
+        opener.remove()
+
+        expect(() => component.closeParallel()).not.toThrow()
+      })
+    })
+
     it("sets the passage as plain reading text, not as verse selectors", () => {
       // Nothing listens for a selection made in the parallel, so a verse set
       // as a selector there had a number that was a button doing nothing and
@@ -1889,6 +1941,18 @@ describe("BibleReaderComponent", () => {
           of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
         )
         component.getChapter(1)
+      })
+
+      it("leaves every one-letter key alone when the reader has turned them off", () => {
+        studyMode.shortcutsEnabled = false
+
+        const event = press("j")
+        press("l")
+        press("n")
+
+        expect(event.defaultPrevented).toBe(false)
+        expect(component.selection).toBeNull()
+        expect(component.studySidebarCollapsed).toBe(false)
       })
 
       it("steps through the verses, starting from the one being read", () => {

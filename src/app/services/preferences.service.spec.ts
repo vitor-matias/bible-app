@@ -23,6 +23,16 @@ describe("PreferencesService", () => {
     expect(service.getStudyMode()).toBe(false)
   })
 
+  it("should have study mode's one-letter keys on until the reader turns them off", () => {
+    expect(service.getStudyShortcuts()).toBe(true)
+
+    service.setStudyShortcuts(false)
+    expect(service.getStudyShortcuts()).toBe(false)
+
+    service.setStudyShortcuts(true)
+    expect(service.getStudyShortcuts()).toBe(true)
+  })
+
   describe("study column widths", () => {
     it("starts with none, the layout choosing its own", () => {
       expect(service.getStudyColumnWidths()).toEqual({})

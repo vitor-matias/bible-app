@@ -55,6 +55,7 @@ import {
   type SearchHit,
   SearchService,
 } from "../../services/search.service"
+import { StudyModeService } from "../../services/study-mode.service"
 import {
   lastVerseNumber,
   placeReferences,
@@ -310,6 +311,7 @@ export class StudyPanelComponent implements OnChanges {
   private readonly reverseRefs = inject(ReverseReferencesService)
   private readonly network = inject(NetworkService)
   private readonly offlineData = inject(OfflineDataService)
+  private readonly studyMode = inject(StudyModeService)
   private readonly cdr = inject(ChangeDetectorRef)
   private readonly destroyRef = inject(DestroyRef)
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef)
@@ -385,6 +387,11 @@ export class StudyPanelComponent implements OnChanges {
         this.cdr.markForCheck()
       })
 
+    // The keys named on the tabs follow the reader's switch.
+    this.studyMode.shortcuts$.pipe(takeUntilDestroyed()).subscribe(() => {
+      this.cdr.markForCheck()
+    })
+
     this.offline = this.network.isOffline
     this.network.isOffline$.pipe(takeUntilDestroyed()).subscribe((offline) => {
       this.offline = offline
@@ -421,6 +428,16 @@ export class StudyPanelComponent implements OnChanges {
       references === 1 ? "1 referência" : `${references} referências`,
       this.noteDraft.trim() ? "com nota sua" : "sem nota sua",
     ].join(" · ")
+  }
+
+  /** The key that opens a tab, for assistive technology to announce; none when off. */
+  shortcutKeyFor(index: number): string | null {
+    return this.studyMode.shortcutsEnabled ? String(index + 1) : null
+  }
+
+  /** The key that folds the panel, or none when the shortcuts are off. */
+  get foldShortcut(): string | null {
+    return this.studyMode.shortcutsEnabled ? "p" : null
   }
 
   get selectedVerse(): Verse | undefined {

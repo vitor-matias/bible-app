@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component } from "@angular/core"
+import { ChangeDetectionStrategy, Component, inject } from "@angular/core"
 import { MatButtonModule } from "@angular/material/button"
 import { MatDialogModule } from "@angular/material/dialog"
+import { StudyModeService } from "../../services/study-mode.service"
 import { STUDY_SHORTCUTS } from "./study-shortcuts"
 
 /** The list of study mode's keys, opened with "?" or from the menu. */
@@ -24,6 +25,14 @@ import { STUDY_SHORTCUTS } from "./study-shortcuts"
         </div>
         }
       </dl>
+      <label class="switch">
+        <input type="checkbox" [checked]="shortcutsEnabled" (change)="onToggle($any($event.target).checked)" />
+        Atalhos de teclado ligados
+      </label>
+      <p class="switch-hint">
+        Desligue-os se as letras colidem com o seu leitor de ecrã, ou se as
+        carrega sem querer. Fica guardado.
+      </p>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>Fechar</button>
@@ -57,6 +66,28 @@ import { STUDY_SHORTCUTS } from "./study-shortcuts"
       font-size: 14px;
     }
 
+    .switch {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 20px;
+      min-height: 44px;
+      color: var(--text-color);
+      cursor: pointer;
+    }
+
+    .switch input {
+      width: 20px;
+      height: 20px;
+    }
+
+    .switch-hint {
+      margin: 0;
+      font-size: 13px;
+      color: var(--text-color);
+      opacity: 0.8;
+    }
+
     kbd {
       min-width: 22px;
       padding: 2px 6px;
@@ -69,5 +100,14 @@ import { STUDY_SHORTCUTS } from "./study-shortcuts"
   `,
 })
 export class StudyShortcutsComponent {
+  private readonly studyMode = inject(StudyModeService)
   readonly shortcuts = STUDY_SHORTCUTS
+
+  get shortcutsEnabled(): boolean {
+    return this.studyMode.shortcutsEnabled
+  }
+
+  onToggle(enabled: boolean): void {
+    this.studyMode.setShortcutsEnabled(enabled)
+  }
 }

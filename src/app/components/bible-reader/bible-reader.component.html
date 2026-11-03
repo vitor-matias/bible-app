@@ -90,7 +90,10 @@
         (pointermove)="columns.move($event)" (pointerup)="columns.end($event)"
         (pointercancel)="columns.end($event)" (keydown)="columns.key('split', $event)"
         (dblclick)="columns.reset('split')"></div>
-      <aside class="study-parallel" [attr.aria-label]="'Passagem ao lado: ' + parallel.label">
+      <!-- tabindex -1: it takes the focus when the passage opens, so a screen
+           reader says which passage this is, without becoming a stop in the tab
+           order. -->
+      <aside class="study-parallel" #parallelPane tabindex="-1" [attr.aria-label]="'Passagem ao lado: ' + parallel.label">
         <div class="parallel-head">
           <a class="study-label parallel-title" [routerLink]="parallel.link" [queryParams]="parallel.queryParams"
             title="Ler esta passagem na coluna principal">{{ parallel.label }}</a>

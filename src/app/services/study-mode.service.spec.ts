@@ -8,6 +8,7 @@ function configure(
   width: number,
   stored: boolean,
   platformId: object | string = "browser",
+  shortcuts = true,
 ): {
   service: StudyModeService
   preferences: SpyObj<PreferencesService>
@@ -17,8 +18,11 @@ function configure(
   const preferences = createSpyObj<PreferencesService>("PreferencesService", [
     "getStudyMode",
     "setStudyMode",
+    "getStudyShortcuts",
+    "setStudyShortcuts",
   ])
   preferences.getStudyMode.mockReturnValue(stored)
+  preferences.getStudyShortcuts.mockReturnValue(shortcuts)
 
   TestBed.configureTestingModule({
     providers: [
@@ -91,6 +95,35 @@ describe("StudyModeService", () => {
     expect(preferences.setStudyMode).not.toHaveBeenCalled()
   })
 
+  describe("the one-letter keys", () => {
+    it("are on until the reader turns them off", () => {
+      const { service } = configure(1400, false)
+
+      expect(service.shortcutsEnabled).toBe(true)
+    })
+
+    it("start off when the reader turned them off before", () => {
+      const { service } = configure(1400, false, "browser", false)
+
+      expect(service.shortcutsEnabled).toBe(false)
+    })
+
+    it("are kept when turned off, and say so to whoever listens", () => {
+      const { service, preferences } = configure(1400, false)
+      const seen: boolean[] = []
+      service.shortcuts$.subscribe((on) => seen.push(on))
+
+      service.setShortcutsEnabled(false)
+      service.setShortcutsEnabled(false)
+
+      expect(service.shortcutsEnabled).toBe(false)
+      expect(preferences.setStudyShortcuts).toHaveBeenCalledExactlyOnceWith(
+        false,
+      )
+      expect(seen).toEqual([true, false])
+    })
+  })
+
   it("emits over active$ only when both facts hold", () => {
     const { service } = configure(1400, false)
     const seen: boolean[] = []
@@ -129,8 +162,12 @@ describe("StudyModeService", () => {
     const preferences = createSpyObj<PreferencesService>("PreferencesService", [
       "getStudyMode",
       "setStudyMode",
+      "getStudyShortcuts",
+      "setStudyShortcuts",
     ])
     preferences.getStudyMode.mockReturnValue(true)
+    preferences.getStudyShortcuts.mockReturnValue(true)
+    preferences.getStudyShortcuts.mockReturnValue(true)
     TestBed.configureTestingModule({
       providers: [
         StudyModeService,
@@ -170,8 +207,12 @@ describe("StudyModeService", () => {
     const preferences = createSpyObj<PreferencesService>("PreferencesService", [
       "getStudyMode",
       "setStudyMode",
+      "getStudyShortcuts",
+      "setStudyShortcuts",
     ])
     preferences.getStudyMode.mockReturnValue(true)
+    preferences.getStudyShortcuts.mockReturnValue(true)
+    preferences.getStudyShortcuts.mockReturnValue(true)
     TestBed.configureTestingModule({
       providers: [
         StudyModeService,

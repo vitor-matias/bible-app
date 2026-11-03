@@ -30,6 +30,7 @@ export class StudyModeService {
 
   private readonly availableSubject = new BehaviorSubject(false)
   private readonly enabledSubject = new BehaviorSubject(false)
+  private readonly shortcutsSubject = new BehaviorSubject(true)
 
   readonly available$: Observable<boolean> = this.availableSubject.pipe(
     distinctUntilChanged(),
@@ -52,6 +53,7 @@ export class StudyModeService {
     if (!isPlatformBrowser(this.platformId)) return
 
     this.enabledSubject.next(this.preferences.getStudyMode())
+    this.shortcutsSubject.next(this.preferences.getStudyShortcuts())
 
     // A media query rather than a resize listener: this only has to fire when
     // the threshold is crossed, not on every pixel of a window drag.
@@ -102,6 +104,25 @@ export class StudyModeService {
 
   get isEnabled(): boolean {
     return this.enabledSubject.value
+  }
+
+  /**
+   * Whether study mode's one-letter keys act. A letter a screen reader also
+   * uses, or one pressed by accident, folds a column or leaves the verse; they
+   * are on by default and the reader can turn them off (WCAG 2.1.4).
+   */
+  get shortcutsEnabled(): boolean {
+    return this.shortcutsSubject.value
+  }
+
+  readonly shortcuts$: Observable<boolean> = this.shortcutsSubject.pipe(
+    distinctUntilChanged(),
+  )
+
+  setShortcutsEnabled(enabled: boolean): void {
+    if (enabled === this.shortcutsSubject.value) return
+    this.shortcutsSubject.next(enabled)
+    this.preferences.setStudyShortcuts(enabled)
   }
 
   get isActive(): boolean {

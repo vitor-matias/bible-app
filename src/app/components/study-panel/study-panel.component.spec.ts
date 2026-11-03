@@ -22,6 +22,7 @@ import {
   type IncomingReference,
   ReverseReferencesService,
 } from "../../services/reverse-references.service"
+import { StudyModeService } from "../../services/study-mode.service"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import {
   NOTE_SAVE_DEBOUNCE_MS,
@@ -110,6 +111,7 @@ describe("StudyPanelComponent", () => {
     chapter?: Chapter | null
     selection?: VerseSelection | null
     visibleVerse?: Verse["number"]
+    collapsed?: boolean
   }): void {
     // setInput, not a hand-written ngOnChanges: it runs the same input
     // pipeline Angular does and marks this OnPush view dirty, so assertions
@@ -1874,17 +1876,90 @@ describe("StudyPanelComponent", () => {
       expect(component.incoming).toEqual([])
     })
 
-    it("does not offer to remove what the installed app keeps on purpose", () => {
+    it("does not offer to remove what the installed app keeps on purpose", async () => {
       vi.spyOn(window, "matchMedia").mockReturnValue({
         matches: true,
       } as MediaQueryList)
-      component.showIncoming()
+      vi.spyOn(reverse, "ensureIndex").mockResolvedValue()
+      await component.showIncoming()
       fixture.detectChanges()
 
       const labels = Array.from(
         fixture.nativeElement.querySelectorAll(".incoming .verse-action"),
       ).map((b) => (b as HTMLElement).textContent)
       expect(labels.join(" ")).not.toContain("Remover")
+    })
+  })
+
+  describe("the keys it names", () => {
+    const keys = (): (string | null)[] =>
+      Array.from<Element>(fixture.nativeElement.querySelectorAll(".tab")).map(
+        (tab) => tab.getAttribute("aria-keyshortcuts"),
+      )
+
+    beforeEach(() => {
+      localStorage.removeItem("studyShortcuts")
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [] },
+      })
+    })
+
+    afterEach(() => localStorage.removeItem("studyShortcuts"))
+
+    it("are said on each tab, for assistive technology", () => {
+      expect(keys()).toEqual(["1", "2", "3", "4"])
+      expect(
+        fixture.nativeElement
+          .querySelector(".collapse-toggle")
+          .getAttribute("aria-keyshortcuts"),
+      ).toBe("p")
+    })
+
+    it("are not said once the reader has turned them off", () => {
+      TestBed.inject(StudyModeService).setShortcutsEnabled(false)
+      fixture.detectChanges()
+
+      expect(keys()).toEqual([null, null, null, null])
+      expect(
+        fixture.nativeElement
+          .querySelector(".collapse-toggle")
+          .hasAttribute("aria-keyshortcuts"),
+      ).toBe(false)
+    })
+  })
+
+  describe("folded away", () => {
+    beforeEach(() => {
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 22,
+          verses: [verse(37, [plain("texto"), references("Mc 12,28")])],
+        },
+      })
+    })
+
+    const content = (): HTMLElement =>
+      fixture.nativeElement.querySelector(".panel-content")
+
+    it("is out of reach and out of sight, but still there", () => {
+      setInputs({ collapsed: true })
+
+      expect(content().hidden).toBe(true)
+      expect(content().hasAttribute("inert")).toBe(true)
+      // Kept mounted, so what had the focus in it can be given it back.
+      expect(content().querySelector(".tab-body")).toBeTruthy()
+    })
+
+    it("is reachable again once unfolded", () => {
+      setInputs({ collapsed: true })
+
+      setInputs({ collapsed: false })
+
+      expect(content().hidden).toBe(false)
+      expect(content().hasAttribute("inert")).toBe(false)
     })
   })
 

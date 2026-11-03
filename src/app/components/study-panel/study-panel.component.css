@@ -23,6 +23,16 @@
   align-items: center;
 }
 
+/* The wrapper adds no box of its own: the tabs' bodies lay out as its parent's
+   children, as they did before it, and scroll in the panel. */
+.panel-content {
+  display: contents;
+}
+
+.panel-content[hidden] {
+  display: none;
+}
+
 /* Tabs and fold control on one line, the border running under both. */
 .panel-head {
   display: flex;

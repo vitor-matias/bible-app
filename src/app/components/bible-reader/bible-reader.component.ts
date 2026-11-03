@@ -201,6 +201,17 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   /** The column a cross reference is read in, beside the chapter. */
   @ViewChild("parallelScroll") parallelScroll?: ElementRef<HTMLElement>
 
+  /** The pane itself, where the focus goes when a passage is opened beside the chapter. */
+  @ViewChild("parallelPane") parallelPane?: ElementRef<HTMLElement>
+
+  /**
+   * What had the focus when a passage was opened beside the chapter — the
+   * button that asked — so closing it can give the focus back. Without that
+   * the focus fell to the top of the page both ways, and a keyboard or
+   * screen-reader user started again from the beginning each time.
+   */
+  private parallelOpener: HTMLElement | null = null
+
   /** Carries the widths the reader has dragged the columns to. */
   @ViewChild("textContainer") textContainer?: ElementRef<HTMLElement>
 
@@ -1401,6 +1412,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
    * about, and the rest are the places a hand otherwise leaves the keys for.
    */
   private onStudyShortcut(event: KeyboardEvent): boolean {
+    // Off, they are not shortcuts at all: the keys go to whoever else wants
+    // them, a screen reader's quick navigation, say.
+    if (!this.studyModeService.shortcutsEnabled) return false
     const action = studyShortcutFor(event)
     switch (action) {
       case null:
@@ -1720,6 +1734,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
    */
   onOpenBeside(request: ParallelRequest): void {
     this.parallelSubscription?.unsubscribe()
+    if (!this.parallel && typeof document !== "undefined") {
+      const active = document.activeElement
+      this.parallelOpener = active instanceof HTMLElement ? active : null
+    }
     this.parallel = request
     // The panel is the column whose work the parallel has just taken over, and
     // two texts read side by side need the width more than a list of
@@ -1733,6 +1751,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // marked view can sit unrendered until something unrelated triggers a
     // pass. Same reason the panel's tab strip renders itself.
     this.cdr.detectChanges()
+    // To the passage that was asked for: the button that asked is now in a
+    // folded panel, and the focus would otherwise be left on nothing.
+    this.parallelPane?.nativeElement.focus({ preventScroll: true })
 
     this.parallelSubscription = this.apiService
       .getChapter(request.bookId, request.chapterNumber)
@@ -1772,8 +1793,18 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   closeParallel(): void {
+    const opener = this.parallelOpener
+    this.parallelOpener = null
+    // Only a reader whose focus is in the pane being closed is put back: one
+    // who has moved on since is where they chose to be.
+    const pane = this.parallelPane?.nativeElement
+    const focusWasInPane = !!pane?.contains(document.activeElement)
     this.clearParallel()
     this.cdr.detectChanges()
+    // Back to what asked, now that the panel is unfolded to hold it again.
+    if (focusWasInPane && opener?.isConnected) {
+      opener.focus({ preventScroll: true })
+    }
   }
 
   /** Drops the parallel without rendering: for callers that paint anyway. */

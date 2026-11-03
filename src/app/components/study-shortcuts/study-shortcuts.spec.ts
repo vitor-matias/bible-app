@@ -1,4 +1,7 @@
+import { TestBed } from "@angular/core/testing"
+import { StudyModeService } from "../../services/study-mode.service"
 import { STUDY_SHORTCUTS, studyShortcutFor } from "./study-shortcuts"
+import { StudyShortcutsComponent } from "./study-shortcuts.component"
 
 const press = (key: string, init: KeyboardEventInit = {}) =>
   new KeyboardEvent("keydown", { key, ...init })
@@ -37,5 +40,45 @@ describe("study mode's shortcuts", () => {
   it("gives no key two jobs", () => {
     const keys = STUDY_SHORTCUTS.flatMap((shortcut) => shortcut.keys)
     expect(new Set(keys).size).toBe(keys.length)
+  })
+})
+
+describe("the shortcuts dialog's switch", () => {
+  beforeEach(() => {
+    localStorage.removeItem("studyShortcuts")
+    TestBed.configureTestingModule({ imports: [StudyShortcutsComponent] })
+  })
+
+  afterEach(() => localStorage.removeItem("studyShortcuts"))
+
+  const render = () => {
+    const fixture = TestBed.createComponent(StudyShortcutsComponent)
+    fixture.detectChanges()
+    return fixture
+  }
+  const checkbox = (fixture: ReturnType<typeof render>) =>
+    fixture.nativeElement.querySelector(".switch input") as HTMLInputElement
+
+  it("shows the keys as on, as they are until the reader says otherwise", () => {
+    expect(checkbox(render()).checked).toBe(true)
+  })
+
+  it("turns them off, and the choice is kept for next time", () => {
+    const fixture = render()
+
+    checkbox(fixture).click()
+
+    expect(TestBed.inject(StudyModeService).shortcutsEnabled).toBe(false)
+    expect(localStorage.getItem("studyShortcuts")).toBe("false")
+  })
+
+  it("turns them back on", () => {
+    const fixture = render()
+    checkbox(fixture).click()
+
+    checkbox(fixture).click()
+
+    expect(TestBed.inject(StudyModeService).shortcutsEnabled).toBe(true)
+    expect(localStorage.getItem("studyShortcuts")).toBe("true")
   })
 })
