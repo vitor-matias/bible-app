@@ -50,7 +50,11 @@ import {
   type IndexState,
   ReverseReferencesService,
 } from "../../services/reverse-references.service"
-import { type SearchHit, SearchService } from "../../services/search.service"
+import {
+  type PsalmChoice,
+  type SearchHit,
+  SearchService,
+} from "../../services/search.service"
 import {
   lastVerseNumber,
   placeReferences,
@@ -262,7 +266,10 @@ export class StudyPanelComponent implements OnChanges {
     | "done"
     | "failed"
     | "missing"
+    | "psalm"
     | "nothingStored" = "idle"
+  /** The psalms a bare number may mean, to choose between: see SearchService. */
+  psalmOptions: PsalmChoice[] = []
   readonly nothingStoredMessage = NOTHING_STORED
   searchTotal = 0
   /** The search is the API's, so it is the one thing here that needs the net. */
@@ -785,6 +792,8 @@ export class StudyPanelComponent implements OnChanges {
         next: (outcome) => {
           if (outcome.kind === "destination") {
             this.searchState = "idle"
+            // The panel changes nothing the reader can hear: say where it went.
+            void this.announcer.announce(`${outcome.label} aberto.`)
             void this.router.navigate(
               outcome.link,
               outcome.queryParams ? { queryParams: outcome.queryParams } : {},
@@ -792,6 +801,14 @@ export class StudyPanelComponent implements OnChanges {
           } else if (outcome.kind === "missing") {
             this.searchState = "missing"
             void this.announcer.announce(`${query} não existe.`)
+          } else if (outcome.kind === "psalmChoice") {
+            this.psalmOptions = outcome.options
+            this.searchState = "psalm"
+            void this.announcer.announce(
+              `Qual salmo procura? ${outcome.options
+                .map((option) => `${option.label}, ${option.note}`)
+                .join("; ")}.`,
+            )
           } else if (outcome.kind === "nothingStored") {
             this.searchState = "nothingStored"
             void this.announcer.announce(NOTHING_STORED)

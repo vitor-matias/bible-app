@@ -9,6 +9,11 @@ import { OfflineSearchService } from "./offline-search.service"
 import { SearchService } from "./search.service"
 
 const MATTHEW = { id: "mat", abrv: "Mt", shortName: "Mateus" } as Book
+const PSALMS = {
+  id: "psa",
+  abrv: "Sl",
+  shortName: "Salmos",
+} as Book
 const PENTATEUCH = {
   id: "pentateuco",
   abrv: "pentateuco",
@@ -21,6 +26,7 @@ describe("SearchService", () => {
   let api: SpyObj<BibleApiService>
   let references: SpyObj<BibleReferenceService>
   let booksLoaded: ReplaySubject<Book[]>
+  let bookService: SpyObj<BookService>
   let network: { isOffline: boolean }
   let offline: SpyObj<OfflineSearchService>
 
@@ -41,10 +47,12 @@ describe("SearchService", () => {
     ])
     const books = createSpyObj<BookService>(
       "BookService",
-      ["findBook", "getUrlAbrv", "getChapterUrlSegment"],
+      ["findBook", "findTypedBook", "getUrlAbrv", "getChapterUrlSegment"],
       { books$: booksLoaded.asObservable() },
     )
+    bookService = books
     books.findBook.mockReturnValue(MATTHEW)
+    books.findTypedBook.mockReturnValue(undefined)
     books.getUrlAbrv.mockImplementation((book: Book) => book.abrv.toLowerCase())
     books.getChapterUrlSegment.mockImplementation((chapter: number) =>
       String(chapter),
@@ -77,6 +85,7 @@ describe("SearchService", () => {
     expect(api.search).not.toHaveBeenCalled()
     expect(outcome).toEqual({
       kind: "destination",
+      label: "Mateus 22,37",
       link: ["/", "mt", "22"],
       queryParams: { verseStart: 37 },
     })
@@ -108,6 +117,7 @@ describe("SearchService", () => {
     expect(api.getVerse).not.toHaveBeenCalled()
     expect(outcome).toEqual({
       kind: "destination",
+      label: "Introdução ao Pentateuco",
       link: ["/", "pentateuco", "intro"],
     })
   })
@@ -191,6 +201,79 @@ describe("SearchService", () => {
       expect(listed).toBe(0)
       booksLoaded.next([MATTHEW])
       expect(listed).toBe(1)
+    })
+  })
+
+  describe("a psalm, whose number is not the same in the Mass", () => {
+    beforeEach(() => {
+      bookService.findTypedBook.mockImplementation((name: string) =>
+        name === "Sl" ? PSALMS : undefined,
+      )
+      api.getVerse.mockReturnValue(of({} as Verse))
+    })
+
+    it("offers both psalms a bare number may mean, and opens neither unasked", async () => {
+      references.destinationOf.mockReturnValue({ book: PSALMS, chapter: 94 })
+
+      const outcome = await firstValueFrom(service.run("Sl 94"))
+
+      expect(outcome).toEqual({
+        kind: "psalmChoice",
+        options: [
+          {
+            label: "Salmo 94 (93)",
+            note: "nesta Bíblia",
+            link: ["/", "sl", "94"],
+          },
+          {
+            label: "Salmo 95 (94)",
+            note: "como na Missa",
+            link: ["/", "sl", "95"],
+          },
+        ],
+      })
+      expect(api.getVerse).not.toHaveBeenCalled()
+    })
+
+    it("keeps the verses a bare number came with, on both", async () => {
+      references.destinationOf.mockReturnValue({
+        book: PSALMS,
+        chapter: 94,
+        verseStart: 3,
+      })
+
+      const outcome = await firstValueFrom(service.run("Sl 94,3"))
+
+      expect(outcome.kind === "psalmChoice" && outcome.options).toMatchObject([
+        { queryParams: { verseStart: 3 } },
+        { queryParams: { verseStart: 3 } },
+      ])
+    })
+
+    it("takes the one psalm a leaflet names with both numbers", async () => {
+      references.destinationOf.mockReturnValue({
+        book: PSALMS,
+        chapter: 95,
+        verseStart: 1,
+      })
+
+      const outcome = await firstValueFrom(service.run("Sl 94 (95), 1-2"))
+
+      // The edition's number for it is what the reference names.
+      expect(references.destinationOf).toHaveBeenCalledWith("Sl 95,1-2")
+      expect(outcome).toMatchObject({
+        kind: "destination",
+        label: "Salmo 95 (94),1",
+        link: ["/", "sl", "95"],
+      })
+    })
+
+    it("does not ask about a psalm that is the same in both numberings", async () => {
+      references.destinationOf.mockReturnValue({ book: PSALMS, chapter: 9 })
+
+      const outcome = await firstValueFrom(service.run("Sl 9"))
+
+      expect(outcome.kind).toBe("destination")
     })
   })
 

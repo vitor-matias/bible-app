@@ -1477,6 +1477,51 @@ describe("StudyPanelComponent", () => {
       )
     })
 
+    it("says aloud where a reference opened, since nothing else changes", () => {
+      const announce = vi
+        .spyOn(TestBed.inject(LiveAnnouncer), "announce")
+        .mockResolvedValue(undefined)
+      bibleRef.destinationOf.mockReturnValue({
+        book: MARK,
+        chapter: 12,
+        verseStart: 31,
+      })
+      api.getVerse.mockReturnValue(of(verse(31, [])))
+
+      component.onSearchSubmit("Mc 12,31")
+
+      expect(announce).toHaveBeenCalledWith(`${MARK.shortName} 12,31 aberto.`)
+    })
+
+    it("offers both psalms a leaflet's number may mean, rather than guessing", () => {
+      const psalms = { ...BOOK, id: "psa", abrv: "Sl", shortName: "Salmos" }
+      bibleRef.destinationOf.mockReturnValue({ book: psalms, chapter: 94 })
+      const announce = vi
+        .spyOn(TestBed.inject(LiveAnnouncer), "announce")
+        .mockResolvedValue(undefined)
+      component.openTab("search")
+
+      component.onSearchSubmit("Sl 94")
+      fixture.detectChanges()
+
+      expect(router.navigate).not.toHaveBeenCalled()
+      const links = Array.from<Element>(
+        fixture.nativeElement.querySelectorAll(
+          "#study-tabpanel-search .reference-label",
+        ),
+      ).map((link) => ({
+        text: link.textContent?.trim(),
+        href: link.getAttribute("href"),
+      }))
+      expect(links).toEqual([
+        { text: "Salmo 94 (93)", href: "/sl/94" },
+        { text: "Salmo 95 (94)", href: "/sl/95" },
+      ])
+      expect(announce).toHaveBeenCalledWith(
+        "Qual salmo procura? Salmo 94 (93), nesta Bíblia; Salmo 95 (94), como na Missa.",
+      )
+    })
+
     it("says so when the reference names a verse that is not there", () => {
       bibleRef.destinationOf.mockReturnValue({ book: MARK, chapter: 40 })
       api.getVerse.mockReturnValue(throwError(() => ({ status: 404 })))

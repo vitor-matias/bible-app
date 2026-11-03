@@ -10,6 +10,13 @@ import {
   throwError,
   timeout,
 } from "rxjs"
+import { passageLabel } from "../utils/passage-label"
+import {
+  isAmbiguousPsalmNumber,
+  PSALMS_BOOK_ID,
+  parsePsalmPair,
+  psalmFromLiturgical,
+} from "../utils/psalms"
 import { highlightWords, verseText } from "../utils/text-search"
 import { BibleApiService } from "./bible-api.service"
 import { BibleReferenceService } from "./bible-reference.service"
@@ -39,16 +46,29 @@ export type SearchResults = {
   hits: SearchHit[]
 }
 
+/** One of the psalms a bare psalm number may mean. */
+export type PsalmChoice = {
+  label: string
+  /** Which numbering names it so: "nesta Bíblia" or "como na Missa". */
+  note: string
+  link: (string | number)[]
+  queryParams?: { verseStart: Verse["number"] }
+}
+
 /**
  * What came of a search: somewhere to go, a reference to somewhere that is
- * not there, verses found, or — offline — no Bible stored to look in.
+ * not there, a number that could mean two psalms, verses found, or — offline —
+ * no Bible stored to look in.
  */
 export type SearchOutcome =
   | {
       kind: "destination"
+      /** "Salmo 93 (94)": where it goes, for saying so aloud. */
+      label: string
       link: (string | number)[]
       queryParams?: { verseStart: Verse["number"] }
     }
+  | { kind: "psalmChoice"; options: PsalmChoice[] }
   | { kind: "missing" }
   | { kind: "nothingStored" }
   | SearchResults
@@ -79,15 +99,37 @@ export class SearchService {
    */
   run(text: string, limit?: number): Observable<SearchOutcome> {
     const query = text.trim()
-    const destination = this.references.destinationOf(query)
+    // "Sl 94 (95), 1-2": with both numbers, a leaflet names one psalm, and the
+    // edition's number for it is what the reference then names.
+    const pair = parsePsalmPair(query)
+    const pairBook = pair ? this.books.findTypedBook(pair.book) : undefined
+    const paired = !!pair && pairBook?.id === PSALMS_BOOK_ID
+    const asked =
+      pair && paired && pairBook
+        ? `${pairBook.abrv} ${pair.psalm}${pair.rest.replace(/^,\s*/, ",")}`
+        : query
+    const destination = this.references.destinationOf(asked)
     if (!destination) return this.page(query, 1, limit)
 
-    const { book, chapter, verseStart } = destination
+    const { book, chapter } = destination
+    const verseStart =
+      destination.verseStart ?? (paired ? pair?.verse : undefined)
+    // Most psalms have another number in the liturgy, and one copied from a
+    // leaflet would open a different psalm here. Not guessed: both are offered.
+    if (
+      book.id === PSALMS_BOOK_ID &&
+      !paired &&
+      isAmbiguousPsalmNumber(chapter)
+    ) {
+      return of(this.psalmChoice(book, chapter, verseStart))
+    }
     // A standalone introduction has no chapters: nothing to ask for, and its
     // only page is the introduction.
     const isIntro = !!book.introSlug
     const found: SearchOutcome = {
       kind: "destination",
+      // An introduction has no chapter 1 to be named after.
+      label: isIntro ? book.shortName : passageLabel(book, chapter, verseStart),
       link: [
         "/",
         this.books.getUrlAbrv(book),
@@ -107,6 +149,41 @@ export class SearchService {
           : throwError(() => error),
       ),
     )
+  }
+
+  private psalmChoice(
+    psalms: Book,
+    psalm: number,
+    verseStart: number | undefined,
+  ): SearchOutcome {
+    const liturgical = psalmFromLiturgical(psalm)
+    const option = (number: number, note: string, verse?: number) => ({
+      label: passageLabel(psalms, number),
+      note,
+      link: [
+        "/",
+        this.books.getUrlAbrv(psalms),
+        this.books.getChapterUrlSegment(number),
+      ],
+      ...(verse !== undefined && verse > 1
+        ? { queryParams: { verseStart: verse } }
+        : {}),
+    })
+    return {
+      kind: "psalmChoice",
+      options: [
+        option(psalm, "nesta Bíblia", verseStart),
+        ...(liturgical
+          ? [
+              option(
+                liturgical.psalm,
+                "como na Missa",
+                verseStart ?? liturgical.verse,
+              ),
+            ]
+          : []),
+      ],
+    }
   }
 
   /**

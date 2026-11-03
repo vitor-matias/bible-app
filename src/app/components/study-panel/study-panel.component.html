@@ -309,6 +309,19 @@
     @case ('failed') {
     <p class="panel-empty small">Não foi possível procurar agora.</p>
     }
+    @case ('psalm') {
+    <!-- Most psalms have another number in the liturgy: a number copied from a
+         leaflet would open a different one here, so both are offered. -->
+    <p class="panel-caption notes-caption">Qual salmo procura?</p>
+    <ul class="reference-list">
+      @for (option of psalmOptions; track option.label) {
+      <li class="reference">
+        <a class="reference-label" [routerLink]="option.link" [queryParams]="option.queryParams">{{ option.label }}</a>{{ " " }}
+        <span class="reference-source">{{ option.note }}</span>
+      </li>
+      }
+    </ul>
+    }
     @case ('nothingStored') {
     <p class="panel-empty small">{{ nothingStoredMessage }}</p>
     }
