@@ -1,5 +1,5 @@
 import { LiveAnnouncer } from "@angular/cdk/a11y"
-import { CommonModule, isPlatformBrowser } from "@angular/common"
+import { CommonModule, isPlatformBrowser, Location } from "@angular/common"
 import {
   afterNextRender,
   ChangeDetectionStrategy,
@@ -121,6 +121,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private preferencesService = inject(PreferencesService)
   private cdr = inject(ChangeDetectorRef)
   private router = inject(Router)
+  private location = inject(Location)
   private route = inject(ActivatedRoute)
   private animationService = inject(BibleReaderAnimationService)
   private analyticsService = inject(AnalyticsService)
@@ -1204,12 +1205,30 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     }
 
     this.selection = selection
+    this.writeSelectionToUrl()
     // Picking a verse is asking what the edition says about it, so a folded
     // panel unfolds rather than swallowing the answer.
     if (this.studyPanelCollapsed) {
       this.setStudyPanelCollapsed(false)
     }
     this.cdr.markForCheck()
+  }
+
+  /**
+   * Puts the chosen verse in the address, or takes it out when none is. The
+   * address is what "Partilhar" and a copied link send, and without this they
+   * named the chapter, so whoever was sent one landed at its top and had to
+   * find the verse again.
+   *
+   * Not a navigation: the chapter is already here, and a navigation would
+   * reload it and add a history entry for every verse the j and k keys step
+   * through, leaving Back a trap.
+   */
+  private writeSelectionToUrl(): void {
+    if (!isPlatformBrowser(this.platformId)) return
+    const path = this.location.path().split("?")[0]
+    const verse = this.selection?.verse.number
+    this.location.replaceState(path, verse ? `verseStart=${verse}` : "")
   }
 
   /**
@@ -1276,6 +1295,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   clearSelection(): void {
     if (!this.selection) return
     this.selection = null
+    this.writeSelectionToUrl()
     this.cdr.markForCheck()
   }
 
@@ -1499,6 +1519,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     const verse = verses[index]
 
     this.selection = { verse }
+    this.writeSelectionToUrl()
     this.cdr.detectChanges()
     // Only as far as it takes to see it: a step within the screen moves the
     // mark, not the text under the reader's eyes.

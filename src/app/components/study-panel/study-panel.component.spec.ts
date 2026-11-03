@@ -1891,6 +1891,60 @@ describe("StudyPanelComponent", () => {
     })
   })
 
+  describe("a link to the chosen verse", () => {
+    const target = verse(37, [plain("Amarás")])
+    const choose = (): void =>
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+
+    it("is offered beside copying the words", () => {
+      choose()
+
+      const labels = Array.from<Element>(
+        fixture.nativeElement.querySelectorAll(".verse-actions .verse-action"),
+      ).map((button) => button.textContent?.trim())
+      expect(labels.some((label) => label?.includes("Copiar ligação"))).toBe(
+        true,
+      )
+    })
+
+    it("copies the address of the verse, and nothing of the reader's note", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } })
+      choose()
+      component.noteDraft = "uma nota só minha"
+
+      await component.copyLink()
+
+      expect(writeText).toHaveBeenCalledExactlyOnceWith(
+        `${window.location.origin}/mt/22?verseStart=37`,
+      )
+      expect(component.linkCopied).toBe(true)
+    })
+
+    it("says aloud that it did, and that it could not when the clipboard refuses", async () => {
+      const announce = vi
+        .spyOn(TestBed.inject(LiveAnnouncer), "announce")
+        .mockResolvedValue(undefined)
+      vi.stubGlobal("navigator", {
+        ...navigator,
+        clipboard: { writeText: vi.fn().mockRejectedValue(new Error("no")) },
+      })
+      choose()
+      announce.mockClear()
+
+      await component.copyLink()
+
+      expect(announce).toHaveBeenCalledWith(
+        "Não foi possível copiar a ligação.",
+      )
+      expect(component.linkCopied).toBe(false)
+    })
+  })
+
   describe("the keys it names", () => {
     const keys = (): (string | null)[] =>
       Array.from<Element>(fixture.nativeElement.querySelectorAll(".tab")).map(

@@ -66,6 +66,10 @@
       <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
       {{ copied ? 'Copiado' : 'Copiar ' + selectedVerseLabel }}
     </button>
+    <button type="button" class="verse-action" (click)="copyLink()">
+      <mat-icon>{{ linkCopied ? 'check' : 'link' }}</mat-icon>
+      {{ linkCopied ? 'Ligação copiada' : 'Copiar ligação' }}
+    </button>
     
 
     <!-- The note box lives here as well as in its own tab: a thought about a

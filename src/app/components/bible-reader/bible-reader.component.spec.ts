@@ -1,3 +1,4 @@
+import { Location } from "@angular/common"
 import {
   ChangeDetectorRef,
   ElementRef,
@@ -1988,6 +1989,65 @@ describe("BibleReaderComponent", () => {
           of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
         )
         component.getChapter(1)
+      })
+
+      describe("the address", () => {
+        let replaceState: ReturnType<typeof vi.spyOn>
+
+        beforeEach(() => {
+          const location = TestBed.inject(Location)
+          vi.spyOn(location, "path").mockReturnValue(
+            "/mt/22?verseStart=1&highlight=1",
+          )
+          replaceState = vi.spyOn(location, "replaceState").mockReturnValue()
+        })
+
+        it("names the verse that is chosen, so a link or Partilhar lands on it", () => {
+          component.onVerseSelected({ verse: verses[1] })
+
+          expect(replaceState).toHaveBeenCalledExactlyOnceWith(
+            "/mt/22",
+            "verseStart=2",
+          )
+        })
+
+        it("is not a navigation, which would reload the chapter and add to history", () => {
+          routerSpy.navigate.mockClear()
+
+          component.onVerseSelected({ verse: verses[1] })
+
+          expect(routerSpy.navigate).not.toHaveBeenCalled()
+        })
+
+        it("follows the j and k keys, one verse at a time", () => {
+          component.visibleVerse = 1
+          press("j")
+          press("j")
+
+          expect(replaceState).toHaveBeenLastCalledWith(
+            "/mt/22",
+            "verseStart=2",
+          )
+          press("j")
+          expect(replaceState).toHaveBeenLastCalledWith(
+            "/mt/22",
+            "verseStart=3",
+          )
+        })
+
+        it("drops the verse again when the reader lets go of it", () => {
+          component.onVerseSelected({ verse: verses[1] })
+
+          component.clearSelection()
+
+          expect(replaceState).toHaveBeenLastCalledWith("/mt/22", "")
+        })
+
+        it("leaves the address alone when there was nothing to let go of", () => {
+          component.clearSelection()
+
+          expect(replaceState).not.toHaveBeenCalled()
+        })
       })
 
       it("leaves every one-letter key alone when the reader has turned them off", () => {

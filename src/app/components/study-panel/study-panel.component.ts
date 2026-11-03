@@ -252,6 +252,8 @@ export class StudyPanelComponent implements OnChanges {
   noteMatches: VerseNote[] = []
   noteQuery = ""
   noteDraft = ""
+  /** The link to the verse has just been copied. */
+  linkCopied = false
   /** The Bible is being fetched for "Citado em": see downloadText. */
   downloading = false
   /**
@@ -367,6 +369,7 @@ export class StudyPanelComponent implements OnChanges {
   private noteSearchSubscription?: Subscription
   private searchSubscription?: Subscription
   private copiedTimer?: ReturnType<typeof setTimeout>
+  private linkCopiedTimer?: ReturnType<typeof setTimeout>
 
   constructor() {
     this.noteInput
@@ -406,6 +409,7 @@ export class StudyPanelComponent implements OnChanges {
       this.searchSubscription?.unsubscribe()
       this.stopGlide()
       if (this.copiedTimer) clearTimeout(this.copiedTimer)
+      if (this.linkCopiedTimer) clearTimeout(this.linkCopiedTimer)
       this.cancelReferenceRequests()
     })
   }
@@ -900,6 +904,35 @@ export class StudyPanelComponent implements OnChanges {
   noteReference(note: VerseNote): string {
     const book = this.bookService.findBook(note.bookId)
     return `${book.shortName} ${note.chapter},${note.verse}`
+  }
+
+  /**
+   * The address of the chosen verse, on the clipboard: what to send someone so
+   * that they land on it rather than at the top of the chapter, without any of
+   * the reader's own note, which is theirs and stays on this device.
+   */
+  async copyLink(): Promise<void> {
+    const verse = this.selectedVerse
+    if (!verse || !this.book) return
+    const path = [
+      this.bookService.getUrlAbrv(this.book),
+      this.bookService.getChapterUrlSegment(verse.chapterNumber),
+    ].join("/")
+    try {
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/${path}?verseStart=${verse.number}`,
+      )
+      this.linkCopied = true
+      this.cdr.markForCheck()
+      void this.announcer.announce("Ligação copiada.")
+      if (this.linkCopiedTimer) clearTimeout(this.linkCopiedTimer)
+      this.linkCopiedTimer = setTimeout(() => {
+        this.linkCopied = false
+        this.cdr.markForCheck()
+      }, COPIED_FEEDBACK_MS)
+    } catch {
+      void this.announcer.announce("Não foi possível copiar a ligação.")
+    }
   }
 
   /**
