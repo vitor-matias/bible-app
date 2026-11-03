@@ -165,6 +165,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }>()
   readonly toggleAutoScrollControls = output<void>()
   readonly toggleViewMode = output<void>()
+  readonly toggleCardsView = output<void>()
   /** iOS toolbar arrows: a page in paged mode, else a chapter. */
   readonly previous = output<void>()
   readonly next = output<void>()
@@ -173,7 +174,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     bookId: string
     chapter?: number
   }>()
-  readonly toggleCardsView = output<void>()
 
   mobile = false
 
@@ -354,26 +354,31 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
    * Ignores a late version result, unregisters the back handler, stops label
    * cycling, and requests that the native bars hide.
    */
-  ngOnDestroy(): void 
+  ngOnDestroy(): void {
     this.destroyed = true
     this.unregisterBackCloser()
     this.stopLabelCycle()
     if (this.native) this.nativeChrome.hide()
+  }
 
-  showBookSelector() 
+  showBookSelector() {
     this.openBookSelector.emit({ open: true })
+  }
 
-  showChapterSelector() 
+  showChapterSelector() {
     this.openChapterSelector.emit({ open: true })
+  }
 
-  onToggleAutoScrollControls(trigger: MatMenuTrigger, event?: Event): void 
+  onToggleAutoScrollControls(trigger: MatMenuTrigger, event?: Event): void {
     event?.stopPropagation()
     this.toggleAutoScrollControls.emit()
     trigger.closeMenu()
+  }
 
-  onToggleViewMode(event?: Event): void 
+  onToggleViewMode(event?: Event): void {
     event?.stopPropagation()
     this.toggleViewMode.emit()
+  }
 
   getThemeIcon(): string {
     const mode = this.themeService.currentMode
@@ -392,9 +397,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
    * One button cycles through the three themes. The menu stays open, so the
    * page changes theme behind it and the icon shows the new one.
    */
-  onToggleTheme(): void 
+  onToggleTheme(): void {
     this.themeService.toggleTheme()
     this.cdr.detectChanges()
+  }
 
   /** The ribbon on the chapter being read, by its spoken name ("Vermelho"). */
   get bookmarkName(): string | undefined {
@@ -402,13 +408,15 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     return color ? spokenRibbonName(color) : undefined
   }
 
-  getViewModeIcon(): string 
+  getViewModeIcon(): string {
     return this.viewMode() === "scrolling" ? "swipe_vertical" : "auto_stories"
+  }
 
-  getViewModeTooltip(): string 
+  getViewModeTooltip(): string {
     return this.viewMode() === "scrolling"
       ? "Texto contínuo (clique para mudar para página a página)"
       : "Página a página (clique para mudar para texto contínuo)"
+  }
 
   /** A size up or down; a `step` (percent) where the native sheet asks for one. */
   readonly increaseFontSizeEvent = output<number | undefined>()
@@ -416,24 +424,29 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /** Back to the size the text opens at without a choice. */
   readonly resetFontSizeEvent = output<void>()
 
-  increaseFontSize(): void 
+  increaseFontSize(): void {
     this.increaseFontSizeEvent.emit(undefined)
+  }
 
-  onIncreaseFontSize(event?: Event): void 
+  onIncreaseFontSize(event?: Event): void {
     event?.stopPropagation()
     this.increaseFontSize()
+  }
 
-  decreaseFontSize(): void 
+  decreaseFontSize(): void {
     this.decreaseFontSizeEvent.emit(undefined)
+  }
 
-  onDecreaseFontSize(event?: Event): void 
+  onDecreaseFontSize(event?: Event): void {
     event?.stopPropagation()
     this.decreaseFontSize()
+  }
 
-  async onShare(trigger: MatMenuTrigger, event?: Event): Promise<void> 
+  async onShare(trigger: MatMenuTrigger, event?: Event): Promise<void> {
     event?.stopPropagation()
     trigger.closeMenu()
     await this.sharePassage()
+  }
 
   async sharePassage(): Promise<void> {
     if (!this.canShare) {
@@ -522,19 +535,21 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     })
   }
 
-  private onNativeAction(action: NativeChromeAction): void 
+  private onNativeAction(action: NativeChromeAction): void {
     switch (action.id) {
       case "passage":
         this.nativeChrome.showPicker(
-          buildPassagePicker(this.bookService.getBooks(), this.bookmarks, 
+          buildPassagePicker(this.bookService.getBooks(), this.bookmarks, {
             bookId: this.book().id,
-            chapter: this.chapterNumber(),),
+            chapter: this.chapterNumber(),
+          }),
         )
         break
       case "goto":
-        this.selectPassage.emit(
+        this.selectPassage.emit({
           bookId: action.bookId,
-          chapter: action.chapter,)
+          chapter: action.chapter,
+        })
         break
       case "previous":
         this.previous.emit()
@@ -587,8 +602,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         window.open(PRIVACY_POLICY_URL, "_blank", "noopener")
         break
     }
+  }
 
-  private startLabelCycle(): void 
+  private startLabelCycle(): void {
     this.stopLabelCycle()
     this.bookLabelMode = "title"
     // Browser-only: there is no window while prerendering the home page.
@@ -605,8 +621,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.cdr.detectChanges()
       }, LABEL_FADE_MS)
     }, LABEL_HOLD_MS)
+  }
 
-  private stopLabelCycle(): void 
+  private stopLabelCycle(): void {
     if (this.labelInterval) {
       clearInterval(this.labelInterval)
       this.labelInterval = undefined
@@ -617,4 +634,5 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
     this.bookLabelMode = "title"
     this.labelFading = false
+  }
 }
