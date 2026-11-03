@@ -251,6 +251,16 @@ h3:not(:first-child) {
 
 .verseNumber[role="button"] {
   cursor: pointer;
+  position: relative;
+}
+
+/* The number is a button set at two thirds of the text's size, far under what
+   a pointer can reliably hit: its target is made larger than it looks, without
+   moving anything. */
+.verseNumber[role="button"]::after {
+  content: "";
+  position: absolute;
+  inset: -6px -4px;
 }
 
 .verseNumber[role="button"]:focus-visible {
@@ -321,4 +331,19 @@ h3:not(:first-child) {
 .quoteVerseNumber {
   -webkit-user-select: none;
   user-select: none;
+}
+
+/* Forced colours drop backgrounds and shadows, which are all that a selected
+   verse and a mark are made of. A line under the words survives them: solid
+   for the verse chosen, dotted for one that is marked. */
+@media (forced-colors: active) {
+  :host(.verse-selected) .verseRun:not(.verseGap) {
+    text-decoration: underline solid Highlight 2px;
+    text-underline-offset: 3px;
+  }
+
+  :host([data-highlight]:not(.verse-selected)) .verseRun:not(.verseGap) {
+    text-decoration: underline dotted CanvasText 2px;
+    text-underline-offset: 3px;
+  }
 }

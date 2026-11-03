@@ -208,9 +208,9 @@ body {
   --study-type-label: 12px;
   --study-type-ui: 13px;
   --study-type-reading: 15px;
-  /* 60, not 55: at 55 the chapter count on the current book's tinted row
-     measured 4.4:1, a hair under what small text needs. */
-  --study-muted: rgba(0, 0, 0, 0.6);
+  /* 70: it is the colour of the smallest text on the page, and at 60 it was
+     only just enough (55 measured 4.4:1 on the current book's tinted row). */
+  --study-muted: rgba(0, 0, 0, 0.7);
   /* The edition's red, for the small text of the study columns. The same as
      everywhere else in this theme; the dark theme needs its own. */
   --study-accent-text: var(--text-secondary);
@@ -306,7 +306,7 @@ body {
      borrows the same warm hue the highlight uses. */
   --study-surface: #1a1a1a;
   --study-rule: rgba(255, 255, 255, 0.14);
-  --study-muted: rgba(255, 255, 255, 0.6);
+  --study-muted: rgba(255, 255, 255, 0.7);
   /* Crimson on the dark columns is 3.5:1 — enough for a heading in the text,
      not for a 12px link or a verse number in a quotation. Lightened until it
      clears 4.5:1 there, and used only there: the text keeps the brand red. */
@@ -549,8 +549,9 @@ body .mat-mdc-form-field {
    A control used by two components belongs with the tokens it is built from,
    not duplicated inside each of them. */
 .mark-swatch {
-  width: 20px;
-  height: 20px;
+  /* 24: the smallest a pointer target is meant to be (WCAG 2.5.8). */
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 1px solid var(--study-rule);
   border-radius: 50%;
@@ -1023,5 +1024,29 @@ html.dark-theme .platform-ios.native-chrome app-search {
   html,
   body {
     background: #fff !important;
+  }
+}
+
+/* The side columns' type follows the reader's text size, as the text does. It
+   is set here, on the element that carries the size, because that is where
+   --reader-text-scale is known: a token defined on :root would be worked out
+   before it was. Held to 1.5 so the columns stay usable at the largest sizes. */
+.text-container {
+  --study-type-label: calc(12px * min(var(--reader-text-scale, 1), 1.5));
+  --study-type-ui: calc(13px * min(var(--reader-text-scale, 1), 1.5));
+  --study-type-reading: calc(15px * min(var(--reader-text-scale, 1), 1.5));
+}
+
+/* Forced colours (Windows High Contrast) replace backgrounds, which is all
+   that told a swatch from its neighbours. */
+@media (forced-colors: active) {
+  .mark-swatch {
+    forced-color-adjust: none;
+    border: 2px solid CanvasText;
+  }
+
+  .mark-swatch.chosen {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
   }
 }

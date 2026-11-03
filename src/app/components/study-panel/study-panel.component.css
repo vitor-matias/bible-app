@@ -540,3 +540,14 @@ a.note-ref:focus-visible {
 .reference-text.unavailable {
   font-size: var(--study-type-ui);
 }
+
+/* The bar that says which entry is current is a background, which forced
+   colours remove. */
+@media (forced-colors: active) {
+  .reference-group.current::before,
+  .footnote.current::before,
+  .saved-note.current::before {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+}

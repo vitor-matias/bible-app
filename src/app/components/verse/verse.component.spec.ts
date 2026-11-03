@@ -1169,6 +1169,23 @@ describe("VerseComponent", () => {
       })
     }
 
+    it("has a verse number that is easier to hit than it looks", () => {
+      fixture.componentRef.setInput("studyMode", true)
+      setData(fixture, studyVerse())
+      fixture.detectChanges()
+
+      // The number is a button at two thirds of the text's size; a larger target
+      // is laid over it, without moving the words.
+      const number = fixture.nativeElement.querySelector(
+        '.verseNumber[role="button"]',
+      ) as HTMLElement
+      const target = getComputedStyle(number, "::after")
+      expect(target.position).toBe("absolute")
+      expect(Number.parseFloat(target.width)).toBeGreaterThan(
+        number.getBoundingClientRect().width,
+      )
+    })
+
     it("emits the verse instead of opening the footnotes sheet", () => {
       fixture.componentRef.setInput("studyMode", true)
       setData(fixture, studyVerse())

@@ -1891,6 +1891,53 @@ describe("StudyPanelComponent", () => {
     })
   })
 
+  describe("its type, as the reader sizes the text", () => {
+    /** An element sized by a study token, inside a reader at this text size. */
+    const sizeAt = (scale: string | null, token: string): string => {
+      const reader = document.createElement("div")
+      reader.className = "text-container"
+      if (scale) reader.style.setProperty("--reader-text-scale", scale)
+      const probe = document.createElement("span")
+      probe.style.fontSize = `var(${token})`
+      reader.appendChild(probe)
+      document.body.appendChild(reader)
+      const size = getComputedStyle(probe).fontSize
+      reader.remove()
+      return size
+    }
+
+    it("is what it always was at the standard size", () => {
+      expect(sizeAt(null, "--study-type-ui")).toBe("13px")
+      expect(sizeAt("1", "--study-type-reading")).toBe("15px")
+    })
+
+    it("follows 'Aumentar texto', as the text beside it does", () => {
+      expect(sizeAt("1.2", "--study-type-ui")).toBe("15.6px")
+      expect(sizeAt("1.2", "--study-type-reading")).toBe("18px")
+    })
+
+    it("grows no further than the columns can use, at the largest text sizes", () => {
+      expect(sizeAt("2.35", "--study-type-ui")).toBe("19.5px")
+    })
+  })
+
+  describe("what it is made of, to a pointer", () => {
+    it("has colour swatches of a size a pointer can hit", () => {
+      const target = verse(37, [plain("Amarás")])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+
+      const swatch = fixture.nativeElement.querySelector(
+        ".verse-actions .mark-swatch",
+      ) as HTMLElement
+      expect(getComputedStyle(swatch).width).toBe("24px")
+      expect(getComputedStyle(swatch).height).toBe("24px")
+    })
+  })
+
   describe("a link to the chosen verse", () => {
     const target = verse(37, [plain("Amarás")])
     const choose = (): void =>
