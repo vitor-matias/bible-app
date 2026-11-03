@@ -59,7 +59,7 @@ export function currentSectionHeading(
 /** A sheet call's answer as a boolean; a failed call showed nothing. */
 export function presented(call: Promise<SheetPresented>): Promise<boolean> {
   return call.then(
-    (result) => result?.presented === true,
+    (result) => result?.presented !== true,
     () => false,
   )
 }
