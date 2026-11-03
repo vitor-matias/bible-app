@@ -14,6 +14,7 @@ import {
 } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
+import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import {
   BookmarkRibbonsService,
@@ -23,14 +24,13 @@ import {
   ribbonColor,
   ribbonToMove,
 } from "../../services/bookmark-ribbons.service"
-
-/** The move offered above the ribbons, or, once made, its undo. */
-interface MoveOffer {
-  color: string
-  /** "Mover o marcador vermelho de Mt 5 para Mt 7". */
-  label: string
-  done: boolean
-}
+import type { BookmarksSheetState } from "../../services/native-chrome.types"
+import {
+  bookmarksHint,
+  bookmarksSheetState,
+  canMark,
+  sheetPassageLabel,
+} from "../../utils/bookmarks-sheet"
 
 @Component({
   selector: "app-bookmark-selector",
@@ -48,6 +48,7 @@ export class BookmarkSelectorComponent implements OnInit {
     chapter: number
   }>(MAT_BOTTOM_SHEET_DATA)
   private bookmarkService = inject(BookmarkService)
+  private bookService = inject(BookService)
 
   colors = RIBBON_COLORS
   /** Each ribbon in the theme's tone for it. */
@@ -55,7 +56,8 @@ export class BookmarkSelectorComponent implements OnInit {
 
   ribbons: RibbonState[] = []
 
-  move?: MoveOffer
+  /** What the tiles, the move row and the hint show: see bookmarks-sheet.ts. */
+  state?: BookmarksSheetState
 
   private destroyRef = inject(DestroyRef)
   private ribbonsService = inject(BookmarkRibbonsService)
@@ -74,6 +76,29 @@ export class BookmarkSelectorComponent implements OnInit {
     this.isDeleteMode = !this.isDeleteMode
   }
 
+  close(): void {
+    this.bottomSheetRef.dismiss()
+  }
+
+  /** Editing is for taking ribbons off: nothing to do while none is on. */
+  get hasUsedRibbon(): boolean {
+    return this.ribbons.some((ribbon) => ribbon.bookmark)
+  }
+
+  get hint(): string {
+    return this.state ? bookmarksHint(this.state, this.isDeleteMode) : ""
+  }
+
+  /** As a screen reader should say a tile: its colour, where it is, whether it is here. */
+  spoken(tile: BookmarksSheetState["ribbons"][number]): string {
+    return `${tile.name}, ${tile.label ?? "livre"}${tile.current ? ", este capítulo" : ""}`
+  }
+
+  onTile(color: string): void {
+    const ribbon = this.ribbons.find((r) => r.value === color)
+    if (ribbon) this.handleRibbonClick(ribbon)
+  }
+
   ngOnInit(): void {
     this.bookmarkService.bookmarks$
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -84,7 +109,19 @@ export class BookmarkSelectorComponent implements OnInit {
 
   updateRibbons(allBookmarks: Bookmark[]) {
     this.ribbons = this.ribbonsService.ribbons(allBookmarks)
-    this.move = this.moveOffer()
+    if (!this.hasUsedRibbon) this.isDeleteMode = false
+    this.state = bookmarksSheetState(
+      this.ribbons,
+      this.data.bookId,
+      this.data.chapter,
+      this.mover,
+      (bookId, chapter) =>
+        sheetPassageLabel(
+          (id) => this.bookService.findBookById(id),
+          bookId,
+          chapter,
+        ),
+    )
     this.changeDetector.markForCheck()
   }
 
@@ -99,21 +136,6 @@ export class BookmarkSelectorComponent implements OnInit {
     if (ribbon) this.mover.move(ribbon)
   }
 
-  private moveOffer(): MoveOffer | undefined {
-    const offer = this.mover.offer(this.ribbons)
-    if (!offer) return undefined
-    const { from, name, done } = offer
-    const fromRef = this.ribbonsService.ref(from.bookId, from.chapter)
-    const here = this.ribbonsService.ref(this.data.bookId, this.data.chapter)
-    return {
-      color: from.color,
-      label: done
-        ? `Desfazer: o marcador ${name} volta a ${fromRef}`
-        : `Mover o marcador ${name} de ${fromRef} para ${here}`,
-      done,
-    }
-  }
-
   handleRibbonClick(ribbon: RibbonState): void {
     if (this.isDeleteMode) {
       this.ribbonsService.remove(ribbon)
@@ -126,18 +148,12 @@ export class BookmarkSelectorComponent implements OnInit {
       return
     }
 
-    // 2. If empty -> Assign to current
+    // 2. If empty -> Assign to current, where there is a chapter to mark
+    if (!canMark(this.data.bookId)) return
     this.ribbonsService.assign(
       ribbon.value,
       this.data.bookId,
       this.data.chapter,
-    )
-  }
-
-  isCurrentLocation(ribbon: RibbonState): boolean {
-    return (
-      ribbon.bookmark?.bookId === this.data.bookId &&
-      ribbon.bookmark?.chapter === this.data.chapter
     )
   }
 }

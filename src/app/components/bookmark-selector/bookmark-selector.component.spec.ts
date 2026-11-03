@@ -11,7 +11,10 @@ import { BehaviorSubject } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
-import { ribbonColor } from "../../services/bookmark-ribbons.service"
+import {
+  type RibbonState,
+  ribbonColor,
+} from "../../services/bookmark-ribbons.service"
 import { HapticsService } from "../../services/haptics.service"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BookmarkSelectorComponent } from "./bookmark-selector.component"
@@ -108,40 +111,51 @@ describe("BookmarkSelectorComponent", () => {
     expect(redRibbon?.bookmark).toBeUndefined()
   })
 
-  // Android's WebView painted the sheet garbled while the ribbons were cut to
-  // shape with clip-path: half the sheet missing, ghost ribbons beside them.
+  // Android's WebView painted the old ribbon-shaped buttons garbled while they
+  // were cut to shape with clip-path; the glyphs are drawn, never clipped.
   // The colour is the theme's tone for the ribbon (--ribbon-*).
-  it("draws each ribbon's shape in its colour instead of clipping the button", () => {
-    const buttons = Array.from(
-      fixture.nativeElement.querySelectorAll(".color-button"),
+  it("draws each tile's glyph in its ribbon's tone, unclipped", () => {
+    const tiles = Array.from(
+      fixture.nativeElement.querySelectorAll(".tile"),
     ) as HTMLElement[]
-    expect(buttons.length).toBe(component.ribbons.length)
+    expect(tiles.length).toBe(component.ribbons.length)
 
-    buttons.forEach((button, index) => {
-      expect(getComputedStyle(button).clipPath).toBe("none")
-      const shape = button.querySelector(".ribbon-shape path") as SVGElement
-      expect(getComputedStyle(shape).fill).toBe(
+    tiles.forEach((tile, index) => {
+      expect(getComputedStyle(tile).clipPath).toBe("none")
+      const glyph = tile.querySelector(".glyph") as SVGElement
+      expect(getComputedStyle(glyph).fill).toBe(
         colorOf(ribbonColor(component.ribbons[index].value) ?? ""),
       )
     })
   })
 
+  it("shows a free ribbon by its colour's name and a used one by its passage", () => {
+    const label = (index: number): string | undefined =>
+      fixture.nativeElement
+        .querySelectorAll(".tile")
+        [index].querySelector(".tile-label")
+        ?.textContent?.trim()
+
+    expect(label(0)).toBe("Vermelho")
+    expect(label(4)).toBe("Mc 2")
+  })
+
   // A screen reader said "Red", "Orange"… in an app otherwise in Portuguese.
-  it("names each ribbon in Portuguese, with the passage it marks", () => {
+  it("names each ribbon in Portuguese, with the passage it marks or that it is free", () => {
     const labels = Array.from(
-      fixture.nativeElement.querySelectorAll(".color-button"),
-      (button: Element) => button.getAttribute("aria-label"),
+      fixture.nativeElement.querySelectorAll(".tile"),
+      (tile: Element) => tile.getAttribute("aria-label"),
     )
 
     expect(labels).toEqual([
-      "Vermelho",
-      "Laranja",
-      "Azul-petróleo",
-      "Verde",
+      "Vermelho, livre",
+      "Laranja, livre",
+      "Azul-petróleo, livre",
+      "Verde, livre",
       "Azul, Mc 2",
-      "Índigo",
-      "Violeta",
-      "Cinzento",
+      "Índigo, livre",
+      "Violeta, livre",
+      "Cinzento, livre",
     ])
   })
 
@@ -155,10 +169,118 @@ describe("BookmarkSelectorComponent", () => {
     return computed
   }
 
-  it("should toggle delete mode", () => {
-    expect(component.isDeleteMode).toBe(false)
-    component.toggleDeleteMode()
-    expect(component.isDeleteMode).toBe(true)
+  describe("editing", () => {
+    const pill = (): HTMLButtonElement | null =>
+      fixture.nativeElement.querySelector(".pill")
+    const tiles = (): HTMLButtonElement[] =>
+      Array.from(fixture.nativeElement.querySelectorAll(".tile"))
+
+    it("is offered only while a ribbon is on", () => {
+      expect(pill()?.textContent?.trim()).toBe("Editar")
+
+      bookmarksSubject.next([])
+      fixture.detectChanges()
+
+      expect(pill()).toBeNull()
+    })
+
+    it("shows a badge on each used ribbon and lets the free ones step back", () => {
+      pill()?.click()
+      fixture.detectChanges()
+
+      expect(pill()?.textContent?.trim()).toBe("Concluído")
+      expect(pill()?.getAttribute("aria-pressed")).toBe("true")
+      expect(
+        fixture.nativeElement.querySelectorAll(".remove-badge").length,
+      ).toBe(1)
+      expect(tiles().filter((tile) => tile.disabled).length).toBe(7)
+      expect(tiles()[4].disabled).toBe(false)
+      expect(
+        fixture.nativeElement.querySelector(".hint").textContent,
+      ).toContain("Toque numa fita para a retirar.")
+    })
+
+    it("takes the ribbon off when its tile is tapped, and ends when none is left", () => {
+      pill()?.click()
+      fixture.detectChanges()
+
+      tiles()[4].click()
+      expect(bookmarkServiceSpy.removeBookmark).toHaveBeenCalledWith("MRK", 2)
+
+      bookmarksSubject.next([])
+      fixture.detectChanges()
+      expect(component.isDeleteMode).toBe(false)
+      expect(tiles().filter((tile) => tile.disabled).length).toBe(0)
+    })
+  })
+
+  it("closes from its own button", () => {
+    const close = fixture.nativeElement.querySelector(
+      ".close-button",
+    ) as HTMLButtonElement
+
+    close.click()
+
+    expect(bottomSheetRefSpy.dismiss).toHaveBeenCalled()
+  })
+
+  describe("the chapter being read", () => {
+    beforeEach(() => {
+      bookmarksSubject.next([
+        { bookId: "GEN", chapter: 1, color: "red", timestamp: 123 },
+      ])
+      fixture.detectChanges()
+    })
+
+    it("has its ribbon's tile marked, by name as well as by fill", () => {
+      const current = fixture.nativeElement.querySelectorAll(".tile.current")
+
+      expect(current.length).toBe(1)
+      expect(current[0].getAttribute("aria-label")).toBe(
+        "Vermelho, Mc 1, este capítulo",
+      )
+    })
+
+    it("says so under the ribbons", () => {
+      expect(
+        fixture.nativeElement.querySelector(".hint").textContent,
+      ).toContain(
+        "Marcos 1 está marcado. Toque noutra fita livre para mudar a cor.",
+      )
+    })
+  })
+
+  // The About page has no chapters; a ribbon there would lead nowhere to read.
+  describe("on the About page", () => {
+    beforeEach(() => {
+      component.data = { bookId: "about", chapter: 1 }
+      bookmarksSubject.next(mockBookmarks)
+      fixture.detectChanges()
+    })
+
+    it("leaves the free ribbons unmarkable, and says why", () => {
+      const tiles: HTMLButtonElement[] = Array.from(
+        fixture.nativeElement.querySelectorAll(".tile"),
+      )
+      expect(tiles.filter((tile) => tile.disabled).length).toBe(7)
+      expect(
+        fixture.nativeElement.querySelector(".hint").textContent,
+      ).toContain("Esta página não se pode marcar.")
+
+      component.handleRibbonClick(
+        component.ribbons.find((r) => r.value === "red") as RibbonState,
+      )
+      expect(bookmarkServiceSpy.addBookmark).not.toHaveBeenCalled()
+    })
+
+    it("still opens a ribbon's passage", () => {
+      const tiles: HTMLButtonElement[] = Array.from(
+        fixture.nativeElement.querySelectorAll(".tile"),
+      )
+      tiles[4].click()
+
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["mrk", "2"])
+    })
   })
 
   it("should navigate when clicking a ribbon assigned elsewhere", () => {
@@ -214,7 +336,7 @@ describe("BookmarkSelectorComponent", () => {
 
   describe("moving a ribbon read on from", () => {
     const moveButton = (): HTMLButtonElement | null =>
-      fixture.nativeElement.querySelector(".move-button")
+      fixture.nativeElement.querySelector(".move-row")
     const blueOnIntro: Bookmark = {
       bookId: "GEN",
       chapter: 0,
@@ -229,8 +351,9 @@ describe("BookmarkSelectorComponent", () => {
     it("moves the ribbon here, then undoes the move", () => {
       bookmarksSubject.next([blueOnIntro])
       fixture.detectChanges()
+      expect(moveButton()?.textContent).toContain("Mover para Marcos 1")
       expect(moveButton()?.textContent).toContain(
-        "Mover o marcador azul de Mc Introdução para Mc 1",
+        "O marcador azul está em Marcos Introdução.",
       )
 
       moveButton()?.click()
@@ -241,8 +364,9 @@ describe("BookmarkSelectorComponent", () => {
       )
       bookmarksSubject.next([{ ...blueOnIntro, chapter: 1, timestamp: 2 }])
       fixture.detectChanges()
+      expect(moveButton()?.textContent).toContain("Desfazer")
       expect(moveButton()?.textContent).toContain(
-        "Desfazer: o marcador azul volta a Mc Introdução",
+        "O marcador azul volta a Marcos Introdução.",
       )
 
       moveButton()?.click()
@@ -253,7 +377,7 @@ describe("BookmarkSelectorComponent", () => {
       )
       bookmarksSubject.next([blueOnIntro])
       fixture.detectChanges()
-      expect(moveButton()?.textContent).toContain("Mover o marcador azul")
+      expect(moveButton()?.textContent).toContain("Mover para Marcos 1")
     })
   })
 
