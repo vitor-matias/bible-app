@@ -24,6 +24,23 @@ import {
 import { BookService } from "../../services/book.service"
 import { normalizeForSearch } from "../../utils/text"
 
+/**
+ * What each canon group is, for someone who does not know the edition's names
+ * for them ("Sapienciais" is not a word most readers use). Shown on hover and
+ * read as the group's description, with the books it runs from and to.
+ */
+const GROUP_GLOSSES: Readonly<Record<string, string>> = {
+  Pentateuco: "A Lei",
+  "Livros Históricos": "A história de Israel",
+  "Livros Sapienciais": "Poesia e sabedoria",
+  "Livros Proféticos": "Os profetas",
+  "Evangelhos e Atos": "A vida de Jesus e a Igreja nascente",
+  "Cartas de São Paulo": "As cartas de Paulo às comunidades",
+  "Carta aos Hebreus": "Uma carta sobre o sacerdócio de Cristo",
+  "Cartas Católicas": "As cartas dirigidas a toda a Igreja",
+  Apocalipse: "O último livro",
+}
+
 /** One canon group as the sidebar shows it: only the books actually served. */
 type SidebarGroup = {
   name: string
@@ -136,6 +153,19 @@ export class StudySidebarComponent implements OnChanges {
 
   clearFilter(): void {
     this.onFilter("")
+  }
+
+  /** "A Lei: Génesis a Deuteronómio" — what the group is, and where it runs. */
+  glossFor(group: SidebarGroup): string {
+    const books = group.books.filter((book) => !book.introSlug)
+    const first = books[0]
+    const last = books[books.length - 1]
+    const range =
+      first && last && first !== last
+        ? `${first.shortName} a ${last.shortName}`
+        : (first?.shortName ?? "")
+    const what = GROUP_GLOSSES[group.name]
+    return what ? `${what}: ${range}` : range
   }
 
   isExpanded(group: SidebarGroup): boolean {

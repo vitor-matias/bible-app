@@ -41,12 +41,50 @@
 
   @case ('references') {
   <div class="tab-body" role="tabpanel" id="study-tabpanel-references" aria-labelledby="study-tab-references">
+    <p class="tab-gloss">As passagens que a edição indica a propósito de cada texto.</p>
+    @if (selectedVerse) {
+    <!-- First in the tab, so a keyboard or screen-reader user reaches what a
+         chosen verse can do before a long list of references, and a mouse user
+         sees that choosing it did something. -->
+    <section class="verse-actions" aria-label="O versículo escolhido">
+      <p class="verse-caption">{{ verseCaption }}</p>
+    <div class="mark-row" role="group" aria-label="Marcar o versículo">
+      @for (color of highlightColors; track color) {
+      <button type="button" class="mark-swatch" [attr.data-color]="color"
+        [class.chosen]="selectedHighlight === color" [attr.aria-pressed]="selectedHighlight === color"
+        [attr.aria-label]="'Marcar ' + selectedVerseLabel + ' a ' + colorNames[color]"
+        [attr.title]="colorNames[color]" (click)="toggleHighlight(color)"></button>
+      }
+    </div>
+
+    <button type="button" class="verse-action" (click)="copySelectedVerse()">
+      <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
+      {{ copied ? 'Copiado' : 'Copiar ' + selectedVerseLabel }}
+    </button>
+    
+
+    <!-- The note box lives here as well as in its own tab: a thought about a
+         verse arrives while reading its parallels, not after switching tabs. -->
+    <div class="note-box">
+      <label class="note-label" for="study-note">A minha nota em {{ selectedVerseLabel }}</label>
+      <textarea id="study-note" name="nota" autocomplete="off" class="note-input" rows="2" placeholder="Escrever… fica neste navegador, sem conta."
+        [value]="noteDraft" (input)="onNoteInput($any($event.target).value)" (blur)="onNoteBlur()"></textarea>
+      <p class="note-hint">
+        Se limpar o navegador ou mudar de computador, perde-se.
+        <a routerLink="/minhas-notas">Guardar uma cópia</a>
+      </p>
+    </div>
+    
+    </section>
+    } @else {
+    <p class="panel-empty small how-to">Clique no número de um versículo para o marcar, copiar ou escrever uma nota.</p>
+    }
     @if (referenceGroups.length) {
     <!-- Tracked by label as well: a division and the first passage inside it
          start at the same verse, and are two groups. -->
     @for (group of referenceGroups; track group.verseNumber + '|' + group.label) {
     <!-- data-verse is how selecting a verse finds its entries to scroll to. -->
-    <section class="reference-group" [class.current]="isCurrentGroup(group)"
+    <section class="reference-group" [class.current]="isCurrentGroup(group)" [attr.aria-current]="isCurrentGroup(group) ? 'true' : null"
       [attr.data-verse]="group.verseNumber">
       <h2 class="group-label">Referências Cruzadas: {{ group.label }}</h2>
       <ul class="reference-list">
@@ -140,46 +178,16 @@
       }
     </section>
     }
-
-    @if (selectedVerse) {
-    <div class="mark-row" role="group" aria-label="Marcar o versículo">
-      @for (color of highlightColors; track color) {
-      <button type="button" class="mark-swatch" [attr.data-color]="color"
-        [class.chosen]="selectedHighlight === color" [attr.aria-pressed]="selectedHighlight === color"
-        [attr.aria-label]="'Marcar ' + selectedVerseLabel + ' a ' + colorNames[color]"
-        [attr.title]="colorNames[color]" (click)="toggleHighlight(color)"></button>
-      }
-    </div>
-
-    <button type="button" class="verse-action" (click)="copySelectedVerse()">
-      <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
-      {{ copied ? 'Copiado' : 'Copiar ' + selectedVerseLabel }}
-    </button>
-    }
-
-    <!-- The note box lives here as well as in its own tab: a thought about a
-         verse arrives while reading its parallels, not after switching tabs. -->
-    @if (selectedVerse) {
-    <div class="note-box">
-      <label class="note-label" for="study-note">A minha nota em {{ selectedVerseLabel }}</label>
-      <textarea id="study-note" name="nota" autocomplete="off" class="note-input" rows="3" placeholder="Escrever… fica neste navegador, sem conta."
-        [value]="noteDraft" (input)="onNoteInput($any($event.target).value)" (blur)="onNoteBlur()"></textarea>
-      <p class="note-hint">
-        Se limpar o navegador ou mudar de computador, perde-se.
-        <a routerLink="/minhas-notas">Guardar uma cópia</a>
-      </p>
-    </div>
-    }
   </div>
   }
 
   @case ('footnotes') {
   <div class="tab-body" role="tabpanel" id="study-tabpanel-footnotes" aria-labelledby="study-tab-footnotes">
     @if (footnotes.length) {
-    <p class="panel-caption">Notas do capítulo</p>
+    <p class="panel-caption">As notas de rodapé que a edição traz para este capítulo.</p>
     <ul class="footnote-list">
       @for (entry of footnotes; track $index) {
-      <li class="footnote" [class.current]="isCurrent(entry.verseNumber)" [attr.data-verse]="entry.verseNumber">
+      <li class="footnote" [class.current]="isCurrent(entry.verseNumber)" [attr.aria-current]="isCurrent(entry.verseNumber) ? 'true' : null" [attr.data-verse]="entry.verseNumber">
         <span class="footnote-reference">{{ entry.footnote.reference }}</span>
         <span class="footnote-text">
           @for (part of parseFootnote(entry.footnote); track $index) {
@@ -201,6 +209,7 @@
 
   @case ('notes') {
   <div class="tab-body" role="tabpanel" id="study-tabpanel-notes" aria-labelledby="study-tab-notes">
+    <p class="tab-gloss">O que escreveu, por versículo. Fica só neste navegador.</p>
     @if (selectedVerse) {
     <div class="note-box">
       <label class="note-label" for="study-note-tab">A minha nota em {{ selectedVerseLabel }}</label>
@@ -212,7 +221,7 @@
       </p>
     </div>
     } @else {
-    <p class="panel-empty">Escolha um versículo para escrever uma nota.</p>
+    <p class="panel-empty how-to">Clique no número de um versículo para escrever uma nota.</p>
     }
 
     <div class="note-search">
@@ -245,8 +254,8 @@
     <p class="panel-caption notes-caption">Neste capítulo</p>
     <ul class="note-list">
       @for (note of chapterNotes; track note.verse) {
-      <li class="saved-note" [class.current]="isCurrent(note.verse)" [attr.data-verse]="note.verse">
-        <span class="note-ref">{{ noteLabel(note) }}</span>
+      <li class="saved-note" [class.current]="isCurrent(note.verse)" [attr.aria-current]="isCurrent(note.verse) ? 'true' : null" [attr.data-verse]="note.verse">
+        <a class="note-ref" [routerLink]="noteLink(note)" [queryParams]="noteQueryParams(note)">{{ noteLabel(note) }}</a>
         <span class="note-body">{{ note.text }}</span>
       </li>
       }

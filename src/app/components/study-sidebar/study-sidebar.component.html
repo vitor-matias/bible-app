@@ -57,7 +57,8 @@
       @let group = section.group;
       <li class="group">
         <button type="button" class="group-toggle" [class.open]="isExpanded(group)"
-          [attr.aria-expanded]="isExpanded(group)" (click)="toggleGroup(group)">
+          [attr.aria-expanded]="isExpanded(group)" (click)="toggleGroup(group)"
+          [matTooltip]="glossFor(group)" matTooltipPosition="right">
           <span class="group-name">{{ group.name }}</span>
           <span class="group-chevron" aria-hidden="true">{{ isExpanded(group) ? '−' : '+' }}</span>
         </button>

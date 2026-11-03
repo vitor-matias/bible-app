@@ -128,6 +128,31 @@ describe("StudySidebarComponent", () => {
     ).toBeGreaterThan(0)
   })
 
+  describe("what a group is", () => {
+    it("says what the group is and where it runs, for names that are not everyday words", () => {
+      const sapienciais = [
+        makeBook("job", { shortName: "Job" }),
+        makeBook("psa", { shortName: "Salmos" }),
+        makeBook("sir", { shortName: "Sirácida" }),
+      ]
+      setInputs({ books: [...BOOKS, ...sapienciais], book: BOOKS[0] })
+
+      const group = component.groups.find(
+        (g) => g.name === "Livros Sapienciais",
+      )
+      expect(group && component.glossFor(group)).toBe(
+        "Poesia e sabedoria: Job a Sirácida",
+      )
+    })
+
+    it("does not count an introduction as where a group begins", () => {
+      setInputs({ books: BOOKS_WITH_INTROS, book: BOOKS[0] })
+
+      const group = component.groups.find((g) => g.name === "Pentateuco")
+      expect(group && component.glossFor(group)).toBe("A Lei: Génesis")
+    })
+  })
+
   describe("introductions", () => {
     it("leads a group with the introduction written for it", () => {
       setInputs({ books: BOOKS_WITH_INTROS, book: BOOKS[0] })

@@ -1679,6 +1679,130 @@ describe("StudyPanelComponent", () => {
     })
   })
 
+  describe("a chosen verse, in words", () => {
+    const chapterWith = (extra: Verse[] = []): Chapter => ({
+      bookId: "mat",
+      number: 22,
+      verses: [
+        verse(36, [plain("antes"), references("Mc 12,28")]),
+        verse(37, []),
+        ...extra,
+      ],
+    })
+    const text = (selector: string): string =>
+      (fixture.nativeElement.querySelector(selector)?.textContent ?? "")
+        .replace(/\s+/g, " ")
+        .trim()
+
+    beforeEach(() => {
+      bibleRef.extract.mockReturnValue([reference("mrk", 12, 28)])
+    })
+
+    it("tells a reader with nothing chosen how to begin", () => {
+      setInputs({ book: BOOK, chapter: chapterWith() })
+
+      expect(text(".how-to")).toBe(
+        "Clique no número de um versículo para o marcar, copiar ou escrever uma nota.",
+      )
+      expect(fixture.nativeElement.querySelector(".verse-actions")).toBeNull()
+    })
+
+    it("says which verse, how many references and whether there is a note", () => {
+      const chosen = chapterWith().verses?.[1] as Verse
+      setInputs({
+        book: BOOK,
+        chapter: chapterWith(),
+        selection: { verse: chosen },
+      })
+
+      expect(text(".verse-caption")).toBe(
+        "Versículo 37 · 1 referência · sem nota sua",
+      )
+
+      // Typed, not called: the input event is what tells this view to render.
+      const box = fixture.nativeElement.querySelector(
+        "#study-note",
+      ) as HTMLTextAreaElement
+      box.value = "alguma coisa"
+      box.dispatchEvent(new Event("input", { bubbles: true }))
+      fixture.detectChanges()
+      expect(text(".verse-caption")).toBe(
+        "Versículo 37 · 1 referência · com nota sua",
+      )
+    })
+
+    it("reads it out when a verse is chosen, since stepping with the keys says nothing", () => {
+      const announce = vi
+        .spyOn(TestBed.inject(LiveAnnouncer), "announce")
+        .mockResolvedValue(undefined)
+      const chosen = chapterWith().verses?.[1] as Verse
+
+      setInputs({
+        book: BOOK,
+        chapter: chapterWith(),
+        selection: { verse: chosen },
+      })
+
+      expect(announce).toHaveBeenCalledWith(
+        "Versículo 37 · 1 referência · sem nota sua. Selecionado.",
+      )
+    })
+
+    it("puts what a verse can do ahead of the references in the page", () => {
+      const chosen = chapterWith().verses?.[1] as Verse
+      setInputs({
+        book: BOOK,
+        chapter: chapterWith(),
+        selection: { verse: chosen },
+      })
+
+      const body = fixture.nativeElement.querySelector(
+        "#study-tabpanel-references",
+      ) as HTMLElement
+      const actions = body.querySelector(".verse-actions") as Element
+      const list = body.querySelector(".reference-group") as Element
+      expect(
+        actions.compareDocumentPosition(list) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+    })
+
+    it("says which group of references is the current one, to more than the eye", () => {
+      const chosen = chapterWith().verses?.[0] as Verse
+      setInputs({
+        book: BOOK,
+        chapter: chapterWith(),
+        selection: { verse: chosen },
+      })
+
+      const group = fixture.nativeElement.querySelector(".reference-group")
+      expect(group.getAttribute("aria-current")).toBe("true")
+    })
+
+    it("names the tab as what it is: the reader's own notes", () => {
+      setInputs({ book: BOOK, chapter: chapterWith() })
+
+      const labels = Array.from(
+        fixture.nativeElement.querySelectorAll(".tab"),
+      ).map((tab) => (tab as HTMLElement).textContent?.trim())
+      expect(labels).toContain("As minhas notas")
+    })
+
+    it("lists the chapter's notes as links to their verses", () => {
+      notes.saveNote("mat", 22, 37, "uma nota")
+      setInputs({ book: BOOK, chapter: chapterWith() })
+      fixture.nativeElement
+        .querySelectorAll(".tab")[2]
+        .dispatchEvent(new MouseEvent("click"))
+      fixture.detectChanges()
+
+      const link = fixture.nativeElement.querySelector(
+        "#study-tabpanel-notes .saved-note a.note-ref",
+      ) as HTMLAnchorElement
+      expect(link.getAttribute("href")).toBe("/mt/22?verseStart=37")
+    })
+  })
+
   describe("when the browser will not keep what is written", () => {
     const target = verse(39, [])
 
@@ -1975,7 +2099,7 @@ describe("StudyPanelComponent", () => {
       const panel = fixture.nativeElement.querySelector("#study-tabpanel-notes")
       expect(panel.querySelector(".note-input")).toBeNull()
       expect(panel.querySelector(".panel-empty").textContent).toContain(
-        "Escolha um versículo",
+        "Clique no número de um versículo",
       )
     })
   })

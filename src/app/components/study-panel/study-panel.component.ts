@@ -283,7 +283,7 @@ export class StudyPanelComponent implements OnChanges {
   readonly tabs: { id: PanelTab; label: string; name: string }[] = [
     { id: "references", label: "Referências", name: "Referências" },
     { id: "footnotes", label: "Rodapé", name: "Notas de rodapé" },
-    { id: "notes", label: "Notas", name: "As minhas notas" },
+    { id: "notes", label: "As minhas notas", name: "As minhas notas" },
     { id: "search", label: "Pesquisar", name: "Pesquisar" },
   ]
 
@@ -391,6 +391,26 @@ export class StudyPanelComponent implements OnChanges {
     })
   }
 
+  /**
+   * Where the reader stands, in words: "Versículo 6 · 3 referências · sem nota
+   * sua". Written above the verse's actions, so that choosing a verse visibly
+   * does something even when the references are a long way down, and read out
+   * when one is chosen, since the keys that step through the verses say
+   * nothing otherwise.
+   */
+  get verseCaption(): string {
+    const verse = this.selectedVerse
+    if (!verse) return ""
+    const references = this.referenceGroups
+      .filter((group) => this.isCurrentGroup(group))
+      .reduce((total, group) => total + group.entries.length, 0)
+    return [
+      `Versículo ${verse.number}`,
+      references === 1 ? "1 referência" : `${references} referências`,
+      this.noteDraft.trim() ? "com nota sua" : "sem nota sua",
+    ].join(" · ")
+  }
+
   get selectedVerse(): Verse | undefined {
     return this.selection?.verse
   }
@@ -425,6 +445,9 @@ export class StudyPanelComponent implements OnChanges {
       this.loadSelectedHighlight()
       this.loadIncoming()
       this.scrollActiveIntoView()
+      if (this.selection) {
+        void this.announcer.announce(`${this.verseCaption}. Selecionado.`)
+      }
     }
     if (changes["visibleVerse"] && !this.selection && !this.readerHoldsPanel) {
       this.scrollActiveIntoView()
