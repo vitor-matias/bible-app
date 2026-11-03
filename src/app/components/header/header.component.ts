@@ -335,11 +335,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.onboardingService.open("menu")
   }
 
-<<<<<<< HEAD
   onToggleCardsView(trigger: MatMenuTrigger) {
     trigger.closeMenu()
     this.toggleCardsView.emit()
-=======
+  }
+
   async onInstall(trigger: MatMenuTrigger): Promise<void> {
     trigger.closeMenu()
     const outcome = await this.pwaInstallService.promptInstall()
@@ -348,7 +348,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       outcome,
       installPlatform: this.pwaInstallService.detectPlatform(),
     })
->>>>>>> origin/master
   }
 
   /**
@@ -527,17 +526,15 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     switch (action.id) {
       case "passage":
         this.nativeChrome.showPicker(
-          buildPassagePicker(this.bookService.getBooks(), this.bookmarks, {
+          buildPassagePicker(this.bookService.getBooks(), this.bookmarks, 
             bookId: this.book().id,
-            chapter: this.chapterNumber(),
-          }),
+            chapter: this.chapterNumber(),),
         )
         break
       case "goto":
-        this.selectPassage.emit({
+        this.selectPassage.emit(
           bookId: action.bookId,
-          chapter: action.chapter,
-        })
+          chapter: action.chapter,)
         break
       case "previous":
         this.previous.emit()
