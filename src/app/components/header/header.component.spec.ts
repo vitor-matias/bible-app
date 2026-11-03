@@ -313,6 +313,76 @@ describe("HeaderComponent", () => {
     })
   })
 
+  describe("installing from the menu", () => {
+    const openMenu = async () => {
+      await fixture.whenStable()
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+    }
+
+    const installItem = () =>
+      Array.from(
+        document.querySelectorAll<HTMLElement>(
+          ".mat-mdc-menu-panel .mat-mdc-menu-item",
+        ),
+      ).find((item) => item.textContent?.includes("Instalar a app"))
+
+    const offerInstall = (outcome: "accepted" | "dismissed") => {
+      const prompt = vi.fn().mockResolvedValue(undefined)
+      window.dispatchEvent(
+        Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
+          prompt,
+          userChoice: Promise.resolve({ outcome, platform: "web" }),
+        }),
+      )
+      fixture.detectChanges()
+      return prompt
+    }
+
+    it("appears only while the browser offers the install, even with the menu open", async () => {
+      await openMenu()
+      expect(installItem()).toBeUndefined()
+
+      offerInstall("dismissed")
+      expect(installItem()).toBeDefined()
+
+      window.dispatchEvent(new Event("appinstalled"))
+      fixture.detectChanges()
+      expect(installItem()).toBeUndefined()
+    })
+
+    it("runs the browser's prompt, reports the outcome and goes away", async () => {
+      const prompt = offerInstall("accepted")
+      await openMenu()
+
+      installItem()?.click()
+      await fixture.whenStable()
+      fixture.detectChanges()
+
+      expect(prompt).toHaveBeenCalledTimes(1)
+      expect(analyticsServiceSpy.track).toHaveBeenCalledWith(
+        "pwa_install_prompt",
+        expect.objectContaining({ outcome: "accepted" }),
+      )
+      expect(installItem()).toBeUndefined()
+    })
+
+    it("comes back when the browser offers again after a refusal", async () => {
+      offerInstall("dismissed")
+      await openMenu()
+      installItem()?.click()
+      await fixture.whenStable()
+
+      offerInstall("dismissed")
+      await openMenu()
+
+      expect(installItem()).toBeDefined()
+    })
+  })
+
   describe("the version in the menu", () => {
     const openMenu = async () => {
       await fixture.whenStable()
