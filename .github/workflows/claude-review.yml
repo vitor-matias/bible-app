@@ -16,9 +16,21 @@ jobs:
         with:
           fetch-depth: 1
       - uses: anthropics/claude-code-action@v1
+        id: claude
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: "https://github.com/anthropics/claude-plugins-official.git"
           plugins: "code-review@claude-plugins-official"
-          prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
+          # The agent tool's own guidance is not to spawn unasked, and left alone the main model
+          # reviews the diff itself, so ask for the plugin's agents outright.
+          prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }} The repo owner asks for the full multi-agent review: launch every step's agents with the Task tool, on the model each step names, and do not review the diff yourself."
           claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment"'
+      # Prints tool and model names only, since this repo's Actions logs are public.
+      - name: Check the review ran its agents
+        if: steps.claude.outputs.execution_file != ''
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          jq -r '.[] | select(.type == "assistant") | .message.content[]? | select(.type == "tool_use") | "\(.name) \(.input.model // "")"' "$EXECUTION_FILE"
+          jq -e 'last | .is_error | not' "$EXECUTION_FILE" > /dev/null || { echo "::error::The review ended in an error, so it may have posted nothing."; exit 1; }
+          jq -e 'any(.[]; .type == "assistant" and any(.message.content[]?; .type == "tool_use" and (.name == "Agent" or .name == "Task")))' "$EXECUTION_FILE" > /dev/null || { echo "::error::The review launched no agents."; exit 1; }
