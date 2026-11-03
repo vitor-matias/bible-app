@@ -22,7 +22,9 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: "https://github.com/anthropics/claude-plugins-official.git"
           plugins: "code-review@claude-plugins-official"
-          prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
+          # The Task tool's own guidance says not to spawn agents unasked, and left alone the
+          # main model reviews the diff itself, so ask for the plugin's agents outright.
+          prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }} The repo owner asks for and pays for the full multi-agent review: launch every step's agents with the Task tool, on the model each step names, and do not review the diff yourself."
           claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment"'
       # Throwaway: transcript goes out RSA+AES encrypted, nothing readable in public logs.
       - name: Encrypt transcript
