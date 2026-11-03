@@ -2,6 +2,21 @@ import { DestroyRef, inject } from "@angular/core"
 import { BehaviorSubject, type Observable } from "rxjs"
 import { safeLocalStorage } from "../utils/web-storage"
 
+/**
+ * Asks the browser not to clear what the reader has written when it is short
+ * of space. Quietly: it is a request the browser is free to refuse (Safari
+ * does, for a site that is not installed), so nothing in the app may say the
+ * notes are protected. A file the reader saved is the only copy that is.
+ */
+function askToKeepStorage(): void {
+  if (typeof navigator === "undefined") return
+  try {
+    void Promise.resolve(navigator.storage?.persist?.()).catch(() => {})
+  } catch {
+    // No storage manager, or it threw: nothing to ask.
+  }
+}
+
 /** Anything the reader leaves on a verse: a note, a mark. */
 export type VerseRecord = {
   bookId: Book["id"]
@@ -41,8 +56,23 @@ export abstract class VerseRecordStore<T extends VerseRecord> {
    * complete one, and the next write has to build on it.
    */
   private unsaved = false
+  /** Asked once per page: the answer does not change with every note. */
+  private askedToKeep = false
+  private readonly saveFailedSubject = new BehaviorSubject(false)
   private readonly subject = new BehaviorSubject<T[]>([])
   readonly records$: Observable<T[]> = this.subject.asObservable()
+  /**
+   * True while the browser is refusing to keep what the reader writes — full,
+   * private browsing, storage turned off — so it lives in this page and will
+   * be gone when it closes. The note box says "fica no dispositivo", which is
+   * not true then, and a reader cannot tell unless something says so.
+   */
+  readonly saveFailed$: Observable<boolean> =
+    this.saveFailedSubject.asObservable()
+
+  get saveFailed(): boolean {
+    return this.saveFailedSubject.value
+  }
 
   protected constructor(private readonly storageKey: string) {
     this.subject.next(this.read())
@@ -106,16 +136,27 @@ export abstract class VerseRecordStore<T extends VerseRecord> {
     this.subject.next(next)
     const storage = this.storage
     if (!storage) {
-      this.unsaved = true
+      this.setUnsaved(true)
       return
     }
     try {
       storage.setItem(this.storageKey, JSON.stringify(next))
-      this.unsaved = false
+      this.setUnsaved(false)
+      if (!this.askedToKeep) {
+        this.askedToKeep = true
+        askToKeepStorage()
+      }
     } catch {
       // Quota exhausted mid-session: what the reader just wrote stays for
       // this session rather than taking the page down with it.
-      this.unsaved = true
+      this.setUnsaved(true)
+    }
+  }
+
+  private setUnsaved(unsaved: boolean): void {
+    this.unsaved = unsaved
+    if (this.saveFailedSubject.value !== unsaved) {
+      this.saveFailedSubject.next(unsaved)
     }
   }
 

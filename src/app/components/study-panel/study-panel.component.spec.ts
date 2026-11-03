@@ -1679,6 +1679,84 @@ describe("StudyPanelComponent", () => {
     })
   })
 
+  describe("when the browser will not keep what is written", () => {
+    const target = verse(39, [])
+
+    beforeEach(() => {
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+    })
+
+    const warning = (): HTMLElement | null =>
+      fixture.nativeElement.querySelector(".storage-warning")
+
+    it("says nothing while everything is being kept", () => {
+      notes.saveNote("mat", 22, 39, "guardada")
+      fixture.detectChanges()
+
+      expect(warning()).toBeNull()
+    })
+
+    it("tells the reader, in a way that is announced", () => {
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new Error("QuotaExceededError")
+      })
+
+      notes.saveNote("mat", 22, 39, "não fica")
+      fixture.detectChanges()
+
+      expect(warning()?.getAttribute("role")).toBe("alert")
+      expect(warning()?.textContent).toContain("perde-se ao fechá-la")
+    })
+
+    it("also tells the reader when it is a mark that was not kept", () => {
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new Error("QuotaExceededError")
+      })
+
+      TestBed.inject(HighlightService).toggle("mat", 22, 39, "yellow")
+      fixture.detectChanges()
+
+      expect(warning()).not.toBeNull()
+    })
+
+    it("offers the note being written, to copy before it is lost", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } })
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new Error("QuotaExceededError")
+      })
+      component.onNoteInput("o que escrevi")
+      notes.saveNote("mat", 22, 39, "o que escrevi")
+      fixture.detectChanges()
+
+      const copy = warning()?.querySelector("button") as HTMLButtonElement
+      copy.click()
+
+      expect(writeText).toHaveBeenCalledExactlyOnceWith("o que escrevi")
+    })
+
+    it("stops warning once the browser keeps a write again", () => {
+      const refuse = vi
+        .spyOn(Storage.prototype, "setItem")
+        .mockImplementation(() => {
+          throw new Error("QuotaExceededError")
+        })
+      notes.saveNote("mat", 22, 39, "primeira")
+      fixture.detectChanges()
+      expect(warning()).not.toBeNull()
+
+      refuse.mockRestore()
+      notes.saveNote("mat", 22, 39, "segunda")
+      fixture.detectChanges()
+
+      expect(warning()).toBeNull()
+    })
+  })
+
   describe("notes", () => {
     it("loads the note already written for the selected verse", () => {
       notes.saveNote("mat", 22, 39, "escrita antes")

@@ -20,6 +20,7 @@ import { MatTooltipModule } from "@angular/material/tooltip"
 import { Router, RouterModule } from "@angular/router"
 import {
   catchError,
+  combineLatest,
   debounceTime,
   from,
   map,
@@ -244,6 +245,11 @@ export class StudyPanelComponent implements OnChanges {
   noteMatches: VerseNote[] = []
   noteQuery = ""
   noteDraft = ""
+  /**
+   * The browser is refusing to keep the notes or marks (see
+   * VerseRecordStore.saveFailed$): what is written lives in this page only.
+   */
+  storageFailed = false
   searchQuery = ""
   searchResults: SearchHit[] = []
   searchState:
@@ -359,6 +365,13 @@ export class StudyPanelComponent implements OnChanges {
     this.noteSearch
       .pipe(debounceTime(NOTE_SEARCH_DEBOUNCE_MS), takeUntilDestroyed())
       .subscribe((query) => this.runNoteSearch(query))
+
+    combineLatest([this.notesService.saveFailed$, this.highlights.saveFailed$])
+      .pipe(takeUntilDestroyed())
+      .subscribe(([notes, marks]) => {
+        this.storageFailed = notes || marks
+        this.cdr.markForCheck()
+      })
 
     this.offline = this.network.isOffline
     this.network.isOffline$.pipe(takeUntilDestroyed()).subscribe((offline) => {
@@ -785,6 +798,21 @@ export class StudyPanelComponent implements OnChanges {
   noteReference(note: VerseNote): string {
     const book = this.bookService.findBook(note.bookId)
     return `${book.shortName} ${note.chapter},${note.verse}`
+  }
+
+  /**
+   * The note being written, on the clipboard: when the browser will not keep
+   * it, this is the one way left to not lose it.
+   */
+  async copyNote(): Promise<void> {
+    const text = this.noteDraft.trim()
+    if (!text) return
+    try {
+      await navigator.clipboard.writeText(text)
+      void this.announcer.announce("Nota copiada.")
+    } catch {
+      void this.announcer.announce("Não foi possível copiar a nota.")
+    }
   }
 
   /**

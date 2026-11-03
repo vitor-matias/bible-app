@@ -26,6 +26,16 @@
   </div>
 
   @if (!collapsed) {
+  @if (storageFailed) {
+  <!-- Announced when it appears: the note box says "fica no dispositivo", and
+       until something says otherwise a reader has no way to know it is not so. -->
+  <p class="storage-warning" role="alert">
+    O navegador não está a guardar o que escreve ou marca: fica só nesta página e perde-se ao fechá-la.
+    @if (selectedVerse && noteDraft.trim()) {
+    <button type="button" class="link-button" (click)="copyNote()">Copiar a nota</button>
+    }
+  </p>
+  }
   @switch (activeTab) {
 
   @case ('references') {

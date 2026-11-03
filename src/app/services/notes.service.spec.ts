@@ -31,6 +31,78 @@ describe("NotesService", () => {
     localStorage.removeItem(STORAGE_KEY)
   })
 
+  describe("when the browser will not keep what is written", () => {
+    it("says so, and stops saying so once a write succeeds", () => {
+      const service = makeService()
+      const seen: boolean[] = []
+      service.saveFailed$.subscribe((failed) => seen.push(failed))
+      const setItem = vi
+        .spyOn(Storage.prototype, "setItem")
+        .mockImplementation(() => {
+          throw new Error("QuotaExceededError")
+        })
+
+      service.saveNote("mat", 22, 39, "aqui")
+      expect(service.saveFailed).toBe(true)
+      // The note is still there, for this page.
+      expect(service.getNote("mat", 22, 39)?.text).toBe("aqui")
+
+      setItem.mockRestore()
+      service.saveNote("mat", 22, 39, "aqui, de novo")
+      expect(service.saveFailed).toBe(false)
+      expect(seen).toEqual([false, true, false])
+    })
+
+    it("says so too when there is no storage at all", () => {
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new Error("SecurityError")
+      })
+      const service = makeService()
+
+      service.saveNote("mat", 22, 39, "aqui")
+
+      expect(service.saveFailed).toBe(true)
+    })
+  })
+
+  describe("asking the browser to keep the notes", () => {
+    it("asks once, after the first write that is kept", async () => {
+      const persist = vi.fn().mockResolvedValue(true)
+      vi.stubGlobal("navigator", { ...navigator, storage: { persist } })
+      const service = makeService()
+
+      service.saveNote("mat", 22, 39, "primeira")
+      service.saveNote("mat", 22, 40, "segunda")
+
+      expect(persist).toHaveBeenCalledTimes(1)
+    })
+
+    it("does not ask when nothing was kept", () => {
+      const persist = vi.fn().mockResolvedValue(true)
+      vi.stubGlobal("navigator", { ...navigator, storage: { persist } })
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new Error("QuotaExceededError")
+      })
+
+      makeService().saveNote("mat", 22, 39, "aqui")
+
+      expect(persist).not.toHaveBeenCalled()
+    })
+
+    it("carries on where the browser has no storage manager, or it refuses", () => {
+      vi.stubGlobal("navigator", {
+        ...navigator,
+        storage: {
+          persist: () => {
+            throw new Error("not allowed")
+          },
+        },
+      })
+
+      expect(() => makeService().saveNote("mat", 22, 39, "aqui")).not.toThrow()
+    })
+  })
+
   it("keeps a saved note and reads it back", () => {
     const service = makeService()
     service.saveNote("mat", 22, 39, "O segundo mandamento")
