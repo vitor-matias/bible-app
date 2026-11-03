@@ -120,6 +120,17 @@
   line-height: 1.5;
 }
 
+.note-hint {
+  margin: 6px 0 0;
+  color: var(--study-muted);
+  line-height: 1.5;
+}
+
+.note-hint a,
+.storage-warning a {
+  color: inherit;
+}
+
 .link-button {
   padding: 0;
   border: none;

@@ -31,6 +31,12 @@
       <mat-icon>bookmarks</mat-icon>
       <span>Marcadores</span>
     </button>
+    <!-- Not the bookmarks above, which name a chapter to come back to: this is
+         the notes written and the verses marked, and where they are saved. -->
+    <button type="button" mat-menu-item (click)="onOpenMyNotes(menuTrigger)">
+      <mat-icon>edit_note</mat-icon>
+      <span>As minhas notas e marcas</span>
+    </button>
     <!-- Only where the layout fits (see StudyModeService): on a narrow
          window the item would promise a mode the reader cannot get. The
          About page is excluded for the same reason — it is the app's own

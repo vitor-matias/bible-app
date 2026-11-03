@@ -29,6 +29,19 @@ export const HIGHLIGHT_COLORS: HighlightColor[] = [
   "pink",
 ]
 
+/** Whether something read from storage, or from a saved copy, is a mark. */
+export function isVerseHighlight(value: unknown): value is VerseHighlight {
+  if (!value || typeof value !== "object") return false
+  const highlight = value as Partial<VerseHighlight>
+  return (
+    typeof highlight.bookId === "string" &&
+    typeof highlight.chapter === "number" &&
+    typeof highlight.verse === "number" &&
+    typeof highlight.updatedAt === "number" &&
+    HIGHLIGHT_COLORS.includes(highlight.color as HighlightColor)
+  )
+}
+
 /**
  * The marks a reader leaves on the text itself. Bookmarks already exist but
  * are a different thing: they name a chapter to come back to. A highlight is
@@ -95,15 +108,26 @@ export class HighlightService extends VerseRecordStore<VerseHighlight> {
     this.removeAt({ bookId, chapter, verse })
   }
 
+  /**
+   * Marks from a saved copy. A verse that already has a mark keeps it unless
+   * the copy's is newer, so an old file cannot undo later marking.
+   */
+  importHighlights(highlights: VerseHighlight[]): {
+    added: number
+    replaced: number
+    kept: number
+  } {
+    return this.merge(highlights, (incoming, existing) => {
+      return incoming.updatedAt > existing.updatedAt
+    })
+  }
+
+  /** Every mark, gone. */
+  clearAll(): void {
+    this.removeEverything()
+  }
+
   protected isRecord(value: unknown): value is VerseHighlight {
-    if (!value || typeof value !== "object") return false
-    const highlight = value as Partial<VerseHighlight>
-    return (
-      typeof highlight.bookId === "string" &&
-      typeof highlight.chapter === "number" &&
-      typeof highlight.verse === "number" &&
-      typeof highlight.updatedAt === "number" &&
-      HIGHLIGHT_COLORS.includes(highlight.color as HighlightColor)
-    )
+    return isVerseHighlight(value)
   }
 }

@@ -7,6 +7,8 @@ export const serverRoutes: ServerRoute[] = [
   { path: "livros", renderMode: RenderMode.Prerender },
   // Search results are user-specific and noindexed.
   { path: "search", renderMode: RenderMode.Client },
+  // The reader's own notes live in the browser, so there is nothing to render.
+  { path: "minhas-notas", renderMode: RenderMode.Client },
   {
     path: ":book/:chapter",
     renderMode: RenderMode.Prerender,

@@ -509,6 +509,17 @@ describe("HeaderComponent", () => {
     expect(selected).toEqual([{ bookId: "about" }])
   })
 
+  it("opens the reader's own notes and marks from the menu", () => {
+    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
+      "closeMenu",
+    ])
+
+    component.onOpenMyNotes(trigger)
+
+    expect(trigger.closeMenu).toHaveBeenCalled()
+    expect(routerSpy.navigate).toHaveBeenCalledWith(["/minhas-notas"])
+  })
+
   it("should open the onboarding wizard from the menu", () => {
     const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
       "closeMenu",

@@ -31,6 +31,7 @@
        until something says otherwise a reader has no way to know it is not so. -->
   <p class="storage-warning" role="alert">
     O navegador não está a guardar o que escreve ou marca: fica só nesta página e perde-se ao fechá-la.
+    <a routerLink="/minhas-notas">Guardar uma cópia</a>.
     @if (selectedVerse && noteDraft.trim()) {
     <button type="button" class="link-button" (click)="copyNote()">Copiar a nota</button>
     }
@@ -161,8 +162,12 @@
     @if (selectedVerse) {
     <div class="note-box">
       <label class="note-label" for="study-note">A minha nota em {{ selectedVerseLabel }}</label>
-      <textarea id="study-note" name="nota" autocomplete="off" class="note-input" rows="3" placeholder="Escrever… fica no dispositivo, sem conta."
+      <textarea id="study-note" name="nota" autocomplete="off" class="note-input" rows="3" placeholder="Escrever… fica neste navegador, sem conta."
         [value]="noteDraft" (input)="onNoteInput($any($event.target).value)" (blur)="onNoteBlur()"></textarea>
+      <p class="note-hint">
+        Se limpar o navegador ou mudar de computador, perde-se.
+        <a routerLink="/minhas-notas">Guardar uma cópia</a>
+      </p>
     </div>
     }
   </div>
@@ -199,8 +204,12 @@
     @if (selectedVerse) {
     <div class="note-box">
       <label class="note-label" for="study-note-tab">A minha nota em {{ selectedVerseLabel }}</label>
-      <textarea id="study-note-tab" name="nota" autocomplete="off" class="note-input" rows="4" placeholder="Escrever… fica no dispositivo, sem conta."
+      <textarea id="study-note-tab" name="nota" autocomplete="off" class="note-input" rows="4" placeholder="Escrever… fica neste navegador, sem conta."
         [value]="noteDraft" (input)="onNoteInput($any($event.target).value)" (blur)="onNoteBlur()"></textarea>
+      <p class="note-hint">
+        Se limpar o navegador ou mudar de computador, perde-se.
+        <a routerLink="/minhas-notas">Guardar uma cópia</a>
+      </p>
     </div>
     } @else {
     <p class="panel-empty">Escolha um versículo para escrever uma nota.</p>
@@ -243,8 +252,11 @@
       }
     </ul>
     } @else if (selectedVerse) {
-    <p class="panel-empty small">As notas ficam neste dispositivo. Não são enviadas para lado nenhum.</p>
+    <p class="panel-empty small">As notas ficam neste navegador. Não são enviadas para lado nenhum.</p>
     }
+    <p class="panel-empty small">
+      <a routerLink="/minhas-notas">Ver todas as notas e marcas</a>
+    </p>
   </div>
   }
 

@@ -329,6 +329,12 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.selectPassage.emit({ bookId: "about" })
   }
 
+  /** Everything the reader has written and marked: see MyNotesComponent. */
+  onOpenMyNotes(trigger: MatMenuTrigger): void {
+    trigger.closeMenu()
+    void this.router.navigate(["/minhas-notas"])
+  }
+
   onOpenHelp(trigger: MatMenuTrigger) {
     trigger.closeMenu()
     this.onboardingService.open("menu")

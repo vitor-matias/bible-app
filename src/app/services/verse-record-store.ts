@@ -110,6 +110,42 @@ export abstract class VerseRecordStore<T extends VerseRecord> {
     ])
   }
 
+  /**
+   * Brings records in from a saved copy, in one write. A record for a verse
+   * that already has one replaces it only when `wins` says the incoming one
+   * should: a copy older than what is here must not take back later work.
+   */
+  protected merge(
+    incoming: T[],
+    wins: (incoming: T, existing: T) => boolean,
+  ): { added: number; replaced: number; kept: number } {
+    const result = { added: 0, replaced: 0, kept: 0 }
+    this.commit((records) => {
+      const next = [...records]
+      for (const record of incoming) {
+        const at = next.findIndex((existing) =>
+          VerseRecordStore.isAt(existing, record),
+        )
+        if (at === -1) {
+          next.push(record)
+          result.added++
+        } else if (wins(record, next[at])) {
+          next[at] = record
+          result.replaced++
+        } else {
+          result.kept++
+        }
+      }
+      return next
+    })
+    return result
+  }
+
+  /** Removes every record. */
+  protected removeEverything(): void {
+    this.commit(() => [])
+  }
+
   /** Removes the record on a verse, if there is one. */
   protected removeAt(address: VerseAddress): void {
     if (!this.at(address)) return

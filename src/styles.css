@@ -1017,3 +1017,11 @@ html.dark-theme .platform-ios.native-chrome app-search {
 .platform-ios .mdc-button__ripple {
   display: none;
 }
+
+/* A page printed from the dark theme should not come out as ink on black. */
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+}

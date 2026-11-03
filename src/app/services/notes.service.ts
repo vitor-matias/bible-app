@@ -6,6 +6,31 @@ import { type VerseRecord, VerseRecordStore } from "./verse-record-store"
 export type VerseNote = VerseRecord & {
   text: string
   updatedAt: number
+  /**
+   * The last verse of a passage the note is on, when it is on more than one.
+   * Not offered yet: it is here so a saved copy made today still says where a
+   * note on a passage starts and ends when notes learn to span verses, and
+   * the copy does not have to be rewritten.
+   */
+  verseEnd?: number
+  /** A short name for the note, to find it by next year. */
+  title?: string
+}
+
+/** Whether something read from storage, or from a saved copy, is a note. */
+export function isVerseNote(value: unknown): value is VerseNote {
+  if (!value || typeof value !== "object") return false
+  const note = value as Partial<VerseNote>
+  return (
+    typeof note.bookId === "string" &&
+    typeof note.chapter === "number" &&
+    typeof note.verse === "number" &&
+    typeof note.updatedAt === "number" &&
+    typeof note.text === "string" &&
+    note.text.length > 0 &&
+    (note.verseEnd === undefined || typeof note.verseEnd === "number") &&
+    (note.title === undefined || typeof note.title === "string")
+  )
 }
 
 /**
@@ -88,16 +113,26 @@ export class NotesService extends VerseRecordStore<VerseNote> {
     this.removeAt({ bookId, chapter, verse })
   }
 
+  /**
+   * Notes from a saved copy. A note for a verse that already has one is
+   * replaced only by a newer one, so an old file cannot undo later writing.
+   */
+  importNotes(notes: VerseNote[]): {
+    added: number
+    replaced: number
+    kept: number
+  } {
+    return this.merge(notes, (incoming, existing) => {
+      return incoming.updatedAt > existing.updatedAt
+    })
+  }
+
+  /** Every note, gone. */
+  deleteAll(): void {
+    this.removeEverything()
+  }
+
   protected isRecord(value: unknown): value is VerseNote {
-    if (!value || typeof value !== "object") return false
-    const note = value as Partial<VerseNote>
-    return (
-      typeof note.bookId === "string" &&
-      typeof note.chapter === "number" &&
-      typeof note.verse === "number" &&
-      typeof note.updatedAt === "number" &&
-      typeof note.text === "string" &&
-      note.text.length > 0
-    )
+    return isVerseNote(value)
   }
 }

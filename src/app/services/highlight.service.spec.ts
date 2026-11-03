@@ -179,4 +179,48 @@ describe("HighlightService", () => {
 
     expect(service.colorFor("mat", 22, 37)).toBe("pink")
   })
+
+  describe("marks from a saved copy", () => {
+    it("adds the marks it does not have, and keeps the newer on a verse both mark", () => {
+      const service = makeService()
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date(1000))
+      service.toggle("mat", 22, 37, "yellow")
+      service.toggle("mat", 22, 38, "green")
+      vi.useRealTimers()
+
+      const result = service.importHighlights([
+        {
+          bookId: "mat",
+          chapter: 22,
+          verse: 37,
+          color: "pink",
+          updatedAt: 2000,
+        },
+        {
+          bookId: "mat",
+          chapter: 22,
+          verse: 38,
+          color: "blue",
+          updatedAt: 500,
+        },
+        { bookId: "mat", chapter: 22, verse: 39, color: "blue", updatedAt: 1 },
+      ])
+
+      expect(result).toEqual({ added: 1, replaced: 1, kept: 1 })
+      expect(service.colorFor("mat", 22, 37)).toBe("pink")
+      expect(service.colorFor("mat", 22, 38)).toBe("green")
+      expect(service.colorFor("mat", 22, 39)).toBe("blue")
+    })
+
+    it("clears every mark on request", () => {
+      const service = makeService()
+      service.toggle("mat", 22, 37, "yellow")
+
+      service.clearAll()
+
+      expect(localStorage.getItem(STORAGE_KEY)).toBe("[]")
+      expect(service.colorFor("mat", 22, 37)).toBeUndefined()
+    })
+  })
 })

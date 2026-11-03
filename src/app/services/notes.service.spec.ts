@@ -31,6 +31,74 @@ describe("NotesService", () => {
     localStorage.removeItem(STORAGE_KEY)
   })
 
+  describe("notes from a saved copy", () => {
+    const saved = (
+      verse: number,
+      text: string,
+      updatedAt: number,
+    ): VerseNote => ({
+      bookId: "mat",
+      chapter: 22,
+      verse,
+      text,
+      updatedAt,
+    })
+
+    it("adds the notes it does not have", () => {
+      const service = makeService()
+
+      const result = service.importNotes([saved(37, "nova", 5)])
+
+      expect(result).toEqual({ added: 1, replaced: 0, kept: 0 })
+      expect(service.getNote("mat", 22, 37)?.text).toBe("nova")
+    })
+
+    it("lets a newer note replace the one here, and not an older one", () => {
+      const service = makeService()
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date(1000))
+      service.saveNote("mat", 22, 37, "daqui, de 1000")
+      service.saveNote("mat", 22, 38, "daqui também")
+      vi.useRealTimers()
+
+      const result = service.importNotes([
+        saved(37, "do ficheiro, mais recente", 2000),
+        saved(38, "do ficheiro, mais antigo", 500),
+      ])
+
+      expect(result).toEqual({ added: 0, replaced: 1, kept: 1 })
+      expect(service.getNote("mat", 22, 37)?.text).toBe(
+        "do ficheiro, mais recente",
+      )
+      // An old file must not take back what was written since.
+      expect(service.getNote("mat", 22, 38)?.text).toBe("daqui também")
+    })
+
+    it("writes them in one go, not one write per note", () => {
+      const service = makeService()
+      const setItem = vi.spyOn(Storage.prototype, "setItem")
+
+      service.importNotes([
+        saved(1, "a", 1),
+        saved(2, "b", 1),
+        saved(3, "c", 1),
+      ])
+
+      expect(setItem).toHaveBeenCalledTimes(1)
+    })
+
+    it("empties everything on request, and keeps it empty", () => {
+      const service = makeService()
+      service.saveNote("mat", 22, 37, "uma")
+      service.saveNote("mrk", 1, 1, "outra")
+
+      service.deleteAll()
+
+      expect(localStorage.getItem(STORAGE_KEY)).toBe("[]")
+      expect(makeService().getNote("mat", 22, 37)).toBeUndefined()
+    })
+  })
+
   describe("when the browser will not keep what is written", () => {
     it("says so, and stops saying so once a write succeeds", () => {
       const service = makeService()
