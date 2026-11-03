@@ -19,7 +19,7 @@ import {
   type SimpleChanges,
   ViewChildren,
 } from "@angular/core"
-import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
+import { takeUntilDestroyed, toSignal } from "@angular/core/rxjs-interop"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
@@ -50,6 +50,7 @@ import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
+import { PwaInstallService } from "../../services/pwa-install.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"
 import {
   passageLabel,
@@ -96,6 +97,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly cdr = inject(ChangeDetectorRef)
   readonly analyticsService = inject(AnalyticsService)
   private readonly onboardingService = inject(OnboardingService)
+  private readonly pwaInstallService = inject(PwaInstallService)
+  /** Browsers that can't prompt (iOS, Firefox) get the tutorial's steps instead. */
+  readonly canInstall = toSignal(this.pwaInstallService.canPromptInstall$, {
+    requireSync: true,
+  })
 
   readonly book = input.required<Book>()
   readonly chapterNumber = input.required<number>()
@@ -347,6 +353,16 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   onOpenHelp(trigger: MatMenuTrigger) {
     trigger.closeMenu()
     this.onboardingService.open("menu")
+  }
+
+  async onInstall(trigger: MatMenuTrigger): Promise<void> {
+    trigger.closeMenu()
+    const outcome = await this.pwaInstallService.promptInstall()
+    // AnalyticsService.track overwrites `platform`, hence the distinct key.
+    void this.analyticsService.track("pwa_install_prompt", {
+      outcome,
+      installPlatform: this.pwaInstallService.detectPlatform(),
+    })
   }
 
   /**

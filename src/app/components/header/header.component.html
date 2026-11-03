@@ -86,6 +86,12 @@
       <span>Partilhar</span>
     </button>
     }
+    @if (canInstall()) {
+    <button type="button" mat-menu-item (click)="onInstall(menuTrigger)">
+      <mat-icon>download</mat-icon>
+      <span>Instalar a app</span>
+    </button>
+    }
     <button type="button" mat-menu-item (click)="onOpenHelp(menuTrigger)">
       <mat-icon>help</mat-icon>
       <span>Como usar a app</span>

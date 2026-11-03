@@ -56,6 +56,16 @@ const test = base.extend<{ skipOnboarding: boolean }>({
 })
 
 test.describe("Initial load", () => {
+  // Without cookies a protected Vercel preview redirects the manifest to its
+  // login page, so the browser never offers the install there.
+  test("fetches the manifest with credentials", async ({ page }) => {
+    await page.goto("/")
+    await expect(page.locator('link[rel="manifest"]')).toHaveAttribute(
+      "crossorigin",
+      "use-credentials",
+    )
+  })
+
   test("redirects to a book/chapter URL", async ({ page }) => {
     await page.goto("/")
     // Angular router redirects to a stored or default book/chapter
