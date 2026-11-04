@@ -209,8 +209,9 @@ Tapping a `https://biblia.capuchinhos.org` link opens the app, which routes it f
   the archive is built unsigned, and a Debug build (`org.capuchinhos.biblia.dev`) is
   deliberately left without Universal Links, so it needs no capability on its team.
 
-A device fetches the file when the app is installed or updated, so reinstall to test a
-change. Links only open the app from a tap in another site or app, not from a link
+A device fetches the file when the app is installed or updated, so install an update
+over the existing app to test a change. Deleting the app first isn't needed, and wipes
+its locally stored bookmarks. Links only open the app from a tap in another site or app, not from a link
 within the same domain or one typed into Safari's address bar.
 
 ## Safari and WebKit
