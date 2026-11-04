@@ -45,7 +45,8 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
             >{{ part.match }}</a
           >
           } @else {
-          {{ part }}
+          <!-- No whitespace around the text: the template's own would add a gap before the next link or bracket. -->
+          <ng-container>{{ part }}</ng-container>
           } }
         </div>
         }

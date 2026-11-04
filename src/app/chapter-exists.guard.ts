@@ -19,7 +19,8 @@ export const chapterExists: CanMatchFn = async (
   }
   const [bookSegment, chapterSegment] = segments.map((s) => s.path)
   const book = books.findBook(bookSegment)
-  if (book.id === "about") return bookSegment === books.getUrlAbrv(book)
+  if (book.id === "about")
+    return ["about", books.getUrlAbrv(book)].includes(bookSegment)
   const chapter = books.parseChapterUrlSegment(chapterSegment)
   // Introductions have no chapters to count.
   return book.chapterCount === 0 || chapter <= book.chapterCount

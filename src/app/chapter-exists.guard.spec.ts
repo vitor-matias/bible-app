@@ -60,6 +60,7 @@ describe("chapterExists", () => {
 
   it("lets the About page and an introduction through", async () => {
     expect(await run("sobre", "1")).toBe(true)
+    expect(await run("about", "1")).toBe(true)
     expect(await run("pentateuco", "intro")).toBe(true)
   })
 
