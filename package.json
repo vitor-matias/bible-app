@@ -54,7 +54,7 @@
     "@angular/compiler-cli": "^22.2.2",
     "@biomejs/biome": "^2.5.7",
     "@capacitor/assets": "^4.0.0",
-    "@capacitor/cli": "^8.5.2",
+    "@capacitor/cli": "^8.6.0",
     "@playwright/test": "^1.62.1",
     "@types/node": "^26.2.0",
     "@vitest/browser-playwright": "5.0.5",
