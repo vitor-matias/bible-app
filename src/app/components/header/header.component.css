@@ -213,3 +213,20 @@ mat-icon {
   height: 16px !important;
   opacity: 0.6;
 }
+
+/* A visible focus ring on the toolbar's controls, inside the 56 px bar so the
+   bar's overflow does not clip it, and 44 px targets. */
+.menuButton:focus-visible,
+.searchButton:focus-visible,
+:host ::ng-deep .bookSelectorButton .mat-button-toggle-button:focus-visible {
+  outline: 2px solid #543d27;
+  outline-offset: -4px;
+}
+
+:host ::ng-deep .bookSelectorButton .mat-button-toggle {
+  min-width: 44px;
+}
+
+:host ::ng-deep .bookSelectorButton .mat-button-toggle-button {
+  min-height: 44px;
+}
