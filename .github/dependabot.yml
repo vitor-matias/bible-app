@@ -11,7 +11,9 @@ updates:
       semver-major-days: 10
     # A single @angular/* bump fails `npm ci` (ERESOLVE): the framework packages
     # pin each other as peers, so everything below moves in one PR. Dependabot
-    # puts a dependency in the first group it matches, so order matters.
+    # puts a dependency in the group with the most specific pattern, whatever the
+    # order. A group with no `patterns` outranks "@angular/*", so the catch-alls
+    # at the end need `patterns: ["*"]`, the lowest score.
     groups:
       angular:
         patterns: ["@angular/*", "@angular-devkit/*", "@schematics/*", "typescript"]
@@ -38,9 +40,11 @@ updates:
         patterns: ["vitest", "@vitest/*"]
       # Other dev-tool majors (biome, playwright, ...) stay one PR each.
       dev-tooling:
+        patterns: ["*"]
         dependency-type: development
         update-types: [minor, patch]
       runtime:
+        patterns: ["*"]
         dependency-type: production
         update-types: [minor, patch]
     ignore:
