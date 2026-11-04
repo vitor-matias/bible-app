@@ -18,10 +18,19 @@ export const chapterExists: CanMatchFn = async (
     return true
   }
   const [bookSegment, chapterSegment] = segments.map((s) => s.path)
+  // "intro" or digits: parseChapterUrlSegment turns anything else into 1.
+  if (
+    chapterSegment !== BookService.INTRO_URL_SEGMENT &&
+    !/^\d+$/.test(chapterSegment)
+  )
+    return false
   const book = books.findBook(bookSegment)
-  if (book.id === "about")
-    return ["about", books.getUrlAbrv(book)].includes(bookSegment)
   const chapter = books.parseChapterUrlSegment(chapterSegment)
-  // Introductions have no chapters to count.
-  return book.chapterCount === 0 || chapter <= book.chapterCount
+  if (book.id === "about")
+    return (
+      ["about", books.getUrlAbrv(book)].includes(bookSegment) && chapter === 1
+    )
+  // A standalone introduction has no chapters, only its own page.
+  if (book.chapterCount === 0) return chapter === 0
+  return chapter <= book.chapterCount
 }

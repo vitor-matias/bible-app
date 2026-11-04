@@ -64,6 +64,12 @@ describe("chapterExists", () => {
     expect(await run("pentateuco", "intro")).toBe(true)
   })
 
+  it("rejects a malformed chapter, and chapters on About and introductions", async () => {
+    expect(await run("jo", "garbage")).toBe(false)
+    expect(await run("sobre", "999")).toBe(false)
+    expect(await run("pentateuco", "1")).toBe(false)
+  })
+
   it("leaves the decision to the reader when the books cannot load", async () => {
     vi.spyOn(service, "initializeBooks").mockRejectedValue(new Error("offline"))
     expect(await run("xx", "999")).toBe(true)
