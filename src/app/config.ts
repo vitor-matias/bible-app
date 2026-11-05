@@ -6,6 +6,25 @@ export const appConfig = {
   fallbackDomain: "bible-app-ten-psi.vercel.app",
 }
 
+export interface StoreApps {
+  /** The App Store's numeric app id, as in apps.apple.com/app/id<id>. */
+  appStoreId: string
+  /** The Google Play package name. */
+  playPackage: string
+}
+
+/**
+ * The native apps' store listings, for the website to point visitors at. A
+ * listing must be public by the time the website ships with it; while one is
+ * empty the website keeps to its own install steps on that platform and
+ * promotes no store.
+ */
+export const storeApps: StoreApps = {
+  // App Store Connect's "Apple ID" for the app.
+  appStoreId: "6823135142",
+  playPackage: "org.capuchinhos.biblia",
+}
+
 /** A Vercel deployment (the test site and its previews), not the website. */
 export function isVercelHost(hostname: string): boolean {
   return hostname.endsWith(".vercel.app")
