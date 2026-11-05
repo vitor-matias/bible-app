@@ -25,8 +25,12 @@ import { HapticsService } from "../../services/haptics.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
+import {
+  type InstallPlatform,
+  PwaInstallService,
+} from "../../services/pwa-install.service"
 import { SeoService } from "../../services/seo.service"
-import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
+import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
 import { BibleReaderComponent } from "./bible-reader.component"
 
 describe("BibleReaderComponent", () => {
@@ -39,6 +43,7 @@ describe("BibleReaderComponent", () => {
   let preferencesServiceSpy: SpyObj<PreferencesService>
   let routerSpy: SpyObj<Router>
   let hapticsSpy: SpyObj<HapticsService>
+  let platform: InstallPlatform
   let routeMock: unknown
   let animationServiceSpy: SpyObj<BibleReaderAnimationService>
   let analyticsServiceSpy: SpyObj<AnalyticsService>
@@ -75,6 +80,8 @@ describe("BibleReaderComponent", () => {
     preferencesServiceSpy = createSpyObj("PreferencesService", [
       "getAutoScrollSpeed",
       "getViewMode",
+      "getCardsView",
+      "setCardsView",
       "getAutoScrollControlsVisible",
       "setAutoScrollControlsVisible",
       "setViewMode",
@@ -136,6 +143,8 @@ describe("BibleReaderComponent", () => {
     // Default returns
     preferencesServiceSpy.getAutoScrollSpeed.mockReturnValue(50)
     preferencesServiceSpy.getViewMode.mockReturnValue("scrolling")
+    preferencesServiceSpy.getCardsView.mockReturnValue(false)
+    platform = "desktop"
     preferencesServiceSpy.getAutoScrollControlsVisible.mockReturnValue(false)
     bookServiceSpy.findBook.mockReturnValue(mockBooks[0] as unknown as Book)
     bookServiceSpy.getUrlAbrv.mockReturnValue("1-genesis")
@@ -180,6 +189,10 @@ describe("BibleReaderComponent", () => {
         { provide: MatSnackBar, useValue: snackBarSpy },
         { provide: SeoService, useValue: seoServiceSpy },
         { provide: HapticsService, useValue: hapticsSpy },
+        {
+          provide: PwaInstallService,
+          useValue: { detectPlatform: () => platform },
+        },
         ...(options?.platformId
           ? [{ provide: PLATFORM_ID, useValue: options.platformId }]
           : []),
@@ -1131,6 +1144,409 @@ describe("BibleReaderComponent", () => {
       expect(
         preferencesServiceSpy.setAutoScrollControlsVisible,
       ).toHaveBeenCalledWith(true)
+    })
+
+    describe("card view", () => {
+      /** Boots a reader on the given platform with the preference as stored. */
+      function bootOn(target: InstallPlatform, stored: boolean): void {
+        platform = target
+        preferencesServiceSpy.getCardsView.mockReturnValue(stored)
+        fixture = TestBed.createComponent(BibleReaderComponent)
+        component = fixture.componentInstance
+        fixture.detectChanges()
+      }
+
+      /** The reader is OnPush: a field set from outside needs marking first. */
+      function rerender(): void {
+        ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+        fixture.detectChanges()
+      }
+
+      function cardsInDom(): boolean {
+        return !!fixture.nativeElement.querySelector("verse-cards")
+      }
+
+      it("is off by default, showing the chapter as running text", () => {
+        bootOn("android", false)
+
+        expect(component.showCards).toBe(false)
+        expect(cardsInDom()).toBe(false)
+        expect(
+          fixture.nativeElement.querySelector(".chapterBlock"),
+        ).toBeTruthy()
+      })
+
+      it("deals the chapter out as cards once turned on, and remembers it", () => {
+        bootOn("android", false)
+
+        component.onToggleCardsView()
+
+        // No detectChanges of the test's own: the toggle renders itself.
+        expect(
+          preferencesServiceSpy.setCardsView,
+        ).toHaveBeenCalledExactlyOnceWith(true)
+        expect(cardsInDom()).toBe(true)
+        expect(fixture.nativeElement.querySelector(".chapterBlock")).toBeNull()
+        expect(
+          fixture.nativeElement.querySelector("mat-drawer-content").classList,
+        ).toContain("cards-scroller")
+      })
+
+      it("goes back to running text when turned off", () => {
+        bootOn("android", true)
+        expect(cardsInDom()).toBe(true)
+
+        component.onToggleCardsView()
+
+        expect(
+          preferencesServiceSpy.setCardsView,
+        ).toHaveBeenCalledExactlyOnceWith(false)
+        expect(cardsInDom()).toBe(false)
+        expect(
+          fixture.nativeElement.querySelector("mat-drawer-content").classList,
+        ).not.toContain("cards-scroller")
+      })
+
+      it("starts the cards on the first verse, never on scroll offset 0", () => {
+        bootOn("android", false)
+        const restOnCard = vi
+          .spyOn(
+            component as unknown as { restOnCard(edge: string): void },
+            "restOnCard",
+          )
+          .mockImplementation(() => {})
+
+        component.onToggleCardsView()
+
+        // From chapter 2 on, offset 0 is the stop that goes back a chapter.
+        expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
+        expect(restOnCard).toHaveBeenCalledExactlyOnceWith("first")
+      })
+
+      it("starts the running text from the top when the cards are turned off", () => {
+        bootOn("android", true)
+        // This spec strips the reader's imports, so the MatDrawerContent view
+        // query never resolves — and re-resolves to nothing on every pass, so
+        // a plain assignment would not survive the toggle's own render. Pin
+        // the element it would have found instead.
+        const scroller: HTMLElement =
+          fixture.nativeElement.querySelector("mat-drawer-content")
+        Object.defineProperty(component, "drawerContent", {
+          get: () => new ElementRef(scroller),
+          set: () => {},
+        })
+        // Typed loosely: spyOn infers scrollTo's (x, y) overload, which would
+        // reject asserting on the options form the component actually calls.
+        const scrollTo: Mock = vi
+          .spyOn(scroller, "scrollTo")
+          .mockImplementation(() => {})
+
+        component.onToggleCardsView()
+
+        expect(scrollTo).toHaveBeenCalledExactlyOnceWith({ top: 0 })
+      })
+
+      it("is mobile only: a stored preference does nothing on a desktop", () => {
+        bootOn("desktop", true)
+
+        expect(component.cardsViewAvailable).toBe(false)
+        expect(component.showCards).toBe(false)
+        expect(cardsInDom()).toBe(false)
+      })
+
+      it("displaces paged columns, which cannot hold a vertical run of cards", () => {
+        preferencesServiceSpy.getViewMode.mockReturnValue("paged")
+        bootOn("android", true)
+
+        expect(component.viewMode).toBe("paged")
+        expect(component.effectiveViewMode).toBe("scrolling")
+      })
+
+      it("keeps the copyright on screen at all times, as paged mode does", () => {
+        bootOn("android", false)
+        const footer = () =>
+          fixture.nativeElement.querySelector(".copyright-footer").classList
+
+        // In running text it sits at the end of the chapter.
+        expect(footer()).not.toContain("fixed-footer")
+
+        component.onToggleCardsView()
+
+        expect(footer()).toContain("fixed-footer")
+        expect(footer()).toContain("cards-footer")
+      })
+
+      it("moves on to the next chapter when the reader scrolls past the last verse", () => {
+        bootOn("android", true)
+        component.book = { ...component.book, shortName: "Génesis" }
+        component.chapterNumber = 7
+        rerender()
+        routerSpy.navigate.mockClear()
+        const cards = fixture.nativeElement.querySelector("verse-cards")
+
+        expect(cards.nextChapterLabel).toBe("Génesis 8")
+
+        cards.dispatchEvent(new Event("reachedEnd"))
+
+        expect(routerSpy.navigate).toHaveBeenCalledExactlyOnceWith([
+          "/",
+          "1-genesis",
+          "8",
+        ])
+      })
+
+      it("offers nothing past the last chapter of the book", () => {
+        bootOn("android", true)
+        component.chapterNumber = component.book.chapterCount
+        rerender()
+
+        expect(
+          fixture.nativeElement.querySelector("verse-cards").nextChapterLabel,
+        ).toBeUndefined()
+      })
+
+      /**
+       * Stands in for the cards the real component would render: this spec
+       * strips the reader's imports, so <verse-cards> is an empty element.
+       */
+      function seedCards(count: number): Mock[] {
+        const host = fixture.nativeElement.querySelector("verse-cards")
+        return Array.from({ length: count }, () => {
+          const card = document.createElement("article")
+          host.appendChild(card)
+          return vi.spyOn(card, "scrollIntoView").mockImplementation(() => {})
+        })
+      }
+
+      it("opens a new chapter resting on its first verse", () => {
+        bootOn("android", true)
+        const [first, , last] = seedCards(3)
+        animationServiceSpy.scrollToTop.mockClear()
+
+        component.getChapter(2)
+
+        // Instantly, with no `behavior: "smooth"`: the reader arrives from the
+        // bottom of the chapter before, a whole run of cards away.
+        expect(first).toHaveBeenCalledExactlyOnceWith({ block: "start" })
+        expect(last).not.toHaveBeenCalled()
+      })
+
+      // Regression: on Android, reaching the end of Gn 1 went on to Gn 3. The
+      // fling that brought the reader to the end of Gn 1 was still running when
+      // Gn 2 replaced it, and carried on to the offset it had been heading for
+      // — in the shorter Gn 2, that chapter's own closing stop.
+      it("cancels a fling still in flight when it rests on a card", () => {
+        bootOn("android", true)
+        const scroller: HTMLElement =
+          fixture.nativeElement.querySelector("mat-drawer-content")
+        // See "starts the running text from the top" for why this is pinned.
+        Object.defineProperty(component, "drawerContent", {
+          get: () => new ElementRef(scroller),
+          set: () => {},
+        })
+        const frames: FrameRequestCallback[] = []
+        vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+          frames.push(cb)
+          return frames.length
+        })
+
+        component.getChapter(2)
+
+        // A scroller that cannot scroll has its animations cancelled...
+        expect(scroller.style.overflowY).toBe("hidden")
+        frames.shift()?.(0)
+        // ...provided the compositor gets a frame to see it that way.
+        expect(scroller.style.overflowY).toBe("hidden")
+        frames.shift()?.(0)
+
+        expect(scroller.style.overflowY).toBe("")
+      })
+
+      it("keeps the scroller from the scroll-to-top, which would rest it on the leading stop", () => {
+        bootOn("android", true)
+        animationServiceSpy.scrollToTop.mockClear()
+
+        component.getChapter(2)
+
+        // Scroll offset 0 is the stop that goes back a chapter. The slide-in
+        // the same call performs is still wanted, hence the call itself.
+        expect(animationServiceSpy.scrollToTop).toHaveBeenCalledTimes(1)
+        expect(lastCall(animationServiceSpy.scrollToTop)[0]).toBeUndefined()
+      })
+
+      it("still hands the scroller over outside the card view", () => {
+        bootOn("android", false)
+        animationServiceSpy.scrollToTop.mockClear()
+
+        component.getChapter(2)
+
+        expect(animationServiceSpy.scrollToTop).toHaveBeenCalledTimes(1)
+      })
+
+      it("opens a chapter reached backwards on its last verse, so reading on upwards is continuous", async () => {
+        bootOn("android", true)
+        component.chapterNumber = 4
+        const [first, , last] = seedCards(3)
+
+        component.goToPreviousChapter()
+        component.getChapter(3)
+        await fixture.whenStable()
+
+        expect(last).toHaveBeenCalledExactlyOnceWith({ block: "start" })
+        expect(first).not.toHaveBeenCalled()
+      })
+
+      it("leaves a deep link into a chapter to scroll to its verse instead", () => {
+        bootOn("android", true)
+        const [first] = seedCards(3)
+        animationServiceSpy.scrollToTop.mockClear()
+
+        component.getChapter(2, 16)
+
+        expect(first).not.toHaveBeenCalled()
+        expect(animationServiceSpy.scrollToTop).not.toHaveBeenCalled()
+      })
+
+      it("goes back a chapter when the reader scrolls up past the first verse", () => {
+        bootOn("android", true)
+        component.book = { ...component.book, shortName: "Génesis" }
+        component.chapterNumber = 7
+        rerender()
+        routerSpy.navigate.mockClear()
+        const cards = fixture.nativeElement.querySelector("verse-cards")
+
+        expect(cards.previousChapterLabel).toBe("Génesis 6")
+
+        cards.dispatchEvent(new Event("reachedStart"))
+
+        expect(routerSpy.navigate).toHaveBeenCalledExactlyOnceWith([
+          "/",
+          "1-genesis",
+          "6",
+        ])
+      })
+
+      it("offers nothing before chapter 1, not even a book's introduction", () => {
+        bootOn("android", true)
+        component.book = {
+          ...component.book,
+          introduction: [{ type: "introParagraph", text: "Prosa." }],
+        }
+        component.chapterNumber = 1
+        rerender()
+
+        // The introduction is prose: going back into it would drop the reader
+        // out of the cards with no way to scroll back in.
+        expect(
+          fixture.nativeElement.querySelector("verse-cards")
+            .previousChapterLabel,
+        ).toBeUndefined()
+      })
+
+      it("closes the book under the last verse of its last chapter, and nowhere else", () => {
+        bootOn("android", true)
+        const cards = fixture.nativeElement.querySelector("verse-cards")
+        expect(cards.endOfBookLabel).toBeUndefined()
+
+        component.chapterNumber = component.book.chapterCount
+        rerender()
+
+        expect(cards.endOfBookLabel).toBe("Fim do Genesis")
+      })
+
+      it("drops the floating chapter arrows: a card is the verse and nothing else", () => {
+        bootOn("android", false)
+        expect(
+          fixture.nativeElement.querySelector(".floating-nav-button"),
+        ).toBeTruthy()
+
+        component.onToggleCardsView()
+
+        expect(
+          fixture.nativeElement.querySelector(".floating-nav-button"),
+        ).toBeNull()
+      })
+
+      it("hides the auto-scroll controls, which would fight the snapping", () => {
+        preferencesServiceSpy.getAutoScrollControlsVisible.mockReturnValue(true)
+        bootOn("android", true)
+
+        expect(
+          fixture.nativeElement.querySelector("app-auto-scroll-controls"),
+        ).toBeNull()
+      })
+
+      it("is not offered on the About page", () => {
+        bootOn("android", true)
+        component.book = { ...component.book, id: "about" }
+
+        expect(component.cardsViewAvailable).toBe(false)
+        expect(component.showCards).toBe(false)
+      })
+
+      it("is not offered on an introduction, which is prose rather than verses", () => {
+        bootOn("android", true)
+        component.book = {
+          ...component.book,
+          introduction: [{ type: "introParagraph", text: "Prosa." }],
+        }
+        component.chapterNumber = 0
+
+        expect(component.cardsViewAvailable).toBe(false)
+        expect(component.showCards).toBe(false)
+      })
+
+      it("tells the header whether the view is on and whether to offer it", () => {
+        bootOn("android", true)
+        const header = fixture.nativeElement.querySelector("header")
+
+        expect(header.cardsView).toBe(true)
+        expect(header.cardsViewAvailable).toBe(true)
+      })
+
+      it("aims a deep link at the verse's card, which is where the scroller can rest", () => {
+        bootOn("android", true)
+        animationServiceSpy.scrollToVerseElement.mockClear()
+        const card = document.createElement("article")
+        const verse = document.createElement("verse")
+        card.appendChild(verse)
+        const scrollIntoView = vi.spyOn(card, "scrollIntoView")
+
+        component.getChapter(1, 16)
+        const bringIntoView = lastCall(
+          animationServiceSpy.scrollToVerseElement,
+        )[6]
+        bringIntoView?.(verse)
+
+        // Centring the verse's text instead would leave the scroller between
+        // two snap points, free to settle on the next verse. And a jump, not a
+        // glide through every full-screen verse on the way.
+        expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({
+          block: "start",
+        })
+      })
+
+      it("leaves deep links to the default centring outside the card view", () => {
+        bootOn("android", false)
+        animationServiceSpy.scrollToVerseElement.mockClear()
+
+        component.getChapter(1, 16)
+
+        expect(
+          lastCall(animationServiceSpy.scrollToVerseElement)[6],
+        ).toBeUndefined()
+      })
+
+      it("tracks the toggle", () => {
+        bootOn("android", false)
+
+        component.onToggleCardsView()
+
+        expect(analyticsServiceSpy.track).toHaveBeenCalledWith(
+          "biblescroll_toggle",
+          expect.objectContaining({ enabled: true }),
+        )
+      })
     })
 
     it("onToggleViewMode should toggle mode and save state", () => {

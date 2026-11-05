@@ -110,6 +110,10 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
 
     if (this.viewMode() !== "paged") {
       this.removeSpacer()
+      // Armed by a backward chapter change in paged mode; left set, it would
+      // throw the reader to the last page on the first content change after
+      // coming back from the cards or the running text.
+      this._stayAtEnd = false
       this.onScroll()
       return
     }
@@ -475,6 +479,12 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   }
 
   scrollToEnd(): void {
+    // Like every other entry point here. The reader asks for this whenever a
+    // chapter is reached backwards, whatever the view; without the guard the
+    // "stay at the end" flag was set in a view that has no pages and that
+    // nothing ever clears it in, and went off on the first content change
+    // after a later switch to paged mode, throwing the reader to the last page.
+    if (this.viewMode() !== "paged") return
     this._stayAtEnd = true
     this.setTarget(undefined)
     this.snapToEnd()
