@@ -1,5 +1,6 @@
 import { PLATFORM_ID } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
+import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { Capacitor } from "@capacitor/core"
@@ -19,6 +20,7 @@ import {
   type StoreLink,
   storeLink,
 } from "./app-promo.service"
+import { NetworkService } from "./network.service"
 import { PreferencesService } from "./preferences.service"
 import { type InstallPlatform, PwaInstallService } from "./pwa-install.service"
 
@@ -68,6 +70,8 @@ describe("AppPromoService", () => {
   let analyticsSpy: SpyObj<AnalyticsService>
   let snackBar: { openFromComponent: Mock; _openedSnackBarRef: unknown }
   let dialog: { openDialogs: unknown[] }
+  let bottomSheet: { _openedBottomSheetRef: unknown }
+  let network: { isOffline: boolean }
 
   beforeEach(() => {
     localStorage.removeItem("appPromoSeen")
@@ -82,6 +86,8 @@ describe("AppPromoService", () => {
       _openedSnackBarRef: null,
     }
     dialog = { openDialogs: [] }
+    bottomSheet = { _openedBottomSheetRef: null }
+    network = { isOffline: false }
 
     TestBed.configureTestingModule({
       providers: [
@@ -98,6 +104,8 @@ describe("AppPromoService", () => {
         { provide: AnalyticsService, useValue: analyticsSpy },
         { provide: MatSnackBar, useValue: snackBar },
         { provide: MatDialog, useValue: dialog },
+        { provide: MatBottomSheet, useValue: bottomSheet },
+        { provide: NetworkService, useValue: network },
       ],
     })
   })
@@ -221,6 +229,26 @@ describe("AppPromoService", () => {
   it("gives way to an open dialog, and tries again next visit", async () => {
     vi.useFakeTimers()
     dialog.openDialogs = [{}]
+    service().scheduleOnce()
+    await vi.advanceTimersByTimeAsync(PROMPT_DELAY_MS)
+
+    expect(snackBar.openFromComponent).not.toHaveBeenCalled()
+    expect(preferences().getAppPromoSeen()).toBe(false)
+  })
+
+  it("gives way to an open sheet, such as a verse's notes", async () => {
+    vi.useFakeTimers()
+    bottomSheet._openedBottomSheetRef = {}
+    service().scheduleOnce()
+    await vi.advanceTimersByTimeAsync(PROMPT_DELAY_MS)
+
+    expect(snackBar.openFromComponent).not.toHaveBeenCalled()
+    expect(preferences().getAppPromoSeen()).toBe(false)
+  })
+
+  it("isn't spent offline, where its link can't open", async () => {
+    vi.useFakeTimers()
+    network.isOffline = true
     service().scheduleOnce()
     await vi.advanceTimersByTimeAsync(PROMPT_DELAY_MS)
 

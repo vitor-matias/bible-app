@@ -1,5 +1,6 @@
 import { isPlatformBrowser } from "@angular/common"
 import { Injectable, inject, PLATFORM_ID } from "@angular/core"
+import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { Capacitor } from "@capacitor/core"
@@ -10,6 +11,7 @@ import {
 import type { StoreApps } from "../config"
 import { STORE_APPS } from "../tokens"
 import { AnalyticsService } from "./analytics.service"
+import { NetworkService } from "./network.service"
 import { PreferencesService } from "./preferences.service"
 import { type InstallPlatform, PwaInstallService } from "./pwa-install.service"
 
@@ -84,6 +86,8 @@ export class AppPromoService {
   private readonly analytics = inject(AnalyticsService)
   private readonly snackBar = inject(MatSnackBar)
   private readonly dialog = inject(MatDialog)
+  private readonly bottomSheet = inject(MatBottomSheet)
+  private readonly network = inject(NetworkService)
   private readonly platformId = inject(PLATFORM_ID)
 
   storeFor(platform: InstallPlatform, source: StoreSource): StoreLink | null {
@@ -133,13 +137,16 @@ export class AppPromoService {
   private showPrompt(): void {
     // Re-check: onboarding's install step may have shown the store meanwhile.
     if (!this.canPrompt()) return
-    // Don't cover a dialog, replace another message such as "Voltar para…",
-    // or be missed in a background tab: the next visit tries again.
+    // Don't cover a dialog or sheet, replace another message such as "Voltar
+    // para…", or be spent offline or in a background tab: the next visit tries
+    // again.
     if (
       this.dialog.openDialogs.length > 0 ||
       // shortcut: Material has no public "is one open"; if an upgrade drops
-      // this accessor the build fails, then track it in ToastService.
+      // these accessors the build fails, then track them ourselves.
+      this.bottomSheet._openedBottomSheetRef ||
       this.snackBar._openedSnackBarRef ||
+      this.network.isOffline ||
       document.visibilityState === "hidden"
     ) {
       return
