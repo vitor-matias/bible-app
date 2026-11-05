@@ -41,12 +41,18 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
     private let state: FootnotesSheetState
     private let onLink: (Int) -> Void
     private let onClose: () -> Void
+    /// The way back that this sheet covers, to offer here, and what taps it.
+    private let wayBack: (message: String, symbol: String?)?
+    private let onWayBack: () -> Void
     private let textView = UITextView()
     private static let linkScheme = "nota"
 
-    init(state: FootnotesSheetState, onLink: @escaping (Int) -> Void, onClose: @escaping () -> Void) {
+    init(state: FootnotesSheetState, wayBack: (message: String, symbol: String?)? = nil,
+         onLink: @escaping (Int) -> Void, onWayBack: @escaping () -> Void = {}, onClose: @escaping () -> Void) {
         self.state = state
+        self.wayBack = wayBack
         self.onLink = onLink
+        self.onWayBack = onWayBack
         self.onClose = onClose
         super.init(nibName: nil, bundle: nil)
         title = state.title
@@ -79,6 +85,45 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
             textView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             textView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
+        if let wayBack { addWayBack(wayBack) }
+    }
+
+    /// The toast's capsule, over the notes' lower edge: the toast itself is
+    /// under this sheet, as anything in the page is.
+    private func addWayBack(_ wayBack: (message: String, symbol: String?)) {
+        var config: UIButton.Configuration
+        if #available(iOS 26.0, *) {
+            config = .glass()
+        } else {
+            config = .plain()
+            config.background.visualEffect = UIBlurEffect(style: .systemThickMaterial)
+        }
+        config.cornerStyle = .capsule
+        config.baseForegroundColor = .label
+        config.title = wayBack.message
+        config.image = wayBack.symbol.flatMap { UIImage(systemName: $0) }
+        config.imagePadding = 8
+        config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(textStyle: .subheadline, scale: .medium)
+        config.titleLineBreakMode = .byTruncatingTail
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+            var attributes = attributes
+            attributes.font = limitedFont(.systemFont(ofSize: 15, weight: .semibold), .subheadline)
+            return attributes
+        }
+        config.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
+        let button = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in
+            self?.onWayBack()
+            self?.dismiss(animated: true)
+        })
+        button.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(button)
+        NSLayoutConstraint.activate([
+            button.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            button.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
+            button.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+        ])
+        // The notes' last line can scroll clear of it.
+        textView.textContainerInset.bottom = 88
     }
 
     override func viewDidDisappear(_ animated: Bool) {

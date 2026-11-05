@@ -116,7 +116,9 @@ contract is the `NativeChromePlugin` interface in that service file.
 - **Overlays.** The native bars sit above the whole web view, so a web dialog or bottom
   sheet would open beneath them. While one is open (a CDK dark backdrop shows) the
   reader's bars slide away and any remaining bars turn `inert`; the apps show bookmarks,
-  notes, the report form, onboarding and the picker as native sheets instead. The bars
+  notes, the report form, onboarding and the picker as native sheets instead. A toast is
+  under any native sheet, so the notes sheet offers a toast that is a button ("Voltar para …")
+  itself. The bars
   float without changing the web view's safe area, so hiding them never changes layout.
 - **Body classes.** `NativeShellService` adds `platform-ios` / `platform-android` and
   `NativeChromeService.init` adds `native-chrome`. Keep platform-only CSS under those

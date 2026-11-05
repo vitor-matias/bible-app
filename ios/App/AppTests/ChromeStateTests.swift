@@ -124,6 +124,29 @@ final class ChromeStateTests: XCTestCase {
                        "Índice Bíblico-Pastoral")
     }
 
+    func testAToastOffersItsButtonOnlyWhileItIsOne() {
+        let toast = ToastView()
+        XCTAssertNil(toast.activeButton)
+        toast.show("Copiado")
+        XCTAssertNil(toast.activeButton)
+
+        var tapped = false
+        toast.show("Voltar para o Índice", symbol: "arrow.uturn.backward") { tapped = true }
+        XCTAssertEqual(toast.activeButton?.message, "Voltar para o Índice")
+        XCTAssertEqual(toast.activeButton?.symbol, "arrow.uturn.backward")
+
+        toast.tapped()
+        XCTAssertTrue(tapped)
+        XCTAssertNil(toast.activeButton)
+    }
+
+    func testAToastClosedOffersNothing() {
+        let toast = ToastView()
+        toast.show("Voltar para o Índice", onTap: {})
+        toast.dismissNow()
+        XCTAssertNil(toast.activeButton)
+    }
+
     func testReadsNoBars() throws {
         XCTAssertEqual(try fixture("none"), ChromeState())
     }
