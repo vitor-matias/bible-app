@@ -118,7 +118,8 @@ contract is the `NativeChromePlugin` interface in that service file.
   reader's bars slide away and any remaining bars turn `inert`; the apps show bookmarks,
   notes, the report form, onboarding and the picker as native sheets instead. A toast is
   under any native sheet, so the notes sheet offers a toast that is a button ("Voltar para …")
-  itself. The bars
+  itself: on iOS floating above the sheet, or at its foot once it fills the screen; on Android
+  under its title. The bars
   float without changing the web view's safe area, so hiding them never changes layout.
 - **Body classes.** `NativeShellService` adds `platform-ios` / `platform-android` and
   `NativeChromeService.init` adds `native-chrome`. Keep platform-only CSS under those

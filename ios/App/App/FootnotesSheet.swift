@@ -44,6 +44,9 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
     /// The way back that this sheet covers, to offer here, and what taps it.
     private let wayBack: (message: String, symbol: String?)?
     private let onWayBack: () -> Void
+    private var wayBackButton: UIButton?
+    /// Keeps it with the sheet, as it comes up, is dragged and goes.
+    private var wayBackFollower: CADisplayLink?
     private let textView = UITextView()
     private static let linkScheme = "nota"
 
@@ -85,12 +88,28 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
             textView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             textView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
-        if let wayBack { addWayBack(wayBack) }
     }
 
-    /// The toast's capsule, over the notes' lower edge: the toast itself is
-    /// under this sheet, as anything in the page is.
-    private func addWayBack(_ wayBack: (message: String, symbol: String?)) {
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        guard let wayBack, wayBackButton == nil,
+              let container = navigationController?.presentationController?.containerView else { return }
+        let button = wayBackCapsule(wayBack)
+        button.frame.size = button.systemLayoutSizeFitting(
+            CGSize(width: container.bounds.width - 48, height: UIView.layoutFittingCompressedSize.height),
+            withHorizontalFittingPriority: .fittingSizeLevel, verticalFittingPriority: .fittingSizeLevel)
+        button.frame.size.width = min(button.frame.width, container.bounds.width - 48)
+        container.addSubview(button)
+        wayBackButton = button
+        followSheet()
+        let follower = CADisplayLink(target: self, selector: #selector(followSheet))
+        follower.add(to: .main, forMode: .common)
+        wayBackFollower = follower
+    }
+
+    /// The toast's capsule, in the sheet's container: the toast itself is under
+    /// this sheet, as anything in the page is.
+    private func wayBackCapsule(_ wayBack: (message: String, symbol: String?)) -> UIButton {
         var config: UIButton.Configuration
         if #available(iOS 26.0, *) {
             config = .glass()
@@ -111,24 +130,52 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
             return attributes
         }
         config.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
-        let button = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in
+        let goBack = { [weak self] in
             self?.onWayBack()
             self?.dismiss(animated: true)
-        })
-        button.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(button)
-        NSLayoutConstraint.activate([
-            button.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            button.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
-            button.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
-        ])
-        // The notes' last line can scroll clear of it.
+        }
+        let button = UIButton(configuration: config, primaryAction: UIAction { _ in goBack() })
+        // VoiceOver stays within the sheet, a modal view: it has it on the notes.
+        textView.accessibilityCustomActions = [
+            UIAccessibilityCustomAction(name: wayBack.message) { _ in
+                goBack()
+                return true
+            },
+        ]
+        // The notes' last line can scroll clear of it, where it's over them.
         textView.textContainerInset.bottom = 88
+        return button
+    }
+
+    /// Above the sheet, over the dimmed page, so that it covers no notes; with
+    /// no room there, as the notes fill the screen, at the sheet's foot.
+    static func wayBackCenter(sheet: CGRect, size: CGSize, container: CGRect, safeArea: UIEdgeInsets) -> CGPoint {
+        let gap: CGFloat = 12
+        let above = sheet.minY - gap - size.height
+        let top = above >= safeArea.top + gap
+            ? above
+            : min(sheet.maxY, container.maxY) - safeArea.bottom - gap - size.height
+        return CGPoint(x: sheet.midX, y: top + size.height / 2)
+    }
+
+    /// From what is on screen, not where the animation is heading.
+    @objc private func followSheet() {
+        guard let button = wayBackButton, let container = button.superview,
+              let sheet = navigationController?.presentationController?.presentedView else { return }
+        let containerLayer = container.layer.presentation() ?? container.layer
+        let sheetLayer = sheet.layer.presentation() ?? sheet.layer
+        let frame = sheetLayer.convert(sheetLayer.bounds, to: containerLayer)
+        button.center = Self.wayBackCenter(sheet: frame, size: button.bounds.size,
+                                           container: container.bounds, safeArea: container.safeAreaInsets)
     }
 
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         if isBeingDismissed || navigationController?.isBeingDismissed == true {
+            wayBackFollower?.invalidate()
+            wayBackFollower = nil
+            wayBackButton?.removeFromSuperview()
+            wayBackButton = nil
             onClose()
         }
     }
