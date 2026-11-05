@@ -90,6 +90,25 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
         ])
     }
 
+    // The toast is under this sheet until it has come up, and again as it goes:
+    // the capsule shows only in between, so that the two are never both in view.
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        fadeWayBack(to: 1)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        fadeWayBack(to: 0)
+    }
+
+    private func fadeWayBack(to alpha: CGFloat) {
+        UIView.animate(withDuration: 0.15, delay: 0, options: [.beginFromCurrentState]) {
+            self.wayBackButton?.alpha = alpha
+        }
+    }
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         guard let wayBack, wayBackButton == nil,
@@ -99,6 +118,7 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
             CGSize(width: container.bounds.width - 48, height: UIView.layoutFittingCompressedSize.height),
             withHorizontalFittingPriority: .fittingSizeLevel, verticalFittingPriority: .fittingSizeLevel)
         button.frame.size.width = min(button.frame.width, container.bounds.width - 48)
+        button.alpha = 0
         container.addSubview(button)
         wayBackButton = button
         followSheet()
