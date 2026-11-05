@@ -10,6 +10,8 @@ export interface OnboardingFeature {
   iosText?: string
   /** The Android app's, where its Material bars differ from the iOS app's. */
   androidText?: string
+  /** For the website: the native apps do not have what it describes. */
+  webOnly?: boolean
 }
 
 export interface OnboardingStep {
@@ -196,6 +198,11 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
       {
         icon: "share",
         text: "Partilhe a passagem que está a ler com um toque, a partir do menu.",
+      },
+      {
+        icon: "view_sidebar",
+        text: "No computador, num ecrã largo, o Modo de estudo (menu ☰) põe ao lado do texto as referências, as notas de rodapé, as suas notas e a pesquisa. Clique no número de um versículo para o marcar, copiar ou escrever uma nota.",
+        webOnly: true,
       },
     ],
   },
@@ -415,6 +422,7 @@ const SF_SYMBOLS: Readonly<Record<string, string>> = {
   search: "magnifyingglass",
   bookmarks: "bookmark",
   share: "square.and.arrow.up",
+  view_sidebar: "sidebar.right",
 }
 
 export function sfSymbol(icon: string): string {
@@ -444,13 +452,15 @@ export function nativeOnboardingSteps(
       symbol: sfSymbol(step.icon),
       icon: (android ? step.androidIcon : undefined) ?? step.icon,
       logo: !!step.image,
-      features: step.features.map((feature) => ({
-        symbol: sfSymbol(feature.icon),
-        icon: feature.icon,
-        text:
-          (android ? feature.androidText : undefined) ??
-          feature.iosText ??
-          feature.text,
-      })),
+      features: step.features
+        .filter((feature) => !feature.webOnly)
+        .map((feature) => ({
+          symbol: sfSymbol(feature.icon),
+          icon: feature.icon,
+          text:
+            (android ? feature.androidText : undefined) ??
+            feature.iosText ??
+            feature.text,
+        })),
     }))
 }

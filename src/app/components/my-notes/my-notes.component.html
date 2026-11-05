@@ -1,0 +1,125 @@
+<div class="toolbar-wrapper no-print">
+  <mat-toolbar class="notes-toolbar">
+    <div class="content">
+      <a mat-flat-button routerLink="/" aria-label="Voltar à leitura" class="button actionButton backButton">
+        <mat-icon>arrow_back</mat-icon>
+      </a>
+      <h1 class="toolbar-title">As minhas notas e marcas</h1>
+    </div>
+  </mat-toolbar>
+</div>
+
+<main class="notes-page">
+  <!-- The toolbar's heading is not printed; this one is. -->
+  <h1 class="print-title">As minhas notas e marcas</h1>
+
+  <p class="intro no-print">
+    Tudo o que escreveu e marcou fica neste navegador, sem conta. Se o limpar ou mudar de computador,
+    perde-se: guarde uma cópia.
+  </p>
+
+  @if (storageFailed) {
+  <p class="warning no-print" role="alert">
+    O navegador não está a guardar o que escreve ou marca: fica só nesta página e perde-se ao fechá-la.
+    Guarde já uma cópia.
+  </p>
+  }
+
+  <section class="actions no-print" aria-label="Guardar e levar">
+    <button type="button" mat-stroked-button (click)="saveBackup()" [disabled]="!entries.length">
+      <mat-icon>download</mat-icon> Guardar uma cópia
+    </button>
+    <button type="button" mat-stroked-button (click)="file.click()">
+      <mat-icon>upload</mat-icon> Ler uma cópia
+    </button>
+    <input type="file" accept="application/json,.json" hidden #file (change)="onFile(file)" />
+    <button type="button" mat-stroked-button (click)="print()" [disabled]="!visible.length">
+      <mat-icon>print</mat-icon> Imprimir a lista
+    </button>
+    <button type="button" mat-stroked-button (click)="copyList()" [disabled]="!visible.length">
+      <mat-icon>content_copy</mat-icon> Copiar a lista
+    </button>
+    <button type="button" mat-stroked-button (click)="saveMarkdown()" [disabled]="!visible.length">
+      <mat-icon>description</mat-icon> Guardar como texto
+    </button>
+  </section>
+
+  <p class="status no-print" role="status" aria-live="polite">{{ status }}</p>
+
+  @if (entries.length && booksKnown) {
+  <section class="filters no-print" aria-label="Escolher o que mostrar">
+    <label>
+      Mostrar
+      <select (change)="onFilter($any($event.target).value)" [value]="filter">
+        @for (option of filters; track option.value) {
+        <option [value]="option.value" [selected]="option.value === filter">{{ option.label }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      Livro
+      <select (change)="onBook($any($event.target).value)">
+        <option value="" [selected]="!bookId">Todos</option>
+        @for (book of books; track book.id) {
+        <option [value]="book.id" [selected]="book.id === bookId">{{ book.name }}</option>
+        }
+      </select>
+    </label>
+  </section>
+
+  <p class="count">
+    {{ noteCount === 1 ? '1 nota' : noteCount + ' notas' }} e {{ markCount === 1 ? '1 marca' : markCount + ' marcas' }}.
+    @if (visible.length !== entries.length) {
+    A mostrar {{ visible.length }}.
+    }
+  </p>
+
+  <ol class="entries">
+    @for (entry of visible; track keyFor(entry)) {
+    <li class="entry">
+      <h2 class="entry-ref">
+        <a [routerLink]="link(entry)" [queryParams]="queryParams(entry)">{{ reference(entry) }}</a>
+      </h2>
+      @if (entry.color) {
+      <p class="entry-mark">
+        <span class="mark-swatch" [attr.data-color]="entry.color" aria-hidden="true"></span>
+        Marca: {{ colorNames[entry.color] }}
+      </p>
+      }
+      @if (quote(entry); as words) {
+      <blockquote class="entry-quote">{{ words }}</blockquote>
+      }
+      @if (entry.note; as note) {
+      <div class="entry-note">
+        @if (note.title) {
+        <p class="entry-title">{{ note.title }}</p>
+        }
+        <p class="entry-text">{{ note.text }}</p>
+      </div>
+      }
+    </li>
+    } @empty {
+    <li class="empty">Nada corresponde a esta escolha.</li>
+    }
+  </ol>
+  } @else if (!entries.length) {
+  <p class="empty">
+    Ainda não escreveu nem marcou nada. Num versículo, clique no seu número para escrever uma nota,
+    ou selecione texto para o marcar.
+  </p>
+  }
+
+  <p class="print-footer">{{ edition }} · {{ day }}</p>
+
+  @if (entries.length) {
+  <section class="danger no-print" aria-label="Apagar">
+    @if (confirmingDelete) {
+    <p>Apagar todas as notas e marcas deste navegador? Não se pode desfazer, a não ser lendo uma cópia.</p>
+    <button type="button" mat-flat-button class="delete" (click)="deleteEverything()">Apagar tudo</button>
+    <button type="button" mat-stroked-button (click)="cancelDelete()">Cancelar</button>
+    } @else {
+    <button type="button" mat-stroked-button (click)="askToDelete()">Apagar as minhas notas e marcas neste navegador</button>
+    }
+  </section>
+  }
+</main>

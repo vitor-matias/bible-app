@@ -70,6 +70,19 @@ describe("nativeOnboardingSteps", () => {
     })
   })
 
+  it("leaves out what only the website has: study mode is not in the app", () => {
+    const texts = steps.flatMap((entry) =>
+      entry.features.map((feature) => feature.text),
+    )
+
+    expect(texts.join(" ")).not.toContain("Modo de estudo")
+    // ...while the website's help does say how to begin with it.
+    const web = ONBOARDING_STEPS.flatMap((entry) =>
+      entry.features.map((feature) => feature.text),
+    )
+    expect(web.join(" ")).toContain("Clique no número de um versículo")
+  })
+
   it("has a symbol for every icon it uses", () => {
     for (const source of ONBOARDING_STEPS) {
       if (source.id === INSTALL_STEP_ID) continue

@@ -731,6 +731,17 @@ describe("HeaderComponent", () => {
     expect(selected).toEqual([{ bookId: "about" }])
   })
 
+  it("opens the reader's own notes and marks from the menu", () => {
+    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
+      "closeMenu",
+    ])
+
+    component.onOpenMyNotes(trigger)
+
+    expect(trigger.closeMenu).toHaveBeenCalled()
+    expect(routerSpy.navigate).toHaveBeenCalledWith(["/minhas-notas"])
+  })
+
   it("should open the onboarding wizard from the menu", () => {
     const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
       "closeMenu",
@@ -822,6 +833,244 @@ describe("HeaderComponent", () => {
       component.ngOnInit()
 
       expect(component.canShare).toBe(false)
+    })
+  })
+
+  describe("study mode menu item", () => {
+    /** Opens the overflow menu and returns its item labels. */
+    function menuLabels(): string[] {
+      const trigger = fixture.nativeElement.querySelector(".menuButton")
+      trigger.click()
+      fixture.detectChanges()
+      return Array.from(
+        document.querySelectorAll(".mat-mdc-menu-content [mat-menu-item] span"),
+      ).map((span) => (span.textContent ?? "").trim())
+    }
+
+    /** The study mode entry in the opened menu, if there is one. */
+    function studyItem(): HTMLElement | undefined {
+      fixture.nativeElement.querySelector(".menuButton").click()
+      fixture.detectChanges()
+      return Array.from(
+        document.querySelectorAll<HTMLElement>(
+          ".mat-mdc-menu-content [mat-menu-item]",
+        ),
+      ).find((item) => item.textContent?.includes("Modo de estudo"))
+    }
+    const aboutBook = {
+      id: "about",
+      name: "Sobre",
+      shortName: "Sobre",
+      abrv: "Sobre",
+      chapterCount: 1,
+    }
+
+    it("is offered on a book, once the window is wide enough, and says what it is", () => {
+      fixture.componentRef.setInput("studyModeAvailable", true)
+      fixture.detectChanges()
+
+      const item = studyItem()
+      expect(item?.getAttribute("aria-disabled")).not.toBe("true")
+      expect(item?.textContent).toContain(
+        "Notas, referências e pesquisa ao lado do texto",
+      )
+    })
+
+    describe("on a window too narrow to show it", () => {
+      beforeEach(() => {
+        fixture.componentRef.setInput("studyModeAvailable", false)
+        fixture.detectChanges()
+      })
+
+      it("is still there on a computer, disabled, saying why", () => {
+        Object.defineProperty(component, "desktopPointer", { value: true })
+        fixture.detectChanges()
+
+        const item = studyItem()
+        expect(item).toBeTruthy()
+        expect(item?.getAttribute("aria-disabled")).toBe("true")
+        expect(item?.textContent).toContain("Precisa de uma janela mais larga")
+      })
+
+      it("stays reachable from the keyboard, so a screen reader can read why", () => {
+        Object.defineProperty(component, "desktopPointer", { value: true })
+        fixture.detectChanges()
+
+        // A plain disabled button is skipped by the arrow keys and never read;
+        // this one is not removed from the page, only from use.
+        expect(studyItem()?.hasAttribute("disabled")).toBe(false)
+      })
+
+      it("does nothing when it is used", () => {
+        Object.defineProperty(component, "desktopPointer", { value: true })
+        fixture.detectChanges()
+        let asked = 0
+        component.toggleStudyMode.subscribe(() => asked++)
+
+        studyItem()?.click()
+
+        expect(asked).toBe(0)
+      })
+
+      it("is not there on a phone or tablet, which cannot make the window wider", () => {
+        Object.defineProperty(component, "desktopPointer", { value: false })
+        fixture.detectChanges()
+
+        expect(studyItem()).toBeUndefined()
+      })
+    })
+
+    it("is not offered on the About page, which has no study layout", () => {
+      fixture.componentRef.setInput("studyModeAvailable", true)
+      fixture.componentRef.setInput("book", aboutBook)
+      fixture.detectChanges()
+
+      expect(studyItem()).toBeUndefined()
+    })
+
+    it("is not even explained on the About page when the window is narrow", () => {
+      fixture.componentRef.setInput("studyModeAvailable", false)
+      fixture.componentRef.setInput("book", aboutBook)
+      Object.defineProperty(component, "desktopPointer", { value: true })
+      fixture.detectChanges()
+
+      expect(studyItem()).toBeUndefined()
+    })
+
+    it("offers the way back once study mode is on", () => {
+      fixture.componentRef.setInput("studyModeAvailable", true)
+      fixture.componentRef.setInput("studyMode", true)
+      fixture.detectChanges()
+
+      expect(menuLabels()).toContain("Voltar ao modo de leitura")
+    })
+
+    it("emits when the item is used", () => {
+      fixture.componentRef.setInput("studyModeAvailable", true)
+      fixture.detectChanges()
+      let asked = 0
+      component.toggleStudyMode.subscribe(() => asked++)
+
+      const trigger = fixture.nativeElement.querySelector(".menuButton")
+      trigger.click()
+      fixture.detectChanges()
+      const item = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          ".mat-mdc-menu-content [mat-menu-item]",
+        ),
+      ).find((button) => button.textContent?.includes("Modo de estudo"))
+      item?.click()
+
+      expect(asked).toBe(1)
+    })
+  })
+
+  describe("keyboard shortcuts menu item", () => {
+    const openMenu = () => {
+      fixture.nativeElement.querySelector(".menuButton").click()
+      fixture.detectChanges()
+      return Array.from(
+        document.querySelectorAll<HTMLElement>(
+          ".mat-mdc-menu-content [mat-menu-item]",
+        ),
+      ).find((button) => button.textContent?.includes("Atalhos de teclado"))
+    }
+
+    it("is offered where the shortcuts work, and asks for them", () => {
+      fixture.componentRef.setInput("studyModeAvailable", true)
+      fixture.componentRef.setInput("studyMode", true)
+      fixture.detectChanges()
+      let asked = 0
+      component.openShortcuts.subscribe(() => asked++)
+
+      openMenu()?.click()
+
+      expect(asked).toBe(1)
+    })
+
+    it("is not offered in the reading layout, where they mean nothing", () => {
+      fixture.componentRef.setInput("studyModeAvailable", true)
+      fixture.detectChanges()
+
+      expect(openMenu()).toBeUndefined()
+    })
+  })
+
+  describe("focus after switching layouts from the menu", () => {
+    it("goes to the menu button that replaced the one the reader used", () => {
+      fixture.componentRef.setInput("studyModeAvailable", true)
+      fixture.detectChanges()
+      // What the reader does when asked: turn study mode on.
+      component.toggleStudyMode.subscribe(() =>
+        fixture.componentRef.setInput("studyMode", true),
+      )
+      const before = fixture.nativeElement.querySelector(".menuButton")
+      before.click()
+      fixture.detectChanges()
+      Array.from(
+        document.querySelectorAll<HTMLElement>(
+          ".mat-mdc-menu-content [mat-menu-item]",
+        ),
+      )
+        .find((button) => button.textContent?.includes("Modo de estudo"))
+        ?.click()
+      fixture.detectChanges()
+
+      // The study chrome draws its own button; the old one is gone, and
+      // focus used to go with it.
+      const after = fixture.nativeElement.querySelector(".menuButton")
+      expect(after).not.toBe(before)
+      expect(document.activeElement).toBe(after)
+    })
+  })
+
+  describe("study mode chrome", () => {
+    beforeEach(() => {
+      fixture.componentRef.setInput("studyModeAvailable", true)
+      fixture.componentRef.setInput("studyMode", true)
+      fixture.detectChanges()
+    })
+
+    it("drops the toolbar and the book/chapter chip", () => {
+      // The rail in study mode is the picker the chip used to open, so a
+      // toolbar carrying a second one would sit on top of it.
+      expect(fixture.nativeElement.querySelector("mat-toolbar")).toBeNull()
+      expect(
+        fixture.nativeElement.querySelector(".header-placeholder"),
+      ).toBeNull()
+      expect(
+        fixture.nativeElement.querySelector("mat-button-toggle-group"),
+      ).toBeNull()
+    })
+
+    it("keeps the menu and drops the search button", () => {
+      // Search is a tab in the study panel, beside the rest of the apparatus,
+      // so the menu is the only control this row still carries.
+      expect(
+        fixture.nativeElement.querySelector(".study-chrome"),
+      ).not.toBeNull()
+      expect(
+        fixture.nativeElement.querySelector(".chrome-lead .menuButton"),
+      ).not.toBeNull()
+      expect(fixture.nativeElement.querySelector(".searchButton")).toBeNull()
+    })
+
+    it("leaves the page's heading to the trail projected into it", () => {
+      // Exactly one h1 per page: without the chip there is no heading here,
+      // and the trail beside it names where the reader is.
+      expect(fixture.nativeElement.querySelectorAll("h1").length).toBe(0)
+    })
+
+    it("puts the toolbar back on leaving study mode", () => {
+      fixture.componentRef.setInput("studyMode", false)
+      fixture.detectChanges()
+
+      expect(fixture.nativeElement.querySelector(".study-chrome")).toBeNull()
+      expect(fixture.nativeElement.querySelector("mat-toolbar")).not.toBeNull()
+      expect(
+        fixture.nativeElement.querySelector(".searchButton"),
+      ).not.toBeNull()
+      expect(fixture.nativeElement.querySelectorAll("h1").length).toBe(1)
     })
   })
 

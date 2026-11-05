@@ -1,97 +1,176 @@
-<!-- In the iOS app the shell draws this header natively (NativeChromeService). -->
+<!-- The menu and the search action are the same controls in both chromes, so
+     they are written once here and instantiated by whichever chrome is on
+     screen. Their template refs are local to each instantiation, which is what
+     lets the menu items keep closing the trigger that opened them. -->
+<ng-template #chromeMenu>
+  <button class="menuButton" mat-icon-button [matMenuTriggerFor]="headerMenu" #menuTrigger="matMenuTrigger"
+    (menuOpened)="onMenuOpened()" aria-label="Menu">
+    <mat-icon>menu</mat-icon>
+  </button>
+  <mat-menu #headerMenu="matMenu">
+    <!-- Menu items, so the arrow keys reach them; a click here stops short
+         of the menu panel, so the menu stays open as the text changes. -->
+    <div class="menu-controls" (click)="$event.stopPropagation()">
+      <button type="button" mat-menu-item class="menu-control" (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" matTooltipPosition="above" [attr.aria-label]="getThemeTooltip()">
+        <mat-icon>{{ getThemeIcon() }}</mat-icon>
+      </button>
+      @if (book().id !== 'about') {
+      <button type="button" mat-menu-item class="menu-control" (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" matTooltipPosition="above" [attr.aria-label]="getViewModeTooltip()">
+        <mat-icon>{{ getViewModeIcon() }}</mat-icon>
+      </button>
+      }
+      <button type="button" mat-menu-item class="menu-control" (click)="onDecreaseFontSize()" matTooltip="Diminuir texto" matTooltipPosition="above" aria-label="Diminuir texto">
+        <mat-icon>text_decrease</mat-icon>
+      </button>
+      <button type="button" mat-menu-item class="menu-control" (click)="onIncreaseFontSize()" matTooltip="Aumentar texto" matTooltipPosition="above" aria-label="Aumentar texto">
+        <mat-icon>text_increase</mat-icon>
+      </button>
+    </div>
+    <mat-divider></mat-divider>
+    <button mat-menu-item (click)="onToggleBookmarkFromMenu(menuTrigger)">
+      <mat-icon>bookmarks</mat-icon>
+      <span>Marcadores</span>
+    </button>
+    <!-- Not the bookmarks above, which name a chapter to come back to: this is
+         the notes written and the verses marked, and where they are saved. -->
+    <button type="button" mat-menu-item (click)="onOpenMyNotes(menuTrigger)">
+      <mat-icon>edit_note</mat-icon>
+      <span>As minhas notas e marcas</span>
+    </button>
+    <!-- The About page is left out: it is the app's own copy, and the reader
+         keeps it in the plain layout. -->
+    @if (book().id !== 'about') {
+    @if (studyModeAvailable()) {
+    <button mat-menu-item class="two-lines" (click)="onToggleStudyMode(menuTrigger, $event)">
+      <mat-icon>view_sidebar</mat-icon>
+      <span>
+        {{ studyMode() ? 'Voltar ao modo de leitura' : 'Modo de estudo' }}
+        @if (!studyMode()) {
+        <!-- "Modo de estudo" alone sounds like homework. -->
+        <small class="menu-sub">Notas, referências e pesquisa ao lado do texto</small>
+        }
+      </span>
+    </button>
+    } @else if (desktopPointer) {
+    <!-- Shown, not left out: a mode that vanishes when the window narrows, and
+         zooming in narrows it, gave no way to know it had ever been there.
+         Disabled but reachable by keyboard, so a screen reader can read why. -->
+    <button mat-menu-item class="two-lines" disabled [disabledInteractive]="true">
+      <mat-icon>view_sidebar</mat-icon>
+      <span>
+        Modo de estudo
+        <small class="menu-sub">Precisa de uma janela mais larga (ou de menos zoom)</small>
+      </span>
+    </button>
+    }
+    }
+    <!-- Only where they work. Opened with "?" too, which a reader has to
+         have been told about to press. -->
+    @if (studyMode() && studyModeAvailable() && book().id !== 'about') {
+    <button mat-menu-item (click)="onOpenShortcuts(menuTrigger)">
+      <mat-icon>keyboard</mat-icon>
+      <span>Atalhos de teclado</span>
+    </button>
+    }
+    <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode() === 'paged'">
+      <mat-icon>arrow_circle_down</mat-icon>
+      <span>
+        {{ autoScrollControlsVisible()
+        ? 'Esconder controlos de deslocamento automático'
+        : 'Mostrar controlos de deslocamento automático' }}
+      </span>
+    </button>
+    @if (canShare) {
+    <button mat-menu-item (click)="onShare(menuTrigger, $event)">
+      <mat-icon>share</mat-icon>
+      <span>Partilhar</span>
+    </button>
+    }
+    <!-- Where the store has the app, the website's install stays in the tutorial. -->
+    @if (canInstall() && !appStore) {
+    <button type="button" mat-menu-item (click)="onInstall(menuTrigger)">
+      <mat-icon>download</mat-icon>
+      <span>Instalar a app</span>
+    </button>
+    }
+    <button type="button" mat-menu-item (click)="onOpenHelp(menuTrigger)">
+      <mat-icon>help</mat-icon>
+      <span>Como usar a app</span>
+    </button>
+    @if (appStore) {
+    <a mat-menu-item class="app-store-link" [href]="appStore.url" target="_blank" rel="noopener"
+      (click)="onOpenAppStore(appStore)">
+      <mat-icon>install_mobile</mat-icon>
+      <span>{{ appStoreLabel }}</span>
+    </a>
+    }
+    <button type="button" mat-menu-item (click)="onOpenAbout(menuTrigger)">
+      <mat-icon>info</mat-icon>
+      <span>Sobre a Bíblia</span>
+    </button>
+    @if (analyticsService.areAnalyticsAvailable()) {
+      <button type="button" mat-menu-item (click)="onReportProblem(menuTrigger)">
+        <mat-icon>report_problem</mat-icon>
+        <span>Reportar erro</span>
+      </button>
+    }
+    <a mat-menu-item [href]="privacyPolicyUrl" target="_blank" rel="noopener noreferrer">
+      <mat-icon>privacy_tip</mat-icon>
+      <span class="privacy-label">
+        Política de Privacidade
+        <mat-icon class="open-in-new-icon">open_in_new</mat-icon>
+      </span>
+    </a>
+    @if (version) {
+    <!-- One line, as in the iOS menu: the release, then the bundle's id.
+         The web has no releases; there the label says what the id is. -->
+    <div class="menu-version">
+      @if (version.release) {
+      {{ version.release }} · {{ version.build }}
+      } @else {
+      Bundle {{ version.build }}
+      }
+    </div>
+    }
+  </mat-menu>
+</ng-template>
+
+<ng-template #chromeSearch>
+  <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button matTooltip="Pesquisar"
+    aria-label="Pesquisar">
+    <mat-icon class="search-icon" aria-label="Search">search</mat-icon>
+  </button>
+</ng-template>
+
+<!-- In the iOS and Android apps the shell draws this header natively
+     (NativeChromeService), study mode's row included: there the bars carry the
+     menu. -->
 @if (!native) {
+@if (studyMode()) {
+<!-- Study mode's chrome. The rail below is the book and chapter picker that
+     the toolbar's chip used to open, so a toolbar here would be a second one
+     over the top of it; what the chip cannot be replaced by — the menu, search
+     and the name of where the reader is — shares a single row with the trail.
+     Laid out on the same three columns as the text below, so each control sits
+     over the column it belongs to instead of over the middle of the window. -->
+<div class="study-chrome">
+  <div class="chrome-lead">
+    <ng-container *ngTemplateOutlet="chromeMenu"></ng-container>
+  </div>
+  <!-- Where the reader is, and the way back: see StudyTrailComponent, which
+       the reader projects in here. It carries this page's heading, and starts
+       at the reading column's own left edge. -->
+  <div class="chrome-middle">
+    <ng-content></ng-content>
+  </div>
+  <div class="chrome-tail"></div>
+</div>
+
+} @else {
 <div class="header-placeholder">
   <mat-toolbar>
     <div class="header-content">
-      <button class="menuButton" mat-icon-button [matMenuTriggerFor]="headerMenu" #menuTrigger="matMenuTrigger"
-        (menuOpened)="onMenuOpened()" aria-label="Menu">
-        <mat-icon>menu</mat-icon>
-      </button>
-      <mat-menu #headerMenu="matMenu">
-        <!-- Menu items, so the arrow keys reach them; a click here stops short
-             of the menu panel, so the menu stays open as the text changes. -->
-        <div class="menu-controls" (click)="$event.stopPropagation()">
-          <button type="button" mat-menu-item class="menu-control" (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" matTooltipPosition="above" [attr.aria-label]="getThemeTooltip()">
-            <mat-icon>{{ getThemeIcon() }}</mat-icon>
-          </button>
-          @if (book().id !== 'about') {
-          <button type="button" mat-menu-item class="menu-control" (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" matTooltipPosition="above" [attr.aria-label]="getViewModeTooltip()">
-            <mat-icon>{{ getViewModeIcon() }}</mat-icon>
-          </button>
-          }
-          <button type="button" mat-menu-item class="menu-control" (click)="onDecreaseFontSize()" matTooltip="Diminuir texto" matTooltipPosition="above" aria-label="Diminuir texto">
-            <mat-icon>text_decrease</mat-icon>
-          </button>
-          <button type="button" mat-menu-item class="menu-control" (click)="onIncreaseFontSize()" matTooltip="Aumentar texto" matTooltipPosition="above" aria-label="Aumentar texto">
-            <mat-icon>text_increase</mat-icon>
-          </button>
-        </div>
-        <mat-divider></mat-divider>
-        <button mat-menu-item (click)="onToggleBookmarkFromMenu(menuTrigger)">
-          <mat-icon>bookmarks</mat-icon>
-          <span>Marcadores</span>
-        </button>
-        <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode() === 'paged'">
-          <mat-icon>arrow_circle_down</mat-icon>
-          <span>
-            {{ autoScrollControlsVisible()
-            ? 'Esconder controlos de deslocamento automático'
-            : 'Mostrar controlos de deslocamento automático' }}
-          </span>
-        </button>
-        @if (canShare) {
-        <button mat-menu-item (click)="onShare(menuTrigger, $event)">
-          <mat-icon>share</mat-icon>
-          <span>Partilhar</span>
-        </button>
-        }
-        <!-- Where the store has the app, the website's install stays in the tutorial. -->
-        @if (canInstall() && !appStore) {
-        <button type="button" mat-menu-item (click)="onInstall(menuTrigger)">
-          <mat-icon>download</mat-icon>
-          <span>Instalar a app</span>
-        </button>
-        }
-        <button type="button" mat-menu-item (click)="onOpenHelp(menuTrigger)">
-          <mat-icon>help</mat-icon>
-          <span>Como usar a app</span>
-        </button>
-        @if (appStore) {
-        <a mat-menu-item class="app-store-link" [href]="appStore.url" target="_blank" rel="noopener"
-          (click)="onOpenAppStore(appStore)">
-          <mat-icon>install_mobile</mat-icon>
-          <span>{{ appStoreLabel }}</span>
-        </a>
-        }
-        <button type="button" mat-menu-item (click)="onOpenAbout(menuTrigger)">
-          <mat-icon>info</mat-icon>
-          <span>Sobre a Bíblia</span>
-        </button>
-        @if (analyticsService.areAnalyticsAvailable()) {
-          <button type="button" mat-menu-item (click)="onReportProblem(menuTrigger)">
-            <mat-icon>report_problem</mat-icon>
-            <span>Reportar erro</span>
-          </button>
-        }
-        <a mat-menu-item [href]="privacyPolicyUrl" target="_blank" rel="noopener noreferrer">
-          <mat-icon>privacy_tip</mat-icon>
-          <span class="privacy-label">
-            Política de Privacidade
-            <mat-icon class="open-in-new-icon">open_in_new</mat-icon>
-          </span>
-        </a>
-        @if (version) {
-        <!-- One line, as in the iOS menu: the release, then the bundle's id.
-             The web has no releases; there the label says what the id is. -->
-        <div class="menu-version">
-          @if (version.release) {
-          {{ version.release }} · {{ version.build }}
-          } @else {
-          Bundle {{ version.build }}
-          }
-        </div>
-        }
-      </mat-menu>
+      <ng-container *ngTemplateOutlet="chromeMenu"></ng-container>
 
       <!-- The book/chapter picker is also the page's h1. aria-label pins its
            accessible name to the title while the home page label cycles. -->
@@ -129,11 +208,9 @@
       </mat-button-toggle-group>
       </h1>
 
-      <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button matTooltip="Pesquisar"
-        aria-label="Pesquisar">
-        <mat-icon class="search-icon" aria-label="Search">search</mat-icon>
-      </button>
+      <ng-container *ngTemplateOutlet="chromeSearch"></ng-container>
     </div>
   </mat-toolbar>
 </div>
+}
 }

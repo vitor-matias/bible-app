@@ -11,6 +11,90 @@ describe("PreferencesService", () => {
     service = TestBed.inject(PreferencesService)
   })
 
+  it("should default study mode off until the reader asks for it", () => {
+    expect(service.getStudyMode()).toBe(false)
+  })
+
+  it("should store and read the study mode preference", () => {
+    service.setStudyMode(true)
+    expect(service.getStudyMode()).toBe(true)
+
+    service.setStudyMode(false)
+    expect(service.getStudyMode()).toBe(false)
+  })
+
+  it("should have study mode's one-letter keys on until the reader turns them off", () => {
+    expect(service.getStudyShortcuts()).toBe(true)
+
+    service.setStudyShortcuts(false)
+    expect(service.getStudyShortcuts()).toBe(false)
+
+    service.setStudyShortcuts(true)
+    expect(service.getStudyShortcuts()).toBe(true)
+  })
+
+  describe("study column widths", () => {
+    it("starts with none, the layout choosing its own", () => {
+      expect(service.getStudyColumnWidths()).toEqual({})
+    })
+
+    it("stores and reads them back", () => {
+      service.setStudyColumnWidths({ rail: 260, panel: 420, split: 62.5 })
+
+      expect(service.getStudyColumnWidths()).toEqual({
+        rail: 260,
+        panel: 420,
+        split: 62.5,
+      })
+    })
+
+    it("keeps the dividers the reader has moved and no others", () => {
+      service.setStudyColumnWidths({ panel: 420 })
+
+      const widths = service.getStudyColumnWidths()
+      expect(widths.panel).toBe(420)
+      expect(widths.rail).toBeUndefined()
+      expect(widths.split).toBeUndefined()
+    })
+
+    it("falls back to the layout's own widths on unreadable storage", () => {
+      localStorage.setItem("studyColumnWidths", "{not json")
+
+      expect(service.getStudyColumnWidths()).toEqual({})
+    })
+
+    it("drops values that are not numbers a column can be", () => {
+      localStorage.setItem(
+        "studyColumnWidths",
+        JSON.stringify({ rail: "wide", panel: Number.NaN, split: null }),
+      )
+
+      expect(service.getStudyColumnWidths()).toEqual({
+        rail: undefined,
+        panel: undefined,
+        split: undefined,
+      })
+    })
+  })
+
+  it("should default both study side columns to open", () => {
+    expect(service.getStudySidebarCollapsed()).toBe(false)
+    expect(service.getStudyPanelCollapsed()).toBe(false)
+  })
+
+  it("should store each study side column's folded state separately", () => {
+    service.setStudySidebarCollapsed(true)
+
+    expect(service.getStudySidebarCollapsed()).toBe(true)
+    expect(service.getStudyPanelCollapsed()).toBe(false)
+
+    service.setStudyPanelCollapsed(true)
+    service.setStudySidebarCollapsed(false)
+
+    expect(service.getStudySidebarCollapsed()).toBe(false)
+    expect(service.getStudyPanelCollapsed()).toBe(true)
+  })
+
   it("should store and read the theme", () => {
     service.setTheme("dark")
 

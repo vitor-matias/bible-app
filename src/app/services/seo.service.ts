@@ -104,6 +104,17 @@ export class SeoService {
     ])
   }
 
+  /** The reader's own notes are theirs alone, so keep the page out of the index. */
+  updateForMyNotes(): void {
+    this.apply({
+      title: `As minhas notas e marcas | ${SEO_SITE_NAME}`,
+      description: `As notas e marcas que escreveu na ${SEO_SITE_NAME}, neste navegador.`,
+      canonicalUrl: `${SEO_BASE_URL}/minhas-notas`,
+      indexable: false,
+    })
+    this.setBreadcrumbs(null)
+  }
+
   /** Search results are user-specific, so keep them out of the index. */
   updateForSearch(): void {
     this.apply({

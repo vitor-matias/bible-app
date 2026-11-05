@@ -21,6 +21,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: "minhas-notas",
+    loadComponent: () =>
+      import("./components/my-notes/my-notes.component").then(
+        (m) => m.MyNotesComponent,
+      ),
+  },
+  {
     path: ":book/:chapter",
     component: BibleReaderComponent,
     canMatch: [chapterExists],
