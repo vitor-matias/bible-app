@@ -161,6 +161,13 @@ describe("PastoralIndexComponent", () => {
     return fixture
   }
 
+  /**
+   * The panels have no height until their CSS transitions end, which are the
+   * browser's: no fake clock reaches them.
+   */
+  const panelsOpened = () =>
+    Promise.allSettled(document.getAnimations().map((a) => a.finished))
+
   /** Taps a theme's panel header in the list. */
   async function tap(
     fixture: ComponentFixture<PastoralIndexComponent>,
@@ -659,18 +666,18 @@ describe("PastoralIndexComponent", () => {
         el.querySelectorAll("alphabetical-scroll-bar .current").length
       const row = () =>
         el.querySelector(".letters button.current")?.textContent?.trim()
-      await fixture.whenStable()
-      fixture.detectChanges()
-      await new Promise((resolve) => setTimeout(resolve, 50))
-      fixture.detectChanges()
-      expect(row()).toBe("A")
+      // The page's scroll events are the browser's: no fake clock reaches them.
+      const shows = (letter: string) =>
+        vi.waitFor(() => {
+          fixture.detectChanges()
+          expect(row()).toBe(letter)
+        })
+      await shows("A")
 
       el.querySelector("#letra-M")?.scrollIntoView()
-      await new Promise((resolve) => setTimeout(resolve, 120))
-      fixture.detectChanges()
+      await shows("M")
       await fixture.whenStable()
 
-      expect(row()).toBe("M")
       expect(bar()).toBe(1)
       expect(
         el
@@ -954,21 +961,13 @@ describe("PastoralIndexComponent", () => {
       expect(
         getComputedStyle(el.querySelector(".themes") as Element).columnCount,
       ).toBe("2")
-      // The panels have no height until they finish opening.
-      await new Promise((resolve) => setTimeout(resolve, 400))
-
-      // A split theme ends in another column than its title is in.
-      const left = (element: Element | null) =>
-        Math.round(element?.getBoundingClientRect().left ?? 0)
-      const split = [...el.querySelectorAll("mat-expansion-panel")]
-        .filter(
-          (panel) =>
-            left(panel.querySelector("article p")) !==
-            left(panel.querySelector("article p:last-child")),
-        )
+      // The rule, not the layout: Chromium here doesn't split these panels
+      // even without it, while the browsers readers use did.
+      const splittable = [...el.querySelectorAll("mat-expansion-panel")]
+        .filter((panel) => getComputedStyle(panel).breakInside !== "avoid")
         .map((panel) => panel.id)
 
-      expect(split).toEqual([])
+      expect(splittable).toEqual([])
     })
 
     it("lets a theme fold, alone, with the address left as it is", async () => {
@@ -1037,11 +1036,10 @@ describe("PastoralIndexComponent", () => {
       const scroll = vi
         .spyOn(Element.prototype, "scrollIntoView")
         .mockImplementation(() => {})
+      vi.useFakeTimers()
 
       wide.next({ matches: false })
-      await fixture.whenStable()
-      fixture.detectChanges()
-      await new Promise((resolve) => setTimeout(resolve, 350))
+      await vi.advanceTimersByTimeAsync(350)
 
       expect(scroll.mock.contexts).toContain(el.querySelector("#tema-amor"))
     })
@@ -1049,7 +1047,7 @@ describe("PastoralIndexComponent", () => {
     it("draws no headword over its own text", async () => {
       const fixture = await open(undefined, false, false, true)
       const el: HTMLElement = fixture.nativeElement
-      await new Promise((resolve) => setTimeout(resolve, 400))
+      await panelsOpened()
 
       const overlapping = [...el.querySelectorAll("mat-expansion-panel")]
         .filter((panel) => {
@@ -1086,15 +1084,35 @@ describe("PastoralIndexComponent", () => {
       return vi.spyOn(window, "scrollTo").mockImplementation(() => {})
     }
 
-    const wait = (ms: number) =>
-      new Promise((resolve) => setTimeout(resolve, ms))
+    const wait = (ms: number) => vi.advanceTimersByTimeAsync(ms)
+
+    /** The page up with motion on, and a clock that runs as a spec says. */
+    async function openGliding(slug?: string, desktop = false) {
+      const fixture = await open(slug, false, false, desktop, true)
+      vi.useFakeTimers()
+      return fixture
+    }
+
+    /** `tap` for a stopped clock, which whenStable would wait on for good. */
+    async function tapGliding(
+      fixture: ComponentFixture<PastoralIndexComponent>,
+      slug: string,
+    ) {
+      const el: HTMLElement = fixture.nativeElement
+      el.querySelector<HTMLElement>(
+        `#tema-${slug} mat-expansion-panel-header`,
+      )?.click()
+      await wait(1)
+      fixture.detectChanges()
+      await wait(1)
+    }
 
     it("glides there over half a second or more when tapped", async () => {
-      const fixture = await open(undefined, false, false, false, true)
+      const fixture = await openGliding()
       const native = scrollSpy()
       const glide = glideSpy()
 
-      await tap(fixture, "abel")
+      await tapGliding(fixture, "abel")
       await wait(250)
       expect(glide).toHaveBeenCalled()
       const under = glide.mock.calls.length
@@ -1104,14 +1122,13 @@ describe("PastoralIndexComponent", () => {
       expect(glide.mock.calls.length).toBeGreaterThan(under)
       expect(native).not.toHaveBeenCalled()
       expect(glide.mock.lastCall?.[0]).toMatchObject({ behavior: "instant" })
-      await wait(1000)
     })
 
     it("finishes the glide, at its title", async () => {
-      const fixture = await open(undefined, false, false, false, true)
+      const fixture = await openGliding()
       const glide = glideSpy()
 
-      await tap(fixture, "abel")
+      await tapGliding(fixture, "abel")
       await wait(1100)
       const count = glide.mock.calls.length
       await wait(100)
@@ -1121,23 +1138,22 @@ describe("PastoralIndexComponent", () => {
     })
 
     it("doesn't restart the glide as the panels settle", async () => {
-      const fixture = await open(undefined, false, false, false, true)
+      const fixture = await openGliding()
       const native = scrollSpy()
       glideSpy()
 
-      await tap(fixture, "abel")
+      await tapGliding(fixture, "abel")
       fixture.componentInstance.settled("abel")
 
       expect(native).not.toHaveBeenCalled()
-      await wait(1100)
     })
 
     for (const type of ["wheel", "touchstart", "pointerdown", "keydown"]) {
       it(`hands the page back on ${type}`, async () => {
-        const fixture = await open(undefined, false, false, false, true)
+        const fixture = await openGliding()
         const glide = glideSpy()
 
-        await tap(fixture, "abel")
+        await tapGliding(fixture, "abel")
         await wait(120)
         window.dispatchEvent(new Event(type))
         await wait(20)
@@ -1149,10 +1165,10 @@ describe("PastoralIndexComponent", () => {
     }
 
     it("stops when the page goes away", async () => {
-      const fixture = await open(undefined, false, false, false, true)
+      const fixture = await openGliding()
       const glide = glideSpy()
 
-      await tap(fixture, "abel")
+      await tapGliding(fixture, "abel")
       fixture.destroy()
       await wait(20)
       const count = glide.mock.calls.length
@@ -1176,7 +1192,7 @@ describe("PastoralIndexComponent", () => {
     }
 
     it("scrolls first, and opens the theme on arrival", async () => {
-      const fixture = await open(undefined, false, false, false, true)
+      const fixture = await openGliding()
       const el: HTMLElement = fixture.nativeElement
       const header = () =>
         el
@@ -1185,25 +1201,25 @@ describe("PastoralIndexComponent", () => {
       glideSpy()
       const finishGlide = freezeFrames()
 
-      await tap(fixture, "abel")
+      await tapGliding(fixture, "abel")
       expect(fixture.componentInstance.entry()?.slug).toBe("abel")
       expect(header()).toBe("false")
       expect(el.querySelector("#tema-abel article")).toBeNull()
 
       finishGlide()
-      await fixture.whenStable()
+      await wait(1)
       fixture.detectChanges()
       expect(header()).toBe("true")
       expect(el.querySelector("#tema-abel article")).not.toBeNull()
     })
 
     it("closes the theme before at once, not on arrival", async () => {
-      const fixture = await open("aarao", false, false, false, true)
+      const fixture = await openGliding("aarao")
       const el: HTMLElement = fixture.nativeElement
       glideSpy()
       freezeFrames()
 
-      await tap(fixture, "abel")
+      await tapGliding(fixture, "abel")
 
       expect(
         el.querySelectorAll('mat-expansion-panel-header[aria-expanded="true"]')
@@ -1213,15 +1229,14 @@ describe("PastoralIndexComponent", () => {
     })
 
     it("opens only the last of two themes tapped in a row", async () => {
-      const fixture = await open(undefined, false, false, false, true)
+      const fixture = await openGliding()
       const el: HTMLElement = fixture.nativeElement
       glideSpy()
 
-      await tap(fixture, "abel")
+      await tapGliding(fixture, "abel")
       await wait(100)
-      await tap(fixture, "abismo")
+      await tapGliding(fixture, "abismo")
       await wait(1100)
-      await fixture.whenStable()
       fixture.detectChanges()
 
       const opened = [
@@ -1233,18 +1248,18 @@ describe("PastoralIndexComponent", () => {
     })
 
     it("still opens the theme if the reader scrolls during the glide", async () => {
-      const fixture = await open(undefined, false, false, false, true)
+      const fixture = await openGliding()
       glideSpy()
 
-      await tap(fixture, "abel")
+      await tapGliding(fixture, "abel")
       window.dispatchEvent(new Event("wheel"))
-      await fixture.whenStable()
+      await wait(1)
 
       expect(fixture.componentInstance.expandedSlug()).toBe("abel")
     })
 
     it("glides to a letter on the rail, and the click after a tap leaves it", async () => {
-      const fixture = await open(undefined, false, false, false, true)
+      const fixture = await openGliding()
       const glide = glideSpy()
       const native = scrollSpy()
       const instance = fixture.componentInstance
@@ -1259,11 +1274,10 @@ describe("PastoralIndexComponent", () => {
       expect(native).not.toHaveBeenCalled()
       expect(under).toBeGreaterThan(0)
       expect(glide.mock.calls.length).toBeGreaterThan(under)
-      await wait(900)
     })
 
     it("keeps gliding as a finger stays on the rail", async () => {
-      const fixture = await open(undefined, false, false, false, true)
+      const fixture = await openGliding()
       const el: HTMLElement = fixture.nativeElement
       const glide = glideSpy()
 
@@ -1281,7 +1295,7 @@ describe("PastoralIndexComponent", () => {
     })
 
     it("glides to a letter on the desktop row too", async () => {
-      const fixture = await open(undefined, false, false, true, true)
+      const fixture = await openGliding(undefined, true)
       const glide = glideSpy()
       const native = scrollSpy()
 
@@ -1294,11 +1308,11 @@ describe("PastoralIndexComponent", () => {
     })
 
     it("holds the title in place as a theme above closes, before gliding", async () => {
-      const fixture = await open("aarao", false, false, false, true)
+      const fixture = await openGliding("aarao")
       const by = vi.spyOn(window, "scrollBy").mockImplementation(() => {})
       const glide = glideSpy()
 
-      await tap(fixture, "abel")
+      await tapGliding(fixture, "abel")
       await wait(100)
 
       expect(by).toHaveBeenCalledTimes(1)
@@ -1306,7 +1320,6 @@ describe("PastoralIndexComponent", () => {
       expect(by.mock.invocationCallOrder[0]).toBeLessThan(
         glide.mock.invocationCallOrder[0],
       )
-      await wait(1100)
     })
 
     it("respects a reader who asked for reduced motion", async () => {
@@ -1315,7 +1328,6 @@ describe("PastoralIndexComponent", () => {
       const glide = glideSpy()
 
       await tap(fixture, "abel")
-      await wait(100)
 
       expect(scroll).toHaveBeenCalled()
       expect(glide).not.toHaveBeenCalled()
@@ -1342,7 +1354,6 @@ describe("PastoralIndexComponent", () => {
         'article a[href="/indice/sacerdote"]',
       )?.click()
       await fixture.whenStable()
-      await wait(50)
 
       expect(scroll).toHaveBeenCalled()
       expect(glide).not.toHaveBeenCalled()
