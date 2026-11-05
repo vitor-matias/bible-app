@@ -89,6 +89,8 @@ export class AppPromoService {
   private readonly bottomSheet = inject(MatBottomSheet)
   private readonly network = inject(NetworkService)
   private readonly platformId = inject(PLATFORM_ID)
+  /** Held so the browser can't discard a badge before it's needed. */
+  private readonly preloadedBadges = new Map<string, HTMLImageElement>()
 
   storeFor(platform: InstallPlatform, source: StoreSource): StoreLink | null {
     if (Capacitor.isNativePlatform()) return null
@@ -98,6 +100,15 @@ export class AppPromoService {
   /** The store for the device in hand, if it has one. */
   deviceStore(source: StoreSource): StoreLink | null {
     return this.storeFor(this.pwaInstall.detectPlatform(), source)
+  }
+
+  /** Fetches a store's badge ahead of showing it, so it doesn't pop in. */
+  preloadBadge(platform: InstallPlatform): void {
+    const badge = this.storeFor(platform, "prompt")?.badge
+    if (!badge || this.preloadedBadges.has(badge)) return
+    const image = new Image()
+    image.src = badge
+    this.preloadedBadges.set(badge, image)
   }
 
   /** The menu entry's words for a store link. */
@@ -122,6 +133,7 @@ export class AppPromoService {
   scheduleOnce(): boolean {
     if (!isPlatformBrowser(this.platformId)) return false
     if (!this.canPrompt()) return false
+    this.preloadBadge(this.pwaInstall.detectPlatform())
     setTimeout(() => this.showPrompt(), PROMPT_DELAY_MS)
     return true
   }
