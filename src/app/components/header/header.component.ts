@@ -16,7 +16,7 @@ import {
   type SimpleChanges,
   ViewChildren,
 } from "@angular/core"
-import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
+import { takeUntilDestroyed, toSignal } from "@angular/core/rxjs-interop"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
@@ -31,6 +31,10 @@ import { Router, RouterModule } from "@angular/router"
 import { shareableUrl } from "../../config"
 import type { TextSize } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
+import {
+  AppPromoService,
+  type StoreLink,
+} from "../../services/app-promo.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
@@ -47,6 +51,7 @@ import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
+import { PwaInstallService } from "../../services/pwa-install.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"
 import {
   passageLabel,
@@ -93,6 +98,11 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly cdr = inject(ChangeDetectorRef)
   readonly analyticsService = inject(AnalyticsService)
   private readonly onboardingService = inject(OnboardingService)
+  private readonly pwaInstallService = inject(PwaInstallService)
+  /** Browsers that can't prompt (iOS, Firefox) get the tutorial's steps instead. */
+  readonly canInstall = toSignal(this.pwaInstallService.canPromptInstall$, {
+    requireSync: true,
+  })
 
   readonly book = input.required<Book>()
   readonly chapterNumber = input.required<number>()
@@ -136,6 +146,12 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   readonly privacyPolicyUrl = PRIVACY_POLICY_URL
+  /** The native app's store for this phone or tablet, if it has one. */
+  appStore: StoreLink | null = null
+  /** Read at each check: installing the website mid-visit changes the words. */
+  get appStoreLabel(): string {
+    return this.appStore ? this.appPromo.menuLabel(this.appStore) : ""
+  }
   /** Small print under the menu's last item; null until it is known. */
   version: DisplayVersion | null = null
   private destroyed = false
@@ -173,6 +189,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly nativeBookmarks = inject(NativeBookmarksService)
   private readonly nativeReport = inject(NativeReportService)
   private readonly buildVersion = inject(BuildVersionService)
+  private readonly appPromo = inject(AppPromoService)
   private bookmarks: Bookmark[] = []
   /** The native shells draw this header; the template renders nothing. */
   readonly native = this.nativeChrome.enabled
@@ -198,6 +215,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       this.native ||
       (typeof navigator !== "undefined" &&
         typeof navigator.share === "function")
+    this.appStore = this.appPromo.deviceStore("menu")
 
     this.bookmarkService.bookmarks$
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -309,6 +327,16 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     })
   }
 
+  /** The store entry tells the visitor about the app: no prompt after it. */
+  onMenuOpened() {
+    if (this.appStore) this.appPromo.markSeen()
+  }
+
+  /** The menu link itself opens the store. */
+  onOpenAppStore(store: StoreLink) {
+    this.appPromo.trackStoreOpen(store, "menu")
+  }
+
   onOpenAbout(trigger: MatMenuTrigger) {
     trigger.closeMenu()
     this.openAbout()
@@ -322,6 +350,16 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   onOpenHelp(trigger: MatMenuTrigger) {
     trigger.closeMenu()
     this.onboardingService.open("menu")
+  }
+
+  async onInstall(trigger: MatMenuTrigger): Promise<void> {
+    trigger.closeMenu()
+    const outcome = await this.pwaInstallService.promptInstall()
+    // AnalyticsService.track overwrites `platform`, hence the distinct key.
+    void this.analyticsService.track("pwa_install_prompt", {
+      outcome,
+      installPlatform: this.pwaInstallService.detectPlatform(),
+    })
   }
 
   /**

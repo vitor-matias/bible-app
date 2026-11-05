@@ -10,6 +10,10 @@ import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, of, Subject } from "rxjs"
 import type { Mock } from "vitest"
 import { AnalyticsService } from "../../services/analytics.service"
+import {
+  AppPromoService,
+  type StoreLink,
+} from "../../services/app-promo.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
@@ -45,6 +49,7 @@ describe("HeaderComponent", () => {
   let analyticsServiceSpy: SpyObj<AnalyticsService>
   let onboardingServiceSpy: SpyObj<OnboardingService>
   let buildVersionSpy: SpyObj<BuildVersionService>
+  let appPromoSpy: SpyObj<AppPromoService>
   let isOfflineSubject: BehaviorSubject<boolean>
   let originalShare: typeof navigator.share
 
@@ -87,6 +92,14 @@ describe("HeaderComponent", () => {
       release: "1.2.3",
       build: "20261016-120000Z",
     })
+    appPromoSpy = createSpyObj("AppPromoService", [
+      "deviceStore",
+      "menuLabel",
+      "markSeen",
+      "trackStoreOpen",
+    ])
+    appPromoSpy.deviceStore.mockReturnValue(null)
+    appPromoSpy.menuLabel.mockReturnValue("Instalar a aplicação")
     originalShare = navigator.share
 
     await TestBed.configureTestingModule({
@@ -103,6 +116,7 @@ describe("HeaderComponent", () => {
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
         { provide: OnboardingService, useValue: onboardingServiceSpy },
         { provide: BuildVersionService, useValue: buildVersionSpy },
+        { provide: AppPromoService, useValue: appPromoSpy },
       ],
     }).compileComponents()
 
@@ -310,6 +324,214 @@ describe("HeaderComponent", () => {
       fixture.destroy()
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(false)
+    })
+  })
+
+  describe("the app's store in the menu", () => {
+    const play: StoreLink = {
+      store: "play",
+      url: "https://play.google.com/store/apps/details?id=org.capuchinhos.biblia",
+      badge: "imgs/badges/google-play-pt.png",
+      label: "Obter no Google Play",
+      newApp: "Nova aplicação no Google Play",
+    }
+
+    const openMenu = () => {
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+    }
+
+    const recreate = () => {
+      fixture = TestBed.createComponent(HeaderComponent)
+      component = fixture.componentInstance
+      fixture.componentRef.setInput("book", {
+        id: "gen",
+        name: "Genesis",
+        shortName: "",
+        abrv: "",
+        chapterCount: 50,
+      })
+      fixture.componentRef.setInput("chapterNumber", 1)
+      fixture.detectChanges()
+    }
+
+    const offerInstall = () => {
+      window.dispatchEvent(
+        Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
+          prompt: vi.fn(),
+          userChoice: Promise.resolve({
+            outcome: "dismissed",
+            platform: "web",
+          }),
+        }),
+      )
+      fixture.detectChanges()
+    }
+
+    it("is left out where the device has no store app", () => {
+      openMenu()
+
+      expect(appPromoSpy.deviceStore).toHaveBeenCalledWith("menu")
+      expect(document.querySelector(".app-store-link")).toBeNull()
+      expect(appPromoSpy.markSeen).not.toHaveBeenCalled()
+    })
+
+    it("takes its words from the promo, which says what's new inside the installed website", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      appPromoSpy.menuLabel.mockReturnValue("Nova aplicação no Google Play")
+      recreate()
+      openMenu()
+
+      expect(appPromoSpy.menuLabel).toHaveBeenCalledWith(play)
+      expect(document.querySelector(".app-store-link")?.textContent).toContain(
+        "Nova aplicação no Google Play",
+      )
+    })
+
+    it("says what's new as soon as the website is installed, without a reload", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      recreate()
+      offerInstall()
+      openMenu()
+      const label = () => document.querySelector(".app-store-link")?.textContent
+      expect(label()).toContain("Instalar a aplicação")
+
+      appPromoSpy.menuLabel.mockReturnValue("Nova aplicação no Google Play")
+      window.dispatchEvent(new Event("appinstalled"))
+      fixture.detectChanges()
+
+      expect(label()).toContain("Nova aplicação no Google Play")
+    })
+
+    it("stands in for the browser's install entry, which would read almost the same", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      recreate()
+      offerInstall()
+      openMenu()
+
+      expect(component.canInstall()).toBe(true)
+      expect(document.querySelector(".app-store-link")).not.toBeNull()
+      const items = Array.from(
+        document.querySelectorAll(".mat-mdc-menu-panel .mat-mdc-menu-item"),
+      ).map((item) => item.textContent)
+      expect(items.some((text) => text?.includes("Instalar a app"))).toBe(false)
+    })
+
+    it("counts as the prompt once the open menu shows it", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      recreate()
+      expect(appPromoSpy.markSeen).not.toHaveBeenCalled()
+
+      openMenu()
+
+      expect(appPromoSpy.markSeen).toHaveBeenCalled()
+    })
+
+    it("links straight to the store, just below the help", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      recreate()
+      openMenu()
+
+      const link = document.querySelector<HTMLAnchorElement>(".app-store-link")
+      expect(link?.textContent).toContain("Instalar a aplicação")
+      expect(link?.getAttribute("href")).toBe(play.url)
+      expect(link?.target).toBe("_blank")
+      expect(link?.previousElementSibling?.textContent).toContain(
+        "Como usar a app",
+      )
+    })
+
+    it("counts a tap", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      recreate()
+      openMenu()
+
+      const link = document.querySelector<HTMLAnchorElement>(
+        ".app-store-link",
+      ) as HTMLAnchorElement
+      // Keep the test page where it is.
+      link.addEventListener("click", (event) => event.preventDefault())
+      link.click()
+
+      expect(appPromoSpy.trackStoreOpen).toHaveBeenCalledWith(play, "menu")
+    })
+  })
+
+  describe("installing from the menu", () => {
+    const openMenu = async () => {
+      await fixture.whenStable()
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+    }
+
+    const installItem = () =>
+      Array.from(
+        document.querySelectorAll<HTMLElement>(
+          ".mat-mdc-menu-panel .mat-mdc-menu-item",
+        ),
+      ).find((item) => item.textContent?.includes("Instalar a app"))
+
+    const offerInstall = (outcome: "accepted" | "dismissed") => {
+      const prompt = vi.fn().mockResolvedValue(undefined)
+      window.dispatchEvent(
+        Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
+          prompt,
+          userChoice: Promise.resolve({ outcome, platform: "web" }),
+        }),
+      )
+      fixture.detectChanges()
+      return prompt
+    }
+
+    it("appears only while the browser offers the install, even with the menu open", async () => {
+      await openMenu()
+      expect(installItem()).toBeUndefined()
+
+      offerInstall("dismissed")
+      expect(installItem()).toBeDefined()
+
+      window.dispatchEvent(new Event("appinstalled"))
+      fixture.detectChanges()
+      expect(installItem()).toBeUndefined()
+    })
+
+    it("runs the browser's prompt, reports the outcome and goes away", async () => {
+      const prompt = offerInstall("accepted")
+      await openMenu()
+
+      installItem()?.click()
+      await fixture.whenStable()
+      fixture.detectChanges()
+
+      expect(prompt).toHaveBeenCalledTimes(1)
+      expect(analyticsServiceSpy.track).toHaveBeenCalledWith(
+        "pwa_install_prompt",
+        expect.objectContaining({ outcome: "accepted" }),
+      )
+      expect(installItem()).toBeUndefined()
+    })
+
+    it("comes back when the browser offers again after a refusal", async () => {
+      offerInstall("dismissed")
+      await openMenu()
+      installItem()?.click()
+      await fixture.whenStable()
+
+      expect(analyticsServiceSpy.track).toHaveBeenCalledWith(
+        "pwa_install_prompt",
+        expect.objectContaining({ outcome: "dismissed" }),
+      )
+
+      offerInstall("dismissed")
+      await openMenu()
+
+      expect(installItem()).toBeDefined()
     })
   })
 

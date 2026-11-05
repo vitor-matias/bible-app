@@ -44,7 +44,7 @@ export class PwaInstallService implements OnDestroy {
   isInstalled = this.isRunningInstalled()
 
   private readonly onBeforeInstallPrompt = (event: Event): void => {
-    // Suppress the mini-infobar; the onboarding wizard offers the prompt.
+    // Suppress the mini-infobar; the onboarding wizard and the menu offer the prompt.
     event.preventDefault()
     this.deferredPrompt = event as BeforeInstallPromptEvent
     this.canPromptSubject.next(true)
