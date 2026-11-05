@@ -50,9 +50,8 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
             >{{ part.match }}</a
           >
           } @else {
-          <!-- In an element: bare, the line breaks here would add a space on
-               each side, as in "( 7,21 ;". -->
-          <span>{{ part }}</span>
+          <!-- No whitespace around the text: the template's own would add a gap before the next link or bracket. -->
+          <ng-container>{{ part }}</ng-container>
           } }
         </div>
         }
@@ -116,11 +115,17 @@ export class FootnotesBottomSheetComponent {
 
   parseReferences(text: string): { parts: (string | BibleReference)[] } {
     return {
+      // The source has "( 7,50-52 ; 19,39 )": close the gaps around brackets
+      // and before punctuation, as a typeset note has it.
       parts: parseReferences(
         this.bibleRef,
         text,
         this.data.verse.bookId,
         this.data.verse.chapterNumber,
+      ).map((part) =>
+        typeof part === "string"
+          ? part.replace(/\(\s+/g, "(").replace(/\s+([;,.)])/g, "$1")
+          : part,
       ),
     }
   }

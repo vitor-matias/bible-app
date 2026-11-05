@@ -261,4 +261,11 @@ describe("FootnotesBottomSheetComponent", () => {
       expect(toastSpy.showReturn).toHaveBeenCalledWith(mockData.verse)
     })
   })
+
+  it("closes the gaps around brackets and before punctuation", () => {
+    bibleRefSpy.extract.mockReturnValue([])
+    expect(component.parseReferences("Cf. ( 7,50-52 ; 19,39 ).").parts).toEqual(
+      ["Cf. (7,50-52; 19,39)."],
+    )
+  })
 })
