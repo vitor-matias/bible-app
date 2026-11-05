@@ -230,6 +230,15 @@ describe("NativeShellService", () => {
     expect(liveUpdate.readyAndCheck).toHaveBeenCalledTimes(1)
   })
 
+  // NavigationEnd alone does not mean the page painted.
+  it("waits for a painted frame before confirming the bundle", async () => {
+    vi.mocked(window.requestAnimationFrame).mockImplementation(() => 0)
+    init("android")
+    events.next(new NavigationEnd(1, "/", "/"))
+    await vi.advanceTimersByTimeAsync(SPLASH_MAX_MS)
+    expect(liveUpdate.readyAndCheck).not.toHaveBeenCalled()
+  })
+
   it("lets a bundle that never navigates roll back", async () => {
     init("android")
     await vi.advanceTimersByTimeAsync(SPLASH_MAX_MS)

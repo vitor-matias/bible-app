@@ -52,10 +52,12 @@ export class NativeShellService {
       )
       .subscribe(() => {
         // Wait a frame so the page has painted before the splash fades out.
-        requestAnimationFrame(() => this.hideSplash())
-        // A page rendered, so this bundle works. Not on the splash timeout
-        // below: a live-update bundle that never renders must roll back.
-        void this.liveUpdate.readyAndCheck()
+        requestAnimationFrame(() => {
+          this.hideSplash()
+          // A page painted, so this bundle works. Not on the splash timeout
+          // below: a live-update bundle that never renders must roll back.
+          void this.liveUpdate.readyAndCheck()
+        })
       })
     // Never strand the user behind the splash.
     setTimeout(() => this.hideSplash(), SPLASH_MAX_MS)
