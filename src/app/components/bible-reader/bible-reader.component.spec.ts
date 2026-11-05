@@ -312,6 +312,10 @@ describe("BibleReaderComponent", () => {
         return { sheet, replaceState }
       }
 
+      /** What a chapter's arrival does, once it has rendered. */
+      const openPending = () =>
+        (component as unknown as { openLinkedNotes(): void }).openLinkedNotes()
+
       it("opens that verse's notes", () => {
         const { sheet } = follow("2")
 
@@ -412,7 +416,30 @@ describe("BibleReaderComponent", () => {
           }
         ).handleChapterLoadFailure(new Error("offline"))
         component.chapter = chapter
+        openPending()
+
+        expect(sheet).not.toHaveBeenCalled()
+      })
+
+      it("forgets them when the reader moves on without them", () => {
+        const sheet = vi
+          .spyOn(TestBed.inject(MatBottomSheet), "open")
+          .mockReturnValue({
+            afterDismissed: () => of(undefined),
+            dismiss: () => {},
+          } as never)
+        const queryParamMap = (
+          routeMock as unknown as {
+            queryParamMap: BehaviorSubject<Map<string, string>>
+          }
+        ).queryParamMap
+        fixture.detectChanges()
+        component.chapter = { bookId: "gen", number: 9 } as Chapter
+        queryParamMap.next(new Map([["notes", "2"]]))
         queryParamMap.next(new Map())
+
+        component.chapter = chapter
+        openPending()
 
         expect(sheet).not.toHaveBeenCalled()
       })

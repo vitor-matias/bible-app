@@ -142,6 +142,10 @@ const searchable = (text: string) =>
  * The Índice Bíblico-Pastoral: its themes at /indice, which expand in place. A
  * theme's address, /indice/:slug, is this page with that theme open.
  */
+/** A click with a modifier opens a new tab or window, not this app's page. */
+const leftToTheBrowser = (event: MouseEvent) =>
+  event.ctrlKey || event.metaKey || event.shiftKey || event.altKey
+
 @Component({
   selector: "pastoral-index",
   imports: [
@@ -465,7 +469,9 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   }
 
   /** A citation leaves for the reader: a toast offers the way back here. */
-  followCitation(slug: string): void {
+  followCitation(event: MouseEvent, slug: string): void {
+    // A new tab or window: the page stays here, with nothing to go back to.
+    if (leftToTheBrowser(event)) return
     this.toast.showReturnToIndex(slug)
   }
 
@@ -600,7 +606,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
 
   /** A cross-reference opens its theme here, even if the filter hides it. */
   follow(event: MouseEvent, slug: string): void {
-    if (event.ctrlKey || event.metaKey) return
+    if (leftToTheBrowser(event)) return
     event.preventDefault()
     this.query.set("")
     // Far off, as often as not: a long smooth scroll would only disorient.

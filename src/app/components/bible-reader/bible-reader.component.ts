@@ -366,7 +366,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
             ? true
             : queryParams.get("highlight") === "true"
 
-        this.linkedNotes = queryParams.get("notes") ?? this.linkedNotes
+        this.linkedNotes = queryParams.get("notes")
 
         const tempBook = this.bookService.findBook(bookParam)
 

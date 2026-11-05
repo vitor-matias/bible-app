@@ -563,6 +563,32 @@ describe("PastoralIndexComponent", () => {
     expect(toast.showReturnToIndex).toHaveBeenCalledWith("abba")
   })
 
+  for (const modifier of ["ctrlKey", "metaKey", "shiftKey", "altKey"]) {
+    it(`offers no way back for a citation opened elsewhere with ${modifier}`, async () => {
+      const fixture = await open("abba")
+
+      fixture.componentInstance.followCitation(
+        new MouseEvent("click", { [modifier]: true }),
+        "abba",
+      )
+
+      expect(toast.showReturnToIndex).not.toHaveBeenCalled()
+    })
+
+    it(`leaves a cross-reference to the browser with ${modifier}`, async () => {
+      const fixture = await open("aarao")
+      const click = new MouseEvent("click", {
+        [modifier]: true,
+        cancelable: true,
+      })
+
+      fixture.componentInstance.follow(click, "sacerdote")
+
+      expect(click.defaultPrevented).toBe(false)
+      expect(fixture.componentInstance.entry()?.slug).toBe("aarao")
+    })
+  }
+
   it("offers no way back for a cross-reference, which stays here", async () => {
     const fixture = await open("aarao")
     const el: HTMLElement = fixture.nativeElement

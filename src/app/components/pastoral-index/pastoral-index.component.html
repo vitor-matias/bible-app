@@ -164,7 +164,7 @@
             @if (part.see) {
             <a [href]="'/indice/' + part.see" (click)="follow($event, part.see)">{{ part.text }}</a>
             } @else if (part.link) {
-            <a [routerLink]="part.link" [queryParams]="part.query" (click)="followCitation(theme.slug)">{{ part.text }}</a>
+            <a [routerLink]="part.link" [queryParams]="part.query" (click)="followCitation($event, theme.slug)">{{ part.text }}</a>
             } @else {
             <!-- In an element: a bare interpolation here gains a space from the
                  line break, before the ";" that follows a citation. -->
