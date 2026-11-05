@@ -55,12 +55,9 @@ const INLINE_ICONS: Readonly<Record<string, string>> = {
 }
 
 const INLINE_ICON = /\[\[([a-z_]+)\]\]/g
-const segmentCache = new Map<string, readonly TextSegment[]>()
 
 /** Splits a step's text around its [[icon]] markers. */
 export function textSegments(text: string): readonly TextSegment[] {
-  const cached = segmentCache.get(text)
-  if (cached) return cached
   const segments: TextSegment[] = []
   let last = 0
   for (const match of text.matchAll(INLINE_ICON)) {
@@ -75,7 +72,6 @@ export function textSegments(text: string): readonly TextSegment[] {
   }
   if (last < text.length)
     segments.push({ kind: "text", text: text.slice(last) })
-  segmentCache.set(text, segments)
   return segments
 }
 

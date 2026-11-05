@@ -172,7 +172,7 @@
 .store-badge {
   display: block;
   width: fit-content;
-  margin: 12px auto;
+  margin: 14px auto;
   border-radius: 8px;
 }
 
@@ -211,7 +211,6 @@
   height: 1em;
   font-size: 1.2em;
   vertical-align: -0.2em;
-  color: inherit;
 }
 
 .guide .inline-icon {
