@@ -149,7 +149,9 @@ mat-accordion {
 .letter > h2 {
   margin: 0;
   padding: 12px 0 4px;
-  font-size: 90%;
+  /* Over the text size's own bump (UnifiedGesturesDirective), which is relative
+     to a parent it has already scaled: at 235%, "A" was twice a theme's size. */
+  font-size: 90% !important;
   font-weight: bold;
   text-transform: uppercase;
 }

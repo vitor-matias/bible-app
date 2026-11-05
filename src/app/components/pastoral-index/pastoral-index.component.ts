@@ -71,6 +71,7 @@ import { PwaInstallService } from "../../services/pwa-install.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
+import { foldText } from "../../utils/text-search"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 import { PRIVACY_POLICY_URL } from "../header/header.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
@@ -135,17 +136,14 @@ function notedVerses(ref: BibleReference, after?: string): string | null {
     : `${verse.start}-${verse.end}`
 }
 
-const searchable = (text: string) =>
-  text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLocaleLowerCase("pt")
+/** A click with a modifier opens a new tab or window, not this app's page. */
+const leftToTheBrowser = (event: MouseEvent) =>
+  event.ctrlKey || event.metaKey || event.shiftKey || event.altKey
 
 /**
  * The Índice Bíblico-Pastoral: its themes at /indice, which expand in place. A
  * theme's address, /indice/:slug, is this page with that theme open.
  */
-/** A click with a modifier opens a new tab or window, not this app's page. */
-const leftToTheBrowser = (event: MouseEvent) =>
-  event.ctrlKey || event.metaKey || event.shiftKey || event.altKey
-
 @Component({
   selector: "pastoral-index",
   imports: [
@@ -349,10 +347,10 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
 
   /** The themes that match the filter, under their first letters. */
   readonly groups = computed(() => {
-    const query = searchable(this.query().trim())
+    const query = foldText(this.query().trim())
     const groups = new Map<string, PastoralEntry[]>()
     for (const entry of ENTRIES) {
-      const title = searchable(entry.title)
+      const title = foldText(entry.title)
       if (!title.includes(query)) continue
       const letter = title[0].toLocaleUpperCase("pt")
       groups.set(letter, [...(groups.get(letter) ?? []), entry])
