@@ -148,7 +148,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   readonly privacyPolicyUrl = PRIVACY_POLICY_URL
   /** The native app's store for this phone or tablet, if it has one. */
   appStore: StoreLink | null = null
-  appStoreLabel = ""
+  /** Read at each check: installing the website mid-visit changes the words. */
+  get appStoreLabel(): string {
+    return this.appStore ? this.appPromo.menuLabel(this.appStore) : ""
+  }
   /** Small print under the menu's last item; null until it is known. */
   version: DisplayVersion | null = null
   private destroyed = false
@@ -213,9 +216,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       (typeof navigator !== "undefined" &&
         typeof navigator.share === "function")
     this.appStore = this.appPromo.deviceStore("menu")
-    if (this.appStore) {
-      this.appStoreLabel = this.appPromo.menuLabel(this.appStore)
-    }
 
     this.bookmarkService.bookmarks$
       .pipe(takeUntilDestroyed(this.destroyRef))

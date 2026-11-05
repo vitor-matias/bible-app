@@ -137,6 +137,8 @@ export class AppPromoService {
     // or be missed in a background tab: the next visit tries again.
     if (
       this.dialog.openDialogs.length > 0 ||
+      // shortcut: Material has no public "is one open"; if an upgrade drops
+      // this accessor the build fails, then track it in ToastService.
       this.snackBar._openedSnackBarRef ||
       document.visibilityState === "hidden"
     ) {

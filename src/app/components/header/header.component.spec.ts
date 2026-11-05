@@ -358,6 +358,19 @@ describe("HeaderComponent", () => {
       fixture.detectChanges()
     }
 
+    const offerInstall = () => {
+      window.dispatchEvent(
+        Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
+          prompt: vi.fn(),
+          userChoice: Promise.resolve({
+            outcome: "dismissed",
+            platform: "web",
+          }),
+        }),
+      )
+      fixture.detectChanges()
+    }
+
     it("is left out where the device has no store app", () => {
       openMenu()
 
@@ -378,19 +391,25 @@ describe("HeaderComponent", () => {
       )
     })
 
+    it("says what's new as soon as the website is installed, without a reload", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      recreate()
+      offerInstall()
+      openMenu()
+      const label = () => document.querySelector(".app-store-link")?.textContent
+      expect(label()).toContain("Instalar a aplicação")
+
+      appPromoSpy.menuLabel.mockReturnValue("Nova aplicação no Google Play")
+      window.dispatchEvent(new Event("appinstalled"))
+      fixture.detectChanges()
+
+      expect(label()).toContain("Nova aplicação no Google Play")
+    })
+
     it("stands in for the browser's install entry, which would read almost the same", () => {
       appPromoSpy.deviceStore.mockReturnValue(play)
       recreate()
-      window.dispatchEvent(
-        Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
-          prompt: vi.fn(),
-          userChoice: Promise.resolve({
-            outcome: "dismissed",
-            platform: "web",
-          }),
-        }),
-      )
-      fixture.detectChanges()
+      offerInstall()
       openMenu()
 
       expect(component.canInstall()).toBe(true)
