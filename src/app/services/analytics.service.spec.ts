@@ -6,7 +6,7 @@ import {
   AnalyticsService,
   BUILD_DATA_WAIT_MS,
   DELIVERY_TIMEOUT_MS,
-  labelUmamiPlatform,
+  prepareUmamiPayload,
 } from "./analytics.service"
 import { BuildVersionService } from "./build-version.service"
 
@@ -272,20 +272,43 @@ describe("AnalyticsService", () => {
 
 // The native shells serve the app from https://localhost; without this every
 // app page view was counted under that hostname.
-describe("labelUmamiPlatform", () => {
-  const payload = { hostname: "localhost", url: "/mc/7", website: "id" }
+describe("prepareUmamiPayload", () => {
+  const payload = {
+    hostname: "localhost",
+    url: "/mc/7",
+    referrer: "",
+    website: "id",
+  }
 
   it("labels native page views with the platform", () => {
     vi.spyOn(Capacitor, "getPlatform").mockReturnValue("android")
-    expect(labelUmamiPlatform("event", payload)).toEqual({
+    expect(prepareUmamiPayload("event", payload)).toEqual({
       ...payload,
       hostname: "android-app",
       tag: "android",
     })
   })
 
-  it("leaves web page views untouched", () => {
+  it("leaves web page views as they were", () => {
     vi.spyOn(Capacitor, "getPlatform").mockReturnValue("web")
-    expect(labelUmamiPlatform("event", payload)).toBe(payload)
+    expect(prepareUmamiPayload("event", payload)).toEqual(payload)
+  })
+
+  it("keeps what was searched or shared out of the URLs", () => {
+    vi.spyOn(Capacitor, "getPlatform").mockReturnValue("web")
+    const prepared = prepareUmamiPayload("pageview", {
+      url: "/search?q=doen%C3%A7a",
+      referrer: "https://biblia.capuchinhos.org/?text=a&url=b&title=c",
+    })
+    expect(prepared["url"]).toBe("/search")
+    expect(prepared["referrer"]).toBe("https://biblia.capuchinhos.org/")
+  })
+
+  it("keeps the other parameters, such as a verse or a campaign", () => {
+    vi.spyOn(Capacitor, "getPlatform").mockReturnValue("web")
+    const prepared = prepareUmamiPayload("pageview", {
+      url: "/jo/1?verseStart=3&q=x&utm_source=ad",
+    })
+    expect(prepared["url"]).toBe("/jo/1?verseStart=3&utm_source=ad")
   })
 })

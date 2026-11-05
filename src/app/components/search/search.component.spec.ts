@@ -308,6 +308,14 @@ describe("SearchComponent", () => {
       expect(apiService.search).toHaveBeenCalledWith("Xy 3", 1)
     })
 
+    it("counts a search without telling analytics what was searched", async () => {
+      vi.useFakeTimers()
+      component.onTyping("pastor")
+      await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
+
+      expect(analyticsService.track).toHaveBeenCalledWith("search")
+    })
+
     // The search by meaning waits for the pause; what costs nothing doesn't.
     describe("while the search waits for the pause", () => {
       const john = {
