@@ -749,3 +749,18 @@ html.dark-theme .platform-ios.native-chrome app-search {
 .platform-ios .mdc-button__ripple {
   display: none;
 }
+
+/* The pastoral index's letters take the native scrollbar's place. */
+html.no-scrollbar {
+  scrollbar-width: none;
+}
+
+html.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* A toast's way back stays over the notes (ToastService.bringToFront): their
+   last lines can scroll clear of it. */
+html:has(mat-snack-bar-container) .footnotes-container {
+  padding-bottom: 72px;
+}

@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject } from "@angular/core"
+import {
+  afterNextRender,
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+} from "@angular/core"
 
 import {
   MAT_BOTTOM_SHEET_DATA,
@@ -45,7 +50,9 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
             >{{ part.match }}</a
           >
           } @else {
-          {{ part }}
+          <!-- In an element: bare, the line breaks here would add a space on
+               each side, as in "( 7,21 ;". -->
+          <span>{{ part }}</span>
           } }
         </div>
         }
@@ -95,6 +102,9 @@ export class FootnotesBottomSheetComponent {
   private toast = inject(ToastService)
 
   constructor() {
+    // Opened over a way back, which is still to be within reach.
+    afterNextRender(() => this.toast.bringToFront())
+
     const data = this.data
 
     void this.analyticsService.track("footnotes_opened", {

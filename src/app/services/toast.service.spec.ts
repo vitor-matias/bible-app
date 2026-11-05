@@ -80,6 +80,68 @@ describe("ToastService", () => {
     })
   })
 
+  describe("over a sheet opened after it", () => {
+    function popover(child: string): HTMLElement {
+      const element = document.createElement("div")
+      element.popover = "manual"
+      element.style.cssText =
+        "position: fixed; inset: 0; margin: 0; width: 100vw; height: 100vh"
+      element.append(document.createElement(child))
+      document.body.append(element)
+      element.showPopover()
+      return element
+    }
+
+    const onTop = () => document.elementFromPoint(100, 100)
+
+    it("goes back on top, for real", () => {
+      const service = create(false)
+      const toast = popover("mat-snack-bar-container")
+      const sheet = popover("mat-bottom-sheet-container")
+      expect(onTop()).toBe(sheet)
+
+      service.bringToFront()
+
+      expect(onTop()).toBe(toast)
+      toast.remove()
+      sheet.remove()
+    })
+
+    it("does nothing without a toast showing", () => {
+      expect(() => create(false).bringToFront()).not.toThrow()
+    })
+  })
+
+  describe("the way back to the index", () => {
+    it("reopens the theme from a snackbar", () => {
+      const service = create(false)
+      const navigate = vi
+        .spyOn(TestBed.inject(Router), "navigate")
+        .mockResolvedValue(true)
+
+      service.showReturnToIndex("amor")
+
+      const data = snackBar.openFromComponent.mock.lastCall?.[1]?.data as {
+        message: string
+        returnUrl: () => void
+      }
+      expect(data.message).toBe("Voltar para o Índice")
+      data.returnUrl()
+      expect(navigate).toHaveBeenCalledWith(["/indice", "amor"])
+    })
+
+    it("is a button on the glass toast in the native apps", () => {
+      const service = create(true)
+
+      service.showReturnToIndex("amor")
+
+      expect(nativeChrome.toast).toHaveBeenCalledWith(
+        "Voltar para o Índice",
+        expect.objectContaining({ returnToPage: true }),
+      )
+    })
+  })
+
   it("shows the native glass toast in the iOS app", () => {
     const toast = create(true)
     toast.show("Copiado")

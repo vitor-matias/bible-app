@@ -1,0 +1,189 @@
+@if (!native) {
+<div class="toolbar-wrapper">
+  <mat-toolbar class="index-toolbar">
+    <div class="content">
+      <button mat-flat-button type="button" aria-label="Menu" class="button actionButton backButton" [matMenuTriggerFor]="pageMenu">
+        <mat-icon>menu</mat-icon>
+      </button>
+      <!-- The reader's menu, less what only a chapter has: auto-scroll and the
+           view mode. -->
+      <mat-menu #pageMenu="matMenu">
+        <!-- Menu items, so the arrow keys reach them; a click here stops short
+             of the menu panel, so the menu stays open as the text changes. -->
+        <div class="menu-controls" (click)="$event.stopPropagation()">
+          <button type="button" mat-menu-item class="menu-control" (click)="toggleTheme()" [matTooltip]="theme.label" matTooltipPosition="above" [attr.aria-label]="theme.label">
+            <mat-icon>{{ theme.icon }}</mat-icon>
+          </button>
+          <button type="button" mat-menu-item class="menu-control" (click)="decreaseFontSize()" matTooltip="Diminuir texto" matTooltipPosition="above" aria-label="Diminuir texto">
+            <mat-icon>text_decrease</mat-icon>
+          </button>
+          <button type="button" mat-menu-item class="menu-control" (click)="increaseFontSize()" matTooltip="Aumentar texto" matTooltipPosition="above" aria-label="Aumentar texto">
+            <mat-icon>text_increase</mat-icon>
+          </button>
+        </div>
+        <mat-divider></mat-divider>
+        <button type="button" mat-menu-item (click)="openBookmarks()">
+          <mat-icon>bookmarks</mat-icon>
+          <span>Marcadores</span>
+        </button>
+        @if (canShare) {
+        <button type="button" mat-menu-item (click)="share()">
+          <mat-icon>share</mat-icon>
+          <span>Partilhar</span>
+        </button>
+        }
+        @if (canInstall()) {
+        <button type="button" mat-menu-item (click)="install()">
+          <mat-icon>download</mat-icon>
+          <span>Instalar a app</span>
+        </button>
+        }
+        <button type="button" mat-menu-item (click)="openHelp()">
+          <mat-icon>help</mat-icon>
+          <span>Como usar a app</span>
+        </button>
+        <button type="button" mat-menu-item (click)="openAbout()">
+          <mat-icon>info</mat-icon>
+          <span>Sobre a Bíblia</span>
+        </button>
+        @if (analytics.areAnalyticsAvailable()) {
+        <button type="button" mat-menu-item (click)="reportProblem()">
+          <mat-icon>report_problem</mat-icon>
+          <span>Reportar erro</span>
+        </button>
+        }
+        <a mat-menu-item [href]="privacyPolicyUrl" target="_blank" rel="noopener noreferrer">
+          <mat-icon>privacy_tip</mat-icon>
+          <span class="privacy-label">
+            Política de Privacidade
+            <mat-icon class="open-in-new-icon">open_in_new</mat-icon>
+          </span>
+        </a>
+        @if (version(); as version) {
+        <!-- One line, as in the reader's: the release, then the bundle's id. -->
+        <div class="menu-version">
+          @if (version.release) {
+          {{ version.release }} · {{ version.build }}
+          } @else {
+          Bundle {{ version.build }}
+          }
+        </div>
+        }
+      </mat-menu>
+      <span class="toolbar-title">Índice Bíblico-Pastoral</span>
+      <a mat-flat-button routerLink="/search" aria-label="Pesquisar" class="button actionButton searchButton">
+        <mat-icon>search</mat-icon>
+      </a>
+    </div>
+  </mat-toolbar>
+</div>
+}
+
+<main class="book-index-container">
+  <h1 class="visually-hidden">Índice Bíblico-Pastoral</h1>
+  <!-- As the printed edition opens the index. -->
+  <p class="index-intro">
+    Este Índice Bíblico-Pastoral apresenta os principais temas bíblicos, fazendo
+    ressaltar a sua evolução no quadro da Revelação divina. A Palavra de Deus foi
+    escrita em três momentos principais: Antigo Testamento, Evangelhos e Cartas. A
+    Liturgia da Palavra dá-lhes a devida importância. Julgamos este Índice muito
+    útil para a escolha dos textos das Celebrações da Palavra, temas de estudo ou
+    oração e reuniões de grupos bíblicos.
+  </p>
+  @if (isBrowser && !wide()) {
+  <!-- Touch and mouse only: the letter buttons below stay for the keyboard and
+       screen readers. -->
+  <alphabetical-scroll-bar
+    class="letter-bar"
+    aria-hidden="true"
+    [alphabet]="letters()"
+    [current]="scrubbed() ?? currentLetter()"
+    (letterChange)="scrubTo($event)"
+    (isActive)="!$event && endScrub()"
+  />
+  }
+  <!-- Always in reach, however far down the list. -->
+  <div class="index-tools">
+  <mat-form-field class="theme-filter" appearance="outline" subscriptSizing="dynamic">
+    <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+    <input
+      matInput
+      type="search"
+      placeholder="Filtrar temas..."
+      aria-label="Filtrar temas"
+      [value]="query()"
+      (input)="filter($any($event.target).value)"
+    />
+  </mat-form-field>
+  <nav class="letters" aria-label="Ir para a letra">
+    @for (group of groups(); track group.letter) {
+    <button
+      mat-button
+      type="button"
+      [attr.aria-label]="'Letra ' + group.letter"
+      [class.current]="currentLetter() === group.letter"
+      [attr.aria-current]="currentLetter() === group.letter ? 'true' : null"
+      (click)="goToLetter(group.letter)"
+    >{{ group.letter }}</button>
+    }
+  </nav>
+  </div>
+  <mat-accordion displayMode="flat" [multi]="wide()" unifiedGestures fontSizeContext="reader">
+    @for (group of groups(); track group.letter) {
+    <section class="letter" [id]="'letra-' + group.letter">
+    <!-- Focusable, for the letter shortcuts to leave the keyboard here. -->
+    <h2 tabindex="-1">{{ group.letter }}</h2>
+    <div class="themes">
+    @for (theme of group.entries; track theme.slug) {
+    <mat-expansion-panel
+      #panel="matExpansionPanel"
+      tabindex="-1"
+      [hideToggle]="wide()"
+      [id]="'tema-' + theme.slug"
+      [expanded]="wide() || theme.slug === expandedSlug()"
+      (opened)="opened(theme.slug, panel)"
+      (closed)="closed(theme.slug)"
+      (afterExpand)="settled(theme.slug)"
+    >
+      <mat-expansion-panel-header>
+        <mat-panel-title>
+          {{ theme.title }}
+          <!-- The ribbon on this theme, as on the reader's chapter button. -->
+          @if (ribbonOn(theme.slug); as color) {
+          <mat-icon class="theme-ribbon" [style.color]="ribbonColor(color)" aria-hidden="true">bookmark</mat-icon>
+          <span class="visually-hidden">, marcador {{ ribbonName(color) }}</span>
+          }
+        </mat-panel-title>
+      </mat-expansion-panel-header>
+      <!-- Lazy: only an opened theme's citations are parsed and rendered. -->
+      <ng-template matExpansionPanelContent>
+        <article class="entry">
+          @for (parts of paragraphsOf(theme); track $index) {
+          <p>
+            @for (part of parts; track $index) {
+            @if (part.see) {
+            <a [href]="'/indice/' + part.see" (click)="follow($event, part.see)">{{ part.text }}</a>
+            } @else if (part.link) {
+            <a [routerLink]="part.link" [queryParams]="part.query" (click)="followCitation(theme.slug)">{{ part.text }}</a>
+            } @else {
+            <!-- In an element: a bare interpolation here gains a space from the
+                 line break, before the ";" that follows a citation. -->
+            <span>{{ part.text }}</span>
+            }
+            }
+          </p>
+          }
+        </article>
+      </ng-template>
+    </mat-expansion-panel>
+    }
+    </div>
+    </section>
+    } @empty {
+    <p class="intro-text">
+      Nenhum tema encontrado.
+      <a routerLink="/search" [queryParams]="{ q: query().trim() }">Procurar «{{ query().trim() }}» na Bíblia</a>
+    </p>
+    }
+  </mat-accordion>
+</main>

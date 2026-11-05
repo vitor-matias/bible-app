@@ -4,7 +4,7 @@
   @if (!native) {
   <search-bar [value]="fieldValue" [focusOnOpen]="!hasSearched" (searchValue)="onSearchSubmit($event)" (typing)="onTyping($event)"></search-bar>
   }
-  <div unifiedGestures fontSizeContext="search" class="search-container" [class.has-suggestion]="!!passageSuggestion" #container>
+  <div unifiedGestures fontSizeContext="search" class="search-container" [class.has-suggestion]="!!passageSuggestion || themes.length > 0" #container>
 
   <!-- A typed reference, offered at once: no wait for the search. -->
   @if (passageSuggestion) {
@@ -13,6 +13,14 @@
       <span class="passage-suggestion-label">{{ passageSuggestion.label }}</span>
       <mat-icon aria-hidden="true">arrow_forward</mat-icon>
     </button>
+  }
+
+  @for (theme of themes; track theme.slug) {
+    <a class="passage-suggestion" [href]="'/indice/' + theme.slug" (click)="openTheme($event, theme.slug)">
+      <mat-icon aria-hidden="true">format_list_bulleted</mat-icon>
+      <span class="passage-suggestion-label">{{ theme.title }} <span class="psalm-note">· Índice Bíblico-Pastoral</span></span>
+      <mat-icon aria-hidden="true">arrow_forward</mat-icon>
+    </a>
   }
 
   <!-- The count and the outcome, read out once: no toast covers the list. -->

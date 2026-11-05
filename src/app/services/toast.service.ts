@@ -1,4 +1,4 @@
-import { Injectable, inject } from "@angular/core"
+import { DOCUMENT, Injectable, inject } from "@angular/core"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { NavigationEnd, NavigationStart, Router } from "@angular/router"
 import type { Observable, Subscription } from "rxjs"
@@ -25,6 +25,7 @@ export class ToastService {
   private readonly nativeChrome = inject(NativeChromeService)
   private readonly bookService = inject(BookService)
   private readonly router = inject(Router)
+  private readonly document = inject(DOCUMENT)
   /** Takes down the "Voltar para …" showing, if any; see showReturn. */
   private returnWatch?: Subscription
 
@@ -41,11 +42,24 @@ export class ToastService {
   }
 
   /**
+   * Puts the snackbar showing back on top of what opened after it, as the notes
+   * do over a way back. Overlays are popovers: the browser stacks them by the
+   * order they were shown, whatever their z-index, so this shows it anew.
+   */
+  bringToFront(): void {
+    const popover = this.document
+      .querySelector("mat-snack-bar-container")
+      ?.closest<HTMLElement>("[popover]")
+    if (!popover?.matches(":popover-open")) return
+    popover.hidePopover()
+    popover.showPopover()
+  }
+
+  /**
    * The way back after following a reference, from a verse's cross-references
    * or its notes: "Voltar para Gn 3,5".
    */
   showReturn(from: Pick<Verse, "bookId" | "chapterNumber" | "number">): void {
-    this.returnWatch?.unsubscribe()
     const verseNumber = from.number > 0 ? from.number : 1
     const book = this.bookService.findBook(from.bookId)
     const urlAbrv = this.bookService.getUrlAbrv(book)
@@ -55,6 +69,26 @@ export class ToastService {
         queryParams: { verseStart: verseNumber, highlight: false },
       })
 
+    this.showWayBack(message, goBack, (url) =>
+      this.isChapter(url, urlAbrv, from.chapterNumber),
+    )
+  }
+
+  /** The way back after following a citation in the Índice Bíblico-Pastoral. */
+  showReturnToIndex(slug: string): void {
+    this.showWayBack(
+      "Voltar para o Índice",
+      () => this.router.navigate(["/indice", slug]),
+      (url) => this.isIndex(url),
+    )
+  }
+
+  private showWayBack(
+    message: string,
+    goBack: () => void,
+    isOrigin: (url: string) => boolean,
+  ): void {
+    this.returnWatch?.unsubscribe()
     // The way back is the button, as Books' "Back to Page" is: the iOS glass
     // toast, or the snackbar elsewhere.
     if (this.nativeChrome.enabled) {
@@ -63,15 +97,14 @@ export class ToastService {
         onTap: goBack,
         returnToPage: true,
       })
-      this.returnWatch = this.hideOnReturn(urlAbrv, from.chapterNumber, hide)
+      this.returnWatch = this.hideOnReturn(isOrigin, hide)
       return
     }
     const snack = this.snackBar.openFromComponent(TwoActionSnackComponent, {
       data: { message, returnUrl: goBack },
     })
     this.returnWatch = this.hideOnReturn(
-      urlAbrv,
-      from.chapterNumber,
+      isOrigin,
       () => snack.dismiss(),
       snack.afterDismissed(),
     )
@@ -80,26 +113,25 @@ export class ToastService {
   /**
    * The way back goes once the reader has gone back by another route: the back
    * gesture, Android's back button or the browser's (any step through
-   * history), or anything that brings them back to its chapter, such as the
+   * history), or anything that brings them back to where they were, such as the
    * passage picker. Reading on from the reference keeps it, as Books does;
    * leaving the text for search or the book list doesn't.
    */
   private hideOnReturn(
-    urlAbrv: string,
-    chapter: number,
+    isOrigin: (url: string) => boolean,
     hide: () => void,
     closed?: Observable<unknown>,
   ): Subscription {
     // A reference within the chapter doesn't leave it, so landing there
     // isn't a return.
-    let away = !this.isChapter(this.router.url, urlAbrv, chapter)
+    let away = !isOrigin(this.router.url)
     const watch = this.router.events.subscribe((event) => {
       let done = false
       if (event instanceof NavigationStart) {
         done = event.navigationTrigger === "popstate"
       } else if (event instanceof NavigationEnd) {
         const url = event.urlAfterRedirects
-        const here = this.isChapter(url, urlAbrv, chapter)
+        const here = isOrigin(url)
         done = (here && away) || !this.isReader(url)
         away ||= !here
       }
@@ -116,6 +148,12 @@ export class ToastService {
     const segments =
       this.router.parseUrl(url).root.children["primary"]?.segments ?? []
     return segments.length !== 1
+  }
+
+  private isIndex(url: string): boolean {
+    const [first] =
+      this.router.parseUrl(url).root.children["primary"]?.segments ?? []
+    return first?.path === "indice"
   }
 
   private isChapter(url: string, urlAbrv: string, chapter: number): boolean {

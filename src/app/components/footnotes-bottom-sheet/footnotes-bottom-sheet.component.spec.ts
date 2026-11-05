@@ -42,7 +42,7 @@ describe("FootnotesBottomSheetComponent", () => {
     bookServiceSpy = createSpyObj("BookService", ["findBook", "getUrlAbrv"])
     analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
     analyticsServiceSpy.track.mockResolvedValue(undefined)
-    toastSpy = createSpyObj("ToastService", ["showReturn"])
+    toastSpy = createSpyObj("ToastService", ["showReturn", "bringToFront"])
 
     await TestBed.configureTestingModule({
       imports: [FootnotesBottomSheetComponent],
@@ -59,6 +59,28 @@ describe("FootnotesBottomSheetComponent", () => {
 
     fixture = TestBed.createComponent(FootnotesBottomSheetComponent)
     component = fixture.componentInstance
+  })
+
+  it("adds no space around a reference, between it and the punctuation", () => {
+    bibleRefSpy.extract.mockImplementation((text: string) =>
+      text.startsWith("See")
+        ? [{ match: "Gen 1:1", index: 4, book: "Gen", chapter: 1 }]
+        : [],
+    )
+    bookServiceSpy.findBook.mockReturnValue({ id: "gen" } as Book)
+    bookServiceSpy.getUrlAbrv.mockReturnValue("gn")
+    fixture.componentRef.changeDetectorRef.markForCheck()
+    fixture.detectChanges()
+
+    const item = fixture.nativeElement.querySelector(".footnote-item")
+    expect(item.querySelector("a").textContent).toBe("Gen 1:1")
+    expect(item.textContent.replace(/\s+/g, " ").trim()).toBe("1a See Gen 1:1.")
+  })
+
+  it("puts a toast's way back above itself on opening", async () => {
+    bibleRefSpy.extract.mockReturnValue([])
+    await fixture.whenStable()
+    expect(toastSpy.bringToFront).toHaveBeenCalled()
   })
 
   it("should create", () => {
