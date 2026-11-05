@@ -1,4 +1,5 @@
 import { type Routes } from "@angular/router"
+import { chapterExists } from "./chapter-exists.guard"
 import { BibleReaderComponent } from "./components/bible-reader/bible-reader.component"
 
 export const routes: Routes = [
@@ -27,6 +28,18 @@ export const routes: Routes = [
         (m) => m.PrivacyPolicyPageComponent,
       ),
   },
-  { path: ":book/:chapter", component: BibleReaderComponent },
+  {
+    path: ":book/:chapter",
+    component: BibleReaderComponent,
+    canMatch: [chapterExists],
+  },
+  {
+    // Two segments that failed the guard: a book or chapter that does not exist.
+    path: ":book/:chapter",
+    loadComponent: () =>
+      import("./components/not-found/not-found.component").then(
+        (m) => m.NotFoundComponent,
+      ),
+  },
   { path: "**", component: BibleReaderComponent },
 ]
