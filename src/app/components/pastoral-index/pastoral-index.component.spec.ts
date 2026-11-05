@@ -3,6 +3,7 @@ import { Location } from "@angular/common"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
+import { By } from "@angular/platform-browser"
 import {
   ActivatedRoute,
   convertToParamMap,
@@ -854,6 +855,24 @@ describe("PastoralIndexComponent", () => {
     expect(el.querySelectorAll("mat-expansion-panel.mat-expanded").length).toBe(
       el.querySelectorAll("mat-expansion-panel").length,
     )
+  })
+
+  it("keeps the letters below a theme's size at a large text size", async () => {
+    const fixture = await open()
+    const el: HTMLElement = fixture.nativeElement
+    const textSize = fixture.debugElement
+      .query(By.directive(UnifiedGesturesDirective))
+      .injector.get(UnifiedGesturesDirective) as unknown as {
+      setFontSize(percent: number): void
+    }
+
+    textSize.setFontSize(235)
+
+    const size = (selector: string) =>
+      Number.parseFloat(
+        getComputedStyle(el.querySelector(selector) as Element).fontSize,
+      )
+    expect(size(".letter > h2")).toBeLessThan(size("mat-accordion"))
   })
 
   it("keeps the filter on the page, at a phone's width", async () => {
