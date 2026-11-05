@@ -231,12 +231,15 @@ describe("NativeShellService", () => {
   })
 
   // NavigationEnd alone does not mean the page painted.
-  it("waits for a painted frame before confirming the bundle", async () => {
+  it("waits for Angular to render the page before confirming the bundle", () => {
+    // Angular schedules its render on a frame; hold frames so only tick() renders.
     vi.mocked(window.requestAnimationFrame).mockImplementation(() => 0)
     init("android")
     events.next(new NavigationEnd(1, "/", "/"))
-    await vi.advanceTimersByTimeAsync(SPLASH_MAX_MS)
     expect(liveUpdate.readyAndCheck).not.toHaveBeenCalled()
+
+    TestBed.tick()
+    expect(liveUpdate.readyAndCheck).toHaveBeenCalledTimes(1)
   })
 
   it("lets a bundle that never navigates roll back", async () => {

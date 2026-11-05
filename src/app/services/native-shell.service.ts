@@ -1,5 +1,5 @@
 import { DOCUMENT } from "@angular/common"
-import { Injectable, inject } from "@angular/core"
+import { afterNextRender, Injectable, Injector, inject } from "@angular/core"
 import { NavigationEnd, Router } from "@angular/router"
 import { Capacitor, SystemBarsStyle, SystemBarType } from "@capacitor/core"
 import { filter, take } from "rxjs"
@@ -22,6 +22,7 @@ export const SPLASH_MAX_MS = 4000
 })
 export class NativeShellService {
   private readonly document = inject(DOCUMENT)
+  private readonly injector = inject(Injector)
   private readonly router = inject(Router)
   private readonly splashScreen = inject(SPLASH_SCREEN_PLUGIN)
   private readonly systemBars = inject(SYSTEM_BARS_PLUGIN)
@@ -52,11 +53,11 @@ export class NativeShellService {
       )
       .subscribe(() => {
         // Wait a frame so the page has painted before the splash fades out.
-        requestAnimationFrame(() => {
-          this.hideSplash()
-          // A page painted, so this bundle works. Not on the splash timeout
-          // below: a live-update bundle that never renders must roll back.
-          void this.liveUpdate.readyAndCheck()
+        requestAnimationFrame(() => this.hideSplash())
+        // The routed page rendered, so this bundle works. Not on the splash
+        // timeout below: a live-update bundle that never renders must roll back.
+        afterNextRender(() => void this.liveUpdate.readyAndCheck(), {
+          injector: this.injector,
         })
       })
     // Never strand the user behind the splash.
