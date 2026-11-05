@@ -402,7 +402,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     // Rotating a phone crosses the breakpoint, and every theme opens or folds
     // above the one being read. Back to it once they have.
     let first = true
-    effect(() => {
+    effect((onCleanup) => {
       this.wide()
       if (first) {
         first = false
@@ -412,7 +412,9 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
       this.scrollSmoothly = false
       // shortcut: the panels' 225 ms animation, assumed over; a slow device can
       // land short, use their afterExpand if that turns up.
-      if (slug) setTimeout(() => this.scrollTo(slug), 300)
+      if (!slug) return
+      const settling = setTimeout(() => this.scrollTo(slug), 300)
+      onCleanup(() => clearTimeout(settling))
     })
   }
 

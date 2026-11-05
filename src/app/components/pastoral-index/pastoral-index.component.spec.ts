@@ -1044,6 +1044,22 @@ describe("PastoralIndexComponent", () => {
       expect(scroll.mock.contexts).toContain(el.querySelector("#tema-amor"))
     })
 
+    it("leaves the theme alone if the page goes as the screen rotates", async () => {
+      const fixture = await open("amor", false, false, true)
+      const scroll = vi
+        .spyOn(Element.prototype, "scrollIntoView")
+        .mockImplementation(() => {})
+      vi.useFakeTimers()
+
+      wide.next({ matches: false })
+      await vi.advanceTimersByTimeAsync(1)
+      scroll.mockClear()
+      fixture.destroy()
+      await vi.advanceTimersByTimeAsync(350)
+
+      expect(scroll).not.toHaveBeenCalled()
+    })
+
     it("draws no headword over its own text", async () => {
       const fixture = await open(undefined, false, false, true)
       const el: HTMLElement = fixture.nativeElement
