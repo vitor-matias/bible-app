@@ -34,8 +34,11 @@ export interface BibleReference {
   crossChapter?: CrossChapterRange
 }
 
+const stripDiacritics = (value: string) =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+
 const compactName = (name: string) =>
-  name.replace(/\s+/g, "").toLocaleLowerCase()
+  stripDiacritics(name).replace(/\s+/g, "").toLocaleLowerCase()
 
 @Injectable({ providedIn: "root" })
 export class BibleReferenceService {
@@ -82,9 +85,6 @@ export class BibleReferenceService {
         .filter(Boolean)
         .map(compactName),
     )
-
-    const stripDiacritics = (value: string) =>
-      value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
 
     // 1) Abbreviations, short names, ids, and full names from your service (e.g., "Gn", "Gênesis", "gen").
     const raw = (

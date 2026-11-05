@@ -717,6 +717,8 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     const interrupted = (event: Event) => {
       const on = event.target instanceof Element ? event.target : null
       if (on?.closest(".letter-bar, .letters")) return
+      // The page is the reader's now: no settling back once the panels end.
+      this.scrollTarget = null
       stop(!on?.closest("mat-expansion-panel-header"))
     }
     let start: number | null = null

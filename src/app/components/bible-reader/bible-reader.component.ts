@@ -756,6 +756,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   // Stay on the chapter shown. A leftover slide direction would open the next
   // load at the bottom.
   private handleChapterLoadFailure(error: unknown): void {
+    // Or the next chapter to load would open notes meant for this one.
+    this.linkedNotes = null
     this.isNavigatingBackwards = false
     this.isNavigatingForwards = false
     this.notifyChapterLoadFailed()

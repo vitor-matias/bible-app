@@ -31,6 +31,13 @@ describe("BibleReferenceService", () => {
           id: "jud",
           chapterCount: 1,
         },
+        {
+          abrv: "Flm",
+          shortName: "Filémon",
+          name: "Filémon",
+          id: "phm",
+          chapterCount: 1,
+        },
       ],
     }
 
@@ -333,6 +340,21 @@ describe("BibleReferenceService", () => {
 
     expect(ref.chapter).toBe(1)
     expect(ref.verses).toEqual([{ type: "single", verse: 9 }])
+  })
+
+  it("reads it so too with the book's name typed without its accent", () => {
+    const [ref] = service.extract("Filemon 5")
+
+    expect(ref.chapter).toBe(1)
+    expect(ref.verses).toEqual([{ type: "single", verse: 5 }])
+  })
+
+  // Written with a space, as people type it; the list gives the chapter its verse.
+  it("takes a verse after a comma and a space", () => {
+    const [ref] = service.extract("Jo 3, 16")
+
+    expect(ref.chapter).toBe(3)
+    expect(ref.verses).toEqual([{ type: "single", verse: 16 }])
   })
 
   // References as liturgical leaflets and the edition's own notes write them.

@@ -25,6 +25,7 @@ import { BibleReaderAnimationService } from "../../services/bible-reader-animati
 import { BookService } from "../../services/book.service"
 import { HapticsService } from "../../services/haptics.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
+import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
@@ -372,6 +373,48 @@ describe("BibleReaderComponent", () => {
         fixture.destroy()
 
         expect(dismiss).toHaveBeenCalled()
+      })
+
+      it("opens them natively in the native apps", () => {
+        const native = TestBed.inject(NativeFootnotesService)
+        vi.spyOn(native, "enabled", "get").mockReturnValue(true)
+        const open = vi.spyOn(native, "open").mockImplementation(() => {})
+
+        const { sheet } = follow("2")
+
+        expect(sheet).not.toHaveBeenCalled()
+        expect(open).toHaveBeenCalledTimes(1)
+        const [footnotes, opened] = open.mock.lastCall ?? []
+        expect(opened?.number).toBe(2)
+        expect(footnotes?.map((note) => note.text)).toEqual(["Nota do 2"])
+      })
+
+      it("forgets them when their chapter fails to load", () => {
+        vi.spyOn(console, "error").mockImplementation(() => {})
+        const sheet = vi
+          .spyOn(TestBed.inject(MatBottomSheet), "open")
+          .mockReturnValue({
+            afterDismissed: () => of(undefined),
+            dismiss: () => {},
+          } as never)
+        const queryParamMap = (
+          routeMock as unknown as {
+            queryParamMap: BehaviorSubject<Map<string, string>>
+          }
+        ).queryParamMap
+        fixture.detectChanges()
+        component.chapter = { bookId: "gen", number: 9 } as Chapter
+        queryParamMap.next(new Map([["notes", "2"]]))
+
+        ;(
+          component as unknown as {
+            handleChapterLoadFailure(error: unknown): void
+          }
+        ).handleChapterLoadFailure(new Error("offline"))
+        component.chapter = chapter
+        queryParamMap.next(new Map())
+
+        expect(sheet).not.toHaveBeenCalled()
       })
 
       it("waits for the chapter to arrive", () => {

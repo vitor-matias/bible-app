@@ -1126,7 +1126,8 @@ describe("PastoralIndexComponent", () => {
 
     it("finishes the glide, at its title", async () => {
       const fixture = await openGliding()
-      const glide = glideSpy()
+      // The page really moves, so it arrives, with nothing left to glide.
+      const glide = vi.spyOn(window, "scrollTo")
 
       await tapGliding(fixture, "abel")
       await wait(1100)
@@ -1135,6 +1136,7 @@ describe("PastoralIndexComponent", () => {
 
       expect(count).toBeGreaterThan(5)
       expect(glide.mock.calls.length).toBe(count)
+      window.scrollTo(0, 0)
     })
 
     it("doesn't restart the glide as the panels settle", async () => {
@@ -1256,6 +1258,26 @@ describe("PastoralIndexComponent", () => {
       await wait(1)
 
       expect(fixture.componentInstance.expandedSlug()).toBe("abel")
+    })
+
+    it("doesn't pull the page back once the reader has scrolled", async () => {
+      const fixture = await openGliding()
+      const glide = glideSpy()
+      // A panel reports its opening as its transition ends, after the reader
+      // has scrolled. Here it reports at once, so that is held back.
+      const settled = vi
+        .spyOn(fixture.componentInstance, "settled")
+        .mockImplementation(() => {})
+
+      await tapGliding(fixture, "abel")
+      window.dispatchEvent(new Event("wheel"))
+      await wait(1)
+      const count = glide.mock.calls.length
+      settled.mockRestore()
+      fixture.componentInstance.settled("abel")
+      await wait(200)
+
+      expect(glide.mock.calls.length).toBe(count)
     })
 
     it("glides to a letter on the rail, and the click after a tap leaves it", async () => {
