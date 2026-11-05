@@ -14,6 +14,7 @@ import { Capacitor } from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
 import { appConfig, isVercelHost } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
+import { AppPromoService } from "./services/app-promo.service"
 import { BackButtonService } from "./services/back-button.service"
 import { historyDepth } from "./services/depth-location-strategy"
 import { NativeShellService } from "./services/native-shell.service"
@@ -46,6 +47,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private nativeShell = inject(NativeShellService)
   private backButton = inject(BackButtonService)
   private toast = inject(ToastService)
+  private appPromo = inject(AppPromoService)
 
   private readonly listenerHandles: PluginListenerHandle[] = []
   /** Until when a back on the first screen leaves the app. */
@@ -74,6 +76,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.setupNativeListeners()
     this.nativeShell.init()
     this.onboardingService.showOnFirstLaunch()
+    this.appPromo.scheduleOnce()
   }
 
   private trackAppOpenEvent(): void {

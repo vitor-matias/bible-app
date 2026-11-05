@@ -61,6 +61,7 @@ export class PreferencesService {
     STUDY_PANEL_COLLAPSED: "studyPanelCollapsed",
     STUDY_COLUMN_WIDTHS: "studyColumnWidths",
     ONBOARDING_SEEN: "onboardingSeen",
+    APP_PROMO_SEEN: "appPromoSeen",
     NATIVE_BARS_ONBOARDING_SEEN: "nativeBarsOnboardingSeen",
   }
 
@@ -248,6 +249,16 @@ export class PreferencesService {
 
   setStudyColumnWidths(widths: StudyColumnWidths): void {
     this.storage?.setItem(this.KEYS.STUDY_COLUMN_WIDTHS, JSON.stringify(widths))
+  }
+
+  /** As getOnboardingSeen: seen when storage is unusable. */
+  getAppPromoSeen(): boolean {
+    const stored = this.read(this.KEYS.APP_PROMO_SEEN)
+    return stored === undefined || stored === "true"
+  }
+
+  setAppPromoSeen(seen: boolean): void {
+    this.write(this.KEYS.APP_PROMO_SEEN, seen.toString())
   }
 }
 

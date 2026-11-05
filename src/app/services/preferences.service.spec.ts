@@ -188,6 +188,37 @@ describe("PreferencesService", () => {
     expect(service.getNativeBarsOnboardingSeen()).toBe(true)
   })
 
+  it("should remember that the app prompt was shown", () => {
+    expect(service.getAppPromoSeen()).toBe(false)
+
+    service.setAppPromoSeen(true)
+    expect(service.getAppPromoSeen()).toBe(true)
+  })
+
+  it("should report the app prompt as shown when storage cannot record it", () => {
+    // Otherwise it would come back on every visit.
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked")
+    })
+
+    expect(service.getAppPromoSeen()).toBe(true)
+  })
+
+  it("should keep going when storage fails after passing its probe", () => {
+    // The first read resolves (and probes) the storage.
+    expect(service.getAppPromoSeen()).toBe(false)
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError")
+    })
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("SecurityError")
+    })
+
+    expect(() => service.setAppPromoSeen(true)).not.toThrow()
+    // Unreadable counts as shown, so the prompt can't nag on every visit.
+    expect(service.getAppPromoSeen()).toBe(true)
+  })
+
   it("should store and read the last location", () => {
     service.setLastBookId("gen")
     service.setLastChapterNumber(3)
