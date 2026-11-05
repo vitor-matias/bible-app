@@ -11,6 +11,7 @@ import {
   ViewChild,
 } from "@angular/core"
 import { takeUntilDestroyed, toSignal } from "@angular/core/rxjs-interop"
+import { MatDialog } from "@angular/material/dialog"
 import { MatIconModule } from "@angular/material/icon"
 import { ActivatedRoute, Router } from "@angular/router"
 import {
@@ -18,6 +19,7 @@ import {
   filter,
   firstValueFrom,
   map,
+  type Observable,
   Subject,
   type Subscription,
 } from "rxjs"
@@ -29,6 +31,7 @@ import { BookService } from "../../services/book.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NetworkService } from "../../services/network.service"
 import { OfflineSearchService } from "../../services/offline-search.service"
+import { PreferencesService } from "../../services/preferences.service"
 import { SearchMemoryService } from "../../services/search-memory.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
@@ -41,6 +44,10 @@ import {
   psalmFromLiturgical,
 } from "../../utils/psalms"
 import { highlightWords, verseLines, verseText } from "../../utils/text-search"
+import {
+  PRIVACY_DIALOG_CONFIG,
+  PrivacyPolicyDialogComponent,
+} from "../privacy-policy/privacy-policy.component"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
 /**
@@ -203,6 +210,9 @@ export class SearchComponent {
   > | null = null
 
   private readonly nativeChrome = inject(NativeChromeService)
+  private readonly preferences = inject(PreferencesService)
+  private readonly dialog = inject(MatDialog)
+  meaningSearchConsent = this.preferences.getMeaningSearchConsent()
   private readonly network = inject(NetworkService)
   private readonly offlineSearch = inject(OfflineSearchService)
   private readonly memory = inject(SearchMemoryService)
@@ -542,7 +552,7 @@ export class SearchComponent {
     this.isLoading = true
     try {
       const results = await firstValueFrom(
-        this.apiService.search(this.searchTerm, this.currentPage + 1),
+        this.fetchResults(this.searchTerm, this.currentPage + 1),
       )
       if (isStale()) return
       this.searchResults.push(
@@ -690,12 +700,12 @@ export class SearchComponent {
         if (isStale()) return
         this.nothingStored = !stored
       } else {
-        const results = await firstValueFrom(this.apiService.search(text, 1))
+        const results = await firstValueFrom(this.fetchResults(text, 1))
         if (isStale()) return
         this.searchResults = results.verses.map((v) => this.toDisplayVerse(v))
         this.totalResults = results.total
         this.currentPage = 1
-        void this.analyticsService.track("search", { text })
+        void this.analyticsService.track("search")
       }
       this.showResults(text, typed)
     } catch (error) {
@@ -722,6 +732,26 @@ export class SearchComponent {
         this.cdr.detectChanges()
       }
     }
+  }
+
+  private fetchResults(text: string, page: number): Observable<VersePage> {
+    return this.meaningSearchConsent === true
+      ? this.apiService.searchByMeaning(text, page)
+      : this.apiService.search(text, page)
+  }
+
+  /** Records the answer, and gives a search on screen the chosen kind. */
+  setMeaningSearch(allowed: boolean): void {
+    this.preferences.setMeaningSearchConsent(allowed)
+    this.meaningSearchConsent = allowed
+    this.cdr.detectChanges()
+    // Typed: searchTerm is a word search, even when it names a book.
+    if (this.searchTerm)
+      void this.onSearchSubmit(this.searchTerm, { typed: true })
+  }
+
+  openPrivacyPolicy(): void {
+    this.dialog.open(PrivacyPolicyDialogComponent, PRIVACY_DIALOG_CONFIG)
   }
 
   /**
@@ -813,7 +843,9 @@ export class SearchComponent {
   get storedResultsHint(): string {
     return this.offline
       ? "Sem ligação: procura as palavras no texto guardado. A pesquisa pelo sentido volta com a ligação."
-      : "A pesquisa pelo sentido não respondeu: procura as palavras no texto guardado."
+      : this.meaningSearchConsent !== true
+        ? "A pesquisa não respondeu: procura as palavras no texto guardado."
+        : "A pesquisa pelo sentido não respondeu: procura as palavras no texto guardado."
   }
 
   /** "Lucas 2,32", "Salmo 23 (22),4": as the text cites passages. Until the

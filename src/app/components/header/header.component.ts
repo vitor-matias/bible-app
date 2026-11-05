@@ -62,14 +62,16 @@ import { buildPassagePicker } from "../../utils/passage-picker"
 import { PSALMS_BOOK_ID } from "../../utils/psalms"
 
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
+import {
+  PRIVACY_DIALOG_CONFIG,
+  PrivacyPolicyDialogComponent,
+} from "../privacy-policy/privacy-policy.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 
 /** How long each label stays on screen before the next swap. */
 const LABEL_HOLD_MS = 3500
 /** Fade-out half of a swap; must match the transition in the component CSS. */
 const LABEL_FADE_MS = 300
-
-const PRIVACY_POLICY_URL = "https://www.capuchinhos.org/politica-de-privacidade"
 
 @Component({
   standalone: true,
@@ -145,7 +147,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     return this.mobile ? "Intro" : "Introdução"
   }
 
-  readonly privacyPolicyUrl = PRIVACY_POLICY_URL
   /** The native app's store for this phone or tablet, if it has one. */
   appStore: StoreLink | null = null
   /** Read at each check: installing the website mid-visit changes the words. */
@@ -340,6 +341,15 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   onOpenAbout(trigger: MatMenuTrigger) {
     trigger.closeMenu()
     this.openAbout()
+  }
+
+  onOpenPrivacyPolicy(trigger: MatMenuTrigger) {
+    trigger.closeMenu()
+    this.openPrivacyPolicy()
+  }
+
+  private openPrivacyPolicy(): void {
+    this.dialog.open(PrivacyPolicyDialogComponent, PRIVACY_DIALOG_CONFIG)
   }
 
   /** The About page, which the book pickers no longer list. */
@@ -611,7 +621,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.onboardingService.open("menu")
         break
       case "privacy":
-        window.open(PRIVACY_POLICY_URL, "_blank", "noopener")
+        this.openPrivacyPolicy()
         break
     }
   }

@@ -70,6 +70,24 @@ describe("BibleApiService", () => {
     expect(service).toBeTruthy()
   })
 
+  describe("search", () => {
+    it("searches the words without asking for the search by meaning", () => {
+      service.search("bom pastor").subscribe()
+      const req = httpMock.expectOne(
+        "v1/search?text=bom%20pastor&page=1&limit=50",
+      )
+      req.flush({ verses: [], total: 0, currentPage: 1, totalPages: 0 })
+    })
+
+    it("asks for the search by meaning only when told to", () => {
+      service.searchByMeaning("bom pastor", 2).subscribe()
+      const req = httpMock.expectOne(
+        "v1/search?text=bom%20pastor&page=2&limit=50&semantic=true",
+      )
+      req.flush({ verses: [], total: 0, currentPage: 2, totalPages: 0 })
+    })
+  })
+
   describe("getChapter", () => {
     const book = "gen"
     const chapterNum = 1

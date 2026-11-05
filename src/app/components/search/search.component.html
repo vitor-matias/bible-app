@@ -18,6 +18,27 @@
   <!-- The count and the outcome, read out once: no toast covers the list. -->
   <p class="visually-hidden" role="status">{{ statusMessage }}</p>
 
+  @if (!offline && meaningSearchConsent === null) {
+    <section class="meaning-consent" aria-label="Pesquisa por significado">
+      <p>
+        <strong>Pesquisa por significado.</strong> Para encontrar versículos pelo sentido, e não só pelas palavras,
+        o texto que pesquisar é enviado à Voyage AI (MongoDB, Estados Unidos).
+        <button type="button" class="link-button" (click)="openPrivacyPolicy()">Saber mais</button>
+      </p>
+      <div class="meaning-consent-actions">
+        <button type="button" class="link-button" (click)="setMeaningSearch(false)">Agora não</button>
+        <button type="button" class="meaning-consent-allow" (click)="setMeaningSearch(true)">Ativar</button>
+      </div>
+    </section>
+  } @else if (meaningSearchConsent !== null) {
+    <p class="meaning-status">
+      Pesquisa por significado {{ meaningSearchConsent ? "ativa" : "desativada" }} ·
+      <button type="button" class="link-button" (click)="setMeaningSearch(!meaningSearchConsent)">
+        {{ meaningSearchConsent ? "Desativar" : "Ativar" }}
+      </button>
+    </p>
+  }
+
   @if (!hasSearched && !pendingSearch) {
     <div class="empty-state">
       <mat-icon class="empty-state-icon">search</mat-icon>

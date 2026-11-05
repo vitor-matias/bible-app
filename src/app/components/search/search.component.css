@@ -161,7 +161,7 @@
 /* iOS: status text is neutral grey, as in the system's empty states; the red
    stays with the scripture (the references, like the reader's verse numbers). */
 :host-context(.native-chrome)
-  :is(.empty-state, .loading, .results-count, .results-hint, .psalm-note) {
+  :is(.empty-state, .loading, .results-count, .results-hint, .psalm-note, .meaning-status) {
   color: color-mix(in srgb, var(--text-color) 55%, transparent);
 }
 
@@ -284,4 +284,71 @@
 
 :host-context(.native-chrome) .has-suggestion .empty-state {
   margin-top: 0;
+}
+
+/* Asked before any search text can reach Voyage AI. */
+.meaning-consent {
+  margin: 8px 12px 16px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--card-background);
+  color: var(--text-color);
+  font-size: 0.9rem;
+}
+
+.meaning-consent p {
+  margin: 0;
+}
+
+/* Beside results too: Android's recent searches cover the empty page. */
+.meaning-status {
+  flex: none;
+  margin: 8px 16px 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* Clears the native bar; what follows then needn't. */
+:host-context(.native-chrome) :is(.meaning-consent, .meaning-status) {
+  flex: none;
+  margin-top: calc(8px + var(--app-chrome-top));
+}
+
+:host-context(.native-chrome) :is(.meaning-consent, .meaning-status) + .empty-state {
+  margin-top: 0;
+  padding-top: 16px;
+}
+
+:host-context(.native-chrome) :is(.meaning-consent, .meaning-status) + .results-section {
+  padding-top: 20px;
+}
+
+.meaning-consent-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.meaning-consent-allow {
+  min-height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--text-color);
+  color: var(--card-background);
+  font: inherit;
+  cursor: pointer;
 }

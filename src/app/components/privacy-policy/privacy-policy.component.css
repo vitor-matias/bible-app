@@ -1,0 +1,32 @@
+.policy {
+  color: var(--text-color);
+  line-height: 1.5;
+}
+
+.policy h2 {
+  margin: 20px 0 8px;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.policy p,
+.policy ul {
+  margin: 0 0 10px;
+}
+
+.policy ul {
+  padding-left: 20px;
+}
+
+.policy li {
+  margin-bottom: 8px;
+}
+
+.policy a {
+  color: inherit;
+}
+
+.updated {
+  color: var(--text-secondary);
+  font-size: 0.9em;
+}

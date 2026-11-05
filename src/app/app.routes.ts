@@ -21,6 +21,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: "privacidade",
+    title: "Política de Privacidade | Bíblia Sagrada",
+    loadComponent: () =>
+      import("./components/privacy-policy/privacy-policy.component").then(
+        (m) => m.PrivacyPolicyPageComponent,
+      ),
+  },
+  {
     path: ":book/:chapter",
     component: BibleReaderComponent,
     canMatch: [chapterExists],

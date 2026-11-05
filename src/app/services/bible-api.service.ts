@@ -291,7 +291,15 @@ export class BibleApiService {
     )
   }
 
+  /** Finds the words on our own server; nothing goes to a third party. */
   search(query: string, page = 1, limit = 50): Observable<VersePage> {
+    return this.http.get(
+      `${this.api}/search?text=${encodeURIComponent(query)}&page=${page}&limit=${limit}`,
+    ) as Observable<VersePage>
+  }
+
+  /** Sends the query on to Voyage AI: only with the reader's consent. */
+  searchByMeaning(query: string, page = 1, limit = 50): Observable<VersePage> {
     return this.http.get(
       `${this.api}/search?text=${encodeURIComponent(query)}&page=${page}&limit=${limit}&semantic=true`,
     ) as Observable<VersePage>
