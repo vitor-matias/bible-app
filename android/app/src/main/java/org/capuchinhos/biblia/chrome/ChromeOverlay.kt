@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.displayCutout
@@ -20,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.tappableElement
 import androidx.compose.foundation.layout.union
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsEndWidth
@@ -40,6 +38,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SnackbarVisuals
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipAnchorPosition
@@ -231,10 +230,10 @@ private class ToastVisuals(val toast: Toast) : SnackbarVisuals {
 }
 
 /**
- * Material's snackbar above the bottom bars. A button toast is the way back
- * after following a reference: the message is the button, with ✕ beside it,
- * as the web app's snackbar has; it stays until either is tapped or another
- * toast replaces it.
+ * A snackbar above the bottom bars. A button toast is the way back after
+ * following a reference: the message is the button, with ✕ beside it, as the
+ * web app's snackbar has; it stays until either is tapped or another toast
+ * replaces it.
  */
 @Composable
 private fun ToastHost(chrome: ChromeController, modifier: Modifier) {
@@ -252,36 +251,46 @@ private fun ToastHost(chrome: ChromeController, modifier: Modifier) {
             .padding(start = 16.dp, end = 16.dp, bottom = (chrome.insets.bottom + 12).dp),
     ) { data ->
         val visuals = data.visuals as? ToastVisuals
+        // Dark in either theme: Material's inverse colours are light over a
+        // dark page, where the snackbar glared over the text.
+        val dark = isDarkTheme(chrome.themeMode)
+        val colors = MaterialTheme.colorScheme
+        val container = if (dark) colors.surfaceContainerHighest else colors.inverseSurface
+        val content = if (dark) colors.onSurface else colors.inverseOnSurface
         if (visuals?.toast?.button == true) {
-            // "Voltar para Mateus 5,3", worded as on the web and iOS. Only the
-            // words are the button, ✕ set apart from them: a slip on the way
-            // to closing it mustn't lose the reader's place.
-            Snackbar(
+            // "Voltar para Mateus 5,3", worded as on the web and iOS, no wider
+            // than its words, so it leaves the text and auto-scroll's button
+            // clear. Only the words are the button, ✕ set apart from them: a
+            // slip on the way to closing it mustn't lose the reader's place.
+            Surface(
                 modifier = Modifier.widthIn(max = WIDE_CONTENT),
-                dismissAction = {
-                    Row {
-                        Spacer(Modifier.width(8.dp))
-                        BarButton(R.drawable.ic_close, "Fechar") { data.dismiss() }
-                    }
-                },
+                shape = MaterialTheme.shapes.extraLarge,
+                color = container,
+                contentColor = content,
+                shadowElevation = 6.dp,
             ) {
-                TextButton(
-                    onClick = { data.performAction() },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.inversePrimary),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                    modifier = Modifier.heightIn(min = 48.dp),
-                ) {
-                    Icon(painterResource(R.drawable.ic_undo), contentDescription = null)
-                    Text(
-                        visuals.message,
-                        Modifier.padding(start = 12.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        maxLines = 2,
-                    )
+                Row(Modifier.padding(start = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(
+                        onClick = { data.performAction() },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = if (dark) colors.primary else colors.inversePrimary,
+                        ),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                        modifier = Modifier.heightIn(min = 48.dp).weight(1f, fill = false),
+                    ) {
+                        Icon(painterResource(R.drawable.ic_undo), contentDescription = null)
+                        Text(
+                            visuals.message,
+                            Modifier.padding(start = 12.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 2,
+                        )
+                    }
+                    BarButton(R.drawable.ic_close, "Fechar") { data.dismiss() }
                 }
             }
         } else {
-            Snackbar(data, Modifier.widthIn(max = WIDE_CONTENT))
+            Snackbar(data, Modifier.widthIn(max = WIDE_CONTENT), containerColor = container, contentColor = content)
         }
     }
 }
