@@ -86,10 +86,17 @@ fun ChromeOverlay(chrome: ChromeController) {
             chrome.setSystemBarsBackground(statusArgb, if (statusArgb != null) pageArgb else null)
         }
         ReportSystemInsets(chrome)
-        // The web's chapter cards sit among the bars: they take the same
-        // surface, wallpaper's or brown.
-        val cardSurface = MaterialTheme.colorScheme.surfaceContainerHigh.toArgb()
-        SideEffect { chrome.onPalette(cardSurface) }
+        // The web's chapter cards and the index's list sit among the bars: they
+        // take the same colours, wallpaper's or brown.
+        val colors = MaterialTheme.colorScheme
+        val palette = mapOf(
+            "surfaceContainerHigh" to colors.surfaceContainerHigh.toArgb(),
+            "surfaceContainerLow" to colors.surfaceContainerLow.toArgb(),
+            "primary" to colors.primary.toArgb(),
+            "onPrimary" to colors.onPrimary.toArgb(),
+            "onSurfaceVariant" to colors.onSurfaceVariant.toArgb(),
+        )
+        SideEffect { chrome.onPalette(palette) }
         Box(Modifier.fillMaxSize()) {
             when (state.mode) {
                 ChromeMode.Reader -> ReaderBars(chrome, state, barColor, page)

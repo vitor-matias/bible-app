@@ -90,6 +90,40 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertTrue(state.search)
     }
 
+    func testReadsAPageWithAFilter() throws {
+        let state = try fixture("reader-filter")
+        XCTAssertEqual(state.mode, .reader)
+        XCTAssertEqual(state.passageLabel, "Índice Bíblico-Pastoral")
+        XCTAssertEqual(state.filterPlaceholder, "Filtrar temas")
+        XCTAssertTrue(state.filterOpen)
+        XCTAssertEqual(state.query, "amor")
+        XCTAssertTrue(state.showsSearchField)
+        XCTAssertFalse(state.chapterNavigation)
+    }
+
+    func testAPageWithoutAFilterHasNoSearchField() throws {
+        let state = try fixture("reader")
+        XCTAssertNil(state.filterPlaceholder)
+        XCTAssertFalse(state.showsSearchField)
+    }
+
+    func testAnEntryWithNoGroupAfterTheTestamentsIntroKeepsItsOwnSection() {
+        let book = { (id: String, name: String) in
+            PassagePickerData.Book(id: id, label: name, name: name, abbreviation: id, chapters: [])
+        }
+        let intro = PassagePickerData.Group(title: nil, books: [book("nt", "Introdução")])
+        let index = PassagePickerData.Group(title: nil, books: [book("indice", "Índice Bíblico-Pastoral")])
+        let titled = PassagePickerData.Group(title: "Apocalipse", books: [book("ap", "Apocalipse")])
+        let testament = PassagePickerData.Section(title: "Novo Testamento", groups: [intro, titled, index])
+        XCTAssertEqual(PassagePickerData.sectionTitle(of: intro, in: testament, showing: intro.books, taken: []),
+                       "Novo Testamento")
+        XCTAssertEqual(PassagePickerData.sectionTitle(of: titled, in: testament, showing: titled.books,
+                                                      taken: ["Novo Testamento"]), "Apocalipse")
+        XCTAssertEqual(PassagePickerData.sectionTitle(of: index, in: testament, showing: index.books,
+                                                      taken: ["Novo Testamento", "Apocalipse"]),
+                       "Índice Bíblico-Pastoral")
+    }
+
     func testReadsNoBars() throws {
         XCTAssertEqual(try fixture("none"), ChromeState())
     }

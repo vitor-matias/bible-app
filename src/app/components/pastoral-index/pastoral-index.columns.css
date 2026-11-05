@@ -1,0 +1,53 @@
+/* The printed page: every theme open, in two columns, without a list's rules.
+   Columns per letter, so reading carries on down the page instead of back up a
+   column of all 358 themes. The apps keep their list at any width. */
+@media (min-width: 768px) {
+  :host(:not(.native)) {
+    /* And the row of letters. */
+    --tools-height: 104px;
+    --mat-expansion-header-collapsed-state-height: 32px;
+    --mat-expansion-header-expanded-state-height: 32px;
+  }
+
+  :host(:not(.native)) .book-index-container {
+    max-width: 80rem;
+    margin: 0 auto;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  :host(:not(.native)) .letters,
+  :host(:not(.native)) .letters:focus-within {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(30px, 1fr));
+    gap: 2px;
+    padding-top: 8px;
+    --mat-button-text-horizontal-padding: 0;
+    --mat-button-text-container-height: 32px;
+  }
+
+  :host(:not(.native)) .themes {
+    column-count: 2;
+    column-gap: 2rem;
+  }
+
+  :host(:not(.native)) .letter + .letter {
+    margin-top: 0.75rem;
+  }
+
+  :host(:not(.native)) .letter > h2 {
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 0.5rem;
+  }
+
+  /* A theme stays whole, never running on to the next column. */
+  :host(:not(.native)) mat-expansion-panel {
+    border-bottom: 0;
+    break-inside: avoid;
+  }
+}
