@@ -893,6 +893,25 @@ describe("SearchComponent", () => {
       expect(offered().map((link) => link.getAttribute("href"))).toEqual([])
     })
 
+    it("is offered for a word later in its title", () => {
+      component.onTyping("fraterna")
+      expect(offered().map((link) => link.getAttribute("href"))).toEqual([
+        "/indice/correcao-fraterna",
+      ])
+    })
+
+    it("finds a word after a slash, as in Olhar/olhos", () => {
+      component.onTyping("olhos")
+      expect(offered().map((link) => link.getAttribute("href"))).toContain(
+        "/indice/olhar-olhos",
+      )
+    })
+
+    it("offers the titles it starts before those it's only a word in", () => {
+      component.onTyping("cristo")
+      expect(offered()[0].getAttribute("href")).toBe("/indice/cristo-cristao")
+    })
+
     it("is gone once the field no longer names it", () => {
       component.onTyping("abba")
       component.onTyping("")

@@ -90,14 +90,22 @@ const THEMES = Object.entries(themeTitles).map(([slug, title]) => ({
   folded: foldText(title),
 }))
 
-/** The themes whose titles begin with what is typed, as "paz" for "Paz". */
+/**
+ * The themes with a word of the title beginning with what is typed, as "paz"
+ * for "Paz" or "fraterna" for "Correção fraterna": first those it starts.
+ */
 function themesNamed(query: string): { slug: string; title: string }[] {
   const folded = foldText(query.trim())
   if (folded.length < 2) return []
-  return THEMES.filter((theme) => theme.folded.startsWith(folded)).slice(
-    0,
-    MAX_THEMES,
+  const matches = THEMES.filter(
+    (theme) =>
+      theme.folded.startsWith(folded) ||
+      [" ", "/", "(", "-"].some((gap) => theme.folded.includes(gap + folded)),
   )
+  return [
+    ...matches.filter((theme) => theme.folded.startsWith(folded)),
+    ...matches.filter((theme) => !theme.folded.startsWith(folded)),
+  ].slice(0, MAX_THEMES)
 }
 
 /** What a query opens in the reader (SearchComponent.resolvePassage). */
