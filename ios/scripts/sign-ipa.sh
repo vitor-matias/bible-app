@@ -24,10 +24,17 @@ ditto "$ARCHIVE/Products/Applications/App.app" "$WORK/Payload/App.app"
 cp "$PROFILE" "$WORK/Payload/App.app/embedded.mobileprovision"
 
 # Sign with the profile's own certificate, and grant what the profile allows
-# an App Store build of an app without capabilities.
+# an App Store build whose one capability is Associated Domains. This is the
+# only place shipped builds get entitlements: the archive comes here unsigned.
 security cms -D -i "$PROFILE" > "$WORK/profile.plist"
 APP_ID=$(plutil -extract Entitlements.application-identifier raw -o - "$WORK/profile.plist")
 TEAM_ID=$(plutil -extract TeamIdentifier.0 raw -o - "$WORK/profile.plist")
+
+# codesign would sign without it, and App Store Connect refuse the build later.
+if ! plutil -extract 'Entitlements.com\.apple\.developer\.associated-domains' raw -o - "$WORK/profile.plist" > /dev/null 2>&1; then
+  echo "The profile doesn't allow Associated Domains: enable the capability on the App ID, regenerate the App Store profile and update IOS_PROFILE_BASE64 (docs/ios.md, Universal Links)." >&2
+  exit 1
+fi
 
 # A profile can list more than one certificate (the old and the new while
 # one is renewed): sign with the first whose identity is in the keychain.
@@ -57,6 +64,10 @@ cat > "$WORK/entitlements.plist" << EOF
 	<string>$APP_ID</string>
 	<key>beta-reports-active</key>
 	<true/>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:biblia.capuchinhos.org</string>
+	</array>
 	<key>com.apple.developer.team-identifier</key>
 	<string>$TEAM_ID</string>
 	<key>get-task-allow</key>
