@@ -11,6 +11,7 @@ import {
   Router,
 } from "@angular/router"
 import { BehaviorSubject, of, Subject } from "rxjs"
+import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
@@ -1498,6 +1499,64 @@ describe("PastoralIndexComponent", () => {
     expect(chrome.hide).toHaveBeenCalled()
   })
 
+  describe("at a larger text size", () => {
+    // The size is kept in preferences: later specs start from the default.
+    afterEach(() => TestBed.inject(PreferencesService).clearFontSize("reader"))
+
+    async function enlarged(native: boolean, android = false) {
+      const fixture = await open(
+        undefined,
+        native,
+        false,
+        false,
+        false,
+        android,
+      )
+      const gestures = fixture.debugElement
+        .query((de) => de.name === "mat-accordion")
+        .injector.get(UnifiedGesturesDirective)
+      for (let i = 0; i < 12; i++) gestures.increaseFontSize(10)
+      fixture.detectChanges()
+      await fixture.whenStable()
+      const el: HTMLElement = fixture.nativeElement
+      const size = (selector: string) =>
+        Number.parseFloat(
+          getComputedStyle(el.querySelector(selector) as Element).fontSize,
+        )
+      return { el, size }
+    }
+
+    // The text-size directive sizes headings against the accordion, itself
+    // already scaled: a letter's heading grew to over twice the themes'.
+    it("keeps a letter's heading in step with the themes", async () => {
+      const { size } = await enlarged(false)
+      expect(size(".letter > h2") / size("mat-accordion")).toBeCloseTo(0.9, 1)
+    })
+
+    it("keeps the heading in step in the apps too", async () => {
+      const { size } = await enlarged(true, true)
+      expect(size(".letter > h2") / size("mat-accordion")).toBeCloseTo(0.875, 1)
+    })
+
+    // A fixed 24px line cut off the foot of larger titles.
+    for (const [label, native, android] of [
+      ["on the web", false, false],
+      ["on iOS", true, false],
+      ["on Android", true, true],
+    ] as const) {
+      it(`gives a theme's title a line as tall as its text ${label}`, async () => {
+        const { el } = await enlarged(native, android)
+        const title = getComputedStyle(
+          el.querySelector("mat-panel-title") as Element,
+        )
+        expect(
+          Number.parseFloat(title.lineHeight) /
+            Number.parseFloat(title.fontSize),
+        ).toBeGreaterThan(1.2)
+      })
+    }
+  })
+
   describe("in the apps", () => {
     const lastChrome = () => chrome.show.mock.lastCall?.[0]
 
@@ -1565,13 +1624,18 @@ describe("PastoralIndexComponent", () => {
       expect(navigate).toHaveBeenCalledWith(["/", "gn", "3"])
     })
 
-    it("stays put when the picker chooses the index itself", async () => {
-      await open(undefined, true)
+    it("goes to the index's top when the picker chooses it", async () => {
+      const fixture = await open("abismo", true)
       const navigate = vi
         .spyOn(TestBed.inject(Router), "navigate")
         .mockResolvedValue(true)
+      const scroll = vi.spyOn(window, "scrollTo").mockImplementation(() => {})
       actions.next({ id: "goto", bookId: "indice" })
+      await fixture.whenStable()
       expect(navigate).not.toHaveBeenCalled()
+      expect(TestBed.inject(Location).path()).toBe("/indice")
+      expect(fixture.componentInstance.expandedSlug()).toBeNull()
+      expect(scroll).toHaveBeenCalledWith({ top: 0, behavior: "instant" })
     })
 
     it("opens the filter's field from its button", async () => {
@@ -1579,6 +1643,33 @@ describe("PastoralIndexComponent", () => {
       actions.next({ id: "filter" })
       await fixture.whenStable()
       expect(lastChrome().filterOpen).toBe(true)
+    })
+
+    it("leaves an open theme as it is when an empty field closes", async () => {
+      const fixture = await open("abel", true)
+      actions.next({ id: "filter" })
+      actions.next({ id: "filter-close" })
+      await fixture.whenStable()
+      expect(fixture.componentInstance.entry()?.slug).toBe("abel")
+      expect(fixture.componentInstance.expandedSlug()).toBe("abel")
+    })
+
+    it("keeps the theme chosen from the results open, in view, as the field empties", async () => {
+      const fixture = await open(undefined, true)
+      actions.next({ id: "filter" })
+      await typeInField(fixture, "abel")
+      await tap(fixture, "abel")
+      const theme = fixture.nativeElement.querySelector(
+        "#tema-abel",
+      ) as HTMLElement
+      const scroll = vi.spyOn(theme, "scrollIntoView")
+      await typeInField(fixture, "")
+      expect(TestBed.inject(Location).path()).toBe("/indice/abel")
+      expect(fixture.componentInstance.expandedSlug()).toBe("abel")
+      expect(
+        fixture.nativeElement.querySelectorAll("mat-expansion-panel").length,
+      ).toBe(entries.length)
+      expect(scroll).toHaveBeenCalled()
     })
 
     it("closing the field clears the filter and brings every theme back", async () => {

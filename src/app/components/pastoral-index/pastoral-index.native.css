@@ -39,6 +39,8 @@
 :host(.native) mat-expansion-panel {
   overflow: visible;
   border-bottom: 0;
+  /* Opens right under the bar, where its title then sticks, by any path. */
+  scroll-margin-top: var(--page-top);
 }
 
 :host(.native) mat-expansion-panel.mat-expanded > mat-expansion-panel-header {
@@ -68,7 +70,7 @@
 
 :host(.ios) .letter > h2 {
   padding: 20px 16px 6px;
-  font-size: 0.8125em;
+  font-size: 0.8125em !important;
   font-weight: 600;
   color: color-mix(in srgb, var(--text-color) 60%, transparent);
 }
@@ -111,6 +113,7 @@
   margin-right: 8px;
   font-family: inherit;
   font-size: 1.0625em;
+  line-height: 1.3;
   font-weight: 400;
   color: var(--text-color);
 }
@@ -193,7 +196,7 @@
 /* Title small, in the primary colour, as Settings heads a list's groups. */
 :host(.android) .letter > h2 {
   padding: 16px 16px 8px;
-  font-size: 0.875em;
+  font-size: 0.875em !important;
   font-weight: 500;
   color: var(--android-primary);
 }
@@ -209,6 +212,7 @@
   margin-right: 8px;
   font-family: inherit;
   font-size: 1em;
+  line-height: 1.5;
   font-weight: 400;
   color: var(--text-color);
 }
@@ -234,12 +238,7 @@
   padding: 0 8px 12px;
 }
 
-/* Links in the primary colour, with a state layer while pressed. */
-:host(.android) .entry a {
-  color: var(--android-primary);
-  text-decoration-color: color-mix(in srgb, var(--android-primary) 45%, transparent);
-}
-
+/* Links as the reader's, with a state layer while pressed. */
 :host(.android) .entry a:active {
   border-radius: 4px;
   background-color: color-mix(in srgb, var(--android-primary) 12%, transparent);

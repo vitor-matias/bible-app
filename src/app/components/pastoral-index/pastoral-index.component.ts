@@ -567,7 +567,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
         break
       case "filter-close":
         this.filterOpen.set(false)
-        this.filter("")
+        if (this.query()) this.filter("")
         break
       case "search-input":
         this.filter(action.text)
@@ -612,9 +612,13 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     if (this.native) this.nativeChrome.hide()
   }
 
-  /** A book chosen in the picker, as the reader goes to one. */
+  /** A book chosen in the picker, as the reader goes to one: the index itself opens at its top. */
   private goToPassage(bookId: string, chapter?: number): void {
-    if (bookId === PASTORAL_INDEX_BOOK.id) return
+    if (bookId === PASTORAL_INDEX_BOOK.id) {
+      this.expand(null)
+      window.scrollTo({ top: 0, behavior: "instant" })
+      return
+    }
     const book = this.bookService.findBook(bookId)
     void this.router.navigate([
       "/",
@@ -640,6 +644,24 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
    * results away; from far down it, brings them into view.
    */
   filter(query: string): void {
+    // In the apps an emptied field gives the whole list back, with the theme
+    // chosen from the results still open and in view.
+    if (this.native && !query.trim()) {
+      this.query.set(query)
+      const slug = this.slug()
+      afterNextRender(
+        () => {
+          if (slug) {
+            this.scrollSmoothly = false
+            this.scrollTo(slug)
+          } else {
+            window.scrollTo({ top: 0, behavior: "instant" })
+          }
+        },
+        { injector: this.injector },
+      )
+      return
+    }
     this.query.set(query)
     if (!this.wide() && this.slug()) {
       this.stopGlide?.(false)

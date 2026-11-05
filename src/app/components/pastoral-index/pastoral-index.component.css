@@ -149,7 +149,9 @@ mat-accordion {
 .letter > h2 {
   margin: 0;
   padding: 12px 0 4px;
-  font-size: 90%;
+  /* Over the inline size the text-size directive gives headings, which is
+     relative to the accordion's own, already scaled: it grew quadratically. */
+  font-size: 90% !important;
   font-weight: bold;
   text-transform: uppercase;
 }
@@ -242,6 +244,9 @@ mat-panel-title {
   font-family: "PT Serif", serif;
   font-size: 1.2em;
   font-weight: bold;
+  /* 24px at the standard size, as Material's; growing with the text, where
+     the fixed 24px clipped larger titles. */
+  line-height: 1.25;
 }
 
 /* Closes at once: animated, it would slide a theme opened below it out of place
