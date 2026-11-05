@@ -59,8 +59,16 @@ struct ChromeState: Equatable {
 
     var autoScroll: AutoScrollState?
 
-    // Search
+    /// A list's filter (the pastoral index), for a page with no chapter arrows:
+    /// a button in their place, which opens the bottom search field.
+    var filterPlaceholder: String?
+    var filterOpen = false
+
+    /// The search page's query, or the filter's.
     var query = ""
+
+    /// The bottom search field shows.
+    var showsSearchField: Bool { mode == .search || (mode == .reader && filterOpen) }
 
     // Page
     var title = ""
@@ -90,6 +98,8 @@ struct ChromeState: Equatable {
         bookmarkColor = call.getString("bookmarkColor")
         bookmarkName = call.getString("bookmarkName")
         buildVersion = call.getString("buildVersion")
+        filterPlaceholder = call.getString("filterPlaceholder")
+        filterOpen = call.getBool("filterOpen", false)
         query = call.getString("query", "")
         title = call.getString("title", "")
         autoScroll = call.getObject("autoScroll").map(AutoScrollState.init)

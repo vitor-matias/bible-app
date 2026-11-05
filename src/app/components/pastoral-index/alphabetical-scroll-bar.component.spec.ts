@@ -10,6 +10,7 @@ import { AlphabeticalScrollBarComponent } from "./alphabetical-scroll-bar.compon
       style="font-size: 12px"
       [alphabet]="alphabet()"
       [current]="current()"
+      [magnify]="magnify()"
       (letterChange)="chosen.push($event)"
       (isActive)="activity.push($event)"
     />
@@ -19,6 +20,7 @@ class Host {
   readonly height = signal(700)
   readonly alphabet = signal([..."ABCDEFGHIJKLMNOPRSTUVZ"])
   readonly current = signal<string | null>(null)
+  readonly magnify = signal(true)
   readonly chosen: string[] = []
   readonly activity: boolean[] = []
 }
@@ -126,6 +128,29 @@ describe("AlphabeticalScrollBarComponent", () => {
     bar.dispatchEvent(new Event("touchend"))
     await render()
     expect(scale("M")).toBe("")
+  })
+
+  it("leaves the letters as they are for iOS's section index", async () => {
+    fixture.componentInstance.magnify.set(false)
+    await render()
+    touch("touchstart", "M")
+    await render()
+    const styled = [...bar.querySelectorAll<HTMLElement>(".letter")].filter(
+      (letter) => letter.style.transform,
+    )
+    expect(styled).toEqual([])
+    expect(fixture.componentInstance.chosen).toEqual(["M"])
+  })
+
+  it("fits more letters when they don't magnify", async () => {
+    // 22 letters of 12 px: 528 px with room to magnify, 330 px without.
+    fixture.componentInstance.height.set(400)
+    await render()
+    expect(shown()).toContain("·")
+    fixture.componentInstance.magnify.set(false)
+    fixture.componentInstance.height.set(401)
+    await render()
+    expect(shown().join("")).toBe("ABCDEFGHIJKLMNOPRSTUVZ")
   })
 
   it("chooses the same letter again after the finger lifts", () => {

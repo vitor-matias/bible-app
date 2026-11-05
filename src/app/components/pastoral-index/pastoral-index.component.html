@@ -81,7 +81,9 @@
 
 <main class="book-index-container">
   <h1 class="visually-hidden">Índice Bíblico-Pastoral</h1>
-  <!-- As the printed edition opens the index. -->
+  <!-- As the printed edition opens the index. In the apps results take the
+       screen's place, as a native search's do. -->
+  @if (!native || !query()) {
   <p class="index-intro">
     Este Índice Bíblico-Pastoral apresenta os principais temas bíblicos, fazendo
     ressaltar a sua evolução no quadro da Revelação divina. A Palavra de Deus foi
@@ -90,20 +92,29 @@
     útil para a escolha dos textos das Celebrações da Palavra, temas de estudo ou
     oração e reuniões de grupos bíblicos.
   </p>
-  @if (isBrowser && !wide()) {
+  }
+  @if (android) {
+  @if (!query()) {
+  <fast-scroller [letter]="currentLetter()" />
+  }
+  } @else if (isBrowser && !wide() && !(native && query())) {
   <!-- Touch and mouse only: the letter buttons below stay for the keyboard and
        screen readers. -->
   <alphabetical-scroll-bar
     class="letter-bar"
     aria-hidden="true"
+    [style.--letter-count]="letters().length"
     [alphabet]="letters()"
-    [current]="scrubbed() ?? currentLetter()"
+    [magnify]="!native"
+    [current]="native ? null : scrubbed() ?? currentLetter()"
     (letterChange)="scrubTo($event)"
     (isActive)="!$event && endScrub()"
   />
   }
   <!-- Always in reach, however far down the list. -->
   <div class="index-tools">
+  <!-- In the apps, a native field: the shell sends what is typed. -->
+  @if (!native) {
   <mat-form-field class="theme-filter" appearance="outline" subscriptSizing="dynamic">
     <mat-icon matPrefix aria-hidden="true">search</mat-icon>
     <input
@@ -115,6 +126,7 @@
       (input)="filter($any($event.target).value)"
     />
   </mat-form-field>
+  }
   <nav class="letters" aria-label="Ir para a letra">
     @for (group of groups(); track group.letter) {
     <button
@@ -128,7 +140,7 @@
     }
   </nav>
   </div>
-  <mat-accordion displayMode="flat" [multi]="wide()" unifiedGestures fontSizeContext="reader">
+  <mat-accordion displayMode="flat" [multi]="wide()" unifiedGestures fontSizeContext="reader" (textSizeChange)="textSizeState.set($event)">
     @for (group of groups(); track group.letter) {
     <section class="letter" [id]="'letra-' + group.letter">
     <!-- Focusable, for the letter shortcuts to leave the keyboard here. -->
@@ -145,7 +157,8 @@
       (closed)="closed(theme.slug)"
       (afterExpand)="settled(theme.slug)"
     >
-      <mat-expansion-panel-header>
+      <!-- Material's ripple, on Android; iOS highlights the row. -->
+      <mat-expansion-panel-header matRipple [matRippleDisabled]="!android">
         <mat-panel-title>
           {{ theme.title }}
           <!-- The ribbon on this theme, as on the reader's chapter button. -->

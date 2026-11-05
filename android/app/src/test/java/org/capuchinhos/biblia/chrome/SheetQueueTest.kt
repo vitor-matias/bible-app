@@ -103,4 +103,12 @@ class SheetQueueTest {
 
     private fun notes(title: String) =
         Sheet.Footnotes(FootnotesSheetState(title = title, fontScale = 1f, notes = emptyList()))
+
+    @Test
+    fun aSheetOffersOnlyAToastThatIsAButton() {
+        assertEquals(null, sheetWayBack(null))
+        assertEquals(null, sheetWayBack(Toast(1, "Copiado", button = false)))
+        val back = Toast(2, "Voltar para o Índice", button = true)
+        assertEquals(back, sheetWayBack(back))
+    }
 }
