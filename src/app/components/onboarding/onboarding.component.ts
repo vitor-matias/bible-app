@@ -86,6 +86,9 @@ export class OnboardingComponent {
     this.platform = this.detectedPlatform
     this.guide = getInstallGuide(this.platform, this.detectedBrowser)
     this.store = this.appPromo.storeFor(this.platform, "onboarding")
+    // The install step's device switcher can show either store's badge.
+    this.appPromo.preloadBadge("ios")
+    this.appPromo.preloadBadge("android")
 
     // The native prompt may only become available while the wizard is open.
     pwaInstallService.canPromptInstall$

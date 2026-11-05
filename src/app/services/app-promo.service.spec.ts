@@ -160,6 +160,44 @@ describe("AppPromoService", () => {
     expect(service().scheduleOnce()).toBe(false)
   })
 
+  describe("fetching the badge ahead of showing it", () => {
+    let fetched: string[]
+
+    beforeEach(() => {
+      fetched = []
+      vi.stubGlobal(
+        "Image",
+        class {
+          set src(url: string) {
+            fetched.push(url)
+          }
+        },
+      )
+    })
+
+    it("starts while it waits to prompt, so the badge doesn't pop in", () => {
+      vi.useFakeTimers()
+      service().scheduleOnce()
+
+      expect(fetched).toEqual(["imgs/badges/google-play-pt.png"])
+    })
+
+    it("doesn't start where it won't prompt", () => {
+      localStorage.removeItem("onboardingSeen")
+      service().scheduleOnce()
+
+      expect(fetched).toEqual([])
+    })
+
+    it("fetches each badge once, and none for a device with no store", () => {
+      service().preloadBadge("ios")
+      service().preloadBadge("ios")
+      service().preloadBadge("desktop")
+
+      expect(fetched).toEqual(["imgs/badges/app-store-pt-pt.svg"])
+    })
+  })
+
   it("counts a tap on the prompt's badge", async () => {
     vi.useFakeTimers()
     service().scheduleOnce()

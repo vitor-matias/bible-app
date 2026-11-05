@@ -452,6 +452,24 @@ describe("OnboardingComponent", () => {
       expect(link?.rel).toBe("noopener")
     })
 
+    it("fetches both stores' badges as it opens, so they don't pop in", () => {
+      const fetched: string[] = []
+      vi.stubGlobal(
+        "Image",
+        class {
+          set src(url: string) {
+            fetched.push(url)
+          }
+        },
+      )
+      create()
+
+      expect(fetched.sort()).toEqual([
+        "imgs/badges/app-store-pt-pt.svg",
+        "imgs/badges/google-play-pt.png",
+      ])
+    })
+
     it("keeps the website's install under the badge, folded away", () => {
       pwa.canPromptInstall = true
       create()
