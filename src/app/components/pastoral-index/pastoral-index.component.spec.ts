@@ -281,6 +281,24 @@ describe("PastoralIndexComponent", () => {
       expect(await linkOf("abba", "23,9")).toBe("/mt/23?verseStart=9")
     })
 
+    // "Ex 12,1-13,10.8 (n).11 (n).15 (n)": the notes are Ex 12's.
+    it("reads verses after a chapter range as its first chapter's", async () => {
+      const fixture = await open("pascoa")
+      const hrefs = [
+        ...fixture.nativeElement.querySelectorAll("#tema-pascoa article a"),
+      ].map((a: HTMLAnchorElement) => a.getAttribute("href"))
+      const text = fixture.nativeElement.querySelector(
+        "#tema-pascoa article",
+      ).textContent
+
+      expect(hrefs).toContain("/ex/12?verseStart=1")
+      for (const verse of [8, 11, 15]) {
+        expect(hrefs).toContain(`/ex/12?verseStart=${verse}&notes=${verse}`)
+      }
+      // Nothing of the text lost or doubled.
+      expect(text).toContain("Ex 12,1-13,10.8 (n).11 (n).15 (n)")
+    })
+
     it("finds the verse the mark follows in a list", async () => {
       // "1 Jo 3,16-18.16 (n)": the mark is on the second verses named.
       expect(await linkOf("amor", "1 Jo 3,16-18.16")).toContain("notes=16")

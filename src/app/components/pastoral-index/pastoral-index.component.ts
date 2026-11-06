@@ -99,6 +99,9 @@ interface TextPart {
 
 const ENTRIES: PastoralEntry[] = entries
 
+/** ".8 (n)" after a chapter range: a verse, and the mark of its notes. */
+const VERSE_AFTER_RANGE = /^(\.\s?)(\d+)(\s*\(n\))?(?![\d,])/
+
 /** A tapped theme's glide to its place: this long at least, this long at most. */
 const GLIDE_MIN_MS = 550
 const GLIDE_MAX_MS = 950
@@ -749,14 +752,51 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   private textParts(part: EntryPart): TextPart[] {
     if (typeof part !== "string") return [{ text: part.text, see: part.slug }]
     if (this.booksKnown() === 0) return [{ text: part }]
-    return parseReferences(this.bibleRef, part, "").map((piece, index, all) => {
-      if (typeof piece === "string") return { text: piece }
-      const after = all[index + 1]
-      return this.citation(
-        piece,
-        notedVerses(piece, typeof after === "string" ? after : undefined),
-      )
-    })
+    return parseReferences(this.bibleRef, part, "").flatMap(
+      (piece, index, all): TextPart[] => {
+        if (typeof piece !== "string") {
+          const after = all[index + 1]
+          return [
+            this.citation(
+              piece,
+              notedVerses(piece, typeof after === "string" ? after : undefined),
+            ),
+          ]
+        }
+        const before = all[index - 1]
+        return typeof before === "object" && before.crossChapter
+          ? this.versesAfterRange(before, piece)
+          : [{ text: piece }]
+      },
+    )
+  }
+
+  /**
+   * Verses named after a chapter range, of its first chapter, where their
+   * notes are: "Ex 12,1-13,10.8 (n).11 (n)" in Páscoa is Ex 12,8 and 12,11.
+   * shortcut: that is the index's one such citation; a second that means the
+   * last chapter would need its own reading.
+   */
+  private versesAfterRange(range: BibleReference, text: string): TextPart[] {
+    const parts: TextPart[] = []
+    let rest = text
+    for (
+      let m = VERSE_AFTER_RANGE.exec(rest);
+      m;
+      m = VERSE_AFTER_RANGE.exec(rest)
+    ) {
+      const [taken, dot, verse, mark] = m
+      const ref: BibleReference = {
+        ...range,
+        match: verse,
+        crossChapter: undefined,
+        verses: [{ type: "single", verse: Number(verse) }],
+      }
+      parts.push({ text: dot }, this.citation(ref, mark ? verse : null))
+      if (mark) parts.push({ text: mark })
+      rest = rest.slice(taken.length)
+    }
+    return rest ? [...parts, { text: rest }] : parts
   }
 
   private citation(ref: BibleReference, notes: string | null): TextPart {
