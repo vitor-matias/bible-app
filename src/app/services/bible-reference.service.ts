@@ -34,6 +34,12 @@ export interface BibleReference {
   crossChapter?: CrossChapterRange
 }
 
+const stripDiacritics = (value: string) =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+
+const compactName = (name: string) =>
+  stripDiacritics(name).replace(/\s+/g, "").toLocaleLowerCase()
+
 @Injectable({ providedIn: "root" })
 export class BibleReferenceService {
   private bookService = inject(BookService)
@@ -45,6 +51,8 @@ export class BibleReferenceService {
    * 3,16, 2 Cor 5,17"): the next reference, not more verses of this one.
    */
   private nextBookRe?: RegExp
+  /** Books of a single chapter, whose lone number is a verse ("Jd 9"). */
+  private oneChapterBooks = new Set<string>()
 
   // Implicit full ref (no book): same-chapter "2,4b-25" OR cross-chapter "38,1-39,30"
   // IMPORTANT: cross-chapter branch (endCh,endV) is placed BEFORE same-chapter v2 to avoid greedy misparse.
@@ -69,8 +77,14 @@ export class BibleReferenceService {
 
   /** Call if your books list changes at runtime */
   rebuildPattern(): void {
-    const stripDiacritics = (value: string) =>
-      value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    this.oneChapterBooks = new Set(
+      this.bookService
+        .getBooks()
+        ?.filter((b) => b.chapterCount === 1)
+        .flatMap((b) => [b.abrv, b.shortName, b.name, b.id])
+        .filter(Boolean)
+        .map(compactName),
+    )
 
     // 1) Abbreviations, short names, ids, and full names from your service (e.g., "Gn", "Gênesis", "gen").
     const raw = (
@@ -121,7 +135,7 @@ export class BibleReferenceService {
 
     this.explicitRe = new RegExp(pattern, "gi")
     this.nextBookRe = new RegExp(
-      String.raw`^(?:\s*,\s*|\.\s+)(?:${this.bookAlternation})\s+\d`,
+      String.raw`^(?:\s*\(n\))?(?:\s*,\s*|\.\s+)(?:${this.bookAlternation})\s+\d`,
       "i",
     )
   }
@@ -196,44 +210,20 @@ export class BibleReferenceService {
         })
       } else {
         // Same-chapter (with or without verses)
-        const verses = this.buildVerses(gs.v1, gs.v2) || []
-        let matchStr = m[0]
-        let currentIdx = start + matchStr.length
-
-        // More verses of the chapter: ", 12" or ", 12-14" ("Mt 5,3,4,5"),
-        // and the dotted lists of the notes ("Lc 6,2.7") and of liturgical
-        // leaflets ("Sl 94,1-2.6-7.8-9", "Sl 78,1-2. 3-5"). A range is taken
-        // whole or not at all: no backing off "1-2" to "1".
-        const listRe =
-          /^(?:\s*,\s*|\.(?<spaced>\s)?)(?<v1>\d+(?:[a-c]{1,2})?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c]{1,2})?)|(?!\s*[-\u2010-\u2015\u2212]))(?!\d)/
-        // After a dot, a number followed by ",5" or ":5" is a new chapter
-        // ("Jo 3,16.4,5"); after a comma it is the next verse ("Mt 5,3,4,5").
-        const newChapterRe = /^[,:]\d/
-
-        while (true) {
-          const tail = text.slice(currentIdx)
-          const cm = listRe.exec(tail)
-          if (!cm?.groups) break
-          // A number that starts the next book's reference ("2 Cor 5,17").
-          if (this.nextBookRe?.test(tail)) break
-          const dotted = cm[0].trimStart().startsWith(".")
-          if (dotted && newChapterRe.test(tail.slice(cm[0].length))) break
-
-          const nextVerses = this.buildVerses(cm.groups["v1"], cm.groups["v2"])
-          if (nextVerses) {
-            verses.push(...nextVerses)
-            matchStr += cm[0]
-            currentIdx += cm[0].length
-          } else {
-            break
-          }
-        }
+        const lastIsVerse =
+          !gs.v1 && this.oneChapterBooks.has(compactName(book))
+        const verses =
+          (lastIsVerse
+            ? this.buildVerses(gs.chapter)
+            : this.buildVerses(gs.v1, gs.v2)) || []
+        const matchStr =
+          m[0] + this.takeVerseList(text, start + m[0].length, verses)
 
         push({
           match: matchStr,
           index: start,
           book,
-          chapter: startChapter,
+          chapter: lastIsVerse ? 1 : startChapter,
           verses: verses.length ? verses : undefined,
         })
       }
@@ -296,13 +286,15 @@ export class BibleReferenceService {
           },
         })
       } else {
-        // Same-chapter
+        // Same-chapter. Its verse list is taken here, or "15,2.4.6" would give
+        // the next pass "4.6", chapter 4.
+        const verses = this.buildVerses(gs.v1, gs.v2) ?? []
         push({
-          match: m[0],
+          match: m[0] + this.takeVerseList(text, e, verses),
           index: s,
           book,
           chapter: startChapter,
-          verses: this.buildVerses(gs.v1, gs.v2),
+          verses,
         })
       }
     }
@@ -353,6 +345,43 @@ export class BibleReferenceService {
   }
 
   // ---- helpers --------------------------------------------------------------
+
+  /**
+   * More verses of a chapter, added to `verses`; returns the text they take.
+   * After a comma, ", 12" or ", 12-14" ("Mt 5,3,4,5"); after a dot, the lists of
+   * the notes ("Lc 6,2.7") and of liturgical leaflets ("Sl 94,1-2.6-7.8-9",
+   * "Sl 78,1-2. 3-5"). The Índice's mark for a verse with a note may come
+   * between them ("Mt 6,2 (n).5"). A range is taken whole or not at all: no
+   * backing off "1-2" to "1".
+   */
+  private takeVerseList(
+    text: string,
+    from: number,
+    verses: VerseReference[],
+  ): string {
+    const listRe =
+      /^(?:\s*\(n\))?(?:\s*,\s*|\.(?<spaced>\s)?)(?<v1>\d+(?:[a-c]{1,2})?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c]{1,2})?)|(?!\s*[-\u2010-\u2015\u2212]))(?!\d)/
+    // After a dot, a number followed by ",5" or ":5" is a new chapter
+    // ("Jo 3,16.4,5"); after a comma it is the next verse ("Mt 5,3,4,5").
+    const newChapterRe = /^[,:]\d/
+
+    let taken = ""
+    while (true) {
+      const tail = text.slice(from + taken.length)
+      const cm = listRe.exec(tail)
+      if (!cm?.groups) break
+      // A number that starts the next book's reference ("2 Cor 5,17").
+      if (this.nextBookRe?.test(tail)) break
+      const dotted = cm[0].replace("(n)", "").trimStart().startsWith(".")
+      if (dotted && newChapterRe.test(tail.slice(cm[0].length))) break
+
+      const nextVerses = this.buildVerses(cm.groups["v1"], cm.groups["v2"])
+      if (!nextVerses) break
+      verses.push(...nextVerses)
+      taken += cm[0]
+    }
+    return taken
+  }
 
   /**
    * "16" or "16b"; "16bc" (parts b to c) starts at its first part and ends at

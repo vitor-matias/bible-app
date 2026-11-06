@@ -21,6 +21,20 @@ export const routes: Routes = [
       ),
   },
   {
+    path: "indice",
+    loadComponent: () =>
+      import("./components/pastoral-index/pastoral-index.component").then(
+        (m) => m.PastoralIndexComponent,
+      ),
+  },
+  {
+    path: "indice/:slug",
+    loadComponent: () =>
+      import("./components/pastoral-index/pastoral-index.component").then(
+        (m) => m.PastoralIndexComponent,
+      ),
+  },
+  {
     path: ":book/:chapter",
     component: BibleReaderComponent,
     canMatch: [chapterExists],

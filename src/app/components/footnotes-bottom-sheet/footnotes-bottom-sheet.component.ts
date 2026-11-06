@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject } from "@angular/core"
+import {
+  afterNextRender,
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+} from "@angular/core"
 
 import {
   MAT_BOTTOM_SHEET_DATA,
@@ -96,6 +101,9 @@ export class FootnotesBottomSheetComponent {
   private toast = inject(ToastService)
 
   constructor() {
+    // Opened over a way back, which is still to be within reach.
+    afterNextRender(() => this.toast.bringToFront())
+
     const data = this.data
 
     void this.analyticsService.track("footnotes_opened", {

@@ -69,7 +69,8 @@ const LABEL_HOLD_MS = 3500
 /** Fade-out half of a swap; must match the transition in the component CSS. */
 const LABEL_FADE_MS = 300
 
-const PRIVACY_POLICY_URL = "https://www.capuchinhos.org/politica-de-privacidade"
+export const PRIVACY_POLICY_URL =
+  "https://www.capuchinhos.org/politica-de-privacidade"
 
 @Component({
   standalone: true,
