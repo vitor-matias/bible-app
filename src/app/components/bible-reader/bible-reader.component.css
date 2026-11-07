@@ -23,13 +23,6 @@ h6 {
   touch-action: pan-y !important;
 }
 
-/* Justified lines of a few words open rivers on a phone. */
-@media (max-width: 480px) {
-  .bookBlock {
-    text-align: start;
-  }
-}
-
 @media (max-width: 768px) {
   .bookSelector {
     width: 100%;
