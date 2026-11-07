@@ -114,7 +114,11 @@ data class ChromeState(
     /** The page's background (`#ffffff`), as an ARGB colour; null when the web app doesn't say. */
     val pageColor: Int? = null,
     val autoScroll: AutoScrollState? = null,
-    // Search
+    /** A list's filter (the pastoral index): a button in the chapter arrows' place; null on a page with none. */
+    val filterPlaceholder: String? = null,
+    /** The filter's field has the top bar. */
+    val filterOpen: Boolean = false,
+    // Search, or a list's filter
     val query: String = "",
     // Page
     val title: String = "",
@@ -153,6 +157,8 @@ data class ChromeState(
                 textSize = call.getObject("textSize", null)?.let(TextSize::from),
                 pageColor = call.getString("pageColor")?.let(::cssHexColor),
                 autoScroll = call.getObject("autoScroll", null)?.let(AutoScrollState::from),
+                filterPlaceholder = call.getString("filterPlaceholder"),
+                filterOpen = call.getBoolean("filterOpen", false)!!,
                 query = call.getString("query", "")!!,
                 title = call.getString("title", "")!!,
             )
@@ -197,7 +203,8 @@ fun chromeInsets(
     // control floats over the text, as on iOS: it keeps no row.
     return ChromeInsets(
         top = systemTop + readerBar,
-        bottom = systemBottom + if (state.chapterNavigation) BarMetrics.toolbarOffset + BarMetrics.chapterButton else 0f,
+        bottom = systemBottom +
+            if (state.chapterNavigation || state.filterPlaceholder != null) BarMetrics.toolbarOffset + BarMetrics.chapterButton else 0f,
         collapsed = collapsed,
     )
 }

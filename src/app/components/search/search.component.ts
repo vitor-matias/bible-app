@@ -35,6 +35,7 @@ import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
 import { passageLabel } from "../../utils/passage-label"
+import { leftToTheBrowser } from "../../utils/platform"
 import {
   isAmbiguousPsalmNumber,
   PSALMS_BOOK_ID,
@@ -90,14 +91,22 @@ const THEMES = Object.entries(themeTitles).map(([slug, title]) => ({
   folded: foldText(title),
 }))
 
-/** The themes whose titles begin with what is typed, as "paz" for "Paz". */
+/**
+ * The themes with a word of the title beginning with what is typed, as "paz"
+ * for "Paz" or "fraterna" for "Correção fraterna": first those it starts.
+ */
 function themesNamed(query: string): { slug: string; title: string }[] {
   const folded = foldText(query.trim())
   if (folded.length < 2) return []
-  return THEMES.filter((theme) => theme.folded.startsWith(folded)).slice(
-    0,
-    MAX_THEMES,
+  const matches = THEMES.filter(
+    (theme) =>
+      theme.folded.startsWith(folded) ||
+      [" ", "/", "(", "-"].some((gap) => theme.folded.includes(gap + folded)),
   )
+  return [
+    ...matches.filter((theme) => theme.folded.startsWith(folded)),
+    ...matches.filter((theme) => !theme.folded.startsWith(folded)),
+  ].slice(0, MAX_THEMES)
 }
 
 /** What a query opens in the reader (SearchComponent.resolvePassage). */
@@ -430,7 +439,7 @@ export class SearchComponent {
 
   /** Opens a theme in the index, as openPassage does a passage. */
   openTheme(event: MouseEvent, slug: string): void {
-    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+    if (leftToTheBrowser(event)) return
     event.preventDefault()
     void this.router.navigate(["/indice", slug])
   }
@@ -982,7 +991,7 @@ export class SearchComponent {
     chapter: number,
     verseStart?: number,
   ): void {
-    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+    if (leftToTheBrowser(event)) return
     event.preventDefault()
     void this.router.navigate(
       ["/", ...this.passagePath(bookId, chapter)],

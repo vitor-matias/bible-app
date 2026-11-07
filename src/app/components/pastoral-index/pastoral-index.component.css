@@ -175,57 +175,6 @@ mat-expansion-panel-header {
   font-size: inherit;
 }
 
-.menu-controls {
-  display: flex;
-  justify-content: space-between;
-  padding: 12px 16px;
-  min-width: 240px;
-}
-
-/* From here to .privacy-label, as in the reader's menu. */
-.menu-control.mat-mdc-menu-item {
-  flex: none;
-  justify-content: center;
-  width: 48px;
-  min-width: 0;
-  height: 48px;
-  min-height: 0;
-  padding: 0;
-  border-radius: 50%;
-  transform: scale(1.2);
-}
-
-.menu-control ::ng-deep .mat-mdc-menu-item-text {
-  display: none;
-}
-
-.menu-control mat-icon {
-  margin: 0;
-  color: inherit;
-}
-
-.menu-version {
-  padding: 4px 16px 8px;
-  font-size: 0.75rem;
-  opacity: 0.6;
-  white-space: nowrap;
-}
-
-.privacy-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-}
-
-.open-in-new-icon {
-  margin-left: 12px;
-  font-size: 16px !important;
-  width: 16px !important;
-  height: 16px !important;
-  opacity: 0.6;
-}
-
 /* As the ribbon on the reader's chapter button. */
 .theme-ribbon {
   flex: none;
@@ -244,6 +193,9 @@ mat-panel-title {
   font-family: "PT Serif", serif;
   font-size: 1.2em;
   font-weight: bold;
+  /* 24px at the standard size, as Material's; growing with the text, where
+     the fixed 24px clipped larger titles. */
+  line-height: 1.25;
 }
 
 /* Closes at once: animated, it would slide a theme opened below it out of place
@@ -288,60 +240,6 @@ mat-panel-title {
 
 .entry a[href^="/indice"] {
   font-style: italic;
-}
-
-/* The printed page: every theme open, in two columns, without a list's rules.
-   Columns per letter, so reading carries on down the page instead of back up a
-   column of all 358 themes. */
-@media (min-width: 768px) {
-  :host {
-    /* And the row of letters. */
-    --tools-height: 104px;
-    --mat-expansion-header-collapsed-state-height: 32px;
-    --mat-expansion-header-expanded-state-height: 32px;
-  }
-
-  .book-index-container {
-    max-width: 80rem;
-    margin: 0 auto;
-    padding-left: 24px;
-    padding-right: 24px;
-  }
-
-  .letters,
-  .letters:focus-within {
-    position: static;
-    width: auto;
-    height: auto;
-    overflow: visible;
-    clip-path: none;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(30px, 1fr));
-    gap: 2px;
-    padding-top: 8px;
-    --mat-button-text-horizontal-padding: 0;
-    --mat-button-text-container-height: 32px;
-  }
-
-  .themes {
-    column-count: 2;
-    column-gap: 2rem;
-  }
-
-  .letter + .letter {
-    margin-top: 0.75rem;
-  }
-
-  .letter > h2 {
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 0.5rem;
-  }
-
-  /* A theme stays whole, never running on to the next column. */
-  mat-expansion-panel {
-    border-bottom: 0;
-    break-inside: avoid;
-  }
 }
 
 /* The text alone: a catechist prints a theme, filtered down to it. */

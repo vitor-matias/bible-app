@@ -2,74 +2,15 @@
 <div class="toolbar-wrapper">
   <mat-toolbar class="index-toolbar">
     <div class="content">
-      <button mat-flat-button type="button" aria-label="Menu" class="button actionButton backButton" [matMenuTriggerFor]="pageMenu">
+      <button mat-flat-button type="button" aria-label="Menu" class="button actionButton backButton" [matMenuTriggerFor]="pageMenu.menu" (menuOpened)="pageMenu.opened()">
         <mat-icon>menu</mat-icon>
       </button>
       <!-- The reader's menu, less what only a chapter has: auto-scroll and the
            view mode. -->
-      <mat-menu #pageMenu="matMenu">
-        <!-- Menu items, so the arrow keys reach them; a click here stops short
-             of the menu panel, so the menu stays open as the text changes. -->
-        <div class="menu-controls" (click)="$event.stopPropagation()">
-          <button type="button" mat-menu-item class="menu-control" (click)="toggleTheme()" [matTooltip]="theme.label" matTooltipPosition="above" [attr.aria-label]="theme.label">
-            <mat-icon>{{ theme.icon }}</mat-icon>
-          </button>
-          <button type="button" mat-menu-item class="menu-control" (click)="decreaseFontSize()" matTooltip="Diminuir texto" matTooltipPosition="above" aria-label="Diminuir texto">
-            <mat-icon>text_decrease</mat-icon>
-          </button>
-          <button type="button" mat-menu-item class="menu-control" (click)="increaseFontSize()" matTooltip="Aumentar texto" matTooltipPosition="above" aria-label="Aumentar texto">
-            <mat-icon>text_increase</mat-icon>
-          </button>
-        </div>
-        <mat-divider></mat-divider>
-        <button type="button" mat-menu-item (click)="openBookmarks()">
-          <mat-icon>bookmarks</mat-icon>
-          <span>Marcadores</span>
-        </button>
-        @if (canShare) {
-        <button type="button" mat-menu-item (click)="share()">
-          <mat-icon>share</mat-icon>
-          <span>Partilhar</span>
-        </button>
-        }
-        @if (canInstall()) {
-        <button type="button" mat-menu-item (click)="install()">
-          <mat-icon>download</mat-icon>
-          <span>Instalar a app</span>
-        </button>
-        }
-        <button type="button" mat-menu-item (click)="openHelp()">
-          <mat-icon>help</mat-icon>
-          <span>Como usar a app</span>
-        </button>
-        <button type="button" mat-menu-item (click)="openAbout()">
-          <mat-icon>info</mat-icon>
-          <span>Sobre a Bíblia</span>
-        </button>
-        @if (analytics.areAnalyticsAvailable()) {
-        <button type="button" mat-menu-item (click)="reportProblem()">
-          <mat-icon>report_problem</mat-icon>
-          <span>Reportar erro</span>
-        </button>
-        }
-        <a mat-menu-item [href]="privacyPolicyUrl" target="_blank" rel="noopener noreferrer">
-          <mat-icon>privacy_tip</mat-icon>
-          <span class="privacy-label">
-            Política de Privacidade
-            <mat-icon class="open-in-new-icon">open_in_new</mat-icon>
-          </span>
-        </a>
-        @if (version(); as version) {
-        <!-- One line, as in the reader's: the release, then the bundle's id. -->
-        <div class="menu-version">
-          @if (version.release) {
-          {{ version.release }} · {{ version.build }}
-          } @else {
-          Bundle {{ version.build }}
-          }
-        </div>
-        }
-      </mat-menu>
+      <reader-menu #pageMenu="readerMenu" [canShare]="canShare" [version]="version()"
+        (decreaseFontSize)="decreaseFontSize()" (increaseFontSize)="increaseFontSize()"
+        (bookmarks)="openBookmarks()" (share)="share()" (about)="openAbout()"
+        (reportProblem)="reportProblem()" />
       <span class="toolbar-title">Índice Bíblico-Pastoral</span>
       <a mat-flat-button routerLink="/search" aria-label="Pesquisar" class="button actionButton searchButton">
         <mat-icon>search</mat-icon>
@@ -81,7 +22,9 @@
 
 <main class="book-index-container">
   <h1 class="visually-hidden">Índice Bíblico-Pastoral</h1>
-  <!-- As the printed edition opens the index. -->
+  <!-- As the printed edition opens the index. In the apps results take the
+       screen's place, as a native search's do. -->
+  @if (!native || !query()) {
   <p class="index-intro">
     Este Índice Bíblico-Pastoral apresenta os principais temas bíblicos, fazendo
     ressaltar a sua evolução no quadro da Revelação divina. A Palavra de Deus foi
@@ -90,20 +33,29 @@
     útil para a escolha dos textos das Celebrações da Palavra, temas de estudo ou
     oração e reuniões de grupos bíblicos.
   </p>
-  @if (isBrowser && !wide()) {
+  }
+  @if (android) {
+  @if (!query()) {
+  <fast-scroller [letter]="currentLetter()" />
+  }
+  } @else if (isBrowser && !wide() && !(native && query())) {
   <!-- Touch and mouse only: the letter buttons below stay for the keyboard and
        screen readers. -->
   <alphabetical-scroll-bar
     class="letter-bar"
     aria-hidden="true"
+    [style.--letter-count]="letters().length"
     [alphabet]="letters()"
-    [current]="scrubbed() ?? currentLetter()"
+    [magnify]="!native"
+    [current]="native ? null : scrubbed() ?? currentLetter()"
     (letterChange)="scrubTo($event)"
     (isActive)="!$event && endScrub()"
   />
   }
   <!-- Always in reach, however far down the list. -->
   <div class="index-tools">
+  <!-- In the apps, a native field: the shell sends what is typed. -->
+  @if (!native) {
   <mat-form-field class="theme-filter" appearance="outline" subscriptSizing="dynamic">
     <mat-icon matPrefix aria-hidden="true">search</mat-icon>
     <input
@@ -115,6 +67,7 @@
       (input)="filter($any($event.target).value)"
     />
   </mat-form-field>
+  }
   <nav class="letters" aria-label="Ir para a letra">
     @for (group of groups(); track group.letter) {
     <button
@@ -128,7 +81,7 @@
     }
   </nav>
   </div>
-  <mat-accordion displayMode="flat" [multi]="wide()" unifiedGestures fontSizeContext="reader">
+  <mat-accordion displayMode="flat" [multi]="wide()" unifiedGestures fontSizeContext="reader" (textSizeChange)="textSizeState.set($event)">
     @for (group of groups(); track group.letter) {
     <section class="letter" [id]="'letra-' + group.letter">
     <!-- Focusable, for the letter shortcuts to leave the keyboard here. -->
@@ -145,7 +98,8 @@
       (closed)="closed(theme.slug)"
       (afterExpand)="settled(theme.slug)"
     >
-      <mat-expansion-panel-header>
+      <!-- Material's ripple, on Android; iOS highlights the row. -->
+      <mat-expansion-panel-header matRipple [matRippleDisabled]="!android">
         <mat-panel-title>
           {{ theme.title }}
           <!-- The ribbon on this theme, as on the reader's chapter button. -->

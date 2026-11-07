@@ -100,6 +100,24 @@ class ChromeContractTest {
     }
 
     @Test
+    fun readsAPageWithAFilter() {
+        val state = fixture("reader-filter")
+        assertEquals(ChromeMode.Reader, state.mode)
+        assertEquals("Índice Bíblico-Pastoral", state.passageLabel)
+        assertEquals("Filtrar temas", state.filterPlaceholder)
+        assertTrue(state.filterOpen)
+        assertEquals("amor", state.query)
+        assertFalse(state.chapterNavigation)
+    }
+
+    @Test
+    fun aPageWithoutAFilterHasNone() {
+        val state = fixture("reader")
+        assertNull(state.filterPlaceholder)
+        assertFalse(state.filterOpen)
+    }
+
+    @Test
     fun readsNoBars() {
         val state = fixture("none")
         assertEquals(ChromeMode.None, state.mode)

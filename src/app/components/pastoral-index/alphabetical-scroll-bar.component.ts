@@ -14,16 +14,40 @@ import {
 /** How the letters around the finger grow, from the one under it outwards. */
 const MAGNIFICATION_CURVE = [1, 0.7, 0.5, 0.3, 0.1]
 const MAGNIFICATION_MULTIPLIER = 2
+/** A letter's height without magnifying: the page sets them 1.3 em apart. */
+const PLAIN_LETTER_EMS = 1.25
 /** 0, not the package's 1: with it, a normal phone lost half its letters. */
 const LETTER_SPACING_PERCENT = 0
 const DIVIDER = "·"
 
 /**
- * Ported from alphabetical-scroll-bar 2.1.2 by mooalot (MIT licence,
- * github.com/mooalot/alphabetical-scroll-bar), whose published package can't be
+ * Ported from alphabetical-scroll-bar 2.1.2 by mooalot
+ * (github.com/mooalot/alphabetical-scroll-bar), whose published package can't be
  * compiled by Angular since it dropped View Engine libraries. The layout and
  * magnification are the package's, less its options this page doesn't use;
  * tapping the same letter twice goes there again, which the package ignored.
+ *
+ * MIT License
+ *
+ * Copyright (c) 2021 mooalot
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  */
 @Component({
   selector: "alphabetical-scroll-bar",
@@ -99,6 +123,8 @@ export class AlphabeticalScrollBarComponent {
   readonly alphabet = input.required<string[]>()
   /** The letter to highlight: where the page has scrolled to. */
   readonly current = input<string | null>(null)
+  /** False for iOS's section index, whose letters stay as they are under a finger. */
+  readonly magnify = input(true)
   /** A letter chosen by a tap, a click or a drag. */
   readonly letterChange = output<string>()
   /** True as the bar is touched, false when the finger lifts. */
@@ -146,7 +172,8 @@ export class AlphabeticalScrollBarComponent {
 
     const fontSize = Number.parseFloat(getComputedStyle(element).fontSize)
     const letterSize =
-      fontSize * MAGNIFICATION_MULTIPLIER +
+      fontSize *
+        (this.magnify() ? MAGNIFICATION_MULTIPLIER : PLAIN_LETTER_EMS) +
       height * (LETTER_SPACING_PERCENT / 100)
     this.lettersShortened = height / letterSize < alphabet.length
     if (!this.lettersShortened) {
@@ -207,7 +234,7 @@ export class AlphabeticalScrollBarComponent {
       this.lastActive = true
       this.isActive.emit(true)
     }
-    this.magnifying.set(event.type !== "click")
+    this.magnifying.set(this.magnify() && event.type !== "click")
     const point = "touches" in event ? event.touches[0] : event
     const letter = this.letterAt(point.clientY)
     if (letter && letter !== this.lastLetter && !event.type.includes("mouse")) {

@@ -164,17 +164,29 @@ internal fun ReaderBars(chrome: ChromeController, state: ChromeState, barColor: 
                 .graphicsLayer { translationY = -away * (barPx + statusTop) }
                 .inert(away == 1f),
         ) {
+            val filter = state.filterPlaceholder?.takeIf { state.filterOpen }
             TopAppBar(
-                title = { PassageTitle(chrome, state, enabled, showSubtitle) },
+                navigationIcon = {
+                    if (filter != null) BarButton(R.drawable.ic_arrow_back, "Fechar", enabled) { chrome.send("filter-close") }
+                },
+                title = {
+                    if (filter != null) {
+                        FilterField(chrome, state, filter, enabled)
+                    } else {
+                        PassageTitle(chrome, state, enabled, showSubtitle)
+                    }
+                },
                 actions = {
-                    if (state.search) {
-                        BarButton(R.drawable.ic_search, "Pesquisar", enabled) { chrome.send("search") }
+                    if (filter == null) {
+                        if (state.search) {
+                            BarButton(R.drawable.ic_search, "Pesquisar", enabled) { chrome.send("search") }
+                        }
+                        BookmarksButton(chrome, state, enabled)
+                        BarButton(R.drawable.ic_format_size, "Texto e aparência", enabled) {
+                            chrome.present(Sheet.Appearance)
+                        }
+                        MoreMenu(chrome, state, enabled)
                     }
-                    BookmarksButton(chrome, state, enabled)
-                    BarButton(R.drawable.ic_format_size, "Texto e aparência", enabled) {
-                        chrome.present(Sheet.Appearance)
-                    }
-                    MoreMenu(chrome, state, enabled)
                 },
                 expandedHeight = barHeight,
                 windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
@@ -222,6 +234,18 @@ internal fun ReaderBars(chrome: ChromeController, state: ChromeState, barColor: 
                         .inert(away == 1f),
                 ) {
                     ChapterArrows(chrome, state, enabled && away == 0f)
+                }
+            } else if (state.filterPlaceholder != null && !state.filterOpen) {
+                // A list's filter, in the arrow's corner on a page without them.
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .graphicsLayer { translationY = away * bottomPx }
+                        .inert(away == 1f),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    ChapterButton(R.drawable.ic_filter_list, "Filtrar", enabled && away == 0f) { chrome.send("filter") }
                 }
             }
         }
@@ -448,8 +472,12 @@ private fun MoreMenu(chrome: ChromeController, state: ChromeState, enabled: Bool
                 open = false
                 chrome.send(action)
             }
-            MenuItem("Deslocamento automático", R.drawable.ic_arrow_circle_down, state.autoScrollAvailable,
-                checked = state.autoScrollVisible) { choose("auto-scroll") }
+            // A page that can't have it at all (the pastoral index) leaves it
+            // out; a chapter in pages shows it disabled.
+            if (state.autoScrollAvailable || state.viewMode != null) {
+                MenuItem("Deslocamento automático", R.drawable.ic_arrow_circle_down, state.autoScrollAvailable,
+                    checked = state.autoScrollVisible) { choose("auto-scroll") }
+            }
             if (state.canShare) MenuItem("Partilhar", R.drawable.ic_share) { choose("share") }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             MenuItem("Como usar a app", R.drawable.ic_help) { choose("help") }

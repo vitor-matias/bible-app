@@ -286,6 +286,15 @@ describe("ToastService", () => {
         expect(snackRef.dismiss).toHaveBeenCalledTimes(1)
       })
 
+      // A ribbon on a theme: "/indice/amor" has a book's two segments.
+      it("takes it down on the way to a theme of the index", async () => {
+        await followReference(false)
+
+        await router.navigateByUrl("/indice/amor")
+
+        expect(snackRef.dismiss).toHaveBeenCalledTimes(1)
+      })
+
       it("keeps it after a reference within the chapter", async () => {
         start(false)
         await router.navigateByUrl("/gn/1")

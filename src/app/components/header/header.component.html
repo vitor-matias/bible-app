@@ -3,98 +3,17 @@
 <div class="header-placeholder">
   <mat-toolbar>
     <div class="header-content">
-      <button class="menuButton" mat-icon-button [matMenuTriggerFor]="headerMenu" #menuTrigger="matMenuTrigger"
-        (menuOpened)="onMenuOpened()" aria-label="Menu">
+      <button class="menuButton" mat-icon-button [matMenuTriggerFor]="readerMenu.menu"
+        (menuOpened)="readerMenu.opened()" aria-label="Menu">
         <mat-icon>menu</mat-icon>
       </button>
-      <mat-menu #headerMenu="matMenu">
-        <!-- Menu items, so the arrow keys reach them; a click here stops short
-             of the menu panel, so the menu stays open as the text changes. -->
-        <div class="menu-controls" (click)="$event.stopPropagation()">
-          <button type="button" mat-menu-item class="menu-control" (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" matTooltipPosition="above" [attr.aria-label]="getThemeTooltip()">
-            <mat-icon>{{ getThemeIcon() }}</mat-icon>
-          </button>
-          @if (book().id !== 'about') {
-          <button type="button" mat-menu-item class="menu-control" (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" matTooltipPosition="above" [attr.aria-label]="getViewModeTooltip()">
-            <mat-icon>{{ getViewModeIcon() }}</mat-icon>
-          </button>
-          <button type="button" mat-menu-item class="menu-control" (click)="onToggleTextAlign()" [matTooltip]="getTextAlignTooltip()" matTooltipPosition="above" [attr.aria-label]="getTextAlignTooltip()">
-            <mat-icon>{{ getTextAlignIcon() }}</mat-icon>
-          </button>
-          }
-          <button type="button" mat-menu-item class="menu-control" (click)="onDecreaseFontSize()" matTooltip="Diminuir texto" matTooltipPosition="above" aria-label="Diminuir texto">
-            <mat-icon>text_decrease</mat-icon>
-          </button>
-          <button type="button" mat-menu-item class="menu-control" (click)="onIncreaseFontSize()" matTooltip="Aumentar texto" matTooltipPosition="above" aria-label="Aumentar texto">
-            <mat-icon>text_increase</mat-icon>
-          </button>
-        </div>
-        <mat-divider></mat-divider>
-        <button mat-menu-item (click)="onToggleBookmarkFromMenu(menuTrigger)">
-          <mat-icon>bookmarks</mat-icon>
-          <span>Marcadores</span>
-        </button>
-        <button mat-menu-item (click)="onToggleAutoScrollControls(menuTrigger, $event)" [disabled]="viewMode() === 'paged'">
-          <mat-icon>arrow_circle_down</mat-icon>
-          <span>
-            {{ autoScrollControlsVisible()
-            ? 'Esconder controlos de deslocamento automático'
-            : 'Mostrar controlos de deslocamento automático' }}
-          </span>
-        </button>
-        @if (canShare) {
-        <button mat-menu-item (click)="onShare(menuTrigger, $event)">
-          <mat-icon>share</mat-icon>
-          <span>Partilhar</span>
-        </button>
-        }
-        <!-- Where the store has the app, the website's install stays in the tutorial. -->
-        @if (canInstall() && !appStore) {
-        <button type="button" mat-menu-item (click)="onInstall(menuTrigger)">
-          <mat-icon>download</mat-icon>
-          <span>Instalar a app</span>
-        </button>
-        }
-        <button type="button" mat-menu-item (click)="onOpenHelp(menuTrigger)">
-          <mat-icon>help</mat-icon>
-          <span>Como usar a app</span>
-        </button>
-        @if (appStore) {
-        <a mat-menu-item class="app-store-link" [href]="appStore.url" target="_blank" rel="noopener"
-          (click)="onOpenAppStore(appStore)">
-          <mat-icon>install_mobile</mat-icon>
-          <span>{{ appStoreLabel }}</span>
-        </a>
-        }
-        <button type="button" mat-menu-item (click)="onOpenAbout(menuTrigger)">
-          <mat-icon>info</mat-icon>
-          <span>Sobre a Bíblia</span>
-        </button>
-        @if (analyticsService.areAnalyticsAvailable()) {
-          <button type="button" mat-menu-item (click)="onReportProblem(menuTrigger)">
-            <mat-icon>report_problem</mat-icon>
-            <span>Reportar erro</span>
-          </button>
-        }
-        <a mat-menu-item [href]="privacyPolicyUrl" target="_blank" rel="noopener noreferrer">
-          <mat-icon>privacy_tip</mat-icon>
-          <span class="privacy-label">
-            Política de Privacidade
-            <mat-icon class="open-in-new-icon">open_in_new</mat-icon>
-          </span>
-        </a>
-        @if (version) {
-        <!-- One line, as in the iOS menu: the release, then the bundle's id.
-             The web has no releases; there the label says what the id is. -->
-        <div class="menu-version">
-          @if (version.release) {
-          {{ version.release }} · {{ version.build }}
-          } @else {
-          Bundle {{ version.build }}
-          }
-        </div>
-        }
-      </mat-menu>
+      <reader-menu #readerMenu="readerMenu" [canShare]="canShare" [version]="version"
+        [viewMode]="book().id === 'about' ? null : viewMode()"
+        [autoScrollControlsVisible]="autoScrollControlsVisible()"
+        (decreaseFontSize)="decreaseFontSize()" (increaseFontSize)="increaseFontSize()"
+        (toggleViewMode)="toggleViewMode.emit()" (bookmarks)="openBookmarkSelector()"
+        (toggleAutoScrollControls)="toggleAutoScrollControls.emit()" (share)="sharePassage()"
+        (about)="openAbout()" (reportProblem)="openReportProblem()" />
 
       <!-- The book/chapter picker is also the page's h1. aria-label pins its
            accessible name to the title while the home page label cycles. -->

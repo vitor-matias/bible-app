@@ -342,6 +342,15 @@ describe("BibleReferenceService", () => {
     expect(ref.verses).toEqual([{ type: "single", verse: 9 }])
   })
 
+  it("reads a one-chapter book's range as verses, all of it linked", () => {
+    const [jude, philemon] = service.extract("Jd 6-7; Flm 4-6.")
+
+    expect([jude.match, jude.chapter]).toEqual(["Jd 6-7", 1])
+    expect(jude.verses).toEqual([{ type: "range", start: 6, end: 7 }])
+    expect([philemon.match, philemon.chapter]).toEqual(["Flm 4-6", 1])
+    expect(philemon.verses).toEqual([{ type: "range", start: 4, end: 6 }])
+  })
+
   it("reads it so too with the book's name typed without its accent", () => {
     const [ref] = service.extract("Filemon 5")
 

@@ -19,8 +19,8 @@ import {
 import { takeUntilDestroyed, toSignal } from "@angular/core/rxjs-interop"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
+import { MatRippleModule } from "@angular/material/core"
 import { MatDialog } from "@angular/material/dialog"
-import { MatDividerModule } from "@angular/material/divider"
 import {
   MatExpansionModule,
   type MatExpansionPanel,
@@ -30,7 +30,6 @@ import { MatIconModule } from "@angular/material/icon"
 import { MatInputModule } from "@angular/material/input"
 import { MatMenuModule } from "@angular/material/menu"
 import { MatToolbarModule } from "@angular/material/toolbar"
-import { MatTooltipModule } from "@angular/material/tooltip"
 import {
   ActivatedRoute,
   NavigationSkipped,
@@ -41,8 +40,11 @@ import {
 import { animationFrameScheduler, fromEvent } from "rxjs"
 import { auditTime, map } from "rxjs/operators"
 import { PASTORAL_INDEX_BOOK } from "../../bible-canon"
-import { shareableUrl } from "../../config"
-import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
+import { PRIVACY_POLICY_URL, shareableUrl } from "../../config"
+import {
+  type TextSize,
+  UnifiedGesturesDirective,
+} from "../../directives/unified-gesture.directive"
 import {
   INDEX_BOOKMARK_CHAPTER,
   indexBookmarkId,
@@ -63,20 +65,24 @@ import {
   BuildVersionService,
   type DisplayVersion,
 } from "../../services/build-version.service"
-import { historyDepth } from "../../services/depth-location-strategy"
+import { HapticsService } from "../../services/haptics.service"
 import { NativeBookmarksService } from "../../services/native-bookmarks.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
+import type { NativeChromeAction } from "../../services/native-chrome.types"
+import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
-import { PwaInstallService } from "../../services/pwa-install.service"
 import { SeoService } from "../../services/seo.service"
-import { ThemeService } from "../../services/theme.service"
+import { type ThemeMode, ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
+import { buildPassagePicker } from "../../utils/passage-picker"
+import { leftToTheBrowser } from "../../utils/platform"
 import { foldText } from "../../utils/text-search"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
-import { PRIVACY_POLICY_URL } from "../header/header.component"
+import { ReaderMenuComponent } from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 import { AlphabeticalScrollBarComponent } from "./alphabetical-scroll-bar.component"
+import { FastScrollerComponent } from "./fast-scroller.component"
 import entries from "./pastoral-index.data.json"
 
 /** Made by scripts/build-pastoral-index.mjs: text, and links to other entries. */
@@ -105,6 +111,15 @@ const VERSE_AFTER_RANGE = /^(\.\s?)(\d+)(\s*\(n\))?(?![\d,])/
 /** A tapped theme's glide to its place: this long at least, this long at most. */
 const GLIDE_MIN_MS = 550
 const GLIDE_MAX_MS = 950
+
+/**
+ * In the apps a theme opens at once, as a list row does, and comes up under the
+ * bar as it opens: no wait for the page to get there first.
+ */
+const NATIVE_OPEN_MS = 300
+
+/** How long a jump or that opening may scroll without moving the apps' bars. */
+const BARS_HELD_MS = NATIVE_OPEN_MS + 100
 
 /** Each new letter of a drag along the scroll bar: chasing the finger, so no slow start. */
 const DRAG_GLIDE_MS = 350
@@ -139,10 +154,6 @@ function notedVerses(ref: BibleReference, after?: string): string | null {
     : `${verse.start}-${verse.end}`
 }
 
-/** A click with a modifier opens a new tab or window, not this app's page. */
-const leftToTheBrowser = (event: MouseEvent) =>
-  event.ctrlKey || event.metaKey || event.shiftKey || event.altKey
-
 /**
  * The Índice Bíblico-Pastoral: its themes at /indice, which expand in place. A
  * theme's address, /indice/:slug, is this page with that theme open.
@@ -153,21 +164,29 @@ const leftToTheBrowser = (event: MouseEvent) =>
     RouterLink,
     MatToolbarModule,
     MatButtonModule,
+    MatRippleModule,
     MatIconModule,
     MatExpansionModule,
     MatFormFieldModule,
     MatInputModule,
     MatMenuModule,
-    MatDividerModule,
-    MatTooltipModule,
+    ReaderMenuComponent,
     UnifiedGesturesDirective,
     AlphabeticalScrollBarComponent,
+    FastScrollerComponent,
   ],
+  host: {
+    "[class.native]": "native",
+    "[class.android]": "android",
+    "[class.ios]": "native && !android",
+  },
   templateUrl: "./pastoral-index.component.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: [
     "../book-index/book-index.component.css",
     "./pastoral-index.component.css",
+    "./pastoral-index.columns.css",
+    "./pastoral-index.native.css",
   ],
 })
 export class PastoralIndexComponent implements OnInit, OnDestroy {
@@ -180,10 +199,11 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   private onboarding = inject(OnboardingService)
   private bookmarkService = inject(BookmarkService)
   private nativeBookmarks = inject(NativeBookmarksService)
+  private nativeReport = inject(NativeReportService)
+  private haptics = inject(HapticsService)
   private bottomSheet = inject(MatBottomSheet)
   private backButton = inject(BackButtonService)
   private dialog = inject(MatDialog)
-  private pwaInstall = inject(PwaInstallService)
   private buildVersion = inject(BuildVersionService)
   readonly analytics = inject(AnalyticsService)
   private route = inject(ActivatedRoute)
@@ -193,18 +213,25 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   private injector = inject(Injector)
   /** The native apps draw this page's toolbar. */
   readonly native = this.nativeChrome.enabled
+  /** Material's list and fast scroller, where iOS has its section index. */
+  readonly android = this.nativeChrome.android
 
   private books = toSignal(this.bookService.books$, { initialValue: [] })
   private booksKnown = computed(() => this.books().length)
   private slug = signal<string | null>(null)
 
-  /** Where two columns fit, every theme is open, as on the printed page. */
-  readonly wide = toSignal(
-    inject(BreakpointObserver)
-      .observe("(min-width: 768px)")
-      .pipe(map(({ matches }) => matches)),
-    { requireSync: true },
-  )
+  /**
+   * Where two columns fit, every theme is open, as on the printed page. A web
+   * page's layout: the apps keep their list, turned on its side or on a tablet.
+   */
+  readonly wide = this.native
+    ? signal(false).asReadonly()
+    : toSignal(
+        inject(BreakpointObserver)
+          .observe("(min-width: 768px)")
+          .pipe(map(({ matches }) => matches)),
+        { requireSync: true },
+      )
 
   /** The theme to bring to the top once its panel has finished opening. */
   private scrollTarget: string | null = null
@@ -220,11 +247,9 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   private pendingOpen: string | null = null
 
   readonly query = signal("")
-  readonly privacyPolicyUrl = PRIVACY_POLICY_URL
+  /** In the apps, whether the shell's filter field is showing. */
+  private filterOpen = signal(false)
   readonly ribbonColor = ribbonColor
-  readonly canInstall = toSignal(this.pwaInstall.canPromptInstall$, {
-    requireSync: true,
-  })
   readonly canShare =
     typeof navigator !== "undefined" && typeof navigator.share === "function"
   /** Small print under the menu's last item; null until it is known. */
@@ -232,6 +257,10 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
 
   /** The reader's text size, which this page shares (fontSizeContext). */
   private textSize = viewChild(UnifiedGesturesDirective)
+  /** The size and its range, for Android's text sheet. */
+  readonly textSizeState = signal<TextSize | null>(null)
+  /** The theme the menus show, which ThemeService keeps out of signals' reach. */
+  private themeMode = signal<ThemeMode>(this.themeService.currentMode)
 
   private bookmarks = toSignal(this.bookmarkService.bookmarks$, {
     initialValue: [],
@@ -264,24 +293,33 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     )
   }
 
-  decreaseFontSize(): void {
-    this.textSize()?.decreaseFontSize()
+  decreaseFontSize(step?: number): void {
+    this.textSize()?.decreaseFontSize(step)
   }
 
-  increaseFontSize(): void {
-    this.textSize()?.increaseFontSize()
+  increaseFontSize(step?: number): void {
+    this.textSize()?.increaseFontSize(step)
   }
 
   async share(): Promise<void> {
     const entry = this.entry()
+    const title = "Bíblia Sagrada"
+    const text = entry
+      ? `Ler ${entry.title} no Índice Bíblico-Pastoral.`
+      : "Ler o Índice Bíblico-Pastoral."
+    const url = shareableUrl(window.location)
     try {
-      await navigator.share({
-        title: "Bíblia Sagrada",
-        text: entry
-          ? `Ler ${entry.title} no Índice Bíblico-Pastoral.`
-          : "Ler o Índice Bíblico-Pastoral.",
-        url: shareableUrl(window.location),
-      })
+      if (this.native) {
+        const shared = await this.nativeChrome.share({
+          title,
+          text,
+          url,
+          linkTitle: document.title || title,
+        })
+        if (!shared) return
+      } else {
+        await navigator.share({ title, text, url })
+      }
       void this.analytics.track("share", {
         book: indexBookmarkId(entry?.slug),
       })
@@ -290,50 +328,24 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     }
   }
 
-  async install(): Promise<void> {
-    const outcome = await this.pwaInstall.promptInstall()
-    // AnalyticsService.track overwrites `platform`, hence the distinct key.
-    void this.analytics.track("pwa_install_prompt", {
-      outcome,
-      installPlatform: this.pwaInstall.detectPlatform(),
-    })
-  }
-
   reportProblem(): void {
     const entry = this.entry()
     const title = entry?.title ?? PASTORAL_INDEX_BOOK.shortName
+    const book = {
+      ...PASTORAL_INDEX_BOOK,
+      id: indexBookmarkId(entry?.slug),
+      name: title,
+      shortName: title,
+    }
+    if (this.native) {
+      this.nativeReport.open(book, INDEX_BOOKMARK_CHAPTER)
+      return
+    }
     this.dialog.open(ReportProblemComponent, {
-      data: {
-        book: {
-          ...PASTORAL_INDEX_BOOK,
-          id: indexBookmarkId(entry?.slug),
-          name: title,
-          shortName: title,
-        },
-        chapter: INDEX_BOOKMARK_CHAPTER,
-      },
+      data: { book, chapter: INDEX_BOOKMARK_CHAPTER },
       width: "90%",
       maxWidth: "500px",
     })
-  }
-
-  /** Which theme is on: the menu's button cycles through them. */
-  get theme(): { icon: string; label: string } {
-    const mode = this.themeService.currentMode
-    if (mode === "system") {
-      return { icon: "brightness_auto", label: "Tema: Automático" }
-    }
-    return mode === "light"
-      ? { icon: "light_mode", label: "Tema: Claro" }
-      : { icon: "dark_mode", label: "Tema: Escuro" }
-  }
-
-  toggleTheme(): void {
-    this.themeService.toggleTheme()
-  }
-
-  openHelp(): void {
-    this.onboarding.open("menu")
   }
 
   openAbout(): void {
@@ -382,6 +394,42 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
 
   constructor() {
     this.destroyRef.onDestroy(() => this.stopGlide?.(false))
+    if (this.native) {
+      // The bars are a book's, the index being one in the book lists: what
+      // they show follows the theme open, its ribbon and the filter.
+      effect(() => {
+        const color = this.ribbons().get(indexBookmarkId(this.slug())) ?? null
+        const title = PASTORAL_INDEX_BOOK.name
+        this.nativeChrome.show({
+          mode: "reader",
+          themeMode: this.themeMode(),
+          passageLabel: title,
+          passageShortLabels: [PASTORAL_INDEX_BOOK.abrv],
+          passageAccessibilityLabel: [
+            title,
+            ...(this.entry() ? [this.entry()?.title] : []),
+            ...(color ? [`marcador ${this.ribbonName(color)}`] : []),
+          ].join(", "),
+          chapterNavigation: false,
+          canGoPrevious: false,
+          canGoNext: false,
+          search: true,
+          viewMode: null,
+          raggedText: null,
+          autoScrollVisible: false,
+          autoScrollAvailable: false,
+          canShare: true,
+          canReport: this.analytics.areAnalyticsAvailable(),
+          bookmarkColor: color,
+          bookmarkName: null,
+          buildVersion: this.version()?.build ?? null,
+          textSize: this.textSizeState(),
+          filterPlaceholder: "Filtrar temas",
+          filterOpen: this.filterOpen(),
+          query: this.query(),
+        })
+      })
+    }
     if (this.isBrowser) {
       const root = inject(DOCUMENT).documentElement
       // The letters stand in for the native scrollbar where they run down the
@@ -450,18 +498,75 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
       .then((version) => this.version.set(version))
 
     if (this.native) {
-      this.nativeChrome.show({
-        mode: "page",
-        themeMode: this.themeService.currentMode,
-        title: "Índice Bíblico-Pastoral",
-        search: true,
-      })
       this.nativeChrome.actions$
         .pipe(takeUntilDestroyed(this.destroyRef))
-        .subscribe(({ id }) => {
-          if (id === "back") this.back()
-          if (id === "search") void this.router.navigate(["/search"])
-        })
+        .subscribe((action) => this.onNativeAction(action))
+      // The bars hide as the text is read, as in a chapter.
+      this.destroyRef.onDestroy(
+        this.nativeChrome.trackScroll(document.documentElement, document),
+      )
+    }
+  }
+
+  private onNativeAction(action: NativeChromeAction): void {
+    switch (action.id) {
+      case "passage":
+        this.nativeChrome.showPicker(
+          buildPassagePicker(this.bookService.getBooks(), this.bookmarks(), {
+            bookId: PASTORAL_INDEX_BOOK.id,
+            chapter: INDEX_BOOKMARK_CHAPTER,
+          }),
+        )
+        break
+      case "goto":
+        this.goToPassage(action.bookId, action.chapter)
+        break
+      case "search":
+        void this.router.navigate(["/search"])
+        break
+      case "filter":
+        this.filterOpen.set(true)
+        break
+      case "filter-close":
+        this.filterOpen.set(false)
+        if (this.query()) this.filter("")
+        break
+      case "search-input":
+        this.filter(action.text)
+        break
+      case "bookmarks":
+        this.openBookmarks()
+        break
+      case "theme-system":
+      case "theme-light":
+      case "theme-dark":
+        this.themeMode.set(action.id.slice("theme-".length) as ThemeMode)
+        this.themeService.setTheme(this.themeMode())
+        break
+      case "font-decrease":
+        this.decreaseFontSize(action.step)
+        break
+      case "font-increase":
+        this.increaseFontSize(action.step)
+        break
+      case "font-reset":
+        this.textSize()?.resetFontSize()
+        break
+      case "share":
+        void this.share()
+        break
+      case "report":
+        this.reportProblem()
+        break
+      case "about":
+        this.openAbout()
+        break
+      case "help":
+        this.onboarding.open("menu")
+        break
+      case "privacy":
+        window.open(PRIVACY_POLICY_URL, "_blank", "noopener")
+        break
     }
   }
 
@@ -469,20 +574,28 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     if (this.native) this.nativeChrome.hide()
   }
 
+  /** A book chosen in the picker, as the reader goes to one: the index itself opens at its top. */
+  private goToPassage(bookId: string, chapter?: number): void {
+    if (bookId === PASTORAL_INDEX_BOOK.id) {
+      this.expand(null)
+      window.scrollTo({ top: 0, behavior: "instant" })
+      return
+    }
+    const book = this.bookService.findBook(bookId)
+    void this.router.navigate([
+      "/",
+      this.bookService.getUrlAbrv(book),
+      this.bookService.getChapterUrlSegment(
+        chapter ?? (book.introSlug ? 0 : 1),
+      ),
+    ])
+  }
+
   /** A citation leaves for the reader: a toast offers the way back here. */
   followCitation(event: MouseEvent, slug: string): void {
     // A new tab or window: the page stays here, with nothing to go back to.
     if (leftToTheBrowser(event)) return
     this.toast.showReturnToIndex(slug)
-  }
-
-  /** The native bar's back button: through history where there is any. */
-  back(): void {
-    if (historyDepth(this.location.getState()) > 0) {
-      this.location.back()
-    } else {
-      void this.router.navigate(["/"])
-    }
   }
 
   /** The phone's scroll bar measures itself, so never in a prerender. */
@@ -493,6 +606,24 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
    * results away; from far down it, brings them into view.
    */
   filter(query: string): void {
+    // In the apps an emptied field gives the whole list back, with the theme
+    // chosen from the results still open and in view.
+    if (this.native && !query.trim()) {
+      this.query.set(query)
+      const slug = this.slug()
+      afterNextRender(
+        () => {
+          if (slug) {
+            this.scrollSmoothly = false
+            this.scrollTo(slug)
+          } else {
+            window.scrollTo({ top: 0, behavior: "instant" })
+          }
+        },
+        { injector: this.injector },
+      )
+      return
+    }
     this.query.set(query)
     if (!this.wide() && this.slug()) {
       this.stopGlide?.(false)
@@ -502,6 +633,12 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     }
     afterNextRender(
       () => {
+        // The results take the screen's place, from their top, as a native
+        // search's do.
+        if (this.native) {
+          window.scrollTo({ top: 0, behavior: "instant" })
+          return
+        }
         const list = document.querySelector("mat-accordion")
         const tools = document.querySelector(".index-tools")
         if (
@@ -525,10 +662,16 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
       ...document.querySelectorAll<HTMLElement>("section.letter"),
     ]
     // Measured: the bars are taller under a phone's notch and with the row of
-    // letters on desktop.
-    const line =
-      (document.querySelector(".index-tools")?.getBoundingClientRect().bottom ??
-        0) + CURRENT_LETTER_MARGIN
+    // letters on desktop. In the apps only their own bar is up there.
+    const barsEnd = this.native
+      ? Number.parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue(
+            "--native-chrome-top",
+          ),
+        ) || 0
+      : (document.querySelector(".index-tools")?.getBoundingClientRect()
+          .bottom ?? 0)
+    const line = barsEnd + CURRENT_LETTER_MARGIN
     // The last letters are too short to reach the line: the end is the last.
     const atEnd =
       window.scrollY > 0 &&
@@ -551,7 +694,12 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     this.scrubbed.set(letter)
     const section = document.getElementById(`letra-${letter}`)
     if (!section) return
-    if (this.reducedMotion()) section.scrollIntoView()
+    // iOS's section index jumps, with a tick for each letter under the finger.
+    if (this.native) {
+      this.haptics.selection()
+      this.nativeChrome.holdBars(BARS_HELD_MS)
+    }
+    if (this.reducedMotion() || this.native) section.scrollIntoView()
     else if (dragging) {
       this.glideTo(section, { ms: DRAG_GLIDE_MS, ease: easeOutCubic })
     } else this.glideTo(section)
@@ -583,10 +731,13 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   opened(slug: string, panel: MatExpansionPanel): void {
     if (this.wide() || this.slug() === slug) return
     // Material has opened it already, and closes the one before: that closing
-    // goes ahead, this opening waits. Its binding opens it, in scrollTo.
-    panel.close()
+    // goes ahead, this opening waits. Its binding opens it, in scrollTo. In the
+    // apps it stays open, and the page moves as it does.
+    if (!this.native) {
+      panel.close()
+      this.pendingOpen = slug
+    }
     this.scrollSmoothly = true
-    this.pendingOpen = slug
     this.heldTop =
       document.getElementById(`tema-${slug}`)?.getBoundingClientRect().top ??
       null
@@ -595,6 +746,23 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
 
   closed(slug: string): void {
     if (!this.wide() && this.slug() === slug) this.expand(null)
+    if (!this.native) return
+    // Its title stays in sight as the reader goes down its text (the apps'
+    // CSS), so closing from there puts the row back in view, under the finger.
+    afterNextRender(
+      () => {
+        const theme = document.getElementById(`tema-${slug}`)
+        if (
+          theme &&
+          theme.getBoundingClientRect().top <
+            Number.parseFloat(getComputedStyle(theme).scrollMarginTop)
+        ) {
+          this.nativeChrome.holdBars(BARS_HELD_MS)
+          theme.scrollIntoView()
+        }
+      },
+      { injector: this.injector },
+    )
   }
 
   /** Closing a long theme above moves this one, so settle it once that ends. */
@@ -610,6 +778,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     if (leftToTheBrowser(event)) return
     event.preventDefault()
     this.query.set("")
+    this.filterOpen.set(false)
     // Far off, as often as not: a long smooth scroll would only disorient.
     this.scrollSmoothly = false
     // A step of its own, unlike opening a theme: Back returns to the one that
@@ -656,6 +825,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   private scrollTo(slug: string): void {
     const theme = document.getElementById(`tema-${slug}`)
     if (!theme) return
+    if (this.native) this.nativeChrome.holdBars(BARS_HELD_MS)
     // A theme closing above moved this one: back where the finger left it, at
     // once, so that the one scroll below starts from there.
     if (this.heldTop !== null) {
@@ -672,7 +842,12 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
       }
     }
     if (this.scrollSmoothly && !this.reducedMotion()) {
-      this.glideTo(theme, { arrived: open })
+      this.glideTo(
+        theme,
+        this.native
+          ? { arrived: open, ms: NATIVE_OPEN_MS, ease: easeOutCubic }
+          : { arrived: open },
+      )
     } else {
       theme.scrollIntoView()
       open()
