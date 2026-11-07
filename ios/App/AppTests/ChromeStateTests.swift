@@ -90,6 +90,90 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertTrue(state.search)
     }
 
+    func testReadsAPageWithAFilter() throws {
+        let state = try fixture("reader-filter")
+        XCTAssertEqual(state.mode, .reader)
+        XCTAssertEqual(state.passageLabel, "Índice Bíblico-Pastoral")
+        XCTAssertEqual(state.filterPlaceholder, "Filtrar temas")
+        XCTAssertTrue(state.filterOpen)
+        XCTAssertEqual(state.query, "amor")
+        XCTAssertTrue(state.showsSearchField)
+        XCTAssertFalse(state.chapterNavigation)
+    }
+
+    func testAPageWithoutAFilterHasNoSearchField() throws {
+        let state = try fixture("reader")
+        XCTAssertNil(state.filterPlaceholder)
+        XCTAssertFalse(state.showsSearchField)
+    }
+
+    func testAnEntryWithNoGroupAfterTheTestamentsIntroKeepsItsOwnSection() {
+        let book = { (id: String, name: String) in
+            PassagePickerData.Book(id: id, label: name, name: name, abbreviation: id, chapters: [])
+        }
+        let intro = PassagePickerData.Group(title: nil, books: [book("nt", "Introdução")])
+        let index = PassagePickerData.Group(title: nil, books: [book("indice", "Índice Bíblico-Pastoral")])
+        let titled = PassagePickerData.Group(title: "Apocalipse", books: [book("ap", "Apocalipse")])
+        let testament = PassagePickerData.Section(title: "Novo Testamento", groups: [intro, titled, index])
+        XCTAssertEqual(PassagePickerData.sectionTitle(of: intro, in: testament, showing: intro.books, taken: []),
+                       "Novo Testamento")
+        XCTAssertEqual(PassagePickerData.sectionTitle(of: titled, in: testament, showing: titled.books,
+                                                      taken: ["Novo Testamento"]), "Apocalipse")
+        XCTAssertEqual(PassagePickerData.sectionTitle(of: index, in: testament, showing: index.books,
+                                                      taken: ["Novo Testamento", "Apocalipse"]),
+                       "Índice Bíblico-Pastoral")
+    }
+
+    func testAToastOffersItsButtonOnlyWhileItIsOne() {
+        let toast = ToastView()
+        XCTAssertNil(toast.activeButton)
+        toast.show("Copiado")
+        XCTAssertNil(toast.activeButton)
+
+        var tapped = false
+        toast.show("Voltar para o Índice", symbol: "arrow.uturn.backward") { tapped = true }
+        XCTAssertEqual(toast.activeButton?.message, "Voltar para o Índice")
+        XCTAssertEqual(toast.activeButton?.symbol, "arrow.uturn.backward")
+
+        toast.tapped()
+        XCTAssertTrue(tapped)
+        XCTAssertNil(toast.activeButton)
+    }
+
+    func testAToastClosedOffersNothing() {
+        let toast = ToastView()
+        toast.show("Voltar para o Índice", onTap: {})
+        toast.dismissNow()
+        XCTAssertNil(toast.activeButton)
+    }
+
+    private let wayBackSize = CGSize(width: 200, height: 44)
+    private let screen = CGRect(x: 0, y: 0, width: 402, height: 874)
+    private let phoneSafeArea = UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0)
+
+    func testTheWayBackFloatsAboveAHalfHeightSheet() {
+        let sheet = CGRect(x: 0, y: 430, width: 402, height: 444)
+        let center = FootnotesController.wayBackCenter(sheet: sheet, size: wayBackSize,
+                                                       container: screen, safeArea: phoneSafeArea)
+        // Its lower edge clears the sheet's top.
+        XCTAssertEqual(center.y + wayBackSize.height / 2, sheet.minY - 12)
+        XCTAssertEqual(center.x, sheet.midX)
+    }
+
+    func testTheWayBackStaysAtTheFootOfASheetThatFillsTheScreen() {
+        let sheet = CGRect(x: 0, y: 72, width: 402, height: 802)
+        let center = FootnotesController.wayBackCenter(sheet: sheet, size: wayBackSize,
+                                                       container: screen, safeArea: phoneSafeArea)
+        XCTAssertEqual(center.y + wayBackSize.height / 2, screen.maxY - phoneSafeArea.bottom - 12)
+    }
+
+    func testTheWayBackStaysOnScreenWhenASheetRunsPastItsFoot() {
+        let sheet = CGRect(x: 0, y: 72, width: 402, height: 1200)
+        let center = FootnotesController.wayBackCenter(sheet: sheet, size: wayBackSize,
+                                                       container: screen, safeArea: phoneSafeArea)
+        XCTAssertLessThan(center.y + wayBackSize.height / 2, screen.maxY)
+    }
+
     func testReadsNoBars() throws {
         XCTAssertEqual(try fixture("none"), ChromeState())
     }

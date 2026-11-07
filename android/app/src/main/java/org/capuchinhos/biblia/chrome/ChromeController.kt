@@ -1,6 +1,7 @@
 package org.capuchinhos.biblia.chrome
 
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Color
@@ -10,6 +11,7 @@ import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.graphics.drawable.LayerDrawable
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityManager
@@ -242,9 +244,23 @@ class ChromeController(
         // TalkBack reads the bars, then the page, rather than a whole chapter
         // before reaching them.
         webView.accessibilityTraversalAfter = overlay.id
+        watchPageTouches(webView)
         accessibility.addAccessibilityStateChangeListener(accessibilityChanged)
         accessibility.addTouchExplorationStateChangeListener(touchExplorationChanged)
         updateBarsStayUp()
+    }
+
+    /** Touches on the page so far, which close a filter's keyboard. */
+    var pageTouches by mutableIntStateOf(0)
+        private set
+
+    /** Only watches: the touch goes on to the page. */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun watchPageTouches(webView: WebView) {
+        webView.setOnTouchListener { _, event ->
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) pageTouches++
+            false
+        }
     }
 
     /** The activity is going: stop listening, so it isn't kept alive. */
@@ -306,14 +322,16 @@ class ChromeController(
     val insets: ChromeInsets
         get() = chromeInsets(state, collapsed, systemTop, systemBottom, readerBar)
 
-    /** The scheme's surfaceContainerHigh as last sent to the web app. */
-    private var sentCardSurface: Int? = null
+    /** The scheme's colours as last sent to the web app. */
+    private var sentPalette: Map<String, Int>? = null
 
-    /** The bars' colours changed (theme, wallpaper): the web's cards follow. */
-    fun onPalette(surfaceContainerHigh: Int) {
-        if (surfaceContainerHigh == sentCardSurface) return
-        sentCardSurface = surfaceContainerHigh
-        sendPalette(JSObject().put("surfaceContainerHigh", cssHex(surfaceContainerHigh)))
+    /** The bars' colours changed (theme, wallpaper): the web's surfaces follow. */
+    fun onPalette(palette: Map<String, Int>) {
+        if (palette == sentPalette) return
+        sentPalette = palette
+        val colors = JSObject()
+        palette.forEach { (role, color) -> colors.put(role, cssHex(color)) }
+        sendPalette(colors)
     }
 
     /** The reader's top bar was laid out at this height (dp). */

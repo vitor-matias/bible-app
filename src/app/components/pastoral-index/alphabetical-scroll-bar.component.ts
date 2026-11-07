@@ -14,6 +14,8 @@ import {
 /** How the letters around the finger grow, from the one under it outwards. */
 const MAGNIFICATION_CURVE = [1, 0.7, 0.5, 0.3, 0.1]
 const MAGNIFICATION_MULTIPLIER = 2
+/** A letter's height without magnifying: the page sets them 1.3 em apart. */
+const PLAIN_LETTER_EMS = 1.25
 /** 0, not the package's 1: with it, a normal phone lost half its letters. */
 const LETTER_SPACING_PERCENT = 0
 const DIVIDER = "·"
@@ -99,6 +101,8 @@ export class AlphabeticalScrollBarComponent {
   readonly alphabet = input.required<string[]>()
   /** The letter to highlight: where the page has scrolled to. */
   readonly current = input<string | null>(null)
+  /** False for iOS's section index, whose letters stay as they are under a finger. */
+  readonly magnify = input(true)
   /** A letter chosen by a tap, a click or a drag. */
   readonly letterChange = output<string>()
   /** True as the bar is touched, false when the finger lifts. */
@@ -146,7 +150,8 @@ export class AlphabeticalScrollBarComponent {
 
     const fontSize = Number.parseFloat(getComputedStyle(element).fontSize)
     const letterSize =
-      fontSize * MAGNIFICATION_MULTIPLIER +
+      fontSize *
+        (this.magnify() ? MAGNIFICATION_MULTIPLIER : PLAIN_LETTER_EMS) +
       height * (LETTER_SPACING_PERCENT / 100)
     this.lettersShortened = height / letterSize < alphabet.length
     if (!this.lettersShortened) {
@@ -207,7 +212,7 @@ export class AlphabeticalScrollBarComponent {
       this.lastActive = true
       this.isActive.emit(true)
     }
-    this.magnifying.set(event.type !== "click")
+    this.magnifying.set(this.magnify() && event.type !== "click")
     const point = "touches" in event ? event.touches[0] : event
     const letter = this.letterAt(point.clientY)
     if (letter && letter !== this.lastLetter && !event.type.includes("mouse")) {

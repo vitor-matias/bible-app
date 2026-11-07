@@ -737,6 +737,17 @@ private fun FootnotesSheet(chrome: ChromeController, sheet: Sheet.Footnotes) {
     ChromeSheet(chrome, sheet, sheetState) {
         Column(Modifier.padding(start = 24.dp, end = 12.dp)) {
             SheetTitleRow(state.title, onClose = { closer.close() }, Modifier.padding(bottom = 12.dp))
+            // The snackbar's way back is under this sheet: it is offered here,
+            // under the title, where the sheet's height can't hide it.
+            sheetWayBack(chrome.toast)?.let { back ->
+                TextButton(
+                    onClick = { closer.close { chrome.toastDone(back, tapped = true) } },
+                    modifier = Modifier.heightIn(min = 48.dp).offset(x = (-12).dp),
+                ) {
+                    Icon(painterResource(R.drawable.ic_undo), contentDescription = null)
+                    Text(back.message, Modifier.padding(start = 8.dp), maxLines = 2)
+                }
+            }
             SelectionContainer(Modifier.verticalScroll(rememberScrollState()).padding(end = 12.dp, bottom = 32.dp)) {
                 // A paragraph per note, set apart as in the edition.
                 Column(verticalArrangement = Arrangement.spacedBy((size * 0.9f).dp)) {
@@ -748,6 +759,9 @@ private fun FootnotesSheet(chrome: ChromeController, sheet: Sheet.Footnotes) {
         }
     }
 }
+
+/** The toast a sheet offers in its place: one that's a button. */
+internal fun sheetWayBack(toast: Toast?): Toast? = toast?.takeIf { it.button }
 
 /**
  * A note: its marker in bold, a little larger, then its text, references as

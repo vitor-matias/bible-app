@@ -19,9 +19,11 @@ import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import { BuildVersionService } from "../../services/build-version.service"
+import { HapticsService } from "../../services/haptics.service"
 import { NativeBookmarksService } from "../../services/native-bookmarks.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
+import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { PwaInstallService } from "../../services/pwa-install.service"
@@ -64,13 +66,24 @@ describe("PastoralIndexComponent", () => {
   let dialog: SpyObj<MatDialog>
   let nativeBookmarks: SpyObj<NativeBookmarksService>
   let analyticsOn: boolean
-  let themes: { currentMode: string; toggleTheme: ReturnType<typeof vi.fn> }
+  let nativeReport: SpyObj<NativeReportService>
+  let haptics: SpyObj<HapticsService>
+  let themes: {
+    currentMode: string
+    toggleTheme: ReturnType<typeof vi.fn>
+    setTheme: ReturnType<typeof vi.fn>
+  }
   let actions: Subject<NativeChromeAction>
   let chrome: {
     enabled: boolean
+    android: boolean
     actions$: Subject<NativeChromeAction>
     show: ReturnType<typeof vi.fn>
     hide: ReturnType<typeof vi.fn>
+    share: ReturnType<typeof vi.fn>
+    holdBars: ReturnType<typeof vi.fn>
+    showPicker: ReturnType<typeof vi.fn>
+    trackScroll: ReturnType<typeof vi.fn>
   }
 
   async function open(
@@ -79,6 +92,7 @@ describe("PastoralIndexComponent", () => {
     cameBack = false,
     desktop = false,
     animated = false,
+    android = false,
   ) {
     wide = new BehaviorSubject({ matches: desktop })
     // A tap opens its theme at once; "scrolling to a theme" animates.
@@ -94,13 +108,20 @@ describe("PastoralIndexComponent", () => {
     dialog = createSpyObj("MatDialog", ["open"])
     nativeBookmarks = createSpyObj("NativeBookmarksService", ["open"])
     analyticsOn = true
-    themes = { currentMode: "light", toggleTheme: vi.fn() }
+    nativeReport = createSpyObj("NativeReportService", ["open"])
+    haptics = createSpyObj("HapticsService", ["selection"])
+    themes = { currentMode: "light", toggleTheme: vi.fn(), setTheme: vi.fn() }
     actions = new Subject()
     chrome = {
       enabled: native,
+      android,
       actions$: actions,
       show: vi.fn(),
       hide: vi.fn(),
+      share: vi.fn().mockResolvedValue(true),
+      holdBars: vi.fn(),
+      showPicker: vi.fn(),
+      trackScroll: vi.fn().mockReturnValue(() => {}),
     }
     TestBed.configureTestingModule({
       imports: [PastoralIndexComponent],
@@ -116,6 +137,8 @@ describe("PastoralIndexComponent", () => {
         { provide: MatBottomSheet, useValue: bottomSheet },
         { provide: MatDialog, useValue: dialog },
         { provide: NativeBookmarksService, useValue: nativeBookmarks },
+        { provide: NativeReportService, useValue: nativeReport },
+        { provide: HapticsService, useValue: haptics },
         { provide: BackButtonService, useValue: { closeOnBack: vi.fn() } },
         {
           provide: AnalyticsService,
@@ -141,6 +164,7 @@ describe("PastoralIndexComponent", () => {
           useValue: {
             books$: of(CANON),
             getBooks: () => CANON,
+            getChapterUrlSegment: (chapter: number) => String(chapter),
             getAboutBook: () => ({ abrv: "Sobre" }) as Book,
             findBook: (abrv: string) =>
               CANON.find(
@@ -1495,29 +1519,6 @@ describe("PastoralIndexComponent", () => {
     expect(navigate).toHaveBeenCalledWith(["/indice"], { replaceUrl: true })
   })
 
-  it("goes back through history when there is one", async () => {
-    const fixture = await open("aarao")
-    const location = TestBed.inject(Location)
-    const backSpy = vi.spyOn(location, "back").mockImplementation(() => {})
-    vi.spyOn(location, "getState").mockReturnValue({ appDepth: 2 })
-
-    fixture.componentInstance.back()
-
-    expect(backSpy).toHaveBeenCalled()
-  })
-
-  it("goes home when it is the first page", async () => {
-    const fixture = await open("aarao")
-    const navigate = vi
-      .spyOn(TestBed.inject(Router), "navigate")
-      .mockResolvedValue(true)
-    vi.spyOn(TestBed.inject(Location), "getState").mockReturnValue(null)
-
-    fixture.componentInstance.back()
-
-    expect(navigate).toHaveBeenCalledWith(["/"])
-  })
-
   it("leaves the toolbar to the native apps and answers their buttons", async () => {
     const fixture = await open(undefined, true)
     const navigate = vi
@@ -1526,13 +1527,438 @@ describe("PastoralIndexComponent", () => {
 
     expect(fixture.nativeElement.querySelector("mat-toolbar")).toBeNull()
     expect(chrome.show).toHaveBeenCalledWith(
-      expect.objectContaining({ mode: "page", search: true }),
+      expect.objectContaining({ mode: "reader", search: true }),
     )
     actions.next({ id: "search" } as NativeChromeAction)
     expect(navigate).toHaveBeenCalledWith(["/search"])
 
     fixture.destroy()
     expect(chrome.hide).toHaveBeenCalled()
+  })
+
+  describe("at a larger text size", () => {
+    // The size is kept in preferences: later specs start from the default.
+    afterEach(() => TestBed.inject(PreferencesService).clearFontSize("reader"))
+
+    async function enlarged(native: boolean, android = false) {
+      const fixture = await open(
+        undefined,
+        native,
+        false,
+        false,
+        false,
+        android,
+      )
+      const gestures = fixture.debugElement
+        .query((de) => de.name === "mat-accordion")
+        .injector.get(UnifiedGesturesDirective)
+      for (let i = 0; i < 12; i++) gestures.increaseFontSize(10)
+      fixture.detectChanges()
+      await fixture.whenStable()
+      const el: HTMLElement = fixture.nativeElement
+      const size = (selector: string) =>
+        Number.parseFloat(
+          getComputedStyle(el.querySelector(selector) as Element).fontSize,
+        )
+      return { el, size }
+    }
+
+    // The text-size directive sizes headings against the accordion, itself
+    // already scaled: a letter's heading grew to over twice the themes'.
+    it("keeps a letter's heading in step with the themes", async () => {
+      const { size } = await enlarged(false)
+      expect(size(".letter > h2") / size("mat-accordion")).toBeCloseTo(0.9, 1)
+    })
+
+    it("keeps the heading in step in the apps too", async () => {
+      const { size } = await enlarged(true, true)
+      expect(size(".letter > h2") / size("mat-accordion")).toBeCloseTo(0.875, 1)
+    })
+
+    // A fixed 24px line cut off the foot of larger titles.
+    for (const [label, native, android] of [
+      ["on the web", false, false],
+      ["on iOS", true, false],
+      ["on Android", true, true],
+    ] as const) {
+      it(`gives a theme's title a line as tall as its text ${label}`, async () => {
+        const { el } = await enlarged(native, android)
+        const title = getComputedStyle(
+          el.querySelector("mat-panel-title") as Element,
+        )
+        expect(
+          Number.parseFloat(title.lineHeight) /
+            Number.parseFloat(title.fontSize),
+        ).toBeGreaterThan(1.2)
+      })
+    }
+  })
+
+  describe("in the apps", () => {
+    const lastChrome = () => chrome.show.mock.lastCall?.[0]
+
+    /** The filter, as the shell's field reports it. */
+    async function typeInField(
+      fixture: ComponentFixture<PastoralIndexComponent>,
+      text: string,
+    ) {
+      actions.next({ id: "search-input", text })
+      await fixture.whenStable()
+      fixture.detectChanges()
+      await fixture.whenStable()
+    }
+
+    it("has a book's bars: the passage, Marcadores, search and the menus", async () => {
+      await open(undefined, true)
+      expect(lastChrome()).toEqual(
+        expect.objectContaining({
+          mode: "reader",
+          passageLabel: "Índice Bíblico-Pastoral",
+          passageShortLabels: ["Índice"],
+          search: true,
+          chapterNavigation: false,
+          viewMode: null,
+          autoScrollAvailable: false,
+          bookmarkColor: null,
+          canShare: true,
+          canReport: true,
+          filterPlaceholder: "Filtrar temas",
+          filterOpen: false,
+        }),
+      )
+    })
+
+    it("hides the bars as the text is read, as in a chapter", async () => {
+      const stop = vi.fn()
+      TestBed.resetTestingModule()
+      const fixture = await open(undefined, true)
+      expect(chrome.trackScroll).toHaveBeenCalledWith(
+        document.documentElement,
+        document,
+      )
+      fixture.destroy()
+      expect(stop).not.toHaveBeenCalled()
+    })
+
+    it("offers the book picker from the passage, on the index", async () => {
+      await open(undefined, true)
+      actions.next({ id: "passage" })
+      const data = chrome.showPicker.mock.lastCall?.[0]
+      expect(data.currentBookId).toBe("indice")
+      const books = data.sections.flatMap(
+        (section: { groups: { books: { id: string }[] }[] }) =>
+          section.groups.flatMap((group) => group.books.map((book) => book.id)),
+      )
+      expect(books.at(-1)).toBe("indice")
+    })
+
+    it("goes to the book the picker chose", async () => {
+      await open(undefined, true)
+      const navigate = vi
+        .spyOn(TestBed.inject(Router), "navigate")
+        .mockResolvedValue(true)
+      actions.next({ id: "goto", bookId: "Gn", chapter: 3 })
+      expect(navigate).toHaveBeenCalledWith(["/", "gn", "3"])
+    })
+
+    it("goes to the index's top when the picker chooses it", async () => {
+      const fixture = await open("abismo", true)
+      const navigate = vi
+        .spyOn(TestBed.inject(Router), "navigate")
+        .mockResolvedValue(true)
+      const scroll = vi.spyOn(window, "scrollTo").mockImplementation(() => {})
+      actions.next({ id: "goto", bookId: "indice" })
+      await fixture.whenStable()
+      expect(navigate).not.toHaveBeenCalled()
+      expect(TestBed.inject(Location).path()).toBe("/indice")
+      expect(fixture.componentInstance.expandedSlug()).toBeNull()
+      expect(scroll).toHaveBeenCalledWith({ top: 0, behavior: "instant" })
+    })
+
+    it("opens the filter's field from its button", async () => {
+      const fixture = await open(undefined, true)
+      actions.next({ id: "filter" })
+      await fixture.whenStable()
+      expect(lastChrome().filterOpen).toBe(true)
+    })
+
+    it("leaves an open theme as it is when an empty field closes", async () => {
+      const fixture = await open("abel", true)
+      actions.next({ id: "filter" })
+      actions.next({ id: "filter-close" })
+      await fixture.whenStable()
+      expect(fixture.componentInstance.entry()?.slug).toBe("abel")
+      expect(fixture.componentInstance.expandedSlug()).toBe("abel")
+    })
+
+    it("keeps the theme chosen from the results open, in view, as the field empties", async () => {
+      const fixture = await open(undefined, true)
+      actions.next({ id: "filter" })
+      await typeInField(fixture, "abel")
+      await tap(fixture, "abel")
+      const theme = fixture.nativeElement.querySelector(
+        "#tema-abel",
+      ) as HTMLElement
+      const scroll = vi.spyOn(theme, "scrollIntoView")
+      await typeInField(fixture, "")
+      expect(TestBed.inject(Location).path()).toBe("/indice/abel")
+      expect(fixture.componentInstance.expandedSlug()).toBe("abel")
+      expect(
+        fixture.nativeElement.querySelectorAll("mat-expansion-panel").length,
+      ).toBe(entries.length)
+      expect(scroll).toHaveBeenCalled()
+    })
+
+    it("closing the field clears the filter and brings every theme back", async () => {
+      const fixture = await open(undefined, true)
+      actions.next({ id: "filter" })
+      await typeInField(fixture, "amor")
+      actions.next({ id: "filter-close" })
+      await fixture.whenStable()
+      fixture.detectChanges()
+      await fixture.whenStable()
+      expect(lastChrome()).toEqual(
+        expect.objectContaining({ filterOpen: false, query: "" }),
+      )
+      expect(
+        fixture.nativeElement.querySelectorAll("mat-expansion-panel").length,
+      ).toBe(entries.length)
+    })
+
+    it("leaves the toolbar and the filter to the shell", async () => {
+      const fixture = await open(undefined, true)
+      const el: HTMLElement = fixture.nativeElement
+      expect(el.querySelector("mat-toolbar")).toBeNull()
+      expect(el.querySelector(".theme-filter")).toBeNull()
+      // The letter buttons stay, for VoiceOver and TalkBack.
+      expect(el.querySelectorAll(".letters button").length).toBeGreaterThan(0)
+    })
+
+    it("marks itself for the apps' list, and not on the web", async () => {
+      const fixture = await open(undefined, true)
+      expect(fixture.nativeElement.classList).toContain("native")
+      expect(fixture.nativeElement.classList).toContain("ios")
+      TestBed.resetTestingModule()
+      const web = await open()
+      expect(web.nativeElement.classList).not.toContain("native")
+    })
+
+    it("narrows the list from the shell's field, whose text it echoes", async () => {
+      const fixture = await open(undefined, true)
+      await typeInField(fixture, "amor")
+      const titles = [
+        ...fixture.nativeElement.querySelectorAll("mat-panel-title"),
+      ].map((title: Element) => title.textContent?.trim())
+      expect(titles).toContain("Amor")
+      expect(titles).not.toContain("Abbá")
+      expect(lastChrome().query).toBe("amor")
+    })
+
+    it("closes the open theme as the field filters", async () => {
+      const fixture = await open("amor", true)
+      expect(fixture.nativeElement.querySelector("article")).not.toBeNull()
+      await typeInField(fixture, "a")
+      expect(TestBed.inject(Location).path()).toBe("/indice")
+      expect(fixture.componentInstance.expandedSlug()).toBeNull()
+    })
+
+    it("lets the results take the screen, from their top", async () => {
+      const fixture = await open(undefined, true)
+      const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {})
+      expect(fixture.nativeElement.querySelector(".index-intro")).not.toBeNull()
+      await typeInField(fixture, "amor")
+      expect(fixture.nativeElement.querySelector(".index-intro")).toBeNull()
+      expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "instant" })
+    })
+
+    it("clears the field when a cross-reference clears the filter", async () => {
+      const fixture = await open("abba", true)
+      await typeInField(fixture, "ab")
+      fixture.componentInstance.follow(new MouseEvent("click"), "amor")
+      await fixture.whenStable()
+      expect(lastChrome()).toEqual(
+        expect.objectContaining({ query: "", filterOpen: false }),
+      )
+    })
+
+    it("opens a tapped theme at once, without waiting for the page", async () => {
+      const fixture = await open(undefined, true, false, false, true)
+      await tap(fixture, "abel")
+      // On the web the page gets there first: here it's already open.
+      expect(fixture.componentInstance.expandedSlug()).toBe("abel")
+      expect(TestBed.inject(Location).path()).toBe("/indice/abel")
+    })
+
+    it("keeps the bars where they are as the page moves to a tapped theme", async () => {
+      const fixture = await open(undefined, true, false, false, true)
+      await tap(fixture, "abel")
+      expect(chrome.holdBars).toHaveBeenCalled()
+    })
+
+    it("keeps its list at a width that shows two columns on the web", async () => {
+      const fixture = await open(undefined, true, false, true)
+      expect(fixture.componentInstance.wide()).toBe(false)
+      expect(fixture.nativeElement.querySelector("article")).toBeNull()
+    })
+
+    it("sends the theme's ribbon to the bar, as it changes", async () => {
+      const fixture = await open("amor", true)
+      expect(lastChrome().bookmarkColor).toBeNull()
+      bookmarks.next([
+        { bookId: "indice/amor", chapter: 1, color: "red" } as Bookmark,
+      ])
+      await fixture.whenStable()
+      expect(lastChrome().bookmarkColor).toBe("red")
+      expect(lastChrome().passageAccessibilityLabel).toBe(
+        "Índice Bíblico-Pastoral, Amor, marcador vermelho",
+      )
+    })
+
+    it("sends the index's own ribbon with no theme open", async () => {
+      const fixture = await open(undefined, true)
+      bookmarks.next([
+        { bookId: "indice", chapter: 1, color: "blue" } as Bookmark,
+      ])
+      await fixture.whenStable()
+      expect(lastChrome().bookmarkColor).toBe("blue")
+    })
+
+    it("opens Marcadores from the bar", async () => {
+      await open("amor", true)
+      actions.next({ id: "bookmarks" })
+      expect(nativeBookmarks.open).toHaveBeenCalledWith("indice/amor", 1)
+    })
+
+    it("follows the menu's theme, and shows the choice", async () => {
+      const fixture = await open(undefined, true)
+      actions.next({ id: "theme-dark" })
+      await fixture.whenStable()
+      expect(themes.setTheme).toHaveBeenCalledWith("dark")
+      expect(lastChrome().themeMode).toBe("dark")
+    })
+
+    it("changes the text size from the menu, and tells the bars", async () => {
+      const fixture = await open(undefined, true)
+      const before = lastChrome().textSize.percent
+      actions.next({ id: "font-increase", step: 10 })
+      await fixture.whenStable()
+      expect(lastChrome().textSize.percent).toBeGreaterThan(before)
+      actions.next({ id: "font-reset" })
+      await fixture.whenStable()
+      expect(lastChrome().textSize.percent).toBe(before)
+    })
+
+    it("shares through the shell", async () => {
+      await open("amor", true)
+      actions.next({ id: "share" })
+      await Promise.resolve()
+      expect(chrome.share).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: "Ler Amor no Índice Bíblico-Pastoral.",
+        }),
+      )
+    })
+
+    it("reports a problem in the native form, not the dialog", async () => {
+      await open("amor", true)
+      actions.next({ id: "report" })
+      expect(nativeReport.open).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "indice/amor", name: "Amor" }),
+        1,
+      )
+      expect(dialog.open).not.toHaveBeenCalled()
+    })
+
+    it("opens help, About and the privacy policy from the menu", async () => {
+      const fixture = await open(undefined, true)
+      const navigate = vi
+        .spyOn(TestBed.inject(Router), "navigate")
+        .mockResolvedValue(true)
+      const popup = vi.spyOn(window, "open").mockReturnValue(null)
+      actions.next({ id: "help" })
+      expect(onboarding.open).toHaveBeenCalledWith("menu")
+      actions.next({ id: "about" })
+      expect(navigate).toHaveBeenCalled()
+      actions.next({ id: "privacy" })
+      expect(popup).toHaveBeenCalled()
+      fixture.destroy()
+    })
+
+    it("puts a closed row back in view from far down its text", async () => {
+      const fixture = await open("amor", true)
+      await panelsOpened()
+      const theme = fixture.nativeElement.querySelector(
+        "#tema-amor",
+      ) as HTMLElement
+      vi.spyOn(theme, "getBoundingClientRect").mockReturnValue({
+        top: -300,
+      } as DOMRect)
+      const scroll = vi.spyOn(theme, "scrollIntoView")
+      fixture.componentInstance.closed("amor")
+      await fixture.whenStable()
+      fixture.detectChanges()
+      await fixture.whenStable()
+      expect(scroll).toHaveBeenCalled()
+    })
+
+    describe("on iOS, the section index", () => {
+      it("doesn't magnify or mark a current letter", async () => {
+        const fixture = await open(undefined, true)
+        const bar = fixture.debugElement.query(
+          (de) => de.name === "alphabetical-scroll-bar",
+        ).componentInstance
+        expect(bar.magnify()).toBe(false)
+        expect(bar.current()).toBeNull()
+      })
+
+      it("jumps to the letter under the finger, with a tick", async () => {
+        const fixture = await open(undefined, true, false, false, true)
+        const section = fixture.nativeElement.querySelector(
+          "#letra-M",
+        ) as HTMLElement
+        const scroll = vi.spyOn(section, "scrollIntoView")
+        const glide = vi.spyOn(window, "requestAnimationFrame")
+        fixture.componentInstance.scrubTo("M")
+        expect(scroll).toHaveBeenCalled()
+        expect(haptics.selection).toHaveBeenCalled()
+        expect(glide).not.toHaveBeenCalled()
+        expect(chrome.holdBars).toHaveBeenCalled()
+      })
+
+      it("goes away while filtering", async () => {
+        const fixture = await open(undefined, true)
+        await typeInField(fixture, "amor")
+        expect(fixture.nativeElement.querySelector(".letter-bar")).toBeNull()
+      })
+    })
+
+    describe("on Android", () => {
+      const androidApp = () => open(undefined, true, false, false, false, true)
+
+      it("has a fast scroller, not iOS's section index", async () => {
+        const fixture = await androidApp()
+        expect(fixture.nativeElement.classList).toContain("android")
+        expect(
+          fixture.nativeElement.querySelector("fast-scroller"),
+        ).not.toBeNull()
+        expect(fixture.nativeElement.querySelector(".letter-bar")).toBeNull()
+      })
+
+      it("takes the fast scroller away while filtering", async () => {
+        const fixture = await androidApp()
+        await typeInField(fixture, "amor")
+        expect(fixture.nativeElement.querySelector("fast-scroller")).toBeNull()
+      })
+
+      it("ripples only on Android", async () => {
+        const fixture = await androidApp()
+        const rows = (f: ComponentFixture<PastoralIndexComponent>) =>
+          f.nativeElement.querySelector("mat-expansion-panel-header")
+        expect(rows(fixture).classList).toContain("mat-ripple")
+        await tap(fixture, "abel")
+        expect(rows(fixture).querySelector(".mat-ripple-element")).toBeDefined()
+      })
+    })
   })
 
   describe("the shipped data", () => {

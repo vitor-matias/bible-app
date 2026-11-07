@@ -58,10 +58,13 @@ extension ChromeViewController {
         compactPassage.accessibilityLabel = state.passageAccessibilityLabel
         compactPassage.largeContentTitle = state.passageLabel
 
+        filterItem.isEnabled = enabled
         previousItem.isEnabled = enabled && state.canGoPrevious
         nextItem.isEnabled = enabled && state.canGoNext
         fittedToolbarWidth = toolbarWidth
-        let arrows = state.chapterNavigation ? [previousItem, nextItem] : []
+        // A list's filter takes the arrows' place, on a page without them.
+        let arrows = state.chapterNavigation ? [previousItem, nextItem]
+            : state.filterPlaceholder != nil ? [filterItem] : []
         let room = toolbarWidth - 2 * (Glass.barMargin + Glass.padding)
             - (arrows.isEmpty || usesVerticalBar ? 0 : Glass.pair + Glass.gap)
         configurePassage(state, enabled: enabled, room: room)

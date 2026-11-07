@@ -546,17 +546,19 @@ body .mat-mdc-form-field {
 
 /* The search page is a grouped list: on iOS, the system's grouped colours.
    Android keeps the theme's, as its Material bars do. */
-.platform-ios.native-chrome app-search {
+.platform-ios.native-chrome app-search,
+.platform-ios.native-chrome:has(pastoral-index) {
   --background-color: #f2f2f7;
   --card-background: #ffffff;
 }
 
-html.dark-theme .platform-ios.native-chrome app-search {
+html.dark-theme .platform-ios.native-chrome app-search,
+html.dark-theme .platform-ios.native-chrome:has(pastoral-index) {
   --background-color: #000000;
   --card-background: #1c1c1e;
 }
 
-.native-chrome :is(app-search, book-index) {
+.native-chrome :is(app-search, book-index, pastoral-index) {
   --app-chrome-top: var(--native-chrome-top, env(safe-area-inset-top));
   --app-chrome-bottom: var(--native-chrome-bottom, env(safe-area-inset-bottom));
 }
@@ -683,12 +685,20 @@ html.dark-theme .platform-ios.native-chrome app-search {
   --text-color: #e8e1dd;
   --text-secondary: #ff453a;
   --android-surface-container-high: #2d2927;
+  --android-surface-container-low: #1e1b19;
+  --android-primary: #e2c0a3;
+  --android-on-primary: #412c17;
+  --android-on-surface-variant: #d2c4ba;
 }
 
-/* The Android bars' surfaceContainerHigh (Theme.kt), for web surfaces that
-   sit among them: the chapter cards. */
+/* The Android bars' colours (Theme.kt's brown; the palette event sets the
+   wallpaper's on the body), for web surfaces that sit among them. */
 .platform-android {
   --android-surface-container-high: #eee7e3;
+  --android-surface-container-low: #faf2ee;
+  --android-primary: #543d27;
+  --android-on-primary: #ffffff;
+  --android-on-surface-variant: #4f453d;
 }
 
 /* Verse numbers are small text: the dark theme's crimson on #121212 is 3.8:1,
@@ -702,8 +712,8 @@ html.dark-theme .platform-ios.native-chrome app-search {
    layer, so a plain blur rather than glass. The Android app's Material bars
    are opaque, and Android's WebView before 140 garbled the blurred, masked
    layer into a frozen patch of old text. */
-.platform-ios.native-chrome :is(bible-reader, app-search, book-index)::before,
-.platform-ios.native-chrome :is(bible-reader, app-search)::after {
+.platform-ios.native-chrome :is(bible-reader, app-search, book-index, pastoral-index)::before,
+.platform-ios.native-chrome :is(bible-reader, app-search, pastoral-index)::after {
   content: "";
   position: fixed;
   left: 0;
@@ -716,7 +726,7 @@ html.dark-theme .platform-ios.native-chrome app-search {
 }
 
 .platform-ios.native-chrome book-index::before,
-.platform-ios.native-chrome :is(bible-reader, app-search)::before {
+.platform-ios.native-chrome :is(bible-reader, app-search, pastoral-index)::before {
   top: 0;
   height: var(--app-chrome-top);
   /* Solid behind the title and buttons, fading only below them: text that
@@ -726,7 +736,7 @@ html.dark-theme .platform-ios.native-chrome app-search {
   mask-image: linear-gradient(black 80%, transparent);
 }
 
-.platform-ios.native-chrome :is(bible-reader, app-search)::after {
+.platform-ios.native-chrome :is(bible-reader, app-search, pastoral-index)::after {
   bottom: 0;
   height: var(--app-chrome-bottom);
   background: linear-gradient(transparent, var(--background-color) 70%);
