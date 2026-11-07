@@ -8,18 +8,18 @@
 @import "@fontsource/roboto/500.css";
 @import "@material-symbols/font-400/outlined.css";
 
-/* Literata sets the reader's text, with its weight and optical-size axes:
-   verse numbers and the drop-cap chapter number each get the cut drawn for
-   their size. fontsource's own CSS hardcodes font-display: swap, and a swap
-   rewraps the whole prerendered chapter after it has painted (CLS 0.75 on
-   /gn/1); `optional` never shows it on a first visit, and an app session is
-   one page. */
+/* Literata sets the reader's text, from its weight-only files: the files with
+   the optical-size axis too are twice the size (110 KB against 52 KB), and
+   the text waits on them. fontsource's own CSS hardcodes font-display: swap,
+   and a swap rewraps the whole prerendered chapter after it has painted (CLS
+   0.75 on /gn/1); `optional` never shows it on a first visit, and an app
+   session is one page. */
 @font-face {
   font-family: "Literata Variable";
   font-style: normal;
   font-display: block;
   font-weight: 200 900;
-  src: url("@fontsource-variable/literata/files/literata-latin-ext-opsz-normal.woff2") format("woff2-variations");
+  src: url("@fontsource-variable/literata/files/literata-latin-ext-wght-normal.woff2") format("woff2-variations");
   unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
 }
 @font-face {
@@ -27,7 +27,7 @@
   font-style: normal;
   font-display: block;
   font-weight: 200 900;
-  src: url("@fontsource-variable/literata/files/literata-latin-opsz-normal.woff2") format("woff2-variations");
+  src: url("@fontsource-variable/literata/files/literata-latin-wght-normal.woff2") format("woff2-variations");
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
 @font-face {
@@ -35,7 +35,7 @@
   font-style: italic;
   font-display: block;
   font-weight: 200 900;
-  src: url("@fontsource-variable/literata/files/literata-latin-ext-opsz-italic.woff2") format("woff2-variations");
+  src: url("@fontsource-variable/literata/files/literata-latin-ext-wght-italic.woff2") format("woff2-variations");
   unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
 }
 @font-face {
@@ -43,7 +43,7 @@
   font-style: italic;
   font-display: block;
   font-weight: 200 900;
-  src: url("@fontsource-variable/literata/files/literata-latin-opsz-italic.woff2") format("woff2-variations");
+  src: url("@fontsource-variable/literata/files/literata-latin-wght-italic.woff2") format("woff2-variations");
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
 
@@ -689,6 +689,11 @@ html.ragged-text .bookBlock {
 
 html.justified-text .bookBlock {
   text-align: justify;
+}
+
+/* The notes sheet follows the choice too (its own default is justified). */
+html.ragged-text .footnotes-container {
+  text-align: start;
 }
 
 /* The Android app's dark theme: text off-white like its bars (onSurface

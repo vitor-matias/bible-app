@@ -13,7 +13,7 @@ h6 {
 :host {
   /* A phone's side margin, scrolling or paged: room enough that the column
      reads as a page rather than running to the screen's edges. */
-  --reader-side-margin: 24px;
+  --reader-side-margin: 20px;
 }
 
 /* The running text's own type (.bookBlock) is in styles.css, beside the

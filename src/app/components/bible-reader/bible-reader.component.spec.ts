@@ -942,8 +942,8 @@ describe("BibleReaderComponent", () => {
       it("keep a phone's side margin inside each page", () => {
         const { view, chapter } = pagedAt(390)
 
-        expect(chapter.paddingLeft).toBe("24px")
-        expect(chapter.paddingRight).toBe("24px")
+        expect(chapter.paddingLeft).toBe("20px")
+        expect(chapter.paddingRight).toBe("20px")
         // Nothing outside the columns, so a page advances by its width.
         expect(view.paddingLeft).toBe("0px")
         expect(view.columnGap).toBe("0px")
@@ -972,8 +972,8 @@ describe("BibleReaderComponent", () => {
         const block = render("scrolling").querySelector(
           ".bookBlock",
         ) as HTMLElement
-        expect(getComputedStyle(block).marginLeft).toBe("24px")
-        expect(getComputedStyle(block).marginRight).toBe("24px")
+        expect(getComputedStyle(block).marginLeft).toBe("20px")
+        expect(getComputedStyle(block).marginRight).toBe("20px")
       })
 
       it("keep a tablet's margins inside each of its two columns", () => {
