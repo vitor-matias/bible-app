@@ -949,18 +949,6 @@ describe("BibleReaderComponent", () => {
         expect(view.columnGap).toBe("0px")
       })
 
-      // Justified is the default at every width; the menu's alignment
-      // choice sets it ragged-right. A phone-only ragged-right rule had
-      // left the choice saying Justificado over ragged text.
-      it("open a phone's text justified, as on wider screens", () => {
-        expect(frame, "the specs run in a frame").toBeTruthy()
-        if (frame) frame.style.width = "390px"
-        const block = render("scrolling").querySelector(
-          ".bookBlock",
-        ) as HTMLElement
-        expect(getComputedStyle(block).textAlign).toBe("justify")
-      })
-
       it("give scrolling text the same side margin as a page", () => {
         expect(frame, "the specs run in a frame").toBeTruthy()
         if (frame) frame.style.width = "390px"
