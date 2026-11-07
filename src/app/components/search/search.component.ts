@@ -35,6 +35,7 @@ import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
 import { passageLabel } from "../../utils/passage-label"
+import { leftToTheBrowser } from "../../utils/platform"
 import {
   isAmbiguousPsalmNumber,
   PSALMS_BOOK_ID,
@@ -438,7 +439,7 @@ export class SearchComponent {
 
   /** Opens a theme in the index, as openPassage does a passage. */
   openTheme(event: MouseEvent, slug: string): void {
-    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+    if (leftToTheBrowser(event)) return
     event.preventDefault()
     void this.router.navigate(["/indice", slug])
   }
@@ -990,7 +991,7 @@ export class SearchComponent {
     chapter: number,
     verseStart?: number,
   ): void {
-    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+    if (leftToTheBrowser(event)) return
     event.preventDefault()
     void this.router.navigate(
       ["/", ...this.passagePath(bookId, chapter)],

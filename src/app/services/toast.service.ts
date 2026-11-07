@@ -143,11 +143,11 @@ export class ToastService {
     return watch
   }
 
-  /** A passage, or the last one read (/): not search or the book list. */
+  /** A passage, or the last one read (/): not search, the book list or the index. */
   private isReader(url: string): boolean {
     const segments =
       this.router.parseUrl(url).root.children["primary"]?.segments ?? []
-    return segments.length !== 1
+    return segments.length !== 1 && !this.isIndex(url)
   }
 
   private isIndex(url: string): boolean {

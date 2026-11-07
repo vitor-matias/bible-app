@@ -139,6 +139,13 @@ internal fun SearchView(chrome: ChromeController, state: ChromeState) {
 }
 
 /**
+ * Whether the filter shows the page's [query]: not over what is being typed,
+ * whose echo comes after it; but the page clearing the filter clears it.
+ */
+internal fun takesQuery(query: String, sent: String, focused: Boolean): Boolean =
+    query != sent && (!focused || query.isEmpty())
+
+/**
  * A list's filter as Material's search field, in the top bar's title: the list
  * under it narrows as it is typed in. Back closes it before it leaves the
  * page, and a touch on the list closes the keyboard.
@@ -153,10 +160,8 @@ internal fun FilterField(chrome: ChromeController, state: ChromeState, placehold
     var sent by remember { mutableStateOf(state.query) }
     val focus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
-    // Not over what is being typed, whose echo comes after it; but the page
-    // clearing the filter clears it.
     LaunchedEffect(state.query) {
-        if (state.query != sent && (!focused || state.query.isEmpty())) {
+        if (takesQuery(state.query, sent, focused)) {
             sent = state.query
             field.setTextAndPlaceCursorAtEnd(state.query)
         }

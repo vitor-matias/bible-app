@@ -40,6 +40,10 @@ const stripDiacritics = (value: string) =>
 const compactName = (name: string) =>
   stripDiacritics(name).replace(/\s+/g, "").toLocaleLowerCase()
 
+/** The end of a one-chapter book's range, "-7" in "Jd 6-7"; not "-2,4", a chapter's. */
+const ONE_CHAPTER_RANGE_RE =
+  /^\s*[-‐-―−]\s*(?<v2>\d+(?:[a-c]{1,2})?)(?!\d|[,:]\d)/
+
 @Injectable({ providedIn: "root" })
 export class BibleReferenceService {
   private bookService = inject(BookService)
@@ -212,12 +216,17 @@ export class BibleReferenceService {
         // Same-chapter (with or without verses)
         const lastIsVerse =
           !gs.v1 && this.oneChapterBooks.has(compactName(book))
+        // Its range has no comma to come after: "Jd 6-7".
+        const range = lastIsVerse
+          ? ONE_CHAPTER_RANGE_RE.exec(text.slice(start + m[0].length))
+          : null
         const verses =
           (lastIsVerse
-            ? this.buildVerses(gs.chapter)
+            ? this.buildVerses(gs.chapter, range?.groups?.["v2"])
             : this.buildVerses(gs.v1, gs.v2)) || []
+        const head = m[0] + (range?.[0] ?? "")
         const matchStr =
-          m[0] + this.takeVerseList(text, start + m[0].length, verses)
+          head + this.takeVerseList(text, start + head.length, verses)
 
         push({
           match: matchStr,

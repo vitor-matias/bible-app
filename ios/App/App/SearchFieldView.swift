@@ -9,8 +9,9 @@ final class SearchFieldView: UIView, UITextFieldDelegate {
     var onClose: (() -> Void)? {
         didSet {
             closeButton.isHidden = onClose == nil
-            fieldToEnd.isActive = onClose == nil
-            fieldToClose.isActive = onClose != nil
+            // Off first: both on at once pin the field's end twice, a conflict.
+            NSLayoutConstraint.deactivate([onClose == nil ? fieldToClose : fieldToEnd])
+            NSLayoutConstraint.activate([onClose == nil ? fieldToEnd : fieldToClose])
         }
     }
     private let field = UISearchTextField()

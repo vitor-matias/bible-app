@@ -21,7 +21,6 @@ import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatRippleModule } from "@angular/material/core"
 import { MatDialog } from "@angular/material/dialog"
-import { MatDividerModule } from "@angular/material/divider"
 import {
   MatExpansionModule,
   type MatExpansionPanel,
@@ -31,7 +30,6 @@ import { MatIconModule } from "@angular/material/icon"
 import { MatInputModule } from "@angular/material/input"
 import { MatMenuModule } from "@angular/material/menu"
 import { MatToolbarModule } from "@angular/material/toolbar"
-import { MatTooltipModule } from "@angular/material/tooltip"
 import {
   ActivatedRoute,
   NavigationSkipped,
@@ -42,7 +40,7 @@ import {
 import { animationFrameScheduler, fromEvent } from "rxjs"
 import { auditTime, map } from "rxjs/operators"
 import { PASTORAL_INDEX_BOOK } from "../../bible-canon"
-import { shareableUrl } from "../../config"
+import { PRIVACY_POLICY_URL, shareableUrl } from "../../config"
 import {
   type TextSize,
   UnifiedGesturesDirective,
@@ -73,14 +71,14 @@ import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
-import { PwaInstallService } from "../../services/pwa-install.service"
 import { SeoService } from "../../services/seo.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
 import { buildPassagePicker } from "../../utils/passage-picker"
+import { leftToTheBrowser } from "../../utils/platform"
 import { foldText } from "../../utils/text-search"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
-import { PRIVACY_POLICY_URL } from "../header/header.component"
+import { ReaderMenuComponent } from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 import { AlphabeticalScrollBarComponent } from "./alphabetical-scroll-bar.component"
@@ -156,10 +154,6 @@ function notedVerses(ref: BibleReference, after?: string): string | null {
     : `${verse.start}-${verse.end}`
 }
 
-/** A click with a modifier opens a new tab or window, not this app's page. */
-const leftToTheBrowser = (event: MouseEvent) =>
-  event.ctrlKey || event.metaKey || event.shiftKey || event.altKey
-
 /**
  * The Índice Bíblico-Pastoral: its themes at /indice, which expand in place. A
  * theme's address, /indice/:slug, is this page with that theme open.
@@ -176,8 +170,7 @@ const leftToTheBrowser = (event: MouseEvent) =>
     MatFormFieldModule,
     MatInputModule,
     MatMenuModule,
-    MatDividerModule,
-    MatTooltipModule,
+    ReaderMenuComponent,
     UnifiedGesturesDirective,
     AlphabeticalScrollBarComponent,
     FastScrollerComponent,
@@ -211,7 +204,6 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   private bottomSheet = inject(MatBottomSheet)
   private backButton = inject(BackButtonService)
   private dialog = inject(MatDialog)
-  private pwaInstall = inject(PwaInstallService)
   private buildVersion = inject(BuildVersionService)
   readonly analytics = inject(AnalyticsService)
   private route = inject(ActivatedRoute)
@@ -257,11 +249,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   readonly query = signal("")
   /** In the apps, whether the shell's filter field is showing. */
   private filterOpen = signal(false)
-  readonly privacyPolicyUrl = PRIVACY_POLICY_URL
   readonly ribbonColor = ribbonColor
-  readonly canInstall = toSignal(this.pwaInstall.canPromptInstall$, {
-    requireSync: true,
-  })
   readonly canShare =
     typeof navigator !== "undefined" && typeof navigator.share === "function"
   /** Small print under the menu's last item; null until it is known. */
@@ -340,15 +328,6 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     }
   }
 
-  async install(): Promise<void> {
-    const outcome = await this.pwaInstall.promptInstall()
-    // AnalyticsService.track overwrites `platform`, hence the distinct key.
-    void this.analytics.track("pwa_install_prompt", {
-      outcome,
-      installPlatform: this.pwaInstall.detectPlatform(),
-    })
-  }
-
   reportProblem(): void {
     const entry = this.entry()
     const title = entry?.title ?? PASTORAL_INDEX_BOOK.shortName
@@ -367,25 +346,6 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
       width: "90%",
       maxWidth: "500px",
     })
-  }
-
-  /** Which theme is on: the menu's button cycles through them. */
-  get theme(): { icon: string; label: string } {
-    const mode = this.themeService.currentMode
-    if (mode === "system") {
-      return { icon: "brightness_auto", label: "Tema: Automático" }
-    }
-    return mode === "light"
-      ? { icon: "light_mode", label: "Tema: Claro" }
-      : { icon: "dark_mode", label: "Tema: Escuro" }
-  }
-
-  toggleTheme(): void {
-    this.themeService.toggleTheme()
-  }
-
-  openHelp(): void {
-    this.onboarding.open("menu")
   }
 
   openAbout(): void {
@@ -601,7 +561,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
         this.openAbout()
         break
       case "help":
-        this.openHelp()
+        this.onboarding.open("menu")
         break
       case "privacy":
         window.open(PRIVACY_POLICY_URL, "_blank", "noopener")

@@ -1,0 +1,79 @@
+<mat-menu>
+  <!-- Menu items, so the arrow keys reach them; a click here stops short
+       of the menu panel, so the menu stays open as the text changes. -->
+  <div class="menu-controls" (click)="$event.stopPropagation()">
+    <button type="button" mat-menu-item class="menu-control" (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" matTooltipPosition="above" [attr.aria-label]="getThemeTooltip()">
+      <mat-icon>{{ getThemeIcon() }}</mat-icon>
+    </button>
+    @if (viewMode() !== null) {
+    <button type="button" mat-menu-item class="menu-control" (click)="toggleViewMode.emit()" [matTooltip]="getViewModeTooltip()" matTooltipPosition="above" [attr.aria-label]="getViewModeTooltip()">
+      <mat-icon>{{ getViewModeIcon() }}</mat-icon>
+    </button>
+    }
+    <button type="button" mat-menu-item class="menu-control" (click)="decreaseFontSize.emit()" matTooltip="Diminuir texto" matTooltipPosition="above" aria-label="Diminuir texto">
+      <mat-icon>text_decrease</mat-icon>
+    </button>
+    <button type="button" mat-menu-item class="menu-control" (click)="increaseFontSize.emit()" matTooltip="Aumentar texto" matTooltipPosition="above" aria-label="Aumentar texto">
+      <mat-icon>text_increase</mat-icon>
+    </button>
+  </div>
+  <mat-divider></mat-divider>
+  <button type="button" mat-menu-item (click)="bookmarks.emit()">
+    <mat-icon>bookmarks</mat-icon>
+    <span>Marcadores</span>
+  </button>
+  @if (autoScrollControlsVisible() !== null) {
+  <button type="button" mat-menu-item (click)="toggleAutoScrollControls.emit()" [disabled]="viewMode() === 'paged'">
+    <mat-icon>arrow_circle_down</mat-icon>
+    <span>
+      {{ autoScrollControlsVisible()
+      ? 'Esconder controlos de deslocamento automático'
+      : 'Mostrar controlos de deslocamento automático' }}
+    </span>
+  </button>
+  }
+  @if (canShare()) {
+  <button type="button" mat-menu-item (click)="share.emit()">
+    <mat-icon>share</mat-icon>
+    <span>Partilhar</span>
+  </button>
+  }
+  @if (canInstall()) {
+  <button type="button" mat-menu-item (click)="install()">
+    <mat-icon>download</mat-icon>
+    <span>Instalar a app</span>
+  </button>
+  }
+  <button type="button" mat-menu-item (click)="openHelp()">
+    <mat-icon>help</mat-icon>
+    <span>Como usar a app</span>
+  </button>
+  <button type="button" mat-menu-item (click)="about.emit()">
+    <mat-icon>info</mat-icon>
+    <span>Sobre a Bíblia</span>
+  </button>
+  @if (analyticsService.areAnalyticsAvailable()) {
+  <button type="button" mat-menu-item (click)="reportProblem.emit()">
+    <mat-icon>report_problem</mat-icon>
+    <span>Reportar erro</span>
+  </button>
+  }
+  <a mat-menu-item [href]="privacyPolicyUrl" target="_blank" rel="noopener noreferrer">
+    <mat-icon>privacy_tip</mat-icon>
+    <span class="privacy-label">
+      Política de Privacidade
+      <mat-icon class="open-in-new-icon">open_in_new</mat-icon>
+    </span>
+  </a>
+  @if (version(); as version) {
+  <!-- One line, as in the iOS menu: the release, then the bundle's id.
+       The web has no releases; there the label says what the id is. -->
+  <div class="menu-version">
+    @if (version.release) {
+    {{ version.release }} · {{ version.build }}
+    } @else {
+    Bundle {{ version.build }}
+    }
+  </div>
+  }
+</mat-menu>

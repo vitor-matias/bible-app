@@ -2,74 +2,15 @@
 <div class="toolbar-wrapper">
   <mat-toolbar class="index-toolbar">
     <div class="content">
-      <button mat-flat-button type="button" aria-label="Menu" class="button actionButton backButton" [matMenuTriggerFor]="pageMenu">
+      <button mat-flat-button type="button" aria-label="Menu" class="button actionButton backButton" [matMenuTriggerFor]="pageMenu.menu">
         <mat-icon>menu</mat-icon>
       </button>
       <!-- The reader's menu, less what only a chapter has: auto-scroll and the
            view mode. -->
-      <mat-menu #pageMenu="matMenu">
-        <!-- Menu items, so the arrow keys reach them; a click here stops short
-             of the menu panel, so the menu stays open as the text changes. -->
-        <div class="menu-controls" (click)="$event.stopPropagation()">
-          <button type="button" mat-menu-item class="menu-control" (click)="toggleTheme()" [matTooltip]="theme.label" matTooltipPosition="above" [attr.aria-label]="theme.label">
-            <mat-icon>{{ theme.icon }}</mat-icon>
-          </button>
-          <button type="button" mat-menu-item class="menu-control" (click)="decreaseFontSize()" matTooltip="Diminuir texto" matTooltipPosition="above" aria-label="Diminuir texto">
-            <mat-icon>text_decrease</mat-icon>
-          </button>
-          <button type="button" mat-menu-item class="menu-control" (click)="increaseFontSize()" matTooltip="Aumentar texto" matTooltipPosition="above" aria-label="Aumentar texto">
-            <mat-icon>text_increase</mat-icon>
-          </button>
-        </div>
-        <mat-divider></mat-divider>
-        <button type="button" mat-menu-item (click)="openBookmarks()">
-          <mat-icon>bookmarks</mat-icon>
-          <span>Marcadores</span>
-        </button>
-        @if (canShare) {
-        <button type="button" mat-menu-item (click)="share()">
-          <mat-icon>share</mat-icon>
-          <span>Partilhar</span>
-        </button>
-        }
-        @if (canInstall()) {
-        <button type="button" mat-menu-item (click)="install()">
-          <mat-icon>download</mat-icon>
-          <span>Instalar a app</span>
-        </button>
-        }
-        <button type="button" mat-menu-item (click)="openHelp()">
-          <mat-icon>help</mat-icon>
-          <span>Como usar a app</span>
-        </button>
-        <button type="button" mat-menu-item (click)="openAbout()">
-          <mat-icon>info</mat-icon>
-          <span>Sobre a Bíblia</span>
-        </button>
-        @if (analytics.areAnalyticsAvailable()) {
-        <button type="button" mat-menu-item (click)="reportProblem()">
-          <mat-icon>report_problem</mat-icon>
-          <span>Reportar erro</span>
-        </button>
-        }
-        <a mat-menu-item [href]="privacyPolicyUrl" target="_blank" rel="noopener noreferrer">
-          <mat-icon>privacy_tip</mat-icon>
-          <span class="privacy-label">
-            Política de Privacidade
-            <mat-icon class="open-in-new-icon">open_in_new</mat-icon>
-          </span>
-        </a>
-        @if (version(); as version) {
-        <!-- One line, as in the reader's: the release, then the bundle's id. -->
-        <div class="menu-version">
-          @if (version.release) {
-          {{ version.release }} · {{ version.build }}
-          } @else {
-          Bundle {{ version.build }}
-          }
-        </div>
-        }
-      </mat-menu>
+      <reader-menu #pageMenu="readerMenu" [canShare]="canShare" [version]="version()"
+        (decreaseFontSize)="decreaseFontSize()" (increaseFontSize)="increaseFontSize()"
+        (bookmarks)="openBookmarks()" (share)="share()" (about)="openAbout()"
+        (reportProblem)="reportProblem()" />
       <span class="toolbar-title">Índice Bíblico-Pastoral</span>
       <a mat-flat-button routerLink="/search" aria-label="Pesquisar" class="button actionButton searchButton">
         <mat-icon>search</mat-icon>

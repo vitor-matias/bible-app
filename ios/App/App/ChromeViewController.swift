@@ -229,11 +229,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             if let placeholder = next.filterPlaceholder, next.filterOpen {
                 searchField.placeholder = placeholder
                 searchField.onClose = { [weak self] in self?.plugin.send("filter-close") }
-                // Not over what is being typed, whose echo comes after it; but
-                // the page clearing the filter clears it.
-                if !previous.filterOpen
-                    || (next.query != previous.query && (!searchField.isEditing || next.query.isEmpty)) {
-                    searchField.text = next.query
+                if let text = ChromeState.filterText(from: previous, to: next, editing: searchField.isEditing) {
+                    searchField.text = text
                 }
             }
         case .search:
@@ -284,7 +281,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         navigationController?.setToolbarHidden(!(systemBars && systemToolbar), animated: animated)
         setShown(searchField, next.showsSearchField, animated: animated)
         // Once shown: hidden, the field may not take the keyboard.
-        if next.showsSearchField && !previous.showsSearchField {
+        if ChromeState.focusesSearchField(from: previous, to: next) {
             searchField.focus()
         }
         setShown(autoScrollControl, next.mode == .reader && next.autoScroll != nil, animated: animated)

@@ -34,3 +34,6 @@ export function shareableUrl(
   const { pathname, search, hash } = location
   return `https://${appConfig.domain}${pathname}${search}${hash}`
 }
+
+export const PRIVACY_POLICY_URL =
+  "https://www.capuchinhos.org/politica-de-privacidade"

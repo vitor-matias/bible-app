@@ -70,6 +70,21 @@ struct ChromeState: Equatable {
     /// The bottom search field shows.
     var showsSearchField: Bool { mode == .search || (mode == .reader && filterOpen) }
 
+    /// The field takes the keyboard as it shows, and on the way into search
+    /// from a filter, the field shown all along.
+    static func focusesSearchField(from previous: ChromeState, to next: ChromeState) -> Bool {
+        next.showsSearchField
+            && (!previous.showsSearchField || (next.mode == .search && previous.mode != .search))
+    }
+
+    /// The filter's text to show, or nil to leave it: not over what is being
+    /// typed, whose echo comes after it; but the page clearing the filter clears it.
+    static func filterText(from previous: ChromeState, to next: ChromeState, editing: Bool) -> String? {
+        guard !previous.filterOpen
+            || (next.query != previous.query && (!editing || next.query.isEmpty)) else { return nil }
+        return next.query
+    }
+
     // Page
     var title = ""
 

@@ -101,6 +101,29 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertFalse(state.chapterNavigation)
     }
 
+    func testTheFilterKeepsWhatIsTypedFromItsEcho() {
+        let open = state(["mode": "reader", "filterPlaceholder": "Filtrar temas", "filterOpen": true, "query": "am"])
+        let echo = state(["mode": "reader", "filterPlaceholder": "Filtrar temas", "filterOpen": true, "query": "a"])
+        let cleared = state(["mode": "reader", "filterPlaceholder": "Filtrar temas", "filterOpen": true, "query": ""])
+        let closed = state(["mode": "reader", "filterPlaceholder": "Filtrar temas"])
+        XCTAssertEqual(ChromeState.filterText(from: closed, to: open, editing: false), "am")
+        XCTAssertNil(ChromeState.filterText(from: open, to: echo, editing: true))
+        XCTAssertEqual(ChromeState.filterText(from: open, to: echo, editing: false), "a")
+        XCTAssertEqual(ChromeState.filterText(from: open, to: cleared, editing: true), "")
+        XCTAssertNil(ChromeState.filterText(from: open, to: open, editing: false))
+    }
+
+    func testSearchFromTheFilterTakesTheKeyboard() {
+        let filter = state(["mode": "reader", "filterPlaceholder": "Filtrar temas", "filterOpen": true])
+        let search = state(["mode": "search"])
+        let reader = state(["mode": "reader"])
+        XCTAssertTrue(ChromeState.focusesSearchField(from: filter, to: search))
+        XCTAssertTrue(ChromeState.focusesSearchField(from: reader, to: filter))
+        XCTAssertFalse(ChromeState.focusesSearchField(from: filter, to: filter))
+        XCTAssertFalse(ChromeState.focusesSearchField(from: search, to: search))
+        XCTAssertFalse(ChromeState.focusesSearchField(from: filter, to: reader))
+    }
+
     func testAPageWithoutAFilterHasNoSearchField() throws {
         let state = try fixture("reader")
         XCTAssertNil(state.filterPlaceholder)
