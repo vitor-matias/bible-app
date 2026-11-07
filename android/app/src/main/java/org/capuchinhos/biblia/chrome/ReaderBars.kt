@@ -256,7 +256,7 @@ private val AUTO_SCROLL_GAP = 12.dp
  * Its name starts with what it shows ("Gn 1, …"), so Voice Access finds it.
  */
 @Composable
-private fun PassageTitle(chrome: ChromeController, state: ChromeState, enabled: Boolean, showSubtitle: Boolean) {
+internal fun PassageTitle(chrome: ChromeController, state: ChromeState, enabled: Boolean, showSubtitle: Boolean) {
     BoxWithConstraints {
         // Emphasized (Material 3 Expressive): the passage, and the way to
         // another, stands out from the bar's icons. SemiBold: the style's own

@@ -193,6 +193,21 @@ class ChromeStateTest {
         )
         assertEquals("search", steps.single().icon)
         assertEquals(OnboardingStep.Feature("bookmarks", "Marcadores"), steps.single().features.single())
+        assertEquals(null, steps.single().highlight)
+    }
+
+    // The page shows that bar button ringed, in place of its icon.
+    @Test
+    fun readsTheButtonAnOnboardingPageNames() {
+        val steps = OnboardingStep.from(
+            call(
+                """
+                {"steps":[{"id":"books","title":"Escolher um livro","intro":"…","symbol":"book","icon":"menu_book",
+                  "logo":false,"highlight":"passage","features":[]}]}
+                """,
+            ),
+        )
+        assertEquals("passage", steps.single().highlight)
     }
 }
 

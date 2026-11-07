@@ -392,6 +392,38 @@ html.dark-theme .onboarding-dialog .mat-mdc-button .mdc-button__label {
   color: antiquewhite !important;
 }
 
+/* The onboarding's ring (OnboardingComponent.placeRing), here rather than in
+   the component, whose style budget it would pass. A popover: reset the UA's
+   centred, bordered box to a ring at fixed spots. Not pointer-events: none,
+   so it takes the taps the backdrop's hole lets in. */
+.tour-ring {
+  position: fixed;
+  inset: auto;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 3px solid #faebd7;
+  border-radius: 999px;
+  background: none;
+  animation: tour-pulse 1.6s ease-out infinite;
+}
+
+@keyframes tour-pulse {
+  from {
+    box-shadow: 0 0 0 0 #faebd799;
+  }
+  to {
+    box-shadow: 0 0 0 12px #faebd700;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-ring {
+    animation: none;
+  }
+}
+
+
 /* "Tentar novamente" when the Bible can't load: the span rule would paint its
    label the text colour, which in the iOS app is also its fill. */
 .books-unavailable .mdc-button__label {

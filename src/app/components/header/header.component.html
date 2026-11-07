@@ -3,8 +3,9 @@
 <div class="header-placeholder">
   <mat-toolbar>
     <div class="header-content">
+      <!-- data-tour: ringed by the onboarding step that names the button. -->
       <button class="menuButton" mat-icon-button [matMenuTriggerFor]="headerMenu" #menuTrigger="matMenuTrigger"
-        (menuOpened)="onMenuOpened()" aria-label="Menu">
+        (menuOpened)="onMenuOpened()" aria-label="Menu" data-tour="text">
         <mat-icon>menu</mat-icon>
       </button>
       <mat-menu #headerMenu="matMenu">
@@ -96,7 +97,7 @@
       <!-- The book/chapter picker is also the page's h1. aria-label pins its
            accessible name to the title while the home page label cycles. -->
       <h1 class="page-heading" [attr.aria-label]="headingLabel">
-      <mat-button-toggle-group multiple class="bookSelectorButton">
+      <mat-button-toggle-group multiple class="bookSelectorButton" data-tour="passage">
         <!-- No aria-label: the accessible name must contain the visible book
              name. No aria-live: the label swap below is decorative. -->
         <mat-button-toggle #bookToggle mat-flat-button matTooltip="Escolher livro" class="bookSelectorButtonContent"
@@ -130,7 +131,7 @@
       </h1>
 
       <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button matTooltip="Pesquisar"
-        aria-label="Pesquisar">
+        aria-label="Pesquisar" data-tour="search">
         <mat-icon class="search-icon" aria-label="Search">search</mat-icon>
       </button>
     </div>
