@@ -28,6 +28,20 @@ export const routes: Routes = [
   { path: "android", canActivate: [redirectTo(PLAY_STORE_URL)], children: [] },
   { path: "ios", canActivate: [redirectTo(APP_STORE_URL)], children: [] },
   {
+    path: "indice",
+    loadComponent: () =>
+      import("./components/pastoral-index/pastoral-index.component").then(
+        (m) => m.PastoralIndexComponent,
+      ),
+  },
+  {
+    path: "indice/:slug",
+    loadComponent: () =>
+      import("./components/pastoral-index/pastoral-index.component").then(
+        (m) => m.PastoralIndexComponent,
+      ),
+  },
+  {
     path: ":book/:chapter",
     component: BibleReaderComponent,
     canMatch: [chapterExists],

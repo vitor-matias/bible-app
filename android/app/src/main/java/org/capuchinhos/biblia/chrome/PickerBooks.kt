@@ -71,6 +71,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.sp
 import org.capuchinhos.biblia.R
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
+import androidx.compose.foundation.interaction.DragInteraction
+import androidx.compose.runtime.rememberUpdatedState
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.launch
 
 /** The number of chapters, the introduction aside. */
 private val PassagePickerData.Book.chapterCount: Int
@@ -96,18 +105,45 @@ internal fun BookList(
     val rows = remember(data, filter) { pickerRows(data, filter) }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val density = LocalDensity.current
+    val currentFilter by rememberUpdatedState(filter)
     // Opens at the current book, once.
     LaunchedEffect(Unit) {
         if (placed) return@LaunchedEffect
         onPlaced()
         val index = rows.indexOfFirst { it is PickerRow.Book && it.book.id == data.currentBookId }
         if (index <= 0) return@LaunchedEffect
-        if (view == BookView.List) {
-            listState.scrollToItem(maxOf(index - 3, 0))
-        } else {
-            // Its row a little way down, clear of the testament's heading.
-            gridState.scrollToItem(index)
-            gridState.scrollBy(-with(density) { 120.dp.toPx() })
+        val reveal: suspend () -> Unit = {
+            if (view == BookView.List) {
+                listState.scrollToItem(maxOf(index - 3, 0))
+            } else {
+                // Its row a little way down, clear of the testament's heading.
+                gridState.scrollToItem(index)
+                gridState.scrollBy(-with(density) { 120.dp.toPx() })
+            }
+        }
+        reveal()
+        // The dialog's system bar insets come a moment after its first layout
+        // (later on a slow start) and shrink the list at both ends, which keeps
+        // its place: the last books (Apocalipse, the Índice) went under the
+        // navigation bar. Again as they come, until the reader drags the list
+        // or filters it.
+        val room = {
+            if (view == BookView.List) {
+                listState.layoutInfo.viewportSize to listState.layoutInfo.afterContentPadding
+            } else {
+                gridState.layoutInfo.viewportSize to gridState.layoutInfo.afterContentPadding
+            }
+        }
+        snapshotFlow(room).first { it.first.height > 0 }
+        withTimeoutOrNull(INSETS_SETTLE_MS) {
+            coroutineScope {
+                val follow = launch {
+                    snapshotFlow(room).drop(1).collect { if (currentFilter.isEmpty()) reveal() }
+                }
+                merge(listState.interactionSource.interactions, gridState.interactionSource.interactions)
+                    .first { it is DragInteraction.Start }
+                follow.cancel()
+            }
         }
     }
     // Back clears a filter before it closes the picker.
@@ -174,6 +210,9 @@ internal fun BookList(
         }
     }
 }
+
+/** How long after its first layout the picker follows its insets, at most. */
+private const val INSETS_SETTLE_MS = 5000L
 
 /**
  * The books as tiles, as in the iOS app: big ones with the names, or small

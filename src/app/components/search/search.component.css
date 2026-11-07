@@ -262,6 +262,7 @@
   font: inherit;
   font-weight: 600;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -276,6 +277,11 @@
 
 :host-context(.native-chrome) .passage-suggestion {
   margin-top: calc(20px + var(--app-chrome-top));
+}
+
+:host-context(.native-chrome) .passage-suggestion + .passage-suggestion,
+.passage-suggestion + .passage-suggestion {
+  margin-top: 8px;
 }
 
 :host-context(.native-chrome) .has-suggestion .results-section {

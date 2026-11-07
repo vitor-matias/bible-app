@@ -119,6 +119,10 @@ export class NativeChromeService {
   /** Where the page was scrolled to when that toast showed, and when. */
   private returnToastScrollStart?: number
   private returnToastShownAt = 0
+  /** A finger has been on the page since that toast showed. */
+  private returnToastTouched = false
+  /** Scrolling until then is the app's own: see holdBars. */
+  private barsHeldUntil = Number.NEGATIVE_INFINITY
   /** Where the top bar ends, in CSS pixels (--native-chrome-top). */
   private insetTop = 0
 
@@ -172,6 +176,15 @@ export class NativeChromeService {
         this.document.addEventListener(
           "scroll",
           (event) => this.onScroll(event),
+          { capture: true, passive: true },
+        ),
+      )
+      this.ngZone.runOutsideAngular(() =>
+        this.document.addEventListener(
+          "touchstart",
+          () => {
+            this.returnToastTouched = true
+          },
           { capture: true, passive: true },
         ),
       )
@@ -286,6 +299,7 @@ export class NativeChromeService {
     if (onTap && returnToPage) {
       this.returnToastHide = hide
       this.returnToastShownAt = performance.now()
+      this.returnToastTouched = false
     }
     return hide
   }
@@ -341,6 +355,17 @@ export class NativeChromeService {
   }
 
   /**
+   * The scrolling of the next `ms` is the app's, in answer to a tap: it leaves
+   * the bars as they are, though a finger has just been on the page.
+   */
+  holdBars(ms: number): void {
+    this.barsHeldUntil = performance.now() + ms
+  }
+
+  /**
+   * `scrollEvents` is what reports its scrolling, for a page that scrolls the
+   * document, whose scroll events go to `document` rather than its element.
+   *
    * Hides the reader's bars while `element` scrolls down and brings them back
    * when it scrolls up or reaches either end. A tap on the text shows them, or
    * hides them again, as in Photos and Books; a tap on a link, a notes marker or
@@ -349,7 +374,10 @@ export class NativeChromeService {
    * them back, or a flick; a tap only shows hidden ones, except in pages,
    * which don't scroll and keep the toggle. Returns the cleanup.
    */
-  trackScroll(element: HTMLElement): () => void {
+  trackScroll(
+    element: HTMLElement,
+    scrollEvents: EventTarget = element,
+  ): () => void {
     if (!this.enabled) return () => {}
     this.tracked = element
     this.lastScroller = undefined
@@ -379,7 +407,7 @@ export class NativeChromeService {
       lastTime = now
       const atEnd =
         top <= 0 || top + element.clientHeight >= element.scrollHeight - 1
-      if (now - lastTouch > USER_SCROLL_WINDOW_MS) {
+      if (now - lastTouch > USER_SCROLL_WINDOW_MS || now < this.barsHeldUntil) {
         // Not the reader's scroll: start measuring afresh from here. In the
         // Android app, a scroll up that is no finger's (a keyboard, Voice
         // Access, a switch) brings the bars back, as scrolling up does.
@@ -421,7 +449,7 @@ export class NativeChromeService {
     const events = ["touchstart", "touchmove", "touchend", "wheel"]
     // Scrolling needs no change detection.
     this.ngZone.runOutsideAngular(() => {
-      element.addEventListener("scroll", onScroll, { passive: true })
+      scrollEvents.addEventListener("scroll", onScroll, { passive: true })
       for (const event of events) {
         element.addEventListener(event, onTouch, { passive: true })
       }
@@ -429,7 +457,7 @@ export class NativeChromeService {
       element.addEventListener("click", onClick)
     })
     return () => {
-      element.removeEventListener("scroll", onScroll)
+      scrollEvents.removeEventListener("scroll", onScroll)
       for (const event of events) element.removeEventListener(event, onTouch)
       element.removeEventListener("pointerdown", onPointerDown)
       element.removeEventListener("click", onClick)
@@ -472,7 +500,11 @@ export class NativeChromeService {
   }
 
   private onScroll(event: Event): void {
-    const target = event.target instanceof Element ? event.target : null
+    // The document's own scrolling has no element: its scrolling element's.
+    const target =
+      event.target instanceof Element
+        ? event.target
+        : this.document.scrollingElement
     let top: number
     if (this.tracked) {
       // The reader: its own text, read from its scroller, whichever part of
@@ -496,9 +528,7 @@ export class NativeChromeService {
       ) {
         return
       }
-      top = target
-        ? target.scrollTop
-        : (this.document.scrollingElement?.scrollTop ?? 0)
+      top = target?.scrollTop ?? 0
     }
     this.dismissReturnToastAfterScroll(top)
     // The text reaches the bar only past the reader's own top margin.
@@ -515,9 +545,13 @@ export class NativeChromeService {
    */
   private dismissReturnToastAfterScroll(top: number): void {
     if (!this.android || this.returnToastHide === undefined) return
-    // The reader lands on the verse as the toast shows: that scroll is the
-    // app's, so the reading is measured from where it settles.
-    if (performance.now() - this.returnToastShownAt < RETURN_TOAST_SETTLE_MS) {
+    // The reader lands on the verse as the toast shows, later on a slow
+    // connection: that scroll is the app's, so the reading is measured from
+    // where it settles, once a finger is on the page.
+    if (
+      !this.returnToastTouched ||
+      performance.now() - this.returnToastShownAt < RETURN_TOAST_SETTLE_MS
+    ) {
       this.returnToastScrollStart = top
       return
     }
@@ -595,13 +629,16 @@ export class NativeChromeService {
 
   private push(): void {
     const reader = this.requested?.mode === "reader"
+    // The bars stay while a filter is open: its field is among them.
+    const filtering =
+      this.requested?.mode === "reader" && this.requested.filterOpen === true
     const state: NativeChromeState = this.requested
       ? {
           ...this.requested,
           inert: this.modalOpen,
           // While auto-scroll plays, its controls stay within reach as the
           // bars hide; paused, its play button hides with them.
-          collapsed: reader && (this.modalOpen || this.collapsed),
+          collapsed: reader && !filtering && (this.modalOpen || this.collapsed),
           scrolled: this.scrolled,
           autoScroll: reader ? this.autoScroll : null,
           subtitle: reader ? this.subtitle : null,
@@ -632,16 +669,17 @@ export class NativeChromeService {
   }
 
   /**
-   * The Android bars take the wallpaper's colours (or the brown): the
-   * chapter cards, which sit among them, follow (styles.css). On the body,
-   * over the stylesheet's own fallback there.
+   * The Android bars take the wallpaper's colours (or the brown): the web
+   * surfaces that sit among them follow (styles.css). On the body, over the
+   * stylesheet's own fallback there.
    */
-  private applyPalette({ surfaceContainerHigh }: NativePalette): void {
-    if (!surfaceContainerHigh) return
-    this.document.body.style.setProperty(
-      "--android-surface-container-high",
-      surfaceContainerHigh,
-    )
+  private applyPalette(palette: NativePalette): void {
+    for (const [role, color] of Object.entries(palette)) {
+      if (!color) continue
+      // surfaceContainerHigh becomes --android-surface-container-high.
+      const name = role.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)
+      this.document.body.style.setProperty(`--android-${name}`, color)
+    }
   }
 
   private applyInsets({ top, bottom, collapsed }: ChromeInsets): void {

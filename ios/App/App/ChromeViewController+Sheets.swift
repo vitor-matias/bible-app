@@ -97,8 +97,11 @@ extension ChromeViewController {
 
     /// See `presentSheet`.
     func presentFootnotes(_ state: FootnotesSheetState, done: @escaping (Bool) -> Void) {
-        let footnotes = FootnotesController(state: state, onLink: { [weak self] index in
+        // The sheet would cover a way back ("Voltar para …"): it offers it.
+        let footnotes = FootnotesController(state: state, wayBack: toast.activeButton, onLink: { [weak self] index in
             self?.plugin.send("footnote-link", ["index": index])
+        }, onWayBack: { [weak self] in
+            self?.toast.tapped()
         }, onClose: { [weak self] in
             self?.plugin.send("footnotes-closed")
         })

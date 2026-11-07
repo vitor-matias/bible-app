@@ -159,7 +159,7 @@ test.describe("Book selector drawer", () => {
     await expect(drawer).toBeVisible({ timeout: 5_000 })
 
     // The 73 canonical books. Introductions are left out by id: their number follows the content, and
-    // a cluster's goes by its name, so their labels can't tell them apart.
+    // a cluster's goes by its name, so their labels can't tell them apart. The pastoral index is no book.
     const books = drawer.locator(
       "mat-tree-node:not(.book-group) .bookSelectorButton",
     )
@@ -174,7 +174,7 @@ test.describe("Book selector drawer", () => {
             await books.evaluateAll((nodes) =>
               nodes.map((node) => node.getAttribute("data-book-id") ?? ""),
             )
-          ).filter((id) => !introIds.has(id)).length,
+          ).filter((id) => !introIds.has(id) && id !== "indice").length,
         { timeout: 15_000 },
       )
       .toBe(73)

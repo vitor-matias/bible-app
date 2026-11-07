@@ -9,6 +9,7 @@ import { ActivatedRoute, Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, of, Subject } from "rxjs"
 import type { Mock } from "vitest"
+import { PRIVACY_POLICY_URL } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import {
   AppPromoService,
@@ -29,6 +30,7 @@ import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { ThemeService } from "../../services/theme.service"
 import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
+import { ReaderMenuComponent } from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { HeaderComponent } from "./header.component"
 
@@ -255,14 +257,10 @@ describe("HeaderComponent", () => {
   })
 
   it("should open the report problem dialog from the menu", () => {
-    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
-      "closeMenu",
-    ])
     fixture.componentRef.setInput("chapterNumber", 3)
 
-    component.onReportProblem(trigger)
+    component.openReportProblem()
 
-    expect(trigger.closeMenu).toHaveBeenCalled()
     expect(dialogSpy.open).toHaveBeenCalledWith(ReportProblemComponent, {
       data: { book: component.book(), chapter: 3 },
       width: "90%",
@@ -272,12 +270,9 @@ describe("HeaderComponent", () => {
 
   // Chapter 0 is the introduction; a falsy check used to swallow it.
   it("should open the report problem dialog for an introduction", () => {
-    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
-      "closeMenu",
-    ])
     fixture.componentRef.setInput("chapterNumber", 0)
 
-    component.onReportProblem(trigger)
+    component.openReportProblem()
 
     expect(dialogSpy.open).toHaveBeenCalledWith(ReportProblemComponent, {
       data: { book: component.book(), chapter: 0 },
@@ -287,17 +282,12 @@ describe("HeaderComponent", () => {
   })
 
   it("should not open the report problem dialog when chapter context is missing", () => {
-    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
-      "closeMenu",
-    ])
-
     fixture.componentRef.setInput(
       "chapterNumber",
       undefined as unknown as number,
     )
-    component.onReportProblem(trigger)
+    component.openReportProblem()
 
-    expect(trigger.closeMenu).toHaveBeenCalled()
     expect(dialogSpy.open).not.toHaveBeenCalled()
   })
 
@@ -425,7 +415,11 @@ describe("HeaderComponent", () => {
       offerInstall()
       openMenu()
 
-      expect(component.canInstall()).toBe(true)
+      expect(
+        fixture.debugElement
+          .query(By.directive(ReaderMenuComponent))
+          .componentInstance.canInstall(),
+      ).toBe(true)
       expect(document.querySelector(".app-store-link")).not.toBeNull()
       const items = Array.from(
         document.querySelectorAll(".mat-mdc-menu-panel .mat-mdc-menu-item"),
@@ -570,7 +564,7 @@ describe("HeaderComponent", () => {
       const version = document.querySelector(".menu-version")
       expect(text()).toBe("1.2.3 · 20261016-120000Z")
       expect(version?.previousElementSibling?.getAttribute("href")).toBe(
-        component.privacyPolicyUrl,
+        PRIVACY_POLICY_URL,
       )
       expect(version?.nextElementSibling).toBeNull()
     })
@@ -773,30 +767,34 @@ describe("HeaderComponent", () => {
   })
 
   it("opens the About page from the menu", () => {
-    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
-      "closeMenu",
-    ])
     const selected: {
       bookId: string
       chapter?: number
     }[] = []
     component.selectPassage.subscribe((passage) => selected.push(passage))
 
-    component.onOpenAbout(trigger)
+    component.openAbout()
 
-    expect(trigger.closeMenu).toHaveBeenCalled()
     expect(selected).toEqual([{ bookId: "about" }])
   })
 
-  it("should open the onboarding wizard from the menu", () => {
-    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
-      "closeMenu",
-    ])
+  it("should open the onboarding wizard from the menu, and close it", () => {
+    const trigger = fixture.debugElement
+      .query(By.directive(MatMenuTrigger))
+      .injector.get(MatMenuTrigger)
+    trigger.openMenu()
+    fixture.detectChanges()
 
-    component.onOpenHelp(trigger)
+    Array.from(
+      document.querySelectorAll<HTMLElement>(
+        ".mat-mdc-menu-panel .mat-mdc-menu-item",
+      ),
+    )
+      .find((item) => item.textContent?.includes("Como usar a app"))
+      ?.click()
 
-    expect(trigger.closeMenu).toHaveBeenCalled()
     expect(onboardingServiceSpy.open).toHaveBeenCalledWith("menu")
+    expect(trigger.menuOpen).toBe(false)
   })
 
   it("should share the page URL as is on the web", async () => {

@@ -1,3 +1,4 @@
+import { Location } from "@angular/common"
 import {
   ChangeDetectorRef,
   ElementRef,
@@ -6,6 +7,7 @@ import {
   PLATFORM_ID,
 } from "@angular/core"
 import { ComponentFixture, TestBed } from "@angular/core/testing"
+import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import type { MatDrawer } from "@angular/material/sidenav"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { By } from "@angular/platform-browser"
@@ -23,6 +25,7 @@ import { BibleReaderAnimationService } from "../../services/bible-reader-animati
 import { BookService } from "../../services/book.service"
 import { HapticsService } from "../../services/haptics.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
+import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
@@ -61,12 +64,15 @@ describe("BibleReaderComponent", () => {
     bookServiceSpy = createSpyObj("BookService", [
       "findBook",
       "findBookById",
+      "getBooks",
       "getUrlAbrv",
       "getChapterUrlSegment",
       "parseChapterUrlSegment",
       "loadGroupIntroBody",
       "retryBooks",
     ])
+    // The real BibleReferenceService reads it, for NativeFootnotesService.
+    bookServiceSpy.getBooks.mockReturnValue(mockBooks as unknown as Book[])
     bookServiceSpy.books$ = new BehaviorSubject(
       mockBooks,
     ) as unknown as BehaviorSubject<Book[]>
@@ -256,6 +262,205 @@ describe("BibleReaderComponent", () => {
         ?.nativeElement as HTMLElement
       expect(container).toBeTruthy()
       expect(container.style.opacity).not.toBe("0")
+    })
+
+    describe("a link to a verse's notes", () => {
+      const verse = (number: number, notes: string[] = []) =>
+        ({
+          bookId: "gen",
+          chapterNumber: 1,
+          number,
+          verseLabel: `${number}`,
+          text: [
+            { type: "text", text: "Texto" },
+            ...notes.map((text) => ({
+              type: "footnote",
+              text,
+              reference: `${number}.`,
+            })),
+          ],
+        }) as Verse
+      const chapter = {
+        bookId: "gen",
+        number: 1,
+        verses: [
+          verse(1),
+          verse(2, ["Nota do 2"]),
+          verse(3),
+          verse(4, ["Nota"]),
+        ],
+      } as Chapter
+
+      function follow(notes: string) {
+        fixture.detectChanges()
+        component.chapter = chapter
+        const sheet = vi
+          .spyOn(TestBed.inject(MatBottomSheet), "open")
+          .mockReturnValue({
+            afterDismissed: () => of(undefined),
+            dismiss: () => {},
+          } as never)
+        const replaceState = vi.spyOn(TestBed.inject(Location), "replaceState")
+        vi.spyOn(TestBed.inject(Location), "path").mockReturnValue(
+          `/gn/1?verseStart=2&notes=${notes}`,
+        )
+        ;(
+          routeMock as unknown as {
+            queryParamMap: BehaviorSubject<Map<string, string>>
+          }
+        ).queryParamMap.next(new Map([["notes", notes]]))
+        return { sheet, replaceState }
+      }
+
+      /** What a chapter's arrival does, once it has rendered. */
+      const openPending = () =>
+        (component as unknown as { openLinkedNotes(): void }).openLinkedNotes()
+
+      it("opens that verse's notes", () => {
+        const { sheet } = follow("2")
+
+        expect(sheet).toHaveBeenCalledTimes(1)
+        const data = sheet.mock.lastCall?.[1]?.data as {
+          verse: Verse
+          footnotes: { text: string }[]
+        }
+        expect(data.verse.number).toBe(2)
+        expect(data.footnotes.map((note) => note.text)).toEqual(["Nota do 2"])
+      })
+
+      it("takes the first verse with notes in a range", () => {
+        const { sheet } = follow("3-4")
+
+        const data = sheet.mock.lastCall?.[1]?.data as { verse: Verse }
+        expect(data.verse.number).toBe(4)
+      })
+
+      it("opens nothing for a verse without notes", () => {
+        const { sheet } = follow("1")
+
+        expect(sheet).not.toHaveBeenCalled()
+      })
+
+      it("ignores a parameter that makes no sense", () => {
+        const { sheet } = follow("x")
+
+        expect(sheet).not.toHaveBeenCalled()
+      })
+
+      it("takes it off the address, keeping the rest, so it opens once", () => {
+        const { sheet, replaceState } = follow("2")
+
+        expect(replaceState.mock.lastCall?.[0]).toBe("/gn/1?verseStart=2")
+        ;(
+          routeMock as unknown as {
+            queryParamMap: BehaviorSubject<Map<string, string>>
+          }
+        ).queryParamMap.next(new Map())
+        expect(sheet).toHaveBeenCalledTimes(1)
+      })
+
+      it("closes them when the reader is left, as by the toast's way back", () => {
+        const dismiss = vi.fn()
+        vi.spyOn(TestBed.inject(MatBottomSheet), "open").mockReturnValue({
+          afterDismissed: () => of(undefined),
+          dismiss,
+        } as never)
+        fixture.detectChanges()
+        component.chapter = chapter
+        ;(
+          routeMock as unknown as {
+            queryParamMap: BehaviorSubject<Map<string, string>>
+          }
+        ).queryParamMap.next(new Map([["notes", "2"]]))
+        expect(dismiss).not.toHaveBeenCalled()
+
+        fixture.destroy()
+
+        expect(dismiss).toHaveBeenCalled()
+      })
+
+      it("opens them natively in the native apps", () => {
+        const native = TestBed.inject(NativeFootnotesService)
+        vi.spyOn(native, "enabled", "get").mockReturnValue(true)
+        const open = vi.spyOn(native, "open").mockImplementation(() => {})
+
+        const { sheet } = follow("2")
+
+        expect(sheet).not.toHaveBeenCalled()
+        expect(open).toHaveBeenCalledTimes(1)
+        const [footnotes, opened] = open.mock.lastCall ?? []
+        expect(opened?.number).toBe(2)
+        expect(footnotes?.map((note) => note.text)).toEqual(["Nota do 2"])
+      })
+
+      it("forgets them when their chapter fails to load", () => {
+        vi.spyOn(console, "error").mockImplementation(() => {})
+        const sheet = vi
+          .spyOn(TestBed.inject(MatBottomSheet), "open")
+          .mockReturnValue({
+            afterDismissed: () => of(undefined),
+            dismiss: () => {},
+          } as never)
+        const queryParamMap = (
+          routeMock as unknown as {
+            queryParamMap: BehaviorSubject<Map<string, string>>
+          }
+        ).queryParamMap
+        fixture.detectChanges()
+        component.chapter = { bookId: "gen", number: 9 } as Chapter
+        queryParamMap.next(new Map([["notes", "2"]]))
+
+        ;(
+          component as unknown as {
+            handleChapterLoadFailure(error: unknown): void
+          }
+        ).handleChapterLoadFailure(new Error("offline"))
+        component.chapter = chapter
+        openPending()
+
+        expect(sheet).not.toHaveBeenCalled()
+      })
+
+      it("forgets them when the reader moves on without them", () => {
+        const sheet = vi
+          .spyOn(TestBed.inject(MatBottomSheet), "open")
+          .mockReturnValue({
+            afterDismissed: () => of(undefined),
+            dismiss: () => {},
+          } as never)
+        const queryParamMap = (
+          routeMock as unknown as {
+            queryParamMap: BehaviorSubject<Map<string, string>>
+          }
+        ).queryParamMap
+        fixture.detectChanges()
+        component.chapter = { bookId: "gen", number: 9 } as Chapter
+        queryParamMap.next(new Map([["notes", "2"]]))
+        queryParamMap.next(new Map())
+
+        component.chapter = chapter
+        openPending()
+
+        expect(sheet).not.toHaveBeenCalled()
+      })
+
+      it("waits for the chapter to arrive", () => {
+        const sheet = vi
+          .spyOn(TestBed.inject(MatBottomSheet), "open")
+          .mockReturnValue({
+            afterDismissed: () => of(undefined),
+            dismiss: () => {},
+          } as never)
+        fixture.detectChanges()
+        component.chapter = { bookId: "gen", number: 9 } as Chapter
+        ;(
+          routeMock as unknown as {
+            queryParamMap: BehaviorSubject<Map<string, string>>
+          }
+        ).queryParamMap.next(new Map([["notes", "2"]]))
+
+        expect(sheet).not.toHaveBeenCalled()
+      })
     })
 
     it("should not call getChapter if book and chapter didn't change on route update", () => {
@@ -1130,6 +1335,12 @@ describe("BibleReaderComponent", () => {
       autoScrollServiceSpy.stop.mockClear()
       component.goToPassage({ bookId: "gen", chapter: 3 })
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
+    })
+
+    it("opens the pastoral index from the book list, in its own page", () => {
+      component.goToPassage({ bookId: "indice" })
+
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/indice"])
     })
 
     it("onBookSubmit opens chapter 1 even when the book has an introduction", () => {
