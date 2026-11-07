@@ -61,9 +61,10 @@ export class PreferencesService {
     RAGGED_TEXT: "raggedText",
   }
 
-  /** Whether the reader chose ragged-right text; justified by default. */
-  getRaggedText(): boolean {
-    return this.read(this.KEYS.RAGGED_TEXT) === "true"
+  /** The reader's choice of ragged-right (true) or justified (false) text; null until they make one. */
+  getRaggedText(): boolean | null {
+    const stored = this.read(this.KEYS.RAGGED_TEXT)
+    return stored === "true" ? true : stored === "false" ? false : null
   }
 
   setRaggedText(ragged: boolean): void {

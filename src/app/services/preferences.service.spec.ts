@@ -50,8 +50,8 @@ describe("PreferencesService", () => {
     expect(service.getAutoScrollControlsVisible()).toBe(true)
   })
 
-  it("should justify the text until ragged-right is chosen", () => {
-    expect(service.getRaggedText()).toBe(false)
+  it("should have no alignment until one is chosen, then keep it", () => {
+    expect(service.getRaggedText()).toBeNull()
     service.setRaggedText(true)
     expect(service.getRaggedText()).toBe(true)
     service.setRaggedText(false)

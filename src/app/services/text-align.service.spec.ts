@@ -3,25 +3,44 @@ import { TextAlignService } from "./text-align.service"
 
 describe("TextAlignService", () => {
   const classes = document.documentElement.classList
+  const onPhone = (phone: boolean) =>
+    vi
+      .spyOn(window, "matchMedia")
+      .mockReturnValue({ matches: phone } as MediaQueryList)
+  const clear = () => {
+    localStorage.removeItem("raggedText")
+    classes.remove("ragged-text", "justified-text")
+  }
 
   beforeEach(() => {
-    localStorage.removeItem("raggedText")
-    classes.remove("ragged-text")
+    clear()
     TestBed.resetTestingModule()
   })
 
-  afterEach(() => {
-    localStorage.removeItem("raggedText")
-    classes.remove("ragged-text")
-  })
+  afterEach(clear)
 
-  it("justifies the text by default", () => {
+  it("is justified by default on a wider screen", () => {
+    onPhone(false)
     const service = TestBed.inject(TextAlignService)
     expect(service.ragged).toBe(false)
     expect(classes.contains("ragged-text")).toBe(false)
   })
 
+  // The menus said Justificado over a phone's ragged-right text, and choosing
+  // it changed nothing.
+  it("is ragged-right by default on a phone, and justifies it on a toggle", () => {
+    onPhone(true)
+    const service = TestBed.inject(TextAlignService)
+    expect(service.ragged).toBe(true)
+
+    service.toggle()
+    expect(service.ragged).toBe(false)
+    expect(classes.contains("justified-text")).toBe(true)
+    expect(localStorage.getItem("raggedText")).toBe("false")
+  })
+
   it("sets the text ragged-right and remembers it", () => {
+    onPhone(false)
     TestBed.inject(TextAlignService).toggle()
     expect(classes.contains("ragged-text")).toBe(true)
     expect(localStorage.getItem("raggedText")).toBe("true")
@@ -33,7 +52,15 @@ describe("TextAlignService", () => {
     expect(classes.contains("ragged-text")).toBe(true)
   })
 
+  it("keeps a choice whatever the screen's default", () => {
+    onPhone(true)
+    localStorage.setItem("raggedText", "false")
+    expect(TestBed.inject(TextAlignService).ragged).toBe(false)
+    expect(classes.contains("justified-text")).toBe(true)
+  })
+
   it("justifies again on a second toggle", () => {
+    onPhone(false)
     const service = TestBed.inject(TextAlignService)
     service.toggle()
     service.toggle()

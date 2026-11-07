@@ -949,6 +949,23 @@ describe("BibleReaderComponent", () => {
         expect(view.columnGap).toBe("0px")
       })
 
+      // A phone opens ragged-right; the menus' Justificado has to win over it.
+      it("set a phone's text ragged-right until justified is chosen", () => {
+        expect(frame, "the specs run in a frame").toBeTruthy()
+        if (frame) frame.style.width = "390px"
+        const block = render("scrolling").querySelector(
+          ".bookBlock",
+        ) as HTMLElement
+        expect(getComputedStyle(block).textAlign).toBe("start")
+
+        document.documentElement.classList.add("justified-text")
+        try {
+          expect(getComputedStyle(block).textAlign).toBe("justify")
+        } finally {
+          document.documentElement.classList.remove("justified-text")
+        }
+      })
+
       it("give scrolling text the same side margin as a page", () => {
         expect(frame, "the specs run in a frame").toBeTruthy()
         if (frame) frame.style.width = "390px"

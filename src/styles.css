@@ -678,12 +678,17 @@ html.dark-theme .platform-ios.native-chrome app-search {
   text-align: start;
 }
 
-/* The reader's choice of ragged-right over the justified default
-   (TextAlignService): unhyphenated, with balanced endings. */
+/* The reader's choice over the default (TextAlignService): ragged-right,
+   unhyphenated, with balanced endings; or justified, the phone default's
+   ragged-right included. */
 html.ragged-text .bookBlock {
   text-align: start;
   hyphens: manual;
   text-wrap: pretty;
+}
+
+html.justified-text .bookBlock {
+  text-align: justify;
 }
 
 /* The Android app's dark theme: text off-white like its bars (onSurface
