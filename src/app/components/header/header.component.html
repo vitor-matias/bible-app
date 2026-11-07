@@ -18,6 +18,9 @@
           <button type="button" mat-menu-item class="menu-control" (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" matTooltipPosition="above" [attr.aria-label]="getViewModeTooltip()">
             <mat-icon>{{ getViewModeIcon() }}</mat-icon>
           </button>
+          <button type="button" mat-menu-item class="menu-control" (click)="onToggleTextAlign()" [matTooltip]="getTextAlignTooltip()" matTooltipPosition="above" [attr.aria-label]="getTextAlignTooltip()">
+            <mat-icon>{{ getTextAlignIcon() }}</mat-icon>
+          </button>
           }
           <button type="button" mat-menu-item class="menu-control" (click)="onDecreaseFontSize()" matTooltip="Diminuir texto" matTooltipPosition="above" aria-label="Diminuir texto">
             <mat-icon>text_decrease</mat-icon>

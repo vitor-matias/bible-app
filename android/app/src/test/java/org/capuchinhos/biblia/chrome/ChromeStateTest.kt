@@ -27,7 +27,7 @@ class ChromeStateTest {
                 {"mode":"reader","themeMode":"dark","passageLabel":"Deuteronómio 3",
                  "passageShortLabels":["Dt 3"],"passageAccessibilityLabel":"Deuteronómio, capítulo 3",
                  "chapterNavigation":true,"canGoPrevious":true,"canGoNext":false,"search":true,
-                 "viewMode":"paged","autoScrollVisible":true,"autoScrollAvailable":true,
+                 "viewMode":"paged","raggedText":true,"autoScrollVisible":true,"autoScrollAvailable":true,
                  "canShare":true,"canReport":false,"bookmarkColor":"red","bookmarkName":"vermelho",
                  "buildVersion":"20261018-120000Z","inert":false,"collapsed":true,"scrolled":true,
                  "subtitle":"As bem-aventuranças",
@@ -43,6 +43,7 @@ class ChromeStateTest {
         assertTrue(state.canGoPrevious)
         assertFalse(state.canGoNext)
         assertEquals("paged", state.viewMode)
+        assertEquals(true, state.raggedText)
         assertEquals("red", state.bookmarkColor)
         assertTrue(state.collapsed)
         assertTrue(state.scrolled)
@@ -57,9 +58,10 @@ class ChromeStateTest {
     @Test
     fun readsNullAsAbsent() {
         val state = ChromeState.from(
-            call("""{"mode":"reader","viewMode":null,"bookmarkColor":null,"autoScroll":null,"passageLabel":"Mt 5"}"""),
+            call("""{"mode":"reader","viewMode":null,"raggedText":null,"bookmarkColor":null,"autoScroll":null,"passageLabel":"Mt 5"}"""),
         )
         assertNull(state.viewMode)
+        assertNull(state.raggedText)
         assertNull(state.bookmarkColor)
         assertNull(state.autoScroll)
         assertNull(state.subtitle)
