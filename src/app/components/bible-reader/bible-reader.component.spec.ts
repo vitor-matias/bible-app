@@ -997,6 +997,21 @@ describe("BibleReaderComponent", () => {
       expect(getComputedStyle(block).textAlign).toBe("start")
     })
 
+    // The menu said Justificado while the largest sizes stayed ragged-right.
+    it("keeps an explicit justified choice at the largest sizes", () => {
+      const host = render("scrolling")
+      const container = host.querySelector(".text-container") as HTMLElement
+      const block = host.querySelector(".bookBlock") as HTMLElement
+      container.classList.add("large-text")
+
+      document.documentElement.classList.add("justified-text")
+      try {
+        expect(getComputedStyle(block).textAlign).toBe("justify")
+      } finally {
+        document.documentElement.classList.remove("justified-text")
+      }
+    })
+
     // The reader's choice in the menu (TextAlignService), over the default.
     it("sets the text ragged-right and unhyphenated when chosen", () => {
       const block = render("scrolling").querySelector(

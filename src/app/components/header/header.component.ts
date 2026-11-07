@@ -245,11 +245,13 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  /** Window width, not screen width: a narrow desktop window counts too. */
+  /** Window width, not screen width: a narrow desktop window counts too. The
+   *  stylesheets' own query, so a fractional width can't leave the native menus
+   *  on the other side of the reader's phone default (TextAlignService). */
   @HostListener("window:resize")
   updateMobile(): void {
     if (typeof window === "undefined") return
-    const isMobile = window.innerWidth <= 480
+    const isMobile = window.matchMedia("(max-width: 480px)").matches
     if (isMobile !== this.mobile) {
       this.mobile = isMobile
       this.cdr.markForCheck()

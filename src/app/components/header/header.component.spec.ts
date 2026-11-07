@@ -681,6 +681,20 @@ describe("HeaderComponent", () => {
         document.documentElement.classList.remove("ragged-text")
       })
 
+      // At 480.4px innerWidth reads 480 while the stylesheets' query no longer
+      // matches, so the phone's ragged default flipped without a native resync.
+      it("tells phone from wider by the stylesheets' query, not innerWidth", () => {
+        vi.spyOn(window, "matchMedia").mockImplementation(
+          (query) =>
+            ({ matches: query === "(max-width: 480px)" }) as MediaQueryList,
+        )
+        component.mobile = false
+
+        component.updateMobile()
+
+        expect(component.mobile).toBe(true)
+      })
+
       it("switches the text between justified and ragged-right", () => {
         themeButton()
         const button = document.querySelectorAll<HTMLButtonElement>(

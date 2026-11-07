@@ -687,7 +687,9 @@ html.ragged-text .bookBlock {
   text-wrap: pretty;
 }
 
-html.justified-text .bookBlock {
+/* An explicit choice wins over the largest sizes' ragged default too. */
+html.justified-text .bookBlock,
+html.justified-text .text-container.large-text .bookBlock {
   text-align: justify;
 }
 
