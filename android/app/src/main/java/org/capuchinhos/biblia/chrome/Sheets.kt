@@ -1,12 +1,6 @@
 package org.capuchinhos.biblia.chrome
 
-import android.content.Context
-import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -24,11 +18,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -69,7 +58,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
@@ -79,7 +67,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -103,7 +90,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import java.text.Normalizer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.capuchinhos.biblia.R
@@ -603,6 +589,13 @@ private fun MoveRow(move: BookmarksSheetState.Move, currentLabel: String, onClic
     }
 }
 
+/**
+ * A ribbon tile's height: 84 dp, or the 32 dp icon, the label's line (scaled
+ * with the text size, which autoSize doesn't shrink) and the paddings
+ * around them when that is taller.
+ */
+fun ribbonTileMinHeight(labelLineHeight: Dp): Dp = maxOf(84.dp, 32.dp + 6.dp + labelLineHeight + 16.dp)
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RibbonTile(
@@ -625,6 +618,8 @@ private fun RibbonTile(
         if (ribbon.current) append(", este capítulo")
     }
     val tile = if (ribbon.current) colors.primaryContainer else colors.surfaceContainerHighest
+    // From the larger label's line, used or free, so a row's tiles stay the same height.
+    val minHeight = ribbonTileMinHeight(with(LocalDensity.current) { MaterialTheme.typography.labelLarge.lineHeight.toDp() })
     Box {
         Surface(
             shape = RoundedCornerShape(16.dp),
@@ -634,7 +629,7 @@ private fun RibbonTile(
             border = if (ribbon.current) BorderStroke(2.dp, colors.primary) else null,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(84.dp)
+                .heightIn(min = minHeight)
                 .alpha(if (inert) 0.38f else 1f)
                 .combinedClickable(
                     enabled = !inert,
@@ -698,8 +693,9 @@ private fun RibbonTile(
                 menu = false
                 onOpen()
             }
-            // Not onto a chapter that has a ribbon: that one would come off.
-            if (!marked) {
+            // Not onto a chapter that has a ribbon (that one would come off),
+            // nor onto a page that can't be marked.
+            if (!marked && canMark) {
                 RibbonMenuItem("Mover para $currentLabel", R.drawable.ic_bookmark) {
                     menu = false
                     onAction("bookmark-move")

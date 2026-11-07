@@ -23,6 +23,13 @@ h6 {
   touch-action: pan-y !important;
 }
 
+/* Justified lines of a few words open rivers on a phone. */
+@media (max-width: 480px) {
+  .bookBlock {
+    text-align: start;
+  }
+}
+
 @media (max-width: 768px) {
   .bookSelector {
     width: 100%;
@@ -46,7 +53,8 @@ h6 {
 
 @media (min-width: 768px) {
   .bookBlock {
-    max-width: 55%;
+    /* About 70 characters a line on a wide screen. */
+    max-width: min(55%, 48rem);
     margin-left: auto;
     margin-right: auto;
   }

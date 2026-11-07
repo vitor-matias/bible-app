@@ -1,5 +1,5 @@
 import { NgZone } from "@angular/core"
-import { fakeAsync, TestBed, tick } from "@angular/core/testing"
+import { TestBed } from "@angular/core/testing"
 import { MatDialog, type MatDialogRef } from "@angular/material/dialog"
 import { Router } from "@angular/router"
 import type {
@@ -7,44 +7,50 @@ import type {
   URLOpenListenerEvent,
 } from "@capacitor/app"
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core"
+import type { Mock } from "vitest"
 import { AppComponent, EXIT_BACK_WINDOW_MS } from "./app.component"
 import { AnalyticsService } from "./services/analytics.service"
+import { AppPromoService } from "./services/app-promo.service"
 import { BackButtonService } from "./services/back-button.service"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
+import { PreferencesService } from "./services/preferences.service"
 import { ToastService } from "./services/toast.service"
+import { createSpyObj, type SpyObj } from "./testing/spy-obj"
 import { APP_PLUGIN, PAGE_HOSTNAME } from "./tokens"
 
 describe("AppComponent", () => {
-  let routerSpy: jasmine.SpyObj<Router>
+  let routerSpy: SpyObj<Router>
   let ngZone: NgZone
   /** Where the page is served from (PAGE_HOSTNAME). */
   let pageHostname: string
   // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
-  let mockAppPlugin: jasmine.SpyObj<any>
-  let onboardingSpy: jasmine.SpyObj<OnboardingService>
-  let nativeShellSpy: jasmine.SpyObj<NativeShellService>
-  let dialogStub: { openDialogs: MatDialogRef<unknown>[] }
-  let toastSpy: jasmine.SpyObj<ToastService>
+  let mockAppPlugin: SpyObj<any>
+  let onboardingSpy: SpyObj<OnboardingService>
+  let nativeShellSpy: SpyObj<NativeShellService>
+  let dialogStub: {
+    openDialogs: MatDialogRef<unknown>[]
+  }
+  let toastSpy: SpyObj<ToastService>
+  let appPromoSpy: SpyObj<AppPromoService>
 
   beforeEach(async () => {
     pageHostname = "localhost"
-    routerSpy = jasmine.createSpyObj("Router", ["navigateByUrl", "navigate"])
-    mockAppPlugin = jasmine.createSpyObj("App", ["addListener", "minimizeApp"])
+    routerSpy = createSpyObj("Router", ["navigateByUrl", "navigate"])
+    mockAppPlugin = createSpyObj("App", ["addListener", "minimizeApp"])
     dialogStub = { openDialogs: [] }
-    toastSpy = jasmine.createSpyObj("ToastService", ["show"])
+    toastSpy = createSpyObj("ToastService", ["show"])
+    appPromoSpy = createSpyObj("AppPromoService", ["scheduleOnce"])
 
-    const offlineDataSpy = jasmine.createSpyObj("OfflineDataService", [
+    const offlineDataSpy = createSpyObj("OfflineDataService", [
       "preloadAllBooksAndChapters",
     ])
-    const analyticsSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
-    analyticsSpy.track.and.returnValue(Promise.resolve())
-    onboardingSpy = jasmine.createSpyObj("OnboardingService", [
-      "showOnFirstLaunch",
-    ])
+    const analyticsSpy = createSpyObj("AnalyticsService", ["track"])
+    analyticsSpy.track.mockResolvedValue(undefined)
+    onboardingSpy = createSpyObj("OnboardingService", ["showOnFirstLaunch"])
 
-    nativeShellSpy = jasmine.createSpyObj("NativeShellService", [
+    nativeShellSpy = createSpyObj("NativeShellService", [
       "init",
       "setNavigationBarTheme",
     ])
@@ -60,12 +66,30 @@ describe("AppComponent", () => {
         { provide: MatDialog, useValue: dialogStub },
         { provide: NativeShellService, useValue: nativeShellSpy },
         { provide: ToastService, useValue: toastSpy },
+        { provide: AppPromoService, useValue: appPromoSpy },
         { provide: PAGE_HOSTNAME, useFactory: () => pageHostname },
       ],
     }).compileComponents()
 
     ngZone = TestBed.inject(NgZone)
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true)
+  })
+
+  // Nothing else asks for these two: ThemeService applies the saved theme, and
+  // PwaInstallService must catch the one-shot `beforeinstallprompt`.
+  it("creates the theme and install services at startup", () => {
+    const savedTheme = vi
+      .spyOn(PreferencesService.prototype, "getTheme")
+      .mockReturnValue(undefined as unknown as null)
+    const listen = vi.spyOn(window, "addEventListener")
+
+    TestBed.createComponent(AppComponent)
+
+    expect(savedTheme).toHaveBeenCalled()
+    expect(listen).toHaveBeenCalledWith(
+      "beforeinstallprompt",
+      expect.any(Function),
+    )
   })
 
   it("should create the app", () => {
@@ -94,14 +118,14 @@ describe("AppComponent", () => {
 
     // The website is nginx: the script 404'd on every page.
     it("is not loaded on the website", () => {
-      ;(Capacitor.isNativePlatform as jasmine.Spy).and.returnValue(false)
+      ;(Capacitor.isNativePlatform as Mock).mockReturnValue(false)
       servedFrom("biblia.capuchinhos.org")
       TestBed.createComponent(AppComponent)
       expect(speedInsightsScripts().length).toBe(0)
     })
 
     it("is loaded on the Vercel deployment", () => {
-      ;(Capacitor.isNativePlatform as jasmine.Spy).and.returnValue(false)
+      ;(Capacitor.isNativePlatform as Mock).mockReturnValue(false)
       servedFrom("bible-app-ten-psi.vercel.app")
       TestBed.createComponent(AppComponent)
       expect(speedInsightsScripts().length).toBe(1)
@@ -109,7 +133,7 @@ describe("AppComponent", () => {
   })
 
   it("should set up the native shell on init", () => {
-    mockAppPlugin.addListener.and.resolveTo({
+    mockAppPlugin.addListener.mockResolvedValue({
       remove: async () => {},
     } as unknown as PluginListenerHandle)
 
@@ -119,7 +143,7 @@ describe("AppComponent", () => {
   })
 
   it("should send app_open event on init", async () => {
-    mockAppPlugin.addListener.and.resolveTo({
+    mockAppPlugin.addListener.mockResolvedValue({
       remove: async () => {},
     } as unknown as PluginListenerHandle)
 
@@ -132,7 +156,7 @@ describe("AppComponent", () => {
   })
 
   it("should preload books for offline use on init", async () => {
-    mockAppPlugin.addListener.and.resolveTo({
+    mockAppPlugin.addListener.mockResolvedValue({
       remove: async () => {},
     } as unknown as PluginListenerHandle)
 
@@ -147,7 +171,7 @@ describe("AppComponent", () => {
   })
 
   it("should route a title-only share to search with q", async () => {
-    mockAppPlugin.addListener.and.resolveTo({
+    mockAppPlugin.addListener.mockResolvedValue({
       remove: async () => {},
     } as unknown as PluginListenerHandle)
     const originalUrl = window.location.href
@@ -169,7 +193,7 @@ describe("AppComponent", () => {
   // A share sheet that sends every field emits "" for the empty ones, and ??
   // treats "" as a value — the share then went nowhere.
   it("should route a share with empty text and url to search with the title", async () => {
-    mockAppPlugin.addListener.and.resolveTo({
+    mockAppPlugin.addListener.mockResolvedValue({
       remove: async () => {},
     } as unknown as PluginListenerHandle)
     const originalUrl = window.location.href
@@ -189,7 +213,7 @@ describe("AppComponent", () => {
   })
 
   it("should offer the onboarding wizard on first launch", () => {
-    mockAppPlugin.addListener.and.resolveTo({
+    mockAppPlugin.addListener.mockResolvedValue({
       remove: async () => {},
     } as unknown as PluginListenerHandle)
 
@@ -199,8 +223,18 @@ describe("AppComponent", () => {
     expect(onboardingSpy.showOnFirstLaunch).toHaveBeenCalled()
   })
 
+  it("should offer the native app once to visitors past onboarding", () => {
+    mockAppPlugin.addListener.mockResolvedValue({
+      remove: async () => {},
+    } as unknown as PluginListenerHandle)
+
+    TestBed.createComponent(AppComponent).detectChanges()
+
+    expect(appPromoSpy.scheduleOnce).toHaveBeenCalled()
+  })
+
   it("should setup app links listener on native platform", () => {
-    mockAppPlugin.addListener.and.resolveTo({
+    mockAppPlugin.addListener.mockResolvedValue({
       remove: async () => {},
     } as unknown as PluginListenerHandle)
 
@@ -209,13 +243,13 @@ describe("AppComponent", () => {
 
     expect(mockAppPlugin.addListener).toHaveBeenCalledWith(
       "appUrlOpen",
-      jasmine.any(Function),
+      expect.any(Function),
     )
   })
 
   it("should route to correct path when valid app link is opened", async () => {
     let capturedCallback: (event: URLOpenListenerEvent) => void = () => {}
-    mockAppPlugin.addListener.and.callFake(((
+    mockAppPlugin.addListener.mockImplementation(((
       eventName: string,
       callback: (event: URLOpenListenerEvent) => void,
     ) => {
@@ -233,7 +267,7 @@ describe("AppComponent", () => {
 
     expect(mockAppPlugin.addListener).toHaveBeenCalledWith(
       "appUrlOpen",
-      jasmine.any(Function),
+      expect.any(Function),
     )
 
     const mockEvent: URLOpenListenerEvent = {
@@ -251,7 +285,7 @@ describe("AppComponent", () => {
 
   it("should not route when invalid domain app link is opened", async () => {
     let capturedCallback: (event: URLOpenListenerEvent) => void = () => {}
-    mockAppPlugin.addListener.and.callFake(((
+    mockAppPlugin.addListener.mockImplementation(((
       eventName: string,
       callback: (event: URLOpenListenerEvent) => void,
     ) => {
@@ -269,7 +303,7 @@ describe("AppComponent", () => {
 
     expect(mockAppPlugin.addListener).toHaveBeenCalledWith(
       "appUrlOpen",
-      jasmine.any(Function),
+      expect.any(Function),
     )
 
     const mockEvent: URLOpenListenerEvent = {
@@ -287,8 +321,8 @@ describe("AppComponent", () => {
     let backButton: (event: BackButtonListenerEvent) => void
 
     beforeEach(() => {
-      backButton = () => fail("backButton listener was not registered")
-      mockAppPlugin.addListener.and.callFake(((
+      backButton = () => expect.fail("backButton listener was not registered")
+      mockAppPlugin.addListener.mockImplementation(((
         eventName: string,
         callback: (event: BackButtonListenerEvent) => void,
       ) => {
@@ -302,12 +336,16 @@ describe("AppComponent", () => {
     })
 
     it("closes the topmost dialog first", () => {
-      const lower = jasmine.createSpyObj<MatDialogRef<unknown>>(["close"])
-      const top = jasmine.createSpyObj<MatDialogRef<unknown>>(["close"])
+      const lower = createSpyObj<MatDialogRef<unknown>>("MatDialogRef", [
+        "close",
+      ])
+      const top = createSpyObj<MatDialogRef<unknown>>("MatDialogRef", ["close"])
       dialogStub.openDialogs = [lower, top]
-      const closePanel = jasmine.createSpy("closePanel").and.returnValue(true)
+      const closePanel = vi.fn().mockName("closePanel").mockReturnValue(true)
       const unregister = TestBed.inject(BackButtonService).register(closePanel)
-      const historyBack = spyOn(window.history, "back")
+      const historyBack = vi
+        .spyOn(window.history, "back")
+        .mockReturnValue(undefined)
 
       backButton({ canGoBack: true })
 
@@ -319,7 +357,9 @@ describe("AppComponent", () => {
     })
 
     it("goes back in history when it can", () => {
-      const historyBack = spyOn(window.history, "back")
+      const historyBack = vi
+        .spyOn(window.history, "back")
+        .mockReturnValue(undefined)
 
       backButton({ canGoBack: true })
 
@@ -330,7 +370,9 @@ describe("AppComponent", () => {
     // On a fresh launch, the WebView skips on Back a page opened from the
     // native bars before any tap on the page, and says it can't go back.
     it("goes back to a page the WebView skips, by the app's own count", () => {
-      const historyBack = spyOn(window.history, "back")
+      const historyBack = vi
+        .spyOn(window.history, "back")
+        .mockReturnValue(undefined)
       const state = window.history.state
       window.history.replaceState({ ...state, appDepth: 1 }, "")
       try {
@@ -344,9 +386,11 @@ describe("AppComponent", () => {
     })
 
     it("closes a registered panel, such as the book drawer, before going back", () => {
-      const closeDrawer = jasmine.createSpy("closeDrawer").and.returnValue(true)
+      const closeDrawer = vi.fn().mockName("closeDrawer").mockReturnValue(true)
       const unregister = TestBed.inject(BackButtonService).register(closeDrawer)
-      const historyBack = spyOn(window.history, "back")
+      const historyBack = vi
+        .spyOn(window.history, "back")
+        .mockReturnValue(undefined)
 
       backButton({ canGoBack: true })
 
@@ -357,33 +401,39 @@ describe("AppComponent", () => {
 
     // A single back used to leave from the first screen, so a stray back
     // gesture dropped the reader out of the app.
-    it("sends the app to the background on a second back from the first screen", fakeAsync(() => {
-      const historyBack = spyOn(window.history, "back")
+    it("sends the app to the background on a second back from the first screen", async () => {
+      vi.useFakeTimers()
+      const historyBack = vi
+        .spyOn(window.history, "back")
+        .mockReturnValue(undefined)
 
       backButton({ canGoBack: false })
       expect(mockAppPlugin.minimizeApp).not.toHaveBeenCalled()
-      expect(toastSpy.show).toHaveBeenCalledOnceWith(
+      expect(toastSpy.show).toHaveBeenCalledTimes(1)
+      expect(toastSpy.show).toHaveBeenCalledWith(
         "Volte atrás outra vez para sair.",
         { action: "", duration: EXIT_BACK_WINDOW_MS },
       )
 
-      tick(EXIT_BACK_WINDOW_MS - 1)
+      await vi.advanceTimersByTimeAsync(EXIT_BACK_WINDOW_MS - 1)
       backButton({ canGoBack: false })
 
       expect(historyBack).not.toHaveBeenCalled()
       expect(mockAppPlugin.minimizeApp).toHaveBeenCalledTimes(1)
-    }))
+    })
 
-    it("only warns again when the second back comes too late", fakeAsync(() => {
+    it("only warns again when the second back comes too late", async () => {
+      vi.useFakeTimers()
       backButton({ canGoBack: false })
-      tick(EXIT_BACK_WINDOW_MS)
+      await vi.advanceTimersByTimeAsync(EXIT_BACK_WINDOW_MS)
       backButton({ canGoBack: false })
 
       expect(mockAppPlugin.minimizeApp).not.toHaveBeenCalled()
       expect(toastSpy.show).toHaveBeenCalledTimes(2)
-    }))
+    })
 
-    it("needs two backs again after a back that closed a panel in between", fakeAsync(() => {
+    it("needs two backs again after a back that closed a panel in between", async () => {
+      vi.useFakeTimers()
       backButton({ canGoBack: false })
       const unregister = TestBed.inject(BackButtonService).register(() => true)
       backButton({ canGoBack: false })
@@ -392,16 +442,17 @@ describe("AppComponent", () => {
 
       expect(mockAppPlugin.minimizeApp).not.toHaveBeenCalled()
       expect(toastSpy.show).toHaveBeenCalledTimes(2)
-    }))
+    })
 
-    it("needs two backs again after coming back to the app", fakeAsync(() => {
+    it("needs two backs again after coming back to the app", async () => {
+      vi.useFakeTimers()
       backButton({ canGoBack: false })
       backButton({ canGoBack: false })
       backButton({ canGoBack: false })
 
       expect(mockAppPlugin.minimizeApp).toHaveBeenCalledTimes(1)
       expect(toastSpy.show).toHaveBeenCalledTimes(2)
-    }))
+    })
   })
 
   describe("shares from other apps", () => {
@@ -409,7 +460,7 @@ describe("AppComponent", () => {
 
     beforeEach(() => {
       let capturedCallback: (event: URLOpenListenerEvent) => void = () => {}
-      mockAppPlugin.addListener.and.callFake(((
+      mockAppPlugin.addListener.mockImplementation(((
         eventName: string,
         callback: (event: URLOpenListenerEvent) => void,
       ) => {

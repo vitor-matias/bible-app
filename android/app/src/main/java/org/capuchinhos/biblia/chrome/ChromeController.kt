@@ -345,12 +345,10 @@ class ChromeController(
 
     /** Whether the theme in use is dark: the in-app one, or the device's. */
     val dark: Boolean
-        get() = when (themeMode) {
-            "light" -> false
-            "dark" -> true
-            else -> activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
-                Configuration.UI_MODE_NIGHT_YES
-        }
+        get() = isDarkTheme(
+            themeMode,
+            activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES,
+        )
 
     fun setSystemBarsBackground(status: Int?, page: Int?) {
         val next = if (status != null && page != null) status to page else null
@@ -517,7 +515,8 @@ class ChromeController(
     }
 }
 
-private const val PREFERENCES = "native-chrome"
+/** The chrome's own preferences, the picker's views among them. */
+internal const val PREFERENCES = "native-chrome"
 private const val RECENT_SEARCHES = "search.recent"
 private const val AUTO_SCROLL_X = "autoScroll.x"
 private const val AUTO_SCROLL_Y = "autoScroll.y"

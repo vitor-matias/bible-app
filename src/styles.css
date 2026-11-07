@@ -6,11 +6,46 @@
 @import "@fontsource/roboto/300.css";
 @import "@fontsource/roboto/400.css";
 @import "@fontsource/roboto/500.css";
-/* Literata with its weight and optical-size axes: verse numbers and the
-   drop-cap chapter number each get the cut drawn for their size. */
-@import "@fontsource-variable/literata/opsz.css";
-@import "@fontsource-variable/literata/opsz-italic.css";
 @import "@material-symbols/font-400/outlined.css";
+
+/* Literata sets the reader's text, with its weight and optical-size axes:
+   verse numbers and the drop-cap chapter number each get the cut drawn for
+   their size. fontsource's own CSS hardcodes font-display: swap, and a swap
+   rewraps the whole prerendered chapter after it has painted (CLS 0.75 on
+   /gn/1); `optional` never shows it on a first visit, and an app session is
+   one page. */
+@font-face {
+  font-family: "Literata Variable";
+  font-style: normal;
+  font-display: block;
+  font-weight: 200 900;
+  src: url("@fontsource-variable/literata/files/literata-latin-ext-opsz-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: "Literata Variable";
+  font-style: normal;
+  font-display: block;
+  font-weight: 200 900;
+  src: url("@fontsource-variable/literata/files/literata-latin-opsz-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: "Literata Variable";
+  font-style: italic;
+  font-display: block;
+  font-weight: 200 900;
+  src: url("@fontsource-variable/literata/files/literata-latin-ext-opsz-italic.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: "Literata Variable";
+  font-style: italic;
+  font-display: block;
+  font-weight: 200 900;
+  src: url("@fontsource-variable/literata/files/literata-latin-opsz-italic.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
 
 /* For assistive-tech headings only; never to feed crawlers hidden text. */
 .visually-hidden {
@@ -168,11 +203,12 @@ body {
   --mdc-dialog-subhead-color: var(--text-color);
   --mdc-dialog-supporting-text-color: var(--text-color);
 
-  --mdc-filled-button-container-color: var(--cap-brown);
-  --mdc-filled-button-label-text-color: antiquewhite;
-  --mdc-filled-button-disabled-container-color: var(--border-color);
-  --mdc-filled-button-disabled-label-text-color: var(--highlight-color);
-  --mdc-text-button-label-text-color: var(--text-color);
+  --mat-button-filled-container-color: var(--cap-brown);
+  --mat-button-filled-label-text-color: antiquewhite;
+  --mat-button-filled-disabled-container-color: var(--border-color);
+  /* 5:1 on --border-color; the antiquewhite highlight there was 1.1:1. */
+  --mat-button-filled-disabled-label-text-color: #5a5a5a;
+  --mat-button-text-label-text-color: var(--text-color);
 }
 
 /* Dark theme variables */
@@ -262,11 +298,11 @@ body {
   --mdc-dialog-supporting-text-color: var(--text-color);
   --mat-dialog-title-text-color: antiquewhite;
 
-  --mdc-filled-button-container-color: var(--cap-brown);
-  --mdc-filled-button-label-text-color: antiquewhite;
-  --mdc-filled-button-disabled-container-color: var(--border-color);
-  --mdc-filled-button-disabled-label-text-color: var(--highlight-color);
-  --mdc-text-button-label-text-color: var(--text-color);
+  --mat-button-filled-container-color: var(--cap-brown);
+  --mat-button-filled-label-text-color: antiquewhite;
+  --mat-button-filled-disabled-container-color: var(--border-color);
+  --mat-button-filled-disabled-label-text-color: var(--highlight-color);
+  --mat-button-text-label-text-color: var(--text-color);
 }
 
 /* Force dialog title specifically to antiquewhite in dark mode using exact target class */
@@ -334,6 +370,12 @@ html.dark-theme a.floating-nav-button {
 html.dark-theme .onboarding-dialog .mat-mdc-button,
 html.dark-theme .onboarding-dialog .mat-mdc-button .mdc-button__label {
   color: antiquewhite !important;
+}
+
+/* "Tentar novamente" when the Bible can't load: the span rule would paint its
+   label the text colour, which in the iOS app is also its fill. */
+.books-unavailable .mdc-button__label {
+  color: inherit;
 }
 
 .mat-bottom-sheet-container,
@@ -445,9 +487,8 @@ body .mat-mdc-form-field {
   --mat-form-field-focus-color: var(--text-color);
   --mat-select-focused-arrow-color: var(--text-color);
   --mat-option-selected-state-label-text-color: var(--text-color);
-  --mdc-filled-button-container-color: var(--text-color);
-  --mdc-filled-button-label-text-color: var(--background-color);
-  --mdc-filled-button-disabled-label-text-color: color-mix(in srgb, var(--text-color) 40%, transparent);
+  --mat-button-filled-container-color: var(--text-color);
+  --mat-button-filled-label-text-color: var(--background-color);
   --mdc-dialog-subhead-color: var(--text-color);
   --mat-dialog-title-text-color: var(--text-color);
 
@@ -518,6 +559,30 @@ html.dark-theme .platform-ios.native-chrome app-search {
    the bottom so the page still ends at the toolbar. */
 .native-chrome bible-reader .bookBlock {
   margin-top: var(--app-reader-gap);
+}
+
+/* The open iPhone Duo's status bar runs down its right side: centred in the
+   safe area, the text sat left of the screen's centre. It moves over by half
+   the insets' difference, so it centres on the screen; from 768px its
+   columns keep margins wider than the shift, so it still clears the bar.
+   Narrower, the text has only 15px of margin and keeps to the safe area.
+   The scroller itself stays in the safe area, so its scroll indicator stays
+   out of the bar; its overflow-x is hidden, so the shift doesn't scroll
+   sideways. The paged view's fixed copyright footer follows the text. */
+@media (min-width: 768px) {
+  .native-chrome bible-reader {
+    --app-centred-inset: calc((var(--app-inset-left) + var(--app-inset-right)) / 2);
+  }
+
+  .native-chrome bible-reader .mat-drawer-content > :is(:has(> .bookBlock), .copyright-footer:not(.fixed-footer)) {
+    position: relative;
+    left: calc(var(--app-centred-inset) - var(--app-inset-left));
+  }
+
+  .native-chrome bible-reader .fixed-footer {
+    left: var(--app-centred-inset);
+    right: var(--app-centred-inset);
+  }
 }
 
 .native-chrome bible-reader .paged-view-container {

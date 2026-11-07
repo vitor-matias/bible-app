@@ -9,7 +9,9 @@ import {
 } from "@angular/material/snack-bar"
 import { provideRouter, Router } from "@angular/router"
 import { Subject } from "rxjs"
+import type { Mock } from "vitest"
 import { TwoActionSnackComponent } from "../components/two-action-snackbar/two-action-snackbar.component"
+import { createSpyObj, lastCall, type SpyObj } from "../testing/spy-obj"
 import { BookService } from "./book.service"
 import { NativeChromeService } from "./native-chrome.service"
 import { ToastService } from "./toast.service"
@@ -18,29 +20,26 @@ import { ToastService } from "./toast.service"
 class PassagePage {}
 
 describe("ToastService", () => {
-  let snackBar: jasmine.SpyObj<MatSnackBar>
-  let snackRef: jasmine.SpyObj<MatSnackBarRef<TwoActionSnackComponent>>
+  let snackBar: SpyObj<MatSnackBar>
+  let snackRef: SpyObj<MatSnackBarRef<TwoActionSnackComponent>>
   let snackClosed: Subject<MatSnackBarDismiss>
-  let nativeChrome: { enabled: boolean; toast: jasmine.Spy }
+  let nativeChrome: {
+    enabled: boolean
+    toast: Mock
+  }
   /** What takes the glass toast down (NativeChromeService.toast). */
-  let hideToast: jasmine.Spy
+  let hideToast: Mock
 
   function create(native: boolean): ToastService {
     snackClosed = new Subject()
-    snackRef = jasmine.createSpyObj("MatSnackBarRef", [
-      "dismiss",
-      "afterDismissed",
-    ])
-    snackRef.afterDismissed.and.returnValue(snackClosed)
-    snackBar = jasmine.createSpyObj("MatSnackBar", [
-      "open",
-      "openFromComponent",
-    ])
-    snackBar.openFromComponent.and.returnValue(snackRef)
-    hideToast = jasmine.createSpy("hideToast")
+    snackRef = createSpyObj("MatSnackBarRef", ["dismiss", "afterDismissed"])
+    snackRef.afterDismissed.mockReturnValue(snackClosed)
+    snackBar = createSpyObj("MatSnackBar", ["open", "openFromComponent"])
+    snackBar.openFromComponent.mockReturnValue(snackRef)
+    hideToast = vi.fn().mockName("hideToast")
     nativeChrome = {
       enabled: native,
-      toast: jasmine.createSpy("toast").and.returnValue(hideToast),
+      toast: vi.fn().mockName("toast").mockReturnValue(hideToast),
     }
     TestBed.configureTestingModule({
       providers: [
@@ -76,7 +75,9 @@ describe("ToastService", () => {
 
   it("keeps the caller's button and duration on the web", () => {
     create(false).show("Erro", { action: "OK", duration: 4000 })
-    expect(snackBar.open).toHaveBeenCalledWith("Erro", "OK", { duration: 4000 })
+    expect(snackBar.open).toHaveBeenCalledWith("Erro", "OK", {
+      duration: 4000,
+    })
   })
 
   it("shows the native glass toast in the iOS app", () => {
@@ -92,22 +93,24 @@ describe("ToastService", () => {
 
   describe("showReturn", () => {
     const returnSnack = () =>
-      snackBar.openFromComponent.calls.mostRecent().args[1]?.data as {
+      lastCall(vi.mocked(snackBar.openFromComponent))[1]?.data as {
         message: string
         returnUrl: () => void
       }
 
     it("offers the way back to the verse in a snackbar", () => {
       const toast = create(false)
-      const navigate = spyOn(TestBed.inject(Router), "navigate").and.resolveTo(
-        true,
-      )
+      const navigate = vi
+        .spyOn(TestBed.inject(Router), "navigate")
+        .mockResolvedValue(true)
 
       toast.showReturn({ bookId: "gen", chapterNumber: 3, number: 5 })
 
-      expect(snackBar.openFromComponent).toHaveBeenCalledOnceWith(
+      expect(snackBar.openFromComponent).toHaveBeenCalledTimes(1)
+
+      expect(snackBar.openFromComponent).toHaveBeenCalledWith(
         TwoActionSnackComponent,
-        jasmine.anything(),
+        expect.anything(),
       )
       expect(returnSnack().message).toBe("Voltar para Gn 3,5")
       returnSnack().returnUrl()
@@ -123,23 +126,21 @@ describe("ToastService", () => {
 
     it("offers the way back as a glass toast that is a button in the iOS app", () => {
       const toast = create(true)
-      const navigate = spyOn(TestBed.inject(Router), "navigate").and.resolveTo(
-        true,
-      )
+      const navigate = vi
+        .spyOn(TestBed.inject(Router), "navigate")
+        .mockResolvedValue(true)
 
       toast.showReturn({ bookId: "gen", chapterNumber: 3, number: 5 })
 
       expect(snackBar.openFromComponent).not.toHaveBeenCalled()
-      expect(nativeChrome.toast).toHaveBeenCalledOnceWith(
-        "Voltar para Gn 3,5",
-        {
-          symbol: "arrow.uturn.backward",
-          onTap: jasmine.any(Function),
-          // Android takes the way back down once the reader reads on.
-          returnToPage: true,
-        },
-      )
-      nativeChrome.toast.calls.mostRecent().args[1].onTap()
+      expect(nativeChrome.toast).toHaveBeenCalledTimes(1)
+      expect(nativeChrome.toast).toHaveBeenCalledWith("Voltar para Gn 3,5", {
+        symbol: "arrow.uturn.backward",
+        onTap: expect.any(Function),
+        // Android takes the way back down once the reader reads on.
+        returnToPage: true,
+      })
+      lastCall(vi.mocked(nativeChrome.toast))[1].onTap()
       expect(navigate).toHaveBeenCalledWith(["gn", 3], {
         queryParams: { verseStart: 5, highlight: false },
       })

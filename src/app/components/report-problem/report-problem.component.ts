@@ -1,10 +1,5 @@
 import { CommonModule } from "@angular/common"
-import {
-  ChangeDetectionStrategy,
-  Component,
-  Inject,
-  inject,
-} from "@angular/core"
+import { ChangeDetectionStrategy, Component, inject } from "@angular/core"
 import {
   FormControl,
   FormGroup,
@@ -49,6 +44,9 @@ export interface ReportProblemData {
   styleUrls: ["./report-problem.component.css"],
 })
 export class ReportProblemComponent {
+  dialogRef = inject<MatDialogRef<ReportProblemComponent>>(MatDialogRef)
+  data = inject<ReportProblemData>(MAT_DIALOG_DATA)
+
   private readonly toast = inject(ToastService)
   private readonly reports = inject(ProblemReportService)
   isSending = false
@@ -67,11 +65,6 @@ export class ReportProblemComponent {
   get subject(): string {
     return reportSubject(this.data.book, this.data.chapter)
   }
-
-  constructor(
-    public dialogRef: MatDialogRef<ReportProblemComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: ReportProblemData,
-  ) {}
 
   async onSubmit() {
     if (this.isSending || this.reportForm.invalid) {

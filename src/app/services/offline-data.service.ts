@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http"
-import { Injectable } from "@angular/core"
+import { Injectable, inject } from "@angular/core"
 import { firstValueFrom } from "rxjs"
 import { apiBaseUrl } from "../config"
 import { safeLocalStorage } from "../utils/web-storage"
@@ -11,6 +11,11 @@ import { NetworkService } from "./network.service"
   providedIn: "root",
 })
 export class OfflineDataService {
+  private http = inject(HttpClient)
+  private databaseService = inject(DatabaseService)
+  private networkService = inject(NetworkService)
+  private analyticsService = inject(AnalyticsService)
+
   private cacheFlagKey = "booksCacheReady"
   private groupIntrosCacheFlagKey = "groupIntrosCacheReady"
   private cacheTimestampKey = "booksCacheTimestamp"
@@ -23,13 +28,6 @@ export class OfflineDataService {
   private apiBase = apiBaseUrl
   private cacheLoadPromise: Promise<void> | null = null
   private migrationPromise: Promise<boolean> | null = null
-
-  constructor(
-    private http: HttpClient,
-    private databaseService: DatabaseService,
-    private networkService: NetworkService,
-    private analyticsService: AnalyticsService,
-  ) {}
 
   /**
    * Fetches all books and chapters so they are stored by the Service Worker
@@ -175,18 +173,9 @@ export class OfflineDataService {
     }
   }
 
-  getCachedBooks(): Book[] {
-    this.ensureCacheLoaded()
-    return this.cachedBooks ?? []
-  }
-
   async getCachedBooksAsync(): Promise<Book[]> {
     await this.ensureCacheLoaded()
     return this.cachedBooks ?? []
-  }
-
-  getCachedBook(bookId: Book["id"]): Book | undefined {
-    return this.getCachedBooks().find((book) => book.id === bookId)
   }
 
   async getCachedBookAsync(bookId: Book["id"]): Promise<Book | undefined> {
@@ -215,29 +204,12 @@ export class OfflineDataService {
     }
   }
 
-  getCachedChapter(
-    bookId: Book["id"],
-    chapterNumber: Chapter["number"],
-  ): Chapter | undefined {
-    const book = this.getCachedBook(bookId)
-    return book?.chapters?.find((chapter) => chapter.number === chapterNumber)
-  }
-
   async getCachedChapterAsync(
     bookId: Book["id"],
     chapterNumber: Chapter["number"],
   ): Promise<Chapter | undefined> {
     const book = await this.getCachedBookAsync(bookId)
     return book?.chapters?.find((chapter) => chapter.number === chapterNumber)
-  }
-
-  getCachedVerse(
-    bookId: Book["id"],
-    chapterNumber: Chapter["number"],
-    verseNumber: Verse["number"],
-  ): Verse | undefined {
-    const chapter = this.getCachedChapter(bookId, chapterNumber)
-    return chapter?.verses?.find((verse) => verse.number === verseNumber)
   }
 
   async getCachedVerseAsync(

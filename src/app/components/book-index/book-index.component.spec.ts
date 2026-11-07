@@ -1,21 +1,21 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { provideRouter, Router } from "@angular/router"
 import { of, Subject } from "rxjs"
+import type { Mock } from "vitest"
 
 import { OLD_TESTAMENT_GROUPS } from "../../bible-canon"
 import { BookService } from "../../services/book.service"
-import {
-  type NativeChromeAction,
-  NativeChromeService,
-} from "../../services/native-chrome.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
+import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BookIndexComponent } from "./book-index.component"
 
 describe("BookIndexComponent", () => {
   let fixture: ComponentFixture<BookIndexComponent>
   let element: HTMLElement
-  let seoSpy: jasmine.SpyObj<SeoService>
+  let seoSpy: SpyObj<SeoService>
 
   function book(id: string, name: string, abrv: string): Book {
     return { id, name, shortName: name, abrv, chapterCount: 1 } as Book
@@ -43,9 +43,7 @@ describe("BookIndexComponent", () => {
     // The blanket beforeEach already built a module; a test that wants a
     // different book list has to start from a clean one.
     TestBed.resetTestingModule()
-    seoSpy = jasmine.createSpyObj<SeoService>("SeoService", [
-      "updateForBookIndex",
-    ])
+    seoSpy = createSpyObj("SeoService", ["updateForBookIndex"])
     const bookServiceStub = {
       books$: of(available),
       getUrlAbrv: (entry: Book) => entry.abrv.replace(/\s/g, "").toLowerCase(),
@@ -172,8 +170,8 @@ describe("BookIndexComponent in the iOS app", () => {
   let nativeChrome: {
     enabled: boolean
     actions$: Subject<NativeChromeAction>
-    show: jasmine.Spy
-    hide: jasmine.Spy
+    show: Mock
+    hide: Mock
   }
 
   beforeEach(async () => {
@@ -181,8 +179,8 @@ describe("BookIndexComponent in the iOS app", () => {
     nativeChrome = {
       enabled: true,
       actions$: actions,
-      show: jasmine.createSpy("show"),
-      hide: jasmine.createSpy("hide"),
+      show: vi.fn().mockName("show"),
+      hide: vi.fn().mockName("hide"),
     }
     await TestBed.configureTestingModule({
       imports: [BookIndexComponent],
@@ -196,7 +194,9 @@ describe("BookIndexComponent in the iOS app", () => {
         },
         {
           provide: SeoService,
-          useValue: jasmine.createSpyObj(["updateForBookIndex"]),
+          useValue: {
+            updateForBookIndex: vi.fn(),
+          },
         },
       ],
     }).compileComponents()
@@ -220,9 +220,9 @@ describe("BookIndexComponent in the iOS app", () => {
   })
 
   it("goes where the web toolbar's buttons go", () => {
-    const navigate = spyOn(TestBed.inject(Router), "navigate").and.resolveTo(
-      true,
-    )
+    const navigate = vi
+      .spyOn(TestBed.inject(Router), "navigate")
+      .mockResolvedValue(true)
     actions.next({ id: "back" })
     actions.next({ id: "search" })
 

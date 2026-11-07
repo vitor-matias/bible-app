@@ -19,13 +19,16 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 
-/** Whether the in-app theme ("system", "light", "dark") is dark here. */
-@Composable
-fun isDarkTheme(themeMode: String): Boolean = when (themeMode) {
+/** Whether the in-app theme ("system", "light", "dark") is dark, given the device's. */
+fun isDarkTheme(themeMode: String, systemDark: Boolean): Boolean = when (themeMode) {
     "light" -> false
     "dark" -> true
-    else -> isSystemInDarkTheme()
+    else -> systemDark
 }
+
+/** Whether the in-app theme is dark here. */
+@Composable
+fun isDarkTheme(themeMode: String): Boolean = isDarkTheme(themeMode, isSystemInDarkTheme())
 
 /**
  * Material 3 Expressive in the wallpaper's colours, as Android's own apps

@@ -10,18 +10,19 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { ToastService } from "../../services/toast.service"
+import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { FootnotesBottomSheetComponent } from "./footnotes-bottom-sheet.component"
 
 describe("FootnotesBottomSheetComponent", () => {
   let component: FootnotesBottomSheetComponent
   let fixture: ComponentFixture<FootnotesBottomSheetComponent>
-  let bottomSheetRefSpy: jasmine.SpyObj<
+  let bottomSheetRefSpy: SpyObj<
     MatBottomSheetRef<FootnotesBottomSheetComponent>
   >
-  let bibleRefSpy: jasmine.SpyObj<BibleReferenceService>
-  let bookServiceSpy: jasmine.SpyObj<BookService>
-  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
-  let toastSpy: jasmine.SpyObj<ToastService>
+  let bibleRefSpy: SpyObj<BibleReferenceService>
+  let bookServiceSpy: SpyObj<BookService>
+  let analyticsServiceSpy: SpyObj<AnalyticsService>
+  let toastSpy: SpyObj<ToastService>
 
   const mockData = {
     footnotes: [
@@ -36,15 +37,12 @@ describe("FootnotesBottomSheetComponent", () => {
   }
 
   beforeEach(async () => {
-    bottomSheetRefSpy = jasmine.createSpyObj("MatBottomSheetRef", ["dismiss"])
-    bibleRefSpy = jasmine.createSpyObj("BibleReferenceService", ["extract"])
-    bookServiceSpy = jasmine.createSpyObj("BookService", [
-      "findBook",
-      "getUrlAbrv",
-    ])
-    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", ["track"])
-    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
-    toastSpy = jasmine.createSpyObj("ToastService", ["showReturn"])
+    bottomSheetRefSpy = createSpyObj("MatBottomSheetRef", ["dismiss"])
+    bibleRefSpy = createSpyObj("BibleReferenceService", ["extract"])
+    bookServiceSpy = createSpyObj("BookService", ["findBook", "getUrlAbrv"])
+    analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
+    analyticsServiceSpy.track.mockResolvedValue(undefined)
+    toastSpy = createSpyObj("ToastService", ["showReturn"])
 
     await TestBed.configureTestingModule({
       imports: [FootnotesBottomSheetComponent],
@@ -65,13 +63,13 @@ describe("FootnotesBottomSheetComponent", () => {
 
   it("should create", () => {
     // We mock extract to return empty array for init
-    bibleRefSpy.extract.and.returnValue([])
+    bibleRefSpy.extract.mockReturnValue([])
     fixture.detectChanges()
     expect(component).toBeTruthy()
   })
 
   it("should bind the footnotes font-size context to the gestures directive", () => {
-    bibleRefSpy.extract.and.returnValue([])
+    bibleRefSpy.extract.mockReturnValue([])
     fixture.detectChanges()
 
     const gestures = fixture.debugElement.query(
@@ -79,12 +77,12 @@ describe("FootnotesBottomSheetComponent", () => {
     )
     expect(gestures).toBeTruthy()
     expect(
-      gestures.injector.get(UnifiedGesturesDirective).fontSizeContext,
+      gestures.injector.get(UnifiedGesturesDirective).fontSizeContext(),
     ).toBe("footnotes")
   })
 
   it("should track footnotes_opened when component is initialized", () => {
-    bibleRefSpy.extract.and.returnValue([])
+    bibleRefSpy.extract.mockReturnValue([])
     fixture.detectChanges()
 
     // Component is already created in beforeEach
@@ -97,7 +95,7 @@ describe("FootnotesBottomSheetComponent", () => {
 
   describe("parseReferences", () => {
     it("should return the entire string when no references are extracted", () => {
-      bibleRefSpy.extract.and.returnValue([])
+      bibleRefSpy.extract.mockReturnValue([])
       const result = component.parseReferences("Just normal text.")
       expect(result.parts).toEqual(["Just normal text."])
       expect(bibleRefSpy.extract).toHaveBeenCalledWith(
@@ -108,7 +106,7 @@ describe("FootnotesBottomSheetComponent", () => {
     })
 
     it("should split string around extracted references", () => {
-      bibleRefSpy.extract.and.returnValue([
+      bibleRefSpy.extract.mockReturnValue([
         {
           index: 4,
           match: "Gen 1:1",
@@ -122,7 +120,7 @@ describe("FootnotesBottomSheetComponent", () => {
       expect(result.parts.length).toBe(3)
       expect(result.parts[0]).toBe("See ")
       expect(result.parts[1]).toEqual(
-        jasmine.objectContaining({ book: "GEN", match: "Gen 1:1" }),
+        expect.objectContaining({ book: "GEN", match: "Gen 1:1" }),
       )
       expect(result.parts[2]).toBe(".")
     })
@@ -131,9 +129,9 @@ describe("FootnotesBottomSheetComponent", () => {
   // "Jb 38,1-39,30" spans chapters and has no `verses`: the link opened at
   // the top of chapter 38 here, though at verse 1 in the iOS sheet.
   it("opens a cross-chapter reference at its first verse", () => {
-    bookServiceSpy.findBook.and.returnValue({ id: "job" } as Book)
-    bookServiceSpy.getUrlAbrv.and.returnValue("jb")
-    bibleRefSpy.extract.and.callFake((text: string) =>
+    bookServiceSpy.findBook.mockReturnValue({ id: "job" } as Book)
+    bookServiceSpy.getUrlAbrv.mockReturnValue("jb")
+    bibleRefSpy.extract.mockImplementation((text: string) =>
       text.startsWith("See")
         ? [
             {
@@ -190,8 +188,8 @@ describe("FootnotesBottomSheetComponent", () => {
       const mockBook = { abrv: "Gn" } as unknown as ReturnType<
         BookService["findBook"]
       >
-      bookServiceSpy.findBook.and.returnValue(mockBook)
-      bookServiceSpy.getUrlAbrv.and.returnValue("gn")
+      bookServiceSpy.findBook.mockReturnValue(mockBook)
+      bookServiceSpy.getUrlAbrv.mockReturnValue("gn")
 
       const abrv = component.getAbrv("GEN")
 
@@ -211,7 +209,7 @@ describe("FootnotesBottomSheetComponent", () => {
   // Following a reference in a note left no way back to the verse.
   describe("following a reference", () => {
     it("closes the sheet and offers the way back to the verse", () => {
-      bibleRefSpy.extract.and.callFake((text: string) =>
+      bibleRefSpy.extract.mockImplementation((text: string) =>
         text.startsWith("See")
           ? [
               {
@@ -224,11 +222,10 @@ describe("FootnotesBottomSheetComponent", () => {
             ]
           : [],
       )
-      bookServiceSpy.getUrlAbrv.and.returnValue("gn")
-      const navigate = spyOn(
-        TestBed.inject(Router),
-        "navigateByUrl",
-      ).and.resolveTo(true)
+      bookServiceSpy.getUrlAbrv.mockReturnValue("gn")
+      const navigate = vi
+        .spyOn(TestBed.inject(Router), "navigateByUrl")
+        .mockResolvedValue(true)
       fixture.detectChanges()
 
       const link: HTMLAnchorElement =
@@ -238,7 +235,15 @@ describe("FootnotesBottomSheetComponent", () => {
 
       expect(navigate).toHaveBeenCalled()
       expect(bottomSheetRefSpy.dismiss).toHaveBeenCalled()
-      expect(toastSpy.showReturn).toHaveBeenCalledOnceWith(mockData.verse)
+      expect(toastSpy.showReturn).toHaveBeenCalledTimes(1)
+      expect(toastSpy.showReturn).toHaveBeenCalledWith(mockData.verse)
     })
+  })
+
+  it("closes the gaps around brackets and before punctuation", () => {
+    bibleRefSpy.extract.mockReturnValue([])
+    expect(component.parseReferences("Cf. ( 7,50-52 ; 19,39 ).").parts).toEqual(
+      ["Cf. (7,50-52; 19,39)."],
+    )
   })
 })

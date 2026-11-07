@@ -1,5 +1,5 @@
-import { Inject, Injectable, Injector, NgZone } from "@angular/core"
-import { Capacitor, type PluginListenerHandle } from "@capacitor/core"
+import { Injectable, Injector, inject, NgZone } from "@angular/core"
+import type { PluginListenerHandle } from "@capacitor/core"
 import { type ConnectionStatus, type NetworkPlugin } from "@capacitor/network"
 import { BehaviorSubject, type Observable } from "rxjs"
 import { NETWORK_PLUGIN } from "../tokens"
@@ -8,15 +8,15 @@ import { NETWORK_PLUGIN } from "../tokens"
   providedIn: "root",
 })
 export class NetworkService {
+  private ngZone = inject(NgZone)
+  private injector = inject(Injector)
+  private networkPlugin = inject<NetworkPlugin>(NETWORK_PLUGIN)
+
   private isOfflineSubject = new BehaviorSubject<boolean>(false)
   public isOffline$: Observable<boolean> = this.isOfflineSubject.asObservable()
   private networkListener?: Promise<PluginListenerHandle> | PluginListenerHandle
 
-  constructor(
-    private ngZone: NgZone,
-    private injector: Injector,
-    @Inject(NETWORK_PLUGIN) private networkPlugin: NetworkPlugin,
-  ) {
+  constructor() {
     this.initNetworkListener()
   }
 
@@ -73,13 +73,7 @@ export class NetworkService {
   async ngOnDestroy(): Promise<void> {
     if (this.networkListener) {
       try {
-        const listener = await this.networkListener
-        if (Capacitor.isNativePlatform()) {
-          await listener.remove()
-        } else {
-          // On web, remove() might not be implemented or cause errors
-          await listener.remove()
-        }
+        await (await this.networkListener).remove()
       } catch {
         // Ignore errors during cleanup on web
       }

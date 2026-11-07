@@ -1,26 +1,27 @@
+import { TestBed } from "@angular/core/testing"
+import type { Mock } from "vitest"
+import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AutoScrollService } from "./auto-scroll.service"
 import { KeepAwakeService } from "./keep-awake.service"
 
 describe("AutoScrollService", () => {
   let service: AutoScrollService
-  let keepAwakeServiceSpy: jasmine.SpyObj<KeepAwakeService>
-  let requestAnimationFrameSpy: jasmine.Spy
-  let cancelAnimationFrameSpy: jasmine.Spy
+  let keepAwakeServiceSpy: SpyObj<KeepAwakeService>
+  let requestAnimationFrameSpy: Mock
+  let cancelAnimationFrameSpy: Mock
   let resizeObserverCallback: ResizeObserverCallback | undefined
   let originalResizeObserver: typeof ResizeObserver | undefined
 
   beforeEach(() => {
-    keepAwakeServiceSpy = jasmine.createSpyObj("KeepAwakeService", [
-      "start",
-      "stop",
-    ])
+    keepAwakeServiceSpy = createSpyObj("KeepAwakeService", ["start", "stop"])
     originalResizeObserver = globalThis.ResizeObserver
     resizeObserverCallback = undefined
-    requestAnimationFrameSpy = spyOn(
-      window,
-      "requestAnimationFrame",
-    ).and.returnValue(42)
-    cancelAnimationFrameSpy = spyOn(window, "cancelAnimationFrame")
+    requestAnimationFrameSpy = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockReturnValue(42)
+    cancelAnimationFrameSpy = vi
+      .spyOn(window, "cancelAnimationFrame")
+      .mockReturnValue(undefined)
     ;(
       globalThis as typeof globalThis & {
         ResizeObserver: typeof ResizeObserver
@@ -37,15 +38,21 @@ describe("AutoScrollService", () => {
       disconnect(): void {}
     } as unknown as typeof ResizeObserver
 
-    service = new AutoScrollService(keepAwakeServiceSpy)
+    TestBed.configureTestingModule({
+      providers: [{ provide: KeepAwakeService, useValue: keepAwakeServiceSpy }],
+    })
+    service = TestBed.inject(AutoScrollService)
   })
 
   afterEach(() => {
     if (originalResizeObserver) {
       globalThis.ResizeObserver = originalResizeObserver
     } else {
-      delete (globalThis as { ResizeObserver?: typeof ResizeObserver })
-        .ResizeObserver
+      delete (
+        globalThis as {
+          ResizeObserver?: typeof ResizeObserver
+        }
+      ).ResizeObserver
     }
   })
 
@@ -88,17 +95,17 @@ describe("AutoScrollService", () => {
   it("should start scrolling, observe line height changes, and stop cleanly", () => {
     const scrollElement = document.createElement("div")
     const lineHeightElement = document.createElement("div")
-    const onStop = jasmine.createSpy("onStop")
+    const onStop = vi.fn().mockName("onStop")
 
     service.start({ scrollElement, lineHeightElement, onStop })
 
-    expect(service.autoScrollEnabled).toBeTrue()
+    expect(service.autoScrollEnabled).toBe(true)
     expect(keepAwakeServiceSpy.start).toHaveBeenCalled()
     expect(requestAnimationFrameSpy).toHaveBeenCalled()
 
     service.stop()
 
-    expect(service.autoScrollEnabled).toBeFalse()
+    expect(service.autoScrollEnabled).toBe(false)
     expect(cancelAnimationFrameSpy).toHaveBeenCalledWith(42)
     expect(keepAwakeServiceSpy.stop).toHaveBeenCalled()
     expect(onStop).toHaveBeenCalled()
@@ -107,7 +114,7 @@ describe("AutoScrollService", () => {
   it("should do nothing when started without a scroll element", () => {
     service.start({ scrollElement: null })
 
-    expect(service.autoScrollEnabled).toBeFalse()
+    expect(service.autoScrollEnabled).toBe(false)
     expect(keepAwakeServiceSpy.start).not.toHaveBeenCalled()
     expect(requestAnimationFrameSpy).not.toHaveBeenCalled()
   })
@@ -130,7 +137,7 @@ describe("AutoScrollService", () => {
     // A tenth of a second later the page has stood still: play takes it.
     step(1100)
 
-    expect(service.autoScrollEnabled).toBeFalse()
+    expect(service.autoScrollEnabled).toBe(false)
     expect(keepAwakeServiceSpy.stop).toHaveBeenCalled()
   })
 
@@ -151,7 +158,7 @@ describe("AutoScrollService", () => {
     step(1100)
 
     expect(scrollElement.scrollTop).toBe(100)
-    expect(service.autoScrollEnabled).toBeFalse()
+    expect(service.autoScrollEnabled).toBe(false)
   })
 
   // Regression: WebKit keeps scrollTop in whole pixels. Applying half a pixel
@@ -160,7 +167,7 @@ describe("AutoScrollService", () => {
     let top = 0
     const scrollElement = document.createElement("div")
     Object.defineProperties(scrollElement, {
-      scrollHeight: { value: 10_000, configurable: true },
+      scrollHeight: { value: 10000, configurable: true },
       clientHeight: { value: 500, configurable: true },
       scrollTop: {
         get: () => top,
@@ -190,13 +197,13 @@ describe("AutoScrollService", () => {
   describe("when the reader scrolls by hand", () => {
     let top: number
     let height: number
-    let onStop: jasmine.Spy
+    let onStop: Mock
     let step: (timestamp: number) => void
 
     beforeEach(() => {
       top = 0
-      height = 10_000
-      onStop = jasmine.createSpy("onStop")
+      height = 10000
+      onStop = vi.fn().mockName("onStop")
       const scrollElement = document.createElement("div")
       Object.defineProperties(scrollElement, {
         scrollHeight: { get: () => height, configurable: true },
@@ -227,7 +234,7 @@ describe("AutoScrollService", () => {
       play(120)
 
       expect(top).toBeGreaterThan(40)
-      expect(service.autoScrollEnabled).toBeTrue()
+      expect(service.autoScrollEnabled).toBe(true)
       expect(onStop).not.toHaveBeenCalled()
     })
 
@@ -238,7 +245,7 @@ describe("AutoScrollService", () => {
 
       step(2000)
 
-      expect(service.autoScrollEnabled).toBeFalse()
+      expect(service.autoScrollEnabled).toBe(false)
       expect(onStop).toHaveBeenCalledTimes(1)
       expect(keepAwakeServiceSpy.stop).toHaveBeenCalled()
       expect(top).toBe(where)
@@ -250,7 +257,7 @@ describe("AutoScrollService", () => {
 
       step(2000)
 
-      expect(service.autoScrollEnabled).toBeFalse()
+      expect(service.autoScrollEnabled).toBe(false)
     })
 
     it("does not take a pixel of rounding for the reader", () => {
@@ -259,7 +266,7 @@ describe("AutoScrollService", () => {
 
       step(2000)
 
-      expect(service.autoScrollEnabled).toBeTrue()
+      expect(service.autoScrollEnabled).toBe(true)
     })
 
     // A larger text size (pinch, A+) or verses loading above reflow the text,
@@ -267,27 +274,27 @@ describe("AutoScrollService", () => {
     // place: that stopped auto-scroll as if they had scrolled.
     it("carries on, from the reader's place, when the text reflows", () => {
       play(60)
-      height = 14_000
+      height = 14000
       top += 400
       const anchored = top
 
       play(60, 60)
 
-      expect(service.autoScrollEnabled).toBeTrue()
+      expect(service.autoScrollEnabled).toBe(true)
       expect(onStop).not.toHaveBeenCalled()
       expect(top).toBeGreaterThan(anchored)
     })
 
     it("still stops for the reader after a reflow", () => {
       play(30)
-      height = 14_000
+      height = 14000
       top += 400
       step(600)
 
       top += 300
       step(700)
 
-      expect(service.autoScrollEnabled).toBeFalse()
+      expect(service.autoScrollEnabled).toBe(false)
     })
   })
 
@@ -297,15 +304,15 @@ describe("AutoScrollService", () => {
   describe("when play is pressed while a flick still carries the page", () => {
     const frameMs = 1000 / 60
     let top: number
-    let onStop: jasmine.Spy
+    let onStop: Mock
     let step: (timestamp: number) => void
 
     beforeEach(() => {
       top = 5000
-      onStop = jasmine.createSpy("onStop")
+      onStop = vi.fn().mockName("onStop")
       const scrollElement = document.createElement("div")
       Object.defineProperties(scrollElement, {
-        scrollHeight: { value: 10_000, configurable: true },
+        scrollHeight: { value: 10000, configurable: true },
         clientHeight: { value: 500, configurable: true },
         scrollTop: {
           get: () => top,
@@ -343,11 +350,11 @@ describe("AutoScrollService", () => {
       const rest = top
 
       expect(rest).toBe(5000 - 124)
-      expect(service.autoScrollEnabled).toBeTrue()
+      expect(service.autoScrollEnabled).toBe(true)
 
       play(60, frames)
 
-      expect(service.autoScrollEnabled).toBeTrue()
+      expect(service.autoScrollEnabled).toBe(true)
       expect(onStop).not.toHaveBeenCalled()
       expect(top).toBeGreaterThan(rest)
     })
@@ -355,12 +362,12 @@ describe("AutoScrollService", () => {
     it("does not take a frame without news of the coast for its end", () => {
       const frames = coast([-30, 0, -25, 0, 0, -12, 0, -3])
 
-      expect(service.autoScrollEnabled).toBeTrue()
+      expect(service.autoScrollEnabled).toBe(true)
       expect(top).toBe(5000 - 70)
 
       play(60, frames)
 
-      expect(service.autoScrollEnabled).toBeTrue()
+      expect(service.autoScrollEnabled).toBe(true)
       expect(top).toBeGreaterThan(5000 - 70)
     })
 
@@ -370,12 +377,12 @@ describe("AutoScrollService", () => {
     it("waits out a coast's last pixel-a-frame creep", () => {
       const frames = coast([-30, -1, -1, -1, -1, -1, -1, -1, -2])
 
-      expect(service.autoScrollEnabled).toBeTrue()
+      expect(service.autoScrollEnabled).toBe(true)
       expect(top).toBe(5000 - 39)
 
       play(60, frames)
 
-      expect(service.autoScrollEnabled).toBeTrue()
+      expect(service.autoScrollEnabled).toBe(true)
       expect(onStop).not.toHaveBeenCalled()
       expect(top).toBeGreaterThan(5000 - 39)
     })
@@ -387,7 +394,7 @@ describe("AutoScrollService", () => {
 
       step(5000)
 
-      expect(service.autoScrollEnabled).toBeFalse()
+      expect(service.autoScrollEnabled).toBe(false)
       expect(onStop).toHaveBeenCalledTimes(1)
     })
   })
@@ -395,7 +402,7 @@ describe("AutoScrollService", () => {
   it("should refresh cached line height when the observer fires", () => {
     const lineHeightElement = document.createElement("div")
     const scrollElement = document.createElement("div")
-    spyOn(window, "getComputedStyle").and.returnValue({
+    vi.spyOn(window, "getComputedStyle").mockReturnValue({
       fontSize: "20px",
       lineHeight: "30px",
     } as CSSStyleDeclaration)

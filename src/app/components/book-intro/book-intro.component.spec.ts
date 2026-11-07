@@ -57,6 +57,19 @@ describe("BookIntroComponent", () => {
     )
   })
 
+  // Browsers add a tbody when parsing prerendered HTML; without one in the
+  // template too, hydrating an introduction with a table throws NG0501.
+  it("should keep table rows in an explicit tbody", () => {
+    setIntroduction([
+      { type: "introTable", rows: [["1—11", "Origens"]] },
+    ] as IntroElement[])
+
+    const rows =
+      fixture.nativeElement.querySelector("table.intro-table").children
+    expect(rows.length).toBe(1)
+    expect(rows[0].tagName).toBe("TBODY")
+  })
+
   // The sidebar renders <book-intro> again; without the reset its own
   // .intro-container compounds 120% to 144%.
   it("should not compound the container font size inside a sidebar", () => {

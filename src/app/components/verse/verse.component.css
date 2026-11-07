@@ -106,18 +106,11 @@ h3:not(:first-child) {
   font-weight: normal;
 }
 
-/* The asterisk opens the verse's notes: underlined in the text's accent, as
-   the references in the text are, so it reads as something to tap rather
-   than a stray mark. */
+/* The note icon opens the verse's notes. */
 .footnoteIndicator {
   vertical-align: top;
   font-size: 65%;
-  color: var(--text-marker, var(--text-secondary));
   cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 0.2em;
 }
 
 /* A verse number, its notes marker and the verse's first word stay on one
@@ -176,11 +169,10 @@ h3:not(:first-child) {
   text-align: center;
 }
 
-/* The iOS app's marker is an icon, not the asterisk: a note with lines of text,
-   in the text's own colour (the asterisk wore the accent; the app has none on
-   iOS, and it has no text to underline). Its box is 1.2em and
-   the drawing fills most of it, so it is a visibly bigger thing to aim at than
-   the glyph it replaced (about 12 x 10 pt, against 8 x 6). It is centred on
+/* The marker is an icon, not the edition's asterisk: a note with lines of text,
+   in the text's own colour. Its box is 1.2em and the drawing fills most of it,
+   so it is a visibly bigger thing to aim at than the glyph it replaced (about
+   12 x 10 pt, against 8 x 6). It is centred on
    the verse number's digits rather than riding above them. The offset is a
    relative one: vertical-align had no effect on this inline SVG in WebKit.
    Measured in the iOS simulator. */
@@ -198,9 +190,26 @@ h3:not(:first-child) {
 }
 
 /* The iOS app: only the marker opens the notes (a tap on the text shows or
-   hides the bars), so it gets a finger-sized target, Apple's 44 pt minimum. */
+   hides the bars), so it gets a finger-sized target, Apple's 44 pt minimum.
+   Touch screens on the web get it too; a mouse keeps the small marker. */
 :host-context(.native-chrome) .footnoteIndicator {
   position: relative;
+}
+
+@media (pointer: coarse) {
+  .footnoteIndicator {
+    position: relative;
+  }
+
+  .footnoteIndicator::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
 }
 
 :host-context(.native-chrome) .footnoteIndicator::after {

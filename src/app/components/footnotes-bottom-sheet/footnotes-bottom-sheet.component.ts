@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Inject } from "@angular/core"
+import { ChangeDetectionStrategy, Component, inject } from "@angular/core"
 
 import {
   MAT_BOTTOM_SHEET_DATA,
@@ -27,7 +27,11 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
     RouterModule,
   ],
   template: `
-    <div unifiedGestures fontSizeContext="footnotes" class="footnotes-container">
+    <div
+      unifiedGestures
+      fontSizeContext="footnotes"
+      class="footnotes-container"
+    >
       <div class="footnotes-list">
         @for (footnote of data.footnotes; track footnote) {
         <div class="footnote-item">
@@ -38,9 +42,11 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
             (click)="followReference()"
             [routerLink]="['/', getAbrv(part.book), part.chapter]"
             [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)"
-          >{{ part.match }}</a>
+            >{{ part.match }}</a
+          >
           } @else {
-          {{ part }}
+          <!-- No whitespace around the text: the template's own would add a gap before the next link or bracket. -->
+          <ng-container>{{ part }}</ng-container>
           } }
         </div>
         }
@@ -78,15 +84,20 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
   ],
 })
 export class FootnotesBottomSheetComponent {
-  constructor(
-    private bottomSheetRef: MatBottomSheetRef<FootnotesBottomSheetComponent>,
-    @Inject(MAT_BOTTOM_SHEET_DATA)
-    public data: { footnotes: _Footnote[]; verse: Verse },
-    private bibleRef: BibleReferenceService,
-    private bookService: BookService,
-    private analyticsService: AnalyticsService,
-    private toast: ToastService,
-  ) {
+  private bottomSheetRef =
+    inject<MatBottomSheetRef<FootnotesBottomSheetComponent>>(MatBottomSheetRef)
+  data = inject<{
+    footnotes: _Footnote[]
+    verse: Verse
+  }>(MAT_BOTTOM_SHEET_DATA)
+  private bibleRef = inject(BibleReferenceService)
+  private bookService = inject(BookService)
+  private analyticsService = inject(AnalyticsService)
+  private toast = inject(ToastService)
+
+  constructor() {
+    const data = this.data
+
     void this.analyticsService.track("footnotes_opened", {
       book: data.verse.bookId,
       chapter: data.verse.chapterNumber,
@@ -96,11 +107,17 @@ export class FootnotesBottomSheetComponent {
 
   parseReferences(text: string): { parts: (string | BibleReference)[] } {
     return {
+      // The source has "( 7,50-52 ; 19,39 )": close the gaps around brackets
+      // and before punctuation, as a typeset note has it.
       parts: parseReferences(
         this.bibleRef,
         text,
         this.data.verse.bookId,
         this.data.verse.chapterNumber,
+      ).map((part) =>
+        typeof part === "string"
+          ? part.replace(/\(\s+/g, "(").replace(/\s+([;,.)])/g, "$1")
+          : part,
       ),
     }
   }

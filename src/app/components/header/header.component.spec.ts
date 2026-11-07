@@ -1,21 +1,19 @@
 import { CommonModule } from "@angular/common"
 import { ChangeDetectorRef, PLATFORM_ID, SimpleChange } from "@angular/core"
-import {
-  type ComponentFixture,
-  discardPeriodicTasks,
-  fakeAsync,
-  TestBed,
-  tick,
-} from "@angular/core/testing"
+import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
 import { MatMenuTrigger } from "@angular/material/menu"
 import { By } from "@angular/platform-browser"
 import { ActivatedRoute, Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
-import type { Share } from "@capacitor/share"
 import { BehaviorSubject, of, Subject } from "rxjs"
+import type { Mock } from "vitest"
 import { AnalyticsService } from "../../services/analytics.service"
+import {
+  AppPromoService,
+  type StoreLink,
+} from "../../services/app-promo.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
@@ -24,77 +22,84 @@ import {
   type DisplayVersion,
 } from "../../services/build-version.service"
 import { NativeBookmarksService } from "../../services/native-bookmarks.service"
-import {
-  type NativeChromeAction,
-  NativeChromeService,
-} from "../../services/native-chrome.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
+import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { NativeReportService } from "../../services/native-report.service"
 import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { ThemeService } from "../../services/theme.service"
-import { SHARE_PLUGIN } from "../../tokens"
+import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { HeaderComponent } from "./header.component"
 
 describe("HeaderComponent", () => {
   let component: HeaderComponent
   let fixture: ComponentFixture<HeaderComponent>
-  let routerSpy: jasmine.SpyObj<Router>
-  let networkServiceSpy: jasmine.SpyObj<NetworkService>
-  let themeServiceSpy: jasmine.SpyObj<ThemeService>
-  let bookmarkServiceSpy: jasmine.SpyObj<BookmarkService>
-  let bottomSheetSpy: jasmine.SpyObj<MatBottomSheet>
+  let routerSpy: SpyObj<Router>
+  let networkServiceSpy: SpyObj<NetworkService>
+  let themeServiceSpy: SpyObj<ThemeService>
+  let bookmarkServiceSpy: SpyObj<BookmarkService>
+  let bottomSheetSpy: SpyObj<MatBottomSheet>
   let bookmarkSheetDismissed: Subject<void>
-  let bookmarkSheetRef: { dismiss: jasmine.Spy; afterDismissed: () => unknown }
-  let dialogSpy: jasmine.SpyObj<MatDialog>
-  let analyticsServiceSpy: jasmine.SpyObj<AnalyticsService>
-  let onboardingServiceSpy: jasmine.SpyObj<OnboardingService>
-  let buildVersionSpy: jasmine.SpyObj<BuildVersionService>
+  let bookmarkSheetRef: {
+    dismiss: Mock
+    afterDismissed: () => unknown
+  }
+  let dialogSpy: SpyObj<MatDialog>
+  let analyticsServiceSpy: SpyObj<AnalyticsService>
+  let onboardingServiceSpy: SpyObj<OnboardingService>
+  let buildVersionSpy: SpyObj<BuildVersionService>
+  let appPromoSpy: SpyObj<AppPromoService>
   let isOfflineSubject: BehaviorSubject<boolean>
-  let mockSharePlugin: jasmine.SpyObj<typeof Share>
   let originalShare: typeof navigator.share
 
   beforeEach(async () => {
-    routerSpy = jasmine.createSpyObj("Router", ["navigate"])
+    routerSpy = createSpyObj("Router", ["navigate"])
     isOfflineSubject = new BehaviorSubject<boolean>(false)
-    networkServiceSpy = jasmine.createSpyObj("NetworkService", [], {
+    networkServiceSpy = createSpyObj<NetworkService>("NetworkService", [], {
       isOffline$: isOfflineSubject.asObservable(),
       isOffline: false,
     })
-    themeServiceSpy = jasmine.createSpyObj(
+    themeServiceSpy = createSpyObj<ThemeService>(
       "ThemeService",
       ["toggleTheme", "setTheme"],
       { currentMode: "system" },
     )
-    bookmarkServiceSpy = jasmine.createSpyObj("BookmarkService", [
-      "getBookmark",
-    ])
-    bookmarkServiceSpy.bookmarks$ = of([])
-    bottomSheetSpy = jasmine.createSpyObj("MatBottomSheet", ["open"])
+    bookmarkServiceSpy = createSpyObj<BookmarkService>(
+      "BookmarkService",
+      ["getBookmark"],
+      { bookmarks$: of([]) },
+    )
+    bottomSheetSpy = createSpyObj("MatBottomSheet", ["open"])
     bookmarkSheetDismissed = new Subject<void>()
     bookmarkSheetRef = {
-      dismiss: jasmine.createSpy("dismiss"),
+      dismiss: vi.fn().mockName("dismiss"),
       afterDismissed: () => bookmarkSheetDismissed.asObservable(),
     }
-    bottomSheetSpy.open.and.returnValue(
+    bottomSheetSpy.open.mockReturnValue(
       bookmarkSheetRef as unknown as ReturnType<MatBottomSheet["open"]>,
     )
-    dialogSpy = jasmine.createSpyObj("MatDialog", ["open"])
-    mockSharePlugin = jasmine.createSpyObj("Share", ["share"])
-    analyticsServiceSpy = jasmine.createSpyObj("AnalyticsService", [
+    dialogSpy = createSpyObj("MatDialog", ["open"])
+    analyticsServiceSpy = createSpyObj("AnalyticsService", [
       "track",
       "areAnalyticsAvailable",
     ])
-    analyticsServiceSpy.track.and.returnValue(Promise.resolve())
-    analyticsServiceSpy.areAnalyticsAvailable.and.returnValue(true)
-    onboardingServiceSpy = jasmine.createSpyObj("OnboardingService", ["open"])
-    buildVersionSpy = jasmine.createSpyObj("BuildVersionService", [
-      "getDisplayVersion",
-    ])
-    buildVersionSpy.getDisplayVersion.and.resolveTo({
+    analyticsServiceSpy.track.mockResolvedValue(undefined)
+    analyticsServiceSpy.areAnalyticsAvailable.mockReturnValue(true)
+    onboardingServiceSpy = createSpyObj("OnboardingService", ["open"])
+    buildVersionSpy = createSpyObj("BuildVersionService", ["getDisplayVersion"])
+    buildVersionSpy.getDisplayVersion.mockResolvedValue({
       release: "1.2.3",
       build: "20261016-120000Z",
     })
+    appPromoSpy = createSpyObj("AppPromoService", [
+      "deviceStore",
+      "menuLabel",
+      "markSeen",
+      "trackStoreOpen",
+    ])
+    appPromoSpy.deviceStore.mockReturnValue(null)
+    appPromoSpy.menuLabel.mockReturnValue("Instalar a aplicação")
     originalShare = navigator.share
 
     await TestBed.configureTestingModule({
@@ -108,22 +113,24 @@ describe("HeaderComponent", () => {
         { provide: BookmarkService, useValue: bookmarkServiceSpy },
         { provide: MatBottomSheet, useValue: bottomSheetSpy },
         { provide: MatDialog, useValue: dialogSpy },
-        { provide: SHARE_PLUGIN, useValue: mockSharePlugin },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
         { provide: OnboardingService, useValue: onboardingServiceSpy },
         { provide: BuildVersionService, useValue: buildVersionSpy },
+        { provide: AppPromoService, useValue: appPromoSpy },
       ],
     }).compileComponents()
 
     fixture = TestBed.createComponent(HeaderComponent)
     component = fixture.componentInstance
-    component.book = {
+    fixture.componentRef.setInput("book", {
       id: "gen",
       name: "Genesis",
       shortName: "",
       abrv: "",
       chapterCount: 50,
-    }
+    })
+    // Required inputs: the reader always binds both.
+    fixture.componentRef.setInput("chapterNumber", 1)
     fixture.detectChanges()
   })
 
@@ -163,9 +170,11 @@ describe("HeaderComponent", () => {
 
   const renderWithMobile = (mobile: boolean): void => {
     component.mobile = mobile
-    // The component is OnPush, so a plain property change needs its own
-    // change detector marked, not the fixture host's.
-    ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+    ;(
+      component as unknown as {
+        cdr: ChangeDetectorRef
+      }
+    ).cdr.markForCheck()
     fixture.detectChanges()
   }
 
@@ -233,14 +242,16 @@ describe("HeaderComponent", () => {
   })
 
   it("should open the report problem dialog from the menu", () => {
-    const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
-    component.chapterNumber = 3
+    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
+      "closeMenu",
+    ])
+    fixture.componentRef.setInput("chapterNumber", 3)
 
     component.onReportProblem(trigger)
 
     expect(trigger.closeMenu).toHaveBeenCalled()
     expect(dialogSpy.open).toHaveBeenCalledWith(ReportProblemComponent, {
-      data: { book: component.book, chapter: 3 },
+      data: { book: component.book(), chapter: 3 },
       width: "90%",
       maxWidth: "500px",
     })
@@ -248,22 +259,29 @@ describe("HeaderComponent", () => {
 
   // Chapter 0 is the introduction; a falsy check used to swallow it.
   it("should open the report problem dialog for an introduction", () => {
-    const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
-    component.chapterNumber = 0
+    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
+      "closeMenu",
+    ])
+    fixture.componentRef.setInput("chapterNumber", 0)
 
     component.onReportProblem(trigger)
 
     expect(dialogSpy.open).toHaveBeenCalledWith(ReportProblemComponent, {
-      data: { book: component.book, chapter: 0 },
+      data: { book: component.book(), chapter: 0 },
       width: "90%",
       maxWidth: "500px",
     })
   })
 
   it("should not open the report problem dialog when chapter context is missing", () => {
-    const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
+    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
+      "closeMenu",
+    ])
 
-    component.chapterNumber = undefined as unknown as number
+    fixture.componentRef.setInput(
+      "chapterNumber",
+      undefined as unknown as number,
+    )
     component.onReportProblem(trigger)
 
     expect(trigger.closeMenu).toHaveBeenCalled()
@@ -279,33 +297,241 @@ describe("HeaderComponent", () => {
     it("closes the open header menu", () => {
       const trigger = menuTrigger()
       trigger.openMenu()
-      expect(trigger.menuOpen).toBeTrue()
+      expect(trigger.menuOpen).toBe(true)
 
-      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
-      expect(trigger.menuOpen).toBeFalse()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(true)
+      expect(trigger.menuOpen).toBe(false)
     })
 
     it("dismisses the bookmark sheet it opened", () => {
-      component.chapterNumber = 1
+      fixture.componentRef.setInput("chapterNumber", 1)
       component.openBookmarkSelector()
 
-      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeTrue()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(true)
       expect(bookmarkSheetRef.dismiss).toHaveBeenCalled()
 
       bookmarkSheetDismissed.next()
-      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(false)
     })
 
     it("leaves the back press alone when the menu is closed", () => {
-      expect(menuTrigger().menuOpen).toBeFalse()
-      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+      expect(menuTrigger().menuOpen).toBe(false)
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(false)
     })
 
     it("stops handling the back press once destroyed", () => {
       menuTrigger().openMenu()
       fixture.destroy()
 
-      expect(TestBed.inject(BackButtonService).closeTopmost()).toBeFalse()
+      expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(false)
+    })
+  })
+
+  describe("the app's store in the menu", () => {
+    const play: StoreLink = {
+      store: "play",
+      url: "https://play.google.com/store/apps/details?id=org.capuchinhos.biblia",
+      badge: "imgs/badges/google-play-pt.png",
+      label: "Obter no Google Play",
+      newApp: "Nova aplicação no Google Play",
+    }
+
+    const openMenu = () => {
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+    }
+
+    const recreate = () => {
+      fixture = TestBed.createComponent(HeaderComponent)
+      component = fixture.componentInstance
+      fixture.componentRef.setInput("book", {
+        id: "gen",
+        name: "Genesis",
+        shortName: "",
+        abrv: "",
+        chapterCount: 50,
+      })
+      fixture.componentRef.setInput("chapterNumber", 1)
+      fixture.detectChanges()
+    }
+
+    const offerInstall = () => {
+      window.dispatchEvent(
+        Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
+          prompt: vi.fn(),
+          userChoice: Promise.resolve({
+            outcome: "dismissed",
+            platform: "web",
+          }),
+        }),
+      )
+      fixture.detectChanges()
+    }
+
+    it("is left out where the device has no store app", () => {
+      openMenu()
+
+      expect(appPromoSpy.deviceStore).toHaveBeenCalledWith("menu")
+      expect(document.querySelector(".app-store-link")).toBeNull()
+      expect(appPromoSpy.markSeen).not.toHaveBeenCalled()
+    })
+
+    it("takes its words from the promo, which says what's new inside the installed website", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      appPromoSpy.menuLabel.mockReturnValue("Nova aplicação no Google Play")
+      recreate()
+      openMenu()
+
+      expect(appPromoSpy.menuLabel).toHaveBeenCalledWith(play)
+      expect(document.querySelector(".app-store-link")?.textContent).toContain(
+        "Nova aplicação no Google Play",
+      )
+    })
+
+    it("says what's new as soon as the website is installed, without a reload", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      recreate()
+      offerInstall()
+      openMenu()
+      const label = () => document.querySelector(".app-store-link")?.textContent
+      expect(label()).toContain("Instalar a aplicação")
+
+      appPromoSpy.menuLabel.mockReturnValue("Nova aplicação no Google Play")
+      window.dispatchEvent(new Event("appinstalled"))
+      fixture.detectChanges()
+
+      expect(label()).toContain("Nova aplicação no Google Play")
+    })
+
+    it("stands in for the browser's install entry, which would read almost the same", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      recreate()
+      offerInstall()
+      openMenu()
+
+      expect(component.canInstall()).toBe(true)
+      expect(document.querySelector(".app-store-link")).not.toBeNull()
+      const items = Array.from(
+        document.querySelectorAll(".mat-mdc-menu-panel .mat-mdc-menu-item"),
+      ).map((item) => item.textContent)
+      expect(items.some((text) => text?.includes("Instalar a app"))).toBe(false)
+    })
+
+    it("counts as the prompt once the open menu shows it", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      recreate()
+      expect(appPromoSpy.markSeen).not.toHaveBeenCalled()
+
+      openMenu()
+
+      expect(appPromoSpy.markSeen).toHaveBeenCalled()
+    })
+
+    it("links straight to the store, just below the help", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      recreate()
+      openMenu()
+
+      const link = document.querySelector<HTMLAnchorElement>(".app-store-link")
+      expect(link?.textContent).toContain("Instalar a aplicação")
+      expect(link?.getAttribute("href")).toBe(play.url)
+      expect(link?.target).toBe("_blank")
+      expect(link?.previousElementSibling?.textContent).toContain(
+        "Como usar a app",
+      )
+    })
+
+    it("counts a tap", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      recreate()
+      openMenu()
+
+      const link = document.querySelector<HTMLAnchorElement>(
+        ".app-store-link",
+      ) as HTMLAnchorElement
+      // Keep the test page where it is.
+      link.addEventListener("click", (event) => event.preventDefault())
+      link.click()
+
+      expect(appPromoSpy.trackStoreOpen).toHaveBeenCalledWith(play, "menu")
+    })
+  })
+
+  describe("installing from the menu", () => {
+    const openMenu = async () => {
+      await fixture.whenStable()
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+    }
+
+    const installItem = () =>
+      Array.from(
+        document.querySelectorAll<HTMLElement>(
+          ".mat-mdc-menu-panel .mat-mdc-menu-item",
+        ),
+      ).find((item) => item.textContent?.includes("Instalar a app"))
+
+    const offerInstall = (outcome: "accepted" | "dismissed") => {
+      const prompt = vi.fn().mockResolvedValue(undefined)
+      window.dispatchEvent(
+        Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
+          prompt,
+          userChoice: Promise.resolve({ outcome, platform: "web" }),
+        }),
+      )
+      fixture.detectChanges()
+      return prompt
+    }
+
+    it("appears only while the browser offers the install, even with the menu open", async () => {
+      await openMenu()
+      expect(installItem()).toBeUndefined()
+
+      offerInstall("dismissed")
+      expect(installItem()).toBeDefined()
+
+      window.dispatchEvent(new Event("appinstalled"))
+      fixture.detectChanges()
+      expect(installItem()).toBeUndefined()
+    })
+
+    it("runs the browser's prompt, reports the outcome and goes away", async () => {
+      const prompt = offerInstall("accepted")
+      await openMenu()
+
+      installItem()?.click()
+      await fixture.whenStable()
+      fixture.detectChanges()
+
+      expect(prompt).toHaveBeenCalledTimes(1)
+      expect(analyticsServiceSpy.track).toHaveBeenCalledWith(
+        "pwa_install_prompt",
+        expect.objectContaining({ outcome: "accepted" }),
+      )
+      expect(installItem()).toBeUndefined()
+    })
+
+    it("comes back when the browser offers again after a refusal", async () => {
+      offerInstall("dismissed")
+      await openMenu()
+      installItem()?.click()
+      await fixture.whenStable()
+
+      expect(analyticsServiceSpy.track).toHaveBeenCalledWith(
+        "pwa_install_prompt",
+        expect.objectContaining({ outcome: "dismissed" }),
+      )
+
+      offerInstall("dismissed")
+      await openMenu()
+
+      expect(installItem()).toBeDefined()
     })
   })
 
@@ -368,12 +594,13 @@ describe("HeaderComponent", () => {
     })
 
     it("labels the bundle's id where there are no releases", async () => {
-      buildVersionSpy.getDisplayVersion.and.resolveTo({
+      buildVersionSpy.getDisplayVersion.mockResolvedValue({
         release: null,
         build: "20261016-120000Z",
       })
       fixture = TestBed.createComponent(HeaderComponent)
-      fixture.componentRef.setInput("book", component.book)
+      fixture.componentRef.setInput("book", component.book())
+      fixture.componentRef.setInput("chapterNumber", 1)
       fixture.detectChanges()
       await openMenu()
 
@@ -381,9 +608,10 @@ describe("HeaderComponent", () => {
     })
 
     it("is left out until the version is known", async () => {
-      buildVersionSpy.getDisplayVersion.and.returnValue(new Promise(() => {}))
+      buildVersionSpy.getDisplayVersion.mockReturnValue(new Promise(() => {}))
       fixture = TestBed.createComponent(HeaderComponent)
-      fixture.componentRef.setInput("book", component.book)
+      fixture.componentRef.setInput("book", component.book())
+      fixture.componentRef.setInput("chapterNumber", 1)
       fixture.detectChanges()
       fixture.debugElement
         .query(By.directive(MatMenuTrigger))
@@ -422,14 +650,14 @@ describe("HeaderComponent", () => {
       const currentMode = Object.getOwnPropertyDescriptor(
         themeServiceSpy,
         "currentMode",
-      )?.get as jasmine.Spy | undefined
-      themeServiceSpy.toggleTheme.and.callFake(() =>
-        currentMode?.and.returnValue("dark"),
+      )?.get as Mock | undefined
+      themeServiceSpy.toggleTheme.mockImplementation(() =>
+        currentMode?.mockReturnValue("dark"),
       )
       button.click()
 
       expect(themeServiceSpy.toggleTheme).toHaveBeenCalledTimes(1)
-      expect(trigger().menuOpen).toBeTrue()
+      expect(trigger().menuOpen).toBe(true)
       expect(button.querySelector("mat-icon")?.textContent?.trim()).toBe(
         "dark_mode",
       )
@@ -464,10 +692,10 @@ describe("HeaderComponent", () => {
 
         button.click()
 
-        expect(trigger().menuOpen).toBeTrue()
-        expect(
-          document.documentElement.classList.contains("ragged-text"),
-        ).toBeTrue()
+        expect(trigger().menuOpen).toBe(true)
+        expect(document.documentElement.classList.contains("ragged-text")).toBe(
+          true,
+        )
         expect(button.querySelector("mat-icon")?.textContent?.trim()).toBe(
           "format_align_left",
         )
@@ -499,7 +727,7 @@ describe("HeaderComponent", () => {
 
   // As a ribbon hangs from the page of a printed Bible.
   it("shows the ribbon on the chapter being read", () => {
-    bookmarkServiceSpy.getBookmark.and.returnValue({
+    bookmarkServiceSpy.getBookmark.mockReturnValue({
       bookId: "gen",
       chapter: 3,
       color: "red",
@@ -518,8 +746,13 @@ describe("HeaderComponent", () => {
   })
 
   it("opens the About page from the menu", () => {
-    const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
-    const selected: { bookId: string; chapter?: number }[] = []
+    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
+      "closeMenu",
+    ])
+    const selected: {
+      bookId: string
+      chapter?: number
+    }[] = []
     component.selectPassage.subscribe((passage) => selected.push(passage))
 
     component.onOpenAbout(trigger)
@@ -529,7 +762,9 @@ describe("HeaderComponent", () => {
   })
 
   it("should open the onboarding wizard from the menu", () => {
-    const trigger = jasmine.createSpyObj("MatMenuTrigger", ["closeMenu"])
+    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
+      "closeMenu",
+    ])
 
     component.onOpenHelp(trigger)
 
@@ -537,52 +772,8 @@ describe("HeaderComponent", () => {
     expect(onboardingServiceSpy.open).toHaveBeenCalledWith("menu")
   })
 
-  it("should share using Capacitor Share on native platforms", async () => {
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
-    mockSharePlugin.share.and.resolveTo()
-
-    if (!navigator.share) {
-      Object.defineProperty(navigator, "share", {
-        value: () => Promise.resolve(),
-        configurable: true,
-        writable: true,
-      })
-    }
-    spyOn(navigator, "share").and.resolveTo()
-
-    component.chapterNumber = 1
-    component.ngOnInit() // Re-init to pickup the new native platform check
-
-    expect(component.canShare).toBeTrue()
-
-    await component.sharePassage()
-
-    expect(mockSharePlugin.share).toHaveBeenCalledWith({
-      title: "Bíblia Sagrada",
-      text: jasmine.any(String),
-      url: jasmine.any(String),
-      dialogTitle: "Partilhar passagem",
-    })
-  })
-
-  it("should share the public site URL, not the native localhost origin", async () => {
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
-    mockSharePlugin.share.and.resolveTo()
-
-    component.chapterNumber = 1
-    component.ngOnInit()
-    await component.sharePassage()
-
-    const { pathname, search, hash } = window.location
-    expect(mockSharePlugin.share).toHaveBeenCalledWith(
-      jasmine.objectContaining({
-        url: `https://biblia.capuchinhos.org${pathname}${search}${hash}`,
-      }),
-    )
-  })
-
   it("should share the page URL as is on the web", async () => {
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(false)
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(false)
     if (!navigator.share) {
       Object.defineProperty(navigator, "share", {
         value: () => Promise.resolve(),
@@ -590,21 +781,21 @@ describe("HeaderComponent", () => {
         writable: true,
       })
     }
-    const shareSpy = spyOn(navigator, "share").and.resolveTo()
+    const shareSpy = vi.spyOn(navigator, "share").mockResolvedValue(undefined)
 
-    component.chapterNumber = 1
+    fixture.componentRef.setInput("chapterNumber", 1)
     component.ngOnInit()
     await component.sharePassage()
 
     expect(shareSpy).toHaveBeenCalledWith(
-      jasmine.objectContaining({ url: window.location.href }),
+      expect.objectContaining({ url: window.location.href }),
     )
   })
 
   it("should share using navigator.share on web platforms", async () => {
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(false)
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(false)
 
-    const shareSpy = jasmine.createSpy("share").and.resolveTo()
+    const shareSpy = vi.fn().mockName("share").mockResolvedValue(undefined)
 
     if (!navigator.share) {
       Object.defineProperty(navigator, "share", {
@@ -613,18 +804,55 @@ describe("HeaderComponent", () => {
         writable: true,
       })
     }
-    spyOn(navigator, "share").and.callFake(shareSpy)
+    vi.spyOn(navigator, "share").mockImplementation(shareSpy)
 
-    mockSharePlugin.share.and.resolveTo() // Should not be called
-
-    component.chapterNumber = 1
+    fixture.componentRef.setInput("chapterNumber", 1)
     component.ngOnInit() // Re-init to pickup the web platform
-    expect(component.canShare).toBeTrue()
+    expect(component.canShare).toBe(true)
 
     await component.sharePassage()
 
     expect(shareSpy).toHaveBeenCalled()
-    expect(mockSharePlugin.share).not.toHaveBeenCalled()
+  })
+
+  describe("in a native build without the NativeChrome plugin", () => {
+    beforeEach(() => {
+      vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true)
+    })
+
+    it("shares the public URL through navigator.share", async () => {
+      const shareSpy = vi.fn().mockName("share").mockResolvedValue(undefined)
+      Object.defineProperty(navigator, "share", {
+        value: shareSpy,
+        configurable: true,
+        writable: true,
+      })
+
+      fixture.componentRef.setInput("chapterNumber", 1)
+      component.ngOnInit()
+      expect(component.canShare).toBe(true)
+
+      await component.sharePassage()
+
+      const { pathname, search, hash } = window.location
+      expect(shareSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: `https://biblia.capuchinhos.org${pathname}${search}${hash}`,
+        }),
+      )
+    })
+
+    it("offers no share when navigator.share is missing too", () => {
+      Object.defineProperty(navigator, "share", {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      })
+
+      component.ngOnInit()
+
+      expect(component.canShare).toBe(false)
+    })
   })
 
   describe("about label cycle", () => {
@@ -639,7 +867,8 @@ describe("HeaderComponent", () => {
     // The audit's complaint: with two stacked labels crossfading, both stayed
     // in the DOM, so the page h1 read "<title> Escolher Livro" — words no page
     // text repeats.
-    it("keeps only the label on screen inside the heading", fakeAsync(() => {
+    it("keeps only the label on screen inside the heading", async () => {
+      vi.useFakeTimers()
       fixture.componentRef.setInput("book", aboutBook)
       fixture.detectChanges()
 
@@ -654,7 +883,7 @@ describe("HeaderComponent", () => {
       expect(heading.textContent).not.toContain("Escolher Livro")
 
       // Halfway through a swap the old text is fading but still the only one.
-      tick(3500)
+      await vi.advanceTimersByTimeAsync(3500)
       fixture.detectChanges()
       expect(
         (fixture.nativeElement as HTMLElement).querySelectorAll(".cycle-text")
@@ -662,7 +891,7 @@ describe("HeaderComponent", () => {
       ).toBe(1)
 
       // Once swapped, the prompt has replaced the title rather than joined it.
-      tick(300)
+      await vi.advanceTimersByTimeAsync(300)
       fixture.detectChanges()
       expect(heading.textContent).toContain("Escolher Livro")
       expect(heading.textContent).not.toContain(
@@ -670,13 +899,13 @@ describe("HeaderComponent", () => {
       )
 
       component.ngOnDestroy()
-      discardPeriodicTasks()
-    }))
+    })
 
     // The visible label alternates, so the heading's own text cannot be relied
     // on to name the page; the accessible name has to stay put or the only
     // heading on the page ends up announcing the picker instead.
-    it("keeps the heading naming the page across a label swap", fakeAsync(() => {
+    it("keeps the heading naming the page across a label swap", async () => {
+      vi.useFakeTimers()
       fixture.componentRef.setInput("book", aboutBook)
       fixture.detectChanges()
 
@@ -687,8 +916,8 @@ describe("HeaderComponent", () => {
         "Sobre a Bíblia dos Capuchinhos",
       )
 
-      tick(3500)
-      tick(300)
+      await vi.advanceTimersByTimeAsync(3500)
+      await vi.advanceTimersByTimeAsync(300)
       fixture.detectChanges()
 
       expect(heading.textContent).toContain("Escolher Livro")
@@ -697,8 +926,7 @@ describe("HeaderComponent", () => {
       )
 
       component.ngOnDestroy()
-      discardPeriodicTasks()
-    }))
+    })
 
     // The label swap is decorative; announcing each one is noise.
     it("does not announce the label swap", () => {
@@ -726,7 +954,8 @@ describe("HeaderComponent", () => {
       )
     })
 
-    it("fades the label out before swapping its text", fakeAsync(() => {
+    it("fades the label out before swapping its text", async () => {
+      vi.useFakeTimers()
       fixture.componentRef.setInput("book", aboutBook)
       fixture.detectChanges()
 
@@ -735,41 +964,39 @@ describe("HeaderComponent", () => {
           ".cycle-text",
         ) as HTMLElement
 
-      expect(label().classList.contains("faded")).toBeFalse()
+      expect(label().classList.contains("faded")).toBe(false)
 
-      tick(3500)
+      await vi.advanceTimersByTimeAsync(3500)
       fixture.detectChanges()
       // Fading out, text not yet changed.
-      expect(label().classList.contains("faded")).toBeTrue()
+      expect(label().classList.contains("faded")).toBe(true)
       expect(label().textContent).toContain("Sobre a Bíblia dos Capuchinhos")
 
-      tick(300)
+      await vi.advanceTimersByTimeAsync(300)
       fixture.detectChanges()
-      expect(label().classList.contains("faded")).toBeFalse()
+      expect(label().classList.contains("faded")).toBe(false)
 
       component.ngOnDestroy()
-      discardPeriodicTasks()
-    }))
+    })
 
-    it("drops a half-finished swap when the cycle stops", fakeAsync(() => {
+    it("drops a half-finished swap when the cycle stops", async () => {
+      vi.useFakeTimers()
       fixture.componentRef.setInput("book", aboutBook)
       fixture.detectChanges()
 
-      tick(3500) // mid-swap: faded out, waiting to change text
+      await vi.advanceTimersByTimeAsync(3500) // mid-swap: faded out, waiting to change text
       component.ngOnDestroy()
 
       // The pending swap must not fire against a torn-down component.
-      tick(300)
-      expect(component.labelFading).toBeFalse()
+      await vi.advanceTimersByTimeAsync(300)
+      expect(component.labelFading).toBe(false)
       expect(component.bookLabelMode).toBe("title")
-
-      discardPeriodicTasks()
-    }))
+    })
 
     it("cycles the about label in the browser", () => {
-      const setIntervalSpy = spyOn(window, "setInterval").and.callThrough()
+      const setIntervalSpy = vi.spyOn(window, "setInterval")
 
-      component.book = aboutBook
+      fixture.componentRef.setInput("book", aboutBook)
       component.ngOnChanges({
         book: new SimpleChange(undefined, aboutBook, false),
       })
@@ -791,17 +1018,17 @@ describe("HeaderComponent", () => {
           { provide: BookmarkService, useValue: bookmarkServiceSpy },
           { provide: MatBottomSheet, useValue: bottomSheetSpy },
           { provide: MatDialog, useValue: dialogSpy },
-          { provide: SHARE_PLUGIN, useValue: mockSharePlugin },
           { provide: AnalyticsService, useValue: analyticsServiceSpy },
           { provide: PLATFORM_ID, useValue: "server" },
         ],
       }).compileComponents()
-      const serverComponent = TestBed.createComponent(HeaderComponent)
-        .componentInstance as HeaderComponent
+      const serverFixture = TestBed.createComponent(HeaderComponent)
+      const serverComponent = serverFixture.componentInstance
 
-      const setIntervalSpy = spyOn(window, "setInterval").and.callThrough()
+      const setIntervalSpy = vi.spyOn(window, "setInterval")
 
-      serverComponent.book = aboutBook
+      serverFixture.componentRef.setInput("book", aboutBook)
+      serverFixture.componentRef.setInput("chapterNumber", 1)
       serverComponent.ngOnChanges({
         book: new SimpleChange(undefined, aboutBook, true),
       })
@@ -814,27 +1041,27 @@ describe("HeaderComponent", () => {
     it("names an introduction instead of announcing chapter 0", () => {
       // The visible label reads "Introdução"; the h1's accessible name must
       // not read "0" to screen-reader and voice-control users.
-      component.book = {
+      fixture.componentRef.setInput("book", {
         id: "gen",
         name: "Livro do Génesis",
         shortName: "Génesis",
-      } as Book
-      component.chapterNumber = 0
+      } as Book)
+      fixture.componentRef.setInput("chapterNumber", 0)
 
       expect(component.headingLabel).toBe("Livro do Génesis Introdução")
 
-      component.chapterNumber = 3
+      fixture.componentRef.setInput("chapterNumber", 3)
       expect(component.headingLabel).toBe("Livro do Génesis 3")
     })
 
     it("lets a standalone introduction name itself", () => {
-      component.book = {
+      fixture.componentRef.setInput("book", {
         id: "pentateuco",
         name: "Introdução ao Pentateuco",
         shortName: "Introdução ao Pentateuco",
         introSlug: "pentateuco",
-      } as Book
-      component.chapterNumber = 0
+      } as Book)
+      fixture.componentRef.setInput("chapterNumber", 0)
 
       expect(component.headingLabel).toBe("Introdução ao Pentateuco")
     })
@@ -848,22 +1075,21 @@ describe("HeaderComponent with the iOS native bars", () => {
   let nativeChrome: {
     enabled: boolean
     actions$: Subject<NativeChromeAction>
-    show: jasmine.Spy
-    hide: jasmine.Spy
-    showPicker: jasmine.Spy
-    share: jasmine.Spy
+    show: Mock
+    hide: Mock
+    showPicker: Mock
+    share: Mock
   }
-  let router: jasmine.SpyObj<Router>
-  let theme: jasmine.SpyObj<ThemeService>
-  let bottomSheet: jasmine.SpyObj<MatBottomSheet>
-  let dialog: jasmine.SpyObj<MatDialog>
-  let onboarding: jasmine.SpyObj<OnboardingService>
-  let share: jasmine.SpyObj<typeof Share>
-  let analytics: jasmine.SpyObj<AnalyticsService>
+  let router: SpyObj<Router>
+  let theme: SpyObj<ThemeService>
+  let bottomSheet: SpyObj<MatBottomSheet>
+  let dialog: SpyObj<MatDialog>
+  let onboarding: SpyObj<OnboardingService>
+  let analytics: SpyObj<AnalyticsService>
   let isOffline: BehaviorSubject<boolean>
-  let nativeBookmarks: jasmine.SpyObj<NativeBookmarksService>
-  let nativeReport: jasmine.SpyObj<NativeReportService>
-  let buildVersion: jasmine.SpyObj<BuildVersionService>
+  let nativeBookmarks: SpyObj<NativeBookmarksService>
+  let nativeReport: SpyObj<NativeReportService>
+  let buildVersion: SpyObj<BuildVersionService>
 
   const genesis: Book = {
     id: "gen",
@@ -878,47 +1104,50 @@ describe("HeaderComponent with the iOS native bars", () => {
     nativeChrome = {
       enabled: true,
       actions$: actions,
-      show: jasmine.createSpy("show"),
-      hide: jasmine.createSpy("hide"),
-      showPicker: jasmine.createSpy("showPicker"),
-      share: jasmine.createSpy("share").and.resolveTo(true),
+      show: vi.fn().mockName("show"),
+      hide: vi.fn().mockName("hide"),
+      showPicker: vi.fn().mockName("showPicker"),
+      share: vi.fn().mockName("share").mockResolvedValue(true),
     }
-    router = jasmine.createSpyObj("Router", ["navigate"])
-    router.navigate.and.resolveTo(true)
-    theme = jasmine.createSpyObj("ThemeService", ["toggleTheme", "setTheme"], {
-      currentMode: "system",
-    })
-    const bookmarks = jasmine.createSpyObj("BookmarkService", ["getBookmark"])
-    bookmarks.bookmarks$ = of([
-      { bookId: "gen", chapter: 2, color: "red", timestamp: 1 },
-    ])
-    bottomSheet = jasmine.createSpyObj("MatBottomSheet", ["open"])
-    bottomSheet.open.and.returnValue({
+    router = createSpyObj("Router", ["navigate"])
+    router.navigate.mockResolvedValue(true)
+    theme = createSpyObj<ThemeService>(
+      "ThemeService",
+      ["toggleTheme", "setTheme"],
+      { currentMode: "system" },
+    )
+    const bookmarks = createSpyObj<BookmarkService>(
+      "BookmarkService",
+      ["getBookmark"],
+      {
+        bookmarks$: of([
+          { bookId: "gen", chapter: 2, color: "red", timestamp: 1 },
+        ]),
+      },
+    )
+    bottomSheet = createSpyObj("MatBottomSheet", ["open"])
+    bottomSheet.open.mockReturnValue({
       dismiss: () => {},
       afterDismissed: () => new Subject<void>(),
     } as unknown as ReturnType<MatBottomSheet["open"]>)
-    dialog = jasmine.createSpyObj("MatDialog", ["open"])
-    onboarding = jasmine.createSpyObj("OnboardingService", ["open"])
-    share = jasmine.createSpyObj("Share", ["share"])
-    share.share.and.resolveTo()
-    analytics = jasmine.createSpyObj("AnalyticsService", [
+    dialog = createSpyObj("MatDialog", ["open"])
+    onboarding = createSpyObj("OnboardingService", ["open"])
+    analytics = createSpyObj("AnalyticsService", [
       "track",
       "areAnalyticsAvailable",
     ])
-    analytics.track.and.resolveTo()
-    analytics.areAnalyticsAvailable.and.returnValue(true)
+    analytics.track.mockResolvedValue(undefined)
+    analytics.areAnalyticsAvailable.mockReturnValue(true)
     isOffline = new BehaviorSubject(false)
-    nativeBookmarks = jasmine.createSpyObj("NativeBookmarksService", ["open"])
-    nativeReport = jasmine.createSpyObj("NativeReportService", ["open"])
-    buildVersion = jasmine.createSpyObj("BuildVersionService", [
-      "getDisplayVersion",
-    ])
-    buildVersion.getDisplayVersion.and.resolveTo({
+    nativeBookmarks = createSpyObj("NativeBookmarksService", ["open"])
+    nativeReport = createSpyObj("NativeReportService", ["open"])
+    buildVersion = createSpyObj("BuildVersionService", ["getDisplayVersion"])
+    buildVersion.getDisplayVersion.mockResolvedValue({
       release: "1.2.3",
       build: "20261016-120000Z",
     })
-    // The native share sheet is always available in the app.
-    spyOn(Capacitor, "isNativePlatform").and.returnValue(true)
+    // In the app, shared links point at the public site.
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true)
 
     await TestBed.configureTestingModule({
       imports: [HeaderComponent],
@@ -933,7 +1162,6 @@ describe("HeaderComponent with the iOS native bars", () => {
         { provide: MatBottomSheet, useValue: bottomSheet },
         { provide: MatDialog, useValue: dialog },
         { provide: OnboardingService, useValue: onboarding },
-        { provide: SHARE_PLUGIN, useValue: share },
         { provide: AnalyticsService, useValue: analytics },
         { provide: BuildVersionService, useValue: buildVersion },
         {
@@ -952,7 +1180,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     fixture.detectChanges()
   })
 
-  const lastState = () => nativeChrome.show.calls.mostRecent().args[0]
+  const lastState = () => lastCall(vi.mocked(nativeChrome.show))[0]
   const bookLabel = () => (component.mobile ? "Génesis" : "Livro do Génesis")
 
   it("renders no web toolbar", () => {
@@ -965,7 +1193,7 @@ describe("HeaderComponent with the iOS native bars", () => {
 
   it("does not bring the bars back if the reader is gone before the version arrives", async () => {
     let arrive!: (version: DisplayVersion) => void
-    buildVersion.getDisplayVersion.and.returnValue(
+    buildVersion.getDisplayVersion.mockReturnValue(
       new Promise((resolve) => {
         arrive = resolve
       }),
@@ -975,7 +1203,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     late.componentRef.setInput("chapterNumber", 3)
     late.detectChanges()
     late.destroy()
-    nativeChrome.show.calls.reset()
+    nativeChrome.show.mockClear()
 
     arrive({ release: null, build: "20261016-120000Z" })
     await new Promise((resolve) => setTimeout(resolve))
@@ -1008,10 +1236,8 @@ describe("HeaderComponent with the iOS native bars", () => {
   })
 
   it("shows the chapter's ribbon, by colour and by name, on the bookmark button", () => {
-    const bookmarks = TestBed.inject(
-      BookmarkService,
-    ) as jasmine.SpyObj<BookmarkService>
-    bookmarks.getBookmark.and.returnValue({
+    const bookmarks = TestBed.inject(BookmarkService) as SpyObj<BookmarkService>
+    bookmarks.getBookmark.mockReturnValue({
       bookId: "gen",
       chapter: 4,
       color: "red",
@@ -1021,7 +1247,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     fixture.detectChanges()
 
     expect(lastState()).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         bookmarkColor: "red",
         bookmarkName: "vermelho",
         passageAccessibilityLabel: "Livro do Génesis 4, marcador vermelho",
@@ -1039,7 +1265,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     fixture.detectChanges()
 
     expect(lastState()).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         passageLabel: "Sobre a Bíblia",
         passageShortLabels: [],
         chapterNavigation: false,
@@ -1056,8 +1282,10 @@ describe("HeaderComponent with the iOS native bars", () => {
     fixture.detectChanges()
 
     expect(lastState()).toEqual(
-      jasmine.objectContaining({
-        passageLabel: `${bookLabel()} ${component.mobile ? "Intro" : "Introdução"}`,
+      expect.objectContaining({
+        passageLabel: `${bookLabel()} ${
+          component.mobile ? "Intro" : "Introdução"
+        }`,
         passageShortLabels: ["Gn Intro"],
         passageAccessibilityLabel: "Livro do Génesis Introdução",
       }),
@@ -1078,7 +1306,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     fixture.detectChanges()
 
     expect(lastState()).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         passageLabel: "Salmo 23 (22)",
         passageShortLabels: ["Sl 23 (22)", "Sl 23"],
         passageAccessibilityLabel: "Salmo 23, na liturgia 22",
@@ -1089,7 +1317,7 @@ describe("HeaderComponent with the iOS native bars", () => {
   it("keeps search while offline", () => {
     isOffline.next(true)
     fixture.detectChanges()
-    expect(lastState()).toEqual(jasmine.objectContaining({ search: true }))
+    expect(lastState()).toEqual(expect.objectContaining({ search: true }))
   })
 
   it("follows the reader's view mode, auto-scroll and arrows", () => {
@@ -1099,7 +1327,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     fixture.detectChanges()
 
     expect(lastState()).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         viewMode: "paged",
         autoScrollVisible: true,
         autoScrollAvailable: false,
@@ -1111,7 +1339,7 @@ describe("HeaderComponent with the iOS native bars", () => {
   it("opens the passage picker on the current chapter, with bookmarks", () => {
     actions.next({ id: "passage" })
 
-    const data = nativeChrome.showPicker.calls.mostRecent().args[0]
+    const data = lastCall(vi.mocked(nativeChrome.showPicker))[0]
     expect(data.currentBookId).toBe("gen")
     expect(data.currentChapter).toBe(3)
     const book = data.sections[0].groups[0].books[0]
@@ -1153,7 +1381,7 @@ describe("HeaderComponent with the iOS native bars", () => {
   })
 
   it("sets the chosen theme and shows it as chosen", () => {
-    nativeChrome.show.calls.reset()
+    nativeChrome.show.mockClear()
     actions.next({ id: "theme-dark" })
 
     expect(theme.setTheme).toHaveBeenCalledWith("dark")
@@ -1182,16 +1410,14 @@ describe("HeaderComponent with the iOS native bars", () => {
     try {
       actions.next({ id: "text-align" })
 
-      expect(classes.contains("ragged-text")).toBeTrue()
-      expect(lastState()).toEqual(
-        jasmine.objectContaining({ raggedText: true }),
-      )
+      expect(classes.contains("ragged-text")).toBe(true)
+      expect(lastState()).toEqual(expect.objectContaining({ raggedText: true }))
 
       actions.next({ id: "text-align" })
 
-      expect(classes.contains("ragged-text")).toBeFalse()
+      expect(classes.contains("ragged-text")).toBe(false)
       expect(lastState()).toEqual(
-        jasmine.objectContaining({ raggedText: false }),
+        expect.objectContaining({ raggedText: false }),
       )
     } finally {
       localStorage.removeItem("raggedText")
@@ -1221,14 +1447,17 @@ describe("HeaderComponent with the iOS native bars", () => {
     fixture.detectChanges()
     expect(lastState().textSize).toEqual(size)
 
-    component.book = { ...component.book, id: "about" }
+    fixture.componentRef.setInput("book", { ...component.book(), id: "about" })
     fixture.componentRef.setInput("chapterNumber", 1)
     fixture.detectChanges()
     expect(lastState().textSize).toBeNull()
   })
 
   it("opens the About page from the native menu", () => {
-    const selected: { bookId: string; chapter?: number }[] = []
+    const selected: {
+      bookId: string
+      chapter?: number
+    }[] = []
     component.selectPassage.subscribe((passage) => selected.push(passage))
 
     actions.next({ id: "about" })
@@ -1248,7 +1477,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(onboarding.open).toHaveBeenCalledWith("menu")
   })
 
-  // Through the Share plugin, iOS fetched the link's preview from the website,
+  // Left to itself, iOS fetched the link's preview from the website,
   // whose icon has the WEB sash; the shell previews it with the app's.
   it("shares the passage through the shell, headed by the page's title", async () => {
     const title = document.title
@@ -1264,7 +1493,6 @@ describe("HeaderComponent with the iOS native bars", () => {
       url: `https://biblia.capuchinhos.org${pathname}${search}${hash}`,
       linkTitle: "Livro do Génesis 3 | Bíblia Sagrada",
     })
-    expect(share.share).not.toHaveBeenCalled()
     expect(analytics.track).toHaveBeenCalledWith("share", {
       book: "gen",
       chapter: 3,
@@ -1272,19 +1500,16 @@ describe("HeaderComponent with the iOS native bars", () => {
   })
 
   it("counts no share when the sheet is closed without one", async () => {
-    nativeChrome.share.and.resolveTo(false)
+    nativeChrome.share.mockResolvedValue(false)
     actions.next({ id: "share" })
     await fixture.whenStable()
 
     expect(nativeChrome.share).toHaveBeenCalled()
-    expect(analytics.track).not.toHaveBeenCalledWith(
-      "share",
-      jasmine.anything(),
-    )
+    expect(analytics.track).not.toHaveBeenCalledWith("share", expect.anything())
   })
 
   it("opens the privacy policy outside the app", () => {
-    const open = spyOn(window, "open")
+    const open = vi.spyOn(window, "open").mockReturnValue(undefined as never)
     actions.next({ id: "privacy" })
 
     expect(open).toHaveBeenCalledWith(

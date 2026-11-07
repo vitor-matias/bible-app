@@ -47,61 +47,100 @@ describe("PreferencesService", () => {
   it("should store auto scroll control visibility", () => {
     service.setAutoScrollControlsVisible(true)
 
-    expect(service.getAutoScrollControlsVisible()).toBeTrue()
+    expect(service.getAutoScrollControlsVisible()).toBe(true)
   })
 
   it("should justify the text until ragged-right is chosen", () => {
-    expect(service.getRaggedText()).toBeFalse()
+    expect(service.getRaggedText()).toBe(false)
     service.setRaggedText(true)
-    expect(service.getRaggedText()).toBeTrue()
+    expect(service.getRaggedText()).toBe(true)
     service.setRaggedText(false)
-    expect(service.getRaggedText()).toBeFalse()
+    expect(service.getRaggedText()).toBe(false)
   })
 
   it("should treat the onboarding wizard as unseen by default", () => {
-    expect(service.getOnboardingSeen()).toBeFalse()
+    expect(service.getOnboardingSeen()).toBe(false)
   })
 
   it("should remember that the onboarding wizard was seen", () => {
     service.setOnboardingSeen(true)
-    expect(service.getOnboardingSeen()).toBeTrue()
+    expect(service.getOnboardingSeen()).toBe(true)
 
     service.setOnboardingSeen(false)
-    expect(service.getOnboardingSeen()).toBeFalse()
+    expect(service.getOnboardingSeen()).toBe(false)
   })
 
   // The Android app shows it once more with its native bars.
   it("should remember that the wizard was seen with the native bars", () => {
-    expect(service.getNativeBarsOnboardingSeen()).toBeFalse()
+    expect(service.getNativeBarsOnboardingSeen()).toBe(false)
 
     service.setNativeBarsOnboardingSeen(true)
-    expect(service.getNativeBarsOnboardingSeen()).toBeTrue()
+    expect(service.getNativeBarsOnboardingSeen()).toBe(true)
     // Its own key: the first-launch flag is untouched.
-    expect(service.getOnboardingSeen()).toBeFalse()
+    expect(service.getOnboardingSeen()).toBe(false)
   })
 
   it("should report the wizard as seen when storage cannot record it", () => {
     // A throwing setItem fails the safeLocalStorage() probe, as blocked
     // storage does; "unseen" would then reopen the wizard on every launch.
-    spyOn(Storage.prototype, "setItem").and.throwError("blocked")
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked")
+    })
 
-    expect(service.getOnboardingSeen()).toBeTrue()
-    expect(service.getNativeBarsOnboardingSeen()).toBeTrue()
+    expect(service.getOnboardingSeen()).toBe(true)
+    expect(service.getNativeBarsOnboardingSeen()).toBe(true)
   })
 
   // Storage that passed the probe can still fail later: full, or revoked.
   it("should carry on when storage fails after the probe", () => {
     service.setTheme("dark")
-    spyOn(Storage.prototype, "getItem").and.throwError("revoked")
-    spyOn(Storage.prototype, "setItem").and.throwError("full")
-    spyOn(Storage.prototype, "removeItem").and.throwError("revoked")
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("revoked")
+    })
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("full")
+    })
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new Error("revoked")
+    })
 
     expect(() => service.setNativeBarsOnboardingSeen(true)).not.toThrow()
     expect(() => service.clearFontSize("reader")).not.toThrow()
     expect(service.getFontSize("reader")).toBeNull()
     // Seen, as with no storage: the wizard does not reopen on every launch.
-    expect(service.getOnboardingSeen()).toBeTrue()
-    expect(service.getNativeBarsOnboardingSeen()).toBeTrue()
+    expect(service.getOnboardingSeen()).toBe(true)
+    expect(service.getNativeBarsOnboardingSeen()).toBe(true)
+  })
+
+  it("should remember that the app prompt was shown", () => {
+    expect(service.getAppPromoSeen()).toBe(false)
+
+    service.setAppPromoSeen(true)
+    expect(service.getAppPromoSeen()).toBe(true)
+  })
+
+  it("should report the app prompt as shown when storage cannot record it", () => {
+    // Otherwise it would come back on every visit.
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked")
+    })
+
+    expect(service.getAppPromoSeen()).toBe(true)
+  })
+
+  it("should keep going when storage fails after passing its probe", () => {
+    // The first read resolves (and probes) the storage.
+    expect(service.getAppPromoSeen()).toBe(false)
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError")
+    })
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("SecurityError")
+    })
+
+    expect(() => service.setAppPromoSeen(true)).not.toThrow()
+    // Unreadable counts as shown, so the prompt can't nag on every visit.
+    expect(service.getAppPromoSeen()).toBe(true)
   })
 
   it("should store and read the last location", () => {
@@ -129,7 +168,7 @@ describe("PreferencesService", () => {
     // safeLocalStorage() probes with a real write; applyChapter and the
     // header read preferences on every chapter change and render pass.
     service.getTheme()
-    const setItem = spyOn(Storage.prototype, "setItem").and.callThrough()
+    const setItem = vi.spyOn(Storage.prototype, "setItem")
 
     service.getTheme()
     service.getViewMode()

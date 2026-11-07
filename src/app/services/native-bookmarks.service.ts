@@ -9,10 +9,8 @@ import {
   type RibbonState,
   spokenRibbonName,
 } from "./bookmark-ribbons.service"
-import {
-  type BookmarksSheetState,
-  NativeChromeService,
-} from "./native-chrome.service"
+import { NativeChromeService } from "./native-chrome.service"
+import type { BookmarksSheetState } from "./native-chrome.types"
 
 /**
  * The bookmarks panel as a native sheet in the iOS and Android apps. The sheet only draws
@@ -76,7 +74,8 @@ export class NativeBookmarksService {
               this.ribbonsService.remove(ribbon)
             if (action.id === "bookmark-set" && canMark(bookId))
               this.ribbonsService.assign(ribbon.value, bookId, chapter)
-            if (action.id === "bookmark-move") mover.move(ribbon)
+            if (action.id === "bookmark-move" && canMark(bookId))
+              mover.move(ribbon)
             break
           }
           case "bookmark-undo":

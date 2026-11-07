@@ -2,6 +2,8 @@ import { defineConfig, devices } from "@playwright/test"
 
 export default defineConfig({
   testDir: "./e2e",
+  // playwright.prerendered.config.ts: those need a production build.
+  testIgnore: "prerendered/**",
   fullyParallel: false,
   retries: 1,
   workers: 1,
@@ -21,6 +23,7 @@ export default defineConfig({
     command: "npm start",
     url: "http://localhost:4200",
     reuseExistingServer: true,
-    timeout: 60_000,
+    // A CI runner has no Angular build cache for its first compile.
+    timeout: 180_000,
   },
 })

@@ -86,66 +86,6 @@ export class DatabaseService {
     })
   }
 
-  async put<T>(storeName: string, item: T): Promise<void> {
-    const db = await this.getDB()
-    if (!db) return
-
-    return new Promise((resolve, reject) => {
-      try {
-        const transaction = db.transaction(storeName, "readwrite")
-        const store = transaction.objectStore(storeName)
-        store.put(item)
-
-        transaction.oncomplete = () => resolve()
-        transaction.onerror = () => reject(transaction.error)
-      } catch (error) {
-        reject(error)
-      }
-    })
-  }
-
-  async putAll<T>(storeName: string, items: T[]): Promise<void> {
-    const db = await this.getDB()
-    if (!db) return
-
-    return new Promise((resolve, reject) => {
-      try {
-        const transaction = db.transaction(storeName, "readwrite")
-        const store = transaction.objectStore(storeName)
-
-        transaction.oncomplete = () => resolve()
-        transaction.onerror = () => reject(transaction.error)
-
-        for (const item of items) {
-          store.put(item)
-        }
-      } catch (error) {
-        reject(error)
-      }
-    })
-  }
-
-  async delete(
-    storeName: string,
-    key: IDBValidKey | IDBKeyRange,
-  ): Promise<void> {
-    const db = await this.getDB()
-    if (!db) return
-
-    return new Promise((resolve, reject) => {
-      try {
-        const transaction = db.transaction(storeName, "readwrite")
-        const store = transaction.objectStore(storeName)
-        store.delete(key)
-
-        transaction.oncomplete = () => resolve()
-        transaction.onerror = () => reject(transaction.error)
-      } catch (error) {
-        reject(error)
-      }
-    })
-  }
-
   async clear(storeName: string): Promise<void> {
     const db = await this.getDB()
     if (!db) return
@@ -158,6 +98,7 @@ export class DatabaseService {
 
         transaction.oncomplete = () => resolve()
         transaction.onerror = () => reject(transaction.error)
+        transaction.onabort = () => reject(transaction.error)
       } catch (error) {
         reject(error)
       }
@@ -175,6 +116,8 @@ export class DatabaseService {
 
         transaction.oncomplete = () => resolve()
         transaction.onerror = () => reject(transaction.error)
+        // A full disk ("QuotaExceededError") arrives only as an abort.
+        transaction.onabort = () => reject(transaction.error)
 
         // Clear existing data
         store.clear()
