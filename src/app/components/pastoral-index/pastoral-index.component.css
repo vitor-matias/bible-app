@@ -57,7 +57,7 @@ mat-expansion-panel:focus {
 .index-intro {
   max-width: 45rem;
   margin: 0.75rem 0 1rem;
-  font-family: "PT Serif", serif;
+  font-family: var(--font-reading);
   line-height: 1.35;
   text-align: justify;
   hyphens: auto;
@@ -190,7 +190,7 @@ mat-expansion-panel-header {
    section headings. */
 mat-panel-title {
   color: var(--text-secondary);
-  font-family: "PT Serif", serif;
+  font-family: var(--font-reading);
   font-size: 1.2em;
   font-weight: bold;
   /* 24px at the standard size, as Material's; growing with the text, where
@@ -214,7 +214,7 @@ mat-panel-title {
 }
 
 .entry {
-  font-family: "PT Serif", serif;
+  font-family: var(--font-reading);
   line-height: 1.35;
   text-align: justify;
   hyphens: auto;

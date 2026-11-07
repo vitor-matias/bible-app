@@ -378,6 +378,17 @@ describe("PastoralIndexComponent", () => {
     expect(getComputedStyle(intro).textAlign).toBe("justify")
   })
 
+  // PT Serif stayed named here after the reader moved to Literata, and the
+  // index fell back to the system's serif.
+  it("sets its text in the reader's font", async () => {
+    const fixture = await open()
+    const font = (selector: string) =>
+      getComputedStyle(fixture.nativeElement.querySelector(selector)).fontFamily
+
+    expect(font(".index-intro")).toContain("Literata")
+    expect(font("mat-panel-title")).toContain("Literata")
+  })
+
   describe("the hamburger menu", () => {
     /** The menu's items, in its overlay, by label. */
     async function openMenu(fixture: ComponentFixture<PastoralIndexComponent>) {
