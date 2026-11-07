@@ -241,6 +241,19 @@ describe("HeaderComponent", () => {
     expect(fixture.nativeElement.querySelector(".searchButton")).toBeTruthy()
   })
 
+  // The onboarding rings these while its steps name them (OnboardingStep.highlight).
+  it("marks the buttons the onboarding points to", () => {
+    const host: HTMLElement = fixture.nativeElement
+    expect(host.querySelector('[data-tour="text"]')?.ariaLabel).toBe("Menu")
+    expect(host.querySelector('[data-tour="search"]')?.ariaLabel).toBe(
+      "Pesquisar",
+    )
+    expect(
+      host.querySelector('[data-tour="passage"]')?.querySelectorAll("button")
+        .length,
+    ).toBeGreaterThan(0)
+  })
+
   it("should open the report problem dialog from the menu", () => {
     const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
       "closeMenu",

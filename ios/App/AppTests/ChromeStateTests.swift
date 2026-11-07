@@ -145,4 +145,60 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertFalse(autoScroll.canSlower)
         XCTAssertFalse(autoScroll.canFaster)
     }
+
+    // MARK: Onboarding
+
+    // A page naming a bar button shows that button, ringed, instead of its symbol.
+    func testReadsTheButtonAnOnboardingPageNames() {
+        let steps = OnboardingStepData.parse(call(["steps": [
+            ["id": "books", "title": "Escolher um livro", "intro": "…", "symbol": "book",
+             "logo": false, "highlight": "passage", "features": []],
+            ["id": "welcome", "title": "Bem-vindo", "intro": "…", "symbol": "book",
+             "logo": true, "features": []],
+        ]]))
+        XCTAssertEqual(steps.map(\.highlight), ["passage", nil])
+    }
+
+    // The copy is decoration: VoiceOver skips it and taps don't reach it.
+    // The ring goes round the item in the toolbar's middle, not the bar.
+    func testRingsTheButtonInTheMiddleOfItsBar() {
+        let bar = UIToolbar()
+        bar.items = [.flexibleSpace(), UIBarButtonItem(image: UIImage(systemName: "magnifyingglass")), .flexibleSpace()]
+        let ringed = RingedBarButton(bar)
+        // The bar lays its item out only in a window.
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.addSubview(ringed)
+        window.isHidden = false
+        ringed.frame = CGRect(x: 0, y: 0, width: 402, height: 120)
+        ringed.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        ringed.layoutIfNeeded()
+        XCTAssertTrue(ringed.accessibilityElementsHidden)
+        XCTAssertFalse(ringed.isUserInteractionEnabled)
+        let button = ringed.buttonFrame
+        XCTAssertLessThan(button.width, 120)
+        XCTAssertEqual(button.midX, 201, accuracy: 2)
+    }
+
+    // On iPad the passage's glass is wider than half the bar: still the glass,
+    // not the label inside it.
+    func testRingsAPassageWiderThanHalfTheBar() {
+        let label = UIButton(configuration: .plain())
+        label.configuration?.title = "Sobre a Bíblia dos Capuchinhos"
+        let bar = UIToolbar()
+        bar.items = [.flexibleSpace(), UIBarButtonItem(customView: label), .flexibleSpace()]
+        let ringed = RingedBarButton(bar)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 400, height: 874))
+        window.addSubview(ringed)
+        window.isHidden = false
+        ringed.frame = CGRect(x: 0, y: 0, width: 400, height: 120)
+        ringed.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        ringed.layoutIfNeeded()
+        let glass = ringed.buttonFrame
+        let text = label.convert(label.bounds, to: ringed)
+        XCTAssertGreaterThan(glass.width, 200)
+        XCTAssertTrue(glass.contains(text))
+        XCTAssertGreaterThan(glass.width, text.width)
+    }
 }

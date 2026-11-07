@@ -115,7 +115,180 @@ describe("OnboardingComponent", () => {
     component.next()
 
     expect(element.querySelector(".hero-logo")).toBeNull()
-    expect(textOf(".hero-icon")).toContain("explore")
+    expect(textOf(".hero-icon")).toContain("menu_book")
+  })
+
+  describe("ringing the button a step names", () => {
+    const targets: HTMLElement[] = []
+
+    function headerButton(
+      key: string,
+      box: { left: number; top: number; width: number; height: number },
+    ): HTMLElement {
+      const target = document.createElement("button")
+      target.dataset["tour"] = key
+      Object.assign(target.style, {
+        position: "fixed",
+        left: `${box.left}px`,
+        top: `${box.top}px`,
+        width: `${box.width}px`,
+        height: `${box.height}px`,
+      })
+      document.body.append(target)
+      targets.push(target)
+      return target
+    }
+
+    function ring(): HTMLElement {
+      const found = element.querySelector<HTMLElement>(".tour-ring")
+      if (!found) throw new Error("No ring")
+      return found
+    }
+
+    /** The dialog sits below the header, as it does centred on a phone. */
+    function createBelowHeader(): void {
+      create()
+      Object.assign(element.style, {
+        position: "fixed",
+        top: "120px",
+        left: "100px",
+        width: "400px",
+      })
+    }
+
+    afterEach(() => {
+      for (const target of targets.splice(0)) target.remove()
+    })
+
+    it("rings the passage button on the book step, above the dialog", () => {
+      headerButton("passage", { left: 300, top: 8, width: 160, height: 40 })
+      createBelowHeader()
+      expect(ring().matches(":popover-open")).toBe(false)
+
+      component.goTo(1)
+
+      expect(component.step.id).toBe("books")
+      expect(ring().matches(":popover-open")).toBe(true)
+      const box = ring().getBoundingClientRect()
+      expect([box.left, box.top, box.width, box.height]).toEqual([
+        296, 4, 168, 48,
+      ])
+    })
+
+    it("moves to the search button, then away on the install step", () => {
+      headerButton("passage", { left: 300, top: 8, width: 160, height: 40 })
+      headerButton("search", { left: 740, top: 8, width: 40, height: 40 })
+      createBelowHeader()
+
+      component.goTo(2)
+      expect(component.step.id).toBe("tools")
+      expect(ring().getBoundingClientRect().left).toBe(736)
+
+      component.goTo(component.steps.length - 1)
+      expect(ring().matches(":popover-open")).toBe(false)
+    })
+
+    it("leaves the welcome step unringed", () => {
+      headerButton("passage", { left: 300, top: 8, width: 160, height: 40 })
+      createBelowHeader()
+      component.goTo(1)
+
+      component.goTo(0)
+
+      expect(ring().matches(":popover-open")).toBe(false)
+    })
+
+    // On a short screen the dialog reaches up over the header.
+    it("hides the ring where it would cover the dialog", () => {
+      headerButton("passage", { left: 300, top: 130, width: 160, height: 40 })
+      createBelowHeader()
+
+      component.goTo(1)
+
+      expect(ring().matches(":popover-open")).toBe(false)
+    })
+
+    // The apps draw their bars natively: no web header to point to.
+    it("goes without when the header isn't there", () => {
+      createBelowHeader()
+
+      component.goTo(1)
+
+      expect(ring().matches(":popover-open")).toBe(false)
+    })
+
+    function backdrop(): HTMLElement {
+      const shade = document.createElement("div")
+      shade.className = "onboarding-backdrop"
+      Object.assign(shade.style, { position: "fixed", inset: "0" })
+      document.body.append(shade)
+      targets.push(shade)
+      return shade
+    }
+
+    // The button shows as it is, not under the shade.
+    it("cuts the backdrop open over the ringed button", () => {
+      headerButton("passage", { left: 300, top: 8, width: 160, height: 40 })
+      const shade = backdrop()
+      createBelowHeader()
+
+      component.goTo(1)
+      expect(shade.style.clipPath).toMatch(/^path\(evenodd/)
+
+      component.goTo(0)
+      expect(shade.style.clipPath).toBe("")
+    })
+
+    // Through the hole a tap would open the picker behind the dialog.
+    it("keeps the button out of reach while the dialog is open", () => {
+      const target = headerButton("passage", {
+        left: 300,
+        top: 8,
+        width: 160,
+        height: 40,
+      })
+      backdrop()
+      createBelowHeader()
+
+      component.goTo(1)
+
+      expect(document.elementFromPoint(380, 28)).toBe(ring())
+      expect(document.elementFromPoint(380, 28)).not.toBe(target)
+    })
+
+    // On the home page the button's label cycles and its width with it.
+    it("follows the button when the button itself changes width", async () => {
+      const target = headerButton("passage", {
+        left: 300,
+        top: 8,
+        width: 160,
+        height: 40,
+      })
+      createBelowHeader()
+      component.goTo(1)
+
+      target.style.width = "300px"
+
+      await vi.waitFor(() =>
+        expect(ring().getBoundingClientRect().width).toBe(308),
+      )
+    })
+
+    it("follows the button when the window resizes", () => {
+      const target = headerButton("passage", {
+        left: 300,
+        top: 8,
+        width: 160,
+        height: 40,
+      })
+      createBelowHeader()
+      component.goTo(1)
+
+      target.style.left = "200px"
+      window.dispatchEvent(new Event("resize"))
+
+      expect(ring().getBoundingClientRect().left).toBe(196)
+    })
   })
 
   it("starts on the welcome step with one dot per step", () => {
@@ -136,7 +309,7 @@ describe("OnboardingComponent", () => {
 
     button("Seguinte")?.click()
     fixture.detectChanges()
-    expect(title()).toBe("Navegar na Bíblia")
+    expect(title()).toBe("Escolher um livro")
     expect(button("Saltar")).toBeUndefined()
 
     button("Anterior")?.click()
@@ -153,7 +326,7 @@ describe("OnboardingComponent", () => {
 
     dots[2].click()
 
-    expect(title()).toBe("Ler à sua maneira")
+    expect(title()).toBe("Encontrar uma passagem")
     expect(dots[2].classList).toContain("active")
     expect(dots[2].getAttribute("aria-current")).toBe("step")
   })
@@ -229,7 +402,7 @@ describe("OnboardingComponent", () => {
       press(document.body, "ArrowRight")
 
       expect(document.activeElement?.id).toBe("onboarding-title")
-      expect(document.activeElement?.textContent).toContain("Navegar")
+      expect(document.activeElement?.textContent).toContain("Escolher um livro")
     })
   })
 

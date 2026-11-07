@@ -1,5 +1,6 @@
-import { NgTemplateOutlet } from "@angular/common"
+import { DOCUMENT, NgTemplateOutlet } from "@angular/common"
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
@@ -7,6 +8,7 @@ import {
   ElementRef,
   HostListener,
   inject,
+  viewChild,
 } from "@angular/core"
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatButtonModule } from "@angular/material/button"
@@ -73,6 +75,17 @@ export class OnboardingComponent {
   private readonly destroyRef = inject(DestroyRef)
   private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef)
   private readonly appPromo = inject(AppPromoService)
+  private readonly document = inject(DOCUMENT)
+  private readonly ring = viewChild.required<ElementRef<HTMLElement>>("ring")
+  /**
+   * The ringed button changes size on its own: the home page's label cycles,
+   * fonts load late. Window resizes alone left the ring at its old width.
+   */
+  private readonly buttonResizes =
+    typeof ResizeObserver === "function"
+      ? new ResizeObserver(() => this.placeRing())
+      : null
+  private ringed: Element | null = null
 
   constructor() {
     const pwaInstallService = this.pwaInstallService
@@ -94,6 +107,9 @@ export class OnboardingComponent {
     pwaInstallService.canPromptInstall$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.cdr.markForCheck())
+
+    afterNextRender(() => this.placeRing())
+    this.destroyRef.onDestroy(() => this.buttonResizes?.disconnect())
   }
 
   /** A step's text split around its inline [[icon]] markers. */
@@ -141,6 +157,80 @@ export class OnboardingComponent {
     this.elementRef.nativeElement
       .querySelector<HTMLElement>("#onboarding-title")
       ?.focus()
+    this.placeRing()
+  }
+
+  /**
+   * Rings the header button the step names. The ring is a popover of its own,
+   * shown after the dialog's, so it draws above the backdrop (z-index can't).
+   */
+  @HostListener("window:resize")
+  placeRing(): void {
+    const ring = this.ring().nativeElement
+    // Browsers without the popover API (Safari before 17) go without.
+    if (typeof ring.showPopover !== "function") return
+    const key = this.step.highlight
+    const target = key
+      ? this.document.querySelector(`[data-tour="${key}"]`)
+      : null
+    if (target !== this.ringed) {
+      this.buttonResizes?.disconnect()
+      if (target) this.buttonResizes?.observe(target)
+      this.ringed = target
+    }
+    const rect = target?.getBoundingClientRect()
+    const dialog = this.elementRef.nativeElement.getBoundingClientRect()
+    // Not over the dialog itself, as on a short screen.
+    const overlaps =
+      !!rect &&
+      rect.left < dialog.right &&
+      dialog.left < rect.right &&
+      rect.top < dialog.bottom &&
+      dialog.top < rect.bottom
+    if (!rect?.width || overlaps) {
+      if (ring.matches(":popover-open")) ring.hidePopover()
+      this.cutBackdrop(null)
+      return
+    }
+    const gap = 4
+    const box = new DOMRect(
+      rect.left - gap,
+      rect.top - gap,
+      rect.width + 2 * gap,
+      rect.height + 2 * gap,
+    )
+    ring.style.top = `${box.top}px`
+    ring.style.left = `${box.left}px`
+    ring.style.width = `${box.width}px`
+    ring.style.height = `${box.height}px`
+    if (!ring.matches(":popover-open")) ring.showPopover()
+    this.cutBackdrop(box)
+  }
+
+  /**
+   * Clears the backdrop's shade inside the ring, so the button shows as it
+   * is: the backdrop clipped to everything but the ring's rounded box.
+   */
+  private cutBackdrop(hole: DOMRect | null): void {
+    const backdrop = this.document.querySelector<HTMLElement>(
+      ".onboarding-backdrop",
+    )
+    if (!backdrop) return
+    if (!hole) {
+      backdrop.style.clipPath = ""
+      return
+    }
+    const page = backdrop.getBoundingClientRect()
+    const x = hole.left - page.left
+    const y = hole.top - page.top
+    const { width: w, height: h } = hole
+    const r = Math.min(w, h) / 2
+    const arc = `A${r} ${r} 0 0 1`
+    backdrop.style.clipPath =
+      `path(evenodd, "M0 0H${page.width}V${page.height}H0Z ` +
+      `M${x + r} ${y}H${x + w - r}${arc} ${x + w} ${y + r}V${y + h - r}` +
+      `${arc} ${x + w - r} ${y + h}H${x + r}${arc} ${x} ${y + h - r}` +
+      `V${y + r}${arc} ${x + r} ${y}Z")`
   }
 
   skip(): void {
