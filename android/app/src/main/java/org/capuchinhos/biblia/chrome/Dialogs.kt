@@ -409,7 +409,9 @@ private fun RingedBarButton(chrome: ChromeController, key: String) {
             when (key) {
                 // The title sits 8 dp left of its slot (Material's keyline).
                 "passage" -> Box(Modifier.padding(start = 12.dp, end = 4.dp)) {
-                    PassageTitle(chrome, chrome.state, enabled = false, showSubtitle = false)
+                    // What the bar shows once a chapter loads, as iOS's barReplica.
+                    val state = chrome.state.let { if (it.passageLabel.isEmpty()) it.copy(passageLabel = "Génesis 1") else it }
+                    PassageTitle(chrome, state, enabled = false, showSubtitle = false)
                 }
                 "search" -> BarButton(R.drawable.ic_search, "Pesquisar") {}
                 else -> BarButton(R.drawable.ic_format_size, "Texto e aparência") {}
