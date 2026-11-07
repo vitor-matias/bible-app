@@ -11,7 +11,7 @@ node -e 'console.log(require("./report.json").audits.metrics.details.items[0].ob
 - Use `--blocked-url-patterns=...` to bisect (block scripts, fonts or images and see which
   one moves the number).
 - Measure a **chapter page** (`/gn/1`), not just `/`: that is where the verse text and the
-  PT Serif font are. Chapter pages only exist when the prerender had an API. `npm run build`
+  Literata font are. Chapter pages only exist when the prerender had an API. `npm run build`
   with `PRERENDER_API_ORIGIN=http://127.0.0.1:1` prerenders just two routes (the fetch to port
   1 is refused), so for chapter pages point the build at a local stub API that answers what
   `src/app/prerender-params.ts` asks for (`PRERENDER_API_ORIGIN=http://localhost:PORT`).
@@ -45,7 +45,7 @@ account.
 ## Fonts and icons are self-hosted
 
 `src/styles.css` imports fonts from npm packages: `@fontsource/roboto`,
-`@fontsource/pt-serif` and `@material-symbols/font-400` (the weight axis pinned to 400,
+`@fontsource-variable/literata` (its weight-only files) and `@material-symbols/font-400` (the weight axis pinned to 400,
 about 490 kB against several MB for the full variable font). `src/index.html` has no
 Google Fonts `<link>`, and no font binaries are committed. The package ships
 `font-display: block`.
