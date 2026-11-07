@@ -4,7 +4,7 @@
   <mat-toolbar>
     <div class="header-content">
       <button class="menuButton" mat-icon-button [matMenuTriggerFor]="headerMenu" #menuTrigger="matMenuTrigger"
-        aria-label="Menu">
+        (menuOpened)="onMenuOpened()" aria-label="Menu">
         <mat-icon>menu</mat-icon>
       </button>
       <mat-menu #headerMenu="matMenu">
@@ -17,6 +17,9 @@
           @if (book().id !== 'about') {
           <button type="button" mat-menu-item class="menu-control" (click)="onToggleViewMode($event)" [matTooltip]="getViewModeTooltip()" matTooltipPosition="above" [attr.aria-label]="getViewModeTooltip()">
             <mat-icon>{{ getViewModeIcon() }}</mat-icon>
+          </button>
+          <button type="button" mat-menu-item class="menu-control" (click)="onToggleTextAlign()" [matTooltip]="getTextAlignTooltip()" matTooltipPosition="above" [attr.aria-label]="getTextAlignTooltip()">
+            <mat-icon>{{ getTextAlignIcon() }}</mat-icon>
           </button>
           }
           <button type="button" mat-menu-item class="menu-control" (click)="onDecreaseFontSize()" matTooltip="Diminuir texto" matTooltipPosition="above" aria-label="Diminuir texto">
@@ -45,7 +48,8 @@
           <span>Partilhar</span>
         </button>
         }
-        @if (canInstall()) {
+        <!-- Where the store has the app, the website's install stays in the tutorial. -->
+        @if (canInstall() && !appStore) {
         <button type="button" mat-menu-item (click)="onInstall(menuTrigger)">
           <mat-icon>download</mat-icon>
           <span>Instalar a app</span>
@@ -55,6 +59,13 @@
           <mat-icon>help</mat-icon>
           <span>Como usar a app</span>
         </button>
+        @if (appStore) {
+        <a mat-menu-item class="app-store-link" [href]="appStore.url" target="_blank" rel="noopener"
+          (click)="onOpenAppStore(appStore)">
+          <mat-icon>install_mobile</mat-icon>
+          <span>{{ appStoreLabel }}</span>
+        </a>
+        }
         <button type="button" mat-menu-item (click)="onOpenAbout(menuTrigger)">
           <mat-icon>info</mat-icon>
           <span>Sobre a Bíblia</span>

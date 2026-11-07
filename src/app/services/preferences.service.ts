@@ -56,7 +56,19 @@ export class PreferencesService {
     FONT_SIZE_PREFIX: "fontSize",
     VIEW_MODE: "viewMode",
     ONBOARDING_SEEN: "onboardingSeen",
+    APP_PROMO_SEEN: "appPromoSeen",
     NATIVE_BARS_ONBOARDING_SEEN: "nativeBarsOnboardingSeen",
+    RAGGED_TEXT: "raggedText",
+  }
+
+  /** The reader's choice of ragged-right (true) or justified (false) text; null until they make one. */
+  getRaggedText(): boolean | null {
+    const stored = this.read(this.KEYS.RAGGED_TEXT)
+    return stored === "true" ? true : stored === "false" ? false : null
+  }
+
+  setRaggedText(ragged: boolean): void {
+    this.write(this.KEYS.RAGGED_TEXT, ragged.toString())
   }
 
   getTheme(): "light" | "dark" | "system" | null {
@@ -160,5 +172,15 @@ export class PreferencesService {
 
   setNativeBarsOnboardingSeen(seen: boolean): void {
     this.write(this.KEYS.NATIVE_BARS_ONBOARDING_SEEN, seen.toString())
+  }
+
+  /** As getOnboardingSeen: seen when storage is unusable. */
+  getAppPromoSeen(): boolean {
+    const stored = this.read(this.KEYS.APP_PROMO_SEEN)
+    return stored === undefined || stored === "true"
+  }
+
+  setAppPromoSeen(seen: boolean): void {
+    this.write(this.KEYS.APP_PROMO_SEEN, seen.toString())
   }
 }

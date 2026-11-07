@@ -50,6 +50,14 @@ describe("PreferencesService", () => {
     expect(service.getAutoScrollControlsVisible()).toBe(true)
   })
 
+  it("should have no alignment until one is chosen, then keep it", () => {
+    expect(service.getRaggedText()).toBeNull()
+    service.setRaggedText(true)
+    expect(service.getRaggedText()).toBe(true)
+    service.setRaggedText(false)
+    expect(service.getRaggedText()).toBe(false)
+  })
+
   it("should treat the onboarding wizard as unseen by default", () => {
     expect(service.getOnboardingSeen()).toBe(false)
   })
@@ -102,6 +110,37 @@ describe("PreferencesService", () => {
     // Seen, as with no storage: the wizard does not reopen on every launch.
     expect(service.getOnboardingSeen()).toBe(true)
     expect(service.getNativeBarsOnboardingSeen()).toBe(true)
+  })
+
+  it("should remember that the app prompt was shown", () => {
+    expect(service.getAppPromoSeen()).toBe(false)
+
+    service.setAppPromoSeen(true)
+    expect(service.getAppPromoSeen()).toBe(true)
+  })
+
+  it("should report the app prompt as shown when storage cannot record it", () => {
+    // Otherwise it would come back on every visit.
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked")
+    })
+
+    expect(service.getAppPromoSeen()).toBe(true)
+  })
+
+  it("should keep going when storage fails after passing its probe", () => {
+    // The first read resolves (and probes) the storage.
+    expect(service.getAppPromoSeen()).toBe(false)
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError")
+    })
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("SecurityError")
+    })
+
+    expect(() => service.setAppPromoSeen(true)).not.toThrow()
+    // Unreadable counts as shown, so the prompt can't nag on every visit.
+    expect(service.getAppPromoSeen()).toBe(true)
   })
 
   it("should store and read the last location", () => {

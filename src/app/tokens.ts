@@ -5,6 +5,7 @@ import { registerPlugin, SystemBars } from "@capacitor/core"
 import { Haptics } from "@capacitor/haptics"
 import { Network } from "@capacitor/network"
 import { SplashScreen } from "@capacitor/splash-screen"
+import { type StoreApps, storeApps } from "./config"
 import type { NativeChromePlugin } from "./services/native-chrome.types"
 
 function createNoopNgOnDestroyProxy<T extends object>(plugin: T): T {
@@ -74,6 +75,12 @@ export const NATIVE_CHROME_PLUGIN = new InjectionToken<NativeChromePlugin>(
     factory: () => createNoopNgOnDestroyProxy(NativeChrome),
   },
 )
+
+/** The store listings the website promotes; specs swap in their own. */
+export const STORE_APPS = new InjectionToken<StoreApps>("Store apps", {
+  providedIn: "root",
+  factory: () => storeApps,
+})
 
 /**
  * The host the page is served from: "biblia.capuchinhos.org" (nginx), a

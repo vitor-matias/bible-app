@@ -231,7 +231,7 @@
 
 /* The verse itself, set as in the reader. */
 :host-context(.native-chrome) .verse-text {
-  font-family: "PT Serif", serif;
+  font-family: var(--font-reading);
   font-size: 17px;
   line-height: 1.4;
 }

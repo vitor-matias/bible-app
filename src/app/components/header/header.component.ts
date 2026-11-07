@@ -31,6 +31,10 @@ import { Router, RouterModule } from "@angular/router"
 import { shareableUrl } from "../../config"
 import type { TextSize } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
+import {
+  AppPromoService,
+  type StoreLink,
+} from "../../services/app-promo.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
@@ -48,6 +52,7 @@ import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { PwaInstallService } from "../../services/pwa-install.service"
+import { TextAlignService } from "../../services/text-align.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"
 import {
   passageLabel,
@@ -143,6 +148,12 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   readonly privacyPolicyUrl = PRIVACY_POLICY_URL
+  /** The native app's store for this phone or tablet, if it has one. */
+  appStore: StoreLink | null = null
+  /** Read at each check: installing the website mid-visit changes the words. */
+  get appStoreLabel(): string {
+    return this.appStore ? this.appPromo.menuLabel(this.appStore) : ""
+  }
   /** Small print under the menu's last item; null until it is known. */
   version: DisplayVersion | null = null
   private destroyed = false
@@ -176,10 +187,12 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly destroyRef = inject(DestroyRef)
   private readonly router = inject(Router)
   private readonly nativeChrome = inject(NativeChromeService)
+  private readonly textAlign = inject(TextAlignService)
   private readonly bookService = inject(BookService)
   private readonly nativeBookmarks = inject(NativeBookmarksService)
   private readonly nativeReport = inject(NativeReportService)
   private readonly buildVersion = inject(BuildVersionService)
+  private readonly appPromo = inject(AppPromoService)
   private bookmarks: Bookmark[] = []
   /** The native shells draw this header; the template renders nothing. */
   readonly native = this.nativeChrome.enabled
@@ -205,6 +218,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       this.native ||
       (typeof navigator !== "undefined" &&
         typeof navigator.share === "function")
+    this.appStore = this.appPromo.deviceStore("menu")
 
     this.bookmarkService.bookmarks$
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -232,11 +246,13 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  /** Window width, not screen width: a narrow desktop window counts too. */
+  /** Window width, not screen width: a narrow desktop window counts too. The
+   *  stylesheets' own query, so a fractional width can't leave the native menus
+   *  on the other side of the reader's phone default (TextAlignService). */
   @HostListener("window:resize")
   updateMobile(): void {
     if (typeof window === "undefined") return
-    const isMobile = window.innerWidth <= 480
+    const isMobile = window.matchMedia("(max-width: 480px)").matches
     if (isMobile !== this.mobile) {
       this.mobile = isMobile
       this.cdr.markForCheck()
@@ -316,6 +332,16 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     })
   }
 
+  /** The store entry tells the visitor about the app: no prompt after it. */
+  onMenuOpened() {
+    if (this.appStore) this.appPromo.markSeen()
+  }
+
+  /** The menu link itself opens the store. */
+  onOpenAppStore(store: StoreLink) {
+    this.appPromo.trackStoreOpen(store, "menu")
+  }
+
   onOpenAbout(trigger: MatMenuTrigger) {
     trigger.closeMenu()
     this.openAbout()
@@ -369,6 +395,22 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   onToggleViewMode(event?: Event): void {
     event?.stopPropagation()
     this.toggleViewMode.emit()
+  }
+
+  getTextAlignIcon(): string {
+    return this.textAlign.ragged ? "format_align_left" : "format_align_justify"
+  }
+
+  getTextAlignTooltip(): string {
+    return this.textAlign.ragged
+      ? "Alinhado à esquerda (clique para justificar)"
+      : "Justificado (clique para alinhar à esquerda)"
+  }
+
+  /** As the theme: the menu stays open, and the text realigns behind it. */
+  onToggleTextAlign(): void {
+    this.textAlign.toggle()
+    this.cdr.detectChanges()
   }
 
   getThemeIcon(): string {
@@ -517,6 +559,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       search: true,
       themeMode: this.themeService.currentMode,
       viewMode: isAbout ? null : this.viewMode(),
+      raggedText: isAbout ? null : this.textAlign.ragged,
       autoScrollVisible: this.autoScrollControlsVisible(),
       autoScrollAvailable: this.viewMode() !== "paged",
       canShare: this.canShare,
@@ -561,6 +604,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         break
       case "view-mode":
         this.toggleViewMode.emit()
+        break
+      case "text-align":
+        this.textAlign.toggle()
+        this.syncNativeChrome()
         break
       case "font-decrease":
         this.decreaseFontSizeEvent.emit(action.step)

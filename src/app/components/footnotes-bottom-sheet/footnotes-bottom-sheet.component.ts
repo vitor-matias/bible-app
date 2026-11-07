@@ -62,7 +62,7 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
   styles: [
     `
       .footnotes-container {
-        font-family: 'PT Serif', serif;
+        font-family: var(--font-reading);
         text-align: justify;
       }
       .header {

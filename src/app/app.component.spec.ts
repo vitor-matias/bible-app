@@ -10,6 +10,7 @@ import { Capacitor, type PluginListenerHandle } from "@capacitor/core"
 import type { Mock } from "vitest"
 import { AppComponent, EXIT_BACK_WINDOW_MS } from "./app.component"
 import { AnalyticsService } from "./services/analytics.service"
+import { AppPromoService } from "./services/app-promo.service"
 import { BackButtonService } from "./services/back-button.service"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
@@ -32,6 +33,7 @@ describe("AppComponent", () => {
     openDialogs: MatDialogRef<unknown>[]
   }
   let toastSpy: SpyObj<ToastService>
+  let appPromoSpy: SpyObj<AppPromoService>
 
   beforeEach(async () => {
     pageHostname = "localhost"
@@ -39,6 +41,7 @@ describe("AppComponent", () => {
     mockAppPlugin = createSpyObj("App", ["addListener", "minimizeApp"])
     dialogStub = { openDialogs: [] }
     toastSpy = createSpyObj("ToastService", ["show"])
+    appPromoSpy = createSpyObj("AppPromoService", ["scheduleOnce"])
 
     const offlineDataSpy = createSpyObj("OfflineDataService", [
       "preloadAllBooksAndChapters",
@@ -63,6 +66,7 @@ describe("AppComponent", () => {
         { provide: MatDialog, useValue: dialogStub },
         { provide: NativeShellService, useValue: nativeShellSpy },
         { provide: ToastService, useValue: toastSpy },
+        { provide: AppPromoService, useValue: appPromoSpy },
         { provide: PAGE_HOSTNAME, useFactory: () => pageHostname },
       ],
     }).compileComponents()
@@ -217,6 +221,16 @@ describe("AppComponent", () => {
     fixture.detectChanges()
 
     expect(onboardingSpy.showOnFirstLaunch).toHaveBeenCalled()
+  })
+
+  it("should offer the native app once to visitors past onboarding", () => {
+    mockAppPlugin.addListener.mockResolvedValue({
+      remove: async () => {},
+    } as unknown as PluginListenerHandle)
+
+    TestBed.createComponent(AppComponent).detectChanges()
+
+    expect(appPromoSpy.scheduleOnce).toHaveBeenCalled()
   })
 
   it("should setup app links listener on native platform", () => {

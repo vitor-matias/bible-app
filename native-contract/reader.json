@@ -9,6 +9,7 @@
   "canGoNext": true,
   "search": true,
   "viewMode": "paged",
+  "raggedText": true,
   "autoScrollVisible": true,
   "autoScrollAvailable": true,
   "canShare": true,

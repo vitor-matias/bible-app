@@ -90,6 +90,23 @@ describe("FootnotesBottomSheetComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  // A reader who chose ragged-right text still got justified notes.
+  it("sets the notes ragged-right when the reader chose it", () => {
+    bibleRefSpy.extract.mockReturnValue([])
+    fixture.detectChanges()
+    const container = (fixture.nativeElement as HTMLElement).querySelector(
+      ".footnotes-container",
+    ) as HTMLElement
+    expect(getComputedStyle(container).textAlign).toBe("justify")
+
+    document.documentElement.classList.add("ragged-text")
+    try {
+      expect(getComputedStyle(container).textAlign).toBe("start")
+    } finally {
+      document.documentElement.classList.remove("ragged-text")
+    }
+  })
+
   it("should bind the footnotes font-size context to the gestures directive", () => {
     bibleRefSpy.extract.mockReturnValue([])
     fixture.detectChanges()

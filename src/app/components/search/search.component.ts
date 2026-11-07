@@ -733,7 +733,7 @@ export class SearchComponent {
         this.searchResults = results.verses.map((v) => this.toDisplayVerse(v))
         this.totalResults = results.total
         this.currentPage = 1
-        void this.analyticsService.track("search", { text })
+        void this.analyticsService.track("search")
       }
       this.showResults(text, typed)
     } catch (error) {
