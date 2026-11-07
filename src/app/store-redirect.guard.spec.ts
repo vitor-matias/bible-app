@@ -1,4 +1,4 @@
-import { DOCUMENT } from "@angular/core"
+import { DOCUMENT } from "@angular/common"
 import { TestBed } from "@angular/core/testing"
 import type {
   ActivatedRouteSnapshot,
@@ -6,7 +6,6 @@ import type {
   RouterStateSnapshot,
 } from "@angular/router"
 import { routes } from "./app.routes"
-import { APP_STORE_URL, PLAY_STORE_URL } from "./store-redirect.guard"
 
 describe("store redirects", () => {
   const replace = vi.fn()
@@ -19,8 +18,11 @@ describe("store redirects", () => {
   })
 
   for (const [path, url] of [
-    ["android", PLAY_STORE_URL],
-    ["ios", APP_STORE_URL],
+    [
+      "android",
+      "https://play.google.com/store/apps/details?id=org.capuchinhos.biblia",
+    ],
+    ["ios", "https://apps.apple.com/app/id6823135142"],
   ]) {
     it(`/${path} leaves for its store listing`, () => {
       const route = routes.find((r) => r.path === path)

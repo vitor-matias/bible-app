@@ -1,10 +1,10 @@
-import { DOCUMENT, inject } from "@angular/core"
+import { DOCUMENT } from "@angular/common"
+import { inject } from "@angular/core"
 import type { CanActivateFn } from "@angular/router"
+import { storeApps } from "./config"
 
-export const PLAY_STORE_URL =
-  "https://play.google.com/store/apps/details?id=org.capuchinhos.biblia"
-export const APP_STORE_URL =
-  "https://apps.apple.com/pt/app/b%C3%ADblia-sagrada-capuchinhos/id6823135142"
+export const PLAY_STORE_URL = `https://play.google.com/store/apps/details?id=${encodeURIComponent(storeApps.playPackage)}`
+export const APP_STORE_URL = `https://apps.apple.com/app/id${encodeURIComponent(storeApps.appStoreId)}`
 
 /**
  * Sends the `/android` and `/ios` short links to the store listing when the
