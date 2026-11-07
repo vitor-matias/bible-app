@@ -1,6 +1,12 @@
 package org.capuchinhos.biblia.chrome
 
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +32,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -49,6 +56,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
@@ -274,7 +287,7 @@ fun OnboardingDialog(chrome: ChromeController, sheet: Sheet.Onboarding) {
                     if (!last) TextButton(onClick = { finish(false) }) { Text("Saltar") }
                     Spacer(Modifier.height(48.dp))
                 }
-                HorizontalPager(pager, Modifier.weight(1f)) { page -> OnboardingPage(steps[page]) }
+                HorizontalPager(pager, Modifier.weight(1f)) { page -> OnboardingPage(steps[page], chrome) }
                 PageDots(count = steps.size, current = pager.currentPage, title = steps[pager.currentPage].title)
                 Button(
                     onClick = {
@@ -292,7 +305,7 @@ fun OnboardingDialog(chrome: ChromeController, sheet: Sheet.Onboarding) {
 }
 
 @Composable
-private fun OnboardingPage(step: OnboardingStep) {
+private fun OnboardingPage(step: OnboardingStep, chrome: ChromeController) {
     val colors = MaterialTheme.colorScheme
     // A pane to TalkBack, which says its title as it comes into view.
     Column(
@@ -303,7 +316,11 @@ private fun OnboardingPage(step: OnboardingStep) {
             .padding(horizontal = 32.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (step.logo) {
+        val highlight = step.highlight
+        if (highlight in BAR_BUTTONS && highlight != null) {
+            // The button itself, as the bar shows it: the dialog covers the bar.
+            RingedBarButton(chrome, highlight)
+        } else if (step.logo) {
             Image(painterResource(R.drawable.onboarding_logo), contentDescription = null, Modifier.size(96.dp))
         } else {
             Surface(shape = CircleShape, color = colors.primaryContainer, contentColor = colors.onPrimaryContainer) {
@@ -336,6 +353,68 @@ private fun OnboardingPage(step: OnboardingStep) {
                         style = MaterialTheme.typography.bodyLarge.copy(lineBreak = LineBreak.Paragraph),
                     )
                 }
+            }
+        }
+    }
+}
+
+/** The bar buttons an onboarding page can name (OnboardingStep.highlight). */
+private val BAR_BUTTONS = setOf("passage", "search", "text")
+
+/**
+ * A copy of the bar button a page names, drawn by the bar's own composables
+ * and ringed as the web app rings the real one, with a pulse unless the
+ * system's animations are off. TalkBack skips it: the page's text names it.
+ */
+@Composable
+private fun RingedBarButton(chrome: ChromeController, key: String) {
+    val colors = MaterialTheme.colorScheme
+    val context = LocalContext.current
+    val moving = remember {
+        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
+    }
+    val beat = if (moving) {
+        rememberInfiniteTransition(label = "ring").animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(1600, easing = LinearOutSlowInEasing)),
+            label = "pulse",
+        ).value
+    } else {
+        0f
+    }
+    val ring = colors.primary
+    // The passage as a rounded rectangle, the icon buttons round, as in the bar.
+    val corner = if (key == "passage") 16.dp else null
+    Box(
+        Modifier
+            .padding(24.dp)
+            .clearAndSetSemantics {}
+            .drawBehind {
+                val stroke = Stroke(3.dp.toPx())
+                fun outline(grow: Float, alpha: Float) = drawRoundRect(
+                    ring.copy(alpha = alpha),
+                    topLeft = Offset(-grow, -grow),
+                    size = Size(size.width + 2 * grow, size.height + 2 * grow),
+                    cornerRadius = CornerRadius((corner?.toPx() ?: (size.height / 2)) + grow),
+                    style = stroke,
+                )
+                val gap = 6.dp.toPx()
+                if (moving) outline(gap + beat * 12.dp.toPx(), 0.6f * (1 - beat))
+                outline(gap, 1f)
+            },
+    ) {
+        // On the bar's own colour, as the reader sees it: no fill of its own.
+        Surface(shape = corner?.let { RoundedCornerShape(it) } ?: CircleShape, color = colors.surface) {
+            when (key) {
+                // The title sits 8 dp left of its slot (Material's keyline).
+                "passage" -> Box(Modifier.padding(start = 12.dp, end = 4.dp)) {
+                    // What the bar shows once a chapter loads, as iOS's barReplica.
+                    val state = chrome.state.let { if (it.passageLabel.isEmpty()) it.copy(passageLabel = "Génesis 1") else it }
+                    PassageTitle(chrome, state, enabled = false, showSubtitle = false)
+                }
+                "search" -> BarButton(R.drawable.ic_search, "Pesquisar") {}
+                else -> BarButton(R.drawable.ic_format_size, "Texto e aparência") {}
             }
         }
     }

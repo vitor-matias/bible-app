@@ -454,6 +454,8 @@ data class OnboardingStep(
     val icon: String,
     val logo: Boolean,
     val features: List<Feature>,
+    /** The bar button the page names ("passage", "search", "text"), shown ringed. */
+    val highlight: String? = null,
 ) {
     data class Feature(val icon: String, val text: String)
 
@@ -468,6 +470,7 @@ data class OnboardingStep(
                 features = objects(step.optJSONArray("features")).map {
                     Feature(icon = it.optString("icon"), text = it.optString("text"))
                 },
+                highlight = step.optString("highlight").ifEmpty { null },
             )
         }
     }

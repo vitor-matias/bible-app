@@ -25,6 +25,12 @@ export interface OnboardingStep {
   androidIntro?: string
   /** The Android app's icon, where it shows the button the intro names. */
   androidIcon?: string
+  /**
+   * The button the step names, ringed while the step shows: the passage,
+   * search, or where the text settings are (the web's menu, the apps' text
+   * button). On the web, the header button with this `data-tour`.
+   */
+  highlight?: "passage" | "search" | "text"
   features: readonly OnboardingFeature[]
 }
 
@@ -83,6 +89,8 @@ export interface PlatformOption {
 
 export const INSTALL_STEP_ID = "install"
 
+// Written for someone who has never used the app: one job per step, the
+// control named as it is announced, its glyph only alongside the name.
 export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
   {
     id: "welcome",
@@ -90,11 +98,11 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     image: "icons/512X512_REDONDO.png",
     title: "Bem-vindo à Bíblia Sagrada",
     intro:
-      "A Bíblia Sagrada, traduzida pela Difusora Bíblica, sempre consigo: no telemóvel, no tablet e no computador, mesmo sem ligação à internet.",
+      "A Bíblia Sagrada, traduzida pela Difusora Bíblica, sempre consigo: no telemóvel, no tablet e no computador.",
     features: [
       {
-        icon: "cloud_off",
-        text: "Depois de instalar, abra a app uma vez com ligação: os capítulos ficam guardados no dispositivo e pode voltar a lê-los sem ligação.",
+        icon: "explore",
+        text: "Nos próximos passos: como escolher um livro, encontrar uma passagem e aumentar a letra.",
       },
       {
         icon: "history",
@@ -102,100 +110,104 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
       },
       {
         icon: "touch_app",
-        text: "Esta introdução demora menos de um minuto. Pode voltar a vê-la em qualquer altura a partir do menu.",
+        text: "Pode voltar a ver esta introdução em «Menu» (☰), em «Como usar a app».",
+        iosText:
+          "Pode voltar a ver esta introdução no menu «Mais» (⋯), em «Como usar a app».",
         androidText:
-          "Esta introdução demora menos de um minuto. Pode voltar a vê-la em qualquer altura no menu ⋮, em «Como usar a app».",
+          "Pode voltar a ver esta introdução no menu «Mais opções» (⋮), em «Como usar a app».",
       },
     ],
   },
+  // The web header has the book and the chapter as two buttons; the apps have
+  // one, whose picker opens on the current book's chapters, «Livros» a step back.
   {
-    id: "navigate",
-    icon: "explore",
-    title: "Navegar na Bíblia",
+    id: "books",
+    icon: "menu_book",
+    highlight: "passage",
+    title: "Escolher um livro",
     intro:
-      "No topo do ecrã, toque no nome do livro para escolher outro livro e no número para saltar para um capítulo.",
+      "No topo do ecrã, toque no nome do livro (por exemplo, «Génesis») e escolha outro na lista, como no índice da sua Bíblia.",
     iosIntro:
-      "Na barra inferior, toque no nome do livro para escolher outro livro ou capítulo.",
+      "Na barra inferior, toque no livro e capítulo (por exemplo, «Génesis 1»). Aparecem os capítulos desse livro: toque em «Livros» para escolher outro livro.",
     androidIntro:
-      "No topo do ecrã, toque no livro e capítulo (por exemplo, «Génesis 1 ▾») para escolher outra passagem.",
+      "No topo do ecrã, toque no livro e capítulo (por exemplo, «Génesis 1»). Aparecem os capítulos desse livro: toque em «Livros» para escolher outro livro.",
     features: [
       {
+        icon: "touch_app",
+        text: "Para mudar de capítulo, toque no número ao lado do nome do livro.",
+        iosText: "Para mudar de capítulo, toque no número do capítulo.",
+        androidText: "Para mudar de capítulo, toque no número do capítulo.",
+      },
+      {
         icon: "swipe",
-        text: "Deslize o texto para o lado para mudar de capítulo. No computador, use as setas ← e → ou os botões nas margens.",
-        iosText:
-          "Deslize o texto para o lado, ou toque nas setas ‹ › da barra inferior, para mudar de capítulo.",
+        text: "Para ler o capítulo seguinte, deslize o texto para o lado. No computador, use as setas ← e → do teclado.",
+        iosText: "Para ler o capítulo seguinte, deslize o texto para o lado.",
         androidText:
-          "Deslize o texto para o lado, ou toque nas setas ‹ › dos cantos inferiores, para mudar de capítulo.",
+          "Para ler o capítulo seguinte, deslize o texto para o lado.",
       },
       {
-        icon: "link",
-        text: "As referências no texto e nas notas (por exemplo, Jo 3,16) são ligações: toque para abrir a passagem.",
+        icon: "search",
+        text: "Não encontra o livro? Escreva parte do nome em «Filtrar livros»: «cor» mostra as cartas aos Coríntios.",
+      },
+    ],
+  },
+  // Readers meet the Bible as a reference read out at Mass, and search opens
+  // one directly.
+  {
+    id: "tools",
+    icon: "search",
+    highlight: "search",
+    title: "Encontrar uma passagem",
+    intro:
+      "Ouviu uma leitura na Missa, por exemplo «Jo 3,16»? Toque em «Pesquisar» (a lupa), no topo, e escreva a referência: a app abre logo o versículo.",
+    features: [
+      {
+        icon: "search",
+        text: "Também pode procurar palavras ou frases em toda a Bíblia, por exemplo «bom pastor».",
+      },
+      // The web menu offers it only where the browser can share (Web Share).
+      {
+        icon: "share",
+        text: "No telemóvel e no tablet, para enviar a passagem a alguém, use «Partilhar» em «Menu» (☰).",
+        iosText:
+          "Para enviar a passagem a alguém, use «Partilhar» no menu «Mais» (⋯).",
+        androidText:
+          "Para enviar a passagem a alguém, use «Partilhar» no menu «Mais opções» (⋮).",
       },
       {
-        icon: "notes",
-        text: "Toque num versículo com nota para ler a nota de rodapé.",
+        icon: "bookmarks",
+        text: "Para voltar a um capítulo, guarde um marcador em «Menu» (☰), em «Marcadores».",
         iosText:
-          "Toque no ícone de notas junto ao número do versículo para ler a nota. Um toque no texto mostra ou esconde os botões.",
+          "Para voltar a um capítulo, guarde um marcador em «Marcadores», no topo.",
         androidText:
-          "Toque no ícone de notas junto ao número do versículo para ler a nota. Os botões saem do caminho enquanto lê e voltam quando desliza para cima.",
+          "Para voltar a um capítulo, guarde um marcador em «Marcadores», no topo.",
       },
     ],
   },
   {
     id: "customize",
-    icon: "tune",
-    title: "Ler à sua maneira",
+    icon: "text_increase",
+    highlight: "text",
+    title: "Letra maior",
     intro:
-      "Abra o menu ☰ no canto superior esquerdo para ajustar a leitura ao seu gosto.",
+      "Toque em «Menu» (☰), no canto superior esquerdo, para aumentar a letra e escolher o tema claro ou escuro.",
     iosIntro:
-      "Toque em AA, no topo à esquerda, para ajustar a leitura ao seu gosto.",
-    // TT is the button's glyph, as AA is iOS's; TalkBack users hear its name.
+      "Toque em «Texto e aparência» (AA), no topo, para aumentar a letra e escolher o tema claro ou escuro.",
     androidIntro:
-      "Toque em TT (Texto e aparência), no topo à direita, para ajustar a leitura ao seu gosto.",
+      "Toque em «Texto e aparência» (TT), no topo, para aumentar a letra e escolher o tema claro ou escuro.",
     androidIcon: "format_size",
     features: [
       {
+        icon: "touch_app",
+        text: "Também pode afastar ou aproximar dois dedos sobre o texto para mudar o tamanho da letra.",
+      },
+      {
         icon: "dark_mode",
-        text: "Tema claro, escuro ou automático, seguindo o sistema.",
+        text: "O tema escuro cansa menos a vista à noite. «Automático» segue o seu dispositivo.",
       },
       {
         icon: "auto_stories",
-        text: "Alterne entre o texto contínuo e a leitura página a página, como num livro.",
-      },
-      {
-        icon: "text_increase",
-        text: "Aumente ou diminua o tamanho da letra, ou faça o gesto de pinça sobre o texto.",
-      },
-      {
-        icon: "arrow_circle_down",
-        text: "Ative o deslocamento automático para ler sem mãos, com velocidade ajustável.",
-        iosText:
-          "Ative o deslocamento automático no menu ⋯ para ler sem mãos, com velocidade ajustável.",
-        androidText:
-          "Ative o deslocamento automático no menu ⋮, no topo à direita, para ler sem mãos, com velocidade ajustável.",
-      },
-    ],
-  },
-  {
-    id: "tools",
-    icon: "search",
-    title: "Pesquisar, marcar e partilhar",
-    intro:
-      "Encontre passagens, volte facilmente aos capítulos preferidos e partilhe a Palavra.",
-    features: [
-      {
-        icon: "search",
-        text: "Toque na lupa para pesquisar palavras ou frases em toda a Bíblia.",
-      },
-      {
-        icon: "bookmarks",
-        text: "Guarde marcadores coloridos nos capítulos a que quer voltar.",
-        iosText:
-          "Toque no marcador, no topo à direita, para guardar marcadores coloridos nos capítulos a que quer voltar.",
-      },
-      {
-        icon: "share",
-        text: "Partilhe a passagem que está a ler com um toque, a partir do menu.",
+        text: "Leia em texto contínuo ou página a página, como num livro.",
       },
     ],
   },
@@ -204,7 +216,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     icon: "install_mobile",
     title: "Instalar a aplicação",
     intro:
-      "Instale a Bíblia no seu dispositivo para a abrir a partir do ecrã principal, em ecrã inteiro e sem depender do navegador.",
+      "Instale a Bíblia no seu dispositivo para a abrir a partir do ecrã principal, em ecrã inteiro e sem depender do navegador. Abra-a uma vez com ligação à internet: depois pode ler sem ligação.",
     features: [],
   },
 ]
@@ -394,6 +406,8 @@ export interface NativeOnboardingStep {
   /** The Material Symbol, which the Android app shows. */
   icon: string
   logo: boolean
+  /** The bar button the page names (OnboardingStep.highlight). */
+  highlight?: OnboardingStep["highlight"]
   features: { symbol: string; icon: string; text: string }[]
 }
 
@@ -444,6 +458,7 @@ export function nativeOnboardingSteps(
       symbol: sfSymbol(step.icon),
       icon: (android ? step.androidIcon : undefined) ?? step.icon,
       logo: !!step.image,
+      highlight: step.highlight,
       features: step.features.map((feature) => ({
         symbol: sfSymbol(feature.icon),
         icon: feature.icon,

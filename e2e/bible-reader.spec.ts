@@ -406,7 +406,7 @@ test.describe("Onboarding", () => {
       await expect(wizard).toContainText("Bem-vindo")
 
       await wizard.getByRole("button", { name: "Seguinte" }).click()
-      await expect(wizard).toContainText("Navegar na Bíblia")
+      await expect(wizard).toContainText("Escolher um livro")
 
       await wizard.getByRole("button", { name: "Fechar" }).click()
       await expect(wizard).toHaveCount(0)
