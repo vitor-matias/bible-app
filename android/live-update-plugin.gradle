@@ -1,6 +1,6 @@
 // Replaces @capawesome/capacitor-live-update's android/build.gradle (see
 // settings.gradle): it applies org.jetbrains.kotlin.android, which AGP 9 rejects.
-// shortcut: versions copied from plugin 8.7.1, delete this file and the
+// shortcut: versions copied from plugin 8.8.1, delete this file and the
 // settings.gradle line once the plugin supports AGP 9.
 apply plugin: 'com.android.library'
 

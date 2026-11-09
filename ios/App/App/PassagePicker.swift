@@ -54,6 +54,15 @@ struct PassagePickerData {
         }
     }
 
+    /// A group's heading in the list. The testament's own introduction sits under
+    /// the testament's name; an untitled entry after it (the pastoral index, after
+    /// Apocalipse) goes by its own, or it would be taken for that section and lost.
+    static func sectionTitle(of group: Group, in testament: Section, showing books: [Book], taken: [String]) -> String {
+        if let title = group.title { return title }
+        if taken.contains(testament.title), let book = books.first { return book.name }
+        return testament.title
+    }
+
     var currentBook: Book? {
         sections.lazy.flatMap(\.groups).flatMap(\.books).first { $0.id == currentBookId }
     }
@@ -240,8 +249,8 @@ private final class BookListViewController: UICollectionViewController, UISearch
             for group in testament.groups {
                 let books = group.books.filter { matches($0, in: group, of: testament) }
                 guard !books.isEmpty else { continue }
-                // The testament's own introduction sits under the testament's name.
-                let title = group.title ?? testament.title
+                let title = PassagePickerData.sectionTitle(of: group, in: testament, showing: books,
+                                                           taken: snapshot.sectionIdentifiers)
                 guard !snapshot.sectionIdentifiers.contains(title) else { continue }
                 snapshot.appendSections([title])
                 snapshot.appendItems(books, toSection: title)

@@ -75,6 +75,21 @@ enum ReaderMenu {
                 return choice
             }))
         }
+        // Justified or ragged-right, the current one marked; the web app toggles.
+        if let raggedText = state.raggedText {
+            let alignments = [(false, "Justificado", "text.justify"),
+                              (true, "Alinhado à esquerda", "text.alignleft")]
+            sections.append(row(alignments.map { ragged, title, symbol in
+                let choice = UIAction(title: title, image: UIImage(systemName: symbol)) { _ in
+                    if ragged != raggedText { send("text-align") }
+                }
+                if #available(iOS 16.0, *) {
+                    choice.attributes.insert(.keepsMenuPresented)
+                }
+                choice.state = ragged == raggedText ? .on : .off
+                return choice
+            }))
+        }
         return UIMenu(title: "Texto e aparência", children: sections)
     }
 
@@ -87,7 +102,9 @@ enum ReaderMenu {
         if !state.autoScrollAvailable {
             autoScroll.attributes.insert(.disabled)
         }
-        var reading: [UIMenuElement] = [autoScroll]
+        // A page that can't have it at all (the pastoral index) leaves it out;
+        // a chapter in pages shows it disabled.
+        var reading: [UIMenuElement] = state.autoScrollAvailable || state.viewMode != nil ? [autoScroll] : []
         if state.canShare {
             reading.append(action("Partilhar", "square.and.arrow.up", "share", send: send))
         }

@@ -97,8 +97,11 @@ extension ChromeViewController {
 
     /// See `presentSheet`.
     func presentFootnotes(_ state: FootnotesSheetState, done: @escaping (Bool) -> Void) {
-        let footnotes = FootnotesController(state: state, onLink: { [weak self] index in
+        // The sheet would cover a way back ("Voltar para …"): it offers it.
+        let footnotes = FootnotesController(state: state, wayBack: toast.activeButton, onLink: { [weak self] index in
             self?.plugin.send("footnote-link", ["index": index])
+        }, onWayBack: { [weak self] in
+            self?.toast.tapped()
         }, onClose: { [weak self] in
             self?.plugin.send("footnotes-closed")
         })
@@ -171,10 +174,35 @@ extension ChromeViewController {
         presented: @escaping (Bool) -> Void,
         onFinish: @escaping (Bool, String) -> Void
     ) {
-        let onboarding = OnboardingController(steps: steps, onFinish: onFinish)
+        let onboarding = OnboardingController(
+            steps: steps, barButton: { [weak self] in self?.barReplica($0) }, onFinish: onFinish)
         let sheet = UINavigationController(rootViewController: onboarding)
         sheet.modalPresentationStyle = traitCollection.horizontalSizeClass == .regular ? .formSheet : .pageSheet
         sheet.presentationController?.delegate = onboarding
         presentSheet(sheet, done: presented)
+    }
+
+    /// The bar button an onboarding page names, in a toolbar of its own, so
+    /// that the system draws it as it draws the real one (Liquid Glass on
+    /// iOS 26): the passage's title in the passage button's configuration,
+    /// the real items' symbols.
+    func barReplica(_ key: String) -> UIView? {
+        let item: UIBarButtonItem
+        switch key {
+        case "passage":
+            var config = passageButton.configuration ?? .plain()
+            // What the bars show, whether or not they are showing it now.
+            config.title = state.passageLabel.isEmpty ? "Génesis 1" : state.passageLabel
+            item = UIBarButtonItem(customView: UIButton(configuration: config))
+        case "search":
+            item = UIBarButtonItem(image: readerSearchItem.image)
+        case "text":
+            item = UIBarButtonItem(image: fontItem.image)
+        default:
+            return nil
+        }
+        let bar = UIToolbar()
+        bar.items = [.flexibleSpace(), item, .flexibleSpace()]
+        return bar
     }
 }

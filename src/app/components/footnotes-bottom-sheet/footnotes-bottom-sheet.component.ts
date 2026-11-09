@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject } from "@angular/core"
+import {
+  afterNextRender,
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+} from "@angular/core"
 
 import {
   MAT_BOTTOM_SHEET_DATA,
@@ -57,7 +62,7 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
   styles: [
     `
       .footnotes-container {
-        font-family: 'PT Serif', serif;
+        font-family: var(--font-reading);
         text-align: justify;
       }
       .header {
@@ -96,6 +101,9 @@ export class FootnotesBottomSheetComponent {
   private toast = inject(ToastService)
 
   constructor() {
+    // Opened over a way back, which is still to be within reach.
+    afterNextRender(() => this.toast.bringToFront())
+
     const data = this.data
 
     void this.analyticsService.track("footnotes_opened", {

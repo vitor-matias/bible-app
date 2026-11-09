@@ -1,4 +1,4 @@
-import { CommonModule, isPlatformBrowser } from "@angular/common"
+import { CommonModule, isPlatformBrowser, Location } from "@angular/common"
 import {
   afterNextRender,
   ChangeDetectionStrategy,
@@ -14,7 +14,10 @@ import {
   PLATFORM_ID,
   ViewChild,
 } from "@angular/core"
-import { MatBottomSheetModule } from "@angular/material/bottom-sheet"
+import {
+  MatBottomSheet,
+  MatBottomSheetModule,
+} from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import {
@@ -27,7 +30,7 @@ import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { combineLatest, Subject, Subscription } from "rxjs"
 import { switchMap, take, takeUntil } from "rxjs/operators"
-import { nextCanonBook } from "../../bible-canon"
+import { nextCanonBook, PASTORAL_INDEX_BOOK } from "../../bible-canon"
 import {
   PagedNavigationDirective,
   PageState,
@@ -44,6 +47,7 @@ import { BibleReaderAnimationService } from "../../services/bible-reader-animati
 import { BookService } from "../../services/book.service"
 import { HapticsService } from "../../services/haptics.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
+import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
@@ -54,6 +58,7 @@ import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll
 import { BookIntroComponent } from "../book-intro/book-intro.component"
 import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"
+import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnotes-bottom-sheet.component"
 import { HeaderComponent } from "../header/header.component"
 import { VerseComponent } from "../verse/verse.component"
 
@@ -120,6 +125,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     )
   }
   private toast = inject(ToastService)
+  private bottomSheet = inject(MatBottomSheet)
+  private nativeFootnotes = inject(NativeFootnotesService)
+  private location = inject(Location)
+  private backButton = inject(BackButtonService)
+  /** The verses a link asked to open the notes of, until the chapter is here. */
+  private linkedNotes: string | null = null
+  private dismissLinkedNotes?: () => void
   private stopTrackingScroll?: () => void
   private unregisterBackCloser = inject(BackButtonService).register(() => {
     if (!this.bookDrawer?.opened) return false
@@ -325,6 +337,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
                 },
               )
             }
+            this.linkedNotes = queryParams["notes"] ?? null
             this.getChapter(
               this.chapterNumber,
               parsedVerseStart,
@@ -353,6 +366,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
             ? true
             : queryParams.get("highlight") === "true"
 
+        this.linkedNotes = queryParams.get("notes")
+
         const tempBook = this.bookService.findBook(bookParam)
 
         if (
@@ -362,6 +377,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           if (verseStartParam !== undefined) {
             this.scrollToVerse(verseStartParam, verseEndParam, highlight)
           }
+          this.openLinkedNotes()
           return
         }
 
@@ -372,6 +388,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.dismissLinkedNotes?.()
     this.releasePrerender()
     this.unregisterBackCloser()
     this.destroy$.next()
@@ -622,6 +639,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
    *  goToChapter does: the new book opened partway down, still scrolling. */
   goToPassage({ bookId, chapter }: { bookId: string; chapter?: number }): void {
     this.autoScrollService.stop()
+    if (bookId === PASTORAL_INDEX_BOOK.id) {
+      void this.router.navigate(["/indice"])
+      return
+    }
     const book = this.bookService.findBook(bookId)
     this.router.navigate([
       "/",
@@ -735,6 +756,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   // Stay on the chapter shown. A leftover slide direction would open the next
   // load at the bottom.
   private handleChapterLoadFailure(error: unknown): void {
+    // Or the next chapter to load would open notes meant for this one.
+    this.linkedNotes = null
     this.isNavigatingBackwards = false
     this.isNavigatingForwards = false
     this.notifyChapterLoadFailed()
@@ -842,6 +865,54 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.preferencesService.setLastBookId(this.book.id)
     this.preferencesService.setLastChapterNumber(this.chapterNumber)
     this.releasePrerender()
+    afterNextRender(() => this.openLinkedNotes(), { injector: this.injector })
+  }
+
+  /**
+   * A link marked as leading to a verse's notes (`notes=36` or `notes=6-7`, for
+   * the first verse with any): opens them, once. The parameter goes from the
+   * address, so that a reload or a step forward doesn't open them again.
+   */
+  private openLinkedNotes(): void {
+    const wanted = this.linkedNotes
+    if (
+      !wanted ||
+      !isPlatformBrowser(this.platformId) ||
+      this.chapter?.number !== this.chapterNumber ||
+      !this.chapter.verses
+    ) {
+      return
+    }
+    this.linkedNotes = null
+    const url = new URL(this.location.path(), "http://x")
+    url.searchParams.delete("notes")
+    this.location.replaceState(
+      url.pathname + url.search,
+      "",
+      this.location.getState(),
+    )
+
+    const [from, to = from] = wanted.split("-").map(Number)
+    const verse = this.chapter.verses.find(
+      (candidate) =>
+        candidate.number >= from &&
+        candidate.number <= to &&
+        candidate.text.some((part) => part.type === "footnote"),
+    )
+    if (!verse) return
+    const footnotes = verse.text.filter((part) => part.type === "footnote")
+    this.autoScrollService.stop()
+    if (this.nativeFootnotes.enabled) {
+      this.nativeFootnotes.open(footnotes, verse)
+      return
+    }
+    const sheet = this.bottomSheet.open(FootnotesBottomSheetComponent, {
+      data: { footnotes, verse },
+      restoreFocus: false,
+    })
+    this.backButton.closeOnBack(sheet)
+    // The toast's way back stays above it (styles.css), and leaves this page.
+    this.dismissLinkedNotes = () => sheet.dismiss()
   }
 
   /** Paged mode scrolls in whole pages, so paged navigation does the scroll. */

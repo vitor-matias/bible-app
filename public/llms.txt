@@ -13,6 +13,7 @@ The site's interface and text are in Portuguese. Each chapter is its own prerend
 ## Key pages
 
 - [Livros (book index)](https://biblia.capuchinhos.org/livros): every book of the Old and New Testament, with links to their chapters and introductions
+- [Índice Bíblico-Pastoral](https://biblia.capuchinhos.org/indice): the main biblical themes, each with its citations.
 - [Sobre a Bíblia dos Capuchinhos (home)](https://biblia.capuchinhos.org/): about the translation, Difusora Bíblica and the Capuchin friars
 - [Sitemap](https://biblia.capuchinhos.org/sitemap.xml): every chapter and introduction page
 

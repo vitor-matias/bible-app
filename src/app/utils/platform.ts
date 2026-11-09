@@ -20,3 +20,7 @@ export function isBrowser(): boolean {
 export function isServiceWorkerEnabled(devMode: boolean): boolean {
   return !devMode && !Capacitor.isNativePlatform()
 }
+
+/** A click with a modifier opens a new tab or window, not this app's page. */
+export const leftToTheBrowser = (event: MouseEvent): boolean =>
+  event.ctrlKey || event.metaKey || event.shiftKey || event.altKey

@@ -1,3 +1,4 @@
+import { isIndexBookmark } from "../pastoral-index-bookmarks"
 import { liturgicalPsalmNumber, PSALMS_BOOK_ID } from "./psalms"
 
 type NamedBook = Pick<Book, "id" | "shortName">
@@ -45,7 +46,8 @@ export function passageShortLabels(
  * (33)", "Mateus Introdução", or just the page ("Sobre a Bíblia").
  */
 export function reportSubject(book: NamedBook, chapter: number): string {
-  if (book.id === "about") return book.shortName
+  // Neither has chapters: "Sobre a Bíblia", "Amor", not "… 1".
+  if (book.id === "about" || isIndexBookmark(book.id)) return book.shortName
   return chapter === 0
     ? `${book.shortName} Introdução`
     : passageLabel(book, chapter)

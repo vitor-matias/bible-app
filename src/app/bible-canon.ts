@@ -146,6 +146,25 @@ export const NEW_TESTAMENT_GROUPS: CanonGroup[] = [
 ]
 
 /**
+ * The Índice Bíblico-Pastoral, which follows Apocalipse in the book lists. It
+ * is no book, so it stays out of the canon's groups: search and "next book"
+ * read those. A page without chapters, which the pickers open directly.
+ */
+export const PASTORAL_INDEX_BOOK: Book = {
+  id: "indice",
+  abrv: "Índice",
+  shortName: "Índice Bíblico-Pastoral",
+  name: "Índice Bíblico-Pastoral",
+  chapterCount: 0,
+}
+
+/** A group with no books, named after its one entry, as `withIntros` makes. */
+export const PASTORAL_INDEX_GROUP: CanonGroup = {
+  name: PASTORAL_INDEX_BOOK.id,
+  books: [],
+}
+
+/**
  * The introductions that open each Testament in the book pickers, before its
  * groups: the general introduction, and the New Testament's. The API's slugs.
  */

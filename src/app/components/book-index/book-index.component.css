@@ -130,6 +130,12 @@
   margin: 1.25rem 0 0.5rem;
 }
 
+/* The pastoral index heads no group: apart from Apocalipse, as a heading sets
+   the groups apart. */
+.testament .group:not(:has(h3)) {
+  margin-top: 1.25rem;
+}
+
 .group ul {
   list-style-type: none;
   padding: 0;

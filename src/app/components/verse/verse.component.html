@@ -15,10 +15,14 @@
            verse number; .verseText keeps it the size of the text. -->
       <span class="verseText verseRun">{{ " " }}</span>
     }
-    <span class="verseNumber">{{ data().number }}</span>
-    @if(hasFootnotes){
-      <ng-container *ngTemplateOutlet="noteMark"></ng-container>
-    }
+    <!-- The number and its notes marker, kept on one line together and on
+         the line of the verse's first word (.verseMarker). -->
+    <span class="verseMarker">
+      <span class="verseNumber">{{ data().number }}</span>
+      @if(hasFootnotes){
+        <ng-container *ngTemplateOutlet="noteMark"></ng-container>
+      }
+    </span>
   }
 
   <ng-template #elementContent let-text let-i="i" let-isFirst="isFirst" let-isLast="isLast" let-isQuote="isQuote">

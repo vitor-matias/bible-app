@@ -15,6 +15,9 @@ struct OnboardingStepData {
     let symbol: String
     /// Shows the app's logo instead of the symbol.
     let logo: Bool
+    /// The bar button the page names ("passage", "search", "text"), shown
+    /// ringed instead of the symbol.
+    let highlight: String?
     let features: [Feature]
 
     static func parse(_ call: CAPPluginCall) -> [OnboardingStepData] {
@@ -25,6 +28,7 @@ struct OnboardingStepData {
                 intro: step["intro"] as? String ?? "",
                 symbol: step["symbol"] as? String ?? "circle",
                 logo: step["logo"] as? Bool ?? false,
+                highlight: step["highlight"] as? String,
                 features: ((step["features"] as? JSArray) ?? []).compactMap { $0 as? JSObject }.map {
                     Feature(symbol: $0["symbol"] as? String ?? "circle", text: $0["text"] as? String ?? "")
                 })
@@ -37,6 +41,8 @@ struct OnboardingStepData {
 final class OnboardingController: UIViewController, UIScrollViewDelegate, UIAdaptivePresentationControllerDelegate {
     private let steps: [OnboardingStepData]
     private let onFinish: (_ completed: Bool, _ lastStep: String) -> Void
+    /// A copy of a bar button, by its key (ChromeViewController.barReplica).
+    private let barButton: (String) -> UIView?
     private let pager = UIScrollView()
     private let pageControl = UIPageControl()
     private let primary = UIButton(type: .system)
@@ -46,8 +52,10 @@ final class OnboardingController: UIViewController, UIScrollViewDelegate, UIAdap
     private var pagerWidth: CGFloat = 0
     private var finished = false
 
-    init(steps: [OnboardingStepData], onFinish: @escaping (Bool, String) -> Void) {
+    init(steps: [OnboardingStepData], barButton: @escaping (String) -> UIView? = { _ in nil },
+         onFinish: @escaping (Bool, String) -> Void) {
         self.steps = steps
+        self.barButton = barButton
         self.onFinish = onFinish
         super.init(nibName: nil, bundle: nil)
     }
@@ -124,19 +132,25 @@ final class OnboardingController: UIViewController, UIScrollViewDelegate, UIAdap
     }
 
     private func makePage(_ step: OnboardingStepData) -> UIView {
-        let hero: UIImageView
-        if step.logo, let logo = UIImage(named: "OnboardingLogo") {
-            hero = UIImageView(image: logo)
-            hero.heightAnchor.constraint(equalToConstant: 96).isActive = true
+        let hero: UIView
+        if let key = step.highlight, let button = barButton(key) {
+            // The button itself, as the bar shows it: the sheet covers the bar.
+            hero = RingedBarButton(button)
+        } else if step.logo, let logo = UIImage(named: "OnboardingLogo") {
+            let image = UIImageView(image: logo)
+            image.heightAnchor.constraint(equalToConstant: 96).isActive = true
             // The app's icon, which Smart Invert leaves alone on the Home Screen.
-            hero.accessibilityIgnoresInvertColors = true
+            image.accessibilityIgnoresInvertColors = true
+            image.contentMode = .scaleAspectFit
+            hero = image
         } else {
             let symbol = UIImage.SymbolConfiguration(pointSize: 52, weight: .regular)
-            hero = UIImageView(image: UIImage(systemName: step.symbol, withConfiguration: symbol))
+            let image = UIImageView(image: UIImage(systemName: step.symbol, withConfiguration: symbol))
             // Decoration stays neutral: the accent colour marks selection and actions only.
-            hero.tintColor = .label
+            image.tintColor = .label
+            image.contentMode = .scaleAspectFit
+            hero = image
         }
-        hero.contentMode = .scaleAspectFit
         hero.isAccessibilityElement = false
 
         let title = label(step.title, style: .largeTitle, weight: .bold, color: .label)
@@ -259,5 +273,107 @@ final class OnboardingController: UIViewController, UIScrollViewDelegate, UIAdap
         guard !finished else { return }
         finished = true
         onFinish(false, currentStepId)
+    }
+}
+
+/// A copy of the bar button a page names (a toolbar holding it), ringed as
+/// the web app rings the real one, with a pulse unless Reduce Motion is on.
+/// Decoration only: the page's text names the button, and taps don't reach it.
+final class RingedBarButton: UIView {
+    private let bar: UIView
+    private let ring = UIView()
+    private let pulse = UIView()
+
+    init(_ bar: UIView) {
+        self.bar = bar
+        super.init(frame: .zero)
+        accessibilityElementsHidden = true
+        isUserInteractionEnabled = false
+        bar.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(bar)
+        for view in [ring, pulse] {
+            view.isUserInteractionEnabled = false
+            view.layer.borderWidth = 3
+            addSubview(view)
+        }
+        NSLayoutConstraint.activate([
+            bar.topAnchor.constraint(equalTo: topAnchor, constant: 20),
+            bar.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -20),
+            bar.leadingAnchor.constraint(equalTo: leadingAnchor),
+            bar.trailingAnchor.constraint(equalTo: trailingAnchor),
+        ])
+        updateColors()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        bar.layoutIfNeeded()
+        let around = buttonFrame.insetBy(dx: -6, dy: -6)
+        for view in [ring, pulse] {
+            view.bounds = CGRect(origin: .zero, size: around.size)
+            view.center = CGPoint(x: around.midX, y: around.midY)
+            view.layer.cornerRadius = around.height / 2
+        }
+    }
+
+    /// The button the bar draws in its middle: the largest view there that
+    /// stays clear of the bar's edges, i.e. the item's glass between the
+    /// flexible spaces, not the bar's own views, which reach its sides (a
+    /// long iPad title is wider than half the bar). Before the bar has laid
+    /// its item out, the bar itself.
+    var buttonFrame: CGRect {
+        let middle = CGPoint(x: bar.bounds.midX, y: bar.bounds.midY)
+        var found: CGRect?
+        func visit(_ view: UIView) {
+            for subview in view.subviews where !subview.isHidden {
+                let frame = subview.convert(subview.bounds, to: bar)
+                if frame.contains(middle), frame.minX > 20, frame.maxX < bar.bounds.width - 20,
+                   frame.width > found?.width ?? 0 {
+                    found = frame
+                }
+                visit(subview)
+            }
+        }
+        visit(bar)
+        return found.map { bar.convert($0, to: self) } ?? bar.frame
+    }
+
+    override func traitCollectionDidChange(_ previous: UITraitCollection?) {
+        super.traitCollectionDidChange(previous)
+        updateColors()
+    }
+
+    /// Layers take a fixed colour: resolved again when the theme changes.
+    private func updateColors() {
+        let color = ChromeViewController.selectionFill.resolvedColor(with: traitCollection).cgColor
+        ring.layer.borderColor = color
+        pulse.layer.borderColor = color
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        // The bar lays its item out once in a window: ring it then.
+        DispatchQueue.main.async { [weak self] in self?.setNeedsLayout() }
+        pulse.layer.removeAllAnimations()
+        guard window != nil, !UIAccessibility.isReduceMotionEnabled else {
+            pulse.alpha = 0
+            return
+        }
+        pulse.alpha = 1
+        let grow = CABasicAnimation(keyPath: "transform.scale")
+        grow.fromValue = 1
+        grow.toValue = 1.2
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 0.6
+        fade.toValue = 0
+        let beat = CAAnimationGroup()
+        beat.animations = [grow, fade]
+        beat.duration = 1.6
+        beat.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        beat.repeatCount = .infinity
+        pulse.layer.add(beat, forKey: "pulse")
     }
 }
