@@ -28,7 +28,7 @@ sealed interface PickerRow {
 fun pickerRows(data: PassagePickerData, filter: String): List<PickerRow> {
     val query = fold(filter.trim())
     return data.sections.flatMap { section ->
-        val groups = section.groups.mapNotNull { group ->
+        val groups = section.groups.mapIndexedNotNull { index, group ->
             val books = group.books.filter { book ->
                 query.isEmpty() ||
                     listOfNotNull(book.label, book.name, book.abbreviation, group.title, section.title)
@@ -37,7 +37,10 @@ fun pickerRows(data: PassagePickerData, filter: String): List<PickerRow> {
             if (books.isEmpty()) {
                 null
             } else {
-                listOfNotNull(group.title?.let { PickerRow.Group(it) }) + books.map { PickerRow.Book(it) }
+                // Untitled, the testament's introduction leads under its heading; an
+                // entry after its books (the index, after Apocalipse) goes by its own name.
+                val title = group.title ?: books.first().name.takeIf { index > 0 }
+                listOfNotNull(title?.let { PickerRow.Group(it) }) + books.map { PickerRow.Book(it) }
             }
         }
         if (groups.isEmpty()) emptyList() else listOf(PickerRow.Testament(section.title)) + groups.flatten()

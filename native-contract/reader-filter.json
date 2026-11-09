@@ -1,0 +1,37 @@
+{
+  "mode": "reader",
+  "themeMode": "dark",
+  "passageLabel": "Índice Bíblico-Pastoral",
+  "passageShortLabels": [
+    "Índice"
+  ],
+  "passageAccessibilityLabel": "Índice Bíblico-Pastoral, Amor",
+  "chapterNavigation": false,
+  "canGoPrevious": false,
+  "canGoNext": false,
+  "search": true,
+  "viewMode": null,
+  "raggedText": null,
+  "autoScrollVisible": false,
+  "autoScrollAvailable": false,
+  "canShare": true,
+  "canReport": true,
+  "bookmarkColor": "red",
+  "bookmarkName": "vermelho",
+  "buildVersion": "20261018-120000Z",
+  "textSize": {
+    "percent": 120,
+    "min": 80,
+    "max": 200,
+    "canReset": true
+  },
+  "inert": true,
+  "collapsed": true,
+  "scrolled": true,
+  "autoScroll": null,
+  "subtitle": "As bem-aventuranças",
+  "pageColor": "#121212",
+  "filterPlaceholder": "Filtrar temas",
+  "filterOpen": true,
+  "query": "amor"
+}

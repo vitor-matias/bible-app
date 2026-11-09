@@ -33,6 +33,7 @@ import {
   PRIVACY_DIALOG_CONFIG,
   PrivacyPolicyDialogComponent,
 } from "../privacy-policy/privacy-policy.component"
+import { ReaderMenuComponent } from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { HeaderComponent } from "./header.component"
 
@@ -245,15 +246,24 @@ describe("HeaderComponent", () => {
     expect(fixture.nativeElement.querySelector(".searchButton")).toBeTruthy()
   })
 
+  // The onboarding rings these while its steps name them (OnboardingStep.highlight).
+  it("marks the buttons the onboarding points to", () => {
+    const host: HTMLElement = fixture.nativeElement
+    expect(host.querySelector('[data-tour="text"]')?.ariaLabel).toBe("Menu")
+    expect(host.querySelector('[data-tour="search"]')?.ariaLabel).toBe(
+      "Pesquisar",
+    )
+    expect(
+      host.querySelector('[data-tour="passage"]')?.querySelectorAll("button")
+        .length,
+    ).toBeGreaterThan(0)
+  })
+
   it("should open the report problem dialog from the menu", () => {
-    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
-      "closeMenu",
-    ])
     fixture.componentRef.setInput("chapterNumber", 3)
 
-    component.onReportProblem(trigger)
+    component.openReportProblem()
 
-    expect(trigger.closeMenu).toHaveBeenCalled()
     expect(dialogSpy.open).toHaveBeenCalledWith(ReportProblemComponent, {
       data: { book: component.book(), chapter: 3 },
       width: "90%",
@@ -263,12 +273,9 @@ describe("HeaderComponent", () => {
 
   // Chapter 0 is the introduction; a falsy check used to swallow it.
   it("should open the report problem dialog for an introduction", () => {
-    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
-      "closeMenu",
-    ])
     fixture.componentRef.setInput("chapterNumber", 0)
 
-    component.onReportProblem(trigger)
+    component.openReportProblem()
 
     expect(dialogSpy.open).toHaveBeenCalledWith(ReportProblemComponent, {
       data: { book: component.book(), chapter: 0 },
@@ -278,17 +285,12 @@ describe("HeaderComponent", () => {
   })
 
   it("should not open the report problem dialog when chapter context is missing", () => {
-    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
-      "closeMenu",
-    ])
-
     fixture.componentRef.setInput(
       "chapterNumber",
       undefined as unknown as number,
     )
-    component.onReportProblem(trigger)
+    component.openReportProblem()
 
-    expect(trigger.closeMenu).toHaveBeenCalled()
     expect(dialogSpy.open).not.toHaveBeenCalled()
   })
 
@@ -416,7 +418,11 @@ describe("HeaderComponent", () => {
       offerInstall()
       openMenu()
 
-      expect(component.canInstall()).toBe(true)
+      expect(
+        fixture.debugElement
+          .query(By.directive(ReaderMenuComponent))
+          .componentInstance.canInstall(),
+      ).toBe(true)
       expect(document.querySelector(".app-store-link")).not.toBeNull()
       const items = Array.from(
         document.querySelectorAll(".mat-mdc-menu-panel .mat-mdc-menu-item"),
@@ -685,6 +691,20 @@ describe("HeaderComponent", () => {
         document.documentElement.classList.remove("ragged-text")
       })
 
+      // At 480.4px innerWidth reads 480 while the stylesheets' query no longer
+      // matches, so the phone's ragged default flipped without a native resync.
+      it("tells phone from wider by the stylesheets' query, not innerWidth", () => {
+        vi.spyOn(window, "matchMedia").mockImplementation(
+          (query) =>
+            ({ matches: query === "(max-width: 480px)" }) as MediaQueryList,
+        )
+        component.mobile = false
+
+        component.updateMobile()
+
+        expect(component.mobile).toBe(true)
+      })
+
       it("switches the text between justified and ragged-right", () => {
         themeButton()
         const button = document.querySelectorAll<HTMLButtonElement>(
@@ -750,30 +770,34 @@ describe("HeaderComponent", () => {
   })
 
   it("opens the About page from the menu", () => {
-    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
-      "closeMenu",
-    ])
     const selected: {
       bookId: string
       chapter?: number
     }[] = []
     component.selectPassage.subscribe((passage) => selected.push(passage))
 
-    component.onOpenAbout(trigger)
+    component.openAbout()
 
-    expect(trigger.closeMenu).toHaveBeenCalled()
     expect(selected).toEqual([{ bookId: "about" }])
   })
 
-  it("should open the onboarding wizard from the menu", () => {
-    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
-      "closeMenu",
-    ])
+  it("should open the onboarding wizard from the menu, and close it", () => {
+    const trigger = fixture.debugElement
+      .query(By.directive(MatMenuTrigger))
+      .injector.get(MatMenuTrigger)
+    trigger.openMenu()
+    fixture.detectChanges()
 
-    component.onOpenHelp(trigger)
+    Array.from(
+      document.querySelectorAll<HTMLElement>(
+        ".mat-mdc-menu-panel .mat-mdc-menu-item",
+      ),
+    )
+      .find((item) => item.textContent?.includes("Como usar a app"))
+      ?.click()
 
-    expect(trigger.closeMenu).toHaveBeenCalled()
     expect(onboardingServiceSpy.open).toHaveBeenCalledWith("menu")
+    expect(trigger.menuOpen).toBe(false)
   })
 
   it("should share the page URL as is on the web", async () => {

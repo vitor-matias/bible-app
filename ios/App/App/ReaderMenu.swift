@@ -102,7 +102,9 @@ enum ReaderMenu {
         if !state.autoScrollAvailable {
             autoScroll.attributes.insert(.disabled)
         }
-        var reading: [UIMenuElement] = [autoScroll]
+        // A page that can't have it at all (the pastoral index) leaves it out;
+        // a chapter in pages shows it disabled.
+        var reading: [UIMenuElement] = state.autoScrollAvailable || state.viewMode != nil ? [autoScroll] : []
         if state.canShare {
             reading.append(action("Partilhar", "square.and.arrow.up", "share", send: send))
         }

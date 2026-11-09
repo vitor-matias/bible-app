@@ -195,6 +195,21 @@ class ChromeStateTest {
         )
         assertEquals("search", steps.single().icon)
         assertEquals(OnboardingStep.Feature("bookmarks", "Marcadores"), steps.single().features.single())
+        assertEquals(null, steps.single().highlight)
+    }
+
+    // The page shows that bar button ringed, in place of its icon.
+    @Test
+    fun readsTheButtonAnOnboardingPageNames() {
+        val steps = OnboardingStep.from(
+            call(
+                """
+                {"steps":[{"id":"books","title":"Escolher um livro","intro":"…","symbol":"book","icon":"menu_book",
+                  "logo":false,"highlight":"passage","features":[]}]}
+                """,
+            ),
+        )
+        assertEquals("passage", steps.single().highlight)
     }
 }
 
@@ -216,6 +231,13 @@ class ChromeInsetsTest {
         assertEquals(ChromeInsets(88f, 48f + 16f + 56f), chromeInsets(arrows, collapsed = false, 24f, 48f))
         // Hidden for reading, they keep their row: the page doesn't change length.
         assertEquals(ChromeInsets(88f, 48f + 16f + 56f, collapsed = true), chromeInsets(arrows, collapsed = true, 24f, 48f))
+    }
+
+    // The index has no arrows, but its filter's button takes their place.
+    @Test
+    fun keepsTheArrowsRowForAFiltersButton() {
+        val index = reader.copy(filterPlaceholder = "Filtrar temas")
+        assertEquals(ChromeInsets(88f, 48f + 16f + 56f), chromeInsets(index, collapsed = false, 24f, 48f))
     }
 
     // "Sobre a Bíblia" has no chapters to turn: nothing at the bottom.
@@ -360,6 +382,19 @@ class RecentSearchesTest {
     }
 }
 
+/** The filter's field and the page's echo of what is typed in it. */
+class FilterEchoTest {
+    @Test
+    fun keepsWhatIsTypedFromItsEcho() {
+        // Typing "amo": the page echoes "am" late, while the field has focus.
+        assertFalse(takesQuery("am", sent = "amo", focused = true))
+        assertFalse(takesQuery("amo", sent = "amo", focused = false))
+        assertTrue(takesQuery("paz", sent = "amo", focused = false))
+        // The page cleared the filter: cleared even while typing.
+        assertTrue(takesQuery("", sent = "amo", focused = true))
+    }
+}
+
 /** The picker's book list, and its filter. */
 class PickerRowsTest {
     private val data = PassagePickerData(
@@ -419,6 +454,28 @@ class PickerRowsTest {
         assertEquals(
             listOf("testament:Antigo Testamento", "group:Pentateuco", "book:intro-pent", "book:gn"),
             pickerRows(data, "pentateuco").keys(),
+        )
+    }
+
+    // The index follows Apocalipse untitled: under its own heading, not Apocalipse's.
+    @Test
+    fun givesAnUntitledEntryAfterTheBooksItsOwnHeading() {
+        val withIndex = data.copy(
+            sections = data.sections.map { section ->
+                if (section.title != "Novo Testamento") section
+                else section.copy(
+                    groups = listOf(PassagePickerData.Group(null, listOf(book("intro-nt", "Introdução", "")))) +
+                        section.groups +
+                        PassagePickerData.Group(null, listOf(book("indice", "Índice Bíblico-Pastoral", "IBP"))),
+                )
+            },
+        )
+        assertEquals(
+            listOf(
+                "testament:Novo Testamento", "book:intro-nt", "group:Evangelhos", "book:mt",
+                "group:Índice Bíblico-Pastoral", "book:indice",
+            ),
+            pickerRows(withIndex, "").keys().dropWhile { it != "testament:Novo Testamento" },
         )
     }
 

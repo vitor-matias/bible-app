@@ -15,6 +15,8 @@ export const SEO_DEFAULT_DESCRIPTION =
 /** Route and heading of the crawlable book index. */
 export const SEO_BOOK_INDEX_PATH = "/livros"
 export const SEO_BOOK_INDEX_NAME = "Livros da Bíblia"
+export const SEO_PASTORAL_INDEX_PATH = "/indice"
+export const SEO_PASTORAL_INDEX_NAME = "Índice Bíblico-Pastoral"
 
 /** Google truncates snippets around this length, so excerpts stop here. */
 const MAX_DESCRIPTION_LENGTH = 158
@@ -83,6 +85,23 @@ export class SeoService {
       indexable: true,
     })
     this.setBreadcrumbs(null)
+  }
+
+  /** Head for the Índice Bíblico-Pastoral, the same whichever theme is open. */
+  updateForPastoralIndex(): void {
+    const url = `${SEO_BASE_URL}${SEO_PASTORAL_INDEX_PATH}`
+    this.apply({
+      title: `${SEO_PASTORAL_INDEX_NAME} | ${SEO_SITE_NAME}`,
+      description:
+        "Os principais temas bíblicos e a sua evolução na Revelação, com as " +
+        "citações da Bíblia dos Capuchinhos, da Difusora Bíblica.",
+      canonicalUrl: url,
+      indexable: true,
+    })
+    this.setBreadcrumbs([
+      { name: SEO_SITE_NAME, item: `${SEO_BASE_URL}/` },
+      { name: SEO_PASTORAL_INDEX_NAME, item: url },
+    ])
   }
 
   /** Head for the book index at /livros, a level between home and a book. */

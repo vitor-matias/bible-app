@@ -4,7 +4,31 @@ import { expect, test } from "@playwright/test"
 // The service worker's requests would get past page.route, real or not.
 test.use({ serviceWorkers: "block" })
 
-test("what the reader searches doesn't reach Umami", async ({ page }) => {
+test("Umami's script only runs once the hook that cleans its URLs is set", async ({
+  page,
+}) => {
+  await page.route("**/umami.dojo.pt/script.js", (route) =>
+    route.fulfill({
+      contentType: "text/javascript",
+      body: "window.hookWhenTrackerRan = typeof window.umamiBeforeSend",
+    }),
+  )
+  await page.goto("/jo/1", { waitUntil: "commit" })
+  await expect
+    .poll(() => page.evaluate(() => Reflect.get(window, "hookWhenTrackerRan")))
+    .toBe("function")
+})
+
+test("what the reader searches doesn't reach Umami", async ({
+  page,
+  request,
+}) => {
+  // This spec needs the real tracker, which only its server can provide.
+  const tracker = await request
+    .get("https://umami.dojo.pt/script.js", { timeout: 10_000 })
+    .catch(() => null)
+  test.skip(!tracker?.ok(), "Umami's script is unavailable")
+
   const umami: string[] = []
   await page.route("**/umami.dojo.pt/api/send", (route) => {
     umami.push(route.request().postData() ?? "")

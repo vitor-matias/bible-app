@@ -65,6 +65,8 @@ export class OnboardingService {
       OnboardingResult
     >(OnboardingComponent, {
       panelClass: "onboarding-dialog",
+      // onboarding-backdrop: cut open over the button a step names (placeRing).
+      backdropClass: ["cdk-overlay-dark-backdrop", "onboarding-backdrop"],
       width: "min(92vw, 520px)",
       maxWidth: "92vw",
       maxHeight: "90vh",

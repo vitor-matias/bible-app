@@ -74,6 +74,28 @@ describe("buildPassagePicker", () => {
     expect(newTestament.groups.map((group) => group.title)).toEqual([
       "Evangelhos e Atos",
       "Cartas de São Paulo",
+      // The pastoral index, after the books, under no group.
+      undefined,
+    ])
+  })
+
+  it("offers the pastoral index after Apocalipse, as a page that opens directly", () => {
+    const data = buildPassagePicker([book("rev")], [], {
+      bookId: "rev",
+      chapter: 1,
+    })
+    const groups = data.sections[1].groups
+
+    expect(groups.at(-2)?.books[0].id).toBe("rev")
+    expect(groups.at(-1)?.title).toBeUndefined()
+    expect(groups.at(-1)?.books).toEqual([
+      {
+        id: "indice",
+        label: "Índice Bíblico-Pastoral",
+        name: "Índice Bíblico-Pastoral",
+        abbreviation: "Índice",
+        chapters: [],
+      },
     ])
   })
 

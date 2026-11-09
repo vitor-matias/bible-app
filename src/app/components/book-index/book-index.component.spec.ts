@@ -99,6 +99,10 @@ describe("BookIndexComponent", () => {
     )
     expect(groups).toContain("Pentateuco")
     expect(groups).toContain("Apocalipse")
+    // It heads no group: no empty heading after Apocalipse.
+    expect(groups.at(-1)).toBe("Apocalipse")
+    expect(hrefs().at(-1)).toBe("/indice")
+    expect(hrefs().at(-2)).toBe("/ap/1")
   })
 
   it("gives the page a single h1 naming it", () => {
@@ -158,7 +162,9 @@ describe("BookIndexComponent", () => {
     await setup([])
 
     expect(hrefs().filter((href) => /\/\d+$/.test(href))).toEqual([])
-    expect(element.querySelectorAll("li").length).toBe(0)
+    // Only the pastoral index, which ships with the app.
+    expect(element.querySelectorAll("li").length).toBe(1)
+    expect(hrefs()).toContain("/indice")
     // The chrome is still there, so the reader is not stranded.
     expect(hrefs()).toContain("/")
   })

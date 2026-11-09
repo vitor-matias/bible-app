@@ -204,9 +204,9 @@ describe("OnboardingService", () => {
       const steps = lastCall(vi.mocked(showOnboarding))[0]
       expect(steps.map((step: { id: string }) => step.id)).toEqual([
         "welcome",
-        "navigate",
-        "customize",
+        "books",
         "tools",
+        "customize",
       ])
       expect(analyticsSpy.track).toHaveBeenCalledWith("onboarding_open", {
         source: "menu",
@@ -221,7 +221,7 @@ describe("OnboardingService", () => {
         vi.mocked(showOnboarding),
       )[0]
       const customize = steps.find((step) => step.id === "customize")
-      expect(customize?.intro).toContain("Toque em TT")
+      expect(customize?.intro).toContain("«Texto e aparência» (TT)")
       expect(customize?.intro).not.toContain("AA")
     })
 
@@ -238,14 +238,14 @@ describe("OnboardingService", () => {
 
     it("remembers it as seen and reports how it ended", async () => {
       service.open("first_launch")
-      finish({ completed: false, lastStep: "navigate" })
+      finish({ completed: false, lastStep: "books" })
       await Promise.resolve()
 
       expect(preferencesSpy.setOnboardingSeen).toHaveBeenCalledWith(true)
       expect(analyticsSpy.track).toHaveBeenCalledWith("onboarding_close", {
         source: "first_launch",
         completed: false,
-        lastStep: "navigate",
+        lastStep: "books",
       })
     })
 

@@ -92,6 +92,113 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertTrue(state.search)
     }
 
+    func testReadsAPageWithAFilter() throws {
+        let state = try fixture("reader-filter")
+        XCTAssertEqual(state.mode, .reader)
+        XCTAssertEqual(state.passageLabel, "Índice Bíblico-Pastoral")
+        XCTAssertEqual(state.filterPlaceholder, "Filtrar temas")
+        XCTAssertTrue(state.filterOpen)
+        XCTAssertEqual(state.query, "amor")
+        XCTAssertTrue(state.showsSearchField)
+        XCTAssertFalse(state.chapterNavigation)
+    }
+
+    func testTheFilterKeepsWhatIsTypedFromItsEcho() {
+        let open = state(["mode": "reader", "filterPlaceholder": "Filtrar temas", "filterOpen": true, "query": "am"])
+        let echo = state(["mode": "reader", "filterPlaceholder": "Filtrar temas", "filterOpen": true, "query": "a"])
+        let cleared = state(["mode": "reader", "filterPlaceholder": "Filtrar temas", "filterOpen": true, "query": ""])
+        let closed = state(["mode": "reader", "filterPlaceholder": "Filtrar temas"])
+        XCTAssertEqual(ChromeState.filterText(from: closed, to: open, editing: false), "am")
+        XCTAssertNil(ChromeState.filterText(from: open, to: echo, editing: true))
+        XCTAssertEqual(ChromeState.filterText(from: open, to: echo, editing: false), "a")
+        XCTAssertEqual(ChromeState.filterText(from: open, to: cleared, editing: true), "")
+        XCTAssertNil(ChromeState.filterText(from: open, to: open, editing: false))
+    }
+
+    func testSearchFromTheFilterTakesTheKeyboard() {
+        let filter = state(["mode": "reader", "filterPlaceholder": "Filtrar temas", "filterOpen": true])
+        let search = state(["mode": "search"])
+        let reader = state(["mode": "reader"])
+        XCTAssertTrue(ChromeState.focusesSearchField(from: filter, to: search))
+        XCTAssertTrue(ChromeState.focusesSearchField(from: reader, to: filter))
+        XCTAssertFalse(ChromeState.focusesSearchField(from: filter, to: filter))
+        XCTAssertFalse(ChromeState.focusesSearchField(from: search, to: search))
+        XCTAssertFalse(ChromeState.focusesSearchField(from: filter, to: reader))
+    }
+
+    func testAPageWithoutAFilterHasNoSearchField() throws {
+        let state = try fixture("reader")
+        XCTAssertNil(state.filterPlaceholder)
+        XCTAssertFalse(state.showsSearchField)
+    }
+
+    func testAnEntryWithNoGroupAfterTheTestamentsIntroKeepsItsOwnSection() {
+        let book = { (id: String, name: String) in
+            PassagePickerData.Book(id: id, label: name, name: name, abbreviation: id, chapters: [])
+        }
+        let intro = PassagePickerData.Group(title: nil, books: [book("nt", "Introdução")])
+        let index = PassagePickerData.Group(title: nil, books: [book("indice", "Índice Bíblico-Pastoral")])
+        let titled = PassagePickerData.Group(title: "Apocalipse", books: [book("ap", "Apocalipse")])
+        let testament = PassagePickerData.Section(title: "Novo Testamento", groups: [intro, titled, index])
+        XCTAssertEqual(PassagePickerData.sectionTitle(of: intro, in: testament, showing: intro.books, taken: []),
+                       "Novo Testamento")
+        XCTAssertEqual(PassagePickerData.sectionTitle(of: titled, in: testament, showing: titled.books,
+                                                      taken: ["Novo Testamento"]), "Apocalipse")
+        XCTAssertEqual(PassagePickerData.sectionTitle(of: index, in: testament, showing: index.books,
+                                                      taken: ["Novo Testamento", "Apocalipse"]),
+                       "Índice Bíblico-Pastoral")
+    }
+
+    func testAToastOffersItsButtonOnlyWhileItIsOne() {
+        let toast = ToastView()
+        XCTAssertNil(toast.activeButton)
+        toast.show("Copiado")
+        XCTAssertNil(toast.activeButton)
+
+        var tapped = false
+        toast.show("Voltar para o Índice", symbol: "arrow.uturn.backward") { tapped = true }
+        XCTAssertEqual(toast.activeButton?.message, "Voltar para o Índice")
+        XCTAssertEqual(toast.activeButton?.symbol, "arrow.uturn.backward")
+
+        toast.tapped()
+        XCTAssertTrue(tapped)
+        XCTAssertNil(toast.activeButton)
+    }
+
+    func testAToastClosedOffersNothing() {
+        let toast = ToastView()
+        toast.show("Voltar para o Índice", onTap: {})
+        toast.dismissNow()
+        XCTAssertNil(toast.activeButton)
+    }
+
+    private let wayBackSize = CGSize(width: 200, height: 44)
+    private let screen = CGRect(x: 0, y: 0, width: 402, height: 874)
+    private let phoneSafeArea = UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0)
+
+    func testTheWayBackFloatsAboveAHalfHeightSheet() {
+        let sheet = CGRect(x: 0, y: 430, width: 402, height: 444)
+        let center = FootnotesController.wayBackCenter(sheet: sheet, size: wayBackSize,
+                                                       container: screen, safeArea: phoneSafeArea)
+        // Its lower edge clears the sheet's top.
+        XCTAssertEqual(center.y + wayBackSize.height / 2, sheet.minY - 12)
+        XCTAssertEqual(center.x, sheet.midX)
+    }
+
+    func testTheWayBackStaysAtTheFootOfASheetThatFillsTheScreen() {
+        let sheet = CGRect(x: 0, y: 72, width: 402, height: 802)
+        let center = FootnotesController.wayBackCenter(sheet: sheet, size: wayBackSize,
+                                                       container: screen, safeArea: phoneSafeArea)
+        XCTAssertEqual(center.y + wayBackSize.height / 2, screen.maxY - phoneSafeArea.bottom - 12)
+    }
+
+    func testTheWayBackStaysOnScreenWhenASheetRunsPastItsFoot() {
+        let sheet = CGRect(x: 0, y: 72, width: 402, height: 1200)
+        let center = FootnotesController.wayBackCenter(sheet: sheet, size: wayBackSize,
+                                                       container: screen, safeArea: phoneSafeArea)
+        XCTAssertLessThan(center.y + wayBackSize.height / 2, screen.maxY)
+    }
+
     func testReadsNoBars() throws {
         XCTAssertEqual(try fixture("none"), ChromeState())
     }
@@ -144,5 +251,61 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertFalse(autoScroll.playing)
         XCTAssertFalse(autoScroll.canSlower)
         XCTAssertFalse(autoScroll.canFaster)
+    }
+
+    // MARK: Onboarding
+
+    // A page naming a bar button shows that button, ringed, instead of its symbol.
+    func testReadsTheButtonAnOnboardingPageNames() {
+        let steps = OnboardingStepData.parse(call(["steps": [
+            ["id": "books", "title": "Escolher um livro", "intro": "…", "symbol": "book",
+             "logo": false, "highlight": "passage", "features": []],
+            ["id": "welcome", "title": "Bem-vindo", "intro": "…", "symbol": "book",
+             "logo": true, "features": []],
+        ]]))
+        XCTAssertEqual(steps.map(\.highlight), ["passage", nil])
+    }
+
+    // The copy is decoration: VoiceOver skips it and taps don't reach it.
+    // The ring goes round the item in the toolbar's middle, not the bar.
+    func testRingsTheButtonInTheMiddleOfItsBar() {
+        let bar = UIToolbar()
+        bar.items = [.flexibleSpace(), UIBarButtonItem(image: UIImage(systemName: "magnifyingglass")), .flexibleSpace()]
+        let ringed = RingedBarButton(bar)
+        // The bar lays its item out only in a window.
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.addSubview(ringed)
+        window.isHidden = false
+        ringed.frame = CGRect(x: 0, y: 0, width: 402, height: 120)
+        ringed.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        ringed.layoutIfNeeded()
+        XCTAssertTrue(ringed.accessibilityElementsHidden)
+        XCTAssertFalse(ringed.isUserInteractionEnabled)
+        let button = ringed.buttonFrame
+        XCTAssertLessThan(button.width, 120)
+        XCTAssertEqual(button.midX, 201, accuracy: 2)
+    }
+
+    // On iPad the passage's glass is wider than half the bar: still the glass,
+    // not the label inside it.
+    func testRingsAPassageWiderThanHalfTheBar() {
+        let label = UIButton(configuration: .plain())
+        label.configuration?.title = "Sobre a Bíblia dos Capuchinhos"
+        let bar = UIToolbar()
+        bar.items = [.flexibleSpace(), UIBarButtonItem(customView: label), .flexibleSpace()]
+        let ringed = RingedBarButton(bar)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 400, height: 874))
+        window.addSubview(ringed)
+        window.isHidden = false
+        ringed.frame = CGRect(x: 0, y: 0, width: 400, height: 120)
+        ringed.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        ringed.layoutIfNeeded()
+        let glass = ringed.buttonFrame
+        let text = label.convert(label.bounds, to: ringed)
+        XCTAssertGreaterThan(glass.width, 200)
+        XCTAssertTrue(glass.contains(text))
+        XCTAssertGreaterThan(glass.width, text.width)
     }
 }
