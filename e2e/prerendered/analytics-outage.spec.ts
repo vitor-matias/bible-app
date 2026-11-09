@@ -8,8 +8,9 @@ test("the app starts while Umami's script never answers", async ({ page }) => {
   await page.addInitScript(() =>
     localStorage.setItem("onboardingSeen", "true"),
   )
-  // Not the default "load": the unanswered script holds that back regardless.
-  await page.goto("/jo/1", { waitUntil: "commit" })
+  // Not the default "load", which the unanswered script holds back regardless.
+  // Not "commit" either: no markup has arrived yet, so [ngh] already counts 0.
+  await page.goto("/jo/1", { waitUntil: "domcontentloaded" })
   // Hydration's cleanup clears these, so the bundle has run.
   await expect(page.locator("[ngh]")).toHaveCount(0, { timeout: 30_000 })
 })
