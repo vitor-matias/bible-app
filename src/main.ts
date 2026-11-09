@@ -16,9 +16,17 @@ import { prepareUmamiPayload } from "./app/services/analytics.service"
 import { DepthLocationStrategy } from "./app/services/depth-location-strategy"
 import { isServiceWorkerEnabled } from "./app/utils/platform"
 
-// Umami reads the hook at send time; its first page view waits for the page
-// to finish loading, by which point this has run.
-if (typeof window !== "undefined") window.umamiBeforeSend = prepareUmamiPayload
+// Not a tag in index.html: the bundle would wait behind a deferred one, for
+// minutes if the server never replies, and an async one can send its first
+// page view before this hook exists.
+if (typeof window !== "undefined") {
+  window.umamiBeforeSend = prepareUmamiPayload
+  const tracker = document.createElement("script")
+  tracker.src = "https://umami.dojo.pt/script.js"
+  tracker.dataset["websiteId"] = "5f2a57be-86a2-4608-8fc5-667a9c24689c"
+  tracker.dataset["beforeSend"] = "umamiBeforeSend"
+  document.head.append(tracker)
+}
 bootstrapApplication(AppComponent, {
   providers: [
     provideZonelessChangeDetection(),
