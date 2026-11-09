@@ -6,6 +6,7 @@ import {
   AnalyticsService,
   BUILD_DATA_WAIT_MS,
   DELIVERY_TIMEOUT_MS,
+  loadTracker,
   prepareUmamiPayload,
 } from "./analytics.service"
 import { BuildVersionService } from "./build-version.service"
@@ -44,6 +45,50 @@ describe("AnalyticsService", () => {
 
   it("should be created", () => {
     expect(service).toBeTruthy()
+  })
+
+  describe("loadTracker", () => {
+    let tracker: HTMLScriptElement
+
+    beforeEach(() => {
+      vi.spyOn(document.head, "append").mockImplementation((node) => {
+        tracker = node as HTMLScriptElement
+      })
+      delete globalThis.umami
+      loadTracker()
+    })
+
+    afterEach(() => {
+      // Later specs must not wait on this script.
+      tracker.dispatchEvent(new Event("load"))
+      delete globalThis.umamiBeforeSend
+    })
+
+    it("sets the hook before inserting the script that reads it", () => {
+      expect(globalThis.umamiBeforeSend).toBe(prepareUmamiPayload)
+      expect(tracker.src).toBe("https://umami.dojo.pt/script.js")
+      expect(tracker.getAttribute("data-website-id")).toBeTruthy()
+      expect(tracker.getAttribute("data-before-send")).toBe("umamiBeforeSend")
+    })
+
+    it("keeps an event sent before the tracker has loaded", async () => {
+      const sent = service.track("app_open")
+
+      globalThis.umami = createSpyObj("Spy", ["track"])
+      tracker.dispatchEvent(new Event("load"))
+      await sent
+
+      expect(lastCall(globalThis.umami?.track as Mock)[0]).toBe("app_open")
+    })
+
+    it("drops waiting events if the tracker fails to load", async () => {
+      const sent = service.track("app_open")
+
+      tracker.dispatchEvent(new Event("error"))
+
+      await expect(sent).resolves.toBeUndefined()
+      expect(buildVersionServiceMock.getBuildInfo).not.toHaveBeenCalled()
+    })
   })
 
   it("should call umami.track with event name, data, build version, and platform", async () => {
