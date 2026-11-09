@@ -502,7 +502,7 @@ test.describe("Theme before the bundle", () => {
 
       await expect(page.locator("body")).toHaveCSS(
         "background-color",
-        dark ? "rgb(18, 18, 18)" : "rgb(255, 255, 255)",
+        dark ? "rgb(18, 18, 18)" : "rgb(255, 251, 247)",
       )
     })
   }

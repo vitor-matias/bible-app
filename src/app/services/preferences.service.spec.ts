@@ -50,6 +50,14 @@ describe("PreferencesService", () => {
     expect(service.getAutoScrollControlsVisible()).toBe(true)
   })
 
+  it("should have no alignment until one is chosen, then keep it", () => {
+    expect(service.getRaggedText()).toBeNull()
+    service.setRaggedText(true)
+    expect(service.getRaggedText()).toBe(true)
+    service.setRaggedText(false)
+    expect(service.getRaggedText()).toBe(false)
+  })
+
   it("should treat the onboarding wizard as unseen by default", () => {
     expect(service.getOnboardingSeen()).toBe(false)
   })

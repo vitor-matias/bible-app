@@ -59,6 +59,7 @@ export class PreferencesService {
     APP_PROMO_SEEN: "appPromoSeen",
     NATIVE_BARS_ONBOARDING_SEEN: "nativeBarsOnboardingSeen",
     MEANING_SEARCH_CONSENT: "meaningSearchConsent",
+    RAGGED_TEXT: "raggedText",
   }
 
   /** The reader's answer about search by meaning; null until they give one. */
@@ -69,6 +70,16 @@ export class PreferencesService {
 
   setMeaningSearchConsent(allowed: boolean): void {
     this.write(this.KEYS.MEANING_SEARCH_CONSENT, String(allowed))
+  }
+
+  /** The reader's choice of ragged-right (true) or justified (false) text; null until they make one. */
+  getRaggedText(): boolean | null {
+    const stored = this.read(this.KEYS.RAGGED_TEXT)
+    return stored === "true" ? true : stored === "false" ? false : null
+  }
+
+  setRaggedText(ragged: boolean): void {
+    this.write(this.KEYS.RAGGED_TEXT, ragged.toString())
   }
 
   getTheme(): "light" | "dark" | "system" | null {
