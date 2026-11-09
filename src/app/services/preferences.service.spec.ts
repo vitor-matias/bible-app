@@ -194,6 +194,21 @@ describe("PreferencesService", () => {
     // Seen, as with no storage: the wizard does not reopen on every launch.
     expect(service.getOnboardingSeen()).toBe(true)
     expect(service.getNativeBarsOnboardingSeen()).toBe(true)
+
+    // Study mode's: read when its service is built, and written at the end of
+    // every drag of a divider, so neither may throw. Unreadable is the default.
+    expect(service.getStudyMode()).toBe(false)
+    expect(service.getStudyShortcuts()).toBe(true)
+    expect(service.getStudySidebarCollapsed()).toBe(false)
+    expect(service.getStudyPanelCollapsed()).toBe(false)
+    expect(service.getStudyColumnWidths()).toEqual({})
+    expect(() => {
+      service.setStudyMode(true)
+      service.setStudyShortcuts(false)
+      service.setStudySidebarCollapsed(true)
+      service.setStudyPanelCollapsed(true)
+      service.setStudyColumnWidths({ rail: 240 })
+    }).not.toThrow()
   })
 
   it("should remember that the app prompt was shown", () => {

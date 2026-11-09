@@ -185,11 +185,11 @@ export class PreferencesService {
    * one-column reader everywhere.
    */
   getStudyMode(): boolean {
-    return this.storage?.getItem(this.KEYS.STUDY_MODE) === "true"
+    return this.read(this.KEYS.STUDY_MODE) === "true"
   }
 
   setStudyMode(enabled: boolean): void {
-    this.storage?.setItem(this.KEYS.STUDY_MODE, enabled.toString())
+    this.write(this.KEYS.STUDY_MODE, enabled.toString())
   }
 
   /**
@@ -198,11 +198,11 @@ export class PreferencesService {
    * turn them off, and it is kept.
    */
   getStudyShortcuts(): boolean {
-    return this.storage?.getItem(this.KEYS.STUDY_SHORTCUTS) !== "false"
+    return this.read(this.KEYS.STUDY_SHORTCUTS) !== "false"
   }
 
   setStudyShortcuts(enabled: boolean): void {
-    this.storage?.setItem(this.KEYS.STUDY_SHORTCUTS, enabled.toString())
+    this.write(this.KEYS.STUDY_SHORTCUTS, enabled.toString())
   }
 
   /**
@@ -211,22 +211,19 @@ export class PreferencesService {
    * it wide across chapters and sessions.
    */
   getStudySidebarCollapsed(): boolean {
-    return this.storage?.getItem(this.KEYS.STUDY_SIDEBAR_COLLAPSED) === "true"
+    return this.read(this.KEYS.STUDY_SIDEBAR_COLLAPSED) === "true"
   }
 
   setStudySidebarCollapsed(collapsed: boolean): void {
-    this.storage?.setItem(
-      this.KEYS.STUDY_SIDEBAR_COLLAPSED,
-      collapsed.toString(),
-    )
+    this.write(this.KEYS.STUDY_SIDEBAR_COLLAPSED, collapsed.toString())
   }
 
   getStudyPanelCollapsed(): boolean {
-    return this.storage?.getItem(this.KEYS.STUDY_PANEL_COLLAPSED) === "true"
+    return this.read(this.KEYS.STUDY_PANEL_COLLAPSED) === "true"
   }
 
   setStudyPanelCollapsed(collapsed: boolean): void {
-    this.storage?.setItem(this.KEYS.STUDY_PANEL_COLLAPSED, collapsed.toString())
+    this.write(this.KEYS.STUDY_PANEL_COLLAPSED, collapsed.toString())
   }
 
   /**
@@ -239,7 +236,7 @@ export class PreferencesService {
    * layout's own clamped width applies.
    */
   getStudyColumnWidths(): StudyColumnWidths {
-    const stored = this.storage?.getItem(this.KEYS.STUDY_COLUMN_WIDTHS)
+    const stored = this.read(this.KEYS.STUDY_COLUMN_WIDTHS)
     if (!stored) return {}
     try {
       const parsed: unknown = JSON.parse(stored)
@@ -259,7 +256,7 @@ export class PreferencesService {
   }
 
   setStudyColumnWidths(widths: StudyColumnWidths): void {
-    this.storage?.setItem(this.KEYS.STUDY_COLUMN_WIDTHS, JSON.stringify(widths))
+    this.write(this.KEYS.STUDY_COLUMN_WIDTHS, JSON.stringify(widths))
   }
 
   /** As getOnboardingSeen: seen when storage is unusable. */

@@ -428,6 +428,73 @@ describe("ReverseReferencesService", () => {
     expect(service.incomingFor("mrk", 12, 31)).toEqual([])
   })
 
+  describe("a build that a reset overtakes", () => {
+    const CITATION = [
+      { book: "mrk", chapter: 12, verses: [{ type: "single", verse: 31 }] },
+    ]
+
+    /** The corpus, and a read of it that only finishes when the spec says. */
+    async function slowReads() {
+      bibleRefWith(CITATION)
+      const corpus = await offline.getCachedBooksAsync()
+      offline.getCachedBooksAsync.mockClear()
+      const finish: Array<(books: Book[]) => void> = []
+      const fail: Array<(error: Error) => void> = []
+      offline.getCachedBooksAsync.mockImplementation(
+        () =>
+          new Promise<Book[]>((resolve, reject) => {
+            finish.push(resolve)
+            fail.push(reject)
+          }),
+      )
+      return { corpus, finish, fail }
+    }
+
+    it("does not bring back an index of text that has been removed", async () => {
+      const { corpus, finish } = await slowReads()
+      const building = service.ensureIndex()
+      expect(service.state).toBe("building")
+
+      service.reset()
+      finish[0](corpus)
+      await building
+
+      expect(service.state).toBe("idle")
+      expect(service.incomingFor("mrk", 12, 31)).toEqual([])
+    })
+
+    it("does not call the index unavailable when its read fails after the reset", async () => {
+      const { fail } = await slowReads()
+      const building = service.ensureIndex()
+
+      service.reset()
+      fail[0](new Error("IndexedDB refused"))
+      await building
+
+      expect(service.state).toBe("idle")
+    })
+
+    it("leaves a newer build alone, and shared, when the old one ends", async () => {
+      const { corpus, finish } = await slowReads()
+      const stale = service.ensureIndex()
+      service.reset()
+      const fresh = service.ensureIndex()
+
+      finish[0](corpus)
+      await stale
+      // The old build ended: it neither published nor cleared the new one, so
+      // a caller now joins that one instead of starting a third read.
+      expect(service.state).toBe("building")
+      void service.ensureIndex()
+      expect(offline.getCachedBooksAsync).toHaveBeenCalledTimes(2)
+
+      finish[1](corpus)
+      await fresh
+      expect(service.state).toBe("ready")
+      expect(service.incomingFor("mrk", 12, 31)).toHaveLength(1)
+    })
+  })
+
   /** Stubs a corpus of one chapter whose verse 39 prints the given refs. */
   function bibleRefWith(refs: unknown[]): void {
     configure([

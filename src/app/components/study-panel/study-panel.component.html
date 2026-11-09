@@ -119,9 +119,9 @@
             @for (verse of reference.verses; track verse.number; let firstVerse = $first) {
             @for (line of verse.lines; track $index; let firstLine = $first) {
             @if (!firstLine || (firstLine && verse.breakBefore)) {<br>}
+            @if (firstLine && !firstVerse && !verse.breakBefore) {<span>{{ " " }}</span>}
             @if (firstLine && reference.verses.length > 1) {<span
-              class="reference-verse-number">{{ verse.number }}</span>}@if (firstLine && !firstVerse &&
-            reference.verses.length === 1) {<span>{{ " " }}</span>}
+              class="reference-verse-number">{{ verse.number }}</span>}
             @for (run of line; track $index) {<span [class.allCaps]="run.allCaps">{{ run.text }}</span>}
             }
             }

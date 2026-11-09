@@ -861,6 +861,18 @@ describe("StudyPanelComponent", () => {
 
       const verses = component.referenceGroups[0].entries[0].verses
       expect(verses.every((v) => !v.breakBefore)).toBe(true)
+
+      // Nothing else separates them: whitespace-only text is dropped from a
+      // template, and the number's own margin is a pixel.
+      fixture.detectChanges()
+      const numbers: HTMLElement[] = Array.from(
+        fixture.nativeElement.querySelectorAll(
+          ".reference-text .reference-verse-number",
+        ),
+      )
+      expect(numbers.map((n) => n.textContent)).toEqual(["30", "31"])
+      expect(numbers[0].previousElementSibling).toBeNull()
+      expect(numbers[1].previousElementSibling?.textContent).toBe(" ")
     })
 
     it("names both ends of a run of whole chapters", () => {

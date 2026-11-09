@@ -60,6 +60,8 @@ export class ReverseReferencesService {
   /** Keyed by `bookId:chapter`, since a citation names a chapter and a span. */
   private index: Map<string, IncomingReference[]> | null = null
   private building?: Promise<void>
+  /** Counts resets: a build whose count is not the current one was overtaken. */
+  private generation = 0
   private readonly stateSubject = new BehaviorSubject<IndexState>("idle")
   readonly state$: Observable<IndexState> = this.stateSubject.asObservable()
 
@@ -75,19 +77,23 @@ export class ReverseReferencesService {
     if (this.index) return
     if (this.building) return this.building
 
+    const generation = this.generation
     this.stateSubject.next("building")
-    this.building = this.build()
+    const building = this.build(generation)
       .catch(() => {
         // A corpus that could not be read is one this cannot be built from.
         // Saying so, rather than staying "building", keeps "Citado em" from
         // loading for good — and, the index being unset, asking again later
         // rebuilds it.
-        this.stateSubject.next("unavailable")
+        if (generation === this.generation)
+          this.stateSubject.next("unavailable")
       })
       .finally(() => {
-        this.building = undefined
+        // Not a newer build's promise, which a reset may have put there.
+        if (this.building === building) this.building = undefined
       })
-    return this.building
+    this.building = building
+    return building
   }
 
   /**
@@ -95,6 +101,9 @@ export class ReverseReferencesService {
    * what it would say next is "nothing cites this verse", which is not true.
    */
   reset(): void {
+    // A build still reading the corpus would otherwise finish afterwards and
+    // bring back an index of text that is gone.
+    this.generation++
     this.index = null
     this.building = undefined
     this.stateSubject.next("idle")
@@ -112,8 +121,10 @@ export class ReverseReferencesService {
     )
   }
 
-  private async build(): Promise<void> {
+  private async build(generation: number): Promise<void> {
     const books = await this.offlineData.getCachedBooksAsync()
+    // Reset while reading: what was read is not what is stored now.
+    if (generation !== this.generation) return
     const hasCorpus = books.some((book) =>
       book.chapters?.some((chapter) => chapter.verses?.length),
     )
