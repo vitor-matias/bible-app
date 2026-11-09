@@ -19,7 +19,16 @@ test("Umami's script only runs once the hook that cleans its URLs is set", async
     .toBe("function")
 })
 
-test("what the reader searches doesn't reach Umami", async ({ page }) => {
+test("what the reader searches doesn't reach Umami", async ({
+  page,
+  request,
+}) => {
+  // This spec needs the real tracker, which only its server can provide.
+  const tracker = await request
+    .get("https://umami.dojo.pt/script.js", { timeout: 10_000 })
+    .catch(() => null)
+  test.skip(!tracker?.ok(), "Umami's script is unavailable")
+
   const umami: string[] = []
   await page.route("**/umami.dojo.pt/api/send", (route) => {
     umami.push(route.request().postData() ?? "")
