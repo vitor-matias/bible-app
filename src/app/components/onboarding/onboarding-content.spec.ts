@@ -5,6 +5,82 @@ import {
   sfSymbol,
 } from "./onboarding-content"
 
+const texts = (
+  steps: readonly { intro: string; features: readonly { text: string }[] }[],
+) =>
+  steps.flatMap((entry) => [
+    entry.intro,
+    ...entry.features.map((feature) => feature.text),
+  ])
+
+describe("ONBOARDING_STEPS", () => {
+  const step = (id: string) => ONBOARDING_STEPS.find((entry) => entry.id === id)
+
+  // Short enough for a first-time reader to remember: one job per step.
+  it("teaches the book, the reference search and the letter size, in that order", () => {
+    expect(ONBOARDING_STEPS.map((entry) => entry.id)).toEqual([
+      "welcome",
+      "books",
+      "tools",
+      "customize",
+      INSTALL_STEP_ID,
+    ])
+  })
+
+  // The web header has the book's name and the chapter number as two buttons.
+  it("points to the book's name, then the chapter number", () => {
+    expect(step("books")?.intro).toContain("toque no nome do livro")
+    expect(step("books")?.features[0].text).toContain(
+      "toque no número ao lado do nome do livro",
+    )
+    expect(step("books")?.features[2].text).toContain("«Filtrar livros»")
+  })
+
+  it("opens a reference heard at Mass through search", () => {
+    expect(step("tools")?.title).toBe("Encontrar uma passagem")
+    expect(step("tools")?.intro).toContain("«Jo 3,16»")
+    expect(step("tools")?.intro).toContain("«Pesquisar»")
+  })
+
+  // An empty step left the dialog's floor blank under one sentence.
+  it("gives every reading step a few tips", () => {
+    for (const entry of ONBOARDING_STEPS) {
+      if (entry.id === INSTALL_STEP_ID) continue
+      expect(entry.features.length, entry.id).toBeGreaterThanOrEqual(3)
+    }
+  })
+
+  it("finds the replay and the bookmarks in the web menu", () => {
+    const texts = ONBOARDING_STEPS.flatMap((entry) =>
+      entry.features.map((feature) => feature.text),
+    )
+    expect(texts).toContain(
+      "Pode voltar a ver esta introdução em «Menu» (☰), em «Como usar a app».",
+    )
+    expect(step("tools")?.features[2].text).toContain(
+      "«Menu» (☰), em «Marcadores»",
+    )
+    // Only where the browser can share does the web menu offer it.
+    expect(step("tools")?.features[1].text).toMatch(
+      /^No telemóvel e no tablet, .*«Partilhar» em «Menu» \(☰\)/,
+    )
+  })
+
+  // A screen reader says the name; the glyph only helps those who see it.
+  it("names each button before its glyph", () => {
+    expect(step("customize")?.intro).toContain("«Menu» (☰)")
+  })
+
+  it("keeps the offline note with the install, where it applies", () => {
+    expect(step("welcome")?.features.map((f) => f.icon)).toEqual([
+      "explore",
+      "history",
+      "touch_app",
+    ])
+    expect(step(INSTALL_STEP_ID)?.intro).toContain("sem ligação")
+  })
+})
+
 describe("nativeOnboardingSteps", () => {
   const steps = nativeOnboardingSteps()
   const step = (id: string) => steps.find((entry) => entry.id === id)
@@ -14,48 +90,37 @@ describe("nativeOnboardingSteps", () => {
     expect(steps.length).toBe(ONBOARDING_STEPS.length - 1)
   })
 
-  // The iOS app's bars put the picker at the bottom and the menu top-right.
+  // The iOS app's passage button sits in the bottom bar and opens on the
+  // current book's chapters; «Livros» leads back to the books.
   it("describes the iOS app's bars, not the web header", () => {
-    expect(step("navigate")?.intro).toContain("barra inferior")
-    expect(step("customize")?.intro).toContain("AA")
-    const texts = steps.flatMap((entry) => [
-      entry.intro,
-      ...entry.features.map((feature) => feature.text),
-    ])
-    for (const text of texts) {
+    expect(step("books")?.intro).toContain("barra inferior")
+    expect(step("books")?.intro).toContain("«Livros»")
+    expect(step("customize")?.intro).toContain("«Texto e aparência» (AA)")
+    for (const text of texts(steps)) {
       expect(text).not.toContain("☰")
       expect(text).not.toContain("No topo do ecrã")
-      expect(text).not.toContain("computador, use as setas")
+      expect(text).not.toContain("teclado")
+      expect(text).not.toContain("‹")
     }
   })
 
-  // Text, theme and page mode under AA; Marcadores a button of its own; and
-  // auto-scroll still turned on from ⋯.
-  it("points to the buttons of the iOS app's top and bottom bars", () => {
-    const feature = (id: string, icon: string) =>
-      step(id)?.features.find((entry) => entry.symbol === sfSymbol(icon))?.text
-    expect(feature("tools", "bookmarks")).toContain("Toque no marcador")
-    const autoScroll = feature("customize", "arrow_circle_down")
-    expect(autoScroll).toContain("menu ⋯")
-  })
-
-  it("names the reading modes in plain words", () => {
-    const modes = step("customize")?.features.find(
-      (feature) => feature.symbol === sfSymbol("auto_stories"),
-    )?.text
-    expect(modes).toContain("texto contínuo")
-    expect(modes).toContain("página a página")
-  })
-
-  // There a tap on the text shows or hides the bars; only the notes icon opens
-  // notes (it is no longer an asterisk).
-  it("teaches the notes icon for notes", () => {
-    const notes = step("navigate")?.features.find((feature) =>
-      feature.text.includes("ler a nota"),
+  it("finds the replay under «Mais» and «Marcadores» in the top bar", () => {
+    expect(step("welcome")?.features[2].text).toContain("«Mais» (⋯)")
+    expect(step("tools")?.features[1].text).toContain(
+      "«Partilhar» no menu «Mais» (⋯)",
     )
-    expect(notes?.text).toContain("ícone de notas")
-    expect(notes?.text).not.toContain("asterisco")
-    expect(notes?.text).not.toContain("Toque num versículo")
+    expect(step("tools")?.features[2].text).toContain("«Marcadores», no topo")
+  })
+
+  // The apps ring their own bar button: their text step names «Texto e
+  // aparência», where the web's names its menu.
+  it("tells the apps which bar button each page names", () => {
+    expect(steps.map((entry) => entry.highlight)).toEqual([
+      undefined,
+      "passage",
+      "search",
+      "text",
+    ])
   })
 
   it("shows the logo on the welcome page and symbols elsewhere", () => {
@@ -63,11 +128,6 @@ describe("nativeOnboardingSteps", () => {
     expect(step("tools")).toEqual(
       expect.objectContaining({ logo: false, symbol: "magnifyingglass" }),
     )
-    expect(step("tools")?.features[1]).toEqual({
-      symbol: "bookmark",
-      icon: "bookmarks",
-      text: "Toque no marcador, no topo à direita, para guardar marcadores coloridos nos capítulos a que quer voltar.",
-    })
   })
 
   it("leaves out what only the website has: study mode is not in the app", () => {
@@ -100,54 +160,37 @@ describe("nativeOnboardingSteps for the Android app", () => {
   const steps = nativeOnboardingSteps(ONBOARDING_STEPS, "android")
   const step = (id: string) => steps.find((entry) => entry.id === id)
 
-  // Its text button and ⋮ sit at the top right; the rest is where the iOS
-  // app has it.
-  it("points to the Android app's text button and ⋮ menu", () => {
-    expect(step("customize")?.intro).toContain(
-      "Toque em TT (Texto e aparência), no topo à direita",
+  // The passage is the top bar's title.
+  it("points to the passage on top, with «Livros» to go back", () => {
+    expect(step("books")?.intro).toContain("No topo do ecrã")
+    expect(step("books")?.intro).toContain("«Génesis 1»")
+    expect(step("books")?.intro).toContain("«Livros»")
+    expect(step("books")?.intro).not.toContain("barra inferior")
+    for (const text of texts(steps)) {
+      expect(text).not.toContain("▾")
+      expect(text).not.toContain("←")
+    }
+  })
+
+  it("finds the replay under «Mais opções»", () => {
+    expect(step("welcome")?.features[2].text).toContain("«Mais opções» (⋮)")
+    expect(step("tools")?.features[1].text).toContain(
+      "«Partilhar» no menu «Mais opções» (⋮)",
     )
-    // Its hero shows that button's icon.
+    expect(step("tools")?.features[2].text).toContain("«Marcadores», no topo")
+  })
+
+  it("names its text button, and shows its icon in the hero", () => {
+    expect(step("customize")?.intro).toContain("«Texto e aparência» (TT)")
     expect(step("customize")?.icon).toBe("format_size")
-    const autoScroll = step("customize")?.features.find(
-      (feature) => feature.icon === "arrow_circle_down",
-    )?.text
-    expect(autoScroll).toContain("menu ⋮, no topo à direita")
-    expect(autoScroll).not.toContain("⋯")
-  })
-
-  // The passage is the top bar's title, the arrows sit in the corners, and
-  // the bars follow the scrolling rather than a tap on the text.
-  it("points to the passage on top and the arrows in the corners", () => {
-    expect(step("navigate")?.intro).toContain("No topo do ecrã")
-    expect(step("navigate")?.intro).not.toContain("barra inferior")
-    const [swipe, , notes] = step("navigate")?.features ?? []
-    expect(swipe.text).toContain("cantos inferiores")
-    expect(swipe.text).not.toContain("barra inferior")
-    // No card after the chapter any more: › is the way on.
-    expect(swipe.text).not.toContain("No fim do capítulo")
-    expect(notes.text).toContain("ícone de notas")
-    expect(notes.text).not.toContain("Um toque no texto")
-  })
-
-  // The menu's entry is "Como usar a app", under ⋮; the title is the passage.
-  it("names where the introduction is found again, and the title", () => {
-    expect(step("welcome")?.features[2].text).toContain(
-      "no menu ⋮, em «Como usar a app»",
-    )
-    expect(step("navigate")?.intro).toContain("«Génesis 1 ▾»")
-  })
-
-  it("keeps the iOS app's words where the bars are alike", () => {
-    expect(step("tools")?.features[1].text).toContain("no topo à direita")
   })
 
   it("sends the Material icons, which the Android app draws", () => {
     expect(step("tools")?.icon).toBe("search")
-    expect(step("customize")?.features.map((feature) => feature.icon)).toEqual([
-      "dark_mode",
-      "auto_stories",
-      "text_increase",
-      "arrow_circle_down",
+    expect(step("books")?.features.map((feature) => feature.icon)).toEqual([
+      "touch_app",
+      "swipe",
+      "search",
     ])
   })
 })

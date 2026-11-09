@@ -30,6 +30,7 @@ const READER: ReaderChrome = {
   canGoNext: true,
   search: true,
   viewMode: "scrolling",
+  raggedText: false,
   autoScrollVisible: false,
   autoScrollAvailable: true,
   canShare: true,
@@ -311,6 +312,89 @@ describe("NativeChromeService", () => {
     expect(
       body.style.getPropertyValue("--android-surface-container-high"),
     ).toBe("#DCE3F0")
+  })
+
+  it("passes the rest of the bars' colours to the index's list", () => {
+    create("android")
+    listener("palette")({
+      surfaceContainerLow: "#F0F0F0",
+      primary: "#112233",
+      onPrimary: "#FFFFFF",
+      onSurfaceVariant: "#445566",
+    })
+    expect(body.style.getPropertyValue("--android-surface-container-low")).toBe(
+      "#F0F0F0",
+    )
+    expect(body.style.getPropertyValue("--android-primary")).toBe("#112233")
+    expect(body.style.getPropertyValue("--android-on-primary")).toBe("#FFFFFF")
+    expect(body.style.getPropertyValue("--android-on-surface-variant")).toBe(
+      "#445566",
+    )
+  })
+
+  describe("a page that scrolls the document", () => {
+    const page = () => document.documentElement
+
+    it("follows the document's scrolling, whose events go to document", () => {
+      const service = create("ios")
+      service.show({ ...READER })
+      const stop = service.trackScroll(page(), document)
+      page().dispatchEvent(new Event("touchstart"))
+      Object.defineProperty(page(), "scrollTop", {
+        value: 200,
+        configurable: true,
+      })
+      Object.defineProperty(page(), "scrollHeight", {
+        value: 5000,
+        configurable: true,
+      })
+      document.dispatchEvent(new Event("scroll"))
+      expect(lastState()).toEqual(expect.objectContaining({ collapsed: true }))
+      stop()
+      Reflect.deleteProperty(page(), "scrollTop")
+      Reflect.deleteProperty(page(), "scrollHeight")
+    })
+
+    it("leaves the bars alone for the app's own scrolling after a tap", () => {
+      const service = create("ios")
+      service.show(READER)
+      const stop = service.trackScroll(page(), document)
+      page().dispatchEvent(new Event("touchstart"))
+      service.holdBars(1000)
+      Object.defineProperty(page(), "scrollTop", {
+        value: 200,
+        configurable: true,
+      })
+      Object.defineProperty(page(), "scrollHeight", {
+        value: 5000,
+        configurable: true,
+      })
+      document.dispatchEvent(new Event("scroll"))
+      expect(lastState()).toEqual(expect.objectContaining({ collapsed: false }))
+      stop()
+      Reflect.deleteProperty(page(), "scrollTop")
+      Reflect.deleteProperty(page(), "scrollHeight")
+    })
+
+    it("keeps the bars up while the filter is open", () => {
+      const service = create("ios")
+      service.show({ ...READER, filterOpen: true })
+      const stop = service.trackScroll(page(), document)
+      page().dispatchEvent(new Event("touchstart"))
+      Object.defineProperty(page(), "scrollTop", {
+        value: 200,
+        configurable: true,
+      })
+      Object.defineProperty(page(), "scrollHeight", {
+        value: 5000,
+        configurable: true,
+      })
+      document.dispatchEvent(new Event("scroll"))
+      expect(lastState()).toEqual(expect.objectContaining({ collapsed: false }))
+      stop()
+      Reflect.deleteProperty(page(), "scrollTop")
+      Reflect.deleteProperty(page(), "scrollHeight")
+    })
   })
 
   it("relays taps, with their details", () => {
@@ -1230,10 +1314,37 @@ describe("NativeChromeService", () => {
         returnToPage: true,
       })
       now += 2000
+      root.dispatchEvent(new Event("touchstart"))
       scrollTo(100)
       scrollTo(100 + window.innerHeight - 1)
       expect(plugin.hideToast).not.toHaveBeenCalled()
       scrollTo(100 + window.innerHeight)
+      expect(plugin.hideToast).toHaveBeenCalledTimes(1)
+    })
+
+    // On a slow connection the chapter arrives long after the toast showed.
+    it("leaves it up when the reader lands late, with no finger on the page", () => {
+      service.toast("Voltar para o Índice", {
+        onTap: () => {},
+        returnToPage: true,
+      })
+      now += 6000
+      scrollTo(0)
+      scrollTo(window.innerHeight * 3)
+      expect(plugin.hideToast).not.toHaveBeenCalled()
+    })
+
+    it("counts the reading from where a late landing left the page", () => {
+      service.toast("Voltar para o Índice", {
+        onTap: () => {},
+        returnToPage: true,
+      })
+      now += 6000
+      scrollTo(window.innerHeight * 3)
+      root.dispatchEvent(new Event("touchstart"))
+      scrollTo(window.innerHeight * 3 + 10)
+      expect(plugin.hideToast).not.toHaveBeenCalled()
+      scrollTo(window.innerHeight * 4)
       expect(plugin.hideToast).toHaveBeenCalledTimes(1)
     })
 

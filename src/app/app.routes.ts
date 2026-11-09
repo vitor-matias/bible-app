@@ -1,6 +1,11 @@
 import { type Routes } from "@angular/router"
 import { chapterExists } from "./chapter-exists.guard"
 import { BibleReaderComponent } from "./components/bible-reader/bible-reader.component"
+import {
+  APP_STORE_URL,
+  PLAY_STORE_URL,
+  redirectTo,
+} from "./store-redirect.guard"
 
 export const routes: Routes = [
   // Explicit home route so the prerenderer can render "/" as a real page
@@ -18,6 +23,22 @@ export const routes: Routes = [
     loadComponent: () =>
       import("./components/book-index/book-index.component").then(
         (m) => m.BookIndexComponent,
+      ),
+  },
+  { path: "android", canActivate: [redirectTo(PLAY_STORE_URL)], children: [] },
+  { path: "ios", canActivate: [redirectTo(APP_STORE_URL)], children: [] },
+  {
+    path: "indice",
+    loadComponent: () =>
+      import("./components/pastoral-index/pastoral-index.component").then(
+        (m) => m.PastoralIndexComponent,
+      ),
+  },
+  {
+    path: "indice/:slug",
+    loadComponent: () =>
+      import("./components/pastoral-index/pastoral-index.component").then(
+        (m) => m.PastoralIndexComponent,
       ),
   },
   {

@@ -1,0 +1,129 @@
+<mat-menu>
+  <!-- Menu items, so the arrow keys reach them; a click here stops short
+       of the menu panel, so the menu stays open as the text changes. -->
+  <div class="menu-controls" (click)="$event.stopPropagation()">
+    <button type="button" mat-menu-item class="menu-control" (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" matTooltipPosition="above" [attr.aria-label]="getThemeTooltip()">
+      <mat-icon>{{ getThemeIcon() }}</mat-icon>
+    </button>
+    @if (viewMode() !== null) {
+    <button type="button" mat-menu-item class="menu-control" (click)="toggleViewMode.emit()" [matTooltip]="getViewModeTooltip()" matTooltipPosition="above" [attr.aria-label]="getViewModeTooltip()">
+      <mat-icon>{{ getViewModeIcon() }}</mat-icon>
+    </button>
+    <button type="button" mat-menu-item class="menu-control" (click)="onToggleTextAlign()" [matTooltip]="getTextAlignTooltip()" matTooltipPosition="above" [attr.aria-label]="getTextAlignTooltip()">
+      <mat-icon>{{ getTextAlignIcon() }}</mat-icon>
+    </button>
+    }
+    <button type="button" mat-menu-item class="menu-control" (click)="decreaseFontSize.emit()" matTooltip="Diminuir texto" matTooltipPosition="above" aria-label="Diminuir texto">
+      <mat-icon>text_decrease</mat-icon>
+    </button>
+    <button type="button" mat-menu-item class="menu-control" (click)="increaseFontSize.emit()" matTooltip="Aumentar texto" matTooltipPosition="above" aria-label="Aumentar texto">
+      <mat-icon>text_increase</mat-icon>
+    </button>
+  </div>
+  <mat-divider></mat-divider>
+  <button type="button" mat-menu-item (click)="bookmarks.emit()">
+    <mat-icon>bookmarks</mat-icon>
+    <span>Marcadores</span>
+  </button>
+  <!-- Not the bookmarks above, which name a chapter to come back to: this is
+       the notes written and the verses marked, and where they are saved. -->
+  <button type="button" mat-menu-item (click)="openMyNotes()">
+    <mat-icon>edit_note</mat-icon>
+    <span>As minhas notas e marcas</span>
+  </button>
+  @if (studyMode(); as study) {
+  @if (study === 'narrow') {
+  <!-- Shown, not left out: a mode that vanishes when the window narrows, and
+       zooming in narrows it, gave no way to know it had ever been there.
+       Disabled but reachable by keyboard, so a screen reader can read why. -->
+  <button type="button" mat-menu-item class="two-lines" disabled [disabledInteractive]="true">
+    <mat-icon>view_sidebar</mat-icon>
+    <span>
+      Modo de estudo
+      <small class="menu-sub">Precisa de uma janela mais larga (ou de menos zoom)</small>
+    </span>
+  </button>
+  } @else {
+  <button type="button" mat-menu-item class="two-lines" (click)="toggleStudyMode.emit()">
+    <mat-icon>view_sidebar</mat-icon>
+    <span>
+      {{ study === 'on' ? 'Voltar ao modo de leitura' : 'Modo de estudo' }}
+      @if (study === 'off') {
+      <!-- "Modo de estudo" alone sounds like homework. -->
+      <small class="menu-sub">Notas, referências e pesquisa ao lado do texto</small>
+      }
+    </span>
+  </button>
+  }
+  }
+  <!-- Only where they work. Opened with "?" too, which a reader has to
+       have been told about to press. -->
+  @if (shortcuts()) {
+  <button type="button" mat-menu-item (click)="openShortcuts.emit()">
+    <mat-icon>keyboard</mat-icon>
+    <span>Atalhos de teclado</span>
+  </button>
+  }
+  @if (autoScrollControlsVisible() !== null) {
+  <button type="button" mat-menu-item (click)="toggleAutoScrollControls.emit()" [disabled]="viewMode() === 'paged'">
+    <mat-icon>arrow_circle_down</mat-icon>
+    <span>
+      {{ autoScrollControlsVisible()
+      ? 'Esconder controlos de deslocamento automático'
+      : 'Mostrar controlos de deslocamento automático' }}
+    </span>
+  </button>
+  }
+  @if (canShare()) {
+  <button type="button" mat-menu-item (click)="share.emit()">
+    <mat-icon>share</mat-icon>
+    <span>Partilhar</span>
+  </button>
+  }
+  <!-- Where the store has the app, the website's install stays in the tutorial. -->
+  @if (canInstall() && !appStore) {
+  <button type="button" mat-menu-item (click)="install()">
+    <mat-icon>download</mat-icon>
+    <span>Instalar a app</span>
+  </button>
+  }
+  <button type="button" mat-menu-item (click)="openHelp()">
+    <mat-icon>help</mat-icon>
+    <span>Como usar a app</span>
+  </button>
+  @if (appStore; as store) {
+  <a mat-menu-item class="app-store-link" [href]="store.url" target="_blank" rel="noopener"
+    (click)="openAppStore(store)">
+    <mat-icon>install_mobile</mat-icon>
+    <span>{{ appStoreLabel }}</span>
+  </a>
+  }
+  <button type="button" mat-menu-item (click)="about.emit()">
+    <mat-icon>info</mat-icon>
+    <span>Sobre a Bíblia</span>
+  </button>
+  @if (analyticsService.areAnalyticsAvailable()) {
+  <button type="button" mat-menu-item (click)="reportProblem.emit()">
+    <mat-icon>report_problem</mat-icon>
+    <span>Reportar erro</span>
+  </button>
+  }
+  <a mat-menu-item [href]="privacyPolicyUrl" target="_blank" rel="noopener noreferrer">
+    <mat-icon>privacy_tip</mat-icon>
+    <span class="privacy-label">
+      Política de Privacidade
+      <mat-icon class="open-in-new-icon">open_in_new</mat-icon>
+    </span>
+  </a>
+  @if (version(); as version) {
+  <!-- One line, as in the iOS menu: the release, then the bundle's id.
+       The web has no releases; there the label says what the id is. -->
+  <div class="menu-version">
+    @if (version.release) {
+    {{ version.release }} · {{ version.build }}
+    } @else {
+    Bundle {{ version.build }}
+    }
+  </div>
+  }
+</mat-menu>

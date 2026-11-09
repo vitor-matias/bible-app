@@ -1,5 +1,6 @@
 package org.capuchinhos.biblia.chrome
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,6 +44,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.heading
@@ -133,6 +135,68 @@ internal fun SearchView(chrome: ChromeController, state: ChromeState) {
                 focus.requestFocus()
             }
         }
+    }
+}
+
+/**
+ * Whether the filter shows the page's [query]: not over what is being typed,
+ * whose echo comes after it; but the page clearing the filter clears it.
+ */
+internal fun takesQuery(query: String, sent: String, focused: Boolean): Boolean =
+    query != sent && (!focused || query.isEmpty())
+
+/**
+ * A list's filter as Material's search field, in the top bar's title: the list
+ * under it narrows as it is typed in. Back closes it before it leaves the
+ * page, and a touch on the list closes the keyboard.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun FilterField(chrome: ChromeController, state: ChromeState, placeholder: String, enabled: Boolean) {
+    val field = rememberTextFieldState(state.query)
+    val searchBar = rememberSearchBarState(initialValue = SearchBarValue.Expanded)
+    var focused by remember { mutableStateOf(false) }
+    // What the page last heard: typing is sent on, its echo isn't sent back.
+    var sent by remember { mutableStateOf(state.query) }
+    val focus = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(state.query) {
+        if (takesQuery(state.query, sent, focused)) {
+            sent = state.query
+            field.setTextAndPlaceCursorAtEnd(state.query)
+        }
+    }
+    LaunchedEffect(field) {
+        snapshotFlow { field.text.toString() }.collect { text ->
+            if (text != sent) {
+                sent = text
+                chrome.searchInput(text)
+            }
+        }
+    }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    // Not the touch that was already counted when the field opened.
+    val touches = remember { chrome.pageTouches }
+    LaunchedEffect(chrome.pageTouches) { if (chrome.pageTouches != touches) focusManager.clearFocus() }
+    BackHandler { chrome.send("filter-close") }
+    Surface(shape = SearchBarDefaults.inputFieldShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+        SearchBarDefaults.InputField(
+            textFieldState = field,
+            searchBarState = searchBar,
+            onSearch = { focusManager.clearFocus() },
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(focus)
+                .onFocusChanged { focused = it.isFocused },
+            enabled = enabled,
+            placeholder = { Text(placeholder, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            leadingIcon = { Icon(painterResource(R.drawable.ic_search), contentDescription = null) },
+            trailingIcon = if (field.text.isNotEmpty()) {
+                { BarButton(R.drawable.ic_close, "Limpar", enabled) { field.clearText() } }
+            } else {
+                null
+            },
+        )
     }
 }
 

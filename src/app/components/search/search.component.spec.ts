@@ -308,6 +308,14 @@ describe("SearchComponent", () => {
       expect(apiService.search).toHaveBeenCalledWith("Xy 3", 1)
     })
 
+    it("counts a search without telling analytics what was searched", async () => {
+      vi.useFakeTimers()
+      component.onTyping("pastor")
+      await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
+
+      expect(analyticsService.track).toHaveBeenCalledWith("search")
+    })
+
     // The search by meaning waits for the pause; what costs nothing doesn't.
     describe("while the search waits for the pause", () => {
       const john = {
@@ -855,6 +863,92 @@ describe("SearchComponent", () => {
       { duration: 3000 },
     )
     expect(router.navigate).not.toHaveBeenCalled()
+  })
+
+  describe("a theme of the pastoral index", () => {
+    const offered = () =>
+      Array.from(
+        (
+          fixture.nativeElement as HTMLElement
+        ).querySelectorAll<HTMLAnchorElement>("a.passage-suggestion"),
+      )
+
+    beforeEach(() => {
+      referenceService.extract.mockReturnValue([])
+      apiService.search.mockReturnValue(
+        of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+      )
+      component.ngOnInit()
+    })
+
+    it("is offered at once, whatever the accents", () => {
+      component.onTyping("abba")
+
+      expect(offered().map((link) => link.getAttribute("href"))).toEqual([
+        "/indice/abba",
+      ])
+      expect(offered()[0].textContent).toContain("Abbá")
+      expect(apiService.search).not.toHaveBeenCalled()
+    })
+
+    it("offers a few, those beginning with what is typed", () => {
+      component.onTyping("ab")
+      expect(offered().length).toBe(3)
+      expect(offered()[0].getAttribute("href")).toBe("/indice/abba")
+
+      // Only in the middle of "Aarão": most titles have some such piece.
+      component.onTyping("arao")
+      expect(offered().map((link) => link.getAttribute("href"))).toEqual([])
+    })
+
+    it("is offered for a word later in its title", () => {
+      component.onTyping("fraterna")
+      expect(offered().map((link) => link.getAttribute("href"))).toEqual([
+        "/indice/correcao-fraterna",
+      ])
+    })
+
+    it("finds a word after a slash, as in Olhar/olhos", () => {
+      component.onTyping("olhos")
+      expect(offered().map((link) => link.getAttribute("href"))).toContain(
+        "/indice/olhar-olhos",
+      )
+    })
+
+    it("offers the titles it starts before those it's only a word in", () => {
+      component.onTyping("cristo")
+      expect(offered()[0].getAttribute("href")).toBe("/indice/cristo-cristao")
+    })
+
+    it("is gone once the field no longer names it", () => {
+      component.onTyping("abba")
+      component.onTyping("")
+      expect(offered()).toEqual([])
+    })
+
+    it("stays above the results of searching its words", async () => {
+      await component.onSearchSubmit("abba")
+      fixture.detectChanges()
+
+      expect(offered().length).toBe(1)
+      expect(apiService.search).toHaveBeenCalledWith("abba", 1)
+    })
+
+    it("opens in the index", () => {
+      component.onTyping("abba")
+      const click = new MouseEvent("click", { cancelable: true })
+      offered()[0].dispatchEvent(click)
+
+      expect(click.defaultPrevented).toBe(true)
+      expect(router.navigate).toHaveBeenCalledWith(["/indice", "abba"])
+    })
+
+    it("leaves a modified click to the browser", () => {
+      const click = new MouseEvent("click", { ctrlKey: true })
+      component.openTheme(click, "abba")
+
+      expect(router.navigate).not.toHaveBeenCalled()
+    })
   })
 
   describe("a typed reference", () => {

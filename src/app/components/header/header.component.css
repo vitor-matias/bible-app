@@ -149,38 +149,6 @@ mat-icon {
   }
 }
 
-.menu-controls {
-  display: flex;
-  justify-content: space-between;
-  padding: 12px 16px;
-  min-width: 240px;
-}
-
-/* Round icon buttons. They are menu items underneath, so the menu's arrow
-   keys reach them. */
-.menu-control.mat-mdc-menu-item {
-  flex: none;
-  justify-content: center;
-  width: 48px;
-  min-width: 0;
-  height: 48px;
-  min-height: 0;
-  padding: 0;
-  border-radius: 50%;
-  transform: scale(1.2);
-}
-
-/* An icon alone: the menu item's empty label would take the room and push
-   the icon to the side. */
-.menu-control ::ng-deep .mat-mdc-menu-item-text {
-  display: none;
-}
-
-.menu-control mat-icon {
-  margin: 0;
-  color: inherit;
-}
-
 /* The ribbon on the chapter being read, small after its number. */
 .chapter-ribbon {
   font-size: 18px;
@@ -189,45 +157,6 @@ mat-icon {
   margin-left: 2px;
   vertical-align: -3px;
   font-variation-settings: "FILL" 1;
-}
-
-/* Small print under the last item, level with the items' icons, on one line. */
-/* A second line under a menu entry, for what it is or why it is not on offer. */
-.two-lines.mat-mdc-menu-item {
-  height: auto;
-  min-height: 56px;
-  padding-block: 8px;
-}
-
-.menu-sub {
-  display: block;
-  margin-top: 2px;
-  font-size: 12px;
-  line-height: 1.3;
-  opacity: 0.75;
-  white-space: normal;
-}
-
-.menu-version {
-  padding: 4px 16px 8px;
-  font-size: 0.75rem;
-  opacity: 0.6;
-  white-space: nowrap;
-}
-
-::ng-deep .mat-mdc-menu-content .privacy-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-}
-
-::ng-deep .mat-mdc-menu-content .open-in-new-icon {
-  margin-left: 12px;
-  font-size: 16px !important;
-  width: 16px !important;
-  height: 16px !important;
-  opacity: 0.6;
 }
 
 /* ---------------------------------------------------------------------------
@@ -293,21 +222,4 @@ mat-icon {
 
 :host-context(.dark-theme) .study-chrome .menuButton:hover {
   background-color: rgba(255, 255, 255, 0.1);
-}
-
-/* A visible focus ring on the toolbar's controls, inside the 56 px bar so the
-   bar's overflow does not clip it, and 44 px targets. */
-.menuButton:focus-visible,
-.searchButton:focus-visible,
-:host ::ng-deep .bookSelectorButton .mat-button-toggle-button:focus-visible {
-  outline: 2px solid #543d27;
-  outline-offset: -4px;
-}
-
-:host ::ng-deep .bookSelectorButton .mat-button-toggle {
-  min-width: 44px;
-}
-
-:host ::ng-deep .bookSelectorButton .mat-button-toggle-button {
-  min-height: 44px;
 }

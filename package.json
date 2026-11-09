@@ -41,7 +41,7 @@
     "@capacitor/ios": "^8.6.0",
     "@capacitor/network": "^8.0.1",
     "@capacitor/splash-screen": "^8.0.2",
-    "@fontsource/pt-serif": "^5.3.0",
+    "@fontsource-variable/literata": "^5.3.0",
     "@fontsource/roboto": "^5.3.0",
     "@material-symbols/font-400": "^0.48.2",
     "@vercel/speed-insights": "^2.0.0",

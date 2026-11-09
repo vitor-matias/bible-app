@@ -9,6 +9,7 @@
   "canGoNext": false,
   "search": false,
   "viewMode": null,
+  "raggedText": null,
   "autoScrollVisible": false,
   "autoScrollAvailable": false,
   "canShare": false,

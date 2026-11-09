@@ -1,3 +1,4 @@
+import titles from "../pastoral-index-titles.json"
 import type { BookmarksSheetState } from "../services/native-chrome.types"
 import { bookmarksHint, canMark, sheetPassageLabel } from "./bookmarks-sheet"
 
@@ -67,6 +68,14 @@ describe("sheetPassageLabel", () => {
   it("names a book's introduction, and the About page without a chapter", () => {
     expect(sheetPassageLabel(find, "mat", 0)).toBe("Mateus Introdução")
     expect(sheetPassageLabel(find, "about", 1)).toBe("Sobre a Bíblia")
+  })
+
+  // The index page opens the same sheet, for a ribbon that marks a theme.
+  it("names a theme of the pastoral index by its title, and the index itself", () => {
+    const [slug, title] = Object.entries(titles as Record<string, string>)[0]
+
+    expect(sheetPassageLabel(find, `indice/${slug}`, 1)).toBe(title)
+    expect(sheetPassageLabel(find, "indice", 1)).toBe("Índice")
   })
 
   it("falls back to the id for a book it doesn't know", () => {

@@ -36,7 +36,7 @@
       [style.--tone-theme]="ribbonColor(tile.color)"
       [style.--tone-light]="ribbonColor(tile.color, 'light')"
       [style.--tone-dark]="ribbonColor(tile.color, 'dark')"
-      [attr.aria-label]="spoken(tile)"
+      [attr.aria-label]="spoken(tile)" [attr.title]="tile.label"
       (click)="onTile(tile.color)">
       <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">
         @if (tile.label !== null) {

@@ -8,6 +8,7 @@ import { HapticsService } from "./haptics.service"
 describe("HapticsService", () => {
   let plugin: {
     impact: Mock
+    selectionChanged: Mock
     notification: Mock
   }
   let service: HapticsService
@@ -15,6 +16,10 @@ describe("HapticsService", () => {
   beforeEach(() => {
     plugin = {
       impact: vi.fn().mockName("impact").mockResolvedValue(undefined),
+      selectionChanged: vi
+        .fn()
+        .mockName("selectionChanged")
+        .mockResolvedValue(undefined),
       notification: vi
         .fn()
         .mockName("notification")
@@ -29,6 +34,11 @@ describe("HapticsService", () => {
   describe("on native platforms", () => {
     beforeEach(() => {
       vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true)
+    })
+
+    it("ticks for a selection", () => {
+      service.selection()
+      expect(plugin.selectionChanged).toHaveBeenCalled()
     })
 
     it("plays a light impact", () => {

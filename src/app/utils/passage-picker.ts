@@ -5,6 +5,8 @@ import {
   NEW_TESTAMENT_INTRO,
   OLD_TESTAMENT_GROUPS,
   OLD_TESTAMENT_INTRO,
+  PASTORAL_INDEX_BOOK,
+  PASTORAL_INDEX_GROUP,
   withIntros,
 } from "../bible-canon"
 import { BookService } from "../services/book.service"
@@ -61,7 +63,9 @@ export function buildPassagePicker(
   bookmarks: Bookmark[],
   current: { bookId: string; chapter: number },
 ): PassagePickerData {
-  const byId = new Map(books.map((book) => [book.id, book]))
+  const byId = new Map(
+    [...books, PASTORAL_INDEX_BOOK].map((book) => [book.id, book]),
+  )
   const ribbons = new Map(
     bookmarks.map((bookmark) => [
       `${bookmark.bookId}/${bookmark.chapter}`,
@@ -93,7 +97,8 @@ export function buildPassagePicker(
     title,
     groups: withIntros(groups, leading, (id) => byId.has(id)).flatMap(
       (group): PickerGroup[] => {
-        // The leading introduction is a group with no books, named after it.
+        // A group with no books, named after its entry: the leading
+        // introduction, or the index after Apocalipse.
         if (group.books.length === 0) {
           const intro = byId.get(group.name)
           return intro ? [{ books: [pickerBook(intro)] }] : []
@@ -110,7 +115,11 @@ export function buildPassagePicker(
   return {
     sections: [
       section("Antigo Testamento", OLD_TESTAMENT_GROUPS, OLD_TESTAMENT_INTRO),
-      section("Novo Testamento", NEW_TESTAMENT_GROUPS, NEW_TESTAMENT_INTRO),
+      section(
+        "Novo Testamento",
+        [...NEW_TESTAMENT_GROUPS, PASTORAL_INDEX_GROUP],
+        NEW_TESTAMENT_INTRO,
+      ),
     ],
     currentBookId: current.bookId,
     currentChapter: current.chapter,

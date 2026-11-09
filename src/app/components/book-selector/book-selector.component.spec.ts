@@ -42,6 +42,28 @@ describe("BookSelectorComponent", () => {
     ).toEqual(["Antigo Testamento", "Novo Testamento"])
   })
 
+  it("lists the pastoral index after Apocalipse, and submits it", () => {
+    const element = fixture.nativeElement as HTMLElement
+    const entries = Array.from(
+      element.querySelectorAll<HTMLButtonElement>("button[data-book-id]"),
+    )
+    const last = entries.at(-1) as HTMLButtonElement
+    const submitted: string[] = []
+    component.submitData.subscribe(({ bookId }) => submitted.push(bookId))
+
+    expect(last.textContent?.trim()).toBe("Índice Bíblico-Pastoral")
+    expect(entries.at(-2)?.dataset["bookId"]).toBe("rev")
+    last.click()
+    expect(submitted).toEqual(["indice"])
+  })
+
+  it("finds the pastoral index by its name", () => {
+    component.filterBooks("indice")
+    expect(component.ntTreeControl.dataNodes.map((node) => node.name)).toEqual([
+      "indice",
+    ])
+  })
+
   // The About page is in the header's menu, not among the books.
   it("does not list the About page", () => {
     expect(component.newTestament.map((group) => group.name)).not.toContain(

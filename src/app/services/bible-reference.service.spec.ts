@@ -25,6 +25,20 @@ describe("BibleReferenceService", () => {
         },
         { abrv: "Ap", shortName: "Apoc", name: "Apocalipse", id: "rev" },
         { abrv: "Jb", shortName: "Job", name: "Job", id: "job" },
+        {
+          abrv: "Jd",
+          shortName: "Judas",
+          name: "Judas",
+          id: "jud",
+          chapterCount: 1,
+        },
+        {
+          abrv: "Flm",
+          shortName: "Filémon",
+          name: "Filémon",
+          id: "phm",
+          chapterCount: 1,
+        },
       ],
       findBook(this: { getBooks: () => Book[] }, name: string) {
         const wanted = name.toLocaleLowerCase()
@@ -394,6 +408,68 @@ describe("BibleReferenceService", () => {
       // Spaces around a reference that is the whole query are still that.
       expect(service.destinationOf("  Mt 22,37  ")?.chapter).toBe(22)
     })
+  })
+
+  it("reads the dots after a bookless chapter as its verses", () => {
+    // Chapter 15, verses 2, 4 and 6: never "4.6", chapter 4 verse 6.
+    const refs = service.extract("Mt 5,3; 15,2.4.6; 16,1")
+
+    expect(refs.map((r) => [r.match, r.chapter])).toEqual([
+      ["Mt 5,3", 5],
+      ["15,2.4.6", 15],
+      ["16,1", 16],
+    ])
+    expect(refs[1].verses).toEqual([
+      { type: "single", verse: 2 },
+      { type: "single", verse: 4 },
+      { type: "single", verse: 6 },
+    ])
+  })
+
+  it("carries a verse list on past the mark of a note", () => {
+    const refs = service.extract("Mt 7,9 (n).14.23; 8,2 (n).5")
+
+    expect(refs.map((r) => [r.match, r.chapter])).toEqual([
+      ["Mt 7,9 (n).14.23", 7],
+      ["8,2 (n).5", 8],
+    ])
+  })
+
+  it("doesn't take the next book's number after the mark of a note", () => {
+    const refs = service.extract("Mt 7,9 (n). 1Jo 3,4")
+
+    expect(refs.map((r) => r.match)).toEqual(["Mt 7,9", "1Jo 3,4"])
+  })
+
+  it("reads a one-chapter book's lone number as a verse", () => {
+    const [ref] = service.extract("Jd 9")
+
+    expect(ref.chapter).toBe(1)
+    expect(ref.verses).toEqual([{ type: "single", verse: 9 }])
+  })
+
+  it("reads a one-chapter book's range as verses, all of it linked", () => {
+    const [jude, philemon] = service.extract("Jd 6-7; Flm 4-6.")
+
+    expect([jude.match, jude.chapter]).toEqual(["Jd 6-7", 1])
+    expect(jude.verses).toEqual([{ type: "range", start: 6, end: 7 }])
+    expect([philemon.match, philemon.chapter]).toEqual(["Flm 4-6", 1])
+    expect(philemon.verses).toEqual([{ type: "range", start: 4, end: 6 }])
+  })
+
+  it("reads it so too with the book's name typed without its accent", () => {
+    const [ref] = service.extract("Filemon 5")
+
+    expect(ref.chapter).toBe(1)
+    expect(ref.verses).toEqual([{ type: "single", verse: 5 }])
+  })
+
+  // Written with a space, as people type it; the list gives the chapter its verse.
+  it("takes a verse after a comma and a space", () => {
+    const [ref] = service.extract("Jo 3, 16")
+
+    expect(ref.chapter).toBe(3)
+    expect(ref.verses).toEqual([{ type: "single", verse: 16 }])
   })
 
   // References as liturgical leaflets and the edition's own notes write them.

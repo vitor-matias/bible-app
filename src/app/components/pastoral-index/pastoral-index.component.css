@@ -1,0 +1,260 @@
+:host {
+  /* Inline, the host would end the sticky toolbar's run at the toolbar itself. */
+  display: block;
+  --page-top: var(--app-header-height);
+  /* The sticky bar under the toolbar: the filter, with its padding. */
+  --tools-height: 61px;
+  --mat-expansion-container-background-color: transparent;
+  --mat-expansion-container-text-color: var(--text-color);
+  --mat-expansion-container-shape: 0;
+  --mat-expansion-container-elevation-shadow: none;
+  --mat-expansion-header-text-color: var(--text-color);
+  --mat-expansion-header-indicator-color: color-mix(in srgb, var(--text-color) 60%, transparent);
+  --mat-expansion-header-collapsed-state-height: 48px;
+  --mat-expansion-header-expanded-state-height: 48px;
+  --mat-expansion-header-hover-state-layer-color: color-mix(in srgb, var(--text-color) 6%, transparent);
+  --mat-expansion-header-focus-state-layer-color: color-mix(in srgb, var(--text-color) 12%, transparent);
+  /* The drawer's "Filtrar livros" pill. Half its height, not a huge radius:
+     Material widens the outline's corner pieces to match the radius. */
+  --mat-form-field-outlined-container-shape: 22px;
+  --mat-form-field-container-height: 44px;
+  --mat-form-field-container-vertical-padding: 10px;
+  --mat-form-field-outlined-outline-color: var(--border-color);
+  --mat-form-field-outlined-input-text-color: var(--text-color);
+  --mat-form-field-outlined-caret-color: var(--text-color);
+  --mat-form-field-leading-icon-color: color-mix(in srgb, var(--text-color) 70%, transparent);
+  --mat-form-field-outlined-hover-outline-color: var(--text-color);
+}
+
+:host-context(.native-chrome) {
+  --page-top: var(--native-chrome-top, env(safe-area-inset-top));
+}
+
+.toolbar-title {
+  /* A flex box ignores the shared rule's ellipsis, on the narrowest phones. */
+  display: block;
+}
+
+/* Material's focus state is too faint to find; the keyboard needs to see it. */
+.actionButton:focus-visible {
+  outline: 2px solid var(--cap-brown);
+  outline-offset: -4px;
+}
+
+.letters button:focus-visible,
+mat-expansion-panel-header:focus-visible {
+  outline: 2px solid var(--text-color);
+  outline-offset: -2px;
+}
+
+/* Focused by a jump, not by the keyboard: where Tab carries on from. */
+.letter > h2:focus,
+mat-expansion-panel:focus {
+  outline: none;
+}
+
+/* Set as the themes are, below it. */
+.index-intro {
+  max-width: 45rem;
+  margin: 0.75rem 0 1rem;
+  font-family: var(--font-reading);
+  line-height: 1.35;
+  text-align: justify;
+  hyphens: auto;
+}
+
+/* The filter, and on desktop the letters, stay in view under the toolbar. */
+.index-tools {
+  position: sticky;
+  top: var(--page-top);
+  z-index: 1;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--background-color);
+}
+
+.theme-filter {
+  width: 100%;
+}
+
+mat-accordion {
+  display: block;
+  scroll-margin-top: calc(var(--page-top) + var(--tools-height));
+}
+
+/* The way around a long list: on a phone, the scroll bar down its edge. */
+.letter-bar {
+  position: fixed;
+  z-index: 1;
+  /* Letters centre on the bar's ends: clear of the toolbar, with their highlight. */
+  top: calc(var(--page-top) + 16px);
+  bottom: calc(var(--native-chrome-bottom, env(safe-area-inset-bottom)) + 16px);
+  right: 0;
+  width: 28px;
+  font-family: Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--text-color);
+}
+
+/* The letter buttons, for the keyboard and screen readers only there. Seen as
+   soon as the keyboard reaches them, where the page is zoomed to this width. */
+.letters {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.letters:focus-within {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip-path: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(30px, 1fr));
+  --mat-button-text-horizontal-padding: 0;
+}
+
+.letters button {
+  min-width: 0;
+  font-family: Roboto, sans-serif;
+  font-weight: bold;
+}
+
+/* As the toolbar's buttons. */
+.letters button.current {
+  background-color: antiquewhite;
+  --mat-button-text-label-text-color: var(--cap-brown);
+  color: var(--cap-brown);
+}
+
+/* Material's inner label doesn't inherit the button's colour. */
+.letters button.current ::ng-deep .mdc-button__label {
+  color: var(--cap-brown);
+}
+
+/* Room for the scroll bar, so it never covers the chevrons or the text. */
+.book-index-container {
+  padding-right: 32px;
+}
+
+/* As the group headings on /livros and in the drawer. */
+.letter {
+  scroll-margin-top: calc(var(--page-top) + var(--tools-height));
+}
+
+.letter > h2 {
+  margin: 0;
+  padding: 12px 0 4px;
+  /* Over the text size's own bump (UnifiedGesturesDirective), which is relative
+     to a parent it has already scaled: at 235%, "A" was twice a theme's size. */
+  font-size: 90% !important;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+mat-expansion-panel {
+  border-bottom: 1px solid var(--border-color);
+  /* A theme opens at its title, clear of the toolbar and the letters. */
+  scroll-margin-top: calc(var(--page-top) + var(--tools-height) + 8px);
+}
+
+mat-expansion-panel-header {
+  padding: 0 4px;
+  font-size: inherit;
+  /* Grows with the text size, which also wraps a long title. */
+  height: auto !important;
+  min-height: var(--mat-expansion-header-collapsed-state-height);
+}
+
+/* Material fixes these sizes in px; the reader's text size is a percentage. */
+:host ::ng-deep .mat-expansion-panel-content {
+  font-size: inherit;
+}
+
+/* As the ribbon on the reader's chapter button. */
+.theme-ribbon {
+  flex: none;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  margin-left: 4px;
+  align-self: center;
+  font-variation-settings: "FILL" 1;
+}
+
+/* Red and bold, open or not: the printed index's headwords, and the reader's
+   section headings. */
+mat-panel-title {
+  color: var(--text-secondary);
+  font-family: var(--font-reading);
+  font-size: 1.2em;
+  font-weight: bold;
+  /* 24px at the standard size, as Material's; growing with the text, where
+     the fixed 24px clipped larger titles. */
+  line-height: 1.25;
+}
+
+/* Closes at once: animated, it would slide a theme opened below it out of place
+   while the page scrolls there, and the page would have to turn back. */
+:host ::ng-deep .mat-expansion-panel:not(.mat-expanded) > .mat-expansion-panel-content-wrapper {
+  transition: none;
+}
+
+/* Opens at the pace of the glide to its title. */
+:host ::ng-deep .mat-expansion-panel-animations-enabled.mat-expanded > .mat-expansion-panel-content-wrapper {
+  transition-duration: 400ms;
+}
+
+:host ::ng-deep .mat-expansion-panel-body {
+  padding: 0 4px 12px;
+}
+
+.entry {
+  font-family: var(--font-reading);
+  line-height: 1.35;
+  text-align: justify;
+  hyphens: auto;
+}
+
+/* As the reader does: justified lines gape once the text is this large. */
+.large-text .entry {
+  text-align: start;
+}
+
+.entry p {
+  margin: 0 0 0.25em;
+}
+
+/* Faint, as nothing else shows a citation can be tapped. Cross-references are
+   in italics too, as in print. */
+.entry a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, var(--text-color) 35%, transparent);
+  text-underline-offset: 2px;
+}
+
+.entry a[href^="/indice"] {
+  font-style: italic;
+}
+
+/* The text alone: a catechist prints a theme, filtered down to it. */
+@media print {
+  .toolbar-wrapper,
+  .index-intro,
+  .index-tools,
+  .letter-bar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host ::ng-deep .mat-expansion-panel-content-wrapper,
+  :host ::ng-deep .mat-expansion-indicator {
+    transition: none;
+  }
+}

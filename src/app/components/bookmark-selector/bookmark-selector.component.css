@@ -133,8 +133,15 @@ h3 {
   color: var(--quiet);
 }
 
-/* The passage a ribbon marks outweighs the name of a free one. */
+/* The passage a ribbon marks outweighs the name of a free one. A theme's
+   title can be longer than a tile is wide: two lines, then an ellipsis. */
 .tile.used .tile-label {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   font-size: 14px;
   font-weight: 500;
   color: inherit;

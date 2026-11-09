@@ -120,9 +120,12 @@ extension ChromeViewController {
             return ChromeInsets(top: safeArea.top, bottom: safeArea.bottom)
         case .reader:
             // Auto-scroll's controls float over the text: the page leaves
-            // them no room, and the reader moves them off what they cover.
+            // them no room, and the reader moves them off what they cover. A
+            // filter's field stands in for the toolbar, over the keyboard.
             return ChromeInsets(top: top,
-                                bottom: safeArea.bottom + toolbar.bounds.height,
+                                bottom: state.filterOpen
+                                    ? view.bounds.height - searchField.frame.minY
+                                    : safeArea.bottom + toolbar.bounds.height,
                                 collapsed: collapsed)
         case .search:
             return ChromeInsets(top: top, bottom: view.bounds.height - searchField.frame.minY)

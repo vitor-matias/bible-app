@@ -1,3 +1,7 @@
+import {
+  indexBookmarkLabel,
+  isIndexBookmark,
+} from "../pastoral-index-bookmarks"
 import type {
   RibbonMove,
   RibbonState,
@@ -16,12 +20,16 @@ export function canMark(bookId: string): boolean {
   return bookId !== "about"
 }
 
-/** As the passage button names it: "Mateus 11", "Salmo 96 (95)". */
+/**
+ * As the passage button names it: "Mateus 11", "Salmo 96 (95)", or, on the
+ * Índice Bíblico-Pastoral, the theme's title.
+ */
 export function sheetPassageLabel(
   findBookById: (bookId: string) => Book | undefined,
   bookId: string,
   chapter: number,
 ): string {
+  if (isIndexBookmark(bookId)) return indexBookmarkLabel(bookId)
   const book = findBookById(bookId) ?? { id: bookId, shortName: bookId }
   // The About page has no chapters: "Sobre a Bíblia", not "… 1".
   if (!canMark(bookId)) return book.shortName

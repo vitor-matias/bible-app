@@ -17,6 +17,7 @@ import {
   type CanonGroup,
   NEW_TESTAMENT_GROUPS,
   OLD_TESTAMENT_GROUPS,
+  PASTORAL_INDEX_BOOK,
 } from "../../bible-canon"
 import { BookService } from "../../services/book.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
@@ -112,7 +113,16 @@ export class BookIndexComponent implements OnInit, OnDestroy {
       }))
     return [
       { name: "Antigo Testamento", groups: toGroups(OLD_TESTAMENT_GROUPS) },
-      { name: "Novo Testamento", groups: toGroups(NEW_TESTAMENT_GROUPS) },
+      {
+        name: "Novo Testamento",
+        groups: [
+          ...toGroups(NEW_TESTAMENT_GROUPS),
+          {
+            name: "",
+            books: [{ name: PASTORAL_INDEX_BOOK.name, link: ["/indice"] }],
+          },
+        ],
+      },
     ]
   }
 

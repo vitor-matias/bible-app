@@ -63,6 +63,17 @@ export class PreferencesService {
     ONBOARDING_SEEN: "onboardingSeen",
     APP_PROMO_SEEN: "appPromoSeen",
     NATIVE_BARS_ONBOARDING_SEEN: "nativeBarsOnboardingSeen",
+    RAGGED_TEXT: "raggedText",
+  }
+
+  /** The reader's choice of ragged-right (true) or justified (false) text; null until they make one. */
+  getRaggedText(): boolean | null {
+    const stored = this.read(this.KEYS.RAGGED_TEXT)
+    return stored === "true" ? true : stored === "false" ? false : null
+  }
+
+  setRaggedText(ragged: boolean): void {
+    this.write(this.KEYS.RAGGED_TEXT, ragged.toString())
   }
 
   getTheme(): "light" | "dark" | "system" | null {
