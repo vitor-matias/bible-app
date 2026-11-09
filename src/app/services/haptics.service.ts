@@ -20,6 +20,12 @@ export class HapticsService {
     this.haptics.impact({ style: ImpactStyle.Light }).catch(() => {})
   }
 
+  /** A tick for each new value under the finger, as a picker or index gives. */
+  selection(): void {
+    if (!Capacitor.isNativePlatform()) return
+    this.haptics.selectionChanged().catch(() => {})
+  }
+
   /** Confirms a completed action, such as saving a bookmark. */
   success(): void {
     if (!Capacitor.isNativePlatform()) return

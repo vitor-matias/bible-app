@@ -14,12 +14,14 @@ import { Capacitor } from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
 import { appConfig, isVercelHost } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
+import { AppPromoService } from "./services/app-promo.service"
 import { BackButtonService } from "./services/back-button.service"
 import { historyDepth } from "./services/depth-location-strategy"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
 import { PwaInstallService } from "./services/pwa-install.service"
+import { TextAlignService } from "./services/text-align.service"
 import { ThemeService } from "./services/theme.service"
 import { ToastService } from "./services/toast.service"
 import { APP_PLUGIN, PAGE_HOSTNAME } from "./tokens"
@@ -46,6 +48,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private nativeShell = inject(NativeShellService)
   private backButton = inject(BackButtonService)
   private toast = inject(ToastService)
+  private appPromo = inject(AppPromoService)
 
   private readonly listenerHandles: PluginListenerHandle[] = []
   /** Until when a back on the first screen leaves the app. */
@@ -55,6 +58,8 @@ export class AppComponent implements OnInit, OnDestroy {
     // Injected early so they capture what fires once: the theme's media-query
     // listener and the PWA's `beforeinstallprompt`.
     inject(ThemeService)
+    // Injected early so the reader's ragged-right choice applies on load.
+    inject(TextAlignService)
     inject(PwaInstallService)
     // Speed Insights is served by Vercel deployments only. The website itself
     // is nginx, where its script 404s on every page, and the native apps load
@@ -74,6 +79,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.setupNativeListeners()
     this.nativeShell.init()
     this.onboardingService.showOnFirstLaunch()
+    this.appPromo.scheduleOnce()
   }
 
   private trackAppOpenEvent(): void {

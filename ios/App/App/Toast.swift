@@ -15,6 +15,11 @@ final class ToastView: UIView {
     private let background: UIVisualEffectView
     private var hideWork: DispatchWorkItem?
     private var onTap: (() -> Void)?
+    private var symbol: String?
+    /// The button showing, for a sheet about to cover it to offer in its place.
+    var activeButton: (message: String, symbol: String?)? {
+        onTap == nil ? nil : (label.text ?? "", symbol)
+    }
     /// Called once the toast is going away (timed, closed, or tapped).
     var onHide: (() -> Void)?
     /// Trailing, top and bottom: the buttons' padding stands in for these.
@@ -104,6 +109,7 @@ final class ToastView: UIView {
         hideWork?.cancel()
         hideWork = nil
         self.onTap = onTap
+        self.symbol = symbol
         let button = onTap != nil
         label.text = message
         label.isHidden = button
@@ -149,7 +155,7 @@ final class ToastView: UIView {
     }
 
     /// A plain toast goes away; a button runs its action and goes away.
-    @objc private func tapped() {
+    @objc func tapped() {
         let action = onTap
         dismissNow()
         action?()

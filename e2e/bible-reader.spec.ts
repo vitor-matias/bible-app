@@ -159,7 +159,7 @@ test.describe("Book selector drawer", () => {
     await expect(drawer).toBeVisible({ timeout: 5_000 })
 
     // The 73 canonical books. Introductions are left out by id: their number follows the content, and
-    // a cluster's goes by its name, so their labels can't tell them apart.
+    // a cluster's goes by its name, so their labels can't tell them apart. The pastoral index is no book.
     const books = drawer.locator(
       "mat-tree-node:not(.book-group) .bookSelectorButton",
     )
@@ -174,7 +174,7 @@ test.describe("Book selector drawer", () => {
             await books.evaluateAll((nodes) =>
               nodes.map((node) => node.getAttribute("data-book-id") ?? ""),
             )
-          ).filter((id) => !introIds.has(id)).length,
+          ).filter((id) => !introIds.has(id) && id !== "indice").length,
         { timeout: 15_000 },
       )
       .toBe(73)
@@ -406,7 +406,7 @@ test.describe("Onboarding", () => {
       await expect(wizard).toContainText("Bem-vindo")
 
       await wizard.getByRole("button", { name: "Seguinte" }).click()
-      await expect(wizard).toContainText("Navegar na Bíblia")
+      await expect(wizard).toContainText("Escolher um livro")
 
       await wizard.getByRole("button", { name: "Fechar" }).click()
       await expect(wizard).toHaveCount(0)
@@ -502,7 +502,7 @@ test.describe("Theme before the bundle", () => {
 
       await expect(page.locator("body")).toHaveCSS(
         "background-color",
-        dark ? "rgb(18, 18, 18)" : "rgb(255, 255, 255)",
+        dark ? "rgb(18, 18, 18)" : "rgb(255, 251, 247)",
       )
     })
   }

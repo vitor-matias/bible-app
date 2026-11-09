@@ -9,7 +9,12 @@ import { ActivatedRoute, Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, of, Subject } from "rxjs"
 import type { Mock } from "vitest"
+import { PRIVACY_POLICY_URL } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
+import {
+  AppPromoService,
+  type StoreLink,
+} from "../../services/app-promo.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
@@ -25,6 +30,7 @@ import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { ThemeService } from "../../services/theme.service"
 import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
+import { ReaderMenuComponent } from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { HeaderComponent } from "./header.component"
 
@@ -45,6 +51,7 @@ describe("HeaderComponent", () => {
   let analyticsServiceSpy: SpyObj<AnalyticsService>
   let onboardingServiceSpy: SpyObj<OnboardingService>
   let buildVersionSpy: SpyObj<BuildVersionService>
+  let appPromoSpy: SpyObj<AppPromoService>
   let isOfflineSubject: BehaviorSubject<boolean>
   let originalShare: typeof navigator.share
 
@@ -87,6 +94,14 @@ describe("HeaderComponent", () => {
       release: "1.2.3",
       build: "20261016-120000Z",
     })
+    appPromoSpy = createSpyObj("AppPromoService", [
+      "deviceStore",
+      "menuLabel",
+      "markSeen",
+      "trackStoreOpen",
+    ])
+    appPromoSpy.deviceStore.mockReturnValue(null)
+    appPromoSpy.menuLabel.mockReturnValue("Instalar a aplicação")
     originalShare = navigator.share
 
     await TestBed.configureTestingModule({
@@ -103,6 +118,7 @@ describe("HeaderComponent", () => {
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
         { provide: OnboardingService, useValue: onboardingServiceSpy },
         { provide: BuildVersionService, useValue: buildVersionSpy },
+        { provide: AppPromoService, useValue: appPromoSpy },
       ],
     }).compileComponents()
 
@@ -227,115 +243,48 @@ describe("HeaderComponent", () => {
     expect(fixture.nativeElement.querySelector(".searchButton")).toBeTruthy()
   })
 
-  describe("BibleScroll menu entry", () => {
-    /** Opens the menu with the inputs the reader would bind. */
-    function openMenu(inputs: {
-      available: boolean
-      on?: boolean
-    }): HTMLElement[] {
-      fixture.componentRef.setInput("cardsViewAvailable", inputs.available)
-      fixture.componentRef.setInput("cardsView", inputs.on ?? false)
-      fixture.detectChanges()
-      fixture.nativeElement.querySelector(".menuButton").click()
-      fixture.detectChanges()
-      // The menu renders into the overlay container, outside the fixture.
-      return Array.from(
-        document.querySelectorAll<HTMLElement>(".mat-mdc-menu-item"),
-      )
-    }
+  // The menu is ReaderMenuComponent's; the header only hands BibleScroll's
+  // state down and its toggle back up to the reader.
+  it("forwards BibleScroll's entry to the reader", async () => {
+    fixture.componentRef.setInput("cardsViewAvailable", true)
+    const toggled = vi.fn().mockName("toggleCardsView")
+    component.toggleCardsView.subscribe(toggled)
+    await fixture.whenStable()
+    fixture.debugElement
+      .query(By.directive(MatMenuTrigger))
+      .injector.get(MatMenuTrigger)
+      .openMenu()
+    fixture.detectChanges()
 
-    function cardViewItem(items: HTMLElement[]): HTMLElement | undefined {
-      return items.find((item) => item.textContent?.includes("BibleScroll"))
-    }
+    const item = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        ".mat-mdc-menu-panel .mat-mdc-menu-item",
+      ),
+    ).find((candidate) => candidate.textContent?.includes("BibleScroll"))
+    item?.click()
 
-    it("is offered where the reader can show the view, flagged as experimental", () => {
-      const item = cardViewItem(openMenu({ available: true }))
+    expect(item).toBeTruthy()
+    expect(toggled).toHaveBeenCalledTimes(1)
+  })
 
-      expect(item?.textContent).toContain("BibleScroll")
-      expect(item?.textContent).not.toContain("Sair")
-      expect(item?.textContent).toContain("Experimental")
-    })
-
-    it("is left out where the reader cannot show it", () => {
-      const items = openMenu({ available: false })
-
-      // The menu did open, so the entry is missing rather than not yet drawn.
-      expect(items.length).toBeGreaterThan(0)
-      expect(cardViewItem(items)).toBeUndefined()
-    })
-
-    // The feature began as a "doomscrolling mode"; it is BibleScroll now, and
-    // the old name must not resurface in front of readers.
-    it("does not call itself doomscrolling", () => {
-      const items = openMenu({ available: true })
-
-      expect(items.length).toBeGreaterThan(0)
-      for (const item of items) {
-        expect(item.textContent?.toLowerCase()).not.toContain("doomscroll")
-      }
-    })
-
-    it("offers the way out while the view is on", () => {
-      const item = cardViewItem(openMenu({ available: true, on: true }))
-
-      expect(item?.textContent).toContain("Sair do BibleScroll")
-    })
-
-    it("asks the reader to toggle the view when tapped", () => {
-      const toggled = vi.fn().mockName("toggleCardsView")
-      component.toggleCardsView.subscribe(toggled)
-
-      cardViewItem(openMenu({ available: true }))?.click()
-
-      expect(toggled).toHaveBeenCalledTimes(1)
-    })
-
-    it("closes the menu on the way out", () => {
-      const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
-        "closeMenu",
-      ])
-
-      component.onToggleCardsView(trigger)
-
-      expect(trigger.closeMenu).toHaveBeenCalled()
-    })
-
-    it("drops the scrolling/paged toggle while the cards replace both", () => {
-      openMenu({ available: true, on: true })
-
-      const controls = document.querySelector(".menu-controls")
-      expect(controls).toBeTruthy()
-      expect(controls?.textContent).not.toContain("swipe_vertical")
-      expect(controls?.textContent).not.toContain("auto_stories")
-    })
-
-    it("keeps the scrolling/paged toggle otherwise", () => {
-      openMenu({ available: true })
-
-      expect(document.querySelector(".menu-controls")?.textContent).toContain(
-        "swipe_vertical",
-      )
-    })
-
-    it("disables the auto-scroll entry, which would fight the snapping", () => {
-      const items = openMenu({ available: true, on: true })
-      const autoScroll = items.find((item) =>
-        item.textContent?.includes("deslocamento automático"),
-      )
-
-      expect(autoScroll?.hasAttribute("disabled")).toBe(true)
-    })
+  // The onboarding rings these while its steps name them (OnboardingStep.highlight).
+  it("marks the buttons the onboarding points to", () => {
+    const host: HTMLElement = fixture.nativeElement
+    expect(host.querySelector('[data-tour="text"]')?.ariaLabel).toBe("Menu")
+    expect(host.querySelector('[data-tour="search"]')?.ariaLabel).toBe(
+      "Pesquisar",
+    )
+    expect(
+      host.querySelector('[data-tour="passage"]')?.querySelectorAll("button")
+        .length,
+    ).toBeGreaterThan(0)
   })
 
   it("should open the report problem dialog from the menu", () => {
-    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
-      "closeMenu",
-    ])
     fixture.componentRef.setInput("chapterNumber", 3)
 
-    component.onReportProblem(trigger)
+    component.openReportProblem()
 
-    expect(trigger.closeMenu).toHaveBeenCalled()
     expect(dialogSpy.open).toHaveBeenCalledWith(ReportProblemComponent, {
       data: { book: component.book(), chapter: 3 },
       width: "90%",
@@ -345,12 +294,9 @@ describe("HeaderComponent", () => {
 
   // Chapter 0 is the introduction; a falsy check used to swallow it.
   it("should open the report problem dialog for an introduction", () => {
-    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
-      "closeMenu",
-    ])
     fixture.componentRef.setInput("chapterNumber", 0)
 
-    component.onReportProblem(trigger)
+    component.openReportProblem()
 
     expect(dialogSpy.open).toHaveBeenCalledWith(ReportProblemComponent, {
       data: { book: component.book(), chapter: 0 },
@@ -360,17 +306,12 @@ describe("HeaderComponent", () => {
   })
 
   it("should not open the report problem dialog when chapter context is missing", () => {
-    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
-      "closeMenu",
-    ])
-
     fixture.componentRef.setInput(
       "chapterNumber",
       undefined as unknown as number,
     )
-    component.onReportProblem(trigger)
+    component.openReportProblem()
 
-    expect(trigger.closeMenu).toHaveBeenCalled()
     expect(dialogSpy.open).not.toHaveBeenCalled()
   })
 
@@ -410,6 +351,143 @@ describe("HeaderComponent", () => {
       fixture.destroy()
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(false)
+    })
+  })
+
+  describe("the app's store in the menu", () => {
+    const play: StoreLink = {
+      store: "play",
+      url: "https://play.google.com/store/apps/details?id=org.capuchinhos.biblia",
+      badge: "imgs/badges/google-play-pt.png",
+      label: "Obter no Google Play",
+      newApp: "Nova aplicação no Google Play",
+    }
+
+    const openMenu = () => {
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+    }
+
+    const recreate = () => {
+      fixture = TestBed.createComponent(HeaderComponent)
+      component = fixture.componentInstance
+      fixture.componentRef.setInput("book", {
+        id: "gen",
+        name: "Genesis",
+        shortName: "",
+        abrv: "",
+        chapterCount: 50,
+      })
+      fixture.componentRef.setInput("chapterNumber", 1)
+      fixture.detectChanges()
+    }
+
+    const offerInstall = () => {
+      window.dispatchEvent(
+        Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
+          prompt: vi.fn(),
+          userChoice: Promise.resolve({
+            outcome: "dismissed",
+            platform: "web",
+          }),
+        }),
+      )
+      fixture.detectChanges()
+    }
+
+    it("is left out where the device has no store app", () => {
+      openMenu()
+
+      expect(appPromoSpy.deviceStore).toHaveBeenCalledWith("menu")
+      expect(document.querySelector(".app-store-link")).toBeNull()
+      expect(appPromoSpy.markSeen).not.toHaveBeenCalled()
+    })
+
+    it("takes its words from the promo, which says what's new inside the installed website", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      appPromoSpy.menuLabel.mockReturnValue("Nova aplicação no Google Play")
+      recreate()
+      openMenu()
+
+      expect(appPromoSpy.menuLabel).toHaveBeenCalledWith(play)
+      expect(document.querySelector(".app-store-link")?.textContent).toContain(
+        "Nova aplicação no Google Play",
+      )
+    })
+
+    it("says what's new as soon as the website is installed, without a reload", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      recreate()
+      offerInstall()
+      openMenu()
+      const label = () => document.querySelector(".app-store-link")?.textContent
+      expect(label()).toContain("Instalar a aplicação")
+
+      appPromoSpy.menuLabel.mockReturnValue("Nova aplicação no Google Play")
+      window.dispatchEvent(new Event("appinstalled"))
+      fixture.detectChanges()
+
+      expect(label()).toContain("Nova aplicação no Google Play")
+    })
+
+    it("stands in for the browser's install entry, which would read almost the same", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      recreate()
+      offerInstall()
+      openMenu()
+
+      expect(
+        fixture.debugElement
+          .query(By.directive(ReaderMenuComponent))
+          .componentInstance.canInstall(),
+      ).toBe(true)
+      expect(document.querySelector(".app-store-link")).not.toBeNull()
+      const items = Array.from(
+        document.querySelectorAll(".mat-mdc-menu-panel .mat-mdc-menu-item"),
+      ).map((item) => item.textContent)
+      expect(items.some((text) => text?.includes("Instalar a app"))).toBe(false)
+    })
+
+    it("counts as the prompt once the open menu shows it", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      recreate()
+      expect(appPromoSpy.markSeen).not.toHaveBeenCalled()
+
+      openMenu()
+
+      expect(appPromoSpy.markSeen).toHaveBeenCalled()
+    })
+
+    it("links straight to the store, just below the help", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      recreate()
+      openMenu()
+
+      const link = document.querySelector<HTMLAnchorElement>(".app-store-link")
+      expect(link?.textContent).toContain("Instalar a aplicação")
+      expect(link?.getAttribute("href")).toBe(play.url)
+      expect(link?.target).toBe("_blank")
+      expect(link?.previousElementSibling?.textContent).toContain(
+        "Como usar a app",
+      )
+    })
+
+    it("counts a tap", () => {
+      appPromoSpy.deviceStore.mockReturnValue(play)
+      recreate()
+      openMenu()
+
+      const link = document.querySelector<HTMLAnchorElement>(
+        ".app-store-link",
+      ) as HTMLAnchorElement
+      // Keep the test page where it is.
+      link.addEventListener("click", (event) => event.preventDefault())
+      link.click()
+
+      expect(appPromoSpy.trackStoreOpen).toHaveBeenCalledWith(play, "menu")
     })
   })
 
@@ -510,7 +588,7 @@ describe("HeaderComponent", () => {
       const version = document.querySelector(".menu-version")
       expect(text()).toBe("1.2.3 · 20261016-120000Z")
       expect(version?.previousElementSibling?.getAttribute("href")).toBe(
-        component.privacyPolicyUrl,
+        PRIVACY_POLICY_URL,
       )
       expect(version?.nextElementSibling).toBeNull()
     })
@@ -628,6 +706,50 @@ describe("HeaderComponent", () => {
       )
     })
 
+    describe("text alignment", () => {
+      afterEach(() => {
+        localStorage.removeItem("raggedText")
+        document.documentElement.classList.remove("ragged-text")
+      })
+
+      // At 480.4px innerWidth reads 480 while the stylesheets' query no longer
+      // matches, so the phone's ragged default flipped without a native resync.
+      it("tells phone from wider by the stylesheets' query, not innerWidth", () => {
+        vi.spyOn(window, "matchMedia").mockImplementation(
+          (query) =>
+            ({ matches: query === "(max-width: 480px)" }) as MediaQueryList,
+        )
+        component.mobile = false
+
+        component.updateMobile()
+
+        expect(component.mobile).toBe(true)
+      })
+
+      it("switches the text between justified and ragged-right", () => {
+        themeButton()
+        const button = document.querySelectorAll<HTMLButtonElement>(
+          ".menu-controls .menu-control",
+        )[2]
+        expect(button.getAttribute("aria-label")).toBe(
+          "Justificado (clique para alinhar à esquerda)",
+        )
+
+        button.click()
+
+        expect(trigger().menuOpen).toBe(true)
+        expect(document.documentElement.classList.contains("ragged-text")).toBe(
+          true,
+        )
+        expect(button.querySelector("mat-icon")?.textContent?.trim()).toBe(
+          "format_align_left",
+        )
+        expect(button.getAttribute("aria-label")).toBe(
+          "Alinhado à esquerda (clique para justificar)",
+        )
+      })
+    })
+
     // Plain buttons in a menu are skipped by its arrow keys.
     it("can be reached with the menu's arrow keys", () => {
       themeButton()
@@ -669,30 +791,34 @@ describe("HeaderComponent", () => {
   })
 
   it("opens the About page from the menu", () => {
-    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
-      "closeMenu",
-    ])
     const selected: {
       bookId: string
       chapter?: number
     }[] = []
     component.selectPassage.subscribe((passage) => selected.push(passage))
 
-    component.onOpenAbout(trigger)
+    component.openAbout()
 
-    expect(trigger.closeMenu).toHaveBeenCalled()
     expect(selected).toEqual([{ bookId: "about" }])
   })
 
-  it("should open the onboarding wizard from the menu", () => {
-    const trigger = createSpyObj<MatMenuTrigger>("MatMenuTrigger", [
-      "closeMenu",
-    ])
+  it("should open the onboarding wizard from the menu, and close it", () => {
+    const trigger = fixture.debugElement
+      .query(By.directive(MatMenuTrigger))
+      .injector.get(MatMenuTrigger)
+    trigger.openMenu()
+    fixture.detectChanges()
 
-    component.onOpenHelp(trigger)
+    Array.from(
+      document.querySelectorAll<HTMLElement>(
+        ".mat-mdc-menu-panel .mat-mdc-menu-item",
+      ),
+    )
+      .find((item) => item.textContent?.includes("Como usar a app"))
+      ?.click()
 
-    expect(trigger.closeMenu).toHaveBeenCalled()
     expect(onboardingServiceSpy.open).toHaveBeenCalledWith("menu")
+    expect(trigger.menuOpen).toBe(false)
   })
 
   it("should share the page URL as is on the web", async () => {
@@ -1146,6 +1272,7 @@ describe("HeaderComponent with the iOS native bars", () => {
       search: true,
       themeMode: "system",
       viewMode: "scrolling",
+      raggedText: false,
       autoScrollVisible: false,
       autoScrollAvailable: true,
       canShare: true,
@@ -1192,6 +1319,7 @@ describe("HeaderComponent with the iOS native bars", () => {
         passageShortLabels: [],
         chapterNavigation: false,
         viewMode: null,
+        raggedText: null,
       }),
     )
     // The web header's prompt swap has no place on a native button.
@@ -1322,6 +1450,28 @@ describe("HeaderComponent with the iOS native bars", () => {
     actions.next({ id: "auto-scroll" })
 
     expect(emitted).toEqual(["view", "smaller", "larger", "scroll"])
+  })
+
+  // The native menus' Justificado / Alinhado à esquerda: the same choice as
+  // the web menu's button, and the bars mark the new one.
+  it("sets the text ragged-right, or justified again, from the native menus", () => {
+    const classes = document.documentElement.classList
+    try {
+      actions.next({ id: "text-align" })
+
+      expect(classes.contains("ragged-text")).toBe(true)
+      expect(lastState()).toEqual(expect.objectContaining({ raggedText: true }))
+
+      actions.next({ id: "text-align" })
+
+      expect(classes.contains("ragged-text")).toBe(false)
+      expect(lastState()).toEqual(
+        expect.objectContaining({ raggedText: false }),
+      )
+    } finally {
+      localStorage.removeItem("raggedText")
+      classes.remove("ragged-text")
+    }
   })
 
   // The Android sheet steps by 10, and resets to the size the text opens at.

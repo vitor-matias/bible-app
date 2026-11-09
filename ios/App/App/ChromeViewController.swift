@@ -94,6 +94,11 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         drag.cancelsTouchesInView = false
         drag.delegate = self
         bridgeController.view.addGestureRecognizer(drag)
+        // So does a tap on a filtered list: the row opens above the keyboard.
+        let tap = UITapGestureRecognizer(target: self, action: #selector(pageTapped))
+        tap.cancelsTouchesInView = false
+        tap.delegate = self
+        bridgeController.view.addGestureRecognizer(tap)
 
         // The page scrolls in an element of its own, which the web view's
         // scroll-to-top can't reach: the web app scrolls it (scroll-top).
@@ -221,7 +226,16 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             configureReader(next)
             setTopBarItems([readerItem], animated: previous.mode == .search)
             announceChanges(from: previous, to: next)
+            if let placeholder = next.filterPlaceholder, next.filterOpen {
+                searchField.placeholder = placeholder
+                searchField.onClose = { [weak self] in self?.plugin.send("filter-close") }
+                if let text = ChromeState.filterText(from: previous, to: next, editing: searchField.isEditing) {
+                    searchField.text = text
+                }
+            }
         case .search:
+            searchField.placeholder = "Procurar na Bíblia"
+            searchField.onClose = nil
             setTopBarItems([searchBackItem, searchItem], animated: previous.mode == .reader)
             if usesVerticalBar {
                 setSystemBarItems(title: searchItem.title, left: [systemBackItem], right: [])
@@ -246,7 +260,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         case .none:
             break
         }
-        if previous.mode == .search && next.mode != .search {
+        if previous.showsSearchField && !next.showsSearchField {
             searchField.endEditing(true)
         }
 
@@ -259,14 +273,15 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         collapsed = collapse
         let systemBars = usesVerticalBar && next.mode != .none
         setShown(topBar, next.mode != .none && !systemBars, animated: animated)
-        setShown(toolbar, next.mode == .reader, animated: animated)
-        setShown(compactPassage, next.mode == .reader, animated: animated)
+        setShown(toolbar, next.mode == .reader && !next.filterOpen, animated: animated)
+        setShown(compactPassage, next.mode == .reader && !next.filterOpen, animated: animated)
         navigationController?.setNavigationBarHidden(!systemBars, animated: animated)
-        navigationController?.setToolbarHidden(!(systemBars && next.mode == .reader && next.chapterNavigation),
-                                               animated: animated)
-        setShown(searchField, next.mode == .search, animated: animated)
+        let systemToolbar = next.mode == .reader && !next.filterOpen
+            && (next.chapterNavigation || next.filterPlaceholder != nil)
+        navigationController?.setToolbarHidden(!(systemBars && systemToolbar), animated: animated)
+        setShown(searchField, next.showsSearchField, animated: animated)
         // Once shown: hidden, the field may not take the keyboard.
-        if next.mode == .search && previous.mode != .search {
+        if ChromeState.focusesSearchField(from: previous, to: next) {
             searchField.focus()
         }
         setShown(autoScrollControl, next.mode == .reader && next.autoScroll != nil, animated: animated)
@@ -304,6 +319,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     /// Pesquisar, in the top bar's right corner, as in the web header.
     lazy var readerSearchItem = barButton("magnifyingglass", "Pesquisar", "search")
+
+    /// Filters a list, in the chapter arrows' place on a page without them.
+    lazy var filterItem = barButton("line.3.horizontal.decrease", "Filtrar", "filter")
 
     /// Pesquisar, on a plain page.
     private lazy var pageSearchItem = barButton("magnifyingglass", "Pesquisar", "search")
@@ -407,7 +425,12 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     }
 
     @objc private func pageDragged(_ drag: UIPanGestureRecognizer) {
-        guard drag.state == .began, state.mode == .search, searchField.isEditing else { return }
+        guard drag.state == .began, state.showsSearchField, searchField.isEditing else { return }
+        searchField.endEditing(true)
+    }
+
+    @objc private func pageTapped() {
+        guard state.filterOpen, searchField.isEditing else { return }
         searchField.endEditing(true)
     }
 

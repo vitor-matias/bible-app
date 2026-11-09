@@ -46,6 +46,8 @@ struct ChromeState: Equatable {
     var canGoNext = false
     var search = false
     var viewMode: String?
+    /// Whether the text is ragged-right rather than justified; nil hides the choice.
+    var raggedText: Bool?
     var autoScrollVisible = false
     var autoScrollAvailable = false
     var canShare = false
@@ -59,8 +61,31 @@ struct ChromeState: Equatable {
 
     var autoScroll: AutoScrollState?
 
-    // Search
+    /// A list's filter (the pastoral index), for a page with no chapter arrows:
+    /// a button in their place, which opens the bottom search field.
+    var filterPlaceholder: String?
+    var filterOpen = false
+
+    /// The search page's query, or the filter's.
     var query = ""
+
+    /// The bottom search field shows.
+    var showsSearchField: Bool { mode == .search || (mode == .reader && filterOpen) }
+
+    /// The field takes the keyboard as it shows, and on the way into search
+    /// from a filter, the field shown all along.
+    static func focusesSearchField(from previous: ChromeState, to next: ChromeState) -> Bool {
+        next.showsSearchField
+            && (!previous.showsSearchField || (next.mode == .search && previous.mode != .search))
+    }
+
+    /// The filter's text to show, or nil to leave it: not over what is being
+    /// typed, whose echo comes after it; but the page clearing the filter clears it.
+    static func filterText(from previous: ChromeState, to next: ChromeState, editing: Bool) -> String? {
+        guard !previous.filterOpen
+            || (next.query != previous.query && (!editing || next.query.isEmpty)) else { return nil }
+        return next.query
+    }
 
     // Page
     var title = ""
@@ -83,6 +108,7 @@ struct ChromeState: Equatable {
         canGoNext = call.getBool("canGoNext", false)
         search = call.getBool("search", false)
         viewMode = call.getString("viewMode")
+        raggedText = call.getBool("raggedText")
         autoScrollVisible = call.getBool("autoScrollVisible", false)
         autoScrollAvailable = call.getBool("autoScrollAvailable", false)
         canShare = call.getBool("canShare", false)
@@ -90,6 +116,8 @@ struct ChromeState: Equatable {
         bookmarkColor = call.getString("bookmarkColor")
         bookmarkName = call.getString("bookmarkName")
         buildVersion = call.getString("buildVersion")
+        filterPlaceholder = call.getString("filterPlaceholder")
+        filterOpen = call.getBool("filterOpen", false)
         query = call.getString("query", "")
         title = call.getString("title", "")
         autoScroll = call.getObject("autoScroll").map(AutoScrollState.init)

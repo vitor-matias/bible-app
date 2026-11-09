@@ -101,15 +101,25 @@ contract is the `NativeChromePlugin` interface in that service file.
   the contract is extended in all three places; a new state field also needs a payload in
   `native-contract/`.
 - **`native-contract/`** holds JSON payloads (`reader.json`, `reader-minimal.json`,
-  `search.json`, `page.json`, `none.json`) that the web service must produce
+  `reader-filter.json`, `search.json`, `page.json`, `none.json`) that the web service must produce
   (`native-contract.spec.ts`) and the Android (`ChromeContractTest.kt`) and iOS
   (`ChromeStateTests.swift`) shells must parse, so the three copies cannot drift. The iOS
   bars ignore `scrolled`, `subtitle`, `textSize` and `pageColor`, which only Android uses.
   CI runs the iOS job when `native-contract/**` changes.
+- **The pastoral index is a book to the bars.** It sends `mode: "reader"` with no chapter
+  navigation, `viewMode: null` and `autoScrollAvailable: false` (which leaves auto-scroll out
+  of the menu), so the passage button, Marcadores, search and the menus are the reader's. Its
+  list stays in the web view under `pastoral-index.native.css` (`:host(.ios)`, `:host(.android)`).
+  `filterPlaceholder`, `filterOpen` and `query` give it a filter button in the arrows' place and
+  the platform's search field, and it passes `document` to `trackScroll`, as the page scrolls
+  the document. Scrolling it does itself after a tap goes through `holdBars`.
 - **Overlays.** The native bars sit above the whole web view, so a web dialog or bottom
   sheet would open beneath them. While one is open (a CDK dark backdrop shows) the
   reader's bars slide away and any remaining bars turn `inert`; the apps show bookmarks,
-  notes, the report form, onboarding and the picker as native sheets instead. The bars
+  notes, the report form, onboarding and the picker as native sheets instead. A toast is
+  under any native sheet, so the notes sheet offers a toast that is a button ("Voltar para …")
+  itself: on iOS floating above the sheet, or at its foot once it fills the screen; on Android
+  under its title. The bars
   float without changing the web view's safe area, so hiding them never changes layout.
 - **Body classes.** `NativeShellService` adds `platform-ios` / `platform-android` and
   `NativeChromeService.init` adds `native-chrome`. Keep platform-only CSS under those

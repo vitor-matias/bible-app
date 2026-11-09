@@ -28,6 +28,8 @@ import {
   NEW_TESTAMENT_INTRO,
   OLD_TESTAMENT_GROUPS,
   OLD_TESTAMENT_INTRO,
+  PASTORAL_INDEX_BOOK,
+  PASTORAL_INDEX_GROUP,
   withIntros,
 } from "../../bible-canon"
 import { scrollOnDrawerOpen } from "../../utils/drawer-scroll"
@@ -133,7 +135,7 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
     return withIntros(groups, leading, (bookId) => !!this.getBook(bookId))
   }
 
-  newTestament: CanonGroup[] = NEW_TESTAMENT_GROUPS
+  newTestament: CanonGroup[] = [...NEW_TESTAMENT_GROUPS, PASTORAL_INDEX_GROUP]
 
   filterQuery = ""
 
@@ -195,6 +197,7 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
   }
 
   getBook(bookId: string): Book | undefined {
+    if (bookId === PASTORAL_INDEX_BOOK.id) return PASTORAL_INDEX_BOOK
     return this.books().find((book) => book.id === bookId)
   }
 

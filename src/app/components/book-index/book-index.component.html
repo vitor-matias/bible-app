@@ -31,6 +31,8 @@
       <h2>{{ testament.name }}</h2>
       @for (group of testament.groups; track group.name) {
       <section class="group">
+        <!-- The Índice Bíblico-Pastoral, after Apocalipse, heads no group. -->
+        @if (group.name) {
         <h3>
           @if (group.introLink) {
           <a [routerLink]="group.introLink">{{ group.name }}</a>
@@ -38,6 +40,7 @@
           {{ group.name }}
           }
         </h3>
+        }
         <ul>
           @for (book of group.books; track book.name) {
           <li><a [routerLink]="book.link">{{ book.name }}</a></li>

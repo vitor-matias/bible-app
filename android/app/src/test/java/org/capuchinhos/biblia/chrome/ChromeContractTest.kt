@@ -36,6 +36,7 @@ class ChromeContractTest {
         assertTrue(state.canGoNext)
         assertTrue(state.search)
         assertEquals("paged", state.viewMode)
+        assertEquals(true, state.raggedText)
         assertTrue(state.autoScrollVisible)
         assertTrue(state.autoScrollAvailable)
         assertTrue(state.canShare)
@@ -67,6 +68,7 @@ class ChromeContractTest {
         assertFalse(state.canGoPrevious)
         assertFalse(state.search)
         assertNull(state.viewMode)
+        assertNull(state.raggedText)
         assertNull(state.bookmarkColor)
         assertNull(state.bookmarkName)
         assertNull(state.buildVersion)
@@ -95,6 +97,24 @@ class ChromeContractTest {
         assertTrue(state.search)
         assertTrue(state.scrolled)
         assertEquals(0xFFFFFFFF.toInt(), state.pageColor)
+    }
+
+    @Test
+    fun readsAPageWithAFilter() {
+        val state = fixture("reader-filter")
+        assertEquals(ChromeMode.Reader, state.mode)
+        assertEquals("Índice Bíblico-Pastoral", state.passageLabel)
+        assertEquals("Filtrar temas", state.filterPlaceholder)
+        assertTrue(state.filterOpen)
+        assertEquals("amor", state.query)
+        assertFalse(state.chapterNavigation)
+    }
+
+    @Test
+    fun aPageWithoutAFilterHasNone() {
+        val state = fixture("reader")
+        assertNull(state.filterPlaceholder)
+        assertFalse(state.filterOpen)
     }
 
     @Test

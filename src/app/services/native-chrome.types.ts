@@ -13,11 +13,15 @@ export type NativeChromeAction =
         | "previous"
         | "next"
         | "search"
+        | "filter"
+        | "filter-close"
         | "back"
         | "theme-system"
         | "theme-light"
         | "theme-dark"
         | "view-mode"
+        /** Justified or ragged-right; handled by TextAlignService. */
+        | "text-align"
         | "font-reset"
         | "bookmarks"
         | "auto-scroll"
@@ -70,6 +74,8 @@ export interface ReaderChrome {
   search: boolean
   /** null hides the view-mode toggle. */
   viewMode: "scrolling" | "paged" | null
+  /** Whether the text is set ragged-right rather than justified; null hides the choice. */
+  raggedText: boolean | null
   autoScrollVisible: boolean
   autoScrollAvailable: boolean
   canShare: boolean
@@ -82,6 +88,17 @@ export interface ReaderChrome {
   buildVersion: string | null
   /** The text's size and range, which the Android text sheet shows; null where it has none. */
   textSize: TextSize | null
+  /**
+   * A list's filter (the pastoral index), for a page with no chapter arrows: a
+   * button in their place sends `filter`. Open, the field the platform keeps
+   * for searching a screen shows (iOS's at the bottom, Material's in the top
+   * bar), what is typed arrives as search-input, and closing it sends
+   * filter-close.
+   */
+  filterPlaceholder?: string
+  filterOpen?: boolean
+  /** The filter's text, for the field to follow when the page clears it. */
+  query?: string
 }
 
 /** The search page's bars: Back on top, the search field at the bottom. */
@@ -251,6 +268,11 @@ export interface ChromeInsets {
 export interface NativePalette {
   /** For the chapter cards, among the bars: "#EEE7E3". */
   surfaceContainerHigh?: string
+  /** The pastoral index's list: its open theme, section titles and fast scroller. */
+  surfaceContainerLow?: string
+  primary?: string
+  onPrimary?: string
+  onSurfaceVariant?: string
 }
 
 export interface NativeChromePlugin {

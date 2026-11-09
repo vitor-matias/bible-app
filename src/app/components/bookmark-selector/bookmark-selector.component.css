@@ -79,6 +79,11 @@ h3 {
   padding: 4px;
   text-shadow: 1px 1px 1px black;
   white-space: nowrap;
+  /* A theme's title can be longer than a ribbon is wide. */
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .add-icon {

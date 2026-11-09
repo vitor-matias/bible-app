@@ -6,7 +6,8 @@ import {
   AnalyticsService,
   BUILD_DATA_WAIT_MS,
   DELIVERY_TIMEOUT_MS,
-  labelUmamiPlatform,
+  loadTracker,
+  prepareUmamiPayload,
 } from "./analytics.service"
 import { BuildVersionService } from "./build-version.service"
 
@@ -44,6 +45,50 @@ describe("AnalyticsService", () => {
 
   it("should be created", () => {
     expect(service).toBeTruthy()
+  })
+
+  describe("loadTracker", () => {
+    let tracker: HTMLScriptElement
+
+    beforeEach(() => {
+      vi.spyOn(document.head, "append").mockImplementation((node) => {
+        tracker = node as HTMLScriptElement
+      })
+      delete globalThis.umami
+      loadTracker()
+    })
+
+    afterEach(() => {
+      // Later specs must not wait on this script.
+      tracker.dispatchEvent(new Event("load"))
+      delete globalThis.umamiBeforeSend
+    })
+
+    it("sets the hook before inserting the script that reads it", () => {
+      expect(globalThis.umamiBeforeSend).toBe(prepareUmamiPayload)
+      expect(tracker.src).toBe("https://umami.dojo.pt/script.js")
+      expect(tracker.getAttribute("data-website-id")).toBeTruthy()
+      expect(tracker.getAttribute("data-before-send")).toBe("umamiBeforeSend")
+    })
+
+    it("keeps an event sent before the tracker has loaded", async () => {
+      const sent = service.track("app_open")
+
+      globalThis.umami = createSpyObj("Spy", ["track"])
+      tracker.dispatchEvent(new Event("load"))
+      await sent
+
+      expect(lastCall(globalThis.umami?.track as Mock)[0]).toBe("app_open")
+    })
+
+    it("drops waiting events if the tracker fails to load", async () => {
+      const sent = service.track("app_open")
+
+      tracker.dispatchEvent(new Event("error"))
+
+      await expect(sent).resolves.toBeUndefined()
+      expect(buildVersionServiceMock.getBuildInfo).not.toHaveBeenCalled()
+    })
   })
 
   it("should call umami.track with event name, data, build version, and platform", async () => {
@@ -272,20 +317,43 @@ describe("AnalyticsService", () => {
 
 // The native shells serve the app from https://localhost; without this every
 // app page view was counted under that hostname.
-describe("labelUmamiPlatform", () => {
-  const payload = { hostname: "localhost", url: "/mc/7", website: "id" }
+describe("prepareUmamiPayload", () => {
+  const payload = {
+    hostname: "localhost",
+    url: "/mc/7",
+    referrer: "",
+    website: "id",
+  }
 
   it("labels native page views with the platform", () => {
     vi.spyOn(Capacitor, "getPlatform").mockReturnValue("android")
-    expect(labelUmamiPlatform("event", payload)).toEqual({
+    expect(prepareUmamiPayload("event", payload)).toEqual({
       ...payload,
       hostname: "android-app",
       tag: "android",
     })
   })
 
-  it("leaves web page views untouched", () => {
+  it("leaves web page views as they were", () => {
     vi.spyOn(Capacitor, "getPlatform").mockReturnValue("web")
-    expect(labelUmamiPlatform("event", payload)).toBe(payload)
+    expect(prepareUmamiPayload("event", payload)).toEqual(payload)
+  })
+
+  it("keeps what was searched or shared out of the URLs", () => {
+    vi.spyOn(Capacitor, "getPlatform").mockReturnValue("web")
+    const prepared = prepareUmamiPayload("pageview", {
+      url: "/search?q=doen%C3%A7a",
+      referrer: "https://biblia.capuchinhos.org/?text=a&url=b&title=c",
+    })
+    expect(prepared["url"]).toBe("/search")
+    expect(prepared["referrer"]).toBe("https://biblia.capuchinhos.org/")
+  })
+
+  it("keeps the other parameters, such as a verse or a campaign", () => {
+    vi.spyOn(Capacitor, "getPlatform").mockReturnValue("web")
+    const prepared = prepareUmamiPayload("pageview", {
+      url: "/jo/1?verseStart=3&q=x&utm_source=ad",
+    })
+    expect(prepared["url"]).toBe("/jo/1?verseStart=3&utm_source=ad")
   })
 })

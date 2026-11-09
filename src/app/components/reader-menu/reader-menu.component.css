@@ -1,0 +1,73 @@
+.menu-controls {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 16px;
+  min-width: 240px;
+}
+
+/* Round icon buttons. They are menu items underneath, so the menu's arrow
+   keys reach them. */
+.menu-control.mat-mdc-menu-item {
+  flex: none;
+  justify-content: center;
+  width: 48px;
+  min-width: 0;
+  height: 48px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  transform: scale(1.2);
+}
+
+/* An icon alone: the menu item's empty label would take the room and push
+   the icon to the side. */
+.menu-control ::ng-deep .mat-mdc-menu-item-text {
+  display: none;
+}
+
+.menu-control mat-icon {
+  margin: 0;
+  color: inherit;
+}
+
+/* Small print under the last item, level with the items' icons, on one line. */
+.menu-version {
+  padding: 4px 16px 8px;
+  font-size: 0.75rem;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+.privacy-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.experimental-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.experimental-badge {
+  padding: 1px 7px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.open-in-new-icon {
+  margin-left: 12px;
+  font-size: 16px !important;
+  width: 16px !important;
+  height: 16px !important;
+  opacity: 0.6;
+}

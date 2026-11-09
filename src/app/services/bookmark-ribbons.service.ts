@@ -1,5 +1,10 @@
 import { Injectable, inject } from "@angular/core"
 import { Router } from "@angular/router"
+import {
+  indexBookmarkLabel,
+  indexBookmarkLink,
+  isIndexBookmark,
+} from "../pastoral-index-bookmarks"
 import { cleanAbbreviation } from "../utils/passage-label"
 import { AnalyticsService } from "./analytics.service"
 import { BookService } from "./book.service"
@@ -169,6 +174,7 @@ export class BookmarkRibbonsService {
 
   /** A ribbon's short name for a chapter, e.g. "Mc 2". */
   ref(bookId: string, chapter: number): string {
+    if (isIndexBookmark(bookId)) return indexBookmarkLabel(bookId)
     const book = this.bookService.findBookById(bookId)
     // Chapter 0 is the book introduction
     const chapterLabel = chapter === 0 ? "Introdução" : `${chapter}`
@@ -180,6 +186,15 @@ export class BookmarkRibbonsService {
   /** Opens the ribbon's passage. False when it marks a book that is unknown. */
   open(ribbon: RibbonState): boolean {
     if (!ribbon.bookmark) return false
+    if (isIndexBookmark(ribbon.bookmark.bookId)) {
+      void this.analyticsService.track("bookmark_use", {
+        book: ribbon.bookmark.bookId,
+        chapter: ribbon.bookmark.chapter,
+        color: ribbon.value,
+      })
+      void this.router.navigate(indexBookmarkLink(ribbon.bookmark.bookId))
+      return true
+    }
     const book = this.bookService.findBookById(ribbon.bookmark.bookId)
     if (!book) {
       console.warn(

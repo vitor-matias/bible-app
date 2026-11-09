@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject } from "@angular/core"
+import {
+  afterNextRender,
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+} from "@angular/core"
 
 import {
   MAT_BOTTOM_SHEET_DATA,
@@ -45,7 +50,8 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
             >{{ part.match }}</a
           >
           } @else {
-          {{ part }}
+          <!-- No whitespace around the text: the template's own would add a gap before the next link or bracket. -->
+          <ng-container>{{ part }}</ng-container>
           } }
         </div>
         }
@@ -56,7 +62,7 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
   styles: [
     `
       .footnotes-container {
-        font-family: 'PT Serif', serif;
+        font-family: var(--font-reading);
         text-align: justify;
       }
       .header {
@@ -95,6 +101,9 @@ export class FootnotesBottomSheetComponent {
   private toast = inject(ToastService)
 
   constructor() {
+    // Opened over a way back, which is still to be within reach.
+    afterNextRender(() => this.toast.bringToFront())
+
     const data = this.data
 
     void this.analyticsService.track("footnotes_opened", {
@@ -106,11 +115,17 @@ export class FootnotesBottomSheetComponent {
 
   parseReferences(text: string): { parts: (string | BibleReference)[] } {
     return {
+      // The source has "( 7,50-52 ; 19,39 )": close the gaps around brackets
+      // and before punctuation, as a typeset note has it.
       parts: parseReferences(
         this.bibleRef,
         text,
         this.data.verse.bookId,
         this.data.verse.chapterNumber,
+      ).map((part) =>
+        typeof part === "string"
+          ? part.replace(/\(\s+/g, "(").replace(/\s+([;,.)])/g, "$1")
+          : part,
       ),
     }
   }

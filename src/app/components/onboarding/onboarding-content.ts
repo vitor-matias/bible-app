@@ -25,6 +25,12 @@ export interface OnboardingStep {
   androidIntro?: string
   /** The Android app's icon, where it shows the button the intro names. */
   androidIcon?: string
+  /**
+   * The button the step names, ringed while the step shows: the passage,
+   * search, or where the text settings are (the web's menu, the apps' text
+   * button). On the web, the header button with this `data-tour`.
+   */
+  highlight?: "passage" | "search" | "text"
   features: readonly OnboardingFeature[]
 }
 
@@ -40,6 +46,41 @@ export interface InstallGuide {
   note?: string
 }
 
+/** A run of a step's text: words, or a browser button drawn as its icon. */
+export type TextSegment =
+  | { kind: "text"; text: string }
+  | { kind: "icon"; icon: string; label: string }
+
+/**
+ * Browser buttons a step can show as their icon, written [[icon]] in its
+ * text, with the name a screen reader says instead.
+ */
+const INLINE_ICONS: Readonly<Record<string, string>> = {
+  ios_share: "Partilhar",
+  menu: "menu",
+}
+
+const INLINE_ICON = /\[\[([a-z_]+)\]\]/g
+
+/** Splits a step's text around its [[icon]] markers. */
+export function textSegments(text: string): readonly TextSegment[] {
+  const segments: TextSegment[] = []
+  let last = 0
+  for (const match of text.matchAll(INLINE_ICON)) {
+    const icon = match[1]
+    const label = INLINE_ICONS[icon]
+    if (!label) continue
+    if (match.index > last) {
+      segments.push({ kind: "text", text: text.slice(last, match.index) })
+    }
+    segments.push({ kind: "icon", icon, label })
+    last = match.index + match[0].length
+  }
+  if (last < text.length)
+    segments.push({ kind: "text", text: text.slice(last) })
+  return segments
+}
+
 export interface PlatformOption {
   id: InstallPlatform
   icon: string
@@ -48,6 +89,8 @@ export interface PlatformOption {
 
 export const INSTALL_STEP_ID = "install"
 
+// Written for someone who has never used the app: one job per step, the
+// control named as it is announced, its glyph only alongside the name.
 export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
   {
     id: "welcome",
@@ -55,11 +98,11 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     image: "icons/512X512_REDONDO.png",
     title: "Bem-vindo à Bíblia Sagrada",
     intro:
-      "A Bíblia Sagrada, traduzida pela Difusora Bíblica, sempre consigo: no telemóvel, no tablet e no computador, mesmo sem ligação à internet.",
+      "A Bíblia Sagrada, traduzida pela Difusora Bíblica, sempre consigo: no telemóvel, no tablet e no computador.",
     features: [
       {
-        icon: "cloud_off",
-        text: "Depois de instalar, abra a app uma vez com ligação: os capítulos ficam guardados no dispositivo e pode voltar a lê-los sem ligação.",
+        icon: "explore",
+        text: "Nos próximos passos: como escolher um livro, encontrar uma passagem e aumentar a letra.",
       },
       {
         icon: "history",
@@ -67,100 +110,104 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
       },
       {
         icon: "touch_app",
-        text: "Esta introdução demora menos de um minuto. Pode voltar a vê-la em qualquer altura a partir do menu.",
+        text: "Pode voltar a ver esta introdução em «Menu» (☰), em «Como usar a app».",
+        iosText:
+          "Pode voltar a ver esta introdução no menu «Mais» (⋯), em «Como usar a app».",
         androidText:
-          "Esta introdução demora menos de um minuto. Pode voltar a vê-la em qualquer altura no menu ⋮, em «Como usar a app».",
+          "Pode voltar a ver esta introdução no menu «Mais opções» (⋮), em «Como usar a app».",
       },
     ],
   },
+  // The web header has the book and the chapter as two buttons; the apps have
+  // one, whose picker opens on the current book's chapters, «Livros» a step back.
   {
-    id: "navigate",
-    icon: "explore",
-    title: "Navegar na Bíblia",
+    id: "books",
+    icon: "menu_book",
+    highlight: "passage",
+    title: "Escolher um livro",
     intro:
-      "No topo do ecrã, toque no nome do livro para escolher outro livro e no número para saltar para um capítulo.",
+      "No topo do ecrã, toque no nome do livro (por exemplo, «Génesis») e escolha outro na lista, como no índice da sua Bíblia.",
     iosIntro:
-      "Na barra inferior, toque no nome do livro para escolher outro livro ou capítulo.",
+      "Na barra inferior, toque no livro e capítulo (por exemplo, «Génesis 1»). Aparecem os capítulos desse livro: toque em «Livros» para escolher outro livro.",
     androidIntro:
-      "No topo do ecrã, toque no livro e capítulo (por exemplo, «Génesis 1 ▾») para escolher outra passagem.",
+      "No topo do ecrã, toque no livro e capítulo (por exemplo, «Génesis 1»). Aparecem os capítulos desse livro: toque em «Livros» para escolher outro livro.",
     features: [
       {
+        icon: "touch_app",
+        text: "Para mudar de capítulo, toque no número ao lado do nome do livro.",
+        iosText: "Para mudar de capítulo, toque no número do capítulo.",
+        androidText: "Para mudar de capítulo, toque no número do capítulo.",
+      },
+      {
         icon: "swipe",
-        text: "Deslize o texto para o lado para mudar de capítulo. No computador, use as setas ← e → ou os botões nas margens.",
-        iosText:
-          "Deslize o texto para o lado, ou toque nas setas ‹ › da barra inferior, para mudar de capítulo.",
+        text: "Para ler o capítulo seguinte, deslize o texto para o lado. No computador, use as setas ← e → do teclado.",
+        iosText: "Para ler o capítulo seguinte, deslize o texto para o lado.",
         androidText:
-          "Deslize o texto para o lado, ou toque nas setas ‹ › dos cantos inferiores, para mudar de capítulo.",
+          "Para ler o capítulo seguinte, deslize o texto para o lado.",
       },
       {
-        icon: "link",
-        text: "As referências no texto e nas notas (por exemplo, Jo 3,16) são ligações: toque para abrir a passagem.",
+        icon: "search",
+        text: "Não encontra o livro? Escreva parte do nome em «Filtrar livros»: «cor» mostra as cartas aos Coríntios.",
+      },
+    ],
+  },
+  // Readers meet the Bible as a reference read out at Mass, and search opens
+  // one directly.
+  {
+    id: "tools",
+    icon: "search",
+    highlight: "search",
+    title: "Encontrar uma passagem",
+    intro:
+      "Ouviu uma leitura na Missa, por exemplo «Jo 3,16»? Toque em «Pesquisar» (a lupa), no topo, e escreva a referência: a app abre logo o versículo.",
+    features: [
+      {
+        icon: "search",
+        text: "Também pode procurar palavras ou frases em toda a Bíblia, por exemplo «bom pastor».",
+      },
+      // The web menu offers it only where the browser can share (Web Share).
+      {
+        icon: "share",
+        text: "No telemóvel e no tablet, para enviar a passagem a alguém, use «Partilhar» em «Menu» (☰).",
+        iosText:
+          "Para enviar a passagem a alguém, use «Partilhar» no menu «Mais» (⋯).",
+        androidText:
+          "Para enviar a passagem a alguém, use «Partilhar» no menu «Mais opções» (⋮).",
       },
       {
-        icon: "notes",
-        text: "Toque num versículo com nota para ler a nota de rodapé.",
+        icon: "bookmarks",
+        text: "Para voltar a um capítulo, guarde um marcador em «Menu» (☰), em «Marcadores».",
         iosText:
-          "Toque no ícone de notas junto ao número do versículo para ler a nota. Um toque no texto mostra ou esconde os botões.",
+          "Para voltar a um capítulo, guarde um marcador em «Marcadores», no topo.",
         androidText:
-          "Toque no ícone de notas junto ao número do versículo para ler a nota. Os botões saem do caminho enquanto lê e voltam quando desliza para cima.",
+          "Para voltar a um capítulo, guarde um marcador em «Marcadores», no topo.",
       },
     ],
   },
   {
     id: "customize",
-    icon: "tune",
-    title: "Ler à sua maneira",
+    icon: "text_increase",
+    highlight: "text",
+    title: "Letra maior",
     intro:
-      "Abra o menu ☰ no canto superior esquerdo para ajustar a leitura ao seu gosto.",
+      "Toque em «Menu» (☰), no canto superior esquerdo, para aumentar a letra e escolher o tema claro ou escuro.",
     iosIntro:
-      "Toque em AA, no topo à esquerda, para ajustar a leitura ao seu gosto.",
-    // TT is the button's glyph, as AA is iOS's; TalkBack users hear its name.
+      "Toque em «Texto e aparência» (AA), no topo, para aumentar a letra e escolher o tema claro ou escuro.",
     androidIntro:
-      "Toque em TT (Texto e aparência), no topo à direita, para ajustar a leitura ao seu gosto.",
+      "Toque em «Texto e aparência» (TT), no topo, para aumentar a letra e escolher o tema claro ou escuro.",
     androidIcon: "format_size",
     features: [
       {
+        icon: "touch_app",
+        text: "Também pode afastar ou aproximar dois dedos sobre o texto para mudar o tamanho da letra.",
+      },
+      {
         icon: "dark_mode",
-        text: "Tema claro, escuro ou automático, seguindo o sistema.",
+        text: "O tema escuro cansa menos a vista à noite. «Automático» segue o seu dispositivo.",
       },
       {
         icon: "auto_stories",
-        text: "Alterne entre o texto contínuo e a leitura página a página, como num livro.",
-      },
-      {
-        icon: "text_increase",
-        text: "Aumente ou diminua o tamanho da letra, ou faça o gesto de pinça sobre o texto.",
-      },
-      {
-        icon: "arrow_circle_down",
-        text: "Ative o deslocamento automático para ler sem mãos, com velocidade ajustável.",
-        iosText:
-          "Ative o deslocamento automático no menu ⋯ para ler sem mãos, com velocidade ajustável.",
-        androidText:
-          "Ative o deslocamento automático no menu ⋮, no topo à direita, para ler sem mãos, com velocidade ajustável.",
-      },
-    ],
-  },
-  {
-    id: "tools",
-    icon: "search",
-    title: "Pesquisar, marcar e partilhar",
-    intro:
-      "Encontre passagens, volte facilmente aos capítulos preferidos e partilhe a Palavra.",
-    features: [
-      {
-        icon: "search",
-        text: "Toque na lupa para pesquisar palavras ou frases em toda a Bíblia.",
-      },
-      {
-        icon: "bookmarks",
-        text: "Guarde marcadores coloridos nos capítulos a que quer voltar.",
-        iosText:
-          "Toque no marcador, no topo à direita, para guardar marcadores coloridos nos capítulos a que quer voltar.",
-      },
-      {
-        icon: "share",
-        text: "Partilhe a passagem que está a ler com um toque, a partir do menu.",
+        text: "Leia em texto contínuo ou página a página, como num livro.",
       },
     ],
   },
@@ -169,7 +216,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     icon: "install_mobile",
     title: "Instalar a aplicação",
     intro:
-      "Instale a Bíblia no seu dispositivo para a abrir a partir do ecrã principal, em ecrã inteiro e sem depender do navegador.",
+      "Instale a Bíblia no seu dispositivo para a abrir a partir do ecrã principal, em ecrã inteiro e sem depender do navegador. Abra-a uma vez com ligação à internet: depois pode ler sem ligação.",
     features: [],
   },
 ]
@@ -185,6 +232,10 @@ const CONFIRM_MOBILE: InstallGuideStep = {
   text: "Confirme em «Instalar». O ícone da Bíblia aparece no ecrã principal.",
 }
 
+// Chrome's menu item has been «Instale e crie um atalho» since mid-2026;
+// earlier versions say «Instalar aplicação» or «Adicionar ao ecrã principal».
+// Either way it then offers «Instalar» or «Criar atalho», and a shortcut only
+// opens the page in Chrome.
 const ANDROID_CHROME: InstallGuide = {
   steps: [
     {
@@ -193,9 +244,12 @@ const ANDROID_CHROME: InstallGuide = {
     },
     {
       icon: "install_mobile",
-      text: "Escolha «Instalar aplicação» ou «Adicionar ao ecrã principal».",
+      text: "Escolha «Instale e crie um atalho» (em versões anteriores, «Instalar aplicação» ou «Adicionar ao ecrã principal»).",
     },
-    CONFIRM_MOBILE,
+    {
+      icon: "check_circle",
+      text: "Escolha «Instalar», não «Criar atalho». O ícone da Bíblia aparece no ecrã principal.",
+    },
   ],
 }
 
@@ -227,30 +281,38 @@ const ANDROID_EDGE: InstallGuide = {
   ],
 }
 
+// Since iOS 26 the iPhone's Safari keeps Share in the ≡ menu of the address
+// bar, unless the tabs are laid out at the bottom or top, which (like older
+// iOS and the iPad) still show a Share button. The share sheet may hide
+// «Adicionar ao ecrã principal» behind «Ver mais», and only iOS 26 or later
+// offers «Abrir como aplicação web».
 const IOS_SAFARI: InstallGuide = {
   steps: [
     {
-      icon: "ios_share",
-      text: "Toque no botão Partilhar (o quadrado com uma seta para cima), na barra do Safari.",
+      icon: "menu",
+      text: "Na barra de endereço do Safari, toque em [[menu]] e depois em «Partilhar». Se vir [[ios_share]] na barra do Safari, toque diretamente nesse botão.",
     },
     {
       icon: "add_box",
-      text: "Deslize as opções para baixo e escolha «Adicionar ao ecrã principal».",
+      text: "Desça na lista e escolha «Adicionar ao ecrã principal» (se não a vir, toque em «Ver mais»).",
     },
     {
       icon: "check_circle",
-      text: "Toque em «Adicionar», no canto superior direito.",
+      text: "Se aparecer a opção «Abrir como aplicação web», confirme que está ligada. Toque em «Adicionar», no canto superior direito.",
     },
   ],
-  note: "No iPad, o botão Partilhar fica no topo, junto à barra de endereço.",
+  note: "No iPad, toque diretamente em [[ios_share]], no canto superior direito do Safari.",
 }
 
 const IOS_OTHER: InstallGuide = {
   steps: [
-    { icon: "ios_share", text: "Toque no botão Partilhar do navegador." },
+    {
+      icon: "ios_share",
+      text: "Toque em [[ios_share]] (Partilhar) no navegador.",
+    },
     {
       icon: "add_box",
-      text: "Escolha «Adicionar ao ecrã principal» (disponível a partir do iOS 16.4).",
+      text: "Escolha «Adicionar ao ecrã principal», tocando em «Ver mais» se não a vir (disponível a partir do iOS 16.4).",
     },
     { icon: "check_circle", text: "Toque em «Adicionar»." },
   ],
@@ -270,28 +332,32 @@ const DESKTOP_BROWSER_STEPS: Record<DesktopBrowser, InstallGuideStep> = {
   chrome: {
     label: "Chrome",
     icon: "install_desktop",
-    text: "Clique no ícone de instalação, no lado direito da barra de endereço, ou abra o menu ⋮ → «Transmitir, guardar e partilhar» → «Instalar página como aplicação…».",
+    text: "Clique no ícone de instalação, no lado direito da barra de endereço, ou abra o menu ⋮ → «Transmitir, guardar e partilhar» → «Instalar página como app…».",
   },
   edge: {
     label: "Edge",
     icon: "install_desktop",
-    text: "Clique no ícone de instalação na barra de endereço, ou abra o menu ⋯ → «Aplicações» → «Instalar este site como uma aplicação».",
+    text: "Clique no ícone de instalação na barra de endereço, ou abra o menu ⋯ («Definições e muito mais») → «Aplicações» → «Instale este site como uma aplicação». Em algumas versões, «Aplicações» está dentro de «Mais ferramentas».",
   },
   safari: {
     label: "Safari (macOS 14 ou superior)",
     icon: "ios_share",
-    text: "Clique no botão Partilhar (ou no menu Ficheiro) e escolha «Adicionar à Dock».",
+    text: "Clique em [[ios_share]] (ou no menu Ficheiro) e escolha «Adicionar à Dock».",
   },
+  // Web apps arrived in Firefox 143 for Windows only (150 for the Microsoft
+  // Store build); macOS and Linux still have none. The address-bar button
+  // installs at once, without asking.
   firefox: {
     label: "Firefox",
-    icon: "info",
-    text: "Não suporta a instalação de aplicações web. Instale a partir do Chrome, Edge ou Safari, ou continue a ler no Firefox, incluindo sem ligação.",
+    icon: "install_desktop",
+    text: "No Windows (Firefox 143 ou superior; 150 ou superior se o instalou a partir da Microsoft Store), clique no botão de aplicações web, na barra de endereço, para fixar a Bíblia na barra de tarefas. No macOS e no Linux, o Firefox não instala aplicações web: use o Chrome, o Edge ou o Safari, ou continue a ler no Firefox, incluindo sem ligação.",
   },
 }
 
+// Firefox installs without a confirmation, so this one is conditional.
 const CONFIRM_DESKTOP: InstallGuideStep = {
   icon: "check_circle",
-  text: "Confirme em «Instalar» (ou «Adicionar»). A Bíblia passa a abrir numa janela própria, como qualquer outra aplicação.",
+  text: "Se o navegador pedir, confirme em «Instalar» (ou «Adicionar»). A Bíblia passa a abrir numa janela própria, como qualquer outra aplicação.",
 }
 
 /** Desktop users often have several browsers, so list them all, theirs first. */
@@ -340,6 +406,8 @@ export interface NativeOnboardingStep {
   /** The Material Symbol, which the Android app shows. */
   icon: string
   logo: boolean
+  /** The bar button the page names (OnboardingStep.highlight). */
+  highlight?: OnboardingStep["highlight"]
   features: { symbol: string; icon: string; text: string }[]
 }
 
@@ -390,6 +458,7 @@ export function nativeOnboardingSteps(
       symbol: sfSymbol(step.icon),
       icon: (android ? step.androidIcon : undefined) ?? step.icon,
       logo: !!step.image,
+      highlight: step.highlight,
       features: step.features.map((feature) => ({
         symbol: sfSymbol(feature.icon),
         icon: feature.icon,

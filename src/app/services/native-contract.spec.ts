@@ -6,6 +6,7 @@ import type { Mock } from "vitest"
 import none from "../../../native-contract/none.json"
 import page from "../../../native-contract/page.json"
 import reader from "../../../native-contract/reader.json"
+import readerFilter from "../../../native-contract/reader-filter.json"
 import readerMinimal from "../../../native-contract/reader-minimal.json"
 import search from "../../../native-contract/search.json"
 import { lastCall } from "../testing/spy-obj"
@@ -33,6 +34,7 @@ const READER: ReaderChrome = {
   canGoNext: true,
   search: true,
   viewMode: "paged",
+  raggedText: true,
   autoScrollVisible: true,
   autoScrollAvailable: true,
   canShare: true,
@@ -54,6 +56,7 @@ const READER_MINIMAL: ReaderChrome = {
   canGoNext: false,
   search: false,
   viewMode: null,
+  raggedText: null,
   autoScrollVisible: false,
   autoScrollAvailable: false,
   canShare: false,
@@ -75,6 +78,23 @@ const PAGE: TitledPageChrome = {
   themeMode: "light",
   title: "Livros",
   search: true,
+}
+
+const READER_FILTER: ReaderChrome = {
+  ...READER,
+  passageLabel: "Índice Bíblico-Pastoral",
+  passageShortLabels: ["Índice"],
+  passageAccessibilityLabel: "Índice Bíblico-Pastoral, Amor",
+  chapterNavigation: false,
+  canGoPrevious: false,
+  canGoNext: false,
+  viewMode: null,
+  raggedText: null,
+  autoScrollVisible: false,
+  autoScrollAvailable: false,
+  filterPlaceholder: "Filtrar temas",
+  filterOpen: true,
+  query: "amor",
 }
 
 const AUTO_SCROLL: AutoScrollChrome = {
@@ -205,6 +225,14 @@ describe("the native chrome contract fixtures", () => {
     service().show(PAGE)
     expect(differences(sent(), page)).toEqual([])
     expect(driven(sent(), PAGE)).toEqual(driven(page, PAGE))
+  })
+
+  it("matches what a page with a list's filter sends", () => {
+    service().show(READER_FILTER)
+    expect(differences(sent(), readerFilter)).toEqual([])
+    expect(driven(sent(), READER_FILTER)).toEqual(
+      driven(readerFilter, READER_FILTER),
+    )
   })
 
   it("matches what is sent once there are no bars", async () => {

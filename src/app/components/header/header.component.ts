@@ -16,19 +16,18 @@ import {
   type SimpleChanges,
   ViewChildren,
 } from "@angular/core"
-import { takeUntilDestroyed, toSignal } from "@angular/core/rxjs-interop"
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
 import { MatDialog } from "@angular/material/dialog"
-import { MatDividerModule } from "@angular/material/divider"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenuModule, MatMenuTrigger } from "@angular/material/menu"
 import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { Router, RouterModule } from "@angular/router"
-import { shareableUrl } from "../../config"
+import { PRIVACY_POLICY_URL, shareableUrl } from "../../config"
 import type { TextSize } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
@@ -47,7 +46,7 @@ import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
-import { PwaInstallService } from "../../services/pwa-install.service"
+import { TextAlignService } from "../../services/text-align.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"
 import {
   passageLabel,
@@ -58,14 +57,13 @@ import { buildPassagePicker } from "../../utils/passage-picker"
 import { PSALMS_BOOK_ID } from "../../utils/psalms"
 
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
+import { ReaderMenuComponent } from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 
 /** How long each label stays on screen before the next swap. */
 const LABEL_HOLD_MS = 3500
 /** Fade-out half of a swap; must match the transition in the component CSS. */
 const LABEL_FADE_MS = 300
-
-const PRIVACY_POLICY_URL = "https://www.capuchinhos.org/politica-de-privacidade"
 
 @Component({
   standalone: true,
@@ -77,9 +75,9 @@ const PRIVACY_POLICY_URL = "https://www.capuchinhos.org/politica-de-privacidade"
     MatIconModule,
     MatButtonToggleModule,
     MatMenuModule,
+    ReaderMenuComponent,
     RouterModule,
     MatTooltipModule,
-    MatDividerModule,
     CommonModule,
   ],
   templateUrl: "./header.component.html",
@@ -94,11 +92,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly cdr = inject(ChangeDetectorRef)
   readonly analyticsService = inject(AnalyticsService)
   private readonly onboardingService = inject(OnboardingService)
-  private readonly pwaInstallService = inject(PwaInstallService)
-  /** Browsers that can't prompt (iOS, Firefox) get the tutorial's steps instead. */
-  readonly canInstall = toSignal(this.pwaInstallService.canPromptInstall$, {
-    requireSync: true,
-  })
 
   readonly book = input.required<Book>()
   readonly chapterNumber = input.required<number>()
@@ -145,7 +138,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     return this.mobile ? "Intro" : "Introdução"
   }
 
-  readonly privacyPolicyUrl = PRIVACY_POLICY_URL
   /** Small print under the menu's last item; null until it is known. */
   version: DisplayVersion | null = null
   private destroyed = false
@@ -180,6 +172,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly destroyRef = inject(DestroyRef)
   private readonly router = inject(Router)
   private readonly nativeChrome = inject(NativeChromeService)
+  private readonly textAlign = inject(TextAlignService)
   private readonly bookService = inject(BookService)
   private readonly nativeBookmarks = inject(NativeBookmarksService)
   private readonly nativeReport = inject(NativeReportService)
@@ -236,11 +229,13 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  /** Window width, not screen width: a narrow desktop window counts too. */
+  /** Window width, not screen width: a narrow desktop window counts too. The
+   *  stylesheets' own query, so a fractional width can't leave the native menus
+   *  on the other side of the reader's phone default (TextAlignService). */
   @HostListener("window:resize")
   updateMobile(): void {
     if (typeof window === "undefined") return
-    const isMobile = window.innerWidth <= 480
+    const isMobile = window.matchMedia("(max-width: 480px)").matches
     if (isMobile !== this.mobile) {
       this.mobile = isMobile
       this.cdr.markForCheck()
@@ -292,16 +287,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     )
   }
 
-  onToggleBookmarkFromMenu(trigger: MatMenuTrigger) {
-    trigger.closeMenu()
-    this.openBookmarkSelector()
-  }
-
-  onReportProblem(trigger: MatMenuTrigger) {
-    trigger.closeMenu()
-    this.openReportProblem()
-  }
-
   openReportProblem() {
     const book = this.book()
     const chapterNumber = this.chapterNumber()
@@ -320,34 +305,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     })
   }
 
-  onOpenAbout(trigger: MatMenuTrigger) {
-    trigger.closeMenu()
-    this.openAbout()
-  }
-
   /** The About page, which the book pickers no longer list. */
-  private openAbout(): void {
+  openAbout(): void {
     this.selectPassage.emit({ bookId: "about" })
-  }
-
-  onOpenHelp(trigger: MatMenuTrigger) {
-    trigger.closeMenu()
-    this.onboardingService.open("menu")
-  }
-
-  onToggleCardsView(trigger: MatMenuTrigger) {
-    trigger.closeMenu()
-    this.toggleCardsView.emit()
-  }
-
-  async onInstall(trigger: MatMenuTrigger): Promise<void> {
-    trigger.closeMenu()
-    const outcome = await this.pwaInstallService.promptInstall()
-    // AnalyticsService.track overwrites `platform`, hence the distinct key.
-    void this.analyticsService.track("pwa_install_prompt", {
-      outcome,
-      installPlatform: this.pwaInstallService.detectPlatform(),
-    })
   }
 
   /**
@@ -369,53 +329,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.openChapterSelector.emit({ open: true })
   }
 
-  onToggleAutoScrollControls(trigger: MatMenuTrigger, event?: Event): void {
-    event?.stopPropagation()
-    this.toggleAutoScrollControls.emit()
-    trigger.closeMenu()
-  }
-
-  onToggleViewMode(event?: Event): void {
-    event?.stopPropagation()
-    this.toggleViewMode.emit()
-  }
-
-  getThemeIcon(): string {
-    const mode = this.themeService.currentMode
-    if (mode === "system") return "brightness_auto"
-    return mode === "light" ? "light_mode" : "dark_mode"
-  }
-
-  getThemeTooltip(): string {
-    const mode = this.themeService.currentMode
-    // Says which theme is on: the button cycles through them.
-    if (mode === "system") return "Tema: Automático"
-    return mode === "light" ? "Tema: Claro" : "Tema: Escuro"
-  }
-
-  /**
-   * One button cycles through the three themes. The menu stays open, so the
-   * page changes theme behind it and the icon shows the new one.
-   */
-  onToggleTheme(): void {
-    this.themeService.toggleTheme()
-    this.cdr.detectChanges()
-  }
-
   /** The ribbon on the chapter being read, by its spoken name ("Vermelho"). */
   get bookmarkName(): string | undefined {
     const color = this.currentBookmark?.color
     return color ? spokenRibbonName(color) : undefined
-  }
-
-  getViewModeIcon(): string {
-    return this.viewMode() === "scrolling" ? "swipe_vertical" : "auto_stories"
-  }
-
-  getViewModeTooltip(): string {
-    return this.viewMode() === "scrolling"
-      ? "Texto contínuo (clique para mudar para página a página)"
-      : "Página a página (clique para mudar para texto contínuo)"
   }
 
   /** A size up or down; a `step` (percent) where the native sheet asks for one. */
@@ -428,24 +345,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.increaseFontSizeEvent.emit(undefined)
   }
 
-  onIncreaseFontSize(event?: Event): void {
-    event?.stopPropagation()
-    this.increaseFontSize()
-  }
-
   decreaseFontSize(): void {
     this.decreaseFontSizeEvent.emit(undefined)
-  }
-
-  onDecreaseFontSize(event?: Event): void {
-    event?.stopPropagation()
-    this.decreaseFontSize()
-  }
-
-  async onShare(trigger: MatMenuTrigger, event?: Event): Promise<void> {
-    event?.stopPropagation()
-    trigger.closeMenu()
-    await this.sharePassage()
   }
 
   async sharePassage(): Promise<void> {
@@ -526,6 +427,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       search: true,
       themeMode: this.themeService.currentMode,
       viewMode: isAbout ? null : this.viewMode(),
+      raggedText: isAbout ? null : this.textAlign.ragged,
       autoScrollVisible: this.autoScrollControlsVisible(),
       autoScrollAvailable: this.viewMode() !== "paged",
       canShare: this.canShare,
@@ -570,6 +472,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         break
       case "view-mode":
         this.toggleViewMode.emit()
+        break
+      case "text-align":
+        this.textAlign.toggle()
+        this.syncNativeChrome()
         break
       case "font-decrease":
         this.decreaseFontSizeEvent.emit(action.step)

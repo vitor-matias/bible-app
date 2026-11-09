@@ -42,7 +42,7 @@ describe("FootnotesBottomSheetComponent", () => {
     bookServiceSpy = createSpyObj("BookService", ["findBook", "getUrlAbrv"])
     analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
     analyticsServiceSpy.track.mockResolvedValue(undefined)
-    toastSpy = createSpyObj("ToastService", ["showReturn"])
+    toastSpy = createSpyObj("ToastService", ["showReturn", "bringToFront"])
 
     await TestBed.configureTestingModule({
       imports: [FootnotesBottomSheetComponent],
@@ -61,11 +61,50 @@ describe("FootnotesBottomSheetComponent", () => {
     component = fixture.componentInstance
   })
 
+  it("adds no space around a reference, between it and the punctuation", () => {
+    bibleRefSpy.extract.mockImplementation((text: string) =>
+      text.startsWith("See")
+        ? [{ match: "Gen 1:1", index: 4, book: "Gen", chapter: 1 }]
+        : [],
+    )
+    bookServiceSpy.findBook.mockReturnValue({ id: "gen" } as Book)
+    bookServiceSpy.getUrlAbrv.mockReturnValue("gn")
+    fixture.componentRef.changeDetectorRef.markForCheck()
+    fixture.detectChanges()
+
+    const item = fixture.nativeElement.querySelector(".footnote-item")
+    expect(item.querySelector("a").textContent).toBe("Gen 1:1")
+    expect(item.textContent.replace(/\s+/g, " ").trim()).toBe("1a See Gen 1:1.")
+  })
+
+  it("puts a toast's way back above itself on opening", async () => {
+    bibleRefSpy.extract.mockReturnValue([])
+    await fixture.whenStable()
+    expect(toastSpy.bringToFront).toHaveBeenCalled()
+  })
+
   it("should create", () => {
     // We mock extract to return empty array for init
     bibleRefSpy.extract.mockReturnValue([])
     fixture.detectChanges()
     expect(component).toBeTruthy()
+  })
+
+  // A reader who chose ragged-right text still got justified notes.
+  it("sets the notes ragged-right when the reader chose it", () => {
+    bibleRefSpy.extract.mockReturnValue([])
+    fixture.detectChanges()
+    const container = (fixture.nativeElement as HTMLElement).querySelector(
+      ".footnotes-container",
+    ) as HTMLElement
+    expect(getComputedStyle(container).textAlign).toBe("justify")
+
+    document.documentElement.classList.add("ragged-text")
+    try {
+      expect(getComputedStyle(container).textAlign).toBe("start")
+    } finally {
+      document.documentElement.classList.remove("ragged-text")
+    }
   })
 
   it("should bind the footnotes font-size context to the gestures directive", () => {
@@ -238,5 +277,12 @@ describe("FootnotesBottomSheetComponent", () => {
       expect(toastSpy.showReturn).toHaveBeenCalledTimes(1)
       expect(toastSpy.showReturn).toHaveBeenCalledWith(mockData.verse)
     })
+  })
+
+  it("closes the gaps around brackets and before punctuation", () => {
+    bibleRefSpy.extract.mockReturnValue([])
+    expect(component.parseReferences("Cf. ( 7,50-52 ; 19,39 ).").parts).toEqual(
+      ["Cf. (7,50-52; 19,39)."],
+    )
   })
 })

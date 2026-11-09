@@ -1,5 +1,9 @@
 import { Injectable, inject } from "@angular/core"
 import { Subscription } from "rxjs"
+import {
+  indexBookmarkLabel,
+  isIndexBookmark,
+} from "../pastoral-index-bookmarks"
 import { passageLabel } from "../utils/passage-label"
 import { BookService } from "./book.service"
 import { BookmarkService } from "./bookmark.service"
@@ -117,6 +121,7 @@ export class NativeBookmarksService {
 
   /** As the passage button names it: "Mateus 11", "Salmo 96 (95)". */
   private label(bookId: string, chapter: number): string {
+    if (isIndexBookmark(bookId)) return indexBookmarkLabel(bookId)
     const book = this.bookService.findBookById(bookId) ?? {
       id: bookId,
       shortName: bookId,

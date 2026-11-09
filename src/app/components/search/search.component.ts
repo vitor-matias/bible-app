@@ -22,6 +22,7 @@ import {
   type Subscription,
 } from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
+import themeTitles from "../../pastoral-index-titles.json"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
@@ -34,13 +35,19 @@ import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
 import { passageLabel } from "../../utils/passage-label"
+import { leftToTheBrowser } from "../../utils/platform"
 import {
   isAmbiguousPsalmNumber,
   PSALMS_BOOK_ID,
   parsePsalmPair,
   psalmFromLiturgical,
 } from "../../utils/psalms"
-import { highlightWords, verseLines, verseText } from "../../utils/text-search"
+import {
+  foldText,
+  highlightWords,
+  verseLines,
+  verseText,
+} from "../../utils/text-search"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
 /**
@@ -73,6 +80,34 @@ const NO_SUCH_PASSAGE = "Este capítulo ou versículo não existe."
 
 /** Verses of a search over the stored Bible shown at a time. */
 const STORED_PAGE_SIZE = 50
+
+/** Index themes offered at a time: each takes the room of a result or two. */
+const MAX_THEMES = 3
+
+/** The pastoral index's themes as they are folded, to compare with a query. */
+const THEMES = Object.entries(themeTitles).map(([slug, title]) => ({
+  slug,
+  title,
+  folded: foldText(title),
+}))
+
+/**
+ * The themes with a word of the title beginning with what is typed, as "paz"
+ * for "Paz" or "fraterna" for "Correção fraterna": first those it starts.
+ */
+function themesNamed(query: string): { slug: string; title: string }[] {
+  const folded = foldText(query.trim())
+  if (folded.length < 2) return []
+  const matches = THEMES.filter(
+    (theme) =>
+      theme.folded.startsWith(folded) ||
+      [" ", "/", "(", "-"].some((gap) => theme.folded.includes(gap + folded)),
+  )
+  return [
+    ...matches.filter((theme) => theme.folded.startsWith(folded)),
+    ...matches.filter((theme) => !theme.folded.startsWith(folded)),
+  ].slice(0, MAX_THEMES)
+}
 
 /** What a query opens in the reader (SearchComponent.resolvePassage). */
 interface PassageTarget {
@@ -142,6 +177,8 @@ export class SearchComponent {
    * 3,16"; Return or a tap opens it.
    */
   passageSuggestion: { label: string; query: string } | null = null
+  /** The pastoral index's themes that what is typed names, offered with it. */
+  themes: { slug: string; title: string }[] = []
   /**
    * A psalm number that names two psalms, this edition's and the liturgy's:
    * the choice between them, instead of guessing which was meant.
@@ -342,6 +379,7 @@ export class SearchComponent {
     if (kept?.term !== term) return false
     this.searchTerm = kept.term
     this.fieldValue = kept.term
+    this.themes = themesNamed(kept.term)
     this.hasSearched = true
     this.searchResults = kept.results
     this.totalResults = kept.total
@@ -375,6 +413,7 @@ export class SearchComponent {
   onTyping(text: string): void {
     const query = text.trim()
     this.passageSuggestion = query ? this.suggestPassage(query) : null
+    this.themes = themesNamed(query)
     this.pendingSearch = this.searchesOnPause(query)
     this.cdr.detectChanges()
     this.typed.next({ text, generation: this.searchGeneration })
@@ -396,6 +435,13 @@ export class SearchComponent {
     if (this.passageSuggestion) {
       void this.onSearchSubmit(this.passageSuggestion.query)
     }
+  }
+
+  /** Opens a theme in the index, as openPassage does a passage. */
+  openTheme(event: MouseEvent, slug: string): void {
+    if (leftToTheBrowser(event)) return
+    event.preventDefault()
+    void this.router.navigate(["/indice", slug])
   }
 
   /**
@@ -579,6 +625,7 @@ export class SearchComponent {
     // Taken up (tapped, or Return): no second copy of it above what follows.
     // A pause leaves the offer to open a book whose name it searches.
     if (!typed) this.passageSuggestion = null
+    this.themes = themesNamed(query)
     const { text, target: named } = this.resolvePassage(query)
     const target = typed && named?.bookOnly ? null : named
 
@@ -695,7 +742,7 @@ export class SearchComponent {
         this.searchResults = results.verses.map((v) => this.toDisplayVerse(v))
         this.totalResults = results.total
         this.currentPage = 1
-        void this.analyticsService.track("search", { text })
+        void this.analyticsService.track("search")
       }
       this.showResults(text, typed)
     } catch (error) {
@@ -944,7 +991,7 @@ export class SearchComponent {
     chapter: number,
     verseStart?: number,
   ): void {
-    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+    if (leftToTheBrowser(event)) return
     event.preventDefault()
     void this.router.navigate(
       ["/", ...this.passagePath(bookId, chapter)],
