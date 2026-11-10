@@ -67,11 +67,11 @@ function serverRetry<T>() {
  * In the app, a connection that opens but never answers would leave the reader
  * empty until iOS gives up on it; failing sooner brings up the retry screen.
  */
-export const BOOK_LIST_TIMEOUT_MS = 15_000
+export const REQUEST_TIMEOUT_MS = 15_000
 
-function bookListTimeout<T>(): MonoTypeOperatorFunction<T> {
+function requestTimeout<T>(): MonoTypeOperatorFunction<T> {
   // The server already times out and retries (createApiResilience).
-  return IS_SERVER ? (source) => source : timeout(BOOK_LIST_TIMEOUT_MS)
+  return IS_SERVER ? (source) => source : timeout(REQUEST_TIMEOUT_MS)
 }
 
 /** A books body that parsed but isn't the list. */
@@ -167,7 +167,7 @@ export class BibleApiService {
             this.http.get(`${this.api}/books`) as Observable<Book[]>
           ).pipe(
             serverRetry(),
-            bookListTimeout(),
+            requestTimeout(),
             tap((books) => {
               // A body that parses but isn't the list (a proxy's error page)
               // fails like any other, so a retry asks the server again.
@@ -220,6 +220,7 @@ export class BibleApiService {
           this.http.get(`${this.api}/${book}/${chapter}`) as Observable<Chapter>
         ).pipe(
           serverRetry(),
+          requestTimeout(),
           finalize(() => {
             this.chapterRequests.delete(requestKey)
           }),
@@ -261,7 +262,7 @@ export class BibleApiService {
         ).pipe(
           serverRetry(),
           // BookService waits for these with the books.
-          bookListTimeout(),
+          requestTimeout(),
           tap((intros) => serverIntrosCache.write(intros)),
           catchError((error) =>
             cached.length ? of(cached) : throwError(() => error),
@@ -285,7 +286,7 @@ export class BibleApiService {
           this.http.get(
             `${this.api}/intros/${encodeURIComponent(slug)}`,
           ) as Observable<GroupIntro>
-        ).pipe(serverRetry())
+        ).pipe(serverRetry(), requestTimeout())
       }),
       pendingUntilEvent(this.injector),
     )
@@ -293,16 +294,20 @@ export class BibleApiService {
 
   /** Finds the words on our own server; nothing goes to a third party. */
   search(query: string, page = 1, limit = 50): Observable<VersePage> {
-    return this.http.get(
-      `${this.api}/search?text=${encodeURIComponent(query)}&page=${page}&limit=${limit}`,
-    ) as Observable<VersePage>
+    return (
+      this.http.get(
+        `${this.api}/search?text=${encodeURIComponent(query)}&page=${page}&limit=${limit}`,
+      ) as Observable<VersePage>
+    ).pipe(requestTimeout())
   }
 
   /** Sends the query on to Voyage AI: only with the reader's consent. */
   searchByMeaning(query: string, page = 1, limit = 50): Observable<VersePage> {
-    return this.http.get(
-      `${this.api}/search?text=${encodeURIComponent(query)}&page=${page}&limit=${limit}&semantic=true`,
-    ) as Observable<VersePage>
+    return (
+      this.http.get(
+        `${this.api}/search?text=${encodeURIComponent(query)}&page=${page}&limit=${limit}&semantic=true`,
+      ) as Observable<VersePage>
+    ).pipe(requestTimeout())
   }
 
   getVerse(book: string, chapter: number, verse: number): Observable<Verse> {
@@ -316,9 +321,11 @@ export class BibleApiService {
         if (this.networkService.isOffline) {
           return throwError(() => new Error("Offline - verse not cached"))
         }
-        return this.http.get(
-          `${this.api}/${book}/${chapter}/${verse}`,
-        ) as Observable<Verse>
+        return (
+          this.http.get(
+            `${this.api}/${book}/${chapter}/${verse}`,
+          ) as Observable<Verse>
+        ).pipe(requestTimeout())
       }),
     )
   }

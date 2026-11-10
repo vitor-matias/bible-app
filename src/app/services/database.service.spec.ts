@@ -15,6 +15,7 @@ describe("DatabaseService", () => {
     }
     createObjectStore: Mock
     onversionchange: (() => void) | null
+    onclose: (() => void) | null
     close: Mock | (() => void)
   }
   let mockIDBTransaction: {
@@ -70,6 +71,7 @@ describe("DatabaseService", () => {
       },
       createObjectStore: vi.fn().mockName("createObjectStore"),
       onversionchange: null,
+      onclose: null,
       close: vi.fn().mockName("close"),
     }
 
@@ -142,7 +144,7 @@ describe("DatabaseService", () => {
       expect(items).toEqual(mockItems)
     })
 
-    it("should return empty array if database fails to open", async () => {
+    it("should reject if database fails to open", async () => {
       vi.spyOn(console, "error").mockReturnValue(undefined)
       mockIDBRequest.onerror = null as unknown as (event?: unknown) => void // Prepare
 
@@ -158,8 +160,7 @@ describe("DatabaseService", () => {
       expect(mockIDBRequest.onerror).toBeDefined()
       mockIDBRequest.onerror(errorEvent)
 
-      const result = await promise
-      expect(result).toEqual([])
+      await expect(promise).rejects.toThrow("DB Error")
     })
 
     it("should reject if transaction/request fails", async () => {
@@ -236,6 +237,76 @@ describe("DatabaseService", () => {
     })
   })
 
+  describe("update", () => {
+    type Item = { id: number }
+    const keyOf = (item: Item) => item.id
+
+    /** Starts an update over a store holding `items`, opened and read. */
+    async function startUpdate(
+      items: Item[],
+      change: (items: Item[]) => Item[],
+    ): Promise<{ done: Promise<Item[] | null> }> {
+      const read = {
+        result: items,
+        onsuccess: null as unknown as () => void,
+      }
+      mockIDBObjectStore.getAll.mockReturnValue(read)
+      const done = service.update("testStore", keyOf, change)
+      mockIDBRequest.onsuccess()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      read.onsuccess()
+      return { done }
+    }
+
+    it("writes only what changed, deletes first, in one transaction", async () => {
+      const kept = { id: 1 }
+      const gone = { id: 2 }
+      const added = { id: 3 }
+      const { done } = await startUpdate([kept, gone], ([first]) => [
+        first,
+        added,
+      ])
+
+      expect(mockIDBDatabase.transaction).toHaveBeenCalledTimes(1)
+      expect(mockIDBDatabase.transaction).toHaveBeenCalledWith(
+        "testStore",
+        "readwrite",
+      )
+      expect(mockIDBObjectStore.delete).toHaveBeenCalledExactlyOnceWith(2)
+      expect(mockIDBObjectStore.put).toHaveBeenCalledExactlyOnceWith(added)
+      expect(
+        mockIDBObjectStore.delete.mock.invocationCallOrder[0],
+      ).toBeLessThan(mockIDBObjectStore.put.mock.invocationCallOrder[0])
+
+      mockIDBTransaction.oncomplete()
+      expect(await done).toEqual([kept, added])
+    })
+
+    it("aborts the transaction when the change throws", async () => {
+      const abort = vi.fn()
+      Object.assign(mockIDBTransaction, { abort })
+      const error = new Error("bad change")
+
+      const { done } = await startUpdate([{ id: 1 }], () => {
+        throw error
+      })
+
+      await expect(done).rejects.toBe(error)
+      expect(abort).toHaveBeenCalled()
+      expect(mockIDBObjectStore.put).not.toHaveBeenCalled()
+    })
+
+    it("rejects when the transaction aborts", async () => {
+      const { done } = await startUpdate([], () => [{ id: 1 }])
+
+      const error = new Error("QuotaExceededError")
+      mockIDBTransaction.error = error
+      mockIDBTransaction.onabort()
+
+      await expect(done).rejects.toEqual(error)
+    })
+  })
+
   describe("migrations", () => {
     it("should create object stores on upgrade needed", async () => {
       // Trigger getDB
@@ -278,7 +349,6 @@ describe("DatabaseService", () => {
   describe("onblocked handler", () => {
     it("should warn when upgrade is blocked", async () => {
       vi.spyOn(console, "warn").mockReturnValue(undefined)
-      vi.spyOn(console, "error").mockReturnValue(undefined)
 
       const promise = service.getAll("books")
 
@@ -289,9 +359,7 @@ describe("DatabaseService", () => {
         "IndexedDB upgrade blocked. Close other tabs to continue.",
       )
 
-      const result = await promise
-      expect(result).toEqual([])
-      expect(console.error).toHaveBeenCalled()
+      await expect(promise).rejects.toThrow("IndexedDB upgrade blocked")
     })
   })
 
@@ -339,6 +407,32 @@ describe("DatabaseService", () => {
         mockGetAllRequest.onsuccess()
       }
       await promise
+    })
+  })
+
+  describe("onclose handler", () => {
+    it("should reopen after the device closes the connection", async () => {
+      const mockGetAllRequest = {
+        result: [],
+        onsuccess: null as unknown as () => void,
+        onerror: null as unknown as () => void,
+      }
+      mockIDBObjectStore.getAll.mockReturnValue(mockGetAllRequest)
+
+      const first = service.getAll("books")
+      mockIDBRequest.onsuccess()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      mockGetAllRequest.onsuccess()
+      await first
+
+      mockIDBDatabase.onclose?.()
+
+      const second = service.getAll("books")
+      expect(mockIndexedDB.open).toHaveBeenCalledTimes(2)
+      mockIDBRequest.onsuccess()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      mockGetAllRequest.onsuccess()
+      await second
     })
   })
 

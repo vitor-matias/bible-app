@@ -21,6 +21,17 @@ export function isServiceWorkerEnabled(devMode: boolean): boolean {
   return !devMode && !Capacitor.isNativePlatform()
 }
 
+/** Installed to the home screen, or running inside a native shell. */
+export function isStandaloneApp(): boolean {
+  if (typeof window === "undefined") return false
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    // @ts-expect-error iOS standalone mode
+    window.navigator.standalone === true ||
+    Capacitor.isNativePlatform()
+  )
+}
+
 /** A click with a modifier opens a new tab or window, not this app's page. */
 export const leftToTheBrowser = (event: MouseEvent): boolean =>
   event.ctrlKey || event.metaKey || event.shiftKey || event.altKey

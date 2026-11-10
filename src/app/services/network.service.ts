@@ -3,6 +3,7 @@ import type { PluginListenerHandle } from "@capacitor/core"
 import { type ConnectionStatus, type NetworkPlugin } from "@capacitor/network"
 import { BehaviorSubject, type Observable } from "rxjs"
 import { NETWORK_PLUGIN } from "../tokens"
+import { isStandaloneApp } from "../utils/platform"
 
 @Injectable({
   providedIn: "root",
@@ -53,13 +54,13 @@ export class NetworkService {
 
     // When we transition from offline → online, opportunistically refresh
     // the Bible content cache if it has expired.
-    if (wasOffline && nowOnline) {
+    if (wasOffline && nowOnline && isStandaloneApp()) {
       // Lazy-inject to avoid a circular dependency at construction time.
       void (async () => {
         try {
           const { OfflineDataService } = await import("./offline-data.service")
           const svc = this.injector.get(OfflineDataService)
-          await svc.preloadAllBooksAndChapters("standalone")
+          await svc.preloadAllBooksAndChapters()
         } catch (error) {
           console.error(
             "Failed to preload offline Bible content after reconnect",

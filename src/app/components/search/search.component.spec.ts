@@ -146,7 +146,9 @@ describe("SearchComponent", () => {
       "findTypedBook",
       "getUrlAbrv",
       "getChapterUrlSegment",
+      "initializeBooks",
     ])
+    bookService.initializeBooks.mockResolvedValue(undefined)
     // The links' addresses, as the reader writes them.
     bookService.getUrlAbrv.mockImplementation(BookService.prototype.getUrlAbrv)
     bookService.getChapterUrlSegment.mockImplementation(
@@ -707,53 +709,148 @@ describe("SearchComponent", () => {
     })
   })
 
-  it("should run a shared query from the q query param on init", () => {
+  /** Past the wait for the book list, which a shared query goes through. */
+  const booksSettled = () => new Promise((resolve) => setTimeout(resolve))
+
+  it("should run a shared query from the q query param on init", async () => {
     queryParamMapSubject.next(convertToParamMap({ q: "shared text" }))
     const submitSpy = vi
       .spyOn(component, "onSearchSubmit")
       .mockReturnValue(undefined as never)
 
     component.ngOnInit()
+    await booksSettled()
 
     expect(submitSpy).toHaveBeenCalledWith("shared text")
   })
 
-  it("should run a second shared query without re-creating the component", () => {
+  it("should run a second shared query without re-creating the component", async () => {
     const submitSpy = vi
       .spyOn(component, "onSearchSubmit")
       .mockReturnValue(undefined as never)
     component.ngOnInit()
 
     queryParamMapSubject.next(convertToParamMap({ q: "first" }))
+    await booksSettled()
     queryParamMapSubject.next(convertToParamMap({ q: "second" }))
+    await booksSettled()
 
     expect(submitSpy).toHaveBeenCalledWith("first")
     expect(submitSpy).toHaveBeenCalledWith("second")
   })
 
-  it("should not re-run the same shared query on an unrelated emission", () => {
+  it("should not re-run the same shared query on an unrelated emission", async () => {
     const submitSpy = vi
       .spyOn(component, "onSearchSubmit")
       .mockReturnValue(undefined as never)
     component.ngOnInit()
 
     queryParamMapSubject.next(convertToParamMap({ q: "same" }))
+    await booksSettled()
     queryParamMapSubject.next(convertToParamMap({ q: "same" }))
+    await booksSettled()
 
     expect(submitSpy).toHaveBeenCalledTimes(1)
   })
 
-  it("should re-run a shared query that went away and came back", () => {
+  it("should re-run a shared query that went away and came back", async () => {
     const submitSpy = vi
       .spyOn(component, "onSearchSubmit")
       .mockReturnValue(undefined as never)
     component.ngOnInit()
 
     queryParamMapSubject.next(convertToParamMap({ q: "same" }))
+    await booksSettled()
     queryParamMapSubject.next(convertToParamMap({}))
+    await booksSettled()
     queryParamMapSubject.next(convertToParamMap({ q: "same" }))
+    await booksSettled()
 
     expect(submitSpy).toHaveBeenCalledTimes(2)
+  })
+
+  // A cold start from a share: run at once, "João 3,16" found no book and
+  // became a word search.
+  describe("a shared query while the book list loads", () => {
+    let finishLoading: () => void
+    let failLoading: (error: Error) => void
+
+    beforeEach(() => {
+      bookService.initializeBooks.mockReturnValue(
+        new Promise<void>((resolve, reject) => {
+          finishLoading = resolve
+          failLoading = reject
+        }),
+      )
+      referenceService.extract.mockReturnValue([])
+      apiService.getVerse.mockReturnValue(of({} as Verse))
+      apiService.search.mockReturnValue(
+        of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+      )
+      queryParamMapSubject.next(convertToParamMap({ q: "João 3,16" }))
+    })
+
+    it("waits for the books, then opens the passage", async () => {
+      fixture.detectChanges()
+      await booksSettled()
+      expect(apiService.search).not.toHaveBeenCalled()
+      expect(router.navigate).not.toHaveBeenCalled()
+
+      referenceService.extract.mockReturnValue([
+        { book: "João", chapter: 3, verses: [{ type: "single", verse: 16 }] },
+      ] as never)
+      bookService.findBook.mockReturnValue({
+        id: "jhn",
+        abrv: "Jo",
+        chapterCount: 21,
+      } as Book)
+      finishLoading()
+      await booksSettled()
+
+      expect(apiService.getVerse).toHaveBeenCalledWith("jhn", 3, 16)
+      expect(apiService.search).not.toHaveBeenCalled()
+    })
+
+    it("still searches when the books fail to load", async () => {
+      fixture.detectChanges()
+
+      failLoading(new Error("offline"))
+      await booksSettled()
+
+      expect(apiService.search).toHaveBeenCalledWith("João 3,16", 1)
+    })
+
+    it("runs nothing once the page is gone", async () => {
+      fixture.detectChanges()
+
+      fixture.destroy()
+      finishLoading()
+      await booksSettled()
+
+      expect(apiService.search).not.toHaveBeenCalled()
+    })
+
+    it("yields to a search submitted during the wait", async () => {
+      fixture.detectChanges()
+
+      await component.onSearchSubmit("luz")
+      finishLoading()
+      await booksSettled()
+
+      expect(apiService.search).toHaveBeenCalledTimes(1)
+      expect(apiService.search).toHaveBeenCalledWith("luz", 1)
+    })
+
+    it("runs only the latest of two shared queries", async () => {
+      fixture.detectChanges()
+
+      queryParamMapSubject.next(convertToParamMap({ q: "luz" }))
+      finishLoading()
+      await booksSettled()
+
+      expect(apiService.search).toHaveBeenCalledTimes(1)
+      expect(apiService.search).toHaveBeenCalledWith("luz", 1)
+    })
   })
 
   it("should open a standalone introduction at /intro without probing a verse", async () => {
@@ -1298,6 +1395,7 @@ describe("SearchComponent", () => {
       queryParamMapSubject.next(convertToParamMap({ q: "bom pastor" }))
       const shared = TestBed.createComponent(SearchComponent)
       shared.detectChanges()
+      await booksSettled()
       await shared.whenStable()
 
       expect(apiService.search).toHaveBeenCalledTimes(2)
@@ -1349,6 +1447,7 @@ describe("SearchComponent", () => {
       queryParamMapSubject.next(convertToParamMap({ q: "luz" }))
       const other = TestBed.createComponent(SearchComponent)
       other.detectChanges()
+      await booksSettled()
       await other.whenStable()
 
       expect(apiService.search).toHaveBeenCalledWith("luz", 1)

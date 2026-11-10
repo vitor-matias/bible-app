@@ -165,9 +165,7 @@ describe("AppComponent", () => {
     await fixture.whenStable()
 
     const offlineDataService = TestBed.inject(OfflineDataService)
-    expect(offlineDataService.preloadAllBooksAndChapters).toHaveBeenCalledWith(
-      "standalone",
-    )
+    expect(offlineDataService.preloadAllBooksAndChapters).toHaveBeenCalledWith()
   })
 
   it("should route a title-only share to search with q", async () => {

@@ -168,7 +168,7 @@ describe("BookmarkSelectorComponent", () => {
     expect(bottomSheetRefSpy.dismiss).toHaveBeenCalled()
   })
 
-  it("should add bookmark when clicking an empty ribbon", () => {
+  it("should add bookmark when clicking an empty ribbon", async () => {
     const redRibbon = component.ribbons.find((r) => r.value === "red")
     expect(redRibbon).toBeTruthy()
     if (redRibbon) {
@@ -177,6 +177,7 @@ describe("BookmarkSelectorComponent", () => {
 
     expect(bookmarkServiceSpy.addBookmark).toHaveBeenCalledWith("GEN", 1, "red")
     expect(bottomSheetRefSpy.dismiss).not.toHaveBeenCalled()
+    await new Promise((resolve) => setTimeout(resolve))
     expect(hapticsSpy.success).toHaveBeenCalled()
   })
 
@@ -390,6 +391,17 @@ describe("BookmarkSelectorComponent", () => {
       )
       bookmarksSubject.next(mockBookmarks)
       fixture.detectChanges()
+      expect(undoButton()).toBeNull()
+    })
+
+    it("offers no undo for a removal that failed to save", async () => {
+      bookmarkServiceSpy.removeBookmark.mockRejectedValue(new Error("Quota"))
+      rightClick(button("Azul,"))
+      await settle()
+      removeItem()?.click()
+      await settle()
+      fixture.detectChanges()
+
       expect(undoButton()).toBeNull()
     })
 

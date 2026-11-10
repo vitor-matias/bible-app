@@ -40,9 +40,12 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onNewIntent(Intent intent) {
         // BridgeActivity.load() passes getIntent() here from inside onCreate.
-        // When restoring, that is the original, already handled share, so it
-        // goes through unconverted and the App plugin ignores it.
-        super.onNewIntent(restoring ? intent : toShareTargetIntent(intent));
+        // When restoring, that is the launch intent, already handled, which
+        // the App plugin would emit again as appUrlOpen.
+        if (restoring) {
+            return;
+        }
+        super.onNewIntent(toShareTargetIntent(intent));
     }
 
     @Override

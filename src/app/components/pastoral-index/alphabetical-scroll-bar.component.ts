@@ -114,7 +114,8 @@ const DIVIDER = "·"
     "(touchstart)": "focus($event)",
     "(click)": "focus($event)",
     "(mouseleave)": "end()",
-    "(touchend)": "end()",
+    // Or the browser's compatibility click chooses the letter again, after end().
+    "(touchend)": "$event.preventDefault(); end()",
     "(touchcancel)": "end()",
     "(window:resize)": "0",
   },

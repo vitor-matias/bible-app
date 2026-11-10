@@ -13,6 +13,9 @@ export const HIGHLIGHT_DURATION_MS = 2500
  */
 export const LAYOUT_SETTLE_MS = 600
 
+/** A verse range from a link goes no further; the longest chapter has 176. */
+const MAX_VERSE_RANGE = 200
+
 /**
  * Default for scrolling mode: centre the verse's start, its number, in the
  * vertical scroller. Not the <verse> host: it is an inline box over several
@@ -197,9 +200,16 @@ export class BibleReaderAnimationService {
       let scrolled = false
       if (!bookBlock) return
 
-      for (let i = verseStart; i <= (verseEnd || verseStart); i++) {
+      const extraVerses = Math.min(
+        (verseEnd || verseStart) - verseStart,
+        MAX_VERSE_RANGE,
+      )
+      // Counted from the start: from 2^53 or Infinity, i++ would not advance.
+      for (let offset = 0; offset <= extraVerses; offset++) {
         // Scope search to the book block
-        const element = bookBlock.querySelector(`[id="${i}"]`) as HTMLElement
+        const element = bookBlock.querySelector(
+          `[id="${verseStart + offset}"]`,
+        ) as HTMLElement
         if (element) {
           if (!scrolled) {
             bringIntoView(element)

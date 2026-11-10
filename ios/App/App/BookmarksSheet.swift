@@ -349,8 +349,12 @@ final class BookmarksController: UIViewController {
             button.isEnabled = used
             button.alpha = used ? 1 : 0.35
             button.accessibilityHint = used ? "Retira o marcador" : nil
-            button.addAction(UIAction { [weak self] _ in self?.send("bookmark-remove", ribbon.color) },
-                             for: .primaryActionTriggered)
+            button.addAction(UIAction { [weak self] _ in
+                guard let self else { return }
+                self.send("bookmark-remove", ribbon.color)
+                self.editingRibbons = false
+                self.render()
+            }, for: .primaryActionTriggered)
             if used {
                 let badge = UIImageView(image: UIImage(systemName: "minus.circle.fill"))
                 badge.tintColor = .systemRed

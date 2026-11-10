@@ -11,10 +11,10 @@ import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import {
   BibleApiService,
-  BOOK_LIST_TIMEOUT_MS,
   createApiResilience,
   createServerBooksCache,
   describeBookListFailure,
+  REQUEST_TIMEOUT_MS,
 } from "./bible-api.service"
 import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
@@ -85,6 +85,60 @@ describe("BibleApiService", () => {
         "v1/search?text=bom%20pastor&page=2&limit=50&semantic=true",
       )
       req.flush({ verses: [], total: 0, currentPage: 2, totalPages: 0 })
+    })
+  })
+
+  describe("request timeout", () => {
+    const failureOf = async (source: Observable<unknown>, url: string) => {
+      vi.useFakeTimers()
+      let failure: unknown
+      source.subscribe({
+        error: (error) => {
+          failure = error
+        },
+      })
+      await vi.advanceTimersByTimeAsync(0)
+      const stalled = httpMock.expectOne(url)
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS - 1)
+      expect(failure).toBeUndefined()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(stalled.cancelled).toBe(true)
+      return failure
+    }
+
+    it("fails a chapter that never answers", async () => {
+      offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(undefined)
+
+      expect(
+        await failureOf(service.getChapter("gen", 1), "v1/gen/1"),
+      ).toBeInstanceOf(TimeoutError)
+    })
+
+    it("fails a search that never answers", async () => {
+      expect(
+        await failureOf(
+          service.search("amor"),
+          "v1/search?text=amor&page=1&limit=50",
+        ),
+      ).toBeInstanceOf(TimeoutError)
+    })
+
+    it("fails a verse that never answers", async () => {
+      offlineDataServiceSpy.getCachedVerseAsync.mockResolvedValue(undefined)
+
+      expect(
+        await failureOf(service.getVerse("gen", 1, 1), "v1/gen/1/1"),
+      ).toBeInstanceOf(TimeoutError)
+    })
+
+    it("fails an introduction that never answers", async () => {
+      offlineDataServiceSpy.getCachedGroupIntroAsync.mockResolvedValue(
+        undefined,
+      )
+
+      expect(
+        await failureOf(service.getIntro("pentateuco"), "v1/intros/pentateuco"),
+      ).toBeInstanceOf(TimeoutError)
     })
   })
 
@@ -401,7 +455,7 @@ describe("BibleApiService", () => {
         await vi.advanceTimersByTimeAsync(0)
         const stalled = httpMock.expectOne("v1/books")
 
-        await vi.advanceTimersByTimeAsync(BOOK_LIST_TIMEOUT_MS)
+        await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS)
 
         expect(failure).toBeInstanceOf(TimeoutError)
         expect(stalled.cancelled).toBe(true)
@@ -627,7 +681,7 @@ describe("BibleApiService", () => {
       await vi.advanceTimersByTimeAsync(0)
       const stalled = httpMock.expectOne("v1/intros")
 
-      await vi.advanceTimersByTimeAsync(BOOK_LIST_TIMEOUT_MS)
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS)
 
       expect(failure).toBeInstanceOf(TimeoutError)
       expect(stalled.cancelled).toBe(true)
