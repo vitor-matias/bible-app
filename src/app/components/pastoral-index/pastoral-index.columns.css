@@ -24,7 +24,8 @@
     overflow: visible;
     clip-path: none;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(30px, 1fr));
+    /* Capped: one letter left by the filter stretched the whole row. */
+    grid-template-columns: repeat(auto-fit, minmax(30px, 48px));
     gap: 2px;
     padding-top: 8px;
     --mat-button-text-horizontal-padding: 0;

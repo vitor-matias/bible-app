@@ -1158,6 +1158,20 @@ describe("PastoralIndexComponent", () => {
       expect(el.querySelector(".mat-expansion-indicator")).toBeNull()
     })
 
+    // Filtered to "amor", the one letter left stretched into a full-width pill.
+    it("keeps a lone letter button its own size", async () => {
+      const fixture = await open(undefined, false, false, true)
+      const el: HTMLElement = fixture.nativeElement
+      const input = el.querySelector("input") as HTMLInputElement
+      input.value = "amor"
+      input.dispatchEvent(new Event("input"))
+      fixture.detectChanges()
+
+      const letters = el.querySelectorAll(".letters button")
+      expect(letters.length).toBe(1)
+      expect(letters[0].getBoundingClientRect().width).toBeLessThanOrEqual(48)
+    })
+
     it("never splits a theme across two columns", async () => {
       const fixture = await open(undefined, false, false, true)
       const el: HTMLElement = fixture.nativeElement
