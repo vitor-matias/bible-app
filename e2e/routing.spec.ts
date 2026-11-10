@@ -61,12 +61,20 @@ test("Return on a blank search field searches nothing", async ({ page }) => {
   await page.goto("/search")
   const input = page.locator('input[aria-label="Procurar na Bíblia"]')
   await input.waitFor({ timeout: 10_000 })
+  const searches: string[] = []
+  page.on("request", (request) => {
+    if (/\/v1\/search\?/.test(request.url())) searches.push(request.url())
+  })
   await input.fill("   ")
   await input.press("Enter")
+  // Past the typing pause (TYPING_PAUSE_MS, 1.5 s), which searches too: the
+  // assertions below would pass at once, before any request came back.
+  await page.waitForTimeout(2_500)
 
+  expect(searches).toEqual([])
   await expect(page).toHaveURL(/\/search$/)
-  await expect(page.locator(".result-item")).toHaveCount(0)
-  await expect(page.getByText("Nenhum versículo")).toHaveCount(0)
+  await expect(page.getByText("A procurar")).toHaveCount(0)
+  await expect(page.getByText("Nenhum resultado")).toHaveCount(0)
 })
 
 for (const [path, store] of [
