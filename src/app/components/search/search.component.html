@@ -27,6 +27,8 @@
   <p class="visually-hidden" role="status">{{ statusMessage }}</p>
 
   @if (!hasSearched && !pendingSearch) {
+    <!-- An offer above answers what was typed: no "search for…" under it. -->
+    @if (!passageSuggestion && themes.length === 0) {
     <div class="empty-state">
       <mat-icon class="empty-state-icon">search</mat-icon>
       <p>Procure versículos, livros ou referências bíblicas</p>
@@ -35,6 +37,7 @@
         <p class="results-hint">Sem ligação: pode abrir referências, como Jo 3,16, e procurar palavras no texto guardado neste dispositivo.</p>
       }
     </div>
+    }
   } @else if (psalmChoice) {
     <div class="results-section">
       <p class="results-count">Qual salmo procura?</p>

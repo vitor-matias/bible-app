@@ -350,6 +350,36 @@ describe("SearchComponent", () => {
         expect(apiService.search).not.toHaveBeenCalled()
       })
 
+      // "Abrir João 3,16" sat over "Procure versículos, livros ou…".
+      it("hides the opening hint under an offer", () => {
+        fixture.detectChanges()
+        expect(host().querySelector(".empty-state")).toBeTruthy()
+        referenceService.extract.mockReturnValue([
+          { book: "Jo", chapter: 3, verses: [{ type: "single", verse: 16 }] },
+        ] as unknown as ReturnType<BibleReferenceService["extract"]>)
+        bookService.findBook.mockReturnValue(john)
+
+        component.onTyping("Jo 3,16")
+        expect(host().querySelector(".passage-suggestion")).toBeTruthy()
+        expect(host().querySelector(".empty-state")).toBeNull()
+
+        component.onTyping("")
+        expect(host().querySelector(".empty-state")).toBeTruthy()
+      })
+
+      // Return on an empty field said "Nenhum versículo com « »".
+      it("does not search for nothing", async () => {
+        await component.onSearchSubmit("")
+        await component.onSearchSubmit("   ")
+        fixture.detectChanges()
+
+        expect(apiService.search).not.toHaveBeenCalled()
+        expect(component.hasSearched).toBe(false)
+        expect(host().querySelector(".empty-state")?.textContent).toContain(
+          "Procure versículos",
+        )
+      })
+
       it("offers a book by its name", () => {
         bookService.findBook.mockReturnValue(john)
         component.onTyping("João")
