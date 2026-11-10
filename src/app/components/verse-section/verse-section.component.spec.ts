@@ -262,6 +262,76 @@ describe("VerseSectionComponent", () => {
       expect(getComputedStyle(heading).display).toBe("inline")
       expect(heading.previousElementSibling).toBeNull()
     })
+
+    // Justified, Mt 5's "As Bem-aventuranças", alone on its line beside the
+    // chapter number, was spread into "As          Bem-aventuranças".
+    it("keeps a run-in heading's words together in justified text", () => {
+      const host = fixture.nativeElement as HTMLElement
+      fixture.componentRef.setInput("changeLine", false)
+      setData(
+        fixture,
+        makeVerse({
+          text: [
+            { type: "section", tag: "s2", text: "As Bem-aventuranças" },
+            { type: "references", text: "(Lc 6,20-26)" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+
+      const words = host.querySelector("[data-section-heading]") as HTMLElement
+      host.style.cssText = "display: block; white-space: nowrap"
+      const natural = words.getBoundingClientRect().width
+      // Room for the heading, not its reference: the line ends with it.
+      host.style.cssText = `display: block; width: ${natural + 40}px; text-align: justify`
+
+      // No space in it was stretched to fill the line.
+      expect(words.getBoundingClientRect().width).toBeCloseTo(natural, 0)
+    })
+
+    // An inline-block takes the column's width, not what the floated chapter
+    // number leaves: a long heading beside it dropped below the number.
+    it("lets a run-in heading beside the chapter number wrap beside it", () => {
+      const host = fixture.nativeElement as HTMLElement
+      host.style.cssText = "display: block; width: 260px"
+      const number = document.createElement("div")
+      number.style.cssText = "float: left; width: 60px; height: 40px"
+      host.before(number)
+      try {
+        fixture.componentRef.setInput("changeLine", false)
+        fixture.componentRef.setInput("besideChapterNumber", true)
+        setData(
+          fixture,
+          makeVerse({
+            text: [
+              {
+                type: "section",
+                tag: "s2",
+                text: "Parábola do semeador e explicação da parábola",
+              },
+            ],
+          }),
+        )
+        fixture.detectChanges()
+
+        const words = host.querySelector(
+          "[data-section-heading]",
+        ) as HTMLElement
+        expect(words.getClientRects()[0].top).toBeLessThan(
+          number.getBoundingClientRect().bottom,
+        )
+      } finally {
+        number.remove()
+      }
+    })
+
+    it("leaves a centred heading's words as they were", () => {
+      render({ changeLine: true, beside: false })
+      const words = (fixture.nativeElement as HTMLElement).querySelector(
+        "[data-section-heading]",
+      ) as HTMLElement
+      expect(getComputedStyle(words).display).toBe("inline")
+    })
   })
 
   describe("showReturnSnackbar", () => {

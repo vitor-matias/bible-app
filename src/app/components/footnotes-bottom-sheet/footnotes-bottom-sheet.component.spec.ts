@@ -107,6 +107,29 @@ describe("FootnotesBottomSheetComponent", () => {
     }
   })
 
+  // On a 393 px phone justified notes opened rivers while the reader was ragged.
+  it("sets the notes ragged-right on a phone until justified is chosen", () => {
+    // The runner's frame width is the viewport the media queries see.
+    const frame = window.frameElement as HTMLElement | null
+    expect(frame, "the specs run in a frame").toBeTruthy()
+    const width = frame?.style.width ?? ""
+    bibleRefSpy.extract.mockReturnValue([])
+    fixture.detectChanges()
+    const container = (fixture.nativeElement as HTMLElement).querySelector(
+      ".footnotes-container",
+    ) as HTMLElement
+    try {
+      if (frame) frame.style.width = "390px"
+      expect(getComputedStyle(container).textAlign).toBe("start")
+
+      document.documentElement.classList.add("justified-text")
+      expect(getComputedStyle(container).textAlign).toBe("justify")
+    } finally {
+      document.documentElement.classList.remove("justified-text")
+      if (frame) frame.style.width = width
+    }
+  })
+
   it("should bind the footnotes font-size context to the gestures directive", () => {
     bibleRefSpy.extract.mockReturnValue([])
     fixture.detectChanges()

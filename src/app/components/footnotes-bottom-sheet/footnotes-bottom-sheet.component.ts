@@ -65,6 +65,16 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
         font-family: var(--font-reading);
         text-align: justify;
       }
+      /* Ragged on a phone, as the reader is, unless the reader chose
+         justified (TextAlignService; ragged is in styles.css). */
+      @media (max-width: 480px) {
+        .footnotes-container {
+          text-align: start;
+        }
+      }
+      :host-context(html.justified-text) .footnotes-container {
+        text-align: justify;
+      }
       .header {
         display: flex;
         justify-content: space-between;

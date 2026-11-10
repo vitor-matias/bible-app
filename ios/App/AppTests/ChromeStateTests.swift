@@ -315,6 +315,25 @@ final class ChromeStateTests: XCTestCase {
         ((view as? T).map { [$0] } ?? []) + view.subviews.flatMap { subviews(of: $0, type) }
     }
 
+    // On the folded iPhone Duo the status bar and Close run down the right
+    // side, inside the safe area: the ringed copy and the intro ran under them.
+    func testOnboardingPagesStayClearOfASideSafeArea() throws {
+        let steps = OnboardingStepData.parse(call(["steps": [
+            ["id": "welcome", "title": "Bem-vindo", "intro": "…", "symbol": "book",
+             "logo": false, "features": []],
+        ]]))
+        let sheet = OnboardingController(steps: steps, onFinish: { _, _ in })
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 466, height: 678))
+        window.rootViewController = sheet
+        window.isHidden = false
+        sheet.additionalSafeAreaInsets = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 84)
+        sheet.view.layoutIfNeeded()
+
+        let pager = try XCTUnwrap(subviews(of: sheet.view, UIScrollView.self).first { $0.isPagingEnabled })
+        let frame = pager.convert(pager.bounds, to: sheet.view)
+        XCTAssertLessThanOrEqual(frame.maxX, 466 - 84 + 0.5)
+    }
+
     @available(iOS 16.0, *)
     func testRemovingARibbonEndsEditing() throws {
         let ribbons: [[String: Any]] = [

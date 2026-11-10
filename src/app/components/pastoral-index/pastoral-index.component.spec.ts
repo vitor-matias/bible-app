@@ -1158,6 +1158,33 @@ describe("PastoralIndexComponent", () => {
       expect(el.querySelector(".mat-expansion-indicator")).toBeNull()
     })
 
+    // Filtered to "amor", the one letter left stretched into a full-width pill.
+    it("keeps a lone letter button its own size", async () => {
+      const fixture = await open(undefined, false, false, true)
+      const el: HTMLElement = fixture.nativeElement
+      const input = el.querySelector("input") as HTMLInputElement
+      input.value = "amor"
+      input.dispatchEvent(new Event("input"))
+      fixture.detectChanges()
+
+      const letters = el.querySelectorAll(".letters button")
+      expect(letters.length).toBe(1)
+      expect(letters[0].getBoundingClientRect().width).toBeLessThanOrEqual(48)
+    })
+
+    // Capping the tracks at 48 px wrapped the row below about 1146 px, under
+    // the sticky tools, whose height allows for one row.
+    it("keeps every letter on one row", async () => {
+      const fixture = await open(undefined, false, false, true)
+      const el: HTMLElement = fixture.nativeElement
+      const tops = new Set(
+        [...el.querySelectorAll(".letters button")].map((button) =>
+          Math.round(button.getBoundingClientRect().top),
+        ),
+      )
+      expect(tops.size).toBe(1)
+    })
+
     it("never splits a theme across two columns", async () => {
       const fixture = await open(undefined, false, false, true)
       const el: HTMLElement = fixture.nativeElement
@@ -1722,6 +1749,50 @@ describe("PastoralIndexComponent", () => {
         ).toBeGreaterThan(1.2)
       })
     }
+  })
+
+  // On a 393 px phone the intro and themes were justified, with rivers, while
+  // the reader beside them was ragged-right.
+  describe("on a phone", () => {
+    const frame = window.frameElement as HTMLElement | null
+    let width = ""
+
+    beforeEach(() => {
+      width = frame?.style.width ?? ""
+    })
+
+    afterEach(() => {
+      if (frame) frame.style.width = width
+      document.documentElement.classList.remove("justified-text")
+    })
+
+    it("sets the intro and themes ragged-right until justified is chosen", async () => {
+      const fixture = await open("amor")
+      const el: HTMLElement = fixture.nativeElement
+      expect(frame, "the specs run in a frame").toBeTruthy()
+      if (frame) frame.style.width = "390px"
+      const align = (selector: string) =>
+        getComputedStyle(el.querySelector(selector) as Element).textAlign
+
+      expect(align(".index-intro")).toBe("start")
+      expect(align("#tema-amor .entry")).toBe("start")
+
+      document.documentElement.classList.add("justified-text")
+      expect(align(".index-intro")).toBe("justify")
+      expect(align("#tema-amor .entry")).toBe("justify")
+    })
+
+    // The web's choice overrode the apps' ragged themes, which neither
+    // platform justifies.
+    it("keeps the apps' themes ragged when justified is chosen", async () => {
+      const fixture = await open("amor", true)
+      const el: HTMLElement = fixture.nativeElement
+      document.documentElement.classList.add("justified-text")
+
+      const entry = el.querySelector("#tema-amor .entry") as Element
+      expect(getComputedStyle(entry).textAlign).toBe("start")
+      expect(getComputedStyle(entry).hyphens).toBe("manual")
+    })
   })
 
   describe("in the apps", () => {
