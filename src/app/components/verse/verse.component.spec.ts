@@ -512,6 +512,49 @@ describe("VerseComponent", () => {
     })
   })
 
+  // A blank quote or text is dropped from what is drawn (computeDisplayGroups),
+  // so it is not what comes next: the heading is followed by what is seen.
+  describe("what follows a heading when a blank quote sits between", () => {
+    const heading = { type: "section", text: "h", tag: "s2" } as const
+    const blankQuote = { type: "quote", text: " ", identLevel: 1 } as const
+
+    it("looks past it to the text that is drawn", () => {
+      setData(
+        fixture,
+        makeVerse({ text: [heading, blankQuote, { type: "text", text: "x" }] }),
+      )
+      fixture.componentRef.setInput("nextVerseStartsWithQuote", false)
+
+      expect(component.checkNextIsQuote(0)).toBe(false)
+    })
+
+    it("looks past it to the paragraph that is drawn", () => {
+      setData(
+        fixture,
+        makeVerse({
+          text: [heading, blankQuote, { type: "paragraph", text: " " }],
+        }),
+      )
+      fixture.componentRef.setInput("nextVerseStartsWithQuote", false)
+
+      expect(component.checkNextIsQuote(0)).toBe(false)
+      expect(component.checkNextIsParagraph(0)).toBe(true)
+    })
+
+    it("asks the next verse when only blank elements follow", () => {
+      setData(
+        fixture,
+        makeVerse({ text: [heading, { type: "text", text: "" }, blankQuote] }),
+      )
+      fixture.componentRef.setInput("nextVerseStartsWithQuote", false)
+      expect(component.checkNextIsQuote(0)).toBe(false)
+
+      fixture.componentRef.setInput("nextVerseStartsWithQuote", true)
+      expect(component.checkNextIsQuote(0)).toBe(true)
+      expect(component.checkNextIsParagraph(0)).toBe(false)
+    })
+  })
+
   describe("shouldShowParagraph", () => {
     it("should return false for verse 0", () => {
       const data = makeVerse({

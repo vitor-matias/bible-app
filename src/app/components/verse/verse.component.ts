@@ -291,9 +291,10 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
    * What a reader sees first of the verse. A blank element is not it: it is
    * dropped from what is drawn (see computeDisplayGroups), so counting it left
    * the number with nowhere to go — the inline one was skipped for the quote
-   * that was not drawn, and the next quote was not the first.
+   * that was not drawn, and the next quote was not the first. The reader asks
+   * it too, of the verse that follows, so both agree on what comes first.
    */
-  private static isShown(t: TextType): boolean {
+  static isShown(t: TextType): boolean {
     return (
       t.type !== "footnote" &&
       t.type !== "references" &&
@@ -318,10 +319,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
     if (lastElementIndex + 1 < this.data().text.length) {
       const nextDisplayableIdx = this.data().text.findIndex(
-        (t, idx) =>
-          idx > lastElementIndex &&
-          t.type !== "footnote" &&
-          t.type !== "references",
+        (t, idx) => idx > lastElementIndex && VerseComponent.isShown(t),
       )
 
       if (nextDisplayableIdx !== -1) {
@@ -338,10 +336,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
     if (lastElementIndex + 1 < this.data().text.length) {
       const nextDisplayableIdx = this.data().text.findIndex(
-        (t, idx) =>
-          idx > lastElementIndex &&
-          t.type !== "footnote" &&
-          t.type !== "references",
+        (t, idx) => idx > lastElementIndex && VerseComponent.isShown(t),
       )
 
       if (nextDisplayableIdx !== -1) {

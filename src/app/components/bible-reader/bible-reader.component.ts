@@ -1962,8 +1962,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     const verse = verses?.[index]
     if (!verse?.text || verse.text.length === 0) return false
 
-    const firstDisplayableIdx = verse.text.findIndex(
-      (t) => t.type !== "footnote" && t.type !== "references",
+    const firstDisplayableIdx = verse.text.findIndex((t) =>
+      VerseComponent.isShown(t),
     )
 
     if (firstDisplayableIdx === -1) return false

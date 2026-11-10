@@ -1143,19 +1143,82 @@ describe("BibleReaderComponent", () => {
       it("should check if the next verse starts with a quote", () => {
         component.chapter = {
           verses: [
-            { number: 1, text: [{ type: "text" }] },
-            { number: 2, text: [{ type: "footnote" }, { type: "quote" }] },
+            { number: 1, text: [{ type: "text", text: "a" }] },
+            {
+              number: 2,
+              text: [
+                { type: "footnote", text: "n" },
+                { type: "quote", text: "q" },
+              ],
+            },
           ],
         } as unknown as Chapter
 
         expect(component.checkIfNextVerseStartsWithQuote(0)).toBe(true)
       })
 
+      // A blank element is dropped from what is drawn, so it is not what
+      // the verse starts with: the question is about what is seen first.
+      it("should look past a blank text to the quote that is drawn", () => {
+        for (const blank of ["", " "]) {
+          component.chapter = {
+            verses: [
+              { number: 1, text: [{ type: "text", text: "a" }] },
+              {
+                number: 2,
+                text: [
+                  { type: "text", text: blank },
+                  { type: "quote", text: "q" },
+                ],
+              },
+            ],
+          } as unknown as Chapter
+
+          expect(component.checkIfNextVerseStartsWithQuote(0)).toBe(true)
+        }
+      })
+
+      it("should not count a blank quote as the start of the verse", () => {
+        component.chapter = {
+          verses: [
+            { number: 1, text: [{ type: "text", text: "a" }] },
+            {
+              number: 2,
+              text: [
+                { type: "quote", text: " " },
+                { type: "text", text: "x" },
+              ],
+            },
+          ],
+        } as unknown as Chapter
+
+        expect(component.checkIfNextVerseStartsWithQuote(0)).toBe(false)
+      })
+
+      it("should say the same of the passage open beside the chapter", () => {
+        component.parallel = {
+          chapter: {
+            verses: [
+              { number: 1, text: [{ type: "text", text: "a" }] },
+              {
+                number: 2,
+                text: [
+                  { type: "text", text: "" },
+                  { type: "quote", text: "q" },
+                ],
+              },
+            ],
+          },
+        } as unknown as typeof component.parallel
+
+        expect(component.parallelNextStartsWithQuote(0)).toBe(true)
+      })
+
       it("should return false if next verse has no displayable text", () => {
         component.chapter = {
           verses: [
-            { number: 1, text: [{ type: "text" }] },
-            { number: 2, text: [{ type: "footnote" }] },
+            { number: 1, text: [{ type: "text", text: "a" }] },
+            { number: 2, text: [{ type: "footnote", text: "n" }] },
           ],
         } as unknown as Chapter
 
