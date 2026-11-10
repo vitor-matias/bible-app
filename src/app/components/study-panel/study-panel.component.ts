@@ -755,7 +755,7 @@ export class StudyPanelComponent implements OnChanges {
     } finally {
       this.downloading = false
     }
-    if (!this.offlineData.isBibleStored()) {
+    if (!(await this.offlineData.isBibleStored())) {
       void this.announcer.announce("Não foi possível descarregar o texto.")
       this.cdr.markForCheck()
       return

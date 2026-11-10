@@ -1891,7 +1891,7 @@ describe("StudyPanelComponent", () => {
       const preload = vi
         .spyOn(offlineData, "preloadAllBooksAndChapters")
         .mockResolvedValue()
-      vi.spyOn(offlineData, "isBibleStored").mockReturnValue(true)
+      vi.spyOn(offlineData, "isBibleStored").mockResolvedValue(true)
       const build = vi.spyOn(reverse, "ensureIndex").mockResolvedValue()
       choose()
 
@@ -1904,7 +1904,7 @@ describe("StudyPanelComponent", () => {
 
     it("does not go on to look when the fetch did not store anything", async () => {
       vi.spyOn(offlineData, "preloadAllBooksAndChapters").mockResolvedValue()
-      vi.spyOn(offlineData, "isBibleStored").mockReturnValue(false)
+      vi.spyOn(offlineData, "isBibleStored").mockResolvedValue(false)
       const build = vi.spyOn(reverse, "ensureIndex").mockResolvedValue()
       choose()
 

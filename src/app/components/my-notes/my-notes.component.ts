@@ -117,7 +117,13 @@ export class MyNotesComponent implements OnInit {
             this.api
               .getChapter(request.bookId, request.chapter)
               // No quote is better than no list: the reference still says where.
-              .pipe(catchError(() => EMPTY)),
+              .pipe(
+                catchError(() => {
+                  // Asked for again when the notes next change, not never.
+                  this.requested.delete(`${request.bookId}:${request.chapter}`)
+                  return EMPTY
+                }),
+              ),
           QUOTE_REQUESTS_AT_ONCE,
         ),
         takeUntilDestroyed(),

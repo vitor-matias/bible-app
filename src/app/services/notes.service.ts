@@ -27,7 +27,7 @@ export function isVerseNote(value: unknown): value is VerseNote {
     typeof note.verse === "number" &&
     typeof note.updatedAt === "number" &&
     typeof note.text === "string" &&
-    note.text.length > 0 &&
+    note.text.trim().length > 0 &&
     (note.verseEnd === undefined || typeof note.verseEnd === "number") &&
     (note.title === undefined || typeof note.title === "string")
   )

@@ -106,9 +106,16 @@ export class OfflineDataService {
     }
   }
 
-  /** Whether the whole Bible is stored on this device, not just parts of it. */
-  isBibleStored(): boolean {
-    return safeLocalStorage()?.getItem(this.cacheFlagKey) === "true"
+  /**
+   * Whether the whole Bible is stored on this device, not just parts of it.
+   * Without usable localStorage the flag can be neither kept nor read, so, as
+   * the preload does, it is judged from the stored books themselves: a
+   * download that worked would otherwise look as if it had not.
+   */
+  async isBibleStored(): Promise<boolean> {
+    const storage = safeLocalStorage()
+    if (storage) return storage.getItem(this.cacheFlagKey) === "true"
+    return (await this.getCachedBooksAsync()).some((book) => !book.introSlug)
   }
 
   /**

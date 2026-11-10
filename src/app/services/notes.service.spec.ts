@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 import { firstValueFrom } from "rxjs"
-import { NotesService, type VerseNote } from "./notes.service"
+import { isVerseNote, NotesService, type VerseNote } from "./notes.service"
 
 const STORAGE_KEY = "verseNotes"
 
@@ -373,5 +373,30 @@ describe("NotesService", () => {
     expect(stored.map((note) => note.verse).sort((a, b) => a - b)).toEqual([
       12, 39, 40,
     ])
+  })
+
+  // saveNote trims and deletes a note with no text, so the app never stores a
+  // blank one; a saved copy or a damaged store must not bring one in, with an
+  // update time that lets it replace a real note.
+  describe("a note with only whitespace in it", () => {
+    const blank = {
+      bookId: "mat",
+      chapter: 5,
+      verse: 3,
+      text: "   ",
+      updatedAt: 9e12,
+    }
+
+    it("is not a note", () => {
+      expect(isVerseNote(blank)).toBe(false)
+      expect(isVerseNote({ ...blank, text: "\n\t" })).toBe(false)
+      expect(isVerseNote({ ...blank, text: " a " })).toBe(true)
+    })
+
+    it("is not read back from storage", () => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([blank]))
+
+      expect(makeService().getNote("mat", 5, 3)).toBeUndefined()
+    })
   })
 })

@@ -112,6 +112,22 @@ describe("a saved copy of the notes and marks", () => {
     expect(result.ok && result.dropped).toBe(3)
   })
 
+  // A blank note with a late update time would replace the reader's real one.
+  it("counts a note of only whitespace among the records that do not hold up", () => {
+    const result = parseBackup(
+      JSON.stringify({
+        app: BACKUP_APP,
+        version: 1,
+        exportedAt: "x",
+        notes: [{ ...note("mat", 5, 3, "   "), updatedAt: 9e12 }],
+        highlights: [],
+      }),
+    )
+
+    expect(result.ok && result.backup.notes).toEqual([])
+    expect(result.ok && result.dropped).toBe(1)
+  })
+
   it("does not choke on a copy with a list missing", () => {
     const result = parseBackup(
       JSON.stringify({

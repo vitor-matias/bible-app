@@ -973,12 +973,26 @@ describe("OfflineDataService", () => {
   })
 
   describe("the stored Bible, to ask about and to remove", () => {
-    it("is stored only once the books have been cached", () => {
-      expect(service.isBibleStored()).toBe(false)
+    it("is stored only once the books have been cached", async () => {
+      expect(await service.isBibleStored()).toBe(false)
 
       mockLocalStorage._storage["booksCacheReady"] = "true"
 
-      expect(service.isBibleStored()).toBe(true)
+      expect(await service.isBibleStored()).toBe(true)
+    })
+
+    // The preload judges readiness from the records when the flag cannot be
+    // kept; asking in the flag's terms made a download that had worked look as
+    // if it had not, and "Citado em" refused to look.
+    it("is judged from the stored books when localStorage is unusable", async () => {
+      const unusable = mockLocalStorage as unknown as Record<string, unknown>
+      unusable["getItem"] = undefined
+      unusable["setItem"] = undefined
+      expect(await service.isBibleStored()).toBe(false)
+
+      await service.setCachedBooks(mockBooks)
+
+      expect(await service.isBibleStored()).toBe(true)
     })
 
     it("can be removed, with every flag that vouched for it", async () => {
@@ -989,7 +1003,7 @@ describe("OfflineDataService", () => {
       await service.removeStoredBible()
 
       expect(databaseService.clear).toHaveBeenCalledWith("books")
-      expect(service.isBibleStored()).toBe(false)
+      expect(await service.isBibleStored()).toBe(false)
       expect(mockLocalStorage._storage["groupIntrosCacheReady"]).toBeUndefined()
       expect(mockLocalStorage._storage["booksCacheTimestamp"]).toBeUndefined()
     })

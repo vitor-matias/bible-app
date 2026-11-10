@@ -196,6 +196,22 @@ describe("MyNotesComponent", () => {
     expect(page().querySelector(".entry-text")?.textContent).toBe("sem texto")
   })
 
+  it("asks again for a chapter that could not be fetched, when the notes next change", () => {
+    api.getChapter.mockReturnValueOnce(throwError(() => new Error("offline")))
+    notes.saveNote("mat", 22, 2, "sem texto")
+    fixture.detectChanges()
+    expect(page().querySelector(".entry-quote")).toBeNull()
+
+    // Back online by now: any change to the notes asks again.
+    notes.saveNote("mat", 22, 3, "outra")
+    fixture.detectChanges()
+
+    expect(api.getChapter).toHaveBeenCalledTimes(2)
+    expect(page().querySelector(".entry-quote")?.textContent).toContain(
+      "Palavras de mat 22,2",
+    )
+  })
+
   it("asks for each chapter once, however many verses it holds", () => {
     notes.saveNote("mat", 22, 1, "a")
     notes.saveNote("mat", 22, 2, "b")
