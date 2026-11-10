@@ -1561,6 +1561,106 @@ describe("SearchComponent", () => {
     })
   })
 
+  describe("the placeholder rows while searching", () => {
+    const skeleton = () =>
+      fixture.nativeElement.querySelector(".skeleton") as HTMLElement | null
+    const status = () =>
+      (
+        fixture.nativeElement.querySelector("[role=status]") as HTMLElement
+      ).textContent?.trim()
+
+    it("show where the results will be, not an hourglass", async () => {
+      const pending$ = new Subject<VersePage>()
+      referenceService.extract.mockReturnValue([])
+      apiService.search.mockReturnValue(pending$.asObservable())
+      void component.onSearchSubmit("luz")
+      await Promise.resolve()
+      fixture.detectChanges()
+
+      const rows = skeleton()?.querySelectorAll(".result-item .result-card")
+      expect(rows?.length).toBe(5)
+      expect(skeleton()?.getAttribute("aria-hidden")).toBe("true")
+      expect(fixture.nativeElement.textContent).not.toContain("hourglass_empty")
+      expect(fixture.nativeElement.querySelector(".empty-state")).toBeNull()
+      // Told once, by the status line, not by the rows.
+      expect(status()).toBe("A procurar…")
+      expect(
+        fixture.nativeElement.textContent.match(/A procurar…/g),
+      ).toHaveLength(1)
+    })
+
+    it("are announced during the typing pause too", () => {
+      vi.useFakeTimers()
+      referenceService.extract.mockReturnValue([])
+      component.onTyping("pastor")
+      fixture.detectChanges()
+
+      expect(skeleton()).not.toBeNull()
+      expect(status()).toBe("A procurar…")
+    })
+
+    it("give way to the results", async () => {
+      const pending$ = new Subject<VersePage>()
+      referenceService.extract.mockReturnValue([])
+      apiService.search.mockReturnValue(pending$.asObservable())
+      void component.onSearchSubmit("luz")
+      await Promise.resolve()
+      fixture.detectChanges()
+      expect(skeleton()).not.toBeNull()
+
+      pending$.next({
+        verses: [
+          {
+            bookId: "gen",
+            chapterNumber: 1,
+            number: 3,
+            verseLabel: "3",
+            text: [{ type: "text", text: "Faça-se a luz" }],
+          },
+        ],
+        total: 1,
+        currentPage: 1,
+        totalPages: 1,
+      } as VersePage)
+      pending$.complete()
+      await vi.waitFor(() => expect(component.isLoading).toBe(false))
+      fixture.detectChanges()
+
+      expect(skeleton()).toBeNull()
+      expect(
+        fixture.nativeElement.querySelectorAll(".result-card").length,
+      ).toBe(1)
+      expect(status()).toBe("1 resultado")
+    })
+
+    it("are not shown on the empty page, after a failure or with no results", async () => {
+      fixture.detectChanges()
+      expect(skeleton()).toBeNull()
+
+      referenceService.extract.mockReturnValue([])
+      apiService.search.mockReturnValue(
+        of({
+          verses: [],
+          total: 0,
+          currentPage: 1,
+          totalPages: 0,
+        } as VersePage),
+      )
+      await component.onSearchSubmit("missing")
+      fixture.detectChanges()
+      expect(skeleton()).toBeNull()
+      expect(fixture.nativeElement.textContent).toContain("Nenhum resultado")
+
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      apiService.search.mockReturnValue(throwError(() => ({ status: 0 })))
+      offlineSearch.search.mockResolvedValue(null)
+      await component.onSearchSubmit("luz")
+      fixture.detectChanges()
+      expect(skeleton()).toBeNull()
+      expect(component.searchFailed).toBe(true)
+    })
+  })
+
   // Before, this looked like "no results", with the status stuck on "A procurar…".
   it("says the search failed when the server fails and nothing is stored", async () => {
     referenceService.extract.mockReturnValue([])
