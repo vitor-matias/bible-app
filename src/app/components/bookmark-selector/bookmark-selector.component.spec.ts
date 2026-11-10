@@ -301,6 +301,35 @@ describe("BookmarkSelectorComponent", () => {
       expect(bookmarkServiceSpy.removeBookmark).toHaveBeenCalled()
     })
 
+    it("arms no long press for a held mouse button or on a free ribbon", async () => {
+      vi.useFakeTimers()
+      const opened = vi.fn()
+      const swallowed = vi.fn()
+
+      // The mouse has a right-click of its own.
+      const blue = button("Azul,")
+      blue.addEventListener("contextmenu", opened)
+      blue.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          bubbles: true,
+          pointerType: "mouse",
+        }),
+      )
+      await vi.advanceTimersByTimeAsync(600)
+
+      // A free ribbon has nothing to remove; its press must not eat a click.
+      const red = button("Vermelho")
+      red.addEventListener("contextmenu", opened)
+      touch(red, "pointerdown")
+      await vi.advanceTimersByTimeAsync(600)
+
+      expect(opened).not.toHaveBeenCalled()
+      expect(removeItem()).toBeNull()
+      document.body.addEventListener("click", swallowed, { once: true })
+      document.body.click()
+      expect(swallowed).toHaveBeenCalled()
+    })
+
     it("drops a press still held when the sheet is destroyed", async () => {
       vi.useFakeTimers()
       const blue = button("Azul,")
