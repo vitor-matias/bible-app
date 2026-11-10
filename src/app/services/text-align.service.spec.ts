@@ -39,6 +39,29 @@ describe("TextAlignService", () => {
     expect(localStorage.getItem("raggedText")).toBe("false")
   })
 
+  // At about 235 % the text was ragged-right (large-text) but the menus said
+  // Justificado, and the first click stored "ragged": nothing changed.
+  it("is ragged-right by default at the largest text sizes, and justifies it on a toggle", () => {
+    onPhone(false)
+    const reader = document.createElement("div")
+    reader.className = "text-container large-text"
+    document.body.append(reader)
+    try {
+      const service = TestBed.inject(TextAlignService)
+      expect(service.ragged).toBe(true)
+
+      service.toggle()
+      expect(service.ragged).toBe(false)
+      expect(classes.contains("justified-text")).toBe(true)
+
+      // Back at a normal size, the choice still holds.
+      reader.classList.remove("large-text")
+      expect(service.ragged).toBe(false)
+    } finally {
+      reader.remove()
+    }
+  })
+
   it("sets the text ragged-right and remembers it", () => {
     onPhone(false)
     TestBed.inject(TextAlignService).toggle()

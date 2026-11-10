@@ -3,8 +3,8 @@ import { Injectable, inject, PLATFORM_ID } from "@angular/core"
 import { PreferencesService } from "./preferences.service"
 
 /**
- * The reader's text: ragged-right on a phone and justified wider until the
- * reader chooses, then as chosen. The choice is a class on <html>
+ * The reader's text: ragged-right on a phone or at the largest text sizes,
+ * justified otherwise, until the reader chooses, then as chosen. The choice is a class on <html>
  * (`ragged-text` or `justified-text`, styles.css).
  */
 @Injectable({
@@ -24,9 +24,14 @@ export class TextAlignService {
     this.apply()
   }
 
-  /** How the text is set now: the reader's choice, else the screen's default. */
+  /** How the text is set now: the reader's choice, else the screen's or the
+   *  text size's default (`large-text`, UnifiedGesturesDirective). */
   get ragged(): boolean {
-    return this.choice ?? this.phone?.matches ?? false
+    return (
+      this.choice ??
+      (this.phone?.matches ||
+        this.document.querySelector(".text-container.large-text") !== null)
+    )
   }
 
   toggle(): void {
