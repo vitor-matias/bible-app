@@ -600,6 +600,19 @@ describe("BibleReaderComponent", () => {
     })
   })
 
+  // The router's own events are listened to from the start, but a navigation
+  // already under way when the reader opens holds back the first read of the
+  // route, and with it the book.
+  it("ignores a navigation that ends before the book is known", () => {
+    navigationInFlight.set({} as Navigation)
+    fixture.detectChanges()
+    expect(component.book).toBeUndefined()
+
+    expect(() =>
+      component["followLinkToVerse"]("/gn/1?verseStart=3"),
+    ).not.toThrow()
+  })
+
   describe("when the book list cannot be loaded", () => {
     let unavailable$: BehaviorSubject<boolean>
 

@@ -388,6 +388,27 @@ describe("OfflineDataService", () => {
       })
     })
 
+    // The panel asks for the books when the reader chose a download in it:
+    // analytics tells the two ways of getting here apart by this.
+    it("reports where the download was asked for", async () => {
+      const analyticsService = TestBed.inject(AnalyticsService)
+
+      const promise = service.preloadAllBooksAndChapters("study")
+      await flushMicrotasks()
+
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await flushIntros()
+      await promise
+
+      expect(analyticsService.track).toHaveBeenCalledWith("pwa_books_cached", {
+        source: "study",
+      })
+      expect(analyticsService.track).not.toHaveBeenCalledWith(
+        "pwa_books_cached",
+        { source: "standalone" },
+      )
+    })
+
     it("shares one in-flight run between concurrent callers", async () => {
       const first = service.preloadAllBooksAndChapters()
       const second = service.preloadAllBooksAndChapters()

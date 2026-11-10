@@ -26,6 +26,9 @@ export type StudyBackup = {
   highlights: VerseHighlight[]
 }
 
+const isOfAKnownBook = (record: { bookId: string }): boolean =>
+  CANON_ORDER.includes(record.bookId)
+
 /** What a file this big could only be: not one of ours, and not worth parsing. */
 const MAX_BACKUP_CHARS = 8_000_000
 
@@ -80,8 +83,35 @@ export function parseBackup(text: string): BackupResult {
 
   const rawNotes = Array.isArray(file.notes) ? file.notes : []
   const rawMarks = Array.isArray(file.highlights) ? file.highlights : []
-  const notes = rawNotes.filter(isVerseNote)
-  const highlights = rawMarks.filter(isVerseHighlight)
+  // Rebuilt from the known fields, so a file cannot bring others in to be kept
+  // and written out again, and only for the books the edition has: elsewhere
+  // there is no chapter to list it under, to link to or to ask the words of.
+  const notes = rawNotes
+    .filter(isVerseNote)
+    .filter(isOfAKnownBook)
+    .map(
+      (n): VerseNote => ({
+        bookId: n.bookId,
+        chapter: n.chapter,
+        verse: n.verse,
+        text: n.text,
+        updatedAt: n.updatedAt,
+        ...(n.verseEnd !== undefined && { verseEnd: n.verseEnd }),
+        ...(n.title !== undefined && { title: n.title }),
+      }),
+    )
+  const highlights = rawMarks
+    .filter(isVerseHighlight)
+    .filter(isOfAKnownBook)
+    .map(
+      (h): VerseHighlight => ({
+        bookId: h.bookId,
+        chapter: h.chapter,
+        verse: h.verse,
+        color: h.color,
+        updatedAt: h.updatedAt,
+      }),
+    )
   return {
     ok: true,
     backup: {

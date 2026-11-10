@@ -681,7 +681,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private followLinkToVerse(url: string): void {
     const announced = this.routeEmitted
     this.routeEmitted = false
-    if (announced || !isPlatformBrowser(this.platformId)) return
+    // No book yet: a navigation already under way when the reader opened is
+    // still being waited out before the route is first read, and this one
+    // ending is not a link to a verse of a chapter that is not open.
+    if (announced || !isPlatformBrowser(this.platformId) || !this.book) return
 
     const target = new URL(url, "http://x")
     const [bookSegment, chapterSegment] = target.pathname

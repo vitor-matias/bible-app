@@ -15,6 +15,18 @@ export const COLUMN_LIMITS = {
   split: { min: 25, max: 75 },
 } as const
 
+/**
+ * The most of the window a side column may take, whatever width was kept.
+ * Study mode opens from 1024px, where the two columns at their pixel limits
+ * would leave the text 44px: the pixels are what the reader chose, the share
+ * is what the window can spare, and the smaller wins as the window changes.
+ */
+const WINDOW_SHARE = { rail: 28, panel: 38 } as const
+
+/** A side column's width as the layout reads it: the pixels, held to the window's share. */
+const columnWidth = (divider: "rail" | "panel", px: number): string =>
+  `min(${px}px, ${WINDOW_SHARE[divider]}vw)`
+
 /** How far one arrow-key press moves a divider. */
 const RESIZE_STEP = 16
 
@@ -80,10 +92,10 @@ export class StudyColumns {
     // with an unfold button on it. Left here, the width dragged earlier is an
     // inline style, and it would beat the stylesheet and hold the space open.
     if (rail !== undefined && !this.host.folded().rail) {
-      style["--study-rail-width"] = `${rail}px`
+      style["--study-rail-width"] = columnWidth("rail", rail)
     }
     if (panel !== undefined && !this.host.folded().panel) {
-      style["--study-panel-width"] = `${panel}px`
+      style["--study-panel-width"] = columnWidth("panel", panel)
     }
     if (split !== undefined) style["--study-split"] = `${split}%`
     return style
@@ -232,7 +244,10 @@ export class StudyColumns {
     }
     this.host
       .container()
-      ?.style.setProperty(`--study-${divider}-width`, `${value}px`)
+      ?.style.setProperty(
+        `--study-${divider}-width`,
+        columnWidth(divider, value),
+      )
   }
 
   private commit(divider: StudyDivider, value: number): void {

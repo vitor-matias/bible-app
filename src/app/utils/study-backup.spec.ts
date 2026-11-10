@@ -54,7 +54,7 @@ describe("a saved copy of the notes and marks", () => {
   })
 
   it("keeps a title and the end of a passage a note carries", () => {
-    const withTitle = note("lk", 4, 16, "Nazaré", {
+    const withTitle = note("luk", 4, 16, "Nazaré", {
       title: "Homilia",
       verseEnd: 30,
     })
@@ -142,6 +142,46 @@ describe("a saved copy of the notes and marks", () => {
     ])
     expect(result.ok && result.backup.highlights).toHaveLength(1)
     expect(result.ok && result.dropped).toBe(6)
+  })
+
+  // The reader lists a record under its book and asks the API for its words:
+  // a book the edition does not have is listed as the About page and asked for
+  // again on every change.
+  it("leaves out notes and marks on a book the edition does not have", () => {
+    const result = parseBackup(
+      JSON.stringify({
+        app: BACKUP_APP,
+        version: 1,
+        exportedAt: "x",
+        notes: [note("mat", 1, 1, "boa"), note("xyz", 1, 1, "sem livro")],
+        highlights: [mark("xyz", 1, 1, "pink"), mark("gen", 1, 1, "blue")],
+      }),
+    )
+
+    expect(result.ok && result.backup.notes.map((n) => n.bookId)).toEqual([
+      "mat",
+    ])
+    expect(result.ok && result.backup.highlights.map((h) => h.bookId)).toEqual([
+      "gen",
+    ])
+    expect(result.ok && result.dropped).toBe(2)
+  })
+
+  it("keeps only the fields it knows, so a file cannot bring others in", () => {
+    const result = parseBackup(
+      JSON.stringify({
+        app: BACKUP_APP,
+        version: 1,
+        exportedAt: "x",
+        notes: [{ ...note("mat", 1, 1, "boa"), extra: "x", __proto: 1 }],
+        highlights: [{ ...mark("mat", 1, 1, "pink"), extra: "x" }],
+      }),
+    )
+
+    expect(result.ok && result.backup.notes).toEqual([note("mat", 1, 1, "boa")])
+    expect(result.ok && result.backup.highlights).toEqual([
+      mark("mat", 1, 1, "pink"),
+    ])
   })
 
   // A blank note with a late update time would replace the reader's real one.

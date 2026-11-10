@@ -29,8 +29,8 @@ describe("StudyColumns", () => {
     columns.widths = { rail: 300, panel: 420, split: 60 }
 
     expect(columns.style).toEqual({
-      "--study-rail-width": "300px",
-      "--study-panel-width": "420px",
+      "--study-rail-width": "min(300px, 28vw)",
+      "--study-panel-width": "min(420px, 38vw)",
       "--study-split": "60%",
     })
   })
@@ -38,7 +38,33 @@ describe("StudyColumns", () => {
   it("leaves untouched dividers to the layout's own widths", () => {
     columns.widths = { rail: 300 }
 
-    expect(columns.style).toEqual({ "--study-rail-width": "300px" })
+    expect(columns.style).toEqual({
+      "--study-rail-width": "min(300px, 28vw)",
+    })
+  })
+
+  // A width kept as pixels was held to nothing but its own limits: at the
+  // narrowest window study mode opens in, 420 and 560 left the text 44px.
+  it("never lets a kept width take more of the window than it can spare", () => {
+    columns.widths = { rail: 420, panel: 560 }
+    const probe = document.createElement("div")
+    for (const [name, value] of Object.entries(columns.style)) {
+      probe.style.setProperty(name, value)
+    }
+    probe.style.cssText += "display:flex;position:absolute;left:0;top:0"
+    probe.innerHTML =
+      '<i style="width:var(--study-rail-width)"></i><i style="width:var(--study-panel-width)"></i>'
+    document.body.appendChild(probe)
+    const [rail, panel] = Array.from(probe.children).map(
+      (child) => child.getBoundingClientRect().width,
+    )
+    probe.remove()
+
+    const viewport = document.documentElement.clientWidth
+    expect(rail).toBeCloseTo(viewport * 0.28, 0)
+    expect(panel).toBeCloseTo(viewport * 0.38, 0)
+    // The reading column keeps at least a third of the window.
+    expect(viewport - rail - panel).toBeGreaterThanOrEqual(viewport / 3 - 1)
   })
 
   it("gives the space back when the column is folded away", () => {
@@ -49,10 +75,10 @@ describe("StudyColumns", () => {
     // but a folded column is a strip, and an inline width would hold the
     // space open against the layout.
     expect(columns.style["--study-rail-width"]).toBeUndefined()
-    expect(columns.style["--study-panel-width"]).toBe("500px")
+    expect(columns.style["--study-panel-width"]).toBe("min(500px, 38vw)")
 
     folded.rail = false
-    expect(columns.style["--study-rail-width"]).toBe("400px")
+    expect(columns.style["--study-rail-width"]).toBe("min(400px, 28vw)")
   })
 
   it("moves a divider with the arrow keys, and remembers where", () => {
@@ -62,7 +88,9 @@ describe("StudyColumns", () => {
 
     expect(columns.widths.rail).toBe(316)
     expect(save).toHaveBeenCalledWith({ rail: 316 })
-    expect(container.style.getPropertyValue("--study-rail-width")).toBe("316px")
+    expect(container.style.getPropertyValue("--study-rail-width")).toBe(
+      "min(316px, 28vw)",
+    )
   })
 
   it("moves the panel's divider the way the pointer does, not the other way", () => {
