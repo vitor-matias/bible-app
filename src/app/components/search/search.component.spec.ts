@@ -1439,6 +1439,26 @@ describe("SearchComponent", () => {
       document.documentElement.style.removeProperty("--app-inset-bottom")
     })
 
+    it("searches again when the kept list is of the other kind", async () => {
+      fixture.detectChanges()
+      await component.onSearchSubmit("luz")
+      fixture.destroy()
+      localStorage.setItem("meaningSearchConsent", "true")
+      apiService.searchByMeaning.mockReturnValue(of(page(3)))
+
+      queryParamMapSubject.next(convertToParamMap({ q: "luz" }))
+      try {
+        const other = TestBed.createComponent(SearchComponent)
+        other.detectChanges()
+        await booksSettled()
+        await other.whenStable()
+
+        expect(apiService.searchByMeaning).toHaveBeenCalledWith("luz", 1)
+      } finally {
+        localStorage.removeItem("meaningSearchConsent")
+      }
+    })
+
     it("searches again for a query it didn't keep", async () => {
       fixture.detectChanges()
       await component.onSearchSubmit("bom pastor")

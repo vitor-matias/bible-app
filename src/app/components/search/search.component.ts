@@ -383,6 +383,7 @@ export class SearchComponent {
       total: this.totalResults,
       page: this.currentPage,
       storedMatches: this.storedMatches,
+      byMeaning: this.meaningSearchConsent === true,
       scrollTop: this.scrolledTo,
     }
   }
@@ -400,6 +401,7 @@ export class SearchComponent {
   private restore(term: string): boolean {
     const kept = this.memory.last
     if (kept?.term !== term) return false
+    if (kept.byMeaning !== (this.meaningSearchConsent === true)) return false
     this.searchTerm = kept.term
     this.fieldValue = kept.term
     this.themes = themesNamed(kept.term)

@@ -8,6 +8,8 @@ export interface SearchSnapshot {
   page: number
   /** The stored Bible's matches, when the search ran without the server. */
   storedMatches: Verse[] | null
+  /** By meaning or by words: a list of the other kind is searched again. */
+  byMeaning: boolean
   scrollTop: number
 }
 
