@@ -162,6 +162,23 @@ describe("AlphabeticalScrollBarComponent", () => {
     expect(fixture.componentInstance.activity).toEqual([true, false, true])
   })
 
+  it("chooses a tapped letter once, and a click with no touch still works", () => {
+    touch("touchstart", "M")
+    const lift = new Event("touchend", { bubbles: true, cancelable: true })
+    bar.dispatchEvent(lift)
+    const { top, height } = bar.getBoundingClientRect()
+    const click = new MouseEvent("click", { clientY: top + height / 2 })
+    // The browser sends its compatibility click only if the touchend allows it.
+    if (!lift.defaultPrevented) bar.dispatchEvent(click)
+
+    expect(fixture.componentInstance.chosen.length).toBe(1)
+    expect(fixture.componentInstance.activity).toEqual([true, false])
+
+    // A screen reader's activation: a click, with no touch events around it.
+    bar.dispatchEvent(click)
+    expect(fixture.componentInstance.chosen.length).toBe(2)
+  })
+
   it("only magnifies under a mouse, until it clicks", () => {
     bar.dispatchEvent(new MouseEvent("mousemove", { clientY: 100 }))
     expect(fixture.componentInstance.chosen).toEqual([])

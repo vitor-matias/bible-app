@@ -208,6 +208,7 @@ describe("NativeBookmarksService", () => {
       expect.objectContaining({ value: "red" }),
       "mat",
       7,
+      expect.any(Function),
     )
     expect(updated().move).toEqual({
       color: "red",
@@ -308,5 +309,42 @@ describe("NativeBookmarksService", () => {
     expect(ribbons.assign).toHaveBeenCalledTimes(1)
 
     expect(ribbons.assign).toHaveBeenCalledWith("blue", "mat", 12)
+  })
+
+  const settle = () => new Promise((resolve) => setTimeout(resolve))
+
+  // On iPad the popover stays up under a second tap on Marcadores: the shell
+  // refuses the new sheet, and the one on screen lost its listener.
+  it("keeps the sheet on screen when a new one is refused", async () => {
+    service.open("mat", 11)
+    await settle()
+    nativeChrome.showBookmarks.mockResolvedValue(false)
+    service.open("mat", 12)
+    service.open("mat", 13)
+    await settle()
+
+    actions.next({ id: "bookmark-set", color: "blue" })
+    expect(ribbons.assign).toHaveBeenCalledTimes(1)
+    expect(ribbons.assign).toHaveBeenCalledWith("blue", "mat", 11)
+    bookmarks.next([])
+    expect(nativeChrome.updateBookmarks).toHaveBeenCalledTimes(1)
+    expect(updated().currentLabel).toBe("Mateus 11")
+
+    actions.next({ id: "bookmarks-closed" })
+    bookmarks.next([markedRed])
+    actions.next({ id: "bookmark-set", color: "green" })
+    expect(nativeChrome.updateBookmarks).toHaveBeenCalledTimes(1)
+    expect(ribbons.assign).toHaveBeenCalledTimes(1)
+  })
+
+  it("drops the last sheet once the new one is up", async () => {
+    service.open("mat", 11)
+    await settle()
+    service.open("mat", 12)
+    await settle()
+    bookmarks.next([])
+
+    expect(nativeChrome.updateBookmarks).toHaveBeenCalledTimes(1)
+    expect(updated().currentLabel).toBe("Mateus 12")
   })
 })

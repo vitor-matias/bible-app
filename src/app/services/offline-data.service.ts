@@ -1,11 +1,18 @@
 import { HttpClient } from "@angular/common/http"
 import { Injectable, inject } from "@angular/core"
-import { firstValueFrom } from "rxjs"
+import { Capacitor } from "@capacitor/core"
+import { firstValueFrom, timeout } from "rxjs"
 import { apiBaseUrl } from "../config"
 import { safeLocalStorage } from "../utils/web-storage"
 import { AnalyticsService } from "./analytics.service"
 import { DatabaseService } from "./database.service"
 import { NetworkService } from "./network.service"
+
+/**
+ * Long, for the whole Bible on a slow connection; but a stalled request must
+ * end, as later preloads wait for the one under way.
+ */
+export const PRELOAD_TIMEOUT_MS = 5 * 60_000
 
 @Injectable({
   providedIn: "root",
@@ -28,14 +35,22 @@ export class OfflineDataService {
   private apiBase = apiBaseUrl
   private cacheLoadPromise: Promise<void> | null = null
   private migrationPromise: Promise<boolean> | null = null
+  private preloadPromise: Promise<void> | null = null
 
   /**
-   * Fetches all books and chapters so they are stored by the Service Worker
-   * for offline usage. Subsequent calls are skipped once the data is cached.
+   * Fetches all books and chapters into IndexedDB for offline usage.
+   * Subsequent calls are skipped once the data is cached.
    */
-  async preloadAllBooksAndChapters(
-    source: "install" | "standalone" | "study" = "standalone",
+  preloadAllBooksAndChapters(
+    source: "standalone" | "study" = "standalone",
   ): Promise<void> {
+    this.preloadPromise ??= this.runPreload(source).finally(() => {
+      this.preloadPromise = null
+    })
+    return this.preloadPromise
+  }
+
+  private async runPreload(source: "standalone" | "study"): Promise<void> {
     if (typeof window === "undefined") return
 
     const migrated = await this.migrateCacheIfNeeded()
@@ -68,7 +83,14 @@ export class OfflineDataService {
     if (!booksAlreadyCached || isExpired) {
       try {
         const books = await firstValueFrom(
-          this.http.get<Book[]>(`${this.apiBase}/books?withChapters=true`),
+          this.http
+            .get<Book[]>(`${this.apiBase}/books?withChapters=true`, {
+              // Native is cross-origin, where a custom header forces a CORS preflight.
+              headers: Capacitor.isNativePlatform()
+                ? {}
+                : { "ngsw-bypass": "true" },
+            })
+            .pipe(timeout(PRELOAD_TIMEOUT_MS)),
         )
         await this.setCachedBooks(books)
         this.trackBooksCachedEvent(source)
@@ -116,15 +138,19 @@ export class OfflineDataService {
   private async preloadGroupIntros(): Promise<void> {
     try {
       const summaries = await firstValueFrom(
-        this.http.get<IntroSummary[]>(`${this.apiBase}/intros`),
+        this.http
+          .get<IntroSummary[]>(`${this.apiBase}/intros`)
+          .pipe(timeout(PRELOAD_TIMEOUT_MS)),
       )
       // allSettled: one failing slug must not discard the rest.
       const results = await Promise.allSettled(
         summaries.map((summary) =>
           firstValueFrom(
-            this.http.get<GroupIntro>(
-              `${this.apiBase}/intros/${encodeURIComponent(summary.slug)}`,
-            ),
+            this.http
+              .get<GroupIntro>(
+                `${this.apiBase}/intros/${encodeURIComponent(summary.slug)}`,
+              )
+              .pipe(timeout(PRELOAD_TIMEOUT_MS)),
           ),
         ),
       )
@@ -174,7 +200,11 @@ export class OfflineDataService {
     await this.ensureCacheLoaded()
 
     const existingBooks = this.cachedBooks ?? []
-    this.cachedBooks = this.mergeCachedBooks(existingBooks, books)
+    this.cachedBooks = [
+      ...new Map(
+        [...existingBooks, ...books].map((book) => [book.id, book]),
+      ).values(),
+    ]
     // localStorage only holds metadata; without it, still persist to IndexedDB.
     const storage = safeLocalStorage()
 
@@ -239,68 +269,6 @@ export class OfflineDataService {
   ): Promise<Verse | undefined> {
     const chapter = await this.getCachedChapterAsync(bookId, chapterNumber)
     return chapter?.verses?.find((verse) => verse.number === verseNumber)
-  }
-
-  private mergeCachedBooks(existing: Book[], incoming: Book[]): Book[] {
-    const byId = new Map<string, Book>()
-    for (const book of existing) {
-      byId.set(book.id, { ...book })
-    }
-    for (const book of incoming) {
-      const current = byId.get(book.id)
-      if (!current) {
-        byId.set(book.id, book)
-        continue
-      }
-      const merged: Book = {
-        ...current,
-        ...book,
-        chapters: this.mergeChapterLists(book.chapters, current.chapters),
-      }
-      // A shallow payload (e.g. BookService.toIntroBook()) carries
-      // introduction: [], which must not overwrite an already-loaded body.
-      if (!book.introduction?.length && current.introduction?.length) {
-        merged.introduction = current.introduction
-      }
-      byId.set(book.id, merged)
-    }
-    return Array.from(byId.values())
-  }
-
-  /** Merges per chapter number so a shallow refresh keeps cached verses. */
-  private mergeChapterLists(
-    incoming?: Chapter[],
-    current?: Chapter[],
-  ): Chapter[] | undefined {
-    if (!incoming?.length) return current?.length ? current : incoming
-    if (!current?.length) return incoming
-
-    const cachedByNumber = new Map<number, Chapter>()
-    for (const chapter of current) {
-      cachedByNumber.set(chapter.number, chapter)
-    }
-
-    const merged: Chapter[] = incoming.map((chapter) => {
-      const cached = cachedByNumber.get(chapter.number)
-      if (!cached) return chapter
-
-      // Fresh payload wins, except where it is a stub of richer cached content.
-      const result: Chapter = { ...cached, ...chapter }
-      if ((cached.verses?.length ?? 0) > (chapter.verses?.length ?? 0)) {
-        result.verses = cached.verses
-      }
-      if (!chapter.introduction && cached.introduction) {
-        result.introduction = cached.introduction
-      }
-      return result
-    })
-
-    const seen = new Set(incoming.map((chapter) => chapter.number))
-    for (const chapter of current) {
-      if (!seen.has(chapter.number)) merged.push(chapter)
-    }
-    // The selector renders this list as-is; keep cached-only chapters in order.
-    return merged.sort((a, b) => a.number - b.number)
   }
 
   private ensureCacheLoaded(): Promise<void> {
@@ -384,7 +352,7 @@ export class OfflineDataService {
     return Date.now() - timestamp > this.cacheMaxAgeMs
   }
 
-  private trackBooksCachedEvent(source: "install" | "standalone" | "study") {
+  private trackBooksCachedEvent(source: "standalone" | "study") {
     void this.analyticsService.track("pwa_books_cached", { source })
   }
 }

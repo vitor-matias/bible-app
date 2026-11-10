@@ -577,6 +577,103 @@ describe("UnifiedGesturesDirective", () => {
     )
   })
 
+  describe("committing a pinch", () => {
+    const send = (
+      handler: "onTouchStart" | "onTouchMove" | "onTouchEnd" | "onTouchCancel",
+      event: object,
+    ) =>
+      (directive as unknown as Record<string, (e: object) => void>)[handler](
+        event,
+      )
+    const fingers = (distance: number, count = 2) => ({
+      touches: [
+        { identifier: 1, clientX: 0, clientY: 0 },
+        { identifier: 2, clientX: 0, clientY: distance },
+        { identifier: 3, clientX: 50, clientY: 0 },
+      ].slice(0, count),
+      preventDefault: vi.fn(),
+    })
+    const lift = (identifier: number) => ({
+      changedTouches: [{ identifier, clientX: 0, clientY: 0 }],
+    })
+    const lastSize = () =>
+      vi
+        .mocked(rendererSpy.setStyle)
+        .mock.calls.filter(([target]) => target === element)
+        .at(-1)?.[2]
+
+    // Saving it would stop the iOS app following the system's text size.
+    it("saves nothing for a two-finger tap", () => {
+      send("onTouchStart", fingers(100))
+      send("onTouchEnd", lift(1))
+      send("onTouchEnd", lift(2))
+
+      expect(preferencesServiceSpy.setFontSize).not.toHaveBeenCalled()
+    })
+
+    it("saves nothing when the fingers only tremble", () => {
+      preferencesServiceSpy.getFontSize.mockReturnValue(119.6)
+      directive.ngOnInit()
+
+      send("onTouchStart", fingers(100))
+      send("onTouchMove", fingers(100))
+      send("onTouchMove", fingers(100.2))
+      send("onTouchEnd", lift(1))
+
+      expect(preferencesServiceSpy.setFontSize).not.toHaveBeenCalled()
+    })
+
+    it("saves the size when the pinch is cancelled, for the next to start from", () => {
+      send("onTouchStart", fingers(100))
+      send("onTouchMove", fingers(150))
+      send("onTouchCancel", { changedTouches: [] })
+
+      expect(preferencesServiceSpy.setFontSize).toHaveBeenCalledWith(
+        150,
+        "reader",
+      )
+
+      send("onTouchStart", fingers(100))
+      send("onTouchMove", fingers(100))
+      expect(lastSize()).toBe("150%")
+    })
+
+    it("saves the size when a third finger ends the pinch", () => {
+      send("onTouchStart", fingers(100))
+      send("onTouchMove", fingers(150))
+      send("onTouchMove", fingers(150, 3))
+
+      expect(preferencesServiceSpy.setFontSize).toHaveBeenCalledWith(
+        150,
+        "reader",
+      )
+    })
+
+    it("saves once however the fingers leave", () => {
+      send("onTouchStart", fingers(100))
+      send("onTouchMove", fingers(150))
+      send("onTouchEnd", lift(1))
+      send("onTouchMove", fingers(150, 1))
+      send("onTouchEnd", lift(2))
+
+      expect(preferencesServiceSpy.setFontSize).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  // An inline size replaced the heading's own and was relative to a parent
+  // already scaled, so it depended on when the size last changed.
+  it("leaves the size of the headings to their CSS", () => {
+    preferencesServiceSpy.getFontSize.mockReturnValue(120)
+    directive.ngOnInit()
+    directive.increaseFontSize()
+
+    expect(rendererSpy.setStyle).not.toHaveBeenCalledWith(
+      element.querySelector("h1"),
+      "font-size",
+      expect.anything(),
+    )
+  })
+
   it("should adjust font size with the public helpers", () => {
     directive.increaseFontSize()
     directive.decreaseFontSize()
@@ -594,7 +691,7 @@ describe("UnifiedGesturesDirective", () => {
       "font-size",
       "105%",
     ])
-    expect(vi.mocked(rendererSpy.setStyle).mock.calls[2]).toEqual([
+    expect(vi.mocked(rendererSpy.setStyle).mock.calls[1]).toEqual([
       element,
       "font-size",
       "100%",

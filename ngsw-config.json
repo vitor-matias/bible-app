@@ -41,7 +41,7 @@
     },
     {
       "name": "bible-books",
-      "version": 2,
+      "version": 3,
       "urls": [
         "/v1/books**"
       ],

@@ -189,17 +189,24 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
       // next: it must not replace the verse the reader was on.
       clearTimeout(this.anchorTimeout)
       clearTimeout(this.resizeTimeout)
-      this.resizeTimeout = window.setTimeout(() => {
-        // Resizing until the page is restored: a scroll noted in between
-        // would read the old offset in the new layout.
-        try {
-          this.ensureAlignedScrollWidth()
-          this.restorePage()
-        } finally {
-          this.resizeTimeout = undefined
-          this.onScroll()
-        }
-      }, RESIZE_DEBOUNCE_MS)
+      this.resizeTimeout = window.setTimeout(
+        () => this.relayout(),
+        RESIZE_DEBOUNCE_MS,
+      )
+    }
+  }
+
+  /** The text has reflowed: back to the reader's place, on pages aligned anew. */
+  relayout(): void {
+    clearTimeout(this.resizeTimeout)
+    try {
+      // Not ensureAlignedScrollWidth: its onScroll would note the old offset
+      // in the new layout as the place to restore.
+      this.alignScrollWidth()
+      this.restorePage()
+    } finally {
+      this.resizeTimeout = undefined
+      this.onScroll()
     }
   }
 
@@ -419,7 +426,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   }
 
   /** Ends a drag; text pulled past an edge springs back. */
-  private releaseDrag(): void {
+  releaseDrag(): void {
     this.drag = undefined
     const block = this.bookBlock
     if (!block?.style.transform) return
@@ -475,9 +482,16 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   }
 
   scrollToEnd(): void {
-    this._stayAtEnd = true
+    // Scrolling mode has no pages to stay on, and switching would inherit it.
+    this._stayAtEnd = this.viewMode() === "paged"
     this.setTarget(undefined)
     this.snapToEnd()
+  }
+
+  /** A chapter opened anywhere but its end: late content must not send it there. */
+  openAtStart(): void {
+    this._stayAtEnd = false
+    this.ensureAlignedScrollWidth()
   }
 
   private snapToEnd(): void {

@@ -216,6 +216,56 @@ describe("BibleReaderAnimationService", () => {
       expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBe(false)
     })
 
+    // Both numbers come from the URL, and one lookup per integer froze the tab.
+    it.each([
+      [1, 999_999_999],
+      [-999_999_999, 1],
+      // Past these, i++ no longer moves i at all.
+      [2 ** 53, undefined],
+      [Number.POSITIVE_INFINITY, undefined],
+    ])(
+      "looks up a bounded number of verses for %d to %s",
+      async (start, end) => {
+        const bookBlock = document.createElement("div")
+        let lookups = 0
+        vi.spyOn(bookBlock, "querySelector").mockImplementation(() => {
+          if (++lookups > 1000) throw new Error("unbounded verse range")
+          return null
+        })
+
+        service.scrollToVerseElement(
+          bookBlock,
+          undefined,
+          start,
+          end,
+          true,
+          false,
+        )
+        await vi.advanceTimersByTimeAsync(100)
+
+        expect(lookups).toBeLessThanOrEqual(201)
+      },
+    )
+
+    it("still reaches the last verse of the longest chapter", async () => {
+      const bookBlock = document.createElement("div")
+      for (const id of ["1", "176"]) {
+        const verse = document.createElement("div")
+        verse.id = id
+        verse.scrollIntoView = vi.fn()
+        bookBlock.appendChild(verse)
+      }
+
+      service.scrollToVerseElement(bookBlock, undefined, 1, 176, true, false)
+      await vi.advanceTimersByTimeAsync(100)
+
+      expect(
+        bookBlock
+          .querySelector('[id="176"]')
+          ?.classList.contains(HIGHLIGHT_CLASS),
+      ).toBe(true)
+    })
+
     it("should scroll to the verse number, not the multi-line inline verse", async () => {
       // WebKit scrolls an inline <verse> that opens a paragraph as if it began
       // at the top of the chapter: Safari opened Jo 3,16 on verses 4-12.

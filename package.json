@@ -59,7 +59,6 @@
     "@types/node": "^26.6.6",
     "@vitest/browser-playwright": "5.0.5",
     "@vitest/coverage-v8": "5.0.5",
-    "baseline-browser-mapping": "^2.11.34",
     "sharp": "^0.35.3",
     "typescript": "~6.0.3",
     "vitest": "5.0.5"

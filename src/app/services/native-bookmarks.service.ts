@@ -28,13 +28,15 @@ export class NativeBookmarksService {
   private readonly bookService = inject(BookService)
   private readonly books = (bookId: string) =>
     this.bookService.findBookById(bookId)
+  /** The session of the sheet on screen. */
   private session?: Subscription
+  /** The last one asked for: only it answers taps, until it is refused. */
+  private latest?: Subscription
 
   /** Opens the sheet for the chapter being read. */
   open(bookId: string, chapter: number): void {
-    this.session?.unsubscribe()
     const session = new Subscription()
-    this.session = session
+    this.latest = session
     let ribbons: RibbonState[] = []
     const mover = this.ribbonsService.moveTo(bookId, chapter)
     let shown = false
@@ -57,10 +59,16 @@ export class NativeBookmarksService {
         } else {
           shown = true
           // Over another sheet none comes up, and no bookmarks-closed would
-          // end this.
+          // end this; that sheet stays, and keeps its session.
           void this.nativeChrome.showBookmarks(state).then((up) => {
             presented = up
-            if (!up) session.unsubscribe()
+            if (up) {
+              this.session?.unsubscribe()
+              this.session = session
+            } else {
+              session.unsubscribe()
+              if (this.latest === session) this.latest = this.session
+            }
           })
         }
       }),
@@ -68,6 +76,7 @@ export class NativeBookmarksService {
 
     session.add(
       this.nativeChrome.actions$.subscribe((action) => {
+        if (action.id !== "bookmarks-closed" && this.latest !== session) return
         switch (action.id) {
           case "bookmarks-closed":
             if (presented) session.unsubscribe()

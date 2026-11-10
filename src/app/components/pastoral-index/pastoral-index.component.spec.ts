@@ -1,5 +1,6 @@
 import { BreakpointObserver } from "@angular/cdk/layout"
 import { Location } from "@angular/common"
+import { provideLocationMocks } from "@angular/common/testing"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
@@ -7,10 +8,12 @@ import { By } from "@angular/platform-browser"
 import {
   ActivatedRoute,
   convertToParamMap,
+  NavigationEnd,
   NavigationSkipped,
   provideRouter,
   Router,
 } from "@angular/router"
+import { RouterTestingHarness } from "@angular/router/testing"
 import { BehaviorSubject, of, Subject } from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
@@ -201,10 +204,7 @@ describe("PastoralIndexComponent", () => {
     Promise.allSettled(document.getAnimations().map((a) => a.finished))
 
   /** Taps a theme's panel header in the list. */
-  async function tap(
-    fixture: ComponentFixture<PastoralIndexComponent>,
-    slug: string,
-  ) {
+  async function tap(fixture: ComponentFixture<unknown>, slug: string) {
     const el: HTMLElement = fixture.nativeElement
     el.querySelector<HTMLElement>(
       `#tema-${slug} mat-expansion-panel-header`,
@@ -620,6 +620,83 @@ describe("PastoralIndexComponent", () => {
       expect(fixture.componentInstance.entry()?.slug).toBe("amor")
       expect(replaceState.mock.lastCall?.[0]).toBe("/indice/amor")
     })
+
+    describe("with the real router", () => {
+      /** The page at its two routes, as the app has them. */
+      async function route(url: string, desktop = false) {
+        TestBed.configureTestingModule({
+          providers: [provideLocationMocks()],
+        })
+        ;(await open(undefined, false, false, desktop)).destroy()
+        TestBed.inject(Router).resetConfig([
+          { path: "indice", component: PastoralIndexComponent },
+          { path: "indice/:slug", component: PastoralIndexComponent },
+        ])
+        const harness = await RouterTestingHarness.create(url)
+        return {
+          harness,
+          page: harness.routeDebugElement
+            ?.componentInstance as PastoralIndexComponent,
+          router: TestBed.inject(Router),
+          location: TestBed.inject(Location),
+        }
+      }
+
+      it("opens the ribbon's theme the page arrived at, over another", async () => {
+        const { harness, page, router, location } = await route("/indice/agua")
+        await tap(harness.fixture, "amor")
+        expect(location.path()).toBe("/indice/amor")
+
+        await router.navigateByUrl("/indice/agua")
+        await harness.fixture.whenStable()
+
+        expect(location.path()).toBe("/indice/agua")
+        expect(page.entry()?.slug).toBe("agua")
+        expect(page.expandedSlug()).toBe("agua")
+      })
+
+      it("closes the open theme for the ribbon of the index", async () => {
+        const { harness, page, router, location } = await route("/indice")
+        await tap(harness.fixture, "amor")
+        expect(location.path()).toBe("/indice/amor")
+
+        await router.navigateByUrl("/indice")
+        await harness.fixture.whenStable()
+
+        expect(location.path()).toBe("/indice")
+        expect(page.entry()).toBeUndefined()
+        expect(page.expandedSlug()).toBeNull()
+      })
+
+      it("forgets a followed theme on Back to the index", async () => {
+        const { page, router, location } = await route("/indice", true)
+        const skipped = vi.fn()
+        router.events.subscribe((event) => {
+          if (event instanceof NavigationSkipped) skipped(event.url)
+        })
+        // The app's bootstrap starts this; the harness doesn't.
+        router.setUpLocationChangeListener()
+        page.follow(new MouseEvent("click"), "amor")
+        expect(page.entry()?.slug).toBe("amor")
+
+        location.back()
+
+        await vi.waitFor(() => expect(skipped).toHaveBeenCalledWith("/indice"))
+        expect(page.entry()).toBeUndefined()
+        expect(location.path()).toBe("/indice")
+      })
+
+      it("leaves a change of theme to the route", async () => {
+        const { harness, page, router, location } = await route("/indice/agua")
+        const replaceState = vi.spyOn(location, "replaceState")
+
+        await router.navigateByUrl("/indice/amor")
+        await harness.fixture.whenStable()
+
+        expect(page.entry()?.slug).toBe("amor")
+        expect(replaceState).not.toHaveBeenCalled()
+      })
+    })
   })
 
   it("offers the way back when a citation is tapped, from its own theme", async () => {
@@ -1007,6 +1084,19 @@ describe("PastoralIndexComponent", () => {
     expect(scroll.mock.calls.length).toBeLessThanOrEqual(1)
   })
 
+  for (const query of ["bem aventurancas", "Bem-Aventuranças"]) {
+    it(`finds a hyphenated title by "${query}"`, async () => {
+      const fixture = await open()
+      fixture.componentInstance.query.set(query)
+
+      expect(
+        fixture.componentInstance
+          .groups()
+          .flatMap((group) => group.entries.map((entry) => entry.slug)),
+      ).toEqual(["bem-aventurancas"])
+    })
+  }
+
   it("opens a cross-reference's theme here, past the filter", async () => {
     const fixture = await open("aarao")
     const el: HTMLElement = fixture.nativeElement
@@ -1253,6 +1343,20 @@ describe("PastoralIndexComponent", () => {
       expect(glide.mock.calls.length).toBeGreaterThan(under)
       expect(native).not.toHaveBeenCalled()
       expect(glide.mock.lastCall?.[0]).toMatchObject({ behavior: "instant" })
+    })
+
+    it("doesn't open a theme on arrival once a ribbon has closed it", async () => {
+      const fixture = await openGliding()
+      glideSpy()
+      await tapGliding(fixture, "abel")
+
+      const router = TestBed.inject(Router)
+      ;(router.events as unknown as Subject<unknown>).next(
+        new NavigationEnd(1, "/indice", "/indice"),
+      )
+      await wait(2000)
+
+      expect(fixture.componentInstance.expandedSlug()).toBeNull()
     })
 
     it("finishes the glide, at its title", async () => {
@@ -2082,6 +2186,19 @@ describe("PastoralIndexComponent", () => {
       expect(maranatha?.paragraphs).toEqual([
         ["Ver ", { text: "Vem, Senhor", slug: "vem-senhor" }, "."],
       ])
+    })
+
+    it("keeps a list apart from the numbered book after it", () => {
+      const joined = entries.flatMap((entry) =>
+        entry.paragraphs
+          .flat()
+          .flatMap((part) =>
+            typeof part === "string"
+              ? (part.match(/\(n\)\.\d+ \p{Lu}/gu) ?? [])
+              : [],
+          ),
+      )
+      expect(joined).toEqual([])
     })
 
     it("links cross-references only to entries that exist", () => {

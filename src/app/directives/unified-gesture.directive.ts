@@ -110,6 +110,8 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   private readonly MAX_FONT_SIZE = MAX_FONT_SIZE
   /** Past this, lines are too short to justify: they set ragged-right. */
   private readonly JUSTIFY_MAX_FONT_SIZE = 180
+  /** A pinch changing the size by less than this leaves the percent as shown. */
+  private readonly PINCH_MIN_CHANGE = 0.5
   private readonly boundTouchStart = this.onTouchStart.bind(this)
   private readonly boundTouchMove = this.onTouchMove.bind(this)
   private readonly boundTouchEnd = this.onTouchEnd.bind(this)
@@ -220,6 +222,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
       }
     } else {
       // Gesture changed, reset
+      if (this.isPinchGesture) this.handlePinchEnd()
       this.endDrag()
       this.isSwipeGesture = false
       this.isPinchGesture = false
@@ -250,6 +253,7 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   private onTouchCancel(e: TouchEvent) {
     // Clear all touches on cancel
     this.touches = {}
+    if (this.isPinchGesture) this.handlePinchEnd()
     this.endDrag()
     this.isSwipeGesture = false
     this.isPinchGesture = false
@@ -333,6 +337,10 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   }
 
   private handlePinchEnd() {
+    const start = this.lastScale * this.BASE_FONT_SIZE
+    // Saving a mere two-finger tap would stop the iOS app following the system size.
+    if (Math.abs(this.currentFontSize - start) < this.PINCH_MIN_CHANGE) return
+
     this.lastScale = this.currentFontSize / this.BASE_FONT_SIZE
 
     // Store the new font size
@@ -426,12 +434,6 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
       this.renderer.addClass(this.el.nativeElement, "large-text")
     } else {
       this.renderer.removeClass(this.el.nativeElement, "large-text")
-    }
-
-    // Headings need a parallel bump so their visual hierarchy survives reader zooming.
-    const headings = this.el.nativeElement.querySelectorAll("h1, h2, h3")
-    for (const heading of headings) {
-      this.renderer.setStyle(heading, "font-size", `${fontSize + 5}%`)
     }
   }
 

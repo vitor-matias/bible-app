@@ -573,6 +573,23 @@ describe("OnboardingComponent", () => {
     expect(element.querySelector(".guide")).toBeNull()
   })
 
+  it("confirms the installation only on the platform it happened on", async () => {
+    pwa.canPromptInstall = true
+    create()
+    goToInstallStep()
+    button("Instalar agora")?.click()
+    await fixture.whenStable()
+
+    component.selectPlatform("ios")
+    fixture.detectChanges()
+    expect(element.querySelector(".install-done")).toBeNull()
+    expect(element.querySelector(".guide")).not.toBeNull()
+
+    component.selectPlatform("android")
+    fixture.detectChanges()
+    expect(textOf(".install-done")).toContain("foi instalada")
+  })
+
   it("keeps the manual steps when the user dismisses the native prompt", async () => {
     pwa.canPromptInstall = true
     pwa.promptInstall.mockResolvedValue("dismissed" as InstallPromptOutcome)

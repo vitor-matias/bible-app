@@ -179,7 +179,11 @@ export class BookmarkSelectorComponent implements OnInit {
     const ribbon = this.ribbons.find((r) => r.value === color)
     const bookmark = ribbon?.bookmark && { ...ribbon.bookmark }
     if (!ribbon || !bookmark) return
-    this.ribbonsService.remove(ribbon)
+    // A removal that could not be saved has nothing to take back.
+    this.ribbonsService.remove(ribbon, () => {
+      this.removed = undefined
+      this.changeDetector.markForCheck()
+    })
     this.removed = {
       bookmark,
       name: ribbon.spoken.toLowerCase(),

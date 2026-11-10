@@ -366,6 +366,17 @@ describe("BookmarkSelectorComponent", () => {
       expect(undoButton()).toBeNull()
     })
 
+    it("offers no undo for a removal that failed to save", async () => {
+      bookmarkServiceSpy.removeBookmark.mockRejectedValue(new Error("Quota"))
+      rightClick(button("Azul,"))
+      await settle()
+      removeItem()?.click()
+      await settle()
+      fixture.detectChanges()
+
+      expect(undoButton()).toBeNull()
+    })
+
     it("drops the undo when the ribbon is marked again some other way", async () => {
       rightClick(button("Azul,"))
       await settle()
@@ -495,7 +506,7 @@ describe("BookmarkSelectorComponent", () => {
     expect(bottomSheetRefSpy.dismiss).toHaveBeenCalled()
   })
 
-  it("should add bookmark when clicking an empty ribbon", () => {
+  it("should add bookmark when clicking an empty ribbon", async () => {
     const redRibbon = component.ribbons.find((r) => r.value === "red")
     expect(redRibbon).toBeTruthy()
     if (redRibbon) {
@@ -504,6 +515,8 @@ describe("BookmarkSelectorComponent", () => {
 
     expect(bookmarkServiceSpy.addBookmark).toHaveBeenCalledWith("GEN", 1, "red")
     expect(bottomSheetRefSpy.dismiss).not.toHaveBeenCalled()
+    // The haptic waits for the save to land.
+    await new Promise((resolve) => setTimeout(resolve))
     expect(hapticsSpy.success).toHaveBeenCalled()
   })
 
