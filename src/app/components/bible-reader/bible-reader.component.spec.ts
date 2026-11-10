@@ -719,6 +719,26 @@ describe("BibleReaderComponent", () => {
       expect(component.pagedNav?.dragBy).not.toHaveBeenCalled()
     })
 
+    it("leaves the chapter alone when the swipe is on the open drawer", () => {
+      component.viewMode = "paged"
+      component.bookDrawer = createSpyObj<MatDrawer>("MatDrawer", ["close"], {
+        opened: true,
+      })
+      component.pagedNav = createSpyObj("PagedNavigationDirective", [
+        "dragBy",
+        "nextPage",
+        "prevPage",
+      ]) as unknown as PagedNavigationDirective
+
+      component.onSwipeMove(-40)
+      component.onSwipeLeft()
+      component.onSwipeRight()
+
+      expect(component.pagedNav?.dragBy).not.toHaveBeenCalled()
+      expect(component.pagedNav?.nextPage).not.toHaveBeenCalled()
+      expect(component.pagedNav?.prevPage).not.toHaveBeenCalled()
+    })
+
     it("gives no haptic feedback at either end of the book", () => {
       component.chapterNumber = 1
       component.goToPreviousChapter()
@@ -989,6 +1009,21 @@ describe("BibleReaderComponent", () => {
       const size = { percent: 120, min: 70, max: 235, canReset: true }
       component.onTextSizeChange(size)
       expect(component.textSize).toEqual(size)
+    })
+
+    it("lays the pages out anew when the text's size changes", () => {
+      component.pagedNav = createSpyObj("PagedNavigationDirective", [
+        "relayout",
+      ]) as unknown as PagedNavigationDirective
+
+      component.onTextSizeChange({
+        percent: 120,
+        min: 70,
+        max: 235,
+        canReset: true,
+      })
+
+      expect(component.pagedNav?.relayout).toHaveBeenCalledTimes(1)
     })
 
     // "Livro seguinte" is a link: auto-scroll stops when it is followed here,
@@ -1478,6 +1513,15 @@ describe("BibleReaderComponent", () => {
       expect(component.showAutoScrollControls).toBe(false)
     })
 
+    it("brings the auto-scroll controls back after the pages", () => {
+      component.toggleAutoScrollControlsVisibility()
+
+      component.onToggleViewMode()
+      expect(component.showAutoScrollControls).toBe(false)
+      component.onToggleViewMode()
+      expect(component.showAutoScrollControls).toBe(true)
+    })
+
     it("onToggleViewMode should switch back to scrolling mode", async () => {
       vi.useFakeTimers()
       component.viewMode = "paged"
@@ -1837,7 +1881,8 @@ describe("BibleReaderComponent", () => {
       component.isNavigatingBackwards = true
       component.pagedNav = createSpyObj("PagedNavigationDirective", [
         "scrollToEnd",
-        "ensureAlignedScrollWidth",
+        "openAtStart",
+        "releaseDrag",
       ]) as unknown as PagedNavigationDirective
 
       apiServiceSpy.getChapter.mockReturnValue(
@@ -1858,18 +1903,17 @@ describe("BibleReaderComponent", () => {
       expect(capturedCallback).toBeDefined()
       if (capturedCallback) capturedCallback()
       expect(component.pagedNav?.scrollToEnd).toHaveBeenCalled()
-      expect(
-        component.pagedNav?.ensureAlignedScrollWidth,
-      ).not.toHaveBeenCalled()
+      expect(component.pagedNav?.openAtStart).not.toHaveBeenCalled()
     })
 
-    it("should call ensureAlignedScrollWidth when navigating forwards in paged mode", async () => {
+    it("should open at the start when navigating forwards in paged mode", async () => {
       vi.useFakeTimers()
       component.viewMode = "paged"
       component.isNavigatingForwards = true
       component.pagedNav = createSpyObj("PagedNavigationDirective", [
         "scrollToEnd",
-        "ensureAlignedScrollWidth",
+        "openAtStart",
+        "releaseDrag",
       ]) as unknown as PagedNavigationDirective
 
       apiServiceSpy.getChapter.mockReturnValue(
@@ -1889,8 +1933,128 @@ describe("BibleReaderComponent", () => {
       expect(animationServiceSpy.scrollToTop).toHaveBeenCalled()
       expect(capturedCallback).toBeDefined()
       if (capturedCallback) capturedCallback()
-      expect(component.pagedNav?.ensureAlignedScrollWidth).toHaveBeenCalled()
+      expect(component.pagedNav?.openAtStart).toHaveBeenCalled()
       expect(component.pagedNav?.scrollToEnd).not.toHaveBeenCalled()
+    })
+
+    // Touch events keep going to the verse the finger came down on; once it
+    // is gone neither a turn nor a cancel arrives to end the drag.
+    it("ends a drag still under way when the chapter is replaced", () => {
+      const pagedNav = createSpyObj("PagedNavigationDirective", ["releaseDrag"])
+      component.pagedNav = pagedNav as unknown as PagedNavigationDirective
+
+      component.getChapter(2)
+
+      expect(pagedNav.releaseDrag).toHaveBeenCalled()
+    })
+
+    describe("when the route moves during a load", () => {
+      const chapter = (number: number) =>
+        ({ bookId: "gen", number, verses: [] }) as unknown as Chapter
+      const goTo = (number: number, query?: [string, string]) => {
+        const route = routeMock as {
+          paramMap: BehaviorSubject<Map<string, string>>
+          queryParamMap: BehaviorSubject<Map<string, string>>
+        }
+        if (query) route.queryParamMap.next(new Map([query]))
+        route.paramMap.next(
+          new Map([
+            ["book", "gen"],
+            ["chapter", String(number)],
+          ]),
+        )
+      }
+      let load: Subject<Chapter>
+      let endSlide: () => void
+
+      beforeEach(() => {
+        component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
+        component.bookContainer = {
+          nativeElement: document.createElement("div"),
+        } as unknown as ElementRef
+        load = new Subject()
+        apiServiceSpy.getChapter.mockClear()
+        apiServiceSpy.getChapter.mockReturnValue(load)
+        animationServiceSpy.triggerSlideOutAnimation.mockReturnValue(
+          new Promise<void>((resolve) => {
+            endSlide = resolve
+          }),
+        )
+        preferencesServiceSpy.setLastChapterNumber.mockClear()
+      })
+
+      // Next, then Back before the slide-out ended: the URL said chapter 1,
+      // read as "already here", and chapter 2 opened under it anyway.
+      it("goes back to the chapter on screen, dropping the one on its way", async () => {
+        component.isNavigatingForwards = true
+        goTo(2)
+        load.next(chapter(2))
+
+        const back = new Subject<Chapter>()
+        apiServiceSpy.getChapter.mockReturnValue(back)
+        goTo(1)
+        expect(apiServiceSpy.getChapter).toHaveBeenLastCalledWith("gen", 1)
+        endSlide()
+        await Promise.resolve()
+
+        expect(component.chapterNumber).toBe(1)
+        expect(
+          preferencesServiceSpy.setLastChapterNumber,
+        ).not.toHaveBeenCalled()
+
+        back.next(chapter(1))
+        expect(component.chapter.number).toBe(1)
+        expect(preferencesServiceSpy.setLastChapterNumber).toHaveBeenCalledWith(
+          1,
+        )
+      })
+
+      it("says nothing of a load that failed after it was dropped", async () => {
+        vi.spyOn(console, "error").mockReturnValue(undefined)
+        component.isNavigatingForwards = true
+        goTo(2)
+        load.error(new Error("Offline"))
+        apiServiceSpy.getChapter.mockReturnValue(new Subject())
+        routerSpy.navigate.mockClear()
+        goTo(1)
+        endSlide()
+        await Promise.resolve()
+
+        expect(snackBarSpy.open).not.toHaveBeenCalled()
+        expect(routerSpy.navigate).not.toHaveBeenCalled()
+      })
+
+      // Stepping back opens a chapter at its end; not the one gone back to.
+      it("opens the chapter gone back to at its start", () => {
+        component.isNavigatingBackwards = true
+        goTo(2)
+        apiServiceSpy.getChapter.mockReturnValue(of(chapter(1)))
+        goTo(1)
+
+        expect(component.isNavigatingBackwards).toBe(false)
+        expect(animationServiceSpy.scrollToTop.mock.lastCall?.[3]).toBe(false)
+      })
+
+      it("does not load again when the failed chapter's URL is put back", () => {
+        vi.spyOn(console, "error").mockReturnValue(undefined)
+        goTo(2)
+        load.error(new Error("Offline"))
+        apiServiceSpy.getChapter.mockClear()
+
+        goTo(1)
+
+        expect(apiServiceSpy.getChapter).not.toHaveBeenCalled()
+      })
+
+      // Not "already here": the verse is in the chapter still to come.
+      it("loads anew for a verse asked of the chapter on its way", () => {
+        goTo(2)
+        apiServiceSpy.getChapter.mockClear()
+
+        goTo(2, ["verseStart", "7"])
+
+        expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("gen", 2)
+      })
     })
 
     it("should trigger slide out animation if navigating", async () => {
@@ -1942,9 +2106,14 @@ describe("BibleReaderComponent", () => {
         throwError(() => new Error("Not found")),
       )
       component.book = mockBooks[0] as unknown as Book
-      component.chapterNumber = 3
       const el = document.createElement("div")
       component.bookContainer = { nativeElement: el } as unknown as ElementRef
+      apiServiceSpy.getChapter.mockReturnValueOnce(
+        of({ bookId: "gen", number: 3, verses: [] } as unknown as Chapter),
+      )
+      component.getChapter(3)
+      el.style.opacity = ""
+      routerSpy.navigate.mockClear()
 
       component.getChapter(4)
       await vi.advanceTimersByTimeAsync(0)
@@ -1958,6 +2127,81 @@ describe("BibleReaderComponent", () => {
         "OK",
         { duration: 4000 },
       )
+    })
+
+    // Génesis 5's text stayed on screen labelled João 5; from Génesis 50 the
+    // URL became a chapter João lacks, and the reader landed on not-found.
+    it("stays on the book shown when another book's chapter fails to load", () => {
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      bookServiceSpy.getUrlAbrv.mockImplementation((book: Book) => book.id)
+      fixture.detectChanges()
+      component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
+      const nextChapterLink = component.nextChapterLink
+
+      bookServiceSpy.findBook.mockReturnValue({
+        id: "jhn",
+        chapterCount: 21,
+        introduction: [{}],
+      } as unknown as Book)
+      apiServiceSpy.getChapter.mockReturnValue(
+        throwError(() => new Error("Offline")),
+      )
+      ;(
+        routeMock as {
+          paramMap: BehaviorSubject<Map<string, string>>
+        }
+      ).paramMap.next(
+        new Map([
+          ["book", "jhn"],
+          ["chapter", "3"],
+        ]),
+      )
+
+      expect(component.book.id).toBe("gen")
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "gen", "1"], {
+        replaceUrl: true,
+      })
+      expect(component.chaptersWithIntro.some((c) => c.number === 0)).toBe(
+        false,
+      )
+      expect(component.nextChapterLink).toEqual(nextChapterLink)
+    })
+
+    // /ex/intro on a book without one sets chapter 1 before loading it: on a
+    // failure the URL read /gn/1 over Génesis 5, and nothing reloaded.
+    it("stays on the chapter shown when a redirected /intro fails to load", () => {
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      bookServiceSpy.getUrlAbrv.mockImplementation((book: Book) => book.id)
+      fixture.detectChanges()
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({ bookId: "gen", number: 5, verses: [] } as unknown as Chapter),
+      )
+      component.getChapter(5)
+      expect(component.chapterNumber).toBe(5)
+      // After the chapter's own change detection, which sets the drawer anew.
+      component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
+
+      bookServiceSpy.findBook.mockReturnValue({
+        id: "exo",
+        chapterCount: 40,
+      } as unknown as Book)
+      apiServiceSpy.getChapter.mockReturnValue(
+        throwError(() => new Error("Offline")),
+      )
+      ;(
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap.next(
+        new Map([
+          ["book", "exo"],
+          ["chapter", "intro"],
+        ]),
+      )
+
+      expect(component.book.id).toBe("gen")
+      expect(component.chapterNumber).toBe(5)
+      expect(routerSpy.navigate).toHaveBeenLastCalledWith(["/", "gen", "5"], {
+        replaceUrl: true,
+      })
     })
 
     it("should revert URL with replaceUrl and not reset container when NetworkService reports offline", async () => {

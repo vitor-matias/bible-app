@@ -192,6 +192,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   nextChapterLink: (string | number)[] = []
   /** The chapter last asked for, which an async load must still match. */
   private pendingChapter?: Chapter["number"]
+  /** What is on screen, for a failed load to go back to. */
+  private shown?: { book: Book; chapter: Chapter["number"] }
   isFirstPage = true
   isLastPage = false
 
@@ -384,7 +386,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
         if (
           this.book.id === tempBook.id &&
-          this.chapterNumber === chapterParam
+          this.chapterNumber === chapterParam &&
+          this.pendingChapter === chapterParam
         ) {
           if (verseStartParam !== undefined) {
             this.scrollToVerse(verseStartParam, verseEndParam, highlight)
@@ -393,6 +396,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           return
         }
 
+        // A load is dropped for this one: its direction isn't this one's.
+        if (this.pendingChapter !== this.chapterNumber) this.clearChapterSlide()
         this.book = tempBook
         this.getChapter(chapterParam, verseStartParam, verseEndParam, highlight)
         this.bookDrawer?.close()
@@ -494,15 +499,18 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   onSwipeLeft(): void {
+    if (this.bookDrawer?.opened) return
     this.stepForward()
   }
 
   onSwipeRight(): void {
+    if (this.bookDrawer?.opened) return
     this.stepBackward()
   }
 
   /** In paged mode the page follows the finger; chapters only turn on release. */
   onSwipeMove(dx: number): void {
+    if (this.bookDrawer?.opened) return
     if (this.effectiveViewMode === "paged") this.pagedNav?.dragBy(dx)
   }
 
@@ -678,11 +686,19 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     highlight = true,
   ) {
     this.pendingChapter = chapter
+    const requested = this.book
+    const isCurrent = () =>
+      this.book.id === requested.id && this.pendingChapter === chapter
+    // The slide-out outlasts the load: another chapter may be asked for by then.
+    const finalize = (work: () => void) =>
+      this.finalizeChapterTransition(() => {
+        if (isCurrent()) work()
+      })
 
     // The About page is local content with no chapter behind it.
     if (this.book.id === "about") {
       this.chapterSubscription?.unsubscribe()
-      this.finalizeChapterTransition(() =>
+      finalize(() =>
         this.applyChapter(
           { bookId: "about", number: 1 },
           chapter,
@@ -704,14 +720,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         !this.book.introduction?.length &&
         BookService.introSlugFor(this.book)
       ) {
-        const requested = this.book
-        const isCurrent = () =>
-          this.book.id === requested.id && this.pendingChapter === 0
         this.bookService.loadGroupIntroBody(requested).then(
           (book) => {
             if (!isCurrent()) return
             this.book = book
-            this.finalizeChapterTransition(() =>
+            finalize(() =>
               this.applyChapter(
                 { bookId: this.book.id, number: 0, title: "Introdução" },
                 0,
@@ -741,7 +754,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         return
       }
 
-      this.finalizeChapterTransition(() =>
+      finalize(() =>
         this.applyChapter(
           { bookId: this.book.id, number: 0, title: "Introdução" },
           0,
@@ -755,19 +768,24 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       .getChapter(this.book.id, chapter)
       .subscribe({
         next: (res) =>
-          this.finalizeChapterTransition(() =>
+          finalize(() =>
             this.applyChapter(res, chapter, verseStart, verseEnd, highlight),
           ),
-        error: (err) =>
-          this.finalizeChapterTransition(() =>
-            this.handleChapterLoadFailure(err),
-          ),
+        error: (err) => finalize(() => this.handleChapterLoadFailure(err)),
       })
   }
 
   // Stay on the chapter shown. A leftover slide direction would open the next
   // load at the bottom.
   private handleChapterLoadFailure(error: unknown): void {
+    if (this.shown) {
+      // The chapter too: /intro on a book without one already set it to 1.
+      this.book = this.shown.book
+      this.chapterNumber = this.shown.chapter
+      this.cdr.markForCheck()
+    }
+    // Or the URL coming back here would read as a chapter still to load.
+    this.pendingChapter = this.chapterNumber
     // Or the next chapter to load would open notes meant for this one.
     this.linkedNotes = null
     this.isNavigatingBackwards = false
@@ -845,6 +863,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     this.chapter = chapterData
     this.chapterNumber = chapter
+    this.shown = { book: this.book, chapter }
     this.rebuildChapterLinks()
     this.animationService.cancelPendingRealign()
 
@@ -854,6 +873,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.chapter,
     )
 
+    // Its finger's events end with the verse it came down on.
+    this.pagedNav?.releaseDrag()
     this.cdr.detectChanges()
 
     const startAtBottom = this.isNavigatingBackwards
@@ -870,7 +891,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         startAtBottom,
         startAtBottom
           ? () => this.pagedNav?.scrollToEnd()
-          : () => this.pagedNav?.ensureAlignedScrollWidth(),
+          : () => this.pagedNav?.openAtStart(),
       )
     }
 
@@ -1006,13 +1027,14 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       chapter: this.chapterNumber,
     })
 
+    this.showAutoScrollControls =
+      this.viewMode === "scrolling" && this.autoScrollControlsPreference
     this.cdr.markForCheck()
     // Reset scroll when switching to paged? Or keep position?
     // Paged View relies on overflow-x scroll or just columns.
     // If we switch to paged, we might start at page 1 (scrollLeft 0).
     if (this.viewMode === "paged") {
       this.autoScrollService.stop()
-      this.showAutoScrollControls = false
       // Reset to the first page once the paged layout has been rendered.
       afterNextRender(
         () => {
@@ -1091,6 +1113,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   onTextSizeChange(size: TextSize): void {
     this.textSize = size
     this.cdr.markForCheck()
+    this.pagedNav?.relayout()
   }
 
   checkIfNextVerseStartsWithQuote(index: number): boolean {

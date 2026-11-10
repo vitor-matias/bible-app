@@ -308,4 +308,66 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertTrue(glass.contains(text))
         XCTAssertGreaterThan(glass.width, text.width)
     }
+
+    // MARK: The sheets
+
+    private func subviews<T: UIView>(of view: UIView, _ type: T.Type) -> [T] {
+        ((view as? T).map { [$0] } ?? []) + view.subviews.flatMap { subviews(of: $0, type) }
+    }
+
+    @available(iOS 16.0, *)
+    func testRemovingARibbonEndsEditing() throws {
+        let ribbons: [[String: Any]] = [
+            ["color": "red", "name": "Vermelho", "label": "Mt 5", "current": false],
+            ["color": "blue", "name": "Azul", "label": "Mt 6", "current": false],
+        ]
+        var sent: [String] = []
+        let sheet = BookmarksController(
+            state: BookmarksSheetState(call(["currentLabel": "Mateus 7", "ribbons": ribbons])),
+            send: { action, color in sent.append("\(action) \(color)") }, onClose: {})
+        sheet.loadViewIfNeeded()
+        let removable = { [self] in subviews(of: sheet.view, UIButton.self).filter { $0.accessibilityHint == "Retira o marcador" } }
+
+        sheet.navigationItem.leftBarButtonItem?.primaryAction?.performWithSender(nil, target: nil)
+        XCTAssertEqual(removable().count, 2)
+        removable()[0].sendActions(for: .primaryActionTriggered)
+
+        XCTAssertEqual(sent, ["bookmark-remove red"])
+        XCTAssertEqual(removable().count, 0)
+        XCTAssertEqual(sheet.navigationItem.leftBarButtonItem?.title, "Editar")
+    }
+
+    @available(iOS 16.0, *)
+    func testReportGivesUpOnlyOnTheSendStillWaiting() throws {
+        let topics: [[String: Any]] = [["value": "typo", "label": "Erro"]]
+        let report = ReportController(
+            state: ReportSheetState(call(["topics": topics, "maxLength": 500])), onSubmit: { _, _ in }, onClose: {})
+        report.sendTimeout = 0.2
+        report.loadViewIfNeeded()
+        report.tableView(report.tableView, didSelectRowAt: IndexPath(row: 0, section: 0))
+        let cell = report.tableView(report.tableView, cellForRowAt: IndexPath(row: 0, section: 1))
+        try XCTUnwrap(subviews(of: cell.contentView, UITextView.self).first).text = "Falta uma palavra"
+        let send = try XCTUnwrap(report.navigationItem.rightBarButtonItem)
+        let waiting = { report.navigationItem.leftBarButtonItem?.isEnabled == false }
+        let wait = { RunLoop.main.run(until: Date().addingTimeInterval($0)) }
+
+        send.primaryAction?.performWithSender(nil, target: nil)
+        XCTAssertTrue(waiting())
+        report.finish(sent: false, message: "")
+        XCTAssertFalse(waiting())
+
+        // No timing window to hit on a slow runner: this send's limit is far
+        // off, so only the first send's timer could end it.
+        report.sendTimeout = 600
+        send.primaryAction?.performWithSender(nil, target: nil)
+        wait(1)
+        XCTAssertTrue(waiting())
+        report.finish(sent: false, message: "")
+
+        report.sendTimeout = 0.2
+        send.primaryAction?.performWithSender(nil, target: nil)
+        let deadline = Date().addingTimeInterval(20)
+        while waiting() && Date() < deadline { wait(0.05) }
+        XCTAssertFalse(waiting())
+    }
 }

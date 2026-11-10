@@ -205,7 +205,10 @@ export class BookmarkSelectorComponent implements OnInit {
   removeRibbon(ribbon: RibbonState): void {
     const bookmark = ribbon.bookmark && { ...ribbon.bookmark }
     if (!bookmark) return
-    this.ribbonsService.remove(ribbon)
+    this.ribbonsService.remove(ribbon, () => {
+      this.removed = undefined
+      this.changeDetector.markForCheck()
+    })
     this.removed = {
       bookmark,
       label: `Desfazer: o marcador ${ribbon.spoken.toLowerCase()} volta a ${this.ribbonsService.ref(bookmark.bookId, bookmark.chapter)}`,

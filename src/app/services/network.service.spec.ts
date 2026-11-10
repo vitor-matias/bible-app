@@ -110,7 +110,25 @@ describe("NetworkService", () => {
     expect(mockNetworkListener.remove).toHaveBeenCalled()
   })
 
-  it("should preload offline content when transitioning offline -> online", async () => {
+  it("does not preload when a browser tab reconnects", async () => {
+    vi.spyOn(window, "matchMedia").mockReturnValue({
+      matches: false,
+    } as MediaQueryList)
+
+    capturedCallback?.({ connected: false, connectionType: "none" })
+    capturedCallback?.({ connected: true, connectionType: "wifi" })
+    // Started after the service's lazy import, so it resolves after it too.
+    await import("./offline-data.service")
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(service.isOffline).toBe(false)
+    expect(offlineData.preloadAllBooksAndChapters).not.toHaveBeenCalled()
+  })
+
+  it("should preload offline content when an installed app goes offline -> online", async () => {
+    vi.spyOn(window, "matchMedia").mockReturnValue({
+      matches: true,
+    } as MediaQueryList)
     injectorGet.mockClear()
 
     expect(capturedCallback).toBeDefined()
@@ -134,8 +152,6 @@ describe("NetworkService", () => {
     }
 
     expect(injectorGet).toHaveBeenCalledWith(OfflineDataService)
-    expect(offlineData.preloadAllBooksAndChapters).toHaveBeenCalledWith(
-      "standalone",
-    )
+    expect(offlineData.preloadAllBooksAndChapters).toHaveBeenCalledWith()
   })
 })

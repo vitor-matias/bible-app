@@ -44,6 +44,9 @@ final class ReportController: UITableViewController, UITextViewDelegate,
         self?.submit()
     })
     private var sending = false
+    /// The web app answers within about 18 s; if its web view died, never.
+    var sendTimeout: TimeInterval = 30
+    private var sendTimer: DispatchWorkItem?
     /// Under the details: characters used of those allowed.
     private let counter = UITableViewHeaderFooterView()
 
@@ -163,10 +166,16 @@ final class ReportController: UITableViewController, UITextViewDelegate,
         navigationItem.leftBarButtonItem?.isEnabled = false
         updateSend()
         onSubmit(state.topics[topic].value, details)
+        let timer = DispatchWorkItem { [weak self] in
+            self?.finish(sent: false, message: "Erro ao enviar o relatório. Tente novamente.")
+        }
+        sendTimer = timer
+        DispatchQueue.main.asyncAfter(deadline: .now() + sendTimeout, execute: timer)
     }
 
     /// The web app's answer: sent, or why not.
     func finish(sent: Bool, message: String) {
+        sendTimer?.cancel()
         sending = false
         navigationItem.rightBarButtonItem = sendItem
         navigationItem.leftBarButtonItem?.isEnabled = true

@@ -75,7 +75,7 @@
 </footer>
 
 <ng-template #webInstall>
-  @if (installOutcome === 'accepted') {
+  @if (installOutcome === 'accepted' && platform === detectedPlatform) {
   <p class="install-done">
     <mat-icon aria-hidden="true">check_circle</mat-icon>
     <span>A aplicação foi instalada. Procure o ícone «Bíblia Sagrada» no seu dispositivo.</span>
