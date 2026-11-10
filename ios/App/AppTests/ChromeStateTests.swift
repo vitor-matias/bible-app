@@ -342,7 +342,7 @@ final class ChromeStateTests: XCTestCase {
         let topics: [[String: Any]] = [["value": "typo", "label": "Erro"]]
         let report = ReportController(
             state: ReportSheetState(call(["topics": topics, "maxLength": 500])), onSubmit: { _, _ in }, onClose: {})
-        report.sendTimeout = 2
+        report.sendTimeout = 0.2
         report.loadViewIfNeeded()
         report.tableView(report.tableView, didSelectRowAt: IndexPath(row: 0, section: 0))
         let cell = report.tableView(report.tableView, cellForRowAt: IndexPath(row: 0, section: 1))
@@ -356,11 +356,18 @@ final class ChromeStateTests: XCTestCase {
         report.finish(sent: false, message: "")
         XCTAssertFalse(waiting())
 
-        wait(1)
+        // No timing window to hit on a slow runner: this send's limit is far
+        // off, so only the first send's timer could end it.
+        report.sendTimeout = 600
         send.primaryAction?.performWithSender(nil, target: nil)
-        wait(1.5) // past the first send's limit, short of this one's
-        XCTAssertTrue(waiting())
         wait(1)
+        XCTAssertTrue(waiting())
+        report.finish(sent: false, message: "")
+
+        report.sendTimeout = 0.2
+        send.primaryAction?.performWithSender(nil, target: nil)
+        let deadline = Date().addingTimeInterval(20)
+        while waiting() && Date() < deadline { wait(0.05) }
         XCTAssertFalse(waiting())
     }
 }

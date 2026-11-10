@@ -271,16 +271,20 @@ export class BookmarkRibbonsService {
     )
   }
 
-  remove(ribbon: RibbonState): void {
+  remove(ribbon: RibbonState, onFailure?: () => void): void {
     if (!ribbon.bookmark) return
     const { bookId, chapter } = ribbon.bookmark
-    this.afterSave(this.bookmarkService.removeBookmark(bookId, chapter), () => {
-      void this.analyticsService.track("bookmark_delete", {
-        book: bookId,
-        chapter,
-        color: ribbon.value,
-      })
-    })
+    this.afterSave(
+      this.bookmarkService.removeBookmark(bookId, chapter),
+      () => {
+        void this.analyticsService.track("bookmark_delete", {
+          book: bookId,
+          chapter,
+          color: ribbon.value,
+        })
+      },
+      onFailure,
+    )
   }
 
   private afterSave(

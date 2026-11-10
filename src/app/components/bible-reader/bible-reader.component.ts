@@ -191,7 +191,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   nextChapterLink: (string | number)[] = []
   /** The chapter last asked for, which an async load must still match. */
   private pendingChapter?: Chapter["number"]
-  private shownBook?: Book
+  /** What is on screen, for a failed load to go back to. */
+  private shown?: { book: Book; chapter: Chapter["number"] }
   isFirstPage = true
   isLastPage = false
 
@@ -765,8 +766,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   // Stay on the chapter shown. A leftover slide direction would open the next
   // load at the bottom.
   private handleChapterLoadFailure(error: unknown): void {
-    if (this.shownBook) {
-      this.book = this.shownBook
+    if (this.shown) {
+      // The chapter too: /intro on a book without one already set it to 1.
+      this.book = this.shown.book
+      this.chapterNumber = this.shown.chapter
       this.cdr.markForCheck()
     }
     // Or the URL coming back here would read as a chapter still to load.
@@ -848,7 +851,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     this.chapter = chapterData
     this.chapterNumber = chapter
-    this.shownBook = this.book
+    this.shown = { book: this.book, chapter }
     this.rebuildChapterLinks()
     this.animationService.cancelPendingRealign()
 

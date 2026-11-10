@@ -2048,9 +2048,14 @@ describe("BibleReaderComponent", () => {
         throwError(() => new Error("Not found")),
       )
       component.book = mockBooks[0] as unknown as Book
-      component.chapterNumber = 3
       const el = document.createElement("div")
       component.bookContainer = { nativeElement: el } as unknown as ElementRef
+      apiServiceSpy.getChapter.mockReturnValueOnce(
+        of({ bookId: "gen", number: 3, verses: [] } as unknown as Chapter),
+      )
+      component.getChapter(3)
+      el.style.opacity = ""
+      routerSpy.navigate.mockClear()
 
       component.getChapter(4)
       await vi.advanceTimersByTimeAsync(0)
@@ -2102,6 +2107,43 @@ describe("BibleReaderComponent", () => {
         false,
       )
       expect(component.nextChapterLink).toEqual(nextChapterLink)
+    })
+
+    // /ex/intro on a book without one sets chapter 1 before loading it: on a
+    // failure the URL read /gn/1 over Génesis 5, and nothing reloaded.
+    it("stays on the chapter shown when a redirected /intro fails to load", () => {
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      bookServiceSpy.getUrlAbrv.mockImplementation((book: Book) => book.id)
+      fixture.detectChanges()
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({ bookId: "gen", number: 5, verses: [] } as unknown as Chapter),
+      )
+      component.getChapter(5)
+      expect(component.chapterNumber).toBe(5)
+      // After the chapter's own change detection, which sets the drawer anew.
+      component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
+
+      bookServiceSpy.findBook.mockReturnValue({
+        id: "exo",
+        chapterCount: 40,
+      } as unknown as Book)
+      apiServiceSpy.getChapter.mockReturnValue(
+        throwError(() => new Error("Offline")),
+      )
+      ;(
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap.next(
+        new Map([
+          ["book", "exo"],
+          ["chapter", "intro"],
+        ]),
+      )
+
+      expect(component.book.id).toBe("gen")
+      expect(component.chapterNumber).toBe(5)
+      expect(routerSpy.navigate).toHaveBeenLastCalledWith(["/", "gen", "5"], {
+        replaceUrl: true,
+      })
     })
 
     it("should revert URL with replaceUrl and not reset container when NetworkService reports offline", async () => {

@@ -1,12 +1,18 @@
 import { HttpClient } from "@angular/common/http"
 import { Injectable, inject } from "@angular/core"
 import { Capacitor } from "@capacitor/core"
-import { firstValueFrom } from "rxjs"
+import { firstValueFrom, timeout } from "rxjs"
 import { apiBaseUrl } from "../config"
 import { safeLocalStorage } from "../utils/web-storage"
 import { AnalyticsService } from "./analytics.service"
 import { DatabaseService } from "./database.service"
 import { NetworkService } from "./network.service"
+
+/**
+ * Long, for the whole Bible on a slow connection; but a stalled request must
+ * end, as later preloads wait for the one under way.
+ */
+export const PRELOAD_TIMEOUT_MS = 5 * 60_000
 
 @Injectable({
   providedIn: "root",
@@ -75,12 +81,14 @@ export class OfflineDataService {
     if (!booksAlreadyCached || isExpired) {
       try {
         const books = await firstValueFrom(
-          this.http.get<Book[]>(`${this.apiBase}/books?withChapters=true`, {
-            // Native is cross-origin, where a custom header forces a CORS preflight.
-            headers: Capacitor.isNativePlatform()
-              ? {}
-              : { "ngsw-bypass": "true" },
-          }),
+          this.http
+            .get<Book[]>(`${this.apiBase}/books?withChapters=true`, {
+              // Native is cross-origin, where a custom header forces a CORS preflight.
+              headers: Capacitor.isNativePlatform()
+                ? {}
+                : { "ngsw-bypass": "true" },
+            })
+            .pipe(timeout(PRELOAD_TIMEOUT_MS)),
         )
         await this.setCachedBooks(books)
         this.trackBooksCachedEvent()
@@ -108,15 +116,19 @@ export class OfflineDataService {
   private async preloadGroupIntros(): Promise<void> {
     try {
       const summaries = await firstValueFrom(
-        this.http.get<IntroSummary[]>(`${this.apiBase}/intros`),
+        this.http
+          .get<IntroSummary[]>(`${this.apiBase}/intros`)
+          .pipe(timeout(PRELOAD_TIMEOUT_MS)),
       )
       // allSettled: one failing slug must not discard the rest.
       const results = await Promise.allSettled(
         summaries.map((summary) =>
           firstValueFrom(
-            this.http.get<GroupIntro>(
-              `${this.apiBase}/intros/${encodeURIComponent(summary.slug)}`,
-            ),
+            this.http
+              .get<GroupIntro>(
+                `${this.apiBase}/intros/${encodeURIComponent(summary.slug)}`,
+              )
+              .pipe(timeout(PRELOAD_TIMEOUT_MS)),
           ),
         ),
       )

@@ -9,7 +9,7 @@ import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import { DatabaseService } from "./database.service"
 import { NetworkService } from "./network.service"
-import { OfflineDataService } from "./offline-data.service"
+import { OfflineDataService, PRELOAD_TIMEOUT_MS } from "./offline-data.service"
 
 describe("OfflineDataService", () => {
   let service: OfflineDataService
@@ -397,6 +397,28 @@ describe("OfflineDataService", () => {
       await flushIntros()
 
       await Promise.all([first, second])
+    })
+
+    // Later preloads join the one under way: a request that never answered
+    // held every one of them for good.
+    it("gives up on a stalled download, so the next preload asks again", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      const stalled = service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock.expectOne("v1/books?withChapters=true")
+
+      await vi.advanceTimersByTimeAsync(PRELOAD_TIMEOUT_MS)
+      httpMock.expectOne("v1/intros").flush([])
+      await vi.advanceTimersByTimeAsync(0)
+      await stalled
+
+      const retry = service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      // The introductions were cached by the first run.
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await vi.advanceTimersByTimeAsync(50)
+      await retry
     })
 
     it("skips the service worker's copy of the download on the web", async () => {

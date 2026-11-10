@@ -394,6 +394,17 @@ describe("BookmarkSelectorComponent", () => {
       expect(undoButton()).toBeNull()
     })
 
+    it("offers no undo for a removal that failed to save", async () => {
+      bookmarkServiceSpy.removeBookmark.mockRejectedValue(new Error("Quota"))
+      rightClick(button("Azul,"))
+      await settle()
+      removeItem()?.click()
+      await settle()
+      fixture.detectChanges()
+
+      expect(undoButton()).toBeNull()
+    })
+
     it("drops the undo when the ribbon is marked again some other way", async () => {
       rightClick(button("Azul,"))
       await settle()
