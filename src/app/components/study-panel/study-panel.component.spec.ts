@@ -416,6 +416,62 @@ describe("StudyPanelComponent", () => {
       expect(component.referenceGroups[0].label).toBe("1,1-2,23")
     })
 
+    // A division's parallels and the first passage's start and end on the same
+    // verses; the passage a verse falls in is both of them, not the first.
+    it("marks a division's group and a passage's group alike for a verse both cover", () => {
+      bibleRef.extract.mockImplementation((text: string) => {
+        if (text === "(1,1-2,23; ver Mc 1,5-2,52)") {
+          return [
+            {
+              match: "1,1-2,23",
+              index: 0,
+              book: "mat",
+              chapter: 1,
+              crossChapter: {
+                type: "crossChapterRange",
+                startChapter: 1,
+                startVerse: 1,
+                endChapter: 2,
+                endVerse: 23,
+              },
+            },
+            reference("mrk", 1, 5, 52),
+          ] as ReturnType<BibleReferenceService["extract"]>
+        }
+        return text === "Lc 3,23-38" ? [reference("luk", 3, 23, 38)] : []
+      })
+      const target = verse(3, [plain("Isaac gerou Jacob")])
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 1,
+          verses: [
+            verse(0, [
+              majorHeading("I. EVANGELHO DA INFÂNCIA DE JESUS"),
+              references("(1,1-2,23; ver Mc 1,5-2,52)"),
+              heading("Genealogia de Jesus"),
+              references("Lc 3,23-38"),
+            ]),
+            verse(1, [plain("Genealogia de Jesus Cristo")]),
+            verse(2, [plain("Abraão gerou Isaac")]),
+            target,
+          ],
+        },
+        selection: { verse: target },
+      })
+
+      expect(component.referenceGroups.length).toBe(2)
+      expect(
+        component.referenceGroups.map((group) => group.verseNumber),
+      ).toEqual([1, 1])
+      expect(
+        component.referenceGroups.map((group) =>
+          component.isCurrentGroup(group),
+        ),
+      ).toEqual([true, true])
+    })
+
     it("ends a passage where the next heading begins", () => {
       bibleRef.extract.mockImplementation((text: string) =>
         text === "Mc 12,28-34" ? [reference("mrk", 12, 28, 34)] : [],
@@ -2726,6 +2782,78 @@ describe("StudyPanelComponent", () => {
       undo.next()
       expect(notes.getNote("mat", 22, 39)?.text).toBe("para não perder")
       expect(component.noteDraft).toBe("para não perder")
+    })
+
+    it("does not put a deleted note back over one written since", () => {
+      notes.saveNote("mat", 22, 39, "A")
+      const undo = new Subject<void>()
+      vi.spyOn(TestBed.inject(MatSnackBar), "open").mockReturnValue({
+        onAction: () => undo.asObservable(),
+      } as MatSnackBarRef<TextOnlySnackBar>)
+      const target = verse(39, [])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+      component.onNoteInput("")
+      component.onNoteBlur()
+      expect(notes.getNote("mat", 22, 39)).toBeUndefined()
+
+      // Still on the verse, the reader writes another before the offer closes.
+      component.onNoteInput("B")
+      component.onNoteBlur()
+      undo.next()
+
+      expect(notes.getNote("mat", 22, 39)?.text).toBe("B")
+      expect(component.noteDraft).toBe("B")
+    })
+
+    // Another tab's write reaches the store through its storage listener; the
+    // box has to follow, or leaving it writes its old text back over the note.
+    describe("a note written in another tab", () => {
+      const select = (): void => {
+        const target = verse(39, [])
+        setInputs({
+          book: BOOK,
+          chapter: { bookId: "mat", number: 22, verses: [target] },
+          selection: { verse: target },
+        })
+      }
+
+      it("shows in the box, so leaving the box does not undo it", () => {
+        select()
+        expect(component.noteDraft).toBe("")
+
+        notes.saveNote("mat", 22, 39, "de outro separador")
+        expect(component.noteDraft).toBe("de outro separador")
+        component.onNoteBlur()
+
+        expect(notes.getNote("mat", 22, 39)?.text).toBe("de outro separador")
+      })
+
+      it("does not replace what the reader is typing", () => {
+        select()
+        component.onNoteInput("a escrever")
+
+        notes.saveNote("mat", 22, 39, "de outro separador")
+
+        expect(component.noteDraft).toBe("a escrever")
+      })
+
+      it("leaves a box the reader is in alone", () => {
+        document.body.appendChild(fixture.nativeElement)
+        try {
+          select()
+          fixture.nativeElement.querySelector("#study-note").focus()
+
+          notes.saveNote("mat", 22, 39, "de outro separador")
+
+          expect(component.noteDraft).toBe("")
+        } finally {
+          fixture.nativeElement.remove()
+        }
+      })
     })
 
     it("names the colour on each swatch", () => {

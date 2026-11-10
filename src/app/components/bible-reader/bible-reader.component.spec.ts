@@ -13,7 +13,12 @@ import type { MatDrawer } from "@angular/material/sidenav"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { By } from "@angular/platform-browser"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
-import { ActivatedRoute, Router, RouterLink } from "@angular/router"
+import {
+  ActivatedRoute,
+  NavigationEnd,
+  Router,
+  RouterLink,
+} from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 
 import { BehaviorSubject, of, Subject, throwError } from "rxjs"
@@ -75,6 +80,7 @@ describe("BibleReaderComponent", () => {
   let bookServiceSpy: SpyObj<BookService>
   let preferencesServiceSpy: SpyObj<PreferencesService>
   let routerSpy: SpyObj<Router>
+  let routerEvents: Subject<NavigationEnd>
   let hapticsSpy: SpyObj<HapticsService>
   let routeMock: unknown
   let animationServiceSpy: SpyObj<BibleReaderAnimationService>
@@ -139,6 +145,8 @@ describe("BibleReaderComponent", () => {
 
     routerSpy = createSpyObj("Router", ["navigate"])
     routerSpy.navigate.mockResolvedValue(true)
+    routerEvents = new Subject<NavigationEnd>()
+    Object.assign(routerSpy, { events: routerEvents })
     ;(
       routerSpy as unknown as {
         routerState: unknown
@@ -2336,6 +2344,65 @@ describe("BibleReaderComponent", () => {
           component.clearSelection()
 
           expect(replaceState).not.toHaveBeenCalled()
+        })
+      })
+
+      // The address moves without the router being told, so a link to where
+      // the reader began is, to the router, no change: it ends without the
+      // route's observables saying anything, and used to leave the text and
+      // the panel where they were.
+      describe("a link to where the reader began, once the address has moved on", () => {
+        const ended = (url: string) =>
+          routerEvents.next(new NavigationEnd(1, url, url))
+
+        beforeEach(() => {
+          vi.spyOn(TestBed.inject(Location), "replaceState").mockReturnValue()
+          // The navigation that opened the chapter has ended, as it had by the
+          // time the reader could do anything.
+          ended("/gn/1")
+          component.onVerseSelected({ verse: verses[2] })
+        })
+
+        it("takes the reader there, text and panel", () => {
+          const scroll = vi.spyOn(
+            component as unknown as { scrollToVerse: () => void },
+            "scrollToVerse",
+          )
+
+          ended("/gn/1?verseStart=1")
+
+          expect(scroll).toHaveBeenCalledWith(1, undefined, true)
+          expect(component.selection?.verse.number).toBe(1)
+        })
+
+        it("does nothing twice when the route's observables already moved the reader", () => {
+          const scroll = vi.spyOn(
+            component as unknown as { scrollToVerse: () => void },
+            "scrollToVerse",
+          )
+          ;(
+            routeMock as {
+              queryParamMap: BehaviorSubject<Map<string, string>>
+            }
+          ).queryParamMap.next(new Map([["verseStart", "1"]]))
+          expect(scroll).toHaveBeenCalledTimes(1)
+
+          ended("/gn/1?verseStart=1")
+
+          expect(scroll).toHaveBeenCalledTimes(1)
+        })
+
+        it("leaves another chapter, and a link with no verse, to the route", () => {
+          const scroll = vi.spyOn(
+            component as unknown as { scrollToVerse: () => void },
+            "scrollToVerse",
+          )
+
+          ended("/gn/2?verseStart=1")
+          ended("/gn/1")
+
+          expect(scroll).not.toHaveBeenCalled()
+          expect(component.selection?.verse.number).toBe(3)
         })
       })
 

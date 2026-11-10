@@ -28,10 +28,15 @@ import {
   MatDrawerContent,
   MatSidenavModule,
 } from "@angular/material/sidenav"
-import { ActivatedRoute, Router, RouterLink } from "@angular/router"
+import {
+  ActivatedRoute,
+  NavigationEnd,
+  Router,
+  RouterLink,
+} from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { combineLatest, Subject, Subscription } from "rxjs"
-import { switchMap, take, takeUntil } from "rxjs/operators"
+import { filter, switchMap, take, takeUntil } from "rxjs/operators"
 import { nextCanonBook, PASTORAL_INDEX_BOOK } from "../../bible-canon"
 import {
   PagedNavigationDirective,
@@ -137,6 +142,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private highlightService = inject(HighlightService)
 
   private destroy$ = new Subject<void>()
+  /** Whether the route's observables spoke during the navigation in flight. */
+  private routeEmitted = false
   private chapterSubscription?: Subscription
   private injector = inject(Injector)
   private platformId = inject(PLATFORM_ID)
@@ -556,6 +563,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
       )
       .subscribe(([params, queryParams]) => {
+        this.routeEmitted = true
         const bookParam = params.get("book") || "about"
         const chapterParam = this.bookService.parseChapterUrlSegment(
           params.get("chapter"),
@@ -595,6 +603,60 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         this.getChapter(chapterParam, verseStartParam, verseEndParam, highlight)
         this.bookDrawer?.close()
       })
+
+    this.router.events
+      .pipe(
+        filter(
+          (event): event is NavigationEnd => event instanceof NavigationEnd,
+        ),
+        takeUntil(this.destroy$),
+      )
+      .subscribe((event) => this.followLinkToVerse(event.urlAfterRedirects))
+  }
+
+  /**
+   * A link to a verse of this chapter that the route's observables never
+   * announced, because the address it names is the one the router last knew.
+   *
+   * Study mode moves the address without telling the router (see
+   * writeSelectionToUrl), so a link to where the reader began — "v.12" in the
+   * panel, a note's link, an entry of the trail — is, to the router, no change
+   * at all: it runs, puts the address back, and says nothing, leaving the text
+   * and the panel on the verse the reader had moved to.
+   */
+  private followLinkToVerse(url: string): void {
+    const announced = this.routeEmitted
+    this.routeEmitted = false
+    if (announced || !isPlatformBrowser(this.platformId)) return
+
+    const target = new URL(url, "http://x")
+    const [bookSegment, chapterSegment] = target.pathname
+      .split("/")
+      .filter(Boolean)
+    const verse = Number.parseInt(
+      target.searchParams.get("verseStart") ?? "",
+      10,
+    )
+    if (
+      !bookSegment ||
+      !chapterSegment ||
+      !Number.isFinite(verse) ||
+      this.bookService.findBook(decodeURIComponent(bookSegment)).id !==
+        this.book.id ||
+      this.bookService.parseChapterUrlSegment(chapterSegment) !==
+        this.chapterNumber ||
+      this.selection?.verse.number === verse
+    ) {
+      return
+    }
+    const end = Number.parseInt(target.searchParams.get("verseEnd") ?? "", 10)
+    const highlight = target.searchParams.get("highlight")
+    this.scrollToVerse(
+      verse,
+      Number.isFinite(end) ? end : undefined,
+      highlight === null ? true : highlight === "true",
+    )
+    this.selectVerseNumber(verse)
   }
 
   ngOnDestroy(): void {

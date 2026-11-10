@@ -666,11 +666,18 @@ export class StudyPanelComponent implements OnChanges {
     return this.selectedVerse?.number === verseNumber
   }
 
-  /** True for the passage holding the verse the reader chose. */
+  /**
+   * True for every passage holding the verse the reader chose. By its own
+   * range, not by being the first to cover it: a division's references and a
+   * passage's can start and end on the same verses, and both are about it.
+   */
   isCurrentGroup(group: ReferenceGroup): boolean {
     const selected = this.selectedVerse?.number
-    if (selected === undefined) return false
-    return this.groupCovering(selected) === group
+    return (
+      selected !== undefined &&
+      selected >= group.verseNumber &&
+      selected <= group.lastVerse
+    )
   }
 
   /** The passage a verse falls in, whether the reader chose it or scrolled to it. */
@@ -1154,6 +1161,10 @@ export class StudyPanelComponent implements OnChanges {
       .open("Nota apagada", "Anular", { duration: UNDO_WINDOW_MS })
       .onAction()
       .subscribe(() => {
+        // Only where the verse is still without a note: one written since is
+        // the reader's newer choice, and taking back the deletion is not a
+        // reason to write over it.
+        if (this.notesService.getNote(bookId, chapter, verse.number)) return
         this.notesService.saveNote(
           bookId,
           chapter,
@@ -1441,8 +1452,17 @@ export class StudyPanelComponent implements OnChanges {
       .notesForChapter(this.book.id, this.chapter.number)
       .subscribe((notes) => {
         this.chapterNotes = notes
+        // A note written elsewhere — another tab — is what the box should
+        // hold: left as it was, leaving the box would write its old text back
+        // over the new one (or delete it, from an empty box). Not while the
+        // reader is typing in it, whose words are the newer.
+        if (!this.pendingNote && !this.noteBoxHasFocus()) this.loadNoteDraft()
         this.cdr.markForCheck()
       })
+  }
+
+  private noteBoxHasFocus(): boolean {
+    return !!this.host.nativeElement.querySelector(".note-box :focus")
   }
 
   /** Every footnote in the chapter, in the order the text prints them. */
