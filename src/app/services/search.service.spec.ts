@@ -268,6 +268,20 @@ describe("SearchService", () => {
       })
     })
 
+    // The comma is the leaflet's to leave out; without one in the reference,
+    // the verses read as more digits of the psalm: "Sl 231-6".
+    it("takes the verses of a pair that has no comma before them", async () => {
+      references.destinationOf.mockReturnValue({
+        book: PSALMS,
+        chapter: 23,
+        verseStart: 1,
+      })
+
+      await firstValueFrom(service.run("Sl 23 (22) 1-6"))
+
+      expect(references.destinationOf).toHaveBeenCalledWith("Sl 23,1-6")
+    })
+
     it("does not ask about a psalm that is the same in both numberings", async () => {
       references.destinationOf.mockReturnValue({ book: PSALMS, chapter: 9 })
 

@@ -14,6 +14,7 @@ import { passageLabel } from "../utils/passage-label"
 import {
   isAmbiguousPsalmNumber,
   PSALMS_BOOK_ID,
+  pairedReference,
   parsePsalmPair,
   psalmFromLiturgical,
 } from "../utils/psalms"
@@ -111,9 +112,7 @@ export class SearchService {
     const pairBook = pair ? this.books.findTypedBook(pair.book) : undefined
     const paired = !!pair && pairBook?.id === PSALMS_BOOK_ID
     const asked =
-      pair && paired && pairBook
-        ? `${pairBook.abrv} ${pair.psalm}${pair.rest.replace(/^,\s*/, ",")}`
-        : query
+      pair && paired && pairBook ? pairedReference(pair, pairBook.abrv) : query
     const destination = this.references.destinationOf(asked)
     if (!destination) return this.page(query, 1, limit)
 

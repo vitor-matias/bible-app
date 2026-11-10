@@ -100,6 +100,20 @@ export function parsePsalmPair(
   }
 }
 
+/**
+ * The reference a pair names, in this edition's number: "Sl 95,1-2" for "Sl 94
+ * (95), 1-2". A leaflet may put the verses after the pair with a comma or
+ * without ("Sl 23 (22) 1-6"); the reference always has one between the psalm
+ * and them, or the verses read as more digits of the psalm ("Sl 231-6").
+ */
+export function pairedReference(
+  pair: { psalm: number; rest: string },
+  abrv: string,
+): string {
+  const verses = pair.rest.replace(/^,\s*/, "")
+  return `${abrv} ${pair.psalm}${verses ? `,${verses}` : ""}`
+}
+
 /** "114-115" or "116B": its numbers, and the letter of a psalm's half. */
 function psalmNumbers(text: string): { numbers: number[]; half?: string } {
   const half = /[A-Za-z]$/.exec(text.trim())?.[0].toUpperCase()

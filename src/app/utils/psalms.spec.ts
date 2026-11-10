@@ -2,6 +2,7 @@ import {
   isAmbiguousPsalmNumber,
   liturgicalPsalmNumber,
   liturgicalPsalmNumberAt,
+  pairedReference,
   parsePsalmPair,
   psalmFromLiturgical,
 } from "./psalms"
@@ -97,6 +98,19 @@ describe("psalm numbering", () => {
       expect(parsePsalmPair("Sl 115 (116B), 12-13")?.psalm).toBe(116)
       expect(parsePsalmPair("Sl 113 (114)")?.psalm).toBe(114)
       expect(parsePsalmPair("Sl 1 (1)")?.psalm).toBe(1)
+    })
+
+    // The verses may follow the pair with a comma or not; either way the
+    // reference needs one, or "Sl 23 (22) 1-6" reads as the psalm 231.
+    it.each([
+      ["Sl 94 (95), 1-2", "Sl 95,1-2"],
+      ["Sl 94 (95),1-2", "Sl 95,1-2"],
+      ["Sl 23 (22) 1-6", "Sl 23,1-6"],
+      ["Sl 23 (22) 1", "Sl 23,1"],
+      ["Salmo 23 (22)", "Sl 23"],
+    ])("names the reference of %j as %j", (text, reference) => {
+      const pair = parsePsalmPair(text)
+      expect(pair && pairedReference(pair, "Sl")).toBe(reference)
     })
 
     // As this app shows them: "Salmo 116 (114-115)".
