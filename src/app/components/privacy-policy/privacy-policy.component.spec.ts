@@ -1,6 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { MatDialog } from "@angular/material/dialog"
 import { provideRouter } from "@angular/router"
+import { SeoService } from "../../services/seo.service"
 import {
   PRIVACY_DIALOG_CONFIG,
   PrivacyPolicyDialogComponent,
@@ -26,7 +27,9 @@ describe("Privacy policy", () => {
     expect(dialog.openDialogs).toHaveLength(0)
   })
 
-  it("has a public page for the store listings", () => {
+  it("has a public page for the store listings, with its own head", () => {
+    const seo = { updateForPrivacy: vi.fn() }
+    TestBed.overrideProvider(SeoService, { useValue: seo })
     const fixture = TestBed.createComponent(PrivacyPolicyPageComponent)
     fixture.detectChanges()
 
@@ -34,5 +37,6 @@ describe("Privacy policy", () => {
       "Política de Privacidade",
     )
     expect(fixture.nativeElement.textContent).toContain("Umami")
+    expect(seo.updateForPrivacy).toHaveBeenCalled()
   })
 })

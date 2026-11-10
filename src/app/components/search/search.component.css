@@ -303,10 +303,6 @@
   font-size: 0.9rem;
 }
 
-.meaning-consent p {
-  margin: 0;
-}
-
 /* Beside results too: Android's recent searches cover the empty page. */
 .meaning-status {
   flex: none;
@@ -316,8 +312,11 @@
   text-align: center;
 }
 
-/* Clears the native bar; what follows then needn't. */
-:host-context(.native-chrome) :is(.meaning-consent, .meaning-status) {
+/* Clears the native bar, unless a suggestion above already does; what follows
+   then needn't. */
+:host-context(.native-chrome)
+  div:not(.has-suggestion)
+  > :is(.meaning-consent, .meaning-status) {
   margin-top: calc(8px + var(--app-chrome-top));
 }
 

@@ -1,7 +1,12 @@
 import { ChangeDetectionStrategy, Component, signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
+import { MatDialog } from "@angular/material/dialog"
 import { MatMenuModule, MatMenuTrigger } from "@angular/material/menu"
 import { By } from "@angular/platform-browser"
+import {
+  PRIVACY_DIALOG_CONFIG,
+  PrivacyPolicyDialogComponent,
+} from "../privacy-policy/privacy-policy.component"
 import { ReaderMenuComponent } from "./reader-menu.component"
 
 @Component({
@@ -116,5 +121,18 @@ describe("ReaderMenuComponent", () => {
     fixture.detectChanges()
     menuItem("Esconder deslocamento automático").click()
     expect(fixture.componentInstance.toggles()).toBe(1)
+  })
+
+  it("opens the privacy policy in a modal", () => {
+    const dialog = vi
+      .spyOn(TestBed.inject(MatDialog), "open")
+      .mockReturnValue(undefined as never)
+    open(null, null)
+    menuItem("Política de Privacidade").click()
+
+    expect(dialog).toHaveBeenCalledWith(
+      PrivacyPolicyDialogComponent,
+      PRIVACY_DIALOG_CONFIG,
+    )
   })
 })

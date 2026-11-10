@@ -392,6 +392,30 @@ describe("SearchComponent", () => {
       expect(component.searchResults).toBe(results)
     })
 
+    it("clears the native bar only when no suggestion above does", () => {
+      document.body.classList.add("native-chrome")
+      document.body.style.setProperty("--app-chrome-top", "50px")
+      try {
+        component.meaningSearchConsent = false
+        fixture.detectChanges()
+        const status = () =>
+          getComputedStyle(
+            fixture.nativeElement.querySelector(".meaning-status"),
+          ).marginTop
+        expect(status()).toBe("58px")
+
+        component.passageSuggestion = {
+          label: "Abrir João 3,16",
+          query: "Jo 3,16",
+        }
+        component["cdr"].detectChanges()
+        expect(status()).toBe("8px")
+      } finally {
+        document.body.classList.remove("native-chrome")
+        document.body.style.removeProperty("--app-chrome-top")
+      }
+    })
+
     it("asks only while unanswered", () => {
       component.meaningSearchConsent = null
       fixture.detectChanges()

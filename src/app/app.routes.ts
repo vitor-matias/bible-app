@@ -29,7 +29,6 @@ export const routes: Routes = [
   { path: "ios", canActivate: [redirectTo(APP_STORE_URL)], children: [] },
   {
     path: "privacidade",
-    title: "Política de Privacidade | Bíblia Sagrada",
     loadComponent: () =>
       import("./components/privacy-policy/privacy-policy.component").then(
         (m) => m.PrivacyPolicyPageComponent,

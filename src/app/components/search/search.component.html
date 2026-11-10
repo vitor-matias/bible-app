@@ -28,11 +28,11 @@
 
   @if (!offline && meaningSearchConsent === null) {
     <section class="meaning-consent" aria-label="Pesquisa por significado">
-      <p>
+      <div>
         <strong>Pesquisa por significado.</strong> Para encontrar versículos pelo sentido, e não só pelas palavras,
         o texto que pesquisar é enviado à Voyage AI (MongoDB, Estados Unidos).
         <button type="button" class="link-button" (click)="openPrivacyPolicy()">Saber mais</button>
-      </p>
+      </div>
       <div class="meaning-consent-actions">
         <button type="button" class="link-button" (click)="setMeaningSearch(false)">Agora não</button>
         <button type="button" class="meaning-consent-allow" (click)="setMeaningSearch(true)">Ativar</button>

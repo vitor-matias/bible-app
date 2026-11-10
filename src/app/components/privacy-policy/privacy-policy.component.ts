@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component } from "@angular/core"
+import { ChangeDetectionStrategy, Component, inject } from "@angular/core"
 import { MatButtonModule } from "@angular/material/button"
 import { type MatDialogConfig, MatDialogModule } from "@angular/material/dialog"
 import { RouterLink } from "@angular/router"
+import { SeoService } from "../../services/seo.service"
 
 /** The policy's text, bundled so it opens without a connection. */
 @Component({
@@ -64,4 +65,8 @@ export const PRIVACY_DIALOG_CONFIG: MatDialogConfig = {
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PrivacyPolicyPageComponent {}
+export class PrivacyPolicyPageComponent {
+  constructor() {
+    inject(SeoService).updateForPrivacy()
+  }
+}
