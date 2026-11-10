@@ -54,3 +54,26 @@ jobs:
           jq -e 'last | .is_error | not' "$EXECUTION_FILE" > /dev/null || { echo "::error::The review ended in an error, so it may have posted nothing."; exit 1; }
           jq -e 'any(.[]; .type == "assistant" and any(.message.content[]?; .type == "tool_use" and (.name == "Agent" or .name == "Task")))' "$EXECUTION_FILE" > /dev/null || { echo "::error::The review launched no agents."; exit 1; }
           jq -e 'any(.[]; .type == "assistant" and any(.message.content[]?; .type == "tool_use" and .input.model == "opus"))' "$EXECUTION_FILE" > /dev/null || echo "::warning::The review stopped before its opus bug reviewers ran."
+      # A clean review approves the PR, with the Claude app's own token. Only a full review counts: the
+      # step above has passed, the opus reviewers ran, this run posted no inline comment, and no thread
+      # Claude opened earlier is still unresolved. The approval names the commit it read.
+      - name: Approve when the review found nothing
+        if: steps.claude.outputs.execution_file != '' && steps.claude.outputs.github_token != ''
+        env:
+          GH_TOKEN: ${{ steps.claude.outputs.github_token }}
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          used() { jq -e --arg t "$1" 'any(.[]; .type == "assistant" and any(.message.content[]?; .type == "tool_use" and (.name == $t or .input.model == $t)))' "$EXECUTION_FILE" > /dev/null; }
+          used opus || { echo "No approval: the bug reviewers did not run."; exit 0; }
+          ! used mcp__github_inline_comment__create_inline_comment || { echo "No approval: the review posted comments."; exit 0; }
+          open=$(gh api graphql -F owner="${REPO%/*}" -F name="${REPO#*/}" -F pr="$PR" -f query='
+            query($owner: String!, $name: String!, $pr: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $pr) {
+              reviewThreads(first: 100) { nodes { isResolved comments(first: 1) { nodes { author { login } } } } } } } }' \
+            --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved | not) | select(.comments.nodes[0].author.login | test("^claude"))] | length')
+          [ "$open" = 0 ] || { echo "No approval: $open earlier Claude thread(s) still unresolved."; exit 0; }
+          gh api "repos/$REPO/pulls/$PR/reviews" -f event=APPROVE -f commit_id="$HEAD_SHA" \
+            -f body="Automated review of ${HEAD_SHA:0:7} found no issues. Later commits are not covered: reopen the PR for another review." > /dev/null \
+            || echo "::warning::The review found nothing but could not approve the PR."
