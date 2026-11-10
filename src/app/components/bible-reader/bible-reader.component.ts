@@ -28,7 +28,7 @@ import {
 } from "@angular/material/sidenav"
 import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
-import { combineLatest, Subject, Subscription } from "rxjs"
+import { combineLatest, EMPTY, Subject, Subscription } from "rxjs"
 import { switchMap, take, takeUntil } from "rxjs/operators"
 import { nextCanonBook, PASTORAL_INDEX_BOOK } from "../../bible-canon"
 import {
@@ -291,6 +291,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       .pipe(
         take(1),
         switchMap(() => {
+          // A cold app link waits in chapterExists for this same book list.
+          // Leave it to the reader it opens: navigating here would replace it,
+          // and loading "/" would save About as the last-read passage.
+          if (
+            isPlatformBrowser(this.platformId) &&
+            this.router.currentNavigation()
+          ) {
+            return EMPTY
+          }
           this.bookParam =
             this.router.routerState.snapshot.root.firstChild?.params[
               "book"
@@ -323,13 +332,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
             // Browser-only: while prerendering, this navigation would make
             // Angular emit a "Redirecting" stub instead of the page content.
-            // Not over a navigation still in flight either: a cold app link
-            // waits in chapterExists for this same book list, and replacing
-            // it would open the saved passage instead of the link.
-            if (
-              isPlatformBrowser(this.platformId) &&
-              !this.router.currentNavigation()
-            ) {
+            if (isPlatformBrowser(this.platformId)) {
               this.router.navigate(
                 [
                   this.bookService.getUrlAbrv(this.book),
