@@ -105,8 +105,10 @@ final class OnboardingController: UIViewController, UIScrollViewDelegate, UIAdap
         let safeArea = view.safeAreaLayoutGuide
         NSLayoutConstraint.activate([
             pager.topAnchor.constraint(equalTo: safeArea.topAnchor),
-            pager.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            pager.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            // The safe area, not the edges: on the folded iPhone Duo the
+            // status bar and Close run down the side, over the pages.
+            pager.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor),
+            pager.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor),
             pager.bottomAnchor.constraint(equalTo: pageControl.topAnchor, constant: -8),
             pages.topAnchor.constraint(equalTo: pager.contentLayoutGuide.topAnchor),
             pages.bottomAnchor.constraint(equalTo: pager.contentLayoutGuide.bottomAnchor),
