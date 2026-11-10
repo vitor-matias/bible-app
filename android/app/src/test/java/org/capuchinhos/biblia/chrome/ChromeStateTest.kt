@@ -395,6 +395,30 @@ class FilterEchoTest {
     }
 }
 
+/** The search field and the page's query: its echo, or text shared in. */
+class SearchEchoTest {
+    @Test
+    fun keepsWhatIsBeingTypedFromItsEcho() {
+        assertFalse(searchTakesQuery("am", sent = "amo", focused = true, sinceTypedMs = 1600))
+        // Nor when the page goes back to no query at all.
+        assertFalse(searchTakesQuery("", sent = "amo", focused = true, sinceTypedMs = 1600))
+    }
+
+    @Test
+    fun showsAQuerySharedIntoTheOpenScreen() {
+        // The field keeps its focus after a search, so focus alone can't tell.
+        assertTrue(searchTakesQuery("amor", sent = "", focused = true, sinceTypedMs = 60_000))
+        assertTrue(searchTakesQuery("amor", sent = "paz", focused = true, sinceTypedMs = 3000))
+        assertTrue(searchTakesQuery("amor", sent = "paz", focused = false, sinceTypedMs = 0))
+    }
+
+    @Test
+    fun leavesTheFieldAloneWhenItAlreadyHoldsTheQuery() {
+        assertFalse(searchTakesQuery("amor", sent = "amor", focused = true, sinceTypedMs = 60_000))
+        assertFalse(searchTakesQuery("amor", sent = "amor", focused = false, sinceTypedMs = 60_000))
+    }
+}
+
 /** The picker's book list, and its filter. */
 class PickerRowsTest {
     private val data = PassagePickerData(

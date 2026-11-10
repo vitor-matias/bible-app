@@ -3,6 +3,7 @@ import {
   HttpTestingController,
 } from "@angular/common/http/testing"
 import { TestBed } from "@angular/core/testing"
+import { Capacitor } from "@capacitor/core"
 import type { Mock } from "vitest"
 import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
@@ -370,27 +371,10 @@ describe("OfflineDataService", () => {
       expect((await service.getCachedBookAsync("gen"))?.name).toBe("Genesis")
     })
 
-    it("should call AnalyticsService.track when source is install", async () => {
+    it("reports the cached books to analytics", async () => {
       const analyticsService = TestBed.inject(AnalyticsService)
 
-      const promise = service.preloadAllBooksAndChapters("install")
-      await flushMicrotasks()
-
-      const req = httpMock.expectOne("v1/books?withChapters=true")
-      req.flush(mockBooks)
-      await flushIntros()
-
-      await promise
-
-      expect(analyticsService.track).toHaveBeenCalledWith("pwa_books_cached", {
-        source: "install",
-      })
-    })
-
-    it("should call AnalyticsService.track when source is standalone", async () => {
-      const analyticsService = TestBed.inject(AnalyticsService)
-
-      const promise = service.preloadAllBooksAndChapters("standalone")
+      const promise = service.preloadAllBooksAndChapters()
       await flushMicrotasks()
 
       const req = httpMock.expectOne("v1/books?withChapters=true")
@@ -402,6 +386,43 @@ describe("OfflineDataService", () => {
       expect(analyticsService.track).toHaveBeenCalledWith("pwa_books_cached", {
         source: "standalone",
       })
+    })
+
+    it("shares one in-flight run between concurrent callers", async () => {
+      const first = service.preloadAllBooksAndChapters()
+      const second = service.preloadAllBooksAndChapters()
+      await flushMicrotasks()
+
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await flushIntros()
+
+      await Promise.all([first, second])
+    })
+
+    it("skips the service worker's copy of the download on the web", async () => {
+      vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(false)
+
+      const promise = service.preloadAllBooksAndChapters()
+      await flushMicrotasks()
+
+      const req = httpMock.expectOne("v1/books?withChapters=true")
+      expect(req.request.headers.get("ngsw-bypass")).toBe("true")
+      req.flush(mockBooks)
+      await flushIntros()
+      await promise
+    })
+
+    it("sends no custom header from the native apps", async () => {
+      vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true)
+
+      const promise = service.preloadAllBooksAndChapters()
+      await flushMicrotasks()
+
+      const req = httpMock.expectOne("v1/books?withChapters=true")
+      expect(req.request.headers.has("ngsw-bypass")).toBe(false)
+      req.flush(mockBooks)
+      await flushIntros()
+      await promise
     })
 
     describe("standalone introductions", () => {
@@ -586,61 +607,7 @@ describe("OfflineDataService", () => {
       text: [{ type: "text", text: "v" }],
     })
 
-    it("should merge chapters per chapter number keeping the fuller payload", async () => {
-      const base = {
-        id: "gen",
-        name: "Genesis",
-        shortName: "Genesis",
-        abrv: "Gn",
-        chapterCount: 3,
-      }
-      await service.setCachedBooks([
-        {
-          ...base,
-          chapters: [
-            {
-              bookId: "gen",
-              number: 1,
-              verses: [verseFixture(1, 1), verseFixture(1, 2)],
-            },
-            { bookId: "gen", number: 2, verses: [verseFixture(2, 1)] },
-          ],
-        },
-      ])
-
-      // A partial refresh: chapter 1 as a stub, plus a new fuller chapter 3.
-      await service.setCachedBooks([
-        {
-          ...base,
-          chapters: [
-            { bookId: "gen", number: 1 },
-            {
-              bookId: "gen",
-              number: 3,
-              verses: [
-                verseFixture(3, 1),
-                verseFixture(3, 2),
-                verseFixture(3, 3),
-              ],
-            },
-          ],
-        },
-      ])
-
-      const merged = await service.getCachedBookAsync("gen")
-      expect(merged?.chapters?.map((c) => c.number)).toEqual([1, 2, 3])
-      expect(
-        merged?.chapters?.find((c) => c.number === 1)?.verses?.length,
-      ).toBe(2)
-      expect(
-        merged?.chapters?.find((c) => c.number === 2)?.verses?.length,
-      ).toBe(1)
-      expect(
-        merged?.chapters?.find((c) => c.number === 3)?.verses?.length,
-      ).toBe(3)
-    })
-
-    it("should keep a chapter's introduction when a stub ties on verse count", async () => {
+    it("replaces a cached chapter with an incoming one that has fewer verses", async () => {
       const base = {
         id: "gen",
         name: "Genesis",
@@ -652,20 +619,26 @@ describe("OfflineDataService", () => {
         {
           ...base,
           chapters: [
-            { bookId: "gen", number: 1, introduction: "Texto introdutório" },
+            {
+              bookId: "gen",
+              number: 1,
+              verses: [verseFixture(1, 1), verseFixture(1, 2)],
+            },
           ],
         },
       ])
 
-      // A shallow refresh with a bare stub (same zero verse count, no intro).
       await service.setCachedBooks([
-        { ...base, chapters: [{ bookId: "gen", number: 1 }] },
+        {
+          ...base,
+          chapters: [
+            { bookId: "gen", number: 1, verses: [verseFixture(1, 1)] },
+          ],
+        },
       ])
 
-      const merged = await service.getCachedBookAsync("gen")
-      expect(merged?.chapters?.find((c) => c.number === 1)?.introduction).toBe(
-        "Texto introdutório",
-      )
+      const chapter = await service.getCachedChapterAsync("gen", 1)
+      expect(chapter?.verses?.length).toBe(1)
     })
 
     it("should set and retrieve cached books", async () => {
@@ -789,41 +762,7 @@ describe("OfflineDataService", () => {
     })
   })
 
-  describe("mergeCachedBooks", () => {
-    // mergeChapterLists already protects a chapter introduction; the book-level
-    // spread did not, so a refresh carrying introduction: [] blanked a body
-    // that loadGroupIntroBody() had filled.
-    it("should keep a cached book introduction when the refresh omits it", async () => {
-      const loaded = [
-        {
-          id: "pentateuco",
-          name: "Pentateuco",
-          shortName: "Pentateuco",
-          abrv: "pentateuco",
-          chapterCount: 0,
-          introduction: [{ type: "introParagraph", text: "A Lei." }],
-        },
-      ] as unknown as Book[]
-      const shallow = [
-        {
-          id: "pentateuco",
-          name: "Pentateuco",
-          shortName: "Pentateuco",
-          abrv: "pentateuco",
-          chapterCount: 0,
-          introduction: [],
-        },
-      ] as unknown as Book[]
-
-      await service.setCachedBooks(loaded)
-      await service.setCachedBooks(shallow)
-
-      const merged = (await service.getCachedBooksAsync()).find(
-        (book) => book.id === "pentateuco",
-      )
-      expect(merged?.introduction?.length).toBe(1)
-    })
-
+  describe("replacing cached books", () => {
     it("should merge books by id, preferring incoming data", async () => {
       const existing: Book[] = [
         {
@@ -852,42 +791,6 @@ describe("OfflineDataService", () => {
       const genBook = books.find((b) => b.id === "gen")
       expect(genBook?.name).toBe("Genesis New")
       expect(genBook?.shortName).toBe("Genesis")
-    })
-
-    it("should preserve chapters from existing books when incoming has none", async () => {
-      const existing: Book[] = [
-        {
-          id: "gen",
-          name: "Genesis",
-          shortName: "Genesis",
-          abrv: "Gn",
-          chapterCount: 50,
-          chapters: [
-            {
-              bookId: "gen",
-              number: 1,
-              verses: [],
-            },
-          ],
-        },
-      ]
-
-      const incoming: Book[] = [
-        {
-          id: "gen",
-          name: "Genesis Updated",
-          shortName: "Genesis",
-          abrv: "Gn",
-          chapterCount: 50,
-        },
-      ]
-
-      await service.setCachedBooks(existing)
-      await service.setCachedBooks(incoming)
-
-      const books = await service.getCachedBooksAsync()
-      const genBook = books.find((b) => b.id === "gen")
-      expect(genBook?.chapters?.length).toBe(1)
     })
 
     it("should use incoming chapters when they exist", async () => {

@@ -11,11 +11,12 @@ export class BookmarkService {
 
   private bookmarksSubject = new BehaviorSubject<Bookmark[]>([])
   bookmarks$ = this.bookmarksSubject.asObservable()
-  private updatePromise: Promise<void> = Promise.resolve()
+  private updatePromise: Promise<void>
   initialized: Promise<void>
 
   constructor() {
     this.initialized = this.init()
+    this.updatePromise = this.initialized
   }
 
   private async init() {
@@ -30,10 +31,6 @@ export class BookmarkService {
       console.error("Failed to load bookmarks from database:", error)
       this.bookmarksSubject.next([])
     }
-  }
-
-  getBookmarks(): Bookmark[] {
-    return [...this.bookmarksSubject.value]
   }
 
   getBookmarksForBook(bookId: string): Observable<Bookmark[]> {
@@ -105,8 +102,13 @@ export class BookmarkService {
   }
 
   private async saveBookmarks(bookmarks: Bookmark[]) {
+    const current = this.bookmarksSubject.value
+    const deletes = current
+      .filter((b) => !bookmarks.includes(b))
+      .map((b) => [b.bookId, b.chapter])
+    const puts = bookmarks.filter((b) => !current.includes(b))
     try {
-      await this.databaseService.clearAndPutAll("bookmarks", bookmarks)
+      await this.databaseService.applyChanges("bookmarks", deletes, puts)
       this.bookmarksSubject.next(bookmarks)
     } catch (error) {
       console.error("Failed to save bookmarks to database:", error)

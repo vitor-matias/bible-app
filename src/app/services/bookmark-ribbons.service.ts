@@ -10,6 +10,7 @@ import { AnalyticsService } from "./analytics.service"
 import { BookService } from "./book.service"
 import { BookmarkService } from "./bookmark.service"
 import { HapticsService } from "./haptics.service"
+import { ToastService } from "./toast.service"
 
 /** The eight ribbons, keyed by the CSS colour name a bookmark stores. */
 export const RIBBON_COLORS = [
@@ -128,8 +129,11 @@ export class RibbonMove {
    * names it; a move that did nothing leaves the last one's undo in place.
    */
   move(ribbon: RibbonState): void {
+    const before = this.moved
     this.moved =
-      this.service.move(ribbon, this.bookId, this.chapter) ?? this.moved
+      this.service.move(ribbon, this.bookId, this.chapter, () => {
+        this.moved = before
+      }) ?? this.moved
   }
 
   /** Puts the moved ribbon back; false when there is no move (of `color`) to undo. */
@@ -157,6 +161,7 @@ export class BookmarkRibbonsService {
   private readonly router = inject(Router)
   private readonly analyticsService = inject(AnalyticsService)
   private readonly haptics = inject(HapticsService)
+  private readonly toast = inject(ToastService)
 
   /** A panel's move offer for the chapter it was opened on (RibbonMove). */
   moveTo(bookId: string, chapter: number): RibbonMove {
@@ -186,87 +191,108 @@ export class BookmarkRibbonsService {
   /** Opens the ribbon's passage. False when it marks a book that is unknown. */
   open(ribbon: RibbonState): boolean {
     if (!ribbon.bookmark) return false
-    if (isIndexBookmark(ribbon.bookmark.bookId)) {
-      void this.analyticsService.track("bookmark_use", {
-        book: ribbon.bookmark.bookId,
-        chapter: ribbon.bookmark.chapter,
-        color: ribbon.value,
-      })
-      void this.router.navigate(indexBookmarkLink(ribbon.bookmark.bookId))
-      return true
-    }
-    const book = this.bookService.findBookById(ribbon.bookmark.bookId)
-    if (!book) {
-      console.warn(
-        `Bookmark references unknown book: ${ribbon.bookmark.bookId}`,
-      )
-      return false
+    const { bookId, chapter } = ribbon.bookmark
+    let link: string[]
+    if (isIndexBookmark(bookId)) {
+      link = indexBookmarkLink(bookId)
+    } else {
+      const book = this.bookService.findBookById(bookId)
+      if (!book) {
+        console.warn(`Bookmark references unknown book: ${bookId}`)
+        return false
+      }
+      link = [
+        this.bookService.getUrlAbrv(book),
+        this.bookService.getChapterUrlSegment(chapter),
+      ]
     }
     void this.analyticsService.track("bookmark_use", {
-      book: ribbon.bookmark.bookId,
-      chapter: ribbon.bookmark.chapter,
+      book: bookId,
+      chapter,
       color: ribbon.value,
     })
-    this.router.navigate([
-      this.bookService.getUrlAbrv(book),
-      this.bookService.getChapterUrlSegment(ribbon.bookmark.chapter),
-    ])
+    void this.router.navigate(link)
     return true
   }
 
   /** Marks the chapter with the colour. */
   assign(color: string, bookId: string, chapter: number): void {
-    this.bookmarkService.addBookmark(bookId, chapter, color)
-    this.haptics.success()
-    void this.analyticsService.track("bookmark_create", {
-      book: bookId,
-      chapter,
-      color,
-    })
+    this.afterSave(
+      this.bookmarkService.addBookmark(bookId, chapter, color),
+      () => {
+        this.haptics.success()
+        void this.analyticsService.track("bookmark_create", {
+          book: bookId,
+          chapter,
+          color,
+        })
+      },
+    )
   }
 
   /**
    * Moves a used ribbon to the chapter, as one moves a ribbon in a printed
-   * Bible on reading further. Returns where it was, for `restore`.
+   * Bible on reading further. Returns where it was, for `restore`, at once:
+   * RibbonMove needs it before the save's emission re-renders the offer.
    */
   move(
     ribbon: RibbonState,
     bookId: string,
     chapter: number,
+    onFailure?: () => void,
   ): Bookmark | undefined {
     const from = ribbon.bookmark
     if (!from) return undefined
-    this.bookmarkService.addBookmark(bookId, chapter, ribbon.value)
-    this.haptics.success()
-    void this.analyticsService.track("bookmark_move", {
-      book: bookId,
-      chapter,
-      color: ribbon.value,
-      fromBook: from.bookId,
-      fromChapter: from.chapter,
-    })
+    this.afterSave(
+      this.bookmarkService.addBookmark(bookId, chapter, ribbon.value),
+      () => {
+        this.haptics.success()
+        void this.analyticsService.track("bookmark_move", {
+          book: bookId,
+          chapter,
+          color: ribbon.value,
+          fromBook: from.bookId,
+          fromChapter: from.chapter,
+        })
+      },
+      onFailure,
+    )
     return { ...from }
   }
 
   /** Undoes a move: the ribbon goes back to where it was. */
   restore(previous: Bookmark): void {
-    this.bookmarkService.addBookmark(
-      previous.bookId,
-      previous.chapter,
-      previous.color,
+    this.afterSave(
+      this.bookmarkService.addBookmark(
+        previous.bookId,
+        previous.chapter,
+        previous.color,
+      ),
     )
   }
 
   remove(ribbon: RibbonState): void {
     if (!ribbon.bookmark) return
-    this.bookmarkService.removeBookmark(
-      ribbon.bookmark.bookId,
-      ribbon.bookmark.chapter,
-    )
-    void this.analyticsService.track("bookmark_delete", {
-      book: ribbon.bookmark.bookId,
-      chapter: ribbon.bookmark.chapter,
-      color: ribbon.value,
+    const { bookId, chapter } = ribbon.bookmark
+    this.afterSave(this.bookmarkService.removeBookmark(bookId, chapter), () => {
+      void this.analyticsService.track("bookmark_delete", {
+        book: bookId,
+        chapter,
+        color: ribbon.value,
+      })
+    })
+  }
+
+  private afterSave(
+    write: Promise<void>,
+    onSaved?: () => void,
+    onFailure?: () => void,
+  ): void {
+    write.then(onSaved, () => {
+      this.toast.show("Não foi possível guardar o marcador. Tente novamente.", {
+        action: "OK",
+      })
+      onFailure?.()
     })
   }
 }

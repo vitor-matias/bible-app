@@ -322,7 +322,19 @@ export class SearchComponent {
         const back = this.cameBack
         this.cameBack = false
         if (back && this.restore(sharedQuery)) return
-        void this.onSearchSubmit(sharedQuery)
+        // On a cold start a reference finds no book until the list has loaded.
+        const generation = this.searchGeneration
+        void this.bookService
+          .initializeBooks()
+          .catch(() => {})
+          .then(() => {
+            if (
+              generation === this.searchGeneration &&
+              sharedQuery === this.lastSharedQuery
+            ) {
+              void this.onSearchSubmit(sharedQuery)
+            }
+          })
       },
     )
   }

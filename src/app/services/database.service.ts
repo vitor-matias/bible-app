@@ -46,6 +46,9 @@ export class DatabaseService {
           this.db?.close()
           this.db = null
         }
+        this.db.onclose = () => {
+          this.db = null
+        }
         resolve(this.db)
         this.dbPromise = null
       }
@@ -63,13 +66,7 @@ export class DatabaseService {
   }
 
   async getAll<T>(storeName: string): Promise<T[]> {
-    let db: IDBDatabase | null
-    try {
-      db = await this.getDB()
-    } catch (e) {
-      console.error(e)
-      return []
-    }
+    const db = await this.getDB()
     if (!db) return []
 
     return new Promise((resolve, reject) => {
@@ -124,6 +121,42 @@ export class DatabaseService {
 
         // Put new data
         for (const item of items) {
+          const putRequest = store.put(item)
+          putRequest.onerror = () => {
+            transaction.abort()
+            reject(putRequest.error)
+          }
+        }
+      } catch (error) {
+        reject(error)
+      }
+    })
+  }
+
+  /** In one transaction, deletes and then puts: a put may reuse a deleted key. */
+  async applyChanges<T>(
+    storeName: string,
+    deletes: IDBValidKey[],
+    puts: T[],
+  ): Promise<void> {
+    const db = await this.getDB()
+    if (!db) return
+
+    return new Promise((resolve, reject) => {
+      try {
+        const transaction = db.transaction(storeName, "readwrite")
+        const store = transaction.objectStore(storeName)
+
+        transaction.oncomplete = () => resolve()
+        transaction.onerror = () => reject(transaction.error)
+        // A full disk ("QuotaExceededError") arrives only as an abort.
+        transaction.onabort = () => reject(transaction.error)
+
+        for (const key of deletes) {
+          store.delete(key)
+        }
+
+        for (const item of puts) {
           const putRequest = store.put(item)
           putRequest.onerror = () => {
             transaction.abort()

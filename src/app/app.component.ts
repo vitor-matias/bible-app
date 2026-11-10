@@ -25,6 +25,7 @@ import { TextAlignService } from "./services/text-align.service"
 import { ThemeService } from "./services/theme.service"
 import { ToastService } from "./services/toast.service"
 import { APP_PLUGIN, PAGE_HOSTNAME } from "./tokens"
+import { isStandaloneApp } from "./utils/platform"
 
 /** How long after a back on the first screen a second one leaves the app. */
 export const EXIT_BACK_WINDOW_MS = 2000
@@ -70,8 +71,8 @@ export class AppComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     if (typeof window === "undefined") return
 
-    if (this.isStandaloneMode()) {
-      this.offlineDataService.preloadAllBooksAndChapters("standalone")
+    if (isStandaloneApp()) {
+      this.offlineDataService.preloadAllBooksAndChapters()
     }
 
     void this.trackAppOpenEvent()
@@ -227,15 +228,5 @@ export class AppComponent implements OnInit, OnDestroy {
 
   async ngOnDestroy(): Promise<void> {
     await Promise.all(this.listenerHandles.map((handle) => handle.remove()))
-  }
-
-  private isStandaloneMode(): boolean {
-    if (typeof window === "undefined") return false
-    return (
-      window.matchMedia("(display-mode: standalone)").matches ||
-      // @ts-expect-error iOS standalone mode
-      window.navigator.standalone === true ||
-      Capacitor.isNativePlatform()
-    )
   }
 }

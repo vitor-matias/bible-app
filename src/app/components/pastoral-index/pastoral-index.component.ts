@@ -32,6 +32,7 @@ import { MatMenuModule } from "@angular/material/menu"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import {
   ActivatedRoute,
+  NavigationEnd,
   NavigationSkipped,
   type Params,
   Router,
@@ -366,11 +367,11 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
 
   /** The themes that match the filter, under their first letters. */
   readonly groups = computed(() => {
-    const query = foldText(this.query().trim())
+    const query = foldText(this.query().trim()).replaceAll("-", " ")
     const groups = new Map<string, PastoralEntry[]>()
     for (const entry of ENTRIES) {
       const title = foldText(entry.title)
-      if (!title.includes(query)) continue
+      if (!title.replaceAll("-", " ").includes(query)) continue
       const letter = title[0].toLocaleUpperCase("pt")
       groups.set(letter, [...(groups.get(letter) ?? []), entry])
     }
@@ -484,17 +485,24 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
         this.show(params.get("slug"))
       })
 
-    // A ribbon on a theme this page already opened at: the router, which the
-    // page's own address changes don't reach, sees nothing to do.
+    // The page's own address changes don't reach the router: back to where it
+    // thinks this page is, it skips, or ends with equal params and no paramMap.
     this.router.events
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((event) => {
-        if (!(event instanceof NavigationSkipped)) return
-        const slug = /^\/indice\/([^/?#]+)/.exec(event.url)?.[1]
-        if (slug) {
-          this.scrollSmoothly = false
-          this.expand(slug)
+        if (
+          !(event instanceof NavigationSkipped) &&
+          !(event instanceof NavigationEnd)
+        ) {
+          return
         }
+        const match = /^\/indice(?:\/([^/?#]+))?(?:[?#]|$)/.exec(event.url)
+        if (!match) return
+        const slug = match[1] ?? null
+        if (event instanceof NavigationEnd && slug === this.slug()) return
+        this.scrollSmoothly = false
+        if (slug) this.expand(slug)
+        else this.closeTheme()
       })
 
     void this.buildVersion
@@ -629,12 +637,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
       return
     }
     this.query.set(query)
-    if (!this.wide() && this.slug()) {
-      this.stopGlide?.(false)
-      this.pendingOpen = null
-      this.heldTop = null
-      this.expand(null)
-    }
+    if (!this.wide() && this.slug()) this.closeTheme()
     afterNextRender(
       () => {
         // The results take the screen's place, from their top, as a native
@@ -808,6 +811,14 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     }
     this.scrollTarget = slug
     this.show(slug)
+  }
+
+  /** Calls off a theme still gliding into view, which would open on arrival. */
+  private closeTheme(): void {
+    this.stopGlide?.(false)
+    this.pendingOpen = null
+    this.heldTop = null
+    this.expand(null)
   }
 
   private show(slug: string | null): void {

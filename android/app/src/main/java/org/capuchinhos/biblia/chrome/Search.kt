@@ -1,5 +1,6 @@
 package org.capuchinhos.biblia.chrome
 
+import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,7 @@ import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -71,11 +73,12 @@ internal fun SearchView(chrome: ChromeController, state: ChromeState) {
     // What the page last heard. Typing is sent on; the page's own query,
     // echoed into the field, is not sent back to it.
     var sent by remember { mutableStateOf(state.query) }
+    var typedAt by remember { mutableLongStateOf(0L) }
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     // Not while typing: a search that ran on a pause echoes its query.
     LaunchedEffect(state.query) {
-        if (!focused) {
+        if (searchTakesQuery(state.query, sent, focused, SystemClock.elapsedRealtime() - typedAt)) {
             sent = state.query
             field.setTextAndPlaceCursorAtEnd(state.query)
         }
@@ -84,6 +87,7 @@ internal fun SearchView(chrome: ChromeController, state: ChromeState) {
         snapshotFlow { field.text.toString() }.collect { text ->
             if (text != sent) {
                 sent = text
+                typedAt = SystemClock.elapsedRealtime()
                 chrome.searchInput(text)
             }
         }
@@ -137,6 +141,16 @@ internal fun SearchView(chrome: ChromeController, state: ChromeState) {
         }
     }
 }
+
+/** Longer than the web's TYPING_PAUSE_MS, after which a search echoes its query. */
+private const val SEARCH_TYPING_WINDOW_MS = 3000L
+
+/**
+ * Whether the search field shows the page's [query]: the field keeps its focus
+ * for the screen's life, so only a keystroke within the window means typing.
+ */
+internal fun searchTakesQuery(query: String, sent: String, focused: Boolean, sinceTypedMs: Long): Boolean =
+    query != sent && (!focused || sinceTypedMs >= SEARCH_TYPING_WINDOW_MS)
 
 /**
  * Whether the filter shows the page's [query]: not over what is being typed,

@@ -15,6 +15,7 @@ describe("DatabaseService", () => {
     }
     createObjectStore: Mock
     onversionchange: (() => void) | null
+    onclose: (() => void) | null
     close: Mock | (() => void)
   }
   let mockIDBTransaction: {
@@ -70,6 +71,7 @@ describe("DatabaseService", () => {
       },
       createObjectStore: vi.fn().mockName("createObjectStore"),
       onversionchange: null,
+      onclose: null,
       close: vi.fn().mockName("close"),
     }
 
@@ -142,7 +144,7 @@ describe("DatabaseService", () => {
       expect(items).toEqual(mockItems)
     })
 
-    it("should return empty array if database fails to open", async () => {
+    it("should reject if database fails to open", async () => {
       vi.spyOn(console, "error").mockReturnValue(undefined)
       mockIDBRequest.onerror = null as unknown as (event?: unknown) => void // Prepare
 
@@ -158,8 +160,7 @@ describe("DatabaseService", () => {
       expect(mockIDBRequest.onerror).toBeDefined()
       mockIDBRequest.onerror(errorEvent)
 
-      const result = await promise
-      expect(result).toEqual([])
+      await expect(promise).rejects.toThrow("DB Error")
     })
 
     it("should reject if transaction/request fails", async () => {
@@ -236,6 +237,49 @@ describe("DatabaseService", () => {
     })
   })
 
+  describe("applyChanges", () => {
+    it("should delete before it puts, in one transaction", async () => {
+      mockIDBObjectStore.put.mockReturnValue({})
+      const promise = service.applyChanges(
+        "testStore",
+        [["GEN", 1]],
+        [{ id: 1 }],
+      )
+
+      mockIDBRequest.onsuccess()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(mockIDBDatabase.transaction).toHaveBeenCalledTimes(1)
+      expect(mockIDBDatabase.transaction).toHaveBeenCalledWith(
+        "testStore",
+        "readwrite",
+      )
+      expect(mockIDBObjectStore.delete).toHaveBeenCalledWith(["GEN", 1])
+      expect(mockIDBObjectStore.put).toHaveBeenCalledWith({ id: 1 })
+      expect(mockIDBObjectStore.clear).not.toHaveBeenCalled()
+      expect(
+        mockIDBObjectStore.delete.mock.invocationCallOrder[0],
+      ).toBeLessThan(mockIDBObjectStore.put.mock.invocationCallOrder[0])
+
+      mockIDBTransaction.oncomplete()
+      await promise
+    })
+
+    it("should reject when the transaction aborts", async () => {
+      mockIDBObjectStore.put.mockReturnValue({})
+      const promise = service.applyChanges("testStore", [], [{ id: 1 }])
+
+      mockIDBRequest.onsuccess()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      const error = new Error("QuotaExceededError")
+      mockIDBTransaction.error = error
+      mockIDBTransaction.onabort()
+
+      await expect(promise).rejects.toEqual(error)
+    })
+  })
+
   describe("migrations", () => {
     it("should create object stores on upgrade needed", async () => {
       // Trigger getDB
@@ -278,7 +322,6 @@ describe("DatabaseService", () => {
   describe("onblocked handler", () => {
     it("should warn when upgrade is blocked", async () => {
       vi.spyOn(console, "warn").mockReturnValue(undefined)
-      vi.spyOn(console, "error").mockReturnValue(undefined)
 
       const promise = service.getAll("books")
 
@@ -289,9 +332,7 @@ describe("DatabaseService", () => {
         "IndexedDB upgrade blocked. Close other tabs to continue.",
       )
 
-      const result = await promise
-      expect(result).toEqual([])
-      expect(console.error).toHaveBeenCalled()
+      await expect(promise).rejects.toThrow("IndexedDB upgrade blocked")
     })
   })
 
@@ -339,6 +380,32 @@ describe("DatabaseService", () => {
         mockGetAllRequest.onsuccess()
       }
       await promise
+    })
+  })
+
+  describe("onclose handler", () => {
+    it("should reopen after the device closes the connection", async () => {
+      const mockGetAllRequest = {
+        result: [],
+        onsuccess: null as unknown as () => void,
+        onerror: null as unknown as () => void,
+      }
+      mockIDBObjectStore.getAll.mockReturnValue(mockGetAllRequest)
+
+      const first = service.getAll("books")
+      mockIDBRequest.onsuccess()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      mockGetAllRequest.onsuccess()
+      await first
+
+      mockIDBDatabase.onclose?.()
+
+      const second = service.getAll("books")
+      expect(mockIndexedDB.open).toHaveBeenCalledTimes(2)
+      mockIDBRequest.onsuccess()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      mockGetAllRequest.onsuccess()
+      await second
     })
   })
 

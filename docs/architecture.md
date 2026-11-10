@@ -36,7 +36,7 @@ file holds what is easy to get wrong.
   transaction**, so an interrupted write rolls back. Nothing is cached unless HttpClient
   parsed a whole response, so a truncated body ends on the retry screen and the next launch
   fetches again. The `serverBooksCache` in `bible-api.service.ts` is for prerendering only.
-- `/v1/books` and `/v1/intros` time out in the browser after `BOOK_LIST_TIMEOUT_MS`
+- Every `BibleApiService` request times out in the browser after `REQUEST_TIMEOUT_MS`
   (15 s); on the server the prerender's own timeout and retry apply. A books body that is
   not an array throws `UnexpectedBookListError`.
 - A failed books request sends the Umami event `books_load_failed`. Its data comes from

@@ -70,7 +70,7 @@
 
 :host(.ios) .letter > h2 {
   padding: 20px 16px 6px;
-  font-size: 0.8125em !important;
+  font-size: 0.8125em;
   font-weight: 600;
   color: color-mix(in srgb, var(--text-color) 60%, transparent);
 }
@@ -196,7 +196,7 @@
 /* Title small, in the primary colour, as Settings heads a list's groups. */
 :host(.android) .letter > h2 {
   padding: 16px 16px 8px;
-  font-size: 0.875em !important;
+  font-size: 0.875em;
   font-weight: 500;
   color: var(--android-primary);
 }

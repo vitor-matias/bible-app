@@ -168,7 +168,7 @@ describe("BookmarkSelectorComponent", () => {
     expect(bottomSheetRefSpy.dismiss).toHaveBeenCalled()
   })
 
-  it("should add bookmark when clicking an empty ribbon", () => {
+  it("should add bookmark when clicking an empty ribbon", async () => {
     const redRibbon = component.ribbons.find((r) => r.value === "red")
     expect(redRibbon).toBeTruthy()
     if (redRibbon) {
@@ -177,6 +177,7 @@ describe("BookmarkSelectorComponent", () => {
 
     expect(bookmarkServiceSpy.addBookmark).toHaveBeenCalledWith("GEN", 1, "red")
     expect(bottomSheetRefSpy.dismiss).not.toHaveBeenCalled()
+    await new Promise((resolve) => setTimeout(resolve))
     expect(hapticsSpy.success).toHaveBeenCalled()
   })
 
