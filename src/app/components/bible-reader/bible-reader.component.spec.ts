@@ -251,14 +251,7 @@ describe("BibleReaderComponent", () => {
     // A cold app link: the reader mounts at "/" while the link's navigation
     // waits in chapterExists for the book list, so it arrives in flight.
     it("should wait for a navigation in flight, then read the route it settled on", async () => {
-      navigationInFlight.set({} as Navigation)
-      fixture.detectChanges()
-
-      expect(routerSpy.navigate).not.toHaveBeenCalled()
-      expect(apiServiceSpy.getChapter).not.toHaveBeenCalled()
-      expect(preferencesServiceSpy.setLastBookId).not.toHaveBeenCalled()
-
-      // Settled on this same reader (reused, or the link was cancelled).
+      // At "/" with Genesis 2 saved.
       const snapshot = (
         routerSpy as unknown as {
           routerState: {
@@ -266,10 +259,23 @@ describe("BibleReaderComponent", () => {
           }
         }
       ).routerState.snapshot.root.firstChild
-      snapshot.params = { book: "gen", chapter: "3" }
-      ;(
+      snapshot.params = {}
+      const paramMap = (
         routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
-      ).paramMap.next(
+      ).paramMap
+      paramMap.next(new Map())
+      preferencesServiceSpy.getLastBookId.mockReturnValue("gen")
+      preferencesServiceSpy.getLastChapterNumber.mockReturnValue(2)
+      navigationInFlight.set({} as Navigation)
+      fixture.detectChanges()
+
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
+      expect(apiServiceSpy.getChapter).not.toHaveBeenCalled()
+      expect(preferencesServiceSpy.setLastBookId).not.toHaveBeenCalled()
+
+      // Settled on this same reader (reused) at Genesis 3, not the saved 2.
+      snapshot.params = { book: "gen", chapter: "3" }
+      paramMap.next(
         new Map([
           ["book", "gen"],
           ["chapter", "3"],
@@ -280,7 +286,7 @@ describe("BibleReaderComponent", () => {
 
       expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("gen", 3)
       expect(routerSpy.navigate).toHaveBeenCalledWith(
-        ["1-genesis", expect.anything()],
+        ["1-genesis", "3"],
         expect.objectContaining({ replaceUrl: true }),
       )
     })
