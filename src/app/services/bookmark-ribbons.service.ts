@@ -102,9 +102,18 @@ export interface RibbonMoveOffer {
  * and, once it moved, to move it back: the web panel and the iOS sheet each
  * hold one while open, and only word and draw it their own way.
  */
+/** A move a panel made, and the one before it, for undo. */
+interface MadeMove {
+  /** Where the ribbon was. */
+  from: Bookmark
+  earlier?: MadeMove
+  /** Its save failed: there is nothing to undo. */
+  failed?: boolean
+}
+
 export class RibbonMove {
-  /** Where the ribbon moved here was, while the offer is to undo it. */
-  private moved?: Bookmark
+  /** The latest move, while the offer is to undo it. */
+  private moved?: MadeMove
 
   constructor(
     private readonly service: BookmarkRibbonsService,
@@ -115,7 +124,8 @@ export class RibbonMove {
   /** What to offer, given the ribbons as they are now. */
   offer(ribbons: RibbonState[]): RibbonMoveOffer | undefined {
     const from =
-      this.moved ?? ribbonToMove(ribbons, this.bookId, this.chapter)?.bookmark
+      this.moved?.from ??
+      ribbonToMove(ribbons, this.bookId, this.chapter)?.bookmark
     if (!from) return undefined
     return {
       from,
@@ -129,19 +139,29 @@ export class RibbonMove {
    * names it; a move that did nothing leaves the last one's undo in place.
    */
   move(ribbon: RibbonState): void {
-    const before = this.moved
-    this.moved =
-      this.service.move(ribbon, this.bookId, this.chapter, () => {
-        this.moved = before
-      }) ?? this.moved
+    let made: MadeMove | undefined
+    const from = this.service.move(ribbon, this.bookId, this.chapter, () => {
+      if (!made) return
+      made.failed = true
+      // A later move keeps its own undo; this one's falls back past any
+      // earlier move that failed too.
+      if (this.moved !== made) return
+      let back = made.earlier
+      while (back?.failed) back = back.earlier
+      this.moved = back
+    })
+    if (!from) return
+    made = { from, earlier: this.moved }
+    this.moved = made
   }
 
   /** Puts the moved ribbon back; false when there is no move (of `color`) to undo. */
   undo(color?: string): boolean {
-    if (!this.moved || (color !== undefined && this.moved.color !== color)) {
+    const from = this.moved?.from
+    if (!from || (color !== undefined && from.color !== color)) {
       return false
     }
-    this.service.restore(this.moved)
+    this.service.restore(from)
     this.moved = undefined
     return true
   }

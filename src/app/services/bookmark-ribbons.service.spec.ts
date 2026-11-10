@@ -321,6 +321,40 @@ describe("BookmarkRibbonsService", () => {
       )
     })
 
+    // The native sheet sends a move without waiting for the last one's save.
+    describe("with two moves still saving", () => {
+      const ribbons = ribbonsWith([
+        { color: "red", bookId: "mat", chapter: 5 },
+        { color: "blue", bookId: "mat", chapter: 3 },
+      ])
+      const red = ribbons[0]
+      const blue = ribbons.find(
+        (ribbon) => ribbon.value === "blue",
+      ) as RibbonState
+
+      it("offers no undo when both fail", async () => {
+        bookmarks.addBookmark.mockRejectedValue(new Error("QuotaExceededError"))
+        const mover = service.moveTo("mat", 7)
+        mover.move(red)
+        mover.move(blue)
+        await settled()
+
+        expect(mover.undo()).toBe(false)
+      })
+
+      it("keeps the later move's undo when the earlier one fails", async () => {
+        bookmarks.addBookmark.mockRejectedValueOnce(
+          new Error("QuotaExceededError"),
+        )
+        const mover = service.moveTo("mat", 7)
+        mover.move(red)
+        mover.move(blue)
+        await settled()
+
+        expect(mover.undo("blue")).toBe(true)
+      })
+    })
+
     it("keeps the last move's undo when a move does nothing", () => {
       const mover = service.moveTo("mat", 7)
       mover.move(before[0])

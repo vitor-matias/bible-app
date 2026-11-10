@@ -13,17 +13,28 @@ describe("BookmarkService", () => {
     { bookId: "MRK", chapter: 2, color: "#2196F3", timestamp: 456 },
   ]
 
+  /** What the fake store holds; `update` applies each change to it. */
+  let stored: Bookmark[]
+
   beforeEach(async () => {
+    stored = JSON.parse(JSON.stringify(mockBookmarks))
     const spy = createSpyObj("DatabaseService", [
       "getAll",
-      "applyChanges",
+      "update",
       "delete",
       "clear",
     ])
-    spy.getAll.mockImplementation(() =>
-      Promise.resolve(JSON.parse(JSON.stringify(mockBookmarks))),
+    spy.getAll.mockImplementation(() => Promise.resolve([...stored]))
+    spy.update.mockImplementation(
+      async (
+        _store: string,
+        _keyOf: unknown,
+        change: (items: Bookmark[]) => Bookmark[],
+      ) => {
+        stored = change(stored)
+        return stored
+      },
     )
-    spy.applyChanges.mockResolvedValue(undefined)
     spy.delete.mockResolvedValue(undefined)
     spy.clear.mockResolvedValue(undefined)
 
@@ -52,13 +63,23 @@ describe("BookmarkService", () => {
 
     const bookmarks = await firstValueFrom(service.bookmarks$)
     expect(bookmarks.length).toBe(3)
-    const added = bookmarks.find((b) => b.bookId === "JHN")
-    expect(added).toBeTruthy()
-    expect(databaseService.applyChanges).toHaveBeenCalledWith(
-      "bookmarks",
-      [],
-      [added],
-    )
+    expect(bookmarks.find((b) => b.bookId === "JHN")).toBeTruthy()
+    expect(stored).toEqual(bookmarks)
+  })
+
+  // Another tab moved red from GEN 1 since this one loaded: its red stayed
+  // in the store beside this one's, the second hidden behind the first.
+  it("clears a colour from the store, not only from this tab's list", async () => {
+    stored = [
+      { bookId: "MRK", chapter: 9, color: "#F44336", timestamp: 789 },
+      mockBookmarks[1],
+    ]
+
+    await service.addBookmark("JHN", 3, "#F44336")
+
+    expect(stored.filter((b) => b.color === "#F44336")).toEqual([
+      expect.objectContaining({ bookId: "JHN", chapter: 3 }),
+    ])
   })
 
   it("should replace an existing bookmark if color is the same", async () => {
@@ -79,18 +100,14 @@ describe("BookmarkService", () => {
     const bookmarks = await firstValueFrom(service.bookmarks$)
     expect(bookmarks.length).toBe(1)
     expect(bookmarks.find((b) => b.bookId === "GEN")).toBeFalsy()
-    expect(databaseService.applyChanges).toHaveBeenCalledWith(
-      "bookmarks",
-      [["GEN", 1]],
-      [],
-    )
+    expect(stored).toEqual(bookmarks)
   })
 
   // One failed save left the queue rejected, so every later change failed too.
   it("keeps saving after a save fails", async () => {
-    databaseService.applyChanges
-      .mockReturnValueOnce(Promise.reject(new Error("QuotaExceededError")))
-      .mockReturnValueOnce(Promise.resolve())
+    databaseService.update.mockRejectedValueOnce(
+      new Error("QuotaExceededError"),
+    )
     vi.spyOn(console, "error").mockReturnValue(undefined)
 
     await expect(service.addBookmark("JHN", 3, "#4CAF50")).rejects.toThrow()
@@ -101,9 +118,9 @@ describe("BookmarkService", () => {
   })
 
   it("keeps removing after a save fails", async () => {
-    databaseService.applyChanges
-      .mockReturnValueOnce(Promise.reject(new Error("QuotaExceededError")))
-      .mockReturnValueOnce(Promise.resolve())
+    databaseService.update.mockRejectedValueOnce(
+      new Error("QuotaExceededError"),
+    )
     vi.spyOn(console, "error").mockReturnValue(undefined)
 
     await expect(service.addBookmark("JHN", 3, "#4CAF50")).rejects.toThrow()
@@ -128,11 +145,6 @@ describe("BookmarkService", () => {
 
     const bookmarks = await firstValueFrom(loading.bookmarks$)
     expect(bookmarks.map((b) => b.bookId)).toEqual(["MRK", "JHN"])
-    expect(databaseService.applyChanges).toHaveBeenCalledWith(
-      "bookmarks",
-      [["GEN", 1]],
-      [expect.objectContaining({ bookId: "JHN" })],
-    )
   })
 
   it("should filter bookmarks for a specific book", async () => {
@@ -164,6 +176,15 @@ describe("BookmarkService over a real IndexedDB", () => {
     return bookmarks.map((b) => b.color).sort()
   }
 
+  /** Red on GEN 1, written straight to the store. */
+  async function storeRed(): Promise<void> {
+    await TestBed.inject(DatabaseService).update<Bookmark>(
+      "bookmarks",
+      (b) => [b.bookId, b.chapter],
+      () => [{ bookId: "GEN", chapter: 1, color: "red", timestamp: 1 }],
+    )
+  }
+
   beforeEach(deleteDatabase)
   afterEach(deleteDatabase)
 
@@ -178,19 +199,43 @@ describe("BookmarkService over a real IndexedDB", () => {
   })
 
   it("touches only the changed record after a failed load", async () => {
-    const database = TestBed.inject(DatabaseService)
-    await database.applyChanges(
-      "bookmarks",
-      [],
-      [{ bookId: "GEN", chapter: 1, color: "red", timestamp: 1 }],
+    await storeRed()
+    vi.spyOn(TestBed.inject(DatabaseService), "getAll").mockRejectedValueOnce(
+      new Error("no open"),
     )
-    vi.spyOn(database, "getAll").mockRejectedValueOnce(new Error("no open"))
     vi.spyOn(console, "error").mockReturnValue(undefined)
     const afterFailure = await openTab()
 
     await afterFailure.addBookmark("MRK", 2, "blue")
 
     expect(await savedColors()).toEqual(["blue", "red"])
+  })
+
+  it("keeps one ribbon of a colour that another tab moved since", async () => {
+    await storeRed()
+    const first = await openTab()
+    const second = await openTab()
+
+    await first.addBookmark("MRK", 2, "red")
+    await second.addBookmark("JHN", 3, "red")
+
+    const saved = await firstValueFrom((await openTab()).bookmarks$)
+    expect(saved).toEqual([
+      expect.objectContaining({ bookId: "JHN", chapter: 3, color: "red" }),
+    ])
+  })
+
+  it("keeps one ribbon of a colour after a failed load", async () => {
+    await storeRed()
+    vi.spyOn(TestBed.inject(DatabaseService), "getAll").mockRejectedValueOnce(
+      new Error("no open"),
+    )
+    vi.spyOn(console, "error").mockReturnValue(undefined)
+    const afterFailure = await openTab()
+
+    await afterFailure.addBookmark("MRK", 2, "red")
+
+    expect(await savedColors()).toEqual(["red"])
   })
 
   it("replaces the ribbon on a chapter, as the put reuses the deleted key", async () => {

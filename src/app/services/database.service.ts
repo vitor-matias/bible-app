@@ -134,33 +134,46 @@ export class DatabaseService {
   }
 
   /** In one transaction, deletes and then puts: a put may reuse a deleted key. */
-  async applyChanges<T>(
+  /**
+   * Reads the store and writes what `change` makes of its records, in one
+   * transaction, so what another tab wrote meanwhile is kept. `change` returns
+   * the new records, reusing the objects it keeps; only the others are
+   * deleted or put. Resolves to the new records, or null without IndexedDB.
+   */
+  async update<T>(
     storeName: string,
-    deletes: IDBValidKey[],
-    puts: T[],
-  ): Promise<void> {
+    keyOf: (item: T) => IDBValidKey,
+    change: (items: T[]) => T[],
+  ): Promise<T[] | null> {
     const db = await this.getDB()
-    if (!db) return
+    if (!db) return null
 
     return new Promise((resolve, reject) => {
       try {
         const transaction = db.transaction(storeName, "readwrite")
         const store = transaction.objectStore(storeName)
+        let updated: T[] = []
 
-        transaction.oncomplete = () => resolve()
+        transaction.oncomplete = () => resolve(updated)
         transaction.onerror = () => reject(transaction.error)
         // A full disk ("QuotaExceededError") arrives only as an abort.
         transaction.onabort = () => reject(transaction.error)
 
-        for (const key of deletes) {
-          store.delete(key)
-        }
-
-        for (const item of puts) {
-          const putRequest = store.put(item)
-          putRequest.onerror = () => {
+        const read = store.getAll()
+        read.onsuccess = () => {
+          try {
+            const items = read.result as T[]
+            updated = change(items)
+            // Deletes first: a put may reuse a deleted key.
+            for (const item of items) {
+              if (!updated.includes(item)) store.delete(keyOf(item))
+            }
+            for (const item of updated) {
+              if (!items.includes(item)) store.put(item)
+            }
+          } catch (error) {
             transaction.abort()
-            reject(putRequest.error)
+            reject(error)
           }
         }
       } catch (error) {
