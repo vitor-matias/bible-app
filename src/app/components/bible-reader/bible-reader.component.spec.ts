@@ -90,8 +90,9 @@ describe("BibleReaderComponent", () => {
       "setLastChapterNumber",
     ])
 
-    routerSpy = createSpyObj("Router", ["navigate"])
+    routerSpy = createSpyObj("Router", ["navigate", "currentNavigation"])
     routerSpy.navigate.mockResolvedValue(true)
+    routerSpy.currentNavigation.mockReturnValue(null)
     ;(
       routerSpy as unknown as {
         routerState: unknown
@@ -231,6 +232,15 @@ describe("BibleReaderComponent", () => {
       expect(bookServiceSpy.findBook).toHaveBeenCalledWith("gen")
       expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("gen", 1)
       expect(routerSpy.navigate).toHaveBeenCalled()
+    })
+
+    // A cold app link: the reader mounts at "/" while the link's navigation
+    // waits in chapterExists for the book list, so it arrives in flight.
+    it("should not replace a navigation still in flight with the saved passage", () => {
+      routerSpy.currentNavigation.mockReturnValue({} as never)
+      fixture.detectChanges()
+
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
     })
 
     // A router.navigate during prerendering (e.g. "/" → "/sobre/1") makes

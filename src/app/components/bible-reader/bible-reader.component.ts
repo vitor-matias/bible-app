@@ -323,7 +323,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
             // Browser-only: while prerendering, this navigation would make
             // Angular emit a "Redirecting" stub instead of the page content.
-            if (isPlatformBrowser(this.platformId)) {
+            // Not over a navigation still in flight either: a cold app link
+            // waits in chapterExists for this same book list, and replacing
+            // it would open the saved passage instead of the link.
+            if (
+              isPlatformBrowser(this.platformId) &&
+              !this.router.currentNavigation()
+            ) {
               this.router.navigate(
                 [
                   this.bookService.getUrlAbrv(this.book),
