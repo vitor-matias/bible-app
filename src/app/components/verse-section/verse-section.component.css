@@ -24,6 +24,15 @@
   text-align: center;
 }
 
+/* A heading that runs into the text keeps its words together. Justified, a
+   line it ends alone (Mt 5's "As Bem-aventuranças", its reference wrapped
+   to the next) spread them across the column; an inline-block's own spaces
+   are not stretched, and its own lines, if it wraps, are set ragged. */
+.section:not(.center) > [data-section-heading] {
+  display: inline-block;
+  text-align: start;
+}
+
 /* A line-wide box would drop below the drop-cap chapter number; a table sits
    beside it, centred in the rest of the line. Nothing comes before it there
    for Safari to draw it over. */
