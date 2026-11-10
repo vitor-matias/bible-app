@@ -379,6 +379,19 @@ describe("SearchComponent", () => {
       expect(component.storedResultsHint).toContain(comesBack)
     })
 
+    it('keeps the results on screen when "Agora não" changes no request', () => {
+      component.meaningSearchConsent = null
+      component.searchTerm = "pastor"
+      component.currentPage = 3
+      const results = [{ text: [] } as unknown as Verse]
+      component.searchResults = results
+      component.setMeaningSearch(false)
+
+      expect(apiService.search).not.toHaveBeenCalled()
+      expect(component.currentPage).toBe(3)
+      expect(component.searchResults).toBe(results)
+    })
+
     it("asks only while unanswered", () => {
       component.meaningSearchConsent = null
       fixture.detectChanges()

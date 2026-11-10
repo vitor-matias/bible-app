@@ -807,12 +807,14 @@ export class SearchComponent {
 
   /** Records the answer, and gives a search on screen the chosen kind. */
   setMeaningSearch(allowed: boolean): void {
+    // Unanswered searches the words already: "Agora não" changes no request.
+    const sameKind = (this.meaningSearchConsent === true) === allowed
     this.preferences.setMeaningSearchConsent(allowed)
     this.meaningSearchConsent = allowed
     this.cdr.detectChanges()
     // Typed: searchTerm is a word search, even when it names a book.
     const text = this.pendingSearch ? this.typedQuery : this.searchTerm
-    if (text) void this.onSearchSubmit(text, { typed: true })
+    if (text && !sameKind) void this.onSearchSubmit(text, { typed: true })
   }
 
   openPrivacyPolicy(): void {
