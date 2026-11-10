@@ -204,6 +204,28 @@ describe("ChapterSelectorComponent", () => {
     expect(large).toBeCloseTo(small * 2, 1)
   })
 
+  // "1. Primeiro Ciclo da Manifest…": a long title was cut on one line.
+  it("wraps a long title to a second line, and no further", () => {
+    const host = fixture.nativeElement as HTMLElement
+    host.style.display = "block"
+    host.style.width = "320px"
+    const oneLine = (
+      host.querySelector(".chapter-title") as HTMLElement
+    ).getBoundingClientRect().height
+
+    fixture.componentRef.setInput("chapters", [
+      { bookId: "GEN", number: 1, title: "Primeiro Ciclo ".repeat(20) },
+    ])
+    fixture.detectChanges()
+    const title = host.querySelector(".chapter-title") as HTMLElement
+    const row = host.querySelector("mat-list-item") as HTMLElement
+
+    expect(title.getBoundingClientRect().height).toBeCloseTo(oneLine * 2, 0)
+    expect(row.getBoundingClientRect().height).toBeGreaterThanOrEqual(
+      title.getBoundingClientRect().height,
+    )
+  })
+
   // The drawer sits inside the reader, which already ends above the
   // navigation bar: padding the list for the inset again left a large blank
   // space below the last row.
