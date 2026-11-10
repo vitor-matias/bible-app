@@ -30,6 +30,7 @@ import {
   Subject,
   type Subscription,
 } from "rxjs"
+import { shareableUrl } from "../../config"
 import { BibleApiService } from "../../services/bible-api.service"
 import {
   type BibleReference,
@@ -1056,8 +1057,17 @@ export class StudyPanelComponent implements OnChanges {
       this.bookService.getUrlAbrv(this.book),
       this.bookService.getChapterUrlSegment(verse.chapterNumber),
     ].join("/")
+    const pathname = `/${path}`
+    const search = `?verseStart=${verse.number}`
     await this.copyWithFeedback(
-      `${window.location.origin}/${path}?verseStart=${verse.number}`,
+      // The public site's address in the apps, which serve themselves from a
+      // localhost origin that is no use to whoever is sent the link.
+      shareableUrl({
+        href: `${window.location.origin}${pathname}${search}`,
+        pathname,
+        search,
+        hash: "",
+      }),
       "linkCopied",
       "Ligação copiada.",
       "Não foi possível copiar a ligação.",
@@ -1520,7 +1530,7 @@ export class StudyPanelComponent implements OnChanges {
         // resolve; listed, that was an "About 25" entry fetching a chapter
         // of the About page. A parse artefact is not a passage.
         if (this.bookService.findBook(reference.book).id === "about") continue
-        const entry = this.toEntry(reference)
+        const entries = this.toEntries(reference)
         // A block under a major heading opens with the range that heading
         // covers, and may go on to a passage worth reading beside it:
         // Matthew's "(1,1-2,23; ver Lc 1,5-2,52)" is this division's own
@@ -1530,26 +1540,28 @@ export class StudyPanelComponent implements OnChanges {
         if (
           underMajorHeading &&
           position === 0 &&
-          entry.bookId === verse.bookId
+          entries[0].bookId === verse.bookId
         ) {
           division = StudyPanelComponent.divisionLabel(reference)
           continue
         }
         const groupKey = division ? `${startsAt}|${division}` : `${startsAt}`
-        // The same passage can be cited twice (two references blocks either
-        // side of a quote); list it once.
-        const key = `${groupKey}:${entry.key}`
-        if (seen.has(key)) continue
-        seen.add(key)
-        const group = byStart.get(groupKey)
-        if (group) {
-          group.entries.push(entry)
-        } else {
-          byStart.set(groupKey, {
-            verseNumber: startsAt,
-            label: division,
-            entries: [entry],
-          })
+        for (const entry of entries) {
+          // The same passage can be cited twice (two references blocks either
+          // side of a quote); list it once.
+          const key = `${groupKey}:${entry.key}`
+          if (seen.has(key)) continue
+          seen.add(key)
+          const group = byStart.get(groupKey)
+          if (group) {
+            group.entries.push(entry)
+          } else {
+            byStart.set(groupKey, {
+              verseNumber: startsAt,
+              label: division,
+              entries: [entry],
+            })
+          }
         }
       }
     }
@@ -1584,6 +1596,18 @@ export class StudyPanelComponent implements OnChanges {
     return endsAt > startsAt
       ? `${chapter},${startsAt}-${endsAt}`
       : `${chapter},${startsAt}`
+  }
+
+  /**
+   * A reference that lists verses — "Mc 12,1.5-7", "Ex 20,13.14" — is one
+   * entry for each, each with its own label, link and quoted text: the query
+   * parameters have room for one range, so the rest were dropped, and "Citado
+   * em" already counts every one of them.
+   */
+  private toEntries(reference: BibleReference): ReferenceEntry[] {
+    const listed = reference.verses ?? []
+    if (listed.length < 2) return [this.toEntry(reference)]
+    return listed.map((item) => this.toEntry({ ...reference, verses: [item] }))
   }
 
   private toEntry(reference: BibleReference): ReferenceEntry {

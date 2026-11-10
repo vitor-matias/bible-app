@@ -16,6 +16,7 @@ import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
 import {
   ActivatedRoute,
   NavigationEnd,
+  NavigationStart,
   Router,
   RouterLink,
 } from "@angular/router"
@@ -80,7 +81,7 @@ describe("BibleReaderComponent", () => {
   let bookServiceSpy: SpyObj<BookService>
   let preferencesServiceSpy: SpyObj<PreferencesService>
   let routerSpy: SpyObj<Router>
-  let routerEvents: Subject<NavigationEnd>
+  let routerEvents: Subject<NavigationStart | NavigationEnd>
   let hapticsSpy: SpyObj<HapticsService>
   let routeMock: unknown
   let animationServiceSpy: SpyObj<BibleReaderAnimationService>
@@ -145,7 +146,7 @@ describe("BibleReaderComponent", () => {
 
     routerSpy = createSpyObj("Router", ["navigate"])
     routerSpy.navigate.mockResolvedValue(true)
-    routerEvents = new Subject<NavigationEnd>()
+    routerEvents = new Subject<NavigationStart | NavigationEnd>()
     Object.assign(routerSpy, { events: routerEvents })
     ;(
       routerSpy as unknown as {
@@ -2418,14 +2419,19 @@ describe("BibleReaderComponent", () => {
       // route's observables saying anything, and used to leave the text and
       // the panel where they were.
       describe("a link to where the reader began, once the address has moved on", () => {
-        const ended = (url: string) =>
+        // A navigation as the router runs it: it starts, the route speaks if
+        // its values changed (`during`), and it ends.
+        const navigate = (url: string, during?: () => void) => {
+          routerEvents.next(new NavigationStart(1, url))
+          during?.()
           routerEvents.next(new NavigationEnd(1, url, url))
+        }
 
+        // No navigation has ended since the route first spoke at startup,
+        // which is how the reader is when it first has a verse to move: the
+        // first link must not be taken for one it already heard.
         beforeEach(() => {
           vi.spyOn(TestBed.inject(Location), "replaceState").mockReturnValue()
-          // The navigation that opened the chapter has ended, as it had by the
-          // time the reader could do anything.
-          ended("/gn/1")
           component.onVerseSelected({ verse: verses[2] })
         })
 
@@ -2435,7 +2441,7 @@ describe("BibleReaderComponent", () => {
             "scrollToVerse",
           )
 
-          ended("/gn/1?verseStart=1")
+          navigate("/gn/1?verseStart=1")
 
           expect(scroll).toHaveBeenCalledWith(1, undefined, true)
           expect(component.selection?.verse.number).toBe(1)
@@ -2446,14 +2452,13 @@ describe("BibleReaderComponent", () => {
             component as unknown as { scrollToVerse: () => void },
             "scrollToVerse",
           )
-          ;(
-            routeMock as {
-              queryParamMap: BehaviorSubject<Map<string, string>>
-            }
-          ).queryParamMap.next(new Map([["verseStart", "1"]]))
-          expect(scroll).toHaveBeenCalledTimes(1)
-
-          ended("/gn/1?verseStart=1")
+          navigate("/gn/1?verseStart=1", () =>
+            (
+              routeMock as {
+                queryParamMap: BehaviorSubject<Map<string, string>>
+              }
+            ).queryParamMap.next(new Map([["verseStart", "1"]])),
+          )
 
           expect(scroll).toHaveBeenCalledTimes(1)
         })
@@ -2464,8 +2469,8 @@ describe("BibleReaderComponent", () => {
             "scrollToVerse",
           )
 
-          ended("/gn/2?verseStart=1")
-          ended("/gn/1")
+          navigate("/gn/2?verseStart=1")
+          navigate("/gn/1")
 
           expect(scroll).not.toHaveBeenCalled()
           expect(component.selection?.verse.number).toBe(3)

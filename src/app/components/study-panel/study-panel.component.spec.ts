@@ -6,7 +6,9 @@ import {
   type TextOnlySnackBar,
 } from "@angular/material/snack-bar"
 import { provideRouter, Router } from "@angular/router"
+import { Capacitor } from "@capacitor/core"
 import { of, Subject, throwError } from "rxjs"
+import { appConfig } from "../../config"
 import { BibleApiService } from "../../services/bible-api.service"
 import {
   type BibleReference,
@@ -368,6 +370,40 @@ describe("StudyPanelComponent", () => {
       // starts on — and the way on to the rest of it.
       expect(entry.verses.map((quoted) => quoted.number)).toEqual([5, 6, 7])
       expect(entry.truncated).toBe(true)
+    })
+
+    // "Mc 12,1.5-7" cites verse 1 and verses 5 to 7: each is its own entry,
+    // with its own label, link and quoted text, and a plain "Mc 12,1" printed
+    // beside it is not listed a second time.
+    it("lists each verse a reference lists, once", () => {
+      bibleRef.extract.mockReturnValue([
+        {
+          match: "Mc 12,1.5-7",
+          index: 0,
+          book: "mrk",
+          chapter: 12,
+          verses: [
+            { type: "single", verse: 1 },
+            { type: "range", start: 5, end: 7 },
+          ],
+        },
+        reference("mrk", 12, 1),
+      ] as ReturnType<BibleReferenceService["extract"]>)
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 22,
+          verses: [verse(34, [references("Mc 12,1.5-7; 12,1")])],
+        },
+      })
+
+      const entries = component.referenceGroups[0].entries
+      expect(entries.map((entry) => entry.label)).toEqual([
+        "Marcos 12,1",
+        "Marcos 12,5-7",
+      ])
+      expect(entries[1].queryParams).toEqual({ verseStart: 5, verseEnd: 7 })
     })
 
     it("keeps the references printed after that range", () => {
@@ -2265,6 +2301,20 @@ describe("StudyPanelComponent", () => {
         `${window.location.origin}/mt/22?verseStart=37`,
       )
       expect(component.linkCopied).toBe(true)
+    })
+
+    // The apps serve themselves from localhost, which nobody else can open.
+    it("names the public site's address in the native apps", async () => {
+      vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true)
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } })
+      choose()
+
+      await component.copyLink()
+
+      expect(writeText).toHaveBeenCalledExactlyOnceWith(
+        `https://${appConfig.domain}/mt/22?verseStart=37`,
+      )
     })
 
     it("says aloud that it did, and that it could not when the clipboard refuses", async () => {

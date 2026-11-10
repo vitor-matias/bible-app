@@ -358,14 +358,19 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     const hasS2 = data.text.some(
       (text) => text.type === "section" && text.tag === "s2",
     )
+    // The last element drawn: a blank one is dropped (see computeDisplayGroups),
+    // and a number left on it was drawn nowhere.
+    let lastDrawn = -1
+    data.text.forEach((text, i) => {
+      if (!VerseComponent.isBlank(text)) lastDrawn = i
+    })
 
     for (let i = 0; i < data.text.length; i++) {
       const text = data.text[i]
-      const isLast = i === data.text.length - 1
 
       if (
         (text.type === "section" && text.tag === "s2") ||
-        (!hasS2 && isLast)
+        (!hasS2 && i === lastDrawn)
       ) {
         return i
       }

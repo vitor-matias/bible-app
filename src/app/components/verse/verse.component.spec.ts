@@ -123,6 +123,28 @@ describe("VerseComponent", () => {
       expect(component.chapterNumberDisplayIndex).toBe(1)
     })
 
+    // A blank element is not drawn, so a number left on one would vanish.
+    it("targets the last element drawn when verse 0 ends in a blank one", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 0,
+          chapterNumber: 7,
+          text: [
+            { type: "text", text: "intro" },
+            { type: "text", text: "more" },
+            { type: "text", text: "" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+      expect(
+        fixture.nativeElement.querySelector(".chapterNumber")?.textContent,
+      ).toContain("7")
+    })
+
     it("should target the first s2 if multiple s2 sections exist", () => {
       setData(
         fixture,

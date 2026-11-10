@@ -31,6 +31,7 @@ import {
 import {
   ActivatedRoute,
   NavigationEnd,
+  NavigationStart,
   Router,
   RouterLink,
 } from "@angular/router"
@@ -621,11 +622,18 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.router.events
       .pipe(
         filter(
-          (event): event is NavigationEnd => event instanceof NavigationEnd,
+          (event): event is NavigationStart | NavigationEnd =>
+            event instanceof NavigationStart || event instanceof NavigationEnd,
         ),
         takeUntil(this.destroy$),
       )
-      .subscribe((event) => this.followLinkToVerse(event.urlAfterRedirects))
+      .subscribe((event) => {
+        // Each navigation is its own: the route spoke at startup, after the
+        // navigation that opened the page had ended, and nothing since has
+        // cleared it, so the first link after would have counted as spoken for.
+        if (event instanceof NavigationStart) this.routeEmitted = false
+        else this.followLinkToVerse(event.urlAfterRedirects)
+      })
   }
 
   /**
