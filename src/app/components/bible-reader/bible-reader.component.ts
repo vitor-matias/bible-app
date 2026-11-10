@@ -14,6 +14,7 @@ import {
   PLATFORM_ID,
   ViewChild,
 } from "@angular/core"
+import { toObservable } from "@angular/core/rxjs-interop"
 import {
   MatBottomSheet,
   MatBottomSheetModule,
@@ -28,8 +29,8 @@ import {
 } from "@angular/material/sidenav"
 import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
-import { combineLatest, Subject, Subscription } from "rxjs"
-import { switchMap, take, takeUntil } from "rxjs/operators"
+import { combineLatest, of, Subject, Subscription } from "rxjs"
+import { first, switchMap, take, takeUntil } from "rxjs/operators"
 import { nextCanonBook, PASTORAL_INDEX_BOOK } from "../../bible-canon"
 import {
   PagedNavigationDirective,
@@ -290,6 +291,17 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.bookService.books$
       .pipe(
         take(1),
+        // A cold app link waits in chapterExists for this same book list: let
+        // it settle (it may replace this reader, or reuse it) before reading
+        // the route, or the redirect below replaces the link with the saved
+        // passage. Not while prerendering, where nothing would hold the page.
+        switchMap(() =>
+          isPlatformBrowser(this.platformId) && this.router.currentNavigation()
+            ? toObservable(this.router.currentNavigation, {
+                injector: this.injector,
+              }).pipe(first((navigation) => !navigation))
+            : of(null),
+        ),
         switchMap(() => {
           this.bookParam =
             this.router.routerState.snapshot.root.firstChild?.params[
