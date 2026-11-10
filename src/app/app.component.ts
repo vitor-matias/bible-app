@@ -78,6 +78,8 @@ export class AppComponent implements OnInit, OnDestroy {
     this.handleShareTarget()
     this.setupNativeListeners()
     this.nativeShell.init()
+    // The store listings' link: the wizard would cover the policy it opens.
+    if (window.location.pathname.startsWith("/privacidade")) return
     this.onboardingService.showOnFirstLaunch()
     this.appPromo.scheduleOnce()
   }

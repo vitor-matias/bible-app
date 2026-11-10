@@ -1,6 +1,7 @@
 import { Location } from "@angular/common"
 import { ApplicationRef, NO_ERRORS_SCHEMA } from "@angular/core"
 import { ComponentFixture, TestBed } from "@angular/core/testing"
+import { MatDialog } from "@angular/material/dialog"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import {
   ActivatedRoute,
@@ -31,6 +32,10 @@ import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { contrastRatio } from "../../testing/contrast"
 import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
+import {
+  PRIVACY_DIALOG_CONFIG,
+  PrivacyPolicyDialogComponent,
+} from "../privacy-policy/privacy-policy.component"
 import { firstLine, SearchComponent, TYPING_PAUSE_MS } from "./search.component"
 
 // How the edition sets Psalm 23,1 and 94,1.
@@ -322,7 +327,7 @@ describe("SearchComponent", () => {
       expect(submit).toHaveBeenCalledWith("Sabedoria", { typed: true })
     })
 
-    it("leaves a typed search waiting to run with the new choice", async () => {
+    it("runs a typed search that was waiting, with the new choice", async () => {
       component.ngOnInit()
       vi.useFakeTimers()
       component.searchTerm = "pastor"
@@ -332,6 +337,32 @@ describe("SearchComponent", () => {
 
       expect(apiService.searchByMeaning).toHaveBeenCalledTimes(1)
       expect(apiService.searchByMeaning).toHaveBeenCalledWith("amor", 1)
+    })
+
+    it("explains itself in the privacy policy's modal", () => {
+      const open = vi
+        .spyOn(TestBed.inject(MatDialog), "open")
+        .mockReturnValue(undefined as never)
+      component.meaningSearchConsent = null
+      fixture.detectChanges()
+
+      consent()?.querySelector("button")?.click()
+      expect(open).toHaveBeenCalledWith(
+        PrivacyPolicyDialogComponent,
+        PRIVACY_DIALOG_CONFIG,
+      )
+    })
+
+    it("asks the next page of the same kind of search", async () => {
+      component.meaningSearchConsent = true
+      component.searchTerm = "paz"
+      component.currentPage = 1
+      component.totalResults = 2
+      component.searchResults = [{ text: [] } as unknown as Verse]
+      await component["loadMoreResults"]()
+
+      expect(apiService.searchByMeaning).toHaveBeenCalledWith("paz", 2)
+      expect(apiService.search).not.toHaveBeenCalled()
     })
 
     it("promises the search by meaning back only to who has it on", () => {

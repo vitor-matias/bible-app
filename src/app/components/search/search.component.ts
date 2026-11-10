@@ -179,6 +179,7 @@ export class SearchComponent {
   searching = false
   /** Typed words wait for the pause before their search: "A procurar…". */
   pendingSearch = false
+  private typedQuery = ""
   /**
    * What is typed names a passage: offered at once, first, as "Abrir João
    * 3,16"; Return or a tap opens it.
@@ -425,6 +426,7 @@ export class SearchComponent {
     this.passageSuggestion = query ? this.suggestPassage(query) : null
     this.themes = themesNamed(query)
     this.pendingSearch = this.searchesOnPause(query)
+    this.typedQuery = query
     this.cdr.detectChanges()
     this.typed.next({ text, generation: this.searchGeneration })
   }
@@ -795,9 +797,8 @@ export class SearchComponent {
     this.meaningSearchConsent = allowed
     this.cdr.detectChanges()
     // Typed: searchTerm is a word search, even when it names a book.
-    // A pending typed search runs soon, with the new choice.
-    if (this.searchTerm && !this.pendingSearch)
-      void this.onSearchSubmit(this.searchTerm, { typed: true })
+    const text = this.pendingSearch ? this.typedQuery : this.searchTerm
+    if (text) void this.onSearchSubmit(text, { typed: true })
   }
 
   openPrivacyPolicy(): void {
