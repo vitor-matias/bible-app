@@ -6,9 +6,13 @@
       <mat-icon>{{ getThemeIcon() }}</mat-icon>
     </button>
     @if (viewMode() !== null) {
+    <!-- Study mode never pages: a switch that cannot change what is on screen
+         would only change the saved choice. -->
+    @if (studyMode() !== 'on') {
     <button type="button" mat-menu-item class="menu-control" (click)="toggleViewMode.emit()" [matTooltip]="getViewModeTooltip()" matTooltipPosition="above" [attr.aria-label]="getViewModeTooltip()">
       <mat-icon>{{ getViewModeIcon() }}</mat-icon>
     </button>
+    }
     <button type="button" mat-menu-item class="menu-control" (click)="onToggleTextAlign()" [matTooltip]="getTextAlignTooltip()" matTooltipPosition="above" [attr.aria-label]="getTextAlignTooltip()">
       <mat-icon>{{ getTextAlignIcon() }}</mat-icon>
     </button>

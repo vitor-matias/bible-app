@@ -1984,6 +1984,48 @@ describe("StudyPanelComponent", () => {
       expect(more.textContent).toContain("Mais resultados")
     })
 
+    // The two engines rank differently, so a list is one engine's from end to
+    // end: pages from both would skip verses and repeat others at the seam.
+    describe("when the connection changes between pages", () => {
+      const offline = (value: boolean) =>
+        vi
+          .spyOn(TestBed.inject(NetworkService), "isOffline", "get")
+          .mockReturnValue(value)
+
+      it("keeps asking the server for the next page of a server list", () => {
+        const stored = vi.spyOn(TestBed.inject(OfflineSearchService), "search")
+        api.search.mockReturnValueOnce(found(hits(1, 30), 45))
+        component.onSearchSubmit("amarás")
+
+        offline(true)
+        api.search.mockReturnValueOnce(found(hits(31, 15), 45))
+        component.loadMoreResults()
+
+        expect(api.search).toHaveBeenLastCalledWith("amarás", 2, 30)
+        expect(stored).not.toHaveBeenCalled()
+        expect(component.searchEngine).toBe("server")
+        expect(component.searchResults).toHaveLength(45)
+      })
+
+      it("keeps reading the stored Bible for the next page of a stored list", async () => {
+        offline(true)
+        const stored = vi
+          .spyOn(TestBed.inject(OfflineSearchService), "search")
+          .mockResolvedValue(hits(1, 45))
+        component.onSearchSubmit("amarás")
+        await vi.waitFor(() => expect(component.searchState).toBe("done"))
+        expect(component.searchEngine).toBe("stored")
+
+        offline(false)
+        component.loadMoreResults()
+        await vi.waitFor(() => expect(component.searchResults).toHaveLength(45))
+
+        expect(stored).toHaveBeenCalledTimes(2)
+        expect(api.search).not.toHaveBeenCalled()
+        expect(component.searchEngine).toBe("stored")
+      })
+    })
+
     it("does not list a verse twice when a page overlaps the last", () => {
       api.search.mockReturnValueOnce(found(hits(1, 30), 40))
       component.onSearchSubmit("amarás")

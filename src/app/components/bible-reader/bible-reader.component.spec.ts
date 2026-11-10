@@ -2725,6 +2725,16 @@ describe("BibleReaderComponent", () => {
       expect(component.showAutoScrollControls).toBe(false)
     })
 
+    it("onToggleViewMode leaves the saved choice alone in study mode, which never pages", () => {
+      studyMode.activate()
+      component.viewMode = "scrolling"
+
+      component.onToggleViewMode()
+
+      expect(component.viewMode).toBe("scrolling")
+      expect(preferencesServiceSpy.setViewMode).not.toHaveBeenCalled()
+    })
+
     it("onToggleViewMode should switch back to scrolling mode", async () => {
       vi.useFakeTimers()
       component.viewMode = "paged"

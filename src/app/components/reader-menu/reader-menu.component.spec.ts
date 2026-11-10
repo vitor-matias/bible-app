@@ -164,6 +164,32 @@ describe("ReaderMenuComponent", () => {
       expect(navigate).toHaveBeenCalledWith(["/minhas-notas"])
     })
 
+    // Study mode never pages, so a switch between the two would only change
+    // the saved choice; the text's alignment still applies there.
+    it("leaves out the page-by-page switch in study mode, and keeps the alignment", () => {
+      const { host, fixture, open } = openMenu()
+      host.viewMode.set("scrolling")
+      host.studyMode.set("on")
+      open()
+
+      expect(
+        document.querySelector(
+          '[aria-label^="Texto contínuo"], [aria-label^="Página a página"]',
+        ),
+      ).toBeNull()
+      expect(
+        document.querySelector(
+          '[aria-label^="Justificado"], [aria-label^="Alinhado"]',
+        ),
+      ).not.toBeNull()
+
+      host.studyMode.set("off")
+      fixture.detectChanges()
+      expect(
+        document.querySelector('[aria-label^="Texto contínuo"]'),
+      ).not.toBeNull()
+    })
+
     it("offers study mode, with what it is, and reports the choice", () => {
       const { host, fixture, open } = openMenu()
       host.studyMode.set("off")

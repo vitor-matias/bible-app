@@ -33,13 +33,14 @@
       <mat-icon>upload</mat-icon> Ler uma cópia
     </button>
     <input type="file" accept="application/json,.json" hidden #file (change)="onFile(file)" />
-    <button type="button" mat-stroked-button (click)="print()" [disabled]="!visible.length">
+    <!-- Print, copy and the text file name each entry, which needs the books. -->
+    <button type="button" mat-stroked-button (click)="print()" [disabled]="!visible.length || !booksKnown">
       <mat-icon>print</mat-icon> Imprimir a lista
     </button>
-    <button type="button" mat-stroked-button (click)="copyList()" [disabled]="!visible.length">
+    <button type="button" mat-stroked-button (click)="copyList()" [disabled]="!visible.length || !booksKnown">
       <mat-icon>content_copy</mat-icon> Copiar a lista
     </button>
-    <button type="button" mat-stroked-button (click)="saveMarkdown()" [disabled]="!visible.length">
+    <button type="button" mat-stroked-button (click)="saveMarkdown()" [disabled]="!visible.length || !booksKnown">
       <mat-icon>description</mat-icon> Guardar como texto
     </button>
   </section>

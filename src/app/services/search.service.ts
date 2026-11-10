@@ -197,8 +197,18 @@ export class SearchService {
    * meaning is out of reach, and the words are looked for in the Bible kept on
    * the device instead, as the search page does.
    */
-  page(query: string, page: number, limit?: number): Observable<SearchOutcome> {
-    if (this.network.isOffline) return this.stored(query, page, limit)
+  page(
+    query: string,
+    page: number,
+    limit?: number,
+    engine?: SearchResults["engine"],
+  ): Observable<SearchOutcome> {
+    // A later page comes from the engine that listed the first, however the
+    // connection has changed since: the two rank differently, and pages from
+    // both would skip some verses and repeat others at the seam.
+    if (engine ? engine === "stored" : this.network.isOffline) {
+      return this.stored(query, page, limit)
+    }
     const request =
       limit === undefined
         ? this.api.search(query, page)

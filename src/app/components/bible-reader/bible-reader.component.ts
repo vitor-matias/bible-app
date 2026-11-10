@@ -1283,6 +1283,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   onToggleViewMode(): void {
+    // Study mode never pages (see effectiveViewMode): flipping the saved choice
+    // from here would change nothing on screen, and the reader would find it
+    // changed on leaving.
+    if (this.studyModeActive) return
     this.viewMode = this.viewMode === "scrolling" ? "paged" : "scrolling"
     this.preferencesService.setViewMode(this.viewMode)
 

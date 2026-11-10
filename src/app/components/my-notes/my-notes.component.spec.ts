@@ -143,13 +143,29 @@ describe("MyNotesComponent", () => {
     // Neither the empty-state (there is a note) nor an entry named wrongly.
     expect(page().querySelector(".entries")).toBeNull()
     expect(page().querySelector(".empty")).toBeNull()
-    // The copy to keep does not need the names, so it is not held back.
+    // The copy to keep does not need the names, so it is not held back; the
+    // printed page, the copied list and the text file do, and would name every
+    // entry after the About page.
     expect(button("Guardar uma cópia").disabled).toBe(false)
+    for (const label of [
+      "Imprimir a lista",
+      "Copiar a lista",
+      "Guardar como texto",
+    ]) {
+      expect(button(label).disabled).toBe(true)
+    }
 
     bookList.next([{ id: "mat" } as Book])
     fixture.detectChanges()
 
     expect(refs()).toEqual(["Mateus 22,37"])
+    for (const label of [
+      "Imprimir a lista",
+      "Copiar a lista",
+      "Guardar como texto",
+    ]) {
+      expect(button(label).disabled).toBe(false)
+    }
   })
 
   it("says the colour of a mark in words", () => {

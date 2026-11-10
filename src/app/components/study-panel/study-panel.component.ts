@@ -929,7 +929,12 @@ export class StudyPanelComponent implements OnChanges {
     this.cdr.markForCheck()
     this.searchSubscription?.unsubscribe()
     this.searchSubscription = this.searchService
-      .page(this.searchQuery, this.searchPage + 1, SEARCH_RESULT_LIMIT)
+      .page(
+        this.searchQuery,
+        this.searchPage + 1,
+        SEARCH_RESULT_LIMIT,
+        this.searchEngine,
+      )
       .subscribe({
         next: (outcome) => {
           if (outcome.kind === "results") {
