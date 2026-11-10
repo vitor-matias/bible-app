@@ -1,7 +1,11 @@
 import { Injectable } from "@angular/core"
 import { map, type Observable } from "rxjs"
 import { normalizeForSearch } from "../utils/text"
-import { type VerseRecord, VerseRecordStore } from "./verse-record-store"
+import {
+  isVerseAddress,
+  type VerseRecord,
+  VerseRecordStore,
+} from "./verse-record-store"
 
 export type VerseNote = VerseRecord & {
   text: string
@@ -22,9 +26,7 @@ export function isVerseNote(value: unknown): value is VerseNote {
   if (!value || typeof value !== "object") return false
   const note = value as Partial<VerseNote>
   return (
-    typeof note.bookId === "string" &&
-    typeof note.chapter === "number" &&
-    typeof note.verse === "number" &&
+    isVerseAddress(note) &&
     typeof note.updatedAt === "number" &&
     typeof note.text === "string" &&
     note.text.trim().length > 0 &&

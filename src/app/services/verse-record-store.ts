@@ -28,6 +28,28 @@ export type VerseRecord = {
 export type VerseAddress = Pick<VerseRecord, "bookId" | "chapter" | "verse">
 
 /**
+ * Whether something read from storage or from a saved copy names a place a
+ * verse can be: a book, a chapter (0 is a book's introduction) and a verse from
+ * 1 (0 is the chapter's front matter, which nothing is written on). A record
+ * anywhere else could not be found in the reader, so it could never be
+ * deleted one by one, and every later copy would carry it.
+ */
+export function isVerseAddress(record: {
+  bookId?: unknown
+  chapter?: unknown
+  verse?: unknown
+}): boolean {
+  return (
+    typeof record.bookId === "string" &&
+    record.bookId.length > 0 &&
+    Number.isSafeInteger(record.chapter) &&
+    (record.chapter as number) >= 0 &&
+    Number.isSafeInteger(record.verse) &&
+    (record.verse as number) >= 1
+  )
+}
+
+/**
  * Storage for things a reader marks a verse with.
  *
  * Device-local by design — the app has no accounts and asks for none — so

@@ -112,6 +112,38 @@ describe("a saved copy of the notes and marks", () => {
     expect(result.ok && result.dropped).toBe(3)
   })
 
+  // Nothing in the reader can show a record at such a place, so it could never
+  // be deleted one by one, and every later copy would carry it.
+  it("leaves out notes and marks whose place is not a verse's, and counts them", () => {
+    const result = parseBackup(
+      JSON.stringify({
+        app: BACKUP_APP,
+        version: 1,
+        exportedAt: "x",
+        notes: [
+          note("mat", 5, 3, "boa"),
+          note("mat", 0, 1, "na introdução do livro"),
+          note("xyz", -1, 2.5, "como no ficheiro de exemplo"),
+          note("", 5, 3, "sem livro"),
+          note("mat", 5, 0, "verso zero"),
+          note("mat", 1.5, 1, "capítulo fraccionado"),
+        ],
+        highlights: [
+          mark("mat", 5, 3, "pink"),
+          mark("xyz", -1, 2.5, "pink"),
+          mark("mat", 5, 0, "pink"),
+        ],
+      }),
+    )
+
+    expect(result.ok && result.backup.notes.map((n) => n.text)).toEqual([
+      "boa",
+      "na introdução do livro",
+    ])
+    expect(result.ok && result.backup.highlights).toHaveLength(1)
+    expect(result.ok && result.dropped).toBe(6)
+  })
+
   // A blank note with a late update time would replace the reader's real one.
   it("counts a note of only whitespace among the records that do not hold up", () => {
     const result = parseBackup(

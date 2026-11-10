@@ -1,6 +1,10 @@
 import { Injectable } from "@angular/core"
 import { map, type Observable } from "rxjs"
-import { type VerseRecord, VerseRecordStore } from "./verse-record-store"
+import {
+  isVerseAddress,
+  type VerseRecord,
+  VerseRecordStore,
+} from "./verse-record-store"
 
 /** A colour a reader can mark a verse with, named as the panel offers it. */
 export type HighlightColor = "yellow" | "green" | "blue" | "pink"
@@ -34,9 +38,7 @@ export function isVerseHighlight(value: unknown): value is VerseHighlight {
   if (!value || typeof value !== "object") return false
   const highlight = value as Partial<VerseHighlight>
   return (
-    typeof highlight.bookId === "string" &&
-    typeof highlight.chapter === "number" &&
-    typeof highlight.verse === "number" &&
+    isVerseAddress(highlight) &&
     typeof highlight.updatedAt === "number" &&
     HIGHLIGHT_COLORS.includes(highlight.color as HighlightColor)
   )
