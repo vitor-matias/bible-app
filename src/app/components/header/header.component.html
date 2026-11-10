@@ -12,6 +12,7 @@
         [viewMode]="book().id === 'about' ? null : viewMode()"
         [autoScrollControlsVisible]="autoScrollControlsVisible()"
         (decreaseFontSize)="decreaseFontSize()" (increaseFontSize)="increaseFontSize()"
+        (resetFontSize)="resetFontSize()"
         (toggleViewMode)="toggleViewMode.emit()" (bookmarks)="openBookmarkSelector()"
         (toggleAutoScrollControls)="toggleAutoScrollControls.emit()" (share)="sharePassage()"
         (about)="openAbout()" (reportProblem)="openReportProblem()" />
@@ -54,7 +55,7 @@
 
       <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button matTooltip="Pesquisar"
         aria-label="Pesquisar" data-tour="search">
-        <mat-icon class="search-icon" aria-label="Search">search</mat-icon>
+        <mat-icon class="search-icon" aria-hidden="true">search</mat-icon>
       </button>
     </div>
   </mat-toolbar>
