@@ -294,6 +294,7 @@
 
 /* Asked before any search text can reach Voyage AI. */
 .meaning-consent {
+  flex: none;
   margin: 8px 12px 16px;
   padding: 12px 16px;
   border-radius: 12px;
@@ -317,17 +318,12 @@
 
 /* Clears the native bar; what follows then needn't. */
 :host-context(.native-chrome) :is(.meaning-consent, .meaning-status) {
-  flex: none;
   margin-top: calc(8px + var(--app-chrome-top));
 }
 
-:host-context(.native-chrome) :is(.meaning-consent, .meaning-status) + .empty-state {
+:host-context(.native-chrome) :is(.meaning-consent, .meaning-status) + * {
   margin-top: 0;
   padding-top: 16px;
-}
-
-:host-context(.native-chrome) :is(.meaning-consent, .meaning-status) + .results-section {
-  padding-top: 20px;
 }
 
 .meaning-consent-actions {
@@ -338,23 +334,74 @@
   margin-top: 8px;
 }
 
-.link-button {
+.link-button,
+.meaning-consent-allow {
   padding: 0;
   border: 0;
-  background: none;
-  color: inherit;
   font: inherit;
-  text-decoration: underline;
   cursor: pointer;
 }
 
+.link-button {
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+}
+
 .meaning-consent-allow {
-  min-height: 36px;
-  padding: 0 16px;
-  border: 0;
+  padding: 9px 16px;
   border-radius: 18px;
   background: var(--text-color);
   color: var(--card-background);
-  font: inherit;
-  cursor: pointer;
+}
+
+/* The search is under way: rows where the results will be. Hidden for the
+   first 150 ms, so a fast answer shows no flash. */
+.skeleton {
+  overflow: hidden;
+  animation: skeleton-in 0.2s 150ms both;
+}
+
+.skeleton .result-item {
+  cursor: default;
+}
+
+.skeleton-bar {
+  display: block;
+  height: 0.9em;
+  border-radius: 4px;
+  background-color: color-mix(in srgb, var(--text-color) 12%, transparent);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.skeleton-ref {
+  width: 35%;
+  margin-bottom: 10px;
+}
+
+.skeleton-line + .skeleton-line {
+  margin-top: 6px;
+}
+
+.skeleton-short {
+  width: 60%;
+}
+
+@keyframes skeleton-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes skeleton-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .skeleton-bar {
+    animation: none;
+  }
 }

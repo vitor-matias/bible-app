@@ -13,18 +13,9 @@
   color: var(--text-color);
 }
 
-.header-row button {
-  color: var(--text-color);
-}
-
 h3 {
   margin: 0;
   color: var(--text-color);
-}
-
-.delete-active {
-  color: red !important;
-  background-color: rgba(244, 67, 54, 0.1);
 }
 
 .colors-grid {
@@ -53,6 +44,9 @@ h3 {
   transition: transform 0.2s;
   position: relative;
   padding: 0 0 12px;
+  /* A long press is the remove gesture: no iOS callout or text selection. */
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 .color-button:hover {
@@ -103,4 +97,20 @@ h3 {
 /* Dark text on the dark theme's light ribbons needs no shadow. */
 :host-context(.dark-theme) :is(.ribbon-text, .add-icon) {
   text-shadow: none;
+}
+
+.ribbon-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: color-mix(in srgb, var(--text-color) 65%, transparent);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }

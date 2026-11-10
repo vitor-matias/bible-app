@@ -10,9 +10,9 @@
 .menu-control.mat-mdc-menu-item {
   flex: none;
   justify-content: center;
-  width: 48px;
+  width: 40px;
   min-width: 0;
-  height: 48px;
+  height: 40px;
   min-height: 0;
   padding: 0;
   border-radius: 50%;
@@ -28,6 +28,12 @@
 .menu-control mat-icon {
   margin: 0;
   color: inherit;
+}
+
+/* The reason an item is disabled, under its label. */
+.menu-item-note {
+  display: block;
+  font-size: 0.75rem;
 }
 
 /* Small print under the last item, level with the items' icons, on one line. */

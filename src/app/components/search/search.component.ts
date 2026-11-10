@@ -628,6 +628,8 @@ export class SearchComponent {
     query: string,
     { typed = false }: { typed?: boolean } = {},
   ): Promise<void> {
+    // Nothing typed: nothing to look for, and no "no results for « »".
+    if (!query.trim()) return
     const generation = ++this.searchGeneration
     const isStale = () => generation !== this.searchGeneration
     this.psalmChoice = null

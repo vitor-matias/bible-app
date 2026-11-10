@@ -19,6 +19,9 @@
     <button type="button" mat-menu-item class="menu-control" (click)="increaseFontSize.emit()" matTooltip="Aumentar texto" matTooltipPosition="above" aria-label="Aumentar texto">
       <mat-icon>text_increase</mat-icon>
     </button>
+    <button type="button" mat-menu-item class="menu-control" (click)="resetFontSize.emit()" matTooltip="Repor tamanho do texto" matTooltipPosition="above" aria-label="Repor tamanho do texto">
+      <mat-icon>format_size</mat-icon>
+    </button>
   </div>
   <mat-divider></mat-divider>
   <button type="button" mat-menu-item (click)="bookmarks.emit()">
@@ -26,12 +29,15 @@
     <span>Marcadores</span>
   </button>
   @if (autoScrollControlsVisible() !== null) {
-  <button type="button" mat-menu-item (click)="toggleAutoScrollControls.emit()" [disabled]="viewMode() === 'paged'">
+  <button type="button" mat-menu-item (click)="viewMode() !== 'paged' && toggleAutoScrollControls.emit()" [disabled]="viewMode() === 'paged'" disabledInteractive>
     <mat-icon>arrow_circle_down</mat-icon>
     <span>
       {{ autoScrollControlsVisible()
-      ? 'Esconder controlos de deslocamento automático'
-      : 'Mostrar controlos de deslocamento automático' }}
+      ? 'Esconder deslocamento automático'
+      : 'Mostrar deslocamento automático' }}
+      @if (viewMode() === 'paged') {
+      <small class="menu-item-note">Indisponível na vista de páginas</small>
+      }
     </span>
   </button>
   }

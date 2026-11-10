@@ -231,9 +231,10 @@ test.describe("Search", () => {
     await input.fill("luz")
     await input.press("Enter")
 
-    // Results list should appear
-    await expect(page.locator(".results-list")).toBeVisible({ timeout: 15_000 })
-    await expect(page.locator(".result-item").first()).toBeVisible()
+    // A real result is a link; the placeholder rows shown while searching are not.
+    await expect(page.locator("a.result-card").first()).toBeVisible({
+      timeout: 15_000,
+    })
   })
 
   test("clicking a search result navigates to the verse", async ({ page }) => {
@@ -243,8 +244,8 @@ test.describe("Search", () => {
     await input.fill("amor")
     await input.press("Enter")
 
-    await page.locator(".result-item").first().waitFor({ timeout: 15_000 })
-    await page.locator(".result-item").first().click()
+    // A link, so not one of the placeholder rows shown while searching.
+    await page.locator("a.result-card").first().click({ timeout: 15_000 })
 
     // Should navigate away from /search to a book/chapter
     await expect(page).toHaveURL(/\/[a-z0-9-]+\/\d+/, { timeout: 10_000 })

@@ -25,7 +25,7 @@
       <!-- This is the tree node template for expandable nodes -->
       <mat-tree-node class="book-group" *matTreeNodeDef="let node;when: hasChild" matTreeNodePadding matTreeNodeToggle
         [cdkTreeNodeTypeaheadLabel]="node.name">
-        <button mat-icon-button matTreeNodeToggle [attr.aria-label]="'Toggle ' + node.name">
+        <button mat-icon-button matTreeNodeToggle [attr.aria-label]="(otTreeControl.isExpanded(node) ? 'Recolher ' : 'Expandir ') + node.name">
           <mat-icon class="mat-icon-rtl-mirror">
             {{otTreeControl.isExpanded(node) ? 'expand_more' : 'chevron_right'}}
           </mat-icon>
@@ -49,7 +49,7 @@
       <!-- This is the tree node template for expandable nodes -->
       <mat-tree-node class="book-group" *matTreeNodeDef="let node;when: hasChild" matTreeNodePadding matTreeNodeToggle
         [cdkTreeNodeTypeaheadLabel]="node.name">
-        <button mat-icon-button matTreeNodeToggle [attr.aria-label]="'Toggle ' + node.name">
+        <button mat-icon-button matTreeNodeToggle [attr.aria-label]="(ntTreeControl.isExpanded(node) ? 'Recolher ' : 'Expandir ') + node.name">
           <mat-icon class="mat-icon-rtl-mirror">
             {{ntTreeControl.isExpanded(node) ? 'expand_more' : 'chevron_right'}}
           </mat-icon>

@@ -348,6 +348,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.increaseFontSizeEvent.emit(undefined)
   }
 
+  resetFontSize(): void {
+    this.resetFontSizeEvent.emit()
+  }
+
   decreaseFontSize(): void {
     this.decreaseFontSizeEvent.emit(undefined)
   }
