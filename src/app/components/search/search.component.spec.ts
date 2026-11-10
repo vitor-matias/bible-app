@@ -322,6 +322,30 @@ describe("SearchComponent", () => {
       expect(submit).toHaveBeenCalledWith("Sabedoria", { typed: true })
     })
 
+    it("leaves a typed search waiting to run with the new choice", async () => {
+      component.ngOnInit()
+      vi.useFakeTimers()
+      component.searchTerm = "pastor"
+      component.onTyping("amor")
+      component.setMeaningSearch(true)
+      await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
+
+      expect(apiService.searchByMeaning).toHaveBeenCalledTimes(1)
+      expect(apiService.searchByMeaning).toHaveBeenCalledWith("amor", 1)
+    })
+
+    it("promises the search by meaning back only to who has it on", () => {
+      const comesBack = "A pesquisa pelo sentido volta com a ligação."
+      component.offline = true
+
+      component.meaningSearchConsent = false
+      expect(component.storedResultsHint).not.toContain(comesBack)
+      component.meaningSearchConsent = null
+      expect(component.storedResultsHint).not.toContain(comesBack)
+      component.meaningSearchConsent = true
+      expect(component.storedResultsHint).toContain(comesBack)
+    })
+
     it("asks only while unanswered", () => {
       component.meaningSearchConsent = null
       fixture.detectChanges()

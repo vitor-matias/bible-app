@@ -795,7 +795,8 @@ export class SearchComponent {
     this.meaningSearchConsent = allowed
     this.cdr.detectChanges()
     // Typed: searchTerm is a word search, even when it names a book.
-    if (this.searchTerm)
+    // A pending typed search runs soon, with the new choice.
+    if (this.searchTerm && !this.pendingSearch)
       void this.onSearchSubmit(this.searchTerm, { typed: true })
   }
 
@@ -890,11 +891,15 @@ export class SearchComponent {
 
   /** Why the results are a word search, under their heading. */
   get storedResultsHint(): string {
-    return this.offline
-      ? "Sem ligação: procura as palavras no texto guardado. A pesquisa pelo sentido volta com a ligação."
-      : this.meaningSearchConsent !== true
-        ? "A pesquisa não respondeu: procura as palavras no texto guardado."
-        : "A pesquisa pelo sentido não respondeu: procura as palavras no texto guardado."
+    const meaning = this.meaningSearchConsent === true
+    if (this.offline) {
+      return meaning
+        ? "Sem ligação: procura as palavras no texto guardado. A pesquisa pelo sentido volta com a ligação."
+        : "Sem ligação: procura as palavras no texto guardado."
+    }
+    return meaning
+      ? "A pesquisa pelo sentido não respondeu: procura as palavras no texto guardado."
+      : "A pesquisa não respondeu: procura as palavras no texto guardado."
   }
 
   /** "Lucas 2,32", "Salmo 23 (22),4": as the text cites passages. Until the
