@@ -8,7 +8,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
+      # write: the last step approves a clean review with the job's token.
+      pull-requests: write
       issues: read
       id-token: write
     steps:
@@ -54,13 +55,15 @@ jobs:
           jq -e 'last | .is_error | not' "$EXECUTION_FILE" > /dev/null || { echo "::error::The review ended in an error, so it may have posted nothing."; exit 1; }
           jq -e 'any(.[]; .type == "assistant" and any(.message.content[]?; .type == "tool_use" and (.name == "Agent" or .name == "Task")))' "$EXECUTION_FILE" > /dev/null || { echo "::error::The review launched no agents."; exit 1; }
           jq -e 'any(.[]; .type == "assistant" and any(.message.content[]?; .type == "tool_use" and .input.model == "opus"))' "$EXECUTION_FILE" > /dev/null || echo "::warning::The review stopped before its opus bug reviewers ran."
-      # A clean review approves the PR, with the Claude app's own token. Only a full review counts: the
+      # A clean review approves the PR as github-actions[bot]: the action revokes the Claude app's token
+      # before this step runs. That needs the repository setting "Allow GitHub Actions to create and
+      # approve pull requests" (Settings > Actions > General). Only a full review counts: the
       # step above has passed, the opus reviewers ran, this run posted no inline comment, and no thread
       # Claude opened earlier is still unresolved. The approval names the commit it read.
       - name: Approve when the review found nothing
-        if: steps.claude.outputs.execution_file != '' && steps.claude.outputs.github_token != ''
+        if: steps.claude.outputs.execution_file != ''
         env:
-          GH_TOKEN: ${{ steps.claude.outputs.github_token }}
+          GH_TOKEN: ${{ github.token }}
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
