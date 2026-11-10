@@ -9,7 +9,8 @@ import { ReaderMenuComponent } from "./reader-menu.component"
   template: `
     <button type="button" [matMenuTriggerFor]="menu.menu">Menu</button>
     <reader-menu #menu="readerMenu" [viewMode]="viewMode()"
-      [autoScrollControlsVisible]="autoScroll()" (resetFontSize)="resets.set(resets() + 1)" />
+      [autoScrollControlsVisible]="autoScroll()" (resetFontSize)="resets.set(resets() + 1)"
+      (toggleAutoScrollControls)="toggles.set(toggles() + 1)" />
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -17,6 +18,7 @@ class HostComponent {
   readonly viewMode = signal<"scrolling" | "paged" | null>(null)
   readonly autoScroll = signal<boolean | null>(null)
   readonly resets = signal(0)
+  readonly toggles = signal(0)
 }
 
 describe("ReaderMenuComponent", () => {
@@ -65,8 +67,12 @@ describe("ReaderMenuComponent", () => {
     open("paged", true)
     const item = menuItem("Esconder deslocamento automático")
 
-    expect(item.disabled).toBe(true)
     expect(item.textContent).toContain("Indisponível na vista de páginas")
+    // Disabled, yet still a stop for the arrow keys: its note is the only
+    // explanation, and a skipped item is never read out.
+    expect(item.getAttribute("aria-disabled")).toBe("true")
+    expect(item.disabled).toBe(false)
+    expect(item.tabIndex).toBe(0)
   })
 
   it("gives no reason while auto-scroll is available", () => {
@@ -89,5 +95,26 @@ describe("ReaderMenuComponent", () => {
       ?.click()
 
     expect(fixture.componentInstance.resets()).toBe(1)
+  })
+
+  it("toggles auto-scroll from its item, but not while the paged view disables it", () => {
+    const fixture = TestBed.createComponent(HostComponent)
+    fixture.componentInstance.viewMode.set("paged")
+    fixture.componentInstance.autoScroll.set(true)
+    fixture.detectChanges()
+    fixture.debugElement
+      .query(By.directive(MatMenuTrigger))
+      .injector.get(MatMenuTrigger)
+      .openMenu()
+    fixture.detectChanges()
+
+    // Focusable to be read out, so the click reaches the handler.
+    menuItem("Esconder deslocamento automático").click()
+    expect(fixture.componentInstance.toggles()).toBe(0)
+
+    fixture.componentInstance.viewMode.set("scrolling")
+    fixture.detectChanges()
+    menuItem("Esconder deslocamento automático").click()
+    expect(fixture.componentInstance.toggles()).toBe(1)
   })
 })

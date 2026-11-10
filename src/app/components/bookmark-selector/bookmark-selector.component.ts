@@ -101,6 +101,9 @@ export class BookmarkSelectorComponent implements OnInit {
     const data = this.data
 
     this.mover = this.ribbonsService.moveTo(data.bookId, data.chapter)
+    // A press still held as the sheet goes would fire into a dead view and
+    // drop the next click on the page.
+    this.destroyRef.onDestroy(() => this.pressEnd())
   }
 
   ngOnInit(): void {

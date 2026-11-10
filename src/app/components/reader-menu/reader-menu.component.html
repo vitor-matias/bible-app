@@ -29,7 +29,7 @@
     <span>Marcadores</span>
   </button>
   @if (autoScrollControlsVisible() !== null) {
-  <button type="button" mat-menu-item (click)="toggleAutoScrollControls.emit()" [disabled]="viewMode() === 'paged'">
+  <button type="button" mat-menu-item (click)="viewMode() !== 'paged' && toggleAutoScrollControls.emit()" [disabled]="viewMode() === 'paged'" disabledInteractive>
     <mat-icon>arrow_circle_down</mat-icon>
     <span>
       {{ autoScrollControlsVisible()

@@ -301,6 +301,23 @@ describe("BookmarkSelectorComponent", () => {
       expect(bookmarkServiceSpy.removeBookmark).toHaveBeenCalled()
     })
 
+    it("drops a press still held when the sheet is destroyed", async () => {
+      vi.useFakeTimers()
+      const blue = button("Azul,")
+      const opened = vi.fn()
+      blue.addEventListener("contextmenu", opened)
+      touch(blue, "pointerdown")
+      fixture.destroy()
+      await vi.advanceTimersByTimeAsync(600)
+
+      expect(opened).not.toHaveBeenCalled()
+      // Nor is the page's next click swallowed.
+      const clicked = vi.fn()
+      document.body.addEventListener("click", clicked, { once: true })
+      document.body.click()
+      expect(clicked).toHaveBeenCalled()
+    })
+
     it("treats a short or moving touch as a tap, not a long press", async () => {
       vi.useFakeTimers()
       const blue = button("Azul,")
