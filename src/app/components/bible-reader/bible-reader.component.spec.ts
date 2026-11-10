@@ -255,6 +255,16 @@ describe("BibleReaderComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  it("names the book drawer's dismiss button", () => {
+    fixture.detectChanges()
+
+    expect(
+      fixture.nativeElement
+        .querySelector("button.dismiss-button")
+        ?.getAttribute("aria-label"),
+    ).toBe("Fechar")
+  })
+
   describe("ngOnInit", () => {
     it("should initialize default state from services", () => {
       fixture.detectChanges() // triggers ngOnInit

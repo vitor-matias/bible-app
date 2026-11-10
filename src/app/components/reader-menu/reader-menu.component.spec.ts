@@ -13,10 +13,11 @@ import {
   template: `
     <button type="button" [matMenuTriggerFor]="menu.menu">Menu</button>
     <reader-menu #menu="readerMenu" [viewMode]="viewMode()"
-      [autoScrollControlsVisible]="autoScroll()"
+      [autoScrollControlsVisible]="autoScroll()" (resetFontSize)="resets.set(resets() + 1)"
       [studyMode]="studyMode()" [shortcuts]="shortcuts()"
       (toggleStudyMode)="toggled.update((n) => n + 1)"
-      (openShortcuts)="shortcutsOpened.update((n) => n + 1)" />
+      (openShortcuts)="shortcutsOpened.update((n) => n + 1)"
+      (toggleAutoScrollControls)="toggles.set(toggles() + 1)" />
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -27,10 +28,15 @@ class HostComponent {
   readonly shortcuts = signal(false)
   readonly toggled = signal(0)
   readonly shortcutsOpened = signal(0)
+  readonly resets = signal(0)
+  readonly toggles = signal(0)
 }
 
 describe("ReaderMenuComponent", () => {
-  function open(viewMode: "scrolling" | null, autoScroll: boolean | null) {
+  function open(
+    viewMode: "scrolling" | "paged" | null,
+    autoScroll: boolean | null,
+  ) {
     const fixture = TestBed.createComponent(HostComponent)
     fixture.componentInstance.viewMode.set(viewMode)
     fixture.componentInstance.autoScroll.set(autoScroll)
@@ -58,7 +64,69 @@ describe("ReaderMenuComponent", () => {
     const items = open("scrolling", false).join("|")
 
     expect(items).toContain("Texto contínuo")
-    expect(items).toContain("Mostrar controlos de deslocamento automático")
+    expect(items).toContain("Mostrar deslocamento automático")
+    expect(items).not.toContain("controlos")
+  })
+
+  function menuItem(text: string): HTMLButtonElement {
+    return Array.from(
+      document.querySelectorAll<HTMLButtonElement>(".mat-mdc-menu-item"),
+    ).find((item) => item.textContent?.includes(text)) as HTMLButtonElement
+  }
+
+  it("says why auto-scroll is unavailable in the paged view", () => {
+    open("paged", true)
+    const item = menuItem("Esconder deslocamento automático")
+
+    expect(item.textContent).toContain("Indisponível na vista de páginas")
+    // Disabled, yet still a stop for the arrow keys: its note is the only
+    // explanation, and a skipped item is never read out.
+    expect(item.getAttribute("aria-disabled")).toBe("true")
+    expect(item.disabled).toBe(false)
+    expect(item.tabIndex).toBe(0)
+  })
+
+  it("gives no reason while auto-scroll is available", () => {
+    open("scrolling", true)
+
+    expect(document.body.textContent).not.toContain("Indisponível")
+  })
+
+  it("resets the text size from its own control", () => {
+    const fixture = TestBed.createComponent(HostComponent)
+    fixture.componentInstance.viewMode.set("scrolling")
+    fixture.detectChanges()
+    fixture.debugElement
+      .query(By.directive(MatMenuTrigger))
+      .injector.get(MatMenuTrigger)
+      .openMenu()
+    fixture.detectChanges()
+    document
+      .querySelector<HTMLButtonElement>('[aria-label="Repor tamanho do texto"]')
+      ?.click()
+
+    expect(fixture.componentInstance.resets()).toBe(1)
+  })
+
+  it("toggles auto-scroll from its item, but not while the paged view disables it", () => {
+    const fixture = TestBed.createComponent(HostComponent)
+    fixture.componentInstance.viewMode.set("paged")
+    fixture.componentInstance.autoScroll.set(true)
+    fixture.detectChanges()
+    fixture.debugElement
+      .query(By.directive(MatMenuTrigger))
+      .injector.get(MatMenuTrigger)
+      .openMenu()
+    fixture.detectChanges()
+
+    // Focusable to be read out, so the click reaches the handler.
+    menuItem("Esconder deslocamento automático").click()
+    expect(fixture.componentInstance.toggles()).toBe(0)
+
+    fixture.componentInstance.viewMode.set("scrolling")
+    fixture.detectChanges()
+    menuItem("Esconder deslocamento automático").click()
+    expect(fixture.componentInstance.toggles()).toBe(1)
   })
 
   describe("the entries a reader's own work adds", () => {

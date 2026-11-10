@@ -28,35 +28,6 @@ h3 {
   color: var(--text-color);
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.close-button {
-  color: var(--text-color);
-}
-
-/* A shape, not bare text: it reads as a button. */
-.pill {
-  min-height: 40px;
-  padding: 0 18px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--tile-bg);
-  color: var(--text-color);
-  font: inherit;
-  font-size: 15px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.pill[aria-pressed="true"] {
-  background: var(--text-color);
-  color: var(--background-color);
-}
-
 .tiles {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -76,13 +47,24 @@ h3 {
   cursor: pointer;
 }
 
+/* A grid cell holding the tile and its (empty) menu element. */
+.tile-cell {
+  display: flex;
+  min-width: 0;
+}
+
 .tile {
   display: flex;
+  flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  min-width: 0;
   padding: 8px 4px;
+  /* A long press is the remove gesture: no iOS callout or text selection. */
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 @media (hover: hover) {
@@ -93,13 +75,12 @@ h3 {
 }
 
 .tile:focus-visible,
-.move-row:focus-visible,
-.pill:focus-visible {
+.move-row:focus-visible {
   outline: 2px solid var(--text-color);
   outline-offset: 2px;
 }
 
-/* A free ribbon where nothing can be marked, or while taking ribbons off. */
+/* A free ribbon where nothing can be marked. */
 .tile:disabled {
   opacity: 0.38;
   cursor: default;
@@ -151,25 +132,6 @@ h3 {
   color: inherit;
 }
 
-.remove-badge {
-  position: absolute;
-  top: -6px;
-  left: -6px;
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--ribbon-light-red);
-  box-shadow: 0 0 0 2px var(--card-background);
-}
-
-.remove-badge svg {
-  width: 16px;
-  height: 16px;
-  fill: #fff;
-}
-
 .move-row {
   display: flex;
   align-items: center;
@@ -217,8 +179,7 @@ h3 {
 
 @media (forced-colors: active) {
   .tile,
-  .move-row,
-  .pill {
+  .move-row {
     border: 1px solid ButtonText;
   }
 
@@ -230,4 +191,13 @@ h3 {
     outline: 3px solid Highlight;
     outline-offset: -3px;
   }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }

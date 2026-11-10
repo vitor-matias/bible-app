@@ -301,6 +301,10 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     this.textSize()?.increaseFontSize(step)
   }
 
+  resetFontSize(): void {
+    this.textSize()?.resetFontSize()
+  }
+
   async share(): Promise<void> {
     const entry = this.entry()
     const title = "Bíblia Sagrada"
@@ -550,7 +554,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
         this.increaseFontSize(action.step)
         break
       case "font-reset":
-        this.textSize()?.resetFontSize()
+        this.resetFontSize()
         break
       case "share":
         void this.share()

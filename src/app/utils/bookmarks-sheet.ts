@@ -68,13 +68,9 @@ export function bookmarksSheetState(
   }
 }
 
-/** What the ribbons do now, under them: to mark, to go back, to take off. */
-export function bookmarksHint(
-  state: BookmarksSheetState,
-  editing: boolean,
-): string {
+/** What the ribbons do now, under them: to mark, to go back. */
+export function bookmarksHint(state: BookmarksSheetState): string {
   const anyUsed = state.ribbons.some((ribbon) => ribbon.label !== null)
-  if (editing) return "Toque numa fita para a retirar."
   if (!state.canMark) {
     return anyUsed
       ? "Esta página não se pode marcar. Toque numa fita com nome para abrir essa passagem."

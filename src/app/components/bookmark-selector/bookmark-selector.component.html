@@ -2,19 +2,22 @@
 <div class="bookmark-sheet">
   <div class="header-row">
     <h3>Marcadores</h3>
-    <div class="header-actions">
-      @if (hasUsedRibbon) {
-      <button type="button" class="pill" (click)="toggleDeleteMode()" [attr.aria-pressed]="isDeleteMode">
-        {{ isDeleteMode ? "Concluído" : "Editar" }}
-      </button>
-      }
-      <button type="button" mat-icon-button class="close-button" (click)="close()" aria-label="Fechar">
-        <mat-icon>close</mat-icon>
-      </button>
-    </div>
+    <button type="button" mat-icon-button class="close-button" (click)="close()" aria-label="Fechar">
+      <mat-icon>close</mat-icon>
+    </button>
   </div>
 
-  @if (sheet.move; as offer) { @if (!isDeleteMode) {
+  @if (removed; as gone) {
+  <button type="button" class="move-row remove-undo" (click)="undoRemove()">
+    <mat-icon class="move-icon">undo</mat-icon>
+    <span class="move-text">
+      <span class="move-title">Desfazer</span>
+      <span class="move-detail">O marcador {{ gone.name }} volta a {{ gone.from }}.</span>
+    </span>
+  </button>
+  }
+
+  @if (sheet.move; as offer) {
   <button type="button" class="move-row" (click)="moveOrUndo()" [style.--tone-theme]="ribbonColor(offer.color)">
     @if (offer.done) {
     <mat-icon class="move-icon">undo</mat-icon>
@@ -26,36 +29,47 @@
       <span class="move-detail">{{ offer.done ? "O marcador " + offer.name + " volta a " + offer.from + "." : "O marcador " + offer.name + " está em " + offer.from + "." }}</span>
     </span>
   </button>
-  } }
+  }
 
   <div class="tiles">
     @for (tile of sheet.ribbons; track tile.color) {
-    <button type="button" class="tile"
-      [class.used]="tile.label !== null" [class.current]="tile.current"
-      [disabled]="tile.label === null && (isDeleteMode || !sheet.canMark)"
-      [style.--tone-theme]="ribbonColor(tile.color)"
-      [style.--tone-light]="ribbonColor(tile.color, 'light')"
-      [style.--tone-dark]="ribbonColor(tile.color, 'dark')"
-      [attr.aria-label]="spoken(tile)" [attr.title]="tile.label"
-      (click)="onTile(tile.color)">
-      <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">
-        @if (tile.label !== null) {
-        <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
-        } @else {
-        <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15l-5-2.18L7 18V5h10v13z" />
-        }
-      </svg>
-      <span class="tile-label">{{ tile.label ?? tile.name }}</span>
-      @if (isDeleteMode && tile.label !== null) {
-      <span class="remove-badge" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z" /></svg>
-      </span>
-      }
-    </button>
+    <!-- A cell of its own: the menu element would otherwise be a grid item. -->
+    <div class="tile-cell">
+      <button type="button" class="tile"
+        [class.used]="tile.label !== null" [class.current]="tile.current"
+        [disabled]="tile.label === null && !sheet.canMark"
+        [style.--tone-theme]="ribbonColor(tile.color)"
+        [style.--tone-light]="ribbonColor(tile.color, 'light')"
+        [style.--tone-dark]="ribbonColor(tile.color, 'dark')"
+        [matContextMenuTriggerFor]="ribbonMenu" [matContextMenuTriggerDisabled]="tile.label === null"
+        [attr.aria-describedby]="tile.label !== null ? 'ribbon-remove-hint' : null"
+        [attr.aria-label]="spoken(tile)" [attr.title]="tile.label"
+        (click)="onTile(tile.color)" (pointerdown)="pressStart($event, tile.color)"
+        (pointermove)="pressMove($event)" (pointerup)="pressEnd()" (pointercancel)="pressEnd()" (pointerleave)="pressEnd()">
+        <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">
+          @if (tile.label !== null) {
+          <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
+          } @else {
+          <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15l-5-2.18L7 18V5h10v13z" />
+          }
+        </svg>
+        <span class="tile-label">{{ tile.label ?? tile.name }}</span>
+      </button>
+      <mat-menu #ribbonMenu="matMenu">
+        <button type="button" mat-menu-item (click)="removeRibbon(tile.color)">
+          <mat-icon>delete</mat-icon>
+          <span>Remover marcador</span>
+        </button>
+      </mat-menu>
+    </div>
     }
   </div>
 
   <!-- Said as it changes, as the native sheets do: a ribbon set, moved or taken off. -->
   <p class="hint" role="status" aria-live="polite">{{ hint }}</p>
+  @if (hasMarked) {
+  <p class="hint ribbon-hint">Mantenha premido um marcador para o remover.</p>
+  <span id="ribbon-remove-hint" class="sr-only">Prima a tecla de menu ou Shift+F10 para remover o marcador.</span>
+  }
 </div>
 }

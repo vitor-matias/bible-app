@@ -42,6 +42,28 @@ describe("BookSelectorComponent", () => {
     ).toEqual(["Antigo Testamento", "Novo Testamento"])
   })
 
+  it("labels each testament's toggle in Portuguese, by state", () => {
+    const element = fixture.nativeElement as HTMLElement
+    const toggles = () =>
+      Array.from(
+        element.querySelectorAll<HTMLButtonElement>(
+          ".book-group button[aria-label]",
+        ),
+      )
+    const before = toggles().map((button) => button.ariaLabel)
+
+    expect(before.length).toBeGreaterThan(0)
+    for (const label of before) {
+      expect(label).toMatch(/^Recolher /)
+    }
+
+    toggles()[0].click()
+    fixture.detectChanges()
+
+    expect(toggles()[0].ariaLabel).toMatch(/^Expandir /)
+    expect(toggles()[0].ariaLabel?.slice(9)).toBe(before[0]?.slice(9))
+  })
+
   it("lists the pastoral index after Apocalipse, and submits it", () => {
     const element = fixture.nativeElement as HTMLElement
     const entries = Array.from(

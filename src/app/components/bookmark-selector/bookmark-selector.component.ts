@@ -14,6 +14,7 @@ import {
 } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
+import { MatMenuModule } from "@angular/material/menu"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import {
@@ -32,10 +33,43 @@ import {
   sheetPassageLabel,
 } from "../../utils/bookmarks-sheet"
 
+/** A touch held this long on a marked ribbon opens its menu. */
+const LONG_PRESS_MS = 500
+/** A finger that travels further than this is scrolling, not pressing. */
+const LONG_PRESS_SLOP_PX = 10
+
+/**
+ * Lifting the finger after a long press still clicks, on whatever is under
+ * it by then: the menu just opened there, which a click closes. That click is
+ * dropped; the next touch is a new gesture and keeps its own.
+ */
+function swallowNextClick(): void {
+  const swallow = (event: Event) => {
+    event.stopPropagation()
+    event.preventDefault()
+  }
+  const options = { capture: true, once: true }
+  document.addEventListener("click", swallow, options)
+  document.addEventListener(
+    "pointerdown",
+    () => document.removeEventListener("click", swallow, options),
+    options,
+  )
+}
+
+/** The removal offered, once made, as its undo. */
+interface RemoveOffer {
+  bookmark: Bookmark
+  /** As the ribbon's adjective: "vermelho". */
+  name: string
+  /** Where it was: "Mateus 5". */
+  from: string
+}
+
 @Component({
   selector: "app-bookmark-selector",
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatIconModule],
+  imports: [CommonModule, MatButtonModule, MatIconModule, MatMenuModule],
   templateUrl: "./bookmark-selector.component.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ["./bookmark-selector.component.css"],
@@ -58,6 +92,9 @@ export class BookmarkSelectorComponent implements OnInit {
 
   /** What the tiles, the move row and the hint show: see bookmarks-sheet.ts. */
   state?: BookmarksSheetState
+  removed?: RemoveOffer
+  private pressTimer?: ReturnType<typeof setTimeout>
+  private pressOrigin?: { x: number; y: number }
 
   private destroyRef = inject(DestroyRef)
   private ribbonsService = inject(BookmarkRibbonsService)
@@ -68,25 +105,21 @@ export class BookmarkSelectorComponent implements OnInit {
     const data = this.data
 
     this.mover = this.ribbonsService.moveTo(data.bookId, data.chapter)
-  }
-
-  isDeleteMode = false
-
-  toggleDeleteMode() {
-    this.isDeleteMode = !this.isDeleteMode
+    // A press still held as the sheet goes would fire into a dead view and
+    // drop the next click on the page.
+    this.destroyRef.onDestroy(() => this.pressEnd())
   }
 
   close(): void {
     this.bottomSheetRef.dismiss()
   }
 
-  /** Editing is for taking ribbons off: nothing to do while none is on. */
-  get hasUsedRibbon(): boolean {
+  get hasMarked(): boolean {
     return this.ribbons.some((ribbon) => ribbon.bookmark)
   }
 
   get hint(): string {
-    return this.state ? bookmarksHint(this.state, this.isDeleteMode) : ""
+    return this.state ? bookmarksHint(this.state) : ""
   }
 
   /** As a screen reader should say a tile: its colour, where it is, whether it is here. */
@@ -99,6 +132,77 @@ export class BookmarkSelectorComponent implements OnInit {
     if (ribbon) this.handleRibbonClick(ribbon)
   }
 
+  /**
+   * Touch has no right-click (iOS Safari sends no contextmenu at all), so a
+   * held touch raises the same event the mouse and the ContextMenu key do,
+   * which the menu trigger answers.
+   */
+  pressStart(event: PointerEvent, color: string): void {
+    this.pressEnd()
+    const marked = this.ribbons.find((r) => r.value === color)?.bookmark
+    if (!marked || event.pointerType === "mouse") return
+    const target = event.currentTarget as HTMLElement
+    const { clientX, clientY } = event
+    this.pressOrigin = { x: clientX, y: clientY }
+    this.pressTimer = setTimeout(() => {
+      swallowNextClick()
+      target.dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+          button: 2,
+          clientX,
+          clientY,
+        }),
+      )
+    }, LONG_PRESS_MS)
+  }
+
+  pressMove(event: PointerEvent): void {
+    const origin = this.pressOrigin
+    if (
+      origin &&
+      Math.hypot(event.clientX - origin.x, event.clientY - origin.y) >
+        LONG_PRESS_SLOP_PX
+    ) {
+      this.pressEnd()
+    }
+  }
+
+  pressEnd(): void {
+    clearTimeout(this.pressTimer)
+    this.pressTimer = undefined
+  }
+
+  /** The menu's "Remover marcador"; the sheet then offers to put it back. */
+  removeRibbon(color: string): void {
+    const ribbon = this.ribbons.find((r) => r.value === color)
+    const bookmark = ribbon?.bookmark && { ...ribbon.bookmark }
+    if (!ribbon || !bookmark) return
+    this.ribbonsService.remove(ribbon)
+    this.removed = {
+      bookmark,
+      name: ribbon.spoken.toLowerCase(),
+      from: this.passageLabel(bookmark.bookId, bookmark.chapter),
+    }
+    this.changeDetector.markForCheck()
+  }
+
+  undoRemove(): void {
+    if (!this.removed) return
+    this.ribbonsService.restore(this.removed.bookmark)
+    this.removed = undefined
+    this.changeDetector.markForCheck()
+  }
+
+  private passageLabel(bookId: string, chapter: number): string {
+    return sheetPassageLabel(
+      (id) => this.bookService.findBookById(id),
+      bookId,
+      chapter,
+    )
+  }
+
   ngOnInit(): void {
     this.bookmarkService.bookmarks$
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -109,18 +213,26 @@ export class BookmarkSelectorComponent implements OnInit {
 
   updateRibbons(allBookmarks: Bookmark[]) {
     this.ribbons = this.ribbonsService.ribbons(allBookmarks)
-    if (!this.hasUsedRibbon) this.isDeleteMode = false
+    // The offer ends when the removed ribbon is marked again (its undo, a new
+    // mark) or another ribbon takes its chapter: a chapter holds one ribbon,
+    // so putting this one back would delete that other one.
+    const gone = this.removed?.bookmark
+    if (
+      gone &&
+      allBookmarks.some(
+        (b) =>
+          b.color === gone.color ||
+          (b.bookId === gone.bookId && b.chapter === gone.chapter),
+      )
+    ) {
+      this.removed = undefined
+    }
     this.state = bookmarksSheetState(
       this.ribbons,
       this.data.bookId,
       this.data.chapter,
       this.mover,
-      (bookId, chapter) =>
-        sheetPassageLabel(
-          (id) => this.bookService.findBookById(id),
-          bookId,
-          chapter,
-        ),
+      (bookId, chapter) => this.passageLabel(bookId, chapter),
     )
     this.changeDetector.markForCheck()
   }
@@ -137,11 +249,6 @@ export class BookmarkSelectorComponent implements OnInit {
   }
 
   handleRibbonClick(ribbon: RibbonState): void {
-    if (this.isDeleteMode) {
-      this.ribbonsService.remove(ribbon)
-      return
-    }
-
     // 1. If already assigned elsewhere -> Navigate
     if (ribbon.bookmark) {
       if (this.ribbonsService.open(ribbon)) this.bottomSheetRef.dismiss()

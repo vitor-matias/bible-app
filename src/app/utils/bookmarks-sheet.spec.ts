@@ -17,35 +17,29 @@ const state = (over: Partial<BookmarksSheetState>): BookmarksSheetState => ({
 
 describe("bookmarksHint", () => {
   it("tells a reader with no ribbon on how to begin, and how to come back", () => {
-    expect(bookmarksHint(state({}), false)).toBe(
+    expect(bookmarksHint(state({}))).toBe(
       "Escolha uma cor para marcar Mateus 5. Para voltar, abra Marcadores e toque nessa fita.",
     )
   })
 
   it("adds that a named ribbon goes back, once one is on", () => {
-    expect(bookmarksHint(state({ ribbons: ribbons("Mt 7") }), false)).toBe(
+    expect(bookmarksHint(state({ ribbons: ribbons("Mt 7") }))).toBe(
       "Toque numa fita com nome para voltar a essa passagem, ou numa fita livre para marcar Mateus 5.",
     )
   })
 
   it("says the chapter is marked, and how to change the colour", () => {
-    expect(
-      bookmarksHint(state({ ribbons: ribbons("Mt 5", true) }), false),
-    ).toBe("Mateus 5 está marcado. Toque noutra fita livre para mudar a cor.")
-  })
-
-  it("says how to take one off while editing, whatever else is true", () => {
-    expect(bookmarksHint(state({ canMark: false }), true)).toBe(
-      "Toque numa fita para a retirar.",
+    expect(bookmarksHint(state({ ribbons: ribbons("Mt 5", true) }))).toBe(
+      "Mateus 5 está marcado. Toque noutra fita livre para mudar a cor.",
     )
   })
 
   it("says a page can't be marked, and that named ribbons still open", () => {
-    expect(bookmarksHint(state({ canMark: false }), false)).toBe(
+    expect(bookmarksHint(state({ canMark: false }))).toBe(
       "Esta página não se pode marcar.",
     )
     expect(
-      bookmarksHint(state({ canMark: false, ribbons: ribbons("Mt 7") }), false),
+      bookmarksHint(state({ canMark: false, ribbons: ribbons("Mt 7") })),
     ).toBe(
       "Esta página não se pode marcar. Toque numa fita com nome para abrir essa passagem.",
     )

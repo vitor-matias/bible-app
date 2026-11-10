@@ -236,6 +236,25 @@ describe("HeaderComponent", () => {
   })
 
   // References open from the stored Bible offline, and words are searched in it.
+  it("hides the search icon from screen readers; the button names it", () => {
+    const button = fixture.nativeElement.querySelector(".searchButton")
+
+    expect(button.getAttribute("aria-label")).toBe("Pesquisar")
+    expect(button.querySelector("mat-icon").getAttribute("aria-hidden")).toBe(
+      "true",
+    )
+  })
+
+  it("resets the text size from the web menu's control", () => {
+    const resets = vi.fn()
+    component.resetFontSizeEvent.subscribe(resets)
+    fixture.debugElement
+      .query(By.directive(ReaderMenuComponent))
+      .componentInstance.resetFontSize.emit()
+
+    expect(resets).toHaveBeenCalledTimes(1)
+  })
+
   it("keeps the search button while offline", () => {
     isOfflineSubject.next(true)
     fixture.detectChanges()

@@ -6,6 +6,7 @@ import {
 } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
+import { MatMenuModule } from "@angular/material/menu"
 import { Router } from "@angular/router"
 import { BehaviorSubject } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
@@ -70,6 +71,7 @@ describe("BookmarkSelectorComponent", () => {
         CommonModule,
         MatButtonModule,
         MatIconModule,
+        MatMenuModule,
       ],
       providers: [
         { provide: MAT_BOTTOM_SHEET_DATA, useValue: mockData },
@@ -169,48 +171,247 @@ describe("BookmarkSelectorComponent", () => {
     return computed
   }
 
-  describe("editing", () => {
-    const pill = (): HTMLButtonElement | null =>
-      fixture.nativeElement.querySelector(".pill")
-    const tiles = (): HTMLButtonElement[] =>
-      Array.from(fixture.nativeElement.querySelectorAll(".tile"))
-
-    it("is offered only while a ribbon is on", () => {
-      expect(pill()?.textContent?.trim()).toBe("Editar")
-
-      bookmarksSubject.next([])
+  describe("removing a ribbon", () => {
+    const button = (label: string): HTMLButtonElement =>
+      fixture.nativeElement.querySelector(`.tile[aria-label^="${label}"]`)
+    const removeItem = (): HTMLElement | null =>
+      document.querySelector(".mat-mdc-menu-panel [mat-menu-item]")
+    const undoButton = (): HTMLButtonElement | null =>
+      fixture.nativeElement.querySelector(".remove-undo")
+    const rightClick = (el: HTMLElement) =>
+      el.dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+          button: 2,
+          clientX: 20,
+          clientY: 20,
+        }),
+      )
+    const touch = (el: HTMLElement, type: string, x = 20) =>
+      el.dispatchEvent(
+        new PointerEvent(type, {
+          bubbles: true,
+          pointerType: "touch",
+          clientX: x,
+          clientY: 20,
+        }),
+      )
+    const settle = async () => {
       fixture.detectChanges()
+      await fixture.whenStable()
+    }
 
-      expect(pill()).toBeNull()
+    it("has no delete-mode toggle", () => {
+      expect(fixture.nativeElement.querySelector("[aria-pressed]")).toBeNull()
+      expect(
+        fixture.nativeElement.querySelector(
+          '[aria-label="Alternar modo de eliminação"]',
+        ),
+      ).toBeNull()
     })
 
-    it("shows a badge on each used ribbon and lets the free ones step back", () => {
-      pill()?.click()
-      fixture.detectChanges()
-
-      expect(pill()?.textContent?.trim()).toBe("Concluído")
-      expect(pill()?.getAttribute("aria-pressed")).toBe("true")
-      expect(
-        fixture.nativeElement.querySelectorAll(".remove-badge").length,
-      ).toBe(1)
-      expect(tiles().filter((tile) => tile.disabled).length).toBe(7)
-      expect(tiles()[4].disabled).toBe(false)
-      expect(
-        fixture.nativeElement.querySelector(".hint").textContent,
-      ).toContain("Toque numa fita para a retirar.")
+    it("opens the passage on a tap and never removes", () => {
+      button("Azul,").click()
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["mrk", "2"])
+      expect(bookmarkServiceSpy.removeBookmark).not.toHaveBeenCalled()
     })
 
-    it("takes the ribbon off when its tile is tapped, and ends when none is left", () => {
-      pill()?.click()
-      fixture.detectChanges()
+    it("opens the menu on right-click, above the sheet, and removes on choosing", async () => {
+      rightClick(button("Azul,"))
+      await settle()
+      const item = removeItem()
+      expect(item?.textContent).toContain("Remover marcador")
+      expect(item?.querySelector("mat-icon")?.textContent).toBe("delete")
+      // The menu is the topmost thing at its own position.
+      const box = (
+        document.querySelector(".mat-mdc-menu-panel") as HTMLElement
+      ).getBoundingClientRect()
+      expect(
+        document
+          .elementFromPoint(box.left + 5, box.top + 5)
+          ?.closest(".mat-mdc-menu-panel"),
+      ).not.toBeNull()
+      expect(bookmarkServiceSpy.removeBookmark).not.toHaveBeenCalled()
 
-      tiles()[4].click()
+      item?.click()
       expect(bookmarkServiceSpy.removeBookmark).toHaveBeenCalledWith("MRK", 2)
+    })
 
+    it("offers free ribbons no menu", async () => {
+      rightClick(button("Vermelho"))
+      await settle()
+      expect(removeItem()).toBeNull()
+    })
+
+    it("opens the menu on a long press without navigating", async () => {
+      vi.useFakeTimers()
+      const blue = button("Azul,")
+      touch(blue, "pointerdown")
+      await vi.advanceTimersByTimeAsync(499)
+      expect(removeItem()).toBeNull()
+      await vi.advanceTimersByTimeAsync(2)
+      touch(blue, "pointerup")
+      await settle()
+      // Lifting the finger clicks whatever is under it by now: the menu,
+      // which a click closes. Seen in Chrome with real touch input.
+      const panel = document.querySelector(".mat-mdc-menu-content")
+      panel?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }),
+      )
+      await settle()
+
+      expect(removeItem()).not.toBeNull()
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
+      expect(bottomSheetRefSpy.dismiss).not.toHaveBeenCalled()
+
+      // The next touch is a new gesture: its click removes the ribbon.
+      const item = removeItem() as HTMLElement
+      touch(item, "pointerdown")
+      item.click()
+      await settle()
+      expect(bookmarkServiceSpy.removeBookmark).toHaveBeenCalled()
+    })
+
+    it("arms no long press for a held mouse button or on a free ribbon", async () => {
+      vi.useFakeTimers()
+      const opened = vi.fn()
+      const swallowed = vi.fn()
+
+      // The mouse has a right-click of its own.
+      const blue = button("Azul,")
+      blue.addEventListener("contextmenu", opened)
+      blue.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          bubbles: true,
+          pointerType: "mouse",
+        }),
+      )
+      await vi.advanceTimersByTimeAsync(600)
+
+      // A free ribbon has nothing to remove; its press must not eat a click.
+      const red = button("Vermelho")
+      red.addEventListener("contextmenu", opened)
+      touch(red, "pointerdown")
+      await vi.advanceTimersByTimeAsync(600)
+
+      expect(opened).not.toHaveBeenCalled()
+      expect(removeItem()).toBeNull()
+      document.body.addEventListener("click", swallowed, { once: true })
+      document.body.click()
+      expect(swallowed).toHaveBeenCalled()
+    })
+
+    it("drops a press still held when the sheet is destroyed", async () => {
+      vi.useFakeTimers()
+      const blue = button("Azul,")
+      const opened = vi.fn()
+      blue.addEventListener("contextmenu", opened)
+      touch(blue, "pointerdown")
+      fixture.destroy()
+      await vi.advanceTimersByTimeAsync(600)
+
+      expect(opened).not.toHaveBeenCalled()
+      // Nor is the page's next click swallowed.
+      const clicked = vi.fn()
+      document.body.addEventListener("click", clicked, { once: true })
+      document.body.click()
+      expect(clicked).toHaveBeenCalled()
+    })
+
+    it("treats a short or moving touch as a tap, not a long press", async () => {
+      vi.useFakeTimers()
+      const blue = button("Azul,")
+      touch(blue, "pointerdown")
+      await vi.advanceTimersByTimeAsync(200)
+      touch(blue, "pointerup")
+      await vi.advanceTimersByTimeAsync(600)
+      expect(removeItem()).toBeNull()
+
+      touch(blue, "pointerdown")
+      touch(blue, "pointermove", 60)
+      await vi.advanceTimersByTimeAsync(600)
+      expect(removeItem()).toBeNull()
+    })
+
+    it("tells screen readers the action exists, on marked ribbons only", () => {
+      const hintId = button("Azul,").getAttribute("aria-describedby")
+      expect(hintId).toBeTruthy()
+      expect(
+        fixture.nativeElement.querySelector(`#${hintId}`).textContent,
+      ).toContain("Shift+F10")
+      expect(button("Vermelho").hasAttribute("aria-describedby")).toBe(false)
+    })
+
+    it("offers an undo that puts the ribbon back where it was", async () => {
+      rightClick(button("Azul,"))
+      await settle()
+      removeItem()?.click()
       bookmarksSubject.next([])
       fixture.detectChanges()
-      expect(component.isDeleteMode).toBe(false)
-      expect(tiles().filter((tile) => tile.disabled).length).toBe(0)
+      expect(undoButton()?.textContent).toContain("Desfazer")
+      expect(undoButton()?.textContent).toContain(
+        "O marcador azul volta a Marcos 2.",
+      )
+
+      bookmarkServiceSpy.addBookmark.mockClear()
+      undoButton()?.click()
+      expect(bookmarkServiceSpy.addBookmark).toHaveBeenCalledWith(
+        "MRK",
+        2,
+        "blue",
+      )
+      bookmarksSubject.next(mockBookmarks)
+      fixture.detectChanges()
+      expect(undoButton()).toBeNull()
+    })
+
+    it("drops the undo when the ribbon is marked again some other way", async () => {
+      rightClick(button("Azul,"))
+      await settle()
+      removeItem()?.click()
+      bookmarksSubject.next([])
+      fixture.detectChanges()
+      expect(undoButton()).not.toBeNull()
+
+      bookmarksSubject.next([
+        { bookId: "GEN", chapter: 1, color: "blue", timestamp: 9 },
+      ])
+      fixture.detectChanges()
+      expect(undoButton()).toBeNull()
+    })
+
+    it("drops the undo when another ribbon takes the removed one's chapter", async () => {
+      rightClick(button("Azul,"))
+      await settle()
+      removeItem()?.click()
+      bookmarksSubject.next([])
+      fixture.detectChanges()
+      expect(undoButton()).not.toBeNull()
+
+      // A chapter holds one ribbon: putting blue back would delete red.
+      bookmarksSubject.next([
+        { bookId: "MRK", chapter: 2, color: "red", timestamp: 9 },
+      ])
+      fixture.detectChanges()
+      expect(undoButton()).toBeNull()
+    })
+  })
+
+  describe("the long-press hint", () => {
+    const hint = (): HTMLElement | null =>
+      fixture.nativeElement.querySelector(".ribbon-hint")
+
+    it("shows while a ribbon marks a passage", () => {
+      expect(hint()?.textContent).toContain(
+        "Mantenha premido um marcador para o remover.",
+      )
+    })
+
+    it("is absent when no ribbon marks one", () => {
+      bookmarksSubject.next([])
+      fixture.detectChanges()
+      expect(hint()).toBeNull()
     })
   })
 
@@ -321,17 +522,6 @@ describe("BookmarkSelectorComponent", () => {
 
     expect(bookmarkServiceSpy.removeBookmark).not.toHaveBeenCalled()
     expect(bottomSheetRefSpy.dismiss).toHaveBeenCalled()
-  })
-
-  it("should delete bookmark when in delete mode", () => {
-    component.toggleDeleteMode()
-    const blueRibbon = component.ribbons.find((r) => r.value === "blue")
-    expect(blueRibbon).toBeTruthy()
-    if (blueRibbon) {
-      component.handleRibbonClick(blueRibbon)
-    }
-
-    expect(bookmarkServiceSpy.removeBookmark).toHaveBeenCalledWith("MRK", 2)
   })
 
   describe("moving a ribbon read on from", () => {
