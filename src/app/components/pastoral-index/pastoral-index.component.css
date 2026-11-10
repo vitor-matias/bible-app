@@ -237,7 +237,8 @@ mat-panel-title {
   hyphens: manual;
 }
 
-:host-context(html.justified-text) :is(.index-intro, .entry) {
+/* The web's only: the apps keep both ragged (pastoral-index.native.css). */
+:host-context(html.justified-text):not(.native) :is(.index-intro, .entry) {
   text-align: justify;
   hyphens: auto;
 }

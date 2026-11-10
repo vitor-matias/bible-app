@@ -1172,6 +1172,19 @@ describe("PastoralIndexComponent", () => {
       expect(letters[0].getBoundingClientRect().width).toBeLessThanOrEqual(48)
     })
 
+    // Capping the tracks at 48 px wrapped the row below about 1146 px, under
+    // the sticky tools, whose height allows for one row.
+    it("keeps every letter on one row", async () => {
+      const fixture = await open(undefined, false, false, true)
+      const el: HTMLElement = fixture.nativeElement
+      const tops = new Set(
+        [...el.querySelectorAll(".letters button")].map((button) =>
+          Math.round(button.getBoundingClientRect().top),
+        ),
+      )
+      expect(tops.size).toBe(1)
+    })
+
     it("never splits a theme across two columns", async () => {
       const fixture = await open(undefined, false, false, true)
       const el: HTMLElement = fixture.nativeElement
@@ -1767,6 +1780,18 @@ describe("PastoralIndexComponent", () => {
       document.documentElement.classList.add("justified-text")
       expect(align(".index-intro")).toBe("justify")
       expect(align("#tema-amor .entry")).toBe("justify")
+    })
+
+    // The web's choice overrode the apps' ragged themes, which neither
+    // platform justifies.
+    it("keeps the apps' themes ragged when justified is chosen", async () => {
+      const fixture = await open("amor", true)
+      const el: HTMLElement = fixture.nativeElement
+      document.documentElement.classList.add("justified-text")
+
+      const entry = el.querySelector("#tema-amor .entry") as Element
+      expect(getComputedStyle(entry).textAlign).toBe("start")
+      expect(getComputedStyle(entry).hyphens).toBe("manual")
     })
   })
 
