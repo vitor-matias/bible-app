@@ -218,9 +218,28 @@ mat-panel-title {
   hyphens: auto;
 }
 
-/* As the reader does: justified lines gape once the text is this large. */
+/* As the reader does: justified lines gape once the text is this large, or
+   on a phone; the reader's own choice (TextAlignService) wins over both. */
 .large-text .entry {
   text-align: start;
+}
+
+@media (max-width: 480px) {
+  .index-intro,
+  .entry {
+    text-align: start;
+    hyphens: manual;
+  }
+}
+
+:host-context(html.ragged-text) :is(.index-intro, .entry) {
+  text-align: start;
+  hyphens: manual;
+}
+
+:host-context(html.justified-text) :is(.index-intro, .entry) {
+  text-align: justify;
+  hyphens: auto;
 }
 
 .entry p {

@@ -1724,6 +1724,38 @@ describe("PastoralIndexComponent", () => {
     }
   })
 
+  // On a 393 px phone the intro and themes were justified, with rivers, while
+  // the reader beside them was ragged-right.
+  describe("on a phone", () => {
+    const frame = window.frameElement as HTMLElement | null
+    let width = ""
+
+    beforeEach(() => {
+      width = frame?.style.width ?? ""
+    })
+
+    afterEach(() => {
+      if (frame) frame.style.width = width
+      document.documentElement.classList.remove("justified-text")
+    })
+
+    it("sets the intro and themes ragged-right until justified is chosen", async () => {
+      const fixture = await open("amor")
+      const el: HTMLElement = fixture.nativeElement
+      expect(frame, "the specs run in a frame").toBeTruthy()
+      if (frame) frame.style.width = "390px"
+      const align = (selector: string) =>
+        getComputedStyle(el.querySelector(selector) as Element).textAlign
+
+      expect(align(".index-intro")).toBe("start")
+      expect(align("#tema-amor .entry")).toBe("start")
+
+      document.documentElement.classList.add("justified-text")
+      expect(align(".index-intro")).toBe("justify")
+      expect(align("#tema-amor .entry")).toBe("justify")
+    })
+  })
+
   describe("in the apps", () => {
     const lastChrome = () => chrome.show.mock.lastCall?.[0]
 
