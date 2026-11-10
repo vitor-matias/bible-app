@@ -90,6 +90,8 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   /** Groups for rendering - quotes and their continuations */
   displayGroups: DisplayGroup[] = []
+  /** The index in the verse's text of the last element drawn. */
+  lastDisplayedIndex = -1
 
   private resizeObserver: ResizeObserver | null = null
   private resizeObserverTimeout: ReturnType<typeof setTimeout> | null = null
@@ -154,13 +156,21 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (data) {
       this.chapterNumberDisplayIndex = this.computeChapterNumberIndex()
       this.hasFootnotes = data.text.some((t) => t.type === "footnote")
-      this.notesOnText = this.hasFootnotes && !this.nativeFootnotes.enabled
+      // Not in study mode, where a click on the text selects the verse and
+      // the notes are a column already on screen: a run made a button would
+      // be a tab stop and a "button" that does nothing.
+      this.notesOnText =
+        this.hasFootnotes && !this.nativeFootnotes.enabled && !this.studyMode
       this.liturgicalNumber =
         data.bookId === PSALMS_BOOK_ID
           ? liturgicalPsalmNumber(data.chapterNumber)
           : null
       this.parsedReferences = this.computeParsedReferences()
       this.displayGroups = this.computeDisplayGroups()
+      // The last thing drawn closes the verse's line, and empty elements at
+      // the end are not drawn: counting them left nothing to close it.
+      this.lastDisplayedIndex =
+        this.displayGroups.at(-1)?.elements.at(-1)?.originalIndex ?? -1
     }
   }
 

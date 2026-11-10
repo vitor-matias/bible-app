@@ -1225,6 +1225,22 @@ describe("VerseComponent", () => {
       })
     }
 
+    // A click there selects the verse, so a run that is also a "button" is a
+    // tab stop that answers Enter and Space with nothing.
+    it("makes no button or tab stop of the text, whose notes are already on screen", () => {
+      fixture.componentRef.setInput("studyMode", true)
+      setData(fixture, studyVerse())
+      fixture.detectChanges()
+
+      const runs = Array.from<HTMLElement>(
+        fixture.nativeElement.querySelectorAll(".verseRun"),
+      ).filter((run) => run.textContent?.includes("O segundo"))
+      expect(runs.length).toBe(1)
+      expect(runs[0].hasAttribute("role")).toBe(false)
+      expect(runs[0].hasAttribute("tabindex")).toBe(false)
+      expect(runs[0].classList.contains("interactive")).toBe(false)
+    })
+
     it("has a verse number that is easier to hit than it looks", () => {
       fixture.componentRef.setInput("studyMode", true)
       setData(fixture, studyVerse())
@@ -1249,9 +1265,11 @@ describe("VerseComponent", () => {
       const selected: VerseSelection[] = []
       component.verseSelected.subscribe((event) => selected.push(event))
 
-      fixture.nativeElement
-        .querySelector(".verseRun.interactive")
-        .dispatchEvent(new MouseEvent("click", { bubbles: true }))
+      Array.from<HTMLElement>(
+        fixture.nativeElement.querySelectorAll(".verseRun"),
+      )
+        .find((run) => run.textContent?.includes("O segundo"))
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
 
       expect(selected.length).toBe(1)
       expect(selected[0].verse.number).toBe(39)
@@ -1472,6 +1490,25 @@ describe("VerseComponent", () => {
           fixture.nativeElement.querySelectorAll(".footnoteIndicator").length,
         ).toBe(1)
       }
+    })
+
+    // The break that closes a quoted line is on the last element; when that is
+    // an empty one it is not drawn, and the next verse ran on from the poetry.
+    it("still closes the line after poetry that ends in an empty element", () => {
+      const closes = (text: TextType[]): boolean => {
+        setData(fixture, makeVerse({ number: 5, text }))
+        fixture.detectChanges()
+        const wrapper = fixture.nativeElement.querySelector(".quoteLineWrapper")
+        return wrapper.lastElementChild?.tagName === "BR"
+      }
+
+      expect(closes([{ type: "quote", text: "a" }] as TextType[])).toBe(true)
+      expect(
+        closes([
+          { type: "quote", text: "a" },
+          { type: "quote", text: "" },
+        ] as TextType[]),
+      ).toBe(true)
     })
 
     it("drops an empty element instead of printing a blank line for it", () => {

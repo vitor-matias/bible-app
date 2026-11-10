@@ -4,6 +4,7 @@ import {
   BACKUP_APP,
   BACKUP_VERSION,
   buildBackup,
+  dayStamp,
   type NotebookContext,
   notebookEntries,
   parseBackup,
@@ -220,5 +221,23 @@ describe("the notes and marks as text", () => {
     expect(toPlainText([], context)).toBe(
       "As minhas notas e marcas\nBíblia Sagrada, Difusora Bíblica\n2026-11-03\n",
     )
+  })
+})
+
+describe("dayStamp", () => {
+  // Late in the evening west of Greenwich, the UTC date is already tomorrow's:
+  // the file and the page must carry the day the reader is in. The date's own
+  // accessors are pinned, so this holds in whatever zone the suite runs in.
+  it("is the reader's own day, not the UTC one", () => {
+    const date = new Date("2026-11-04T01:00:00Z")
+    vi.spyOn(date, "getFullYear").mockReturnValue(2026)
+    vi.spyOn(date, "getMonth").mockReturnValue(10)
+    vi.spyOn(date, "getDate").mockReturnValue(3)
+
+    expect(dayStamp(date)).toBe("2026-11-03")
+  })
+
+  it("pads the month and the day", () => {
+    expect(dayStamp(new Date(2026, 0, 5, 12))).toBe("2026-01-05")
   })
 })

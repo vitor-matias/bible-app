@@ -1672,30 +1672,42 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       // A verse arriving without its text — a partial response, a cached
       // stub — simply has no poetry to classify.
       const parts = verse.text ?? []
-      // Section headings are skipped along with the apparatus: a heading is
-      // not narrative introducing a quotation. Counting it as prose made the
-      // chapter's front matter — which is nothing but a heading — look like
-      // the opening of a quotation, and every psalm inherited it.
-      const first = parts.find(
-        (part) =>
-          part.type !== "footnote" &&
-          part.type !== "references" &&
-          part.type !== "section" &&
-          !VerseComponent.isBlank(part),
-      )
+      const first = BibleReaderComponent.leadingPart(parts)
       const hasQuote = parts.some((part) => part.type === "quote")
 
       if (first && first.type !== "quote") {
         // Prose leads this verse: it introduces a quotation, or it ends one.
+        // The next verse is read by the same rule as this one, or a quotation
+        // after an empty run or a heading was never seen coming.
         inQuotation =
           (hasQuote ||
-            BibleReaderComponent.startsWithQuote(verses, index + 1)) &&
+            BibleReaderComponent.leadingPart(verses?.[index + 1]?.text)
+              ?.type === "quote") &&
           BibleReaderComponent.introducesQuotation(parts)
       }
       if (inQuotation && hasQuote) marked.add(verse.number)
     })
 
     return marked
+  }
+
+  /**
+   * The first thing of a verse that a reader meets. Section headings are
+   * skipped along with the apparatus: a heading is not narrative introducing a
+   * quotation. Counting it as prose made the chapter's front matter — which is
+   * nothing but a heading — look like the opening of a quotation, and every
+   * psalm inherited it. An empty run is not drawn, so it is not met either.
+   */
+  private static leadingPart(
+    parts: TextType[] | undefined,
+  ): TextType | undefined {
+    return (parts ?? []).find(
+      (part) =>
+        part.type !== "footnote" &&
+        part.type !== "references" &&
+        part.type !== "section" &&
+        !VerseComponent.isBlank(part),
+    )
   }
 
   /**

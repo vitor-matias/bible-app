@@ -1439,6 +1439,23 @@ describe("BibleReaderComponent", () => {
       expect(component.isQuotationVerse(verses[2])).toBe(false)
     })
 
+    // The next verse's first part is met by the same rule as any verse's: an
+    // empty run or a heading in front of the poetry is not the poetry's start.
+    it("sees a quotation coming through an empty run or a heading in the next verse", () => {
+      const intro = prose("Como é que David lhe chama Senhor, dizendo:")
+      for (const lead of [prose(""), prose(" "), heading("O SENHOR DISSE")]) {
+        const verses = [
+          verse(43, [intro]),
+          verse(44, [lead, quote("Disse o Senhor ao meu Senhor:")]),
+          verse(45, [prose("Ora, se David lhe chama Senhor…")]),
+        ]
+        load(verses)
+
+        expect(component.isQuotationVerse(verses[1])).toBe(true)
+        expect(component.isQuotationVerse(verses[2])).toBe(false)
+      }
+    })
+
     it("does not read a prophet's superscription as introducing a quotation", () => {
       // Isaiah 1: a prose title, then a chapter of poetry. Every verse after
       // the title opens on poetry and so continues what came before — which

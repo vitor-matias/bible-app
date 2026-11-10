@@ -137,7 +137,7 @@
     @if (group.type === 'normal') {
       @for (element of group.elements; track element.originalIndex) {
         <span class="verseText">
-          <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === data().text.length - 1, isQuote: false }"></ng-container>
+          <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === lastDisplayedIndex, isQuote: false }"></ng-container>
         </span>
       }
     } @else {
@@ -147,7 +147,7 @@
         <br>
           <span #indentable [attr.data-index]="firstElement.originalIndex" [ngClass]="{'indent': indentStates[firstElement.originalIndex] !== false, 'indent2': getQuoteIdentLevel(firstText) === 2}" class="quoteLineWrapper">
             @for (element of group.elements; track element.originalIndex) {
-              <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === data().text.length - 1, isQuote: element.data.type === 'quote' }"></ng-container>
+              <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === lastDisplayedIndex, isQuote: element.data.type === 'quote' }"></ng-container>
             }
           </span><span class="verseRun verseGap">{{ " " }}</span>
       </span>

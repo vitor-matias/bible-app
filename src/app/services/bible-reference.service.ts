@@ -184,9 +184,10 @@ export class BibleReferenceService {
       !query.slice(0, reference.index).trim() &&
       !query.slice(reference.index + reference.match.length).trim()
     if (reference && whole) {
-      const book = this.bookService.findBook(reference.book)
-      // findBook answers with the About page for a name it does not know.
-      if (!book || book.id === "about") return null
+      // The book of the Bible the text names: "joao 3,16" is the Gospel, not
+      // the introduction to the Letters of John, which has the id "joao".
+      const book = this.bookService.findTypedBook(reference.book)
+      if (!book) return null
       const first = reference.verses?.[0]
       return {
         book,
@@ -200,7 +201,11 @@ export class BibleReferenceService {
       }
     }
     if (reference) return null
-    const book = this.bookService.findBook(query)
+    // A bare name may also be an introduction's ("Pentateuco"), which only
+    // findBook knows, and which answers with the About page for a name it
+    // does not know either.
+    const book =
+      this.bookService.findTypedBook(query) ?? this.bookService.findBook(query)
     return !book || book.id === "about" ? null : { book, chapter: 1 }
   }
 

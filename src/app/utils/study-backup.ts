@@ -223,7 +223,11 @@ export function toMarkdown(
     .concat("\n")
 }
 
-/** "2026-11-03", for a file's name and a printed page. */
+/**
+ * "2026-11-03", for a file's name and a printed page: the reader's own day, not
+ * the UTC one, which at night is already (or still) another.
+ */
 export function dayStamp(date: Date): string {
-  return date.toISOString().slice(0, 10)
+  const two = (n: number) => String(n).padStart(2, "0")
+  return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`
 }

@@ -1,4 +1,5 @@
 import { TestBed } from "@angular/core/testing"
+import { normalizeForSearch } from "../utils/text"
 import {
   BibleReferenceService,
   type VerseReference,
@@ -40,15 +41,19 @@ describe("BibleReferenceService", () => {
           chapterCount: 1,
         },
       ],
-      findBook(this: { getBooks: () => Book[] }, name: string) {
+      findTypedBook(this: { getBooks: () => Book[] }, name: string) {
         const wanted = name.toLocaleLowerCase()
-        return (
-          this.getBooks().find((book) =>
-            [book.id, book.abrv, book.shortName, book.name].some(
-              (known) => known.toLocaleLowerCase() === wanted,
-            ),
-          ) ?? ({ id: "about" } as Book)
+        return this.getBooks().find((book) =>
+          [book.id, book.abrv, book.shortName, book.name].some(
+            (known) => known.toLocaleLowerCase() === wanted,
+          ),
         )
+      },
+      findBook(
+        this: { findTypedBook: (name: string) => Book | undefined },
+        name: string,
+      ) {
+        return this.findTypedBook(name) ?? ({ id: "about" } as Book)
       },
     }
 
@@ -473,6 +478,84 @@ describe("BibleReferenceService", () => {
   })
 
   // References as liturgical leaflets and the edition's own notes write them.
+  // "Cartas de João" is an introduction with the id "joao", which is also what
+  // "João" is typed as: the typed name is the Gospel, as on the search page.
+  describe("a name that an introduction shares with a book", () => {
+    beforeEach(() => {
+      TestBed.resetTestingModule()
+      const books = [
+        {
+          abrv: "Jo",
+          shortName: "João",
+          name: "João",
+          id: "jhn",
+          chapterCount: 21,
+        },
+        {
+          abrv: "Cartas de João",
+          shortName: "Cartas de João",
+          name: "Cartas de João",
+          id: "joao",
+          introSlug: "joao",
+        },
+        {
+          abrv: "Pentateuco",
+          shortName: "Pentateuco",
+          name: "Pentateuco",
+          id: "pentateuco",
+          introSlug: "pentateuco",
+        },
+      ] as Book[]
+      const same = (a: string, b: string) =>
+        normalizeForSearch(a) === normalizeForSearch(b)
+      const named = (book: Book, name: string) =>
+        [book.id, book.abrv, book.shortName, book.name].some((known) =>
+          same(known, name),
+        )
+      TestBed.configureTestingModule({
+        providers: [
+          {
+            provide: BookService,
+            useValue: {
+              books$: { subscribe: (fn: () => void) => fn() },
+              getBooks: () => books,
+              // As the real ones: ids first, and only findTypedBook leaves
+              // the introductions out.
+              findBook: (name: string) =>
+                books.find((book) => same(book.id, name)) ??
+                books.find((book) => named(book, name)) ??
+                ({ id: "about" } as Book),
+              findTypedBook: (name: string) =>
+                books.find((book) => !book.introSlug && named(book, name)),
+            },
+          },
+        ],
+      })
+      service = TestBed.inject(BibleReferenceService)
+    })
+
+    it("opens the book a reference names, not the introduction", () => {
+      const destination = service.destinationOf("joao 3,16")
+
+      expect(destination?.book.id).toBe("jhn")
+      expect(destination?.chapter).toBe(3)
+      expect(destination?.verseStart).toBe(16)
+    })
+
+    it("opens the book a bare name names, too", () => {
+      const destination = service.destinationOf("joao")
+
+      expect(destination?.book.id).toBe("jhn")
+      expect(destination?.chapter).toBe(1)
+    })
+
+    it("still opens an introduction that only an introduction is called", () => {
+      expect(service.destinationOf("Pentateuco")?.book.introSlug).toBe(
+        "pentateuco",
+      )
+    })
+  })
+
   describe("verse lists and verse parts", () => {
     beforeEach(() => {
       TestBed.resetTestingModule()
