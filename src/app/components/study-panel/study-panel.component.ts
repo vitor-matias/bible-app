@@ -847,6 +847,9 @@ export class StudyPanelComponent implements OnChanges {
     const query = text.trim()
     this.searchQuery = query
     this.searchSubscription?.unsubscribe()
+    // A page still on its way was cancelled with it, and the handlers that
+    // would have ended its "A carregar…" were cancelled too.
+    this.searchLoadingMore = false
     if (!query) {
       this.searchResults = []
       this.searchTotal = 0

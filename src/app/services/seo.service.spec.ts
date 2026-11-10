@@ -392,6 +392,28 @@ describe("SeoService", () => {
     })
   })
 
+  describe("updateForMyNotes", () => {
+    // The reader's notes are theirs alone: nothing here should be indexed.
+    it("keeps the page out of the index, at its own canonical URL", () => {
+      service.updateForMyNotes()
+
+      expect(title.getTitle()).toBe(
+        `As minhas notas e marcas | ${SEO_SITE_NAME}`,
+      )
+      expect(getMetaContent('name="robots"')).toBe("noindex, follow")
+      expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/minhas-notas`)
+    })
+
+    it("drops the crumbs of the chapter it came from", () => {
+      service.updateForChapter(genesis, 1)
+      expect(doc.getElementById("seo-breadcrumbs")).not.toBeNull()
+
+      service.updateForMyNotes()
+
+      expect(doc.getElementById("seo-breadcrumbs")).toBeNull()
+    })
+  })
+
   describe("updateForSearch", () => {
     it("sets a noindex robots tag and the search canonical URL", () => {
       service.updateForSearch()

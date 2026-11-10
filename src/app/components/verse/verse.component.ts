@@ -277,15 +277,27 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     }
   }
 
+  /**
+   * What a reader sees first of the verse. A blank element is not it: it is
+   * dropped from what is drawn (see computeDisplayGroups), so counting it left
+   * the number with nowhere to go — the inline one was skipped for the quote
+   * that was not drawn, and the next quote was not the first.
+   */
+  private static isShown(t: TextType): boolean {
+    return (
+      t.type !== "footnote" &&
+      t.type !== "references" &&
+      !VerseComponent.isBlank(t)
+    )
+  }
+
   getFirstTextType(): string | undefined {
-    return this.data().text.find(
-      (t) => t.type !== "footnote" && t.type !== "references",
-    )?.type
+    return this.data().text.find((t) => VerseComponent.isShown(t))?.type
   }
 
   isFirstDisplayableElement(index: number): boolean {
-    const firstIdx = this.data().text.findIndex(
-      (t) => t.type !== "footnote" && t.type !== "references",
+    const firstIdx = this.data().text.findIndex((t) =>
+      VerseComponent.isShown(t),
     )
     return index === firstIdx
   }

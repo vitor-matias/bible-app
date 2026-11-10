@@ -5,6 +5,7 @@ import { BibleApiService } from "../../services/bible-api.service"
 import { BookService } from "../../services/book.service"
 import { HighlightService } from "../../services/highlight.service"
 import { NotesService } from "../../services/notes.service"
+import { SeoService } from "../../services/seo.service"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BACKUP_APP } from "../../utils/study-backup"
 import { MyNotesComponent } from "./my-notes.component"
@@ -98,6 +99,16 @@ describe("MyNotesComponent", () => {
   afterEach(() => {
     localStorage.removeItem("verseNotes")
     localStorage.removeItem("verseHighlights")
+  })
+
+  it("keeps itself out of the search index", () => {
+    const seo = vi
+      .spyOn(TestBed.inject(SeoService), "updateForMyNotes")
+      .mockReturnValue(undefined)
+
+    fixture.detectChanges()
+
+    expect(seo).toHaveBeenCalledOnce()
   })
 
   it("says how to begin when there is nothing yet", () => {

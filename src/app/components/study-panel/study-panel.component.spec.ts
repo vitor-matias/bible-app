@@ -1908,6 +1908,26 @@ describe("StudyPanelComponent", () => {
       ).toBeNull()
     })
 
+    it("stops saying it is loading when a new search cancels the page on its way", () => {
+      api.search.mockReturnValueOnce(found(hits(1, 30), 45))
+      component.onSearchSubmit("amarás")
+      api.search.mockReturnValueOnce(new Subject())
+      component.loadMoreResults()
+      expect(component.searchLoadingMore).toBe(true)
+
+      // A new search leaves that page unanswered, and its handlers cancelled.
+      api.search.mockReturnValueOnce(found(hits(1, 30), 45))
+      component.onSearchSubmit("outra")
+      fixture.detectChanges()
+
+      expect(component.searchLoadingMore).toBe(false)
+      const more = fixture.nativeElement.querySelector(
+        "#study-tabpanel-search .verse-action",
+      ) as HTMLButtonElement
+      expect(more.disabled).toBe(false)
+      expect(more.textContent).toContain("Mais resultados")
+    })
+
     it("does not list a verse twice when a page overlaps the last", () => {
       api.search.mockReturnValueOnce(found(hits(1, 30), 40))
       component.onSearchSubmit("amarás")

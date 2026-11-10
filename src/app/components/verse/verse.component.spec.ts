@@ -1448,6 +1448,32 @@ describe("VerseComponent", () => {
       })
     }
 
+    // The number and the notes marker ride on the first element drawn; with a
+    // blank one in front they were drawn nowhere.
+    it("still prints the verse number and notes marker when its first element is blank", () => {
+      for (const blank of ["", " ", "\n"]) {
+        setData(
+          fixture,
+          makeVerse({
+            number: 3,
+            text: [
+              { type: "quote", text: blank },
+              { type: "quote", text: "Feliz o homem" },
+              { type: "footnote", reference: "1, 3", text: "uma nota" },
+            ] as TextType[],
+          }),
+        )
+        fixture.detectChanges()
+
+        const numbers = fixture.nativeElement.querySelectorAll(".verseNumber")
+        expect(numbers.length).toBe(1)
+        expect(numbers[0].textContent).toBe("3")
+        expect(
+          fixture.nativeElement.querySelectorAll(".footnoteIndicator").length,
+        ).toBe(1)
+      }
+    })
+
     it("drops an empty element instead of printing a blank line for it", () => {
       setData(fixture, psalmVerse())
 
