@@ -59,8 +59,11 @@ export class StudyColumns {
     pointerId: number
     x: number
     value: number
-    /** Whether the pointer has moved since it went down. */
-    moved: boolean
+    /**
+     * What the last move painted; unset until the pointer has moved. A cancel
+     * carries no position of its own, so this is what it has to commit.
+     */
+    painted?: number
   }
 
   constructor(private readonly host: StudyColumnsHost) {}
@@ -126,7 +129,6 @@ export class StudyColumns {
       pointerId: event.pointerId,
       x: event.clientX,
       value: this.value(divider),
-      moved: false,
     }
     ;(event.target as HTMLElement).setPointerCapture(event.pointerId)
     this.host.repaint()
@@ -135,11 +137,12 @@ export class StudyColumns {
   move(event: PointerEvent): void {
     const from = this.dragFrom
     if (!from || from.pointerId !== event.pointerId || !this.resizing) return
-    from.moved = true
-    this.paint(
+    from.painted = this.nextValue(
       this.resizing,
-      this.nextValue(this.resizing, event.clientX - from.x, from.value),
+      event.clientX - from.x,
+      from.value,
     )
+    this.paint(this.resizing, from.painted)
   }
 
   end(event: PointerEvent): void {
@@ -149,10 +152,14 @@ export class StudyColumns {
     // A click is not a drag: committing it would write the width it happened
     // to measure over the layout's responsive default, and keep it there
     // across window sizes and reloads.
-    if (from.moved) {
+    if (from.painted !== undefined) {
+      // A cancelled pointer reports no coordinates (Chromium gives 0), which
+      // would throw the divider to its limit: keep what the reader saw.
       this.commit(
         divider,
-        this.nextValue(divider, event.clientX - from.x, from.value),
+        event.type === "pointercancel"
+          ? from.painted
+          : this.nextValue(divider, event.clientX - from.x, from.value),
       )
     }
     this.dragFrom = undefined

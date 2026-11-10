@@ -24,7 +24,7 @@ import {
 } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 
-import { BehaviorSubject, of, Subject, throwError } from "rxjs"
+import { BehaviorSubject, NEVER, of, Subject, throwError } from "rxjs"
 import type { Mock } from "vitest"
 import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
 import { AnalyticsService } from "../../services/analytics.service"
@@ -2559,6 +2559,29 @@ describe("BibleReaderComponent", () => {
           expect(replaceState).toHaveBeenLastCalledWith("/mt/22", "")
         })
 
+        // The router has moved the address on to the chapter being loaded while
+        // the verses on screen are still the old chapter's.
+        it("is left alone while another chapter loads, whose address it already is", () => {
+          apiServiceSpy.getChapter.mockReturnValue(NEVER)
+          component.getChapter(2)
+
+          component.onVerseSelected({ verse: verses[1] })
+          component.clearSelection()
+
+          expect(replaceState).not.toHaveBeenCalled()
+        })
+
+        it("is left alone while a chapter of another book loads", () => {
+          apiServiceSpy.getChapter.mockReturnValue(NEVER)
+          // Chapter 1 of the next book is the number already on screen.
+          component.book = { id: "exo", name: "Êxodo", shortName: "Ex" } as Book
+          component.getChapter(1)
+
+          component.onVerseSelected({ verse: verses[1] })
+
+          expect(replaceState).not.toHaveBeenCalled()
+        })
+
         it("leaves the address alone when there was nothing to let go of", () => {
           component.clearSelection()
 
@@ -2758,6 +2781,48 @@ describe("BibleReaderComponent", () => {
 
       // Switching builds a new scrolling column, which starts at its top.
       expect(restore).toHaveBeenCalledExactlyOnceWith(20)
+    })
+
+    it("measures a paged layout by its container, which is what shows a page", () => {
+      fixture.detectChanges()
+      component.viewMode = "paged"
+      const measure = vi
+        .spyOn(
+          BibleReaderComponent as unknown as {
+            firstVisibleVerseIn: () => number | undefined
+          },
+          "firstVisibleVerseIn",
+        )
+        .mockReturnValue(20)
+      // The switch builds another container: the one that showed the pages.
+      const container = component.bookContainer.nativeElement
+
+      studyMode.activate()
+
+      // The drawer around it does not scroll: its pages sit side by side.
+      expect(measure).toHaveBeenCalledExactlyOnceWith(container)
+    })
+
+    it("reads the verse on the page showing, not the first of every page turned", () => {
+      const host = document.createElement("div")
+      host.style.cssText =
+        "position:relative;overflow:hidden;width:100px;height:100px"
+      for (const number of [1, 2, 3]) {
+        const verse = document.createElement("verse")
+        verse.id = String(number)
+        // A page to a verse, side by side in the one band, as columns lay them.
+        verse.style.cssText = `position:absolute;top:0;left:${(number - 1) * 100}px;width:100px;height:100px`
+        host.appendChild(verse)
+      }
+      document.body.appendChild(host)
+      const firstVisibleVerseIn = BibleReaderComponent[
+        "firstVisibleVerseIn" as keyof typeof BibleReaderComponent
+      ] as unknown as (host: HTMLElement) => number | undefined
+
+      expect(firstVisibleVerseIn(host)).toBe(1)
+      host.scrollLeft = 200
+      expect(firstVisibleVerseIn(host)).toBe(3)
+      host.remove()
     })
 
     it("scrolls the new column to the verse that was being read", () => {

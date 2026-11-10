@@ -62,7 +62,7 @@ import {
   placeReferences,
   sectionStartsIn,
 } from "../../utils/chapter-references"
-import { liturgicalPsalmNumber, PSALMS_BOOK_ID } from "../../utils/psalms"
+import { liturgicalPsalmNumberAt, PSALMS_BOOK_ID } from "../../utils/psalms"
 import { formatCitation, formatPassage } from "../../utils/text"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 
@@ -1123,7 +1123,9 @@ export class StudyPanelComponent implements OnChanges {
     if (!verse || !this.book) return
     const reference = `${this.book.name} ${this.selectedVerseLabel}`
     const psalm = this.book.id === PSALMS_BOOK_ID ? this.chapter?.number : null
-    const liturgical = psalm ? liturgicalPsalmNumber(psalm) : null
+    const liturgical = psalm
+      ? liturgicalPsalmNumberAt(psalm, verse.number)
+      : null
     await this.copyWithFeedback(
       formatCitation(
         StudyPanelComponent.plainText(verse),

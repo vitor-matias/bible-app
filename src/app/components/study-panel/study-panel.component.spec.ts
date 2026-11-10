@@ -2385,6 +2385,37 @@ describe("StudyPanelComponent", () => {
       )
     })
 
+    it.each([
+      [116, 9, "114,9"],
+      [116, 12, "115,12"],
+      [147, 5, "146,5"],
+      [147, 12, "147,12"],
+    ])(
+      "gives the half of a divided psalm, not a range: Salmos %i,%i",
+      async (psalm, number, shown) => {
+        const writeText = vi.fn().mockResolvedValue(undefined)
+        vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } })
+        const at = verse(number, [plain("Louvai")])
+        setInputs({
+          book: {
+            ...BOOK,
+            id: "psa",
+            name: "Salmos",
+            shortName: "Sl",
+            abrv: "Sl",
+          },
+          chapter: { bookId: "psa", number: psalm, verses: [at] },
+          selection: { verse: at },
+        })
+
+        await component.copyAsCitation()
+
+        expect(writeText).toHaveBeenCalledExactlyOnceWith(
+          `«Louvai»\n— Salmos ${psalm},${number} (numeração litúrgica: ${shown}), ${EDITION}`,
+        )
+      },
+    )
+
     it("says aloud that it could not, when the clipboard refuses", async () => {
       const announce = vi
         .spyOn(TestBed.inject(LiveAnnouncer), "announce")

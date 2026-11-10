@@ -366,6 +366,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     return this.studyMode && this.book?.id !== "about"
   }
 
+  /** A chapter has been asked for and the one on screen is not it yet. */
+  private get isLoadingAnotherChapter(): boolean {
+    return (
+      !!this.shown &&
+      (this.shown.chapter !== this.pendingChapter ||
+        this.shown.book.id !== this.book?.id)
+    )
+  }
+
   /** The element study mode scrolls, standing in for the drawer content. */
   private get scrollHost(): HTMLElement | undefined {
     return this.studyModeActive
@@ -465,9 +474,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         // one and builds the other: left at that, turning study mode on — or
         // dragging the window across its minimum width — dropped the reader
         // at the top of the chapter they were halfway down.
+        // The paged layout does not scroll the drawer: its pages sit side by
+        // side inside the container, which is what shows one of them.
         const reading =
           active !== this.studyMode && this.bookBlock
-            ? BibleReaderComponent.firstVisibleVerseIn(this.scrollHost)
+            ? BibleReaderComponent.firstVisibleVerseIn(
+                this.effectiveViewMode === "paged"
+                  ? this.bookContainer?.nativeElement
+                  : this.scrollHost,
+              )
             : undefined
         const wasActive = this.studyMode
         this.studyMode = active
@@ -1417,6 +1432,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
    */
   private writeSelectionToUrl(): void {
     if (!isPlatformBrowser(this.platformId)) return
+    // The address already names the chapter being loaded, while the verses
+    // chosen belong to the one still on screen: writing one over the other
+    // sent a reload or a shared link to a verse of the wrong chapter. The
+    // load clears the selection, so there is nothing to keep in step.
+    if (this.isLoadingAnotherChapter) return
     const path = this.location.path().split("?")[0]
     const verse = this.selection?.verse.number
     this.location.replaceState(path, verse ? `verseStart=${verse}` : "")
@@ -1438,17 +1458,22 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     })
   }
 
-  /** The verse at the top of a scrolling column: the one being read. */
+  /** The verse at the top of a scrolling column, or on a paged one's page: the one being read. */
   private static firstVisibleVerseIn(
     host: HTMLElement | undefined,
   ): Verse["number"] | undefined {
     if (!host) return undefined
-    const top = host.getBoundingClientRect().top
+    const box = host.getBoundingClientRect()
     for (const element of host.querySelectorAll<HTMLElement>("verse")) {
+      const rect = element.getBoundingClientRect()
+      // Pages lie side by side in the same band, so every verse of the pages
+      // already turned also passes the test below; only one that reaches the
+      // visible page is the one being read.
+      if (rect.right <= box.left || rect.left >= box.right) continue
       // The first verse whose text has not yet passed above the fold. A
       // little tolerance so a verse only just clipped at the top still
       // counts as the one being read.
-      if (element.getBoundingClientRect().bottom >= top + 8) {
+      if (rect.bottom >= box.top + 8) {
         const number = Number(element.id)
         return Number.isFinite(number) ? number : undefined
       }

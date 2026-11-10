@@ -145,6 +145,25 @@ describe("StudyColumns", () => {
       expect(columns.widths.rail).toBe(340)
       expect(save).toHaveBeenCalledWith({ rail: 340 })
     })
+
+    it("keeps what was painted when the pointer is cancelled, not the 0 it reports", () => {
+      columns.widths = { rail: 300 }
+      down(100)
+      columns.move(pointer("pointermove", 140))
+      // A cancel has no position: Chromium gives clientX 0.
+      columns.end(pointer("pointercancel", 0))
+
+      expect(columns.widths.rail).toBe(340)
+      expect(save).toHaveBeenCalledWith({ rail: 340 })
+    })
+
+    it("pins nothing when a click is cancelled", () => {
+      down(100)
+      columns.end(pointer("pointercancel", 0))
+
+      expect(columns.widths.rail).toBeUndefined()
+      expect(save).not.toHaveBeenCalled()
+    })
   })
 
   it("does nothing to a layout that is not there yet", () => {

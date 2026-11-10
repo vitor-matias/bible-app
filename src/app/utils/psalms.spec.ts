@@ -1,6 +1,7 @@
 import {
   isAmbiguousPsalmNumber,
   liturgicalPsalmNumber,
+  liturgicalPsalmNumberAt,
   parsePsalmPair,
   psalmFromLiturgical,
 } from "./psalms"
@@ -17,6 +18,29 @@ describe("psalm numbering", () => {
     expect(liturgicalPsalmNumber(117)).toBe("116")
     expect(liturgicalPsalmNumber(146)).toBe("145")
     expect(liturgicalPsalmNumber(147)).toBe("146-147")
+  })
+
+  it("names the half of a divided psalm a verse is in, not both", () => {
+    expect(liturgicalPsalmNumberAt(116, 9)).toBe("114")
+    expect(liturgicalPsalmNumberAt(116, 10)).toBe("115")
+    expect(liturgicalPsalmNumberAt(147, 11)).toBe("146")
+    expect(liturgicalPsalmNumberAt(147, 12)).toBe("147")
+    // Every other psalm has one number, whatever the verse.
+    expect(liturgicalPsalmNumberAt(23, 5)).toBe("22")
+    expect(liturgicalPsalmNumberAt(8, 5)).toBeNull()
+  })
+
+  it("agrees with where psalmFromLiturgical opens the halves", () => {
+    for (const [psalm, liturgical] of [
+      [116, 115],
+      [147, 147],
+    ]) {
+      const { verse } = psalmFromLiturgical(liturgical) ?? { verse: 0 }
+      expect(liturgicalPsalmNumberAt(psalm, verse)).toBe(String(liturgical))
+      expect(liturgicalPsalmNumberAt(psalm, verse - 1)).toBe(
+        String(liturgical - 1),
+      )
+    }
   })
 
   it("gives none where both numberings agree", () => {

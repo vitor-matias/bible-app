@@ -3,6 +3,7 @@ import { lastCall } from "../testing/spy-obj"
 import {
   BibleReaderAnimationService,
   HIGHLIGHT_CLASS,
+  HIGHLIGHT_CONTINUES_CLASS,
   HIGHLIGHT_DURATION_MS,
   LAYOUT_SETTLE_MS,
 } from "./bible-reader-animation.service"
@@ -356,6 +357,49 @@ describe("BibleReaderAnimationService", () => {
 
       await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS)
       expect(verses.some((el) => el.classList.contains(HIGHLIGHT_CLASS))).toBe(
+        false,
+      )
+    })
+
+    it("should mark every verse of a range but the first as continuing the stroke", async () => {
+      const bookBlock = document.createElement("div")
+      const verses = [1, 2, 3].map((n) => {
+        const el = document.createElement("div")
+        el.id = String(n)
+        bookBlock.appendChild(el)
+        vi.spyOn(el, "scrollIntoView").mockReturnValue(undefined)
+        return el
+      })
+      const continues = () =>
+        verses.map((el) => el.classList.contains(HIGHLIGHT_CONTINUES_CLASS))
+
+      service.scrollToVerseElement(bookBlock, undefined, 1, 3, true, false)
+      await vi.advanceTimersByTimeAsync(100)
+
+      expect(continues()).toEqual([false, true, true])
+
+      await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS)
+      expect(continues()).toEqual([false, false, false])
+    })
+
+    it("should not leave a lone verse marked as continuing when it was part of a range", async () => {
+      const bookBlock = document.createElement("div")
+      const verses = [1, 2].map((n) => {
+        const el = document.createElement("div")
+        el.id = String(n)
+        bookBlock.appendChild(el)
+        vi.spyOn(el, "scrollIntoView").mockReturnValue(undefined)
+        return el
+      })
+
+      service.scrollToVerseElement(bookBlock, undefined, 1, 2, true, false)
+      await vi.advanceTimersByTimeAsync(100)
+      expect(verses[1].classList.contains(HIGHLIGHT_CONTINUES_CLASS)).toBe(true)
+
+      // The same verse asked for alone opens its own stroke.
+      service.scrollToVerseElement(bookBlock, undefined, 2, 2, true, false)
+      await vi.advanceTimersByTimeAsync(100)
+      expect(verses[1].classList.contains(HIGHLIGHT_CONTINUES_CLASS)).toBe(
         false,
       )
     })
