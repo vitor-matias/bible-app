@@ -1,10 +1,14 @@
 <div class="bookmark-selector-container">
   <div class="header-row">
     <h3>Marcadores</h3>
-    <button type="button" mat-icon-button (click)="toggleDeleteMode()" [class.delete-active]="isDeleteMode" aria-label="Alternar modo de eliminação" [attr.aria-pressed]="isDeleteMode">
-      <mat-icon>delete</mat-icon>
-    </button>
   </div>
+
+  @if (removed; as offer) {
+  <button type="button" mat-stroked-button class="move-button remove-undo" (click)="undoRemove()">
+    <mat-icon>undo</mat-icon>
+    {{ offer.label }}
+  </button>
+  }
 
   @if (move; as offer) {
   <button type="button" mat-stroked-button class="move-button" (click)="moveOrUndo()">
@@ -17,7 +21,11 @@
     @for (ribbon of ribbons; track ribbon.value) {
     <div class="ribbon-item">
       <button type="button" class="color-button"
-        (click)="handleRibbonClick(ribbon)" [attr.aria-label]="ribbon.currentRef ? ribbon.spoken + ', ' + ribbon.currentRef : ribbon.spoken">
+        [matContextMenuTriggerFor]="ribbonMenu" [matContextMenuTriggerDisabled]="!ribbon.bookmark"
+        [attr.aria-describedby]="ribbon.bookmark ? 'ribbon-remove-hint' : null"
+        (click)="handleRibbonClick(ribbon)" (pointerdown)="pressStart($event, ribbon)"
+        (pointermove)="pressMove($event)" (pointerup)="pressEnd()" (pointercancel)="pressEnd()" (pointerleave)="pressEnd()"
+        [attr.aria-label]="ribbon.currentRef ? ribbon.spoken + ', ' + ribbon.currentRef : ribbon.spoken">
         <!-- The ribbon's notched end is drawn, not clipped: Android's WebView
              painted a clip-path'd button garbled inside the sheet. -->
         <svg class="ribbon-shape" viewBox="0 0 56 80" preserveAspectRatio="none" aria-hidden="true">
@@ -29,7 +37,18 @@
         <mat-icon class="add-icon">add</mat-icon>
         }
       </button>
+      <mat-menu #ribbonMenu="matMenu">
+        <button type="button" mat-menu-item (click)="removeRibbon(ribbon)">
+          <mat-icon>delete</mat-icon>
+          <span>Remover marcador</span>
+        </button>
+      </mat-menu>
     </div>
     }
   </div>
+
+  @if (hasMarked) {
+  <p class="ribbon-hint">Mantenha premido um marcador para o remover.</p>
+  <span id="ribbon-remove-hint" class="sr-only">Prima a tecla de menu ou Shift+F10 para remover o marcador.</span>
+  }
 </div>

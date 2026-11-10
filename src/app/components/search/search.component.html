@@ -24,7 +24,7 @@
   }
 
   <!-- The count and the outcome, read out once: no toast covers the list. -->
-  <p class="visually-hidden" role="status">{{ statusMessage }}</p>
+  <p class="visually-hidden" role="status">{{ pendingSearch ? "A procurar…" : statusMessage }}</p>
 
   @if (!hasSearched && !pendingSearch) {
     <!-- An offer above answers what was typed: no "search for…" under it. -->
@@ -54,9 +54,19 @@
       </ul>
     </div>
   } @else if ((isLoading || pendingSearch) && searchResults.length === 0) {
-    <div class="empty-state">
-      <mat-icon class="empty-state-icon">hourglass_empty</mat-icon>
-      <p>A procurar…</p>
+    <!-- Rows shaped like the results, so they replace these without a jump. -->
+    <div class="results-section skeleton" aria-hidden="true">
+      <ul class="results-list">
+        @for (row of [1, 2, 3, 4, 5]; track row) {
+          <li class="result-item">
+            <div class="result-card">
+              <span class="skeleton-bar skeleton-ref"></span>
+              <span class="skeleton-bar skeleton-line"></span>
+              <span class="skeleton-bar skeleton-line skeleton-short"></span>
+            </div>
+          </li>
+        }
+      </ul>
     </div>
   } @else if (searchFailed) {
     <div class="empty-state">

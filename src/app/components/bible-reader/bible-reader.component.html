@@ -11,7 +11,7 @@
   <mat-drawer-container class="bookSelectorContainer" #container>
     @if (books.length) {
     <mat-drawer class="bookSelector" mode="over" position="start" #bookDrawer closed>
-      <button type="button" matIconButton (click)="dismissBookDrawer()" class="dismiss-button" #bookDrawerCloseButton>
+      <button type="button" matIconButton (click)="dismissBookDrawer()" class="dismiss-button" aria-label="Fechar" #bookDrawerCloseButton>
         <mat-icon>menu_open</mat-icon>
       </button>
       @if(showBooks){
