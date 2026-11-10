@@ -19,12 +19,28 @@
   max-width: 100%;
 }
 
+/* A long title takes a second line before it is cut: the row and its button
+   grow from Material's fixed heights to hold it. */
 .chapter-title {
-  /* Lets the flex item shrink so the ellipsis can appear. */
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  text-align: start;
+  line-height: 1.25;
+}
+
+mat-list-item.mat-mdc-list-item {
+  height: auto;
+  min-height: 48px;
+}
+
+.chapterSelectorButton.mat-mdc-unelevated-button {
+  height: auto;
+  min-height: 40px;
+  padding-block: 4px;
 }
 
 .chapterSelectorButton:hover {
