@@ -344,6 +344,20 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
    * the app's own copy rather than scripture, so it has no verses to select,
    * no references to show, and stays in the plain reader.
    */
+  /**
+   * The book the loaded chapter belongs to. `book` runs ahead of `chapter`:
+   * it is set the moment the route changes, and the chapter only when it has
+   * arrived — never, if it cannot be had. The study panel and the selection
+   * bar work on the chapter and its selected verse, and with the new book
+   * over the old chapter they saved a note, a mark or a citation of verse
+   * 5,3 under whichever book was being opened.
+   */
+  get chapterBook(): Book {
+    const owner = this.chapter?.bookId
+    if (!owner || owner === this.book.id) return this.book
+    return this.bookService.findBookById(owner) ?? this.book
+  }
+
   get studyModeActive(): boolean {
     return this.studyMode && this.book?.id !== "about"
   }

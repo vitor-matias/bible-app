@@ -2288,6 +2288,72 @@ describe("BibleReaderComponent", () => {
         component.getChapter(1)
       })
 
+      // `book` is set the moment the route changes and `chapter` only when the
+      // chapter has arrived, so with a link to a book that cannot load the panel
+      // and the bar would act on the old verse under the new book.
+      describe("the book the panel and the selection bar work on", () => {
+        const loaded = { id: "gen", name: "Génesis", shortName: "Gn" } as Book
+        const ahead = { id: "exo", name: "Êxodo", shortName: "Ex" } as Book
+
+        beforeEach(() => {
+          bookServiceSpy.findBookById.mockImplementation((id: string) =>
+            id === "gen" ? loaded : undefined,
+          )
+          component.chapter = {
+            bookId: "gen",
+            number: 1,
+            verses,
+          } as unknown as Chapter
+        })
+
+        it("is the loaded chapter's own while another book is on its way", () => {
+          component.book = ahead
+
+          expect(component.chapterBook).toBe(loaded)
+        })
+
+        it("is the book itself once its chapter is the one loaded", () => {
+          component.book = loaded
+
+          expect(component.chapterBook).toBe(loaded)
+        })
+
+        it("falls back to the book when the chapter's cannot be looked up", () => {
+          component.chapter = {
+            bookId: "lev",
+            number: 1,
+            verses,
+          } as unknown as Chapter
+          component.book = ahead
+
+          expect(component.chapterBook).toBe(ahead)
+        })
+
+        it("is what the panel and the bar are given, not the book ahead of them", () => {
+          // Rendered first, so ngOnInit has run; then the route moves on.
+          fixture.detectChanges()
+          bookServiceSpy.findBookById.mockImplementation((id: string) =>
+            id === "gen" ? loaded : undefined,
+          )
+          component.chapter = {
+            bookId: "gen",
+            number: 1,
+            verses,
+          } as unknown as Chapter
+          component.book = ahead
+          ;(
+            component as unknown as { cdr: ChangeDetectorRef }
+          ).cdr.markForCheck()
+          fixture.detectChanges()
+
+          const panel = fixture.debugElement.query(By.css("study-panel"))
+          const bar = fixture.debugElement.query(By.css("selection-actions"))
+          // Not instantiated in this spec, so the binding is on the element.
+          expect(panel.properties["book"]).toBe(loaded)
+          expect(bar.properties["book"]).toBe(loaded)
+        })
+      })
+
       describe("the address", () => {
         let replaceState: ReturnType<typeof vi.spyOn>
 

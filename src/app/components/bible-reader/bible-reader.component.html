@@ -22,7 +22,7 @@
   </header>
   <!-- Outside both layouts, because selecting text means the same thing in
        each: it is fixed-positioned against the selection, not the column. -->
-  <selection-actions [book]="book" [chapter]="chapter" [parallelBook]="parallelBook"
+  <selection-actions [book]="chapterBook" [chapter]="chapter" [parallelBook]="parallelBook"
     [parallelChapter]="parallel?.chapter ?? null"></selection-actions>
 
   @if (studyModeActive) {
@@ -138,7 +138,7 @@
       (pointercancel)="columns.end($event)" (keydown)="columns.key('panel', $event)"
       (dblclick)="columns.reset('panel')"></div>
 
-    <study-panel class="study-aside" [book]="book" [chapter]="chapter" [selection]="selection"
+    <study-panel class="study-aside" [book]="chapterBook" [chapter]="chapter" [selection]="selection"
       [visibleVerse]="visibleVerse" [collapsed]="studyPanelCollapsed"
       (toggleCollapsed)="toggleStudyPanel()" (openBeside)="onOpenBeside($event)"></study-panel>
 
