@@ -24,12 +24,19 @@
     overflow: visible;
     clip-path: none;
     display: grid;
-    /* Capped: one letter left by the filter stretched the whole row. */
-    grid-template-columns: repeat(auto-fit, minmax(30px, 48px));
+    /* Counted by their least width, so every letter fits on the one row
+       --tools-height allows for. */
+    grid-template-columns: repeat(auto-fit, minmax(30px, 1fr));
     gap: 2px;
     padding-top: 8px;
     --mat-button-text-horizontal-padding: 0;
     --mat-button-text-container-height: 32px;
+  }
+
+  /* A letter's size, however wide its track: one letter left by the filter
+     stretched into a pill the row's width. */
+  :host(:not(.native)) .letters button {
+    max-width: 48px;
   }
 
   :host(:not(.native)) .themes {
