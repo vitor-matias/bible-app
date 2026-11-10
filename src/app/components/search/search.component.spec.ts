@@ -1578,7 +1578,8 @@ describe("SearchComponent", () => {
   // The search returns the 100 verses nearest in meaning: a cap, not a count.
   it("says when the results are the most relevant, not all", async () => {
     referenceService.extract.mockReturnValue([])
-    apiService.search.mockReturnValue(
+    component.meaningSearchConsent = true
+    apiService.searchByMeaning.mockReturnValue(
       of({
         verses: [],
         total: 100,
@@ -1589,11 +1590,25 @@ describe("SearchComponent", () => {
     await component.onSearchSubmit("luz")
     expect(component.resultsHeading).toBe("Os 100 mais relevantes")
 
-    apiService.search.mockReturnValue(
+    apiService.searchByMeaning.mockReturnValue(
       of({ verses: [], total: 23, currentPage: 1, totalPages: 1 } as VersePage),
     )
     await component.onSearchSubmit("Betel")
     expect(component.resultsHeading).toBe("23 resultados")
+  })
+
+  it("counts a word search's results, however many", async () => {
+    referenceService.extract.mockReturnValue([])
+    apiService.search.mockReturnValue(
+      of({
+        verses: [],
+        total: 340,
+        currentPage: 1,
+        totalPages: 7,
+      } as VersePage),
+    )
+    await component.onSearchSubmit("Deus")
+    expect(component.resultsHeading).toBe("340 resultados")
   })
 
   describe("without a connection", () => {

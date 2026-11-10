@@ -58,14 +58,14 @@ import {
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 
 /**
- * Searching as people type waits for them to pause this long: each search is
- * one by meaning on the server. "A procurar…" shows meanwhile, and a typed
+ * Searching as people type waits for them to pause this long: each search
+ * goes to the server. "A procurar…" shows meanwhile, and a typed
  * reference is offered at once (passageSuggestion), which costs nothing.
  */
 export const TYPING_PAUSE_MS = 1500
 
 /**
- * A word search returns at most this many verses, the nearest in meaning
+ * A search by meaning returns at most this many verses, the nearest in meaning
  * (KNN_MAX_RESULTS in the API), so its total is a cap, not a count.
  */
 export const SEARCH_RESULT_CAP = 100
@@ -882,7 +882,10 @@ export class SearchComponent {
         ? "1 versículo com estas palavras"
         : `${this.totalResults} versículos com estas palavras`
     }
-    if (this.totalResults >= SEARCH_RESULT_CAP) {
+    if (
+      this.meaningSearchConsent === true &&
+      this.totalResults >= SEARCH_RESULT_CAP
+    ) {
       return `Os ${SEARCH_RESULT_CAP} mais relevantes`
     }
     return this.totalResults === 1
