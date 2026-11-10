@@ -5,6 +5,7 @@ import {
   NO_ERRORS_SCHEMA,
   PendingTasks,
   PLATFORM_ID,
+  signal,
 } from "@angular/core"
 import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
@@ -12,7 +13,12 @@ import type { MatDrawer } from "@angular/material/sidenav"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { By } from "@angular/platform-browser"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
-import { ActivatedRoute, Router, RouterLink } from "@angular/router"
+import {
+  ActivatedRoute,
+  type Navigation,
+  Router,
+  RouterLink,
+} from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, of, Subject, throwError } from "rxjs"
 import type { Mock } from "vitest"
@@ -41,6 +47,8 @@ describe("BibleReaderComponent", () => {
   let bookServiceSpy: SpyObj<BookService>
   let preferencesServiceSpy: SpyObj<PreferencesService>
   let routerSpy: SpyObj<Router>
+  /** Router.currentNavigation: set while a navigation is in flight. */
+  let navigationInFlight: ReturnType<typeof signal<Navigation | null>>
   let hapticsSpy: SpyObj<HapticsService>
   let routeMock: unknown
   let animationServiceSpy: SpyObj<BibleReaderAnimationService>
@@ -90,9 +98,15 @@ describe("BibleReaderComponent", () => {
       "setLastChapterNumber",
     ])
 
-    routerSpy = createSpyObj("Router", ["navigate", "currentNavigation"])
+    routerSpy = createSpyObj("Router", ["navigate"])
     routerSpy.navigate.mockResolvedValue(true)
-    routerSpy.currentNavigation.mockReturnValue(null)
+    navigationInFlight = signal<Navigation | null>(null)
+    ;(
+      routerSpy as unknown as {
+        currentNavigation: unknown
+        routerState: unknown
+      }
+    ).currentNavigation = navigationInFlight.asReadonly()
     ;(
       routerSpy as unknown as {
         routerState: unknown
@@ -236,13 +250,39 @@ describe("BibleReaderComponent", () => {
 
     // A cold app link: the reader mounts at "/" while the link's navigation
     // waits in chapterExists for the book list, so it arrives in flight.
-    it("should leave a navigation still in flight to the reader it opens", () => {
-      routerSpy.currentNavigation.mockReturnValue({} as never)
+    it("should wait for a navigation in flight, then read the route it settled on", async () => {
+      navigationInFlight.set({} as Navigation)
       fixture.detectChanges()
 
       expect(routerSpy.navigate).not.toHaveBeenCalled()
       expect(apiServiceSpy.getChapter).not.toHaveBeenCalled()
       expect(preferencesServiceSpy.setLastBookId).not.toHaveBeenCalled()
+
+      // Settled on this same reader (reused, or the link was cancelled).
+      const snapshot = (
+        routerSpy as unknown as {
+          routerState: {
+            snapshot: { root: { firstChild: { params: object } } }
+          }
+        }
+      ).routerState.snapshot.root.firstChild
+      snapshot.params = { book: "gen", chapter: "3" }
+      ;(
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap.next(
+        new Map([
+          ["book", "gen"],
+          ["chapter", "3"],
+        ]),
+      )
+      navigationInFlight.set(null)
+      await fixture.whenStable()
+
+      expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("gen", 3)
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["1-genesis", expect.anything()],
+        expect.objectContaining({ replaceUrl: true }),
+      )
     })
 
     // A router.navigate during prerendering (e.g. "/" → "/sobre/1") makes
