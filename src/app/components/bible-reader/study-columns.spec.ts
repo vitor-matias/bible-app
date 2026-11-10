@@ -115,6 +115,38 @@ describe("StudyColumns", () => {
     expect(event.defaultPrevented).toBe(true)
   })
 
+  describe("a pointer on a divider", () => {
+    const pointer = (type: string, x: number) =>
+      new PointerEvent(type, { pointerId: 1, clientX: x })
+    const down = (x: number) => {
+      const target = document.createElement("div")
+      target.setPointerCapture = vi.fn()
+      const event = pointer("pointerdown", x)
+      Object.defineProperty(event, "target", { value: target })
+      columns.start("rail", event)
+    }
+
+    it("pins nothing when it is only a click", () => {
+      down(100)
+      columns.end(pointer("pointerup", 100))
+
+      // The width it happened to measure must not replace the layout's own.
+      expect(columns.widths.rail).toBeUndefined()
+      expect(save).not.toHaveBeenCalled()
+      expect(container.style.getPropertyValue("--study-rail-width")).toBe("")
+    })
+
+    it("keeps where a drag ended", () => {
+      columns.widths = { rail: 300 }
+      down(100)
+      columns.move(pointer("pointermove", 140))
+      columns.end(pointer("pointerup", 140))
+
+      expect(columns.widths.rail).toBe(340)
+      expect(save).toHaveBeenCalledWith({ rail: 340 })
+    })
+  })
+
   it("does nothing to a layout that is not there yet", () => {
     const early = new StudyColumns({
       container: () => undefined,

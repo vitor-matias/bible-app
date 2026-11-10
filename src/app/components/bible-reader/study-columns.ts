@@ -55,7 +55,13 @@ export class StudyColumns {
   readonly limits = COLUMN_LIMITS
   /** Set while a divider is under the pointer, to keep the drag cursor. */
   resizing: StudyDivider | null = null
-  private dragFrom?: { pointerId: number; x: number; value: number }
+  private dragFrom?: {
+    pointerId: number
+    x: number
+    value: number
+    /** Whether the pointer has moved since it went down. */
+    moved: boolean
+  }
 
   constructor(private readonly host: StudyColumnsHost) {}
 
@@ -120,6 +126,7 @@ export class StudyColumns {
       pointerId: event.pointerId,
       x: event.clientX,
       value: this.value(divider),
+      moved: false,
     }
     ;(event.target as HTMLElement).setPointerCapture(event.pointerId)
     this.host.repaint()
@@ -128,6 +135,7 @@ export class StudyColumns {
   move(event: PointerEvent): void {
     const from = this.dragFrom
     if (!from || from.pointerId !== event.pointerId || !this.resizing) return
+    from.moved = true
     this.paint(
       this.resizing,
       this.nextValue(this.resizing, event.clientX - from.x, from.value),
@@ -138,10 +146,15 @@ export class StudyColumns {
     const from = this.dragFrom
     if (!from || !this.resizing) return
     const divider = this.resizing
-    this.commit(
-      divider,
-      this.nextValue(divider, event.clientX - from.x, from.value),
-    )
+    // A click is not a drag: committing it would write the width it happened
+    // to measure over the layout's responsive default, and keep it there
+    // across window sizes and reloads.
+    if (from.moved) {
+      this.commit(
+        divider,
+        this.nextValue(divider, event.clientX - from.x, from.value),
+      )
+    }
     this.dragFrom = undefined
     this.resizing = null
     this.host.repaint()

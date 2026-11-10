@@ -1236,6 +1236,34 @@ describe("StudyPanelComponent", () => {
       expect(component.activeTab).toBe("footnotes")
     })
 
+    // The tab changes in the very pass that brings the selection, so what is
+    // on the page when the scroll is worked out is still the References list.
+    it("scrolls the footnotes to the clicked marker's entry, not to a References anchor", async () => {
+      vi.useFakeTimers()
+      bibleRef.extract.mockReturnValue([reference("mrk", 12, 31)])
+      const seventh = verse(7, [footnote("22, 7", "sétima")])
+      setInputs({
+        book: BOOK,
+        chapter: {
+          bookId: "mat",
+          number: 22,
+          verses: [
+            verse(1, [references("Mc 12,28")]),
+            verse(5, [footnote("22, 5", "quinta")]),
+            seventh,
+            verse(10, [references("Mc 12,31")]),
+          ],
+        },
+      })
+      await vi.advanceTimersByTimeAsync(50)
+
+      setInputs({ selection: { verse: seventh, panel: "footnotes" } })
+      await vi.advanceTimersByTimeAsync(50)
+
+      expect(component.activeTab).toBe("footnotes")
+      expect(component["scrolledAnchor"]).toBe(7)
+    })
+
     it("renders the newly chosen tab without waiting for another pass", () => {
       setInputs({
         book: BOOK,
@@ -1370,6 +1398,22 @@ describe("StudyPanelComponent", () => {
       component.toggleHighlight("green")
 
       expect(component.selectedHighlight).toBeUndefined()
+    })
+
+    // The selection bar over the text marks through the service and leaves the
+    // selection as it was: the swatches must still show the new colour, or
+    // pressing it would take the mark off instead of confirming it.
+    it("shows a mark made elsewhere, such as from the selection bar", () => {
+      selectVerse()
+      const swatch = (): HTMLElement =>
+        fixture.nativeElement.querySelector('.mark-swatch[data-color="yellow"]')
+      expect(swatch().getAttribute("aria-pressed")).toBe("false")
+
+      TestBed.inject(HighlightService).toggle("mat", 22, 37, "yellow")
+      fixture.detectChanges()
+
+      expect(component.selectedHighlight).toBe("yellow")
+      expect(swatch().getAttribute("aria-pressed")).toBe("true")
     })
 
     it("copies the verse with its reference", async () => {

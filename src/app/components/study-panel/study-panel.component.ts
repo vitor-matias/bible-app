@@ -331,6 +331,8 @@ export class StudyPanelComponent implements OnChanges {
   /** The entry the panel last scrolled to, so it does not scroll there again. */
   private scrolledAnchor?: Verse["number"]
   private scrollFrame?: number
+  /** The frame in which the follow-along works out where to scroll. */
+  private followFrame?: number
   /** The follow-along scroll in flight: where it is, and how fast. */
   private glide?: {
     body: HTMLElement
@@ -410,6 +412,14 @@ export class StudyPanelComponent implements OnChanges {
         this.cdr.markForCheck()
       })
 
+    // A mark made elsewhere — the selection bar over the text — changes the
+    // verse's colour without changing the selection, so the swatches would
+    // keep showing the old one, and pressing it would take the new mark off.
+    this.highlights.highlights$.pipe(takeUntilDestroyed()).subscribe(() => {
+      this.loadSelectedHighlight()
+      this.cdr.markForCheck()
+    })
+
     // The keys named on the tabs follow the reader's switch.
     this.studyMode.shortcuts$.pipe(takeUntilDestroyed()).subscribe(() => {
       this.cdr.markForCheck()
@@ -428,6 +438,7 @@ export class StudyPanelComponent implements OnChanges {
       this.noteSearchSubscription?.unsubscribe()
       this.searchSubscription?.unsubscribe()
       this.stopGlide()
+      if (this.followFrame !== undefined) cancelAnimationFrame(this.followFrame)
       for (const timer of Object.values(this.copiedTimers)) clearTimeout(timer)
       this.cancelReferenceRequests()
     })
@@ -488,7 +499,11 @@ export class StudyPanelComponent implements OnChanges {
       // A click on the footnote marker asks for the footnotes; any other click
       // leaves the reader on the tab they were already reading.
       const requested = this.selection?.panel
-      if (requested) this.activeTab = requested
+      if (requested && requested !== this.activeTab) {
+        this.activeTab = requested
+        // The new tab's list has never been placed.
+        this.scrolledAnchor = undefined
+      }
       if (this.selection) this.readerHoldsPanel = false
       // Before the box is refilled from the new verse: what was typed for the
       // one being left is still waiting, and loadNoteDraft would write over it.
@@ -793,7 +808,6 @@ export class StudyPanelComponent implements OnChanges {
       verse.number,
       color,
     )
-    this.loadSelectedHighlight()
     this.cdr.detectChanges()
   }
 
@@ -1173,9 +1187,23 @@ export class StudyPanelComponent implements OnChanges {
    * column along with it.
    */
   private scrollActiveIntoView(): void {
-    const active = this.activeVerse
-    if (active === undefined || typeof requestAnimationFrame === "undefined")
+    if (
+      typeof requestAnimationFrame === "undefined" ||
+      this.followFrame !== undefined
+    )
       return
+    // Worked out once the panel has drawn, not now: a selection can ask for
+    // another tab in the very pass that brought it, and the entries to look
+    // for are not on the page until that tab is.
+    this.followFrame = requestAnimationFrame(() => {
+      this.followFrame = undefined
+      this.followActiveVerse()
+    })
+  }
+
+  private followActiveVerse(): void {
+    const active = this.activeVerse
+    if (active === undefined) return
     // References are keyed by the verse that carries them, which for a verse
     // in the middle of a passage is an earlier one — scroll to the group
     // covering the reader, not to a verse the panel never lists. Follows the
@@ -1194,27 +1222,25 @@ export class StudyPanelComponent implements OnChanges {
     if (anchor === this.scrolledAnchor) return
     this.scrolledAnchor = anchor
 
-    requestAnimationFrame(() => {
-      const element: HTMLElement | null = this.host.nativeElement.querySelector(
-        `[data-verse="${anchor}"]`,
-      )
-      const body = element?.closest(".tab-body") as HTMLElement | null
-      if (!element || !body) return
-      // Before deciding whether to move: the reader may take hold of a panel
-      // that has never had to glide anywhere.
-      this.yieldToReader(body)
+    const element: HTMLElement | null = this.host.nativeElement.querySelector(
+      `[data-verse="${anchor}"]`,
+    )
+    const body = element?.closest(".tab-body") as HTMLElement | null
+    if (!element || !body) return
+    // Before deciding whether to move: the reader may take hold of a panel
+    // that has never had to glide anywhere.
+    this.yieldToReader(body)
 
-      const target = StudyPanelComponent.scrollTargetFor(
-        body.scrollTop,
-        body.clientHeight,
-        element.offsetTop - body.offsetTop,
-        element.offsetHeight,
-      )
-      // Already on screen: the reader can see the passage's references, so
-      // moving them would be motion for its own sake.
-      if (target === null) return
-      this.glideTo(body, target)
-    })
+    const target = StudyPanelComponent.scrollTargetFor(
+      body.scrollTop,
+      body.clientHeight,
+      element.offsetTop - body.offsetTop,
+      element.offsetHeight,
+    )
+    // Already on screen: the reader can see the passage's references, so
+    // moving them would be motion for its own sake.
+    if (target === null) return
+    this.glideTo(body, target)
   }
 
   /**
