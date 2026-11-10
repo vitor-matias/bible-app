@@ -180,6 +180,15 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         toolbarLeadingInset = -toolbarLeft.constant
     }
 
+    /// The vertical bar's title can grow the system bar after a mode change,
+    /// once the reader's scroller has gone (it kept the bar minimized), with
+    /// no layout pass here to follow: the page would keep the smaller top
+    /// inset, under the title.
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        reportInsets()
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         reportInsets()
