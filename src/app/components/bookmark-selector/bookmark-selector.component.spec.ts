@@ -378,6 +378,22 @@ describe("BookmarkSelectorComponent", () => {
       fixture.detectChanges()
       expect(undoButton()).toBeNull()
     })
+
+    it("drops the undo when another ribbon takes the removed one's chapter", async () => {
+      rightClick(button("Azul,"))
+      await settle()
+      removeItem()?.click()
+      bookmarksSubject.next([])
+      fixture.detectChanges()
+      expect(undoButton()).not.toBeNull()
+
+      // A chapter holds one ribbon: putting blue back would delete red.
+      bookmarksSubject.next([
+        { bookId: "MRK", chapter: 2, color: "red", timestamp: 9 },
+      ])
+      fixture.detectChanges()
+      expect(undoButton()).toBeNull()
+    })
   })
 
   describe("the long-press hint", () => {

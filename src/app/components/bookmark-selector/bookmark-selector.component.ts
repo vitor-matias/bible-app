@@ -117,9 +117,18 @@ export class BookmarkSelectorComponent implements OnInit {
   updateRibbons(allBookmarks: Bookmark[]) {
     this.ribbons = this.ribbonsService.ribbons(allBookmarks)
     this.move = this.moveOffer()
-    // Any other change to the removed ribbon (its undo, a new mark) ends the offer.
-    const gone = this.removed?.bookmark.color
-    if (gone && this.ribbons.find((r) => r.value === gone)?.bookmark) {
+    // The offer ends when the removed ribbon is marked again (its undo, a new
+    // mark) or another ribbon takes its chapter: a chapter holds one ribbon,
+    // so putting this one back would delete that other one.
+    const gone = this.removed?.bookmark
+    if (
+      gone &&
+      allBookmarks.some(
+        (b) =>
+          b.color === gone.color ||
+          (b.bookId === gone.bookId && b.chapter === gone.chapter),
+      )
+    ) {
       this.removed = undefined
     }
     this.changeDetector.markForCheck()
