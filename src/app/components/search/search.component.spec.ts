@@ -6,6 +6,7 @@ import {
   ActivatedRoute,
   convertToParamMap,
   type ParamMap,
+  type Params,
   Router,
 } from "@angular/router"
 import {
@@ -20,7 +21,10 @@ import {
 import type { Mock } from "vitest"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
-import { BibleReferenceService } from "../../services/bible-reference.service"
+import {
+  BibleReferenceService,
+  type VerseReference,
+} from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
@@ -1146,6 +1150,57 @@ describe("SearchComponent", () => {
 
       expect(router.navigate).toHaveBeenCalledWith(["/", "1co", 13], {
         queryParams: { verseStart: 4 },
+      })
+    })
+
+    // The missal's "Lc 15, 1-3. 11-32" opened at verse 1 and marked it alone.
+    describe("with a range of verses", () => {
+      const luke: Book = {
+        id: "luk",
+        abrv: "Lc",
+        shortName: "Lucas",
+        name: "Evangelho segundo São Lucas",
+        chapterCount: 24,
+      }
+      const opens = async (
+        query: string,
+        verses: VerseReference[],
+        label: string,
+        queryParams: Params,
+      ) => {
+        referenceService.extract.mockReturnValue([
+          { match: query, index: 0, book: "Lc", chapter: 15, verses },
+        ])
+        bookService.findBook.mockReturnValue(luke)
+        apiService.getVerse.mockReturnValue(of({} as Verse))
+
+        component.onTyping(query)
+        expect(component.passageSuggestion?.label).toBe(label)
+        await component.onSearchSubmit(query)
+        expect(router.navigate).toHaveBeenCalledWith(["/", "luk", 15], {
+          queryParams,
+        })
+      }
+
+      it("opens all of it", async () => {
+        await opens(
+          "Lc 15, 11-32",
+          [{ type: "range", start: 11, end: 32 }],
+          "Abrir Lucas 15,11-32",
+          { verseStart: 11, verseEnd: 32 },
+        )
+      })
+
+      it("opens a list of ranges from the first verse to the last", async () => {
+        await opens(
+          "Lc 15, 1-3. 11-32",
+          [
+            { type: "range", start: 1, end: 3 },
+            { type: "range", start: 11, end: 32 },
+          ],
+          "Abrir Lucas 15,1-32",
+          { verseStart: 1, verseEnd: 32 },
+        )
       })
     })
 

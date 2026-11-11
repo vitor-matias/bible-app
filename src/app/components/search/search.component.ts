@@ -49,6 +49,7 @@ import {
   verseText,
 } from "../../utils/text-search"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
+import { getVerseQueryParams } from "../verse/verse.utils"
 
 /**
  * Searching as people type waits for them to pause this long: each search is
@@ -114,6 +115,8 @@ interface PassageTarget {
   book: Book
   chapter: number
   verseStart?: number
+  /** The last verse of a range or list ("Lc 15,1-3.11-32"). */
+  verseEnd?: number
   /** Cited with both numbers ("Sl 94 (95)"), so not to be asked which. */
   pairedPsalm: boolean
   /** Named by the book alone ("Lucas"), not a chapter. */
@@ -465,7 +468,7 @@ export class SearchComponent {
   ): { label: string; query: string } | null {
     const { target } = this.resolvePassage(query)
     if (!target) return null
-    const { book, chapter, verseStart } = target
+    const { book, chapter, verseStart, verseEnd } = target
     if (book.introSlug || target.bookOnly) {
       return { label: `Abrir ${book.name}`, query }
     }
@@ -478,7 +481,11 @@ export class SearchComponent {
     ) {
       return { label: `Escolher o Salmo ${chapter}`, query }
     }
-    return { label: `Abrir ${passageLabel(book, chapter, verseStart)}`, query }
+    const verses =
+      verseEnd && verseEnd !== verseStart
+        ? `${verseStart}-${verseEnd}`
+        : verseStart
+    return { label: `Abrir ${passageLabel(book, chapter, verses)}`, query }
   }
 
   /**
@@ -512,15 +519,10 @@ export class SearchComponent {
       // falls back to, nor "Joao 3" the introduction to John's letters.
       const book = ref.book ? this.bookService.findTypedBook(ref.book) : null
       if (book) {
-        const first = ref.verses?.[0]
         target = {
           book,
           chapter: ref.chapter || 1,
-          verseStart: first
-            ? first.type === "single"
-              ? first.verse
-              : first.start
-            : undefined,
+          ...getVerseQueryParams(ref.verses),
           pairedPsalm,
         }
       }
@@ -670,6 +672,7 @@ export class SearchComponent {
         book: targetBook,
         chapter: targetChapter,
         verseStart: targetVerseStart,
+        verseEnd: targetVerseEnd,
       } = target
       // A standalone introduction has no chapters: nothing to probe, and its
       // only page is /intro.
@@ -692,7 +695,12 @@ export class SearchComponent {
             isIntro ? BookService.INTRO_URL_SEGMENT : targetChapter,
           ],
           targetVerseStart !== undefined
-            ? { queryParams: { verseStart: targetVerseStart } }
+            ? {
+                queryParams: {
+                  verseStart: targetVerseStart,
+                  ...(targetVerseEnd ? { verseEnd: targetVerseEnd } : {}),
+                },
+              }
             : {},
         )
         if (navigated || isStale()) return
