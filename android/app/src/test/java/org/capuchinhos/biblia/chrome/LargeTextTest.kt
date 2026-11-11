@@ -66,4 +66,16 @@ class LargeTextTest {
         assertEquals(FittedPassage(1, 1f, caret = false, fits = false), fitPassage(listOf(400, 300), withCaret = 200, bare = 260, minScale = 1f))
         assertEquals(FittedPassage(0, 0.5f, caret = false, fits = false), fitPassage(listOf(900), withCaret = 280, bare = 362, minScale = 0.5f))
     }
+
+    @Test
+    fun theViewButtonSaysItsNameFirst() {
+        assertEquals("Vista: lista", bookViewButtonLabel(BookView.List))
+        assertEquals("Vista: grelha com abreviaturas", bookViewButtonLabel(BookView.Abbreviations))
+    }
+
+    @Test
+    fun theAutoScrollButtonSaysWhatItStarts() {
+        assertEquals("Iniciar deslocamento automático", autoScrollToggleLabel(playing = false))
+        assertEquals("Pausar deslocamento automático", autoScrollToggleLabel(playing = true))
+    }
 }
