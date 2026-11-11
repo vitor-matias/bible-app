@@ -46,6 +46,11 @@
     <mat-icon>share</mat-icon>
     <span>Partilhar</span>
   </button>
+  } @else if (canCopyLink) {
+  <button type="button" mat-menu-item (click)="copyLink()">
+    <mat-icon>link</mat-icon>
+    <span>Copiar ligação</span>
+  </button>
   }
   <!-- Where the store has the app, the website's install stays in the tutorial. -->
   @if (canInstall() && !appStore) {

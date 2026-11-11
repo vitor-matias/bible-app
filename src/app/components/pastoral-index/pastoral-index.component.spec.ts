@@ -432,7 +432,7 @@ describe("PastoralIndexComponent", () => {
         "Aumentar texto",
         "Repor tamanho do texto",
         "Marcadores",
-        ...(typeof navigator.share === "function" ? ["Partilhar"] : []),
+        typeof navigator.share === "function" ? "Partilhar" : "Copiar ligação",
         "Instalar a app",
         "Como usar a app",
         "Sobre a Bíblia",
