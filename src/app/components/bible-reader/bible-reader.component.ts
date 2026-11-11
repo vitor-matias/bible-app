@@ -739,7 +739,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
             )
           },
           (error) => {
-            if (isCurrent()) this.handleChapterLoadFailure(error, retry)
+            if (isCurrent())
+              this.handleChapterLoadFailure(error, chapter, retry)
           },
         )
         return
@@ -779,13 +780,17 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
             this.applyChapter(res, chapter, verseStart, verseEnd, highlight),
           ),
         error: (err) =>
-          finalize(() => this.handleChapterLoadFailure(err, retry)),
+          finalize(() => this.handleChapterLoadFailure(err, chapter, retry)),
       })
   }
 
   // Stay on the chapter shown. A leftover slide direction would open the next
   // load at the bottom.
-  private handleChapterLoadFailure(error: unknown, retry: () => void): void {
+  private handleChapterLoadFailure(
+    error: unknown,
+    chapter: Chapter["number"],
+    retry: () => void,
+  ): void {
     this.retryingChapter = false
     if (this.shown) {
       // The chapter too: /intro on a book without one already set it to 1.
@@ -793,6 +798,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.chapterNumber = this.shown.chapter
     } else {
       // Opened cold, a toast would fade over a blank page: say it in the page.
+      // The chapter asked for is the one the header, the URL and a retry show.
+      this.chapterNumber = chapter
       this.chapterUnavailable = true
       this.retryChapterLoad = retry
     }

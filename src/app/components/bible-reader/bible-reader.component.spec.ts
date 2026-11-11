@@ -650,6 +650,41 @@ describe("BibleReaderComponent", () => {
       expect(retry().disabled).toBe(false)
       expect(snackBarSpy.open).not.toHaveBeenCalled()
     })
+
+    // Génesis 5 picked after Génesis 1 failed, and failing too: the URL went
+    // back to /gn/1 while «Tentar novamente» loaded and saved Génesis 5.
+    it("keeps the URL and header on the chapter a retry loads", async () => {
+      fixture.detectChanges()
+      await fixture.whenStable()
+      component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
+      ;(
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap.next(
+        new Map([
+          ["book", "gen"],
+          ["chapter", "5"],
+        ]),
+      )
+      await fixture.whenStable()
+
+      expect(component.chapterNumber).toBe(5)
+      expect(routerSpy.navigate).toHaveBeenLastCalledWith(
+        ["/", "1-genesis", "5"],
+        { replaceUrl: true },
+      )
+
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({ ...mockChapter, number: 5 } as unknown as Chapter),
+      )
+      ;(
+        (failure() as HTMLElement).querySelector("button") as HTMLButtonElement
+      ).click()
+      await fixture.whenStable()
+
+      expect(apiServiceSpy.getChapter).toHaveBeenLastCalledWith("gen", 5)
+      expect(component.chapterNumber).toBe(5)
+      expect(preferencesServiceSpy.setLastChapterNumber).toHaveBeenCalledWith(5)
+    })
   })
 
   describe("Navigation (Swipe / Arrow Keys / Methods)", () => {
