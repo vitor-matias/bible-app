@@ -691,6 +691,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     highlight = true,
   ) {
     this.pendingChapter = chapter
+    // The failure page's retry is for an older load: it would cancel this one.
+    if (this.chapterUnavailable) {
+      this.retryingChapter = true
+      this.cdr.markForCheck()
+    }
     const requested = this.book
     const isCurrent = () =>
       this.book.id === requested.id && this.pendingChapter === chapter
@@ -826,6 +831,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   retryChapter(): void {
+    if (this.retryingChapter) return
     this.retryingChapter = true
     this.cdr.markForCheck()
     this.retryChapterLoad?.()

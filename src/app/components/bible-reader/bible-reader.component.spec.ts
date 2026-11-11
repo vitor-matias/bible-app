@@ -651,6 +651,37 @@ describe("BibleReaderComponent", () => {
       expect(snackBarSpy.open).not.toHaveBeenCalled()
     })
 
+    // Génesis 5 picked after Génesis 1 failed: the button still showing
+    // retried Génesis 1, cancelling Génesis 5, and showed it under /gn/5.
+    it("doesn't let the retry cancel a newer chapter on its way", async () => {
+      fixture.detectChanges()
+      await fixture.whenStable()
+      component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
+      const gn5 = new Subject<Chapter>()
+      apiServiceSpy.getChapter.mockReturnValue(gn5)
+      ;(
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap.next(
+        new Map([
+          ["book", "gen"],
+          ["chapter", "5"],
+        ]),
+      )
+      await fixture.whenStable()
+      apiServiceSpy.getChapter.mockClear()
+
+      const button = (failure() as HTMLElement).querySelector(
+        "button",
+      ) as HTMLButtonElement
+      expect(button.disabled).toBe(true)
+      component.retryChapter()
+
+      expect(apiServiceSpy.getChapter).not.toHaveBeenCalled()
+      expect(gn5.observed).toBe(true)
+      gn5.next({ ...mockChapter, number: 5 } as unknown as Chapter)
+      expect(component.chapterNumber).toBe(5)
+    })
+
     // Génesis 5 picked after Génesis 1 failed, and failing too: the URL went
     // back to /gn/1 while «Tentar novamente» loaded and saved Génesis 5.
     it("keeps the URL and header on the chapter a retry loads", async () => {
