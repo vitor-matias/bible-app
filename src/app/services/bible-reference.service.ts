@@ -69,7 +69,7 @@ export class BibleReferenceService {
   private tailChapterOnlyRe =
     /\s*;\s*(?<tail>(?<chapter>\d+))(?!\s*[:.,]\d)\b/gi
 
-  // Verse-only shorthand (uses current book + current chapter): "v.12" / "v.12-13" / "v.2a"
+  // Verse-only shorthand (uses current book + current chapter): "v.12" / "v.12-13" / "v.2a" / "v.24.32"
   private verseOnlyRe =
     /\bv\.?\s*(?<v1>\d+(?:[a-c]{1,2})?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c]{1,2})?))?\b/gi
 
@@ -265,6 +265,9 @@ export class BibleReferenceService {
       const s = m.index ?? 0
       const e = s + m[0].length
       if (overlaps(s, e)) continue
+      // "(v.24.32)" is verses 24 and 32 of this chapter (pass 4), not chapter
+      // 24 of the book cited before it.
+      if (/\bv\.?\s*$/i.test(text.slice(0, s))) continue
 
       // Reuse the nearest explicit book in the same sentence before falling back
       // to the reader's current book context.
@@ -340,12 +343,13 @@ export class BibleReferenceService {
         const e = s + m[0].length
         if (overlaps(s, e)) continue
 
+        const verses = this.buildVerses(gs.v1, gs.v2) ?? []
         push({
-          match: m[0],
+          match: m[0] + this.takeVerseList(text, e, verses),
           index: s,
           book: currentBook.trim(),
           chapter: currentChapter,
-          verses: this.buildVerses(gs.v1, gs.v2),
+          verses,
         })
       }
     }

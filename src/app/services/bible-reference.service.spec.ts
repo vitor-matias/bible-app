@@ -366,6 +366,49 @@ describe("BibleReferenceService", () => {
     expect(ref.verses).toEqual([{ type: "single", verse: 16 }])
   })
 
+  // The note on Lc 15,11: "(v.24.32)" linked to Mt 24,32, the book cited before.
+  it('reads "v.24.32" as verses of the current chapter, not the last book cited', () => {
+    const note =
+      "A parábola dos dois filhos é própria de Lc; a de Mt 21,28-32 oferece só algumas analogias. Consta de duas partes, ligadas entre si pela mesma figura central do pai, caraterizada pela sua misericórdia e pelo mesmo convite final a partilhar a sua alegria (v.24.32). A segunda parte, na qual Jesus responde aos problemas dos v.1-2, revela o ensinamento principal da parábola."
+    const refs = service.extract(note, "luk", 15)
+
+    expect(
+      refs.map(({ match, book, chapter, verses }) => ({
+        match,
+        book,
+        chapter,
+        verses,
+      })),
+    ).toEqual([
+      {
+        match: "Mt 21,28-32",
+        book: "Mt",
+        chapter: 21,
+        verses: [{ type: "range", start: 28, end: 32 }],
+      },
+      {
+        match: "v.24.32",
+        book: "luk",
+        chapter: 15,
+        verses: [
+          { type: "single", verse: 24 },
+          { type: "single", verse: 32 },
+        ],
+      },
+      {
+        match: "v.1-2",
+        book: "luk",
+        chapter: 15,
+        verses: [{ type: "range", start: 1, end: 2 }],
+      },
+    ])
+  })
+
+  it('links no "v.24.32" without a current chapter', () => {
+    const refs = service.extract("Mt 21,28-32 (v.24.32)")
+    expect(refs.map((r) => r.match)).toEqual(["Mt 21,28-32"])
+  })
+
   // References as liturgical leaflets and the edition's own notes write them.
   describe("verse lists and verse parts", () => {
     beforeEach(() => {
