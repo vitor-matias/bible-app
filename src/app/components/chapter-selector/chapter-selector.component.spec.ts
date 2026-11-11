@@ -147,6 +147,18 @@ describe("ChapterSelectorComponent", () => {
     expect(highlighted()).toEqual([true, false])
   })
 
+  // Material's focus cue, a 12% state layer, didn't show on the drawer.
+  it("rings the chapter focused from the keyboard", () => {
+    const button = fixture.nativeElement.querySelector(
+      ".chapterSelectorButton",
+    ) as HTMLElement
+    button.focus()
+
+    expect(button.matches(":focus-visible")).toBe(true)
+    expect(getComputedStyle(button).outlineStyle).toBe("solid")
+    expect(getComputedStyle(button).outlineWidth).toBe("2px")
+  })
+
   it("should render bookmark icon for bookmarked chapters", () => {
     const compiled = fixture.nativeElement as HTMLElement
     const icons = compiled.querySelectorAll(".bookmark-icon")

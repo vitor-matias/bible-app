@@ -126,6 +126,48 @@ describe("BookSelectorComponent", () => {
     ).toEqual(["Antigo Testamento", "Novo Testamento"])
   })
 
+  // Each book was two tab stops, its tree node and then its button, and the
+  // focused button showed no ring on the drawer.
+  describe("from the keyboard", () => {
+    const element = () => fixture.nativeElement as HTMLElement
+    const indexNode = () =>
+      element().querySelector('[data-book-id="indice"]')
+        ?.parentElement as HTMLElement
+
+    it("is one tab stop per testament, its tree", () => {
+      const tabbable = Array.from(
+        element().querySelectorAll<HTMLElement>("mat-tree *"),
+      ).filter((el) => el.tabIndex >= 0)
+
+      expect(tabbable.map((el) => el.getAttribute("role"))).toEqual([
+        "treeitem",
+        "treeitem",
+      ])
+    })
+
+    it("opens the focused book with Enter", () => {
+      const submitted: string[] = []
+      component.submitData.subscribe(({ bookId }) => submitted.push(bookId))
+      const node = indexNode()
+
+      node.focus()
+      node.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+      )
+
+      expect(submitted).toEqual(["indice"])
+    })
+
+    it("rings the focused book", () => {
+      const node = indexNode()
+      node.focus()
+
+      expect(node.matches(":focus-visible")).toBe(true)
+      expect(getComputedStyle(node).outlineStyle).toBe("solid")
+      expect(getComputedStyle(node).outlineWidth).toBe("2px")
+    })
+  })
+
   // ngAfterViewInit also runs while prerendering, where the server DOM has no
   // scrollIntoView — calling it there threw once per prerendered route.
   it("should not scroll straight from ngAfterViewInit", () => {
