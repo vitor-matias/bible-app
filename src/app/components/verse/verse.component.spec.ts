@@ -9,10 +9,7 @@ import { Subject } from "rxjs"
 import type { Mock } from "vitest"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BackButtonService } from "../../services/back-button.service"
-import {
-  type BibleReference,
-  BibleReferenceService,
-} from "../../services/bible-reference.service"
+import { BibleReferenceService } from "../../services/bible-reference.service"
 import { KeepAwakeService } from "../../services/keep-awake.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
@@ -213,50 +210,6 @@ describe("VerseComponent", () => {
 
       expect(component.parsedReferences.size).toBe(0)
     })
-  })
-
-  // A justified line stretched the space inside a citation:
-  // «(Mc        4,10-12)». The space is boxed, which a line doesn't stretch.
-  it("keeps a citation's own space unstretched in justified text", () => {
-    mockBibleRef.extract.mockReturnValue([
-      {
-        match: "Mc 4,10-12",
-        index: 1,
-        book: "mrk",
-        chapter: 4,
-      } as BibleReference,
-    ])
-    setData(
-      fixture,
-      makeVerse({
-        text: [
-          {
-            type: "text",
-            text: "Naquele dia, Jesus saiu de casa e sentou-se à beira-mar",
-          },
-          { type: "references", text: "(Mc 4,10-12)" },
-          {
-            type: "text",
-            text: "e grandes multidões juntaram-se à sua volta, de modo que subiu para um barco.",
-          },
-        ],
-      }),
-    )
-    fixture.detectChanges()
-
-    const host = fixture.nativeElement as HTMLElement
-    const link = host.querySelector("a.references") as HTMLElement
-    expect(link.querySelector(".ref-space")?.textContent).toBe(" ")
-    host.style.cssText =
-      "display: block; white-space: nowrap; width: max-content"
-    const natural = link.getBoundingClientRect().width
-    for (let width = 160; width <= 420; width += 6) {
-      host.style.cssText = `display: block; width: ${width}px; text-align: justify`
-      expect(link.getBoundingClientRect().width, `at ${width}px`).toBeCloseTo(
-        natural,
-        0,
-      )
-    }
   })
 
   describe("getFirstTextType", () => {

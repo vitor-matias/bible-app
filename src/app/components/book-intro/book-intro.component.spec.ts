@@ -51,6 +51,14 @@ describe("BookIntroComponent", () => {
       expect(align()).toBe("justify")
     })
 
+    // As the chapters' text: past 180% a justified line of a few words gapes.
+    it("is ragged-right at the largest sizes until justified is chosen", () => {
+      fixture.nativeElement.classList.add("large-text")
+      expect(align()).toBe("start")
+      classes.add("justified-text")
+      expect(align()).toBe("justify")
+    })
+
     it("is ragged-right on a phone until justified is chosen", () => {
       expect(frame, "the specs run in a frame").toBeTruthy()
       if (frame) frame.style.width = "390px"

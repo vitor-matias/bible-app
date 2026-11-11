@@ -63,7 +63,7 @@
                 <a class="references verseRun"
                   [routerLink]="['/', (part.book | lowercase ), part.chapter]"
                   [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)"
-                  >@for (word of part.match.split(" "); track $index) {@if (!$first) {<span class="ref-space">{{ " " }}</span>}{{ word }}}</a
+                  >{{part.match}}</a
                   >
                 } @else {
                   <span class="references verseRun">{{typeof part === "object" ? part.match : part}}</span>
