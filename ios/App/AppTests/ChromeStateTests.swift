@@ -287,6 +287,46 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertEqual(button.midX, 201, accuracy: 2)
     }
 
+    // On the iPhone Duo a turn left the ring round the whole bar, a capsule
+    // the screen's width: the bar (SwiftUI-hosted) lays its item out for the
+    // new width after the ring's own layout, with the item still at the old
+    // middle. A bar that does the same, a turn of the run loop late:
+    final class LateBar: UIView {
+        let item = UIView()
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            addSubview(item)
+        }
+        required init?(coder: NSCoder) { fatalError() }
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            let width = bounds.width
+            DispatchQueue.main.async { [self] in
+                item.frame = CGRect(x: width / 2 - 24, y: 0, width: 48, height: 48)
+            }
+        }
+    }
+
+    func testRingsTheButtonOnceTheBarHasLaidItOutAfterATurn() {
+        let bar = LateBar()
+        let ringed = RingedBarButton(bar)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 678, height: 678))
+        window.addSubview(ringed)
+        window.isHidden = false
+        for width in [CGFloat(454), 530] {
+            ringed.frame = CGRect(x: 0, y: 0, width: width, height: 88)
+            ringed.layoutIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        }
+
+        let rings = ringed.subviews.filter { $0 !== bar }.map(\.frame)
+        XCTAssertFalse(rings.isEmpty)
+        for ring in rings {
+            XCTAssertEqual(ring.width, 60, accuracy: 1, "the ring went round the bar")
+            XCTAssertEqual(ring.midX, 265, accuracy: 1)
+        }
+    }
+
     // On iPad the passage's glass is wider than half the bar: still the glass,
     // not the label inside it.
     func testRingsAPassageWiderThanHalfTheBar() {
@@ -313,6 +353,24 @@ final class ChromeStateTests: XCTestCase {
 
     private func subviews<T: UIView>(of view: UIView, _ type: T.Type) -> [T] {
         ((view as? T).map { [$0] } ?? []) + view.subviews.flatMap { subviews(of: $0, type) }
+    }
+
+    // The folded iPhone Duo turned sideways puts Close down the left side,
+    // inside the sheet's safe area: it covered the note's «16.» and «Ver».
+    func testFootnotesStayClearOfASideSafeArea() throws {
+        let state = FootnotesSheetState(call([
+            "title": "João 3,16",
+            "notes": [["reference": "16.", "parts": [["text": "Ver Gn 22,1-14."]]]],
+        ]))
+        let sheet = FootnotesController(state: state, onLink: { _ in }, onClose: {})
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 678, height: 466))
+        window.rootViewController = sheet
+        window.isHidden = false
+        sheet.additionalSafeAreaInsets = UIEdgeInsets(top: 0, left: 84, bottom: 0, right: 0)
+        sheet.view.layoutIfNeeded()
+
+        let text = try XCTUnwrap(subviews(of: sheet.view, UITextView.self).first)
+        XCTAssertGreaterThanOrEqual(text.convert(text.bounds, to: sheet.view).minX, 84 - 0.5)
     }
 
     // On the folded iPhone Duo the status bar and Close run down the right

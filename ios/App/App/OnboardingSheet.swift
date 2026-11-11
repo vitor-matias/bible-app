@@ -310,14 +310,34 @@ final class RingedBarButton: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
+    /// Further looks for the item while the bar hasn't laid it out, for the
+    /// width it was last laid out at.
+    private var looksLeft = 10
+    private var lookedAtWidth: CGFloat = 0
+
     override func layoutSubviews() {
         super.layoutSubviews()
         bar.layoutIfNeeded()
-        let around = buttonFrame.insetBy(dx: -6, dy: -6)
+        if bounds.width != lookedAtWidth {
+            lookedAtWidth = bounds.width
+            looksLeft = 10
+        }
+        let item = itemFrame
+        let around = (item ?? bar.frame).insetBy(dx: -6, dy: -6)
         for view in [ring, pulse] {
             view.bounds = CGRect(origin: .zero, size: around.size)
             view.center = CGPoint(x: around.midX, y: around.midY)
             view.layer.cornerRadius = around.height / 2
+        }
+        // The bar lays its item out for a new width in a pass of its own, after
+        // this one: turned on the iPhone Duo, the item was still at the old
+        // middle, and the ring went round the whole bar. Look again shortly.
+        if item == nil, looksLeft > 0 {
+            looksLeft -= 1
+            DispatchQueue.main.async { [weak self] in
+                self?.setNeedsLayout()
+                self?.layoutIfNeeded()
+            }
         }
     }
 
@@ -326,7 +346,9 @@ final class RingedBarButton: UIView {
     /// flexible spaces, not the bar's own views, which reach its sides (a
     /// long iPad title is wider than half the bar). Before the bar has laid
     /// its item out, the bar itself.
-    var buttonFrame: CGRect {
+    var buttonFrame: CGRect { itemFrame ?? bar.frame }
+
+    private var itemFrame: CGRect? {
         let middle = CGPoint(x: bar.bounds.midX, y: bar.bounds.midY)
         var found: CGRect?
         func visit(_ view: UIView) {
@@ -340,7 +362,7 @@ final class RingedBarButton: UIView {
             }
         }
         visit(bar)
-        return found.map { bar.convert($0, to: self) } ?? bar.frame
+        return found.map { bar.convert($0, to: self) }
     }
 
     override func traitCollectionDidChange(_ previous: UITraitCollection?) {
