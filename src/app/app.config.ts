@@ -6,14 +6,11 @@ import {
   provideZonelessChangeDetection,
 } from "@angular/core"
 import { MAT_ICON_DEFAULT_OPTIONS } from "@angular/material/icon"
-import {
-  provideClientHydration,
-  withNoHttpTransferCache,
-} from "@angular/platform-browser"
 import { provideAnimationsAsync } from "@angular/platform-browser/animations/async"
 import { provideRouter } from "@angular/router"
 import { provideServiceWorker } from "@angular/service-worker"
 import { routes } from "./app.routes"
+import { provideHydration } from "./config"
 import { BookService } from "./services/book.service"
 import { DepthLocationStrategy } from "./services/depth-location-strategy"
 import { isBrowser, isServiceWorkerEnabled } from "./utils/platform"
@@ -39,7 +36,7 @@ export function initializeBookService(
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZonelessChangeDetection(),
-    provideClientHydration(withNoHttpTransferCache()),
+    provideHydration(),
     provideRouter(routes),
     { provide: LocationStrategy, useClass: DepthLocationStrategy },
     provideServiceWorker("ngsw-worker.js", {
