@@ -415,12 +415,5 @@ describe("SeoService", () => {
       expect(getMetaContent('name="robots"')).toBe("noindex, follow")
       expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/search`)
     })
-
-    // Every search had the same title, in the tabs and the history.
-    it("names the query once there is one", () => {
-      service.updateForSearch("amor")
-
-      expect(title.getTitle()).toBe(`Pesquisar «amor» | ${SEO_SITE_NAME}`)
-    })
   })
 })

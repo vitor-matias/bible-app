@@ -129,13 +129,10 @@ export class SeoService {
     ])
   }
 
-  /**
-   * Search results are user-specific, so keep them out of the index. The
-   * title names the query, once there is one.
-   */
-  updateForSearch(query = ""): void {
+  /** Search results are user-specific, so keep them out of the index. */
+  updateForSearch(): void {
     this.apply({
-      title: `${query ? `Pesquisar «${query}»` : "Pesquisar"} | ${SEO_SITE_NAME}`,
+      title: `Pesquisar | ${SEO_SITE_NAME}`,
       description: `Pesquise passagens, versículos e palavras na ${SEO_SITE_NAME}.`,
       canonicalUrl: `${SEO_BASE_URL}/search`,
       indexable: false,

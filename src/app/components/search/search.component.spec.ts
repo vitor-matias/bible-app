@@ -741,17 +741,21 @@ describe("SearchComponent", () => {
     expect(seoService.updateForSearch).toHaveBeenCalled()
   })
 
-  // Every search had the same title, in the tabs and the history.
-  it("names the query searched in the page's title", async () => {
+  // Analytics sends the page's title with every event: what the reader
+  // searches must never be in it.
+  it("keeps the query out of the page's title", async () => {
     referenceService.extract.mockReturnValue([])
     apiService.search.mockReturnValue(
       of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
     )
     fixture.detectChanges()
 
-    await component.onSearchSubmit("bom pastor")
+    await component.onSearchSubmit("palavrasecreta")
 
-    expect(seoService.updateForSearch).toHaveBeenLastCalledWith("bom pastor")
+    for (const args of seoService.updateForSearch.mock.calls) {
+      expect(args).toEqual([])
+    }
+    expect(document.title).not.toContain("palavrasecreta")
   })
 
   // The results were in no landmark: one main, the page's.
