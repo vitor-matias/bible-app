@@ -177,6 +177,26 @@ describe("BibleReaderAnimationService", () => {
       expect(containerRow.classList.contains("slide-out-right")).toBe(false)
     })
 
+    it("should not slide when the reader asks for reduced motion", async () => {
+      vi.spyOn(window, "matchMedia").mockReturnValue({
+        matches: true,
+      } as MediaQueryList)
+      const containerRow = document.createElement("div")
+
+      let resolved = false
+      service.triggerSlideOutAnimation(containerRow, false).then(() => {
+        resolved = true
+      })
+      await vi.advanceTimersByTimeAsync(0)
+      expect(resolved).toBe(true)
+      expect(containerRow.classList.contains("slide-out-left")).toBe(false)
+
+      containerRow.style.opacity = "0"
+      service.triggerSlideAnimation(undefined, containerRow, false)
+      expect(containerRow.classList.contains("slide-in-right")).toBe(false)
+      expect(containerRow.style.opacity).toBe("")
+    })
+
     it("should resolve via fallback timeout if animationend does not fire", async () => {
       const containerRow = document.createElement("div")
 

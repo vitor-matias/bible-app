@@ -36,6 +36,10 @@ const scrollVerseIntoView = (element: HTMLElement): void => {
   })
 }
 
+/** The chapter then changes in place, without sliding. */
+const reducedMotion = (): boolean =>
+  !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+
 @Injectable({
   providedIn: "root",
 })
@@ -142,6 +146,7 @@ export class BibleReaderAnimationService {
     )
     void container.offsetWidth
 
+    if (reducedMotion()) return
     container.classList.add(animationClass)
 
     setTimeout(() => {
@@ -153,7 +158,7 @@ export class BibleReaderAnimationService {
     container: HTMLElement,
     isBackward: boolean,
   ): Promise<void> {
-    if (!this.isBrowser) return Promise.resolve()
+    if (!this.isBrowser || reducedMotion()) return Promise.resolve()
     return new Promise((resolve) => {
       const animationClass = isBackward ? "slide-out-right" : "slide-out-left"
 
