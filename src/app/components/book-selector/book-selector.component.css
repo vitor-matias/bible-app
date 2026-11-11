@@ -110,3 +110,8 @@ button.highlight {
   background-color: var(--highlight-color);
   /* any extra styling you like */
 }
+
+.no-books {
+  margin: 0;
+  padding: 16px 12px;
+}

@@ -8,6 +8,7 @@
     (input)="filterBooks($any($event.target).value)"
   />
 </div>
+@if (otDataSource.data.length || ntDataSource.data.length) {
 <div class="bible-books-container">
   <!-- h2: the toolbar h1 precedes these in the DOM, and they are the drawer's
        only heading structure for screen readers. -->
@@ -62,3 +63,7 @@
 
   </div>
 </div>
+} @else {
+<!-- Not the testament headings alone, with nothing under them. -->
+<p class="no-books" role="status">Nenhum livro encontrado.</p>
+}

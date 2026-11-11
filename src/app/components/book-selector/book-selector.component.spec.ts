@@ -271,6 +271,29 @@ describe("BookSelectorComponent", () => {
     expect(pentateuco?.books).not.toContain("pentateuco")
   })
 
+  // A filter that matched nothing left the testament headings alone.
+  it("says so when no book matches the filter", () => {
+    const element = fixture.nativeElement as HTMLElement
+    const input = element.querySelector(
+      ".book-filter-input",
+    ) as HTMLInputElement
+    const empty = () => element.querySelector(".no-books")?.textContent?.trim()
+
+    input.value = "xyz"
+    input.dispatchEvent(new Event("input"))
+    fixture.detectChanges()
+
+    expect(empty()).toBe("Nenhum livro encontrado.")
+    expect(element.querySelector(".testament-label")).toBeNull()
+
+    input.value = ""
+    input.dispatchEvent(new Event("input"))
+    fixture.detectChanges()
+
+    expect(empty()).toBeUndefined()
+    expect(element.querySelectorAll(".testament-label").length).toBe(2)
+  })
+
   // The other half of the deferral: skipping the scroll on the server must not
   // mean skipping it in the browser. Without this the spec above would pass for
   // an implementation that never scrolls at all.
