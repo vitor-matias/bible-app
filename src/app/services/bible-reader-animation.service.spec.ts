@@ -1,4 +1,6 @@
+import { Component } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
+import { MatDialog } from "@angular/material/dialog"
 import { lastCall } from "../testing/spy-obj"
 import {
   BibleReaderAnimationService,
@@ -6,6 +8,9 @@ import {
   HIGHLIGHT_DURATION_MS,
   LAYOUT_SETTLE_MS,
 } from "./bible-reader-animation.service"
+
+@Component({ template: "" })
+class BlankDialogComponent {}
 
 describe("BibleReaderAnimationService", () => {
   // Before the beforeEach below, which stubs requestAnimationFrame: installing
@@ -332,6 +337,31 @@ describe("BibleReaderAnimationService", () => {
 
       await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS)
       expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBe(false)
+    })
+
+    it("should keep a verse marked while a dialog covers it, then for the full time", async () => {
+      const bookBlock = document.createElement("div")
+      const verse = document.createElement("div")
+      verse.id = "11"
+      bookBlock.appendChild(verse)
+      vi.spyOn(verse, "scrollIntoView").mockReturnValue(undefined)
+
+      service.scrollToVerseElement(bookBlock, undefined, 11, 11)
+      await vi.advanceTimersByTimeAsync(100)
+      // A first visit's onboarding opens over the shared link.
+      const dialog = TestBed.inject(MatDialog)
+      const ref = dialog.open(BlankDialogComponent)
+      await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS * 3)
+      expect(verse.classList.contains(HIGHLIGHT_CLASS)).toBe(true)
+
+      ref.close()
+      await vi.advanceTimersByTimeAsync(500)
+      expect(dialog.openDialogs.length).toBe(0)
+      expect(verse.classList.contains(HIGHLIGHT_CLASS)).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS)
+      expect(verse.classList.contains(HIGHLIGHT_CLASS)).toBe(false)
+      await vi.advanceTimersByTimeAsync(LAYOUT_SETTLE_MS)
     })
 
     it("should highlight every verse of a range", async () => {
