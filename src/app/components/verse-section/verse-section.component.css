@@ -50,9 +50,12 @@
   -ms-user-select: text !important;
 }
 
-/* "Sl 8" stays whole: a reference split as "Sl" / "8;" reads as two. */
+/* "Sl 8" stays whole: a reference split as "Sl" / "8;" reads as two. An
+   inline-block, too, so a justified line doesn't stretch its own space
+   ("(Mc        4,10-12;"). */
 .references a {
   white-space: nowrap;
+  display: inline-block;
 }
 
 .references {

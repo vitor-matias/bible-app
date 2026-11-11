@@ -325,6 +325,44 @@ describe("VerseSectionComponent", () => {
       }
     })
 
+    // In justified paged text the space inside a citation stretched:
+    // «O porquê das parábolas (Mc        4,10-12;».
+    it("keeps a citation's own space unstretched in justified text", () => {
+      const host = fixture.nativeElement as HTMLElement
+      mockBibleRef.extract.mockReturnValue([
+        {
+          match: "Mc 4,10-12",
+          index: 1,
+          book: "mrk",
+          chapter: 4,
+        } as BibleReference,
+      ])
+      fixture.componentRef.setInput("changeLine", false)
+      setData(
+        fixture,
+        makeVerse({
+          text: [
+            { type: "section", tag: "s2", text: "O porquê das parábolas" },
+            { type: "references", text: "(Mc 4,10-12; Lc 8,9-10)" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+
+      const link = host.querySelector(".references a") as HTMLElement
+      expect(link).toBeTruthy()
+      host.style.cssText = "display: block; white-space: nowrap"
+      const natural = link.getBoundingClientRect().width
+      // A narrow justified column: the line holding the link is stretched.
+      const heading = host.querySelector(
+        "[data-section-heading]",
+      ) as HTMLElement
+      const headingWidth = heading.getBoundingClientRect().width
+      host.style.cssText = `display: block; width: ${headingWidth + natural + 60}px; text-align: justify`
+
+      expect(link.getBoundingClientRect().width).toBeCloseTo(natural, 0)
+    })
+
     it("leaves a centred heading's words as they were", () => {
       render({ changeLine: true, beside: false })
       const words = (fixture.nativeElement as HTMLElement).querySelector(

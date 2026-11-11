@@ -40,9 +40,11 @@ h3:not(:first-child) {
   margin-top: .5rem;
 }
 
-/* "Sl 8" stays whole: a reference split as "Sl" / "8;" reads as two. */
+/* "Sl 8" stays whole: a reference split as "Sl" / "8;" reads as two, and,
+   an inline-block, keeps its own space unstretched in justified text. */
 .references a {
   white-space: nowrap;
+  display: inline-block;
 }
 
 .references-block {
