@@ -1,6 +1,7 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatDialogRef } from "@angular/material/dialog"
 import { BehaviorSubject } from "rxjs"
+import { page } from "vitest/browser"
 import type { StoreApps } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import { PreferencesService } from "../../services/preferences.service"
@@ -104,6 +105,22 @@ describe("OnboardingComponent", () => {
     component.goTo(component.steps.length - 1)
     fixture.detectChanges()
   }
+
+  // At 320x256 (a page zoomed to 400%) the picture and the buttons left the
+  // text a 28 px window, cut after a line.
+  it("scrolls as a whole on a short screen, not in a window of its own", async () => {
+    await page.viewport(320, 256)
+    try {
+      create()
+      const body = element.querySelector(".body") as HTMLElement
+
+      expect(body.clientHeight).toBeGreaterThanOrEqual(body.scrollHeight)
+      expect(getComputedStyle(element).overflowY).toBe("auto")
+      expect(element.scrollHeight).toBeGreaterThan(element.clientHeight)
+    } finally {
+      await page.viewport(800, 600)
+    }
+  })
 
   it("shows the app logo on the welcome step and an icon afterwards", () => {
     create()

@@ -56,6 +56,19 @@
   }
 }
 
+/* Shorter still (a phone on its side, a page zoomed to 400%), the picture
+   and the buttons left the text a line's window: the whole dialog scrolls. */
+@media (max-height: 500px) {
+  :host {
+    overflow-y: auto;
+  }
+
+  .body {
+    flex: none;
+    overflow-y: visible;
+  }
+}
+
 .title {
   margin: 0 0 8px;
   font-size: 22px;
