@@ -386,6 +386,43 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertFalse(picker.gestureRecognizerShouldBegin(swipe))
     }
 
+    // Nor while a book's chapters are still sliding in: a pop begun over the
+    // running push can break the stack.
+    func testThePickersSwipeBackWaitsForAPushToEnd() throws {
+        // On a book with no chapters, the picker opens on the books alone.
+        let data = PassagePickerData(call([
+            "currentBookId": "x", "currentChapter": 0,
+            "sections": [["title": "Antigo Testamento", "groups": [["books": [[
+                "id": "gn", "label": "Génesis", "name": "Livro do Génesis", "abbreviation": "Gn",
+                "chapters": [["number": 1, "label": "1"]],
+            ]]]]]],
+        ]))
+        let picker = PassagePickerController(data: data, onSelect: { _, _ in })
+        // In the host's scene, so the push really animates.
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = picker
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        let swipe = RightwardPan()
+
+        picker.pushViewController(UIViewController(), animated: true)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        XCTAssertEqual(picker.viewControllers.count, 2)
+        XCTAssertNotNil(picker.transitionCoordinator)
+        XCTAssertFalse(picker.gestureRecognizerShouldBegin(swipe))
+
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+        XCTAssertNil(picker.transitionCoordinator)
+        XCTAssertTrue(picker.gestureRecognizerShouldBegin(swipe))
+    }
+
+    /// A drag to the right, as the swipe back would see it.
+    private final class RightwardPan: UIPanGestureRecognizer {
+        override func velocity(in view: UIView?) -> CGPoint { CGPoint(x: 500, y: 0) }
+    }
+
     // MARK: The sheets
 
     private func subviews<T: UIView>(of view: UIView, _ type: T.Type) -> [T] {

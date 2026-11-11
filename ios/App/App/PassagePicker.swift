@@ -128,7 +128,9 @@ final class PassagePickerController: UINavigationController, UIGestureRecognizer
     /// Back to the books, on a drag that goes right more than up or down: a
     /// long book's chapters still scroll.
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        guard viewControllers.count > 1 else { return false }
+        // Not during a push or pop: the system's own delegate refuses then too,
+        // and a pop begun over a running push can leave the stack broken.
+        guard viewControllers.count > 1, transitionCoordinator == nil else { return false }
         guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
         let velocity = pan.velocity(in: pan.view)
         return velocity.x > abs(velocity.y)
