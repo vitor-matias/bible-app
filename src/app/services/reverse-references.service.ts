@@ -116,9 +116,20 @@ export class ReverseReferencesService {
     verse: Verse["number"],
   ): IncomingReference[] {
     const candidates = this.index?.get(`${bookId}:${chapter}`) ?? []
-    return candidates.filter(
-      (entry) => verse >= entry.fromVerse && verse <= entry.toVerse,
-    )
+    // One row to a citing passage: the same passage may cite this verse in two
+    // spans ("Lc 6,20-23" in its references and "Lc 6,20" in a note), each an
+    // entry of its own in the index, and both cover the verse picked. The
+    // cross reference is the stronger claim, so it is the one that stays.
+    const byPassage = new Map<string, IncomingReference>()
+    for (const entry of candidates) {
+      if (verse < entry.fromVerse || verse > entry.toVerse) continue
+      const passage = `${entry.bookId}:${entry.chapterNumber}:${entry.queryParams?.["verseStart"]}`
+      const kept = byPassage.get(passage)
+      if (!kept || (kept.source === "nota" && entry.source === "referência")) {
+        byPassage.set(passage, entry)
+      }
+    }
+    return [...byPassage.values()]
   }
 
   private async build(generation: number): Promise<void> {

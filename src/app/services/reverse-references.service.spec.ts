@@ -413,6 +413,67 @@ describe("ReverseReferencesService", () => {
       expect(incoming).toHaveLength(1)
       expect(incoming[0].source).toBe("referência")
     })
+
+    // The same passage cites the verse twice, in spans that differ: each is an
+    // entry of its own in the index, and both cover the verse picked.
+    describe("when one passage cites the verse in two different spans", () => {
+      const spans = (text: string): BibleReference[] =>
+        [
+          {
+            book: "mrk",
+            chapter: 12,
+            verses:
+              text === "Mc 12,28-34"
+                ? [{ type: "range", start: 28, end: 34 }]
+                : [{ type: "single", verse: 31 }],
+            match: text,
+            index: 0,
+          },
+        ] as unknown as BibleReference[]
+
+      it("lists it once, as a cross reference, wherever the note comes", async () => {
+        for (const parts of [
+          [
+            { type: "references", text: "Mc 12,28-34" },
+            { type: "footnote", text: "Mc 12,31", reference: "22,39" },
+          ],
+          // The note first: the order in the verse is not the claim's weight.
+          [
+            { type: "footnote", text: "Mc 12,31", reference: "22,39" },
+            { type: "references", text: "Mc 12,28-34" },
+          ],
+        ] as Verse["text"][]) {
+          configure([citing([{ type: "text", text: words }, ...parts])])
+          bibleRef.extract.mockImplementation(spans)
+          service.reset()
+
+          await service.ensureIndex()
+
+          const incoming = service.incomingFor("mrk", 12, 31)
+          expect(incoming).toHaveLength(1)
+          expect(incoming[0].source).toBe("referência")
+        }
+      })
+
+      it("still says note, once, for a verse only the note's span covers", async () => {
+        configure([
+          citing([
+            { type: "text", text: words },
+            { type: "references", text: "Mc 12,31" },
+            { type: "footnote", text: "Mc 12,28-34", reference: "22,39" },
+          ]),
+        ])
+        bibleRef.extract.mockImplementation((text: string) =>
+          spans(text === "Mc 12,31" ? "Mc 12,31" : "Mc 12,28-34"),
+        )
+
+        await service.ensureIndex()
+
+        const incoming = service.incomingFor("mrk", 12, 30)
+        expect(incoming).toHaveLength(1)
+        expect(incoming[0].source).toBe("nota")
+      })
+    })
   })
 
   it("forgets what it knew when the text it was built from goes", async () => {
