@@ -36,6 +36,7 @@ import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
+import { MENU_BUTTON } from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { PastoralIndexComponent } from "./pastoral-index.component"
 import entries from "./pastoral-index.data.json"
@@ -512,8 +513,14 @@ describe("PastoralIndexComponent", () => {
           data: { bookId: "indice/amor", chapter: 1 },
           ariaLabel: "Marcadores",
           ariaModal: true,
+          // The menu entry is gone when it closes: back to the menu button.
+          restoreFocus: MENU_BUTTON,
         }),
       )
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector(MENU_BUTTON)
+          ?.ariaLabel,
+      ).toBe("Menu")
 
       params.next(convertToParamMap({}))
       fixture.componentInstance.openBookmarks()
@@ -546,7 +553,7 @@ describe("PastoralIndexComponent", () => {
       const item = await openMenu(fixture)
 
       item("Como usar a app")?.click()
-      expect(onboarding.open).toHaveBeenCalledWith("menu")
+      expect(onboarding.open).toHaveBeenCalledWith("menu", MENU_BUTTON)
 
       fixture.componentInstance.openAbout()
       expect(navigate).toHaveBeenCalledWith(["/", "sobre", 1])

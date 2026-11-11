@@ -79,7 +79,10 @@ import { buildPassagePicker } from "../../utils/passage-picker"
 import { leftToTheBrowser } from "../../utils/platform"
 import { foldText } from "../../utils/text-search"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
-import { ReaderMenuComponent } from "../reader-menu/reader-menu.component"
+import {
+  MENU_BUTTON,
+  ReaderMenuComponent,
+} from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 import { AlphabeticalScrollBarComponent } from "./alphabetical-scroll-bar.component"
@@ -292,6 +295,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
         data: { bookId, chapter: INDEX_BOOKMARK_CHAPTER },
         ariaLabel: "Marcadores",
         ariaModal: true,
+        restoreFocus: MENU_BUTTON,
       }),
     )
   }
@@ -351,6 +355,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     this.dialog.open(ReportProblemComponent, {
       data: { book, chapter: INDEX_BOOKMARK_CHAPTER },
       ariaModal: true,
+      restoreFocus: MENU_BUTTON,
       width: "90%",
       maxWidth: "500px",
     })

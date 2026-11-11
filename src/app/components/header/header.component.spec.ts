@@ -30,7 +30,10 @@ import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { ThemeService } from "../../services/theme.service"
 import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
-import { ReaderMenuComponent } from "../reader-menu/reader-menu.component"
+import {
+  MENU_BUTTON,
+  ReaderMenuComponent,
+} from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { HeaderComponent } from "./header.component"
 
@@ -321,6 +324,7 @@ describe("HeaderComponent", () => {
     expect(dialogSpy.open).toHaveBeenCalledWith(ReportProblemComponent, {
       data: { book: component.book(), chapter: 3 },
       ariaModal: true,
+      restoreFocus: MENU_BUTTON,
       width: "90%",
       maxWidth: "500px",
     })
@@ -335,6 +339,7 @@ describe("HeaderComponent", () => {
     expect(dialogSpy.open).toHaveBeenCalledWith(ReportProblemComponent, {
       data: { book: component.book(), chapter: 0 },
       ariaModal: true,
+      restoreFocus: MENU_BUTTON,
       width: "90%",
       maxWidth: "500px",
     })
@@ -862,8 +867,27 @@ describe("HeaderComponent", () => {
       .find((item) => item.textContent?.includes("Como usar a app"))
       ?.click()
 
-    expect(onboardingServiceSpy.open).toHaveBeenCalledWith("menu")
+    // The entry is gone once the wizard closes: the focus goes to the button.
+    expect(onboardingServiceSpy.open).toHaveBeenCalledWith("menu", MENU_BUTTON)
     expect(trigger.menuOpen).toBe(false)
+  })
+
+  // The focus fell to the page when what the menu opened closed: Material
+  // returned it to the menu entry, gone by then.
+  it("gives the focus back to the menu button after the bookmarks and reports", () => {
+    fixture.componentRef.setInput("chapterNumber", 1)
+    component.openBookmarkSelector()
+    component.openReportProblem()
+
+    expect(bottomSheetSpy.open.mock.lastCall?.[1]?.restoreFocus).toBe(
+      MENU_BUTTON,
+    )
+    expect(dialogSpy.open.mock.lastCall?.[1]?.restoreFocus).toBe(MENU_BUTTON)
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector(MENU_BUTTON),
+    ).toBe(
+      fixture.debugElement.query(By.directive(MatMenuTrigger)).nativeElement,
+    )
   })
 
   it("should share the page URL as is on the web", async () => {

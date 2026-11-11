@@ -57,7 +57,10 @@ import { buildPassagePicker } from "../../utils/passage-picker"
 import { PSALMS_BOOK_ID } from "../../utils/psalms"
 
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
-import { ReaderMenuComponent } from "../reader-menu/reader-menu.component"
+import {
+  MENU_BUTTON,
+  ReaderMenuComponent,
+} from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 
 /** How long each label stays on screen before the next swap. */
@@ -280,6 +283,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         data: { bookId: book.id, chapter: chapterNumber },
         ariaLabel: "Marcadores",
         ariaModal: true,
+        restoreFocus: MENU_BUTTON,
       }),
     )
   }
@@ -298,6 +302,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.dialog.open(ReportProblemComponent, {
       data: { book, chapter: chapterNumber },
       ariaModal: true,
+      restoreFocus: MENU_BUTTON,
       width: "90%",
       maxWidth: "500px",
     })
