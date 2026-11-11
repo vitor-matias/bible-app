@@ -34,6 +34,7 @@ import { PwaInstallService } from "../../services/pwa-install.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
+import { forceColors, systemColor } from "../../testing/forced-colors"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 import { MENU_BUTTON } from "../reader-menu/reader-menu.component"
@@ -878,6 +879,19 @@ describe("PastoralIndexComponent", () => {
         getComputedStyle(current.querySelector(".mdc-button__label") as Element)
           .color,
       ).toBe("rgb(84, 61, 39)")
+      // Windows' contrast themes drop that background: a ring marks it.
+      await forceColors(true)
+      try {
+        expect(getComputedStyle(current).outlineColor).toBe(
+          systemColor("Highlight"),
+        )
+        const other = el.querySelector(".letters button:not(.current)")
+        expect(getComputedStyle(other as Element).outlineColor).not.toBe(
+          systemColor("Highlight"),
+        )
+      } finally {
+        await forceColors(false)
+      }
       window.scrollTo(0, 0)
     })
 

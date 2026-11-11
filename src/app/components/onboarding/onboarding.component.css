@@ -282,6 +282,19 @@
   background: antiquewhite;
 }
 
+/* Contrast themes paint every background the page's own colour, and the
+   dots vanished: system colours are kept. */
+@media (forced-colors: active) {
+  .dot::before {
+    background: CanvasText;
+  }
+
+  .dot.active::before,
+  :host-context(.dark-theme) .dot.active::before {
+    background: Highlight;
+  }
+}
+
 .buttons {
   display: flex;
   gap: 4px;

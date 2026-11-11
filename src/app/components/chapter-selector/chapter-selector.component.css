@@ -59,6 +59,15 @@ button.highlight {
   /* any extra styling you like */
 }
 
+/* Contrast themes drop the highlight's background: the chapter being read
+   gets a ring in their own selection colour. */
+@media (forced-colors: active) {
+  button.highlight {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
+
 .number-wrapper {
   position: relative;
   flex: none;

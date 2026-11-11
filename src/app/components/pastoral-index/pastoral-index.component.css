@@ -136,6 +136,15 @@ mat-accordion {
   color: var(--cap-brown);
 }
 
+/* Contrast themes drop that background: the current letter gets a ring in
+   their own selection colour. */
+@media (forced-colors: active) {
+  .letters button.current {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
 /* Room for the scroll bar, so it never covers the chevrons or the text. */
 .book-index-container {
   padding-right: 32px;

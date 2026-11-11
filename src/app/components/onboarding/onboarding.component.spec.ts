@@ -10,6 +10,7 @@ import {
   type InstallPromptOutcome,
   PwaInstallService,
 } from "../../services/pwa-install.service"
+import { forceColors, systemColor } from "../../testing/forced-colors"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { STORE_APPS } from "../../tokens"
 import { OnboardingComponent } from "./onboarding.component"
@@ -329,6 +330,41 @@ describe("OnboardingComponent", () => {
     expect(title()).toBe("Encontrar uma passagem")
     expect(dots[2].classList).toContain("active")
     expect(dots[2].getAttribute("aria-current")).toBe("step")
+  })
+
+  // Windows' contrast themes painted the dots in the dialog's own colour.
+  describe("in a forced-colours mode", () => {
+    // Headless Chrome follows the Mac's theme: set each case's, then restore.
+    let wasDark = false
+    beforeEach(() => {
+      wasDark = document.documentElement.classList.contains("dark-theme")
+    })
+
+    afterEach(async () => {
+      await forceColors(false)
+      document.documentElement.classList.toggle("dark-theme", wasDark)
+    })
+
+    const dotColors = () =>
+      Array.from(
+        element.querySelectorAll(".dot"),
+        (dot) => getComputedStyle(dot, "::before").backgroundColor,
+      )
+
+    for (const dark of [false, true]) {
+      it(`keeps the dots, the current one marked${dark ? ", dark" : ""}`, async () => {
+        document.documentElement.classList.toggle("dark-theme", dark)
+        // Before the dots are drawn: their colours would transition to it.
+        await forceColors(true)
+        create()
+
+        const [current, ...others] = dotColors()
+        expect(current).toBe(systemColor("Highlight"))
+        for (const other of others) {
+          expect(other).toBe(systemColor("CanvasText"))
+        }
+      })
+    }
   })
 
   describe("keyboard navigation", () => {
