@@ -130,9 +130,9 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     intro:
       "No topo do ecrã, toque no nome do livro (por exemplo, «Génesis») e escolha outro na lista, como no índice da sua Bíblia.",
     iosIntro:
-      "Na barra inferior, toque no livro e capítulo (por exemplo, «Génesis 1»). Aparecem os capítulos desse livro: toque em «Livros» para escolher outro livro.",
+      "O botão acima está na barra inferior e mostra o que está a ler (por exemplo, «Génesis 1»). Toque nele e aparecem os capítulos desse livro: toque em «Livros» para escolher outro livro.",
     androidIntro:
-      "No topo do ecrã, toque no livro e capítulo (por exemplo, «Génesis 1»). Aparecem os capítulos desse livro: toque em «Livros» para escolher outro livro.",
+      "O botão acima está no topo do ecrã e mostra o que está a ler (por exemplo, «Génesis 1»). Toque nele e aparecem os capítulos desse livro: toque em «Livros» para escolher outro livro.",
     features: [
       {
         icon: "touch_app",

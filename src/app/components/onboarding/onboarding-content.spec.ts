@@ -94,6 +94,9 @@ describe("nativeOnboardingSteps", () => {
   // current book's chapters; «Livros» leads back to the books.
   it("describes the iOS app's bars, not the web header", () => {
     expect(step("books")?.intro).toContain("barra inferior")
+    // The ringed copy is the real button: a fresh install opens on «Sobre a
+    // Bíblia», which no "livro e capítulo" describes.
+    expect(step("books")?.intro).toContain("O botão acima")
     expect(step("books")?.intro).toContain("«Livros»")
     expect(step("customize")?.intro).toContain("«Texto e aparência» (AA)")
     for (const text of texts(steps)) {
@@ -162,7 +165,8 @@ describe("nativeOnboardingSteps for the Android app", () => {
 
   // The passage is the top bar's title.
   it("points to the passage on top, with «Livros» to go back", () => {
-    expect(step("books")?.intro).toContain("No topo do ecrã")
+    expect(step("books")?.intro).toContain("no topo do ecrã")
+    expect(step("books")?.intro).toContain("O botão acima")
     expect(step("books")?.intro).toContain("«Génesis 1»")
     expect(step("books")?.intro).toContain("«Livros»")
     expect(step("books")?.intro).not.toContain("barra inferior")

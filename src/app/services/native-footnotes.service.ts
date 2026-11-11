@@ -14,6 +14,7 @@ import { NativeChromeService } from "./native-chrome.service"
 import type { FootnotesSheetState } from "./native-chrome.types"
 import { PreferencesService } from "./preferences.service"
 import { SystemTextSizeService } from "./system-text-size.service"
+import { TextAlignService } from "./text-align.service"
 import { ToastService } from "./toast.service"
 
 /** Where a reference in a note leads, as the web sheet's routerLink has it. */
@@ -39,6 +40,7 @@ export class NativeFootnotesService {
   private readonly bookService = inject(BookService)
   private readonly preferences = inject(PreferencesService)
   private readonly systemTextSize = inject(SystemTextSizeService)
+  private readonly textAlign = inject(TextAlignService)
   private readonly router = inject(Router)
   private readonly analytics = inject(AnalyticsService)
   private readonly toast = inject(ToastService)
@@ -92,6 +94,10 @@ export class NativeFootnotesService {
         (startingFontSize(this.preferences.getFontSize("reader"), () =>
           this.systemTextSize.percent(),
         ) ?? 100) / 100,
+      // As the reader's text: justified notes beside ragged verses opened
+      // rivers on a phone.
+      raggedText: this.textAlign.ragged,
+      hyphenate: this.textAlign.hyphenated,
       notes,
     }
     // Until this sheet is up, a footnotes-closed is the last one's: the

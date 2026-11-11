@@ -142,6 +142,8 @@ describe("BibleReaderComponent", () => {
       "setStudyPanelCollapsed",
       "getStudyColumnWidths",
       "setStudyColumnWidths",
+      // TextAlignService reads it, for the notes' alignment (NativeFootnotesService).
+      "getRaggedText",
     ])
     preferencesServiceSpy.getStudyMode.mockReturnValue(false)
     preferencesServiceSpy.getStudySidebarCollapsed.mockReturnValue(false)

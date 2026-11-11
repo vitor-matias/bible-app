@@ -205,6 +205,10 @@ export interface FootnotesSheetState {
   title: string
   /** The reader's text size, 1 = 100%: the iPhone's own text size included. */
   fontScale: number
+  /** Set as the reader's text is now (TextAlignService): ragged-right or justified. */
+  raggedText: boolean
+  /** Hyphenated as the reader's text: unless the reader chose ragged-right. */
+  hyphenate: boolean
   notes: {
     /** The note's marker, e.g. "3". */
     reference: string
