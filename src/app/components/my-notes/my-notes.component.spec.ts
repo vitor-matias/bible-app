@@ -156,6 +156,8 @@ describe("MyNotesComponent", () => {
       "Imprimir a lista",
       "Copiar a lista",
       "Guardar como texto",
+      // Its chapters are checked against the books.
+      "Ler uma cópia",
     ]) {
       expect(button(label).disabled).toBe(true)
     }
@@ -168,9 +170,35 @@ describe("MyNotesComponent", () => {
       "Imprimir a lista",
       "Copiar a lista",
       "Guardar como texto",
+      "Ler uma cópia",
     ]) {
       expect(button(label).disabled).toBe(false)
     }
+  })
+
+  // The chapter of a note is checked against its book, which needs the list: a
+  // copy read before it came would keep a note on Gn 99.
+  it("reads no copy before the book list has come", async () => {
+    bookList = new BehaviorSubject<Book[]>([])
+    Object.assign(TestBed.inject(BookService), {
+      books$: bookList.pipe(filter((list) => list.length > 0)),
+    })
+    fixture = TestBed.createComponent(MyNotesComponent)
+    component = fixture.componentInstance
+    fixture.detectChanges()
+    const file = JSON.stringify({
+      app: BACKUP_APP,
+      version: 1,
+      notes: [
+        { bookId: "gen", chapter: 99, verse: 1, text: "x", updatedAt: 1 },
+      ],
+      highlights: [],
+    })
+
+    await component.onFile(fileInput(file))
+
+    expect(notes.getNote("gen", 99, 1)).toBeUndefined()
+    expect(component.status).toContain("lista de livros")
   })
 
   it("says the colour of a mark in words", () => {

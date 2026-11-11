@@ -516,6 +516,47 @@ describe("BibleReaderComponent", () => {
         expect(footnotes?.map((note) => note.text)).toEqual(["Nota do 2"])
       })
 
+      // In study mode the footnotes are the panel's Rodapé tab: a sheet over
+      // its three columns would be a second place for them.
+      describe("in study mode", () => {
+        const native = () => TestBed.inject(NativeFootnotesService)
+
+        it("selects the verse and shows the Rodapé tab, as a click on its marker does", () => {
+          fixture.detectChanges()
+          studyMode.activate()
+          const open = vi.spyOn(native(), "open").mockImplementation(() => {})
+          const { sheet } = follow("2")
+
+          expect(component.selection?.verse.number).toBe(2)
+          expect(component.selection?.panel).toBe("footnotes")
+          expect(sheet).not.toHaveBeenCalled()
+          expect(open).not.toHaveBeenCalled()
+        })
+
+        it("opens no sheet natively either, and still takes it off the address", () => {
+          fixture.detectChanges()
+          studyMode.activate()
+          vi.spyOn(native(), "enabled", "get").mockReturnValue(true)
+          const open = vi.spyOn(native(), "open").mockImplementation(() => {})
+          const { sheet, replaceState } = follow("2")
+
+          expect(sheet).not.toHaveBeenCalled()
+          expect(open).not.toHaveBeenCalled()
+          // The verse chosen is what the address names now, and the link's
+          // parameter is gone, so a reload does not do it again.
+          expect(replaceState.mock.lastCall?.[1]).toBe("verseStart=2")
+        })
+
+        it("still has nothing to show for a verse without notes", () => {
+          fixture.detectChanges()
+          studyMode.activate()
+          const { sheet } = follow("1")
+
+          expect(sheet).not.toHaveBeenCalled()
+          expect(component.selection).toBeNull()
+        })
+      })
+
       it("forgets them when their chapter fails to load", () => {
         vi.spyOn(console, "error").mockImplementation(() => {})
         const sheet = vi

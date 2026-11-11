@@ -1273,6 +1273,14 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     if (!verse) return
     const footnotes = verse.text.filter((part) => part.type === "footnote")
     this.autoScrollService.stop()
+    // Study mode reads footnotes in the panel's Rodapé tab, and a sheet over
+    // its three columns would be a second place for them: the same as a click
+    // on the verse's marker, which selects the verse and asks for that tab.
+    if (this.studyModeActive) {
+      this.scrollToVerse(verse.number)
+      this.onVerseSelected({ verse, panel: "footnotes" })
+      return
+    }
     if (this.nativeFootnotes.enabled) {
       this.nativeFootnotes.open(footnotes, verse)
       return

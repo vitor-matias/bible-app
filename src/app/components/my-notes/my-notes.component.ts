@@ -262,6 +262,14 @@ export class MyNotesComponent implements OnInit {
     const file = input.files?.[0]
     input.value = ""
     if (!file) return
+    // Without the book list no chapter can be checked against its book, and a
+    // note on one that is not there would be kept: ask again in a moment.
+    if (!this.booksKnown) {
+      this.say(
+        "A lista de livros ainda está a chegar. Tente de novo daqui a pouco.",
+      )
+      return
+    }
     const result = parseBackup(
       await file.text(),
       (bookId) => this.bookService.findBookById(bookId)?.chapterCount,

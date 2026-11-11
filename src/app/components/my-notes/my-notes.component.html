@@ -29,7 +29,8 @@
     <button type="button" mat-stroked-button (click)="saveBackup()" [disabled]="!entries.length">
       <mat-icon>download</mat-icon> Guardar uma cópia
     </button>
-    <button type="button" mat-stroked-button (click)="file.click()">
+    <!-- Reading a copy checks its chapters against the books, which need the list. -->
+    <button type="button" mat-stroked-button (click)="file.click()" [disabled]="!booksKnown">
       <mat-icon>upload</mat-icon> Ler uma cópia
     </button>
     <input type="file" accept="application/json,.json" hidden #file (change)="onFile(file)" />
