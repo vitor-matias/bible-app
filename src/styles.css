@@ -695,6 +695,10 @@ html.dark-theme .platform-ios.native-chrome:has(pastoral-index) {
   display: block;
   margin: 15px var(--reader-side-margin);
   font-size: 105%;
+  /* At the largest sizes a long word can be wider than a phone's line; it
+     breaks rather than run off the screen. `anywhere`, not `break-word`, so
+     a line of poetry (an inline-block) also narrows to fit. */
+  overflow-wrap: anywhere;
 }
 
 /* Android's narrow measure (about 38 characters) hyphenated six lines in

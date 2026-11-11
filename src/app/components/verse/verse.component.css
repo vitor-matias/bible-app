@@ -65,12 +65,25 @@ h3:not(:first-child) {
 
 .indent {
   margin-left: 1em;
-  /* Adjust the indentation as needed */
 }
 
-.indent2 {
-  margin-left: 2.5em;
-  /* Adjust the indentation as needed */
+/* Room for the verse number hanging left of a line of poetry: with the side
+   margin, three digits and the note marker's space (1.9em). The side margin
+   doesn't grow with the text, so at large sizes 1em alone cut the number. */
+.quoteLineWrapper {
+  --number-room: max(1em, 1.9em - var(--reader-side-margin, 0px));
+}
+
+.quoteLineWrapper.indent {
+  margin-left: var(--number-room);
+}
+
+/* The second level's extra indent, and below the wrapped lines' one, stop
+   growing with the text past a phone's few words a line (8.5vw, 6vw: at the
+   standard size on a phone 360 px wide or more, 1.5em and 1em). Grown with
+   it, they pushed the words past the screen's edge. */
+.quoteLineWrapper.indent2 {
+  margin-left: calc(var(--number-room) + min(1.5em, 8.5vw));
 }
 
 .chapterNumber {
@@ -131,14 +144,20 @@ h3:not(:first-child) {
   position: relative;
   display: inline-block;
   /* Using flow-root to respect floated chapter numbers while maintaining block behavior */
-  padding-left: 1em;
-  /* Induction for wrapped lines + space for verse number */
-  text-indent: -1em;
-  /* Pull first line back, leaving space for verse number */
+  /* Wrapped lines indent; the first is pulled back. */
+  padding-left: min(1em, 6vw);
+  text-indent: calc(-1 * min(1em, 6vw));
   /* Verse is set ragged-right and unbroken: justifying a wrapped line of
      poetry spreads it into gaps, unlike the prose around it. */
   text-align: start;
   hyphens: manual;
+}
+
+/* At the largest sizes a line holds a few words and a long one
+   ("refrescantes") is wider than it: hyphenated as the prose is, unless the
+   reader chose unhyphenated text, rather than cut anywhere. */
+:host-context(.large-text) .quoteLineWrapper {
+  hyphens: inherit;
 }
 
 .quoteVerseNumber {

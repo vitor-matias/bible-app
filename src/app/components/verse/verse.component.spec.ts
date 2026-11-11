@@ -1451,4 +1451,55 @@ describe("VerseComponent", () => {
     expect(getComputedStyle(line).textAlign).toBe("start")
     expect(getComputedStyle(line).hyphens).toBe("manual")
   })
+
+  // Sl 23 at the largest text size on a phone: the indents grew with the
+  // text and pushed "refrescantes" past the screen's right edge, and a
+  // three-digit verse number hung past its left one.
+  it("keeps poetry and its verse numbers on a phone's screen at the largest text size", () => {
+    const screen = document.createElement("div")
+    screen.style.cssText =
+      "width: 320px; font-size: 235%; --reader-side-margin: 20px"
+    const block = document.createElement("div")
+    block.className = "bookBlock"
+    screen.appendChild(block)
+    document.body.appendChild(screen)
+    block.appendChild(fixture.nativeElement)
+    setData(
+      fixture,
+      makeVerse({
+        number: 119,
+        verseLabel: "119",
+        text: [
+          { type: "quote", text: "Em verdes prados me faz", identLevel: 1 },
+          {
+            type: "quote",
+            text: "e conduz-me às águas refrescantes.",
+            identLevel: 2,
+          },
+        ],
+      }),
+    )
+    fixture.detectChanges()
+
+    const bounds = screen.getBoundingClientRect()
+    const host = fixture.nativeElement as HTMLElement
+    const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT)
+    const outside: string[] = []
+    let rects = 0
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      for (const rect of range.getClientRects()) {
+        if (!rect.width) continue
+        rects++
+        if (rect.left < bounds.left - 0.5 || rect.right > bounds.right + 0.5) {
+          outside.push(`${node.textContent?.trim()} ${rect.left}–${rect.right}`)
+        }
+      }
+    }
+    screen.remove()
+
+    expect(rects).toBeGreaterThan(3)
+    expect(outside).toEqual([])
+  })
 })
