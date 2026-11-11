@@ -7,7 +7,7 @@ import { AlphabeticalScrollBarComponent } from "./alphabetical-scroll-bar.compon
   template: `
     <alphabetical-scroll-bar
       [style.height.px]="height()"
-      style="font-size: 12px"
+      [style.font-size.px]="fontSize()"
       [alphabet]="alphabet()"
       [current]="current()"
       [magnify]="magnify()"
@@ -18,6 +18,7 @@ import { AlphabeticalScrollBarComponent } from "./alphabetical-scroll-bar.compon
 })
 class Host {
   readonly height = signal(700)
+  readonly fontSize = signal(12)
   readonly alphabet = signal([..."ABCDEFGHIJKLMNOPRSTUVZ"])
   readonly current = signal<string | null>(null)
   readonly magnify = signal(true)
@@ -149,6 +150,24 @@ describe("AlphabeticalScrollBarComponent", () => {
     expect(shown()).toContain("·")
     fixture.componentInstance.magnify.set(false)
     fixture.componentInstance.height.set(401)
+    await render()
+    expect(shown().join("")).toBe("ABCDEFGHIJKLMNOPRSTUVZ")
+  })
+
+  // The iOS app's letters follow the text size, while the bar's height can
+  // stay at the screen's: the letters that fit changed with the size alone.
+  it("refits the letters when their size changes and the height doesn't", async () => {
+    fixture.componentInstance.magnify.set(false)
+    fixture.componentInstance.height.set(400)
+    await render()
+    expect(shown().join("")).toBe("ABCDEFGHIJKLMNOPRSTUVZ")
+
+    // 22 letters of 20 px: 550 px.
+    fixture.componentInstance.fontSize.set(20)
+    await render()
+    expect(shown()).toContain("·")
+
+    fixture.componentInstance.fontSize.set(12)
     await render()
     expect(shown().join("")).toBe("ABCDEFGHIJKLMNOPRSTUVZ")
   })
