@@ -443,6 +443,33 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertLessThanOrEqual(frame.maxX, 466 - 84 + 0.5)
     }
 
+    // At the largest text size a title's word was broken without a hyphen
+    // ("Escolh/er"), and "Começar a ler", wrapped, sat to the left.
+    @available(iOS 17.0, *)
+    func testOnboardingAtTheLargestTextSize() throws {
+        let steps = OnboardingStepData.parse(call(["steps": [
+            ["id": "passage", "title": "Escolher um livro", "intro": "…", "symbol": "book",
+             "logo": false, "features": []],
+        ]]))
+        let sheet = OnboardingController(steps: steps, onFinish: { _, _ in })
+        sheet.traitOverrides.preferredContentSizeCategory = .accessibilityExtraExtraExtraLarge
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = sheet
+        window.isHidden = false
+        sheet.view.layoutIfNeeded()
+
+        let title = try XCTUnwrap(subviews(of: sheet.view, UILabel.self).first { $0.accessibilityTraits.contains(.header) })
+        XCTAssertEqual(title.text, "Escolher um livro")
+        let paragraph = try XCTUnwrap(title.attributedText?.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)
+        XCTAssertGreaterThan(paragraph.hyphenationFactor, 0)
+        XCTAssertEqual(paragraph.alignment, .center)
+
+        let start = try XCTUnwrap(subviews(of: sheet.view, UIButton.self).first { $0.configuration?.title == "Começar a ler" })
+        let label = try XCTUnwrap(start.titleLabel?.attributedText)
+        let alignment = (label.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)?.alignment
+        XCTAssertEqual(alignment, .center)
+    }
+
     @available(iOS 16.0, *)
     func testRemovingARibbonEndsEditing() throws {
         let ribbons: [[String: Any]] = [
