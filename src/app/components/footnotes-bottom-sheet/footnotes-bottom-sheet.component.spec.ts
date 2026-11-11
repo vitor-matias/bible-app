@@ -77,6 +77,41 @@ describe("FootnotesBottomSheetComponent", () => {
     expect(item.textContent.replace(/\s+/g, " ").trim()).toBe("1a See Gen 1:1.")
   })
 
+  // As in the reader: a justified line stretched the space inside a
+  // citation, «Mc        4,10-12», in the web notes sheet too.
+  it("keeps a citation's own space unstretched in justified notes", () => {
+    const text = mockData.footnotes[0].text
+    mockData.footnotes[0].text =
+      "See Gen 1:1 and the long passage of the creation of the world that follows it, day after day."
+    try {
+      bibleRefSpy.extract.mockImplementation((note: string) =>
+        note.startsWith("See")
+          ? [{ match: "Gen 1:1", index: 4, book: "Gen", chapter: 1 }]
+          : [],
+      )
+      bookServiceSpy.findBook.mockReturnValue({ id: "gen" } as Book)
+      bookServiceSpy.getUrlAbrv.mockReturnValue("gn")
+      fixture.detectChanges()
+
+      const container = fixture.nativeElement.querySelector(
+        ".footnotes-container",
+      ) as HTMLElement
+      const link = container.querySelector("a") as HTMLElement
+      expect(link.querySelector(".ref-space")?.textContent).toBe(" ")
+      container.style.cssText = "white-space: nowrap; width: max-content"
+      const natural = link.getBoundingClientRect().width
+      for (let width = 160; width <= 400; width += 6) {
+        container.style.cssText = `width: ${width}px; text-align: justify`
+        expect(link.getBoundingClientRect().width, `at ${width}px`).toBeCloseTo(
+          natural,
+          0,
+        )
+      }
+    } finally {
+      mockData.footnotes[0].text = text
+    }
+  })
+
   it("puts a toast's way back above itself on opening", async () => {
     bibleRefSpy.extract.mockReturnValue([])
     await fixture.whenStable()

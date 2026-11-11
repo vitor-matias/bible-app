@@ -47,7 +47,7 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
             (click)="followReference()"
             [routerLink]="['/', getAbrv(part.book), part.chapter]"
             [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)"
-            >{{ part.match }}</a
+            >@for (word of part.match.split(" "); track $index) {@if (!$first) {<span class="ref-space">{{ " " }}</span>}{{ word }}}</a
           >
           } @else {
           <!-- No whitespace around the text: the template's own would add a gap before the next link or bracket. -->
@@ -64,6 +64,16 @@ import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
       .footnotes-container {
         font-family: var(--font-reading);
         text-align: justify;
+      }
+      /* As the reader's citations (verse-section.component.css): whole, and
+         the space inside in a box, which a justified line doesn't stretch. */
+      .footnotes-container a {
+        white-space: nowrap;
+      }
+      .ref-space {
+        display: inline-block;
+        white-space: pre;
+        text-decoration: inherit;
       }
       /* Ragged on a phone, as the reader is, unless the reader chose
          justified (TextAlignService; ragged is in styles.css). */
