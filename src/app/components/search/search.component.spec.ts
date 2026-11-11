@@ -1861,6 +1861,22 @@ describe("SearchComponent", () => {
     expect(component.statusMessage).toContain("Não foi possível pesquisar")
   })
 
+  // The API refuses more than 200 characters (as a shared /search?q= may
+  // bring): "Verifique a ligação" blamed a connection that was fine.
+  it("says when the search is too long, not that the connection failed", async () => {
+    referenceService.extract.mockReturnValue([])
+    apiService.search.mockReturnValue(throwError(() => ({ status: 400 })))
+    offlineSearch.search.mockResolvedValue(null)
+    vi.spyOn(console, "error").mockReturnValue(undefined)
+    await component.onSearchSubmit("luz ".repeat(70))
+    fixture.detectChanges()
+
+    const text = fixture.nativeElement.textContent as string
+    expect(text).toContain("A pesquisa é demasiado longa.")
+    expect(text).not.toContain("Verifique a ligação")
+    expect(component.statusMessage).toContain("demasiado longa")
+  })
+
   // The API limits how often one address may search; "Verifique a ligação"
   // blamed a connection that was fine.
   it("says when there were too many searches, not that the connection failed", async () => {

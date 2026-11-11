@@ -76,6 +76,10 @@ const SEARCH_FAILED =
 const SEARCH_RATE_LIMITED =
   "Foram feitas muitas pesquisas seguidas. Aguarde um minuto e tente novamente."
 
+/** The server refused the search (HTTP 400): longer than its 200 characters. */
+const SEARCH_TOO_LONG =
+  "A pesquisa é demasiado longa. Use no máximo 200 caracteres."
+
 /** A chapter the book doesn't have, or a verse the chapter doesn't. */
 const NO_SUCH_PASSAGE = "Este capítulo ou versículo não existe."
 
@@ -779,8 +783,13 @@ export class SearchComponent {
       // Not "no results": the page says the search itself failed, and why.
       console.error("Error loading search results:", error)
       this.searchFailed = true
+      const status = httpStatus(error)
       this.searchFailedMessage =
-        httpStatus(error) === 429 ? SEARCH_RATE_LIMITED : SEARCH_FAILED
+        status === 429
+          ? SEARCH_RATE_LIMITED
+          : status === 400
+            ? SEARCH_TOO_LONG
+            : SEARCH_FAILED
       this.searchResults = []
       this.totalResults = 0
       this.statusMessage = this.searchFailedMessage
