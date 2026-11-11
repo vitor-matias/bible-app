@@ -40,11 +40,20 @@ h3:not(:first-child) {
   margin-top: .5rem;
 }
 
-/* "Sl 8" stays whole: a reference split as "Sl" / "8;" reads as two, and,
-   an inline-block, keeps its own space unstretched in justified text. */
+/* "Sl 8" stays whole: a reference split as "Sl" / "8;" reads as two. */
 .references a {
   white-space: nowrap;
+}
+
+/* The space inside a reference, in a box of its own: a justified line
+   stretched it ("(Mc        4,10-12;"), and a box's own space isn't. Not
+   the whole link: a break is allowed beside a box, and its ")" or ";"
+   could start the next line. */
+.ref-space {
   display: inline-block;
+  white-space: pre;
+  /* Underlined with the link: decorations don't reach into a box. */
+  text-decoration: inherit;
 }
 
 .references-block {
