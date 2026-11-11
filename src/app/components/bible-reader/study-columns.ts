@@ -114,7 +114,10 @@ export class StudyColumns {
   /** Where a divider currently stands, whether the reader put it there or not. */
   private value(divider: StudyDivider): number {
     const stored = this.widths[divider]
-    if (stored !== undefined) return stored
+    // What is drawn, not what was kept: a width kept as 420 is drawn as less in
+    // a window that cannot spare it, and the keys and the drag start from where
+    // the divider is.
+    if (stored !== undefined) return Math.min(stored, this.maxOf(divider))
     const measure = (element: Element | undefined | null): number =>
       element ? element.getBoundingClientRect().width : 0
     const host = this.host.container()
@@ -230,10 +233,22 @@ export class StudyColumns {
     return from + delta
   }
 
+  /**
+   * The most a divider can be moved to in this window: its limit, or the share
+   * of the window it is drawn with at most (see columnWidth).
+   */
+  private maxOf(divider: StudyDivider): number {
+    const { max } = this.limits[divider]
+    if (divider === "split" || typeof window === "undefined") return max
+    return Math.min(max, (WINDOW_SHARE[divider] / 100) * window.innerWidth)
+  }
+
   /** What the column can usefully be, whichever way it was asked to move. */
   private clamp(divider: StudyDivider, value: number): number {
-    const limits = this.limits[divider]
-    return Math.min(limits.max, Math.max(limits.min, value))
+    return Math.min(
+      this.maxOf(divider),
+      Math.max(this.limits[divider].min, value),
+    )
   }
 
   private paint(divider: StudyDivider, raw: number): void {

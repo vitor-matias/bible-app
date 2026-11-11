@@ -1257,6 +1257,42 @@ describe("StudyPanelComponent", () => {
       expect(place).toHaveBeenCalled()
     })
 
+    // Folded, the content is not displayed: offsets read 0, so the follow
+    // moved nothing and was still taken for done.
+    describe("while the panel is folded away", () => {
+      const open = async () => {
+        vi.useFakeTimers()
+        bibleRef.extract.mockReturnValue([reference("mrk", 12, 31)])
+        const second = verse(39, [references("Mc 12,31")])
+        setInputs({
+          book: BOOK,
+          chapter: { bookId: "mat", number: 22, verses: [second] },
+          collapsed: true,
+        })
+        const place = vi.spyOn(StudyPanelComponent, "scrollTargetFor")
+        setInputs({ visibleVerse: 39 })
+        await vi.advanceTimersByTimeAsync(50)
+        return place
+      }
+
+      it("does not follow the reading position", async () => {
+        const place = await open()
+
+        expect(place).not.toHaveBeenCalled()
+      })
+
+      it("catches up with the reading position once unfolded", async () => {
+        const place = await open()
+        // Only what unfolding does: a follow made while folded is not it.
+        place.mockClear()
+
+        setInputs({ collapsed: false })
+        await vi.advanceTimersByTimeAsync(50)
+
+        expect(place).toHaveBeenCalled()
+      })
+    })
+
     it("marks the selected verse's group as the current one", () => {
       bibleRef.extract.mockReturnValue([reference("mrk", 12, 31)])
       const target = verse(39, [references("Mc 12,31")])

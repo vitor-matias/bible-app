@@ -12,6 +12,9 @@ describe("StudyColumns", () => {
   let columns: StudyColumns
 
   beforeEach(() => {
+    // A window wide enough for the columns' own limits: what is drawn is also
+    // held to a share of the window (see the narrower window below).
+    vi.stubGlobal("innerWidth", 1600)
     folded = { rail: false, panel: false }
     save = vi.fn()
     repaint = vi.fn()
@@ -65,6 +68,51 @@ describe("StudyColumns", () => {
     expect(panel).toBeCloseTo(viewport * 0.38, 0)
     // The reading column keeps at least a third of the window.
     expect(viewport - rail - panel).toBeGreaterThanOrEqual(viewport / 3 - 1)
+  })
+
+  // A column kept at 420 is drawn as min(420px, 28vw): at 1100 that is 308, and
+  // a divider that started from the 420 sat still for the first 112px of a
+  // drag, and for seven presses of an arrow.
+  describe("in a window that cannot spare what was kept", () => {
+    beforeEach(() => {
+      vi.stubGlobal("innerWidth", 1100)
+    })
+
+    it("starts a key press from where the divider is drawn", () => {
+      columns.widths = { rail: 420, panel: 560 }
+
+      columns.key("rail", press("ArrowLeft"))
+      columns.key("panel", press("ArrowRight"))
+
+      expect(columns.widths.rail).toBeCloseTo(1100 * 0.28 - 16, 5)
+      expect(columns.widths.panel).toBeCloseTo(1100 * 0.38 - 16, 5)
+    })
+
+    it("announces the width it is drawn at, not the one kept", () => {
+      columns.widths = { rail: 420 }
+
+      columns.announce()
+
+      expect(columns.values.rail).toBe(Math.round(1100 * 0.28))
+    })
+
+    it("keeps a drag within what can be drawn", () => {
+      columns.widths = { rail: 300 }
+      const target = document.createElement("div")
+      target.setPointerCapture = vi.fn()
+      const down = new PointerEvent("pointerdown", {
+        pointerId: 1,
+        clientX: 100,
+      })
+      Object.defineProperty(down, "target", { value: target })
+      columns.start("rail", down)
+      columns.move(
+        new PointerEvent("pointermove", { pointerId: 1, clientX: 400 }),
+      )
+      columns.end(new PointerEvent("pointerup", { pointerId: 1, clientX: 400 }))
+
+      expect(columns.widths.rail).toBeCloseTo(1100 * 0.28, 5)
+    })
   })
 
   it("gives the space back when the column is folded away", () => {

@@ -1754,6 +1754,9 @@ describe("BibleReaderComponent", () => {
 
   describe("dragging the columns to size", () => {
     beforeEach(() => {
+      // Wide enough for the widths dragged to below: a column is drawn at most
+      // a share of the window (28vw, 38vw), which the 800px test window is not.
+      vi.stubGlobal("innerWidth", 1600)
       fixture.detectChanges()
       studyMode.activate()
     })

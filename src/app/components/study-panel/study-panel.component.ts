@@ -545,6 +545,14 @@ export class StudyPanelComponent implements OnChanges {
     if (changes["visibleVerse"] && !this.selection && !this.readerHoldsPanel) {
       this.scrollActiveIntoView()
     }
+    // Unfolded: the follow skipped everything while it was hidden, so it starts
+    // from where the reader is now rather than waiting for the next passage.
+    if (changes["collapsed"] && !changes["collapsed"].firstChange) {
+      if (!this.collapsed) {
+        this.scrolledAnchor = undefined
+        this.scrollActiveIntoView()
+      }
+    }
   }
 
   selectTab(tab: PanelTab): void {
@@ -1259,7 +1267,9 @@ export class StudyPanelComponent implements OnChanges {
 
   private followActiveVerse(): void {
     const active = this.activeVerse
-    if (active === undefined) return
+    // Folded, the content is not displayed: every offset reads 0, nothing
+    // would move, and the anchor would be taken for placed all the same.
+    if (active === undefined || this.collapsed) return
     // References are keyed by the verse that carries them, which for a verse
     // in the middle of a passage is an earlier one — scroll to the group
     // covering the reader, not to a verse the panel never lists. Follows the
