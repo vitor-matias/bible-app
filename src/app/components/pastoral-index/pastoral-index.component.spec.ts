@@ -345,11 +345,18 @@ describe("PastoralIndexComponent", () => {
     expect(text).not.toMatch(/\s[;.]/)
   })
 
-  it("keeps the page's name at a theme's own address too", async () => {
+  // Every theme's page had the index's title, the same in each tab.
+  it("titles a theme's own address with the theme", async () => {
     await open("amor")
 
     expect(seo.updateForPastoralIndex).toHaveBeenCalledOnce()
-    expect(seo.updateForPastoralIndex).toHaveBeenCalledWith()
+    expect(seo.updateForPastoralIndex).toHaveBeenCalledWith("Amor")
+  })
+
+  it("keeps the index's title at its own address", async () => {
+    await open()
+
+    expect(seo.updateForPastoralIndex).toHaveBeenCalledWith(undefined)
   })
 
   it("follows the address to another theme in the same view", async () => {
@@ -1056,8 +1063,8 @@ describe("PastoralIndexComponent", () => {
     )
     // So that Back from a citation finds it open.
     expect(replaceState.mock.lastCall?.[0]).toBe("/indice/amor")
-    // The page keeps its one name, whichever theme is open.
-    expect(seo.updateForPastoralIndex).toHaveBeenCalledTimes(1)
+    // The heading stays the page's; the title follows the address.
+    expect(seo.updateForPastoralIndex).toHaveBeenLastCalledWith("Amor")
     expect(el.querySelector("h1")?.textContent).toBe("Índice Bíblico-Pastoral")
   })
 

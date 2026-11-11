@@ -465,6 +465,9 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
       })
     }
 
+    // The page's title names the theme its address does.
+    effect(() => this.seoService.updateForPastoralIndex(this.entry()?.title))
+
     // Rotating a phone crosses the breakpoint, and every theme opens or folds
     // above the one being read. Back to it once they have.
     let first = true
@@ -485,7 +488,6 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.seoService.updateForPastoralIndex()
     this.route.paramMap
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((params) => {

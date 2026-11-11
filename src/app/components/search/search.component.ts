@@ -305,7 +305,7 @@ export class SearchComponent {
             void this.onSearchSubmit(action.text)
           if (action.id === "back") this.location.back()
         })
-      this.syncNativeChrome()
+      this.showSearchTerm()
     }
 
     // Share-target launches arrive as /search?q=, and so does Back from a
@@ -398,7 +398,7 @@ export class SearchComponent {
     this.currentPage = kept.page
     this.storedMatches = kept.storedMatches
     this.statusMessage = this.resultsHeading
-    this.syncNativeChrome()
+    this.showSearchTerm()
     this.cdr.markForCheck()
     afterNextRender(
       () => {
@@ -547,8 +547,9 @@ export class SearchComponent {
     return { text, target }
   }
 
-  /** Shows the native search field, holding the current query. */
-  private syncNativeChrome(): void {
+  /** The current query in the page's title, and the apps' search field. */
+  private showSearchTerm(): void {
+    this.seoService.updateForSearch(this.searchTerm)
     if (!this.native) return
     this.nativeChrome.show({
       mode: "search",
@@ -735,7 +736,7 @@ export class SearchComponent {
     // previous results on screen, and paging and highlighting read this.
     this.searchTerm = text
     if (!typed) this.fieldValue = text
-    this.syncNativeChrome()
+    this.showSearchTerm()
     this.hasSearched = true
     this.isLoading = true
     this.searching = true
@@ -921,7 +922,7 @@ export class SearchComponent {
     this.totalResults = 0
     this.hasSearched = true
     this.statusMessage = "Qual salmo procura?"
-    this.syncNativeChrome()
+    this.showSearchTerm()
     this.cdr.detectChanges()
 
     const choice = this.psalmChoice

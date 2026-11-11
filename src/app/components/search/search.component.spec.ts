@@ -741,6 +741,28 @@ describe("SearchComponent", () => {
     expect(seoService.updateForSearch).toHaveBeenCalled()
   })
 
+  // Every search had the same title, in the tabs and the history.
+  it("names the query searched in the page's title", async () => {
+    referenceService.extract.mockReturnValue([])
+    apiService.search.mockReturnValue(
+      of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+    )
+    fixture.detectChanges()
+
+    await component.onSearchSubmit("bom pastor")
+
+    expect(seoService.updateForSearch).toHaveBeenLastCalledWith("bom pastor")
+  })
+
+  // The results were in no landmark: one main, the page's.
+  it("holds the results in the page's one main landmark", () => {
+    fixture.detectChanges()
+    const main = (fixture.nativeElement as HTMLElement).querySelectorAll("main")
+
+    expect(main.length).toBe(1)
+    expect(main[0].classList).toContain("search-container")
+  })
+
   it("should navigate to a direct reference using verseStart", async () => {
     const verse = {
       bookId: "jhn",

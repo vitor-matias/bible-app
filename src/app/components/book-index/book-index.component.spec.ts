@@ -111,6 +111,13 @@ describe("BookIndexComponent", () => {
     expect(headings[0].textContent?.trim()).toBe("Livros da Bíblia")
   })
 
+  // The list was in no landmark: one main, holding the books.
+  it("holds the books in the page's one main landmark", () => {
+    const main = element.querySelectorAll("main")
+    expect(main.length).toBe(1)
+    expect(main[0].querySelector("a[href]")).not.toBeNull()
+  })
+
   // Standalone introductions are prerendered pages too, so the hub links them.
   it("links a group heading to its standalone introduction", () => {
     expect(hrefs()).toContain("/pentateuco/intro")

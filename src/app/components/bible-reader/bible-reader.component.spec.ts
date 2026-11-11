@@ -1421,6 +1421,16 @@ describe("BibleReaderComponent", () => {
     expect(drawer().getAttribute("aria-label")).toBe("Capítulos")
   })
 
+  // The text, the About page and the introductions were in no landmark.
+  it("holds the text in the page's one main landmark", () => {
+    fixture.detectChanges()
+    const host = fixture.nativeElement as HTMLElement
+    const main = host.querySelectorAll('main, [role="main"]')
+
+    expect(main.length).toBe(1)
+    expect(main[0].querySelector(".bookBlock")).not.toBeNull()
+  })
+
   describe("Drawer Actions", () => {
     beforeEach(() => {
       fixture.detectChanges()

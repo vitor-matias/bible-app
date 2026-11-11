@@ -87,11 +87,17 @@ export class SeoService {
     this.setBreadcrumbs(null)
   }
 
-  /** Head for the Índice Bíblico-Pastoral, the same whichever theme is open. */
-  updateForPastoralIndex(): void {
+  /**
+   * Head for the Índice Bíblico-Pastoral, the same whichever theme is open
+   * but for the title, which leads with the theme the address names.
+   */
+  updateForPastoralIndex(theme?: string): void {
     const url = `${SEO_BASE_URL}${SEO_PASTORAL_INDEX_PATH}`
+    const page = theme
+      ? `${theme} — ${SEO_PASTORAL_INDEX_NAME}`
+      : SEO_PASTORAL_INDEX_NAME
     this.apply({
-      title: `${SEO_PASTORAL_INDEX_NAME} | ${SEO_SITE_NAME}`,
+      title: `${page} | ${SEO_SITE_NAME}`,
       description:
         "Os principais temas bíblicos e a sua evolução na Revelação, com as " +
         "citações da Bíblia dos Capuchinhos, da Difusora Bíblica.",
@@ -123,10 +129,13 @@ export class SeoService {
     ])
   }
 
-  /** Search results are user-specific, so keep them out of the index. */
-  updateForSearch(): void {
+  /**
+   * Search results are user-specific, so keep them out of the index. The
+   * title names the query, once there is one.
+   */
+  updateForSearch(query = ""): void {
     this.apply({
-      title: `Pesquisar | ${SEO_SITE_NAME}`,
+      title: `${query ? `Pesquisar «${query}»` : "Pesquisar"} | ${SEO_SITE_NAME}`,
       description: `Pesquise passagens, versículos e palavras na ${SEO_SITE_NAME}.`,
       canonicalUrl: `${SEO_BASE_URL}/search`,
       indexable: false,

@@ -27,7 +27,7 @@
     </mat-drawer>
     }
     <mat-drawer-content style="background-color: var(--background-color)">
-      <div #bookContainer [class.paged-view-container]="effectiveViewMode === 'paged'" [appPagedNavigation]="bookBlock"
+      <div #bookContainer role="main" [class.paged-view-container]="effectiveViewMode === 'paged'" [appPagedNavigation]="bookBlock"
         [viewMode]="effectiveViewMode" (nextChapter)="goToNextChapter()" (prevChapter)="goToPreviousChapter()"
         (pageStateChange)="onPageStateChange($event)">
         @if (showChapterCards && introCard) {
