@@ -686,10 +686,13 @@ describe("VerseComponent", () => {
       )
       highlightHost()
 
-      const number = fixture.nativeElement.querySelector(
-        ".verseNumber",
+      const pair = fixture.nativeElement.querySelector(
+        ".verseMarker",
       ) as HTMLElement
-      expect(getComputedStyle(number).backgroundColor).not.toBe(TRANSPARENT)
+      const number = pair.querySelector(".verseNumber") as HTMLElement
+      expect(getComputedStyle(pair).backgroundColor).not.toBe(TRANSPARENT)
+      // Once: the colour is translucent.
+      expect(getComputedStyle(number).backgroundColor).toBe(TRANSPARENT)
     })
 
     it("should wrap the space in front of a verse number in a run so the stroke does not break", () => {
@@ -756,7 +759,27 @@ describe("VerseComponent", () => {
       // background-color transition, and the value would be its start colour.
       highlightHost()
 
-      expect(getComputedStyle(marker).backgroundColor).not.toBe(TRANSPARENT)
+      const pair = marker.closest(".verseMarker") as HTMLElement
+      expect(getComputedStyle(pair).backgroundColor).not.toBe(TRANSPARENT)
+    })
+
+    // The number was padded down to the text's band but the notes marker, a
+    // button, could not be: Lc 15,11 showed a white notch under its icon.
+    it("should paint the number and its notes marker as tall as the text beside them", async () => {
+      withFootnote()
+      await document.fonts.ready
+      highlightHost()
+
+      const host = fixture.nativeElement as HTMLElement
+      const pair = (
+        host.querySelector(".verseMarker") as HTMLElement
+      ).getClientRects()[0]
+      const text = Array.from(host.querySelectorAll(".verseRun"))
+        .find((run) => run.textContent === "plain")
+        ?.getClientRects()[0] as DOMRect
+      expect(Math.abs(pair.top - text.top)).toBeLessThan(1)
+      expect(Math.abs(pair.bottom - text.bottom)).toBeLessThan(1)
+      expect(Math.abs(pair.right - text.left)).toBeLessThan(1)
     })
 
     // Padding does not move an inline box but does enlarge the border box the
