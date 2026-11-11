@@ -10,7 +10,7 @@
       </button>
       <reader-menu #readerMenu="readerMenu" [canShare]="canShare" [version]="version"
         [viewMode]="book().id === 'about' ? null : viewMode()"
-        [autoScrollControlsVisible]="autoScrollControlsVisible()"
+        [autoScrollControlsVisible]="autoScrollControlsVisible()" [textSize]="textSize()"
         (decreaseFontSize)="decreaseFontSize()" (increaseFontSize)="increaseFontSize()"
         (resetFontSize)="resetFontSize()"
         (toggleViewMode)="toggleViewMode.emit()" (bookmarks)="openBookmarkSelector()"
