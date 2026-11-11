@@ -1192,6 +1192,80 @@ describe("VerseComponent", () => {
     })
   })
 
+  // Copied verses read "do Céu? 13Pois ninguém": the number glued to the word.
+  describe("copied text", () => {
+    const copied = (verse: Verse) => {
+      setData(fixture, verse)
+      fixture.detectChanges()
+      const host = fixture.nativeElement as HTMLElement
+      host.style.display = "block"
+      const selection = getSelection() as Selection
+      selection.selectAllChildren(host)
+      const text = selection.toString()
+      selection.removeAllRanges()
+      return text
+    }
+    const space = () =>
+      fixture.nativeElement.querySelector(".copySpace") as HTMLElement
+
+    it("parts a verse's number from its first word", () => {
+      const text = copied(
+        makeVerse({
+          number: 13,
+          text: [{ type: "text", text: "Pois ninguém subiu ao Céu" }],
+        }),
+      )
+
+      expect(text).toContain("13 Pois ninguém")
+      // On screen nothing moves.
+      expect(space().getBoundingClientRect().width).toBe(0)
+    })
+
+    it("parts a poetry verse's number from its line", () => {
+      const text = copied(
+        makeVerse({
+          number: 3,
+          text: [{ type: "quote", text: "a line of poetry", identLevel: 1 }],
+        }),
+      )
+
+      expect(text).toContain("3 a line of poetry")
+      expect(space().getBoundingClientRect().width).toBe(0)
+    })
+
+    // A justified line spread its extra room into the space too, and the
+    // number drew away from its word.
+    it("keeps the number against its word in justified text", () => {
+      copied(
+        makeVerse({
+          number: 13,
+          text: [
+            {
+              type: "text",
+              text: "Pois ninguém subiu ao Céu senão Aquele que desceu do Céu",
+            },
+          ],
+        }),
+      )
+      const host = fixture.nativeElement as HTMLElement
+      host.style.textAlign = "justify"
+      host.style.width = "150px"
+      const number = host.querySelector(".verseNumber") as HTMLElement
+      const run = [...host.querySelectorAll(".verseRun")].find((el) =>
+        el.textContent?.startsWith("Pois"),
+      ) as HTMLElement
+      const word = document.createRange()
+      word.setStart(run.firstChild as Text, 0)
+      word.setEnd(run.firstChild as Text, "Pois".length)
+      const gap = () =>
+        word.getBoundingClientRect().left - number.getBoundingClientRect().right
+
+      const withSpace = gap()
+      space().remove()
+      expect(withSpace).toBeCloseTo(gap(), 1)
+    })
+  })
+
   describe("blank elements in the source text", () => {
     /**
      * A blank line is two forced breaks with nothing rendered between them.
