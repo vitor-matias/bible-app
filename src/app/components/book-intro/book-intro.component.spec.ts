@@ -23,6 +23,43 @@ describe("BookIntroComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  // Intros stayed justified, with rivers on a phone, whatever the reader chose.
+  describe("alignment", () => {
+    const frame = window.frameElement as HTMLElement | null
+    let width = ""
+    const classes = document.documentElement.classList
+
+    beforeEach(() => {
+      width = frame?.style.width ?? ""
+      setIntroduction([{ type: "introParagraph", text: "João, o discípulo." }])
+    })
+
+    afterEach(() => {
+      if (frame) frame.style.width = width
+      classes.remove("ragged-text", "justified-text")
+    })
+
+    const align = () =>
+      getComputedStyle(fixture.nativeElement.querySelector(".intro-paragraph"))
+        .textAlign
+
+    it("follows the reader's choice", () => {
+      expect(align()).toBe("justify")
+      classes.add("ragged-text")
+      expect(align()).toBe("start")
+      classes.replace("ragged-text", "justified-text")
+      expect(align()).toBe("justify")
+    })
+
+    it("is ragged-right on a phone until justified is chosen", () => {
+      expect(frame, "the specs run in a frame").toBeTruthy()
+      if (frame) frame.style.width = "390px"
+      expect(align()).toBe("start")
+      classes.add("justified-text")
+      expect(align()).toBe("justify")
+    })
+  })
+
   it("should merge a section with the following paragraph as run-in", () => {
     setIntroduction([
       { type: "introSection", level: 1, text: "AUTOR" },

@@ -121,3 +121,24 @@
   background: var(--card-background, rgba(128, 128, 128, 0.05));
   border-radius: 4px;
 }
+
+/* ── Alignment ── */
+
+/* As the chapters' text (.bookBlock in styles.css): ragged-right on a phone
+   and at the largest sizes until the reader chooses, then as chosen. */
+@media (max-width: 480px) {
+  .intro-paragraph,
+  .intro-outline,
+  .intro-list-item {
+    text-align: start;
+  }
+}
+
+:host-context(.large-text) :is(.intro-paragraph, .intro-outline, .intro-list-item),
+:host-context(html.ragged-text) :is(.intro-paragraph, .intro-outline, .intro-list-item) {
+  text-align: start;
+}
+
+:host-context(html.justified-text) :is(.intro-paragraph, .intro-outline, .intro-list-item) {
+  text-align: justify;
+}
