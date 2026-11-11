@@ -694,7 +694,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     const requested = this.book
     const isCurrent = () =>
       this.book.id === requested.id && this.pendingChapter === chapter
-    const retry = () => this.getChapter(chapter, verseStart, verseEnd, highlight)
+    const retry = () =>
+      this.getChapter(chapter, verseStart, verseEnd, highlight)
     // The slide-out outlasts the load: another chapter may be asked for by then.
     const finalize = (work: () => void) =>
       this.finalizeChapterTransition(() => {
@@ -1039,6 +1040,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   onToggleViewMode(): void {
+    const reading = this.verseInView()
     this.viewMode = this.viewMode === "scrolling" ? "paged" : "scrolling"
     this.preferencesService.setViewMode(this.viewMode)
 
@@ -1051,22 +1053,42 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.showAutoScrollControls =
       this.viewMode === "scrolling" && this.autoScrollControlsPreference
     this.cdr.markForCheck()
-    // Reset scroll when switching to paged? Or keep position?
-    // Paged View relies on overflow-x scroll or just columns.
-    // If we switch to paged, we might start at page 1 (scrollLeft 0).
-    if (this.viewMode === "paged") {
-      this.autoScrollService.stop()
-      // Reset to the first page once the paged layout has been rendered.
-      afterNextRender(
-        () => {
+    if (this.viewMode === "paged") this.autoScrollService.stop()
+    // The verse being read stays on screen, once the new layout is in.
+    afterNextRender(
+      () => {
+        if (this.viewMode === "paged") {
           const container = this.bookContainer?.nativeElement
-          if (container) {
-            container.scrollLeft = 0
-          }
-        },
-        { injector: this.injector },
-      )
-    }
+          if (container) container.scrollLeft = 0
+          if (reading) this.pagedNav?.scrollToPage(reading, "instant")
+        } else {
+          const start = reading?.querySelector(".verseNumber") ?? reading
+          start?.scrollIntoView({ block: "start" })
+        }
+      },
+      { injector: this.injector },
+    )
+  }
+
+  /** The first verse showing, on the page or in the scroller's view. */
+  private verseInView(): HTMLElement | undefined {
+    const scroller =
+      this.effectiveViewMode === "paged"
+        ? this.bookContainer?.nativeElement
+        : this.drawerContent?.nativeElement
+    const block = this.bookBlock?.nativeElement as HTMLElement | undefined
+    if (!scroller || !block) return undefined
+    const view = scroller.getBoundingClientRect()
+    return Array.from(block.querySelectorAll<HTMLElement>("verse")).find(
+      (verse) =>
+        Array.from(verse.getClientRects()).some(
+          (line) =>
+            line.bottom > view.top &&
+            line.top < view.bottom &&
+            line.right > view.left &&
+            line.left < view.right,
+        ),
+    )
   }
 
   @HostListener("window:keydown", ["$event"])

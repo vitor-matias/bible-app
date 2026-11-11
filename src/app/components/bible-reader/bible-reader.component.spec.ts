@@ -9,7 +9,7 @@ import {
 } from "@angular/core"
 import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
-import type { MatDrawer } from "@angular/material/sidenav"
+import { type MatDrawer, MatSidenavModule } from "@angular/material/sidenav"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { By } from "@angular/platform-browser"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
@@ -1600,6 +1600,80 @@ describe("BibleReaderComponent", () => {
       expect(preferencesServiceSpy.setViewMode).toHaveBeenCalledWith(
         "scrolling",
       )
+    })
+  })
+
+  // Switching views from the menu went to the chapter's top (/lc/15 at 20).
+  describe("switching views keeps the verse being read", () => {
+    let host: HTMLElement
+
+    beforeEach(async () => {
+      TestBed.resetTestingModule()
+      await setUpTestBed({
+        imports: [MatSidenavModule, PagedNavigationDirective],
+      })
+      fixture = TestBed.createComponent(BibleReaderComponent)
+      component = fixture.componentInstance
+      const verses = Array.from({ length: 40 }, (_, i) => ({
+        bookId: "gen",
+        chapterNumber: 1,
+        number: i + 1,
+        text: [],
+      }))
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({ ...mockChapter, verses } as unknown as Chapter),
+      )
+      fixture.detectChanges()
+      await fixture.whenStable()
+      host = fixture.nativeElement as HTMLElement
+      // VerseComponent isn't imported: give each verse a few lines of its own.
+      for (const verse of Array.from(host.querySelectorAll("verse"))) {
+        verse.textContent = `${verse.id} ${"Palavra ".repeat(60)}`
+      }
+    })
+
+    /** Whether a line of the verse is inside the scroller's box. */
+    function inView(verse: Element, scroller: HTMLElement): boolean {
+      const view = scroller.getBoundingClientRect()
+      return Array.from(verse.getClientRects()).some(
+        (line) =>
+          line.bottom > view.top &&
+          line.top < view.bottom &&
+          line.right > view.left &&
+          line.left < view.right,
+      )
+    }
+
+    const showing = (scroller: HTMLElement) =>
+      Array.from(host.querySelectorAll("verse")).find((verse) =>
+        inView(verse, scroller),
+      ) as HTMLElement
+
+    const drawer = () => host.querySelector("mat-drawer-content") as HTMLElement
+    const pages = () =>
+      host.querySelector(".paged-view-container") as HTMLElement
+
+    async function toggle(): Promise<void> {
+      component.onToggleViewMode()
+      fixture.detectChanges()
+      await fixture.whenStable()
+    }
+
+    it("from the scroll to the page it is on, and back", async () => {
+      ;(host.querySelector('verse[id="20"]') as HTMLElement).scrollIntoView({
+        block: "start",
+      })
+      const reading = showing(drawer())
+      expect(Number(reading.id)).toBeGreaterThan(15)
+
+      await toggle()
+      expect(pages().scrollLeft).toBeGreaterThan(0)
+      expect(inView(reading, pages())).toBe(true)
+
+      const first = showing(pages())
+      await toggle()
+      expect(drawer().scrollTop).toBeGreaterThan(0)
+      expect(inView(first, drawer())).toBe(true)
     })
   })
 
