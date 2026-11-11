@@ -811,12 +811,18 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck()
     // Or the URL coming back here would read as a chapter still to load.
     this.pendingChapter = this.chapterNumber
-    // Or the next chapter to load would open notes meant for this one.
-    this.linkedNotes = null
     this.isNavigatingBackwards = false
     this.isNavigatingForwards = false
-    if (this.shown) this.notifyChapterLoadFailed()
     this.releasePrerender()
+    // Opened cold, the address already names the chapter asked for: it keeps
+    // its verse and notes, for a retry or a reload to open.
+    if (!this.shown) {
+      console.error(error)
+      return
+    }
+    // Or the next chapter to load would open notes meant for this one.
+    this.linkedNotes = null
+    this.notifyChapterLoadFailed()
     if (isPlatformBrowser(this.platformId)) {
       this.router.navigate(
         [

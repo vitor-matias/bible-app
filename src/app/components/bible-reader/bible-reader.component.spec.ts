@@ -651,6 +651,80 @@ describe("BibleReaderComponent", () => {
       expect(snackBarSpy.open).not.toHaveBeenCalled()
     })
 
+    // A shared link to a verse's notes (/jo/4?verseStart=3&notes=3): the
+    // failure took verseStart and notes off the address and dropped the
+    // notes, so the retry opened the verse but not its notes.
+    it("keeps a linked verse's notes in the address and opens them on a retry", async () => {
+      ;(
+        routerSpy as unknown as {
+          routerState: {
+            snapshot: { root: { firstChild: { queryParams: object } } }
+          }
+        }
+      ).routerState.snapshot.root.firstChild.queryParams = {
+        verseStart: "3",
+        notes: "3",
+      }
+      const queryParamMap = (
+        routeMock as { queryParamMap: BehaviorSubject<Map<string, string>> }
+      ).queryParamMap
+      queryParamMap.next(
+        new Map([
+          ["verseStart", "3"],
+          ["notes", "3"],
+        ]),
+      )
+      // As the router would: a navigation without query params drops them.
+      routerSpy.navigate.mockImplementation((_commands, extras) => {
+        if (!extras?.queryParams) queryParamMap.next(new Map())
+        return Promise.resolve(true)
+      })
+      const sheet = vi
+        .spyOn(TestBed.inject(MatBottomSheet), "open")
+        .mockReturnValue({
+          afterDismissed: () => of(undefined),
+          dismiss: () => {},
+        } as never)
+      vi.spyOn(TestBed.inject(Location), "path").mockReturnValue(
+        "/gn/1?verseStart=3&notes=3",
+      )
+      vi.spyOn(TestBed.inject(Location), "replaceState").mockReturnValue(
+        undefined,
+      )
+      fixture.detectChanges()
+      await fixture.whenStable()
+
+      expect(routerSpy.navigate).not.toHaveBeenCalledWith(
+        ["/", "1-genesis", "1"],
+        { replaceUrl: true },
+      )
+
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({
+          bookId: "gen",
+          number: 1,
+          verses: [1, 2, 3].map((number) => ({
+            bookId: "gen",
+            chapterNumber: 1,
+            number,
+            verseLabel: `${number}`,
+            text: [
+              { type: "text", text: "Texto" },
+              { type: "footnote", text: `Nota do ${number}`, reference: "a" },
+            ],
+          })),
+        } as unknown as Chapter),
+      )
+      ;(
+        (failure() as HTMLElement).querySelector("button") as HTMLButtonElement
+      ).click()
+      fixture.detectChanges()
+      await fixture.whenStable()
+
+      const data = sheet.mock.lastCall?.[1]?.data as { verse: Verse }
+      expect(data?.verse.number).toBe(3)
+    })
+
     // Génesis 5 picked after Génesis 1 failed: the button still showing
     // retried Génesis 1, cancelling Génesis 5, and showed it under /gn/5.
     it("doesn't let the retry cancel a newer chapter on its way", async () => {
@@ -699,8 +773,9 @@ describe("BibleReaderComponent", () => {
       await fixture.whenStable()
 
       expect(component.chapterNumber).toBe(5)
-      expect(routerSpy.navigate).toHaveBeenLastCalledWith(
-        ["/", "1-genesis", "5"],
+      // The address (/gn/5) already names it: nothing takes it back to /gn/1.
+      expect(routerSpy.navigate).not.toHaveBeenCalledWith(
+        ["/", "1-genesis", "1"],
         { replaceUrl: true },
       )
 
