@@ -19,6 +19,21 @@ describe("TextAlignService", () => {
 
   afterEach(clear)
 
+  // As styles.css: only the reader's own ragged choice stops hyphenation; a
+  // phone's ragged default still hyphenates.
+  it("hyphenates unless the reader chose ragged-right", () => {
+    onPhone(true)
+    const service = TestBed.inject(TextAlignService)
+    expect(service.ragged).toBe(true)
+    expect(service.hyphenated).toBe(true)
+
+    service.toggle()
+    expect(service.hyphenated).toBe(true)
+    service.toggle()
+    expect(service.ragged).toBe(true)
+    expect(service.hyphenated).toBe(false)
+  })
+
   it("is justified by default on a wider screen", () => {
     onPhone(false)
     const service = TestBed.inject(TextAlignService)

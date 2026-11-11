@@ -401,6 +401,9 @@ data class FootnotesSheetState(
     /** Set as the reader's text is: ragged-right or justified. Null from a web
      *  app that doesn't say; then by the size, as before. */
     val raggedText: Boolean? = null,
+    /** Hyphenated as the reader's text: unless the reader chose ragged-right.
+     *  Null from a web app that doesn't say: hyphenated, as before. */
+    val hyphenate: Boolean? = null,
 ) {
     /** Ragged-right: as the reader's text, else past 180%, where a justified
      *  line of a handful of words spreads them. */
@@ -416,6 +419,7 @@ data class FootnotesSheetState(
             title = call.getString("title", "")!!,
             fontScale = call.data.optDouble("fontScale", 1.0).toFloat(),
             raggedText = if (call.data.has("raggedText")) call.data.optBoolean("raggedText") else null,
+            hyphenate = if (call.data.has("hyphenate")) call.data.optBoolean("hyphenate") else null,
             notes = objects(call.getArray("notes")).map { note ->
                 Note(
                     reference = note.optString("reference"),

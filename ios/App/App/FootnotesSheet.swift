@@ -22,6 +22,9 @@ struct FootnotesSheetState {
     /// Set as the reader's text is: ragged-right or justified. Nil from a
     /// web app that doesn't say; then by the size, as before.
     let raggedText: Bool?
+    /// Hyphenated as the reader's text: unless the reader chose ragged-right.
+    /// Nil from a web app that doesn't say: hyphenated, as before.
+    let hyphenate: Bool?
     let notes: [Note]
 
     /// Ragged-right: as the reader's text, else past 180%, where a justified
@@ -32,6 +35,7 @@ struct FootnotesSheetState {
         title = call.getString("title", "")
         fontScale = CGFloat(call.getDouble("fontScale") ?? 1)
         raggedText = call.getBool("raggedText")
+        hyphenate = call.getBool("hyphenate")
         notes = (call.getArray("notes", JSObject.self) ?? []).map { note in
             Note(reference: note["reference"] as? String ?? "",
                  parts: ((note["parts"] as? JSArray) ?? []).compactMap { $0 as? JSObject }.map { part in
@@ -220,8 +224,7 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
 
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = state.ragged ? .natural : .justified
-        // As the reader's ragged text, unhyphenated.
-        paragraph.hyphenationFactor = state.ragged ? 0 : 0.9
+        paragraph.hyphenationFactor = state.hyphenate ?? true ? 0.9 : 0
         paragraph.lineSpacing = size * 0.28
         paragraph.paragraphSpacing = size * 0.9
         let base: [NSAttributedString.Key: Any] = [

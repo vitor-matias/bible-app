@@ -34,6 +34,13 @@ export class TextAlignService {
     )
   }
 
+  /** Whether the text is hyphenated: always, unless the reader chose
+   *  ragged-right (`html.ragged-text`, styles.css); the defaults' ragged
+   *  text still hyphenates. */
+  get hyphenated(): boolean {
+    return this.choice !== true
+  }
+
   toggle(): void {
     this.choice = !this.ragged
     this.preferences.setRaggedText(this.choice)

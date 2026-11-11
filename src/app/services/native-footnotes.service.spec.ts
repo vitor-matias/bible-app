@@ -35,6 +35,7 @@ describe("NativeFootnotesService", () => {
   let fontSizes: Record<string, number>
   let systemPercent: number | null
   let ragged: boolean
+  let hyphenated: boolean
   let service: NativeFootnotesService
 
   const text = "Com este título (3,11; Jo 1,15) João pretende (8-9)."
@@ -77,6 +78,7 @@ describe("NativeFootnotesService", () => {
     fontSizes = {}
     systemPercent = null
     ragged = false
+    hyphenated = true
     TestBed.configureTestingModule({
       providers: [
         { provide: NativeChromeService, useValue: nativeChrome },
@@ -99,6 +101,9 @@ describe("NativeFootnotesService", () => {
           useValue: {
             get ragged() {
               return ragged
+            },
+            get hyphenated() {
+              return hyphenated
             },
           },
         },
@@ -127,6 +132,7 @@ describe("NativeFootnotesService", () => {
       title: "Mateus 11,3",
       fontScale: 1,
       raggedText: false,
+      hyphenate: true,
       notes: [
         {
           reference: "3.",
@@ -160,6 +166,12 @@ describe("NativeFootnotesService", () => {
     ragged = true
     service.open([footnote], verse)
     expect(shown().raggedText).toBe(true)
+    // A phone's ragged default still hyphenates, as the reader does.
+    expect(shown().hyphenate).toBe(true)
+
+    hyphenated = false
+    service.open([footnote], verse)
+    expect(shown().hyphenate).toBe(false)
   })
 
   it("follows the iPhone's text size while the reader does", () => {

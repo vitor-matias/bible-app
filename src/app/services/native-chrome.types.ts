@@ -207,6 +207,8 @@ export interface FootnotesSheetState {
   fontScale: number
   /** Set as the reader's text is now (TextAlignService): ragged-right or justified. */
   raggedText: boolean
+  /** Hyphenated as the reader's text: unless the reader chose ragged-right. */
+  hyphenate: boolean
   notes: {
     /** The note's marker, e.g. "3". */
     reference: string

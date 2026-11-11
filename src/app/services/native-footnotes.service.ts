@@ -97,6 +97,7 @@ export class NativeFootnotesService {
       // As the reader's text: justified notes beside ragged verses opened
       // rivers on a phone.
       raggedText: this.textAlign.ragged,
+      hyphenate: this.textAlign.hyphenated,
       notes,
     }
     // Until this sheet is up, a footnotes-closed is the last one's: the
