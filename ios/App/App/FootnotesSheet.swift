@@ -84,8 +84,10 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
         view.addSubview(textView)
         NSLayoutConstraint.activate([
             textView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            textView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            textView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            // The safe area, not the edges: on the folded iPhone Duo, turned
+            // sideways, Close runs down the side, over the start of the note.
+            textView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            textView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             textView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
     }
