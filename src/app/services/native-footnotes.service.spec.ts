@@ -17,6 +17,7 @@ import type {
 import { NativeFootnotesService } from "./native-footnotes.service"
 import { PreferencesService } from "./preferences.service"
 import { SystemTextSizeService } from "./system-text-size.service"
+import { TextAlignService } from "./text-align.service"
 import { ToastService } from "./toast.service"
 
 describe("NativeFootnotesService", () => {
@@ -33,6 +34,7 @@ describe("NativeFootnotesService", () => {
   /** The sizes stored per context: "reader" is the one AA changes. */
   let fontSizes: Record<string, number>
   let systemPercent: number | null
+  let ragged: boolean
   let service: NativeFootnotesService
 
   const text = "Com este título (3,11; Jo 1,15) João pretende (8-9)."
@@ -74,6 +76,7 @@ describe("NativeFootnotesService", () => {
     toast = createSpyObj("ToastService", ["showReturn"])
     fontSizes = {}
     systemPercent = null
+    ragged = false
     TestBed.configureTestingModule({
       providers: [
         { provide: NativeChromeService, useValue: nativeChrome },
@@ -90,6 +93,14 @@ describe("NativeFootnotesService", () => {
         {
           provide: SystemTextSizeService,
           useValue: { percent: () => systemPercent },
+        },
+        {
+          provide: TextAlignService,
+          useValue: {
+            get ragged() {
+              return ragged
+            },
+          },
         },
         {
           provide: BookService,
@@ -115,6 +126,7 @@ describe("NativeFootnotesService", () => {
     expect(shown()).toEqual({
       title: "Mateus 11,3",
       fontScale: 1,
+      raggedText: false,
       notes: [
         {
           reference: "3.",
@@ -140,6 +152,14 @@ describe("NativeFootnotesService", () => {
     fontSizes = { reader: 125, footnotes: 90 }
     service.open([footnote], verse)
     expect(shown().fontScale).toBe(1.25)
+  })
+
+  // The native sheets stayed justified, with rivers on a phone, beside the
+  // reader's ragged-right verses.
+  it("sets the notes as the reader's text is set", () => {
+    ragged = true
+    service.open([footnote], verse)
+    expect(shown().raggedText).toBe(true)
   })
 
   it("follows the iPhone's text size while the reader does", () => {

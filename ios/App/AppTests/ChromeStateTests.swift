@@ -315,6 +315,28 @@ final class ChromeStateTests: XCTestCase {
         ((view as? T).map { [$0] } ?? []) + view.subviews.flatMap { subviews(of: $0, type) }
     }
 
+    // The notes stayed justified, with rivers on a phone, beside the reader's
+    // ragged-right verses: they are set as the reader's text is now.
+    func testSetsTheNotesAsTheReadersText() throws {
+        func alignment(_ options: [String: Any]) throws -> NSTextAlignment {
+            var payload: [String: Any] = [
+                "title": "João 3,16",
+                "notes": [["reference": "16.", "parts": [["text": "Ver Gn 22,1-14."]]]],
+            ]
+            payload.merge(options) { $1 }
+            let sheet = FootnotesController(state: FootnotesSheetState(call(payload)), onLink: { _ in }, onClose: {})
+            sheet.loadViewIfNeeded()
+            let text = try XCTUnwrap(subviews(of: sheet.view, UITextView.self).first)
+            let style = text.attributedText.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+            return try XCTUnwrap(style).alignment
+        }
+        XCTAssertEqual(try alignment(["raggedText": true]), .natural)
+        XCTAssertEqual(try alignment(["raggedText": false, "fontScale": 2.2]), .justified)
+        // A web app that doesn't say: by the size, as before.
+        XCTAssertEqual(try alignment([:]), .justified)
+        XCTAssertEqual(try alignment(["fontScale": 2.2]), .natural)
+    }
+
     // On the folded iPhone Duo the status bar and Close run down the right
     // side, inside the safe area: the ringed copy and the intro ran under them.
     func testOnboardingPagesStayClearOfASideSafeArea() throws {

@@ -19,11 +19,19 @@ struct FootnotesSheetState {
     /// The reader's text size, 1 = 100%, which already counts the iPhone's
     /// own text size.
     let fontScale: CGFloat
+    /// Set as the reader's text is: ragged-right or justified. Nil from a
+    /// web app that doesn't say; then by the size, as before.
+    let raggedText: Bool?
     let notes: [Note]
+
+    /// Ragged-right: as the reader's text, else past 180%, where a justified
+    /// line of a handful of words spreads them, even letter by letter.
+    var ragged: Bool { raggedText ?? (fontScale > 1.8) }
 
     init(_ call: CAPPluginCall) {
         title = call.getString("title", "")
         fontScale = CGFloat(call.getDouble("fontScale") ?? 1)
+        raggedText = call.getBool("raggedText")
         notes = (call.getArray("notes", JSObject.self) ?? []).map { note in
             Note(reference: note["reference"] as? String ?? "",
                  parts: ((note["parts"] as? JSArray) ?? []).compactMap { $0 as? JSObject }.map { part in
@@ -211,10 +219,9 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
         let bold = UIFont(descriptor: serif.withSymbolicTraits(.traitBold) ?? serif, size: size * 1.04)
 
         let paragraph = NSMutableParagraphStyle()
-        // As the reader: past 180% a line holds a handful of words, and
-        // justified it spreads them, even letter by letter.
-        paragraph.alignment = state.fontScale > 1.8 ? .natural : .justified
-        paragraph.hyphenationFactor = 0.9
+        paragraph.alignment = state.ragged ? .natural : .justified
+        // As the reader's ragged text, unhyphenated.
+        paragraph.hyphenationFactor = state.ragged ? 0 : 0.9
         paragraph.lineSpacing = size * 0.28
         paragraph.paragraphSpacing = size * 0.9
         let base: [NSAttributedString.Key: Any] = [
