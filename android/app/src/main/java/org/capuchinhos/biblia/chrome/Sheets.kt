@@ -87,6 +87,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -318,38 +319,89 @@ internal fun fitsBesideIcon(buttonWidth: Float, labelWidth: Float, icon: Float, 
 
 /**
  * How a row's buttons lay out: compact, the icon beside the label where every
- * label of the row fits (at [BESIDE_MIN_FONT] at least), else above it; and
- * how tall they are.
+ * label of the row fits (at [BESIDE_MIN_FONT] at least), else above it; one
+ * button a line, its label wrapping, where a label doesn't fit above its icon
+ * either (large system text, at 200 % "Automático" lost its end); and how
+ * tall they are.
  */
-private data class ChoiceLayout(val beside: Boolean, val minHeight: Dp, val padding: PaddingValues)
+private data class ChoiceLayout(val arrangement: ChoiceArrangement, val minHeight: Dp, val padding: PaddingValues) {
+    val beside get() = arrangement != ChoiceArrangement.Above
+    val stacked get() = arrangement == ChoiceArrangement.Stacked
+}
+
+internal enum class ChoiceArrangement { Beside, Above, Stacked }
+
+/**
+ * Beside where compact and every label fits [buttonWidth] beside its icon
+ * ([besideWidths]); else above it where every label fits on one line
+ * ([aboveWidths]); else stacked. All in px.
+ */
+internal fun choiceArrangement(
+    compact: Boolean,
+    buttonWidth: Float,
+    besideWidths: List<Float>,
+    aboveWidths: List<Float>,
+    icon: Float,
+    padding: Float,
+): ChoiceArrangement = when {
+    compact && besideWidths.all { fitsBesideIcon(buttonWidth, it, icon, padding) } -> ChoiceArrangement.Beside
+    aboveWidths.all { fitsBesideIcon(buttonWidth, it, icon = 0f, padding) } -> ChoiceArrangement.Above
+    else -> ChoiceArrangement.Stacked
+}
 
 private val BESIDE_MIN_FONT = 12.sp
+private val ABOVE_MIN_FONT = 10.sp
 private val BESIDE_ICON = 18.dp
 private val BESIDE_GAP = 6.dp
 private val CHOICE_PADDING = 8.dp
 
 @Composable
 private fun rememberChoiceLayout(options: List<Choice>, compact: Boolean, rowWidth: Dp): ChoiceLayout {
-    if (!compact) return ChoiceLayout(beside = false, minHeight = 72.dp, PaddingValues(horizontal = CHOICE_PADDING, vertical = 12.dp))
     val measurer = rememberTextMeasurer()
-    val style = MaterialTheme.typography.labelLarge.copy(fontSize = BESIDE_MIN_FONT)
+    val style = MaterialTheme.typography.labelLarge
     val density = LocalDensity.current
-    val beside = remember(options, rowWidth, style, density) {
+    val arrangement = remember(options, compact, rowWidth, style, density) {
         val gaps = ButtonGroupDefaults.ConnectedSpaceBetween * (options.size - 1)
-        val button = with(density) { ((rowWidth - gaps) / options.size).toPx() }
-        options.all { choice ->
-            fitsBesideIcon(
-                buttonWidth = button,
-                labelWidth = measurer.measure(choice.label, style, maxLines = 1).size.width.toFloat(),
-                icon = with(density) { (BESIDE_ICON + BESIDE_GAP).toPx() },
-                padding = with(density) { CHOICE_PADDING.toPx() },
+        // At the smallest size autoSize may take: in sp, so with the system's text scale.
+        fun widths(size: TextUnit) = options.map {
+            measurer.measure(it.label, style.copy(fontSize = size), maxLines = 1).size.width.toFloat()
+        }
+        with(density) {
+            choiceArrangement(
+                compact,
+                buttonWidth = ((rowWidth - gaps) / options.size).toPx(),
+                besideWidths = if (compact) widths(BESIDE_MIN_FONT) else emptyList(),
+                aboveWidths = widths(ABOVE_MIN_FONT),
+                icon = (BESIDE_ICON + BESIDE_GAP).toPx(),
+                padding = CHOICE_PADDING.toPx(),
             )
         }
     }
-    return if (beside) {
-        ChoiceLayout(beside = true, minHeight = 48.dp, PaddingValues(horizontal = CHOICE_PADDING, vertical = 8.dp))
+    return when {
+        arrangement == ChoiceArrangement.Above && !compact ->
+            ChoiceLayout(arrangement, minHeight = 72.dp, PaddingValues(horizontal = CHOICE_PADDING, vertical = 12.dp))
+        arrangement == ChoiceArrangement.Above ->
+            ChoiceLayout(arrangement, minHeight = 56.dp, PaddingValues(horizontal = CHOICE_PADDING, vertical = 6.dp))
+        arrangement == ChoiceArrangement.Beside ->
+            ChoiceLayout(arrangement, minHeight = 48.dp, PaddingValues(horizontal = CHOICE_PADDING, vertical = 8.dp))
+        else -> ChoiceLayout(arrangement, minHeight = 48.dp, PaddingValues(horizontal = 16.dp, vertical = 8.dp))
+    }
+}
+
+/** The group's buttons side by side, or one a line when [stacked]; [content] gets each button's modifier. */
+@Composable
+private fun ChoiceGroup(stacked: Boolean, modifier: Modifier = Modifier, content: @Composable (Modifier) -> Unit) {
+    if (stacked) {
+        // As close as side by side: the group's gap to the next is wider.
+        Column(
+            modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+        ) { content(Modifier.fillMaxWidth()) }
     } else {
-        ChoiceLayout(beside = false, minHeight = 56.dp, PaddingValues(horizontal = CHOICE_PADDING, vertical = 6.dp))
+        Row(
+            modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+        ) { content(Modifier.weight(1f)) }
     }
 }
 
@@ -381,28 +433,25 @@ private data class Choice(
 private fun ConnectedChoices(options: List<Choice>, selected: String, compact: Boolean, onChoose: (String) -> Unit) {
     BoxWithConstraints {
         val layout = rememberChoiceLayout(options, compact, maxWidth)
-        Row(
-            Modifier.fillMaxWidth().selectableGroup(),
-            horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-        ) {
+        ChoiceGroup(layout.stacked, Modifier.selectableGroup()) { item ->
             options.forEachIndexed { index, choice ->
                 ToggleButton(
                     checked = choice.value == selected,
                     onCheckedChange = { onChoose(choice.value) },
-                    modifier = Modifier
-                        .weight(1f)
+                    modifier = item
                         .heightIn(min = layout.minHeight)
                         .semantics { role = Role.RadioButton },
-                    shapes = when (index) {
-                        0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                        options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                    shapes = when {
+                        layout.stacked -> ToggleButtonDefaults.shapesFor(ButtonDefaults.MinHeight)
+                        index == 0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                        index == options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
                         else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                     },
                     colors = ToggleButtonDefaults.colors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                     ),
                     contentPadding = layout.padding,
-                ) { ChoiceLabel(choice, layout.beside) }
+                ) { ChoiceLabel(choice, layout) }
             }
         }
     }
@@ -417,42 +466,41 @@ private fun ConnectedChoices(options: List<Choice>, selected: String, compact: B
 private fun ConnectedButtons(options: List<Choice>, compact: Boolean, onPress: (String) -> Unit) {
     BoxWithConstraints {
         val layout = rememberChoiceLayout(options, compact, maxWidth)
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-        ) {
+        ChoiceGroup(layout.stacked) { item ->
             options.forEachIndexed { index, choice ->
                 FilledTonalButton(
                     onClick = { onPress(choice.value) },
                     enabled = choice.enabled,
-                    modifier = Modifier.weight(1f).heightIn(min = layout.minHeight),
-                    shape = if (index == 0) {
-                        ButtonGroupDefaults.connectedLeadingButtonShape
-                    } else {
-                        ButtonGroupDefaults.connectedTrailingButtonShape
+                    modifier = item.heightIn(min = layout.minHeight),
+                    shape = when {
+                        layout.stacked -> ButtonDefaults.shape
+                        index == 0 -> ButtonGroupDefaults.connectedLeadingButtonShape
+                        else -> ButtonGroupDefaults.connectedTrailingButtonShape
                     },
                     colors = ButtonDefaults.filledTonalButtonColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                         contentColor = MaterialTheme.colorScheme.onSurface,
                     ),
                     contentPadding = layout.padding,
-                ) { ChoiceLabel(choice, layout.beside) }
+                ) { ChoiceLabel(choice, layout) }
             }
         }
     }
 }
 
 @Composable
-private fun ChoiceLabel(choice: Choice, beside: Boolean) {
-    if (beside) {
+private fun ChoiceLabel(choice: Choice, layout: ChoiceLayout) {
+    if (layout.beside) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(painterResource(choice.icon), contentDescription = null, Modifier.size(BESIDE_ICON))
+            Icon(painterResource(choice.icon), contentDescription = null, Modifier.size(if (layout.stacked) 24.dp else BESIDE_ICON))
             Spacer(Modifier.width(BESIDE_GAP))
+            // Stacked, the label has the sheet's width, and wraps between
+            // words rather than shrinking.
             Text(
                 choice.label,
                 style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
-                autoSize = TextAutoSize.StepBased(minFontSize = BESIDE_MIN_FONT, maxFontSize = 14.sp),
+                maxLines = if (layout.stacked) Int.MAX_VALUE else 1,
+                autoSize = if (layout.stacked) null else TextAutoSize.StepBased(minFontSize = BESIDE_MIN_FONT, maxFontSize = 14.sp),
             )
         }
         return
@@ -465,7 +513,7 @@ private fun ChoiceLabel(choice: Choice, beside: Boolean) {
             style = MaterialTheme.typography.labelLarge,
             textAlign = TextAlign.Center,
             maxLines = 1,
-            autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 14.sp),
+            autoSize = TextAutoSize.StepBased(minFontSize = ABOVE_MIN_FONT, maxFontSize = 14.sp),
         )
     }
 }
