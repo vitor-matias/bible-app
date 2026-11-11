@@ -176,6 +176,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   /** The book list could not be loaded and nothing is cached. */
   booksUnavailable = false
   retryingBooks = false
+  /** The first chapter opened could not be loaded: there is none to stay on. */
+  chapterUnavailable = false
+  retryingChapter = false
+  /** Loads that chapter again, as it was asked for. */
+  private retryChapterLoad?: () => void
   chapterNumber = 1
   chapter!: Chapter
 
@@ -689,6 +694,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     const requested = this.book
     const isCurrent = () =>
       this.book.id === requested.id && this.pendingChapter === chapter
+    const retry = () => this.getChapter(chapter, verseStart, verseEnd, highlight)
     // The slide-out outlasts the load: another chapter may be asked for by then.
     const finalize = (work: () => void) =>
       this.finalizeChapterTransition(() => {
@@ -732,7 +738,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
             )
           },
           (error) => {
-            if (isCurrent()) this.handleChapterLoadFailure(error)
+            if (isCurrent()) this.handleChapterLoadFailure(error, retry)
           },
         )
         return
@@ -771,26 +777,32 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           finalize(() =>
             this.applyChapter(res, chapter, verseStart, verseEnd, highlight),
           ),
-        error: (err) => finalize(() => this.handleChapterLoadFailure(err)),
+        error: (err) =>
+          finalize(() => this.handleChapterLoadFailure(err, retry)),
       })
   }
 
   // Stay on the chapter shown. A leftover slide direction would open the next
   // load at the bottom.
-  private handleChapterLoadFailure(error: unknown): void {
+  private handleChapterLoadFailure(error: unknown, retry: () => void): void {
+    this.retryingChapter = false
     if (this.shown) {
       // The chapter too: /intro on a book without one already set it to 1.
       this.book = this.shown.book
       this.chapterNumber = this.shown.chapter
-      this.cdr.markForCheck()
+    } else {
+      // Opened cold, a toast would fade over a blank page: say it in the page.
+      this.chapterUnavailable = true
+      this.retryChapterLoad = retry
     }
+    this.cdr.markForCheck()
     // Or the URL coming back here would read as a chapter still to load.
     this.pendingChapter = this.chapterNumber
     // Or the next chapter to load would open notes meant for this one.
     this.linkedNotes = null
     this.isNavigatingBackwards = false
     this.isNavigatingForwards = false
-    this.notifyChapterLoadFailed()
+    if (this.shown) this.notifyChapterLoadFailed()
     this.releasePrerender()
     if (isPlatformBrowser(this.platformId)) {
       this.router.navigate(
@@ -803,6 +815,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       )
     }
     console.error(error)
+  }
+
+  retryChapter(): void {
+    this.retryingChapter = true
+    this.cdr.markForCheck()
+    this.retryChapterLoad?.()
   }
 
   /** Tell the reader why a chapter could not be shown, instead of failing silently. */
@@ -864,6 +882,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.chapter = chapterData
     this.chapterNumber = chapter
     this.shown = { book: this.book, chapter }
+    this.chapterUnavailable = false
+    this.retryingChapter = false
+    this.retryChapterLoad = undefined
     this.rebuildChapterLinks()
     this.animationService.cancelPendingRealign()
 

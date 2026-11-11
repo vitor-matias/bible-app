@@ -221,6 +221,12 @@ export class BibleApiService {
         ).pipe(
           serverRetry(),
           requestTimeout(),
+          // An empty 200 parses as null: fail, or the reader shows no text.
+          tap((body) => {
+            if (!Array.isArray(body?.verses)) {
+              throw new Error("Unexpected response for a chapter")
+            }
+          }),
           finalize(() => {
             this.chapterRequests.delete(requestKey)
           }),

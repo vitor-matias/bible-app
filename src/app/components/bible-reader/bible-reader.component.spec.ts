@@ -583,6 +583,74 @@ describe("BibleReaderComponent", () => {
     })
   })
 
+  // Opened cold (João 4 from a link), there is no chapter to stay on: the
+  // toast faded over a blank page under «João 4», with no way to retry.
+  describe("when the first chapter opened fails to load", () => {
+    const failure = () =>
+      fixture.nativeElement.querySelector(
+        ".chapter-unavailable",
+      ) as HTMLElement | null
+
+    beforeEach(() => {
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      ;(
+        routerSpy as unknown as {
+          routerState: {
+            snapshot: { root: { firstChild: { queryParams: object } } }
+          }
+        }
+      ).routerState.snapshot.root.firstChild.queryParams = { verseStart: "3" }
+      apiServiceSpy.getChapter.mockReturnValue(
+        throwError(() => new Error("Internal Server Error")),
+      )
+    })
+
+    it("says so in the page, not in a passing toast", async () => {
+      fixture.detectChanges()
+      await fixture.whenStable()
+
+      expect(failure()?.getAttribute("role")).toBe("alert")
+      expect(failure()?.textContent).toContain(
+        "Não foi possível carregar o capítulo",
+      )
+      expect(snackBarSpy.open).not.toHaveBeenCalled()
+    })
+
+    it("loads the chapter again, at the verse asked for, on «Tentar novamente»", async () => {
+      fixture.detectChanges()
+      await fixture.whenStable()
+      apiServiceSpy.getChapter.mockReturnValue(
+        of(mockChapter as unknown as Chapter),
+      )
+      animationServiceSpy.scrollToVerseElement.mockClear()
+
+      const retry = failure()?.querySelector("button") as HTMLButtonElement
+      expect(retry.textContent).toContain("Tentar novamente")
+      retry.click()
+      await fixture.whenStable()
+
+      expect(apiServiceSpy.getChapter).toHaveBeenCalledTimes(2)
+      expect(apiServiceSpy.getChapter).toHaveBeenLastCalledWith("gen", 1)
+      expect(animationServiceSpy.scrollToVerseElement.mock.lastCall?.[2]).toBe(
+        3,
+      )
+      expect(failure()).toBeNull()
+    })
+
+    it("keeps the page up while a retry fails too", async () => {
+      fixture.detectChanges()
+      await fixture.whenStable()
+
+      ;(failure()?.querySelector("button") as HTMLButtonElement).click()
+      await fixture.whenStable()
+
+      expect(apiServiceSpy.getChapter).toHaveBeenCalledTimes(2)
+      const retry = failure()?.querySelector("button") as HTMLButtonElement
+      expect(retry.disabled).toBe(false)
+      expect(snackBarSpy.open).not.toHaveBeenCalled()
+    })
+  })
+
   describe("Navigation (Swipe / Arrow Keys / Methods)", () => {
     beforeEach(() => {
       fixture.detectChanges()
@@ -2218,9 +2286,13 @@ describe("BibleReaderComponent", () => {
         throwError(() => new Error("Network error")),
       )
       component.book = mockBooks[0] as unknown as Book
-      component.chapterNumber = 1
       const el = document.createElement("div")
       component.bookContainer = { nativeElement: el } as unknown as ElementRef
+      apiServiceSpy.getChapter.mockReturnValueOnce(
+        of(mockChapter as unknown as Chapter),
+      )
+      component.getChapter(1)
+      el.style.opacity = ""
 
       component.getChapter(2)
       await vi.advanceTimersByTimeAsync(0)
