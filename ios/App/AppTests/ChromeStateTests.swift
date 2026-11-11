@@ -351,6 +351,41 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertGreaterThan(glass.width, text.width)
     }
 
+    // MARK: The passage picker
+
+    // The system's Back drew «Livros» a second time once the push had settled
+    // (iOS 27): the label blinked out and faded back in. The chapters have their
+    // own, drawn once, and the swipe back still works.
+    func testThePickersChaptersHaveTheirOwnBackToTheBooks() throws {
+        let data = PassagePickerData(call([
+            "currentBookId": "gn", "currentChapter": 1,
+            "sections": [["title": "Antigo Testamento", "groups": [["books": [[
+                "id": "gn", "label": "Génesis", "name": "Livro do Génesis", "abbreviation": "Gn",
+                "chapters": [["number": 1, "label": "1"], ["number": 2, "label": "2"]],
+            ]]]]]],
+        ]))
+        let picker = PassagePickerController(data: data, onSelect: { _, _ in })
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = picker
+        window.isHidden = false
+        picker.loadViewIfNeeded()
+
+        let chapters = try XCTUnwrap(picker.topViewController)
+        chapters.loadViewIfNeeded()
+        XCTAssertEqual(picker.viewControllers.count, 2)
+        XCTAssertTrue(chapters.navigationItem.hidesBackButton)
+        let back = try XCTUnwrap(chapters.navigationItem.leftBarButtonItem?.customView as? UIButton)
+        XCTAssertEqual(back.configuration?.title, "Livros")
+        let swipe = try XCTUnwrap(picker.interactivePopGestureRecognizer)
+        XCTAssertTrue(swipe.delegate === picker)
+
+        back.sendActions(for: .primaryActionTriggered)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+        XCTAssertEqual(picker.viewControllers.count, 1)
+        // Nothing to go back to from the books.
+        XCTAssertFalse(picker.gestureRecognizerShouldBegin(swipe))
+    }
+
     // MARK: The sheets
 
     private func subviews<T: UIView>(of view: UIView, _ type: T.Type) -> [T] {
