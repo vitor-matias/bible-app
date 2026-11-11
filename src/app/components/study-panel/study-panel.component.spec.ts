@@ -1231,6 +1231,32 @@ describe("StudyPanelComponent", () => {
       await vi.advanceTimersByTimeAsync(50)
     })
 
+    // The panel had gone to this passage's group, and the reader scrolled it
+    // away by hand: choosing a verse in the same passage asks it to come back,
+    // but the anchor was the one it already stood at, and it stayed put.
+    it("looks again for a chosen verse's entries after the reader scrolled the panel", async () => {
+      vi.useFakeTimers()
+      bibleRef.extract.mockReturnValue([reference("mrk", 12, 31)])
+      const second = verse(39, [references("Mc 12,31")])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [second] },
+        visibleVerse: 39,
+      })
+      await vi.advanceTimersByTimeAsync(50)
+      const place = vi.spyOn(StudyPanelComponent, "scrollTargetFor")
+      fixture.nativeElement
+        .querySelector(".tab-body")
+        .dispatchEvent(new Event("wheel"))
+      place.mockClear()
+
+      setInputs({ selection: { verse: second } })
+      await vi.advanceTimersByTimeAsync(50)
+
+      // Whether it moves is for scrollTargetFor to say: only that it was asked.
+      expect(place).toHaveBeenCalled()
+    })
+
     it("marks the selected verse's group as the current one", () => {
       bibleRef.extract.mockReturnValue([reference("mrk", 12, 31)])
       const target = verse(39, [references("Mc 12,31")])

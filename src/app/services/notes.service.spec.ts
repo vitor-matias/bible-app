@@ -1,5 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 import { firstValueFrom } from "rxjs"
+import { parseBackup } from "../utils/study-backup"
 import { isVerseNote, NotesService, type VerseNote } from "./notes.service"
 
 const STORAGE_KEY = "verseNotes"
@@ -457,6 +458,46 @@ describe("NotesService", () => {
     expect(stored.map((note) => note.verse).sort((a, b) => a - b)).toEqual([
       12, 39, 40,
     ])
+  })
+
+  // JSON has no Infinity, but "1e999" reads as one: it beat every note in an
+  // import, was written back as null, and took both notes with it.
+  describe("a note whose numbers are not ones", () => {
+    const note = {
+      bookId: "mat",
+      chapter: 22,
+      verse: 37,
+      text: "o maior mandamento",
+      updatedAt: 1000,
+    }
+
+    it("is not a note when its update time or end verse is out of range", () => {
+      expect(isVerseNote(note)).toBe(true)
+      expect(
+        isVerseNote({ ...note, updatedAt: Number.POSITIVE_INFINITY }),
+      ).toBe(false)
+      expect(isVerseNote({ ...note, updatedAt: Number.NaN })).toBe(false)
+      expect(isVerseNote({ ...note, verseEnd: Number.POSITIVE_INFINITY })).toBe(
+        false,
+      )
+      expect(isVerseNote({ ...note, verseEnd: 1.5 })).toBe(false)
+      expect(isVerseNote({ ...note, verseEnd: 40 })).toBe(true)
+    })
+
+    it("does not replace the reader's note when it is imported, and leaves it in storage", () => {
+      const service = makeService()
+      service.saveNote("mat", 22, 37, "a minha")
+      const file = `{"app":"biblia-sagrada","version":1,"notes":[{"bookId":"mat","chapter":22,"verse":37,"text":"de fora","updatedAt":1e999}],"highlights":[]}`
+
+      const parsed = parseBackup(file)
+      const result = parsed.ok && service.importNotes(parsed.backup.notes)
+
+      expect(parsed.ok && parsed.dropped).toBe(1)
+      expect(result).toEqual({ added: 0, replaced: 0, kept: 0 })
+      expect(service.getNote("mat", 22, 37)?.text).toBe("a minha")
+      // Read back from storage, as the next page load does.
+      expect(makeService().getNote("mat", 22, 37)?.text).toBe("a minha")
+    })
   })
 
   // saveNote trims and deletes a note with no text, so the app never stores a

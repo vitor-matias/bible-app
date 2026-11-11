@@ -27,10 +27,12 @@ export function isVerseNote(value: unknown): value is VerseNote {
   const note = value as Partial<VerseNote>
   return (
     isVerseAddress(note) &&
-    typeof note.updatedAt === "number" &&
+    // Finite: JSON gives 1e999 as Infinity, which wins every comparison of
+    // update times and is written back as null, which is not a note.
+    Number.isFinite(note.updatedAt) &&
     typeof note.text === "string" &&
     note.text.trim().length > 0 &&
-    (note.verseEnd === undefined || typeof note.verseEnd === "number") &&
+    (note.verseEnd === undefined || Number.isSafeInteger(note.verseEnd)) &&
     (note.title === undefined || typeof note.title === "string")
   )
 }

@@ -39,7 +39,7 @@ export function isVerseHighlight(value: unknown): value is VerseHighlight {
   const highlight = value as Partial<VerseHighlight>
   return (
     isVerseAddress(highlight) &&
-    typeof highlight.updatedAt === "number" &&
+    Number.isFinite(highlight.updatedAt) &&
     HIGHLIGHT_COLORS.includes(highlight.color as HighlightColor)
   )
 }

@@ -1,6 +1,10 @@
 import { TestBed } from "@angular/core/testing"
 import { firstValueFrom } from "rxjs"
-import { HighlightService, type VerseHighlight } from "./highlight.service"
+import {
+  HighlightService,
+  isVerseHighlight,
+  type VerseHighlight,
+} from "./highlight.service"
 
 const STORAGE_KEY = "verseHighlights"
 
@@ -211,6 +215,24 @@ describe("HighlightService", () => {
       expect(service.colorFor("mat", 22, 37)).toBe("pink")
       expect(service.colorFor("mat", 22, 38)).toBe("green")
       expect(service.colorFor("mat", 22, 39)).toBe("blue")
+    })
+
+    // "1e999" is Infinity in JSON: it would beat every mark in an import and
+    // be written back as null, which is not a mark.
+    it("is not a mark when its update time is out of range", () => {
+      const mark = {
+        bookId: "mat",
+        chapter: 22,
+        verse: 37,
+        color: "pink",
+        updatedAt: 1,
+      }
+
+      expect(isVerseHighlight(mark)).toBe(true)
+      expect(
+        isVerseHighlight({ ...mark, updatedAt: Number.POSITIVE_INFINITY }),
+      ).toBe(false)
+      expect(isVerseHighlight({ ...mark, updatedAt: Number.NaN })).toBe(false)
     })
 
     it("clears every mark on request", () => {

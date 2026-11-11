@@ -522,7 +522,15 @@ export class StudyPanelComponent implements OnChanges {
         // The new tab's list has never been placed.
         this.scrolledAnchor = undefined
       }
-      if (this.selection) this.readerHoldsPanel = false
+      if (this.selection) {
+        this.readerHoldsPanel = false
+        // The panel was placed at this passage's group before the reader took
+        // hold of it, and scrolled it away by hand: the same anchor would be
+        // taken for already shown, and the chosen verse's entries left where
+        // the reader put the panel. scrollTargetFor still leaves it alone
+        // when they are in view.
+        this.scrolledAnchor = undefined
+      }
       // Before the box is refilled from the new verse: what was typed for the
       // one being left is still waiting, and loadNoteDraft would write over it.
       this.flushPendingNote()
