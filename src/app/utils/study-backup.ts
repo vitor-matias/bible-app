@@ -29,6 +29,12 @@ export type StudyBackup = {
 const isOfAKnownBook = (record: { bookId: string }): boolean =>
   CANON_ORDER.includes(record.bookId)
 
+/**
+ * How many chapters a book has, where the book list is to hand to say so;
+ * nothing otherwise, and then a chapter is taken as the file has it.
+ */
+export type ChapterCountOf = (bookId: Book["id"]) => number | undefined
+
 /** What a file this big could only be: not one of ours, and not worth parsing. */
 const MAX_BACKUP_CHARS = 8_000_000
 
@@ -56,7 +62,10 @@ export type BackupResult =
  * out and counted, rather than failing the whole file or being stored as
  * something the app cannot read back.
  */
-export function parseBackup(text: string): BackupResult {
+export function parseBackup(
+  text: string,
+  chapterCountOf?: ChapterCountOf,
+): BackupResult {
   if (text.length > MAX_BACKUP_CHARS) {
     return { ok: false, reason: "O ficheiro é demasiado grande." }
   }
@@ -86,9 +95,17 @@ export function parseBackup(text: string): BackupResult {
   // Rebuilt from the known fields, so a file cannot bring others in to be kept
   // and written out again, and only for the books the edition has: elsewhere
   // there is no chapter to list it under, to link to or to ask the words of.
+  // A chapter past the end of its book can be opened by nothing: the reader
+  // sends it to the not-found page, and the note could then only go with all
+  // the others.
+  const isInsideItsBook = (record: { bookId: string; chapter: number }) => {
+    const chapters = chapterCountOf?.(record.bookId)
+    return !chapters || chapters < 1 || record.chapter <= chapters
+  }
   const notes = rawNotes
     .filter(isVerseNote)
     .filter(isOfAKnownBook)
+    .filter(isInsideItsBook)
     .map(
       (n): VerseNote => ({
         bookId: n.bookId,
@@ -103,6 +120,7 @@ export function parseBackup(text: string): BackupResult {
   const highlights = rawMarks
     .filter(isVerseHighlight)
     .filter(isOfAKnownBook)
+    .filter(isInsideItsBook)
     .map(
       (h): VerseHighlight => ({
         bookId: h.bookId,

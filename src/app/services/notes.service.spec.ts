@@ -104,7 +104,7 @@ describe("NotesService", () => {
 
       const result = service.importNotes([saved(37, "nova", 5)])
 
-      expect(result).toEqual({ added: 1, replaced: 0, kept: 0 })
+      expect(result).toEqual({ added: 1, replaced: 0, kept: 0, same: 0 })
       expect(service.getNote("mat", 22, 37)?.text).toBe("nova")
     })
 
@@ -121,12 +121,27 @@ describe("NotesService", () => {
         saved(38, "do ficheiro, mais antigo", 500),
       ])
 
-      expect(result).toEqual({ added: 0, replaced: 1, kept: 1 })
+      expect(result).toEqual({ added: 0, replaced: 1, kept: 1, same: 0 })
       expect(service.getNote("mat", 22, 37)?.text).toBe(
         "do ficheiro, mais recente",
       )
       // An old file must not take back what was written since.
       expect(service.getNote("mat", 22, 38)?.text).toBe("daqui também")
+    })
+
+    it("counts a note already here exactly as the copy has it apart from one that is newer", () => {
+      const service = makeService()
+      service.saveNote("mat", 22, 37, "igual")
+      service.saveNote("mat", 22, 38, "mais recente cá")
+      const here37 = service.getNote("mat", 22, 37) as VerseNote
+      const here38 = service.getNote("mat", 22, 38) as VerseNote
+
+      const result = service.importNotes([
+        { ...here37 },
+        { ...here38, text: "mais antiga", updatedAt: here38.updatedAt - 1 },
+      ])
+
+      expect(result).toEqual({ added: 0, replaced: 0, kept: 1, same: 1 })
     })
 
     it("writes them in one go, not one write per note", () => {
@@ -493,7 +508,7 @@ describe("NotesService", () => {
       const result = parsed.ok && service.importNotes(parsed.backup.notes)
 
       expect(parsed.ok && parsed.dropped).toBe(1)
-      expect(result).toEqual({ added: 0, replaced: 0, kept: 0 })
+      expect(result).toEqual({ added: 0, replaced: 0, kept: 0, same: 0 })
       expect(service.getNote("mat", 22, 37)?.text).toBe("a minha")
       // Read back from storage, as the next page load does.
       expect(makeService().getNote("mat", 22, 37)?.text).toBe("a minha")

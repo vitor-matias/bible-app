@@ -17,6 +17,25 @@ function askToKeepStorage(): void {
   }
 }
 
+/**
+ * What bringing records in from a saved copy did: added where there was none,
+ * replaced by a newer one, kept because the one here was newer, and "same" for
+ * those that were already here exactly as the copy has them.
+ */
+export type MergeResult = {
+  added: number
+  replaced: number
+  kept: number
+  same: number
+}
+
+/** Whether two records say the same, a field left out being one left undefined. */
+function sameRecord(a: object, b: object): boolean {
+  const x = a as Record<string, unknown>
+  const y = b as Record<string, unknown>
+  return Object.keys({ ...x, ...y }).every((key) => x[key] === y[key])
+}
+
 /** Anything the reader leaves on a verse: a note, a mark. */
 export type VerseRecord = {
   bookId: Book["id"]
@@ -143,8 +162,8 @@ export abstract class VerseRecordStore<T extends VerseRecord> {
   protected merge(
     incoming: T[],
     wins: (incoming: T, existing: T) => boolean,
-  ): { added: number; replaced: number; kept: number } {
-    const result = { added: 0, replaced: 0, kept: 0 }
+  ): MergeResult {
+    const result: MergeResult = { added: 0, replaced: 0, kept: 0, same: 0 }
     this.commit((records) => {
       const next = [...records]
       for (const record of incoming) {
@@ -157,6 +176,9 @@ export abstract class VerseRecordStore<T extends VerseRecord> {
         } else if (wins(record, next[at])) {
           next[at] = record
           result.replaced++
+        } else if (sameRecord(record, next[at])) {
+          // Not older: a copy read straight back is all of this.
+          result.same++
         } else {
           result.kept++
         }

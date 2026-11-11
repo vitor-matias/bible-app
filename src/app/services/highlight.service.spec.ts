@@ -211,7 +211,7 @@ describe("HighlightService", () => {
         { bookId: "mat", chapter: 22, verse: 39, color: "blue", updatedAt: 1 },
       ])
 
-      expect(result).toEqual({ added: 1, replaced: 1, kept: 1 })
+      expect(result).toEqual({ added: 1, replaced: 1, kept: 1, same: 0 })
       expect(service.colorFor("mat", 22, 37)).toBe("pink")
       expect(service.colorFor("mat", 22, 38)).toBe("green")
       expect(service.colorFor("mat", 22, 39)).toBe("blue")

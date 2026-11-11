@@ -69,9 +69,14 @@ describe("MyNotesComponent", () => {
     )
     const books = createSpyObj<BookService>("BookService", [
       "findBook",
+      "findBookById",
       "getUrlAbrv",
       "getChapterUrlSegment",
     ])
+    // Genesis has fifty chapters; any other book is not one the list gives.
+    books.findBookById.mockImplementation((id: string) =>
+      id === "gen" ? ({ id, chapterCount: 50 } as Book) : undefined,
+    )
     books.findBook.mockImplementation(
       (id: string) => ({ id, shortName: NAMES[id] ?? id }) as Book,
     )
@@ -350,6 +355,44 @@ describe("MyNotesComponent", () => {
 
       expect(notes.getNote("mat", 22, 37)?.text).toBe("versão de hoje")
       expect(component.status).toContain("1 já cá estavam, mais recentes")
+    })
+
+    // Saved and read straight back: nothing is newer, and "Lidas 0" alone
+    // read like a restore that failed.
+    it("says there was nothing new when the copy is read straight back", async () => {
+      notes.saveNote("mat", 22, 37, "a nota que guardei")
+      marks.toggle("jhn", 3, 16, "green")
+      fixture.detectChanges()
+      component.saveBackup()
+      const text = await saved[0].text()
+
+      await component.onFile(fileInput(text))
+
+      expect(component.status).toContain("nada de novo")
+      expect(component.status).toContain("2 já cá estavam.")
+      expect(component.status).not.toContain("mais recentes")
+      expect(component.status).not.toContain("Lidas 0")
+      expect(notes.getNote("mat", 22, 37)?.text).toBe("a nota que guardei")
+    })
+
+    // The reader sends Gn 999 to the not-found page, so a note there could
+    // only go with all the others.
+    it("leaves out a note on a chapter its book does not have, and says so", async () => {
+      const file = JSON.stringify({
+        app: BACKUP_APP,
+        version: 1,
+        notes: [
+          { bookId: "gen", chapter: 999, verse: 1, text: "x", updatedAt: 1 },
+          { bookId: "gen", chapter: 50, verse: 1, text: "y", updatedAt: 1 },
+        ],
+        highlights: [],
+      })
+
+      await component.onFile(fileInput(file))
+
+      expect(notes.getNote("gen", 999, 1)).toBeUndefined()
+      expect(notes.getNote("gen", 50, 1)?.text).toBe("y")
+      expect(component.status).toContain("1 não puderam ser lidas")
     })
 
     it("refuses what is not a copy, and changes nothing", async () => {

@@ -167,6 +167,49 @@ describe("a saved copy of the notes and marks", () => {
     expect(result.ok && result.dropped).toBe(2)
   })
 
+  // Nothing can open Gn 999: the reader sends it to the not-found page, so the
+  // note could only go with all the others, and every later copy carried it.
+  describe("a chapter past the end of its book", () => {
+    const chapters = (bookId: string) => (bookId === "gen" ? 50 : undefined)
+    const copy = JSON.stringify({
+      app: BACKUP_APP,
+      version: 1,
+      exportedAt: "x",
+      notes: [
+        note("gen", 50, 1, "a última"),
+        note("gen", 0, 1, "na introdução"),
+        note("gen", 999, 1, "que não existe"),
+        note("exo", 999, 1, "de um livro de que não se sabe"),
+      ],
+      highlights: [mark("gen", 51, 1, "pink"), mark("gen", 1, 1, "blue")],
+    })
+
+    it("is left out, and counted, when the book's chapters are known", () => {
+      const result = parseBackup(copy, chapters)
+
+      expect(result.ok && result.backup.notes.map((n) => n.text)).toEqual([
+        "a última",
+        "na introdução",
+        "de um livro de que não se sabe",
+      ])
+      expect(result.ok && result.backup.highlights).toHaveLength(1)
+      expect(result.ok && result.dropped).toBe(2)
+    })
+
+    it("is taken as the file has it when the book list is not to hand", () => {
+      const result = parseBackup(copy)
+
+      expect(result.ok && result.backup.notes).toHaveLength(4)
+      expect(result.ok && result.dropped).toBe(0)
+    })
+
+    it("does not drop a book whose chapters the list does not give", () => {
+      const result = parseBackup(copy, () => 0)
+
+      expect(result.ok && result.backup.notes).toHaveLength(4)
+    })
+  })
+
   it("keeps only the fields it knows, so a file cannot bring others in", () => {
     const result = parseBackup(
       JSON.stringify({

@@ -791,6 +791,21 @@ describe("VerseComponent", () => {
       expect(getComputedStyle(marker).backgroundColor).toBe(TRANSPARENT)
     })
 
+    // The stylesheet makes every element selectable with !important (to beat
+    // the app-wide rule), which a plain `none` on the apparatus never outranked:
+    // a drag across a passage, a Ctrl+C or a long-press Copy took "4" and "5".
+    it("should keep the verse number and the footnote marker out of a selection, and the words in", () => {
+      const marker = withFootnote()
+      const number = fixture.nativeElement.querySelector(
+        ".verseNumber",
+      ) as HTMLElement
+
+      expect(number).not.toBeNull()
+      expect(getComputedStyle(number).userSelect).toBe("none")
+      expect(getComputedStyle(marker).userSelect).toBe("none")
+      expect(getComputedStyle(wordRun()).userSelect).toBe("text")
+    })
+
     it("should stop at the last word rather than trailing into the space after it", () => {
       plainVerse(2)
       highlightHost()

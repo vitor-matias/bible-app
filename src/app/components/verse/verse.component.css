@@ -364,8 +364,10 @@ h3:not(:first-child) {
 .verseNumber,
 .footnoteIndicator,
 .quoteVerseNumber {
-  -webkit-user-select: none;
-  user-select: none;
+  /* !important as the rule above that makes every element selectable is: a
+     plain declaration here never outranked it. */
+  -webkit-user-select: none !important;
+  user-select: none !important;
 }
 
 /* Forced colours drop backgrounds and shadows, which are all that a selected

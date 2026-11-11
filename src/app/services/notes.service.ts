@@ -3,6 +3,7 @@ import { map, type Observable } from "rxjs"
 import { normalizeForSearch } from "../utils/text"
 import {
   isVerseAddress,
+  type MergeResult,
   type VerseRecord,
   VerseRecordStore,
 } from "./verse-record-store"
@@ -139,11 +140,7 @@ export class NotesService extends VerseRecordStore<VerseNote> {
    * Notes from a saved copy. A note for a verse that already has one is
    * replaced only by a newer one, so an old file cannot undo later writing.
    */
-  importNotes(notes: VerseNote[]): {
-    added: number
-    replaced: number
-    kept: number
-  } {
+  importNotes(notes: VerseNote[]): MergeResult {
     return this.merge(notes, (incoming, existing) => {
       return incoming.updatedAt > existing.updatedAt
     })

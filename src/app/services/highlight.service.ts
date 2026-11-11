@@ -2,6 +2,7 @@ import { Injectable } from "@angular/core"
 import { map, type Observable } from "rxjs"
 import {
   isVerseAddress,
+  type MergeResult,
   type VerseRecord,
   VerseRecordStore,
 } from "./verse-record-store"
@@ -114,11 +115,7 @@ export class HighlightService extends VerseRecordStore<VerseHighlight> {
    * Marks from a saved copy. A verse that already has a mark keeps it unless
    * the copy's is newer, so an old file cannot undo later marking.
    */
-  importHighlights(highlights: VerseHighlight[]): {
-    added: number
-    replaced: number
-    kept: number
-  } {
+  importHighlights(highlights: VerseHighlight[]): MergeResult {
     return this.merge(highlights, (incoming, existing) => {
       return incoming.updatedAt > existing.updatedAt
     })

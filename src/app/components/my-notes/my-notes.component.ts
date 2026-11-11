@@ -262,16 +262,28 @@ export class MyNotesComponent implements OnInit {
     const file = input.files?.[0]
     input.value = ""
     if (!file) return
-    const result = parseBackup(await file.text())
+    const result = parseBackup(
+      await file.text(),
+      (bookId) => this.bookService.findBookById(bookId)?.chapterCount,
+    )
     if (!result.ok) {
       this.say(result.reason)
       return
     }
     const notes = this.notesService.importNotes(result.backup.notes)
     const marks = this.highlights.importHighlights(result.backup.highlights)
+    const readNotes = notes.added + notes.replaced
+    const readMarks = marks.added + marks.replaced
+    const same = notes.same + marks.same
     const kept = notes.kept + marks.kept
+    // A copy read straight back brings nothing: "Lidas 0" alone would sound
+    // like a restore that failed, when it is one that has nothing left to do.
+    const nothingNew = readNotes + readMarks === 0 && same + kept > 0
     this.say(
-      `Lidas ${notes.added + notes.replaced} notas e ${marks.added + marks.replaced} marcas.` +
+      (nothingNew
+        ? "A cópia não trazia nada de novo."
+        : `Lidas ${readNotes} notas e ${readMarks} marcas.`) +
+        (same ? ` ${same} já cá estavam.` : "") +
         (kept ? ` ${kept} já cá estavam, mais recentes.` : "") +
         (result.dropped ? ` ${result.dropped} não puderam ser lidas.` : ""),
     )
