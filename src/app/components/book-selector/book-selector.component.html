@@ -9,9 +9,10 @@
   />
 </div>
 <div class="bible-books-container">
+  <!-- A testament the filter leaves empty goes: its matches take its place. -->
   <!-- h2: the toolbar h1 precedes these in the DOM, and they are the drawer's
        only heading structure for screen readers. -->
-  <div class="column" role="group" aria-labelledby="otTestamentLabel">
+  <div class="column" role="group" aria-labelledby="otTestamentLabel" [hidden]="!otDataSource.data.length">
     <h2 class="testament-label" id="otTestamentLabel">Antigo Testamento</h2>
 
     <mat-tree [dataSource]="otDataSource" [treeControl]="otTreeControl">
@@ -35,7 +36,7 @@
     </mat-tree>
 
   </div>
-  <div class="column" role="group" aria-labelledby="ntTestamentLabel">
+  <div class="column" role="group" aria-labelledby="ntTestamentLabel" [hidden]="!ntDataSource.data.length">
     <h2 class="testament-label" id="ntTestamentLabel">Novo Testamento</h2>
 
     <mat-tree [dataSource]="ntDataSource" [treeControl]="ntTreeControl">
