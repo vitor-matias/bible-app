@@ -96,6 +96,8 @@ describe("BibleReaderComponent", () => {
       "setLastBookId",
       "getLastChapterNumber",
       "setLastChapterNumber",
+      // TextAlignService reads it, for the notes' alignment (NativeFootnotesService).
+      "getRaggedText",
     ])
 
     routerSpy = createSpyObj("Router", ["navigate"])

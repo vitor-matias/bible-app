@@ -55,6 +55,17 @@
   white-space: nowrap;
 }
 
+/* The space inside a reference, in a box of its own: a justified line
+   stretched it ("(Mc        4,10-12;"), and a box's own space isn't. Not
+   the whole link: a break is allowed beside a box, and its ")" or ";"
+   could start the next line. */
+.ref-space {
+  display: inline-block;
+  white-space: pre;
+  /* Underlined with the link: decorations don't reach into a box. */
+  text-decoration: inherit;
+}
+
 .references {
   font-size: 80%;
   color: var(--text-color);

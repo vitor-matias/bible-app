@@ -148,6 +148,9 @@ class ChromeStateTest {
             ),
         )
         assertEquals(1.25f, notes.fontScale)
+        // Says nothing of alignment: by the size, as before.
+        assertNull(notes.raggedText)
+        assertFalse(notes.ragged)
         assertEquals(
             listOf(
                 FootnotesSheetState.Part("Ver ", null),
@@ -156,6 +159,21 @@ class ChromeStateTest {
             ),
             notes.notes.single().parts,
         )
+    }
+
+    // The notes stayed justified, with rivers on a phone, beside the reader's
+    // ragged-right verses.
+    @Test
+    fun setsTheNotesAsTheReadersText() {
+        fun notes(json: String) = FootnotesSheetState.from(call(json))
+        assertTrue(notes("""{"title":"Jo 3,16","fontScale":1,"raggedText":true,"notes":[]}""").ragged)
+        assertFalse(notes("""{"title":"Jo 3,16","fontScale":2.2,"raggedText":false,"notes":[]}""").ragged)
+        assertTrue(notes("""{"title":"Jo 3,16","fontScale":2.2,"notes":[]}""").ragged)
+        // Hyphenated unless the reader chose ragged-right; a web app that
+        // doesn't say leaves it hyphenated, as before.
+        assertEquals(true, notes("""{"title":"Jo 3,16","fontScale":1,"raggedText":true,"hyphenate":true,"notes":[]}""").hyphenate)
+        assertEquals(false, notes("""{"title":"Jo 3,16","fontScale":1,"raggedText":true,"hyphenate":false,"notes":[]}""").hyphenate)
+        assertNull(notes("""{"title":"Jo 3,16","fontScale":2.2,"notes":[]}""").hyphenate)
     }
 
     @Test

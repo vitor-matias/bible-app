@@ -22,7 +22,7 @@
     @for(part of parsedReferences.get(i); track $index){
     @if (typeof part === 'object') {
     <a (click)="showReturnSnackbar()" [routerLink]="['/', (part.book | lowercase ), part.chapter]"
-      [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)">{{part.match}}</a>
+      [queryParams]="getVerseQueryParams(part.verses, part.crossChapter)">@for (word of part.match.split(" "); track $index) {@if (!$first) {<span class="ref-space">{{ " " }}</span>}{{ word }}}</a>
     } @else {<span>{{ part }}</span>}
     }
   </span>

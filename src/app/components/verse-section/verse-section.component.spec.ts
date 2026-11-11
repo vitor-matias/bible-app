@@ -325,6 +325,86 @@ describe("VerseSectionComponent", () => {
       }
     })
 
+    // In justified paged text the space inside a citation stretched:
+    // «O porquê das parábolas (Mc        4,10-12;».
+    it("keeps a citation's own space unstretched in justified text", () => {
+      const host = fixture.nativeElement as HTMLElement
+      mockBibleRef.extract.mockReturnValue([
+        {
+          match: "Mc 4,10-12",
+          index: 1,
+          book: "mrk",
+          chapter: 4,
+        } as BibleReference,
+      ])
+      fixture.componentRef.setInput("changeLine", false)
+      setData(
+        fixture,
+        makeVerse({
+          text: [
+            { type: "section", tag: "s2", text: "O porquê das parábolas" },
+            { type: "references", text: "(Mc 4,10-12; Lc 8,9-10)" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+
+      const link = host.querySelector(".references a") as HTMLElement
+      expect(link).toBeTruthy()
+      host.style.cssText = "display: block; white-space: nowrap"
+      const natural = link.getBoundingClientRect().width
+      // A narrow justified column: the line holding the link is stretched.
+      const heading = host.querySelector(
+        "[data-section-heading]",
+      ) as HTMLElement
+      const headingWidth = heading.getBoundingClientRect().width
+      host.style.cssText = `display: block; width: ${headingWidth + natural + 60}px; text-align: justify`
+
+      expect(link.getBoundingClientRect().width).toBeCloseTo(natural, 0)
+    })
+
+    // Boxing the whole link let «Ez 34» end a line and its «)» begin the
+    // next: a break is allowed beside a box. Only the space inside is boxed.
+    it("keeps the punctuation after a citation on its line", () => {
+      const host = fixture.nativeElement as HTMLElement
+      mockBibleRef.extract.mockReturnValue([
+        {
+          match: "Ez 34",
+          index: 1,
+          book: "ezk",
+          chapter: 34,
+        } as BibleReference,
+      ])
+      fixture.componentRef.setInput("changeLine", false)
+      setData(
+        fixture,
+        makeVerse({
+          text: [
+            {
+              type: "section",
+              tag: "s2",
+              text: "Alegorias da porta e do pastor",
+            },
+            { type: "references", text: "(Ez 34)" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+
+      const link = host.querySelector(".references a") as HTMLElement
+      const after = link.nextElementSibling as HTMLElement
+      expect(after.textContent).toBe(")")
+      for (let width = 120; width <= 420; width += 2) {
+        host.style.cssText = `display: block; width: ${width}px; text-align: justify`
+        const end = link.getClientRects()
+        const lastLine = end[end.length - 1].top
+        expect(after.getBoundingClientRect().top, `at ${width}px`).toBeCloseTo(
+          lastLine,
+          0,
+        )
+      }
+    })
+
     it("leaves a centred heading's words as they were", () => {
       render({ changeLine: true, beside: false })
       const words = (fixture.nativeElement as HTMLElement).querySelector(
