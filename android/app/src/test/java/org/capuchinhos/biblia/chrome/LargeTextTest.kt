@@ -42,4 +42,28 @@ class LargeTextTest {
         assertEquals(4, ribbonColumns(rowWidth = 1000f, widestLabel = 190f, gap = 34f, padding = 13.6f))
         assertEquals(2, ribbonColumns(rowWidth = 1000f, widestLabel = 260f, gap = 34f, padding = 13.6f))
     }
+
+    @Test
+    fun theTitleTakesTheLongestLabelThatFitsWithItsCaret() {
+        // "Deuteronómio 3", "Dt 3".
+        assertEquals(FittedPassage(1, 1f, caret = true, fits = true), fitPassage(listOf(400, 120), withCaret = 200, bare = 260, minScale = 1f))
+        assertEquals(FittedPassage(0, 1f, caret = true, fits = true), fitPassage(listOf(180, 120), withCaret = 200, bare = 260, minScale = 1f))
+    }
+
+    @Test
+    fun atLargeTextTheTitleShrinksAndKeepsItsCaret() {
+        // Font scale 2.0: "Índice" was cut to "…ice", "Jo 3" lost its ▾.
+        assertEquals(FittedPassage(0, 0.56f, caret = true, fits = true), fitPassage(listOf(500), withCaret = 280, bare = 362, minScale = 0.5f))
+        assertEquals(FittedPassage(0, 0.93f, caret = true, fits = true), fitPassage(listOf(300), withCaret = 280, bare = 362, minScale = 0.5f))
+        // Measured on a Pixel 9a at 200 % and 130 % display size: "Índice" at 0.63 of its size, not without its ▾.
+        assertEquals(FittedPassage(1, 0.6286f, caret = true, fits = true), fitPassage(listOf(1206, 324), withCaret = 204, bare = 286, minScale = 0.6286f))
+    }
+
+    @Test
+    fun theCaretMakesWayBeforeTheTitleIsCut() {
+        // At the default text size nothing shrinks.
+        assertEquals(FittedPassage(1, 1f, caret = false, fits = true), fitPassage(listOf(400, 250), withCaret = 200, bare = 260, minScale = 1f))
+        assertEquals(FittedPassage(1, 1f, caret = false, fits = false), fitPassage(listOf(400, 300), withCaret = 200, bare = 260, minScale = 1f))
+        assertEquals(FittedPassage(0, 0.5f, caret = false, fits = false), fitPassage(listOf(900), withCaret = 280, bare = 362, minScale = 0.5f))
+    }
 }
