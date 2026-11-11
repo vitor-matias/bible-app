@@ -132,6 +132,8 @@ export interface PsalmOption {
   psalm: number
   /** Where to open it; none for the psalm's beginning. */
   verseStart?: number
+  /** The end of a range asked for ("Sl 94,6-7"). */
+  verseEnd?: number
   label: string
   /** Which numbering names it so: "nesta Bíblia" or "como na Missa". */
   note: string
@@ -659,6 +661,7 @@ export class SearchComponent {
         target.book,
         target.chapter,
         target.verseStart,
+        target.verseEnd,
       )
       return
     }
@@ -915,12 +918,16 @@ export class SearchComponent {
     psalms: Book,
     psalm: number,
     verseStart: number | undefined,
+    verseEnd: number | undefined,
   ): void {
     const liturgical = psalmFromLiturgical(psalm)
     if (!liturgical) return
     const option = (number: number, note: string, verse?: number) => ({
       psalm: number,
-      ...(verse !== undefined && verse > 1 ? { verseStart: verse } : {}),
+      ...(verse !== undefined && (verse > 1 || verseEnd)
+        ? { verseStart: verse }
+        : {}),
+      ...(verseEnd ? { verseEnd } : {}),
       label: passageLabel(psalms, number),
       note,
       title:
@@ -991,8 +998,14 @@ export class SearchComponent {
 
   /** A result's or a psalm's address: a real link, which a keyboard, a
    *  screen reader and "open in a new tab" can follow. */
-  passageHref(bookId: string, chapter: number, verseStart?: number): string {
-    const query = verseStart ? `?verseStart=${verseStart}` : ""
+  passageHref(
+    bookId: string,
+    chapter: number,
+    verseStart?: number,
+    verseEnd?: number,
+  ): string {
+    const end = verseStart && verseEnd ? `&verseEnd=${verseEnd}` : ""
+    const query = verseStart ? `?verseStart=${verseStart}${end}` : ""
     return `/${this.passagePath(bookId, chapter).join("/")}${query}`
   }
 
@@ -1021,12 +1034,15 @@ export class SearchComponent {
     bookId: string,
     chapter: number,
     verseStart?: number,
+    verseEnd?: number,
   ): void {
     if (leftToTheBrowser(event)) return
     event.preventDefault()
     void this.router.navigate(
       ["/", ...this.passagePath(bookId, chapter)],
-      verseStart ? { queryParams: { verseStart } } : {},
+      verseStart
+        ? { queryParams: { verseStart, ...(verseEnd ? { verseEnd } : {}) } }
+        : {},
     )
   }
 }

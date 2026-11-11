@@ -2217,6 +2217,21 @@ describe("SearchComponent", () => {
       expect(component.psalmChoice?.map((option) => option.verseStart)).toEqual(
         [6, 6],
       )
+      // Verse 7 too, as without the choice: it was dropped on both.
+      fixture.detectChanges()
+      const links = Array.from(
+        (
+          fixture.nativeElement as HTMLElement
+        ).querySelectorAll<HTMLAnchorElement>("a.result-card"),
+      )
+      expect(links.map((link) => link.getAttribute("href"))).toEqual([
+        "/sl/94?verseStart=6&verseEnd=7",
+        "/sl/95?verseStart=6&verseEnd=7",
+      ])
+      links[1].click()
+      expect(router.navigate).toHaveBeenCalledWith(["/", "sl", "95"], {
+        queryParams: { verseStart: 6, verseEnd: 7 },
+      })
     })
 
     it("opens directly when the leaflet gives both numbers", async () => {
