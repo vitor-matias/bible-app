@@ -120,7 +120,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             bottomBars.topAnchor.constraint(equalTo: safeArea.topAnchor),
             bottomBars.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
             toastBottom,
-            toast.centerXAnchor.constraint(equalTo: bottomBars.centerXAnchor),
+            // Over the passage, which centres on the screen: in the safe area
+            // alone it sat left of it on the open iPhone Duo (layoutBars).
+            toast.centerXAnchor.constraint(equalTo: toolbar.centerXAnchor),
             toast.leadingAnchor.constraint(greaterThanOrEqualTo: bottomBars.leadingAnchor, constant: 24),
             toast.trailingAnchor.constraint(lessThanOrEqualTo: bottomBars.trailingAnchor, constant: -24),
             topBarTop,
