@@ -72,6 +72,7 @@ export class OnboardingService {
       maxHeight: "90vh",
       autoFocus: "dialog",
       ariaLabelledBy: "onboarding-title",
+      ariaModal: true,
     })
     this.dialogRef = ref
 

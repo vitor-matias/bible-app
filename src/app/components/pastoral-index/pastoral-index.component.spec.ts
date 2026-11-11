@@ -489,6 +489,7 @@ describe("PastoralIndexComponent", () => {
             }),
             chapter: 1,
           },
+          ariaModal: true,
         }),
       )
     })
@@ -507,14 +508,18 @@ describe("PastoralIndexComponent", () => {
       item("Marcadores")?.click()
       expect(bottomSheet.open).toHaveBeenLastCalledWith(
         BookmarkSelectorComponent,
-        { data: { bookId: "indice/amor", chapter: 1 } },
+        expect.objectContaining({
+          data: { bookId: "indice/amor", chapter: 1 },
+          ariaLabel: "Marcadores",
+          ariaModal: true,
+        }),
       )
 
       params.next(convertToParamMap({}))
       fixture.componentInstance.openBookmarks()
       expect(bottomSheet.open).toHaveBeenLastCalledWith(
         BookmarkSelectorComponent,
-        { data: { bookId: "indice", chapter: 1 } },
+        expect.objectContaining({ data: { bookId: "indice", chapter: 1 } }),
       )
     })
 

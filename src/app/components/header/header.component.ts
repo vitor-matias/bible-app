@@ -278,6 +278,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.backButton.closeOnBack(
       this.bottomSheet.open(BookmarkSelectorComponent, {
         data: { bookId: book.id, chapter: chapterNumber },
+        ariaLabel: "Marcadores",
+        ariaModal: true,
       }),
     )
   }
@@ -295,6 +297,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
     this.dialog.open(ReportProblemComponent, {
       data: { book, chapter: chapterNumber },
+      ariaModal: true,
       width: "90%",
       maxWidth: "500px",
     })

@@ -290,6 +290,8 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     this.backButton.closeOnBack(
       this.bottomSheet.open(BookmarkSelectorComponent, {
         data: { bookId, chapter: INDEX_BOOKMARK_CHAPTER },
+        ariaLabel: "Marcadores",
+        ariaModal: true,
       }),
     )
   }
@@ -348,6 +350,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     }
     this.dialog.open(ReportProblemComponent, {
       data: { book, chapter: INDEX_BOOKMARK_CHAPTER },
+      ariaModal: true,
       width: "90%",
       maxWidth: "500px",
     })

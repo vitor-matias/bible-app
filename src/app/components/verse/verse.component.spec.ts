@@ -1151,6 +1151,27 @@ describe("VerseComponent", () => {
       expect(dismissSheet).toHaveBeenCalled()
     })
 
+    // The sheet was an unnamed dialog, and not marked modal.
+    it("names the notes sheet after the verse, as a modal dialog", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 3,
+          text: [{ type: "footnote", text: "note", reference: "a" }],
+        }),
+      )
+
+      component.toggleFootnotes()
+
+      expect(mockBottomSheet.open).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          ariaLabel: expect.stringMatching(/^Notas de .* 1,3$/),
+          ariaModal: true,
+        }),
+      )
+    })
+
     it("should not open bottom sheet when no footnotes", () => {
       setData(
         fixture,

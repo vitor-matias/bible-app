@@ -119,6 +119,7 @@ describe("OnboardingService", () => {
         OnboardingComponent,
         expect.objectContaining({
           ariaLabelledBy: "onboarding-title",
+          ariaModal: true,
           maxHeight: "90vh",
         }),
       )

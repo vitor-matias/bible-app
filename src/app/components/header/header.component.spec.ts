@@ -320,6 +320,7 @@ describe("HeaderComponent", () => {
 
     expect(dialogSpy.open).toHaveBeenCalledWith(ReportProblemComponent, {
       data: { book: component.book(), chapter: 3 },
+      ariaModal: true,
       width: "90%",
       maxWidth: "500px",
     })
@@ -333,6 +334,7 @@ describe("HeaderComponent", () => {
 
     expect(dialogSpy.open).toHaveBeenCalledWith(ReportProblemComponent, {
       data: { book: component.book(), chapter: 0 },
+      ariaModal: true,
       width: "90%",
       maxWidth: "500px",
     })
@@ -361,6 +363,16 @@ describe("HeaderComponent", () => {
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(true)
       expect(trigger.menuOpen).toBe(false)
+    })
+
+    // The sheet was an unnamed dialog, and not marked modal.
+    it("names the bookmark sheet, as a modal dialog", () => {
+      fixture.componentRef.setInput("chapterNumber", 1)
+      component.openBookmarkSelector()
+
+      expect(bottomSheetSpy.open.mock.lastCall?.[1]).toEqual(
+        expect.objectContaining({ ariaLabel: "Marcadores", ariaModal: true }),
+      )
     })
 
     it("dismisses the bookmark sheet it opened", () => {
