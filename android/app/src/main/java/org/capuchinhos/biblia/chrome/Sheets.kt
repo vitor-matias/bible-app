@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -179,8 +180,16 @@ private fun SheetTitleRow(
     actions: @Composable () -> Unit = {},
 ) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        SheetTitle(text, Modifier.weight(1f))
-        actions()
+        // The actions go under the title where both don't fit a line: beside
+        // it at large text, Editar broke "Marcadores" mid-word.
+        FlowRow(
+            Modifier.weight(1f),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            itemVerticalAlignment = Alignment.CenterVertically,
+        ) {
+            SheetTitle(text)
+            actions()
+        }
         BarButton(R.drawable.ic_close, "Fechar", onClick = onClose)
     }
 }
@@ -572,13 +581,18 @@ private fun BookmarksSheet(chrome: ChromeController, sheet: Sheet.Bookmarks) {
                 }
                 Spacer(Modifier.height(12.dp))
             }
-            state.ribbons.chunked(4).forEach { row ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    row.forEach { ribbon ->
-                        Box(Modifier.weight(1f)) {
-                            RibbonTile(ribbon, state.currentLabel, marked, editing, state.canMark, onOpen = {
-                                closer.close { chrome.sendWithColor("bookmark-open", ribbon.color) }
-                            }) { action -> chrome.sendWithColor(action, ribbon.color) }
+            BoxWithConstraints {
+                val columns = rememberRibbonColumns(state.ribbons, maxWidth)
+                Column {
+                    state.ribbons.chunked(columns).forEach { row ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(RIBBON_GAP)) {
+                            row.forEach { ribbon ->
+                                Box(Modifier.weight(1f)) {
+                                    RibbonTile(ribbon, state.currentLabel, marked, editing, state.canMark, onOpen = {
+                                        closer.close { chrome.sendWithColor("bookmark-open", ribbon.color) }
+                                    }) { action -> chrome.sendWithColor(action, ribbon.color) }
+                                }
+                            }
                         }
                     }
                 }
@@ -644,6 +658,32 @@ private fun MoveRow(move: BookmarksSheetState.Move, currentLabel: String, onClic
  */
 fun ribbonTileMinHeight(labelLineHeight: Dp): Dp = maxOf(84.dp, 32.dp + 6.dp + labelLineHeight + 16.dp)
 
+private val RIBBON_GAP = 10.dp
+private val RIBBON_PADDING = 4.dp
+private val RIBBON_MIN_FONT = 9.sp
+
+/**
+ * Four ribbons a row, or two where a label wouldn't fit a quarter of the row
+ * even at its smallest (large system text: "Verm", "Laranj"). The name is
+ * what tells the ribbons apart without their colour. All in px.
+ */
+internal fun ribbonColumns(rowWidth: Float, widestLabel: Float, gap: Float, padding: Float): Int =
+    if ((rowWidth - 3 * gap) / 4 - 2 * padding >= widestLabel) 4 else 2
+
+@Composable
+private fun rememberRibbonColumns(ribbons: List<BookmarksSheetState.Ribbon>, rowWidth: Dp): Int {
+    val measurer = rememberTextMeasurer()
+    val typography = MaterialTheme.typography
+    val density = LocalDensity.current
+    return remember(ribbons, rowWidth, typography, density) {
+        val widest = ribbons.maxOfOrNull {
+            val style = (if (it.label != null) typography.labelLarge else typography.labelSmall).copy(fontSize = RIBBON_MIN_FONT)
+            measurer.measure(it.label ?: it.name, style, maxLines = 1).size.width.toFloat()
+        } ?: 0f
+        with(density) { ribbonColumns(rowWidth.toPx(), widest, RIBBON_GAP.toPx(), RIBBON_PADDING.toPx()) }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RibbonTile(
@@ -701,7 +741,7 @@ private fun RibbonTile(
                 .clearAndSetSemantics { contentDescription = spoken },
         ) {
             Column(
-                Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+                Modifier.padding(horizontal = RIBBON_PADDING, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
@@ -722,7 +762,7 @@ private fun RibbonTile(
                     style = if (used) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelSmall,
                     color = if (used) LocalContentColor.current else colors.onSurfaceVariant,
                     maxLines = 1,
-                    autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = if (used) 14.sp else 11.sp),
+                    autoSize = TextAutoSize.StepBased(minFontSize = RIBBON_MIN_FONT, maxFontSize = if (used) 14.sp else 11.sp),
                 )
             }
         }

@@ -35,4 +35,11 @@ class LargeTextTest {
             choiceArrangement(compact = false, buttonWidth = 300f, besideWidths = emptyList(), aboveWidths = listOf(190f, 75f), icon = 72f, padding = 24f),
         )
     }
+
+    @Test
+    fun ribbonsGoTwoARowWhenANameWouldBeCut() {
+        // 10 dp gaps and 4 dp paddings at 3.4 px/dp: a quarter of 1000 px leaves 197 px for the label.
+        assertEquals(4, ribbonColumns(rowWidth = 1000f, widestLabel = 190f, gap = 34f, padding = 13.6f))
+        assertEquals(2, ribbonColumns(rowWidth = 1000f, widestLabel = 260f, gap = 34f, padding = 13.6f))
+    }
 }
