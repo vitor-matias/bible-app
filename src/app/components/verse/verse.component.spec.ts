@@ -942,6 +942,23 @@ describe("VerseComponent", () => {
       expect(text().getAttribute("role")).toBe("button")
     })
 
+    // The marker was a 13x16 px target for a mouse.
+    it("gives the marker WCAG's 24 px target, outside the text's flow", () => {
+      render()
+      const target = getComputedStyle(asterisk(), "::after")
+
+      expect(matchMedia("(pointer: coarse)").matches).toBe(false)
+      expect(target.width).toBe("24px")
+      expect(target.height).toBe("24px")
+      expect(target.position).toBe("absolute")
+      const box = asterisk().getBoundingClientRect()
+      const centre = document.elementFromPoint(
+        box.left + box.width / 2,
+        box.top + box.height / 2 + 10,
+      )
+      expect(centre).toBe(asterisk())
+    })
+
     // It scrolled on under the sheet, carrying the verse away.
     it("stops auto-scroll as the notes open", () => {
       const autoScroll = play()
