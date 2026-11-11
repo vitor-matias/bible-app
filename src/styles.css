@@ -592,6 +592,9 @@ html.dark-theme .platform-ios.native-chrome:has(pastoral-index) {
 .native-chrome bible-reader .mat-drawer-content {
   padding-top: var(--app-chrome-top);
   padding-bottom: var(--app-chrome-bottom);
+  /* A verse scrolled to (switching views) lands clear of the bars. */
+  scroll-padding-top: var(--app-chrome-top);
+  scroll-padding-bottom: var(--app-chrome-bottom);
 }
 
 /* The text starts one standard layout margin under the top bar, as in system

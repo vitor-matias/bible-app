@@ -1085,7 +1085,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         : this.drawerContent?.nativeElement
     const block = this.bookBlock?.nativeElement as HTMLElement | undefined
     if (!scroller || !block) return undefined
-    const view = scroller.getBoundingClientRect()
+    // Not what scrolls under the native bars: its scroll padding.
+    const { scrollPaddingTop, scrollPaddingBottom } = getComputedStyle(scroller)
+    const box = scroller.getBoundingClientRect()
+    const view = {
+      top: box.top + (Number.parseFloat(scrollPaddingTop) || 0),
+      bottom: box.bottom - (Number.parseFloat(scrollPaddingBottom) || 0),
+      left: box.left,
+      right: box.right,
+    }
     return Array.from(block.querySelectorAll<HTMLElement>("verse")).find(
       (verse) =>
         Array.from(verse.getClientRects()).some(

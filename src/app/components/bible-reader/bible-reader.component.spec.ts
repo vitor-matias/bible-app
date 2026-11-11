@@ -1648,7 +1648,10 @@ describe("BibleReaderComponent", () => {
       await setUpTestBed({
         imports: [MatSidenavModule, PagedNavigationDirective],
       })
-      fixture = TestBed.createComponent(BibleReaderComponent)
+      // A <bible-reader> host, for the native-chrome rules in styles.css.
+      fixture = TestBed.createComponent(BibleReaderComponent, {
+        inferTagName: true,
+      })
       component = fixture.componentInstance
       const verses = Array.from({ length: 40 }, (_, i) => ({
         bookId: "gen",
@@ -1710,6 +1713,62 @@ describe("BibleReaderComponent", () => {
       await toggle()
       expect(drawer().scrollTop).toBeGreaterThan(0)
       expect(inView(first, drawer())).toBe(true)
+    })
+
+    // The apps' bars float over the text: a verse under the top bar is not
+    // being read, and one scrolled to the top went under it.
+    describe("under the native bars", () => {
+      const BAR = 300
+
+      beforeEach(() => {
+        document.body.classList.add("native-chrome")
+        document.documentElement.style.setProperty(
+          "--native-chrome-top",
+          `${BAR}px`,
+        )
+      })
+
+      afterEach(() => {
+        document.body.classList.remove("native-chrome")
+        document.documentElement.style.removeProperty("--native-chrome-top")
+      })
+
+      it("reads the verse below the top bar, not under it", async () => {
+        const scroller = drawer()
+        const verse20 = host.querySelector('verse[id="20"]') as HTMLElement
+        scroller.scrollTop +=
+          verse20.getClientRects()[0].top -
+          (scroller.getBoundingClientRect().top + BAR)
+        const view = scroller.getBoundingClientRect()
+        const belowBar = Array.from(host.querySelectorAll("verse")).find(
+          (verse) =>
+            Array.from(verse.getClientRects()).some(
+              (line) => line.bottom > view.top + BAR,
+            ),
+        )
+        const scrollToPage = vi.spyOn(
+          component.pagedNav as PagedNavigationDirective,
+          "scrollToPage",
+        )
+
+        await toggle()
+
+        expect(scrollToPage).toHaveBeenCalledWith(belowBar, "instant")
+      })
+
+      it("brings the verse back below the top bar", async () => {
+        await toggle()
+        ;(component.pagedNav as PagedNavigationDirective).scrollToPage(
+          host.querySelector('verse[id="20"]') as HTMLElement,
+          "instant",
+        )
+        const first = showing(pages())
+
+        await toggle()
+
+        const top = drawer().getBoundingClientRect().top + BAR
+        expect(first.getClientRects()[0].top).toBeGreaterThanOrEqual(top - 1)
+      })
     })
   })
 
