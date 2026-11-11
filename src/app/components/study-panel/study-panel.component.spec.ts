@@ -2390,8 +2390,12 @@ describe("StudyPanelComponent", () => {
       [116, 12, "115,12"],
       [147, 5, "146,5"],
       [147, 12, "147,12"],
+      // The liturgy runs these into one with the psalm before: the letter says
+      // which half, as "9,5" would name a verse of Psalm 9 itself.
+      [10, 5, "9B,5"],
+      [115, 5, "113B,5"],
     ])(
-      "gives the half of a divided psalm, not a range: Salmos %i,%i",
+      "names the psalm and the half a verse is in: Salmos %i,%i",
       async (psalm, number, shown) => {
         const writeText = vi.fn().mockResolvedValue(undefined)
         vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } })
@@ -3039,6 +3043,59 @@ describe("StudyPanelComponent", () => {
       fixture.destroy()
 
       expect(notes.getNote("mat", 22, 39)?.text).toBe("sobre o amor")
+    })
+
+    // Closing or reloading the page runs no Angular teardown, and a blur is
+    // not reliably fired on the way out: a note typed just before Ctrl+W was
+    // lost whole.
+    it.each([
+      ["pagehide", () => window.dispatchEvent(new Event("pagehide"))],
+      [
+        "the page being hidden",
+        () => {
+          vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden")
+          document.dispatchEvent(new Event("visibilitychange"))
+        },
+      ],
+    ])("saves what is still being typed on %s", async (_name, leave) => {
+      vi.useFakeTimers()
+      const target = verse(39, [plain("Amarás ao Senhor")])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+      component.onNoteInput("sobre o amor")
+      await vi.advanceTimersByTimeAsync(100)
+      expect(notes.getNote("mat", 22, 39)).toBeUndefined()
+
+      leave()
+
+      expect(notes.getNote("mat", 22, 39)?.text).toBe("sobre o amor")
+    })
+
+    it("leaves the note alone when the page is only shown again", async () => {
+      vi.useFakeTimers()
+      const target = verse(39, [plain("Amarás ao Senhor")])
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [target] },
+        selection: { verse: target },
+      })
+      component.onNoteInput("sobre o amor")
+      vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible")
+
+      document.dispatchEvent(new Event("visibilitychange"))
+
+      expect(notes.getNote("mat", 22, 39)).toBeUndefined()
+    })
+
+    it("stops listening for the page to go when the panel does", () => {
+      const remove = vi.spyOn(window, "removeEventListener")
+
+      fixture.destroy()
+
+      expect(remove).toHaveBeenCalledWith("pagehide", expect.any(Function))
     })
 
     it("saves the verse being left when the reader moves on mid-note", async () => {

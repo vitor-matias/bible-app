@@ -24,15 +24,23 @@ export function liturgicalPsalmNumber(psalm: number): string | null {
 }
 
 /**
- * The liturgical number of the psalm a verse belongs to: one number, where
- * liturgicalPsalmNumber gives both halves of a psalm the liturgy divides ("114-115"
- * for Psalm 116, which begins its second half at verse 10; "146-147" for 147,
- * at verse 12 — the verses psalmFromLiturgical opens them at).
+ * The liturgical number of the psalm a verse belongs to, for citing the verse:
+ * one number where liturgicalPsalmNumber gives both halves of a psalm the
+ * liturgy divides ("114-115" for Psalm 116, which begins its second half at
+ * verse 10; "146-147" for 147, at verse 12 — the verses psalmFromLiturgical
+ * opens them at).
+ *
+ * Where the liturgy runs two of this edition's psalms into one, the second is
+ * given its letter, as the lectionary does ("9B", "113B"): the verses keep this
+ * edition's numbers, so "9,5" alone would name a verse of the first psalm, and
+ * "113,5" the same verse as Psalm 114's.
  */
 export function liturgicalPsalmNumberAt(
   psalm: number,
   verse: number,
 ): string | null {
+  if (psalm === 10) return "9B"
+  if (psalm === 115) return "113B"
   if (psalm === 116) return verse >= 10 ? "115" : "114"
   if (psalm === 147) return verse >= 12 ? "147" : "146"
   return liturgicalPsalmNumber(psalm)

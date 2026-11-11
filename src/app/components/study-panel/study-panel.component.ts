@@ -432,6 +432,23 @@ export class StudyPanelComponent implements OnChanges {
       this.cdr.markForCheck()
     })
 
+    // Closing or reloading the page runs no Angular teardown, and a blur is
+    // not reliably fired on the way out (nor on a webview that is backgrounded
+    // and then killed): what is still waiting out the debounce is written when
+    // the page is hidden or leaves.
+    if (typeof window !== "undefined") {
+      const flushOnLeaving = () => this.flushPendingNote(true)
+      const flushWhenHidden = () => {
+        if (document.visibilityState === "hidden") this.flushPendingNote(true)
+      }
+      window.addEventListener("pagehide", flushOnLeaving)
+      document.addEventListener("visibilitychange", flushWhenHidden)
+      this.destroyRef.onDestroy(() => {
+        window.removeEventListener("pagehide", flushOnLeaving)
+        document.removeEventListener("visibilitychange", flushWhenHidden)
+      })
+    }
+
     this.destroyRef.onDestroy(() => {
       // First: the rest of this tears down what would have saved it.
       this.flushPendingNote(true)

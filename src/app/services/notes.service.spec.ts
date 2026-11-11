@@ -138,7 +138,9 @@ describe("NotesService", () => {
         saved(3, "c", 1),
       ])
 
-      expect(setItem).toHaveBeenCalledTimes(1)
+      // The storage probe writes a key of its own the first time: not a note.
+      const writes = setItem.mock.calls.filter(([key]) => key === STORAGE_KEY)
+      expect(writes).toHaveLength(1)
     })
 
     it("empties everything on request, and keeps it empty", () => {
@@ -184,6 +186,88 @@ describe("NotesService", () => {
       service.saveNote("mat", 22, 39, "aqui")
 
       expect(service.saveFailed).toBe(true)
+    })
+  })
+
+  // The probe behind the storage writes to it, and a full storage refuses
+  // that while holding every note the reader has made.
+  describe("when the storage is full", () => {
+    const stored = (verse: number, text: string, updatedAt = 1) => ({
+      bookId: "mat",
+      chapter: 22,
+      verse,
+      text,
+      updatedAt,
+    })
+    const refuseWrites = () =>
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new Error("QuotaExceededError")
+      })
+
+    it("still shows the notes it holds, and says nothing until a write fails", () => {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify([stored(37, "guardada")]),
+      )
+      refuseWrites()
+
+      const service = makeService()
+
+      expect(service.getNote("mat", 22, 37)?.text).toBe("guardada")
+      expect(service.saveFailed).toBe(false)
+    })
+
+    it("tries the storage again once the reader has made room", () => {
+      const refusing = refuseWrites()
+      const service = makeService()
+      service.saveNote("mat", 22, 39, "recusada")
+      expect(service.saveFailed).toBe(true)
+
+      refusing.mockRestore()
+      service.saveNote("mat", 22, 40, "aceite")
+
+      expect(service.saveFailed).toBe(false)
+      const kept = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]")
+      expect(kept.map((n: { text: string }) => n.text).sort()).toEqual([
+        "aceite",
+        "recusada",
+      ])
+    })
+
+    // Another tab deleted notes to make room and wrote its own: this tab's
+    // next write that works must not put its old list back over them.
+    it("lays only its own unsaved notes over what another tab has since written", () => {
+      const service = makeService()
+      service.saveNote("mat", 22, 37, "velha")
+      const setItem = Storage.prototype.setItem
+      const refusing = vi
+        .spyOn(Storage.prototype, "setItem")
+        .mockImplementation(function (
+          this: Storage,
+          key: string,
+          value: string,
+        ) {
+          if (key === STORAGE_KEY) throw new Error("QuotaExceededError")
+          setItem.call(this, key, value)
+        })
+      service.saveNote("mat", 22, 38, "recusada")
+      expect(service.saveFailed).toBe(true)
+      refusing.mockRestore()
+
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify([{ ...stored(16, "da outra aba", 5), bookId: "jhn" }]),
+      )
+      window.dispatchEvent(new StorageEvent("storage", { key: STORAGE_KEY }))
+      service.saveNote("mat", 22, 40, "nova")
+
+      const kept = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]")
+      expect(kept.map((n: { text: string }) => n.text).sort()).toEqual([
+        "da outra aba",
+        "nova",
+        "recusada",
+      ])
+      expect(service.saveFailed).toBe(false)
     })
   })
 

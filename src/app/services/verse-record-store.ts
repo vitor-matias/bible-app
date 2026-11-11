@@ -60,7 +60,8 @@ export function isVerseAddress(record: {
  * annotations, and one key keeps the set consistent — a save never leaves
  * half of it behind. Writes apply on top of what storage holds rather than on
  * top of this tab's copy, so a tab left open for an hour cannot put its stale
- * list back over what another tab has written since. Two writes that
+ * list back over what another tab has written since — nor can one whose own
+ * write was refused: it lays only what it changed over what storage holds. Two writes that
  * interleave inside the same instant can still lose one, which localStorage
  * gives no way to prevent short of a key per verse; a reader annotating the
  * same verse from two tabs in the same millisecond is the only one who would
@@ -73,11 +74,13 @@ export function isVerseAddress(record: {
 export abstract class VerseRecordStore<T extends VerseRecord> {
   private storageRef: Storage | null | undefined
   /**
-   * Set while storage does not hold what this tab last wrote — it refused the
-   * write, or there is no storage at all. The tab's own copy is then the only
-   * complete one, and the next write has to build on it.
+   * What this tab has changed that storage does not hold, by verse: the record
+   * it wrote, or null where it took one away. Laid over whatever storage holds
+   * at the next read and write, so a write the browser refused is kept for the
+   * session without the tab's whole copy going back over what another tab has
+   * written since.
    */
-  private unsaved = false
+  private readonly unsavedChanges = new Map<string, T | null>()
   /** Asked once per page: the answer does not change with every note. */
   private askedToKeep = false
   private readonly saveFailedSubject = new BehaviorSubject(false)
@@ -103,7 +106,7 @@ export abstract class VerseRecordStore<T extends VerseRecord> {
       // show an empty box here for the reader to overwrite it from.
       const onStorage = (event: StorageEvent) => {
         if (event.key !== null && event.key !== this.storageKey) return
-        if (!this.unsaved) this.subject.next(this.read())
+        this.subject.next(this.current())
       }
       window.addEventListener("storage", onStorage)
       inject(DestroyRef).onDestroy(() =>
@@ -185,34 +188,66 @@ export abstract class VerseRecordStore<T extends VerseRecord> {
   }
 
   private commit(change: (records: T[]) => T[]): void {
-    // Storage is the base only while it holds everything this tab wrote.
-    // Once a write has been refused it is behind, and building on it would
-    // drop the very records that were kept for the session. Read and write
-    // stay in one task, with nothing awaited between them, which is as close
-    // to a critical section as localStorage allows.
-    const next = change(this.unsaved ? this.records : this.read())
+    // Built on what storage holds now, with this tab's unsaved changes over
+    // it, so a tab left open does not put its stale list back, whether or not
+    // an earlier write was refused. Read and write stay in one task, with
+    // nothing awaited between them, which is as close to a critical section
+    // as localStorage allows.
+    const before = this.current()
+    const next = change(before)
     this.subject.next(next)
     const storage = this.storage
     if (!storage) {
-      this.setUnsaved(true)
+      this.keepUnsaved(before, next)
       return
     }
     try {
       storage.setItem(this.storageKey, JSON.stringify(next))
-      this.setUnsaved(false)
-      if (!this.askedToKeep) {
-        this.askedToKeep = true
-        askToKeepStorage()
-      }
     } catch {
       // Quota exhausted mid-session: what the reader just wrote stays for
       // this session rather than taking the page down with it.
-      this.setUnsaved(true)
+      this.keepUnsaved(before, next)
+      return
+    }
+    this.unsavedChanges.clear()
+    this.setUnsaved(false)
+    if (!this.askedToKeep) {
+      this.askedToKeep = true
+      askToKeepStorage()
     }
   }
 
+  /** Remembers what a refused write changed, to lay over storage next time. */
+  private keepUnsaved(before: T[], next: T[]): void {
+    const was = new Map(before.map((r) => [VerseRecordStore.keyOf(r), r]))
+    const is = new Map(next.map((r) => [VerseRecordStore.keyOf(r), r]))
+    for (const [key, record] of is) {
+      if (was.get(key) !== record) this.unsavedChanges.set(key, record)
+    }
+    for (const key of was.keys()) {
+      if (!is.has(key)) this.unsavedChanges.set(key, null)
+    }
+    this.setUnsaved(true)
+  }
+
+  private static keyOf(address: VerseAddress): string {
+    return `${address.bookId}:${address.chapter}:${address.verse}`
+  }
+
+  /** What is stored, with this tab's unsaved changes over it. */
+  private current(): T[] {
+    const stored = this.read()
+    if (!this.unsavedChanges.size) return stored
+    const next = stored.filter(
+      (record) => !this.unsavedChanges.has(VerseRecordStore.keyOf(record)),
+    )
+    for (const record of this.unsavedChanges.values()) {
+      if (record) next.push(record)
+    }
+    return next
+  }
+
   private setUnsaved(unsaved: boolean): void {
-    this.unsaved = unsaved
     if (this.saveFailedSubject.value !== unsaved) {
       this.saveFailedSubject.next(unsaved)
     }
@@ -220,10 +255,13 @@ export abstract class VerseRecordStore<T extends VerseRecord> {
 
   private read(): T[] {
     try {
-      // Inside the try as well: safeLocalStorage() probes once, and a storage
-      // that passed can still refuse a later read (quota, a revoked
-      // permission, private browsing).
-      const raw = this.storage?.getItem(this.storageKey)
+      // Not through the write probe's verdict: that probe writes, and a full
+      // storage refuses it while still holding, and willing to give up, every
+      // note the reader has made. A read that fails does so here.
+      const raw =
+        typeof localStorage === "undefined"
+          ? null
+          : localStorage.getItem(this.storageKey)
       if (!raw) return []
       const parsed: unknown = JSON.parse(raw)
       if (!Array.isArray(parsed)) return []
@@ -233,11 +271,13 @@ export abstract class VerseRecordStore<T extends VerseRecord> {
     }
   }
 
-  /** Resolved once: the probe behind safeLocalStorage() costs a real write. */
+  /**
+   * For writes. Kept once found: the probe behind safeLocalStorage() costs a
+   * real write. A failed probe is asked again, as a full storage may have room
+   * again once the reader deletes something.
+   */
   private get storage(): Storage | null {
-    if (this.storageRef === undefined) {
-      this.storageRef = safeLocalStorage()
-    }
+    this.storageRef ??= safeLocalStorage()
     return this.storageRef
   }
 }

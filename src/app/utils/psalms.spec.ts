@@ -26,6 +26,11 @@ describe("psalm numbering", () => {
     expect(liturgicalPsalmNumberAt(116, 10)).toBe("115")
     expect(liturgicalPsalmNumberAt(147, 11)).toBe("146")
     expect(liturgicalPsalmNumberAt(147, 12)).toBe("147")
+    // The liturgy runs Psalms 9 and 10, and 114 and 115, into one each: the
+    // second is "B", or its verse would be taken for one of the first's.
+    expect(liturgicalPsalmNumberAt(10, 5)).toBe("9B")
+    expect(liturgicalPsalmNumberAt(115, 5)).toBe("113B")
+    expect(liturgicalPsalmNumberAt(114, 5)).toBe("113")
     // Every other psalm has one number, whatever the verse.
     expect(liturgicalPsalmNumberAt(23, 5)).toBe("22")
     expect(liturgicalPsalmNumberAt(8, 5)).toBeNull()
@@ -42,6 +47,12 @@ describe("psalm numbering", () => {
         String(liturgical - 1),
       )
     }
+  })
+
+  // What a citation says, a reader can paste back into the search.
+  it("takes back the letter form it gives for a psalm the liturgy runs together", () => {
+    expect(parsePsalmPair("Sl 9B (10)")?.psalm).toBe(10)
+    expect(parsePsalmPair("Sl 113B (115)")?.psalm).toBe(115)
   })
 
   it("gives none where both numberings agree", () => {
