@@ -137,6 +137,22 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     return this.mobile ? "Intro" : "Introdução"
   }
 
+  /**
+   * "Capítulo 3, marcador azul, escolher capítulo": the number alone said
+   * nothing. It holds the visible label, as an accessible name must.
+   */
+  get chapterButtonName(): string {
+    return [
+      this.chapterNumber() === 0
+        ? this.chapterLabel
+        : `Capítulo ${this.chapterLabel}`,
+      ...(this.bookmarkName
+        ? [`marcador ${this.bookmarkName.toLocaleLowerCase("pt")}`]
+        : []),
+      "escolher capítulo",
+    ].join(", ")
+  }
+
   /** Small print under the menu's last item; null until it is known. */
   version: DisplayVersion | null = null
   private destroyed = false

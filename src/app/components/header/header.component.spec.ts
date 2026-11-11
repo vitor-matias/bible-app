@@ -837,7 +837,35 @@ describe("HeaderComponent", () => {
     // The light surfaces' tone: the header's button is antique white in
     // both themes.
     expect(ribbon.style.color).toBe("var(--ribbon-light-red)")
-    expect(ribbon.parentElement?.textContent).toContain(", marcador vermelho")
+    expect(chapterButtonName()).toBe(
+      "Capítulo 3, marcador vermelho, escolher capítulo",
+    )
+  })
+
+  const chapterButtonName = () =>
+    (
+      fixture.nativeElement.querySelectorAll(
+        ".bookSelectorButtonContent button",
+      )[1] as HTMLElement
+    ).getAttribute("aria-label")
+
+  // The chapter's button was named "3" alone.
+  describe("the chapter button's name", () => {
+    const name = chapterButtonName
+
+    it("says what the number is and what the button does", () => {
+      fixture.componentRef.setInput("chapterNumber", 3)
+      fixture.detectChanges()
+
+      expect(name()).toBe("Capítulo 3, escolher capítulo")
+    })
+
+    it("leaves an introduction its own name", () => {
+      fixture.componentRef.setInput("chapterNumber", 0)
+      fixture.detectChanges()
+
+      expect(name()).toMatch(/^Intro(dução)?, escolher capítulo$/)
+    })
   })
 
   it("opens the About page from the menu", () => {
@@ -1065,7 +1093,9 @@ describe("HeaderComponent", () => {
       const element = fixture.nativeElement as HTMLElement
       // MatButtonToggle forwards aria-label onto its internal button.
       expect(
-        element.querySelector("mat-button-toggle button[aria-label]"),
+        element
+          .querySelector("mat-button-toggle")
+          ?.querySelector("button[aria-label]"),
       ).toBeNull()
       expect(element.querySelector("mat-button-toggle")?.textContent).toContain(
         "Genesis",
