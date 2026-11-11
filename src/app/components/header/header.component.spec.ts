@@ -668,7 +668,7 @@ describe("HeaderComponent", () => {
       fixture.detectChanges()
       await openMenu()
 
-      expect(text()).toBe("Bundle 20261016-120000Z")
+      expect(text()).toBe("Versão 20261016-120000Z")
     })
 
     it("is left out until the version is known", async () => {
