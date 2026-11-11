@@ -165,6 +165,37 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertNil(toast.activeButton)
     }
 
+    // At the largest text sizes "Voltar para o Índice" was truncated to one line.
+    func testAToastButtonWrapsRatherThanTruncating() throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        let toast = ToastView()
+        toast.translatesAutoresizingMaskIntoConstraints = false
+        window.addSubview(toast)
+        NSLayoutConstraint.activate([
+            toast.widthAnchor.constraint(lessThanOrEqualToConstant: 180),
+            toast.centerXAnchor.constraint(equalTo: window.centerXAnchor),
+            toast.centerYAnchor.constraint(equalTo: window.centerYAnchor),
+        ])
+        window.isHidden = false
+        toast.show("Voltar para o Índice Bíblico-Pastoral", symbol: "arrow.uturn.backward", onTap: {})
+        window.layoutIfNeeded()
+
+        let button = try XCTUnwrap(subviews(of: toast, UIButton.self).first { $0.configuration?.title == "Voltar para o Índice Bíblico-Pastoral" })
+        let title = try XCTUnwrap(button.titleLabel)
+        XCTAssertGreaterThan(title.bounds.height, title.font.lineHeight * 1.5)
+    }
+
+    func testTheNotesWayBackWrapsAtTheRoomItHas() {
+        var config = UIButton.Configuration.plain()
+        config.title = "Voltar para o Índice Bíblico-Pastoral"
+        config.titleLineBreakMode = .byWordWrapping
+        let button = UIButton(configuration: config)
+        let line = FootnotesController.wayBackSize(button, room: 1000)
+        let wrapped = FootnotesController.wayBackSize(button, room: 150)
+        XCTAssertLessThanOrEqual(wrapped.width, 150)
+        XCTAssertGreaterThan(wrapped.height, line.height * 1.5)
+    }
+
     func testAToastClosedOffersNothing() {
         let toast = ToastView()
         toast.show("Voltar para o Índice", onTap: {})
