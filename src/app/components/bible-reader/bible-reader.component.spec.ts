@@ -641,12 +641,13 @@ describe("BibleReaderComponent", () => {
       fixture.detectChanges()
       await fixture.whenStable()
 
-      ;(failure()?.querySelector("button") as HTMLButtonElement).click()
+      const retry = () =>
+        failure()?.querySelector("button") as HTMLButtonElement
+      retry().click()
       await fixture.whenStable()
 
       expect(apiServiceSpy.getChapter).toHaveBeenCalledTimes(2)
-      const retry = failure()?.querySelector("button") as HTMLButtonElement
-      expect(retry.disabled).toBe(false)
+      expect(retry().disabled).toBe(false)
       expect(snackBarSpy.open).not.toHaveBeenCalled()
     })
   })
