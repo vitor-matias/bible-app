@@ -362,7 +362,10 @@ final class RingedBarButton: UIView {
             }
         }
         visit(bar)
-        return found.map { bar.convert($0, to: self) }
+        // Centred on the middle, or not laid out for this width yet: a wide
+        // item the bar hasn't moved still covers the new middle.
+        guard let found, abs(found.midX - middle.x) <= 2 else { return nil }
+        return bar.convert(found, to: self)
     }
 
     override func traitCollectionDidChange(_ previous: UITraitCollection?) {

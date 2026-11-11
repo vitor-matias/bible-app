@@ -293,8 +293,10 @@ final class ChromeStateTests: XCTestCase {
     // middle. A bar that does the same, a turn of the run loop late:
     final class LateBar: UIView {
         let item = UIView()
-        override init(frame: CGRect) {
-            super.init(frame: frame)
+        let itemWidth: CGFloat
+        init(itemWidth: CGFloat = 48) {
+            self.itemWidth = itemWidth
+            super.init(frame: .zero)
             addSubview(item)
         }
         required init?(coder: NSCoder) { fatalError() }
@@ -302,7 +304,7 @@ final class ChromeStateTests: XCTestCase {
             super.layoutSubviews()
             let width = bounds.width
             DispatchQueue.main.async { [self] in
-                item.frame = CGRect(x: width / 2 - 24, y: 0, width: 48, height: 48)
+                item.frame = CGRect(x: (width - itemWidth) / 2, y: 0, width: itemWidth, height: 48)
             }
         }
     }
@@ -353,6 +355,27 @@ final class ChromeStateTests: XCTestCase {
 
     private func subviews<T: UIView>(of view: UIView, _ type: T.Type) -> [T] {
         ((view as? T).map { [$0] } ?? []) + view.subviews.flatMap { subviews(of: $0, type) }
+    }
+
+    // A wide item («Génesis 1», 160 pt) still covered the new middle where
+    // the bar had left it: taken as laid out, the ring stayed 38 pt off.
+    func testRingsAWideButtonWhereTheBarMovesItAfterATurn() {
+        let bar = LateBar(itemWidth: 160)
+        let ringed = RingedBarButton(bar)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 678, height: 678))
+        window.addSubview(ringed)
+        window.isHidden = false
+        for width in [CGFloat(454), 530] {
+            ringed.frame = CGRect(x: 0, y: 0, width: width, height: 88)
+            ringed.layoutIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        }
+
+        let rings = ringed.subviews.filter { $0 !== bar }.map(\.frame)
+        XCTAssertFalse(rings.isEmpty)
+        for ring in rings {
+            XCTAssertEqual(ring.midX, 265, accuracy: 1, "the ring stayed where the item was")
+        }
     }
 
     // The folded iPhone Duo turned sideways puts Close down the left side,
