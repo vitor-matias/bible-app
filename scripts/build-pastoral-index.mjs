@@ -22,8 +22,8 @@ const TEXT_FIXES = [
   ["Jeremias: 1,4-19", "Jeremias: Jr 1,4-19"],
   ["G1 4,4", "Gl 4,4"],
   ["Gl 3,l-9", "Gl 3,1-9"],
-  // A verse list broken by a space: "(n). 11 (n)".
-  [/\(n\)\. (?=\d)/g, "(n)."],
+  // A verse list broken by a space: "(n). 11 (n)". Not "(n). 2 Cor", a new book.
+  [/\(n\)\. (?=\d(?! \p{Lu}))/gu, "(n)."],
   // Doubled punctuation: "e par..", "a.C..", "Retribuição.:".
   [/(?<!\.)\.\.(?!\.)/g, "."],
   [/\.:/g, "."],

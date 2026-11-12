@@ -529,49 +529,23 @@ describe("PagedNavigationDirective", () => {
       expect(scrollLeftSetter).toHaveBeenCalledWith(200)
     })
 
-    it("should do nothing in scrolling mode", () => {
-      hostComponent.viewMode.set("scrolling")
-      fixture.detectChanges()
-      const scrollLeftSetter = vi.fn().mockName("scrollLeftSetter")
-      vi.spyOn(container, "scrollLeft", "set").mockImplementation(
-        scrollLeftSetter,
-      )
-
-      hostComponent.directive.scrollToEnd()
-
-      expect(scrollLeftSetter).not.toHaveBeenCalled()
-    })
-
-    // Regression: the reader calls scrollToEnd whenever a chapter is reached
-    // backwards, in any view. Outside paged mode that armed "stay at the end"
-    // with nothing to disarm it, and the first content change after switching
-    // to paged mode threw the reader to the last page.
-    it("should not leave the reader pinned to the end once paged mode is switched on", async () => {
-      // Real timers: the directive hears of late content through a
-      // MutationObserver, which delivers on a real microtask that fakeAsync
-      // never runs.
-      const settle = () => new Promise((resolve) => setTimeout(resolve, 400))
-
-      hostComponent.viewMode.set("scrolling")
-      fixture.detectChanges()
-      hostComponent.directive.scrollToEnd()
-
-      hostComponent.viewMode.set("paged")
-      fixture.detectChanges()
-      await settle()
+    it("does not carry over from scrolling mode to the pages", async () => {
       vi.spyOn(container, "scrollWidth", "get").mockReturnValue(300)
       vi.spyOn(container, "clientWidth", "get").mockReturnValue(100)
-      const scrollLeftSetter = vi.fn().mockName("scrollLeftSetter")
+      hostComponent.viewMode.set("scrolling")
+      fixture.detectChanges()
+      hostComponent.directive.scrollToEnd()
+      hostComponent.viewMode.set("paged")
+      fixture.detectChanges()
+
+      const scrollLeftSetter = vi.fn()
       vi.spyOn(container, "scrollLeft", "set").mockImplementation(
         scrollLeftSetter,
       )
+      hostComponent.block.nativeElement.append(document.createElement("span"))
+      await new Promise((resolve) => setTimeout(resolve, 400))
 
-      // Late content: a lazily loaded introduction, an indent pass.
-      hostComponent.block.nativeElement.appendChild(document.createElement("p"))
-      await settle()
-
-      // 200 is the end: scrollWidth 300 less clientWidth 100.
-      expect(scrollLeftSetter).not.toHaveBeenCalledWith(200)
+      expect(scrollLeftSetter).not.toHaveBeenCalled()
     })
 
     // A backward chapter change in paged mode arms the flag legitimately; it
@@ -859,6 +833,75 @@ describe("PagedNavigationDirective across a resize", () => {
     expect(container.scrollLeft).toBe(last)
   })
 
+  // Opened at its end by a swipe back, then left for another chapter: the
+  // verses arriving 150 ms later snapped that one to its last page.
+  it("stays on the first page of a chapter opened after one opened at its end", async () => {
+    host.nav.scrollToEnd()
+    await settle()
+
+    host.nav.openAtStart()
+    container.scrollLeft = 0
+    const block = container.firstElementChild as HTMLElement
+    block.append(document.createElement("span"))
+    await settle()
+
+    expect(container.scrollLeft).toBe(0)
+  })
+
+  describe("when the text changes size", () => {
+    const setTextSize = (css: string) => {
+      const block = container.firstElementChild as HTMLElement
+      block.style.font = css
+    }
+
+    it("keeps the verse the reader was on", async () => {
+      container.scrollLeft = 5 * 200
+      await settle()
+      const first = firstVerseOnScreen()
+      expect(first, "a verse starts on page 5").toBeDefined()
+      if (!first) return
+
+      setTextSize("24px/30px monospace")
+      host.nav.relayout()
+
+      expect(startsOnScreen(first), `verse ${first.id} on screen`).toBe(true)
+    })
+
+    // The spacer a drag pins at the old width held empty pages after the text.
+    it("leaves no empty pages behind a smaller text after a drag", async () => {
+      setTextSize("24px/30px monospace")
+      host.nav.relayout()
+      container.scrollLeft = container.scrollWidth - container.clientWidth
+      await settle()
+      host.nav.dragBy(-40)
+      host.nav.prevPage()
+      await settle()
+
+      setTextSize("16px/20px monospace")
+      host.nav.relayout()
+
+      const rects = fragments(verse(80))
+      const end = rects[rects.length - 1]
+      const box = container.getBoundingClientRect()
+      const lastPage = (container.scrollWidth - container.clientWidth) / 200
+      expect(
+        Math.floor((end.left - box.left + container.scrollLeft + 1) / 200),
+      ).toBe(lastPage)
+    })
+
+    it("is no longer on the last page once the text has grown", async () => {
+      container.scrollLeft = container.scrollWidth - container.clientWidth
+      await settle()
+      const states: { isLastPage: boolean }[] = []
+      host.nav.pageStateChange.subscribe((state) => states.push(state))
+
+      setTextSize("24px/30px monospace")
+      host.nav.relayout()
+
+      expect(states.at(-1)?.isLastPage).toBe(false)
+    })
+  })
+
   it("keeps the verse the reader was on", async () => {
     container.scrollLeft = 5 * 200
     await settle()
@@ -995,6 +1038,24 @@ describe("PagedNavigationDirective across a resize", () => {
     expect(
       startsOnScreen(turnedTo),
       `verse ${turnedTo.id} on screen at 300x300`,
+    ).toBe(true)
+  })
+
+  // A smooth turn on a desktop window takes long enough for a resize to come
+  // before it rests, which kept the verse noted before the turns: Sl 119 on
+  // page 4 went back to page 0 when the window shrank.
+  it("finds the page a turn under way is heading for", async () => {
+    container.scrollLeft = 2 * 200
+    await settle()
+    const heading = startingOn(3)[0]
+    expect(heading, "a verse starts on page 3").toBeDefined()
+
+    host.nav.nextPage()
+    await resizeTo(100, 100)
+
+    expect(
+      startsOnScreen(heading),
+      `verse ${heading.id} on screen at 100x100`,
     ).toBe(true)
   })
 

@@ -158,12 +158,29 @@ describe("verse.utils", () => {
       expect(result).toEqual({ verseStart: 15 })
     })
 
-    it("should use only the first verse when multiple verses given", () => {
+    it("spans a list of verses, as the reader takes one range", () => {
       const result = getVerseQueryParams([
         { type: "single", verse: 1 },
         { type: "single", verse: 5 },
       ])
-      expect(result).toEqual({ verseStart: 1 })
+      expect(result).toEqual({ verseStart: 1, verseEnd: 5 })
+    })
+
+    // "Mt 18,21-25.32-35" in the index linked 21-25 and dropped 32-35.
+    it("keeps the verses after the first range", () => {
+      const result = getVerseQueryParams([
+        { type: "range", start: 21, end: 25 },
+        { type: "range", start: 32, end: 35 },
+      ])
+      expect(result).toEqual({ verseStart: 21, verseEnd: 35 })
+    })
+
+    it("spans a list that names a verse again, as Jo 20,19-23.23", () => {
+      const result = getVerseQueryParams([
+        { type: "range", start: 19, end: 23 },
+        { type: "single", verse: 23 },
+      ])
+      expect(result).toEqual({ verseStart: 19, verseEnd: 23 })
     })
   })
 })

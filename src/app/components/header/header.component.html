@@ -10,9 +10,10 @@
       </button>
       <reader-menu #readerMenu="readerMenu" [canShare]="canShare" [version]="version"
         [viewMode]="book().id === 'about' ? null : viewMode()"
-        [autoScrollControlsVisible]="autoScrollControlsVisible()"
+        [autoScrollControlsVisible]="autoScrollControlsVisible()" [textSize]="textSize()"
         [cardsView]="cardsView()" [cardsViewAvailable]="cardsViewAvailable()" (toggleCardsView)="toggleCardsView.emit()"
         (decreaseFontSize)="decreaseFontSize()" (increaseFontSize)="increaseFontSize()"
+        (resetFontSize)="resetFontSize()"
         (toggleViewMode)="toggleViewMode.emit()" (bookmarks)="openBookmarkSelector()"
         (toggleAutoScrollControls)="toggleAutoScrollControls.emit()" (share)="sharePassage()"
         (about)="openAbout()" (reportProblem)="openReportProblem()" />
@@ -41,12 +42,12 @@
         <!-- Standalone introductions have no chapters to pick. -->
         @if(book().id !== 'about' && !book().introSlug){
         <mat-button-toggle #chapterToggle mat-flat-button matTooltip="Escolher capítulo"
-          class="bookSelectorButtonContent" (click)="showChapterSelector(); chapterToggle.checked = false">
+          class="bookSelectorButtonContent" [aria-label]="chapterButtonName"
+          (click)="showChapterSelector(); chapterToggle.checked = false">
           {{ chapterLabel }}
           <!-- The ribbon on this chapter, as it hangs from a printed Bible. -->
           @if (bookmarkName) {
           <mat-icon class="chapter-ribbon" [style.color]="ribbonColor(currentBookmark?.color, 'light')" aria-hidden="true">bookmark</mat-icon>
-          <span class="visually-hidden">, marcador {{ bookmarkName.toLocaleLowerCase('pt') }}</span>
           }
         </mat-button-toggle>
         }
@@ -55,7 +56,7 @@
 
       <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button matTooltip="Pesquisar"
         aria-label="Pesquisar" data-tour="search">
-        <mat-icon class="search-icon" aria-label="Search">search</mat-icon>
+        <mat-icon class="search-icon" aria-hidden="true">search</mat-icon>
       </button>
     </div>
   </mat-toolbar>

@@ -114,7 +114,8 @@ const DIVIDER = "·"
     "(touchstart)": "focus($event)",
     "(click)": "focus($event)",
     "(mouseleave)": "end()",
-    "(touchend)": "end()",
+    // Or the browser's compatibility click chooses the letter again, after end().
+    "(touchend)": "$event.preventDefault(); end()",
     "(touchcancel)": "end()",
     "(window:resize)": "0",
   },
@@ -153,6 +154,7 @@ export class AlphabeticalScrollBarComponent {
   private lettersShortened = false
   private lastHeight?: number
   private lastAlphabet?: string[]
+  private lastFontSize?: number
   private lastLetter?: string
   private lastActive = false
 
@@ -166,11 +168,19 @@ export class AlphabeticalScrollBarComponent {
     if (!element) return
     const height = element.clientHeight
     const alphabet = this.alphabet()
-    if (height === this.lastHeight && alphabet === this.lastAlphabet) return
+    // The letters' size too: in the iOS app it follows the text size, while
+    // the bar's height can stay at the screen's.
+    const fontSize = Number.parseFloat(getComputedStyle(element).fontSize)
+    if (
+      height === this.lastHeight &&
+      alphabet === this.lastAlphabet &&
+      fontSize === this.lastFontSize
+    )
+      return
     this.lastHeight = height
     this.lastAlphabet = alphabet
+    this.lastFontSize = fontSize
 
-    const fontSize = Number.parseFloat(getComputedStyle(element).fontSize)
     const letterSize =
       fontSize *
         (this.magnify() ? MAGNIFICATION_MULTIPLIER : PLAIN_LETTER_EMS) +

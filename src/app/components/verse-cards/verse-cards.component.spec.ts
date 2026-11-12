@@ -123,7 +123,9 @@ describe("VerseCardsComponent", () => {
   it("puts nothing on a card but the verse", () => {
     // No section heading, no book reference, no buttons: just the verse number
     // and its words.
-    expect(cards()[1].textContent?.trim()).toBe("2Veio ter com Jesus de noite.")
+    expect(cards()[1].textContent?.trim()).toMatch(
+      /^2\s?Veio ter com Jesus de noite\.$/,
+    )
     expect(fixture.nativeElement.textContent).not.toContain(
       "Diálogo com Nicodemos",
     )
@@ -136,7 +138,9 @@ describe("VerseCardsComponent", () => {
     // verse number and makes the text a button that opens the notes sheet.
     const first = cards()[0]
 
-    expect(first.textContent?.trim()).toBe("1Havia um homem chamado Nicodemos.")
+    expect(first.textContent?.trim()).toMatch(
+      /^1\s?Havia um homem chamado Nicodemos\.$/,
+    )
     expect(first.querySelector(".footnoteIndicator")).toBeNull()
     expect(first.querySelector("[role=button]")).toBeNull()
   })

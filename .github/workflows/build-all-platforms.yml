@@ -385,7 +385,7 @@ jobs:
           path: dist/bible-app/capacitor
 
       - name: Setup Xcode
-        uses: maxim-lobanov/setup-xcode@v1
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           xcode-version: '27.1'
 
@@ -673,7 +673,7 @@ jobs:
           fi
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           tag_name: ${{ steps.resolve-tag.outputs.tag_name }}
           name: "Release ${{ steps.resolve-tag.outputs.tag_name }}"

@@ -52,7 +52,9 @@ final class ToastView: UIView {
         main.contentInsets = padding
         main.imagePadding = 8
         main.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(textStyle: .subheadline, scale: .medium)
-        main.titleLineBreakMode = .byTruncatingTail
+        // Wraps, as the plain toast's label does: truncated at the largest
+        // text sizes, "Voltar para o Índi…" couldn't be read anywhere.
+        main.titleLineBreakMode = .byWordWrapping
         main.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
             var attributes = attributes
             attributes.font = limitedFont(.systemFont(ofSize: 15, weight: .semibold), .subheadline)

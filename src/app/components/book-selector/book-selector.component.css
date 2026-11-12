@@ -29,8 +29,13 @@
   border-color: var(--cap-brown);
 }
 
+/* The testaments side by side; at large text sizes, where the two no
+   longer fit, one above the other. A word wider than the screen breaks. */
 .bible-books-container {
   display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  overflow-wrap: break-word;
   justify-content: space-around;
   padding: 8px;
   width: 100%;
@@ -59,6 +64,8 @@ mat-tree-node {
 
 .column {
   flex: 1;
+  /* Less its margins, so its words break rather than widen it. */
+  max-width: calc(100% - 4px);
   margin: 0 2px;
 }
 
@@ -94,6 +101,14 @@ li {
   text-align: left;
 }
 
+/* The header's ring: Material's own focus cue is a 12% state layer that
+   doesn't show on the drawer. The node takes the keyboard, not its button. */
+mat-tree-node:focus-visible,
+.bookSelectorButton:focus-visible {
+  outline: 2px solid var(--text-color);
+  outline-offset: -2px;
+}
+
 .bookSelectorButton:hover {
   background-color: var(--highlight-color);
 }
@@ -101,4 +116,9 @@ li {
 button.highlight {
   background-color: var(--highlight-color);
   /* any extra styling you like */
+}
+
+.no-books {
+  margin: 0;
+  padding: 16px 12px;
 }

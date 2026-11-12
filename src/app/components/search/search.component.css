@@ -291,3 +291,54 @@
 :host-context(.native-chrome) .has-suggestion .empty-state {
   margin-top: 0;
 }
+
+/* The search is under way: rows where the results will be. Hidden for the
+   first 150 ms, so a fast answer shows no flash. */
+.skeleton {
+  overflow: hidden;
+  animation: skeleton-in 0.2s 150ms both;
+}
+
+.skeleton .result-item {
+  cursor: default;
+}
+
+.skeleton-bar {
+  display: block;
+  height: 0.9em;
+  border-radius: 4px;
+  background-color: color-mix(in srgb, var(--text-color) 12%, transparent);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.skeleton-ref {
+  width: 35%;
+  margin-bottom: 10px;
+}
+
+.skeleton-line + .skeleton-line {
+  margin-top: 6px;
+}
+
+.skeleton-short {
+  width: 60%;
+}
+
+@keyframes skeleton-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes skeleton-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .skeleton-bar {
+    animation: none;
+  }
+}

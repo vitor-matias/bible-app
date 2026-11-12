@@ -6,6 +6,7 @@ import {
   ActivatedRoute,
   convertToParamMap,
   type ParamMap,
+  type Params,
   Router,
 } from "@angular/router"
 import {
@@ -20,7 +21,10 @@ import {
 import type { Mock } from "vitest"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
-import { BibleReferenceService } from "../../services/bible-reference.service"
+import {
+  BibleReferenceService,
+  type VerseReference,
+} from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
@@ -137,7 +141,9 @@ describe("SearchComponent", () => {
       "findTypedBook",
       "getUrlAbrv",
       "getChapterUrlSegment",
+      "initializeBooks",
     ])
+    bookService.initializeBooks.mockResolvedValue(undefined)
     // The links' addresses, as the reader writes them.
     bookService.getUrlAbrv.mockImplementation(BookService.prototype.getUrlAbrv)
     bookService.getChapterUrlSegment.mockImplementation(
@@ -350,6 +356,36 @@ describe("SearchComponent", () => {
         expect(apiService.search).not.toHaveBeenCalled()
       })
 
+      // "Abrir João 3,16" sat over "Procure versículos, livros ou…".
+      it("hides the opening hint under an offer", () => {
+        fixture.detectChanges()
+        expect(host().querySelector(".empty-state")).toBeTruthy()
+        referenceService.extract.mockReturnValue([
+          { book: "Jo", chapter: 3, verses: [{ type: "single", verse: 16 }] },
+        ] as unknown as ReturnType<BibleReferenceService["extract"]>)
+        bookService.findBook.mockReturnValue(john)
+
+        component.onTyping("Jo 3,16")
+        expect(host().querySelector(".passage-suggestion")).toBeTruthy()
+        expect(host().querySelector(".empty-state")).toBeNull()
+
+        component.onTyping("")
+        expect(host().querySelector(".empty-state")).toBeTruthy()
+      })
+
+      // Return on an empty field said "Nenhum versículo com « »".
+      it("does not search for nothing", async () => {
+        await component.onSearchSubmit("")
+        await component.onSearchSubmit("   ")
+        fixture.detectChanges()
+
+        expect(apiService.search).not.toHaveBeenCalled()
+        expect(component.hasSearched).toBe(false)
+        expect(host().querySelector(".empty-state")?.textContent).toContain(
+          "Procure versículos",
+        )
+      })
+
       it("offers a book by its name", () => {
         bookService.findBook.mockReturnValue(john)
         component.onTyping("João")
@@ -530,53 +566,148 @@ describe("SearchComponent", () => {
     })
   })
 
-  it("should run a shared query from the q query param on init", () => {
+  /** Past the wait for the book list, which a shared query goes through. */
+  const booksSettled = () => new Promise((resolve) => setTimeout(resolve))
+
+  it("should run a shared query from the q query param on init", async () => {
     queryParamMapSubject.next(convertToParamMap({ q: "shared text" }))
     const submitSpy = vi
       .spyOn(component, "onSearchSubmit")
       .mockReturnValue(undefined as never)
 
     component.ngOnInit()
+    await booksSettled()
 
     expect(submitSpy).toHaveBeenCalledWith("shared text")
   })
 
-  it("should run a second shared query without re-creating the component", () => {
+  it("should run a second shared query without re-creating the component", async () => {
     const submitSpy = vi
       .spyOn(component, "onSearchSubmit")
       .mockReturnValue(undefined as never)
     component.ngOnInit()
 
     queryParamMapSubject.next(convertToParamMap({ q: "first" }))
+    await booksSettled()
     queryParamMapSubject.next(convertToParamMap({ q: "second" }))
+    await booksSettled()
 
     expect(submitSpy).toHaveBeenCalledWith("first")
     expect(submitSpy).toHaveBeenCalledWith("second")
   })
 
-  it("should not re-run the same shared query on an unrelated emission", () => {
+  it("should not re-run the same shared query on an unrelated emission", async () => {
     const submitSpy = vi
       .spyOn(component, "onSearchSubmit")
       .mockReturnValue(undefined as never)
     component.ngOnInit()
 
     queryParamMapSubject.next(convertToParamMap({ q: "same" }))
+    await booksSettled()
     queryParamMapSubject.next(convertToParamMap({ q: "same" }))
+    await booksSettled()
 
     expect(submitSpy).toHaveBeenCalledTimes(1)
   })
 
-  it("should re-run a shared query that went away and came back", () => {
+  it("should re-run a shared query that went away and came back", async () => {
     const submitSpy = vi
       .spyOn(component, "onSearchSubmit")
       .mockReturnValue(undefined as never)
     component.ngOnInit()
 
     queryParamMapSubject.next(convertToParamMap({ q: "same" }))
+    await booksSettled()
     queryParamMapSubject.next(convertToParamMap({}))
+    await booksSettled()
     queryParamMapSubject.next(convertToParamMap({ q: "same" }))
+    await booksSettled()
 
     expect(submitSpy).toHaveBeenCalledTimes(2)
+  })
+
+  // A cold start from a share: run at once, "João 3,16" found no book and
+  // became a word search.
+  describe("a shared query while the book list loads", () => {
+    let finishLoading: () => void
+    let failLoading: (error: Error) => void
+
+    beforeEach(() => {
+      bookService.initializeBooks.mockReturnValue(
+        new Promise<void>((resolve, reject) => {
+          finishLoading = resolve
+          failLoading = reject
+        }),
+      )
+      referenceService.extract.mockReturnValue([])
+      apiService.getVerse.mockReturnValue(of({} as Verse))
+      apiService.search.mockReturnValue(
+        of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+      )
+      queryParamMapSubject.next(convertToParamMap({ q: "João 3,16" }))
+    })
+
+    it("waits for the books, then opens the passage", async () => {
+      fixture.detectChanges()
+      await booksSettled()
+      expect(apiService.search).not.toHaveBeenCalled()
+      expect(router.navigate).not.toHaveBeenCalled()
+
+      referenceService.extract.mockReturnValue([
+        { book: "João", chapter: 3, verses: [{ type: "single", verse: 16 }] },
+      ] as never)
+      bookService.findBook.mockReturnValue({
+        id: "jhn",
+        abrv: "Jo",
+        chapterCount: 21,
+      } as Book)
+      finishLoading()
+      await booksSettled()
+
+      expect(apiService.getVerse).toHaveBeenCalledWith("jhn", 3, 16)
+      expect(apiService.search).not.toHaveBeenCalled()
+    })
+
+    it("still searches when the books fail to load", async () => {
+      fixture.detectChanges()
+
+      failLoading(new Error("offline"))
+      await booksSettled()
+
+      expect(apiService.search).toHaveBeenCalledWith("João 3,16", 1)
+    })
+
+    it("runs nothing once the page is gone", async () => {
+      fixture.detectChanges()
+
+      fixture.destroy()
+      finishLoading()
+      await booksSettled()
+
+      expect(apiService.search).not.toHaveBeenCalled()
+    })
+
+    it("yields to a search submitted during the wait", async () => {
+      fixture.detectChanges()
+
+      await component.onSearchSubmit("luz")
+      finishLoading()
+      await booksSettled()
+
+      expect(apiService.search).toHaveBeenCalledTimes(1)
+      expect(apiService.search).toHaveBeenCalledWith("luz", 1)
+    })
+
+    it("runs only the latest of two shared queries", async () => {
+      fixture.detectChanges()
+
+      queryParamMapSubject.next(convertToParamMap({ q: "luz" }))
+      finishLoading()
+      await booksSettled()
+
+      expect(apiService.search).toHaveBeenCalledTimes(1)
+      expect(apiService.search).toHaveBeenCalledWith("luz", 1)
+    })
   })
 
   it("should open a standalone introduction at /intro without probing a verse", async () => {
@@ -612,6 +743,32 @@ describe("SearchComponent", () => {
   it("should mark the search page as noindex via SeoService on init", () => {
     fixture.detectChanges()
     expect(seoService.updateForSearch).toHaveBeenCalled()
+  })
+
+  // Analytics sends the page's title with every event: what the reader
+  // searches must never be in it.
+  it("keeps the query out of the page's title", async () => {
+    referenceService.extract.mockReturnValue([])
+    apiService.search.mockReturnValue(
+      of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+    )
+    fixture.detectChanges()
+
+    await component.onSearchSubmit("palavrasecreta")
+
+    for (const args of seoService.updateForSearch.mock.calls) {
+      expect(args).toEqual([])
+    }
+    expect(document.title).not.toContain("palavrasecreta")
+  })
+
+  // The results were in no landmark: one main, the page's.
+  it("holds the results in the page's one main landmark", () => {
+    fixture.detectChanges()
+    const main = (fixture.nativeElement as HTMLElement).querySelectorAll("main")
+
+    expect(main.length).toBe(1)
+    expect(main[0].classList).toContain("search-container")
   })
 
   it("should navigate to a direct reference using verseStart", async () => {
@@ -1022,6 +1179,57 @@ describe("SearchComponent", () => {
       })
     })
 
+    // The missal's "Lc 15, 1-3. 11-32" opened at verse 1 and marked it alone.
+    describe("with a range of verses", () => {
+      const luke: Book = {
+        id: "luk",
+        abrv: "Lc",
+        shortName: "Lucas",
+        name: "Evangelho segundo São Lucas",
+        chapterCount: 24,
+      }
+      const opens = async (
+        query: string,
+        verses: VerseReference[],
+        label: string,
+        queryParams: Params,
+      ) => {
+        referenceService.extract.mockReturnValue([
+          { match: query, index: 0, book: "Lc", chapter: 15, verses },
+        ])
+        bookService.findBook.mockReturnValue(luke)
+        apiService.getVerse.mockReturnValue(of({} as Verse))
+
+        component.onTyping(query)
+        expect(component.passageSuggestion?.label).toBe(label)
+        await component.onSearchSubmit(query)
+        expect(router.navigate).toHaveBeenCalledWith(["/", "luk", 15], {
+          queryParams,
+        })
+      }
+
+      it("opens all of it", async () => {
+        await opens(
+          "Lc 15, 11-32",
+          [{ type: "range", start: 11, end: 32 }],
+          "Abrir Lucas 15,11-32",
+          { verseStart: 11, verseEnd: 32 },
+        )
+      })
+
+      it("opens a list of ranges from the first verse to the last", async () => {
+        await opens(
+          "Lc 15, 1-3. 11-32",
+          [
+            { type: "range", start: 1, end: 3 },
+            { type: "range", start: 11, end: 32 },
+          ],
+          "Abrir Lucas 15,1-32",
+          { verseStart: 1, verseEnd: 32 },
+        )
+      })
+    })
+
     it("offers no chapter past the book's last, and says so at once", async () => {
       referenceService.extract.mockReturnValue([reference("Jo", 99)])
       bookService.findBook.mockReturnValue(john)
@@ -1121,6 +1329,7 @@ describe("SearchComponent", () => {
       queryParamMapSubject.next(convertToParamMap({ q: "bom pastor" }))
       const shared = TestBed.createComponent(SearchComponent)
       shared.detectChanges()
+      await booksSettled()
       await shared.whenStable()
 
       expect(apiService.search).toHaveBeenCalledTimes(2)
@@ -1172,6 +1381,7 @@ describe("SearchComponent", () => {
       queryParamMapSubject.next(convertToParamMap({ q: "luz" }))
       const other = TestBed.createComponent(SearchComponent)
       other.detectChanges()
+      await booksSettled()
       await other.whenStable()
 
       expect(apiService.search).toHaveBeenCalledWith("luz", 1)
@@ -1561,6 +1771,106 @@ describe("SearchComponent", () => {
     })
   })
 
+  describe("the placeholder rows while searching", () => {
+    const skeleton = () =>
+      fixture.nativeElement.querySelector(".skeleton") as HTMLElement | null
+    const status = () =>
+      (
+        fixture.nativeElement.querySelector("[role=status]") as HTMLElement
+      ).textContent?.trim()
+
+    it("show where the results will be, not an hourglass", async () => {
+      const pending$ = new Subject<VersePage>()
+      referenceService.extract.mockReturnValue([])
+      apiService.search.mockReturnValue(pending$.asObservable())
+      void component.onSearchSubmit("luz")
+      await Promise.resolve()
+      fixture.detectChanges()
+
+      const rows = skeleton()?.querySelectorAll(".result-item .result-card")
+      expect(rows?.length).toBe(5)
+      expect(skeleton()?.getAttribute("aria-hidden")).toBe("true")
+      expect(fixture.nativeElement.textContent).not.toContain("hourglass_empty")
+      expect(fixture.nativeElement.querySelector(".empty-state")).toBeNull()
+      // Told once, by the status line, not by the rows.
+      expect(status()).toBe("A procurar…")
+      expect(
+        fixture.nativeElement.textContent.match(/A procurar…/g),
+      ).toHaveLength(1)
+    })
+
+    it("are announced during the typing pause too", () => {
+      vi.useFakeTimers()
+      referenceService.extract.mockReturnValue([])
+      component.onTyping("pastor")
+      fixture.detectChanges()
+
+      expect(skeleton()).not.toBeNull()
+      expect(status()).toBe("A procurar…")
+    })
+
+    it("give way to the results", async () => {
+      const pending$ = new Subject<VersePage>()
+      referenceService.extract.mockReturnValue([])
+      apiService.search.mockReturnValue(pending$.asObservable())
+      void component.onSearchSubmit("luz")
+      await Promise.resolve()
+      fixture.detectChanges()
+      expect(skeleton()).not.toBeNull()
+
+      pending$.next({
+        verses: [
+          {
+            bookId: "gen",
+            chapterNumber: 1,
+            number: 3,
+            verseLabel: "3",
+            text: [{ type: "text", text: "Faça-se a luz" }],
+          },
+        ],
+        total: 1,
+        currentPage: 1,
+        totalPages: 1,
+      } as VersePage)
+      pending$.complete()
+      await vi.waitFor(() => expect(component.isLoading).toBe(false))
+      fixture.detectChanges()
+
+      expect(skeleton()).toBeNull()
+      expect(
+        fixture.nativeElement.querySelectorAll(".result-card").length,
+      ).toBe(1)
+      expect(status()).toBe("1 resultado")
+    })
+
+    it("are not shown on the empty page, after a failure or with no results", async () => {
+      fixture.detectChanges()
+      expect(skeleton()).toBeNull()
+
+      referenceService.extract.mockReturnValue([])
+      apiService.search.mockReturnValue(
+        of({
+          verses: [],
+          total: 0,
+          currentPage: 1,
+          totalPages: 0,
+        } as VersePage),
+      )
+      await component.onSearchSubmit("missing")
+      fixture.detectChanges()
+      expect(skeleton()).toBeNull()
+      expect(fixture.nativeElement.textContent).toContain("Nenhum resultado")
+
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      apiService.search.mockReturnValue(throwError(() => ({ status: 0 })))
+      offlineSearch.search.mockResolvedValue(null)
+      await component.onSearchSubmit("luz")
+      fixture.detectChanges()
+      expect(skeleton()).toBeNull()
+      expect(component.searchFailed).toBe(true)
+    })
+  })
+
   // Before, this looked like "no results", with the status stuck on "A procurar…".
   it("says the search failed when the server fails and nothing is stored", async () => {
     referenceService.extract.mockReturnValue([])
@@ -1575,6 +1885,22 @@ describe("SearchComponent", () => {
     expect(text).toContain("Não foi possível pesquisar")
     expect(text).not.toContain("Nenhum resultado")
     expect(component.statusMessage).toContain("Não foi possível pesquisar")
+  })
+
+  // The API refuses more than 200 characters (as a shared /search?q= may
+  // bring): "Verifique a ligação" blamed a connection that was fine.
+  it("says when the search is too long, not that the connection failed", async () => {
+    referenceService.extract.mockReturnValue([])
+    apiService.search.mockReturnValue(throwError(() => ({ status: 400 })))
+    offlineSearch.search.mockResolvedValue(null)
+    vi.spyOn(console, "error").mockReturnValue(undefined)
+    await component.onSearchSubmit("luz ".repeat(70))
+    fixture.detectChanges()
+
+    const text = fixture.nativeElement.textContent as string
+    expect(text).toContain("A pesquisa é demasiado longa.")
+    expect(text).not.toContain("Verifique a ligação")
+    expect(component.statusMessage).toContain("demasiado longa")
   })
 
   // The API limits how often one address may search; "Verifique a ligação"
@@ -1917,6 +2243,21 @@ describe("SearchComponent", () => {
       expect(component.psalmChoice?.map((option) => option.verseStart)).toEqual(
         [6, 6],
       )
+      // Verse 7 too, as without the choice: it was dropped on both.
+      fixture.detectChanges()
+      const links = Array.from(
+        (
+          fixture.nativeElement as HTMLElement
+        ).querySelectorAll<HTMLAnchorElement>("a.result-card"),
+      )
+      expect(links.map((link) => link.getAttribute("href"))).toEqual([
+        "/sl/94?verseStart=6&verseEnd=7",
+        "/sl/95?verseStart=6&verseEnd=7",
+      ])
+      links[1].click()
+      expect(router.navigate).toHaveBeenCalledWith(["/", "sl", "95"], {
+        queryParams: { verseStart: 6, verseEnd: 7 },
+      })
     })
 
     it("opens directly when the leaflet gives both numbers", async () => {

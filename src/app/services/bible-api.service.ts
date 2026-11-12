@@ -20,7 +20,6 @@ import {
 import { apiBaseUrl } from "../config"
 import { isBrowser } from "../utils/platform"
 import { AnalyticsService } from "./analytics.service"
-import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
 
 const IS_SERVER = !isBrowser()
@@ -67,11 +66,11 @@ function serverRetry<T>() {
  * In the app, a connection that opens but never answers would leave the reader
  * empty until iOS gives up on it; failing sooner brings up the retry screen.
  */
-export const BOOK_LIST_TIMEOUT_MS = 15_000
+export const REQUEST_TIMEOUT_MS = 15_000
 
-function bookListTimeout<T>(): MonoTypeOperatorFunction<T> {
+function requestTimeout<T>(): MonoTypeOperatorFunction<T> {
   // The server already times out and retries (createApiResilience).
-  return IS_SERVER ? (source) => source : timeout(BOOK_LIST_TIMEOUT_MS)
+  return IS_SERVER ? (source) => source : timeout(REQUEST_TIMEOUT_MS)
 }
 
 /** A books body that parsed but isn't the list. */
@@ -126,7 +125,6 @@ export class BibleApiService {
   private http = inject(HttpClient)
   private injector = inject(Injector)
   private offlineDataService = inject(OfflineDataService)
-  private networkService = inject(NetworkService)
 
   api = apiBaseUrl
   // Track in-flight chapter requests by book+chapter so concurrent navigation
@@ -156,18 +154,15 @@ export class BibleApiService {
           this.books = cachedServerBooks
           return of(cachedServerBooks)
         }
-        if (this.networkService.isOffline) {
-          return throwError(
-            () => new Error("Offline and no cached books available"),
-          )
-        }
+        // Offline too: in a browser tab the service worker may answer from
+        // its cache, and without one the request fails as fast.
         if (!this.booksRequest$) {
           // shareReplay(1) deduplicates the initial books fetch during app bootstrap.
           this.booksRequest$ = (
             this.http.get(`${this.api}/books`) as Observable<Book[]>
           ).pipe(
             serverRetry(),
-            bookListTimeout(),
+            requestTimeout(),
             tap((books) => {
               // A body that parses but isn't the list (a proxy's error page)
               // fails like any other, so a retry asks the server again.
@@ -204,10 +199,6 @@ export class BibleApiService {
           return of(cached)
         }
 
-        if (this.networkService.isOffline) {
-          return throwError(() => new Error("Offline - chapter not cached"))
-        }
-
         const requestKey = `${book}:${chapter}`
         const existingRequest = this.chapterRequests.get(requestKey)
         if (existingRequest) {
@@ -220,6 +211,13 @@ export class BibleApiService {
           this.http.get(`${this.api}/${book}/${chapter}`) as Observable<Chapter>
         ).pipe(
           serverRetry(),
+          requestTimeout(),
+          // An empty 200 parses as null: fail, or the reader shows no text.
+          tap((body) => {
+            if (!Array.isArray(body?.verses)) {
+              throw new Error("Unexpected response for a chapter")
+            }
+          }),
           finalize(() => {
             this.chapterRequests.delete(requestKey)
           }),
@@ -246,14 +244,6 @@ export class BibleApiService {
         const complete =
           cached.length > 0 && this.offlineDataService.areGroupIntrosCached()
         if (complete) return of(cached)
-        if (this.networkService.isOffline) {
-          return cached.length
-            ? of(cached)
-            : throwError(
-                () =>
-                  new Error("Offline and no cached introductions available"),
-              )
-        }
         const cachedServerIntros = serverIntrosCache.read()
         if (cachedServerIntros) return of(cachedServerIntros)
         return (
@@ -261,7 +251,7 @@ export class BibleApiService {
         ).pipe(
           serverRetry(),
           // BookService waits for these with the books.
-          bookListTimeout(),
+          requestTimeout(),
           tap((intros) => serverIntrosCache.write(intros)),
           catchError((error) =>
             cached.length ? of(cached) : throwError(() => error),
@@ -276,25 +266,22 @@ export class BibleApiService {
     return from(this.offlineDataService.getCachedGroupIntroAsync(slug)).pipe(
       switchMap((cached) => {
         if (cached) return of(cached)
-        if (this.networkService.isOffline) {
-          return throwError(
-            () => new Error("Offline - introduction not cached"),
-          )
-        }
         return (
           this.http.get(
             `${this.api}/intros/${encodeURIComponent(slug)}`,
           ) as Observable<GroupIntro>
-        ).pipe(serverRetry())
+        ).pipe(serverRetry(), requestTimeout())
       }),
       pendingUntilEvent(this.injector),
     )
   }
 
   search(query: string, page = 1, limit = 50): Observable<VersePage> {
-    return this.http.get(
-      `${this.api}/search?text=${encodeURIComponent(query)}&page=${page}&limit=${limit}&semantic=true`,
-    ) as Observable<VersePage>
+    return (
+      this.http.get(
+        `${this.api}/search?text=${encodeURIComponent(query)}&page=${page}&limit=${limit}&semantic=true`,
+      ) as Observable<VersePage>
+    ).pipe(requestTimeout())
   }
 
   getVerse(book: string, chapter: number, verse: number): Observable<Verse> {
@@ -305,12 +292,11 @@ export class BibleApiService {
         if (cached?.text && cached?.text?.length > 0) {
           return of(cached)
         }
-        if (this.networkService.isOffline) {
-          return throwError(() => new Error("Offline - verse not cached"))
-        }
-        return this.http.get(
-          `${this.api}/${book}/${chapter}/${verse}`,
-        ) as Observable<Verse>
+        return (
+          this.http.get(
+            `${this.api}/${book}/${chapter}/${verse}`,
+          ) as Observable<Verse>
+        ).pipe(requestTimeout())
       }),
     )
   }

@@ -32,6 +32,7 @@ import { MatMenuModule } from "@angular/material/menu"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import {
   ActivatedRoute,
+  NavigationEnd,
   NavigationSkipped,
   type Params,
   Router,
@@ -78,7 +79,10 @@ import { buildPassagePicker } from "../../utils/passage-picker"
 import { leftToTheBrowser } from "../../utils/platform"
 import { foldText } from "../../utils/text-search"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
-import { ReaderMenuComponent } from "../reader-menu/reader-menu.component"
+import {
+  MENU_BUTTON,
+  ReaderMenuComponent,
+} from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 import { AlphabeticalScrollBarComponent } from "./alphabetical-scroll-bar.component"
@@ -289,6 +293,9 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     this.backButton.closeOnBack(
       this.bottomSheet.open(BookmarkSelectorComponent, {
         data: { bookId, chapter: INDEX_BOOKMARK_CHAPTER },
+        ariaLabel: "Marcadores",
+        ariaModal: true,
+        restoreFocus: MENU_BUTTON,
       }),
     )
   }
@@ -299,6 +306,10 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
 
   increaseFontSize(step?: number): void {
     this.textSize()?.increaseFontSize(step)
+  }
+
+  resetFontSize(): void {
+    this.textSize()?.resetFontSize()
   }
 
   async share(): Promise<void> {
@@ -343,6 +354,8 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     }
     this.dialog.open(ReportProblemComponent, {
       data: { book, chapter: INDEX_BOOKMARK_CHAPTER },
+      ariaModal: true,
+      restoreFocus: MENU_BUTTON,
       width: "90%",
       maxWidth: "500px",
     })
@@ -362,11 +375,11 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
 
   /** The themes that match the filter, under their first letters. */
   readonly groups = computed(() => {
-    const query = foldText(this.query().trim())
+    const query = foldText(this.query().trim()).replaceAll("-", " ")
     const groups = new Map<string, PastoralEntry[]>()
     for (const entry of ENTRIES) {
       const title = foldText(entry.title)
-      if (!title.includes(query)) continue
+      if (!title.replaceAll("-", " ").includes(query)) continue
       const letter = title[0].toLocaleUpperCase("pt")
       groups.set(letter, [...(groups.get(letter) ?? []), entry])
     }
@@ -452,6 +465,9 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
       })
     }
 
+    // The page's title names the theme its address does.
+    effect(() => this.seoService.updateForPastoralIndex(this.entry()?.title))
+
     // Rotating a phone crosses the breakpoint, and every theme opens or folds
     // above the one being read. Back to it once they have.
     let first = true
@@ -472,7 +488,6 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.seoService.updateForPastoralIndex()
     this.route.paramMap
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((params) => {
@@ -480,17 +495,24 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
         this.show(params.get("slug"))
       })
 
-    // A ribbon on a theme this page already opened at: the router, which the
-    // page's own address changes don't reach, sees nothing to do.
+    // The page's own address changes don't reach the router: back to where it
+    // thinks this page is, it skips, or ends with equal params and no paramMap.
     this.router.events
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((event) => {
-        if (!(event instanceof NavigationSkipped)) return
-        const slug = /^\/indice\/([^/?#]+)/.exec(event.url)?.[1]
-        if (slug) {
-          this.scrollSmoothly = false
-          this.expand(slug)
+        if (
+          !(event instanceof NavigationSkipped) &&
+          !(event instanceof NavigationEnd)
+        ) {
+          return
         }
+        const match = /^\/indice(?:\/([^/?#]+))?(?:[?#]|$)/.exec(event.url)
+        if (!match) return
+        const slug = match[1] ?? null
+        if (event instanceof NavigationEnd && slug === this.slug()) return
+        this.scrollSmoothly = false
+        if (slug) this.expand(slug)
+        else this.closeTheme()
       })
 
     void this.buildVersion
@@ -550,7 +572,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
         this.increaseFontSize(action.step)
         break
       case "font-reset":
-        this.textSize()?.resetFontSize()
+        this.resetFontSize()
         break
       case "share":
         void this.share()
@@ -625,12 +647,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
       return
     }
     this.query.set(query)
-    if (!this.wide() && this.slug()) {
-      this.stopGlide?.(false)
-      this.pendingOpen = null
-      this.heldTop = null
-      this.expand(null)
-    }
+    if (!this.wide() && this.slug()) this.closeTheme()
     afterNextRender(
       () => {
         // The results take the screen's place, from their top, as a native
@@ -804,6 +821,14 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     }
     this.scrollTarget = slug
     this.show(slug)
+  }
+
+  /** Calls off a theme still gliding into view, which would open on arrival. */
+  private closeTheme(): void {
+    this.stopGlide?.(false)
+    this.pendingOpen = null
+    this.heldTop = null
+    this.expand(null)
   }
 
   private show(slug: string | null): void {

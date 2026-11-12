@@ -686,10 +686,13 @@ describe("VerseComponent", () => {
       )
       highlightHost()
 
-      const number = fixture.nativeElement.querySelector(
-        ".verseNumber",
+      const pair = fixture.nativeElement.querySelector(
+        ".verseMarker",
       ) as HTMLElement
-      expect(getComputedStyle(number).backgroundColor).not.toBe(TRANSPARENT)
+      const number = pair.querySelector(".verseNumber") as HTMLElement
+      expect(getComputedStyle(pair).backgroundColor).not.toBe(TRANSPARENT)
+      // Once: the colour is translucent.
+      expect(getComputedStyle(number).backgroundColor).toBe(TRANSPARENT)
     })
 
     it("should wrap the space in front of a verse number in a run so the stroke does not break", () => {
@@ -756,7 +759,27 @@ describe("VerseComponent", () => {
       // background-color transition, and the value would be its start colour.
       highlightHost()
 
-      expect(getComputedStyle(marker).backgroundColor).not.toBe(TRANSPARENT)
+      const pair = marker.closest(".verseMarker") as HTMLElement
+      expect(getComputedStyle(pair).backgroundColor).not.toBe(TRANSPARENT)
+    })
+
+    // The number was padded down to the text's band but the notes marker, a
+    // button, could not be: Lc 15,11 showed a white notch under its icon.
+    it("should paint the number and its notes marker as tall as the text beside them", async () => {
+      withFootnote()
+      await document.fonts.ready
+      highlightHost()
+
+      const host = fixture.nativeElement as HTMLElement
+      const pair = (
+        host.querySelector(".verseMarker") as HTMLElement
+      ).getClientRects()[0]
+      const text = Array.from(host.querySelectorAll(".verseRun"))
+        .find((run) => run.textContent === "plain")
+        ?.getClientRects()[0] as DOMRect
+      expect(Math.abs(pair.top - text.top)).toBeLessThan(1)
+      expect(Math.abs(pair.bottom - text.bottom)).toBeLessThan(1)
+      expect(Math.abs(pair.right - text.left)).toBeLessThan(1)
     })
 
     // Padding does not move an inline box but does enlarge the border box the
@@ -940,6 +963,23 @@ describe("VerseComponent", () => {
 
       expect(mockBottomSheet.open).toHaveBeenCalled()
       expect(text().getAttribute("role")).toBe("button")
+    })
+
+    // The marker was a 13x16 px target for a mouse.
+    it("gives the marker WCAG's 24 px target, outside the text's flow", () => {
+      render()
+      const target = getComputedStyle(asterisk(), "::after")
+
+      expect(matchMedia("(pointer: coarse)").matches).toBe(false)
+      expect(target.width).toBe("24px")
+      expect(target.height).toBe("24px")
+      expect(target.position).toBe("absolute")
+      const box = asterisk().getBoundingClientRect()
+      const centre = document.elementFromPoint(
+        box.left + box.width / 2,
+        box.top + box.height / 2 + 10,
+      )
+      expect(centre).toBe(asterisk())
     })
 
     // It scrolled on under the sheet, carrying the verse away.
@@ -1151,6 +1191,27 @@ describe("VerseComponent", () => {
       expect(dismissSheet).toHaveBeenCalled()
     })
 
+    // The sheet was an unnamed dialog, and not marked modal.
+    it("names the notes sheet after the verse, as a modal dialog", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 3,
+          text: [{ type: "footnote", text: "note", reference: "a" }],
+        }),
+      )
+
+      component.toggleFootnotes()
+
+      expect(mockBottomSheet.open).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          ariaLabel: expect.stringMatching(/^Notas de .* 1,3$/),
+          ariaModal: true,
+        }),
+      )
+    })
+
     it("should not open bottom sheet when no footnotes", () => {
       setData(
         fixture,
@@ -1189,6 +1250,80 @@ describe("VerseComponent", () => {
       expect(focusSpy).not.toHaveBeenCalled()
       dismissed.next()
       expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true })
+    })
+  })
+
+  // Copied verses read "do Céu? 13Pois ninguém": the number glued to the word.
+  describe("copied text", () => {
+    const copied = (verse: Verse) => {
+      setData(fixture, verse)
+      fixture.detectChanges()
+      const host = fixture.nativeElement as HTMLElement
+      host.style.display = "block"
+      const selection = getSelection() as Selection
+      selection.selectAllChildren(host)
+      const text = selection.toString()
+      selection.removeAllRanges()
+      return text
+    }
+    const space = () =>
+      fixture.nativeElement.querySelector(".copySpace") as HTMLElement
+
+    it("parts a verse's number from its first word", () => {
+      const text = copied(
+        makeVerse({
+          number: 13,
+          text: [{ type: "text", text: "Pois ninguém subiu ao Céu" }],
+        }),
+      )
+
+      expect(text).toContain("13 Pois ninguém")
+      // On screen nothing moves.
+      expect(space().getBoundingClientRect().width).toBe(0)
+    })
+
+    it("parts a poetry verse's number from its line", () => {
+      const text = copied(
+        makeVerse({
+          number: 3,
+          text: [{ type: "quote", text: "a line of poetry", identLevel: 1 }],
+        }),
+      )
+
+      expect(text).toContain("3 a line of poetry")
+      expect(space().getBoundingClientRect().width).toBe(0)
+    })
+
+    // A justified line spread its extra room into the space too, and the
+    // number drew away from its word.
+    it("keeps the number against its word in justified text", () => {
+      copied(
+        makeVerse({
+          number: 13,
+          text: [
+            {
+              type: "text",
+              text: "Pois ninguém subiu ao Céu senão Aquele que desceu do Céu",
+            },
+          ],
+        }),
+      )
+      const host = fixture.nativeElement as HTMLElement
+      host.style.textAlign = "justify"
+      host.style.width = "150px"
+      const number = host.querySelector(".verseNumber") as HTMLElement
+      const run = [...host.querySelectorAll(".verseRun")].find((el) =>
+        el.textContent?.startsWith("Pois"),
+      ) as HTMLElement
+      const word = document.createRange()
+      word.setStart(run.firstChild as Text, 0)
+      word.setEnd(run.firstChild as Text, "Pois".length)
+      const gap = () =>
+        word.getBoundingClientRect().left - number.getBoundingClientRect().right
+
+      const withSpace = gap()
+      space().remove()
+      expect(withSpace).toBeCloseTo(gap(), 1)
     })
   })
 
@@ -1450,5 +1585,56 @@ describe("VerseComponent", () => {
     expect(line).toBeTruthy()
     expect(getComputedStyle(line).textAlign).toBe("start")
     expect(getComputedStyle(line).hyphens).toBe("manual")
+  })
+
+  // Sl 23 at the largest text size on a phone: the indents grew with the
+  // text and pushed "refrescantes" past the screen's right edge, and a
+  // three-digit verse number hung past its left one.
+  it("keeps poetry and its verse numbers on a phone's screen at the largest text size", () => {
+    const screen = document.createElement("div")
+    screen.style.cssText =
+      "width: 320px; font-size: 235%; --reader-side-margin: 20px"
+    const block = document.createElement("div")
+    block.className = "bookBlock"
+    screen.appendChild(block)
+    document.body.appendChild(screen)
+    block.appendChild(fixture.nativeElement)
+    setData(
+      fixture,
+      makeVerse({
+        number: 119,
+        verseLabel: "119",
+        text: [
+          { type: "quote", text: "Em verdes prados me faz", identLevel: 1 },
+          {
+            type: "quote",
+            text: "e conduz-me às águas refrescantes.",
+            identLevel: 2,
+          },
+        ],
+      }),
+    )
+    fixture.detectChanges()
+
+    const bounds = screen.getBoundingClientRect()
+    const host = fixture.nativeElement as HTMLElement
+    const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT)
+    const outside: string[] = []
+    let rects = 0
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      for (const rect of range.getClientRects()) {
+        if (!rect.width) continue
+        rects++
+        if (rect.left < bounds.left - 0.5 || rect.right > bounds.right + 0.5) {
+          outside.push(`${node.textContent?.trim()} ${rect.left}–${rect.right}`)
+        }
+      }
+    }
+    screen.remove()
+
+    expect(rects).toBeGreaterThan(3)
+    expect(outside).toEqual([])
   })
 })

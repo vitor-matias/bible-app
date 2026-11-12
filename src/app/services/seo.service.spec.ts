@@ -392,6 +392,21 @@ describe("SeoService", () => {
     })
   })
 
+  describe("updateForPastoralIndex", () => {
+    it("titles the index, or a theme of it, under one canonical URL", () => {
+      service.updateForPastoralIndex()
+      expect(title.getTitle()).toBe(
+        `Índice Bíblico-Pastoral | ${SEO_SITE_NAME}`,
+      )
+
+      service.updateForPastoralIndex("Amor")
+      expect(title.getTitle()).toBe(
+        `Amor — Índice Bíblico-Pastoral | ${SEO_SITE_NAME}`,
+      )
+      expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/indice`)
+    })
+  })
+
   describe("updateForSearch", () => {
     it("sets a noindex robots tag and the search canonical URL", () => {
       service.updateForSearch()

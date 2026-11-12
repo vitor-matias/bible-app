@@ -56,6 +56,19 @@
   }
 }
 
+/* Shorter still (a phone on its side, a page zoomed to 400%), the picture
+   and the buttons left the text a line's window: the whole dialog scrolls. */
+@media (max-height: 500px) {
+  :host {
+    overflow-y: auto;
+  }
+
+  .body {
+    flex: none;
+    overflow-y: visible;
+  }
+}
+
 .title {
   margin: 0 0 8px;
   font-size: 22px;
@@ -280,6 +293,19 @@
 
 :host-context(.dark-theme) .dot.active::before {
   background: antiquewhite;
+}
+
+/* Contrast themes paint every background the page's own colour, and the
+   dots vanished: system colours are kept. */
+@media (forced-colors: active) {
+  .dot::before {
+    background: CanvasText;
+  }
+
+  .dot.active::before,
+  :host-context(.dark-theme) .dot.active::before {
+    background: Highlight;
+  }
 }
 
 .buttons {

@@ -1,5 +1,6 @@
 import { BreakpointObserver } from "@angular/cdk/layout"
 import { Location } from "@angular/common"
+import { provideLocationMocks } from "@angular/common/testing"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
@@ -7,10 +8,12 @@ import { By } from "@angular/platform-browser"
 import {
   ActivatedRoute,
   convertToParamMap,
+  NavigationEnd,
   NavigationSkipped,
   provideRouter,
   Router,
 } from "@angular/router"
+import { RouterTestingHarness } from "@angular/router/testing"
 import { BehaviorSubject, of, Subject } from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
@@ -31,8 +34,10 @@ import { PwaInstallService } from "../../services/pwa-install.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
+import { forceColors, systemColor } from "../../testing/forced-colors"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
+import { MENU_BUTTON } from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { PastoralIndexComponent } from "./pastoral-index.component"
 import entries from "./pastoral-index.data.json"
@@ -201,10 +206,7 @@ describe("PastoralIndexComponent", () => {
     Promise.allSettled(document.getAnimations().map((a) => a.finished))
 
   /** Taps a theme's panel header in the list. */
-  async function tap(
-    fixture: ComponentFixture<PastoralIndexComponent>,
-    slug: string,
-  ) {
+  async function tap(fixture: ComponentFixture<unknown>, slug: string) {
     const el: HTMLElement = fixture.nativeElement
     el.querySelector<HTMLElement>(
       `#tema-${slug} mat-expansion-panel-header`,
@@ -329,6 +331,26 @@ describe("PastoralIndexComponent", () => {
       expect(text).toContain("Ex 12,1-13,10.8 (n).11 (n).15 (n)")
     })
 
+    // Perdão: "Mt 5,23-26; 6,12 (n).14-15; 18,21-25.32-35"; the verses after
+    // the first range were dropped.
+    it("spans all the verses of a list", async () => {
+      expect(await linkOf("perdao", "18,21-25.32-35")).toBe(
+        "/mt/18?verseStart=21&verseEnd=35",
+      )
+    })
+
+    it("spans a list past its mark, the notes the mark's verse's", async () => {
+      expect(await linkOf("perdao", "6,12 (n).14-15")).toBe(
+        "/mt/6?verseStart=12&verseEnd=15&notes=12",
+      )
+    })
+
+    it("spans a list marked twice, the notes the first mark's", async () => {
+      expect(await linkOf("misericordia", "Sb 12,21 (n).24-25")).toBe(
+        "/sb/12?verseStart=21&verseEnd=25&notes=21",
+      )
+    })
+
     it("finds the verse the mark follows in a list", async () => {
       // "1 Jo 3,16-18.16 (n)": the mark is on the second verses named.
       expect(await linkOf("amor", "1 Jo 3,16-18.16")).toContain("notes=16")
@@ -343,11 +365,18 @@ describe("PastoralIndexComponent", () => {
     expect(text).not.toMatch(/\s[;.]/)
   })
 
-  it("keeps the page's name at a theme's own address too", async () => {
+  // Every theme's page had the index's title, the same in each tab.
+  it("titles a theme's own address with the theme", async () => {
     await open("amor")
 
     expect(seo.updateForPastoralIndex).toHaveBeenCalledOnce()
-    expect(seo.updateForPastoralIndex).toHaveBeenCalledWith()
+    expect(seo.updateForPastoralIndex).toHaveBeenCalledWith("Amor")
+  })
+
+  it("keeps the index's title at its own address", async () => {
+    await open()
+
+    expect(seo.updateForPastoralIndex).toHaveBeenCalledWith(undefined)
   })
 
   it("follows the address to another theme in the same view", async () => {
@@ -430,8 +459,9 @@ describe("PastoralIndexComponent", () => {
         "Tema: Claro",
         "Diminuir texto",
         "Aumentar texto",
+        "Repor tamanho do texto",
         "Marcadores",
-        ...(typeof navigator.share === "function" ? ["Partilhar"] : []),
+        typeof navigator.share === "function" ? "Partilhar" : "Copiar ligação",
         "Instalar a app",
         "Como usar a app",
         "Sobre a Bíblia",
@@ -460,6 +490,14 @@ describe("PastoralIndexComponent", () => {
       expect(
         document.querySelector('[aria-label="Diminuir texto"]'),
       ).not.toBeNull()
+
+      const grown = Number.parseFloat(accordion.style.fontSize)
+      ;(
+        document.querySelector(
+          '[aria-label="Repor tamanho do texto"]',
+        ) as HTMLElement
+      ).click()
+      expect(Number.parseFloat(accordion.style.fontSize)).toBeLessThan(grown)
       if (before === null) preferences.clearFontSize("reader")
       else preferences.setFontSize(before, "reader")
     })
@@ -480,6 +518,7 @@ describe("PastoralIndexComponent", () => {
             }),
             chapter: 1,
           },
+          ariaModal: true,
         }),
       )
     })
@@ -498,14 +537,24 @@ describe("PastoralIndexComponent", () => {
       item("Marcadores")?.click()
       expect(bottomSheet.open).toHaveBeenLastCalledWith(
         BookmarkSelectorComponent,
-        { data: { bookId: "indice/amor", chapter: 1 } },
+        expect.objectContaining({
+          data: { bookId: "indice/amor", chapter: 1 },
+          ariaLabel: "Marcadores",
+          ariaModal: true,
+          // The menu entry is gone when it closes: back to the menu button.
+          restoreFocus: MENU_BUTTON,
+        }),
       )
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector(MENU_BUTTON)
+          ?.ariaLabel,
+      ).toBe("Menu")
 
       params.next(convertToParamMap({}))
       fixture.componentInstance.openBookmarks()
       expect(bottomSheet.open).toHaveBeenLastCalledWith(
         BookmarkSelectorComponent,
-        { data: { bookId: "indice", chapter: 1 } },
+        expect.objectContaining({ data: { bookId: "indice", chapter: 1 } }),
       )
     })
 
@@ -532,7 +581,7 @@ describe("PastoralIndexComponent", () => {
       const item = await openMenu(fixture)
 
       item("Como usar a app")?.click()
-      expect(onboarding.open).toHaveBeenCalledWith("menu")
+      expect(onboarding.open).toHaveBeenCalledWith("menu", MENU_BUTTON)
 
       fixture.componentInstance.openAbout()
       expect(navigate).toHaveBeenCalledWith(["/", "sobre", 1])
@@ -609,6 +658,83 @@ describe("PastoralIndexComponent", () => {
 
       expect(fixture.componentInstance.entry()?.slug).toBe("amor")
       expect(replaceState.mock.lastCall?.[0]).toBe("/indice/amor")
+    })
+
+    describe("with the real router", () => {
+      /** The page at its two routes, as the app has them. */
+      async function route(url: string, desktop = false) {
+        TestBed.configureTestingModule({
+          providers: [provideLocationMocks()],
+        })
+        ;(await open(undefined, false, false, desktop)).destroy()
+        TestBed.inject(Router).resetConfig([
+          { path: "indice", component: PastoralIndexComponent },
+          { path: "indice/:slug", component: PastoralIndexComponent },
+        ])
+        const harness = await RouterTestingHarness.create(url)
+        return {
+          harness,
+          page: harness.routeDebugElement
+            ?.componentInstance as PastoralIndexComponent,
+          router: TestBed.inject(Router),
+          location: TestBed.inject(Location),
+        }
+      }
+
+      it("opens the ribbon's theme the page arrived at, over another", async () => {
+        const { harness, page, router, location } = await route("/indice/agua")
+        await tap(harness.fixture, "amor")
+        expect(location.path()).toBe("/indice/amor")
+
+        await router.navigateByUrl("/indice/agua")
+        await harness.fixture.whenStable()
+
+        expect(location.path()).toBe("/indice/agua")
+        expect(page.entry()?.slug).toBe("agua")
+        expect(page.expandedSlug()).toBe("agua")
+      })
+
+      it("closes the open theme for the ribbon of the index", async () => {
+        const { harness, page, router, location } = await route("/indice")
+        await tap(harness.fixture, "amor")
+        expect(location.path()).toBe("/indice/amor")
+
+        await router.navigateByUrl("/indice")
+        await harness.fixture.whenStable()
+
+        expect(location.path()).toBe("/indice")
+        expect(page.entry()).toBeUndefined()
+        expect(page.expandedSlug()).toBeNull()
+      })
+
+      it("forgets a followed theme on Back to the index", async () => {
+        const { page, router, location } = await route("/indice", true)
+        const skipped = vi.fn()
+        router.events.subscribe((event) => {
+          if (event instanceof NavigationSkipped) skipped(event.url)
+        })
+        // The app's bootstrap starts this; the harness doesn't.
+        router.setUpLocationChangeListener()
+        page.follow(new MouseEvent("click"), "amor")
+        expect(page.entry()?.slug).toBe("amor")
+
+        location.back()
+
+        await vi.waitFor(() => expect(skipped).toHaveBeenCalledWith("/indice"))
+        expect(page.entry()).toBeUndefined()
+        expect(location.path()).toBe("/indice")
+      })
+
+      it("leaves a change of theme to the route", async () => {
+        const { harness, page, router, location } = await route("/indice/agua")
+        const replaceState = vi.spyOn(location, "replaceState")
+
+        await router.navigateByUrl("/indice/amor")
+        await harness.fixture.whenStable()
+
+        expect(page.entry()?.slug).toBe("amor")
+        expect(replaceState).not.toHaveBeenCalled()
+      })
     })
   })
 
@@ -696,6 +822,30 @@ describe("PastoralIndexComponent", () => {
       expect(letters(el)).not.toContain("X")
     })
 
+    // iOS's section index stayed at 11 px letters 14 px apart at the largest
+    // text size, hard to hit for those who need that size.
+    it("grow in the iOS app with the text size, to letters 24 px apart", async () => {
+      const fixture = await open(undefined, true)
+      const bar = fixture.nativeElement.querySelector(
+        "alphabetical-scroll-bar",
+      ) as HTMLElement
+      const size = (percent: number) => {
+        fixture.componentInstance.textSizeState.set({
+          percent,
+          min: 70,
+          max: 235,
+          canReset: true,
+        })
+        fixture.detectChanges()
+        return getComputedStyle(bar).fontSize
+      }
+
+      expect(size(100)).toBe("11px")
+      expect(size(150)).toBe("16.5px")
+      // 1.3em apart: 24.7 px.
+      expect(size(235)).toBe("19px")
+    })
+
     it("go to that letter's themes", async () => {
       const fixture = await open()
       const el: HTMLElement = fixture.nativeElement
@@ -780,6 +930,19 @@ describe("PastoralIndexComponent", () => {
         getComputedStyle(current.querySelector(".mdc-button__label") as Element)
           .color,
       ).toBe("rgb(84, 61, 39)")
+      // Windows' contrast themes drop that background: a ring marks it.
+      await forceColors(true)
+      try {
+        expect(getComputedStyle(current).outlineColor).toBe(
+          systemColor("Highlight"),
+        )
+        const other = el.querySelector(".letters button:not(.current)")
+        expect(getComputedStyle(other as Element).outlineColor).not.toBe(
+          systemColor("Highlight"),
+        )
+      } finally {
+        await forceColors(false)
+      }
       window.scrollTo(0, 0)
     })
 
@@ -944,8 +1107,8 @@ describe("PastoralIndexComponent", () => {
     )
     // So that Back from a citation finds it open.
     expect(replaceState.mock.lastCall?.[0]).toBe("/indice/amor")
-    // The page keeps its one name, whichever theme is open.
-    expect(seo.updateForPastoralIndex).toHaveBeenCalledTimes(1)
+    // The heading stays the page's; the title follows the address.
+    expect(seo.updateForPastoralIndex).toHaveBeenLastCalledWith("Amor")
     expect(el.querySelector("h1")?.textContent).toBe("Índice Bíblico-Pastoral")
   })
 
@@ -996,6 +1159,19 @@ describe("PastoralIndexComponent", () => {
     fixture.componentInstance.settled("sacerdote")
     expect(scroll.mock.calls.length).toBeLessThanOrEqual(1)
   })
+
+  for (const query of ["bem aventurancas", "Bem-Aventuranças"]) {
+    it(`finds a hyphenated title by "${query}"`, async () => {
+      const fixture = await open()
+      fixture.componentInstance.query.set(query)
+
+      expect(
+        fixture.componentInstance
+          .groups()
+          .flatMap((group) => group.entries.map((entry) => entry.slug)),
+      ).toEqual(["bem-aventurancas"])
+    })
+  }
 
   it("opens a cross-reference's theme here, past the filter", async () => {
     const fixture = await open("aarao")
@@ -1057,6 +1233,33 @@ describe("PastoralIndexComponent", () => {
       expect(el.querySelectorAll("article").length).toBe(entries.length)
       // Print has no chevrons; on a phone they say a row opens.
       expect(el.querySelector(".mat-expansion-indicator")).toBeNull()
+    })
+
+    // Filtered to "amor", the one letter left stretched into a full-width pill.
+    it("keeps a lone letter button its own size", async () => {
+      const fixture = await open(undefined, false, false, true)
+      const el: HTMLElement = fixture.nativeElement
+      const input = el.querySelector("input") as HTMLInputElement
+      input.value = "amor"
+      input.dispatchEvent(new Event("input"))
+      fixture.detectChanges()
+
+      const letters = el.querySelectorAll(".letters button")
+      expect(letters.length).toBe(1)
+      expect(letters[0].getBoundingClientRect().width).toBeLessThanOrEqual(48)
+    })
+
+    // Capping the tracks at 48 px wrapped the row below about 1146 px, under
+    // the sticky tools, whose height allows for one row.
+    it("keeps every letter on one row", async () => {
+      const fixture = await open(undefined, false, false, true)
+      const el: HTMLElement = fixture.nativeElement
+      const tops = new Set(
+        [...el.querySelectorAll(".letters button")].map((button) =>
+          Math.round(button.getBoundingClientRect().top),
+        ),
+      )
+      expect(tops.size).toBe(1)
     })
 
     it("never splits a theme across two columns", async () => {
@@ -1243,6 +1446,20 @@ describe("PastoralIndexComponent", () => {
       expect(glide.mock.calls.length).toBeGreaterThan(under)
       expect(native).not.toHaveBeenCalled()
       expect(glide.mock.lastCall?.[0]).toMatchObject({ behavior: "instant" })
+    })
+
+    it("doesn't open a theme on arrival once a ribbon has closed it", async () => {
+      const fixture = await openGliding()
+      glideSpy()
+      await tapGliding(fixture, "abel")
+
+      const router = TestBed.inject(Router)
+      ;(router.events as unknown as Subject<unknown>).next(
+        new NavigationEnd(1, "/indice", "/indice"),
+      )
+      await wait(2000)
+
+      expect(fixture.componentInstance.expandedSlug()).toBeNull()
     })
 
     it("finishes the glide, at its title", async () => {
@@ -1609,6 +1826,50 @@ describe("PastoralIndexComponent", () => {
         ).toBeGreaterThan(1.2)
       })
     }
+  })
+
+  // On a 393 px phone the intro and themes were justified, with rivers, while
+  // the reader beside them was ragged-right.
+  describe("on a phone", () => {
+    const frame = window.frameElement as HTMLElement | null
+    let width = ""
+
+    beforeEach(() => {
+      width = frame?.style.width ?? ""
+    })
+
+    afterEach(() => {
+      if (frame) frame.style.width = width
+      document.documentElement.classList.remove("justified-text")
+    })
+
+    it("sets the intro and themes ragged-right until justified is chosen", async () => {
+      const fixture = await open("amor")
+      const el: HTMLElement = fixture.nativeElement
+      expect(frame, "the specs run in a frame").toBeTruthy()
+      if (frame) frame.style.width = "390px"
+      const align = (selector: string) =>
+        getComputedStyle(el.querySelector(selector) as Element).textAlign
+
+      expect(align(".index-intro")).toBe("start")
+      expect(align("#tema-amor .entry")).toBe("start")
+
+      document.documentElement.classList.add("justified-text")
+      expect(align(".index-intro")).toBe("justify")
+      expect(align("#tema-amor .entry")).toBe("justify")
+    })
+
+    // The web's choice overrode the apps' ragged themes, which neither
+    // platform justifies.
+    it("keeps the apps' themes ragged when justified is chosen", async () => {
+      const fixture = await open("amor", true)
+      const el: HTMLElement = fixture.nativeElement
+      document.documentElement.classList.add("justified-text")
+
+      const entry = el.querySelector("#tema-amor .entry") as Element
+      expect(getComputedStyle(entry).textAlign).toBe("start")
+      expect(getComputedStyle(entry).hyphens).toBe("manual")
+    })
   })
 
   describe("in the apps", () => {
@@ -2072,6 +2333,19 @@ describe("PastoralIndexComponent", () => {
       expect(maranatha?.paragraphs).toEqual([
         ["Ver ", { text: "Vem, Senhor", slug: "vem-senhor" }, "."],
       ])
+    })
+
+    it("keeps a list apart from the numbered book after it", () => {
+      const joined = entries.flatMap((entry) =>
+        entry.paragraphs
+          .flat()
+          .flatMap((part) =>
+            typeof part === "string"
+              ? (part.match(/\(n\)\.\d+ \p{Lu}/gu) ?? [])
+              : [],
+          ),
+      )
+      expect(joined).toEqual([])
     })
 
     it("links cross-references only to entries that exist", () => {

@@ -95,6 +95,15 @@ final class OnboardingController: UIViewController, UIScrollViewDelegate, UIAdap
 
         primary.configuration = ChromeViewController.prominentButton().configuration
         primary.configuration?.buttonSize = .large
+        // Centred when it wraps at large text sizes, as on one line
+        // (`titleAlignment` alone left the lines to the left).
+        primary.configuration?.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+            var attributes = attributes
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.alignment = .center
+            attributes.paragraphStyle = paragraph
+            return attributes
+        }
         primary.tintColor = ChromeViewController.selectionFill
         primary.addAction(UIAction { [weak self] _ in self?.next() }, for: .primaryActionTriggered)
 
@@ -105,8 +114,10 @@ final class OnboardingController: UIViewController, UIScrollViewDelegate, UIAdap
         let safeArea = view.safeAreaLayoutGuide
         NSLayoutConstraint.activate([
             pager.topAnchor.constraint(equalTo: safeArea.topAnchor),
-            pager.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            pager.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            // The safe area, not the edges: on the folded iPhone Duo the
+            // status bar and Close run down the side, over the pages.
+            pager.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor),
+            pager.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor),
             pager.bottomAnchor.constraint(equalTo: pageControl.topAnchor, constant: -8),
             pages.topAnchor.constraint(equalTo: pager.contentLayoutGuide.topAnchor),
             pages.bottomAnchor.constraint(equalTo: pager.contentLayoutGuide.bottomAnchor),
@@ -154,7 +165,17 @@ final class OnboardingController: UIViewController, UIScrollViewDelegate, UIAdap
         hero.isAccessibilityElement = false
 
         let title = label(step.title, style: .largeTitle, weight: .bold, color: .label)
-        title.textAlignment = .center
+        // At the largest text sizes a word can be wider than the page:
+        // hyphenated, in Portuguese, rather than broken anywhere ("Escolh/er").
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.hyphenationFactor = 0.5
+        title.attributedText = NSAttributedString(string: step.title, attributes: [
+            .font: title.font as UIFont,
+            .foregroundColor: UIColor.label,
+            .paragraphStyle: paragraph,
+            NSAttributedString.Key(kCTLanguageAttributeName as String): "pt-PT",
+        ])
         title.accessibilityTraits = .header
         pageTitles.append(title)
         let intro = label(step.intro, style: .body, color: .secondaryLabel)
@@ -308,14 +329,34 @@ final class RingedBarButton: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
+    /// Further looks for the item while the bar hasn't laid it out, for the
+    /// width it was last laid out at.
+    private var looksLeft = 10
+    private var lookedAtWidth: CGFloat = 0
+
     override func layoutSubviews() {
         super.layoutSubviews()
         bar.layoutIfNeeded()
-        let around = buttonFrame.insetBy(dx: -6, dy: -6)
+        if bounds.width != lookedAtWidth {
+            lookedAtWidth = bounds.width
+            looksLeft = 10
+        }
+        let item = itemFrame
+        let around = (item ?? bar.frame).insetBy(dx: -6, dy: -6)
         for view in [ring, pulse] {
             view.bounds = CGRect(origin: .zero, size: around.size)
             view.center = CGPoint(x: around.midX, y: around.midY)
             view.layer.cornerRadius = around.height / 2
+        }
+        // The bar lays its item out for a new width in a pass of its own, after
+        // this one: turned on the iPhone Duo, the item was still at the old
+        // middle, and the ring went round the whole bar. Look again shortly.
+        if item == nil, looksLeft > 0 {
+            looksLeft -= 1
+            DispatchQueue.main.async { [weak self] in
+                self?.setNeedsLayout()
+                self?.layoutIfNeeded()
+            }
         }
     }
 
@@ -324,7 +365,9 @@ final class RingedBarButton: UIView {
     /// flexible spaces, not the bar's own views, which reach its sides (a
     /// long iPad title is wider than half the bar). Before the bar has laid
     /// its item out, the bar itself.
-    var buttonFrame: CGRect {
+    var buttonFrame: CGRect { itemFrame ?? bar.frame }
+
+    private var itemFrame: CGRect? {
         let middle = CGPoint(x: bar.bounds.midX, y: bar.bounds.midY)
         var found: CGRect?
         func visit(_ view: UIView) {
@@ -338,7 +381,10 @@ final class RingedBarButton: UIView {
             }
         }
         visit(bar)
-        return found.map { bar.convert($0, to: self) } ?? bar.frame
+        // Centred on the middle, or not laid out for this width yet: a wide
+        // item the bar hasn't moved still covers the new middle.
+        guard let found, abs(found.midX - middle.x) <= 2 else { return nil }
+        return bar.convert(found, to: self)
     }
 
     override func traitCollectionDidChange(_ previous: UITraitCollection?) {

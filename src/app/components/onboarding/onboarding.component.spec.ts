@@ -1,6 +1,7 @@
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatDialogRef } from "@angular/material/dialog"
 import { BehaviorSubject } from "rxjs"
+import { page } from "vitest/browser"
 import type { StoreApps } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import { PreferencesService } from "../../services/preferences.service"
@@ -10,6 +11,7 @@ import {
   type InstallPromptOutcome,
   PwaInstallService,
 } from "../../services/pwa-install.service"
+import { forceColors, systemColor } from "../../testing/forced-colors"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { STORE_APPS } from "../../tokens"
 import { OnboardingComponent } from "./onboarding.component"
@@ -104,6 +106,22 @@ describe("OnboardingComponent", () => {
     component.goTo(component.steps.length - 1)
     fixture.detectChanges()
   }
+
+  // At 320x256 (a page zoomed to 400%) the picture and the buttons left the
+  // text a 28 px window, cut after a line.
+  it("scrolls as a whole on a short screen, not in a window of its own", async () => {
+    await page.viewport(320, 256)
+    try {
+      create()
+      const body = element.querySelector(".body") as HTMLElement
+
+      expect(body.clientHeight).toBeGreaterThanOrEqual(body.scrollHeight)
+      expect(getComputedStyle(element).overflowY).toBe("auto")
+      expect(element.scrollHeight).toBeGreaterThan(element.clientHeight)
+    } finally {
+      await page.viewport(800, 600)
+    }
+  })
 
   it("shows the app logo on the welcome step and an icon afterwards", () => {
     create()
@@ -329,6 +347,41 @@ describe("OnboardingComponent", () => {
     expect(title()).toBe("Encontrar uma passagem")
     expect(dots[2].classList).toContain("active")
     expect(dots[2].getAttribute("aria-current")).toBe("step")
+  })
+
+  // Windows' contrast themes painted the dots in the dialog's own colour.
+  describe("in a forced-colours mode", () => {
+    // Headless Chrome follows the Mac's theme: set each case's, then restore.
+    let wasDark = false
+    beforeEach(() => {
+      wasDark = document.documentElement.classList.contains("dark-theme")
+    })
+
+    afterEach(async () => {
+      await forceColors(false)
+      document.documentElement.classList.toggle("dark-theme", wasDark)
+    })
+
+    const dotColors = () =>
+      Array.from(
+        element.querySelectorAll(".dot"),
+        (dot) => getComputedStyle(dot, "::before").backgroundColor,
+      )
+
+    for (const dark of [false, true]) {
+      it(`keeps the dots, the current one marked${dark ? ", dark" : ""}`, async () => {
+        document.documentElement.classList.toggle("dark-theme", dark)
+        // Before the dots are drawn: their colours would transition to it.
+        await forceColors(true)
+        create()
+
+        const [current, ...others] = dotColors()
+        expect(current).toBe(systemColor("Highlight"))
+        for (const other of others) {
+          expect(other).toBe(systemColor("CanvasText"))
+        }
+      })
+    }
   })
 
   describe("keyboard navigation", () => {
@@ -571,6 +624,23 @@ describe("OnboardingComponent", () => {
     expect(textOf(".install-done")).toContain("foi instalada")
     expect(button("Instalar agora")).toBeUndefined()
     expect(element.querySelector(".guide")).toBeNull()
+  })
+
+  it("confirms the installation only on the platform it happened on", async () => {
+    pwa.canPromptInstall = true
+    create()
+    goToInstallStep()
+    button("Instalar agora")?.click()
+    await fixture.whenStable()
+
+    component.selectPlatform("ios")
+    fixture.detectChanges()
+    expect(element.querySelector(".install-done")).toBeNull()
+    expect(element.querySelector(".guide")).not.toBeNull()
+
+    component.selectPlatform("android")
+    fixture.detectChanges()
+    expect(textOf(".install-done")).toContain("foi instalada")
   })
 
   it("keeps the manual steps when the user dismisses the native prompt", async () => {

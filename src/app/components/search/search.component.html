@@ -4,7 +4,7 @@
   @if (!native) {
   <search-bar [value]="fieldValue" [focusOnOpen]="!hasSearched" (searchValue)="onSearchSubmit($event)" (typing)="onTyping($event)"></search-bar>
   }
-  <div unifiedGestures fontSizeContext="search" class="search-container" [class.has-suggestion]="!!passageSuggestion || themes.length > 0" #container>
+  <main unifiedGestures fontSizeContext="search" class="search-container" [class.has-suggestion]="!!passageSuggestion || themes.length > 0" #container>
 
   <!-- A typed reference, offered at once: no wait for the search. -->
   @if (passageSuggestion) {
@@ -24,9 +24,11 @@
   }
 
   <!-- The count and the outcome, read out once: no toast covers the list. -->
-  <p class="visually-hidden" role="status">{{ statusMessage }}</p>
+  <p class="visually-hidden" role="status">{{ pendingSearch ? "A procurar…" : statusMessage }}</p>
 
   @if (!hasSearched && !pendingSearch) {
+    <!-- An offer above answers what was typed: no "search for…" under it. -->
+    @if (!passageSuggestion && themes.length === 0) {
     <div class="empty-state">
       <mat-icon class="empty-state-icon">search</mat-icon>
       <p>Procure versículos, livros ou referências bíblicas</p>
@@ -35,6 +37,7 @@
         <p class="results-hint">Sem ligação: pode abrir referências, como Jo 3,16, e procurar palavras no texto guardado neste dispositivo.</p>
       }
     </div>
+    }
   } @else if (psalmChoice) {
     <div class="results-section">
       <p class="results-count">Qual salmo procura?</p>
@@ -42,7 +45,7 @@
       <ul class="results-list">
         @for (option of psalmChoice; track option.psalm) {
           <li class="result-item">
-            <a class="result-card" [href]="passageHref('psa', option.psalm, option.verseStart)" (click)="openPassage($event, 'psa', option.psalm, option.verseStart)">
+            <a class="result-card" [href]="passageHref('psa', option.psalm, option.verseStart, option.verseEnd)" (click)="openPassage($event, 'psa', option.psalm, option.verseStart, option.verseEnd)">
               <strong class="verse-ref">{{ option.label }} <span class="psalm-note">· {{ option.note }}</span></strong>
               <p class="verse-text">{{ option.firstLine ?? option.title }}</p>
             </a>
@@ -51,9 +54,19 @@
       </ul>
     </div>
   } @else if ((isLoading || pendingSearch) && searchResults.length === 0) {
-    <div class="empty-state">
-      <mat-icon class="empty-state-icon">hourglass_empty</mat-icon>
-      <p>A procurar…</p>
+    <!-- Rows shaped like the results, so they replace these without a jump. -->
+    <div class="results-section skeleton" aria-hidden="true">
+      <ul class="results-list">
+        @for (row of [1, 2, 3, 4, 5]; track row) {
+          <li class="result-item">
+            <div class="result-card">
+              <span class="skeleton-bar skeleton-ref"></span>
+              <span class="skeleton-bar skeleton-line"></span>
+              <span class="skeleton-bar skeleton-line skeleton-short"></span>
+            </div>
+          </li>
+        }
+      </ul>
     </div>
   } @else if (searchFailed) {
     <div class="empty-state">
@@ -102,4 +115,4 @@
     </div>
   }
 
-</div>
+</main>

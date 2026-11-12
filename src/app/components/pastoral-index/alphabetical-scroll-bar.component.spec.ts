@@ -7,7 +7,7 @@ import { AlphabeticalScrollBarComponent } from "./alphabetical-scroll-bar.compon
   template: `
     <alphabetical-scroll-bar
       [style.height.px]="height()"
-      style="font-size: 12px"
+      [style.font-size.px]="fontSize()"
       [alphabet]="alphabet()"
       [current]="current()"
       [magnify]="magnify()"
@@ -18,6 +18,7 @@ import { AlphabeticalScrollBarComponent } from "./alphabetical-scroll-bar.compon
 })
 class Host {
   readonly height = signal(700)
+  readonly fontSize = signal(12)
   readonly alphabet = signal([..."ABCDEFGHIJKLMNOPRSTUVZ"])
   readonly current = signal<string | null>(null)
   readonly magnify = signal(true)
@@ -153,6 +154,24 @@ describe("AlphabeticalScrollBarComponent", () => {
     expect(shown().join("")).toBe("ABCDEFGHIJKLMNOPRSTUVZ")
   })
 
+  // The iOS app's letters follow the text size, while the bar's height can
+  // stay at the screen's: the letters that fit changed with the size alone.
+  it("refits the letters when their size changes and the height doesn't", async () => {
+    fixture.componentInstance.magnify.set(false)
+    fixture.componentInstance.height.set(400)
+    await render()
+    expect(shown().join("")).toBe("ABCDEFGHIJKLMNOPRSTUVZ")
+
+    // 22 letters of 20 px: 550 px.
+    fixture.componentInstance.fontSize.set(20)
+    await render()
+    expect(shown()).toContain("·")
+
+    fixture.componentInstance.fontSize.set(12)
+    await render()
+    expect(shown().join("")).toBe("ABCDEFGHIJKLMNOPRSTUVZ")
+  })
+
   it("chooses the same letter again after the finger lifts", () => {
     touch("touchstart", "M")
     bar.dispatchEvent(new Event("touchend"))
@@ -160,6 +179,23 @@ describe("AlphabeticalScrollBarComponent", () => {
 
     expect(fixture.componentInstance.chosen).toEqual(["M", "M"])
     expect(fixture.componentInstance.activity).toEqual([true, false, true])
+  })
+
+  it("chooses a tapped letter once, and a click with no touch still works", () => {
+    touch("touchstart", "M")
+    const lift = new Event("touchend", { bubbles: true, cancelable: true })
+    bar.dispatchEvent(lift)
+    const { top, height } = bar.getBoundingClientRect()
+    const click = new MouseEvent("click", { clientY: top + height / 2 })
+    // The browser sends its compatibility click only if the touchend allows it.
+    if (!lift.defaultPrevented) bar.dispatchEvent(click)
+
+    expect(fixture.componentInstance.chosen.length).toBe(1)
+    expect(fixture.componentInstance.activity).toEqual([true, false])
+
+    // A screen reader's activation: a click, with no touch events around it.
+    bar.dispatchEvent(click)
+    expect(fixture.componentInstance.chosen.length).toBe(2)
   })
 
   it("only magnifies under a mouse, until it clicks", () => {

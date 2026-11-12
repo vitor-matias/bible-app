@@ -77,6 +77,41 @@ describe("FootnotesBottomSheetComponent", () => {
     expect(item.textContent.replace(/\s+/g, " ").trim()).toBe("1a See Gen 1:1.")
   })
 
+  // As in the reader: a justified line stretched the space inside a
+  // citation, «Mc        4,10-12», in the web notes sheet too.
+  it("keeps a citation's own space unstretched in justified notes", () => {
+    const text = mockData.footnotes[0].text
+    mockData.footnotes[0].text =
+      "See Gen 1:1 and the long passage of the creation of the world that follows it, day after day."
+    try {
+      bibleRefSpy.extract.mockImplementation((note: string) =>
+        note.startsWith("See")
+          ? [{ match: "Gen 1:1", index: 4, book: "Gen", chapter: 1 }]
+          : [],
+      )
+      bookServiceSpy.findBook.mockReturnValue({ id: "gen" } as Book)
+      bookServiceSpy.getUrlAbrv.mockReturnValue("gn")
+      fixture.detectChanges()
+
+      const container = fixture.nativeElement.querySelector(
+        ".footnotes-container",
+      ) as HTMLElement
+      const link = container.querySelector("a") as HTMLElement
+      expect(link.querySelector(".ref-space")?.textContent).toBe(" ")
+      container.style.cssText = "white-space: nowrap; width: max-content"
+      const natural = link.getBoundingClientRect().width
+      for (let width = 160; width <= 400; width += 6) {
+        container.style.cssText = `width: ${width}px; text-align: justify`
+        expect(link.getBoundingClientRect().width, `at ${width}px`).toBeCloseTo(
+          natural,
+          0,
+        )
+      }
+    } finally {
+      mockData.footnotes[0].text = text
+    }
+  })
+
   it("puts a toast's way back above itself on opening", async () => {
     bibleRefSpy.extract.mockReturnValue([])
     await fixture.whenStable()
@@ -104,6 +139,29 @@ describe("FootnotesBottomSheetComponent", () => {
       expect(getComputedStyle(container).textAlign).toBe("start")
     } finally {
       document.documentElement.classList.remove("ragged-text")
+    }
+  })
+
+  // On a 393 px phone justified notes opened rivers while the reader was ragged.
+  it("sets the notes ragged-right on a phone until justified is chosen", () => {
+    // The runner's frame width is the viewport the media queries see.
+    const frame = window.frameElement as HTMLElement | null
+    expect(frame, "the specs run in a frame").toBeTruthy()
+    const width = frame?.style.width ?? ""
+    bibleRefSpy.extract.mockReturnValue([])
+    fixture.detectChanges()
+    const container = (fixture.nativeElement as HTMLElement).querySelector(
+      ".footnotes-container",
+    ) as HTMLElement
+    try {
+      if (frame) frame.style.width = "390px"
+      expect(getComputedStyle(container).textAlign).toBe("start")
+
+      document.documentElement.classList.add("justified-text")
+      expect(getComputedStyle(container).textAlign).toBe("justify")
+    } finally {
+      document.documentElement.classList.remove("justified-text")
+      if (frame) frame.style.width = width
     }
   })
 

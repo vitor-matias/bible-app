@@ -136,6 +136,15 @@ mat-accordion {
   color: var(--cap-brown);
 }
 
+/* Contrast themes drop that background: the current letter gets a ring in
+   their own selection colour. */
+@media (forced-colors: active) {
+  .letters button.current {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
 /* Room for the scroll bar, so it never covers the chevrons or the text. */
 .book-index-container {
   padding-right: 32px;
@@ -149,9 +158,7 @@ mat-accordion {
 .letter > h2 {
   margin: 0;
   padding: 12px 0 4px;
-  /* Over the text size's own bump (UnifiedGesturesDirective), which is relative
-     to a parent it has already scaled: at 235%, "A" was twice a theme's size. */
-  font-size: 90% !important;
+  font-size: 90%;
   font-weight: bold;
   text-transform: uppercase;
 }
@@ -220,9 +227,29 @@ mat-panel-title {
   hyphens: auto;
 }
 
-/* As the reader does: justified lines gape once the text is this large. */
+/* As the reader does: justified lines gape once the text is this large, or
+   on a phone; the reader's own choice (TextAlignService) wins over both. */
 .large-text .entry {
   text-align: start;
+}
+
+@media (max-width: 480px) {
+  .index-intro,
+  .entry {
+    text-align: start;
+    hyphens: manual;
+  }
+}
+
+:host-context(html.ragged-text) :is(.index-intro, .entry) {
+  text-align: start;
+  hyphens: manual;
+}
+
+/* The web's only: the apps keep both ragged (pastoral-index.native.css). */
+:host-context(html.justified-text):not(.native) :is(.index-intro, .entry) {
+  text-align: justify;
+  hyphens: auto;
 }
 
 .entry p {

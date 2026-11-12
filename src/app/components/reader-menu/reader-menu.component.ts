@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
+  computed,
   inject,
   input,
   output,
@@ -12,7 +13,8 @@ import { MatDividerModule } from "@angular/material/divider"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenu, MatMenuModule } from "@angular/material/menu"
 import { MatTooltipModule } from "@angular/material/tooltip"
-import { PRIVACY_POLICY_URL } from "../../config"
+import { PRIVACY_POLICY_URL, shareableUrl } from "../../config"
+import type { TextSize } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import {
   AppPromoService,
@@ -23,6 +25,13 @@ import { OnboardingService } from "../../services/onboarding.service"
 import { PwaInstallService } from "../../services/pwa-install.service"
 import { TextAlignService } from "../../services/text-align.service"
 import { ThemeService } from "../../services/theme.service"
+import { ToastService } from "../../services/toast.service"
+
+/**
+ * The pages' menu button. What an entry opens gives the focus back to it on
+ * closing: the entry itself is gone by then, and the focus fell to the page.
+ */
+export const MENU_BUTTON = ".menuButton"
 
 /**
  * The menu of the reader's header, which the pastoral index shares: the page
@@ -43,6 +52,7 @@ export class ReaderMenuComponent {
   private readonly cdr = inject(ChangeDetectorRef)
   private readonly textAlign = inject(TextAlignService)
   private readonly appPromo = inject(AppPromoService)
+  private readonly toast = inject(ToastService)
   readonly analyticsService = inject(AnalyticsService)
 
   /** Static: the page's trigger reads it before this view's first check. */
@@ -59,9 +69,20 @@ export class ReaderMenuComponent {
   readonly cardsView = input(false)
   /** Whether the reader can show the card view here (mobile, a chapter of verses). */
   readonly cardsViewAvailable = input(false)
+  /** The text's size and range, or null until it is known. */
+  readonly textSize = input<TextSize | null>(null)
+  readonly atMinSize = computed(() => {
+    const size = this.textSize()
+    return !!size && size.percent <= size.min
+  })
+  readonly atMaxSize = computed(() => {
+    const size = this.textSize()
+    return !!size && size.percent >= size.max
+  })
 
   readonly decreaseFontSize = output<void>()
   readonly increaseFontSize = output<void>()
+  readonly resetFontSize = output<void>()
   readonly toggleViewMode = output<void>()
   readonly bookmarks = output<void>()
   readonly toggleAutoScrollControls = output<void>()
@@ -71,6 +92,10 @@ export class ReaderMenuComponent {
   readonly reportProblem = output<void>()
 
   readonly privacyPolicyUrl = PRIVACY_POLICY_URL
+  /** Where the page can't share (desktop browsers), the link can be copied. */
+  readonly canCopyLink =
+    typeof navigator !== "undefined" &&
+    typeof navigator.clipboard?.writeText === "function"
   /** Browsers that can't prompt (iOS, Firefox) get the tutorial's steps instead. */
   readonly canInstall = toSignal(this.pwaInstallService.canPromptInstall$, {
     requireSync: true,
@@ -141,8 +166,17 @@ export class ReaderMenuComponent {
       : "Página a página (clique para mudar para texto contínuo)"
   }
 
+  async copyLink(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(shareableUrl(window.location))
+      this.toast.show("Ligação copiada")
+    } catch {
+      // The browser refused; nothing was copied, so nothing to confirm.
+    }
+  }
+
   openHelp(): void {
-    this.onboardingService.open("menu")
+    this.onboardingService.open("menu", MENU_BUTTON)
   }
 
   async install(): Promise<void> {

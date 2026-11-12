@@ -7,6 +7,7 @@ import { MatListModule } from "@angular/material/list"
 import { MatDrawer, MatSidenavModule } from "@angular/material/sidenav"
 import { of } from "rxjs"
 import { BookmarkService } from "../../services/bookmark.service"
+import { forceColors, systemColor } from "../../testing/forced-colors"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { ChapterSelectorComponent } from "./chapter-selector.component"
 
@@ -147,6 +148,38 @@ describe("ChapterSelectorComponent", () => {
     expect(highlighted()).toEqual([true, false])
   })
 
+  // Material's focus cue, a 12% state layer, didn't show on the drawer.
+  it("rings the chapter focused from the keyboard", () => {
+    const button = fixture.nativeElement.querySelector(
+      ".chapterSelectorButton",
+    ) as HTMLElement
+    button.focus()
+
+    expect(button.matches(":focus-visible")).toBe(true)
+    expect(getComputedStyle(button).outlineStyle).toBe("solid")
+    expect(getComputedStyle(button).outlineWidth).toBe("2px")
+  })
+
+  // Windows' contrast themes dropped the highlight's background, and with it
+  // any sign of the chapter being read.
+  it("rings the chapter being read in a forced-colours mode", async () => {
+    fixture.componentRef.setInput("selectedChapter", 1)
+    fixture.detectChanges()
+    const [current, other] = Array.from<HTMLElement>(
+      fixture.nativeElement.querySelectorAll(".chapterSelectorButton"),
+    ).map((button) => getComputedStyle(button))
+
+    await forceColors(true)
+    try {
+      expect(current.outlineStyle).toBe("solid")
+      expect(current.outlineColor).toBe(systemColor("Highlight"))
+      // Material outlines every button there, thinly, in the text colour.
+      expect(other.outlineColor).not.toBe(systemColor("Highlight"))
+    } finally {
+      await forceColors(false)
+    }
+  })
+
   it("should render bookmark icon for bookmarked chapters", () => {
     const compiled = fixture.nativeElement as HTMLElement
     const icons = compiled.querySelectorAll(".bookmark-icon")
@@ -202,6 +235,28 @@ describe("ChapterSelectorComponent", () => {
     const large = Number.parseFloat(getComputedStyle(button).fontSize)
 
     expect(large).toBeCloseTo(small * 2, 1)
+  })
+
+  // "1. Primeiro Ciclo da Manifest…": a long title was cut on one line.
+  it("wraps a long title to a second line, and no further", () => {
+    const host = fixture.nativeElement as HTMLElement
+    host.style.display = "block"
+    host.style.width = "320px"
+    const oneLine = (
+      host.querySelector(".chapter-title") as HTMLElement
+    ).getBoundingClientRect().height
+
+    fixture.componentRef.setInput("chapters", [
+      { bookId: "GEN", number: 1, title: "Primeiro Ciclo ".repeat(20) },
+    ])
+    fixture.detectChanges()
+    const title = host.querySelector(".chapter-title") as HTMLElement
+    const row = host.querySelector("mat-list-item") as HTMLElement
+
+    expect(title.getBoundingClientRect().height).toBeCloseTo(oneLine * 2, 0)
+    expect(row.getBoundingClientRect().height).toBeGreaterThanOrEqual(
+      title.getBoundingClientRect().height,
+    )
   })
 
   // The drawer sits inside the reader, which already ends above the

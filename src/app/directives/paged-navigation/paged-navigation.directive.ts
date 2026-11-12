@@ -193,17 +193,24 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
       // next: it must not replace the verse the reader was on.
       clearTimeout(this.anchorTimeout)
       clearTimeout(this.resizeTimeout)
-      this.resizeTimeout = window.setTimeout(() => {
-        // Resizing until the page is restored: a scroll noted in between
-        // would read the old offset in the new layout.
-        try {
-          this.ensureAlignedScrollWidth()
-          this.restorePage()
-        } finally {
-          this.resizeTimeout = undefined
-          this.onScroll()
-        }
-      }, RESIZE_DEBOUNCE_MS)
+      this.resizeTimeout = window.setTimeout(
+        () => this.relayout(),
+        RESIZE_DEBOUNCE_MS,
+      )
+    }
+  }
+
+  /** The text has reflowed: back to the reader's place, on pages aligned anew. */
+  relayout(): void {
+    clearTimeout(this.resizeTimeout)
+    try {
+      // Not ensureAlignedScrollWidth: its onScroll would note the old offset
+      // in the new layout as the place to restore.
+      this.alignScrollWidth()
+      this.restorePage()
+    } finally {
+      this.resizeTimeout = undefined
+      this.onScroll()
     }
   }
 
@@ -251,15 +258,16 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
    * An anchor is kept while it still stands for the page on screen, so a page
    * found again by it is not noted afresh: by an earlier verse sharing it,
    * or, on the last page of a long verse, by the verse that starts there. A
-   * few rotations would walk the reader back, or on.
+   * few rotations would walk the reader back, or on. `page` is the one on
+   * screen unless given.
    */
-  private noteAnchor(): void {
+  private noteAnchor(page?: number): void {
     const block = this.bookBlock
     if (this.viewMode() !== "paged" || !this.container || !block) return
     const advanceWidth = this.getAdvanceWidth(block)
     if (advanceWidth <= 0) return
 
-    const page = Math.round(this.container.scrollLeft / advanceWidth)
+    page ??= Math.round(this.container.scrollLeft / advanceWidth)
     const kept = this.anchor
     if (
       kept?.verse.isConnected &&
@@ -407,6 +415,9 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   }
 
   private turnTo(page: number, advanceWidth: number): void {
+    // Now, in the layout the page is counted in: a smooth turn on a wide
+    // window takes long enough for a resize to come before it rests.
+    this.noteAnchor(page)
     this.setTarget(page)
     this.container.scrollTo({ left: page * advanceWidth, behavior: "smooth" })
   }
@@ -423,7 +434,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   }
 
   /** Ends a drag; text pulled past an edge springs back. */
-  private releaseDrag(): void {
+  releaseDrag(): void {
     this.drag = undefined
     const block = this.bookBlock
     if (!block?.style.transform) return
@@ -479,15 +490,16 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   }
 
   scrollToEnd(): void {
-    // Like every other entry point here. The reader asks for this whenever a
-    // chapter is reached backwards, whatever the view; without the guard the
-    // "stay at the end" flag was set in a view that has no pages and that
-    // nothing ever clears it in, and went off on the first content change
-    // after a later switch to paged mode, throwing the reader to the last page.
-    if (this.viewMode() !== "paged") return
-    this._stayAtEnd = true
+    // Scrolling mode has no pages to stay on, and switching would inherit it.
+    this._stayAtEnd = this.viewMode() === "paged"
     this.setTarget(undefined)
     this.snapToEnd()
+  }
+
+  /** A chapter opened anywhere but its end: late content must not send it there. */
+  openAtStart(): void {
+    this._stayAtEnd = false
+    this.ensureAlignedScrollWidth()
   }
 
   private snapToEnd(): void {

@@ -15,11 +15,16 @@
       <mat-icon>{{ getTextAlignIcon() }}</mat-icon>
     </button>
     }
-    <button type="button" mat-menu-item class="menu-control" (click)="decreaseFontSize.emit()" matTooltip="Diminuir texto" matTooltipPosition="above" aria-label="Diminuir texto">
+    <!-- At a limit the size's button does nothing: disabled, though still a
+         stop for the arrow keys, as focus is on it when it reaches the limit. -->
+    <button type="button" mat-menu-item class="menu-control" (click)="!atMinSize() && decreaseFontSize.emit()" [disabled]="atMinSize()" disabledInteractive matTooltip="Diminuir texto" matTooltipPosition="above" aria-label="Diminuir texto">
       <mat-icon>text_decrease</mat-icon>
     </button>
-    <button type="button" mat-menu-item class="menu-control" (click)="increaseFontSize.emit()" matTooltip="Aumentar texto" matTooltipPosition="above" aria-label="Aumentar texto">
+    <button type="button" mat-menu-item class="menu-control" (click)="!atMaxSize() && increaseFontSize.emit()" [disabled]="atMaxSize()" disabledInteractive matTooltip="Aumentar texto" matTooltipPosition="above" aria-label="Aumentar texto">
       <mat-icon>text_increase</mat-icon>
+    </button>
+    <button type="button" mat-menu-item class="menu-control" (click)="resetFontSize.emit()" matTooltip="Repor tamanho do texto" matTooltipPosition="above" aria-label="Repor tamanho do texto">
+      <mat-icon>format_size</mat-icon>
     </button>
   </div>
   <mat-divider></mat-divider>
@@ -28,12 +33,15 @@
     <span>Marcadores</span>
   </button>
   @if (autoScrollControlsVisible() !== null) {
-  <button type="button" mat-menu-item (click)="toggleAutoScrollControls.emit()" [disabled]="viewMode() === 'paged' || cardsView()">
+  <button type="button" mat-menu-item (click)="viewMode() !== 'paged' && !cardsView() && toggleAutoScrollControls.emit()" [disabled]="viewMode() === 'paged' || cardsView()" disabledInteractive>
     <mat-icon>arrow_circle_down</mat-icon>
     <span>
       {{ autoScrollControlsVisible()
-      ? 'Esconder controlos de deslocamento automático'
-      : 'Mostrar controlos de deslocamento automático' }}
+      ? 'Esconder deslocamento automático'
+      : 'Mostrar deslocamento automático' }}
+      @if (viewMode() === 'paged') {
+      <small class="menu-item-note">Indisponível na vista de páginas</small>
+      }
     </span>
   </button>
   }
@@ -52,6 +60,11 @@
   <button type="button" mat-menu-item (click)="share.emit()">
     <mat-icon>share</mat-icon>
     <span>Partilhar</span>
+  </button>
+  } @else if (canCopyLink) {
+  <button type="button" mat-menu-item (click)="copyLink()">
+    <mat-icon>link</mat-icon>
+    <span>Copiar ligação</span>
   </button>
   }
   <!-- Where the store has the app, the website's install stays in the tutorial. -->
@@ -91,12 +104,12 @@
   </a>
   @if (version(); as version) {
   <!-- One line, as in the iOS menu: the release, then the bundle's id.
-       The web has no releases; there the label says what the id is. -->
+       The web has no releases; there the id is its version, for support. -->
   <div class="menu-version">
     @if (version.release) {
     {{ version.release }} · {{ version.build }}
     } @else {
-    Bundle {{ version.build }}
+    Versão {{ version.build }}
     }
   </div>
   }

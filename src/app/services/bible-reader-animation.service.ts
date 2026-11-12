@@ -1,5 +1,7 @@
 import { isPlatformBrowser } from "@angular/common"
 import { Injectable, inject, PLATFORM_ID } from "@angular/core"
+import { MatDialog } from "@angular/material/dialog"
+import { take } from "rxjs/operators"
 
 /** Toggled on the <verse> host; the stroke is styled in verse.component.css. */
 export const HIGHLIGHT_CLASS = "verse-highlight"
@@ -12,6 +14,9 @@ export const HIGHLIGHT_DURATION_MS = 2500
  * (VerseComponent's indent pass, a font swap).
  */
 export const LAYOUT_SETTLE_MS = 600
+
+/** A verse range from a link goes no further; the longest chapter has 176. */
+const MAX_VERSE_RANGE = 200
 
 /**
  * Default for scrolling mode: centre the verse's start, its number, in the
@@ -31,16 +36,19 @@ const scrollVerseIntoView = (element: HTMLElement): void => {
   })
 }
 
+/** The chapter then changes in place, without sliding. */
+const reducedMotion = (): boolean =>
+  !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+
 @Injectable({
   providedIn: "root",
 })
 export class BibleReaderAnimationService {
   private readonly platformId = inject(PLATFORM_ID)
+  private readonly dialog = inject(MatDialog)
 
-  private highlightTimeouts = new Map<
-    HTMLElement,
-    ReturnType<typeof setTimeout>
-  >()
+  /** Cancels each marked verse's pending fade. */
+  private highlightFades = new Map<HTMLElement, () => void>()
 
   /** Cancels the pending realign pass; undefined when none is pending. */
   private cancelRealign?: () => void
@@ -138,6 +146,7 @@ export class BibleReaderAnimationService {
     )
     void container.offsetWidth
 
+    if (reducedMotion()) return
     container.classList.add(animationClass)
 
     setTimeout(() => {
@@ -149,7 +158,7 @@ export class BibleReaderAnimationService {
     container: HTMLElement,
     isBackward: boolean,
   ): Promise<void> {
-    if (!this.isBrowser) return Promise.resolve()
+    if (!this.isBrowser || reducedMotion()) return Promise.resolve()
     return new Promise((resolve) => {
       const animationClass = isBackward ? "slide-out-right" : "slide-out-left"
 
@@ -197,9 +206,16 @@ export class BibleReaderAnimationService {
       let scrolled = false
       if (!bookBlock) return
 
-      for (let i = verseStart; i <= (verseEnd || verseStart); i++) {
+      const extraVerses = Math.min(
+        (verseEnd || verseStart) - verseStart,
+        MAX_VERSE_RANGE,
+      )
+      // Counted from the start: from 2^53 or Infinity, i++ would not advance.
+      for (let offset = 0; offset <= extraVerses; offset++) {
         // Scope search to the book block
-        const element = bookBlock.querySelector(`[id="${i}"]`) as HTMLElement
+        const element = bookBlock.querySelector(
+          `[id="${verseStart + offset}"]`,
+        ) as HTMLElement
         if (element) {
           if (!scrolled) {
             bringIntoView(element)
@@ -208,16 +224,8 @@ export class BibleReaderAnimationService {
           }
           if (highlight) {
             element.classList.add(HIGHLIGHT_CLASS)
-
-            if (this.highlightTimeouts.has(element)) {
-              clearTimeout(this.highlightTimeouts.get(element))
-            }
-
-            const timeoutId = setTimeout(() => {
-              element.classList.remove(HIGHLIGHT_CLASS)
-              this.highlightTimeouts.delete(element)
-            }, HIGHLIGHT_DURATION_MS)
-            this.highlightTimeouts.set(element, timeoutId)
+            this.highlightFades.get(element)?.()
+            this.fadeHighlight(element)
           }
         }
       }
@@ -228,6 +236,26 @@ export class BibleReaderAnimationService {
         this.triggerSlideAnimation(undefined, bookContainer, startAtBottom)
       }
     }, 100)
+  }
+
+  /**
+   * Unmarks the verse after HIGHLIGHT_DURATION_MS. Under a dialog then (a first
+   * visit's onboarding opens over a shared link), nobody saw it: it stays
+   * marked until the dialogs close, and for the full time from then.
+   */
+  private fadeHighlight(element: HTMLElement): void {
+    const timeout = setTimeout(() => {
+      if (this.dialog.openDialogs.length > 0) {
+        const closed = this.dialog.afterAllClosed
+          .pipe(take(1))
+          .subscribe(() => this.fadeHighlight(element))
+        this.highlightFades.set(element, () => closed.unsubscribe())
+        return
+      }
+      element.classList.remove(HIGHLIGHT_CLASS)
+      this.highlightFades.delete(element)
+    }, HIGHLIGHT_DURATION_MS)
+    this.highlightFades.set(element, () => clearTimeout(timeout))
   }
 
   /**

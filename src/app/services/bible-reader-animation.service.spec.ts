@@ -1,4 +1,6 @@
+import { Component } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
+import { MatDialog } from "@angular/material/dialog"
 import { lastCall } from "../testing/spy-obj"
 import {
   BibleReaderAnimationService,
@@ -6,6 +8,9 @@ import {
   HIGHLIGHT_DURATION_MS,
   LAYOUT_SETTLE_MS,
 } from "./bible-reader-animation.service"
+
+@Component({ template: "" })
+class BlankDialogComponent {}
 
 describe("BibleReaderAnimationService", () => {
   // Before the beforeEach below, which stubs requestAnimationFrame: installing
@@ -172,6 +177,26 @@ describe("BibleReaderAnimationService", () => {
       expect(containerRow.classList.contains("slide-out-right")).toBe(false)
     })
 
+    it("should not slide when the reader asks for reduced motion", async () => {
+      vi.spyOn(window, "matchMedia").mockReturnValue({
+        matches: true,
+      } as MediaQueryList)
+      const containerRow = document.createElement("div")
+
+      let resolved = false
+      service.triggerSlideOutAnimation(containerRow, false).then(() => {
+        resolved = true
+      })
+      await vi.advanceTimersByTimeAsync(0)
+      expect(resolved).toBe(true)
+      expect(containerRow.classList.contains("slide-out-left")).toBe(false)
+
+      containerRow.style.opacity = "0"
+      service.triggerSlideAnimation(undefined, containerRow, false)
+      expect(containerRow.classList.contains("slide-in-right")).toBe(false)
+      expect(containerRow.style.opacity).toBe("")
+    })
+
     it("should resolve via fallback timeout if animationend does not fire", async () => {
       const containerRow = document.createElement("div")
 
@@ -214,6 +239,56 @@ describe("BibleReaderAnimationService", () => {
 
       await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS)
       expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBe(false)
+    })
+
+    // Both numbers come from the URL, and one lookup per integer froze the tab.
+    it.each([
+      [1, 999_999_999],
+      [-999_999_999, 1],
+      // Past these, i++ no longer moves i at all.
+      [2 ** 53, undefined],
+      [Number.POSITIVE_INFINITY, undefined],
+    ])(
+      "looks up a bounded number of verses for %d to %s",
+      async (start, end) => {
+        const bookBlock = document.createElement("div")
+        let lookups = 0
+        vi.spyOn(bookBlock, "querySelector").mockImplementation(() => {
+          if (++lookups > 1000) throw new Error("unbounded verse range")
+          return null
+        })
+
+        service.scrollToVerseElement(
+          bookBlock,
+          undefined,
+          start,
+          end,
+          true,
+          false,
+        )
+        await vi.advanceTimersByTimeAsync(100)
+
+        expect(lookups).toBeLessThanOrEqual(201)
+      },
+    )
+
+    it("still reaches the last verse of the longest chapter", async () => {
+      const bookBlock = document.createElement("div")
+      for (const id of ["1", "176"]) {
+        const verse = document.createElement("div")
+        verse.id = id
+        verse.scrollIntoView = vi.fn()
+        bookBlock.appendChild(verse)
+      }
+
+      service.scrollToVerseElement(bookBlock, undefined, 1, 176, true, false)
+      await vi.advanceTimersByTimeAsync(100)
+
+      expect(
+        bookBlock
+          .querySelector('[id="176"]')
+          ?.classList.contains(HIGHLIGHT_CLASS),
+      ).toBe(true)
     })
 
     it("should scroll to the verse number, not the multi-line inline verse", async () => {
@@ -282,6 +357,31 @@ describe("BibleReaderAnimationService", () => {
 
       await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS)
       expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBe(false)
+    })
+
+    it("should keep a verse marked while a dialog covers it, then for the full time", async () => {
+      const bookBlock = document.createElement("div")
+      const verse = document.createElement("div")
+      verse.id = "11"
+      bookBlock.appendChild(verse)
+      vi.spyOn(verse, "scrollIntoView").mockReturnValue(undefined)
+
+      service.scrollToVerseElement(bookBlock, undefined, 11, 11)
+      await vi.advanceTimersByTimeAsync(100)
+      // A first visit's onboarding opens over the shared link.
+      const dialog = TestBed.inject(MatDialog)
+      const ref = dialog.open(BlankDialogComponent)
+      await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS * 3)
+      expect(verse.classList.contains(HIGHLIGHT_CLASS)).toBe(true)
+
+      ref.close()
+      await vi.advanceTimersByTimeAsync(500)
+      expect(dialog.openDialogs.length).toBe(0)
+      expect(verse.classList.contains(HIGHLIGHT_CLASS)).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS)
+      expect(verse.classList.contains(HIGHLIGHT_CLASS)).toBe(false)
+      await vi.advanceTimersByTimeAsync(LAYOUT_SETTLE_MS)
     })
 
     it("should highlight every verse of a range", async () => {

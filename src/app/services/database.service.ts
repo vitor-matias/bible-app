@@ -46,6 +46,9 @@ export class DatabaseService {
           this.db?.close()
           this.db = null
         }
+        this.db.onclose = () => {
+          this.db = null
+        }
         resolve(this.db)
         this.dbPromise = null
       }
@@ -63,13 +66,7 @@ export class DatabaseService {
   }
 
   async getAll<T>(storeName: string): Promise<T[]> {
-    let db: IDBDatabase | null
-    try {
-      db = await this.getDB()
-    } catch (e) {
-      console.error(e)
-      return []
-    }
+    const db = await this.getDB()
     if (!db) return []
 
     return new Promise((resolve, reject) => {
@@ -128,6 +125,55 @@ export class DatabaseService {
           putRequest.onerror = () => {
             transaction.abort()
             reject(putRequest.error)
+          }
+        }
+      } catch (error) {
+        reject(error)
+      }
+    })
+  }
+
+  /** In one transaction, deletes and then puts: a put may reuse a deleted key. */
+  /**
+   * Reads the store and writes what `change` makes of its records, in one
+   * transaction, so what another tab wrote meanwhile is kept. `change` returns
+   * the new records, reusing the objects it keeps; only the others are
+   * deleted or put. Resolves to the new records, or null without IndexedDB.
+   */
+  async update<T>(
+    storeName: string,
+    keyOf: (item: T) => IDBValidKey,
+    change: (items: T[]) => T[],
+  ): Promise<T[] | null> {
+    const db = await this.getDB()
+    if (!db) return null
+
+    return new Promise((resolve, reject) => {
+      try {
+        const transaction = db.transaction(storeName, "readwrite")
+        const store = transaction.objectStore(storeName)
+        let updated: T[] = []
+
+        transaction.oncomplete = () => resolve(updated)
+        transaction.onerror = () => reject(transaction.error)
+        // A full disk ("QuotaExceededError") arrives only as an abort.
+        transaction.onabort = () => reject(transaction.error)
+
+        const read = store.getAll()
+        read.onsuccess = () => {
+          try {
+            const items = read.result as T[]
+            updated = change(items)
+            // Deletes first: a put may reuse a deleted key.
+            for (const item of items) {
+              if (!updated.includes(item)) store.delete(keyOf(item))
+            }
+            for (const item of updated) {
+              if (!items.includes(item)) store.put(item)
+            }
+          } catch (error) {
+            transaction.abort()
+            reject(error)
           }
         }
       } catch (error) {
