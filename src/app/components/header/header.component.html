@@ -1,21 +1,61 @@
-<!-- In the iOS app the shell draws this header natively (NativeChromeService). -->
+<!-- The menu and the search action are the same controls in both chromes, so
+     they are written once here and instantiated by whichever chrome is on
+     screen. Their template refs are local to each instantiation, which is what
+     lets the menu items keep closing the trigger that opened them. -->
+<ng-template #chromeMenu>
+  <!-- data-tour: ringed by the onboarding step that names the button. -->
+  <button class="menuButton" mat-icon-button [matMenuTriggerFor]="readerMenu.menu"
+    (menuOpened)="readerMenu.opened()" aria-label="Menu" data-tour="text">
+    <mat-icon>menu</mat-icon>
+  </button>
+  <reader-menu #readerMenu="readerMenu" [canShare]="canShare" [version]="version"
+    [viewMode]="book().id === 'about' ? null : viewMode()"
+    [autoScrollControlsVisible]="autoScrollControlsVisible()" [textSize]="textSize()"
+    [studyMode]="studyModeItem" [shortcuts]="shortcutsItem"
+    (decreaseFontSize)="decreaseFontSize()" (increaseFontSize)="increaseFontSize()"
+    (resetFontSize)="resetFontSize()"
+    (toggleViewMode)="toggleViewMode.emit()" (bookmarks)="openBookmarkSelector()"
+    (toggleAutoScrollControls)="toggleAutoScrollControls.emit()" (share)="sharePassage()"
+    (toggleStudyMode)="onToggleStudyMode()" (openShortcuts)="openShortcuts.emit()"
+    (about)="openAbout()" (reportProblem)="openReportProblem()" />
+</ng-template>
+
+<ng-template #chromeSearch>
+  <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button matTooltip="Pesquisar"
+    aria-label="Pesquisar" data-tour="search">
+    <mat-icon class="search-icon" aria-hidden="true">search</mat-icon>
+  </button>
+</ng-template>
+
+<!-- In the iOS and Android apps the shell draws this header natively
+     (NativeChromeService), study mode's row included: there the bars carry the
+     menu. -->
 @if (!native) {
+@if (studyMode()) {
+<!-- Study mode's chrome. The rail below is the book and chapter picker that
+     the toolbar's chip used to open, so a toolbar here would be a second one
+     over the top of it; what the chip cannot be replaced by — the menu, search
+     and the name of where the reader is — shares a single row with the trail.
+     Laid out on the same three columns as the text below, so each control sits
+     over the column it belongs to instead of over the middle of the window. -->
+<div class="study-chrome">
+  <div class="chrome-lead">
+    <ng-container *ngTemplateOutlet="chromeMenu"></ng-container>
+  </div>
+  <!-- Where the reader is, and the way back: see StudyTrailComponent, which
+       the reader projects in here. It carries this page's heading, and starts
+       at the reading column's own left edge. -->
+  <div class="chrome-middle">
+    <ng-content></ng-content>
+  </div>
+  <div class="chrome-tail"></div>
+</div>
+
+} @else {
 <div class="header-placeholder">
   <mat-toolbar>
     <div class="header-content">
-      <!-- data-tour: ringed by the onboarding step that names the button. -->
-      <button class="menuButton" mat-icon-button [matMenuTriggerFor]="readerMenu.menu"
-        (menuOpened)="readerMenu.opened()" aria-label="Menu" data-tour="text">
-        <mat-icon>menu</mat-icon>
-      </button>
-      <reader-menu #readerMenu="readerMenu" [canShare]="canShare" [version]="version"
-        [viewMode]="book().id === 'about' ? null : viewMode()"
-        [autoScrollControlsVisible]="autoScrollControlsVisible()" [textSize]="textSize()"
-        (decreaseFontSize)="decreaseFontSize()" (increaseFontSize)="increaseFontSize()"
-        (resetFontSize)="resetFontSize()"
-        (toggleViewMode)="toggleViewMode.emit()" (bookmarks)="openBookmarkSelector()"
-        (toggleAutoScrollControls)="toggleAutoScrollControls.emit()" (share)="sharePassage()"
-        (about)="openAbout()" (reportProblem)="openReportProblem()" />
+      <ng-container *ngTemplateOutlet="chromeMenu"></ng-container>
 
       <!-- The book/chapter picker is also the page's h1. aria-label pins its
            accessible name to the title while the home page label cycles. -->
@@ -53,11 +93,9 @@
       </mat-button-toggle-group>
       </h1>
 
-      <button routerLink="/search" class="bookSelectorButton searchButton" mat-flat-button matTooltip="Pesquisar"
-        aria-label="Pesquisar" data-tour="search">
-        <mat-icon class="search-icon" aria-hidden="true">search</mat-icon>
-      </button>
+      <ng-container *ngTemplateOutlet="chromeSearch"></ng-container>
     </div>
   </mat-toolbar>
 </div>
+}
 }

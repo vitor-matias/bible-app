@@ -41,14 +41,16 @@ export class OfflineDataService {
    * Fetches all books and chapters into IndexedDB for offline usage.
    * Subsequent calls are skipped once the data is cached.
    */
-  preloadAllBooksAndChapters(): Promise<void> {
-    this.preloadPromise ??= this.runPreload().finally(() => {
+  preloadAllBooksAndChapters(
+    source: "standalone" | "study" = "standalone",
+  ): Promise<void> {
+    this.preloadPromise ??= this.runPreload(source).finally(() => {
       this.preloadPromise = null
     })
     return this.preloadPromise
   }
 
-  private async runPreload(): Promise<void> {
+  private async runPreload(source: "standalone" | "study"): Promise<void> {
     if (typeof window === "undefined") return
 
     const migrated = await this.migrateCacheIfNeeded()
@@ -91,7 +93,7 @@ export class OfflineDataService {
             .pipe(timeout(PRELOAD_TIMEOUT_MS)),
         )
         await this.setCachedBooks(books)
-        this.trackBooksCachedEvent()
+        this.trackBooksCachedEvent(source)
       } catch (error) {
         console.error("Failed to preload books for offline use", error)
       }
@@ -102,6 +104,33 @@ export class OfflineDataService {
     if (!introsAlreadyCached || isExpired) {
       await this.preloadGroupIntros()
     }
+  }
+
+  /**
+   * Whether the whole Bible is stored on this device, not just parts of it.
+   * Without usable localStorage the flag can be neither kept nor read, so, as
+   * the preload does, it is judged from the stored books themselves: a
+   * download that worked would otherwise look as if it had not.
+   */
+  async isBibleStored(): Promise<boolean> {
+    const storage = safeLocalStorage()
+    if (storage) return storage.getItem(this.cacheFlagKey) === "true"
+    return (await this.getCachedBooksAsync()).some((book) => !book.introSlug)
+  }
+
+  /**
+   * Drops the stored Bible — books, chapters, introductions — and the flags
+   * that vouch for them, so nothing claims text that is no longer there. For a
+   * reader who downloaded it in a browser tab and wants the space back; an
+   * installed app stores it by design and fetches it again on its next start.
+   */
+  async removeStoredBible(): Promise<void> {
+    await this.databaseService.clear("books")
+    this.cachedBooks = null
+    const storage = safeLocalStorage()
+    storage?.removeItem(this.cacheFlagKey)
+    storage?.removeItem(this.groupIntrosCacheFlagKey)
+    storage?.removeItem(this.cacheTimestampKey)
   }
 
   /** Whether the last introductions preload cached every one of them. */
@@ -330,9 +359,7 @@ export class OfflineDataService {
     return Date.now() - timestamp > this.cacheMaxAgeMs
   }
 
-  private trackBooksCachedEvent() {
-    void this.analyticsService.track("pwa_books_cached", {
-      source: "standalone",
-    })
+  private trackBooksCachedEvent(source: "standalone" | "study") {
+    void this.analyticsService.track("pwa_books_cached", { source })
   }
 }

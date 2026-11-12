@@ -1,6 +1,8 @@
 import {
   isAmbiguousPsalmNumber,
   liturgicalPsalmNumber,
+  liturgicalPsalmNumberAt,
+  pairedReference,
   parsePsalmPair,
   psalmFromLiturgical,
 } from "./psalms"
@@ -17,6 +19,40 @@ describe("psalm numbering", () => {
     expect(liturgicalPsalmNumber(117)).toBe("116")
     expect(liturgicalPsalmNumber(146)).toBe("145")
     expect(liturgicalPsalmNumber(147)).toBe("146-147")
+  })
+
+  it("names the half of a divided psalm a verse is in, not both", () => {
+    expect(liturgicalPsalmNumberAt(116, 9)).toBe("114")
+    expect(liturgicalPsalmNumberAt(116, 10)).toBe("115")
+    expect(liturgicalPsalmNumberAt(147, 11)).toBe("146")
+    expect(liturgicalPsalmNumberAt(147, 12)).toBe("147")
+    // The liturgy runs Psalms 9 and 10, and 114 and 115, into one each: the
+    // second is "B", or its verse would be taken for one of the first's.
+    expect(liturgicalPsalmNumberAt(10, 5)).toBe("9B")
+    expect(liturgicalPsalmNumberAt(115, 5)).toBe("113B")
+    expect(liturgicalPsalmNumberAt(114, 5)).toBe("113")
+    // Every other psalm has one number, whatever the verse.
+    expect(liturgicalPsalmNumberAt(23, 5)).toBe("22")
+    expect(liturgicalPsalmNumberAt(8, 5)).toBeNull()
+  })
+
+  it("agrees with where psalmFromLiturgical opens the halves", () => {
+    for (const [psalm, liturgical] of [
+      [116, 115],
+      [147, 147],
+    ]) {
+      const { verse } = psalmFromLiturgical(liturgical) ?? { verse: 0 }
+      expect(liturgicalPsalmNumberAt(psalm, verse)).toBe(String(liturgical))
+      expect(liturgicalPsalmNumberAt(psalm, verse - 1)).toBe(
+        String(liturgical - 1),
+      )
+    }
+  })
+
+  // What a citation says, a reader can paste back into the search.
+  it("takes back the letter form it gives for a psalm the liturgy runs together", () => {
+    expect(parsePsalmPair("Sl 9B (10)")?.psalm).toBe(10)
+    expect(parsePsalmPair("Sl 113B (115)")?.psalm).toBe(115)
   })
 
   it("gives none where both numberings agree", () => {
@@ -73,6 +109,19 @@ describe("psalm numbering", () => {
       expect(parsePsalmPair("Sl 115 (116B), 12-13")?.psalm).toBe(116)
       expect(parsePsalmPair("Sl 113 (114)")?.psalm).toBe(114)
       expect(parsePsalmPair("Sl 1 (1)")?.psalm).toBe(1)
+    })
+
+    // The verses may follow the pair with a comma or not; either way the
+    // reference needs one, or "Sl 23 (22) 1-6" reads as the psalm 231.
+    it.each([
+      ["Sl 94 (95), 1-2", "Sl 95,1-2"],
+      ["Sl 94 (95),1-2", "Sl 95,1-2"],
+      ["Sl 23 (22) 1-6", "Sl 23,1-6"],
+      ["Sl 23 (22) 1", "Sl 23,1"],
+      ["Salmo 23 (22)", "Sl 23"],
+    ])("names the reference of %j as %j", (text, reference) => {
+      const pair = parsePsalmPair(text)
+      expect(pair && pairedReference(pair, "Sl")).toBe(reference)
     })
 
     // As this app shows them: "Salmo 116 (114-115)".

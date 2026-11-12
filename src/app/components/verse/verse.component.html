@@ -1,4 +1,13 @@
 @if (data()) {
+  <!-- The number, written once: prose sets it inline and poetry hangs it off
+       the left of the line, but it is the same control in both, and six
+       bindings kept in step by hand is how the two drift apart. -->
+  <ng-template #verseNumber><span class="verseNumber" [attr.role]="isSelectable ? 'button' : null"
+      [attr.tabindex]="isSelectable ? 0 : null"
+      [attr.aria-pressed]="isSelectable ? selected : null"
+      [attr.aria-label]="isSelectable ? 'Versículo ' + data().number : null"
+      (keydown.enter)="onVerseNumberKeydown($event)"
+      (keydown.space)="onVerseNumberKeydown($event)">{{ data().number }}</span></ng-template>
   <!-- The notes marker beside a verse number: an icon, which reads as
        something to tap. No whitespace inside, or it would show as a space. -->
   <ng-template #noteIcon>
@@ -8,7 +17,7 @@
        ("13 Pois", not "13Pois"); on screen it takes no room (.copySpace). -->
   <ng-template #copySpace><span class="copySpace">{{ " " }}</span></ng-template>
   <ng-template #noteMark>
-    <span role="button" tabindex="0" (click)="toggleFootnotes($event)" (keydown.enter)="toggleFootnotes($event)" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)" class="footnoteIndicator" [attr.aria-label]="'Notas do versículo ' + data().number"><ng-container *ngTemplateOutlet="noteIcon"></ng-container></span>
+    <span role="button" tabindex="0" (click)="onFootnoteMarkerClick($event)" (keydown.enter)="onFootnoteMarkerClick($event)" (keydown.space)="$event.preventDefault(); onFootnoteMarkerClick($event)" class="footnoteIndicator" [attr.aria-label]="'Notas do versículo ' + data().number"><ng-container *ngTemplateOutlet="noteIcon"></ng-container></span>
   </ng-template>
 
   <!-- Verse Number -->
@@ -16,12 +25,12 @@
     @if(data().number > 1) {
       <!-- Part of the run so the highlight stroke does not break before the
            verse number; .verseText keeps it the size of the text. -->
-      <span class="verseText verseRun">{{ " " }}</span>
+      <span class="verseText verseRun verseGap">{{ " " }}</span>
     }
     <!-- The number and its notes marker, kept on one line together and on
          the line of the verse's first word (.verseMarker). -->
     <span class="verseMarker">
-      <span class="verseNumber">{{ data().number }}</span>
+      <ng-container *ngTemplateOutlet="verseNumber"></ng-container>
       @if(hasFootnotes){
         <ng-container *ngTemplateOutlet="noteMark"></ng-container>
       }
@@ -45,7 +54,7 @@
       @if (text.type === 'text' || text.type === 'quote') {
         @if (text.type === 'quote' && isFirstDisplayableElement(i) && data().number > 0) {
           <span class="quoteVerseNumber">
-            <span class="verseNumber">{{ data().number }}</span>
+            <ng-container *ngTemplateOutlet="verseNumber"></ng-container>
             @if(hasFootnotes){
               <ng-container *ngTemplateOutlet="noteMark"></ng-container>
             } @else {
@@ -54,14 +63,14 @@
             <ng-container *ngTemplateOutlet="copySpace"></ng-container>
           </span>
         }
-        <span class="verseRun" [attr.tabindex]="notesOnText ? 0 : null" [attr.role]="notesOnText ? 'button' : null" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="notesOnText" (click)="notesOnText ? toggleFootnotes($event) : null" (keydown.enter)="notesOnText ? toggleFootnotes($event) : null" (keydown.space)="onTextSpace($event)">{{ text.text }}</span>
+        <span class="verseRun" [attr.tabindex]="notesOnText ? 0 : null" [attr.role]="notesOnText ? 'button' : null" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="notesOnText" (click)="notesOnText ? onRunClick($event) : null" (keydown.enter)="notesOnText ? onRunClick($event) : null" (keydown.space)="onTextSpace($event)">{{ text.text }}</span>
       }
 
       <!-- References -->
       @if(text.type === "references"){
         <span class="references">
           <!-- Part of the run, like the inter-verse gap above. -->
-          <span class="verseRun">{{ " " }}</span>
+          <span class="verseRun verseGap">{{ " " }}</span>
           <span class="references-block" [class.besideChapterNumber]="chapterNumberDisplayIndex === i">
             @for(part of parsedReferences.get(i); track $index){
               @if(typeof part === "object" && part.book !== data().bookId){
@@ -133,7 +142,7 @@
     @if (group.type === 'normal') {
       @for (element of group.elements; track element.originalIndex) {
         <span class="verseText">
-          <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === data().text.length - 1, isQuote: false }"></ng-container>
+          <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === lastDisplayedIndex, isQuote: false }"></ng-container>
         </span>
       }
     } @else {
@@ -143,9 +152,9 @@
         <br>
           <span #indentable [attr.data-index]="firstElement.originalIndex" [ngClass]="{'indent': indentStates[firstElement.originalIndex] !== false, 'indent2': getQuoteIdentLevel(firstText) === 2}" class="quoteLineWrapper">
             @for (element of group.elements; track element.originalIndex) {
-              <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === data().text.length - 1, isQuote: element.data.type === 'quote' }"></ng-container>
+              <ng-container *ngTemplateOutlet="elementContent; context: { $implicit: element.data, i: element.originalIndex, isFirst: element.originalIndex === 0, isLast: element.originalIndex === lastDisplayedIndex, isQuote: element.data.type === 'quote' }"></ng-container>
             }
-          </span><span class="verseRun">{{ " " }}</span>
+          </span><span class="verseRun verseGap">{{ " " }}</span>
       </span>
     }
   }

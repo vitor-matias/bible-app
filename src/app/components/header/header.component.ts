@@ -1,10 +1,13 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from "@angular/common"
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
   DestroyRef,
+  ElementRef,
   HostListener,
+  Injector,
   inject,
   input,
   type OnChanges,
@@ -60,6 +63,7 @@ import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selecto
 import {
   MENU_BUTTON,
   ReaderMenuComponent,
+  type StudyModeItem,
 } from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 
@@ -102,6 +106,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /** The reader's text size, for the Android app's text sheet; null before it opens. */
   readonly textSize = input<TextSize | null>(null)
   readonly viewMode = input<"scrolling" | "paged">("scrolling")
+  /** Whether the window is wide enough to offer study mode at all. */
+  readonly studyModeAvailable = input(false)
+  readonly studyMode = input(false)
   /** For the native toolbar's arrows; the web page has its own. */
   readonly canGoPrevious = input(false)
   readonly canGoNext = input(false)
@@ -172,6 +179,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }>()
   readonly toggleAutoScrollControls = output<void>()
   readonly toggleViewMode = output<void>()
+  readonly toggleStudyMode = output<void>()
+  readonly openShortcuts = output<void>()
   /** iOS toolbar arrows: a page in paged mode, else a chapter. */
   readonly previous = output<void>()
   readonly next = output<void>()
@@ -184,6 +193,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   mobile = false
 
   private readonly destroyRef = inject(DestroyRef)
+  private readonly injector = inject(Injector)
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef)
   private readonly router = inject(Router)
   private readonly nativeChrome = inject(NativeChromeService)
   private readonly textAlign = inject(TextAlignService)
@@ -330,6 +341,36 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   /**
+   * A mouse or trackpad, as on a computer. Study mode is for those, so a
+   * window too narrow for it is explained to them; on a phone the item would
+   * only promise what the device cannot do.
+   */
+  readonly desktopPointer =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(hover: hover) and (pointer: fine)").matches === true
+
+  /**
+   * What the menu offers of study mode. Nothing on the About page, which is the
+   * app's own copy and stays in the plain layout; the switch where the window is
+   * wide enough; and, to a reader with a mouse, why it is not on offer where it
+   * is too narrow.
+   */
+  get studyModeItem(): StudyModeItem | null {
+    if (this.book().id === "about") return null
+    if (this.studyModeAvailable()) return this.studyMode() ? "on" : "off"
+    return this.desktopPointer ? "narrow" : null
+  }
+
+  /** The keys only work in study mode, so the list of them is only offered there. */
+  get shortcutsItem(): boolean {
+    return (
+      this.studyMode() &&
+      this.studyModeAvailable() &&
+      this.book().id !== "about"
+    )
+  }
+
+  /**
    * Ignores a late version result, unregisters the back handler, stops label
    * cycling, and requests that the native bars hide.
    */
@@ -346,6 +387,21 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   showChapterSelector() {
     this.openChapterSelector.emit({ open: true })
+  }
+
+  onToggleStudyMode(): void {
+    this.toggleStudyMode.emit()
+    // The menu closes on the click and hands focus back to the button that
+    // opened it — but the two layouts each draw their own chrome, so by then
+    // that button is gone and focus fell to the page, leaving a keyboard reader
+    // to start again from the top. It goes to the button that took its place.
+    afterNextRender(
+      () =>
+        this.host.nativeElement
+          .querySelector<HTMLElement>(".menuButton")
+          ?.focus({ preventScroll: true }),
+      { injector: this.injector },
+    )
   }
 
   /** The ribbon on the chapter being read, by its spoken name ("Vermelho"). */

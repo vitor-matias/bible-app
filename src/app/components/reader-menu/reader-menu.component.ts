@@ -13,6 +13,7 @@ import { MatDividerModule } from "@angular/material/divider"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenu, MatMenuModule } from "@angular/material/menu"
 import { MatTooltipModule } from "@angular/material/tooltip"
+import { Router } from "@angular/router"
 import { PRIVACY_POLICY_URL, shareableUrl } from "../../config"
 import type { TextSize } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
@@ -34,6 +35,12 @@ import { ToastService } from "../../services/toast.service"
 export const MENU_BUTTON = ".menuButton"
 
 /**
+ * What the menu says of study mode: the switch into it, the way back out, or
+ * why it is not on offer at this window's width.
+ */
+export type StudyModeItem = "off" | "on" | "narrow"
+
+/**
  * The menu of the reader's header, which the pastoral index shares: the page
  * opens it with `[matMenuTriggerFor]="menu.menu"` and answers what is its own.
  */
@@ -52,6 +59,7 @@ export class ReaderMenuComponent {
   private readonly cdr = inject(ChangeDetectorRef)
   private readonly textAlign = inject(TextAlignService)
   private readonly appPromo = inject(AppPromoService)
+  private readonly router = inject(Router)
   private readonly toast = inject(ToastService)
   readonly analyticsService = inject(AnalyticsService)
 
@@ -65,6 +73,10 @@ export class ReaderMenuComponent {
   readonly viewMode = input<"scrolling" | "paged" | null>(null)
   /** Whether auto-scroll's controls show, or null on a page without them. */
   readonly autoScrollControlsVisible = input<boolean | null>(null)
+  /** Study mode's entry, or null where the page has none. */
+  readonly studyMode = input<StudyModeItem | null>(null)
+  /** Whether the list of study mode's keys is on offer. */
+  readonly shortcuts = input(false)
   /** The text's size and range, or null until it is known. */
   readonly textSize = input<TextSize | null>(null)
   readonly atMinSize = computed(() => {
@@ -85,6 +97,8 @@ export class ReaderMenuComponent {
   readonly share = output<void>()
   readonly about = output<void>()
   readonly reportProblem = output<void>()
+  readonly toggleStudyMode = output<void>()
+  readonly openShortcuts = output<void>()
 
   readonly privacyPolicyUrl = PRIVACY_POLICY_URL
   /** Where the page can't share (desktop browsers), the link can be copied. */
@@ -159,6 +173,11 @@ export class ReaderMenuComponent {
     return this.viewMode() === "scrolling"
       ? "Texto contínuo (clique para mudar para página a página)"
       : "Página a página (clique para mudar para texto contínuo)"
+  }
+
+  /** Everything the reader has written and marked: see MyNotesComponent. */
+  openMyNotes(): void {
+    void this.router.navigate(["/minhas-notas"])
   }
 
   async copyLink(): Promise<void> {

@@ -24,6 +24,29 @@ export function liturgicalPsalmNumber(psalm: number): string | null {
 }
 
 /**
+ * The liturgical number of the psalm a verse belongs to, for citing the verse:
+ * one number where liturgicalPsalmNumber gives both halves of a psalm the
+ * liturgy divides ("114-115" for Psalm 116, which begins its second half at
+ * verse 10; "146-147" for 147, at verse 12 — the verses psalmFromLiturgical
+ * opens them at).
+ *
+ * Where the liturgy runs two of this edition's psalms into one, the second is
+ * given its letter, as the lectionary does ("9B", "113B"): the verses keep this
+ * edition's numbers, so "9,5" alone would name a verse of the first psalm, and
+ * "113,5" the same verse as Psalm 114's.
+ */
+export function liturgicalPsalmNumberAt(
+  psalm: number,
+  verse: number,
+): string | null {
+  if (psalm === 10) return "9B"
+  if (psalm === 115) return "113B"
+  if (psalm === 116) return verse >= 10 ? "115" : "114"
+  if (psalm === 147) return verse >= 12 ? "147" : "146"
+  return liturgicalPsalmNumber(psalm)
+}
+
+/**
  * Where a psalm numbered the liturgical way begins in this edition: the
  * liturgical Psalm 22 is this edition's 23, and the liturgical 115 the second
  * half of its 116 (verse 10). Null for numbers outside 1-150.
@@ -83,6 +106,20 @@ export function parsePsalmPair(
     rest: rest.trim(),
     ...(pair.verse > 1 ? { verse: pair.verse } : {}),
   }
+}
+
+/**
+ * The reference a pair names, in this edition's number: "Sl 95,1-2" for "Sl 94
+ * (95), 1-2". A leaflet may put the verses after the pair with a comma or
+ * without ("Sl 23 (22) 1-6"); the reference always has one between the psalm
+ * and them, or the verses read as more digits of the psalm ("Sl 231-6").
+ */
+export function pairedReference(
+  pair: { psalm: number; rest: string },
+  abrv: string,
+): string {
+  const verses = pair.rest.replace(/^,\s*/, "")
+  return `${abrv} ${pair.psalm}${verses ? `,${verses}` : ""}`
 }
 
 /** "114-115" or "116B": its numbers, and the letter of a psalm's half. */

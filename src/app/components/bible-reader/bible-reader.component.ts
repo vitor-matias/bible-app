@@ -1,3 +1,4 @@
+import { LiveAnnouncer } from "@angular/cdk/a11y"
 import { CommonModule, isPlatformBrowser, Location } from "@angular/common"
 import {
   afterNextRender,
@@ -20,6 +21,7 @@ import {
   MatBottomSheetModule,
 } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
+import { MatDialog } from "@angular/material/dialog"
 import { MatIconModule } from "@angular/material/icon"
 import {
   type MatDrawer,
@@ -27,10 +29,16 @@ import {
   MatDrawerContent,
   MatSidenavModule,
 } from "@angular/material/sidenav"
-import { ActivatedRoute, Router, RouterLink } from "@angular/router"
+import {
+  ActivatedRoute,
+  NavigationEnd,
+  NavigationStart,
+  Router,
+  RouterLink,
+} from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { combineLatest, of, Subject, Subscription } from "rxjs"
-import { first, switchMap, take, takeUntil } from "rxjs/operators"
+import { filter, first, switchMap, take, takeUntil } from "rxjs/operators"
 import { nextCanonBook, PASTORAL_INDEX_BOOK } from "../../bible-canon"
 import {
   PagedNavigationDirective,
@@ -47,11 +55,20 @@ import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
 import { HapticsService } from "../../services/haptics.service"
+import {
+  type HighlightColor,
+  HighlightService,
+} from "../../services/highlight.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
+import {
+  ReadingTrailService,
+  type TrailEntry,
+} from "../../services/reading-trail.service"
 import { SeoService } from "../../services/seo.service"
+import { StudyModeService } from "../../services/study-mode.service"
 import { ToastService } from "../../services/toast.service"
 import { introductionTitle, passageLabel } from "../../utils/passage-label"
 import { AboutComponent } from "../about/about.component"
@@ -61,12 +78,30 @@ import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"
 import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnotes-bottom-sheet.component"
 import { HeaderComponent } from "../header/header.component"
+import { SelectionActionsComponent } from "../selection-actions/selection-actions.component"
+import {
+  type PanelTab,
+  type ParallelRequest,
+  StudyPanelComponent,
+} from "../study-panel/study-panel.component"
+import { studyShortcutFor } from "../study-shortcuts/study-shortcuts"
+import { StudyShortcutsComponent } from "../study-shortcuts/study-shortcuts.component"
+import { StudySidebarComponent } from "../study-sidebar/study-sidebar.component"
+import { StudyTrailComponent } from "../study-trail/study-trail.component"
 import { VerseComponent } from "../verse/verse.component"
+import { StudyColumns } from "./study-columns"
+
+/** Breathing room above the cited verses when a parallel opens on them. */
+const PARALLEL_TOP_MARGIN = 12
 
 @Component({
   selector: "bible-reader",
   templateUrl: "./bible-reader.component.html",
-  styleUrl: "./bible-reader.component.css",
+  // Two stylesheets because the component draws two layouts: the reading one
+  // every screen gets, and study mode's three columns. They share no rules,
+  // and kept in one file they were a single sheet the build's per-stylesheet
+  // budget could no longer hold.
+  styleUrls: ["./bible-reader.component.css", "./bible-reader.study.css"],
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
   imports: [
@@ -85,6 +120,10 @@ import { VerseComponent } from "../verse/verse.component"
     AutoScrollControlsComponent,
     BookIntroComponent,
     RouterLink,
+    StudySidebarComponent,
+    StudyPanelComponent,
+    StudyTrailComponent,
+    SelectionActionsComponent,
   ],
 })
 export class BibleReaderComponent implements OnInit, OnDestroy {
@@ -94,13 +133,19 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private preferencesService = inject(PreferencesService)
   private cdr = inject(ChangeDetectorRef)
   private router = inject(Router)
+  private location = inject(Location)
   private route = inject(ActivatedRoute)
   private animationService = inject(BibleReaderAnimationService)
   private analyticsService = inject(AnalyticsService)
   private networkService = inject(NetworkService)
   private seoService = inject(SeoService)
+  private studyModeService = inject(StudyModeService)
+  private readingTrail = inject(ReadingTrailService)
+  private highlightService = inject(HighlightService)
 
   private destroy$ = new Subject<void>()
+  /** Whether the route's observables spoke during the navigation in flight. */
+  private routeEmitted = false
   private chapterSubscription?: Subscription
   private injector = inject(Injector)
   private platformId = inject(PLATFORM_ID)
@@ -128,7 +173,6 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private toast = inject(ToastService)
   private bottomSheet = inject(MatBottomSheet)
   private nativeFootnotes = inject(NativeFootnotesService)
-  private location = inject(Location)
   private backButton = inject(BackButtonService)
   /** The verses a link asked to open the notes of, until the chapter is here. */
   private linkedNotes: string | null = null
@@ -171,6 +215,59 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   @ViewChild("bookBlock") bookBlock!: ElementRef
 
+  /** Study mode's scrolling column, in place of the drawer content. */
+  @ViewChild("studyScroll") studyScroll?: ElementRef<HTMLElement>
+  @ViewChild(StudyPanelComponent) studyPanel?: StudyPanelComponent
+
+  /** Said once a session that study mode needs a wider window: see ngOnInit. */
+  private toldAboutNarrowWindow = false
+
+  /** The column a cross reference is read in, beside the chapter. */
+  @ViewChild("parallelScroll") parallelScroll?: ElementRef<HTMLElement>
+
+  /** The pane itself, where the focus goes when a passage is opened beside the chapter. */
+  @ViewChild("parallelPane") parallelPane?: ElementRef<HTMLElement>
+
+  /**
+   * What had the focus when a passage was opened beside the chapter — the
+   * button that asked — so closing it can give the focus back. Without that
+   * the focus fell to the top of the page both ways, and a keyboard or
+   * screen-reader user started again from the beginning each time.
+   */
+  private parallelOpener: HTMLElement | null = null
+
+  /** Carries the widths the reader has dragged the columns to. */
+  @ViewChild("textContainer") textContainer?: ElementRef<HTMLElement>
+
+  /** The reading column, which the split divider divides. */
+  @ViewChild("studyColumn") studyColumn?: ElementRef<HTMLElement>
+
+  /**
+   * The cross reference open beside the chapter, if any. Its chapter arrives
+   * after the passage is named, so the column can say it is loading.
+   */
+  parallel: (ParallelRequest & { chapter?: Chapter; failed?: boolean }) | null =
+    null
+  private parallelSubscription?: Subscription
+  /**
+   * Set while the panel is folded to make room for a parallel rather than by
+   * the reader. Folded on loan: it is not written to their preferences, and it
+   * is given back when the parallel closes.
+   */
+  private panelFoldedForParallel = false
+
+  /** The columns' draggable widths: see StudyColumns. */
+  readonly columns = new StudyColumns({
+    container: () => this.textContainer?.nativeElement,
+    column: () => this.studyColumn?.nativeElement,
+    folded: () => ({
+      rail: this.studySidebarCollapsed,
+      panel: this.studyPanelCollapsed,
+    }),
+    save: (widths) => this.preferencesService.setStudyColumnWidths(widths),
+    repaint: () => this.cdr.detectChanges(),
+  })
+
   book!: Book
   books: Book[] = []
   /** The book list could not be loaded and nothing is cached. */
@@ -187,8 +284,21 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   bookParam: string | null = null
   chapterParam: string | null = null
   showBooks = true
-  showAutoScrollControls = false
   private autoScrollControlsPreference = false
+
+  /**
+   * Derived rather than tracked: the controls belong on screen when the
+   * reader has asked for them and the text actually scrolls. Keeping it as a
+   * field meant setting it wherever either of those could change — and study
+   * mode added two more such places, since it scrolls even when the stored
+   * view mode says paged, and pages when a side column is folded away.
+   */
+  get showAutoScrollControls(): boolean {
+    return (
+      this.autoScrollControlsPreference &&
+      this.effectiveViewMode === "scrolling"
+    )
+  }
   viewMode: "scrolling" | "paged" = "scrolling"
 
   isNavigatingForwards = false
@@ -202,8 +312,79 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   isFirstPage = true
   isLastPage = false
 
+  /** The reader asked for study mode and the window is wide enough for it. */
+  studyMode = false
+  /** The window is wide enough, whether or not the reader wants it. */
+  studyModeAvailable = false
+  /** The verse the study panel is showing, and which tab asked for it. */
+  selection: VerseSelection | null = null
+  /** Verses of this chapter whose poetry is quoted from somewhere else. */
+  private quotationVerses = new Set<Verse["number"]>()
+  private parallelQuotationVerses = new Set<Verse["number"]>()
+  private parallelHighlights = new Map<Verse["number"], HighlightColor>()
+  private parallelHighlightSubscription?: Subscription
+  /** The book of the passage open beside the chapter, for marks and citing. */
+  parallelBook?: Book
+  /** Where the reader has been this session, most recent last. */
+  trail: TrailEntry[] = []
+  /** The reader's marks in this chapter, by verse number. */
+  private chapterHighlights = new Map<Verse["number"], HighlightColor>()
+  private highlightSubscription?: Subscription
+  /** The verse at the top of the reading column, as the reader scrolls. */
+  visibleVerse?: Verse["number"]
+  private visibleVerseFrame?: number
+  /** Study mode's side columns, each folded away or not. Remembered. */
+  studySidebarCollapsed = false
+  studyPanelCollapsed = false
+
   get effectiveViewMode(): "scrolling" | "paged" {
+    // Study mode always scrolls, whatever the reading layout's own preference
+    // says. Its apparatus is tied to where the reader is in the text — the
+    // panel follows the scroll position, and auto-scroll runs down it — and
+    // paging severs both: a paged column does not scroll, so the panel would
+    // stop following in the very mode that shows the most text. Folding a
+    // side column widens the measure instead.
+    if (this.studyModeActive) return "scrolling"
     return this.book?.id === "about" ? "scrolling" : this.viewMode
+  }
+
+  /**
+   * Whether the three-column layout is actually on screen. The About page is
+   * the app's own copy rather than scripture, so it has no verses to select,
+   * no references to show, and stays in the plain reader.
+   */
+  /**
+   * The book the loaded chapter belongs to. `book` runs ahead of `chapter`:
+   * it is set the moment the route changes, and the chapter only when it has
+   * arrived — never, if it cannot be had. The study panel and the selection
+   * bar work on the chapter and its selected verse, and with the new book
+   * over the old chapter they saved a note, a mark or a citation of verse
+   * 5,3 under whichever book was being opened.
+   */
+  get chapterBook(): Book {
+    const owner = this.chapter?.bookId
+    if (!owner || owner === this.book.id) return this.book
+    return this.bookService.findBookById(owner) ?? this.book
+  }
+
+  get studyModeActive(): boolean {
+    return this.studyMode && this.book?.id !== "about"
+  }
+
+  /** A chapter has been asked for and the one on screen is not it yet. */
+  private get isLoadingAnotherChapter(): boolean {
+    return (
+      !!this.shown &&
+      (this.shown.chapter !== this.pendingChapter ||
+        this.shown.book.id !== this.book?.id)
+    )
+  }
+
+  /** The element study mode scrolls, standing in for the drawer content. */
+  private get scrollHost(): HTMLElement | undefined {
+    return this.studyModeActive
+      ? this.studyScroll?.nativeElement
+      : this.drawerContent?.nativeElement
   }
 
   /** Whether this book has an introduction to read, loaded or not yet fetched. */
@@ -261,6 +442,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     }
   }
 
+  private readonly dialog = inject(MatDialog)
+  private readonly announcer = inject(LiveAnnouncer)
+
   ngOnInit(): void {
     // Hydration deletes the server DOM it hasn't claimed once the app is stable,
     // and waiting on IndexedDB doesn't count as work: the text would blank out.
@@ -275,10 +459,69 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     this.viewMode = this.preferencesService.getViewMode()
 
+    this.readingTrail.entries$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((entries) => {
+        this.trail = entries
+        this.cdr.markForCheck()
+      })
+
+    this.studyModeService.available$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((available) => {
+        this.studyModeAvailable = available
+        this.cdr.markForCheck()
+      })
+    this.studyModeService.active$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((active) => {
+        // The two layouts scroll different elements, and switching destroys
+        // one and builds the other: left at that, turning study mode on — or
+        // dragging the window across its minimum width — dropped the reader
+        // at the top of the chapter they were halfway down.
+        // The paged layout does not scroll the drawer: its pages sit side by
+        // side inside the container, which is what shows one of them.
+        const reading =
+          active !== this.studyMode && this.bookBlock
+            ? BibleReaderComponent.firstVisibleVerseIn(
+                this.effectiveViewMode === "paged"
+                  ? this.bookContainer?.nativeElement
+                  : this.scrollHost,
+              )
+            : undefined
+        const wasActive = this.studyMode
+        this.studyMode = active
+        // The window narrowed (or was zoomed) past what study mode fits in,
+        // and the layout fell back to one column without a word: say so, once,
+        // so a reader who chose it knows why it went and that it will be back.
+        if (
+          wasActive &&
+          !active &&
+          this.studyModeService.isEnabled &&
+          !this.studyModeService.isAvailable &&
+          !this.toldAboutNarrowWindow
+        ) {
+          this.toldAboutNarrowWindow = true
+          this.toast.show(
+            "O modo de estudo precisa de uma janela mais larga. Volta quando ela o permitir.",
+            { action: "OK" },
+          )
+        }
+        // A selection means nothing outside the panel showing it.
+        if (!active) this.selection = null
+        this.cdr.markForCheck()
+        if (reading === undefined) return
+        this.cdr.detectChanges()
+        this.restoreReadingPosition(reading)
+      })
+
+    this.studySidebarCollapsed =
+      this.preferencesService.getStudySidebarCollapsed()
+    this.studyPanelCollapsed = this.preferencesService.getStudyPanelCollapsed()
+    this.columns.widths = this.preferencesService.getStudyColumnWidths()
+
     this.autoScrollControlsPreference =
       this.preferencesService.getAutoScrollControlsVisible()
-    this.showAutoScrollControls =
-      this.viewMode === "scrolling" && this.autoScrollControlsPreference
     this.bookService.books$
       .pipe(takeUntil(this.destroy$))
       .subscribe((books) => {
@@ -369,6 +612,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
       )
       .subscribe(([params, queryParams]) => {
+        this.routeEmitted = true
         const bookParam = params.get("book") || "about"
         const chapterParam = this.bookService.parseChapterUrlSegment(
           params.get("chapter"),
@@ -396,6 +640,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         ) {
           if (verseStartParam !== undefined) {
             this.scrollToVerse(verseStartParam, verseEndParam, highlight)
+            // A reference within the chapter — the panel's "v.12" — moves
+            // the reader, so the panel has to move with them as it does
+            // when the link leads to another chapter.
+            this.selectVerseNumber(verseStartParam)
           }
           this.openLinkedNotes()
           return
@@ -407,6 +655,70 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         this.getChapter(chapterParam, verseStartParam, verseEndParam, highlight)
         this.bookDrawer?.close()
       })
+
+    this.router.events
+      .pipe(
+        filter(
+          (event): event is NavigationStart | NavigationEnd =>
+            event instanceof NavigationStart || event instanceof NavigationEnd,
+        ),
+        takeUntil(this.destroy$),
+      )
+      .subscribe((event) => {
+        // Each navigation is its own: the route spoke at startup, after the
+        // navigation that opened the page had ended, and nothing since has
+        // cleared it, so the first link after would have counted as spoken for.
+        if (event instanceof NavigationStart) this.routeEmitted = false
+        else this.followLinkToVerse(event.urlAfterRedirects)
+      })
+  }
+
+  /**
+   * A link to a verse of this chapter that the route's observables never
+   * announced, because the address it names is the one the router last knew.
+   *
+   * Study mode moves the address without telling the router (see
+   * writeSelectionToUrl), so a link to where the reader began — "v.12" in the
+   * panel, a note's link, an entry of the trail — is, to the router, no change
+   * at all: it runs, puts the address back, and says nothing, leaving the text
+   * and the panel on the verse the reader had moved to.
+   */
+  private followLinkToVerse(url: string): void {
+    const announced = this.routeEmitted
+    this.routeEmitted = false
+    // No book yet: a navigation already under way when the reader opened is
+    // still being waited out before the route is first read, and this one
+    // ending is not a link to a verse of a chapter that is not open.
+    if (announced || !isPlatformBrowser(this.platformId) || !this.book) return
+
+    const target = new URL(url, "http://x")
+    const [bookSegment, chapterSegment] = target.pathname
+      .split("/")
+      .filter(Boolean)
+    const verse = Number.parseInt(
+      target.searchParams.get("verseStart") ?? "",
+      10,
+    )
+    if (
+      !bookSegment ||
+      !chapterSegment ||
+      !Number.isFinite(verse) ||
+      this.bookService.findBook(decodeURIComponent(bookSegment)).id !==
+        this.book.id ||
+      this.bookService.parseChapterUrlSegment(chapterSegment) !==
+        this.chapterNumber ||
+      this.selection?.verse.number === verse
+    ) {
+      return
+    }
+    const end = Number.parseInt(target.searchParams.get("verseEnd") ?? "", 10)
+    const highlight = target.searchParams.get("highlight")
+    this.scrollToVerse(
+      verse,
+      Number.isFinite(end) ? end : undefined,
+      highlight === null ? true : highlight === "true",
+    )
+    this.selectVerseNumber(verse)
   }
 
   ngOnDestroy(): void {
@@ -415,7 +727,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.unregisterBackCloser()
     this.destroy$.next()
     this.destroy$.complete()
+    if (this.visibleVerseFrame !== undefined) {
+      cancelAnimationFrame(this.visibleVerseFrame)
+    }
     this.chapterSubscription?.unsubscribe()
+    this.parallelSubscription?.unsubscribe()
     this.animationService.cancelPendingRealign()
     this.stopTrackingScroll?.()
     // AutoScrollService handles its own cleanup now if we stop it, or the component stopping it
@@ -656,7 +972,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   onBookSubmit(event: { bookId: string }) {
     this.goToPassage(event)
-    this.bookDrawer.close()
+    // Optional: study mode navigates from a permanent rail and renders no
+    // drawer, so there is nothing to close there.
+    this.bookDrawer?.close()
   }
 
   /** Without a chapter: chapter 1 rather than the introduction, except for
@@ -681,7 +999,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   onChapterSubmit(event: { chapterNumber: number }) {
     this.goToChapter(event.chapterNumber)
 
-    this.bookDrawer.close()
+    this.bookDrawer?.close()
   }
 
   getChapter(
@@ -902,6 +1220,23 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.chapter = chapterData
     this.chapterNumber = chapter
     this.shown = { book: this.book, chapter }
+    // Following a parallel into the reading column leaves the same chapter
+    // open twice; the copy beside it has nothing left to compare.
+    if (
+      this.parallel &&
+      this.parallel.bookId === chapterData.bookId &&
+      this.parallel.chapterNumber === chapter
+    ) {
+      // Not closeParallel: applyChapter paints once, at the end, with the rest
+      // of the new chapter's state in place.
+      this.clearParallel()
+    }
+    this.markQuotationVerses()
+    this.watchChapterHighlights()
+    // The previous chapter's verse is gone; a deep link naming one picks it up
+    // again below, so the panel follows a cross-reference to its landing verse.
+    this.selection = null
+    this.visibleVerse = undefined
     this.chapterUnavailable = false
     this.retryingChapter = false
     this.retryChapterLoad = undefined
@@ -924,9 +1259,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     if (verseStart) {
       this.scrollToVerse(verseStart, verseEnd, highlight)
+      this.selectVerseNumber(verseStart)
     } else if (!alreadyShown) {
       this.animationService.scrollToTop(
-        this.drawerContent?.nativeElement,
+        this.scrollHost,
         this.bookContainer?.nativeElement,
         this.effectiveViewMode,
         startAtBottom,
@@ -935,6 +1271,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           : () => this.pagedNav?.openAtStart(),
       )
     }
+
+    this.recordTrail(verseStart)
 
     this.preferencesService.setLastBookId(this.book.id)
     this.preferencesService.setLastChapterNumber(this.chapterNumber)
@@ -976,6 +1314,14 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     if (!verse) return
     const footnotes = verse.text.filter((part) => part.type === "footnote")
     this.autoScrollService.stop()
+    // Study mode reads footnotes in the panel's Rodapé tab, and a sheet over
+    // its three columns would be a second place for them: the same as a click
+    // on the verse's marker, which selects the verse and asks for that tab.
+    if (this.studyModeActive) {
+      this.scrollToVerse(verse.number)
+      this.onVerseSelected({ verse, panel: "footnotes" })
+      return
+    }
     if (this.nativeFootnotes.enabled) {
       this.nativeFootnotes.open(footnotes, verse)
       return
@@ -1053,14 +1399,18 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   toggleAutoScrollControlsVisibility(): void {
-    this.showAutoScrollControls = !this.showAutoScrollControls
-    this.autoScrollControlsPreference = this.showAutoScrollControls
+    this.autoScrollControlsPreference = !this.autoScrollControlsPreference
     this.preferencesService.setAutoScrollControlsVisible(
-      this.showAutoScrollControls,
+      this.autoScrollControlsPreference,
     )
+    this.cdr.markForCheck()
   }
 
   onToggleViewMode(): void {
+    // Study mode never pages (see effectiveViewMode): flipping the saved choice
+    // from here would change nothing on screen, and the reader would find it
+    // changed on leaving.
+    if (this.studyModeActive) return
     const reading = this.verseInView()
     this.viewMode = this.viewMode === "scrolling" ? "paged" : "scrolling"
     this.preferencesService.setViewMode(this.viewMode)
@@ -1071,8 +1421,6 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       chapter: this.chapterNumber,
     })
 
-    this.showAutoScrollControls =
-      this.viewMode === "scrolling" && this.autoScrollControlsPreference
     this.cdr.markForCheck()
     if (this.viewMode === "paged") this.autoScrollService.stop()
     // The verse being read stays on screen, once the new layout is in.
@@ -1120,9 +1468,243 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     )
   }
 
+  onToggleStudyMode(): void {
+    this.studyModeService.toggle()
+
+    void this.analyticsService.track("study_mode_toggle", {
+      enabled: this.studyModeService.isEnabled,
+      book: this.book?.id,
+      chapter: this.chapterNumber,
+    })
+
+    this.cdr.markForCheck()
+  }
+
+  onVerseSelected(selection: VerseSelection): void {
+    // Clicking the verse already selected clears it — the same gesture that
+    // chose it lets go of it, which is what the verse number's aria-pressed
+    // has been promising. A click that asks for a particular tab is not a
+    // second thought about the verse, so it selects rather than toggles.
+    if (
+      !selection.panel &&
+      this.selection?.verse.number === selection.verse.number
+    ) {
+      this.clearSelection()
+      return
+    }
+
+    this.selection = selection
+    this.writeSelectionToUrl()
+    // Picking a verse is asking what the edition says about it, so a folded
+    // panel unfolds rather than swallowing the answer.
+    if (this.studyPanelCollapsed) {
+      this.setStudyPanelCollapsed(false)
+    }
+    this.cdr.markForCheck()
+  }
+
+  /**
+   * Puts the chosen verse in the address, or takes it out when none is. The
+   * address is what "Partilhar" and a copied link send, and without this they
+   * named the chapter, so whoever was sent one landed at its top and had to
+   * find the verse again.
+   *
+   * Not a navigation: the chapter is already here, and a navigation would
+   * reload it and add a history entry for every verse the j and k keys step
+   * through, leaving Back a trap.
+   */
+  private writeSelectionToUrl(): void {
+    if (!isPlatformBrowser(this.platformId)) return
+    // The address already names the chapter being loaded, while the verses
+    // chosen belong to the one still on screen: writing one over the other
+    // sent a reload or a shared link to a verse of the wrong chapter. The
+    // load clears the selection, so there is nothing to keep in step.
+    if (this.isLoadingAnotherChapter) return
+    const path = this.location.path().split("?")[0]
+    const verse = this.selection?.verse.number
+    this.location.replaceState(path, verse ? `verseStart=${verse}` : "")
+  }
+
+  /**
+   * Keeps the study panel on the passage the reader is actually looking at.
+   *
+   * Throttled to one measurement per frame: the scroll fires far more often
+   * than the answer changes, and the answer only costs a scan of the verses
+   * already on screen. Paged mode never reaches this — that column does not
+   * scroll vertically.
+   */
+  onStudyScroll(): void {
+    if (!this.studyModeActive || this.visibleVerseFrame !== undefined) return
+    this.visibleVerseFrame = requestAnimationFrame(() => {
+      this.visibleVerseFrame = undefined
+      this.updateVisibleVerse()
+    })
+  }
+
+  /** The verse at the top of a scrolling column, or on a paged one's page: the one being read. */
+  private static firstVisibleVerseIn(
+    host: HTMLElement | undefined,
+  ): Verse["number"] | undefined {
+    if (!host) return undefined
+    const box = host.getBoundingClientRect()
+    for (const element of host.querySelectorAll<HTMLElement>("verse")) {
+      const rect = element.getBoundingClientRect()
+      // Pages lie side by side in the same band, so every verse of the pages
+      // already turned also passes the test below; only one that reaches the
+      // visible page is the one being read.
+      if (rect.right <= box.left || rect.left >= box.right) continue
+      // The first verse whose text has not yet passed above the fold. A
+      // little tolerance so a verse only just clipped at the top still
+      // counts as the one being read.
+      if (rect.bottom >= box.top + 8) {
+        const number = Number(element.id)
+        return Number.isFinite(number) ? number : undefined
+      }
+    }
+    return undefined
+  }
+
+  /** Puts a verse back at the top of whichever column now scrolls. */
+  private restoreReadingPosition(verseNumber: Verse["number"]): void {
+    // Paged reading has no scroll position to restore; it lays the chapter
+    // out in columns and finds its own place.
+    if (this.effectiveViewMode === "paged") return
+    const host = this.scrollHost
+    // Verse 0 and 1 are the top of the chapter, which is where a new column
+    // already stands.
+    if (!host || verseNumber <= 1) return
+    const verse = Array.from(host.querySelectorAll<HTMLElement>("verse")).find(
+      (element) => element.id === String(verseNumber),
+    )
+    if (!verse) return
+    host.scrollTop +=
+      verse.getBoundingClientRect().top - host.getBoundingClientRect().top
+  }
+
+  private updateVisibleVerse(): void {
+    const first = BibleReaderComponent.firstVisibleVerseIn(
+      this.studyScroll?.nativeElement,
+    )
+
+    if (first === this.visibleVerse) return
+    this.visibleVerse = first
+    this.cdr.markForCheck()
+  }
+
+  clearSelection(): void {
+    if (!this.selection) return
+    this.selection = null
+    this.writeSelectionToUrl()
+    this.cdr.markForCheck()
+  }
+
+  // The fold controls are plain buttons: nothing follows the click to flush
+  // the coalesced change detection, so these render what they changed.
+  toggleStudySidebar(): void {
+    this.setStudySidebarCollapsed(!this.studySidebarCollapsed)
+    this.cdr.detectChanges()
+  }
+
+  toggleStudyPanel(): void {
+    this.setStudyPanelCollapsed(!this.studyPanelCollapsed)
+    this.cdr.detectChanges()
+  }
+
+  private setStudySidebarCollapsed(collapsed: boolean): void {
+    this.studySidebarCollapsed = collapsed
+    this.preferencesService.setStudySidebarCollapsed(collapsed)
+    this.cdr.markForCheck()
+  }
+
+  private setStudyPanelCollapsed(collapsed: boolean): void {
+    // Whatever the parallel borrowed, the reader has now decided for
+    // themselves; the fold is theirs from here.
+    this.panelFoldedForParallel = false
+    this.studyPanelCollapsed = collapsed
+    this.preferencesService.setStudyPanelCollapsed(collapsed)
+    this.cdr.markForCheck()
+  }
+
+  /**
+   * Notes where the reader has arrived, so the trail can lead back. The About
+   * page is the app's own copy rather than somewhere in the text, so it is
+   * not a place the trail leads back to.
+   */
+  private recordTrail(verseStart?: Verse["number"]): void {
+    if (!this.book || this.book.id === "about") return
+
+    const urlAbrv = this.bookService.getUrlAbrv(this.book)
+    const segment = this.bookService.getChapterUrlSegment(this.chapterNumber)
+    this.readingTrail.visit({
+      key: `${this.book.id}:${this.chapterNumber}`,
+      label:
+        this.chapterNumber === 0
+          ? `${this.book.shortName} · Intro`
+          : `${this.book.shortName} ${this.chapterNumber}`,
+      link: ["/", urlAbrv, segment],
+      queryParams: verseStart ? { verseStart } : null,
+    })
+  }
+
+  /**
+   * Starts the trail again from the chapter on screen, rather than emptying
+   * it: where the reader is standing is the one place the way back must
+   * still lead.
+   */
+  resetTrail(): void {
+    this.readingTrail.clear()
+    this.recordTrail()
+    // A plain button again, as with the fold controls above.
+    this.cdr.detectChanges()
+  }
+
+  /** Points the study panel at a verse the reader arrived on via a link. */
+  private selectVerseNumber(verseNumber: Verse["number"]): void {
+    if (!this.studyModeActive) return
+    const verse = this.chapter?.verses?.find(
+      (candidate) => candidate.number === verseNumber,
+    )
+    this.selection = verse ? { verse } : null
+    // applyChapter has already run its detectChanges() by the time this is
+    // reached, so without marking the view the panel keeps the old verse.
+    this.cdr.markForCheck()
+  }
+
   @HostListener("window:keydown", ["$event"])
   onArrowPress(event: KeyboardEvent): void {
-    if (!this.arrowsTurnPages(event)) return
+    // Study mode puts a note box on the page, and the book filter has always
+    // had a text field: an arrow key inside either is the reader moving the
+    // caret, not asking for the next chapter.
+    if (BibleReaderComponent.isTextEntry(event.target)) {
+      // The keyboard's way back out of a box it was the way into: "n" and
+      // "/" put the caret in one, and without this only Tab left it. A second
+      // Escape, from the page, then lets go of the verse.
+      if (event.key === "Escape" && this.studyModeActive) {
+        ;(event.target as HTMLElement).blur()
+      }
+      return
+    }
+    // Whether the keys are the page's at all: the drawer, an open menu, sheet
+    // or dialog. Before study mode's own keys, which must not fire under any
+    // of those either.
+    if (!this.pressIsThePage(event)) return
+    if (this.studyModeActive && this.onStudyShortcut(event)) {
+      event.preventDefault()
+      return
+    }
+    // The reader's own keys are plain presses: held with a modifier they are
+    // the browser's or the system's (Alt+← is Back, Shift+→ selects text).
+    // Study mode's keys judge their own, since ? and / are typed with Shift
+    // on many layouts.
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return
+    }
+    // Escape lets go of the selected verse, the way it dismisses anything
+    // else the reader has opened.
+    if (event.key === "Escape" && this.selection) {
+      this.clearSelection()
+      return
+    }
     if (event.key === "ArrowLeft") {
       this.effectiveViewMode === "paged"
         ? this.pagedNav?.prevPage()
@@ -1136,20 +1718,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * The arrows belong to what has focus: a text field's caret, the drawer, an
-   * open menu, sheet or dialog, whose chapter would change underneath it. With
-   * a modifier they are the browser's or the system's (Alt+← is Back).
+   * Whether a press belongs to the page at all: not a text field's caret, the
+   * drawer, an open menu, sheet or dialog, whose chapter would change
+   * underneath it.
    */
-  private arrowsTurnPages(event: KeyboardEvent): boolean {
-    if (
-      event.defaultPrevented ||
-      event.altKey ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.shiftKey
-    ) {
-      return false
-    }
+  private pressIsThePage(event: KeyboardEvent): boolean {
+    if (event.defaultPrevented) return false
     const target = event.target
     if (
       target instanceof HTMLElement &&
@@ -1165,6 +1739,110 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // still showing: a closed one stays in the page while it fades out, and
     // an arrow pressed then did nothing.
     return !document.querySelector(".cdk-overlay-backdrop-showing")
+  }
+
+  /**
+   * Study mode's keys — see STUDY_SHORTCUTS, which the help lists from. True
+   * when the press was one of them.
+   *
+   * A desktop layout for close reading, used until now with a mouse alone:
+   * the arrows changed chapter and nothing else answered. Stepping through
+   * the verses is the one that matters, since a verse is what the panel is
+   * about, and the rest are the places a hand otherwise leaves the keys for.
+   */
+  private onStudyShortcut(event: KeyboardEvent): boolean {
+    // Off, they are not shortcuts at all: the keys go to whoever else wants
+    // them, a screen reader's quick navigation, say.
+    if (!this.studyModeService.shortcutsEnabled) return false
+    const action = studyShortcutFor(event)
+    switch (action) {
+      case null:
+        return false
+      case "nextVerse":
+        this.stepVerse(1)
+        break
+      case "previousVerse":
+        this.stepVerse(-1)
+        break
+      case "note":
+        // A note is a note on a verse: with none chosen, the one being read.
+        if (!this.selection) this.stepVerse(0)
+        if (this.selection) this.showPanelTab("notes", true)
+        break
+      case "search":
+        this.showPanelTab("search", true)
+        break
+      case "tab1":
+        this.showPanelTab("references")
+        break
+      case "tab2":
+        this.showPanelTab("footnotes")
+        break
+      case "tab3":
+        this.showPanelTab("notes")
+        break
+      case "tab4":
+        this.showPanelTab("search")
+        break
+      case "toggleRail":
+        this.toggleStudySidebar()
+        break
+      case "togglePanel":
+        this.toggleStudyPanel()
+        break
+      case "help":
+        this.openShortcuts()
+        break
+    }
+    return true
+  }
+
+  /**
+   * Moves the selection a verse on or back. With nothing selected it starts
+   * from the verse at the top of the column, which is the one being read —
+   * not from verse 1, which would throw the reader back up the chapter.
+   */
+  private stepVerse(by: -1 | 0 | 1): void {
+    const verses = (this.chapter?.verses ?? []).filter(
+      (verse) => verse.number > 0,
+    )
+    if (!verses.length) return
+    const current = this.selection?.verse.number ?? this.visibleVerse
+    const at = verses.findIndex((verse) => verse.number === current)
+    // Nothing to step from: the first press lands on the verse being read,
+    // or on the first verse when that is not known either.
+    const index =
+      at === -1 || !this.selection
+        ? Math.max(at, 0)
+        : Math.min(verses.length - 1, Math.max(0, at + by))
+    const verse = verses[index]
+
+    this.selection = { verse }
+    this.writeSelectionToUrl()
+    this.cdr.detectChanges()
+    // Only as far as it takes to see it: a step within the screen moves the
+    // mark, not the text under the reader's eyes.
+    Array.from(
+      this.studyScroll?.nativeElement.querySelectorAll<HTMLElement>("verse") ??
+        [],
+    )
+      .find((element) => element.id === String(verse.number))
+      ?.scrollIntoView({ block: "nearest" })
+  }
+
+  private showPanelTab(tab: PanelTab, focus = false): void {
+    // A folded panel has no tabs to show.
+    if (this.studyPanelCollapsed) this.setStudyPanelCollapsed(false)
+    this.cdr.detectChanges()
+    this.studyPanel?.openTab(tab, focus)
+  }
+
+  openShortcuts(): void {
+    this.dialog.open(StudyShortcutsComponent, {
+      width: "560px",
+      maxWidth: "92vw",
+      autoFocus: "dialog",
+    })
   }
 
   onIncreaseFontSize(step?: number): void {
@@ -1188,17 +1866,341 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.pagedNav?.relayout()
   }
 
-  checkIfNextVerseStartsWithQuote(index: number): boolean {
-    if (!this.chapter?.verses) return false
-    const nextVerse = this.chapter.verses[index + 1]
-    if (!nextVerse?.text || nextVerse.text.length === 0) return false
+  private static isTextEntry(target: EventTarget | null): boolean {
+    const element = target as HTMLElement | null
+    if (!element?.tagName) return false
+    const tag = element.tagName.toLowerCase()
+    return tag === "input" || tag === "textarea" || element.isContentEditable
+  }
 
-    const firstDisplayableIdx = nextVerse.text.findIndex(
-      (t) => t.type !== "footnote" && t.type !== "references",
+  /**
+   * Which verses of this chapter carry a passage being quoted, as opposed to
+   * the verse form a poetic book is written in. Both are the same `quote`
+   * elements in the data, so the difference is read from the chapter:
+   *
+   * - A verse whose prose leads into poetry opens a quotation — whether the
+   *   poetry starts in that verse ("Jesus disse-lhe:" then the Shema) or in
+   *   the next one ("…dizendo:" at the end of a verse).
+   * - A verse that opens straight on poetry continues whatever the verse
+   *   before it was doing. That is what keeps a quotation spanning several
+   *   verses in one style, instead of italicising only its first verse, and
+   *   what leaves the psalms — poetry from their first verse — upright.
+   */
+  private markQuotationVerses(): void {
+    this.quotationVerses = BibleReaderComponent.quotationVersesOf(
+      this.chapter?.verses,
+    )
+  }
+
+  private static quotationVersesOf(
+    verses: Verse[] | undefined,
+  ): Set<Verse["number"]> {
+    const marked = new Set<Verse["number"]>()
+    let inQuotation = false
+
+    ;(verses ?? []).forEach((verse, index) => {
+      // A verse arriving without its text — a partial response, a cached
+      // stub — simply has no poetry to classify.
+      const parts = verse.text ?? []
+      const first = BibleReaderComponent.leadingPart(parts)
+      const hasQuote = parts.some((part) => part.type === "quote")
+
+      if (first && first.type !== "quote") {
+        // Prose leads this verse: it introduces a quotation, or it ends one.
+        // The next verse is read by the same rule as this one, or a quotation
+        // after an empty run or a heading was never seen coming.
+        inQuotation =
+          (hasQuote ||
+            BibleReaderComponent.leadingPart(verses?.[index + 1]?.text)
+              ?.type === "quote") &&
+          BibleReaderComponent.introducesQuotation(parts)
+      }
+      if (inQuotation && hasQuote) marked.add(verse.number)
+    })
+
+    return marked
+  }
+
+  /**
+   * The first thing of a verse that a reader meets. Section headings are
+   * skipped along with the apparatus: a heading is not narrative introducing a
+   * quotation. Counting it as prose made the chapter's front matter — which is
+   * nothing but a heading — look like the opening of a quotation, and every
+   * psalm inherited it. An empty run is not drawn, so it is not met either.
+   */
+  private static leadingPart(
+    parts: TextType[] | undefined,
+  ): TextType | undefined {
+    return (parts ?? []).find(
+      (part) =>
+        part.type !== "footnote" &&
+        part.type !== "references" &&
+        part.type !== "section" &&
+        !VerseComponent.isBlank(part),
+    )
+  }
+
+  /**
+   * Whether the prose ahead of a verse's poetry hands over to it, which this
+   * edition does with a colon: "Jesus disse-lhe:", "…dizendo:". Prose that
+   * simply stops is something else standing before verse — the superscription
+   * of a prophet ("Visão de Isaías… reis de Judá.") — and reading that as an
+   * introduction set the whole of Isaiah 1 in italics, since every verse
+   * after it opens on poetry and so continues what came before.
+   */
+  private static introducesQuotation(parts: TextType[]): boolean {
+    const firstQuote = parts.findIndex(
+      (part) => part.type === "quote" && !VerseComponent.isBlank(part),
+    )
+    const before = firstQuote === -1 ? parts : parts.slice(0, firstQuote)
+    const lead = before
+      .filter((part) => part.type === "text" || part.type === "paragraph")
+      .map((part) => part.text)
+      .join("")
+    return /:[\s\u200b"'«»“”‘’]*$/.test(lead)
+  }
+
+  highlightFor(verse: Verse): HighlightColor | undefined {
+    return this.chapterHighlights.get(verse.number)
+  }
+
+  /**
+   * Whether the verse before this one carries the same mark, which is what
+   * tells a verse to paint the number and the space in front of it.
+   *
+   * A mark stops at the words at either end of a run — no tinted number
+   * hanging off the front, no colour trailing past the last full stop — but
+   * inside a run those same gaps have to be filled, or a passage marked
+   * across several verses reads as several marks with holes between them.
+   */
+  marksContinue(verse: Verse, index: number): boolean {
+    return BibleReaderComponent.continuesMark(
+      this.chapterHighlights,
+      this.chapter?.verses,
+      verse,
+      index,
+    )
+  }
+
+  /** The same two questions, asked of the passage open beside the chapter. */
+  parallelHighlightFor(verse: Verse): HighlightColor | undefined {
+    return this.parallelHighlights.get(verse.number)
+  }
+
+  parallelMarksContinue(verse: Verse, index: number): boolean {
+    return BibleReaderComponent.continuesMark(
+      this.parallelHighlights,
+      this.parallel?.chapter?.verses,
+      verse,
+      index,
+    )
+  }
+
+  private static continuesMark(
+    marks: Map<Verse["number"], HighlightColor>,
+    verses: Verse[] | undefined,
+    verse: Verse,
+    index: number,
+  ): boolean {
+    const color = marks.get(verse.number)
+    if (!color) return false
+    const previous = verses?.[index - 1]
+    return !!previous && marks.get(previous.number) === color
+  }
+
+  /**
+   * The marks on the passage beside the chapter. The selection bar works
+   * there too, and a mark made where it could not be seen would look like a
+   * button that did nothing.
+   */
+  private watchParallelHighlights(request: ParallelRequest): void {
+    this.parallelHighlightSubscription?.unsubscribe()
+    this.parallelBook = this.bookService.findBook(request.bookId)
+    this.parallelHighlightSubscription = this.highlightService
+      .forChapter(request.bookId, request.chapterNumber)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((marks) => {
+        this.parallelHighlights = marks
+        this.cdr.markForCheck()
+      })
+  }
+
+  /**
+   * Follows the marks for the chapter on screen. Re-subscribed per chapter
+   * rather than filtering the whole set on every change detection pass, which
+   * auto-scroll runs once an animation frame.
+   */
+  private watchChapterHighlights(): void {
+    this.highlightSubscription?.unsubscribe()
+    if (!this.book) return
+    this.highlightSubscription = this.highlightService
+      .forChapter(this.book.id, this.chapterNumber)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((marks) => {
+        this.chapterHighlights = marks
+        this.cdr.markForCheck()
+      })
+  }
+
+  isQuotationVerse(verse: Verse): boolean {
+    return this.quotationVerses.has(verse.number)
+  }
+
+  /** The same question, asked of the passage open beside the chapter. */
+  isParallelQuotationVerse(verse: Verse): boolean {
+    return this.parallelQuotationVerses.has(verse.number)
+  }
+
+  checkIfNextVerseStartsWithQuote(index: number): boolean {
+    return BibleReaderComponent.startsWithQuote(this.chapter?.verses, index + 1)
+  }
+
+  /** The same question, asked of the passage open beside the chapter. */
+  parallelNextStartsWithQuote(index: number): boolean {
+    return BibleReaderComponent.startsWithQuote(
+      this.parallel?.chapter?.verses,
+      index + 1,
+    )
+  }
+
+  private static startsWithQuote(
+    verses: Verse[] | undefined,
+    index: number,
+  ): boolean {
+    const verse = verses?.[index]
+    if (!verse?.text || verse.text.length === 0) return false
+
+    const firstDisplayableIdx = verse.text.findIndex((t) =>
+      VerseComponent.isShown(t),
     )
 
     if (firstDisplayableIdx === -1) return false
 
-    return nextVerse.text[firstDisplayableIdx].type === "quote"
+    return verse.text[firstDisplayableIdx].type === "quote"
+  }
+
+  /**
+   * Opens a cross reference beside the chapter instead of in place of it.
+   *
+   * The whole chapter is fetched, not the verses named: a parallel read
+   * without its context is the same three verses the panel already quotes.
+   */
+  onOpenBeside(request: ParallelRequest): void {
+    this.parallelSubscription?.unsubscribe()
+    if (!this.parallel && typeof document !== "undefined") {
+      const active = document.activeElement
+      this.parallelOpener = active instanceof HTMLElement ? active : null
+    }
+    this.parallel = request
+    // The panel is the column whose work the parallel has just taken over, and
+    // two texts read side by side need the width more than a list of
+    // references does. It folds to its strip and comes back on closing.
+    if (!this.studyPanelCollapsed) {
+      this.studyPanelCollapsed = true
+      this.panelFoldedForParallel = true
+    }
+    // detectChanges, not markForCheck: the panel's own controls are plain
+    // buttons, and with change detection coalesced onto an animation frame a
+    // marked view can sit unrendered until something unrelated triggers a
+    // pass. Same reason the panel's tab strip renders itself.
+    this.cdr.detectChanges()
+    // To the passage that was asked for: the button that asked is now in a
+    // folded panel, and the focus would otherwise be left on nothing.
+    this.parallelPane?.nativeElement.focus({ preventScroll: true })
+
+    this.parallelSubscription = this.apiService
+      .getChapter(request.bookId, request.chapterNumber)
+      .subscribe({
+        next: (chapter) => this.settleParallel(request, { chapter }),
+        error: () => this.settleParallel(request, { failed: true }),
+      })
+  }
+
+  /** Applies a fetch's outcome, unless the reader has moved on since. */
+  private settleParallel(
+    request: ParallelRequest,
+    outcome: { chapter?: Chapter; failed?: boolean },
+  ): void {
+    if (this.parallel?.key !== request.key) return
+    this.parallel = { ...this.parallel, ...outcome }
+    this.parallelQuotationVerses = BibleReaderComponent.quotationVersesOf(
+      outcome.chapter?.verses,
+    )
+    if (outcome.chapter) this.watchParallelHighlights(request)
+    this.cdr.detectChanges()
+    // "A carregar…" gives way to the text, or to a failure, without a word
+    // to a reader who cannot see it happen.
+    void this.announcer.announce(
+      outcome.chapter
+        ? `${request.label} aberto ao lado.`
+        : `Não foi possível carregar ${request.label}.`,
+    )
+    if (outcome.chapter) this.scrollParallelToCitation()
+  }
+
+  /** Asks again for a passage that failed to load. */
+  retryParallel(): void {
+    if (!this.parallel) return
+    const { chapter: _chapter, failed: _failed, ...request } = this.parallel
+    this.onOpenBeside(request)
+  }
+
+  closeParallel(): void {
+    const opener = this.parallelOpener
+    this.parallelOpener = null
+    // Only a reader whose focus is in the pane being closed is put back: one
+    // who has moved on since is where they chose to be.
+    const pane = this.parallelPane?.nativeElement
+    const focusWasInPane = !!pane?.contains(document.activeElement)
+    this.clearParallel()
+    this.cdr.detectChanges()
+    // Back to what asked, now that the panel is unfolded to hold it again.
+    if (focusWasInPane && opener?.isConnected) {
+      opener.focus({ preventScroll: true })
+    }
+  }
+
+  /** Drops the parallel without rendering: for callers that paint anyway. */
+  private clearParallel(): void {
+    this.parallelSubscription?.unsubscribe()
+    this.parallelHighlightSubscription?.unsubscribe()
+    this.parallelHighlights = new Map()
+    this.parallelBook = undefined
+    this.parallel = null
+    if (this.panelFoldedForParallel) {
+      this.studyPanelCollapsed = false
+      this.panelFoldedForParallel = false
+    }
+  }
+
+  /** True while this verse is one of those the reference actually names. */
+  isCitedVerse(verse: Verse): boolean {
+    const start = this.parallel?.verseStart
+    if (start === undefined) return false
+    // A reference that runs out of its chapter cites the rest of it.
+    if (this.parallel?.runsOn) return verse.number >= start
+    const end = this.parallel?.verseEnd ?? start
+    return verse.number >= start && verse.number <= end
+  }
+
+  /**
+   * Opens the parallel at the verses cited rather than at the top of the
+   * chapter: the reference names a passage, and the chapter around it is
+   * context for it.
+   */
+  private scrollParallelToCitation(): void {
+    const start = this.parallel?.verseStart
+    if (start === undefined) return
+    afterNextRender(
+      () => {
+        const pane = this.parallelScroll?.nativeElement
+        const target = pane?.querySelector<HTMLElement>(
+          `[id="parallel-${start}"]`,
+        )
+        if (!pane || !target) return
+        pane.scrollTop = Math.max(0, target.offsetTop - PARALLEL_TOP_MARGIN)
+      },
+      { injector: this.injector },
+    )
   }
 }

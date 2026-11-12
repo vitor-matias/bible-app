@@ -39,6 +39,7 @@ import { leftToTheBrowser } from "../../utils/platform"
 import {
   isAmbiguousPsalmNumber,
   PSALMS_BOOK_ID,
+  pairedReference,
   parsePsalmPair,
   psalmFromLiturgical,
 } from "../../utils/psalms"
@@ -512,7 +513,7 @@ export class SearchComponent {
     const pairedPsalm = !!pair && pairBook?.id === PSALMS_BOOK_ID
     const text =
       pair && pairedPsalm && pairBook
-        ? `${pairBook.abrv} ${pair.psalm}${pair.rest.replace(/^,\s*/, ",")}`
+        ? pairedReference(pair, pairBook.abrv)
         : query
     const references = this.referenceService.extract(text)
 

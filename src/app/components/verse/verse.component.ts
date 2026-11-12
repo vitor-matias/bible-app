@@ -5,10 +5,14 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
+  EventEmitter,
+  HostListener,
+  Input,
   inject,
   input,
   OnChanges,
   OnDestroy,
+  Output,
   QueryList,
   SimpleChanges,
   ViewChild,
@@ -26,6 +30,7 @@ import {
   type BibleReference,
   BibleReferenceService,
 } from "../../services/bible-reference.service"
+import type { HighlightColor } from "../../services/highlight.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { liturgicalPsalmNumber, PSALMS_BOOK_ID } from "../../utils/psalms"
 import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnotes-bottom-sheet.component"
@@ -44,6 +49,13 @@ import { getVerseQueryParams, parseReferences } from "./verse.utils"
   styleUrls: ["./verse.component.css"],
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
+  host: {
+    "[class.verse-selected]": "selected",
+    "[class.verse-quotation]": "isQuotation",
+    "[class.verse-marked]": "highlight",
+    "[class.mark-continues]": "highlight && markContinues",
+    "[attr.data-highlight]": "highlight ?? null",
+  },
 })
 export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   private bibleRef = inject(BibleReferenceService)
@@ -57,6 +69,17 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   hasFootnotes = false
 
   /**
+   * Whether this verse's poetry is a passage being quoted, rather than the
+   * verse form the book is written in.
+   *
+   * Decided by the reader, not here: a quotation runs across verses, and its
+   * later verses look exactly like a psalm from inside a single verse. See
+   * BibleReaderComponent.markQuotationVerses.
+   */
+  @Input()
+  isQuotation = false
+
+  /**
    * Whether tapping the verse's text opens its notes. Not in the native apps: a tap
    * on the text shows or hides its bars there, and the notes marker opens them.
    */
@@ -67,6 +90,8 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   /** Groups for rendering - quotes and their continuations */
   displayGroups: DisplayGroup[] = []
+  /** The index in the verse's text of the last element drawn. */
+  lastDisplayedIndex = -1
 
   private resizeObserver: ResizeObserver | null = null
   private resizeObserverTimeout: ReturnType<typeof setTimeout> | null = null
@@ -79,6 +104,33 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   readonly chapterNumber = input<number>()
 
   readonly nextVerseStartsWithQuote = input(false)
+
+  /**
+   * Study mode turns the verse into the study panel's selector: a click picks
+   * the verse instead of opening the footnotes sheet, which in that layout is
+   * a column already on screen.
+   */
+  @Input()
+  studyMode = false
+
+  /** True while this verse is the one the study panel is showing. */
+  @Input()
+  selected = false
+
+  /**
+   * The colour the reader has marked this verse with, if any. Rendered
+   * everywhere, not only in study mode: marks are made there, but they are
+   * part of the text from then on.
+   */
+  @Input()
+  highlight?: HighlightColor
+
+  /** True when the verse before this one carries the same mark. */
+  @Input()
+  markContinues = false
+
+  @Output()
+  verseSelected = new EventEmitter<VerseSelection>()
 
   @ViewChildren("indentable")
   indentableElements!: QueryList<ElementRef<HTMLElement>>
@@ -104,13 +156,21 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (data) {
       this.chapterNumberDisplayIndex = this.computeChapterNumberIndex()
       this.hasFootnotes = data.text.some((t) => t.type === "footnote")
-      this.notesOnText = this.hasFootnotes && !this.nativeFootnotes.enabled
+      // Not in study mode, where a click on the text selects the verse and
+      // the notes are a column already on screen: a run made a button would
+      // be a tab stop and a "button" that does nothing.
+      this.notesOnText =
+        this.hasFootnotes && !this.nativeFootnotes.enabled && !this.studyMode
       this.liturgicalNumber =
         data.bookId === PSALMS_BOOK_ID
           ? liturgicalPsalmNumber(data.chapterNumber)
           : null
       this.parsedReferences = this.computeParsedReferences()
       this.displayGroups = this.computeDisplayGroups()
+      // The last thing drawn closes the verse's line, and empty elements at
+      // the end are not drawn: counting them left nothing to close it.
+      this.lastDisplayedIndex =
+        this.displayGroups.at(-1)?.elements.at(-1)?.originalIndex ?? -1
     }
   }
 
@@ -227,15 +287,28 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     }
   }
 
+  /**
+   * What a reader sees first of the verse. A blank element is not it: it is
+   * dropped from what is drawn (see computeDisplayGroups), so counting it left
+   * the number with nowhere to go — the inline one was skipped for the quote
+   * that was not drawn, and the next quote was not the first. The reader asks
+   * it too, of the verse that follows, so both agree on what comes first.
+   */
+  static isShown(t: TextType): boolean {
+    return (
+      t.type !== "footnote" &&
+      t.type !== "references" &&
+      !VerseComponent.isBlank(t)
+    )
+  }
+
   getFirstTextType(): string | undefined {
-    return this.data().text.find(
-      (t) => t.type !== "footnote" && t.type !== "references",
-    )?.type
+    return this.data().text.find((t) => VerseComponent.isShown(t))?.type
   }
 
   isFirstDisplayableElement(index: number): boolean {
-    const firstIdx = this.data().text.findIndex(
-      (t) => t.type !== "footnote" && t.type !== "references",
+    const firstIdx = this.data().text.findIndex((t) =>
+      VerseComponent.isShown(t),
     )
     return index === firstIdx
   }
@@ -246,10 +319,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
     if (lastElementIndex + 1 < this.data().text.length) {
       const nextDisplayableIdx = this.data().text.findIndex(
-        (t, idx) =>
-          idx > lastElementIndex &&
-          t.type !== "footnote" &&
-          t.type !== "references",
+        (t, idx) => idx > lastElementIndex && VerseComponent.isShown(t),
       )
 
       if (nextDisplayableIdx !== -1) {
@@ -266,10 +336,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
     if (lastElementIndex + 1 < this.data().text.length) {
       const nextDisplayableIdx = this.data().text.findIndex(
-        (t, idx) =>
-          idx > lastElementIndex &&
-          t.type !== "footnote" &&
-          t.type !== "references",
+        (t, idx) => idx > lastElementIndex && VerseComponent.isShown(t),
       )
 
       if (nextDisplayableIdx !== -1) {
@@ -286,14 +353,19 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     const hasS2 = data.text.some(
       (text) => text.type === "section" && text.tag === "s2",
     )
+    // The last element drawn: a blank one is dropped (see computeDisplayGroups),
+    // and a number left on it was drawn nowhere.
+    let lastDrawn = -1
+    data.text.forEach((text, i) => {
+      if (!VerseComponent.isBlank(text)) lastDrawn = i
+    })
 
     for (let i = 0; i < data.text.length; i++) {
       const text = data.text[i]
-      const isLast = i === data.text.length - 1
 
       if (
         (text.type === "section" && text.tag === "s2") ||
-        (!hasS2 && isLast)
+        (!hasS2 && i === lastDrawn)
       ) {
         return i
       }
@@ -351,7 +423,11 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     for (let i = 0; i < this.data().text.length; i++) {
       const t = this.data().text[i]
       if (t.type === "references") {
-        map.set(i, parseReferences(this.bibleRef, t.text, this.data().bookId))
+        const { bookId, chapterNumber } = this.data()
+        map.set(
+          i,
+          parseReferences(this.bibleRef, t.text, bookId, chapterNumber),
+        )
       }
     }
     return map
@@ -363,11 +439,77 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     return text.type === "quote" ? text.identLevel : 0
   }
 
+  /**
+   * Anywhere in the verse selects it, so the reader can aim at the words they
+   * are reading rather than at a control. References inside the verse stay
+   * links: they navigate, and selecting the verse they are leaving would be
+   * beside the point.
+   */
+  @HostListener("click", ["$event"])
+  onHostClick(event: Event): void {
+    if (!this.studyMode || !this.isSelectable) return
+    const target = event.target as HTMLElement | null
+    if (target?.closest("a")) return
+    // Releasing a drag over the text fires a click too. The reader was
+    // selecting words, not choosing the verse.
+    if (VerseComponent.hasTextSelection()) return
+    this.emitSelection()
+  }
+
+  /** Whether the reader currently has words selected anywhere on the page. */
+  private static hasTextSelection(): boolean {
+    if (typeof document === "undefined") return false
+    const selection = document.getSelection()
+    return (
+      !!selection && !selection.isCollapsed && !!selection.toString().trim()
+    )
+  }
+
+  /** A run only carries a handler when the verse has footnotes to open. */
+  onRunClick(event: Event): void {
+    // Study mode has no bottom sheet: the host listener above takes the click.
+    if (this.studyMode) return
+    // As above: finishing a selection over a footnoted verse used to throw
+    // the footnotes sheet over the words the reader had just selected.
+    if (VerseComponent.hasTextSelection()) return
+    this.toggleFootnotes(event)
+  }
+
+  onFootnoteMarkerClick(event: Event): void {
+    // Verse 0 carries the chapter's front matter, footnotes included, and
+    // cannot be selected — so in study mode too the marker opens the sheet
+    // rather than doing nothing at all.
+    if (!this.studyMode || !this.isSelectable) {
+      this.toggleFootnotes(event)
+      return
+    }
+    // Stop the host listener from following with a plain selection, which
+    // would land the reader on the references tab they did not ask for.
+    event.stopPropagation()
+    this.emitSelection("footnotes")
+  }
+
+  onVerseNumberKeydown(event: Event): void {
+    if (!this.studyMode || !this.isSelectable) return
+    event.preventDefault()
+    this.emitSelection()
+  }
+
+  /** Verse 0 is the chapter's front matter: there is no verse to point at. */
+  get isSelectable(): boolean {
+    return this.studyMode && this.data()?.number > 0
+  }
+
+  private emitSelection(panel?: VerseSelection["panel"]): void {
+    if (!this.isSelectable) return
+    this.verseSelected.emit({ verse: this.data(), panel })
+  }
+
   /** Space on the verse's text opens its notes, where the text does. */
   onTextSpace(event: Event): void {
     if (!this.notesOnText) return
     event.preventDefault()
-    this.toggleFootnotes(event)
+    this.onRunClick(event)
   }
 
   toggleFootnotes(event?: Event): void {
@@ -402,7 +544,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
    * The USFM leaves empty text and poetry elements that would render as stray
    * blank lines. An empty paragraph element is kept: it IS the paragraph break.
    */
-  private static isBlank(text: TextType): boolean {
+  static isBlank(text: TextType): boolean {
     return (
       (text.type === "quote" || text.type === "text") && text.text.trim() === ""
     )

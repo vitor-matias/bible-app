@@ -1,20 +1,17 @@
 import { Injectable, inject } from "@angular/core"
 import { Subscription } from "rxjs"
 import {
-  indexBookmarkLabel,
-  isIndexBookmark,
-} from "../pastoral-index-bookmarks"
-import { passageLabel } from "../utils/passage-label"
+  bookmarksSheetState,
+  canMark,
+  sheetPassageLabel,
+} from "../utils/bookmarks-sheet"
 import { BookService } from "./book.service"
 import { BookmarkService } from "./bookmark.service"
 import {
   BookmarkRibbonsService,
-  type RibbonMove,
   type RibbonState,
-  spokenRibbonName,
 } from "./bookmark-ribbons.service"
 import { NativeChromeService } from "./native-chrome.service"
-import type { BookmarksSheetState } from "./native-chrome.types"
 
 /**
  * The bookmarks panel as a native sheet in the iOS and Android apps. The sheet only draws
@@ -29,6 +26,8 @@ export class NativeBookmarksService {
   private readonly ribbonsService = inject(BookmarkRibbonsService)
   private readonly bookmarkService = inject(BookmarkService)
   private readonly bookService = inject(BookService)
+  private readonly books = (bookId: string) =>
+    this.bookService.findBookById(bookId)
   /** The session of the sheet on screen. */
   private session?: Subscription
   /** The last one asked for: only it answers taps, until it is refused. */
@@ -48,7 +47,13 @@ export class NativeBookmarksService {
     session.add(
       this.bookmarkService.bookmarks$.subscribe((bookmarks) => {
         ribbons = this.ribbonsService.ribbons(bookmarks)
-        const state = this.sheetState(ribbons, bookId, chapter, mover)
+        const state = bookmarksSheetState(
+          ribbons,
+          bookId,
+          chapter,
+          mover,
+          (id, number) => sheetPassageLabel(this.books, id, number),
+        )
         if (shown) {
           this.nativeChrome.updateBookmarks(state)
         } else {
@@ -98,52 +103,4 @@ export class NativeBookmarksService {
       }),
     )
   }
-
-  private sheetState(
-    ribbons: RibbonState[],
-    bookId: string,
-    chapter: number,
-    mover: RibbonMove,
-  ): BookmarksSheetState {
-    const offer = canMark(bookId) ? mover.offer(ribbons) : null
-    return {
-      currentLabel: this.label(bookId, chapter),
-      canMark: canMark(bookId),
-      ribbons: ribbons.map((ribbon) => ({
-        color: ribbon.value,
-        name: spokenRibbonName(ribbon.value) ?? ribbon.name,
-        label: ribbon.currentRef ?? null,
-        current:
-          ribbon.bookmark?.bookId === bookId &&
-          ribbon.bookmark?.chapter === chapter,
-      })),
-      move: offer
-        ? {
-            color: offer.from.color,
-            name: offer.name,
-            from: this.label(offer.from.bookId, offer.from.chapter),
-            done: offer.done,
-          }
-        : null,
-    }
-  }
-
-  /** As the passage button names it: "Mateus 11", "Salmo 96 (95)". */
-  private label(bookId: string, chapter: number): string {
-    if (isIndexBookmark(bookId)) return indexBookmarkLabel(bookId)
-    const book = this.bookService.findBookById(bookId) ?? {
-      id: bookId,
-      shortName: bookId,
-    }
-    // The About page has no chapters: "Sobre a Bíblia", not "… 1".
-    if (!canMark(bookId)) return book.shortName
-    return chapter === 0
-      ? `${book.shortName} Introdução`
-      : passageLabel(book, chapter)
-  }
-}
-
-/** The About page can't be marked: a ribbon there would lead nowhere to read. */
-function canMark(bookId: string): boolean {
-  return bookId !== "about"
 }

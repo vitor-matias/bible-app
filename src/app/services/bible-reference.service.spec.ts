@@ -1,4 +1,5 @@
 import { TestBed } from "@angular/core/testing"
+import { normalizeForSearch } from "../utils/text"
 import {
   BibleReferenceService,
   type VerseReference,
@@ -24,6 +25,7 @@ describe("BibleReferenceService", () => {
           id: "sng",
         },
         { abrv: "Ap", shortName: "Apoc", name: "Apocalipse", id: "rev" },
+        { abrv: "Jb", shortName: "Job", name: "Job", id: "job" },
         {
           abrv: "Jd",
           shortName: "Judas",
@@ -39,12 +41,86 @@ describe("BibleReferenceService", () => {
           chapterCount: 1,
         },
       ],
+      findTypedBook(this: { getBooks: () => Book[] }, name: string) {
+        const wanted = name.toLocaleLowerCase()
+        return this.getBooks().find((book) =>
+          [book.id, book.abrv, book.shortName, book.name].some(
+            (known) => known.toLocaleLowerCase() === wanted,
+          ),
+        )
+      },
+      findBook(
+        this: { findTypedBook: (name: string) => Book | undefined },
+        name: string,
+      ) {
+        return this.findTypedBook(name) ?? ({ id: "about" } as Book)
+      },
     }
 
     TestBed.configureTestingModule({
       providers: [{ provide: BookService, useValue: mockBookService }],
     })
     service = TestBed.inject(BibleReferenceService)
+  })
+
+  describe("whole-chapter ranges", () => {
+    it("reads a run of chapters with no verse named", () => {
+      const [ref] = service.extract("Jb 38 -39", "gen", 1)
+
+      expect(ref.chapter).toBe(38)
+      expect(ref.endChapter).toBe(39)
+      expect(ref.verses).toBeUndefined()
+      expect(ref.match).toBe("Jb 38 -39")
+    })
+
+    it("reads one without the spaces around the dash", () => {
+      const [ref] = service.extract("Jb 38-39", "gen", 1)
+
+      expect(ref.chapter).toBe(38)
+      expect(ref.endChapter).toBe(39)
+    })
+
+    it("does not take the number of the next book for a last chapter", () => {
+      const refs = service.extract("Gn 50 \u2013 1 Jo 2", "gen", 1)
+
+      expect(refs.map((ref) => ref.match)).toEqual(["Gn 50", "1 Jo 2"])
+      expect(refs[0].endChapter).toBeUndefined()
+    })
+
+    it("leaves a verse range alone", () => {
+      const [ref] = service.extract("Gn 46,1-27", "gen", 1)
+
+      expect(ref.endChapter).toBeUndefined()
+      expect(ref.verses).toEqual([{ type: "range", start: 1, end: 27 }])
+    })
+
+    it("leaves a cross-chapter verse range alone", () => {
+      const [ref] = service.extract("Jb 38,1-39,30", "gen", 1)
+
+      expect(ref.endChapter).toBeUndefined()
+      expect(ref.crossChapter).toEqual({
+        type: "crossChapterRange",
+        startChapter: 38,
+        startVerse: 1,
+        startPart: undefined,
+        endChapter: 39,
+        endVerse: 30,
+        endPart: undefined,
+      })
+    })
+
+    it("reads a chapter range beside its neighbours in a references block", () => {
+      // Genesis 1's own references block, in the shape the edition prints it.
+      const refs = service.extract("2,4b-25 ; Jb 38 -39; Jo 1,1-3", "gen", 1)
+
+      const job = refs.find((ref) => /Jb/.test(ref.match))
+      expect(job?.chapter).toBe(38)
+      expect(job?.endChapter).toBe(39)
+      // The neighbours parse as they did before.
+      expect(refs.some((ref) => ref.chapter === 2)).toBe(true)
+      const john = refs.find((ref) => /Jo /.test(ref.match))
+      expect(john?.verses).toEqual([{ type: "range", start: 1, end: 3 }])
+    })
   })
 
   it("should be created", () => {
@@ -304,6 +380,41 @@ describe("BibleReferenceService", () => {
     ])
   })
 
+  describe("where a search should land", () => {
+    it("reads a reference as somewhere to go", () => {
+      const destination = service.destinationOf("Mt 22,37")
+
+      expect(destination?.book.id).toBe("mat")
+      expect(destination?.chapter).toBe(22)
+      expect(destination?.verseStart).toBe(37)
+    })
+
+    it("opens a range at its first verse, and a chapter at its head", () => {
+      expect(service.destinationOf("Mt 22,37-40")?.verseStart).toBe(37)
+      expect(service.destinationOf("Mt 22")?.verseStart).toBeUndefined()
+    })
+
+    it("reads a book's name as the book", () => {
+      const destination = service.destinationOf(" Mateus ")
+
+      expect(destination?.book.id).toBe("mat")
+      expect(destination?.chapter).toBe(1)
+    })
+
+    it("leaves words to the text search", () => {
+      expect(service.destinationOf("amarás o teu próximo")).toBeNull()
+    })
+
+    it("searches words that only mention a reference", () => {
+      // The reference is in the query, not the query: these are words to
+      // look for, and opening Matthew 22 would throw them away.
+      expect(service.destinationOf("amor em Mt 22,37")).toBeNull()
+      expect(service.destinationOf("Mt 22,37 e o amor")).toBeNull()
+      // Spaces around a reference that is the whole query are still that.
+      expect(service.destinationOf("  Mt 22,37  ")?.chapter).toBe(22)
+    })
+  })
+
   it("reads the dots after a bookless chapter as its verses", () => {
     // Chapter 15, verses 2, 4 and 6: never "4.6", chapter 4 verse 6.
     const refs = service.extract("Mt 5,3; 15,2.4.6; 16,1")
@@ -440,6 +551,84 @@ describe("BibleReferenceService", () => {
   })
 
   // References as liturgical leaflets and the edition's own notes write them.
+  // "Cartas de João" is an introduction with the id "joao", which is also what
+  // "João" is typed as: the typed name is the Gospel, as on the search page.
+  describe("a name that an introduction shares with a book", () => {
+    beforeEach(() => {
+      TestBed.resetTestingModule()
+      const books = [
+        {
+          abrv: "Jo",
+          shortName: "João",
+          name: "João",
+          id: "jhn",
+          chapterCount: 21,
+        },
+        {
+          abrv: "Cartas de João",
+          shortName: "Cartas de João",
+          name: "Cartas de João",
+          id: "joao",
+          introSlug: "joao",
+        },
+        {
+          abrv: "Pentateuco",
+          shortName: "Pentateuco",
+          name: "Pentateuco",
+          id: "pentateuco",
+          introSlug: "pentateuco",
+        },
+      ] as Book[]
+      const same = (a: string, b: string) =>
+        normalizeForSearch(a) === normalizeForSearch(b)
+      const named = (book: Book, name: string) =>
+        [book.id, book.abrv, book.shortName, book.name].some((known) =>
+          same(known, name),
+        )
+      TestBed.configureTestingModule({
+        providers: [
+          {
+            provide: BookService,
+            useValue: {
+              books$: { subscribe: (fn: () => void) => fn() },
+              getBooks: () => books,
+              // As the real ones: ids first, and only findTypedBook leaves
+              // the introductions out.
+              findBook: (name: string) =>
+                books.find((book) => same(book.id, name)) ??
+                books.find((book) => named(book, name)) ??
+                ({ id: "about" } as Book),
+              findTypedBook: (name: string) =>
+                books.find((book) => !book.introSlug && named(book, name)),
+            },
+          },
+        ],
+      })
+      service = TestBed.inject(BibleReferenceService)
+    })
+
+    it("opens the book a reference names, not the introduction", () => {
+      const destination = service.destinationOf("joao 3,16")
+
+      expect(destination?.book.id).toBe("jhn")
+      expect(destination?.chapter).toBe(3)
+      expect(destination?.verseStart).toBe(16)
+    })
+
+    it("opens the book a bare name names, too", () => {
+      const destination = service.destinationOf("joao")
+
+      expect(destination?.book.id).toBe("jhn")
+      expect(destination?.chapter).toBe(1)
+    })
+
+    it("still opens an introduction that only an introduction is called", () => {
+      expect(service.destinationOf("Pentateuco")?.book.introSlug).toBe(
+        "pentateuco",
+      )
+    })
+  })
+
   describe("verse lists and verse parts", () => {
     beforeEach(() => {
       TestBed.resetTestingModule()

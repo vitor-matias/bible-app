@@ -15,6 +15,7 @@ import {
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenuModule } from "@angular/material/menu"
+import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import {
   BookmarkRibbonsService,
@@ -24,14 +25,13 @@ import {
   ribbonColor,
   ribbonToMove,
 } from "../../services/bookmark-ribbons.service"
-
-/** The move offered above the ribbons, or, once made, its undo. */
-interface MoveOffer {
-  color: string
-  /** "Mover o marcador vermelho de Mt 5 para Mt 7". */
-  label: string
-  done: boolean
-}
+import type { BookmarksSheetState } from "../../services/native-chrome.types"
+import {
+  bookmarksHint,
+  bookmarksSheetState,
+  canMark,
+  sheetPassageLabel,
+} from "../../utils/bookmarks-sheet"
 
 /** A touch held this long on a marked ribbon opens its menu. */
 const LONG_PRESS_MS = 500
@@ -60,8 +60,10 @@ function swallowNextClick(): void {
 /** The removal offered, once made, as its undo. */
 interface RemoveOffer {
   bookmark: Bookmark
-  /** "Desfazer: o marcador vermelho volta a Mt 5". */
-  label: string
+  /** As the ribbon's adjective: "vermelho". */
+  name: string
+  /** Where it was: "Mateus 5". */
+  from: string
 }
 
 @Component({
@@ -80,6 +82,7 @@ export class BookmarkSelectorComponent implements OnInit {
     chapter: number
   }>(MAT_BOTTOM_SHEET_DATA)
   private bookmarkService = inject(BookmarkService)
+  private bookService = inject(BookService)
 
   colors = RIBBON_COLORS
   /** Each ribbon in the theme's tone for it. */
@@ -87,7 +90,8 @@ export class BookmarkSelectorComponent implements OnInit {
 
   ribbons: RibbonState[] = []
 
-  move?: MoveOffer
+  /** What the tiles, the move row and the hint show: see bookmarks-sheet.ts. */
+  state?: BookmarksSheetState
   removed?: RemoveOffer
   private pressTimer?: ReturnType<typeof setTimeout>
   private pressOrigin?: { x: number; y: number }
@@ -106,58 +110,26 @@ export class BookmarkSelectorComponent implements OnInit {
     this.destroyRef.onDestroy(() => this.pressEnd())
   }
 
-  ngOnInit(): void {
-    this.bookmarkService.bookmarks$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((bookmarks) => {
-        this.updateRibbons(bookmarks)
-      })
+  close(): void {
+    this.bottomSheetRef.dismiss()
   }
 
-  updateRibbons(allBookmarks: Bookmark[]) {
-    this.ribbons = this.ribbonsService.ribbons(allBookmarks)
-    this.move = this.moveOffer()
-    // The offer ends when the removed ribbon is marked again (its undo, a new
-    // mark) or another ribbon takes its chapter: a chapter holds one ribbon,
-    // so putting this one back would delete that other one.
-    const gone = this.removed?.bookmark
-    if (
-      gone &&
-      allBookmarks.some(
-        (b) =>
-          b.color === gone.color ||
-          (b.bookId === gone.bookId && b.chapter === gone.chapter),
-      )
-    ) {
-      this.removed = undefined
-    }
-    this.changeDetector.markForCheck()
+  get hasMarked(): boolean {
+    return this.ribbons.some((ribbon) => ribbon.bookmark)
   }
 
-  /** Moves the ribbon read on from to this chapter, or undoes that. */
-  moveOrUndo(): void {
-    if (this.mover.undo()) return
-    const ribbon = ribbonToMove(
-      this.ribbons,
-      this.data.bookId,
-      this.data.chapter,
-    )
-    if (ribbon) this.mover.move(ribbon)
+  get hint(): string {
+    return this.state ? bookmarksHint(this.state) : ""
   }
 
-  private moveOffer(): MoveOffer | undefined {
-    const offer = this.mover.offer(this.ribbons)
-    if (!offer) return undefined
-    const { from, name, done } = offer
-    const fromRef = this.ribbonsService.ref(from.bookId, from.chapter)
-    const here = this.ribbonsService.ref(this.data.bookId, this.data.chapter)
-    return {
-      color: from.color,
-      label: done
-        ? `Desfazer: o marcador ${name} volta a ${fromRef}`
-        : `Mover o marcador ${name} de ${fromRef} para ${here}`,
-      done,
-    }
+  /** As a screen reader should say a tile: its colour, where it is, whether it is here. */
+  spoken(tile: BookmarksSheetState["ribbons"][number]): string {
+    return `${tile.name}, ${tile.label ?? "livre"}${tile.current ? ", este capítulo" : ""}`
+  }
+
+  onTile(color: string): void {
+    const ribbon = this.ribbons.find((r) => r.value === color)
+    if (ribbon) this.handleRibbonClick(ribbon)
   }
 
   /**
@@ -165,9 +137,10 @@ export class BookmarkSelectorComponent implements OnInit {
    * held touch raises the same event the mouse and the ContextMenu key do,
    * which the menu trigger answers.
    */
-  pressStart(event: PointerEvent, ribbon: RibbonState): void {
+  pressStart(event: PointerEvent, color: string): void {
     this.pressEnd()
-    if (!ribbon.bookmark || event.pointerType === "mouse") return
+    const marked = this.ribbons.find((r) => r.value === color)?.bookmark
+    if (!marked || event.pointerType === "mouse") return
     const target = event.currentTarget as HTMLElement
     const { clientX, clientY } = event
     this.pressOrigin = { x: clientX, y: clientY }
@@ -202,16 +175,19 @@ export class BookmarkSelectorComponent implements OnInit {
   }
 
   /** The menu's "Remover marcador"; the sheet then offers to put it back. */
-  removeRibbon(ribbon: RibbonState): void {
-    const bookmark = ribbon.bookmark && { ...ribbon.bookmark }
-    if (!bookmark) return
+  removeRibbon(color: string): void {
+    const ribbon = this.ribbons.find((r) => r.value === color)
+    const bookmark = ribbon?.bookmark && { ...ribbon.bookmark }
+    if (!ribbon || !bookmark) return
+    // A removal that could not be saved has nothing to take back.
     this.ribbonsService.remove(ribbon, () => {
       this.removed = undefined
       this.changeDetector.markForCheck()
     })
     this.removed = {
       bookmark,
-      label: `Desfazer: o marcador ${ribbon.spoken.toLowerCase()} volta a ${this.ribbonsService.ref(bookmark.bookId, bookmark.chapter)}`,
+      name: ribbon.spoken.toLowerCase(),
+      from: this.passageLabel(bookmark.bookId, bookmark.chapter),
     }
     this.changeDetector.markForCheck()
   }
@@ -223,8 +199,57 @@ export class BookmarkSelectorComponent implements OnInit {
     this.changeDetector.markForCheck()
   }
 
-  get hasMarked(): boolean {
-    return this.ribbons.some((ribbon) => ribbon.bookmark)
+  private passageLabel(bookId: string, chapter: number): string {
+    return sheetPassageLabel(
+      (id) => this.bookService.findBookById(id),
+      bookId,
+      chapter,
+    )
+  }
+
+  ngOnInit(): void {
+    this.bookmarkService.bookmarks$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((bookmarks) => {
+        this.updateRibbons(bookmarks)
+      })
+  }
+
+  updateRibbons(allBookmarks: Bookmark[]) {
+    this.ribbons = this.ribbonsService.ribbons(allBookmarks)
+    // The offer ends when the removed ribbon is marked again (its undo, a new
+    // mark) or another ribbon takes its chapter: a chapter holds one ribbon,
+    // so putting this one back would delete that other one.
+    const gone = this.removed?.bookmark
+    if (
+      gone &&
+      allBookmarks.some(
+        (b) =>
+          b.color === gone.color ||
+          (b.bookId === gone.bookId && b.chapter === gone.chapter),
+      )
+    ) {
+      this.removed = undefined
+    }
+    this.state = bookmarksSheetState(
+      this.ribbons,
+      this.data.bookId,
+      this.data.chapter,
+      this.mover,
+      (bookId, chapter) => this.passageLabel(bookId, chapter),
+    )
+    this.changeDetector.markForCheck()
+  }
+
+  /** Moves the ribbon read on from to this chapter, or undoes that. */
+  moveOrUndo(): void {
+    if (this.mover.undo()) return
+    const ribbon = ribbonToMove(
+      this.ribbons,
+      this.data.bookId,
+      this.data.chapter,
+    )
+    if (ribbon) this.mover.move(ribbon)
   }
 
   handleRibbonClick(ribbon: RibbonState): void {
@@ -234,18 +259,12 @@ export class BookmarkSelectorComponent implements OnInit {
       return
     }
 
-    // 2. If empty -> Assign to current
+    // 2. If empty -> Assign to current, where there is a chapter to mark
+    if (!canMark(this.data.bookId)) return
     this.ribbonsService.assign(
       ribbon.value,
       this.data.bookId,
       this.data.chapter,
-    )
-  }
-
-  isCurrentLocation(ribbon: RibbonState): boolean {
-    return (
-      ribbon.bookmark?.bookId === this.data.bookId &&
-      ribbon.bookmark?.chapter === this.data.chapter
     )
   }
 }

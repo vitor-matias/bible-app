@@ -32,6 +32,19 @@ export interface BibleReference {
   chapter: number
   verses?: VerseReference[]
   crossChapter?: CrossChapterRange
+  /**
+   * The last chapter of a run of whole chapters — "Jb 38-39". Distinct from
+   * crossChapter, which runs between two *verses* in different chapters; here
+   * no verse is named on either end.
+   */
+  endChapter?: number
+}
+
+/** The place a search names, as opposed to words it asks for. */
+export type SearchDestination = {
+  book: Book
+  chapter: Chapter["number"]
+  verseStart?: Verse["number"]
 }
 
 const stripDiacritics = (value: string) =>
@@ -135,6 +148,13 @@ export class BibleReferenceService {
       String.raw`\b(?<book>${this.bookAlternation})\s+(?<chapter>\d+)` +
       String.raw`(?:\s*(?:[:.]|,(?!\s))\s*(?<v1>\d+(?:[a-c]{1,2})?)` +
       String.raw`(?:\s*[-\u2010-\u2015\u2212]\s*(?:(?<endCh>\d+)\s*(?::|,(?!\s))\s*(?<endV>\d+(?:[a-c]{1,2})?)|(?<v2>\d+(?:[a-c]{1,2})?)))?` +
+      // Whole chapters, no verse named on either side: "Jb 38-39". Only when
+      // no verse follows the second number, so "Jb 38,1-39,30" still parses
+      // as the verse range it is, through the branch above — and only when
+      // the number is not the front of the next book, so "1 Sm 31 - 2 Sm 1"
+      // stays two references instead of "1 Sm 31-2" and an orphaned "Sm 1".
+      String.raw`|\s*[-\u2010-\u2015\u2212]\s*(?<endChapterOnly>\d+)(?!\s*(?:[:.]|,(?!\s))\s*\d)` +
+      String.raw`(?!\s*(?:${this.bookAlternation})\s+\d)` +
       String.raw`)?\b`
 
     this.explicitRe = new RegExp(pattern, "gi")
@@ -142,6 +162,51 @@ export class BibleReferenceService {
       String.raw`^(?:\s*\(n\))?(?:\s*,\s*|\.\s+)(?:${this.bookAlternation})\s+\d`,
       "i",
     )
+  }
+
+  /**
+   * Where a search should land, when what was typed names a place rather
+   * than something to look for: a reference ("Mt 22,37"), or a book by name
+   * or abbreviation. Null when it is words to search for.
+   *
+   * Here so that every search box answers the same way. The study panel's
+   * had its own, which sent "Mt 22,37" to the text search and listed verses
+   * containing "22" instead of opening Matthew 22.
+   */
+  destinationOf(text: string): SearchDestination | null {
+    const query = text.trim()
+    const [reference] = this.extract(query)
+    // A place only when the reference is the whole query. extract() finds
+    // references inside any text, so "amor em Mt 22,37" would otherwise open
+    // Matthew 22 instead of searching for the words around it.
+    const whole =
+      reference !== undefined &&
+      !query.slice(0, reference.index).trim() &&
+      !query.slice(reference.index + reference.match.length).trim()
+    if (reference && whole) {
+      // The book of the Bible the text names: "joao 3,16" is the Gospel, not
+      // the introduction to the Letters of John, which has the id "joao".
+      const book = this.bookService.findTypedBook(reference.book)
+      if (!book) return null
+      const first = reference.verses?.[0]
+      return {
+        book,
+        chapter: reference.chapter || 1,
+        verseStart:
+          first === undefined
+            ? reference.crossChapter?.startVerse
+            : first.type === "single"
+              ? first.verse
+              : first.start,
+      }
+    }
+    if (reference) return null
+    // A bare name may also be an introduction's ("Pentateuco"), which only
+    // findBook knows, and which answers with the About page for a name it
+    // does not know either.
+    const book =
+      this.bookService.findTypedBook(query) ?? this.bookService.findBook(query)
+    return !book || book.id === "about" ? null : { book, chapter: 1 }
   }
 
   extract(
@@ -181,6 +246,7 @@ export class BibleReferenceService {
             v2?: string
             endCh?: string
             endV?: string
+            endChapterOnly?: string
           }
         | undefined
       if (!gs) continue
@@ -190,8 +256,20 @@ export class BibleReferenceService {
       const startChapter = Number(gs.chapter)
 
       explicitAnchors.push({ index: start, book })
+      const oneChapter = this.oneChapterBooks.has(compactName(book))
 
-      if (gs.endCh && gs.endV && gs.v1) {
+      if (gs.endChapterOnly && !oneChapter) {
+        // A run of whole chapters: no verse is named, so the reference points
+        // at the first of them and says how far it runs. Not in a book of one
+        // chapter, whose "Jd 6-7" is verses.
+        push({
+          match: m[0],
+          index: start,
+          book,
+          chapter: startChapter,
+          endChapter: Number(gs.endChapterOnly),
+        })
+      } else if (gs.endCh && gs.endV && gs.v1) {
         // Cross-chapter ... (unchanged)
         const { num: sv, part: sp } = this.parseNumPart(gs.v1)
         const endChapter = Number(gs.endCh)
@@ -214,15 +292,19 @@ export class BibleReferenceService {
         })
       } else {
         // Same-chapter (with or without verses)
-        const lastIsVerse =
-          !gs.v1 && this.oneChapterBooks.has(compactName(book))
-        // Its range has no comma to come after: "Jd 6-7".
-        const range = lastIsVerse
-          ? ONE_CHAPTER_RANGE_RE.exec(text.slice(start + m[0].length))
-          : null
+        const lastIsVerse = !gs.v1 && oneChapter
+        // Its range has no comma to come after: "Jd 6-7". The pattern may have
+        // taken the range already, as a run of chapters.
+        const range =
+          lastIsVerse && !gs.endChapterOnly
+            ? ONE_CHAPTER_RANGE_RE.exec(text.slice(start + m[0].length))
+            : null
         const verses =
           (lastIsVerse
-            ? this.buildVerses(gs.chapter, range?.groups?.["v2"])
+            ? this.buildVerses(
+                gs.chapter,
+                gs.endChapterOnly ?? range?.groups?.["v2"],
+              )
             : this.buildVerses(gs.v1, gs.v2)) || []
         const head = m[0] + (range?.[0] ?? "")
         const matchStr =

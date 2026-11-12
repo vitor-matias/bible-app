@@ -58,3 +58,19 @@
   height: 16px !important;
   opacity: 0.6;
 }
+
+/* A second line under a menu entry, for what it is or why it is not on offer. */
+.two-lines.mat-mdc-menu-item {
+  height: auto;
+  min-height: 56px;
+  padding-block: 8px;
+}
+
+.menu-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.3;
+  opacity: 0.75;
+  white-space: normal;
+}

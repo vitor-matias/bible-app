@@ -340,3 +340,107 @@ h3:not(:first-child) {
     transition: none;
   }
 }
+
+/*
+ * Study-mode selection: the verse the side panel is currently showing.
+ *
+ * Painted on the runs rather than on the host for the same reason the
+ * deep-link highlight above is — the host is an inline box that also covers
+ * the empty line fragments between verses. The tint is quieter than the
+ * deep-link highlight because it persists for as long as the reader studies
+ * the verse, rather than fading after arriving at it, and the underline is
+ * what actually marks the selection: it follows the text line by line instead
+ * of drawing one block across the column.
+ */
+:host(.verse-selected) .verseRun:not(.verseGap) {
+  background-color: var(--study-selection-color);
+  padding-block: 0.1em;
+  box-shadow: inset 0 -1px 0 var(--study-selection-border);
+}
+
+.verseNumber[role="button"] {
+  cursor: pointer;
+  position: relative;
+}
+
+/* The number is a button set at two thirds of the text's size, far under what
+   a pointer can reliably hit: its target is made larger than it looks, without
+   moving anything. */
+.verseNumber[role="button"]::after {
+  content: "";
+  position: absolute;
+  inset: -6px -4px;
+}
+
+.verseNumber[role="button"]:focus-visible {
+  outline: 2px solid var(--text-secondary);
+  outline-offset: 2px;
+}
+
+/* Only a passage being quoted inside prose is set in italic. A book written
+   in verse — the psalms above all — is not quoting anyone, and italicising it
+   would put a whole book in italics. */
+:host(.verse-quotation) .quoteLineWrapper {
+  font-style: italic;
+}
+
+/*
+ * A reader's own mark on the text.
+ *
+ * Painted on the runs, like the deep-link highlight and the study selection,
+ * for the same reason: the host is an inline box that also covers the empty
+ * line fragments between verses. Kept lighter than the selection so a page of
+ * marked verses stays a page of text, and so a marked verse that is also
+ * selected still reads as selected.
+ */
+:host(.verse-marked) .verseRun:not(.verseGap) {
+  background-color: var(--verse-mark-color);
+  padding-block: 0.1em;
+}
+
+/* Mid-run, the number and the space before it are inside the mark rather
+   than at its edge, so they are painted too: without this a passage marked
+   across several verses shows a hole at each verse number. */
+:host(.verse-marked.mark-continues) .verseGap,
+:host(.verse-marked.mark-continues) .verseNumber,
+:host(.verse-marked.mark-continues) .footnoteIndicator {
+  background-color: var(--verse-mark-color);
+}
+
+/* Poetry is the exception to the rule above. Its number and footnote marker
+   hang off the left of the line (position: absolute) rather than sitting in
+   it, so leaving them out tears no hole in the mark — it leaves the margin
+   clean, and the mark covers the words it was made on and nothing else. */
+:host(.verse-marked) .quoteVerseNumber,
+:host(.verse-marked) .quoteVerseNumber .verseNumber,
+:host(.verse-marked) .quoteVerseNumber .footnoteIndicator {
+  background-color: transparent;
+}
+
+:host([data-highlight="yellow"]) { --verse-mark-color: rgb(var(--mark-yellow) / 0.34); }
+:host([data-highlight="green"]) { --verse-mark-color: rgb(var(--mark-green) / 0.32); }
+:host([data-highlight="blue"]) { --verse-mark-color: rgb(var(--mark-blue) / 0.32); }
+:host([data-highlight="pink"]) { --verse-mark-color: rgb(var(--mark-pink) / 0.32); }
+
+/*
+ * Verse numbers and footnote markers are apparatus, not words: a reader's own
+ * mark covers the words rather than bracketing them with a tinted number, and
+ * the spaces between verses are not painted, so a mark ends with the sentence
+ * rather than trailing past it. They are not kept out of a selection: copying
+ * a passage keeps its verse numbers, parted from the words (see .copySpace).
+ */
+
+/* Forced colours drop backgrounds and shadows, which are all that a selected
+   verse and a mark are made of. A line under the words survives them: solid
+   for the verse chosen, dotted for one that is marked. */
+@media (forced-colors: active) {
+  :host(.verse-selected) .verseRun:not(.verseGap) {
+    text-decoration: underline solid Highlight 2px;
+    text-underline-offset: 3px;
+  }
+
+  :host([data-highlight]:not(.verse-selected)) .verseRun:not(.verseGap) {
+    text-decoration: underline dotted CanvasText 2px;
+    text-underline-offset: 3px;
+  }
+}

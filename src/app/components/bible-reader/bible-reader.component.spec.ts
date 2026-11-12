@@ -9,6 +9,7 @@ import {
 } from "@angular/core"
 import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
+import { MatDialog } from "@angular/material/dialog"
 import { type MatDrawer, MatSidenavModule } from "@angular/material/sidenav"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { By } from "@angular/platform-browser"
@@ -16,11 +17,14 @@ import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
 import {
   ActivatedRoute,
   type Navigation,
+  NavigationEnd,
+  NavigationStart,
   Router,
   RouterLink,
 } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
-import { BehaviorSubject, of, Subject, throwError } from "rxjs"
+
+import { BehaviorSubject, NEVER, of, Subject, throwError } from "rxjs"
 import type { Mock } from "vitest"
 import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
 import { AnalyticsService } from "../../services/analytics.service"
@@ -34,9 +38,41 @@ import { NativeChromeService } from "../../services/native-chrome.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
+import { ReadingTrailService } from "../../services/reading-trail.service"
 import { SeoService } from "../../services/seo.service"
+import { StudyModeService } from "../../services/study-mode.service"
+import { ToastService } from "../../services/toast.service"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BibleReaderComponent } from "./bible-reader.component"
+
+/**
+ * Study mode measures the real window, which the runner cannot resize, so the
+ * reader's tests drive it through this stand-in instead.
+ */
+class FakeStudyModeService {
+  readonly availableSubject = new BehaviorSubject(false)
+  readonly activeSubject = new BehaviorSubject(false)
+  readonly available$ = this.availableSubject.asObservable()
+  readonly active$ = this.activeSubject.asObservable()
+  isEnabled = false
+  get isAvailable(): boolean {
+    return this.availableSubject.value
+  }
+  shortcutsEnabled = true
+  toggle = vi
+    .fn()
+    .mockName("toggle")
+    .mockImplementation(() => {
+      this.isEnabled = !this.isEnabled
+      this.activeSubject.next(this.isEnabled && this.availableSubject.value)
+    })
+
+  activate(): void {
+    this.availableSubject.next(true)
+    this.isEnabled = true
+    this.activeSubject.next(true)
+  }
+}
 
 describe("BibleReaderComponent", () => {
   let component: BibleReaderComponent
@@ -47,6 +83,7 @@ describe("BibleReaderComponent", () => {
   let bookServiceSpy: SpyObj<BookService>
   let preferencesServiceSpy: SpyObj<PreferencesService>
   let routerSpy: SpyObj<Router>
+  let routerEvents: Subject<NavigationStart | NavigationEnd>
   /** Router.currentNavigation: set while a navigation is in flight. */
   let navigationInFlight: ReturnType<typeof signal<Navigation | null>>
   let hapticsSpy: SpyObj<HapticsService>
@@ -56,6 +93,7 @@ describe("BibleReaderComponent", () => {
   let networkServiceSpy: SpyObj<NetworkService>
   let snackBarSpy: SpyObj<MatSnackBar>
   let seoServiceSpy: SpyObj<SeoService>
+  let studyMode: FakeStudyModeService
 
   const mockBooks = [
     { id: "gen", name: "Genesis", urlAbrv: "1-genesis", chapterCount: 50 },
@@ -96,12 +134,26 @@ describe("BibleReaderComponent", () => {
       "setLastBookId",
       "getLastChapterNumber",
       "setLastChapterNumber",
+      "getStudyMode",
+      "setStudyMode",
+      "getStudySidebarCollapsed",
+      "setStudySidebarCollapsed",
+      "getStudyPanelCollapsed",
+      "setStudyPanelCollapsed",
+      "getStudyColumnWidths",
+      "setStudyColumnWidths",
       // TextAlignService reads it, for the notes' alignment (NativeFootnotesService).
       "getRaggedText",
     ])
+    preferencesServiceSpy.getStudyMode.mockReturnValue(false)
+    preferencesServiceSpy.getStudySidebarCollapsed.mockReturnValue(false)
+    preferencesServiceSpy.getStudyPanelCollapsed.mockReturnValue(false)
+    preferencesServiceSpy.getStudyColumnWidths.mockReturnValue({})
 
     routerSpy = createSpyObj("Router", ["navigate"])
     routerSpy.navigate.mockResolvedValue(true)
+    routerEvents = new Subject<NavigationStart | NavigationEnd>()
+    Object.assign(routerSpy, { events: routerEvents })
     navigationInFlight = signal<Navigation | null>(null)
     ;(
       routerSpy as unknown as {
@@ -177,6 +229,8 @@ describe("BibleReaderComponent", () => {
       of(mockChapter as unknown as Chapter),
     )
 
+    studyMode = new FakeStudyModeService()
+
     await setUpTestBed()
 
     fixture = TestBed.createComponent(BibleReaderComponent)
@@ -202,6 +256,7 @@ describe("BibleReaderComponent", () => {
         { provide: NetworkService, useValue: networkServiceSpy },
         { provide: MatSnackBar, useValue: snackBarSpy },
         { provide: SeoService, useValue: seoServiceSpy },
+        { provide: StudyModeService, useValue: studyMode },
         { provide: HapticsService, useValue: hapticsSpy },
         ...(options?.platformId
           ? [{ provide: PLATFORM_ID, useValue: options.platformId }]
@@ -475,6 +530,47 @@ describe("BibleReaderComponent", () => {
         expect(footnotes?.map((note) => note.text)).toEqual(["Nota do 2"])
       })
 
+      // In study mode the footnotes are the panel's Rodapé tab: a sheet over
+      // its three columns would be a second place for them.
+      describe("in study mode", () => {
+        const native = () => TestBed.inject(NativeFootnotesService)
+
+        it("selects the verse and shows the Rodapé tab, as a click on its marker does", () => {
+          fixture.detectChanges()
+          studyMode.activate()
+          const open = vi.spyOn(native(), "open").mockImplementation(() => {})
+          const { sheet } = follow("2")
+
+          expect(component.selection?.verse.number).toBe(2)
+          expect(component.selection?.panel).toBe("footnotes")
+          expect(sheet).not.toHaveBeenCalled()
+          expect(open).not.toHaveBeenCalled()
+        })
+
+        it("opens no sheet natively either, and still takes it off the address", () => {
+          fixture.detectChanges()
+          studyMode.activate()
+          vi.spyOn(native(), "enabled", "get").mockReturnValue(true)
+          const open = vi.spyOn(native(), "open").mockImplementation(() => {})
+          const { sheet, replaceState } = follow("2")
+
+          expect(sheet).not.toHaveBeenCalled()
+          expect(open).not.toHaveBeenCalled()
+          // The verse chosen is what the address names now, and the link's
+          // parameter is gone, so a reload does not do it again.
+          expect(replaceState.mock.lastCall?.[1]).toBe("verseStart=2")
+        })
+
+        it("still has nothing to show for a verse without notes", () => {
+          fixture.detectChanges()
+          studyMode.activate()
+          const { sheet } = follow("1")
+
+          expect(sheet).not.toHaveBeenCalled()
+          expect(component.selection).toBeNull()
+        })
+      })
+
       it("forgets them when their chapter fails to load", () => {
         vi.spyOn(console, "error").mockImplementation(() => {})
         const sheet = vi
@@ -557,6 +653,19 @@ describe("BibleReaderComponent", () => {
       expect(apiServiceSpy.getChapter).not.toHaveBeenCalled()
       expect(animationServiceSpy.scrollToVerseElement).toHaveBeenCalled()
     })
+  })
+
+  // The router's own events are listened to from the start, but a navigation
+  // already under way when the reader opens holds back the first read of the
+  // route, and with it the book.
+  it("ignores a navigation that ends before the book is known", () => {
+    navigationInFlight.set({} as Navigation)
+    fixture.detectChanges()
+    expect(component.book).toBeUndefined()
+
+    expect(() =>
+      component["followLinkToVerse"]("/gn/1?verseStart=3"),
+    ).not.toThrow()
   })
 
   describe("when the book list cannot be loaded", () => {
@@ -1212,6 +1321,43 @@ describe("BibleReaderComponent", () => {
       expect(component.gestures.decreaseFontSize).toHaveBeenCalled()
     })
 
+    describe("arrow keys inside a text field", () => {
+      it("leaves the caret alone instead of changing chapter", () => {
+        const input = document.createElement("input")
+        document.body.appendChild(input)
+        const event = new KeyboardEvent("keydown", { key: "ArrowRight" })
+        Object.defineProperty(event, "target", { value: input })
+
+        component.onArrowPress(event)
+
+        expect(routerSpy.navigate).not.toHaveBeenCalled()
+        input.remove()
+      })
+
+      it("still changes chapter from anywhere else on the page", () => {
+        const event = new KeyboardEvent("keydown", { key: "ArrowRight" })
+        Object.defineProperty(event, "target", { value: document.body })
+
+        component.onArrowPress(event)
+
+        expect(routerSpy.navigate).toHaveBeenCalled()
+      })
+    })
+
+    it("leaves an arrow key to the control that already used it", () => {
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowRight",
+        cancelable: true,
+      })
+      Object.defineProperty(event, "target", { value: document.body })
+      // What a column divider or the panel's tab strip does with the key.
+      event.preventDefault()
+
+      component.onArrowPress(event)
+
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
+    })
+
     // The Android text sheet steps by its own 10.
     it("passes the text sheet's step and reset on to the gestures directive", () => {
       component.gestures = createSpyObj("UnifiedGesturesDirective", [
@@ -1275,19 +1421,82 @@ describe("BibleReaderComponent", () => {
       it("should check if the next verse starts with a quote", () => {
         component.chapter = {
           verses: [
-            { number: 1, text: [{ type: "text" }] },
-            { number: 2, text: [{ type: "footnote" }, { type: "quote" }] },
+            { number: 1, text: [{ type: "text", text: "a" }] },
+            {
+              number: 2,
+              text: [
+                { type: "footnote", text: "n" },
+                { type: "quote", text: "q" },
+              ],
+            },
           ],
         } as unknown as Chapter
 
         expect(component.checkIfNextVerseStartsWithQuote(0)).toBe(true)
       })
 
+      // A blank element is dropped from what is drawn, so it is not what
+      // the verse starts with: the question is about what is seen first.
+      it("should look past a blank text to the quote that is drawn", () => {
+        for (const blank of ["", " "]) {
+          component.chapter = {
+            verses: [
+              { number: 1, text: [{ type: "text", text: "a" }] },
+              {
+                number: 2,
+                text: [
+                  { type: "text", text: blank },
+                  { type: "quote", text: "q" },
+                ],
+              },
+            ],
+          } as unknown as Chapter
+
+          expect(component.checkIfNextVerseStartsWithQuote(0)).toBe(true)
+        }
+      })
+
+      it("should not count a blank quote as the start of the verse", () => {
+        component.chapter = {
+          verses: [
+            { number: 1, text: [{ type: "text", text: "a" }] },
+            {
+              number: 2,
+              text: [
+                { type: "quote", text: " " },
+                { type: "text", text: "x" },
+              ],
+            },
+          ],
+        } as unknown as Chapter
+
+        expect(component.checkIfNextVerseStartsWithQuote(0)).toBe(false)
+      })
+
+      it("should say the same of the passage open beside the chapter", () => {
+        component.parallel = {
+          chapter: {
+            verses: [
+              { number: 1, text: [{ type: "text", text: "a" }] },
+              {
+                number: 2,
+                text: [
+                  { type: "text", text: "" },
+                  { type: "quote", text: "q" },
+                ],
+              },
+            ],
+          },
+        } as unknown as typeof component.parallel
+
+        expect(component.parallelNextStartsWithQuote(0)).toBe(true)
+      })
+
       it("should return false if next verse has no displayable text", () => {
         component.chapter = {
           verses: [
-            { number: 1, text: [{ type: "text" }] },
-            { number: 2, text: [{ type: "footnote" }] },
+            { number: 1, text: [{ type: "text", text: "a" }] },
+            { number: 2, text: [{ type: "footnote", text: "n" }] },
           ],
         } as unknown as Chapter
 
@@ -1612,6 +1821,1354 @@ describe("BibleReaderComponent", () => {
     })
   })
 
+  describe("quoted passages vs. books written in verse", () => {
+    function quote(text: string): TextType {
+      return { type: "quote", text } as TextType
+    }
+    function prose(text: string): TextType {
+      return { type: "text", text } as TextType
+    }
+    function heading(text: string): TextType {
+      return {
+        type: "section",
+        tag: "s1",
+        text,
+      } as TextType
+    }
+    function verse(number: number, text: TextType[]): Verse {
+      return {
+        bookId: "gen",
+        chapterNumber: 1,
+        number,
+        verseLabel: `${number}`,
+        text,
+      }
+    }
+
+    function load(verses: Verse[]): void {
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
+      )
+      fixture.detectChanges()
+      component.getChapter(1)
+    }
+
+    it("marks poetry that prose introduces", () => {
+      const verses = [
+        verse(37, [prose("Jesus disse-lhe:"), quote("Amarás ao Senhor,")]),
+      ]
+      load(verses)
+
+      expect(component.isQuotationVerse(verses[0])).toBe(true)
+    })
+
+    it("carries the mark through the rest of the quoted passage", () => {
+      // "…dizendo:" ends one verse and the quotation runs into the next,
+      // which therefore opens on poetry and looks like a psalm on its own.
+      const verses = [
+        verse(43, [
+          prose("Como é, então, que David lhe chama Senhor, dizendo:"),
+        ]),
+        verse(44, [quote("Disse o Senhor ao meu Senhor:")]),
+        verse(45, [prose("Ora, se David lhe chama Senhor…")]),
+      ]
+      load(verses)
+
+      expect(component.isQuotationVerse(verses[1])).toBe(true)
+      expect(component.isQuotationVerse(verses[2])).toBe(false)
+    })
+
+    // The next verse's first part is met by the same rule as any verse's: an
+    // empty run or a heading in front of the poetry is not the poetry's start.
+    it("sees a quotation coming through an empty run or a heading in the next verse", () => {
+      const intro = prose("Como é que David lhe chama Senhor, dizendo:")
+      for (const lead of [prose(""), prose(" "), heading("O SENHOR DISSE")]) {
+        const verses = [
+          verse(43, [intro]),
+          verse(44, [lead, quote("Disse o Senhor ao meu Senhor:")]),
+          verse(45, [prose("Ora, se David lhe chama Senhor…")]),
+        ]
+        load(verses)
+
+        expect(component.isQuotationVerse(verses[1])).toBe(true)
+        expect(component.isQuotationVerse(verses[2])).toBe(false)
+      }
+    })
+
+    it("does not read a prophet's superscription as introducing a quotation", () => {
+      // Isaiah 1: a prose title, then a chapter of poetry. Every verse after
+      // the title opens on poetry and so continues what came before — which
+      // set all of it in italics while Isaiah 2 stayed upright.
+      const verses = [
+        verse(1, [prose("Visão de Isaías, filho de Amós, reis de Judá.")]),
+        verse(2, [quote("Ouvi, ó céus, escuta, ó terra,")]),
+        verse(3, [quote("O boi conhece o seu dono,")]),
+      ]
+      load(verses)
+
+      expect(component.isQuotationVerse(verses[1])).toBe(false)
+      expect(component.isQuotationVerse(verses[2])).toBe(false)
+    })
+
+    it("reads the colon through a closing quotation mark", () => {
+      const verses = [
+        verse(5, [prose("e disse: «Está escrito:» "), quote("Nem só de pão")]),
+      ]
+      load(verses)
+
+      expect(component.isQuotationVerse(verses[0])).toBe(true)
+    })
+
+    it("leaves a book written in verse unmarked", () => {
+      // A psalm: every verse opens on poetry, prose and all.
+      const verses = [
+        verse(1, [
+          quote("\u200b"),
+          prose("Feliz o homem"),
+          quote("nem se detém"),
+        ]),
+        verse(2, [
+          quote("\u200b"),
+          prose("antes põe o seu enlevo"),
+          quote("e nela medita"),
+        ]),
+      ]
+      load(verses)
+
+      expect(component.isQuotationVerse(verses[0])).toBe(false)
+      expect(component.isQuotationVerse(verses[1])).toBe(false)
+    })
+
+    it("does not read a section heading as prose introducing a quotation", () => {
+      // The chapter's front matter is nothing but a heading; counting it as
+      // prose made every psalm under a title read as a quotation.
+      const verses = [
+        verse(0, [heading("OS DOIS CAMINHOS")]),
+        verse(1, [
+          quote("\u200b"),
+          prose("Feliz o homem"),
+          quote("nem se detém"),
+        ]),
+      ]
+      load(verses)
+
+      expect(component.isQuotationVerse(verses[1])).toBe(false)
+    })
+  })
+
+  describe("reading trail", () => {
+    beforeEach(() => {
+      fixture.detectChanges()
+      // Booting the reader already records where it opened; each test below
+      // is about what happens next.
+      TestBed.inject(ReadingTrailService).clear()
+    })
+
+    it("records the chapter the reader lands on", () => {
+      bookServiceSpy.getUrlAbrv.mockReturnValue("gn")
+      bookServiceSpy.getChapterUrlSegment.mockReturnValue("1")
+
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({ bookId: "gen", number: 1, verses: [] } as unknown as Chapter),
+      )
+      component.getChapter(1)
+
+      expect(component.trail.map((entry) => entry.key)).toEqual(["gen:1"])
+    })
+
+    it("restarts the trail from where the reader is standing", () => {
+      bookServiceSpy.getUrlAbrv.mockReturnValue("gn")
+      bookServiceSpy.getChapterUrlSegment.mockReturnValue("3")
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({ bookId: "gen", number: 3, verses: [] } as unknown as Chapter),
+      )
+      component.getChapter(1)
+      component.getChapter(3)
+      expect(component.trail.length).toBeGreaterThan(1)
+
+      component.resetTrail()
+
+      // Not emptied: the chapter on screen is the one place the way back
+      // must still lead.
+      expect(component.trail.map((entry) => entry.key)).toEqual(["gen:3"])
+    })
+
+    it("keeps the About page off the trail", () => {
+      component.book = { id: "about", shortName: "Sobre" } as Book
+      component.getChapter(1)
+
+      expect(component.trail).toEqual([])
+    })
+
+    it("names a book's introduction rather than numbering it", () => {
+      bookServiceSpy.getUrlAbrv.mockReturnValue("gn")
+      bookServiceSpy.getChapterUrlSegment.mockReturnValue("intro")
+      component.book = {
+        id: "gen",
+        shortName: "Génesis",
+        introduction: [{ type: "introParagraph", text: "x" }],
+      } as Book
+
+      component.getChapter(0)
+
+      expect(component.trail.map((entry) => entry.label)).toEqual([
+        "Génesis · Intro",
+      ])
+    })
+  })
+
+  describe("dragging the columns to size", () => {
+    beforeEach(() => {
+      // Wide enough for the widths dragged to below: a column is drawn at most
+      // a share of the window (28vw, 38vw), which the 800px test window is not.
+      vi.stubGlobal("innerWidth", 1600)
+      fixture.detectChanges()
+      studyMode.activate()
+    })
+
+    it("follows the pointer, and keeps where it was let go", () => {
+      studyMode.activate()
+      fixture.detectChanges()
+      const divider = fixture.nativeElement.querySelector(
+        ".rail-divider",
+      ) as HTMLElement
+      // Pointer capture needs a live pointer, which a dispatched event is not.
+      divider.setPointerCapture = () => {}
+      const drag = (type: string, clientX: number) =>
+        divider.dispatchEvent(
+          new PointerEvent(type, { bubbles: true, clientX, pointerId: 1 }),
+        )
+
+      component.columns.widths = { rail: 300 }
+      drag("pointerdown", 300)
+      drag("pointermove", 340)
+      drag("pointerup", 340)
+
+      expect(component.columns.widths.rail).toBe(340)
+      expect(component.columns.resizing).toBeNull()
+      expect(preferencesServiceSpy.setStudyColumnWidths).toHaveBeenCalledWith({
+        rail: 340,
+      })
+    })
+
+    it("widens the panel as the pointer moves the other way", () => {
+      studyMode.activate()
+      fixture.detectChanges()
+      const divider = fixture.nativeElement.querySelector(
+        ".panel-divider",
+      ) as HTMLElement
+      divider.setPointerCapture = () => {}
+      const drag = (type: string, clientX: number) =>
+        divider.dispatchEvent(
+          new PointerEvent(type, { bubbles: true, clientX, pointerId: 1 }),
+        )
+
+      component.columns.widths = { panel: 400 }
+      drag("pointerdown", 1000)
+      // The panel is on the right, so it grows as the pointer moves left.
+      drag("pointermove", 940)
+      drag("pointerup", 940)
+
+      expect(component.columns.widths.panel).toBe(460)
+    })
+
+    it("moves the split by the share of the column the pointer crossed", () => {
+      studyMode.activate()
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({ bookId: "job", number: 38, verses: [] } as unknown as Chapter),
+      )
+      component.onOpenBeside({
+        key: "job:38",
+        label: "Job 38",
+        bookId: "job",
+        chapterNumber: 38,
+        link: ["/", "jb", 38],
+        queryParams: null,
+      })
+      fixture.detectChanges()
+      // A known column width, so the pixel-to-percentage conversion has
+      // something to divide by: 100px of a 1000px column is 10%.
+      const column = component.studyColumn?.nativeElement as HTMLElement
+      vi.spyOn(column, "getBoundingClientRect").mockReturnValue({
+        width: 1000,
+      } as DOMRect)
+      const divider = fixture.nativeElement.querySelector(
+        ".split-divider",
+      ) as HTMLElement
+      divider.setPointerCapture = () => {}
+      const drag = (type: string, clientX: number) =>
+        divider.dispatchEvent(
+          new PointerEvent(type, { bubbles: true, clientX, pointerId: 1 }),
+        )
+
+      component.columns.widths = { split: 50 }
+      drag("pointerdown", 500)
+      drag("pointermove", 600)
+      drag("pointerup", 600)
+
+      expect(component.columns.widths.split).toBe(60)
+    })
+
+    it("opens where the reader last left the dividers", () => {
+      expect(preferencesServiceSpy.getStudyColumnWidths).toHaveBeenCalled()
+    })
+  })
+
+  describe("a passage open beside the chapter", () => {
+    const request = {
+      key: "job:38",
+      label: "Job 38,4-6",
+      bookId: "job",
+      chapterNumber: 38,
+      verseStart: 4,
+      verseEnd: 6,
+      link: ["/", "jb", 38],
+      queryParams: { verseStart: 4 },
+    }
+    const jobChapter = { bookId: "job", number: 38, verses: [] }
+
+    beforeEach(() => {
+      fixture.detectChanges()
+      studyMode.activate()
+    })
+
+    it("fetches the whole chapter, not only the verses named", () => {
+      apiServiceSpy.getChapter.mockReturnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+
+      component.onOpenBeside(request)
+
+      expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("job", 38)
+      expect(component.parallel?.chapter).toBe(jobChapter as unknown as Chapter)
+    })
+
+    describe("where the focus goes", () => {
+      let opener: HTMLButtonElement
+
+      beforeEach(() => {
+        apiServiceSpy.getChapter.mockReturnValue(
+          of(jobChapter as unknown as Chapter),
+        )
+        opener = document.createElement("button")
+        opener.textContent = "Abrir ao lado"
+        document.body.appendChild(opener)
+        opener.focus()
+      })
+
+      afterEach(() => opener.remove())
+
+      it("is on the passage that was asked for, not left on a button that has folded away", () => {
+        component.onOpenBeside(request)
+
+        const pane = fixture.nativeElement.querySelector(".study-parallel")
+        expect(pane).toBeTruthy()
+        expect(document.activeElement).toBe(pane)
+      })
+
+      it("goes back to what asked, when the passage is closed", () => {
+        component.onOpenBeside(request)
+
+        component.closeParallel()
+
+        expect(document.activeElement).toBe(opener)
+      })
+
+      it("does not take the focus from where the reader has put it since", () => {
+        component.onOpenBeside(request)
+        const elsewhere = document.createElement("input")
+        document.body.appendChild(elsewhere)
+        elsewhere.focus()
+
+        component.closeParallel()
+
+        expect(document.activeElement).toBe(elsewhere)
+        elsewhere.remove()
+      })
+
+      it("copes with an opener that has gone in the meantime", () => {
+        component.onOpenBeside(request)
+        opener.remove()
+
+        expect(() => component.closeParallel()).not.toThrow()
+      })
+    })
+
+    it("sets the passage as plain reading text, not as verse selectors", () => {
+      // Nothing listens for a selection made in the parallel, so a verse set
+      // as a selector there had a number that was a button doing nothing and
+      // a footnote marker that opened nothing.
+      const verses = [
+        {
+          bookId: "job",
+          chapterNumber: 38,
+          number: 4,
+          verseLabel: "4",
+          text: [
+            { type: "text", text: "Onde estavas tu:" },
+            { type: "quote", text: "quando lancei", identLevel: 1 },
+            { type: "footnote", text: "nota", reference: "38,4" },
+          ],
+        },
+      ]
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({ bookId: "job", number: 38, verses } as unknown as Chapter),
+      )
+
+      component.onOpenBeside(request)
+      fixture.detectChanges()
+
+      // Children are stubbed out here, so the bindings are read off the
+      // element the reader hands them to.
+      const verse = fixture.nativeElement.querySelector(
+        ".study-parallel verse",
+      ) as HTMLElement & { studyMode?: boolean; isQuotation?: boolean }
+      expect(verse).toBeTruthy()
+      expect(verse.studyMode).toBeFalsy()
+      // The selection bar marks and cites against this, not the chapter.
+      expect(component.parallelBook?.id).toBe(bookServiceSpy.findBook("job").id)
+      // Set like the chapter beside it: a quotation is italic in both.
+      expect(verse.isQuotation).toBe(true)
+    })
+
+    it("asks again for a passage that failed to load", () => {
+      apiServiceSpy.getChapter.mockReturnValue(throwError(() => new Error()))
+      component.onOpenBeside(request)
+      expect(component.parallel?.failed).toBe(true)
+
+      apiServiceSpy.getChapter.mockReturnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+      component.retryParallel()
+
+      expect(component.parallel?.failed).toBeFalsy()
+      expect(component.parallel?.chapter).toBeTruthy()
+    })
+
+    it("names the passage before its text arrives", () => {
+      const pending = new Subject<Chapter>()
+      apiServiceSpy.getChapter.mockReturnValue(pending)
+
+      component.onOpenBeside(request)
+
+      expect(component.parallel?.label).toBe("Job 38,4-6")
+      expect(component.parallel?.chapter).toBeUndefined()
+      expect(component.parallel?.failed).toBeFalsy()
+
+      pending.next(jobChapter as unknown as Chapter)
+      expect(component.parallel?.chapter).toBeTruthy()
+    })
+
+    it("says when a passage could not be fetched", () => {
+      apiServiceSpy.getChapter.mockReturnValue(
+        throwError(() => new Error("offline")),
+      )
+
+      component.onOpenBeside(request)
+
+      expect(component.parallel?.failed).toBe(true)
+      expect(component.parallel?.chapter).toBeUndefined()
+    })
+
+    it("marks the verses the reference names, and no others", () => {
+      apiServiceSpy.getChapter.mockReturnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+      component.onOpenBeside(request)
+
+      expect(component.isCitedVerse({ number: 3 } as Verse)).toBe(false)
+      expect(component.isCitedVerse({ number: 4 } as Verse)).toBe(true)
+      expect(component.isCitedVerse({ number: 6 } as Verse)).toBe(true)
+      expect(component.isCitedVerse({ number: 7 } as Verse)).toBe(false)
+    })
+
+    it("marks a single named verse", () => {
+      apiServiceSpy.getChapter.mockReturnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+      component.onOpenBeside({ ...request, verseStart: 4, verseEnd: undefined })
+
+      expect(component.isCitedVerse({ number: 4 } as Verse)).toBe(true)
+      expect(component.isCitedVerse({ number: 5 } as Verse)).toBe(false)
+    })
+
+    it("marks nothing where the reference names a whole chapter", () => {
+      apiServiceSpy.getChapter.mockReturnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+      component.onOpenBeside({
+        ...request,
+        verseStart: undefined,
+        verseEnd: undefined,
+      })
+
+      expect(component.isCitedVerse({ number: 1 } as Verse)).toBe(false)
+    })
+
+    it("folds the panel away to make room, and gives it back", () => {
+      apiServiceSpy.getChapter.mockReturnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+      preferencesServiceSpy.setStudyPanelCollapsed.mockClear()
+
+      component.onOpenBeside(request)
+      expect(component.studyPanelCollapsed).toBe(true)
+      // Borrowed, not chosen: the reader's own preference is untouched.
+      expect(
+        preferencesServiceSpy.setStudyPanelCollapsed,
+      ).not.toHaveBeenCalled()
+
+      component.closeParallel()
+      expect(component.studyPanelCollapsed).toBe(false)
+    })
+
+    it("leaves a panel the reader folded folded", () => {
+      apiServiceSpy.getChapter.mockReturnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+      component.toggleStudyPanel()
+      expect(component.studyPanelCollapsed).toBe(true)
+
+      component.onOpenBeside(request)
+      component.closeParallel()
+
+      expect(component.studyPanelCollapsed).toBe(true)
+    })
+
+    it("does not unfold a panel the reader opened while comparing", () => {
+      apiServiceSpy.getChapter.mockReturnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+      component.onOpenBeside(request)
+      component.toggleStudyPanel()
+      expect(component.studyPanelCollapsed).toBe(false)
+
+      component.closeParallel()
+
+      expect(component.studyPanelCollapsed).toBe(false)
+    })
+
+    it("closes when asked", () => {
+      apiServiceSpy.getChapter.mockReturnValue(
+        of(jobChapter as unknown as Chapter),
+      )
+      component.onOpenBeside(request)
+
+      component.closeParallel()
+
+      expect(component.parallel).toBeNull()
+    })
+
+    it("closes itself once the chapter it holds is the one being read", () => {
+      apiServiceSpy.getChapter.mockReturnValue(
+        of(mockChapter as unknown as Chapter),
+      )
+      // The parallel is Genesis 1, and so is the chapter about to be applied:
+      // the same text twice is not a parallel.
+      component.onOpenBeside({
+        ...request,
+        key: "gen:1",
+        bookId: "gen",
+        chapterNumber: 1,
+      })
+      expect(component.parallel).not.toBeNull()
+
+      component.getChapter(1)
+
+      expect(component.parallel).toBeNull()
+    })
+
+    it("stays open on a chapter it is not a copy of", () => {
+      apiServiceSpy.getChapter.mockReturnValue(
+        of(mockChapter as unknown as Chapter),
+      )
+      component.onOpenBeside(request)
+
+      component.getChapter(1)
+
+      expect(component.parallel?.label).toBe("Job 38,4-6")
+    })
+  })
+
+  describe("study mode", () => {
+    beforeEach(() => {
+      fixture.detectChanges()
+    })
+
+    describe("when the window narrows past study mode", () => {
+      let show: ReturnType<typeof vi.spyOn>
+
+      beforeEach(() => {
+        show = vi
+          .spyOn(TestBed.inject(ToastService), "show")
+          .mockReturnValue(undefined as never)
+        studyMode.activate()
+      })
+
+      const narrow = (): void => {
+        studyMode.availableSubject.next(false)
+        studyMode.activeSubject.next(false)
+      }
+      const widen = (): void => {
+        studyMode.availableSubject.next(true)
+        studyMode.activeSubject.next(true)
+      }
+
+      it("says why the layout changed, since nothing else does", () => {
+        narrow()
+
+        expect(show).toHaveBeenCalledExactlyOnceWith(
+          "O modo de estudo precisa de uma janela mais larga. Volta quando ela o permitir.",
+          { action: "OK" },
+        )
+      })
+
+      it("says it once, not every time a drag crosses the line", () => {
+        narrow()
+        widen()
+        narrow()
+
+        expect(show).toHaveBeenCalledTimes(1)
+      })
+
+      it("says nothing when the reader turned study mode off themselves", () => {
+        studyMode.toggle()
+
+        expect(show).not.toHaveBeenCalled()
+      })
+    })
+
+    it("passes the service's availability on to the header", () => {
+      studyMode.availableSubject.next(true)
+      expect(component.studyModeAvailable).toBe(true)
+    })
+
+    it("turns on when the service says it is active", () => {
+      studyMode.activate()
+      expect(component.studyModeActive).toBe(true)
+    })
+
+    it("keeps the About page out of it, having no verses to study", () => {
+      studyMode.activate()
+      component.book = { id: "about" } as Book
+
+      expect(component.studyModeActive).toBe(false)
+    })
+
+    it("reads in one column, whatever the paged preference says", () => {
+      component.viewMode = "paged"
+      expect(component.effectiveViewMode).toBe("paged")
+
+      studyMode.activate()
+      expect(component.effectiveViewMode).toBe("scrolling")
+    })
+
+    it("asks the service to toggle, and reports it", () => {
+      studyMode.availableSubject.next(true)
+      component.onToggleStudyMode()
+
+      expect(studyMode.toggle).toHaveBeenCalled()
+      expect(analyticsServiceSpy.track).toHaveBeenCalledWith(
+        "study_mode_toggle",
+        expect.objectContaining({ enabled: true }),
+      )
+    })
+
+    it("keeps the verse the reader selected", () => {
+      studyMode.activate()
+      const verse = { number: 39 } as Verse
+
+      component.onVerseSelected({ verse })
+
+      expect(component.selection?.verse).toBe(verse)
+    })
+
+    it("lets go of the verse when it is clicked a second time", () => {
+      studyMode.activate()
+      const verse = { number: 39 } as Verse
+
+      component.onVerseSelected({ verse })
+      component.onVerseSelected({ verse })
+
+      expect(component.selection).toBeNull()
+    })
+
+    it("keeps the verse when the second click asks for a tab", () => {
+      studyMode.activate()
+      const verse = { number: 39 } as Verse
+
+      component.onVerseSelected({ verse })
+      component.onVerseSelected({ verse, panel: "footnotes" })
+
+      expect(component.selection?.panel).toBe("footnotes")
+    })
+
+    it("selects a different verse rather than letting go", () => {
+      studyMode.activate()
+      component.onVerseSelected({ verse: { number: 39 } as Verse })
+
+      component.onVerseSelected({ verse: { number: 40 } as Verse })
+
+      expect(component.selection?.verse.number).toBe(40)
+    })
+
+    it("lets go of the verse on Escape", () => {
+      studyMode.activate()
+      component.onVerseSelected({ verse: { number: 39 } as Verse })
+
+      const event = new KeyboardEvent("keydown", { key: "Escape" })
+      Object.defineProperty(event, "target", { value: document.body })
+      component.onArrowPress(event)
+
+      expect(component.selection).toBeNull()
+    })
+
+    it("leaves Escape alone while the reader is typing a note", () => {
+      studyMode.activate()
+      component.onVerseSelected({ verse: { number: 39 } as Verse })
+
+      const textarea = document.createElement("textarea")
+      const event = new KeyboardEvent("keydown", { key: "Escape" })
+      Object.defineProperty(event, "target", { value: textarea })
+      component.onArrowPress(event)
+
+      expect(component.selection).not.toBeNull()
+    })
+
+    // The zoneless fixture runs change detection on its own, which re-resolves
+    // the @ViewChild between a spec's assignment and the frame that reads it.
+    // A setter that ignores that write keeps the stand-in in place.
+    const pinStudyScroll = (nativeElement: object) => {
+      const standIn = { nativeElement } as unknown as ElementRef<HTMLElement>
+      Object.defineProperty(component, "studyScroll", {
+        get: () => standIn,
+        set: () => {},
+        configurable: true,
+      })
+    }
+
+    it("follows the reading position as the column scrolls", async () => {
+      vi.useFakeTimers()
+      studyMode.activate()
+      // A column whose top is at 0, with three verses laid out down it: the
+      // first has scrolled past, the second is the one being read.
+      const verse = (id: string, bottom: number) =>
+        ({
+          id,
+          getBoundingClientRect: () => ({ bottom }) as DOMRect,
+        }) as HTMLElement
+      pinStudyScroll({
+        getBoundingClientRect: () => ({ top: 0 }) as DOMRect,
+        querySelectorAll: () => [
+          verse("1", -40),
+          verse("2", 120),
+          verse("3", 400),
+        ],
+      })
+
+      component.onStudyScroll()
+      await vi.advanceTimersByTimeAsync(16)
+
+      expect(component.visibleVerse).toBe(2)
+    })
+
+    it("does not follow the scroll outside study mode", async () => {
+      vi.useFakeTimers()
+      pinStudyScroll({
+        getBoundingClientRect: () => ({ top: 0 }) as DOMRect,
+        querySelectorAll: () => [],
+      })
+
+      component.onStudyScroll()
+      await vi.advanceTimersByTimeAsync(16)
+
+      expect(component.visibleVerse).toBeUndefined()
+    })
+
+    it("forgets the reading position when the chapter changes", () => {
+      studyMode.activate()
+      component.visibleVerse = 39
+
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({ bookId: "gen", number: 2, verses: [] } as unknown as Chapter),
+      )
+      component.getChapter(2)
+
+      expect(component.visibleVerse).toBeUndefined()
+    })
+
+    it("drops the selection when study mode goes away", () => {
+      studyMode.activate()
+      component.onVerseSelected({ verse: { number: 39 } as Verse })
+
+      studyMode.activeSubject.next(false)
+
+      expect(component.selection).toBeNull()
+    })
+
+    it("drops the selection when the chapter changes under it", () => {
+      studyMode.activate()
+      component.onVerseSelected({ verse: { number: 39 } as Verse })
+
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({ bookId: "gen", number: 2, verses: [] } as unknown as Chapter),
+      )
+      component.getChapter(2)
+
+      expect(component.selection).toBeNull()
+    })
+
+    it("restores the folded state of each side column", () => {
+      preferencesServiceSpy.getStudySidebarCollapsed.mockReturnValue(true)
+      preferencesServiceSpy.getStudyPanelCollapsed.mockReturnValue(false)
+
+      const secondFixture = TestBed.createComponent(BibleReaderComponent)
+      secondFixture.detectChanges()
+
+      expect(secondFixture.componentInstance.studySidebarCollapsed).toBe(true)
+      expect(secondFixture.componentInstance.studyPanelCollapsed).toBe(false)
+    })
+
+    it("remembers a side column the reader folds away", () => {
+      component.toggleStudySidebar()
+
+      expect(component.studySidebarCollapsed).toBe(true)
+      expect(
+        preferencesServiceSpy.setStudySidebarCollapsed,
+      ).toHaveBeenCalledWith(true)
+    })
+
+    it("unfolds the panel when a verse is picked, so the answer is visible", () => {
+      studyMode.activate()
+      component.toggleStudyPanel()
+      expect(component.studyPanelCollapsed).toBe(true)
+
+      component.onVerseSelected({ verse: { number: 39 } as Verse })
+
+      expect(component.studyPanelCollapsed).toBe(false)
+      expect(preferencesServiceSpy.setStudyPanelCollapsed).toHaveBeenCalledWith(
+        false,
+      )
+    })
+
+    it("offers auto-scroll while the study column scrolls", () => {
+      studyMode.activate()
+      component.toggleAutoScrollControlsVisibility()
+
+      expect(component.showAutoScrollControls).toBe(true)
+    })
+
+    it("keeps auto-scroll when a side column is folded away", () => {
+      studyMode.activate()
+      component.toggleAutoScrollControlsVisibility()
+
+      component.toggleStudySidebar()
+
+      // Folding a rail widens the measure; it does not change how the text is
+      // read, so nothing that depends on scrolling is withdrawn.
+      expect(component.showAutoScrollControls).toBe(true)
+    })
+
+    it("offers auto-scroll in study mode even when the stored view mode is paged", () => {
+      component.viewMode = "paged"
+      studyMode.activate()
+      component.toggleAutoScrollControlsVisibility()
+
+      // Study mode with both columns open scrolls, whatever the reading
+      // layout's own preference says.
+      expect(component.showAutoScrollControls).toBe(true)
+    })
+
+    it("scrolls, whatever the reading layout's own view mode says", () => {
+      component.viewMode = "paged"
+      studyMode.activate()
+
+      expect(component.effectiveViewMode).toBe("scrolling")
+    })
+
+    it("still scrolls with a side column folded away", () => {
+      studyMode.activate()
+      component.toggleStudySidebar()
+
+      // The apparatus is tied to the scroll position — the panel follows it
+      // and auto-scroll runs down it — so study mode never pages.
+      expect(component.effectiveViewMode).toBe("scrolling")
+    })
+
+    it("leaves the reading layout's paged mode alone", () => {
+      component.viewMode = "paged"
+
+      expect(component.effectiveViewMode).toBe("paged")
+    })
+
+    describe("keyboard", () => {
+      const verses = [1, 2, 3].map((number) => ({ number }) as Verse)
+      const press = (key: string, init: KeyboardEventInit = {}) => {
+        const event = new KeyboardEvent("keydown", {
+          key,
+          cancelable: true,
+          ...init,
+        })
+        Object.defineProperty(event, "target", { value: document.body })
+        component.onArrowPress(event)
+        return event
+      }
+
+      beforeEach(() => {
+        studyMode.activate()
+        apiServiceSpy.getChapter.mockReturnValue(
+          of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
+        )
+        component.getChapter(1)
+      })
+
+      // `book` is set the moment the route changes and `chapter` only when the
+      // chapter has arrived, so with a link to a book that cannot load the panel
+      // and the bar would act on the old verse under the new book.
+      describe("the book the panel and the selection bar work on", () => {
+        const loaded = { id: "gen", name: "Génesis", shortName: "Gn" } as Book
+        const ahead = { id: "exo", name: "Êxodo", shortName: "Ex" } as Book
+
+        beforeEach(() => {
+          bookServiceSpy.findBookById.mockImplementation((id: string) =>
+            id === "gen" ? loaded : undefined,
+          )
+          component.chapter = {
+            bookId: "gen",
+            number: 1,
+            verses,
+          } as unknown as Chapter
+        })
+
+        it("is the loaded chapter's own while another book is on its way", () => {
+          component.book = ahead
+
+          expect(component.chapterBook).toBe(loaded)
+        })
+
+        it("is the book itself once its chapter is the one loaded", () => {
+          component.book = loaded
+
+          expect(component.chapterBook).toBe(loaded)
+        })
+
+        it("falls back to the book when the chapter's cannot be looked up", () => {
+          component.chapter = {
+            bookId: "lev",
+            number: 1,
+            verses,
+          } as unknown as Chapter
+          component.book = ahead
+
+          expect(component.chapterBook).toBe(ahead)
+        })
+
+        it("is what the panel and the bar are given, not the book ahead of them", () => {
+          // Rendered first, so ngOnInit has run; then the route moves on.
+          fixture.detectChanges()
+          bookServiceSpy.findBookById.mockImplementation((id: string) =>
+            id === "gen" ? loaded : undefined,
+          )
+          component.chapter = {
+            bookId: "gen",
+            number: 1,
+            verses,
+          } as unknown as Chapter
+          component.book = ahead
+          ;(
+            component as unknown as { cdr: ChangeDetectorRef }
+          ).cdr.markForCheck()
+          fixture.detectChanges()
+
+          const panel = fixture.debugElement.query(By.css("study-panel"))
+          const bar = fixture.debugElement.query(By.css("selection-actions"))
+          // Not instantiated in this spec, so the binding is on the element.
+          expect(panel.properties["book"]).toBe(loaded)
+          expect(bar.properties["book"]).toBe(loaded)
+        })
+      })
+
+      describe("the address", () => {
+        let replaceState: ReturnType<typeof vi.spyOn>
+
+        beforeEach(() => {
+          const location = TestBed.inject(Location)
+          vi.spyOn(location, "path").mockReturnValue(
+            "/mt/22?verseStart=1&highlight=1",
+          )
+          replaceState = vi.spyOn(location, "replaceState").mockReturnValue()
+        })
+
+        it("names the verse that is chosen, so a link or Partilhar lands on it", () => {
+          component.onVerseSelected({ verse: verses[1] })
+
+          expect(replaceState).toHaveBeenCalledExactlyOnceWith(
+            "/mt/22",
+            "verseStart=2",
+          )
+        })
+
+        it("is not a navigation, which would reload the chapter and add to history", () => {
+          routerSpy.navigate.mockClear()
+
+          component.onVerseSelected({ verse: verses[1] })
+
+          expect(routerSpy.navigate).not.toHaveBeenCalled()
+        })
+
+        it("follows the j and k keys, one verse at a time", () => {
+          component.visibleVerse = 1
+          press("j")
+          press("j")
+
+          expect(replaceState).toHaveBeenLastCalledWith(
+            "/mt/22",
+            "verseStart=2",
+          )
+          press("j")
+          expect(replaceState).toHaveBeenLastCalledWith(
+            "/mt/22",
+            "verseStart=3",
+          )
+        })
+
+        it("drops the verse again when the reader lets go of it", () => {
+          component.onVerseSelected({ verse: verses[1] })
+
+          component.clearSelection()
+
+          expect(replaceState).toHaveBeenLastCalledWith("/mt/22", "")
+        })
+
+        // The router has moved the address on to the chapter being loaded while
+        // the verses on screen are still the old chapter's.
+        it("is left alone while another chapter loads, whose address it already is", () => {
+          apiServiceSpy.getChapter.mockReturnValue(NEVER)
+          component.getChapter(2)
+
+          component.onVerseSelected({ verse: verses[1] })
+          component.clearSelection()
+
+          expect(replaceState).not.toHaveBeenCalled()
+        })
+
+        it("is left alone while a chapter of another book loads", () => {
+          apiServiceSpy.getChapter.mockReturnValue(NEVER)
+          // Chapter 1 of the next book is the number already on screen.
+          component.book = { id: "exo", name: "Êxodo", shortName: "Ex" } as Book
+          component.getChapter(1)
+
+          component.onVerseSelected({ verse: verses[1] })
+
+          expect(replaceState).not.toHaveBeenCalled()
+        })
+
+        it("leaves the address alone when there was nothing to let go of", () => {
+          component.clearSelection()
+
+          expect(replaceState).not.toHaveBeenCalled()
+        })
+      })
+
+      // The address moves without the router being told, so a link to where
+      // the reader began is, to the router, no change: it ends without the
+      // route's observables saying anything, and used to leave the text and
+      // the panel where they were.
+      describe("a link to where the reader began, once the address has moved on", () => {
+        // A navigation as the router runs it: it starts, the route speaks if
+        // its values changed (`during`), and it ends.
+        const navigate = (url: string, during?: () => void) => {
+          routerEvents.next(new NavigationStart(1, url))
+          during?.()
+          routerEvents.next(new NavigationEnd(1, url, url))
+        }
+
+        // No navigation has ended since the route first spoke at startup,
+        // which is how the reader is when it first has a verse to move: the
+        // first link must not be taken for one it already heard.
+        beforeEach(() => {
+          vi.spyOn(TestBed.inject(Location), "replaceState").mockReturnValue()
+          component.onVerseSelected({ verse: verses[2] })
+        })
+
+        it("takes the reader there, text and panel", () => {
+          const scroll = vi.spyOn(
+            component as unknown as { scrollToVerse: () => void },
+            "scrollToVerse",
+          )
+
+          navigate("/gn/1?verseStart=1")
+
+          expect(scroll).toHaveBeenCalledWith(1, undefined, true)
+          expect(component.selection?.verse.number).toBe(1)
+        })
+
+        it("does nothing twice when the route's observables already moved the reader", () => {
+          const scroll = vi.spyOn(
+            component as unknown as { scrollToVerse: () => void },
+            "scrollToVerse",
+          )
+          navigate("/gn/1?verseStart=1", () =>
+            (
+              routeMock as {
+                queryParamMap: BehaviorSubject<Map<string, string>>
+              }
+            ).queryParamMap.next(new Map([["verseStart", "1"]])),
+          )
+
+          expect(scroll).toHaveBeenCalledTimes(1)
+        })
+
+        it("leaves another chapter, and a link with no verse, to the route", () => {
+          const scroll = vi.spyOn(
+            component as unknown as { scrollToVerse: () => void },
+            "scrollToVerse",
+          )
+
+          navigate("/gn/2?verseStart=1")
+          navigate("/gn/1")
+
+          expect(scroll).not.toHaveBeenCalled()
+          expect(component.selection?.verse.number).toBe(3)
+        })
+      })
+
+      it("leaves every one-letter key alone when the reader has turned them off", () => {
+        studyMode.shortcutsEnabled = false
+
+        const event = press("j")
+        press("l")
+        press("n")
+
+        expect(event.defaultPrevented).toBe(false)
+        expect(component.selection).toBeNull()
+        expect(component.studySidebarCollapsed).toBe(false)
+      })
+
+      it("steps through the verses, starting from the one being read", () => {
+        component.visibleVerse = 2
+
+        // The first press lands on the verse at the top of the column, not
+        // on verse 1, which would throw the reader back up the chapter.
+        press("j")
+        expect(component.selection?.verse.number).toBe(2)
+        press("j")
+        expect(component.selection?.verse.number).toBe(3)
+        // The last verse is where it stops.
+        press("j")
+        expect(component.selection?.verse.number).toBe(3)
+        press("k")
+        expect(component.selection?.verse.number).toBe(2)
+      })
+
+      it("takes the key, so the page does not also act on it", () => {
+        expect(press("j").defaultPrevented).toBe(true)
+        expect(press("x").defaultPrevented).toBe(false)
+      })
+
+      it("folds the side columns", () => {
+        press("l")
+        expect(component.studySidebarCollapsed).toBe(true)
+        press("p")
+        expect(component.studyPanelCollapsed).toBe(true)
+      })
+
+      it("chooses the verse being read before writing a note on it", () => {
+        component.visibleVerse = 3
+
+        press("n")
+
+        expect(component.selection?.verse.number).toBe(3)
+      })
+
+      it("leaves a text box on Escape, and keeps the verse", () => {
+        component.onVerseSelected({ verse: verses[0] })
+        const box = document.createElement("textarea")
+        document.body.appendChild(box)
+        box.focus()
+        const event = new KeyboardEvent("keydown", { key: "Escape" })
+        Object.defineProperty(event, "target", { value: box })
+
+        component.onArrowPress(event)
+
+        // "n" and "/" put the caret in a box; this is the way back out.
+        expect(document.activeElement).not.toBe(box)
+        expect(component.selection?.verse.number).toBe(1)
+        box.remove()
+      })
+
+      it("opens the list of shortcuts", () => {
+        const open = vi
+          .spyOn(TestBed.inject(MatDialog), "open")
+          .mockReturnValue(undefined as never)
+
+        press("?", { shiftKey: true })
+
+        expect(open).toHaveBeenCalled()
+      })
+
+      it("answers a key held with Shift, which is how ? and / are typed", () => {
+        component.visibleVerse = 2
+
+        // The gate that keeps Shift+→ from turning the page used to run
+        // first, and a shifted key never reached study mode's own at all.
+        const event = press("J", { shiftKey: true })
+
+        expect(component.selection?.verse.number).toBe(2)
+        expect(event.defaultPrevented).toBe(true)
+      })
+
+      it("leaves the keys to a menu or dialog that is open over the page", () => {
+        const backdrop = document.createElement("div")
+        backdrop.className = "cdk-overlay-backdrop-showing"
+        document.body.appendChild(backdrop)
+        component.onVerseSelected({ verse: verses[0] })
+
+        press("j")
+        // Escape closing the menu used to let go of the verse as well.
+        press("Escape")
+
+        expect(component.selection?.verse.number).toBe(1)
+        backdrop.remove()
+      })
+
+      it("means nothing in the reading layout", () => {
+        studyMode.activeSubject.next(false)
+
+        expect(press("j").defaultPrevented).toBe(false)
+        expect(component.selection).toBeNull()
+      })
+    })
+
+    it("keeps the reader's place when the layout changes under them", () => {
+      fixture.detectChanges()
+      type Internals = {
+        restoreReadingPosition: (verse: number) => void
+        scrollHost: HTMLElement | undefined
+      }
+      // The verse at the top of the reading layout's column.
+      vi.spyOn(
+        BibleReaderComponent as unknown as {
+          firstVisibleVerseIn: () => number | undefined
+        },
+        "firstVisibleVerseIn",
+      ).mockReturnValue(20)
+      const restore = vi.spyOn(
+        component as unknown as Internals,
+        "restoreReadingPosition",
+      )
+
+      studyMode.activate()
+
+      // Switching builds a new scrolling column, which starts at its top.
+      expect(restore).toHaveBeenCalledExactlyOnceWith(20)
+    })
+
+    it("measures a paged layout by its container, which is what shows a page", () => {
+      fixture.detectChanges()
+      component.viewMode = "paged"
+      const measure = vi
+        .spyOn(
+          BibleReaderComponent as unknown as {
+            firstVisibleVerseIn: () => number | undefined
+          },
+          "firstVisibleVerseIn",
+        )
+        .mockReturnValue(20)
+      // The switch builds another container: the one that showed the pages.
+      const container = component.bookContainer.nativeElement
+
+      studyMode.activate()
+
+      // The drawer around it does not scroll: its pages sit side by side.
+      expect(measure).toHaveBeenCalledExactlyOnceWith(container)
+    })
+
+    it("reads the verse on the page showing, not the first of every page turned", () => {
+      const host = document.createElement("div")
+      host.style.cssText =
+        "position:relative;overflow:hidden;width:100px;height:100px"
+      for (const number of [1, 2, 3]) {
+        const verse = document.createElement("verse")
+        verse.id = String(number)
+        // A page to a verse, side by side in the one band, as columns lay them.
+        verse.style.cssText = `position:absolute;top:0;left:${(number - 1) * 100}px;width:100px;height:100px`
+        host.appendChild(verse)
+      }
+      document.body.appendChild(host)
+      const firstVisibleVerseIn = BibleReaderComponent[
+        "firstVisibleVerseIn" as keyof typeof BibleReaderComponent
+      ] as unknown as (host: HTMLElement) => number | undefined
+
+      expect(firstVisibleVerseIn(host)).toBe(1)
+      host.scrollLeft = 200
+      expect(firstVisibleVerseIn(host)).toBe(3)
+      host.remove()
+    })
+
+    it("scrolls the new column to the verse that was being read", () => {
+      const host = document.createElement("div")
+      host.style.cssText = "height:100px;overflow:auto;position:relative"
+      for (const number of [1, 2, 3]) {
+        const verse = document.createElement("verse")
+        verse.id = String(number)
+        verse.style.cssText = "display:block;height:150px"
+        host.appendChild(verse)
+      }
+      document.body.appendChild(host)
+      vi.spyOn(
+        component as unknown as { scrollHost: HTMLElement },
+        "scrollHost",
+        "get",
+      ).mockReturnValue(host)
+
+      component["restoreReadingPosition"](3)
+
+      expect(host.scrollTop).toBe(300)
+      host.remove()
+    })
+
+    it("selects the verse a link within the same chapter points at", () => {
+      studyMode.activate()
+      const verses = [{ number: 1 } as Verse, { number: 12 } as Verse]
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
+      )
+      component.getChapter(1, 1)
+      expect(component.selection?.verse.number).toBe(1)
+
+      // The panel's "v.12": same book, same chapter, only the verse moves.
+      ;(
+        routeMock as { queryParamMap: BehaviorSubject<Map<string, string>> }
+      ).queryParamMap.next(new Map([["verseStart", "12"]]))
+
+      expect(component.selection?.verse.number).toBe(12)
+    })
+
+    it("selects the verse a deep link points at", () => {
+      studyMode.activate()
+      const verses = [{ number: 1 } as Verse, { number: 39 } as Verse]
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
+      )
+
+      component.getChapter(1, 39)
+
+      expect(component.selection?.verse.number).toBe(39)
+    })
+
+    it("does not select a deep-linked verse outside study mode", () => {
+      const verses = [{ number: 39 } as Verse]
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({ bookId: "gen", number: 1, verses } as unknown as Chapter),
+      )
+
+      component.getChapter(1, 39)
+
+      expect(component.selection).toBeNull()
+    })
+  })
+
   // The drawer was an unnamed region: a screen reader heard neither what it
   // lists nor that it holds the focus.
   it("names the drawer after what it lists, as a modal dialog", () => {
@@ -1750,7 +3307,7 @@ describe("BibleReaderComponent", () => {
     })
 
     it("toggleAutoScrollControlsVisibility should toggle and save state", () => {
-      component.showAutoScrollControls = false
+      expect(component.showAutoScrollControls).toBe(false)
       component.toggleAutoScrollControlsVisibility()
       expect(component.showAutoScrollControls).toBe(true)
       expect(
@@ -1764,6 +3321,16 @@ describe("BibleReaderComponent", () => {
       expect(component.viewMode).toBe("paged")
       expect(preferencesServiceSpy.setViewMode).toHaveBeenCalledWith("paged")
       expect(component.showAutoScrollControls).toBe(false)
+    })
+
+    it("onToggleViewMode leaves the saved choice alone in study mode, which never pages", () => {
+      studyMode.activate()
+      component.viewMode = "scrolling"
+
+      component.onToggleViewMode()
+
+      expect(component.viewMode).toBe("scrolling")
+      expect(preferencesServiceSpy.setViewMode).not.toHaveBeenCalled()
     })
 
     it("brings the auto-scroll controls back after the pages", () => {

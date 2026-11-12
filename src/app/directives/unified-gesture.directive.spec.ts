@@ -197,6 +197,14 @@ describe("UnifiedGesturesDirective", () => {
       )
     })
 
+    it("publishes the scale as a number, for what is sized in pixels", () => {
+      preferencesServiceSpy.getFontSize.mockReturnValue(120)
+
+      directive.ngOnInit()
+
+      expect(element.style.getPropertyValue("--reader-text-scale")).toBe("1.2")
+    })
+
     it("should clamp storedSize if it is below MIN_FONT_SIZE", () => {
       preferencesServiceSpy.getFontSize.mockReturnValue(50) // MIN_FONT_SIZE is 70
       directive.ngOnInit()

@@ -423,6 +423,13 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
 
   private setFontSize(fontSize: number) {
     this.renderer.setStyle(this.el.nativeElement, "font-size", `${fontSize}%`)
+    // As a number too, for what is set in pixels and so would not follow the
+    // percentage: study mode's side columns, whose text was the one part of
+    // the page that ignored "Aumentar texto".
+    this.el.nativeElement.style.setProperty(
+      "--reader-text-scale",
+      String(fontSize / 100),
+    )
     if (fontSize > this.JUSTIFY_MAX_FONT_SIZE) {
       this.renderer.addClass(this.el.nativeElement, "large-text")
     } else {

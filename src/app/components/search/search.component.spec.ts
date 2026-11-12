@@ -2271,6 +2271,15 @@ describe("SearchComponent", () => {
       expect(router.navigate).toHaveBeenCalledWith(["/", "psa", 95], {})
     })
 
+    it("opens directly when the leaflet leaves out the comma before the verses", async () => {
+      referenceService.extract.mockReturnValue([
+        { match: "Sl 23,1-6", index: 0, book: "Sl", chapter: 23 },
+      ])
+      await component.onSearchSubmit("Sl 23 (22) 1-6")
+
+      expect(referenceService.extract).toHaveBeenCalledWith("Sl 23,1-6")
+    })
+
     // The liturgy's Psalm 115 is the second half of this edition's 116.
     it("opens the half of a psalm a pair names", async () => {
       referenceService.extract.mockReturnValue([

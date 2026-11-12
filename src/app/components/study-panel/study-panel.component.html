@@ -1,0 +1,396 @@
+<aside class="study-panel" [class.collapsed]="collapsed" aria-label="Aparato de estudo">
+  <!-- The fold control shares the tabs' line rather than taking one of its
+       own, and stays outside the tablist, which may only contain tabs. It is
+       always rendered, so a folded panel keeps something to unfold it by. -->
+  <div class="panel-head">
+    <button type="button" class="collapse-toggle" (click)="toggleCollapsed.emit()"
+      [attr.aria-expanded]="!collapsed" [attr.aria-keyshortcuts]="foldShortcut"
+      [attr.aria-label]="collapsed ? 'Mostrar referências e notas' : 'Esconder referências e notas'"
+      [matTooltip]="collapsed ? 'Mostrar referências e notas' : 'Esconder referências e notas'">
+      <mat-icon>{{ collapsed ? 'chevron_left' : 'chevron_right' }}</mat-icon>
+    </button>
+
+    @if (!collapsed) {
+    <div class="tab-strip" role="tablist" aria-label="Aparato de estudo">
+    @for (tab of tabs; track tab.id; let i = $index) {
+    <button type="button" class="tab" role="tab" [id]="'study-tab-' + tab.id" [class.active]="activeTab === tab.id"
+      [attr.aria-selected]="activeTab === tab.id" [attr.tabindex]="activeTab === tab.id ? 0 : -1"
+      [attr.aria-controls]="'study-tabpanel-' + tab.id" [attr.aria-label]="tab.name" [attr.title]="tab.name"
+      [attr.aria-keyshortcuts]="shortcutKeyFor(i)"
+      (click)="selectTab(tab.id)"
+      (keydown)="onTabKeydown($event, i)">
+      {{ tab.label }}
+    </button>
+    }
+    </div>
+    }
+  </div>
+
+  <!-- Mounted while folded, not removed: the button that folded it for a
+       passage opened beside the chapter is in here, and a button that is
+       destroyed cannot be given the focus back when the passage closes. Hidden
+       and inert, so nothing in it can be reached while it is out of sight. -->
+  <div class="panel-content" [hidden]="collapsed" [attr.inert]="collapsed ? '' : null">
+  @if (storageFailed) {
+  <!-- Announced when it appears: the note box says "fica no dispositivo", and
+       until something says otherwise a reader has no way to know it is not so. -->
+  <p class="storage-warning" role="alert">
+    O navegador não está a guardar o que escreve ou marca: fica só nesta página e perde-se ao fechá-la.
+    <a routerLink="/minhas-notas">Guardar uma cópia</a>.
+    @if (selectedVerse && noteDraft.trim()) {
+    <button type="button" class="link-button" (click)="copyNote()">Copiar a nota</button>
+    }
+  </p>
+  }
+  @switch (activeTab) {
+
+  @case ('references') {
+  <div class="tab-body" role="tabpanel" id="study-tabpanel-references" aria-labelledby="study-tab-references">
+    <p class="tab-gloss">As passagens que a edição indica a propósito de cada texto.</p>
+    @if (selectedVerse) {
+    <!-- First in the tab, so a keyboard or screen-reader user reaches what a
+         chosen verse can do before a long list of references, and a mouse user
+         sees that choosing it did something. -->
+    <section class="verse-actions" aria-label="O versículo escolhido">
+      <p class="verse-caption">{{ verseCaption }}</p>
+    <div class="mark-row" role="group" aria-label="Marcar o versículo">
+      @for (color of highlightColors; track color) {
+      <button type="button" class="mark-swatch" [attr.data-color]="color"
+        [class.chosen]="selectedHighlight === color" [attr.aria-pressed]="selectedHighlight === color"
+        [attr.aria-label]="'Marcar ' + selectedVerseLabel + ' a ' + colorNames[color]"
+        [attr.title]="colorNames[color]" (click)="toggleHighlight(color)"></button>
+      }
+    </div>
+
+    <button type="button" class="verse-action" (click)="copySelectedVerse()">
+      <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
+      {{ copied ? 'Copiado' : 'Copiar ' + selectedVerseLabel }}
+    </button>
+    <button type="button" class="verse-action" (click)="copyLink()">
+      <mat-icon>{{ linkCopied ? 'check' : 'link' }}</mat-icon>
+      {{ linkCopied ? 'Ligação copiada' : 'Copiar ligação' }}
+    </button>
+    <button type="button" class="verse-action" (click)="copyAsCitation()">
+      <mat-icon>{{ citationCopied ? 'check' : 'format_quote' }}</mat-icon>
+      {{ citationCopied ? 'Citação copiada' : 'Copiar como citação' }}
+    </button>
+    
+
+    <!-- The note box lives here as well as in its own tab: a thought about a
+         verse arrives while reading its parallels, not after switching tabs. -->
+    <div class="note-box">
+      <label class="note-label" for="study-note">A minha nota em {{ selectedVerseLabel }}</label>
+      <input class="note-title" name="titulo" autocomplete="off" type="text" placeholder="Título (opcional)"
+        aria-label="Título da nota" [value]="noteTitle" (input)="onNoteTitleInput($any($event.target).value)" (blur)="onNoteBlur()" />
+      <textarea id="study-note" name="nota" autocomplete="off" class="note-input" rows="2" placeholder="Escrever… fica neste navegador, sem conta."
+        [value]="noteDraft" (input)="onNoteInput($any($event.target).value)" (blur)="onNoteBlur()"></textarea>
+      <p class="note-hint">
+        Se limpar o navegador ou mudar de computador, perde-se.
+        <a routerLink="/minhas-notas">Guardar uma cópia</a>
+      </p>
+    </div>
+    
+    </section>
+    } @else {
+    <p class="panel-empty small how-to">Clique no número de um versículo para o marcar, copiar ou escrever uma nota.</p>
+    }
+    @if (referenceGroups.length) {
+    <!-- Tracked by label as well: a division and the first passage inside it
+         start at the same verse, and are two groups. -->
+    @for (group of referenceGroups; track group.verseNumber + '|' + group.label) {
+    <!-- data-verse is how selecting a verse finds its entries to scroll to. -->
+    <section class="reference-group" [class.current]="isCurrentGroup(group)" [attr.aria-current]="isCurrentGroup(group) ? 'true' : null"
+      [attr.data-verse]="group.verseNumber">
+      <h2 class="group-label">Referências Cruzadas: {{ group.label }}</h2>
+      <ul class="reference-list">
+        @for (reference of group.entries; track reference.key) {
+        <li class="reference">
+          <!-- The label is the link, always: a passage stays reachable whether
+               or not its text could be fetched, and whether or not it runs on
+               past the verses quoted below. -->
+          <a class="reference-label" [routerLink]="reference.link" [queryParams]="reference.queryParams">
+            {{ reference.label }}
+          </a>
+          <!-- Set the way the chapter is: verses running on, their numbers in
+               the text, poetry on its own lines and the divine name in small
+               capitals. A psalm quoted as a paragraph is not the psalm. -->
+          @if (reference.verses.length) {
+          <p class="reference-text">
+            @for (verse of reference.verses; track verse.number; let firstVerse = $first) {
+            @for (line of verse.lines; track $index; let firstLine = $first) {
+            @if (!firstLine || (firstLine && verse.breakBefore)) {<br>}
+            @if (firstLine && !firstVerse && !verse.breakBefore) {<span>{{ " " }}</span>}
+            @if (firstLine && reference.verses.length > 1) {<span
+              class="reference-verse-number">{{ verse.number }}</span>}
+            @for (run of line; track $index) {<span [class.allCaps]="run.allCaps">{{ run.text }}</span>}
+            }
+            }
+          </p>
+          }
+          @if (reference.failed) {
+          <p class="reference-text unavailable">Texto indisponível sem ligação.</p>
+          }
+          <!-- Two ways on to the passage: read it instead of this chapter, or
+               beside it. A parallel is the reason to look a reference up at
+               all, so it is offered on every one of them, not only the ones
+               whose preview runs out. -->
+          <p class="reference-actions">
+            <button type="button" class="reference-more" (click)="onOpenBeside(reference)">
+              Abrir ao lado
+            </button>
+            @if (reference.truncated) {
+            <a class="reference-more" [routerLink]="reference.link" [queryParams]="reference.queryParams">
+              Ler a passagem inteira
+            </a>
+            }
+          </p>
+        </li>
+        }
+      </ul>
+    </section>
+    }
+    } @else {
+    <p class="panel-empty">Este capítulo não tem referências cruzadas.</p>
+    }
+
+    <!-- The other direction: what cites this verse. The edition prints only
+         the outgoing side, so this is built from the offline text. -->
+    @if (selectedVerse) {
+    <section class="incoming">
+      <h2 class="group-label">Citado em</h2>
+      @switch (incomingState) {
+      @case ('ready') {
+      @if (incoming.length) {
+      <ul class="reference-list">
+        @for (entry of incoming; track entry.key) {
+        <li class="reference">
+          <a class="reference-label" [routerLink]="entry.link" [queryParams]="entry.queryParams">{{ entry.label }}</a>{{ " " }}
+          <!-- Which kind of citation it is: a cross reference and a footnote
+               are not the same claim, and the reader should not have to guess. -->
+          <span class="reference-source">{{ entry.source === 'nota' ? 'nota de rodapé' : 'referência cruzada' }}</span>
+          @if (entry.excerpt) {
+          <p class="reference-excerpt">{{ entry.excerpt }}</p>
+          }
+          <p class="reference-actions">
+            <button type="button" class="reference-more" (click)="openCitationBeside(entry)">Abrir ao lado</button>
+          </p>
+        </li>
+        }
+      </ul>
+      } @else {
+      <p class="panel-empty small">Nenhuma referência cruzada nem nota de rodapé da edição cita este versículo.</p>
+      }
+      @if (!installedApp) {
+      <button type="button" class="verse-action" (click)="removeText()">
+        <mat-icon>delete</mat-icon>
+        Remover o texto deste navegador
+      </button>
+      }
+      }
+      @case ('building') {
+      <p class="panel-empty small">A procurar…</p>
+      }
+      @case ('unavailable') {
+      <p class="panel-empty small">Precisa da Bíblia guardada neste dispositivo (cerca de 5 MB).</p>
+      @if (installedApp) {
+      <!-- The app fetches it by itself, and may still have been at it when the
+           reader asked: without a way to ask again, this stood until the page
+           reloaded. -->
+      <button type="button" class="verse-action" (click)="showIncoming()">
+        <mat-icon>refresh</mat-icon>
+        Procurar de novo
+      </button>
+      } @else if (offline) {
+      <p class="panel-empty small">Sem ligação: volte a tentar quando a tiver.</p>
+      } @else {
+      <button type="button" class="verse-action" [disabled]="downloading" (click)="downloadText()">
+        <mat-icon>download</mat-icon>
+        {{ downloading ? 'A descarregar…' : 'Descarregar o texto' }}
+      </button>
+      }
+      }
+      @default {
+      <button type="button" class="verse-action" (click)="showIncoming()">
+        <mat-icon>search</mat-icon>
+        Ver quem cita este versículo
+      </button>
+      }
+      }
+    </section>
+    }
+  </div>
+  }
+
+  @case ('footnotes') {
+  <div class="tab-body" role="tabpanel" id="study-tabpanel-footnotes" aria-labelledby="study-tab-footnotes">
+    @if (footnotes.length) {
+    <p class="panel-caption">As notas de rodapé que a edição traz para este capítulo.</p>
+    <ul class="footnote-list">
+      @for (entry of footnotes; track $index) {
+      <li class="footnote" [class.current]="isCurrent(entry.verseNumber)" [attr.aria-current]="isCurrent(entry.verseNumber) ? 'true' : null" [attr.data-verse]="entry.verseNumber">
+        <span class="footnote-reference">{{ entry.footnote.reference }}</span>
+        <span class="footnote-text">
+          @for (part of parseFootnote(entry.footnote); track $index) {
+          @if (isReference(part)) {
+          <a [routerLink]="footnoteLink(part)" [queryParams]="footnoteQueryParams(part)">{{ part.match }}</a>
+          } @else {
+          {{ part }}
+          }
+          }
+        </span>
+      </li>
+      }
+    </ul>
+    } @else {
+    <p class="panel-empty">Este capítulo não tem notas de rodapé.</p>
+    }
+  </div>
+  }
+
+  @case ('notes') {
+  <div class="tab-body" role="tabpanel" id="study-tabpanel-notes" aria-labelledby="study-tab-notes">
+    <p class="tab-gloss">O que escreveu, por versículo. Fica só neste navegador.</p>
+    @if (selectedVerse) {
+    <div class="note-box">
+      <label class="note-label" for="study-note-tab">A minha nota em {{ selectedVerseLabel }}</label>
+      <input class="note-title" name="titulo" autocomplete="off" type="text" placeholder="Título (opcional)"
+        aria-label="Título da nota" [value]="noteTitle" (input)="onNoteTitleInput($any($event.target).value)" (blur)="onNoteBlur()" />
+      <textarea id="study-note-tab" name="nota" autocomplete="off" class="note-input" rows="4" placeholder="Escrever… fica neste navegador, sem conta."
+        [value]="noteDraft" (input)="onNoteInput($any($event.target).value)" (blur)="onNoteBlur()"></textarea>
+      <p class="note-hint">
+        Se limpar o navegador ou mudar de computador, perde-se.
+        <a routerLink="/minhas-notas">Guardar uma cópia</a>
+      </p>
+    </div>
+    } @else {
+    <p class="panel-empty how-to">Clique no número de um versículo para escrever uma nota.</p>
+    }
+
+    <div class="note-search">
+      <label class="note-label" for="study-note-search">Procurar nas minhas notas</label>
+      <input id="study-note-search" name="procurar-notas" autocomplete="off" spellcheck="false"
+        class="note-search-input" type="search"
+        placeholder="Escrever para procurar…" [value]="noteQuery"
+        (input)="onNoteQuery($any($event.target).value)" />
+    </div>
+
+    @if (noteQuery.trim()) {
+    @if (noteMatches.length) {
+    <p class="panel-caption notes-caption">
+      {{ noteMatches.length === 1 ? '1 nota encontrada' : noteMatches.length + ' notas encontradas' }}
+    </p>
+    <ul class="note-list">
+      @for (note of noteMatches; track note.bookId + ':' + note.chapter + ':' + note.verse) {
+      <li class="saved-note">
+        <a class="note-ref" [routerLink]="noteLink(note)" [queryParams]="noteQueryParams(note)">
+          {{ noteReference(note) }}
+        </a>
+        @if (note.title) {
+        <span class="note-title-text">{{ note.title }}</span>
+        }
+        <span class="note-body">{{ note.text }}</span>
+      </li>
+      }
+    </ul>
+    } @else {
+    <p class="panel-empty small">Nenhuma nota corresponde.</p>
+    }
+    } @else if (chapterNotes.length) {
+    <p class="panel-caption notes-caption">Neste capítulo</p>
+    <ul class="note-list">
+      @for (note of chapterNotes; track note.verse) {
+      <li class="saved-note" [class.current]="isCurrent(note.verse)" [attr.aria-current]="isCurrent(note.verse) ? 'true' : null" [attr.data-verse]="note.verse">
+        <a class="note-ref" [routerLink]="noteLink(note)" [queryParams]="noteQueryParams(note)">{{ noteLabel(note) }}</a>
+        @if (note.title) {
+        <span class="note-title-text">{{ note.title }}</span>
+        }
+        <span class="note-body">{{ note.text }}</span>
+      </li>
+      }
+    </ul>
+    } @else if (selectedVerse) {
+    <p class="panel-empty small">As notas ficam neste navegador. Não são enviadas para lado nenhum.</p>
+    }
+    <p class="panel-empty small">
+      <a routerLink="/minhas-notas">Ver todas as notas e marcas</a>
+    </p>
+  </div>
+  }
+
+  @case ('search') {
+  <div class="tab-body" role="tabpanel" id="study-tabpanel-search" aria-labelledby="study-tab-search">
+    <!-- Enter rather than as-you-type: online, this search goes to the server. -->
+    <div class="note-search">
+      <label class="note-label" for="study-search">Procurar na Bíblia</label>
+      <input id="study-search" name="procurar" autocomplete="off" spellcheck="false"
+        class="note-search-input" type="search"
+        placeholder="Escrever e premir Enter…" [value]="searchQuery"
+        (keydown.enter)="onSearchSubmit($any($event.target).value)" />
+    </div>
+
+    @switch (searchState) {
+    @case ('searching') {
+    <p class="panel-empty small">A procurar…</p>
+    }
+    @case ('failed') {
+    <p class="panel-empty small">Não foi possível procurar agora.</p>
+    }
+    @case ('psalm') {
+    <!-- Most psalms have another number in the liturgy: a number copied from a
+         leaflet would open a different one here, so both are offered. -->
+    <p class="panel-caption notes-caption">Qual salmo procura?</p>
+    <ul class="reference-list">
+      @for (option of psalmOptions; track option.label) {
+      <li class="reference">
+        <a class="reference-label" [routerLink]="option.link" [queryParams]="option.queryParams">{{ option.label }}</a>{{ " " }}
+        <span class="reference-source">{{ option.note }}</span>
+      </li>
+      }
+    </ul>
+    }
+    @case ('nothingStored') {
+    <p class="panel-empty small">{{ nothingStoredMessage }}</p>
+    }
+    @case ('missing') {
+    <p class="panel-empty small">«{{ searchQuery }}» não existe: o capítulo ou o versículo não estão nesse livro.</p>
+    }
+    @case ('done') {
+    @if (searchResults.length) {
+    <p class="panel-caption notes-caption">{{ searchSummary }}. {{ searchEngineNote }}</p>
+    <!-- Set like the cross references above: a result is a passage, named and
+         then quoted, not a row in a table of them. -->
+    <ul class="reference-list">
+      @for (result of searchResults; track result.key) {
+      <li class="reference">
+        <a class="reference-label" [routerLink]="result.link" [queryParams]="result.queryParams">
+          {{ result.reference }}
+        </a>
+        <!-- One line on purpose: a break between these blocks would put a
+             space either side of every match. -->
+        <p class="reference-text">@for (segment of result.highlightedSegments; track $index) {@if (segment.highlight) {<mark>{{ segment.text }}</mark>} @else {{{ segment.text }}}}</p>
+        <p class="reference-actions">
+          <button type="button" class="reference-more" (click)="openHitBeside(result)">Abrir ao lado</button>
+        </p>
+      </li>
+      }
+    </ul>
+    @if (searchResults.length < searchTotal) {
+    <button type="button" class="verse-action" [disabled]="searchLoadingMore" (click)="loadMoreResults()">
+      <mat-icon>expand_more</mat-icon>
+      {{ searchLoadingMore ? 'A carregar…' : 'Mais resultados' }}
+    </button>
+    }
+    } @else {
+    <p class="panel-empty small">Nada encontrado para «{{ searchQuery }}».</p>
+    }
+    }
+    @default {
+    <p class="panel-empty small">Um versículo, um livro ou uma referência.</p>
+    }
+    }
+  </div>
+  }
+
+  }
+  </div>
+</aside>

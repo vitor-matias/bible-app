@@ -68,11 +68,8 @@ describe("VerseComponent", () => {
 
     fixture = TestBed.createComponent(VerseComponent)
     component = fixture.componentInstance
-    mockBottomSheet = (
-      component as unknown as {
-        bottomSheet: MatBottomSheet
-      }
-    ).bottomSheet
+    mockBottomSheet = (component as unknown as { bottomSheet: MatBottomSheet })
+      .bottomSheet
     dismissed = new Subject<void>()
     dismissSheet = vi.fn().mockName("dismiss")
     vi.spyOn(mockBottomSheet, "open").mockReturnValue({
@@ -124,6 +121,28 @@ describe("VerseComponent", () => {
         }),
       )
       expect(component.chapterNumberDisplayIndex).toBe(1)
+    })
+
+    // A blank element is not drawn, so a number left on one would vanish.
+    it("targets the last element drawn when verse 0 ends in a blank one", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 0,
+          chapterNumber: 7,
+          text: [
+            { type: "text", text: "intro" },
+            { type: "text", text: "more" },
+            { type: "text", text: "" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+      expect(
+        fixture.nativeElement.querySelector(".chapterNumber")?.textContent,
+      ).toContain("7")
     })
 
     it("should target the first s2 if multiple s2 sections exist", () => {
@@ -490,6 +509,49 @@ describe("VerseComponent", () => {
       fixture.componentRef.setInput("nextVerseStartsWithQuote", false)
 
       expect(component.checkNextIsQuote(0)).toBe(false)
+    })
+  })
+
+  // A blank quote or text is dropped from what is drawn (computeDisplayGroups),
+  // so it is not what comes next: the heading is followed by what is seen.
+  describe("what follows a heading when a blank quote sits between", () => {
+    const heading = { type: "section", text: "h", tag: "s2" } as const
+    const blankQuote = { type: "quote", text: " ", identLevel: 1 } as const
+
+    it("looks past it to the text that is drawn", () => {
+      setData(
+        fixture,
+        makeVerse({ text: [heading, blankQuote, { type: "text", text: "x" }] }),
+      )
+      fixture.componentRef.setInput("nextVerseStartsWithQuote", false)
+
+      expect(component.checkNextIsQuote(0)).toBe(false)
+    })
+
+    it("looks past it to the paragraph that is drawn", () => {
+      setData(
+        fixture,
+        makeVerse({
+          text: [heading, blankQuote, { type: "paragraph", text: " " }],
+        }),
+      )
+      fixture.componentRef.setInput("nextVerseStartsWithQuote", false)
+
+      expect(component.checkNextIsQuote(0)).toBe(false)
+      expect(component.checkNextIsParagraph(0)).toBe(true)
+    })
+
+    it("asks the next verse when only blank elements follow", () => {
+      setData(
+        fixture,
+        makeVerse({ text: [heading, { type: "text", text: "" }, blankQuote] }),
+      )
+      fixture.componentRef.setInput("nextVerseStartsWithQuote", false)
+      expect(component.checkNextIsQuote(0)).toBe(false)
+
+      fixture.componentRef.setInput("nextVerseStartsWithQuote", true)
+      expect(component.checkNextIsQuote(0)).toBe(true)
+      expect(component.checkNextIsParagraph(0)).toBe(false)
     })
   })
 
@@ -862,12 +924,51 @@ describe("VerseComponent", () => {
     })
   })
 
-  describe("what a tap on a verse with notes opens", () => {
-    const footnote = {
-      type: "footnote" as const,
-      text: "note",
-      reference: "1",
+  describe("the reader's own mark", () => {
+    function markedPoetry(continues: boolean): HTMLElement {
+      setData(
+        fixture,
+        makeVerse({
+          number: 3,
+          text: [
+            {
+              type: "quote",
+              text: "a line of poetry",
+              identLevel: 1,
+            },
+          ],
+        }),
+      )
+      fixture.componentRef.setInput("highlight", "yellow")
+      fixture.componentRef.setInput("markContinues", continues)
+      fixture.detectChanges()
+      return fixture.nativeElement.querySelector(
+        ".quoteVerseNumber",
+      ) as HTMLElement
     }
+
+    it("leaves the poetry number and its footnote marker out of the mark", () => {
+      // They hang off the left of the line rather than sitting in it, so a
+      // mark covering them would tint the margin without joining anything up.
+      // The words are what the reader marked.
+      const wrapper = markedPoetry(true)
+
+      const digits = wrapper.querySelector(".verseNumber") as HTMLElement
+      const marker = wrapper.querySelector(".footnoteIndicator") as HTMLElement
+      expect(getComputedStyle(wrapper).backgroundColor).toBe(TRANSPARENT)
+      expect(getComputedStyle(digits).backgroundColor).toBe(TRANSPARENT)
+      expect(getComputedStyle(marker).backgroundColor).toBe(TRANSPARENT)
+    })
+
+    it("leaves it out at the start of a mark as well", () => {
+      const wrapper = markedPoetry(false)
+
+      expect(getComputedStyle(wrapper).backgroundColor).toBe(TRANSPARENT)
+    })
+  })
+
+  describe("what a tap on a verse with notes opens", () => {
+    const footnote = { type: "footnote" as const, text: "note", reference: "1" }
     const render = () => {
       setData(
         fixture,
@@ -1253,6 +1354,211 @@ describe("VerseComponent", () => {
     })
   })
 
+  describe("study mode", () => {
+    function studyVerse(number = 39): Verse {
+      return makeVerse({
+        number,
+        text: [
+          { type: "text", text: "O segundo é semelhante" },
+          { type: "footnote", reference: "22, 39", text: "uma nota" },
+        ],
+      })
+    }
+
+    // A click there selects the verse, so a run that is also a "button" is a
+    // tab stop that answers Enter and Space with nothing.
+    it("makes no button or tab stop of the text, whose notes are already on screen", () => {
+      fixture.componentRef.setInput("studyMode", true)
+      setData(fixture, studyVerse())
+      fixture.detectChanges()
+
+      const runs = Array.from<HTMLElement>(
+        fixture.nativeElement.querySelectorAll(".verseRun"),
+      ).filter((run) => run.textContent?.includes("O segundo"))
+      expect(runs.length).toBe(1)
+      expect(runs[0].hasAttribute("role")).toBe(false)
+      expect(runs[0].hasAttribute("tabindex")).toBe(false)
+      expect(runs[0].classList.contains("interactive")).toBe(false)
+    })
+
+    it("has a verse number that is easier to hit than it looks", () => {
+      fixture.componentRef.setInput("studyMode", true)
+      setData(fixture, studyVerse())
+      fixture.detectChanges()
+
+      // The number is a button at two thirds of the text's size; a larger target
+      // is laid over it, without moving the words.
+      const number = fixture.nativeElement.querySelector(
+        '.verseNumber[role="button"]',
+      ) as HTMLElement
+      const target = getComputedStyle(number, "::after")
+      expect(target.position).toBe("absolute")
+      expect(Number.parseFloat(target.width)).toBeGreaterThan(
+        number.getBoundingClientRect().width,
+      )
+    })
+
+    it("emits the verse instead of opening the footnotes sheet", () => {
+      fixture.componentRef.setInput("studyMode", true)
+      setData(fixture, studyVerse())
+      fixture.detectChanges()
+      const selected: VerseSelection[] = []
+      component.verseSelected.subscribe((event) => selected.push(event))
+
+      Array.from<HTMLElement>(
+        fixture.nativeElement.querySelectorAll(".verseRun"),
+      )
+        .find((run) => run.textContent?.includes("O segundo"))
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+
+      expect(selected.length).toBe(1)
+      expect(selected[0].verse.number).toBe(39)
+      expect(selected[0].panel).toBeUndefined()
+      expect(mockBottomSheet.open).not.toHaveBeenCalled()
+    })
+
+    it("asks for the footnotes when the marker is the thing clicked", () => {
+      fixture.componentRef.setInput("studyMode", true)
+      setData(fixture, studyVerse())
+      fixture.detectChanges()
+      const selected: VerseSelection[] = []
+      component.verseSelected.subscribe((event) => selected.push(event))
+
+      fixture.nativeElement
+        .querySelector(".footnoteIndicator")
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }))
+
+      // One event, not two: the marker stops the click reaching the host,
+      // which would otherwise follow with a plain selection.
+      expect(selected.length).toBe(1)
+      expect(selected[0].panel).toBe("footnotes")
+      expect(mockBottomSheet.open).not.toHaveBeenCalled()
+    })
+
+    it("opens the footnotes sheet from a verse that cannot be selected", () => {
+      // Verse 0 carries the chapter's front matter, footnotes included.
+      fixture.componentRef.setInput("studyMode", true)
+      setData(
+        fixture,
+        makeVerse({
+          number: 0,
+          verseLabel: "front",
+          text: [
+            { type: "text", text: "Título" },
+            { type: "footnote", reference: "22, 1", text: "uma nota" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+
+      component.onFootnoteMarkerClick(new MouseEvent("click"))
+
+      expect(mockBottomSheet.open).toHaveBeenCalled()
+    })
+
+    it("still opens the footnotes sheet outside study mode", () => {
+      setData(fixture, studyVerse())
+      fixture.detectChanges()
+      const selected: VerseSelection[] = []
+      component.verseSelected.subscribe((event) => selected.push(event))
+
+      // .interactive is the run that carries the footnote handler; the first
+      // .verseRun in the DOM is the blank gap span before the verse number.
+      fixture.nativeElement
+        .querySelector(".verseRun.interactive")
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }))
+
+      expect(mockBottomSheet.open).toHaveBeenCalled()
+      expect(selected).toEqual([])
+    })
+
+    it("leaves references inside the verse to navigate", () => {
+      fixture.componentRef.setInput("studyMode", true)
+      setData(fixture, studyVerse())
+      fixture.detectChanges()
+      const selected: VerseSelection[] = []
+      component.verseSelected.subscribe((event) => selected.push(event))
+
+      const anchor = document.createElement("a")
+      fixture.nativeElement.appendChild(anchor)
+      anchor.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+
+      expect(selected).toEqual([])
+    })
+
+    it("does not select the front matter, which is no verse", () => {
+      fixture.componentRef.setInput("studyMode", true)
+      setData(fixture, makeVerse({ number: 0, verseLabel: "front" }))
+      fixture.detectChanges()
+      const selected: VerseSelection[] = []
+      component.verseSelected.subscribe((event) => selected.push(event))
+
+      component.onHostClick(new MouseEvent("click"))
+
+      expect(component.isSelectable).toBe(false)
+      expect(selected).toEqual([])
+    })
+
+    it("makes the verse number a keyboard handle for the selection", () => {
+      fixture.componentRef.setInput("studyMode", true)
+      fixture.componentRef.setInput("selected", true)
+      setData(fixture, studyVerse())
+      fixture.detectChanges()
+      const selected: VerseSelection[] = []
+      component.verseSelected.subscribe((event) => selected.push(event))
+
+      const number = fixture.nativeElement.querySelector(".verseNumber")
+      expect(number.getAttribute("role")).toBe("button")
+      expect(number.getAttribute("tabindex")).toBe("0")
+      expect(number.getAttribute("aria-pressed")).toBe("true")
+      expect(number.getAttribute("aria-label")).toBe("Versículo 39")
+
+      number.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+      )
+      expect(selected.length).toBe(1)
+    })
+
+    it("leaves the verse number inert outside study mode", () => {
+      setData(fixture, studyVerse())
+      fixture.detectChanges()
+
+      const number = fixture.nativeElement.querySelector(".verseNumber")
+      expect(number.getAttribute("role")).toBeNull()
+      expect(number.getAttribute("tabindex")).toBeNull()
+    })
+
+    it("carries the quotation verdict as a host class", () => {
+      fixture.componentRef.setInput("isQuotation", true)
+      setData(fixture, studyVerse())
+      fixture.detectChanges()
+
+      expect((fixture.nativeElement as HTMLElement).classList).toContain(
+        "verse-quotation",
+      )
+    })
+
+    it("leaves a verse unmarked when it is not a quotation", () => {
+      setData(fixture, studyVerse())
+      fixture.detectChanges()
+
+      expect((fixture.nativeElement as HTMLElement).classList).not.toContain(
+        "verse-quotation",
+      )
+    })
+
+    it("carries the selection as a host class", () => {
+      fixture.componentRef.setInput("studyMode", true)
+      fixture.componentRef.setInput("selected", true)
+      setData(fixture, studyVerse())
+      fixture.detectChanges()
+
+      expect((fixture.nativeElement as HTMLElement).classList).toContain(
+        "verse-selected",
+      )
+    })
+  })
+
   // Copied verses read "do Céu? 13Pois ninguém": the number glued to the word.
   describe("copied text", () => {
     const copied = (verse: Verse) => {
@@ -1374,6 +1680,51 @@ describe("VerseComponent", () => {
       })
     }
 
+    // The number and the notes marker ride on the first element drawn; with a
+    // blank one in front they were drawn nowhere.
+    it("still prints the verse number and notes marker when its first element is blank", () => {
+      for (const blank of ["", " ", "\n"]) {
+        setData(
+          fixture,
+          makeVerse({
+            number: 3,
+            text: [
+              { type: "quote", text: blank },
+              { type: "quote", text: "Feliz o homem" },
+              { type: "footnote", reference: "1, 3", text: "uma nota" },
+            ] as TextType[],
+          }),
+        )
+        fixture.detectChanges()
+
+        const numbers = fixture.nativeElement.querySelectorAll(".verseNumber")
+        expect(numbers.length).toBe(1)
+        expect(numbers[0].textContent).toBe("3")
+        expect(
+          fixture.nativeElement.querySelectorAll(".footnoteIndicator").length,
+        ).toBe(1)
+      }
+    })
+
+    // The break that closes a quoted line is on the last element; when that is
+    // an empty one it is not drawn, and the next verse ran on from the poetry.
+    it("still closes the line after poetry that ends in an empty element", () => {
+      const closes = (text: TextType[]): boolean => {
+        setData(fixture, makeVerse({ number: 5, text }))
+        fixture.detectChanges()
+        const wrapper = fixture.nativeElement.querySelector(".quoteLineWrapper")
+        return wrapper.lastElementChild?.tagName === "BR"
+      }
+
+      expect(closes([{ type: "quote", text: "a" }] as TextType[])).toBe(true)
+      expect(
+        closes([
+          { type: "quote", text: "a" },
+          { type: "quote", text: "" },
+        ] as TextType[]),
+      ).toBe(true)
+    })
+
     it("drops an empty element instead of printing a blank line for it", () => {
       setData(fixture, psalmVerse())
 
@@ -1401,6 +1752,7 @@ describe("VerseComponent", () => {
       fixture.detectChanges()
 
       const wrapper = fixture.nativeElement.querySelector(".quoteLineWrapper")
+      expect(wrapper.querySelectorAll("br").length).toBe(0)
       expect(wrapper.textContent.replace(/\s+/g, " ")).toContain(
         "antes põe o seu enlevo na lei do Senhor",
       )

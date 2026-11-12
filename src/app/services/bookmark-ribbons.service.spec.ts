@@ -45,6 +45,12 @@ describe("ribbonColor", () => {
     expect(ribbonColor("violet", "light")).toBe("var(--ribbon-light-violet)")
   })
 
+  // The chapter's own tile in the bookmarks sheet is filled with the text
+  // colour, so it is the other theme's surface.
+  it("paints it in the dark surfaces' tone where the surface stays dark", () => {
+    expect(ribbonColor("violet", "dark")).toBe("var(--ribbon-dark-violet)")
+  })
+
   it("paints nothing for no ribbon, and an unknown colour as stored", () => {
     expect(ribbonColor(undefined)).toBeNull()
     expect(ribbonColor(null)).toBeNull()

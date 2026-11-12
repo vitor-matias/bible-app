@@ -461,6 +461,7 @@ describe("PastoralIndexComponent", () => {
         "Aumentar texto",
         "Repor tamanho do texto",
         "Marcadores",
+        "As minhas notas e marcas",
         typeof navigator.share === "function" ? "Partilhar" : "Copiar ligação",
         "Instalar a app",
         "Como usar a app",

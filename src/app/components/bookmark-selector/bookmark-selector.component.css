@@ -1,109 +1,196 @@
-.bookmark-selector-container {
-  padding: 16px;
+/* The same sheet as the iOS and Android apps draw: a grid of tiles, each a
+   bookmark glyph in its ribbon's tone with the passage it marks beneath. */
+.bookmark-sheet {
+  --tile-bg: color-mix(in srgb, var(--text-color) 7%, var(--card-background));
+  --tile-bg-hover: color-mix(in srgb, var(--text-color) 12%, var(--card-background));
+  /* Secondary text that keeps 4.5:1 on a tile, in both themes. */
+  --quiet: color-mix(in srgb, var(--text-color) 72%, transparent);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 4px 8px 8px;
+  color: var(--text-color);
 }
 
 .header-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 16px;
-  color: var(--text-color);
+  padding-left: 4px;
 }
 
 h3 {
   margin: 0;
+  font-size: 20px;
+  font-weight: 500;
   color: var(--text-color);
 }
 
-.colors-grid {
+.tiles {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  justify-items: center;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: minmax(84px, auto);
+  gap: 10px;
 }
 
-.ribbon-item {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-/* The ribbon is the SVG shape inside; the button itself is a clear box. */
-.color-button {
-  width: 56px;
-  height: 80px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s;
+.tile,
+.move-row {
+  --tone: var(--tone-theme);
   position: relative;
-  padding: 0 0 12px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--tile-bg);
+  color: var(--text-color);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* A grid cell holding the tile and its (empty) menu element. */
+.tile-cell {
+  display: flex;
+  min-width: 0;
+}
+
+.tile {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 4px;
   /* A long press is the remove gesture: no iOS callout or text selection. */
   -webkit-touch-callout: none;
   user-select: none;
 }
 
-.color-button:hover {
-  transform: translateY(-4px);
+@media (hover: hover) {
+  .tile:not(:disabled, .current):hover,
+  .move-row:hover {
+    background: var(--tile-bg-hover);
+  }
 }
 
-.ribbon-shape {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+.tile:focus-visible,
+.move-row:focus-visible {
+  outline: 2px solid var(--text-color);
+  outline-offset: 2px;
 }
 
-/* Above the shape. */
-.ribbon-text,
-.add-icon {
-  position: relative;
+/* A free ribbon where nothing can be marked. */
+.tile:disabled {
+  opacity: 0.38;
+  cursor: default;
 }
 
-.ribbon-text {
-  color: var(--ribbon-text);
-  text-align: center;
-  line-height: 1.1;
-  padding: 4px;
-  text-shadow: 1px 1px 1px black;
-  white-space: nowrap;
-  /* A theme's title can be longer than a ribbon is wide. */
+/* The chapter being read: the text colour as its fill, so it reads at a
+   glance and by more than hue. The tone is the other theme's, as the fill is
+   the other theme's surface. */
+.tile.current {
+  background: var(--text-color);
+  color: var(--background-color);
+  --tone: var(--tone-dark);
+}
+
+:host-context(.dark-theme) .tile.current {
+  --tone: var(--tone-light);
+}
+
+.glyph {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  fill: var(--tone);
+}
+
+.tile-label {
   max-width: 100%;
-  box-sizing: border-box;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.add-icon {
-  color: var(--ribbon-text);
-  font-size: 24px;
-  text-shadow: 1px 1px 1px black;
-}
-
-.move-button {
-  color: var(--text-color);
-  white-space: normal;
-  height: auto;
-  min-height: 40px;
-  padding-block: 8px;
-}
-
-/* Dark text on the dark theme's light ribbons needs no shadow. */
-:host-context(.dark-theme) :is(.ribbon-text, .add-icon) {
-  text-shadow: none;
-}
-
-.ribbon-hint {
-  margin: 0;
+  font-size: 11px;
+  line-height: 1.2;
   text-align: center;
-  font-size: 0.8125rem;
-  color: color-mix(in srgb, var(--text-color) 65%, transparent);
+  color: var(--quiet);
+}
+
+/* The passage a ribbon marks outweighs the name of a free one. A theme's
+   title can be longer than a tile is wide: two lines, then an ellipsis. */
+.tile.used .tile-label {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 500;
+  color: inherit;
+}
+
+.tile.current .tile-label {
+  color: inherit;
+}
+
+.move-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 12px 16px;
+  text-align: left;
+}
+
+.move-icon {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  font-size: 28px;
+  color: var(--text-color);
+}
+
+.move-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.move-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.move-detail {
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--quiet);
+}
+
+.hint {
+  margin: 2px 8px 0;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+  /* No lone "8." on a last line. */
+  text-wrap: balance;
+  color: var(--quiet);
+}
+
+@media (forced-colors: active) {
+  .tile,
+  .move-row {
+    border: 1px solid ButtonText;
+  }
+
+  .glyph {
+    fill: CanvasText;
+  }
+
+  .tile.current {
+    outline: 3px solid Highlight;
+    outline-offset: -3px;
+  }
 }
 
 .sr-only {
