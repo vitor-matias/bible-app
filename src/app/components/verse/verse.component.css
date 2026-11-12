@@ -127,6 +127,16 @@ h3:not(:first-child) {
   content: "\2060";
 }
 
+/* The space after a verse number, for copied text only: it is drawn at no
+   width, and inside the nowrap pair, before its word joiner, it allows no
+   break. A box of its own, or justified text would widen it, and kept
+   (pre) where it ends a line, as beside a poetry line. */
+.copySpace {
+  display: inline-block;
+  font-size: 0;
+  white-space: pre;
+}
+
 .quoteLineWrapper {
   position: relative;
   display: inline-block;

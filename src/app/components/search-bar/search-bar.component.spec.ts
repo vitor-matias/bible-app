@@ -18,6 +18,14 @@ describe("SearchBarComponent", () => {
 
   afterEach(() => document.documentElement.classList.remove("dark-theme"))
 
+  // The API answers 400 to a search of more than 200 characters.
+  it("takes no more than the API searches", () => {
+    const input = (fixture.nativeElement as HTMLElement).querySelector(
+      ".search-input",
+    ) as HTMLInputElement
+    expect(input.maxLength).toBe(200)
+  })
+
   // A side navigation bar or notch in landscape covered Back and the field.
   it("keeps its contents clear of side system bars", () => {
     const host = fixture.nativeElement as HTMLElement
