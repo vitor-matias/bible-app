@@ -360,7 +360,8 @@ describe("SearchComponent", () => {
     })
 
     it("asks the next page of the same kind of search", async () => {
-      component.meaningSearchConsent = true
+      component.setMeaningSearch(true)
+      onTestFinished(() => localStorage.removeItem("meaningSearchConsent"))
       component.searchTerm = "paz"
       component.currentPage = 1
       component.totalResults = 2
@@ -379,7 +380,8 @@ describe("SearchComponent", () => {
       expect(component.storedResultsHint).not.toContain(comesBack)
       component.meaningSearchConsent = null
       expect(component.storedResultsHint).not.toContain(comesBack)
-      component.meaningSearchConsent = true
+      component.setMeaningSearch(true)
+      onTestFinished(() => localStorage.removeItem("meaningSearchConsent"))
       expect(component.storedResultsHint).toContain(comesBack)
     })
 
@@ -418,6 +420,30 @@ describe("SearchComponent", () => {
         document.body.classList.remove("native-chrome")
         document.body.style.removeProperty("--app-chrome-top")
       }
+    })
+
+    it("keeps focus on the page once the notice is answered", () => {
+      component.meaningSearchConsent = null
+      fixture.detectChanges()
+      const allow = fixture.nativeElement.querySelector(
+        ".meaning-consent-allow",
+      ) as HTMLButtonElement
+      allow.focus()
+      allow.click()
+
+      expect(document.activeElement).toBe(
+        fixture.nativeElement.querySelector(".meaning-status button"),
+      )
+    })
+
+    it("follows a withdrawal made in another tab", async () => {
+      component.setMeaningSearch(true)
+      localStorage.setItem("meaningSearchConsent", "false")
+      apiService.searchByMeaning.mockClear()
+      await component.onSearchSubmit("pastor")
+
+      expect(apiService.search).toHaveBeenCalledWith("pastor", 1)
+      expect(apiService.searchByMeaning).not.toHaveBeenCalled()
     })
 
     it("asks only while unanswered", () => {
@@ -1789,7 +1815,8 @@ describe("SearchComponent", () => {
   // The search returns the 100 verses nearest in meaning: a cap, not a count.
   it("says when the results are the most relevant, not all", async () => {
     referenceService.extract.mockReturnValue([])
-    component.meaningSearchConsent = true
+    component.setMeaningSearch(true)
+    onTestFinished(() => localStorage.removeItem("meaningSearchConsent"))
     apiService.searchByMeaning.mockReturnValue(
       of({
         verses: [],

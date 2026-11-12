@@ -1,8 +1,18 @@
-import { ChangeDetectionStrategy, Component, inject } from "@angular/core"
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  inject,
+  type OnDestroy,
+  type OnInit,
+} from "@angular/core"
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatButtonModule } from "@angular/material/button"
 import { type MatDialogConfig, MatDialogModule } from "@angular/material/dialog"
-import { RouterLink } from "@angular/router"
+import { Router, RouterLink } from "@angular/router"
+import { NativeChromeService } from "../../services/native-chrome.service"
 import { SeoService } from "../../services/seo.service"
+import { ThemeService } from "../../services/theme.service"
 
 /** The policy's text, bundled so it opens without a connection. */
 @Component({
@@ -60,13 +70,43 @@ export const PRIVACY_DIALOG_CONFIG: MatDialogConfig = {
   styles: `
     :host { display: block; height: 100%; overflow-y: auto; }
     .policy-page { max-width: 640px; margin: 0 auto; padding: 24px 16px calc(24px + var(--app-inset-bottom)); }
+    /* Under the apps' bars, which float over the page. */
+    :host-context(.native-chrome) .policy-page {
+      padding-top: calc(24px + var(--native-chrome-top, env(safe-area-inset-top)));
+    }
     h1 { font-size: 1.5rem; }
     a { color: inherit; }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PrivacyPolicyPageComponent {
+export class PrivacyPolicyPageComponent implements OnInit, OnDestroy {
+  private nativeChrome = inject(NativeChromeService)
+  private themeService = inject(ThemeService)
+  private router = inject(Router)
+  private destroyRef = inject(DestroyRef)
+
   constructor() {
     inject(SeoService).updateForPrivacy()
+  }
+
+  /** In the apps, as NotFoundComponent: their bars, and a way back. */
+  ngOnInit(): void {
+    if (!this.nativeChrome.enabled) return
+    this.nativeChrome.show({
+      mode: "page",
+      themeMode: this.themeService.currentMode,
+      title: "Política de Privacidade",
+      search: true,
+    })
+    this.nativeChrome.actions$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ id }) => {
+        if (id === "back") void this.router.navigate(["/"])
+        if (id === "search") void this.router.navigate(["/search"])
+      })
+  }
+
+  ngOnDestroy(): void {
+    if (this.nativeChrome.enabled) this.nativeChrome.hide()
   }
 }

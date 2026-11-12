@@ -820,6 +820,8 @@ export class SearchComponent {
   }
 
   private fetchResults(text: string, page: number): Observable<VersePage> {
+    // Read again: another tab may have withdrawn consent.
+    this.meaningSearchConsent = this.preferences.getMeaningSearchConsent()
     return this.meaningSearchConsent === true
       ? this.apiService.searchByMeaning(text, page)
       : this.apiService.search(text, page)
@@ -832,6 +834,10 @@ export class SearchComponent {
     this.preferences.setMeaningSearchConsent(allowed)
     this.meaningSearchConsent = allowed
     this.cdr.detectChanges()
+    // The notice's buttons are gone with it: keep focus on the page.
+    this.host.nativeElement
+      .querySelector<HTMLButtonElement>(".meaning-status button")
+      ?.focus()
     // Typed: searchTerm is a word search, even when it names a book.
     const text = this.pendingSearch ? this.typedQuery : this.searchTerm
     if (text && !sameKind) void this.onSearchSubmit(text, { typed: true })
