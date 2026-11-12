@@ -19,7 +19,7 @@ import { BackButtonService } from "./services/back-button.service"
 import { historyDepth } from "./services/depth-location-strategy"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
-import { OnboardingService } from "./services/onboarding.service"
+import { OnboardingService, onPolicyPage } from "./services/onboarding.service"
 import { PwaInstallService } from "./services/pwa-install.service"
 import { TextAlignService } from "./services/text-align.service"
 import { ThemeService } from "./services/theme.service"
@@ -79,6 +79,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.handleShareTarget()
     this.setupNativeListeners()
     this.nativeShell.init()
+    if (onPolicyPage()) return
     this.onboardingService.showOnFirstLaunch()
     this.appPromo.scheduleOnce()
   }

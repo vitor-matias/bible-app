@@ -826,6 +826,16 @@ html.ragged-text .footnotes-container {
   display: none;
 }
 
+/* The policy is long: its dialog stays clear of the native bars and scrolls within. */
+.privacy-dialog-panel {
+  --privacy-inset-top: var(--native-chrome-top, var(--safe-area-inset-top, env(safe-area-inset-top)));
+  --privacy-inset-bottom: var(--native-chrome-bottom, var(--safe-area-inset-bottom, env(safe-area-inset-bottom)));
+  max-height: calc(100vh - var(--privacy-inset-top) - var(--privacy-inset-bottom) - 16px) !important;
+  max-height: calc(100dvh - var(--privacy-inset-top) - var(--privacy-inset-bottom) - 16px) !important;
+  margin-top: var(--privacy-inset-top);
+  margin-bottom: var(--privacy-inset-bottom);
+}
+
 /* The pastoral index's letters take the native scrollbar's place. */
 html.no-scrollbar {
   scrollbar-width: none;

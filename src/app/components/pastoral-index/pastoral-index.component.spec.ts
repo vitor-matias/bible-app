@@ -36,6 +36,10 @@ import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
+import {
+  PRIVACY_DIALOG_CONFIG,
+  PrivacyPolicyDialogComponent,
+} from "../privacy-policy/privacy-policy.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { PastoralIndexComponent } from "./pastoral-index.component"
 import entries from "./pastoral-index.data.json"
@@ -567,13 +571,15 @@ describe("PastoralIndexComponent", () => {
       expect(navigate).toHaveBeenCalledWith(["/", "sobre", 1])
     })
 
-    it("links the privacy policy, in a new tab", async () => {
+    it("opens the privacy policy in a modal", async () => {
       const fixture = await open()
       const item = await openMenu(fixture)
 
-      const privacy = item("Política de Privacidade")
-      expect(privacy?.getAttribute("target")).toBe("_blank")
-      expect(privacy?.getAttribute("href")).toContain("politica-de-privacidade")
+      ;(item("Política de Privacidade") as HTMLElement).click()
+      expect(dialog.open).toHaveBeenCalledWith(
+        PrivacyPolicyDialogComponent,
+        PRIVACY_DIALOG_CONFIG,
+      )
     })
   })
 
@@ -2095,13 +2101,15 @@ describe("PastoralIndexComponent", () => {
       const navigate = vi
         .spyOn(TestBed.inject(Router), "navigate")
         .mockResolvedValue(true)
-      const popup = vi.spyOn(window, "open").mockReturnValue(null)
       actions.next({ id: "help" })
       expect(onboarding.open).toHaveBeenCalledWith("menu")
       actions.next({ id: "about" })
       expect(navigate).toHaveBeenCalled()
       actions.next({ id: "privacy" })
-      expect(popup).toHaveBeenCalled()
+      expect(dialog.open).toHaveBeenCalledWith(
+        PrivacyPolicyDialogComponent,
+        PRIVACY_DIALOG_CONFIG,
+      )
       fixture.destroy()
     })
 

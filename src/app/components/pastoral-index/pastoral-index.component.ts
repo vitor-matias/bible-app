@@ -41,7 +41,7 @@ import {
 import { animationFrameScheduler, fromEvent } from "rxjs"
 import { auditTime, map } from "rxjs/operators"
 import { PASTORAL_INDEX_BOOK } from "../../bible-canon"
-import { PRIVACY_POLICY_URL, shareableUrl } from "../../config"
+import { shareableUrl } from "../../config"
 import {
   type TextSize,
   UnifiedGesturesDirective,
@@ -79,6 +79,10 @@ import { buildPassagePicker } from "../../utils/passage-picker"
 import { leftToTheBrowser } from "../../utils/platform"
 import { foldText } from "../../utils/text-search"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
+import {
+  PRIVACY_DIALOG_CONFIG,
+  PrivacyPolicyDialogComponent,
+} from "../privacy-policy/privacy-policy.component"
 import { ReaderMenuComponent } from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
@@ -577,7 +581,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
         this.onboarding.open("menu")
         break
       case "privacy":
-        window.open(PRIVACY_POLICY_URL, "_blank", "noopener")
+        this.dialog.open(PrivacyPolicyDialogComponent, PRIVACY_DIALOG_CONFIG)
         break
     }
   }

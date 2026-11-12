@@ -27,7 +27,7 @@ import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { Router, RouterModule } from "@angular/router"
-import { PRIVACY_POLICY_URL, shareableUrl } from "../../config"
+import { shareableUrl } from "../../config"
 import type { TextSize } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
@@ -57,6 +57,10 @@ import { buildPassagePicker } from "../../utils/passage-picker"
 import { PSALMS_BOOK_ID } from "../../utils/psalms"
 
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
+import {
+  PRIVACY_DIALOG_CONFIG,
+  PrivacyPolicyDialogComponent,
+} from "../privacy-policy/privacy-policy.component"
 import { ReaderMenuComponent } from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 
@@ -300,6 +304,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     })
   }
 
+  private openPrivacyPolicy(): void {
+    this.dialog.open(PrivacyPolicyDialogComponent, PRIVACY_DIALOG_CONFIG)
+  }
+
   /** The About page, which the book pickers no longer list. */
   openAbout(): void {
     this.selectPassage.emit({ bookId: "about" })
@@ -504,7 +512,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.onboardingService.open("menu")
         break
       case "privacy":
-        window.open(PRIVACY_POLICY_URL, "_blank", "noopener")
+        this.openPrivacyPolicy()
         break
     }
   }

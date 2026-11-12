@@ -11,13 +11,16 @@ import {
   ViewChild,
 } from "@angular/core"
 import { takeUntilDestroyed, toSignal } from "@angular/core/rxjs-interop"
+import { MatDialog } from "@angular/material/dialog"
 import { MatIconModule } from "@angular/material/icon"
 import { ActivatedRoute, Router } from "@angular/router"
 import {
   debounceTime,
   filter,
   firstValueFrom,
+  fromEvent,
   map,
+  type Observable,
   Subject,
   type Subscription,
 } from "rxjs"
@@ -30,6 +33,7 @@ import { BookService } from "../../services/book.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NetworkService } from "../../services/network.service"
 import { OfflineSearchService } from "../../services/offline-search.service"
+import { PreferencesService } from "../../services/preferences.service"
 import { SearchMemoryService } from "../../services/search-memory.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
@@ -48,18 +52,22 @@ import {
   verseLines,
   verseText,
 } from "../../utils/text-search"
+import {
+  PRIVACY_DIALOG_CONFIG,
+  PrivacyPolicyDialogComponent,
+} from "../privacy-policy/privacy-policy.component"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 import { getVerseQueryParams } from "../verse/verse.utils"
 
 /**
- * Searching as people type waits for them to pause this long: each search is
- * one by meaning on the server. "A procurar…" shows meanwhile, and a typed
+ * Searching as people type waits for them to pause this long: each search
+ * goes to the server. "A procurar…" shows meanwhile, and a typed
  * reference is offered at once (passageSuggestion), which costs nothing.
  */
 export const TYPING_PAUSE_MS = 1500
 
 /**
- * A word search returns at most this many verses, the nearest in meaning
+ * A search by meaning returns at most this many verses, the nearest in meaning
  * (KNN_MAX_RESULTS in the API), so its total is a cap, not a count.
  */
 export const SEARCH_RESULT_CAP = 100
@@ -181,6 +189,7 @@ export class SearchComponent {
   searching = false
   /** Typed words wait for the pause before their search: "A procurar…". */
   pendingSearch = false
+  private typedQuery = ""
   /**
    * What is typed names a passage: offered at once, first, as "Abrir João
    * 3,16"; Return or a tap opens it.
@@ -249,6 +258,9 @@ export class SearchComponent {
   > | null = null
 
   private readonly nativeChrome = inject(NativeChromeService)
+  private readonly preferences = inject(PreferencesService)
+  private readonly dialog = inject(MatDialog)
+  meaningSearchConsent = this.preferences.getMeaningSearchConsent()
   private readonly network = inject(NetworkService)
   private readonly offlineSearch = inject(OfflineSearchService)
   private readonly memory = inject(SearchMemoryService)
@@ -279,6 +291,17 @@ export class SearchComponent {
 
   ngOnInit(): void {
     this.seoService.updateForSearch()
+    // Another tab's answer: a withdrawal there applies here at once.
+    if (typeof window !== "undefined") {
+      fromEvent<StorageEvent>(window, "storage")
+        .pipe(
+          filter((event) => event.key === "meaningSearchConsent"),
+          takeUntilDestroyed(this.destroyRef),
+        )
+        .subscribe(() =>
+          this.applyMeaningSearch(this.preferences.getMeaningSearchConsent()),
+        )
+    }
     // Before a result's own click handler, which may take the page down at
     // once: by the time a click bubbles up, the list reads as scrolled to 0.
     // A click, so a screen reader's activation counts too.
@@ -381,6 +404,7 @@ export class SearchComponent {
       total: this.totalResults,
       page: this.currentPage,
       storedMatches: this.storedMatches,
+      byMeaning: this.meaningSearchConsent === true,
       scrollTop: this.scrolledTo,
     }
   }
@@ -398,6 +422,7 @@ export class SearchComponent {
   private restore(term: string): boolean {
     const kept = this.memory.last
     if (kept?.term !== term) return false
+    if (kept.byMeaning !== (this.meaningSearchConsent === true)) return false
     this.searchTerm = kept.term
     this.fieldValue = kept.term
     this.themes = themesNamed(kept.term)
@@ -436,6 +461,7 @@ export class SearchComponent {
     this.passageSuggestion = query ? this.suggestPassage(query) : null
     this.themes = themesNamed(query)
     this.pendingSearch = this.searchesOnPause(query)
+    this.typedQuery = query
     this.cdr.detectChanges()
     this.typed.next({ text, generation: this.searchGeneration })
   }
@@ -608,7 +634,7 @@ export class SearchComponent {
     this.isLoading = true
     try {
       const results = await firstValueFrom(
-        this.apiService.search(this.searchTerm, this.currentPage + 1),
+        this.fetchResults(this.searchTerm, this.currentPage + 1),
       )
       if (isStale()) return
       this.searchResults.push(
@@ -766,7 +792,7 @@ export class SearchComponent {
         if (isStale()) return
         this.nothingStored = !stored
       } else {
-        const results = await firstValueFrom(this.apiService.search(text, 1))
+        const results = await firstValueFrom(this.fetchResults(text, 1))
         if (isStale()) return
         this.searchResults = results.verses.map((v) => this.toDisplayVerse(v))
         this.totalResults = results.total
@@ -803,6 +829,41 @@ export class SearchComponent {
         this.cdr.detectChanges()
       }
     }
+  }
+
+  private fetchResults(text: string, page: number): Observable<VersePage> {
+    return this.meaningSearchConsent === true
+      ? this.apiService.searchByMeaning(text, page)
+      : this.apiService.search(text, page)
+  }
+
+  /** Records the answer, and gives a search on screen the chosen kind. */
+  setMeaningSearch(allowed: boolean): void {
+    // Kept in memory too: storage that can't be written still has the answer.
+    this.preferences.setMeaningSearchConsent(allowed)
+    this.applyMeaningSearch(allowed)
+    // The notice's buttons are gone with it: keep focus on the page.
+    this.host.nativeElement
+      .querySelector<HTMLButtonElement>(".meaning-status button")
+      ?.focus()
+  }
+
+  /**
+   * Shows the choice, and searches again when it changes the kind of search,
+   * so a list never mixes pages of both kinds.
+   */
+  private applyMeaningSearch(consent: boolean | null): void {
+    // Unanswered searches the words already: "Agora não" changes no request.
+    const sameKind = (this.meaningSearchConsent === true) === (consent === true)
+    this.meaningSearchConsent = consent
+    this.cdr.detectChanges()
+    // Typed: searchTerm is a word search, even when it names a book.
+    const text = this.pendingSearch ? this.typedQuery : this.searchTerm
+    if (text && !sameKind) void this.onSearchSubmit(text, { typed: true })
+  }
+
+  openPrivacyPolicy(): void {
+    this.dialog.open(PrivacyPolicyDialogComponent, PRIVACY_DIALOG_CONFIG)
   }
 
   /**
@@ -882,7 +943,10 @@ export class SearchComponent {
         ? "1 versículo com estas palavras"
         : `${this.totalResults} versículos com estas palavras`
     }
-    if (this.totalResults >= SEARCH_RESULT_CAP) {
+    if (
+      this.meaningSearchConsent === true &&
+      this.totalResults >= SEARCH_RESULT_CAP
+    ) {
       return `Os ${SEARCH_RESULT_CAP} mais relevantes`
     }
     return this.totalResults === 1
@@ -892,9 +956,15 @@ export class SearchComponent {
 
   /** Why the results are a word search, under their heading. */
   get storedResultsHint(): string {
-    return this.offline
-      ? "Sem ligação: procura as palavras no texto guardado. A pesquisa pelo sentido volta com a ligação."
-      : "A pesquisa pelo sentido não respondeu: procura as palavras no texto guardado."
+    const meaning = this.meaningSearchConsent === true
+    if (this.offline) {
+      return meaning
+        ? "Sem ligação: procura as palavras no texto guardado. A pesquisa pelo sentido volta com a ligação."
+        : "Sem ligação: procura as palavras no texto guardado."
+    }
+    return meaning
+      ? "A pesquisa pelo sentido não respondeu: procura as palavras no texto guardado."
+      : "A pesquisa não respondeu: procura as palavras no texto guardado."
   }
 
   /** "Lucas 2,32", "Salmo 23 (22),4": as the text cites passages. Until the

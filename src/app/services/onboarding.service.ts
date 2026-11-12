@@ -43,7 +43,8 @@ export class OnboardingService {
 
     setTimeout(() => {
       // Re-check: the menu can open and close the wizard during the delay.
-      if (this.seen()) return
+      // An app link to the policy can land after this was scheduled.
+      if (this.seen() || onPolicyPage()) return
       this.open("first_launch")
     }, FIRST_LAUNCH_DELAY_MS)
     return true
@@ -135,6 +136,14 @@ export class OnboardingService {
     const params = new URLSearchParams(search)
     return params.has("url") || params.has("text") || params.has("title")
   }
+}
+
+/** The store listings' link: the wizard would cover the policy it opens. */
+export function onPolicyPage(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/privacidade")
+  )
 }
 
 function defaultSearch(): string {

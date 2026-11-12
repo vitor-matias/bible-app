@@ -1,6 +1,7 @@
 import { Location } from "@angular/common"
 import { ApplicationRef, NO_ERRORS_SCHEMA } from "@angular/core"
 import { ComponentFixture, TestBed } from "@angular/core/testing"
+import { MatDialog } from "@angular/material/dialog"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import {
   ActivatedRoute,
@@ -35,6 +36,10 @@ import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { contrastRatio } from "../../testing/contrast"
 import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
+import {
+  PRIVACY_DIALOG_CONFIG,
+  PrivacyPolicyDialogComponent,
+} from "../privacy-policy/privacy-policy.component"
 import { firstLine, SearchComponent, TYPING_PAUSE_MS } from "./search.component"
 
 // How the edition sets Psalm 23,1 and 94,1.
@@ -133,7 +138,11 @@ describe("SearchComponent", () => {
   }
 
   beforeEach(async () => {
-    apiService = createSpyObj("BibleApiService", ["getVerse", "search"])
+    apiService = createSpyObj("BibleApiService", [
+      "getVerse",
+      "search",
+      "searchByMeaning",
+    ])
     referenceService = createSpyObj("BibleReferenceService", ["extract"])
     bookService = createSpyObj("BookService", [
       "findBook",
@@ -244,6 +253,223 @@ describe("SearchComponent", () => {
     const withInset = container.getBoundingClientRect().height
 
     expect(withoutInset - withInset).toBeCloseTo(100, 0)
+  })
+
+  describe("search by meaning", () => {
+    const consent = () =>
+      fixture.nativeElement.querySelector(".meaning-consent")
+
+    beforeEach(() => {
+      localStorage.removeItem("meaningSearchConsent")
+      referenceService.extract.mockReturnValue([])
+      apiService.search.mockReturnValue(
+        of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+      )
+      apiService.searchByMeaning.mockReturnValue(
+        of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+      )
+    })
+
+    afterEach(() => localStorage.removeItem("meaningSearchConsent"))
+
+    it("sends nothing to Voyage AI until the reader turns it on", async () => {
+      component.meaningSearchConsent = null
+      await component.onSearchSubmit("não tenhas medo")
+
+      expect(apiService.search).toHaveBeenCalledWith("não tenhas medo", 1)
+      expect(apiService.searchByMeaning).not.toHaveBeenCalled()
+    })
+
+    it("turning it on is remembered and redoes the search on screen", async () => {
+      await component.onSearchSubmit("não tenhas medo")
+      component.setMeaningSearch(true)
+
+      expect(localStorage.getItem("meaningSearchConsent")).toBe("true")
+      expect(apiService.searchByMeaning).toHaveBeenCalledWith(
+        "não tenhas medo",
+        1,
+      )
+    })
+
+    it("can be withdrawn, and the words are searched instead", async () => {
+      component.setMeaningSearch(true)
+      component.setMeaningSearch(false)
+      apiService.search.mockClear()
+      apiService.searchByMeaning.mockClear()
+      await component.onSearchSubmit("pastor")
+
+      expect(localStorage.getItem("meaningSearchConsent")).toBe("false")
+      expect(apiService.search).toHaveBeenCalledWith("pastor", 1)
+      expect(apiService.searchByMeaning).not.toHaveBeenCalled()
+    })
+
+    it("keeps the switch on the page after a search", async () => {
+      component.setMeaningSearch(false)
+      await component.onSearchSubmit("pastor")
+      fixture.detectChanges()
+
+      const status = fixture.nativeElement.querySelector(".meaning-status")
+      expect(status.textContent).toContain("desativada")
+      status.querySelector("button").click()
+      expect(component.meaningSearchConsent).toBe(true)
+    })
+
+    it("can be withdrawn without a connection", () => {
+      component.setMeaningSearch(true)
+      component.offline = true
+      component.searchTerm = ""
+      fixture.detectChanges()
+
+      const status = fixture.nativeElement.querySelector(".meaning-status")
+      status.querySelector("button").click()
+      expect(localStorage.getItem("meaningSearchConsent")).toBe("false")
+    })
+
+    it("redoes a search on screen as a word search, even if it names a book", () => {
+      const submit = vi.spyOn(component, "onSearchSubmit")
+      component.searchTerm = "Sabedoria"
+      component.setMeaningSearch(true)
+
+      expect(submit).toHaveBeenCalledWith("Sabedoria", { typed: true })
+    })
+
+    it("runs a typed search that was waiting, with the new choice", async () => {
+      component.ngOnInit()
+      vi.useFakeTimers()
+      component.searchTerm = "pastor"
+      component.onTyping("amor")
+      component.setMeaningSearch(true)
+      await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
+
+      expect(apiService.searchByMeaning).toHaveBeenCalledTimes(1)
+      expect(apiService.searchByMeaning).toHaveBeenCalledWith("amor", 1)
+    })
+
+    it("explains itself in the privacy policy's modal", () => {
+      const open = vi
+        .spyOn(TestBed.inject(MatDialog), "open")
+        .mockReturnValue(undefined as never)
+      component.meaningSearchConsent = null
+      fixture.detectChanges()
+
+      consent()?.querySelector("button")?.click()
+      expect(open).toHaveBeenCalledWith(
+        PrivacyPolicyDialogComponent,
+        PRIVACY_DIALOG_CONFIG,
+      )
+    })
+
+    it("asks the next page of the same kind of search", async () => {
+      component.setMeaningSearch(true)
+      onTestFinished(() => localStorage.removeItem("meaningSearchConsent"))
+      component.searchTerm = "paz"
+      component.currentPage = 1
+      component.totalResults = 2
+      component.searchResults = [{ text: [] } as unknown as Verse]
+      await component["loadMoreResults"]()
+
+      expect(apiService.searchByMeaning).toHaveBeenCalledWith("paz", 2)
+      expect(apiService.search).not.toHaveBeenCalled()
+    })
+
+    it("promises the search by meaning back only to who has it on", () => {
+      const comesBack = "A pesquisa pelo sentido volta com a ligação."
+      component.offline = true
+
+      component.meaningSearchConsent = false
+      expect(component.storedResultsHint).not.toContain(comesBack)
+      component.meaningSearchConsent = null
+      expect(component.storedResultsHint).not.toContain(comesBack)
+      component.setMeaningSearch(true)
+      onTestFinished(() => localStorage.removeItem("meaningSearchConsent"))
+      expect(component.storedResultsHint).toContain(comesBack)
+    })
+
+    it('keeps the results on screen when "Agora não" changes no request', () => {
+      component.meaningSearchConsent = null
+      component.searchTerm = "pastor"
+      component.currentPage = 3
+      const results = [{ text: [] } as unknown as Verse]
+      component.searchResults = results
+      component.setMeaningSearch(false)
+
+      expect(apiService.search).not.toHaveBeenCalled()
+      expect(component.currentPage).toBe(3)
+      expect(component.searchResults).toBe(results)
+    })
+
+    it("clears the native bar only when no suggestion above does", () => {
+      document.body.classList.add("native-chrome")
+      document.body.style.setProperty("--app-chrome-top", "50px")
+      try {
+        component.meaningSearchConsent = false
+        fixture.detectChanges()
+        const status = () =>
+          getComputedStyle(
+            fixture.nativeElement.querySelector(".meaning-status"),
+          ).marginTop
+        expect(status()).toBe("58px")
+
+        component.passageSuggestion = {
+          label: "Abrir João 3,16",
+          query: "Jo 3,16",
+        }
+        component["cdr"].detectChanges()
+        expect(status()).toBe("8px")
+      } finally {
+        document.body.classList.remove("native-chrome")
+        document.body.style.removeProperty("--app-chrome-top")
+      }
+    })
+
+    it("keeps focus on the page once the notice is answered", () => {
+      component.meaningSearchConsent = null
+      fixture.detectChanges()
+      const allow = fixture.nativeElement.querySelector(
+        ".meaning-consent-allow",
+      ) as HTMLButtonElement
+      allow.focus()
+      allow.click()
+
+      expect(document.activeElement).toBe(
+        fixture.nativeElement.querySelector(".meaning-status button"),
+      )
+    })
+
+    it("follows a withdrawal made in another tab, with a fresh list", () => {
+      fixture.detectChanges()
+      component.setMeaningSearch(true)
+      component.searchTerm = "pastor"
+      apiService.searchByMeaning.mockClear()
+      localStorage.setItem("meaningSearchConsent", "false")
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "meaningSearchConsent" }),
+      )
+
+      expect(component.meaningSearchConsent).toBe(false)
+      // Page 1 of the words again, not a page of them under a meaning list.
+      expect(apiService.search).toHaveBeenCalledWith("pastor", 1)
+      expect(apiService.searchByMeaning).not.toHaveBeenCalled()
+    })
+
+    it("keeps the answer when storage can't hold it", () => {
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new Error("QuotaExceededError")
+      })
+      component.searchTerm = "pastor"
+      component.setMeaningSearch(true)
+
+      expect(apiService.searchByMeaning).toHaveBeenCalledWith("pastor", 1)
+    })
+
+    it("asks only while unanswered", () => {
+      component.meaningSearchConsent = null
+      fixture.detectChanges()
+      expect(consent()).not.toBeNull()
+
+      component.setMeaningSearch(false)
+      expect(consent()).toBeNull()
+    })
   })
 
   describe("searching as people type", () => {
@@ -1347,6 +1573,26 @@ describe("SearchComponent", () => {
       document.documentElement.style.removeProperty("--app-inset-bottom")
     })
 
+    it("searches again when the kept list is of the other kind", async () => {
+      fixture.detectChanges()
+      await component.onSearchSubmit("luz")
+      fixture.destroy()
+      localStorage.setItem("meaningSearchConsent", "true")
+      apiService.searchByMeaning.mockReturnValue(of(page(3)))
+
+      queryParamMapSubject.next(convertToParamMap({ q: "luz" }))
+      try {
+        const other = TestBed.createComponent(SearchComponent)
+        other.detectChanges()
+        await booksSettled()
+        await other.whenStable()
+
+        expect(apiService.searchByMeaning).toHaveBeenCalledWith("luz", 1)
+      } finally {
+        localStorage.removeItem("meaningSearchConsent")
+      }
+    })
+
     it("searches again for a query it didn't keep", async () => {
       fixture.detectChanges()
       await component.onSearchSubmit("bom pastor")
@@ -1585,7 +1831,9 @@ describe("SearchComponent", () => {
   // The search returns the 100 verses nearest in meaning: a cap, not a count.
   it("says when the results are the most relevant, not all", async () => {
     referenceService.extract.mockReturnValue([])
-    apiService.search.mockReturnValue(
+    component.setMeaningSearch(true)
+    onTestFinished(() => localStorage.removeItem("meaningSearchConsent"))
+    apiService.searchByMeaning.mockReturnValue(
       of({
         verses: [],
         total: 100,
@@ -1596,11 +1844,25 @@ describe("SearchComponent", () => {
     await component.onSearchSubmit("luz")
     expect(component.resultsHeading).toBe("Os 100 mais relevantes")
 
-    apiService.search.mockReturnValue(
+    apiService.searchByMeaning.mockReturnValue(
       of({ verses: [], total: 23, currentPage: 1, totalPages: 1 } as VersePage),
     )
     await component.onSearchSubmit("Betel")
     expect(component.resultsHeading).toBe("23 resultados")
+  })
+
+  it("counts a word search's results, however many", async () => {
+    referenceService.extract.mockReturnValue([])
+    apiService.search.mockReturnValue(
+      of({
+        verses: [],
+        total: 340,
+        currentPage: 1,
+        totalPages: 7,
+      } as VersePage),
+    )
+    await component.onSearchSubmit("Deus")
+    expect(component.resultsHeading).toBe("340 resultados")
   })
 
   describe("without a connection", () => {
@@ -1910,7 +2172,7 @@ describe("SearchComponent", () => {
 
     expect(component.resultsHeading).toBe("1 versículo com estas palavras")
     expect(fixture.nativeElement.textContent).toContain(
-      "A pesquisa pelo sentido não respondeu",
+      "A pesquisa não respondeu",
     )
     expect(snackBar.open).not.toHaveBeenCalled()
   })

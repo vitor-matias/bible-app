@@ -123,6 +123,19 @@ export class SeoService {
     ])
   }
 
+  /** Head for the privacy policy at /privacidade, the store listings' link. */
+  updateForPrivacy(): void {
+    this.apply({
+      title: `Política de Privacidade | ${SEO_SITE_NAME}`,
+      description:
+        "Que dados a Bíblia Sagrada e biblia.capuchinhos.org tratam, com " +
+        "quem os partilham e como exercer os seus direitos.",
+      canonicalUrl: `${SEO_BASE_URL}/privacidade`,
+      indexable: true,
+    })
+    this.setBreadcrumbs(null)
+  }
+
   /** Search results are user-specific, so keep them out of the index. */
   updateForSearch(): void {
     this.apply({

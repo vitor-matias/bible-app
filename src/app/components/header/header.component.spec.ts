@@ -9,7 +9,6 @@ import { ActivatedRoute, Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, of, Subject } from "rxjs"
 import type { Mock } from "vitest"
-import { PRIVACY_POLICY_URL } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import {
   AppPromoService,
@@ -30,6 +29,10 @@ import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { ThemeService } from "../../services/theme.service"
 import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
+import {
+  PRIVACY_DIALOG_CONFIG,
+  PrivacyPolicyDialogComponent,
+} from "../privacy-policy/privacy-policy.component"
 import { ReaderMenuComponent } from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { HeaderComponent } from "./header.component"
@@ -620,8 +623,8 @@ describe("HeaderComponent", () => {
 
       const version = document.querySelector(".menu-version")
       expect(text()).toBe("1.2.3 · 20261016-120000Z")
-      expect(version?.previousElementSibling?.getAttribute("href")).toBe(
-        PRIVACY_POLICY_URL,
+      expect(version?.previousElementSibling?.textContent).toContain(
+        "Política de Privacidade",
       )
       expect(version?.nextElementSibling).toBeNull()
     })
@@ -1590,15 +1593,15 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(analytics.track).not.toHaveBeenCalledWith("share", expect.anything())
   })
 
-  it("opens the privacy policy outside the app", () => {
+  it("opens the privacy policy in a modal, inside the app", () => {
     const open = vi.spyOn(window, "open").mockReturnValue(undefined as never)
     actions.next({ id: "privacy" })
 
-    expect(open).toHaveBeenCalledWith(
-      "https://www.capuchinhos.org/politica-de-privacidade",
-      "_blank",
-      "noopener",
+    expect(dialog.open).toHaveBeenCalledWith(
+      PrivacyPolicyDialogComponent,
+      PRIVACY_DIALOG_CONFIG,
     )
+    expect(open).not.toHaveBeenCalled()
   })
 
   it("removes the bars when the reader goes away", () => {

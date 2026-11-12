@@ -28,6 +28,13 @@ export const routes: Routes = [
   { path: "android", canActivate: [redirectTo(PLAY_STORE_URL)], children: [] },
   { path: "ios", canActivate: [redirectTo(APP_STORE_URL)], children: [] },
   {
+    path: "privacidade",
+    loadComponent: () =>
+      import("./components/privacy-policy/privacy-policy.component").then(
+        (m) => m.PrivacyPolicyPageComponent,
+      ),
+  },
+  {
     path: "indice",
     loadComponent: () =>
       import("./components/pastoral-index/pastoral-index.component").then(

@@ -221,6 +221,22 @@ describe("AppComponent", () => {
     expect(onboardingSpy.showOnFirstLaunch).toHaveBeenCalled()
   })
 
+  it("leaves a first visit to the privacy policy to the policy", () => {
+    mockAppPlugin.addListener.mockResolvedValue({
+      remove: async () => {},
+    } as unknown as PluginListenerHandle)
+    const before = window.location.pathname
+    history.replaceState(null, "", "/privacidade")
+    try {
+      TestBed.createComponent(AppComponent).detectChanges()
+
+      expect(onboardingSpy.showOnFirstLaunch).not.toHaveBeenCalled()
+      expect(appPromoSpy.scheduleOnce).not.toHaveBeenCalled()
+    } finally {
+      history.replaceState(null, "", before)
+    }
+  })
+
   it("should offer the native app once to visitors past onboarding", () => {
     mockAppPlugin.addListener.mockResolvedValue({
       remove: async () => {},

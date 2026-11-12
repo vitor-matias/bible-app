@@ -59,9 +59,6 @@ export function shareableUrl(
   return `https://${appConfig.domain}${pathname}${search}${hash}`
 }
 
-export const PRIVACY_POLICY_URL =
-  "https://www.capuchinhos.org/politica-de-privacidade"
-
 /**
  * Hydration of the prerendered pages, the same in the browser and the
  * prerender. Incremental hydration is on by default and brings event replay,

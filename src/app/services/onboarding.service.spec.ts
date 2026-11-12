@@ -76,6 +76,19 @@ describe("OnboardingService", () => {
       expect(dialogSpy.open).not.toHaveBeenCalled()
     })
 
+    it("leaves the policy alone when an app link opens it before the wizard", async () => {
+      vi.useFakeTimers()
+      expect(service.showOnFirstLaunch("")).toBe(true)
+      const before = window.location.pathname
+      history.replaceState(null, "", "/privacidade")
+      try {
+        await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS)
+        expect(dialogSpy.open).not.toHaveBeenCalled()
+      } finally {
+        history.replaceState(null, "", before)
+      }
+    })
+
     it("does not reopen once the timer fires after the wizard was already seen", async () => {
       vi.useFakeTimers()
       expect(service.showOnFirstLaunch("")).toBe(true)

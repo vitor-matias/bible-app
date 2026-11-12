@@ -8,11 +8,12 @@ import {
   ViewChild,
 } from "@angular/core"
 import { toSignal } from "@angular/core/rxjs-interop"
+import { MatDialog } from "@angular/material/dialog"
 import { MatDividerModule } from "@angular/material/divider"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenu, MatMenuModule } from "@angular/material/menu"
 import { MatTooltipModule } from "@angular/material/tooltip"
-import { PRIVACY_POLICY_URL, shareableUrl } from "../../config"
+import { shareableUrl } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import {
   AppPromoService,
@@ -24,6 +25,10 @@ import { PwaInstallService } from "../../services/pwa-install.service"
 import { TextAlignService } from "../../services/text-align.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
+import {
+  PRIVACY_DIALOG_CONFIG,
+  PrivacyPolicyDialogComponent,
+} from "../privacy-policy/privacy-policy.component"
 
 /**
  * The menu of the reader's header, which the pastoral index shares: the page
@@ -44,6 +49,7 @@ export class ReaderMenuComponent {
   private readonly cdr = inject(ChangeDetectorRef)
   private readonly textAlign = inject(TextAlignService)
   private readonly appPromo = inject(AppPromoService)
+  private readonly dialog = inject(MatDialog)
   private readonly toast = inject(ToastService)
   readonly analyticsService = inject(AnalyticsService)
 
@@ -68,7 +74,6 @@ export class ReaderMenuComponent {
   readonly about = output<void>()
   readonly reportProblem = output<void>()
 
-  readonly privacyPolicyUrl = PRIVACY_POLICY_URL
   /** Where the page can't share (desktop browsers), the link can be copied. */
   readonly canCopyLink =
     typeof navigator !== "undefined" &&
@@ -141,6 +146,10 @@ export class ReaderMenuComponent {
     return this.viewMode() === "scrolling"
       ? "Texto contínuo (clique para mudar para página a página)"
       : "Página a página (clique para mudar para texto contínuo)"
+  }
+
+  openPrivacyPolicy(): void {
+    this.dialog.open(PrivacyPolicyDialogComponent, PRIVACY_DIALOG_CONFIG)
   }
 
   async copyLink(): Promise<void> {

@@ -353,6 +353,22 @@ describe("SeoService", () => {
     })
   })
 
+  describe("updateForPrivacy", () => {
+    it("gives the policy its own head, not the previous page's", () => {
+      service.updateForChapter(genesis, 1)
+      service.updateForPrivacy()
+
+      expect(title.getTitle()).toBe(
+        `Política de Privacidade | ${SEO_SITE_NAME}`,
+      )
+      expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/privacidade`)
+      expect(getMetaContent('property="og:url"')).toBe(
+        `${SEO_BASE_URL}/privacidade`,
+      )
+      expect(doc.getElementById("seo-breadcrumbs")).toBeNull()
+    })
+  })
+
   describe("updateForBookIndex", () => {
     it("sets an indexable head at the /livros canonical URL", () => {
       // Arrive from search so the noindex tag is actually there to be cleared,
