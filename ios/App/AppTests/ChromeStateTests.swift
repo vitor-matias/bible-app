@@ -196,6 +196,31 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertGreaterThan(wrapped.height, line.height * 1.5)
     }
 
+    // Wrapped, a capsule's radius (half its height) put the lines' ends outside the glass.
+    func testTheNotesWayBackIsACapsuleOnlyOnOneLine() {
+        func capsule() -> UIButton {
+            var config = UIButton.Configuration.plain()
+            config.title = "Voltar para o Índice Bíblico-Pastoral"
+            config.titleLineBreakMode = .byWordWrapping
+            config.cornerStyle = .capsule
+            return UIButton(configuration: config)
+        }
+        let line = capsule()
+        FootnotesController.fitWayBack(line, room: 1000)
+        XCTAssertEqual(line.configuration?.cornerStyle, .capsule)
+
+        let wrapped = capsule()
+        FootnotesController.fitWayBack(wrapped, room: 150)
+        XCTAssertGreaterThan(wrapped.frame.height, 48)
+        XCTAssertEqual(wrapped.configuration?.cornerStyle, .fixed)
+        XCTAssertEqual(wrapped.configuration?.background.cornerRadius, 24)
+
+        // At the sheet's foot it covered the last note: the inset grows with it.
+        XCTAssertEqual(FootnotesController.notesBottomInset(wayBackHeight: line.frame.height), 88)
+        XCTAssertGreaterThanOrEqual(FootnotesController.notesBottomInset(wayBackHeight: wrapped.frame.height),
+                                    wrapped.frame.height + 12 + 28)
+    }
+
     func testAToastClosedOffersNothing() {
         let toast = ToastView()
         toast.show("Voltar para o Índice", onTap: {})

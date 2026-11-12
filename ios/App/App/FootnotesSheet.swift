@@ -128,7 +128,9 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
         guard let wayBack, wayBackButton == nil,
               let container = navigationController?.presentationController?.containerView else { return }
         let button = wayBackCapsule(wayBack)
-        button.frame.size = Self.wayBackSize(button, room: container.bounds.width - 48)
+        Self.fitWayBack(button, room: container.bounds.width - 48)
+        // The notes' last line can scroll clear of it, where it's over them.
+        textView.textContainerInset.bottom = Self.notesBottomInset(wayBackHeight: button.frame.height)
         button.alpha = 0
         container.addSubview(button)
         wayBackButton = button
@@ -174,8 +176,6 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
                 return true
             },
         ]
-        // The notes' last line can scroll clear of it, where it's over them.
-        textView.textContainerInset.bottom = 88
         return button
     }
 
@@ -183,6 +183,22 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
     static func wayBackSize(_ button: UIButton, room: CGFloat) -> CGSize {
         let size = button.sizeThatFits(CGSize(width: room, height: .greatestFiniteMagnitude))
         return CGSize(width: min(size.width, room), height: size.height)
+    }
+
+    /// Sized to `room`: a capsule on one line; once it wraps, corners rounded
+    /// as the toast's, as a tall capsule's ends cut into the first and last lines.
+    static func fitWayBack(_ button: UIButton, room: CGFloat) {
+        let line = button.sizeThatFits(CGSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude))
+        button.frame.size = wayBackSize(button, room: room)
+        guard line.width > room else { return }
+        button.configuration?.cornerStyle = .fixed
+        button.configuration?.background.cornerRadius = min(button.frame.height / 2, 24)
+    }
+
+    /// Room under the notes for the way back at the sheet's foot: 88, as for one
+    /// line, or more for a taller, wrapped one (its 12-point gap and 28 clear).
+    static func notesBottomInset(wayBackHeight: CGFloat) -> CGFloat {
+        max(88, wayBackHeight + 40)
     }
 
     /// Above the sheet, over the dimmed page, so that it covers no notes; with
