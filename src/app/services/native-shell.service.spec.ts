@@ -5,6 +5,7 @@ import { Capacitor, SystemBarsStyle, SystemBarType } from "@capacitor/core"
 import { Subject } from "rxjs"
 import type { Mock } from "vitest"
 import { SPLASH_SCREEN_PLUGIN, SYSTEM_BARS_PLUGIN } from "../tokens"
+import { LiveUpdateService } from "./live-update.service"
 import { NativeShellService, SPLASH_MAX_MS } from "./native-shell.service"
 
 describe("NativeShellService", () => {
@@ -21,6 +22,9 @@ describe("NativeShellService", () => {
   let systemBars: {
     setStyle: Mock
   }
+  let liveUpdate: {
+    readyAndCheck: Mock
+  }
   let body: HTMLElement
 
   beforeEach(() => {
@@ -29,12 +33,19 @@ describe("NativeShellService", () => {
     systemBars = {
       setStyle: vi.fn().mockName("setStyle").mockResolvedValue(undefined),
     }
+    liveUpdate = {
+      readyAndCheck: vi
+        .fn()
+        .mockName("readyAndCheck")
+        .mockResolvedValue(undefined),
+    }
     body = document.createElement("body")
     TestBed.configureTestingModule({
       providers: [
         { provide: Router, useValue: { events } },
         { provide: SPLASH_SCREEN_PLUGIN, useValue: splash },
         { provide: SYSTEM_BARS_PLUGIN, useValue: systemBars },
+        { provide: LiveUpdateService, useValue: liveUpdate },
         { provide: DOCUMENT, useValue: { body } },
       ],
     })
@@ -204,5 +215,43 @@ describe("NativeShellService", () => {
       TestBed.inject(NativeShellService).setNavigationBarTheme(true),
     ).not.toThrow()
     await Promise.resolve()
+  })
+
+  // ready() is what stops the live-update plugin rolling back: only a page
+  // that actually rendered may call it.
+  it("confirms the bundle and checks for updates after the first navigation", async () => {
+    init("android")
+    expect(liveUpdate.readyAndCheck).not.toHaveBeenCalled()
+
+    events.next(new NavigationEnd(1, "/", "/"))
+    events.next(new NavigationEnd(2, "/gn/1", "/gn/1"))
+    await vi.advanceTimersByTimeAsync(SPLASH_MAX_MS)
+
+    expect(liveUpdate.readyAndCheck).toHaveBeenCalledTimes(1)
+  })
+
+  // NavigationEnd alone does not mean the page painted.
+  it("waits for Angular to render the page before confirming the bundle", () => {
+    // Angular schedules its render on a frame; hold frames so only tick() renders.
+    vi.mocked(window.requestAnimationFrame).mockImplementation(() => 0)
+    init("android")
+    events.next(new NavigationEnd(1, "/", "/"))
+    expect(liveUpdate.readyAndCheck).not.toHaveBeenCalled()
+
+    TestBed.tick()
+    expect(liveUpdate.readyAndCheck).toHaveBeenCalledTimes(1)
+  })
+
+  it("lets a bundle that never navigates roll back", async () => {
+    init("android")
+    await vi.advanceTimersByTimeAsync(SPLASH_MAX_MS)
+    expect(liveUpdate.readyAndCheck).not.toHaveBeenCalled()
+  })
+
+  it("does not check for live updates on the web", async () => {
+    init("web")
+    events.next(new NavigationEnd(1, "/", "/"))
+    await vi.advanceTimersByTimeAsync(SPLASH_MAX_MS)
+    expect(liveUpdate.readyAndCheck).not.toHaveBeenCalled()
   })
 })

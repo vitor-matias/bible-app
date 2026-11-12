@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs"
 import type { CapacitorConfig } from "@capacitor/cli"
 
 const config: CapacitorConfig = {
@@ -17,6 +18,16 @@ const config: CapacitorConfig = {
     androidScheme: "https",
   },
   plugins: {
+    LiveUpdate: {
+      // Bundles must be signed with the matching private key (CI secret
+      // LIVE_UPDATE_SIGNING_KEY); unsigned or tampered ones are rejected.
+      publicKey: readFileSync("live-update-public.pem", "utf8").trim(),
+      // Roll back to the bundled app if a new bundle never renders a page
+      // (NativeShellService calls ready() after the first navigation).
+      readyTimeout: 10000,
+      autoBlockRolledBackBundles: true,
+      autoDeleteBundles: true,
+    },
     SplashScreen: {
       // NativeShellService hides it once the first page has rendered.
       launchAutoHide: false,

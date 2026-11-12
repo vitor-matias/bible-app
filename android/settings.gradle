@@ -3,3 +3,6 @@ include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
 
 apply from: 'capacitor.settings.gradle'
+
+// See live-update-plugin.gradle. The path is relative to the plugin in node_modules.
+project(":capawesome-capacitor-live-update").buildFileName = "../../../../android/live-update-plugin.gradle"
