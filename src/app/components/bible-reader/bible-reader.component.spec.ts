@@ -10,7 +10,7 @@ import {
 import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatDialog } from "@angular/material/dialog"
-import type { MatDrawer } from "@angular/material/sidenav"
+import { type MatDrawer, MatSidenavModule } from "@angular/material/sidenav"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { By } from "@angular/platform-browser"
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations"
@@ -453,6 +453,18 @@ describe("BibleReaderComponent", () => {
         expect(data.footnotes.map((note) => note.text)).toEqual(["Nota do 2"])
       })
 
+      // The sheet was an unnamed dialog, and not marked modal.
+      it("names the notes sheet after the verse, as a modal dialog", () => {
+        const { sheet } = follow("2")
+
+        expect(sheet.mock.lastCall?.[1]).toEqual(
+          expect.objectContaining({
+            ariaLabel: expect.stringMatching(/^Notas de .* 1,2$/),
+            ariaModal: true,
+          }),
+        )
+      })
+
       it("takes the first verse with notes in a range", () => {
         const { sheet } = follow("3-4")
 
@@ -689,6 +701,216 @@ describe("BibleReaderComponent", () => {
       fixture.detectChanges()
 
       expect(emptyState()).toBeNull()
+    })
+  })
+
+  // Opened cold (João 4 from a link), there is no chapter to stay on: the
+  // toast faded over a blank page under «João 4», with no way to retry.
+  describe("when the first chapter opened fails to load", () => {
+    const failure = () =>
+      fixture.nativeElement.querySelector(
+        ".chapter-unavailable",
+      ) as HTMLElement | null
+
+    beforeEach(() => {
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      ;(
+        routerSpy as unknown as {
+          routerState: {
+            snapshot: { root: { firstChild: { queryParams: object } } }
+          }
+        }
+      ).routerState.snapshot.root.firstChild.queryParams = { verseStart: "3" }
+      apiServiceSpy.getChapter.mockReturnValue(
+        throwError(() => new Error("Internal Server Error")),
+      )
+    })
+
+    it("says so in the page, not in a passing toast", async () => {
+      fixture.detectChanges()
+      await fixture.whenStable()
+
+      expect(failure()?.getAttribute("role")).toBe("alert")
+      expect(failure()?.textContent).toContain(
+        "Não foi possível carregar o capítulo",
+      )
+      expect(snackBarSpy.open).not.toHaveBeenCalled()
+    })
+
+    it("loads the chapter again, at the verse asked for, on «Tentar novamente»", async () => {
+      fixture.detectChanges()
+      await fixture.whenStable()
+      apiServiceSpy.getChapter.mockReturnValue(
+        of(mockChapter as unknown as Chapter),
+      )
+      animationServiceSpy.scrollToVerseElement.mockClear()
+
+      const retry = failure()?.querySelector("button") as HTMLButtonElement
+      expect(retry.textContent).toContain("Tentar novamente")
+      retry.click()
+      await fixture.whenStable()
+
+      expect(apiServiceSpy.getChapter).toHaveBeenCalledTimes(2)
+      expect(apiServiceSpy.getChapter).toHaveBeenLastCalledWith("gen", 1)
+      expect(animationServiceSpy.scrollToVerseElement.mock.lastCall?.[2]).toBe(
+        3,
+      )
+      expect(failure()).toBeNull()
+    })
+
+    it("keeps the page up while a retry fails too", async () => {
+      fixture.detectChanges()
+      await fixture.whenStable()
+
+      const retry = () =>
+        failure()?.querySelector("button") as HTMLButtonElement
+      retry().click()
+      await fixture.whenStable()
+
+      expect(apiServiceSpy.getChapter).toHaveBeenCalledTimes(2)
+      expect(retry().disabled).toBe(false)
+      expect(snackBarSpy.open).not.toHaveBeenCalled()
+    })
+
+    // A shared link to a verse's notes (/jo/4?verseStart=3&notes=3): the
+    // failure took verseStart and notes off the address and dropped the
+    // notes, so the retry opened the verse but not its notes.
+    it("keeps a linked verse's notes in the address and opens them on a retry", async () => {
+      ;(
+        routerSpy as unknown as {
+          routerState: {
+            snapshot: { root: { firstChild: { queryParams: object } } }
+          }
+        }
+      ).routerState.snapshot.root.firstChild.queryParams = {
+        verseStart: "3",
+        notes: "3",
+      }
+      const queryParamMap = (
+        routeMock as { queryParamMap: BehaviorSubject<Map<string, string>> }
+      ).queryParamMap
+      queryParamMap.next(
+        new Map([
+          ["verseStart", "3"],
+          ["notes", "3"],
+        ]),
+      )
+      // As the router would: a navigation without query params drops them.
+      routerSpy.navigate.mockImplementation((_commands, extras) => {
+        if (!extras?.queryParams) queryParamMap.next(new Map())
+        return Promise.resolve(true)
+      })
+      const sheet = vi
+        .spyOn(TestBed.inject(MatBottomSheet), "open")
+        .mockReturnValue({
+          afterDismissed: () => of(undefined),
+          dismiss: () => {},
+        } as never)
+      vi.spyOn(TestBed.inject(Location), "path").mockReturnValue(
+        "/gn/1?verseStart=3&notes=3",
+      )
+      vi.spyOn(TestBed.inject(Location), "replaceState").mockReturnValue(
+        undefined,
+      )
+      fixture.detectChanges()
+      await fixture.whenStable()
+
+      expect(routerSpy.navigate).not.toHaveBeenCalledWith(
+        ["/", "1-genesis", "1"],
+        { replaceUrl: true },
+      )
+
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({
+          bookId: "gen",
+          number: 1,
+          verses: [1, 2, 3].map((number) => ({
+            bookId: "gen",
+            chapterNumber: 1,
+            number,
+            verseLabel: `${number}`,
+            text: [
+              { type: "text", text: "Texto" },
+              { type: "footnote", text: `Nota do ${number}`, reference: "a" },
+            ],
+          })),
+        } as unknown as Chapter),
+      )
+      ;(
+        (failure() as HTMLElement).querySelector("button") as HTMLButtonElement
+      ).click()
+      fixture.detectChanges()
+      await fixture.whenStable()
+
+      const data = sheet.mock.lastCall?.[1]?.data as { verse: Verse }
+      expect(data?.verse.number).toBe(3)
+    })
+
+    // Génesis 5 picked after Génesis 1 failed: the button still showing
+    // retried Génesis 1, cancelling Génesis 5, and showed it under /gn/5.
+    it("doesn't let the retry cancel a newer chapter on its way", async () => {
+      fixture.detectChanges()
+      await fixture.whenStable()
+      component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
+      const gn5 = new Subject<Chapter>()
+      apiServiceSpy.getChapter.mockReturnValue(gn5)
+      ;(
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap.next(
+        new Map([
+          ["book", "gen"],
+          ["chapter", "5"],
+        ]),
+      )
+      await fixture.whenStable()
+      apiServiceSpy.getChapter.mockClear()
+
+      const button = (failure() as HTMLElement).querySelector(
+        "button",
+      ) as HTMLButtonElement
+      expect(button.disabled).toBe(true)
+      component.retryChapter()
+
+      expect(apiServiceSpy.getChapter).not.toHaveBeenCalled()
+      expect(gn5.observed).toBe(true)
+      gn5.next({ ...mockChapter, number: 5 } as unknown as Chapter)
+      expect(component.chapterNumber).toBe(5)
+    })
+
+    // Génesis 5 picked after Génesis 1 failed, and failing too: the URL went
+    // back to /gn/1 while «Tentar novamente» loaded and saved Génesis 5.
+    it("keeps the URL and header on the chapter a retry loads", async () => {
+      fixture.detectChanges()
+      await fixture.whenStable()
+      component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
+      ;(
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap.next(
+        new Map([
+          ["book", "gen"],
+          ["chapter", "5"],
+        ]),
+      )
+      await fixture.whenStable()
+
+      expect(component.chapterNumber).toBe(5)
+      // The address (/gn/5) already names it: nothing takes it back to /gn/1.
+      expect(routerSpy.navigate).not.toHaveBeenCalledWith(
+        ["/", "1-genesis", "1"],
+        { replaceUrl: true },
+      )
+
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({ ...mockChapter, number: 5 } as unknown as Chapter),
+      )
+      ;(
+        (failure() as HTMLElement).querySelector("button") as HTMLButtonElement
+      ).click()
+      await fixture.whenStable()
+
+      expect(apiServiceSpy.getChapter).toHaveBeenLastCalledWith("gen", 5)
+      expect(component.chapterNumber).toBe(5)
+      expect(preferencesServiceSpy.setLastChapterNumber).toHaveBeenCalledWith(5)
     })
   })
 
@@ -2947,6 +3169,35 @@ describe("BibleReaderComponent", () => {
     })
   })
 
+  // The drawer was an unnamed region: a screen reader heard neither what it
+  // lists nor that it holds the focus.
+  it("names the drawer after what it lists, as a modal dialog", () => {
+    fixture.detectChanges()
+    const drawer = () =>
+      (fixture.nativeElement as HTMLElement).querySelector(
+        "mat-drawer",
+      ) as HTMLElement
+
+    expect(drawer().getAttribute("role")).toBe("dialog")
+    expect(drawer().getAttribute("aria-modal")).toBe("true")
+    expect(drawer().getAttribute("aria-label")).toBe("Livros")
+
+    component.showBooks = false
+    ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+    fixture.detectChanges()
+    expect(drawer().getAttribute("aria-label")).toBe("Capítulos")
+  })
+
+  // The text, the About page and the introductions were in no landmark.
+  it("holds the text in the page's one main landmark", () => {
+    fixture.detectChanges()
+    const host = fixture.nativeElement as HTMLElement
+    const main = host.querySelectorAll('main, [role="main"]')
+
+    expect(main.length).toBe(1)
+    expect(main[0].querySelector(".bookBlock")).not.toBeNull()
+  })
+
   describe("Drawer Actions", () => {
     beforeEach(() => {
       fixture.detectChanges()
@@ -3099,6 +3350,139 @@ describe("BibleReaderComponent", () => {
       expect(preferencesServiceSpy.setViewMode).toHaveBeenCalledWith(
         "scrolling",
       )
+    })
+  })
+
+  // Switching views from the menu went to the chapter's top (/lc/15 at 20).
+  describe("switching views keeps the verse being read", () => {
+    let host: HTMLElement
+
+    beforeEach(async () => {
+      TestBed.resetTestingModule()
+      await setUpTestBed({
+        imports: [MatSidenavModule, PagedNavigationDirective],
+      })
+      // A <bible-reader> host, for the native-chrome rules in styles.css.
+      fixture = TestBed.createComponent(BibleReaderComponent, {
+        inferTagName: true,
+      })
+      component = fixture.componentInstance
+      const verses = Array.from({ length: 40 }, (_, i) => ({
+        bookId: "gen",
+        chapterNumber: 1,
+        number: i + 1,
+        text: [],
+      }))
+      apiServiceSpy.getChapter.mockReturnValue(
+        of({ ...mockChapter, verses } as unknown as Chapter),
+      )
+      fixture.detectChanges()
+      await fixture.whenStable()
+      host = fixture.nativeElement as HTMLElement
+      // VerseComponent isn't imported: give each verse a few lines of its own.
+      for (const verse of Array.from(host.querySelectorAll("verse"))) {
+        verse.textContent = `${verse.id} ${"Palavra ".repeat(60)}`
+      }
+    })
+
+    /** Whether a line of the verse is inside the scroller's box. */
+    function inView(verse: Element, scroller: HTMLElement): boolean {
+      const view = scroller.getBoundingClientRect()
+      return Array.from(verse.getClientRects()).some(
+        (line) =>
+          line.bottom > view.top &&
+          line.top < view.bottom &&
+          line.right > view.left &&
+          line.left < view.right,
+      )
+    }
+
+    const showing = (scroller: HTMLElement) =>
+      Array.from(host.querySelectorAll("verse")).find((verse) =>
+        inView(verse, scroller),
+      ) as HTMLElement
+
+    const drawer = () => host.querySelector("mat-drawer-content") as HTMLElement
+    const pages = () =>
+      host.querySelector(".paged-view-container") as HTMLElement
+
+    async function toggle(): Promise<void> {
+      component.onToggleViewMode()
+      fixture.detectChanges()
+      await fixture.whenStable()
+    }
+
+    it("from the scroll to the page it is on, and back", async () => {
+      ;(host.querySelector('verse[id="20"]') as HTMLElement).scrollIntoView({
+        block: "start",
+      })
+      const reading = showing(drawer())
+      expect(Number(reading.id)).toBeGreaterThan(15)
+
+      await toggle()
+      expect(pages().scrollLeft).toBeGreaterThan(0)
+      expect(inView(reading, pages())).toBe(true)
+
+      const first = showing(pages())
+      await toggle()
+      expect(drawer().scrollTop).toBeGreaterThan(0)
+      expect(inView(first, drawer())).toBe(true)
+    })
+
+    // The apps' bars float over the text: a verse under the top bar is not
+    // being read, and one scrolled to the top went under it.
+    describe("under the native bars", () => {
+      const BAR = 300
+
+      beforeEach(() => {
+        document.body.classList.add("native-chrome")
+        document.documentElement.style.setProperty(
+          "--native-chrome-top",
+          `${BAR}px`,
+        )
+      })
+
+      afterEach(() => {
+        document.body.classList.remove("native-chrome")
+        document.documentElement.style.removeProperty("--native-chrome-top")
+      })
+
+      it("reads the verse below the top bar, not under it", async () => {
+        const scroller = drawer()
+        const verse20 = host.querySelector('verse[id="20"]') as HTMLElement
+        scroller.scrollTop +=
+          verse20.getClientRects()[0].top -
+          (scroller.getBoundingClientRect().top + BAR)
+        const view = scroller.getBoundingClientRect()
+        const belowBar = Array.from(host.querySelectorAll("verse")).find(
+          (verse) =>
+            Array.from(verse.getClientRects()).some(
+              (line) => line.bottom > view.top + BAR,
+            ),
+        )
+        const scrollToPage = vi.spyOn(
+          component.pagedNav as PagedNavigationDirective,
+          "scrollToPage",
+        )
+
+        await toggle()
+
+        expect(scrollToPage).toHaveBeenCalledWith(belowBar, "instant")
+      })
+
+      it("brings the verse back below the top bar", async () => {
+        await toggle()
+        ;(component.pagedNav as PagedNavigationDirective).scrollToPage(
+          host.querySelector('verse[id="20"]') as HTMLElement,
+          "instant",
+        )
+        const first = showing(pages())
+
+        await toggle()
+
+        const top = drawer().getBoundingClientRect().top + BAR
+        expect(first.getClientRects()[0].top).toBeGreaterThanOrEqual(top - 1)
+      })
     })
   })
 
@@ -3785,9 +4169,13 @@ describe("BibleReaderComponent", () => {
         throwError(() => new Error("Network error")),
       )
       component.book = mockBooks[0] as unknown as Book
-      component.chapterNumber = 1
       const el = document.createElement("div")
       component.bookContainer = { nativeElement: el } as unknown as ElementRef
+      apiServiceSpy.getChapter.mockReturnValueOnce(
+        of(mockChapter as unknown as Chapter),
+      )
+      component.getChapter(1)
+      el.style.opacity = ""
 
       component.getChapter(2)
       await vi.advanceTimersByTimeAsync(0)

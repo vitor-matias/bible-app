@@ -50,6 +50,7 @@ import {
   verseText,
 } from "../../utils/text-search"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
+import { getVerseQueryParams } from "../verse/verse.utils"
 
 /**
  * Searching as people type waits for them to pause this long: each search is
@@ -75,6 +76,10 @@ const SEARCH_FAILED =
 /** The server refused the search (HTTP 429): too many in a short while. */
 const SEARCH_RATE_LIMITED =
   "Foram feitas muitas pesquisas seguidas. Aguarde um minuto e tente novamente."
+
+/** The server refused the search (HTTP 400): longer than its 200 characters. */
+const SEARCH_TOO_LONG =
+  "A pesquisa é demasiado longa. Use no máximo 200 caracteres."
 
 /** A chapter the book doesn't have, or a verse the chapter doesn't. */
 const NO_SUCH_PASSAGE = "Este capítulo ou versículo não existe."
@@ -115,6 +120,8 @@ interface PassageTarget {
   book: Book
   chapter: number
   verseStart?: number
+  /** The last verse of a range or list ("Lc 15,1-3.11-32"). */
+  verseEnd?: number
   /** Cited with both numbers ("Sl 94 (95)"), so not to be asked which. */
   pairedPsalm: boolean
   /** Named by the book alone ("Lucas"), not a chapter. */
@@ -126,6 +133,8 @@ export interface PsalmOption {
   psalm: number
   /** Where to open it; none for the psalm's beginning. */
   verseStart?: number
+  /** The end of a range asked for ("Sl 94,6-7"). */
+  verseEnd?: number
   label: string
   /** Which numbering names it so: "nesta Bíblia" or "como na Missa". */
   note: string
@@ -466,7 +475,7 @@ export class SearchComponent {
   ): { label: string; query: string } | null {
     const { target } = this.resolvePassage(query)
     if (!target) return null
-    const { book, chapter, verseStart } = target
+    const { book, chapter, verseStart, verseEnd } = target
     if (book.introSlug || target.bookOnly) {
       return { label: `Abrir ${book.name}`, query }
     }
@@ -479,7 +488,11 @@ export class SearchComponent {
     ) {
       return { label: `Escolher o Salmo ${chapter}`, query }
     }
-    return { label: `Abrir ${passageLabel(book, chapter, verseStart)}`, query }
+    const verses =
+      verseEnd && verseEnd !== verseStart
+        ? `${verseStart}-${verseEnd}`
+        : verseStart
+    return { label: `Abrir ${passageLabel(book, chapter, verses)}`, query }
   }
 
   /**
@@ -513,15 +526,10 @@ export class SearchComponent {
       // falls back to, nor "Joao 3" the introduction to John's letters.
       const book = ref.book ? this.bookService.findTypedBook(ref.book) : null
       if (book) {
-        const first = ref.verses?.[0]
         target = {
           book,
           chapter: ref.chapter || 1,
-          verseStart: first
-            ? first.type === "single"
-              ? first.verse
-              : first.start
-            : undefined,
+          ...getVerseQueryParams(ref.verses),
           pairedPsalm,
         }
       }
@@ -654,6 +662,7 @@ export class SearchComponent {
         target.book,
         target.chapter,
         target.verseStart,
+        target.verseEnd,
       )
       return
     }
@@ -671,6 +680,7 @@ export class SearchComponent {
         book: targetBook,
         chapter: targetChapter,
         verseStart: targetVerseStart,
+        verseEnd: targetVerseEnd,
       } = target
       // A standalone introduction has no chapters: nothing to probe, and its
       // only page is /intro.
@@ -693,7 +703,12 @@ export class SearchComponent {
             isIntro ? BookService.INTRO_URL_SEGMENT : targetChapter,
           ],
           targetVerseStart !== undefined
-            ? { queryParams: { verseStart: targetVerseStart } }
+            ? {
+                queryParams: {
+                  verseStart: targetVerseStart,
+                  ...(targetVerseEnd ? { verseEnd: targetVerseEnd } : {}),
+                },
+              }
             : {},
         )
         if (navigated || isStale()) return
@@ -772,8 +787,13 @@ export class SearchComponent {
       // Not "no results": the page says the search itself failed, and why.
       console.error("Error loading search results:", error)
       this.searchFailed = true
+      const status = httpStatus(error)
       this.searchFailedMessage =
-        httpStatus(error) === 429 ? SEARCH_RATE_LIMITED : SEARCH_FAILED
+        status === 429
+          ? SEARCH_RATE_LIMITED
+          : status === 400
+            ? SEARCH_TOO_LONG
+            : SEARCH_FAILED
       this.searchResults = []
       this.totalResults = 0
       this.statusMessage = this.searchFailedMessage
@@ -899,12 +919,16 @@ export class SearchComponent {
     psalms: Book,
     psalm: number,
     verseStart: number | undefined,
+    verseEnd: number | undefined,
   ): void {
     const liturgical = psalmFromLiturgical(psalm)
     if (!liturgical) return
     const option = (number: number, note: string, verse?: number) => ({
       psalm: number,
-      ...(verse !== undefined && verse > 1 ? { verseStart: verse } : {}),
+      ...(verse !== undefined && (verse > 1 || verseEnd)
+        ? { verseStart: verse }
+        : {}),
+      ...(verseEnd ? { verseEnd } : {}),
       label: passageLabel(psalms, number),
       note,
       title:
@@ -975,8 +999,14 @@ export class SearchComponent {
 
   /** A result's or a psalm's address: a real link, which a keyboard, a
    *  screen reader and "open in a new tab" can follow. */
-  passageHref(bookId: string, chapter: number, verseStart?: number): string {
-    const query = verseStart ? `?verseStart=${verseStart}` : ""
+  passageHref(
+    bookId: string,
+    chapter: number,
+    verseStart?: number,
+    verseEnd?: number,
+  ): string {
+    const end = verseStart && verseEnd ? `&verseEnd=${verseEnd}` : ""
+    const query = verseStart ? `?verseStart=${verseStart}${end}` : ""
     return `/${this.passagePath(bookId, chapter).join("/")}${query}`
   }
 
@@ -1005,12 +1035,15 @@ export class SearchComponent {
     bookId: string,
     chapter: number,
     verseStart?: number,
+    verseEnd?: number,
   ): void {
     if (leftToTheBrowser(event)) return
     event.preventDefault()
     void this.router.navigate(
       ["/", ...this.passagePath(bookId, chapter)],
-      verseStart ? { queryParams: { verseStart } } : {},
+      verseStart
+        ? { queryParams: { verseStart, ...(verseEnd ? { verseEnd } : {}) } }
+        : {},
     )
   }
 }

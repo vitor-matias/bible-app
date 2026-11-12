@@ -2,12 +2,12 @@
 <div class="toolbar-wrapper">
   <mat-toolbar class="index-toolbar">
     <div class="content">
-      <button mat-flat-button type="button" aria-label="Menu" class="button actionButton backButton" [matMenuTriggerFor]="pageMenu.menu" (menuOpened)="pageMenu.opened()">
+      <button mat-flat-button type="button" aria-label="Menu" class="button actionButton backButton menuButton" [matMenuTriggerFor]="pageMenu.menu" (menuOpened)="pageMenu.opened()">
         <mat-icon>menu</mat-icon>
       </button>
       <!-- The reader's menu, less what only a chapter has: auto-scroll and the
            view mode. -->
-      <reader-menu #pageMenu="readerMenu" [canShare]="canShare" [version]="version()"
+      <reader-menu #pageMenu="readerMenu" [canShare]="canShare" [version]="version()" [textSize]="textSizeState()"
         (decreaseFontSize)="decreaseFontSize()" (increaseFontSize)="increaseFontSize()"
         (resetFontSize)="resetFontSize()" (bookmarks)="openBookmarks()" (share)="share()" (about)="openAbout()"
         (reportProblem)="reportProblem()" />
@@ -45,6 +45,7 @@
     class="letter-bar"
     aria-hidden="true"
     [style.--letter-count]="letters().length"
+    [style.--text-scale]="(textSizeState()?.percent ?? 100) / 100"
     [alphabet]="letters()"
     [magnify]="!native"
     [current]="native ? null : scrubbed() ?? currentLetter()"

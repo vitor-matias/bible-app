@@ -477,6 +477,79 @@ describe("BibleReferenceService", () => {
     expect(ref.verses).toEqual([{ type: "single", verse: 16 }])
   })
 
+  // The note on Lc 15,11: "(v.24.32)" linked to Mt 24,32, the book cited before.
+  it('reads "v.24.32" as verses of the current chapter, not the last book cited', () => {
+    const note =
+      "A parábola dos dois filhos é própria de Lc; a de Mt 21,28-32 oferece só algumas analogias. Consta de duas partes, ligadas entre si pela mesma figura central do pai, caraterizada pela sua misericórdia e pelo mesmo convite final a partilhar a sua alegria (v.24.32). A segunda parte, na qual Jesus responde aos problemas dos v.1-2, revela o ensinamento principal da parábola."
+    const refs = service.extract(note, "luk", 15)
+
+    expect(
+      refs.map(({ match, book, chapter, verses }) => ({
+        match,
+        book,
+        chapter,
+        verses,
+      })),
+    ).toEqual([
+      {
+        match: "Mt 21,28-32",
+        book: "Mt",
+        chapter: 21,
+        verses: [{ type: "range", start: 28, end: 32 }],
+      },
+      {
+        match: "v.24.32",
+        book: "luk",
+        chapter: 15,
+        verses: [
+          { type: "single", verse: 24 },
+          { type: "single", verse: 32 },
+        ],
+      },
+      {
+        match: "v.1-2",
+        book: "luk",
+        chapter: 15,
+        verses: [{ type: "range", start: 1, end: 2 }],
+      },
+    ])
+  })
+
+  // "v.5" took ", 6" and ",1" too, over the "6,1" linked on its own.
+  it('ends a "v." list where another chapter is cited: "(v.5, 6,1)"', () => {
+    const refs = service.extract("(v.5, 6,1)", "luk", 15)
+
+    expect(
+      refs.map(({ match, chapter, verses }) => ({ match, chapter, verses })),
+    ).toEqual([
+      { match: "v.5", chapter: 15, verses: [{ type: "single", verse: 5 }] },
+      { match: "6,1", chapter: 6, verses: [{ type: "single", verse: 1 }] },
+    ])
+  })
+
+  // "2.4-5" was taken for chapter 2, and "v.1-2" then lost for overlapping it.
+  it('keeps a "v." list of ranges whole: "v.1-2.4-5"', () => {
+    const refs = service.extract("v.1-2.4-5", "luk", 15)
+
+    expect(refs).toEqual([
+      {
+        match: "v.1-2.4-5",
+        index: 0,
+        book: "luk",
+        chapter: 15,
+        verses: [
+          { type: "range", start: 1, end: 2 },
+          { type: "range", start: 4, end: 5 },
+        ],
+      },
+    ])
+  })
+
+  it('links no "v.24.32" without a current chapter', () => {
+    const refs = service.extract("Mt 21,28-32 (v.24.32)")
+    expect(refs.map((r) => r.match)).toEqual(["Mt 21,28-32"])
+  })
+
   // References as liturgical leaflets and the edition's own notes write them.
   // "Cartas de João" is an introduction with the id "joao", which is also what
   // "João" is typed as: the typed name is the Gospel, as on the search page.

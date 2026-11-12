@@ -128,10 +128,9 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
         guard let wayBack, wayBackButton == nil,
               let container = navigationController?.presentationController?.containerView else { return }
         let button = wayBackCapsule(wayBack)
-        button.frame.size = button.systemLayoutSizeFitting(
-            CGSize(width: container.bounds.width - 48, height: UIView.layoutFittingCompressedSize.height),
-            withHorizontalFittingPriority: .fittingSizeLevel, verticalFittingPriority: .fittingSizeLevel)
-        button.frame.size.width = min(button.frame.width, container.bounds.width - 48)
+        Self.fitWayBack(button, room: container.bounds.width - 48)
+        // The notes' last line can scroll clear of it, where it's over them.
+        textView.textContainerInset.bottom = Self.notesBottomInset(wayBackHeight: button.frame.height)
         button.alpha = 0
         container.addSubview(button)
         wayBackButton = button
@@ -157,7 +156,8 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
         config.image = wayBack.symbol.flatMap { UIImage(systemName: $0) }
         config.imagePadding = 8
         config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(textStyle: .subheadline, scale: .medium)
-        config.titleLineBreakMode = .byTruncatingTail
+        // Wraps at the largest text sizes, as the toast does.
+        config.titleLineBreakMode = .byWordWrapping
         config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
             var attributes = attributes
             attributes.font = limitedFont(.systemFont(ofSize: 15, weight: .semibold), .subheadline)
@@ -176,9 +176,29 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
                 return true
             },
         ]
-        // The notes' last line can scroll clear of it, where it's over them.
-        textView.textContainerInset.bottom = 88
         return button
+    }
+
+    /// Its one line, or, where that is wider than `room`, its wrapped lines at that width.
+    static func wayBackSize(_ button: UIButton, room: CGFloat) -> CGSize {
+        let size = button.sizeThatFits(CGSize(width: room, height: .greatestFiniteMagnitude))
+        return CGSize(width: min(size.width, room), height: size.height)
+    }
+
+    /// Sized to `room`: a capsule on one line; once it wraps, corners rounded
+    /// as the toast's, as a tall capsule's ends cut into the first and last lines.
+    static func fitWayBack(_ button: UIButton, room: CGFloat) {
+        let line = button.sizeThatFits(CGSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude))
+        button.frame.size = wayBackSize(button, room: room)
+        guard line.width > room else { return }
+        button.configuration?.cornerStyle = .fixed
+        button.configuration?.background.cornerRadius = min(button.frame.height / 2, 24)
+    }
+
+    /// Room under the notes for the way back at the sheet's foot: 88, as for one
+    /// line, or more for a taller, wrapped one (its 12-point gap and 28 clear).
+    static func notesBottomInset(wayBackHeight: CGFloat) -> CGFloat {
+        max(88, wayBackHeight + 40)
     }
 
     /// Above the sheet, over the dimmed page, so that it covers no notes; with

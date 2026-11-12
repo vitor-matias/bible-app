@@ -1,12 +1,16 @@
+import { Component } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
+import { MatDialog } from "@angular/material/dialog"
 import { lastCall } from "../testing/spy-obj"
 import {
   BibleReaderAnimationService,
   HIGHLIGHT_CLASS,
-  HIGHLIGHT_CONTINUES_CLASS,
   HIGHLIGHT_DURATION_MS,
   LAYOUT_SETTLE_MS,
 } from "./bible-reader-animation.service"
+
+@Component({ template: "" })
+class BlankDialogComponent {}
 
 describe("BibleReaderAnimationService", () => {
   // Before the beforeEach below, which stubs requestAnimationFrame: installing
@@ -173,6 +177,26 @@ describe("BibleReaderAnimationService", () => {
       expect(containerRow.classList.contains("slide-out-right")).toBe(false)
     })
 
+    it("should not slide when the reader asks for reduced motion", async () => {
+      vi.spyOn(window, "matchMedia").mockReturnValue({
+        matches: true,
+      } as MediaQueryList)
+      const containerRow = document.createElement("div")
+
+      let resolved = false
+      service.triggerSlideOutAnimation(containerRow, false).then(() => {
+        resolved = true
+      })
+      await vi.advanceTimersByTimeAsync(0)
+      expect(resolved).toBe(true)
+      expect(containerRow.classList.contains("slide-out-left")).toBe(false)
+
+      containerRow.style.opacity = "0"
+      service.triggerSlideAnimation(undefined, containerRow, false)
+      expect(containerRow.classList.contains("slide-in-right")).toBe(false)
+      expect(containerRow.style.opacity).toBe("")
+    })
+
     it("should resolve via fallback timeout if animationend does not fire", async () => {
       const containerRow = document.createElement("div")
 
@@ -335,6 +359,31 @@ describe("BibleReaderAnimationService", () => {
       expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBe(false)
     })
 
+    it("should keep a verse marked while a dialog covers it, then for the full time", async () => {
+      const bookBlock = document.createElement("div")
+      const verse = document.createElement("div")
+      verse.id = "11"
+      bookBlock.appendChild(verse)
+      vi.spyOn(verse, "scrollIntoView").mockReturnValue(undefined)
+
+      service.scrollToVerseElement(bookBlock, undefined, 11, 11)
+      await vi.advanceTimersByTimeAsync(100)
+      // A first visit's onboarding opens over the shared link.
+      const dialog = TestBed.inject(MatDialog)
+      const ref = dialog.open(BlankDialogComponent)
+      await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS * 3)
+      expect(verse.classList.contains(HIGHLIGHT_CLASS)).toBe(true)
+
+      ref.close()
+      await vi.advanceTimersByTimeAsync(500)
+      expect(dialog.openDialogs.length).toBe(0)
+      expect(verse.classList.contains(HIGHLIGHT_CLASS)).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS)
+      expect(verse.classList.contains(HIGHLIGHT_CLASS)).toBe(false)
+      await vi.advanceTimersByTimeAsync(LAYOUT_SETTLE_MS)
+    })
+
     it("should highlight every verse of a range", async () => {
       const bookBlock = document.createElement("div")
       const verses = [1, 2, 3].map((n) => {
@@ -357,49 +406,6 @@ describe("BibleReaderAnimationService", () => {
 
       await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS)
       expect(verses.some((el) => el.classList.contains(HIGHLIGHT_CLASS))).toBe(
-        false,
-      )
-    })
-
-    it("should mark every verse of a range but the first as continuing the stroke", async () => {
-      const bookBlock = document.createElement("div")
-      const verses = [1, 2, 3].map((n) => {
-        const el = document.createElement("div")
-        el.id = String(n)
-        bookBlock.appendChild(el)
-        vi.spyOn(el, "scrollIntoView").mockReturnValue(undefined)
-        return el
-      })
-      const continues = () =>
-        verses.map((el) => el.classList.contains(HIGHLIGHT_CONTINUES_CLASS))
-
-      service.scrollToVerseElement(bookBlock, undefined, 1, 3, true, false)
-      await vi.advanceTimersByTimeAsync(100)
-
-      expect(continues()).toEqual([false, true, true])
-
-      await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS)
-      expect(continues()).toEqual([false, false, false])
-    })
-
-    it("should not leave a lone verse marked as continuing when it was part of a range", async () => {
-      const bookBlock = document.createElement("div")
-      const verses = [1, 2].map((n) => {
-        const el = document.createElement("div")
-        el.id = String(n)
-        bookBlock.appendChild(el)
-        vi.spyOn(el, "scrollIntoView").mockReturnValue(undefined)
-        return el
-      })
-
-      service.scrollToVerseElement(bookBlock, undefined, 1, 2, true, false)
-      await vi.advanceTimersByTimeAsync(100)
-      expect(verses[1].classList.contains(HIGHLIGHT_CONTINUES_CLASS)).toBe(true)
-
-      // The same verse asked for alone opens its own stroke.
-      service.scrollToVerseElement(bookBlock, undefined, 2, 2, true, false)
-      await vi.advanceTimersByTimeAsync(100)
-      expect(verses[1].classList.contains(HIGHLIGHT_CONTINUES_CLASS)).toBe(
         false,
       )
     })

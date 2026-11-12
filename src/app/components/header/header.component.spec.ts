@@ -30,7 +30,10 @@ import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
 import { ThemeService } from "../../services/theme.service"
 import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
-import { ReaderMenuComponent } from "../reader-menu/reader-menu.component"
+import {
+  MENU_BUTTON,
+  ReaderMenuComponent,
+} from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { HeaderComponent } from "./header.component"
 
@@ -320,6 +323,8 @@ describe("HeaderComponent", () => {
 
     expect(dialogSpy.open).toHaveBeenCalledWith(ReportProblemComponent, {
       data: { book: component.book(), chapter: 3 },
+      ariaModal: true,
+      restoreFocus: MENU_BUTTON,
       width: "90%",
       maxWidth: "500px",
     })
@@ -333,6 +338,8 @@ describe("HeaderComponent", () => {
 
     expect(dialogSpy.open).toHaveBeenCalledWith(ReportProblemComponent, {
       data: { book: component.book(), chapter: 0 },
+      ariaModal: true,
+      restoreFocus: MENU_BUTTON,
       width: "90%",
       maxWidth: "500px",
     })
@@ -361,6 +368,16 @@ describe("HeaderComponent", () => {
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(true)
       expect(trigger.menuOpen).toBe(false)
+    })
+
+    // The sheet was an unnamed dialog, and not marked modal.
+    it("names the bookmark sheet, as a modal dialog", () => {
+      fixture.componentRef.setInput("chapterNumber", 1)
+      component.openBookmarkSelector()
+
+      expect(bottomSheetSpy.open.mock.lastCall?.[1]).toEqual(
+        expect.objectContaining({ ariaLabel: "Marcadores", ariaModal: true }),
+      )
     })
 
     it("dismisses the bookmark sheet it opened", () => {
@@ -668,7 +685,7 @@ describe("HeaderComponent", () => {
       fixture.detectChanges()
       await openMenu()
 
-      expect(text()).toBe("Bundle 20261016-120000Z")
+      expect(text()).toBe("Versão 20261016-120000Z")
     })
 
     it("is left out until the version is known", async () => {
@@ -820,7 +837,35 @@ describe("HeaderComponent", () => {
     // The light surfaces' tone: the header's button is antique white in
     // both themes.
     expect(ribbon.style.color).toBe("var(--ribbon-light-red)")
-    expect(ribbon.parentElement?.textContent).toContain(", marcador vermelho")
+    expect(chapterButtonName()).toBe(
+      "Capítulo 3, marcador vermelho, escolher capítulo",
+    )
+  })
+
+  const chapterButtonName = () =>
+    (
+      fixture.nativeElement.querySelectorAll(
+        ".bookSelectorButtonContent button",
+      )[1] as HTMLElement
+    ).getAttribute("aria-label")
+
+  // The chapter's button was named "3" alone.
+  describe("the chapter button's name", () => {
+    const name = chapterButtonName
+
+    it("says what the number is and what the button does", () => {
+      fixture.componentRef.setInput("chapterNumber", 3)
+      fixture.detectChanges()
+
+      expect(name()).toBe("Capítulo 3, escolher capítulo")
+    })
+
+    it("leaves an introduction its own name", () => {
+      fixture.componentRef.setInput("chapterNumber", 0)
+      fixture.detectChanges()
+
+      expect(name()).toMatch(/^Intro(dução)?, escolher capítulo$/)
+    })
   })
 
   it("opens the About page from the menu", () => {
@@ -850,8 +895,27 @@ describe("HeaderComponent", () => {
       .find((item) => item.textContent?.includes("Como usar a app"))
       ?.click()
 
-    expect(onboardingServiceSpy.open).toHaveBeenCalledWith("menu")
+    // The entry is gone once the wizard closes: the focus goes to the button.
+    expect(onboardingServiceSpy.open).toHaveBeenCalledWith("menu", MENU_BUTTON)
     expect(trigger.menuOpen).toBe(false)
+  })
+
+  // The focus fell to the page when what the menu opened closed: Material
+  // returned it to the menu entry, gone by then.
+  it("gives the focus back to the menu button after the bookmarks and reports", () => {
+    fixture.componentRef.setInput("chapterNumber", 1)
+    component.openBookmarkSelector()
+    component.openReportProblem()
+
+    expect(bottomSheetSpy.open.mock.lastCall?.[1]?.restoreFocus).toBe(
+      MENU_BUTTON,
+    )
+    expect(dialogSpy.open.mock.lastCall?.[1]?.restoreFocus).toBe(MENU_BUTTON)
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector(MENU_BUTTON),
+    ).toBe(
+      fixture.debugElement.query(By.directive(MatMenuTrigger)).nativeElement,
+    )
   })
 
   it("should share the page URL as is on the web", async () => {
@@ -1267,7 +1331,9 @@ describe("HeaderComponent", () => {
       const element = fixture.nativeElement as HTMLElement
       // MatButtonToggle forwards aria-label onto its internal button.
       expect(
-        element.querySelector("mat-button-toggle button[aria-label]"),
+        element
+          .querySelector("mat-button-toggle")
+          ?.querySelector("button[aria-label]"),
       ).toBeNull()
       expect(element.querySelector("mat-button-toggle")?.textContent).toContain(
         "Genesis",

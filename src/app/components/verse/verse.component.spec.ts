@@ -686,26 +686,95 @@ describe("VerseComponent", () => {
 
   describe("deep-link highlight", () => {
     /** Mirrors what BibleReaderAnimationService puts on the <verse> host. */
-    function highlightHost(continues = false): HTMLElement {
+    function highlightHost(): HTMLElement {
       const host = fixture.nativeElement as HTMLElement
       host.classList.add("verse-highlight")
-      // Every verse of a range but the first: see HIGHLIGHT_CONTINUES_CLASS.
-      host.classList.toggle("highlight-continues", continues)
       fixture.detectChanges()
       return host
     }
 
-    function plainVerse(number = 1): void {
+    it("should mark the text run so the stroke can be painted on it", () => {
       setData(
         fixture,
         makeVerse({
-          number,
           text: [{ type: "text", text: "plain" }],
         }),
       )
-    }
+      highlightHost()
 
-    function poetryVerse(): void {
+      const run = fixture.nativeElement.querySelector(
+        ".verseRun",
+      ) as HTMLElement
+      expect(run.textContent).toContain("plain")
+      expect(getComputedStyle(run).backgroundColor).not.toBe(TRANSPARENT)
+    })
+
+    it("should leave the run unpainted while the verse is not highlighted", () => {
+      setData(
+        fixture,
+        makeVerse({
+          text: [{ type: "text", text: "plain" }],
+        }),
+      )
+      fixture.detectChanges()
+
+      const run = fixture.nativeElement.querySelector(
+        ".verseRun",
+      ) as HTMLElement
+      expect(getComputedStyle(run).backgroundColor).toBe(TRANSPARENT)
+    })
+
+    it("should never paint the inline host, whose line fragments would colour the gaps between verses", () => {
+      setData(
+        fixture,
+        makeVerse({
+          text: [{ type: "text", text: "plain" }],
+        }),
+      )
+      const host = highlightHost()
+
+      const style = getComputedStyle(host)
+      expect(style.backgroundImage).toBe("none")
+      expect(style.backgroundColor).toBe("rgba(0, 0, 0, 0)")
+    })
+
+    it("should paint the verse number so it is not left out of the stroke", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 2,
+          text: [{ type: "text", text: "plain" }],
+        }),
+      )
+      highlightHost()
+
+      const pair = fixture.nativeElement.querySelector(
+        ".verseMarker",
+      ) as HTMLElement
+      const number = pair.querySelector(".verseNumber") as HTMLElement
+      expect(getComputedStyle(pair).backgroundColor).not.toBe(TRANSPARENT)
+      // Once: the colour is translucent.
+      expect(getComputedStyle(number).backgroundColor).toBe(TRANSPARENT)
+    })
+
+    it("should wrap the space in front of a verse number in a run so the stroke does not break", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 2,
+          text: [{ type: "text", text: "plain" }],
+        }),
+      )
+      highlightHost()
+
+      const gap = fixture.nativeElement.querySelector(
+        ".verseRun",
+      ) as HTMLElement
+      expect(gap.textContent).toBe(" ")
+      expect(getComputedStyle(gap).backgroundColor).not.toBe(TRANSPARENT)
+    })
+
+    it("should paint a poetry verse number once, on the wrapper rather than on both it and its digits", () => {
       setData(
         fixture,
         makeVerse({
@@ -719,7 +788,15 @@ describe("VerseComponent", () => {
           ],
         }),
       )
-    }
+      highlightHost()
+
+      const wrapper = fixture.nativeElement.querySelector(
+        ".quoteVerseNumber",
+      ) as HTMLElement
+      const digits = wrapper.querySelector(".verseNumber") as HTMLElement
+      expect(getComputedStyle(wrapper).backgroundColor).not.toBe(TRANSPARENT)
+      expect(getComputedStyle(digits).backgroundColor).toBe(TRANSPARENT)
+    })
 
     function withFootnote(): HTMLElement {
       setData(
@@ -738,127 +815,33 @@ describe("VerseComponent", () => {
       ) as HTMLElement
     }
 
-    /** The runs holding words, as opposed to the spaces between them. */
-    function wordRun(): HTMLElement {
-      return fixture.nativeElement.querySelector(
-        ".verseRun:not(.verseGap)",
-      ) as HTMLElement
-    }
-
-    it("should mark the text run so the stroke can be painted on it", () => {
-      plainVerse()
-      highlightHost()
-
-      const run = wordRun()
-      expect(run.textContent).toContain("plain")
-      expect(getComputedStyle(run).backgroundColor).not.toBe(TRANSPARENT)
-    })
-
-    it("should leave the run unpainted while the verse is not highlighted", () => {
-      plainVerse()
-      fixture.detectChanges()
-
-      expect(getComputedStyle(wordRun()).backgroundColor).toBe(TRANSPARENT)
-    })
-
-    it("should never paint the inline host, whose line fragments would colour the gaps between verses", () => {
-      plainVerse()
-      const host = highlightHost()
-
-      const style = getComputedStyle(host)
-      expect(style.backgroundImage).toBe("none")
-      expect(style.backgroundColor).toBe("rgba(0, 0, 0, 0)")
-    })
-
-    // The same rule the reader's own marks follow: apparatus is not words, so
-    // a deep link paints what it was asked for and nothing around it.
-    it("should leave the verse number out of the stroke it opens", () => {
-      plainVerse(2)
-      highlightHost()
-
-      const number = fixture.nativeElement.querySelector(
-        ".verseNumber",
-      ) as HTMLElement
-      expect(getComputedStyle(number).backgroundColor).toBe(TRANSPARENT)
-    })
-
-    it("should leave the footnote marker out of the stroke it opens", () => {
+    it("should paint the footnote marker so it is not left out of the stroke", () => {
       const marker = withFootnote()
       // Read the style only after highlighting: reading it first starts the
       // background-color transition, and the value would be its start colour.
       highlightHost()
 
-      expect(getComputedStyle(marker).backgroundColor).toBe(TRANSPARENT)
+      const pair = marker.closest(".verseMarker") as HTMLElement
+      expect(getComputedStyle(pair).backgroundColor).not.toBe(TRANSPARENT)
     })
 
-    // The stylesheet makes every element selectable with !important (to beat
-    // the app-wide rule), which a plain `none` on the apparatus never outranked:
-    // a drag across a passage, a Ctrl+C or a long-press Copy took "4" and "5".
-    it("should keep the verse number and the footnote marker out of a selection, and the words in", () => {
-      const marker = withFootnote()
-      const number = fixture.nativeElement.querySelector(
-        ".verseNumber",
-      ) as HTMLElement
-
-      expect(number).not.toBeNull()
-      expect(getComputedStyle(number).userSelect).toBe("none")
-      expect(getComputedStyle(marker).userSelect).toBe("none")
-      expect(getComputedStyle(wordRun()).userSelect).toBe("text")
-    })
-
-    it("should stop at the last word rather than trailing into the space after it", () => {
-      plainVerse(2)
+    // The number was padded down to the text's band but the notes marker, a
+    // button, could not be: Lc 15,11 showed a white notch under its icon.
+    it("should paint the number and its notes marker as tall as the text beside them", async () => {
+      withFootnote()
+      await document.fonts.ready
       highlightHost()
 
-      const gap = fixture.nativeElement.querySelector(
-        ".verseGap",
-      ) as HTMLElement
-      expect(gap.textContent).toBe(" ")
-      expect(getComputedStyle(gap).backgroundColor).toBe(TRANSPARENT)
-    })
-
-    // Mid-range those same spaces and numbers are inside the stroke rather
-    // than at its edge, so a highlighted passage shows no hole at each verse.
-    it("should paint the gap and the number of a verse the stroke runs into", () => {
-      plainVerse(2)
-      highlightHost(true)
-
-      const gap = fixture.nativeElement.querySelector(
-        ".verseGap",
-      ) as HTMLElement
-      const number = fixture.nativeElement.querySelector(
-        ".verseNumber",
-      ) as HTMLElement
-      expect(getComputedStyle(gap).backgroundColor).not.toBe(TRANSPARENT)
-      expect(getComputedStyle(number).backgroundColor).not.toBe(TRANSPARENT)
-    })
-
-    it("should leave a poetry verse number out of the stroke, either end", () => {
-      poetryVerse()
-      highlightHost()
-
-      const wrapper = fixture.nativeElement.querySelector(
-        ".quoteVerseNumber",
-      ) as HTMLElement
-      expect(getComputedStyle(wrapper).backgroundColor).toBe(TRANSPARENT)
-    })
-
-    it("should leave it out mid-stroke too, where it hangs in the margin", () => {
-      poetryVerse()
-      // Read no style before highlighting: that starts the background-color
-      // transition, and the value read back would be its start colour.
-      highlightHost(true)
-
-      const wrapper = fixture.nativeElement.querySelector(
-        ".quoteVerseNumber",
-      ) as HTMLElement
-      const digits = wrapper.querySelector(".verseNumber") as HTMLElement
-      const marker = wrapper.querySelector(".footnoteIndicator") as HTMLElement
-      // Poetry hangs its number and footnote marker off the left of the line
-      // rather than setting them in it, so leaving them out tears no hole.
-      expect(getComputedStyle(wrapper).backgroundColor).toBe(TRANSPARENT)
-      expect(getComputedStyle(digits).backgroundColor).toBe(TRANSPARENT)
-      expect(getComputedStyle(marker).backgroundColor).toBe(TRANSPARENT)
+      const host = fixture.nativeElement as HTMLElement
+      const pair = (
+        host.querySelector(".verseMarker") as HTMLElement
+      ).getClientRects()[0]
+      const text = Array.from(host.querySelectorAll(".verseRun"))
+        .find((run) => run.textContent === "plain")
+        ?.getClientRects()[0] as DOMRect
+      expect(Math.abs(pair.top - text.top)).toBeLessThan(1)
+      expect(Math.abs(pair.bottom - text.bottom)).toBeLessThan(1)
+      expect(Math.abs(pair.right - text.left)).toBeLessThan(1)
     })
 
     // Padding does not move an inline box but does enlarge the border box the
@@ -873,7 +856,7 @@ describe("VerseComponent", () => {
       expect(getComputedStyle(marker).paddingBottom).toBe(restingPadding)
     })
 
-    it("should paint a references block, which is text the verse carries", () => {
+    it("should wrap the space before a references block so the stroke does not break", () => {
       setData(
         fixture,
         makeVerse({
@@ -885,14 +868,53 @@ describe("VerseComponent", () => {
       )
       highlightHost()
 
-      const reference = fixture.nativeElement.querySelector(
-        ".references-block .verseRun",
+      const gap = fixture.nativeElement.querySelector(
+        ".references > .verseRun",
       ) as HTMLElement
-      expect(getComputedStyle(reference).backgroundColor).not.toBe(TRANSPARENT)
+      expect(gap.textContent).toBe(" ")
+      expect(getComputedStyle(gap).backgroundColor).not.toBe(TRANSPARENT)
+    })
+
+    it("should wrap the space after a line of poetry so the stroke does not break", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 3,
+          text: [
+            {
+              type: "quote",
+              text: "a line of poetry",
+              identLevel: 1,
+            },
+          ],
+        }),
+      )
+      highlightHost()
+
+      const runs = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll(".verseRun"),
+      ) as HTMLElement[]
+      const trailing = runs.find((run) => run.textContent === " ")
+      expect(trailing).toBeTruthy()
+      expect(
+        getComputedStyle(trailing as HTMLElement).backgroundColor,
+      ).not.toBe(TRANSPARENT)
     })
 
     it("should not paint the quote line wrapper, whose box extends past the end of the line", () => {
-      poetryVerse()
+      setData(
+        fixture,
+        makeVerse({
+          number: 3,
+          text: [
+            {
+              type: "quote",
+              text: "a line of poetry",
+              identLevel: 1,
+            },
+          ],
+        }),
+      )
       highlightHost()
 
       const wrapper = fixture.nativeElement.querySelector(
@@ -1042,6 +1064,23 @@ describe("VerseComponent", () => {
 
       expect(mockBottomSheet.open).toHaveBeenCalled()
       expect(text().getAttribute("role")).toBe("button")
+    })
+
+    // The marker was a 13x16 px target for a mouse.
+    it("gives the marker WCAG's 24 px target, outside the text's flow", () => {
+      render()
+      const target = getComputedStyle(asterisk(), "::after")
+
+      expect(matchMedia("(pointer: coarse)").matches).toBe(false)
+      expect(target.width).toBe("24px")
+      expect(target.height).toBe("24px")
+      expect(target.position).toBe("absolute")
+      const box = asterisk().getBoundingClientRect()
+      const centre = document.elementFromPoint(
+        box.left + box.width / 2,
+        box.top + box.height / 2 + 10,
+      )
+      expect(centre).toBe(asterisk())
     })
 
     // It scrolled on under the sheet, carrying the verse away.
@@ -1251,6 +1290,27 @@ describe("VerseComponent", () => {
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(true)
       expect(dismissSheet).toHaveBeenCalled()
+    })
+
+    // The sheet was an unnamed dialog, and not marked modal.
+    it("names the notes sheet after the verse, as a modal dialog", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 3,
+          text: [{ type: "footnote", text: "note", reference: "a" }],
+        }),
+      )
+
+      component.toggleFootnotes()
+
+      expect(mockBottomSheet.open).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          ariaLabel: expect.stringMatching(/^Notas de .* 1,3$/),
+          ariaModal: true,
+        }),
+      )
     })
 
     it("should not open bottom sheet when no footnotes", () => {
@@ -1496,6 +1556,80 @@ describe("VerseComponent", () => {
       expect((fixture.nativeElement as HTMLElement).classList).toContain(
         "verse-selected",
       )
+    })
+  })
+
+  // Copied verses read "do Céu? 13Pois ninguém": the number glued to the word.
+  describe("copied text", () => {
+    const copied = (verse: Verse) => {
+      setData(fixture, verse)
+      fixture.detectChanges()
+      const host = fixture.nativeElement as HTMLElement
+      host.style.display = "block"
+      const selection = getSelection() as Selection
+      selection.selectAllChildren(host)
+      const text = selection.toString()
+      selection.removeAllRanges()
+      return text
+    }
+    const space = () =>
+      fixture.nativeElement.querySelector(".copySpace") as HTMLElement
+
+    it("parts a verse's number from its first word", () => {
+      const text = copied(
+        makeVerse({
+          number: 13,
+          text: [{ type: "text", text: "Pois ninguém subiu ao Céu" }],
+        }),
+      )
+
+      expect(text).toContain("13 Pois ninguém")
+      // On screen nothing moves.
+      expect(space().getBoundingClientRect().width).toBe(0)
+    })
+
+    it("parts a poetry verse's number from its line", () => {
+      const text = copied(
+        makeVerse({
+          number: 3,
+          text: [{ type: "quote", text: "a line of poetry", identLevel: 1 }],
+        }),
+      )
+
+      expect(text).toContain("3 a line of poetry")
+      expect(space().getBoundingClientRect().width).toBe(0)
+    })
+
+    // A justified line spread its extra room into the space too, and the
+    // number drew away from its word.
+    it("keeps the number against its word in justified text", () => {
+      copied(
+        makeVerse({
+          number: 13,
+          text: [
+            {
+              type: "text",
+              text: "Pois ninguém subiu ao Céu senão Aquele que desceu do Céu",
+            },
+          ],
+        }),
+      )
+      const host = fixture.nativeElement as HTMLElement
+      host.style.textAlign = "justify"
+      host.style.width = "150px"
+      const number = host.querySelector(".verseNumber") as HTMLElement
+      const run = [...host.querySelectorAll(".verseRun")].find((el) =>
+        el.textContent?.startsWith("Pois"),
+      ) as HTMLElement
+      const word = document.createRange()
+      word.setStart(run.firstChild as Text, 0)
+      word.setEnd(run.firstChild as Text, "Pois".length)
+      const gap = () =>
+        word.getBoundingClientRect().left - number.getBoundingClientRect().right
+
+      const withSpace = gap()
+      space().remove()
+      expect(withSpace).toBeCloseTo(gap(), 1)
     })
   })
 
@@ -1803,5 +1937,56 @@ describe("VerseComponent", () => {
     expect(line).toBeTruthy()
     expect(getComputedStyle(line).textAlign).toBe("start")
     expect(getComputedStyle(line).hyphens).toBe("manual")
+  })
+
+  // Sl 23 at the largest text size on a phone: the indents grew with the
+  // text and pushed "refrescantes" past the screen's right edge, and a
+  // three-digit verse number hung past its left one.
+  it("keeps poetry and its verse numbers on a phone's screen at the largest text size", () => {
+    const screen = document.createElement("div")
+    screen.style.cssText =
+      "width: 320px; font-size: 235%; --reader-side-margin: 20px"
+    const block = document.createElement("div")
+    block.className = "bookBlock"
+    screen.appendChild(block)
+    document.body.appendChild(screen)
+    block.appendChild(fixture.nativeElement)
+    setData(
+      fixture,
+      makeVerse({
+        number: 119,
+        verseLabel: "119",
+        text: [
+          { type: "quote", text: "Em verdes prados me faz", identLevel: 1 },
+          {
+            type: "quote",
+            text: "e conduz-me às águas refrescantes.",
+            identLevel: 2,
+          },
+        ],
+      }),
+    )
+    fixture.detectChanges()
+
+    const bounds = screen.getBoundingClientRect()
+    const host = fixture.nativeElement as HTMLElement
+    const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT)
+    const outside: string[] = []
+    let rects = 0
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      for (const rect of range.getClientRects()) {
+        if (!rect.width) continue
+        rects++
+        if (rect.left < bounds.left - 0.5 || rect.right > bounds.right + 0.5) {
+          outside.push(`${node.textContent?.trim()} ${rect.left}–${rect.right}`)
+        }
+      }
+    }
+    screen.remove()
+
+    expect(rects).toBeGreaterThan(3)
+    expect(outside).toEqual([])
   })
 })

@@ -3,6 +3,8 @@ import { TestBed } from "@angular/core/testing"
 import { MatMenuModule, MatMenuTrigger } from "@angular/material/menu"
 import { By } from "@angular/platform-browser"
 import { Router } from "@angular/router"
+import type { TextSize } from "../../directives/unified-gesture.directive"
+import { ToastService } from "../../services/toast.service"
 import {
   ReaderMenuComponent,
   type StudyModeItem,
@@ -12,9 +14,12 @@ import {
   imports: [MatMenuModule, ReaderMenuComponent],
   template: `
     <button type="button" [matMenuTriggerFor]="menu.menu">Menu</button>
-    <reader-menu #menu="readerMenu" [viewMode]="viewMode()"
-      [autoScrollControlsVisible]="autoScroll()" (resetFontSize)="resets.set(resets() + 1)"
+    <reader-menu #menu="readerMenu" [viewMode]="viewMode()" [canShare]="canShare()"
+      [autoScrollControlsVisible]="autoScroll()" [textSize]="textSize()"
       [studyMode]="studyMode()" [shortcuts]="shortcuts()"
+      (resetFontSize)="resets.set(resets() + 1)"
+      (increaseFontSize)="increases.set(increases() + 1)"
+      (decreaseFontSize)="decreases.set(decreases() + 1)"
       (toggleStudyMode)="toggled.update((n) => n + 1)"
       (openShortcuts)="shortcutsOpened.update((n) => n + 1)"
       (toggleAutoScrollControls)="toggles.set(toggles() + 1)" />
@@ -28,7 +33,11 @@ class HostComponent {
   readonly shortcuts = signal(false)
   readonly toggled = signal(0)
   readonly shortcutsOpened = signal(0)
+  readonly textSize = signal<TextSize | null>(null)
+  readonly canShare = signal(false)
   readonly resets = signal(0)
+  readonly increases = signal(0)
+  readonly decreases = signal(0)
   readonly toggles = signal(0)
 }
 
@@ -36,8 +45,10 @@ describe("ReaderMenuComponent", () => {
   function open(
     viewMode: "scrolling" | "paged" | null,
     autoScroll: boolean | null,
+    canShare = false,
   ) {
     const fixture = TestBed.createComponent(HostComponent)
+    fixture.componentInstance.canShare.set(canShare)
     fixture.componentInstance.viewMode.set(viewMode)
     fixture.componentInstance.autoScroll.set(autoScroll)
     fixture.detectChanges()
@@ -106,6 +117,42 @@ describe("ReaderMenuComponent", () => {
       ?.click()
 
     expect(fixture.componentInstance.resets()).toBe(1)
+  })
+
+  // At 235% «Aumentar texto» looked as if it worked and did nothing.
+  it("disables the text size's buttons at its limits, keeping them in reach", () => {
+    const fixture = TestBed.createComponent(HostComponent)
+    const host = fixture.componentInstance
+    host.textSize.set({ percent: 235, min: 70, max: 235, canReset: true })
+    fixture.detectChanges()
+    fixture.debugElement
+      .query(By.directive(MatMenuTrigger))
+      .injector.get(MatMenuTrigger)
+      .openMenu()
+    fixture.detectChanges()
+    const button = (label: string) =>
+      document.querySelector<HTMLButtonElement>(
+        `[aria-label="${label}"]`,
+      ) as HTMLButtonElement
+
+    expect(button("Aumentar texto").getAttribute("aria-disabled")).toBe("true")
+    expect(button("Aumentar texto").tabIndex).toBe(0)
+    expect(button("Diminuir texto").getAttribute("aria-disabled")).not.toBe(
+      "true",
+    )
+    button("Aumentar texto").click()
+    button("Diminuir texto").click()
+    expect([host.increases(), host.decreases()]).toEqual([0, 1])
+
+    host.textSize.set({ percent: 70, min: 70, max: 235, canReset: true })
+    fixture.detectChanges()
+    expect(button("Diminuir texto").getAttribute("aria-disabled")).toBe("true")
+    expect(button("Aumentar texto").getAttribute("aria-disabled")).not.toBe(
+      "true",
+    )
+    button("Diminuir texto").click()
+    button("Aumentar texto").click()
+    expect([host.increases(), host.decreases()]).toEqual([1, 1])
   })
 
   it("toggles auto-scroll from its item, but not while the paged view disables it", () => {
@@ -252,5 +299,43 @@ describe("ReaderMenuComponent", () => {
 
       expect(host.shortcutsOpened()).toBe(1)
     })
+  })
+
+  // Desktop browsers have no share sheet; the link is what a share would send.
+  it("copies the page's link where the page can't share", async () => {
+    const writeText = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockResolvedValue(undefined)
+    const show = vi
+      .spyOn(TestBed.inject(ToastService), "show")
+      .mockImplementation(() => {})
+    const items = open(null, null).join("|")
+
+    expect(items).not.toContain("Partilhar")
+    menuItem("Copiar ligação").click()
+    await writeText.mock.results[0]?.value
+
+    expect(writeText).toHaveBeenCalledWith(window.location.href)
+    expect(show).toHaveBeenCalledWith("Ligação copiada")
+  })
+
+  it("confirms nothing when the browser refuses the copy", async () => {
+    const refused = Promise.reject(new Error("NotAllowedError"))
+    refused.catch(() => {})
+    vi.spyOn(navigator.clipboard, "writeText").mockReturnValue(refused)
+    const show = vi.spyOn(TestBed.inject(ToastService), "show")
+    open(null, null)
+
+    menuItem("Copiar ligação").click()
+    await refused.catch(() => {})
+
+    expect(show).not.toHaveBeenCalled()
+  })
+
+  it("shares instead where the page can", () => {
+    const items = open(null, null, true).join("|")
+
+    expect(items).toContain("Partilhar")
+    expect(items).not.toContain("Copiar ligação")
   })
 })

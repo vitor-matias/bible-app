@@ -95,6 +95,15 @@ final class OnboardingController: UIViewController, UIScrollViewDelegate, UIAdap
 
         primary.configuration = ChromeViewController.prominentButton().configuration
         primary.configuration?.buttonSize = .large
+        // Centred when it wraps at large text sizes, as on one line
+        // (`titleAlignment` alone left the lines to the left).
+        primary.configuration?.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+            var attributes = attributes
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.alignment = .center
+            attributes.paragraphStyle = paragraph
+            return attributes
+        }
         primary.tintColor = ChromeViewController.selectionFill
         primary.addAction(UIAction { [weak self] _ in self?.next() }, for: .primaryActionTriggered)
 
@@ -156,7 +165,17 @@ final class OnboardingController: UIViewController, UIScrollViewDelegate, UIAdap
         hero.isAccessibilityElement = false
 
         let title = label(step.title, style: .largeTitle, weight: .bold, color: .label)
-        title.textAlignment = .center
+        // At the largest text sizes a word can be wider than the page:
+        // hyphenated, in Portuguese, rather than broken anywhere ("Escolh/er").
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.hyphenationFactor = 0.5
+        title.attributedText = NSAttributedString(string: step.title, attributes: [
+            .font: title.font as UIFont,
+            .foregroundColor: UIColor.label,
+            .paragraphStyle: paragraph,
+            NSAttributedString.Key(kCTLanguageAttributeName as String): "pt-PT",
+        ])
         title.accessibilityTraits = .header
         pageTitles.append(title)
         let intro = label(step.intro, style: .body, color: .secondaryLabel)

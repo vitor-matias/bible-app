@@ -472,6 +472,15 @@ html.dark-theme .onboarding-dialog .mat-mdc-button .mdc-button__label {
   color: inherit;
 }
 
+/* A chapter that failed to open cold: in the reader, under its header. */
+bible-reader .books-unavailable.chapter-unavailable {
+  min-height: calc(
+    100dvh - var(--app-header-height) - var(--app-chrome-top) -
+      var(--app-inset-bottom)
+  );
+  padding-top: 24px;
+}
+
 .mat-bottom-sheet-container,
 .mat-mdc-dialog-container .mdc-dialog__surface {
   background-color: var(--card-background) !important; /* Force apply */
@@ -852,6 +861,9 @@ html.dark-theme .platform-ios.native-chrome:has(pastoral-index) {
 .native-chrome bible-reader .mat-drawer-content {
   padding-top: var(--app-chrome-top);
   padding-bottom: var(--app-chrome-bottom);
+  /* A verse scrolled to (switching views) lands clear of the bars. */
+  scroll-padding-top: var(--app-chrome-top);
+  scroll-padding-bottom: var(--app-chrome-bottom);
 }
 
 /* The text starts one standard layout margin under the top bar, as in system
@@ -964,6 +976,10 @@ html.dark-theme .platform-ios.native-chrome:has(pastoral-index) {
   display: block;
   margin: 15px var(--reader-side-margin);
   font-size: 105%;
+  /* At the largest sizes a long word can be wider than a phone's line; it
+     breaks rather than run off the screen. `anywhere`, not `break-word`, so
+     a line of poetry (an inline-block) also narrows to fit. */
+  overflow-wrap: anywhere;
 }
 
 /* Android's narrow measure (about 38 characters) hyphenated six lines in
@@ -1025,8 +1041,9 @@ html.ragged-text .footnotes-container {
 }
 
 /* Verse numbers are small text: the dark theme's crimson on #121212 is 3.8:1,
-   under the 4.5:1 small text needs. iOS's own dark red is 5.5:1. */
-.dark-theme .native-chrome verse .verseNumber {
+   under the 4.5:1 small text needs. iOS's own dark red is 5.5:1, in the
+   apps and on the website. */
+.dark-theme verse .verseNumber {
   color: #ff453a;
 }
 

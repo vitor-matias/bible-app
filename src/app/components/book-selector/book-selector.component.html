@@ -8,16 +8,20 @@
     (input)="filterBooks($any($event.target).value)"
   />
 </div>
+@if (otDataSource.data.length || ntDataSource.data.length) {
 <div class="bible-books-container">
+  <!-- A testament the filter leaves empty goes: its matches take its place. -->
   <!-- h2: the toolbar h1 precedes these in the DOM, and they are the drawer's
        only heading structure for screen readers. -->
-  <div class="column" role="group" aria-labelledby="otTestamentLabel">
+  <div class="column" role="group" aria-labelledby="otTestamentLabel" [hidden]="!otDataSource.data.length">
     <h2 class="testament-label" id="otTestamentLabel">Antigo Testamento</h2>
 
     <mat-tree [dataSource]="otDataSource" [treeControl]="otTreeControl">
       <!-- This is the tree node template for leaf nodes -->
-      <mat-tree-node *matTreeNodeDef="let node" matTreeNodePadding>
-        <button mat-flat-button class="bookSelectorButton" (click)="submit(node.name)" [attr.data-book-id]="node.name"
+      <!-- The node is the one tab stop (arrows move between books, Enter
+           opens one), so its button stays out of the tab order. -->
+      <mat-tree-node *matTreeNodeDef="let node" matTreeNodePadding (activation)="submit(node.name)">
+        <button mat-flat-button tabindex="-1" class="bookSelectorButton" (click)="submit(node.name)" [attr.data-book-id]="node.name"
           [class.highlight]="node.name === selectedBookId()">
           {{entryLabel(node.name)}}
         </button>
@@ -25,7 +29,7 @@
       <!-- This is the tree node template for expandable nodes -->
       <mat-tree-node class="book-group" *matTreeNodeDef="let node;when: hasChild" matTreeNodePadding matTreeNodeToggle
         [cdkTreeNodeTypeaheadLabel]="node.name">
-        <button mat-icon-button matTreeNodeToggle [attr.aria-label]="(otTreeControl.isExpanded(node) ? 'Recolher ' : 'Expandir ') + node.name">
+        <button mat-icon-button tabindex="-1" matTreeNodeToggle [attr.aria-label]="(otTreeControl.isExpanded(node) ? 'Recolher ' : 'Expandir ') + node.name">
           <mat-icon class="mat-icon-rtl-mirror">
             {{otTreeControl.isExpanded(node) ? 'expand_more' : 'chevron_right'}}
           </mat-icon>
@@ -35,13 +39,13 @@
     </mat-tree>
 
   </div>
-  <div class="column" role="group" aria-labelledby="ntTestamentLabel">
+  <div class="column" role="group" aria-labelledby="ntTestamentLabel" [hidden]="!ntDataSource.data.length">
     <h2 class="testament-label" id="ntTestamentLabel">Novo Testamento</h2>
 
     <mat-tree [dataSource]="ntDataSource" [treeControl]="ntTreeControl">
       <!-- This is the tree node template for leaf nodes -->
-      <mat-tree-node *matTreeNodeDef="let node" matTreeNodePadding>
-        <button mat-flat-button class="bookSelectorButton" (click)="submit(node.name)" [attr.data-book-id]="node.name"
+      <mat-tree-node *matTreeNodeDef="let node" matTreeNodePadding (activation)="submit(node.name)">
+        <button mat-flat-button tabindex="-1" class="bookSelectorButton" (click)="submit(node.name)" [attr.data-book-id]="node.name"
           [class.highlight]="node.name === selectedBookId()">
           {{entryLabel(node.name)}}
         </button>
@@ -49,7 +53,7 @@
       <!-- This is the tree node template for expandable nodes -->
       <mat-tree-node class="book-group" *matTreeNodeDef="let node;when: hasChild" matTreeNodePadding matTreeNodeToggle
         [cdkTreeNodeTypeaheadLabel]="node.name">
-        <button mat-icon-button matTreeNodeToggle [attr.aria-label]="(ntTreeControl.isExpanded(node) ? 'Recolher ' : 'Expandir ') + node.name">
+        <button mat-icon-button tabindex="-1" matTreeNodeToggle [attr.aria-label]="(ntTreeControl.isExpanded(node) ? 'Recolher ' : 'Expandir ') + node.name">
           <mat-icon class="mat-icon-rtl-mirror">
             {{ntTreeControl.isExpanded(node) ? 'expand_more' : 'chevron_right'}}
           </mat-icon>
@@ -60,3 +64,7 @@
 
   </div>
 </div>
+} @else {
+<!-- Not the testament headings alone, with nothing under them. -->
+<p class="no-books" role="status">Nenhum livro encontrado.</p>
+}

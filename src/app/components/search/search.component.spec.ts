@@ -6,6 +6,7 @@ import {
   ActivatedRoute,
   convertToParamMap,
   type ParamMap,
+  type Params,
   Router,
 } from "@angular/router"
 import {
@@ -20,7 +21,10 @@ import {
 import type { Mock } from "vitest"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
-import { BibleReferenceService } from "../../services/bible-reference.service"
+import {
+  BibleReferenceService,
+  type VerseReference,
+} from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
@@ -741,6 +745,32 @@ describe("SearchComponent", () => {
     expect(seoService.updateForSearch).toHaveBeenCalled()
   })
 
+  // Analytics sends the page's title with every event: what the reader
+  // searches must never be in it.
+  it("keeps the query out of the page's title", async () => {
+    referenceService.extract.mockReturnValue([])
+    apiService.search.mockReturnValue(
+      of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+    )
+    fixture.detectChanges()
+
+    await component.onSearchSubmit("palavrasecreta")
+
+    for (const args of seoService.updateForSearch.mock.calls) {
+      expect(args).toEqual([])
+    }
+    expect(document.title).not.toContain("palavrasecreta")
+  })
+
+  // The results were in no landmark: one main, the page's.
+  it("holds the results in the page's one main landmark", () => {
+    fixture.detectChanges()
+    const main = (fixture.nativeElement as HTMLElement).querySelectorAll("main")
+
+    expect(main.length).toBe(1)
+    expect(main[0].classList).toContain("search-container")
+  })
+
   it("should navigate to a direct reference using verseStart", async () => {
     const verse = {
       bookId: "jhn",
@@ -1146,6 +1176,57 @@ describe("SearchComponent", () => {
 
       expect(router.navigate).toHaveBeenCalledWith(["/", "1co", 13], {
         queryParams: { verseStart: 4 },
+      })
+    })
+
+    // The missal's "Lc 15, 1-3. 11-32" opened at verse 1 and marked it alone.
+    describe("with a range of verses", () => {
+      const luke: Book = {
+        id: "luk",
+        abrv: "Lc",
+        shortName: "Lucas",
+        name: "Evangelho segundo São Lucas",
+        chapterCount: 24,
+      }
+      const opens = async (
+        query: string,
+        verses: VerseReference[],
+        label: string,
+        queryParams: Params,
+      ) => {
+        referenceService.extract.mockReturnValue([
+          { match: query, index: 0, book: "Lc", chapter: 15, verses },
+        ])
+        bookService.findBook.mockReturnValue(luke)
+        apiService.getVerse.mockReturnValue(of({} as Verse))
+
+        component.onTyping(query)
+        expect(component.passageSuggestion?.label).toBe(label)
+        await component.onSearchSubmit(query)
+        expect(router.navigate).toHaveBeenCalledWith(["/", "luk", 15], {
+          queryParams,
+        })
+      }
+
+      it("opens all of it", async () => {
+        await opens(
+          "Lc 15, 11-32",
+          [{ type: "range", start: 11, end: 32 }],
+          "Abrir Lucas 15,11-32",
+          { verseStart: 11, verseEnd: 32 },
+        )
+      })
+
+      it("opens a list of ranges from the first verse to the last", async () => {
+        await opens(
+          "Lc 15, 1-3. 11-32",
+          [
+            { type: "range", start: 1, end: 3 },
+            { type: "range", start: 11, end: 32 },
+          ],
+          "Abrir Lucas 15,1-32",
+          { verseStart: 1, verseEnd: 32 },
+        )
       })
     })
 
@@ -1806,6 +1887,22 @@ describe("SearchComponent", () => {
     expect(component.statusMessage).toContain("Não foi possível pesquisar")
   })
 
+  // The API refuses more than 200 characters (as a shared /search?q= may
+  // bring): "Verifique a ligação" blamed a connection that was fine.
+  it("says when the search is too long, not that the connection failed", async () => {
+    referenceService.extract.mockReturnValue([])
+    apiService.search.mockReturnValue(throwError(() => ({ status: 400 })))
+    offlineSearch.search.mockResolvedValue(null)
+    vi.spyOn(console, "error").mockReturnValue(undefined)
+    await component.onSearchSubmit("luz ".repeat(70))
+    fixture.detectChanges()
+
+    const text = fixture.nativeElement.textContent as string
+    expect(text).toContain("A pesquisa é demasiado longa.")
+    expect(text).not.toContain("Verifique a ligação")
+    expect(component.statusMessage).toContain("demasiado longa")
+  })
+
   // The API limits how often one address may search; "Verifique a ligação"
   // blamed a connection that was fine.
   it("says when there were too many searches, not that the connection failed", async () => {
@@ -2146,6 +2243,21 @@ describe("SearchComponent", () => {
       expect(component.psalmChoice?.map((option) => option.verseStart)).toEqual(
         [6, 6],
       )
+      // Verse 7 too, as without the choice: it was dropped on both.
+      fixture.detectChanges()
+      const links = Array.from(
+        (
+          fixture.nativeElement as HTMLElement
+        ).querySelectorAll<HTMLAnchorElement>("a.result-card"),
+      )
+      expect(links.map((link) => link.getAttribute("href"))).toEqual([
+        "/sl/94?verseStart=6&verseEnd=7",
+        "/sl/95?verseStart=6&verseEnd=7",
+      ])
+      links[1].click()
+      expect(router.navigate).toHaveBeenCalledWith(["/", "sl", "95"], {
+        queryParams: { verseStart: 6, verseEnd: 7 },
+      })
     })
 
     it("opens directly when the leaflet gives both numbers", async () => {

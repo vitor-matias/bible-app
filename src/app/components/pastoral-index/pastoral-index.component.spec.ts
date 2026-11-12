@@ -34,8 +34,10 @@ import { PwaInstallService } from "../../services/pwa-install.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
+import { forceColors, systemColor } from "../../testing/forced-colors"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
+import { MENU_BUTTON } from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { PastoralIndexComponent } from "./pastoral-index.component"
 import entries from "./pastoral-index.data.json"
@@ -329,6 +331,26 @@ describe("PastoralIndexComponent", () => {
       expect(text).toContain("Ex 12,1-13,10.8 (n).11 (n).15 (n)")
     })
 
+    // Perdão: "Mt 5,23-26; 6,12 (n).14-15; 18,21-25.32-35"; the verses after
+    // the first range were dropped.
+    it("spans all the verses of a list", async () => {
+      expect(await linkOf("perdao", "18,21-25.32-35")).toBe(
+        "/mt/18?verseStart=21&verseEnd=35",
+      )
+    })
+
+    it("spans a list past its mark, the notes the mark's verse's", async () => {
+      expect(await linkOf("perdao", "6,12 (n).14-15")).toBe(
+        "/mt/6?verseStart=12&verseEnd=15&notes=12",
+      )
+    })
+
+    it("spans a list marked twice, the notes the first mark's", async () => {
+      expect(await linkOf("misericordia", "Sb 12,21 (n).24-25")).toBe(
+        "/sb/12?verseStart=21&verseEnd=25&notes=21",
+      )
+    })
+
     it("finds the verse the mark follows in a list", async () => {
       // "1 Jo 3,16-18.16 (n)": the mark is on the second verses named.
       expect(await linkOf("amor", "1 Jo 3,16-18.16")).toContain("notes=16")
@@ -343,11 +365,18 @@ describe("PastoralIndexComponent", () => {
     expect(text).not.toMatch(/\s[;.]/)
   })
 
-  it("keeps the page's name at a theme's own address too", async () => {
+  // Every theme's page had the index's title, the same in each tab.
+  it("titles a theme's own address with the theme", async () => {
     await open("amor")
 
     expect(seo.updateForPastoralIndex).toHaveBeenCalledOnce()
-    expect(seo.updateForPastoralIndex).toHaveBeenCalledWith()
+    expect(seo.updateForPastoralIndex).toHaveBeenCalledWith("Amor")
+  })
+
+  it("keeps the index's title at its own address", async () => {
+    await open()
+
+    expect(seo.updateForPastoralIndex).toHaveBeenCalledWith(undefined)
   })
 
   it("follows the address to another theme in the same view", async () => {
@@ -433,7 +462,7 @@ describe("PastoralIndexComponent", () => {
         "Repor tamanho do texto",
         "Marcadores",
         "As minhas notas e marcas",
-        ...(typeof navigator.share === "function" ? ["Partilhar"] : []),
+        typeof navigator.share === "function" ? "Partilhar" : "Copiar ligação",
         "Instalar a app",
         "Como usar a app",
         "Sobre a Bíblia",
@@ -490,6 +519,7 @@ describe("PastoralIndexComponent", () => {
             }),
             chapter: 1,
           },
+          ariaModal: true,
         }),
       )
     })
@@ -508,14 +538,24 @@ describe("PastoralIndexComponent", () => {
       item("Marcadores")?.click()
       expect(bottomSheet.open).toHaveBeenLastCalledWith(
         BookmarkSelectorComponent,
-        { data: { bookId: "indice/amor", chapter: 1 } },
+        expect.objectContaining({
+          data: { bookId: "indice/amor", chapter: 1 },
+          ariaLabel: "Marcadores",
+          ariaModal: true,
+          // The menu entry is gone when it closes: back to the menu button.
+          restoreFocus: MENU_BUTTON,
+        }),
       )
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector(MENU_BUTTON)
+          ?.ariaLabel,
+      ).toBe("Menu")
 
       params.next(convertToParamMap({}))
       fixture.componentInstance.openBookmarks()
       expect(bottomSheet.open).toHaveBeenLastCalledWith(
         BookmarkSelectorComponent,
-        { data: { bookId: "indice", chapter: 1 } },
+        expect.objectContaining({ data: { bookId: "indice", chapter: 1 } }),
       )
     })
 
@@ -542,7 +582,7 @@ describe("PastoralIndexComponent", () => {
       const item = await openMenu(fixture)
 
       item("Como usar a app")?.click()
-      expect(onboarding.open).toHaveBeenCalledWith("menu")
+      expect(onboarding.open).toHaveBeenCalledWith("menu", MENU_BUTTON)
 
       fixture.componentInstance.openAbout()
       expect(navigate).toHaveBeenCalledWith(["/", "sobre", 1])
@@ -783,6 +823,30 @@ describe("PastoralIndexComponent", () => {
       expect(letters(el)).not.toContain("X")
     })
 
+    // iOS's section index stayed at 11 px letters 14 px apart at the largest
+    // text size, hard to hit for those who need that size.
+    it("grow in the iOS app with the text size, to letters 24 px apart", async () => {
+      const fixture = await open(undefined, true)
+      const bar = fixture.nativeElement.querySelector(
+        "alphabetical-scroll-bar",
+      ) as HTMLElement
+      const size = (percent: number) => {
+        fixture.componentInstance.textSizeState.set({
+          percent,
+          min: 70,
+          max: 235,
+          canReset: true,
+        })
+        fixture.detectChanges()
+        return getComputedStyle(bar).fontSize
+      }
+
+      expect(size(100)).toBe("11px")
+      expect(size(150)).toBe("16.5px")
+      // 1.3em apart: 24.7 px.
+      expect(size(235)).toBe("19px")
+    })
+
     it("go to that letter's themes", async () => {
       const fixture = await open()
       const el: HTMLElement = fixture.nativeElement
@@ -867,6 +931,19 @@ describe("PastoralIndexComponent", () => {
         getComputedStyle(current.querySelector(".mdc-button__label") as Element)
           .color,
       ).toBe("rgb(84, 61, 39)")
+      // Windows' contrast themes drop that background: a ring marks it.
+      await forceColors(true)
+      try {
+        expect(getComputedStyle(current).outlineColor).toBe(
+          systemColor("Highlight"),
+        )
+        const other = el.querySelector(".letters button:not(.current)")
+        expect(getComputedStyle(other as Element).outlineColor).not.toBe(
+          systemColor("Highlight"),
+        )
+      } finally {
+        await forceColors(false)
+      }
       window.scrollTo(0, 0)
     })
 
@@ -1031,8 +1108,8 @@ describe("PastoralIndexComponent", () => {
     )
     // So that Back from a citation finds it open.
     expect(replaceState.mock.lastCall?.[0]).toBe("/indice/amor")
-    // The page keeps its one name, whichever theme is open.
-    expect(seo.updateForPastoralIndex).toHaveBeenCalledTimes(1)
+    // The heading stays the page's; the title follows the address.
+    expect(seo.updateForPastoralIndex).toHaveBeenLastCalledWith("Amor")
     expect(el.querySelector("h1")?.textContent).toBe("Índice Bíblico-Pastoral")
   })
 

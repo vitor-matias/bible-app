@@ -65,12 +65,25 @@ h3:not(:first-child) {
 
 .indent {
   margin-left: 1em;
-  /* Adjust the indentation as needed */
 }
 
-.indent2 {
-  margin-left: 2.5em;
-  /* Adjust the indentation as needed */
+/* Room for the verse number hanging left of a line of poetry: with the side
+   margin, three digits and the note marker's space (1.9em). The side margin
+   doesn't grow with the text, so at large sizes 1em alone cut the number. */
+.quoteLineWrapper {
+  --number-room: max(1em, 1.9em - var(--reader-side-margin, 0px));
+}
+
+.quoteLineWrapper.indent {
+  margin-left: var(--number-room);
+}
+
+/* The second level's extra indent, and below the wrapped lines' one, stop
+   growing with the text past a phone's few words a line (8.5vw, 6vw: at the
+   standard size on a phone 360 px wide or more, 1.5em and 1em). Grown with
+   it, they pushed the words past the screen's edge. */
+.quoteLineWrapper.indent2 {
+  margin-left: calc(var(--number-room) + min(1.5em, 8.5vw));
 }
 
 .chapterNumber {
@@ -118,7 +131,7 @@ h3:not(:first-child) {
    whatever the marker: browsers break around the iOS app's <svg> icon even
    between word joiners. A word joiner after the pair forbids a break before
    the word; it is generated, so it isn't copied with the text, and it is the
-   pair's ::after, since the marker's own is the apps' touch target. */
+   pair's ::after, since the marker's own is its target. */
 .verseMarker {
   white-space: nowrap;
 }
@@ -127,18 +140,34 @@ h3:not(:first-child) {
   content: "\2060";
 }
 
+/* The space after a verse number, for copied text only: it is drawn at no
+   width, and inside the nowrap pair, before its word joiner, it allows no
+   break. A box of its own, or justified text would widen it, and kept
+   (pre) where it ends a line, as beside a poetry line. */
+.copySpace {
+  display: inline-block;
+  font-size: 0;
+  white-space: pre;
+}
+
 .quoteLineWrapper {
   position: relative;
   display: inline-block;
   /* Using flow-root to respect floated chapter numbers while maintaining block behavior */
-  padding-left: 1em;
-  /* Induction for wrapped lines + space for verse number */
-  text-indent: -1em;
-  /* Pull first line back, leaving space for verse number */
+  /* Wrapped lines indent; the first is pulled back. */
+  padding-left: min(1em, 6vw);
+  text-indent: calc(-1 * min(1em, 6vw));
   /* Verse is set ragged-right and unbroken: justifying a wrapped line of
      poetry spreads it into gaps, unlike the prose around it. */
   text-align: start;
   hyphens: manual;
+}
+
+/* At the largest sizes a line holds a few words and a long one
+   ("refrescantes") is wider than it: hyphenated as the prose is, unless the
+   reader chose unhyphenated text, rather than cut anywhere. */
+:host-context(.large-text) .quoteLineWrapper {
+  hyphens: inherit;
 }
 
 .quoteVerseNumber {
@@ -189,37 +218,34 @@ h3:not(:first-child) {
   stroke-linejoin: round;
 }
 
-/* The iOS app: only the marker opens the notes (a tap on the text shows or
-   hides the bars), so it gets a finger-sized target, Apple's 44 pt minimum.
-   Touch screens on the web get it too; a mouse keeps the small marker. */
-:host-context(.native-chrome) .footnoteIndicator {
+/* A target larger than the 13 px marker, without moving the text: WCAG's
+   24 px minimum for a mouse. In the iOS app only the marker opens the notes
+   (a tap on the text shows or hides the bars), so it gets a finger-sized
+   one, Apple's 44 pt minimum, as touch screens on the web do. */
+.footnoteIndicator {
   position: relative;
 }
 
-@media (pointer: coarse) {
-  .footnoteIndicator {
-    position: relative;
-  }
-
-  .footnoteIndicator::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 44px;
-    height: 44px;
-    transform: translate(-50%, -50%);
-  }
-}
-
-:host-context(.native-chrome) .footnoteIndicator::after {
+.footnoteIndicator::after {
   content: "";
   position: absolute;
   left: 50%;
   top: 50%;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+}
+
+@media (pointer: coarse) {
+  .footnoteIndicator::after {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+:host-context(.native-chrome) .footnoteIndicator::after {
   width: 44px;
   height: 44px;
-  transform: translate(-50%, -50%);
 }
 
 /* Android's minimum touch target, as the floating buttons have. */
@@ -233,6 +259,7 @@ h3:not(:first-child) {
    .quoteLineWrapper (inline-block) the empty space after a short poetry line.
    padding-block thickens the stroke without reflowing anything. */
 .verseRun,
+.verseMarker,
 .verseNumber,
 .footnoteIndicator,
 .quoteVerseNumber {
@@ -241,25 +268,72 @@ h3:not(:first-child) {
   transition: background-color 0.4s ease;
 }
 
-:host(.verse-highlight) .verseRun:not(.verseGap) {
+:host(.verse-highlight) .verseRun,
+:host(.verse-highlight) .verseNumber,
+:host(.verse-highlight) .footnoteIndicator {
   background-color: var(--verse-highlight-color);
+}
+
+:host(.verse-highlight) .verseRun {
   padding-block: 0.1em;
 }
 
-/* The same rule the reader's own marks follow: the numbers and the space
-   before them are apparatus, so a deep link paints the words it was asked for
-   and stops at the end of them, rather than bracketing the verse with tinted
-   numbers and trailing past its last word. Mid-range they are inside the mark
-   rather than at its edge, and are painted with it, so a highlighted passage
-   does not show a hole at every verse number. */
-:host(.verse-highlight.highlight-continues) .verseGap,
-:host(.verse-highlight.highlight-continues) .verseNumber,
-:host(.verse-highlight.highlight-continues) .footnoteIndicator {
+/* Numbers are 65% size and top-aligned, so they need a much larger bottom
+   padding to reach the text's band. That enlarges their hit-test box over the
+   line below, hence pointer-events: none. The footnote marker is interactive,
+   so it is left unpadded instead. */
+:host(.verse-highlight) .verseNumber {
+  padding-block: 0.05em 1.45em;
+  pointer-events: none;
+}
+
+/* Prose: the stroke goes on the number and its notes marker together, as
+   tall as the runs beside it, so it doesn't stop short under the marker. The
+   pair is set at the verse's size, the runs at 120%: the padding makes up the
+   difference in Literata's ascent and descent. */
+:host(.verse-highlight) .verseMarker {
   background-color: var(--verse-highlight-color);
+  padding-block: 0.355em 0.18em;
+}
+
+/* Square where the pair meets the runs beside it, or the band dips there. */
+:host(.verse-highlight) .verseRun:has(+ .verseMarker),
+:host(.verse-highlight) .verseMarker {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* The verse's first run: notes come before it as empty .verseText spans. */
+:host(.verse-highlight) .verseRun + .verseMarker,
+:host(.verse-highlight)
+  .verseMarker
+  ~ .verseText:not(:empty):not(.verseMarker ~ .verseText:not(:empty) ~ *)
+  > .verseRun:first-child {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+:host(.verse-highlight) .verseMarker .verseNumber,
+:host(.verse-highlight) .verseMarker .footnoteIndicator {
+  background-color: transparent;
+  padding-block: 0;
+}
+
+/* Poetry: the stroke goes on the wrapper, already the height of the line; its
+   children stop painting so the translucent colour is not laid down twice. */
+:host(.verse-highlight) .quoteVerseNumber {
+  background-color: var(--verse-highlight-color);
+}
+
+:host(.verse-highlight) .quoteVerseNumber .verseNumber,
+:host(.verse-highlight) .quoteVerseNumber .footnoteIndicator {
+  background-color: transparent;
+  padding-block: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .verseRun,
+  .verseMarker,
   .verseNumber,
   .footnoteIndicator,
   .quoteVerseNumber {
@@ -339,10 +413,7 @@ h3:not(:first-child) {
    clean, and the mark covers the words it was made on and nothing else. */
 :host(.verse-marked) .quoteVerseNumber,
 :host(.verse-marked) .quoteVerseNumber .verseNumber,
-:host(.verse-marked) .quoteVerseNumber .footnoteIndicator,
-:host(.verse-highlight) .quoteVerseNumber,
-:host(.verse-highlight) .quoteVerseNumber .verseNumber,
-:host(.verse-highlight) .quoteVerseNumber .footnoteIndicator {
+:host(.verse-marked) .quoteVerseNumber .footnoteIndicator {
   background-color: transparent;
 }
 
@@ -352,23 +423,12 @@ h3:not(:first-child) {
 :host([data-highlight="pink"]) { --verse-mark-color: rgb(var(--mark-pink) / 0.32); }
 
 /*
- * Verse numbers and footnote markers are apparatus, not words.
- *
- * They are left out of a selection so dragging across a passage yields the
- * text a reader means to quote, with no numbers scattered through it, and out
- * of the reader's own marks so a highlight covers the words rather than
- * bracketing them with a tinted number. The spaces between verses stay
- * selectable — they are what keeps the words apart when copied — but are not
- * painted, so a mark ends with the sentence rather than trailing past it.
+ * Verse numbers and footnote markers are apparatus, not words: a reader's own
+ * mark covers the words rather than bracketing them with a tinted number, and
+ * the spaces between verses are not painted, so a mark ends with the sentence
+ * rather than trailing past it. They are not kept out of a selection: copying
+ * a passage keeps its verse numbers, parted from the words (see .copySpace).
  */
-.verseNumber,
-.footnoteIndicator,
-.quoteVerseNumber {
-  /* !important as the rule above that makes every element selectable is: a
-     plain declaration here never outranked it. */
-  -webkit-user-select: none !important;
-  user-select: none !important;
-}
 
 /* Forced colours drop backgrounds and shadows, which are all that a selected
    verse and a mark are made of. A line under the words survives them: solid

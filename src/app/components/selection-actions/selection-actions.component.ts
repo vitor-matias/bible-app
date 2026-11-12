@@ -202,8 +202,8 @@ export class SelectionActionsComponent {
    *
    * Built from the range's own contents rather than from
    * `Selection.toString()`, which carries the verse numbers along: they are
-   * marked unselectable, but that only governs what a drag can take, not what
-   * a range reports. Line breaks in poetry are kept — a psalm quoted as one
+   * selectable, as a copy of the page keeps them, but a quotation leaves them
+   * out. Line breaks in poetry are kept — a psalm quoted as one
    * long line is not the psalm — while the spaces that separate verses on
    * screen are collapsed, so nothing trails off the end.
    */

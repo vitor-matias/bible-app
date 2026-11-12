@@ -43,6 +43,13 @@ mat-list-item.mat-mdc-list-item {
   padding-block: 4px;
 }
 
+/* The header's ring: Material's own focus cue is a 12% state layer that
+   doesn't show on the drawer. */
+.chapterSelectorButton:focus-visible {
+  outline: 2px solid var(--text-color);
+  outline-offset: -2px;
+}
+
 .chapterSelectorButton:hover {
   background-color: var(--highlight-color);
 }
@@ -50,6 +57,15 @@ mat-list-item.mat-mdc-list-item {
 button.highlight {
   background-color: var(--highlight-color);
   /* any extra styling you like */
+}
+
+/* Contrast themes drop the highlight's background: the chapter being read
+   gets a ring in their own selection colour. */
+@media (forced-colors: active) {
+  button.highlight {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
 }
 
 .number-wrapper {

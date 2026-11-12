@@ -530,6 +530,8 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     const trigger = event?.currentTarget as HTMLElement | null
     const ref = this.bottomSheet.open(FootnotesBottomSheetComponent, {
       data: { footnotes, verse: this.data() },
+      ariaLabel: `Notas de ${this.nativeFootnotes.title(this.data())}`,
+      ariaModal: true,
       restoreFocus: false,
     })
     this.backButton.closeOnBack(ref)

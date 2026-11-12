@@ -90,8 +90,10 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.floor
 import kotlinx.coroutines.flow.collectLatest
 import org.capuchinhos.biblia.R
 
@@ -286,9 +288,11 @@ internal fun PassageTitle(chrome: ChromeController, state: ChromeState, enabled:
         // another, stands out from the bar's icons. SemiBold: the style's own
         // Medium drew as Regular with the system's Roboto (API 37 emulator).
         val style = MaterialTheme.typography.titleLargeEmphasized.copy(fontWeight = FontWeight.SemiBold)
-        val fitted = fittedPassage(state, style, maxWidth)
+        val labels = listOf(state.passageLabel) + state.passageShortLabels
+        val fitted = fittedPassage(labels, style, maxWidth)
+        val label = labels[fitted.index]
         val spoken = state.passageAccessibilityLabel
-        val name = if (spoken.contains(fitted.label, ignoreCase = true)) spoken else "${fitted.label}, $spoken"
+        val name = if (spoken.contains(label, ignoreCase = true)) spoken else "$label, $spoken"
         Column(
             Modifier
                 // The text on Material's title keyline; the ripple around it.
@@ -309,12 +313,19 @@ internal fun PassageTitle(chrome: ChromeController, state: ChromeState, enabled:
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    fitted.label,
-                    style = style,
+                    label,
+                    // Scaled in px: in sp, Android's nonlinear text scaling
+                    // enlarges a smaller size by more, and it overflowed.
+                    style = style.copy(fontSize = with(LocalDensity.current) { (style.fontSize.toPx() * fitted.scale).toSp() }),
                     maxLines = 1,
-                    // Cut only as a last resort, and from the front: the
-                    // chapter's number is what matters.
-                    overflow = if (fitted.fits) TextOverflow.Clip else TextOverflow.StartEllipsis,
+                    // Cut only as a last resort: a passage from the front, as
+                    // the chapter's number is what matters; a name ("Índice")
+                    // at its end.
+                    overflow = when {
+                        fitted.fits -> TextOverflow.Clip
+                        label.any { it.isDigit() } -> TextOverflow.StartEllipsis
+                        else -> TextOverflow.Ellipsis
+                    },
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 if (fitted.caret) Icon(painterResource(R.drawable.ic_arrow_drop_down), contentDescription = null)
@@ -336,27 +347,52 @@ internal fun PassageTitle(chrome: ChromeController, state: ChromeState, enabled:
     }
 }
 
-/** The passage as the title shows it, and whether the ▾ has room beside it. */
-private data class FittedPassage(val label: String, val caret: Boolean, val fits: Boolean)
+/**
+ * The passage as the title shows it: which of its labels ([index], longest
+ * first), at what share of the style's size, whether the ▾ has room beside
+ * it, and whether it fits uncut.
+ */
+internal data class FittedPassage(val index: Int, val scale: Float, val caret: Boolean, val fits: Boolean)
 
 /**
  * "Deuteronómio 3", or, where that doesn't fit, the longest of its shorter
- * forms that does ("Dt 3"). Without room even then, the ▾ makes way, and only
- * after that is the label cut.
+ * forms that does ("Dt 3"). Without room even then (large system text), the
+ * shortest shrinks, down to [minScale], keeping the ▾ that says it opens the
+ * picker; then the ▾ makes way for the longest label that fits whole, then
+ * for the shortest shrunk, and only after that is the label cut. At the
+ * default text size nothing shrinks ([minScale] 1), so that is the longest
+ * label with the ▾, else the longest without it, else cut.
+ * [widths] at full size and the room [withCaret] and [bare], in px.
  */
+internal fun fitPassage(widths: List<Int>, withCaret: Int, bare: Int, minScale: Float): FittedPassage {
+    val full = widths.indexOfFirst { it <= withCaret }
+    if (full >= 0) return FittedPassage(full, scale = 1f, caret = true, fits = true)
+    val shortest = widths.lastIndex
+    // In hundredths, rounded down, so that it surely fits; null below minScale.
+    fun shrunk(room: Int): Float? {
+        val exact = room.toFloat() / widths[shortest]
+        return if (exact >= minScale) minOf(1f, maxOf(minScale, floor(exact * 100f) / 100f)) else null
+    }
+    shrunk(withCaret)?.let { return FittedPassage(shortest, it, caret = true, fits = true) }
+    val whole = widths.indexOfFirst { it <= bare }
+    if (whole >= 0) return FittedPassage(whole, scale = 1f, caret = false, fits = true)
+    shrunk(bare)?.let { return FittedPassage(shortest, it, caret = false, fits = true) }
+    return FittedPassage(shortest, minScale, caret = false, fits = false)
+}
+
 @Composable
-private fun fittedPassage(state: ChromeState, style: TextStyle, width: Dp): FittedPassage {
+private fun fittedPassage(labels: List<String>, style: TextStyle, width: Dp): FittedPassage {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     // The button's padding, and with the ▾ its 24 dp.
     val bare = with(density) { (width - 16.dp).roundToPx() }
     val withCaret = with(density) { (width - 16.dp - 24.dp).roundToPx() }
-    return remember(state.passageLabel, state.passageShortLabels, bare, style, density) {
-        val labels = listOf(state.passageLabel) + state.passageShortLabels
+    return remember(labels, bare, style, density) {
         val widths = labels.map { measurer.measure(it, style, maxLines = 1).size.width }
-        labels.indices.firstOrNull { widths[it] <= withCaret }?.let { FittedPassage(labels[it], caret = true, fits = true) }
-            ?: labels.indices.firstOrNull { widths[it] <= bare }?.let { FittedPassage(labels[it], caret = false, fits = true) }
-            ?: FittedPassage(labels.last(), caret = false, fits = false)
+        // Never smaller than the title at the system's default text size.
+        val unscaled = with(Density(density.density)) { style.fontSize.toPx() }
+        val minScale = minOf(1f, unscaled / with(density) { style.fontSize.toPx() })
+        fitPassage(widths, withCaret, bare, minScale)
     }
 }
 

@@ -119,9 +119,17 @@ describe("OnboardingService", () => {
         OnboardingComponent,
         expect.objectContaining({
           ariaLabelledBy: "onboarding-title",
+          ariaModal: true,
           maxHeight: "90vh",
+          restoreFocus: true,
         }),
       )
+    })
+
+    it("gives the focus where the caller says on closing", () => {
+      service.open("menu", ".menuButton")
+
+      expect(lastCall(dialogSpy.open)?.[1]?.restoreFocus).toBe(".menuButton")
     })
 
     it("reuses the open dialog instead of stacking a second one", () => {

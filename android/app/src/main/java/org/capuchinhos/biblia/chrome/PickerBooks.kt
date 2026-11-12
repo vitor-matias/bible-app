@@ -328,7 +328,7 @@ private fun NoBooks(filter: String) {
 private fun BookViewMenu(view: BookView, onView: (BookView) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        BarButton(view.icon, "Vista", stateDescription = view.label) { open = true }
+        BarButton(view.icon, bookViewButtonLabel(view)) { open = true }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             for (option in BookView.entries) {
                 MenuItem(option.label, option.icon, checked = option == view) {
@@ -339,6 +339,12 @@ private fun BookViewMenu(view: BookView, onView: (BookView) -> Unit) {
         }
     }
 }
+
+/**
+ * The view button's name, with the view it shows ("Vista: lista"). As a
+ * state description, TalkBack said the view before the name ("Lista. Vista").
+ */
+internal fun bookViewButtonLabel(view: BookView): String = "Vista: ${view.label.lowercase()}"
 
 private val BookView.label: String
     get() = when (this) {

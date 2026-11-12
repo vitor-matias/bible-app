@@ -152,7 +152,9 @@
   } @else {
   <mat-drawer-container class="bookSelectorContainer" #container>
     @if (books.length) {
-    <mat-drawer class="bookSelector" mode="over" position="start" #bookDrawer closed>
+    <!-- Modal while open: it holds the focus over the text. -->
+    <mat-drawer class="bookSelector" mode="over" position="start" #bookDrawer closed role="dialog"
+      aria-modal="true" [attr.aria-label]="showBooks ? 'Livros' : 'Capítulos'">
       <button type="button" matIconButton (click)="dismissBookDrawer()" class="dismiss-button" aria-label="Fechar" #bookDrawerCloseButton>
         <mat-icon>menu_open</mat-icon>
       </button>
@@ -167,7 +169,17 @@
     </mat-drawer>
     }
     <mat-drawer-content style="background-color: var(--background-color)">
-      <div #bookContainer [class.paged-view-container]="effectiveViewMode === 'paged'" [appPagedNavigation]="bookBlock"
+      @if (!chapter && chapterUnavailable) {
+      <div class="books-unavailable chapter-unavailable" role="alert">
+        <mat-icon class="books-unavailable-icon" aria-hidden="true">cloud_off</mat-icon>
+        <h2 class="books-unavailable-title">Não foi possível carregar o capítulo</h2>
+        <p>Verifique a ligação à internet e tente novamente.</p>
+        <button type="button" mat-flat-button (click)="retryChapter()" [disabled]="retryingChapter">
+          {{ retryingChapter ? "A tentar…" : "Tentar novamente" }}
+        </button>
+      </div>
+      }
+      <div #bookContainer role="main" [class.paged-view-container]="effectiveViewMode === 'paged'" [appPagedNavigation]="bookBlock"
         [viewMode]="effectiveViewMode" (nextChapter)="goToNextChapter()" (prevChapter)="goToPreviousChapter()"
         (pageStateChange)="onPageStateChange($event)">
         @if (showChapterCards && introCard) {

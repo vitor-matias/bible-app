@@ -4,7 +4,7 @@
   @if (!native) {
   <search-bar [value]="fieldValue" [focusOnOpen]="!hasSearched" (searchValue)="onSearchSubmit($event)" (typing)="onTyping($event)"></search-bar>
   }
-  <div unifiedGestures fontSizeContext="search" class="search-container" [class.has-suggestion]="!!passageSuggestion || themes.length > 0" #container>
+  <main unifiedGestures fontSizeContext="search" class="search-container" [class.has-suggestion]="!!passageSuggestion || themes.length > 0" #container>
 
   <!-- A typed reference, offered at once: no wait for the search. -->
   @if (passageSuggestion) {
@@ -45,7 +45,7 @@
       <ul class="results-list">
         @for (option of psalmChoice; track option.psalm) {
           <li class="result-item">
-            <a class="result-card" [href]="passageHref('psa', option.psalm, option.verseStart)" (click)="openPassage($event, 'psa', option.psalm, option.verseStart)">
+            <a class="result-card" [href]="passageHref('psa', option.psalm, option.verseStart, option.verseEnd)" (click)="openPassage($event, 'psa', option.psalm, option.verseStart, option.verseEnd)">
               <strong class="verse-ref">{{ option.label }} <span class="psalm-note">· {{ option.note }}</span></strong>
               <p class="verse-text">{{ option.firstLine ?? option.title }}</p>
             </a>
@@ -115,4 +115,4 @@
     </div>
   }
 
-</div>
+</main>

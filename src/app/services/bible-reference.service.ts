@@ -82,7 +82,7 @@ export class BibleReferenceService {
   private tailChapterOnlyRe =
     /\s*;\s*(?<tail>(?<chapter>\d+))(?!\s*[:.,]\d)\b/gi
 
-  // Verse-only shorthand (uses current book + current chapter): "v.12" / "v.12-13" / "v.2a"
+  // Verse-only shorthand (uses current book + current chapter): "v.12" / "v.12-13" / "v.2a" / "v.24.32"
   private verseOnlyRe =
     /\bv\.?\s*(?<v1>\d+(?:[a-c]{1,2})?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c]{1,2})?))?\b/gi
 
@@ -330,6 +330,30 @@ export class BibleReferenceService {
       return last
     }
 
+    // -------- 4) Verse-only shorthand: "v.12" / "v.12-13" --------
+    // Before the implicit refs, so a list's whole is this chapter's: in
+    // "v.1-2.4-5", "2.4-5" is no chapter 2.
+    if (currentBook && currentChapter != null) {
+      this.verseOnlyRe.lastIndex = 0
+      for (const m of text.matchAll(this.verseOnlyRe)) {
+        const gs = m.groups as { v1: string; v2?: string } | undefined
+        if (!gs) continue
+
+        const s = m.index ?? 0
+        const e = s + m[0].length
+        if (overlaps(s, e)) continue
+
+        const verses = this.buildVerses(gs.v1, gs.v2) ?? []
+        push({
+          match: m[0] + this.takeVerseList(text, e, verses),
+          index: s,
+          book: currentBook.trim(),
+          chapter: currentChapter,
+          verses,
+        })
+      }
+    }
+
     // -------- 2) Implicit full refs: same-chapter or cross-chapter --------
     this.implicitFullRe.lastIndex = 0
     for (const m of text.matchAll(this.implicitFullRe)) {
@@ -347,6 +371,9 @@ export class BibleReferenceService {
       const s = m.index ?? 0
       const e = s + m[0].length
       if (overlaps(s, e)) continue
+      // "(v.24.32)" is verses 24 and 32 of this chapter (pass 4), not chapter
+      // 24 of the book cited before it.
+      if (/\bv\.?\s*$/i.test(text.slice(0, s))) continue
 
       // Reuse the nearest explicit book in the same sentence before falling back
       // to the reader's current book context.
@@ -411,27 +438,6 @@ export class BibleReferenceService {
       })
     }
 
-    // -------- 4) Verse-only shorthand: "v.12" / "v.12-13" --------
-    if (currentBook && currentChapter != null) {
-      this.verseOnlyRe.lastIndex = 0
-      for (const m of text.matchAll(this.verseOnlyRe)) {
-        const gs = m.groups as { v1: string; v2?: string } | undefined
-        if (!gs) continue
-
-        const s = m.index ?? 0
-        const e = s + m[0].length
-        if (overlaps(s, e)) continue
-
-        push({
-          match: m[0],
-          index: s,
-          book: currentBook.trim(),
-          chapter: currentChapter,
-          verses: this.buildVerses(gs.v1, gs.v2),
-        })
-      }
-    }
-
     return out.sort((a, b) => a.index - b.index)
   }
 
@@ -452,8 +458,9 @@ export class BibleReferenceService {
   ): string {
     const listRe =
       /^(?:\s*\(n\))?(?:\s*,\s*|\.(?<spaced>\s)?)(?<v1>\d+(?:[a-c]{1,2})?)(?:\s*[-\u2010-\u2015\u2212]\s*(?<v2>\d+(?:[a-c]{1,2})?)|(?!\s*[-\u2010-\u2015\u2212]))(?!\d)/
-    // After a dot, a number followed by ",5" or ":5" is a new chapter
-    // ("Jo 3,16.4,5"); after a comma it is the next verse ("Mt 5,3,4,5").
+    // After a dot or a spaced comma, a number followed by ",5" or ":5" is a
+    // new chapter ("Jo 3,16.4,5", "v.5, 6,1"); after a bare comma it is the
+    // next verse ("Mt 5,3,4,5").
     const newChapterRe = /^[,:]\d/
 
     let taken = ""
@@ -463,8 +470,9 @@ export class BibleReferenceService {
       if (!cm?.groups) break
       // A number that starts the next book's reference ("2 Cor 5,17").
       if (this.nextBookRe?.test(tail)) break
-      const dotted = cm[0].replace("(n)", "").trimStart().startsWith(".")
-      if (dotted && newChapterRe.test(tail.slice(cm[0].length))) break
+      const sep = cm[0].replace("(n)", "").trimStart()
+      const looseSep = sep.startsWith(".") || /^,\s/.test(sep)
+      if (looseSep && newChapterRe.test(tail.slice(cm[0].length))) break
 
       const nextVerses = this.buildVerses(cm.groups["v1"], cm.groups["v2"])
       if (!nextVerses) break
