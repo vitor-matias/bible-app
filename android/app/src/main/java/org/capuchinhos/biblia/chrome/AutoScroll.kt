@@ -60,6 +60,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.capuchinhos.biblia.R
 
+/** ▶ and ⏸ say what they start and pause: alone, "Iniciar" didn't. */
+internal fun autoScrollToggleLabel(playing: Boolean): String =
+    if (playing) "Pausar deslocamento automático" else "Iniciar deslocamento automático"
+
 /**
  * Auto-scroll, as in the iOS app: paused, one button, ▶; playing, − and +
  * come out to its left, with ⏸ where ▶ was. The speed isn't shown (TalkBack
@@ -166,7 +170,7 @@ internal fun AutoScrollControl(chrome: ChromeController, autoScroll: AutoScrollS
                 ) {
                     Icon(
                         painterResource(if (autoScroll.playing) R.drawable.ic_pause_filled else R.drawable.ic_play_arrow_filled),
-                        contentDescription = if (autoScroll.playing) "Pausar" else "Iniciar",
+                        contentDescription = autoScrollToggleLabel(autoScroll.playing),
                     )
                 }
             }

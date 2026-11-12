@@ -165,6 +165,62 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertNil(toast.activeButton)
     }
 
+    // At the largest text sizes "Voltar para o Índice" was truncated to one line.
+    func testAToastButtonWrapsRatherThanTruncating() throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        let toast = ToastView()
+        toast.translatesAutoresizingMaskIntoConstraints = false
+        window.addSubview(toast)
+        NSLayoutConstraint.activate([
+            toast.widthAnchor.constraint(lessThanOrEqualToConstant: 180),
+            toast.centerXAnchor.constraint(equalTo: window.centerXAnchor),
+            toast.centerYAnchor.constraint(equalTo: window.centerYAnchor),
+        ])
+        window.isHidden = false
+        toast.show("Voltar para o Índice Bíblico-Pastoral", symbol: "arrow.uturn.backward", onTap: {})
+        window.layoutIfNeeded()
+
+        let button = try XCTUnwrap(subviews(of: toast, UIButton.self).first { $0.configuration?.title == "Voltar para o Índice Bíblico-Pastoral" })
+        let title = try XCTUnwrap(button.titleLabel)
+        XCTAssertGreaterThan(title.bounds.height, title.font.lineHeight * 1.5)
+    }
+
+    func testTheNotesWayBackWrapsAtTheRoomItHas() {
+        var config = UIButton.Configuration.plain()
+        config.title = "Voltar para o Índice Bíblico-Pastoral"
+        config.titleLineBreakMode = .byWordWrapping
+        let button = UIButton(configuration: config)
+        let line = FootnotesController.wayBackSize(button, room: 1000)
+        let wrapped = FootnotesController.wayBackSize(button, room: 150)
+        XCTAssertLessThanOrEqual(wrapped.width, 150)
+        XCTAssertGreaterThan(wrapped.height, line.height * 1.5)
+    }
+
+    // Wrapped, a capsule's radius (half its height) put the lines' ends outside the glass.
+    func testTheNotesWayBackIsACapsuleOnlyOnOneLine() {
+        func capsule() -> UIButton {
+            var config = UIButton.Configuration.plain()
+            config.title = "Voltar para o Índice Bíblico-Pastoral"
+            config.titleLineBreakMode = .byWordWrapping
+            config.cornerStyle = .capsule
+            return UIButton(configuration: config)
+        }
+        let line = capsule()
+        FootnotesController.fitWayBack(line, room: 1000)
+        XCTAssertEqual(line.configuration?.cornerStyle, .capsule)
+
+        let wrapped = capsule()
+        FootnotesController.fitWayBack(wrapped, room: 150)
+        XCTAssertGreaterThan(wrapped.frame.height, 48)
+        XCTAssertEqual(wrapped.configuration?.cornerStyle, .fixed)
+        XCTAssertEqual(wrapped.configuration?.background.cornerRadius, 24)
+
+        // At the sheet's foot it covered the last note: the inset grows with it.
+        XCTAssertEqual(FootnotesController.notesBottomInset(wayBackHeight: line.frame.height), 88)
+        XCTAssertGreaterThanOrEqual(FootnotesController.notesBottomInset(wayBackHeight: wrapped.frame.height),
+                                    wrapped.frame.height + 12 + 28)
+    }
+
     func testAToastClosedOffersNothing() {
         let toast = ToastView()
         toast.show("Voltar para o Índice", onTap: {})
@@ -513,6 +569,33 @@ final class ChromeStateTests: XCTestCase {
         let pager = try XCTUnwrap(subviews(of: sheet.view, UIScrollView.self).first { $0.isPagingEnabled })
         let frame = pager.convert(pager.bounds, to: sheet.view)
         XCTAssertLessThanOrEqual(frame.maxX, 466 - 84 + 0.5)
+    }
+
+    // At the largest text size a title's word was broken without a hyphen
+    // ("Escolh/er"), and "Começar a ler", wrapped, sat to the left.
+    @available(iOS 17.0, *)
+    func testOnboardingAtTheLargestTextSize() throws {
+        let steps = OnboardingStepData.parse(call(["steps": [
+            ["id": "passage", "title": "Escolher um livro", "intro": "…", "symbol": "book",
+             "logo": false, "features": []],
+        ]]))
+        let sheet = OnboardingController(steps: steps, onFinish: { _, _ in })
+        sheet.traitOverrides.preferredContentSizeCategory = .accessibilityExtraExtraExtraLarge
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = sheet
+        window.isHidden = false
+        sheet.view.layoutIfNeeded()
+
+        let title = try XCTUnwrap(subviews(of: sheet.view, UILabel.self).first { $0.accessibilityTraits.contains(.header) })
+        XCTAssertEqual(title.text, "Escolher um livro")
+        let paragraph = try XCTUnwrap(title.attributedText?.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)
+        XCTAssertGreaterThan(paragraph.hyphenationFactor, 0)
+        XCTAssertEqual(paragraph.alignment, .center)
+
+        let start = try XCTUnwrap(subviews(of: sheet.view, UIButton.self).first { $0.configuration?.title == "Começar a ler" })
+        let label = try XCTUnwrap(start.titleLabel?.attributedText)
+        let alignment = (label.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)?.alignment
+        XCTAssertEqual(alignment, .center)
     }
 
     @available(iOS 16.0, *)
