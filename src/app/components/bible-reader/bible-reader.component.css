@@ -469,6 +469,7 @@ h6 {
   padding: 8px 0 8px 0;
   width: auto;
 }
+
 /* Shown instead of the reader when the book list cannot be loaded. There is
    no header here, so clear the status bar / notch ourselves. */
 .books-unavailable {
@@ -505,4 +506,46 @@ h6 {
 .books-unavailable-title {
   margin: 0;
   font-size: 1.25rem;
+}
+
+/* BibleScroll (experimental card view): one verse per screen. Mandatory snapping on the
+   reader's own scroller — with scroll-snap-stop on each card — is what turns
+   a swipe up into "next verse" and a swipe down into "previous verse". */
+.cards-scroller {
+  scroll-snap-type: y mandatory;
+  /* In the native apps the bars float over the scroller, which pads its
+     content by their size; without this a card would snap to the top of the
+     scroller, i.e. under the top bar. Both are 0 on the web. */
+  scroll-padding-top: var(--app-chrome-top);
+  scroll-padding-bottom: var(--app-chrome-bottom, 0px);
+}
+
+/* The cards pad themselves; the block's own margin would leave the first card
+   resting 15px short of its snap position.
+
+   The inset is the room each card keeps clear above the pinned copyright
+   footer, so a verse is centred in what is actually visible. The footer is
+   74px on a phone (57px on a tablet, 91px at 320px wide); with a card's own
+   32px of padding that clears anything up to 108px. */
+.bookBlock.cards-view {
+  margin: 0;
+  max-width: 100%;
+  --verse-cards-bottom-inset: 76px;
+}
+
+/* The native shell gives the block a top margin to clear its bar; the cards
+   clear it through scroll-padding instead, and the margin would leave the
+   first card 8px short of its snap position. */
+:host-context(.native-chrome) .bookBlock.cards-view {
+  margin-top: 0;
+}
+
+/* On top of .fixed-footer. Verses slide right past this one, so unlike the
+   paged footer it sits flush with the edge and is fully opaque: nothing may
+   show through or below it. */
+.cards-footer {
+  bottom: 0;
+  opacity: 1;
+  padding-bottom: calc(8px + var(--app-inset-bottom));
+  background-color: var(--background-color);
 }

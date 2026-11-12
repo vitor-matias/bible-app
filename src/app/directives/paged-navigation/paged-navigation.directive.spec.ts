@@ -547,6 +547,31 @@ describe("PagedNavigationDirective", () => {
 
       expect(scrollLeftSetter).not.toHaveBeenCalled()
     })
+
+    // A backward chapter change in paged mode arms the flag legitimately; it
+    // must not survive a round trip through the cards or the running text.
+    it("should forget the end when paged mode is left, so coming back does not land on the last page", async () => {
+      const settle = () => new Promise((resolve) => setTimeout(resolve, 400))
+
+      hostComponent.directive.scrollToEnd()
+      hostComponent.viewMode.set("scrolling")
+      fixture.detectChanges()
+
+      hostComponent.viewMode.set("paged")
+      fixture.detectChanges()
+      await settle()
+      vi.spyOn(container, "scrollWidth", "get").mockReturnValue(300)
+      vi.spyOn(container, "clientWidth", "get").mockReturnValue(100)
+      const scrollLeftSetter = vi.fn().mockName("scrollLeftSetter")
+      vi.spyOn(container, "scrollLeft", "set").mockImplementation(
+        scrollLeftSetter,
+      )
+
+      hostComponent.block.nativeElement.appendChild(document.createElement("p"))
+      await settle()
+
+      expect(scrollLeftSetter).not.toHaveBeenCalledWith(200)
+    })
   })
 
   describe("window resize", () => {

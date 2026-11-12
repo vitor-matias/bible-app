@@ -105,6 +105,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /** For the native toolbar's arrows; the web page has its own. */
   readonly canGoPrevious = input(false)
   readonly canGoNext = input(false)
+  /** BibleScroll, the experimental one-verse-per-card view, is on. */
+  readonly cardsView = input(false)
+  /** Whether the reader can show the card view here (mobile, a chapter of verses). */
+  readonly cardsViewAvailable = input(false)
 
   bookLabelMode: "title" | "prompt" = "title"
   /** True for the fade-out half of a label swap. */
@@ -172,6 +176,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }>()
   readonly toggleAutoScrollControls = output<void>()
   readonly toggleViewMode = output<void>()
+  readonly toggleCardsView = output<void>()
   /** iOS toolbar arrows: a page in paged mode, else a chapter. */
   readonly previous = output<void>()
   readonly next = output<void>()

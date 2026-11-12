@@ -303,6 +303,30 @@ describe("HeaderComponent", () => {
     expect(fixture.nativeElement.querySelector(".searchButton")).toBeTruthy()
   })
 
+  // The menu is ReaderMenuComponent's; the header only hands BibleScroll's
+  // state down and its toggle back up to the reader.
+  it("forwards BibleScroll's entry to the reader", async () => {
+    fixture.componentRef.setInput("cardsViewAvailable", true)
+    const toggled = vi.fn().mockName("toggleCardsView")
+    component.toggleCardsView.subscribe(toggled)
+    await fixture.whenStable()
+    fixture.debugElement
+      .query(By.directive(MatMenuTrigger))
+      .injector.get(MatMenuTrigger)
+      .openMenu()
+    fixture.detectChanges()
+
+    const item = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        ".mat-mdc-menu-panel .mat-mdc-menu-item",
+      ),
+    ).find((candidate) => candidate.textContent?.includes("BibleScroll"))
+    item?.click()
+
+    expect(item).toBeTruthy()
+    expect(toggled).toHaveBeenCalledTimes(1)
+  })
+
   // The onboarding rings these while its steps name them (OnboardingStep.highlight).
   it("marks the buttons the onboarding points to", () => {
     const host: HTMLElement = fixture.nativeElement

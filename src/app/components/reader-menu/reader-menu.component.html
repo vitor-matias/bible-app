@@ -5,7 +5,9 @@
     <button type="button" mat-menu-item class="menu-control" (click)="onToggleTheme()" [matTooltip]="getThemeTooltip()" matTooltipPosition="above" [attr.aria-label]="getThemeTooltip()">
       <mat-icon>{{ getThemeIcon() }}</mat-icon>
     </button>
-    @if (viewMode() !== null) {
+    <!-- The card view replaces the scrolling/paged layout altogether, and
+         sets its own alignment, so neither toggle has anything to act on. -->
+    @if (viewMode() !== null && !cardsView()) {
     <button type="button" mat-menu-item class="menu-control" (click)="toggleViewMode.emit()" [matTooltip]="getViewModeTooltip()" matTooltipPosition="above" [attr.aria-label]="getViewModeTooltip()">
       <mat-icon>{{ getViewModeIcon() }}</mat-icon>
     </button>
@@ -31,7 +33,7 @@
     <span>Marcadores</span>
   </button>
   @if (autoScrollControlsVisible() !== null) {
-  <button type="button" mat-menu-item (click)="viewMode() !== 'paged' && toggleAutoScrollControls.emit()" [disabled]="viewMode() === 'paged'" disabledInteractive>
+  <button type="button" mat-menu-item (click)="viewMode() !== 'paged' && !cardsView() && toggleAutoScrollControls.emit()" [disabled]="viewMode() === 'paged' || cardsView()" disabledInteractive>
     <mat-icon>arrow_circle_down</mat-icon>
     <span>
       {{ autoScrollControlsVisible()
@@ -40,6 +42,17 @@
       @if (viewMode() === 'paged') {
       <small class="menu-item-note">Indisponível na vista de páginas</small>
       }
+    </span>
+  </button>
+  }
+  <!-- Offered by the reader only where it can show: on a phone or tablet,
+       on a chapter of verses. -->
+  @if (cardsViewAvailable()) {
+  <button type="button" mat-menu-item (click)="toggleCardsView.emit()">
+    <mat-icon>swipe_up</mat-icon>
+    <span class="experimental-label">
+      {{ cardsView() ? 'Sair do BibleScroll' : 'BibleScroll' }}
+      <span class="experimental-badge">Experimental</span>
     </span>
   </button>
   }

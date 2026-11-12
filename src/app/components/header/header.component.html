@@ -11,6 +11,7 @@
       <reader-menu #readerMenu="readerMenu" [canShare]="canShare" [version]="version"
         [viewMode]="book().id === 'about' ? null : viewMode()"
         [autoScrollControlsVisible]="autoScrollControlsVisible()" [textSize]="textSize()"
+        [cardsView]="cardsView()" [cardsViewAvailable]="cardsViewAvailable()" (toggleCardsView)="toggleCardsView.emit()"
         (decreaseFontSize)="decreaseFontSize()" (increaseFontSize)="increaseFontSize()"
         (resetFontSize)="resetFontSize()"
         (toggleViewMode)="toggleViewMode.emit()" (bookmarks)="openBookmarkSelector()"

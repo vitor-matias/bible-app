@@ -65,6 +65,10 @@ export class ReaderMenuComponent {
   readonly viewMode = input<"scrolling" | "paged" | null>(null)
   /** Whether auto-scroll's controls show, or null on a page without them. */
   readonly autoScrollControlsVisible = input<boolean | null>(null)
+  /** BibleScroll, the experimental one-verse-per-card view, is on. */
+  readonly cardsView = input(false)
+  /** Whether the reader can show the card view here (mobile, a chapter of verses). */
+  readonly cardsViewAvailable = input(false)
   /** The text's size and range, or null until it is known. */
   readonly textSize = input<TextSize | null>(null)
   readonly atMinSize = computed(() => {
@@ -82,6 +86,7 @@ export class ReaderMenuComponent {
   readonly toggleViewMode = output<void>()
   readonly bookmarks = output<void>()
   readonly toggleAutoScrollControls = output<void>()
+  readonly toggleCardsView = output<void>()
   readonly share = output<void>()
   readonly about = output<void>()
   readonly reportProblem = output<void>()
