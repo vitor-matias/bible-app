@@ -331,6 +331,26 @@ describe("PastoralIndexComponent", () => {
       expect(text).toContain("Ex 12,1-13,10.8 (n).11 (n).15 (n)")
     })
 
+    // Perdão: "Mt 5,23-26; 6,12 (n).14-15; 18,21-25.32-35"; the verses after
+    // the first range were dropped.
+    it("spans all the verses of a list", async () => {
+      expect(await linkOf("perdao", "18,21-25.32-35")).toBe(
+        "/mt/18?verseStart=21&verseEnd=35",
+      )
+    })
+
+    it("spans a list past its mark, the notes the mark's verse's", async () => {
+      expect(await linkOf("perdao", "6,12 (n).14-15")).toBe(
+        "/mt/6?verseStart=12&verseEnd=15&notes=12",
+      )
+    })
+
+    it("spans a list marked twice, the notes the first mark's", async () => {
+      expect(await linkOf("misericordia", "Sb 12,21 (n).24-25")).toBe(
+        "/sb/12?verseStart=21&verseEnd=25&notes=21",
+      )
+    })
+
     it("finds the verse the mark follows in a list", async () => {
       // "1 Jo 3,16-18.16 (n)": the mark is on the second verses named.
       expect(await linkOf("amor", "1 Jo 3,16-18.16")).toContain("notes=16")
@@ -441,7 +461,7 @@ describe("PastoralIndexComponent", () => {
         "Aumentar texto",
         "Repor tamanho do texto",
         "Marcadores",
-        ...(typeof navigator.share === "function" ? ["Partilhar"] : []),
+        typeof navigator.share === "function" ? "Partilhar" : "Copiar ligação",
         "Instalar a app",
         "Como usar a app",
         "Sobre a Bíblia",

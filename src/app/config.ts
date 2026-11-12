@@ -1,3 +1,8 @@
+import {
+  provideClientHydration,
+  withNoHttpTransferCache,
+  withNoIncrementalHydration,
+} from "@angular/platform-browser"
 import { Capacitor } from "@capacitor/core"
 import { isBrowser } from "./utils/platform"
 
@@ -56,3 +61,17 @@ export function shareableUrl(
 
 export const PRIVACY_POLICY_URL =
   "https://www.capuchinhos.org/politica-de-privacidade"
+
+/**
+ * Hydration of the prerendered pages, the same in the browser and the
+ * prerender. Incremental hydration is on by default and brings event replay,
+ * whose listener stash is never removed once the page has hydrated: every
+ * element given a listener later stayed in a Set, so each chapter paged
+ * through stayed in memory. No template has a @defer block to hydrate.
+ */
+export function provideHydration() {
+  return provideClientHydration(
+    withNoHttpTransferCache(),
+    withNoIncrementalHydration(),
+  )
+}

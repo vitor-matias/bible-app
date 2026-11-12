@@ -1016,6 +1016,24 @@ describe("PagedNavigationDirective across a resize", () => {
     ).toBe(true)
   })
 
+  // A smooth turn on a desktop window takes long enough for a resize to come
+  // before it rests, which kept the verse noted before the turns: Sl 119 on
+  // page 4 went back to page 0 when the window shrank.
+  it("finds the page a turn under way is heading for", async () => {
+    container.scrollLeft = 2 * 200
+    await settle()
+    const heading = startingOn(3)[0]
+    expect(heading, "a verse starts on page 3").toBeDefined()
+
+    host.nav.nextPage()
+    await resizeTo(100, 100)
+
+    expect(
+      startsOnScreen(heading),
+      `verse ${heading.id} on screen at 100x100`,
+    ).toBe(true)
+  })
+
   // A throw in the restore left the resize flag set: the verse on screen
   // was never noted again, and every later resize went back to the old one.
   it("goes on noting the verse on screen after a restore that failed", async () => {

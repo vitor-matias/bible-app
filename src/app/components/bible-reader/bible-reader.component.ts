@@ -176,6 +176,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   /** The book list could not be loaded and nothing is cached. */
   booksUnavailable = false
   retryingBooks = false
+  /** The first chapter opened could not be loaded: there is none to stay on. */
+  chapterUnavailable = false
+  retryingChapter = false
+  /** Loads that chapter again, as it was asked for. */
+  private retryChapterLoad?: () => void
   chapterNumber = 1
   chapter!: Chapter
 
@@ -686,9 +691,16 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     highlight = true,
   ) {
     this.pendingChapter = chapter
+    // The failure page's retry is for an older load: it would cancel this one.
+    if (this.chapterUnavailable) {
+      this.retryingChapter = true
+      this.cdr.markForCheck()
+    }
     const requested = this.book
     const isCurrent = () =>
       this.book.id === requested.id && this.pendingChapter === chapter
+    const retry = () =>
+      this.getChapter(chapter, verseStart, verseEnd, highlight)
     // The slide-out outlasts the load: another chapter may be asked for by then.
     const finalize = (work: () => void) =>
       this.finalizeChapterTransition(() => {
@@ -732,7 +744,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
             )
           },
           (error) => {
-            if (isCurrent()) this.handleChapterLoadFailure(error)
+            if (isCurrent())
+              this.handleChapterLoadFailure(error, chapter, retry)
           },
         )
         return
@@ -771,27 +784,45 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           finalize(() =>
             this.applyChapter(res, chapter, verseStart, verseEnd, highlight),
           ),
-        error: (err) => finalize(() => this.handleChapterLoadFailure(err)),
+        error: (err) =>
+          finalize(() => this.handleChapterLoadFailure(err, chapter, retry)),
       })
   }
 
   // Stay on the chapter shown. A leftover slide direction would open the next
   // load at the bottom.
-  private handleChapterLoadFailure(error: unknown): void {
+  private handleChapterLoadFailure(
+    error: unknown,
+    chapter: Chapter["number"],
+    retry: () => void,
+  ): void {
+    this.retryingChapter = false
     if (this.shown) {
       // The chapter too: /intro on a book without one already set it to 1.
       this.book = this.shown.book
       this.chapterNumber = this.shown.chapter
-      this.cdr.markForCheck()
+    } else {
+      // Opened cold, a toast would fade over a blank page: say it in the page.
+      // The chapter asked for is the one the header, the URL and a retry show.
+      this.chapterNumber = chapter
+      this.chapterUnavailable = true
+      this.retryChapterLoad = retry
     }
+    this.cdr.markForCheck()
     // Or the URL coming back here would read as a chapter still to load.
     this.pendingChapter = this.chapterNumber
-    // Or the next chapter to load would open notes meant for this one.
-    this.linkedNotes = null
     this.isNavigatingBackwards = false
     this.isNavigatingForwards = false
-    this.notifyChapterLoadFailed()
     this.releasePrerender()
+    // Opened cold, the address already names the chapter asked for: it keeps
+    // its verse and notes, for a retry or a reload to open.
+    if (!this.shown) {
+      console.error(error)
+      return
+    }
+    // Or the next chapter to load would open notes meant for this one.
+    this.linkedNotes = null
+    this.notifyChapterLoadFailed()
     if (isPlatformBrowser(this.platformId)) {
       this.router.navigate(
         [
@@ -803,6 +834,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       )
     }
     console.error(error)
+  }
+
+  retryChapter(): void {
+    if (this.retryingChapter) return
+    this.retryingChapter = true
+    this.cdr.markForCheck()
+    this.retryChapterLoad?.()
   }
 
   /** Tell the reader why a chapter could not be shown, instead of failing silently. */
@@ -864,6 +902,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.chapter = chapterData
     this.chapterNumber = chapter
     this.shown = { book: this.book, chapter }
+    this.chapterUnavailable = false
+    this.retryingChapter = false
+    this.retryChapterLoad = undefined
     this.rebuildChapterLinks()
     this.animationService.cancelPendingRealign()
 
@@ -1020,6 +1061,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   onToggleViewMode(): void {
+    const reading = this.verseInView()
     this.viewMode = this.viewMode === "scrolling" ? "paged" : "scrolling"
     this.preferencesService.setViewMode(this.viewMode)
 
@@ -1032,22 +1074,50 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.showAutoScrollControls =
       this.viewMode === "scrolling" && this.autoScrollControlsPreference
     this.cdr.markForCheck()
-    // Reset scroll when switching to paged? Or keep position?
-    // Paged View relies on overflow-x scroll or just columns.
-    // If we switch to paged, we might start at page 1 (scrollLeft 0).
-    if (this.viewMode === "paged") {
-      this.autoScrollService.stop()
-      // Reset to the first page once the paged layout has been rendered.
-      afterNextRender(
-        () => {
+    if (this.viewMode === "paged") this.autoScrollService.stop()
+    // The verse being read stays on screen, once the new layout is in.
+    afterNextRender(
+      () => {
+        if (this.viewMode === "paged") {
           const container = this.bookContainer?.nativeElement
-          if (container) {
-            container.scrollLeft = 0
-          }
-        },
-        { injector: this.injector },
-      )
+          if (container) container.scrollLeft = 0
+          if (reading) this.pagedNav?.scrollToPage(reading, "instant")
+        } else {
+          const start = reading?.querySelector(".verseNumber") ?? reading
+          start?.scrollIntoView({ block: "start" })
+        }
+      },
+      { injector: this.injector },
+    )
+  }
+
+  /** The first verse showing, on the page or in the scroller's view. */
+  private verseInView(): HTMLElement | undefined {
+    const scroller =
+      this.effectiveViewMode === "paged"
+        ? this.bookContainer?.nativeElement
+        : this.drawerContent?.nativeElement
+    const block = this.bookBlock?.nativeElement as HTMLElement | undefined
+    if (!scroller || !block) return undefined
+    // Not what scrolls under the native bars: its scroll padding.
+    const { scrollPaddingTop, scrollPaddingBottom } = getComputedStyle(scroller)
+    const box = scroller.getBoundingClientRect()
+    const view = {
+      top: box.top + (Number.parseFloat(scrollPaddingTop) || 0),
+      bottom: box.bottom - (Number.parseFloat(scrollPaddingBottom) || 0),
+      left: box.left,
+      right: box.right,
     }
+    return Array.from(block.querySelectorAll<HTMLElement>("verse")).find(
+      (verse) =>
+        Array.from(verse.getClientRects()).some(
+          (line) =>
+            line.bottom > view.top &&
+            line.top < view.bottom &&
+            line.right > view.left &&
+            line.left < view.right,
+        ),
+    )
   }
 
   @HostListener("window:keydown", ["$event"])

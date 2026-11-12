@@ -686,10 +686,13 @@ describe("VerseComponent", () => {
       )
       highlightHost()
 
-      const number = fixture.nativeElement.querySelector(
-        ".verseNumber",
+      const pair = fixture.nativeElement.querySelector(
+        ".verseMarker",
       ) as HTMLElement
-      expect(getComputedStyle(number).backgroundColor).not.toBe(TRANSPARENT)
+      const number = pair.querySelector(".verseNumber") as HTMLElement
+      expect(getComputedStyle(pair).backgroundColor).not.toBe(TRANSPARENT)
+      // Once: the colour is translucent.
+      expect(getComputedStyle(number).backgroundColor).toBe(TRANSPARENT)
     })
 
     it("should wrap the space in front of a verse number in a run so the stroke does not break", () => {
@@ -756,7 +759,27 @@ describe("VerseComponent", () => {
       // background-color transition, and the value would be its start colour.
       highlightHost()
 
-      expect(getComputedStyle(marker).backgroundColor).not.toBe(TRANSPARENT)
+      const pair = marker.closest(".verseMarker") as HTMLElement
+      expect(getComputedStyle(pair).backgroundColor).not.toBe(TRANSPARENT)
+    })
+
+    // The number was padded down to the text's band but the notes marker, a
+    // button, could not be: Lc 15,11 showed a white notch under its icon.
+    it("should paint the number and its notes marker as tall as the text beside them", async () => {
+      withFootnote()
+      await document.fonts.ready
+      highlightHost()
+
+      const host = fixture.nativeElement as HTMLElement
+      const pair = (
+        host.querySelector(".verseMarker") as HTMLElement
+      ).getClientRects()[0]
+      const text = Array.from(host.querySelectorAll(".verseRun"))
+        .find((run) => run.textContent === "plain")
+        ?.getClientRects()[0] as DOMRect
+      expect(Math.abs(pair.top - text.top)).toBeLessThan(1)
+      expect(Math.abs(pair.bottom - text.bottom)).toBeLessThan(1)
+      expect(Math.abs(pair.right - text.left)).toBeLessThan(1)
     })
 
     // Padding does not move an inline box but does enlarge the border box the
@@ -1227,6 +1250,80 @@ describe("VerseComponent", () => {
       expect(focusSpy).not.toHaveBeenCalled()
       dismissed.next()
       expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true })
+    })
+  })
+
+  // Copied verses read "do Céu? 13Pois ninguém": the number glued to the word.
+  describe("copied text", () => {
+    const copied = (verse: Verse) => {
+      setData(fixture, verse)
+      fixture.detectChanges()
+      const host = fixture.nativeElement as HTMLElement
+      host.style.display = "block"
+      const selection = getSelection() as Selection
+      selection.selectAllChildren(host)
+      const text = selection.toString()
+      selection.removeAllRanges()
+      return text
+    }
+    const space = () =>
+      fixture.nativeElement.querySelector(".copySpace") as HTMLElement
+
+    it("parts a verse's number from its first word", () => {
+      const text = copied(
+        makeVerse({
+          number: 13,
+          text: [{ type: "text", text: "Pois ninguém subiu ao Céu" }],
+        }),
+      )
+
+      expect(text).toContain("13 Pois ninguém")
+      // On screen nothing moves.
+      expect(space().getBoundingClientRect().width).toBe(0)
+    })
+
+    it("parts a poetry verse's number from its line", () => {
+      const text = copied(
+        makeVerse({
+          number: 3,
+          text: [{ type: "quote", text: "a line of poetry", identLevel: 1 }],
+        }),
+      )
+
+      expect(text).toContain("3 a line of poetry")
+      expect(space().getBoundingClientRect().width).toBe(0)
+    })
+
+    // A justified line spread its extra room into the space too, and the
+    // number drew away from its word.
+    it("keeps the number against its word in justified text", () => {
+      copied(
+        makeVerse({
+          number: 13,
+          text: [
+            {
+              type: "text",
+              text: "Pois ninguém subiu ao Céu senão Aquele que desceu do Céu",
+            },
+          ],
+        }),
+      )
+      const host = fixture.nativeElement as HTMLElement
+      host.style.textAlign = "justify"
+      host.style.width = "150px"
+      const number = host.querySelector(".verseNumber") as HTMLElement
+      const run = [...host.querySelectorAll(".verseRun")].find((el) =>
+        el.textContent?.startsWith("Pois"),
+      ) as HTMLElement
+      const word = document.createRange()
+      word.setStart(run.firstChild as Text, 0)
+      word.setEnd(run.firstChild as Text, "Pois".length)
+      const gap = () =>
+        word.getBoundingClientRect().left - number.getBoundingClientRect().right
+
+      const withSpace = gap()
+      space().remove()
+      expect(withSpace).toBeCloseTo(gap(), 1)
     })
   })
 

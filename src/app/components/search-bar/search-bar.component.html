@@ -4,6 +4,7 @@
       <button type="button" mat-flat-button aria-label="Voltar" class="button actionButton backButton" (click)="goBack()">
         <mat-icon>arrow_back</mat-icon>
       </button>
+      <!-- The API refuses a search of more than 200 characters. -->
       <input #searchInput
         id="search"
         type="search"
@@ -11,6 +12,7 @@
         placeholder="Procurar na Bíblia"
         autocapitalize="off"
         spellcheck="false"
+        maxlength="200"
         class="search-input"
         [(ngModel)]="query"
         (ngModelChange)="typing.emit($event)"

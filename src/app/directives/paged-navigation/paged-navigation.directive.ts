@@ -254,15 +254,16 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
    * An anchor is kept while it still stands for the page on screen, so a page
    * found again by it is not noted afresh: by an earlier verse sharing it,
    * or, on the last page of a long verse, by the verse that starts there. A
-   * few rotations would walk the reader back, or on.
+   * few rotations would walk the reader back, or on. `page` is the one on
+   * screen unless given.
    */
-  private noteAnchor(): void {
+  private noteAnchor(page?: number): void {
     const block = this.bookBlock
     if (this.viewMode() !== "paged" || !this.container || !block) return
     const advanceWidth = this.getAdvanceWidth(block)
     if (advanceWidth <= 0) return
 
-    const page = Math.round(this.container.scrollLeft / advanceWidth)
+    page ??= Math.round(this.container.scrollLeft / advanceWidth)
     const kept = this.anchor
     if (
       kept?.verse.isConnected &&
@@ -410,6 +411,9 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   }
 
   private turnTo(page: number, advanceWidth: number): void {
+    // Now, in the layout the page is counted in: a smooth turn on a wide
+    // window takes long enough for a resize to come before it rests.
+    this.noteAnchor(page)
     this.setTarget(page)
     this.container.scrollTo({ left: page * advanceWidth, behavior: "smooth" })
   }
