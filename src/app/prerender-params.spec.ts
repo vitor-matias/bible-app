@@ -1,4 +1,5 @@
 import type { Mock } from "vitest"
+import { isPrerenderStrict } from "./config"
 import { fetchPrerenderChapterParams } from "./prerender-params"
 import { lastCall } from "./testing/spy-obj"
 
@@ -237,5 +238,124 @@ describe("fetchPrerenderChapterParams", () => {
     const params = await fetchPrerenderChapterParams(fetchFn)
 
     expect(params).toEqual([{ book: "gn", chapter: "1" }])
+  })
+
+  // Container builds run strict: a deploy build that cannot reach the API must
+  // fail (the running version keeps serving) instead of shipping every chapter
+  // as an empty client-rendered shell.
+  describe("strict mode", () => {
+    const strict = { strict: true }
+    const genesis = {
+      id: "GN",
+      name: "Génesis",
+      shortName: "Génesis",
+      abrv: "Gn",
+      chapterCount: 1,
+    }
+
+    it("fails instead of falling back when the book list cannot be fetched", async () => {
+      vi.spyOn(console, "warn").mockReturnValue(undefined)
+      const failingFetch = vi
+        .fn()
+        .mockName("fetch")
+        .mockRejectedValue(new Error("offline")) as unknown as typeof fetch
+
+      await expect(
+        fetchPrerenderChapterParams(failingFetch, strict),
+      ).rejects.toThrow(/the book list.*offline.*PRERENDER_STRICT/)
+      expect(console.warn).not.toHaveBeenCalled()
+    })
+
+    it("fails on a non-OK response", async () => {
+      await expect(
+        fetchPrerenderChapterParams(fetchReturning(null, false), strict),
+      ).rejects.toThrow(/responded 500/)
+    })
+
+    it("fails when the book list yields no routes", async () => {
+      await expect(
+        fetchPrerenderChapterParams(fetchReturning([]), strict),
+      ).rejects.toThrow(/no routes/)
+    })
+
+    it("fails when the standalone introductions cannot be fetched", async () => {
+      const fetchFn = vi
+        .fn()
+        .mockName("fetch")
+        .mockImplementation((url: string) =>
+          url.endsWith("/v1/intros")
+            ? Promise.reject(new Error("boom"))
+            : Promise.resolve({
+                ok: true,
+                status: 200,
+                json: () => Promise.resolve([genesis]),
+              } as Response),
+        ) as unknown as typeof fetch
+
+      await expect(
+        fetchPrerenderChapterParams(fetchFn, strict),
+      ).rejects.toThrow(/standalone introductions.*boom/)
+    })
+
+    it("returns every route when the API answers, even with no introductions", async () => {
+      const params = await fetchPrerenderChapterParams(
+        fetchByUrl({ books: [genesis], intros: [] }),
+        strict,
+      )
+
+      expect(params).toEqual([{ book: "gn", chapter: "1" }])
+    })
+
+    it("still falls back quietly when strict is explicitly off", async () => {
+      vi.spyOn(console, "warn").mockReturnValue(undefined)
+      const failingFetch = vi
+        .fn()
+        .mockName("fetch")
+        .mockRejectedValue(new Error("offline")) as unknown as typeof fetch
+
+      await expect(
+        fetchPrerenderChapterParams(failingFetch, { strict: false }),
+      ).resolves.toEqual([])
+    })
+  })
+
+  describe("PRERENDER_STRICT", () => {
+    type ProcessHolder = { process?: { env?: Record<string, string> } }
+    const holder = globalThis as ProcessHolder
+    const originalProcess = holder.process
+
+    afterEach(() => {
+      if (originalProcess === undefined) {
+        delete holder.process
+      } else {
+        holder.process = originalProcess
+      }
+    })
+
+    it("is off when the variable is absent", () => {
+      delete holder.process
+
+      expect(isPrerenderStrict()).toBe(false)
+    })
+
+    it("is read at call time and only 'true' turns it on", () => {
+      holder.process = { env: { PRERENDER_STRICT: "true" } }
+      expect(isPrerenderStrict()).toBe(true)
+
+      holder.process = { env: { PRERENDER_STRICT: "false" } }
+      expect(isPrerenderStrict()).toBe(false)
+    })
+
+    it("makes fetchPrerenderChapterParams strict by default", async () => {
+      holder.process = { env: { PRERENDER_STRICT: "true" } }
+      const failingFetch = vi
+        .fn()
+        .mockName("fetch")
+        .mockRejectedValue(new Error("offline")) as unknown as typeof fetch
+
+      await expect(fetchPrerenderChapterParams(failingFetch)).rejects.toThrow(
+        /PRERENDER_STRICT/,
+      )
+    })
   })
 })
