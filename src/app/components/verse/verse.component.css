@@ -243,6 +243,7 @@ h3:not(:first-child) {
    .quoteLineWrapper (inline-block) the empty space after a short poetry line.
    padding-block thickens the stroke without reflowing anything. */
 .verseRun,
+.verseMarker,
 .verseNumber,
 .footnoteIndicator,
 .quoteVerseNumber {
@@ -270,6 +271,38 @@ h3:not(:first-child) {
   pointer-events: none;
 }
 
+/* Prose: the stroke goes on the number and its notes marker together, as
+   tall as the runs beside it, so it doesn't stop short under the marker. The
+   pair is set at the verse's size, the runs at 120%: the padding makes up the
+   difference in Literata's ascent and descent. */
+:host(.verse-highlight) .verseMarker {
+  background-color: var(--verse-highlight-color);
+  padding-block: 0.355em 0.18em;
+}
+
+/* Square where the pair meets the runs beside it, or the band dips there. */
+:host(.verse-highlight) .verseRun:has(+ .verseMarker),
+:host(.verse-highlight) .verseMarker {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* The verse's first run: notes come before it as empty .verseText spans. */
+:host(.verse-highlight) .verseRun + .verseMarker,
+:host(.verse-highlight)
+  .verseMarker
+  ~ .verseText:not(:empty):not(.verseMarker ~ .verseText:not(:empty) ~ *)
+  > .verseRun:first-child {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+:host(.verse-highlight) .verseMarker .verseNumber,
+:host(.verse-highlight) .verseMarker .footnoteIndicator {
+  background-color: transparent;
+  padding-block: 0;
+}
+
 /* Poetry: the stroke goes on the wrapper, already the height of the line; its
    children stop painting so the translucent colour is not laid down twice. */
 :host(.verse-highlight) .quoteVerseNumber {
@@ -284,6 +317,7 @@ h3:not(:first-child) {
 
 @media (prefers-reduced-motion: reduce) {
   .verseRun,
+  .verseMarker,
   .verseNumber,
   .footnoteIndicator,
   .quoteVerseNumber {

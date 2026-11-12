@@ -203,6 +203,20 @@ describe("BibleApiService", () => {
       expect(result).toEqual(mockChapter)
     })
 
+    // An empty 200 parses as null, which the reader showed as a blank page.
+    it("fails on a response that is not a chapter", async () => {
+      offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(undefined)
+
+      const chapterPromise = firstValueFrom(
+        service.getChapter(book, chapterNum),
+      )
+      await Promise.resolve()
+      await Promise.resolve()
+      httpMock.expectOne(`v1/${book}/${chapterNum}`).flush(null)
+
+      await expect(chapterPromise).rejects.toThrow()
+    })
+
     it("should fetch from server when cached chapter has no verses array", async () => {
       const hollowChapter = { bookId: book, number: chapterNum } as Chapter
       offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(
