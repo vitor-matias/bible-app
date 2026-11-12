@@ -90,6 +90,23 @@ describe("AboutComponent", () => {
     }
   })
 
+  // Inside the reader's .bookBlock, which breaks long words anywhere: an icon
+  // drawn as ligature text would break too, into plain letters.
+  it("keeps the links' icons whole where words break anywhere", () => {
+    const element = fixture.nativeElement as HTMLElement
+    element.style.overflowWrap = "anywhere"
+    const links = element.querySelectorAll<HTMLAnchorElement>(
+      "a.site-link, .read-online a",
+    )
+    expect(links.length).toBeGreaterThan(2)
+    for (const link of Array.from(links)) {
+      const icon = getComputedStyle(link, "::after")
+      expect(icon.whiteSpace).toBe("nowrap")
+      expect(icon.overflowWrap).toBe("normal")
+      expect(icon.flexShrink).toBe("0")
+    }
+  })
+
   // The list is not here, but the link to it is: /livros only passes weight to
   // the books if something links to /livros in the first place.
   it("links to the book index", () => {

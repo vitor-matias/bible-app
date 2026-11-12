@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
+  computed,
   inject,
   input,
   output,
@@ -13,6 +14,7 @@ import { MatIconModule } from "@angular/material/icon"
 import { MatMenu, MatMenuModule } from "@angular/material/menu"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { PRIVACY_POLICY_URL, shareableUrl } from "../../config"
+import type { TextSize } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import {
   AppPromoService,
@@ -63,6 +65,16 @@ export class ReaderMenuComponent {
   readonly viewMode = input<"scrolling" | "paged" | null>(null)
   /** Whether auto-scroll's controls show, or null on a page without them. */
   readonly autoScrollControlsVisible = input<boolean | null>(null)
+  /** The text's size and range, or null until it is known. */
+  readonly textSize = input<TextSize | null>(null)
+  readonly atMinSize = computed(() => {
+    const size = this.textSize()
+    return !!size && size.percent <= size.min
+  })
+  readonly atMaxSize = computed(() => {
+    const size = this.textSize()
+    return !!size && size.percent >= size.max
+  })
 
   readonly decreaseFontSize = output<void>()
   readonly increaseFontSize = output<void>()

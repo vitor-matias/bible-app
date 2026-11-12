@@ -822,6 +822,30 @@ describe("PastoralIndexComponent", () => {
       expect(letters(el)).not.toContain("X")
     })
 
+    // iOS's section index stayed at 11 px letters 14 px apart at the largest
+    // text size, hard to hit for those who need that size.
+    it("grow in the iOS app with the text size, to letters 24 px apart", async () => {
+      const fixture = await open(undefined, true)
+      const bar = fixture.nativeElement.querySelector(
+        "alphabetical-scroll-bar",
+      ) as HTMLElement
+      const size = (percent: number) => {
+        fixture.componentInstance.textSizeState.set({
+          percent,
+          min: 70,
+          max: 235,
+          canReset: true,
+        })
+        fixture.detectChanges()
+        return getComputedStyle(bar).fontSize
+      }
+
+      expect(size(100)).toBe("11px")
+      expect(size(150)).toBe("16.5px")
+      // 1.3em apart: 24.7 px.
+      expect(size(235)).toBe("19px")
+    })
+
     it("go to that letter's themes", async () => {
       const fixture = await open()
       const el: HTMLElement = fixture.nativeElement

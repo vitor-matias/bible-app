@@ -13,10 +13,12 @@
       <mat-icon>{{ getTextAlignIcon() }}</mat-icon>
     </button>
     }
-    <button type="button" mat-menu-item class="menu-control" (click)="decreaseFontSize.emit()" matTooltip="Diminuir texto" matTooltipPosition="above" aria-label="Diminuir texto">
+    <!-- At a limit the size's button does nothing: disabled, though still a
+         stop for the arrow keys, as focus is on it when it reaches the limit. -->
+    <button type="button" mat-menu-item class="menu-control" (click)="!atMinSize() && decreaseFontSize.emit()" [disabled]="atMinSize()" disabledInteractive matTooltip="Diminuir texto" matTooltipPosition="above" aria-label="Diminuir texto">
       <mat-icon>text_decrease</mat-icon>
     </button>
-    <button type="button" mat-menu-item class="menu-control" (click)="increaseFontSize.emit()" matTooltip="Aumentar texto" matTooltipPosition="above" aria-label="Aumentar texto">
+    <button type="button" mat-menu-item class="menu-control" (click)="!atMaxSize() && increaseFontSize.emit()" [disabled]="atMaxSize()" disabledInteractive matTooltip="Aumentar texto" matTooltipPosition="above" aria-label="Aumentar texto">
       <mat-icon>text_increase</mat-icon>
     </button>
     <button type="button" mat-menu-item class="menu-control" (click)="resetFontSize.emit()" matTooltip="Repor tamanho do texto" matTooltipPosition="above" aria-label="Repor tamanho do texto">

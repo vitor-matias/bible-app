@@ -110,6 +110,10 @@
     "FILL" 0,
     "wght" 400,
     "opsz" 20;
+  /* Whole, though the reader breaks long words anywhere at large sizes. */
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 .site-link:hover,
@@ -152,6 +156,9 @@
   font-size: 20px;
   line-height: 1;
   font-weight: normal;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 .read-online a:hover,

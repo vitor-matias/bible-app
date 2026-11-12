@@ -7,7 +7,7 @@
       </button>
       <!-- The reader's menu, less what only a chapter has: auto-scroll and the
            view mode. -->
-      <reader-menu #pageMenu="readerMenu" [canShare]="canShare" [version]="version()"
+      <reader-menu #pageMenu="readerMenu" [canShare]="canShare" [version]="version()" [textSize]="textSizeState()"
         (decreaseFontSize)="decreaseFontSize()" (increaseFontSize)="increaseFontSize()"
         (resetFontSize)="resetFontSize()" (bookmarks)="openBookmarks()" (share)="share()" (about)="openAbout()"
         (reportProblem)="reportProblem()" />
@@ -45,6 +45,7 @@
     class="letter-bar"
     aria-hidden="true"
     [style.--letter-count]="letters().length"
+    [style.--text-scale]="(textSizeState()?.percent ?? 100) / 100"
     [alphabet]="letters()"
     [magnify]="!native"
     [current]="native ? null : scrubbed() ?? currentLetter()"

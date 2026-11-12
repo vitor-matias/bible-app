@@ -155,7 +155,9 @@
   );
   transform: translateY(-50%);
   font-family: inherit;
-  font-size: 11px;
+  /* Grows with the text size, to letters 24 px apart (1.3em of 19px): at
+     11px a large text's reader had a hard time hitting one. */
+  font-size: clamp(11px, 11px * var(--text-scale, 1), 19px);
   font-weight: 600;
 }
 

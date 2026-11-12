@@ -29,8 +29,13 @@
   border-color: var(--cap-brown);
 }
 
+/* The testaments side by side; at large text sizes, where the two no
+   longer fit, one above the other. A word wider than the screen breaks. */
 .bible-books-container {
   display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  overflow-wrap: break-word;
   justify-content: space-around;
   padding: 8px;
   width: 100%;
@@ -59,6 +64,8 @@ mat-tree-node {
 
 .column {
   flex: 1;
+  /* Less its margins, so its words break rather than widen it. */
+  max-width: calc(100% - 4px);
   margin: 0 2px;
 }
 

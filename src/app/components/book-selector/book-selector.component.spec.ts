@@ -442,6 +442,45 @@ describe("BookSelectorComponent", () => {
     expect(large).toBeCloseTo(small * 2, 1)
   })
 
+  // At the largest text size the two testaments were wider than a phone, and
+  // filtering for «Joao» left the first column empty and João off the screen.
+  it("fits the list to a phone at the largest text size, filtered or not", () => {
+    fixture.componentRef.setInput("books", [
+      {
+        id: "deu",
+        name: "Livro do Deuteronómio",
+        shortName: "Deuteronómio",
+        abrv: "Dt",
+        chapterCount: 34,
+      },
+      {
+        id: "jhn",
+        name: "Evangelho segundo São João",
+        shortName: "João",
+        abrv: "Jo",
+        chapterCount: 21,
+      },
+    ])
+    fixture.detectChanges()
+    const host = fixture.nativeElement as HTMLElement
+    host.style.width = "393px"
+    host.style.fontSize = "235%"
+    const list = host.querySelector(".bible-books-container") as HTMLElement
+
+    expect(list.scrollWidth).toBeLessThanOrEqual(list.clientWidth)
+
+    component.filterBooks("Joao")
+    fixture.detectChanges()
+    const columns = host.querySelectorAll<HTMLElement>(".column")
+    const joao = host.querySelector('[data-book-id="jhn"]') as HTMLElement
+
+    expect(columns[0].hidden).toBe(true)
+    expect(list.scrollWidth).toBeLessThanOrEqual(list.clientWidth)
+    expect(joao.getBoundingClientRect().right).toBeLessThanOrEqual(
+      list.getBoundingClientRect().right,
+    )
+  })
+
   // The drawer sits inside the reader, which already ends above the
   // navigation bar: padding the list for the inset again left a large blank
   // space below the last row.
