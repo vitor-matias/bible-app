@@ -18,6 +18,7 @@ import {
   debounceTime,
   filter,
   firstValueFrom,
+  fromEvent,
   map,
   type Observable,
   Subject,
@@ -290,6 +291,17 @@ export class SearchComponent {
 
   ngOnInit(): void {
     this.seoService.updateForSearch()
+    // Another tab's answer: a withdrawal there applies here at once.
+    if (typeof window !== "undefined") {
+      fromEvent<StorageEvent>(window, "storage")
+        .pipe(
+          filter((event) => event.key === "meaningSearchConsent"),
+          takeUntilDestroyed(this.destroyRef),
+        )
+        .subscribe(() =>
+          this.applyMeaningSearch(this.preferences.getMeaningSearchConsent()),
+        )
+    }
     // Before a result's own click handler, which may take the page down at
     // once: by the time a click bubbles up, the list reads as scrolled to 0.
     // A click, so a screen reader's activation counts too.
@@ -820,8 +832,6 @@ export class SearchComponent {
   }
 
   private fetchResults(text: string, page: number): Observable<VersePage> {
-    // Read again: another tab may have withdrawn consent.
-    this.meaningSearchConsent = this.preferences.getMeaningSearchConsent()
     return this.meaningSearchConsent === true
       ? this.apiService.searchByMeaning(text, page)
       : this.apiService.search(text, page)
@@ -829,15 +839,24 @@ export class SearchComponent {
 
   /** Records the answer, and gives a search on screen the chosen kind. */
   setMeaningSearch(allowed: boolean): void {
-    // Unanswered searches the words already: "Agora não" changes no request.
-    const sameKind = (this.meaningSearchConsent === true) === allowed
+    // Kept in memory too: storage that can't be written still has the answer.
     this.preferences.setMeaningSearchConsent(allowed)
-    this.meaningSearchConsent = allowed
-    this.cdr.detectChanges()
+    this.applyMeaningSearch(allowed)
     // The notice's buttons are gone with it: keep focus on the page.
     this.host.nativeElement
       .querySelector<HTMLButtonElement>(".meaning-status button")
       ?.focus()
+  }
+
+  /**
+   * Shows the choice, and searches again when it changes the kind of search,
+   * so a list never mixes pages of both kinds.
+   */
+  private applyMeaningSearch(consent: boolean | null): void {
+    // Unanswered searches the words already: "Agora não" changes no request.
+    const sameKind = (this.meaningSearchConsent === true) === (consent === true)
+    this.meaningSearchConsent = consent
+    this.cdr.detectChanges()
     // Typed: searchTerm is a word search, even when it names a book.
     const text = this.pendingSearch ? this.typedQuery : this.searchTerm
     if (text && !sameKind) void this.onSearchSubmit(text, { typed: true })

@@ -436,14 +436,30 @@ describe("SearchComponent", () => {
       )
     })
 
-    it("follows a withdrawal made in another tab", async () => {
+    it("follows a withdrawal made in another tab, with a fresh list", () => {
+      fixture.detectChanges()
       component.setMeaningSearch(true)
-      localStorage.setItem("meaningSearchConsent", "false")
+      component.searchTerm = "pastor"
       apiService.searchByMeaning.mockClear()
-      await component.onSearchSubmit("pastor")
+      localStorage.setItem("meaningSearchConsent", "false")
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "meaningSearchConsent" }),
+      )
 
+      expect(component.meaningSearchConsent).toBe(false)
+      // Page 1 of the words again, not a page of them under a meaning list.
       expect(apiService.search).toHaveBeenCalledWith("pastor", 1)
       expect(apiService.searchByMeaning).not.toHaveBeenCalled()
+    })
+
+    it("keeps the answer when storage can't hold it", () => {
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new Error("QuotaExceededError")
+      })
+      component.searchTerm = "pastor"
+      component.setMeaningSearch(true)
+
+      expect(apiService.searchByMeaning).toHaveBeenCalledWith("pastor", 1)
     })
 
     it("asks only while unanswered", () => {
